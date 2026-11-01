@@ -28,7 +28,9 @@ import TacticsBoard from "@/components/tactics/TacticsBoard";
 import { usePantallaCompleta } from "@/hooks/usePantallaCompleta";
 import { usePlayers } from "@/hooks/usePlayers";
 import { useRivalSquads } from "@/hooks/useRivalSquads";
+import { useBajasPartido, type BajasPartido } from "@/hooks/useBajasPartido";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
+import type { ConBaja } from "@/lib/tactics/disponibilidad";
 import {
   dosOnces,
   numerosDelOnce,
@@ -159,7 +161,9 @@ export default function PizarraTacticaPage() {
     return () => clearTimeout(reloj);
   }, [conOnces, sinCromo]);
 
-  const { players } = usePlayers();
+  const { players: plantillaDeLaHoja } = usePlayers();
+  /* Quién no puede jugar el próximo partido: lo marcado aquí, no la columna ESTADO de la hoja (01/11/2026). */
+  const { plantilla: players, bajas } = useBajasPartido(plantillaDeLaHoja);
   const { squads } = useRivalSquads();
 
   const {
@@ -585,6 +589,7 @@ export default function PizarraTacticaPage() {
                     boardId={active.id}
                     nombre={active.nombre}
                     roster={players}
+                    bajas={bajas}
                     rivalSquads={squads}
                     conOnces={conOnces && active.nombre === TABLERO_DE_ONCES}
                     deLaSemana={active.nombre === TABLERO_DE_ONCES}
@@ -631,6 +636,7 @@ function BoardEditor({
   boardId,
   nombre,
   roster,
+  bajas,
   rivalSquads,
   conOnces = false,
   deLaSemana = false,
@@ -640,7 +646,9 @@ function BoardEditor({
 }: {
   boardId: string;
   nombre: string;
-  roster: ReturnType<typeof usePlayers>["players"];
+  roster: ConBaja[];
+  /** Las bajas del próximo partido: se marcan desde «Nuestro once». */
+  bajas: BajasPartido;
   rivalSquads: RivalSquad[];
   /** Se ha llegado desde la portada: si el campo está vacío, se puebla. */
   conOnces?: boolean;
@@ -1095,6 +1103,7 @@ function BoardEditor({
           doc={prueba ?? doc}
           onChange={prueba ? setPrueba : setValue}
           roster={roster}
+          bajas={bajas}
           rival={partido?.rival}
         />
       )}

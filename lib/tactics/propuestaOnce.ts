@@ -19,9 +19,14 @@
 |   - EL ÚLTIMO PARTIDO: la nota de Valoraciones del último partido valorado,
 |     contra la del equipo ese día y contra la suya de siempre.
 |
-| Además pesan, siempre, el encaje en el puesto (el lado incluido), la
-| regularidad (minutos) y un poco quien ya está en ese hueco, para que con
-| todo apagado la propuesta sea el once de ahora y no un sorteo.
+| Además pesan el encaje en el puesto (el lado incluido), la regularidad
+| (minutos) y un poco quien ya está en ese hueco, para que con todo apagado
+| la propuesta sea el once de ahora y no un sorteo.
+|
+| Cada factor lleva su porcentaje (`pesosPropuesta.ts`), editable en el
+| panel; con los de por defecto sale lo mismo que antes de poder tocarlos.
+| Quién no puede jugar ya no sale de la columna ESTADO de la hoja, sino de
+| las bajas marcadas en la pizarra (`disponibilidad.ts`).
 |
 | Se reparte con el método húngaro (el mejor once en conjunto, no hueco a
 | hueco: si no, el primer hueco se lleva al mejor aunque haga más falta en
@@ -44,8 +49,9 @@ import type { RatingsSeason } from "@/lib/ratings/types";
 import { casaNombre } from "@/lib/tactics/onceDeLaPizarra";
 import type { Player } from "@/types/player";
 
-import { CON_CUIDADO, NO_DISPONIBLE, disponible, estadoEnPalabras } from "./disponibilidad";
+import { disponible, estadoEnPalabras, type ConBaja } from "./disponibilidad";
 import { hungaro } from "./hungaro";
+import { PESOS_POR_DEFECTO, multiplicador, type Pesos } from "./pesosPropuesta";
 
 export { disponible, estadoEnPalabras };
 
@@ -78,7 +84,8 @@ export type EstadoFactor = {
 export type FilaEmocional = { jugador: string; ea: number; ie: number; ia: number; ee: number };
 
 export type DatosPropuesta = {
-  plantilla: Player[];
+  /** Con la baja vigente de cada uno colgada (`conBajas`). */
+  plantilla: ConBaja[];
   /** Wyscout, jugadores (todas las ligas: hace falta para los percentiles). */
   jugadores: FilaJugador[];
   /** Wyscout, «Team Stats» por partido (para el estilo del rival). */
@@ -389,18 +396,22 @@ export type Propuesta = {
   factores: EstadoFactor[];
   /** Cuántos huecos cambian respecto a la pizarra. */
   cambios: number;
-  /** Los que no entran por la columna ESTADO, para decirlo. */
+  /** Los que no entran por una baja marcada, para decirlo. */
   bajas: { nombre: string; estado: string }[];
+  /** El % con el que ha pesado cada factor. */
+  pesos: Pesos;
 };
 
 /** Lo que vale un candidato en un hueco, separado por factor para poder encender y apagar sin recalcular. */
 type Celda = {
   c: Candidato;
   h: Hueco;
-  /** Encaje, regularidad, continuidad, licencia y estado: pesa siempre. */
-  base: number;
+  /** Encaje en el puesto (-1000 si no puede: un portero sólo va de portero). */
   ajuste: number;
-  cuidado?: string;
+  /** Lo que dan sus minutos. */
+  regularidad: number;
+  /** Lo que no es un factor: la licencia sin minutos con el Castilla. */
+  extra: number;
   factores: Partial<Record<Factor, Aporte>>;
 };
 
@@ -410,7 +421,7 @@ export type PropuestaPreparada = {
   tabla: Celda[][];
   /** Para las parejas: el universo ya filtrado (el mismo que filtra `sinergiasDe` por dentro). */
   universo: FilaJugador[];
-  plantilla: Player[];
+  plantilla: ConBaja[];
   bajas: { nombre: string; estado: string }[];
 };
 
@@ -551,14 +562,9 @@ export function preparaPropuesta(d: DatosPropuesta): PropuestaPreparada {
   const tabla: Celda[][] = HUECOS.map((h) =>
     candidatos.map((c) => {
       const ajuste = encaje(c, h);
-      let base = ajuste + (Math.min(c.minutos, 900) / 900) * 12;
-
+      const regularidad = (Math.min(c.minutos, 900) / 900) * 12;
       /* Licencia del RMC o del Juvenil A sin minutos con el Castilla: sólo para tapar. */
-      if (c.ficha.esCastilla === false && c.minutos === 0) base -= 25;
-
-      const cuidado = CON_CUIDADO[c.ficha.estado];
-
-      if (cuidado) base -= 6;
+      const extra = c.ficha.esCastilla === false && c.minutos === 0 ? -25 : 0;
 
       const factoresCelda: Partial<Record<Factor, Aporte>> = {};
 
@@ -582,7 +588,7 @@ export function preparaPropuesta(d: DatosPropuesta): PropuestaPreparada {
         if (ten) factoresCelda.tendencia = ten;
       }
 
-      return { c, h, base, ajuste, cuidado, factores: factoresCelda };
+      return { c, h, ajuste, regularidad, extra, factores: factoresCelda };
     }),
   );
 
@@ -593,12 +599,15 @@ export function preparaPropuesta(d: DatosPropuesta): PropuestaPreparada {
     universo: universoDe(d.jugadores, "liga"),
     plantilla: d.plantilla,
     bajas: d.plantilla
-      .filter((p) => p.activo !== false && p.esCastilla !== false && NO_DISPONIBLE.has(p.estado))
+      .filter((p) => p.activo !== false && p.esCastilla !== false && !disponible(p))
       .map((p) => ({ nombre: p.apodo || p.nombre, estado: (estadoEnPalabras(p) ?? "").toLowerCase() })),
   };
 }
 
 /** El «JugadorOnce» mínimo que piden las sinergias, con el puesto del hueco que ocupa. */
+/** El encaje con su peso; lo imposible (un portero de lateral) sigue siendo imposible. */
+const encajePesado = (ajuste: number, m: number) => (ajuste <= -1000 ? ajuste : ajuste * m);
+
 const comoJugadorOnce = (c: Candidato, h: Hueco): JugadorOnce => ({
   id: c.ficha.id,
   nombre: c.ficha.apodo || c.ficha.nombre,
@@ -619,10 +628,19 @@ const comoJugadorOnce = (c: Candidato, h: Hueco): JugadorOnce => ({
  *
  * `onceActual` es quién está ahora en cada hueco (hueco → nombre de la ficha).
  */
-export function proponOnceDelPartido(prep: PropuestaPreparada, onceActual: Record<string, string>, activos: Record<Factor, boolean>): Propuesta {
+export function proponOnceDelPartido(
+  prep: PropuestaPreparada,
+  onceActual: Record<string, string>,
+  activos: Record<Factor, boolean>,
+  /** El % de cada factor (los efectivos: suman 100 y los apagados van a 0). Sin ellos, los de por defecto. */
+  pesos: Pesos = PESOS_POR_DEFECTO,
+): Propuesta {
   const { factores, candidatos, tabla, universo } = prep;
-  const usa = (f: Factor) => activos[f] && Boolean(factores.find((x) => x.clave === f)?.disponible);
+  const usa = (f: Factor) => activos[f] && pesos[f] > 0 && Boolean(factores.find((x) => x.clave === f)?.disponible);
   const encendidos = FACTORES.map((f) => f.clave).filter(usa);
+  const m = (k: keyof Pesos) => multiplicador(pesos, k);
+  /* Los puntos de cada factor, ya con su peso. */
+  const puntos = (x: Celda, f: Factor) => (x.factores[f]?.puntos ?? 0) * m(f);
 
   /* Quién está ahora en cada hueco, aunque no pueda jugar (para decir por quién entra). */
   const ocupante = new Map<string, Player>();
@@ -641,10 +659,11 @@ export function proponOnceDelPartido(prep: PropuestaPreparada, onceActual: Recor
   const continuidad = (x: Celda) => {
     const suyo = enHueco.get(x.c.ficha.id);
 
-    return suyo === x.h.clave ? 6 : suyo ? 2 : 0;
+    return (suyo === x.h.clave ? 6 : suyo ? 2 : 0) * m("continuidad");
   };
 
-  const total = (x: Celda) => x.base + continuidad(x) + encendidos.reduce((t, f) => t + (x.factores[f]?.puntos ?? 0), 0);
+  const total = (x: Celda) =>
+    encajePesado(x.ajuste, m("encaje")) + x.regularidad * m("minutos") + x.extra + continuidad(x) + encendidos.reduce((t, f) => t + puntos(x, f), 0);
   const n = HUECOS.length;
 
   /* El mejor once en conjunto. */
@@ -672,7 +691,7 @@ export function proponOnceDelPartido(prep: PropuestaPreparada, onceActual: Recor
   const parejasDe = (sel: number[]) =>
     sel.flatMap((j, i) => sel.flatMap((l, k) => (k > i && j >= 0 && l >= 0 ? [pareja(i, j, k, l)] : []))).filter((p): p is Pareja => Boolean(p));
 
-  const valor = (sel: number[]) => sel.reduce((t, j, i) => t + (j >= 0 ? total(tabla[i][j]) : -1000), 0) + (conParejas ? parejasDe(sel).reduce((t, p) => t + p.saldo, 0) * 5 : 0);
+  const valor = (sel: number[]) => sel.reduce((t, j, i) => t + (j >= 0 ? total(tabla[i][j]) : -1000), 0) + (conParejas ? parejasDe(sel).reduce((t, p) => t + p.saldo, 0) * 5 * m("colectivo") : 0);
 
   if (conParejas && candidatos.length > n) {
     let actual = valor(elegido);
@@ -720,8 +739,12 @@ export function proponOnceDelPartido(prep: PropuestaPreparada, onceActual: Recor
     const x = tabla[i][j];
     const repite = enHueco.get(x.c.ficha.id) === h.clave;
     const frases = encendidos
-      .map((f) => x.factores[f])
-      .filter((a): a is Aporte => Boolean(a && a.frase && a.puntos > 1.5))
+      .flatMap((f) => {
+        const a = x.factores[f];
+
+        return a ? [{ frase: a.frase, puntos: puntos(x, f) }] : [];
+      })
+      .filter((a) => Boolean(a.frase && a.puntos > 1.5))
       .sort((a, b) => b.puntos - a.puntos)
       .map((a) => a.frase);
 
@@ -737,13 +760,12 @@ export function proponOnceDelPartido(prep: PropuestaPreparada, onceActual: Recor
 
     if (!partes.length) partes.push(repite ? "sigue: nadie le mejora en el puesto" : "es el que mejor encaja en el puesto entre los disponibles");
     if (x.ajuste < 20) partes.push("juega fuera de su sitio habitual");
-    if (x.cuidado) partes.push(`ojo, ${x.cuidado}`);
 
     const motivo = partes.slice(0, 3).join("; ");
 
     return [{ hueco: h.clave, rotulo: h.rotulo, ficha: x.c.ficha, motivo: `${motivo.charAt(0).toUpperCase()}${motivo.slice(1)}.`, repite }];
   });
 
-  return { elegidos, factores, cambios: elegidos.filter((e) => !e.repite).length, bajas: prep.bajas };
+  return { elegidos, factores, cambios: elegidos.filter((e) => !e.repite).length, bajas: prep.bajas, pesos };
 }
 

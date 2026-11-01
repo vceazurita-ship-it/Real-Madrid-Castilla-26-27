@@ -26,13 +26,15 @@ import { useCallback, useMemo, useRef, useState, type PointerEvent as ReactPoint
 import { toast } from "sonner";
 
 import { HUECOS } from "@/lib/data-analisis/once";
-import { disponible, estadoEnPalabras } from "@/lib/tactics/disponibilidad";
+import type { BajasPartido as Bajas } from "@/hooks/useBajasPartido";
+import { disponible, estadoEnPalabras, type ConBaja } from "@/lib/tactics/disponibilidad";
 import { aplicaOnce, clave, huecosDelTablero, intercambia, nombreDeFicha, ordenaParaCambio, ponEnFicha, puestoDeFicha, type HuecoDelTablero } from "@/lib/tactics/editaOnce";
 import type { Elegido } from "@/lib/tactics/propuestaOnce";
 import type { TacticsDoc } from "@/lib/tactics/types";
 import { cn } from "@/lib/utils";
 import type { Player } from "@/types/player";
 
+import BajasPartido from "./BajasPartido";
 import { CambioJugador, type OpcionCambio } from "./CambioJugador";
 import PropuestaOnce from "./PropuestaOnce";
 
@@ -62,11 +64,14 @@ export default function OnceTitular({
   doc,
   onChange,
   roster,
+  bajas,
   rival,
 }: {
   doc: TacticsDoc;
   onChange: (doc: TacticsDoc) => void;
-  roster: Player[];
+  /** Con la baja vigente de cada uno (`useBajasPartido`). */
+  roster: ConBaja[];
+  bajas: Bajas;
   /** El rival del próximo partido; sin él no hay propuesta. */
   rival?: string;
 }) {
@@ -413,6 +418,9 @@ export default function OnceTitular({
           })}
         </div>
       </div>
+
+      {/* Quién no está para el próximo partido: lo marcado aquí manda, no la columna ESTADO de la hoja. */}
+      <BajasPartido roster={roster} bajas={bajas} preelegido={delBanco} />
 
       {cambiando && (
         <CambioJugador
