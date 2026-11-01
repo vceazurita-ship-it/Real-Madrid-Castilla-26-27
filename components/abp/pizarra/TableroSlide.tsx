@@ -714,42 +714,78 @@ function Hueco({
   y,
   code,
   label,
+  inerte = false,
   onClick,
 }: {
   x: number;
   y: number;
   code: string;
   label: string;
+  /** Dibujando (carrera, balón, rival): el hueco no se come el gesto. */
+  inerte?: boolean;
   onClick: () => void;
 }) {
   /*
   | Va marcado como cromo de edición: un puesto sin nadie es un botón para
   | asignar, no algo que enseñar en la sala. Al exportar —a PPT, a PDF o con el
   | botón de la plataforma— se cae, y la diapositiva sale con quien está.
+  |
+  | 01/11/2026: era sólo la chapa (54×36), que con el tablero encogido en un
+  | portátil se quedaba en un botón de 25 px y en la tableta no se acertaba.
+  | Ahora ocupa el sitio de la persona —silueta discontinua con «+» encima de
+  | la chapa—, 72 px de ancho para no pisar al vecino de una fila (76 px).
   */
   return (
     <button
       type="button"
       data-export-hide
       onClick={onClick}
-      title={`${code} · ${label} — pulsa para asignar`}
-      className="absolute flex flex-col items-center justify-center rounded-md border border-dashed transition hover:border-solid"
+      title={`${code} · ${label} — pulsa para poner a alguien`}
+      aria-label={`Poner a alguien en ${label}`}
+      className="group/hueco absolute flex flex-col items-center justify-end gap-1"
       style={{
-        left: x - 27,
-        top: y - CHAPA_H,
-        width: 54,
-        height: CHAPA_H,
-        borderColor: "rgba(200,169,107,.65)",
-        backgroundColor: "rgba(15,32,54,.66)",
-        boxShadow: "0 4px 10px rgba(0,0,0,.35)",
+        left: x - 36,
+        top: y - CHAPA_H - 62,
+        width: 72,
+        height: CHAPA_H + 62,
         zIndex: profundidad(x, y),
+        pointerEvents: inerte ? "none" : undefined,
       }}
     >
       <span
-        className="text-[14px] font-bold leading-none tracking-[0.04em]"
-        style={{ color: "rgba(228,206,155,.9)" }}
+        aria-hidden
+        className="flex items-center justify-center rounded-full border-2 border-dashed transition group-hover/hueco:border-solid"
+        style={{
+          width: 52,
+          height: 52,
+          borderColor: "rgba(200,169,107,.7)",
+          backgroundColor: "rgba(15,32,54,.5)",
+          color: "rgba(228,206,155,.95)",
+          fontSize: 30,
+          fontWeight: 600,
+          lineHeight: 1,
+        }}
       >
-        {code}
+        +
+      </span>
+
+      <span
+        className="flex items-center justify-center rounded-md border border-dashed transition group-hover/hueco:border-solid"
+        style={{
+          minWidth: 54,
+          height: CHAPA_H,
+          padding: "0 6px",
+          borderColor: "rgba(200,169,107,.65)",
+          backgroundColor: "rgba(15,32,54,.78)",
+          boxShadow: "0 4px 10px rgba(0,0,0,.35)",
+        }}
+      >
+        <span
+          className="text-[15px] font-bold leading-none tracking-[0.04em]"
+          style={{ color: "rgba(228,206,155,.95)" }}
+        >
+          {code}
+        </span>
       </span>
     </button>
   );
@@ -2011,6 +2047,7 @@ export function TableroSlide({
               y={puesto.y as number}
               code={siglaDe(puesto)}
               label={puesto.label}
+              inerte={herramienta !== "mover"}
               onClick={() => onPulsarPuesto(puesto.key)}
             />
           ))}

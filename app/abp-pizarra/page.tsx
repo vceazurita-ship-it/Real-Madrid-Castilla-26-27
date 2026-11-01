@@ -92,6 +92,8 @@ import { ProyectaPizarra } from "@/components/abp/pizarra/ProyectaPizarra";
 import { useReproduccionAbp } from "@/hooks/useReproduccionAbp";
 import {
   arrastraTrazos,
+  clonaRivales,
+  clonaTrazos,
   fasesDe,
   type FaseTrazo,
   type RivalPizarra,
@@ -1250,6 +1252,8 @@ export default function PizarraAbpPage() {
   /* ------------------------- PROYECTOR ----------------------------- */
 
   const [proyectando, setProyectando] = useState<number | null>(null);
+  /* La chuleta de atajos de la barra de dibujo («?»). */
+  const [atajos, setAtajos] = useState(false);
   /* En el móvil, las acciones de la diapositiva van plegadas en «Más» (30/10/2026). */
   const [masSlide, setMasSlide] = useState(false);
   /* En el móvil la cabecera de «de quién es» va plegada: el campo antes que los datos. */
@@ -1445,6 +1449,21 @@ export default function PizarraAbpPage() {
   const [seleccion, setSeleccion] = useState<string | null>(null);
 
   const puestoEditado = slide ? puestoDe(slide, editando) : null;
+
+  /* La ficha elegida, para la barra: quién es y qué puesto ocupa. */
+  const fichaElegida = useMemo(() => {
+    const ficha = slide?.fichas.find((item) => item.id === seleccion);
+
+    if (!slide || !ficha) return null;
+
+    const player = porId.get(ficha.playerId);
+    const puesto = ficha.puesto ? puestoDe(slide, ficha.puesto) : null;
+
+    return {
+      nombre: player?.apodo || player?.nombre || "Jugador",
+      ...(puesto ? { puesto: `${siglaDe(puesto)} · ${puesto.label}` } : {}),
+    };
+  }, [slide, seleccion, porId]);
 
   /*
   | Donde se admiten repetidos, un jugador puede salir en varios sitios, así
@@ -2013,6 +2032,10 @@ export default function PizarraAbpPage() {
           ...ficha,
           id: `FI-${Math.random().toString(36).slice(2, 10)}`,
         })),
+        /* Flechas y rivales con id propio: compartirlos con la original hacía
+           que deshacer un gesto en una se juntase con el de la otra. */
+        ...(slide.trazos ? { trazos: clonaTrazos(slide.trazos) } : {}),
+        ...(slide.rivales ? { rivales: clonaRivales(slide.rivales) } : {}),
       };
 
       const slides = [...actual.slides];
@@ -2274,7 +2297,58 @@ export default function PizarraAbpPage() {
         return;
       }
 
+      /* Ctrl+D duplica la diapositiva (el navegador la usaría para marcadores). */
+      if (control && (tecla === "d" || tecla === "D")) {
+        event.preventDefault();
+        duplicaSlide();
+
+        return;
+      }
+
+      /* Alt+← → cambia el orden de la diapositiva, como arrastrarla en la tira. */
+      if (event.altKey && !control && (tecla === "ArrowLeft" || tecla === "ArrowRight")) {
+        event.preventDefault();
+        mueveSlide(tecla === "ArrowLeft" ? -1 : 1);
+
+        return;
+      }
+
       if (control || event.altKey) return;
+
+      if (tecla === "?") {
+        event.preventDefault();
+        setAtajos((antes) => !antes);
+
+        return;
+      }
+
+      /* Intro con una ficha elegida: cambiar al que ocupa ese puesto. */
+      if (tecla === "Enter" && blanco?.tagName !== "BUTTON" && seleccion) {
+        const ficha = slide.fichas.find((item) => item.id === seleccion);
+
+        if (ficha?.puesto && puestoDe(slide, ficha.puesto)) {
+          event.preventDefault();
+          setEditando(ficha.puesto);
+        }
+
+        return;
+      }
+
+      /* Sin nada elegido, ← → y RePág/AvPág pasan de diapositiva. */
+      const nadaElegido = !seleccion && !rivalEnMano && !trazoEnMano;
+      const pasa =
+        tecla === "PageUp" || (nadaElegido && tecla === "ArrowLeft")
+          ? -1
+          : tecla === "PageDown" || (nadaElegido && tecla === "ArrowRight")
+            ? 1
+            : 0;
+
+      if (pasa && tablero) {
+        event.preventDefault();
+        setPedida(Math.max(0, Math.min(tablero.slides.length - 1, activa + pasa)));
+
+        return;
+      }
 
       /* Herramientas: V, C, B, L. */
       const herramientaDeTecla = (Object.keys(TECLA_HERRAMIENTA) as Herramienta[]).find(
@@ -2325,6 +2399,7 @@ export default function PizarraAbpPage() {
         setTrazoElegido(null);
         setRivalElegido(null);
         setSeleccion(null);
+        setAtajos(false);
 
         return;
       }
@@ -2865,21 +2940,13 @@ export default function PizarraAbpPage() {
                 {!guardado && !leyendo && (
                   <div className="mt-4">
                     <Notice tone="info" title="Pizarra sin empezar">
-                      Se está viendo la plantilla de siete diapositivas en
-                      blanco. En cuanto coloques a alguien —o copies el partido
-                      anterior— se guarda sola.
-                      {anterior && (
-                        <span className="mt-3 block">
-                          <Button
-                            icon={Copy}
-                            tone="primary"
-                            onClick={copiaDelAnterior}
-                            title={`Traer las diapositivas de ${matchLabel(anterior)}`}
-                          >
-                            Copiar de {matchLabel(anterior)}
-                          </Button>
-                        </span>
-                      )}
+                      {/* 01/11/2026: el botón de copiar ya está arriba, junto al
+                          partido; aquí sólo los tres caminos para empezar. */}
+                      Plantilla en blanco. Para empezar:{" "}
+                      {anterior ? <b className="font-semibold">copia {matchLabel(anterior)}</b> : null}
+                      {anterior ? ", " : ""}
+                      <b className="font-semibold">Colocar todo</b> con lo aprendido, o pincha un
+                      hueco del campo. Se guarda sola en cuanto hay alguien.
                     </Notice>
                   </div>
                 )}
@@ -2900,7 +2967,7 @@ export default function PizarraAbpPage() {
                         : `${totales.total - totales.cubiertos} ${
                             totales.total - totales.cubiertos === 1 ? "puesto sin jugador" : "puestos sin jugador"
                           }`
-                    } · arrastra una diapositiva para cambiar el orden del PowerPoint`}
+                    } · arrastra para cambiar el orden`}
                     icon={LayoutGrid}
                   >
                     <div className="flex min-w-0 flex-wrap gap-1.5">
@@ -3011,7 +3078,7 @@ export default function PizarraAbpPage() {
                           (30/10/2026, expertos): a la vista sólo añadir y
                           colocar; el resto, detrás de «Más». */}
                       <span className={`contents ${masSlide ? "" : "max-sm:hidden"}`}>
-                      <Button icon={CopyPlus} onClick={duplicaSlide}>
+                      <Button icon={CopyPlus} onClick={duplicaSlide} title="Duplicar esta diapositiva justo detrás (Ctrl+D)">
                         Duplicar
                       </Button>
 
@@ -3030,10 +3097,9 @@ export default function PizarraAbpPage() {
                         icon={ChevronLeft}
                         onClick={() => mueveSlide(-1)}
                         disabled={activa === 0}
-                        title="Adelantar esta diapositiva un puesto en el PowerPoint"
-                      >
-                        Antes
-                      </Button>
+                        aria-label="Adelantar la diapositiva"
+                        title="Adelantar esta diapositiva un puesto (Alt+←)"
+                      />
 
                       <Button
                         icon={ChevronRight}
@@ -3041,10 +3107,9 @@ export default function PizarraAbpPage() {
                         disabled={
                           !tablero || activa >= tablero.slides.length - 1
                         }
-                        title="Retrasar esta diapositiva un puesto en el PowerPoint"
-                      >
-                        Después
-                      </Button>
+                        aria-label="Retrasar la diapositiva"
+                        title="Retrasar esta diapositiva un puesto (Alt+→)"
+                      />
                       </span>
 
                       <Button
@@ -3114,6 +3179,23 @@ export default function PizarraAbpPage() {
                         )
                       }
                       onBorrarRival={() => rivalEnMano && quitaRivalDibujado(rivalEnMano.id)}
+                      ficha={fichaElegida}
+                      onCambiarJugador={() => {
+                        const puesto = slide.fichas.find((item) => item.id === seleccion)?.puesto;
+
+                        if (puesto) setEditando(puesto);
+                      }}
+                      onQuitarFicha={() => {
+                        if (!seleccion) return;
+
+                        mutaSlide((actual) => ({
+                          ...actual,
+                          fichas: actual.fichas.filter((item) => item.id !== seleccion),
+                        }));
+                        setSeleccion(null);
+                      }}
+                      atajos={atajos}
+                      onAtajos={setAtajos}
                     />
 
                     {/*
@@ -3122,7 +3204,7 @@ export default function PizarraAbpPage() {
                     | dibujada, antes de llevarla a la sala.
                     */}
                     {(familiaDePlantilla(slide.plantilla) || fases > 0 || slide.plantilla === "corner-def") && (
-                      <div className="mb-3 flex flex-wrap items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2 border-b border-white/10 px-3 py-2">
                         {familiaDePlantilla(slide.plantilla) && (
                           <Button
                             icon={Users}

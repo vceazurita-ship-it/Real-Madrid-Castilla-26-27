@@ -13,6 +13,7 @@
 import {
   CircleDot,
   Footprints,
+  Keyboard,
   MousePointer2,
   Pause,
   Play,
@@ -22,7 +23,9 @@ import {
   Spline,
   Trash2,
   Undo2,
+  UserRound,
   Volleyball,
+  X,
 } from "lucide-react";
 import type { ComponentType } from "react";
 
@@ -69,6 +72,27 @@ function Tecla({ children }: { children: string }) {
   );
 }
 
+/*
+| La chuleta de atajos (01/11/2026). Las teclas estaban sueltas en los
+| «title» de cada botón y nadie las encontraba: aquí van todas juntas, con
+| «?» para abrirla sin soltar el ratón.
+*/
+export const ATAJOS: { teclas: string; que: string }[] = [
+  { teclas: "V · C · B · L · R", que: "Mover · Carrera · Balón · Bloqueo · Rival" },
+  { teclas: "1 · 2 · 3", que: "Fase de lo que dibujas (o de la flecha elegida)" },
+  { teclas: "Intro", que: "Cambiar al jugador de la ficha elegida" },
+  { teclas: "Doble clic en la chapa", que: "Reescribir la sigla del puesto" },
+  { teclas: "Flechas", que: "Afinar la ficha elegida (Mayús: más largo)" },
+  { teclas: "← → sin nada elegido", que: "Diapositiva anterior o siguiente" },
+  { teclas: "Alt + ← →", que: "Mover la diapositiva en el orden" },
+  { teclas: "Ctrl + D", que: "Duplicar la diapositiva" },
+  { teclas: "Supr", que: "Quitar lo elegido" },
+  { teclas: "Ctrl + Z · Ctrl + Y", que: "Deshacer · Rehacer" },
+  { teclas: "Espacio", que: "Reproducir las fases" },
+  { teclas: "P", que: "Proyectar" },
+  { teclas: "Esc", que: "Soltar lo elegido y volver a Mover" },
+];
+
 /* En el móvil, 44 px de toque (30/10/2026, expertos). */
 const BOTON =
   "inline-flex min-h-9 max-sm:min-h-11 shrink-0 items-center gap-1.5 rounded-xl border px-2.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40";
@@ -98,6 +122,11 @@ export function BarraDibujo({
   rival,
   onDorsalRival,
   onBorrarRival,
+  ficha,
+  onCambiarJugador,
+  onQuitarFicha,
+  atajos,
+  onAtajos,
 }: {
   herramienta: Herramienta;
   onHerramienta: (herramienta: Herramienta) => void;
@@ -121,6 +150,14 @@ export function BarraDibujo({
   rival: RivalPizarra | null;
   onDorsalRival: (dorsal: string) => void;
   onBorrarRival: () => void;
+  /** La ficha elegida en el campo: su nombre y, si ocupa uno, su puesto. */
+  ficha?: { nombre: string; puesto?: string } | null;
+  /** Abrir el selector del puesto de la ficha elegida (sólo si tiene puesto). */
+  onCambiarJugador?: () => void;
+  onQuitarFicha?: () => void;
+  /** La chuleta de atajos, abierta o no («?»). */
+  atajos?: boolean;
+  onAtajos?: (abierta: boolean) => void;
 }) {
   /* Con un trazo elegido, la fase y el tipo son los SUYOS: cambiar el botón
      le cambia a él, que es lo que espera quien acaba de pincharlo. */
@@ -231,6 +268,19 @@ export function BarraDibujo({
           >
             <Redo2 size={14} />
           </button>
+
+          {onAtajos && (
+            <button
+              type="button"
+              onClick={() => onAtajos(!atajos)}
+              aria-pressed={Boolean(atajos)}
+              aria-label="Atajos de teclado"
+              title="Atajos de teclado (?)"
+              className={`${BOTON} max-sm:hidden ${atajos ? ENCENDIDO : APAGADO}`}
+            >
+              <Keyboard size={14} />
+            </button>
+          )}
         </div>
 
         <div className="ml-auto flex flex-wrap items-center gap-1">
@@ -264,8 +314,66 @@ export function BarraDibujo({
       </div>
 
       {/* La segunda línea dice qué hacer ahora, o qué se puede hacer con lo elegido. */}
+      {atajos && onAtajos && (
+        <div className="relative rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
+          <button
+            type="button"
+            onClick={() => onAtajos(false)}
+            aria-label="Cerrar los atajos"
+            className="absolute right-2 top-2 rounded-md p-1 text-white/45 transition hover:text-white"
+          >
+            <X size={14} />
+          </button>
+
+          <dl className="grid gap-x-6 gap-y-1.5 pr-6 text-[12px] leading-snug sm:grid-cols-2 xl:grid-cols-3">
+            {ATAJOS.map((atajo) => (
+              <div key={atajo.teclas} className="flex min-w-0 gap-2">
+                <dt className="shrink-0 font-semibold text-[#C8A96B]">{atajo.teclas}</dt>
+                <dd className="min-w-0 text-white/65">{atajo.que}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      )}
+
       <div className="flex min-h-7 min-w-0 flex-wrap items-center gap-2 text-[11px] leading-snug text-white/45">
-        {rival ? (
+        {ficha && herramienta === "mover" && !rival && !elegido ? (
+          <>
+            <span className="min-w-0 truncate font-semibold text-white/80">
+              {ficha.nombre}
+              {ficha.puesto ? <span className="font-normal text-white/50"> · {ficha.puesto}</span> : null}
+            </span>
+
+            {ficha.puesto && onCambiarJugador && (
+              <button
+                type="button"
+                onClick={onCambiarJugador}
+                title="Poner a otro en este puesto (Intro)"
+                className={`${BOTON} min-h-7 border-[#C8A96B]/60 text-white hover:border-[#C8A96B]`}
+              >
+                <UserRound size={13} />
+                Cambiar jugador
+                <Tecla>Intro</Tecla>
+              </button>
+            )}
+
+            <span className="hidden sm:inline">
+              Arrástrala o afínala con las flechas{ficha.puesto ? "; doble clic en la chapa para la sigla" : ""}.
+            </span>
+
+            {onQuitarFicha && (
+              <button
+                type="button"
+                onClick={onQuitarFicha}
+                title="Quitarla del campo (Supr)"
+                className={`${BOTON} min-h-7 border-red-400/30 text-red-300/80 hover:border-red-400/60 hover:text-red-300`}
+              >
+                <Trash2 size={13} />
+                Quitar
+              </button>
+            )}
+          </>
+        ) : rival ? (
           <>
             <span className="font-semibold text-white/75">Rival</span>
 
@@ -280,7 +388,7 @@ export function BarraDibujo({
               />
             </label>
 
-            <span className="hidden sm:inline">Arrástralo para colocarlo. «P» para el portero.</span>
+            <span className="hidden sm:inline">Arrástralo para colocarlo. Escribe «P» en el dorsal para el portero.</span>
 
             <button
               type="button"
@@ -294,7 +402,7 @@ export function BarraDibujo({
           </>
         ) : herramienta === "rival" ? (
           <span>
-            Pulsa en el campo para plantar un rival —el que defiende la zona, al que se bloquea, el portero— y luego arrástralo con «Mover». Su dorsal se escribe al elegirlo.
+            Pulsa en el campo para plantar un rival; se arrastra con «Mover» y su dorsal se escribe al elegirlo.
           </span>
         ) : elegido ? (
           <>
@@ -329,13 +437,12 @@ export function BarraDibujo({
         ) : herramienta === "mover" ? (
           <span>
             {trazos > 0
-              ? `${trazos} ${trazos === 1 ? "flecha" : "flechas"} en esta diapositiva · pincha una para editarla. Arrastra las caras: se alinean solas con las de su fila (Alt para soltarlas).`
-              : "Elige Carrera, Balón o Bloqueo y dibuja sobre el campo: pulsa en el jugador y suelta donde acaba. Flechas del teclado para afinar la cara elegida."}
+              ? `${trazos} ${trazos === 1 ? "flecha" : "flechas"} · pincha una para editarla, o un jugador para cambiarlo o moverlo (Alt al arrastrar: sin alinear).`
+              : "Pincha un hueco para poner a alguien, o un jugador para cambiarlo o moverlo. Para dibujar: Carrera, Balón o Bloqueo."}
           </span>
         ) : (
           <span>
-            Pulsa sobre un jugador —la flecha sale de sus pies— o en cualquier punto, y suelta donde acaba.
-            Una flecha que empieza en la punta de otra se encadena: así se dibuja «bloquea y sale».
+            Arrastra desde el jugador hasta donde acaba. Si empieza en la punta de otra, se encadenan («bloquea y sale»).
           </span>
         )}
       </div>
