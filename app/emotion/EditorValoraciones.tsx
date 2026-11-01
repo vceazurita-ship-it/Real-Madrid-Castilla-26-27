@@ -21,7 +21,7 @@
 | cuatro cifras.
 */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, RotateCcw, Search, Undo2 } from "lucide-react";
 
 import { Button, Dialog, sePuedeDescartar } from "@/components/abp/ui";
@@ -116,6 +116,7 @@ export function EditorValoraciones({
   const [eje, setEje] = useState<MetricKey | "todos">("todos");
   const [cantidad, setCantidad] = useState("");
   const [fuenteCopia, setFuenteCopia] = useState("");
+  const bloqueAplicar = useRef<HTMLDivElement | null>(null);
 
   /* Cada cambio guarda la foto anterior: «Deshacer» vuelve paso a paso. */
   const conHistoria = useCallback(
@@ -301,7 +302,7 @@ export function EditorValoraciones({
           : `${modo === "fijar" ? "Pone" : modo === "sumar" ? "Suma" : "Resta"} ${comaCorta(numero)} ${modo === "fijar" ? "en" : "a"} ${nombreEje} de ${destinos.length} ${destinos.length === 1 ? "jugador" : "jugadores"} (de 0 a 10).`;
 
   const campo =
-    "rounded-lg border border-white/12 bg-white/[0.05] px-2 py-1.5 text-xs text-white outline-none transition focus:border-[#C8A96B]/60";
+    "rounded-lg border border-white/12 bg-white/[0.05] px-2 py-2 text-base text-white outline-none transition focus:border-[#C8A96B]/60 sm:py-1.5 sm:text-xs";
 
   return (
     <Dialog
@@ -330,7 +331,7 @@ export function EditorValoraciones({
       }
     >
       {/* ------------------------------------------- Aplicar a los elegidos */}
-      <div className="mb-4 rounded-xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.06] p-3">
+      <div ref={bloqueAplicar} className="mb-4 scroll-mt-2 rounded-xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.06] p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-[11px] font-semibold uppercase tracking-[.15em] text-[#E4C977]">
             Aplicar a los seleccionados
@@ -338,21 +339,21 @@ export function EditorValoraciones({
           </p>
 
           <div className="flex flex-wrap gap-1.5">
-            <button type="button" onClick={eligeTodos} className="rounded-full border border-white/12 px-2.5 py-1 text-[11px] text-white/70 transition hover:border-white/30 hover:text-white">
+            <button type="button" onClick={eligeTodos} className="rounded-full border border-white/12 px-3 py-1.5 text-xs text-white/70 sm:px-2.5 sm:py-1 sm:text-[11px] transition hover:border-white/30 hover:text-white">
               {todosVisiblesElegidos ? "Quitar a todos" : "Todos"}
             </button>
             {candidatos.some((c) => c.titular) && (
-              <button type="button" onClick={() => eligeSi((c) => c.titular)} className="rounded-full border border-white/12 px-2.5 py-1 text-[11px] text-white/70 transition hover:border-white/30 hover:text-white">
+              <button type="button" onClick={() => eligeSi((c) => c.titular)} className="rounded-full border border-white/12 px-3 py-1.5 text-xs text-white/70 sm:px-2.5 sm:py-1 sm:text-[11px] transition hover:border-white/30 hover:text-white">
                 El once
               </button>
             )}
             {candidatos.some((c) => c.origen === "sinValorar") && (
-              <button type="button" onClick={() => eligeSi((c) => c.origen === "sinValorar")} className="rounded-full border border-white/12 px-2.5 py-1 text-[11px] text-white/70 transition hover:border-white/30 hover:text-white">
+              <button type="button" onClick={() => eligeSi((c) => c.origen === "sinValorar")} className="rounded-full border border-white/12 px-3 py-1.5 text-xs text-white/70 sm:px-2.5 sm:py-1 sm:text-[11px] transition hover:border-white/30 hover:text-white">
                 Sin valoración
               </button>
             )}
             {elegidos.size > 0 && (
-              <button type="button" onClick={() => setElegidos(new Set())} className="rounded-full border border-white/12 px-2.5 py-1 text-[11px] text-white/70 transition hover:border-white/30 hover:text-white">
+              <button type="button" onClick={() => setElegidos(new Set())} className="rounded-full border border-white/12 px-3 py-1.5 text-xs text-white/70 sm:px-2.5 sm:py-1 sm:text-[11px] transition hover:border-white/30 hover:text-white">
                 Ninguno
               </button>
             )}
@@ -415,7 +416,7 @@ export function EditorValoraciones({
           onChange={(e) => setBusqueda(e.target.value)}
           placeholder="Buscar jugador…"
           aria-label="Buscar jugador"
-          className="w-full rounded-full border border-white/10 bg-white/[0.04] py-2 pl-8 pr-3 text-xs text-white outline-none transition placeholder:text-white/30 focus:border-[#C8A96B]/50"
+          className="w-full rounded-full border border-white/10 bg-white/[0.04] py-2 pl-8 pr-3 text-base text-white outline-none sm:text-xs transition placeholder:text-white/30 focus:border-[#C8A96B]/50"
         />
       </div>
 
@@ -462,10 +463,13 @@ export function EditorValoraciones({
       </table>
 
       {/* ------------------------------------------- Lista (móvil) */}
+      {/* 01/11/2026: el nombre entero marca la casilla (la casilla sola era un blanco de 16 px). */}
       <ul className="space-y-2 sm:hidden">
-        <li className="flex items-center gap-2 px-1 text-[11px] text-white/55">
-          <input type="checkbox" checked={todosVisiblesElegidos} onChange={eligeTodos} aria-label="Elegir a todos" className="h-4 w-4 accent-[#C8A96B]" />
-          Elegir a todos
+        <li>
+          <label className="flex items-center gap-2.5 px-1 py-1.5 text-xs text-white/60">
+            <input type="checkbox" checked={todosVisiblesElegidos} onChange={eligeTodos} className="h-5 w-5 accent-[#C8A96B]" />
+            Elegir a todos
+          </label>
         </li>
         {visibles.map((c) => {
           const f = borrador[c.nombre];
@@ -473,10 +477,12 @@ export function EditorValoraciones({
           return (
             <li key={c.nombre} className={`rounded-xl border p-2.5 ${elegidos.has(c.nombre) ? "border-[#C8A96B]/40 bg-[#C8A96B]/[0.07]" : "border-white/10 bg-white/[0.03]"}`}>
               <div className="flex items-start gap-2">
-                <input type="checkbox" checked={elegidos.has(c.nombre)} onChange={() => alterna(c.nombre)} aria-label={`Elegir a ${c.nombre}`} className="mt-0.5 h-4 w-4 shrink-0 accent-[#C8A96B]" />
-                <div className="min-w-0 flex-1">
-                  <Nombre c={c} f={f} />
-                </div>
+                <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-2.5 py-0.5">
+                  <input type="checkbox" checked={elegidos.has(c.nombre)} onChange={() => alterna(c.nombre)} aria-label={`Elegir a ${c.nombre}`} className="mt-0.5 h-5 w-5 shrink-0 accent-[#C8A96B]" />
+                  <span className="min-w-0 flex-1">
+                    <Nombre c={c} f={f} />
+                  </span>
+                </label>
                 <Volver c={c} f={f} onVolver={() => vuelveALaHoja(c.nombre)} />
               </div>
 
@@ -492,6 +498,25 @@ export function EditorValoraciones({
           );
         })}
       </ul>
+
+      {/* En el teléfono la fila de aplicar se queda arriba, lejos de las casillas: este botón vuelve a ella. */}
+      {elegidos.size > 0 && (
+        <div className="sticky bottom-0 z-10 -mx-1 mt-3 flex items-center justify-between gap-2 rounded-xl border border-[#C8A96B]/40 bg-[#11161C] px-3 py-2 shadow-[0_-8px_24px_rgba(0,0,0,.35)] sm:hidden">
+          <span className="text-xs text-white/70">
+            {elegidos.size} {elegidos.size === 1 ? "jugador elegido" : "jugadores elegidos"}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              bloqueAplicar.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+              window.setTimeout(() => bloqueAplicar.current?.querySelector<HTMLElement>("input, select")?.focus({ preventScroll: true }), 350);
+            }}
+            className="rounded-full border border-[#C8A96B] bg-[#C8A96B] px-3.5 py-1.5 text-xs font-semibold text-black"
+          >
+            Cambiarlos a la vez
+          </button>
+        </div>
+      )}
 
       {visibles.length === 0 && <p className="py-6 text-center text-xs text-white/45">Ningún jugador con ese nombre.</p>}
 
@@ -586,7 +611,7 @@ function Celda({ valor, media, etiqueta, onCambia }: { valor: number; media: boo
           setTexto(comaCorta(valor));
         }
       }}
-      className={`w-full max-w-[64px] rounded-lg border px-1.5 py-1.5 text-center text-sm tabular-nums outline-none transition focus:border-[#C8A96B]/70 ${
+      className={`w-full max-w-[64px] rounded-lg border px-1.5 py-2 text-center text-base tabular-nums sm:py-1.5 sm:text-sm outline-none transition focus:border-[#C8A96B]/70 ${
         media ? "border-dashed border-white/15 bg-transparent italic text-white/45" : "border-white/12 bg-white/[0.05] font-semibold text-white"
       }`}
     />

@@ -20,7 +20,7 @@
 */
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, ArrowUpRight, X } from "lucide-react";
 
 import { usePlayers } from "@/hooks/usePlayers";
@@ -353,6 +353,17 @@ export function CampoEmocional({
 
   const cargando = loading || once === undefined;
 
+  /* En el teléfono el perfil cae debajo del banquillo: al pulsar a un jugador se baja hasta él. */
+  const panel = useRef<HTMLDivElement | null>(null);
+
+  const elige = (clave: string | null) => {
+    setElegido(clave);
+
+    if (clave && window.matchMedia("(max-width: 1023px)").matches) {
+      window.setTimeout(() => panel.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
+    }
+  };
+
   return (
     <section className="mb-8" aria-label="El once con su estado emocional">
       <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
@@ -420,26 +431,28 @@ export function CampoEmocional({
               teamAverage={teamAverage}
               cargando={cargando}
               elegido={elegido}
-              onElegir={setElegido}
+              onElegir={elige}
             />
           ) : (
-            <Campo titulares={titulares} cargando={cargando} elegido={elegido} onElegir={setElegido} />
+            <Campo titulares={titulares} cargando={cargando} elegido={elegido} onElegir={elige} />
           )}
 
           <Leyenda radares={vista === "radares"} />
 
           {banquillo.length > 0 && (
-            <Banquillo suplentes={banquillo} elegido={elegido} onElegir={setElegido} />
+            <Banquillo suplentes={banquillo} elegido={elegido} onElegir={elige} />
           )}
         </div>
 
-        <PanelLateral
-          seleccionado={seleccionado}
-          titulares={titulares}
-          teamAverage={teamAverage}
-          onCerrar={() => setElegido(null)}
-          onElegir={setElegido}
-        />
+        <div ref={panel} className="min-w-0 scroll-mt-32">
+          <PanelLateral
+            seleccionado={seleccionado}
+            titulares={titulares}
+            teamAverage={teamAverage}
+            onCerrar={() => setElegido(null)}
+            onElegir={elige}
+          />
+        </div>
       </div>
     </section>
   );
@@ -585,13 +598,19 @@ function Campo({
 | en «Perfiles por línea». Quien aún no tiene valoración entra con la
 | media de la plantilla, en trazo discontinuo, hasta que se valore.
 */
+/*
+| En el teléfono (01/11/2026) los seis van en un carrusel de tarjetas anchas,
+| con su índice encima: en dos columnas de 170 px los radares se quedaban
+| en un sello y las cifras de los ejes no se leían. Desde `sm`, el campo de
+| siempre.
+*/
 const ZONAS: { clave: LineaCampo; titulo: string; sitio: string; tumbada?: boolean }[] = [
-  { clave: "strikers", titulo: "Puntas", sitio: "col-span-2 row-start-1 xl:col-span-1 xl:col-start-4 xl:row-start-2" },
-  { clave: "leftSide", titulo: "Perfil izquierdo", sitio: "col-start-1 row-start-2 xl:col-span-2 xl:col-start-2 xl:row-start-1", tumbada: true },
-  { clave: "rightSide", titulo: "Perfil derecho", sitio: "col-start-2 row-start-2 xl:col-span-2 xl:col-start-2 xl:row-start-3", tumbada: true },
-  { clave: "midfield", titulo: "Medios", sitio: "col-span-2 row-start-3 xl:col-span-1 xl:col-start-3 xl:row-start-2" },
-  { clave: "defense", titulo: "Defensa", sitio: "col-start-1 row-start-4 xl:col-start-2 xl:row-start-2" },
-  { clave: "keeper", titulo: "Portero y defensa", sitio: "col-start-2 row-start-4 xl:col-start-1 xl:row-start-2" },
+  { clave: "strikers", titulo: "Puntas", sitio: "sm:col-span-2 sm:row-start-1 xl:col-span-1 xl:col-start-4 xl:row-start-2" },
+  { clave: "leftSide", titulo: "Perfil izquierdo", sitio: "sm:col-start-1 sm:row-start-2 xl:col-span-2 xl:col-start-2 xl:row-start-1", tumbada: true },
+  { clave: "rightSide", titulo: "Perfil derecho", sitio: "sm:col-start-2 sm:row-start-2 xl:col-span-2 xl:col-start-2 xl:row-start-3", tumbada: true },
+  { clave: "midfield", titulo: "Medios", sitio: "sm:col-span-2 sm:row-start-3 xl:col-span-1 xl:col-start-3 xl:row-start-2" },
+  { clave: "defense", titulo: "Defensa", sitio: "sm:col-start-1 sm:row-start-4 xl:col-start-2 xl:row-start-2" },
+  { clave: "keeper", titulo: "Portero y defensa", sitio: "sm:col-start-2 sm:row-start-4 xl:col-start-1 xl:row-start-2" },
 ];
 
 const COLOCA_XL = "absolute left-[var(--vx)] top-[var(--vy)] -translate-x-1/2 -translate-y-1/2 xl:left-[var(--hx)] xl:top-[var(--hy)]";
@@ -629,16 +648,38 @@ function RadaresEnCampo({
     return { ...z, jugadores: [...delOnce, ...anadidos] };
   }).filter((z) => z.jugadores.length > 0);
 
+  /* Carrusel del teléfono: qué tarjeta se ve, para el índice de arriba. */
+  const pista = useRef<HTMLDivElement | null>(null);
+  const [visible, setVisible] = useState(0);
+
+  const alDeslizar = () => {
+    const el = pista.current;
+    if (!el || el.children.length === 0) return;
+
+    const primera = el.children[0] as HTMLElement;
+    const centro = el.scrollLeft + el.clientWidth / 2;
+    const paso = primera.offsetWidth + 12;
+    setVisible(Math.max(0, Math.min(zonas.length - 1, Math.round((centro - primera.offsetLeft - primera.offsetWidth / 2) / paso))));
+  };
+
+  const irA = (i: number) => {
+    const tarjeta = pista.current?.children[i] as HTMLElement | undefined;
+    if (!tarjeta || !pista.current) return;
+
+    pista.current.scrollTo({ left: tarjeta.offsetLeft - (pista.current.clientWidth - tarjeta.offsetWidth) / 2, behavior: "smooth" });
+    setVisible(i);
+  };
+
   return (
     <CampoTecnologico libre>
-      {/* Dónde está cada titular: un punto de luz bajo los radares. */}
+      {/* Dónde está cada titular: un punto de luz bajo los radares (no en el carrusel del teléfono). */}
       {titulares.map((c) => {
         const tono = c.dato ? bandFor(average(c.dato)).tone : "rgba(255,255,255,.35)";
         return (
           <span
             key={c.clave}
             aria-hidden
-            className={`${COLOCA_XL} h-2 w-2 rounded-full`}
+            className={`${COLOCA_XL} hidden h-2 w-2 rounded-full sm:block`}
             style={{ ...sitioDe(c), background: tono, boxShadow: `0 0 12px ${tono}` }}
           />
         );
@@ -649,13 +690,44 @@ function RadaresEnCampo({
           <Girando />
         </div>
       ) : (
-        <div className="relative grid grid-cols-2 gap-2.5 p-3 sm:gap-4 sm:p-5 xl:grid-cols-4">
-          {zonas.map((z) => (
-            <div key={z.clave} className={z.sitio}>
-              <RadarLinea titulo={z.titulo} jugadores={z.jugadores} teamAverage={teamAverage} tumbada={z.tumbada} elegido={elegido} onElegir={onElegir} />
-            </div>
-          ))}
-        </div>
+        <>
+          {/* Índice del carrusel: las seis líneas a la vista, la que se ve encendida. */}
+          <div className="relative flex flex-wrap justify-center gap-1.5 px-3 pt-3 sm:hidden" role="tablist" aria-label="Radares por línea">
+            {zonas.map((z, i) => (
+              <button
+                key={z.clave}
+                type="button"
+                role="tab"
+                aria-selected={visible === i}
+                onClick={() => irA(i)}
+                className="rounded-full px-2.5 py-1.5 text-[11px] font-semibold transition"
+                style={
+                  visible === i
+                    ? { background: "#36DAFF", color: "#031018" }
+                    : { border: "1px solid rgba(98,232,255,.3)", color: "rgba(226,246,255,.75)" }
+                }
+              >
+                {z.titulo}
+              </button>
+            ))}
+          </div>
+
+          <div
+            ref={pista}
+            onScroll={alDeslizar}
+            className="relative flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain p-3 [scrollbar-width:none] sm:grid sm:snap-none sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:p-5 xl:grid-cols-4 [&::-webkit-scrollbar]:hidden"
+          >
+            {zonas.map((z, i) => (
+              <div key={z.clave} className={`w-[86%] shrink-0 snap-center sm:w-auto ${z.sitio}`} aria-label={`${z.titulo}, ${i + 1} de ${zonas.length}`}>
+                <RadarLinea titulo={z.titulo} jugadores={z.jugadores} teamAverage={teamAverage} tumbada={z.tumbada} elegido={elegido} onElegir={onElegir} />
+              </div>
+            ))}
+          </div>
+
+          <p className="relative pb-3 text-center text-[11px] tabular-nums sm:hidden" style={{ color: "rgba(226,246,255,.6)" }} aria-hidden>
+            {visible + 1} de {zonas.length} · desliza para ver el resto
+          </p>
+        </>
       )}
     </CampoTecnologico>
   );
@@ -728,7 +800,9 @@ function RadarLinea({
         )}
       </div>
 
-      <svg viewBox="-64 -54 128 108" className={`mx-auto w-full ${tumbada ? "max-w-[210px] xl:max-w-[190px]" : "max-w-[230px]"}`} role="img" aria-label={`Radar de ${titulo}`}>
+      {/* 01/11/2026: lienzo más ancho y los ejes de los lados en dos renglones
+          (nombre y cifra): «Controlar 8,3» y «Ejecutar 9,0» se cortaban por el borde. */}
+      <svg viewBox="-80 -54 160 108" className={`mx-auto w-full ${tumbada ? "max-w-[300px] sm:max-w-[260px] xl:max-w-[236px]" : "max-w-[300px] sm:max-w-[286px]"}`} role="img" aria-label={`Radar de ${titulo}`}>
         {[2.5, 5, 7.5, 10].map((v) => (
           <polygon
             key={v}
@@ -745,7 +819,7 @@ function RadarLinea({
         })}
 
         {teamAverage && (
-          <polygon points={poligono(AXES.map((a) => teamAverage[a.key]))} fill="none" stroke="rgba(228,201,119,.85)" strokeWidth={0.7} strokeDasharray="2 1.6" />
+          <polygon points={poligono(AXES.map((a) => teamAverage[a.key]))} fill="none" stroke="rgba(228,201,119,.9)" strokeWidth={0.9} strokeDasharray="2 1.6" />
         )}
 
         {mediaEje && evaluados.length > 1 && <polygon points={poligono(mediaEje)} fill={`${tono}26`} stroke="none" />}
@@ -774,8 +848,9 @@ function RadarLinea({
 
         {AXES.map((a, i) => {
           const [x, y] = punto(i, 10);
+          const lado = i === 1 || i === 3;
           const dx = i === 1 ? 3 : i === 3 ? -3 : 0;
-          const dy = i === 0 ? -3.5 : i === 2 ? 7.5 : 2;
+          const dy = i === 0 ? -3.5 : i === 2 ? 7.5 : mediaEje ? -1.5 : 2;
           return (
             <text
               key={a.key}
@@ -788,7 +863,7 @@ function RadarLinea({
             >
               {a.corto}
               {mediaEje && (
-                <tspan fill={tono} dx={2}>
+                <tspan fill={tono} {...(lado ? { x: x + dx, dy: 7.4 } : { dx: 2 })}>
                   {coma(mediaEje[i])}
                 </tspan>
               )}
@@ -824,7 +899,7 @@ function Nombres({
           return (
             <span
               key={c.clave}
-              className="inline-flex max-w-full items-center rounded-full px-2 py-[3px] text-[10px] font-semibold"
+              className="inline-flex max-w-full items-center rounded-full px-2.5 py-1 text-[11px] font-semibold sm:px-2 sm:py-[3px] sm:text-[10px]"
               style={{ border: "1px dashed rgba(255,255,255,.22)", color: "rgba(234,248,255,.45)" }}
             >
               <span className="truncate">{c.nombre}</span>
@@ -842,7 +917,7 @@ function Nombres({
             onClick={() => onElegir(activo ? null : c.clave)}
             aria-pressed={activo}
             title={c.dato.estimado ? "Sin valoración todavía: lleva la media de la plantilla" : undefined}
-            className="inline-flex max-w-full items-center gap-1.5 rounded-full px-2 py-[3px] text-[10px] font-semibold transition hover:brightness-125"
+            className="inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[11px] font-semibold transition hover:brightness-125 sm:px-2 sm:py-[3px] sm:text-[10px]"
             style={{
               background: activo ? `${color}33` : "rgba(255,255,255,.05)",
               border: `1px ${c.dato.estimado ? "dashed" : "solid"} ${activo ? color : `${color}55`}`,

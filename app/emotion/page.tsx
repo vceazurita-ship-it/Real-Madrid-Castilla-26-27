@@ -505,10 +505,10 @@ export default function EmotionPage() {
             )}
 
             {/* ---------------------------------------------- Resumen */}
-            <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="mb-5 grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
               <SummaryTile
                 label="Jugadores analizados"
-                value={loading ? "—" : String(rows.length)}
+                value={loading ? null : String(rows.length)}
                 caption={
                   rows.length > 0 && rows.length < MUESTRA_MINIMA
                     ? `Sólo ${rows.length} jugadores medidos: es una tendencia, no un diagnóstico`
@@ -519,7 +519,7 @@ export default function EmotionPage() {
 
               <SummaryTile
                 label="Media de plantilla"
-                value={loading ? "—" : coma(teamScore)}
+                value={loading ? null : coma(teamScore)}
                 caption={
                   loading
                     ? "Cargando datos"
@@ -530,7 +530,7 @@ export default function EmotionPage() {
 
               <SummaryTile
                 label="Dimensión más fuerte"
-                value={axisRanking ? nombreLargo(axisRanking.top) : "—"}
+                value={axisRanking ? nombreLargo(axisRanking.top) : null}
                 caption={
                   axisRanking
                     ? `${axisRanking.top.corto} · ${axisRanking.top.label}`
@@ -541,7 +541,7 @@ export default function EmotionPage() {
 
               <SummaryTile
                 label="Dimensión a desarrollar"
-                value={axisRanking ? nombreLargo(axisRanking.bottom) : "—"}
+                value={axisRanking ? nombreLargo(axisRanking.bottom) : null}
                 caption={
                   axisRanking
                     ? `${axisRanking.bottom.corto} · ${axisRanking.bottom.label}`
@@ -786,32 +786,37 @@ function SummaryTile({
   icon: Icon,
 }: {
   label: string;
-  value: string;
+  /** Mientras carga, null: un hueso, nunca un guion. */
+  value: string | null;
   caption: string;
   tone?: string;
   icon?: React.ElementType;
 }) {
   return (
     <div
-      className="rounded-2xl border border-white/10 bg-[#08131F]/70 px-4 py-4"
+      className="min-w-0 rounded-2xl border border-white/10 bg-[#08131F]/70 px-3 py-3 sm:px-4 sm:py-4"
       style={tone ? { borderColor: `${tone}45` } : undefined}
     >
       <div className="flex items-center justify-between gap-2">
-        <p className="text-[10px] uppercase tracking-[.22em] text-white/45">
+        <p className="text-[10px] uppercase tracking-[.16em] text-white/45 sm:tracking-[.22em]">
           {label}
         </p>
 
-        {Icon && <Icon size={15} className="text-white/30" />}
+        {Icon && <Icon size={15} className="shrink-0 text-white/30" />}
       </div>
 
-      <p
-        className="mt-2 text-2xl font-semibold tabular-nums"
-        style={tone ? { color: chipInk(tone) } : undefined}
-      >
-        {value}
-      </p>
+      {value === null ? (
+        <Hueso className="mt-2 h-7 w-20" />
+      ) : (
+        <p
+          className="mt-2 break-words text-lg font-semibold leading-tight tabular-nums sm:text-2xl"
+          style={tone ? { color: chipInk(tone) } : undefined}
+        >
+          {value}
+        </p>
+      )}
 
-      <p className="mt-1 text-xs text-white/55">{caption}</p>
+      <p className="mt-1 text-[11px] text-white/55 sm:text-xs">{caption}</p>
     </div>
   );
 }
@@ -1007,12 +1012,6 @@ function RadarPanel({
             </span>
           )}
 
-          {series.length >= 3 && (
-            <span className="text-[11px] tabular-nums text-white/60">
-              {series.length} jugadores
-            </span>
-          )}
-
           {/* Con menos de tres jugadores el nivel es una tendencia, no un perfil de línea.
               29/10/2026: el chip gris llevaba tinta clara fija y en modo día salía
               como una píldora vacía; ahora la tinta va por tema y el número de
@@ -1048,7 +1047,7 @@ function RadarPanel({
               key={s.name}
               onClick={() => toggle(s.name)}
               title={`Quitar ${s.name}`}
-              className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition hover:brightness-125"
+              className="inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] font-semibold sm:py-1 transition hover:brightness-125"
               style={{
                 background: `${s.color}25`,
                 color: chipInk(s.color),
@@ -1073,7 +1072,7 @@ function RadarPanel({
           <button
             onClick={() => setAbierto((v) => !v)}
             aria-expanded={abierto}
-            className="inline-flex items-center justify-between gap-2 rounded-full border border-white/15 bg-white/[0.06] px-3 py-1.5 text-[11px] font-medium text-white/80 transition hover:border-white/30 hover:text-white"
+            className="inline-flex items-center justify-between gap-2 rounded-full border border-white/15 bg-white/[0.06] px-3.5 py-2 text-xs font-medium sm:px-3 sm:py-1.5 sm:text-[11px] text-white/80 transition hover:border-white/30 hover:text-white"
           >
             {abierto ? "Cerrar lista" : "Elegir jugadores"}
             <span className="tabular-nums text-white/45">
@@ -1091,7 +1090,7 @@ function RadarPanel({
             <button
               onClick={() => onChange([])}
               disabled={selected.length === 0}
-              className="inline-flex items-center gap-1 text-[10px] text-white/40 transition hover:text-white disabled:opacity-30 disabled:hover:text-white/40"
+              className="inline-flex items-center gap-1 px-1 py-1.5 text-[11px] sm:py-0 sm:text-[10px] text-white/40 transition hover:text-white disabled:opacity-30 disabled:hover:text-white/40"
             >
               <Eraser size={10} />
               Limpiar
@@ -1110,7 +1109,7 @@ function RadarPanel({
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Buscar…"
                 aria-label={`Buscar jugador en ${title}`}
-                className="w-full rounded-full border border-white/10 bg-white/[0.04] py-1.5 pl-7 pr-2 text-[11px] text-white outline-none transition placeholder:text-white/25 focus:border-[#C8A96B]/50"
+                className="w-full rounded-full border border-white/10 bg-white/[0.04] py-2 pl-7 pr-2 text-base sm:py-1.5 sm:text-[11px] text-white outline-none transition placeholder:text-white/25 focus:border-[#C8A96B]/50"
               />
             </div>
           )}
@@ -1118,7 +1117,7 @@ function RadarPanel({
           <div
             role="group"
             aria-label={`Jugadores en ${title}`}
-            className="flex max-h-[150px] flex-wrap content-start gap-1.5 overflow-y-auto rounded-2xl border border-white/10 bg-white/[0.04] p-2 shadow-[inset_0_0_14px_rgba(255,255,255,.03)] backdrop-blur-xl lg:max-h-[210px]"
+            className="flex max-h-[230px] sm:max-h-[150px] flex-wrap content-start gap-1.5 overflow-y-auto rounded-2xl border border-white/10 bg-white/[0.04] p-2 shadow-[inset_0_0_14px_rgba(255,255,255,.03)] backdrop-blur-xl lg:max-h-[210px]"
           >
             {loading && players.length === 0 && (
               <div className="w-full space-y-1.5 p-1">
@@ -1145,7 +1144,7 @@ function RadarPanel({
                   key={name}
                   onClick={() => toggle(name)}
                   aria-pressed={active}
-                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] leading-none transition ${
+                  className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1.5 text-[11px] leading-none sm:px-2 sm:py-1 sm:text-[10px] transition ${
                     active
                       ? "border-white/30 bg-white/15 text-white"
                       : "border-white/10 bg-transparent text-white/55 hover:border-white/25 hover:text-white"
