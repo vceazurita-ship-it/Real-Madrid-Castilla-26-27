@@ -22,7 +22,7 @@ import { toast } from "sonner";
 import type { Player } from "@/types/player";
 import { Button } from "@/components/abp/ui";
 import { TableroSlide } from "@/components/abp/pizarra/TableroSlide";
-import { COLORES, TABLERO_H, TABLERO_W, type SlidePizarra } from "@/lib/abp/pizarra";
+import { COLORES, TABLERO_H, TABLERO_W, lineasConsignas, normalizaConsigna, type SlidePizarra } from "@/lib/abp/pizarra";
 import { fasesDe } from "@/lib/abp/trazos";
 import { PIXEL_VACIO, descarga, esperaFotos, pintado } from "@/lib/export/lienzos";
 import { aligeraImagenes, capturaNodo, fotoRapida, fuentesIncrustadas } from "@/lib/export/captura";
@@ -33,13 +33,16 @@ import { codecLamina, FPS_LAMINA, puedeHacerVideo } from "@/lib/tactics/lamina";
 import { enMarcha, trabajoExportar } from "@/lib/abp/trabajo-exportar";
 import { claveVideo, fuentesDe, guardaVideo, hayVideo, huellaSlide, videoGuardado, type VideoHecho } from "@/lib/abp/cache-exportar";
 
+/** Sube cuando cambia el montaje (ritmo, rótulos): lo grabado antes no vale. */
+const MONTAJE_VIDEO = "ritmo-2";
+
 /** La clave del vídeo de una diapositiva para un destino: si no ha cambiado nada, no se vuelve a grabar. */
 export const claveDelVideo = (
   slide: SlidePizarra,
   titulo: string,
   destino: Destino,
   contexto: { players: Map<string, Player>; temporada: string; rival: string },
-) => claveVideo(huellaSlide(slide, titulo, contexto), destino);
+) => `${claveVideo(huellaSlide(slide, titulo, contexto), destino)}|${MONTAJE_VIDEO}`;
 
 /** Graba, o devuelve el que ya estaba hecho con la misma huella. */
 export async function videoDeLaJugada(clave: string, graba: () => Promise<VideoHecho>): Promise<VideoHecho & { deMemoria: boolean }> {
@@ -73,13 +76,27 @@ const DESTINOS: Record<Destino, { ancho: number; alto: number; caudal: number; t
 | y un córner de tres fases duraba 14,5 s de los que 9,5 eran imagen parada.
 | Ahora la salida se ve lo justo para situarse, entre fases sólo se respira y
 | la pausa larga va al final, con todos en su sitio de llegada.
+|
+| Segunda vuelta de los expertos (01/11/2026): la salida, 2 s (con el nombre
+| de la jugada no daba tiempo a leerla) y entre fases 1,3 s.
 */
-const SALIDA_S = 1.5;
+const SALIDA_S = 2;
 const MOVIMIENTO_S = 1.5;
-const PAUSA_S = 1;
+const PAUSA_S = 1.3;
 const FINAL_S = 3;
 /** Cuánto se ve el rótulo de cada tramo («FASE 2 DE 3») antes de irse. */
 const ROTULO_S = 1.1;
+/** En la salida, el rótulo lleva el nombre de la jugada: se queda casi toda la salida. */
+const ROTULO_SALIDA_S = SALIDA_S - 0.2;
+/** La consigna principal en grande al final: desde cuándo y cuánto. */
+const CONSIGNA_DESDE_S = 0.5;
+const CONSIGNA_S = 2;
+/**
+ * La primera foto de cada fase, un pelo DESPUÉS de su arranque: en el
+ * instante exacto la cabecera de la diapositiva aún decía la fase anterior
+ * mientras el rótulo grande ya anunciaba la nueva.
+ */
+const ARRANQUE = 0.001;
 /**
  * Fotos por fase en movimiento. Entre una y otra ya no se repite la foto
  * (31/10/2026: «que los vídeos sean más fluidos»): las fichas y el balón van
@@ -166,27 +183,100 @@ export function duracionVideo(fases: number) {
   return SALIDA_S + fases * MOVIMIENTO_S + Math.max(0, fases - 1) * PAUSA_S + FINAL_S;
 }
 
-/** El rótulo de cada tramo del vídeo. */
-function rotuloDeTramo(tramo: number, nFases: number) {
-  if (tramo === 0) return "Salida";
-  if (tramo > nFases) return "Llegada";
+/** Los textos del vídeo que salen de la diapositiva: el de cada fase y la consigna principal. */
+export type TextosVideo = { fases: Record<number, string>; consigna: string };
 
-  return nFases === 1 ? "Movimiento" : `Fase ${tramo} de ${nFases}`;
+/** «Fase 2: bloqueo al portero», «F2 · bloqueo al portero», «2.ª fase: …». */
+const FASE_EN_CONSIGNA = /^(?:fase\s*(\d)|f\s*(\d)|(\d)\.?\s*[ªa]?\s*fase)\s*[:.·–-]\s*(.+)$/i;
+
+/**
+ * Lo que la diapositiva dice para el vídeo. La pizarra no tiene un texto por
+ * fase propio: si una consigna empieza por «Fase 2:», ese es el de la fase
+ * 2. La consigna principal es la rutina del guion, o la intención, o la
+ * primera consigna libre (que no sea de una fase).
+ */
+export function textosDelVideo(slide: Pick<SlidePizarra, "notas" | "guion">): TextosVideo {
+  const fases: Record<number, string> = {};
+  const libres: string[] = [];
+
+  for (const linea of lineasConsignas(slide.notas ?? [])) {
+    if (linea.tipo !== "consigna") continue;
+
+    const fase = FASE_EN_CONSIGNA.exec(linea.texto);
+
+    if (fase) {
+      const n = Number(fase[1] ?? fase[2] ?? fase[3]);
+      const texto = fase[4].trim().replace(/[.;]+$/, "");
+
+      if (n >= 1 && n <= 3 && texto && !fases[n]) fases[n] = texto;
+    } else {
+      libres.push(linea.texto.trim().replace(/[.;]+$/, ""));
+    }
+  }
+
+  const guion = [slide.guion?.rutina, slide.guion?.intencion].map((t) => t?.trim() ?? "").find(Boolean);
+
+  return { fases, consigna: guion ? normalizaConsigna(guion).replace(/[.;]+$/, "") : (libres[0] ?? "") };
+}
+
+type Rotulo = { antetitulo?: string; texto: string; dura: number };
+
+/** El rótulo de cada tramo del vídeo. */
+function rotuloDeTramo(tramo: number, nFases: number, titulo: string, textos: TextosVideo): Rotulo {
+  if (tramo === 0) return titulo.trim() ? { antetitulo: "Salida", texto: titulo, dura: ROTULO_SALIDA_S } : { texto: "Salida", dura: ROTULO_S };
+  if (tramo > nFases) return { texto: "Llegada", dura: ROTULO_S };
+
+  const propio = textos.fases[tramo];
+
+  if (propio) return { texto: `Fase ${tramo} · ${propio}`, dura: ROTULO_S };
+
+  return { texto: nFases === 1 ? "Movimiento" : `Fase ${tramo} de ${nFases}`, dura: ROTULO_S };
+}
+
+const fundido = (desde: number, dura: number, salida = 0.3) => (desde < dura - salida ? 1 : Math.max(0, (dura - desde) / salida));
+
+/** Un texto en una línea que quepa en `maxW`: baja la letra hasta 3/4 y, si no, corta palabras. */
+function enUnaLinea(ctx: CanvasRenderingContext2D, texto: string, cuerpo: number, peso: number, maxW: number) {
+  let px = cuerpo;
+  const pon = () => {
+    ctx.font = `${peso} ${px}px ${FAMILIA_PORTADA}, Arial, sans-serif`;
+  };
+
+  pon();
+
+  while (ctx.measureText(texto).width > maxW && px > cuerpo * 0.75) {
+    px -= 1;
+    pon();
+  }
+
+  let linea = texto;
+
+  while (ctx.measureText(linea).width > maxW && linea.includes(" ")) linea = `${linea.slice(0, linea.lastIndexOf(" ")).replace(/[\s·,:;]+$/, "")}…`.replace(/……$/, "…");
+
+  return { linea, px };
 }
 
 /**
  * Lo que va encima de cada fotograma: una barra fina al pie con un tramo por
  * fase (se ve cuánto queda) y, al empezar cada tramo, su rótulo grande, que
  * en el móvil el de la cabecera de la diapositiva no se lee. Se va solo en
- * algo más de un segundo para no tapar las consignas.
+ * algo más de un segundo para no tapar las consignas. Al final, la consigna
+ * principal en grande durante 2 s.
  */
 function pintaCapa(
   ctx: CanvasRenderingContext2D,
   ancho: number,
   alto: number,
-  { progreso, cortes, rotulo, desde }: { progreso: number; cortes: number[]; rotulo: string; desde: number },
+  {
+    progreso,
+    cortes,
+    rotulo,
+    desde,
+    consigna,
+  }: { progreso: number; cortes: number[]; rotulo: Rotulo; desde: number; consigna?: string },
 ) {
   const barra = Math.max(4, Math.round(alto * 0.006));
+  const apaisado = ancho > alto;
 
   ctx.save();
   ctx.fillStyle = "rgba(255,255,255,0.18)";
@@ -197,30 +287,101 @@ function pintaCapa(
 
   for (const corte of cortes) ctx.fillRect(Math.round(ancho * corte) - 1, alto - barra, 3, barra);
 
-  const alpha = desde < ROTULO_S - 0.3 ? 1 : Math.max(0, (ROTULO_S - desde) / 0.3);
+  const alpha = fundido(desde, rotulo.dura);
+  const base = Math.min(ancho, alto * (16 / 9));
 
   if (alpha > 0) {
-    const cuerpo = Math.round(Math.min(ancho, alto * (16 / 9)) * 0.024);
-    const texto = rotulo.toUpperCase();
+    const cuerpo = Math.round(base * 0.024);
+    const chico = Math.round(cuerpo * 0.62);
+    const x = Math.round(ancho * 0.025);
+    /* En horizontal no pasa del césped (el panel de la derecha empieza en el 79 %). */
+    const maxTexto = (apaisado ? ancho * 0.74 : ancho * 0.95) - cuerpo * 1.2;
+    const { linea, px } = enUnaLinea(ctx, rotulo.texto.toUpperCase(), cuerpo, 700, maxTexto);
+    const ante = rotulo.antetitulo?.toUpperCase() ?? "";
+
+    ctx.font = `700 ${px}px ${FAMILIA_PORTADA}, Arial, sans-serif`;
+    const anchoTexto = ctx.measureText(linea).width;
+    ctx.font = `700 ${chico}px ${FAMILIA_PORTADA}, Arial, sans-serif`;
+    const anchoAnte = ante ? ctx.measureText(ante).width : 0;
+
+    const w = Math.max(anchoTexto, anchoAnte) + cuerpo * 1.2;
+    const h = px * 1.6 + (ante ? chico * 1.25 : 0);
+    /* En horizontal, dentro del césped (abajo a la izquierda): más abajo tapaba las consignas. */
+    const y = apaisado ? Math.round(alto * 0.775) - h : alto - barra - h - Math.round(alto * 0.03);
 
     ctx.globalAlpha = alpha;
-    ctx.font = `700 ${cuerpo}px ${FAMILIA_PORTADA}, Arial, sans-serif`;
     ctx.textBaseline = "middle";
     ctx.textAlign = "left";
-
-    const w = ctx.measureText(texto).width + cuerpo * 1.2;
-    const h = cuerpo * 1.6;
-    const x = Math.round(ancho * 0.025);
-    /* En horizontal, dentro del césped (abajo a la izquierda): más abajo tapaba las consignas. */
-    const y = ancho > alto ? Math.round(alto * 0.775) - h : alto - barra - h - Math.round(alto * 0.03);
-
     ctx.fillStyle = "rgba(10,14,20,0.82)";
     ctx.beginPath();
-    ctx.roundRect(x, y, w, h, h / 4);
+    ctx.roundRect(x, y, w, h, Math.min(h, px * 1.6) / 4);
     ctx.fill();
     ctx.fillStyle = COLORES.oro;
     ctx.fillRect(x, y, Math.max(4, cuerpo * 0.18), h);
-    ctx.fillText(texto, x + cuerpo * 0.6, y + h / 2 + 1);
+
+    if (ante) {
+      ctx.font = `700 ${chico}px ${FAMILIA_PORTADA}, Arial, sans-serif`;
+      ctx.fillText(ante, x + cuerpo * 0.6, y + chico * 1.05);
+    }
+
+    ctx.font = `700 ${px}px ${FAMILIA_PORTADA}, Arial, sans-serif`;
+    ctx.fillText(linea, x + cuerpo * 0.6, y + h - px * 0.8 + 1);
+    ctx.globalAlpha = 1;
+  }
+
+  /* La consigna principal, en grande, en los segundos de la llegada. */
+  const enConsigna = desde - CONSIGNA_DESDE_S;
+
+  if (consigna && enConsigna >= 0 && enConsigna < CONSIGNA_S) {
+    const entra = Math.min(1, enConsigna / 0.25);
+    const sale = fundido(enConsigna, CONSIGNA_S, 0.3);
+    const cuerpo = Math.round(base * 0.042);
+    const x = Math.round(ancho * (apaisado ? 0.025 : 0.04));
+    const w = Math.round(apaisado ? ancho * 0.74 : ancho * 0.92);
+    const maxTexto = w - cuerpo * 1.6;
+
+    /* Hasta dos renglones; si no caben, baja la letra. */
+    let px = cuerpo;
+    let lineas: string[] = [];
+
+    for (; px >= cuerpo * 0.6; px -= 2) {
+      ctx.font = `700 ${px}px ${FAMILIA_PORTADA}, Arial, sans-serif`;
+      lineas = [];
+      let actual = "";
+
+      for (const palabra of consigna.split(/\s+/).filter(Boolean)) {
+        const prueba = actual ? `${actual} ${palabra}` : palabra;
+
+        if (actual && ctx.measureText(prueba).width > maxTexto) {
+          lineas.push(actual);
+          actual = palabra;
+        } else {
+          actual = prueba;
+        }
+      }
+
+      if (actual) lineas.push(actual);
+      if (lineas.length <= 2) break;
+    }
+
+    if (lineas.length > 2) lineas = [lineas[0], `${lineas[1]}…`];
+
+    const h = lineas.length * px * 1.2 + px * 0.9;
+    /* En horizontal, sobre el césped, por encima del rótulo; en vertical, en el hueco bajo la diapositiva. */
+    const y = apaisado ? Math.round(alto * 0.36) : Math.round(alto * 0.7);
+
+    ctx.globalAlpha = Math.min(entra, sale);
+    ctx.fillStyle = "rgba(10,14,20,0.86)";
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, px * 0.3);
+    ctx.fill();
+    ctx.fillStyle = COLORES.oro;
+    ctx.fillRect(x, y, Math.max(5, px * 0.14), h);
+    ctx.fillStyle = "#FFFFFF";
+    ctx.textBaseline = "middle";
+    ctx.textAlign = "left";
+    ctx.font = `700 ${px}px ${FAMILIA_PORTADA}, Arial, sans-serif`;
+    lineas.forEach((texto, i) => ctx.fillText(texto, x + px * 0.8, y + px * 0.45 + px * 0.6 + i * px * 1.2));
   }
 
   ctx.restore();
@@ -310,8 +471,16 @@ export async function grabaJugada({
   nFases,
   destino,
   titulo,
+  textos = { fases: {}, consigna: "" },
   alAvance,
-}: PideFoto & { nFases: number; destino: Destino; titulo: string; alAvance?: (fraccion: number) => void }): Promise<{ fichero: Blob; poster: Blob | null; segundos: number }> {
+}: PideFoto & {
+  nFases: number;
+  destino: Destino;
+  titulo: string;
+  /** El texto de cada fase y la consigna principal (`textosDelVideo`). */
+  textos?: TextosVideo;
+  alAvance?: (fraccion: number) => void;
+}): Promise<{ fichero: Blob; poster: Blob | null; segundos: number }> {
   const d = DESTINOS[destino];
   let abierto: VideoEncoder | null = null;
 
@@ -489,8 +658,9 @@ export async function grabaJugada({
         pintaCapa(ctx, d.ancho, d.alto, {
           progreso: cuadros / Math.max(1, cuadrosTotales - 1),
           cortes,
-          rotulo: rotuloDeTramo(tramo, nFases),
+          rotulo: rotuloDeTramo(tramo, nFases, titulo, textos),
           desde: (cuadros - inicios[tramo]) / FPS_LAMINA,
+          consigna: tramo > nFases ? textos.consigna : undefined,
         });
 
         const cuadro = new VideoFrame(lienzo, {
@@ -527,11 +697,23 @@ export async function grabaJugada({
     await emite(cuadrosSalida, reposo);
 
     let poster: string | null = null;
-    /* El fondo sin fichas del final de la fase anterior: es la primera foto de la siguiente si se aparta lo mismo. */
-    let fondoAnterior: { valor: number; aparta: Set<string>; toma: Toma } | null = null;
 
     for (let fase = 1; fase <= nFases; fase += 1) {
       tramo = fase;
+
+      /*
+        El reloj, ya dentro de la fase (`ARRANQUE`): la cabecera de la
+        diapositiva dice la fase nueva desde la primera foto, como el rótulo.
+        Las fichas se cuentan con el reloj puesto: si en el arranque aparece
+        algo (el balón), las claves no se descuadran. La foto del final de la
+        fase anterior ya no sirve de primera: su cabecera es la de antes.
+      */
+      const inicio = fase - 1 + ARRANQUE;
+
+      if (inicio !== ultimo) {
+        await pon(inicio);
+        ultimo = inicio;
+      }
 
       /*
         Las fichas sueltas: la foto sin ninguna contra la foto con sólo unas
@@ -539,12 +721,7 @@ export async function grabaJugada({
         llevaba trozos de la de al lado cuando estaban juntas.
       */
       const claves = [...cajasDe(nodo).keys()];
-      const mismas =
-        fondoAnterior !== null &&
-        fondoAnterior.valor === fase - 1 &&
-        fondoAnterior.aparta.size === claves.length &&
-        claves.every((clave) => fondoAnterior?.aparta.has(clave));
-      const primera = mismas && fondoAnterior ? fondoAnterior.toma : await toma(fase - 1, new Set(claves));
+      const primera = await toma(inicio, new Set(claves));
       const sueltas = new Map<string, HTMLCanvasElement>();
       const tocan = (a: Caja, b: Caja) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
       const tandas: string[][] = [];
@@ -558,7 +735,7 @@ export async function grabaJugada({
       }
 
       for (const tanda of tandas) {
-        const sola = await toma(fase - 1, new Set(claves.filter((c) => !tanda.includes(c))));
+        const sola = await toma(inicio, new Set(claves.filter((c) => !tanda.includes(c))));
 
         for (const clave of tanda) {
           const recorte = recorta(sola.imagen, primera.imagen, primera.cajas.get(clave) as Caja);
@@ -577,8 +754,6 @@ export async function grabaJugada({
         tomas.push(await toma(fase - 1 + k / FOTOS_POR_FASE, aparta));
         avanza();
       }
-
-      fondoAnterior = { valor: fase, aparta, toma: tomas[FOTOS_POR_FASE] };
 
       const porTramo = cuadrosMovimiento / FOTOS_POR_FASE;
 
@@ -714,6 +889,7 @@ export function VideoJugada({
           nFases,
           destino,
           titulo,
+          textos: textosDelVideo(slide),
           alAvance: (fraccion) => setProgreso(`${Math.round(fraccion * 100)} %`),
         });
       });

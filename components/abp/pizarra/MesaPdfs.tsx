@@ -17,10 +17,21 @@ import { useEffect, useMemo, useRef } from "react";
 
 import { TableroSlide } from "@/components/abp/pizarra/TableroSlide";
 import { COLORES, TABLERO_H, TABLERO_W, tituloVisible } from "@/lib/abp/pizarra";
-import { cargaEscudos, cometidosDe, enParalelo, imagenDeCaptura, pdfJugador } from "@/lib/abp/pizarra-jugador";
+import { aJornada, type FilaRival } from "@/lib/abp/jornada";
+import {
+  cargaEscudos,
+  cometidosDe,
+  enParalelo,
+  imagenDeCaptura,
+  pdfJugador,
+  type MarcoCaptura,
+  type SuJugador,
+} from "@/lib/abp/pizarra-jugador";
+import { buildAerialThreats } from "@/lib/abp/rival";
 import { trabajoPdfs, type EncargoPdfs } from "@/lib/abp/trabajo-pdfs";
 import { subeAdjunto } from "@/lib/correo/subeAdjunto";
 import { capturaLienzos, esperaFotos, pintado } from "@/lib/export/lienzos";
+import { traeJson } from "@/lib/hojaCsv";
 import { esperaFuentePortada } from "@/lib/rivals/portada-font";
 
 /*
@@ -32,6 +43,69 @@ const NITIDEZ = 1;
 
 /** PDF que se arman a la vez: el JPEG de cada hoja se codifica fuera del hilo principal. */
 const A_LA_VEZ = 3;
+
+/**
+ * Lo que se pide a la hoja (fecha del partido; nombre y altura de su hombre)
+ * no puede parar los PDF: el Apps Script tarda hasta un minuto en frío. Si no
+ * llega a tiempo, el pie va sin fecha y la marca, con el dorsal solo.
+ */
+const ESPERA_HOJA_MS = 6_000;
+
+const aTiempo = <T,>(promesa: Promise<T>, siNo: T) =>
+  Promise.race([promesa.catch(() => siNo), new Promise<T>((listo) => setTimeout(() => listo(siNo), ESPERA_HOJA_MS))]);
+
+/** La fecha del partido del tablero, de la fila de la hoja RIVALES a la que está atado. */
+async function fechaDelPartido(encargo: EncargoPdfs) {
+  const id = encargo.tablero.rivalId || encargo.tablero.partidoId.replace(/^riv-/, "");
+  const filas = await traeJson<FilaRival[]>("/api/rivals?action=rivales");
+  const fila = (Array.isArray(filas) ? filas : []).find((f) => f && String(f.ID ?? "").trim() === id);
+
+  return fila ? aJornada(fila).fecha : "";
+}
+
+/** Nombre y altura de cada dorsal de su plantilla (para «Marcas al 4 Pérez (1,86 m)»). */
+async function suPlantilla(rival: string) {
+  const filas = await traeJson<unknown>("/api/rivals?action=rivalesPlantillas");
+
+  return new Map<string, SuJugador>(
+    buildAerialThreats(filas, [], rival)
+      .filter((j) => j.dorsal)
+      .map((j) => [j.dorsal, { nombre: j.nombre, altura: j.altura ?? null }]),
+  );
+}
+
+/**
+ * Cómo cae la plantilla en la foto de una diapositiva. Al enseñarla, la
+ * pizarra acerca el campo a la jugada (una capa con `scale` y `translate`
+ * dentro de una caja que recorta): se mide esa capa y esa caja en el DOM, en
+ * píxeles del tablero. Sin capa, la foto es la plantilla tal cual.
+ */
+function marcoDe(nodo: HTMLElement): MarcoCaptura | null {
+  const caja = nodo.getBoundingClientRect();
+  const escala = TABLERO_W / Math.max(1, caja.width);
+  let capa = nodo.querySelector<HTMLElement>("[data-ficha]")?.parentElement ?? null;
+
+  while (capa && capa !== nodo && !/translate\(/.test(capa.style.transform)) capa = capa.parentElement;
+
+  if (!capa || capa === nodo || !capa.parentElement) return null;
+
+  const r = capa.getBoundingClientRect();
+  const recorte = capa.parentElement.getBoundingClientRect();
+
+  if (!r.width || !recorte.width) return null;
+
+  return {
+    k: (r.width * escala) / TABLERO_W,
+    dx: (r.left - caja.left) * escala,
+    dy: (r.top - caja.top) * escala,
+    campo: {
+      x: (recorte.left - caja.left) * escala,
+      y: (recorte.top - caja.top) * escala,
+      w: recorte.width * escala,
+      h: recorte.height * escala,
+    },
+  };
+}
 
 export function MesaPdfs({
   encargo,
@@ -65,16 +139,23 @@ export function MesaPdfs({
 
         if (!raiz) throw new Error("Sin mesa de trabajo");
 
+        /* Lo de la hoja, a la vez que se montan y fotografían las diapositivas. */
+        const fechaEnCamino = aTiempo(fechaDelPartido(encargo), "");
+        const suyosEnCamino = aTiempo(suPlantilla(encargo.rival), new Map<string, SuJugador>());
+
         await pintado();
         await esperaFuentePortada();
         await esperaFotos(raiz);
 
         if (!vivo) return;
 
-        /* Dónde cae la cara de cada uno en cada diapositiva (1920×1080). */
+        /* Dónde cae la cara de cada uno en cada diapositiva (1920×1080), y cómo cae la plantilla. */
         const puntos = new Map<string, { x: number; y: number }>();
+        const marcos = new Map<number, MarcoCaptura | null>();
 
         Array.from(raiz.querySelectorAll<HTMLElement>("[data-abp-tablero]")).forEach((nodo, k) => {
+          marcos.set(indices[k], marcoDe(nodo));
+
           const caja = nodo.getBoundingClientRect();
           const escala = TABLERO_W / Math.max(1, caja.width);
 
@@ -105,6 +186,7 @@ export function MesaPdfs({
         const imagenes = await Promise.all(capturas.map((captura) => imagenDeCaptura(captura ?? "")));
         const porIndice = new Map(indices.map((indice, k) => [indice, imagenes[k] ?? null]));
         const escudos = await escudosEnCamino;
+        const [fecha, suyos] = await Promise.all([fechaEnCamino, suyosEnCamino]);
         const t1 = performance.now();
 
         await enParalelo(encargo.ids, A_LA_VEZ, async (id) => {
@@ -125,8 +207,11 @@ export function MesaPdfs({
               acciones,
               tableros: acciones.map((accion) => porIndice.get(accion.indice) ?? null),
               puntos: acciones.map((accion) => puntos.get(`${accion.indice}:${id}`) ?? null),
+              marcos: acciones.map((accion) => marcos.get(accion.indice) ?? null),
+              suyos,
               rival: encargo.rival,
               jornada: encargo.jornada,
+              fecha,
               escudos,
             });
 

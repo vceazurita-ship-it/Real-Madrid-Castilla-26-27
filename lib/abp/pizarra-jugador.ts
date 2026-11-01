@@ -16,6 +16,12 @@
  *   PARA QUÉ, y en chapas la señal, lo que le toca y lo que viene después si
  *   está dibujado.
  *
+ * Segunda vuelta de los expertos (01/11/2026): arriba y en grande lo que HACE
+ * (su tarea por pasos, o «Marcas al 4 Pérez (1,86 m)» en las defensivas) con
+ * su sigla y su puesto en pequeño encima; el recorte se mide en la foto real
+ * (la pizarra acerca el campo a la jugada) y deja enteros a él y a los de su
+ * zona; la jornada, el rival y la fecha bajan a un pie mínimo con «1 / 9».
+ *
  * Lenguaje de `INDIVIDUAL.pptx` (papel blanco, Barlow Condensed, chapas de
  * `lib/rivals/lienzo-club.ts`). Lo que no tiene contenido no se nombra.
  */
@@ -37,8 +43,10 @@ import {
   type LadoPizarra,
   type LineaConsigna,
   type TableroPizarra,
+  type VistaCampo,
 } from "@/lib/abp/pizarra";
-import type { TipoTrazo } from "@/lib/abp/trazos";
+import type { TipoTrazo, TrazoPizarra } from "@/lib/abp/trazos";
+import { aMetros } from "@/lib/abp-lab/puente-pizarra";
 import {
   C,
   ajusta,
@@ -97,6 +105,16 @@ export type CometidoAccion = {
   marcaPunto: { x: number; y: number } | null;
   /** `despues` sale de una flecha dibujada (no del recordatorio por su papel). */
   despuesDibujado: boolean;
+  /**
+   * Su tarea por pasos, de sus flechas (01/11/2026, expertos): «Sales del
+   * 2.º palo · arrancas en la fase 2 · atacas el punto de penalti». Vacía si
+   * no tiene flechas.
+   */
+  tarea: string;
+  /** El dorsal del rival que marca («Quién marca a quién» o, en defensivas, el dibujado más cerca). */
+  marcaDorsal: string;
+  /** Dónde están sus compañeros de zona (su grupo): el recorte del PDF los deja dentro. */
+  zona: { x: number; y: number }[];
 };
 
 /** A cuánto de su ficha un rival dibujado es «el suyo». */
@@ -167,6 +185,91 @@ function consignasSuyas(
   const elegidas = suyas.length ? suyas : todas.filter((c) => c.colectiva).slice(0, 1);
 
   return elegidas.slice(0, MAX_CONSIGNAS).map((c) => c.cuerpo);
+}
+
+/* ------------------------- su tarea por pasos ------------------------- */
+
+/**
+ * El nombre de un sitio del campo, con su artículo («el 2.º palo», «la
+ * frontal»), a partir de la foto (metros del laboratorio: `x` de banda a
+ * banda, `y` desde la línea de gol). `ladoBalon` es de qué banda llega el
+ * balón (−1, 1, o 0 si no se sabe): con él, el palo cercano es el primero.
+ * Lo que no tiene un nombre claro devuelve "" y el paso va sin sitio.
+ */
+export function nombreDeSitio(vista: VistaCampo, p: { x: number; y: number }, ladoBalon: number): string {
+  const m = aMetros(vista, p);
+
+  if (!Number.isFinite(m.x) || !Number.isFinite(m.y) || m.y < -2 || m.y > 34) return "";
+
+  const dx = m.x - 34;
+  const palo = () => {
+    if (Math.abs(dx) <= 1.2 || !ladoBalon) return "";
+
+    return Math.sign(dx) === ladoBalon ? "el 1.er palo" : "el 2.º palo";
+  };
+
+  if (Math.abs(dx) > 26 && m.y <= 12) return "la corta";
+  if (m.y <= 6 && Math.abs(dx) <= 10) return palo() || "el área pequeña";
+  if (m.y <= 13.5 && Math.abs(dx) <= 6) return "el punto de penalti";
+  if (m.y <= 16.5 && Math.abs(dx) <= 20.2) return palo() || "el área";
+  if (m.y <= 26 && Math.abs(dx) <= 22) return "la frontal";
+
+  return "";
+}
+
+/** «de el» → «del», «a el» → «al». */
+const conDe = (sitio: string) => (sitio.startsWith("el ") ? `del ${sitio.slice(3)}` : `de ${sitio}`);
+const conA = (sitio: string) => (sitio.startsWith("el ") ? `al ${sitio.slice(3)}` : `a ${sitio}`);
+
+/** El paso de una flecha: verbo y adónde. */
+function pasoConSitio(lado: LadoPizarra, tipo: TipoTrazo, sitio: string) {
+  if (!sitio) return VERBO[lado][tipo].toLowerCase();
+
+  if (tipo === "bloqueo") return `bloqueas en ${sitio}`;
+
+  if (tipo === "balon") return lado === "ofensivo" ? `la pones en ${sitio}` : `despejas hacia ${sitio}`;
+
+  return lado === "ofensivo" ? `atacas ${sitio}` : `sales ${conA(sitio)}`;
+}
+
+/**
+ * «Sales del 2.º palo · arrancas en la fase 2 · atacas el punto de penalti»:
+ * de dónde parte, cuándo arranca (si no es en la primera fase) y adónde va
+ * cada flecha suya, en orden. Como mucho tres pasos.
+ */
+function tareaPorPasos(
+  vista: VistaCampo,
+  lado: LadoPizarra,
+  origen: { x: number; y: number } | null,
+  trazos: TrazoPizarra[],
+  todos: TrazoPizarra[],
+) {
+  if (trazos.length === 0) return "";
+
+  const balon = todos.filter((t) => t.tipo === "balon").sort((a, b) => a.fase - b.fase)[0];
+  const salidaBalon = balon ? aMetros(vista, { x: balon.x1, y: balon.y1 }) : null;
+  const ladoBalon = salidaBalon && Math.abs(salidaBalon.x - 34) > 10 ? Math.sign(salidaBalon.x - 34) : 0;
+
+  const pasos: string[] = [];
+
+  for (const trazo of trazos) {
+    const paso = pasoConSitio(lado, trazo.tipo, nombreDeSitio(vista, { x: trazo.x2, y: trazo.y2 }, ladoBalon));
+
+    if (!pasos.includes(paso)) pasos.push(paso);
+  }
+
+  /* El que saca no «sale» de ningún sitio: su primer paso ya es el balón. */
+  const desde = origen && trazos[0].tipo !== "balon" ? nombreDeSitio(vista, origen, ladoBalon) : "";
+  const primeraFase = trazos[0].fase;
+  const fases = Math.max(...todos.map((t) => t.fase));
+
+  const partes = [
+    desde && !pasos[0].endsWith(desde) ? (lado === "ofensivo" ? `sales ${conDe(desde)}` : `empiezas en ${desde}`) : "",
+    primeraFase > 1 && fases > 1 ? `arrancas en la fase ${primeraFase}` : "",
+    ...pasos.slice(0, 3),
+  ].filter(Boolean);
+
+  return mayuscula(partes.join(" · "));
 }
 
 /** Las acciones en las que sale un jugador, en el orden de la charla. */
@@ -252,6 +355,16 @@ export function cometidosDe(
       : "";
 
     const dorsalSuyo = marcado || cercano?.dorsal || "";
+    const marcaDorsal = marcado || (lado === "defensivo" ? (cercano?.dorsal ?? "") : "");
+
+    /* Sus compañeros de zona en el campo: el recorte del PDF no los corta. */
+    const zona = slide.fichas
+      .filter((ficha) => ficha.playerId !== playerId && ficha.x >= 0 && ficha.y >= 0)
+      .filter((ficha) => susGrupos.has(puestoDe(slide, ficha.puesto)?.grupo))
+      .map((ficha) => ({ x: ficha.x, y: ficha.y }));
+
+    const sitio = suyas.find((f) => f.x >= 0 && f.y >= 0);
+    const tarea = tareaPorPasos(slide.vista, lado, sitio ? { x: sitio.x, y: sitio.y } : null, susTrazos, slide.trazos ?? []);
     const marcaPunto =
       (dorsalSuyo && (slide.rivales ?? []).find((otro) => otro.dorsal?.trim() === dorsalSuyo)) || null;
 
@@ -316,6 +429,9 @@ export function cometidosDe(
         foco,
         marcaPunto: marcaPunto ? { x: marcaPunto.x, y: marcaPunto.y } : null,
         despuesDibujado: Boolean(transicion),
+        tarea,
+        marcaDorsal,
+        zona,
       },
     ];
   });
@@ -399,6 +515,8 @@ type Contexto = {
   player: Player | undefined;
   rival: string;
   jornada?: string;
+  /** «YYYY-MM-DD» del partido, para el pie. */
+  fecha?: string;
   escudos: Escudos;
 };
 
@@ -424,11 +542,11 @@ function escudo(ctx: Ctx, imagen: HTMLImageElement | null, nombre: string, x: nu
 /* ----------------------------- cabecera ----------------------------- */
 
 /*
-| Cabecera mínima (01/11/2026, «mucha menos paja»): una franja con nuestro
-| escudo, su dorsal y su nombre, y a la derecha la jornada y por dónde va. La
-| portada grande con la foto se fue: el jugador abre el PDF para ver su tarea.
+| Cabecera mínima: una franja con nuestro escudo, su dorsal y su nombre, y a
+| la derecha por dónde va. La jornada, el rival y la fecha bajaron al pie
+| (01/11/2026, expertos): arriba sólo lo que identifica la hoja.
 */
-const CABEZA_H = 132;
+const CABEZA_H = 112;
 
 function cabecera(ctx: Ctx, cx: Contexto, marcador: string) {
   ctx.fillStyle = C.navy;
@@ -439,40 +557,75 @@ function cabecera(ctx: Ctx, cx: Contexto, marcador: string) {
   let x = MARGEN - 18;
 
   if (cx.escudos.nuestro) {
-    encaja(ctx, cx.escudos.nuestro, x, 22, 82, 82);
-    x += 102;
+    encaja(ctx, cx.escudos.nuestro, x, 18, 72, 72);
+    x += 90;
   }
 
   const dorsal = cx.player?.dorsal != null ? String(cx.player.dorsal).trim() : "";
 
   if (dorsal) {
     ctx.fillStyle = C.rosa;
-    fuente(ctx, 84, 700);
-    x += textoEspaciado(ctx, dorsal, x, 98, 0) + 18;
+    fuente(ctx, 74, 700);
+    x += textoEspaciado(ctx, dorsal, x, 84, 0) + 16;
   }
 
-  const contra = [cx.jornada, cx.rival ? `vs ${cx.rival}` : ""].filter(Boolean).join(" · ").toUpperCase();
   const derecha = HOJA_W - MARGEN;
 
   ctx.textAlign = "right";
-  ctx.fillStyle = "rgba(247,244,236,.78)";
-  const pxContra = ajusta(ctx, contra, 380, 30, 600, 0);
-  const anchoContra = ctx.measureText(contra).width;
-  ctx.fillText(contra, derecha, 56);
-
   ctx.fillStyle = C.rosa;
-  fuente(ctx, 34, 700);
+  fuente(ctx, 32, 700);
   const anchoMarcador = ctx.measureText(marcador).width;
-  ctx.fillText(marcador, derecha, 102);
+  ctx.fillText(marcador, derecha, 72);
   ctx.textAlign = "left";
 
   const nombre = (nombreCorto(cx.player) || "Balón parado").toUpperCase();
 
   ctx.fillStyle = C.crema;
-  ajusta(ctx, nombre, derecha - Math.max(anchoContra, anchoMarcador) - 30 - x, 66, 700, 1);
-  textoEspaciado(ctx, nombre, x, 94, 1);
+  ajusta(ctx, nombre, derecha - anchoMarcador - 30 - x, 60, 700, 1);
+  textoEspaciado(ctx, nombre, x, 82, 1);
+}
 
-  return pxContra;
+/* ------------------------------- pie ------------------------------- */
+
+/** El pie: «Cartagena · J10 · 31 oct» a la izquierda y «1 / 9» a la derecha. */
+const PIE_H = 70;
+
+const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+
+/** «2026-10-31» → «31 oct». Lo que no se entiende, fuera. */
+export function fechaCorta(iso: string | undefined) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso ?? "");
+
+  if (!m) return "";
+
+  const mes = MESES[Number(m[2]) - 1];
+
+  return mes ? `${Number(m[3])} ${mes}` : "";
+}
+
+function pie(ctx: Ctx, cx: Contexto, pagina: number, total: number) {
+  const base = ctx.canvas.height - 12 - 24;
+  const texto = [cx.rival, cx.jornada, fechaCorta(cx.fecha)].map((t) => t?.trim()).filter(Boolean).join(" · ");
+
+  ctx.fillStyle = "rgba(15,30,61,.12)";
+  ctx.fillRect(MARGEN, ctx.canvas.height - 12 - PIE_H + 6, HOJA_W - MARGEN * 2, 2);
+
+  ctx.fillStyle = "rgba(15,30,61,.62)";
+  fuente(ctx, 30, 600);
+  const numero = `${pagina} / ${total}`;
+  const anchoNumero = ctx.measureText(numero).width;
+
+  if (texto) {
+    ajusta(ctx, texto, HOJA_W - MARGEN * 2 - anchoNumero - 40, 30, 600, 1);
+    textoEspaciado(ctx, texto, MARGEN, base, 1);
+  }
+
+  fuente(ctx, 30, 700);
+  ctx.textAlign = "right";
+  ctx.fillText(numero, HOJA_W - MARGEN, base);
+  ctx.textAlign = "left";
+
+  filoRosa(ctx);
 }
 
 /* ----------------------------- resumen ----------------------------- */
@@ -482,18 +635,18 @@ function cabecera(ctx: Ctx, cx: Contexto, marcador: string) {
  * fila por acción con su sigla, su puesto y a quién marca. Es lo que se
  * relee en el autobús sin pasar páginas.
  */
-const RESUMEN_Y = CABEZA_H + 186;
+const RESUMEN_Y = CABEZA_H + 176;
 const RESUMEN_FILA = 150;
-const altoResumen = (acciones: number) => RESUMEN_Y + acciones * RESUMEN_FILA + 30;
+const altoResumen = (acciones: number) => RESUMEN_Y + acciones * RESUMEN_FILA + 16 + PIE_H;
 
-function dibujaResumen(ctx: Ctx, cx: Contexto, acciones: CometidoAccion[]) {
+function dibujaResumen(ctx: Ctx, cx: Contexto, acciones: CometidoAccion[], total: number) {
   cabecera(ctx, cx, `${acciones.length} ACCIONES`);
 
   ctx.fillStyle = C.navy;
   ajusta(ctx, "TU BALÓN PARADO", HOJA_W - MARGEN * 2, 96, 700, 2);
-  textoEspaciado(ctx, "TU BALÓN PARADO", MARGEN, CABEZA_H + 122, 2);
+  textoEspaciado(ctx, "TU BALÓN PARADO", MARGEN, CABEZA_H + 116, 2);
   ctx.fillStyle = C.rosa;
-  ctx.fillRect(MARGEN, CABEZA_H + 142, 200, 10);
+  ctx.fillRect(MARGEN, CABEZA_H + 136, 200, 10);
 
   const y0 = RESUMEN_Y;
   const fila = RESUMEN_FILA;
@@ -547,7 +700,7 @@ function dibujaResumen(ctx: Ctx, cx: Contexto, acciones: CometidoAccion[]) {
     }
   });
 
-  filoRosa(ctx);
+  pie(ctx, cx, 1, total);
 }
 
 /* ----------------------------- una acción ----------------------------- */
@@ -556,45 +709,81 @@ function dibujaResumen(ctx: Ctx, cx: Contexto, acciones: CometidoAccion[]) {
 const CAMPO_ARRIBA = CABECERA_SLIDE;
 /** El panel de puestos de la derecha: si él no está ahí, no se enseña. */
 const CAMPO_DERECHA = 1516;
-const TABLERO_Y = CABEZA_H + 166;
 /** Dónde acaba el campo: debajo va la franja de consignas (206 px en TableroSlide), que aquí salía cortada. */
 const CAMPO_ABAJO = TABLERO_H - 206 - 14;
 
-type Encuadre = { sx: number; sy: number; sw: number; sh: number; alto: number };
+/**
+ * Cómo cae la diapositiva en su foto (01/11/2026). Al enseñarla, la pizarra
+ * ACERCA el campo a la jugada (`maquetaDe` en TableroSlide): una ficha en
+ * (x, y) de la plantilla sale en la foto en (dx + x·k, dy + y·k), y el césped
+ * ocupa sólo el rectángulo `campo`. Sin marco, la foto es la plantilla tal
+ * cual (el arnés de Node) y el césped, lo que queda entre la cabecera, el
+ * panel y las consignas.
+ */
+export type MarcoCaptura = { k: number; dx: number; dy: number; campo: { x: number; y: number; w: number; h: number } };
+
+const MARCO_PLANO: MarcoCaptura = {
+  k: 1,
+  dx: 0,
+  dy: 0,
+  campo: { x: 0, y: CAMPO_ARRIBA, w: CAMPO_DERECHA, h: CAMPO_ABAJO - CAMPO_ARRIBA },
+};
+
+type Encuadre = { sx: number; sy: number; sw: number; sh: number; alto: number; k: number };
+
+/** Lo que ocupa una ficha alrededor de sus pies (foto de 120 encima, chapa y nombre debajo). */
+const FICHA = { izq: 72, der: 72, arriba: 150, abajo: 62 };
+/** Alto máximo del campo en la hoja: más, y el texto de debajo se va del primer vistazo. */
+const CAMPO_MAX_HOJA = 1180;
 
 /**
- * El trozo de la diapositiva que le importa (01/11/2026): sus fichas, sus
- * flechas y el rival que marca, con aire alrededor. Antes iba la diapositiva
- * entera a lo ancho de la hoja y su cara medía un dedo; así sale casi al
- * doble y fuera queda el título y el panel, que ya están escritos debajo.
+ * El trozo de la foto que le importa: él y sus compañeros de zona ENTEROS
+ * (con su foto y su chapa, que antes se cortaban por la derecha y por
+ * abajo), sus flechas, el rival que marca y el balón, con aire alrededor.
+ * Nunca sale del césped: ni la cabecera, ni el panel, ni las consignas.
  */
-function encuadre(puntos: { x: number; y: number }[]): Encuadre {
-  const altoCampo = CAMPO_ABAJO - CAMPO_ARRIBA;
+function encuadre(accion: CometidoAccion, yo: { x: number; y: number } | null, marco: MarcoCaptura): Encuadre {
+  const { k, dx, dy, campo } = marco;
+  const cajas: { x0: number; y0: number; x1: number; y1: number }[] = [];
+  const caja = (p: { x: number; y: number }, m: typeof FICHA) =>
+    cajas.push({ x0: dx + (p.x - m.izq) * k, y0: dy + (p.y - m.arriba) * k, x1: dx + (p.x + m.der) * k, y1: dy + (p.y + m.abajo) * k });
 
-  if (puntos.length === 0) {
-    return { sx: 0, sy: CAMPO_ARRIBA, sw: TABLERO_W, sh: altoCampo, alto: Math.round((HOJA_W * altoCampo) / TABLERO_W) };
+  accion.zona.forEach((p) => caja(p, FICHA));
+  accion.foco.forEach((p) => caja(p, { izq: 50, der: 50, arriba: 110, abajo: 50 }));
+
+  if (accion.marcaPunto) caja(accion.marcaPunto, { izq: 50, der: 50, arriba: 90, abajo: 30 });
+
+  /* Su cara, medida en la foto: ya viene en píxeles de la foto. */
+  if (yo) cajas.push({ x0: yo.x - 80 * k, y0: yo.y - 120 * k, x1: yo.x + 80 * k, y1: yo.y + 130 * k });
+
+  if (cajas.length === 0) {
+    return { sx: campo.x, sy: campo.y, sw: campo.w, sh: campo.h, alto: Math.round((HOJA_W * campo.h) / campo.w), k };
   }
 
-  const xs = puntos.map((p) => p.x);
-  const ys = puntos.map((p) => p.y);
-  const [minX, maxX, minY, maxY] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+  /* Lo que se sale del césped no se puede enseñar: se recorta a él. */
+  const x0 = Math.max(campo.x, Math.min(...cajas.map((c) => c.x0)));
+  const y0 = Math.max(campo.y, Math.min(...cajas.map((c) => c.y0)));
+  const x1 = Math.min(campo.x + campo.w, Math.max(...cajas.map((c) => c.x1)));
+  const y1 = Math.min(campo.y + campo.h, Math.max(...cajas.map((c) => c.y1)));
+  const aire = 24 * k;
 
-  /* Nunca menos de 3/5 de la diapositiva: la referencia del área y la portería. */
-  const w = Math.min(TABLERO_W, Math.max(maxX - minX + 360, 1150));
-  const h = Math.min(altoCampo, Math.max(maxY - minY + 380, w * 0.8));
-  const alto = Math.round((HOJA_W * h) / w);
+  /* Nunca menos de media diapositiva: la referencia del área y la portería. */
+  let w = Math.min(campo.w, Math.max(x1 - x0 + aire * 2, 1000 * k));
+  const h = Math.min(campo.h, Math.max(y1 - y0 + aire * 2, w * 0.62));
 
-  const tope = maxX < CAMPO_DERECHA && w <= CAMPO_DERECHA ? CAMPO_DERECHA : TABLERO_W;
-  const centroX = (minX + maxX) / 2;
-  /* Algo hacia arriba: la cara va por encima de los pies. */
-  const centroY = (minY + maxY) / 2 - 30;
+  /* Si sale muy alto en la hoja, se abre a lo ancho (si cabe) antes que encoger. */
+  if ((HOJA_W * h) / w > CAMPO_MAX_HOJA) w = Math.min(campo.w, (h * HOJA_W) / CAMPO_MAX_HOJA);
+
+  const cxBox = (x0 + x1) / 2;
+  const cyBox = (y0 + y1) / 2;
 
   return {
-    sx: Math.max(0, Math.min(tope - w, centroX - w / 2)),
-    sy: Math.max(CAMPO_ARRIBA, Math.min(CAMPO_ABAJO - h, centroY - h / 2)),
+    sx: Math.max(campo.x, Math.min(campo.x + campo.w - w, cxBox - w / 2)),
+    sy: Math.max(campo.y, Math.min(campo.y + campo.h - h, cyBox - h / 2)),
     sw: w,
     sh: h,
-    alto,
+    alto: Math.round((HOJA_W * h) / w),
+    k,
   };
 }
 
@@ -605,10 +794,14 @@ function encuadre(puntos: { x: number; y: number }[]): Encuadre {
 function resalta(
   ctx: Ctx,
   enc: Encuadre,
+  top: number,
   punto: { x: number; y: number } | null,
+  marca: { x: number; y: number } | null,
   accion: CometidoAccion,
 ) {
   const z = HOJA_W / enc.sw;
+  /* Los tamaños, de la ficha en la foto: si la pizarra acercó el campo, el aro crece con ella. */
+  const s = z * enc.k;
   const enHoja = (p: { x: number; y: number }) => ({ x: (p.x - enc.sx) * z, y: (p.y - enc.sy) * z });
 
   const capa = document.createElement("canvas");
@@ -632,34 +825,34 @@ function resalta(
   };
 
   const yo = punto ? enHoja(punto) : null;
-  const suyo = accion.marcaPunto ? enHoja({ x: accion.marcaPunto.x, y: accion.marcaPunto.y - 30 }) : null;
+  const suyo = marca ? enHoja(marca) : null;
 
-  if (yo) luz(yo, 80 * z, 260 * z);
-  if (suyo) luz(suyo, 50 * z, 150 * z);
+  if (yo) luz(yo, 80 * s, 260 * s);
+  if (suyo) luz(suyo, 50 * s, 150 * s);
 
-  if (yo || suyo) ctx.drawImage(capa, 0, TABLERO_Y);
+  if (yo || suyo) ctx.drawImage(capa, 0, top);
 
   capa.width = 0;
 
   ctx.save();
   ctx.beginPath();
-  ctx.rect(0, TABLERO_Y, HOJA_W, enc.alto);
+  ctx.rect(0, top, HOJA_W, enc.alto);
   ctx.clip();
 
   if (suyo) {
-    const radio = 46 * z;
+    const radio = 46 * s;
 
     ctx.setLineDash([14, 10]);
     ctx.strokeStyle = "#FFFFFF";
     ctx.lineWidth = 6;
     ctx.beginPath();
-    ctx.arc(suyo.x, TABLERO_Y + suyo.y, radio, 0, Math.PI * 2);
+    ctx.arc(suyo.x, top + suyo.y, radio, 0, Math.PI * 2);
     ctx.stroke();
     ctx.setLineDash([]);
 
     chapa(ctx, accion.rival.startsWith("Marcas") ? "TU HOMBRE" : "TE VIGILA", {
       x: suyo.x,
-      y: Math.min(TABLERO_Y + enc.alto - 48, TABLERO_Y + suyo.y + radio + 10),
+      y: Math.min(top + enc.alto - 48, top + suyo.y + radio + 10),
       alto: 40,
       fondo: "#7A1F2B",
       tinta: C.crema,
@@ -671,12 +864,12 @@ function resalta(
   }
 
   if (yo) {
-    const radio = 50 * z;
+    const radio = 50 * s;
 
     ctx.strokeStyle = "rgba(255,255,255,.95)";
     ctx.lineWidth = 14;
     ctx.beginPath();
-    ctx.arc(yo.x, TABLERO_Y + yo.y, radio, 0, Math.PI * 2);
+    ctx.arc(yo.x, top + yo.y, radio, 0, Math.PI * 2);
     ctx.stroke();
     ctx.strokeStyle = C.rosa;
     ctx.lineWidth = 8;
@@ -684,7 +877,7 @@ function resalta(
 
     chapa(ctx, "TÚ", {
       x: yo.x,
-      y: Math.max(TABLERO_Y + 10, TABLERO_Y + yo.y - radio - 56),
+      y: Math.max(top + 10, top + yo.y - radio - 56),
       alto: 46,
       fondo: C.rosa,
       tinta: C.navy,
@@ -698,94 +891,161 @@ function resalta(
   ctx.restore();
 }
 
-/** Lo que hace, por fases si tiene más de una: «Fase 1: bloqueas · fase 2: atacas». */
+/** Lo que hace sin flechas con sitio: «Atacas con Carvajal y Óscar». */
 function queHaces(accion: CometidoAccion) {
-  const fases = new Set(accion.pasos.map((p) => p.fase));
-  const hacer =
-    fases.size > 1
-      ? accion.pasos.map((p, i) => `${i ? "fase" : "Fase"} ${p.fase}: ${p.verbo.toLowerCase()}`).join(" · ")
-      : lista([...new Set(accion.pasos.map((p) => p.verbo))].map((v, i) => (i ? v.toLowerCase() : v)));
+  const hacer = lista([...new Set(accion.pasos.map((p) => p.verbo))].map((v, i) => (i ? v.toLowerCase() : v)));
 
-  const con = accion.con.length ? `${hacer ? "con" : "junto a"} ${lista(accion.con)}` : "";
-
-  return mayuscula([hacer, con].filter(Boolean).join(" "));
+  return hacer ? mayuscula([hacer, accion.con.length ? `con ${lista(accion.con)}` : ""].filter(Boolean).join(" ")) : "";
 }
 
+/** Quién es su hombre: dorsal, nombre y altura si se saben. */
+export type SuJugador = { nombre: string; altura: number | null };
+
+const metros = (cm: number | null) => (cm && cm >= 150 && cm <= 215 ? `${(cm / 100).toFixed(2).replace(".", ",")} m` : "");
+
 /**
- * El texto de debajo del campo. Con `pinta` en falso sólo mide: el campo
- * se queda con el sitio que el texto no usa.
+ * Lo que va arriba y en grande (01/11/2026, expertos): lo que HACE. En las
+ * defensivas con marca, «Marcas al 4 Pérez (1,86 m)»; si no, su tarea por
+ * pasos; sin flechas, el titular «Atacas con Carvajal y Óscar»; y si no hay
+ * nada de eso, su puesto. Debajo, más pequeño, con quién y para qué.
  */
-function bloqueTarea(ctx: Ctx, accion: CometidoAccion, y0: number, pinta: boolean) {
-  let y = y0 + 40;
-  const ancho = HOJA_W - MARGEN * 2;
+function titulares(accion: CometidoAccion, suyos: Map<string, SuJugador> | undefined) {
+  const puesto = mayuscula(accion.puestos.map((p) => p.label).join(" · ").toLocaleLowerCase("es-ES"));
+  const con = accion.con.length ? `con ${lista(accion.con)}` : "";
+  const para = accion.para ? `para ${minuscula(accion.para)}` : "";
 
-  /* DÓNDE: la sigla en un disco y el puesto; al lado, a quién marca. */
-  const sigla = accion.puestos.map((p) => p.sigla).join("·") || "★";
-  const puesto = accion.puestos.map((p) => p.label).join(" · ").toUpperCase();
-  const r = 66;
-  const tx = MARGEN + r * 2 + 30;
+  if (accion.lado === "defensivo") {
+    if (accion.marcaDorsal) {
+      const su = suyos?.get(accion.marcaDorsal);
+      const alto = metros(su?.altura ?? null);
+      const grande = [`Marcas al ${accion.marcaDorsal}`, su?.nombre ?? "", alto ? `(${alto})` : ""].filter(Boolean).join(" ");
 
+      return { grande, debajo: mayuscula([accion.tarea ? minuscula(accion.tarea) : "", con, para].filter(Boolean).join(" · ")) };
+    }
+
+    return { grande: accion.tarea || puesto, debajo: mayuscula([con, para].filter(Boolean).join(" · ")) };
+  }
+
+  if (accion.tarea) return { grande: accion.tarea, debajo: mayuscula([con, para].filter(Boolean).join(" · ")) };
+
+  const titular = queHaces(accion);
+
+  if (titular) return { grande: titular, debajo: mayuscula(para) };
+
+  return { grande: puesto, debajo: mayuscula([con, para].filter(Boolean).join(" · ")) };
+}
+
+type PlanAccion = {
+  yo: { x: number; y: number } | null;
+  marca: { x: number; y: number } | null;
+  enc: Encuadre | null;
+  grande: string[];
+  debajo: string[];
+  yCampo: number;
+  alto: number;
+};
+
+const GRANDE_PX = 60;
+const DEBAJO_PX = 40;
+
+/**
+ * Lo que va arriba: el lado y la acción, su sigla y su puesto en una línea
+ * pequeña, y en grande lo que hace. Con `pinta` en falso sólo mide.
+ */
+function bloqueArriba(ctx: Ctx, accion: CometidoAccion, plan: Pick<PlanAccion, "grande" | "debajo">, pinta: boolean) {
+  let y = CABEZA_H + 28;
+
+  /* 1 · El lado y la acción, en una línea. */
   if (pinta) {
+    const lado = LADO_PIZARRA_LABEL[accion.lado].toUpperCase();
+    const opciones = {
+      x: MARGEN,
+      y,
+      alto: 40,
+      fondo: accion.lado === "ofensivo" ? C.verde : C.rosa,
+      tinta: accion.lado === "ofensivo" ? C.crema : C.navy,
+      tamano: 22,
+      espaciado: 3,
+      padding: 16,
+    };
+    const anchoLado = chapa(ctx, lado, { ...opciones, soloMide: true }) as number;
+
+    chapa(ctx, lado, opciones);
+
+    const titulo = accion.titulo.toUpperCase();
+    const tx = MARGEN + anchoLado + 18;
+
+    ctx.fillStyle = C.navy;
+    ajusta(ctx, titulo, HOJA_W - MARGEN - tx, 44, 700, 1);
+    textoEspaciado(ctx, titulo, tx, y + 34, 1);
+  }
+
+  y += 40 + 24;
+
+  /* 2 · Su sigla y su puesto (y quién le vigila), pequeño. */
+  if (pinta) {
+    const sigla = accion.puestos.map((p) => p.sigla).join("·") || "★";
+    const r = 22;
+
     ctx.fillStyle = C.rosa;
     ctx.beginPath();
     ctx.arc(MARGEN + r, y + r, r, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = C.navy;
-    const px = ajusta(ctx, sigla, r * 1.6, 84, 700, 0);
+    const px = ajusta(ctx, sigla, r * 1.7, 26, 700, 0);
     ctx.textAlign = "center";
     ctx.fillText(sigla, MARGEN + r, y + r + px * 0.35);
     ctx.textAlign = "left";
 
-    if (puesto) {
-      ctx.fillStyle = C.navy;
-      ajusta(ctx, puesto, HOJA_W - MARGEN - tx, 64, 700, 1);
-      textoEspaciado(ctx, puesto, tx, y + (accion.rival ? 58 : r + 22), 1);
-    }
+    const linea = [
+      accion.puestos.map((p) => p.label).join(" · "),
+      accion.lado === "ofensivo" ? accion.rival : "",
+    ]
+      .filter(Boolean)
+      .join(" · ")
+      .toUpperCase();
 
-    if (accion.rival) {
-      chapa(ctx, accion.rival.toUpperCase(), {
-        x: tx,
-        y: y + (puesto ? 78 : r - 28),
-        alto: 56,
-        fondo: "#7A1F2B",
-        tinta: C.crema,
-        tamano: 34,
-        espaciado: 2,
-        padding: 22,
-        anchoMax: HOJA_W - MARGEN - tx,
-      });
+    if (linea) {
+      ctx.fillStyle = "rgba(15,30,61,.72)";
+      ajusta(ctx, linea, HOJA_W - MARGEN - (MARGEN + r * 2 + 16), 30, 600, 2);
+      textoEspaciado(ctx, linea, MARGEN + r * 2 + 16, y + r + 11, 2);
     }
   }
 
-  y += r * 2 + 26;
+  y += 44 + 8;
 
-  /* QUÉ HACE y PARA QUÉ: letra grande, que se lee en el móvil. */
-  const tarea = queHaces(accion);
-  const lineas: { texto: string; color: string; px: number; peso: 500 | 600 | 700 }[] = [];
-
-  fuente(ctx, 52, 700);
-  if (tarea) renglones(ctx, tarea, ancho).forEach((texto) => lineas.push({ texto, color: C.navy, px: 52, peso: 700 }));
-
-  fuente(ctx, 46, 600);
-  if (accion.para) {
-    renglones(ctx, `Para ${minuscula(accion.para)}`, ancho).forEach((texto) =>
-      lineas.push({ texto, color: colorLado(accion.lado), px: 46, peso: 600 }),
-    );
-  }
-
-  for (const linea of lineas) {
-    y += linea.px * 1.22;
+  /* 3 · Lo que hace, en grande. */
+  for (const linea of plan.grande) {
+    y += GRANDE_PX * 1.08;
 
     if (pinta) {
-      ctx.fillStyle = linea.color;
-      fuente(ctx, linea.px, linea.peso);
-      ctx.fillText(linea.texto, MARGEN, y);
+      ctx.fillStyle = C.navy;
+      fuente(ctx, GRANDE_PX, 700);
+      ctx.fillText(linea, MARGEN, y);
     }
   }
 
-  if (lineas.length) y += 26;
+  /* 4 · Con quién y para qué. */
+  if (plan.debajo.length) y += 8;
 
-  /* La señal (ofensivas), lo que le toca y lo que viene después: con su chapa. */
+  for (const linea of plan.debajo) {
+    y += DEBAJO_PX * 1.2;
+
+    if (pinta) {
+      ctx.fillStyle = colorLado(accion.lado);
+      fuente(ctx, DEBAJO_PX, 600);
+      ctx.fillText(linea, MARGEN, y);
+    }
+  }
+
+  return y + 26;
+}
+
+/** SEÑAL, OJO y DESPUÉS, con su chapa; la señal, la primera. */
+function bloqueNotas(ctx: Ctx, accion: CometidoAccion, y0: number, pinta: boolean) {
+  let y = y0 + 30;
+  const ancho = HOJA_W - MARGEN * 2;
+
   const notas: { rotulo: string; fondo: string; tinta: string; texto: string }[] = [
     ...(accion.senal ? [{ rotulo: "SEÑAL", fondo: C.navy, tinta: C.crema, texto: accion.senal }] : []),
     ...accion.consignas.map((texto) => ({ rotulo: "OJO", fondo: C.rosa, tinta: C.navy, texto })),
@@ -797,13 +1057,13 @@ function bloqueTarea(ctx: Ctx, accion: CometidoAccion, y0: number, pinta: boolea
   const sangria = 170;
 
   for (const nota of notas) {
-    fuente(ctx, 42, 500);
+    fuente(ctx, 40, 500);
     const filas = renglones(ctx, nota.texto, ancho - sangria);
 
     if (pinta) {
       chapa(ctx, nota.rotulo, {
         x: MARGEN,
-        y: y + 6,
+        y: y + 4,
         alto: 44,
         fondo: nota.fondo,
         tinta: nota.tinta,
@@ -814,24 +1074,44 @@ function bloqueTarea(ctx: Ctx, accion: CometidoAccion, y0: number, pinta: boolea
       });
 
       ctx.fillStyle = C.navy;
-      fuente(ctx, 42, 500);
-      filas.forEach((fila, i) => ctx.fillText(fila, MARGEN + sangria, y + 42 + i * 52));
+      fuente(ctx, 40, 500);
+      filas.forEach((fila, i) => ctx.fillText(fila, MARGEN + sangria, y + 40 + i * 50));
     }
 
-    y += Math.max(56, filas.length * 52) + 22;
+    y += Math.max(54, filas.length * 50) + 20;
   }
 
-  return y;
+  return notas.length ? y : y0;
 }
 
 /** Lo que mide la hoja de una acción, antes de pintarla. */
-function planAccion(accion: CometidoAccion, punto: { x: number; y: number } | null, conTablero: boolean) {
-  const yo = punto ?? (accion.foco[0] ? { x: accion.foco[0].x, y: accion.foco[0].y - 50 } : null);
-  const enc = conTablero ? encuadre([...accion.foco, ...(yo ? [yo] : [])]) : null;
-  const yTexto = TABLERO_Y + (enc ? enc.alto + 8 : 0);
-  const alto = bloqueTarea(midiendo(), accion, yTexto, false) + 24;
+function planAccion(
+  accion: CometidoAccion,
+  punto: { x: number; y: number } | null,
+  conTablero: boolean,
+  marco: MarcoCaptura,
+  suyos: Map<string, SuJugador> | undefined,
+): PlanAccion {
+  const enFoto = (p: { x: number; y: number }) => ({ x: marco.dx + p.x * marco.k, y: marco.dy + p.y * marco.k });
+  const yo = punto ?? (accion.foco[0] ? enFoto({ x: accion.foco[0].x, y: accion.foco[0].y - 50 }) : null);
+  const marca = accion.marcaPunto ? enFoto({ x: accion.marcaPunto.x, y: accion.marcaPunto.y - 30 }) : null;
+  const enc = conTablero ? encuadre(accion, yo, marco) : null;
 
-  return { yo, enc, yTexto, alto };
+  const medida = midiendo();
+  const { grande, debajo } = titulares(accion, suyos);
+  const ancho = HOJA_W - MARGEN * 2;
+
+  fuente(medida, GRANDE_PX, 700);
+  const lineasGrande = grande ? renglones(medida, grande, ancho).slice(0, 3) : [];
+
+  fuente(medida, DEBAJO_PX, 600);
+  const lineasDebajo = debajo ? renglones(medida, debajo, ancho).slice(0, 2) : [];
+
+  const yCampo = bloqueArriba(medida, accion, { grande: lineasGrande, debajo: lineasDebajo }, false);
+  const yNotas = yCampo + (enc ? enc.alto + 8 : 0);
+  const alto = bloqueNotas(medida, accion, yNotas, false) + 10 + PIE_H;
+
+  return { yo, marca, enc, grande: lineasGrande, debajo: lineasDebajo, yCampo, alto };
 }
 
 function dibujaAccion(
@@ -839,45 +1119,34 @@ function dibujaAccion(
   cx: Contexto,
   accion: CometidoAccion,
   tablero: CanvasImageSource | null,
-  plan: ReturnType<typeof planAccion>,
+  plan: PlanAccion,
   orden: number,
-  total: number,
+  acciones: number,
+  pagina: number,
+  paginas: number,
 ) {
-  cabecera(ctx, cx, total > 1 ? `ACCIÓN ${orden} DE ${total}` : "BALÓN PARADO");
+  cabecera(ctx, cx, acciones > 1 ? `ACCIÓN ${orden} DE ${acciones}` : "BALÓN PARADO");
 
-  /* El lado y el título de la acción. */
-  chapa(ctx, LADO_PIZARRA_LABEL[accion.lado].toUpperCase(), {
-    x: MARGEN,
-    y: CABEZA_H + 24,
-    alto: 42,
-    fondo: accion.lado === "ofensivo" ? C.verde : C.rosa,
-    tinta: accion.lado === "ofensivo" ? C.crema : C.navy,
-    tamano: 24,
-    espaciado: 3,
-    padding: 18,
-  });
-
-  ctx.fillStyle = C.navy;
-  const titulo = accion.titulo.toUpperCase();
-  ajusta(ctx, titulo, HOJA_W - MARGEN * 2, 76, 700, 1);
-  textoEspaciado(ctx, titulo, MARGEN, CABEZA_H + 140, 1);
+  bloqueArriba(ctx, accion, plan, true);
 
   /* El campo, encuadrado en lo suyo y con él en foco. */
-  const { enc, yo, yTexto } = plan;
+  const { enc, yo, marca, yCampo } = plan;
 
   if (tablero && enc) {
     const k = ("width" in tablero ? Number(tablero.width) : TABLERO_W) / TABLERO_W;
 
+    ctx.fillStyle = C.rosa;
+    ctx.fillRect(0, yCampo - 8, HOJA_W, 8);
     ctx.imageSmoothingQuality = "high";
-    ctx.drawImage(tablero, enc.sx * k, enc.sy * k, enc.sw * k, enc.sh * k, 0, TABLERO_Y, HOJA_W, enc.alto);
-    resalta(ctx, enc, yo, accion);
+    ctx.drawImage(tablero, enc.sx * k, enc.sy * k, enc.sw * k, enc.sh * k, 0, yCampo, HOJA_W, enc.alto);
+    resalta(ctx, enc, yCampo, yo, marca, accion);
 
     ctx.fillStyle = C.rosa;
-    ctx.fillRect(0, TABLERO_Y + enc.alto, HOJA_W, 8);
+    ctx.fillRect(0, yCampo + enc.alto, HOJA_W, 8);
   }
 
-  bloqueTarea(ctx, accion, yTexto, true);
-  filoRosa(ctx);
+  bloqueNotas(ctx, accion, yCampo + (enc ? enc.alto + 8 : 0), true);
+  pie(ctx, cx, pagina, paginas);
 }
 
 /* ------------------------------------------------------------------ */
@@ -949,37 +1218,46 @@ async function jpegDe(canvas: HTMLCanvasElement): Promise<Uint8Array | string> {
 /**
  * Monta el PDF de un jugador. `tableros[i]` es la foto de la diapositiva de
  * `acciones[i]` (la misma para todos: el resalte se pinta aquí) y `puntos[i]`
- * dónde cae su cara en ella (1920×1080).
+ * dónde cae su cara en ella (1920×1080). `marcos[i]` dice cómo cae la
+ * plantilla en esa foto (la pizarra acerca el campo a la jugada); `suyos`, el
+ * nombre y la altura de cada dorsal del rival, para «Marcas al 4 Pérez».
  */
 export async function pdfJugador(opciones: {
   player: Player | undefined;
   acciones: CometidoAccion[];
   tableros: (CanvasImageSource | null)[];
   puntos?: ({ x: number; y: number } | null)[];
+  marcos?: (MarcoCaptura | null)[];
+  suyos?: Map<string, SuJugador>;
   rival: string;
   jornada?: string;
+  /** «YYYY-MM-DD» del partido, para el pie. */
+  fecha?: string;
   escudos: Escudos;
 }): Promise<PdfJugador> {
   const { jsPDF } = await import("jspdf");
   const { player, acciones } = opciones;
 
-  const cx: Contexto = { player, rival: opciones.rival, jornada: opciones.jornada, escudos: opciones.escudos };
+  const cx: Contexto = { player, rival: opciones.rival, jornada: opciones.jornada, fecha: opciones.fecha, escudos: opciones.escudos };
 
   const hojas: HTMLCanvasElement[] = [];
+  const conResumen = acciones.length >= 2;
+  const paginas = acciones.length + (conResumen ? 1 : 0);
 
-  if (acciones.length >= 2) {
+  if (conResumen) {
     const resumen = lienzo(altoResumen(acciones.length));
 
-    dibujaResumen(resumen.ctx, cx, acciones);
+    dibujaResumen(resumen.ctx, cx, acciones, paginas);
     hojas.push(resumen.canvas);
   }
 
   acciones.forEach((accion, orden) => {
     const tablero = opciones.tableros[orden] ?? null;
-    const plan = planAccion(accion, opciones.puntos?.[orden] ?? null, Boolean(tablero));
+    const marco = opciones.marcos?.[orden] ?? MARCO_PLANO;
+    const plan = planAccion(accion, opciones.puntos?.[orden] ?? null, Boolean(tablero), marco, opciones.suyos);
     const hoja = lienzo(plan.alto);
 
-    dibujaAccion(hoja.ctx, cx, accion, tablero, plan, orden + 1, acciones.length);
+    dibujaAccion(hoja.ctx, cx, accion, tablero, plan, orden + 1, acciones.length, hojas.length + 1, paginas);
     hojas.push(hoja.canvas);
   });
 

@@ -35,7 +35,7 @@ import type { Player } from "@/types/player";
 import { Button } from "@/components/abp/ui";
 import { TableroSlide } from "@/components/abp/pizarra/TableroSlide";
 import { hojasDe } from "@/components/abp/pizarra/ExportaPizarra";
-import { claveDelVideo, duracionVideo, grabaJugada, nombreDelVideo, pesoMb, videoDeLaJugada } from "@/components/abp/pizarra/VideoJugada";
+import { claveDelVideo, duracionVideo, grabaJugada, nombreDelVideo, pesoMb, textosDelVideo, videoDeLaJugada } from "@/components/abp/pizarra/VideoJugada";
 import { TABLERO_H, TABLERO_W, jugadoresDelTablero, tituloVisible, type TableroPizarra } from "@/lib/abp/pizarra";
 import { fasesDe } from "@/lib/abp/trazos";
 import { trabajoPdfs, type EstadoPdfs } from "@/lib/abp/trabajo-pdfs";
@@ -315,6 +315,7 @@ export function ExportaTodo({
               nFases: fasesDe(slide.trazos),
               destino: "whatsapp",
               titulo,
+              textos: textosDelVideo(slide),
               alAvance: (f) => marca(id, "marcha", `${Math.round(f * 100)} %`),
             });
           });
