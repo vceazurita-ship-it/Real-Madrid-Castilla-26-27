@@ -151,14 +151,30 @@ export function ajusta(
   peso: 500 | 600 | 700,
   espaciado = 0,
 ) {
-  let px = desde;
+  fuente(ctx, desde, peso);
+
+  const entero = anchoEspaciado(ctx, texto, espaciado);
+
+  if (entero <= maxW || desde <= 12) return desde;
+
+  /*
+  | El ancho crece casi en proporción a la letra: se salta directo cerca del
+  | cuerpo bueno y se afina de uno en uno (01/11/2026). Bajar de píxel en
+  | píxel midiendo letra a letra se comía segundos en los PDF por jugador. El
+  | resultado es el mismo: el mayor cuerpo, hasta `desde`, que cabe.
+  */
+  const cabe = (px: number) => {
+    fuente(ctx, px, peso);
+
+    return anchoEspaciado(ctx, texto, espaciado) <= maxW;
+  };
+
+  let px = Math.max(12, Math.min(desde - 1, Math.floor((desde * maxW) / entero)));
+
+  while (px > 12 && !cabe(px)) px -= 1;
+  while (px + 1 < desde && cabe(px + 1)) px += 1;
 
   fuente(ctx, px, peso);
-
-  while (px > 12 && anchoEspaciado(ctx, texto, espaciado) > maxW) {
-    px -= 1;
-    fuente(ctx, px, peso);
-  }
 
   return px;
 }

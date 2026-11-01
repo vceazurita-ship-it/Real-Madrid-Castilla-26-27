@@ -17,14 +17,21 @@ import { useEffect, useMemo, useRef } from "react";
 
 import { TableroSlide } from "@/components/abp/pizarra/TableroSlide";
 import { COLORES, TABLERO_H, TABLERO_W, tituloVisible } from "@/lib/abp/pizarra";
-import { cargaEscudos, cometidosDe, pdfJugador } from "@/lib/abp/pizarra-jugador";
+import { cargaEscudos, cometidosDe, enParalelo, imagenDeCaptura, pdfJugador } from "@/lib/abp/pizarra-jugador";
 import { trabajoPdfs, type EncargoPdfs } from "@/lib/abp/trabajo-pdfs";
 import { subeAdjunto } from "@/lib/correo/subeAdjunto";
 import { capturaLienzos, esperaFotos, pintado } from "@/lib/export/lienzos";
 import { esperaFuentePortada } from "@/lib/rivals/portada-font";
 
-/* La diapositiva va a lo ancho de una hoja de 1080: 1440 px deja hacer zoom en el móvil. */
-const NITIDEZ = 0.75;
+/*
+| La hoja enseña sólo SU trozo de campo (unos 1150 px de los 1920 de la
+| diapositiva) a lo ancho de 1080: fotografiada a 1920 sale nítida, sin
+| estirar (01/11/2026; antes 0,75 y la diapositiva entera).
+*/
+const NITIDEZ = 1;
+
+/** PDF que se arman a la vez: el JPEG de cada hoja se codifica fuera del hilo principal. */
+const A_LA_VEZ = 3;
 
 export function MesaPdfs({
   encargo,
@@ -84,6 +91,9 @@ export function MesaPdfs({
           });
         });
 
+        const t0 = performance.now();
+        const escudosEnCamino = cargaEscudos(encargo.escudoRival);
+
         const capturas = await capturaLienzos(raiz, "[data-abp-tablero]", {
           ancho: TABLERO_W,
           alto: TABLERO_H,
@@ -91,17 +101,20 @@ export function MesaPdfs({
           nitidez: NITIDEZ,
         });
 
-        const porIndice = new Map(indices.map((indice, k) => [indice, capturas[k] ?? ""]));
-        const escudos = await cargaEscudos(encargo.escudoRival);
+        /* Cada foto se decodifica UNA vez para todos (antes, una por jugador y acción). */
+        const imagenes = await Promise.all(capturas.map((captura) => imagenDeCaptura(captura ?? "")));
+        const porIndice = new Map(indices.map((indice, k) => [indice, imagenes[k] ?? null]));
+        const escudos = await escudosEnCamino;
+        const t1 = performance.now();
 
-        for (const id of encargo.ids) {
+        await enParalelo(encargo.ids, A_LA_VEZ, async (id) => {
           if (!vivo) return;
 
           const acciones = porJugador.get(id) ?? [];
 
           if (acciones.length === 0) {
             trabajoPdfs.salta();
-            continue;
+            return;
           }
 
           trabajoPdfs.empieza(id);
@@ -110,7 +123,7 @@ export function MesaPdfs({
             const pdf = await pdfJugador({
               player: encargo.players.get(id),
               acciones,
-              capturas: acciones.map((accion) => porIndice.get(accion.indice) ?? ""),
+              tableros: acciones.map((accion) => porIndice.get(accion.indice) ?? null),
               puntos: acciones.map((accion) => puntos.get(`${accion.indice}:${id}`) ?? null),
               rival: encargo.rival,
               jornada: encargo.jornada,
@@ -132,7 +145,12 @@ export function MesaPdfs({
 
           /* Respiro entre uno y otro: la app sigue respondiendo mientras se navega. */
           await new Promise((listo) => setTimeout(listo, 0));
-        }
+        });
+
+        console.info(
+          `[abp-pizarra] PDF por jugador: ${indices.length} diapositivas fotografiadas en ${Math.round(t1 - t0)} ms, ` +
+            `${listos} PDF armados en ${Math.round(performance.now() - t1)} ms`,
+        );
       } catch (error) {
         console.error("[abp-pizarra] PDF por jugador", error);
         fallos += Math.max(1, encargo.ids.length - listos);
