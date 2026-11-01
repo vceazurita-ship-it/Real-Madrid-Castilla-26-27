@@ -396,9 +396,9 @@ export async function abreEmisor(
   caudal: number,
   software = false,
   /**
-   * «constant» para la tele: el caudal pedido de verdad (con «variable» el
-   * codificador se quedaba en la mitad en lo quieto y escatimaba en las
-   * carreras). «variable» para WhatsApp y el móvil, donde pesa el tamaño.
+   * «variable» por defecto: el codificador gasta en las carreras lo que
+   * ahorra en lo quieto. Ojo: el «constant» de OpenH264 (el del navegador sin
+   * tarjeta) salía por DEBAJO del variable (01/11/2026).
    */
   modo: "constant" | "variable" = "variable",
 ): Promise<Emisor> {

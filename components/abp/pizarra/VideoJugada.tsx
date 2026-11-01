@@ -408,7 +408,8 @@ export async function grabaJugada({
   const material =
     hecho ?? (await ruedaMaterial({ nodo, pon, nFases, alAvance: (f) => alAvance?.(f * 0.75) }));
   const desde = hecho ? 0 : 0.75;
-  const e = await abreEmisor(d.ancho, d.alto, d.caudal, software, destino === "sala" ? "constant" : "variable");
+  /* Caudal variable también en la sala: el «constant» del codificador del navegador salía MÁS bajo (3,5-4,2 Mb/s contra 5,6, medido el 01/11/2026). */
+  const e = await abreEmisor(d.ancho, d.alto, d.caudal, software, "variable");
 
   try {
     const { poster } = await montaJugada(e, material, {
