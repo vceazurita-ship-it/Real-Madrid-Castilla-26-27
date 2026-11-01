@@ -22,7 +22,7 @@
 
 import Image from "next/image";
 import { ArrowDownUp, Sparkles, Undo2 } from "lucide-react";
-import { useCallback, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { toast } from "sonner";
 
 import { HUECOS } from "@/lib/data-analisis/once";
@@ -106,20 +106,42 @@ export default function OnceTitular({
   /* ---------------- Deshacer: lo de antes de cada cambio ---------------- */
 
   const [pasado, setPasado] = useState<TacticsDoc[]>([]);
+  /*
+    El doc que dejó el último cambio de este panel. Si el tablero ha cambiado
+    después (una ficha arrastrada, una flecha), deshacer aquí volvería a un doc
+    entero viejo y se comería ese trabajo: entonces no se deshace.
+  */
+  const ultimo = useRef<TacticsDoc | null>(null);
+  const docActual = useRef(doc);
+
+  useEffect(() => {
+    docActual.current = doc;
+  }, [doc]);
+
+  const puedeDeshacer = () => {
+    if (ultimo.current === docActual.current) return true;
+
+    setPasado([]);
+    toast("El tablero ha cambiado después: deshazlo desde el propio tablero");
+
+    return false;
+  };
 
   const cambia = (siguiente: TacticsDoc) => {
     if (siguiente === doc) return;
 
     setPasado((antes) => [...antes.slice(-30), doc]);
+    ultimo.current = siguiente;
     onChange(siguiente);
   };
 
   const deshaz = () => {
     const anterior = pasado[pasado.length - 1];
 
-    if (!anterior) return;
+    if (!anterior || !puedeDeshacer()) return;
 
     setPasado((antes) => antes.slice(0, -1));
+    ultimo.current = anterior;
     onChange(anterior);
   };
 
@@ -283,7 +305,10 @@ export default function OnceTitular({
       action: {
         label: "Deshacer",
         onClick: () => {
+          if (!puedeDeshacer()) return;
+
           setPasado((lista) => lista.filter((d) => d !== antes));
+          ultimo.current = antes;
           onChange(antes);
         },
       },

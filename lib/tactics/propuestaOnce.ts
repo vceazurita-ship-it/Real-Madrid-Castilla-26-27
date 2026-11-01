@@ -342,7 +342,7 @@ function filaEmocionalDe(p: Player, filas: FilaEmocional[]): FilaEmocional | nul
 export type UltimoPartido = { rival: string; fecha: string; mediaEquipo: number; notas: Map<string, number> };
 
 /** El último partido con notas (cinco o más jugadores valorados). */
-export function ultimoPartidoValorado(temporada: RatingsSeason | null, hoy = new Date().toISOString().slice(0, 10)): UltimoPartido | null {
+export function ultimoPartidoValorado(temporada: RatingsSeason | null, hoy = new Date(Date.now() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 10)): UltimoPartido | null {
   const ocultos = new Set(temporada?.ocultos ?? []);
   const partidos = Object.values(temporada?.matches ?? {})
     .filter((m) => !ocultos.has(m.match.id) && m.match.date && m.match.date <= hoy)
@@ -667,7 +667,8 @@ export function proponOnceDelPartido(
   const n = HUECOS.length;
 
   /* El mejor once en conjunto. */
-  const relleno = Math.max(0, n - candidatos.length);
+  /* Siempre n huecos «vacíos»: mejor dejar un puesto libre que meter a un jugador de campo de portero. */
+  const relleno = n;
   const coste = tabla.map((fila) => [...fila.map((x) => -total(x)), ...new Array(relleno).fill(1000)]);
   const elegido = (candidatos.length ? hungaro(coste) : new Array(n).fill(-1)).map((j) => (j >= 0 && j < candidatos.length ? j : -1));
 

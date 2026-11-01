@@ -30,6 +30,7 @@ import { enlaceWhatsapp, esTelefono, telefonoLegible } from "@/lib/correo/whatsa
 import { descarga } from "@/lib/export/lienzos";
 import { trabajoPdfs, type HechoPdf, type HechoVideo } from "@/lib/abp/trabajo-pdfs";
 import { descargaVideos, guardaVideo } from "@/lib/abp/descarga-videos";
+import { resumen } from "@/lib/abp/cache-exportar";
 import { creaZip } from "@/lib/export/zip";
 import { puedeHacerVideo } from "@/lib/tactics/lamina";
 
@@ -75,7 +76,8 @@ export function PizarrasJugadores({
   );
 
   /* Lo que cambia al mover la pizarra deja viejos los PDF ya hechos. */
-  const huella = `${tablero.partidoId}|${tablero.actualizado ?? ""}|${rival}`;
+  /* Huella del CONTENIDO (01/11/2026): `actualizado` no cambia al editar una diapositiva y se servían PDF viejos. */
+  const huella = `${tablero.partidoId}|${resumen(JSON.stringify(tablero.slides))}|${rival}`;
 
   /* Los PDF viven en el trabajo de segundo plano: sólo valen los de ESTA pizarra. */
   const trabajo = useSyncExternalStore(trabajoPdfs.suscribe, trabajoPdfs.foto, trabajoPdfs.foto);

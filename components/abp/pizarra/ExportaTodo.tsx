@@ -234,7 +234,8 @@ export function ExportaTodo({
   const titulos = slides.map((_, i) => tituloVisible(slides, i));
 
   /* La misma que usa «PDF por jugador»: así los dos comparten lo ya hecho. */
-  const huella = `${tablero.partidoId}|${tablero.actualizado ?? ""}|${rival}`;
+  /* Huella del CONTENIDO (01/11/2026): `actualizado` no cambia al editar una diapositiva y se servían PDF viejos. */
+  const huella = `${tablero.partidoId}|${resumen(JSON.stringify(tablero.slides))}|${rival}`;
 
   /** El vídeo de un jugador se llama como su PDF: van juntos en la carpeta. */
   const nombreVideoJugador = (playerId: string) => {

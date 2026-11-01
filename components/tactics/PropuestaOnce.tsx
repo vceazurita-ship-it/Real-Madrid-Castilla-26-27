@@ -258,7 +258,7 @@ export default function PropuestaOnce({
             </button>
             <button
               type="button"
-              disabled={propuesta.cambios === 0 || propuesta.elegidos.length === 0}
+              disabled={propuesta.cambios === 0 || propuesta.elegidos.length === 0 || datos?.plantilla !== roster}
               onClick={() => onAplica(propuesta.elegidos)}
               className="inline-flex items-center gap-1.5 rounded-full bg-[#C8A96B] px-4 py-1.5 text-[12px] font-bold text-[#0B0F14] transition hover:brightness-110 disabled:opacity-40"
             >
