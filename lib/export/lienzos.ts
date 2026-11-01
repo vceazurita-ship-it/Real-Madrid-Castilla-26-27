@@ -142,6 +142,12 @@ export type OpcionesCaptura = {
   fondo: string;
   nitidez?: number;
   alPaso?: (hechas: number, total: number) => void;
+  /**
+   * Las fuentes ya incrustadas (`getFontEmbedCSS`), hechas una vez por
+   * exportación. Sin ellas, cada lienzo vuelve a leer todas las hojas de
+   * estilo, que es lo más lento de cada foto.
+   */
+  fontEmbedCSS?: string;
 };
 
 /**
@@ -168,6 +174,7 @@ export async function capturaLienzos(
        fotos por el proxy (`/api/rivals/foto?url=…`) eran la misma y salían
        los dos escudos iguales. */
     includeQueryParams: true,
+    ...(opciones.fontEmbedCSS ? { fontEmbedCSS: opciones.fontEmbedCSS } : {}),
     style: {
       margin: "0",
       transform: "none",

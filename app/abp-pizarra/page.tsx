@@ -79,7 +79,6 @@ import {
 import { TableroSlide } from "@/components/abp/pizarra/TableroSlide";
 import { SelectorJugador } from "@/components/abp/pizarra/SelectorJugador";
 import { CambiaJugador } from "@/components/abp/pizarra/CambiaJugador";
-import { ExportaPizarra } from "@/components/abp/pizarra/ExportaPizarra";
 import { PizarrasJugadores } from "@/components/abp/pizarra/PizarrasJugadores";
 import { ExportaTodo } from "@/components/abp/pizarra/ExportaTodo";
 import { PropuestaMarcas } from "@/components/abp/pizarra/PropuestaMarcas";
@@ -2624,26 +2623,11 @@ export default function PizarraAbpPage() {
                 </details>
 
                 {/*
-                  Imprimir, arriba. Los mismos dos botones que la caja del final
-                  de la página: llevarse el PowerPoint o el PDF es lo último que
-                  se hace antes de la charla y estaba a un scroll de distancia.
+                  Un único punto de exportación (01/11/2026): el menú «Exportar»
+                  lleva todo (.zip), solo documentos, solo vídeos, el PowerPoint
+                  y el PDF para imprimir, con lo que tarda y pesa cada uno. Lo
+                  que no ha cambiado desde la última vez sale al momento.
                 */}
-                {tablero && tablero.slides.length > 0 && (
-                  <ExportaPizarra
-                    variante="barra"
-                    slides={tablero.slides}
-                    players={porId}
-                    temporada={temporadaCorta(RATINGS_SEASON)}
-                    rival={tablero.rival || partido?.opponent || ""}
-                    jornada={
-                      tablero.jornada
-                        ? `J${String(tablero.jornada).padStart(2, "0")}`
-                        : undefined
-                    }
-                  />
-                )}
-
-                {/* Todo de una vez (30/10/2026): PDF general, el de cada jugador y los vídeos, en un .zip. */}
                 {tablero && tablero.slides.length > 0 && (
                   <ExportaTodo
                     tablero={tablero}

@@ -31,19 +31,55 @@ import { MuxorMp4 } from "@/lib/coding/mp4";
 import type { Bytes } from "@/lib/export/zip";
 import { codecLamina, FPS_LAMINA, puedeHacerVideo } from "@/lib/tactics/lamina";
 import { enMarcha, trabajoExportar } from "@/lib/abp/trabajo-exportar";
+import { claveVideo, fuentesDe, guardaVideo, hayVideo, huellaSlide, videoGuardado, type VideoHecho } from "@/lib/abp/cache-exportar";
+
+/** La clave del vídeo de una diapositiva para un destino: si no ha cambiado nada, no se vuelve a grabar. */
+export const claveDelVideo = (
+  slide: SlidePizarra,
+  titulo: string,
+  destino: Destino,
+  contexto: { players: Map<string, Player>; temporada: string; rival: string },
+) => claveVideo(huellaSlide(slide, titulo, contexto), destino);
+
+/** Graba, o devuelve el que ya estaba hecho con la misma huella. */
+export async function videoDeLaJugada(clave: string, graba: () => Promise<VideoHecho>): Promise<VideoHecho & { deMemoria: boolean }> {
+  const hecho = videoGuardado(clave);
+
+  if (hecho) return { ...hecho, deMemoria: true };
+
+  const nuevo = await graba();
+
+  guardaVideo(clave, nuevo);
+
+  return { ...nuevo, deMemoria: false };
+}
 
 export type Destino = "sala" | "whatsapp" | "vertical";
 
 const DESTINOS: Record<Destino, { ancho: number; alto: number; caudal: number; titulo: string; detalle: string; sufijo: string }> = {
   sala: { ancho: 1920, alto: 1080, caudal: 6_000_000, titulo: "Para la sala", detalle: "1920 × 1080", sufijo: "" },
-  whatsapp: { ancho: 1280, alto: 720, caudal: 2_200_000, titulo: "Para WhatsApp", detalle: "1280 × 720, no pasa de 16 MB", sufijo: " whatsapp" },
-  vertical: { ancho: 1080, alto: 1920, caudal: 4_000_000, titulo: "Para el móvil", detalle: "vertical 1080 × 1920", sufijo: " movil" },
+  /*
+  | WhatsApp vuelve a comprimir todo lo que se manda como vídeo: con más caudal
+  | de partida (3,5 Mb/s, antes 2,2) las caras y los dorsales llegan nítidos
+  | después de su pasada, y un vídeo de 10 s sigue en unos 4 MB.
+  */
+  whatsapp: { ancho: 1280, alto: 720, caudal: 3_500_000, titulo: "Para WhatsApp", detalle: "1280 × 720, nítido tras la compresión de WhatsApp", sufijo: " whatsapp" },
+  vertical: { ancho: 1080, alto: 1920, caudal: 4_500_000, titulo: "Para el móvil", detalle: "vertical 1080 × 1920", sufijo: " movil" },
 };
 
-/** La salida quieta, cada fase moviéndose y la pausa para leerla (segundos). */
-const SALIDA_S = 2.5;
+/*
+| Los tiempos (segundos). Menos paja (01/11/2026, «vídeos más útiles, menos
+| paja»): antes eran 2,5 s de salida quieta y 2,5 s de pausa tras CADA fase,
+| y un córner de tres fases duraba 14,5 s de los que 9,5 eran imagen parada.
+| Ahora la salida se ve lo justo para situarse, entre fases sólo se respira y
+| la pausa larga va al final, con todos en su sitio de llegada.
+*/
+const SALIDA_S = 1.5;
 const MOVIMIENTO_S = 1.5;
-const PAUSA_S = 2.5;
+const PAUSA_S = 1;
+const FINAL_S = 3;
+/** Cuánto se ve el rótulo de cada tramo («FASE 2 DE 3») antes de irse. */
+const ROTULO_S = 1.1;
 /**
  * Fotos por fase en movimiento. Entre una y otra ya no se repite la foto
  * (31/10/2026: «que los vídeos sean más fluidos»): las fichas y el balón van
@@ -127,10 +163,69 @@ function recorta(lleno: HTMLImageElement, vacio: HTMLImageElement, caja: Caja): 
 const nada = () => () => undefined;
 
 export function duracionVideo(fases: number) {
-  return SALIDA_S + fases * (MOVIMIENTO_S + PAUSA_S);
+  return SALIDA_S + fases * MOVIMIENTO_S + Math.max(0, fases - 1) * PAUSA_S + FINAL_S;
 }
 
-function pesoMb(destino: Destino, segundos: number) {
+/** El rótulo de cada tramo del vídeo. */
+function rotuloDeTramo(tramo: number, nFases: number) {
+  if (tramo === 0) return "Salida";
+  if (tramo > nFases) return "Llegada";
+
+  return nFases === 1 ? "Movimiento" : `Fase ${tramo} de ${nFases}`;
+}
+
+/**
+ * Lo que va encima de cada fotograma: una barra fina al pie con un tramo por
+ * fase (se ve cuánto queda) y, al empezar cada tramo, su rótulo grande, que
+ * en el móvil el de la cabecera de la diapositiva no se lee. Se va solo en
+ * algo más de un segundo para no tapar las consignas.
+ */
+function pintaCapa(
+  ctx: CanvasRenderingContext2D,
+  ancho: number,
+  alto: number,
+  { progreso, cortes, rotulo, desde }: { progreso: number; cortes: number[]; rotulo: string; desde: number },
+) {
+  const barra = Math.max(4, Math.round(alto * 0.006));
+
+  ctx.save();
+  ctx.fillStyle = "rgba(255,255,255,0.18)";
+  ctx.fillRect(0, alto - barra, ancho, barra);
+  ctx.fillStyle = COLORES.oro;
+  ctx.fillRect(0, alto - barra, ancho * Math.min(1, progreso), barra);
+  ctx.fillStyle = COLORES.tinta;
+
+  for (const corte of cortes) ctx.fillRect(Math.round(ancho * corte) - 1, alto - barra, 3, barra);
+
+  const alpha = desde < ROTULO_S - 0.3 ? 1 : Math.max(0, (ROTULO_S - desde) / 0.3);
+
+  if (alpha > 0) {
+    const cuerpo = Math.round(Math.min(ancho, alto * (16 / 9)) * 0.024);
+    const texto = rotulo.toUpperCase();
+
+    ctx.globalAlpha = alpha;
+    ctx.font = `700 ${cuerpo}px ${FAMILIA_PORTADA}, Arial, sans-serif`;
+    ctx.textBaseline = "middle";
+    ctx.textAlign = "left";
+
+    const w = ctx.measureText(texto).width + cuerpo * 1.2;
+    const h = cuerpo * 1.6;
+    const x = Math.round(ancho * 0.025);
+    const y = alto - barra - h - Math.round(alto * 0.03);
+
+    ctx.fillStyle = "rgba(10,14,20,0.82)";
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, h / 4);
+    ctx.fill();
+    ctx.fillStyle = COLORES.oro;
+    ctx.fillRect(x, y, Math.max(4, cuerpo * 0.18), h);
+    ctx.fillText(texto, x + cuerpo * 0.6, y + h / 2 + 1);
+  }
+
+  ctx.restore();
+}
+
+export function pesoMb(destino: Destino, segundos: number) {
   return (DESTINOS[destino].caudal * segundos * 1.05) / 8 / 1_000_000;
 }
 
@@ -249,13 +344,26 @@ export async function grabaJugada({
       vídeo tardaba más de un minuto por diapositiva).
     */
     let caliente = false;
-    let fontEmbedCSS: string | undefined;
+    /*
+      Las fuentes, una vez por juego de fuentes y no una por vídeo (01/11/2026):
+      el segundo vídeo de «Exportar todo» ya las encuentra hechas.
+    */
+    const fontEmbedCSS = await fuentesDe(nodo, () => fuentesIncrustadas(nodo, opciones));
+    /* El reloj puesto: las fotos de las tandas son del mismo instante y no hace falta repintar. */
+    let ultimo = Number.NaN;
+    /* Cuántas fotos se han hecho, para medirlo desde fuera (`performance`). */
+    let fotos = 0;
 
     const foto = async (valor: number) => (await toma(valor)).imagen;
 
     /* La foto de un instante; con `aparta`, sin esas fichas (o el balón) y con dónde estaban. */
     async function toma(valor: number, aparta?: Set<string>): Promise<Toma> {
-      await pon(valor);
+      if (valor !== ultimo) {
+        await pon(valor);
+        ultimo = valor;
+      }
+
+      fotos += 1;
 
       const apartados: Element[] = [];
 
@@ -291,12 +399,9 @@ export async function grabaJugada({
         }
       }
 
-      const { dataUrl } = await capturaNodo(nodo, opciones);
+      const { dataUrl } = await capturaNodo(nodo, fontEmbedCSS ? { ...opciones, fontEmbedCSS } : opciones);
 
-      if (!caliente) {
-        fontEmbedCSS = await fuentesIncrustadas(nodo, opciones);
-        caliente = true;
-      }
+      caliente = true;
 
       return cargaImagen(dataUrl);
     }
@@ -309,6 +414,10 @@ export async function grabaJugada({
     const ctx = lienzo.getContext("2d");
 
     if (!ctx) throw new Error("El navegador no da un lienzo 2D");
+
+    /* La foto va de 1920 a 1280: con el suavizado fino, los dorsales y los nombres no se emborronan. */
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
 
     const dibuja = (imagen: HTMLImageElement | HTMLCanvasElement) => {
       ctx.fillStyle = COLORES.tinta;
@@ -348,11 +457,40 @@ export async function grabaJugada({
       avc: { format: "avc" },
     });
 
-    let cuadros = 0;
+    /*
+      La línea de tiempo, para la barra del pie: salida, cada fase (movimiento
+      y respiro) y la llegada. Cada tramo empieza donde acaba el anterior.
+    */
+    const cuadrosSalida = Math.round(SALIDA_S * FPS_LAMINA);
+    const cuadrosMovimiento = Math.round(MOVIMIENTO_S * FPS_LAMINA);
+    const cuadrosPausa = Math.round(PAUSA_S * FPS_LAMINA);
+    const cuadrosFinal = Math.round(FINAL_S * FPS_LAMINA);
+    const cuadrosTotales = cuadrosSalida + nFases * cuadrosMovimiento + Math.max(0, nFases - 1) * cuadrosPausa + cuadrosFinal;
+    const inicios = [0];
 
-    const emite = async (veces: number) => {
+    for (let fase = 1; fase <= nFases; fase += 1) {
+      inicios.push(cuadrosSalida + (fase - 1) * (cuadrosMovimiento + cuadrosPausa));
+    }
+
+    inicios.push(cuadrosTotales - cuadrosFinal);
+
+    const cortes = inicios.slice(1).map((inicio) => inicio / cuadrosTotales);
+
+    let cuadros = 0;
+    let tramo = 0;
+
+    /* Cada fotograma se repinta con su capa: la barra avanza también en lo quieto. */
+    const emite = async (veces: number, imagen: HTMLImageElement | HTMLCanvasElement) => {
       for (let k = 0; k < veces; k += 1) {
         if (fallo) throw fallo;
+
+        dibuja(imagen);
+        pintaCapa(ctx, d.ancho, d.alto, {
+          progreso: cuadros / Math.max(1, cuadrosTotales - 1),
+          cortes,
+          rotulo: rotuloDeTramo(tramo, nFases),
+          desde: (cuadros - inicios[tramo]) / FPS_LAMINA,
+        });
 
         const cuadro = new VideoFrame(lienzo, {
           timestamp: Math.round((cuadros * 1_000_000) / FPS_LAMINA),
@@ -384,20 +522,28 @@ export async function grabaJugada({
 
     let reposo = await foto(0);
 
-    dibuja(reposo);
     avanza();
-    await emite(Math.round(SALIDA_S * FPS_LAMINA));
+    await emite(cuadrosSalida, reposo);
 
     let poster: string | null = null;
+    /* El fondo sin fichas del final de la fase anterior: es la primera foto de la siguiente si se aparta lo mismo. */
+    let fondoAnterior: { valor: number; aparta: Set<string>; toma: Toma } | null = null;
 
     for (let fase = 1; fase <= nFases; fase += 1) {
+      tramo = fase;
+
       /*
         Las fichas sueltas: la foto sin ninguna contra la foto con sólo unas
         pocas que no se tocan. Con todas a la vez, el recorte de una se
         llevaba trozos de la de al lado cuando estaban juntas.
       */
       const claves = [...cajasDe(nodo).keys()];
-      const primera = await toma(fase - 1, new Set(claves));
+      const mismas =
+        fondoAnterior !== null &&
+        fondoAnterior.valor === fase - 1 &&
+        fondoAnterior.aparta.size === claves.length &&
+        claves.every((clave) => fondoAnterior?.aparta.has(clave));
+      const primera = mismas && fondoAnterior ? fondoAnterior.toma : await toma(fase - 1, new Set(claves));
       const sueltas = new Map<string, HTMLCanvasElement>();
       const tocan = (a: Caja, b: Caja) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
       const tandas: string[][] = [];
@@ -431,7 +577,9 @@ export async function grabaJugada({
         avanza();
       }
 
-      const porTramo = (MOVIMIENTO_S * FPS_LAMINA) / FOTOS_POR_FASE;
+      fondoAnterior = { valor: fase, aparta, toma: tomas[FOTOS_POR_FASE] };
+
+      const porTramo = cuadrosMovimiento / FOTOS_POR_FASE;
 
       for (let k = 0; k < FOTOS_POR_FASE; k += 1) {
         const a = tomas[k];
@@ -462,18 +610,27 @@ export async function grabaJugada({
             mx.drawImage(recorte, cx - recorte.width / 2, cy - recorte.height / 2);
           }
 
-          dibuja(mezcla);
-          await emite(1);
+          await emite(1, mezcla);
         }
       }
 
       reposo = await foto(fase);
-      dibuja(reposo);
       avanza();
-      await emite(Math.round(PAUSA_S * FPS_LAMINA));
 
-      if (fase === nFases) poster = lienzo.toDataURL("image/jpeg", 0.88);
+      if (fase < nFases) {
+        await emite(cuadrosPausa, reposo);
+      } else {
+        /* El póster, limpio: la posición de llegada sin la barra ni el rótulo. */
+        dibuja(reposo);
+        poster = lienzo.toDataURL("image/jpeg", 0.9);
+
+        tramo = nFases + 1;
+        await emite(cuadrosFinal, reposo);
+      }
     }
+
+    /* Lo que cuesta cada vídeo, para medirlo desde fuera (antes ~52 fotos en un córner de tres fases). */
+    performance.mark("abp-video-fotos", { detail: { fotos, fases: nFases } });
 
     await codificador.flush();
     codificador.close();
@@ -542,18 +699,22 @@ export function VideoJugada({
     const nFases = fasesDe(slide.trazos);
     const aviso = toast.loading("Montando el vídeo de la jugada…");
     try {
-      await pintado();
-      const nodo = raiz.querySelector<HTMLElement>("[data-abp-tablero]");
+      /* Si la diapositiva no ha cambiado desde el último vídeo para este destino, sale al momento. */
+      const clave = claveDelVideo(slide, titulo, destino, { players, temporada, rival });
+      const { fichero, poster, segundos, deMemoria } = await videoDeLaJugada(clave, async () => {
+        await pintado();
+        const nodo = raiz.querySelector<HTMLElement>("[data-abp-tablero]");
 
-      if (!nodo) throw new Error("No hay diapositiva que grabar");
+        if (!nodo) throw new Error("No hay diapositiva que grabar");
 
-      const { fichero, poster, segundos } = await grabaJugada({
-        nodo,
-        pon,
-        nFases,
-        destino,
-        titulo,
-        alAvance: (fraccion) => setProgreso(`${Math.round(fraccion * 100)} %`),
+        return grabaJugada({
+          nodo,
+          pon,
+          nFases,
+          destino,
+          titulo,
+          alAvance: (fraccion) => setProgreso(`${Math.round(fraccion * 100)} %`),
+        });
       });
 
       const nombre = nombreDelVideo(titulo, jornada);
@@ -563,7 +724,7 @@ export function VideoJugada({
       if (poster) descarga(poster, `${nombre}${d.sufijo} poster.jpg`);
 
       toast.success(
-        `Vídeo listo · ${coma(segundos)} s · ${coma(fichero.size / 1_000_000)} MB · ${d.ancho} × ${d.alto}. Déjalo en ABP\\VIDEO - JUGADORES.`,
+        `${deMemoria ? "Vídeo listo al momento (la jugada no ha cambiado)" : "Vídeo listo"} · ${coma(segundos)} s · ${coma(fichero.size / 1_000_000)} MB · ${d.ancho} × ${d.alto}. Déjalo en ABP\\VIDEO - JUGADORES.`,
         { id: aviso, duration: 8_000 },
       );
     } catch (error) {
@@ -577,7 +738,7 @@ export function VideoJugada({
 
       if (trabajo) trabajoExportar.termina(trabajo.id);
     }
-  }, [destino, slide, jornada, pon, titulo, trabajo]);
+  }, [destino, slide, jornada, pon, titulo, trabajo, players, temporada, rival]);
 
   useEffect(() => {
     if (trabajo && progreso) trabajoExportar.rotula(trabajo.id, progreso);
@@ -658,6 +819,9 @@ export function VideoJugada({
               <span className="block text-sm font-semibold text-white">{DESTINOS[clave].titulo}</span>
               <span className="block text-xs text-white/50">
                 {DESTINOS[clave].detalle} · {coma(segundos, 0)} s · ≈ {coma(pesoMb(clave, segundos))} MB
+                {hayVideo(claveDelVideo(slide, titulo, clave, { players, temporada, rival })) && (
+                  <span className="text-emerald-400"> · ya hecho, sale al momento</span>
+                )}
               </span>
             </button>
           ))}
