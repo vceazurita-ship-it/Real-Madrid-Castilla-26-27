@@ -570,8 +570,8 @@ export function ProximoPartido() {
 
         {/* ---------- Lo que se prepara para ese partido ---------- */}
 
-        {/* Móvil: el azul ocupa la fila y debajo los otros tres en una sola fila (29/10/2026, fútbol). El hueco para el botón flotante lo da ya la portada entera (30/10/2026). En escritorio, una sola línea. */}
-        <div className="mt-6 grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:gap-2.5 xl:flex-nowrap [&>a:first-child]:col-span-3">
+        {/* Móvil: el azul ocupa la fila y debajo los otros tres en una sola fila (29/10/2026, fútbol). El hueco para el botón flotante lo da ya la portada entera (30/10/2026). En escritorio, una sola línea desde 1536 px: a 1366 se partía el texto de cada botón en dos (02/11/2026). */}
+        <div className="mt-6 grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:gap-2.5 2xl:flex-nowrap [&>a:first-child]:col-span-3">
           <Link
             href={enlacePlantilla}
             title={nombreRival ? `La plantilla de ${nombreRival}` : undefined}

@@ -1360,8 +1360,8 @@ export default function DataAnalisisPage() {
               <>
                 {/* ===================== BARRA ===================== */}
 
-                {/* 02/11/2026: bloques a la izquierda, buscador de áreas a la derecha (debajo en móvil). */}
-                <div className="mt-4 flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                {/* 02/11/2026: bloques a la izquierda, buscador de áreas a la derecha (debajo hasta 1536 px: a 1366 el sexto bloque salía cortado). */}
+                <div className="mt-4 flex min-w-0 flex-col gap-3 2xl:flex-row 2xl:items-center 2xl:justify-between">
                   <div className="min-w-0 flex-1">
                     <Pestanas<Bloque>
                       etiqueta="Bloques de Data análisis"
