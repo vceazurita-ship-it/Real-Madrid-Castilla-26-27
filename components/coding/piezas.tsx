@@ -216,9 +216,9 @@ export function PanelJugadores({
               )}
 
               <span className="min-w-0 flex-1">
-                {/* 30/10/2026: el nombre entero, en dos renglones si hace falta; cortado salía «MARC JUR…». */}
+                {/* 30/10/2026: el nombre entero, en dos renglones si hace falta; cortado salía «MARC JUR…». Sin partir palabras: salía «JHAFET S». */}
                 <span
-                  className={`block break-words text-[13px] font-semibold leading-tight ${
+                  className={`block text-[12px] font-semibold leading-tight tracking-tight [overflow-wrap:normal] [word-break:keep-all] [hyphens:auto] ${
                     seleccionado ? "text-white" : "text-white/75"
                   }`}
                 >
