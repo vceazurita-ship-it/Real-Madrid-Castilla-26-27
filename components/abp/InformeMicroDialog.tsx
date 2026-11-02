@@ -27,7 +27,10 @@ import { bloqueVideoHtml } from "@/lib/video-informe/portada-video";
 import { VIDEO_JUGADORES_KEY, eligeVideoJugadores, normalizaVideosJugadores, type VideoJugadores } from "@/lib/abp/video-jugadores";
 import { puedeMontarVideo, type VideoMontado } from "@/lib/video-informe/monta";
 import { trabajoVideo } from "@/lib/video-informe/trabajo-video";
-import { SEGUNDOS_ENTRADA_ABP, entradaDeAbp } from "@/lib/video-informe/guion";
+import { SEGUNDOS_ENTRADA_ABP, entradaDeAbp, type CortePartido, type GuionVideo } from "@/lib/video-informe/guion";
+import { guionPostDeAbp, topePostAbp } from "@/lib/video-informe/guion-abp-post";
+import { jugadasDelTablero, preparaConJugadas, type JugadaParaRodar } from "@/components/abp/jugadas-del-video";
+import type { Player } from "@/types/player";
 import { barlowCondensed } from "@/lib/rivals/portada-font";
 import { enlaceConTarjeta, nombrePartidoPdf } from "@/lib/informe-partido/tarjeta-pdf";
 import { buscadorDeEscudos, traeEscudos } from "@/lib/data-analisis/escudos";
@@ -40,7 +43,7 @@ import { teamKey } from "@/lib/abp/model";
 import { mismoClub } from "@/lib/rivals/mismoClub";
 import { normalizarOnce, rivalOnceKey } from "@/lib/rivals/once";
 import { useAnalisisRivalInforme } from "@/hooks/useAnalisisRivalInforme";
-import { usePizarraInforme } from "@/components/abp/PizarraInforme";
+import { temporadaCorta, usePizarraInforme } from "@/components/abp/PizarraInforme";
 import { pizarraParaInforme } from "@/lib/abp/pizarra-para-informe";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { useAgendaEnvios } from "@/hooks/useAgendaEnvios";
@@ -84,19 +87,38 @@ import {
 type Montaje = { clave: string; promesa: Promise<VideoMontado | null> };
 type EstadoMontaje = { clave: string; texto: string; listo: boolean; fallo?: string };
 
+/** El escudo del rival para la portada (sin él, sale sólo su nombre). */
+const escudoDe = (rival: string) => (rival ? traeEscudos().then((lista) => buscadorDeEscudos(lista)(rival)).catch(() => null) : Promise.resolve(null));
+
 /**
- * Monta la entrada del informe + nuestro vídeo entero. Uno detrás de otro: si
- * el informe cambia a mitad, el nuevo espera a que acabe el anterior (dos a la
- * vez se pisarían el descodificador). Nunca falla: `null` si no ha salido.
+ * El vídeo POST de ABP (02/11/2026): lo que preparamos, el partido y el
+ * balance, con las jugadas de la pizarra y, detrás, nuestro vídeo de la
+ * jornada si lo hay. Lo pide este diálogo y, con el mismo guion, el informe
+ * del partido (`ResultadoIncrustado.video`): por la huella, se monta una vez.
  */
-function arrancaMontaje(ref: { current: Montaje | null }, clave: string, informe: InformeMicro, url: string, rival: string, estado: (e: EstadoMontaje) => void) {
+export type VideoPostAbp = {
+  rotulo: string;
+  guion: GuionVideo;
+  opciones: { cola: { url: string } | null; tope: number };
+  jugadas: JugadaParaRodar[];
+};
+
+export function pideVideoPostAbp(v: VideoPostAbp, players: Player[], alPaso?: (texto: string) => void) {
+  return trabajoVideo.pide(v.rotulo, v.guion, { ...v.opciones, fuente: barlowCondensed.style.fontFamily, alPaso }, preparaConJugadas(v.jugadas, players));
+}
+
+/**
+ * Monta el vídeo que toque —en la previa, la entrada del informe + nuestro
+ * vídeo entero; en el post, el vídeo post—. Uno detrás de otro: si el informe
+ * cambia a mitad, el nuevo espera a que acabe el anterior (dos a la vez se
+ * pisarían el descodificador). Nunca falla: `null` si no ha salido.
+ */
+function arrancaMontaje(ref: { current: Montaje | null }, clave: string, pide: (alPaso: (texto: string) => void) => Promise<VideoMontado>, estado: (e: EstadoMontaje) => void) {
   const anterior = ref.current?.promesa ?? Promise.resolve(null);
   const promesa = anterior
     .catch(() => null)
-    /* El escudo del rival para la portada de la entrada (sin él, sale la jornada en su sitio). */
-    .then(() => (rival ? traeEscudos().then((lista) => buscadorDeEscudos(lista)(rival)) : null))
     /* En segundo plano y por huella de contenido (02/11/2026): sigue al cerrar el diálogo y reabrir no lo rehace. */
-    .then((escudoRival) => trabajoVideo.pide(rival ? `Vídeo de ABP · ${rival}` : "Vídeo de ABP para jugadores", entradaDeAbp(informe, pinceladaAbp(informe), { escudoRival }), { cola: { url }, tope: SEGUNDOS_ENTRADA_ABP, fuente: barlowCondensed.style.fontFamily, alPaso: (texto) => estado({ clave, texto, listo: false }) }))
+    .then(() => pide((texto) => estado({ clave, texto, listo: false })))
     .then((v) => {
       estado({ clave, texto: "", listo: true });
 
@@ -225,6 +247,12 @@ export type ResultadoIncrustado =
       imagenes: { cid: string; tipo: string; base64: string }[];
       pincelada: PinceladaAbp;
       avisos: string[];
+      /**
+       * Post (02/11/2026): el vídeo post de ABP, ya en guion, para que el
+       * informe del partido lo monte (o se encuentre el que ya montó este
+       * diálogo, por la huella) y lo enlace en su correo, su PDF y WhatsApp.
+       */
+      video?: VideoPostAbp | null;
     }
   | { ok: false; clave: string; error: string };
 
@@ -378,6 +406,8 @@ export function InformeMicroDialog({
   const jornadaPartido = datos.partidoCalendario?.jornada ?? null;
   const rivalVideo = datos.partidoCalendario?.rival || datos.rival || "";
   const [videoJugadores, setVideoJugadores] = useState<VideoJugadores | null>(null);
+  /* Leído (haya o no): el vídeo post no empieza hasta saber si lleva el nuestro detrás (02/11/2026). */
+  const [videoJugadoresLeido, setVideoJugadoresLeido] = useState(false);
 
   useEffect(() => {
     let cancelado = false;
@@ -387,7 +417,10 @@ export function InformeMicroDialog({
       .then((d) => {
         if (!cancelado) setVideoJugadores(eligeVideoJugadores(normalizaVideosJugadores(d?.data), jornadaPartido, rivalVideo));
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelado) setVideoJugadoresLeido(true);
+      });
 
     return () => {
       cancelado = true;
@@ -464,6 +497,9 @@ export function InformeMicroDialog({
   | `informe-clips:jNN`. Sólo se lee; sin cortes, las acciones salen sin enlace.
   */
   const [clipsPartido, setClipsPartido] = useState<{ minuto: string; url: string; de: string; tipo: string }[] | null>(null);
+  /* Los mismos cortes enteros (02/11/2026), para el vídeo post: tipo, minuto, duración y si hubo peligro. */
+  const [cortesAbp, setCortesAbp] = useState<CortePartido[]>([]);
+  const [cortesLeidos, setCortesLeidos] = useState(false);
 
   useEffect(() => {
     if (!jornadaPartido) return;
@@ -472,16 +508,18 @@ export function InformeMicroDialog({
 
     fetch(`/api/docs?key=${encodeURIComponent(`informe-clips:j${String(jornadaPartido).padStart(2, "0")}`)}`, { cache: "no-store" })
       .then((r) => r.json())
-      .then((j: { data?: { cortes?: { minuto?: string; url?: string; de?: string; tipo?: string }[] } | null }) => {
+      .then((j: { data?: { cortes?: CortePartido[] } | null }) => {
         if (cancelado) return;
 
-        setClipsPartido(
-          (j?.data?.cortes ?? [])
-            .filter((c) => c && c.url && c.minuto)
-            .map((c) => ({ minuto: String(c.minuto), url: String(c.url), de: String(c.de ?? ""), tipo: String(c.tipo ?? "") })),
-        );
+        const cortes = (j?.data?.cortes ?? []).filter((c) => c && c.url && c.minuto);
+
+        setClipsPartido(cortes.map((c) => ({ minuto: String(c.minuto), url: String(c.url), de: String(c.de ?? ""), tipo: String(c.tipo ?? "") })));
+        setCortesAbp(cortes.filter((c) => typeof c.url === "string" && /^(corner|abp|banda)/.test(String(c.tipo ?? ""))));
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelado) setCortesLeidos(true);
+      });
 
     return () => {
       cancelado = true;
@@ -876,24 +914,79 @@ export function InformeMicroDialog({
   | se espera al que va por la mitad. Si no sale, va nuestro vídeo tal cual.
   */
   const informeListo = !cargandoSeguimiento && !cargandoComparativa && !cargandoPropio && !rivalInforme.cargando && !pizarraInforme.cargando;
-  const claveMontaje =
-    conVideo && videoJugadores && informeListo && puedeMontarVideo() ? [videoJugadores.url, informe.modo, informe.titulo, ...informe.resumen.map((c) => c.valor)].join("|") : "";
+
+  /*
+  | EL VÍDEO POST DE ABP (02/11/2026, lo pidió el analista): en el post se
+  | monta SIEMPRE, sin casilla —lo que preparamos con las jugadas de la
+  | pizarra, el partido a balón parado con sus cortes y el balance—, y si hay
+  | vídeo nuestro de la jornada va detrás, como en la previa. Espera a saber
+  | si lo hay y a tener los cortes, para no montarlo dos veces.
+  */
+  const esPost = informe.modo === "post";
+  const cortesListos = !jornadaPartido || cortesLeidos;
+  const rivalPizarra = pizarraInforme.tablero?.rival || rivalVideo;
+  const jugadas = useMemo(
+    () => (esPost ? jugadasDelTablero(pizarraInforme.tablero, players, { rival: rivalPizarra, temporada: temporadaCorta() }) : []),
+    [esPost, pizarraInforme.tablero, players, rivalPizarra],
+  );
+
+  /** El vídeo post, en guion (sin montar): lo usan el montaje de aquí y el informe del partido. */
+  const videoPost = async (inf: InformeMicro): Promise<VideoPostAbp> => {
+    const escudoRival = await escudoDe(rivalVideo);
+
+    return {
+      rotulo: `Vídeo post de ABP${rivalVideo ? ` · ${rivalVideo}` : ""}`,
+      guion: guionPostDeAbp(inf, pinceladaAbp(inf), { escudoRival, rival: rivalVideo, cortesPartido: cortesAbp, jugadas: jugadas.map(({ clave, titulo, segundos }) => ({ clave, titulo, segundos })) }),
+      opciones: { cola: videoJugadores ? { url: videoJugadores.url } : null, tope: topePostAbp(videoJugadores?.segundos ?? null) },
+      jugadas,
+    };
+  };
+
+  const claveMontaje = !informeListo || !puedeMontarVideo()
+    ? ""
+    : esPost
+      ? videoJugadoresLeido && cortesListos
+        ? ["post", videoJugadores?.url ?? "", informe.titulo, informe.partido, ...informe.resumen.map((c) => c.valor), JSON.stringify(informe.partidoAbp?.favor ?? null), JSON.stringify(informe.partidoAbp?.contra ?? null), informe.cierre?.consigna ?? "", ...jugadas.map((j) => j.clave), ...cortesAbp.map((c) => c.url)].join("|")
+        : ""
+      : conVideo && videoJugadores
+        ? [videoJugadores.url, informe.modo, informe.titulo, ...informe.resumen.map((c) => c.valor)].join("|")
+        : "";
   const montaje = useRef<Montaje | null>(null);
   const informeVivo = useRef(informe);
+  const videoPostVivo = useRef(videoPost);
   const [estadoMontaje, setEstadoMontaje] = useState<EstadoMontaje>({ clave: "", texto: "", listo: false });
 
   useEffect(() => {
     informeVivo.current = informe;
-  }, [informe]);
+    videoPostVivo.current = videoPost;
+  });
+
+  /** Lo que se monta para esta clave: el vídeo post o, en la previa, la entrada + nuestro vídeo. */
+  const pideMontaje = (inf: InformeMicro) => (alPaso: (texto: string) => void) =>
+    inf.modo === "post"
+      ? videoPostVivo.current(inf).then((v) => pideVideoPostAbp(v, players, alPaso))
+      : escudoDe(rivalVideo).then((escudoRival) =>
+          trabajoVideo.pide(rivalVideo ? `Vídeo de ABP · ${rivalVideo}` : "Vídeo de ABP para jugadores", entradaDeAbp(inf, pinceladaAbp(inf), { escudoRival }), {
+            cola: { url: videoJugadores!.url },
+            tope: SEGUNDOS_ENTRADA_ABP,
+            fuente: barlowCondensed.style.fontFamily,
+            alPaso,
+          }),
+        );
+  const pideMontajeVivo = useRef(pideMontaje);
 
   useEffect(() => {
-    if (!claveMontaje || !videoJugadores || montaje.current?.clave === claveMontaje) return;
+    pideMontajeVivo.current = pideMontaje;
+  });
+
+  useEffect(() => {
+    if (!claveMontaje || incrustado || montaje.current?.clave === claveMontaje) return;
 
     /* Unos segundos quieto antes de empezar: cambiar de previa a post no lanza dos montajes. */
-    const reloj = window.setTimeout(() => arrancaMontaje(montaje, claveMontaje, informeVivo.current, videoJugadores.url, rivalVideo, setEstadoMontaje), 3000);
+    const reloj = window.setTimeout(() => arrancaMontaje(montaje, claveMontaje, pideMontajeVivo.current(informeVivo.current), setEstadoMontaje), 3000);
 
     return () => window.clearTimeout(reloj);
-  }, [claveMontaje, videoJugadores, rivalVideo]);
+  }, [claveMontaje, incrustado]);
 
   /* Lo que el informe no sabe: se enseña al pulsar «Enviar», no en el correo. */
   const [avisando, setAvisando] = useState(false);
@@ -974,11 +1067,15 @@ export function InformeMicroDialog({
       | botón en el correo, y la última página del PDF). Completo pasa de lo que
       | cabe en un correo, así que no se adjunta.
       */
-      let infoVideo: { url: string; segundos: number; poster: string | null } | null = null;
+      let infoVideo: { url: string; segundos: number; poster: string | null; rotulo: string } | null = null;
 
-      /* El montado (entrada del informe + nuestro vídeo): el que haya, o se espera al que va por la mitad. */
-      if (conVideo && videoJugadores && claveMontaje) {
-        const enCurso = montaje.current?.clave === claveMontaje ? montaje.current.promesa : arrancaMontaje(montaje, claveMontaje, informe, videoJugadores.url, rivalVideo, setEstadoMontaje);
+      /*
+      | El montado: en el post, el vídeo post (siempre, 02/11/2026); en la
+      | previa, la entrada del informe + nuestro vídeo. El que haya, o se
+      | espera al que va por la mitad.
+      */
+      if (claveMontaje && (esPost || (conVideo && videoJugadores))) {
+        const enCurso = montaje.current?.clave === claveMontaje ? montaje.current.promesa : arrancaMontaje(montaje, claveMontaje, pideMontaje(informe), setEstadoMontaje);
 
         setPasoVideo("terminando el montaje…");
 
@@ -986,20 +1083,20 @@ export function InformeMicroDialog({
 
         if (montado) {
           try {
-            const nombre = `${paraEnviar.titulo} - Balón parado en vídeo.mp4`.replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ");
+            const nombre = `${paraEnviar.titulo} - Balón parado${esPost ? " post" : ""} en vídeo.mp4`.replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ");
             const subido = await subeAdjunto(new File([montado.blob], nombre, { type: "video/mp4" }), (f) => setPasoVideo(`subiendo ${Math.round(f * 100)} %`));
 
-            infoVideo = { url: subido.url, segundos: montado.segundos, poster: montado.poster ?? null };
+            infoVideo = { url: subido.url, segundos: montado.segundos, poster: montado.poster ?? null, rotulo: esPost ? "Ver el vídeo post de balón parado" : "Ver nuestro vídeo de balón parado" };
           } catch (error) {
             console.warn("[abp] el vídeo montado no ha subido", error);
-            toast.message("Va nuestro vídeo sin la entrada del informe", { description: error instanceof Error ? error.message : "No ha subido." });
+            toast.message(videoJugadores ? "Va nuestro vídeo sin la entrada del informe" : "El correo va sin el vídeo post", { description: error instanceof Error ? error.message : "No ha subido." });
           }
         } else {
-          toast.message("Va nuestro vídeo sin la entrada del informe", { description: "No se ha podido montar en este navegador." });
+          toast.message(videoJugadores ? "Va nuestro vídeo sin la entrada del informe" : "El correo va sin el vídeo post", { description: "No se ha podido montar en este navegador." });
         }
       }
 
-      if (conVideo && videoJugadores && !infoVideo) {
+      if ((esPost || conVideo) && videoJugadores && !infoVideo) {
         setPasoVideo("preparando el enlace…");
 
         const poster = videoJugadores.poster
@@ -1018,7 +1115,7 @@ export function InformeMicroDialog({
               .catch(() => null)
           : null;
 
-        infoVideo = { url: videoJugadores.url, segundos: videoJugadores.segundos, poster };
+        infoVideo = { url: videoJugadores.url, segundos: videoJugadores.segundos, poster, rotulo: "Ver nuestro vídeo de balón parado" };
         setPasoVideo("");
       }
 
@@ -1038,6 +1135,7 @@ export function InformeMicroDialog({
         const portada = await paginaDeEnlaces({
           titulo: paraEnviar.titulo,
           video: infoVideo,
+          ...(esPost && infoVideo && infoVideo.rotulo !== "Ver nuestro vídeo de balón parado" ? { rotuloVideo: `Balón parado · post${jornadaPartido ? ` · J${jornadaPartido}` : ""}` } : {}),
           enlaces: (paraEnviar.rivalAnalisis?.documentos ?? []).map((d) => ({ nombre: d.nombre, url: d.url, detalle: "Informe del rival en PDF" })),
         }).catch(() => null);
         const conPortada = Boolean(infoVideo || paraEnviar.rivalAnalisis?.documentos?.length);
@@ -1108,7 +1206,7 @@ export function InformeMicroDialog({
              `cid` y viajan como partes aparte, que es lo único que Gmail pinta. */
           html: informeHtml(paraEnviar, {
             imagenes: "cid",
-            video: infoVideo ? bloqueVideoHtml({ url: infoVideo.url, cid: infoVideo.poster ? "video-poster" : "", segundos: infoVideo.segundos, claro: true, relleno: "18px 24px 0", sinCopia: true, rotulo: "Ver nuestro vídeo de balón parado" }) : undefined,
+            video: infoVideo ? bloqueVideoHtml({ url: infoVideo.url, cid: infoVideo.poster ? "video-poster" : "", segundos: infoVideo.segundos, claro: true, relleno: "18px 24px 0", sinCopia: true, rotulo: infoVideo.rotulo }) : undefined,
           }),
           texto: informeTexto(paraEnviar),
           imagenes: [
@@ -1182,7 +1280,8 @@ export function InformeMicroDialog({
 
   const entregado = useRef(false);
 
-  const listo = !cargandoSeguimiento && !cargandoComparativa && !cargandoPropio && !rivalInforme.cargando && !pizarraInforme.cargando;
+  /* En el post, también saber si hay vídeo nuestro y los cortes: el vídeo post va en el resultado (02/11/2026). */
+  const listo = !cargandoSeguimiento && !cargandoComparativa && !cargandoPropio && !rivalInforme.cargando && !pizarraInforme.cargando && (!esPost || (videoJugadoresLeido && cortesListos));
 
 
   const alListo = incrustado?.alListo;
@@ -1207,12 +1306,15 @@ export function InformeMicroDialog({
     let cancelado = false;
 
     imagenesQueCaben(informe, TOPE_INCRUSTADO)
-      .then(({ informe: paraEnviar, avisos }) => {
+      /* El vídeo post, en guion, del informe ENTERO (no del aligerado): el mismo que monta este diálogo, así la huella coincide. */
+      .then(async (r) => ({ ...r, video: informe.modo === "post" && puedeMontarVideo() ? await videoPostVivo.current(informe).catch(() => null) : null }))
+      .then(({ informe: paraEnviar, avisos, video }) => {
         if (cancelado || entregado.current) return;
 
         entregado.current = true;
 
         alListo({
+          video,
           ok: true,
           clave,
           modo: paraEnviar.modo,
@@ -1257,7 +1359,14 @@ export function InformeMicroDialog({
           ) : null}
 
           <div className="min-w-0 space-y-1">
-            {videoJugadores ? (
+            {esPost ? (
+              /* Post (02/11/2026): el vídeo sale siempre; aquí sólo se dice qué lleva y por dónde va. */
+              <p className="text-[11px] text-white/70">
+                Vídeo post de balón parado: lo que preparamos{jugadas.length ? ` (${jugadas.length === 1 ? "una jugada" : `${jugadas.length} jugadas`} de la pizarra)` : ""}, el partido
+                {cortesAbp.length ? ` con ${cortesAbp.length} cortes` : ""} y el balance
+                {videoJugadores ? ` · después, «${videoJugadores.nombre.replace(/\.[a-z0-9]+$/i, "")}» entero` : ""}.
+              </p>
+            ) : videoJugadores ? (
               <label className="flex cursor-pointer items-center gap-2 text-[11px] text-white/70" title={videoJugadores.nombre}>
                 <input type="checkbox" className="accent-[#C8A96B]" checked={conVideo} disabled={enviando} onChange={(e) => setConVideo(e.target.checked)} />
                 Incluir nuestro vídeo de la jornada · «{videoJugadores.nombre.replace(/\.[a-z0-9]+$/i, "")}» ({Math.floor(videoJugadores.segundos / 60)}:{String(videoJugadores.segundos % 60).padStart(2, "0")}), con la entrada del informe delante
@@ -1267,13 +1376,15 @@ export function InformeMicroDialog({
                 Para que lleve nuestro vídeo, déjalo en ABP\VIDEO - JUGADORES con la jornada en el nombre ({jornadaPartido ? `«J${jornadaPartido}»` : "«J8»"}): el ordenador del club lo sube solo en un par de minutos.
               </p>
             )}
-            {conVideo && videoJugadores && claveMontaje && estadoMontaje.clave === claveMontaje ? (
+            {(esPost || (conVideo && videoJugadores)) && claveMontaje && estadoMontaje.clave === claveMontaje ? (
               <p className={`text-[11px] ${estadoMontaje.fallo ? "text-amber-300/80" : "text-white/45"}`}>
                 {estadoMontaje.listo
-                  ? "Vídeo montado: la entrada del informe y después el nuestro entero."
+                  ? esPost
+                    ? "Vídeo post montado: va enlazado en el correo, el PDF y WhatsApp."
+                    : "Vídeo montado: la entrada del informe y después el nuestro entero."
                   : estadoMontaje.fallo
-                    ? `El montaje no ha salido (${estadoMontaje.fallo}): irá nuestro vídeo tal cual.`
-                    : `Montando el vídeo mientras revisas · ${estadoMontaje.texto}`}
+                    ? `El montaje no ha salido (${estadoMontaje.fallo})${videoJugadores ? ": irá nuestro vídeo tal cual" : ""}.`
+                    : `Montando el vídeo mientras revisas (sigue aunque cierres) · ${estadoMontaje.texto}`}
               </p>
             ) : null}
             {canal === "correo" ? (

@@ -44,7 +44,7 @@ import { idsDelOnce, onceDeLaPizarra, type OnceDeLaPizarra } from "@/lib/tactics
    diapositivas no se comen el tope del correo. */
 const NITIDEZ = 0.5;
 
-function temporadaCorta(season: string) {
+export function temporadaCorta(season: string = RATINGS_SEASON) {
   const [desde, hasta] = season.split("-");
 
   return `${desde?.slice(2) ?? ""} / ${hasta?.slice(2) ?? ""}`;
