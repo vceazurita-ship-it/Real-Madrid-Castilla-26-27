@@ -45,7 +45,8 @@ import { subeAdjunto } from "@/lib/correo/subeAdjunto";
 import { SEGUNDOS_CONSIGNAS, SEGUNDOS_CONSIGNAS_MINIMOS, consignasDePartido, guionDePartido } from "@/lib/video-informe/guion";
 import { consignasDePost, sinConsignasDeAbp } from "@/lib/video-informe/piezas";
 import { buscadorDeEscudos, traeEscudos } from "@/lib/data-analisis/escudos";
-import { montaVideoInforme, puedeMontarVideo, type VideoMontado } from "@/lib/video-informe/monta";
+import { puedeMontarVideo, type VideoMontado } from "@/lib/video-informe/monta";
+import { trabajoVideo } from "@/lib/video-informe/trabajo-video";
 import { bloqueVideoHtml } from "@/lib/video-informe/portada-video";
 import { VIDEO_JUGADORES_KEY, eligeVideoJugadores, normalizaVideosJugadores, type VideoJugadores } from "@/lib/abp/video-jugadores";
 import { cargaInforme, microsDisponibles, type MicroDisponible } from "@/lib/informe-partido/carga";
@@ -765,7 +766,8 @@ export function InformePartidoDialog({
       const escudos = await traeEscudos().catch(() => []);
       const escudo = buscadorDeEscudos(escudos)(informeVisto!.partido.rival);
 
-      return montaVideoInforme(guionDePartido(informeVisto!, { escudoRival: escudo ? (escudo.startsWith("/") ? escudo : `/api/rivals/foto?url=${encodeURIComponent(escudo)}`) : null }), {
+      /* En segundo plano y por huella de contenido (02/11/2026): sigue al cerrar el diálogo y reabrir no lo rehace. */
+      return trabajoVideo.pide(`Vídeo del informe · ${tituloPdf}`, guionDePartido(informeVisto!,{ escudoRival: escudo ? (escudo.startsWith("/") ? escudo : `/api/rivals/foto?url=${encodeURIComponent(escudo)}`) : null }), {
         alPaso: (t) => entrada.escucha?.(t),
         fuente: barlowCondensed.style.fontFamily,
       });
@@ -930,7 +932,7 @@ export function InformePartidoDialog({
     try {
       setTrabajando("Vídeo para jugadores…");
 
-      const v = await montaVideoInforme(await guionJugadores(), {
+      const v = await trabajoVideo.pide(`Vídeo para jugadores · ${tituloPdf}`, await guionJugadores(), {
         tope: SEGUNDOS_CONSIGNAS,
         minimo: vertical ? SEGUNDOS_CONSIGNAS_MINIMOS : undefined,
         vertical,
@@ -971,7 +973,7 @@ export function InformePartidoDialog({
             duracion: `de ${SEGUNDOS_CONSIGNAS_MINIMOS} a ${SEGUNDOS_CONSIGNAS} s`,
             archivo: nombreDeArchivo(`${nombreLegible} - ${esPost && hayPiezaDePost ? "Lo que nos deja" : "Consignas"} para jugadores`, "mp4"),
             monta: async (alPaso, contexto) => {
-              return montaVideoInforme(await guionJugadores(Boolean(contexto?.conAbp)), {
+              return trabajoVideo.pide(`Vídeo para jugadores · ${tituloPdf}`, await guionJugadores(Boolean(contexto?.conAbp)), {
                 tope: SEGUNDOS_CONSIGNAS,
                 minimo: SEGUNDOS_CONSIGNAS_MINIMOS,
                 vertical: true,

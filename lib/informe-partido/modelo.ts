@@ -1225,7 +1225,23 @@ export function fraseUtil(t: string | undefined, n = 110) {
 
   const f = capital(frases.find((x) => !rotulo(x)) ?? frases[0] ?? "");
 
-  return f.length > n ? `${f.slice(0, n - 1).trimEnd()}…` : f;
+  return sinPuntosSuspensivos(f, n);
+}
+
+/**
+ * Un texto que no cabe en `n` letras, SIN cortarlo con «…» (02/11/2026:
+ * «no puede fallar nada de la información», y una frase a medias falla):
+ * se queda hasta la última pausa natural (coma, punto y coma, dos puntos o
+ * paréntesis) que entre, cerrado con punto; si no hay ninguna, la frase
+ * entera aunque sea algo más larga.
+ */
+export function sinPuntosSuspensivos(f: string, n: number) {
+  if (f.length <= n) return f;
+
+  const pausas = [...f.slice(0, n).matchAll(/\s*[,;:(]\s/g)].map((m) => m.index ?? 0).filter((i) => i >= n * 0.45);
+  const hasta = pausas.at(-1);
+
+  return hasta ? `${f.slice(0, hasta).replace(/[\s,;:.(]+$/, "")}.` : f;
 }
 
 const primeraFrase = fraseUtil;

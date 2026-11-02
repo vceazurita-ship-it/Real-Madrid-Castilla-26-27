@@ -19,8 +19,8 @@
 */
 
 import { abreMp4, claveAntesDe, LectorMuestras, type PistaMp4 } from "@/lib/coding/mp4";
-
-const respira = () => new Promise<void>((r) => setTimeout(r, 0));
+/* Por MessageChannel (02/11/2026): con la pestaña escondida un setTimeout(0) va a uno por segundo. */
+import { respira } from "@/lib/export/captura";
 
 export class FotogramasCorte {
   private descodificador: VideoDecoder | null = null;

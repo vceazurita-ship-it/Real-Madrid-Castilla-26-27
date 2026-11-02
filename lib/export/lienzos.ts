@@ -478,7 +478,12 @@ function pintaIndice(doc: jsPDF, indice: IndicePdf, plan: ReturnType<typeof plan
 
     doc.setTextColor(247, 244, 236);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(24);
+    /* Un título largo («POST J10 · RM CASTILLA 2-1 FC CARTAGENA») se achica hasta caber: nunca se sale de la banda. */
+    const libre = ancho - INDICE.margen * 2 - (indice.subtitulo ? 190 : 0);
+    let cuerpo = 24;
+
+    doc.setFontSize(cuerpo);
+    while (cuerpo > 13 && doc.getTextWidth(indice.titulo.toUpperCase()) > libre) doc.setFontSize((cuerpo -= 1));
     doc.text(indice.titulo.toUpperCase(), INDICE.margen, 48);
 
     if (indice.subtitulo) {

@@ -1322,10 +1322,15 @@ export function valoracionTareas(
 
     /* 26 y no 30: con el día delante, un contenido largo llegaba a tocar la
        barra y las dos cosas se leían como una sola. */
-    const corto = nombre.length > 26 ? `${nombre.slice(0, 25)}…` : nombre;
+    /* Entero (02/11/2026; antes «…» a partir de 26 letras): la letra baja hasta ocupar lo que ocupaban 26. */
+    const texto = `${tarea.dia} · ${nombre}`;
 
-    escribe(ctx, `${tarea.dia} · ${corto}`, x0, y + paso - 7, {
-      px: 12,
+    fuente(ctx, 12, 400);
+    const cabe = ctx.measureText(`${tarea.dia} · ${"n".repeat(26)}`).width;
+    const mide = ctx.measureText(texto).width;
+
+    escribe(ctx, texto, x0, y + paso - 7, {
+      px: mide > cabe ? Math.max(8, Math.floor(12 * (cabe / mide) * 10) / 10) : 12,
       peso: 400,
       tinta: TINTA,
     });

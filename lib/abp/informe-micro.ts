@@ -1719,15 +1719,27 @@ function partidoDelInforme(
 
 /* ---------------- las claves ---------------- */
 
-/** Un texto largo, cortado por una palabra y con puntos suspensivos. */
+/**
+ * Un texto largo, acortado SIN dejar una frase a medias (02/11/2026; antes
+ * se cortaba por una palabra con «…»): las frases enteras que quepan en
+ * `tope` y, si ni la primera cabe, la primera entera.
+ */
 function recorta(texto: string, tope = 170) {
   const limpio = String(texto ?? "").replace(/\s+/g, " ").trim();
 
   if (limpio.length <= tope) return limpio;
 
-  const corte = limpio.slice(0, tope);
+  const frases = limpio.match(/[^.!?]+[.!?]+(?=\s|$)|[^.!?]+$/g) ?? [limpio];
+  let salida = "";
 
-  return `${corte.slice(0, Math.max(corte.lastIndexOf(" "), tope - 20)).replace(/[\s,;.:]+$/, "")}…`;
+  for (const f of frases) {
+    const junto = `${salida} ${f.trim()}`.trim();
+
+    if (salida && junto.length > tope) break;
+    salida = junto;
+  }
+
+  return salida;
 }
 
 /**
@@ -5209,7 +5221,7 @@ function seccionesDe(informe: InformeMicro, modoImagenes: ModoImagenes): Seccion
 }
 
 function seccionHtml(seccion: Seccion) {
-  return `<tr><td style="padding:22px 24px 4px"><h2 style="margin:0;font:700 18px/1.25 ${TITULAR};color:${NAVY};text-transform:uppercase;letter-spacing:.06em">${esc(seccion.titulo)}</h2>${
+  return `<tr><td style="padding:22px 24px 4px"><h2 data-capitulo="${esc(seccion.titulo)}" style="margin:0;font:700 18px/1.25 ${TITULAR};color:${NAVY};text-transform:uppercase;letter-spacing:.06em">${esc(seccion.titulo)}</h2>${
     seccion.pie
       ? `<p style="margin:4px 0 12px;font:400 12px/1.5 Arial,sans-serif;color:${SUAVE}">${esc(seccion.pie)}</p>`
       : `<div style="height:12px"></div>`

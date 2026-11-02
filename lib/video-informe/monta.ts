@@ -22,6 +22,7 @@
 */
 
 import { MuxorMp4 } from "@/lib/coding/mp4";
+import { respira } from "@/lib/export/captura";
 import type { Bytes } from "@/lib/export/zip";
 
 import { ALTO, ALTO_HD, ANCHO, ANCHO_HD, FPS, SEGUNDO_POSTER, corteEn, estiramiento, limitesDeCortes, palabrasDeEscena, pintaFotograma, rellenaGrano, reparteEscenas, type Recursos } from "./dibujo";
@@ -97,6 +98,8 @@ export type OpcionesVideo = {
    * (`vertical.ts`) y la portada va delante (es la miniatura de WhatsApp).
    */
   vertical?: boolean;
+  /** Para cortarlo a mitad desde el panel de trabajos (02/11/2026, `trabajo-video.ts`). */
+  senal?: AbortSignal;
 };
 
 /* Con cola, un solo vídeo (el enlazado): todo el margen del bucket para él. */
@@ -304,7 +307,12 @@ function copia(fuente: AllowSharedBufferSource): Bytes {
   return salida;
 }
 
-const respira = () => new Promise<void>((r) => setTimeout(r, 0));
+/*
+| `respira` es el de lib/export/captura (02/11/2026): por un MessageChannel,
+| que Chrome no estrangula con la pestaña escondida. El de antes era un
+| `setTimeout(0)`, que escondida va a uno por segundo y, pasados cinco
+| minutos, a uno por MINUTO: el vídeo se quedaba parado al cambiar de pestaña.
+*/
 
 export type VideoMontado = {
   /** El vídeo en Full HD (o en 720p si el navegador no codifica 1080): va al bucket y se enlaza. */
@@ -334,7 +342,13 @@ export async function montaVideoInforme(guionEntrada: GuionVideo, opciones: Opci
   const W_HD = vertical ? ANCHO_V_HD : ANCHO_HD;
   const H_HD = vertical ? ALTO_V_HD : ALTO_HD;
 
-  const alPaso = opciones.alPaso ?? (() => {});
+  const senal = opciones.senal;
+  const pasoBase = opciones.alPaso ?? (() => {});
+  /* Cada rótulo de progreso es también un punto donde se mira si lo han cancelado. */
+  const alPaso = (texto: string) => {
+    senal?.throwIfAborted();
+    pasoBase(texto);
+  };
   const fuente = `${opciones.fuente ? `${opciones.fuente}, ` : ""}"Barlow Condensed", "Segoe UI", Arial, sans-serif`;
 
   /* Los cortes y el texto de la IA a la vez (16/10/2026): la IA puede tardar hasta 20 s y no depende de los cortes. */
@@ -602,6 +616,7 @@ export async function montaVideoInforme(guionEntrada: GuionVideo, opciones: Opci
 
     for (let i = 0; i < cuantos; i += 1) {
       if (fallo) throw fallo;
+      senal?.throwIfAborted();
 
       const t = i / FPS;
       let cuadro: VideoFrame | null = null;
@@ -645,6 +660,7 @@ export async function montaVideoInforme(guionEntrada: GuionVideo, opciones: Opci
 
     for (let i = 0; i < cuantos; i += 1) {
       if (fallo) throw fallo;
+      senal?.throwIfAborted();
       if (i % FPS === 0) alPaso(`tu vídeo ${Math.round((i / cuantos) * 100)} %…`);
 
       const t = i / FPS;

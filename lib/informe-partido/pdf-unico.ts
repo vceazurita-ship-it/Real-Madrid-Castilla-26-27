@@ -26,6 +26,21 @@ export type EnlaceInforme = { nombre: string; url: string; /** «PowerPoint · 4
 
 export type VideoInforme = { url: string; poster: string | null; segundos: number };
 
+/** Parte un texto en dos renglones por el espacio más cercano a la mitad que quepa. */
+function partirEnDos(ctx: CanvasRenderingContext2D, texto: string, ancho: number): [string, string] {
+  const palabras = texto.split(/\s+/);
+  let mejor: [string, string] = [texto, ""];
+
+  for (let i = 1; i < palabras.length; i += 1) {
+    const a = palabras.slice(0, i).join(" ");
+
+    if (ctx.measureText(a).width > ancho) break;
+    mejor = [a, palabras.slice(i).join(" ")];
+  }
+
+  return mejor;
+}
+
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}`;
 
 async function cargaImagen(src: string) {
@@ -113,13 +128,27 @@ export async function paginaDeEnlaces(o: { titulo: string; video: VideoInforme |
     ctx.font = `700 30px "Barlow Condensed", Arial, sans-serif`;
     ctx.fillStyle = "#FFFFFF";
 
-    let nombre = e.nombre;
+    /*
+    | El nombre ENTERO (02/11/2026): antes se cortaba con «…». Primero se
+    | achica la letra; si ni así cabe, va en dos renglones y el detalle se
+    | queda fuera (es el peso del fichero, lo que menos falta hace).
+    */
+    const cabe = anchoFila - 200;
+    let cuerpo = 30;
 
-    while (ctx.measureText(nombre).width > anchoFila - 200 && nombre.length > 10) nombre = `${nombre.slice(0, -2).trimEnd()}…`;
+    while (cuerpo > 20 && ctx.measureText(e.nombre).width > cabe) {
+      cuerpo -= 1;
+      ctx.font = `700 ${cuerpo}px "Barlow Condensed", Arial, sans-serif`;
+    }
 
-    ctx.fillText(nombre, xDocs + 28, y + 36);
+    const dos = ctx.measureText(e.nombre).width > cabe ? partirEnDos(ctx, e.nombre, cabe) : null;
 
-    if (e.detalle) {
+    if (dos) {
+      ctx.fillText(dos[0], xDocs + 28, y + 32);
+      ctx.fillText(dos[1], xDocs + 28, y + 60);
+    } else ctx.fillText(e.nombre, xDocs + 28, y + 36);
+
+    if (e.detalle && !dos) {
       ctx.font = `400 22px "Barlow Condensed", Arial, sans-serif`;
       ctx.fillStyle = "rgba(255,255,255,0.55)";
       ctx.fillText(e.detalle, xDocs + 28, y + 64);
@@ -209,10 +238,12 @@ export async function paginaDelVideo(o: { titulo: string; video: VideoInforme })
 export async function informeUnicoPdf(o: {
   titulo: string;
   diapos: string[];
-  hojas?: { hojas: string[]; ancho: number; alto: number } | null;
+  hojas?: { hojas: string[]; ancho: number; alto: number; titulos?: string[] } | null;
   final?: { imagen: string; enlaces: NonNullable<HojaPdf["enlaces"]> } | null;
   /** La misma página de vídeo y documentos, pero DELANTE de todo (la de ABP desde el 18/10/2026). */
   inicio?: { imagen: string; enlaces: NonNullable<HojaPdf["enlaces"]> } | null;
+  /** Los nombres de las diapositivas del resumen, para el índice («La previa en una hoja»…). */
+  nombresDiapos?: string[];
 }): Promise<Blob> {
   const paginas: HojaPdf[] = [
     ...(o.inicio ? [{ imagen: o.inicio.imagen, ancho: W, alto: H, orientacion: "landscape" as const, margen: 0, enlaces: o.inicio.enlaces }] : []),
@@ -221,7 +252,19 @@ export async function informeUnicoPdf(o: {
     ...(o.final ? [{ imagen: o.final.imagen, ancho: W, alto: H, orientacion: "landscape" as const, margen: 0, enlaces: o.final.enlaces }] : []),
   ];
 
-  const pdf = await pdfDeHojas(paginas);
+  /*
+  | El índice enlazado (02/11/2026, el mismo de la pizarra de ABP): primera
+  | página con una fila por hoja que salta a ella, y «ÍNDICE» en el pie de
+  | cada hoja para volver. Sólo cuando hay páginas de sobra para perderse.
+  */
+  const entradas = [
+    ...(o.inicio ? ["Vídeo del informe"] : []),
+    ...o.diapos.map((_, i) => o.nombresDiapos?.[i] ?? `Resumen · diapositiva ${i + 1} de ${o.diapos.length}`),
+    ...(o.hojas?.hojas ?? []).map((_, i) => o.hojas?.titulos?.[i] ?? `Informe completo · hoja ${i + 1}`),
+    ...(o.final ? ["Vídeo y documentos"] : []),
+  ];
+
+  const pdf = await pdfDeHojas(paginas, paginas.length >= 4 ? { indice: { titulo: o.titulo, subtitulo: o.titulo.length < 46 ? "Real Madrid Castilla" : undefined, entradas } } : {});
 
   (pdf as { setProperties?: (p: Record<string, string>) => void }).setProperties?.({
     title: `Real Madrid Castilla · ${o.titulo}`,

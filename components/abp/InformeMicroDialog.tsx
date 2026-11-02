@@ -25,7 +25,8 @@ import { toast } from "sonner";
 import { subeAdjunto } from "@/lib/correo/subeAdjunto";
 import { bloqueVideoHtml } from "@/lib/video-informe/portada-video";
 import { VIDEO_JUGADORES_KEY, eligeVideoJugadores, normalizaVideosJugadores, type VideoJugadores } from "@/lib/abp/video-jugadores";
-import { montaVideoInforme, puedeMontarVideo, type VideoMontado } from "@/lib/video-informe/monta";
+import { puedeMontarVideo, type VideoMontado } from "@/lib/video-informe/monta";
+import { trabajoVideo } from "@/lib/video-informe/trabajo-video";
 import { SEGUNDOS_ENTRADA_ABP, entradaDeAbp } from "@/lib/video-informe/guion";
 import { barlowCondensed } from "@/lib/rivals/portada-font";
 import { enlaceConTarjeta, nombrePartidoPdf } from "@/lib/informe-partido/tarjeta-pdf";
@@ -94,7 +95,8 @@ function arrancaMontaje(ref: { current: Montaje | null }, clave: string, informe
     .catch(() => null)
     /* El escudo del rival para la portada de la entrada (sin él, sale la jornada en su sitio). */
     .then(() => (rival ? traeEscudos().then((lista) => buscadorDeEscudos(lista)(rival)) : null))
-    .then((escudoRival) => montaVideoInforme(entradaDeAbp(informe, pinceladaAbp(informe), { escudoRival }), { cola: { url }, tope: SEGUNDOS_ENTRADA_ABP, fuente: barlowCondensed.style.fontFamily, alPaso: (texto) => estado({ clave, texto, listo: false }) }))
+    /* En segundo plano y por huella de contenido (02/11/2026): sigue al cerrar el diálogo y reabrir no lo rehace. */
+    .then((escudoRival) => trabajoVideo.pide(rival ? `Vídeo de ABP · ${rival}` : "Vídeo de ABP para jugadores", entradaDeAbp(informe, pinceladaAbp(informe), { escudoRival }), { cola: { url }, tope: SEGUNDOS_ENTRADA_ABP, fuente: barlowCondensed.style.fontFamily, alPaso: (texto) => estado({ clave, texto, listo: false }) }))
     .then((v) => {
       estado({ clave, texto: "", listo: true });
 

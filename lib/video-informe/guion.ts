@@ -686,7 +686,8 @@ function escenaGancho(informe: InformePartido): Escena | null {
 function escenaContexto(informe: InformePartido): Escena | null {
   const c = informe.contexto;
 
-  if (!c || (!c.puesto && !c.racha.length)) return null;
+  /* Cara a cara de verdad (02/11/2026): con el puesto de uno solo, el otro salía como un «–» de 170 px. */
+  if (!c || !((c.puesto && c.nuestroPuesto) || (c.racha.length && c.nuestraRacha.length))) return null;
 
   const equipos: EquipoContexto[] = [
     { nombre: "Real Madrid Castilla", nuestro: true, puesto: c.nuestroPuesto, puntos: c.nuestrosPuntos, racha: c.nuestraRacha.slice(0, 5) },

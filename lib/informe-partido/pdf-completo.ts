@@ -31,7 +31,7 @@
  * Se usa en el navegador.
  */
 
-import { cargaSvg, fuentesListas } from "@/lib/export/captura";
+import { cargaSvg, fuentesListas, respira } from "@/lib/export/captura";
 import { PIXEL_VACIO, pdfDeLienzos } from "@/lib/export/lienzos";
 
 const FONDO = "#EEEAE0";
@@ -41,7 +41,8 @@ const ANCHO = 820;
 /* La hoja: A4 en vertical. */
 const ALTO_HOJA = Math.round(ANCHO * Math.SQRT2);
 
-const NITIDEZ = 1.6;
+/* 2 (02/11/2026; antes 1,6): ~200 ppp en A4, los gráficos y las tablas se leen sin dientes al ampliar. */
+const NITIDEZ = 2;
 
 /* El pie de cada hoja, dibujado dentro de la imagen: alto y margen. */
 const PIE = 34;
@@ -52,13 +53,26 @@ export type OpcionesCompleto = {
 };
 
 /** Las hojas del completo ya pintadas (JPEG en data URL) y su tamaño en píxeles. */
-export type HojasCompleto = { hojas: string[]; ancho: number; alto: number };
+export type HojasCompleto = {
+  hojas: string[];
+  ancho: number;
+  alto: number;
+  /**
+   * De qué trata cada hoja (02/11/2026), para el índice enlazado del PDF: los
+   * capítulos (`data-capitulo`) que empiezan en ella o, si no empieza
+   * ninguno, el que viene de la anterior.
+   */
+  titulos?: string[];
+};
 
 /** El completo en PDF, para bajarlo suelto. */
 export async function completoEnPdf(html: string, alPaso?: (hoja: number, total: number) => void, opciones: OpcionesCompleto = {}): Promise<Blob> {
-  const { hojas, ancho, alto } = await completoEnHojas(html, alPaso, opciones);
+  const { hojas, ancho, alto, titulos } = await completoEnHojas(html, alPaso, opciones);
 
-  const pdf = await pdfDeLienzos(hojas, { ancho, alto, orientacion: "portrait", margen: 0 });
+  /* Con índice enlazado (02/11/2026, como la pizarra de ABP) cuando hay hojas de sobra para perderse. */
+  const indice = titulos && hojas.length >= 4 ? { titulo: opciones.titulo ?? "Informe", subtitulo: "Real Madrid Castilla", entradas: titulos } : undefined;
+
+  const pdf = await pdfDeLienzos(hojas, { ancho, alto, orientacion: "portrait", margen: 0, indice });
 
   if (opciones.titulo) {
     (pdf as { setProperties?: (p: Record<string, string>) => void }).setProperties?.({
@@ -130,7 +144,12 @@ export async function completoEnHojas(html: string, alPaso?: (hoja: number, tota
     | una tabla y su primera fila, ni justo debajo del título de una sección
     | (el título se quedaba solo al pie de la hoja).
     */
-    const bajoTitulos = Array.from(caja.querySelectorAll("h2")).map((h) => h.getBoundingClientRect().bottom - arriba);
+    /* El del partido no usa h2: su título de capítulo lleva `data-capitulo` (02/11/2026). */
+    const bajoTitulos = Array.from(caja.querySelectorAll("h2, [data-capitulo]")).map((h) => h.getBoundingClientRect().bottom - arriba);
+    const capitulos = Array.from(caja.querySelectorAll<HTMLElement>("[data-capitulo]"))
+      .map((h) => ({ y: h.getBoundingClientRect().top - arriba, titulo: (h.dataset.capitulo ?? "").trim() }))
+      .filter((c) => c.titulo)
+      .sort((a, b) => a.y - b.y);
 
     const cortes = Array.from(caja.querySelectorAll("tr"))
       .filter((tr) => !(tr.parentElement?.tagName === "TBODY" && tr === tr.parentElement.firstElementChild && tr.parentElement.previousElementSibling?.tagName === "THEAD"))
@@ -158,6 +177,18 @@ export async function completoEnHojas(html: string, alPaso?: (hoja: number, tota
 
       y = fin;
     }
+
+    const titulos = tramos.map(([y, fin], i) => {
+      const empiezan = capitulos.filter((c) => c.y >= y - 2 && c.y < fin - 40).map((c) => c.titulo);
+
+      if (empiezan.length) return empiezan.join(" · ");
+
+      const viene = capitulos.filter((c) => c.y < y).pop();
+
+      if (viene) return `${viene.titulo} (continúa)`;
+
+      return i === 0 ? "Portada" : `Hoja ${i + 1}`;
+    });
 
     alPaso?.(0, tramos.length);
 
@@ -217,10 +248,10 @@ export async function completoEnHojas(html: string, alPaso?: (hoja: number, tota
       hojas.push(hoja.toDataURL("image/jpeg", 0.82));
 
       /* Que la pantalla respire entre hoja y hoja. */
-      await new Promise((r) => setTimeout(r, 0));
+      await respira();
     }
 
-    return { hojas, ancho: Math.round(ANCHO * NITIDEZ), alto: Math.round(ALTO_HOJA * NITIDEZ) };
+    return { hojas, ancho: Math.round(ANCHO * NITIDEZ), alto: Math.round(ALTO_HOJA * NITIDEZ), titulos };
   } finally {
     caja.remove();
   }

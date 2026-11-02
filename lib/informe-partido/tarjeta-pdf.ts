@@ -52,15 +52,18 @@ function caja(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h:
   ctx.closePath();
 }
 
-/** Corta el texto a lo que cabe en `ancho`, con puntos suspensivos. */
+/**
+ * Que el texto quepa en `ancho` ENTERO (02/11/2026; antes se cortaba con
+ * «…»): baja la letra de `ctx.font` lo justo y devuelve el texto tal cual.
+ */
 function cabe(ctx: CanvasRenderingContext2D, texto: string, ancho: number) {
-  if (ctx.measureText(texto).width <= ancho) return texto;
+  const medido = ctx.measureText(texto).width;
 
-  let t = texto;
+  if (medido <= ancho) return texto;
 
-  while (t.length > 1 && ctx.measureText(`${t}…`).width > ancho) t = t.slice(0, -1);
+  ctx.font = ctx.font.replace(/(\d+(?:\.\d+)?)px/, (_, px: string) => `${Math.floor(Number(px) * (ancho / medido) * 10) / 10}px`);
 
-  return `${t.trimEnd()}…`;
+  return texto;
 }
 
 /** Pinta la tarjeta: los dos escudos, el partido, lo que es (ABP, previa/post) y el icono de PDF. */

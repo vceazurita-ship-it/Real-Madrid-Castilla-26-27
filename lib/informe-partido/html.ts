@@ -82,7 +82,7 @@ const celda = (...args: Parameters<typeof cifra>) => (args[0] == null || !Number
 function seccion(titulo: string, pie: string, cuerpo: string) {
   if (!cuerpo.trim()) return "";
 
-  return `<tr><td style="padding:34px 32px 8px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td width="58" valign="top" style="font:700 34px/1 Georgia,'Times New Roman',serif;color:#C8A96B">${NUMERO}</td><td valign="top"><p style="margin:0;font:700 20px/1.2 Arial,sans-serif;color:${NAVY}">${esc(titulo)}</p>${
+  return `<tr><td style="padding:34px 32px 8px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td width="58" valign="top" style="font:700 34px/1 Georgia,'Times New Roman',serif;color:#C8A96B">${NUMERO}</td><td valign="top"><p data-capitulo="${esc(titulo)}" style="margin:0;font:700 20px/1.2 Arial,sans-serif;color:${NAVY}">${esc(titulo)}</p>${
     pie ? `<p style="margin:5px 0 0;font:400 13px/1.5 Arial,sans-serif;color:${SUAVE}">${esc(pie)}</p>` : ""
   }</td></tr></table><div style="height:2px;background:#E8DFC9;margin:14px 0 16px"></div>${cuerpo}</td></tr>`;
 }

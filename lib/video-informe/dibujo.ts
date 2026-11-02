@@ -2036,7 +2036,8 @@ function pintaContexto(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "
 
     ctx.fillStyle = BLANCO;
     ctx.font = `700 170px ${fuente}`;
-    ctx.fillText(eq.puesto ? `${eq.puesto}º` : "–", x + 26, y0 + 228);
+    /* Sin puesto no se pinta nada en su sitio: nunca un guion. */
+    if (eq.puesto) ctx.fillText(`${eq.puesto}º`, x + 26, y0 + 228);
 
     if (eq.puntos !== null) {
       ctx.fillStyle = "rgba(255,255,255,0.92)";
