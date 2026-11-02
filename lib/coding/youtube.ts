@@ -211,10 +211,51 @@ export function urlDeVuelta(peticion: Request) {
  * se escribe desde varias pestañas a la vez.
  */
 export async function dameAcceso(ajustes: AjustesYoutube) {
+  return (await dameAccesoConPermisos(ajustes)).acceso;
+}
+
+/**
+ * Un fallo al pedir acceso, con su porqué en una palabra.
+ *
+ * Lo lee la vigilancia (`lib/correo/salud-google.ts`) para distinguir el
+ * permiso caducado —que sólo se arregla reconectando— de un corte de red.
+ */
+export class ErrorGoogle extends Error {
+  codigo: "sin-credenciales" | "sin-conectar" | "caducado" | "fallo";
+
+  constructor(codigo: ErrorGoogle["codigo"], mensaje: string) {
+    super(mensaje);
+    this.name = "ErrorGoogle";
+    this.codigo = codigo;
+  }
+}
+
+/** Los permisos sin los que algo de la app deja de ir (correo o YouTube). */
+export const PERMISOS_IMPRESCINDIBLES = [
+  "https://www.googleapis.com/auth/youtube.upload",
+  "https://www.googleapis.com/auth/youtube",
+  "https://www.googleapis.com/auth/gmail.send",
+];
+
+/** Los imprescindibles que no están en la lista de permisos que devuelve Google. */
+export function permisosQueFaltan(concedidos: string) {
+  const lista = String(concedidos ?? "").split(/\s+/);
+
+  return PERMISOS_IMPRESCINDIBLES.filter((uno) => !lista.includes(uno));
+}
+
+/**
+ * Como `dameAcceso`, y además los permisos que tiene de verdad ese acceso.
+ *
+ * Google los devuelve en la misma respuesta (`scope`), así que saberlos no
+ * cuesta otra llamada: es lo que dice si el mismo token vale para el correo y
+ * para YouTube.
+ */
+export async function dameAccesoConPermisos(ajustes: AjustesYoutube) {
   const { id, secreto, hay } = credenciales();
 
-  if (!hay) throw new Error("Faltan las credenciales de Google en el servidor.");
-  if (!ajustes.refreshToken) throw new Error("No hay ninguna cuenta de YouTube conectada.");
+  if (!hay) throw new ErrorGoogle("sin-credenciales", "Faltan las credenciales de Google en el servidor.");
+  if (!ajustes.refreshToken) throw new ErrorGoogle("sin-conectar", "No hay ninguna cuenta de YouTube conectada.");
 
   const respuesta = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
@@ -229,6 +270,7 @@ export async function dameAcceso(ajustes: AjustesYoutube) {
 
   const datos = (await respuesta.json().catch(() => null)) as {
     access_token?: string;
+    scope?: string;
     error?: string;
     error_description?: string;
   } | null;
@@ -242,14 +284,12 @@ export async function dameAcceso(ajustes: AjustesYoutube) {
     | días de gracia se han cumplido. Reintentar no arregla ninguna: hay que
     | volver a conectar, y eso es lo que tiene que decir la pantalla.
     */
-    throw new Error(
-      datos?.error === "invalid_grant"
-        ? "Google ha caducado el permiso. Vuelve a conectar la cuenta de YouTube."
-        : datos?.error_description ?? "Google no ha dado acceso a la cuenta.",
-    );
+    throw datos?.error === "invalid_grant"
+      ? new ErrorGoogle("caducado", "Google ha caducado el permiso. Vuelve a conectar la cuenta de YouTube.")
+      : new ErrorGoogle("fallo", datos?.error_description ?? "Google no ha dado acceso a la cuenta.");
   }
 
-  return datos.access_token;
+  return { acceso: datos.access_token, permisos: String(datos.scope ?? "") };
 }
 
 /** Una llamada a la API de YouTube con el error ya traducido. */

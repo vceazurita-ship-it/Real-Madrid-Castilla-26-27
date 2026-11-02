@@ -24,9 +24,15 @@
  * - Y hace falta tener activada la *Gmail API* en el mismo proyecto de la
  *   consola de Google donde ya está la de YouTube. Eso se hace una vez y no se
  *   ve desde aquí; si falta, Google contesta que la API está deshabilitada.
+ *
+ * **Desde el 02/11/2026 hay una segunda vía que no caduca**: SMTP de Gmail con
+ * contraseña de aplicación (`lib/correo/smtp.ts`). Si `GMAIL_SMTP_USER` y
+ * `GMAIL_APP_PASSWORD` están puestas, va primero, y la de la API queda de
+ * respaldo (y al revés). Mismo mensaje, mismos adjuntos, misma cuenta.
  */
 
 import { dameAcceso, leeAjustes } from "@/lib/coding/youtube";
+import { configSmtp, enviaSmtp, FalloSmtp, LIMITE_SMTP, sinBcc, type ConfigSmtp } from "@/lib/correo/smtp";
 
 export type Adjunto = {
   nombre: string;
@@ -253,7 +259,15 @@ function envuelve(tipo: string, limite: string, partes: string[], extra = "") {
  * usa `undisclosed-recipients:;`, que es la forma de decir lo mismo cuando no
  * hay a quién poner.
  */
-export function escribeMensaje(correo: Correo, remitente?: string | null) {
+export function escribeMensaje(
+  correo: Correo,
+  remitente?: string | null,
+  /**
+   * Para la vía SMTP (`smtp.ts`): ahí sí hay que escribir `From:` —no lo pone
+   * nadie por nosotros— y un `Message-ID` propio para poder devolverlo.
+   */
+  extra: { de?: string; messageId?: string } = {},
+) {
   const sello = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 
   const adjuntos = correo.adjuntos ?? [];
@@ -290,6 +304,8 @@ export function escribeMensaje(correo: Correo, remitente?: string | null) {
     : alternativo;
 
   return [
+    ...(extra.de ? [`From: ${extra.de}`] : []),
+    ...(extra.messageId ? [`Message-ID: <${extra.messageId}>`] : []),
     `To: ${remitente || "undisclosed-recipients:;"}`,
     `Bcc: ${correo.para.join(",\r\n ")}`,
     `Subject: ${cabecera(correo.asunto)}`,
@@ -386,11 +402,85 @@ function traduceFallo(estado: number, mensaje: string) {
  * Si la cuenta no está conectada se levanta con el mismo aviso que la subida de
  * vídeos, que es donde se conecta.
  */
-export async function envia(correo: Correo) {
+export async function envia(correo: Correo): Promise<{ id: string; cuenta: string; via: ViaCorreo }> {
   if (correo.para.length === 0) {
     throw new Error("No hay ninguna dirección a la que mandarlo.");
   }
 
+  const smtp = configSmtp();
+
+  /*
+  | DOS VÍAS, Y LA QUE NO CADUCA PRIMERO (02/11/2026).
+  |
+  | Con `GMAIL_SMTP_USER` y `GMAIL_APP_PASSWORD` puestos, el correo sale por
+  | SMTP con la contraseña de aplicación: no depende del permiso OAuth, que
+  | caduca (`invalid_grant`) y sólo se arregla con un clic de una persona. Si
+  | esa vía falla, se prueba la de la API; y al revés cuando la API va
+  | primero (mensaje de más de 25 MB, o `CORREO_VIA=api`). Sin SMTP, todo
+  | sigue como estaba.
+  */
+  const vias = ordenDeVias(correo, smtp);
+
+  const fallos: string[] = [];
+
+  for (const via of vias) {
+    try {
+      if (via === "smtp" && smtp) return { ...(await enviaPorSmtp(correo, smtp)), via };
+
+      return { ...(await enviaPorApi(correo)), via };
+    } catch (error) {
+      const mensaje = error instanceof Error ? error.message : String(error);
+
+      /* Si el servidor ya tenía el mensaje, mandarlo por la otra vía lo duplicaría. */
+      if (error instanceof FalloSmtp && error.quizaSalio) throw error;
+
+      console.warn(`[correo] la vía ${via} ha fallado: ${mensaje}`);
+
+      fallos.push(vias.length > 1 ? `${via === "smtp" ? "Por SMTP" : "Por la API de Gmail"}: ${mensaje}` : mensaje);
+    }
+  }
+
+  throw new Error(fallos.join(" · "));
+}
+
+export type ViaCorreo = "smtp" | "api";
+
+/** En qué orden se prueban las vías para este correo. */
+export function ordenDeVias(correo: Correo, smtp: ConfigSmtp | null, env: Record<string, string | undefined> = process.env): ViaCorreo[] {
+  if (!smtp) return ["api"];
+
+  /* Lo que pesa el mensaje, a ojo: los adjuntos ya van en base64 y el resto es texto. */
+  const peso =
+    (correo.adjuntos ?? []).reduce((suma, uno) => suma + uno.base64.length * 1.03, 0) +
+    (correo.html.length + correo.texto.length) * 1.4;
+
+  if (env.CORREO_VIA === "api" || peso > LIMITE_SMTP * 0.97) return ["api", "smtp"];
+
+  return ["smtp", "api"];
+}
+
+/** La vía SMTP: el mismo mensaje, con `From:` y sin `Bcc:` (los destinatarios van en el sobre). */
+async function enviaPorSmtp(correo: Correo, smtp: ConfigSmtp) {
+  const cuenta = smtp.usuario.toLowerCase();
+
+  const dominio = cuenta.split("@")[1] || "gmail.com";
+
+  const messageId = `${Date.now().toString(36)}.${Math.random().toString(36).slice(2, 10)}@${dominio}`;
+
+  const de = smtp.nombre ? `${cabecera(smtp.nombre)} <${cuenta}>` : cuenta;
+
+  const mensaje = sinBcc(escribeMensaje(correo, cuenta, { de, messageId }));
+
+  /* La propia cuenta también, como por la API: va en `To:` y se queda copia. */
+  const sobres = [...new Set([...correo.para, cuenta])];
+
+  await enviaSmtp(smtp, sobres, mensaje);
+
+  return { id: messageId, cuenta };
+}
+
+/** La vía de siempre: la API de Gmail con el permiso OAuth de la cuenta del club. */
+async function enviaPorApi(correo: Correo) {
   const ajustes = await leeAjustes();
 
   const acceso = await dameAcceso(ajustes);

@@ -227,6 +227,13 @@ export const AVISOS_YOUTUBE: Record<string, { tono: "ok" | "mal"; texto: string;
       "Quita el acceso de la app en tu cuenta de Google y vuelve a conectar, " +
       "para que salga otra vez la pantalla de consentimiento.",
   },
+  "faltan-permisos": {
+    tono: "mal",
+    texto: "Google no ha dado todos los permisos",
+    detalle:
+      "El mismo permiso sirve para el correo del club y para YouTube. Vuelve a conectar " +
+      "y deja marcadas todas las casillas (YouTube y «Enviar correo en tu nombre»).",
+  },
   fallo: { tono: "mal", texto: "No se ha podido conectar la cuenta" },
 };
 

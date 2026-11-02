@@ -15,6 +15,7 @@ import { Sidebar } from "@/components/ui/sidebar"
 import { Topbar } from "@/components/ui/topbar"
 import ModulesExplorer from "@/components/ui/ModulesExplorer"
 import { AlertasPortada } from "@/components/portada/AlertasPortada"
+import { AvisoConexionGoogle } from "@/components/portada/AvisoConexionGoogle"
 import { Cifras } from "@/components/portada/Cifras"
 import { ProximoPartido } from "@/components/portada/ProximoPartido"
 import { MisTareas } from "@/components/portada/MisTareas"
@@ -761,6 +762,9 @@ export default function Home() {
             */}
             {/* Las alertas miran la última vez de cada uno, aunque sea de antes del 21/10:
                 con el corte, quien no tenía registro esta semana salía «más de 45 días». */}
+            {/* La conexión con Google (correo y YouTube), sólo si se ha caído y sólo al admin. */}
+            <AvisoConexionGoogle />
+
             <AlertasPortada plantilla={plantilla} seguimiento={seguimientoTodo} />
 
             {/* ACCESO RÁPIDO, fuera (30/10/2026): repetía los botones del héroe

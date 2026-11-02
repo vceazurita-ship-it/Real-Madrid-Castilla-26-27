@@ -514,6 +514,28 @@ async function refrescaCalendario() {
 }
 
 /*
+| LA CONEXIÓN CON GOOGLE, VIGILADA (02/11/2026).
+|
+| El correo del club y YouTube cuelgan del mismo permiso de Google, y cuando
+| caducaba sólo se sabía al mandar un informe. Cada tres horas (y al arrancar)
+| `google-salud.mjs` canjea el token sin mandar nada; si ha caído, manda él el
+| aviso por SMTP con el enlace para reconectar (una vez al caer y, si sigue,
+| una al día). Usarlo a menudo además evita que Google lo dé por abandonado.
+*/
+let googleEn = 0;
+
+const GOOGLE_CADA_MS = 3 * 3_600_000;
+
+async function miraGoogle() {
+  googleEn = Date.now();
+
+  const { codigo, texto } = await ejecuta("google", process.execPath, [path.join(RAIZ, "scripts/google-salud.mjs")]);
+
+  /* Sólo se apunta cuando hay algo que contar: si va bien, cada tres horas es ruido. */
+  if (codigo !== 0) apunta(`Google: ${resumen(texto) || `no se ha podido comprobar (${codigo})`}.`);
+}
+
+/*
 | WYSCOUT SIN QUE NADIE LO PIDA (09/10/2026).
 |
 | La tarea semanal de Wyscout no estaba instalada en el ordenador del club,
@@ -772,7 +794,15 @@ function limpiaRegistros() {
       .reverse()
       .slice(40);
 
-    for (const f of viejos) fs.rmSync(path.join(REGISTRO, f), { force: true });
+    /* Los de Google van aparte (ocho al día): en el cupo común echarían a los que importan. */
+    const deGoogle = fs
+      .readdirSync(REGISTRO)
+      .filter((f) => /^google-\d+\.log$/.test(f))
+      .sort()
+      .reverse()
+      .slice(10);
+
+    for (const f of [...viejos, ...deGoogle]) fs.rmSync(path.join(REGISTRO, f), { force: true });
   } catch {
     /* nada */
   }
@@ -1381,6 +1411,14 @@ async function ronda() {
     refrescaCalendario()
       .catch((error) => apunta(`Calendario: se ha roto (${error.message}).`))
       .finally(() => enMarcha.delete("calendario"));
+  }
+
+  if (Date.now() - googleEn > GOOGLE_CADA_MS && !enMarcha.has("google")) {
+    enMarcha.add("google");
+
+    miraGoogle()
+      .catch((error) => apunta(`Google: se ha roto la comprobación (${error.message}).`))
+      .finally(() => enMarcha.delete("google"));
   }
 
   if (Date.now() - ultimoLatido > LATIDO_MS) await latido();

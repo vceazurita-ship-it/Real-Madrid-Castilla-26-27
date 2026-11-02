@@ -5,6 +5,7 @@ import {
   dameCanal,
   guardaAjustes,
   leeAjustes,
+  permisosQueFaltan,
   urlDeVuelta,
 } from "@/lib/coding/youtube";
 
@@ -65,6 +66,7 @@ export async function GET(request: NextRequest) {
     const datos = (await respuesta.json().catch(() => null)) as {
       access_token?: string;
       refresh_token?: string;
+      scope?: string;
     } | null;
 
     if (!respuesta.ok || !datos?.access_token) return acaba("token");
@@ -77,6 +79,20 @@ export async function GET(request: NextRequest) {
     | conectarla: funcionaría esta tarde y fallaría mañana sin motivo visible.
     */
     if (!datos.refresh_token) return acaba("sin-refresco");
+
+    /*
+    | UN SOLO TOKEN PARA EL CORREO Y PARA YOUTUBE (02/11/2026).
+    |
+    | Google deja desmarcar permisos sueltos en su pantalla, y devuelve en
+    | `scope` los que de verdad se han dado. Sin los de YouTube no hay canal
+    | que leer: no se guarda nada. Si sólo falta el de Gmail, se guarda —la
+    | subida de vídeos sí va— pero se dice, y el aviso de la portada sigue
+    | puesto hasta que se reconecte con todas las casillas.
+    */
+    /* Si Google no dijera `scope` (siempre lo dice), no se inventa un fallo. */
+    const faltan = typeof datos.scope === "string" ? permisosQueFaltan(datos.scope) : [];
+
+    if (faltan.some((uno) => uno.includes("/youtube"))) return acaba("faltan-permisos");
 
     const canal = await dameCanal(datos.access_token);
 
@@ -95,7 +111,7 @@ export async function GET(request: NextRequest) {
       conectadoEn: new Date().toISOString(),
     });
 
-    return acaba("ok");
+    return acaba(faltan.length ? "faltan-permisos" : "ok");
   } catch (error) {
     console.error("[youtube] callback", error);
 
