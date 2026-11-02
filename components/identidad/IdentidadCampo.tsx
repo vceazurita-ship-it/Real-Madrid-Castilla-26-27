@@ -436,7 +436,7 @@ export function IdentidadCampo() {
         <div className="min-w-0">
           <p className="mb-2 text-[11px] uppercase tracking-wider text-white/40">Jornada a jornada</p>
           <Tendencia valores={global} partidos={d.partidos} />
-          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="mt-3 grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 lg:grid-cols-4">
             {d.bloques.map((b) => (
               <div key={b.key} className="min-w-0">
                 <div className="flex items-baseline justify-between gap-2 text-[11px]">
