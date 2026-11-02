@@ -327,8 +327,8 @@ function MesaDeTrabajo({ admin }: { admin: boolean }) {
         Mesa de trabajo
       </p>
 
-      {/* La que queda sola en el móvil ocupa la fila entera (02/11/2026). */}
-      <div className={`mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 [&>*:last-child:nth-child(odd)]:col-span-2 sm:[&>*:last-child:nth-child(odd)]:col-span-1 ${admin ? "" : "lg:grid-cols-5"}`}>
+      {/* La que queda sola ocupa la fila (02/11/2026): a lo ancho en el móvil y, en la tableta, las de la última fila se reparten el hueco. */}
+      <div className={`mt-3 grid grid-cols-2 gap-2 [&>*:last-child:nth-child(odd)]:col-span-2 sm:flex sm:flex-wrap sm:[&>*]:min-w-[30%] sm:[&>*]:flex-1 ${admin ? "" : "lg:grid lg:grid-cols-5"}`}>
         {herramientas.map((h) => {
           const Icono = h.icono;
 

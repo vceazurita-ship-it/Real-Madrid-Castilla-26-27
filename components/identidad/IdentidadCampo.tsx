@@ -78,9 +78,10 @@ function Indice({ valor, grande = false }: { valor: number; grande?: boolean }) 
 }
 
 /** La línea de un índice jornada a jornada, con el 50 de referencia y un punto por partido. */
-function Tendencia({ valores, partidos, alto = 44 }: { valores: (number | null)[]; partidos: PartidoEje[]; alto?: number }) {
+function Tendencia({ valores, partidos, alto = 80 }: { valores: (number | null)[]; partidos: PartidoEje[]; alto?: number }) {
   const [foco, setFoco] = useState<number | null>(null);
-  const ancho = 220;
+  /* 02/11/2026: más ancha y alta (antes 220×44 en una caja de 44 px: una rayita perdida); crece con su columna. */
+  const ancho = 600;
   const paso = valores.length > 1 ? (ancho - 12) / (valores.length - 1) : 0;
   const x = (i: number) => 6 + i * paso;
   const y = (v: number) => 4 + (1 - v / 100) * (alto - 8);
@@ -90,13 +91,13 @@ function Tendencia({ valores, partidos, alto = 44 }: { valores: (number | null)[
 
   return (
     <div className="relative">
-      <svg viewBox={`0 0 ${ancho} ${alto}`} className="h-11 w-full overflow-visible" role="img" aria-label="Evolución por jornada" onMouseLeave={() => setFoco(null)}>
+      <svg viewBox={`0 0 ${ancho} ${alto}`} className="block h-auto max-h-[110px] w-full overflow-visible" role="img" aria-label="Evolución por jornada" onMouseLeave={() => setFoco(null)}>
         <line x1={0} x2={ancho} y1={y(50)} y2={y(50)} stroke={TINTA(0.18)} strokeDasharray="2 3" />
-        <path d={camino} fill="none" stroke={ORO} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+        <path d={camino} fill="none" stroke={ORO} strokeWidth={3} strokeLinejoin="round" strokeLinecap="round" />
         {puntos.map((p) => (
           <g key={p.i} onMouseEnter={() => setFoco(p.i)} onFocus={() => setFoco(p.i)} tabIndex={0}>
             <rect x={p.x - paso / 2} y={0} width={Math.max(paso, 10)} height={alto} fill="transparent" />
-            <circle cx={p.x} cy={p.y} r={foco === p.i ? 4 : 2.5} fill={colorDe(p.v)} stroke="var(--rmcf-surface, #11161C)" strokeWidth={1.5} />
+            <circle cx={p.x} cy={p.y} r={foco === p.i ? 8 : 5.5} fill={colorDe(p.v)} stroke="var(--rmcf-surface, #11161C)" strokeWidth={1.5} />
           </g>
         ))}
       </svg>

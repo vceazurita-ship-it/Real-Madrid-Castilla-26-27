@@ -471,7 +471,7 @@ export function ProximoPartido() {
                     style={esHoy ? { background: ORO, color: "#0B0F14" } : undefined}
                   >
                     <span
-                      className={`whitespace-nowrap text-[9px] font-bold uppercase tracking-normal sm:text-[11px] sm:tracking-[0.14em] ${
+                      className={`whitespace-nowrap text-[10px] font-bold uppercase tracking-tight sm:text-[11px] sm:tracking-[0.14em] ${
                         esHoy ? "" : esPartido ? "text-[#F7D98B]" : "text-white/45"
                       }`}
                     >
@@ -489,7 +489,7 @@ export function ProximoPartido() {
                     {/* En el móvil sólo «libre»: con el día de la semana debajo
                         no caben las siete casillas. */}
                     <span
-                      className={`mt-1 text-[9px] uppercase sm:text-[11px] ${
+                      className={`mt-1 text-[10px] uppercase tracking-tight sm:text-[11px] sm:tracking-normal ${
                         libre ? "" : "hidden sm:inline"
                       } ${esHoy ? "opacity-80" : "text-white/40"}`}
                     >

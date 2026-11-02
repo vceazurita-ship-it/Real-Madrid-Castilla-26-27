@@ -523,7 +523,7 @@ export function Sidebar() {
         onClick={() => setOpen(true)}
         aria-label="Abrir el menú"
         aria-expanded={open}
-        className="fixed left-1 top-1 z-50 rounded-2xl border border-white/10 bg-[#111827]/90 p-3 text-white backdrop-blur-md shadow-lg md:hidden"
+        className="fixed left-1 top-4 z-50 rounded-2xl border border-white/10 bg-[#111827]/90 p-3 text-white backdrop-blur-md shadow-lg md:hidden"
       >
         <Menu size={20} />
       </button>
@@ -541,7 +541,7 @@ export function Sidebar() {
           onClick={volver}
           title="Volver a la página anterior"
           aria-label="Volver a la página anterior"
-          className="fixed left-[52px] top-1 z-50 rounded-2xl border border-white/10 bg-[#111827]/90 p-2.5 text-white backdrop-blur-md shadow-lg md:hidden"
+          className="fixed left-[52px] top-[18px] z-50 rounded-2xl border border-white/10 bg-[#111827]/90 p-2.5 text-white backdrop-blur-md shadow-lg md:hidden"
         >
           <ArrowLeft size={18} />
         </button>
