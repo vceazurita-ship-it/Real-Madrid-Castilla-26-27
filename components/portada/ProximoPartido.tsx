@@ -570,8 +570,8 @@ export function ProximoPartido() {
 
         {/* ---------- Lo que se prepara para ese partido ---------- */}
 
-        {/* Móvil: el azul ocupa la fila y debajo los otros tres en una sola fila (29/10/2026, fútbol). El hueco para el botón flotante lo da ya la portada entera (30/10/2026). En escritorio, una sola línea desde 1536 px: a 1366 se partía el texto de cada botón en dos (02/11/2026). */}
-        <div className="mt-6 grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:gap-2.5 2xl:flex-nowrap [&>a:first-child]:col-span-3">
+        {/* Móvil: el azul ocupa la fila y debajo los otros tres en una sola fila (29/10/2026, fútbol). El hueco para el botón flotante lo da ya la portada entera (30/10/2026). Igual en tableta y portátil (02/11/2026): en fila suelta la «Pizarra táctica» se quedaba sola en otra línea. */}
+        <div className={`mt-6 grid gap-2 sm:gap-2.5 ${proximo?.lado === "fuera" ? "grid-cols-4 [&>a:first-child]:col-span-4" : "grid-cols-3 [&>a:first-child]:col-span-3"}`}>
           <Link
             href={enlacePlantilla}
             title={nombreRival ? `La plantilla de ${nombreRival}` : undefined}
@@ -660,10 +660,10 @@ export function ProximoPartido() {
           | «Hoy» y «Del rival». Con puntos medios, en el móvil el «·» quedaba
           | huérfano al principio de línea y los enlaces se apiñaban.
           */
-          /* En el móvil, rejilla de dos chips por fila (30/10/2026): en una fila suelta se apiñaban. */
+          /* En el móvil, una fila que se desliza (02/11/2026): la rejilla de dos por fila alargaba la portada y se veía tosca. */
           const fila = (rotulo: string, atajos: { href: string; texto: string; title?: string }[]) => (
-            <div className="grid min-w-0 grid-cols-2 gap-1.5 sm:flex sm:flex-wrap sm:items-center">
-              <span className="col-span-2 mr-1 text-[12px] font-semibold uppercase tracking-[0.18em] text-white/65 sm:w-auto">
+            <div className="-mx-1 flex min-w-0 items-center gap-1.5 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:flex-wrap sm:overflow-visible [&>a]:shrink-0 [&>a]:whitespace-nowrap">
+              <span className="mr-1 shrink-0 text-[12px] font-semibold uppercase tracking-[0.18em] text-white/65">
                 {rotulo}
               </span>
               {atajos.map((atajo) => (
@@ -862,12 +862,11 @@ function Clasificacion({ informe }: { informe: RespuestaPortada | null }) {
           <span className="tabular-nums">
             <span className="font-semibold text-white/85">{fila.puntos}</span> pts en {fila.ganados + fila.empatados + fila.perdidos} partidos
           </span>
-          <span className="text-white/30">·</span>
-          <span className="tabular-nums">
+          {/* En el móvil, en su propia línea (02/11/2026): partido a trozos se leía mal. */}
+          <span className="basis-full tabular-nums text-white/55 sm:basis-auto sm:text-white/70">
+            <span className="mr-2 hidden text-white/30 sm:inline">·</span>
             {fila.ganados}V {fila.empatados}E {fila.perdidos}D
-          </span>
-          <span className="text-white/30">·</span>
-          <span className="tabular-nums">
+            <span className="mx-2 text-white/30">·</span>
             goles {fila.favor} a favor y {fila.contra} en contra
           </span>
         </span>

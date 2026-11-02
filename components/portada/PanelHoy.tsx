@@ -327,7 +327,8 @@ function MesaDeTrabajo({ admin }: { admin: boolean }) {
         Mesa de trabajo
       </p>
 
-      <div className={`mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 ${admin ? "" : "lg:grid-cols-5"}`}>
+      {/* La que queda sola en el móvil ocupa la fila entera (02/11/2026). */}
+      <div className={`mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 [&>*:last-child:nth-child(odd)]:col-span-2 sm:[&>*:last-child:nth-child(odd)]:col-span-1 ${admin ? "" : "lg:grid-cols-5"}`}>
         {herramientas.map((h) => {
           const Icono = h.icono;
 

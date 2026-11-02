@@ -234,7 +234,8 @@ export function AlertasPortada({
           </div>
 
           <div
-            className={`mt-4 grid gap-2 ${
+            /* En el móvil, en carrusel (02/11/2026): apiladas, las cuatro ocupaban dos pantallas. */
+            className={`-mx-1 mt-4 flex snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>*]:w-[85%] [&>*]:shrink-0 [&>*]:snap-start sm:mx-0 sm:grid sm:overflow-visible sm:px-0 sm:pb-0 sm:[&>*]:w-auto ${
               enLaTira.length === 4 ? "sm:grid-cols-2 xl:grid-cols-4" : "lg:grid-cols-3"
             }`}
           >
