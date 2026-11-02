@@ -539,7 +539,7 @@ function FilaBarra({
                 onClick={() => onAbre(t.k)}
                 aria-label={`${t.n} ${t.k === "correcta" ? "correctas" : "mejorables"} ${t.validadas ? "validadas" : "sin validar"}: ver los clips`}
                 title={`${t.n} ${t.k === "correcta" ? "correctas" : "mejorables"} ${t.validadas ? "validadas" : "sin validar"}`}
-                className={`h-full transition-opacity hover:opacity-80 ${FOCO}`}
+                className={`tactil-libre h-full transition-opacity hover:opacity-80 ${FOCO}`}
                 style={{ width: `${(100 * t.n) / n}%`, background: t.fondo }}
               />
             ))}

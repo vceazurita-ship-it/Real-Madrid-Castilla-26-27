@@ -176,7 +176,7 @@ export default function PitchTimelineBar({
                   onSelectKeyframe(index);
                 }}
                 style={{ left: `${at}%` }}
-                className="absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#0B0F14] transition hover:scale-125"
+                className="absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#0B0F14] transition hover:scale-125 pointer-coarse:before:absolute pointer-coarse:before:-inset-2.5 pointer-coarse:before:content-['']"
               >
                 <span
                   className={cn(

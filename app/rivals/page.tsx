@@ -8967,7 +8967,7 @@ function TacticalPitch({
                   aria-label={`Once probable de ${name}: ${
                     enElOnce ? ONCE_ETIQUETA[enElOnce] : "sin marcar"
                   }`}
-                  className={`absolute -left-1 -top-1 flex items-center justify-center rounded-full border border-black/40 font-bold shadow transition ${
+                  className={`absolute -left-1 -top-1 flex items-center justify-center rounded-full border border-black/40 font-bold shadow transition pointer-coarse:before:absolute pointer-coarse:before:-inset-3 pointer-coarse:before:content-[''] ${
                     enElOnce
                       ? ""
                       : /*

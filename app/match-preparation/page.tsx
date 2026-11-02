@@ -2270,7 +2270,7 @@ export default function MatchPreparation() {
                       <ChevronDown size={13} className="transition group-open:rotate-180" />
                     </summary>
 
-                    <div className="absolute right-0 top-full z-30 mt-2 w-60 space-y-1 rounded-xl border border-white/10 bg-[#0B0F14] p-1.5 shadow-xl">
+                    <div className="absolute left-0 top-full z-30 mt-2 w-60 space-y-1 rounded-xl sm:left-auto sm:right-0 border border-white/10 bg-[#0B0F14] p-1.5 shadow-xl">
                       <Link
                         href={enlaceAnalisisRival(rivalActivo)}
                         title="Abrir el informe completo del rival"

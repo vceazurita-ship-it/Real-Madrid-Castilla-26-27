@@ -1927,6 +1927,32 @@ scrollbar-width:none;
 }
 
 /*
+| BOTONES PARA EL DEDO EN TODA LA APP (02/11/2026)
+|
+| Medido en las 56 pantallas a 390 y 820 px: casi 1.900 botones y enlaces
+| con aspecto de botón medían menos de 36 px de alto (las pastillas de
+| 26 px, los iconos de 24, el indicador de la copia de la cabecera). En el
+| móvil y la tableta se pulsaba el de al lado. Con puntero grueso, todo lo
+| que se pulsa mide al menos 36 px; en el ordenador no cambia nada.
+|
+| Se quedan como están los `absolute` y `fixed` (marcas, tiradores y lo que
+| flota sobre un campo o un vídeo, que se miden a mano), lo que va dentro de
+| un SVG, el texto sólo para lectores (`sr-only`) y lo que lleve
+| `tactil-libre`. Los enlaces en línea dentro de un párrafo no cambian: el
+| `min-height` no se aplica a los elementos en línea.
+*/
+@media (pointer: coarse) {
+  :is(button, summary, select, [role="button"], a[href]):not(.absolute, .fixed, .sr-only, .tactil-libre, svg *),
+  input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="hidden"], .absolute, .sr-only, .tactil-libre) {
+    min-height: 36px;
+  }
+
+  :is(button, [role="button"]):not(.absolute, .fixed, .sr-only, .tactil-libre, svg *) {
+    min-width: 36px;
+  }
+}
+
+/*
 | LA PIZARRA DEL CODING A PANTALLA ENTERA EN EL TELÉFONO (01/11/2026)
 |
 | «Los coding en el móvil no se pueden usar al abrir la pizarra»: el vídeo
