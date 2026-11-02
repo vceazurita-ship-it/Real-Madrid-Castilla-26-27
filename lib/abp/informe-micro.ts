@@ -406,8 +406,9 @@ export function fechaCorta(valor: string | undefined): string {
 }
 
 function diaMes(fecha: Date) {
+  /* «8 nov 2026», no «08 nov» (02/11/2026): el rango salía «3–08 nov». */
   return fecha.toLocaleDateString("es-ES", {
-    day: "2-digit",
+    day: "numeric",
     month: "short",
     year: "numeric",
   });

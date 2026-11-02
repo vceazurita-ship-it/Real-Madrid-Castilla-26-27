@@ -426,11 +426,17 @@ export type IndicePdf = {
   subtitulo?: string;
   /** Una por hoja, en el orden de las hojas. */
   entradas: string[];
+  /**
+   * Sin la columna «pág. N» (02/11/2026, informes del partido y de ABP): sus
+   * hojas llevan ya «3 / 13» en el pie y las dos cuentas no coincidían; el
+   * número del disco es el de la hoja.
+   */
+  sinPagina?: boolean;
 };
 
 type FilaIndice = { hoja: number; pagina: number; x: number; y: number; w: number; h: number; lineas: string[] };
 
-const INDICE = { margen: 44, arriba: 132, abajo: 40, renglon: 15, aire: 14 };
+const INDICE = { margen: 44, arriba: 132, abajo: 40, renglon: 15, aire: 10 };
 
 /** Dónde cae cada fila (y cuántas páginas de índice hacen falta), antes de pintar nada. */
 function planIndice(doc: jsPDF, indice: IndicePdf, hojas: number) {
@@ -521,12 +527,12 @@ function pintaIndice(doc: jsPDF, indice: IndicePdf, plan: ReturnType<typeof plan
       doc.setFont("helvetica", "normal");
       doc.setFontSize(10);
       doc.setTextColor(91, 100, 118);
-      doc.text(`pág. ${paginasIndice + fila.hoja + 1}`, fila.x + fila.w - 14, centro + 3.5, { align: "right" });
+      if (!indice.sinPagina) doc.text(`pág. ${paginasIndice + fila.hoja + 1}`, fila.x + fila.w - 14, centro + 3.5, { align: "right" });
     }
 
     doc.setFontSize(8);
     doc.setTextColor(120);
-    doc.text("Pulsa una fila para ir a su diapositiva. En cada hoja, «ÍNDICE» vuelve aquí.", INDICE.margen, alto - 16);
+    doc.text(`Pulsa una fila para ir a su ${indice.sinPagina ? "hoja" : "diapositiva"}. En cada hoja, «ÍNDICE» vuelve aquí.`, INDICE.margen, alto - 16);
   }
 }
 

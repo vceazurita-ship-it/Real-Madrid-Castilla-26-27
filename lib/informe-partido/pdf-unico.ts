@@ -264,7 +264,7 @@ export async function informeUnicoPdf(o: {
     ...(o.final ? ["Vídeo y documentos"] : []),
   ];
 
-  const pdf = await pdfDeHojas(paginas, paginas.length >= 4 ? { indice: { titulo: o.titulo, subtitulo: o.titulo.length < 46 ? "Real Madrid Castilla" : undefined, entradas } } : {});
+  const pdf = await pdfDeHojas(paginas, paginas.length >= 4 ? { indice: { titulo: o.titulo, subtitulo: o.titulo.length < 46 ? "Real Madrid Castilla" : undefined, entradas, sinPagina: true } } : {});
 
   (pdf as { setProperties?: (p: Record<string, string>) => void }).setProperties?.({
     title: `Real Madrid Castilla · ${o.titulo}`,

@@ -41,6 +41,7 @@ import {
   type InformePartido,
   type JugadorRival,
   quienDuelo,
+  sinSiglas,
 } from "./modelo";
 
 /**
@@ -369,23 +370,31 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
       ? `${lista(inf.sintesis.partido)}${s.notaRoja ? `<p style="margin:6px 0 0;font:400 13px/1.5 Arial,sans-serif;color:${SUAVE}">${esc(s.notaRoja)}.</p>` : ""}<div style="height:10px"></div>${tabla(
           ["Métrica", "Nosotros", rival, "Nuestra media", "Lectura"],
           /* Sin filas vacías y cada porcentaje con su recuento: «75,0 % (6 de 8)» (24/10/2026). */
+          /*
+          | Sin celdas vacías (02/11/2026): las de menos de 10 casos salen
+          | debajo, en una línea con su recuento, y no como una fila a medias.
+          | Los nombres, sin siglas (como en las diapositivas).
+          */
           inf.duelo.partido.metricas
-            .filter((m) => m.nuestro !== null)
+            .filter((m) => m.nuestro !== null && !(baseMenorDeDiez(m) && m.recuento))
             .map((m) => {
-              /* Con menos de 10 casos, sólo el recuento: «3 de 4» no se compara con nada (27/10/2026, ronda 9). */
-              if (baseMenorDeDiez(m) && m.recuento) return [esc(nombreMetricaPartido(m, inf.cronica)), `<b>${Math.round(m.recuento.de)} de ${Math.round(m.recuento.total)}</b>`, "", "", ""];
-
               const l = lecturaDeFilaDelPartido(m);
 
               return [
-                esc(nombreMetricaPartido(m, inf.cronica)),
+                esc(sinSiglas(nombreMetricaPartido(m, inf.cronica))),
                 `<b>${celda(m.nuestro, unidadPartido(m))}</b>${m.recuento ? `<br><span style="color:${SUAVE};font-size:11px">${Math.round(m.recuento.de)} de ${Math.round(m.recuento.total)}</span>` : ""}`,
                 celda(m.suyo, unidadPartido(m)),
                 celda(m.media, m.unidad),
-                l === "mejor" ? `<b style="color:${VERDE}">▲ mejor</b>` : l === "peor" ? `<b style="color:${ROJO}">▼ peor</b>` : l === "habitual" ? `<span style="color:${SUAVE}">= lo habitual</span>` : "",
+                l === "mejor" ? `<b style="color:${VERDE}">▲ mejor</b>` : l === "peor" ? `<b style="color:${ROJO}">▼ peor</b>` : l === "habitual" ? `<span style="color:${SUAVE}">= lo habitual</span>` : `<span style="color:${SUAVE}">informativa</span>`,
               ];
             }),
-        )}<p style="margin:6px 0 0;font:400 12px/1.5 Arial,sans-serif;color:${SUAVE}">Lectura: la misma prueba para todas las filas. Con nuestra media, ¿cuántas veces sale una cifra así o más lejos? Recuentos por Poisson, porcentajes sobre su base y lo demás con la desviación de nuestros partidos. Una de cada cuatro veces o más es «lo habitual»; menos, ▲ mejor o ▼ peor según el sentido de la métrica (menos es mejor en pérdidas, PPDA y goles en contra).</p>`
+        )}${(() => {
+          const pocos = inf.duelo.partido.metricas.filter((m) => m.nuestro !== null && baseMenorDeDiez(m) && m.recuento);
+
+          return pocos.length
+            ? `<p style="margin:6px 0 0;font:400 13px/1.5 Arial,sans-serif;color:${NAVY}">Con pocos casos para compararlos: ${pocos.map((m) => `${esc(sinSiglas(nombreMetricaPartido(m, inf.cronica)).replace(/\s*%$/, "").toLowerCase())}, ${Math.round(m.recuento!.de)} de ${Math.round(m.recuento!.total)}`).join(" · ")}.</p>`
+            : "";
+        })()}<p style="margin:6px 0 0;font:400 12px/1.5 Arial,sans-serif;color:${SUAVE}">Lectura: la misma prueba para todas las filas. Con nuestra media, ¿cuántas veces sale una cifra así o más lejos? Recuentos por Poisson, porcentajes sobre su base y lo demás con la desviación de nuestros partidos. Una de cada cuatro veces o más es «lo habitual»; menos, ▲ mejor o ▼ peor según el sentido de la métrica (menos es mejor en pérdidas, PPDA y goles en contra).</p>`
       : /* Sin Wyscout, el capítulo no sale: antes decía que faltaba (19/10/2026). */
         "";
 
@@ -539,7 +548,7 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
         { rotulo: "Victoria", valor: pct(pr.victoria), pie: pr.rango ? `entre ${pct(pr.rango.victoria[0])} y ${pct(pr.rango.victoria[1])} · con el plan: ${pct(pr.conPlan.victoria)} (entre ${pct(pr.rango.conPlan[0])} y ${pct(pr.rango.conPlan[1])})` : `con el plan: ${pct(pr.conPlan.victoria)}` },
         { rotulo: "Empate", valor: pct(pr.empate), pie: `con el plan: ${pct(pr.conPlan.empate)}` },
         { rotulo: "Derrota", valor: pct(pr.derrota), pie: `con el plan: ${pct(pr.conPlan.derrota)}` },
-        { rotulo: "Goles esperados", valor: `${cifra(pr.esperados.nosotros, "decimal")} – ${cifra(pr.esperados.rival, "decimal")}`, pie: `más probable: ${pr.marcador}` },
+        { rotulo: "Goles esperados", valor: `${cifra(pr.esperados.nosotros, "decimal")} – ${cifra(pr.esperados.rival, "decimal")}`, pie: `más probable: ${pr.marcador}` },
       ])}<div style="height:12px"></div>${tabla(
         ["Palanca", "La meta", "Por qué (dato)", "Cómo (plan)", "+ victoria"],
         pr.palancas.map((x) => [
@@ -573,7 +582,7 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
             `<b>${esc(x.momento)}</b>`,
             esc(x.meta),
             esc(x.real),
-            x.cumplida === null ? (x.momento === "Balón parado" && x.real ? `<b style="color:${SUAVE}">Sin veredicto</b>` : "") : x.cumplida ? `<b style="color:${VERDE}">Cumplida</b>` : `<b style="color:${ROJO}">No</b>`,
+            x.cumplida === null ? (x.momento === "Balón parado" && x.real ? `<b style="color:${SUAVE}">Se mide en la temporada</b>` : "") : x.cumplida ? `<b style="color:${VERDE}">Cumplida</b>` : `<b style="color:${ROJO}">No</b>`,
           ]),
         )}`
       : "";
@@ -830,7 +839,7 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
 
   const cifrasCabecera = ([] as ({ rotulo: string; valor: string; pie?: string } | null)[]).concat([
     pr ? { rotulo: esPost ? "Victoria que daba el pronóstico" : "Victoria según el pronóstico", valor: pct(pr.victoria), pie: esPost ? undefined : `${pct(pr.conPlan.victoria)} con el plan` } : null,
-    pr ? { rotulo: "Goles esperados", valor: `${cifra(pr.esperados.nosotros, "decimal")} – ${cifra(pr.esperados.rival, "decimal")}`, pie: `más probable ${pr.marcador}` } : null,
+    pr ? { rotulo: "Goles esperados", valor: `${cifra(pr.esperados.nosotros, "decimal")} – ${cifra(pr.esperados.rival, "decimal")}`, pie: `más probable ${pr.marcador}` } : null,
     ctx?.nuestroPuesto && ctx.puesto ? { rotulo: "Clasificación", valor: `${ordinal(ctx.nuestroPuesto)} · ${ordinal(ctx.puesto)}`, pie: `${ctx.nuestrosPuntos} y ${ctx.puntos} pts` } : null,
     inf.microciclo
       ? conMinutos

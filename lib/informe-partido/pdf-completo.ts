@@ -70,7 +70,7 @@ export async function completoEnPdf(html: string, alPaso?: (hoja: number, total:
   const { hojas, ancho, alto, titulos } = await completoEnHojas(html, alPaso, opciones);
 
   /* Con índice enlazado (02/11/2026, como la pizarra de ABP) cuando hay hojas de sobra para perderse. */
-  const indice = titulos && hojas.length >= 4 ? { titulo: opciones.titulo ?? "Informe", subtitulo: "Real Madrid Castilla", entradas: titulos } : undefined;
+  const indice = titulos && hojas.length >= 4 ? { titulo: opciones.titulo ?? "Informe", subtitulo: "Real Madrid Castilla", entradas: titulos, sinPagina: true } : undefined;
 
   const pdf = await pdfDeLienzos(hojas, { ancho, alto, orientacion: "portrait", margen: 0, indice });
 

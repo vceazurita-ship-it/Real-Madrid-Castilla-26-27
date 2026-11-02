@@ -782,7 +782,11 @@ const unDecimal = (n: number) => coma(n, 1);
  * tiene por qué saber qué es «xG», y el pie que lo explicaba no lo lee nadie.
  */
 export function sinSiglas(nombre: string) {
-  const t = nombre.replace(/\bxG\b/g, "goles esperados").replace(/\bABP\b/g, "balón parado");
+  /* Sin repetirse (02/11/2026): «xG (goles esperados) a favor» salía «Goles esperados (goles esperados) a favor». */
+  const t = nombre
+    .replace(/\bxG\b/g, "goles esperados")
+    .replace(/\bABP\b/g, "balón parado")
+    .replace(/(goles esperados|balón parado)\s*\(\s*\1\s*\)/gi, "$1");
 
   return /^(x[A-Z]|[A-ZÁÉÍÓÚ])/.test(nombre) ? t.charAt(0).toUpperCase() + t.slice(1) : t;
 }
@@ -3014,7 +3018,14 @@ export function queTocaEnElMicro(inf: Omit<InformePartido, "sintesis">, cumplimi
 
   const metas: string[] = [];
 
-  for (const x of revisaPalancas(inf).filter((r) => r.cumplida === false)) {
+  /*
+  | Una vez cada cosa (02/11/2026): si el plan ya dice «Concedemos menos cerca
+  | de nuestra área» con los goles esperados en contra, la meta del pronóstico
+  | («Concedemos menos ocasiones», la misma cifra) no se repite debajo.
+  */
+  const temasDelPlan = new Set(cumplimiento.filter((x) => x.veredicto === "no").map((f) => f.tema));
+
+  for (const x of revisaPalancas(inf).filter((r) => r.cumplida === false && !temasDelPlan.has(r.momento))) {
     const real = x.real.replace(/ en el partido$/, "");
 
     const meta = x.meta.replace(/^.*[≤≥]\s*/, "");
@@ -3387,7 +3398,9 @@ export function titularEstaSemana(microciclo: string[]) {
 
   if (!principal) return "";
 
-  const porque = principal.dato.split(/[;(]/)[0].trim();
+  const primero = principal.dato.split(/[;(]/)[0].trim();
+  /* Un porqué sin cifra no dice nada (02/11/2026: el titular acababa en «…al área: goles esperados»). */
+  const porque = /\d/.test(primero) ? primero : "";
 
   /* «Con ventaja, no perdemos el balón…» ya es la acción (ronda 10): sin el «Esta semana» delante. */
   if (/^Con /.test(principal.consigna)) return `${principal.consigna}${porque ? `: ${porque}` : ""}`;
