@@ -18,6 +18,7 @@ import { AlertasPortada } from "@/components/portada/AlertasPortada"
 import { Cifras } from "@/components/portada/Cifras"
 import { ProximoPartido } from "@/components/portada/ProximoPartido"
 import { MisTareas } from "@/components/portada/MisTareas"
+import { PanelHoy } from "@/components/portada/PanelHoy"
 import { EVENTO_ABRIR as EVENTO_ABRIR_TAREAS } from "@/lib/portada/mis-tareas"
 import { useAdmin } from "@/hooks/useAdmin"
 import { trackModuleVisit } from "@/lib/module-usage"
@@ -114,7 +115,7 @@ function SectionHeader({
           <Icon className="h-4 w-4 text-[#D8B45A]" />
         </span>
 
-        <h2 className="text-[13px] font-semibold uppercase tracking-[0.3em] text-white/85">
+        <h2 className="fuente-club text-[20px] font-bold uppercase tracking-[0.08em] text-white/85">
           {title}
         </h2>
       </div>
@@ -453,7 +454,7 @@ export default function Home() {
 
           {/* pb-24: el botón flotante de herramientas no tapa la última fila (30/10/2026).
               Y margen a la derecha: tapaba el borde de la tarjeta del partido. */}
-          <section className="space-y-12 py-4 pb-24 pl-4 pr-12 sm:py-6 sm:pb-24 sm:pl-6 sm:pr-[76px] xl:space-y-14 xl:py-10 xl:pb-24 xl:pl-10 xl:pr-[76px]">
+          <section className="space-y-8 py-4 pb-24 pl-4 pr-12 sm:py-6 sm:pb-24 sm:pl-6 sm:pr-[76px] xl:space-y-10 xl:py-10 xl:pb-24 xl:pl-10 xl:pr-[76px]">
             {admin && (
               <div role="tablist" className="flex gap-2">
                 {(["portada", "tareas"] as const).map((v) => (
@@ -474,7 +475,7 @@ export default function Home() {
             {enTareas ? <MisTareas /> : (<>
             {/* ============================ PORTADA ============================ */}
 
-            <div className="relative overflow-hidden rounded-[28px] border border-[#173A61]/60 bg-[#030B15] shadow-[0_0_80px_rgba(0,80,255,.08)] xl:rounded-[36px]">
+            <div className="portada-entra relative overflow-hidden rounded-[28px] border border-[#173A61]/60 bg-[#030B15] shadow-[0_0_80px_rgba(0,80,255,.08)] xl:rounded-[36px]">
               {/* Fondo ambiental: estadio + halos de color */}
               <Image
                 src="/stadium-bg.png"
@@ -524,7 +525,7 @@ export default function Home() {
                       : "Lo que dicen los informes de Wyscout y Opta: el Castilla contra su historia, contra el grupo y la categoría entera"
                   }
                   /* Más baja en el móvil (30/10/2026): ocupaba casi dos pantallas antes de «Datos destacados». */
-                  className="light-sweep group relative block min-h-[340px] overflow-hidden rounded-[28px] border border-white/10 sm:min-h-[320px] xl:min-h-[400px]"
+                  className="light-sweep group relative block min-h-[420px] overflow-hidden rounded-[28px] border border-white/10 sm:min-h-[320px] xl:min-h-[400px]"
                 >
                   <div
                     aria-hidden
@@ -742,6 +743,12 @@ export default function Home() {
                 </Link>
               </div>
             </div>
+
+            {/* ======================= TU DÍA Y MESA DE TRABAJO ================= */}
+
+            {/* 02/11/2026: lo que toca hoy (tareas del micro, pendientes y envíos)
+                y las herramientas de todos los días, con lo último abierto. */}
+            <PanelHoy admin={Boolean(admin)} />
 
             {/* =========================== ALERTAS ============================ */}
 

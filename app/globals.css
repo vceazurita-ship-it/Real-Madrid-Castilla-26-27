@@ -431,6 +431,79 @@ scrollbar-width:none;
 }
 
 /* ===========================
+   PORTADA: LETRA DEL CLUB Y ENTRADA SUAVE (02/11/2026)
+   Barlow Condensed (la de las láminas y los PDF) para el rival, la cuenta
+   atrás y los rótulos grandes. Con nombre propio para no cambiar las
+   exportaciones que ya piden 'Barlow Condensed' con su respaldo.
+=========================== */
+
+@font-face {
+  font-family: "Barlow Condensed Club";
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fuentes/BarlowCondensed-Medium.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Barlow Condensed Club";
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fuentes/BarlowCondensed-SemiBold.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Barlow Condensed Club";
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fuentes/BarlowCondensed-Bold.ttf") format("truetype");
+}
+
+.fuente-club {
+  font-family: "Barlow Condensed Club", "Arial Narrow", var(--font-geist-sans), sans-serif;
+}
+
+@keyframes portada-entra {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.portada-entra {
+  animation: portada-entra 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* La barra del microciclo se llena al llegar. */
+@keyframes portada-llena {
+  from {
+    transform: scaleX(0);
+  }
+
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.portada-llena {
+  transform-origin: left center;
+  animation: portada-llena 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .portada-entra,
+  .portada-llena {
+    animation: none;
+  }
+
+}
+
+/* ===========================
    IMPRESIÓN DEL PLAN DE PARTIDO
    Se activa solo en páginas que renderizan `.mp-print-area`
    (hoy, /match-preparation) para no afectar al resto de módulos.

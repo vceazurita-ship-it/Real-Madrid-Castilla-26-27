@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
+import { CuentaAtras } from "@/components/portada/CuentaAtras";
 import { DiaRapido } from "@/components/portada/DiaRapido";
 import { useCalendario } from "@/hooks/useCalendario";
 import { pantallaCompletaAlNavegar } from "@/hooks/usePantallaCompleta";
@@ -31,7 +32,6 @@ import { chipInk } from "@/lib/theme";
 import { useAdmin } from "@/hooks/useAdmin";
 import {
   contenidosDelDia,
-  cuantoFalta,
   diaEnMadrid,
   diaLargo,
   equipoDelInforme,
@@ -352,12 +352,14 @@ export function ProximoPartido() {
                 {/* Del alto del nombre y de la línea de debajo (que en el
                     móvil ocupa dos renglones): si no, todo lo de abajo
                     saltaba al llegar el calendario (14/10/2026). */}
-                <span className="mt-1.5 block h-[34px] w-64 max-w-full animate-pulse rounded-lg bg-white/10 sm:h-[48px] xl:h-[56px]" />
+                <span className="mt-1.5 block h-[38px] w-64 max-w-full animate-pulse rounded-lg bg-white/10 sm:h-[53px] xl:h-[61px]" />
                 <span className="mt-3 block h-[46px] w-80 max-w-full animate-pulse rounded bg-white/10 sm:h-[30px]" />
+                <span className="mt-4 block h-[60px] w-[220px] max-w-full animate-pulse rounded-2xl bg-white/[0.04]" />
               </>
             ) : proximo ? (
               <>
-                <h1 className="mt-1.5 text-[34px] font-bold leading-[1] tracking-[-0.03em] text-white sm:text-[48px] xl:text-[56px]">
+                {/* Letra del club (02/11/2026): Barlow Condensed, como las láminas y los PDF. */}
+                <h1 className="fuente-club mt-1.5 text-[40px] font-bold uppercase leading-[0.95] tracking-[0.005em] text-white sm:text-[56px] xl:text-[64px]">
                   {proximo.rival}
                 </h1>
 
@@ -374,16 +376,13 @@ export function ProximoPartido() {
                         : "Fuera"}
                   </span>
 
-                  {/* Con clases y no con un color fijo: en modo día el dorado
-                      claro sobre fondo claro no se veía, y la tabla de
-                      `globals.css` sí sabe oscurecer `text-[#F7D98B]`. */}
-                  {/* Con la chapa «Hoy MD-n» arriba, «mañana» decía lo mismo dos veces (30/10/2026). */}
-                  {!diaDeHoy && (
-                  <span className="ml-1 inline-flex items-center rounded-lg border border-[#D8B45A]/60 bg-[#D8B45A]/15 px-3 py-1 text-[13px] font-bold uppercase tracking-[0.18em] text-[#F7D98B] shadow-[0_0_24px_rgba(216,180,90,0.25)]">
-                    {cuantoFalta(proximo.cuando, ahora)}
-                  </span>
-                  )}
                 </p>
+
+                {/* La chapa «en 5 días» pasa a cuenta atrás viva (02/11/2026):
+                    el día de partido lo que se pregunta son las horas. */}
+                <div className="mt-4">
+                  <CuentaAtras cuando={proximo.cuando} />
+                </div>
               </>
             ) : calendarioTarda && partidos.length === 0 ? (
               <>
@@ -431,13 +430,17 @@ export function ProximoPartido() {
                 <div key={i} className="h-[69px] min-w-0 animate-pulse rounded-xl border border-white/[0.08] bg-white/[0.03]" />
               ))}
             </div>
-            <div className="mt-2 h-[17px]" />
+            <div className="mt-3 h-[33px]" />
           </div>
         )}
 
         {semana.length > 0 && (
           <div className="mt-6">
-            <div className="grid grid-cols-7 gap-1 pb-1 sm:gap-1.5">
+            {/* Una sola fila aunque el micro tenga más de siete días (02/11/2026). */}
+            <div
+              className="grid grid-cols-7 gap-1 pb-1 sm:gap-1.5"
+              style={{ gridTemplateColumns: `repeat(${semana.length}, minmax(0, 1fr))` }}
+            >
               {semana.map((dia) => {
                 const esHoy = dia.fecha === hoy;
                 const esPartido = dia.md === 0;
@@ -468,7 +471,7 @@ export function ProximoPartido() {
                     style={esHoy ? { background: ORO, color: "#0B0F14" } : undefined}
                   >
                     <span
-                      className={`text-[9px] font-bold uppercase tracking-[0.06em] sm:text-[11px] sm:tracking-[0.14em] ${
+                      className={`whitespace-nowrap text-[9px] font-bold uppercase tracking-normal sm:text-[11px] sm:tracking-[0.14em] ${
                         esHoy ? "" : esPartido ? "text-[#F7D98B]" : "text-white/45"
                       }`}
                     >
@@ -533,7 +536,35 @@ export function ProximoPartido() {
                 libres salen del microciclo escrito en la hoja; mientras no se
                 escriba, se avisa de que son una propuesta. */}
             {/* El último resultado va junto a la racha (29/10/2026, experto de fútbol). */}
-            {conTarea !== null && libresEnTexto && <p className="mt-2 text-[11px] text-white/40">Libre: {libresEnTexto}</p>}
+            {/* El estado del microciclo de un vistazo (02/11/2026): cuánto se
+                ha recorrido de la semana, cuántas sesiones quedan y los libres. */}
+            {(() => {
+              const total = semana.length;
+              const recorridos = hoy ? semana.filter((dia) => dia.fecha < hoy).length : 0;
+              const posicion = Math.min(recorridos + 1, total);
+              const quedan = semana.filter((dia) => dia.md > 0 && (!hoy || dia.fecha >= hoy) && !libres.has(dia.fecha)).length;
+              const pct = total ? Math.round((posicion / total) * 100) : 0;
+
+              return (
+                <div className="mt-3">
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-[12px]">
+                    <span className="font-semibold uppercase tracking-[0.18em] text-white/65">
+                      Microciclo · día {posicion} de {total}
+                    </span>
+                    <span className="text-white/55">
+                      {quedan > 0 ? `${quedan} ${quedan === 1 ? "sesión" : "sesiones"} por delante` : "Semana de partido"}
+                      {conTarea !== null && libresEnTexto ? ` · libre ${libresEnTexto}` : ""}
+                    </span>
+                  </div>
+                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/10" role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={posicion} aria-label="Avance del microciclo">
+                    <div
+                      className="portada-llena h-full rounded-full"
+                      style={{ width: `${pct}%`, background: "linear-gradient(90deg, #C8A96B, #F7D98B)" }}
+                    />
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )}
 
@@ -769,7 +800,7 @@ function Racha({ ultimos, cargando, ultimo }: { ultimos: PartidoNuestro[]; carga
       <span className="flex items-center gap-1.5">
         {cargando
           ? Array.from({ length: 5 }, (_, i) => (
-              <span key={i} className="h-7 w-7 animate-pulse rounded-lg bg-white/10" />
+              <span key={i} className="h-8 w-8 animate-pulse rounded-lg bg-white/10" />
             ))
           : ultimos.map((partido) => {
                 const signo = signoResultado(partido.golesFavor, partido.golesContra);
@@ -780,7 +811,7 @@ function Racha({ ultimos, cargando, ultimo }: { ultimos: PartidoNuestro[]; carga
                   <span
                     key={`${partido.jornada}-${partido.cuando}`}
                     title={`J${partido.jornada} · ${partido.lado === "casa" ? "" : "en "}${partido.rival} · ${partido.golesFavor}-${partido.golesContra}`}
-                    className="flex h-7 w-7 items-center justify-center rounded-lg text-[12px] font-bold"
+                    className="fuente-club flex h-8 w-8 items-center justify-center rounded-lg text-[16px] font-bold"
                     /* La letra con `chipInk`: el gris del empate y el verde
                        sobre el blanco del modo día no llegaban a 3:1. */
                     style={{ background: `${color}22`, color: chipInk(color), border: `1px solid ${color}55` }}
@@ -823,7 +854,7 @@ function Clasificacion({ informe }: { informe: RespuestaPortada | null }) {
         <span className="h-5 w-40 animate-pulse rounded bg-white/10" />
       ) : fila ? (
         <span className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-[13px] text-white/70">
-          <span className="text-[20px] font-bold leading-none tabular-nums text-white">
+          <span className="fuente-club text-[26px] font-bold leading-none tabular-nums text-white">
             {fila.puesto}º
           </span>
           <span className="text-white/40">de {fila.deCuantos}</span>

@@ -13,6 +13,7 @@ import { MODULES, type AppModule } from "@/lib/modules";
  */
 
 const USAGE_KEY = "rmcf-module-usage";
+const LAST_KEY = "rmcf-module-last";
 
 /* Suscriptores dentro de la propia pestaña: `storage` solo avisa a las otras. */
 const listeners = new Set<() => void>();
@@ -46,6 +47,12 @@ export function trackModuleVisit(href: string) {
     usage[href] = (usage[href] ?? 0) + 1;
 
     localStorage.setItem(USAGE_KEY, JSON.stringify(usage));
+
+    /* Y cuándo (02/11/2026): la portada enseña «lo último abierto». */
+    const ultimas = JSON.parse(localStorage.getItem(LAST_KEY) ?? "{}") as Record<string, number>;
+
+    ultimas[href] = Date.now();
+    localStorage.setItem(LAST_KEY, JSON.stringify(ultimas));
   } catch {
     /* Modo privado o almacenamiento lleno: el contador es prescindible. */
     return;
@@ -153,4 +160,37 @@ export function useModulosMasUsados(cuantos: number): AppModule[] {
 
     return elegidos.slice(0, cuantos);
   }, [usadas, cuantos]);
+}
+
+function getUltimasSnapshot() {
+  try {
+    return localStorage.getItem(LAST_KEY) ?? "{}";
+  } catch {
+    return "{}";
+  }
+}
+
+/**
+ * Las rutas abiertas por última vez en este dispositivo, de la más reciente a
+ * la más vieja, con la hora (02/11/2026). Sólo lo abierto de verdad.
+ */
+export function useRutasRecientes(cuantos: number, excluir: string[] = []): { href: string; cuando: number }[] {
+  const raw = useSyncExternalStore(subscribe, getUltimasSnapshot, getServerSnapshot);
+  const fuera = excluir.join("|");
+
+  return useMemo(() => {
+    const noValen = new Set(fuera.split("|"));
+
+    try {
+      const parsed = JSON.parse(raw) as Record<string, number>;
+
+      return Object.entries(parsed && typeof parsed === "object" ? parsed : {})
+        .filter(([href, cuando]) => typeof cuando === "number" && !noValen.has(href))
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, cuantos)
+        .map(([href, cuando]) => ({ href, cuando }));
+    } catch {
+      return [];
+    }
+  }, [raw, cuantos, fuera]);
 }
