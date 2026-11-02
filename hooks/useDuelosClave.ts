@@ -8,6 +8,8 @@ import { MUESTRA_CORTA_DUELO, UMBRAL_DUELO, normalizaDuelos, referenciasPorPuest
 import { MINUTOS_MINIMOS, puestoDe } from "@/lib/data-analisis/individual";
 import { duelosDelPartido } from "@/lib/duelos-onces";
 import { huecosDelUltimoOnce } from "@/lib/tactics/ultimoOnce";
+import { huecosDeLaPizarra } from "@/lib/tactics/huecosDeLaPizarra";
+import { leeTableroDeOnces } from "@/lib/tactics/onceDeLaPizarra";
 import { findInforme, type InformeDoc } from "@/lib/rivals/informe";
 import { slugClave } from "@/lib/rivals/media";
 import { mismoClub } from "@/lib/rivals/mismoClub";
@@ -24,7 +26,8 @@ import { puestoEnPalabras } from "@/lib/posiciones";
 | Los dos duelos de más ventaja y los dos de más riesgo que calcula /duelos,
 | con jugador y cifra, para el Plan de partido. Es la misma cuenta que la
 | pantalla de Duelos y el informe del partido (`duelosDelPartido`), con el
-| mismo punto de partida para nuestro once (el último de Valoraciones), así
+| mismo punto de partida para nuestro once (el de la pizarra táctica y, si no
+| es de este rival, el último de Valoraciones), así
 | que no pueden discrepar.
 |
 | Nunca lanza: si falta Wyscout, la plantilla del rival o lo que sea, devuelve
@@ -99,12 +102,13 @@ export function useDuelosClave(equipo: string) {
 
     (async () => {
       try {
-        const [wy, filas, fichas, informes, ratings] = await Promise.all([
+        const [wy, filas, fichas, informes, ratings, tablero] = await Promise.all([
           traeJson<{ ok?: boolean; jugadores?: FilaJugador[] }>("/api/data-analisis"),
           traeJson<Fila[]>("/api/rivals?action=rivalesPlantillas"),
           cargaPlantilla(),
           leeDoc<InformeDoc>("rivals:informe"),
           traeJson<{ success?: boolean; season?: RatingsSeason }>("/api/ratings/load").catch(() => null),
+          leeTableroDeOnces().catch(() => null),
         ]);
 
         const hoja = Array.isArray(filas) ? filas : [];
@@ -123,7 +127,9 @@ export function useDuelosClave(equipo: string) {
           leeDoc<unknown>(`duelos:${slugClave(equipoHoja)}`),
         ]);
 
-        const reparto = ratings?.success && ratings.season ? huecosDelUltimoOnce(ratings.season, fichas) : null;
+        /* Nuestro once: el de la pizarra táctica si es de este rival (02/11/2026), como en /duelos; si no, el último de Valoraciones. */
+        const dePizarra = huecosDeLaPizarra(tablero, fichas, equipoHoja);
+        const reparto = !dePizarra && ratings?.success && ratings.season ? huecosDelUltimoOnce(ratings.season, fichas) : null;
 
         const { duelos } = duelosDelPartido({
           jugadores,
@@ -133,7 +139,7 @@ export function useDuelosClave(equipo: string) {
           marcados: normalizarOnce(onceDoc).titulares,
           informe: findInforme(informes, equipoHoja),
           aMano: normalizaDuelos(manual),
-          baseNuestra: reparto?.ultimo ? Object.fromEntries(Object.entries(reparto.huecos).filter(([, id]) => id)) : null,
+          baseNuestra: dePizarra ? dePizarra.huecos : reparto?.ultimo ? Object.fromEntries(Object.entries(reparto.huecos).filter(([, id]) => id)) : null,
         });
 
         /* Si dos jugadores distintos comparten apellido (Sergio y Joan Martínez, o un

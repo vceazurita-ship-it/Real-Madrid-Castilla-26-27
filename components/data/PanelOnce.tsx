@@ -22,7 +22,7 @@
  * El cálculo vive en `lib/data-analisis/once.ts`; aquí sólo se pinta.
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, Users } from "lucide-react";
 
 import { Notice, Panel } from "@/components/abp/ui";
@@ -63,6 +63,8 @@ import { sinergiasDe } from "@/lib/data-analisis/sinergias";
 import type { FilaJugador, FilaPartido } from "@/lib/data-analisis/leer";
 import type { PartidoEventos } from "@/lib/data-analisis/eventos";
 import { idVigente } from "@/lib/fichajes";
+import { huecosDeLaPizarra } from "@/lib/tactics/huecosDeLaPizarra";
+import { leeTableroDeOnces, type TableroDeOnces } from "@/lib/tactics/onceDeLaPizarra";
 import { Explicativo } from "@/components/ui/textos-analisis";
 
 /**
@@ -301,10 +303,39 @@ export function PanelOnce({
     return ids.length >= 7 ? new Set(ids) : null;
   }, [losPartidos, season]);
 
-  const deCasa = useMemo(
-    () => players.filter((uno) => uno.esCastilla),
-    [players],
+  /*
+  | EL ONCE PREVISTO, DE LA PIZARRA TÁCTICA (02/11/2026).
+  |
+  | Sin un único partido elegido, el once de partida es el del tablero de los
+  | onces de la pizarra táctica (si casan siete por nombre), el mismo que
+  | leen Duelos, Emotion y la pizarra de ABP. Lo cambiado a mano aquí manda
+  | sobre él; con un solo partido, siguen mandando sus titulares.
+  */
+  const [tableroOnces, setTableroOnces] = useState<TableroDeOnces | null>(null);
+
+  useEffect(() => {
+    let vivo = true;
+
+    void leeTableroDeOnces().then((t) => {
+      if (vivo) setTableroOnces(t);
+    });
+
+    return () => {
+      vivo = false;
+    };
+  }, []);
+
+  const dePizarra = useMemo(
+    () => (titulares ? null : huecosDeLaPizarra(tableroOnces, players)),
+    [titulares, tableroOnces, players],
   );
+
+  const deCasa = useMemo(() => {
+    const enPizarra = new Set(Object.values(dePizarra?.huecos ?? {}));
+
+    /* Uno de la pizarra con ficha del RMC o del Juvenil A también entra. */
+    return players.filter((uno) => uno.esCastilla || enPizarra.has(uno.id));
+  }, [players, dePizarra]);
 
   /* Las filas de Wyscout de los nuestros, que son las que dicen puesto y lado. */
   const nuestrosWys = useMemo(
@@ -355,14 +386,20 @@ export function PanelOnce({
       ? candidatos.filter((uno) => titulares.has(uno.id) || Object.values(elegidos).includes(uno.id))
       : candidatos;
 
-    const primero = proponeOnce(deSalida, elegidos);
+    /* El de la pizarra, sin quien se haya puesto a mano en otro hueco. */
+    const aMano = new Set(Object.values(elegidos));
+    const dePartida = Object.fromEntries(
+      Object.entries(dePizarra?.huecos ?? {}).filter(([hueco, id]) => !(hueco in elegidos) && !aMano.has(id)),
+    );
+
+    const primero = proponeOnce(deSalida, { ...dePartida, ...elegidos });
     const puestos = titulares ? proponeOnce(candidatos, primero) : primero;
 
     return HUECOS.map((hueco) => ({
       hueco,
       jugador: deCasa.find((uno) => uno.id === puestos[hueco.clave]),
     }));
-  }, [deCasa, elegidos, ficha, titulares]);
+  }, [deCasa, elegidos, ficha, titulares, dePizarra]);
 
   const resumenes = useMemo(
     () => [...summarizeAll(suTemporada).values()],
@@ -513,10 +550,15 @@ export function PanelOnce({
             `El once de partida son los titulares de ese partido, según Valoraciones (${titulares.size} marcados); si falta alguno, el hueco se rellena por puesto y minutos. Se puede cambiar a mano.`,
           ]
         : []),
+      ...(dePizarra
+        ? [
+            "El once de partida es el previsto en la pizarra táctica para el próximo partido. Se puede cambiar a mano; con un solo partido elegido, salen sus titulares.",
+          ]
+        : []),
       ...alcance,
       ...rejilla.avisos,
     ],
-    [alcance, rejilla.avisos, titulares],
+    [alcance, rejilla.avisos, titulares, dePizarra],
   );
 
   if (loading) {

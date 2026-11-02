@@ -23,7 +23,7 @@
 */
 
 import { mismoJugador } from "@/lib/fichajes";
-import { PITCH_HEIGHT, type TacticToken, type TacticsDoc } from "@/lib/tactics/types";
+import { PITCH_HEIGHT, type TacticScene, type TacticToken, type TacticsDoc } from "@/lib/tactics/types";
 
 /** El nombre del tablero de los onces, el mismo que en `app/pizarra-tactica`. */
 export const TABLERO_DE_ONCES = "Once 4-2-3-1";
@@ -56,8 +56,18 @@ async function leeDoc<T>(key: string): Promise<T | null> {
   }
 }
 
-/** Nuestro once tal y como está ahora en la pizarra, o `null` si no hay tablero de onces. */
-export async function onceDeLaPizarra(): Promise<OnceDeLaPizarra | null> {
+/** La escena de los onces del tablero, tal cual, y de qué partido es («AAAA-MM-DD|rival»). */
+export type TableroDeOnces = { escena: TacticScene; semanaOnces: string };
+
+const nuestros = (tokens: TacticToken[] | undefined) => (tokens ?? []).filter((t) => t.kind === "home");
+
+/**
+ * El tablero de los onces, sin tocar (02/11/2026): lo usan también Duelos, el
+ * Plan de partido, el once de DATA y las marcas del córner, que necesitan el
+ * sitio de cada ficha para saber en qué hueco está (`huecosDeLaPizarra`).
+ * Siempre `no-store`: lo cambiado en la pizarra se ve al volver.
+ */
+export async function leeTableroDeOnces(): Promise<TableroDeOnces | null> {
   const indice = await leeDoc<{ boards?: { id: string; nombre: string }[] }>("tactics:index");
   const tablero = (indice?.boards ?? []).find((b) => b.nombre === TABLERO_DE_ONCES);
 
@@ -65,7 +75,6 @@ export async function onceDeLaPizarra(): Promise<OnceDeLaPizarra | null> {
 
   const doc = await leeDoc<TacticsDoc>(`tactics:board:${tablero.id}`);
   const escenas = Array.isArray(doc?.scenes) ? (doc?.scenes ?? []) : [];
-  const nuestros = (tokens: TacticToken[] | undefined) => (tokens ?? []).filter((t) => t.kind === "home");
 
   /* La escena de los onces («Onces · rival») manda; si el analista la
      renombró, la primera con un once casi entero. */
@@ -73,8 +82,16 @@ export async function onceDeLaPizarra(): Promise<OnceDeLaPizarra | null> {
     escenas.find((e) => /^onces/i.test(e.nombre ?? "") && nuestros(e.tokens).length >= 7) ??
     escenas.find((e) => nuestros(e.tokens).length >= 7);
 
-  if (!escena) return null;
+  return escena ? { escena, semanaOnces: String(doc?.semanaOnces ?? "") } : null;
+}
 
+/** Nuestro once tal y como está ahora en la pizarra, o `null` si no hay tablero de onces. */
+export async function onceDeLaPizarra(): Promise<OnceDeLaPizarra | null> {
+  const tablero = await leeTableroDeOnces();
+
+  if (!tablero) return null;
+
+  const { escena } = tablero;
   const tokens = nuestros(escena.tokens);
 
   /*

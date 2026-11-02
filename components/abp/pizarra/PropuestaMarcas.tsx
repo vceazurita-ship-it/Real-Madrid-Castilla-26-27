@@ -4,7 +4,8 @@
  * «Quién marca a quién» del córner defensivo (27/10/2026).
  *
  * Lee su once, sus remates de ABP, la plantilla con alturas y Wyscout; lee
- * nuestro once (Valoraciones + lo cambiado en Duelos) y propone las marcas
+ * nuestro once (el de la pizarra táctica; si no es de este rival, Valoraciones
+ * + lo cambiado en Duelos) y propone las marcas
  * (`lib/abp/marcas-corner.ts`). En la ventana, cada marca se puede cambiar —a
  * quién ponemos y a quién marca— o dejar en blanco, con la altura y los
  * aéreos de cada uno a la vista. La altura de los nuestros que Wyscout no trae
@@ -40,6 +41,8 @@ import type { RatingsSeason } from "@/lib/ratings/types";
 import { mismoClub } from "@/lib/rivals/mismoClub";
 import { suOnceTeorico } from "@/lib/tactics/oncesSemana";
 import { huecosDelUltimoOnce } from "@/lib/tactics/ultimoOnce";
+import { huecosDeLaPizarra } from "@/lib/tactics/huecosDeLaPizarra";
+import { leeTableroDeOnces } from "@/lib/tactics/onceDeLaPizarra";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import type { Player } from "@/types/player";
 
@@ -115,7 +118,7 @@ export function PropuestaMarcas({
     setCargando(true);
 
     try {
-      const [once, plantillas, abp, scout, wyscout, temporada] = await Promise.all([
+      const [once, plantillas, abp, scout, wyscout, temporada, tablero] = await Promise.all([
         suOnceTeorico(rival),
         traeJson<unknown>("/api/rivals?action=rivalesPlantillas").catch(() => []),
         loadRivalAbp().catch(() => ({ events: [] })),
@@ -128,6 +131,7 @@ export function PropuestaMarcas({
         traeJson<{ season?: RatingsSeason }>("/api/ratings/load")
           .then((r) => r.season ?? null)
           .catch(() => null),
+        leeTableroDeOnces().catch(() => null),
       ]);
 
       const equipo = once.equipo;
@@ -169,7 +173,8 @@ export function PropuestaMarcas({
 
       /* ---------- Nosotros: toda la plantilla, marcando los del once ---------- */
 
-      const { huecos } = huecosDelUltimoOnce(temporada, players, once.nuestroAMano);
+      /* El once de la pizarra táctica manda (02/11/2026); si no es de este rival, el último de Valoraciones con lo cambiado en Duelos. */
+      const { huecos } = huecosDeLaPizarra(tablero, players, equipo) ?? huecosDelUltimoOnce(temporada, players, once.nuestroAMano);
       const titulares = new Set(Object.values(huecos).filter(Boolean));
 
       const aereo = new Map(

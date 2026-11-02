@@ -39,6 +39,8 @@ import { HUECOS } from "@/lib/data-analisis/once";
 import type { FilaJugador } from "@/lib/data-analisis/leer";
 import { baseSuyaDe, nuestrosDe, onceNuestroDe, onceSuyoDe, suyosDe } from "@/lib/duelos-onces";
 import { fuenteUltimoOnce, huecosDelUltimoOnce } from "@/lib/tactics/ultimoOnce";
+import { huecosDeLaPizarra } from "@/lib/tactics/huecosDeLaPizarra";
+import { leeTableroDeOnces, type TableroDeOnces } from "@/lib/tactics/onceDeLaPizarra";
 import { puestoEnPalabras } from "@/lib/posiciones";
 import type { RatingsSeason } from "@/lib/ratings/types";
 import {
@@ -187,6 +189,18 @@ export default function DuelosPage() {
   const [elegido, setElegido] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lento, setLento] = useState(false);
+  /* El tablero de los onces de la pizarra táctica: nuestro once previsto (02/11/2026). */
+  const [tableroOnces, setTableroOnces] = useState<TableroDeOnces | null>(null);
+
+  useEffect(() => {
+    let vivo = true;
+    void leeTableroDeOnces().then((t) => {
+      if (vivo) setTableroOnces(t);
+    });
+    return () => {
+      vivo = false;
+    };
+  }, []);
 
   useEffect(() => {
     let vivo = true;
@@ -308,16 +322,23 @@ export default function DuelosPage() {
     () => baseSuyaDe(suyos, onceMarcado, findInforme(informes, equipoVisto)),
     [suyos, onceMarcado, informes, equipoVisto],
   );
-  /* El punto de partida de nuestro once: el último de Valoraciones, como en la pizarra. */
+  /*
+  | El punto de partida de nuestro once (02/11/2026): el de la pizarra táctica
+  | si es de este rival y tiene siete casados; si no, el último de
+  | Valoraciones. Lo cambiado a mano aquí sigue mandando sobre los dos.
+  */
+  const dePizarra = useMemo(() => huecosDeLaPizarra(tableroOnces, players, equipoVisto), [tableroOnces, players, equipoVisto]);
   const ultimoOnce = useMemo(() => (temporada ? huecosDelUltimoOnce(temporada, players) : null), [temporada, players]);
   /* (`players` llega aparte de Valoraciones: hasta que está, la propuesta es la de Wyscout y se rehace sola.) */
   const baseNuestra = useMemo(
-    () => (ultimoOnce?.ultimo ? Object.fromEntries(Object.entries(ultimoOnce.huecos).filter(([, id]) => id)) : null),
-    [ultimoOnce],
+    () => dePizarra?.huecos ?? (ultimoOnce?.ultimo ? Object.fromEntries(Object.entries(ultimoOnce.huecos).filter(([, id]) => id)) : null),
+    [dePizarra, ultimoOnce],
   );
-  const fuenteNuestra = ultimoOnce?.ultimo
-    ? fuenteUltimoOnce(ultimoOnce)
-    : "Propuesto con los minutos de Wyscout en 4-2-3-1";
+  const fuenteNuestra = dePizarra
+    ? "El once de la pizarra táctica"
+    : ultimoOnce?.ultimo
+      ? fuenteUltimoOnce(ultimoOnce)
+      : "Propuesto con los minutos de Wyscout en 4-2-3-1";
   const onceNuestro = useMemo(() => onceNuestroDe(nuestros, aMano.nuestro, baseNuestra, players), [nuestros, aMano.nuestro, baseNuestra, players]);
   const onceSuyo = useMemo(() => onceSuyoDe(suyos, baseSuya.lista, aMano.suyo), [suyos, baseSuya, aMano.suyo]);
 
@@ -978,7 +999,7 @@ function Alineaciones({
       </button>
       {abierto && (
         <div className="mt-3 grid gap-4 lg:grid-cols-2">
-          <LadoOnce aMano={aMano} cambia={cambia} deshaz={deshaz} lado="nuestro" titulo="Nuestro once" fuente={`${fuenteNuestra}. Los cambios se guardan para este rival y la pizarra táctica los coge.`} lista={nuestros} once={onceNuestro} />
+          <LadoOnce aMano={aMano} cambia={cambia} deshaz={deshaz} lado="nuestro" titulo="Nuestro once" fuente={`${fuenteNuestra}. Lo cambiado aquí se guarda para este rival y manda sobre esa propuesta; «Volver a la propuesta» lo devuelve a ella.`} lista={nuestros} once={onceNuestro} />
           <LadoOnce aMano={aMano} cambia={cambia} deshaz={deshaz} lado="suyo" titulo={`Once de ${equipo}`} fuente={fuenteSuya} lista={suyos} once={onceSuyo} />
         </div>
       )}
