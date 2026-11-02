@@ -605,7 +605,28 @@ export async function montaVideoInforme(guionEntrada: GuionVideo, opciones: Opci
 
     fotograma += 1;
 
-    while ((codificador?.encodeQueueSize ?? 0) > 8 || (codificadorHd?.encodeQueueSize ?? 0) > 8) await respira();
+    /*
+    | Se espera al «dequeue» del codificador, como en la pizarra de ABP
+    | (02/11/2026): dando vueltas con `respira` (MessageChannel) el hilo
+    | principal no soltaba nunca el aviso del codificador y el montaje se
+    | quedaba en «escena 1». El segundo de red, por si el aviso no llega.
+    */
+    for (const cod of [codificadorHd, codificador]) {
+      while (cod && cod.encodeQueueSize > 8 && !fallo) {
+        await new Promise<void>((listo) => {
+          const sigue = () => {
+            clearTimeout(red);
+            cod.removeEventListener("dequeue", sigue);
+            listo();
+          };
+          const red = setTimeout(sigue, 1000);
+
+          cod.addEventListener("dequeue", sigue);
+        });
+      }
+    }
+
+    if (fotograma % 15 === 0) await respira();
   };
 
   for (const [k, x] of escenas.entries()) {

@@ -19,8 +19,13 @@
 */
 
 import { abreMp4, claveAntesDe, LectorMuestras, type PistaMp4 } from "@/lib/coding/mp4";
-/* Por MessageChannel (02/11/2026): con la pestaña escondida un setTimeout(0) va a uno por segundo. */
-import { respira } from "@/lib/export/captura";
+
+/*
+| Con setTimeout y NO con el MessageChannel de lib/export/captura (02/11/2026):
+| aquí se espera a que el descodificador entregue sus fotogramas, y dando
+| vueltas por un MessageChannel el hilo no le deja entregarlos.
+*/
+const respira = () => new Promise<void>((r) => setTimeout(r, 0));
 
 export class FotogramasCorte {
   private descodificador: VideoDecoder | null = null;
