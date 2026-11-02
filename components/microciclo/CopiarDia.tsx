@@ -381,7 +381,7 @@ export function CopiarDia({
 
             {modo === "reemplazar" && escritas > 0 ? (
               <p className="mt-2 text-[11px] text-[#C8A96B]">
-                Reemplazar quita lo que ya tiene el día ({plural(escritas, "tarea", "tareas")}; el partido se queda). Se recupera con Deshacer.
+                Reemplazar quita lo que ya tiene el día ({plural(escritas, "tarea", "tareas")}, con su evaluación y su análisis post si los tienen; el partido se queda). Se recupera con Deshacer antes de escribir en la hoja.
               </p>
             ) : null}
           </section>

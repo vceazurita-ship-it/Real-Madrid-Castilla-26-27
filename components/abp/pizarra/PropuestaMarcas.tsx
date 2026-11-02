@@ -174,7 +174,14 @@ export function PropuestaMarcas({
       /* ---------- Nosotros: toda la plantilla, marcando los del once ---------- */
 
       /* El once de la pizarra táctica manda (02/11/2026); si no es de este rival, el último de Valoraciones con lo cambiado en Duelos. */
-      const { huecos } = huecosDeLaPizarra(tablero, players, equipo) ?? huecosDelUltimoOnce(temporada, players, once.nuestroAMano);
+      const dePizarra = huecosDeLaPizarra(tablero, players, equipo);
+      /* Lo cambiado a mano en Duelos manda también sobre la pizarra (sin repetir a nadie). */
+      const conAMano = (base: Record<string, string>) => {
+        const fijos = new Set(Object.values(once.nuestroAMano));
+
+        return { ...Object.fromEntries(Object.entries(base).filter(([, id]) => !fijos.has(id))), ...once.nuestroAMano };
+      };
+      const { huecos } = dePizarra ? { huecos: conAMano(dePizarra.huecos) } : huecosDelUltimoOnce(temporada, players, once.nuestroAMano);
       const titulares = new Set(Object.values(huecos).filter(Boolean));
 
       const aereo = new Map(

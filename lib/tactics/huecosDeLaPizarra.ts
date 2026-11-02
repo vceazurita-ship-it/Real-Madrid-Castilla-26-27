@@ -43,7 +43,8 @@ export function huecosDeLaPizarra<T extends { id: string; nombre: string; apodo?
 
   const rivalDelTablero = tablero.semanaOnces.split("|")[1]?.trim() ?? "";
 
-  if (rival && rivalDelTablero && !mismoClub(rivalDelTablero, rival)) return null;
+  /* Un tablero sin rival no vale para un rival concreto: no se sabe de quién es. */
+  if (rival && (!rivalDelTablero || !mismoClub(rivalDelTablero, rival))) return null;
 
   const hueco = huecosDeFichas(tablero.escena);
   const usados = new Set<T>();
