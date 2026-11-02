@@ -112,7 +112,8 @@ export function segundosDeEscena(e: Escena): number {
 const BASE: Partial<Record<Escena["tipo"], number>> = { cifras: 4.5, barras: 5, contexto: 5, vigilar: 5.5, percentiles: 5, once: 5, fases: 6, duelos: 6, imagen: 5 };
 
 /** Las que se sacrifican primero si no cabe en el tiempo, por este orden. */
-const PRESCINDIBLES = ["abp", "duelo", "acierto", "percentiles", "contexto", "duelos", "fases-2", "fases", "grafico-2", "lamina-2", "grafico-1", "lamina-1", "rival", "clips-rival-2", "abp-banda", "vigilar", "clips-3", "clips-2", "grafico-0", "lamina-0", "abp-suyos", "once", "pronostico", "plan", "cifras", "clips-1", "clips", "abp-nuestros", "analisis-previo", "versus"];
+/* `tipos` y `pizarra` (02/11/2026) son del post de ABP: el desglose por tipo cae pronto; las jugadas preparadas, de las últimas. */
+const PRESCINDIBLES = ["tipos", "abp", "duelo", "acierto", "percentiles", "contexto", "duelos", "fases-2", "fases", "grafico-2", "lamina-2", "grafico-1", "lamina-1", "rival", "clips-rival-2", "abp-banda", "vigilar", "clips-3", "clips-2", "grafico-0", "lamina-0", "pizarra", "abp-suyos", "once", "pronostico", "plan", "cifras", "clips-1", "clips", "abp-nuestros", "analisis-previo", "versus"];
 
 /* ------------------------------------------------------------------ */
 /*  TIPOS QUE COMPARTEN LOS DOS MOTORES                                */
@@ -505,12 +506,63 @@ export function rellenaGrano(ctx: Lienzo) {
   ctx.putImageData(img, 0, 0);
 }
 
-function acabado(ctx: Lienzo, grano: Dibujable, progreso: number, titulo: string, fuente: string, marcas: number[] = []) {
-  const v = ctx.createRadialGradient(ANCHO / 2, ALTO / 2, ALTO * 0.35, ANCHO / 2, ALTO / 2, ALTO * 0.95);
-  v.addColorStop(0, "rgba(0,0,0,0)");
-  v.addColorStop(1, "rgba(0,0,0,0.55)");
-  ctx.fillStyle = v;
-  ctx.fillRect(0, 0, ANCHO, ALTO);
+/** El capítulo del fotograma: su nombre, su número y cuánto lleva (para anunciarlo al entrar). */
+export type CapituloFotograma = { nombre: string; numero: number; total: number; t: number };
+
+/** Lo que se anuncia un capítulo en la esquina al empezar, antes de quedarse discreto. */
+const ANUNCIO_CAPITULO = 1.8;
+
+/**
+ * El capítulo en la esquina de arriba (02/11/2026, ronda del analista: «que se
+ * sepa en qué parte del vídeo estás»): «2/4 · EL PARTIDO». Al empezar el
+ * capítulo entra en una pastilla de oro sólido durante 1,8 s y luego se queda
+ * en un rótulo fino, como el reloj de una retransmisión.
+ */
+function pintaCapitulo(ctx: Lienzo, fuente: string, c: CapituloFotograma) {
+  const texto = `${c.numero}/${c.total} · ${c.nombre.toUpperCase()}`;
+  const anuncio = c.t < ANUNCIO_CAPITULO ? 1 - tramo(c.t, ANUNCIO_CAPITULO - 0.35, 0.35) : 0;
+  const entra = salta(c.t / 0.4);
+
+  ctx.save();
+  ctx.font = `700 ${ETIQUETA}px ${fuente}`;
+  ctx.textBaseline = "middle";
+
+  const w = espaciadoAncho(ctx, texto, 2) + 36;
+  const h = 40;
+  const x = ANCHO - 56 - w;
+  const y = 30;
+
+  /* La pastilla: oro sólido al anunciarse, azul noche con filo de oro después. */
+  ctx.globalAlpha = Math.min(1, Math.max(0.2, entra));
+  ctx.fillStyle = anuncio > 0 ? `rgba(200,169,107,${0.95 * anuncio})` : "rgba(8,17,31,0.72)";
+  caja(ctx, x, y, w, h, h / 2);
+  ctx.fill();
+
+  if (anuncio < 1) {
+    ctx.globalAlpha = (1 - anuncio) * Math.min(1, entra);
+    ctx.fillStyle = "rgba(8,17,31,0.72)";
+    caja(ctx, x, y, w, h, h / 2);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(200,169,107,0.85)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  ctx.globalAlpha = Math.min(1, entra);
+  ctx.fillStyle = anuncio > 0.5 ? TINTA : ORO;
+  espaciado(ctx, texto, x + 18, y + h / 2 + 1, 2);
+  ctx.restore();
+}
+
+function acabado(ctx: Lienzo, grano: Dibujable, progreso: number, titulo: string, fuente: string, marcas: number[] = [], capitulo?: CapituloFotograma, limpio = false) {
+  /* Sobre una jugada de la pizarra no hay viñeta ni marca de agua: taparían su cabecera y sus esquinas (02/11/2026). */
+  if (!limpio) {
+    const v = ctx.createRadialGradient(ANCHO / 2, ALTO / 2, ALTO * 0.35, ANCHO / 2, ALTO / 2, ALTO * 0.95);
+    v.addColorStop(0, "rgba(0,0,0,0)");
+    v.addColorStop(1, "rgba(0,0,0,0.55)");
+    ctx.fillStyle = v;
+    ctx.fillRect(0, 0, ANCHO, ALTO);
+  }
 
   /* El grano en píxeles de verdad (sin la escala del lienzo lógico) y sin suavizar: es lo más barato de pintar. */
   ctx.save();
@@ -525,13 +577,20 @@ function acabado(ctx: Lienzo, grano: Dibujable, progreso: number, titulo: string
 
   ctx.restore();
 
-  ctx.fillStyle = ORO;
-  ctx.fillRect(56, 48, 42, 4);
-  ctx.font = `600 20px ${fuente}`;
+  if (!limpio) {
+    ctx.fillStyle = ORO;
+    ctx.fillRect(56, 48, 42, 4);
+    ctx.font = `600 20px ${fuente}`;
+    ctx.textBaseline = "alphabetic";
+    ctx.textAlign = "left";
+    ctx.fillStyle = "rgba(255,255,255,0.6)";
+    espaciado(ctx, `REAL MADRID CASTILLA · ${titulo.toUpperCase()}`, 110, 56, 1.2);
+  }
+
+  if (capitulo) pintaCapitulo(ctx, fuente, capitulo);
+
   ctx.textBaseline = "alphabetic";
   ctx.textAlign = "left";
-  ctx.fillStyle = "rgba(255,255,255,0.6)";
-  espaciado(ctx, `REAL MADRID CASTILLA · ${titulo.toUpperCase()}`, 110, 56, 1.2);
 
   /* La barra de progreso, con una muesca en cada cambio de escena (capítulos). */
   ctx.fillStyle = "rgba(255,255,255,0.12)";
@@ -1461,7 +1520,8 @@ export function corteEn(e: Extract<Escena, { tipo: "clips" }>, t: number, dur: n
   | del editor): `tv` es el segundo del vídeo que se enseña; en los últimos
   | 0,6 s se queda quieto en el último cuadro de la jugada.
   */
-  const congela = e.cortes[k]?.repeticion || porCorte < 3 ? 0 : CONGELADO;
+  /* Las jugadas de la pizarra ya acaban quietas con su consigna: sin congelado de más. */
+  const congela = e.cortes[k]?.repeticion || e.cortes[k]?.pizarra || porCorte < 3 ? 0 : CONGELADO;
 
   return { k, tc, porCorte, tv: Math.min(tc, porCorte - congela), congelado: congela > 0 && tc > porCorte - congela };
 }
@@ -1472,6 +1532,8 @@ function pintaClips(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "cli
   /* Un VideoFrame (el navegador), una imagen de napi (el club) o un vídeo: cada uno dice su tamaño a su manera. */
   const vw = cuadro ? cuadro.displayWidth || cuadro.videoWidth || cuadro.width : 0;
   const vh = cuadro ? cuadro.displayHeight || cuadro.videoHeight || cuadro.height : 0;
+
+  if (e.cortes[k]?.pizarra) return pintaJugadaPizarra(ctx, fuente, e, cuadro, vw, vh, k, tc, porCorte, t);
 
   if (cuadro && vw && vh) {
 
@@ -1601,6 +1663,47 @@ function pintaClips(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "cli
     ctx.arc(ANCHO - 70 - (e.cortes.length - 1 - i) * 18, ALTO - 36, 4, 0, Math.PI * 2);
     ctx.fill();
   });
+}
+
+/**
+ * Una jugada de la pizarra de ABP animada (02/11/2026): la diapositiva entera
+ * a pantalla completa —es 16:9 como el vídeo—, sin zum ni velos, porque lleva
+ * su cabecera, sus consignas y su barra de fases. Encima sólo el título de la
+ * escena al empezar («Lo que preparamos: …»), en una franja que se va a los
+ * 2,4 s, y entre una jugada y la siguiente un parpadeo corto.
+ */
+function pintaJugadaPizarra(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "clips" }>, cuadro: Dibujable | null, vw: number, vh: number, k: number, tc: number, porCorte: number, t: number) {
+  if (cuadro && vw && vh) {
+    const esc = Math.min(ANCHO / vw, ALTO / vh);
+    const w = vw * esc;
+    const h = vh * esc;
+
+    ctx.drawImage(cuadro, (ANCHO - w) / 2, (ALTO - h) / 2, w, h);
+  }
+
+  const borde = Math.min(k > 0 ? tc / 0.2 : 1, k < e.cortes.length - 1 ? (porCorte - tc) / 0.2 : 1);
+
+  if (borde < 1) {
+    ctx.fillStyle = `rgba(8,17,31,${0.9 * (1 - Math.max(0, borde))})`;
+    ctx.fillRect(0, 0, ANCHO, ALTO);
+  }
+
+  /* El título de la escena, sólo al principio de la primera jugada: la cabecera de la diapositiva ya dice cuál es. */
+  const visible = k === 0 ? 1 - tramo(t, 2.4, 0.35) : 0;
+
+  if (visible <= 0) return;
+
+  /* Se va subiendo (el título anima cada palabra con su propia opacidad: un fundido no le llega). */
+  ctx.save();
+  ctx.translate(0, -(1 - visible) * 200);
+  const franja = ctx.createLinearGradient(0, 0, 0, 190);
+  franja.addColorStop(0, "rgba(8,17,31,0.95)");
+  franja.addColorStop(1, "rgba(8,17,31,0)");
+  ctx.fillStyle = franja;
+  ctx.fillRect(0, 0, ANCHO, 190);
+  titular(ctx, fuente, e.titulo, t, 120, 44);
+  ctx.restore();
+  ctx.globalAlpha = 1;
 }
 
 const TERCIOS = ["Campo propio", "Medio campo", "Último tercio"];
@@ -1895,8 +1998,10 @@ export type Fotograma = {
   restante: number;
   /** El fotograma del corte que toca, si la escena es de cortes. */
   cuadro: Dibujable | null;
-  /** Dónde empieza cada escena (0→1 del vídeo), para las muescas de la barra. */
+  /** Dónde empieza cada escena (0→1 del vídeo), para las muescas de la barra. Con capítulos, sólo donde empieza cada uno. */
   marcas?: number[];
+  /** El capítulo en el que está (02/11/2026); sin él, no se pinta. */
+  capitulo?: CapituloFotograma;
 };
 
 /** Pinta un fotograma completo: plató, escena, acabado y fundidos. */
@@ -2324,7 +2429,9 @@ function pintaBalance(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "b
     /* Un punto más de letra en cada línea (22/10/2026, crítica del editor: «balance legible»). */
     ctx.fillStyle = "rgba(255,255,255,0.85)";
     ctx.font = `600 26px ${fuente}`;
-    espaciado(ctx, x.que.toUpperCase(), 136, y + 48, 1.4);
+    /* Con el mismo número que en «Lo que buscábamos» (02/11/2026): la 01 del principio es la 01 de aquí. */
+    const numero = e.numeradas && x.que !== "El resultado" ? `${String(filas.filter((f) => f.que !== "El resultado").indexOf(x) + 1).padStart(2, "0")} · ` : "";
+    espaciado(ctx, `${numero}${x.que.toUpperCase()}`, 136, y + 48, 1.4);
 
     ctx.fillStyle = BLANCO;
     ctx.font = `600 ${LECTURA + 2}px ${fuente}`;
@@ -2368,9 +2475,17 @@ function pintaBalance(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "b
   if (recuento > 0) {
     const s = salta((t - (dur - final)) / 0.35);
 
+    /*
+    | Debajo del recuento, un icono por meta (02/11/2026): ✓ ✓ ~ ✗ en el orden
+    | cumplidas → a medias → no. «Cumplimos 2 de 4» se ve sin leerlo, y las
+    | metas que no cabían en las tarjetas también cuentan.
+    */
+    const estados = (e.estados ?? []).slice(0, 8);
+    const altoCaja = estados.length > 1 ? 200 : 150;
+
     ctx.globalAlpha = recuento;
     ctx.fillStyle = "rgba(8,17,31,0.88)";
-    caja(ctx, ANCHO / 2 - 400, ALTO / 2 - 40, 800, 150, 20);
+    caja(ctx, ANCHO / 2 - 400, ALTO / 2 - 40, 800, altoCaja, 20);
     ctx.fill();
     ctx.fillStyle = ORO;
     caja(ctx, ANCHO / 2 - 400, ALTO / 2 - 40, 800, 6, 3);
@@ -2384,6 +2499,21 @@ function pintaBalance(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "b
     ctx.fillText(e.resumen.toUpperCase(), 0, 0);
     ctx.restore();
     ctx.textAlign = "left";
+
+    if (estados.length > 1) {
+      const pasoIcono = 54;
+      const x0 = ANCHO / 2 - ((estados.length - 1) * pasoIcono) / 2;
+
+      estados.forEach((estado, i) => {
+        const a = salta((t - (dur - final) - 0.25 - i * 0.12) / 0.3);
+
+        if (a <= 0) return;
+
+        ctx.globalAlpha = recuento * Math.min(1, a);
+        iconoEstado(ctx, estado, x0 + i * pasoIcono, ALTO / 2 + 118, estado === "si" ? VERDE : estado === "no" ? ROJO : ORO);
+      });
+    }
+
     ctx.globalAlpha = 1;
   }
 }
@@ -2600,7 +2730,10 @@ export function pintaFotograma(ctx: Lienzo, grano: Dibujable, fuente: string, ti
     if (e.tipo === "imagen") pieLocucion(ctx, fuente, e.locucion, f.t);
   }
 
-  acabado(ctx, grano, f.progreso, titulo, fuente, f.marcas);
+  /* Sobre una jugada de la pizarra, el acabado sin viñeta ni marca de agua. */
+  const limpio = e.tipo === "clips" && Boolean(e.cortes[corteEn(e, f.t, f.medida.segundos).k]?.pizarra);
+
+  acabado(ctx, grano, f.progreso, titulo, fuente, f.marcas, f.capitulo, limpio);
 
   /*
   | Entre escenas, cortinilla en diagonal (14/10/2026; antes fundido a negro):
@@ -2616,7 +2749,9 @@ export function pintaFotograma(ctx: Lienzo, grano: Dibujable, fuente: string, ti
   */
   if (e.tipo === "clips") return;
 
-  const capitulo = e.tipo === "portada" || e.tipo === "claves" || e.tipo === "cierre";
+  /* Y la primera escena de cada capítulo (02/11/2026): el cambio de capítulo se ve además de leerse en la esquina. */
+  const empiezaCapitulo = Boolean(f.capitulo && Math.abs(f.capitulo.t - f.t) < 1e-6);
+  const capitulo = e.tipo === "portada" || e.tipo === "claves" || e.tipo === "cierre" || empiezaCapitulo;
 
   if (capitulo && f.t < 0.45) cortinilla(ctx, ANCHO, ALTO, "sale", f.t / 0.45, ORO, FONDO);
   else if (!capitulo && f.t < 0.2) {

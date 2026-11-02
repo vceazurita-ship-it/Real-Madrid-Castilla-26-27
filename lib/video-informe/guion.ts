@@ -36,6 +36,13 @@ export type Corte = {
   /** Repetición a cámara lenta (como en la tele): `velocidad` 0,5 y el rótulo «REPETICIÓN». */
   repeticion?: boolean;
   velocidad?: number;
+  /**
+   * Una jugada de la pizarra de ABP ya animada (02/11/2026, `VideoJugada`):
+   * se ve ENTERA (sin el zum que esconde el marcador de la tele, que aquí
+   * cortaría la cabecera de la diapositiva) y sin rótulo bajo, porque la
+   * jugada ya lleva los suyos (salida, fases, consigna).
+   */
+  pizarra?: boolean;
 };
 
 /** Una celda del campo: tercio (0 propio → 2 rival, en el sentido del que ataca) y carril (0 izquierda → 2 derecha). */
@@ -272,8 +279,13 @@ export type Escena =
   | { id: string; tipo: "percentiles"; titulo: string; pie: string; filas: { nombre: string; percentil: number }[]; locucion: string }
   | { id: string; tipo: "duelos"; titulo: string; duelos: DueloEscena[]; locucion: string }
   | { id: string; tipo: "fases"; titulo: string; fases: { titulo: string; texto: string }[]; dano: string[]; locucion: string }
-  /* Post (15/10/2026): lo que buscábamos frente a lo que logramos, fila a fila y con el dato. */
-  | { id: string; tipo: "balance"; titulo: string; filas: FilaBalance[]; resumen: string; locucion: string };
+  /*
+  | Post (15/10/2026): lo que buscábamos frente a lo que logramos, fila a fila y con el dato.
+  | `estados` (02/11/2026): el veredicto de TODAS las metas que cuenta el
+  | recuento, para pintarlas en fila bajo «Cumplimos 2 de 4». `numeradas`: las
+  | filas llevan el mismo número que tuvieron en «Lo que buscábamos».
+  */
+  | { id: string; tipo: "balance"; titulo: string; filas: FilaBalance[]; resumen: string; locucion: string; estados?: FilaBalance["estado"][]; numeradas?: boolean };
 
 /**
  * Una fila del balance del post: la meta del plan, lo que dio el partido y si
@@ -293,6 +305,14 @@ export type GuionVideo = {
   /** Para el nombre del archivo y el rótulo de la esquina. */
   titulo: string;
   escenas: Escena[];
+  /**
+   * Los capítulos de la historia (02/11/2026): el id de cada escena → su
+   * capítulo («El plan», «El partido», «El balance»). Con ellos el vídeo
+   * anuncia cada capítulo en la esquina y la barra de abajo marca sólo los
+   * cambios de capítulo, no cada escena. Una escena sin capítulo sigue en el
+   * de la anterior.
+   */
+  capitulos?: Record<string, string>;
 };
 
 /**
@@ -394,7 +414,7 @@ export function consigna(t: string, maximo = 10) {
 }
 
 /** Un vídeo del bucket se puede leer en el navegador; un enlace de YouTube, no. */
-export const esClipLegible = (url: string) => /^https?:\/\/.+\.(mp4|m4v|mov|webm)(\?|$)/i.test(url) || /supabase\.co\/storage/i.test(url);
+export const esClipLegible = (url: string) => /^https?:\/\/.+\.(mp4|m4v|mov|webm)(\?|$)/i.test(url) || /supabase\.co\/storage/i.test(url) || /^blob:/i.test(url);
 
 /**
  * Las fotos de fuera pasan por el proxy, como en las diapositivas. Son fotos
@@ -894,6 +914,8 @@ export function escenaBalance(filas: FilaBalance[]): { escena: Escena; cierre: s
       titulo: resumen,
       filas: lista,
       resumen,
+      /* Todas las que cuenta el recuento, no sólo las tres que caben (02/11/2026): «Cumplimos 2 de 4» con cuatro iconos debajo. */
+      estados: [...cuentan.filter((x) => x.estado === "si"), ...cuentan.filter((x) => x.estado === "parcial"), ...cuentan.filter((x) => x.estado === "no")].map((x) => x.estado),
       locucion: `${lista.map((x) => `${x.que}: buscábamos ${x.buscabamos.charAt(0).toLowerCase()}${x.buscabamos.slice(1)}; ${x.logramos.charAt(0).toLowerCase()}${x.logramos.slice(1)}`).join(". ")}. ${resumen}.`,
     },
     cierre,
@@ -1207,16 +1229,34 @@ export function guionDePartido(informe: InformePartido, extras: ExtrasPartido = 
     escenas.push({ id: "claves", tipo: "claves", titulo, lineas, pies: consignasPrevia.map((x) => x.pie), locucion: consignasPrevia.map((x) => (x.pie ? `${x.linea}: ${x.pie}` : x.linea)).join(". ") });
   }
 
+  /* El balance se calcula aquí (02/11/2026): «Lo que buscábamos» enseña sus MISMAS metas. */
+  const balance = previa ? null : escenaBalance(filasDeBalance(informe));
+
   /* Post: lo que buscábamos, como planteamiento (el balance del final dice si se logró). */
   if (!previa) {
-    pon(
-      /* Sin «Ganar» (25/10/2026, guionista): no se entrena ni se mide; las metas del plan, contadas como en la diapositiva. */
-      escenaPlan([
-        ...(sintesis.cumplimiento ?? []).map((x) => x.lectura ?? x.clave),
-        ...(pronostico?.palancas ?? []).map((x) => x.objetivo),
-        ...(sintesis.frenados.length ? [`Frenar a ${sintesis.frenados.map((x) => apellidoDe(x.jugador.nombre)).join(", ")}`] : []),
-      ]),
-    );
+    /*
+    | Las mismas metas, con el mismo texto y el mismo número, al principio y al
+    | final (02/11/2026): antes «Lo que buscábamos» decía la lectura de cada
+    | clave («Salimos rápido al robar») y el balance su consigna, en otro orden
+    | y con otra cuenta, y no se veía que eran las mismas. Ahora la 01 del
+    | principio es la 01 del balance, y debajo de cada una, de qué va.
+    */
+    const metas = balance?.escena.tipo === "balance" ? balance.escena.filas.filter((x) => x.que !== "El resultado") : [];
+    const planDelBalance = metas.length >= 2 ? escenaPlan(metas.map((x) => x.buscabamos)) : null;
+
+    if (planDelBalance?.tipo === "claves" && planDelBalance.lineas.length === metas.length && balance?.escena.tipo === "balance") {
+      escenas.push({ ...planDelBalance, pies: metas.map((x) => x.que) });
+      balance.escena.numeradas = true;
+    } else {
+      pon(
+        /* Sin «Ganar» (25/10/2026, guionista): no se entrena ni se mide; las metas del plan, contadas como en la diapositiva. */
+        escenaPlan([
+          ...(sintesis.cumplimiento ?? []).map((x) => x.lectura ?? x.clave),
+          ...(pronostico?.palancas ?? []).map((x) => x.objetivo),
+          ...(sintesis.frenados.length ? [`Frenar a ${sintesis.frenados.map((x) => apellidoDe(x.jugador.nombre)).join(", ")}`] : []),
+        ]),
+      );
+    }
   }
 
   /* Los cortes del partido cortados por el ordenador del club desde Hudl (goles, llegadas, lo que concedimos), con su lectura. En la previa son del último partido jugado. */
@@ -1306,8 +1346,6 @@ export function guionDePartido(informe: InformePartido, extras: ExtrasPartido = 
 
   /* Post (15/10/2026): antes de la conclusión, los datos más significativos del partido y el balance contra el plan. */
   if (!previa) pon(escenaVersus(informe));
-
-  const balance = previa ? null : escenaBalance(filasDeBalance(informe));
 
   if (balance) escenas.push(balance.escena);
 
@@ -1409,7 +1447,70 @@ export function guionDePartido(informe: InformePartido, extras: ExtrasPartido = 
   escenas.sort((a, b) => lugar(a.id) - lugar(b.id));
 
   /* Un corte antes de su once y ninguna racha de más de dos láminas de datos (22/10/2026, crítica del editor). */
-  return { titulo: `${partido.rival} · ${previa ? "previa" : "post"}`, escenas: intercalaCortes(soloCompletas(escenas)) };
+  const finales = intercalaCortes(soloCompletas(escenas));
+
+  return { titulo: `${partido.rival} · ${previa ? "previa" : "post"}`, escenas: finales, capitulos: capitulosEnOrden(finales, previa ? CAPITULOS_PREVIA : CAPITULOS_POST) };
+}
+
+/*
+| Los capítulos de cada informe (02/11/2026): tres o cuatro, como en una
+| retransmisión. El gancho y la portada no llevan: son la cabecera.
+*/
+const CAPITULOS_POST: Record<string, string> = {
+  plan: "El plan",
+  "clips-1": "El partido",
+  "clips-2": "El partido",
+  "clips-3": "El partido",
+  versus: "En datos",
+  acierto: "En datos",
+  vigilar: "En datos",
+  abp: "En datos",
+  balance: "El balance",
+  cierre: "El balance",
+};
+
+const CAPITULOS_PREVIA: Record<string, string> = {
+  contexto: "El rival",
+  pronostico: "El rival",
+  clips: "El rival",
+  once: "El rival",
+  fases: "El rival",
+  "fases-2": "El rival",
+  "clips-rival-2": "El rival",
+  versus: "El duelo",
+  percentiles: "El duelo",
+  duelos: "El duelo",
+  duelo: "El duelo",
+  vigilar: "El duelo",
+  abp: "El duelo",
+  "clips-2": "Nuestro plan",
+  claves: "Nuestro plan",
+  cierre: "Nuestro plan",
+};
+
+/**
+ * El capítulo de cada escena en el orden FINAL del guion (02/11/2026): nunca
+ * se vuelve a uno anterior. Si el reparto adelanta un corte del partido entre
+ * los datos, se queda en el capítulo en el que cae; así el número del
+ * capítulo sólo crece y la barra marca tres o cuatro cambios, no doce.
+ */
+export function capitulosEnOrden(escenas: Escena[], porId: Record<string, string>): Record<string, string> {
+  const orden: string[] = [];
+  const salida: Record<string, string> = {};
+  let actual = "";
+
+  for (const e of escenas) {
+    const propio = porId[e.id];
+
+    if (propio && !orden.includes(propio)) {
+      orden.push(propio);
+      actual = propio;
+    }
+
+    if (actual) salida[e.id] = actual;
+  }
+
+  return salida;
 }
 
 /** El tipo de acción que más se repite en los cortes del rival, para el título («Así lo hacen: córner ofensivo»). */

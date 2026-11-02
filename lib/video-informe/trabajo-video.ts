@@ -25,7 +25,7 @@ import type { GuionVideo } from "@/lib/video-informe/guion";
 import { montaVideoInforme, type OpcionesVideo, type VideoMontado } from "@/lib/video-informe/monta";
 
 /** Sube cuando cambia cómo se monta el vídeo: lo guardado deja de valer. */
-const VERSION = "2026-11-02";
+const VERSION = "2026-11-02-capitulos";
 
 /** Cuántos vídeos terminados se guardan (cada uno pesa decenas de MB). */
 const GUARDADOS = 4;
@@ -92,8 +92,14 @@ export const trabajoVideo = {
   /**
    * El vídeo de este guion: el guardado, el que ya se está montando o uno
    * nuevo a la cola. `alPaso` se engancha también a uno que ya va por la mitad.
+   *
+   * `prepara` (02/11/2026): lo que hay que hacer con el guion justo antes de
+   * montarlo, ya en su turno de la cola —rodar las jugadas de la pizarra de
+   * ABP y cambiar sus marcas «pizarra:…» por el vídeo—. La huella sale del
+   * guion de ENTRADA, así que un guion con las mismas jugadas da el mismo
+   * vídeo aunque se pida desde otra pantalla.
    */
-  pide(rotulo: string, guion: GuionVideo, opciones: Omit<OpcionesVideo, "senal"> = {}): Promise<VideoMontado> {
+  pide(rotulo: string, guion: GuionVideo, opciones: Omit<OpcionesVideo, "senal"> = {}, prepara?: (guion: GuionVideo, paso: (texto: string) => void, senal: AbortSignal) => Promise<GuionVideo>): Promise<VideoMontado> {
     const { alPaso, ...resto } = opciones;
     const huella = huellaVideo(guion, resto);
     const ya = trabajos.get(huella);
@@ -115,12 +121,16 @@ export const trabajoVideo = {
 
     trabajo.promesa = cola
       .catch(() => undefined)
-      .then(() => {
+      .then(async () => {
         control.signal.throwIfAborted();
         trabajo.estado = "montando";
         paso("empezando…");
 
-        return montaVideoInforme(guion, { ...resto, alPaso: paso, senal: control.signal });
+        const listo = prepara ? await prepara(guion, paso, control.signal) : guion;
+
+        control.signal.throwIfAborted();
+
+        return montaVideoInforme(listo, { ...resto, alPaso: paso, senal: control.signal });
       })
       .then(
         (v) => {

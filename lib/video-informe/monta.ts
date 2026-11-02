@@ -487,7 +487,8 @@ export async function montaVideoInforme(guionEntrada: GuionVideo, opciones: Opci
   escenas.forEach((x, k) => {
     if (x.escena.tipo !== "clips") return;
 
-    tramosConSonido.push([arranques[k], arranques[k] + x.segundos]);
+    /* Las jugadas de la pizarra son mudas (02/11/2026): bajo ellas la música no se aparta. */
+    if (!x.escena.cortes.every((c) => c.pizarra)) tramosConSonido.push([arranques[k], arranques[k] + x.segundos]);
 
     const limites = limitesDeCortes(x.escena, x.segundos);
 
@@ -582,6 +583,22 @@ export async function montaVideoInforme(guionEntrada: GuionVideo, opciones: Opci
   let fotoPoster: HTMLCanvasElement | null = null;
   let clipEnCurso: Clip | null = null;
 
+  /*
+  | Los capítulos (02/11/2026): el de cada escena, su número y cuándo empezó.
+  | Con dos o más, la barra marca sólo los cambios de capítulo (antes, una
+  | muesca por escena: doce rayas que no decían nada) y la esquina lo anuncia.
+  */
+  const nombresCapitulo = escenas.map((x) => (vertical ? "" : (guion.capitulos?.[x.escena.id] ?? "")));
+  const ordenCapitulos = [...new Set(nombresCapitulo.filter(Boolean))];
+  const inicioCapitulo = new Map<string, number>();
+
+  nombresCapitulo.forEach((n, k) => {
+    if (n && !inicioCapitulo.has(n)) inicioCapitulo.set(n, arranques[k]);
+  });
+
+  const conCapitulos = ordenCapitulos.length >= 2;
+  const marcasBarra = conCapitulos ? [...inicioCapitulo.values()].filter((a) => a > 0).map((a) => a / total) : arranques.slice(1).map((a) => a / total);
+
   /* Cada fotograma pintado, a los codificadores (el HD y, si va, la copia ligera reducida). */
   const codifica = async () => {
     const tiempo = { timestamp: Math.round((fotograma / FPS) * 1e6), duration: Math.round(1e6 / FPS) };
@@ -655,7 +672,9 @@ export async function montaVideoInforme(guionEntrada: GuionVideo, opciones: Opci
         }
       }
 
-      const f = { medida: x, t, global: arranques[k] + t, progreso: fotograma / totalFotogramas, restante: (cuantos - i) / FPS, cuadro, marcas: arranques.slice(1).map((a) => a / total) };
+      const nombre = nombresCapitulo[k];
+      const capitulo = conCapitulos && nombre ? { nombre, numero: ordenCapitulos.indexOf(nombre) + 1, total: ordenCapitulos.length, t: arranques[k] + t - (inicioCapitulo.get(nombre) ?? arranques[k]) } : undefined;
+      const f = { medida: x, t, global: arranques[k] + t, progreso: fotograma / totalFotogramas, restante: (cuantos - i) / FPS, cuadro, marcas: marcasBarra, capitulo };
 
       if (vertical) pintaFotogramaVertical(ctx, grano, fuente, rec, f);
       else pintaFotograma(ctx, grano, fuente, guion.titulo, rec, f);
