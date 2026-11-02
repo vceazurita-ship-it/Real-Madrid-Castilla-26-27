@@ -201,6 +201,12 @@ export type AlmacenEquipos = {
   sesiones: SesionEquipos[];
   /** Las estructuras que ha creado el cuerpo técnico (07/10/2026): salen arriba en el desplegable. */
   estructuras?: string[];
+  /**
+   * La demarcación corregida a mano en la ficha de un jugador, para todas las
+   * sesiones (02/11/2026), por nombre (`claveNombre`): manda sobre lo
+   * aprendido y sobre la plantilla. Ver lib/sesion-equipos/aprendizaje.ts.
+   */
+  puestosFijos?: Record<string, import("@/lib/sesion-equipos/demarcacion").Demarcacion>;
 };
 
 export const ALMACEN_VACIO: AlmacenEquipos = { sesiones: [] };

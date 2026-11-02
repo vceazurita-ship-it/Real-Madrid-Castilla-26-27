@@ -55,6 +55,7 @@ import {
   X,
   Eraser,
   Send,
+  SlidersHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -113,12 +114,11 @@ import {
   nuevaSesion,
   nuevaTarea,
   ordenPorPuesto,
-  puestosDesdePlantilla,
+  casaPalabra,
   claveNombre,
   nuevoId,
   repartoDe,
   rotacionDe,
-  sorteaReparto,
   tareaLista,
   textoDeSesion,
   textoDeTarea,
@@ -135,8 +135,14 @@ import {
   type TareaEquipos,
 } from "@/lib/sesion-equipos/modelo";
 import { usePlayers } from "@/hooks/usePlayers";
-import { DEMARCACIONES, demarcacion, demarcacionCercana, demarcacionesDesdePlantilla, grupoDeDemarcacion, puntoPreferido, puntosDeLineas, reubicaEnDibujo, type Demarcacion } from "@/lib/sesion-equipos/demarcacion";
+import { DEMARCACIONES, demarcacion, puntosDeLineas, reubicaEnDibujo, type Demarcacion } from "@/lib/sesion-equipos/demarcacion";
 import { aprendePosiciones } from "@/lib/sesion-equipos/aprendizaje";
+import { puestosDeLaSesion } from "@/lib/sesion-equipos/puestos";
+import { CRITERIOS, esCriterio, proponeConCriterio, type Criterio, type LineaExplicada } from "@/lib/sesion-equipos/criterios";
+import { jugadoresConWyscout, parejasDeLaSesion, rasgosDeLaSesion, titularesDeLaSesion } from "@/lib/sesion-equipos/fuentes";
+import { onceDeLaPizarra, type OnceDeLaPizarra } from "@/lib/tactics/onceDeLaPizarra";
+import { traeJson } from "@/lib/hojaCsv";
+import type { FilaJugador } from "@/lib/data-analisis/leer";
 
 const EJEMPLO = `CASTILLA - SÁBADO 26/09/26
 ==========================
@@ -196,10 +202,18 @@ function Chip({
   destino,
   encima = false,
   conQuien,
+  aprendido,
+  onCorrige,
 }: {
   jugador: JugadorSesion;
   color?: string;
   puesto?: Puesto;
+  /**
+   * El puesto aprendido o fijado de los que suben (02/11/2026): «LI» en un
+   * chip pequeño; tocarlo abre la corrección. `corto` vacío = aún sin puesto.
+   */
+  aprendido?: { corto: string; texto: string; fijo: boolean };
+  onCorrige?: (donde: { x: number; y: number }) => void;
   seleccionado: boolean;
   arrastrando?: boolean;
   /** Soltar encima de él (08/10/2026): «jug:<id>». */
@@ -263,6 +277,32 @@ function Chip({
       {jugador.etiqueta && (
         <span className="shrink-0 rounded border border-[#C8A96B]/40 px-1 text-[9px] font-bold text-[#C8A96B]">
           {jugador.etiqueta}
+        </span>
+      )}
+      {aprendido && onCorrige && (
+        <span
+          role="button"
+          tabIndex={0}
+          aria-label={`${aprendido.texto}. Corregir el puesto de ${jugador.nombre}`}
+          title={`${aprendido.texto}. Toca para corregirlo`}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+            onCorrige({ x: r.left, y: r.bottom });
+          }}
+          onKeyDown={(e) => {
+            if (e.key !== "Enter" && e.key !== " ") return;
+            e.preventDefault();
+            e.stopPropagation();
+            const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+            onCorrige({ x: r.left, y: r.bottom });
+          }}
+          className={`js-aprendido shrink-0 rounded px-1 text-[9px] font-bold normal-case transition hover:bg-[#C8A96B]/25 ${
+            aprendido.fijo ? "border border-[#C8A96B]/70 bg-[#C8A96B]/15 text-[#E9D5A8]" : "border border-dashed border-[#C8A96B]/60 text-[#C8A96B]"
+          }`}
+        >
+          {aprendido.corto || "¿puesto?"}
         </span>
       )}
       {jugador.baja && (
@@ -1248,49 +1288,24 @@ export default function JugadoresSesionPage() {
   */
   const [vista, setVista] = usePestanaUrl<"equipos" | "diapositivas" | "plantilla">("vista", ["equipos", "diapositivas", "plantilla"], "equipos");
 
-  const puestosAuto = useMemo(
-    () =>
-      sesion
-        ? puestosDesdePlantilla(
-            sesion.jugadores,
-            plantilla.map((p) => ({ nombre: p.nombre, apodo: p.apodo, posicion: p.posicion })),
-          )
-        : {},
-    [sesion, plantilla],
-  );
+  const fichasPlantilla = useMemo(() => plantilla.map((p) => ({ nombre: p.nombre, apodo: p.apodo, posicion: p.posicion })), [plantilla]);
 
-  /* La demarcación de cada uno según la plantilla (LATERAL D., 6, 11…), y lo aprendido de todas las sesiones. */
-  const demarcacionesAuto = useMemo(
-    () => (sesion ? demarcacionesDesdePlantilla(sesion.jugadores, plantilla.map((p) => ({ nombre: p.nombre, apodo: p.apodo, posicion: p.posicion }))) : {}),
-    [sesion, plantilla],
-  );
-
+  /* Lo aprendido de todas las sesiones (dónde coloca el cuerpo técnico a cada uno y lo que se le ha puesto a mano). */
   const aprendido = useMemo(() => aprendePosiciones(almacen), [almacen]);
 
-  /* A mano, si no la plantilla y, si tampoco, la más cercana a donde lo coloca el cuerpo técnico (dos veces o más). */
-  const demarcacionDe = useCallback(
-    (j: JugadorSesion): Demarcacion | undefined => {
-      const ap = aprendido[claveNombre(j.nombre)];
-
-      return j.demarcacion ?? demarcacionesAuto[j.id] ?? (ap && ap.veces >= 2 ? demarcacionCercana(ap) : undefined);
-    },
-    [demarcacionesAuto, aprendido],
+  /*
+  | El puesto de cada uno (02/11/2026, lib/sesion-equipos/puestos.ts): a mano
+  | en la sesión > fijado en su ficha > para los que suben del RMC o del
+  | Juvenil A, lo aprendido y después la plantilla; para los del Castilla, la
+  | plantilla y después lo aprendido. Con lo que necesita la colocación
+  | colgado: dónde juega cada uno y su grupo fino para repartir parejo.
+  */
+  const puestos = useMemo(
+    () => puestosDeLaSesion(sesion?.jugadores ?? [], fichasPlantilla, almacen, aprendido),
+    [sesion, fichasPlantilla, almacen, aprendido],
   );
 
-  /*
-  | El puesto (la demarcación a mano manda, luego el puesto a mano, luego la
-  | plantilla) con lo que necesita la colocación colgado: dónde juega cada uno
-  | y su grupo fino para repartir parejo. Ver lib/sesion-equipos/demarcacion.ts.
-  */
-  const puestoDe: PuestoDe = useMemo(() => {
-    const base = (j: JugadorSesion) =>
-      (j.demarcacion ? demarcacion(j.demarcacion)?.puesto : undefined) ?? j.puesto ?? demarcacion(demarcacionesAuto[j.id])?.puesto ?? puestosAuto[j.id] ?? demarcacion(demarcacionDe(j))?.puesto;
-
-    return Object.assign((j: JugadorSesion) => base(j), {
-      preferido: (j: JugadorSesion) => puntoPreferido(j, demarcacionDe, base, aprendido[claveNombre(j.nombre)]),
-      grupo: (j: JugadorSesion) => grupoDeDemarcacion(demarcacionDe(j)),
-    });
-  }, [puestosAuto, demarcacionesAuto, demarcacionDe, aprendido]);
+  const { puestosAuto, fichas: demarcacionesAuto, demarcacionDe, puestoDe, resuelve: origenDeDemarcacion } = puestos;
 
   const [elegido, setElegido] = useState<string | null>(null);
 
@@ -2451,26 +2466,273 @@ export default function JugadoresSesionPage() {
 
   /* ---------------- ir más rápido (02/11/2026) ---------------- */
 
+  /*
+  | ---------------- el criterio del reparto (02/11/2026) ----------------
+  | Titulares contra suplentes (el once de la pizarra táctica), mezcla parcial
+  | o total, por líneas, sinergias o perfiles (Wyscout). Lo elegido se
+  | recuerda en este aparato. Ver lib/sesion-equipos/criterios.ts.
+  */
+  const [criterio, setCriterioEstado] = useState<Criterio>("lineas");
+  const [mezcla, setMezclaEstado] = useState(50);
+  const [modoPerfiles, setModoPerfilesEstado] = useState<"repartidos" | "juntos">("repartidos");
+
+  useEffect(() => {
+    const id = setTimeout(() => {
+      try {
+        const guardado = JSON.parse(localStorage.getItem("jugadores-sesion:criterio") ?? "null") as { criterio?: unknown; mezcla?: unknown; modoPerfiles?: unknown } | null;
+
+        if (guardado && esCriterio(guardado.criterio)) setCriterioEstado(guardado.criterio);
+        if (guardado && typeof guardado.mezcla === "number") setMezclaEstado(Math.min(100, Math.max(0, guardado.mezcla)));
+        if (guardado && (guardado.modoPerfiles === "juntos" || guardado.modoPerfiles === "repartidos")) setModoPerfilesEstado(guardado.modoPerfiles);
+      } catch {
+        /* Sin almacenamiento (ventana privada): se queda «Por líneas». */
+      }
+    }, 0);
+
+    return () => clearTimeout(id);
+  }, []);
+
+  const recuerdaCriterio = (cambio: { criterio?: Criterio; mezcla?: number; modoPerfiles?: "repartidos" | "juntos" }) => {
+    const siguiente = { criterio, mezcla, modoPerfiles, ...cambio };
+
+    if (cambio.criterio) setCriterioEstado(cambio.criterio);
+    if (cambio.mezcla !== undefined) setMezclaEstado(cambio.mezcla);
+    if (cambio.modoPerfiles) setModoPerfilesEstado(cambio.modoPerfiles);
+
+    try {
+      localStorage.setItem("jugadores-sesion:criterio", JSON.stringify(siguiente));
+    } catch {
+      /* Sin almacenamiento: vale para esta visita. */
+    }
+  };
+
+  /* El once de la pizarra táctica (sólo lectura): los titulares. */
+  const [oncePizarra, setOncePizarra] = useState<OnceDeLaPizarra | null | undefined>(undefined);
+
+  useEffect(() => {
+    let vivo = true;
+
+    void onceDeLaPizarra().then((o) => {
+      if (vivo) setOncePizarra(o);
+    });
+
+    return () => {
+      vivo = false;
+    };
+  }, []);
+
+  /* Wyscout (sinergias y perfiles): sólo se pide cuando el criterio lo necesita; queda en el aparato. */
+  const necesitaWyscout = criterio === "sinergias" || criterio === "perfiles";
+  const [filasWyscout, setFilasWyscout] = useState<FilaJugador[] | null>(null);
+
+  useEffect(() => {
+    if (!necesitaWyscout || filasWyscout) return;
+
+    let vivo = true;
+
+    traeJson<{ ok?: boolean; jugadores?: FilaJugador[] }>("/api/data-analisis")
+      .then((r) => {
+        if (vivo) setFilasWyscout(r.jugadores ?? []);
+      })
+      .catch(() => {
+        if (vivo) setFilasWyscout([]);
+      });
+
+    return () => {
+      vivo = false;
+    };
+  }, [necesitaWyscout, filasWyscout]);
+
+  /* Los nombres por los que se conoce a cada uno: el de la lista y los de su ficha de la plantilla. */
+  const nombresDe = useCallback(
+    (j: JugadorSesion) => {
+      const suyas = new Set(claveNombre(j.nombre).split(" "));
+      const suyasFichas = fichasPlantilla.filter((f) =>
+        [f.nombre, f.apodo ?? ""].some((n) => {
+          const pals = claveNombre(n).split(" ").filter((p) => p.length > 1);
+
+          return pals.length > 0 && pals.every((p) => casaPalabra(p, suyas));
+        }),
+      );
+
+      return [j.nombre, ...suyasFichas.flatMap((f) => [f.nombre, f.apodo ?? ""].filter(Boolean))];
+    },
+    [fichasPlantilla],
+  );
+
+  const titularesSesion = useMemo(
+    () => (sesion && oncePizarra ? titularesDeLaSesion(oncePizarra, sesion.jugadores, nombresDe) : new Set<string>()),
+    [sesion, oncePizarra, nombresDe],
+  );
+
+  const datosWyscout = useMemo(() => {
+    if (!sesion || !filasWyscout?.length) return null;
+
+    const conWyscout = jugadoresConWyscout(sesion.jugadores, filasWyscout, demarcacionDe, nombresDe);
+
+    return { parejas: parejasDeLaSesion(conWyscout, filasWyscout), rasgos: rasgosDeLaSesion(conWyscout, filasWyscout) };
+  }, [sesion, filasWyscout, demarcacionDe, nombresDe]);
+
+  /* La explicación del último reparto propuesto, una línea por equipo (hasta que se cambie de tarea). */
+  const [explicacion, setExplicacion] = useState<{ tarea: string; fase: Fase; criterio: string; lineas: LineaExplicada[]; aviso?: string } | null>(null);
+
+  const rotuloCriterio = (c: Criterio) =>
+    c === "parcial" ? `Mezcla parcial ${mezcla} %` : c === "perfiles" ? `Por perfiles (${modoPerfiles === "juntos" ? "juntos los parecidos" : "repartidos"})` : (CRITERIOS.find((x) => x.clave === c)?.rotulo ?? "");
+
+  /** El reparto con el criterio elegido. Si los datos de Wyscout aún no han llegado, se dice y va por líneas. */
+  const proponCon = (t: TareaEquipos) => {
+    if (!sesion) return { tarea: t, lineas: [] as LineaExplicada[], aviso: undefined as string | undefined };
+
+    const esperaWyscout = necesitaWyscout && !datosWyscout;
+    const propuesta = proponeConCriterio(t, sesion.jugadores, {
+      criterio: esperaWyscout ? "lineas" : criterio,
+      puestoDe,
+      vecesComodin,
+      titulares: titularesSesion,
+      mezcla,
+      modoPerfiles,
+      parejas: datosWyscout?.parejas,
+      rasgos: datosWyscout?.rasgos,
+    });
+
+    return esperaWyscout
+      ? { ...propuesta, aviso: filasWyscout ? "Wyscout no tiene filas del Castilla para esta sesión: reparto por líneas." : "Los datos de Wyscout aún están llegando: reparto por líneas. Pulsa otra vez en unos segundos." }
+      : propuesta;
+  };
+
   const propon = () => {
-    if (!sesion) return;
+    if (!sesion || !tarea) return;
 
     const habia = enTareaAhora();
+    const p = proponCon(tarea);
 
-    cambiaTarea((t) => sorteaReparto(t, sesion.jugadores, opcionesReparto));
-    toast.success(habia > 0 ? "Otra propuesta de equipos" : "Equipos propuestos", {
-      description: `Parejos por puesto (por su demarcación; el nivel no se mide): porteros separados, laterales, centrales, medios y puntas repartidos.${sinDemarcacion.length ? ` ${sinDemarcacion.length} sin demarcación van donde haya sitio.` : ""} Pulsa otra vez (o P) para otra.`,
-      action: habia > 0 ? { label: "Deshacer", onClick: deshaz } : undefined,
+    cambiaTarea(() => p.tarea);
+    setExplicacion({ tarea: tarea.id, fase, criterio: rotuloCriterio(criterio), lineas: p.lineas, aviso: p.aviso });
+    toast.success(`${habia > 0 ? "Otra propuesta" : "Equipos propuestos"} · ${rotuloCriterio(criterio)}`, {
+      description: p.aviso ?? "Por qué va cada uno donde va, debajo de los botones. Pulsa otra vez (o P) para otra.",
+      action: { label: "Deshacer", onClick: deshazPropuesta },
     });
+  };
+
+  /** Deshacer una propuesta: vuelve lo de antes y se va su explicación. */
+  const deshazPropuesta = () => {
+    deshaz();
+    setExplicacion(null);
   };
 
   /** Lo colocado ahora mismo en la tarea (equipos y comodines). */
   const enTareaAhora = () => (tarea ? Object.values(tarea.sitio).filter((d) => d !== FUERA).length : 0);
 
-  const aplicaFormato = (f: (typeof FORMATOS_RAPIDOS)[number]) => {
-    if (!sesion) return;
+  /* Sin tablero de onces en la pizarra táctica no hay titulares: esos dos criterios se apagan y lo dicen. */
+  const sinOnce = oncePizarra === null || (oncePizarra !== undefined && titularesSesion.size === 0);
 
-    cambiaTarea((t) => sorteaReparto(conFormato(t, f.equipos, f.comodines), sesion.jugadores, opcionesReparto));
-    toast.success(`${f.rotulo}: equipos propuestos`, { description: "Parejos por puesto. Ctrl+Z vuelve a lo de antes.", action: { label: "Deshacer", onClick: deshaz } });
+  /** El selector del criterio: en «En un toque» y junto a «Proponer» tras el cambio a mitad. */
+  const selectorCriterio = (
+    <div className="js-criterio flex min-w-0 flex-col gap-2">
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <span className="flex shrink-0 items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-white/50">
+          <SlidersHorizontal size={13} /> Criterio
+        </span>
+        <div role="radiogroup" aria-label="Criterio para proponer los equipos" className="flex min-w-0 flex-wrap gap-1.5">
+          {CRITERIOS.map((c) => {
+            const apagado = (c.clave === "titulares" || c.clave === "parcial") && sinOnce;
+            const activo = criterio === c.clave;
+
+            return (
+              <button
+                key={c.clave}
+                type="button"
+                role="radio"
+                aria-checked={activo}
+                disabled={apagado}
+                onClick={() => recuerdaCriterio({ criterio: c.clave })}
+                title={
+                  apagado
+                    ? oncePizarra === null
+                      ? "La pizarra táctica no tiene el tablero «Once 4-2-3-1»: no hay titulares que separar"
+                      : "Ninguno de la lista está en el once de la pizarra táctica"
+                    : c.explica
+                }
+                className={`js-criterio-boton min-h-[32px] rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-35 ${
+                  activo ? "border-[#C8A96B] bg-[#C8A96B]/15 text-white" : "border-white/10 bg-white/[0.03] text-white/70 hover:border-[#C8A96B]/60 hover:text-white"
+                }`}
+              >
+                {c.rotulo}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      {criterio === "parcial" && (
+        <label className="flex min-w-0 flex-wrap items-center gap-2 text-[11px] text-white/70">
+          <span className="shrink-0">Titulares contra suplentes</span>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={10}
+            value={mezcla}
+            onChange={(e) => recuerdaCriterio({ mezcla: Number(e.target.value) })}
+            aria-label="Cuánto se mezclan titulares y suplentes"
+            className="js-mezcla h-6 w-40 min-w-0 flex-1 accent-[#C8A96B] sm:max-w-[220px]"
+          />
+          <span className="shrink-0">Mitad y mitad</span>
+          <span className="shrink-0 rounded bg-[#C8A96B]/15 px-1.5 py-0.5 font-bold tabular-nums text-[#E9D5A8]">{mezcla} % mezclado</span>
+        </label>
+      )}
+      {criterio === "perfiles" && (
+        <div role="radiogroup" aria-label="Cómo se reparten los perfiles" className="flex min-w-0 flex-wrap items-center gap-1.5 text-[11px]">
+          {(
+            [
+              { clave: "repartidos", rotulo: "Repartidos", explica: "Cada rasgo (aéreo, salida, regate…) repartido entre los equipos: perfiles complementarios en cada uno" },
+              { clave: "juntos", rotulo: "Juntos los parecidos", explica: "Los del mismo rasgo en el mismo equipo" },
+            ] as const
+          ).map((m) => (
+            <button
+              key={m.clave}
+              type="button"
+              role="radio"
+              aria-checked={modoPerfiles === m.clave}
+              onClick={() => recuerdaCriterio({ modoPerfiles: m.clave })}
+              title={m.explica}
+              className={`min-h-[30px] rounded-lg border px-2 py-0.5 font-semibold transition ${
+                modoPerfiles === m.clave ? "border-[#C8A96B] bg-[#C8A96B]/15 text-white" : "border-white/10 text-white/65 hover:text-white"
+              }`}
+            >
+              {m.rotulo}
+            </button>
+          ))}
+        </div>
+      )}
+      <p className="text-[11px] leading-snug text-white/50">
+        {CRITERIOS.find((c) => c.clave === criterio)?.explica}
+        {(criterio === "titulares" || criterio === "parcial" || criterio === "mezcla") && titularesSesion.size > 0 && oncePizarra
+          ? ` ${titularesSesion.size} de la lista están en el once de la pizarra (${oncePizarra.escena || "Once 4-2-3-1"}).`
+          : ""}
+        {necesitaWyscout && !filasWyscout ? " Leyendo Wyscout…" : ""}
+        {necesitaWyscout && datosWyscout
+          ? criterio === "sinergias"
+            ? ` ${datosWyscout.parejas.length} ${datosWyscout.parejas.length === 1 ? "pareja medida" : "parejas medidas"} entre los de hoy.`
+            : ` ${Object.keys(datosWyscout.rasgos).length} de hoy con un rasgo que destaca.`
+          : ""}
+      </p>
+    </div>
+  );
+
+  /* La explicación del último reparto, si es de esta tarea y de este momento. */
+  const explicacionVisible = explicacion && tarea && explicacion.tarea === tarea.id && explicacion.fase === fase ? explicacion : null;
+
+  const aplicaFormato = (f: (typeof FORMATOS_RAPIDOS)[number]) => {
+    if (!sesion || !tarea) return;
+
+    const p = proponCon(conFormato(tarea, f.equipos, f.comodines));
+
+    cambiaTarea(() => p.tarea);
+    setExplicacion({ tarea: tarea.id, fase, criterio: rotuloCriterio(criterio), lineas: p.lineas, aviso: p.aviso });
+    toast.success(`${f.rotulo}: equipos propuestos · ${rotuloCriterio(criterio)}`, {
+      description: p.aviso ?? "Por qué va cada uno donde va, debajo de los botones. Ctrl+Z vuelve a lo de antes.",
+      action: { label: "Deshacer", onClick: deshazPropuesta },
+    });
   };
 
   /* De dónde se puede copiar: las otras tareas de hoy y las de las seis sesiones anteriores. */
@@ -2594,6 +2856,53 @@ export default function JugadoresSesionPage() {
     return tarea.equipos.find((e) => e.id === sitio)?.color;
   };
 
+  /*
+  | EL PUESTO APRENDIDO EN LA FICHA (02/11/2026). Los que suben del RMC o del
+  | Juvenil A no tienen puesto fiable en la plantilla del Castilla: se enseña
+  | el que se ha aprendido de cómo los colocáis (o el fijado a mano) y se
+  | puede corregir; lo corregido vale para todas las sesiones.
+  */
+  const [corrigiendo, setCorrigiendo] = useState<{ id: string; x: number; y: number } | null>(null);
+
+  const puestoAprendidoDe = (j: JugadorSesion) => {
+    const r = origenDeDemarcacion(j);
+    const d = demarcacion(r.demarcacion);
+
+    if (r.origen === "fijo" && d) return { corto: d.corto, texto: `Puesto fijado a mano: ${d.nombre}`, fijo: true };
+
+    if (r.origen === "aprendido" && d) {
+      const veces = aprendido[claveNombre(j.nombre)]?.veces ?? 0;
+
+      return { corto: d.corto, texto: `Puesto aprendido de cómo lo colocáis: ${d.nombre}${veces ? ` (${veces} ${veces === 1 ? "vez" : "veces"})` : ""}`, fijo: false };
+    }
+
+    /* Uno que sube y del que aún no se sabe nada: el chip invita a decirlo. */
+    if (j.etiqueta && !r.demarcacion) return { corto: "", texto: "Aún no se sabe dónde juega", fijo: false };
+
+    return undefined;
+  };
+
+  const fijaPuesto = (j: JugadorSesion, d: Demarcacion | null) => {
+    const clave = claveNombre(j.nombre);
+
+    setAlmacen((actual) => {
+      const fijos = { ...(actual.puestosFijos ?? {}) };
+
+      if (d) fijos[clave] = d;
+      else delete fijos[clave];
+
+      return { ...actual, puestosFijos: fijos };
+    });
+    setCorrigiendo(null);
+    toast.success(d ? `${j.nombre}: ${demarcacion(d)?.nombre}` : `${j.nombre}: vuelve a lo aprendido`, {
+      description: d ? "Fijado para todas las sesiones; manda sobre lo aprendido y sobre la plantilla." : undefined,
+      action: { label: "Deshacer", onClick: deshaz },
+    });
+  };
+
+  const jCorrige = corrigiendo ? sesion?.jugadores.find((x) => x.id === corrigiendo.id) : undefined;
+  const rCorrige = jCorrige ? origenDeDemarcacion(jCorrige) : {};
+
   const chip = (j: JugadorSesion) => {
     const donde = tarea?.sitio[j.id];
     const enEquipo = Boolean(donde && donde !== FUERA);
@@ -2614,6 +2923,8 @@ export default function JugadoresSesionPage() {
         onQuitar={enEquipo ? () => coloca(j.id, null) : undefined}
         destino={`jug:${j.id}`}
         encima={sobre === `jug:${j.id}`}
+        aprendido={puestoAprendidoDe(j)}
+        onCorrige={(donde) => setCorrigiendo({ id: j.id, ...donde })}
         conQuien={(() => {
           if (!tarea) return undefined;
           const otro = titularDe(tarea, j.id) ?? companeroDe(tarea, j.id);
@@ -3066,6 +3377,8 @@ export default function JugadoresSesionPage() {
                           </div>
                         </div>
 
+                        {selectorCriterio}
+
                         {(ultimaVez || fuentesCopia.length > 0) && (
                           <div className="flex min-w-0 flex-wrap items-center gap-2">
                             <span className="flex shrink-0 items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-white/50">
@@ -3328,7 +3641,7 @@ export default function JugadoresSesionPage() {
                         <Button
                           icon={Shuffle}
                           onClick={propon}
-                          title="Equipos parejos por puesto con todos los que hacen la tarea; cada vez, una propuesta distinta (P)"
+                          title={`${rotuloCriterio(criterio)}: con todos los que hacen la tarea; cada vez, una propuesta distinta (P). El criterio se elige en «En un toque».`}
                         >
                           {enTarea > 0 ? "Otra propuesta" : "Proponer equipos"}
                         </Button>
@@ -3358,7 +3671,50 @@ export default function JugadoresSesionPage() {
                         <Button icon={ChevronRight} disabled={activa >= sesion.tareas.length - 1} onClick={() => mueveTarea(activa, activa + 1)} title="Mover esta tarea un puesto después" aria-label="Mover la tarea después" />
                         <Button tone="danger" icon={Trash2} disabled={sesion.tareas.length <= 1} onClick={quitaTarea} title="Quitar esta tarea" aria-label="Quitar esta tarea" />
                       </div>
+
+                      {/* Tras el cambio a mitad no se ve «En un toque»: el criterio, aquí. */}
+                      {fase === "cambio" && <div className="mt-3">{selectorCriterio}</div>}
                     </div>
+
+                    {/*
+                    | --- por qué va cada uno donde va (02/11/2026) ---
+                    | Una línea por equipo del último reparto propuesto con el
+                    | criterio elegido. Se va al tocar «Cerrar» o al cambiar de tarea.
+                    */}
+                    {explicacionVisible && (
+                      <div className="js-explicacion min-w-0 rounded-2xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.05] p-3" aria-live="polite">
+                        <div className="mb-1.5 flex min-w-0 items-center gap-2">
+                          <span className="min-w-0 flex-1 truncate text-[10px] font-bold uppercase tracking-[0.18em] text-[#C8A96B]">Reparto · {explicacionVisible.criterio}</span>
+                          <button
+                            type="button"
+                            onClick={deshazPropuesta}
+                            className="flex min-h-[32px] shrink-0 items-center gap-1 rounded-lg px-2 text-[11px] font-semibold text-white/60 transition hover:bg-white/[0.06] hover:text-white"
+                            title="Vuelve a como estaba antes de proponer (Ctrl+Z)"
+                          >
+                            <Undo2 size={13} /> Deshacer
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setExplicacion(null)}
+                            aria-label="Cerrar la explicación del reparto"
+                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white/45 transition hover:bg-white/[0.06] hover:text-white"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                        {explicacionVisible.aviso && <p className="mb-1.5 text-[11px] text-amber-300">{explicacionVisible.aviso}</p>}
+                        <ul className="flex min-w-0 flex-col gap-1">
+                          {explicacionVisible.lineas.map((l) => (
+                            <li key={l.equipo} className="flex min-w-0 items-start gap-2 text-[12px] leading-snug text-white/80">
+                              <Shirt size={14} aria-hidden className="mt-0.5 shrink-0" strokeWidth={1.5} style={{ color: "rgba(0,0,0,0.4)", fill: l.color }} />
+                              <span className="min-w-0 break-words">
+                                <b className="font-semibold text-white">{l.nombre}:</b> {l.texto}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
 
                     {/*
                     | --- estado de la tarea, a la vista (21/10/2026) ---
@@ -3925,13 +4281,18 @@ export default function JugadoresSesionPage() {
                                         }`}
                                       >
                                         <option value="" className="bg-[#11161C]">
-                                          {demarcacionesAuto[j.id]
-                                            ? `${demarcacion(demarcacionesAuto[j.id])?.nombre} (plantilla)`
-                                            : auto
-                                              ? `${PUESTOS.find((p) => p.clave === auto)?.nombre} (plantilla)`
-                                              : demarcacionDe(j)
-                                                ? `${demarcacion(demarcacionDe(j))?.nombre} (por dónde lo colocáis)`
-                                                : "Elige su demarcación"}
+                                          {(() => {
+                                            /* Lo que vale sin tocar nada, y de dónde sale (02/11/2026). */
+                                            const r = origenDeDemarcacion({ ...j, demarcacion: undefined });
+                                            const nombre = demarcacion(r.demarcacion)?.nombre;
+
+                                            if (nombre && r.origen === "fijo") return `${nombre} (fijado en su ficha)`;
+                                            if (nombre && r.origen === "aprendido") return `${nombre} (por dónde lo colocáis)`;
+                                            if (nombre) return `${nombre} (plantilla)`;
+                                            if (auto) return `${PUESTOS.find((p) => p.clave === auto)?.nombre} (plantilla)`;
+
+                                            return "Elige su demarcación";
+                                          })()}
                                         </option>
                                         {DEMARCACIONES.map((d) => (
                                           <option key={d.clave} value={d.clave} className="bg-[#11161C]">
@@ -4101,6 +4462,49 @@ export default function JugadoresSesionPage() {
             ))}
           </div>
         </Dialog>
+      )}
+
+      {/* Corregir el puesto aprendido de uno que sube (02/11/2026): vale para todas las sesiones. */}
+      {corrigiendo && jCorrige && (
+            <>
+              <button type="button" aria-label="Cerrar sin cambiar" className="fixed inset-0 z-40 cursor-default" onClick={() => setCorrigiendo(null)} />
+              <div
+                role="dialog"
+                aria-label={`Puesto de ${jCorrige.nombre}`}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setCorrigiendo(null);
+                }}
+                className="js-corrige fixed z-50 w-[224px] rounded-xl border border-white/15 bg-[#11161C] p-2 shadow-2xl"
+                style={{ left: `min(${Math.max(8, corrigiendo.x)}px, calc(100vw - 232px))`, top: `min(${corrigiendo.y + 4}px, calc(100vh - 360px))` }}
+              >
+                <p className="px-1.5 pb-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-[#C8A96B]">¿Dónde juega {jCorrige.nombre}?</p>
+                <div className="grid grid-cols-2 gap-1">
+                  {DEMARCACIONES.map((d, i) => (
+                    <button
+                      key={d.clave}
+                      type="button"
+                      autoFocus={i === 0}
+                      onClick={() => fijaPuesto(jCorrige, d.clave)}
+                      className={`min-h-[32px] rounded-lg border px-1.5 py-1 text-left text-[11px] font-semibold transition ${
+                        rCorrige.demarcacion === d.clave ? "border-[#C8A96B] bg-[#C8A96B]/15 text-white" : "border-white/10 text-white/75 hover:border-[#C8A96B]/60 hover:text-white"
+                      }`}
+                    >
+                      <span className="mr-1 text-[9px] font-bold text-[#C8A96B]">{d.corto}</span>
+                      {d.nombre.replace(/\s*\(\d+\)$/, "")}
+                    </button>
+                  ))}
+                </div>
+                {rCorrige.origen === "fijo" && (
+                  <button
+                    type="button"
+                    onClick={() => fijaPuesto(jCorrige, null)}
+                    className="mt-1.5 min-h-[32px] w-full rounded-lg px-1.5 text-left text-[11px] font-semibold text-white/60 transition hover:bg-white/[0.06] hover:text-white"
+                  >
+                    Volver a lo aprendido
+                  </button>
+                )}
+              </div>
+            </>
       )}
 
       {/*

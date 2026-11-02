@@ -44,7 +44,7 @@ if (!env) {
     const perfiles = aprendePosiciones(almacen);
     const jugadores = Object.values(perfiles)
       .sort((a, b) => b.veces - a.veces)
-      .map((p) => ({ ...p, sitio: sitioEnPalabras(p), demarcacion: demarcacion(demarcacionCercana(p))?.nombre }));
+      .map((p) => ({ ...p, sitio: sitioEnPalabras(p), clave: p.demarcacion, demarcacion: demarcacion(p.demarcacion ?? demarcacionCercana(p))?.nombre }));
 
     console.log(`${almacen.sesiones?.length ?? 0} sesiones; ${jugadores.length} jugadores colocados a mano alguna vez.\n`);
 

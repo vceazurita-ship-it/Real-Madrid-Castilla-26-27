@@ -1172,7 +1172,12 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Hacer los equipos",
         filas: [
-          { que: "Proponer equipos", es: "Reparte a todos los que hacen la tarea en equipos parejos", cuenta: "Porteros separados; laterales, centrales, medios y puntas repartidos; los comodines rotan entre quienes menos lo han sido" },
+          { que: "Proponer equipos", es: "Reparte a todos los que hacen la tarea con el criterio elegido en «En un toque»", cuenta: "Porteros separados y los comodines rotan entre quienes menos lo han sido; debajo de los botones sale una línea por equipo que explica el reparto" },
+          { que: "Titulares vs suplentes", es: "El once de la pizarra táctica (tablero «Once 4-2-3-1») en un equipo y los suplentes en el otro", cuenta: "Casado por nombre con la lista; si el once no llena el equipo, entran suplentes de la línea que falta" },
+          { que: "Mezcla parcial / total", es: "Parcial: el porcentaje del deslizador cambia titulares de lado, cada uno por un suplente de su línea (100 % = mitad y mitad). Total: titulares a partes iguales y líneas parejas, al azar" },
+          { que: "Por líneas", es: "Cada equipo con portero, defensas, medios y arriba; laterales y centrales repartidos" },
+          { que: "Sinergias / Por perfiles", es: "Parten de «Por líneas» y sólo cambian jugadores de la misma línea", cuenta: "Sinergias: juntas las parejas que se potencian según Wyscout (Data análisis, once). Perfiles: el rasgo que más destaca de cada uno contra su puesto, repartido o junto" },
+          { que: "Chip del puesto", es: "En los que suben del RMC o del Juvenil A, el puesto aprendido de cómo los colocáis (borde de puntos) o el fijado a mano (lleno). Tocarlo lo corrige para todas las sesiones" },
           { que: "Completar", es: "Coloca sólo a los que faltan, en el equipo más corto, sin mover a nadie" },
           { que: "Como la anterior", es: "Copia los equipos, colores y comodines de la tarea de antes" },
           { que: "Soltar encima de otro", es: "«Cambiar»: los dos se intercambian el sitio. «Compartir puesto»: van juntos en el mismo hueco" },
@@ -1199,6 +1204,8 @@ export const AYUDAS: AyudaDePagina[] = [
     ojo: [
       "Los lesionados empiezan fuera de cada tarea; si alguno hace una, se le mete en un equipo y el validador lo señala.",
       "Volver a pegar la lista manda: quien no esté en ella sale de todas las tareas.",
+      "El puesto de cada uno: lo puesto a mano en la sesión, luego lo fijado en su ficha; después, para los que suben, lo aprendido antes que la plantilla, y para los del Castilla, la plantilla antes que lo aprendido.",
+      "El criterio elegido se recuerda en este aparato.",
     ],
   },
 ];
