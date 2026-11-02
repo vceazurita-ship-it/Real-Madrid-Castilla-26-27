@@ -916,7 +916,8 @@ export function textoDeTarea(tarea: TareaEquipos, sesion: SesionEquipos, numero:
   const r = repartoDe(tarea, sesion.jugadores);
 
   const linea = (titulo: string, lista: JugadorSesion[]) =>
-    `*${titulo}* (${lista.length}): ${lista.map((j) => j.nombre).join(", ") || "—"}`;
+    /* Un equipo vacío no se nombra (salía «—» en el mensaje). */
+    lista.length ? `*${titulo}* (${lista.length}): ${lista.map((j) => j.nombre).join(", ")}` : "";
 
   /* Con estructura, el dibujo va junto al nombre del equipo: «*AZUL · 1-4-3-3* (11)». */
   const titulo = (e: EquipoTarea) => (tarea.conEstructura && e.estructura ? `${e.nombre} · ${e.estructura}` : e.nombre);
@@ -926,7 +927,9 @@ export function textoDeTarea(tarea: TareaEquipos, sesion: SesionEquipos, numero:
     ...tarea.equipos.map((e) => linea(titulo(e), r.porEquipo[e.id] ?? [])),
     ...(tarea.comodines > 0 || r.comodines.length ? [linea("COMODINES", r.comodines)] : []),
     ...(r.fuera.length ? [`_No participan: ${r.fuera.map((j) => j.nombre).join(", ")}_`] : []),
-  ].join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 export function textoDeSesion(sesion: SesionEquipos) {
