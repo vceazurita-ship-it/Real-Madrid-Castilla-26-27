@@ -58,6 +58,8 @@ import { asuntoInforme, queTocaEnElMicro, titularDelPlan, titularEstaSemana, wha
 import { capturaLienzos, descarga, pintado, pdfDeLienzos } from "@/lib/export/lienzos";
 import { creaPptx } from "@/lib/export/pptx";
 import { barlowCondensed } from "@/lib/rivals/portada-font";
+import { pideVideoPostAbp, type VideoPostAbp } from "@/components/abp/jugadas-del-video";
+import { usePlayers } from "@/hooks/usePlayers";
 
 type AjustesCorreo = {
   destinatarios: string;
@@ -95,6 +97,8 @@ type AbpLlegado =
       imagenes: { cid: string; tipo: string; base64: string }[];
       pincelada: PinceladaAbp;
       avisos: string[];
+      /** Post (02/11/2026): el vídeo post de ABP en guion; se monta aquí (o se encuentra ya montado) y se enlaza. */
+      video?: VideoPostAbp | null;
     }
   | { ok: false; clave: string; error: string };
 
@@ -369,6 +373,43 @@ export function InformePartidoDialog({
   const abpActual = abp && abp.clave === abpClave ? abp : null;
 
   const abpCargando = Boolean(abpClave) && !abpActual;
+
+  /*
+  | EL VÍDEO POST DE ABP (02/11/2026, lo pidió el analista): en el post, el
+  | informe de ABP entrega su vídeo en guion y aquí se monta (o, si el de ABP
+  | ya lo montó en esta pestaña, se encuentra hecho: misma huella). Va en el
+  | sitio del vídeo de balón parado —póster en el correo, página del PDF y
+  | enlace de WhatsApp— y lleva detrás nuestro vídeo de la jornada, si lo hay.
+  | Si no sale, va nuestro vídeo tal cual, como antes.
+  */
+  const { players } = usePlayers();
+  const videoAbpPost = abpActual?.ok && informe?.momento === "post" ? (abpActual.video ?? null) : null;
+  const puedeVideoAbpPost = Boolean(videoAbpPost) && players.length > 0 && puedeMontarVideo();
+  const montajeAbpPost = useRef<{ clave: string; promesa: Promise<VideoMontado | null>; escucha?: (texto: string) => void } | null>(null);
+
+  const dameVideoAbpPost = (escucha?: (texto: string) => void): Promise<VideoMontado | null> => {
+    if (!videoAbpPost || !puedeVideoAbpPost) return Promise.resolve(null);
+
+    if (montajeAbpPost.current?.clave === abpClave) {
+      if (escucha) montajeAbpPost.current.escucha = escucha;
+
+      return montajeAbpPost.current.promesa;
+    }
+
+    const entrada: NonNullable<typeof montajeAbpPost.current> = { clave: abpClave, promesa: Promise.resolve(null), escucha };
+
+    entrada.promesa = pideVideoPostAbp(videoAbpPost, players, (t) => entrada.escucha?.(t)).catch((error: unknown) => {
+      console.warn("[informe] el vídeo post de balón parado no ha salido", error);
+
+      /* Se olvida: al enviar se intenta otra vez. */
+      if (montajeAbpPost.current === entrada) montajeAbpPost.current = null;
+
+      return null;
+    });
+    montajeAbpPost.current = entrada;
+
+    return entrada.promesa;
+  };
 
   const [, temporadaAbp, microAbp] = abpClave.match(/^(.*)\|(\d+)\|/) ?? [];
 
@@ -788,8 +829,9 @@ export function InformePartidoDialog({
     if (!claveDiapos || abpCargando || trabajando) return;
 
     const videoHecho = !quiereVideo || !puedeMontarVideo() || Boolean(informeVisto?.videoListo?.url) || cache.current.video?.clave === claveVideo;
+    const videoAbpHecho = !puedeVideoAbpPost || montajeAbpPost.current?.clave === abpClave;
 
-    if (preparado.diapos === claveDiapos && preparado.completo === claveCompleto && videoHecho) return;
+    if (preparado.diapos === claveDiapos && preparado.completo === claveCompleto && videoHecho && videoAbpHecho) return;
 
     let vivo = true;
 
@@ -813,6 +855,13 @@ export function InformePartidoDialog({
 
           await dameVideo((t) => vivo && setPreparando(`Preparando el vídeo · ${t}`));
         }
+
+        /* Y el vídeo post de balón parado, detrás del del partido (02/11/2026): la cola los monta de uno en uno. */
+        if (vivo && puedeVideoAbpPost) {
+          setPreparando("Preparando el vídeo post de balón parado…");
+
+          await dameVideoAbpPost((t) => vivo && setPreparando(`Preparando el vídeo post de balón parado · ${t}`));
+        }
       } catch {
         /* Al enviar se vuelve a intentar y, si falla, lo dice. */
       } finally {
@@ -827,7 +876,7 @@ export function InformePartidoDialog({
       setPreparando(null);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [claveDiapos, claveCompleto, abpCargando, trabajando, quiereVideo]);
+  }, [claveDiapos, claveCompleto, abpCargando, trabajando, quiereVideo, puedeVideoAbpPost]);
 
   const listoTodo = Boolean(claveDiapos) && preparado.diapos === claveDiapos && preparado.completo === claveCompleto;
 
@@ -982,6 +1031,26 @@ export function InformePartidoDialog({
               });
             },
           },
+          /* El vídeo post de balón parado (02/11/2026): el mismo que va enlazado en el correo. */
+          ...(puedeVideoAbpPost
+            ? [
+                {
+                  id: "abp-post",
+                  nombre: "Balón parado, lo preparado y el partido",
+                  publico: "Cuerpo técnico",
+                  formato: "horizontal",
+                  duracion: videoAbp ? "de 1 a 4 min, con nuestro vídeo detrás" : "de 1 a 2:30 min",
+                  archivo: nombreDeArchivo(`${nombreLegible} - Balón parado post en vídeo`, "mp4"),
+                  monta: async (alPaso: (texto: string) => void) => {
+                    const v = await dameVideoAbpPost(alPaso);
+
+                    if (!v) throw new Error("El vídeo post de balón parado no ha salido.");
+
+                    return v;
+                  },
+                } satisfies PiezaDeVideo,
+              ]
+            : []),
         ]
       : [];
 
@@ -1293,17 +1362,45 @@ export function InformePartidoDialog({
       | El vídeo de balón parado de la jornada (25/10/2026): su póster por cid
       | en el correo y en la página del PDF. Se prepara una vez.
       */
-      const infoAbp: { url: string; segundos: number; poster: string | null } | null = videoAbp
-        ? { url: videoAbp.url, segundos: videoAbp.segundos, poster: videoAbp.poster ? await aDataUrl(videoAbp.poster) : null }
+      /*
+      | Post (02/11/2026): el vídeo post de balón parado, montado mientras se
+      | revisaba (o se espera al que va por la mitad) y subido una vez. Si no
+      | sale, nuestro vídeo de la jornada tal cual, como hasta ahora.
+      */
+      const pasoAbp = (texto: string) => paso(c.activo ? "completo" : "resumen", `vídeo de balón parado: ${texto}`);
+
+      const abpPost: { url: string; segundos: number; poster: string | null } | null = puedeVideoAbpPost
+        ? await (async () => {
+            try {
+              const v = await dameVideoAbpPost(pasoAbp);
+
+              if (!v) return null;
+
+              const subido = await subeAdjunto(new File([v.blob], nombreDeArchivo(`${nombreLegible} - Balón parado post en vídeo`, "mp4"), { type: "video/mp4" }), (f) => pasoAbp(`subiendo ${Math.round(f * 100)} %`));
+
+              return { url: subido.url, segundos: v.segundos, poster: v.poster ?? null };
+            } catch (error) {
+              console.warn("[informe] el vídeo post de balón parado no ha subido", error);
+
+              return null;
+            }
+          })()
         : null;
 
-      const rotuloPdfAbp = `Balón parado${jornadaVideoAbp ? ` · J${jornadaVideoAbp}` : ""}`;
+      if (puedeVideoAbpPost && !abpPost) toast.message("El vídeo post de balón parado no ha salido", { description: videoAbp ? "Va nuestro vídeo de la jornada tal cual." : "El informe va sin él." });
+
+      const infoAbp: { url: string; segundos: number; poster: string | null } | null =
+        abpPost ?? (videoAbp ? { url: videoAbp.url, segundos: videoAbp.segundos, poster: videoAbp.poster ? await aDataUrl(videoAbp.poster) : null } : null);
+
+      const sufijoJornada = jornadaVideoAbp ? ` · J${jornadaVideoAbp}` : "";
+      const rotuloPdfAbp = abpPost ? `Balón parado · post${sufijoJornada}` : `Balón parado${sufijoJornada}`;
+      const rotuloBotonAbp = abpPost ? `Ver el vídeo post de balón parado${sufijoJornada}` : rotuloVideoAbp;
 
       const bloqueVideoAbp = (relleno?: string, claro?: boolean) =>
-        infoAbp ? bloqueVideoHtml({ url: infoAbp.url, cid: infoAbp.poster ? "video-abp-poster" : "", segundos: infoAbp.segundos, relleno, claro, sinCopia: true, rotulo: rotuloVideoAbp }) : "";
+        infoAbp ? bloqueVideoHtml({ url: infoAbp.url, cid: infoAbp.poster ? "video-abp-poster" : "", segundos: infoAbp.segundos, relleno, claro, sinCopia: true, rotulo: rotuloBotonAbp }) : "";
 
       /** El vídeo de ABP como un enlace más (WhatsApp, texto plano). */
-      const enlaceAbp = infoAbp ? [{ nombre: nombreVideoAbp, url: infoAbp.url }] : [];
+      const enlaceAbp = infoAbp ? [{ nombre: abpPost ? `Vídeo post de balón parado${sufijoJornada}` : nombreVideoAbp, url: infoAbp.url }] : [];
 
       const posterCid = () => [
         ...(infoVideo?.poster ? [{ cid: "video-poster", tipo: "image/jpeg", base64: infoVideo.poster.replace(/^data:[^;]+;base64,/, "") }] : []),

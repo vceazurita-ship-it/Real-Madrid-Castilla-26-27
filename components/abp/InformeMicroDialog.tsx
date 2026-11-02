@@ -27,10 +27,9 @@ import { bloqueVideoHtml } from "@/lib/video-informe/portada-video";
 import { VIDEO_JUGADORES_KEY, eligeVideoJugadores, normalizaVideosJugadores, type VideoJugadores } from "@/lib/abp/video-jugadores";
 import { puedeMontarVideo, type VideoMontado } from "@/lib/video-informe/monta";
 import { trabajoVideo } from "@/lib/video-informe/trabajo-video";
-import { SEGUNDOS_ENTRADA_ABP, entradaDeAbp, type CortePartido, type GuionVideo } from "@/lib/video-informe/guion";
+import { SEGUNDOS_ENTRADA_ABP, entradaDeAbp, type CortePartido } from "@/lib/video-informe/guion";
 import { guionPostDeAbp, topePostAbp } from "@/lib/video-informe/guion-abp-post";
-import { jugadasDelTablero, preparaConJugadas, type JugadaParaRodar } from "@/components/abp/jugadas-del-video";
-import type { Player } from "@/types/player";
+import { jugadasDelTablero, pideVideoPostAbp, type VideoPostAbp } from "@/components/abp/jugadas-del-video";
 import { barlowCondensed } from "@/lib/rivals/portada-font";
 import { enlaceConTarjeta, nombrePartidoPdf } from "@/lib/informe-partido/tarjeta-pdf";
 import { buscadorDeEscudos, traeEscudos } from "@/lib/data-analisis/escudos";
@@ -89,23 +88,6 @@ type EstadoMontaje = { clave: string; texto: string; listo: boolean; fallo?: str
 
 /** El escudo del rival para la portada (sin él, sale sólo su nombre). */
 const escudoDe = (rival: string) => (rival ? traeEscudos().then((lista) => buscadorDeEscudos(lista)(rival)).catch(() => null) : Promise.resolve(null));
-
-/**
- * El vídeo POST de ABP (02/11/2026): lo que preparamos, el partido y el
- * balance, con las jugadas de la pizarra y, detrás, nuestro vídeo de la
- * jornada si lo hay. Lo pide este diálogo y, con el mismo guion, el informe
- * del partido (`ResultadoIncrustado.video`): por la huella, se monta una vez.
- */
-export type VideoPostAbp = {
-  rotulo: string;
-  guion: GuionVideo;
-  opciones: { cola: { url: string } | null; tope: number };
-  jugadas: JugadaParaRodar[];
-};
-
-export function pideVideoPostAbp(v: VideoPostAbp, players: Player[], alPaso?: (texto: string) => void) {
-  return trabajoVideo.pide(v.rotulo, v.guion, { ...v.opciones, fuente: barlowCondensed.style.fontFamily, alPaso }, preparaConJugadas(v.jugadas, players));
-}
 
 /**
  * Monta el vídeo que toque —en la previa, la entrada del informe + nuestro

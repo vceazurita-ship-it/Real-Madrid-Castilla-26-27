@@ -29,6 +29,8 @@ import { guardaMaterial, guardaVideo, materialGuardado, videoGuardado } from "@/
 import { pintado } from "@/lib/export/lienzos";
 import { conJugadasResueltas, jugadasPendientes, type JugadaDelVideo } from "@/lib/video-informe/guion-abp-post";
 import type { GuionVideo } from "@/lib/video-informe/guion";
+import { trabajoVideo } from "@/lib/video-informe/trabajo-video";
+import { barlowCondensed } from "@/lib/rivals/portada-font";
 
 /** Una jugada con lo necesario para rodarla. */
 export type JugadaParaRodar = JugadaDelVideo & { slide: SlidePizarra; rival: string; temporada: string };
@@ -180,4 +182,23 @@ export function preparaConJugadas(jugadas: JugadaParaRodar[], players: Player[])
 
     return conJugadasResueltas(guion, rodadas);
   };
+}
+
+/**
+ * El vídeo POST de ABP en guion (02/11/2026): lo que preparamos, el partido
+ * y el balance, con las jugadas de la pizarra y, detrás, nuestro vídeo de la
+ * jornada si lo hay. Lo arma el informe de ABP (`InformeMicroDialog`) y lo
+ * monta él o, con el MISMO guion, el informe del partido (le llega en el
+ * resultado del incrustado): por la huella, se monta una sola vez.
+ */
+export type VideoPostAbp = {
+  rotulo: string;
+  guion: GuionVideo;
+  opciones: { cola: { url: string } | null; tope: number };
+  jugadas: JugadaParaRodar[];
+};
+
+/** Monta (o encuentra montado) el vídeo post de ABP, en segundo plano. */
+export function pideVideoPostAbp(v: VideoPostAbp, players: Player[], alPaso?: (texto: string) => void) {
+  return trabajoVideo.pide(v.rotulo, v.guion, { ...v.opciones, fuente: barlowCondensed.style.fontFamily, alPaso }, preparaConJugadas(v.jugadas, players));
 }
