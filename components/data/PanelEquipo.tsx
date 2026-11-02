@@ -15,7 +15,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
-import { MEJOR, ORO, PEOR, tinta, useEscudos } from "@/components/data/graficas";
+import { colorPercentil, MEJOR, ORO, PEOR, useEscudos } from "@/components/data/graficas";
 import { cargaCalendario } from "@/hooks/useCalendario";
 import type { FilaJugador, FilaPartido } from "@/lib/data-analisis/leer";
 import { GRUPOS, formatea } from "@/lib/data-analisis/metricas";
@@ -36,7 +36,8 @@ import { Explicativo } from "@/components/ui/textos-analisis";
 
 const NOSOTROS = "Real Madrid Castilla";
 
-const colorP = (p: number | null) => (p === null ? tinta(0.3) : p >= 60 ? MEJOR : p <= 40 ? PEOR : ORO);
+/* La escala común de DATA (graficas.tsx): P60 o más, verde; P40 o menos, naranja; en medio, oro. */
+const colorP = colorPercentil;
 const ordinal = (n: number) => `${n}º`;
 const apellido = (n: string) => {
   const t = n.trim().split(/\s+/);

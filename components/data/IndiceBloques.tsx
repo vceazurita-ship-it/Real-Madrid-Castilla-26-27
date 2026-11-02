@@ -10,11 +10,16 @@
  * Si el área sólo tiene un panel (o ninguno) no se pinta nada.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 type Ancla = { id: string; titulo: string };
 
-export function IndiceBloques({ clave }: { clave: string }) {
+/**
+ * `antes` (02/11/2026): lo que va al principio de la barra fija —en DATA, el
+ * desplegable de áreas—, para cambiar de área sin volver arriba. Con él, la
+ * barra se pinta aunque el área tenga un solo panel.
+ */
+export function IndiceBloques({ clave, antes }: { clave: string; antes?: ReactNode }) {
   const [anclas, setAnclas] = useState<Ancla[]>([]);
   const [visible, setVisible] = useState<string | null>(null);
 
@@ -73,15 +78,17 @@ export function IndiceBloques({ clave }: { clave: string }) {
     };
   }, [clave]);
 
-  if (anclas.length < 2) return null;
+  if (anclas.length < 2 && !antes) return null;
 
   return (
     <nav
       aria-label="Bloques de esta pantalla"
       className="sticky top-[80px] z-20 -mx-4 mt-3 border-b border-white/10 bg-[#0B0F14]/90 px-4 py-2 backdrop-blur-xl sm:-mx-6 sm:px-6 md:top-[96px] lg:-mx-10 lg:px-10"
     >
-      <div className="flex min-w-0 gap-1.5 overflow-x-auto scrollbar-none">
-        {anclas.map((a) => {
+      <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto scrollbar-none">
+        {antes}
+        {antes && anclas.length >= 2 && <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-white/10" />}
+        {(anclas.length >= 2 ? anclas : []).map((a) => {
           const activo = visible === a.id;
 
           return (

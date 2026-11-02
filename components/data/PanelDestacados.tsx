@@ -5,7 +5,7 @@ import { Award, Sliders, Sparkles, User } from "lucide-react";
 
 import { Notice, Panel } from "@/components/abp/ui";
 import { Lectura } from "@/components/data/formas";
-import { BarrasEquipos, MEJOR, ORO, PEOR, tinta } from "@/components/data/graficas";
+import { BarrasEquipos, colorPercentil, MEJOR, ORO, PEOR, tinta } from "@/components/data/graficas";
 import { formatea, temporadaDe } from "@/lib/data-analisis/metricas";
 import {
   ASPECTOS,
@@ -525,7 +525,7 @@ function BloqueAspecto({ destacado }: { destacado: DestacadoEquipo }) {
           {arriba ? "+" : "−"}
           {Math.abs(Math.round(destacado.desviacion))} pts
           <span className="ml-2 text-[11px] font-normal text-white/35">
-            p{Math.round(destacado.percentil)}
+            P{Math.round(destacado.percentil)}
           </span>
         </p>
       </div>
@@ -557,10 +557,10 @@ function BloqueAspecto({ destacado }: { destacado: DestacadoEquipo }) {
 
               <span
                 className="ml-2 text-[11px]"
-                style={{ color: f.percentil >= 50 ? MEJOR : PEOR }}
+                style={{ color: colorPercentil(f.percentil) }}
                 title={`Percentil ${f.percentil}: por delante del ${f.percentil} % de los equipos de la categoría`}
               >
-                p{f.percentil}
+                P{f.percentil}
               </span>
             </span>
           </div>
@@ -627,7 +627,7 @@ function FichaJugador({
                 style={{ color: MEJOR }}
                 title={`Percentil ${f.percentil}: mejor que el ${f.percentil} % de los de su puesto en la categoría`}
               >
-                p{f.percentil}
+                P{f.percentil}
               </span>
             </span>
           </div>

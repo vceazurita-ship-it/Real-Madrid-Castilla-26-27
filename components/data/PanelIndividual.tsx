@@ -6,7 +6,7 @@ import { Scale, TrendingUp, User, Users } from "lucide-react";
 
 import { Notice, Panel } from "@/components/abp/ui";
 import { Lectura } from "@/components/data/formas";
-import { MEJOR, ORO, PEOR, tinta } from "@/components/data/graficas";
+import { colorPercentil, MEJOR, ORO, PEOR, tinta } from "@/components/data/graficas";
 import { formatea } from "@/lib/data-analisis/metricas";
 import { mismoJugador } from "@/lib/fichajes";
 import {
@@ -327,7 +327,7 @@ export function PanelIndividual({ jugadores }: { jugadores: FilaJugador[] }) {
                             className="ml-2 text-[11px]"
                             style={{ color: bloque.color }}
                           >
-                            p{f.percentil}
+                            P{f.percentil}
                           </span>
                         </span>
                       </div>
@@ -445,11 +445,7 @@ function FilaMetrica({
   const color =
     percentil === null || metrica.mejorAlto === null
       ? tinta(0.3)
-      : percentil >= 60
-        ? MEJOR
-        : percentil <= 35
-          ? PEOR
-          : ORO;
+      : colorPercentil(percentil);
 
   return (
     <div className="min-w-0">
@@ -500,7 +496,7 @@ function FilaMetrica({
             className="w-10 shrink-0 text-right text-[11px] tabular-nums"
             style={{ color }}
           >
-            p{percentil}
+            P{percentil}
           </span>
         </div>
       )}
@@ -831,7 +827,7 @@ function FilaEvolucion({ fila }: { fila: ReturnType<typeof evolucionDe>["filas"]
 
       <div className="mt-1 flex items-center gap-2">
         <span className="w-9 shrink-0 text-right text-[10px] tabular-nums text-white/30">
-          p{fila.percentilAntes}
+          P{fila.percentilAntes}
         </span>
 
         <span className="relative h-2.5 min-w-0 flex-1 overflow-hidden rounded-[3px] bg-white/[0.06]">
@@ -852,7 +848,7 @@ function FilaEvolucion({ fila }: { fila: ReturnType<typeof evolucionDe>["filas"]
         </span>
 
         <span className="w-9 shrink-0 text-[10px] tabular-nums" style={{ color }}>
-          p{fila.percentilAhora}
+          P{fila.percentilAhora}
         </span>
 
         <span className="w-24 shrink-0 text-right text-[11px] tabular-nums text-white/45">

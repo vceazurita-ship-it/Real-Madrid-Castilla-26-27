@@ -65,6 +65,8 @@ import { nombreEquipo } from "@/lib/equipos";
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { Topbar } from "@/components/ui/topbar";
 import { IndiceBloques } from "@/components/data/IndiceBloques";
+import { BuscadorAreas, PanelResumen, SelectorArea, type ConclusionResumen } from "@/components/data/NavegacionData";
+import { mismoClub } from "@/lib/rivals/mismoClub";
 import { AbpHeader, Button, Notice, Panel } from "@/components/abp/ui";
 import { olvidaCsv, traeJson } from "@/lib/hojaCsv";
 import {
@@ -73,6 +75,7 @@ import {
   COMPARADO,
   Dispersion,
   Evolucion,
+  LeyendaPercentil,
   MEJOR,
   ORO,
   PEOR,
@@ -190,6 +193,7 @@ type Respuesta = {
 };
 
 type Area =
+  | "resumen"
   | "equipo"
   | "parecidos"
   | "campo"
@@ -208,6 +212,17 @@ type Area =
 const AREAS_CON_EQUIPO: Area[] = ["campo", "liga", "todos", "destacados", "golesAbp"];
 
 const AREAS: { key: Area; label: string; icono: typeof History; pregunta: string }[] = [
+  /*
+    RESUMEN (02/11/2026): la puerta de la sección. Las claves de la jornada,
+    cada una con el botón que lleva a donde se ve entera, y el mapa de todo
+    lo que hay. Es lo que se abre sin `?area=`.
+  */
+  {
+    key: "resumen",
+    label: "Resumen",
+    icono: Compass,
+    pregunta: "¿Qué hay que saber de esta jornada y dónde se ve?",
+  },
   /*
     UN EQUIPO DE UN VISTAZO (06/10/2026): cualquier equipo de la categoría,
     colectivo e individual, resumido en una pantalla. Va primero porque es la
@@ -333,14 +348,42 @@ const AREAS: { key: Area; label: string; icono: typeof History; pregunta: string
 | y dentro, el área. El bloque no se guarda aparte: es el del área elegida, y
 | así `?area=` de las alertas de la portada sigue abriendo donde promete.
 */
-type Bloque = "equipo" | "jugadores" | "balonParado" | "entrenamiento";
+/*
+| SEIS BLOQUES (02/11/2026). «Equipo» llevaba siete áreas que mezclaban dos
+| preguntas: cómo vamos NOSOTROS (campo, liga, historia, parecidos) y cómo es
+| CUALQUIER equipo de la categoría (un vistazo, todos contra todos, los más
+| destacados). Se separan en «Nuestro equipo» y «Rival y categoría», y delante
+| va el resumen. Las claves de área son las mismas.
+*/
+type Bloque = "resumen" | "nosotros" | "jugadores" | "rival" | "balonParado" | "entrenamiento";
 
-const BLOQUES: { clave: Bloque; label: string; icono: typeof History; areas: Area[] }[] = [
-  { clave: "equipo", label: "Equipo", icono: Shield, areas: ["equipo", "parecidos", "liga", "todos", "destacados", "historia", "campo"] },
+const BLOQUES: {
+  clave: Bloque;
+  label: string;
+  icono: typeof History;
+  areas: Area[];
+  /** Una pantalla de fuera que es parte natural del bloque. */
+  enlace?: { href: string; label: string };
+}[] = [
+  { clave: "resumen", label: "Resumen", icono: Compass, areas: ["resumen"] },
+  { clave: "nosotros", label: "Nuestro equipo", icono: Shield, areas: ["campo", "liga", "historia", "parecidos"] },
   { clave: "jugadores", label: "Jugadores", icono: Users, areas: ["individual", "once", "eventos"] },
+  { clave: "rival", label: "Rival y categoría", icono: Swords, areas: ["equipo", "todos", "destacados"] },
   { clave: "balonParado", label: "Balón parado", icono: Flag, areas: ["golesAbp", "abp"] },
-  { clave: "entrenamiento", label: "Entrenamiento", icono: Brain, areas: ["transferencia"] },
+  {
+    clave: "entrenamiento",
+    label: "Entreno e identidad",
+    icono: Brain,
+    areas: ["transferencia"],
+    enlace: { href: "/identidad-campo", label: "Identidad en el campo" },
+  },
 ];
+
+/* Las áreas que se miran con los filtros de la liga (temporada, competición, sistema, por partido o total). */
+const AREAS_SIN_FILTROS_LIGA: Area[] = ["resumen", "eventos", "abp", "individual", "transferencia", "parecidos"];
+
+/* Las que pintan percentiles: llevan la leyenda de la escala en la cabecera. */
+const AREAS_CON_PERCENTIL: Area[] = ["resumen", "liga", "equipo", "todos", "destacados", "individual", "once"];
 
 const CLAVES_AREA = AREAS.map((a) => a.key);
 
@@ -377,7 +420,8 @@ export default function DataAnalisisPage() {
   | pantalla devolvía siempre a «Contra la liga», y un enlace copiado no
   | llevaba al área que se estaba mirando.
   */
-  const [area, setArea] = usePestanaUrl<Area>("area", CLAVES_AREA, "liga");
+  /* 02/11/2026: sin `?area=` se abre el resumen; los enlaces con área siguen igual. */
+  const [area, setArea] = usePestanaUrl<Area>("area", CLAVES_AREA, "resumen");
 
   /* La fase que se está mirando dentro de «Contra la liga». */
   const [fase, setFase] = useState<Fase>("con");
@@ -1082,6 +1126,130 @@ export default function DataAnalisisPage() {
     };
   }, [calendario, partidos, logs]);
 
+  /*
+  | LAS CLAVES DEL RESUMEN (02/11/2026)
+  |
+  | De tres a cinco tarjetas, cada una con su cifra y el área donde se ve
+  | entera: el último partido, lo más fuerte y lo más flojo de la temporada
+  | contra la liga (de cualquier fase) y el próximo rival. Sólo métricas con
+  | mejor y peor y casos de sobra, la misma regla que las conclusiones de
+  | «Contra la liga». Lo que no se puede calcular no sale.
+  */
+  const clavesResumen = useMemo((): ConclusionResumen[] => {
+    if (area !== "resumen") return [];
+
+    const fiables = (filas: FilaPercentil[]) =>
+      filas
+        .map((fila) => ({ fila, met: METRICA_POR_KEY.get(fila.key) }))
+        .filter(
+          (x): x is { fila: FilaPercentil; met: Metrica } =>
+            Boolean(x.met) &&
+            x.met!.mejorAlto !== null &&
+            x.fila.percentil !== null &&
+            x.fila.valor !== null &&
+            !(x.fila.casos != null && x.fila.casos < CASOS_MINIMOS),
+        )
+        .sort((a, b) => (b.fila.percentil as number) - (a.fila.percentil as number));
+
+    const nombreFase = (f: Fase) => FASES.find((x) => x.key === f)?.label.toLowerCase() ?? "";
+    const p = (x: { fila: FilaPercentil }) => Math.round(x.fila.percentil as number);
+    const claves: ConclusionResumen[] = [];
+
+    const ultimo = nuestrosPartidos[0];
+    if (ultimo) {
+      const delPartido = fiables(percentilesDe([ultimo], "promedio"));
+      const mejor = delPartido[0];
+      const peor = delPartido[delPartido.length - 1];
+      const tono = ultimo.golesFavor > ultimo.golesContra ? "bien" : ultimo.golesFavor < ultimo.golesContra ? "mal" : "neutro";
+
+      claves.push({
+        id: "ultimo",
+        rotulo: "Último partido",
+        titular: etiquetaDePartido(ultimo),
+        detalle:
+          mejor && peor && mejor !== peor
+            ? `Lo mejor, ${mejor.fila.nombre.toLowerCase()} (P${p(mejor)}); lo que más costó, ${peor.fila.nombre.toLowerCase()} (P${p(peor)}).`
+            : undefined,
+        tono,
+        area: "campo",
+        ir: "Verlo en el campo",
+      });
+    }
+
+    const temporada = fiables(percentilesDe(nuestrosPartidos, "promedio"));
+    if (temporada.length >= 4) {
+      const arriba = temporada[0];
+      const abajo = temporada[temporada.length - 1];
+      const dice = (x: { fila: FilaPercentil }) =>
+        `${formatea(x.fila.valor, x.fila.unidad)}${x.fila.unidad === "porcentaje" ? "" : " por partido"}${x.fila.mediana !== null ? ` frente a ${formatea(x.fila.mediana, x.fila.unidad)} de mediana` : ""}${x.fila.puesto ? `; ${x.fila.puesto}º de ${x.fila.deCuantos}` : ""}.`;
+
+      if (p(arriba) >= 60) {
+        claves.push({
+          id: "fuerte",
+          rotulo: `Lo más fuerte · ${nombreFase(arriba.met.fase)}`,
+          titular: `${arriba.fila.nombre}, P${p(arriba)} de la liga`,
+          detalle: dice(arriba),
+          tono: "bien",
+          area: "liga",
+          fase: arriba.met.fase,
+          ir: "Ver contra la liga",
+        });
+      }
+
+      if (p(abajo) <= 40) {
+        claves.push({
+          id: "flojo",
+          rotulo: `Lo más flojo · ${nombreFase(abajo.met.fase)}`,
+          titular: `${abajo.fila.nombre}, P${p(abajo)} de la liga`,
+          detalle: `${dice(abajo)} Qué hacemos: ${TAREA_POR_FASE[abajo.met.fase] ?? "una tarea de juego"}.`,
+          tono: "mal",
+          area: "liga",
+          fase: abajo.met.fase,
+          ir: "Ver contra la liga",
+        });
+      }
+    }
+
+    if (calendario) {
+      const proximo = calendario.partidos
+        .filter((x) => x.cuando.slice(0, 10) >= calendario.hoy)
+        .sort((a, b) => a.cuando.localeCompare(b.cuando))[0];
+
+      if (proximo) {
+        const rival = /castilla/i.test(proximo.local) ? proximo.visitante : proximo.local;
+        const enLaLiga = equiposLiga.find((e) => mismoClub(e, rival));
+        const suyas = enLaLiga ? fiables(percentilesDe(deLaLiga.filter((x) => x.equipo === enLaLiga), "promedio")) : [];
+        const [, mes, dia] = proximo.cuando.slice(0, 10).split("-");
+
+        claves.push({
+          id: "rival",
+          rotulo: `Próximo rival · ${dia}/${mes}`,
+          titular: nombreEquipo(enLaLiga ?? rival),
+          detalle:
+            suyas.length >= 4
+              ? `Su punto fuerte, ${suyas[0].fila.nombre.toLowerCase()} (P${p(suyas[0])}); su punto débil, ${suyas[suyas.length - 1].fila.nombre.toLowerCase()} (P${p(suyas[suyas.length - 1])}).`
+              : undefined,
+          tono: "neutro",
+          area: "equipo",
+          ir: "Ver al rival de un vistazo",
+        });
+      }
+    }
+
+    return claves;
+  }, [area, calendario, deLaLiga, equiposLiga, nuestrosPartidos, percentilesDe]);
+
+  /* Cambiar de área desde el resumen, el buscador o la barra fija: arriba del todo. */
+  const irA = useCallback(
+    (clave: string, conclusion?: ConclusionResumen) => {
+      if (!CLAVES_AREA.includes(clave as Area)) return;
+      if (conclusion?.fase) setFase(conclusion.fase as Fase);
+      setArea(clave as Area);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    },
+    [setArea],
+  );
+
   const evento = useMemo(() => {
     if (logs.length === 0) return null;
 
@@ -1192,16 +1360,21 @@ export default function DataAnalisisPage() {
               <>
                 {/* ===================== BARRA ===================== */}
 
-                <div className="mt-4">
-                  <Pestanas<Bloque>
-                    etiqueta="Bloques de Data análisis"
-                    opciones={BLOQUES.map((g) => ({ clave: g.clave, label: g.label, icono: g.icono, cuenta: g.areas.length > 1 ? g.areas.length : undefined }))}
-                    valor={bloqueDe(area).clave}
-                    onCambia={(g) => setArea((BLOQUES.find((x) => x.clave === g) ?? BLOQUES[0]).areas[0])}
-                  />
+                {/* 02/11/2026: bloques a la izquierda, buscador de áreas a la derecha (debajo en móvil). */}
+                <div className="mt-4 flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="min-w-0 flex-1">
+                    <Pestanas<Bloque>
+                      etiqueta="Bloques de Data análisis"
+                      opciones={BLOQUES.map((g) => ({ clave: g.clave, label: g.label, icono: g.icono, cuenta: g.areas.length > 1 ? g.areas.length : undefined }))}
+                      valor={bloqueDe(area).clave}
+                      onCambia={(g) => setArea((BLOQUES.find((x) => x.clave === g) ?? BLOQUES[0]).areas[0])}
+                    />
+                  </div>
+
+                  <BuscadorAreas areas={AREAS} bloques={BLOQUES} onIr={irA} />
                 </div>
 
-                {bloqueDe(area).areas.length > 1 && (
+                {(bloqueDe(area).areas.length > 1 || bloqueDe(area).enlace) && (
                   <div className="mt-3 flex min-w-0 gap-1 overflow-x-auto rounded-xl border border-white/10 bg-white/[0.03] p-1 scrollbar-none max-sm:pr-6 max-sm:[mask-image:linear-gradient(to_right,black_calc(100%-32px),transparent)] sm:inline-flex sm:max-w-full">
                     {bloqueDe(area).areas.map((clave) => {
                       const item = AREAS.find((a) => a.key === clave)!;
@@ -1223,25 +1396,65 @@ export default function DataAnalisisPage() {
                         </button>
                       );
                     })}
+
+                    {bloqueDe(area).enlace && (
+                      <Link
+                        href={bloqueDe(area).enlace!.href}
+                        className="inline-flex shrink-0 items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium text-[#C8A96B] hover:bg-white/[0.06]"
+                      >
+                        {bloqueDe(area).enlace!.label} →
+                      </Link>
+                    )}
                   </div>
                 )}
 
-                <p className="mt-2 text-[13px] font-medium text-white/70">
-                  {AREAS.find((a) => a.key === area)?.pregunta}
-                  {(area === "equipo" || area === "parecidos") && (
-                    <>
-                      {" "}
-                      {/* Enlace cruzado con Identidad (02/11/2026). */}
-                      <Link href="/identidad-campo" className="whitespace-nowrap font-normal text-[#C8A96B] hover:underline">
-                        Nuestra identidad en el campo →
-                      </Link>
-                    </>
-                  )}
-                </p>
+                {/*
+                  CABECERA DE CONTEXTO (02/11/2026): el nombre del área como
+                  título, su pregunta, hasta qué jornada llegan los datos y la
+                  escala del percentil, siempre en el mismo sitio.
+                */}
+                <div className="mt-5 flex min-w-0 flex-wrap items-end justify-between gap-x-6 gap-y-2">
+                  <div className="min-w-0">
+                    <h2 className="text-xl font-semibold tracking-tight text-white sm:text-2xl">
+                      {AREAS.find((a) => a.key === area)?.label}
+                    </h2>
+                    <p className="mt-0.5 text-[13px] text-white/65">
+                      {AREAS.find((a) => a.key === area)?.pregunta}
+                      {(area === "equipo" || area === "parecidos" || area === "liga") && (
+                        <>
+                          {" "}
+                          {/* Enlace cruzado con Identidad (02/11/2026). */}
+                          <Link href="/identidad-campo" className="whitespace-nowrap text-[#C8A96B] hover:underline">
+                            Nuestra identidad en el campo →
+                          </Link>
+                        </>
+                      )}
+                    </p>
+                  </div>
 
-                <div className="mt-3 flex min-w-0 flex-wrap items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.02] px-3 py-2">
+                  {AREAS_CON_PERCENTIL.includes(area) && <LeyendaPercentil />}
+                </div>
 
-                  {area !== "eventos" && area !== "abp" && area !== "individual" && area !== "transferencia" && area !== "parecidos" && (
+                {alcances && area !== "abp" && (
+                  <SelloJornada
+                    alcances={area === "eventos" ? [alcances.opta] : [alcances.wyscout]}
+                    nota={
+                      area === "individual" || area === "once" || area === "equipo"
+                        ? "Las cifras de jugadores son el acumulado de la temporada de la última descarga de jugadores de Wyscout."
+                        : undefined
+                    }
+                  />
+                )}
+
+                <div
+                  className={
+                    AREAS_SIN_FILTROS_LIGA.includes(area)
+                      ? "mt-2 flex min-w-0 flex-wrap items-center gap-2"
+                      : "mt-3 flex min-w-0 flex-wrap items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.02] px-3 py-2"
+                  }
+                >
+
+                  {!AREAS_SIN_FILTROS_LIGA.includes(area) && (
                     <label className="flex items-center gap-2">
                       <span className="text-[11px] uppercase tracking-[0.16em] text-white/40">
                         Temporada
@@ -1271,7 +1484,7 @@ export default function DataAnalisisPage() {
                     hay más de una opción: un desplegable con un solo valor no
                     ayuda a nadie.
                   */}
-                  {area !== "eventos" && area !== "abp" && area !== "individual" && area !== "transferencia" && area !== "parecidos" && competiciones.length > 1 && (
+                  {!AREAS_SIN_FILTROS_LIGA.includes(area) && competiciones.length > 1 && (
                     <label className="flex items-center gap-2">
                       <span className="text-[11px] uppercase tracking-[0.16em] text-white/40">
                         Competición
@@ -1304,7 +1517,7 @@ export default function DataAnalisisPage() {
                     peor de la liga presionando» en vez de compararnos con
                     nosotros mismos.
                   */}
-                  {area !== "eventos" && area !== "abp" && area !== "individual" && area !== "transferencia" && area !== "parecidos" && area !== "equipo" && nuestrosPartidos.length > 1 && (
+                  {!AREAS_SIN_FILTROS_LIGA.includes(area) && area !== "equipo" && nuestrosPartidos.length > 1 && (
                     <label className="flex min-w-0 max-w-full items-center gap-2 max-sm:w-full">
                       <span className="text-[11px] uppercase tracking-[0.16em] text-white/40">
                         Partido
@@ -1411,7 +1624,7 @@ export default function DataAnalisisPage() {
                     </label>
                   )}
 
-                  {area !== "eventos" && area !== "abp" && area !== "individual" && area !== "transferencia" && area !== "parecidos" && sistemas.length > 1 && (
+                  {!AREAS_SIN_FILTROS_LIGA.includes(area) && sistemas.length > 1 && (
                     <label className="flex items-center gap-2">
                       <span className="text-[11px] uppercase tracking-[0.16em] text-white/40">
                         Sistema
@@ -1436,7 +1649,7 @@ export default function DataAnalisisPage() {
                     </label>
                   )}
 
-                  {area !== "eventos" && area !== "abp" && area !== "individual" && area !== "transferencia" && area !== "parecidos" && area !== "equipo" && (
+                  {!AREAS_SIN_FILTROS_LIGA.includes(area) && area !== "equipo" && (
                     <div className="flex flex-wrap items-center rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
                       {[
                         { valor: "promedio" as ModoValor, rotulo: "Por partido" },
@@ -1479,21 +1692,18 @@ export default function DataAnalisisPage() {
                   </Explicativo>
                 </div>
 
-                {alcances && area !== "abp" && (
-                  <SelloJornada
-                    alcances={area === "eventos" ? [alcances.opta] : [alcances.wyscout]}
-                    nota={
-                      area === "individual" || area === "once" || area === "equipo"
-                        ? "Las cifras de jugadores son el acumulado de la temporada de la última descarga de jugadores de Wyscout."
-                        : undefined
-                    }
-                  />
-                )}
-
-                {/* 29/10/2026: índice fijo con un chip por panel del área elegida. */}
-                <IndiceBloques clave={area} />
+                {/* 29/10/2026: índice fijo con un chip por panel del área elegida.
+                    02/11/2026: abre con el desplegable de áreas, para cambiar sin volver arriba. */}
+                <IndiceBloques
+                  clave={area}
+                  antes={<SelectorArea valor={area} areas={AREAS} bloques={BLOQUES} onIr={irA} />}
+                />
 
                 <div id="data-bloques">
+                {area === "resumen" && (
+                  <PanelResumen conclusiones={clavesResumen} areas={AREAS} bloques={BLOQUES} onIr={irA} />
+                )}
+
                 {/* =============== 0 · EL CAMPOGRAMA =============== */}
 
                 {area === "campo" && (
@@ -1877,7 +2087,7 @@ export default function DataAnalisisPage() {
                               Cada fila: la cifra del Castilla{unPartidoElegido ? " en ese partido" : `${modo === "total" ? " (acumulada en las de conteo)" : " por partido"}, en ${nuestros.length} ${nuestros.length === 1 ? "partido" : "partidos"}`} · «liga», la mediana de los {equiposLiga.length} equipos de {laQueMando}{compViva ? ` en ${compViva.replace(/^Spain\.\s*/, "")}` : ""} · el puesto · y el percentil
                               {ejemplo && p !== null ? (
                                 <>
-                                  : <strong className="text-white/75">p{p}</strong> en {ejemplo.nombre.toLowerCase()} es estar mejor que el {p} % de ellos
+                                  : <strong className="text-white/75">P{p}</strong> en {ejemplo.nombre.toLowerCase()} es estar mejor que el {p} % de ellos
                                 </>
                               ) : null}
                               . Verde, por encima de la mediana; naranja, por debajo; gris, métricas de estilo, donde no hay mejor ni peor. Pulsa el nombre de una métrica para ver qué mide.

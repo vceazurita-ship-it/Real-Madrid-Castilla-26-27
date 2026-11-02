@@ -76,6 +76,39 @@ export const tinta = (alfa: number) => `rgb(var(--rmcf-ink-rgb) / ${alfa})`;
 
 export const ORO = "var(--rmcf-gold-ink)";
 
+/*
+| LA ESCALA DEL PERCENTIL, UNA SOLA (02/11/2026)
+|
+| Cada panel pintaba el percentil a su manera: «Contra la liga» y «Los más
+| destacados» partían en P50 (verde o naranja), «Un equipo de un vistazo» en
+| P60/P40 con oro en medio y «Jugador a jugador» en P60/P35. El mismo P45 era
+| naranja en una pestaña y oro en la de al lado. Ahora todas usan ésta.
+*/
+export const PERCENTIL_ALTO = 60;
+export const PERCENTIL_BAJO = 40;
+
+export const colorPercentil = (p: number | null) =>
+  p === null ? tinta(0.3) : p >= PERCENTIL_ALTO ? MEJOR : p <= PERCENTIL_BAJO ? PEOR : ORO;
+
+/** La leyenda de esa escala, para la cabecera de cada área. */
+export function LeyendaPercentil() {
+  const punto = (color: string) => (
+    <span aria-hidden className="inline-block h-2 w-2 shrink-0 rounded-full" style={{ background: color }} />
+  );
+
+  return (
+    <span
+      className="inline-flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-white/55"
+      title="P80 es estar mejor que el 80 % de los equipos (o de los jugadores de su puesto) con los que se compara"
+    >
+      <span className="font-semibold uppercase tracking-[0.14em] text-white/40">Percentil</span>
+      <span className="inline-flex items-center gap-1">{punto(MEJOR)}P{PERCENTIL_ALTO} o más</span>
+      <span className="inline-flex items-center gap-1">{punto(ORO)}en la media</span>
+      <span className="inline-flex items-center gap-1">{punto(PEOR)}P{PERCENTIL_BAJO} o menos</span>
+    </span>
+  );
+}
+
 /**
  * El equipo (o la temporada) con el que uno se compara a mano.
  *
@@ -139,9 +172,7 @@ export function BarraPercentil({
     ? tinta(0.45)
     : pct === null
       ? tinta(0.25)
-      : pct >= 50
-        ? MEJOR
-        : PEOR;
+      : colorPercentil(pct);
 
   /*
   | EL SENTIDO, ESCRITO (19/10/2026)
@@ -260,7 +291,7 @@ export function BarraPercentil({
           title={pocos ? `Con ${fila.casos} casos el percentil no se sostiene: es una tendencia` : quePercentil(pct, "el Castilla")}
         >
           {/* 30/10/2026: la base («0 de 5») ya va junto a la cifra; aquí, sólo el aviso. */}
-          {pocos ? (fila.base ? "muestra pequeña" : `muestra pequeña, ${fila.casos} casos`) : pct === null ? "" : `p${Math.round(pct)}`}
+          {pocos ? (fila.base ? "muestra pequeña" : `muestra pequeña, ${fila.casos} casos`) : pct === null ? "" : `P${Math.round(pct)}`}
         </span>
       </div>
 
@@ -280,7 +311,7 @@ export function BarraPercentil({
             style={{ color: tinta(0.4) }}
             title={quePercentil(otra.percentil, nombreOtra ?? "el otro equipo")}
           >
-            {otra.percentil === null ? "—" : `p${Math.round(otra.percentil)}`}
+            {otra.percentil === null ? "" : `P${Math.round(otra.percentil)}`}
           </span>
         </p>
       )}

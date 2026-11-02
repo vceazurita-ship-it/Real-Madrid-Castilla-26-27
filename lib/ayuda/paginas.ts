@@ -70,8 +70,10 @@ export const AYUDAS: AyudaDePagina[] = [
       "public/data — wys/ son los informes de Wyscout (un .xlsx por equipo) y opta/ sus descargas. El balón parado sale de nuestras cuatro hojas y los entrenamientos, de la hoja de microciclos.",
     bloques: [
       {
-        titulo: "Las diez áreas",
+        titulo: "Seis bloques: resumen, nuestro equipo, jugadores, rival y categoría, balón parado, entreno e identidad",
         filas: [
+          { que: "Resumen", es: "Lo primero que se abre: las claves de la jornada, cada una con el botón que lleva a donde se ve entera, y el mapa de toda la sección. Arriba a la derecha, el buscador de áreas" },
+          { que: "Escala del percentil", es: "La misma en todas las áreas: verde P60 o más, oro en la media, naranja P40 o menos" },
           { que: "Partido en el campo", es: "Cada cifra puesta donde ocurre, el partido contra nuestra media" },
           { que: "Nuestra historia", es: "El Castilla contra sus seis temporadas" },
           { que: "Contra la liga", es: "Percentiles contra los 20 equipos, por fase de juego" },
