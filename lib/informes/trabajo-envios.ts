@@ -77,10 +77,8 @@ const avisa = () => {
 const abreWhatsapp = (wa: ParaWhatsapp) => {
   const primero = wa.mensajes[0];
 
-  if (!primero) return;
-
   /* Con una persona (o ninguna, que es elegir chat), se abre ya; con más, va uno a uno desde el panel. */
-  if (wa.telefonos.length <= 1) window.open(enlaceWhatsapp(wa.telefonos[0] ?? null, primero.texto), "_blank", "noopener");
+  if (primero) window.open(enlaceWhatsapp(wa.telefonos[0] ?? null, primero.texto), "_blank", "noopener");
 };
 
 function corre(trabajo: Interno) {
@@ -111,7 +109,7 @@ function corre(trabajo: Interno) {
           ok: true,
           titulo: resultado.titulo,
           texto: wa.telefonos.length > 1 ? "Abajo a la izquierda, un botón por persona con el mensaje escrito." : resultado.texto,
-          accion: { label: "Abrir WhatsApp", onClick: () => abreWhatsapp(wa) },
+          ...(wa.telefonos.length <= 1 ? { accion: { label: "Abrir WhatsApp", onClick: () => abreWhatsapp(wa) } } : {}),
         });
 
         return;

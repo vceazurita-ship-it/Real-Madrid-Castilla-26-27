@@ -27,7 +27,7 @@
  *     se nombra.
  */
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { BookOpen, Check, Clapperboard, Download, ExternalLink, FileText, Loader2, Paperclip, Presentation, RefreshCw, Send, Upload } from "lucide-react";
 import { toast } from "sonner";
 
@@ -36,7 +36,6 @@ import { DIAPO_H, DIAPO_W, DIAPOSITIVAS, Escalada } from "@/components/informe-p
 import { VideosDeLaSemana, type PiezaDeVideo } from "@/components/informe-partido/VideosDeLaSemana";
 import { AvisoAntesDeMandar } from "@/components/correo/AvisoAntesDeMandar";
 import { Destinatarios } from "@/components/correo/Destinatarios";
-import { PanelWhatsapp } from "@/components/correo/PanelWhatsapp";
 import { useAgendaEnvios } from "@/hooks/useAgendaEnvios";
 import { mensajeWhatsapp, telefonosDe, type CanalEnvio, type MensajeWhatsapp } from "@/lib/correo/whatsapp";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
@@ -47,6 +46,7 @@ import { consignasDePost, sinConsignasDeAbp } from "@/lib/video-informe/piezas";
 import { buscadorDeEscudos, traeEscudos } from "@/lib/data-analisis/escudos";
 import { puedeMontarVideo, type VideoMontado } from "@/lib/video-informe/monta";
 import { trabajoVideo } from "@/lib/video-informe/trabajo-video";
+import { trabajoEnvios, type ResultadoEnvio } from "@/lib/informes/trabajo-envios";
 import { bloqueVideoHtml } from "@/lib/video-informe/portada-video";
 import { VIDEO_JUGADORES_KEY, eligeVideoJugadores, normalizaVideosJugadores, type VideoJugadores } from "@/lib/abp/video-jugadores";
 import { cargaInforme, microsDisponibles, type MicroDisponible } from "@/lib/informe-partido/carga";
@@ -1065,15 +1065,31 @@ export function InformePartidoDialog({
   /* Por WhatsApp (15/10/2026): todo se prepara y se sube igual, pero en vez de mandar el correo se escribe el mensaje con los enlaces. */
   const canal: CanalEnvio = ajustes.canal ?? "correo";
   const telefonosWa = telefonosDe(ajustes.telefonos ?? "");
-  const [mensajesWa, setMensajesWa] = useState<MensajeWhatsapp[]>([]);
   const { apunta } = useAgendaEnvios();
+
+  /*
+  | Qué envío es (02/11/2026): el mismo informe por el mismo canal no se lanza
+  | dos veces a la vez, y al reabrir el diálogo con el envío en marcha el botón
+  | lo dice.
+  */
+  const claveEnvio = `partido|${tituloPdf}|${informeVisto?.momento ?? ""}|${canal}`;
+  const enviandoFuera = useSyncExternalStore(trabajoEnvios.suscribe, () => trabajoEnvios.enMarcha(claveEnvio), () => false);
 
   /** `asunto` y `lineas`: el formato corto de cuatro líneas (20/10/2026); el asunto, si viene, pisa al del correo. */
   type ParaWhatsapp = { titulo: string; asunto?: string; lineas?: string[]; mensaje?: string; firma?: string; resumen?: string; video?: string | null; enlaces: { nombre: string; url: string }[] };
 
-  const manda = async (cuerpo: Record<string, unknown>, wa?: ParaWhatsapp) => {
+  /*
+  | Por WhatsApp, los mensajes de este envío se juntan aquí y, al acabar, van
+  | al panel de los informes (02/11/2026): abrir wa.me necesita el clic.
+  */
+  const manda = async (cuerpo: Record<string, unknown>, wa?: ParaWhatsapp, mensajesWa?: MensajeWhatsapp[]) => {
     if (canal === "whatsapp") {
-      if (wa) setMensajesWa((l) => [...l.filter((m) => m.titulo !== wa.titulo), { titulo: wa.titulo, texto: mensajeWhatsapp({ asunto: String(cuerpo.asunto ?? ""), ...wa }) }]);
+      if (wa && mensajesWa) {
+        const i = mensajesWa.findIndex((m) => m.titulo === wa.titulo);
+
+        if (i >= 0) mensajesWa.splice(i, 1);
+        mensajesWa.push({ titulo: wa.titulo, texto: mensajeWhatsapp({ asunto: String(cuerpo.asunto ?? ""), ...wa }) });
+      }
 
       return { enlazados: [] as string[] };
     }
@@ -1121,14 +1137,34 @@ export function InformePartidoDialog({
   */
   const envioEnCurso = useRef(0);
 
+  /** Devuelve el texto junto, para el panel de los informes (02/11/2026). */
   const pinta = (vuelta: number, que: "resumen" | "completo", texto: string) => {
-    if (vuelta !== envioEnCurso.current) return;
+    if (vuelta !== envioEnCurso.current) return null;
 
     pasos.current[que] = texto;
 
-    setTrabajando(
-      [pasos.current.resumen && `Resumen: ${pasos.current.resumen}`, pasos.current.completo && `Completo: ${pasos.current.completo}`].filter(Boolean).join(" · "),
-    );
+    const junto = [pasos.current.resumen && `Resumen: ${pasos.current.resumen}`, pasos.current.completo && `Completo: ${pasos.current.completo}`].filter(Boolean).join(" · ");
+
+    setTrabajando(junto);
+
+    return junto;
+  };
+
+  /*
+  | Las diapositivas se dibujan con el diálogo a la vista (02/11/2026): si se
+  | cierra justo en ese momento, saldrían en blanco. Casi siempre ya están
+  | preparadas y no se espera nada; si no, cerrar espera esos segundos.
+  */
+  const [dibujandoDiapos, setDibujandoDiapos] = useState(false);
+
+  const cierra = () => {
+    if (dibujandoDiapos) {
+      toast.message("Un momento: terminando de dibujar las diapositivas", { description: "En unos segundos puedes cerrar; el envío sigue solo." });
+
+      return;
+    }
+
+    onClose();
   };
 
   /* Lo que el informe no sabe: se enseña al pulsar «Enviar», no en el correo. */
@@ -1141,6 +1177,12 @@ export function InformePartidoDialog({
 
   const envia = async () => {
     if (!informeVisto) return;
+
+    if (trabajoEnvios.enMarcha(claveEnvio)) {
+      toast.message("Este informe ya se está enviando", { description: "Abajo a la izquierda ves por dónde va." });
+
+      return;
+    }
 
     const { resumen: r, completo: c } = envio;
 
@@ -1155,8 +1197,6 @@ export function InformePartidoDialog({
 
       return;
     }
-
-    setMensajesWa([]);
 
     /* Antes de dibujar nada: que haya a quién y bien escrito. Por WhatsApp no hace falta: sin teléfonos se elige el chat. */
     for (const [activo, texto, nombre] of canal === "whatsapp" ? [] : [
@@ -1186,15 +1226,6 @@ export function InformePartidoDialog({
       return;
     }
 
-    pasos.current = {};
-
-    /* Este envío: lo que pinte uno anterior que siga coleando no cuenta. */
-    envioEnCurso.current += 1;
-
-    const vuelta = envioEnCurso.current;
-
-    const paso = (que: "resumen" | "completo", texto: string) => pinta(vuelta, que, texto);
-
     /* Al servidor van ya limpias, separadas por comas: lo que aquí se da por
        bueno es lo que se manda (04/10/2026). */
     const aResumen = direccionesDe(paraResumen).buenas.join(", ");
@@ -1217,11 +1248,44 @@ export function InformePartidoDialog({
     const docsNuevosP: Promise<Documento[]> =
       c.activo && c.sacarDocs && faltanDocs && !docsActual?.ok
         ? new Promise<DocsLlegados>((resuelve) => {
-            esperaDocs.current = resuelve;
+            /*
+            | Con su propia escucha (02/11/2026): el envío sigue aunque se
+            | cierre el diálogo, y la escucha del diálogo se va con él.
+            */
+            let reloj = 0;
+            let bc: BroadcastChannel | null = null;
+
+            const acaba = (llegado: DocsLlegados) => {
+              window.removeEventListener("message", oye);
+              bc?.close();
+              window.clearTimeout(reloj);
+              resuelve(llegado);
+            };
+
+            const oye = (e: MessageEvent) => {
+              const d = e.data as { tipo?: string } | null;
+
+              if (e.origin === window.location.origin && d?.tipo === "rival-documentos") acaba({ ...(d as unknown as DocsLlegados), clave: "" });
+            };
+
+            window.addEventListener("message", oye);
+
+            try {
+              bc = new BroadcastChannel("rival-documentos");
+              bc.onmessage = (e) => {
+                const d = e.data as { tipo?: string } | null;
+
+                if (d?.tipo === "rival-documentos") acaba({ ...(d as unknown as DocsLlegados), clave: "" });
+              };
+            } catch {
+              /* Sin canal queda la escucha del diálogo y el tiempo agotado. */
+            }
+
+            esperaDocs.current = acaba;
 
             if (!yaSacandose) abreDocs();
 
-            window.setTimeout(() => resuelve({ ok: false, clave: "", error: "Plantillas rivales no ha contestado a tiempo." }), ESPERA_DOCS);
+            reloj = window.setTimeout(() => acaba({ ok: false, clave: "", error: "Plantillas rivales no ha contestado a tiempo." }), ESPERA_DOCS);
           }).then((llegado) => {
             if (!llegado.ok) {
               toast.message("El PDF y el PPT del rival no han salido", { description: `${llegado.error} El completo sale sin ellos.` });
@@ -1241,11 +1305,54 @@ export function InformePartidoDialog({
           })
         : Promise.resolve([]);
 
-    try {
-      if (r.activo) paso("resumen", "diapositivas…");
-      if (c.activo) paso("completo", listoTodo ? "listo para subir" : "preparando…");
+    /*
+    | Las diapositivas, ya: se dibujan con el diálogo a la vista. Casi siempre
+    | están preparadas de antes; si no, cerrar espera a que acaben (02/11/2026).
+    */
+    let elegidasP = elegidas();
 
-      const { imagenes, indices } = await elegidas();
+    if (preparado.diapos !== claveDiapos) {
+      setDibujandoDiapos(true);
+      void elegidasP.catch(() => undefined).finally(() => setDibujandoDiapos(false));
+    }
+
+    /*
+    | EN SEGUNDO PLANO (02/11/2026): el envío entero pasa a
+    | `lib/informes/trabajo-envios.ts`. Se puede cerrar el diálogo o cambiar de
+    | pantalla; el panel de los informes dice por dónde va y, al acabar, sale
+    | el aviso. Lo de abajo vive fuera de `corre` para que «Reintentar» no
+    | rehaga lo ya subido ni vuelva a mandar el correo que ya salió.
+    */
+    const hechos = { resumen: false, completo: false };
+    const subidas = new Map<string, Promise<{ nombre: string; url: string; tipo: string; tamano: number | null }>>();
+    let videoP: Promise<{ nombre: string; url: string; tipo: string; tamano: number | null } | null> | null = null;
+    let abpPostP: Promise<{ url: string; segundos: number; poster: string | null } | null> | null = null;
+    let pdfResumenP: Promise<Blob> | null = null;
+    let pptResumen: Blob | null = null;
+    /* El vídeo ya subido: su enlace, lo que dura y su póster (para el correo y el PDF). */
+    let infoVideo: { url: string; segundos: number; poster: string | null } | null = null;
+
+    const corre = async (pasoTrabajo: (texto: string) => void): Promise<ResultadoEnvio> => {
+    pasos.current = {};
+
+    /* Este envío: lo que pinte uno anterior que siga coleando no cuenta. */
+    envioEnCurso.current += 1;
+
+    const vuelta = envioEnCurso.current;
+
+    const paso = (que: "resumen" | "completo", texto: string) => {
+      const junto = pinta(vuelta, que, texto);
+
+      if (junto) pasoTrabajo(junto);
+    };
+
+    const mensajesWa: MensajeWhatsapp[] = [];
+
+    try {
+      if (r.activo && !hechos.resumen) paso("resumen", "diapositivas…");
+      if (c.activo && !hechos.completo) paso("completo", listoTodo ? "listo para subir" : "preparando…");
+
+      const { imagenes, indices } = await elegidasP.catch(() => (elegidasP = elegidas()));
 
       const cids = indices.map((i) => `diapositiva-${i + 1}`);
 
@@ -1256,9 +1363,7 @@ export function InformePartidoDialog({
       const nombreResumenPpt = nombreDeArchivo(`${nombreLegible} - Resumen`, "pptx");
 
 
-      /* Se hacen sólo si alguno de los dos correos los lleva. */
-      let pdfResumenP: Promise<Blob> | null = null;
-
+      /* Se hacen sólo si alguno de los dos correos los lleva (`pdfResumenP`, fuera de `corre`). */
       /*
       | Con vídeo, el PDF del resumen lleva al final la diapositiva del vídeo
       | (póster, QR y enlace): espera a que el vídeo esté subido.
@@ -1285,9 +1390,11 @@ export function InformePartidoDialog({
               : null;
 
           return informeUnicoPdf({ titulo: tituloPdf, diapos: imagenes, final, inicio });
-        })());
-
-      let pptResumen: Blob | null = null;
+        })().catch((error: unknown) => {
+          /* Si falla, «Reintentar» lo vuelve a armar. */
+          pdfResumenP = null;
+          throw error;
+        }));
 
       const pptDelResumen = () => (pptResumen ??= pptDe(imagenes, indices));
 
@@ -1297,8 +1404,6 @@ export function InformePartidoDialog({
       | Cada archivo propio se sube UNA vez aunque vaya en los dos correos
       | (el PDF del resumen puede ir en ambos): las subidas se comparten.
       */
-      const subidas = new Map<string, Promise<{ nombre: string; url: string; tipo: string; tamano: number | null }>>();
-
       const subeUnaVez = (nombre: string, tipo: string, blob: () => Promise<Blob> | Blob) => {
         const ya = subidas.get(nombre);
 
@@ -1310,7 +1415,11 @@ export function InformePartidoDialog({
           const a = await subeAdjunto(new File([datos], nombre, { type: tipo }));
 
           return { nombre, url: a.url, tipo, tamano: datos.size as number | null };
-        })();
+        })().catch((error: unknown) => {
+          /* La que falla no se guarda: «Reintentar» la vuelve a subir (02/11/2026). */
+          if (subidas.get(nombre) === promesa) subidas.delete(nombre);
+          throw error;
+        });
 
         subidas.set(nombre, promesa);
 
@@ -1336,9 +1445,6 @@ export function InformePartidoDialog({
       | se dice en un aviso: el vídeo es un añadido, no una condición.
       */
       const nombreVideo = nombreDeArchivo(`${nombreLegible} - Resumen en vídeo`, "mp4");
-
-      /* El vídeo ya subido: su enlace, lo que dura y su póster (para el correo y el PDF). */
-      let infoVideo: { url: string; segundos: number; poster: string | null } | null = null;
 
       const aDataUrl = async (url: string) => {
         try {
@@ -1370,7 +1476,7 @@ export function InformePartidoDialog({
       const pasoAbp = (texto: string) => paso(c.activo ? "completo" : "resumen", `vídeo de balón parado: ${texto}`);
 
       const abpPost: { url: string; segundos: number; poster: string | null } | null = puedeVideoAbpPost
-        ? await (async () => {
+        ? await (abpPostP ??= (async () => {
             try {
               const v = await dameVideoAbpPost(pasoAbp);
 
@@ -1384,7 +1490,7 @@ export function InformePartidoDialog({
 
               return null;
             }
-          })()
+          })())
         : null;
 
       if (puedeVideoAbpPost && !abpPost) toast.message("El vídeo post de balón parado no ha salido", { description: videoAbp ? "Va nuestro vídeo de la jornada tal cual." : "El informe va sin él." });
@@ -1407,9 +1513,7 @@ export function InformePartidoDialog({
         ...(infoAbp?.poster ? [{ cid: "video-abp-poster", tipo: "image/jpeg", base64: infoAbp.poster.replace(/^data:[^;]+;base64,/, "") }] : []),
       ];
 
-      /* Se monta UNA vez aunque vaya en los dos correos: la promesa se comparte. */
-      let videoP: Promise<{ nombre: string; url: string; tipo: string; tamano: number | null } | null> | null = null;
-
+      /* Se monta UNA vez aunque vaya en los dos correos: la promesa (`videoP`, fuera de `corre`) se comparte. */
       const videoResumen = (correo: "resumen" | "completo") =>
         (videoP ??= (async () => {
           try {
@@ -1480,7 +1584,7 @@ export function InformePartidoDialog({
           firma,
           video: (infoVideo as { url: string } | null)?.url ?? null,
           enlaces: [...enlaceAbp, ...archivos, ...(pptSubido ? [pptSubido] : [])],
-        });
+        }, mensajesWa);
 
         paso("resumen", "mandado ✓");
       };
@@ -1615,7 +1719,7 @@ export function InformePartidoDialog({
           texto: `${c.mensaje?.trim() ? `${c.mensaje.trim()}${firma ? `\n— ${firma}` : ""}\n\n` : ""}${informeTexto(informeVisto)}${abpActual?.ok ? `\n\n— BALÓN PARADO —\n${abpActual.texto}` : ""}\n\n— DOCUMENTOS —\n${[...enlaceAbp, ...descargas].map((d) => `${d.nombre}: ${d.url}`).join("\n")}`,
           imagenes: pieza.imagenes,
           adjuntosUrl: reparto.filter((d) => d.adjunto).map((d) => ({ nombre: d.nombre, url: d.url, tipo: d.tipo })),
-        }, { titulo: "Informe completo", mensaje: c.mensaje, firma, video: (infoVideo as { url: string } | null)?.url ?? null, enlaces: [...enlaceAbp, ...descargas.flatMap((d) => (d.url ? [{ nombre: d.nombre, url: d.url }] : []))] });
+        }, { titulo: "Informe completo", mensaje: c.mensaje, firma, video: (infoVideo as { url: string } | null)?.url ?? null, enlaces: [...enlaceAbp, ...descargas.flatMap((d) => (d.url ? [{ nombre: d.nombre, url: d.url }] : []))] }, mensajesWa);
 
         paso("completo", "mandado ✓");
 
@@ -1625,41 +1729,50 @@ export function InformePartidoDialog({
       };
 
       /* Los dos a la vez: el resumen no espera a que se suba el completo. */
-      const [resResumen, resCompleto] = await Promise.allSettled([r.activo ? correoResumen() : Promise.resolve(), c.activo ? correoCompleto() : Promise.resolve(0)]);
+      /* Al reintentar, el que ya salió no se vuelve a mandar (02/11/2026). */
+      const vaResumen = r.activo && !hechos.resumen;
+      const vaCompleto = c.activo && !hechos.completo;
+
+      const [resResumen, resCompleto] = await Promise.allSettled([vaResumen ? correoResumen() : Promise.resolve(), vaCompleto ? correoCompleto() : Promise.resolve(0)]);
+
+      if (vaResumen && resResumen.status === "fulfilled") hechos.resumen = true;
+      if (vaCompleto && resCompleto.status === "fulfilled") hechos.completo = true;
 
       const fallos = [
         resResumen.status === "rejected" ? `Resumen: ${resResumen.reason instanceof Error ? resResumen.reason.message : resResumen.reason}` : "",
         resCompleto.status === "rejected" ? `Completo: ${resCompleto.reason instanceof Error ? resCompleto.reason.message : resCompleto.reason}` : "",
       ].filter(Boolean);
 
-      const salieron = [r.activo && resResumen.status === "fulfilled" && "el resumen", c.activo && resCompleto.status === "fulfilled" && "el informe completo"].filter(Boolean);
+      const salieron = [vaResumen && resResumen.status === "fulfilled" && "el resumen", vaCompleto && resCompleto.status === "fulfilled" && "el informe completo"].filter(Boolean);
+
+      /* Nada ha salido: el aviso de error, con «Reintentar». */
+      if (!salieron.length) throw new Error(fallos.join(" · ") || "No se ha podido mandar.");
 
       /* A quién se ha mandado, a la agenda: la próxima vez se propone. */
-      if (salieron.length) {
-        if (canal === "whatsapp") apunta("whatsapp", telefonosWa.buenos);
-        else apunta("correo", [...(r.activo ? direccionesDe(paraResumen).buenas : []), ...(c.activo ? direccionesDe(paraCompleto).buenas : [])]);
-      }
+      const destinatarios = [...new Set([...(vaResumen && resResumen.status === "fulfilled" ? direccionesDe(paraResumen).buenas : []), ...(vaCompleto && resCompleto.status === "fulfilled" ? direccionesDe(paraCompleto).buenas : [])].map((d) => d.toLowerCase()))];
 
-      if (salieron.length && canal === "whatsapp") {
-        toast.success("Listo para WhatsApp", { description: "Debajo de los destinatarios, un botón por persona con el mensaje escrito." });
-      } else if (salieron.length) {
-        toast.success(salieron.length === 2 ? "Mandados los dos correos" : `Mandado ${salieron[0]}`, {
-          description: `${salieron.join(" y ")}${fallos.length ? `. No ha salido: ${fallos.join(" · ")}` : ""}.`,
-        });
-      }
+      if (canal === "whatsapp") apunta("whatsapp", telefonosWa.buenos);
+      else apunta("correo", destinatarios);
 
-      if (fallos.length && !salieron.length) toast.error("No se ha podido mandar", { description: fallos.join(" · ") });
-      else if (fallos.length) toast.error("Uno de los dos no ha salido", { description: fallos.join(" · ") });
+      const queInforme = `${informeVisto.momento === "post" ? "Post partido" : "Previa"} · ${informeVisto.partido.rival}`;
+
+      if (canal === "whatsapp") {
+        return {
+          titulo: `Informe del partido listo para WhatsApp`,
+          texto: `${queInforme}: el mensaje va escrito con los enlaces.`,
+          whatsapp: { mensajes: mensajesWa, telefonos: telefonosWa.buenos },
+          fallo: fallos.length ? fallos.join(" · ") : undefined,
+        };
+      }
 
       const enlazados = resCompleto.status === "fulfilled" ? Number(resCompleto.value) || 0 : 0;
+      const cuantos = destinatarios.length;
 
-      if (enlazados) {
-        toast.message(`${enlazados} ${enlazados === 1 ? "documento va" : "documentos van"} como enlace de descarga`, {
-          description: `No cabían adjuntos (${mb(TOPE_ADJUNTOS)} por correo). En el correo tienen su botón «Descargar».`,
-        });
-      }
-    } catch (error) {
-      toast.error("No se ha podido mandar", { description: error instanceof Error ? error.message : "" });
+      return {
+        titulo: `${salieron.length === 2 ? "Resumen e informe completo enviados" : `Informe del partido enviado${salieron[0] === "el resumen" ? " (resumen)" : ""}`} a ${cuantos} destinatario${cuantos === 1 ? "" : "s"}`,
+        texto: `${queInforme}.${enlazados ? ` ${enlazados} ${enlazados === 1 ? "documento va" : "documentos van"} como enlace de descarga: no cabían adjuntos (${mb(TOPE_ADJUNTOS)} por correo).` : ""}`,
+        fallo: fallos.length ? fallos.join(" · ") : undefined,
+      };
     } finally {
       /* Lo que aún esté corriendo de este envío (un PDF a medias, una subida
          tras un fallo) ya no escribe en el botón. */
@@ -1667,6 +1780,9 @@ export function InformePartidoDialog({
 
       setTrabajando(null);
     }
+    };
+
+    trabajoEnvios.lanza({ clave: claveEnvio, rotulo: `Informe del partido · ${tituloPdf}`, href: "/microcycles", ejecuta: corre });
   };
 
   /* Lo que se ve mientras carga es lo pedido, no lo que había. */
@@ -1730,7 +1846,9 @@ export function InformePartidoDialog({
 
   const botonEnviar = trabajando
     ? trabajando
-    : esperaAbp
+    : enviandoFuera
+      ? "Enviando…"
+      : esperaAbp
       ? "Preparando ABP…"
       : canal === "whatsapp"
         ? "Preparar WhatsApp"
@@ -1746,11 +1864,18 @@ export function InformePartidoDialog({
     <Dialog
       title="Informe del partido"
       subtitle="Resumen en tres diapositivas e informe completo: la semana, los dos en datos, el rival de un vistazo, los duelos, el pronóstico, el plan y el balón parado"
-      onClose={onClose}
+      onClose={cierra}
       footer={
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="flex items-center gap-1.5 text-[11px] text-white/45">
-            {preparando ? (
+            {dibujandoDiapos ? (
+              <>
+                <Loader2 size={12} className="animate-spin" /> Dibujando las diapositivas: en unos segundos puedes cerrar
+              </>
+            ) : enviandoFuera ? (
+              /* 02/11/2026: el envío ya no depende de esta ventana. */
+              <span className="text-[#C8A96B]">Puedes cerrar y seguir con otra cosa: se sigue enviando y te avisa al terminar.</span>
+            ) : preparando ? (
               <>
                 <Loader2 size={12} className="animate-spin" /> {preparando}
               </>
@@ -1784,8 +1909,8 @@ export function InformePartidoDialog({
             ) : null}
             <Button
               tone="primary"
-              icon={trabajando || esperaAbp ? Loader2 : Send}
-              disabled={!informe || Boolean(trabajando) || cargando || esperaAbp || Boolean(subiendo)}
+              icon={trabajando || esperaAbp || enviandoFuera ? Loader2 : Send}
+              disabled={!informe || Boolean(trabajando) || enviandoFuera || cargando || esperaAbp || Boolean(subiendo)}
               onClick={pulsaEnviar}
               title={esperaAbp ? "Esperando al informe de balón parado del microciclo" : undefined}
             >
@@ -1885,7 +2010,8 @@ export function InformePartidoDialog({
               marketing): antes el diálogo explicaba el mecanismo en tres
               líneas y no enseñaba el mensaje. Los enlaces se ponen al enviar.
             */}
-            {canal === "whatsapp" && informeVisto && !mensajesWa.length ? (
+            {/* Los mensajes ya con enlaces salen en el panel de los informes al terminar el envío (02/11/2026). */}
+            {canal === "whatsapp" && informeVisto ? (
               <div className="rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
                 <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/40">Así le llega a cada uno</span>
                 <pre className="mt-1 whitespace-pre-wrap break-words font-sans text-[12px] leading-relaxed text-white/80">
@@ -1900,7 +2026,6 @@ export function InformePartidoDialog({
                 </pre>
               </div>
             ) : null}
-            <PanelWhatsapp mensajes={mensajesWa} telefonos={telefonosWa.buenos} onCierra={() => setMensajesWa([])} />
           </div>
           <label>
             <span className={rotuloCaja}>Firma</span>
