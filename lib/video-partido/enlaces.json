@@ -158,7 +158,20 @@
     {
       "jornada": 10,
       "fecha": "2026-10-31",
-      "partido": "Real Madrid Castilla - Cartagena"
+      "partido": "Real Madrid Castilla - Cartagena",
+      "hudl": {
+        "id": "VmlkZW82YWU3NjZkMzIxMTJiZjUwOTE1YWU5MDI=",
+        "url": "https://www.hudl.com/watch/video/VmlkZW82YWU3NjZkMzIxMTJiZjUwOTE1YWU5MDI="
+      },
+      "tactica": {
+        "fichero": "J 10 - CASTILLA - CARTAGENA.mov"
+      },
+      "resumen": {
+        "id": "rVznrTdN66w",
+        "url": "https://www.youtube.com/watch?v=rVznrTdN66w",
+        "canal": "Real Federación Española Fútbol",
+        "titulo": "Resumen #PrimeraFederación | Real Madrid Castilla 2-0 FC Cartagena| Jornada 10 | Temporada 2026/2027"
+      }
     }
   ]
 }
