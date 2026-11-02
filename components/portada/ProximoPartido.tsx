@@ -662,7 +662,7 @@ export function ProximoPartido() {
           */
           /* En el móvil, una fila que se desliza (02/11/2026): la rejilla de dos por fila alargaba la portada y se veía tosca. */
           const fila = (rotulo: string, atajos: { href: string; texto: string; title?: string }[]) => (
-            <div className="-mx-1 flex min-w-0 items-center gap-1.5 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:flex-wrap sm:overflow-visible [&>a]:shrink-0 [&>a]:whitespace-nowrap">
+            <div className="-mx-1 flex min-w-0 items-center gap-1.5 overflow-x-auto px-1 pb-0.5 sin-barra sm:flex-wrap sm:overflow-visible [&>a]:shrink-0 [&>a]:whitespace-nowrap">
               <span className="mr-1 shrink-0 text-[12px] font-semibold uppercase tracking-[0.18em] text-white/65">
                 {rotulo}
               </span>

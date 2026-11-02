@@ -324,6 +324,11 @@ animation:sweep 18s linear infinite;
   background: var(--rmcf-scroll-thumb-hover);
 }
 
+/* Filas que se deslizan sin barra (02/11/2026). Va aquí, fuera de las capas:
+   la regla de arriba no tiene capa y pisaba el [&::-webkit-scrollbar]:hidden de Tailwind. */
+.sin-barra { scrollbar-width: none; }
+.sin-barra::-webkit-scrollbar { display: none; }
+
 ::-webkit-scrollbar-corner {
   background: transparent;
 }

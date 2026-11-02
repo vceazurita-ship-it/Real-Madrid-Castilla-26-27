@@ -641,7 +641,11 @@ export default function Home() {
                   >
                     <div className="min-w-0">
                       <p className="flex items-center justify-between gap-3 text-[12px] uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,.9)" }}>
-                        <span className="min-w-0">Goles esperados (xG) por partido</span>
+                        {/* Corto en el móvil (02/11/2026): el largo ocupaba tres renglones. */}
+                        <span className="min-w-0">
+                          <span className="sm:hidden">xG por partido</span>
+                          <span className="hidden sm:inline">Goles esperados (xG) por partido</span>
+                        </span>
                         <span className="inline-flex shrink-0 items-center gap-1 normal-case tracking-normal sm:hidden xl:inline-flex" style={{ color: "#F7D98B" }}>
                           Data análisis
                           <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />

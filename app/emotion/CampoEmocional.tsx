@@ -715,7 +715,7 @@ function RadaresEnCampo({
           <div
             ref={pista}
             onScroll={alDeslizar}
-            className="relative flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain p-3 [scrollbar-width:none] sm:grid sm:snap-none sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:p-5 xl:grid-cols-4 [&::-webkit-scrollbar]:hidden"
+            className="relative flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain p-3 sin-barra sm:grid sm:snap-none sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:p-5 xl:grid-cols-4"
           >
             {zonas.map((z, i) => (
               <div key={z.clave} className={`w-[86%] shrink-0 snap-center sm:w-auto ${z.sitio}`} aria-label={`${z.titulo}, ${i + 1} de ${zonas.length}`}>
