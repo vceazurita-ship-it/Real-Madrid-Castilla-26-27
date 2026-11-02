@@ -25,6 +25,8 @@
  */
 
 import { useCallback, useMemo, useRef, useState } from "react";
+
+import { useMiniatura } from "@/lib/coding/miniaturas";
 import { Minus, Plus } from "lucide-react";
 
 import {
@@ -67,8 +69,8 @@ function etiquetaRegla(ms: number) {
   return resto ? `${minutos}′${String(resto).padStart(2, "0")}″` : `${minutos}′`;
 }
 
-const ALTO_FILA = 18;
-const ALTO_REGLA = 22;
+const ALTO_FILA = 24;
+const ALTO_REGLA = 24;
 
 export function LineaDeTiempo({
   duracionMs,
@@ -84,9 +86,12 @@ export function LineaDeTiempo({
   onElegirEscena,
   onMueveEscena,
   cortesDeEsteVideo = false,
+  src = "",
 }: {
   /** Con varios vídeos en la sesión, el contador aclara que son los de ESTE (el total va en la cabecera y en la lista). */
   cortesDeEsteVideo?: boolean;
+  /** El vídeo de delante, para la miniatura del corte bajo el ratón. */
+  src?: string;
   duracionMs: number;
   tiempoMs: number;
   inicioPendienteMs: number | null;
@@ -116,6 +121,8 @@ export function LineaDeTiempo({
   const barraRef = useRef<HTMLDivElement>(null);
 
   const [encima, setEncima] = useState<number | null>(null);
+  /* El corte bajo el ratón o el dedo: sale su ficha con miniatura encima. */
+  const [globo, setGlobo] = useState<ClipCoding | null>(null);
   const [modo, setModo] = useState<ModoFilas>("categorias");
   const [lupa, setLupa] = useState(1);
 
@@ -354,14 +361,18 @@ export function LineaDeTiempo({
                     style={{ background: fila.color }}
                   />
                 )}
-                <span className="truncate text-[10px] text-white/55">
+                <span className="min-w-0 flex-1 truncate text-[10px] font-medium uppercase tracking-[0.06em] text-white/60">
                   {fila.nombre}
+                </span>
+                <span className="shrink-0 font-mono text-[10px] tabular-nums text-white/40">
+                  {fila.clips.length}
                 </span>
               </div>
             ))}
           </div>
         )}
 
+        <div className="relative min-w-0 flex-1">
         <div
           ref={barraRef}
           role="slider"
@@ -374,7 +385,7 @@ export function LineaDeTiempo({
           onClick={(evento) => onSalta(msDeEvento(evento.clientX))}
           onMouseMove={(evento) => setEncima(msDeEvento(evento.clientX))}
           onMouseLeave={() => setEncima(null)}
-          className="relative min-w-0 flex-1 cursor-pointer overflow-hidden rounded-xl border border-white/10 bg-white/[0.03]"
+          className="cdg-pista relative min-w-0 cursor-pointer overflow-hidden rounded-xl border"
           style={{
             height: ALTO_REGLA + Math.max(1, filas.length) * ALTO_FILA + 6,
           }}
@@ -397,7 +408,7 @@ export function LineaDeTiempo({
           {filas.map((fila, indice) => (
             <div
               key={fila.id}
-              className="absolute inset-x-0 border-t border-white/[0.05]"
+              className="cdg-fila absolute inset-x-0 border-t border-white/[0.05]"
               style={{ top: ALTO_REGLA + indice * ALTO_FILA, height: ALTO_FILA }}
             >
               {fila.clips.map((clip) => {
@@ -410,22 +421,22 @@ export function LineaDeTiempo({
                   <button
                     key={clip.id}
                     type="button"
-                    title={`${String(clip.numero).padStart(3, "0")} · ${clip.jugadorNombre}\n${
-                      categorias.find((una) => una.id === clip.categoriaId)
-                        ?.nombre ?? "Sin categoría"
-                    }${clip.tags.length ? ` · ${clip.tags.join(", ")}` : ""}\n${formateaMs(clip.codingInicioMs)} → ${formateaMs(clip.codingFinMs)} (${formateaDuracion(duracionClip(clip))})`}
                     aria-label={`Corte ${clip.numero}, ${clip.jugadorNombre}, ${formateaMs(clip.codingInicioMs)}`}
                     onClick={(evento) => {
                       evento.stopPropagation();
                       onElegirClip(clip.id);
                     }}
-                    className="absolute bottom-[3px] top-[3px] rounded-sm transition-[filter] hover:brightness-125"
+                    onMouseEnter={() => setGlobo(clip)}
+                    onMouseLeave={() => setGlobo(null)}
+                    onFocus={() => setGlobo(clip)}
+                    onBlur={() => setGlobo(null)}
+                    className="cdg-bloque absolute bottom-[4px] top-[4px] rounded-[4px]"
                     style={{
                       left: `${porcentaje(clip.inicioMs)}%`,
                       width: `max(3px, ${largo(duracionClip(clip))}%)`,
                       backgroundColor: colorDe(clip),
-                      opacity: activo ? 1 : apagado ? 0.15 : 0.7,
-                      outline: activo ? "2px solid #C8A96B" : "none",
+                      opacity: activo ? 1 : apagado ? 0.15 : 0.88,
+                      outline: activo ? "2px solid #fff" : "none",
                       outlineOffset: 1,
                     }}
                   />
@@ -564,7 +575,7 @@ export function LineaDeTiempo({
           {/* Dónde va el vídeo. */}
           <div
             aria-hidden
-            className="pointer-events-none absolute bottom-0 top-0 z-10 w-0.5 bg-[#C8A96B]"
+            className="cdg-cabezal pointer-events-none absolute bottom-0 top-0 z-10 w-0.5 -translate-x-1/2 bg-[#C8A96B]"
             style={{ left: `${porcentaje(tiempoMs)}%` }}
           />
 
@@ -576,6 +587,16 @@ export function LineaDeTiempo({
               style={{ left: `${porcentaje(encima)}%` }}
             />
           )}
+        </div>
+
+        {globo && dentro(globo.inicioMs, globo.finMs) && (
+          <GloboCorte
+            clip={globo}
+            src={src}
+            categoria={categorias.find((una) => una.id === globo.categoriaId)}
+            izquierda={Math.min(88, Math.max(12, porcentaje(globo.inicioMs + duracionClip(globo) / 2)))}
+          />
+        )}
         </div>
       </div>
 
@@ -593,6 +614,64 @@ export function LineaDeTiempo({
         </span>
 
         <span>{formateaMs(duracionMs)}</span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * La ficha del corte bajo el ratón (02/11/2026): miniatura del fotograma de
+ * inicio, número, quién, etiqueta y tiempos. Sale por encima de la pista.
+ */
+function GloboCorte({
+  clip,
+  src,
+  categoria,
+  izquierda,
+}: {
+  clip: ClipCoding;
+  src: string;
+  categoria: CategoriaCoding | undefined;
+  izquierda: number;
+}) {
+  const imagen = useMiniatura(src, clip.codingInicioMs);
+  const color = categoria?.color ?? "#C8A96B";
+
+  return (
+    <div
+      role="tooltip"
+      className="cdg-globo pointer-events-none absolute bottom-full z-30 mb-2 w-52 -translate-x-1/2 overflow-hidden rounded-xl border border-white/15 bg-[#060C14] shadow-[0_16px_32px_rgba(0,0,0,0.6)]"
+      style={{ left: `${izquierda}%` }}
+    >
+      <div
+        className="relative aspect-video w-full"
+        style={{ background: `linear-gradient(135deg, ${color}66, #060C14)` }}
+      >
+        {imagen && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={imagen} alt="" className="absolute inset-0 h-full w-full object-cover" />
+        )}
+        <span className="absolute left-1.5 top-1.5 rounded bg-black/70 px-1.5 font-mono text-[10px] font-semibold tabular-nums text-white">
+          {String(clip.numero).padStart(3, "0")}
+        </span>
+        <span className="absolute bottom-1.5 right-1.5 rounded bg-black/70 px-1.5 font-mono text-[10px] tabular-nums text-white">
+          {formateaDuracion(duracionClip(clip))}
+        </span>
+      </div>
+      <div className="space-y-0.5 px-2.5 py-2">
+        <p className="truncate text-[12px] font-semibold text-white">{clip.jugadorNombre}</p>
+        {categoria && (
+          <p className="flex items-center gap-1.5 text-[11px] text-white/70">
+            <span aria-hidden className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
+            <span className="truncate">{categoria.nombre}</span>
+          </p>
+        )}
+        <p className="font-mono text-[10px] tabular-nums text-white/50">
+          {formateaMs(clip.codingInicioMs)} → {formateaMs(clip.codingFinMs)}
+        </p>
+        {clip.tags.length > 0 && (
+          <p className="truncate text-[10px] text-white/55">{clip.tags.join(" · ")}</p>
+        )}
       </div>
     </div>
   );

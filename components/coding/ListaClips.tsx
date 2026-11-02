@@ -20,6 +20,8 @@
  */
 
 import { useState } from "react";
+
+import { useMiniatura } from "@/lib/coding/miniaturas";
 import {
   ChevronDown,
   ChevronUp,
@@ -93,11 +95,14 @@ export function ListaClips({
   exportando,
   videoDe,
   libre = false,
+  miniaturaDe,
   tituloBorrar = "Eliminar (se deshace con Retroceso o el botón de deshacer)",
 }: {
   clips: ClipCoding[];
   /** Una lista guardada: se reordena sin mirar de qué vídeo es cada corte. */
   libre?: boolean;
+  /** El vídeo del que sacar la miniatura de cada corte («» si no hay). */
+  miniaturaDe?: (clip: ClipCoding) => string;
   /** En una lista, la papelera saca el corte de la lista, no lo borra. */
   tituloBorrar?: string;
   /**
@@ -355,13 +360,21 @@ export function ListaClips({
             <li
               key={fila.clip.id}
               onClick={() => onSeleccionar(fila.clip.id)}
-              className={`rounded-xl border px-3 py-2 transition ${
+              className={`relative overflow-hidden rounded-xl border px-3 py-2 transition duration-200 ${
                 activo
-                  ? "border-[#C8A96B]/60 bg-[#C8A96B]/[0.08]"
+                  ? "cdg-suena border-[#C8A96B]/60 bg-[#C8A96B]/[0.08]"
                   : "border-white/[0.08] bg-white/[0.02]"
               }`}
             >
               <div className="flex min-w-0 items-center gap-2">
+                <Miniatura
+                  src={miniaturaDe?.(fila.clip) ?? ""}
+                  ms={fila.clip.codingInicioMs}
+                  color={fila.categoria?.color}
+                  activo={activo}
+                  className="h-10 w-[72px]"
+                />
+
                 <span className="shrink-0 text-[11px] tabular-nums text-white/35">
                   {String(indice + 1).padStart(3, "0")}
                 </span>
@@ -428,6 +441,7 @@ export function ListaClips({
           <thead>
             <tr className="text-[10px] uppercase tracking-[0.16em] text-white/30">
               <th className="w-6 px-1 py-1.5 font-medium" aria-label="Orden" />
+              <th className="w-[84px] px-1 py-1.5 font-medium" aria-label="Imagen" />
               <th className="px-2 py-1.5 font-medium">#</th>
               {videoDe && <th className="px-2 py-1.5 font-medium">Vídeo</th>}
               {/* Jugador o comportamiento colectivo: los dos son el sujeto. */}
@@ -515,7 +529,7 @@ export function ListaClips({
                   } ${
                     marca === "despues" ? "border-b-2 border-b-[#C8A96B]" : ""
                   } ${arrastrado === clip.id ? "opacity-40" : ""} ${
-                    activo ? "bg-[#C8A96B]/[0.08]" : "hover:bg-white/[0.03]"
+                    activo ? "cdg-suena bg-[#C8A96B]/[0.08]" : "hover:bg-white/[0.03]"
                   }`}
                 >
                   {/*
@@ -543,6 +557,16 @@ export function ListaClips({
                     >
                       <GripVertical size={13} />
                     </span>
+                  </td>
+
+                  <td className="w-[84px] px-1 py-1">
+                    <Miniatura
+                      src={miniaturaDe?.(clip) ?? ""}
+                      ms={clip.codingInicioMs}
+                      color={fila.categoria?.color}
+                      activo={activo}
+                      className="h-11 w-20"
+                    />
                   </td>
 
                   <td className="px-2 py-1.5 text-[11px] tabular-nums text-white/35">
@@ -1012,5 +1036,46 @@ function Tiempo({
         </button>
       </div>
     </div>
+  );
+}
+
+/**
+ * La miniatura del corte (02/11/2026): el fotograma de inicio, con la
+ * etiqueta en una franja de su color. Mientras llega —o si el vídeo no deja
+ * sacar fotogramas— queda el degradado del color, nunca un hueco.
+ */
+function Miniatura({
+  src,
+  ms,
+  color = "#C8A96B",
+  activo,
+  className = "",
+}: {
+  src: string;
+  ms: number;
+  color?: string;
+  activo: boolean;
+  className?: string;
+}) {
+  const imagen = useMiniatura(src, ms);
+
+  return (
+    <span
+      className={`relative block shrink-0 overflow-hidden rounded-md border transition duration-200 ${
+        activo ? "border-[#C8A96B]" : "border-white/10"
+      } ${className}`}
+      style={{ background: `linear-gradient(135deg, ${color}88, #08121D)` }}
+    >
+      {imagen && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={imagen} alt="" className="absolute inset-0 h-full w-full object-cover" />
+      )}
+      <span aria-hidden className="absolute inset-x-0 bottom-0 h-1" style={{ backgroundColor: color }} />
+      {activo && (
+        <span className="absolute inset-0 flex items-center justify-center bg-black/30">
+          <Play size={14} className="fill-white text-white" />
+        </span>
+      )}
+    </span>
   );
 }

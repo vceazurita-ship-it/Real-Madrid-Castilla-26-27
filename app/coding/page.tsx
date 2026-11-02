@@ -95,8 +95,10 @@ import {
 import { FichaClip, ListaClips } from "@/components/coding/ListaClips";
 import { LineaDeTiempo } from "@/components/coding/LineaDeTiempo";
 import { MatrizCoding } from "@/components/coding/MatrizCoding";
+import "./coding.css";
 import {
   AyudaTeclado,
+  MarcadorCoding,
   PanelCategorias,
   PanelColectivos,
   PanelJugadores,
@@ -1116,7 +1118,8 @@ function Coding() {
   const [verTodosVideos, setVerTodosVideos] = useState(false);
   /* Los paneles de apoyo van plegados: la primera pantalla es vídeo, marcar y cortes. */
   const [verColectivos, setVerColectivos] = useState(false);
-  const [verCategorias, setVerCategorias] = useState(false);
+  /* 02/11/2026: los pads de etiquetar se ven de entrada; son lo que se pulsa. */
+  const [verCategorias, setVerCategorias] = useState(true);
   const [ajustes, setAjustes] = useState(false);
   const [editando, setEditando] = useState<ClipCoding | null>(null);
   const [avisoSesion, setAvisoSesion] = useState(true);
@@ -1628,6 +1631,13 @@ function Coding() {
   );
 
   /* De qué vídeo es cada clip de la lista, por su nombre. */
+  /* La miniatura de un corte sale del vídeo de delante: sólo los suyos la tienen. */
+  const miniaturaDe = useMemo(() => {
+    const delVideo = new Set(clips.map((clip) => clip.id));
+
+    return (clip: ClipCoding) => (delVideo.has(clip.id) ? src : "");
+  }, [clips, src]);
+
   const videoDeClip = useCallback(
     (clip: ClipCoding) => clip.video ?? videosSesion[0]?.nombre ?? "",
     [videosSesion],
@@ -3963,6 +3973,68 @@ function Coding() {
               }
             />
 
+            {/* ===================== EL MARCADOR (02/11/2026) ============ */}
+
+            {(() => {
+              const nuestro = { nombre: "RM Castilla", escudo: "/logo.png" };
+              const contrario =
+                ambito === "partido"
+                  ? (partido?.opponent ?? rival?.nombre ?? "")
+                  : (rival?.nombre ?? "");
+              const ellos = contrario
+                ? { nombre: contrario, escudo: escudoDe(contrario) ?? undefined }
+                : null;
+              const resultado =
+                ambito === "partido" && partido && partido.gf !== null && partido.ga !== null
+                  ? partido.isHome
+                    ? `${partido.gf}-${partido.ga}`
+                    : `${partido.ga}-${partido.gf}`
+                  : "";
+              const fecha = partido?.date
+                ? partido.date.split("-").reverse().join("/")
+                : "";
+              const detalle =
+                ambito === "partido"
+                  ? [partido?.competition, fecha].filter(Boolean).join(" · ") || "Coding de partido"
+                  : "Coding del rival";
+              const porEtiqueta = [
+                ...config.categorias.map((una) => ({
+                  id: una.id,
+                  nombre: una.nombre,
+                  color: una.color,
+                  cuenta: cuentasCategoria[una.id] ?? 0,
+                })),
+                ...config.comportamientos.map((uno) => ({
+                  id: `c:${uno.id}`,
+                  nombre: uno.nombre,
+                  color: uno.color,
+                  cuenta: cuentasColectivo[uno.id] ?? 0,
+                })),
+              ];
+              const total = clips.filter(
+                (clip) => clip.jugadorId !== SUJETO_VIDEO_COMPLETO.id,
+              ).length;
+
+              return ambito === "partido" ? (
+                <MarcadorCoding
+                  local={partido && !partido.isHome && ellos ? ellos : nuestro}
+                  visitante={partido && !partido.isHome ? nuestro : ellos}
+                  resultado={resultado}
+                  detalle={detalle}
+                  total={total}
+                  porEtiqueta={porEtiqueta}
+                />
+              ) : (
+                <MarcadorCoding
+                  local={ellos ?? nuestro}
+                  resultado=""
+                  detalle={detalle}
+                  total={total}
+                  porEtiqueta={porEtiqueta}
+                />
+              );
+            })()}
+
             {/* ===================== QUÉ SE CODIFICA ==================== */}
 
             <div className="mt-5 grid min-w-0 gap-3 sm:grid-cols-[auto_minmax(0,1fr)_auto]">
@@ -4285,6 +4357,45 @@ function Coding() {
                   />
 
                   {/*
+                  | 02/11/2026: el corte en marcha se ve EN el vídeo —marco rojo y
+                  | piloto que late, como una cámara grabando—, y al cerrarlo el
+                  | vídeo destella en oro. Sin animación si el sistema la pide fuera.
+                  */}
+                  {src && inicioMs !== null && (
+                    <div aria-live="polite" className="cdg-rec-marco pointer-events-none absolute inset-0 z-20">
+                      <span className="absolute left-3 top-3 flex items-center gap-2 rounded-full bg-black/75 px-3 py-1.5 text-[12px] font-semibold text-white shadow-lg backdrop-blur">
+                        <span aria-hidden className="cdg-piloto h-2.5 w-2.5 rounded-full bg-red-500" />
+                        <span className="tracking-[0.18em]">REC</span>
+                        <span className="font-mono tabular-nums text-white/80">
+                          {formateaMs(Math.max(0, estado.tiempoMs - inicioMs))}
+                        </span>
+                        {(sujeto || categoriaElegida) && (
+                          <span className="flex max-w-[40vw] items-center gap-1.5 truncate border-l border-white/20 pl-2 font-medium text-white/85">
+                            {categoriaElegida && (
+                              <span
+                                aria-hidden
+                                className="h-2 w-2 shrink-0 rounded-full"
+                                style={{ backgroundColor: categoriaElegida.color }}
+                              />
+                            )}
+                            <span className="truncate">
+                              {[sujeto?.nombre, categoriaElegida?.nombre].filter(Boolean).join(" · ")}
+                            </span>
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  )}
+
+                  {src && ultimoMarcado && (
+                    <div
+                      key={ultimoMarcado.id}
+                      aria-hidden
+                      className="cdg-destello pointer-events-none absolute inset-0 z-20"
+                    />
+                  )}
+
+                  {/*
                   | La pizarra va **dentro** de este contenedor y no debajo del
                   | vídeo: se coloca sola sobre el rectángulo de imagen, y es
                   | este mismo `div` el que se pone a pantalla completa cuando
@@ -4565,7 +4676,7 @@ function Coding() {
                 )}
 
                 {/* Mandos y estado del coding. */}
-                <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+                <div className="siempre-oscuro cdg-consola min-w-0 rounded-2xl border p-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <Button
                       icon={estado.reproduciendo ? Pause : Play}
@@ -4806,6 +4917,7 @@ function Coding() {
                   <div className="mt-3">
                     <LineaDeTiempo
                       cortesDeEsteVideo={videosSesion.length > 1}
+                      src={src}
                       duracionMs={estado.duracionMs}
                       tiempoMs={estado.tiempoMs}
                       inicioPendienteMs={inicioMs}
@@ -5218,6 +5330,7 @@ function Coding() {
 
                   <ListaClips
                     clips={clipsDeLaLista}
+                    miniaturaDe={miniaturaDe}
                     videoDe={verTodosEnLista ? videoDeClip : undefined}
                     categorias={config.categorias}
                     seleccionado={seleccionado}

@@ -201,21 +201,36 @@ export function BarraMarcado({
           onClick={abierta ? onFinal : onInicio}
           className={`flex min-h-14 min-w-0 flex-1 items-center justify-center gap-3 rounded-xl px-4 text-base font-semibold transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40 ${
             abierta
-              ? "bg-[#34D399] text-black hover:bg-[#4ee0ac]"
-              : "bg-[#C8A96B] text-black hover:bg-[#d8ba7c]"
+              ? "cdg-boton-rec hover:brightness-110"
+              : "bg-gradient-to-b from-[#D9BC82] to-[#B8955A] text-[#0B0F14] shadow-[0_10px_24px_-12px_rgba(200,169,107,0.9)] hover:brightness-105"
           }`}
         >
-          {abierta ? <Square size={18} /> : <CircleDot size={18} />}
+          {abierta ? (
+            <span aria-hidden className="cdg-piloto h-3 w-3 shrink-0 rounded-full bg-white" />
+          ) : (
+            <CircleDot size={18} />
+          )}
 
           <span className="truncate">
-            {abierta ? "Cerrar corte" : "Marcar inicio"}
+            {abierta ? (
+              <>
+                <span className="max-sm:hidden">Grabando · cerrar corte</span>
+                <span className="sm:hidden">Cerrar</span>
+              </>
+            ) : (
+              "Marcar inicio"
+            )}
           </span>
 
-          {abierta && (
-            <span className="font-mono text-sm tabular-nums opacity-70">
+          {abierta ? (
+            <span className="shrink-0 rounded-md bg-black/25 px-1.5 py-0.5 font-mono text-sm font-bold tabular-nums sm:px-2 sm:text-lg">
               {formatea(largoMs)}
             </span>
+          ) : (
+            <kbd className="hidden rounded border border-black/25 px-1.5 font-mono text-[11px] sm:inline">I</kbd>
           )}
+
+          {abierta && <Square size={16} className="shrink-0 opacity-80 max-sm:hidden" />}
         </button>
 
         {/*

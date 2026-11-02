@@ -15,7 +15,7 @@
  */
 
 import Image from "next/image";
-import { useState, type ReactNode } from "react";
+import { useState, type CSSProperties, type ReactNode } from "react";
 
 import { demarcacion, demarcacionDePosicion } from "@/lib/sesion-equipos/demarcacion";
 import {
@@ -211,7 +211,7 @@ export function PanelJugadores({
                 />
               ) : (
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-[10px] font-semibold text-white/40">
-                  {jugador.dorsal ?? "—"}
+                  {jugador.dorsal ?? jugador.nombre.slice(0, 1)}
                 </span>
               )}
 
@@ -233,7 +233,12 @@ export function PanelJugadores({
               </span>
 
               {clips > 0 && (
-                <span className="shrink-0 rounded-full bg-white/[0.08] px-1.5 py-0.5 text-[10px] tabular-nums text-white/50">
+                <span
+                  key={clips}
+                  className={`cdg-pulso shrink-0 rounded-full px-1.5 py-0.5 font-mono text-[11px] font-semibold tabular-nums ${
+                    seleccionado ? "bg-[#C8A96B] text-[#0B0F14]" : "bg-white/[0.08] text-white/60"
+                  }`}
+                >
                   {clips}
                 </span>
               )}
@@ -258,6 +263,79 @@ export function PanelJugadores({
  * alguien, mayúscula es el equipo. Elegir uno **suelta al jugador** que hubiera
  * elegido, y al revés: un clip tiene un sujeto, no dos.
  */
+/**
+ * Un pad de etiquetar (02/11/2026): grande, del color de lo que marca, con
+ * la tecla en la esquina y el contador que salta al sumar uno. Es lo que se
+ * pulsa con el dedo en la tablet, así que se ve como un botón de mesa de
+ * análisis y no como una chapa.
+ */
+function Pad({
+  color,
+  nombre,
+  tecla,
+  cuenta,
+  activo,
+  onClick,
+}: {
+  color: string;
+  nombre: string;
+  tecla: string;
+  cuenta: number;
+  activo: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={activo}
+      title={tecla ? `${nombre} · tecla ${tecla}` : nombre}
+      className="cdg-pad relative flex min-h-[64px] min-w-0 flex-col justify-between overflow-hidden rounded-xl border p-2.5 text-left"
+      style={
+        {
+          "--pad": color,
+          borderColor: activo ? color : `${color}55`,
+          background: activo
+            ? `linear-gradient(160deg, ${color}55, ${color}22)`
+            : `linear-gradient(160deg, ${color}26, ${color}0D)`,
+        } as CSSProperties
+      }
+    >
+      <span
+        aria-hidden
+        className="absolute inset-y-0 left-0 w-1"
+        style={{ backgroundColor: color }}
+      />
+
+      <span className="flex items-start justify-between gap-2 pl-1">
+        <span
+          className={`min-w-0 break-words text-[13px] font-semibold leading-tight ${
+            activo ? "text-white" : "text-white/80"
+          }`}
+        >
+          {nombre}
+        </span>
+
+        {tecla && <Tecla activa={activo}>{tecla}</Tecla>}
+      </span>
+
+      <span className="flex items-end justify-between pl-1">
+        <span className="text-[10px] uppercase tracking-[0.14em] text-white/40">
+          {cuenta === 1 ? "corte" : "cortes"}
+        </span>
+
+        <span
+          key={cuenta}
+          className="cdg-pulso inline-block origin-right font-mono text-xl font-bold leading-none tabular-nums"
+          style={{ color }}
+        >
+          {cuenta}
+        </span>
+      </span>
+    </button>
+  );
+}
+
 export function PanelColectivos({
   comportamientos,
   activo,
@@ -278,50 +356,19 @@ export function PanelColectivos({
   }
 
   return (
-    <ul className="grid gap-1.5 sm:grid-cols-2">
-      {comportamientos.map((uno) => {
-        const seleccionado = uno.id === activo;
-        const clips = cuentas[uno.id] ?? 0;
-
-        return (
-          <li key={uno.id}>
-            <button
-              type="button"
-              onClick={() => onElegir(uno.id)}
-              className={`flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-left transition ${
-                seleccionado
-                  ? "border-[#C8A96B] bg-[#C8A96B]/[0.12]"
-                  : "border-white/10 bg-white/[0.02] hover:border-white/25"
-              }`}
-            >
-              <Tecla activa={seleccionado}>
-                {uno.tecla ? `⇧${uno.tecla}` : "—"}
-              </Tecla>
-
-              <span
-                aria-hidden
-                className="h-2.5 w-2.5 shrink-0 rounded-full"
-                style={{ backgroundColor: uno.color }}
-              />
-
-              <span
-                className={`min-w-0 flex-1 truncate text-[13px] font-semibold ${
-                  seleccionado ? "text-white" : "text-white/75"
-                }`}
-              >
-                {uno.nombre}
-              </span>
-
-              {clips > 0 && (
-                <span className="shrink-0 rounded-full bg-white/[0.08] px-1.5 py-0.5 text-[10px] tabular-nums text-white/50">
-                  {clips}
-                </span>
-              )}
-            </button>
-          </li>
-        );
-      })}
-    </ul>
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-2">
+      {comportamientos.map((uno) => (
+        <Pad
+          key={uno.id}
+          color={uno.color}
+          nombre={uno.nombre}
+          tecla={uno.tecla ? `⇧${uno.tecla}` : ""}
+          cuenta={cuentas[uno.id] ?? 0}
+          activo={uno.id === activo}
+          onClick={() => onElegir(uno.id)}
+        />
+      ))}
+    </div>
   );
 }
 
@@ -341,49 +388,149 @@ export function PanelCategorias({
   onElegir: (id: string) => void;
 }) {
   return (
-    <div className="flex flex-wrap gap-1.5">
-      {categorias.map((categoria) => {
-        const seleccionada = categoria.id === activa;
-        const clips = cuentas[categoria.id] ?? 0;
-
-        return (
-          <button
-            key={categoria.id}
-            type="button"
-            onClick={() => onElegir(categoria.id)}
-            className={`flex items-center gap-2 rounded-xl border px-2.5 py-1.5 text-left transition ${
-              seleccionada
-                ? "border-[#C8A96B] bg-[#C8A96B]/[0.12]"
-                : "border-white/10 bg-white/[0.02] hover:border-white/25"
-            }`}
-          >
-            <span
-              aria-hidden
-              className="h-2.5 w-2.5 shrink-0 rounded-full"
-              style={{ backgroundColor: categoria.color }}
-            />
-
-            <span
-              className={`text-[12px] font-medium ${
-                seleccionada ? "text-white" : "text-white/70"
-              }`}
-            >
-              {categoria.nombre}
-            </span>
-
-            {clips > 0 && (
-              <span className="text-[10px] tabular-nums text-white/35">
-                {clips}
-              </span>
-            )}
-
-            <Tecla activa={seleccionada}>{categoria.tecla || "—"}</Tecla>
-          </button>
-        );
-      })}
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-2">
+      {categorias.map((categoria) => (
+        <Pad
+          key={categoria.id}
+          color={categoria.color}
+          nombre={categoria.nombre}
+          tecla={categoria.tecla}
+          cuenta={cuentas[categoria.id] ?? 0}
+          activo={categoria.id === activa}
+          onClick={() => onElegir(categoria.id)}
+        />
+      ))}
     </div>
   );
 }
+
+/* ------------------------------------------------------------------ */
+/*  MARCADOR Y RESUMEN DE LA SESIÓN                                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * La cabecera de la mesa (02/11/2026): el partido como un marcador —escudos,
+ * resultado si lo hay— y, al lado, cuántos cortes lleva cada etiqueta en una
+ * barra apilada. Lo que no se sabe no se pinta: sin resultado, «vs».
+ */
+export function MarcadorCoding({
+  local,
+  visitante,
+  resultado,
+  detalle,
+  total,
+  porEtiqueta,
+  onElegir,
+}: {
+  local: { nombre: string; escudo?: string };
+  visitante?: { nombre: string; escudo?: string } | null;
+  resultado: string;
+  detalle: string;
+  total: number;
+  porEtiqueta: { id: string; nombre: string; color: string; cuenta: number }[];
+  onElegir?: (id: string) => void;
+}) {
+  const conCortes = porEtiqueta.filter((una) => una.cuenta > 0);
+  const suma = conCortes.reduce((acc, una) => acc + una.cuenta, 0);
+
+  const escudo = (equipo: { nombre: string; escudo?: string }) =>
+    equipo.escudo ? (
+      <Image
+        src={equipo.escudo}
+        alt=""
+        width={36}
+        height={36}
+        unoptimized
+        className="h-9 w-9 shrink-0 object-contain"
+      />
+    ) : (
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-[11px] font-bold text-white/70">
+        {equipo.nombre.slice(0, 2).toUpperCase()}
+      </span>
+    );
+
+  return (
+    <div className="siempre-oscuro cdg-consola mt-5 grid min-w-0 gap-4 rounded-2xl border p-4 lg:grid-cols-[minmax(0,auto)_minmax(0,1fr)] lg:items-center">
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="flex min-w-0 items-center gap-2">
+          {escudo(local)}
+          <span className="truncate font-['Barlow_Condensed',sans-serif] text-lg font-semibold uppercase tracking-wide text-white">
+            {local.nombre}
+          </span>
+        </div>
+
+        {visitante && (
+          <>
+            <span className="shrink-0 rounded-lg border border-[#C8A96B]/40 bg-black/40 px-3 py-1 font-mono text-xl font-bold tabular-nums text-[#C8A96B]">
+              {resultado || "vs"}
+            </span>
+
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="truncate font-['Barlow_Condensed',sans-serif] text-lg font-semibold uppercase tracking-wide text-white">
+                {visitante.nombre}
+              </span>
+              {escudo(visitante)}
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="min-w-0">
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="truncate text-[10px] uppercase tracking-[0.18em] text-white/45">
+            {detalle}
+          </span>
+          <span className="shrink-0 text-[11px] text-white/55">
+            <b className="font-mono text-base tabular-nums text-white">{total}</b>{" "}
+            {total === 1 ? "corte" : "cortes"}
+          </span>
+        </div>
+
+        {suma > 0 ? (
+          <>
+            <div className="mt-2 flex h-2.5 w-full overflow-hidden rounded-full bg-white/10">
+              {conCortes.map((una) => (
+                <span
+                  key={una.id}
+                  title={`${una.nombre} · ${una.cuenta}`}
+                  className="h-full transition-[width] duration-200"
+                  style={{
+                    width: `${(una.cuenta / suma) * 100}%`,
+                    backgroundColor: una.color,
+                  }}
+                />
+              ))}
+            </div>
+
+            <div className="mt-2 flex min-w-0 flex-wrap gap-x-3 gap-y-1">
+              {conCortes.map((una) => (
+                <button
+                  key={una.id}
+                  type="button"
+                  onClick={onElegir ? () => onElegir(una.id) : undefined}
+                  className="flex min-w-0 items-center gap-1.5 text-[11px] text-white/65 transition hover:text-white"
+                >
+                  <span
+                    aria-hidden
+                    className="h-2 w-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: una.color }}
+                  />
+                  <span className="truncate">{una.nombre}</span>
+                  <b className="font-mono tabular-nums text-white">{una.cuenta}</b>
+                </button>
+              ))}
+            </div>
+          </>
+        ) : (
+          <p className="mt-2 text-[11px] text-white/45">
+            Cada corte que marques suma aquí, por etiqueta.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 
 /* ------------------------------------------------------------------ */
 /*  AYUDA                                                              */
