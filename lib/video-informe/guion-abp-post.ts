@@ -28,7 +28,7 @@
 | encuentra el vídeo ya hecho.
 */
 
-import { fmtLargo, type InformeMicro, type LineaCruce, type PartidoAbpInforme, type PinceladaAbp } from "@/lib/abp/informe-micro";
+import type { InformeMicro, LineaCruce, PartidoAbpInforme, PinceladaAbp } from "@/lib/abp/informe-micro";
 
 import {
   capitulosEnOrden,
@@ -115,6 +115,18 @@ export function conJugadasResueltas(guion: GuionVideo, urls: Map<string, string>
 }
 
 const limpia = (t: string) => t.replace(/\s+/g, " ").trim();
+
+/**
+ * «1 h 20 min», «45 min»: como `fmtLargo` del informe (lib/abp/informe-micro),
+ * copiado para no cargar el informe entero en el diálogo del partido.
+ */
+function fmtLargo(minutos: number) {
+  const total = Math.round(minutos);
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+
+  return h ? `${h} h${m ? ` ${m} min` : ""}` : `${m} min`;
+}
 const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
 const coma = (n: number) => n.toFixed(2).replace(".", ",");
 const ladoEnTexto = (lado: string) => (lado === "ofensivo" ? "a favor" : "en contra");
@@ -165,9 +177,9 @@ function escenaVersus(p: PartidoAbpInforme): Escena | null {
   };
 }
 
-/** El desglose por tipo de acción: hasta cuatro, lo que más pesó primero. */
+/** El desglose por tipo de acción: hasta tres (con cuatro, «Falta lateral a favor» se montaba sobre la siguiente), lo que más pesó primero. */
 function escenaTipos(p: PartidoAbpInforme): Escena | null {
-  const filas = [...p.filas].filter((f) => f.acciones > 0).sort((a, b) => b.goles - a.goles || b.peligros - a.peligros || b.acciones - a.acciones).slice(0, 4);
+  const filas = [...p.filas].filter((f) => f.acciones > 0).sort((a, b) => b.goles - a.goles || b.peligros - a.peligros || b.acciones - a.acciones).slice(0, 3);
 
   if (filas.length < 2) return null;
 
@@ -228,7 +240,9 @@ export function guionPostDeAbp(informe: InformeMicro, pincelada: PinceladaAbp, e
   if (p) pon(escenaGancho(p, rival));
 
   const marcador = p?.marcador ? `${p.marcador.favor}-${p.marcador.contra}` : "";
-  const idea = cortaPalabras(sinSiglas(limpia(pincelada.titular)), 9).replace(/[.;,:\s]+$/, "");
+  /* La idea entera o ninguna (02/11/2026): recortada a nueve palabras decía «y el daño llegó» sin decir dónde. */
+  const titularLimpio = sinSiglas(limpia(pincelada.titular)).replace(/[.;,:\s]+$/, "");
+  const idea = titularLimpio.split(/\s+/).length <= 11 ? titularLimpio : "";
 
   escenas.push({
     id: "portada",

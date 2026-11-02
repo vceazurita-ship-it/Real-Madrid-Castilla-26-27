@@ -587,7 +587,8 @@ function acabado(ctx: Lienzo, grano: Dibujable, progreso: number, titulo: string
     espaciado(ctx, `REAL MADRID CASTILLA · ${titulo.toUpperCase()}`, 110, 56, 1.2);
   }
 
-  if (capitulo) pintaCapitulo(ctx, fuente, capitulo);
+  /* Sobre la jugada de la pizarra, no: taparía la cabecera de la diapositiva (fase y título). */
+  if (capitulo && !limpio) pintaCapitulo(ctx, fuente, capitulo);
 
   ctx.textBaseline = "alphabetic";
   ctx.textAlign = "left";
