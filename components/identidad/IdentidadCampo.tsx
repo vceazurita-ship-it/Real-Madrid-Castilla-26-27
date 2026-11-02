@@ -193,11 +193,43 @@ function Cruce({ bloques }: { bloques: BloqueMedido[] }) {
 
   const max = Math.max(10, ...con.map((b) => b.entreno as number)) * 1.15;
   const mediaCuota = con.reduce((s, b) => s + (b.entreno as number), 0) / con.length;
-  const W = 520;
+  const W = 440;
   const H = 300;
   const M = { l: 36, r: 16, t: 14, b: 34 };
   const x = (v: number) => M.l + (v / max) * (W - M.l - M.r);
   const y = (v: number) => M.t + (1 - v / 100) * (H - M.t - M.b);
+
+  /* Los rótulos que caerían uno encima de otro se separan en vertical (15 px como mínimo). */
+  const colocados = con
+    .map((b) => ({ b, cx: x(b.entreno as number), cy: y(b.indice), ly: y(b.indice), izq: x(b.entreno as number) > W * 0.6 }))
+    .sort((a, c) => a.cy - c.cy);
+
+  /* Caja aproximada de un rótulo: ~6,6 px por letra a 12,5 px. */
+  const caja = (c: (typeof colocados)[number]) => {
+    const ancho = c.b.label.length * 6.6;
+    const x0 = c.izq ? c.cx - 11 - ancho : c.cx + 11;
+
+    return { x0, x1: x0 + ancho, y0: c.ly - 8, y1: c.ly + 8 };
+  };
+  const pisa = (r: ReturnType<typeof caja>, s: ReturnType<typeof caja>) => r.x0 < s.x1 && s.x0 < r.x1 && r.y0 < s.y1 && s.y0 < r.y1;
+
+  colocados.forEach((c, i) => {
+    const puestos = colocados.slice(0, i).map(caja);
+    const puntos = colocados.filter((o) => o !== c).map((o) => ({ x0: o.cx - 8, x1: o.cx + 8, y0: o.cy - 8, y1: o.cy + 8 }));
+    const lado = c.izq;
+
+    for (const [izq, dy] of [[lado, 0], [!lado, 0], [lado, 15], [!lado, 15], [lado, -15], [!lado, -15], [lado, 30]] as [boolean, number][]) {
+      const prueba = { ...c, izq, ly: c.cy + dy };
+      const r = caja(prueba);
+
+      if (r.x0 >= M.l && r.x1 <= W - 4 && ![...puestos, ...puntos].some((s) => pisa(r, s))) {
+        c.izq = izq;
+        c.ly = prueba.ly;
+
+        return;
+      }
+    }
+  });
   const rotulo = (t: string, xx: number, yy: number, ancla: "start" | "end") => (
     <text x={xx} y={yy} textAnchor={ancla} fontSize={11} fill={TINTA(0.38)} fontWeight={600}>
       {t}
@@ -221,16 +253,12 @@ function Cruce({ bloques }: { bloques: BloqueMedido[] }) {
       {[0, Math.round(max / 2), Math.round(max)].map((v) => (
         <text key={v} x={x(v)} y={H - M.b + 14} textAnchor="middle" fontSize={10} fill={TINTA(0.45)}>{v} %</text>
       ))}
-      {con.map((b) => {
-        const cx = x(b.entreno as number);
-        const cy = y(b.indice);
-        const izq = cx > W * 0.62;
-
+      {colocados.map(({ b, cx, cy, ly, izq }) => {
         return (
           <g key={b.key} onMouseEnter={() => setFoco(b.key)} onMouseLeave={() => setFoco(null)} tabIndex={0} onFocus={() => setFoco(b.key)} onBlur={() => setFoco(null)}>
             <circle cx={cx} cy={cy} r={16} fill="transparent" />
             <circle cx={cx} cy={cy} r={foco === b.key ? 8 : 6} fill={colorDe(b.indice)} stroke="var(--rmcf-surface, #11161C)" strokeWidth={2} />
-            <text x={cx + (izq ? -11 : 11)} y={cy + 4} textAnchor={izq ? "end" : "start"} fontSize={11.5} fontWeight={foco === b.key ? 700 : 500} fill={TINTA(0.85)}>
+            <text x={cx + (izq ? -11 : 11)} y={ly + 4} textAnchor={izq ? "end" : "start"} fontSize={12.5} fontWeight={foco === b.key ? 700 : 500} fill={TINTA(0.85)}>
               {b.label}
               {foco === b.key ? ` · ${b.entreno} % · ${b.indice}` : ""}
             </text>
