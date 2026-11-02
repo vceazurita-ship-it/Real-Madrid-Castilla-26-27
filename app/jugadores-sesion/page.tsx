@@ -48,6 +48,10 @@ import {
   UsersRound,
   Users,
   Wand2,
+  Shirt,
+  Keyboard,
+  Zap,
+  History,
   X,
   Eraser,
   Send,
@@ -111,6 +115,7 @@ import {
   ordenPorPuesto,
   puestosDesdePlantilla,
   claveNombre,
+  nuevoId,
   repartoDe,
   rotacionDe,
   sorteaReparto,
@@ -223,8 +228,9 @@ function Chip({
         }
       }}
       title="Arrástralo a otro equipo, o tócalo y luego toca dónde va. Con él elegido: 1-6 equipo, C comodín, F fuera"
-      style={{ touchAction: "pan-y" }}
-      className={`group flex min-w-0 cursor-grab select-none items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left text-[12px] font-semibold uppercase tracking-wide outline-none transition focus-visible:ring-2 focus-visible:ring-[#C8A96B] active:cursor-grabbing ${
+      /* El peto se ve en el borde izquierdo de la ficha (02/11/2026): de un vistazo, de qué color va cada uno. */
+      style={{ touchAction: "pan-y", ...(color ? { borderLeftColor: color, borderLeftWidth: 3 } : {}) }}
+      className={`js-ficha group flex min-w-0 cursor-grab select-none items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left text-[12px] font-semibold uppercase tracking-wide outline-none transition focus-visible:ring-2 focus-visible:ring-[#C8A96B] active:cursor-grabbing ${
         arrastrando
           ? "opacity-35"
           : encima
@@ -234,7 +240,11 @@ function Chip({
             : "border-white/10 bg-white/[0.04] text-white/85 hover:border-white/25 hover:bg-white/[0.07]"
       }`}
     >
-      <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: color ?? "rgba(255,255,255,0.25)" }} />
+      {color ? (
+        <Shirt size={14} aria-hidden className="shrink-0" style={{ color: "rgba(0,0,0,0.35)", fill: color }} strokeWidth={1.5} />
+      ) : (
+        <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: "rgba(255,255,255,0.25)" }} />
+      )}
       <span className="min-w-0 truncate">{jugador.nombre}</span>
       {puesto && (
         <span
@@ -331,7 +341,7 @@ function Caja({
       }}
       className={`flex min-w-0 flex-col overflow-hidden rounded-2xl border transition ${
         encima
-          ? "border-[#C8A96B] bg-[#C8A96B]/10"
+          ? "js-encima border-[#C8A96B] bg-[#C8A96B]/10"
           : alerta
             ? "border-amber-400/40 bg-amber-400/[0.05]"
             : tenue
@@ -452,6 +462,71 @@ function intercambiaSitios(t0: TareaEquipos, a: string, b: string): TareaEquipos
   );
 
   return { ...t, sitio, equipos };
+}
+
+/*
+| FORMATOS RÁPIDOS (02/11/2026). Las formas de tarea que más se repiten en un
+| toque: pone los equipos y los comodines y propone el reparto a la vez. Lo
+| que había se deshace con Ctrl+Z.
+*/
+const FORMATOS_RAPIDOS: { clave: string; rotulo: string; detalle: string; equipos: number; comodines: number }[] = [
+  { clave: "2", rotulo: "2 equipos", detalle: "Partido o posesión", equipos: 2, comodines: 0 },
+  { clave: "2c1", rotulo: "2 + 1 comodín", detalle: "Superioridad con uno", equipos: 2, comodines: 1 },
+  { clave: "2c2", rotulo: "2 + 2 comodines", detalle: "Posesión con apoyos", equipos: 2, comodines: 2 },
+  { clave: "3", rotulo: "3 grupos", detalle: "Oleadas o rotación", equipos: 3, comodines: 0 },
+  { clave: "3c2", rotulo: "3 + 2 comodines", detalle: "Dos juegan, uno espera", equipos: 3, comodines: 2 },
+  { clave: "4", rotulo: "4 rondos", detalle: "Cuatro grupos parejos", equipos: 4, comodines: 0 },
+];
+
+/** Cambia la forma de la tarea (equipos y comodines) sin sortear todavía. */
+function conFormato(t: TareaEquipos, equipos: number, comodines: number): TareaEquipos {
+  const base = conEquipos(t, equipos);
+  const sitio = { ...base.sitio };
+
+  if (comodines === 0) for (const [id, d] of Object.entries(sitio)) if (d === COMODIN) delete sitio[id];
+
+  return { ...base, comodines, sitio };
+}
+
+/**
+ * COPIAR EL REPARTO DE OTRA TAREA, AUNQUE SEA DE OTRO DÍA (02/11/2026).
+ * Los ids de jugador cambian de una sesión a otra, así que se casa por el
+ * nombre limpio. Los equipos llegan con sus petos y su dibujo, sin huecos ni
+ * parejas viejas (cada uno cae en su sitio preferido). Quien hoy está fuera
+ * sigue fuera; quien no estaba aquel día, sin colocar.
+ */
+function copiaRepartoDe(destino: TareaEquipos, jugadores: JugadorSesion[], origen: TareaEquipos, jugadoresOrigen: JugadorSesion[]): { tarea: TareaEquipos; casados: number } {
+  const ids = new Map(origen.equipos.map((e) => [e.id, nuevoId("eq")]));
+  const porNombre = new Map(jugadoresOrigen.map((j) => [claveNombre(j.nombre), origen.sitio[j.id]]));
+  const sitio: Record<string, Sitio> = {};
+  let casados = 0;
+
+  for (const j of jugadores) {
+    if (destino.sitio[j.id] === FUERA) {
+      sitio[j.id] = FUERA;
+      continue;
+    }
+
+    const antes = porNombre.get(claveNombre(j.nombre));
+
+    if (antes === undefined || antes === FUERA) continue;
+
+    sitio[j.id] = ids.get(antes) ?? antes;
+    casados++;
+  }
+
+  return {
+    casados,
+    tarea: {
+      ...destino,
+      conEstructura: origen.conEstructura,
+      comodines: origen.comodines,
+      colorComodin: origen.colorComodin,
+      equipos: origen.equipos.map((e) => ({ id: ids.get(e.id)!, nombre: e.nombre, color: e.color, ...(e.estructura ? { estructura: e.estructura } : {}) })),
+      sitio,
+      cambio: undefined,
+    },
+  };
 }
 
 /** El titular con el que comparte puesto un jugador, si es compañero de alguien. */
@@ -2374,6 +2449,138 @@ export default function JugadoresSesionPage() {
 
   const opcionesReparto = { puestoDe, vecesComodin };
 
+  /* ---------------- ir más rápido (02/11/2026) ---------------- */
+
+  const propon = () => {
+    if (!sesion) return;
+
+    const habia = enTareaAhora();
+
+    cambiaTarea((t) => sorteaReparto(t, sesion.jugadores, opcionesReparto));
+    toast.success(habia > 0 ? "Otra propuesta de equipos" : "Equipos propuestos", {
+      description: `Parejos por puesto (por su demarcación; el nivel no se mide): porteros separados, laterales, centrales, medios y puntas repartidos.${sinDemarcacion.length ? ` ${sinDemarcacion.length} sin demarcación van donde haya sitio.` : ""} Pulsa otra vez (o P) para otra.`,
+      action: habia > 0 ? { label: "Deshacer", onClick: deshaz } : undefined,
+    });
+  };
+
+  /** Lo colocado ahora mismo en la tarea (equipos y comodines). */
+  const enTareaAhora = () => (tarea ? Object.values(tarea.sitio).filter((d) => d !== FUERA).length : 0);
+
+  const aplicaFormato = (f: (typeof FORMATOS_RAPIDOS)[number]) => {
+    if (!sesion) return;
+
+    cambiaTarea((t) => sorteaReparto(conFormato(t, f.equipos, f.comodines), sesion.jugadores, opcionesReparto));
+    toast.success(`${f.rotulo}: equipos propuestos`, { description: "Parejos por puesto. Ctrl+Z vuelve a lo de antes.", action: { label: "Deshacer", onClick: deshaz } });
+  };
+
+  /* De dónde se puede copiar: las otras tareas de hoy y las de las seis sesiones anteriores. */
+  const fuentesCopia = useMemo(() => {
+    if (!sesion || !tarea) return [];
+
+    const otras = sesiones.filter((s) => s.id !== sesion.id).slice(0, 6);
+
+    return [sesion, ...otras]
+      .map((s) => ({
+        sesion: s,
+        tareas: s.tareas.filter((t) => t.id !== tarea.id && Object.values(t.sitio).some((d) => d !== FUERA)),
+      }))
+      .filter((g) => g.tareas.length);
+  }, [sesiones, sesion, tarea]);
+
+  /* La misma tarea (por nombre) del último día en que se hizo: «como la última vez». */
+  const ultimaVez = (() => {
+    if (!tarea || !tarea.nombre.trim()) return null;
+
+    const clave = claveNombre(tarea.nombre);
+
+    for (const g of fuentesCopia) {
+      if (g.sesion.id === sesion?.id) continue;
+
+      const t = g.tareas.find((x) => claveNombre(x.nombre) === clave);
+
+      if (t) return { sesion: g.sesion, tarea: t };
+    }
+
+    return null;
+  })();
+
+  const fechaCorta = (s: SesionEquipos) => {
+    const dia = s.fecha ? new Date(`${s.fecha}T12:00:00`) : new Date(s.creadaEn);
+
+    return Number.isNaN(dia.getTime()) ? s.titulo || "Sesión" : dia.toLocaleDateString("es-ES", { day: "numeric", month: "short" });
+  };
+
+  const copiaDe = (origenSesion: SesionEquipos, origen: TareaEquipos) => {
+    if (!sesion || fase === "cambio") return;
+
+    const { tarea: nueva, casados } = copiaRepartoDe(tarea ?? origen, sesion.jugadores, origen, origenSesion.jugadores);
+
+    cambiaTarea((t) => ({ ...nueva, id: t.id, nombre: t.nombre, plan: t.plan, reglas: t.reglas }));
+
+    const faltan = sesion.jugadores.filter((j) => !j.baja).length - casados;
+
+    toast.success(`Reparto de «${origen.nombre}»${origenSesion.id === sesion.id ? "" : ` (${fechaCorta(origenSesion)})`} copiado`, {
+      description: `${casados} colocados como entonces${faltan > 0 ? `; ${faltan} ${faltan === 1 ? "queda" : "quedan"} sin colocar: «Completar» los mete en el equipo más corto` : ""}.`,
+      action: { label: "Deshacer", onClick: deshaz },
+    });
+  };
+
+  /*
+  | ATAJOS SIN NADIE ELEGIDO: P propone, ← → cambian de tarea, N tarea nueva,
+  | ? la chuleta. Los manejadores viven en una referencia que se pone al día
+  | tras cada pintado, para no volver a enganchar el oyente en cada cambio.
+  */
+  const [chuleta, setChuleta] = useState(false);
+  const atajos = useRef<{ propon: () => void; ir: (d: number) => void; nueva: () => void }>({ propon: () => {}, ir: () => {}, nueva: () => {} });
+
+  useEffect(() => {
+    atajos.current = {
+      propon,
+      ir: (d) => {
+        if (!sesion) return;
+        const i = activa + d;
+        if (i >= 0 && i < sesion.tareas.length) irATarea(i);
+      },
+      nueva: anadeTarea,
+    };
+  });
+
+  useEffect(() => {
+    if (elegido || presentando || dialogo) return;
+
+    const tecla = (e: KeyboardEvent) => {
+      const objetivo = e.target as HTMLElement | null;
+
+      if (
+        objetivo instanceof HTMLInputElement ||
+        objetivo instanceof HTMLTextAreaElement ||
+        objetivo instanceof HTMLSelectElement ||
+        objetivo?.isContentEditable ||
+        e.ctrlKey ||
+        e.metaKey ||
+        e.altKey
+      ) {
+        return;
+      }
+
+      const k = e.key.toLowerCase();
+
+      if (k === "p") atajos.current.propon();
+      else if (e.key === "ArrowRight") atajos.current.ir(1);
+      else if (e.key === "ArrowLeft") atajos.current.ir(-1);
+      else if (k === "n") atajos.current.nueva();
+      else if (e.key === "?") setChuleta((v) => !v);
+      else if (e.key === "Escape") setChuleta(false);
+      else return;
+
+      e.preventDefault();
+    };
+
+    window.addEventListener("keydown", tecla);
+
+    return () => window.removeEventListener("keydown", tecla);
+  }, [elegido, presentando, dialogo]);
+
   const [refPrevia, anchoPrevia] = useAncho<HTMLDivElement>();
 
   const disponibles = sesion?.jugadores.filter((j) => !j.baja).length ?? 0;
@@ -2496,13 +2703,46 @@ export default function JugadoresSesionPage() {
                   </select>
                 </label>
 
-                <span className="text-[12px] text-white/45">
-                  <Users size={12} className="mr-1 inline" />
-                  {disponibles} disponibles
-                  {bajas.length ? ` · ${bajas.length} de baja` : ""}
-                </span>
+                {/* Las cifras del día en grande (02/11/2026): quién está, quién no y cuántas tareas están listas. */}
+                <div className="flex min-w-0 flex-wrap items-stretch gap-1.5" role="group" aria-label="El día en cifras">
+                  <span className="js-cifra flex items-baseline gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1">
+                    <Users size={12} className="self-center text-[#C8A96B]" />
+                    <b className="js-num text-[20px] leading-none text-white">{disponibles}</b>
+                    <span className="text-[10px] uppercase tracking-[0.14em] text-white/50">disponibles</span>
+                  </span>
+                  {bajas.length > 0 && (
+                    <span
+                      className="js-cifra flex items-baseline gap-1.5 rounded-xl border border-red-300/25 bg-red-500/[0.06] px-3 py-1"
+                      title={bajas.map((j) => `${j.nombre}${j.baja ? ` (${j.baja.toLowerCase()})` : ""}`).join("\n")}
+                    >
+                      <b className="js-num text-[20px] leading-none text-red-200">{bajas.length}</b>
+                      <span className="text-[10px] uppercase tracking-[0.14em] text-red-200/70">{bajas.length === 1 ? "baja" : "bajas"}</span>
+                    </span>
+                  )}
+                  {sesion.tareas.length > 0 &&
+                    (() => {
+                      const listas = estadoTareas.filter((a) => tareaLista(a)).length;
+                      const pct = Math.round((listas / sesion.tareas.length) * 100);
+
+                      return (
+                        <span className="js-cifra flex flex-col justify-center gap-1 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1" title="Tareas sin nada que corregir">
+                          <span className="flex items-baseline gap-1.5">
+                            <b className={`js-num text-[20px] leading-none ${listas === sesion.tareas.length ? "text-emerald-300" : "text-white"}`}>
+                              {listas}/{sesion.tareas.length}
+                            </b>
+                            <span className="text-[10px] uppercase tracking-[0.14em] text-white/50">tareas listas</span>
+                          </span>
+                          <span className="block h-1 w-full overflow-hidden rounded-full bg-white/10">
+                            <span className="js-barra block h-full rounded-full bg-[#C8A96B]" style={{ width: `${pct}%` }} />
+                          </span>
+                        </span>
+                      );
+                    })()}
+                </div>
 
                 <span className="flex-1" />
+
+                <Button icon={Keyboard} onClick={() => setChuleta(true)} title="Atajos de teclado (?)" aria-label="Atajos de teclado" />
 
                 <Button icon={Undo2} disabled={pasos.atras === 0} onClick={deshaz} title="Deshacer el último cambio (Ctrl+Z)">
                   Deshacer
@@ -2787,6 +3027,93 @@ export default function JugadoresSesionPage() {
                   {/* ================= EDITOR ================= */}
                   {vista === "equipos" && (
                   <div className="flex min-w-0 flex-col gap-4">
+                    {/*
+                    | --- ir rápido (02/11/2026) ---
+                    | Las formas de tarea de siempre en un toque (equipos, comodines y
+                    | propuesta a la vez) y el reparto de otra tarea, de hoy o de otro día,
+                    | casado por nombre.
+                    */}
+                    {fase === "inicio" && (
+                      <div className="js-rapido flex min-w-0 flex-col gap-2.5 rounded-2xl border border-[#C8A96B]/25 bg-gradient-to-r from-[#C8A96B]/[0.08] via-white/[0.02] to-transparent p-3">
+                        <div className="flex min-w-0 flex-wrap items-center gap-2">
+                          <span className="flex shrink-0 items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-[#C8A96B]">
+                            <Zap size={13} /> En un toque
+                          </span>
+                          <div className="flex min-w-0 flex-wrap gap-1.5">
+                            {FORMATOS_RAPIDOS.map((f) => {
+                              const actual = tarea.equipos.length === f.equipos && tarea.comodines === f.comodines;
+
+                              return (
+                                <button
+                                  key={f.clave}
+                                  type="button"
+                                  onClick={() => aplicaFormato(f)}
+                                  title={`${f.detalle}: pone ${f.equipos} equipos${f.comodines ? ` y ${f.comodines} ${f.comodines === 1 ? "comodín" : "comodines"}` : ""} y propone el reparto`}
+                                  className={`js-formato group flex items-center gap-2 rounded-xl border px-2.5 py-1.5 text-left transition ${
+                                    actual ? "border-[#C8A96B] bg-[#C8A96B]/15 text-white" : "border-white/10 bg-white/[0.03] text-white/75 hover:border-[#C8A96B]/60 hover:text-white"
+                                  }`}
+                                >
+                                  <span className="flex shrink-0 -space-x-1.5" aria-hidden>
+                                    {Array.from({ length: f.equipos }, (_, i) => (
+                                      <Shirt key={i} size={13} strokeWidth={1.5} style={{ color: "rgba(0,0,0,0.4)", fill: tarea.equipos[i]?.color ?? COLORES[i % COLORES.length].valor }} />
+                                    ))}
+                                    {f.comodines > 0 && <Shirt size={13} strokeWidth={1.5} style={{ color: "rgba(0,0,0,0.4)", fill: tarea.colorComodin }} />}
+                                  </span>
+                                  <span className="text-[12px] font-semibold uppercase tracking-wide">{f.rotulo}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {(ultimaVez || fuentesCopia.length > 0) && (
+                          <div className="flex min-w-0 flex-wrap items-center gap-2">
+                            <span className="flex shrink-0 items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-white/50">
+                              <History size={13} /> Repetir reparto
+                            </span>
+                            {ultimaVez && (
+                              <Button
+                                icon={History}
+                                onClick={() => copiaDe(ultimaVez.sesion, ultimaVez.tarea)}
+                                title={`Los equipos de «${ultimaVez.tarea.nombre}» del ${fechaCorta(ultimaVez.sesion)}, casados por nombre`}
+                              >
+                                Como el {fechaCorta(ultimaVez.sesion)}
+                              </Button>
+                            )}
+                            {fuentesCopia.length > 0 && (
+                              <label className="min-w-0">
+                                <span className="sr-only">Copiar el reparto de otra tarea</span>
+                                <select
+                                  value=""
+                                  onChange={(e) => {
+                                    const [sid, tid] = e.target.value.split("::");
+                                    const g = fuentesCopia.find((x) => x.sesion.id === sid);
+                                    const t = g?.tareas.find((x) => x.id === tid);
+                                    if (g && t) copiaDe(g.sesion, t);
+                                  }}
+                                  className="max-w-[280px] truncate rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[12px] font-semibold text-white/80 outline-none focus:border-[#C8A96B]/50"
+                                >
+                                  <option value="" className="bg-[#11161C]">
+                                    Copiar de otra tarea…
+                                  </option>
+                                  {fuentesCopia.map((g) => (
+                                    <optgroup key={g.sesion.id} label={g.sesion.id === sesion.id ? "Hoy" : `${g.sesion.titulo || "Sesión"} · ${fechaCorta(g.sesion)}`} className="bg-[#11161C]">
+                                      {g.tareas.map((t) => (
+                                        <option key={t.id} value={`${g.sesion.id}::${t.id}`} className="bg-[#11161C]">
+                                          {t.nombre} · {t.equipos.length} {t.equipos.length === 1 ? "equipo" : "equipos"}
+                                          {t.comodines ? ` + ${t.comodines}` : ""}
+                                        </option>
+                                      ))}
+                                    </optgroup>
+                                  ))}
+                                </select>
+                              </label>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {/* --- configuración de la tarea --- */}
                     <div className="flex min-w-0 flex-wrap items-end gap-x-5 gap-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                       <label className="block min-w-[200px] flex-1">
@@ -3000,15 +3327,8 @@ export default function JugadoresSesionPage() {
                         </Button>
                         <Button
                           icon={Shuffle}
-                          onClick={() => {
-                            /* Sin preguntar (21/10/2026): con «Deshacer» a mano en el aviso, pulsar otra vez es pedir otra propuesta. */
-                            cambiaTarea((t) => sorteaReparto(t, sesion.jugadores, opcionesReparto));
-                            toast.success(enTarea > 0 ? "Otra propuesta de equipos" : "Equipos propuestos", {
-                              description: `Parejos por puesto (por su demarcación; el nivel no se mide): porteros separados, laterales, centrales, medios y puntas repartidos.${sinDemarcacion.length ? ` ${sinDemarcacion.length} sin demarcación van donde haya sitio.` : ""} Pulsa otra vez para otra.`,
-                              action: enTarea > 0 ? { label: "Deshacer", onClick: deshaz } : undefined,
-                            });
-                          }}
-                          title="Equipos parejos por puesto con todos los que hacen la tarea; cada vez, una propuesta distinta"
+                          onClick={propon}
+                          title="Equipos parejos por puesto con todos los que hacen la tarea; cada vez, una propuesta distinta (P)"
                         >
                           {enTarea > 0 ? "Otra propuesta" : "Proponer equipos"}
                         </Button>
@@ -3198,6 +3518,8 @@ export default function JugadoresSesionPage() {
                           color={equipo.color}
                           resumen={<ResumenPuestos jugadores={reparto.porEquipo[equipo.id] ?? []} puestoDe={puestoDe} color={equipo.color} />}
                           cuenta={reparto.porEquipo[equipo.id]?.length ?? 0}
+                          /* Dos o más por debajo del equipo más largo: la caja avisa en ámbar (02/11/2026). */
+                          alerta={Math.max(...tarea.equipos.map((x) => reparto.porEquipo[x.id]?.length ?? 0)) - (reparto.porEquipo[equipo.id]?.length ?? 0) >= 2}
                           activa={Boolean(elegido)}
                           atajo={String(i + 1)}
                           onSoltar={() => suelta(equipo.id)}
@@ -3746,6 +4068,60 @@ export default function JugadoresSesionPage() {
           <LecturaLista texto={texto} sesion={dialogo === "lista" ? sesion : null} />
         </Dialog>
       )}
+
+      {/* ---------------- ATAJOS DE TECLADO (02/11/2026) ---------------- */}
+
+      {chuleta && (
+        <Dialog title="Atajos de teclado" subtitle="Para hacer los equipos sin soltar el teclado" onClose={() => setChuleta(false)}>
+          <div className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
+            {[
+              { teclas: ["P"], que: "Proponer equipos (otra vez: otra propuesta)" },
+              { teclas: ["←", "→"], que: "Tarea anterior o siguiente" },
+              { teclas: ["N"], que: "Tarea nueva con los mismos petos" },
+              { teclas: ["Ctrl", "Z"], que: "Deshacer" },
+              { teclas: ["Ctrl", "Y"], que: "Rehacer" },
+              { teclas: ["Clic"], que: "Elegir a un jugador" },
+              { teclas: ["1", "…", "6"], que: "Con uno elegido: a ese equipo" },
+              { teclas: ["C"], que: "Con uno elegido: comodín" },
+              { teclas: ["F"], que: "Con uno elegido: no hace la tarea" },
+              { teclas: ["0"], que: "Con uno elegido: sin colocar" },
+              { teclas: ["Esc"], que: "Soltar lo elegido o cerrar" },
+              { teclas: ["?"], que: "Abrir o cerrar esta chuleta" },
+            ].map((a) => (
+              <div key={a.que} className="flex items-center gap-3 border-b border-white/[0.06] py-1.5">
+                <span className="flex shrink-0 gap-1">
+                  {a.teclas.map((t) => (
+                    <kbd key={t} className="min-w-7 rounded-md border border-white/20 bg-white/[0.06] px-1.5 py-0.5 text-center text-[11px] font-bold text-[#E9D5A8]">
+                      {t}
+                    </kbd>
+                  ))}
+                </span>
+                <span className="text-[12px] text-white/75">{a.que}</span>
+              </div>
+            ))}
+          </div>
+        </Dialog>
+      )}
+
+      {/*
+      | Micro-animaciones (02/11/2026): la ficha entra con un pequeño salto al
+      | cambiar de equipo, la caja donde se va a soltar late en oro y las cifras
+      | del día suben. Nada de esto con «reducir movimiento».
+      */}
+      <style>{`
+        .js-num { font-family: var(--fuente-sesion), "Barlow Condensed", sans-serif; font-weight: 700; letter-spacing: 0.01em; }
+        @media (prefers-reduced-motion: no-preference) {
+          .js-ficha { animation: js-entra 220ms cubic-bezier(.2,.8,.2,1) both; }
+          .js-ficha:hover { transform: translateY(-1px); }
+          .js-encima { animation: js-late 900ms ease-in-out infinite; }
+          .js-cifra { animation: js-sube 380ms cubic-bezier(.2,.8,.2,1) both; }
+          .js-barra { transition: width 500ms cubic-bezier(.2,.8,.2,1); }
+          .js-formato:active { transform: scale(0.97); }
+        }
+        @keyframes js-entra { from { opacity: 0; transform: translateY(4px) scale(0.96); } to { opacity: 1; transform: none; } }
+        @keyframes js-late { 0%, 100% { box-shadow: 0 0 0 0 rgba(200,169,107,0.0); } 50% { box-shadow: 0 0 0 4px rgba(200,169,107,0.28); } }
+        @keyframes js-sube { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+      `}</style>
 
       {/* ---------------- PRESENTACIÓN ---------------- */}
 
