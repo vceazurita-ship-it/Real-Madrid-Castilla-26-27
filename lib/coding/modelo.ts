@@ -559,7 +559,7 @@ export function claveSesion(ambito: AmbitoCoding, refId: string) {
 export function apodoCoding(valor: unknown) {
   const limpio = String(valor ?? "")
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
@@ -1075,7 +1075,7 @@ export type FiltroClips = {
 
 /** Sin tildes ni mayúsculas, para buscar. */
 const llanoParaBuscar = (texto: string) =>
-  texto.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+  texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 
 /** ¿El clip contiene todas las palabras buscadas, en cualquier orden? */
 export function clipContieneTexto(clip: ClipCoding, texto: string) {

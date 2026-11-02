@@ -131,7 +131,7 @@ const FASE_EN_CONSIGNA = /^(?:fase\s*(\d)|f\s*(\d)|(\d)\.?\s*[ªa]?\s*fase)\s*[:
  */
 export function textosDelVideo(slide: Pick<SlidePizarra, "notas" | "guion"> & { titulo?: string }): TextosVideo {
   /* Lo que repite el título (o una de sus partes, «CÓRNER OFENSIVO · Segundo córner») no es la consigna. */
-  const llano = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9ñ]+/g, " ").trim();
+  const llano = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9ñ]+/g, " ").trim();
   const delTitulo = new Set([slide.titulo ?? "", ...(slide.titulo ?? "").split("·")].map(llano).filter(Boolean));
   const util = (t: string) => Boolean(t) && !delTitulo.has(llano(t));
   const fases: Record<number, string> = {};
@@ -335,7 +335,7 @@ const coma = (numero: number, decimales = 1) => numero.toFixed(decimales).replac
 export function nombreDelVideo(titulo: string, jornada?: string) {
   const limpio = titulo
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^\w\s.-]/g, " ")
     .replace(/\s+/g, " ")
     .trim()

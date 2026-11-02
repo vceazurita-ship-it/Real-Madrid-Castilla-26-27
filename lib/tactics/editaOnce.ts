@@ -28,7 +28,7 @@ import type { TacticScene, TacticToken, TacticsDoc } from "./types";
 export const clave = (nombre?: string) =>
   String(nombre ?? "")
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ")
     .trim();

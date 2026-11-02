@@ -42,7 +42,7 @@ import { esCompeticion, plural, type ReferenciaMd } from "./semana";
 export const normaliza = (texto: string) =>
   (texto || "")
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/\s+/g, " ")
     .trim();

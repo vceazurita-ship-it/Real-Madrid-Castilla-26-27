@@ -50,7 +50,7 @@ export type ConclusionResumen = {
 const sinTildes = (t: string) =>
   t
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
 
 const COLOR_TONO = { bien: MEJOR, mal: PEOR, neutro: ORO } as const;
