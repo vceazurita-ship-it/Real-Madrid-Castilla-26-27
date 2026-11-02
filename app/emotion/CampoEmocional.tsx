@@ -394,7 +394,7 @@ export function CampoEmocional({
               role="tab"
               aria-selected={vista === clave}
               onClick={() => setVista(clave)}
-              className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${vista === clave ? "bg-[#36DAFF] text-[#031018]" : "text-white/55 hover:text-white"}`}
+              className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${vista === clave ? "bg-[#C8A96B] text-[#0B0F14]" : "text-white/55 hover:text-white"}`}
             >
               {texto}
             </button>
@@ -703,7 +703,7 @@ function RadaresEnCampo({
                 className="rounded-full px-2.5 py-1.5 text-[11px] font-semibold transition"
                 style={
                   visible === i
-                    ? { background: "#36DAFF", color: "#031018" }
+                    ? { background: "#C8A96B", color: "#0B0F14" }
                     : { border: "1px solid rgba(98,232,255,.3)", color: "rgba(226,246,255,.75)" }
                 }
               >

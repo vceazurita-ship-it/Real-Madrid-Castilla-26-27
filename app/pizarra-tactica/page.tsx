@@ -407,22 +407,19 @@ export default function PizarraTacticaPage() {
           <div
             className={cn(
               "space-y-4",
-              sinCromo ? "p-2" : "px-3 py-4 sm:px-6 sm:py-5 lg:px-10",
+              sinCromo ? "p-2" : "px-4 py-6 sm:px-6 lg:px-10",
             )}
           >
             {!sinCromo && (
             <header>
-              <p className="text-[10px] uppercase tracking-[0.35em] text-[#C8A96B]">
+              <p className="text-[10px] uppercase tracking-[0.32em] text-[#C8A96B] sm:text-[11px]">
                 RMCF Castilla · Metodología
               </p>
 
-              <div className="mt-2 flex flex-wrap items-center gap-4">
-                <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-                  Pizarra Táctica
-                </h1>
-
-                <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/40 via-white/10 to-transparent" />
-              </div>
+              {/* Misma cabecera que el resto de pantallas (02/11/2026, revisión de diseño). */}
+              <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
+                Pizarra Táctica
+              </h1>
 
               {/* Una línea (21/10/2026): eran tres y empujaban el campo fuera de la pantalla. */}
               <p className="mt-2 max-w-3xl text-sm leading-relaxed text-white/55">

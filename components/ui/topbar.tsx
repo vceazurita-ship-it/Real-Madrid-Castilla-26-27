@@ -60,20 +60,7 @@ export function Topbar() {
           {/* De cuándo son los datos que se ven, y «Recargar» cuando hay nuevos. */}
           <DatosEstado />
 
-          {/*
-            La temporada no cabe en un teléfono y tampoco hace falta: no cambia
-            en todo el año y está escrita en la portada. Desde el portátil para
-            arriba vuelve (en la tableta se comía «Plataforma Integral», 02/11/2026).
-          */}
-          <div className="hidden rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2 lg:block md:px-4 md:py-3">
-            <p className="text-[9px] uppercase tracking-[0.22em] text-gray-500 md:text-[10px]">
-              Temporada
-            </p>
-
-            <p className="mt-1 whitespace-nowrap text-sm font-medium text-white">
-              2026 — 2027
-            </p>
-          </div>
+          {/* La caja «Temporada 2026 — 2027» se quitó el 02/11/2026 (revisión de diseño): repetía la de la portada y no cambia en todo el año. */}
         </div>
       </div>
 

@@ -2972,7 +2972,8 @@ export default function JugadoresSesionPage() {
 
             {sesion && (
               <div className="mt-5 flex flex-wrap items-center gap-2">
-                <label className="min-w-0">
+                {/* A todo el ancho en el móvil (02/11/2026, revisión de diseño): se quedaba a 285 px y lo de debajo llegaba al borde. */}
+                <label className="w-full min-w-0 sm:w-auto">
                   <span className="sr-only">Sesión</span>
                   <select
                     value={sesion.id}
@@ -2982,7 +2983,7 @@ export default function JugadoresSesionPage() {
                       irATarea(0);
                       setElegido(null);
                     }}
-                    className="max-w-[320px] truncate rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-sm font-semibold text-white outline-none focus:border-[#C8A96B]/50"
+                    className="w-full truncate rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-sm font-semibold sm:w-auto sm:max-w-[320px] text-white outline-none focus:border-[#C8A96B]/50"
                   >
                     {gruposSesiones.map((grupo) => {
                       const opciones = grupo.sesiones.map(({ s }) => {

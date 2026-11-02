@@ -96,7 +96,7 @@ export function SelloJornada({ alcances, nota }: { alcances: Alcance[]; nota?: s
                     <span className="text-white/55">{hoy}</span>
                     {aplazados ? (
                       <details className="basis-full text-white/55">
-                        <summary className="cursor-pointer select-none text-[11px] underline">ver aplazados</summary>
+                        <summary className="tactil-libre cursor-pointer select-none text-[11px] underline">ver aplazados</summary>
                         <p className="mt-1">{aplazados}</p>
                       </details>
                     ) : null}
