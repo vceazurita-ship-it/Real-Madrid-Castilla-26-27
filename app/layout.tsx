@@ -137,7 +137,7 @@ export default function RootLayout({
             <TrabajoPdfs />
             {/* Y las demás exportaciones de la pizarra de ABP, que tampoco se cortan al navegar (31/10/2026). */}
             <TrabajoExportar />
-            {/* Y los vídeos de los informes PRE y POST del partido y de ABP (02/11/2026). */}
+            {/* Y los vídeos de los informes PRE y POST del partido y de ABP, y sus envíos por correo o WhatsApp (02/11/2026). */}
             <TrabajoInformes />
             {/* Los encargos de Ajustes avisan al terminar, estés donde estés (29/10/2026). */}
             <AvisoEncargos />

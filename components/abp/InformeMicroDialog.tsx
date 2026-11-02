@@ -18,7 +18,7 @@
  *   microciclos y para cualquiera del cuerpo técnico.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Loader2, Mail, RefreshCw, Send } from "lucide-react";
 import { toast } from "sonner";
 
@@ -27,6 +27,7 @@ import { bloqueVideoHtml } from "@/lib/video-informe/portada-video";
 import { VIDEO_JUGADORES_KEY, eligeVideoJugadores, normalizaVideosJugadores, type VideoJugadores } from "@/lib/abp/video-jugadores";
 import { puedeMontarVideo, type VideoMontado } from "@/lib/video-informe/monta";
 import { trabajoVideo } from "@/lib/video-informe/trabajo-video";
+import { trabajoEnvios, type ResultadoEnvio } from "@/lib/informes/trabajo-envios";
 import { SEGUNDOS_ENTRADA_ABP, entradaDeAbp, type CortePartido } from "@/lib/video-informe/guion";
 import { guionPostDeAbp, topePostAbp } from "@/lib/video-informe/guion-abp-post";
 import { jugadasDelTablero, pideVideoPostAbp, type VideoPostAbp } from "@/components/abp/jugadas-del-video";
@@ -47,7 +48,6 @@ import { pizarraParaInforme } from "@/lib/abp/pizarra-para-informe";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { useAgendaEnvios } from "@/hooks/useAgendaEnvios";
 import { Destinatarios } from "@/components/correo/Destinatarios";
-import { PanelWhatsapp } from "@/components/correo/PanelWhatsapp";
 import { completoEnHojas } from "@/lib/informe-partido/pdf-completo";
 import { informeUnicoPdf, paginaDeEnlaces } from "@/lib/informe-partido/pdf-unico";
 import { mensajeWhatsapp, telefonosDe, type CanalEnvio, type MensajeWhatsapp } from "@/lib/correo/whatsapp";
@@ -976,12 +976,19 @@ export function InformeMicroDialog({
   /* Por WhatsApp (15/10/2026): se prepara igual y, en vez del correo, sale el mensaje con los enlaces. */
   const canal: CanalEnvio = ajustes.canal ?? "correo";
   const telefonosWa = telefonosDe(ajustes.telefonos ?? "");
-  const [mensajesWa, setMensajesWa] = useState<MensajeWhatsapp[]>([]);
-  const [pdfWa, setPdfWa] = useState<File | null>(null);
   const { apunta } = useAgendaEnvios();
 
+  /*
+  | Qué envío es (02/11/2026): el mismo informe por el mismo canal no se lanza
+  | dos veces a la vez. Si se cierra y se vuelve a abrir con el envío en
+  | marcha, el botón sigue diciendo que se está enviando.
+  */
+  const claveEnvioAbp = `abp|${informe.titulo}|${informe.modo}|${canal}`;
+  const enviandoFuera = useSyncExternalStore(trabajoEnvios.suscribe, () => trabajoEnvios.enMarcha(claveEnvioAbp), () => false);
+  const ocupado = enviando || enviandoFuera;
+
   const envia = async () => {
-    if (enviando) return;
+    if (ocupado) return;
 
     const para = ajustes.destinatarios.trim();
 
@@ -995,12 +1002,21 @@ export function InformeMicroDialog({
       return;
     }
 
-    setMensajesWa([]);
+    /*
+    | EN SEGUNDO PLANO (02/11/2026): el envío entero —esperar el vídeo, armar
+    | y subir el PDF, mandar el correo— pasa a `lib/informes/trabajo-envios.ts`.
+    | Se puede cerrar el diálogo o cambiar de pantalla; el panel de los
+    | informes dice por dónde va y, al acabar, sale el aviso. Dos iguales a la
+    | vez, no.
+    */
+    const claveEnvio = claveEnvioAbp;
 
-    setEnviando(true);
-    setFallo("");
+    if (trabajoEnvios.enMarcha(claveEnvio)) {
+      toast.message("Este informe ya se está enviando", { description: "Abajo a la izquierda ves por dónde va." });
+      return;
+    }
 
-    try {
+    const prepara =async (avance: (texto: string) => void) => {
       /*
       | El correo pasa por una función de Vercel, que no admite peticiones de
       | más de ~4,5 MB. Las páginas de los PDF del rival son lo que más pesa:
@@ -1059,14 +1075,14 @@ export function InformeMicroDialog({
       if (claveMontaje && (esPost || (conVideo && videoJugadores))) {
         const enCurso = montaje.current?.clave === claveMontaje ? montaje.current.promesa : arrancaMontaje(montaje, claveMontaje, pideMontaje(informe), setEstadoMontaje);
 
-        setPasoVideo("terminando el montaje…");
+        avance("terminando el montaje…");
 
         const montado = await enCurso;
 
         if (montado) {
           try {
             const nombre = `${paraEnviar.titulo} - Balón parado${esPost ? " post" : ""} en vídeo.mp4`.replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ");
-            const subido = await subeAdjunto(new File([montado.blob], nombre, { type: "video/mp4" }), (f) => setPasoVideo(`subiendo ${Math.round(f * 100)} %`));
+            const subido = await subeAdjunto(new File([montado.blob], nombre, { type: "video/mp4" }), (f) => avance(`subiendo ${Math.round(f * 100)} %`));
 
             infoVideo = { url: subido.url, segundos: montado.segundos, poster: montado.poster ?? null, rotulo: esPost ? "Ver el vídeo post de balón parado" : "Ver nuestro vídeo de balón parado" };
           } catch (error) {
@@ -1079,7 +1095,7 @@ export function InformeMicroDialog({
       }
 
       if ((esPost || conVideo) && videoJugadores && !infoVideo) {
-        setPasoVideo("preparando el enlace…");
+        avance("preparando el enlace…");
 
         const poster = videoJugadores.poster
           ? await fetch(videoJugadores.poster)
@@ -1098,7 +1114,7 @@ export function InformeMicroDialog({
           : null;
 
         infoVideo = { url: videoJugadores.url, segundos: videoJugadores.segundos, poster, rotulo: "Ver nuestro vídeo de balón parado" };
-        setPasoVideo("");
+        avance("");
       }
 
       /*
@@ -1111,9 +1127,9 @@ export function InformeMicroDialog({
       let enlacePdf: { nombre: string; url: string } | null = null;
 
       try {
-        setPasoVideo("armando el PDF…");
+        avance("armando el PDF…");
 
-        const hojas = await completoEnHojas(informeHtml(paraEnviar), (h, t) => setPasoVideo(`PDF ${h}/${t}…`), { titulo: paraEnviar.titulo });
+        const hojas = await completoEnHojas(informeHtml(paraEnviar), (h, t) => avance(`PDF ${h}/${t}…`), { titulo: paraEnviar.titulo });
         const portada = await paginaDeEnlaces({
           titulo: paraEnviar.titulo,
           video: infoVideo,
@@ -1130,27 +1146,54 @@ export function InformeMicroDialog({
 
         pdf = new File([blob], nombrePdf, { type: "application/pdf" });
 
-        const subido = await subeAdjunto(pdf, (f) => setPasoVideo(`subiendo el PDF ${Math.round(f * 100)} %`));
+        const subido = await subeAdjunto(pdf, (f) => avance(`subiendo el PDF ${Math.round(f * 100)} %`));
 
         /* El correo adjunta el PDF desde el almacén; WhatsApp lleva el enlace con la tarjeta (escudos e icono de PDF). */
-        setPasoVideo("tarjeta del enlace…");
+        avance("tarjeta del enlace…");
         enlacePdf = { nombre: nombrePdf, url: await enlaceConTarjeta(subido, { ...partido, titulo, detalle: `Balón parado · ${paraEnviar.modoRotulo}`, fuente: barlowCondensed.style.fontFamily }) };
         adjuntosUrl.unshift({ nombre: nombrePdf, url: subido.url, tipo: "application/pdf" });
       } catch (error) {
         console.warn("[abp] el PDF del informe no ha salido", error);
         toast.message("El correo va sin el PDF del informe", { description: error instanceof Error ? error.message : "No se ha podido armar." });
       } finally {
-        setPasoVideo("");
+        avance("");
       }
+
+      return { paraEnviar, adjuntosUrl, infoVideo, pdf, enlacePdf };
+    };
+
+    /* Lo ya montado, armado y subido se guarda: «Reintentar» sólo vuelve a mandar (02/11/2026). */
+    let preparado: ReturnType<typeof prepara> | null = null;
+
+    const corre = async (pasoTrabajo: (texto: string) => void): Promise<ResultadoEnvio> => {
+      const avance = (texto: string) => {
+        setPasoVideo(texto);
+        if (texto) pasoTrabajo(texto);
+      };
+
+      setEnviando(true);
+      setFallo("");
+
+    try {
+      const listo = (preparado ??= prepara(avance).catch((error: unknown) => {
+        preparado = null;
+        throw error;
+      }));
+      const { paraEnviar, adjuntosUrl, infoVideo, pdf, enlacePdf } = await listo;
+
+      pasoTrabajo(canal === "whatsapp" ? "escribiendo el mensaje…" : "mandando el correo…");
 
       /*
       | Por WhatsApp (18/10/2026): nada de informe en texto —quedaba pobre—.
       | Mensaje corto con el PDF y el vídeo, y el PDF se puede compartir como
       | archivo (el panel lo ofrece si el aparato deja).
+      |
+      | Abrir wa.me necesita el clic de la persona (02/11/2026): el mensaje,
+      | con sus enlaces ya subidos, queda en el panel de los informes y el
+      | aviso lleva «Abrir WhatsApp».
       */
       if (canal === "whatsapp") {
-        setPdfWa(pdf);
-        setMensajesWa([
+        const mensajes: MensajeWhatsapp[] = [
           {
             titulo: "Informe de balón parado",
             /* Formato corto (20/10/2026, equipo de expertos): titular, la idea
@@ -1170,11 +1213,14 @@ export function InformeMicroDialog({
               documentosPrimero: true,
             }),
           },
-        ]);
+        ];
         apunta("whatsapp", telefonosWa.buenos);
-        toast.success("Listo para WhatsApp", { description: "Debajo de los destinatarios: el PDF para compartir y un botón por persona con los enlaces." });
 
-        return;
+        return {
+          titulo: "Informe de balón parado listo para WhatsApp",
+          texto: "El mensaje va escrito con el PDF y el vídeo enlazados.",
+          whatsapp: { mensajes, telefonos: telefonosWa.buenos, archivo: pdf },
+        };
       }
 
       const respuesta = await fetch("/api/abp/informe", {
@@ -1229,28 +1275,32 @@ export function InformeMicroDialog({
       /* A quién se ha mandado, a la agenda: la próxima vez se propone. */
       apunta("correo", datosRespuesta.para ?? para.split(/[\s,;]+/).filter(Boolean));
 
-      toast.success(
-        `Informe enviado a ${cuantos} dirección${cuantos === 1 ? "" : "es"}`,
-        {
-          description: datosRespuesta.cuenta
-            ? `Desde ${datosRespuesta.cuenta}`
-            : undefined,
-        },
-      );
+      return {
+        titulo: `Informe de balón parado enviado a ${cuantos} destinatario${cuantos === 1 ? "" : "s"}`,
+        texto: datosRespuesta.cuenta ? `${paraEnviar.asunto} · desde ${datosRespuesta.cuenta}` : paraEnviar.asunto,
+      };
     } catch (error) {
       const dice =
         error instanceof Error ? error.message : "No se ha podido enviar.";
 
+      /* El largo, con la dirección a la que hay que ir, se queda escrito
+         debajo del botón si el diálogo sigue abierto; el aviso y el panel
+         de los informes lo dicen estés donde estés (02/11/2026). */
       setFallo(dice);
 
-      /* El aviso corto avisa; el largo, con la dirección a la que hay que ir,
-         se queda escrito debajo del botón. */
-      toast.error("No se ha podido enviar el informe", {
-        description: "Debajo del botón está el motivo.",
-      });
+      throw error instanceof Error ? error : new Error(dice);
     } finally {
       setEnviando(false);
+      setPasoVideo("");
     }
+    };
+
+    trabajoEnvios.lanza({
+      clave: claveEnvio,
+      rotulo: `Informe de balón parado · ${informe.titulo} · ${informe.modoRotulo}`,
+      href: "/abp-microciclo",
+      ejecuta: corre,
+    });
   };
 
   /*
@@ -1350,7 +1400,7 @@ export function InformeMicroDialog({
               </p>
             ) : videoJugadores ? (
               <label className="flex cursor-pointer items-center gap-2 text-[11px] text-white/70" title={videoJugadores.nombre}>
-                <input type="checkbox" className="accent-[#C8A96B]" checked={conVideo} disabled={enviando} onChange={(e) => setConVideo(e.target.checked)} />
+                <input type="checkbox" className="accent-[#C8A96B]" checked={conVideo} disabled={ocupado} onChange={(e) => setConVideo(e.target.checked)} />
                 Incluir nuestro vídeo de la jornada · «{videoJugadores.nombre.replace(/\.[a-z0-9]+$/i, "")}» ({Math.floor(videoJugadores.segundos / 60)}:{String(videoJugadores.segundos % 60).padStart(2, "0")}), con la entrada del informe delante
               </label>
             ) : (
@@ -1369,6 +1419,10 @@ export function InformeMicroDialog({
                     : `Montando el vídeo mientras revisas (sigue aunque cierres) · ${estadoMontaje.texto}`}
               </p>
             ) : null}
+            {ocupado ? (
+              /* 02/11/2026: el envío ya no depende de esta ventana. */
+              <p className="text-[11px] text-[#C8A96B]">Puedes cerrar y seguir con otra cosa: se sigue enviando y te avisa al terminar.</p>
+            ) : null}
             {canal === "correo" ? (
               <p className="text-[11px] text-white/35">
                 Sale de la cuenta de Google del club, la misma que sube los vídeos
@@ -1382,10 +1436,10 @@ export function InformeMicroDialog({
 
             <Button
               tone="primary"
-              icon={enviando ? Loader2 : Send}
+              icon={ocupado ? Loader2 : Send}
               onClick={() => (informe?.avisos.length ? setAvisando(true) : void envia())}
               disabled={
-                enviando ||
+                ocupado ||
                 cargandoSeguimiento ||
                 cargandoComparativa ||
                 cargandoPropio ||
@@ -1394,7 +1448,7 @@ export function InformeMicroDialog({
                 pizarraInforme.cargando
               }
             >
-              {enviando ? (pasoVideo ? `Vídeo: ${pasoVideo}` : "Enviando…") : canal === "whatsapp" ? "Preparar WhatsApp" : "Enviar por correo"}
+              {ocupado ? (pasoVideo ? `Enviando · ${pasoVideo}` : "Enviando…") : canal === "whatsapp" ? "Preparar WhatsApp" : "Enviar por correo"}
             </Button>
           </div>
         </div>
@@ -1450,8 +1504,6 @@ export function InformeMicroDialog({
           telefonos={ajustes.telefonos ?? ""}
           onTelefonos={(telefonos) => setAjustes((a) => ({ ...a, telefonos }))}
         />
-
-        <PanelWhatsapp mensajes={mensajesWa} telefonos={telefonosWa.buenos} archivo={pdfWa} onCierra={() => setMensajesWa([])} />
 
         <p className="text-[11px] leading-relaxed text-white/35">
           Se guardan solos y valen para todos los microciclos; los de otras veces se proponen debajo.

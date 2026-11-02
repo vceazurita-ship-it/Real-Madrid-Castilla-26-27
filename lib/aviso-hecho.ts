@@ -22,6 +22,11 @@ export type AvisoHecho = {
   href?: string;
   /** Para no repetir el mismo aviso en dos pestañas. */
   clave?: string;
+  /**
+   * Un botón propio en vez de «Ver» (02/11/2026): «Reintentar» un envío que
+   * ha fallado o «Abrir WhatsApp» cuando ya están los enlaces.
+   */
+  accion?: { label: string; onClick: () => void };
 };
 
 const YA = "rmcf-avisado:";
@@ -62,7 +67,9 @@ export function avisaHecho(aviso: AvisoHecho) {
   (aviso.ok ? toast.success : toast.error)(aviso.titulo, {
     description: aviso.texto,
     duration: 15_000,
-    ...(aviso.href
+    ...(aviso.accion
+      ? { action: aviso.accion }
+      : aviso.href
       ? {
           action: {
             label: "Ver",
