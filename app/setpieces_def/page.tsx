@@ -28,6 +28,8 @@ import {
   type LectorAnalisis,
 } from "@/components/abp/AnalisisSeccion";
 import { hablado, type ClaveMetrica } from "@/lib/abp/analisis";
+import { lecturaRapida } from "@/lib/abp/lectura-rapida";
+import { LecturaRapida } from "@/components/abp/LecturaRapida";
 import ABPObjectiveFlow, {
   type ABPFlowCol,
 } from "@/components/abp/ABPObjectiveFlow";
@@ -2408,6 +2410,43 @@ const conclusiones = useMemo(() => {
   return [...frases.filter(Boolean).slice(0, 4), cierre].filter(Boolean);
 }, [filtered, comparables]);
 
+/* Las cuatro tarjetas de arriba (02/11/2026). Aquí el acierto es del rival
+   —gol u ocasión suya—, así que lo que «funciona» es lo que menos concede. */
+const lectura = useMemo(
+  () =>
+    lecturaRapida({
+      filas: filtered,
+      acierto: LECTOR.peligro,
+      mejorAlto: false,
+      jornada: LECTOR.jornada,
+      dimensiones: [
+        {
+          nombre: "zona de caída",
+          categoria: (r) => (esSuperioridad(r.zonaCaida) ? "" : r.zonaCaida),
+          rotulo: hablado,
+          entrenar: (v) => `Defender ${v}: marca, primer contacto y salida del portero`,
+        },
+        {
+          nombre: "tipo de envío",
+          categoria: (r) => r.tipoEnvio,
+          entrenar: (v) => `Envío ${v.toLowerCase()} del rival: orientación y ajuste de la línea`,
+        },
+        {
+          nombre: "tipo de carrera",
+          categoria: (r) => r.tipoCarrera,
+          entrenar: (v) => `Carrera ${v.toLowerCase()}: seguimiento del atacante hasta el remate`,
+        },
+        {
+          nombre: "perfil de golpeo",
+          categoria: (r) => r.perfilGolpeo,
+          entrenar: (v) => `Golpeo ${v.toLowerCase()}: colocación según la trayectoria`,
+        },
+        { nombre: "tipo de acción", categoria: (r) => r.tipoAccion, rotulo: hablado },
+      ],
+    }),
+  [filtered],
+);
+
 /*
 | El pie de lectura de cada sección.
 |
@@ -2600,6 +2639,7 @@ const pie = (
         title={PULSA}
         onClick={() => pulsa("rival", equipo)}
         className={`
+          min-h-9
           px-3
           py-1.5
           rounded-full
@@ -2736,6 +2776,13 @@ const pie = (
             </div>
 
             <div className={oculto("resumen")}>
+            <LecturaRapida
+              lectura={lectura}
+              unidad="acciones"
+              acierto="en gol u ocasión del rival"
+              ganancia={(k) => `${k === 1 ? "acción" : "acciones"} con gol u ocasión del rival menos si se defendiera como el resto`}
+              className="mt-6"
+            />
             {comparativa && (
     <ComparativaPartido
       partido={comparativa.partido}

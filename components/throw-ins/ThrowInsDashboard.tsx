@@ -38,6 +38,8 @@ import {
   type LectorAnalisis,
 } from "@/components/abp/AnalisisSeccion";
 import type { ClaveMetrica, Etiquetas } from "@/lib/abp/analisis";
+import { lecturaRapida } from "@/lib/abp/lectura-rapida";
+import { LecturaRapida } from "@/components/abp/LecturaRapida";
 import { ThrowInField } from "@/components/throw-ins/ThrowInField";
 import ThrowInZoneMap from "@/components/throw-ins/ThrowInZoneMap";
 import ThrowInFlow from "@/components/throw-ins/ThrowInFlow";
@@ -1372,6 +1374,41 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
     [mode],
   );
 
+  /*
+  | Las cuatro tarjetas de arriba (02/11/2026): qué funciona, qué falla y qué
+  | entrenar. En el saque de banda se juzga la retención —en la defensiva, la
+  | recuperación—, que es nuestra en las dos hojas y la que tiene muestra: la
+  | producción son dos o tres saques por partido y no da para cortar.
+  */
+  const lectura = useMemo(() => {
+    const dim = (key: string, nombre: string, entrenar: (valor: string) => string) => ({
+      nombre,
+      categoria: (row: RecordRow) => read(row, key),
+      rotulo: (valor: string) => nombreDe(key, valor),
+      entrenar,
+    });
+
+    return lecturaRapida({
+      filas: filtered,
+      acierto: (row) => esFavorable(parseResultado(read(row, "Resultado_Final"))),
+      mejorAlto: true,
+      jornada: (row) => parseJornada(read(row, "JORNADA")),
+      dimensiones: isOffensive
+        ? [
+            dim("Zona_Saque", "zona de saque", (v) => `Saques en ${v}: apoyos y desmarques para conservar`),
+            dim("Tipo_Envio", "tipo de envío", (v) => `${v[0]?.toUpperCase()}${v.slice(1)}: perfil del receptor y protección del balón`),
+            dim("Zona_Caida", "zona de caída", (v) => `Balón a ${v}: apoyo cercano y segunda jugada`),
+            dim("Receptor", "receptor", (v) => `${v[0]?.toUpperCase()}${v.slice(1)}: control orientado y pase de seguridad`),
+          ]
+        : [
+            dim("Zona_Saque", "zona de saque", (v) => `Saque rival en ${v}: marcas cercanas y vigilancia del pase atrás`),
+            dim("Tipo_Envio", "tipo de envío", (v) => `${v[0]?.toUpperCase()}${v.slice(1)} del rival: anticipación y duelo`),
+            dim("Zona_Caida", "zona de caída", (v) => `Balón a ${v}: anticipación y segunda jugada`),
+            dim("Receptor", "receptor", (v) => `${v[0]?.toUpperCase()}${v.slice(1)} del rival: presión al control`),
+          ],
+    });
+  }, [filtered, isOffensive]);
+
   const etiquetas = useMemo<Etiquetas>(
     () => ({
       peligro: isOffensive ? "Producción" : "Peligro concedido",
@@ -1738,6 +1775,18 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                 {/* Lo primero: si lo de este partido es lo de siempre o una
                     excepción. Va antes que los KPI, que son del filtro entero. */}
                 {/* En el móvil, las conclusiones antes que la tabla (30/10/2026, expertos). */}
+                <LecturaRapida
+                  lectura={lectura}
+                  unidad="saques"
+                  acierto={isOffensive ? "retenidos" : "recuperados"}
+                  ganancia={(k) =>
+                    isOffensive
+                      ? `${k === 1 ? "saque retenido" : "saques retenidos"} más si rindiera como el resto`
+                      : `${k === 1 ? "saque recuperado" : "saques recuperados"} más si se defendiera como el resto`
+                  }
+                  className="mb-6"
+                />
+
                 <Conclusiones items={conclusiones} className="mb-4 md:hidden" />
 
                 {comparativa ? (

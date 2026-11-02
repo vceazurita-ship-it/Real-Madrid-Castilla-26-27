@@ -28,6 +28,8 @@ import {
   type LectorAnalisis,
 } from "@/components/abp/AnalisisSeccion";
 import { hablado, type ClaveMetrica } from "@/lib/abp/analisis";
+import { lecturaRapida } from "@/lib/abp/lectura-rapida";
+import { LecturaRapida } from "@/components/abp/LecturaRapida";
 import ABPObjectiveFlow, {
   type ABPFlowCol,
 } from "@/components/abp/ABPObjectiveFlow";
@@ -2493,6 +2495,40 @@ const conclusiones = useMemo(() => {
   return [...frases.filter(Boolean).slice(0, 4), cierre].filter(Boolean);
 }, [filtered]);
 
+/* Las cuatro tarjetas de arriba (02/11/2026): qué funciona, qué falla y qué
+   entrenar, cortando por lo que el cuerpo técnico puede cambiar en la
+   semana —zona, rutina, envío—. Mismas filas filtradas que los gráficos. */
+const lectura = useMemo(
+  () =>
+    lecturaRapida({
+      filas: filtered,
+      acierto: LECTOR.peligro,
+      mejorAlto: true,
+      jornada: LECTOR.jornada,
+      dimensiones: [
+        {
+          nombre: "zona de caída",
+          categoria: (r) => (esSuperioridad(r.zonaCaida) ? "" : r.zonaCaida),
+          rotulo: hablado,
+          entrenar: (v) => `Envíos a ${v}: precisión del envío y llegada al remate`,
+        },
+        {
+          nombre: "rutina",
+          categoria: (r) => r.rutina,
+          rotulo: (v) => (/^(nada|ninguna|ninguno|sin rutina)$/i.test(v) ? "sin rutina (balón directo)" : v),
+          entrenar: (v) => `Rutina ${v}: repetir los movimientos o cambiarla`,
+        },
+        {
+          nombre: "tipo de envío",
+          categoria: (r) => r.tipoEnvio,
+          entrenar: (v) => `Envío ${v.toLowerCase()}: ejecución del sacador`,
+        },
+        { nombre: "tipo de acción", categoria: (r) => r.tipoAccion, rotulo: hablado },
+      ],
+    }),
+  [filtered],
+);
+
 /*
 | El pie de lectura de cada sección.
 |
@@ -2696,6 +2732,7 @@ const pie = (
   title={PULSA}
   onClick={() => pulsa("rival", equipo)}
   className={`
+    min-h-9
     px-3
     py-1.5
     rounded-full
@@ -2862,6 +2899,13 @@ const pie = (
             </div>
 
             <div className={oculto("resumen")}>
+            <LecturaRapida
+              lectura={lectura}
+              unidad="acciones"
+              acierto="en gol u ocasión"
+              ganancia={(k) => `${k === 1 ? "acción más" : "acciones más"} en gol u ocasión si rindiera como el resto`}
+              className="mt-6"
+            />
             {comparativa && (
     <ComparativaPartido
       partido={comparativa.partido}
