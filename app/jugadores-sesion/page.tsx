@@ -2873,7 +2873,7 @@ export default function JugadoresSesionPage() {
     if (r.origen === "aprendido" && d) {
       const veces = aprendido[claveNombre(j.nombre)]?.veces ?? 0;
 
-      return { corto: d.corto, texto: `Puesto aprendido de cómo lo colocáis: ${d.nombre}${veces ? ` (${veces} ${veces === 1 ? "vez" : "veces"})` : ""}`, fijo: false };
+      return { corto: d.corto, texto: `Puesto aprendido de cómo lo colocáis: ${d.nombre.replace(/\s*\(\d+\)$/, "")}${veces ? `, ${veces} ${veces === 1 ? "vez" : "veces"}` : ""}`, fijo: false };
     }
 
     /* Uno que sube y del que aún no se sabe nada: el chip invita a decirlo. */
@@ -4341,6 +4341,27 @@ export default function JugadoresSesionPage() {
                                       <span className="block font-semibold uppercase leading-tight text-white/80">
                                         {j.nombre}
                                         {j.etiqueta && <span className="ml-1.5 text-[10px] text-[#C8A96B]">{j.etiqueta}</span>}
+                                        {(() => {
+                                          /* El puesto aprendido o fijado de los que suben, también aquí (02/11/2026): se corrige igual. */
+                                          const ap = puestoAprendidoDe(j);
+
+                                          return ap ? (
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                const r = e.currentTarget.getBoundingClientRect();
+                                                setCorrigiendo({ id: j.id, x: r.left, y: r.bottom });
+                                              }}
+                                              title={`${ap.texto}. Toca para corregirlo`}
+                                              aria-label={`${ap.texto}. Corregir el puesto de ${j.nombre}`}
+                                              className={`js-aprendido ml-1.5 rounded px-1 align-middle text-[9px] font-bold normal-case transition hover:bg-[#C8A96B]/25 ${
+                                                ap.fijo ? "border border-[#C8A96B]/70 bg-[#C8A96B]/15 text-[#E9D5A8]" : "border border-dashed border-[#C8A96B]/60 text-[#C8A96B]"
+                                              }`}
+                                            >
+                                              {ap.corto || "¿puesto?"}
+                                            </button>
+                                          ) : null;
+                                        })()}
                                         {j.baja && <span className="ml-1.5 text-[10px] text-red-300">{j.baja.toLowerCase()}</span>}
                                       </span>
                                     )}
