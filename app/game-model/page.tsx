@@ -798,6 +798,10 @@ export default function GameModelPage() {
                     {filtrando
                       ? `${principios.length} de ${totalApartado} principios`
                       : `${totalApartado} principio${totalApartado === 1 ? "" : "s"}`}
+                    {" · "}
+                    <Link href="/identidad-campo" className="text-[#C8A96B] hover:underline">
+                      ¿Se nos reconoce en el campo?
+                    </Link>
                   </p>
                 )}
               </div>

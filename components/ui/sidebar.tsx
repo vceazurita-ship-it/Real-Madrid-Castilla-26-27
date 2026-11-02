@@ -239,6 +239,7 @@ export const SECCIONES: Seccion[] = [
       { href: "/identidad-posicional", label: "Identidad Posicional", icon: LayoutGrid },
       { href: "/team-values", label: "Dinámicas y Valores", icon: Handshake },
       { href: "/identidad-cultura", label: "Identidad y Cultura", icon: ScrollText },
+      { href: "/identidad-campo", label: "Identidad en el Campo", icon: Crosshair },
     ],
   },
   {

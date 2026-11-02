@@ -32,6 +32,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   Activity,
   AlertTriangle,
@@ -1225,7 +1226,18 @@ export default function DataAnalisisPage() {
                   </div>
                 )}
 
-                <p className="mt-2 text-[13px] font-medium text-white/70">{AREAS.find((a) => a.key === area)?.pregunta}</p>
+                <p className="mt-2 text-[13px] font-medium text-white/70">
+                  {AREAS.find((a) => a.key === area)?.pregunta}
+                  {(area === "equipo" || area === "parecidos") && (
+                    <>
+                      {" "}
+                      {/* Enlace cruzado con Identidad (02/11/2026). */}
+                      <Link href="/identidad-campo" className="whitespace-nowrap font-normal text-[#C8A96B] hover:underline">
+                        Nuestra identidad en el campo →
+                      </Link>
+                    </>
+                  )}
+                </p>
 
                 <div className="mt-3 flex min-w-0 flex-wrap items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.02] px-3 py-2">
 

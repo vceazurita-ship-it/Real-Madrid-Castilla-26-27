@@ -120,6 +120,15 @@ export const MODULES: AppModule[] = [
     alias: ["cultura", "valores", "antivalores", "documentos", "repositorio"],
   },
   {
+    href: "/identidad-campo",
+    area: "IDENTIDAD",
+    title: "Identidad en el Campo",
+    desc: "Si nuestra identidad se ve en el partido y en la semana de entrenamiento",
+    icon: Sigma,
+    rank: 94,
+    alias: ["cumplimiento", "modelo de juego", "data", "coherencia", "entrenamiento", "encaje"],
+  },
+  {
     href: "/identidad-posicional",
     area: "IDENTIDAD",
     title: "Identidad Posicional",
