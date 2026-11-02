@@ -399,6 +399,8 @@ const ATAJOS: { teclas: string[]; que: string }[] = [
   { teclas: ["←", "→"], que: "Un fotograma atrás / adelante" },
   { teclas: ["⇧ ←", "⇧ →"], que: "Diez fotogramas" },
   { teclas: ["Alt ←", "Alt →"], que: "Cinco segundos" },
+  { teclas: ["⇧ I", "⇧ O"], que: "Inicio / final del corte elegido aquí" },
+  { teclas: ["↑", "↓"], que: "Corte anterior / siguiente de la lista" },
   { teclas: ["1", "9"], que: "Elegir jugador" },
   { teclas: ["Q", "P"], que: "Elegir categoría" },
   { teclas: ["⇧ Q", "⇧ V"], que: "Elegir comportamiento colectivo" },

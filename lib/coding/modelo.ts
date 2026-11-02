@@ -1065,7 +1065,36 @@ export type FiltroClips = {
   /** Por nombre de descriptor o etiqueta. */
   tag: string | null;
   soloRevisar: boolean;
+  /**
+   * Texto libre (2/11/2026): busca en el sujeto, el dorsal, la nota, las
+   * etiquetas y el nombre del vídeo, sin tildes ni mayúsculas. Opcional para
+   * no obligar a quien arma el filtro sin él.
+   */
+  texto?: string;
 };
+
+/** Sin tildes ni mayúsculas, para buscar. */
+const llanoParaBuscar = (texto: string) =>
+  texto.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+
+/** ¿El clip contiene todas las palabras buscadas, en cualquier orden? */
+export function clipContieneTexto(clip: ClipCoding, texto: string) {
+  const palabras = llanoParaBuscar(texto).split(/\s+/).filter(Boolean);
+
+  if (palabras.length === 0) return true;
+
+  const pajar = llanoParaBuscar(
+    [
+      clip.jugadorNombre,
+      clip.jugadorDorsal != null ? String(clip.jugadorDorsal) : "",
+      clip.nota,
+      ...(clip.tags ?? []),
+      clip.video ?? "",
+    ].join(" "),
+  );
+
+  return palabras.every((palabra) => pajar.includes(palabra));
+}
 
 export const SIN_FILTRO: FiltroClips = {
   sujeto: null,
@@ -1090,7 +1119,8 @@ export function pasaFiltro(clip: ClipCoding, filtro: FiltroClips) {
     (!filtro.sujeto || clip.jugadorId === filtro.sujeto) &&
     (categoria === null || clip.categoriaId === categoria) &&
     (!filtro.tag || tieneTag(clip, filtro.tag)) &&
-    (!filtro.soloRevisar || clip.estado === "revisar")
+    (!filtro.soloRevisar || clip.estado === "revisar") &&
+    (!filtro.texto || clipContieneTexto(clip, filtro.texto))
   );
 }
 
@@ -1099,7 +1129,8 @@ export function hayFiltro(filtro: FiltroClips) {
     filtro.sujeto ||
       filtro.categoria !== null ||
       filtro.tag ||
-      filtro.soloRevisar,
+      filtro.soloRevisar ||
+      filtro.texto?.trim(),
   );
 }
 

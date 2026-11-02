@@ -43,6 +43,7 @@ import {
   type ClipEstado,
   type CodingDoc,
   type Estado,
+  type Etiquetas,
   type GrupoKey,
 } from "@/lib/abp/coding-rival";
 
@@ -195,6 +196,9 @@ const ATAJOS: [string, string][] = [
   ["1-4", "0,25× · 0,5× · 1× · 2×"],
   ["M / N", "Marcar / ir al momento clave"],
   ["Enter", "Nota"],
+  ["↑ ↓", "Grupo de etiquetas"],
+  ["⇧1-9", "Opción del grupo (y pasa al siguiente)"],
+  ["C", "Etiquetas del saque como el clip anterior"],
   ["J / L", "Clip anterior / siguiente"],
   ["Q / W", "Carpeta anterior / siguiente"],
   ["E", "Siguiente elegido"],
@@ -468,6 +472,56 @@ export function CodingAbpRival({
     cambia(idActual, { etiquetas: { ...antes, [grupo]: antes[grupo] === valor ? undefined : valor } });
   };
 
+  /*
+  | Etiquetar con el teclado (2/11/2026). ↑/↓ eligen el grupo y ⇧1…⇧9 la
+  | opción; al poner una se pasa al grupo siguiente, así un córner se etiqueta
+  | entero sin soltar el teclado. El grupo vuelve al primero en cada clip.
+  */
+  const [foco, setFoco] = useState<{ clip: string; i: number }>({ clip: "", i: 0 });
+  const grupoActivo = foco.clip === idActual ? foco.i : 0;
+  const gruposVisibles = (etiquetas: Etiquetas | undefined) =>
+    gruposDe(carpeta).filter((g) => !g.detalle || masDetalle || etiquetas?.[g.key]);
+
+  /*
+  | «Como el anterior» (C, 2/11/2026): las rutinas se repiten, y el mismo
+  | sacador desde el mismo lado con el mismo envío se volvía a pinchar clip a
+  | clip. Copia del último clip etiquetado de la carpeta lo que describe el
+  | saque —no lo que pasó: caída, desenlace, segunda jugada ni para qué— y
+  | sólo en lo que este clip aún no tiene. Entra en el deshacer (Z).
+  */
+  const NO_SE_COPIAN: GrupoKey[] = ["zona", "desenlace", "uso", "segunda", "trasDespeje"];
+
+  const copiaAnterior = () => {
+    if (!actual) return;
+
+    const posicion = Math.min(indice, lista.length - 1);
+    const ahora = estadoDe(idActual);
+
+    for (let j = posicion - 1; j >= 0; j--) {
+      const otro = estadoDe(idClip(carpeta, lista[j].n));
+
+      const copiables = Object.entries(otro.etiquetas ?? {}).filter(
+        ([g, v]) => v && !NO_SE_COPIAN.includes(g as GrupoKey) && !ahora.etiquetas?.[g as GrupoKey],
+      );
+
+      const saca = !ahora.saca && otro.saca ? otro.saca : undefined;
+
+      if (copiables.length === 0 && !saca) continue;
+
+      deshacer.current.push({ id: idActual, antes: doc.clips[idActual], carpeta, indice });
+      cambia(idActual, {
+        etiquetas: { ...(ahora.etiquetas ?? {}), ...Object.fromEntries(copiables) },
+        ...(saca ? { saca } : {}),
+      });
+      toast.success(
+        `Como el clip ${lista[j].n}: ${copiables.length} ${copiables.length === 1 ? "etiqueta" : "etiquetas"}${saca ? ` y saca el ${saca}` : ""}`,
+      );
+      return;
+    }
+
+    toast.info("No hay un clip anterior en esta carpeta con algo que copiar");
+  };
+
   const cambiaCarpeta = (paso: number) => {
     const conClips = CARPETAS.filter((c) => abierta?.porCarpeta.get(c.key)?.length);
 
@@ -570,8 +624,38 @@ export function CodingAbpRival({
         return;
       }
 
+      /* ↑/↓: grupo de etiquetas; ⇧ + cifra: su opción (se mira `code`, la `key` con ⇧ cambia según el teclado). */
+      if ((e.key === "ArrowUp" || e.key === "ArrowDown") && actual) {
+        const visibles = gruposVisibles(estadoDe(idActual).etiquetas);
+
+        if (visibles.length) {
+          e.preventDefault();
+          const i = Math.min(grupoActivo, visibles.length - 1);
+          setFoco({ clip: idActual, i: (i + (e.key === "ArrowUp" ? -1 : 1) + visibles.length) % visibles.length });
+        }
+        return;
+      }
+
+      const cifra = /^Digit([1-9])$/.exec(e.code);
+
+      if (e.shiftKey && cifra && actual) {
+        const visibles = gruposVisibles(estadoDe(idActual).etiquetas);
+        const i = Math.min(grupoActivo, visibles.length - 1);
+        const g = visibles[i];
+        const opcion = g?.opciones[Number(cifra[1]) - 1];
+
+        if (!g || !opcion) return;
+
+        e.preventDefault();
+        const quitando = estadoDe(idActual).etiquetas?.[g.key] === opcion;
+        etiqueta(g.key, opcion);
+        if (!quitando && i < visibles.length - 1) setFoco({ clip: idActual, i: i + 1 });
+        return;
+      }
+
       const acciones: Record<string, () => void> = {
         "?": () => setAyuda((a) => !a),
+        c: copiaAnterior,
         k: () => decide("elegido"),
         d: () => decide("descartado"),
         s: () => decide("pendiente"),
@@ -1428,26 +1512,50 @@ export function CodingAbpRival({
                 </label>
               ))}
             </div>
-            {gruposDe(carpeta).filter((g) => !g.detalle || masDetalle || est?.etiquetas?.[g.key]).map((g) => (
-              <div key={g.key}>
-                <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-white/45">{g.titulo}</p>
-                <div className="flex flex-wrap gap-1">
-                  {g.opciones.map((o) => {
-                    const puesta = est?.etiquetas?.[g.key] === o;
-                    return (
-                      <button
-                        key={o}
-                        type="button"
-                        onClick={() => etiqueta(g.key, o)}
-                        className={`rounded-full px-2.5 py-1 text-xs ${puesta ? "bg-[#D8B45A] font-semibold text-[#0B0F14]" : "bg-white/5 text-white/75 hover:bg-white/10"}`}
-                      >
-                        {o}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
+            {(() => {
+              const visibles = gruposVisibles(est?.etiquetas);
+              const activo = Math.min(grupoActivo, visibles.length - 1);
+
+              return visibles.map((g, gi) => {
+                const enFoco = gi === activo;
+
+                return (
+                  <div
+                    key={g.key}
+                    className={`-mx-1.5 rounded-lg px-1.5 py-1 ${enFoco ? "bg-[#D8B45A]/10 ring-1 ring-[#D8B45A]/40" : ""}`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setFoco({ clip: idActual, i: gi })}
+                      title="Elegir este grupo para el teclado (↑ ↓ y ⇧ + número)"
+                      className={`mb-1 text-left text-[11px] font-semibold uppercase tracking-wide ${enFoco ? "text-[#D8B45A]" : "text-white/45"}`}
+                    >
+                      {g.titulo}
+                    </button>
+                    <div className="flex flex-wrap gap-1">
+                      {g.opciones.map((o, oi) => {
+                        const puesta = est?.etiquetas?.[g.key] === o;
+                        return (
+                          <button
+                            key={o}
+                            type="button"
+                            onClick={() => etiqueta(g.key, o)}
+                            className={`rounded-full px-2.5 py-1 text-xs ${puesta ? "bg-[#D8B45A] font-semibold text-[#0B0F14]" : "bg-white/5 text-white/75 hover:bg-white/10"}`}
+                          >
+                            {enFoco && oi < 9 && (
+                              <span className={`mr-1 hidden font-mono text-[10px] sm:inline ${puesta ? "text-[#0B0F14]/60" : "text-white/40"}`}>
+                                {oi + 1}
+                              </span>
+                            )}
+                            {o}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              });
+            })()}
             {gruposDe(carpeta).some((g) => g.detalle) && (
               <button type="button" onClick={() => setMasDetalle((v) => !v)} className="text-xs font-semibold text-[#D8B45A] hover:underline">
                 {masDetalle ? "Menos detalle ▴" : `Más detalle (${gruposDe(carpeta).filter((g) => g.detalle).length} grupos: golpeo, bloqueos, llegada, vigilancias…) ▾`}

@@ -61,6 +61,7 @@ import {
   PanelRightOpen,
   PenTool,
   Play,
+  Search,
   Plus,
   Settings2,
   SkipBack,
@@ -1126,6 +1127,8 @@ function Coding() {
   /* Por descriptor o etiqueta, y los que se marcaron para revisar. */
   const [filtroTag, setFiltroTag] = useState<string | null>(null);
   const [soloRevisar, setSoloRevisar] = useState(false);
+  /* Buscar por texto (2/11/2026): nombre, dorsal, nota, etiquetas o vídeo. */
+  const [filtroTexto, setFiltroTexto] = useState("");
 
   const filtro: FiltroClips = useMemo(
     () => ({
@@ -1133,8 +1136,9 @@ function Coding() {
       categoria: filtroCategoria,
       tag: filtroTag,
       soloRevisar,
+      texto: filtroTexto,
     }),
-    [filtroCategoria, filtroSujeto, filtroTag, soloRevisar],
+    [filtroCategoria, filtroSujeto, filtroTag, filtroTexto, soloRevisar],
   );
 
   const quitaFiltros = useCallback(() => {
@@ -1142,6 +1146,7 @@ function Coding() {
     setFiltroCategoria(null);
     setFiltroTag(null);
     setSoloRevisar(false);
+    setFiltroTexto("");
   }, []);
 
   /* La lista guardada que se está mirando, si hay una. Manda sobre los filtros. */
@@ -2495,6 +2500,7 @@ function Coding() {
           : null,
         filtroTag,
         soloRevisar ? "por revisar" : null,
+        filtroTexto.trim() ? `«${filtroTexto.trim()}»` : null,
       ]
         .filter(Boolean)
         .join(" · ")
@@ -3564,7 +3570,98 @@ function Coding() {
         return;
       }
 
+      /*
+      | ↑ / ↓: corte anterior / siguiente de la lista (2/11/2026).
+      |
+      | Repasar cuarenta cortes era ratón, fila, play, ratón, fila… Con la
+      | cola de «Reproducir todos» en marcha mueve la cola; si no, recorre la
+      | lista tal y como se ve (filtros, búsqueda y lista guardada incluidos).
+      */
+      if (
+        (evento.key === "ArrowUp" || evento.key === "ArrowDown") &&
+        !evento.shiftKey
+      ) {
+        const paso = evento.key === "ArrowUp" ? -1 : 1;
+
+        if (cola) {
+          evento.preventDefault();
+          mueveCola(paso);
+          return;
+        }
+
+        if (clipsDeLaLista.length === 0) return;
+
+        evento.preventDefault();
+
+        const donde = clipsDeLaLista.findIndex((uno) => uno.id === seleccionado);
+
+        const destino =
+          donde < 0
+            ? paso > 0
+              ? 0
+              : clipsDeLaLista.length - 1
+            : Math.min(clipsDeLaLista.length - 1, Math.max(0, donde + paso));
+
+        if (destino === donde) {
+          toast.info(paso > 0 ? "Es el último corte de la lista" : "Es el primer corte de la lista");
+          return;
+        }
+
+        reproduceDeCualquierVideo(clipsDeLaLista[destino]);
+        return;
+      }
+
       /* ------------------------------------------------- coding */
+
+      /*
+      | ⇧I / ⇧O: el inicio o el final del corte elegido, al instante del vídeo
+      | (2/11/2026). Con ← / → de fotograma en fotograma, recortar es exacto
+      | sin abrir la ficha. Mueve el momento marcado, como «Aquí» en la ficha:
+      | los márgenes siguen encima. Entra en el deshacer.
+      */
+      if (evento.shiftKey && (tecla === "i" || tecla === "o")) {
+        evento.preventDefault();
+
+        /* El elegido o, si no hay, el último marcado: recién cerrado un
+           corte, lo normal es retocarle el final. */
+        const clip = objetivoDescriptor;
+
+        if (!clip || clip.jugadorId === SUJETO_VIDEO_COMPLETO.id) {
+          toast.info("Marca o elige antes un corte para recortarlo.");
+          return;
+        }
+
+        const delante =
+          sesion.sesion.fuente?.nombre ?? videosSesion[0]?.nombre ?? "";
+
+        if ((clip.video ?? videosSesion[0]?.nombre ?? "") !== delante) {
+          toast.info("Ese corte es de otro vídeo: pulsa su play para ponerlo delante.");
+          return;
+        }
+
+        const ahora = Math.round(tiempoAhoraMs());
+
+        if (tecla === "i" ? ahora >= clip.codingFinMs : ahora <= clip.codingInicioMs) {
+          toast.error(
+            tecla === "i"
+              ? "El inicio tiene que quedar antes del final del corte."
+              : "El final tiene que quedar después del inicio del corte.",
+          );
+          return;
+        }
+
+        sesion.actualizaClip(
+          clip.id,
+          tecla === "i" ? { codingInicioMs: ahora } : { codingFinMs: ahora },
+          estado.duracionMs || undefined,
+        );
+
+        toast.success(
+          `${tecla === "i" ? "Inicio" : "Final"} del corte ${clip.numero} en ${formateaMs(ahora)}`,
+        );
+
+        return;
+      }
 
       if (tecla === "i") {
         evento.preventDefault();
@@ -3704,22 +3801,51 @@ function Coding() {
     return () => window.removeEventListener("keydown", escucha);
   }, [
     ajustaLanzadera,
+    clipsDeLaLista,
+    cola,
     config.categorias,
     config.comportamientos,
     config.descriptores,
+    estado.duracionMs,
     hayModal,
     inicioMs,
     jugadores,
     marcaFinal,
     marcaInicio,
     marcaToque,
+    mueveCola,
     objetivoDescriptor,
+    reproduceDeCualquierVideo,
     reproductor,
     salta,
+    seleccionado,
     sesion,
     teclas,
     tiempoAhoraMs,
+    videosSesion,
   ]);
+
+  /*
+  | Cerrar la pestaña a mitad de un montaje o con una I puesta (2/11/2026).
+  |
+  | Los cortes ya se guardan solos, pero un montaje en el navegador vive en la
+  | pestaña: cerrarla tiraba diez minutos de trabajo sin una pregunta. Y una I
+  | pendiente es un corte que todavía no existe.
+  */
+  const hayAlgoEnVuelo = exportador.exportando || inicioMs !== null;
+
+  useEffect(() => {
+    if (!hayAlgoEnVuelo) return;
+
+    const avisa = (evento: BeforeUnloadEvent) => {
+      evento.preventDefault();
+      evento.returnValue = "";
+    };
+
+    window.addEventListener("beforeunload", avisa);
+
+    return () => window.removeEventListener("beforeunload", avisa);
+  }, [hayAlgoEnVuelo]);
 
   /* ---------------------------------------------------------- vista */
 
@@ -4839,6 +4965,36 @@ function Coding() {
                   | de abajo, la exportación y «Reproducir» son los de ella; la
                   | papelera la saca de la lista sin borrar el corte.
                   */}
+                  {/*
+                  | Buscar (2/11/2026): con cuarenta cortes, encontrar «el del
+                  | minuto 63 de Mestre con nota de la presión» era leer la
+                  | lista entera. Busca en sujeto, dorsal, nota, etiquetas y
+                  | vídeo; manda sobre la lista, la cola y la exportación como
+                  | cualquier otro filtro.
+                  */}
+                  {!listaGuardada && sesion.sesion.clips.length > 0 && (
+                    <label className="mb-3 flex min-w-0 items-center gap-2 rounded-full border border-white/15 bg-white/[0.04] px-3 py-1.5 focus-within:border-[#C8A96B]/60">
+                      <Search size={14} className="shrink-0 text-white/45" aria-hidden />
+                      <input
+                        type="search"
+                        value={filtroTexto}
+                        onChange={(evento) => setFiltroTexto(evento.target.value)}
+                        onKeyDown={(evento) => {
+                          /* Esc vacía y devuelve el teclado al vídeo. */
+                          if (evento.key === "Escape") {
+                            setFiltroTexto("");
+                            evento.currentTarget.blur();
+                          }
+                          /* Intro deja la búsqueda puesta y suelta el foco. */
+                          if (evento.key === "Enter") evento.currentTarget.blur();
+                        }}
+                        aria-label="Buscar en los cortes"
+                        placeholder="Buscar: jugador, dorsal, nota, etiqueta…"
+                        className="min-w-0 flex-1 bg-transparent text-[12px] text-white outline-none placeholder:text-white/35"
+                      />
+                    </label>
+                  )}
+
                   {(clipsDeLaLista.length > 0 || (sesion.sesion.listas ?? []).length > 0) && (
                     <div className="mb-3 flex min-w-0 flex-wrap items-center gap-1.5">
                       <span className="mr-1 text-[10px] uppercase tracking-[0.16em] text-white/35">
