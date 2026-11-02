@@ -77,6 +77,24 @@ import { toast } from "sonner";
 
 import { useHistorial } from "@/hooks/useHistorial";
 import { TableroSemana } from "@/components/microciclo/TableroSemana";
+import { CopiarDia, type CopiaElegida } from "@/components/microciclo/CopiarDia";
+import { BuscaEjercicio } from "@/components/microciclo/BuscaEjercicio";
+import {
+  avisosDelDia,
+  camposDeEjercicio,
+  catalogoDeEjercicios,
+  conMinutosHabituales,
+  diasDeLaHoja,
+  faseHabitual,
+  fechaCorta,
+  minutosHabituales,
+  pegaEnDia,
+  sesionTipo,
+  tareaDeLaHoja,
+  tareasQueSePierden,
+  ultimosDelMd,
+  type Ejercicio,
+} from "@/lib/registro/rellenar";
 import { LaminaSemana, LAMINA } from "@/components/microciclo/LaminaSemana";
 import {
   avisosDeLaSemana,
@@ -328,9 +346,15 @@ function FilaTarea({
   onSubir,
   onBajar,
   conValoracion,
+  catalogo,
+  md,
 }: {
   tarea: TareaNueva;
   sugerencias: Sugerencias;
+  /** Los ejercicios de la hoja, para rellenar la tarea entera de una vez. */
+  catalogo: Ejercicio[];
+  /** El MD del día: sus ejercicios salen primero. */
+  md: string;
   /**
    * La nota y el análisis post son de DESPUÉS de la sesión: en un día que
    * todavía no ha llegado sólo ocupan sitio (21/10/2026). Salen en los días
@@ -358,19 +382,49 @@ function FilaTarea({
     [tarea.formato, tarea.tipoTarea, tarea.contenidoPrincipal, tarea.contenidoSecundario, tarea.fase, historico],
   );
 
+  /* Lo que suele durar esta tarea (su ejercicio o su tipo): va de pista en el campo vacío, nunca como dato. */
+  const habitual = useMemo(
+    () => minutosHabituales(tarea, catalogo),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sólo cambia con lo que define la tarea
+    [tarea.tipoTarea, tarea.contenidoPrincipal, tarea.contenidoSecundario, tarea.formato, catalogo],
+  );
+
+  const esPartido = /-COMP$/i.test(tarea.tarea);
+
   return (
     <div
       className={`rounded-xl border p-2.5 ${
         esAbp ? "border-[#C8A96B]/25 bg-[#C8A96B]/[0.04]" : "border-white/[0.07] bg-white/[0.02]"
       }`}
     >
+      {/* Rellenar la tarea entera con un ejercicio ya hecho (02/11/2026). */}
+      {!esPartido && (
+        <div className="mb-2">
+          <BuscaEjercicio
+            catalogo={catalogo}
+            md={md}
+            onElige={(ejercicio) => {
+              onCambia(camposDeEjercicio(ejercicio, tarea));
+              toast.success("Tarea rellenada", {
+                description: `Como la última vez${/^\d{4}-/.test(ejercicio.ultima) ? ` (${fechaCorta(ejercicio.ultima)})` : ""}.${ejercicio.tiempo > 0 && !tarea.tiempo ? ` Suele durar ${ejercicio.tiempo}′.` : ""}`,
+              });
+            }}
+          />
+        </div>
+      )}
+
       <div className="grid gap-2 md:grid-cols-[86px_1.3fr_1fr_76px_76px_76px_128px] md:items-end">
         <Field label="Tarea" value={tarea.tarea} onChange={(v) => onCambia({ tarea: v })} />
 
         <Field
           label="Tipo de tarea"
           value={tarea.tipoTarea}
-          onChange={(v) => onCambia({ tipoTarea: v })}
+          onChange={(v) => {
+            /* Al elegir un tipo conocido con la fase vacía, se propone la fase con la que más se ha escrito. */
+            const fase = !tarea.fase && sugerencias.tipos.includes(v) ? faseHabitual(v, catalogo) : "";
+
+            onCambia(fase ? { tipoTarea: v, fase } : { tipoTarea: v });
+          }}
           suggestions={sugerencias.tipos}
           placeholder="Rondo Complejo"
         />
@@ -387,6 +441,7 @@ function FilaTarea({
           type="number"
           value={tarea.tiempo ? String(tarea.tiempo) : ""}
           onChange={(v) => onCambia({ tiempo: numero(v) })}
+          placeholder={habitual ? `${habitual.tiempo}′` : undefined}
         />
 
         {/*
@@ -400,6 +455,7 @@ function FilaTarea({
           type="number"
           value={tarea.intensidad ? String(tarea.intensidad) : ""}
           onChange={(v) => onCambia({ intensidad: Math.min(10, numero(v)) })}
+          placeholder={habitual && habitual.intensidad > 0 ? String(habitual.intensidad) : undefined}
         />
 
         <Field
@@ -867,6 +923,28 @@ export default function EditorMicrocicloPage() {
 
   const sugerencias = useMemo(() => sugerenciasDelRegistro(registro?.tareas ?? []), [registro]);
 
+  /* Los ejercicios ya hechos, para rellenar una tarea entera con dos letras (02/11/2026). */
+  const catalogo = useMemo(() => catalogoDeEjercicios(registro?.tareas ?? []), [registro]);
+
+  /*
+  | Los días de la hoja por microciclo, para copiar UNO (02/11/2026). Sin el
+  | que se está editando: lo de la pantalla manda sobre lo que dice la hoja, y
+  | dentro de la semana ya se copia de un día a otro desde el tablero.
+  */
+  const microNumero = micro?.micro ?? 0;
+  const microTemporada = (micro?.temporada ?? "").replace(/\s+/g, "");
+
+  const microsParaCopiar = useMemo(
+    () =>
+      diasDeLaHoja(registro?.tareas ?? []).filter(
+        (uno) => !(uno.micro === microNumero && uno.temporada.replace(/\s+/g, "") === microTemporada),
+      ),
+    [registro, microNumero, microTemporada],
+  );
+
+  /* El día en el que se abre «Copiar un día». */
+  const [copiarEn, setCopiarEn] = useState<number | null>(null);
+
   /* La temporada como está escrita en la hoja: «2026-2027» y «2026 - 2027»
      no se agrupan juntas en las pantallas que la leen. */
   const temporadaHoja = useMemo(() => {
@@ -1266,6 +1344,79 @@ export default function EditorMicrocicloPage() {
     });
   };
 
+  /*
+  | COPIAR UN DÍA O UNA TAREA DE OTRO MICROCICLO (02/11/2026)
+  |
+  | Lo elegido entra en el día como cualquier otro cambio: con deshacer, y sin
+  | escribir nada en la hoja hasta «Escribir en la hoja».
+  */
+  const pegaTareasDeLaHoja = (indice: number, copia: CopiaElegida) => {
+    if (!micro) return;
+
+    const sesion = micro.sesiones[indice];
+
+    if (!sesion || copia.tareas.length === 0) return;
+
+    const nuevas = copia.tareas.map((tarea, i) => tareaDeLaHoja(tarea, sesion.dia, i + 1, copia.conTiempos));
+
+    cambiaMicro(pegaEnDia(micro, indice, nuevas, copia.modo));
+    setCopiarEn(null);
+
+    toast.success(
+      copia.tareas.length === 1
+        ? `Tarea copiada al ${etiquetaDia(sesion.fecha)}`
+        : `${plural(copia.tareas.length, "tarea copiada", "tareas copiadas")} al ${etiquetaDia(sesion.fecha)}`,
+      {
+        description: `De ${copia.origen}${copia.modo === "reemplazar" ? ", en lugar de lo que había" : ", detrás de lo que ya tenía"}.${copia.conTiempos ? "" : " Sin tiempo ni intensidad."}`,
+        action: { label: "Deshacer", onClick: deshaz },
+      },
+    );
+  };
+
+  /** Los atajos de un día vacío: la sesión tipo de su MD o el último día con ese MD. */
+  const rellenaDia = (indice: number, como: "tipo" | "ultimo") => {
+    if (!micro) return;
+
+    const sesion = micro.sesiones[indice];
+
+    if (!sesion) return;
+
+    if (como === "tipo") {
+      const tipo = sesionTipo(microsParaCopiar, sesion.md);
+
+      if (tipo) pegaTareasDeLaHoja(indice, { tareas: tipo.tareas, modo: "anadir", conTiempos: false, origen: `la sesión tipo del ${tipo.md}` });
+
+      return;
+    }
+
+    const ultimo = ultimosDelMd(microsParaCopiar, sesion.md, 1)[0];
+
+    if (ultimo) {
+      pegaTareasDeLaHoja(indice, {
+        tareas: ultimo.dia.tareas,
+        modo: "anadir",
+        conTiempos: false,
+        origen: `el ${etiquetaDia(ultimo.dia.fecha)} (${ultimo.dia.md}) del micro ${ultimo.micro.micro}${ultimo.micro.rival ? ` · ${ultimo.micro.rival}` : ""}`,
+      });
+    }
+  };
+
+  /** Pone los minutos habituales en las tareas del día que no los tienen. */
+  const ponMinutosHabituales = (indice: number) => {
+    if (!micro) return;
+
+    const { tareas, puestas } = conMinutosHabituales(micro.sesiones[indice], catalogo);
+
+    if (puestas === 0) return;
+
+    cambiaSesion(indice, { tareas });
+
+    toast.success(`Minutos habituales en ${plural(puestas, "tarea", "tareas")}`, {
+      description: "Los de la última vez que se hizo cada ejercicio (o los de su tipo). Cámbialos si no van.",
+      action: { label: "Deshacer", onClick: deshaz },
+    });
+  };
+
   /* Del tablero a la ficha de la tarea: se baja hasta ella y se pone el foco en su primer campo. */
   const alAbrir = (sesion: number, tarea: number) => {
     const id = `tarea-${sesion}-${tarea}`;
@@ -1314,6 +1465,72 @@ export default function EditorMicrocicloPage() {
 
     return () => window.removeEventListener("keydown", alTeclear);
   }, [hayMicro, deshaz, rehaz]);
+
+  /*
+  | ATAJOS DEL DÍA (02/11/2026), con el foco en cualquier sitio de un día:
+  |   Alt+N  tarea nueva al final del día (y el foco en ella)
+  |   Alt+C  copiar un día (o una tarea) de otro microciclo
+  | Por `code` y no por `key`: en el Mac, Alt+letra escribe otro carácter.
+  */
+  useEffect(() => {
+    if (!hayMicro) return;
+
+    const alTeclear = (evento: KeyboardEvent) => {
+      if (!evento.altKey || evento.ctrlKey || evento.metaKey || evento.shiftKey) return;
+
+      if (evento.code !== "KeyN" && evento.code !== "KeyC") return;
+
+      const donde = evento.target instanceof Element ? evento.target.closest<HTMLElement>("[data-sesion]") : null;
+
+      if (!donde || donde.closest("[role=dialog]")) return;
+
+      const indice = Number(donde.dataset.sesion);
+
+      if (!Number.isInteger(indice)) return;
+
+      evento.preventDefault();
+
+      if (evento.code === "KeyC") {
+        setCopiarEn(indice);
+
+        return;
+      }
+
+      let nueva = -1;
+
+      cambiaMicro((actual) => {
+        const sesion = actual?.sesiones[indice];
+
+        if (!actual || !sesion || sesion.libre) return actual;
+
+        nueva = sesion.tareas.filter((tarea) => !/-COMP$/i.test(tarea.tarea)).length;
+
+        const comp = sesion.tareas.filter((tarea) => /-COMP$/i.test(tarea.tarea));
+        const resto = sesion.tareas.filter((tarea) => !/-COMP$/i.test(tarea.tarea));
+
+        return {
+          ...actual,
+          sesiones: actual.sesiones.map((una, i) =>
+            i === indice ? renumera({ ...una, tareas: [...resto, tareaVacia(una.dia, resto.length + 1), ...comp] }) : una,
+          ),
+        };
+      });
+
+      window.setTimeout(() => {
+        if (nueva < 0) return;
+
+        const id = `tarea-${indice}-${nueva}`;
+
+        setEnfocada(id);
+        document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "center" });
+        document.getElementById(id)?.querySelector<HTMLElement>("input")?.focus({ preventScroll: true });
+      }, 80);
+    };
+
+    window.addEventListener("keydown", alTeclear);
+
+    return () => window.removeEventListener("keydown", alTeclear);
+  }, [hayMicro, cambiaMicro]);
 
   /* --------------------- LA LÁMINA Y EL TEXTO --------------------- */
 
@@ -2296,6 +2513,12 @@ export default function EditorMicrocicloPage() {
                     }}
                     onAbre={alAbrir}
                   />
+
+                  <p className="mt-3 hidden text-[11px] leading-relaxed text-white/40 md:block">
+                    <span className="font-semibold uppercase tracking-[0.16em] text-white/45">Atajos</span> · Ctrl+Z deshacer · Ctrl+Y rehacer ·
+                    con el foco en un día: Alt+N tarea nueva, Alt+C copiar un día de otro microciclo · en el buscador de
+                    ejercicios: flechas e Intro
+                  </p>
                 </Panel>
 
                 {/* --------------------- LAS SESIONES --------------------- */}
@@ -2317,9 +2540,18 @@ export default function EditorMicrocicloPage() {
                   /* La valoración es de después de la sesión: sólo en los días que ya han llegado. */
                   const yaPaso = Boolean(hoy) && sesion.fecha <= hoy;
 
+                  /* Rellenar rápido (02/11/2026): avisos suaves, sesión tipo y último día con el mismo MD. */
+                  const delDia = avisosDelDia(sesion, referencia[sesion.md.trim().toUpperCase()], yaPaso);
+                  const sinMinutosConHabitual = sesion.libre
+                    ? 0
+                    : sesion.tareas.filter((tarea) => !esCompeticion(tarea) && !tareaEnBlanco(tarea) && !(tarea.tiempo > 0) && minutosHabituales(tarea, catalogo)).length;
+                  const vacio = !sesion.libre && !esPartidoDelDia && escritas === 0;
+                  const tipoDelMd = vacio ? sesionTipo(microsParaCopiar, sesion.md) : null;
+                  const ultimoDelMd = vacio ? ultimosDelMd(microsParaCopiar, sesion.md, 1)[0] : undefined;
+
                   return (
+                    <div key={`${sesion.fecha}-${indice}`} data-sesion={indice}>
                     <Panel
-                      key={`${sesion.fecha}-${indice}`}
                       title={mayuscula(etiquetaDia(sesion.fecha))}
                       subtitle={
                         sesion.libre
@@ -2337,7 +2569,17 @@ export default function EditorMicrocicloPage() {
                               .join(" · ")
                       }
                       action={
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap justify-end gap-2">
+                          {!esPartidoDelDia && microsParaCopiar.length > 0 && (
+                            <Button
+                              icon={ClipboardCopy}
+                              onClick={() => setCopiarEn(indice)}
+                              title="Copiar un día o una tarea de cualquier microciclo (Alt+C)"
+                            >
+                              Copiar día
+                            </Button>
+                          )}
+
                           <Button
                             icon={Plus}
                             onClick={() =>
@@ -2400,6 +2642,56 @@ export default function EditorMicrocicloPage() {
                       </div>
                       )}
 
+                      {/* Un día por rellenar: los atajos, a un clic (02/11/2026). */}
+                      {vacio && (tipoDelMd || ultimoDelMd || microsParaCopiar.length > 0) ? (
+                        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.05] px-3 py-2.5">
+                          <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">Rellenar rápido</span>
+
+                          {tipoDelMd && (
+                            <Button icon={Sparkles} onClick={() => rellenaDia(indice, "tipo")} title={`Lo más repetido en ${plural(tipoDelMd.sesiones, "sesión", "sesiones")} del ${tipoDelMd.md}`}>
+                              Sesión tipo del {tipoDelMd.md} ({plural(tipoDelMd.tareas.length, "tarea", "tareas")})
+                            </Button>
+                          )}
+
+                          {ultimoDelMd && (
+                            <Button icon={Copy} onClick={() => rellenaDia(indice, "ultimo")} title={ultimoDelMd.dia.resumen}>
+                              Como el último {ultimoDelMd.dia.md}: micro {ultimoDelMd.micro.micro}, {etiquetaDia(ultimoDelMd.dia.fecha)}
+                            </Button>
+                          )}
+
+                          <Button icon={ClipboardCopy} onClick={() => setCopiarEn(indice)}>
+                            Elegir otro día…
+                          </Button>
+                        </div>
+                      ) : null}
+
+                      {/* Lo que conviene mirar en el día, sin bloquear nada. */}
+                      {delDia.length > 0 || sinMinutosConHabitual > 0 ? (
+                        <div className="mb-3 flex flex-wrap items-center gap-1.5 text-[11px]">
+                          {delDia.map((aviso) => (
+                            <span
+                              key={aviso.texto}
+                              className={`rounded-lg border px-2 py-0.5 ${
+                                aviso.tono === "ojo" ? "border-[#C8A96B]/40 bg-[#C8A96B]/10 text-[#E9D5A8]" : "border-white/10 bg-white/[0.04] text-white/60"
+                              }`}
+                            >
+                              {aviso.texto}
+                            </span>
+                          ))}
+
+                          {sinMinutosConHabitual > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => ponMinutosHabituales(indice)}
+                              className="rounded-lg border border-emerald-400/30 bg-emerald-400/[0.08] px-2 py-0.5 font-semibold text-emerald-200 transition hover:bg-emerald-400/15"
+                              title="Rellena los minutos vacíos con lo que suele durar cada ejercicio"
+                            >
+                              Poner los minutos habituales ({sinMinutosConHabitual})
+                            </button>
+                          )}
+                        </div>
+                      ) : null}
+
                       {/* Lo que pasó en la sesión de ese día: equipos, análisis y lo cambiado, para aceptarlo (24/10/2026). */}
                       {!sesion.libre && !esPartidoDelDia && sesion.tareas.length > 0 && /^\d{4}-\d{2}-\d{2}$/.test(sesion.fecha) ? (
                         <div className="mb-3">
@@ -2443,6 +2735,8 @@ export default function EditorMicrocicloPage() {
                               tarea={tarea}
                               conValoracion={yaPaso}
                               sugerencias={sugerencias}
+                              catalogo={catalogo}
+                              md={sesion.md}
                               historico={registro?.tareas ?? []}
                               onCambia={(cambio) => cambiaTarea(indice, j, cambio)}
                               onDuplicar={() =>
@@ -2475,8 +2769,22 @@ export default function EditorMicrocicloPage() {
                         </div>
                       )}
                     </Panel>
+                    </div>
                   );
                 })}
+
+                {/* Copiar un día o una tarea de cualquier microciclo (02/11/2026). */}
+                {copiarEn !== null && micro.sesiones[copiarEn] && (
+                  <CopiarDia
+                    micros={microsParaCopiar}
+                    md={micro.sesiones[copiarEn].md}
+                    titulo={`${mayuscula(etiquetaDia(micro.sesiones[copiarEn].fecha))}${micro.sesiones[copiarEn].md ? ` · ${micro.sesiones[copiarEn].md}` : ""}`}
+                    tipo={sesionTipo(microsParaCopiar, micro.sesiones[copiarEn].md)}
+                    escritas={tareasQueSePierden(micro.sesiones[copiarEn])}
+                    onCopia={(copia) => pegaTareasDeLaHoja(copiarEn, copia)}
+                    onClose={() => setCopiarEn(null)}
+                  />
+                )}
 
                 {/* --------------------- ESCRIBIR --------------------- */}
 
