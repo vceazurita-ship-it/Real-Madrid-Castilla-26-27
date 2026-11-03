@@ -50,11 +50,12 @@ export type Papel = "recupera" | "asiste" | "remata" | "pierde" | "duelo" | "otr
 export function papelDe(accion: string): Papel {
   const a = accion.toLowerCase();
 
-  if (/recup|roba|intercep/.test(a)) return "recupera";
-  if (/asist/.test(a)) return "asiste";
-  if (/remat|marca|gol\b/.test(a)) return "remata";
-  if (/duelo/.test(a)) return "duelo";
+  /* Lo defensivo primero: «Pierde la marca» no es «remata», ni «Bloquea y pierde el balón» un robo. Los textos los pone scripts/goles-liga.mjs. */
   if (/pierd|pérdida|perdida/.test(a)) return "pierde";
+  if (/duelo|le regatean|despeje fallido|propia puerta|llega tarde/.test(a)) return "duelo";
+  if (/recup|roba|intercep/.test(a)) return "recupera";
+  if (/asist|centro de gol/.test(a)) return "asiste";
+  if (/remat|marca de penalti|gol\b/.test(a)) return "remata";
 
   return "otro";
 }
