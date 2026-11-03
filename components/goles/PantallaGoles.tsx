@@ -57,6 +57,22 @@ import {
 
 type Condicion = "todos" | Lado;
 
+/*
+| 03/11/2026: casa o fuera, en la dirección (`?lugar=casa|fuera`) para que un
+| enlace abra ya filtrado. Es el mismo filtro que la «Condición» de los mandos
+| y se repite encima del resumen (petición del analista).
+*/
+const LUGARES = ["todos", "casa", "fuera"] as const;
+type Lugar = (typeof LUGARES)[number];
+const CONDICION_DE: Record<Lugar, Condicion> = { todos: "todos", casa: "local", fuera: "visitante" };
+const OPCIONES_LUGAR: { key: Lugar; label: string }[] = [
+  { key: "todos", label: "Todos" },
+  { key: "casa", label: "Casa" },
+  { key: "fuera", label: "Fuera" },
+];
+/** «en casa» / «fuera», para los textos. */
+const rotuloLugar = (c: Condicion) => (c === "local" ? "en casa" : c === "visitante" ? "fuera" : "");
+
 const TAMANOS = [5, 10, 15, 30, 45];
 
 const VISTAS = ["resumen", "minutos", "casa", "tipo", "goles"] as const;
@@ -266,7 +282,8 @@ export function PantallaGoles() {
   const nuestroNombre = equipos.find((e) => mismoEquipo(e, CASTILLA)) ?? CASTILLA;
 
   const [equipoElegido, setEquipo] = useState<string | null>(null);
-  const [condicion, setCondicion] = useState<Condicion>("todos");
+  const [lugar, setLugar] = usePestanaUrl<Lugar>("lugar", LUGARES, "todos");
+  const condicion = CONDICION_DE[lugar];
   const [desde, setDesde] = useState<number | null>(null);
   const [hasta, setHasta] = useState<number | null>(null);
   const [tamano, setTamano] = useState(15);
@@ -321,6 +338,9 @@ export function PantallaGoles() {
     [liga, equipo],
   );
 
+  /* La última jornada de los partidos que entran con el filtro de casa o fuera. */
+  const jUltimaFiltro = delEquipo.reduce((m, p) => Math.max(m, p.jornada), 0);
+
   const goles = useMemo(() => golesDe(delEquipo, equipo), [delEquipo, equipo]);
   /* Los totales salen del marcador de cada partido; las franjas, de los goles con minuto. */
   const gf = delEquipo.reduce((s, p) => s + (ladoDe(p, equipo) === "local" ? p.gl : p.gv), 0);
@@ -330,18 +350,18 @@ export function PantallaGoles() {
   /* El calendario manda en cuántos partidos ha jugado el Castilla: si la lista no los tiene todos, se dice. */
   const { partidos: calendario } = useCalendario();
   const jugadosCalendario = useMemo(
-    () => (esNuestro && condicion === "todos" ? calendario.map(comoNuestro).filter((u) => u.jugado && u.jornada >= jDesde && u.jornada <= jHasta).length : 0),
-    [calendario, esNuestro, condicion, jDesde, jHasta],
+    () => (esNuestro ? calendario.map(comoNuestro).filter((u) => u.jugado && u.jornada >= jDesde && u.jornada <= jHasta && (lugar === "todos" || u.lado === lugar)).length : 0),
+    [calendario, esNuestro, lugar, jDesde, jHasta],
   );
 
   /* Qué jornadas jugadas por el Castilla no están en la lista de goles. */
   const jornadasFaltan = useMemo(() => {
-    if (!(esNuestro && condicion === "todos")) return [] as number[];
+    if (!esNuestro) return [] as number[];
 
     const hay = new Set(delEquipo.map((p) => p.jornada));
 
-    return calendario.map(comoNuestro).filter((u) => u.jugado && u.jornada >= jDesde && u.jornada <= jHasta && !hay.has(u.jornada)).map((u) => u.jornada);
-  }, [calendario, esNuestro, condicion, jDesde, jHasta, delEquipo]);
+    return calendario.map(comoNuestro).filter((u) => u.jugado && u.jornada >= jDesde && u.jornada <= jHasta && (lugar === "todos" || u.lado === lugar) && !hay.has(u.jornada)).map((u) => u.jornada);
+  }, [calendario, esNuestro, lugar, jDesde, jHasta, delEquipo]);
 
   /* La liga, con la misma condición: goles por equipo y partido en cada franja. */
   const ligaPorFranja = useMemo(() => {
@@ -655,8 +675,9 @@ export function PantallaGoles() {
     ligaGF: ligaGolesPP,
     ligaGC: ligaContraPP,
     filas: filasFranja,
-    cL,
-    cV,
+    /* Con casa o fuera elegido, la frase del otro lado no sale. */
+    cL: condicion === "visitante" ? { ...cL, n: 0 } : cL,
+    cV: condicion === "local" ? { ...cV, n: 0 } : cV,
     lL,
     lV,
     primeroEq: primero.eq,
@@ -701,7 +722,7 @@ export function PantallaGoles() {
           <SlidersHorizontal size={15} className="shrink-0 text-[#C8A96B]" />
           <span className="truncate">
             Filtros · {nombreEquipo(equipo)} · J{jDesde}–J{jHasta}
-            {condicion === "todos" ? "" : ` · ${condicion}`}
+            {condicion === "todos" ? "" : ` · ${rotuloLugar(condicion)}`}
           </span>
         </span>
         <span className="shrink-0 text-xs text-white/50">{verFiltros ? "Ocultar" : "Cambiar"}</span>
@@ -713,16 +734,7 @@ export function PantallaGoles() {
         <Select label="Hasta la jornada" value={String(jHasta)} options={jornadasJugadas.map((j) => ({ value: String(j), label: `Jornada ${j}` }))} onChange={(v) => setHasta(Number(v))} />
         <div className="min-w-0">
           <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">Condición</span>
-          <Segmented<Condicion>
-            ariaLabel="Condición"
-            value={condicion}
-            onChange={setCondicion}
-            options={[
-              { key: "todos", label: "Todos" },
-              { key: "local", label: "Local" },
-              { key: "visitante", label: "Visitante" },
-            ]}
-          />
+          <Segmented<Lugar> ariaLabel="Condición" value={lugar} onChange={setLugar} options={OPCIONES_LUGAR} />
         </div>
       </div>
 
@@ -778,6 +790,10 @@ export function PantallaGoles() {
 
           {vista === "resumen" ? (
             <>
+          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
+            <span className="text-[10px] uppercase tracking-[0.16em] text-white/40">Partidos</span>
+            <Segmented<Lugar> ariaLabel="Partidos en casa o fuera" value={lugar} onChange={setLugar} options={OPCIONES_LUGAR} />
+          </div>
           {jugadosCalendario > delEquipo.length ? (
             <Notice
               tone="warn"
@@ -788,8 +804,9 @@ export function PantallaGoles() {
             </Notice>
           ) : null}
 
+          {delEquipo.length ? (
           <StatRow>
-            <StatCard label="Partidos" value={jugadosCalendario > delEquipo.length ? `${delEquipo.length} de ${jugadosCalendario}` : delEquipo.length} hint={jugadosCalendario > delEquipo.length ? (jornadasFaltan.length ? `falta la ${jornadasFaltan.map((j) => `J${j}`).join(", ")}` : "faltan partidos por cargar") : condicion === "todos" ? "local y visitante" : condicion} />
+            <StatCard label="Partidos" value={jugadosCalendario > delEquipo.length ? `${delEquipo.length} de ${jugadosCalendario}` : delEquipo.length} hint={jugadosCalendario > delEquipo.length ? (jornadasFaltan.length ? `falta la ${jornadasFaltan.map((j) => `J${j}`).join(", ")}` : "faltan partidos por cargar") : condicion === "todos" ? "en casa y fuera" : rotuloLugar(condicion)} />
             {/* 30/10/2026: «liga 1,4» con su base: la media de los equipos de la liga (marketing). */}
             <StatCard label="Goles a favor" value={gf} hint={`${fmt(media(gf, delEquipo.length))} por partido${incompleto ? "" : ` · media de los ${equipos.length} equipos: ${fmt(ligaGolesPP)}`}`} accent={ORO} />
             <StatCard label="Goles en contra" value={gc} hint={`${fmt(media(gc, delEquipo.length))} por partido${incompleto ? "" : ` · media de los ${equipos.length} equipos: ${fmt(ligaContraPP)}`}`} accent={PEOR} />
@@ -806,10 +823,11 @@ export function PantallaGoles() {
               accent={tramos.flojo ? PEOR : undefined}
             />
           </StatRow>
+          ) : null}
 
           {/* ---------------- lo importante ---------------- */}
           {importante.length > 0 ? (
-          <Panel title="Lo importante"subtitle={`${nombreEquipo(equipo)} · ${jugadosCalendario > delEquipo.length ? `${delEquipo.length} de ${jugadosCalendario} partidos jugados` : `${delEquipo.length} ${delEquipo.length === 1 ? "partido" : "partidos"}`}${jUltimaEquipo > 0 ? `, hasta la J${jUltimaEquipo}` : ""}${condicion === "todos" ? "" : ` · sólo de ${condicion}`}.${incompleto ? "" : " Siempre comparado con la media de la liga."}${sinMinuto.length ? ` En ${sinMinuto.length === 1 ? "un partido" : `${sinMinuto.length} partidos`} falta el minuto de algún gol: cuenta en los totales y no en las franjas.` : ""}`} icon={Lightbulb}>
+          <Panel title="Lo importante"subtitle={`${nombreEquipo(equipo)} · ${jugadosCalendario > delEquipo.length ? `${delEquipo.length} de ${jugadosCalendario} partidos jugados` : `${delEquipo.length} ${delEquipo.length === 1 ? "partido" : "partidos"}`}${jUltimaFiltro > 0 ? `, hasta la J${jUltimaFiltro}` : ""}${condicion === "todos" ? "" : ` · sólo ${rotuloLugar(condicion)}`}.${incompleto ? "" : " Siempre comparado con la media de la liga."}${sinMinuto.length ? ` En ${sinMinuto.length === 1 ? "un partido" : `${sinMinuto.length} partidos`} falta el minuto de algún gol: cuenta en los totales y no en las franjas.` : ""}`} icon={Lightbulb}>
             <ul className="space-y-2.5">
               {importante.map((frase, i) => (
                 <li key={i} className="flex gap-2.5 text-[13px] leading-relaxed text-white/80">
@@ -828,7 +846,8 @@ export function PantallaGoles() {
           ) : null}
 
           {/* ---------------- marcar primero ---------------- */}
-          {incompleto ? null : (
+          {/* Un filtro (casa o fuera) que deja la tabla sin partidos la quita entera. */}
+          {incompleto || !(primero.eq.propio.n + primero.eq.rival.n + primero.eq.nadie.n) ? null : (
           <Panel
             title="¿Qué pasa cuando marca primero?"
             subtitle="Cómo acaban los partidos según quién abre el marcador, frente a la liga con la misma condición."
@@ -838,7 +857,7 @@ export function PantallaGoles() {
             <Tabla
               cabeza={["", "Partidos", "Ganados", "Empatados", "Perdidos", "Puntos / partido", "Liga: puntos / partido"]}
               ocultaMovil={[2, 3, 4]}
-              filas={(["propio", "rival", "nadie"] as const).map((k) => {
+              filas={(["propio", "rival", "nadie"] as const).filter((k) => primero.eq[k].n > 0).map((k) => {
                 const e = primero.eq[k];
                 const l = primero.lg[k];
 
