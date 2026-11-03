@@ -110,6 +110,7 @@ import { fraseDeDano, nombrePropio } from "@/lib/rivals/dano";
 import { useRivalPerfiles } from "@/hooks/useRivalPerfiles";
 import VistazoRival from "@/components/rivals/VistazoRival";
 import { ParaLaSemana } from "@/components/rivals/ParaLaSemana";
+import ResumenesRival from "@/components/rivals/ResumenesRival";
 import PerfilWyscoutCard from "@/components/rivals/PerfilWyscoutCard";
 import { pieDominante } from "@/lib/rivals/pie";
 import { centimetros, kilos } from "@/lib/rivals/lienzo-club";
@@ -4115,6 +4116,10 @@ export default function RivalPlayersPage() {
                   ]}
                 />
               )}
+
+              {/* RESÚMENES — el vídeo oficial de cada partido suyo (canal de la RFEF). */}
+
+              {selectedTeam && !loading && <ResumenesRival equipo={selectedTeam} />}
 
               {/* FILTROS */}
 
