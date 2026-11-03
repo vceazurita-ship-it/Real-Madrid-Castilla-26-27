@@ -99,7 +99,21 @@ export class FotogramasCorte {
 
     const dec = this.descodificador!;
 
+    /*
+    | Tope por fotograma (03/11/2026): con la tarjeta gráfica de algún PC el
+    | descodificador deja de entregar sin dar error y el montaje se quedaba
+    | en «escena 3/10» para siempre. Pasado el tope se da el corte por
+    | perdido: se queda el último fotograma y el vídeo sigue.
+    */
+    const limite = performance.now() + 8_000;
+
     for (let vuelta = 0; vuelta < 5000; vuelta += 1) {
+      if (performance.now() > limite) {
+        this.fallo = true;
+
+        return this.actual;
+      }
+
       /* Lo ya descodificado que no pasa de este instante: el último es el que se ve. */
       while (this.cola.length && this.cola[0].timestamp <= us + 500) {
         this.actual?.close();
@@ -114,7 +128,7 @@ export class FotogramasCorte {
       if (this.siguiente >= this.pista.n) {
         if (!this.vaciado && dec.state === "configured") {
           this.vaciado = true;
-          await dec.flush().catch(() => undefined);
+          await Promise.race([dec.flush().catch(() => undefined), new Promise<void>((listo) => setTimeout(listo, 3_000))]);
           continue;
         }
 

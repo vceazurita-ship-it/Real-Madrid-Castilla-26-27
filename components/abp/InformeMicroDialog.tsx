@@ -1078,7 +1078,8 @@ export function InformeMicroDialog({
 
         avance("terminando el montaje…");
 
-        const montado = await enCurso;
+        /* Con tope (03/11/2026): si el montaje se para, el correo sale sin el vídeo en vez de quedarse esperando. */
+        const montado = await Promise.race([enCurso.catch(() => null), new Promise<null>((listo) => setTimeout(() => listo(null), 8 * 60_000))]);
 
         if (montado) {
           try {

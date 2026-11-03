@@ -629,17 +629,25 @@ export async function montaVideoInforme(guionEntrada: GuionVideo, opciones: Opci
     | quedaba en «escena 1». El segundo de red, por si el aviso no llega.
     */
     for (const cod of [codificadorHd, codificador]) {
-      while (cod && cod.encodeQueueSize > 8 && !fallo) {
-        await new Promise<void>((listo) => {
-          const sigue = () => {
-            clearTimeout(red);
-            cod.removeEventListener("dequeue", sigue);
-            listo();
-          };
-          const red = setTimeout(sigue, 1000);
+      /* Si el codificador no suelta nada en 30 s seguidos, está parado (03/11/2026): se falla con mensaje en vez de girar sin fin. */
+      let sinAvance = 0;
 
-          cod.addEventListener("dequeue", sigue);
+      while (cod && cod.encodeQueueSize > 8 && !fallo) {
+        const avanzo = await new Promise<boolean>((listo) => {
+          const sigue = (si: boolean) => {
+            clearTimeout(red);
+            cod.removeEventListener("dequeue", conAviso);
+            listo(si);
+          };
+          const conAviso = () => sigue(true);
+          const red = setTimeout(() => sigue(false), 1000);
+
+          cod.addEventListener("dequeue", conAviso);
         });
+
+        sinAvance = avanzo ? 0 : sinAvance + 1;
+
+        if (sinAvance >= 30) fallo = new Error("El codificador de vídeo de este navegador se ha parado.");
       }
     }
 
