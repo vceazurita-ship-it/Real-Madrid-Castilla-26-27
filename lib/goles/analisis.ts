@@ -26,6 +26,8 @@
 
 import { mismoEquipo } from "@/lib/data-analisis/nombres";
 
+import type { FichaAuto } from "./tecnico";
+
 export const DOC_GOLES = "goles:analisis";
 export const DOC_TIPOLOGIA_MANUAL = "goles:tipologia-manual";
 export const CASTILLA = "Real Madrid Castilla";
@@ -132,6 +134,8 @@ export type GolesDoc = {
   tipologia: Record<string, TipologiaGol>;
   /** Por id de partido: los remates del timeline de Hudl. */
   remates: Record<string, RemateHudl[]>;
+  /** Por clave de gol: la ficha técnica desde el Castilla que sale de Hudl (lib/goles/tecnico.ts). */
+  tecnico?: Record<string, FichaAuto>;
   /** Partidos nuestros sin timeline todavía (para decirlo en pantalla). */
   sinTimeline: string[];
   /** Equipos cuyos partidos o goles no casan con la clasificación de BeSoccer (los avisa el script). */
