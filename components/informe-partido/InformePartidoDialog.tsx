@@ -55,7 +55,8 @@ import { informeUnicoPdf, paginaDeEnlaces, paginaDelVideo, type EnlaceInforme } 
 import { ROTULO_DOCUMENTO, type TipoDocumentoRival } from "@/lib/rivals/documentos";
 import { capitulosDe, informeHtml, informeTexto, resumenHtml, type Descarga, type ExtrasInforme } from "@/lib/informe-partido/html";
 import { asuntoInforme, queTocaEnElMicro, titularDelPlan, titularEstaSemana, whatsappInforme, type InformePartido, type Momento, type PinceladaAbp } from "@/lib/informe-partido/modelo";
-import { capturaLienzos, descarga, pintado, pdfDeLienzos } from "@/lib/export/lienzos";
+import { corteDeRed, fuentesIncrustadas, fuentesListas } from "@/lib/export/captura";
+import { capturaLienzos, descarga, esperaFotos, pintado, pdfDeLienzos } from "@/lib/export/lienzos";
 import { creaPptx } from "@/lib/export/pptx";
 import { barlowCondensed } from "@/lib/rivals/portada-font";
 import { pideVideoPostAbp, type VideoPostAbp } from "@/components/abp/jugadas-del-video";
@@ -131,7 +132,8 @@ const PESO_DESCONOCIDO = 6 * 1024 * 1024;
 /** Lo que pesa un archivo ya subido, preguntándolo sin bajarlo (HEAD). `null` si no se sabe. */
 const pesoDeUrl = async (url: string) => {
   try {
-    const r = await fetch(url, { method: "HEAD", cache: "no-store" });
+    /* Con tope (03/11/2026): si el almacén no contesta, el peso no se sabe y el correo sigue. */
+    const r = await fetch(url, { method: "HEAD", cache: "no-store", signal: corteDeRed(10_000) });
 
     const largo = Number(r.headers.get("content-length"));
 
@@ -725,7 +727,10 @@ export function InformePartidoDialog({
     if (cache.current.diapos?.clave === clave) return cache.current.diapos.imagenes;
 
     const imagenes = (async () => {
-      await document.fonts?.ready;
+      /* `fuentesListas` y no `document.fonts.ready` a pelo (03/11/2026): con
+         una fuente de fuera sin contestar, aquello no se resolvía nunca y el
+         envío se quedaba en «diapositivas…». */
+      await fuentesListas();
       await pintado();
       await pintado();
 
@@ -733,7 +738,14 @@ export function InformePartidoDialog({
 
       if (!raiz) throw new Error("No se han podido montar las diapositivas.");
 
-      return capturaLienzos(raiz, "[data-diapositiva-partido]", { ancho: DIAPO_W, alto: DIAPO_H, fondo: "#08111F", nitidez: 1 });
+      /* Los escudos y las caras, cargados (con tope), y las fuentes incrustadas
+         UNA vez para las tres: sin ellas, cada diapositiva vuelve a leer todas
+         las hojas de estilo de la página (03/11/2026, como la pizarra de ABP). */
+      await esperaFotos(raiz);
+
+      const fontEmbedCSS = await fuentesIncrustadas(raiz, {});
+
+      return capturaLienzos(raiz, "[data-diapositiva-partido]", { ancho: DIAPO_W, alto: DIAPO_H, fondo: "#08111F", nitidez: 1, fontEmbedCSS });
     })();
 
     cache.current.diapos = { clave, imagenes };
@@ -847,7 +859,9 @@ export function InformePartidoDialog({
 
         setPreparando("Preparando el PDF del completo…");
 
-        await damePdfCompleto((h, total) => vivo && setPreparando(`Preparando el PDF del completo · ${h} de ${total}…`));
+        /* Sólo las hojas (03/11/2026): antes se armaba también el PDF, que se
+           tiraba; el PDF suelto y el del correo salen de estas hojas al pedirlos. */
+        await dameHojasCompleto((h, total) => vivo && setPreparando(`Preparando el PDF del completo · ${h} de ${total}…`));
 
         /* Y el vídeo, si va en algún correo y no lo ha montado ya el ordenador del club. */
         if (vivo && quiereVideo && puedeMontarVideo() && !informeVisto?.videoListo?.url) {
@@ -1448,7 +1462,12 @@ export function InformePartidoDialog({
 
       const aDataUrl = async (url: string) => {
         try {
-          const blob = await (await fetch(url)).blob();
+          /* Con tope (03/11/2026): sin póster, el correo sale igual. */
+          const respuesta = await fetch(url, { signal: corteDeRed(20_000) });
+
+          if (!respuesta.ok) return null;
+
+          const blob = await respuesta.blob();
 
           return await new Promise<string>((ok, mal) => {
             const lector = new FileReader();

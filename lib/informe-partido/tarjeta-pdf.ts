@@ -15,6 +15,7 @@
 
 import { buscadorDeEscudos, traeEscudos } from "@/lib/data-analisis/escudos";
 import { subeAdjunto } from "@/lib/correo/subeAdjunto";
+import { corteDeRed } from "@/lib/export/captura";
 
 const W = 1200;
 const H = 630;
@@ -32,7 +33,8 @@ async function cargaImagen(src: string | null) {
   if (!src) return null;
 
   try {
-    const r = await fetch(src);
+    /* Con tope (03/11/2026): un escudo que no contesta no deja el envío esperando. */
+    const r = await fetch(src, { signal: corteDeRed(10_000) });
 
     if (!r.ok) return null;
 

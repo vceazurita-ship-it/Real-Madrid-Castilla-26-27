@@ -21,6 +21,7 @@
  */
 
 import { COLORES as PIZARRA, CABECERA_H } from "@/lib/abp/pizarra";
+import { corteDeRed } from "@/lib/export/captura";
 import {
   CAMPO_ANCHO,
   CAMPO_FONDO,
@@ -563,8 +564,11 @@ export async function aDataUrl(url: string): Promise<string> {
   const deCasa = url.startsWith("/") || url.startsWith(window.location.origin);
 
   try {
+    /* Con tope (03/11/2026): la promesa se guarda por pestaña (`recurso`), y
+       una foto sin contestar dejaba colgadas todas las láminas detrás. */
     const respuesta = await fetch(
       deCasa ? url : `/api/rivals/foto?url=${encodeURIComponent(url)}`,
+      { signal: corteDeRed(20_000) },
     );
 
     if (!respuesta.ok) return "";

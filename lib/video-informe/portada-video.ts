@@ -16,6 +16,8 @@
 
 import qrcode from "qrcode-generator";
 
+import { oSigue } from "@/lib/export/captura";
+
 const ORO = "#C8A96B";
 const FONDO = "#08111F";
 
@@ -128,9 +130,10 @@ export async function diapositivaDelVideo(opciones: { url: string; poster: strin
   if (opciones.poster) {
     const img = new Image();
     img.src = opciones.poster;
-    await img.decode().catch(() => {});
+    /* Con tope (03/11/2026): un póster que no llega no deja la portada esperando. */
+    await oSigue(img.decode(), 15_000, undefined);
 
-    if (img.width) {
+    if (img.complete && img.naturalWidth) {
       ctx.drawImage(img, 96, 290, 1120, 630);
       ctx.strokeStyle = ORO;
       ctx.lineWidth = 3;

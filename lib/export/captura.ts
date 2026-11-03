@@ -257,6 +257,45 @@ export function conLimite<T>(promesa: Promise<T>, ms = TOPE_CAPTURA): Promise<T>
   });
 }
 
+/**
+ * Una señal que corta un `fetch` a los `ms` (03/11/2026). Para las descargas
+ * del camino de un informe —escudos, pósteres, PDF del rival, la firma de una
+ * subida—: un servidor que no contesta dejaba el botón girando sin fin.
+ * `undefined` en un navegador que no sabe cortar (se queda como antes).
+ */
+export function corteDeRed(ms = TOPE_DESCARGA): AbortSignal | undefined {
+  if (typeof AbortController === "undefined") return undefined;
+
+  const corte = new AbortController();
+
+  setTimeout(() => corte.abort(), ms);
+
+  return corte.signal;
+}
+
+/**
+ * La promesa o, si pasa de `ms` (o falla), `siNo` (03/11/2026): para las
+ * esperas que pueden faltar sin romper nada —una foto que no decodifica, una
+ * fuente que no llega—. El reloj es un `setTimeout`: con la pestaña escondida
+ * llega tarde, pero llega, y no gasta nada mientras.
+ */
+export function oSigue<T>(promesa: Promise<T>, ms: number, siNo: T): Promise<T> {
+  return new Promise<T>((resolve) => {
+    const reloj = setTimeout(() => resolve(siNo), ms);
+
+    promesa.then(
+      (valor) => {
+        clearTimeout(reloj);
+        resolve(valor);
+      },
+      () => {
+        clearTimeout(reloj);
+        resolve(siNo);
+      },
+    );
+  });
+}
+
 /** Lo que mide el nodo si no se dice otra cosa: igual que `html-to-image`. */
 function medidaDe(nodo: HTMLElement, opciones: Options) {
   if (opciones.width && opciones.height) {
@@ -391,7 +430,9 @@ export async function fuentesIncrustadas(nodo: HTMLElement, opciones: Options): 
   try {
     const { getFontEmbedCSS } = await import("html-to-image");
 
-    return await getFontEmbedCSS(nodo, opciones);
+    /* Con tope (03/11/2026): baja cada fuente con un `fetch`; si una no
+       contesta, cada captura las vuelve a incrustar por su cuenta. */
+    return await conLimite(getFontEmbedCSS(nodo, conTope(opciones)), 30_000);
   } catch {
     return undefined;
   }

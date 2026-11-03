@@ -48,6 +48,7 @@ import { pizarraParaInforme } from "@/lib/abp/pizarra-para-informe";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { useAgendaEnvios } from "@/hooks/useAgendaEnvios";
 import { Destinatarios } from "@/components/correo/Destinatarios";
+import { corteDeRed } from "@/lib/export/captura";
 import { completoEnHojas } from "@/lib/informe-partido/pdf-completo";
 import { informeUnicoPdf, paginaDeEnlaces } from "@/lib/informe-partido/pdf-unico";
 import { mensajeWhatsapp, telefonosDe, type CanalEnvio, type MensajeWhatsapp } from "@/lib/correo/whatsapp";
@@ -1098,7 +1099,8 @@ export function InformeMicroDialog({
         avance("preparando el enlace…");
 
         const poster = videoJugadores.poster
-          ? await fetch(videoJugadores.poster)
+          ? /* Con tope (03/11/2026): sin póster, el correo sale igual. */
+            await fetch(videoJugadores.poster, { signal: corteDeRed(20_000) })
               .then((r) => (r.ok ? r.blob() : Promise.reject(new Error(String(r.status)))))
               .then(
                 (b) =>

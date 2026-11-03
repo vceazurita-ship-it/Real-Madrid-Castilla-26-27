@@ -1,3 +1,5 @@
+import { corteDeRed } from "@/lib/export/captura";
+
 import { mismoEquipo } from "./nombres";
 
 /**
@@ -42,15 +44,24 @@ let enCamino: Promise<Escudos> | null = null;
 export function traeEscudos(): Promise<Escudos> {
   if (enCamino) return enCamino;
 
-  enCamino = fetch("/api/data-analisis?escudos=1")
+  /*
+  | Con tope (03/11/2026): el vídeo y la tarjeta del PDF de los informes la
+  | esperan, y una petición sin contestar los dejaba colgados. Si se corta (o
+  | falla), se olvida: la próxima vez se vuelve a pedir.
+  */
+  const esta: Promise<Escudos> = fetch("/api/data-analisis?escudos=1", { signal: corteDeRed(30_000) })
     .then((r) => (r.ok ? r.json() : { escudos: [] }))
     .then((r) => (Array.isArray(r?.escudos) ? (r.escudos as Escudos) : []))
     .catch((error) => {
       console.error("[data-analisis] escudos", error);
 
+      if (enCamino === esta) enCamino = null;
+
       /* Sin escudos los gráficos pintan discos, que es como estaban antes. */
       return [] as Escudos;
     });
+
+  enCamino = esta;
 
   return enCamino;
 }

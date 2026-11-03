@@ -1,5 +1,7 @@
 import { Barlow_Condensed } from "next/font/google";
 
+import { oSigue } from "@/lib/export/captura";
+
 /*
 |--------------------------------------------------------------------------
 | TIPOGRAFÍA DE LA PORTADA DEL JUGADOR
@@ -49,13 +51,23 @@ export const FAMILIA_PORTADA = barlowCondensed.style.fontFamily;
 export async function esperaFuentePortada() {
   if (typeof document === "undefined" || !document.fonts) return;
 
-  try {
-    await Promise.all([
-      document.fonts.load(`700 200px ${FAMILIA_PORTADA}`),
-      document.fonts.load(`600 40px ${FAMILIA_PORTADA}`),
-      document.fonts.load(`500 24px ${FAMILIA_PORTADA}`),
-    ]);
-  } catch (error) {
-    console.warn("[portada] no se ha podido cargar Barlow Condensed", error);
-  }
+  /*
+  | Con tope (03/11/2026): `fonts.load` no se resuelve nunca si la descarga se
+  | queda a medias, y la pizarra del informe de ABP —y su envío— esperaban
+  | aquí. A los 5 s se sigue con el respaldo, como si hubiera fallado.
+  */
+  const cargada = Promise.all([
+    document.fonts.load(`700 200px ${FAMILIA_PORTADA}`),
+    document.fonts.load(`600 40px ${FAMILIA_PORTADA}`),
+    document.fonts.load(`500 24px ${FAMILIA_PORTADA}`),
+  ]).then(
+    () => true,
+    (error: unknown) => {
+      console.warn("[portada] no se ha podido cargar Barlow Condensed", error);
+
+      return true;
+    },
+  );
+
+  if (!(await oSigue(cargada, 5_000, false))) console.warn("[portada] Barlow Condensed tarda demasiado: se sigue con el respaldo");
 }

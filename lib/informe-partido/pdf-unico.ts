@@ -12,6 +12,7 @@
  * Se usa en el navegador.
  */
 
+import { oSigue } from "@/lib/export/captura";
 import { pdfDeHojas, type HojaPdf } from "@/lib/export/lienzos";
 import { dibujaQr } from "@/lib/video-informe/portada-video";
 
@@ -47,9 +48,11 @@ async function cargaImagen(src: string) {
   const img = new Image();
 
   img.src = src;
-  await img.decode().catch(() => undefined);
+  /* Con tope (03/11/2026): un póster en el almacén que no contesta dejaba la
+     página del vídeo —y el PDF del informe— esperando sin fin. Sin él, el hueco. */
+  await oSigue(img.decode(), 15_000, undefined);
 
-  return img.width ? img : null;
+  return img.complete && img.naturalWidth ? img : null;
 }
 
 /** «Vídeo y documentos»: la imagen y las zonas que se pueden pulsar (en fracciones). */

@@ -31,7 +31,7 @@
  * Se usa en el navegador.
  */
 
-import { cargaSvg, fuentesListas, respira } from "@/lib/export/captura";
+import { cargaSvg, conLimite, conTope, fuentesListas, oSigue, respira } from "@/lib/export/captura";
 import { PIXEL_VACIO, pdfDeLienzos } from "@/lib/export/lienzos";
 
 const FONDO = "#EEEAE0";
@@ -126,10 +126,15 @@ export async function completoEnHojas(html: string, alPaso?: (hoja: number, tota
   document.body.appendChild(caja);
 
   try {
-    await Promise.all(Array.from(caja.querySelectorAll("img")).map((img) => img.decode().catch(() => undefined)));
+    /*
+    | Con tope (03/11/2026): un `decode()` de una foto que no llega (el proxy
+    | de BeSoccer sin contestar) o una fuente que no baja dejaban el PDF —y el
+    | envío entero— esperando para siempre. Sin ellas se mide igual.
+    */
+    await oSigue(Promise.all(Array.from(caja.querySelectorAll("img")).map((img) => img.decode().catch(() => undefined))), 8_000, []);
 
     /* Que la letra esté cargada antes de medir dónde se corta cada hoja. */
-    await Promise.all(["500", "600", "700"].map((peso) => document.fonts?.load(`${peso} 16px 'Barlow Condensed'`).catch(() => undefined)));
+    await oSigue(Promise.all(["500", "600", "700"].map((peso) => document.fonts?.load(`${peso} 16px 'Barlow Condensed'`).catch(() => undefined))), 4_000, []);
 
     const alto = caja.scrollHeight;
 
@@ -197,18 +202,26 @@ export async function completoEnHojas(html: string, alPaso?: (hoja: number, tota
 
     await fuentesListas();
 
-    const svg = await toSvg(caja, {
-      width: ANCHO,
-      height: alto,
-      backgroundColor: FONDO,
-      includeQueryParams: true,
-      imagePlaceholder: PIXEL_VACIO,
-      style: { position: "static", left: "0", top: "0", transform: "none" },
-    });
+    /* Con los topes de `lib/export/captura.ts` (03/11/2026): cada foto se
+       corta a los 20 s (sale en blanco) y el documento entero, a los 90 s. */
+    const svg = await conLimite(
+      toSvg(
+        caja,
+        conTope({
+          width: ANCHO,
+          height: alto,
+          backgroundColor: FONDO,
+          includeQueryParams: true,
+          imagePlaceholder: PIXEL_VACIO,
+          style: { position: "static", left: "0", top: "0", transform: "none" },
+        }),
+      ),
+      90_000,
+    );
 
     /* `cargaSvg` (y no la carga de siempre): en WebKit la imagen se da por
        cargada antes de tener dentro las fotos, y sale el respiro que falta. */
-    const imagen = await cargaSvg(svg);
+    const imagen = await conLimite(cargaSvg(svg), 60_000);
 
     const hojas: string[] = [];
 

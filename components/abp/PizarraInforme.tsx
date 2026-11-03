@@ -35,6 +35,7 @@ import {
 import type { GraficoInforme } from "@/lib/abp/informe-graficos";
 import { mismoRival } from "@/lib/abp/informe-micro";
 import { notasDeDiapositiva } from "@/lib/abp/laminas-lectura";
+import { fuentesIncrustadas } from "@/lib/export/captura";
 import { capturaLienzos, esperaFotos, pintado } from "@/lib/export/lienzos";
 import { esperaFuentePortada } from "@/lib/rivals/portada-font";
 import { RATINGS_SEASON } from "@/lib/ratings/types";
@@ -184,11 +185,17 @@ export function usePizarraInforme(
         await esperaFuentePortada();
         await esperaFotos(raiz);
 
+        /* Las fuentes incrustadas UNA vez para las nueve diapositivas
+           (03/11/2026, como `lib/abp/fotos-tablero.ts`): sin ellas, cada una
+           vuelve a leer todas las hojas de estilo de la página. */
+        const fontEmbedCSS = await fuentesIncrustadas(raiz, {});
+
         const imagenes = await capturaLienzos(raiz, "[data-abp-tablero]", {
           ancho: TABLERO_W,
           alto: TABLERO_H,
           fondo: COLORES.tinta,
           nitidez: NITIDEZ,
+          fontEmbedCSS,
         });
 
         if (!vivo) return;

@@ -33,6 +33,7 @@ import {
 const PAGINAS_POR_PDF = 8;
 import { resolutorDeFichas } from "@/lib/rivals/analisis-fichas";
 import { laminaImagen } from "@/lib/rivals/analisis-svg";
+import { conLimite, corteDeRed } from "@/lib/export/captura";
 
 import { claveClub as clave, mismoClub as mismoEquipo } from "@/lib/rivals/mismoClub";
 import { leeLamina, nombreDocumento, sinRepetidas, tituloDeLamina } from "@/lib/abp/laminas-lectura";
@@ -137,7 +138,9 @@ export function useAnalisisRivalInforme(rival: string): AnalisisRivalInforme {
         if (cancelado) break;
 
         try {
-          const imagen = await laminaImagen(lamina, { ficha, equipo, jornada }, { ancho: 1280, formato: "image/png" });
+          /* A 1000 px (03/11/2026; antes 1280): el envío la deja en 1000 de todas
+             formas (`aligera` de InformeMicroDialog) y en el correo se ve a 760. */
+          const imagen = await laminaImagen(lamina, { ficha, equipo, jornada }, { ancho: 1000, formato: "image/png" });
 
           graficos.push({
             cid: `rival-${i + 1}`,
@@ -168,13 +171,18 @@ export function useAnalisisRivalInforme(rival: string): AnalisisRivalInforme {
             if (cancelado) break;
 
             try {
-              const respuesta = await fetch(doc.url);
+              /*
+              | Con tope (03/11/2026): un PDF que no baja, o el lector de PDF
+              | (de unpkg) que no llega, dejaban «cargando» para siempre y el
+              | informe de ABP sin poder enviarse. Se corta y queda el enlace.
+              */
+              const respuesta = await fetch(doc.url, { signal: corteDeRed(30_000) });
 
               if (!respuesta.ok) throw new Error(`HTTP ${respuesta.status}`);
 
               const datos = new Uint8Array((await respuesta.arrayBuffer()) as ArrayBuffer);
 
-              const pdf = await pdfjs.getDocument({ data: datos }).promise;
+              const pdf = await conLimite(pdfjs.getDocument({ data: datos }).promise, 30_000);
 
               const paginas = Math.min(pdf.numPages, PAGINAS_POR_PDF);
 
@@ -213,7 +221,7 @@ export function useAnalisisRivalInforme(rival: string): AnalisisRivalInforme {
                 lienzo.width = Math.round(vista.width);
                 lienzo.height = Math.round(vista.height);
 
-                await pagina.render({ canvas: lienzo, viewport: vista }).promise;
+                await conLimite(pagina.render({ canvas: lienzo, viewport: vista }).promise, 30_000);
 
                 graficos.push({
                   cid: `rival-doc-${graficos.length + 1}`,

@@ -16,7 +16,18 @@
  * Se puede usar en el navegador.
  */
 
-export type AdjuntoSubido = { nombre: string; url: string; tipo: string; tamano: number; path: string };
+import { corteDeRed } from "@/lib/export/captura";
+
+/*
+| Sin avance en 90 s, la subida se da por cortada (03/11/2026): un PUT que se
+| queda parado (la wifi del hotel, el móvil que cambia de red) no dispara ni
+| `onload` ni `onerror`, y el envío se quedaba «subiendo 40 %» para siempre.
+| No es un tope a la subida entera: un vídeo grande con red lenta sigue
+| mientras avance.
+*/
+const SIN_AVANCE = 90_000;
+
+export type AdjuntoSubido ={ nombre: string; url: string; tipo: string; tamano: number; path: string };
 
 /** Dónde se guarda: para un correo (se barre a la semana) o como documento del rival (se queda). */
 export type DestinoSubida = { carpeta?: "informe" | "rival"; equipo?: string; /** La ruta de un PDF ya subido: la imagen va a su lado con su nombre (su vista previa). */ junto?: string };
@@ -38,10 +49,15 @@ function tipoDe(file: File) {
 export async function subeAdjunto(file: File, alProgreso?: (fraccion: number) => void, destino: DestinoSubida = {}): Promise<AdjuntoSubido> {
   const tipo = tipoDe(file);
 
+  /* Con tope (03/11/2026): la firma es una petición corta; si no contesta en
+     30 s, el envío lo dice (y «Reintentar» vuelve a pedirla) en vez de girar. */
   const firma = await fetch("/api/informe/subida", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ nombre: file.name, tipo, tamano: file.size, carpeta: destino.carpeta ?? "informe", equipo: destino.equipo ?? "", junto: destino.junto ?? "" }),
+    signal: corteDeRed(30_000),
+  }).catch((error: unknown) => {
+    throw new Error(`No se ha podido preparar la subida de «${file.name}»: ${error instanceof Error && error.name === "AbortError" ? "el servidor no contesta" : "sin conexión"}.`);
   });
 
   if (firma.status === 401) {
@@ -83,9 +99,24 @@ export async function subeAdjunto(file: File, alProgreso?: (fraccion: number) =>
 
     xhr.setRequestHeader("x-upsert", "false");
 
+    let vigia = 0;
+    const vigila = () => {
+      clearTimeout(vigia);
+      vigia = window.setTimeout(() => {
+        xhr.abort();
+        falla(new Error(`No se ha podido subir «${file.name}»: la subida se ha quedado parada. Vuelve a intentarlo.`));
+      }, SIN_AVANCE);
+    };
+
     xhr.upload.onprogress = (evento) => {
+      vigila();
       if (evento.lengthComputable) alProgreso?.(evento.loaded / evento.total);
     };
+
+    /* Subido entero: el reloj vuelve a contar mientras contesta Supabase. */
+    xhr.upload.onload = () => vigila();
+
+    xhr.onloadend = () => clearTimeout(vigia);
 
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) {
@@ -109,6 +140,7 @@ export async function subeAdjunto(file: File, alProgreso?: (fraccion: number) =>
     xhr.onerror = () => falla(new Error(`No se ha podido subir «${file.name}»: se ha cortado la conexión.`));
 
     xhr.send(formulario);
+    vigila();
   });
 
   return { nombre: file.name, url: datos.url, tipo, tamano: file.size, path: datos.path ?? "" };
