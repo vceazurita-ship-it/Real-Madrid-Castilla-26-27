@@ -219,7 +219,7 @@ export type DatosInforme = {
    * Los cortes del partido (`informe-clips:jNN`), para enlazar cada acción de
    * peligro del post con su vídeo por el minuto (22/10/2026). Sólo se lee.
    */
-  clipsPartido?: { minuto: string; url: string; de: string; tipo: string }[] | null;
+  clipsPartido?: { minuto: string; url: string; de: string; tipo: string; rotulo?: string }[] | null;
   /**
    * Lo preparado del rival. `null` es «se ha mirado y no hay nada»;
    * `undefined`, «todavía no se sabe» (no se avisa de nada).
@@ -752,6 +752,8 @@ export type PartidoAbpInforme = {
    * dieron peligro.
    */
   peligrosas: { lado: AbpLado; aspecto: string; texto: string; /** Sin el tipo, para lo esencial. */ corto: string; xg: number; clip: string | null }[];
+  /** Las demás acciones a balón parado del partido que tienen corte (03/11/2026): las de peligro ya van arriba con el suyo. */
+  enVideo?: { lado: AbpLado; rotulo: string; url: string }[];
 };
 
 export type InformeMicro = {
@@ -1703,9 +1705,27 @@ function partidoDelInforme(
     .sort((a, b) => a.orden - b.orden)
     .map((una) => ({ lado: una.lado, aspecto: una.aspecto, texto: una.texto, corto: una.corto, xg: una.xg, clip: una.clip }));
 
+  /*
+  | Todos los cortes de balón parado del partido (03/11/2026, lo pidió el
+  | analista: faltaban los vídeos de las acciones). Córner, falta y banda, a
+  | favor y en contra, por minuto; sin repetir los que ya llevan las de peligro.
+  */
+  const yaEnlazados = new Set(peligrosas.map((una) => una.clip).filter(Boolean));
+  const enVideo = (clips ?? [])
+    .filter((c) => c.url && /^(corner|abp|banda)/.test(c.tipo) && !yaEnlazados.has(c.url))
+    .map((c) => ({
+      lado: (/-contra$/.test(c.tipo) || c.de === "rival" ? "defensivo" : "ofensivo") as AbpLado,
+      rotulo: c.rotulo?.trim() || [/^corner/.test(c.tipo) ? "Córner" : /^banda/.test(c.tipo) ? "Saque de banda" : "Falta", c.minuto].filter(Boolean).join(" · "),
+      url: c.url,
+      orden: minutoEnNumero(c.minuto) ?? 999,
+    }))
+    .sort((a, b) => a.orden - b.orden)
+    .map(({ lado, rotulo, url }) => ({ lado, rotulo, url }));
+
   return {
     jornada,
     peligrosas,
+    enVideo,
     favor: cifras(favor),
     contra: cifras(contra),
     filas,
@@ -4377,6 +4397,19 @@ function seccionesDe(informe: InformeMicro, modoImagenes: ModoImagenes): Seccion
                 )
                 .join("")}</ul>`
             : "") +
+          (p.enVideo?.length
+            ? `<p style="margin:10px 0 6px;font:700 11px/1.3 Arial,sans-serif;color:${SUAVE};letter-spacing:.14em;text-transform:uppercase">${p.peligrosas.length ? "El resto de acciones, en vídeo" : "Las acciones, en vídeo"}</p>${(["ofensivo", "defensivo"] as const)
+                .map((lado) => {
+                  const suyas = p.enVideo!.filter((una) => una.lado === lado);
+
+                  return suyas.length
+                    ? `<p style="margin:0 0 8px;font:400 13px/1.7 Arial,sans-serif;color:${TINTA}"><b>${lado === "ofensivo" ? "A favor" : "En contra"}:</b> ${suyas
+                        .map((una) => `<a href="${esc(una.url)}" style="color:#8A6A2C;font-weight:700;white-space:nowrap">${esc(una.rotulo)}</a>`)
+                        .join(" · ")}</p>`
+                    : "";
+                })
+                .join("")}`
+            : "") +
           (p.rematadores.length || p.sacadores.length
             ? parrafo(
                 [
@@ -4404,6 +4437,7 @@ function seccionesDe(informe: InformeMicro, modoImagenes: ModoImagenes): Seccion
           ),
           ...(repartoDelPartido(p) ? [`- ${repartoDelPartido(p)}`] : []),
           ...p.peligrosas.map((una) => `- ${una.lado === "ofensivo" ? "A favor" : "En contra"} · ${una.aspecto}: ${una.texto}${una.clip ? ` · ${una.clip}` : ""}`),
+          ...(p.enVideo ?? []).map((una) => `- En vídeo · ${una.lado === "ofensivo" ? "a favor" : "en contra"} · ${una.rotulo}: ${una.url}`),
           ...(p.sacadores.length
             ? [`- Sacadores: ${p.sacadores.slice(0, 5).map((uno) => `${uno.jugador} (${uno.total})`).join(", ")}`]
             : []),

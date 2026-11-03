@@ -496,7 +496,7 @@ export function InformeMicroDialog({
 
         const cortes = (j?.data?.cortes ?? []).filter((c) => c && c.url && c.minuto);
 
-        setClipsPartido(cortes.map((c) => ({ minuto: String(c.minuto), url: String(c.url), de: String(c.de ?? ""), tipo: String(c.tipo ?? "") })));
+        setClipsPartido(cortes.map((c) => ({ minuto: String(c.minuto), url: String(c.url), de: String(c.de ?? ""), tipo: String(c.tipo ?? ""), rotulo: String((c as { rotulo?: string }).rotulo ?? "") })));
         setCortesAbp(cortes.filter((c) => typeof c.url === "string" && /^(corner|abp|banda)/.test(String(c.tipo ?? ""))));
       })
       .catch(() => {})
