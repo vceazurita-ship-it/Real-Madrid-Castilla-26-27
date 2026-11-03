@@ -138,7 +138,7 @@ function Anillo({ titulo, goles, color, resaltado, onResalta }: { titulo: string
             onMouseEnter={() => onResalta(t.clave)}
             onMouseLeave={() => onResalta(null)}
           >
-            <title>{`${t.clave === "sin" ? "Sin clasificar" : NOMBRE_FASE[t.clave]}: ${t.n} de ${total}`}</title>
+            <title>{`${t.clave === "sin" ? "Por elegir" : NOMBRE_FASE[t.clave]}: ${t.n} de ${total}`}</title>
           </path>
         ))}
         {trozosTipo.map((t) => (
@@ -152,7 +152,7 @@ function Anillo({ titulo, goles, color, resaltado, onResalta }: { titulo: string
             onMouseEnter={() => onResalta(t.clave)}
             onMouseLeave={() => onResalta(null)}
           >
-            <title>{`${t.clave === "sin" ? "Sin clasificar" : NOMBRE_TIPO[t.clave as TipoGol]}: ${t.n} de ${total}`}</title>
+            <title>{`${t.clave === "sin" ? "Por elegir" : NOMBRE_TIPO[t.clave as TipoGol]}: ${t.n} de ${total}`}</title>
           </path>
         ))}
         {/* El número dentro de cada trozo de fuera, si cabe. */}
@@ -295,7 +295,7 @@ function LineaGoles({ goles, resaltado, onResalta }: { goles: GolConTipo[]; resa
             <text x={g.x} y={g.aFavor ? g.y - R - 4 : g.y + R + 11} textAnchor="middle" fontSize={10} fontWeight={600} fill="currentColor" opacity={0.7}>
               {rotuloMinuto(g)}
             </text>
-            <title>{`J${g.partido.jornada} · ${rotuloMinuto(g)} · ${g.jugador || "—"} · ${g.aFavor ? "a favor" : "en contra"} · ${g.tipoFinal ? NOMBRE_TIPO[g.tipoFinal] : "sin clasificar"}\n${g.partido.local} ${g.partido.gl}-${g.partido.gv} ${g.partido.visitante}`}</title>
+            <title>{`${[`J${g.partido.jornada}`, rotuloMinuto(g), g.jugador, g.aFavor ? "a favor" : "en contra", g.tipoFinal ? NOMBRE_TIPO[g.tipoFinal] : ""].filter(Boolean).join(" · ")}\n${g.partido.local} ${g.partido.gl}-${g.partido.gv} ${g.partido.visitante}`}</title>
           </g>
         );
       })}

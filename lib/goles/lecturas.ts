@@ -70,7 +70,7 @@ export function tramosClave(filas: FilaFranja[]) {
 }
 
 /** Dónde marca y dónde sufre más que la liga, y cómo se reparten las partes. */
-export function lecturaFranjas(filas: FilaFranja[]) {
+export function lecturaFranjas(filas: FilaFranja[], corto = "El equipo") {
   const partidos = filas[0]?.partidos ?? 0;
   const gf = filas.reduce((s, f) => s + f.gf, 0);
   const gc = filas.reduce((s, f) => s + f.gc, 0);
@@ -82,16 +82,16 @@ export function lecturaFranjas(filas: FilaFranja[]) {
   const fuerte = [...conDif].filter((f) => f.gf > 0).sort((a, b) => b.df - a.df)[0];
   const flojo = [...conDif].filter((f) => f.gc > 0).sort((a, b) => b.dc - a.dc)[0];
 
-  if (fuerte && fuerte.df > 0) frases.push(`Su mejor tramo en ataque es el ${fuerte.franja.nombre}: ${veces(fuerte.gf)}, ${n2(media(fuerte.gf, partidos))} por partido frente a ${n2(fuerte.ligaPP)} de la liga (tendencia, ${partidos} ${partidos === 1 ? "partido" : "partidos"}).`);
-  if (flojo && flojo.dc > 0) frases.push(`Donde más sufre es en el ${flojo.franja.nombre}: ${veces(flojo.gc)} en contra, ${n2(media(flojo.gc, partidos))} por partido frente a ${n2(flojo.ligaContraPP)} de la liga (tendencia, ${partidos} ${partidos === 1 ? "partido" : "partidos"}).`);
+  if (fuerte && fuerte.df > 0) frases.push(`${corto} marca más que la liga en el ${fuerte.franja.nombre}: ${veces(fuerte.gf)}, ${n2(media(fuerte.gf, partidos))} por partido frente a ${n2(fuerte.ligaPP)} (tendencia, ${partidos} ${partidos === 1 ? "partido" : "partidos"}).`);
+  if (flojo && flojo.dc > 0) frases.push(`${corto} encaja más que la liga en el ${flojo.franja.nombre}: ${veces(flojo.gc)} en contra, ${n2(media(flojo.gc, partidos))} por partido frente a ${n2(flojo.ligaContraPP)} (tendencia, ${partidos} ${partidos === 1 ? "partido" : "partidos"}).`);
 
   /* Antes y después del descanso. */
   const parte = (p: 1 | 2, k: "gf" | "gc") => filas.filter((f) => f.franja.parte === p).reduce((s, f) => s + f[k], 0);
   const gc1 = parte(1, "gc");
   const gf2 = parte(2, "gf");
 
-  if (gc >= 3 && gc1 / gc >= 0.65) frases.push(`${gc1} de sus ${gc} goles en contra llegan en la primera parte.`);
-  else if (gc >= 3 && gc1 / gc <= 0.35) frases.push(`${gc - gc1} de sus ${gc} goles en contra llegan en la segunda parte.`);
+  if (gc >= 3 && gc1 / gc >= 0.65) frases.push(`${gc1} de los ${gc} goles en contra llegan en la primera parte.`);
+  else if (gc >= 3 && gc1 / gc <= 0.35) frases.push(`${gc - gc1} de los ${gc} goles en contra llegan en la segunda parte.`);
 
   if (gf >= 3 && gf2 / gf >= 0.65) frases.push(`Marca sobre todo en la segunda parte (${gf2} de ${gf}).`);
   else if (gf >= 3 && gf2 / gf <= 0.35) frases.push(`Marca sobre todo en la primera parte (${gf - gf2} de ${gf}).`);
@@ -215,6 +215,12 @@ type EntradaImportante = {
   conTipologia: boolean;
   /** Al equipo le falta algún partido jugado: los totales no son comparables con la liga. */
   incompleto: boolean;
+  /**
+   * 03/11/2026: lo que dicen las fichas técnicas de nuestros goles
+   * (`importanteTecnico` de lib/goles/tecnico-analisis.ts). Va antes que la
+   * tipología: es lo que hacemos y lo que concedemos nosotros.
+   */
+  tecnico?: Importante[];
 };
 
 /**
@@ -235,18 +241,23 @@ export function loImportante(e: EntradaImportante): Importante[] {
     else if (d > 0) filas.push({ texto: lecturaBalance(e.corto, e.partidos, e.gf, e.gc, e.ligaGF, e.ligaGC), accion: `Esta semana, ${TAREA_DEFENSA}` });
   }
 
+  /* Lo técnico (qué hacemos y qué concedemos nosotros) va justo después del balance. */
+  const tecnico = e.tecnico ?? [];
+
+  filas.push(...tecnico);
+
   const { flojo, fuerte } = tramosClave(e.filas);
 
   if (flojo) {
     const nombre = flojo.franja.nombre;
 
     filas.push({
-      texto: `Donde más sufre es en el ${nombre}: ${veces(flojo.gc)} en contra${e.incompleto ? "" : `, ${n2(media(flojo.gc, e.partidos))} por partido frente a ${n2(flojo.ligaContraPP)} de la liga`}${flojo.gc <= 3 ? ` (tendencia, ${base(e.partidos)})` : ""}.`,
+      texto: `${e.corto} encaja más que la liga en el ${nombre}: ${veces(flojo.gc)} en contra${e.incompleto ? "" : `, ${n2(media(flojo.gc, e.partidos))} por partido frente a ${n2(flojo.ligaContraPP)} de la liga`}${flojo.gc <= 3 ? ` (tendencia, ${base(e.partidos)})` : ""}.`,
       accion: flojo.franja.parte === 2 && flojo.franja.desde >= 61 ? `Esta semana, ${TAREA_VENTAJA}` : `Esta semana, tarea de concentración y de ajuste defensivo en el tramo ${nombre}, con el partido en marcha.`,
     });
   } else if (fuerte) {
     filas.push({
-      texto: `Su mejor tramo es el ${fuerte.franja.nombre}: ${veces(fuerte.gf)}${e.incompleto ? "" : `, ${n2(media(fuerte.gf, e.partidos))} por partido frente a ${n2(fuerte.ligaPP)} de la liga`}${fuerte.gf <= 3 ? ` (tendencia, ${base(e.partidos)})` : ""}.`,
+      texto: `${e.corto} marca más que la liga en el ${fuerte.franja.nombre}: ${veces(fuerte.gf)}${e.incompleto ? "" : `, ${n2(media(fuerte.gf, e.partidos))} por partido frente a ${n2(fuerte.ligaPP)} de la liga`}${fuerte.gf <= 3 ? ` (tendencia, ${base(e.partidos)})` : ""}.`,
       accion: `Esta semana, repetir en el entrenamiento lo que ocurre en el tramo ${fuerte.franja.nombre} y llevarlo a otros momentos del partido.`,
     });
   }
@@ -269,16 +280,17 @@ export function loImportante(e: EntradaImportante): Importante[] {
     filas.push({ texto: lecturaPrimero(e.primeroEq, e.primeroLg)[0], accion: `Esta semana, ${TAREA_VENTAJA}` });
   }
 
-  if (e.conTipologia && e.totalContra > 0) {
+  if (e.conTipologia && e.totalContra > 0 && !tecnico.length) {
     const frases = lecturaTipologia(e.favor, e.contra, 0, e.totalContra);
     const enContra = frases.find((f) => f.startsWith("En contra"));
 
     if (enContra) {
       const fase = enContra.includes("balón parado") ? "las acciones de balón parado defensivo" : enContra.includes("transición") ? "la transición defensiva tras pérdida" : "la defensa del ataque organizado del rival";
 
-      filas.push({ texto: enContra, accion: `Esta semana, trabajar ${fase}, que es de donde más le llega.` });
+      filas.push({ texto: enContra, accion: `Esta semana, trabajar ${fase}, que es de donde más goles nos llegan.` });
     }
   }
 
-  return filas.slice(0, 3);
+  /* Con lo técnico, una más: el balance, lo que concedemos, lo que hacemos y el tramo. */
+  return filas.slice(0, tecnico.length ? 4 : 3);
 }

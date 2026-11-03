@@ -13,12 +13,16 @@
 */
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Clock, Crosshair, Goal, Home, LayoutDashboard, Lightbulb, ListOrdered, Shapes, SlidersHorizontal, Trophy } from "lucide-react";
+import { CircleCheck, Clock, Crosshair, Goal, Home, LayoutDashboard, Lightbulb, ListOrdered, Microscope, Shapes, SlidersHorizontal, Trophy } from "lucide-react";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { EsqueletoPantalla, EstadoError } from "@/components/ui/estados";
-import { AbpHeader, Notice, Panel, SaveState, Segmented, Select, StatCard, StatRow } from "@/components/abp/ui";
+import { AbpHeader, Button, Dialog, Notice, Panel, SaveState, Segmented, Select, StatCard, StatRow } from "@/components/abp/ui";
+import { FichaGol, type CambiaFicha } from "@/components/goles/FichaGol";
+import { AnalisisTecnico } from "@/components/goles/AnalisisTecnico";
+import { DOC_TECNICO_MANUAL, fichaDe, nombreAccion, nombreCampo, nombreFase, type FichaManual, type FichasManuales, type FichaTecnica } from "@/lib/goles/tecnico";
+import { importanteTecnico, resumenTecnico, tieneFicha, type GolTecnico } from "@/lib/goles/tecnico-analisis";
 import { MEJOR, ORO, PEOR, tinta } from "@/components/data/graficas";
 import { Lectura } from "@/components/data/formas";
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
@@ -75,13 +79,13 @@ const rotuloLugar = (c: Condicion) => (c === "local" ? "en casa" : c === "visita
 
 const TAMANOS = [5, 10, 15, 30, 45];
 
-const VISTAS = ["resumen", "minutos", "casa", "tipo", "goles"] as const;
+const VISTAS = ["resumen", "tecnico", "minutos", "casa", "tipo", "goles"] as const;
 type Vista = (typeof VISTAS)[number];
 
 /* Un motivo que habla de las fuentes (Hudl, timeline…) es método, no fútbol: sólo con los textos explicativos encendidos. */
 const esMetodo = (t: string) => /hudl|timeline|besoccer|wyscout|táctica/i.test(t);
 
-const pct = (n: number, d: number) => (d > 0 ? `${Math.round((n / d) * 100)} %` : "—");
+const pct = (n: number, d: number) => (d > 0 ? `${Math.round((n / d) * 100)} %` : "");
 
 /* ------------------------------------------------------------------ */
 /*  Piezas                                                             */
@@ -273,6 +277,9 @@ export function PantallaGoles() {
   /* En el móvil los filtros van plegados tras un botón, para que el resumen salga en la primera pantalla. */
   const [verFiltros, setVerFiltros] = useState(false);
   const manual = useRemoteDoc<TipologiaManual>({ key: DOC_TIPOLOGIA_MANUAL, kind: "goles", fallback: {} });
+  /* 03/11/2026: la ficha técnica de cada gol nuestro, lo que corrige o añade el cuerpo técnico (lib/goles/tecnico.ts). Se guarda sola. */
+  const tecnicoManual = useRemoteDoc<FichasManuales>({ key: DOC_TECNICO_MANUAL, kind: "goles", fallback: {}, debounce: 1200 });
+  const [golAbierto, setGolAbierto] = useState<string | null>(null);
 
   const todos = useMemo(() => doc.partidos ?? [], [doc.partidos]);
   const jornadas = useMemo(() => [...new Set(todos.map((p) => p.jornada))].sort((a, b) => a - b), [todos]);
@@ -519,28 +526,22 @@ export function PantallaGoles() {
 
   const tipologia = useMemo(() => {
     const cuenta = { favor: new Map<string, number>(), contra: new Map<string, number>() };
-    let sinFavor = 0;
-    let sinContra = 0;
 
+    /* Sólo los goles con su tipo: los que faltan por elegir no se cuentan ni se rotulan (se eligen en Gol a gol). */
     for (const g of goles) {
-      if (!(g.clave in (doc.tipologia ?? {})) && !manual.value[g.clave]) continue;
-
       const t = manual.value[g.clave] || doc.tipologia?.[g.clave]?.tipo;
-      const lado = g.aFavor ? cuenta.favor : cuenta.contra;
 
-      if (!t) {
-        if (g.aFavor) sinFavor += 1;
-        else sinContra += 1;
-        continue;
-      }
+      if (!t) continue;
+
+      const lado = g.aFavor ? cuenta.favor : cuenta.contra;
 
       lado.set(t, (lado.get(t) ?? 0) + 1);
     }
 
-    const totalFavor = [...cuenta.favor.values()].reduce((s, n) => s + n, 0) + sinFavor;
-    const totalContra = [...cuenta.contra.values()].reduce((s, n) => s + n, 0) + sinContra;
+    const totalFavor = [...cuenta.favor.values()].reduce((s, n) => s + n, 0);
+    const totalContra = [...cuenta.contra.values()].reduce((s, n) => s + n, 0);
 
-    return { cuenta, sinFavor, sinContra, totalFavor, totalContra };
+    return { cuenta, totalFavor, totalContra };
   }, [goles, doc.tipologia, manual.value]);
 
   /* Lo que se sabe de todos: penalti y en propia puerta (BeSoccer). */
@@ -577,7 +578,7 @@ export function PantallaGoles() {
     const suyos = rs.filter((r) => !r.nuestro);
     const lectura =
       masNuestro && masSuyo
-        ? `Remata ${fmt(media(nuestros.length, ids.length), 1)} veces por partido y le rematan ${fmt(media(suyos.length, ids.length), 1)}. Donde más remata es en el ${masNuestro.franja.nombre} (${masNuestro.nuestros.length}); donde más le rematan, en el ${masSuyo.franja.nombre} (${masSuyo.suyos.length}). De cada 10 remates suyos van ${Math.round(media(nuestros.filter((r) => r.aPuerta).length, nuestros.length) * 10)} a puerta; de los del rival, ${Math.round(media(suyos.filter((r) => r.aPuerta).length, suyos.length) * 10)}.`
+        ? `Rematamos ${fmt(media(nuestros.length, ids.length), 1)} veces por partido y nos rematan ${fmt(media(suyos.length, ids.length), 1)}. Donde más rematamos es en el ${masNuestro.franja.nombre} (${masNuestro.nuestros.length}); donde más nos rematan, en el ${masSuyo.franja.nombre} (${masSuyo.suyos.length}). De cada 10 remates nuestros van ${Math.round(media(nuestros.filter((r) => r.aPuerta).length, nuestros.length) * 10)} a puerta; de los del rival, ${Math.round(media(suyos.filter((r) => r.aPuerta).length, suyos.length) * 10)}.`
         : "";
 
     return {
@@ -621,6 +622,30 @@ export function PantallaGoles() {
     return { eq, lg };
   }, [delEquipo, liga, equipo, condicion]);
 
+  /* ---------------- ficha técnica, desde el Castilla (03/11/2026) ---------------- */
+  /* Sólo los goles de nuestros partidos: lo de Hudl con lo del cuerpo técnico encima. Respeta jornadas y casa o fuera. */
+  const golesTecnicos = useMemo<GolTecnico[]>(
+    () =>
+      esNuestro
+        ? goles.map((g) => ({ clave: g.clave, aFavor: g.aFavor, jugador: g.jugador, asistente: g.asistente, tipo: g.tipo, ficha: fichaDe(doc.tecnico?.[g.clave], tecnicoManual.value[g.clave]) }))
+        : [],
+    [esNuestro, goles, doc.tecnico, tecnicoManual.value],
+  );
+  const fichas = useMemo(() => new Map<string, FichaTecnica>(golesTecnicos.map((g) => [g.clave, g.ficha])), [golesTecnicos]);
+  const resumenTec = useMemo(() => resumenTecnico(golesTecnicos), [golesTecnicos]);
+  /* Los nuestros que ya salen en algún gol, para sugerirlos al escribir un implicado. */
+  const nombresNuestros = useMemo(() => {
+    const s = new Set<string>();
+
+    for (const g of golesTecnicos) {
+      if (g.aFavor && g.jugador && g.tipo !== "propia") s.add(g.jugador);
+      if (g.aFavor && g.asistente) s.add(g.asistente);
+      for (const i of g.ficha.implicados ?? []) if (i.jugador.trim()) s.add(i.jugador.trim());
+    }
+
+    return [...s].sort((a, b) => a.localeCompare(b, "es"));
+  }, [golesTecnicos]);
+
   if (!todos.length && (status === "error" || (status === "loading" && agotado))) {
     return (
       <Marco>
@@ -661,7 +686,7 @@ export function PantallaGoles() {
   /* Si al equipo le falta un partido jugado, los totales no son comparables con la liga: sin la J6 el Castilla
      "marca menos que la media" cuando con ella marca más. Se quedan sólo las lecturas que no dependen del total. */
   const incompleto = jugadosCalendario > delEquipo.length;
-  const deFranjas = lecturaFranjas(filasFranja).filter((f) => !incompleto || !/llegan en la|Marca sobre todo/.test(f));
+  const deFranjas = lecturaFranjas(filasFranja, corto).filter((f) => !incompleto || !/llegan en la|Marca sobre todo/.test(f));
   const deCondicion = lecturaCondicion(corto, cL, cV, lL, lV);
   const deTipologia = lecturaTipologia(tipologia.cuenta.favor, tipologia.cuenta.contra, tipologia.totalFavor, tipologia.totalContra);
   const dePrimero = incompleto ? [] : lecturaPrimero(primero.eq, primero.lg);
@@ -687,11 +712,80 @@ export function PantallaGoles() {
     totalContra: tipologia.totalContra,
     conTipologia: esNuestro,
     incompleto,
+    tecnico: esNuestro ? importanteTecnico(resumenTec) : [],
   });
   const conLigaContra = condicion !== "todos";
 
-  /* Los goles con tipología (los de nuestros partidos), con la corrección a mano encima de la de Hudl. */
-  const conTipo: GolConTipo[] = goles.filter((g) => g.clave in (doc.tipologia ?? {}) || manual.value[g.clave]).map((g) => ({ ...g, tipoFinal: tipoDe(g.clave) }));
+  /* Los goles con tipología (los de nuestros partidos), con la corrección a mano encima de la de Hudl. Los que faltan por elegir no se dibujan. */
+  const conTipo: GolConTipo[] = goles.map((g) => ({ ...g, tipoFinal: tipoDe(g.clave) })).filter((g) => g.tipoFinal);
+
+  /* La pestaña técnica es del Castilla: con otro equipo elegido se abre el resumen. */
+  const vistaVer: Vista = vista === "tecnico" && !esNuestro ? "resumen" : vista;
+  /* Los títulos hablan desde nosotros cuando el equipo es el Castilla. */
+  const nos = (nuestro: string, otro: string) => (esNuestro ? nuestro : otro);
+
+  /** Guarda un campo de la ficha de un gol; vacío, vuelve a lo de Hudl. */
+  const cambiaFicha =
+    (clave: string): CambiaFicha =>
+    (campo, valor) => {
+      tecnicoManual.setValue((actual) => {
+        const m: FichaManual = { ...(actual[clave] ?? {}) };
+
+        if (valor === undefined) delete m[campo];
+        else m[campo] = valor;
+
+        const siguiente = { ...actual };
+
+        if (Object.keys(m).length) siguiente[clave] = m;
+        else delete siguiente[clave];
+
+        return siguiente;
+      });
+    };
+
+  /** El selector de la tipología de un gol (en la tabla y en la ficha). */
+  const selectTipologia = (clave: string) => {
+    const info = doc.tipologia?.[clave];
+    const elegido = manual.value[clave];
+
+    return (
+      <select
+        value={elegido ?? ""}
+        aria-label="Cómo llega el gol"
+        onChange={(e) => {
+          const v = e.target.value as TipoGol | "";
+
+          manual.setValue((actual) => {
+            const siguiente = { ...actual };
+
+            if (v) siguiente[clave] = v;
+            else delete siguiente[clave];
+
+            return siguiente;
+          });
+        }}
+        className={`w-full rounded-lg border bg-white/[0.04] px-2 py-1 text-xs text-white outline-none focus:border-[#C8A96B]/50 ${elegido ? "border-[#C8A96B]/50" : "border-white/10"}`}
+      >
+        <option value="" className="bg-[#11161C]">
+          {info?.tipo ? NOMBRE_TIPO[info.tipo] : "Elegir cómo llega"}
+        </option>
+        {FASES.map((f) => (
+          <optgroup key={f.fase} label={f.fase} className="bg-[#11161C]">
+            {f.tipos.map((x) => (
+              <option key={x.clave} value={x.clave} className="bg-[#11161C]">
+                {x.nombre}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+    );
+  };
+
+  /** «Transición defensiva · campo propio · centro lateral»: el eje de la ficha en una línea. */
+  const ejeDe = (f: FichaTecnica | undefined) => (f ? [nombreFase(f.fase ?? ""), nombreCampo(f.campo ?? "").toLowerCase(), nombreAccion(f.accion ?? "").toLowerCase()].filter(Boolean).join(" · ") : "");
+
+  const abierto = golAbierto ? goles.find((g) => g.clave === golAbierto) : undefined;
 
   return (
     <Marco>
@@ -777,10 +871,11 @@ export function PantallaGoles() {
         <div className="mt-6 space-y-5">
           <Pestanas<Vista>
             etiqueta="Vistas del análisis de goles"
-            valor={vista}
+            valor={vistaVer}
             onCambia={setVista}
             opciones={[
               { clave: "resumen", label: "Resumen", icono: LayoutDashboard },
+              ...(esNuestro ? [{ clave: "tecnico" as const, label: "Análisis técnico", icono: Microscope }] : []),
               { clave: "minutos", label: "Minutos", icono: Clock },
               { clave: "casa", label: "Casa y fuera", icono: Home },
               { clave: "tipo", label: "Cómo llegan", icono: Shapes },
@@ -788,7 +883,7 @@ export function PantallaGoles() {
             ]}
           />
 
-          {vista === "resumen" ? (
+          {vistaVer === "resumen" ? (
             <>
           <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
             <span className="text-[10px] uppercase tracking-[0.16em] text-white/40">Partidos</span>
@@ -811,13 +906,13 @@ export function PantallaGoles() {
             <StatCard label="Goles a favor" value={gf} hint={`${fmt(media(gf, delEquipo.length))} por partido${incompleto ? "" : ` · media de los ${equipos.length} equipos: ${fmt(ligaGolesPP)}`}`} accent={ORO} />
             <StatCard label="Goles en contra" value={gc} hint={`${fmt(media(gc, delEquipo.length))} por partido${incompleto ? "" : ` · media de los ${equipos.length} equipos: ${fmt(ligaContraPP)}`}`} accent={PEOR} />
             <StatCard
-              label="Su mejor tramo"
+              label={nos("Nuestro mejor tramo", "Su mejor tramo")}
               value={tramos.fuerte ? tramos.fuerte.franja.nombre : "Ninguno"}
               hint={tramos.fuerte ? `${tramos.fuerte.gf} a favor${incompleto ? "" : ` · ${fmt(media(tramos.fuerte.gf, delEquipo.length))}/partido (liga ${fmt(tramos.fuerte.ligaPP)})`}${aviso ? " · tendencia" : ""}` : masGoleadora ? `ninguno por encima de la liga` : "sin goles a favor"}
               accent={tramos.fuerte ? MEJOR : undefined}
             />
             <StatCard
-              label="Su tramo más débil"
+              label={nos("Nuestro tramo más débil", "Su tramo más débil")}
               value={tramos.flojo ? tramos.flojo.franja.nombre : "Ninguno"}
               hint={tramos.flojo ? `${tramos.flojo.gc} en contra${incompleto ? "" : ` · ${fmt(media(tramos.flojo.gc, delEquipo.length))}/partido (liga ${fmt(tramos.flojo.ligaContraPP)})`}${aviso ? " · tendencia" : ""}` : masEncajada ? "ninguno por encima de la liga" : "sin goles en contra"}
               accent={tramos.flojo ? PEOR : undefined}
@@ -827,7 +922,7 @@ export function PantallaGoles() {
 
           {/* ---------------- lo importante ---------------- */}
           {importante.length > 0 ? (
-          <Panel title="Lo importante"subtitle={`${nombreEquipo(equipo)} · ${jugadosCalendario > delEquipo.length ? `${delEquipo.length} de ${jugadosCalendario} partidos jugados` : `${delEquipo.length} ${delEquipo.length === 1 ? "partido" : "partidos"}`}${jUltimaFiltro > 0 ? `, hasta la J${jUltimaFiltro}` : ""}${condicion === "todos" ? "" : ` · sólo ${rotuloLugar(condicion)}`}.${incompleto ? "" : " Siempre comparado con la media de la liga."}${sinMinuto.length ? ` En ${sinMinuto.length === 1 ? "un partido" : `${sinMinuto.length} partidos`} falta el minuto de algún gol: cuenta en los totales y no en las franjas.` : ""}`} icon={Lightbulb}>
+          <Panel title={nos("Lo importante: qué hacemos y qué concedemos", "Lo importante")} subtitle={`${nombreEquipo(equipo)} ·${jugadosCalendario > delEquipo.length ? `${delEquipo.length} de ${jugadosCalendario} partidos jugados` : `${delEquipo.length} ${delEquipo.length === 1 ? "partido" : "partidos"}`}${jUltimaFiltro > 0 ? `, hasta la J${jUltimaFiltro}` : ""}${condicion === "todos" ? "" : ` · sólo ${rotuloLugar(condicion)}`}.${incompleto ? "" : " Siempre comparado con la media de la liga."}${sinMinuto.length ? ` En ${sinMinuto.length === 1 ? "un partido" : `${sinMinuto.length} partidos`} falta el minuto de algún gol: cuenta en los totales y no en las franjas.` : ""}`} icon={Lightbulb}>
             <ul className="space-y-2.5">
               {importante.map((frase, i) => (
                 <li key={i} className="flex gap-2.5 text-[13px] leading-relaxed text-white/80">
@@ -849,7 +944,7 @@ export function PantallaGoles() {
           {/* Un filtro (casa o fuera) que deja la tabla sin partidos la quita entera. */}
           {incompleto || !(primero.eq.propio.n + primero.eq.rival.n + primero.eq.nadie.n) ? null : (
           <Panel
-            title="¿Qué pasa cuando marca primero?"
+            title={nos("¿Qué pasa cuando marcamos primero?", "¿Qué pasa cuando marca primero?")}
             subtitle="Cómo acaban los partidos según quién abre el marcador, frente a la liga con la misma condición."
             icon={Trophy}
             analisis={dePrimero.length ? <div className="px-4 pb-4 sm:px-5"><Lectura>{dePrimero.join(" ")}</Lectura></div> : undefined}
@@ -862,7 +957,7 @@ export function PantallaGoles() {
                 const l = primero.lg[k];
 
                 return [
-                  k === "propio" ? "Marca primero" : k === "rival" ? "Recibe primero" : "Nadie marca (0-0)",
+                  k === "propio" ? nos("Marcamos primero", "Marca primero") : k === "rival" ? nos("Nos marcan primero", "Recibe primero") : "Nadie marca (0-0)",
                   e.n,
                   e.G,
                   e.E,
@@ -878,11 +973,30 @@ export function PantallaGoles() {
             </>
           ) : null}
 
-          {vista === "minutos" ? (
+          {vistaVer === "tecnico" ? (
+            <>
+              <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+                <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
+                  <span className="text-[10px] uppercase tracking-[0.16em] text-white/40">Partidos</span>
+                  <Segmented<Lugar> ariaLabel="Partidos en casa o fuera" value={lugar} onChange={setLugar} options={OPCIONES_LUGAR} />
+                </div>
+                <SaveState status={tecnicoManual.status} localOnly={tecnicoManual.localOnly} savedAt={tecnicoManual.lastSavedAt} sinGuardar={tecnicoManual.sinGuardar} onGuardar={() => void tecnicoManual.guardaYa()} />
+              </div>
+              <Explicativo>
+                <p className="text-[12px] leading-relaxed text-white/50">
+                  Los goles del Castilla de las jornadas {jDesde} a {jHasta}, leídos desde nosotros: nuestra fase, desde qué campo arranca y el tipo de acción. Sale de la ficha de cada gol en Gol a gol: lo
+                  del timeline de Hudl llega puesto y lo que corrige el cuerpo técnico manda.
+                </p>
+              </Explicativo>
+              <AnalisisTecnico resumen={resumenTec} goles={golesTecnicos} onIrAGolAGol={() => setVista("goles")} />
+            </>
+          ) : null}
+
+          {vistaVer === "minutos" ? (
             <>
           {/* ---------------- franjas ---------------- */}
           <Panel
-            title="¿En qué minutos marca y en cuáles le marcan?"
+            title={nos("¿En qué minutos marcamos y en cuáles nos marcan?", "¿En qué minutos marca y en cuáles le marcan?")}
             subtitle="Arriba los goles a favor, abajo los en contra. La raya es lo que marca (o encaja) un equipo medio de la liga en ese tramo."
             icon={Clock}
             analisis={deFranjas.length ? <div className="px-4 pb-4 sm:px-5"><Lectura>{deFranjas.join(" ")}</Lectura></div> : undefined}
@@ -917,7 +1031,7 @@ export function PantallaGoles() {
           {/* ---------------- remates por franja ---------------- */}
           {rematesFranja ? (
             <Panel
-              title="¿Cuándo remata y cuándo le rematan?"
+              title="¿Cuándo rematamos y cuándo nos rematan?"
               subtitle={explicativos ? `Del timeline de Hudl de ${rematesFranja.n} de nuestros partidos (Wyscout no da el minuto de los remates).` : `En ${rematesFranja.n} de nuestros partidos.`}
               icon={Crosshair}
               analisis={rematesFranja.lectura ? <div className="px-4 pb-4 sm:px-5"><Lectura>{rematesFranja.lectura}</Lectura></div> : undefined}
@@ -940,11 +1054,11 @@ export function PantallaGoles() {
             </>
           ) : null}
 
-          {vista === "casa" ? (
+          {vistaVer === "casa" ? (
             <>
           {/* ---------------- local y visitante ---------------- */}
           <Panel
-            title="¿Rinde igual en casa que fuera?"
+            title={nos("¿Rendimos igual en casa que fuera?", "¿Rinde igual en casa que fuera?")}
             subtitle={`Por partido. ▲ mejor y ▼ peor que la liga en la misma condición.${explicativos ? ` Remates y xG de Wyscout: ${cL.nw + cV.nw} de ${cL.n + cV.n} partidos; el umbral es un 10 %.` : ""}`}
             icon={Home}
             analisis={deCondicion.length ? <div className="px-4 pb-4 sm:px-5"><Lectura>{deCondicion.join(" ")}</Lectura></div> : undefined}
@@ -957,7 +1071,7 @@ export function PantallaGoles() {
                 ["Puntos", <Contra key="1" valor={cL.puntos} liga={lL.puntos} mejorAlto />, fmt(lL.puntos), <Contra key="2" valor={cV.puntos} liga={lV.puntos} mejorAlto />, fmt(lV.puntos)],
                 ["Goles a favor", <Contra key="3" valor={cL.gf} liga={lL.gf} mejorAlto />, fmt(lL.gf), <Contra key="4" valor={cV.gf} liga={lV.gf} mejorAlto />, fmt(lV.gf)],
                 ["Goles en contra", <Contra key="5" valor={cL.gc} liga={lL.gc} mejorAlto={false} />, fmt(lL.gc), <Contra key="6" valor={cV.gc} liga={lV.gc} mejorAlto={false} />, fmt(lV.gc)],
-                { seccion: "Ataque: cuánto genera y cuánto acierta" },
+                { seccion: nos("Ataque: cuánto generamos y cuánto acertamos", "Ataque: cuánto genera y cuánto acierta") },
                 ["Remates", <Contra key="7" valor={cL.tiros} liga={lL.tiros} mejorAlto dec={1} />, fmt(lL.tiros, 1), <Contra key="8" valor={cV.tiros} liga={lV.tiros} mejorAlto dec={1} />, fmt(lV.tiros, 1)],
                 ["Remates a puerta", <Contra key="9" valor={cL.aPuerta} liga={lL.aPuerta} mejorAlto dec={1} />, fmt(lL.aPuerta, 1), <Contra key="10" valor={cV.aPuerta} liga={lV.aPuerta} mejorAlto dec={1} />, fmt(lV.aPuerta, 1)],
                 ["% de remates a puerta", <Contra key="17" valor={cL.precision} liga={lL.precision} mejorAlto dec={0} sufijo=" %" />, `${fmt(lL.precision, 0)} %`, <Contra key="18" valor={cV.precision} liga={lV.precision} mejorAlto dec={0} sufijo=" %" />, `${fmt(lV.precision, 0)} %`],
@@ -965,7 +1079,7 @@ export function PantallaGoles() {
                 ["Goles esperados (xG)", <Contra key="11" valor={cL.xg} liga={lL.xg} mejorAlto />, fmt(lL.xg), <Contra key="12" valor={cV.xg} liga={lV.xg} mejorAlto />, fmt(lV.xg)],
                 ["Goles por encima (+) o por debajo (−) del xG", <Contra key="13" valor={cL.golesMenosXg} liga={lL.golesMenosXg} mejorAlto />, fmt(lL.golesMenosXg), <Contra key="14" valor={cV.golesMenosXg} liga={lV.golesMenosXg} mejorAlto />, fmt(lV.golesMenosXg)],
                 ["Balón parado que acaba en remate", <Contra key="21" valor={cL.abp} liga={lL.abp} mejorAlto dec={1} />, fmt(lL.abp, 1), <Contra key="22" valor={cV.abp} liga={lV.abp} mejorAlto dec={1} />, fmt(lV.abp, 1)],
-                { seccion: "Defensa: lo que concede" },
+                { seccion: nos("Defensa: lo que concedemos", "Defensa: lo que concede") },
                 ["Remates en contra", <Contra key="23" valor={cL.tirosContra} liga={lL.tirosContra} mejorAlto={false} dec={1} />, fmt(lL.tirosContra, 1), <Contra key="24" valor={cV.tirosContra} liga={lV.tirosContra} mejorAlto={false} dec={1} />, fmt(lV.tirosContra, 1)],
                 ["xG en contra", <Contra key="25" valor={cL.xgContra} liga={lL.xgContra} mejorAlto={false} />, fmt(lL.xgContra), <Contra key="26" valor={cV.xgContra} liga={lV.xgContra} mejorAlto={false} />, fmt(lV.xgContra)],
               ]}
@@ -981,27 +1095,23 @@ export function PantallaGoles() {
             </>
           ) : null}
 
-          {vista === "tipo" ? (
+          {vistaVer === "tipo" ? (
             <>
           {/* ---------------- tipología ---------------- */}
           <Panel
-            title="¿Cómo llegan los goles?"
+            title={nos("¿Cómo marcamos y cómo nos marcan?", "¿Cómo llegan los goles?")}
             subtitle={
               esNuestro
                 ? explicativos
-                  ? "De nuestros partidos, con el timeline de Hudl y las grabaciones tácticas. Es una propuesta: cada gol se corrige en Gol a gol."
-                  : "Cada gol se puede cambiar en Gol a gol."
+                  ? "De nuestros partidos, con el timeline de Hudl y las grabaciones tácticas. Es una propuesta: cada gol se corrige en Gol a gol, y lo que hicimos nosotros en cada uno está en Análisis técnico."
+                  : "Cada gol se puede cambiar en Gol a gol; lo que hicimos nosotros en cada uno, en Análisis técnico."
                 : "Sólo los goles de sus partidos contra nosotros. Del resto de la liga se sabe si fue de penalti o en propia puerta."
             }
             icon={Shapes}
             analisis={esNuestro && deTipologia.length ? <div className="px-4 pb-4 sm:px-5"><Lectura>{deTipologia.join(" ")}</Lectura></div> : undefined}
             action={<SaveState status={manual.status} localOnly={manual.localOnly} savedAt={manual.lastSavedAt} sinGuardar={manual.sinGuardar} onGuardar={() => void manual.guardaYa()} />}
           >
-            {conTipo.length ? (
-              <GraficasTipologia goles={conTipo} colorFavor={ORO} colorContra={PEOR} />
-            ) : (
-              <p className="text-sm text-white/45">Ningún gol de este equipo tiene tipología en este tramo (sólo se clasifican los de los partidos contra nosotros).</p>
-            )}
+            {conTipo.length ? <GraficasTipologia goles={conTipo} colorFavor={ORO} colorContra={PEOR} /> : null}
 
             <details className="mt-6">
               <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-[0.14em] text-white/45 hover:text-white/70">Ver la tabla y lo que se sabe del resto de la liga</summary>
@@ -1044,7 +1154,7 @@ export function PantallaGoles() {
                               <span className="flex items-center gap-2">
                                 <span className="h-2 rounded-full" style={{ width: `${(n / maximo) * 100}%`, maxWidth: 120, minWidth: n ? 6 : 0, backgroundColor: color }} />
                                 <span className="tabular-nums" style={{ color: n ? undefined : tinta(0.25) }}>
-                                  {n || "·"}
+                                  {n || ""}
                                 </span>
                               </span>
                             </td>
@@ -1060,13 +1170,6 @@ export function PantallaGoles() {
                         }),
                       ];
                     })}
-                    {tipologia.sinFavor + tipologia.sinContra > 0 ? (
-                      <tr className="text-white/45">
-                        <td className="px-3 py-1.5">Sin clasificar (elígelo abajo)</td>
-                        <td className="px-3 py-1.5 tabular-nums">{tipologia.sinFavor}</td>
-                        <td className="px-3 py-1.5 tabular-nums">{tipologia.sinContra}</td>
-                      </tr>
-                    ) : null}
                   </tbody>
                 </table>
               </div>
@@ -1093,11 +1196,63 @@ export function PantallaGoles() {
             </>
           ) : null}
 
-          {vista === "goles" ? (
+          {vistaVer === "goles" ? (
             <>
           {/* ---------------- lista ---------------- */}
-          <Panel title="Gol a gol" subtitle={esNuestro ? "La tipología de cada gol se puede cambiar." : "Los de sus partidos contra nosotros llevan tipología."} icon={ListOrdered} bodyClassName="p-0">
-            <div className="min-w-0 overflow-x-auto">
+          <Panel
+            title="Gol a gol"
+            subtitle={esNuestro ? "Cada gol abre su ficha técnica: nuestra fase, desde dónde arranca, el tipo de acción y lo que hicimos nosotros." : "Los goles de sus partidos contra nosotros llevan tipología."}
+            icon={ListOrdered}
+            bodyClassName="p-0"
+            action={esNuestro ? <SaveState status={tecnicoManual.status} localOnly={tecnicoManual.localOnly} savedAt={tecnicoManual.lastSavedAt} sinGuardar={tecnicoManual.sinGuardar} onGuardar={() => void tecnicoManual.guardaYa()} /> : undefined}
+          >
+            {/* 03/11/2026: en el móvil y la tablet pequeña, tarjetas; la tabla de 720 px no cabía. */}
+            <ul className="divide-y divide-white/[0.06] md:hidden">
+              {goles.map((g) => {
+                const lado = ladoDe(g.partido, equipo)!;
+                const info = doc.tipologia?.[g.clave];
+                const t = tipoDe(g.clave);
+                const ficha = fichas.get(g.clave);
+                const eje = ejeDe(ficha);
+
+                return (
+                  <li key={g.clave} className="min-w-0 px-4 py-3">
+                    <div className="flex min-w-0 items-center justify-between gap-2">
+                      <span className="inline-flex min-w-0 items-center gap-2 text-sm">
+                        <span className="tabular-nums text-white/50">J{g.partido.jornada}</span>
+                        <span className="tabular-nums text-white/80">{rotuloMinuto(g)}</span>
+                        <span className="inline-flex items-center gap-1 font-semibold tabular-nums" style={{ color: g.aFavor ? ORO : PEOR }}>
+                          <Goal size={12} aria-hidden /> {marcadorTras(g.partido, g.indice, lado)}
+                        </span>
+                      </span>
+                      {ficha?.revisado ? <CircleCheck size={15} className="shrink-0 text-[#C8A96B]" aria-label="Revisado en vídeo" /> : null}
+                    </div>
+                    <p className="mt-0.5 truncate text-[12px] text-white/55">
+                      {g.partido.local} {g.partido.gl}-{g.partido.gv} {g.partido.visitante}
+                    </p>
+                    {g.jugador || g.asistente ? (
+                      <p className="mt-0.5 text-[12px] text-white/75">
+                        {g.jugador}
+                        {g.jugador && g.tipo ? <span className="ml-1 text-white/40">({g.tipo === "penalti" ? "penalti" : "en propia"})</span> : null}
+                        {g.asistente ? <span className="text-white/40">{g.jugador ? " · " : ""}asiste {g.asistente}</span> : null}
+                      </p>
+                    ) : null}
+                    {eje ? <p className="mt-1 text-[12px] font-medium text-[#C8A96B]">{eje}</p> : t ? <p className="mt-1 text-[12px] text-white/60">{NOMBRE_TIPO[t]}</p> : null}
+                    {esNuestro ? (
+                      <div className="mt-2">
+                        <Button onClick={() => setGolAbierto(g.clave)} icon={Microscope}>
+                          Abrir la ficha
+                        </Button>
+                      </div>
+                    ) : info ? (
+                      <div className="mt-2 max-w-xs">{selectTipologia(g.clave)}</div>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+
+            <div className="hidden min-w-0 overflow-x-auto md:block">
               <table className="w-full min-w-[720px] text-sm">
                 <thead>
                   <tr className="border-b border-white/10 text-[10px] uppercase tracking-[0.14em] text-white/40">
@@ -1106,7 +1261,8 @@ export function PantallaGoles() {
                     <th className="px-3 py-2 text-right font-medium">Min.</th>
                     <th className="px-3 py-2 text-center font-medium">Marcador</th>
                     <th className="px-3 py-2 text-left font-medium">Autor</th>
-                    <th className="px-3 py-2 text-left font-medium">Tipología</th>
+                    <th className="px-3 py-2 text-left font-medium">Cómo llega</th>
+                    {esNuestro ? <th className="px-3 py-2 text-left font-medium">Ficha técnica</th> : null}
                   </tr>
                 </thead>
                 <tbody>
@@ -1115,12 +1271,14 @@ export function PantallaGoles() {
                     const info = doc.tipologia?.[g.clave];
                     const t = tipoDe(g.clave);
                     const elegido = manual.value[g.clave];
+                    const ficha = fichas.get(g.clave);
+                    const eje = ejeDe(ficha);
 
                     return (
                       <tr key={g.clave} className="border-b border-white/[0.06] align-top last:border-0">
                         <td className="px-3 py-2 tabular-nums text-white/50">{g.partido.jornada}</td>
                         <td className="px-3 py-2 text-white/75">
-                          <span className="block truncate">
+                          <span className="block max-w-[260px] truncate">
                             {g.partido.local} {g.partido.gl}-{g.partido.gv} {g.partido.visitante}
                           </span>
                         </td>
@@ -1131,62 +1289,81 @@ export function PantallaGoles() {
                           </span>
                         </td>
                         <td className="px-3 py-2 text-white/80">
-                          {g.jugador || "—"}
-                          {g.tipo ? <span className="ml-1.5 text-[11px] text-white/40">({g.tipo === "penalti" ? "penalti" : "en propia"})</span> : null}
+                          {g.jugador}
+                          {g.jugador && g.tipo ? <span className="ml-1.5 text-[11px] text-white/40">({g.tipo === "penalti" ? "penalti" : "en propia"})</span> : null}
                           {g.asistente ? <span className="block text-[11px] text-white/40">Asiste {g.asistente}</span> : null}
                         </td>
                         <td className="px-3 py-2">
-                          {info ? (
-                            <div className="min-w-0 max-w-[340px]">
-                              <select
-                                value={elegido ?? ""}
-                                onChange={(e) => {
-                                  const v = e.target.value as TipoGol | "";
-
-                                  manual.setValue((actual) => {
-                                    const siguiente = { ...actual };
-
-                                    if (v) siguiente[g.clave] = v;
-                                    else delete siguiente[g.clave];
-
-                                    return siguiente;
-                                  });
-                                }}
-                                className={`w-full rounded-lg border bg-white/[0.04] px-2 py-1 text-xs text-white outline-none focus:border-[#C8A96B]/50 ${elegido ? "border-[#C8A96B]/50" : "border-white/10"}`}
-                              >
-                                <option value="" className="bg-[#11161C]">
-                                  {info.tipo ? NOMBRE_TIPO[info.tipo] : "Sin clasificar"}
-                                </option>
-                                {FASES.map((f) => (
-                                  <optgroup key={f.fase} label={f.fase} className="bg-[#11161C]">
-                                    {f.tipos.map((x) => (
-                                      <option key={x.clave} value={x.clave} className="bg-[#11161C]">
-                                        {x.nombre}
-                                      </option>
-                                    ))}
-                                  </optgroup>
-                                ))}
-                              </select>
-                              {explicativos || !esMetodo(info.motivo) ? (
+                          {info || esNuestro ? (
+                            <div className="min-w-0 max-w-[300px]">
+                              {selectTipologia(g.clave)}
+                              {info && (explicativos || !esMetodo(info.motivo)) ? (
                                 <p className="mt-1 text-[11px] leading-snug text-white/40">
                                   {explicativos && elegido ? `Elegido a mano${t !== info.tipo && info.tipo ? ` (Hudl decía ${NOMBRE_TIPO[info.tipo]})` : ""}. ` : ""}
                                   {info.motivo}
                                 </p>
                               ) : null}
-                              <Explicativo>{info.texto ? <p className="mt-0.5 text-[11px] leading-snug text-white/35">Táctica: {info.texto}</p> : null}</Explicativo>
+                              <Explicativo>{info?.texto ? <p className="mt-0.5 text-[11px] leading-snug text-white/35">Táctica: {info.texto}</p> : null}</Explicativo>
                             </div>
-                          ) : (
-                            <span className="text-[11px] text-white/30">—</span>
-                          )}
+                          ) : null}
                         </td>
+                        {esNuestro ? (
+                          <td className="px-3 py-2">
+                            <button
+                              type="button"
+                              onClick={() => setGolAbierto(g.clave)}
+                              className="group flex w-full min-w-[150px] max-w-[240px] items-start gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-left text-xs transition hover:bg-white/[0.06]"
+                            >
+                              {ficha?.revisado ? <CircleCheck size={14} className="mt-px shrink-0 text-[#C8A96B]" aria-label="Revisado en vídeo" /> : <Microscope size={14} className="mt-px shrink-0 text-white/40" aria-hidden />}
+                              <span className="min-w-0">
+                                <span className="block font-medium text-white/80">{ficha && tieneFicha(ficha) ? "Ver la ficha" : "Rellenar la ficha"}</span>
+                                {eje ? <span className="block text-[11px] leading-snug text-white/50">{eje}</span> : null}
+                              </span>
+                            </button>
+                          </td>
+                        ) : null}
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
-              {!goles.length ? <p className="px-4 py-6 text-center text-sm text-white/40">Sin goles en este tramo.</p> : null}
             </div>
+            {!goles.length ? <p className="px-4 py-6 text-center text-sm text-white/40">No hay goles en este tramo.</p> : null}
           </Panel>
+
+          {abierto && esNuestro ? (
+            <Dialog
+              title={`J${abierto.partido.jornada} · ${rotuloMinuto(abierto)} · ${abierto.aFavor ? "gol nuestro" : "gol en contra"} ${marcadorTras(abierto.partido, abierto.indice, ladoDe(abierto.partido, equipo)!)}`}
+              subtitle={[`${abierto.partido.local} ${abierto.partido.gl}-${abierto.partido.gv} ${abierto.partido.visitante}`, abierto.jugador ? `${abierto.jugador}${abierto.tipo ? ` (${abierto.tipo === "penalti" ? "penalti" : "en propia"})` : ""}` : "", abierto.asistente ? `asiste ${abierto.asistente}` : ""].filter(Boolean).join(" · ")}
+              onClose={() => {
+                void tecnicoManual.guardaYa();
+                setGolAbierto(null);
+              }}
+              footer={
+                <>
+                  <SaveState status={tecnicoManual.status} localOnly={tecnicoManual.localOnly} savedAt={tecnicoManual.lastSavedAt} sinGuardar={tecnicoManual.sinGuardar} onGuardar={() => void tecnicoManual.guardaYa()} />
+                  <Button
+                    tone="primary"
+                    onClick={() => {
+                      void tecnicoManual.guardaYa();
+                      setGolAbierto(null);
+                    }}
+                  >
+                    Hecho
+                  </Button>
+                </>
+              }
+            >
+              <FichaGol
+                aFavor={abierto.aFavor}
+                ficha={fichas.get(abierto.clave) ?? fichaDe(undefined, undefined)}
+                onCambia={cambiaFicha(abierto.clave)}
+                explicativos={explicativos}
+                tipologia={selectTipologia(abierto.clave)}
+                nombres={nombresNuestros}
+              />
+            </Dialog>
+          ) : null}
             </>
           ) : null}
 
