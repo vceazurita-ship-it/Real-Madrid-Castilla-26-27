@@ -62,6 +62,33 @@ export const ORIGENES = {
   ],
 } as const;
 
+/**
+ * El tipo de acción que acaba en gol (03/11/2026, lo pidió el analista junto a
+ * la fase y el campo donde arranca). Vale para los dos lados: es lo que pasó,
+ * visto desde nuestro análisis.
+ */
+export const ACCIONES = [
+  { clave: "centroLateral", nombre: "Centro lateral" },
+  { clave: "paseAtras", nombre: "Pase atrás desde línea de fondo" },
+  { clave: "paseEspalda", nombre: "Pase a la espalda" },
+  { clave: "combinacion", nombre: "Combinación por dentro" },
+  { clave: "jugadaIndividual", nombre: "Jugada individual" },
+  { clave: "remateLejano", nombre: "Remate de fuera del área" },
+  { clave: "rechace", nombre: "Rechace / segunda acción" },
+  { clave: "corner", nombre: "Córner" },
+  { clave: "faltaLateral", nombre: "Falta lateral" },
+  { clave: "faltaDirecta", nombre: "Falta directa" },
+  { clave: "penalti", nombre: "Penalti" },
+  { clave: "saqueBanda", nombre: "Saque de banda" },
+  { clave: "propiaPuerta", nombre: "En propia puerta" },
+] as const;
+
+/** Desde qué campo arranca la fase del gol (mitad, no tercio), siempre desde el Castilla: «propio» = nuestra mitad. */
+export const CAMPOS = [
+  { clave: "propio", nombre: "Campo propio" },
+  { clave: "contrario", nombre: "Campo contrario" },
+] as const;
+
 /** Lo que hicimos bien en un gol nuestro (varias a la vez). */
 export const CLAVES_FAVOR = [
   { clave: "presionTrasPerdida", nombre: "Presión tras pérdida" },
@@ -99,6 +126,8 @@ export type FaseNuestra = (typeof FASES_NUESTRAS)[Bando][number]["clave"];
 export type Origen = (typeof ORIGENES)[Bando][number]["clave"];
 export type ClaveFavor = (typeof CLAVES_FAVOR)[number]["clave"];
 export type CausaContra = (typeof CAUSAS_CONTRA)[number]["clave"];
+export type AccionGol = (typeof ACCIONES)[number]["clave"];
+export type Campo = (typeof CAMPOS)[number]["clave"];
 
 /** Una celda del campo de 3×3, en la referencia del Castilla (ver arriba). */
 export type Celda = { tercio: 0 | 1 | 2; carril: 0 | 1 | 2 };
@@ -110,6 +139,10 @@ export type Implicado = { jugador: string; accion: string };
 export type FichaAuto = {
   fase?: FaseNuestra;
   origen?: Origen;
+  /** Desde qué mitad arranca esa fase, para nosotros (el robo, nuestra pérdida, el saque…). */
+  campo?: Campo;
+  /** El tipo de acción que acaba en gol. */
+  accion?: AccionGol;
   /** Dónde nace la jugada: el robo o el inicio de la posesión (a favor); nuestra pérdida o su inicio (en contra). */
   zonaOrigen?: Celda;
   /** Por qué carril llega al área. */
@@ -155,6 +188,8 @@ export function fichaDe(auto: FichaAuto | undefined, manual: FichaManual | undef
 
 export const nombreFase = (c: string) => [...FASES_NUESTRAS.favor, ...FASES_NUESTRAS.contra].find((x) => x.clave === c)?.nombre ?? "";
 export const nombreOrigen = (c: string) => [...ORIGENES.favor, ...ORIGENES.contra].find((x) => x.clave === c)?.nombre ?? "";
+export const nombreAccion = (c: string) => ACCIONES.find((x) => x.clave === c)?.nombre ?? "";
+export const nombreCampo = (c: string) => CAMPOS.find((x) => x.clave === c)?.nombre ?? "";
 export const nombreClave = (c: string) => CLAVES_FAVOR.find((x) => x.clave === c)?.nombre ?? "";
 export const nombreCausa = (c: string) => CAUSAS_CONTRA.find((x) => x.clave === c)?.nombre ?? "";
 
