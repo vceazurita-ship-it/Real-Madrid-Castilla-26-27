@@ -50,7 +50,8 @@ const CAUDAL_MINIMO = 750_000;
 const BYTES_OBJETIVO = 13 * 1024 * 1024;
 const CAUDAL_SONIDO = 96_000;
 const CAUDAL_HD = 5_000_000;
-const CAUDAL_HD_MINIMO = 2_000_000;
+/* 1,3 Mb/s (03/11/2026): el post de ABP con todo el balón parado pasa de cuatro minutos y a 2 Mb/s no cabía en el bucket. */
+const CAUDAL_HD_MINIMO = 1_300_000;
 const BYTES_OBJETIVO_HD = 40 * 1024 * 1024;
 
 /** El caudal de la copia ligera (la adjunta): ~11 MB el minuto y ~13 MB hasta 2:30. */

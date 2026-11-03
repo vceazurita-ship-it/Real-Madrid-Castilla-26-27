@@ -29,6 +29,7 @@
 */
 
 import type { InformeMicro, LineaCruce, PartidoAbpInforme, PinceladaAbp } from "@/lib/abp/informe-micro";
+import { resumenDeBloque } from "@/lib/abp/cortes-abp";
 
 import {
   capitulosEnOrden,
@@ -41,12 +42,15 @@ import {
   escenasDeCortesAbp,
   escudoDelRival,
   intercalaCortes,
+  minutoNumero,
+  segundosDeCorte,
   sinSiglas,
   tituloDeVersus,
   type Corte,
   type CortePartido,
   type Escena,
   type FilaBalance,
+  type MarcaPartido,
   type FilaVersus,
   type GuionVideo,
 } from "./guion";
@@ -73,10 +77,60 @@ export const SEGUNDOS_POST_ABP = 150;
  * pase de cuatro minutos: en 44 MB, cuatro minutos son ~1,5 Mb/s en 1080p,
  * lo justo para que su vídeo se siga viendo bien. Nunca menos de 45 s.
  */
-export function topePostAbp(segundosCola: number | null) {
-  if (!segundosCola) return SEGUNDOS_POST_ABP;
+export function topePostAbp(segundosCola: number | null, segundosCortes = 0) {
+  const base = segundosCola ? Math.max(45, Math.min(100, 240 - segundosCola)) : SEGUNDOS_POST_ABP;
 
-  return Math.max(45, Math.min(100, 240 - segundosCola));
+  /* Con TODO el balón parado del partido (03/11/2026) el tope nunca deja fuera un corte: lo que suman, más un minuto para lo demás. */
+  return segundosCortes ? Math.max(base, Math.ceil(segundosCortes) + 60) : base;
+}
+
+/** Lo que suman los cortes que lleva el guion (los del partido y las jugadas de la pizarra): nada de eso se recorta. */
+export const segundosDeCortesAbp = (guion: GuionVideo) => guion.escenas.reduce((s, e) => s + (e.tipo === "clips" ? e.segundos : 0), 0);
+
+/** Un corte de `informe-clips:jNN` → `abp`: el balón parado entero, con lo de la hoja (scripts/partido/video-informe.mjs). */
+type CorteDeHoja = CortePartido & { clase?: "corner" | "falta" | "penalti"; remate?: boolean; final?: string };
+
+const deLaHoja = (c: CortePartido): c is CorteDeHoja => Boolean((c as CorteDeHoja).clase);
+
+/**
+ * TODO el balón parado del partido (03/11/2026, lo pidió el analista: «todo
+ * el ABP que recibimos en nuestro área y el nuestro, riguroso en la selección
+ * y en el relato»). Nada se elige ni se recorta: cada acción de nuestras
+ * hojas, en orden de partido. Lo nuestro en un bloque; lo suyo en dos
+ * (córners, y faltas y penaltis) cuando hay de los dos y es largo, para que
+ * cada título diga su cifra. Los títulos cuentan con la hoja —acciones,
+ * remates y goles—; el rótulo de cada corte, el envío y cómo acabó.
+ */
+function escenasDelAbpEntero(cortes: CorteDeHoja[], rival: string): Escena[] {
+  const marcas: MarcaPartido[] = cortes.map((c) => ({ minuto: c.minutoNum ?? minutoNumero(c.minuto), gol: c.resultado === "gol", de: c.de }));
+  const cifras = (lista: CorteDeHoja[]) => resumenDeBloque(lista.map((c) => ({ remate: Boolean(c.remate), final: c.final ?? "" })));
+  const escena = (id: string, titulo: string, lista: CorteDeHoja[], locucion: string): Escena => {
+    const conDuracion = lista
+      .map((c) => ({ ...c, minutoNum: c.minutoNum ?? minutoNumero(c.minuto), segundos: segundosDeCorte(c, 8) }))
+      .sort((a, b) => a.minutoNum - b.minutoNum);
+
+    return { id, tipo: "clips", titulo, cortes: conDuracion, segundos: conDuracion.reduce((s, c) => s + c.segundos, 0), locucion, marcas };
+  };
+
+  const nuestros = cortes.filter((c) => c.de === "nosotros");
+  const suyos = cortes.filter((c) => c.de !== "nosotros");
+  const susCorners = suyos.filter((c) => c.clase === "corner");
+  const susFaltas = suyos.filter((c) => c.clase !== "corner");
+  const escenas: Escena[] = [];
+  const de = rival ? ` de ${rival}` : "";
+
+  if (nuestros.length) {
+    escenas.push(escena("abp-nuestros", `Nuestro balón parado: ${plural(nuestros.length, "acción", "acciones")}, ${cifras(nuestros)}`, nuestros, `Nuestro balón parado, entero: ${plural(nuestros.length, "acción", "acciones")}, ${cifras(nuestros)}.`));
+  }
+
+  if (susCorners.length && susFaltas.length && suyos.length > 8) {
+    escenas.push(escena("abp-suyos", `${susCorners.length === 1 ? "Su córner" : `Sus ${susCorners.length} córners`}: ${cifras(susCorners)}`, susCorners, `Los córners${de} en nuestro área: ${plural(susCorners.length, "córner", "córners")}, ${cifras(susCorners)}.`));
+    escenas.push(escena("abp-suyos-faltas", `${susFaltas.length === 1 ? "Su falta al área" : `Sus ${susFaltas.length} faltas al área`}: ${cifras(susFaltas)}`, susFaltas, `Las faltas${de} a nuestro área: ${plural(susFaltas.length, "falta", "faltas")}, ${cifras(susFaltas)}.`));
+  } else if (suyos.length) {
+    escenas.push(escena("abp-suyos", `Su balón parado en nuestro área: ${plural(suyos.length, "acción", "acciones")}, ${cifras(suyos)}`, suyos, `El balón parado${de} en nuestro área: ${plural(suyos.length, "acción", "acciones")}, ${cifras(suyos)}.`));
+  }
+
+  return escenas;
 }
 
 const MARCA = "pizarra:";
@@ -138,6 +192,8 @@ function escenaGancho(p: PartidoAbpInforme, rival: string): Escena | null {
   const opciones: { dato: number; rotulo: string; locucion: string }[] = [
     { dato: p.favor.goles, rotulo: p.favor.goles === 1 ? "Gol nuestro a balón parado" : "Goles nuestros a balón parado", locucion: `${plural(p.favor.goles, "gol", "goles")} a balón parado a favor.` },
     { dato: p.contra.goles, rotulo: p.contra.goles === 1 ? "Gol en contra a balón parado" : "Goles en contra a balón parado", locucion: `${plural(p.contra.goles, "gol", "goles")} a balón parado en contra.` },
+    /* Sin goles por ningún lado, lo que más pesó fue lo defendido (J10: 19 suyos, ningún gol). */
+    { dato: p.contra.goles === 0 && p.contra.acciones >= 8 ? p.contra.acciones : 0, rotulo: "Balones parados suyos · ningún gol", locucion: `${plural(p.contra.acciones, "balón parado", "balones parados")} suyos y ningún gol.` },
     { dato: p.favor.remates, rotulo: p.favor.remates === 1 ? "Remate nuestro a balón parado" : "Remates nuestros a balón parado", locucion: `${plural(p.favor.remates, "remate", "remates")} nuestros a balón parado.` },
     { dato: p.favor.peligros, rotulo: "Acciones nuestras con peligro", locucion: `${plural(p.favor.peligros, "acción", "acciones")} nuestras con peligro.` },
   ];
@@ -286,8 +342,11 @@ export function guionPostDeAbp(informe: InformeMicro, pincelada: PinceladaAbp, e
   }
 
   const cortesAbp = (extras.cortesPartido ?? []).filter((c) => c && typeof c.url === "string" && /^(corner|abp|banda)/.test(c.tipo));
+  const deHoja = cortesAbp.filter(deLaHoja);
 
-  if (cortesAbp.length) {
+  if (deHoja.length) {
+    escenas.push(...escenasDelAbpEntero(deHoja, rival));
+  } else if (cortesAbp.length) {
     escenas.push(...escenasDeCortesAbp(cortesAbp, rival || "el rival", { momento: "post" }));
   } else if (p) {
     /* Sin cortes de Hudl, las acciones de peligro que el informe ya casó con su corte por el minuto. */
@@ -346,7 +405,7 @@ export function guionPostDeAbp(informe: InformeMicro, pincelada: PinceladaAbp, e
     });
   }
 
-  const ORDEN = ["gancho", "portada", "plan", "pizarra", "versus", "tipos", "abp-nuestros", "abp-suyos", "abp-banda", "peligro", "balance", "cruce", "cierre"];
+  const ORDEN = ["gancho", "portada", "plan", "pizarra", "versus", "tipos", "abp-nuestros", "abp-suyos", "abp-suyos-faltas", "abp-banda", "peligro", "balance", "cruce", "cierre"];
   const lugar = (id: string) => (ORDEN.includes(id) ? ORDEN.indexOf(id) : ORDEN.length - 1.5);
 
   escenas.sort((a, b) => lugar(a.id) - lugar(b.id));
@@ -364,6 +423,7 @@ export function guionPostDeAbp(informe: InformeMicro, pincelada: PinceladaAbp, e
       tipos: "El partido",
       "abp-nuestros": "El partido",
       "abp-suyos": "El partido",
+      "abp-suyos-faltas": "El partido",
       "abp-banda": "El partido",
       peligro: "El partido",
       balance: "El balance",

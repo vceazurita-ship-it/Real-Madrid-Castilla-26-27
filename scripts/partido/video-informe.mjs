@@ -38,7 +38,7 @@ import { abreHudl, cabecerasPara } from "../hudl-chrome.mjs";
 const require = createRequire(import.meta.url);
 require("../cargador-ts.cjs");
 
-const { REPO, leePartido } = require("./comun.cjs");
+const { REPO, leePartido, publicada } = require("./comun.cjs");
 const { entorno } = require("../supabase-local.cjs");
 const { createClient } = require("@supabase/supabase-js");
 const { GoogleGenAI } = require("@google/genai");
@@ -51,6 +51,7 @@ const { ANCHO, ALTO, ANCHO_HD, ALTO_HD, FPS, SEGUNDO_POSTER, estiramiento, limit
 const { pintaPoster } = require("../../lib/video-informe/portada-video.ts");
 const { FRECUENCIA_AAC, pcm16aFlotante, remuestrea, reparteVoz } = require("../../lib/video-informe/voz.ts");
 const { bandaSonora, masteriza } = require("../../lib/video-informe/musica.ts");
+const { filasAbpDelPartido, momentosAbpDeHudl, casaConHudl, rotuloDeAccion } = require("../../lib/abp/cortes-abp.ts");
 
 const ejecuta = promisify(execFile);
 
@@ -70,6 +71,8 @@ const SIN_VOZ = !bandera("--con-voz");
 const SIN_IA = bandera("--sin-ia");
 const SIN_SUBIR = bandera("--sin-subir");
 const SOLO_CORTES = bandera("--solo-cortes");
+/* Sólo TODO el balón parado del partido (03/11/2026): lo corta, lo sube y lo añade a informe-clips sin tocar lo demás. */
+const SOLO_ABP = bandera("--solo-abp");
 const DE_CACHE = bandera("--cortes-de-cache");
 /* Sube aunque el vídeo nuevo vaya sin voz y el que había la tuviera (p. ej. si el que había está roto). */
 const FORZAR_SUBIDA = bandera("--forzar-subida");
@@ -392,6 +395,73 @@ async function cortaDeHudl(carpeta, momentos, destino) {
   } finally {
     await nav.cierra();
   }
+}
+
+/*
+| TODO EL BALÓN PARADO DEL PARTIDO (03/11/2026, lo pidió el analista): cada
+| fila de nuestras hojas de ABP de la jornada (córners, faltas y penaltis, a
+| favor y en contra) casada con su momento de Hudl (lib/abp/cortes-abp.ts) y
+| cortada desde el saque hasta ver el desenlace. Sin tope: el vídeo post de
+| ABP las enseña todas. El rótulo sale de la hoja, no de una lectura del vídeo.
+*/
+async function cortesAbpDelPartido(carpeta, timeline, jornada, destino) {
+  let filas;
+
+  try {
+    filas = filasAbpDelPartido(await publicada("piezasOf"), await publicada("piezasDef"), jornada);
+  } catch (error) {
+    console.log(`  (sin el balón parado entero: ${String(error?.message ?? error).slice(0, 100)})`);
+    return null;
+  }
+
+  if (!filas.length) return [];
+
+  const { momentos, periodos } = momentosAbpDeHudl(timeline);
+  const { cortadas, sinCorte } = casaConHudl(filas, momentos, periodos);
+
+  for (const f of sinCorte) console.log(`  (sin momento en Hudl: ${f.accion} ${f.lado === "favor" ? "a favor" : "en contra"} del ${f.minuto}')`);
+
+  const lista = cortadas.map((f) => ({
+    tipo: f.clase === "corner" ? (f.lado === "favor" ? "corner" : "corner-contra") : f.lado === "favor" ? "abp" : "abp-contra",
+    de: f.lado === "favor" ? "nosotros" : "rival",
+    minuto: `${f.minuto}'`,
+    /* Desde un segundo antes del saque; con remate, hasta 10 s para ver cómo acaba. */
+    desde: Math.max(0, f.ini - 1),
+    dura: f.remate ? 10 : Math.min(10, Math.max(8, f.fin - f.ini + 3)),
+    fila: f,
+  }));
+
+  fs.mkdirSync(destino, { recursive: true });
+  await cortaDeHudl(carpeta, lista, destino);
+
+  return (await soloCortesValidos(lista)).map((m) => ({
+    url: "",
+    fichero: m.fichero,
+    rotulo: rotuloDeAccion(m.fila),
+    texto: "",
+    tipo: m.tipo,
+    minuto: m.minuto,
+    segundos: m.dura,
+    de: m.de,
+    desde: 0,
+    remata: m.fila.rematador,
+    asiste: m.fila.sacador,
+    resultado: /gol/i.test(m.fila.final) ? "gol" : "",
+    peligro: m.fila.remate || /ocasi|gol/i.test(m.fila.final),
+    /* Lo de la hoja, para el relato del vídeo y del informe. */
+    accion: m.fila.accion,
+    clase: m.fila.clase,
+    remate: m.fila.remate,
+    xg: m.fila.xg,
+    final: m.fila.final,
+    segundoBalon: m.fila.segundoBalon,
+  }));
+}
+
+async function subeCortesAbp(supabase, clave, abp) {
+  for (const c of abp) c.url = await sube(supabase, c.fichero, `2026/informes/clips/${clave}/abp/${path.basename(c.fichero)}`, "video/mp4");
+
+  return abp.map(({ fichero: _f, ...c }) => c);
 }
 
 /* ------------------------------------------------------------------ */
@@ -1148,6 +1218,23 @@ async function principal() {
 
   /* 1. Los momentos y los cortes. */
   const timeline = JSON.parse(fs.readFileSync(path.join(carpeta, "timeline-hudl.json"), "utf8"));
+
+  if (SOLO_ABP) {
+    if (!env) return fin(2, "faltan las claves de Supabase en .env.local");
+
+    const supabase = supabaseDe(env);
+    const abp = await cortesAbpDelPartido(carpeta, timeline, partido.jornada, path.join(carpetaVideo, "cortes-abp"));
+
+    if (!abp?.length) return fin(1, "no hay balón parado del partido en las hojas, o no se ha podido cortar");
+
+    const { data: previo, error } = await supabase.from("app_documents").select("data").eq("key", `informe-clips:${clave}`).maybeSingle();
+
+    if (error) return fin(1, `no se lee informe-clips:${clave}: ${error.message}`);
+
+    await guardaDoc(supabase, `informe-clips:${clave}`, "informe-clips", { ...(previo?.data ?? {}), abp: await subeCortesAbp(supabase, clave, abp) });
+
+    return fin(0, `${abp.length} acciones a balón parado en informe-clips:${clave}`);
+  }
   const { elegidos, datos } = eligeMomentos(timeline);
 
   console.log(`${partido.rival} (J${partido.jornada}): ${elegidos.length} momentos elegidos · remates ${datos.remates.join("-")} · córners ${datos.corners.join("-")}`);
@@ -1194,9 +1281,13 @@ async function principal() {
       c.url = await sube(supabase, c.fichero, `2026/informes/clips/${clave}/${path.basename(c.fichero)}`, "video/mp4");
     }
 
+    /* Todo el balón parado, para el vídeo post de ABP. Si no sale, el doc sigue con los cortes de siempre. */
+    const abp = await cortesAbpDelPartido(carpeta, timeline, partido.jornada, path.join(carpetaVideo, "cortes-abp")).catch(() => null);
+
     await guardaDoc(supabase, `informe-clips:${clave}`, "informe-clips", {
       partido: { jornada: partido.jornada, rival: partido.rival, fecha: partido.fecha, resultado: `${partido.gf}-${partido.gc}`, slug: partido.slug },
       cortes: cortes.map(({ fichero: _f, ...c }) => c),
+      ...(abp?.length ? { abp: await subeCortesAbp(supabase, clave, abp) } : {}),
       creado: new Date().toISOString(),
     });
     console.log(`  ${cortes.length} cortes en el bucket y en informe-clips:${clave}`);

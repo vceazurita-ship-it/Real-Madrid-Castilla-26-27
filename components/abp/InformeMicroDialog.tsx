@@ -29,7 +29,7 @@ import { puedeMontarVideo, type VideoMontado } from "@/lib/video-informe/monta";
 import { trabajoVideo } from "@/lib/video-informe/trabajo-video";
 import { trabajoEnvios, type ResultadoEnvio } from "@/lib/informes/trabajo-envios";
 import { SEGUNDOS_ENTRADA_ABP, entradaDeAbp, type CortePartido } from "@/lib/video-informe/guion";
-import { guionPostDeAbp, topePostAbp } from "@/lib/video-informe/guion-abp-post";
+import { guionPostDeAbp, segundosDeCortesAbp, topePostAbp } from "@/lib/video-informe/guion-abp-post";
 import { jugadasDelTablero, pideVideoPostAbp, type VideoPostAbp } from "@/components/abp/jugadas-del-video";
 import { barlowCondensed } from "@/lib/rivals/portada-font";
 import { enlaceConTarjeta, nombrePartidoPdf } from "@/lib/informe-partido/tarjeta-pdf";
@@ -491,13 +491,16 @@ export function InformeMicroDialog({
 
     fetch(`/api/docs?key=${encodeURIComponent(`informe-clips:j${String(jornadaPartido).padStart(2, "0")}`)}`, { cache: "no-store" })
       .then((r) => r.json())
-      .then((j: { data?: { cortes?: CortePartido[] } | null }) => {
+      .then((j: { data?: { cortes?: CortePartido[]; abp?: CortePartido[] } | null }) => {
         if (cancelado) return;
 
-        const cortes = (j?.data?.cortes ?? []).filter((c) => c && c.url && c.minuto);
+        const esAbp = (c: CortePartido) => typeof c.url === "string" && /^(corner|abp|banda)/.test(String(c.tipo ?? ""));
+        /* TODO el balón parado (03/11/2026): si el ordenador del club lo ha cortado entero desde nuestras hojas, manda sobre la selección de siempre. */
+        const enteros = (j?.data?.abp ?? []).filter((c) => c && c.url && c.minuto);
+        const cortes = [...(j?.data?.cortes ?? []).filter((c) => c && c.url && c.minuto && (!enteros.length || !esAbp(c))), ...enteros];
 
         setClipsPartido(cortes.map((c) => ({ minuto: String(c.minuto), url: String(c.url), de: String(c.de ?? ""), tipo: String(c.tipo ?? ""), rotulo: String((c as { rotulo?: string }).rotulo ?? "") })));
-        setCortesAbp(cortes.filter((c) => typeof c.url === "string" && /^(corner|abp|banda)/.test(String(c.tipo ?? ""))));
+        setCortesAbp(cortes.filter(esAbp));
       })
       .catch(() => {})
       .finally(() => {
@@ -917,10 +920,13 @@ export function InformeMicroDialog({
   const videoPost = async (inf: InformeMicro): Promise<VideoPostAbp> => {
     const escudoRival = await escudoDe(rivalVideo);
 
+    const guion = guionPostDeAbp(inf, pinceladaAbp(inf), { escudoRival, rival: rivalVideo, cortesPartido: cortesAbp, jugadas: jugadas.map(({ clave, titulo, segundos }) => ({ clave, titulo, segundos })) });
+
     return {
       rotulo: `Vídeo post de ABP${rivalVideo ? ` · ${rivalVideo}` : ""}`,
-      guion: guionPostDeAbp(inf, pinceladaAbp(inf), { escudoRival, rival: rivalVideo, cortesPartido: cortesAbp, jugadas: jugadas.map(({ clave, titulo, segundos }) => ({ clave, titulo, segundos })) }),
-      opciones: { cola: videoJugadores ? { url: videoJugadores.url } : null, tope: topePostAbp(videoJugadores?.segundos ?? null) },
+      guion,
+      /* El tope nunca deja fuera un corte del balón parado del partido. */
+      opciones: { cola: videoJugadores ? { url: videoJugadores.url } : null, tope: topePostAbp(videoJugadores?.segundos ?? null, segundosDeCortesAbp(guion)) },
       jugadas,
     };
   };
