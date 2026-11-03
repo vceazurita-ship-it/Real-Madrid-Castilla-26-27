@@ -13,7 +13,7 @@ import {
 import { toast } from "sonner";
 
 import { ItemMenuFlotante } from "@/components/ui/MenuFlotante";
-import { capturaNodo, conLimite, conTope } from "@/lib/export/captura";
+import { capturaNodo, conLimite, conTope, fotograma, fuentesListas } from "@/lib/export/captura";
 import { descargaDataUrl } from "@/lib/export/lienzos";
 import { usePortadaOfrecida } from "@/lib/rivals/portada-slot";
 
@@ -139,11 +139,9 @@ function resolveBackground(root: HTMLElement) {
   return FALLBACK_BG;
 }
 
-function nextFrame() {
-  return new Promise<void>((resolve) =>
-    requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
-  );
-}
+/* El de `captura.ts` (03/11/2026): un `requestAnimationFrame` a pelo no
+   llega con la pestaña escondida y la exportación se quedaba ahí parada. */
+const nextFrame = fotograma;
 
 function wait(ms: number) {
   return new Promise<void>((resolve) => window.setTimeout(resolve, ms));
@@ -447,9 +445,8 @@ async function enterExportMode(keep?: HTMLElement | null): Promise<Cleanup> {
 }
 
 async function waitForAssets(root: HTMLElement) {
-  if (document.fonts?.ready) {
-    await document.fonts.ready.catch(() => undefined);
-  }
+  /* Con tope: si una fuente de fuera no contesta, `fonts.ready` no llega nunca. */
+  await fuentesListas();
 
   const images = Array.from(root.querySelectorAll("img"));
 

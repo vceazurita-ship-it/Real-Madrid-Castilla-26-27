@@ -141,7 +141,7 @@ const pausa = pausaSegura;
  * nada en pantalla, así que basta con ceder el paso; y si el fotograma no
  * llega en 300 ms (ventana tapada), se suelta igual.
  */
-function fotograma() {
+export function fotograma() {
   if (pestanaOculta()) return respira(2);
 
   return new Promise<void>((listo) => {
