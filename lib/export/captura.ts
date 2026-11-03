@@ -218,6 +218,45 @@ export type Captura = {
   nitidez: number;
 };
 
+/**
+ * Topes de tiempo (03/11/2026). `html-to-image` descarga cada foto y cada
+ * fuente con un `fetch` sin tope: si un servidor no contesta (un escudo de
+ * fuera, Supabase con la red floja), la exportación se quedaba colgada para
+ * siempre. Ahora cada descarga se corta a los 20 s —la foto sale en blanco en
+ * vez de colgar— y la captura entera falla con mensaje al minuto.
+ */
+const TOPE_DESCARGA = 20_000;
+const TOPE_CAPTURA = 60_000;
+
+/** Las opciones con el corte de descargas puesto, si no traían uno propio. */
+export function conTope<T extends Options>(opciones: T): T {
+  if (opciones.fetchRequestInit?.signal || typeof AbortController === "undefined") return opciones;
+
+  const corte = new AbortController();
+
+  setTimeout(() => corte.abort(), TOPE_DESCARGA);
+
+  return { ...opciones, fetchRequestInit: { ...opciones.fetchRequestInit, signal: corte.signal } };
+}
+
+/** La promesa, o un error claro si pasa de `ms`: nada de girar sin fin. */
+export function conLimite<T>(promesa: Promise<T>, ms = TOPE_CAPTURA): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const reloj = setTimeout(() => reject(new Error("La captura tarda demasiado. Vuelve a intentarlo.")), ms);
+
+    promesa.then(
+      (valor) => {
+        clearTimeout(reloj);
+        resolve(valor);
+      },
+      (error) => {
+        clearTimeout(reloj);
+        reject(error);
+      },
+    );
+  });
+}
+
 /** Lo que mide el nodo si no se dice otra cosa: igual que `html-to-image`. */
 function medidaDe(nodo: HTMLElement, opciones: Options) {
   if (opciones.width && opciones.height) {
@@ -284,8 +323,8 @@ export async function capturaNodo(nodo: HTMLElement, opciones: OpcionesCapturaNo
 
   const { toSvg } = await import("html-to-image");
 
-  const svg = await toSvg(nodo, { ...resto, width: ancho, height: alto });
-  const imagen = await cargaSvg(svg);
+  const svg = await conLimite(toSvg(nodo, conTope({ ...resto, width: ancho, height: alto })));
+  const imagen = await conLimite(cargaSvg(svg), 30_000);
 
   const tipo = formato === "jpeg" ? "image/jpeg" : "image/png";
   const fondo = resto.backgroundColor ?? (formato === "jpeg" ? "#ffffff" : undefined);
@@ -331,7 +370,7 @@ export async function capturaNodo(nodo: HTMLElement, opciones: OpcionesCapturaNo
 export async function fotoRapida(nodo: HTMLElement, opciones: Options): Promise<HTMLImageElement> {
   const { toSvg } = await import("html-to-image");
   const { ancho, alto } = medidaDe(nodo, opciones);
-  const svg = await toSvg(nodo, { ...opciones, width: ancho, height: alto });
+  const svg = await conLimite(toSvg(nodo, conTope({ ...opciones, width: ancho, height: alto })));
 
   const img = await new Promise<HTMLImageElement>((resolve, reject) => {
     const imagen = new Image();

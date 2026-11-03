@@ -13,7 +13,7 @@ import {
 import { toast } from "sonner";
 
 import { ItemMenuFlotante } from "@/components/ui/MenuFlotante";
-import { capturaNodo } from "@/lib/export/captura";
+import { capturaNodo, conLimite, conTope } from "@/lib/export/captura";
 import { descargaDataUrl } from "@/lib/export/lienzos";
 import { usePortadaOfrecida } from "@/lib/rivals/portada-slot";
 
@@ -696,8 +696,10 @@ async function capturePage(): Promise<Capture> {
        dominio (Supabase, escudos…); va a resolución mínima y deja los
        recursos en la caché interna de la librería. */
     if (hasRemoteImages(root)) {
-      await htmlToImage
-        .toPng(root, { ...options, pixelRatio: 0.05 })
+      /* `toSvg` y no `toPng` (03/11/2026): el `toPng` espera un
+         `requestAnimationFrame`, que con la pestaña escondida no llega, y se
+         quedaba aquí colgada. Lo que calienta es el SVG. */
+      await conLimite(htmlToImage.toSvg(root, conTope(options)))
         .catch(() => undefined);
     }
 

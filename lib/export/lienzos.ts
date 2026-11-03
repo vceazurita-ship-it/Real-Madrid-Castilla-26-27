@@ -22,7 +22,7 @@
 
 import type { jsPDF } from "jspdf";
 
-import { capturaNodo, cargaSvg, pestanaOculta, respira } from "@/lib/export/captura";
+import { capturaNodo, cargaSvg, conLimite, conTope, pestanaOculta, respira } from "@/lib/export/captura";
 
 export { pausaSegura, pestanaOculta, respira } from "@/lib/export/captura";
 
@@ -209,8 +209,8 @@ export async function capturaLienzos(
      la exportación se quedaba colgada aquí (01/11/2026). Lo que calienta es
      el SVG (ahí se descargan las fotos). */
   await htmlToImage
-    .toSvg(raiz, comunes)
-    .then((svg) => cargaSvg(svg))
+    .toSvg(raiz, conTope(comunes))
+    .then((svg) => conLimite(cargaSvg(svg), 30_000))
     .catch(() => undefined);
 
   const imagenes: string[] = [];
