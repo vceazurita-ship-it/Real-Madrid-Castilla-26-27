@@ -45,7 +45,8 @@ const mismoEquipo = (a, b) => mismoNombre(a, b) || mismoClub(a, b);
 const { DOC_GOLES, CASTILLA, leeMinuto } = require("../lib/goles/analisis.ts");
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
-const CASA = path.join(RAIZ, "..", "..");
+/* La carpeta de los partidos está dos niveles por encima del repo; desde una copia de trabajo (`.claude/worktrees/x`), cinco. */
+const CASA = [path.join(RAIZ, "..", ".."), path.join(RAIZ, "..", "..", "..", "..", "..")].find((c) => fs.existsSync(path.join(c, "PARTIDOS"))) ?? path.join(RAIZ, "..", "..");
 const CARPETAS_TIMELINE = [path.join(CASA, "PARTIDOS", "ANALISIS"), path.join(CASA, "ANALISIS TRANSICIONES"), path.join(CASA, "HUDL ALCORCON")];
 const CARPETA_TACTICA = path.join(CASA, "ANALISIS TRANSICIONES");
 const SOLO_VER = process.argv.includes("--ver");
@@ -187,8 +188,13 @@ async function principal() {
   const timelines = buscaTimelines();
   const tacticas = leeTacticas();
   const tipologia = {};
+  const tecnico = {};
   const remates = {};
   const sinTimeline = [];
+
+  /* Los cortes de vídeo de cada jornada (`informe-clips:jNN`), sólo para leer el del gol. */
+  const { data: filasClips } = await supabase.from("app_documents").select("key,data").like("key", "informe-clips:%");
+  const cortesDe = new Map((filasClips ?? []).map((f) => [Number(String(f.key).match(/j(\d+)$/)?.[1]), f.data?.cortes ?? []]));
 
   for (const p of nuestros) {
     const ladoNuestro = mismoEquipo(p.local, CASTILLA) ? "local" : "visitante";
@@ -237,6 +243,12 @@ async function principal() {
             tipo = c.tipo ?? tipo;
             motivo = c.motivo;
           }
+
+          const ficha = fichaTecnica(t.T, mejor.m, lado, tipo, g.tipo === "propia");
+          const video = videoDelGol(cortesDe.get(p.jornada), lado, g);
+
+          if (video) ficha.video = video;
+          if (Object.keys(ficha).length) tecnico[`${p.id}:${i}`] = ficha;
         }
       }
 
@@ -251,6 +263,7 @@ async function principal() {
     temporada: informe.temporada ?? "",
     partidos,
     tipologia,
+    tecnico,
     remates,
     sinTimeline,
   };
@@ -291,8 +304,20 @@ async function principal() {
       const x = tipologia[`${p.id}:${i}`];
 
       console.log(`  J${p.jornada} ${g.min}${g.extra ? `+${g.extra}` : ""}' ${g.jugador.padEnd(22)} ${String(x.tipo ?? "—").padEnd(15)} ${x.motivo}`);
+
+      const f = tecnico[`${p.id}:${i}`];
+
+      if (f) {
+        const zona = f.zonaOrigen ? `${f.zonaOrigen.tercio}/${f.zonaOrigen.carril}` : "";
+        const quienes = (f.implicados ?? []).map((m) => `${m.jugador} (${m.accion})`).join(", ");
+
+        console.log(`      ficha: ${[f.fase, f.origen, f.campo, f.accion, zona && `zona ${zona}`, f.carril !== undefined && `carril ${f.carril}`, f.segundos !== undefined && `${f.segundos} s`, f.pases !== undefined && `${f.pases} pases`, f.video ? "vídeo" : ""].filter(Boolean).join(" · ")}`);
+        console.log(`             ${f.motivo ?? ""}${quienes ? ` | ${quienes}` : ""}`);
+      }
     });
   }
+
+  console.log(`Ficha técnica: ${Object.keys(tecnico).length} goles con ficha, ${Object.values(tecnico).filter((f) => f.video).length} con su corte de vídeo.`);
 
   if (SOLO_VER) {
     console.log("RESUMEN: en seco, no se sube nada.");
@@ -500,6 +525,354 @@ function clasifica(T, g, lado) {
   }
 
   return { tipo: "dentro", motivo: "Jugada individual, sin pase de gol." };
+}
+
+/* ------------------------------------------------------------------ */
+/*  La ficha técnica de cada gol, desde el Castilla (lib/goles/tecnico.ts) */
+/* ------------------------------------------------------------------ */
+
+/*
+| Lo medido en los timelines de J06-J10 (03/11/2026) y en lo que se apoya esto:
+|
+|   - Zonas. «Location - Third/Flank» de una acción va en la referencia del
+|     equipo del jugador: nuestro lateral derecho sale en «Right flank» y en su
+|     duelo el extremo izquierdo de ellos sale en «Left flank / Own third»
+|     cuando nosotros estamos en «Final third». Lo mismo con el «Location
+|     third/flank» de las posesiones. Así que lo del rival se gira: tercio y
+|     carril (2 − x).
+|   - Tiempos. Las acciones normales empiezan ~2 s antes del toque y duran 4-10
+|     s, y su orden es bueno. Los remates (y la propia puerta) son ventanas de
+|     20 s (14 s si no son gol) que empiezan ~15 s (~5 s) antes del remate: por
+|     eso se colocan con `instante` y el gol va siempre al final de la jugada.
+|   - El gol: el momento «<Equipo> - Goals» es la última posesión, y su
+|     «Duration» (en segundos) llega hasta el remate; el final del momento son
+|     ~3 s más.
+|   - Campo (mitad). Hudl sólo da tercios: el propio y el último dicen la mitad;
+|     el del medio no (ni hay coordenadas). Sólo se pone `campo` cuando el tercio
+|     lo dice o es un córner o un penalti.
+*/
+
+const TERCIO = { "Own third": 0, "Middle third": 1, "Final third": 2 };
+const CARRIL = { "Left flank": 0, Center: 1, "Right flank": 2 };
+const ABP = new Set(["penalti", "corner", "banda", "faltaDirecta", "faltaLateral"]);
+const sinDorsal = (j) => String(j).replace(/^\d+\.\s*/, "");
+const tiene = (a, ...tipos) => tipos.some((x) => a.tipos.includes(x));
+
+/** Una celda en la referencia del Castilla; lo del rival se gira. */
+function celda(tercio, flanco, delRival) {
+  const t = TERCIO[tercio];
+  const c = CARRIL[flanco];
+
+  if (t === undefined || c === undefined) return undefined;
+
+  return delRival ? { tercio: 2 - t, carril: 2 - c } : { tercio: t, carril: c };
+}
+
+const celdaAccion = (T, a) => celda(valor(a.m, "Location - Third"), valor(a.m, "Location - Flank"), !T.esNuestro(a.jug));
+const celdaMomento = (m, delRival) => celda(valor(m, "Location third"), valor(m, "Location flank"), delRival);
+
+/** Cuándo pasa de verdad una acción: los remates traen la ventana adelantada. */
+function instante(a) {
+  if (!tiene(a, "Shot", "Penalty", "Own goal")) return a.t;
+
+  return a.m.endTimeMs - a.t >= 18_000 ? a.t + 15_000 : a.t + 5_000;
+}
+
+const esGol = (a) => tiene(a, "Goal", "Penalty goal") || valor(a.m, "Shot - Outcome") === "Goal";
+
+/** Lo que hizo un jugador nuestro, en español. `null` si no cuenta para la jugada. */
+function accionNuestra(a, aFavor) {
+  const duelo = valor(a.m, "Ground duel - Duel type");
+
+  if (tiene(a, "Own goal")) return "En propia puerta";
+
+  if (tiene(a, "Shot", "Penalty")) {
+    if (!esGol(a)) return aFavor ? "Primer remate" : null;
+
+    return tiene(a, "Penalty") ? "Marca de penalti" : tiene(a, "Head shot") ? "Remata de cabeza" : "Remata";
+  }
+
+  if (tiene(a, "Penalty save")) return "Para el penalti";
+  if (tiene(a, "Shot against")) return tiene(a, "Save") ? "Parada" : null;
+  if (tiene(a, "Corner")) return "Saca el córner";
+  if (tiene(a, "Free kick")) return "Saca la falta";
+  if (tiene(a, "Throw in")) return "Saca de banda";
+  if (tiene(a, "Assist")) return tiene(a, "Cross") ? "Centro de gol" : "Asiste";
+  if (tiene(a, "Shot block")) return tiene(a, "Loss") ? "Bloquea y pierde el balón" : "Bloquea el remate";
+  if (tiene(a, "Loss") && tiene(a, "Clearance", "Head pass")) return "Despeje fallido";
+  if (tiene(a, "Loss")) return "Pierde el balón";
+  if (tiene(a, "Clearance")) return "Despeje";
+  if (tiene(a, "Second assist", "Key pass")) return "Pase clave";
+  if (tiene(a, "Cross")) return "Centro";
+  if (tiene(a, "Recovery", "Interception", "Counterpressing recovery")) return "Recupera";
+  if (tiene(a, "Through pass", "Smart pass")) return "Pase al espacio";
+  if (tiene(a, "Pass")) return "Pase";
+  if (duelo === "Dribble" && valor(a.m, "Ground duel - In attack - Progress") === "Progressed with ball") return "Regate";
+  if (duelo === "Dribbled past" || tiene(a, "Dribbled past attempt")) return "Le regatean";
+  if (tiene(a, "Defensive duel") && valor(a.m, "Ground duel - In defense - Progress") === "Allowed progress") return "Duelo perdido";
+  if (tiene(a, "Aerial duel") && valor(a.m, "Aerial duel - Outcome") === "Lost") return "Duelo aéreo perdido";
+  if (tiene(a, "Foul")) return "Comete la falta";
+  if (tiene(a, "Carry", "Progressive run")) return "Conduce";
+
+  return null;
+}
+
+/* En un gol en contra sólo cuenta lo defensivo (y la pérdida que lo origina). */
+const DEFENSIVAS = new Set(["En propia puerta", "Para el penalti", "Parada", "Bloquea el remate", "Bloquea y pierde el balón", "Despeje fallido", "Pierde el balón", "Recupera", "Despeje", "Le regatean", "Duelo perdido", "Duelo aéreo perdido", "Comete la falta"]);
+
+const TXT_TERCIO = ["nuestro tercio", "zona media", "su tercio"];
+const TXT_CARRIL = ["la izquierda", "el centro", "la derecha"];
+
+/**
+ * La ficha técnica de un gol (`FichaAuto`), desde el Castilla. `g` es el
+ * momento «<Equipo> - Goals» de Hudl, `tipo` la tipología ya decidida (manda
+ * en la fase, para que las dos lecturas no se contradigan) y `propia`, si
+ * BeSoccer lo da en propia puerta. Lo que no se sabe no se pone.
+ */
+function fichaTecnica(T, g, lado, tipo, propia) {
+  const aFavor = lado === "nuestro";
+  const delQueMarca = (a) => T.esNuestro(a.jug) === aFavor;
+  const prefijo = codigo(g).replace(/ - Goals$/, "");
+  const duracion = Number(valor(g, "Duration"));
+  const golT = Math.min(g.endTimeMs, Number.isFinite(duracion) && valor(g, "Duration") !== "" ? g.startTimeMs + duracion * 1000 : g.endTimeMs - 3000);
+  const largo = (Number.isFinite(duracion) && duracion >= 15) || /10-14|15 or more/.test(valor(g, "Number of team events"));
+  const inicio = valor(g, "Location third");
+  const cerca = T.acciones.filter((a) => instante(a) >= g.startTimeMs - 25_000 && instante(a) <= g.endTimeMs + 2000);
+
+  /* El remate del gol: el del equipo que marca más cercano al gol (o la propia puerta). */
+  const remate = cerca
+    .filter((a) => (delQueMarca(a) && tiene(a, "Shot", "Penalty") && esGol(a)) || tiene(a, "Own goal"))
+    .sort((a, b) => Math.abs(instante(a) - golT) - Math.abs(instante(b) - golT))[0];
+
+  /* Las posesiones de antes: ¿hubo un despeje corto del que defiende entre dos del que marca? */
+  const posesiones = T.momentosEq.filter((m) => / - Possessions$/.test(codigo(m)) && m.endTimeMs <= g.startTimeMs + 100 && m.startTimeMs < g.startTimeMs).sort((a, b) => b.endTimeMs - a.endTimeMs);
+  const [p1, p2] = posesiones;
+  const delMarcador = (m) => codigo(m).startsWith(`${prefijo} - `);
+  const rechaceCorto = p1 && p2 && !delMarcador(p1) && delMarcador(p2) && g.startTimeMs - p1.endTimeMs <= 1000 && p1.endTimeMs - p1.startTimeMs <= 4500 && p1.startTimeMs - p2.endTimeMs <= 1000 && valor(p1, "Location third") === "Own third";
+
+  /* ¿La segunda jugada viene de un balón parado del que marca? */
+  const deAbp = T.momentosEq.some((m) => /- (Set Pieces|Corners|Free kicks)$/.test(codigo(m)) && delMarcador(m) && m.endTimeMs >= g.startTimeMs - 15_000 && m.endTimeMs <= g.endTimeMs && m.endTimeMs - m.startTimeMs <= 15_000);
+
+  const ficha = {};
+  let origenT = g.startTimeMs;
+  let clave = null; // la acción nuestra (o suya) que abre la jugada
+  let zona;
+
+  /* ---------------- origen y zona ---------------- */
+  if (ABP.has(tipo) && !propia) {
+    ficha.origen = "abp";
+
+    const saque = T.momentosEq.filter((m) => delMarcador(m) && /- (Corners|Free kicks|Throw ins|Set Pieces)$/.test(codigo(m)) && m.startTimeMs <= g.endTimeMs && m.endTimeMs >= g.startTimeMs - 3000).sort((a, b) => a.startTimeMs - b.startTimeMs)[0];
+
+    if (tipo === "penalti") zona = { tercio: aFavor ? 2 : 0, carril: 1 };
+    else if (saque) zona = celdaMomento(saque, !aFavor);
+    if (saque) origenT = saque.startTimeMs;
+  } else if (aFavor) {
+    const robo = T.acciones.find((a) => T.esNuestro(a.jug) && a.t >= g.startTimeMs - 5000 && a.t <= g.startTimeMs + 3000 && tiene(a, "Recovery", "Interception", "Counterpressing recovery"));
+    const perdidaSuya = T.acciones.filter((a) => !T.esNuestro(a.jug) && tiene(a, "Loss") && a.t >= g.startTimeMs - 6000 && a.t <= g.startTimeMs + 1500).at(-1);
+
+    if (tipo === "caida") {
+      ficha.origen = "segundaJugada";
+      zona = celdaMomento(g, false);
+    } else if (tipo === "error") {
+      ficha.origen = "errorRival";
+      clave = perdidaSuya;
+      zona = perdidaSuya ? celdaAccion(T, perdidaSuya) : celdaMomento(g, false);
+      if (perdidaSuya) origenT = perdidaSuya.t;
+    } else if (robo && !(Number.isFinite(duracion) && duracion > 20)) {
+      zona = celdaAccion(T, robo);
+      ficha.origen = ["roboBajo", "roboMedio", "roboAlto"][zona?.tercio ?? 1];
+      clave = robo;
+      origenT = robo.t;
+    } else if (rechaceCorto && !robo) {
+      ficha.origen = "segundaJugada";
+      zona = celdaMomento(g, false);
+    } else if (inicio === "Own third") {
+      ficha.origen = "construccion";
+      zona = celdaMomento(g, false);
+    } else if (largo) {
+      ficha.origen = "posesionLarga";
+      zona = celdaMomento(g, false);
+    } else if (perdidaSuya) {
+      /* Sin robo nuestro etiquetado, el balón lo gana su pérdida: un robo en esa zona (o su error si es en su salida). */
+      zona = celdaAccion(T, perdidaSuya);
+      ficha.origen = zona?.tercio === 2 && !tiene(perdidaSuya, "Duel") ? "errorRival" : ["roboBajo", "roboMedio", "roboAlto"][zona?.tercio ?? 1];
+      clave = perdidaSuya;
+      origenT = perdidaSuya.t;
+    }
+  } else {
+    const perdida = T.acciones.filter((a) => T.esNuestro(a.jug) && tiene(a, "Loss") && a.t >= g.startTimeMs - 7000 && a.t <= g.startTimeMs + 1500).at(-1);
+    const despeje = rechaceCorto ? T.acciones.filter((a) => T.esNuestro(a.jug) && a.t >= p1.startTimeMs - 3500 && a.t <= g.startTimeMs + 500 && tiene(a, "Loss", "Clearance", "Shot block")).at(-1) : null;
+
+    if (propia) {
+      ficha.origen = "errorPropio";
+      clave = perdida ?? null;
+      zona = perdida ? celdaAccion(T, perdida) : undefined;
+      if (perdida) origenT = perdida.t;
+    } else if (tipo === "caida" || rechaceCorto) {
+      ficha.origen = "segundaJugada";
+      const ultimo = despeje ?? T.acciones.filter((a) => T.esNuestro(a.jug) && a.t >= g.startTimeMs - 5000 && a.t <= g.startTimeMs + 1000 && tiene(a, "Loss", "Clearance", "Shot block", "Save")).at(-1);
+
+      clave = ultimo ?? null;
+      zona = ultimo ? celdaAccion(T, ultimo) : celdaMomento(g, true);
+      if (ultimo) origenT = ultimo.t;
+    } else if (perdida && !(Number.isFinite(duracion) && duracion > 20)) {
+      zona = celdaAccion(T, perdida);
+      clave = perdida;
+      origenT = perdida.t;
+      ficha.origen = zona?.tercio === 0 && golT - perdida.t <= 10_000 ? "errorPropio" : ["perdidaSalida", "perdidaMedio", "perdidaAlta"][zona?.tercio ?? 1];
+    } else if (largo) {
+      ficha.origen = "defensaPosicional";
+      zona = celdaMomento(g, true);
+    }
+  }
+
+  if (zona) ficha.zonaOrigen = zona;
+
+  /* ---------------- fase (de la tipología) ---------------- */
+  const conPerdidaArriba = T.acciones.some((a) => T.esNuestro(a.jug) !== aFavor && tiene(a, "Loss") && a.t >= golT - 20_000 && a.t <= golT && (celdaAccion(T, a)?.tercio ?? 0) !== (aFavor ? 2 : 0));
+
+  if (ABP.has(tipo) && !propia) ficha.fase = aFavor ? "abpOfensiva" : "abpDefensiva";
+  else if (tipo === "transPropio" || tipo === "transContrario" || (tipo === "error" && !propia)) ficha.fase = aFavor ? "transicionOfensiva" : "transicionDefensiva";
+  else if (tipo === "caida" && deAbp) ficha.fase = aFavor ? "abpOfensiva" : "abpDefensiva";
+  else if (tipo === "caida" || propia) ficha.fase = conPerdidaArriba ? (aFavor ? "transicionOfensiva" : "transicionDefensiva") : aFavor ? "ataqueOrganizado" : "defensaOrganizada";
+  else if (tipo) ficha.fase = aFavor ? "ataqueOrganizado" : "defensaOrganizada";
+
+  /* ---------------- campo (mitad) ---------------- */
+  if (tipo === "corner" || tipo === "penalti") ficha.campo = aFavor ? "contrario" : "propio";
+  else if (zona?.tercio === 0) ficha.campo = "propio";
+  else if (zona?.tercio === 2) ficha.campo = "contrario";
+
+  /* ---------------- la jugada: pases, carril, segundos ---------------- */
+  const jugada = T.acciones.filter((a) => instante(a) >= origenT - 500 && instante(a) <= golT + 500 && a !== remate);
+  const pases = jugada.filter((a) => delQueMarca(a) && tiene(a, "Pass") && instante(a) <= golT);
+  const asistencia = jugada.filter((a) => delQueMarca(a) && tiene(a, "Assist")).at(-1);
+  const centro = jugada.filter((a) => delQueMarca(a) && tiene(a, "Cross") && !tiene(a, "Loss")).at(-1);
+  const conduccion = remate ? jugada.filter((a) => a.jug === remate.jug && tiene(a, "Carry", "Dribble") && valor(a.m, "Location - Third") === "Final third").at(-1) : null;
+  /* Por dónde llega al área: el pase de gol o el centro si salen del último tercio; si no, la conducción del que remata. */
+  const enUltimo = (a) => a && valor(a.m, "Location - Third") === "Final third";
+  const llega = [asistencia, centro].find(enUltimo) ?? conduccion ?? asistencia ?? centro;
+
+  if (tipo !== "penalti" && llega) {
+    const c = celdaAccion(T, llega);
+
+    if (c) ficha.carril = c.carril;
+  }
+
+  ficha.segundos = Math.max(0, Math.round((golT - origenT) / 1000));
+  if (tipo !== "penalti") ficha.pases = pases.length;
+
+  /* ---------------- tipo de acción ---------------- */
+  const direccion = asistencia ? valor(asistencia.m, "Pass - Direction") : "";
+  const flancoAsist = asistencia ? valor(asistencia.m, "Location - Flank") : "";
+
+  if (propia || (remate && tiene(remate, "Own goal"))) ficha.accion = "propiaPuerta";
+  else if (tipo === "penalti") ficha.accion = "penalti";
+  else if (tipo === "corner") ficha.accion = "corner";
+  else if (tipo === "faltaDirecta") ficha.accion = "faltaDirecta";
+  else if (tipo === "faltaLateral") ficha.accion = "faltaLateral";
+  else if (tipo === "banda") ficha.accion = "saqueBanda";
+  else if (tipo === "caida") ficha.accion = "rechace";
+  else if (remate && valor(remate.m, "Shot - Location") === "Outside penalty area") ficha.accion = "remateLejano";
+  else if (ficha.origen === "segundaJugada" && pases.length <= 1) ficha.accion = "rechace";
+  else if (asistencia && tiene(asistencia, "Through pass", "Smart pass")) ficha.accion = "paseEspalda";
+  else if (asistencia && tiene(asistencia, "Long pass") && tiene(asistencia, "Forward pass")) ficha.accion = "paseEspalda";
+  else if (asistencia && direccion === "Back" && flancoAsist !== "Center") ficha.accion = "paseAtras";
+  else if (asistencia && tiene(asistencia, "Cross")) ficha.accion = "centroLateral";
+  else if (asistencia) ficha.accion = "combinacion";
+  else if (remate && jugada.some((a) => a.jug === remate.jug && valor(a.m, "Ground duel - Duel type") === "Dribble")) ficha.accion = "jugadaIndividual";
+
+  /* ---------------- los nuestros ---------------- */
+  const desde = origenT - 3500 - (ficha.origen === "abp" && !aFavor ? 15_000 : 0);
+  const nuestras = T.acciones
+    /* A favor, la jugada empieza en el robo (lo de antes es otra posesión); en contra se mira algo antes (la falta, el despeje). */
+    .filter((a) => T.esNuestro(a.jug) && instante(a) >= (aFavor && a !== clave ? origenT - 500 : desde) && instante(a) <= golT + 1000)
+    .map((a) => ({ a, cuando: a === remate ? Infinity : instante(a), accion: accionNuestra(a, aFavor) }))
+    .filter((x) => x.accion && (aFavor || DEFENSIVAS.has(x.accion)))
+    .filter((x) => x.accion !== "Comete la falta" || (ficha.origen === "abp" && !aFavor))
+    .sort((x, y) => x.cuando - y.cuando);
+
+  const implicados = [];
+
+  for (const x of nuestras) {
+    const jugador = sinDorsal(x.a.jug);
+    const ultimo = implicados.at(-1);
+
+    if (ultimo && ultimo.jugador === jugador && ultimo.accion === x.accion) continue;
+
+    implicados.push({ jugador, accion: x.accion });
+  }
+
+  /* Una posesión larga: el arranque y lo último (lo que acaba en gol). */
+  const recorte = implicados.length > 8 ? [implicados[0], ...implicados.slice(-7)] : implicados;
+
+  if (recorte.length) ficha.implicados = recorte;
+
+  /* ---------------- la frase ---------------- */
+  const nombre = (a) => (a ? sinDorsal(a.jug) : "");
+  const goleador = remate && T.esNuestro(remate.jug) && aFavor ? nombre(remate) : "";
+  const tras = `${ficha.segundos !== undefined ? ` a los ${ficha.segundos} s` : ""}${ficha.pases ? ` con ${ficha.pases} ${ficha.pases === 1 ? "pase" : "pases"}` : ""}`;
+  const enZona = zona ? `${TXT_TERCIO[zona.tercio]}${zona.carril !== 1 ? ` por ${TXT_CARRIL[zona.carril]}` : ""}` : "";
+  const quienAsiste = asistencia && aFavor ? `, asistencia de ${nombre(asistencia)}` : "";
+  const marca = goleador ? `; marca ${goleador}` : "";
+  const NOMBRE_ABP = { penalti: "Penalti", corner: "Córner", banda: "Saque de banda", faltaDirecta: "Falta directa", faltaLateral: "Falta lateral" };
+  let motivo = "";
+
+  if (ficha.origen === "abp") {
+    const saca = aFavor ? T.acciones.find((a) => T.esNuestro(a.jug) && tiene(a, "Corner", "Free kick", "Throw in") && a.t >= origenT - 3000 && a.t <= golT) : null;
+
+    motivo = aFavor ? `${NOMBRE_ABP[tipo]}${saca ? ` sacado por ${nombre(saca)}` : ""}${marca}.` : `${NOMBRE_ABP[tipo]} en contra${enZona && tipo !== "penalti" ? ` desde ${enZona}` : ""}.`;
+  } else if (aFavor) {
+    if (ficha.origen?.startsWith("robo")) motivo = `${clave && T.esNuestro(clave.jug) ? `Robo de ${nombre(clave)}` : "Balón ganado"} en ${enZona} y gol${tras}${marca}.`;
+    else if (ficha.origen === "errorRival") motivo = `Error del rival en su salida${enZona ? ` (${enZona})` : ""} y gol${tras}${marca}.`;
+    else if (ficha.origen === "construccion") motivo = `Construcción desde atrás y gol${tras}${quienAsiste}${marca}.`;
+    else if (ficha.origen === "posesionLarga") motivo = `Posesión instalada y gol${tras}${quienAsiste}${marca}.`;
+    else if (ficha.origen === "segundaJugada") motivo = `Segunda jugada: rechace aprovechado${goleador ? ` por ${goleador}` : ""}.`;
+    else motivo = `Gol${tras}${quienAsiste}${marca}.`;
+  } else {
+    const deQuien = clave && T.esNuestro(clave.jug) ? ` de ${nombre(clave)}` : "";
+    const fallos = implicados.filter((x) => x.accion === "Le regatean" || x.accion === "Duelo perdido" || x.accion === "Duelo aéreo perdido");
+    const yFallos = fallos.length ? `; ${fallos.map((x) => `${x.accion.toLowerCase()} a ${x.jugador}`.replace("le regatean a", "regatean a").replace("duelo perdido a", "duelo perdido de").replace("duelo aéreo perdido a", "duelo aéreo perdido de")).join(", ")}` : "";
+    const porCarril = ficha.carril !== undefined ? `; llega por ${TXT_CARRIL[ficha.carril]}` : "";
+
+    if (propia) {
+      const propio = remate && tiene(remate, "Own goal") ? nombre(remate) : "";
+
+      motivo = `Gol en propia puerta${propio ? ` de ${propio}` : ""}${clave ? ` tras la pérdida de ${nombre(clave)} en ${enZona}` : ""}${clave ? `, a los ${ficha.segundos} s` : ""}.`;
+    } else if (ficha.origen === "errorPropio") motivo = `Pérdida${deQuien} en ${enZona} y gol a los ${ficha.segundos} s${yFallos}.`;
+    else if (ficha.origen?.startsWith("perdida")) motivo = `Pérdida${deQuien} en ${enZona}; gol${tras}${porCarril}${yFallos}.`;
+    else if (ficha.origen === "segundaJugada") {
+      const VERBO = { "Despeje fallido": "despeja mal", "Para el penalti": "para el penalti", Parada: "para el remate", "Bloquea y pierde el balón": "bloquea el remate pero pierde el balón", "Bloquea el remate": "bloquea el remate", "Pierde el balón": "pierde el balón", Despeje: "despeja" };
+      const verbo = clave ? VERBO[accionNuestra(clave, false)] : "";
+
+      motivo = `Segunda jugada en contra${verbo ? `: ${nombre(clave)} ${verbo}` : ""}${enZona ? ` en ${enZona}` : ""} y gol a los ${ficha.segundos} s.`;
+    }
+    else if (ficha.origen === "defensaPosicional") motivo = `Ataque posicional suyo desde ${enZona || "su campo"}; gol${tras}${porCarril}${yFallos}.`;
+    else motivo = `Gol en contra${tras}${porCarril}${yFallos}.`;
+  }
+
+  if (motivo) ficha.motivo = motivo.replace(/\s+/g, " ");
+
+  return ficha;
+}
+
+/** El corte del gol en `informe-clips:jNN`: el del lado y el minuto (±1). */
+function videoDelGol(cortes, lado, g) {
+  if (!Array.isArray(cortes)) return undefined;
+
+  const tipoCorte = lado === "nuestro" ? "gol" : "gol-contra";
+  const minuto = g.min + g.extra;
+  const mejor = cortes
+    .filter((c) => c?.tipo === tipoCorte && c.url)
+    .map((c) => {
+      const m = leeMinuto(c.minuto);
+
+      return { c, d: Math.abs(m.min + m.extra - minuto) };
+    })
+    .filter((x) => x.d <= 1)
+    .sort((a, b) => a.d - b.d)[0];
+
+  return mejor?.c.url;
 }
 
 /** Los timelines de nuestros partidos de las dos últimas semanas que no estén ya bajados. */
