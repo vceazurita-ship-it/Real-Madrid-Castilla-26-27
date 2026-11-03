@@ -51,7 +51,14 @@ export type TareaPropia = {
   origen?: string;
 };
 
-export type DocPropias = { propias: TareaPropia[]; quitadas: Record<string, true> };
+/**
+ * El orden a mano de cada día (03/11/2026): fecha → claves tal como las dejó el
+ * analista al arrastrar. Lo que no esté en la lista va detrás, en su orden de
+ * siempre. Opcional: los documentos de antes no lo traen.
+ */
+export type OrdenDias = Record<string, string[]>;
+
+export type DocPropias = { propias: TareaPropia[]; quitadas: Record<string, true>; orden?: OrdenDias };
 
 export const HECHAS_VACIAS: Hechas = {};
 export const PROPIAS_VACIAS: DocPropias = { propias: [], quitadas: {} };
@@ -72,10 +79,20 @@ const isoMas = (fecha: string, dias: number) => new Date(Date.parse(`${fecha}T12
 export function normalizaPropias(valor: unknown): DocPropias {
   const v = (valor && typeof valor === "object" ? valor : {}) as Partial<DocPropias>;
 
-  return {
+  const doc: DocPropias = {
     propias: Array.isArray(v.propias) ? v.propias.filter((t) => t && typeof t.id === "string" && typeof t.fecha === "string") : [],
     quitadas: v.quitadas && typeof v.quitadas === "object" ? v.quitadas : {},
   };
+
+  if (v.orden && typeof v.orden === "object") {
+    const orden: OrdenDias = {};
+
+    for (const [fecha, claves] of Object.entries(v.orden)) if (Array.isArray(claves)) orden[fecha] = claves.filter((c) => typeof c === "string");
+
+    doc.orden = orden;
+  }
+
+  return doc;
 }
 
 export const claveAuto = (partido: string, fecha: string, id: string) => `${partido.slice(0, 10)}|${fecha}|${id}`;
@@ -198,7 +215,7 @@ export function semanaDelMicro({ partidos, hoy, hechas, doc, sesiones }: Entrada
 
   for (const t of doc.propias) dias.find((d) => d.fecha === t.fecha)?.tareas.push(dePropia(t));
 
-  for (const d of dias) d.tareas = ordena(d.tareas);
+  for (const d of dias) d.tareas = aMano(ordena(d.tareas), doc.orden?.[d.fecha]);
 
   return { proximo, anterior: alrededor.anterior, dias };
 }
@@ -206,6 +223,18 @@ export function semanaDelMicro({ partidos, hoy, hechas, doc, sesiones }: Entrada
 /** Las de alta primero; dentro de la misma prioridad, el orden de la plantilla. */
 function ordena(tareas: TareaDelDia[]) {
   return tareas.map((t, i) => ({ t, i })).sort((a, b) => PESO[a.t.prioridad] - PESO[b.t.prioridad] || a.i - b.i).map((x) => x.t);
+}
+
+/** El orden que dejó el analista; lo que no está en su lista, detrás y como venía. */
+function aMano(tareas: TareaDelDia[], orden: string[] | undefined) {
+  if (!orden?.length) return tareas;
+
+  const sitio = new Map(orden.map((c, i) => [c, i]));
+
+  return tareas
+    .map((t, i) => ({ t, i }))
+    .sort((a, b) => (sitio.get(a.t.clave) ?? Infinity) - (sitio.get(b.t.clave) ?? Infinity) || a.i - b.i)
+    .map((x) => x.t);
 }
 
 /**
@@ -299,11 +328,127 @@ export function edita(doc: DocPropias, t: TareaDelDia, cambios: Cambios, id: str
   if (t.hecho) nueva.hecho = t.hecho;
   if (t.href) nueva.href = t.href;
 
-  return { quitadas: { ...doc.quitadas, [t.clave]: true }, propias: [...doc.propias, nueva] };
+  return { ...doc, quitadas: { ...doc.quitadas, [t.clave]: true }, propias: [...doc.propias, nueva] };
 }
 
 export function anade(doc: DocPropias, nueva: { fecha: string; texto: string; prioridad: Prioridad }, id: string): DocPropias {
   return { ...doc, propias: [...doc.propias, { id, fecha: nueva.fecha, texto: nueva.texto.trim(), prioridad: nueva.prioridad }] };
+}
+
+/* ------------------------------------------------------------------ */
+/*  ARRASTRAR, MOVER, DUPLICAR Y DESHACER (03/11/2026)                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Lo necesario para deshacer un movimiento o un duplicado sin pisar lo que se
+ * haya cambiado después: no es una foto del documento, es el paso al revés.
+ */
+export type Rastro = {
+  /** La propia que nació (al mover una automática o al duplicar): se quita. */
+  nueva?: string;
+  /** La automática que se quitó al moverla de día: vuelve. */
+  restaura?: string;
+  /** La propia que cambió de día: vuelve al suyo. */
+  original?: { id: string; fecha: string };
+  /** Cómo estaba el orden a mano de los días tocados (`null`: no tenía). */
+  orden: Record<string, string[] | null>;
+};
+
+/** El orden a mano no guarda días de más de tres semanas antes del tocado. */
+function recorta(orden: OrdenDias, referencia: string): OrdenDias {
+  const desde = isoMas(referencia, -21);
+
+  return Object.fromEntries(Object.entries(orden).filter(([f]) => f >= desde));
+}
+
+/**
+ * Mover una tarea a `fecha` en la posición `indice`, o reordenarla dentro de
+ * su día. `destino` son las claves del día de llegada tal como se ven;
+ * `origen`, las del día de salida (sólo si ese día está en la semana). Una
+ * automática que cambia de día se vuelve propia (`edita`) con el `id` que da
+ * quien llama; si sólo se reordena, sigue siendo automática. Es determinista:
+ * con el mismo `id`, la misma salida (se llama fuera y dentro del `setValue`).
+ */
+export function mueve(
+  doc: DocPropias,
+  t: TareaDelDia,
+  fecha: string,
+  destino: string[],
+  indice: number,
+  id: string,
+  origen?: string[],
+): { doc: DocPropias; rastro: Rastro; clave: string } {
+  const cambiaDia = t.fecha !== fecha;
+
+  const rastro: Rastro = { orden: { [fecha]: doc.orden?.[fecha] ?? null } };
+
+  let nuevo = doc;
+  let clave = t.clave;
+
+  if (cambiaDia) {
+    if (origen) rastro.orden[t.fecha] = doc.orden?.[t.fecha] ?? null;
+
+    nuevo = edita(doc, t, { fecha }, id);
+
+    if (t.tipo === "auto") {
+      clave = id;
+      rastro.nueva = id;
+      rastro.restaura = t.clave;
+    } else {
+      rastro.original = { id: t.id, fecha: t.fecha };
+    }
+  }
+
+  const lista = destino.filter((c) => c !== t.clave);
+
+  lista.splice(Math.max(0, Math.min(indice, lista.length)), 0, clave);
+
+  const orden: OrdenDias = { ...(nuevo.orden ?? {}), [fecha]: lista };
+
+  if (cambiaDia && origen) orden[t.fecha] = origen.filter((c) => c !== t.clave);
+
+  return { doc: { ...nuevo, orden: recorta(orden, fecha) }, rastro, clave };
+}
+
+/** Una copia de la tarea en otro día, sin marcar. */
+export function duplica(doc: DocPropias, t: TareaDelDia, fecha: string, id: string): { doc: DocPropias; rastro: Rastro } {
+  const copia: TareaPropia = { id, fecha, texto: t.texto, prioridad: t.prioridad };
+
+  if (t.hecho) copia.hecho = t.hecho;
+  if (t.href) copia.href = t.href;
+
+  return { doc: { ...doc, propias: [...doc.propias, copia] }, rastro: { nueva: id, orden: {} } };
+}
+
+/** El paso al revés de `mueve` o `duplica`. */
+export function deshaz(doc: DocPropias, rastro: Rastro): DocPropias {
+  let propias = doc.propias;
+
+  if (rastro.nueva) propias = propias.filter((p) => p.id !== rastro.nueva);
+
+  const original = rastro.original;
+
+  if (original) propias = propias.map((p) => (p.id === original.id ? { ...p, fecha: original.fecha } : p));
+
+  const quitadas = { ...doc.quitadas };
+
+  if (rastro.restaura) delete quitadas[rastro.restaura];
+
+  const orden: OrdenDias = { ...(doc.orden ?? {}) };
+
+  for (const [fecha, claves] of Object.entries(rastro.orden)) {
+    if (claves) orden[fecha] = claves;
+    else delete orden[fecha];
+  }
+
+  return { ...doc, propias, quitadas, orden };
+}
+
+/** «Sáb 31/10», para los botones de «Mover a…». */
+export function rotuloCorto(fecha: string) {
+  const d = new Date(`${fecha}T12:00:00Z`);
+
+  return `${["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"][d.getUTCDay()]} ${fecha.slice(8, 10)}/${fecha.slice(5, 7)}`;
 }
 
 /** «Sábado 31/10». */
