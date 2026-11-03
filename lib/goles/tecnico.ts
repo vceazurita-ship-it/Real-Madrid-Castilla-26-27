@@ -153,11 +153,22 @@ export type FichaAuto = {
   pases?: number;
   /** Los nuestros, en orden de la jugada. */
   implicados?: Implicado[];
-  /** El corte del gol (de `informe-clips:jNN`), si lo hay. */
+  /** El corte del gol, sacado del vídeo de Hudl (~12 s antes del gol y ~5 s después), en el bucket. */
   video?: string;
+  /**
+   * El vídeo del partido en Hudl y el segundo del gol en ese vídeo. Hudl no
+   * deja enlazar a un instante (ignora ?t=, #t= y compañía: siempre abre en
+   * 0), así que el enlace va al partido y el «mm:ss» se enseña al lado.
+   */
+  hudl?: { url: string; seg: number };
+  /** De dónde sale cada dato, en una frase (sólo con los textos explicativos encendidos). */
+  fuentes?: Partial<Record<CampoFuente, string>>;
   /** Lo que ha visto el script, en una frase (como `TipologiaGol.motivo`). */
   motivo?: string;
 };
+
+/** Los datos de la ficha que llevan su fuente. */
+export type CampoFuente = "casado" | "autor" | "tipo" | "fase" | "campo" | "accion" | "origen" | "implicados" | "video";
 
 /** Lo que pone el cuerpo técnico. Manda sobre `FichaAuto` campo a campo. */
 export type FichaManual = Partial<Omit<FichaAuto, "motivo">> & {
@@ -175,15 +186,127 @@ export type FichaManual = Partial<Omit<FichaAuto, "motivo">> & {
 
 export type FichasManuales = Record<string, FichaManual>;
 
-/** La ficha que se enseña: lo manual encima de lo automático. */
-export type FichaTecnica = FichaManual & { motivo?: string; deHudl: (keyof FichaAuto)[] };
+/**
+ * La ficha que se enseña: lo manual encima de lo automático. `deHudl`, lo que
+ * llega del script sin tocar; `deTipologia`, lo que se ha puesto o cambiado
+ * para que case con la tipología elegida (`fichaCoherente`).
+ */
+export type FichaTecnica = FichaManual & {
+  motivo?: string;
+  hudl?: FichaAuto["hudl"];
+  fuentes?: FichaAuto["fuentes"];
+  deHudl: (keyof FichaAuto)[];
+  deTipologia?: (keyof FichaAuto)[];
+};
 
 export function fichaDe(auto: FichaAuto | undefined, manual: FichaManual | undefined): FichaTecnica {
   const a = auto ?? {};
   const m = manual ?? {};
-  const deHudl = (Object.keys(a) as (keyof FichaAuto)[]).filter((k) => k !== "motivo" && a[k] !== undefined && (m as Record<string, unknown>)[k] === undefined);
+  const deHudl = (Object.keys(a) as (keyof FichaAuto)[]).filter((k) => k !== "motivo" && k !== "fuentes" && a[k] !== undefined && (m as Record<string, unknown>)[k] === undefined);
 
   return { ...a, ...m, deHudl };
+}
+
+/** Lo que de verdad dice algo de la jugada (el vídeo o el enlace solos no cuentan). */
+export const tieneFicha = (f: FichaTecnica) =>
+  Boolean(f.fase || f.campo || f.accion || f.origen || f.zonaOrigen || f.implicados?.length || f.claves?.length || f.causas?.length || f.lectura || f.consigna);
+
+/** Lo que hace cada uno de los nuestros, para elegir al escribirlo a mano. */
+export const ACCIONES_IMPLICADO = {
+  favor: ["Recupera", "Pase", "Conduce", "Asiste", "Remata"],
+  contra: ["Pierde", "Duelo perdido", "Llega tarde", "Pierde la marca", "Falta"],
+} as const;
+
+/** «mm:ss» de un segundo del vídeo (h:mm:ss si pasa de la hora). */
+export function rotuloSegundo(seg: number) {
+  const s = Math.max(0, Math.round(seg));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const ss = String(s % 60).padStart(2, "0");
+
+  return h ? `${h}:${String(m).padStart(2, "0")}:${ss}` : `${m}:${ss}`;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Coherencia con la tipología                                        */
+/* ------------------------------------------------------------------ */
+
+type TipoTipologia = "dentro" | "bandaD" | "bandaI" | "espalda" | "caida" | "error" | "transContrario" | "transPropio" | "corner" | "faltaLateral" | "faltaDirecta" | "banda" | "penalti";
+
+const ACCION_ABP: Partial<Record<TipoTipologia, AccionGol>> = { corner: "corner", faltaLateral: "faltaLateral", faltaDirecta: "faltaDirecta", banda: "saqueBanda", penalti: "penalti" };
+const ACCIONES_ABP = new Set<string>(["corner", "faltaLateral", "faltaDirecta", "saqueBanda", "penalti"]);
+const ORIGENES_ORGANIZADOS = new Set<string>(["construccion", "posesionLarga", "defensaPosicional"]);
+
+/**
+ * Lo que la tipología (la hoja del cuerpo técnico) dice de la ficha. La fase
+ * sale siempre: AT. ORGANIZADO es ataque o defensa organizada; TRANSICIÓN,
+ * transición; ABP, ABP. El campo, cuando la tipología lo lleva dentro: la
+ * transición dice desde qué campo roba QUIEN MARCA (en un gol en contra, su
+ * campo propio es nuestro campo contrario), y el córner y el penalti se sacan
+ * siempre en el campo del que defiende. La acción, en el balón parado.
+ */
+export function ejeDeTipologia(tipo: string, aFavor: boolean): { fase: FaseNuestra; campo?: Campo; accion?: AccionGol; accionSiFalta?: AccionGol } | null {
+  const t = tipo as TipoTipologia;
+  const suyo = (c: Campo): Campo => (aFavor ? c : c === "propio" ? "contrario" : "propio");
+
+  if (ACCION_ABP[t]) {
+    return { fase: aFavor ? "abpOfensiva" : "abpDefensiva", accion: ACCION_ABP[t], ...(t === "corner" || t === "penalti" ? { campo: suyo("contrario") } : {}) };
+  }
+
+  if (t === "transContrario" || t === "transPropio") return { fase: aFavor ? "transicionOfensiva" : "transicionDefensiva", campo: suyo(t === "transPropio" ? "propio" : "contrario") };
+
+  if (["dentro", "bandaD", "bandaI", "espalda", "caida", "error"].includes(t)) {
+    return { fase: aFavor ? "ataqueOrganizado" : "defensaOrganizada", ...(t === "caida" ? { accionSiFalta: "rechace" as const } : t === "espalda" ? { accionSiFalta: "paseEspalda" as const } : {}) };
+  }
+
+  return null;
+}
+
+/**
+ * La ficha, de acuerdo con la tipología que se enseña (la elegida a mano o la
+ * de Hudl). Lo que ha puesto el cuerpo técnico en la ficha no se toca; lo
+ * automático que contradice la tipología se cambia (fase, campo, acción) o se
+ * quita (un origen que no es de esa fase). Así nunca sale, por ejemplo, un
+ * «córner» con fase «transición».
+ */
+export function fichaCoherente(f: FichaTecnica, tipo: string | null | undefined, aFavor: boolean): FichaTecnica {
+  const eje = tipo ? ejeDeTipologia(tipo, aFavor) : null;
+
+  if (!eje) return f;
+
+  const out: FichaTecnica = { ...f, deHudl: [...f.deHudl] };
+  const cambiados: (keyof FichaAuto)[] = [];
+  const libre = (k: keyof FichaAuto) => f[k as keyof FichaTecnica] === undefined || f.deHudl.includes(k);
+  const pon = <K extends "fase" | "campo" | "accion" | "origen">(k: K, v: FichaTecnica[K] | undefined) => {
+    if (!libre(k) || out[k] === v) return;
+
+    out[k] = v;
+    out.deHudl = out.deHudl.filter((x) => x !== k);
+    if (v !== undefined) cambiados.push(k);
+  };
+
+  pon("fase", eje.fase);
+  if (eje.campo) pon("campo", eje.campo);
+
+  const esAbp = eje.fase === "abpOfensiva" || eje.fase === "abpDefensiva";
+  const accion = out.accion;
+
+  if (esAbp) {
+    /* Un gol de córner o de penalti rematado al rechace sigue siendo ese balón parado: la acción «rechace» vale. */
+    if (accion !== "rechace" && accion !== "propiaPuerta" && accion !== eje.accion) pon("accion", eje.accion);
+  } else if (accion && ACCIONES_ABP.has(accion)) {
+    pon("accion", eje.accionSiFalta);
+  } else if (!accion && eje.accionSiFalta) {
+    pon("accion", eje.accionSiFalta);
+  }
+
+  const origen = out.origen;
+
+  if (esAbp) pon("origen", "abp");
+  else if (origen === "abp") pon("origen", undefined);
+  else if ((eje.fase === "transicionOfensiva" || eje.fase === "transicionDefensiva") && origen && ORIGENES_ORGANIZADOS.has(origen)) pon("origen", undefined);
+
+  return cambiados.length ? { ...out, deTipologia: cambiados } : out;
 }
 
 export const nombreFase = (c: string) => [...FASES_NUESTRAS.favor, ...FASES_NUESTRAS.contra].find((x) => x.clave === c)?.nombre ?? "";

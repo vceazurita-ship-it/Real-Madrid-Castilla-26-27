@@ -19,25 +19,27 @@
 | rellenarla a mano. Se guarda sola (useRemoteDoc).
 */
 
-import { type ReactNode } from "react";
-import { CircleCheck, Film, Plus, X } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { CircleCheck, ExternalLink, Film, Play, Plus, X } from "lucide-react";
 
 import { TextArea } from "@/components/abp/ui";
 import {
   ACCIONES,
+  ACCIONES_IMPLICADO,
   CAMPOS,
   CAUSAS_CONTRA,
   CLAVES_FAVOR,
   FASES_NUESTRAS,
   ORIGENES,
   nombreCelda,
+  rotuloSegundo,
+  type CampoFuente,
   type Celda,
   type FichaAuto,
   type FichaManual,
   type FichaTecnica,
   type Implicado,
 } from "@/lib/goles/tecnico";
-import { ACCIONES_IMPLICADO } from "@/lib/goles/tecnico-analisis";
 
 export type CambiaFicha = <K extends keyof FichaManual>(campo: K, valor: FichaManual[K] | undefined) => void;
 
@@ -152,6 +154,69 @@ export function MiniCampo({ zona, carril, onElige, etiqueta }: { zona?: Celda; c
 
 const esYoutube = (u: string) => /youtu\.?be/.test(u);
 
+/** El enlace al partido en Hudl, con el minuto del vídeo al lado (Hudl no deja enlazar a un instante). */
+export function EnlaceHudl({ hudl }: { hudl: NonNullable<FichaTecnica["hudl"]> }) {
+  return (
+    <a
+      href={hudl.url}
+      target="_blank"
+      rel="noreferrer"
+      title={`Abre el partido en Hudl; el gol está en el ${rotuloSegundo(hudl.seg)} del vídeo`}
+      className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-xs text-white/75 transition hover:bg-white/[0.06] hover:text-white"
+    >
+      <ExternalLink size={13} className="text-[#C8A96B]" aria-hidden />
+      Abrir en Hudl
+      <span className="tabular-nums text-white/50">· {rotuloSegundo(hudl.seg)}</span>
+    </a>
+  );
+}
+
+/**
+ * «Ver el gol» (el corte, aquí mismo) y «Abrir en Hudl» para la lista de
+ * Gol a gol. El vídeo sólo se carga al pedirlo.
+ */
+export function VerGol({ video, hudl }: { video?: string; hudl?: FichaTecnica["hudl"] }) {
+  const [abierto, setAbierto] = useState(false);
+
+  if (!video && !hudl) return null;
+
+  return (
+    <div className="min-w-0 space-y-2">
+      <div className="flex flex-wrap gap-1.5">
+        {video && !esYoutube(video) ? (
+          <button
+            type="button"
+            aria-expanded={abierto}
+            onClick={() => setAbierto((x) => !x)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-xs text-white/75 transition hover:bg-white/[0.06] hover:text-white"
+          >
+            {abierto ? <X size={13} aria-hidden /> : <Play size={13} className="text-[#C8A96B]" aria-hidden />}
+            {abierto ? "Cerrar el vídeo" : "Ver el gol"}
+          </button>
+        ) : video ? (
+          <a href={video} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-xs text-white/75 hover:text-white">
+            <Film size={13} className="text-[#C8A96B]" aria-hidden /> Ver el gol
+          </a>
+        ) : null}
+        {hudl ? <EnlaceHudl hudl={hudl} /> : null}
+      </div>
+      {abierto && video ? <video src={video} controls autoPlay playsInline preload="auto" className="aspect-video w-full max-w-md rounded-xl bg-black" /> : null}
+    </div>
+  );
+}
+
+const NOMBRE_FUENTE: Record<CampoFuente, string> = {
+  casado: "El gol",
+  autor: "Autor",
+  tipo: "Cómo llega",
+  fase: "Fase",
+  campo: "Campo",
+  accion: "Acción",
+  origen: "Dónde nace",
+  implicados: "Los nuestros",
+  video: "Vídeo",
+};
+
 /* ------------------------------------------------------------------ */
 /*  La ficha                                                           */
 /* ------------------------------------------------------------------ */
@@ -199,6 +264,12 @@ export function FichaGol({
           ) : (
             <video src={ficha.video} controls playsInline preload="metadata" className="aspect-video w-full rounded-xl bg-black" />
           )}
+        </div>
+      ) : null}
+      {ficha.hudl ? (
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <EnlaceHudl hudl={ficha.hudl} />
+          <span className="text-[11px] text-white/45">El gol entra en el {rotuloSegundo(ficha.hudl.seg)} del vídeo del partido.</span>
         </div>
       ) : null}
 
@@ -383,7 +454,27 @@ export function FichaGol({
         <TextArea label={aFavor ? "Para repetir" : "Para corregir"} value={ficha.consigna ?? ""} onChange={(v) => onCambia("consigna", v.trim() ? v : undefined)} placeholder="Lo que nos llevamos al entrenamiento" />
       </section>
 
-      {explicativos && ficha.motivo ? <p className="text-[11px] leading-relaxed text-white/40">Hudl: {ficha.motivo}</p> : null}
+      {explicativos && (ficha.motivo || ficha.fuentes || ficha.deTipologia?.length) ? (
+        <section className="min-w-0 rounded-xl border border-white/10 bg-white/[0.02] p-3">
+          <Rotulo>De dónde sale cada dato</Rotulo>
+          <ul className="space-y-1 text-[11px] leading-relaxed text-white/50">
+            {ficha.motivo ? (
+              <li>
+                <span className="text-white/70">La jugada:</span> {ficha.motivo}
+              </li>
+            ) : null}
+            {(Object.keys(NOMBRE_FUENTE) as CampoFuente[])
+              .filter((k) => ficha.fuentes?.[k])
+              .map((k) => (
+                <li key={k}>
+                  <span className="text-white/70">{NOMBRE_FUENTE[k]}:</span> {ficha.fuentes?.[k]}
+                </li>
+              ))}
+            {ficha.deTipologia?.length ? <li>Cambiado para que case con la tipología elegida: {ficha.deTipologia.map((k) => (NOMBRE_FUENTE[k as CampoFuente] ?? k).toLowerCase()).join(", ")}.</li> : null}
+            <li>Lo que toca el cuerpo técnico en esta ficha manda sobre todo lo anterior.</li>
+          </ul>
+        </section>
+      ) : null}
 
       <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/75">
         <input type="checkbox" checked={Boolean(ficha.revisado)} onChange={(e) => onCambia("revisado", e.target.checked ? true : undefined)} className="accent-[#C8A96B]" />

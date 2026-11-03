@@ -33,7 +33,8 @@ import { createRequire } from "node:module";
 import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
 
-import { abreHudl, cabecerasPara } from "../hudl-chrome.mjs";
+import { abreHudl } from "../hudl-chrome.mjs";
+import { corteValido, preparaCortes } from "../hudl-corte.mjs";
 
 const require = createRequire(import.meta.url);
 require("../cargador-ts.cjs");
@@ -291,22 +292,9 @@ function eligeMomentos(timeline, nosotros = "Real Madrid Castilla") {
 /*
 | ¿El corte sirve? (27/10/2026) En la J09 dos cortes de Hudl salieron rotos
 | —uno de 290 bytes sin imagen— y al sacar sus fotogramas ffmpeg tumbaba el
-| vídeo entero a las tres horas de trabajo. Se mira que tenga imagen y que
-| dure al menos la mitad de lo pedido.
+| vídeo entero a las tres horas de trabajo. `corteValido` (scripts/hudl-corte.mjs)
+| mira que tenga imagen y que dure al menos la mitad de lo pedido.
 */
-async function corteValido(fichero, dura) {
-  if (!fs.existsSync(fichero) || fs.statSync(fichero).size < 100_000) return false;
-
-  /* ffmpeg -i sin salida sale con error, pero lo que importa es lo que cuenta del fichero. */
-  const info = await ejecuta(FFMPEG, ["-hide_banner", "-i", fichero]).then(
-    (r) => r.stderr,
-    (e) => String(e.stderr ?? ""),
-  );
-  const d = info.match(/Duration: (\d+):(\d+):([\d.]+)/);
-  const segundos = d ? Number(d[1]) * 3600 + Number(d[2]) * 60 + Number(d[3]) : 0;
-
-  return /Stream #.*Video:/.test(info) && segundos >= Math.min(dura ?? 0, 30) * 0.5;
-}
 
 /** Los momentos cuyo corte no sirve se quedan fuera, con aviso: mejor un vídeo con uno menos que ninguno. */
 async function soloCortesValidos(momentos) {
@@ -320,78 +308,20 @@ async function soloCortesValidos(momentos) {
   return buenos;
 }
 
+/* El recorte en sí es compartido con los cortes de los goles (scripts/hudl-corte.mjs, 03/11/2026). */
 async function cortaDeHudl(carpeta, momentos, destino) {
-  const hls = JSON.parse(fs.readFileSync(path.join(carpeta, "hls.json"), "utf8"));
-  const acumulado = [0];
-
-  for (const d of hls.dur) acumulado.push(acumulado[acumulado.length - 1] + d);
-
   const nav = await abreHudl();
 
   try {
-    const cab = await cabecerasPara(nav, hls.base + hls.segs[0]);
-    const baja = async (f) => {
-      for (let i = 0; i < 4; i += 1) {
-        const r = await fetch(hls.base + f, { headers: cab }).catch(() => null);
-
-        if (r?.ok) return Buffer.from(await r.arrayBuffer());
-
-        await espera(800);
-      }
-
-      throw new Error(`no baja ${f}`);
-    };
-
-    const init = hls.init ? await baja(hls.init) : Buffer.alloc(0);
-    const tmp = path.join(destino, "tmp");
-    fs.mkdirSync(tmp, { recursive: true });
+    const { corta } = await preparaCortes(nav, carpeta, { anchoMax: ANCHO_HD });
 
     for (const [i, m] of momentos.entries()) {
       m.fichero = path.join(destino, `${String(i + 1).padStart(2, "0")}-${m.tipo}-${m.minuto.replace(/[^0-9+]/g, "")}.mp4`);
 
-      if (await corteValido(m.fichero, m.dura)) continue;
+      const bien = await corta(m.desde, m.dura, m.fichero);
 
-      /* Uno roto de una pasada anterior se vuelve a cortar. */
-      fs.rmSync(m.fichero, { force: true });
-
-      /* Hasta tres intentos: Hudl a veces devuelve un trozo vacío o a medias. */
-      for (let intento = 0; intento < 3; intento += 1) {
-      const s0 = Math.max(0, acumulado.findIndex((a) => a > m.desde) - 1 - intento);
-      const fin = acumulado.findIndex((a) => a >= m.desde + m.dura + 0.5);
-      const s1 = Math.min(hls.segs.length - 1, (fin < 0 ? hls.segs.length : fin) - 1 + intento);
-      const trozos = [init];
-
-      try {
-      for (let s = s0; s <= (s1 < s0 ? s0 + 2 : s1); s += 1) trozos.push(await baja(hls.segs[s]));
-
-      const crudo = path.join(tmp, "crudo.mp4");
-      fs.writeFileSync(crudo, Buffer.concat(trozos));
-
-      await ejecuta(FFMPEG, [
-        "-y", "-loglevel", "error",
-        "-ss", String(Math.max(0, m.desde - acumulado[s0])),
-        "-i", crudo,
-        "-t", String(m.dura),
-        "-vf", `scale='min(${ANCHO_HD},iw)':-2`,
-        "-c:v", "libx264", "-preset", "medium", "-crf", "21", "-pix_fmt", "yuv420p",
-        "-c:a", "aac", "-b:a", "96k", "-ac", "1",
-        "-movflags", "+faststart",
-        m.fichero,
-      ]);
-      } catch (error) {
-        console.log(`  (corte ${i + 1}, intento ${intento + 1}: ${String(error.message).split("\n")[0].slice(0, 120)})`);
-      }
-
-      if (await corteValido(m.fichero, m.dura)) break;
-
-      fs.rmSync(m.fichero, { force: true });
-      await espera(1500);
-      }
-
-      console.log(`  corte ${i + 1}/${momentos.length}: ${m.tipo} ${m.minuto} (Hudl ${m.desde.toFixed(1)} s)${fs.existsSync(m.fichero) ? "" : " · ROTO tras 3 intentos"}`);
+      console.log(`  corte ${i + 1}/${momentos.length}: ${m.tipo} ${m.minuto} (Hudl ${m.desde.toFixed(1)} s)${bien ? "" : " · ROTO tras 3 intentos"}`);
     }
-
-    fs.rmSync(tmp, { recursive: true, force: true });
   } finally {
     await nav.cierra();
   }

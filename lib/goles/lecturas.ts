@@ -215,12 +215,6 @@ type EntradaImportante = {
   conTipologia: boolean;
   /** Al equipo le falta algún partido jugado: los totales no son comparables con la liga. */
   incompleto: boolean;
-  /**
-   * 03/11/2026: lo que dicen las fichas técnicas de nuestros goles
-   * (`importanteTecnico` de lib/goles/tecnico-analisis.ts). Va antes que la
-   * tipología: es lo que hacemos y lo que concedemos nosotros.
-   */
-  tecnico?: Importante[];
 };
 
 /**
@@ -240,11 +234,6 @@ export function loImportante(e: EntradaImportante): Importante[] {
     if (a < 0) filas.push({ texto: lecturaBalance(e.corto, e.partidos, e.gf, e.gc, e.ligaGF, e.ligaGC), accion: `Esta semana, ${TAREA_FINALIZACION}` });
     else if (d > 0) filas.push({ texto: lecturaBalance(e.corto, e.partidos, e.gf, e.gc, e.ligaGF, e.ligaGC), accion: `Esta semana, ${TAREA_DEFENSA}` });
   }
-
-  /* Lo técnico (qué hacemos y qué concedemos nosotros) va justo después del balance. */
-  const tecnico = e.tecnico ?? [];
-
-  filas.push(...tecnico);
 
   const { flojo, fuerte } = tramosClave(e.filas);
 
@@ -280,7 +269,7 @@ export function loImportante(e: EntradaImportante): Importante[] {
     filas.push({ texto: lecturaPrimero(e.primeroEq, e.primeroLg)[0], accion: `Esta semana, ${TAREA_VENTAJA}` });
   }
 
-  if (e.conTipologia && e.totalContra > 0 && !tecnico.length) {
+  if (e.conTipologia && e.totalContra > 0) {
     const frases = lecturaTipologia(e.favor, e.contra, 0, e.totalContra);
     const enContra = frases.find((f) => f.startsWith("En contra"));
 
@@ -291,6 +280,5 @@ export function loImportante(e: EntradaImportante): Importante[] {
     }
   }
 
-  /* Con lo técnico, una más: el balance, lo que concedemos, lo que hacemos y el tramo. */
-  return filas.slice(0, tecnico.length ? 4 : 3);
+  return filas.slice(0, 3);
 }
