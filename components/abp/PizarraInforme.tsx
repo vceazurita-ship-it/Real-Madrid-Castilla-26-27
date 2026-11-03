@@ -178,7 +178,12 @@ export function usePizarraInforme(
     const id = window.setTimeout(async () => {
       const raiz = deckRef.current;
 
-      if (!raiz) return;
+      /* Sin lienzo montado no hay nada que fotografiar: se da por hecha y el informe sigue (03/11/2026), en vez de quedarse «cargando» para siempre. */
+      if (!raiz) {
+        if (vivo) setHecho(huella);
+
+        return;
+      }
 
       try {
         await pintado();

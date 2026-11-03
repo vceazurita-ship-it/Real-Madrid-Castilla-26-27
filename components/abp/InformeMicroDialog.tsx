@@ -1320,6 +1320,21 @@ export function InformeMicroDialog({
 
   const alListo = incrustado?.alListo;
 
+  /* Qué falta, para decirlo si se acaba el tiempo (03/11/2026): «no ha terminado» a secas no deja saber qué pieza se queda colgada. */
+  const faltan = useRef<string[]>([]);
+
+  useEffect(() => {
+    faltan.current = [
+      cargandoSeguimiento && "seguimiento",
+      cargandoComparativa && "comparativa",
+      cargandoPropio && "datos propios",
+      rivalInforme.cargando && "análisis del rival",
+      pizarraInforme.cargando && "pizarra",
+      esPost && !videoJugadoresLeido && "vídeo de jugadores",
+      esPost && !cortesListos && "cortes",
+    ].filter((x): x is string => Boolean(x));
+  });
+
   useEffect(() => {
     if (!alListo) return;
 
@@ -1328,7 +1343,7 @@ export function InformeMicroDialog({
 
       entregado.current = true;
 
-      alListo({ ok: false, clave, error: "El informe de balón parado no ha terminado de cargar en un minuto." });
+      alListo({ ok: false, clave, error: `El informe de balón parado no ha terminado de cargar en un minuto${faltan.current.length ? ` (falta: ${faltan.current.join(", ")})` : ""}.` });
     }, ESPERA_INCRUSTADO);
 
     return () => window.clearTimeout(reloj);
@@ -1377,7 +1392,11 @@ export function InformeMicroDialog({
     };
   }, [alListo, listo, informe, clave]);
 
-  if (incrustado) return null;
+  /* Incrustado no se enseña nada, pero la pizarra tiene que montarse para
+     fotografiarla (03/11/2026): con `null` el lienzo no existía, la pizarra
+     se quedaba «cargando» y el informe del partido esperaba un minuto para
+     acabar saliendo sin balón parado. */
+  if (incrustado) return <>{pizarraInforme.deck}</>;
 
   return (
     <Dialog
