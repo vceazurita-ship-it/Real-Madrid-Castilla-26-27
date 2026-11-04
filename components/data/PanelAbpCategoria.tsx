@@ -182,7 +182,7 @@ function MediaCampo({
 
         /* El blanco del dedo es más grande que la bolita: a 390 px la bolita mide 4 px. */
         return (
-          <g key={p.id} {...(onPunto ? propsBolita(`${p.titulo}. Abre su vídeo o su gráfico`, (o) => onPunto(i, o)) : {})}>
+          <g key={p.id} {...(onPunto ? propsBolita(`${p.titulo}. Abre la acción`, (o) => onPunto(i, o)) : {})}>
             <title>{p.titulo}</title>
             {onPunto && <circle cx={c.x} cy={c.y} r={1.9} fill="transparent" />}
             <circle cx={c.x} cy={c.y} r={p.tenue ? 0.55 : 0.9} fill={p.color} fillOpacity={p.tenue ? 0.35 : 0.9} stroke={p.tenue ? "none" : tinta(0.7)} strokeWidth={0.12} />

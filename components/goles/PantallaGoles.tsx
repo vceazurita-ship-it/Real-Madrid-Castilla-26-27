@@ -785,7 +785,7 @@ export function PantallaGoles() {
   const alPincharGol = (clave: string, titulo: string, origen: { currentTarget: EventTarget | null; clientX?: number; clientY?: number }) => {
     const ficha = fichas.get(clave);
 
-    abreMenu(origen, titulo, opcionesDeAccion({ video: ficha?.video, hudl: ficha?.hudl, fila: goles.some((g) => g.clave === clave) ? clave : null }));
+    abreMenu(origen, titulo, opcionesDeAccion({ video: ficha?.video, hudl: ficha?.hudl, fila: goles.some((g) => g.clave === clave) ? clave : null, aLaTabla: () => setVista("goles") }));
   };
 
   return (

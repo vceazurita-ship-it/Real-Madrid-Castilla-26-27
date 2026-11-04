@@ -48,6 +48,7 @@ export function opcionesDeAccion({
   hudl,
   grafico,
   fila,
+  aLaTabla,
   videoEtiqueta = "Ver el vídeo",
   videoDetalle,
 }: {
@@ -60,6 +61,8 @@ export function opcionesDeAccion({
   grafico?: string | null;
   /** El id de su fila (`data-fila-accion`) en la tabla de la pantalla. */
   fila?: string | null;
+  /** Lo que hay que hacer para que la tabla se vea (cambiar a su pestaña). */
+  aLaTabla?: () => void;
 }): OpcionMenuAccion[] {
   const salida: OpcionMenuAccion[] = [];
 
@@ -74,17 +77,29 @@ export function opcionesDeAccion({
 
   if (grafico) salida.push({ clave: "grafico", etiqueta: "Ver el gráfico", detalle: "Laboratorio", icono: "grafico", href: grafico });
 
-  if (fila) salida.push({ clave: "tabla", etiqueta: "Ver en la tabla", icono: "tabla", hacer: () => irAFila(fila) });
+  if (fila) salida.push({ clave: "tabla", etiqueta: "Ver en la tabla", icono: "tabla", hacer: () => {
+        aLaTabla?.();
+        irAFila(fila);
+      },
+    });
 
   return salida;
 }
 
-/** Baja a la fila `data-fila-accion={id}`, la resalta un momento y le da el foco. */
-export function irAFila(id: string) {
+/**
+ * Baja a la fila `data-fila-accion={id}`, la resalta un momento y le da el foco.
+ * Si la tabla está en otra pestaña (o en una lista que se acaba de abrir), la
+ * espera unos fotogramas a que se pinte.
+ */
+export function irAFila(id: string, intentos = 45) {
   /* La que se ve: hay pantallas con tarjetas en el móvil y tabla en el portátil. */
   const fila = [...document.querySelectorAll<HTMLElement>(`[data-fila-accion="${CSS.escape(id)}"]`)].find((el) => el.getClientRects().length > 0);
 
-  if (!fila) return;
+  if (!fila) {
+    if (intentos > 0) window.requestAnimationFrame(() => irAFila(id, intentos - 1));
+
+    return;
+  }
 
   const quieto = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 

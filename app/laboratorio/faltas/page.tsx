@@ -838,7 +838,7 @@ export default function FaltasPage() {
 
                     if (!f) return;
 
-                    const opciones = opcionesDeAccion({ video: f.video, hudl: f.hudl, fila: faltas.some((x) => x.clip === id) ? id : null });
+                    const opciones = opcionesDeAccion({ video: f.video, hudl: f.hudl, fila: faltas.some((x) => x.clip === id) ? id : null, aLaTabla: () => setVista("lista") });
 
                     /* Sin vídeo ni fila, el punto hace lo de siempre: filtra su cajón. */
                     if (!abreMenu(origen, `Falta ${f.lado === "ofensivo" ? "a favor" : "en contra"}${f.minuto ? ` · ${f.minuto}` : ""}`, opciones)) {

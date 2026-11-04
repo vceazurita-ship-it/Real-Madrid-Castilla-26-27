@@ -1507,6 +1507,8 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                         video: r.video,
                         hudl: r.hudlUrl && r.hudl != null ? { url: r.hudlUrl, seg: Math.round(r.hudl) } : null,
                         fila: robos.some((x) => idDe(x) === id) ? id : null,
+                        /* La tabla vive en su pestaña: hay que ir a ella antes. */
+                        aLaTabla: () => setVista("lista"),
                       });
 
                       /* Sin vídeo ni fila, el punto hace lo de siempre: filtra su cajón. */

@@ -30,12 +30,16 @@ const AVISO: Record<Exclude<Sesion["estado"], "ok">, string> = {
 };
 
 export function SesionYoutube({ sesion }: { sesion: Sesion }) {
+  /* El documento lo escribe un script: lo que no traiga no deja huecos («dentro ()», «Comprobado: .»). */
+  const comprobado = cuando(sesion.comprobadoEn);
+  const bien = cuando(sesion.bienEn);
+
   if (sesion.estado === "ok") {
     return (
       <p className="mt-3 flex items-start gap-1.5 text-[11px] leading-relaxed text-white/45">
         <Check size={12} className="mt-0.5 shrink-0 text-emerald-300" aria-hidden />
         <span>
-          Sesión de YouTube dentro ({cuando(sesion.comprobadoEn)}): los vídeos de ABP saltan al segundo de cada acción
+          Sesión de YouTube dentro{comprobado ? ` (${comprobado})` : ""}: los vídeos de ABP saltan al segundo de cada acción
           {typeof sesion.leidos === "number" && sesion.leidos > 0 ? ` · ${sesion.leidos} resúmenes leídos en la última pasada` : ""}.
         </span>
       </p>
@@ -46,15 +50,15 @@ export function SesionYoutube({ sesion }: { sesion: Sesion }) {
     <div className="mt-3 rounded-lg border border-amber-300/30 bg-amber-300/[0.06] p-3 text-[11px] leading-relaxed">
       <p className="flex items-start gap-1.5 text-amber-200">
         <AlertTriangle size={12} className="mt-0.5 shrink-0" aria-hidden />
-        <span>{AVISO[sesion.estado]}</span>
+        <span>{AVISO[sesion.estado] ?? "No se ha podido leer YouTube con la sesión del ordenador del club: abre «YouTube · iniciar sesión» y entra otra vez."}</span>
       </p>
 
       <p className="mt-1.5 text-white/45">
         En el ordenador del club, doble clic en <code className="text-white/70">scripts\youtube-sesion.cmd</code> (el acceso directo
         «YouTube · iniciar sesión» del escritorio). Se abre un Chrome aparte en YouTube: entra con tu cuenta y ciérralo. Mientras
         tanto «Ver el vídeo» abre el resumen entero.
-        {sesion.bienEn ? ` Última vez dentro: ${cuando(sesion.bienEn)}.` : ""}
-        {` Comprobado: ${cuando(sesion.comprobadoEn)}.`}
+        {bien ? ` Última vez dentro: ${bien}.` : ""}
+        {comprobado ? ` Comprobado: ${comprobado}.` : ""}
       </p>
     </div>
   );
