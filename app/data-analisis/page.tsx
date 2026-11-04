@@ -42,6 +42,7 @@ import {
   Clock,
   Compass,
   Database,
+  Crosshair,
   Flag,
   History,
   LayoutGrid,
@@ -128,6 +129,7 @@ import { PanelParecidos } from "@/components/data/PanelParecidos";
 import { SelloJornada, useCalendarioCastilla } from "@/components/data/SelloJornada";
 import { alcanceDeFechas, alcanceWyscout } from "@/lib/data-analisis/alcance";
 import { PanelGolesAbp } from "@/components/data/PanelGolesAbp";
+import { PanelAbpCategoria } from "@/components/data/PanelAbpCategoria";
 import { PanelIndividual } from "@/components/data/PanelIndividual";
 import { PanelOnce } from "@/components/data/PanelOnce";
 import { PanelTransferencia } from "@/components/data/PanelTransferencia";
@@ -202,6 +204,7 @@ type Area =
   | "todos"
   | "destacados"
   | "golesAbp"
+  | "abpCategoria"
   | "eventos"
   | "individual"
   | "once"
@@ -299,6 +302,17 @@ const AREAS: { key: Area; label: string; icono: typeof History; pregunta: string
     icono: Target,
     pregunta: "¿Cuántos goles hacemos y recibimos a balón parado, y de qué tipo?",
   },
+  /*
+    04/11/2026. Los goles a balón parado de la Primera RFEF acción a acción,
+    con los eventos de Wyscout (public/data/abp-acciones-todas.json): aquí el
+    tipo de cada gol es dato, no la estimación de «Goles a balón parado».
+  */
+  {
+    key: "abpCategoria",
+    label: "ABP de la categoría",
+    icono: Crosshair,
+    pregunta: "¿Cómo se marcan los goles a balón parado en la categoría?",
+  },
   {
     key: "eventos",
     label: "Acción por acción",
@@ -369,7 +383,7 @@ const BLOQUES: {
   { clave: "nosotros", label: "Nuestro equipo", icono: Shield, areas: ["campo", "liga", "historia", "parecidos"] },
   { clave: "jugadores", label: "Jugadores", icono: Users, areas: ["individual", "once", "eventos"] },
   { clave: "rival", label: "Rival y categoría", icono: Swords, areas: ["equipo", "todos", "destacados"] },
-  { clave: "balonParado", label: "Balón parado", icono: Flag, areas: ["golesAbp", "abp"] },
+  { clave: "balonParado", label: "Balón parado", icono: Flag, areas: ["golesAbp", "abpCategoria", "abp"] },
   {
     clave: "entrenamiento",
     label: "Entreno e identidad",
@@ -380,7 +394,7 @@ const BLOQUES: {
 ];
 
 /* Las áreas que se miran con los filtros de la liga (temporada, competición, sistema, por partido o total). */
-const AREAS_SIN_FILTROS_LIGA: Area[] = ["resumen", "eventos", "abp", "individual", "transferencia", "parecidos"];
+const AREAS_SIN_FILTROS_LIGA: Area[] = ["resumen", "eventos", "abp", "abpCategoria", "individual", "transferencia", "parecidos"];
 
 /* Las que pintan percentiles: llevan la leyenda de la escala en la cabecera. */
 const AREAS_CON_PERCENTIL: Area[] = ["resumen", "liga", "equipo", "todos", "destacados", "individual", "once"];
@@ -1435,7 +1449,7 @@ export default function DataAnalisisPage() {
                   {AREAS_CON_PERCENTIL.includes(area) && <LeyendaPercentil />}
                 </div>
 
-                {alcances && area !== "abp" && (
+                {alcances && area !== "abp" && area !== "abpCategoria" && (
                   <SelloJornada
                     alcances={area === "eventos" ? [alcances.opta] : [alcances.wyscout]}
                     nota={
@@ -1681,7 +1695,9 @@ export default function DataAnalisisPage() {
                   <span className="text-[11px] text-white/30">
                     {area === "abp"
                       ? "Registro propio del cuerpo técnico, no de Wyscout ni de Opta"
-                      : area === "transferencia"
+                      : area === "abpCategoria"
+                        ? "Los balones parados con remate de la Primera RFEF, evento a evento de Wyscout"
+                        : area === "transferencia"
                         ? "Los microciclos cruzados con los informes de partido"
                         : area === "individual"
                           ? `${datos.jugadores?.length ?? 0} jugadores con minutos esta temporada`
@@ -2300,6 +2316,10 @@ export default function DataAnalisisPage() {
                   />
                 )}
 
+                {/* ========= 3 quater · ABP DE LA CATEGORÍA ========= */}
+
+                {area === "abpCategoria" && <PanelAbpCategoria />}
+
                 {/* ============= 4 · ACCIÓN POR ACCIÓN ============= */}
 
                 {area === "eventos" && (
@@ -2423,7 +2443,9 @@ export default function DataAnalisisPage() {
                 <Explicativo><p className="mt-8 border-t border-white/[0.06] pt-4 text-[11px] leading-relaxed text-white/35">
                   {area === "abp"
                     ? "Las cuatro hojas de balón parado del cuerpo técnico"
-                    : area === "transferencia"
+                    : area === "abpCategoria"
+                      ? "Los eventos de Wyscout de cada partido de los dos grupos de la Primera RFEF"
+                      : area === "transferencia"
                       ? "La hoja de microciclos y los informes de Wyscout"
                       : `${datos.fuentes?.wyscout.length ?? 0} informes de Wyscout y ${datos.fuentes?.opta.length ?? 0} descargas de Opta`}
                 </p></Explicativo>

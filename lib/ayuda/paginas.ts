@@ -80,6 +80,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Todos contra todos", es: "La liga ordenada y el cruce de dos métricas" },
           { que: "Los más destacados", es: "Quién se sale de la categoría y en qué, equipos y jugadores" },
           { que: "Goles a balón parado", es: "Córner, falta y penalti, a favor y en contra: toda la liga y nuestras seis temporadas" },
+          { que: "ABP de la categoría", es: "Cada gol a balón parado de la Primera RFEF (grupo 2, grupo 1 o los dos), con su tipo, dónde cayó el balón, desde dónde se remató, el minuto, quién sacó y quién remató; el Castilla y el próximo rival, a un toque" },
           { que: "Acción por acción", es: "El log de Opta: quién, cuándo y tras cuánto tiempo" },
           { que: "Jugador a jugador", es: "Cada uno contra la categoría, y su evolución de un año a otro" },
           { que: "Nuestro balón parado", es: "Las 500 acciones que registramos a mano" },
@@ -110,6 +111,16 @@ export const AYUDAS: AyudaDePagina[] = [
             que: "La referencia del segundo campo",
             es: "Se elige: nuestra media de la temporada o la de un equipo medio de la liga",
             cuenta: "La de la liga son todas las filas de todos los equipos juntas",
+          },
+          {
+            que: "ABP de la categoría: qué cuenta",
+            es: "Los balones parados que acabaron en remate según los eventos de Wyscout; el tipo de cada gol es dato, no estimación",
+            cuenta: "Conversión = goles ÷ remates · gol − xG = goles − suma del xG de los remates · zona de caída: primer palo, centro, segundo palo, portero, frontal o en corto, mirando desde el lado del saque",
+          },
+          {
+            que: "Al primer toque, prolongación, segunda jugada",
+            es: "Cuántos toques hubo entre el saque y el remate (penalti y falta directa no entran)",
+            cuenta: "0 toques = primer toque · 1 = prolongación o peinada · 2 o más = segunda jugada",
           },
           {
             que: "«Del rival»",
