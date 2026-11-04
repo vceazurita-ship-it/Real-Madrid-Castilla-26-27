@@ -293,13 +293,11 @@ const RIVALS_API_URL = "/api/rivals";
 /**
  * Cuántos partidos vienen marcados en el pop-up del informe.
  *
- * Cuatro, que son dos diapositivas —la 9 y la 10—. Se puede subir a seis en el
- * pop-up, que es lo que había antes de que se pudieran elegir.
+ * Cuatro, que son dos diapositivas —la 9 y la 10—. Desde el 04/11/2026 no hay
+ * tope: se marcan los que se quieran de toda la temporada y las hojas, de dos
+ * en dos, salen las que hagan falta.
  */
 const PARTIDOS_INFORME_POR_DEFECTO = 4;
-
-/** Tope del pop-up: seis partidos son tres hojas, y ahí se corta. */
-const PARTIDOS_INFORME_MAXIMO = 6;
 
 /**
  * Los goles de jugada de un rival, que son los que hay que repartir.
@@ -2121,7 +2119,7 @@ export default function RivalPlayersPage() {
           selectedTeam,
           partidos.map((uno) => uno.id),
           marcados,
-          PARTIDOS_INFORME_MAXIMO,
+          partidos.length,
         ),
       );
     } catch (error) {
@@ -2405,7 +2403,7 @@ export default function RivalPlayersPage() {
           equipo,
           partidos.map((uno) => uno.id),
           porDefecto,
-          PARTIDOS_INFORME_MAXIMO,
+          partidos.length,
         );
 
         const data = await armaDatosInforme(doc, informe, elegidos);
@@ -5121,7 +5119,7 @@ export default function RivalPlayersPage() {
           partidos={eleccionInforme.partidos}
           elegidos={partidosInforme}
           porDefecto={eleccionInforme.porDefecto}
-          maximo={PARTIDOS_INFORME_MAXIMO}
+          maximo={eleccionInforme.partidos.length}
           montando={exportando}
           onCambiar={eligePartidos}
           onMontar={(ids) => void montarInforme(ids)}

@@ -80,7 +80,7 @@ interface InformePartidosDialogProps {
   elegidos: string[];
   /** Los que se marcan solos y a los que vuelve «Los de siempre». */
   porDefecto: string[];
-  /** Tope de partidos: seis son tres hojas, y más no cabe en el documento. */
+  /** Tope de partidos (hoy, todos los de la lista: las hojas van de dos en dos). */
   maximo: number;
   montando: boolean;
   onCambiar: (ids: string[]) => void;
