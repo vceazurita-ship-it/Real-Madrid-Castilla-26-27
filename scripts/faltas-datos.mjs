@@ -696,7 +696,7 @@ async function ponCortes(lista) {
       let corta;
 
       try {
-        ({ corta } = await preparaCortesLigeros(nav, carpeta));
+        ({ corta } = await preparaCortesLigeros(nav, carpeta, { anchoMax: 854, crf: 27, sonido: true }));
       } catch (error) {
         console.log(`  ${basename(carpeta)}: no se puede abrir el vídeo (${error?.message ?? error})`);
         continue;

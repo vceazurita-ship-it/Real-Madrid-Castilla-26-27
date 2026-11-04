@@ -186,7 +186,7 @@ async function cortaLosQueFaltan(supabase, porCortar, urlCorte) {
       let corta;
 
       try {
-        ({ corta } = await preparaCortesLigeros(nav, carpeta));
+        ({ corta } = await preparaCortesLigeros(nav, carpeta, { anchoMax: 854, crf: 27, sonido: true }));
       } catch (e) {
         console.log(`  ${path.basename(carpeta)}: no se puede abrir el vídeo (${e?.message ?? e})`);
         continue;
