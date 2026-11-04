@@ -117,3 +117,98 @@ export async function preparaCortes(nav, carpeta, { anchoMax = 1920 } = {}) {
 
   return { corta, hls };
 }
+
+/**
+ * CORTES LIGEROS Y EN SERIE (04/11/2026), para los cientos de robos y
+ * pérdidas de un partido: lo mismo que `preparaCortes`, pero
+ *
+ * - recodifica más ligero (por defecto 960 px, CRF 30, sin sonido): un corte
+ *   de 13 s pesa ~0,7 MB en vez de ~8, y son ~100 por partido;
+ * - guarda los últimos trozos bajados: las acciones van seguidas y dos
+ *   cortes vecinos comparten trozos;
+ * - si CloudFront deja de abrir (las cookies caducan en una tanda larga),
+ *   vuelve a pedir las cabeceras a la pestaña y reintenta.
+ *
+ * Devuelve `corta(desde, dura, fichero)` como `preparaCortes`.
+ */
+export async function preparaCortesLigeros(nav, carpeta, { anchoMax = 960, crf = 30, sonido = false, guarda = 12 } = {}) {
+  const hls = JSON.parse(fs.readFileSync(path.join(carpeta, "hls.json"), "utf8"));
+  const acumulado = [0];
+
+  for (const d of hls.dur) acumulado.push(acumulado[acumulado.length - 1] + d);
+
+  let cab = await cabecerasPara(nav, hls.base + hls.segs[0]);
+  const memoria = new Map();
+
+  const baja = async (f) => {
+    if (memoria.has(f)) return memoria.get(f);
+
+    for (let i = 0; i < 5; i += 1) {
+      const r = await fetch(hls.base + f, { headers: cab }).catch(() => null);
+
+      if (r?.ok) {
+        const b = Buffer.from(await r.arrayBuffer());
+
+        memoria.set(f, b);
+        while (memoria.size > guarda) memoria.delete(memoria.keys().next().value);
+
+        return b;
+      }
+
+      if (r && (r.status === 403 || r.status === 401)) cab = await cabecerasPara(nav, hls.base + f).catch(() => cab);
+
+      await espera(800);
+    }
+
+    throw new Error(`no baja ${f}`);
+  };
+
+  const init = hls.init ? await baja(hls.init) : Buffer.alloc(0);
+
+  async function corta(desde, dura, fichero) {
+    if (await corteValido(fichero, dura)) return true;
+
+    fs.rmSync(fichero, { force: true });
+    fs.mkdirSync(path.dirname(fichero), { recursive: true });
+
+    const crudo = `${fichero}.crudo.mp4`;
+
+    for (let intento = 0; intento < 3; intento += 1) {
+      const s0 = Math.max(0, acumulado.findIndex((a) => a > desde) - 1 - intento);
+      const fin = acumulado.findIndex((a) => a >= desde + dura + 0.5);
+      const s1 = Math.min(hls.segs.length - 1, (fin < 0 ? hls.segs.length : fin) - 1 + intento);
+      const trozos = [init];
+
+      try {
+        for (let s = s0; s <= (s1 < s0 ? s0 + 2 : s1); s += 1) trozos.push(await baja(hls.segs[s]));
+
+        fs.writeFileSync(crudo, Buffer.concat(trozos));
+
+        await ejecuta(FFMPEG, [
+          "-y", "-loglevel", "error",
+          "-ss", String(Math.max(0, desde - acumulado[s0])),
+          "-i", crudo,
+          "-t", String(dura),
+          "-vf", `scale='min(${anchoMax},iw)':-2`,
+          "-c:v", "libx264", "-preset", "veryfast", "-crf", String(crf), "-pix_fmt", "yuv420p",
+          ...(sonido ? ["-c:a", "aac", "-b:a", "64k", "-ac", "1"] : ["-an"]),
+          "-movflags", "+faststart",
+          fichero,
+        ]);
+      } catch (error) {
+        console.log(`  (intento ${intento + 1}: ${String(error.message).split("\n")[0].slice(0, 120)})`);
+      }
+
+      if (await corteValido(fichero, dura)) break;
+
+      fs.rmSync(fichero, { force: true });
+      await espera(1500);
+    }
+
+    fs.rmSync(crudo, { force: true });
+
+    return fs.existsSync(fichero);
+  }
+
+  return { corta, hls };
+}

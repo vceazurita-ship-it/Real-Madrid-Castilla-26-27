@@ -71,20 +71,23 @@ const PARTIDOS = [
     rival: "Águilas FC",
     local: false,
     fecha: "2026-09-12",
-    resultado: "",
+    resultado: "1-0",
+    /*
+    | Desde el 04/11/2026 sale del timeline de Hudl, como del J4 en adelante:
+    | el barrido a ojo del dron (40 robos, sin pérdidas) se guarda en
+    | `aguilas/bloques-a-ojo`. No hay vídeo táctico: el segundo es el de la
+    | retransmisión de Hudl.
+    */
     video: "",
-    segundosVideo: 6158,
+    segundosVideo: 6152,
     bloquesTotales: 21,
     notas: [
-      "Revisado entero, pero con menos lupa que el J2. Los 40 robos son un suelo, no un total: el que empieza y acaba en un par de segundos no se ve.",
-      "Y el sesgo no es sólo de cantidad: con menos lupa se ven sobre todo los robos que llevan a algo, y por eso aquí sale 90% hacia delante y en el J2 un 60%. NO compares ese porcentaje entre los dos partidos; para eso hace falta volver a mirar el J3 con el detalle del J2.",
-      "Aquí la dirección SÍ cambia: el Castilla ataca hacia arriba de la imagen hasta el segundo 3016 y hacia abajo desde el 3017.",
-      "El descanso no está grabado: hay un corte de montaje entre el 3016 y el 3017. No hay marcador en pantalla, así que los minutos son de vídeo.",
-      "Pausa de hidratación del 83'09\" al 84'53\". El vídeo acaba en el 102'37\" con el partido todavía en juego.",
-      "En el 74'10\" nuestro portero le para un penalti al Águilas.",
+      "Sacado del timeline de Hudl (el etiquetado de Wyscout del partido), no mirando imagen a imagen: salen TODOS los robos y las pérdidas, con el mismo criterio que del J4 en adelante.",
+      "Cuenta como robo la interceptación, el duelo defensivo que acaba con el balón nuestro y la recuperación con el rival presionado o tras nuestra pérdida. No cuentan las del portero, las que vienen de un despeje, un rechace o un balón parado, ni las faltas pitadas.",
+      "No hay vídeo táctico: el segundo es el de la retransmisión de Hudl.",
     ],
     goles: [
-      { seg: 687, de: "rival", texto: "Gol del Águilas, en una falta al borde del área" },
+      { seg: 639, de: "rival", texto: "Gol del Águilas, de córner (Javi Castedo)" },
     ],
   },
   {
@@ -167,6 +170,17 @@ function parteLinea(linea) {
   | no lo tienen; los mirados a ojo (J2, J3), tampoco. Se reconoce porque el
   | último campo no es una confianza y el penúltimo sí.
   */
+  /*
+  | El instante en el vídeo de Hudl (04/11/2026): `hudl=<segundo>` al final
+  | de la fila, detrás del jugador. Se quita antes de buscar el jugador.
+  */
+  let hudl = null;
+  const marcaHudl = /^hudl=([\d.]+)$/.exec(p[p.length - 1] || "");
+  if (marcaHudl) {
+    hudl = Number(marcaHudl[1]);
+    p.pop();
+  }
+
   let fin = p.length;
   let jugador = "";
   if (
@@ -177,7 +191,7 @@ function parteLinea(linea) {
     jugador = p[p.length - 1];
     fin = p.length - 1;
   }
-  const conJugador = jugador ? { jugador } : {};
+  const conJugador = { ...(jugador ? { jugador } : {}), ...(hudl != null ? { hudl } : {}) };
 
   const ultimo = (p[fin - 1] || "").toLowerCase();
   const confianza = CONFIANZAS.includes(ultimo) ? ultimo : "media";
@@ -243,7 +257,38 @@ function leePerdidas(partido) {
   return perdidas;
 }
 
+/*
+| El vídeo de cada acción (04/11/2026): `scripts/partido/transiciones-cortes.mjs`
+| deja en `<partido>/cortes.json` el enlace al partido en Hudl y el corte de
+| cada robo y cada pérdida que ya está en el bucket, por su segundo de Hudl.
+| Lo que no tiene corte se queda sin él; el enlace a Hudl va en todas.
+*/
+function leeCortes(partido) {
+  const f = join(ORIGEN, partido.id, "cortes.json");
+  if (!existsSync(f)) return null;
+  try {
+    return JSON.parse(readFileSync(f, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+function conVideo(filas, cortes, area) {
+  if (!cortes) return filas;
+  return filas.map((r) => {
+    const video = r.hudl != null ? cortes[area]?.[String(Math.round(r.hudl))] : undefined;
+    return video ? { ...r, video } : r;
+  });
+}
+
 function leePartido(partido) {
+  const cortes = leeCortes(partido);
+  const hudlUrl = cortes?.hudl ? { hudlUrl: cortes.hudl } : {};
+  const r = leePartidoSinVideo(partido);
+  return { ...r, ...hudlUrl, robos: conVideo(r.robos, cortes, "robos"), perdidas: conVideo(r.perdidas, cortes, "perdidas") };
+}
+
+function leePartidoSinVideo(partido) {
   const dir = join(ORIGEN, partido.id, "bloques");
   const perdidas = leePerdidas(partido);
   if (!existsSync(dir)) {
@@ -332,6 +377,10 @@ export type Robo = {
    * los partidos mirados a ojo (J2 y J3) ni los bloques viejos.
    */
   jugador?: string;
+  /** Segundo de la acción en el vídeo del partido en Hudl (para «Abrir en Hudl · mm:ss»). */
+  hudl?: number;
+  /** El corte de la acción en el bucket (unos segundos antes y después). */
+  video?: string;
   bloque: string;
 };
 
@@ -356,6 +405,8 @@ export type PartidoTransiciones = {
   robos: Robo[];
   /** Nuestras pérdidas y la transición defensiva que nace de cada una (11/10/2026). */
   perdidas: Robo[];
+  /** El partido en Hudl: Hudl no deja enlazar a un instante, el minuto va con cada acción. */
+  hudlUrl?: string;
 };
 
 export const PARTIDOS: PartidoTransiciones[] = `;

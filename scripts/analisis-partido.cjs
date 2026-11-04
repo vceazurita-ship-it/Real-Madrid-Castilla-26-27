@@ -755,6 +755,16 @@ async function principal() {
     /* Y las pérdidas, el espejo de los robos (11/10/2026): mismo timeline, misma táctica. */
     await node("scripts/partido/perdidas.cjs", slug, "--segundos", String(segundosVideo));
 
+    /*
+    | El corte de cada robo y cada pérdida, del vídeo de Hudl, al bucket
+    | (04/11/2026): «Ver el robo» y «Abrir en Hudl · mm:ss» en la pantalla.
+    | Sólo saca los que faltan. Si no puede (Chrome ocupado, Hudl caído), el
+    | dato sale igual con el enlace a Hudl; los cortes se sacan en la pasada siguiente.
+    */
+    const cortes = await node("scripts/partido/transiciones-cortes.mjs", slug, "--carpeta", CARPETA);
+
+    if (cortes.codigo !== 0) anota("Cortes de robos y pérdidas", false, cortes.resumen || `código ${cortes.codigo}`);
+
     await node("scripts/transiciones-datos.mjs");
     await node("scripts/faltas-datos.mjs");
 

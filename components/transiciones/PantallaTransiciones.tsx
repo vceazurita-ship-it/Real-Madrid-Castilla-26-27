@@ -75,6 +75,7 @@ import {
   porcentajeDe,
   type MetricaComparada,
 } from "@/components/abp/ComparativaPartido";
+import { VerAccion } from "@/components/video/VerAccion";
 import { CampoZonas, type PuntoCampo } from "@/components/campo/CampoZonas";
 import { PorJugador, SinJugador, type ColumnaJugador } from "@/components/analisis/PorJugador";
 import { CARRILES_CAMPO, ZONAS_CAMPO } from "@/components/faltas/CampoFaltas";
@@ -115,6 +116,8 @@ type Textos = {
   /** «robos» / «pérdidas», y en singular. */
   unidad: string;
   unidadUna: string;
+  /** «Ver el robo» / «Ver la pérdida» y el título de «Abrir en Hudl». */
+  verQue: string;
   /** La serie de las barras que cuenta el total: «Robos» / «Pérdidas». */
   serieTotal: string;
   /** La serie de las que salen hacia delante (nuestras o suyas). */
@@ -162,6 +165,7 @@ const TEXTOS: Record<ModoTransiciones, Textos> = {
     titulo: "Robos y transiciones",
     unidad: "robos",
     unidadUna: "robo",
+    verQue: "el robo",
     serieTotal: "Robos",
     serieAdelante: "Adelante",
     acciones: [
@@ -198,7 +202,7 @@ const TEXTOS: Record<ModoTransiciones, Textos> = {
       cuando: "Cuándo robamos",
       lista: "Robo a robo",
       listaSub:
-        "«Min.» es el del partido (y el de la táctica); «Vídeo», el del archivo, para ir directo a la jugada. Pincha un valor y filtra la pantalla",
+        "«Min.» es el del partido (y el de la táctica); «Vídeo», el del archivo, para ir directo a la jugada; «Jugada», el corte del vídeo de Hudl (5 s antes y 8 después) y el minuto para abrirlo allí. Pincha un valor y filtra la pantalla",
       columnaTipo: "Robo",
       rotuloSalida: "Salida",
     },
@@ -214,12 +218,13 @@ const TEXTOS: Record<ModoTransiciones, Textos> = {
     vacio: "Todavía no hay robos de este partido.",
     vacioFiltro: "Ningún robo con este filtro.",
     criterio:
-      "Cuenta como robo la recuperación activa: entrada, interceptación o balón ganado por presión directa, con el balón en juego. No cuentan los rechaces sin disputa, los despejes del rival, las paradas del portero, lo que nace de balón parado ni los cambios de posesión por falta pitada. El criterio completo está en ANALISIS TRANSICIONES/MANUAL_ETIQUETADO.md.",
+      "Cuenta como robo la recuperación activa: entrada, interceptación o balón ganado por presión directa, con el balón en juego. No cuentan los rechaces sin disputa, los despejes del rival, las paradas del portero, lo que nace de balón parado, los cambios de posesión por falta pitada ni el balón que el rival sólo toca sin controlarlo en medio de nuestra jugada: ahí la jugada sigue siendo la nuestra. La transición son los 15 segundos siguientes al robo: un remate, el área o el último tercio que llegan después ya son ataque posicional y la jugada cuenta como posesión. El criterio completo está en ANALISIS TRANSICIONES/MANUAL_ETIQUETADO.md.",
   },
   perdidas: {
     titulo: "Pérdidas y transiciones defensivas",
     unidad: "pérdidas",
     unidadUna: "pérdida",
+    verQue: "la pérdida",
     serieTotal: "Pérdidas",
     /* Igual que el nombre de la acción: la leyenda filtra por este texto y,
        con «Salen adelante», no casaba y no se podía pulsar (19/10/2026). */
@@ -259,7 +264,7 @@ const TEXTOS: Record<ModoTransiciones, Textos> = {
       cuando: "Cuándo perdemos",
       lista: "Pérdida a pérdida",
       listaSub:
-        "«Min.» es el del partido (y el de la táctica); «Vídeo», el del archivo, para ir directo a la jugada. «Su salida» es lo primero que hace el rival. Pincha un valor y filtra la pantalla",
+        "«Min.» es el del partido (y el de la táctica); «Vídeo», el del archivo, para ir directo a la jugada; «Jugada», el corte del vídeo de Hudl (5 s antes y 8 después) y el minuto para abrirlo allí. «Su salida» es lo primero que hace el rival. Pincha un valor y filtra la pantalla",
       columnaTipo: "Pérdida",
       rotuloSalida: "Su salida",
     },
@@ -276,7 +281,7 @@ const TEXTOS: Record<ModoTransiciones, Textos> = {
     vacio: "Todavía no hay pérdidas de este partido.",
     vacioFiltro: "Ninguna pérdida con este filtro.",
     criterio:
-      "Cuenta como pérdida la acción nuestra con el balón en juego que Wyscout marca como perdida: pase que no llega, conducción cortada, duelo o control perdido. No cuentan los remates y sus rechaces, los despejes a propósito, los balones parados que se pierden en el propio saque ni las jugadas con falta pitada. La salida y el desenlace son del rival: lo primero que hace con el balón y en qué acaba su posesión. Es el espejo del criterio de robo de ANALISIS TRANSICIONES/MANUAL_ETIQUETADO.md.",
+      "Cuenta como pérdida un balón que teníamos y pasa a ser del rival, con el balón en juego: pase que no llega, conducción o regate cortados, control o duelo perdido con la jugada en nuestras manos. No cuentan los remates y sus rechaces, los despejes, las intercepciones y los cabezazos que no llegamos a controlar en su jugada, los balones parados que se pierden en el propio saque, las jugadas con falta pitada ni el balón que el rival sólo toca sin controlarlo y seguimos teniendo. La salida y el desenlace son del rival: lo primero que hace con el balón y en qué acaba su transición, los 15 segundos siguientes. Es el espejo del criterio de robo de ANALISIS TRANSICIONES/MANUAL_ETIQUETADO.md.",
   },
 };
 
@@ -327,7 +332,7 @@ const decimal = (n: number) =>
   n.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 /** Un robo (o una pérdida) con su partido pegado, que es lo que se cuenta en pantalla. */
-type RoboVisto = Robo & { partido: string; jornada: string; rival: string };
+type RoboVisto = Robo & { partido: string; jornada: string; rival: string; hudlUrl?: string };
 
 /*
 | El detalle de los bloques nuevos empieza por el minuto y sigue con quién:
@@ -680,7 +685,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
   /** Las filas de los partidos elegidos, antes de lo pinchado. */
   const base = useMemo<RoboVisto[]>(() => {
     const lista = elegidos.flatMap((p) =>
-      p.robos.map((r) => ({ ...r, partido: p.id, jornada: p.jornada, rival: p.rival })),
+      p.robos.map((r) => ({ ...r, partido: p.id, jornada: p.jornada, rival: p.rival, hudlUrl: p.hudlUrl })),
     );
     return conDudosos ? lista : lista.filter((r) => r.confianza !== DUDOSA);
   }, [elegidos, conDudosos, DUDOSA]);
@@ -697,6 +702,9 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
     () => base.filter((r) => pasaFiltros(r, filtros, LECTORES)),
     [base, filtros],
   );
+
+  /* La columna del vídeo sólo sale si alguna jugada tiene su corte o su minuto en Hudl (J2 no tiene). */
+  const conVideo = robos.some((r) => r.video || (r.hudlUrl && r.hudl != null));
 
   /** La barra de «Filtrando»: partido, dudosos y todo lo pinchado. */
   const partidoElegido = partidos.find((p) => p.id === quien);
@@ -747,7 +755,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
         {texto}
       </Filtrable>
     ) : (
-      "—"
+      null
     );
 
   /** Marcar o soltar una serie de barras (una o dos acciones). */
@@ -890,7 +898,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
     .filter((d): d is number => typeof d === "number");
   const duracionMedia = duraciones.length
     ? decimal(duraciones.reduce((a, b) => a + b, 0) / duraciones.length)
-    : "—";
+    : "";
 
   const llegadas = conDesenlace.filter(
     (r) => r.desenlace === "REMATE" || r.desenlace === "AREA",
@@ -1454,12 +1462,14 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                 atenuado={hayFiltro(filtros, "accion")}
               />
 
-              <Cifra
-                valor={`${duracionMedia} s`}
-                rotulo={T.cifras.duracion}
-                pie={conDesenlace.length ? T.cifras.llegan(llegadas, conDesenlace.length) : undefined}
-                icono={Timer}
-              />
+              {duracionMedia ? (
+                <Cifra
+                  valor={`${duracionMedia} s`}
+                  rotulo={T.cifras.duracion}
+                  pie={conDesenlace.length ? T.cifras.llegan(llegadas, conDesenlace.length) : undefined}
+                  icono={Timer}
+                />
+              ) : null}
             </div>
 
             </>
@@ -2015,6 +2025,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                         <th className="px-4 py-3">Acaba en</th>
                         {explicativos && <th className="px-4 py-3">Fiabilidad</th>}
                         {explicativos && <th className="px-4 py-3">Qué pasó</th>}
+                        {conVideo && <th className="px-4 py-3">Jugada</th>}
                       </tr>
                     </thead>
 
@@ -2029,7 +2040,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                           }`}
                         >
                           <td className="whitespace-nowrap px-4 py-3 font-semibold tabular-nums text-white/80">
-                            {(explicativos ? minutoDe(r) : minutoDe(r).replace(/\s*\([^)]*\)/, "")) || "—"}
+                            {(explicativos ? minutoDe(r) : minutoDe(r).replace(/\s*\([^)]*\)/, "")) || null}
                           </td>
 
                           {explicativos && (
@@ -2055,7 +2066,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                                 </span>
                               </>
                             ) : (
-                              "—"
+                              null
                             )}
                           </td>
 
@@ -2116,7 +2127,17 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
 
                           {explicativos && (
                             <td className="min-w-[280px] px-4 py-3 text-xs leading-relaxed text-white/45">
-                              {textoDe(r) || "—"}
+                              {textoDe(r) || null}
+                            </td>
+                          )}
+
+                          {conVideo && (
+                            <td className="px-4 py-3">
+                              <VerAccion
+                                video={r.video}
+                                hudl={r.hudlUrl && r.hudl != null ? { url: r.hudlUrl, seg: Math.round(r.hudl) } : undefined}
+                                que={T.verQue}
+                              />
                             </td>
                           )}
                         </tr>
@@ -2125,7 +2146,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                       {robos.length === 0 && (
                         <tr>
                           <td
-                            colSpan={6 + (quien === "todos" ? 1 : 0) + (explicativos ? 3 : 0)}
+                            colSpan={6 + (quien === "todos" ? 1 : 0) + (explicativos ? 3 : 0) + (conVideo ? 1 : 0)}
                             className="px-4 py-8 text-center text-white/40"
                           >
                             {base.length === 0 ? T.vacio : T.vacioFiltro}
