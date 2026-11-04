@@ -23,7 +23,7 @@ import { type ReactNode } from "react";
 import { CircleCheck, Film, Plus, X } from "lucide-react";
 
 import { TextArea } from "@/components/abp/ui";
-import { EnlaceHudl as EnlaceHudlAccion, VerAccion } from "@/components/video/VerAccion";
+import { EnlaceHudl as EnlaceHudlAccion, VerAccion, esYoutube } from "@/components/video/VerAccion";
 import {
   ACCIONES,
   ACCIONES_IMPLICADO,

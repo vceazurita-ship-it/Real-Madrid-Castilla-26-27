@@ -16,7 +16,7 @@ export type EnlaceHudlAccion = { url: string; seg: number };
 const BOTON =
   "inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-xs text-white/75 transition hover:bg-white/[0.06] hover:text-white";
 
-const esYoutube = (u: string) => /youtu\.?be/.test(u);
+export const esYoutube = (u: string) => /youtu\.?be/.test(u);
 
 export function EnlaceHudl({ hudl, que = "la acción" }: { hudl: EnlaceHudlAccion; que?: string }) {
   return (
