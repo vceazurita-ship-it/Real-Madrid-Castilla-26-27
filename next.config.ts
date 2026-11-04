@@ -11,6 +11,9 @@ const nextConfig: NextConfig = {
   | dentro del bundle del servidor, esa ruta deja de existir y el coding
   | responde que en esta máquina no hay motor de vídeo —aunque lo haya—.
   */
+  /* En Render (512 MB) el repaso de tipos del build se queda sin memoria; los
+     tipos ya los comprueba el CI de GitHub en cada push. */
+  typescript: { ignoreBuildErrors: process.env.SIN_TIPOS_EN_BUILD === "1" },
   serverExternalPackages: ["ffmpeg-static", "ffprobe-static"],
 
   /*

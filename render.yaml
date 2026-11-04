@@ -17,6 +17,8 @@ services:
         value: "22"
       - key: NODE_OPTIONS
         value: --max-old-space-size=460
+      - key: SIN_TIPOS_EN_BUILD
+        value: "1"
       - key: NEXT_TELEMETRY_DISABLED
         value: "1"
       - key: NEXT_PUBLIC_API_URL
