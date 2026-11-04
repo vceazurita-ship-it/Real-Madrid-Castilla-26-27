@@ -1,0 +1,24 @@
+# Que la web no se duerma (04/11/2026).
+#
+# En el plan gratis de Render el servicio se duerme a los 15 min sin visitas y
+# la primera tarda 30-60 s en despertarlo. Con una visita cada 10 min no se
+# duerme nunca: un servicio encendido el mes entero son ~744 h y el plan da
+# 750. GitHub retrasa a veces los cron unos minutos; por eso cada 10 y no 14.
+
+name: Web despierta
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tocar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Visitar la web
+        run: curl -fsS -o /dev/null --retry 2 --retry-delay 20 --max-time 90 https://rmcf-castilla.onrender.com/api/docs?key=castilla:calendario || true
