@@ -43,6 +43,7 @@ import { toast } from "sonner";
 import { AbpHeader, Button, Notice, Panel } from "@/components/abp/ui";
 import { ProgresoEncargo, RecorridoEncargo, RepetirEncargo } from "@/components/ajustes/ProgresoEncargo";
 import { DatosWyscout } from "@/components/ajustes/DatosWyscout";
+import { SesionYoutube } from "@/components/ajustes/SesionYoutube";
 import { planRecomendado, progresoDePaso } from "@/lib/progreso";
 import { cargaCalendario } from "@/hooks/useCalendario";
 import { comoNuestro, type PartidoNuestro } from "@/lib/castilla/calendario";
@@ -57,6 +58,7 @@ import {
   vigiaVivo,
   type EstadoEncargo,
   type Mantenimiento,
+  type SesionYoutube as EstadoYoutube,
   type Tarea,
   type Vigia,
 } from "@/lib/mantenimiento";
@@ -287,6 +289,8 @@ export default function AjustesPage() {
 
   const [vigia, setVigia] = useState<Vigia | null>(null);
 
+  const [youtube, setYoutube] = useState<EstadoYoutube | null>(null);
+
   /* El reloj de la pantalla: se pone al día con cada lectura. Así los «hace
      X min» se mueven sin llamar a Date.now() en el render. */
   const [ahora, setAhora] = useState(0);
@@ -309,7 +313,7 @@ export default function AjustesPage() {
 
     const lee = () =>
       fetch("/api/mantenimiento", { cache: "no-store" })
-        .then((r) => r.json() as Promise<{ ok?: boolean; estado?: Mantenimiento; vigia?: Vigia | null }>)
+        .then((r) => r.json() as Promise<{ ok?: boolean; estado?: Mantenimiento; vigia?: Vigia | null; youtube?: EstadoYoutube | null }>)
         .then((datos) => {
           if (cancelado) return;
 
@@ -330,6 +334,7 @@ export default function AjustesPage() {
 
           setEstado(nuevo);
           setVigia(datos.vigia ?? null);
+          setYoutube(datos.youtube ?? null);
 
           for (const [tarea, pedidoEn] of Object.entries(esperando.current) as [Tarea, string][]) {
             const suyo = nuevo[tarea];
@@ -706,6 +711,8 @@ export default function AjustesPage() {
                 {estado.wyscout?.datosWyscout && estados.wyscout !== "en-marcha" && (
                   <DatosWyscout datos={estado.wyscout.datosWyscout} ahora={ahora} />
                 )}
+
+                {youtube && <SesionYoutube sesion={youtube} />}
 
                 <EstadoLinea
                   tarea="wyscout"

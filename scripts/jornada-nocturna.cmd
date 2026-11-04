@@ -184,6 +184,20 @@ if errorlevel 1 (
   echo AVISO: abp-cortes ha fallado ^(codigo !errorlevel!^); las listas de ABP se quedan como estaban >> "%LOG%"
 )
 
+rem --- 1b3. los subtitulos de los resumenes de YouTube (segundo de cada ABP) ---
+rem
+rem  (04/11/2026) Con la sesion de YouTube del analista (perfil aparte en
+rem  .cache\chrome-youtube, se entra con scripts\youtube-sesion.cmd) lee los
+rem  subtitulos automaticos de los resumenes ya encontrados. La tarea de las
+rem  08:30 (abp-acciones-diario.cmd) los usa para poner el segundo de cada
+rem  accion y lo publica. Sin sesion solo avisa (registro y Ajustes).
+echo. >> "%LOG%"
+echo --- Subtitulos de los resumenes de YouTube --- >> "%LOG%"
+call node scripts\abp-videos-youtube.mjs --solo-subtitulos >> "%LOG%" 2>&1
+if errorlevel 4 (
+  echo AVISO: los subtitulos de YouTube no han terminado ^(codigo !errorlevel!^); siguen en la siguiente pasada >> "%LOG%"
+)
+
 rem --- 1c. donde coloca el cuerpo tecnico a cada jugador (Jugadores sesion) ---
 rem
 rem  (14/10/2026) Lee las sesiones guardadas y deja el aprendizaje en

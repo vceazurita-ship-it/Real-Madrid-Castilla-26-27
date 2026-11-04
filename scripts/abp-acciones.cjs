@@ -332,6 +332,105 @@ function segundoDe(a, marcas, accionesDelPartido) {
   return porNombre.length === 1 ? porNombre[0][0] : null;
 }
 
+/*
+| EL SEGUNDO POR LOS SUBTÍTULOS (04/11/2026). `abp-videos-youtube.mjs` guarda
+| los subtítulos automáticos del resumen (`video.subs`: [[segundo, texto]…])
+| cuando hay sesión de YouTube. Aquí, para cada acción con rematador:
+|   - dónde lo nombra el narrador (cualquier palabra suya de 4 letras o más,
+|     sin tildes), juntando las menciones a menos de 10 s en un momento;
+|   - si es gol, sólo los momentos con «gol» cerca;
+|   - el resumen va en orden: cada acción tiene que caer después de la
+|     anterior y antes de la siguiente (min/seg de Wyscout), y se descarta lo
+|     que no cuadre.
+| Sólo se pone `vt` con UN momento posible. Si dos acciones comparten nombre,
+| ninguna. Unos segundos antes de la mención, para ver el saque.
+*/
+const GOL = / (gol|goal|golazo|go+l+|gooo+al) /;
+
+const NO_DISTINGUE = new Set(["junior", "filho", "neto", "santos", "silva"]);
+
+const palabrasDe = (nombre) =>
+  [...new Set(plano(nombre).replace(/'/g, "").trim().split(" ").filter((p) => p.length >= 4 && !NO_DISTINGUE.has(p)))];
+
+function segundosPorSubtitulos(acciones, subs, duracion) {
+  const fuera = new Map();
+
+  if (!Array.isArray(subs) || !subs.length) return fuera;
+
+  const lineas = subs.map(([s, t]) => [Number(s), plano(t).replace(/'/g, "")]);
+
+  const orden = acciones.map((a, i) => ({ a, i })).sort((x, y) => (x.a.parte - y.a.parte) || (x.a.min - y.a.min) || (x.a.seg - y.a.seg));
+
+  const palabras = orden.map(({ a }) => (a.rm ? palabrasDe(a.rm) : []));
+
+  const cand = orden.map(({ a }, k) => {
+    const ps = palabras[k];
+
+    if (!ps.length) return null;
+
+    /* Otra acción del partido con una palabra en común: no se sabe de quién habla. */
+    if (palabras.some((otras, j) => j !== k && otras.some((p) => ps.includes(p)))) return null;
+
+    const momentos = [];
+
+    for (const [s, t] of lineas) {
+      if (!ps.some((p) => t.includes(` ${p} `))) continue;
+
+      const ultimo = momentos[momentos.length - 1];
+
+      if (ultimo && s - ultimo.hasta <= 10) ultimo.hasta = s;
+      else momentos.push({ desde: s, hasta: s });
+    }
+
+    const buenos = a.r === "gol" ? momentos.filter((m) => lineas.some(([s, t]) => s >= m.desde - 12 && s <= m.hasta + 6 && GOL.test(t))) : momentos;
+
+    return buenos.map((m) => m.desde);
+  });
+
+  /* El orden: lo que no cabe entre la anterior y la siguiente, fuera. */
+  for (let vuelta = 0; vuelta < 5; vuelta++) {
+    let cambio = false;
+
+    for (let k = 0; k < cand.length; k++) {
+      if (!cand[k] || !cand[k].length) continue;
+
+      const antes = cand.slice(0, k).filter((c) => c && c.length).map((c) => Math.min(...c));
+
+      const despues = cand.slice(k + 1).filter((c) => c && c.length).map((c) => Math.max(...c));
+
+      const desde = antes.length ? Math.max(...antes) : -1;
+
+      const hasta = despues.length ? Math.min(...despues) : Infinity;
+
+      const quedan = cand[k].filter((s) => s > desde && s < hasta);
+
+      if (quedan.length !== cand[k].length) {
+        cand[k] = quedan;
+        cambio = true;
+      }
+    }
+
+    if (!cambio) break;
+  }
+
+  const puestos = [];
+
+  cand.forEach((c, k) => {
+    if (c && c.length === 1 && (!duracion || c[0] < duracion)) puestos.push({ k, s: c[0] });
+  });
+
+  /* Lo puesto tiene que ir en el orden del partido; si dos se cruzan, ninguna. */
+  const malos = new Set();
+
+  for (let x = 0; x < puestos.length; x++) for (let y = x + 1; y < puestos.length; y++) if (puestos[y].s <= puestos[x].s) malos.add(x).add(y);
+
+  puestos.forEach((p, x) => {
+    if (!malos.has(x)) fuera.set(orden[p.k].i, Math.max(0, p.s - 6));
+  });
+
+  return fuera;
+}
+
 /* --------------------------- EL RANKING --------------------------- */
 
 /** Goles primero (los de penalti detrás), luego xG, luego a puerta. */
@@ -424,8 +523,12 @@ function competicion(def) {
 
     if (acciones.length) tabla[String(p.id)] = { p: titulo, f: fecha, j: p.jornada ? `Jornada ${p.jornada}` : `Partidos del ${fecha.slice(8, 10)}/${fecha.slice(5, 7)}` };
 
-    for (const a of acciones) {
-      const vt = resumen ? segundoDe(a, resumen.marcas, acciones) : null;
+    const porSubtitulos = resumen ? segundosPorSubtitulos(acciones, resumen.subs, resumen.segundos) : new Map();
+
+    for (const [k, a] of acciones.entries()) {
+      const deMarca = resumen ? segundoDe(a, resumen.marcas, acciones) : null;
+
+      const vt = deMarca !== null ? deMarca : porSubtitulos.has(k) ? porSubtitulos.get(k) : null;
 
       j.acciones.push({ ...a, p: titulo, id: String(p.id), fecha, ...(vt !== null ? { vt } : {}) });
 
@@ -539,8 +642,12 @@ function principal() {
   );
 }
 
-try {
-  principal();
-} catch (error) {
-  console.error("  abp-acciones: no se ha podido compactar:", error && error.message);
+module.exports = { segundosPorSubtitulos };
+
+if (require.main === module) {
+  try {
+    principal();
+  } catch (error) {
+    console.error("  abp-acciones: no se ha podido compactar:", error && error.message);
+  }
 }

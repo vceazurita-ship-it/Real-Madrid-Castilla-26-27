@@ -21,6 +21,25 @@ export const CLAVE_MANTENIMIENTO = "mantenimiento";
     no debe pisar un encargo que se deja en ese mismo instante. */
 export const CLAVE_VIGIA = "mantenimiento:vigia";
 
+/**
+ * La sesión de YouTube del ordenador del club (04/11/2026). La escribe
+ * `scripts/abp-videos-youtube.mjs` cada vez que intenta leer los subtítulos de
+ * los resúmenes (de ahí sale el segundo exacto de cada acción a balón parado).
+ * Documento aparte: así no hace falta tocar ni reiniciar el vigía.
+ */
+export const CLAVE_YOUTUBE = "mantenimiento:youtube";
+
+export type SesionYoutube = {
+  /** `ok` dentro · `caducada` sin sesión · `comprobacion` YouTube pide demostrar que no es un robot · `sin-perfil` nunca se entró · `ocupado` el perfil está abierto en otra ventana. */
+  estado: "ok" | "caducada" | "comprobacion" | "sin-perfil" | "ocupado";
+  comprobadoEn: string;
+  /** La última vez que estaba dentro. */
+  bienEn?: string;
+  /** Resúmenes con subtítulos leídos en esta pasada. */
+  leidos?: number;
+  detalle?: string;
+};
+
 /* `carpeta` (27/09/2026): recoger la carpeta de análisis de una jornada —vídeos
    de ABP y de centros, y los PDF— y dejarla en la ficha del rival.
    `partido` (02/10/2026): el análisis entero del último partido —Wyscout, el

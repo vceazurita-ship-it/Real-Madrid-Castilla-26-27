@@ -42,6 +42,14 @@
 | SIN DUDA la acción (su minuto, o el goleador si sólo marcó uno). Si no, el
 | enlace va al resumen entero.
 |
+| (04/11/2026) Segunda pasada: los SUBTÍTULOS AUTOMÁTICOS, con la sesión del
+| analista en un perfil de Chrome aparte (scripts/youtube-subtitulos.mjs; se
+| entra con scripts\youtube-sesion.cmd). Se guardan en `video.subs` y
+| `abp-acciones.cjs` busca ahí al rematador. Sin sesión, se avisa aquí y en
+| Ajustes (`mantenimiento:youtube`) y lo demás sigue igual.
+|
+|     --solo-subtitulos · --sin-subtitulos · --max-subs=N (60) · --sin-publicar
+|
 | INCREMENTAL
 |
 | `.cache/abp-videos/<fuente>/<idWyscout>.json`. Un partido con vídeo no se
@@ -58,9 +66,15 @@ import path from "node:path";
 
 const RAIZ = path.join(import.meta.dirname, "..");
 
-const ORIGEN = path.join(RAIZ, ".cache", "wyscout", "abp-acciones");
+/** Como en `abp-acciones.cjs`: la caché puede ser la de otra carpeta (pruebas desde un worktree). */
+const RAIZ_CACHE = process.env.ABP_CACHE_RAIZ || RAIZ;
 
-const CARPETA = path.join(RAIZ, ".cache", "abp-videos");
+const ORIGEN = path.join(RAIZ_CACHE, ".cache", "wyscout", "abp-acciones");
+
+const CARPETA = path.join(RAIZ_CACHE, ".cache", "abp-videos");
+
+/** El perfil de Chrome con la sesión de YouTube del analista (`scripts\youtube-sesion.cmd`). */
+const PERFIL_YOUTUBE = path.join(RAIZ_CACHE, ".cache", "chrome-youtube");
 
 const espera = (ms) => new Promise((listo) => setTimeout(listo, ms));
 
@@ -77,13 +91,23 @@ const REHACER = process.argv.includes("--rehacer");
 /** Vuelve a buscar los que se quedaron sin resumen (tras mejorar el reconocimiento de nombres). */
 const REINTENTAR = process.argv.includes("--reintentar");
 
+/** Sólo una de las dos pasadas: buscar los resúmenes o leer sus subtítulos. */
+const SOLO_SUBTITULOS = process.argv.includes("--solo-subtitulos");
+const SIN_SUBTITULOS = process.argv.includes("--sin-subtitulos");
+
+/** Tope de vídeos cuyos subtítulos se leen por pasada (ritmo moderado). */
+const MAX_SUBS = Number(argumento("max-subs") ?? 0) || MAX || 60;
+
+/** No escribe el estado de la sesión en Supabase (pruebas). */
+const SIN_PUBLICAR = process.argv.includes("--sin-publicar");
+
 /** Las carpetas de `wyscout-abp-acciones.mjs` y en qué idioma se busca primero. */
 const FUENTES = [
-  { slug: "laliga", palabra: "resumen" },
-  { slug: "primera-rfef", palabra: "resumen" },
-  { slug: "segunda", palabra: "resumen" },
-  { slug: "premier-league", palabra: "highlights" },
-  { slug: "champions", palabra: "highlights" },
+  { slug: "laliga", palabra: "resumen", lengua: "es" },
+  { slug: "primera-rfef", palabra: "resumen", lengua: "es" },
+  { slug: "segunda", palabra: "resumen", lengua: "es" },
+  { slug: "premier-league", palabra: "highlights", lengua: "en" },
+  { slug: "champions", palabra: "highlights", lengua: "en" },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -478,13 +502,133 @@ function hayQueBuscar(previo, partido) {
   return ahora - Date.parse(previo.buscadoEn) > 6 * 3_600_000;
 }
 
+const AVISOS = {
+  "sin-perfil": "Falta la sesión de YouTube: abre «YouTube · iniciar sesión» (scripts\\youtube-sesion.cmd) y entra una vez con tu cuenta.",
+  caducada: "La sesión de YouTube ha caducado: abre «YouTube · iniciar sesión» (scripts\\youtube-sesion.cmd) y entra otra vez.",
+  comprobacion: "YouTube pide comprobar que no es un robot: abre «YouTube · iniciar sesión» (scripts\\youtube-sesion.cmd), hazla tú y cierra la ventana.",
+  ocupado: "La ventana «YouTube · iniciar sesión» está abierta: ciérrala para que se puedan leer los subtítulos.",
+};
+
+/** ¿Hay que leer los subtítulos de este resumen? Con ellos ya no; sin ellos, cada tres días y tres veces como mucho. */
+function faltanSubtitulos(v) {
+  if (!v?.id) return false;
+
+  if (Array.isArray(v.subs) && v.subs.length) return false;
+
+  if (!v.subsEn) return true;
+
+  return (v.subsIntentos ?? 0) < 3 && Date.now() - Date.parse(v.subsEn) > 3 * DIA;
+}
+
+/**
+ * Segunda pasada: los subtítulos automáticos de los resúmenes, con la sesión
+ * del analista. Devuelve cuántos se han leído. Nunca rompe la pasada: sin
+ * sesión, lo dice (aquí y en Ajustes) y sigue.
+ */
+async function pasaSubtitulos() {
+  const { SinSesion, abreYoutube, estaDentro, hayPerfil, publicaEstado, subtitulosDe } = await import("./youtube-subtitulos.mjs");
+
+  const publica = (estado) => (SIN_PUBLICAR ? Promise.resolve(false) : publicaEstado(RAIZ, estado));
+
+  const pendientes = [];
+
+  for (const fuente of FUENTES) {
+    if (SOLO && fuente.slug !== SOLO) continue;
+
+    const dir = path.join(CARPETA, fuente.slug);
+
+    if (!fs.existsSync(dir)) continue;
+
+    for (const f of fs.readdirSync(dir)) {
+      if (!/^\d+\.json$/.test(f)) continue;
+
+      const datos = leeJson(path.join(dir, f));
+
+      if (faltanSubtitulos(datos?.video)) pendientes.push({ fichero: path.join(dir, f), datos, fuente });
+    }
+  }
+
+  /* Lo más reciente primero: es lo que se mira esta semana. */
+  pendientes.sort((a, b) => String(b.datos.fecha).localeCompare(String(a.datos.fecha)));
+
+  console.log(`  Subtítulos: ${pendientes.length} resúmenes por leer${pendientes.length > MAX_SUBS ? ` (en esta pasada, ${MAX_SUBS})` : ""}`);
+
+  if (!pendientes.length) return 0;
+
+  const avisa = async (estado, detalle) => {
+    console.log(`\n  RESUMEN: AVISO · ${AVISOS[estado]}${detalle ? ` (${detalle})` : ""}`);
+
+    await publica({ estado, detalle });
+  };
+
+  if (!hayPerfil(PERFIL_YOUTUBE)) {
+    await avisa("sin-perfil");
+
+    return 0;
+  }
+
+  let yt = null;
+  let leidos = 0;
+
+  try {
+    yt = await abreYoutube(PERFIL_YOUTUBE);
+
+    if (!(await estaDentro(yt))) {
+      await avisa("caducada");
+
+      return 0;
+    }
+
+    let fallos = 0;
+
+    for (const { fichero, datos, fuente } of pendientes.slice(0, MAX_SUBS)) {
+      let r;
+
+      try {
+        r = await subtitulosDe(yt, datos.video.id, fuente.lengua);
+      } catch (error) {
+        if (error instanceof SinSesion) throw error;
+
+        console.log(`    ✗ ${datos.partido}: ${error.message}`);
+
+        if (++fallos >= 3) break;
+
+        continue;
+      }
+
+      fallos = 0;
+
+      const video = { ...datos.video, subs: r.lineas, subsVia: r.via, subsEn: new Date().toISOString(), subsIntentos: (datos.video.subsIntentos ?? 0) + 1 };
+
+      fs.writeFileSync(fichero, JSON.stringify({ ...datos, video }), "utf8");
+
+      if (r.lineas.length) leidos++;
+
+      console.log(`    ${r.lineas.length ? "✓" : "·"} ${datos.partido}: ${r.lineas.length ? `${r.lineas.length} líneas (${r.via})` : "sin subtítulos"}`);
+
+      await espera(5000 + Math.random() * 3000);
+    }
+
+    await publica({ estado: "ok", leidos });
+
+    console.log(`\n  RESUMEN: subtítulos de ${leidos} resúmenes de YouTube (el segundo de cada acción lo pone abp-acciones.cjs).`);
+  } catch (error) {
+    if (error instanceof SinSesion) await avisa(error.estado, error.message);
+    else console.log(`  ✗ Subtítulos: ${error.message} (se sigue en la siguiente pasada)`);
+  } finally {
+    await yt?.cierra();
+  }
+
+  return leidos;
+}
+
 async function principal() {
   console.log("\n  RMCF · el resumen en YouTube de cada partido (lo mejor de cada jornada)\n");
 
   let nuevos = 0;
   let cortado = false;
 
-  for (const fuente of FUENTES) {
+  for (const fuente of SOLO_SUBTITULOS ? [] : FUENTES) {
     if (SOLO && fuente.slug !== SOLO) continue;
 
     const lista = leeJson(path.join(ORIGEN, fuente.slug, "_partidos.json"));
@@ -554,9 +698,12 @@ async function principal() {
     if (cortado) break;
   }
 
-  console.log(`  RESUMEN: ${nuevos} partidos nuevos con su resumen en YouTube${cortado ? " (YouTube cortó: sigue en la próxima pasada)" : ""}.`);
+  if (!SOLO_SUBTITULOS) console.log(`  RESUMEN: ${nuevos} partidos nuevos con su resumen en YouTube${cortado ? " (YouTube cortó: sigue en la próxima pasada)" : ""}.`);
 
-  process.exitCode = cortado ? 8 : nuevos ? 0 : 3;
+  /* Si la búsqueda la ha cortado YouTube, los subtítulos esperan a la siguiente. */
+  const leidos = SIN_SUBTITULOS || cortado ? 0 : await pasaSubtitulos();
+
+  process.exitCode = cortado ? 8 : nuevos || leidos ? 0 : 3;
 }
 
 const soyYo = Boolean(process.argv[1]) && path.resolve(process.argv[1]) === path.resolve(import.meta.filename);

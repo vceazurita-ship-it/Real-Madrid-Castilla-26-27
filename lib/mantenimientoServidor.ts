@@ -9,10 +9,12 @@ import { cambiaDoc, readDoc } from "@/lib/docStore";
 import {
   CLAVE_MANTENIMIENTO,
   CLAVE_VIGIA,
+  CLAVE_YOUTUBE,
   normalizaMantenimiento,
   type Mantenimiento,
   type DatosCarpeta,
   type DatosEntreno,
+  type SesionYoutube,
   type Tarea,
   type Vigia,
 } from "@/lib/mantenimiento";
@@ -20,13 +22,16 @@ import {
 export async function leeMantenimiento(): Promise<{
   estado: Mantenimiento;
   vigia: Vigia | null;
+  youtube: SesionYoutube | null;
 }> {
-  const [encargos, latido] = await Promise.all([
+  const [encargos, latido, youtube] = await Promise.all([
     readDoc<unknown>(CLAVE_MANTENIMIENTO),
     readDoc<Vigia>(CLAVE_VIGIA),
+    /* Si no se puede leer, Ajustes no avisa de nada: no tumba la lectura. */
+    readDoc<SesionYoutube>(CLAVE_YOUTUBE).catch(() => ({ data: null })),
   ]);
 
-  return { estado: normalizaMantenimiento(encargos.data), vigia: latido.data ?? null };
+  return { estado: normalizaMantenimiento(encargos.data), vigia: latido.data ?? null, youtube: youtube.data ?? null };
 }
 
 /**
