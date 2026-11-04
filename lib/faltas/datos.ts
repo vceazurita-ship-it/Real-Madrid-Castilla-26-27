@@ -5,7 +5,7 @@
  * scripts/faltas-datos.mjs a partir de los CSV de
  * Downloads/RMCF CASTILLA/ANALISIS FALTAS.
  *
- * Generado: 2026-11-01
+ * Generado: 2026-11-04
  */
 
 export type LadoFalta = "ofensivo" | "defensivo";
@@ -35,6 +35,10 @@ export type Falta = {
    * desde clips) no lo hay.
    */
   jugador?: string;
+  /** El partido en Hudl y el segundo de su vídeo en que empieza la jugada (Hudl no enlaza a un instante). */
+  hudl?: { url: string; seg: number };
+  /** Nuestro corte de la falta (del vídeo de Hudl), en el bucket. */
+  video?: string;
 };
 
 export type PartidoFaltas = {
@@ -52,16 +56,352 @@ export type PartidoFaltas = {
 
 export const PARTIDOS: PartidoFaltas[] = [
   {
+    "jornada": "J3",
+    "rival": "Águilas FC",
+    "local": false,
+    "fecha": "2026-09-12",
+    "resultado": "1-0",
+    "clips": "Hudl · Castilla · «2026-09-12 Águilas - Real Madrid Castilla 1 - 0» (timeline de Sportscode)",
+    "notas": [
+      "Sale del timeline de Sportscode subido a Hudl —minuto, quién la hace, sobre quién y la tarjeta— y cada falta se ha mirado después en la retransmisión: zona, carril, distancia y la nota salen de la imagen.",
+      "Los defensores entre la falta y la portería no se cuentan en este partido: la retransmisión no enseña el campo entero.",
+      "El campo se cuenta siempre hacia la portería que ataca quien saca la falta."
+    ],
+    "id": "aguilas",
+    "faltas": [
+      {
+        "clip": "of-c01",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T1 min 4. Falta de José Mas (del Águilas FC) sobre Roberto Martín. La acción llega en una disputa cerca del círculo central y no se distingue bien el punto exacto ni el saque.",
+        "minuto": "3'51\"",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWE3N2JmMDEyNDI5NTJlYzIwOWI5YmE=",
+          "seg": 229
+        },
+        "jugador": "Roberto Martín",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/aguilas-of-229.mp4"
+      },
+      {
+        "clip": "of-c02",
+        "lado": "ofensivo",
+        "zona": "campo rival",
+        "carril": "derecha",
+        "distancia": "media",
+        "entre": null,
+        "nota": "T1 min 7. Falta de Mario Abenza (del Águilas FC) sobre Roberto Martín. El árbitro saca la amarilla entre las protestas de los jugadores del Águilas, sin que se vea el punto exacto de la falta.",
+        "minuto": "7'01\"",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWE3N2JmMDEyNDI5NTJlYzIwOWI5YmE=",
+          "seg": 419
+        },
+        "jugador": "Roberto Martín",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/aguilas-of-419.mp4"
+      },
+      {
+        "clip": "def-c01",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T1 min 9. Falta de Jorge Cestero (del Castilla) sobre José Manuel Raigal. José Manuel Raigal queda en el suelo junto a la banda y el árbitro le enseña la amarilla a Jorge Cestero.",
+        "minuto": "8'41\"",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWE3N2JmMDEyNDI5NTJlYzIwOWI5YmE=",
+          "seg": 519
+        },
+        "jugador": "Jorge Cestero",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/aguilas-def-519.mp4"
+      },
+      {
+        "clip": "of-c03",
+        "lado": "ofensivo",
+        "zona": "campo rival",
+        "carril": "izquierda",
+        "distancia": "media",
+        "entre": null,
+        "nota": "T1 min 34. Falta de Serpeta (del Águilas FC) sobre Diego Aguado. Diego Aguado cae junto a la banda izquierda en campo del Águilas y un jugador del Castilla coge el balón para colocarlo.",
+        "minuto": "33'19\"",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWE3N2JmMDEyNDI5NTJlYzIwOWI5YmE=",
+          "seg": 1997
+        },
+        "jugador": "Diego Aguado",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/aguilas-of-1997.mp4"
+      },
+      {
+        "clip": "of-c04",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T1 min 37. Falta de Mario Abenza (del Águilas FC) sobre Roberto Martín. Roberto Martín queda en el suelo por la banda derecha a la altura del medio campo.",
+        "minuto": "36'14\"",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWE3N2JmMDEyNDI5NTJlYzIwOWI5YmE=",
+          "seg": 2172
+        },
+        "jugador": "Roberto Martín",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/aguilas-of-2172.mp4"
+      },
+      {
+        "clip": "of-c05",
+        "lado": "ofensivo",
+        "zona": "campo rival",
+        "carril": "centro",
+        "distancia": "frontal",
+        "entre": null,
+        "nota": "T1 min 42. Falta de Héctor Martinez (del Águilas FC) sobre Pol Fortuny. Pol Fortuny cae por el centro en campo del Águilas, entre el área y la línea de medio campo.",
+        "minuto": "41'30\"",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWE3N2JmMDEyNDI5NTJlYzIwOWI5YmE=",
+          "seg": 2488
+        },
+        "jugador": "Pol Fortuny",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/aguilas-of-2488.mp4"
+      },
+      {
+        "clip": "of-c06",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T1 min 48. Falta de Javi Castedo (del Águilas FC) sobre Álvaro Leiva. Entrada sobre Álvaro Leiva pegado a la banda izquierda, nada más pasar la línea de medio campo, y queda tendido junto a la línea.",
+        "minuto": "45+2'52\"",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWE3N2JmMDEyNDI5NTJlYzIwOWI5YmE=",
+          "seg": 2870
+        },
+        "jugador": "Álvaro Leiva",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/aguilas-of-2870.mp4"
+      },
+      {
+        "clip": "of-c07",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2 min 47. Falta de Johan Terranova (del Águilas FC) sobre Álvaro Leiva. Álvaro Leiva cae por la banda izquierda pasada la línea de medio campo y el árbitro habla con los jugadores antes del saque.",
+        "minuto": "46'27\"",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWE3N2JmMDEyNDI5NTJlYzIwOWI5YmE=",
+          "seg": 3105
+        },
+        "jugador": "Álvaro Leiva",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/aguilas-of-3105.mp4"
+      },
+      {
+        "clip": "def-c02",
+        "lado": "defensivo",
+        "zona": "campo rival",
+        "carril": "centro",
+        "distancia": "frontal",
+        "entre": null,
+        "nota": "T2 min 52. Falta de Rachad Fettal (del Castilla) sobre Álex Revuelta. Álex Revuelta cae por el centro, unos metros por delante del área del Castilla.",
+        "minuto": "51'15\"",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWE3N2JmMDEyNDI5NTJlYzIwOWI5YmE=",
+          "seg": 3393
+        },
+        "jugador": "Rachad Fettal",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/aguilas-def-3393.mp4"
+      },
+      {
+        "clip": "of-c08",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2 min 55. Falta de Héctor Martinez (del Águilas FC) sobre Pol Fortuny.",
+        "minuto": "54'56\"",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWE3N2JmMDEyNDI5NTJlYzIwOWI5YmE=",
+          "seg": 3614
+        },
+        "jugador": "Pol Fortuny"
+      },
+      {
+        "clip": "def-c03",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2 min 59. Falta de Álvaro Leiva (del Castilla) sobre Serpeta. No se distingue el punto de la falta y Serpeta acaba sentado junto a la banda mientras el árbitro se acerca.",
+        "minuto": "58'48\"",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWE3N2JmMDEyNDI5NTJlYzIwOWI5YmE=",
+          "seg": 3846
+        },
+        "jugador": "Álvaro Leiva",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/aguilas-def-3846.mp4"
+      },
+      {
+        "clip": "of-c09",
+        "lado": "ofensivo",
+        "zona": "campo rival",
+        "carril": "izquierda",
+        "distancia": "media",
+        "entre": null,
+        "nota": "T2 min 62. Falta de Yasser El Arbaoui (del Águilas FC) sobre Álvaro Leiva. Álvaro Leiva cae por la banda izquierda junto al área del Águilas.",
+        "minuto": "61'18\"",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWE3N2JmMDEyNDI5NTJlYzIwOWI5YmE=",
+          "seg": 3996
+        },
+        "jugador": "Álvaro Leiva",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/aguilas-of-3996.mp4"
+      },
+      {
+        "clip": "of-c10",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2 min 64. Falta de Gonzalo Serrano (del Águilas FC) sobre Joan Martínez. Joan Martínez cae por el centro en campo propio, entre el área del Castilla y la línea de medio campo.",
+        "minuto": "63'14\"",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWE3N2JmMDEyNDI5NTJlYzIwOWI5YmE=",
+          "seg": 4112
+        },
+        "jugador": "Joan Martínez",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/aguilas-of-4112.mp4"
+      },
+      {
+        "clip": "of-c11",
+        "lado": "ofensivo",
+        "zona": "campo rival",
+        "carril": "izquierda",
+        "distancia": "frontal",
+        "entre": null,
+        "nota": "T2 min 64. Penalti de Johan Terranova (del Águilas FC) sobre Diego Aguado. Sólo se ve la jugada del Castilla avanzando hacia el área del Águilas, sin llegar a verse el penalti.",
+        "minuto": "63'59\"",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWE3N2JmMDEyNDI5NTJlYzIwOWI5YmE=",
+          "seg": 4157
+        },
+        "jugador": "Diego Aguado",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/aguilas-of-4157.mp4"
+      },
+      {
+        "clip": "of-c12",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2 min 72. Falta de Gonzalo Serrano (del Águilas FC) sobre Mario Rivas. Tras un balón al área del Castilla quedan jugadores en el suelo cerca de la portería y el juego se para. Amarilla.",
+        "minuto": "71'40\"",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWE3N2JmMDEyNDI5NTJlYzIwOWI5YmE=",
+          "seg": 4618
+        },
+        "jugador": "Mario Rivas",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/aguilas-of-4618.mp4"
+      },
+      {
+        "clip": "of-c13",
+        "lado": "ofensivo",
+        "zona": "campo rival",
+        "carril": "derecha",
+        "distancia": "media",
+        "entre": null,
+        "nota": "T2 min 74. Falta de Dani Merchán (del Águilas FC) sobre Jesús Fortea. Jesús Fortea cae por la banda derecha en campo del Águilas y un jugador del Águilas protesta de rodillas. Amarilla.",
+        "minuto": "73'24\"",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWE3N2JmMDEyNDI5NTJlYzIwOWI5YmE=",
+          "seg": 4722
+        },
+        "jugador": "Jesús Fortea",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/aguilas-of-4722.mp4"
+      },
+      {
+        "clip": "def-c04",
+        "lado": "defensivo",
+        "zona": "campo rival",
+        "carril": "centro",
+        "distancia": "frontal",
+        "entre": null,
+        "nota": "T2 min 75. Falta de Mario Rivas (del Castilla) sobre Yasser El Arbaoui. Yasser El Arbaoui cae justo delante del área del Castilla y el árbitro le enseña la amarilla a Mario Rivas.",
+        "minuto": "74'47\"",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWE3N2JmMDEyNDI5NTJlYzIwOWI5YmE=",
+          "seg": 4805
+        },
+        "jugador": "Mario Rivas",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/aguilas-def-4805.mp4"
+      },
+      {
+        "clip": "of-c14",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2 min 87. Falta de Adri Heredia (del Águilas FC) sobre Daniel Yáñez. Daniel Yáñez cae por la banda derecha nada más pasar la línea de medio campo.",
+        "minuto": "86'20\"",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWE3N2JmMDEyNDI5NTJlYzIwOWI5YmE=",
+          "seg": 5498
+        },
+        "jugador": "Daniel Yáñez",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/aguilas-of-5498.mp4"
+      },
+      {
+        "clip": "of-c15",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2 min 94. Falta de Adrián Pérez (del Águilas FC) sobre Ángel Carvajal. Llega tras un saque de banda del Castilla y la falta, cerca de la línea de medio campo, no se distingue bien.",
+        "minuto": "90+4'02\"",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWE3N2JmMDEyNDI5NTJlYzIwOWI5YmE=",
+          "seg": 5960
+        },
+        "jugador": "Ángel Carvajal",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/aguilas-of-5960.mp4"
+      },
+      {
+        "clip": "of-c16",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2 min 97. Falta de Jesús Carrillo (del Águilas FC) sobre Roberto Martín. Roberto Martín cae a la altura del círculo central, en campo propio.",
+        "minuto": "90+6'09\"",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWE3N2JmMDEyNDI5NTJlYzIwOWI5YmE=",
+          "seg": 6087
+        },
+        "jugador": "Roberto Martín",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/aguilas-of-6087.mp4"
+      }
+    ]
+  },
+  {
     "id": "sant-andreu",
     "jornada": "J4",
     "rival": "UE Sant Andreu",
     "local": false,
-    "fecha": "2026-09-21",
+    "fecha": "2026-09-23",
     "resultado": "1-1",
-    "clips": "C:/Users/Usuario/Downloads/ABP vs SANT ANDREU",
+    "clips": "Hudl · Castilla · «2026-09-23 Sant Andreu - Real Madrid Castilla 1 - 1» (timeline de Sportscode) y la cámara táctica J 04 - SANT ANDREU - RM CASTILLA.mov",
     "notas": [
-      "El campo se cuenta siempre hacia la portería que ataca quien saca la falta: «campo propio» es el del que la saca, no el nuestro.",
-      "Las faltas van en el orden en que se dieron. El vídeo del partido no lleva reloj en pantalla, así que no se anota el minuto."
+      "Sale del timeline de Sportscode subido a Hudl —minuto, quién la hace, sobre quién y la tarjeta— y cada falta se ha mirado después en la cámara táctica del club: zona, carril, distancia y la nota salen de la imagen.",
+      "Los defensores entre la falta y la portería no se cuentan en este partido: la cámara táctica aplasta el campo lejano y no se distinguen todos.",
+      "El campo se cuenta siempre hacia la portería que ataca quien saca la falta: «campo propio» es el del que la saca, no el nuestro."
     ],
     "faltas": [
       {
@@ -70,119 +410,15 @@ export const PARTIDOS: PartidoFaltas[] = [
         "zona": "medio campo",
         "carril": "derecha",
         "distancia": "lejana",
-        "entre": 8,
-        "nota": "Falta del Castilla al cortar la salida del Sant Andreu junto a la banda. Saque en corto y sigue el juego.",
-        "minuto": ""
-      },
-      {
-        "clip": "def-c02",
-        "lado": "defensivo",
-        "zona": "medio campo",
-        "carril": "centro",
-        "distancia": "lejana",
-        "entre": 6,
-        "nota": "Entrada del Castilla en el círculo central. El jugador del Sant Andreu queda en el suelo y el saque en largo acaba con el balón en nuestra área.",
-        "minuto": ""
-      },
-      {
-        "clip": "def-c03",
-        "lado": "defensivo",
-        "zona": "medio campo",
-        "carril": "centro",
-        "distancia": "media",
-        "entre": 2,
-        "nota": "Falta del Castilla para cortar una salida rápida del Sant Andreu con la defensa muy abierta. El saque llega al área y se despeja.",
-        "minuto": ""
-      },
-      {
-        "clip": "def-c04",
-        "lado": "defensivo",
-        "zona": "medio campo",
-        "carril": "derecha",
-        "distancia": "lejana",
-        "entre": 6,
-        "nota": "Falta del Castilla sobre un jugador del Sant Andreu en el medio campo, por su carril derecho. Saque en corto hacia la banda y sigue el juego.",
-        "minuto": ""
-      },
-      {
-        "clip": "def-c05",
-        "lado": "defensivo",
-        "zona": "campo propio",
-        "carril": "derecha",
-        "distancia": "lejana",
-        "entre": 9,
-        "nota": "Falta del Castilla sobre un jugador del Sant Andreu junto a la banda, cerca de su propia área. Saque en largo y sigue el juego sin peligro.",
-        "minuto": ""
-      },
-      {
-        "clip": "def-c06",
-        "lado": "defensivo",
-        "zona": "campo rival",
-        "carril": "centro",
-        "distancia": "frontal",
-        "entre": 5,
-        "nota": "Derriban a un jugador del Sant Andreu en la frontal de nuestra área tras una contra. Falta directa, con barrera.",
-        "minuto": ""
-      },
-      {
-        "clip": "def-c07",
-        "lado": "defensivo",
-        "zona": "medio campo",
-        "carril": "izquierda",
-        "distancia": "media",
-        "entre": 5,
-        "nota": "Falta sobre un jugador del Sant Andreu pegado a la banda, pasado el medio campo. Queda tendido y hay parada larga por asistencia.",
-        "minuto": ""
-      },
-      {
-        "clip": "def-c08",
-        "lado": "defensivo",
-        "zona": "campo rival",
-        "carril": "izquierda",
-        "distancia": "media",
-        "entre": 5,
-        "nota": "Derriban a un jugador del Sant Andreu a unos 25 metros, por su carril izquierdo. Saque muy retrasado que se cuelga al área y acaba en barullo delante del portero.",
-        "minuto": ""
-      },
-      {
-        "clip": "def-c09",
-        "lado": "defensivo",
-        "zona": "medio campo",
-        "carril": "izquierda",
-        "distancia": "lejana",
-        "entre": 8,
-        "nota": "Falta del Castilla sobre el que sacaba el balón junto a la banda. Saque en largo al área y despeje.",
-        "minuto": ""
-      },
-      {
-        "clip": "def-c10",
-        "lado": "defensivo",
-        "zona": "medio campo",
-        "carril": "centro",
-        "distancia": "lejana",
-        "entre": 9,
-        "nota": "Falta junto al círculo central. Parada muy larga con cambios y saque en largo al área del Castilla.",
-        "minuto": ""
-      },
-      {
-        "clip": "def-c11",
-        "lado": "defensivo",
-        "zona": "medio campo",
-        "carril": "centro",
-        "distancia": "lejana",
-        "entre": 4,
-        "nota": "Falta en el círculo central con el Castilla muy adelantado. Parada larga por asistencia y saque en corto.",
-        "minuto": ""
-      },
-      {
-        "clip": "def-c12",
-        "lado": "defensivo",
-        "zona": "medio campo",
-        "carril": "derecha",
-        "distancia": "lejana",
-        "entre": 5,
-        "nota": "Falta en la banda derecha del Sant Andreu con el Castilla presionando arriba. Parada larga y saque en corto.",
-        "minuto": ""
+        "entre": null,
+        "nota": "T1 min 3. Falta de Mario Rivas (del Castilla) sobre Jaume Tovar. El juego está en torno al círculo central pero no se distingue la falta ni el saque.",
+        "minuto": "2'07\" (táctica 2:41)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJjMTJkYWZjMTkzYTQzY2E2MDI4MTY=",
+          "seg": 125
+        },
+        "jugador": "Mario Rivas",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/sant-andreu-def-125.mp4"
       },
       {
         "clip": "of-c01",
@@ -190,9 +426,63 @@ export const PARTIDOS: PartidoFaltas[] = [
         "zona": "campo propio",
         "carril": "izquierda",
         "distancia": "lejana",
-        "entre": 10,
-        "nota": "Falta del Sant Andreu sobre un jugador del Castilla al borde de nuestra área. El saque va en largo por banda hasta el medio campo.",
-        "minuto": ""
+        "entre": null,
+        "nota": "T1 min 4. Falta de Jaume Tovar (del UE Sant Andreu) sobre Mario Rivas. Se saca pegado a la banda izquierda a la altura de nuestra área y el Castilla sigue la jugada en corto por fuera.",
+        "minuto": "3'24\" (táctica 3:58)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJjMTJkYWZjMTkzYTQzY2E2MDI4MTY=",
+          "seg": 202
+        },
+        "jugador": "Mario Rivas",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/sant-andreu-of-202.mp4"
+      },
+      {
+        "clip": "def-c02",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T1 min 4. Falta de Pol Fortuny (del Castilla) sobre Pau Darbra. El juego está en el círculo central pero no se distingue la falta ni el saque.",
+        "minuto": "3'56\" (táctica 4:30)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJjMTJkYWZjMTkzYTQzY2E2MDI4MTY=",
+          "seg": 234
+        },
+        "jugador": "Pol Fortuny",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/sant-andreu-def-234.mp4"
+      },
+      {
+        "clip": "def-c03",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T1 min 6. Falta de Oscar Naasei (del Castilla) sobre Jaume Tovar. Amarilla. Corrillo en el centro justo dentro de nuestro campo y el juego se reanuda en corto por el centro.",
+        "minuto": "5'37\" (táctica 6:12)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJjMTJkYWZjMTkzYTQzY2E2MDI4MTY=",
+          "seg": 335
+        },
+        "jugador": "Oscar Naasei",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/sant-andreu-def-335.mp4"
+      },
+      {
+        "clip": "def-c04",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T1 min 8. Falta de Martínez (del Castilla) sobre Alberto García. El juego está en el medio campo pero no se distingue la falta ni el saque.",
+        "minuto": "7'08\" (táctica 7:42)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJjMTJkYWZjMTkzYTQzY2E2MDI4MTY=",
+          "seg": 426
+        },
+        "jugador": "Martínez",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/sant-andreu-def-426.mp4"
       },
       {
         "clip": "of-c02",
@@ -200,19 +490,110 @@ export const PARTIDOS: PartidoFaltas[] = [
         "zona": "campo propio",
         "carril": "centro",
         "distancia": "lejana",
-        "entre": 9,
-        "nota": "Dos jugadores del Sant Andreu agarran a nuestro jugador en la salida de balón. El saque se juega en corto para seguir jugando.",
-        "minuto": ""
+        "entre": null,
+        "nota": "T1 min 11. Falta de Alberto García (del UE Sant Andreu) sobre Thiago Pitarch. Amarilla. El juego se mueve en nuestro campo por el centro pero no se distingue el punto exacto de la falta ni el saque.",
+        "minuto": "10'32\" (táctica 11:07)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJjMTJkYWZjMTkzYTQzY2E2MDI4MTY=",
+          "seg": 630
+        },
+        "jugador": "Thiago Pitarch",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/sant-andreu-of-630.mp4"
+      },
+      {
+        "clip": "def-c05",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T1 min 13. Falta de Martínez (del Castilla) sobre Jordi Méndez. Se saca por el costado derecho del Sant Andreu junto a la línea de medio campo y el juego sigue en corto.",
+        "minuto": "12'31\" (táctica 13:06)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJjMTJkYWZjMTkzYTQzY2E2MDI4MTY=",
+          "seg": 749
+        },
+        "jugador": "Martínez",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/sant-andreu-def-749.mp4"
+      },
+      {
+        "clip": "def-c06",
+        "lado": "defensivo",
+        "zona": "campo propio",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T1 min 28. Falta de Rachad Fettal (del Castilla) sobre Javi Gómez. El juego está en el campo del Sant Andreu pero no se distingue la falta ni el saque.",
+        "minuto": "27'48\" (táctica 28:23)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJjMTJkYWZjMTkzYTQzY2E2MDI4MTY=",
+          "seg": 1666
+        },
+        "jugador": "Rachad Fettal",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/sant-andreu-def-1666.mp4"
+      },
+      {
+        "clip": "def-c07",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T1 min 36. Falta de Thiago Pitarch (del Castilla) sobre Alexis García. Corrillo en el costado derecho del Sant Andreu algo por encima del medio campo y se reanuda en corto por esa banda.",
+        "minuto": "35'38\" (táctica 35:14)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJjMTJkYWZjMTkzYTQzY2E2MDI4MTY=",
+          "seg": 2136
+        },
+        "jugador": "Thiago Pitarch",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/sant-andreu-def-2136.mp4"
+      },
+      {
+        "clip": "def-c08",
+        "lado": "defensivo",
+        "zona": "campo rival",
+        "carril": "centro",
+        "distancia": "frontal",
+        "entre": null,
+        "nota": "T1 min 38. Falta de Pol Fortuny (del Castilla) sobre Alexis García. Se ve un choque en la frontal de nuestra área pero no se ve cómo se saca la falta.",
+        "minuto": "37'53\" (táctica 37:29)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJjMTJkYWZjMTkzYTQzY2E2MDI4MTY=",
+          "seg": 2271
+        },
+        "jugador": "Pol Fortuny",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/sant-andreu-def-2271.mp4"
       },
       {
         "clip": "of-c03",
         "lado": "ofensivo",
         "zona": "medio campo",
-        "carril": "centro",
+        "carril": "izquierda",
         "distancia": "lejana",
-        "entre": 10,
-        "nota": "Cortan a nuestro conductor dentro del círculo central. El balón queda parado en la línea de medio campo.",
-        "minuto": ""
+        "entre": null,
+        "nota": "T2 min 46. Mano de Alberto García (del UE Sant Andreu). Se pone en juego por la izquierda en nuestro campo y el Castilla sale en corto para seguir la posesión.",
+        "minuto": "45'48\" (táctica 48:59)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJjMTJkYWZjMTkzYTQzY2E2MDI4MTY=",
+          "seg": 2929
+        },
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/sant-andreu-of-2929.mp4"
+      },
+      {
+        "clip": "def-c09",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2 min 58. Falta de Jesús Fortea (del Castilla) sobre Marc Delgado. Jugador en el suelo en el costado izquierdo del Sant Andreu poco después del medio campo en nuestro campo y lejos de nuestra área, se reanuda en corto por la banda.",
+        "minuto": "57'42\" (táctica 60:52)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJjMTJkYWZjMTkzYTQzY2E2MDI4MTY=",
+          "seg": 3643
+        },
+        "jugador": "Jesús Fortea",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/sant-andreu-def-3643.mp4"
       },
       {
         "clip": "of-c04",
@@ -220,29 +601,63 @@ export const PARTIDOS: PartidoFaltas[] = [
         "zona": "medio campo",
         "carril": "izquierda",
         "distancia": "lejana",
-        "entre": 10,
-        "nota": "Choque con un jugador del Sant Andreu en la banda izquierda, justo en la línea de medio campo. El saque se juega en corto hacia dentro.",
-        "minuto": ""
+        "entre": null,
+        "nota": "T2 min 59. Falta de Alexis García (del UE Sant Andreu) sobre Álvaro Leiva. La falta es en la banda izquierda a la altura del medio campo y se saca en corto para seguir jugando.",
+        "minuto": "58'42\" (táctica 61:53)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJjMTJkYWZjMTkzYTQzY2E2MDI4MTY=",
+          "seg": 3703
+        },
+        "jugador": "Álvaro Leiva",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/sant-andreu-of-3703.mp4"
       },
       {
         "clip": "of-c05",
         "lado": "ofensivo",
         "zona": "medio campo",
         "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2 min 60. Falta de Andreu Hernández (del UE Sant Andreu) sobre Thiago Pitarch. Amarilla. Jugador en el suelo en la izquierda junto a la línea de medio campo y el juego se reanuda en corto.",
+        "minuto": "59'13\" (táctica 62:24)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJjMTJkYWZjMTkzYTQzY2E2MDI4MTY=",
+          "seg": 3734
+        },
+        "jugador": "Thiago Pitarch",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/sant-andreu-of-3734.mp4"
+      },
+      {
+        "clip": "def-c10",
+        "lado": "defensivo",
+        "zona": "campo rival",
+        "carril": "izquierda",
         "distancia": "media",
-        "entre": 10,
-        "nota": "Falta sobre nuestro jugador en la línea de medio campo, por la izquierda. Se saca en corto hacia atrás y el Castilla reinicia la posesión sin peligro.",
-        "minuto": ""
+        "entre": null,
+        "nota": "T2 min 61. Falta de Pol Fortuny (del Castilla) sobre Alexis García. Se saca desde el costado izquierdo del Sant Andreu junto a nuestra área con los jugadores agrupados para un balón al área.",
+        "minuto": "60'19\" (táctica 63:29)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJjMTJkYWZjMTkzYTQzY2E2MDI4MTY=",
+          "seg": 3800
+        },
+        "jugador": "Pol Fortuny",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/sant-andreu-def-3800.mp4"
       },
       {
         "clip": "of-c06",
         "lado": "ofensivo",
-        "zona": "medio campo",
-        "carril": "derecha",
-        "distancia": "media",
-        "entre": 8,
-        "nota": "Falta pegada a la banda derecha, ya en campo del Sant Andreu. Nuestro jugador queda en el suelo, se saca en corto y el Castilla sigue atacando por ese lado.",
-        "minuto": ""
+        "zona": "campo propio",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2 min 62. Falta de Andreu Hernández (del UE Sant Andreu) sobre Diego Aguado. Es una falta en ataque del Sant Andreu dentro de nuestra área en un balón colgado y el Castilla la saca desde su área para salir.",
+        "minuto": "61'58\" (táctica 65:09)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJjMTJkYWZjMTkzYTQzY2E2MDI4MTY=",
+          "seg": 3899
+        },
+        "jugador": "Diego Aguado",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/sant-andreu-of-3899.mp4"
       },
       {
         "clip": "of-c07",
@@ -250,49 +665,157 @@ export const PARTIDOS: PartidoFaltas[] = [
         "zona": "medio campo",
         "carril": "derecha",
         "distancia": "lejana",
-        "entre": 11,
-        "nota": "Entrada sobre nuestro conductor justo por detrás de la línea de medio campo, en campo propio, con todo el Sant Andreu por detrás del balón.",
-        "minuto": ""
+        "entre": null,
+        "nota": "T2 min 67. Falta de Jaume Tovar (del UE Sant Andreu) sobre Jesús Fortea. Jugador en el suelo junto a la banda derecha a la altura del medio campo y se reanuda en corto por la derecha.",
+        "minuto": "66'07\" (táctica 69:18)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJjMTJkYWZjMTkzYTQzY2E2MDI4MTY=",
+          "seg": 4148
+        },
+        "jugador": "Jesús Fortea",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/sant-andreu-of-4148.mp4"
       },
       {
         "clip": "of-c08",
         "lado": "ofensivo",
-        "zona": "campo rival",
-        "carril": "derecha",
-        "distancia": "frontal",
-        "entre": 2,
-        "nota": "Tras una parada larga el Castilla gana la espalda por la derecha y derriban a nuestro jugador junto al vértice del área, con sólo el portero y el defensa que entra por detrás del balón.",
-        "minuto": ""
+        "zona": "medio campo",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2 min 69. Falta de Sergi Serrano (del UE Sant Andreu) sobre Mario Rivas. El juego está en el medio campo pero no se distingue la falta ni cómo se saca.",
+        "minuto": "68'20\" (táctica 71:30)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJjMTJkYWZjMTkzYTQzY2E2MDI4MTY=",
+          "seg": 4281
+        },
+        "jugador": "Mario Rivas",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/sant-andreu-of-4281.mp4"
       },
       {
         "clip": "of-c09",
         "lado": "ofensivo",
-        "zona": "campo rival",
+        "zona": "campo propio",
         "carril": "derecha",
-        "distancia": "media",
-        "entre": 6,
-        "nota": "Falta sobre nuestro atacante junto a la línea de fondo. El centro posterior lo atrapa el portero del Sant Andreu en el área pequeña.",
-        "minuto": ""
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2 min 71. Mano de Carlos Blanco (del UE Sant Andreu). El juego está en nuestro campo por la derecha pero no se distingue la mano ni el saque.",
+        "minuto": "70'36\" (táctica 73:47)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJjMTJkYWZjMTkzYTQzY2E2MDI4MTY=",
+          "seg": 4417
+        },
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/sant-andreu-of-4417.mp4"
       },
       {
         "clip": "of-c10",
         "lado": "ofensivo",
         "zona": "campo rival",
-        "carril": "izquierda",
+        "carril": "derecha",
         "distancia": "media",
-        "entre": 9,
-        "nota": "Entrada sobre nuestro atacante en la esquina del área. El centro posterior lo despeja la defensa del Sant Andreu, con el bloque muy replegado.",
-        "minuto": ""
+        "entre": null,
+        "nota": "T2 min 72. Falta de Nil Jiménez (del UE Sant Andreu) sobre Dani Meso. Amarilla. Jugador en el suelo en la derecha cerca del área del Sant Andreu y los jugadores se juntan para el saque lateral al área.",
+        "minuto": "71'31\" (táctica 74:42)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJjMTJkYWZjMTkzYTQzY2E2MDI4MTY=",
+          "seg": 4472
+        },
+        "jugador": "Dani Meso",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/sant-andreu-of-4472.mp4"
       },
       {
         "clip": "of-c11",
         "lado": "ofensivo",
-        "zona": "campo rival",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2 min 75. Falta de Jordi Méndez (del UE Sant Andreu) sobre Álvaro Leiva. La falta es en el campo del Sant Andreu por la izquierda y tras el saque el juego acaba junto al área rival por ese costado.",
+        "minuto": "75'02\" (táctica 78:12)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJjMTJkYWZjMTkzYTQzY2E2MDI4MTY=",
+          "seg": 4683
+        },
+        "jugador": "Álvaro Leiva"
+      },
+      {
+        "clip": "def-c11",
+        "lado": "defensivo",
+        "zona": "campo propio",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2 min 82. Falta de Dani Meso (del Castilla) sobre Nil Jiménez. Amarilla. Jugador en el suelo junto a la banda izquierda del Sant Andreu en su campo y el juego se reanuda en corto.",
+        "minuto": "81'16\" (táctica 83:41)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJjMTJkYWZjMTkzYTQzY2E2MDI4MTY=",
+          "seg": 5057
+        },
+        "jugador": "Dani Meso",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/sant-andreu-def-5057.mp4"
+      },
+      {
+        "clip": "def-c12",
+        "lado": "defensivo",
+        "zona": "medio campo",
         "carril": "centro",
-        "distancia": "frontal",
-        "entre": 2,
-        "nota": "Agarrón lejos del balón dentro del área, con nuestro atacante dolorido y sólo el portero y su par por delante.",
-        "minuto": ""
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2 min 85. Falta de Dani Meso (del Castilla) sobre Sergi Serrano. El juego está en el círculo central pero no se distingue la falta ni el saque.",
+        "minuto": "84'30\" (táctica 86:55)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJjMTJkYWZjMTkzYTQzY2E2MDI4MTY=",
+          "seg": 5251
+        },
+        "jugador": "Dani Meso",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/sant-andreu-def-5251.mp4"
+      },
+      {
+        "clip": "of-c12",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2 min 88. Falta de Andreu Hernández (del UE Sant Andreu) sobre Diego Aguado. Es una falta en ataque del Sant Andreu en nuestra área por la derecha tras un balón colgado y el Castilla la saca para salir.",
+        "minuto": "87'36\" (táctica 90:02)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJjMTJkYWZjMTkzYTQzY2E2MDI4MTY=",
+          "seg": 5437
+        },
+        "jugador": "Diego Aguado",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/sant-andreu-of-5437.mp4"
+      },
+      {
+        "clip": "def-c13",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2 min 90. Falta de Martínez (del Castilla) sobre Álex Bermejo. Corrillo con protestas en el círculo central y el juego se reanuda en corto por el centro.",
+        "minuto": "89'33\" (táctica 91:58)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJjMTJkYWZjMTkzYTQzY2E2MDI4MTY=",
+          "seg": 5554
+        },
+        "jugador": "Martínez",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/sant-andreu-def-5554.mp4"
+      },
+      {
+        "clip": "def-c14",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2 min 92. Falta de Álvaro Leiva (del Castilla) sobre Álex Bermejo. Amarilla. Corrillo en el costado derecho del Sant Andreu a la altura del medio campo y se reanuda en corto.",
+        "minuto": "90+1'44\" (táctica 94:10)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJjMTJkYWZjMTkzYTQzY2E2MDI4MTY=",
+          "seg": 5685
+        },
+        "jugador": "Álvaro Leiva",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/sant-andreu-def-5685.mp4"
       }
     ]
   },
@@ -320,7 +843,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 1,
         "nota": "T1, min 7. T1, min 7. Es PENALTI. Tras el cabezazo y la parada de Bañuz el balón queda suelto junto al segundo palo y en el rechace el portero del Alcorcón choca con Yáñez sobre la línea de gol a la derecha de la portería (en la táctica ambos quedan en el suelo pegados a la línea). El choque es en la propia línea así que entre el punto y la portería sólo está Bañuz (el resto del Alcorcón está a la altura del balón o por delante) y en el lanzamiento también queda él solo. El Alcorcón rodea al árbitro protestando. Hudl lo codifica como falta normal. Vídeo 7:22. Entre: 1 — contado en la táctica segundo 452,8-453,2 (el choque es hacia 453,2): Bañuz se tira a los pies de Yáñez sobre la línea de gol unos 4-5 m a la derecha del palo derecho. Sólo cuenta él. Dudoso: un jugador del Alcorcón está de pie junto a ese palo pisando la línea de gol (entre el punto y la portería de lado pero a la misma profundidad que el balón) y no se cuenta. Si se contara serían 2. Otro del Alcorcón a 1-2 m de la línea queda por delante del balón. Vídeo 7:22.",
         "minuto": "7'25\" (táctica 7:32)",
-        "jugador": "Daniel Yáñez"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJhODQxZGUwNTMyZTRkMThlNWQ2Y2Y=",
+          "seg": 443
+        },
+        "jugador": "Daniel Yáñez",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/alcorcon-of-443.mp4"
       },
       {
         "clip": "def-c01",
@@ -331,7 +859,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 10,
         "nota": "T1, min 18. Tras el centro de Fortea Joan Martínez choca en el juego aéreo con Mayorga en el vértice del área pequeña del Alcorcón y Mayorga queda en el suelo. El árbitro deja seguir (remate de Leiva y el portero se queda el balón) y luego señala falta a favor del Alcorcón. En el choque los otros 9 jugadores de campo del Castilla y su portero quedan todos entre el punto y su portería. El Alcorcón saca desde su área con el Castilla lejos. Vídeo 18:03.",
         "minuto": "18'05\" (táctica 18:12)",
-        "jugador": "Joan Martínez"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJhODQxZGUwNTMyZTRkMThlNWQ2Y2Y=",
+          "seg": 1083
+        },
+        "jugador": "Joan Martínez",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/alcorcon-def-1083.mp4"
       },
       {
         "clip": "of-c02",
@@ -342,7 +875,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 11,
         "nota": "T1, min 20. Cuesta derriba a Martínez pegado a la banda derecha del Castilla (la de los banquillos) a la altura del borde de nuestra área. En la táctica todo el Alcorcón (los 10 de campo más el portero) queda por delante del balón hacia su portería. Un jugador del Castilla coloca el balón sobre la línea de banda y al acabar las imágenes aún no ha sacado con el Alcorcón replegando sin presionar. Vídeo 20:55.",
         "minuto": "20'57\" (táctica 21:04)",
-        "jugador": "Martínez"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJhODQxZGUwNTMyZTRkMThlNWQ2Y2Y=",
+          "seg": 1255
+        },
+        "jugador": "Martínez",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/alcorcon-of-1255.mp4"
       },
       {
         "clip": "of-c03",
@@ -353,6 +891,10 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 10,
         "nota": "T1, min 34. Segunda pasada con táctica (falta encontrada en el segundo 2072-2073 de la táctica, desfase unos -22 s con Hudl 34:54). Davo entra a Joan Martínez en nuestro campo pegado a la banda de la tribuna, a unos 25-30 m de nuestra portería y lejos del área rival. Entre: los otros nueve de campo del Alcorcón y su portero están todos más cerca de su portería que el balón (Davo queda a la altura del punto y no se cuenta). El Castilla la saca rápido y en corto por la banda izquierda y sigue tocando en su campo. Vídeo 34:54.",
         "minuto": "34'57\" (táctica 34:33)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJhODQxZGUwNTMyZTRkMThlNWQ2Y2Y=",
+          "seg": 2095
+        },
         "jugador": "Joan Martínez"
       },
       {
@@ -364,7 +906,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 7,
         "nota": "T1, min 35. Segunda pasada con táctica (falta en el segundo 2100 de la táctica, desfase -22 s con Hudl 35:22). Ouhdadi derriba a Fortea unos 5-8 m dentro de nuestro campo pegado a la banda de los banquillos. Entre: seis de campo del Alcorcón más su portero por delante del balón hacia su portería (8 si se cuenta a Ouhdadi, que queda a la altura del punto) y dos más quedan por detrás del balón. Fortea tarda en levantarse y el Castilla la saca en corto hacia dentro unos 6-7 s después y circula hacia el centro y la izquierda en su campo. Vídeo 35:22.",
         "minuto": "35'25\" (táctica 35:01)",
-        "jugador": "Jesús Fortea"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJhODQxZGUwNTMyZTRkMThlNWQ2Y2Y=",
+          "seg": 2123
+        },
+        "jugador": "Jesús Fortea",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/alcorcon-of-2123.mp4"
       },
       {
         "clip": "def-c02",
@@ -375,7 +922,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 4,
         "nota": "T1, min 40. Segunda pasada con táctica (falta en el segundo 2381-2382 de la táctica, desfase -23 s con Hudl 40:05). Pol Fortuny derriba a Ouhdadi justo sobre la línea de medio campo pegado a la banda de los banquillos (no la de la tribuna como decía la primera pasada) y la izquierda del Alcorcón atacando. Entre: tres jugadores de campo del Castilla más Mestre por detrás del balón (Fortuny queda a la altura del punto y no se cuenta) y el resto del equipo está por encima. En los 13 s siguientes el Alcorcón aún no la ha sacado y los jugadores se juntan junto a la banda mientras el Castilla se reordena. Vídeo 40:05.",
         "minuto": "40'07\" (táctica 39:44)",
-        "jugador": "Pol Fortuny"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJhODQxZGUwNTMyZTRkMThlNWQ2Y2Y=",
+          "seg": 2405
+        },
+        "jugador": "Pol Fortuny",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/alcorcon-def-2405.mp4"
       },
       {
         "clip": "def-c03",
@@ -386,7 +938,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 9,
         "nota": "T1, min 42. Segunda pasada con táctica (falta en el segundo 2538 de la táctica, desfase -24 s con Hudl 42:42). Leiva entra a Mayorga unos 15 m dentro del campo del Alcorcón en el carril de la tribuna (derecha del Alcorcón atacando) entre banda y centro. Entre: ocho de campo del Castilla más Mestre están más cerca de su portería que el balón (uno de ellos apenas 2-3 m por detrás) y sólo Leiva y otro compañero quedan a su altura o por delante. Tras la entrada el balón sigue un momento en juego por la banda de la tribuna (la ventaja que se ve en la TV) y el saque del Alcorcón no se distingue antes de acabar el corte. Vídeo 42:42.",
         "minuto": "42'44\" (táctica 42:21)",
-        "jugador": "Álvaro Leiva"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJhODQxZGUwNTMyZTRkMThlNWQ2Y2Y=",
+          "seg": 2562
+        },
+        "jugador": "Álvaro Leiva",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/alcorcon-def-2562.mp4"
       },
       {
         "clip": "def-c04",
@@ -397,7 +954,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 7,
         "nota": "T2, min 45. Joan Martínez choca con Esteban Aparicio unos 5-8 m dentro del campo del Castilla en el carril de la banda de los banquillos (izquierda de la imagen y derecha del Alcorcón) y el del Alcorcón cae (táctica 3131-3132). Más cerca de la portería del Castilla que el balón quedan cuatro jugadores claramente atrasados y dos casi a la altura pero algo por detrás más el portero (7). El Castilla se reordena en bloque medio y a 3146 la falta aún no se ha sacado. Segundo de táctica 3131. Vídeo 50:59.",
         "minuto": "45'52\" (táctica 52:16)",
-        "jugador": "Joan Martínez"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJhODQxZGUwNTMyZTRkMThlNWQ2Y2Y=",
+          "seg": 3059
+        },
+        "jugador": "Joan Martínez",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/alcorcon-def-3059.mp4"
       },
       {
         "clip": "of-c05",
@@ -408,7 +970,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 8,
         "nota": "T2, min 46. Lancho entra por detrás a Pitarch pegado a la banda de la derecha del Castilla en su propio campo a unos 12-15 m del medio campo (táctica 3183). Entre el balón y la portería del Alcorcón quedan 7 de campo y el portero con el equipo replegado en bloque medio alrededor del medio campo (un 8º casi a la altura del balón y otro por detrás). El Castilla la saca rápido y corto desde la banda (3188-3189) con un pase hacia dentro y conduce hacia el centro sin presión. Vídeo 51:49.",
         "minuto": "46'42\" (táctica 53:06)",
-        "jugador": "Thiago Pitarch"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJhODQxZGUwNTMyZTRkMThlNWQ2Y2Y=",
+          "seg": 3109
+        },
+        "jugador": "Thiago Pitarch",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/alcorcon-of-3109.mp4"
       },
       {
         "clip": "of-c06",
@@ -419,7 +986,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 10,
         "nota": "T2, min 48. Tras el saque de banda de Irurita Davo y Pitarch caen juntos pegados a la banda izquierda del Castilla a la altura del borde de su área (táctica 3319). Todo el Alcorcón salvo Davo queda por delante del balón hacia su portería: 8 de campo en plano más uno por encima del medio campo (se ve a los 10 a 3324) y el portero fuera de plano arriba. El Castilla la saca corto desde la banda (3324-3325) y conduce hacia dentro y hacia atrás mientras el Alcorcón repliega hacia el medio campo. Vídeo 54:06.",
         "minuto": "48'59\" (táctica 55:23)",
-        "jugador": "Thiago Pitarch"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJhODQxZGUwNTMyZTRkMThlNWQ2Y2Y=",
+          "seg": 3246
+        },
+        "jugador": "Thiago Pitarch",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/alcorcon-of-3246.mp4"
       },
       {
         "clip": "of-c07",
@@ -430,7 +1002,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 9,
         "nota": "T2, min 49. Ouhdadi derriba por detrás a Yáñez cuando conduce tras el robo por el carril derecho del Castilla a unos 20 m del medio campo y unos 15 m del borde de su área (táctica 3368). Por delante del balón quedan 8 del Alcorcón y su portero (fuera de plano arriba) con Ouhdadi encima del balón y otro por detrás. Un jugador del Alcorcón aleja el balón hacia la portería del Castilla (3370) y Mestre lo recoge y reanuda él desde su área con un envío largo hacia la izquierda (3378-3379) con el Alcorcón ya adelantado hasta el medio campo. Vídeo 54:53.",
         "minuto": "49'46\" (táctica 56:10)",
-        "jugador": "Daniel Yáñez"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJhODQxZGUwNTMyZTRkMThlNWQ2Y2Y=",
+          "seg": 3293
+        },
+        "jugador": "Daniel Yáñez",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/alcorcon-of-3293.mp4"
       },
       {
         "clip": "of-c08",
@@ -441,7 +1018,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 8,
         "nota": "T2, min 50. Davo derriba a Fortea cuando conduce por el carril derecho del Castilla a unos 18-20 m del medio campo con el 11 del Alcorcón también encima (táctica 3392). Por delante del balón quedan 7 de campo del Alcorcón y su portero y además Davo y el otro presionador pegados al balón (no contados) con uno solo por detrás. El balón rueda hacia atrás y se coloca un poco más abajo (3395) y el Castilla la saca corto hacia dentro (3396) para que el central conduzca ante un Alcorcón en bloque medio. Vídeo 55:17.",
         "minuto": "50'11\" (táctica 56:34)",
-        "jugador": "Jesús Fortea"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJhODQxZGUwNTMyZTRkMThlNWQ2Y2Y=",
+          "seg": 3318
+        },
+        "jugador": "Jesús Fortea",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/alcorcon-of-3318.mp4"
       },
       {
         "clip": "def-c05",
@@ -452,7 +1034,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 7,
         "nota": "T2, min 50. Pitarch derriba a Irurita a unos 25-30 m de la portería del Alcorcón algo a la izquierda del eje en la imagen justo cuando el Castilla estaba en ataque (táctica 3423-3424 y el del Alcorcón queda en el suelo a 3424). Por detrás del balón seis jugadores del Castilla más el portero (7) con Pitarch a la altura del balón. Amarilla y parón y a 3436 aún no se ha sacado. Segundo de táctica 3423. Vídeo 55:49.",
         "minuto": "50'43\" (táctica 57:06)",
-        "jugador": "Thiago Pitarch"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJhODQxZGUwNTMyZTRkMThlNWQ2Y2Y=",
+          "seg": 3350
+        },
+        "jugador": "Thiago Pitarch",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/alcorcon-def-3350.mp4"
       },
       {
         "clip": "def-c06",
@@ -463,7 +1050,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 1,
         "nota": "T2, min 52. T2, min 52. Mano de Naasei según Hudl en la carrera del Alcorcón hacia el banderín del Castilla por la banda de la derecha de la imagen (izquierda del Alcorcón) y el balón acaba fuera junto al córner (táctica 3520-3522 y los del Alcorcón reclaman con los brazos en alto a 3522). La mano no se distingue. El árbitro marca el punto fuera del área a la altura de su línea frontal o algo más adelantado pegado a la banda. Falta lateral: en profundidad sólo el portero está más cerca de su portería que el balón (el resto del Castilla a la altura del balón o por delante y un jugador a medio metro). A 3533 aún no se ha sacado y un jugador del Castilla va a por el balón. Segundo de táctica 3520. Vídeo 57:27. Entre: 1 — contado en la táctica segundo 3522,2 con zoom (el balón rebota en Naasei hacia 3522,1-3522,3 y sale hacia el córner): Naasei está fuera del área pegado a la banda a unos 10 m de su línea de fondo y sólo el portero del Castilla está más cerca de su línea de fondo. Dudoso no contado: otro del Castilla junto a Naasei a un metro por fuera. En la TV (52:23) se ve el rebote junto a esos dos del Castilla pero no enseña al portero. Ojo: si el punto de la falta fuera la altura de la línea frontal del área como decía la primera pasada entrarían más jugadores del Castilla que están dentro del área. Vídeo 57:27.",
         "minuto": "52'21\" (táctica 58:44)",
-        "jugador": "Oscar Naasei"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJhODQxZGUwNTMyZTRkMThlNWQ2Y2Y=",
+          "seg": 3448
+        },
+        "jugador": "Oscar Naasei",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/alcorcon-def-3448.mp4"
       },
       {
         "clip": "of-c09",
@@ -474,7 +1066,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 5,
         "nota": "T2, min 53. Pablo Rivera derriba a Álvaro Leiva junto a la banda de los banquillos (izquierda del Castilla) a unos 12 m del medio campo en campo propio tras el saque de puerta (táctica 3590-3591). El Alcorcón estaba presionando arriba con 5 jugadores por detrás del balón así que entre el punto y su portería solo quedan 4 de campo y el portero. El Castilla la juega rápido y corto hacia atrás pegado a la banda (3593-3595) y sale conduciendo hacia dentro. Vídeo 58:35.",
         "minuto": "53'29\" (táctica 59:52)",
-        "jugador": "Álvaro Leiva"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJhODQxZGUwNTMyZTRkMThlNWQ2Y2Y=",
+          "seg": 3516
+        },
+        "jugador": "Álvaro Leiva",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/alcorcon-of-3516.mp4"
       },
       {
         "clip": "of-c10",
@@ -485,7 +1082,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 9,
         "nota": "T2, min 54. Miguel Berlanga (Alcorcón) llega tarde al balón dividido y derriba a Joan Martínez (Castilla) a unos 12 m del medio campo en campo propio y cerca de la banda de los banquillos. Por delante del punto hacia la portería del Alcorcón quedan su portero y 8 de campo (uno más casi a la altura del balón). El Castilla recoge el balón y saca rápido a los 16 s con un pase horizontal hacia el centro. Táctica 3656 (falta) y 3672 (saque). Vídeo 59:41.",
         "minuto": "54'34\" (táctica 60:58)",
-        "jugador": "Joan Martínez"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJhODQxZGUwNTMyZTRkMThlNWQ2Y2Y=",
+          "seg": 3581
+        },
+        "jugador": "Joan Martínez",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/alcorcon-of-3581.mp4"
       },
       {
         "clip": "of-c11",
@@ -495,7 +1097,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "distancia": "lejana",
         "entre": 5,
         "nota": "T2, min 55. Mano de Miguel Cuesta (Alcorcón) al controlar el centro de Berlanga justo fuera de la esquina derecha del área del Castilla. El árbitro deja seguir y la pita después con las protestas del Castilla. En el instante sólo el portero y 4 del Alcorcón están más cerca de su portería que el balón y otro queda a la misma altura. El Castilla la saca desde el pico del área con un pase corto. Táctica 3702 (mano) y ~3715 (saque). Vídeo 60:27.",
-        "minuto": "55'20\" (táctica 61:44)"
+        "minuto": "55'20\" (táctica 61:44)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJhODQxZGUwNTMyZTRkMThlNWQ2Y2Y=",
+          "seg": 3627
+        },
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/alcorcon-of-3627.mp4"
       },
       {
         "clip": "def-c07",
@@ -506,7 +1113,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 8,
         "nota": "T2, min 57. Pitarch pelea por arriba con Mayorga unos 8-10 m dentro del campo del Alcorcón y el árbitro pita con el brazo en alto (táctica 3811-3812). En la táctica no está junto a la banda sino a unos 22-25 m de la banda de los banquillos así que va al carril central en el límite con el derecho del Alcorcón (Hudl también la pone en el centro). Más atrasados que el balón siete jugadores del Castilla más el portero (8) y dos más a la misma altura. El Alcorcón coloca el balón a 3816 junto al círculo central. Segundo de táctica 3811. Vídeo 62:16.",
         "minuto": "57'10\" (táctica 63:33)",
-        "jugador": "Thiago Pitarch"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJhODQxZGUwNTMyZTRkMThlNWQ2Y2Y=",
+          "seg": 3737
+        },
+        "jugador": "Thiago Pitarch",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/alcorcon-def-3737.mp4"
       },
       {
         "clip": "of-c12",
@@ -517,7 +1129,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 10,
         "nota": "T2, min 58. Davo (Alcorcón) derriba por detrás a Jesús Fortea (Castilla) pegado a la banda derecha a la altura del borde del área propia cuando salía conduciendo. Todo el Alcorcón salvo el propio Davo queda entre el punto y su portería (portero y 9 de campo). El Castilla saca en corto hacia atrás y dentro y abre luego hacia el centro. Táctica 3895 (falta) y ~3904 (saque). Vídeo 63:40.",
         "minuto": "58'34\" (táctica 64:57)",
-        "jugador": "Jesús Fortea"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJhODQxZGUwNTMyZTRkMThlNWQ2Y2Y=",
+          "seg": 3821
+        },
+        "jugador": "Jesús Fortea",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/alcorcon-of-3821.mp4"
       },
       {
         "clip": "of-c13",
@@ -528,7 +1145,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 8,
         "nota": "T2, min 65. Ouhdadi (Alcorcón) choca y derriba a Martínez (Castilla) cuando conducía a unos 12 m del medio campo en campo propio algo a la derecha del círculo central. El Alcorcón se queda la pelota un segundo y el árbitro pita y saca la amarilla. Por delante del punto el portero y 7 de campo (uno más casi a la altura). El balón se coloca con Naasei al lado y a los 13 s aún no se ha sacado. Táctica 4324 (falta). Vídeo 70:49.",
         "minuto": "65'42\" (táctica 72:06)",
-        "jugador": "Martínez"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJhODQxZGUwNTMyZTRkMThlNWQ2Y2Y=",
+          "seg": 4249
+        },
+        "jugador": "Martínez",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/alcorcon-of-4249.mp4"
       },
       {
         "clip": "of-c14",
@@ -539,7 +1161,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 4,
         "nota": "T2, min 68. Miguel Cuesta (Alcorcón) entra en plancha a Dani Meso (Castilla) pegado a la banda derecha unos 2 m dentro del campo del Alcorcón y acaba sentado en el suelo. Entre el punto y su portería sólo el portero y 3 de campo y otros 4 casi en línea con el balón. El Castilla saca rápido en corto hacia dentro y el receptor queda rodeado de rivales con el balón suelto hacia la izquierda. Táctica 4500 (falta) y ~4510 (saque). Vídeo 73:45.",
         "minuto": "68'38\" (táctica 75:02)",
-        "jugador": "Dani Meso"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJhODQxZGUwNTMyZTRkMThlNWQ2Y2Y=",
+          "seg": 4425
+        },
+        "jugador": "Dani Meso",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/alcorcon-of-4425.mp4"
       },
       {
         "clip": "def-c08",
@@ -550,7 +1177,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 7,
         "nota": "T2, min 71. Dani Meso derriba a Mayorga en la frontal del área del Alcorcón justo encima del semicírculo y algo a la derecha del eje en la imagen tras perder el Castilla el balón en una jugada que nace de un saque de puerta del Alcorcón (táctica 4673 y el del Alcorcón queda en el suelo a 4674). Se ven los diez de campo del Castilla: seis por detrás del balón y el portero fuera de plano pero necesariamente detrás (7). A 4687 aún no se ha sacado. Segundo de táctica 4673. Vídeo 76:39.",
         "minuto": "71'33\" (táctica 77:56)",
-        "jugador": "Dani Meso"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJhODQxZGUwNTMyZTRkMThlNWQ2Y2Y=",
+          "seg": 4600
+        },
+        "jugador": "Dani Meso",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/alcorcon-def-4600.mp4"
       },
       {
         "clip": "of-c15",
@@ -561,7 +1193,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 10,
         "nota": "T2, min 74. Irurita entra a Alexis Ciria cuando conduce pegado a la banda izquierda del Castilla unos 20 m pasado el medio campo y el balón queda suelto hacia atrás y hacia la banda (táctica 4871-4872 y a 4873 rueda suelto). Por delante del balón quedan los otros 9 de campo del Alcorcón y su portero (uno casi a la altura del balón) con el equipo replegado entre su área y la media luna. El Castilla la saca rápido y a 4879 ya hay juego dentro del área del Alcorcón pero el cambio de plano de la cámara no deja ver cómo se sacó. Desfase aquí +67/+68 (no +71). Vídeo 79:56.",
         "minuto": "74'50\" (táctica 81:13)",
-        "jugador": "Alexis Ciria"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJhODQxZGUwNTMyZTRkMThlNWQ2Y2Y=",
+          "seg": 4797
+        },
+        "jugador": "Alexis Ciria",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/alcorcon-of-4797.mp4"
       },
       {
         "clip": "def-c09",
@@ -572,7 +1209,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 4,
         "nota": "T2, min 78. Tras la falta botada por el Castilla desde la izquierda (táctica 5034-5035) el balón queda suelto en el borde del área del Alcorcón por el lado de la banda de los banquillos y Mario Rivas se enreda con Luis Vacas justo fuera de la línea del área (táctica 5039-5040 y el del Alcorcón en el suelo a 5041). El Castilla estaba volcado: más cerca de su portería que el balón sólo tres jugadores más el portero fuera de plano (4) y otro a la misma altura. Segundo de táctica 5039. Vídeo 83:22.",
         "minuto": "78'15\" (táctica 84:02)",
-        "jugador": "Mario Rivas"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJhODQxZGUwNTMyZTRkMThlNWQ2Y2Y=",
+          "seg": 5002
+        },
+        "jugador": "Mario Rivas",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/alcorcon-def-5002.mp4"
       },
       {
         "clip": "of-c16",
@@ -583,7 +1225,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 1,
         "nota": "T2, min 83. T2, min 83. Nicola derriba a Diego Aguado fuera del área por la banda izquierda del Castilla a la altura de la esquina del área y a unos 9-11 m de la línea de fondo (táctica 5361-5362 y a 5362 ya está en el suelo). Es una falta lateral para centrar: más cerca de la línea de fondo que el balón sólo hay dos de campo del Alcorcón y el portero y otro está casi en línea con el balón. El árbitro deja seguir un instante y la jugada se para con amarilla y a 5375 aún no se ha sacado. Vídeo 88:43. Entre: 1 — contado en la táctica segundo 5361,7 (el contacto) con zoom a 5361,5 y 5361,9: el contacto es fuera del área casi a la altura de la línea frontal del área (unos 15-16 m de la línea de fondo) y Aguado cae resbalando hasta unos 10-11 m. En ese instante sólo el portero está claramente más cerca de su línea de fondo. Dudosos no contados: un jugador del Alcorcón dentro del área apenas medio metro más adentro que el balón y que a 5361,9 ya está en línea con él y otro a la misma altura más al centro. Contado desde donde cae Aguado (5362) saldrían 3 como decía la primera pasada. Vídeo 88:43.",
         "minuto": "83'36\" (táctica 89:23)",
-        "jugador": "Diego Aguado"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJhODQxZGUwNTMyZTRkMThlNWQ2Y2Y=",
+          "seg": 5323
+        },
+        "jugador": "Diego Aguado",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/alcorcon-of-5323.mp4"
       },
       {
         "clip": "of-c17",
@@ -594,7 +1241,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 10,
         "nota": "T2, min 87. Tras el saque de banda de Pol Domingo por la izquierda del Castilla (táctica 5606-5607) Davo carga a Mario Rivas en el salto dentro del área del Castilla unos 5-10 m a la izquierda del eje de la portería (táctica 5608-5609). Todo el Alcorcón salvo Davo queda más cerca de su portería que el punto de la falta (9 de campo y el portero). El balón de la falta se coloca dentro del área y el portero Mestre la saca en corto hacia el central de la izquierda (5617-5618) con el Alcorcón ya replegando. Vídeo 92:49.",
         "minuto": "87'42\" (táctica 93:29)",
-        "jugador": "Mario Rivas"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJhODQxZGUwNTMyZTRkMThlNWQ2Y2Y=",
+          "seg": 5569
+        },
+        "jugador": "Mario Rivas",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/alcorcon-of-5569.mp4"
       },
       {
         "clip": "of-c18",
@@ -605,7 +1257,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 1,
         "nota": "T2, min 91. T2, min 91. Rober Ibáñez derriba a Jesús Fortea justo fuera del lateral derecho del área del Alcorcón a unos 8-9 m de la línea de fondo (táctica 5815). Es una falta lateral para centrar: sólo el portero está claramente más cerca de su portería que el balón y dos del Alcorcón quedan más o menos a la misma altura del balón (no contados). Casi a la vez caen un jugador de cada equipo dentro del área y los del Alcorcón protestan con los brazos en alto alrededor del árbitro y a 5828 aún no se ha sacado. Vídeo 96:16. Entre: 1 — contado en la táctica segundo 5815,0-5815,2 con zoom: la entrada es fuera del área a unos 10-11 m de la línea de fondo y sólo el portero está más cerca de su línea de fondo que el balón. Dudosos no contados: dos del Alcorcón dentro del área a 1-1,5 m por fuera de la altura del balón. Vídeo 96:16.",
         "minuto": "90+1'09\" (táctica 96:56)",
-        "jugador": "Jesús Fortea"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJhODQxZGUwNTMyZTRkMThlNWQ2Y2Y=",
+          "seg": 5776
+        },
+        "jugador": "Jesús Fortea",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/alcorcon-of-5776.mp4"
       },
       {
         "clip": "of-c19",
@@ -616,12 +1273,17 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 10,
         "nota": "T2, min 93. Tras despejar el Alcorcón el córner de Meso (con Mestre subido) Rober Ibáñez conduce la contra y Jesús Fortea le alcanza y caen juntos por la banda izquierda del Castilla unos 15 m pasado el medio campo en campo del Alcorcón (táctica 5973-5974). La jugada va a revisión de Video Support (acaba en no roja) y la falta no se saca hasta unos 85 s después: Pitarch la cuelga desde Z4 a la espalda de la línea y Rachad remata forzado ante el portero (táctica 6058-6059). Todo el Alcorcón salvo el que la comete queda por delante del balón en el instante de la falta. Vídeo 98:55.",
         "minuto": "90+3'48\" (táctica 99:35)",
-        "jugador": "Jesús Fortea"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWJhODQxZGUwNTMyZTRkMThlNWQ2Y2Y=",
+          "seg": 5935
+        },
+        "jugador": "Jesús Fortea",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/alcorcon-of-5935.mp4"
       }
     ]
   },
   {
-    "jornada": "LIGA 06",
+    "jornada": "J6",
     "rival": "Atlético Madrileño",
     "local": true,
     "fecha": "2026-10-02",
@@ -642,7 +1304,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": null,
         "nota": "Infracción (no falta con contacto) de Pitarch (24) en campo del Atlético, por el centro, hacia el 5'56\" (Vídeo Hudl 5:54): la saca Helguera (16) desde su propio campo. Sacada del timeline de Hudl el 04/10/2026, sin revisar en vídeo: los defensores, sin contar.",
         "minuto": "5'55\" (táctica 6:46)",
-        "jugador": "Thiago Pitarch"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWMxZmVkODczMmIxNzA1OTI4NDU1NzA=",
+          "seg": 355
+        },
+        "jugador": "Thiago Pitarch",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j06-atletico-madrileno-def-355.mp4"
       },
       {
         "clip": "of-c01",
@@ -653,7 +1320,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 7,
         "nota": "Min 8 (07:08 TV): Kamate (21) derriba a Cestero junto a la banda lejana unos metros pasado el medio campo en campo del Atlético. Se saca en corto y rápido (Fortea-Cestero) y el Castilla sigue jugando por fuera hasta Yáñez.",
         "minuto": "7'08\" (táctica 7:58)",
-        "jugador": "Jorge Cestero"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWMxZmVkODczMmIxNzA1OTI4NDU1NzA=",
+          "seg": 426
+        },
+        "jugador": "Jorge Cestero",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j06-atletico-madrileno-of-426.mp4"
       },
       {
         "clip": "of-c02",
@@ -664,7 +1336,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 3,
         "nota": "Min 10 (09:50 TV): Arnau Solà (22) hace falta a Yáñez pegado a la banda derecha unos 10 m dentro del campo propio del Castilla. Fortea la saca rápida en corto hacia atrás (Óscar-Mestre) y el Castilla reinicia la salida. Entre aproximado: un rojiblanco casi a la altura del balón.",
         "minuto": "9'50\" (táctica 10:41)",
-        "jugador": "Daniel Yáñez"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWMxZmVkODczMmIxNzA1OTI4NDU1NzA=",
+          "seg": 588
+        },
+        "jugador": "Daniel Yáñez",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j06-atletico-madrileno-of-588.mp4"
       },
       {
         "clip": "def-c01",
@@ -675,7 +1352,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 11,
         "nota": "Tras el córner de Aguado (11:26), Martínez (16) comete falta en ataque sobre Miguel Cubo dentro del área pequeña del Atlético (11:29). La saca el portero del Atlético desde su área y el Castilla repliega (los 11 contados en la táctica al preparar el saque, s 745).",
         "minuto": "11'28\" (táctica 12:18)",
-        "jugador": "Martínez"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWMxZmVkODczMmIxNzA1OTI4NDU1NzA=",
+          "seg": 686
+        },
+        "jugador": "Martínez",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j06-atletico-madrileno-def-686.mp4"
       },
       {
         "clip": "of-c03",
@@ -686,7 +1368,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 5,
         "nota": "Min 13 (12:08 TV): Edgar Alcañiz (20) derriba a Leiva unos 8 m fuera del área, escorado a la izquierda (a la altura del lateral del área). Aguado la tira directa a los 12:56 y la barrera de 4 la bloquea, el rechace lo recoge Pitarch y no hay ocasión.",
         "minuto": "12'08\" (táctica 12:58)",
-        "jugador": "Álvaro Leiva"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWMxZmVkODczMmIxNzA1OTI4NDU1NzA=",
+          "seg": 726
+        },
+        "jugador": "Álvaro Leiva",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j06-atletico-madrileno-of-726.mp4"
       },
       {
         "clip": "def-c02",
@@ -697,7 +1384,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 4,
         "nota": "Óscar (21) derriba a Miguel Cubo junto a la banda izquierda del Atlético, en su campo cerca de la línea media (13:39 TV). Cordero saca en corto y el Atlético la juega hacia atrás hasta su portero (abp-def-01).",
         "minuto": "13'38\" (táctica 14:28)",
-        "jugador": "Oscar Naasei"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWMxZmVkODczMmIxNzA1OTI4NDU1NzA=",
+          "seg": 816
+        },
+        "jugador": "Oscar Naasei",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j06-atletico-madrileno-def-816.mp4"
       },
       {
         "clip": "def-c03",
@@ -708,7 +1400,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 4,
         "nota": "Fortea (2) hace falta sobre Miguel Cubo en la misma línea de medio campo pegado a la banda izquierda del Atlético y ve amarilla (14:14 TV). Cubo se queda en el suelo y el saque no aparece en las imágenes.",
         "minuto": "14'14\" (táctica 15:04)",
-        "jugador": "Jesús Fortea"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWMxZmVkODczMmIxNzA1OTI4NDU1NzA=",
+          "seg": 852
+        },
+        "jugador": "Jesús Fortea",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j06-atletico-madrileno-def-852.mp4"
       },
       {
         "clip": "of-c04",
@@ -719,7 +1416,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": null,
         "nota": "Tras un córner del Atlético, Hidalgo (15) derriba a Pitarch (24) cuando el Castilla salía a la contra a unos 35-40 m de su portería, carril izquierdo (TV 19:50), y ve amarilla. En la táctica no se ve la mitad del Atlético (faltan su portero y algún zaguero), a ojo unos 5 entre balón y portería.",
         "minuto": "19'50\" (táctica 20:43)",
-        "jugador": "Thiago Pitarch"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWMxZmVkODczMmIxNzA1OTI4NDU1NzA=",
+          "seg": 1188
+        },
+        "jugador": "Thiago Pitarch",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j06-atletico-madrileno-of-1188.mp4"
       },
       {
         "clip": "of-c05",
@@ -730,7 +1432,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 10,
         "nota": "Sergio Diez (2) cae sobre Aguado (3) junto al banderín de córner del Castilla, lado izquierdo, al disputar un balón largo del Atlético (TV 22:50). La saca en largo el portero del Castilla desde junto a su línea de fondo, con todo el Atlético salvo Diez por delante del balón.",
         "minuto": "22'52\" (táctica 23:44)",
-        "jugador": "Diego Aguado"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWMxZmVkODczMmIxNzA1OTI4NDU1NzA=",
+          "seg": 1370
+        },
+        "jugador": "Diego Aguado",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j06-atletico-madrileno-of-1370.mp4"
       },
       {
         "clip": "of-c06",
@@ -741,7 +1448,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 10,
         "nota": "Helguera (16) derriba a Pitarch (24) junto al círculo central, en campo del Castilla (TV 27:04-27:05). Mario la saca en corto unos 20 s después (abp-of-04) y el Castilla sigue jugando. Entre contado en la táctica en el saque (seg 1691), con el Atlético entero por delante.",
         "minuto": "27'06\" (táctica 27:58)",
-        "jugador": "Thiago Pitarch"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWMxZmVkODczMmIxNzA1OTI4NDU1NzA=",
+          "seg": 1624
+        },
+        "jugador": "Thiago Pitarch",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j06-atletico-madrileno-of-1624.mp4"
       },
       {
         "clip": "def-c04",
@@ -752,7 +1464,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 8,
         "nota": "Yáñez (7) derriba a Edgar Alcañiz en campo del Atlético, por el carril izquierdo a unos 12 m de la línea media (30:59 TV). Alcañiz saca en corto y el Atlético circula en su campo (abp-def-03).",
         "minuto": "31'00\" (táctica 31:53)",
-        "jugador": "Daniel Yáñez"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWMxZmVkODczMmIxNzA1OTI4NDU1NzA=",
+          "seg": 1858
+        },
+        "jugador": "Daniel Yáñez",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j06-atletico-madrileno-def-1858.mp4"
       },
       {
         "clip": "of-c07",
@@ -762,7 +1479,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "distancia": "lejana",
         "entre": null,
         "nota": "Helguera (16) derriba a Cestero (6) hacia el 33:10 cuando este conducía reculando hacia su campo, unos 10 m dentro del campo del Castilla por el carril izquierdo. La saca Naasei en corto para seguir jugando mientras la TV emite repeticiones. La táctica no muestra la jugada (desincronizada), entre sin contar.",
-        "minuto": "33'08\" (táctica 34:00)"
+        "minuto": "33'08\" (táctica 34:00)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWMxZmVkODczMmIxNzA1OTI4NDU1NzA=",
+          "seg": 1986
+        },
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j06-atletico-madrileno-of-1986.mp4"
       },
       {
         "clip": "of-c08",
@@ -773,7 +1495,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": null,
         "nota": "Sergio Diez (2), con Alcañiz (20) encima, frena a Pitarch (24) en conducción hacia el 33:42, unos 8-10 m dentro del campo del Atlético por el carril izquierdo, el árbitro da ventaja y luego vuelve a la falta. Aguado la saca en corto atrás a Pitarch (33:55) y el Castilla mantiene la posesión. La táctica no muestra la jugada.",
         "minuto": "33'42\" (táctica 34:35)",
-        "jugador": "Thiago Pitarch"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWMxZmVkODczMmIxNzA1OTI4NDU1NzA=",
+          "seg": 2020
+        },
+        "jugador": "Thiago Pitarch",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j06-atletico-madrileno-of-2020.mp4"
       },
       {
         "clip": "def-c05",
@@ -784,7 +1511,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 10,
         "nota": "Cestero (6) derriba por detrás a David Hidalgo unos 10 m por fuera del área del Atlético, algo escorado al lado lejano de la TV (37:00 TV). Hidalgo la saca rápido en corto (37:03) y el Atlético la juega atrás hacia su portero. Entre: los 10 de campo del Castilla menos Cestero, que queda a la altura del balón, más el portero (contado en TV y táctica, en la táctica se distinguen mal los colores).",
         "minuto": "37'00\" (táctica 37:52)",
-        "jugador": "Jorge Cestero"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWMxZmVkODczMmIxNzA1OTI4NDU1NzA=",
+          "seg": 2218
+        },
+        "jugador": "Jorge Cestero",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j06-atletico-madrileno-def-2218.mp4"
       },
       {
         "clip": "of-c09",
@@ -795,7 +1527,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": null,
         "nota": "Tras un saque de banda de Yáñez, Helguera (16) derriba a Fortea (2) pegado a la banda derecha frente a los banquillos, unos 10 m dentro del campo del Atlético (40:36). Fortea la saca en corto hacia Pitarch (41:08) y el Castilla circula atrás. La táctica no muestra la jugada.",
         "minuto": "40'37\" (táctica 41:30)",
-        "jugador": "Jesús Fortea"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWMxZmVkODczMmIxNzA1OTI4NDU1NzA=",
+          "seg": 2435
+        },
+        "jugador": "Jesús Fortea",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j06-atletico-madrileno-of-2435.mp4"
       },
       {
         "clip": "def-c06",
@@ -806,7 +1543,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": null,
         "nota": "Tras el disparo de Pitarch que para Astralaga (42:27), Pitarch (24) presiona y derriba a Miguel Cubo junto al banderín de córner del Atlético, en el lado lejano de la TV (42:31). El saque no sale en las imágenes (Hudl: lo saca Pan Pablo unos 20 s después). La táctica muestra otra jugada, así que no se puede contar entre (casi todo el Castilla queda por detrás del balón).",
         "minuto": "42'32\" (táctica 43:24)",
-        "jugador": "Thiago Pitarch"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWMxZmVkODczMmIxNzA1OTI4NDU1NzA=",
+          "seg": 2550
+        },
+        "jugador": "Thiago Pitarch",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j06-atletico-madrileno-def-2550.mp4"
       },
       {
         "clip": "of-c10",
@@ -817,7 +1559,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 11,
         "nota": "Tras una llegada del Atlético al área del Castilla en el añadido de la 1ª parte, Kamate (21) derriba a Aguado (3) en la carrera por el balón junto al banderín de córner izquierdo del Castilla (48:40). Con el balón en su propia línea de fondo, los 11 del Atlético quedan entre el balón y su portería (deducido, la táctica no muestra la jugada).",
         "minuto": "45+3'39\" (táctica 49:31)",
-        "jugador": "Diego Aguado"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWMxZmVkODczMmIxNzA1OTI4NDU1NzA=",
+          "seg": 2917
+        },
+        "jugador": "Diego Aguado",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j06-atletico-madrileno-of-2917.mp4"
       },
       {
         "clip": "def-c07",
@@ -828,7 +1575,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": null,
         "nota": "En el descuento de la 1a parte (49:21 TV), Helguera cae junto a la banda cercana a unos 30 m de la portería del Castilla en el duelo con Aguado (3) tras la pared con Kamate. Hudl apunta la falta a Cestero (6) por su entrada a Helguera en el círculo central (49:16), con ventaja. Miguel Cubo la saca en corto hacia atrás (abp-def-04) y el Atlético circula. En la táctica la banda queda fuera de plano, así que no se cuentan todos.",
         "minuto": "45+4'21\" (táctica 50:14)",
-        "jugador": "Jorge Cestero"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWMxZmVkODczMmIxNzA1OTI4NDU1NzA=",
+          "seg": 2959
+        },
+        "jugador": "Jorge Cestero",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j06-atletico-madrileno-def-2959.mp4"
       },
       {
         "clip": "def-c08",
@@ -839,7 +1591,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 6,
         "nota": "Óscar (21) derriba por detrás a Cordero (17) junto a la banda izquierda del Atlético, unos 15-20 m dentro de su campo (TV 50:35, min 51). Alcañiz (20) la saca en corto hacia atrás a Pan Pablo y el Atlético reinicia desde el portero. Entre contado en la táctica 3497 (la falta cae 1-2 s después del último fotograma, seg estimado): Óscar, 4 jugadores más y Mestre.",
         "minuto": "50'36\" (táctica 58:03)",
-        "jugador": "Oscar Naasei"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWMxZmVkODczMmIxNzA1OTI4NDU1NzA=",
+          "seg": 3348
+        },
+        "jugador": "Oscar Naasei",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j06-atletico-madrileno-def-3348.mp4"
       },
       {
         "clip": "def-c09",
@@ -850,7 +1607,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": null,
         "nota": "David Hidalgo (15) conduce junto al círculo central, ya en campo del Atlético, supera la entrada de un primer defensor (Martínez según Hudl) y cae en el choque con Pitarch (24) (TV 52:45, min 53). Hidalgo la saca rápido en corto y el Atlético sigue la posesión hacia su izquierda. La falta no sale en la ventana de la táctica (cae después), no se puede contar entre.",
         "minuto": "52'45\" (táctica 60:12)",
-        "jugador": "Martínez"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWMxZmVkODczMmIxNzA1OTI4NDU1NzA=",
+          "seg": 3477
+        },
+        "jugador": "Martínez",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j06-atletico-madrileno-def-3477.mp4"
       },
       {
         "clip": "of-c11",
@@ -861,7 +1623,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 7,
         "nota": "Alcañiz (20) derriba a Cestero (6) en el carril izquierdo, unos metros dentro del campo del Castilla junto a la línea de medio campo (TV 53:43), y ve amarilla. Cestero se queda en el suelo y el Castilla la saca en corto y sigue la jugada (seg 3679 de la táctica, no se ve quién la saca). Entre contado en el instante de la falta (seg 3660, Cestero ya en el suelo): 6 del Atlético más el portero por delante del balón, con Alcañiz a la altura de la falta (en el saque ya estaban los 11 por delante). Táctica: re-corte.",
         "minuto": "53'43\" (táctica 61:09)",
-        "jugador": "Jorge Cestero"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWMxZmVkODczMmIxNzA1OTI4NDU1NzA=",
+          "seg": 3535
+        },
+        "jugador": "Jorge Cestero",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j06-atletico-madrileno-of-3535.mp4"
       },
       {
         "clip": "of-c12",
@@ -872,7 +1639,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": null,
         "nota": "Kamate (21) derriba a Aguado (3) dentro del área, en su lado izquierdo, después de que Aguado recibiera el pase de Leiva (TV 54:44-54:45), y el árbitro pita penalti. Lo lanza el propio Aguado mucho después, a los 60:42 de la TV, y marca el 2-1 (abp-of-08). La táctica empieza ya con los jugadores protestando en el área, así que no se puede contar el entre. El re-corte empieza en el seg 3721 con Aguado ya en el suelo dentro del área y los del Castilla pidiendo penalti, un instante después de la falta. Táctica: tampoco se ve.",
         "minuto": "54'44\" (táctica 62:11)",
-        "jugador": "Diego Aguado"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWMxZmVkODczMmIxNzA1OTI4NDU1NzA=",
+          "seg": 3596
+        },
+        "jugador": "Diego Aguado",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j06-atletico-madrileno-of-3596.mp4"
       },
       {
         "clip": "def-c10",
@@ -883,7 +1655,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": null,
         "nota": "PENALTI: Cordero filtra para Miguel Cubo (10), que entra en el área por el lado derecho del ataque del Atlético y cae ante Aguado (3) (TV 62:39, min 63), el árbitro señala el punto a las 62:43. La táctica arranca con la jugada ya parada (protestas en el área), no se ve el instante de la falta ni se puede contar entre. El penalti se lanza minutos después (abp-def-07).",
         "minuto": "62'39\" (táctica 70:08)",
-        "jugador": "Diego Aguado"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWMxZmVkODczMmIxNzA1OTI4NDU1NzA=",
+          "seg": 4071
+        },
+        "jugador": "Diego Aguado",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j06-atletico-madrileno-def-4071.mp4"
       },
       {
         "clip": "def-c11",
@@ -894,7 +1671,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 7,
         "nota": "Cestero (6) derriba a Sergio Diez junto a la banda derecha del ataque del Atlético, unos metros dentro del campo del Castilla (67:31 TV). Jorge Castillo la saca en corto hacia Cordero, que lanza en largo (abp-def-08).",
         "minuto": "67'31\" (táctica 74:03)",
-        "jugador": "Jorge Cestero"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWMxZmVkODczMmIxNzA1OTI4NDU1NzA=",
+          "seg": 4363
+        },
+        "jugador": "Jorge Cestero",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j06-atletico-madrileno-def-4363.mp4"
       },
       {
         "clip": "def-c12",
@@ -905,7 +1687,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 11,
         "nota": "Martínez (16) derriba a Jorge Castillo en el centro, junto al círculo central en campo del Castilla, y ve amarilla (la falta no sale en las imágenes: sólo la repetición y la preparación, 73:35-73:52 TV). Jorge Castillo la saca en corto hacia atrás a David Hidalgo (74:12 TV) y el Atlético circula (abp-def-09). Los 11 del Castilla contados en la táctica en el saque (s 4843).",
         "minuto": "73'44\" (táctica 80:15)",
-        "jugador": "Martínez"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWMxZmVkODczMmIxNzA1OTI4NDU1NzA=",
+          "seg": 4736
+        },
+        "jugador": "Martínez",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j06-atletico-madrileno-def-4736.mp4"
       },
       {
         "clip": "def-c13",
@@ -916,7 +1703,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 11,
         "nota": "Pitarch (24) derriba a Romeo Hueso pegado a la banda derecha del ataque del Atlético, a unos 30 m de la portería del Castilla (74:27 TV). Arnau Solà la bota al área (75:09 TV) y Mestre la atrapa a la altura del penalti (abp-def-10). Los 11 del Castilla, contados en la táctica en el saque (s 4898), están por delante del balón.",
         "minuto": "74'26\" (táctica 80:58)",
-        "jugador": "Thiago Pitarch"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWMxZmVkODczMmIxNzA1OTI4NDU1NzA=",
+          "seg": 4778
+        },
+        "jugador": "Thiago Pitarch",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j06-atletico-madrileno-def-4778.mp4"
       },
       {
         "clip": "def-c14",
@@ -927,7 +1719,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 9,
         "nota": "Carvajal (19) comete falta sobre Pan Pablo en un balón dividido en campo del Atlético, por su carril izquierdo a unos 30 m de su portería, con el Castilla atacando tras un saque de puerta de Mestre (77:14 TV). Pan Pablo la saca en corto a David Hidalgo y el Atlético sale jugando (abp-def-11).",
         "minuto": "77'13\" (táctica 83:44)",
-        "jugador": "Ángel Carvajal"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWMxZmVkODczMmIxNzA1OTI4NDU1NzA=",
+          "seg": 4945
+        },
+        "jugador": "Ángel Carvajal",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j06-atletico-madrileno-def-4945.mp4"
       },
       {
         "clip": "of-c13",
@@ -938,7 +1735,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 9,
         "nota": "Jorge Castillo (8) derriba a Fortuny tras la recuperación de Mario, en el centro a unos 30 m de la portería del Castilla (82:18-82:19 TV). El Castilla la saca en corto y reinicia desde atrás (Mestre recibe en el área en la táctica). Entre contados en la táctica (principal, única) en el instante de la falta: 8 de campo más el portero.",
         "minuto": "82'17\" (táctica 88:51)",
-        "jugador": "Pol Fortuny"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWMxZmVkODczMmIxNzA1OTI4NDU1NzA=",
+          "seg": 5249
+        },
+        "jugador": "Pol Fortuny",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j06-atletico-madrileno-of-5249.mp4"
       },
       {
         "clip": "def-c15",
@@ -949,7 +1751,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 8,
         "nota": "Pitarch (24) derriba a Koke en el círculo central, a un par de metros dentro del campo del Castilla, y ve amarilla (84:47-84:48 TV). Jorge Castillo la saca en corto a David Hidalgo (85:35 TV) y el Atlético sigue jugando (abp-def-12). Táctica: alt (la principal muestra otra acción). Entre: 7 de campo más Mestre.",
         "minuto": "84'47\" (táctica 91:21)",
-        "jugador": "Thiago Pitarch"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWMxZmVkODczMmIxNzA1OTI4NDU1NzA=",
+          "seg": 5399
+        },
+        "jugador": "Thiago Pitarch",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j06-atletico-madrileno-def-5399.mp4"
       },
       {
         "clip": "def-c16",
@@ -960,7 +1767,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 9,
         "nota": "Ciria derriba a Yaakobishvili junto a la banda derecha del ataque del Atlético, unos 10-15 m dentro del campo del Atlético, y ve amarilla (86:05 TV). Yaakobishvili la saca hacia atrás a su portero Astralaga (86:47 TV) y el Atlético reinicia (abp-def-13). Táctica: alt (la principal muestra otra acción). Entre: 8 de campo más Mestre.",
         "minuto": "86'04\" (táctica 92:38)",
-        "jugador": "Alexis Ciria"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWMxZmVkODczMmIxNzA1OTI4NDU1NzA=",
+          "seg": 5476
+        },
+        "jugador": "Alexis Ciria",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j06-atletico-madrileno-def-5476.mp4"
       },
       {
         "clip": "of-c14",
@@ -971,7 +1783,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 11,
         "nota": "Cuellar Pérez (38) derriba a Cestero junto al círculo central, recién pasada la línea media (91:01 TV). El árbitro da ventaja, para el juego a las 91:06 y le enseña amarilla. Cestero la saca en largo a las 91:34 hacia la banda izquierda y Romeo Hueso la despeja de cabeza a banda. Táctica: alt (la principal muestra otra jugada). La falta cae justo antes del primer fotograma (5852, Cestero ya en el suelo). Entre contados en el saque (5884): los 10 de campo y el portero, todos por delante del balón.",
         "minuto": "90+1'01\" (táctica 97:34)",
-        "jugador": "Jorge Cestero"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWMxZmVkODczMmIxNzA1OTI4NDU1NzA=",
+          "seg": 5773
+        },
+        "jugador": "Jorge Cestero",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j06-atletico-madrileno-of-5773.mp4"
       },
       {
         "clip": "def-c17",
@@ -982,7 +1799,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 9,
         "nota": "Cestero comete falta sobre Miguel Cubo en la banda derecha del ataque del Atlético, justo dentro del campo del Castilla junto a la línea media (92:43-92:46 TV, con ventaja breve). El Atlético la saca en corto a las 92:59: Romeo Hueso se la da a Jorge Castillo, que vuelve hacia su campo para seguir jugando. Táctica: alt (la principal muestra la falta de la c14). Entre contados en el saque (5969), donde se ve al portero: 8 de campo más el portero. En el instante de la falta (5955) eran 6 de campo y el portero fuera de cuadro.",
         "minuto": "90+2'44\" (táctica 99:17)",
-        "jugador": "Jorge Cestero"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWMxZmVkODczMmIxNzA1OTI4NDU1NzA=",
+          "seg": 5876
+        },
+        "jugador": "Jorge Cestero",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j06-atletico-madrileno-def-5876.mp4"
       },
       {
         "clip": "of-c15",
@@ -993,12 +1815,17 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 7,
         "nota": "Arnau Solà (22) derriba a Fortuny cuando este sale conduciendo por la derecha, a unos 25-30 m de la portería del Castilla (98:26 TV), tras robar el balón al borde del área. Táctica: principal (la alt no muestra la falta). Entre contados en el instante de la falta: 6 de campo más el portero. Uno más está a la altura del balón y no lo cuento.",
         "minuto": "90+8'25\" (táctica 104:16)",
-        "jugador": "Pol Fortuny"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWMxZmVkODczMmIxNzA1OTI4NDU1NzA=",
+          "seg": 6217
+        },
+        "jugador": "Pol Fortuny",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j06-atletico-madrileno-of-6217.mp4"
       }
     ]
   },
   {
-    "jornada": "LIGA 07",
+    "jornada": "J7",
     "rival": "UD Ibiza",
     "local": false,
     "fecha": "2026-10-09",
@@ -1019,7 +1846,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 8,
         "nota": "Valls derriba a Yáñez junto al lateral del área propia (banda de los banquillos) justo después de que Cestero recupere y le pase, el árbitro deja seguir unos segundos y pita cuando el balón queda para el Ibiza (TV 00:28-00:31). En la táctica (seg 33) hay 8 del Ibiza entre el balón y su portería (portero incluido) sin contar a los dos que están encima del balón. El saque no aparece en las imágenes: falta lejana en campo propio para salir jugando.",
         "minuto": "0'27\" (táctica 0:30)",
-        "jugador": "Daniel Yáñez"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWNhNWY0ZWFhNDhiMDRlNTZmNjcyMzE=",
+          "seg": 25
+        },
+        "jugador": "Daniel Yáñez",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j07-ibiza-of-25.mp4"
       },
       {
         "clip": "of-c02",
@@ -1030,7 +1862,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 9,
         "nota": "Fortea recibe de Joan y conduce por la banda de los banquillos justo en la línea de medio campo, Yoldi le agarra y le derriba (TV 02:16-02:17). En la táctica (seg 142) hay 9 del Ibiza entre el balón y su portería (8 de campo + portero, uno queda por detrás y Yoldi encima del balón). Joan la saca en corto hacia atrás para Cestero y el Castilla sigue jugando (Óscar y Aguado en largo, recupera el Ibiza): no es ABP.",
         "minuto": "2'15\" (táctica 2:19)",
-        "jugador": "Jesús Fortea"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWNhNWY0ZWFhNDhiMDRlNTZmNjcyMzE=",
+          "seg": 133
+        },
+        "jugador": "Jesús Fortea",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j07-ibiza-of-133.mp4"
       },
       {
         "clip": "of-c03",
@@ -1041,7 +1878,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 7,
         "nota": "Joan pasa a Cestero en el centro del campo, justo delante del círculo central en campo propio, y Valls le entra por detrás y le derriba (TV 08:45-08:46), el balón rueda hacia atrás y Valls se queda hablando con el árbitro. En la táctica (seg 531) hay 7 del Ibiza entre el balón y su portería (6 de campo + portero), con Yoldi y otro a la altura del balón y uno por detrás. Cestero la saca en corto hacia Joan unos 9 s después (TV 08:55, no se ve el golpeo en la TV) y el Castilla sigue en posesión por atrás con Mestre: no es ABP.",
         "minuto": "8'44\" (táctica 8:48)",
-        "jugador": "Jorge Cestero"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWNhNWY0ZWFhNDhiMDRlNTZmNjcyMzE=",
+          "seg": 522
+        },
+        "jugador": "Jorge Cestero",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j07-ibiza-of-522.mp4"
       },
       {
         "clip": "def-c01",
@@ -1052,7 +1894,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 8,
         "nota": "Salida de balón del Ibiza desde su área por su banda izquierda (la de los banquillos): Víctor García (3) juega a Ortiz (20) junto a la banda y Cestero (6) le barre por detrás a unos 25-30 m de la portería del Ibiza. En la táctica (s_04) hay 2 jugadores del Castilla por delante del balón y Cestero sobre él, los 8 restantes (3 fuera de cuadro por la izquierda, portero incluido, en campo propio) quedan entre el balón y nuestra portería. La saca Víctor García en corto hacia atrás (seg 660) para seguir jugando desde atrás.",
         "minuto": "10'50\" (táctica 10:54)",
-        "jugador": "Jorge Cestero"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWNhNWY0ZWFhNDhiMDRlNTZmNjcyMzE=",
+          "seg": 648
+        },
+        "jugador": "Jorge Cestero",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j07-ibiza-def-648.mp4"
       },
       {
         "clip": "def-c02",
@@ -1063,7 +1910,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 6,
         "nota": "Balón largo de Erik Ruiz (24) desde su área y duelo aéreo de Joan (5) con Manu Justo (9) junto a la línea de medio campo, en campo del Ibiza a 3-5 m de la línea y unos 13-16 m del centro hacia su banda izquierda (borde del círculo central del lado de los banquillos): falta de Joan y Manu Justo queda tendido. En la táctica (s_03 abajo) quedan 5 jugadores del Castilla entre el balón y nuestra portería más Mestre fuera de cuadro = 6, Joan está en el duelo. Tarda en sacarse (Manu Justo dolorido) y la saca Valls (17) en corto a Blasco (seg 735) para seguir con la posesión.",
         "minuto": "11'52\" (táctica 11:55)",
-        "jugador": "Joan Martínez"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWNhNWY0ZWFhNDhiMDRlNTZmNjcyMzE=",
+          "seg": 710
+        },
+        "jugador": "Joan Martínez",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j07-ibiza-def-710.mp4"
       },
       {
         "clip": "of-c04",
@@ -1074,7 +1926,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 10,
         "nota": "Justo tras el 1-0 del Ibiza (Ortiz, 14:11) el Castilla saca de centro y abre a su banda izquierda (la lejana a los banquillos): Alexis (17) recibe pegado a la banda unos 10-12 m dentro de campo propio y Busto (2) le derriba en la presión (TV 14:23-14:24, táctica s_03 abajo). En el instante de la falta hay 2 del Ibiza por delante del balón y la defensa del Ibiza queda fuera de cuadro, en el saque (869) sólo 1 del Ibiza sigue por delante del balón, así que 10 entre el balón y su portería (portero incluido, inferido del total). Se saca en corto y hacia atrás (Alexis/Óscar a Cestero, seg 869-870) para reiniciar desde atrás.",
         "minuto": "14'20\" (táctica 14:23)",
-        "jugador": "Alexis Ciria"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWNhNWY0ZWFhNDhiMDRlNTZmNjcyMzE=",
+          "seg": 858
+        },
+        "jugador": "Alexis Ciria",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j07-ibiza-of-858.mp4"
       },
       {
         "clip": "of-c05",
@@ -1085,7 +1942,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 11,
         "nota": "Fortea (2) juega a Carvajal (19) y éste descarga a Yáñez (7), que conduce hacia dentro unos 4-8 m dentro de campo del Ibiza y a unos 17-20 m del centro hacia nuestra derecha (lado de los banquillos), Víctor García (3) le derriba por detrás (TV 14:41, táctica s_04 abajo) y ve amarilla. Yáñez queda dolorido y el saque se demora hasta el 15:17: en el saque (táctica abp-of-03 seg 916, todos en cuadro) los 11 del Ibiza están entre el balón y su portería (en el instante de la falta su defensa queda fuera de cuadro). La saca Fortea en corto hacia la izquierda, Alexis la pierde y el Ibiza sale en transición (ver abp-of-03).",
         "minuto": "14'40\" (táctica 14:43)",
-        "jugador": "Daniel Yáñez"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWNhNWY0ZWFhNDhiMDRlNTZmNjcyMzE=",
+          "seg": 878
+        },
+        "jugador": "Daniel Yáñez",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j07-ibiza-of-878.mp4"
       },
       {
         "clip": "of-c06",
@@ -1096,7 +1958,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 4,
         "nota": "Fortea abre a Carvajal (19) en la banda derecha (lado banquillos), unos 10-15 m pasado el medio campo, y Erik Ruiz (24) le derriba por detrás al controlar (TV 16:31). En la táctica (seg 996) quedan 3 del Ibiza de campo (24, 3 y otro) entre el balón y su portería más Prieto fuera de plano: 4, puede haber uno más fuera de cámara. Se saca rápido en corto hacia Yáñez por la derecha para seguir jugando (ver abp-of-04).",
         "minuto": "16'29\" (táctica 16:32)",
-        "jugador": "Ángel Carvajal"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWNhNWY0ZWFhNDhiMDRlNTZmNjcyMzE=",
+          "seg": 987
+        },
+        "jugador": "Ángel Carvajal",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j07-ibiza-of-987.mp4"
       },
       {
         "clip": "def-c03",
@@ -1107,7 +1974,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 3,
         "nota": "Tras el tiro de Ciria que se va fuera, Prieto saca de puerta rápido, Valls mete el balón largo a Yoldi (10) y Joan (5) llega tarde al balón suelto y le derriba justo en la línea de medio campo, pegado a la banda de los banquillos (TV 23:58-23:59). En la táctica (seg 1441) entre el balón y nuestra portería quedan Óscar (a la altura del balón, un poco por detrás), otro del Castilla en la banda lejana y Mestre: 3, pero el plano de la táctica no llega a nuestra área. El Ibiza la saca en corto hacia dentro (Erik Ruiz a Blasco) para seguir jugando (ver abp-def-03).",
         "minuto": "23'58\" (táctica 24:01)",
-        "jugador": "Joan Martínez"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWNhNWY0ZWFhNDhiMDRlNTZmNjcyMzE=",
+          "seg": 1436
+        },
+        "jugador": "Joan Martínez",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j07-ibiza-def-1436.mp4"
       },
       {
         "clip": "of-c07",
@@ -1118,7 +1990,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": null,
         "nota": "Fortea recupera en campo propio (24:41) y la juega a Martínez (16), que recibe de espaldas a unos 30-35 m de nuestra portería, entre el centro y la banda derecha, Calavera (6) le engancha y los dos acaban en el suelo (TV 24:46-24:47). Martínez la saca rápido en corto a Óscar, que conduce y abre a Aguado por la izquierda: el Castilla sigue en posesión. En la táctica (seg 1490) se ven 4 del Ibiza de campo por delante del balón pero el plano no llega al campo del Ibiza (ni Prieto), así que no se pueden contar todos.",
         "minuto": "24'46\" (táctica 24:49)",
-        "jugador": "Martínez"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWNhNWY0ZWFhNDhiMDRlNTZmNjcyMzE=",
+          "seg": 1484
+        },
+        "jugador": "Martínez",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j07-ibiza-of-1484.mp4"
       },
       {
         "clip": "of-c08",
@@ -1129,7 +2006,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 8,
         "nota": "Cestero abre a Fortea y éste da a Fortuny (10) pegado a la banda derecha (lado banquillos), unos 5-10 m pasado el medio campo. Yoldi (10) le agarra y le tira en la disputa (TV 25:12-25:13), protestan los del Ibiza. En la táctica (seg 1519) hay 7 del Ibiza de campo entre el balón y su portería más Prieto fuera de plano (8), falta uno del Ibiza que no sale en cámara. La falta se saca 15 s después en corto hacia atrás para seguir jugando (ver abp-of-05).",
         "minuto": "25'12\" (táctica 25:16)",
-        "jugador": "Pol Fortuny"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWNhNWY0ZWFhNDhiMDRlNTZmNjcyMzE=",
+          "seg": 1510
+        },
+        "jugador": "Pol Fortuny",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j07-ibiza-of-1510.mp4"
       },
       {
         "clip": "def-c04",
@@ -1140,7 +2022,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 4,
         "nota": "Tras un saque de puerta largo de Prieto, Joan gana el duelo aéreo a Yoldi y en la segunda jugada le derriba dentro del círculo central, junto a la línea de medio campo (31:43 TV), Hudl la pone en banda pero es central. Entre el balón y nuestra portería quedan Óscar, Aguado y Joan más Mestre. Valls la saca en corto hacia atrás para Blasco (abp-def-04) y el Ibiza circula por su defensa hasta un envío largo de Erik Ruiz que gana Fortea de cabeza.",
         "minuto": "31'43\" (táctica 31:47)",
-        "jugador": "Joan Martínez"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWNhNWY0ZWFhNDhiMDRlNTZmNjcyMzE=",
+          "seg": 1901
+        },
+        "jugador": "Joan Martínez",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j07-ibiza-def-1901.mp4"
       },
       {
         "clip": "of-c09",
@@ -1150,7 +2037,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "distancia": "lejana",
         "entre": 11,
         "nota": "Mano de Yoldi al cortar un pase de Cestero justo fuera de la media luna del área del Castilla (unos 25 m de nuestra portería, zona central), min 37 de la TV, todo el Ibiza queda por delante del balón. Martínez (16) la saca en corto hacia Joan a los 8-10 s y el Castilla sigue con la posesión en campo propio.",
-        "minuto": "37'04\" (táctica 37:07)"
+        "minuto": "37'04\" (táctica 37:07)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWNhNWY0ZWFhNDhiMDRlNTZmNjcyMzE=",
+          "seg": 2222
+        },
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j07-ibiza-of-2222.mp4"
       },
       {
         "clip": "of-c10",
@@ -1161,7 +2053,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 4,
         "nota": "Yáñez recibe de Cestero en la banda derecha (lado de los banquillos) nada más pasar el medio campo y Víctor García le derriba por detrás en carrera (37:40 TV), Yáñez queda unos segundos en el suelo. En la táctica quedan 4 del Ibiza (portero incluido) entre el balón y su portería. Fortea la saca en corto para seguir jugando (abp-of-06): el balón vuelve atrás hasta Mestre y Joan y el Castilla la pierde en el medio campo poco después.",
         "minuto": "37'40\" (táctica 37:43)",
-        "jugador": "Daniel Yáñez"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWNhNWY0ZWFhNDhiMDRlNTZmNjcyMzE=",
+          "seg": 2258
+        },
+        "jugador": "Daniel Yáñez",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j07-ibiza-of-2258.mp4"
       },
       {
         "clip": "of-c11",
@@ -1172,7 +2069,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 8,
         "nota": "Joan recibe de Fortea un pase atrás en la banda derecha (lado de los banquillos), unos 12-15 m dentro del campo del Ibiza, y Manu Justo le derriba al robarle (41:17 TV). Quedan unos 8 del Ibiza (portero incluido) entre el balón y su portería. Manu Justo retiene el balón unos segundos y luego Joan saca rápido y en corto hacia atrás (abp-of-07): el Castilla sigue en posesión en el medio campo.",
         "minuto": "41'17\" (táctica 41:20)",
-        "jugador": "Joan Martínez"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWNhNWY0ZWFhNDhiMDRlNTZmNjcyMzE=",
+          "seg": 2475
+        },
+        "jugador": "Joan Martínez",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j07-ibiza-of-2475.mp4"
       },
       {
         "clip": "def-c05",
@@ -1183,7 +2085,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 9,
         "nota": "Calavera (6) conduce por el centro en campo propio del Ibiza, a unos 10-12 m de la línea de medio campo junto al borde del círculo central, y Carvajal (19) le entra por detrás y le derriba (TV 50:56). En la táctica (s_03 arriba, seg 3186) sólo Alexis (17) queda por delante del balón y Carvajal está sobre él: los otros 9 del Castilla (Mestre incluido, fuera de cuadro) quedan entre el balón y nuestra portería. La saca Blasco (4) en largo hacia la banda derecha del Ibiza (TV 51:13, Hudl 53:20) y la recupera Martínez (16).",
         "minuto": "50'56\" (táctica 53:06)",
-        "jugador": "Ángel Carvajal"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWNhNWY0ZWFhNDhiMDRlNTZmNjcyMzE=",
+          "seg": 3181
+        },
+        "jugador": "Ángel Carvajal",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j07-ibiza-def-3181.mp4"
       },
       {
         "clip": "of-c12",
@@ -1194,7 +2101,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 8,
         "nota": "Tras la parada de Mestre a Manu Justo (TV 53:16), Fortuny (10) recoge el rechace junto al borde de nuestra área por el lado lejano (carril derecho atacando hacia la izquierda) y Yoldi (10) le derriba por detrás (TV 53:17-53:18). Falta en campo propio, a unos 20 m de nuestra portería. En la táctica (s_02 abajo, seg 3327) sólo 2 del Ibiza (Manu Justo y otro, junto a nuestra área) quedan por delante del balón y Yoldi encima: los otros 8 (Prieto incluido, fuera de cuadro) quedan entre el balón y su portería. Tarda en sacarse: la saca Joan (5) en corto (TV 53:37) a Óscar (21), que conduce por la derecha y sigue la posesión del Castilla.",
         "minuto": "53'17\" (táctica 55:28)",
-        "jugador": "Pol Fortuny"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWNhNWY0ZWFhNDhiMDRlNTZmNjcyMzE=",
+          "seg": 3322
+        },
+        "jugador": "Pol Fortuny",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j07-ibiza-of-3322.mp4"
       },
       {
         "clip": "of-c13",
@@ -1205,7 +2117,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 3,
         "nota": "Aguado (3) recibe de Óscar y conduce pegado a la banda de los banquillos (carril izquierdo atacando hacia la izquierda), cruza el medio campo (TV 53:44-53:45) y Almenara (23) le derriba desde atrás nada más pasar la línea central, a unos 45 m de la portería del Ibiza (TV 53:46). En la táctica (s_03 arriba, seg 3356) el Ibiza está volcado arriba: sólo 2 defensas y Prieto quedan entre el balón y su portería (entre = 3), Almenara encima del balón y los otros 7 por delante. La saca en corto hacia atrás Ciria (17) a Óscar (21) (TV 53:51, Hudl se la atribuye a Aguado) y el Castilla la vuelve a jugar desde Mestre.",
         "minuto": "53'46\" (táctica 55:56)",
-        "jugador": "Diego Aguado"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWNhNWY0ZWFhNDhiMDRlNTZmNjcyMzE=",
+          "seg": 3351
+        },
+        "jugador": "Diego Aguado",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j07-ibiza-of-3351.mp4"
       },
       {
         "clip": "of-c14",
@@ -1216,7 +2133,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 6,
         "nota": "Joan (5) abre a Fortea (2) en la banda lejana (carril derecho atacando hacia la izquierda) y, nada más controlar junto a la línea de medio campo pegado a la banda (como mucho 3-5 m dentro del campo del Ibiza), Valls (17) le derriba (TV 55:16-55:17), Fortea queda dolorido y es atendido (TV 55:23), por eso el saque se retrasa más de un minuto. En la táctica (s_03, seg 3447-3448, se ve toda la mitad del Ibiza) quedan 5 del Ibiza de campo más Prieto entre el balón y su portería (entre = 6): Valls encima del balón, Manu Justo (9) a la altura y los otros 3 presionando en nuestro campo, fuera de cuadro. La saca Fortea en corto a Cestero (6) (TV 56:28) y el Castilla sigue en posesión por atrás con Martín y Aguado (es abp-of-09, no va).",
         "minuto": "55'16\" (táctica 57:27)",
-        "jugador": "Jesús Fortea"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWNhNWY0ZWFhNDhiMDRlNTZmNjcyMzE=",
+          "seg": 3441
+        },
+        "jugador": "Jesús Fortea",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j07-ibiza-of-3441.mp4"
       },
       {
         "clip": "def-c06",
@@ -1227,7 +2149,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 8,
         "nota": "Cestero roba a Calavera tras un pase perdido de Fortea y en la disputa en el suelo le hace falta (TV 61:02-61:04, el balón se va solo hasta Prieto). Desde el Ibiza, que saca: banda izquierda suya (lado lejano de la cámara), unos 35 m de su portería, justo en la frontera entre su tercio y el medio campo (Hudl lo da como tercio medio), a unos 70 m de la nuestra. En la táctica (3792) quedan 8 del Castilla entre el balón y Mestre (portero incluido), 9 si se cuenta a Cestero sobre el balón, Leiva y otro quedan por delante. Erik Ruiz la saca en corto a los 15-17 s (TV 61:20-61:21) para seguir jugando por su banda.",
         "minuto": "61'02\" (táctica 63:12)",
-        "jugador": "Jorge Cestero"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWNhNWY0ZWFhNDhiMDRlNTZmNjcyMzE=",
+          "seg": 3787
+        },
+        "jugador": "Jorge Cestero",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j07-ibiza-def-3787.mp4"
       },
       {
         "clip": "of-c15",
@@ -1238,7 +2165,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 6,
         "nota": "Tras una llegada del Ibiza a nuestra área (TV 62:20-62:23), Fortea (2) conduce por la banda lejana (carril derecho atacando hacia la izquierda) desde nuestro campo y, al llegar a la línea de medio campo pegado a la banda, Yoldi (10) le agarra y le derriba (TV 62:30-62:31, con Valls y Víctor García al lado). En la táctica (s_03 abajo, seg 3882) se ven 5 del Ibiza entre el balón y su portería más Prieto fuera de cuadro (entre = 6), el resto venía de atacar y está a la altura del balón o detrás, fuera de cuadro por la derecha (4 s después, TV 62:35, ya hay 7 de campo por delante). El saque se retrasa unos 25 s y la TV está en repetición de otra jugada cuando se saca (Hudl 65:06, TV 62:55): en la táctica (abp-of-10, seg 3906) el golpeo que Hudl registra como saque de Fortea sale desde el centro-derecha del campo del Ibiza, a unos 35-40 m de portería (más adelantado que la falta, con 4 de campo más Prieto por delante), en diagonal larga a los pies de Leiva (11) en la banda izquierda, Leiva encara, Almenara (23) la saca y hay saque de banda para el Castilla (TV 63:03-63:07).",
         "minuto": "62'30\" (táctica 64:41)",
-        "jugador": "Jesús Fortea"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWNhNWY0ZWFhNDhiMDRlNTZmNjcyMzE=",
+          "seg": 3875
+        },
+        "jugador": "Jesús Fortea",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j07-ibiza-of-3875.mp4"
       },
       {
         "clip": "of-c16",
@@ -1249,7 +2181,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 8,
         "nota": "Saque largo de Prieto (TV 65:45), Óscar (21) gana el balón dividido a Manu Justo (9) por alto (los dos acaban en el suelo) y se la deja a Martín (20), Ortiz (20) le agarra y le derriba cuando se gira con el balón, unos 8-10 m dentro de nuestro campo y a unos 15-20 m de la banda de los banquillos (lado izquierdo del Castilla en la 2ª parte), TV 65:50-65:51, el árbitro pita en 65:52 (táctica s_03 arriba seg 4081). Entre el balón y la portería del Ibiza quedan 7 de campo más Prieto fuera de cuadro (8), con Ortiz encima del balón y un delantero del Ibiza por delante. El saque se demora por un cambio del Ibiza (entran 7 y 5 en 65:58-66:00, se ven en la táctica junto al cuarto árbitro) y lo hace Martín unos 50 s después (Hudl 68:50 = abp-of-11): no sale ni en la TV ni en la táctica de esta jugada.",
         "minuto": "65'50\" (táctica 68:01)",
-        "jugador": "Roberto Martín"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWNhNWY0ZWFhNDhiMDRlNTZmNjcyMzE=",
+          "seg": 4075
+        },
+        "jugador": "Roberto Martín",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j07-ibiza-of-4075.mp4"
       },
       {
         "clip": "of-c17",
@@ -1260,7 +2197,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 8,
         "nota": "Viene del saque de banda banda-of-18: Aguado (3) saca en corto desde la banda de los banquillos (lado izquierdo del Castilla) y Alexis (17) recibe de espaldas unos 10 m dentro del campo, se gira hacia dentro y Calavera (6) y otro jugador del Ibiza le cierran y le derriban junto a la línea de banda (TV 68:16-68:17, táctica s_03 abajo seg 4227), a unos 25 m de la línea de fondo de Mestre, a la altura del borde del área: campo propio aunque Hudl lo dé como tercio medio (Hudl apunta a Leiva como derribado, pero en la TV el que cae y queda en el suelo es el 17). El Ibiza sigue jugando con el balón suelto 4-5 s hasta que el árbitro para el juego y señala la falta (68:21-68:22). En la táctica (4227) quedan 7 del Ibiza de campo entre el balón y su portería más Prieto fuera de cuadro (8), Calavera encima del balón y un delantero del Ibiza por delante. La saca el Castilla en corto desde el mismo sitio en 68:24 (Martín/Cestero junto al balón) para seguir jugando: no es ABP.",
         "minuto": "68'16\" (táctica 70:26)",
-        "jugador": "Álvaro Leiva"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWNhNWY0ZWFhNDhiMDRlNTZmNjcyMzE=",
+          "seg": 4221
+        },
+        "jugador": "Álvaro Leiva",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j07-ibiza-of-4221.mp4"
       },
       {
         "clip": "def-c07",
@@ -1271,7 +2213,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 4,
         "nota": "Balón largo de Víctor García (3) que Fortea (2) despeja mal de cabeza, Yoldi (10) prolonga para Eslava (7) y Joan (5) le derriba por detrás junto a la banda lejana (izquierda del Ibiza), unos 10 m dentro del campo del Castilla (TV 71:19, táctica s_02 abajo seg 4407). Entre el balón y nuestra portería sólo quedan Joan en el balón, Óscar (21), Aguado (3) y Mestre, el resto del Castilla está por delante. La saca rápido y en corto Valls (17) hacia atrás para Blasco (4) y el Ibiza sigue en posesión (abp-def-07).",
         "minuto": "71'18\" (táctica 73:28)",
-        "jugador": "Joan Martínez"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWNhNWY0ZWFhNDhiMDRlNTZmNjcyMzE=",
+          "seg": 4403
+        },
+        "jugador": "Joan Martínez",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j07-ibiza-def-4403.mp4"
       },
       {
         "clip": "def-c08",
@@ -1282,7 +2229,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 7,
         "nota": "Tras el saque corto de la falta anterior, Blasco (4) mete un pase interior a Yoldi (10) y Cestero (6) le derriba por detrás en el carril izquierdo del Ibiza, unos 10-12 m dentro de su propio campo y a unos 15 m de la banda lejana (TV 71:56, táctica s_02 arriba seg 4444). Entre el balón y nuestra portería: Cestero en el balón, Martín (20), Óscar (21), dos más junto al medio campo (Joan 5 y Aguado 3), otro defensor fuera de cuadro a la derecha y Mestre. La saca Erik Ruiz (24) en corto hacia atrás para Blasco (TV 72:16) y el Ibiza la juega hasta perderla en la banda derecha ante Aguado (abp-def-08).",
         "minuto": "71'56\" (táctica 74:06)",
-        "jugador": "Jorge Cestero"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWNhNWY0ZWFhNDhiMDRlNTZmNjcyMzE=",
+          "seg": 4441
+        },
+        "jugador": "Jorge Cestero",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j07-ibiza-def-4441.mp4"
       },
       {
         "clip": "of-c18",
@@ -1293,7 +2245,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 10,
         "nota": "Pase perdido de Fadel (5) en nuestro tercio, Aguado (3) recoge y conduce pegado a la banda de los banquillos (lado izquierdo del Castilla en la 2ª parte) y Lazo (21) le entra por detrás y le derriba junto a la línea, a unos 20-25 m de la línea de fondo de Mestre, a la altura del borde del área (TV 83:38-83:39, táctica s_03 arriba seg 5149, Aguado queda dolorido fuera del campo hasta 83:46). Hudl la da en el tercio final del Ibiza (nuestro campo propio, carril izquierdo): falta lejana para salir jugando. En la táctica (5149) quedan 7 del Ibiza de campo entre el balón y su portería más Prieto fuera de cuadro (8), con Lazo encima del balón y otro jugador del Ibiza por delante. El saque no sale en las imágenes: según Hudl la saca Aguado en corto a los 17 s y Óscar da en lateral a Joan (no es ABP). Revisado en la táctica (5149): 7 del Ibiza de campo visibles entre el balón y su portería (a la izquierda del balón), Lazo sobre el balón y 2 de campo más Prieto fuera de cuadro por la izquierda, necesariamente entre: 10 sin contar a Lazo.",
         "minuto": "83'39\" (táctica 85:49)",
-        "jugador": "Diego Aguado"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWNhNWY0ZWFhNDhiMDRlNTZmNjcyMzE=",
+          "seg": 5144
+        },
+        "jugador": "Diego Aguado",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j07-ibiza-of-5144.mp4"
       },
       {
         "clip": "def-c09",
@@ -1304,7 +2261,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 9,
         "nota": "Tras cortar Aguado (3) un pase de Lazo (21) en la frontal de nuestra área, Yáñez (7) sale conduciendo por el carril derecho del Castilla y, presionado por Fadel (5), le derriba a unos 40 m de nuestra portería y unos 12 m de la banda lejana (TV 84:34, táctica s_02 abajo seg 5203). Entre el balón y nuestra portería quedan 9: Yáñez y Martín (20) en el balón, otros 5 (Aguado 3, Carvajal 19, Cestero 6…), Leiva (11) y Mestre. La saca Lazo (21) a portería 40 s después, con tiro directo que se va alto (abp-def-10).",
         "minuto": "84'33\" (táctica 86:44)",
-        "jugador": "Daniel Yáñez"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWNhNWY0ZWFhNDhiMDRlNTZmNjcyMzE=",
+          "seg": 5198
+        },
+        "jugador": "Daniel Yáñez",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j07-ibiza-def-5198.mp4"
       },
       {
         "clip": "of-c19",
@@ -1315,7 +2277,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 4,
         "nota": "Saque de puerta largo de Mestre hacia la banda lejana (derecha del Castilla) y, en la disputa del balón justo sobre la línea de medio campo y a unos 5 m de la banda, Lazo (21) derriba a Alexis Ciria (17) (TV 85:38, táctica s_02 arriba seg 5268). Entre el balón y la portería del Ibiza quedan 4: Fadel (5), Almenara (23), otro jugador de campo y Prieto. La saca Fortea (2) en corto para Joan (5), que cambia en largo a Leiva (11) a la banda izquierda y el Castilla sigue jugando (abp-of-12).",
         "minuto": "85'40\" (táctica 87:50)",
-        "jugador": "Alexis Ciria"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWNhNWY0ZWFhNDhiMDRlNTZmNjcyMzE=",
+          "seg": 5265
+        },
+        "jugador": "Alexis Ciria",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j07-ibiza-of-5265.mp4"
       },
       {
         "clip": "def-c10",
@@ -1326,7 +2293,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 10,
         "nota": "Óscar (21) abre a Leiva (11) en la banda izquierda del ataque del Castilla (la de los banquillos) y Leiva encara a Astals (18) junto al vértice del área del Ibiza, a unos 18 m de la línea de fondo y 5 m de la banda: en el regate le derriba y Astals cae (TV 87:09, táctica s_02 arriba seg 5357), Leiva también acaba en el suelo y protestan Almenara (23) y Astals. Como el balón está en nuestro último tercio, todo el Castilla queda entre el balón y nuestra portería (8 en cuadro con Leiva, Mestre y 2 más fuera de cuadro a la derecha): 11. La saca rápido Blasco (4) en corto hacia Erik Ruiz (24) (TV 87:24-87:26), que abre a Fadel (5) y en seguida llega la falta de Carvajal (falta-def-c11). Revisado: se cuenta sin Leiva (sobre el balón), 10 = todo el Castilla restante, Mestre y los de fuera de cuadro por la derecha incluidos (el balón está en el tercio del Ibiza).",
         "minuto": "87'09\" (táctica 89:19)",
-        "jugador": "Álvaro Leiva"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWNhNWY0ZWFhNDhiMDRlNTZmNjcyMzE=",
+          "seg": 5354
+        },
+        "jugador": "Álvaro Leiva",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j07-ibiza-def-5354.mp4"
       },
       {
         "clip": "def-c11",
@@ -1337,7 +2309,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 9,
         "nota": "Tras el saque rápido de la falta anterior, Erik Ruiz (24) mete el balón a Fadel (5), que conduce por el centro hacia el medio campo perseguido por Ciria (17) y Carvajal (19) y cae derribado a unos 30 m de la portería del Ibiza, unos 10 m antes del círculo central y en el carril central (TV 87:27, táctica s_02 arriba seg 5375). Hudl apunta la falta a Carvajal, en la TV el que está encima de Fadel al caer parece Ciria. Entre el balón y nuestra portería: el que comete la falta, 4 más en cuadro (Aguado 3, Cestero 6…), otros 3 fuera de cuadro ya en campo propio y Mestre: 10, sólo Leiva (11) queda por delante del balón. La saca Blasco (4) en corto para Almenara (23) unos 11 s después y el Ibiza sale jugando desde atrás (abp-def-11). Revisado: se cuenta sin el que comete la falta, como en el resto de filas: 9 (6-7 en cuadro, 2-3 fuera de cuadro en campo propio y Mestre, Leiva por delante del balón).",
         "minuto": "87'27\" (táctica 89:37)",
-        "jugador": "Ángel Carvajal"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWNhNWY0ZWFhNDhiMDRlNTZmNjcyMzE=",
+          "seg": 5372
+        },
+        "jugador": "Ángel Carvajal",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j07-ibiza-def-5372.mp4"
       },
       {
         "clip": "of-c20",
@@ -1347,17 +2324,13 @@ export const PARTIDOS: PartidoFaltas[] = [
         "distancia": "lejana",
         "entre": null,
         "nota": "Ciria (17) saca el balón conduciendo desde el borde de nuestra área por el semiespacio izquierdo (lado banquillos) y Yoldi (10) le derriba por detrás justo fuera del área, a unos 20 m de nuestra portería (TV 88:17, táctica 5428). En la táctica se ven 7 del Ibiza por delante del balón más el portero y un jugador que no entran en plano, por eso entre = ?. Tras la falta se monta una tangana (ver of-c21) y el saque no llega a verse en las imágenes.",
-        "minuto": "88'18\" (táctica 90:28)"
-      },
-      {
-        "clip": "of-c21",
-        "lado": "ofensivo",
-        "zona": "campo propio",
-        "carril": "izquierda",
-        "distancia": "lejana",
-        "entre": null,
-        "nota": "No es una falta distinta ni tiene saque propio: es la amarilla a Lazo (21) por la tangana que sigue a la falta de Yoldi sobre Ciria (of-c20). Con Ciria en el suelo Lazo entra al corro y se encara con Óscar y otros jugadores del Castilla, y el árbitro le muestra la amarilla en TV 88:25 (táctica 5436) mientras Mestre tiene el balón en la mano. Misma zona y mismo saque que of-c20, que no entra en las imágenes.",
-        "minuto": "88'18\" (táctica 90:28)"
+        "minuto": "88'18\" (táctica 90:28)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWNhNWY0ZWFhNDhiMDRlNTZmNjcyMzE=",
+          "seg": 5423
+        },
+        "jugador": "Alexis Ciria",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j07-ibiza-of-5423.mp4"
       },
       {
         "clip": "of-c22",
@@ -1368,7 +2341,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 8,
         "nota": "Tras un tiro lejano de Fadel (5) que bloca Joan, el rechace lo controla Roberto Martín (20) en el carril central a unos 25 m de nuestra portería y Fadel le derriba desde atrás (TV 90:59, táctica 5590). En la táctica se ven los 10 de campo del Ibiza: 7 quedan entre el balón y su portería, más el portero fuera de plano = 8. Martín saca rápido y en corto hacia el lado del banquillo (TV 91:05, táctica 5595) y el Castilla sigue en posesión desde campo propio.",
         "minuto": "90+0'59\" (táctica 93:10)",
-        "jugador": "Roberto Martín"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWNhNWY0ZWFhNDhiMDRlNTZmNjcyMzE=",
+          "seg": 5584
+        },
+        "jugador": "Roberto Martín",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j07-ibiza-of-5584.mp4"
       },
       {
         "clip": "of-c23",
@@ -1379,12 +2357,17 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": null,
         "nota": "Aguado roba y da a Roberto Martín (20), que conduce pegado a la banda izquierda (lado banquillos) para salir de nuestro campo y Astals (18), que le persigue, le derriba junto a la línea de banda a unos 30-35 m de nuestra portería, al lado del asistente (TV 92:59, táctica 5710). En la táctica se ven al menos 6 del Ibiza por delante del balón, pero faltan jugadores y el portero fuera de plano, por eso entre = ?. El saque no entra en las imágenes: el vídeo acaba con Martín colocando el balón en la banda (TV 93:05).",
         "minuto": "90+2'58\" (táctica 95:09)",
-        "jugador": "Roberto Martín"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWNhNWY0ZWFhNDhiMDRlNTZmNjcyMzE=",
+          "seg": 5703
+        },
+        "jugador": "Roberto Martín",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j07-ibiza-of-5703.mp4"
       }
     ]
   },
   {
-    "jornada": "LIGA 08",
+    "jornada": "J8",
     "rival": "Antequera CF",
     "local": true,
     "fecha": "2026-10-18",
@@ -1405,7 +2388,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 8,
         "nota": "T1 min 6. Cuenca (22) derriba a Yáñez (7) pegado a la banda derecha unos 15-18 m pasada la divisoria tras la conducción de Aguado por la izquierda y el cambio a Fortea, y Yáñez la saca rápido en corto para Óscar. En la táctica se ve en despues/s_07 arriba (el choque, unos 26 s después del momento esperado) y despues/s_07 abajo y s_08 con Yáñez en el suelo y el asistente al lado. Entre: el portero y 7 de campo por delante del balón (uno, en el carril izquierdo, apenas 2-3 m por delante), con Cuenca a su altura (no contado) y los 11 del Antequera a la vista.",
         "minuto": "5'15\" (táctica 5:46)",
-        "jugador": "Daniel Yáñez"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWQ2MGMxM2M2M2IxNWM5Y2EzN2MyOWI=",
+          "seg": 313
+        },
+        "jugador": "Daniel Yáñez",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j08-antequera-of-313.mp4"
       },
       {
         "clip": "def-c01",
@@ -1416,7 +2404,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 6,
         "nota": "T1 min 6. La falta de Leiva sobre Moha Bassele se ve en la táctica despues/s_07 abajo (cae dentro del círculo central, justo en campo del Antequera) y en despues/s_08 el juego ya se para, unos 27 s después del momento esperado. Entre el balón y la portería del Castilla quedan 5 jugadores de campo más Mestre (fuera de plano abajo), los otros 4 y Leiva están a la altura de la falta o por delante.",
         "minuto": "5'51\" (táctica 6:22)",
-        "jugador": "Álvaro Leiva"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWQ2MGMxM2M2M2IxNWM5Y2EzN2MyOWI=",
+          "seg": 349
+        },
+        "jugador": "Álvaro Leiva",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j08-antequera-def-349.mp4"
       },
       {
         "clip": "of-c02",
@@ -1427,7 +2420,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 9,
         "nota": "T1 min 10. Tras la salida Mestre-Óscar-Mestre, Mestre abre a Mario (4) en el pico izquierdo del área propia, Mario conduce y se la adelanta e Isra Domínguez (23) lo derriba a la altura de la línea del área, a unos 10-15 m de la banda izquierda. En la táctica se ve en despues/s_07 abajo (el choque, unos 28 s después del momento esperado) y despues/s_08 con Mario en el suelo. Entre: el portero y 8 de campo por delante, con Isra Domínguez encima de Mario y otro a la altura del borde del área (no contados) y los 11 del Antequera a la vista.",
         "minuto": "9'30\" (táctica 10:02)",
-        "jugador": "Mario Rivas"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWQ2MGMxM2M2M2IxNWM5Y2EzN2MyOWI=",
+          "seg": 568
+        },
+        "jugador": "Mario Rivas",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j08-antequera-of-568.mp4"
       },
       {
         "clip": "of-c03",
@@ -1438,7 +2436,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 8,
         "nota": "T1 min 11. Min 11, Antón (2) derriba a Leiva (11) junto a la banda izquierda unos 10 m antes del medio campo, en campo del Castilla, y Cestero la saca en corto para seguir jugando. En la táctica la falta se ve en s_02 abajo (se ven los 11 del Antequera): entre el balón y su portería hay 8, portero incluido, otro queda a la altura del balón, otro por detrás y Antón en el balón.",
         "minuto": "10'28\" (táctica 10:59)",
-        "jugador": "Álvaro Leiva"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWQ2MGMxM2M2M2IxNWM5Y2EzN2MyOWI=",
+          "seg": 626
+        },
+        "jugador": "Álvaro Leiva",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j08-antequera-of-626.mp4"
       },
       {
         "clip": "of-c04",
@@ -1449,7 +2452,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 9,
         "nota": "T1 min 20. Aguado (3) sale conduciendo pegado a la banda izquierda en campo propio, a medio camino entre su área y la divisoria, y Moi Parra (11) lo persigue y lo derriba por detrás (amarilla en la TV). En la táctica la persecución se ve en despues/s_06 abajo y s_07 y el choque en despues/s_08 arriba (unos 28 s después del momento esperado), pero la ventana acaba ahí y no se ve la parada ni el saque. Entre: el portero y 8 de campo por delante, con Moi Parra a la altura de Aguado y otro por detrás (no contados) y los 11 del Antequera a la vista.",
         "minuto": "19'47\" (táctica 20:19)",
-        "jugador": "Diego Aguado"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWQ2MGMxM2M2M2IxNWM5Y2EzN2MyOWI=",
+          "seg": 1185
+        },
+        "jugador": "Diego Aguado",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j08-antequera-of-1185.mp4"
       },
       {
         "clip": "of-c05",
@@ -1460,7 +2468,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 5,
         "nota": "T1 min 23. Aspra (20) derriba a Yáñez (7) unos metros dentro del campo del Castilla, junto al borde izquierdo del círculo central, en el lío tras el balón dividido de Roberto con Bassele, y el árbitro para el juego (no se ve el saque). En la táctica el choque se ve en despues/s_07 arriba (unos 26 s después del momento esperado) y Yáñez en el suelo con un compañero pidiendo falta en despues/s_07 abajo y s_08. Entre: el portero y 4 de campo claramente por delante, con Aspra y otro prácticamente a la altura del balón (no contados), 3 por detrás y los 11 del Antequera a la vista.",
         "minuto": "22'05\" (táctica 22:36)",
-        "jugador": "Daniel Yáñez"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWQ2MGMxM2M2M2IxNWM5Y2EzN2MyOWI=",
+          "seg": 1323
+        },
+        "jugador": "Daniel Yáñez",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j08-antequera-of-1323.mp4"
       },
       {
         "clip": "of-c06",
@@ -1471,7 +2484,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 7,
         "nota": "T1 min 26. La falta de Moi Parra sobre Cestero se ve en la táctica despues/s_07 abajo (duelo a unos 15 m del área del Castilla, por la izquierda) y en despues/s_08 arriba ya está el jugador del Castilla en el suelo con el árbitro llegando (unos 27-28 s después del momento esperado). En ese instante hay 6 jugadores de campo del Antequera más arriba que el balón más su portero (el que hace la falta y otros 3 quedan a su altura o por detrás), conteo justo porque uno está casi a la altura del balón.",
         "minuto": "25'46\" (táctica 26:18)",
-        "jugador": "Jorge Cestero"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWQ2MGMxM2M2M2IxNWM5Y2EzN2MyOWI=",
+          "seg": 1544
+        },
+        "jugador": "Jorge Cestero",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j08-antequera-of-1544.mp4"
       },
       {
         "clip": "of-c07",
@@ -1482,7 +2500,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 10,
         "nota": "T1 min 28. La falta de Isra Domínguez sobre Mario se ve en la táctica despues/s_06 abajo y despues/s_07 arriba (los dos caen junto a la banda izquierda, unos metros pasado el medio campo en campo del Antequera), unos 25-26 s después del momento esperado. Los otros 9 jugadores de campo del Antequera y su portero están todos más cerca de su portería que el balón.",
         "minuto": "27'26\" (táctica 27:57)",
-        "jugador": "Mario Rivas"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWQ2MGMxM2M2M2IxNWM5Y2EzN2MyOWI=",
+          "seg": 1644
+        },
+        "jugador": "Mario Rivas",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j08-antequera-of-1644.mp4"
       },
       {
         "clip": "def-c02",
@@ -1493,7 +2516,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 10,
         "nota": "T1 min 28. La falta de Aguado sobre Moi Parra se ve en la táctica despues/s_07 abajo (duelo junto a la banda derecha del Antequera, a unos 8 m de la banda y unos metros por delante del borde de su área) y en despues/s_08 está el jugador del Antequera en el suelo (unos 27 s después del momento esperado). Los otros 9 jugadores de campo del Castilla están por debajo del punto de la falta y el portero en su portería (fuera de plano abajo).",
         "minuto": "28'01\" (táctica 28:33)",
-        "jugador": "Diego Aguado"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWQ2MGMxM2M2M2IxNWM5Y2EzN2MyOWI=",
+          "seg": 1679
+        },
+        "jugador": "Diego Aguado",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j08-antequera-def-1679.mp4"
       },
       {
         "clip": "of-c08",
@@ -1504,7 +2532,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 5,
         "nota": "T1 min 41. Falta de Javi Antón (2) sobre Ciria (17), con amarilla según Hudl, hacia el 40:33 pegada a la banda de los banquillos justo en la línea de medio campo (lado del Castilla), con los dos jugadores en el suelo y los del Castilla pidiendo tarjeta, sin que se vea el saque. Entre contados en la táctica: el portero y 4 de campo por delante del balón, con otro del Antequera casi a la altura de la línea (no contado).",
         "minuto": "40'34\" (táctica 40:22)",
-        "jugador": "Alexis Ciria"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWQ2MGMxM2M2M2IxNWM5Y2EzN2MyOWI=",
+          "seg": 2432
+        },
+        "jugador": "Alexis Ciria",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j08-antequera-of-2432.mp4"
       },
       {
         "clip": "def-c03",
@@ -1515,7 +2548,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 8,
         "nota": "T1 min 47. Mano de Carvajal (19) al saltar para cortar el pase de Luismi Gutiérrez (10), a unos 10 m del medio campo en campo del Antequera (TV 46:23 del añadido de la 1ª parte). El árbitro deja seguir y luego la pita, y según Hudl la saca Luismi y Moi Parra centra y el centro se bloquea. En la táctica quedan 8 del Castilla por detrás del balón con el portero, y Carvajal y otro compañero a su altura.",
         "minuto": "45+1'24\" (táctica 46:11)",
-        "jugador": "Ángel Carvajal"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWQ2MGMxM2M2M2IxNWM5Y2EzN2MyOWI=",
+          "seg": 2782
+        },
+        "jugador": "Ángel Carvajal",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j08-antequera-def-2782.mp4"
       },
       {
         "clip": "def-c04",
@@ -1526,7 +2564,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 5,
         "nota": "T2 min 48. Roberto Martín (20) entra en plancha a Adrià Gené (16) en conducción por la banda de los banquillos, a unos 30-35 m de la portería del Castilla (TV 47:10 de la 2ª parte), y ve amarilla. En la táctica, en el instante de la entrada, sólo 4 del Castilla y el portero están por detrás del balón. El saque no sale en las imágenes.",
         "minuto": "47'09\" (táctica 50:45)",
-        "jugador": "Roberto Martín"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWQ2MGMxM2M2M2IxNWM5Y2EzN2MyOWI=",
+          "seg": 3001
+        },
+        "jugador": "Roberto Martín",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j08-antequera-def-3001.mp4"
       },
       {
         "clip": "def-c05",
@@ -1537,7 +2580,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 9,
         "nota": "T2 min 49. Min 49 (48:48): Roberto Martín derriba a Javi Antón en el carril derecho del Antequera, justo en su campo junto a la línea de medio campo. Se sacó en corto hacia atrás y el Antequera reinició con su portero, sin peligro.",
         "minuto": "48'48\" (táctica 52:23)",
-        "jugador": "Roberto Martín"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWQ2MGMxM2M2M2IxNWM5Y2EzN2MyOWI=",
+          "seg": 3100
+        },
+        "jugador": "Roberto Martín",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j08-antequera-def-3100.mp4"
       },
       {
         "clip": "of-c09",
@@ -1548,6 +2596,10 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 7,
         "nota": "T2 min 56. Sin imágenes de TV (sólo táctica): Luismi Gutiérrez (10) derriba a Fortea (2, según Hudl) en la banda derecha de ataque del Castilla, junto a los banquillos y a la altura de la línea de medio campo, y el blanco queda en el suelo mientras el juego sigue unos segundos (Hudl da el saque de Fortea 19 s después, no se ve en estas imágenes). Entre en la táctica: el portero y 6 de campo por delante del balón, con los 11 del Antequera a la vista.",
         "minuto": "55'03\" (táctica 58:39)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWQ2MGMxM2M2M2IxNWM5Y2EzN2MyOWI=",
+          "seg": 3475
+        },
         "jugador": "Jesús Fortea"
       },
       {
@@ -1559,7 +2611,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 4,
         "nota": "T2 min 57. Iván Pérez (4) derriba a Carvajal (19) hacia el 56:50 cuando encaraba por el centro, a pocos metros de la frontal del área del Antequera, y el árbitro le enseña la roja al 56:56 mientras Ciria (17) coge el balón para el saque (no se ve la ejecución). Entre en la táctica: el portero y 3 de campo por delante del balón, con Iván Pérez a su altura (no contado) y los 11 del Antequera a la vista.",
         "minuto": "56'49\" (táctica 60:25)",
-        "jugador": "Ángel Carvajal"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWQ2MGMxM2M2M2IxNWM5Y2EzN2MyOWI=",
+          "seg": 3581
+        },
+        "jugador": "Ángel Carvajal",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j08-antequera-of-3581.mp4"
       },
       {
         "clip": "of-c11",
@@ -1570,7 +2627,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 6,
         "nota": "T2 min 63. Min 63 (62:24 TV): Gené (16) derriba a Yáñez (7) en la esquina derecha del área tras el pase de Fortea y ve la amarilla. Falta lateral pegada al vértice del área, en las imágenes el juego sigue parado con Yáñez en el suelo y no se ve el saque.",
         "minuto": "62'23\" (táctica 65:58)",
-        "jugador": "Daniel Yáñez"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWQ2MGMxM2M2M2IxNWM5Y2EzN2MyOWI=",
+          "seg": 3915
+        },
+        "jugador": "Daniel Yáñez",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j08-antequera-of-3915.mp4"
       },
       {
         "clip": "of-c12",
@@ -1581,7 +2643,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 10,
         "nota": "T2 min 72. Min 73 (72:02 TV): Luismi Gutiérrez (10) derriba por detrás a Óscar Naasei (21) cuando conducía por la derecha unos 10 m dentro de su propio campo. Todo el Antequera queda por delante del balón y la TV corta a repetición, no se ve el saque.",
         "minuto": "71'57\" (táctica 74:45)",
-        "jugador": "Oscar Naasei"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWQ2MGMxM2M2M2IxNWM5Y2EzN2MyOWI=",
+          "seg": 4489
+        },
+        "jugador": "Oscar Naasei",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j08-antequera-of-4489.mp4"
       },
       {
         "clip": "of-c13",
@@ -1592,7 +2659,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 5,
         "nota": "T2 min 73. Min 73 (72:44 TV): Aspra (20) derriba a Fortuny (10) pegado a la banda derecha, apenas pasada la línea de medio campo, poco después de sacar Martínez la falta anterior. El jugador del Castilla se queda en el suelo y en las imágenes no se ve el saque.",
         "minuto": "72'40\" (táctica 75:29)",
-        "jugador": "Pol Fortuny"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWQ2MGMxM2M2M2IxNWM5Y2EzN2MyOWI=",
+          "seg": 4532
+        },
+        "jugador": "Pol Fortuny",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j08-antequera-of-4532.mp4"
       },
       {
         "clip": "def-c06",
@@ -1603,6 +2675,10 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 8,
         "nota": "T2 min 76. Hacia el min 76 (sin TV, estimado por el marcador del estadio y el desfase con Hudl): Fortea (amarilla) derriba a Luismi Gutiérrez junto a la banda izquierda del Antequera, en su propio campo a unos 30-35 m de su portería, tras presionar el Castilla arriba. Sin imágenes de TV (sólo táctica): en esos 16 s el juego sigue parado con la tarjeta y no se ve el saque.",
         "minuto": "75'04\" (táctica 77:53)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWQ2MGMxM2M2M2IxNWM5Y2EzN2MyOWI=",
+          "seg": 4676
+        },
         "jugador": "Jesús Fortea"
       },
       {
@@ -1614,7 +2690,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 5,
         "nota": "T2 min 82. Min 82 (81:40): Martínez (16) derriba por detrás a Moha Bassele cuando recibía de espaldas justo fuera del área del Antequera, en el lado derecho de su ataque, tras una pérdida del Castilla en ataque. El Antequera la sacó en corto (Aspra) y la movió atrás hasta su portero, sin peligro.",
         "minuto": "81'35\" (táctica 84:23)",
-        "jugador": "Martínez"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWQ2MGMxM2M2M2IxNWM5Y2EzN2MyOWI=",
+          "seg": 5067
+        },
+        "jugador": "Martínez",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j08-antequera-def-5067.mp4"
       },
       {
         "clip": "def-c08",
@@ -1625,7 +2706,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 3,
         "nota": "T2 min 83. Min 83 (82:10): en un balón largo de Quintana, Fati Joao choca con Destiny y ambos caen en el carril derecho del Antequera, unos metros dentro de su campo. El balón lo recoge Mario y el juego sigue en las imágenes (TV y táctica), así que no se ve el pitido ni el saque (Hudl da la falta sacada por Bassele unos 20 s después).",
         "minuto": "82'10\" (táctica 84:58)",
-        "jugador": "Fati Joao"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWQ2MGMxM2M2M2IxNWM5Y2EzN2MyOWI=",
+          "seg": 5102
+        },
+        "jugador": "Fati Joao",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j08-antequera-def-5102.mp4"
       },
       {
         "clip": "of-c14",
@@ -1636,7 +2722,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 6,
         "nota": "T2 min 83. Min 83 (82:44 TV): Agüero (14) derriba a Cestero (6) en el carril derecho, unos 5 m dentro del campo del Castilla, tras la recuperación de Fortea y Adrián Pérez. Cestero se queda en el suelo, el saque no entra en las imágenes (Hudl lo da en corto de Fortuny con pase atrás de Fortea).",
         "minuto": "82'42\" (táctica 85:30)",
-        "jugador": "Jorge Cestero"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWQ2MGMxM2M2M2IxNWM5Y2EzN2MyOWI=",
+          "seg": 5134
+        },
+        "jugador": "Jorge Cestero",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j08-antequera-of-5134.mp4"
       },
       {
         "clip": "of-c15",
@@ -1647,7 +2738,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 6,
         "nota": "T2 min 84. Min 84 (83:38): Julio Martínez (3) derriba a Adrián Pérez (39) pegado a la banda derecha, a la altura del borde del área, tras pase de Fortuny. El árbitro parece amonestar a Julio Martínez y Fortea coloca el balón para sacar, pero el saque no se llega a ver.",
         "minuto": "83'37\" (táctica 86:25)",
-        "jugador": "Adrián Pérez"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWQ2MGMxM2M2M2IxNWM5Y2EzN2MyOWI=",
+          "seg": 5189
+        },
+        "jugador": "Adrián Pérez",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j08-antequera-of-5189.mp4"
       },
       {
         "clip": "def-c09",
@@ -1658,7 +2754,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 3,
         "nota": "T2 min 90. Min 90 (TV 89:43): Cestero derriba a Destiny, que conducía por la banda izquierda del Antequera, a pocos metros de la línea de medio campo en campo del Antequera. El saque no entra en las imágenes, Hudl lo da como falta en corto de Aspra a Quintana para seguir jugando (entre contado en táctica s_06 abajo, uno casi a la altura del balón no contado).",
         "minuto": "89'41\" (táctica 92:30)",
-        "jugador": "Jorge Cestero"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWQ2MGMxM2M2M2IxNWM5Y2EzN2MyOWI=",
+          "seg": 5553
+        },
+        "jugador": "Jorge Cestero",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j08-antequera-def-5553.mp4"
       },
       {
         "clip": "of-c16",
@@ -1669,7 +2770,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 8,
         "nota": "T2 min 92. Min 92 (91:57, añadido): Agüero (14) entra a Fortea (2) pegado a la banda derecha, unos 15 m pasada la divisoria, y Fortea acaba fuera del campo junto al banquillo del Antequera. Martínez (16) recoge el balón para sacar, pero el saque no se llega a ver.",
         "minuto": "90+1'56\" (táctica 94:49)",
-        "jugador": "Jesús Fortea"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWQ2MGMxM2M2M2IxNWM5Y2EzN2MyOWI=",
+          "seg": 5688
+        },
+        "jugador": "Jesús Fortea",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j08-antequera-of-5688.mp4"
       },
       {
         "clip": "def-c10",
@@ -1680,7 +2786,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 6,
         "nota": "T2 min 93. Min 93 (TV 92:34): Fortuny derriba a Agüero junto a la banda izquierda del Antequera, en su propio campo a unos 30 m de su línea de fondo. Se saca rápido y en corto (Julio Martínez para Quintana, que conduce y lanza en largo) para seguir jugando.",
         "minuto": "90+2'33\" (táctica 95:26)",
-        "jugador": "Pol Fortuny"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWQ2MGMxM2M2M2IxNWM5Y2EzN2MyOWI=",
+          "seg": 5725
+        },
+        "jugador": "Pol Fortuny",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j08-antequera-def-5725.mp4"
       },
       {
         "clip": "def-c11",
@@ -1691,7 +2802,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 5,
         "nota": "T2 min 93. Min 93 (TV 92:55): Cestero derriba a Raúl Luque a unos 30 m de la portería del Castilla, a la altura de la prolongación del lateral derecho del área (atacando el Antequera). El Antequera la prepara para colgarla al área (es la falta lateral abp-def-07), entre contado en táctica s_03 abajo con otros dos defensores casi a la altura del balón no contados.",
         "minuto": "90+2'54\" (táctica 95:48)",
-        "jugador": "Jorge Cestero"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWQ2MGMxM2M2M2IxNWM5Y2EzN2MyOWI=",
+          "seg": 5746
+        },
+        "jugador": "Jorge Cestero",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j08-antequera-def-5746.mp4"
       },
       {
         "clip": "of-c17",
@@ -1702,7 +2818,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 8,
         "nota": "T2 min 95. Min 95 (94:37, añadido): Agüero (14) derriba a Fortea (2) en un balón dividido tras un saque de puerta de Alcover, en el carril derecho, unos metros por detrás de la divisoria en campo propio, y ve la amarilla. Fortea se queda en el suelo junto al banquillo y el saque no se llega a ver.",
         "minuto": "90+4'37\" (táctica 97:35)",
-        "jugador": "Jesús Fortea"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWQ2MGMxM2M2M2IxNWM5Y2EzN2MyOWI=",
+          "seg": 5849
+        },
+        "jugador": "Jesús Fortea",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j08-antequera-of-5849.mp4"
       }
     ]
   },
@@ -1728,7 +2849,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 11,
         "nota": "T1 min 2. Diego Iglesias (19) derriba a Aguado en la banda izquierda a la altura del borde del área propia del Castilla (min 2, 1:09). Al final del corte aún no se ha sacado, con todo el Algeciras por delante del balón.",
         "minuto": "1'07\" (táctica 1:10)",
-        "jugador": "Diego Aguado"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWRmYWZjMmMzNTUxMDQ1MTVkZGE5NjM=",
+          "seg": 65
+        },
+        "jugador": "Diego Aguado",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j09-algeciras-of-65.mp4"
       },
       {
         "clip": "def-c01",
@@ -1739,7 +2865,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 4,
         "nota": "T1 min 4. Leiva entra a Paris Adot (22) por la derecha del ataque del Algeciras, recién pasado el medio campo (min 4, 3:57), y ve amarilla. El árbitro deja seguir un instante y luego para el juego, el corte acaba sin que se saque.",
         "minuto": "3'56\" (táctica 3:59)",
-        "jugador": "Álvaro Leiva"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWRmYWZjMmMzNTUxMDQ1MTVkZGE5NjM=",
+          "seg": 234
+        },
+        "jugador": "Álvaro Leiva",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j09-algeciras-def-234.mp4"
       },
       {
         "clip": "def-c02",
@@ -1750,7 +2881,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 7,
         "nota": "T1 min 5. Martínez (16) derriba a Martínez (18) del Algeciras por la derecha del ataque rival, unos 10 m dentro del campo del Castilla (min 5, 4:44). Se saca rápido hacia la banda derecha y Diego Iglesias acaba centrando (según Hudl).",
         "minuto": "4'42\" (táctica 4:45)",
-        "jugador": "Martínez"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWRmYWZjMmMzNTUxMDQ1MTVkZGE5NjM=",
+          "seg": 280
+        },
+        "jugador": "Martínez",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j09-algeciras-def-280.mp4"
       },
       {
         "clip": "of-c02",
@@ -1760,7 +2896,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "distancia": "media",
         "entre": 8,
         "nota": "T1 min 15. José Carlos Márquez (3) derriba a Yáñez cuando conducía por la derecha en campo del Algeciras, unos 20 m fuera del área (min 15, 14:37). Yáñez queda en el suelo y el corte acaba sin que se saque.",
-        "minuto": "14'35\" (táctica 14:38)"
+        "minuto": "14'35\" (táctica 14:38)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWRmYWZjMmMzNTUxMDQ1MTVkZGE5NjM=",
+          "seg": 873
+        },
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j09-algeciras-of-873.mp4"
       },
       {
         "clip": "of-c03",
@@ -1771,7 +2912,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 6,
         "nota": "T1 min 17. Carmona (2) derriba a Ciria por el carril izquierdo a pocos metros del medio campo, en campo propio del Castilla (min 17, 16:25), y ve amarilla. Ciria queda en el suelo y el corte acaba sin que se saque.",
         "minuto": "16'22\" (táctica 16:26)",
-        "jugador": "Alexis Ciria"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWRmYWZjMmMzNTUxMDQ1MTVkZGE5NjM=",
+          "seg": 980
+        },
+        "jugador": "Alexis Ciria",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j09-algeciras-of-980.mp4"
       },
       {
         "clip": "of-c04",
@@ -1782,7 +2928,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 9,
         "nota": "T1 min 19. Carmona derriba a Leiva en la banda izquierda nada más pasar la línea de medio campo (min 19). Cestero la saca en corto y el Castilla sigue jugando sin peligro.",
         "minuto": "18'54\" (táctica 18:57)",
-        "jugador": "Álvaro Leiva"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWRmYWZjMmMzNTUxMDQ1MTVkZGE5NjM=",
+          "seg": 1132
+        },
+        "jugador": "Álvaro Leiva",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j09-algeciras-of-1132.mp4"
       },
       {
         "clip": "of-c05",
@@ -1793,7 +2944,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 8,
         "nota": "T1 min 23. Martínez (18) entra con falta a Fortea en la banda derecha, unos metros por fuera del área del Algeciras (min 23). Fortea se queda sentado dolorido y el saque no llega a verse en los cortes.",
         "minuto": "22'55\" (táctica 22:59)",
-        "jugador": "Jesús Fortea"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWRmYWZjMmMzNTUxMDQ1MTVkZGE5NjM=",
+          "seg": 1373
+        },
+        "jugador": "Jesús Fortea",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j09-algeciras-of-1373.mp4"
       },
       {
         "clip": "of-c06",
@@ -1804,7 +2960,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 8,
         "nota": "T1 min 29. Martínez (18) vuelve a derribar a Fortea pegado a la banda derecha, unos metros dentro del campo del Castilla (min 29). Fortea la saca en corto para Mario Rivas y el Castilla reinicia hacia atrás.",
         "minuto": "28'04\" (táctica 28:07)",
-        "jugador": "Jesús Fortea"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWRmYWZjMmMzNTUxMDQ1MTVkZGE5NjM=",
+          "seg": 1682
+        },
+        "jugador": "Jesús Fortea",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j09-algeciras-of-1682.mp4"
       },
       {
         "clip": "of-c07",
@@ -1815,7 +2976,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 7,
         "nota": "T1 min 32. Iván Turrillo derriba a Leiva en el carril izquierdo, en campo propio a unos 15 m de la línea de medio campo (min 32). Leiva se queda en el suelo dolorido y el saque no llega a verse en los cortes.",
         "minuto": "31'25\" (táctica 31:28)",
-        "jugador": "Álvaro Leiva"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWRmYWZjMmMzNTUxMDQ1MTVkZGE5NjM=",
+          "seg": 1883
+        },
+        "jugador": "Álvaro Leiva",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j09-algeciras-of-1883.mp4"
       },
       {
         "clip": "of-c08",
@@ -1826,7 +2992,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 8,
         "nota": "T1 min 40. Iván Turrillo derriba a Fortea en el carril derecho, unos metros por fuera del pico derecho del área del Algeciras (TV 39:23, min 40). A +16 s de la táctica aún no se ha sacado, así que el saque no se ve en los cortes (en la táctica se cuentan los 11 del Algeciras: portero y 7 más por delante del balón, sin contar a Turrillo, que está a su altura).",
         "minuto": "39'21\" (táctica 38:47)",
-        "jugador": "Jesús Fortea"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWRmYWZjMmMzNTUxMDQ1MTVkZGE5NjM=",
+          "seg": 2359
+        },
+        "jugador": "Jesús Fortea",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j09-algeciras-of-2359.mp4"
       },
       {
         "clip": "of-c09",
@@ -1837,7 +3008,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 9,
         "nota": "T2 min 48. Min 48 (47:24): Juanma García (7) derriba a Ciria (17) por la izquierda unos metros dentro del campo del Algeciras, ~38 m de la portería. Ventaja breve con Cestero con el balón y el árbitro para el juego para sacar amarilla a Juanma García.",
         "minuto": "47'23\" (táctica 51:03)",
-        "jugador": "Alexis Ciria"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWRmYWZjMmMzNTUxMDQ1MTVkZGE5NjM=",
+          "seg": 2910
+        },
+        "jugador": "Alexis Ciria",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j09-algeciras-of-2910.mp4"
       },
       {
         "clip": "def-c03",
@@ -1848,7 +3024,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 5,
         "nota": "T2 min 50. Min 50 (49:44): Aguado (3) derriba a Paris Adot (22) por el carril derecho del Algeciras, pocos metros dentro del campo del Castilla. La saca Carmona en largo hacia la banda derecha, Diego Iglesias entra en el área y remata y para Navarro.",
         "minuto": "49'43\" (táctica 53:23)",
-        "jugador": "Diego Aguado"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWRmYWZjMmMzNTUxMDQ1MTVkZGE5NjM=",
+          "seg": 3050
+        },
+        "jugador": "Diego Aguado",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j09-algeciras-def-3050.mp4"
       },
       {
         "clip": "of-c10",
@@ -1859,7 +3040,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 9,
         "nota": "T2 min 53. Min 53 (52:55): tras un córner del Algeciras, Raúl Rubio (9) entra por detrás a Fati Joao (23) cuando sacaba el balón por la izquierda a la altura del borde del área propia. No se ve pitar la falta: Rubio sigue con el balón hacia la línea de fondo, Joao protesta y la jugada acaba en lo que parece un saque de puerta de Navarro.",
         "minuto": "52'52\" (táctica 56:33)",
-        "jugador": "Fati Joao"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWRmYWZjMmMzNTUxMDQ1MTVkZGE5NjM=",
+          "seg": 3239
+        },
+        "jugador": "Fati Joao",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j09-algeciras-of-3239.mp4"
       },
       {
         "clip": "of-c11",
@@ -1870,7 +3056,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": null,
         "nota": "T2 min 57. Min 57 (56:59): tras un saque de banda de Aguado, Aleix Coch (4) derriba a Carvajal (19) pegado a la banda izquierda, a unos 30 m de la portería del Algeciras, y el árbitro la pita. En la táctica la jugada queda muy lejos y pequeña y no se distinguen todos los jugadores del Algeciras.",
         "minuto": "56'57\" (táctica 60:38)",
-        "jugador": "Ángel Carvajal"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWRmYWZjMmMzNTUxMDQ1MTVkZGE5NjM=",
+          "seg": 3484
+        },
+        "jugador": "Ángel Carvajal",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j09-algeciras-of-3484.mp4"
       },
       {
         "clip": "def-c04",
@@ -1881,7 +3072,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": null,
         "nota": "T2 min 62. Min 62 (61:14): tras un centro de Aguado, Roberto Martín (20) derriba a Ramón (21) en la presión junto a la media luna del área del Algeciras, a unos 20 m de su portería. Falta defensiva para el Algeciras que corta el ataque del Castilla. En la táctica no se ve al portero Navarro (fuera de imagen), por eso entre va con ?.",
         "minuto": "61'12\" (táctica 64:52)",
-        "jugador": "Roberto Martín"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWRmYWZjMmMzNTUxMDQ1MTVkZGE5NjM=",
+          "seg": 3739
+        },
+        "jugador": "Roberto Martín",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j09-algeciras-def-3739.mp4"
       },
       {
         "clip": "def-c05",
@@ -1892,7 +3088,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 7,
         "nota": "T2 min 67. Min 67 (66:12): tras la salida de Iván Moreno y pase de Coch, Yáñez (7) derriba a Tomás Sánchez (11) pegado a la banda izquierda del Algeciras, en su propio campo a unos 30 m de su portería. Falta en la presión alta del Castilla. En las imágenes no se llega a ver el saque.",
         "minuto": "66'10\" (táctica 69:51)",
-        "jugador": "Daniel Yáñez"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWRmYWZjMmMzNTUxMDQ1MTVkZGE5NjM=",
+          "seg": 4037
+        },
+        "jugador": "Daniel Yáñez",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j09-algeciras-def-4037.mp4"
       },
       {
         "clip": "of-c12",
@@ -1903,7 +3104,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 6,
         "nota": "T2 min 68. Tras un saque de banda de Aguado, Carmona derriba a Rachad junto a la banda izquierda en campo del Algeciras (TV 67:36, unos 35-40 m de la portería). Según Hudl la saca Ciria en corto para Joao, que conduce y pierde el balón.",
         "minuto": "67'33\" (táctica 71:14)",
-        "jugador": "Rachad Fettal"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWRmYWZjMmMzNTUxMDQ1MTVkZGE5NjM=",
+          "seg": 4120
+        },
+        "jugador": "Rachad Fettal",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j09-algeciras-of-4120.mp4"
       },
       {
         "clip": "of-c13",
@@ -1914,7 +3120,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": null,
         "nota": "T2 min 69. Diego Iglesias derriba a Leiva por detrás junto a la banda izquierda, fuera del área y cerca de la línea de fondo (TV 68:29), y ve la amarilla. En la táctica la falta es casi a la altura del área y varios defensores quedan en la misma línea que el balón, así que no se pueden contar los «entre» con seguridad.",
         "minuto": "68'27\" (táctica 72:08)",
-        "jugador": "Álvaro Leiva"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWRmYWZjMmMzNTUxMDQ1MTVkZGE5NjM=",
+          "seg": 4174
+        },
+        "jugador": "Álvaro Leiva",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j09-algeciras-of-4174.mp4"
       },
       {
         "clip": "of-c14",
@@ -1925,7 +3136,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 10,
         "nota": "T2 min 76. Avilés, que conducía tras un balón largo, choca con Leiva y lo derriba a la altura del área del Castilla por la izquierda, fuera del área (TV 75:27). Falta defensiva para el Castilla en su propio campo, con todo el Algeciras por delante del balón salvo el infractor.",
         "minuto": "75'24\" (táctica 78:04)",
-        "jugador": "Álvaro Leiva"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWRmYWZjMmMzNTUxMDQ1MTVkZGE5NjM=",
+          "seg": 4591
+        },
+        "jugador": "Álvaro Leiva",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j09-algeciras-of-4591.mp4"
       },
       {
         "clip": "def-c06",
@@ -1936,7 +3152,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 9,
         "nota": "T2 min 76. Tras un saque largo de Navarro, Rachad derriba a Carmona en la disputa del balón dividido, junto al círculo central en campo del Algeciras (TV 75:57). Según Hudl la saca Aleix Coch unos 20 s después.",
         "minuto": "75'56\" (táctica 78:36)",
-        "jugador": "Rachad Fettal"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWRmYWZjMmMzNTUxMDQ1MTVkZGE5NjM=",
+          "seg": 4623
+        },
+        "jugador": "Rachad Fettal",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j09-algeciras-def-4623.mp4"
       },
       {
         "clip": "def-c07",
@@ -1947,7 +3168,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 9,
         "nota": "T2 min 79. Rachad derriba a Carmona en la conducción junto al círculo central, sobre la línea de medio campo, y ve la amarilla (min 79). Carmona se queda en el suelo y el saque no llega a verse en el corte.",
         "minuto": "78'25\" (táctica 81:05)",
-        "jugador": "Rachad Fettal"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWRmYWZjMmMzNTUxMDQ1MTVkZGE5NjM=",
+          "seg": 4772
+        },
+        "jugador": "Rachad Fettal",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j09-algeciras-def-4772.mp4"
       },
       {
         "clip": "of-c15",
@@ -1958,7 +3184,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 10,
         "nota": "T2 min 81. Falta en ataque de Carmona sobre Fati Joao en un córner del Algeciras, en la línea del área pequeña del Castilla (min 81). La saca Navarro en corto desde dentro del área y el Castilla sale jugando desde atrás (en el instante sólo un jugador del Algeciras estaba más cerca de la línea de fondo que el balón).",
         "minuto": "80'46\" (táctica 83:26)",
-        "jugador": "Fati Joao"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWRmYWZjMmMzNTUxMDQ1MTVkZGE5NjM=",
+          "seg": 4913
+        },
+        "jugador": "Fati Joao",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j09-algeciras-of-4913.mp4"
       },
       {
         "clip": "def-c08",
@@ -1969,7 +3200,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 9,
         "nota": "T2 min 92. Fortea derriba a Ramón junto a la banda, a la altura del área del Algeciras, cuando éste le encaraba (min 92). El saque no se ve en el corte. En el recuento hay un jugador del Castilla prácticamente a la misma altura que el balón que no se ha contado.",
         "minuto": "90+1'36\" (táctica 94:17)",
-        "jugador": "Jesús Fortea"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWRmYWZjMmMzNTUxMDQ1MTVkZGE5NjM=",
+          "seg": 5563
+        },
+        "jugador": "Jesús Fortea",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j09-algeciras-def-5563.mp4"
       },
       {
         "clip": "of-c16",
@@ -1980,7 +3216,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": null,
         "nota": "T2 min 93. Raúl Rubio derriba a Fati Joao en un duelo aéreo tras un saque largo del portero del Algeciras, junto al círculo central y apenas en campo del Castilla (min 93). Fati queda en el suelo y el saque no se ve en el corte. En la táctica se ven 9 de campo del Algeciras por delante del balón, pero el portero queda fuera de imagen.",
         "minuto": "90+2'08\" (táctica 94:48)",
-        "jugador": "Fati Joao"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWRmYWZjMmMzNTUxMDQ1MTVkZGE5NjM=",
+          "seg": 5595
+        },
+        "jugador": "Fati Joao",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j09-algeciras-of-5595.mp4"
       }
     ]
   },
@@ -2006,7 +3247,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 11,
         "nota": "T1 min 3. Minuto 3, Ibán Ribeiro derriba a Fortea junto a la banda derecha a la altura del medio campo tras una recuperación del Castilla. Joan la saca en corto para seguir la posesión, con todo el FC Cartagena por delante del balón.",
         "minuto": "2'54\" (táctica 3:02)",
-        "jugador": "Jesús Fortea"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWU3NjZkMzIxMTJiZjUwOTE1YWU5MDI=",
+          "seg": 172
+        },
+        "jugador": "Jesús Fortea",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j10-cartagena-of-172.mp4"
       },
       {
         "clip": "of-c02",
@@ -2017,7 +3263,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 5,
         "nota": "T1 min 8. Minuto 8, Baz derriba a Carvajal pegado a la banda derecha unos 20 m dentro del campo del FC Cartagena (Hudl la daba en medio campo). El Castilla coloca el balón para sacarla junto a la banda y el saque no llega a verse en las imágenes.",
         "minuto": "7'20\" (táctica 7:28)",
-        "jugador": "Ángel Carvajal"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWU3NjZkMzIxMTJiZjUwOTE1YWU5MDI=",
+          "seg": 438
+        },
+        "jugador": "Ángel Carvajal",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j10-cartagena-of-438.mp4"
       },
       {
         "clip": "of-c03",
@@ -2028,7 +3279,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 8,
         "nota": "T1 min 11. Minuto 11, Nacho Martínez derriba a Cestero en el carril izquierdo justo antes de la línea de medio campo, en una pérdida del FC Cartagena. Se saca rápido y en corto (Leiva y Cestero) para seguir la posesión por la izquierda.",
         "minuto": "10'26\" (táctica 10:34)",
-        "jugador": "Jorge Cestero"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWU3NjZkMzIxMTJiZjUwOTE1YWU5MDI=",
+          "seg": 624
+        },
+        "jugador": "Jorge Cestero",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j10-cartagena-of-624.mp4"
       },
       {
         "clip": "of-c04",
@@ -2039,7 +3295,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 7,
         "nota": "T1 min 11. Minuto 11, Adrián Corral derriba a Fortea pegado a la banda derecha sobre la línea de medio campo y el juego se para unos segundos con Fortea en el suelo. El Castilla la saca en corto y circula hacia la izquierda (Hudl anota justo después el 1-0 de Fortuny, que no llega a verse en estas imágenes).",
         "minuto": "10'57\" (táctica 11:04)",
-        "jugador": "Jesús Fortea"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWU3NjZkMzIxMTJiZjUwOTE1YWU5MDI=",
+          "seg": 655
+        },
+        "jugador": "Jesús Fortea",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j10-cartagena-of-655.mp4"
       },
       {
         "clip": "def-c01",
@@ -2050,7 +3311,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 9,
         "nota": "T1 min 17. Carvajal derriba a Baz en la línea de medio campo, a media distancia de la banda de los banquillos (reloj 16:06). Jules la saca en corto y Rubén Serrano la devuelve al portero García, sin peligro.",
         "minuto": "16'03\" (táctica 16:11)",
-        "jugador": "Ángel Carvajal"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWU3NjZkMzIxMTJiZjUwOTE1YWU5MDI=",
+          "seg": 961
+        },
+        "jugador": "Ángel Carvajal",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j10-cartagena-def-961.mp4"
       },
       {
         "clip": "of-c05",
@@ -2061,7 +3327,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 10,
         "nota": "T1 min 22. Minuto 22, Nacho Martínez derriba a Ciria junto a la banda izquierda en campo propio, entre el área del Castilla y el medio campo, cuando salía con el balón tras una recuperación. Aguado la saca en corto hacia Joan para reiniciar la salida.",
         "minuto": "21'54\" (táctica 22:01)",
-        "jugador": "Alexis Ciria"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWU3NjZkMzIxMTJiZjUwOTE1YWU5MDI=",
+          "seg": 1312
+        },
+        "jugador": "Alexis Ciria",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j10-cartagena-of-1312.mp4"
       },
       {
         "clip": "def-c02",
@@ -2072,7 +3343,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 6,
         "nota": "T1 min 25. Sin TV (sólo táctica y ficha): Aguado derriba a Marcos Moreno tras la pérdida de Fortuny, unos 10 m dentro del campo del Cartagena pegado a su banda derecha. Se pone el balón para sacar en corto, sin peligro (Navarro fuera de plano en su portería, contado).",
         "minuto": "24'53\" (táctica 25:01)",
-        "jugador": "Diego Aguado"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWU3NjZkMzIxMTJiZjUwOTE1YWU5MDI=",
+          "seg": 1491
+        },
+        "jugador": "Diego Aguado",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j10-cartagena-def-1491.mp4"
       },
       {
         "clip": "def-c03",
@@ -2083,7 +3359,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 7,
         "nota": "T1 min 26. Ciria derriba a Rubén Serrano cuando conducía, unos 7 m dentro de nuestro campo por el carril derecho del Cartagena (reloj 25:28). El Cartagena se prepara para sacar en corto, sin peligro inmediato.",
         "minuto": "25'25\" (táctica 25:32)",
-        "jugador": "Alexis Ciria"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWU3NjZkMzIxMTJiZjUwOTE1YWU5MDI=",
+          "seg": 1523
+        },
+        "jugador": "Alexis Ciria",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j10-cartagena-def-1523.mp4"
       },
       {
         "clip": "def-c04",
@@ -2094,7 +3375,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 5,
         "nota": "T1 min 28. Tras el saque de puerta de García, Óscar Naasei entra en plancha a Ibán Ribeiro a unos 35 m de la portería del Cartagena, pegado a su banda derecha (reloj 27:10). Presión alta del Castilla cortada con falta, el Cartagena reanuda en corto desde su campo.",
         "minuto": "27'08\" (táctica 27:16)",
-        "jugador": "Oscar Naasei"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWU3NjZkMzIxMTJiZjUwOTE1YWU5MDI=",
+          "seg": 1626
+        },
+        "jugador": "Oscar Naasei",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j10-cartagena-def-1626.mp4"
       },
       {
         "clip": "of-c06",
@@ -2105,7 +3391,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 10,
         "nota": "T1 min 30. Sin imágenes de TV, sólo táctica y ficha. Tras un remate del FC Cartagena bloqueado por Roberto, Ribeiro comete falta sobre Aguado dentro del área del Castilla, que queda en el suelo junto al área pequeña y el juego se para con todo el Cartagena por delante salvo el infractor (el saque no se ve, el dron gira hacia el corrillo junto a la portería).",
         "minuto": "29'53\" (táctica 30:06)",
-        "jugador": "Diego Aguado"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWU3NjZkMzIxMTJiZjUwOTE1YWU5MDI=",
+          "seg": 1791
+        },
+        "jugador": "Diego Aguado",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j10-cartagena-of-1791.mp4"
       },
       {
         "clip": "def-c05",
@@ -2116,7 +3407,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": null,
         "nota": "T1 min 36. Ciria encara por nuestra derecha y el árbitro le pita mano dentro del área del Cartagena, junto a la línea de fondo por su lado izquierdo (reloj 35:44, en la táctica nueva hacia s_01 abajo). Por delante del balón hacia su línea de fondo sólo están el portero García y el defensor que le cerraba por dentro (otros dos quedan a su altura y no se cuentan), y el Cartagena saca desde su área. Revisión final: el agente contó 2 aplicando la regla de falta lateral junto al área, pero la mano es junto a la línea de fondo del Cartagena (el equipo que saca) y entonces casi todo el Castilla queda entre el balón y su portería  no se ve a los 11, así que va como ?.",
         "minuto": "35'43\" (táctica 35:03)",
-        "jugador": "Alexis Ciria"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWU3NjZkMzIxMTJiZjUwOTE1YWU5MDI=",
+          "seg": 2141
+        },
+        "jugador": "Alexis Ciria",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j10-cartagena-def-2141.mp4"
       },
       {
         "clip": "def-c06",
@@ -2127,7 +3423,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 4,
         "nota": "T1 min 37. Tras un saque de banda de Fortea cerca del medio campo, Fortuny derriba a Baz junto a la banda de los banquillos, unos metros dentro de nuestro campo (min 37, en la táctica nueva hacia s_03 arriba, con Baz en el suelo). Con el Castilla volcado hacia el saque sólo quedan por detrás del balón Navarro y tres compañeros, y el Cartagena reanuda en corto.",
         "minuto": "36'42\" (táctica 36:02)",
-        "jugador": "Pol Fortuny"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWU3NjZkMzIxMTJiZjUwOTE1YWU5MDI=",
+          "seg": 2200
+        },
+        "jugador": "Pol Fortuny",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j10-cartagena-def-2200.mp4"
       },
       {
         "clip": "of-c07",
@@ -2138,7 +3439,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 4,
         "nota": "T1 min 38. Tras despejar el Castilla la falta colgada al área, Dacosta derriba a Ciria en la salida a la altura de la media luna, algo escorado a la derecha (37:44, en la táctica nueva hacia s_02 abajo), y ve amarilla. El Cartagena sólo tenía al portero y tres jugadores entre el balón y su portería (uno más en la otra banda a la misma altura, sin contar), Ciria se queda en el suelo, entran las asistencias y el Castilla reanuda en corto hacia Navarro.",
         "minuto": "37'41\" (táctica 37:01)",
-        "jugador": "Alexis Ciria"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWU3NjZkMzIxMTJiZjUwOTE1YWU5MDI=",
+          "seg": 2259
+        },
+        "jugador": "Alexis Ciria",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j10-cartagena-of-2259.mp4"
       },
       {
         "clip": "def-c07",
@@ -2149,7 +3455,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 6,
         "nota": "T1 min 47. Leiva encara en la esquina del área del Cartagena y derriba a Nacho Martínez al pelear el balón (min 47, añadido de la 1ª parte, la falta se ve en la táctica hacia s_01, unos 6 s antes de lo esperado). La saca el portero García en largo desde el pico del área y el Castilla queda bien colocado (Leiva, a la altura del balón, no se cuenta).",
         "minuto": "45+1'55\" (táctica 46:15)",
-        "jugador": "Álvaro Leiva"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWU3NjZkMzIxMTJiZjUwOTE1YWU5MDI=",
+          "seg": 2813
+        },
+        "jugador": "Álvaro Leiva",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j10-cartagena-def-2813.mp4"
       },
       {
         "clip": "of-c08",
@@ -2160,7 +3471,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": null,
         "nota": "T2 min 47. Tras sacar de banda Aguado en la izquierda, Jurado le derriba cerca de la línea de fondo, entre la banda y el lateral del área (46:07), y ve amarilla. Falta lateral junto al área con el Cartagena amontonado en su área, en la táctica los jugadores salen muy pequeños y pegados a la línea de fondo y no se distingue cuáles están más cerca de ella que el balón.",
         "minuto": "46'05\" (táctica 51:19)",
-        "jugador": "Diego Aguado"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWU3NjZkMzIxMTJiZjUwOTE1YWU5MDI=",
+          "seg": 3073
+        },
+        "jugador": "Diego Aguado",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j10-cartagena-of-3073.mp4"
       },
       {
         "clip": "of-c09",
@@ -2171,7 +3487,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 5,
         "nota": "T2 min 51. Tras un saque largo de García, Nacho Martínez derriba a Cestero junto a la banda izquierda, en la línea de medio campo del lado del Castilla (50:12). El Cartagena tenía a cinco por detrás del balón (portero y cuatro en su campo) y el Castilla saca rápido en corto junto a la banda.",
         "minuto": "50'11\" (táctica 55:24)",
-        "jugador": "Jorge Cestero"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWU3NjZkMzIxMTJiZjUwOTE1YWU5MDI=",
+          "seg": 3319
+        },
+        "jugador": "Jorge Cestero",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j10-cartagena-of-3319.mp4"
       },
       {
         "clip": "of-c10",
@@ -2182,7 +3503,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 9,
         "nota": "T2 min 54. En la salida desde atrás tras saque de puerta, Joan filtra para Carvajal y Baz le derriba por detrás unos metros dentro del campo del Castilla, algo escorado a la derecha (53:57). Con nueve del Cartagena por delante del balón, Joan saca la falta y el Castilla sigue jugando en corto con Óscar.",
         "minuto": "53'56\" (táctica 59:09)",
-        "jugador": "Ángel Carvajal"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWU3NjZkMzIxMTJiZjUwOTE1YWU5MDI=",
+          "seg": 3544
+        },
+        "jugador": "Ángel Carvajal",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j10-cartagena-of-3544.mp4"
       },
       {
         "clip": "def-c08",
@@ -2193,7 +3519,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 10,
         "nota": "T2 min 55. Sin TV (tramo de Hudl roto): sólo táctica y ficha. Tras un saque de banda de Aguado, Carvajal comete falta sobre Rubén Serrano en un duelo aéreo pegado a la banda de los banquillos, unos metros dentro de nuestro campo, y ve la amarilla. Nueve del Castilla más Navarro por detrás del balón.",
         "minuto": "54'52\" (táctica 60:06)",
-        "jugador": "Ángel Carvajal"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWU3NjZkMzIxMTJiZjUwOTE1YWU5MDI=",
+          "seg": 3600
+        },
+        "jugador": "Ángel Carvajal",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j10-cartagena-def-3600.mp4"
       },
       {
         "clip": "of-c11",
@@ -2204,7 +3535,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 11,
         "nota": "T2 min 63. Minuto 63, en un córner del FC Cartagena Rubén Serrano derriba a Joan Martínez junto al área pequeña del Castilla y el árbitro pita falta en ataque. El Castilla la saca en corto desde su área y sale jugando.",
         "minuto": "62'25\" (táctica 67:39)",
-        "jugador": "Joan Martínez"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWU3NjZkMzIxMTJiZjUwOTE1YWU5MDI=",
+          "seg": 4053
+        },
+        "jugador": "Joan Martínez",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j10-cartagena-of-4053.mp4"
       },
       {
         "clip": "def-c09",
@@ -2215,7 +3551,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 8,
         "nota": "T2 min 65. Ciria frena a Marc Jurado junto a la banda de los banquillos, a unos 30 m de nuestra portería (min 65, falta pitada hacia 64:14 en la TV). Falta lateral para centrar con siete del Castilla más Navarro por detrás del balón y la línea montada en el borde del área.",
         "minuto": "64'13\" (táctica 69:26)",
-        "jugador": "Alexis Ciria"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWU3NjZkMzIxMTJiZjUwOTE1YWU5MDI=",
+          "seg": 4161
+        },
+        "jugador": "Alexis Ciria",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j10-cartagena-def-4161.mp4"
       },
       {
         "clip": "of-c12",
@@ -2226,7 +3567,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 5,
         "nota": "T2 min 66. Minuto 66, Baz derriba a Jesús Fortea justo fuera del área del Castilla por la derecha y ve la amarilla. En los 30 s de táctica aún no se saca (el árbitro está con la tarjeta).",
         "minuto": "65'33\" (táctica 70:47)",
-        "jugador": "Jesús Fortea"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWU3NjZkMzIxMTJiZjUwOTE1YWU5MDI=",
+          "seg": 4241
+        },
+        "jugador": "Jesús Fortea",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j10-cartagena-of-4241.mp4"
       },
       {
         "clip": "def-c10",
@@ -2237,7 +3583,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 1,
         "nota": "T2 min 69. Tras una pérdida de Naasei, Joan corta con falta la conducción de Marcos Moreno justo fuera del área, al lado del semicírculo y algo escorado a la derecha del Cartagena, y ve la amarilla (min 69, hacia 68:43 en la TV). Falta táctica con el Castilla desordenado: sólo Navarro por detrás del balón, Joan y otro compañero quedan a su altura.",
         "minuto": "68'41\" (táctica 73:55)",
-        "jugador": "Joan Martínez"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWU3NjZkMzIxMTJiZjUwOTE1YWU5MDI=",
+          "seg": 4429
+        },
+        "jugador": "Joan Martínez",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j10-cartagena-def-4429.mp4"
       },
       {
         "clip": "def-c11",
@@ -2248,7 +3599,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 6,
         "nota": "T2 min 78. Hacia el 78' (TV 77:49) Roberto Martín derriba a Ibán Ribeiro tras un balón dividido junto a la banda del banquillo, justo en campo del FC Cartagena pegado a la línea medular. Ribeiro queda en el suelo y el juego sigue parado en las imágenes, no se ve el saque.",
         "minuto": "77'48\" (táctica 81:57)",
-        "jugador": "Roberto Martín"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWU3NjZkMzIxMTJiZjUwOTE1YWU5MDI=",
+          "seg": 4976
+        },
+        "jugador": "Roberto Martín",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j10-cartagena-def-4976.mp4"
       },
       {
         "clip": "def-c12",
@@ -2259,7 +3615,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 7,
         "nota": "T2 min 85. En el 85' (TV 84:10) Martínez comete falta sobre Dani Perejón pegado a la banda, a la altura del área del FC Cartagena, tras una presión del Castilla en campo rival. De Blasis la saca en corto hacia Hyjek, que conduce y recibe enseguida otra falta (def-c13).",
         "minuto": "84'09\" (táctica 88:18)",
-        "jugador": "Martínez"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWU3NjZkMzIxMTJiZjUwOTE1YWU5MDI=",
+          "seg": 5357
+        },
+        "jugador": "Martínez",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j10-cartagena-def-5357.mp4"
       },
       {
         "clip": "def-c13",
@@ -2270,7 +3631,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 6,
         "nota": "T2 min 85. En el 85' (TV 84:24), segundos después de sacar la falta anterior, Roberto Martín corta con falta la conducción de Javier Hyjek en campo del FC Cartagena, a unos 15-20 m de la medular, y ve amarilla. El árbitro para el juego para la tarjeta, no se ve el saque.",
         "minuto": "84'24\" (táctica 88:34)",
-        "jugador": "Roberto Martín"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWU3NjZkMzIxMTJiZjUwOTE1YWU5MDI=",
+          "seg": 5372
+        },
+        "jugador": "Roberto Martín",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j10-cartagena-def-5372.mp4"
       },
       {
         "clip": "of-c13",
@@ -2281,7 +3647,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 4,
         "nota": "T2 min 87. Minuto 87, Dani Perejón derriba a Diego Aguado cuando conducía por la izquierda a unos 28 m de la portería del FC Cartagena y ve la amarilla. Falta lateral para el Castilla con el balón ya colocado.",
         "minuto": "86'12\" (táctica 90:21)",
-        "jugador": "Diego Aguado"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWU3NjZkMzIxMTJiZjUwOTE1YWU5MDI=",
+          "seg": 5480
+        },
+        "jugador": "Diego Aguado",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j10-cartagena-of-5480.mp4"
       },
       {
         "clip": "of-c14",
@@ -2292,7 +3663,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 7,
         "nota": "T2 min 89. Minuto 89 (reloj 88:23), Marcelo Dos Santos derriba a Pol Fortuny unos 15 m pasado el medio campo por el carril izquierdo. Fortuny la saca en corto para Cestero y el Castilla sigue con la posesión.",
         "minuto": "88'21\" (táctica 92:31)",
-        "jugador": "Pol Fortuny"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWU3NjZkMzIxMTJiZjUwOTE1YWU5MDI=",
+          "seg": 5609
+        },
+        "jugador": "Pol Fortuny",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j10-cartagena-of-5609.mp4"
       },
       {
         "clip": "of-c15",
@@ -2302,7 +3678,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "distancia": "lejana",
         "entre": 6,
         "nota": "T2 min 89. Minuto 89 (reloj 88:34), 12 s después de la anterior, mano de Dani Perejón junto a la banda izquierda en campo del FC Cartagena cuando Aguado se le iba. Falta lejana pegada a la banda para el Castilla, con el balón colocado junto a la línea (el saque no se llega a ver).",
-        "minuto": "88'34\" (táctica 92:43)"
+        "minuto": "88'34\" (táctica 92:43)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWU3NjZkMzIxMTJiZjUwOTE1YWU5MDI=",
+          "seg": 5622
+        },
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j10-cartagena-of-5622.mp4"
       },
       {
         "clip": "def-c14",
@@ -2313,7 +3694,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 5,
         "nota": "T2 min 91. En el 91' (TV 90:34) Pol Fortuny corta con falta a Javier Hyjek, que arrancaba en conducción desde el círculo central, ya unos metros en campo del Castilla. El árbitro deja seguir un instante, para el juego y le enseña amarilla a Fortuny, no se ve el saque.",
         "minuto": "90+0'32\" (táctica 94:42)",
-        "jugador": "Pol Fortuny"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWU3NjZkMzIxMTJiZjUwOTE1YWU5MDI=",
+          "seg": 5740
+        },
+        "jugador": "Pol Fortuny",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j10-cartagena-def-5740.mp4"
       },
       {
         "clip": "def-c15",
@@ -2324,7 +3710,12 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 10,
         "nota": "T2 min 95. En el 95' (TV 94:17) Aguado, presionando arriba, derriba a Dani Perejón junto a la banda cerca del córner del FC Cartagena (unos 10-15 m de su línea de fondo). Todo el Castilla salvo Aguado queda por detrás del balón, el saque no se ve en las imágenes.",
         "minuto": "90+4'16\" (táctica 98:26)",
-        "jugador": "Diego Aguado"
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWU3NjZkMzIxMTJiZjUwOTE1YWU5MDI=",
+          "seg": 5964
+        },
+        "jugador": "Diego Aguado",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j10-cartagena-def-5964.mp4"
       }
     ]
   }

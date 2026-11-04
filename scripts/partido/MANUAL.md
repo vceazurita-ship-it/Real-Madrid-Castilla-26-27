@@ -131,6 +131,11 @@ deja las filas que falten con las columnas del dato (de `base/`) y dilo en
 - Valida con `escribir.cjs` sin `--hoja` y corrige los avisos.
 
 ### 6. Faltas (pantalla de Faltas)
+La base ya trae TODAS las faltas que pitó el árbitro y nada más: la «Out of
+play foul» de Hudl (la tarjeta a otro jugador con el balón ya parado) no es
+otra falta y no sale en la base. No añadas ni quites filas: si una no lo es,
+dilo en su nota y en `informe.md`.
+
 Copia `faltas/of-hudl.csv` y `def-hudl.csv` a
 `ANALISIS FALTAS/<slug>/of-partido.csv` y `def-partido.csv` (ya hay una copia
 del dato: sobrescríbela) con zona, carril, distancia, **entre** (defensores

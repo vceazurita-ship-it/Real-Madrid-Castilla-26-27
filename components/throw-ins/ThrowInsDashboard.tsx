@@ -12,6 +12,9 @@ import { THEME_COLOR, chipInk } from "@/lib/theme";
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { descargaDataUrl } from "@/lib/export/lienzos";
 import { traeCsv } from "@/lib/hojaCsv";
+import { useRemoteDoc } from "@/hooks/useRemoteDoc";
+import { BANDA_VACIO, DOC_BANDA, accionDeFila, type BandaCortes } from "@/lib/banda/cortes";
+import { VerAccion } from "@/components/video/VerAccion";
 import {
   Conclusiones,
   Explicativo,
@@ -906,7 +909,19 @@ const MAX_TABLA = 100;
 /* La opción del desplegable de competición que deja fuera sólo los amistosos. */
 const SIN_PRETEMPORADA = "Sin pretemporada";
 
+/**
+ * El sitio de cada fila entre las de su jornada en la hoja: con él se
+ * encuentra su saque en `banda:cortes` (el vídeo y el minuto de Hudl).
+ */
+const ORDEN_EN_JORNADA = new WeakMap<RecordRow, number>();
+
+/* En la tabla, lo que no se sabe no se escribe («Sin dato» sigue siendo el valor del filtro). */
+const sinHueco = (valor: string) => (valor === "Sin dato" ? "" : valor);
+
 export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProps) {
+  /* El corte de cada saque y su segundo en Hudl (`scripts/banda-cortes.mjs`). Sólo se lee. */
+  const { value: cortesBanda } = useRemoteDoc<BandaCortes>({ key: DOC_BANDA, kind: "banda", fallback: BANDA_VACIO });
+
   /* Todo lo codificado de la hoja, pretemporada incluida. */
   const [todasLasFilas, setRows] = useState<RecordRow[]>([]);
 
@@ -1073,6 +1088,17 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
     traeCsv(csvUrl, { forzar: intento > 0 })
       .then((csv) => {
         const parsed = Papa.parse<RecordRow>(csv, { header: true, skipEmptyLines: true });
+
+        /* Antes de quitar nada: el sitio de cada fila entre las de su jornada. */
+        const vistos = new Map<string, number>();
+
+        for (const row of parsed.data) {
+          const jornada = read(row, "JORNADA");
+          const n = vistos.get(jornada) ?? 0;
+
+          ORDEN_EN_JORNADA.set(row, n);
+          vistos.set(jornada, n + 1);
+        }
 
         /* Codificado es lo que trae zona de saque; lo que sólo tiene minuto o
            marcador está anotado a medias y se cuenta aparte. */
@@ -1524,6 +1550,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
         "Intención",
         "Rutina",
         "Resultado",
+        "Vídeo",
       ]
     : [
         "Jornada",
@@ -1538,6 +1565,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
         "Defensa",
         "Debilidad",
         "Resultado",
+        "Vídeo",
       ];
 
   const resumenFiltros = [
@@ -2036,7 +2064,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                           return (
                             <tr key={`${read(row, "JORNADA")}-${index}`} className="text-slate-200">
                               {celda("JORNADA", parseJornada(read(row, "JORNADA")).corto)}
-                              {celda("Rival", read(row, "Rival") || "-")}
+                              {celda("Rival", read(row, "Rival") || "")}
                               {/* El minuto filtra por su cuarto de hora: un
                                   filtro de un solo minuto no sirve de nada. */}
                               {celda(
@@ -2047,14 +2075,14 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                                   if (minuto.minuto != null) return `${minuto.minuto}'`;
 
                                   /* Sin minuto, al menos la parte. */
-                                  return minuto.parte ? `${minuto.parte}ª` : "-";
+                                  return minuto.parte ? `${minuto.parte}ª` : "";
                                 })(),
                                 { className: "tabular-nums" },
                               )}
                               {(() => {
                                 const marcador = parseMarcador(row);
 
-                                return celda("__marcador", marcador.texto || "-", {
+                                return celda("__marcador", marcador.texto || "", {
                                   className: "tabular-nums",
                                   style: {
                                     /* Como texto, con `chipInk`: el oro de
@@ -2065,27 +2093,40 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                                   },
                                 });
                               })()}
-                              {isOffensive ? celda("Sacador", read(row, "Sacador") || "-") : null}
-                              {celda("Perfil", valorDe(row, "Perfil"))}
-                              {celda("Zona_Saque", read(row, "Zona_Saque") || "-")}
-                              {celda("Tipo_Envio", read(row, "Tipo_Envio") || "-")}
-                              {celda("Zona_Caida", direccionDe(row).label)}
-                              {celda("Receptor", read(row, "Receptor") || "-")}
+                              {isOffensive ? celda("Sacador", read(row, "Sacador") || "") : null}
+                              {celda("Perfil", sinHueco(valorDe(row, "Perfil")))}
+                              {celda("Zona_Saque", read(row, "Zona_Saque") || "")}
+                              {celda("Tipo_Envio", read(row, "Tipo_Envio") || "")}
+                              {celda("Zona_Caida", sinHueco(direccionDe(row).label))}
+                              {celda("Receptor", read(row, "Receptor") || "")}
                               {isOffensive ? (
                                 <>
-                                  {celda("Intencion", read(row, "Intencion") || "-")}
-                                  {celda("Rutina", read(row, "Rutina") || "-")}
+                                  {celda("Intencion", read(row, "Intencion") || "")}
+                                  {celda("Rutina", read(row, "Rutina") || "")}
                                 </>
                               ) : (
                                 <>
-                                  {celda("Defensa", read(row, "Defensa") || "-")}
-                                  {celda("Debilidad_Defensiva", read(row, "Debilidad_Defensiva") || "-")}
+                                  {celda("Defensa", read(row, "Defensa") || "")}
+                                  {celda("Debilidad_Defensiva", read(row, "Debilidad_Defensiva") || "")}
                                 </>
                               )}
-                              {celda("Resultado_Final", resultado.label, {
+                              {celda("Resultado_Final", sinHueco(resultado.label), {
                                 className: "font-medium",
                                 style: { color: resultInk(resultado.label) },
                               })}
+                              <td className="px-4 py-2">
+                                {(() => {
+                                  const accion = accionDeFila(cortesBanda, {
+                                    jornada: read(row, "JORNADA"),
+                                    lado: isOffensive ? "of" : "def",
+                                    orden: ORDEN_EN_JORNADA.get(row) ?? -1,
+                                    tiempo: read(row, "Tiempo"),
+                                    minuto: read(row, "Minuto"),
+                                  });
+
+                                  return accion ? <VerAccion video={accion.video} hudl={accion.hudl} que="el saque" /> : null;
+                                })()}
+                              </td>
                             </tr>
                           );
                         })}

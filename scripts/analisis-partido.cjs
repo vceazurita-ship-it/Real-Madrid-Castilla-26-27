@@ -766,7 +766,14 @@ async function principal() {
     if (cortes.codigo !== 0) anota("Cortes de robos y pérdidas", false, cortes.resumen || `código ${cortes.codigo}`);
 
     await node("scripts/transiciones-datos.mjs");
-    await node("scripts/faltas-datos.mjs");
+    /* Con el corte de cada falta y de cada saque de banda (04/11/2026): «Ver la
+       falta» / «Ver el saque» y «Abrir en Hudl · mm:ss» en las dos pantallas.
+       Si el Chrome no está, salen con el enlace a Hudl y los cortes, otro día. */
+    await node("scripts/faltas-datos.mjs", "--cortes");
+
+    const banda = await node("scripts/banda-cortes.mjs", "--cortes");
+
+    if (banda.codigo !== 0) anota("Vídeo de los saques de banda", false, banda.resumen || `código ${banda.codigo}`);
 
     try {
       const r = publica(`Análisis del partido: ${datos.etiqueta} ${partido.rival} (faltas, robos y pérdidas)`, [

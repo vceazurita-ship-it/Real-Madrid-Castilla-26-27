@@ -71,11 +71,17 @@ type FieldNode = {
   salidas: Salida[];
 };
 
-/** Igual que en el mapa de zonas: la vista defensiva gira el campo 180 grados. */
+/** Igual que en el mapa de zonas: la vista defensiva da la vuelta a las zonas; la banda es siempre la nuestra. */
 function origen(banda: Banda, zona: Zona, mode: Mode) {
   const flip = mode === "defensive";
   const x = flip ? [85, 50, 15][zona - 1] : [15, 50, 85][zona - 1];
-  const arriba = flip ? banda === "der" : banda === "izq";
+  /*
+  | La banda de la hoja es la del Castilla en los dos modos (la derecha es la
+  | de nuestro lateral derecho, saque quien saque: así la apunta el analista
+  | y así la escribe la base del timeline). Con nuestra portería a la
+  | izquierda, nuestra izquierda va arriba siempre: sólo gira la zona.
+  */
+  const arriba = banda === "izq";
 
   return { x, y: arriba ? 7 : 93, dir: flip ? -1 : 1 };
 }

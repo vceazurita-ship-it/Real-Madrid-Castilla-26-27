@@ -25,10 +25,16 @@ Cabecera `bandaDef`: `JORNADA Rival Tiempo Minuto Resultado RMC Resultado
 RIVAL Perfil Zona_Saque Tipo_Envio Zona_Caida Calidad_Envio N_Bloqueadores
 Receptor Defensa Debilidad_Defensiva Resultado_Final`
 
-**Zona y Perfil se miden SIEMPRE desde el Castilla**, también en los del rival:
-- **Zona_Saque**: `Zona 1` tercio de NUESTRA portería · `Zona 2` central · `Zona 3` el de la portería rival.
-- **Perfil**: la banda, con el Castilla atacando: `Derecho` · `Izquierdo`.
-  (Hudl mide desde el que saca: en los del rival está girado; la base ya lo gira.)
+**La zona se mide desde el que SACA y la banda desde el Castilla** (la convención
+del analista desde la pretemporada y la que lee la pantalla; hasta el 04/11/2026
+la base giraba también la zona y J4-J10 de `bandaDef` salieron al revés):
+- **Zona_Saque**: `Zona 1` el tercio de la portería del que SACA · `Zona 2` central ·
+  `Zona 3` su último tercio. En `bandaOf`, Zona 3 = cerca del área rival; en
+  `bandaDef`, Zona 3 = junto a NUESTRA área.
+- **Perfil**: la banda vista con el Castilla atacando, saque quien saque: `Derecho`
+  (la de nuestro lateral derecho) · `Izquierdo`.
+  (Hudl da las dos desde el que saca: la base deja la zona tal cual y, en los
+  del rival, gira la banda.)
 - **Sacador** (sólo of): como lo escribe la hoja (la base ya lo trae así).
 - **Tipo_Envio**: `Corto` (a los pies, cerca) · `Bote` (botado o a media altura) · `Largo` (buscando metros).
 - **Zona_Caida**, respecto a la portería que ataca **quien saca**:

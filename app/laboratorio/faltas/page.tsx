@@ -51,6 +51,7 @@ import { PARTIDOS, type Falta, type LadoFalta } from "@/lib/faltas/datos";
 import { CORTE_TRANSICION, aFavor, comparativaFaltas, cortaTransicion, decimal, enContra, laQueMas } from "@/lib/faltas/lectura";
 import { CampoFaltas, CARRILES_CAMPO, sitioEnCampo, ZONAS_CAMPO } from "@/components/faltas/CampoFaltas";
 import { ComoActualizar } from "@/components/faltas/ComoActualizar";
+import { VerAccion } from "@/components/video/VerAccion";
 import { PorJugador, SinJugador, type ColumnaJugador } from "@/components/analisis/PorJugador";
 import {
   BarraFiltros,
@@ -117,8 +118,8 @@ const ROTULO: Record<string, string> = {
   jugador: "Jugador",
 };
 
-/** "12'03\" (táctica 12:58)" o «—» cuando no se sabe. */
-const minutoDe = (f: Falta) => f.minuto?.trim() || "—";
+/** "12'03\" (táctica 12:58)", o nada cuando no se sabe (nunca un guion). */
+const minutoDe = (f: Falta) => f.minuto?.trim() || "";
 
 /** Sin el segundo del vídeo táctico, que es del método: "12'03\" (táctica 12:58)" → "12'03\"". */
 const minutoCorto = (f: Falta) => minutoDe(f).replace(/\s*\(t[aá]ctica[^)]*\)/i, "");
@@ -1114,7 +1115,9 @@ export default function FaltasPage() {
                           {/* El minuto va siempre: es lo que hace falta para ir al vídeo. */}
                           <th className="pb-2 pr-3 font-medium">Min.</th>
                           {/* «Qué pasó» explica la jugada: sólo con los textos explicativos encendidos. */}
-                          {explicativos && <th className="pb-2 font-medium">Qué pasó</th>}
+                          {explicativos && <th className="pb-2 pr-3 font-medium">Qué pasó</th>}
+                          {/* Nuestro corte y el partido en Hudl: sólo en las que casan con una falta de Hudl. */}
+                          <th className="pb-2 font-medium">Vídeo</th>
                         </tr>
                       </thead>
 
@@ -1163,14 +1166,19 @@ export default function FaltasPage() {
                             </td>
 
                             <td className="py-2 pr-3 font-semibold text-white">
-                              {celda("entre", LECTORES.entre(f))}
+                              {/* Sin contar (no se veía el campo entero) no se enseña. */}
+                              {f.entre === null ? null : celda("entre", LECTORES.entre(f))}
                             </td>
 
                             <td className="whitespace-nowrap py-2 pr-3 font-mono text-[12px] tabular-nums text-white/60">
                               {explicativos ? minutoDe(f) : minutoCorto(f)}
                             </td>
 
-                            {explicativos && <td className="py-2 text-white/45">{f.nota}</td>}
+                            {explicativos && <td className="py-2 pr-3 text-white/45">{f.nota}</td>}
+
+                            <td className="py-2">
+                              <VerAccion video={f.video} hudl={f.hudl} que="la falta" />
+                            </td>
                           </tr>
                         ))}
                       </tbody>

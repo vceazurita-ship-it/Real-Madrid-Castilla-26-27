@@ -1,7 +1,9 @@
 /**
  * Convierte los CSV del etiquetado de faltas en el módulo que lee la pantalla.
  *
- *   node scripts/faltas-datos.mjs
+ *   node scripts/faltas-datos.mjs            regenera lib/faltas/datos.ts
+ *   node scripts/faltas-datos.mjs --cortes   y saca del vídeo de Hudl el corte de
+ *                                            cada falta que falte en el bucket
  *
  * El etiquetado lo hacen agentes mirando los clips imagen a imagen —los prepara
  * `scripts/abp-clips-preparar.mjs`— y sueltan un CSV por tanda en
@@ -19,12 +21,31 @@
  */
 
 import { readdirSync, readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { join, dirname, basename } from "node:path";
+import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
+
+const require = createRequire(import.meta.url);
+const { partidosHudl, faltasHudl, nombresEnBucket } = require("./partido/faltas-banda.cjs");
+const { uno } = require("./partido/comun.cjs");
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
 const RAIZ = join(AQUI, "..");
 const ORIGEN = "C:/Users/Usuario/Downloads/RMCF CASTILLA/ANALISIS FALTAS";
+const CORTAR = process.argv.includes("--cortes");
+
+/*
+| El vídeo de cada falta (04/11/2026): «Abrir en Hudl · mm:ss» con el segundo
+| del vídeo del partido en Hudl y nuestro corte, de 3 s antes de la marca de
+| Hudl a 11 s después (la falta se ve en la tele 4-12 s después de la marca),
+| en `performance/2026/faltas/clips/<partido>-<of|def>-<segundo>.mp4`. El
+| nombre va por el segundo de Hudl: volver a lanzarlo no repite ningún corte.
+| Una falta que no casa con una de Hudl no lleva ni enlace ni corte.
+*/
+const BUCKET = "performance";
+const CARPETA_CORTES = "2026/faltas/clips";
+const ANTES = 3;
+const DESPUES = 11;
 const DESTINO = join(RAIZ, "lib", "faltas", "datos.ts");
 
 const ZONAS = ["campo propio", "medio campo", "campo rival"];
@@ -44,12 +65,19 @@ const PARTIDOS = [
     jornada: "J4",
     rival: "UE Sant Andreu",
     local: false,
-    fecha: "2026-09-21",
+    fecha: "2026-09-23",
     resultado: "1-1",
-    clips: "C:/Users/Usuario/Downloads/ABP vs SANT ANDREU",
+    /*
+    | Rehecho el 04/11/2026 desde el timeline de Hudl: el etiquetado de
+    | septiembre salió de clips sueltos sin reloj (11 + 12 faltas de las
+    | 12 + 14 que hubo, y sin minuto ni jugador). Se guarda en
+    | `ANALISIS FALTAS/sant-andreu/clips-sin-minuto`, que ya no se lee.
+    */
+    clips: "Hudl · Castilla · «2026-09-23 Sant Andreu - Real Madrid Castilla 1 - 1» (timeline de Sportscode) y la cámara táctica J 04 - SANT ANDREU - RM CASTILLA.mov",
     notas: [
+      "Sale del timeline de Sportscode subido a Hudl —minuto, quién la hace, sobre quién y la tarjeta— y cada falta se ha mirado después en la cámara táctica del club: zona, carril, distancia y la nota salen de la imagen.",
+      "Los defensores entre la falta y la portería no se cuentan en este partido: la cámara táctica aplasta el campo lejano y no se distinguen todos.",
       "El campo se cuenta siempre hacia la portería que ataca quien saca la falta: «campo propio» es el del que la saca, no el nuestro.",
-      "Las faltas van en el orden en que se dieron. El vídeo del partido no lleva reloj en pantalla, así que no se anota el minuto.",
     ],
   },
   {
@@ -156,74 +184,57 @@ const TRAMOS_A_MANO = {
   ],
 };
 
-function relojDe(id) {
-  const fichero = join(TRANSICIONES, id, "timeline-hudl.json");
+/** Todos los timelines de nuestros partidos (uno por partido), para buscarlos por la fecha. */
+const HUDL = partidosHudl();
 
-  if (!existsSync(fichero)) return null;
-
-  const j = JSON.parse(readFileSync(fichero, "utf8"));
-
-  const sesiones = j.data?.taggingSessions?.items ?? [];
-
-  const cod = (m) => (m.tags.find((t) => t.key === "HUDL_CODE") || { values: [""] }).values[0];
-  const tipos = (m) => (m.tags.find((t) => t.key === "02 - Type") || { values: [] }).values;
-
-  const eq = sesiones.find((x) => x.moments.items.some((m) => / - Possessions$/.test(cod(m)))) || sesiones[0];
-
-  const periodos = (eq?.moments.items ?? []).filter((m) => cod(m) === "Periods").map((m) => m.startTimeMs / 1000).sort((a, b) => a - b);
-  /* La 1ª parte no arranca en el 0 de Hudl (un segundo después): se descuenta. */
-  const inicioT1 = periodos[0] ?? 0;
-  const inicioT2 = periodos[1] ?? Infinity;
-
-  /* De qué equipo es cada jugador, de las jugadas por equipo en que sale (como robos.cjs). */
-  const players = (m) => (m.tags.find((t) => t.key === "09 - Players") || { values: [] }).values;
-  const equipo = {};
-  for (const m of eq?.moments.items ?? []) {
-    const c = cod(m);
-    if (!/ - /.test(c)) continue;
-    const nuestro = c.startsWith("Real Madrid Castilla");
-    for (const p of players(m)) equipo[p] ??= nuestro ? "defensivo" : "ofensivo";
-  }
+function relojDe(partido) {
+  const { id } = partido;
 
   /*
-  | Las faltas de Hudl, por el centro de su clip y con su lado: la hace uno
-  | del Castilla → «defensivo» (en contra); uno del rival → «ofensivo». Así
-  | dos faltas seguidas de equipos distintos no se cambian el minuto.
+  | El timeline del partido: el de su fecha (vale para todos, también para los
+  | que no tienen carpeta en transiciones) o, si no, el de transiciones.
   */
-  const centro = (m) => (m.startTimeMs + (m.endTimeMs ?? m.startTimeMs)) / 2000;
+  const enHudl = HUDL.find((p) => p.fecha === partido.fecha) ?? HUDL.find((p) => p.copias.some((c) => basename(c) === id));
+
+  if (!enHudl) return null;
+
+  const T = enHudl.T;
+  /* En segundos, como todo lo de este reloj (el timeline los da en ms). */
+  const inicioT1 = T.inicioT1 / 1000;
+  const inicioT2 = T.inicioT2 / 1000;
+
   const sinDorsal = (nombre) => String(nombre ?? "").replace(/^\d+\.\s*/, "").trim();
 
   /*
-  | El jugador NUESTRO de cada falta (19/10/2026), de la sesión por jugador
-  | (la de equipo no lleva faltas, y sus nombres mezclan los dos equipos):
-  | en la que hacemos, el que la comete; en la que nos hacen, el nuestro con
-  | «Foul suffered» a dos segundos o menos de ella (van emparejadas: el
-  | centro de los dos clips cae a 0-1,5 s).
+  | Las faltas de Hudl con la regla común (`faltas-banda.cjs`), por el centro
+  | de su clip y con su lado. El jugador NUESTRO (19/10/2026): en la que
+  | hacemos, el que la comete; en la que nos hacen, el nuestro con «Foul
+  | suffered» a dos segundos o menos.
   */
-  const sufridas = sesiones
-    .flatMap((x) => x.moments.items)
-    .filter((m) => tipos(m).includes("Foul suffered") && equipo[cod(m)] === "defensivo")
-    .map((m) => ({ t: centro(m), jugador: sinDorsal(cod(m)) }));
+  const centro = (m) => (m.startTimeMs + (m.endTimeMs ?? m.startTimeMs)) / 2000;
+  const sufridas = T.acciones
+    .filter((a) => a.tipos.includes("Foul suffered") && T.esNuestro(a.jug))
+    .map((a) => ({ t: centro(a.m), jugador: sinDorsal(a.jug) }));
 
-  const recibe = (t) => {
-    const cerca = sufridas
-      .filter((s) => Math.abs(s.t - t) <= 2)
-      .sort((a, b) => Math.abs(a.t - t) - Math.abs(b.t - t))[0];
+  /* Van emparejadas: el centro de los dos clips cae a 0-1,5 s. */
+  const recibe = (t) =>
+    sufridas.filter((x) => Math.abs(x.t - t) <= 2).sort((a, b) => Math.abs(a.t - t) - Math.abs(b.t - t))[0]?.jugador ?? "";
 
-    return cerca?.jugador ?? "";
-  };
-
-  const faltas = sesiones
-    .flatMap((x) => x.moments.items)
-    .filter((m) => tipos(m).some((t) => t === "Foul" || t === "Penalty foul" || t === "Infraction") && !tipos(m).includes("Offside"))
-    .map((m) => {
-      const t = centro(m);
-      const lado = equipo[cod(m)] ?? null;
-      const jugador = lado === "defensivo" ? sinDorsal(cod(m)) : lado === "ofensivo" ? recibe(t) : "";
-
-      return { t, lado, jugador };
-    })
+  const faltas = faltasHudl(T)
+    .map((h) => ({
+      t: h.centro / 1000,
+      inicio: h.t / 1000,
+      lado: h.lado,
+      jugador: h.lado === "defensivo" ? sinDorsal(h.autor) : recibe(h.centro / 1000),
+    }))
     .sort((a, b) => a.t - b.t);
+
+  /* La tarjeta con el balón parado (`Out of play foul`): no es otra falta. Una revisada que casa con ella, fuera. */
+  const fueraDeJuego = T.acciones
+    .filter((a) => a.tipos.includes("Infraction") && uno(a.m, "28 - Infraction - Type") === "Out of play foul")
+    .map((a) => a.t / 1000);
+
+  const video = enHudl.video?.url ? { url: enHudl.video.url, carpeta: enHudl.conVideo ? enHudl.carpeta : null } : null;
 
   const tramosFichero = join(TRANSICIONES, id, "tramos.json");
 
@@ -250,7 +261,7 @@ function relojDe(id) {
     return ` (táctica ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")})`;
   };
 
-  return { faltas, reloj, tactica, inicioT1, inicioT2 };
+  return { faltas, fueraDeJuego, video, reloj, tactica, inicioT1, inicioT2 };
 }
 
 /** Sin tildes y en minúsculas, para buscar un nombre dentro de una nota. */
@@ -282,19 +293,22 @@ function nombraA(nota, nombre) {
 function baseDe(id) {
   const vistos = new Map();
 
-  if (!existsSync(ANALISIS)) return vistos;
+  /* La del análisis del partido (`<carpeta>/faltas`) o, sin análisis (J3, J4), la de `ANALISIS FALTAS/<id>/base`. */
+  const carpetas = [join(ORIGEN, id, "base")];
 
-  for (const carpeta of readdirSync(ANALISIS)) {
+  for (const carpeta of existsSync(ANALISIS) ? readdirSync(ANALISIS) : []) {
     const ficha = join(ANALISIS, carpeta, "partido.json");
 
     try {
-      if (!existsSync(ficha) || JSON.parse(readFileSync(ficha, "utf8")).slug !== id) continue;
+      if (existsSync(ficha) && JSON.parse(readFileSync(ficha, "utf8")).slug === id) carpetas.unshift(join(ANALISIS, carpeta, "faltas"));
     } catch {
-      continue;
+      /* una ficha rota no es de nadie */
     }
+  }
 
+  for (const dir of carpetas.filter((c) => existsSync(c)).slice(0, 1)) {
     for (const lado of ["of", "def"]) {
-      const f = join(ANALISIS, carpeta, "faltas", `${lado}-hudl.csv`);
+      const f = join(dir, `${lado}-hudl.csv`);
 
       if (!existsSync(f)) continue;
 
@@ -435,7 +449,7 @@ function leePartido(partido) {
   /* En el orden del coding, que es el del partido. */
   faltas.sort((a, b) => a.clip.localeCompare(b.clip, "es", { numeric: true }));
 
-  const reloj = relojDe(partido.id);
+  const reloj = relojDe(partido);
 
   const base = baseDe(partido.id);
 
@@ -446,6 +460,7 @@ function leePartido(partido) {
   /* La falta de Hudl con la que casa cada falta revisada, y su jugador nuestro. */
   const jugadorDe = new Map();
   const deLaBase = asignaBase(base, faltas);
+  const vistas = [];
 
   faltas.forEach((falta) => {
     falta.minuto = "";
@@ -453,6 +468,12 @@ function leePartido(partido) {
     const aprox = deLaBase.get(falta) ?? segundoDeNota(falta.nota, reloj);
 
     if (aprox === null || aprox === undefined || !reloj) return;
+
+    /* La de la base es una tarjeta con el balón parado: no es una falta (J7 90:25, Lazo). */
+    if (deLaBase.has(falta) && reloj.fueraDeJuego.some((s) => Math.abs(s - aprox) <= 1.5)) {
+      falta.descartada = true;
+      return;
+    }
 
     /*
     | La de Hudl más cercana DE SU LADO (el segundo de la base es el arranque
@@ -470,6 +491,15 @@ function leePartido(partido) {
 
     /* El jugador, sólo si la falta casa con una de Hudl: si no, no se sabe quién fue. */
     if (casa && hudl.jugador) jugadorDe.set(falta, { hudl, jugador: hudl.jugador });
+
+    /* El vídeo: el partido en Hudl en el segundo de la marca y nuestro corte, sólo si casa. */
+    if (casa && reloj.video) {
+      const seg = Math.round(hudl.inicio);
+      const nombre = `${partido.id}-${falta.lado === "ofensivo" ? "of" : "def"}-${seg}.mp4`;
+
+      falta.hudl = { url: reloj.video.url, seg };
+      vistas.push({ falta, nombre, carpeta: reloj.video.carpeta, desde: hudl.inicio - ANTES });
+    }
 
     conMinuto += 1;
   });
@@ -522,10 +552,27 @@ function leePartido(partido) {
 
   console.log(`  ${partido.id}: minuto exacto en ${conMinuto} de ${faltas.length}`);
 
-  return { ...partido, faltas };
+  const fuera = faltas.filter((x) => x.descartada);
+
+  if (fuera.length) console.log(`  ${partido.id}: fuera ${fuera.map((x) => x.clip).join(", ")} (tarjeta con el balón parado, no es otra falta)`);
+
+  cortes.push(...vistas.filter((v) => !v.falta.descartada));
+
+  return { ...partido, jornada: jornadaCorta(partido.jornada), faltas: faltas.filter((x) => !x.descartada) };
 }
 
+/** «LIGA 06», «J06» o «J6» → «J6»: `faltasDeJornada` busca así (antes J6-J8 no salían en el informe de ABP). */
+function jornadaCorta(j) {
+  const n = String(j ?? "").match(/(\d+)/)?.[1];
+
+  return n ? `J${Number(n)}` : String(j ?? "");
+}
+
+const cortes = [];
+
 const datos = PARTIDOS.map(leePartido);
+
+await ponCortes(cortes);
 
 const cabecera = `/**
  * Faltas etiquetadas a mano mirando el vídeo del partido.
@@ -564,6 +611,10 @@ export type Falta = {
    * desde clips) no lo hay.
    */
   jugador?: string;
+  /** El partido en Hudl y el segundo de su vídeo en que empieza la jugada (Hudl no enlaza a un instante). */
+  hudl?: { url: string; seg: number };
+  /** Nuestro corte de la falta (del vídeo de Hudl), en el bucket. */
+  video?: string;
 };
 
 export type PartidoFaltas = {
@@ -593,3 +644,86 @@ for (const uno of datos) {
 }
 
 console.log(`escrito ${DESTINO}`);
+
+/**
+ * Pone a cada falta su corte del bucket y, con `--cortes`, saca del vídeo de
+ * Hudl los que falten (de uno en uno, con el Chrome del club). Sin las llaves
+ * de Supabase, las faltas se quedan sólo con el enlace a Hudl.
+ */
+async function ponCortes(lista) {
+  const { entorno } = require("./supabase-local.cjs");
+  const env = entorno();
+
+  if (!env || !lista.length) return;
+
+  const { createClient } = require("@supabase/supabase-js");
+  const supabase = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+  const ya = await nombresEnBucket(supabase, BUCKET, CARPETA_CORTES).catch((error) => {
+    console.log(`Cortes: ${error.message}`);
+    return new Set();
+  });
+  const url = (nombre) => supabase.storage.from(BUCKET).getPublicUrl(`${CARPETA_CORTES}/${nombre}`).data.publicUrl;
+
+  for (const c of lista) if (ya.has(c.nombre)) c.falta.video = url(c.nombre);
+
+  const faltan = lista.filter((c) => !ya.has(c.nombre) && c.carpeta);
+
+  if (!faltan.length) return;
+
+  if (!CORTAR) {
+    console.log(`Cortes: faltan ${faltan.length} en el bucket (se sacan con --cortes).`);
+    return;
+  }
+
+  const { abreHudl } = await import("./hudl-chrome.mjs");
+  const { preparaCortesLigeros } = await import("./hudl-corte.mjs");
+  const local = join(RAIZ, ".cache", "faltas", "cortes");
+  let hechos = 0;
+  let nav;
+
+  /* Sin el Chrome del club las faltas se escriben igual, con el enlace a Hudl; los cortes, otro día. */
+  try {
+    nav = await abreHudl();
+  } catch (error) {
+    console.log(`Cortes: no se pueden sacar ahora (${error?.message ?? error}).`);
+    return;
+  }
+
+  console.log(`Cortes: ${faltan.length} por sacar del vídeo de Hudl…`);
+
+  try {
+    for (const carpeta of [...new Set(faltan.map((c) => c.carpeta))]) {
+      let corta;
+
+      try {
+        ({ corta } = await preparaCortesLigeros(nav, carpeta));
+      } catch (error) {
+        console.log(`  ${basename(carpeta)}: no se puede abrir el vídeo (${error?.message ?? error})`);
+        continue;
+      }
+
+      for (const c of faltan.filter((x) => x.carpeta === carpeta)) {
+        const fichero = join(local, c.nombre);
+
+        if (!(await corta(Math.max(0, c.desde), ANTES + DESPUES, fichero).catch(() => false))) {
+          console.log(`  ${c.nombre}: ROTO`);
+          continue;
+        }
+
+        const { error } = await supabase.storage.from(BUCKET).upload(`${CARPETA_CORTES}/${c.nombre}`, readFileSync(fichero), { contentType: "video/mp4", upsert: true });
+
+        if (error) {
+          console.log(`  ${c.nombre}: no se sube (${error.message})`);
+          continue;
+        }
+
+        c.falta.video = url(c.nombre);
+        hechos += 1;
+      }
+    }
+  } finally {
+    await nav.cierra();
+  }
+
+  console.log(`Cortes: ${hechos} de ${faltan.length} subidos.`);
+}

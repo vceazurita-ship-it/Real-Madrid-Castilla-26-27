@@ -4,7 +4,8 @@
 //
 // El campo se dibuja siempre con NUESTRA porteria a la izquierda. En la vista
 // defensiva el sacador es el rival, asi que su Zona 3 cae junto a nuestra area
-// y su banda izquierda queda abajo: gira el mapa 180 grados, no las etiquetas.
+// (la zona se cuenta desde el que saca). La banda, en cambio, es siempre la
+// del Castilla (la derecha es la de nuestro lateral derecho): no se gira.
 
 import { useMemo, useState } from "react";
 
@@ -176,11 +177,17 @@ const CELL_H = 15;
 const TOP_Y = 3;
 const BOTTOM_Y = 46;
 
-/** Geometría de la celda: la vista defensiva gira el campo 180 grados. */
+/** Geometría de la celda: la vista defensiva da la vuelta a las zonas, no a las bandas. */
 function cellBox(banda: Banda, zona: Zona, mode: Mode) {
   const flip = mode === "defensive";
   const index = flip ? 3 - zona : zona - 1;
-  const arriba = flip ? banda === "der" : banda === "izq";
+  /*
+  | La banda de la hoja es la del Castilla en los dos modos (la derecha es la
+  | de nuestro lateral derecho, saque quien saque: así la apunta el analista
+  | y así la escribe la base del timeline). Con nuestra portería a la
+  | izquierda, nuestra izquierda va arriba siempre: sólo gira la zona.
+  */
+  const arriba = banda === "izq";
 
   return {
     x: 2 + index * CELL_W,
@@ -559,7 +566,7 @@ export default function ThrowInZoneMap({
           <p className="mt-3 text-[11px] leading-snug text-zinc-500">
             {mode === "offensive"
               ? "Atacamos hacia la derecha: la Zona 3 es nuestro último tercio y la banda izquierda va arriba."
-              : "El rival ataca hacia la izquierda: su Zona 3 cae junto a nuestra área y su banda izquierda va abajo."}
+              : "El rival ataca hacia la izquierda: su Zona 3 cae junto a nuestra área. Las bandas son las nuestras: la izquierda va arriba."}
             {sinUbicar ? ` · ${sinUbicar} acciones sin banda o zona registrada.` : ""}
           </p>
         </div>

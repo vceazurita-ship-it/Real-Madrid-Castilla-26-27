@@ -43,6 +43,8 @@ const {
   escribeTsv,
 } = require("./comun.cjs");
 
+const { baseFaltas, escribeBaseFaltas } = require("./faltas-banda.cjs");
+
 const arg = (n) => {
   const i = process.argv.indexOf(`--${n}`);
 
@@ -243,23 +245,6 @@ const CAB_BANDA_OF = ["id", "JORNADA", "Rival", "Tiempo", "Minuto", "Resultado R
 const CAB_BANDA_DEF = ["id", "JORNADA", "Rival", "Tiempo", "Minuto", "Resultado RMC", "Resultado RIVAL", "Perfil", "Zona_Saque", "Tipo_Envio", "Zona_Caida", "Calidad_Envio", "N_Bloqueadores", "Receptor", "Defensa", "Debilidad_Defensiva", "Resultado_Final"];
 
 /* ------------------------------------------------------------------ */
-/*  FALTAS                                                             */
-/* ------------------------------------------------------------------ */
-
-/*
-| La falta es el «Foul» del que la comete y su sitio viene contado hacia la
-| portería que ataca ÉL; la hoja de faltas lo cuenta hacia la que ataca quien
-| SACA. Si el otro tiene su «Foul suffered» en el mismo segundo, se usa ése,
-| que ya viene girado.
-*/
-const GIRA_TERCIO = { "Own third": "campo rival", "Middle third": "medio campo", "Final third": "campo propio" };
-const TERCIO = { "Own third": "campo propio", "Middle third": "medio campo", "Final third": "campo rival" };
-const GIRA_CARRIL = { "Left flank": "derecha", "Right flank": "izquierda", Center: "centro" };
-const CARRIL = { "Left flank": "izquierda", "Right flank": "derecha", Center: "centro" };
-
-const distancia = (zona, carril) => (zona === "campo rival" ? (carril === "centro" ? "frontal" : "media") : "lejana");
-
-/* ------------------------------------------------------------------ */
 /*  FICHAS                                                             */
 /* ------------------------------------------------------------------ */
 
@@ -348,13 +333,16 @@ function ficha(id, desdeS, dura, lineas) {
     const rec = a.recibe?.jug ?? "";
 
     let Perfil = ladoBanda(uno(a.m, "03 - Location - Flank"));
-    let Zona_Saque = zonaBanda(uno(a.m, "04 - Location - Third"));
+    const Zona_Saque = zonaBanda(uno(a.m, "04 - Location - Third"));
 
-    /* Zona y Perfil se cuentan SIEMPRE desde el Castilla; Hudl los da desde el que saca. */
-    if (!nuestro) {
-      Zona_Saque = { "Zona 1": "Zona 3", "Zona 3": "Zona 1" }[Zona_Saque] || Zona_Saque;
-      Perfil = { Derecho: "Izquierdo", Izquierdo: "Derecho" }[Perfil] || Perfil;
-    }
+    /*
+    | La convención de la hoja (la del analista desde la pretemporada, y la que
+    | lee la pantalla): la ZONA desde el que saca (en un saque del rival, la
+    | Zona 3 es la de junto a nuestra área) y la BANDA vista desde el Castilla.
+    | Hudl da las dos desde el que saca: en los del rival sólo se gira la banda.
+    | Hasta el 04/11/2026 se giraba también la zona, y J4-J10 salieron al revés.
+    */
+    if (!nuestro) Perfil = { Derecho: "Izquierdo", Izquierdo: "Derecho" }[Perfil] || Perfil;
 
     const fila = {
       id,
@@ -410,73 +398,32 @@ function ficha(id, desdeS, dura, lineas) {
 
   /* -------- faltas (todas) -------- */
 
-  /* También las infracciones sin «Foul» (mano, juego peligroso): dan falta
-     igual. El J06 perdía la de Pitarch del 5'55" (04/10/2026). El fuera de
-     juego no es falta. */
-  const faltas = acciones.filter(
-    (a) => a.tipos.includes("Foul") || a.tipos.includes("Penalty foul") || (a.tipos.includes("Infraction") && !a.tipos.includes("Offside")),
-  );
+  /*
+  | Las reglas viven en `faltas-banda.cjs` (las comparte la pantalla de
+  | faltas): también las infracciones sin «Foul» (mano, juego peligroso; la de
+  | Pitarch del J06), nunca el fuera de juego ni la «Out of play foul» (una
+  | tarjeta con el balón parado, a 2-3 s de la falta de verdad: daba una falta
+  | doble, J3 y J7).
+  */
+  const { of, def } = baseFaltas(T, RIVAL_CORTO);
 
-  const of = [];
-  const def = [];
+  for (const f of [...of, ...def]) {
+    const { id, t, autor, victima, tarjeta, penalti, zona, carril, distancia: dist, m } = f;
+    const aFavor = f.lado === "ofensivo";
 
-  for (const a of faltas) {
-    const aFavor = !esNuestro(a.jug);
-
-    const sufrida = acciones.find(
-      (b) => Math.abs(b.t - a.t) <= 2000 && b.tipos.includes("Foul suffered") && esNuestro(b.jug) === aFavor,
-    );
-
-    const zona = sufrida ? TERCIO[uno(sufrida.m, "04 - Location - Third")] : GIRA_TERCIO[uno(a.m, "04 - Location - Third")];
-    const carril = sufrida ? CARRIL[uno(sufrida.m, "03 - Location - Flank")] : GIRA_CARRIL[uno(a.m, "03 - Location - Flank")];
-
-    const victima = uno(a.m, "30 - Infraction - Opponent");
-    const tarjeta = uno(a.m, "29 - Infraction - Card");
-    const mano = uno(a.m, "28 - Infraction - Type") === "Hand foul";
-    const penalti = a.tipos.includes("Penalty foul");
-
-    const lista = aFavor ? of : def;
-
-    const id = `${aFavor ? "of" : "def"}-c${String(lista.length + 1).padStart(2, "0")}`;
-
-    const nota = [
-      `T${tiempo(a.t)} min ${minuto(a.t)}.`,
-      `${penalti ? "Penalti" : mano ? "Mano" : "Falta"} de ${sinDorsal(a.jug)} (${esNuestro(a.jug) ? "del Castilla" : `del ${RIVAL_CORTO}`})${victima ? ` sobre ${sinDorsal(victima)}` : ""}.`,
-      tarjeta === "Yellow" ? "Amarilla." : tarjeta === "Red" ? "Roja." : "",
-      `Vídeo Hudl ${reloj(a.t)}.`,
-    ]
-      .filter(Boolean)
-      .join(" ");
-
-    lista.push({ id, t: a.t, zona: zona || "", carril: carril || "", distancia: distancia(zona, carril), entre: "?", nota, penalti });
-
-    ficha(`falta-${id}`, Math.round(a.t / 1000) - 4, 18, [
+    ficha(`falta-${id}`, Math.round(t / 1000) - 4, 18, [
       `JUGADA falta-${id} · ${penalti ? "PENALTI" : "FALTA"} ${aFavor ? `A FAVOR del Castilla (la comete el ${RIVAL_CORTO})` : "EN CONTRA (la comete el Castilla)"}`,
-      `La comete: ${a.jug} · sobre: ${victima || "?"} · ${uno(a.m, "28 - Infraction - Type")}${tarjeta ? ` · tarjeta ${tarjeta}` : ""}`,
-      `Hudl la sitúa (visto desde el que la COMETE): ${uno(a.m, "04 - Location - Third")} · ${uno(a.m, "03 - Location - Flank")}`,
-      `Propuesta del dato, desde el que SACA (revísala): zona ${zona || "?"} · carril ${carril || "?"} · distancia ${distancia(zona, carril)}`,
-      `Vídeo Hudl ${reloj(a.t)} (${Math.round(a.t / 1000)} s). Las imágenes empiezan 4 s antes de la marca: s_01 = -4 y -3, s_02 = -2 y -1, s_03 = 0 y +1 … OJO: en la TV la falta se ve 4-12 s DESPUÉS de la marca de Hudl: búscala, es el primer instante en que se para el juego.`,
+      `La comete: ${autor} · sobre: ${victima || "?"} · ${uno(m, "28 - Infraction - Type")}${tarjeta ? ` · tarjeta ${tarjeta}` : ""}`,
+      `Hudl la sitúa (visto desde el que la COMETE): ${uno(m, "04 - Location - Third")} · ${uno(m, "03 - Location - Flank")}`,
+      `Propuesta del dato, desde el que SACA (revísala): zona ${zona || "?"} · carril ${carril || "?"} · distancia ${dist}`,
+      `Vídeo Hudl ${reloj(t)} (${Math.round(t / 1000)} s). Las imágenes empiezan 4 s antes de la marca: s_01 = -4 y -3, s_02 = -2 y -1, s_03 = 0 y +1 … OJO: en la TV la falta se ve 4-12 s DESPUÉS de la marca de Hudl: búscala, es el primer instante en que se para el juego.`,
       "",
       "Acciones registradas por Hudl (segundos respecto a la falta):",
-      contexto(a.t, -8000, 20000),
+      contexto(t, -8000, 20000),
     ]);
   }
 
-  const dirFaltas = path.join(CARPETA, "faltas");
-
-  fs.mkdirSync(dirFaltas, { recursive: true });
-
-  const escribeFaltas = (pref, lista) =>
-    fs.writeFileSync(
-      path.join(dirFaltas, `${pref}-hudl.csv`),
-      "# clip;zona;carril;distancia;entre;nota — base del timeline de Hudl; revisar zona/carril/distancia/entre con la cámara táctica\n" +
-        lista.map((f) => [f.id, f.zona, f.carril, f.distancia, f.entre, f.nota.replace(/;/g, ",")].join(";")).join("\n") +
-        "\n",
-      "utf8",
-    );
-
-  escribeFaltas("of", of);
-  escribeFaltas("def", def);
+  escribeBaseFaltas(path.join(CARPETA, "faltas"), { of, def });
 
   /* -------- córners, faltas a balón parado y penaltis -------- */
 
