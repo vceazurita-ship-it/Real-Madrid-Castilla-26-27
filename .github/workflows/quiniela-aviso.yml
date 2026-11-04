@@ -1,6 +1,6 @@
 # El aviso de la quiniela (antes, «crons» de vercel.json), miércoles a viernes
 # a las 8:00 y 9:00 de Madrid. La web ya no está en Vercel: lo lanza GitHub.
-# La dirección sale de la variable WEB del repo y el secreto, de CRON_SECRET.
+# El secreto, de CRON_SECRET (Settings → Secrets → Actions).
 
 name: Aviso de la quiniela
 
@@ -20,9 +20,9 @@ jobs:
     steps:
       - name: Llamar al aviso
         env:
-          WEB: ${{ vars.WEB }}
+          WEB: https://rmcf-castilla.onrender.com
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
-        if: ${{ vars.WEB != '' }}
         run: |
+          if [ -z "$CRON_SECRET" ]; then echo "Falta el secreto CRON_SECRET en GitHub"; exit 0; fi
           curl -fsS --retry 3 --retry-delay 30 --max-time 120 \
             -H "Authorization: Bearer $CRON_SECRET" "$WEB/api/quiniela/aviso"

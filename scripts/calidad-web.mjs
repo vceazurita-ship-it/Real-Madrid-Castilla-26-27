@@ -23,7 +23,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
-const WEB = process.env.WEB ?? "https://real-madrid-castilla-26-27.vercel.app";
+const WEB = process.env.WEB ?? "https://rmcf-castilla.onrender.com";
 const TODAS = process.argv.includes("--todas");
 const SALIDA = "calidad-web";
 const CATEGORIAS = [

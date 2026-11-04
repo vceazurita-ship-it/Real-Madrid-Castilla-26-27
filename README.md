@@ -7,7 +7,7 @@
 
 La app del cuerpo técnico: rival, partido, balón parado, entrenamiento, jugador y datos.
 
-Publicada en <https://real-madrid-castilla-26-27.vercel.app>. Cada subida a `main` la despliega Vercel.
+Publicada en <https://rmcf-castilla.onrender.com>. Cada subida a `main` la despliega Vercel.
 
 ## Cómo está hecha
 

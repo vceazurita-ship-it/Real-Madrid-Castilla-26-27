@@ -26,7 +26,7 @@ jobs:
     steps:
       - name: Abrir cada pantalla
         env:
-          WEB: https://real-madrid-castilla-26-27.vercel.app
+          WEB: https://rmcf-castilla.onrender.com
           PANTALLAS: >-
             /
             /rivals

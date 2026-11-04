@@ -35,7 +35,7 @@ require("./cargador-ts.cjs");
 const { RAIZ, entorno, salir } = require("./supabase-local.cjs");
 
 const PARA = "v.ceazurita@gmail.com";
-const URL_APP = "https://real-madrid-castilla-26-27.vercel.app/?tareas=1";
+const URL_APP = "https://rmcf-castilla.onrender.com/?tareas=1";
 
 const args = process.argv.slice(2);
 const seco = args.includes("--seco");
