@@ -11,6 +11,7 @@ import { Trash2, X } from "lucide-react";
 import { Button } from "@/components/abp/ui";
 import { SeleccionJugadores, type JugadorElegible } from "@/components/seguimiento/SeleccionJugadores";
 import type { ObjetivoEntreno } from "@/lib/entreno/modelo";
+import { confirmar } from "@/lib/avisos";
 
 export const CAMPO =
   "w-full min-w-0 rounded-lg border border-white/12 bg-white/[0.05] px-3 py-2 text-sm text-white outline-none placeholder:text-white/30 focus:border-[#C8A96B]/50 focus-visible:ring-2 focus-visible:ring-[#C8A96B]/40";
@@ -68,8 +69,8 @@ export function ObjetivoEditor({
         />
         <button
           type="button"
-          onClick={() => {
-            if (!tieneContenido(objetivo) || window.confirm("¿Quitar este objetivo? Sus acciones dejarán de contar.")) onQuita();
+          onClick={async () => {
+            if (!tieneContenido(objetivo) || (await confirmar("¿Quitar este objetivo? Sus acciones dejarán de contar."))) onQuita();
           }}
           aria-label={`Quitar el objetivo ${numero}`}
           title="Quitar objetivo"

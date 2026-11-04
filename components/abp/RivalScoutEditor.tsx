@@ -63,6 +63,7 @@ import {
   zonaCaidaOptions,
 } from "@/lib/abp/rivalScout";
 import type { DocStatus } from "@/hooks/useRemoteDoc";
+import { confirmar } from "@/lib/avisos";
 
 const SIDE_OPTIONS: { key: AbpSide; label: string }[] = [
   { key: "ofensivo", label: "Ataca él" },
@@ -160,10 +161,10 @@ export function RivalScoutEditor({
     setFotoDraft(JSON.stringify(siguiente));
   };
 
-  const remove = (id: string) => {
+  const remove = async (id: string) => {
     const action = actions.find((item) => item.id === id);
 
-    const confirmed = window.confirm(
+    const confirmed = await confirmar(
       `¿Eliminar esta acción${action ? ` (${composeTipoAccion(action)})` : ""}?`,
     );
 
@@ -387,7 +388,7 @@ function ActionDialog({
       sinGuardar={sinGuardar}
       footer={
         <>
-          <Button onClick={() => sePuedeDescartar(sinGuardar) && onClose()}>
+          <Button onClick={() => void sePuedeDescartar(sinGuardar).then((si) => si && onClose())}>
             Cancelar
           </Button>
 

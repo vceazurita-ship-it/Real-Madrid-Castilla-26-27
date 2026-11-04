@@ -63,6 +63,7 @@ import {
 } from "lucide-react";
 
 import type { LucideIcon } from "lucide-react";
+import { confirmar } from "@/lib/avisos";
 
 /*
 |--------------------------------------------------------------------------
@@ -1573,16 +1574,16 @@ export default function MatchPreparation() {
   | hoja. Lo que se hace es devolver la fila a como estaba al entrar en
   | edición y dejar que el autoguardado escriba de vuelta esa versión.
   */
-  const deshacerCambios = useCallback(() => {
+  const deshacerCambios = useCallback(async () => {
     if (!hayCambiosDeSesion) {
       setModoEdicion(false);
       return;
     }
 
     if (
-      !window.confirm(
+      !(await confirmar(
         "¿Devolver el plan a como estaba al entrar en edición? Lo escrito desde entonces ya se ha guardado, así que esto lo revierte también en la hoja."
-      )
+      ))
     ) {
       return;
     }
@@ -1601,16 +1602,16 @@ export default function MatchPreparation() {
   | copiar, porque la foto de entrada se toma justo antes.
   */
   const replicarDe = useCallback(
-    (origen: Rival) => {
+    async (origen: Rival) => {
       if (!rivalActivo) return;
 
       const conTexto = CAMPOS_REPLICABLES.filter((c) => relleno(rivalActivo[c]));
 
       if (
         conTexto.length > 0 &&
-        !window.confirm(
+        !(await confirmar(
           `Este plan ya tiene ${conTexto.length} ${conTexto.length === 1 ? "apartado escrito" : "apartados escritos"}. ¿Sustituirlos por los de la jornada ${origen.JORNADA ?? "-"} (${origen.EQUIPO ?? ""})? Podrás deshacerlo.`
-        )
+        ))
       ) {
         return;
       }
@@ -2509,8 +2510,8 @@ export default function MatchPreparation() {
                 type="button"
                 /* Es la única copia de lo que no llegó a la hoja: se pregunta
                    antes de tirarla (19/10/2026). */
-                onClick={() => {
-                  if (window.confirm("¿Descartar los cambios que no llegaron a guardarse? No se podrán recuperar.")) {
+                onClick={async () => {
+                  if (await confirmar("¿Descartar los cambios que no llegaron a guardarse? No se podrán recuperar.")) {
                     auto.descartaRecuperado();
                   }
                 }}

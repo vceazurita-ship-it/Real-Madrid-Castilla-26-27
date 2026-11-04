@@ -143,6 +143,7 @@ import { jugadoresConWyscout, parejasDeLaSesion, rasgosDeLaSesion, titularesDeLa
 import { onceDeLaPizarra, type OnceDeLaPizarra } from "@/lib/tactics/onceDeLaPizarra";
 import { traeJson } from "@/lib/hojaCsv";
 import type { FilaJugador } from "@/lib/data-analisis/leer";
+import { confirmar } from "@/lib/avisos";
 
 const EJEMPLO = `CASTILLA - SÁBADO 26/09/26
 ==========================
@@ -2027,10 +2028,10 @@ export default function JugadoresSesionPage() {
     });
   };
 
-  const borraSesion = () => {
+  const borraSesion = async () => {
     if (!sesion) return;
 
-    if (!window.confirm(`¿Borrar «${sesion.titulo}» y todas sus tareas?`)) return;
+    if (!(await confirmar(`¿Borrar «${sesion.titulo}» y todas sus tareas?`))) return;
 
     setAlmacen((actual) => ({ ...actual, sesiones: (actual.sesiones ?? []).filter((s) => s.id !== sesion.id) }));
     setSesionId(null);
@@ -2168,10 +2169,10 @@ export default function JugadoresSesionPage() {
     toast.success(`${antes.nombre} → ${nombre.toUpperCase()}`, { description: "Ocupa su sitio en todas las tareas.", action: { label: "Deshacer", onClick: deshaz } });
   };
 
-  const quita = (j: JugadorSesion) => {
+  const quita = async (j: JugadorSesion) => {
     if (!sesion) return;
 
-    if (!window.confirm(`¿Quitar a ${j.nombre} de la sesión? Sale de todas las tareas.`)) return;
+    if (!(await confirmar(`¿Quitar a ${j.nombre} de la sesión? Sale de todas las tareas.`))) return;
 
     cambiaSesion(sesion.id, (s) => quitaJugador(s, j.id));
     if (elegido === j.id) setElegido(null);
@@ -2210,10 +2211,10 @@ export default function JugadoresSesionPage() {
   };
 
 
-  const quitaTarea = () => {
+  const quitaTarea = async () => {
     if (!sesion || !tarea || sesion.tareas.length <= 1) return;
 
-    if (Object.keys(tarea.sitio).length > 3 && !window.confirm(`¿Quitar «${tarea.nombre}»?`)) return;
+    if (Object.keys(tarea.sitio).length > 3 && !(await confirmar(`¿Quitar «${tarea.nombre}»?`))) return;
 
     /* Si salía del microciclo, se apunta: el microciclo propone quitarla y «Traer» no la devuelve. */
     cambiaSesion(sesion.id, (s) => apuntaQuitada({ ...s, tareas: s.tareas.filter((t) => t.id !== tarea.id) }, tareaBase ?? tarea));
@@ -3532,8 +3533,8 @@ export default function JugadoresSesionPage() {
                             />
                             <button
                               type="button"
-                              onClick={() => {
-                                if (!window.confirm("¿Quitar el cambio a mitad de tarea? Se queda sólo el inicio.")) return;
+                              onClick={async () => {
+                                if (!(await confirmar("¿Quitar el cambio a mitad de tarea? Se queda sólo el inicio."))) return;
                                 cambiaTareaBase(quitaCambio);
                                 setFase("inicio");
                               }}
@@ -4432,7 +4433,7 @@ export default function JugadoresSesionPage() {
               </Button>
               <span className="flex-1" />
               {/* Como la X y Escape: si hay lista pegada sin usar, pregunta antes de tirarla. */}
-              <Button onClick={() => sePuedeDescartar(listaSinUsar) && setDialogo(null)}>Cancelar</Button>
+              <Button onClick={() => void sePuedeDescartar(listaSinUsar).then((si) => si && setDialogo(null))}>Cancelar</Button>
               <Button tone="primary" icon={Wand2} disabled={!texto.trim()} onClick={dialogo === "nueva" ? creaSesion : cambiaLista}>
                 {dialogo === "nueva" ? "Crear la sesión" : "Actualizar"}
               </Button>

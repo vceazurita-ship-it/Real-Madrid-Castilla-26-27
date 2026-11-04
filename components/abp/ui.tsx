@@ -31,6 +31,7 @@ import {
 } from "react";
 
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
+import { confirmar } from "@/lib/avisos";
 
 /* ------------------------------------------------------------------ */
 /*  CABECERA                                                           */
@@ -854,12 +855,16 @@ export function Button({
  * vacío no pregunta nada: un aviso que sale siempre enseña a decir que sí sin
  * leerlo, y entonces deja de proteger el día que hace falta.
  */
-export function sePuedeDescartar(sinGuardar: boolean) {
-  if (!sinGuardar) return true;
+export function sePuedeDescartar(sinGuardar: boolean): Promise<boolean> {
+  if (!sinGuardar) return Promise.resolve(true);
 
-  return window.confirm(
-    "Hay cosas escritas aquí que todavía no se han guardado. ¿Cerrar y perderlas?",
-  );
+  return confirmar({
+    titulo: "¿Cerrar sin guardar?",
+    texto: "Hay cosas escritas aquí que todavía no se han guardado. Si cierras, se pierden.",
+    aceptar: "Cerrar y perderlas",
+    cancelar: "Seguir escribiendo",
+    peligro: true,
+  });
 }
 
 /**
@@ -902,7 +907,7 @@ export function Dialog({
   });
 
   const cierra = useCallback(() => {
-    if (sePuedeDescartar(hayTexto.current)) onClose();
+    void sePuedeDescartar(hayTexto.current).then((si) => si && onClose());
   }, [onClose]);
 
   useEffect(() => {

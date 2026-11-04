@@ -46,6 +46,7 @@ import {
   type Etiquetas,
   type GrupoKey,
 } from "@/lib/abp/coding-rival";
+import { confirmar } from "@/lib/avisos";
 
 /* ------------------------------------------------------------------ */
 /*  LA CARPETA (y recordarla en IndexedDB para no pedirla otra vez)    */
@@ -914,7 +915,7 @@ export function CodingAbpRival({
   const mueveDescartados = async () => {
     if (!abierta || !descartados.length) return;
 
-    if (!window.confirm(`Mover ${descartados.length} clips descartados a la carpeta «_descartados»? Desde ahí los borras tú cuando quieras.`)) return;
+    if (!(await confirmar(`Mover ${descartados.length} clips descartados a la carpeta «_descartados»? Desde ahí los borras tú cuando quieras.`))) return;
 
     setMoviendo(true);
 

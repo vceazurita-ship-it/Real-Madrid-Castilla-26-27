@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/knowledge-kit";
 import { cn } from "@/lib/utils";
 import { DOCUMENTO_VALORES } from "@/lib/cultura/documentos/valores";
+import { confirmar } from "@/lib/avisos";
 
 /*
 | 30/10/2026: el resultado de todo el proceso —los cinco valores que votó la
@@ -451,16 +452,16 @@ export default function TeamValuesPage() {
     save: escribirCambios,
   });
 
-  const salirDeEdicion = useCallback(() => {
+  const salirDeEdicion = useCallback(async () => {
     if (tocados === 0) {
       setEditing(false);
       return;
     }
 
     if (
-      !window.confirm(
+      !(await confirmar(
         "¿Deshacer todo lo escrito desde que entraste en edición? Ya está guardado, así que esto lo revierte en la hoja.",
-      )
+      ))
     ) {
       return;
     }

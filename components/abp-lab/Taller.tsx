@@ -85,6 +85,7 @@ import {
 } from "@/lib/abp-lab/modelo";
 import { REFERENTES, type TipoAbp } from "@/lib/abp-lab/referentes";
 import { ideasPara } from "@/lib/abp-lab/variantes";
+import { confirmar } from "@/lib/avisos";
 
 export type Borrador = Omit<Rutina, "id" | "creadaEn" | "actualizadaEn"> & { id?: string };
 
@@ -699,7 +700,7 @@ export function Taller({
           onBorrar={
             abierto.id
               ? async () => {
-                  if (!window.confirm("¿Borrar esta rutina del taller?")) return;
+                  if (!(await confirmar("¿Borrar esta rutina del taller?"))) return;
 
                   try {
                     await guarda({ accion: "rutina-borra", id: abierto.id });
@@ -838,7 +839,7 @@ function Estudio({
   });
 
   const cierra = () => {
-    if (sePuedeDescartar(sucio)) onCerrar();
+    void sePuedeDescartar(sucio).then((si) => si && onCerrar());
   };
 
   /* Escape cierra (preguntando si hay cambios), salvo escribiendo; y la página de debajo no se mueve. */
@@ -862,7 +863,7 @@ function Estudio({
 
       if (e.key !== "Escape" || escribe || e.defaultPrevented) return;
 
-      if (sePuedeDescartar(hayCambios.current)) onCerrar();
+      void sePuedeDescartar(hayCambios.current).then((si) => si && onCerrar());
     };
 
     window.addEventListener("keydown", tecla);
@@ -989,7 +990,7 @@ function Estudio({
                           key={r.id}
                           type="button"
                           onClick={() => {
-                            if (sePuedeDescartar(sucio)) onAbre(r);
+                            void sePuedeDescartar(sucio).then((si) => si && onAbre(r));
                           }}
                           className="max-w-full truncate rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[11.5px] font-medium text-white/75 transition hover:border-[#C8A96B]/50 hover:text-white"
                         >

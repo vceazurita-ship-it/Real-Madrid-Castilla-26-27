@@ -39,6 +39,7 @@ import { useRatings } from "@/hooks/useRatings";
 import { summarize, summarizeAll, summarizeMatches } from "@/lib/ratings/compute";
 import { compareMatches } from "@/lib/ratings/matches";
 import { MatchMeta, RATINGS_SEASON } from "@/lib/ratings/types";
+import { confirmar } from "@/lib/avisos";
 
 type TabKey = "registrar" | "equipo" | "campo" | "comparar" | "historico";
 
@@ -97,12 +98,12 @@ export default function RatingsPage() {
   const [valoracionesSucias, setValoracionesSucias] = useState(false);
 
   const goToTab = useCallback(
-    (key: TabKey) => {
+    async (key: TabKey) => {
       if (
         valoracionesSucias &&
-        !window.confirm(
+        !(await confirmar(
           "Hay valoraciones sin guardar. Si cambias de pestaña se perderán. ¿Continuar?",
-        )
+        ))
       ) {
         return;
       }

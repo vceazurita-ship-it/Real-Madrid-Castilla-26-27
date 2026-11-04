@@ -37,6 +37,7 @@ import { cn } from "@/lib/utils";
 import { usePlayers } from "@/hooks/usePlayers";
 import { nombrePuesto } from "@/lib/posiciones";
 import type { Player } from "@/types/player";
+import { confirmar } from "@/lib/avisos";
 
 type PosicionItem = {
   ID: number;
@@ -524,16 +525,16 @@ export default function IdentidadPosicionalPage() {
     save: escribirCambios,
   });
 
-  const salirDeEdicion = useCallback(() => {
+  const salirDeEdicion = useCallback(async () => {
     if (tocados === 0) {
       setEditing(false);
       return;
     }
 
     if (
-      !window.confirm(
+      !(await confirmar(
         "¿Deshacer todo lo escrito desde que entraste en edición? Ya está guardado, así que esto lo revierte en la hoja.",
-      )
+      ))
     ) {
       return;
     }
@@ -647,10 +648,10 @@ export default function IdentidadPosicionalPage() {
   | pinchando fuera— tiraba lo escrito sin preguntar (19/10/2026). Ahora se
   | pregunta si hay texto, como en el resto de ventanas de la app.
   */
-  const cerrarNuevo = () => {
+  const cerrarNuevo = async () => {
     if (creando) return;
 
-    if (!sePuedeDescartar(nuevoContenido.trim() !== "")) return;
+    if (!(await sePuedeDescartar(nuevoContenido.trim() !== ""))) return;
 
     setNuevoBloque(null);
   };

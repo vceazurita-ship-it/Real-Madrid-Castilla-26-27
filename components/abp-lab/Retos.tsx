@@ -57,6 +57,7 @@ import {
   type Reto,
   type TipoReto,
 } from "@/lib/abp-lab/modelo";
+import { confirmar } from "@/lib/avisos";
 
 const avisa = (error: unknown) => toast.error(error instanceof Error ? error.message : "No se ha podido guardar");
 
@@ -381,7 +382,7 @@ export function Retos({
           onBorrar={
             editando.id
               ? async () => {
-                  if (!window.confirm("¿Borrar el reto con sus marcas? Sus puntos salen de la clasificación.")) return;
+                  if (!(await confirmar("¿Borrar el reto con sus marcas? Sus puntos salen de la clasificación."))) return;
 
                   try {
                     await guarda({ accion: "reto-borra", id: editando.id });
@@ -447,7 +448,7 @@ function EditorReto({
             )}
           </div>
           <div className="flex gap-2">
-            <Button icon={X} onClick={() => sePuedeDescartar(sucio) && onCerrar()}>
+            <Button icon={X} onClick={() => void sePuedeDescartar(sucio).then((si) => si && onCerrar())}>
               Cancelar
             </Button>
             <Button tone="primary" icon={Save} disabled={!r.titulo?.trim() || !r.fecha || (quiz && !preguntas.length) || ocupado} onClick={() => onGuardar(r)}>

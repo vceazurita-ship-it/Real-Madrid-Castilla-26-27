@@ -61,6 +61,7 @@ import {
   type Veredicto,
 } from "@/lib/apuestas/modelo";
 import { JUEGAN_POR_DEFECTO, PERSONA_POR_SLUG, nombreCorto } from "@/lib/quiniela/staff";
+import { confirmar } from "@/lib/avisos";
 
 type Guarda = ReturnType<typeof useApuestasDoc>["guarda"];
 
@@ -569,8 +570,8 @@ function Tarjeta({
   const puedoRetirar = puedeRetirarse(apuesta, yo);
 
   /* Retirarla la borra para siempre y no tiene deshacer: se pregunta. */
-  const retira = () => {
-    if (!window.confirm("¿Retirar esta apuesta? Se borra y no se puede recuperar.")) return;
+  const retira = async () => {
+    if (!(await confirmar("¿Retirar esta apuesta? Se borra y no se puede recuperar."))) return;
 
     void pide({ accion: "retirar", id: apuesta.id }, "Apuesta retirada");
   };

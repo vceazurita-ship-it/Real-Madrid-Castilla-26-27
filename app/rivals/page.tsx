@@ -233,6 +233,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { guardaDocumentoRival, type TipoDocumentoRival } from "@/lib/rivals/documentos";
 import { descarga } from "@/lib/export/lienzos";
+import { confirmar } from "@/lib/avisos";
 
 /** Amarillas que suspenden un partido en Primera y Segunda RFEF (la 5.ª, la 10.ª…). */
 const CICLO_AMARILLAS = 5;
@@ -2915,11 +2916,11 @@ export default function RivalPlayersPage() {
     editForm !== null && JSON.stringify(editForm) !== pristineForm;
 
   const closePlayer = useCallback(
-    (force = false) => {
+    async (force = false) => {
       /* Con un jugador nuevo a medias todavía no hay nada guardado: la ficha
          sigue siendo la única copia y por eso aquí sí se pregunta. */
       if (!force && isCreating && isDirty) {
-        const confirmed = window.confirm(
+        const confirmed = await confirmar(
           "El jugador nuevo no se ha añadido todavía. ¿Descartarlo?",
         );
 
@@ -3255,7 +3256,7 @@ export default function RivalPlayersPage() {
     : -1;
 
   const navigatePlayer = useCallback(
-    (direction: number) => {
+    async (direction: number) => {
       if (selectedIndex === -1 || listPlayers.length === 0) return;
 
       const nextIndex = selectedIndex + direction;
@@ -3267,7 +3268,7 @@ export default function RivalPlayersPage() {
          antes de cambiar: preguntar «¿descartar?» asustaba por nada
          (19/10/2026), como ya hace `closePlayer`. */
       if (isCreating && isDirty) {
-        const confirmed = window.confirm(
+        const confirmed = await confirmar(
           "El jugador nuevo no se ha añadido todavía. ¿Descartarlo?",
         );
 
@@ -3769,7 +3770,7 @@ export default function RivalPlayersPage() {
 
     const playerName = editForm["NOMBRE DEPORTIVO"] || editForm.JUGADOR;
 
-    const confirmed = window.confirm(
+    const confirmed = await confirmar(
       `¿Seguro que quieres eliminar a ${playerName}?`,
     );
 
@@ -4638,11 +4639,11 @@ export default function RivalPlayersPage() {
                               /* Pregunta, como «Vaciar once»: de un toque se
                                  perdían todas las colocaciones a mano del
                                  rival (19/10/2026). */
-                              onClick={() => {
+                              onClick={async () => {
                                 if (
-                                  window.confirm(
+                                  (await confirmar(
                                     `¿Devolver a su sitio a ${puestosAMano === 1 ? "el jugador colocado" : `los ${puestosAMano} jugadores colocados`} a mano?`,
-                                  )
+                                  ))
                                 ) {
                                   once.quitaPuestos();
                                 }
@@ -4701,12 +4702,12 @@ export default function RivalPlayersPage() {
                             <button
                               type="button"
                               data-export-hide
-                              onClick={() => {
+                              onClick={async () => {
                                 if (
                                   onceResumen.titulares > 0 &&
-                                  !window.confirm(
+                                  !(await confirmar(
                                     "Ya hay un once marcado. ¿Sustituirlo por el que se propone con los últimos onces del rival?",
-                                  )
+                                  ))
                                 ) {
                                   return;
                                 }
@@ -4882,11 +4883,11 @@ export default function RivalPlayersPage() {
                             <button
                               type="button"
                               data-export-hide
-                              onClick={() => {
+                              onClick={async () => {
                                 if (
-                                  window.confirm(
+                                  (await confirmar(
                                     "¿Vaciar el once probable de este equipo?",
-                                  )
+                                  ))
                                 ) {
                                   once.limpiar();
                                 }
@@ -4940,13 +4941,13 @@ export default function RivalPlayersPage() {
                                       type="button"
                                       role="menuitem"
                                       disabled={sugiriendo || exportando}
-                                      onClick={() => {
+                                      onClick={async () => {
                                         setMasAbierto(false);
                                         if (
                                           onceResumen.titulares > 0 &&
-                                          !window.confirm(
+                                          !(await confirmar(
                                             "Ya hay un once marcado. ¿Sustituirlo por el que se propone con los últimos onces del rival?",
-                                          )
+                                          ))
                                         ) {
                                           return;
                                         }
@@ -4980,12 +4981,12 @@ export default function RivalPlayersPage() {
                                     <button
                                       type="button"
                                       role="menuitem"
-                                      onClick={() => {
+                                      onClick={async () => {
                                         setMasAbierto(false);
                                         if (
-                                          window.confirm(
+                                          (await confirmar(
                                             `¿Devolver a su sitio a ${puestosAMano === 1 ? "el jugador colocado" : `los ${puestosAMano} jugadores colocados`} a mano?`,
-                                          )
+                                          ))
                                         ) {
                                           once.quitaPuestos();
                                         }
@@ -5001,9 +5002,9 @@ export default function RivalPlayersPage() {
                                     <button
                                       type="button"
                                       role="menuitem"
-                                      onClick={() => {
+                                      onClick={async () => {
                                         setMasAbierto(false);
-                                        if (window.confirm("¿Vaciar el once probable de este equipo?")) {
+                                        if (await confirmar("¿Vaciar el once probable de este equipo?")) {
                                           once.limpiar();
                                         }
                                       }}

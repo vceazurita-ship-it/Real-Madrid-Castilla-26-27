@@ -1685,7 +1685,7 @@ function FichaExtras({
       sinGuardar={!iguales}
       footer={
         <>
-          <Button onClick={() => sePuedeDescartar(!iguales) && onCerrar()}>
+          <Button onClick={() => void sePuedeDescartar(!iguales).then((si) => si && onCerrar())}>
             Cancelar
           </Button>
 

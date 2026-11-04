@@ -42,6 +42,7 @@ import { statusTheme } from "@/lib/session-board/status";
 import type { BoardTask, SessionBoard } from "@/lib/session-board/types";
 import type { Player } from "@/types/player";
 import { cn } from "@/lib/utils";
+import { confirmar } from "@/lib/avisos";
 
 const STATUS_LEGEND = [
   "ÓPTIMO",
@@ -137,7 +138,7 @@ export default function PizarraSesionPage() {
     setActiveTaskId(task.id);
   };
 
-  const removeTask = (taskId: string) => {
+  const removeTask = async (taskId: string) => {
     if (board.tasks.length <= 1) return;
 
     /* Con equipos hechos se pregunta (19/10/2026): aquí no hay deshacer y
@@ -145,7 +146,7 @@ export default function PizarraSesionPage() {
     const quitada = board.tasks.find((task) => task.id === taskId);
     const colocados = quitada?.teams.reduce((s, team) => s + team.playerIds.length, 0) ?? 0;
 
-    if (colocados > 0 && !window.confirm(`¿Quitar «${quitada?.nombre || "la tarea"}»? Tiene ${colocados} jugadores repartidos.`)) return;
+    if (colocados > 0 && !(await confirmar(`¿Quitar «${quitada?.nombre || "la tarea"}»? Tiene ${colocados} jugadores repartidos.`))) return;
 
     const remaining = board.tasks.filter((task) => task.id !== taskId);
 

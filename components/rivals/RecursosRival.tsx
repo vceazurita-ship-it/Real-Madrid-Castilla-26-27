@@ -58,6 +58,7 @@ import {
   type MediaKind,
   type RivalMediaDoc,
 } from "@/lib/rivals/media";
+import { confirmar } from "@/lib/avisos";
 
 /** Columna de la hoja que se pinta dentro de la lista. */
 export interface RecursoFijo {
@@ -631,7 +632,7 @@ export function RecursosRival({
 
       if (!item) return;
 
-      if (!window.confirm(`¿Quitar «${item.nombre}»?`)) return;
+      if (!(await confirmar(`¿Quitar «${item.nombre}»?`))) return;
 
       actualizar(tipo, (actual) =>
         actual.filter((elemento) => elemento.id !== id)

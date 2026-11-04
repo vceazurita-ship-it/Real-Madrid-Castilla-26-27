@@ -47,6 +47,7 @@ import {
   SegmentedControl,
   inputClass,
 } from "./ui";
+import { confirmar } from "@/lib/avisos";
 
 type Draft = Record<string, PlayerRating>;
 
@@ -286,12 +287,12 @@ export function RateMatchPanel({
   };
 
   /* Cambiar de partido tira el borrador: se avisa antes de perderlo. */
-  const changeMatch = (nextId: string) => {
+  const changeMatch = async (nextId: string) => {
     if (
       dirty &&
-      !window.confirm(
+      !(await confirmar(
         "Hay valoraciones sin guardar en este partido. Si cambias de partido se perderán. ¿Continuar?"
-      )
+      ))
     ) {
       return;
     }
@@ -299,8 +300,8 @@ export function RateMatchPanel({
     setPickedId(nextId);
   };
 
-  const discard = () => {
-    if (!window.confirm("¿Descartar los cambios y volver a lo guardado?")) return;
+  const discard = async () => {
+    if (!(await confirmar("¿Descartar los cambios y volver a lo guardado?"))) return;
 
     setState({
       matchId: selectedId,
@@ -478,9 +479,9 @@ export function RateMatchPanel({
     if (!selected) return;
 
     if (
-      !window.confirm(
+      !(await confirmar(
         `Se borrarán todas las valoraciones guardadas de ${matchLabel(selected)}. Esto no se puede deshacer. ¿Seguro?`
-      )
+      ))
     ) {
       return;
     }
@@ -579,7 +580,7 @@ export function RateMatchPanel({
                 icon={EyeOff}
                 disabled={saving}
                 onClick={async () => {
-                  if (!window.confirm(`¿Quitar ${matchLabel(selected)} de Valoraciones? Se puede volver a mostrar.`)) return;
+                  if (!(await confirmar(`¿Quitar ${matchLabel(selected)} de Valoraciones? Se puede volver a mostrar.`))) return;
 
                   try {
                     await onHideMatch(selected.id, true);

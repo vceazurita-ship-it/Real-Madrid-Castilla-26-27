@@ -59,6 +59,7 @@ import { paletaOnce } from "@/lib/rivals/once-pdf";
 import { pieChapa } from "@/lib/rivals/pie";
 import type { OncePos } from "@/lib/rivals/once";
 import type { Theme } from "@/lib/theme";
+import { confirmar } from "@/lib/avisos";
 
 /**
  * Lo que hace falta saber aquí de cualquiera de la plantilla del rival.
@@ -1211,12 +1212,12 @@ export default function OnceCampoDialog({
               data-export-hide
               /* Pregunta como «Sugerir once»: de un clic se iba todo lo
                  colocado a mano (19/10/2026). */
-              onClick={() => {
+              onClick={async () => {
                 if (
                   jugadores.length > 0 &&
-                  !window.confirm(
+                  !(await confirmar(
                     "¿Volver a colocar a todos por líneas? Se pierde lo que hayas movido a mano.",
-                  )
+                  ))
                 ) {
                   return;
                 }
@@ -1238,12 +1239,12 @@ export default function OnceCampoDialog({
             <button
               type="button"
               data-export-hide
-              onClick={() => {
+              onClick={async () => {
                 if (
                   jugadores.length > 0 &&
-                  !window.confirm(
+                  !(await confirmar(
                     "Ya hay un once montado. ¿Sustituirlo por el que se propone con los últimos onces del rival?",
-                  )
+                  ))
                 ) {
                   return;
                 }

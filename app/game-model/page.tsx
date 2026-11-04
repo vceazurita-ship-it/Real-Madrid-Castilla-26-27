@@ -40,6 +40,7 @@ import {
   useEditShortcuts,
 } from "@/components/ui/knowledge-kit";
 import { cn } from "@/lib/utils";
+import { confirmar } from "@/lib/avisos";
 
 type Principio = {
   ID: number;
@@ -530,16 +531,16 @@ export default function GameModelPage() {
     save: escribirCambios,
   });
 
-  const salirDeEdicion = useCallback(() => {
+  const salirDeEdicion = useCallback(async () => {
     if (tocados === 0) {
       setEditing(false);
       return;
     }
 
     if (
-      !window.confirm(
+      !(await confirmar(
         "¿Deshacer todo lo escrito desde que entraste en edición? Ya está guardado, así que esto lo revierte en la hoja.",
-      )
+      ))
     ) {
       return;
     }

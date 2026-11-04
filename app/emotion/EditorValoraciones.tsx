@@ -276,7 +276,7 @@ export function EditorValoraciones({
   };
 
   const cierra = () => {
-    if (sePuedeDescartar(pendientes > 0)) onCerrar();
+    void sePuedeDescartar(pendientes > 0).then((si) => si && onCerrar());
   };
 
   const guarda = () => {

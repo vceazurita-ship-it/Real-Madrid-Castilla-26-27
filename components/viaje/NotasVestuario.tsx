@@ -37,6 +37,7 @@ import {
   type NotaVestuario,
 } from "@/lib/general/notas-vestuario";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
+import { confirmar } from "@/lib/avisos";
 
 /** Lo único que se guarda: lo que alguien haya reescrito. */
 type NotasGuardadas = Partial<
@@ -240,9 +241,9 @@ export function NotasVestuario({
               <Button
                 icon={RotateCcw}
                 disabled={!tocada}
-                onClick={() => {
+                onClick={async () => {
                   /* Lo reescrito se pierde y no hay deshacer: se pregunta. */
-                  if (!window.confirm("¿Volver al texto original? Lo que has escrito en esta nota se pierde.")) return;
+                  if (!(await confirmar("¿Volver al texto original? Lo que has escrito en esta nota se pierde."))) return;
 
                   setValue((actual) => ({ ...actual, [clave]: undefined }));
 

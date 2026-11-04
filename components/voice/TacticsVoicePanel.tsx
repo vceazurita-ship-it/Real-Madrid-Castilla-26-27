@@ -29,6 +29,7 @@ import {
 } from "@/lib/tactics/types";
 import type { TacticsVoiceResult } from "@/lib/voice/types";
 import type { Player } from "@/types/player";
+import { confirmar } from "@/lib/avisos";
 
 interface Props {
   doc: TacticsDoc;
@@ -244,7 +245,7 @@ export default function TacticsVoicePanel({
     }
   };
 
-  const apply = (mode: "append" | "replace") => {
+  const apply = async (mode: "append" | "replace") => {
     if (scenes.length === 0) return;
 
     /* «Sustituir la pizarra» borra todas las escenas que hay: se pregunta
@@ -253,9 +254,9 @@ export default function TacticsVoicePanel({
     if (
       mode === "replace" &&
       !singleScene &&
-      !window.confirm(
+      !(await confirmar(
         "¿Sustituir la pizarra entera por el dictado? Se quitan todas las escenas que hay ahora.",
-      )
+      ))
     ) {
       return;
     }

@@ -31,6 +31,7 @@ import {
   useAvailability,
 } from "@/context/AvailabilityContext";
 import { cn } from "@/lib/utils";
+import { confirmar } from "@/lib/avisos";
 
 type Tab = "alineacion" | "defensiva" | "ofensiva";
 
@@ -125,9 +126,9 @@ function PizarraContent() {
 
     if (
       colocados > 0 &&
-      !window.confirm(
+      !(await confirmar(
         `En el campo hay ${colocados} jugadores colocados. ¿Cambiarlos por la alineación guardada?`
-      )
+      ))
     ) {
       return;
     }

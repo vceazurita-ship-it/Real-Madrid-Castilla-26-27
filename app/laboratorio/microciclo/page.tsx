@@ -154,6 +154,7 @@ import {
 } from "@/lib/castilla/calendario";
 import { cargaCalendario } from "@/hooks/useCalendario";
 import { diaKeyDe, etiquetaDia } from "@/lib/abp/ventana";
+import { confirmar } from "@/lib/avisos";
 
 const DIA_MS = 86_400_000;
 
@@ -963,12 +964,12 @@ export default function EditorMicrocicloPage() {
   const ultimoConTareas = microsDeLaHoja.find((uno) => uno.tareas > 0)?.micro ?? null;
 
   /** Vuelve a montar los días con el calendario, respetando los libres. */
-  const arma = useCallback(() => {
+  const arma = useCallback(async () => {
     if (!proximo) return;
 
     if (
       micro?.sesiones.some((sesion) => sesion.tareas.some((tarea) => !tareaEnBlanco(tarea) && !/-COMP$/i.test(tarea.tarea))) &&
-      !window.confirm("Rehacer los días vacía las tareas que ya has rellenado (se puede deshacer). ¿Seguir?")
+      !(await confirmar({ titulo: "¿Rehacer los días?", texto: "Se vacían las tareas que ya has rellenado. Se puede deshacer.", aceptar: "Rehacer" }))
     ) {
       return;
     }
@@ -1053,7 +1054,7 @@ export default function EditorMicrocicloPage() {
     if (
       micro &&
       micro.sesiones.some((sesion) => sesion.tareas.some((tarea) => !tareaEnBlanco(tarea) && !/-COMP$/i.test(tarea.tarea))) &&
-      !window.confirm("Tienes un microciclo a medias en pantalla. ¿Dejarlo y abrir el otro?")
+      !(await confirmar({ titulo: "¿Abrir el otro microciclo?", texto: "Tienes un microciclo a medias en pantalla.", aceptar: "Dejarlo y abrir el otro" }))
     ) {
       return null;
     }
@@ -1836,11 +1837,11 @@ export default function EditorMicrocicloPage() {
   };
 
   /* Vuelve al paso 1, con los libres que tenía, para montar la semana otra vez. */
-  const empiezaDeCero = () => {
+  const empiezaDeCero = async () => {
     /* Sin `if (!proximo) return`: editando uno de la hoja sin calendario, «Cerrar» no hacía nada. */
     if (
       micro?.sesiones.some((sesion) => sesion.tareas.some((tarea) => !tareaEnBlanco(tarea) && !/-COMP$/i.test(tarea.tarea))) &&
-      !window.confirm("Empezar de cero tira el borrador con sus tareas. ¿Seguir?")
+      !(await confirmar({ titulo: "¿Empezar de cero?", texto: "Se tira el borrador con sus tareas.", aceptar: "Empezar de cero", peligro: true }))
     ) {
       return;
     }

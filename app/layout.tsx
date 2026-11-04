@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import "@/components/ui/avisos.css";
 import { DataProvider } from "@/app/contexts/data-context";
 import { BotonAlertas } from "@/components/alertas/BotonAlertas";
 import { BotonAyuda } from "@/components/ayuda/BotonAyuda";
@@ -11,6 +12,7 @@ import { MenuFlotante } from "@/components/ui/MenuFlotante";
 import { Paleta } from "@/components/ui/Paleta";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ThemedToaster } from "@/components/themed-toaster";
+import { Dialogos } from "@/components/ui/Dialogos";
 import { ServiceWorker } from "@/components/service-worker";
 import { SinConexion } from "@/components/sin-conexion";
 import { TrabajoPdfs } from "@/components/abp/pizarra/TrabajoPdfs";
@@ -131,6 +133,8 @@ export default function RootLayout({
             {/* Ctrl+K: ir a cualquier pantalla tecleando. Una vez para toda la app. */}
             <Paleta />
             <ThemedToaster />
+            {/* Confirmar y pedir texto con el estilo del club, en vez de las ventanas del navegador (04/11/2026). */}
+            <Dialogos />
             <ServiceWorker />
             <SinConexion />
             {/* Los PDF de ABP por jugador siguen preparándose al cambiar de pantalla. */}

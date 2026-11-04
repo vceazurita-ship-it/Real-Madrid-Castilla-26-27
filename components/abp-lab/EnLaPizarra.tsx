@@ -25,6 +25,7 @@ import { tituloVisible, type SlidePizarra, type TableroPizarra } from "@/lib/abp
 import type { Rutina } from "@/lib/abp-lab/modelo";
 import { dejaRecado } from "@/lib/abp-lab/puente-envio";
 import { estadoEnPizarra, fusionaDesdePizarra, huellaSlide, rutinaDeSlide, sinJugador, slideDeRutina, type EntradaPizarra, type EstadoEnPizarra, type RutinaPuente } from "@/lib/abp-lab/puente-pizarra";
+import { confirmar } from "@/lib/avisos";
 
 const fecha = (iso: string) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}` : "");
 
@@ -59,7 +60,7 @@ export async function traeDeLaPizarra(rutinas: Rutina[], guarda: GuardaLab, entr
       return existente;
     }
 
-    if (!window.confirm(`«${existente.nombre}» ya está en el laboratorio y la diapositiva ha cambiado en la pizarra.\n\n¿Traer los cambios? Se quedan su nombre, su estado, sus variantes y lo que hayas escrito de cada papel.\n\n(Cancelar abre la que ya tienes.)`)) return existente;
+    if (!(await confirmar({ titulo: "¿Traer los cambios de la pizarra?", texto: `«${existente.nombre}» ya está en el laboratorio y la diapositiva ha cambiado en la pizarra. Se quedan su nombre, su estado, sus variantes y lo que hayas escrito de cada papel.`, aceptar: "Traer los cambios", cancelar: "Abrir la que tengo" }))) return existente;
 
     const doc = await guarda({ accion: "rutina-guarda", rutina: fusionaDesdePizarra(existente, nueva) });
 

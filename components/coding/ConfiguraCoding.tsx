@@ -88,7 +88,7 @@ export function ConfiguraCoding({
       sinGuardar={sinGuardar}
       footer={
         <div className="flex items-center justify-end gap-2">
-          <Button onClick={() => sePuedeDescartar(sinGuardar) && onCerrar()}>
+          <Button onClick={() => void sePuedeDescartar(sinGuardar).then((si) => si && onCerrar())}>
             Cancelar
           </Button>
 

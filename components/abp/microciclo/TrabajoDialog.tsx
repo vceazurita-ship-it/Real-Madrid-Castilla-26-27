@@ -419,7 +419,7 @@ export function TrabajoDialog({
             </Button>
           )}
 
-          <Button onClick={() => sePuedeDescartar(sinGuardar) && onCerrar()}>
+          <Button onClick={() => void sePuedeDescartar(sinGuardar).then((si) => si && onCerrar())}>
             Cancelar
           </Button>
 

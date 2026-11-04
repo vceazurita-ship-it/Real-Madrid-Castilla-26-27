@@ -62,6 +62,7 @@ import {
 } from "@/lib/cultura/importa";
 import { SLIDE_H, SLIDE_W, titulosDocumento } from "@/lib/cultura/modelo";
 import { barlowCondensed } from "@/lib/rivals/portada-font";
+import { confirmar } from "@/lib/avisos";
 
 /** Lo que hay sobre la mesa mientras se revisa un bruto recién subido. */
 type Pendiente = {
@@ -160,7 +161,7 @@ export function RepositorioCultura() {
 
   /* ----------------------------------------------------------- guardar */
 
-  const publica = useCallback(() => {
+  const publica = useCallback(async () => {
     if (!pendiente) return;
 
     const { bruto, ficha } = pendiente;
@@ -181,9 +182,9 @@ export function RepositorioCultura() {
 
     if (
       yaEsta &&
-      !window.confirm(
+      !(await confirmar(
         `Ya hay un documento «${yaEsta.numero} · ${yaEsta.titulo}». ¿Sustituirlo por éste? Si sólo querías añadir otro, cambia el número.`,
-      )
+      ))
     ) {
       return;
     }
@@ -206,11 +207,11 @@ export function RepositorioCultura() {
   }, [pendiente, setValue, documentos]);
 
   const borra = useCallback(
-    (id: string, titulo: string) => {
+    async (id: string, titulo: string) => {
       if (
-        !window.confirm(
+        !(await confirmar(
           `¿Quitar «${titulo}» del repositorio? El PDF y el PowerPoint que ya se hayan descargado no se tocan.`,
-        )
+        ))
       ) {
         return;
       }
@@ -308,14 +309,14 @@ export function RepositorioCultura() {
                   <li key={item.id}>
                     <button
                       type="button"
-                      onClick={() => {
+                      onClick={async () => {
                         /* Con un bruto a medio revisar, abrir otro documento
                            lo tiraba con lo retocado en la ficha (19/10/2026). */
                         if (
                           pendiente &&
-                          !window.confirm(
+                          !(await confirmar(
                             "Hay un documento subido sin publicar. ¿Descartarlo y abrir éste?",
-                          )
+                          ))
                         ) {
                           return;
                         }

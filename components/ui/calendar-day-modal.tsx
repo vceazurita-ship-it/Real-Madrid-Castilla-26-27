@@ -4,6 +4,7 @@ import { ReactNode, useCallback, useEffect, useRef } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { formatLongDate } from "@/lib/calendar";
 import { cn } from "@/lib/utils";
+import { confirmar } from "@/lib/avisos";
 
 type CalendarDayModalProps = {
   date: Date;
@@ -49,12 +50,12 @@ export function CalendarDayModal({
     hayTexto.current = sinGuardar;
   });
 
-  const cierra = useCallback(() => {
+  const cierra = useCallback(async () => {
     if (
       hayTexto.current &&
-      !window.confirm(
+      !(await confirmar(
         "Hay una ficha a medio rellenar. ¿Cerrar el día y perder lo escrito?",
-      )
+      ))
     ) {
       return;
     }
@@ -65,14 +66,14 @@ export function CalendarDayModal({
   /* Saltar de día también desmonta la ficha (19/10/2026): las flechas, en
      pantalla y en el teclado, preguntan como ya hacía cerrar. Aquí y no en
      cada calendario, para que ninguno se lo salte. */
-  const salta = useCallback((ir?: () => void) => {
+  const salta = useCallback(async (ir?: () => void) => {
     if (!ir) return;
 
     if (
       hayTexto.current &&
-      !window.confirm(
+      !(await confirmar(
         "Hay una ficha a medio rellenar. ¿Cambiar de día y perder lo escrito?",
-      )
+      ))
     ) {
       return;
     }

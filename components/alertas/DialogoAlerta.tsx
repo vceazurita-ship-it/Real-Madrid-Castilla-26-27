@@ -62,7 +62,7 @@ export default function DialogoAlerta({
   const cierra = useCallback(() => {
     if (trabajando) return;
 
-    if (sePuedeDescartar(sinGuardar)) onCerrar();
+    void sePuedeDescartar(sinGuardar).then((si) => si && onCerrar());
   }, [onCerrar, sinGuardar, trabajando]);
 
   useEffect(() => {

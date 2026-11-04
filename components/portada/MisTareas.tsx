@@ -68,6 +68,7 @@ import {
   type Rastro,
   type TareaDelDia,
 } from "@/lib/portada/mis-tareas";
+import { confirmar } from "@/lib/avisos";
 
 const COLOR_TIPO = {
   entreno: "border-emerald-400/40 text-emerald-300",
@@ -217,8 +218,8 @@ export function MisTareas() {
     else cambiaDoc((d) => alternaHechaPropia(d, t.id, hecha));
   };
 
-  const borra = (t: TareaDelDia) => {
-    if (!window.confirm(`¿Quitar «${t.texto}»?`)) return;
+  const borra = async (t: TareaDelDia) => {
+    if (!(await confirmar(`¿Quitar «${t.texto}»?`))) return;
 
     cambiaDoc((d) => quita(d, t));
   };

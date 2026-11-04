@@ -80,6 +80,7 @@ import {
   Radar,
   ResponsiveContainer,
 } from "recharts";
+import { confirmar } from "@/lib/avisos";
 
 /* ------------------------------------------------------------------ */
 /*  CONSTANTES                                                         */
@@ -3033,7 +3034,7 @@ export default function IndividualPage() {
   };
 
   const deleteTracking = async (idRegistro: string) => {
-    if (!confirm("¿Eliminar este seguimiento?")) return;
+    if (!(await confirmar("¿Eliminar este seguimiento?"))) return;
 
     /* Lo pendiente se descarta antes de borrar: si no, el autoguardado
        reescribiría la fila que se acaba de tirar. */
@@ -3064,7 +3065,7 @@ export default function IndividualPage() {
   };
 
   const deleteVideo = async (idVideo: string) => {
-    if (!confirm("¿Eliminar este vídeo?")) return;
+    if (!(await confirmar("¿Eliminar este vídeo?"))) return;
 
     autoVideo.sync();
 

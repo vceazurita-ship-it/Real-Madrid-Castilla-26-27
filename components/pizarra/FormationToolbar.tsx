@@ -15,6 +15,7 @@ import {
   Download,
 } from "lucide-react";
 import { ALINEACIONES_CAMBIADAS } from "@/components/pizarra/SavedLineups";
+import { confirmar } from "@/lib/avisos";
 
 const formations = [
   "4-4-2",
@@ -59,14 +60,14 @@ const cierraModal = () => {
 };
 
 /** Vaciar el campo pregunta antes si hay alguien colocado. */
-const vaciaCampo = () => {
+const vaciaCampo = async () => {
   const colocados = lineup.filter((slot) => slot.playerId).length;
 
   if (
     colocados > 0 &&
-    !window.confirm(
+    !(await confirmar(
       `¿Quitar a los ${colocados} jugadores del campo? El banquillo se queda como está.`
-    )
+    ))
   ) {
     return;
   }
