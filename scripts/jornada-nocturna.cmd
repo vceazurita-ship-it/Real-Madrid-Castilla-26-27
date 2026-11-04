@@ -171,6 +171,19 @@ if errorlevel 1 (
   echo AVISO: goles-liga ha fallado ^(codigo !errorlevel!^); la pantalla de goles se queda como estaba >> "%LOG%"
 )
 
+rem --- 1b2. el video de cada accion a balon parado (ABP ofensivo y defensivo) ---
+rem
+rem  (04/11/2026) Casa cada fila de las hojas de ABP con su momento de Hudl,
+rem  saca el corte que falte (lo ya subido no se rehace) y deja abp:cortes,
+rem  que leen /setpieces y /setpieces_def. Revisa las hojas contra Hudl y
+rem  BeSoccer y lo apunta en el registro. Si falla, solo se avisa.
+echo. >> "%LOG%"
+echo --- Cortes de balon parado --- >> "%LOG%"
+call node scripts\abp-cortes.mjs --cortes >> "%LOG%" 2>&1
+if errorlevel 1 (
+  echo AVISO: abp-cortes ha fallado ^(codigo !errorlevel!^); las listas de ABP se quedan como estaban >> "%LOG%"
+)
+
 rem --- 1c. donde coloca el cuerpo tecnico a cada jugador (Jugadores sesion) ---
 rem
 rem  (14/10/2026) Lee las sesiones guardadas y deja el aprendizaje en

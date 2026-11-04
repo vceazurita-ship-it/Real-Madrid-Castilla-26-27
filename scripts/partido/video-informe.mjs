@@ -52,7 +52,7 @@ const { ANCHO, ALTO, ANCHO_HD, ALTO_HD, FPS, SEGUNDO_POSTER, estiramiento, limit
 const { pintaPoster } = require("../../lib/video-informe/portada-video.ts");
 const { FRECUENCIA_AAC, pcm16aFlotante, remuestrea, reparteVoz } = require("../../lib/video-informe/voz.ts");
 const { bandaSonora, masteriza } = require("../../lib/video-informe/musica.ts");
-const { filasAbpDelPartido, momentosAbpDeHudl, casaConHudl, rotuloDeAccion } = require("../../lib/abp/cortes-abp.ts");
+const { filasAbpDelPartido, momentosAbpDeHudl, casaConHudl, rotuloDeAccion, esGolDeLaAccion } = require("../../lib/abp/cortes-abp.ts");
 
 const ejecuta = promisify(execFile);
 
@@ -376,8 +376,8 @@ async function cortesAbpDelPartido(carpeta, timeline, jornada, destino) {
     desde: 0,
     remata: m.fila.rematador,
     asiste: m.fila.sacador,
-    resultado: /gol/i.test(m.fila.final) ? "gol" : "",
-    peligro: m.fila.remate || /ocasi|gol/i.test(m.fila.final),
+    resultado: esGolDeLaAccion(m.fila) ? "gol" : "",
+    peligro: m.fila.remate || m.fila.tiroDirecto || esGolDeLaAccion(m.fila) || /ocasi/i.test(m.fila.final),
     /* Lo de la hoja, para el relato del vídeo y del informe. */
     accion: m.fila.accion,
     clase: m.fila.clase,

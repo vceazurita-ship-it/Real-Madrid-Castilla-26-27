@@ -38,8 +38,16 @@ export function marcadorEn(partido: PartidoGoles, parte: 1 | 2, minuto: number):
   return { rmcf, rival, texto: `${rmcf}-${rival}`, estado: rmcf > rival ? "ganando" : rmcf < rival ? "perdiendo" : "empatando" };
 }
 
-/** Las filas con el marcador que les falte, sacado de los goles de su partido de liga. */
-export function completaMarcador<T extends { contexto: ContextoAccion }>(filas: T[], partidos: PartidoGoles[] | null | undefined): T[] {
+/**
+ * Las filas con el marcador que les falte, sacado de los goles de su partido de liga.
+ *
+ * `manda: true` (hoja ofensiva, 04/11/2026): los goles mandan también sobre
+ * el marcador que SÍ trae la hoja. De la J05 a la J09 «Resultado RMC» y
+ * «Resultado RIVAL» llevaban el resultado final del partido en todas las
+ * filas (el córner del 2' de la J06, «3-2»), y «Según el marcador» contaba
+ * como ganando acciones de un 0-0.
+ */
+export function completaMarcador<T extends { contexto: ContextoAccion }>(filas: T[], partidos: PartidoGoles[] | null | undefined, { manda = false }: { manda?: boolean } = {}): T[] {
   if (!partidos?.length) return filas;
 
   const nuestros = new Map<number, PartidoGoles>();
@@ -49,7 +57,7 @@ export function completaMarcador<T extends { contexto: ContextoAccion }>(filas: 
   return filas.map((fila) => {
     const { jornada, minuto, marcador } = fila.contexto;
 
-    if (marcador.estado !== null || jornada.competicion !== "liga" || jornada.numero == null || minuto.minuto == null) return fila;
+    if ((marcador.estado !== null && !manda) || jornada.competicion !== "liga" || jornada.numero == null || minuto.minuto == null) return fila;
 
     const partido = nuestros.get(jornada.numero);
 

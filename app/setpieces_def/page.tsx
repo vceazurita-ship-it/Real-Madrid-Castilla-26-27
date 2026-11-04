@@ -66,6 +66,8 @@ import {
 } from "@/lib/abp/partido";
 import { completaMarcador } from "@/lib/abp/marcador-goles";
 import { DOC_GOLES, type PartidoGoles } from "@/lib/goles/analisis";
+import { AccionesDelPartido, type AccionDeLista } from "@/components/abp/AccionesDelPartido";
+import { DOC_CORTES_ABP, clavesEnOrden, enlacesDeCortes, filaAbpDeHoja, type DocCortesAbp, type EnlaceAccionAbp } from "@/lib/abp/cortes-abp";
 import {
   ComparativaPartido,
   formatoPorcentaje,
@@ -404,6 +406,7 @@ useEffect(() => {
 }, []);
   const [rows, setRows] =
     useState<Row[]>([]);
+  const [enlaces, setEnlaces] = useState<Map<string, EnlaceAccionAbp>>(() => new Map());
 
   const [jornada, setJornada] =
     useState("ALL");
@@ -461,14 +464,20 @@ const [tramoFilter, setTramoFilter] = useState("ALL");
       .then((r) => (r.ok ? (r.json() as Promise<{ data?: { partidos?: PartidoGoles[] } | null }>) : null))
       .then((d) => d?.data?.partidos ?? null)
       .catch(() => null);
+    /* El corte y el minuto de Hudl de cada acción (`abp:cortes`, scripts/abp-cortes.mjs). */
+    const cortes = fetch(`/api/docs?key=${encodeURIComponent(DOC_CORTES_ABP)}`)
+      .then((r) => (r.ok ? (r.json() as Promise<{ data?: DocCortesAbp | null }>) : null))
+      .then((d) => d?.data ?? null)
+      .catch(() => null);
 
-    Promise.all([traeCsv(CSV_URL, { forzar: intento > 0 }), goles])
-      .then(([t, partidos]) => {
+    Promise.all([traeCsv(CSV_URL, { forzar: intento > 0 }), goles, cortes])
+      .then(([t, partidos, doc]) => {
         if (!vivo) return;
 
         const filas = completaMarcador(parseCSV(t), partidos);
 
         setRows(filas);
+        setEnlaces(enlacesDeCortes(doc));
         setError(null);
 
         /* La página abre en la última jornada analizada (11/10/2026): lo que se
@@ -499,6 +508,17 @@ const [tramoFilter, setTramoFilter] = useState("ALL");
 
   /* Las jornadas, cada una con su competición: ver `jornadasDe`. */
   const jornadas = useMemo(() => jornadasDe(rows), [rows]);
+
+  /* La clave de cada fila para encontrar su corte (`claveAccionAbp`): en el orden de la hoja, antes de filtrar. */
+  const claveDe = useMemo(() => {
+    const claves = clavesEnOrden(rows, (r) =>
+      r.contexto.jornada.competicion === "liga" && r.contexto.jornada.numero != null && r.contexto.minuto.minuto != null
+        ? { lado: "contra", jornada: r.contexto.jornada.numero, minuto: r.contexto.minuto.minuto, accion: r.tipoAccion }
+        : null,
+    );
+
+    return new Map(rows.map((r, i) => [r, claves[i]]));
+  }, [rows]);
 
   const competiciones = useMemo(
     () => competicionesPresentes(jornadas),
@@ -705,6 +725,31 @@ const dimension = (clave: string) =>
 const sin = (...claves: string[]) => filtraFilas(rows, dimensiones, claves);
 
 const filtered = sin();
+
+/* Acción a acción (04/11/2026): lo que dejan los filtros, contado como en el vídeo post de ABP y con su corte. */
+const ordenJornada = new Map(jornadas.map((j, i) => [j.clave, i]));
+const accionesLista: AccionDeLista[] = filtered
+  .flatMap((r) => {
+    const fila = filaAbpDeHoja(
+      {
+        Tipo_Accion: r.tipoAccion,
+        Minuto: r.contexto.minuto.minuto != null ? String(r.contexto.minuto.minuto) : "",
+        Tiempo: r.tiempo,
+        Tipo_Envio: r.tipoEnvio,
+        Zona_Caida: r.zonaCaida,
+        Remate: r.remate,
+        Tipo_Remate: r.tipoRemate,
+        Zona_Remate: r.zonaRemate,
+        xG: String(r.xg),
+        Segundo_Balon: r.segundoBalon,
+        Resultado_Final: r.resultadoFinal,
+      },
+      "contra",
+    );
+
+    return fila ? [{ clave: claveDe.get(r) ?? null, jornada: r.contexto.jornada.corto, rival: r.rival, fila, orden: ordenJornada.get(r.contexto.jornada.clave ?? "") ?? 0 }] : [];
+  })
+  .sort((a, b) => a.orden - b.orden || a.fila.parte - b.fila.parte || a.fila.minuto - b.fila.minuto);
 
 /* El total de la barra: las acciones de la competición elegida, sin lo pinchado. */
 const totalCompeticion = sin(...dimensiones.map((d) => d.clave).filter((c) => c !== "competicion")).length;
@@ -2805,6 +2850,12 @@ const pie = (
             <div className="mt-6">
               {pie({ destacado: true, dimension: "tipo de acción", categoria: (r) => r.tipoAccion })}
             </div>
+
+            {accionesLista.length > 0 && (
+              <Panel title="Acción a acción" className="mt-6">
+                <AccionesDelPartido acciones={accionesLista} enlaces={enlaces} />
+              </Panel>
+            )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6 mt-8 md:mt-10">

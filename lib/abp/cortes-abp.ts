@@ -26,6 +26,8 @@ export type LadoAbp = "favor" | "contra";
 /** Una fila de nuestras hojas de ABP del partido, con lo que cuenta el corte. */
 export type FilaAbpCorte = {
   lado: LadoAbp;
+  /** Posición entre las filas de ESE partido en su hoja: desempata dos acciones iguales del mismo minuto. */
+  orden?: number;
   parte: 1 | 2;
   minuto: number;
   /** «Córner», «Falta lateral interior Z3», «Penalti»… tal cual la hoja. */
@@ -41,10 +43,16 @@ export type FilaAbpCorte = {
   xg: number;
   segundoBalon: string;
   final: string;
+  /** Falta tirada a puerta: la hoja pone Remate «No aplica» (el tiro es la propia falta) y le da xG. */
+  tiroDirecto?: boolean;
 };
 
-/** Un momento del timeline de Hudl que puede ser un balón parado. */
-export type MomentoAbpHudl = { ini: number; fin: number; codigo: string; propio: boolean; tercio: string; penalti: boolean };
+/**
+ * Un momento del timeline de Hudl que puede ser un balón parado. `conSaque`:
+ * la sesión de jugador tiene a alguien sacando (córner, falta o penalti) a
+ * ±3 s. Un «Set Pieces» sin saque suele ser un saque de banda o de meta.
+ */
+export type MomentoAbpHudl = { ini: number; fin: number; codigo: string; propio: boolean; tercio: string; penalti: boolean; conSaque?: boolean };
 
 /** Una fila ya casada con su momento de Hudl: lo que hay que cortar. */
 export type AccionAbpCortada = FilaAbpCorte & { ini: number; fin: number };
@@ -113,6 +121,15 @@ const claseDe = (accion: string): FilaAbpCorte["clase"] | null => {
   return null;
 };
 
+/** «67» → 67; «45+2» → 47, como lo cuenta `parseMinuto` (lib/abp/partido.ts). Vacío → NaN. */
+export function minutoDeHoja(t: string): number {
+  const [base, extra] = String(t ?? "").replace(",", ".").split("+");
+
+  if (!String(base ?? "").trim()) return NaN;
+
+  return Math.round(Number(base) + (Number(extra) || 0));
+}
+
 /** «2», «2T», «T2» → 2. */
 const parteDe = (t: string): 1 | 2 => (/2/.test(t) ? 2 : 1);
 
@@ -128,37 +145,47 @@ export function filasAbpDelPartido(ofensivo: Record<string, string>[], defensivo
   };
 
   const de = (lista: Record<string, string>[], lado: LadoAbp) =>
-    lista.filter(esJornada).flatMap((f): FilaAbpCorte[] => {
-      const accion = campo(f, "Tipo_Accion");
-      const clase = claseDe(accion);
-      const minuto = Number(campo(f, "Minuto", "MINUTO").replace(",", "."));
+    lista.filter(esJornada).flatMap((f, orden): FilaAbpCorte[] => {
+      const fila = filaAbpDeHoja(f, lado, orden);
 
-      if (!clase || !Number.isFinite(minuto) || minuto <= 0 || minuto > 130) return [];
-
-      const remate = /^s[ií]/i.test(campo(f, "Remate"));
-
-      return [
-        {
-          lado,
-          parte: parteDe(campo(f, "Tiempo")),
-          minuto,
-          accion,
-          clase,
-          sacador: campo(f, "Sacador"),
-          envio: campo(f, "Tipo_Envio"),
-          zonaCaida: campo(f, "Zona_Caida"),
-          remate,
-          rematador: remate ? campo(f, "Rematador") : "",
-          tipoRemate: remate ? campo(f, "Tipo_Remate") : "",
-          zonaRemate: remate ? campo(f, "Zona_Remate") : "",
-          xg: Number(campo(f, "xG").replace(",", ".")) || 0,
-          segundoBalon: campo(f, "Segundo_Balon"),
-          final: campo(f, "Resultado_Final"),
-        },
-      ];
+      return fila ? [fila] : [];
     });
 
   return [...de(ofensivo, "favor"), ...de(defensivo, "contra")].sort((a, b) => a.parte - b.parte || a.minuto - b.minuto);
+}
+
+/** Una fila de la hoja (por el nombre de sus columnas) contada para el corte; null si no es córner, falta ni penalti o no tiene minuto. */
+export function filaAbpDeHoja(f: Record<string, string>, lado: LadoAbp, orden?: number): FilaAbpCorte | null {
+  const accion = campo(f, "Tipo_Accion");
+  const clase = claseDe(accion);
+  const minuto = minutoDeHoja(campo(f, "Minuto", "MINUTO"));
+
+  if (!clase || !Number.isFinite(minuto) || minuto <= 0 || minuto > 130) return null;
+
+  const remate = /^s[ií]/i.test(campo(f, "Remate"));
+  const xg = Number(campo(f, "xG").replace(",", ".")) || 0;
+  const tiroDirecto = clase === "falta" && !remate && /no aplica/i.test(campo(f, "Remate")) && xg > 0;
+
+  return {
+    lado,
+    ...(orden === undefined ? {} : { orden }),
+    /* Pasado el 50 sólo puede ser la segunda parte, diga lo que diga «Tiempo» (J03: «T1» en el 52 y el 75). */
+    parte: minuto > 50 ? 2 : parteDe(campo(f, "Tiempo")),
+    minuto,
+    accion,
+    clase,
+    sacador: campo(f, "Sacador"),
+    envio: campo(f, "Tipo_Envio"),
+    zonaCaida: campo(f, "Zona_Caida"),
+    remate,
+    rematador: remate ? campo(f, "Rematador") : "",
+    tipoRemate: remate ? campo(f, "Tipo_Remate") : "",
+    zonaRemate: remate ? campo(f, "Zona_Remate") : "",
+    xg,
+    segundoBalon: campo(f, "Segundo_Balon"),
+    final: campo(f, "Resultado_Final"),
+    ...(tiroDirecto ? { tiroDirecto } : {}),
+  };
 }
 
 /** El minuto de juego de un instante de Hudl, sin el «+»: el 45+2 de la primera parte es 47, como en la hoja. */
@@ -217,18 +244,22 @@ export function momentosAbpDeHudl(timeline: TimelineHudl, nosotros = "Real Madri
   const deJugador: MomentoAbpHudl[] = (JUG?.moments.items ?? []).flatMap((m): MomentoAbpHudl[] => {
     const tipos = tag(m, /^\d+ - Type$/);
     const propio = equipo[cod(m)];
-    const penalti = tipos.some((t) => /^Penalty/.test(t));
+    /* Sólo el que lo tira: «Penalty foul» es del que lo comete y «Penalty save» del portero (04/11/2026: en la J03 salían tres penaltis y hubo uno). */
+    const penalti = tipos.includes("Penalty");
     const clase = penalti ? "Free kicks" : tipos.includes("Corner") ? "Corners" : tipos.some((t) => /^Free kick/.test(t)) ? "Free kicks" : "";
 
     if (!clase || propio === undefined) return [];
 
     const ini = m.startTimeMs / 1000 + 2;
 
-    return [{ ini, fin: ini + 3, codigo: `${propio ? nosotros : "Rival"} - ${clase}`, propio, tercio: "", penalti }];
+    return [{ ini, fin: ini + 3, codigo: `${propio ? nosotros : "Rival"} - ${clase}`, propio, tercio: "", penalti, conSaque: true }];
   });
 
   /* El de jugador, sólo si el de equipo no tiene ese saque. */
   const extra = deJugador.filter((p) => !unicos.some((u) => u.propio === p.propio && Math.abs(u.ini - p.ini) < 5));
+
+  /* ¿Alguien saca en ese momento de equipo? (el evento del que saca va ~2 s antes; aquí ya lleva los 2 s sumados). */
+  for (const u of unicos) u.conSaque = deJugador.some((p) => p.propio === u.propio && Math.abs(p.ini - u.ini) <= 3);
 
   return { momentos: [...unicos, ...extra].sort((a, b) => a.ini - b.ini), periodos };
 }
@@ -239,7 +270,8 @@ function encaje(f: FilaAbpCorte, m: MomentoAbpHudl): number | null {
   if (f.clase === "corner") return /- Corners$/.test(m.codigo) ? 0 : /- Set Pieces$/.test(m.codigo) && m.tercio === "Final third" ? 2 : null;
   if (m.penalti) return null;
   if (/- Free kicks$/.test(m.codigo)) return 0;
-  if (/- Set Pieces$/.test(m.codigo)) return m.tercio === "Final third" ? 1 : m.tercio === "Middle third" ? 2 : null;
+  /* Un «Set Pieces» en el que nadie saca una falta suele ser un saque de banda: sólo si no hay una falta de verdad a ±2 (J03: la falta del 75' se iba al saque del 73'). */
+  if (/- Set Pieces$/.test(m.codigo)) return (m.tercio === "Final third" ? 1 : m.tercio === "Middle third" ? 2 : NaN) + (m.conSaque === false ? 6 : 0) || null;
 
   return null;
 }
@@ -326,7 +358,11 @@ export function desenlace(f: FilaAbpCorte) {
   const final = sinTildes(f.final);
   const segundo = sinTildes(f.segundoBalon);
 
-  if (/gol/.test(final)) return f.lado === "favor" ? "gol" : "gol en contra";
+  /* En la hoja de en contra «Gol RMCF» es gol NUESTRO tras salir a la contra, no un gol encajado (abp-arquitectura). */
+  if (esGolDeLaAccion(f)) return f.lado === "favor" ? "gol" : "gol en contra";
+  if (/gol/.test(final) && f.lado === "contra") return "salimos a la contra y marcamos";
+  if (/penalti/.test(final)) return f.lado === "favor" ? "provocamos penalti" : "penalti en contra";
+  if (f.tiroDirecto) return f.lado === "favor" ? "tiro directo" : "tiro directo suyo";
   if (f.remate) {
     const quien = f.lado === "favor" && f.rematador ? ` de ${f.rematador}` : "";
     const como = /limpio/i.test(f.tipoRemate) ? " limpio" : /forzado/i.test(f.tipoRemate) ? " forzado" : "";
@@ -352,10 +388,82 @@ export function rotuloDeAccion(f: FilaAbpCorte) {
 
 const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
 
+/** ¿Acaba en gol del que saca? «Gol» a secas; el «Gol RMCF» de la hoja de en contra es nuestro, no del que saca. */
+export function esGolDeLaAccion(f: Pick<FilaAbpCorte, "final"> & { lado?: LadoAbp }) {
+  const t = sinTildes(f.final).trim();
+
+  return /^gol\b/.test(t) && !/rmcf/.test(t);
+}
+
 /** Las cifras de un bloque, de la hoja: «3 remates, ningún gol». */
 export function resumenDeBloque(filas: Pick<FilaAbpCorte, "remate" | "final">[]) {
   const remates = filas.filter((f) => f.remate).length;
-  const goles = filas.filter((f) => /gol/i.test(f.final)).length;
+  const goles = filas.filter((f) => esGolDeLaAccion(f)).length;
 
   return [remates ? plural(remates, "remate", "remates") : "ningún remate", goles ? plural(goles, "gol", "goles") : "ningún gol"].join(", ");
+}
+
+/* --------------------- el vídeo de cada acción en pantalla --------------------- */
+
+/*
+| EL CORTE Y EL ENLACE A HUDL DE CADA ACCIÓN (04/11/2026).
+|
+| Las listas de /setpieces y /setpieces_def llevan en cada acción «Ver la
+| acción» (nuestro corte) y «Abrir en Hudl · mm:ss». Lo arma
+| `scripts/abp-cortes.mjs` en el documento `abp:cortes`: cada fila de la hoja
+| casada con su momento de Hudl (`casaConHudl`), el segundo del vídeo de Hudl
+| y el corte (el de `informe-clips:jNN` → `abp` si ya estaba; si no, uno
+| propio en el bucket). La pantalla encuentra su fila por `claveAccionAbp`.
+*/
+
+export const DOC_CORTES_ABP = "abp:cortes";
+
+export type AccionAbpEnVideo = { clave: string; lado: LadoAbp; parte: 1 | 2; minuto: number; accion: string; seg: number; video?: string };
+
+export type PartidoAbpEnVideo = { jornada: number; rival: string; hudl: string; acciones: AccionAbpEnVideo[] };
+
+export type DocCortesAbp = { actualizado: string; jornadas: Record<string, PartidoAbpEnVideo> };
+
+/**
+ * La clave de una acción: lado, jornada de liga, minuto y tipo, y cuántas
+ * iguales van antes en la hoja (dos córners en el 37' son el #0 y el #1).
+ * Sin la parte a propósito: la hoja la escribe de tres maneras y hay filas
+ * con la parte mal puesta; el minuto del partido ya la dice.
+ */
+export function claveAccionAbp(a: { lado: LadoAbp; jornada: number; minuto: number; accion: string }, n = 0) {
+  return `${a.lado}|${a.jornada}|${a.minuto}|${sinTildes(limpia(a.accion))}#${n}`;
+}
+
+/** Las claves de unas filas EN EL ORDEN DE LA HOJA, con su desempate. */
+export function clavesEnOrden<T>(filas: T[], de: (f: T) => { lado: LadoAbp; jornada: number; minuto: number; accion: string } | null): (string | null)[] {
+  const vistas = new Map<string, number>();
+
+  return filas.map((f) => {
+    const a = de(f);
+
+    if (!a || !Number.isFinite(a.minuto)) return null;
+
+    const base = claveAccionAbp(a);
+    const n = vistas.get(base) ?? 0;
+
+    vistas.set(base, n + 1);
+
+    return claveAccionAbp(a, n);
+  });
+}
+
+/** Lo que pinta cada acción: el corte (si lo hay) y el enlace a Hudl con su segundo. */
+export type EnlaceAccionAbp = { video?: string; hudl: { url: string; seg: number } };
+
+/** El documento, por clave de acción. */
+export function enlacesDeCortes(doc: DocCortesAbp | null | undefined): Map<string, EnlaceAccionAbp> {
+  const salida = new Map<string, EnlaceAccionAbp>();
+
+  for (const p of Object.values(doc?.jornadas ?? {})) {
+    if (!p?.hudl) continue;
+
+    for (const a of p.acciones ?? []) if (a.clave) salida.set(a.clave, { ...(a.video ? { video: a.video } : {}), hudl: { url: p.hudl, seg: a.seg } });
+  }
+
+  return salida;
 }
