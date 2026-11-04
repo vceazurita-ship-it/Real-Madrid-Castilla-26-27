@@ -23,12 +23,17 @@ export const URL_CALENDARIO = `/api/docs?key=${encodeURIComponent(CLAVE_CALENDAR
 
 /** Los partidos del calendario, o `[]` si el documento no está o falla. */
 export async function cargaCalendario(opciones: { forzar?: boolean } = {}): Promise<PartidoCastilla[]> {
+  return (await cargaCalendarioONulo(opciones)) ?? [];
+}
+
+/** Como `cargaCalendario`, pero `null` si no se pudo leer: distingue el fallo del calendario vacío. */
+export async function cargaCalendarioONulo(opciones: { forzar?: boolean } = {}): Promise<PartidoCastilla[] | null> {
   try {
     const r = await traeJson<RespuestaDoc>(URL_CALENDARIO, opciones);
 
     return Array.isArray(r?.data?.partidos) ? r.data.partidos : [];
   } catch {
-    return [];
+    return null;
   }
 }
 

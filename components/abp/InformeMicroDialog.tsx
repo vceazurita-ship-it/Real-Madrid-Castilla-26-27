@@ -977,7 +977,7 @@ export function InformeMicroDialog({
 
       if (url) URL.revokeObjectURL(url);
     };
-  }, [esPost, claveMontaje, estadoMontaje]);
+  }, [esPost, claveMontaje, estadoMontaje.listo, estadoMontaje.clave]);
 
   /*
   | En la vista previa, el vídeo tal cual irá (sin el póster, que en el correo

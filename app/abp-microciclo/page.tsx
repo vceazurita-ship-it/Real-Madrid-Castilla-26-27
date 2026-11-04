@@ -153,7 +153,7 @@ import {
   soloDia,
   type PartidoCastilla,
 } from "@/lib/castilla/calendario";
-import { cargaCalendario } from "@/hooks/useCalendario";
+import { cargaCalendarioONulo } from "@/hooks/useCalendario";
 import {
   colorUrgencia,
   construyeCruce,
@@ -354,9 +354,12 @@ export default function AbpMicrocicloPage() {
         loadCompeticion().then((datosCompeticion) => {
           if (!cancelado) setCompeticion(datosCompeticion);
         }),
-        /* El calendario compartido: `[]` si no está o falla. */
-        cargaCalendario().then((partidos) => {
-          if (!cancelado) setCalendario(partidos);
+        /* El calendario compartido: `null` si falla. */
+        cargaCalendarioONulo().then((partidos) => {
+          if (cancelado || partidos === null) return;
+
+          setCalendario(partidos);
+          setCalendarioLeido(true);
         }),
       ]);
 
@@ -1490,7 +1493,7 @@ export default function AbpMicrocicloPage() {
     sinLeer: [
       ...(registro ? [] : ["la hoja de registro de tareas"]),
       ...(competicion ? competicion.fallos.map((hoja) => `la hoja ${hoja}`) : ["las hojas de ABP"]),
-      ...(calendario.length ? [] : ["el calendario"]),
+      ...(calendarioLeido ? [] : ["el calendario"]),
     ],
   };
 
