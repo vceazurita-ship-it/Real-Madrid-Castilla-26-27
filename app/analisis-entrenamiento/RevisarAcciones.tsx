@@ -258,8 +258,15 @@ function FilaAccion({ a, val, v, bloqueado, onValida, onAbre }: { a: AccionEntre
             </span>
           )}
         </div>
-        {a.jugador ? <p className="truncate text-[11px] text-white/55">{a.jugador}</p> : null}
+        {a.jugador ? (
+          <p className="flex min-w-0 items-center gap-1.5 text-[11px] text-white/55">
+            <span className="truncate">{a.jugador}</span>
+            {/* 04/11/2026: sin dorsal ni peto propio, el nombre es una suposición: no cuenta para el jugador hasta revisarla. */}
+            {!a.confirmado && !val ? <span className="shrink-0 rounded border border-[#C8A96B]/50 px-1 text-[10px] font-semibold text-[#C8A96B]">jugador sin confirmar</span> : null}
+          </p>
+        ) : null}
         {a.explicacion ? <p className="line-clamp-3 text-sm text-white/80">{a.explicacion}</p> : null}
+        {a.evidencia ? <p className="line-clamp-2 text-[11px] text-white/50">En {mmss(a.inicio)}: {a.evidencia}</p> : null}
         <div className="flex flex-wrap gap-1.5 pt-0.5">
           <Button icon={ThumbsUp} tone={val === "correcta" ? "primary" : "ghost"} disabled={bloqueado} aria-pressed={val === "correcta"} onClick={() => onValida(a.id, val === "correcta" ? null : "correcta")} title={val === "correcta" ? "Quitar la validación" : "Es correcta"}>
             Correcta

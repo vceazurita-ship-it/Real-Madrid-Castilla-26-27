@@ -80,13 +80,21 @@ const esDelObjetivo = (o: ObjetivoEntreno, clave: string) => o.jugadores.some((j
  * («Joan (peto verde, central)»): vale si su nombre está ahí. Las que no
  * nombran a nadie reconocible no se le apuntan a nadie.
  */
-export function accionesDelJugador(o: ObjetivoEntreno, acciones: AccionEntreno[], clave: string) {
-  const suyas = acciones.filter((a) => a.objetivoId === o.id);
+export function accionesDelJugador(o: ObjetivoEntreno, acciones: AccionEntreno[], clave: string, validaciones?: Record<string, Validacion>) {
+  const suyas = acciones.filter((a) => a.objetivoId === o.id && identidadSegura(a, validaciones));
 
   if (o.jugadores.length <= 1) return suyas;
 
-  return suyas.filter((a) => duenoDe(o, a) === clave);
+  return suyas.filter((a) => duenoDe(o, a, validaciones) === clave);
 }
+
+/*
+| 04/11/2026: una acción sólo es de un jugador si se le reconoció de verdad
+| (dorsal o peto sólo suyo: `confirmado`) o si el analista la ha revisado. El
+| 04/11 había cuatro jugadores del objetivo con el mismo peto naranja y el
+| análisis ponía nombres igual; el 28/10, Joan salía con peto verde y amarillo.
+*/
+export const identidadSegura = (a: AccionEntreno, validaciones?: Record<string, Validacion>) => a.confirmado === true || Boolean(validaciones?.[a.id] && validaciones[a.id] !== "descartada");
 
 /*
 | De quién es una acción de un objetivo de grupo (30/10/2026). Antes había que
@@ -97,7 +105,9 @@ export function accionesDelJugador(o: ObjetivoEntreno, acciones: AccionEntreno[]
 | si no, una palabra suya de 3 letras o más que no tenga otro del grupo.
 | Lo que no se puede decidir no se le apunta a nadie (`null`).
 */
-export function duenoDe(o: ObjetivoEntreno, a: AccionEntreno): string | null {
+export function duenoDe(o: ObjetivoEntreno, a: AccionEntreno, validaciones?: Record<string, Validacion>): string | null {
+  if (!identidadSegura(a, validaciones)) return null;
+
   const claves = [...new Set(o.jugadores.map((j) => normaliza(j.nombre)).filter(Boolean))];
 
   if (claves.length <= 1) return claves[0] ?? null;
@@ -118,7 +128,8 @@ export function duenoDe(o: ObjetivoEntreno, a: AccionEntreno): string | null {
 }
 
 /** Las acciones de objetivos de grupo que no nombran a nadie reconocible: cuentan en el objetivo, no en ningún jugador. */
-export const sinDueno = (o: ObjetivoEntreno, acciones: AccionEntreno[]) => (o.jugadores.length > 1 ? acciones.filter((a) => a.objetivoId === o.id && duenoDe(o, a) === null) : []);
+export const sinDueno = (o: ObjetivoEntreno, acciones: AccionEntreno[], validaciones?: Record<string, Validacion>) =>
+  acciones.filter((a) => a.objetivoId === o.id && (o.jugadores.length > 1 ? duenoDe(o, a, validaciones) === null : !identidadSegura(a, validaciones)));
 
 /**
  * El clip que mejor enseña un veredicto: con clip, con ese veredicto final
@@ -188,7 +199,7 @@ export function evolucionDelJugador(dias: DiaEntreno[], clave: string): LineaDel
       const k = claveObjetivo(o);
       const linea = lineas.get(k) ?? { clave: k, texto: o.objetivo.trim(), sesiones: [] };
       const analizado = Boolean(d.analisis && d.analisis.objetivosAnalizados?.some((h) => h.startsWith(`${o.id}|`)));
-      const acciones = analizado && d.analisis ? accionesDelJugador(o, d.analisis.acciones, clave) : [];
+      const acciones = analizado && d.analisis ? accionesDelJugador(o, d.analisis.acciones, clave, d.sesion.validaciones) : [];
       const c = analizado ? cuentasDe(acciones, d.sesion.validaciones) : null;
       const previa = [...linea.sesiones].reverse().find((s) => s.cuentas && s.cuentas.total > 0) ?? null;
 
@@ -284,7 +295,7 @@ export function tuSesion(dia: DiaEntreno, clave: string, nombre: string): TuSesi
     .filter((o) => o.objetivo.trim() && esDelObjetivo(o, clave))
     .filter((o) => analisis.objetivosAnalizados?.some((h) => h.startsWith(`${o.id}|`)))
     .map((o) => {
-      const acciones = accionesDelJugador(o, analisis.acciones, clave);
+      const acciones = accionesDelJugador(o, analisis.acciones, clave, validaciones);
 
       return { o, acciones, c: cuentasDe(acciones, validaciones) };
     })

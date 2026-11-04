@@ -80,6 +80,14 @@ export type AccionEntreno = {
   veredicto: Veredicto;
   /** Quién (como lo describió la IA) y por qué ese veredicto. */
   jugador?: string;
+  /**
+   * El jugador se ha reconocido de verdad: dorsal leído o un peto sólo suyo
+   * (04/11/2026). Sin eso, la acción no se le apunta a nadie hasta que el
+   * analista la revise. Los análisis anteriores no lo traen: sin confirmar.
+   */
+  confirmado?: boolean;
+  /** Lo que se ve en el segundo de inicio, para poder comprobarlo. */
+  evidencia?: string;
   explicacion: string;
   /** El clip cortado (bucket), si se cortó: no se corta todo, sólo ejemplos. */
   clip?: string | null;
@@ -125,7 +133,7 @@ export function veredictoFinal(a: AccionEntreno, validaciones: Record<string, Va
 export const MINIMO_PORCENTAJE = 8;
 
 export type Cuentas = {
-  /** Las que cuentan (Y): todas menos las descartadas. */
+  /** Las que cuentan (Y): las revisadas como correcta o mejorable. Las propuestas sin revisar no cuentan. */
   total: number;
   correctas: number;
   mejorables: number;
@@ -144,10 +152,16 @@ export type Cuentas = {
 };
 
 /** Las cuentas de un conjunto de acciones con lo validado. */
+/*
+| 04/11/2026: las cifras salen SÓLO de lo revisado. Antes contaban también las
+| propuestas sin mirar con su veredicto, y como nadie había validado ninguna
+| (0 validaciones en todos los días), todo lo que se veía —29 de 29 correctas
+| el 16/10, 125 acciones el 04/11— era la propuesta automática.
+*/
 export function cuentasDe(suyas: AccionEntreno[], validaciones: Record<string, Validacion> | undefined): Cuentas {
-  const vigentes = suyas.filter((a) => veredictoFinal(a, validaciones) !== null);
-  const correctas = vigentes.filter((a) => veredictoFinal(a, validaciones) === "correcta").length;
-  const validadas = vigentes.filter((a) => validaciones?.[a.id]).length;
+  const vigentes = suyas.filter((a) => validaciones?.[a.id] && validaciones[a.id] !== "descartada");
+  const correctas = vigentes.filter((a) => validaciones?.[a.id] === "correcta").length;
+  const validadas = vigentes.length;
   const pctBruto = vigentes.length ? Math.round((100 * correctas) / vigentes.length) : null;
 
   return {
@@ -156,7 +170,7 @@ export function cuentasDe(suyas: AccionEntreno[], validaciones: Record<string, V
     mejorables: vigentes.length - correctas,
     validadas,
     porValidar: suyas.filter((a) => !validaciones?.[a.id]).length,
-    descartadas: suyas.length - vigentes.length,
+    descartadas: suyas.filter((a) => validaciones?.[a.id] === "descartada").length,
     propuestas: suyas.length,
     pct: vigentes.length >= MINIMO_PORCENTAJE ? pctBruto : null,
     pctBruto,
@@ -177,10 +191,11 @@ export function cuentas(objetivoId: string, acciones: AccionEntreno[], validacio
  * validadas)». Con muestra corta no hay porcentaje: «tendencia».
  */
 export function lecturaCuentas(c: Cuentas) {
-  if (!c.total) return "Ninguna acción cuenta";
+  const pendientes = c.porValidar ? ` · ${c.porValidar} por revisar` : "";
 
-  const validadas = c.validadas === c.total ? "todas validadas" : c.validadas === 0 ? "ninguna validada" : `${c.validadas} validada${c.validadas === 1 ? "" : "s"}`;
-  const base = `${c.correctas} de ${c.total} correctas (${validadas})`;
+  if (!c.total) return c.porValidar ? `${c.porValidar} ${c.porValidar === 1 ? "propuesta" : "propuestas"} por revisar` : "Ninguna acción cuenta";
+
+  const base = `${c.correctas} de ${c.total} correctas${pendientes}`;
 
   return c.pct !== null ? `${base} · ${c.pct} %` : `${base} · tendencia`;
 }
@@ -295,6 +310,8 @@ export function normalizaAnalisis(x: unknown): AnalisisEntreno | null {
       fin: fin !== null && fin > inicio ? fin : inicio + 6,
       veredicto: c.veredicto === "mejorable" ? "mejorable" : "correcta",
       ...(typeof c.jugador === "string" && c.jugador.trim() ? { jugador: c.jugador.trim() } : {}),
+      confirmado: c.confirmado === true,
+      ...(typeof c.evidencia === "string" && c.evidencia.trim() ? { evidencia: c.evidencia.trim() } : {}),
       explicacion: typeof c.explicacion === "string" ? c.explicacion.trim() : "",
       clip: typeof c.clip === "string" && c.clip ? c.clip : null,
     });

@@ -302,6 +302,9 @@ async function deHudl(fecha) {
 
 const LIGERA = ["-vf", "fps=1,scale=-2:360", "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "32"];
 const CLIP = ["-vf", "scale=-2:720", "-c:v", "libx264", "-preset", "veryfast", "-crf", "24", "-c:a", "aac", "-b:a", "96k", "-movflags", "+faststart"];
+/* 04/11/2026: un clip ligero de cada acción para poder revisarla (antes, 2 por objetivo y 123 de 125 sin clip). */
+const CLIP_REVISION = ["-vf", "scale=-2:540", "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "29", "-movflags", "+faststart"];
+const TOPE_CLIPS = 60;
 
 function fuenteCamara(ficheros, destino) {
   const entrada = (() => {
@@ -322,7 +325,7 @@ function fuenteCamara(ficheros, destino) {
     url: null,
     duracion: () => duracion(ficheros),
     ligera: (ss, dura, salida) => ejecuta(FFMPEG, ["-y", "-loglevel", "error", ...tramo(ss, dura), ...LIGERA, salida], { maxBuffer: 1 << 24 }),
-    clip: (ss, dura, salida) => ejecuta(FFMPEG, ["-y", "-loglevel", "error", ...tramo(ss, dura), ...CLIP, salida], { maxBuffer: 1 << 24 }),
+    clip: (ss, dura, salida, opciones = CLIP) => ejecuta(FFMPEG, ["-y", "-loglevel", "error", ...tramo(ss, dura), ...opciones, salida], { maxBuffer: 1 << 24 }),
     cierra: async () => undefined,
   };
 }
@@ -332,13 +335,31 @@ async function fuenteHudl(hudl, destino) {
   const alta = await listaHls(nav, master, 3_500_000);
   const baja = await listaHls(nav, master, 0);
   const cabeceras = new Map();
+  /*
+  | 04/11/2026: las cabeceras de la variante buena se pedían al cortar el
+  | primer clip, dos horas después de abrir Chrome, y Chrome ya no respondía
+  | («sin respuesta: Network.getCookies»: 0 clips). Se piden las dos al
+  | empezar y, si Chrome falla luego, valen las que ya hay (mismo sitio).
+  */
   const cabDe = async (url) => {
     const base = url.split("?")[0].replace(/[^/]+$/, "");
 
-    if (!cabeceras.has(base)) cabeceras.set(base, await cabecerasPara(nav, url));
+    if (!cabeceras.has(base)) {
+      try {
+        cabeceras.set(base, await cabecerasPara(nav, url));
+      } catch (error) {
+        const alguna = [...cabeceras.values()][0];
+
+        if (!alguna) throw error;
+
+        cabeceras.set(base, alguna);
+      }
+    }
 
     return cabeceras.get(base);
   };
+
+  for (const l of [baja, alta]) if (l.segs[0]) await cabDe(l.segs[0]);
   const baja1 = async (url) => {
     for (let i = 0; i < 5; i += 1) {
       const r = await fetch(url, { headers: await cabDe(url) }).catch(() => null);
@@ -401,7 +422,7 @@ async function fuenteHudl(hudl, destino) {
     url: hudl.url,
     duracion: async () => alta.dur.reduce((s, d) => s + d, 0),
     ligera: (ss, dura, salida) => corta(baja, ss, dura, LIGERA, salida),
-    clip: (ss, dura, salida) => corta(alta, ss, dura, CLIP, salida),
+    clip: (ss, dura, salida, opciones = CLIP) => corta(alta, ss, dura, opciones, salida),
     cierra: () => nav.cierra(),
   };
 }
@@ -443,6 +464,15 @@ const segundos = (t) => {
   return p.length === 3 ? p[0] * 3600 + p[1] * 60 + p[2] : p.length === 2 ? p[0] * 60 + p[1] : p[0];
 };
 
+const normalizaNombre = (t) =>
+  String(t ?? "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
 const ESQUEMA = {
   type: "object",
   properties: {
@@ -455,10 +485,12 @@ const ESQUEMA = {
           inicio: { type: "string", description: "MM:SS dentro de este vídeo" },
           fin: { type: "string", description: "MM:SS dentro de este vídeo" },
           veredicto: { type: "string", enum: ["correcta", "mejorable"] },
-          jugador: { type: "string", description: "Quién es y cómo se le ha reconocido" },
+          jugador: { type: "string", description: "Nombre del jugador del objetivo (o «grupo» si es de varios a la vez)" },
+          identificacion: { type: "string", enum: ["dorsal", "peto_propio", "peto_compartido", "sitio", "grupo"], description: "En qué te basas para saber que es ese jugador" },
+          evidencia: { type: "string", description: "Lo que se ve en el segundo de inicio: dónde está el balón y qué hace el jugador" },
           explicacion: { type: "string", description: "Por qué ese veredicto, en una frase corta" },
         },
-        required: ["objetivo", "inicio", "fin", "veredicto", "explicacion"],
+        required: ["objetivo", "inicio", "fin", "veredicto", "jugador", "identificacion", "evidencia", "explicacion"],
       },
     },
   },
@@ -477,6 +509,10 @@ function instrucciones(objetivos, desde, hasta) {
     /* 17/10/2026: la primera pasada (16/10) dio 29 de 29 «correctas» con jugadores reconocidos sólo por su sitio en una cámara lejana. */
     "SÉ EXIGENTE, como un entrenador: lo normal es que haya acciones de los dos tipos. Si el objetivo no trae criterio, CORRECTA sólo si lo hace como lo haría el mejor de su puesto; ante la duda, MEJORABLE.",
     "La cámara puede ser lejana: si no puedes reconocer al jugador con seguridad (peto, dorsal, rasgo claro), NO pongas la acción; en «jugador» di en qué te basas para reconocerlo.",
+    /* 04/11/2026: el 04/11 dio 125 acciones con «jugador con peto naranja» y cuatro jugadores del objetivo con el mismo peto. */
+    "IDENTIFICACIÓN (obligatoria, sé honesto): «dorsal» sólo si LEES el número; «peto_propio» sólo si ese jugador lleva un peto que no lleva nadie más del objetivo; «peto_compartido» si varios llevan el mismo peto; «sitio» si lo deduces por su posición; «grupo» si es una acción de varios. Un peto que comparten varios NO identifica a nadie: no te inventes el nombre.",
+    "TIEMPOS: «inicio» es el segundo exacto en que empieza la jugada (no antes ni después) y «fin» cuando acaba; en «evidencia» describe lo que se ve en ese segundo para que se pueda comprobar.",
+    "Calidad antes que cantidad: mejor 5 acciones claras que 25 dudosas.",
     "Objetivos:",
     ...objetivos.map((o) =>
       [
@@ -627,7 +663,15 @@ async function analiza(supabase, env, objetivos, fuente, destino) {
         const ini = segundos(a.inicio);
         const fn = segundos(a.fin);
 
-        if (!porId.has(a.objetivo) || ini === null) continue;
+        if (!porId.has(a.objetivo) || ini === null || ini < 0 || ini > hasta - desde + 1) continue;
+
+        const o = porId.get(a.objetivo);
+        const ident = String(a.identificacion ?? "sitio");
+        const quien = normalizaNombre(a.jugador);
+        const nombrado = (o.jugadores ?? []).find((j) => normalizaNombre(j.nombre).split(" ").some((t) => t.length >= 3 && ` ${quien} `.includes(` ${t} `)));
+        /* Atribuible sólo por el dorsal leído o un peto que es sólo suyo (y que el analista apuntó con su nombre). */
+        const petoSuyo = ident === "peto_propio" && nombrado && normalizaNombre(o.reconocer).includes(normalizaNombre(nombrado.nombre).split(" ")[0]);
+        const confirmado = Boolean(nombrado && (ident === "dorsal" || petoSuyo || (o.jugadores ?? []).length === 1 && ident === "peto_propio"));
 
         acciones.push({
           id: `${a.objetivo}-${Math.round(desde + ini)}`,
@@ -636,6 +680,9 @@ async function analiza(supabase, env, objetivos, fuente, destino) {
           fin: desde + Math.max(ini + 2, fn ?? ini + 6),
           veredicto: a.veredicto === "mejorable" ? "mejorable" : "correcta",
           jugador: String(a.jugador ?? "").slice(0, 120),
+          identificacion: ident,
+          confirmado,
+          evidencia: String(a.evidencia ?? "").slice(0, 240),
           explicacion: String(a.explicacion ?? "").slice(0, 240),
           clip: null,
         });
@@ -678,13 +725,19 @@ async function analiza(supabase, env, objetivos, fuente, destino) {
       .filter(Boolean),
   );
 
+  /* Y uno ligero de cada una de las demás, hasta TOPE_CLIPS, las de jugador confirmado primero: sin clip no se pueden revisar. */
+  const ejemplos = new Set(aCortar.map((a) => a.id));
+  const resto = unicas.filter((a) => !ejemplos.has(a.id)).sort((x, y) => Number(y.confirmado) - Number(x.confirmado) || x.inicio - y.inicio);
+
+  aCortar.push(...resto.slice(0, Math.max(0, TOPE_CLIPS - aCortar.length)));
+
   for (const [i, a] of aCortar.entries()) {
-    const ss = Math.max(0, a.inicio - 3);
-    const dura = Math.min(25, a.fin - a.inicio + 6);
+    const ss = Math.max(0, a.inicio - 4);
+    const dura = Math.min(25, a.fin - a.inicio + 8);
     const fichero = path.join(destino, `${a.id}.mp4`);
 
     try {
-      await fuente.clip(ss, dura, fichero);
+      await fuente.clip(ss, dura, fichero, ejemplos.has(a.id) ? CLIP : CLIP_REVISION);
 
       const destinoBucket = `${carpeta}/${a.id}.mp4`;
       const { error } = await supabase.storage.from(BUCKET).upload(destinoBucket, fs.readFileSync(fichero), { contentType: "video/mp4", upsert: true });

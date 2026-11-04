@@ -951,9 +951,16 @@ export default function AnalisisEntrenamientoPage() {
             ) : analisis && vivas.length ? (
               <div className="space-y-4">
                 {sinValidar.length ? (
-                  <p className="text-xs text-white/60">
-                    {cuentasDia.validadas} de {cuentasDia.total} acciones revisadas. Las {sinValidar.length} restantes cuentan con su veredicto propuesto (rayado) hasta que las valides.
-                  </p>
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-white/70">
+                    <span>
+                      {cuentasDia.validadas
+                        ? `Las cifras salen de las ${cuentasDia.validadas} acciones revisadas; ${sinValidar.length} siguen por revisar (rayado) y no cuentan.`
+                        : `Ninguna acción revisada todavía: las ${sinValidar.length} propuestas van rayadas y no cuentan hasta que las revises.`}
+                    </span>
+                    <button type="button" onClick={abreRevision} className="rounded-md border border-[#C8A96B]/50 px-2 py-1 font-semibold text-[#C8A96B] hover:bg-[#C8A96B]/10">
+                      Revisar ahora
+                    </button>
+                  </div>
                 ) : null}
                 <PanelVisual dias={dias} fecha={fecha} onAbre={setVisor} onIrAlDia={(f) => setFecha(f)} />
               </div>

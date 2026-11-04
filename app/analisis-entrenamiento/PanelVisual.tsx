@@ -159,13 +159,13 @@ export function PanelVisual({ dias, fecha, onAbre, onIrAlDia }: { dias: DiaEntre
 
   const porJugador = [...nombres.entries()]
     .map(([clave, nombre]) => {
-      const fs = filas.map((f) => ({ ...f, acciones: f.objetivo.jugadores.some((j) => normaliza(j.nombre) === clave) ? accionesDelJugador(f.objetivo, f.acciones, clave) : [] })).filter((f) => f.acciones.length);
+      const fs = filas.map((f) => ({ ...f, acciones: f.objetivo.jugadores.some((j) => normaliza(j.nombre) === clave) ? accionesDelJugador(f.objetivo, f.acciones, clave, val) : [] })).filter((f) => f.acciones.length);
 
       return { clave, nombre, fs, c: cuentasDe(fs.flatMap((f) => f.acciones), val) };
     })
     .filter((j) => j.c.total > 0)
     .sort((a, b) => (b.c.pctBruto ?? 0) - (a.c.pctBruto ?? 0) || b.c.total - a.c.total);
-  const deNadie = filas.flatMap((f) => sinDueno(f.objetivo, f.acciones).map((accion) => ({ accion, fila: f })));
+  const deNadie = filas.flatMap((f) => sinDueno(f.objetivo, f.acciones, val).map((accion) => ({ accion, fila: f })));
 
   return (
     <section aria-labelledby="panel-visual" className="min-w-0 space-y-5 rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
@@ -199,7 +199,7 @@ export function PanelVisual({ dias, fecha, onAbre, onIrAlDia }: { dias: DiaEntre
         <Cifra valor={total.mejorables} base={total.total} rotulo="Mejorables" color={COLOR_MEJORABLE} onClick={() => abre("Mejorables del día", deVeredicto(todas, "mejorable"))} />
         <Cifra
           valor={total.validadas}
-          base={total.total}
+          base={total.total + sinValidar.length}
           rotulo="Revisadas"
           nota={sinValidar.length ? `${sinValidar.length} sin validar` : "todo validado"}
           onClick={() => (sinValidar.length ? abre("Por revisar", sinValidar, undefined, { filtro: "sin-validar", orden: "minuto" }) : abre("Todas las acciones del día", todas, undefined, { orden: "minuto" }))}
@@ -464,7 +464,7 @@ function Leyenda() {
         <span className="h-2.5 w-2.5 rounded-sm" style={{ background: COLOR_MEJORABLE }} /> Mejorable
       </span>
       <span className="inline-flex items-center gap-1.5">
-        <span className="h-2.5 w-4 rounded-sm" style={{ background: rayado("rgb(var(--rmcf-ink-rgb) / .5)") }} /> Rayado = propuesta automática sin validar
+        <span className="h-2.5 w-4 rounded-sm" style={{ background: rayado("rgb(var(--rmcf-ink-rgb) / .5)") }} /> Rayado = propuesta sin revisar: no cuenta en las cifras
       </span>
       <span className="inline-flex items-center gap-1.5">
         <span className="h-3 w-0.5" style={{ background: "var(--rmcf-gold-ink)" }} /> Meta
@@ -513,14 +513,14 @@ function FilaBarra({
   cumple?: boolean | null;
   onAbre: (v: "correcta" | "mejorable" | null) => void;
 }) {
-  const n = Math.max(1, c.total);
-  const bienVal = acciones.filter((a) => veredictoFinal(a, val) === "correcta" && val?.[a.id]).length;
-  const malVal = acciones.filter((a) => veredictoFinal(a, val) === "mejorable" && val?.[a.id]).length;
+  /* 04/11/2026: lo revisado, en color; lo propuesto sin revisar, rayado y aparte (no suma a correctas ni a mejorables). */
+  const porRevisar = acciones.filter((a) => !val?.[a.id]);
+  const n = Math.max(1, c.total + porRevisar.length);
   const trozos = [
-    { k: "correcta" as const, n: bienVal, validadas: true, fondo: COLOR_BIEN },
-    { k: "correcta" as const, n: c.correctas - bienVal, validadas: false, fondo: rayado(COLOR_BIEN) },
-    { k: "mejorable" as const, n: c.mejorables - malVal, validadas: false, fondo: rayado(COLOR_MEJORABLE) },
-    { k: "mejorable" as const, n: malVal, validadas: true, fondo: COLOR_MEJORABLE },
+    { k: "correcta" as const, n: c.correctas, validadas: true, fondo: COLOR_BIEN },
+    { k: "correcta" as const, n: porRevisar.filter((a) => a.veredicto === "correcta").length, validadas: false, fondo: rayado(COLOR_BIEN) },
+    { k: "mejorable" as const, n: porRevisar.filter((a) => a.veredicto === "mejorable").length, validadas: false, fondo: rayado(COLOR_MEJORABLE) },
+    { k: "mejorable" as const, n: c.mejorables, validadas: true, fondo: COLOR_MEJORABLE },
   ].filter((t) => t.n > 0);
 
   return (
@@ -560,7 +560,7 @@ function FilaBarra({
               {c.mejorables} a mejorar
             </button>
           ) : null}
-          <span className="text-white/50">{c.validadas === c.total ? "todas validadas" : `${c.validadas} de ${c.total} validadas`}</span>
+          <span className="text-white/50">{porRevisar.length ? `${porRevisar.length} por revisar` : "todo revisado"}</span>
           {meta ? <span className="text-white/50">meta {meta} %</span> : null}
           {cumple === true ? (
             <span className="inline-flex items-center gap-1 font-semibold text-white/85">
