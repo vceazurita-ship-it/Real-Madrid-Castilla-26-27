@@ -14,7 +14,7 @@ import { rotuloSegundo } from "@/lib/goles/tecnico";
 export type EnlaceHudlAccion = { url: string; seg: number };
 
 const BOTON =
-  "inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-xs text-white/75 transition hover:bg-white/[0.06] hover:text-white";
+  "inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-xs text-white/75 transition hover:bg-white/[0.06] hover:text-white";
 
 export const esYoutube = (u: string) => /youtu\.?be/.test(u);
 
@@ -55,7 +55,7 @@ export function VerAccion({ video, hudl, que = "la acción" }: { video?: string;
         ) : null}
         {hudl ? <EnlaceHudl hudl={hudl} que={que} /> : null}
       </div>
-      {abierto && video ? <video src={video} controls autoPlay playsInline preload="auto" className="aspect-video w-full max-w-md rounded-xl bg-black" /> : null}
+      {abierto && video ? <video src={video} controls autoPlay playsInline preload="auto" className="aspect-video w-full min-w-[min(18rem,80vw)] max-w-md rounded-xl bg-black" /> : null}
     </div>
   );
 }

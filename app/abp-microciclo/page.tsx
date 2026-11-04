@@ -433,6 +433,11 @@ export default function AbpMicrocicloPage() {
   const jornadaDeMicro = useMemo(() => {
     const mapa = new Map<string, number>();
 
+    /* Sin la hoja aún (el Apps Script tarda), ningún micro tiene fechas y todos
+       se leían como el próximo partido contra ese rival: «Micro 19 (J25) ·
+       FC CARTAGENA» en vez de la J10. Mejor sin jornada hasta que llegue. */
+    if (!registro) return mapa;
+
     micros.forEach((micro) => {
       if (!micro.rival || esSinPartido(micro.rival)) return;
 

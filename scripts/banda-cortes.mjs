@@ -56,6 +56,9 @@ async function principal(supabase) {
     if (/castilla/i.test(`${p.local} ${p.visitante}`) && p.jornada && p.fecha) fechaDeJornada.set(Number(p.jornada), String(p.fecha).slice(0, 10));
   }
 
+  const { data: filaPrevia } = await supabase.from("app_documents").select("data").eq("key", DOC_BANDA).maybeSingle();
+  const previas = filaPrevia?.data?.acciones ?? {};
+
   const partidos = partidosHudl();
   const hojas = { of: await publicada("bandaOf"), def: await publicada("bandaDef") };
 
@@ -75,7 +78,11 @@ async function principal(supabase) {
     const p = partidoDeJornada(partidos, { fecha: fechaDeJornada.get(n), rival });
 
     if (!p) {
-      resumen.push(`${etiqueta}: sin timeline de Hudl`);
+      /* Sin timeline en este ordenador (carpeta movida o aún sin bajar) la jornada se queda como estaba: no se borra lo ya casado. */
+      const anteriores = Object.entries(previas).filter(([, a]) => a?.jornada === etiqueta);
+
+      for (const [k, a] of anteriores) acciones[k] = a;
+      resumen.push(`${etiqueta}: sin timeline de Hudl${anteriores.length ? ` (se quedan ${anteriores.length} de antes)` : ""}`);
       continue;
     }
 
