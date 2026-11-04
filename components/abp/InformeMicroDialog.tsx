@@ -386,7 +386,13 @@ export function InformeMicroDialog({
   */
   const [conVideo, setConVideo] = useState(true);
   const [pasoVideo, setPasoVideo] = useState("");
-  const jornadaPartido = datos.partidoCalendario?.jornada ?? null;
+  /*
+  | Sin calendario, la jornada de la hoja (04/11/2026): «LIGA 10» → 10. Si el
+  | calendario no llegaba, el informe post no leía los cortes del partido y
+  | el vídeo salía sin el balón parado del J10.
+  */
+  const jornadaHoja = /^\s*LIGA\s+0*(\d+)\s*$/i.exec(datos.partido?.jornada ?? "")?.[1];
+  const jornadaPartido = datos.partidoCalendario?.jornada ?? (jornadaHoja ? Number(jornadaHoja) : null);
   const rivalVideo = datos.partidoCalendario?.rival || datos.rival || "";
   const [videoJugadores, setVideoJugadores] = useState<VideoJugadores | null>(null);
   /* Leído (haya o no): el vídeo post no empieza hasta saber si lleva el nuestro detrás (02/11/2026). */
@@ -877,15 +883,6 @@ export function InformeMicroDialog({
     [base, graficos, rivalInforme, modo, pizarraInforme.graficos],
   );
 
-  /* En la vista previa, el enlace a nuestro vídeo tal cual irá (sin el póster, que en el correo va por cid). */
-  const html = useMemo(
-    () =>
-      informeHtml(informe, {
-        video: conVideo && videoJugadores ? bloqueVideoHtml({ url: videoJugadores.url, cid: "", segundos: videoJugadores.segundos, claro: true, relleno: "18px 24px 0", sinCopia: true, rotulo: "Ver nuestro vídeo de balón parado" }) : undefined,
-      }),
-    [informe, conVideo, videoJugadores],
-  );
-
   const cargandoSeguimiento = seguimientos === null;
 
   const cargandoComparativa = comparativa === null && !faltaComparativa;
@@ -949,6 +946,53 @@ export function InformeMicroDialog({
     informeVivo.current = informe;
     videoPostVivo.current = videoPost;
   });
+
+  /*
+  | El vídeo post en la vista previa (04/11/2026). La vista previa sólo
+  | enseñaba nuestro vídeo de la jornada, y el J10 no lo tiene: el analista no
+  | veía vídeo ninguno en el informe aunque el post se montaba y salía en el
+  | correo. Ahora, montado, se enseña aquí con un enlace que lo abre.
+  */
+  const [vistaVideoPost, setVistaVideoPost] = useState<{ clave: string; url: string; segundos: number } | null>(null);
+
+  useEffect(() => {
+    if (!esPost || !claveMontaje || !estadoMontaje.listo || estadoMontaje.clave !== claveMontaje) return;
+
+    const enCurso = montaje.current?.clave === claveMontaje ? montaje.current.promesa : null;
+
+    if (!enCurso) return;
+
+    let cancelado = false;
+    let url = "";
+
+    void enCurso.then((montado) => {
+      if (cancelado || !montado) return;
+
+      url = URL.createObjectURL(montado.blob);
+      setVistaVideoPost({ clave: claveMontaje, url, segundos: montado.segundos });
+    });
+
+    return () => {
+      cancelado = true;
+
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [esPost, claveMontaje, estadoMontaje]);
+
+  /*
+  | En la vista previa, el vídeo tal cual irá (sin el póster, que en el correo
+  | va por cid). En el post, el vídeo post montado; mientras se monta, la
+  | línea que lo dice. En la previa, nuestro vídeo de la jornada.
+  */
+  const bloqueVideoVista = esPost
+    ? vistaVideoPost && vistaVideoPost.clave === claveMontaje
+      ? bloqueVideoHtml({ url: vistaVideoPost.url, cid: "", segundos: vistaVideoPost.segundos, claro: true, relleno: "18px 24px 0", sinCopia: true, rotulo: "Ver el vídeo post de balón parado" })
+      : `<tr><td style="padding:18px 24px 0"><p style="margin:8px 4px 0;font:400 13px/1.5 Arial,sans-serif;color:#5B6472">▶ Vídeo post de balón parado: ${!puedeMontarVideo() ? "este navegador no lo puede montar; ábrelo en Chrome o Edge del ordenador para que el correo lo lleve" : estadoMontaje.fallo && estadoMontaje.clave === claveMontaje ? "el montaje no ha salido en este navegador" : "se está montando; aquí sale en cuanto esté y en el correo va enlazado"}.</p></td></tr>`
+    : conVideo && videoJugadores
+      ? bloqueVideoHtml({ url: videoJugadores.url, cid: "", segundos: videoJugadores.segundos, claro: true, relleno: "18px 24px 0", sinCopia: true, rotulo: "Ver nuestro vídeo de balón parado" })
+      : undefined;
+
+  const html = useMemo(() => informeHtml(informe, { video: bloqueVideoVista }), [informe, bloqueVideoVista]);
 
   /** Lo que se monta para esta clave: el vídeo post o, en la previa, la entrada + nuestro vídeo. */
   const pideMontaje = (inf: InformeMicro) => (alPaso: (texto: string) => void) =>

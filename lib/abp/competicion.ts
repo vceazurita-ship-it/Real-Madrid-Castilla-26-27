@@ -182,12 +182,19 @@ function toEvent(
 export async function loadCompeticion(): Promise<CompeticionDataset> {
   const fallos: string[] = [];
 
+  /* Un segundo intento (04/11/2026): Google contesta 500 de vez en cuando y una hoja perdida dejaba el cruce sin sus acciones. */
   const leer = async (gid: string, nombre: string) => {
     try {
       return await loadSheet(gid);
     } catch {
-      fallos.push(nombre);
-      return [] as SheetRow[];
+      try {
+        await new Promise((listo) => setTimeout(listo, 1500));
+
+        return await loadSheet(gid, { forzar: true });
+      } catch {
+        fallos.push(nombre);
+        return [] as SheetRow[];
+      }
     }
   };
 

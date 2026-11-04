@@ -237,6 +237,12 @@ export type DatosInforme = {
    * (`minutosAbp`). Sin ello, se usan `filas` tal cual.
    */
   cruce?: Omit<EntradaCruce, "minutosMicro">;
+  /**
+   * Lo que la pantalla no ha podido leer cuando se armó el informe
+   * (04/11/2026): «la hoja de registro de tareas», «el calendario», «las
+   * hojas de ABP»… El informe lo dice en vez de contar con ceros.
+   */
+  sinLeer?: string[];
   /** Si el informe mete los amistosos de verano (el interruptor del diálogo). */
   conPretemporada?: boolean;
   /**
@@ -2575,9 +2581,22 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
           : `${diaMes(desde)} — ${diaMes(hasta)}`
       : "";
 
+  /*
+  | Sin leer no es lo mismo que sin fechas (04/11/2026): el J10 avisaba de que
+  | ni el calendario ni el registro decían las fechas cuando los dos las
+  | tenían; lo que pasó es que la pantalla no había llegado a leerlos.
+  */
+  const sinLeer = datos.sinLeer ?? [];
+  /* «No se ha podido leer el calendario», «No se han podido leer ni el registro ni el calendario». */
+  const noSeLeyo = (lista: string[]) =>
+    lista.length > 1 ? `No se han podido leer ni ${lista.join(" ni ")}` : `No se ${/^l[ao]s /.test(lista[0] ?? "") ? "han" : "ha"} podido leer ${lista[0] ?? ""}`;
+  const sinLeerFechas = sinLeer.filter((una) => una === "el calendario" || una === "la hoja de registro de tareas");
+
   if (!rango) {
     avisos.push(
-      "Ni el calendario ni la hoja de registro dicen las fechas de este microciclo, así que el seguimiento individual es el de toda la temporada, no el de esta semana.",
+      sinLeerFechas.length
+        ? `${noSeLeyo(sinLeerFechas)}, así que el informe no sabe las fechas de este microciclo y el seguimiento individual es el de toda la temporada. En cuanto llegue, el informe se rehace solo; si no llega, recarga la página antes de mandarlo.`
+        : "Ni el calendario ni la hoja de registro dicen las fechas de este microciclo, así que el seguimiento individual es el de toda la temporada, no el de esta semana.",
     );
   }
 
@@ -3431,7 +3450,35 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
   | favor por partido (unos 4 en 8) y nuestras hojas 2. Una de las dos cuenta
   | otra cosa o le falta algo; no es para el informe, es para quien lo manda.
   */
-  if (comparativa && equipo.length) {
+  /*
+  | De dónde salen «nuestras hojas» (04/11/2026). Eran las filas del cruce,
+  | que monta la pantalla: si sus hojas de ABP no habían llegado, el cruce
+  | sólo traía los minutos planificados y el aviso decía «Wyscout 51 y
+  | nuestras hojas 0» con 137 filas en la hoja. Manda lo que el propio
+  | diálogo lee de las mismas hojas (`propio`, sin pretemporada salvo que se
+  | pida); el cruce, sólo si eso no está y sus hojas sí se leyeron.
+  */
+  const hojasDe = (familia: string, lado: AbpLado): number | null => {
+    const porLado = datos.propio?.porFamiliaYLado;
+
+    if (porLado?.length) {
+      return porLado.filter((una) => una.familia === familia && una.lado === lado).reduce((s, una) => s + una.acciones, 0);
+    }
+
+    if (sinLeer.some((una) => /hojas? (de )?ABP|ABP (ofensivo|defensivo)/i.test(una))) return null;
+
+    return equipo.filter((una) => una.familia === familia && una.lado === lado).reduce((s, una) => s + una.acciones, 0);
+  };
+
+  const sinLeerAbp = sinLeer.filter((una) => /hojas? (de )?ABP|ABP (ofensivo|defensivo)|[Ss]aques de banda/.test(una));
+
+  if (sinLeerAbp.length) {
+    avisos.push(
+      `${noSeLeyo(sinLeerAbp)} en la pantalla del microciclo: el cruce por aspectos y las prioridades salen sin esas acciones. En cuanto lleguen, el informe se rehace solo; si no llegan, recarga la página antes de mandarlo.`,
+    );
+  }
+
+  if (comparativa && (equipo.length || datos.propio?.porFamiliaYLado?.length)) {
     const partidos = Math.min(comparativa.jugados, datos.propio?.partidos ?? comparativa.jugados);
 
     (
@@ -3449,9 +3496,9 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
 
         const wyscout = porPartido * partidos;
 
-        const hojas = equipo
-          .filter((una) => una.familia === familia && una.lado === (lado === "favor" ? "ofensivo" : "defensivo"))
-          .reduce((s, una) => s + una.acciones, 0);
+        const hojas = hojasDe(familia, lado === "favor" ? "ofensivo" : "defensivo");
+
+        if (hojas === null) return;
 
         if (Math.abs(wyscout - hojas) >= Math.max(2, wyscout * 0.25)) {
           /*

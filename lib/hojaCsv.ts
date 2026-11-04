@@ -186,16 +186,31 @@ export function suscribeHojas(oye: () => void) {
 
 const esRelectura = (url: string) => /[?&]fresco=1(&|$)/.test(url);
 
+/*
+| Con plazo (04/11/2026). Una petición que Google no contesta nunca se quedaba
+| en `enMemoria` para siempre: esa hoja ya no llegaba en toda la pestaña y
+| la pantalla que la esperaba no terminaba de cargar. El plazo es largo a
+| propósito: el Apps Script en frío tarda hasta 70 s.
+*/
+const PLAZO_MS = 100_000;
+
 function baja(url: string, copiaEnsenada: string | null): Promise<string> {
   cambia({ bajando: estado.bajando + 1 });
 
-  return fetch(url)
+  const corte = typeof AbortController === "undefined" ? null : new AbortController();
+  const reloj = corte ? setTimeout(() => corte.abort(), PLAZO_MS) : null;
+
+  return fetch(url, corte ? { signal: corte.signal } : undefined)
     .then((respuesta) => {
       if (!respuesta.ok) {
         throw new Error(`La hoja respondió ${respuesta.status}`);
       }
 
       return respuesta.text();
+    })
+    .finally(() => {
+      /* Después del cuerpo, no de la cabecera: también se puede quedar a medias. */
+      if (reloj) clearTimeout(reloj);
     })
     .then((texto) => {
       if (!esRelectura(url)) guardaCopia(url, texto);

@@ -329,25 +329,38 @@ export default function AbpMicrocicloPage() {
   useEffect(() => {
     let cancelado = false;
 
+    /*
+    | Cada lectura se pone en cuanto llega (04/11/2026). Con las tres en un
+    | `Promise.all`, una hoja de Google que se quedaba colgada dejaba la
+    | pantalla sin calendario, sin registro y sin el cruce aunque los otros dos
+    | ya hubieran llegado, y el informe del J10 salió diciendo «nuestras hojas
+    | 0» y que no había fechas. Ahora cada una entra sola y `cargando` sólo
+    | espera a que las tres hayan contestado (bien o mal).
+    */
     const cargar = async () => {
-      const [datosRegistro, datosCompeticion, partidos] = await Promise.all([
-        loadRegistro().catch(() => null),
-        loadCompeticion(),
-        /* El calendario compartido: `[]` si no está o falla. */
-        cargaCalendario(),
-      ]);
-
-      if (cancelado) return;
-
       /* Hoy, para «faltan 4 días»: se toma aquí y no en el render, que tiene
          que ser puro. La fecha de Madrid, no la UTC. */
       setHoy(new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid" }).format(new Date()));
 
-      setRegistro(datosRegistro);
-      setErrorRegistro(datosRegistro === null);
-      setCompeticion(datosCompeticion);
-      setCalendario(partidos);
-      setCargando(false);
+      await Promise.allSettled([
+        loadRegistro()
+          .catch(() => null)
+          .then((datosRegistro) => {
+            if (cancelado) return;
+
+            setRegistro(datosRegistro);
+            setErrorRegistro(datosRegistro === null);
+          }),
+        loadCompeticion().then((datosCompeticion) => {
+          if (!cancelado) setCompeticion(datosCompeticion);
+        }),
+        /* El calendario compartido: `[]` si no está o falla. */
+        cargaCalendario().then((partidos) => {
+          if (!cancelado) setCalendario(partidos);
+        }),
+      ]);
+
+      if (!cancelado) setCargando(false);
     };
 
     void cargar();
@@ -1469,6 +1482,16 @@ export default function AbpMicrocicloPage() {
       minutosTemporada,
       trabajoPrevio,
     },
+    /*
+    | Lo que esta pantalla no ha podido leer (04/11/2026): el informe lo dice
+    | en vez de dar ceros. Sin esto, con las hojas de ABP sin llegar, avisaba
+    | de que «nuestras hojas» tenían 0 córners.
+    */
+    sinLeer: [
+      ...(registro ? [] : ["la hoja de registro de tareas"]),
+      ...(competicion ? competicion.fallos.map((hoja) => `la hoja ${hoja}`) : ["las hojas de ABP"]),
+      ...(calendario.length ? [] : ["el calendario"]),
+    ],
   };
 
   /* Incrustada: el micro pedido no existe, o la hoja no ha cargado. */

@@ -149,14 +149,40 @@ function parseDia(value: string): DiaKey | "" {
   return DIAS_VALIDOS.has(letra) ? (letra as DiaKey) : "";
 }
 
-export async function loadRegistro(): Promise<RegistroDataset> {
-  const response = await fetch(sheetUrl(REGISTRO_GID), { cache: "no-store" });
+/*
+| Con plazo y otro intento (04/11/2026). La hoja publicada de Google a veces
+| contesta 500 o no contesta nunca, y un `fetch` sin plazo dejaba colgada la
+| carga de /abp-microciclo: el informe del J10 salió sin fechas ni cruce.
+*/
+const PLAZO_REGISTRO_MS = 30_000;
 
-  if (!response.ok) {
-    throw new Error(`No se pudo leer el registro de tareas (${response.status})`);
+async function bajaRegistro(): Promise<string> {
+  let ultimo: unknown = null;
+
+  for (let intento = 0; intento < 3; intento += 1) {
+    if (intento) await new Promise((listo) => setTimeout(listo, 1500 * intento));
+
+    const corte = typeof AbortController === "undefined" ? null : new AbortController();
+    const reloj = corte ? setTimeout(() => corte.abort(), PLAZO_REGISTRO_MS) : null;
+
+    try {
+      const response = await fetch(sheetUrl(REGISTRO_GID), { cache: "no-store", signal: corte?.signal });
+
+      if (!response.ok) throw new Error(`No se pudo leer el registro de tareas (${response.status})`);
+
+      return await response.text();
+    } catch (error) {
+      ultimo = error;
+    } finally {
+      if (reloj) clearTimeout(reloj);
+    }
   }
 
-  const parsed = Papa.parse<string[]>(await response.text(), {
+  throw ultimo instanceof Error ? ultimo : new Error("No se pudo leer el registro de tareas");
+}
+
+export async function loadRegistro(): Promise<RegistroDataset> {
+  const parsed = Papa.parse<string[]>(await bajaRegistro(), {
     header: false,
     skipEmptyLines: true,
   });
