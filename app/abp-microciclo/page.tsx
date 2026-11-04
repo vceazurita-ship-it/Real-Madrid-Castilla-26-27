@@ -304,6 +304,8 @@ export default function AbpMicrocicloPage() {
   /* Nuestro calendario, para saber qué día es MD-1 de cada microciclo. Lo baja
      de BeSoccer el ordenador del club (scripts/castilla-calendario.cjs). */
   const [calendario, setCalendario] = useState<PartidoCastilla[]>([]);
+  /* Leído de verdad, aunque venga vacío: un calendario vacío no es uno sin leer. */
+  const [calendarioLeido, setCalendarioLeido] = useState(false);
 
   const [hoy, setHoy] = useState("");
 
