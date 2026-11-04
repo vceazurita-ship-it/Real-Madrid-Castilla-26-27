@@ -1,0 +1,41 @@
+# La web en Render (plan gratis), desde el 04/11/2026: Vercel pausó la cuenta
+# gratis por pasarse del millón de peticiones al mes. Render no cuenta
+# peticiones; a cambio, si nadie entra en 15 min se duerme y la primera visita
+# tarda unos 30-60 s en despertarla. Los avisos de la quiniela (antes «crons»
+# de vercel.json) los lanza GitHub: .github/workflows/quiniela-aviso.yml.
+services:
+  - type: web
+    name: rmcf-castilla
+    runtime: node
+    plan: free
+    region: frankfurt
+    branch: main
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_OPTIONS
+        value: --max-old-space-size=460
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: APPS_SCRIPT_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+      - key: YOUTUBE_CLIENT_ID
+        sync: false
+      - key: YOUTUBE_CLIENT_SECRET
+        sync: false
+      - key: CRON_SECRET
+        sync: false

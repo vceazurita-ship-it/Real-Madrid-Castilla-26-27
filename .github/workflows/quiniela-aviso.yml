@@ -1,0 +1,28 @@
+# El aviso de la quiniela (antes, «crons» de vercel.json), miércoles a viernes
+# a las 8:00 y 9:00 de Madrid. La web ya no está en Vercel: lo lanza GitHub.
+# La dirección sale de la variable WEB del repo y el secreto, de CRON_SECRET.
+
+name: Aviso de la quiniela
+
+on:
+  schedule:
+    - cron: "0 7 * * 3,4,5"
+    - cron: "0 8 * * 3,4,5"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  avisar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Llamar al aviso
+        env:
+          WEB: ${{ vars.WEB }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        if: ${{ vars.WEB != '' }}
+        run: |
+          curl -fsS --retry 3 --retry-delay 30 --max-time 120 \
+            -H "Authorization: Bearer $CRON_SECRET" "$WEB/api/quiniela/aviso"
