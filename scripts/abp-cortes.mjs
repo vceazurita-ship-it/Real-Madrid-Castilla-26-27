@@ -256,14 +256,15 @@ async function main() {
   if (porCortar.length && CORTAR && !EN_SECO) {
     const { abreHudl } = await import("./hudl-chrome.mjs");
     const { preparaCortes } = await import("./hudl-corte.mjs");
-    const nav = await abreHudl();
+    const porCarpeta = new Map();
 
-    try {
-      const porCarpeta = new Map();
+    for (const x of porCortar) porCarpeta.set(x.carpeta, [...(porCarpeta.get(x.carpeta) ?? []), x]);
 
-      for (const x of porCortar) porCarpeta.set(x.carpeta, [...(porCarpeta.get(x.carpeta) ?? []), x]);
+    /* Una pestaña de Chrome por partido: con una sola para todos, tras el primero la pestaña dejaba de contestar (04/11/2026, «Network.getCookies» sin respuesta). */
+    for (const [carpeta, lista] of porCarpeta) {
+      const nav = await abreHudl();
 
-      for (const [carpeta, lista] of porCarpeta) {
+      try {
         let corta;
 
         try {
@@ -292,9 +293,9 @@ async function main() {
           x.a.video = supabase.storage.from(BUCKET).getPublicUrl(`${CARPETA_BUCKET}/${x.clave}/${x.nombre}`).data.publicUrl;
           console.log(`  ${x.clave}/${x.nombre}: cortado y subido`);
         }
+      } finally {
+        await nav.cierra().catch(() => {});
       }
-    } finally {
-      await nav.cierra();
     }
   } else if (porCortar.length) console.log(`\nCortes: faltan ${porCortar.length} (se sacan con --cortes).`);
 
