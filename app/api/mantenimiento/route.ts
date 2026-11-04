@@ -58,6 +58,7 @@ export async function POST(request: NextRequest) {
     jornada?: unknown;
     plan?: unknown;
     fecha?: unknown;
+    completo?: unknown;
   };
 
   const tarea = cuerpo.tarea ?? "rivales";
@@ -126,7 +127,9 @@ export async function POST(request: NextRequest) {
   try {
     /* El partido que se elige en Ajustes (12/10/2026); sin él, el último jugado. */
     const jornadaPartido = tarea === "partido" ? Math.trunc(Number(cuerpo.jornada)) || undefined : undefined;
-    const estado = await pideEncargo(tarea, slug, datos ?? datosEntreno, plan, jornadaPartido);
+    /* Wyscout entero, desde cero (04/11/2026); sin él, sólo lo nuevo. */
+    const completo = tarea === "wyscout" && cuerpo.completo === true;
+    const estado = await pideEncargo(tarea, slug, datos ?? datosEntreno, plan, jornadaPartido, completo);
 
     return NextResponse.json({ ok: true, estado });
   } catch (error) {

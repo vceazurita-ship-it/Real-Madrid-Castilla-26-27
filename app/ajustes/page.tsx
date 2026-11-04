@@ -42,6 +42,7 @@ import { toast } from "sonner";
 
 import { AbpHeader, Button, Notice, Panel } from "@/components/abp/ui";
 import { ProgresoEncargo, RecorridoEncargo, RepetirEncargo } from "@/components/ajustes/ProgresoEncargo";
+import { DatosWyscout } from "@/components/ajustes/DatosWyscout";
 import { planRecomendado, progresoDePaso } from "@/lib/progreso";
 import { cargaCalendario } from "@/hooks/useCalendario";
 import { comoNuestro, type PartidoNuestro } from "@/lib/castilla/calendario";
@@ -102,7 +103,7 @@ const NOMBRE: Record<Tarea, string> = {
 const TARDA: Record<Tarea, string> = {
   quiniela: "suele tardar menos de un minuto",
   rivales: "suele tardar unos cuarenta minutos",
-  wyscout: "suele tardar unos veinte minutos",
+  wyscout: "sólo lo nuevo son unos minutos; desde cero, unos veinte",
   carpeta: "unos cuatro segundos por vídeo",
   partido: "unas horas: mira en vídeo cada jugada a balón parado",
   entreno: "entre veinte minutos y una hora",
@@ -369,14 +370,20 @@ export default function AjustesPage() {
 
   const recarga = useCallback(() => setTestigo((n) => n + 1), []);
 
-  const pide = async (tarea: Tarea, plan?: number[], jornada?: number) => {
+  /* `completo` (04/11/2026): Wyscout entero, desde cero; sin él, sólo lo nuevo. */
+  const pide = async (tarea: Tarea, plan?: number[], jornada?: number, completo = false) => {
     setPidiendo(tarea);
 
     try {
       const respuesta = await fetch("/api/mantenimiento", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tarea, ...(plan?.length ? { plan } : {}), ...(tarea === "partido" && jornada ? { jornada } : {}) }),
+        body: JSON.stringify({
+          tarea,
+          ...(plan?.length ? { plan } : {}),
+          ...(tarea === "partido" && jornada ? { jornada } : {}),
+          ...(tarea === "wyscout" && completo ? { completo: true } : {}),
+        }),
       });
 
       const datos = (await respuesta.json()) as {
@@ -389,7 +396,7 @@ export default function AjustesPage() {
 
       esperando.current[tarea] = datos.estado?.[tarea]?.pedidoEn ?? new Date().toISOString();
 
-      toast.success(plan?.length ? "Pedido: sólo lo marcado" : "Pedido", {
+      toast.success(plan?.length ? "Pedido: sólo lo marcado" : completo ? "Pedido: todo desde cero" : "Pedido", {
         description: vigiaVivo(vigia, Date.now())
           ? "El ordenador del club lo empieza en unos segundos."
           : "El ordenador del club está apagado: lo hará en cuanto se encienda.",
@@ -656,21 +663,35 @@ export default function AjustesPage() {
                 subtitle="Los informes nuevos de toda la liga, y publicados"
                 icon={BarChart3}
                 action={
-                  <Button
-                    tone="primary"
-                    icon={UploadCloud}
-                    disabled={!yo || pidiendo !== null || ocupada("wyscout")}
-                    onClick={() => void pide("wyscout")}
-                  >
-                    {rotulo("wyscout", "Traer y publicar")}
-                  </Button>
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    <Button
+                      icon={RefreshCw}
+                      disabled={!yo || pidiendo !== null || ocupada("wyscout")}
+                      onClick={() => void pide("wyscout", undefined, undefined, true)}
+                      title="Baja los veinte equipos y todos los lotes de jugadores, aunque no se haya jugado nada nuevo"
+                    >
+                      Desde cero
+                    </Button>
+                    <Button
+                      tone="primary"
+                      icon={UploadCloud}
+                      disabled={!yo || pidiendo !== null || ocupada("wyscout")}
+                      onClick={() => void pide("wyscout")}
+                    >
+                      {rotulo("wyscout", "Traer y publicar")}
+                    </Button>
+                  </div>
                 }
               >
                 <p className="text-[12px] leading-relaxed text-white/45">
-                  Baja de Wyscout la ficha de los veinte equipos del grupo y los
-                  jugadores de toda la categoría, relee la carpeta, guarda la
-                  foto de la jornada y lo publica: en un par de minutos más lo
-                  tiene Data Análisis.
+                  Baja de Wyscout sólo lo que ha cambiado desde la última vez:
+                  los equipos a los que les falta un partido ya jugado (también
+                  los aplazados, hasta que Wyscout los carga) y los jugadores de
+                  los equipos que han jugado desde entonces. Después relee la
+                  carpeta, guarda la foto de la jornada y lo publica: en un par
+                  de minutos más lo tiene Data Análisis. Si una pasada se corta,
+                  la siguiente sigue desde ahí. «Desde cero» lo vuelve a bajar
+                  todo.
                 </p>
 
                 <p className="mt-2 text-[11px] leading-relaxed text-white/30">
@@ -681,6 +702,10 @@ export default function AjustesPage() {
                   Después de cada partido del Castilla, el ordenador del club lo
                   pide solo hasta que Wyscout publica el partido.
                 </p>
+
+                {estado.wyscout?.datosWyscout && estados.wyscout !== "en-marcha" && (
+                  <DatosWyscout datos={estado.wyscout.datosWyscout} ahora={ahora} />
+                )}
 
                 <EstadoLinea
                   tarea="wyscout"

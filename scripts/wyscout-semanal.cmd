@@ -37,6 +37,16 @@ rem  a intentar. Para arreglarlo basta con abrir `actualizar-wys.cmd` a mano
 rem  una vez y entrar en la ventana que sale.
 rem
 rem  El registro queda en `.cache\wyscout\`, un fichero por pasada.
+rem
+rem  SOLO LO NUEVO (04/11/2026)
+rem
+rem  Ya no se bajan los veinte equipos y los tres lotes cada vez: la descarga
+rem  va con --incremental y `scripts\wyscout-al-dia.cjs` dice que equipos
+rem  tienen un partido que falta (aplazados incluidos) y que lotes de jugadores
+rem  tienen algun equipo que ha jugado desde la ultima vez. Cada paso se apunta
+rem  en `.cache\wyscout\punto-de-control.json`; si la pasada se corta, la
+rem  siguiente parte de ahi. Para bajarlo todo: RMCF_COMPLETO=1 en el entorno
+rem  (el boton "Bajar todo desde cero" de Ajustes) o "--forzar --completo".
 rem ===================================================================
 
 rem La raiz del proyecto es la carpeta de arriba, venga de donde venga la
@@ -55,6 +65,15 @@ set "LOG=%REGISTRO%\%SELLO%.log"
 set "CODIGO=1"
 set "INCOMPLETO=0"
 set "HECHO=%REGISTRO%\hecho-%SEMANA%.txt"
+set "EMPEZADA=0"
+
+rem  Solo lo nuevo, salvo que se pida todo.
+set "MODO=--incremental"
+if "%RMCF_COMPLETO%"=="1" set "MODO="
+if /I "%~2"=="--completo" (
+  set "MODO="
+  set "RMCF_COMPLETO=1"
+)
 
 rem ------------------------------------------------------------------
 rem  Ya se hizo esta semana?
@@ -74,6 +93,8 @@ if exist "%HECHO%" (
 )
 
 :adelante
+
+set "EMPEZADA=1"
 
 echo ================================================= >> "%LOG%"
 echo Datos de Wyscout · %DATE% %TIME% >> "%LOG%"
@@ -102,7 +123,9 @@ rem ------------------------------------------------------------------
 echo. >> "%LOG%"
 echo --- Descarga --- >> "%LOG%"
 
-call node scripts\wyscout-liga.mjs --desatendido >> "%LOG%" 2>&1
+if defined MODO (echo Solo lo nuevo desde la ultima vez. >> "%LOG%") else (echo Pasada completa, desde cero. >> "%LOG%")
+
+call node scripts\wyscout-liga.mjs --desatendido %MODO% >> "%LOG%" 2>&1
 
 set "SALIDA=%errorlevel%"
 
@@ -161,6 +184,8 @@ rem  su disco: sin este fichero la pantalla de DATA sale vacia desplegada.
 echo. >> "%LOG%"
 echo --- Releyendo la carpeta --- >> "%LOG%"
 
+call node scripts\wyscout-al-dia.cjs --paso=releer >> "%LOG%" 2>&1
+
 rem  --estricto: si no se puede montar el indice, sale con 1. Sin el, avisa y
 rem  sale con 0 (para no tumbar la compilacion de Vercel), y aqui se publicaban
 rem  los .xlsx nuevos con el analisis.json viejo diciendo "Publicado".
@@ -184,6 +209,8 @@ rem  paso en medio. Si falla no se para nada: se puede tomar otro dia.
 echo. >> "%LOG%"
 echo --- Foto de la jornada --- >> "%LOG%"
 
+call node scripts\wyscout-al-dia.cjs --paso=foto >> "%LOG%" 2>&1
+
 call node scripts\wyscout-instantanea.cjs >> "%LOG%" 2>&1
 
 if errorlevel 1 echo No se ha podido guardar la foto; los datos siguen bien. >> "%LOG%"
@@ -199,6 +226,8 @@ rem  "git add", en este commit solo entran los datos.
 :publicar
 echo. >> "%LOG%"
 echo --- Publicando --- >> "%LOG%"
+
+call node scripts\wyscout-al-dia.cjs --paso=publicar >> "%LOG%" 2>&1
 
 git add "public/data/wys" "public/data/analisis.json" >> "%LOG%" 2>&1
 
@@ -283,6 +312,16 @@ if "%INCOMPLETO%"=="1" (
 )
 
 :limpieza
+
+rem El cierre en el punto de control: como ha ido, en que paso se quedo y
+rem como quedan los datos (jornada completa, que falta). Lo lee el vigia para
+rem contarlo en Ajustes. Despues del --paso: el --cierra lee la cola del
+rem registro para explicar un fallo de releer o de publicar.
+if "%EMPEZADA%"=="1" (
+  echo. >> "%LOG%"
+  echo --- Como quedan los datos --- >> "%LOG%"
+  call node scripts\wyscout-al-dia.cjs --cierra --codigo=%CODIGO% --registro="%LOG%" >> "%LOG%" 2>&1
+)
 
 rem Se guardan los treinta ultimos registros y las marcas de las ocho ultimas
 rem semanas, que es de sobra para mirar atras sin llenar la carpeta.

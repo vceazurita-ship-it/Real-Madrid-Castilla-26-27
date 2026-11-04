@@ -840,12 +840,26 @@ const MOTIVO_WYSCOUT = {
   5: [false, "bajado, pero no se ha podido releer la carpeta: no se publica"],
   7: [false, "el Chrome de Wyscout se quedó colgado incluso tras reiniciarlo, o lo tenía ocupado el análisis del partido (el ordenador del club, bloqueado o sin red): no se ha bajado nada; vuelve a pedirlo"],
   6: [false, "Wyscout está abierto con una cuenta que no deja bajar todas las columnas: no se ha bajado nada. Cambia de cuenta con doble clic en scripts\\cambiar-cuenta-wys.cmd"],
-  8: [false, "bajado y publicado A MEDIAS: faltan equipos o jugadores (lo que falta conserva lo de la semana pasada). La próxima pasada lo vuelve a intentar; el detalle, en la línea INCOMPLETO del registro de .cache\\wyscout"],
+  8: [false, "bajado y publicado A MEDIAS: faltan equipos o jugadores (lo que falta conserva lo de la semana pasada). Vuelve a pedirlo: sólo intentará lo que falta"],
   9: [false, "bajado y guardado, pero en el ordenador del club hay commits sin subir que no son de datos: no se ha publicado nada. Un «git push» a mano lo publica todo cuando se haya mirado"],
 };
 
+/*
+| Sólo lo nuevo y dónde se quedó (04/11/2026). El .cmd baja con --incremental
+| salvo que el pedido diga `completo` (botón «Bajar todo desde cero») y deja
+| en `.cache/wyscout/punto-de-control.json` cómo fue cada paso y cómo quedan
+| los datos. De ahí sale el resultado (qué paso falló, por qué y qué hacer, en
+| claro: lib/data-analisis/wyscout-al-dia.ts) y el bloque `datosWyscout` que
+| enseña Ajustes.
+*/
+const PUNTO_WYSCOUT = require(path.join(RAIZ, "scripts", "wyscout-punto.cjs"));
+
+const { resultadoWyscout } = require(path.join(RAIZ, "lib", "data-analisis", "wyscout-al-dia.ts"));
+
 async function haceWyscout() {
-  const plan = planDe((await leeEncargos()).wyscout);
+  const encargo = (await leeEncargos()).wyscout;
+
+  const plan = planDe(encargo);
 
   await empieza("wyscout");
 
@@ -853,7 +867,15 @@ async function haceWyscout() {
      final. El .cmd salta hasta ella con RMCF_DESDE. */
   const desde = plan ? Math.min(...plan) : 0;
 
-  apunta(desde >= 2 ? `Wyscout: sin volver a bajar, desde «${ETAPAS.wyscout[desde].nombre}»…` : "Wyscout: bajando la liga (se abre un Chrome que se mueve solo)…");
+  const completo = encargo?.completo === true && desde < 2;
+
+  apunta(
+    desde >= 2
+      ? `Wyscout: sin volver a bajar, desde «${ETAPAS.wyscout[desde].nombre}»…`
+      : completo
+        ? "Wyscout: bajando la liga entera, desde cero (se abre un Chrome que se mueve solo)…"
+        : "Wyscout: bajando sólo lo nuevo desde la última vez…",
+  );
 
   const deja = sigueRegistro(path.join(RAIZ, ".cache", "wyscout"), Date.now(), sigue("wyscout", plan));
 
@@ -862,19 +884,42 @@ async function haceWyscout() {
     "cmd.exe",
     ["/d", "/c", path.join(RAIZ, "scripts", "wyscout-semanal.cmd"), "--forzar"],
     undefined,
-    { RMCF_DESDE: String(desde) },
+    { RMCF_DESDE: String(desde), RMCF_COMPLETO: completo ? "1" : "" },
   ).finally(deja);
 
+  /* Cortada desde fuera (el análisis del partido, un cierre): el .cmd no ha
+     llegado a cerrar la pasada. Se cierra aquí para que Ajustes diga dónde se
+     quedó y no lo de la vez anterior. */
+  try {
+    const abierta = PUNTO_WYSCOUT.lee()?.pasada;
+
+    if (abierta && !abierta.terminadaEn) {
+      execFileSync(process.execPath, [path.join(RAIZ, "scripts", "wyscout-al-dia.cjs"), "--cierra", `--codigo=${codigo === 0 || codigo === 3 ? 1 : codigo}`], {
+        cwd: RAIZ,
+        stdio: "ignore",
+        timeout: 120_000,
+        windowsHide: true,
+      });
+    }
+  } catch {
+    /* sin cierre, queda lo que hay */
+  }
+
+  const punto = PUNTO_WYSCOUT.lee();
+
+  /* El resultado en claro sale del punto de control; si no lo hay (un .cmd
+     viejo), la tabla de siempre. */
+  const claro = punto?.pasada ? resultadoWyscout(codigo, punto) : null;
+
   const [ok, dice] = wyscoutCortadoPorPartido
-    ? [false, "cortada por el vigía para dar paso al análisis del partido, que baja Wyscout él mismo"]
-    : (MOTIVO_WYSCOUT[codigo] ?? [
-        false,
-        `la descarga ha fallado (código ${codigo}); suele ser la red o un cambio en Wyscout. Vuelve a pedirlo; si se repite, el registro está en .cache\\wyscout`,
-      ]);
+    ? [false, "cortada por el vigía para dar paso al análisis del partido, que baja Wyscout él mismo. La próxima pasada sigue desde lo que faltaba"]
+    : claro
+      ? [claro.ok, claro.texto]
+      : (MOTIVO_WYSCOUT[codigo] ?? [false, `la descarga se ha cortado (código ${codigo}). Vuelve a pedirlo: sigue desde lo que faltaba`]);
 
   wyscoutCortadoPorPartido = false;
 
-  await acaba("wyscout", ok, dice);
+  await acaba("wyscout", ok, dice, punto?.estado ? { datosWyscout: punto.estado } : {});
 
   apunta(`Wyscout: ${dice}.`);
 

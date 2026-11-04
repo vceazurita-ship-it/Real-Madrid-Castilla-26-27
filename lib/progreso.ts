@@ -56,7 +56,8 @@ export const ETAPAS: Record<Tarea, Etapa[]> = {
 
   wyscout: [
     { nombre: "Abrir Wyscout", minutos: 1, marca: /^--- Descarga/ },
-    { nombre: "Bajar los 20 equipos", minutos: 7, marca: /\d+ equipos en /i },
+    /* Desde el 04/11/2026 sólo los que tienen algo nuevo («3 equipos en esta pasada:»). */
+    { nombre: "Bajar equipos y jugadores", minutos: 7, marca: /\d+ equipos en /i },
     { nombre: "Releer la carpeta", minutos: 0.7, marca: /^--- Releyendo la carpeta/ },
     { nombre: "Foto de la jornada", minutos: 0.5, marca: /^--- Foto de la jornada/ },
     { nombre: "Publicar", minutos: 0.5, marca: /^--- Publicando/ },
@@ -203,8 +204,9 @@ export class Seguimiento {
     if (this.tarea === "wyscout") {
       const total = /(\d+) equipos en /i.exec(linea);
 
+      /* «0 equipos en esta pasada»: no hay cuenta que llevar (sólo jugadores). */
       if (total) {
-        this.cuenta = [0, Number(total[1])];
+        if (Number(total[1]) > 0) this.cuenta = [0, Number(total[1])];
       } else if (this.cuenta && !this.equipos.length && linea.includes(" · ")) {
         this.equipos = linea.split(" · ").map((x) => x.trim()).filter(Boolean);
       } else if (this.equipos.length) {

@@ -85,10 +85,14 @@
 
 import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import os from "node:os";
 import { strFromU8, unzipSync } from "fflate";
 import { esperaTurno } from "./chrome-turno.mjs";
+
+/* El punto de control de la pasada (04/11/2026): ver `wyscout-punto.cjs`. */
+const PUNTO = createRequire(import.meta.url)("./wyscout-punto.cjs");
 
 /* ------------------------------------------------------------------ */
 /*  AJUSTES                                                            */
@@ -139,6 +143,59 @@ function argumento(nombre) {
 const bandera = (nombre) =>
   process.argv.includes(`--${nombre}`) ||
   (nombre === "sin-jugadores" && process.argv.includes("--solo-equipos"));
+
+/*
+|--------------------------------------------------------------------------
+| SÓLO LO NUEVO (04/11/2026)
+|--------------------------------------------------------------------------
+|
+| Con `--incremental` (lo pone `wyscout-semanal.cmd`, que es lo que lanza el
+| botón de Ajustes) no se bajan los veinte equipos y los tres lotes cada vez:
+| `wyscout-al-dia.cjs` mira la carpeta, el calendario y el punto de control y
+| dice qué equipos tienen un partido que falta y qué lotes de jugadores tienen
+| algún equipo que ha jugado desde la última vez. Las reglas, en
+| `lib/data-analisis/wyscout-al-dia.ts`. Si no se puede decidir, lo de siempre.
+|
+| El punto de control se lleva sólo con la liga de siempre (no con otras
+| ligas ni con `--parar`), pase o no `--incremental`: así una pasada a mano
+| con `actualizar-wys.cmd` también cuenta para la siguiente.
+*/
+const LLEVA_PUNTO =
+  !argumento("carpeta") && !argumento("pais") && !argumento("competicion") && !argumento("grupo") && !bandera("parar") && !bandera("ver");
+
+const INCREMENTAL = bandera("incremental") && LLEVA_PUNTO && !argumento("equipo") && !argumento("desde");
+
+/** El plan de `wyscout-al-dia.cjs` («equipos» o «jugadores»); `null` si no sale, y entonces se baja todo. */
+function pidePlan(cual) {
+  try {
+    const salida = execFileSync(process.execPath, [path.join(RAIZ, "scripts", "wyscout-al-dia.cjs"), `--${cual}`], {
+      cwd: RAIZ,
+      encoding: "utf8",
+      timeout: 180_000,
+      windowsHide: true,
+    });
+
+    const linea = salida.match(/^PLAN: (.*)$/m)?.[1];
+
+    return linea ? JSON.parse(linea) : null;
+  } catch (error) {
+    console.log(`  (no se ha podido ver qué falta: ${String(error.message).split("\n")[0]}; se baja todo)`);
+
+    return null;
+  }
+}
+
+/** Apunta en el punto de control el paso en el que va la pasada. */
+const enPaso = (paso) => LLEVA_PUNTO && PUNTO.cambia((p) => void (PUNTO.pasada(p).paso = paso));
+
+/** Apunta el primer error de la pasada (el que se explica en Ajustes). */
+const apuntaFallo = (paso, detalle) =>
+  LLEVA_PUNTO &&
+  PUNTO.cambia((p) => {
+    const pasada = PUNTO.pasada(p);
+
+    pasada.fallo ??= { paso, detalle: String(detalle ?? "").slice(0, 400) };
+  });
 
 /* ------------------------------------------------------------------ */
 /*  CHROME                                                             */
@@ -2303,7 +2360,7 @@ async function bajaLote(nav, buscador, equipos, numero, { cual = 0 } = {}) {
 }
 
 /** Todos los jugadores de la categoría, por lotes de equipos. */
-async function bajaJugadores(nav, equipos, { suelto = false } = {}) {
+async function bajaJugadores(nav, equipos, { suelto = false, lotesFijos = null, ultimoPartido = {} } = {}) {
   /*
   | Con `--equipo=` o `--desde=` la lista no es el grupo entero (09/10/2026):
   | su lote se llamaba «Player Stats 1» y PISABA el bueno de siete equipos, y
@@ -2311,6 +2368,15 @@ async function bajaJugadores(nav, equipos, { suelto = false } = {}) {
   | limpia nada; la próxima pasada entera ya lo quita.
   */
   const base = suelto ? 100 : 0;
+
+  /*
+  | Sólo algunos lotes (04/11/2026, pasada incremental): los mismos equipos y
+  | el mismo número que en la última pasada completa, así «Player Stats N»
+  | sustituye al suyo. No se limpia nada al final (los demás siguen valiendo)
+  | y los rescates van del 201 en adelante, uno fijo por equipo, para no pisar
+  | el rescate de otro equipo de una pasada anterior.
+  */
+  const fijos = Array.isArray(lotesFijos) && lotesFijos.length ? lotesFijos : null;
 
   console.log(`\n  JUGADORES · ${COMPETICION} · ${TEMPORADA}\n`);
 
@@ -2337,24 +2403,35 @@ async function bajaJugadores(nav, equipos, { suelto = false } = {}) {
 
   const lotes = [];
 
-  for (let i = 0; i < equipos.length; i += LOTE) {
-    lotes.push(equipos.slice(i, i + LOTE));
+  if (fijos) {
+    for (const l of fijos) lotes.push(l.equipos);
+  } else {
+    for (let i = 0; i < equipos.length; i += LOTE) {
+      lotes.push(equipos.slice(i, i + LOTE));
+    }
+
+    /* La composición de una pasada entera es la que repiten las incrementales. */
+    if (!suelto && LLEVA_PUNTO) PUNTO.cambia((p) => void (p.lotes = lotes));
   }
+
+  const numeroDe = (i) => (fijos ? fijos[i].numero : base + i + 1);
+
+  if (LLEVA_PUNTO) PUNTO.cambia((p) => void (PUNTO.pasada(p).plan.lotes = lotes.map((_, i) => numeroDe(i))));
 
   const resultados = [];
 
   for (const [i, lote] of lotes.entries()) {
     process.stdout.write(
-      `  lote ${i + 1}/${lotes.length}  ${lote.join(", ").slice(0, 44).padEnd(46)}`,
+      `  lote ${fijos ? numeroDe(i) : i + 1}/${fijos ? `${lotes.length} de esta pasada` : lotes.length}  ${lote.join(", ").slice(0, 44).padEnd(46)}`,
     );
 
     let resultado = null;
 
     for (let intento = 0; intento < 2 && !resultado?.fichero; intento++) {
       try {
-        resultado = await bajaLote(nav, buscador, lote, base + i + 1);
+        resultado = await bajaLote(nav, buscador, lote, numeroDe(i));
       } catch (error) {
-        resultado = { numero: base + i + 1, estado: error.message };
+        resultado = { numero: numeroDe(i), estado: error.message };
 
         /*
         | Si la pestaña se ha colgado, se cambia por otra y se vuelve a abrir
@@ -2368,7 +2445,7 @@ async function bajaJugadores(nav, equipos, { suelto = false } = {}) {
             buscador = await abreBuscador(nav);
             await preparaBuscador(buscador);
           } catch (otro) {
-            resultado = { numero: base + i + 1, estado: `${error.message} (y no se ha podido reabrir: ${otro.message})` };
+            resultado = { numero: numeroDe(i), estado: `${error.message} (y no se ha podido reabrir: ${otro.message})` };
           }
         }
       }
@@ -2377,6 +2454,19 @@ async function bajaJugadores(nav, equipos, { suelto = false } = {}) {
     }
 
     resultados.push(resultado);
+
+    /* El punto de control, lote a lote: si se corta en el siguiente, éste ya no se repite. */
+    if (LLEVA_PUNTO && !bandera("parar")) {
+      const bienLote = resultado.estado === "ok" ? lote.filter((e) => !(resultado.faltan ?? []).includes(e)) : [];
+
+      PUNTO.loteHecho(
+        resultado.numero,
+        resultado.estado === "ok" && !resultado.faltan?.length && !resultado.recortado,
+        resultado.recortado ? [] : bienLote,
+        ultimoPartido,
+        resultado.estado === "ok" ? (resultado.recortado ? `lote ${resultado.numero} recortado a 500 filas` : "") : resultado.estado,
+      );
+    }
 
     const perdidos = resultado.faltan?.length ? ` · SIN ${resultado.faltan.join(", ")}` : "";
 
@@ -2408,7 +2498,9 @@ async function bajaJugadores(nav, equipos, { suelto = false } = {}) {
     console.log(`\n  rescate de ${ausentes.length}: ${ausentes.join(", ")}`);
 
     for (const equipo of ausentes) {
-      const numero = base + lotes.length + rescatados.length + 1;
+      const numero = fijos
+        ? 201 + Math.max(0, [...(PUNTO.lee().lotes ?? [])].flat().indexOf(equipo))
+        : base + lotes.length + rescatados.length + 1;
 
       process.stdout.write(`  solo      ${equipo.slice(0, 44).padEnd(46)}`);
 
@@ -2432,6 +2524,13 @@ async function bajaJugadores(nav, equipos, { suelto = false } = {}) {
 
         aprende(equipo, resultado.elegidos?.[equipo]);
 
+        if (LLEVA_PUNTO) {
+          PUNTO.cambia((p) => {
+            p.jugadores ??= {};
+            p.jugadores[equipo] = { bajadoEn: new Date().toISOString(), ultimoPartido: ultimoPartido?.[equipo] ?? null };
+          });
+        }
+
         console.log(`✓ ${resultado.fichero} · ${resultado.jugadores} jugadores (en el filtro: ${resultado.fichas?.join(", ") || "?"})`);
       } else {
         console.log(`✗ ${resultado?.estado === "ok" ? "sigue sin jugadores" : resultado?.estado ?? "no ha bajado"}`);
@@ -2448,6 +2547,8 @@ async function bajaJugadores(nav, equipos, { suelto = false } = {}) {
 
     fs.renameSync(path.join(DESTINO, r.fichero), path.join(DESTINO, entero));
 
+    if (LLEVA_PUNTO) PUNTO.loteHecho(r.numero, true, r.faltan, ultimoPartido, "");
+
     r.fichero = entero;
     r.faltan = [];
   }
@@ -2456,6 +2557,8 @@ async function bajaJugadores(nav, equipos, { suelto = false } = {}) {
      ya no está mal: lo suyo está en los ficheros del rescate. */
   for (const r of resultados) {
     if (r?.estado === "ok" || !r?.faltan?.length || !r.faltan.every((e) => rescatados.includes(e))) continue;
+
+    if (LLEVA_PUNTO) PUNTO.loteHecho(r.numero, true, r.faltan, ultimoPartido, "");
 
     r.estado = "ok";
     r.faltan = [];
@@ -2466,7 +2569,7 @@ async function bajaJugadores(nav, equipos, { suelto = false } = {}) {
   /* Con todo bien, fuera los «Player Stats N» de números que ya no se usan
      (de una semana con más lotes o más rescates) y los «(parcial)» que han
      quedado viejos: esos sí son viejos seguro. */
-  if (!suelto && !bandera("parar") && resultados.every((r) => r?.estado === "ok") && !sinBajar.length) {
+  if (!suelto && !fijos && !bandera("parar") && resultados.every((r) => r?.estado === "ok") && !sinBajar.length) {
     for (const viejo of fs.readdirSync(DESTINO)) {
       const numero = Number(viejo.match(/^Player Stats (\d+)\.xlsx$/i)?.[1] ?? 0);
 
@@ -2476,7 +2579,7 @@ async function bajaJugadores(nav, equipos, { suelto = false } = {}) {
     }
   }
 
-  return { resultados, sinBajar };
+  return { resultados, sinBajar, recortados: resultados.filter((r) => r?.recortado).map((r) => r.numero) };
 }
 
 /* ------------------------------------------------------------------ */
@@ -2491,6 +2594,50 @@ async function principal() {
 
   fs.mkdirSync(DESTINO, { recursive: true });
 
+  /* Una pasada nueva en el punto de control (04/11/2026). Lo bajado en una
+     pasada anterior que se cortó ya está en la carpeta y apuntado por equipo
+     y por lote: el plan de esta lo descuenta solo. */
+  if (LLEVA_PUNTO) {
+    PUNTO.cambia((p) => {
+      const ahora = new Date().toISOString();
+
+      p.pasada = {
+        id: ahora,
+        empezadaEn: ahora,
+        paso: "plan",
+        modo: "completa",
+        motivo: process.env.RMCF_COMPLETO === "1" ? "pedida completa, desde cero" : "pasada completa",
+        plan: { equipos: [], lotes: [] },
+        hechos: { equipos: [], lotes: [] },
+        fallidos: { equipos: [], lotes: [] },
+      };
+    });
+  }
+
+  /* Qué hay que bajar. Si no hace falta nada, ni se abre Chrome. */
+  const planE = INCREMENTAL ? pidePlan("equipos") : null;
+
+  if (planE) {
+    console.log(`  PLAN · equipos: ${planE.motivo}`);
+
+    for (const e of planE.equipos) console.log(`    · ${e}: ${planE.porque?.[e] ?? ""}`);
+
+    console.log("");
+  }
+
+  if (planE?.modo === "incremental" && !planE.equipos.length) {
+    const planJ = bandera("sin-jugadores") ? { modo: "incremental", motivo: "no se piden", lotes: [] } : pidePlan("jugadores");
+
+    if (planJ?.modo === "incremental" && !planJ.lotes.length) {
+      console.log(`  PLAN · jugadores: ${planJ.motivo}`);
+      console.log("\n  NADA QUE BAJAR: desde la última vez no se ha jugado nada que falte. Se sigue con releer y publicar.\n");
+
+      enPaso("jugadores");
+
+      return;
+    }
+  }
+
   /* El Chrome lo comparte con Hudl (el análisis del partido): por turnos.
      Si a la hora y media sigue ocupado, NO se entra (09/10/2026): antes se
      seguía igual, `conecta()` cerraba las pestañas del otro y los dos
@@ -2498,10 +2645,14 @@ async function principal() {
   if (!(await esperaTurno("Wyscout (descarga de la liga)"))) {
     console.log("\n  CHROME OCUPADO: el análisis del partido lleva hora y media con él; se deja para luego.\n");
 
+    apuntaFallo("entrar", "Chrome ocupado por el análisis del partido");
+
     process.exitCode = 7;
 
     return;
   }
+
+  enPaso("entrar");
 
   let chrome = abreChrome();
 
@@ -2564,6 +2715,8 @@ async function principal() {
     if (!(await esperaLogin(nav))) {
       console.log("  No se ha iniciado sesión. Nada que hacer.\n");
 
+      apuntaFallo("entrar", "no se ha podido iniciar sesión en Wyscout");
+
       /* Un código propio: quien lo lanza sin mirar necesita distinguir «hay
          que volver a entrar en Wyscout» de «se ha roto algo». */
       process.exitCode = 2;
@@ -2572,6 +2725,8 @@ async function principal() {
     }
 
     dentro = true;
+
+    enPaso("equipos");
 
     /*
     | Al cambiar de cuenta, la sesión nueva se guarda en cuanto se entra, no al
@@ -2620,9 +2775,6 @@ async function principal() {
         ? [...new Set(deLaCarpeta)].sort()
         : await vaAlGrupo(nav);
 
-    console.log(`  ${equipos.length} equipos en ${GRUPO ?? COMPETICION}:`);
-    console.log(`  ${equipos.join(" · ")}\n`);
-
     /*
     | `--equipo=` admite varios separados por coma, y `--desde=` retoma donde
     | se quedó: si la sesión se cae por la mitad no hay que volver a bajar los
@@ -2633,6 +2785,9 @@ async function principal() {
     const desde = argumento("desde");
 
     let lista = equipos;
+
+    /* Sólo lo nuevo (04/11/2026): los equipos del plan, por su nombre en la lista. */
+    let soloLoNuevo = planE?.modo === "incremental";
 
     if (pedidos) {
       const busca = pedidos.split(",").map((p) => p.trim().toLowerCase());
@@ -2646,7 +2801,37 @@ async function principal() {
       );
 
       if (arranque >= 0) lista = equipos.slice(arranque);
+    } else if (soloLoNuevo) {
+      const fuera = planE.equipos.filter((e) => !equipos.some((g) => normalizaEquipo(g) === normalizaEquipo(e)));
+
+      if (fuera.length) {
+        console.log(`  (${fuera.join(", ")} no sale en la lista de Wyscout: se bajan todos)\n`);
+
+        soloLoNuevo = false;
+
+        PUNTO.cambia((p) => {
+          const pasada = PUNTO.pasada(p);
+
+          pasada.modo = "completa";
+          pasada.motivo = `${fuera.join(", ")} no sale con ese nombre en Wyscout`;
+        });
+      } else {
+        lista = equipos.filter((g) => planE.equipos.some((e) => normalizaEquipo(e) === normalizaEquipo(g)));
+      }
     }
+
+    /* El progreso de Ajustes cuenta con «N equipos en …:» y los nombres en la línea siguiente. */
+    if (soloLoNuevo) {
+      console.log(`  ${GRUPO ?? COMPETICION}: ${equipos.length} equipos; sólo hace falta bajar los que tienen algo nuevo.`);
+      console.log(`  ${lista.length} equipos en esta pasada${lista.length ? ":" : " (ninguno ha jugado nada que falte)"}`);
+
+      if (lista.length) console.log(`  ${lista.join(" · ")}\n`);
+    } else {
+      console.log(`  ${equipos.length} equipos en ${GRUPO ?? COMPETICION}:`);
+      console.log(`  ${equipos.join(" · ")}\n`);
+    }
+
+    if (LLEVA_PUNTO) PUNTO.cambia((p) => void (PUNTO.pasada(p).plan.equipos = bandera("solo-jugadores") ? [] : [...lista]));
 
     const resultados = [];
 
@@ -2748,6 +2933,9 @@ async function principal() {
 
       resultados.push(resultado);
 
+      /* El punto de control, equipo a equipo: si se corta en el siguiente, éste ya no se repite. */
+      if (LLEVA_PUNTO && resultado) PUNTO.equipoHecho(equipo, resultado.estado === "ok", resultado.estado === "ok" ? "" : resultado.estado);
+
       colgadosSeguidos = resultado && resultado.estado !== "ok" && atasco(resultado.estado) ? colgadosSeguidos + 1 : 0;
 
       console.log(
@@ -2807,6 +2995,8 @@ async function principal() {
       */
       /* Chrome colgado incluso tras reiniciarlo: su código, sin publicar nada. */
       if (colgado && bien === 0) {
+        apuntaFallo("equipos", "el Chrome de Wyscout no responde (sin respuesta tras reiniciarlo)");
+
         process.exitCode = 7;
 
         return;
@@ -2863,21 +3053,54 @@ async function principal() {
     if (!bandera("sin-jugadores")) {
       let jugadores = null;
 
-      try {
-        jugadores = await bajaJugadores(nav, lista, { suelto: lista.length !== equipos.length });
-      } catch (error) {
-        /* Colgada a mitad: pestaña nueva y otra vuelta, que son cientos de
-           jugadores. */
-        if (atasco(error)) {
-          await recupera(nav).catch(() => {});
+      enPaso("jugadores");
 
-          try {
-            jugadores = await bajaJugadores(nav, lista, { suelto: lista.length !== equipos.length });
-          } catch (otro) {
-            console.log(`\n  ✗ jugadores: ${otro.message}\n`);
+      /*
+      | Qué lotes tocan se mira AHORA, con los equipos recién bajados: un
+      | partido nuevo de un equipo es lo que obliga a volver a bajar su lote.
+      | Con los equipos en pasada completa, los jugadores también.
+      */
+      const planJ = LLEVA_PUNTO ? pidePlan("jugadores") : null;
+
+      const ultimoPartido = planJ?.ultimoPartido ?? {};
+
+      const lotesFijos = soloLoNuevo && planJ?.modo === "incremental" ? planJ.lotes : null;
+
+      if (planJ && INCREMENTAL) console.log(`\n  PLAN · jugadores: ${soloLoNuevo ? planJ.motivo : "como los equipos, todos"}`);
+
+      for (const l of lotesFijos ?? []) console.log(`    · lote ${l.numero} (${l.equipos.join(", ")}): ${l.porque}`);
+
+      /* En una pasada «sólo lo nuevo», los jugadores en completa son los de todo el grupo. */
+      const deQuien = soloLoNuevo ? equipos : lista;
+
+      const opciones = { suelto: deQuien.length !== equipos.length, lotesFijos, ultimoPartido };
+
+      if (lotesFijos && !lotesFijos.length) {
+        console.log("\n  JUGADORES: ningún equipo ha jugado desde la última vez; no hace falta bajarlos.\n");
+
+        jugadores = { resultados: [], sinBajar: [], recortados: [] };
+      } else {
+        try {
+          jugadores = await bajaJugadores(nav, deQuien, opciones);
+        } catch (error) {
+          /* Colgada a mitad: pestaña nueva y otra vuelta, que son cientos de
+             jugadores. Los lotes que ya bajaron están apuntados, pero la
+             vuelta los repite: es la misma pasada y los números no cambian. */
+          if (atasco(error)) {
+            await recupera(nav).catch(() => {});
+
+            try {
+              jugadores = await bajaJugadores(nav, deQuien, opciones);
+            } catch (otro) {
+              console.log(`\n  ✗ jugadores: ${otro.message}\n`);
+
+              apuntaFallo("jugadores", otro.message);
+            }
+          } else {
+            console.log(`\n  ✗ jugadores: ${error.message}\n`);
+
+            apuntaFallo("jugadores", error.message);
           }
-        } else {
-          console.log(`\n  ✗ jugadores: ${error.message}\n`);
         }
       }
 
@@ -2889,11 +3112,16 @@ async function principal() {
         if (lotesMal) incompleto.push(`${lotesMal} lote(s) de jugadores sin bajar`);
 
         if (jugadores.sinBajar.length) incompleto.push(`sin jugadores de ${jugadores.sinBajar.join(", ")}`);
+
+        /* El tope de 500 filas de Wyscout: el lote baja recortado y le faltan jugadores. */
+        if (jugadores.recortados?.length) incompleto.push(`lote(s) ${jugadores.recortados.join(", ")} de jugadores recortado(s) a 500 filas, el tope de Wyscout`);
       }
     }
 
     if (incompleto.length && !bandera("parar") && !bandera("ver")) {
       console.log(`\n  INCOMPLETO: ${incompleto.join(" · ")}\n`);
+
+      if (LLEVA_PUNTO) PUNTO.cambia((p) => void (PUNTO.pasada(p).incompleto = incompleto));
 
       process.exitCode = 8;
     }
@@ -2947,6 +3175,8 @@ const soyYo = Boolean(process.argv[1]) && path.resolve(process.argv[1]) === path
 if (soyYo) {
   principal().catch((error) => {
     console.error("\n  Se ha roto:", error.message, "\n");
+
+    apuntaFallo(PUNTO.lee().pasada?.paso ?? "equipos", error.message);
 
     process.exit(1);
   });

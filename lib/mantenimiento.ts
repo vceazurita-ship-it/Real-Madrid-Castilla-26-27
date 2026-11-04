@@ -12,6 +12,7 @@
  * así que no importa nada de React ni del servidor.
  */
 
+import type { EstadoDatosWyscout } from "./data-analisis/wyscout-al-dia";
 import type { EtapaHecha, ProgresoVivo } from "./progreso";
 
 export const CLAVE_MANTENIMIENTO = "mantenimiento";
@@ -59,6 +60,10 @@ export type Encargo = {
   datos?: DatosCarpeta | DatosEntreno;
   /** El partido elegido (12/10/2026); sólo `partido`. Sin él, el último jugado. */
   jornada?: number;
+  /** Bajarlo todo desde cero (04/11/2026); sólo `wyscout`. Sin él, sólo lo nuevo. */
+  completo?: boolean;
+  /** Dónde se quedó la última pasada y cómo quedan los datos (04/11/2026); sólo `wyscout`. */
+  datosWyscout?: EstadoDatosWyscout;
 };
 
 export type SeccionPartido = {
