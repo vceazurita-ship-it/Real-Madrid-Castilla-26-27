@@ -19,10 +19,11 @@
 | rellenarla a mano. Se guarda sola (useRemoteDoc).
 */
 
-import { useState, type ReactNode } from "react";
-import { CircleCheck, ExternalLink, Film, Play, Plus, X } from "lucide-react";
+import { type ReactNode } from "react";
+import { CircleCheck, Film, Plus, X } from "lucide-react";
 
 import { TextArea } from "@/components/abp/ui";
+import { EnlaceHudl as EnlaceHudlAccion, VerAccion } from "@/components/video/VerAccion";
 import {
   ACCIONES,
   ACCIONES_IMPLICADO,
@@ -152,57 +153,14 @@ export function MiniCampo({ zona, carril, onElige, etiqueta }: { zona?: Celda; c
   );
 }
 
-const esYoutube = (u: string) => /youtu\.?be/.test(u);
-
 /** El enlace al partido en Hudl, con el minuto del vídeo al lado (Hudl no deja enlazar a un instante). */
 export function EnlaceHudl({ hudl }: { hudl: NonNullable<FichaTecnica["hudl"]> }) {
-  return (
-    <a
-      href={hudl.url}
-      target="_blank"
-      rel="noreferrer"
-      title={`Abre el partido en Hudl; el gol está en el ${rotuloSegundo(hudl.seg)} del vídeo`}
-      className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-xs text-white/75 transition hover:bg-white/[0.06] hover:text-white"
-    >
-      <ExternalLink size={13} className="text-[#C8A96B]" aria-hidden />
-      Abrir en Hudl
-      <span className="tabular-nums text-white/50">· {rotuloSegundo(hudl.seg)}</span>
-    </a>
-  );
+  return <EnlaceHudlAccion hudl={hudl} que="el gol" />;
 }
 
-/**
- * «Ver el gol» (el corte, aquí mismo) y «Abrir en Hudl» para la lista de
- * Gol a gol. El vídeo sólo se carga al pedirlo.
- */
+/** «Ver el gol» (el corte, aquí mismo) y «Abrir en Hudl» para la lista de Gol a gol. */
 export function VerGol({ video, hudl }: { video?: string; hudl?: FichaTecnica["hudl"] }) {
-  const [abierto, setAbierto] = useState(false);
-
-  if (!video && !hudl) return null;
-
-  return (
-    <div className="min-w-0 space-y-2">
-      <div className="flex flex-wrap gap-1.5">
-        {video && !esYoutube(video) ? (
-          <button
-            type="button"
-            aria-expanded={abierto}
-            onClick={() => setAbierto((x) => !x)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-xs text-white/75 transition hover:bg-white/[0.06] hover:text-white"
-          >
-            {abierto ? <X size={13} aria-hidden /> : <Play size={13} className="text-[#C8A96B]" aria-hidden />}
-            {abierto ? "Cerrar el vídeo" : "Ver el gol"}
-          </button>
-        ) : video ? (
-          <a href={video} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-xs text-white/75 hover:text-white">
-            <Film size={13} className="text-[#C8A96B]" aria-hidden /> Ver el gol
-          </a>
-        ) : null}
-        {hudl ? <EnlaceHudl hudl={hudl} /> : null}
-      </div>
-      {abierto && video ? <video src={video} controls autoPlay playsInline preload="auto" className="aspect-video w-full max-w-md rounded-xl bg-black" /> : null}
-    </div>
-  );
+  return <VerAccion video={video} hudl={hudl} que="el gol" />;
 }
 
 const NOMBRE_FUENTE: Record<CampoFuente, string> = {
