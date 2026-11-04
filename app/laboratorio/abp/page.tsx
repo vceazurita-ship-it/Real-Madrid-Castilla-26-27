@@ -28,13 +28,14 @@ import { toast } from "sonner";
 
 import { AbpHeader, Notice } from "@/components/abp/ui";
 import { traeDeLaPizarra } from "@/components/abp-lab/EnLaPizarra";
-import { MejorJornada } from "@/components/abp-lab/MejorJornada";
+import { MejorJornada, borradorDeAccion } from "@/components/abp-lab/MejorJornada";
 import { Referentes } from "@/components/abp-lab/Referentes";
 import { Retos } from "@/components/abp-lab/Retos";
 import { Taller, borradorVacio, type Borrador } from "@/components/abp-lab/Taller";
 import { useJugadoresLab } from "@/components/abp-lab/comun";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
+import { traeTodas } from "@/hooks/useAbpAcciones";
 import { useAbpLab } from "@/hooks/useAbpLab";
 import { usePizarraAbpLectura } from "@/hooks/usePizarraAbpLectura";
 import { tituloVisible, type SlidePizarra, type TableroPizarra } from "@/lib/abp/pizarra";
@@ -297,6 +298,54 @@ export default function LaboratorioAbpPage() {
       setBorrador({ ...borradorVacio(), ...borrador });
       irA("taller", "replace");
     });
+  }, [irA]);
+
+  /*
+   * Una acción enlazada (`?accion=<idPartido>-<seg>`, 04/11/2026): la bolita de
+   * «ABP de la categoría» en Data análisis abre aquí esa acción, dibujada en el
+   * taller como «Al taller» de «Lo mejor de la jornada».
+   */
+  useEffect(() => {
+    const pedida = new URLSearchParams(window.location.search).get("accion") ?? "";
+
+    const m = /^(\d+)-(\d+)$/.exec(pedida);
+
+    if (!m) return;
+
+    const limpia = () => {
+      const url = new URL(window.location.href);
+
+      url.searchParams.delete("accion");
+      window.history.replaceState(null, "", url.pathname + url.search + url.hash);
+    };
+
+    let vivo = true;
+
+    traeTodas()
+      .then((datos) => {
+        if (!vivo) return;
+
+        limpia();
+
+        for (const comp of datos.competiciones) {
+          const a = comp.acciones.find((x) => x.id === m[1] && x.seg === Number(m[2]));
+          const partido = a ? comp.partidos[a.id] : undefined;
+
+          if (a && partido) {
+            setBorrador(borradorDeAccion({ ...a, p: partido.p, fecha: partido.f }, comp.nombre, partido.j));
+            irA("taller", "replace");
+
+            return;
+          }
+        }
+
+        toast.error("No se ha encontrado esa acción", { description: "Puede que la descarga de Wyscout la haya cambiado: búscala en «Lo mejor de la jornada»." });
+      })
+      .catch(() => vivo && toast.error("No han llegado las acciones de Wyscout"));
+
+    return () => {
+      vivo = false;
+    };
   }, [irA]);
 
   return (

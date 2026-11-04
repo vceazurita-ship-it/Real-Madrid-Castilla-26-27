@@ -21,6 +21,7 @@
 
 import { useState } from "react";
 
+import { propsBolita } from "@/components/video/MenuAccion";
 import { FASES, NOMBRE_TIPO, FASE_DE, rotuloMinuto, type GolVisto, type TipoGol } from "@/lib/goles/analisis";
 
 export const COLOR_FASE: Record<string, string> = {
@@ -229,7 +230,13 @@ function xDe(g: { min: number; extra: number; parte: 1 | 2 }) {
   return g.extra || g.min > 90 ? X_DESC2 + (Math.min(10, g.extra || g.min - 90) / 10) * (ANCHO - X_DESC2 - MARGEN) : X_P2 + ((g.min - 46) / 44) * (X_DESC2 - X_P2 - 8);
 }
 
-function LineaGoles({ goles, resaltado, onResalta }: { goles: GolConTipo[]; resaltado: string | null; onResalta: (k: string | null) => void }) {
+/** Pinchar un gol de la línea: el menú de su acción (`components/video/MenuAccion.tsx`). */
+type AlPincharGol = (clave: string, titulo: string, origen: Parameters<Parameters<typeof propsBolita>[1]>[0]) => void;
+
+const tituloGol = (g: GolConTipo) =>
+  [`J${g.partido.jornada}`, rotuloMinuto(g), g.jugador, g.aFavor ? "a favor" : "en contra", g.tipoFinal ? NOMBRE_TIPO[g.tipoFinal] : ""].filter(Boolean).join(" · ");
+
+function LineaGoles({ goles, resaltado, onResalta, onGol }: { goles: GolConTipo[]; resaltado: string | null; onResalta: (k: string | null) => void; onGol?: AlPincharGol }) {
   const ALTO = 230;
   const EJE = ALTO / 2;
   const R = 9;
@@ -289,13 +296,19 @@ function LineaGoles({ goles, resaltado, onResalta }: { goles: GolConTipo[]; resa
         const apagado = resaltado && resaltado !== g.tipoFinal && resaltado !== (g.tipoFinal ? FASE_DE[g.tipoFinal] : "sin");
 
         return (
-          <g key={g.clave} opacity={apagado ? 0.15 : 1} onMouseEnter={() => onResalta(g.tipoFinal)} onMouseLeave={() => onResalta(null)} style={{ cursor: "default" }}>
+          <g
+            key={g.clave}
+            opacity={apagado ? 0.15 : 1}
+            onMouseEnter={() => onResalta(g.tipoFinal)}
+            onMouseLeave={() => onResalta(null)}
+            {...(onGol ? propsBolita(`Gol: ${tituloGol(g)}. Abre la acción`, (o) => onGol(g.clave, `Gol · ${tituloGol(g)}`, o)) : { style: { cursor: "default" } })}
+          >
             <line x1={g.x} x2={g.x} y1={EJE} y2={g.y} stroke={color} strokeOpacity={0.35} />
             <circle cx={g.x} cy={g.y} r={R} fill={color} stroke={g.aFavor ? "none" : "#fff"} strokeWidth={g.aFavor ? 0 : 1.5} />
             <text x={g.x} y={g.aFavor ? g.y - R - 4 : g.y + R + 11} textAnchor="middle" fontSize={10} fontWeight={600} fill="currentColor" opacity={0.7}>
               {rotuloMinuto(g)}
             </text>
-            <title>{`${[`J${g.partido.jornada}`, rotuloMinuto(g), g.jugador, g.aFavor ? "a favor" : "en contra", g.tipoFinal ? NOMBRE_TIPO[g.tipoFinal] : ""].filter(Boolean).join(" · ")}\n${g.partido.local} ${g.partido.gl}-${g.partido.gv} ${g.partido.visitante}`}</title>
+            <title>{`${tituloGol(g)}\n${g.partido.local} ${g.partido.gl}-${g.partido.gv} ${g.partido.visitante}`}</title>
           </g>
         );
       })}
@@ -307,7 +320,7 @@ function LineaGoles({ goles, resaltado, onResalta }: { goles: GolConTipo[]; resa
 /*  Los dos juntos                                                     */
 /* ------------------------------------------------------------------ */
 
-export function GraficasTipologia({ goles, colorFavor, colorContra }: { goles: GolConTipo[]; colorFavor: string; colorContra: string }) {
+export function GraficasTipologia({ goles, colorFavor, colorContra, onGol }: { goles: GolConTipo[]; colorFavor: string; colorContra: string; onGol?: AlPincharGol }) {
   const [resaltado, setResaltado] = useState<string | null>(null);
   const favor = goles.filter((g) => g.aFavor);
   const contra = goles.filter((g) => !g.aFavor);
@@ -328,7 +341,7 @@ export function GraficasTipologia({ goles, colorFavor, colorContra }: { goles: G
         <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/45">Cuándo y cómo: cada punto es un gol en su minuto</p>
         <div className="min-w-0 overflow-x-auto">
           <div className="min-w-[560px] text-white">
-            <LineaGoles goles={goles} resaltado={resaltado} onResalta={setResaltado} />
+            <LineaGoles goles={goles} resaltado={resaltado} onResalta={setResaltado} onGol={onGol} />
           </div>
         </div>
       </div>

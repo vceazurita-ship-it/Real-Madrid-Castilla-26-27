@@ -405,3 +405,10 @@ export function ultimaJornada(c: CompeticionAcciones) {
 
   return Math.max(0, c.jornadas.length - 1);
 }
+
+/**
+ * El enlace a una acción dibujada en el laboratorio (sólo admin):
+ * `/laboratorio/abp?accion=<idPartido>-<seg>`. El laboratorio la busca en
+ * `abp-acciones-todas.json` y la abre en el taller.
+ */
+export const enlaceAccionLab = (a: Pick<Accion, "id" | "seg">) => `/laboratorio/abp?accion=${encodeURIComponent(`${a.id}-${a.seg}`)}`;

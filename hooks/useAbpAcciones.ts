@@ -13,7 +13,8 @@ import type { AbpTodas } from "@/lib/abp-lab/patrones";
 
 let todasEnVuelo: Promise<AbpTodas> | null = null;
 
-const traeTodas = () => {
+/** TODAS las acciones, una vez por pestaña (también para el enlace `?accion=` del laboratorio). */
+export const traeTodas = () => {
   todasEnVuelo ??= fetch("/data/abp-acciones-todas.json", { cache: "no-store" })
     .then((r) => (r.ok ? (r.json() as Promise<AbpTodas>) : Promise.reject(new Error(String(r.status)))))
     .catch((error) => {

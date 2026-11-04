@@ -52,6 +52,7 @@ import { CORTE_TRANSICION, aFavor, comparativaFaltas, cortaTransicion, decimal, 
 import { CampoFaltas, CARRILES_CAMPO, sitioEnCampo, ZONAS_CAMPO } from "@/components/faltas/CampoFaltas";
 import { ComoActualizar } from "@/components/faltas/ComoActualizar";
 import { VerAccion } from "@/components/video/VerAccion";
+import { opcionesDeAccion, useMenuAccion } from "@/components/video/MenuAccion";
 import { PorJugador, SinJugador, type ColumnaJugador } from "@/components/analisis/PorJugador";
 import {
   BarraFiltros,
@@ -219,6 +220,8 @@ export default function FaltasPage() {
 
   /** La falta que está encendida, compartida entre el campo y la tabla. */
   const [resaltada, setResaltada] = useState<string | null>(null);
+  /* El menú de cada falta del campo: su vídeo, Hudl y su fila (04/11/2026). */
+  const { abre: abreMenu, menu: menuAccion } = useMenuAccion();
 
   /** Lo que se ha pinchado: zona, carril, distancia y defensores. */
   const { filtros, alterna, alternaVarios, quita, limpia } = useFiltrosCruzados();
@@ -537,6 +540,7 @@ export default function FaltasPage() {
 
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
+      {menuAccion}
       <div className="flex">
         <Sidebar />
 
@@ -829,6 +833,23 @@ export default function FaltasPage() {
                       ["carril", carril],
                     ])
                   }
+                  onPunto={(id, origen) => {
+                    const f = paraCampo.find((x) => x.clip === id);
+
+                    if (!f) return;
+
+                    const opciones = opcionesDeAccion({ video: f.video, hudl: f.hudl, fila: faltas.some((x) => x.clip === id) ? id : null });
+
+                    /* Sin vídeo ni fila, el punto hace lo de siempre: filtra su cajón. */
+                    if (!abreMenu(origen, `Falta ${f.lado === "ofensivo" ? "a favor" : "en contra"}${f.minuto ? ` · ${f.minuto}` : ""}`, opciones)) {
+                      const sitio = sitioEnCampo(f);
+
+                      alternaVarios([
+                        ["zona", sitio.zona],
+                        ["carril", sitio.carril],
+                      ]);
+                    }
+                  }}
                   onZona={(zona) => alterna("zona", zona)}
                   onCarril={(carril) => alterna("carril", carril)}
                   onLado={alternaLado}
@@ -1125,6 +1146,7 @@ export default function FaltasPage() {
                         {faltas.map((f, indice) => (
                           <tr
                             key={f.clip}
+                            data-fila-accion={f.clip}
                             onMouseEnter={() => setResaltada(f.clip)}
                             onMouseLeave={() => setResaltada(null)}
                             className={`border-t border-white/[0.06] transition ${

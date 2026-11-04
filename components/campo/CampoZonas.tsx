@@ -31,6 +31,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Maximize2, Minimize2 } from "lucide-react";
 
 import { TITULO_FILTRO } from "@/components/faltas/FiltrosCruzados";
+import { propsBolita } from "@/components/video/MenuAccion";
 
 export type PuntoCampo = {
   id: string;
@@ -55,6 +56,12 @@ export type CampoZonasProps = {
   zonasMarcadas?: string[];
   carrilesMarcados?: string[];
   onCajon?: (zona: string, carril: string) => void;
+  /**
+   * Pinchar (tocar, o Intro en) un punto: el menú de su acción
+   * (`components/video/MenuAccion.tsx`). Con esto, el punto ya no filtra su
+   * cajón (el cajón sigue filtrando al pinchar fuera de los puntos).
+   */
+  onPunto?: (id: string, origen: { currentTarget: EventTarget | null; clientX?: number; clientY?: number }) => void;
   onZona?: (zona: string) => void;
   onCarril?: (carril: string) => void;
   /**
@@ -153,6 +160,7 @@ export function CampoZonas({
   zonasMarcadas = [],
   carrilesMarcados = [],
   onCajon,
+  onPunto,
   onZona,
   onCarril,
   cuenta,
@@ -447,11 +455,14 @@ export function CampoZonas({
               key={punto.id}
               onMouseEnter={() => onResaltar(punto.id)}
               onMouseLeave={() => onResaltar(null)}
-              onClick={onCajon ? () => onCajon(punto.zona, punto.carril) : undefined}
+              {...(onPunto
+                ? propsBolita(`${punto.titulo.replace(/\n/g, ". ")}. Abre la acción`, (origen) => onPunto(punto.id, origen))
+                : { onClick: onCajon ? () => onCajon(punto.zona, punto.carril) : undefined, style: { cursor: "pointer" } })}
+              onFocus={() => onResaltar(punto.id)}
+              onBlur={() => onResaltar(null)}
               opacity={fuera && !suyo ? 0.3 : 1}
-              style={{ cursor: "pointer" }}
             >
-              <title>{`${punto.titulo}${onCajon ? `\n${TITULO_FILTRO}` : ""}`}</title>
+              <title>{`${punto.titulo}${onPunto ? "\nPincha para ver la acción" : onCajon ? `\n${TITULO_FILTRO}` : ""}`}</title>
 
               {/* El halo sólo en el resaltado: con veintitrés, un halo por
                   punto deja el campo hecho una nube. */}

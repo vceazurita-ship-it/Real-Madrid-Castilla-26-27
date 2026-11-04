@@ -20,6 +20,7 @@ import { Topbar } from "@/components/ui/topbar";
 import { EsqueletoPantalla, EstadoError } from "@/components/ui/estados";
 import { AbpHeader, Button, Dialog, Notice, Panel, SaveState, Segmented, Select, StatCard, StatRow } from "@/components/abp/ui";
 import { FichaGol, VerGol, type CambiaFicha } from "@/components/goles/FichaGol";
+import { opcionesDeAccion, useMenuAccion } from "@/components/video/MenuAccion";
 import { DOC_TECNICO_MANUAL, fichaCoherente, fichaDe, nombreAccion, nombreCampo, nombreFase, tieneFicha, type FichaManual, type FichasManuales, type FichaTecnica } from "@/lib/goles/tecnico";
 import { MEJOR, ORO, PEOR, tinta } from "@/components/data/graficas";
 import { Lectura } from "@/components/data/formas";
@@ -278,6 +279,7 @@ export function PantallaGoles() {
   /* 03/11/2026: la ficha técnica de cada gol nuestro, lo que corrige o añade el cuerpo técnico (lib/goles/tecnico.ts). Se guarda sola. */
   const tecnicoManual = useRemoteDoc<FichasManuales>({ key: DOC_TECNICO_MANUAL, kind: "goles", fallback: {}, debounce: 1200 });
   const [golAbierto, setGolAbierto] = useState<string | null>(null);
+  const { abre: abreMenu, menu: menuAccion } = useMenuAccion();
 
   const todos = useMemo(() => doc.partidos ?? [], [doc.partidos]);
   const jornadas = useMemo(() => [...new Set(todos.map((p) => p.jornada))].sort((a, b) => a - b), [todos]);
@@ -779,8 +781,16 @@ export function PantallaGoles() {
 
   const abierto = golAbierto ? goles.find((g) => g.clave === golAbierto) : undefined;
 
+  /* Pinchar un gol de la línea de minutos (04/11/2026): su corte, Hudl y su fila de la lista. */
+  const alPincharGol = (clave: string, titulo: string, origen: { currentTarget: EventTarget | null; clientX?: number; clientY?: number }) => {
+    const ficha = fichas.get(clave);
+
+    abreMenu(origen, titulo, opcionesDeAccion({ video: ficha?.video, hudl: ficha?.hudl, fila: goles.some((g) => g.clave === clave) ? clave : null }));
+  };
+
   return (
     <Marco>
+      {menuAccion}
       <AbpHeader
         area="RMCF Castilla · Análisis"
         title="Análisis de goles"
@@ -1083,7 +1093,7 @@ export function PantallaGoles() {
             analisis={esNuestro && deTipologia.length ? <div className="px-4 pb-4 sm:px-5"><Lectura>{deTipologia.join(" ")}</Lectura></div> : undefined}
             action={<SaveState status={manual.status} localOnly={manual.localOnly} savedAt={manual.lastSavedAt} sinGuardar={manual.sinGuardar} onGuardar={() => void manual.guardaYa()} />}
           >
-            {conTipo.length ? <GraficasTipologia goles={conTipo} colorFavor={ORO} colorContra={PEOR} /> : null}
+            {conTipo.length ? <GraficasTipologia goles={conTipo} colorFavor={ORO} colorContra={PEOR} onGol={alPincharGol} /> : null}
 
             <details className="mt-6">
               <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-[0.14em] text-white/45 hover:text-white/70">Ver la tabla y lo que se sabe del resto de la liga</summary>
@@ -1188,7 +1198,7 @@ export function PantallaGoles() {
                 const eje = ejeDe(ficha);
 
                 return (
-                  <li key={g.clave} className="min-w-0 px-4 py-3">
+                  <li key={g.clave} data-fila-accion={g.clave} className="min-w-0 px-4 py-3 outline-none">
                     <div className="flex min-w-0 items-center justify-between gap-2">
                       <span className="inline-flex min-w-0 items-center gap-2 text-sm">
                         <span className="tabular-nums text-white/50">J{g.partido.jornada}</span>
@@ -1252,7 +1262,7 @@ export function PantallaGoles() {
                     const eje = ejeDe(ficha);
 
                     return (
-                      <tr key={g.clave} className="border-b border-white/[0.06] align-top last:border-0">
+                      <tr key={g.clave} data-fila-accion={g.clave} className="border-b border-white/[0.06] align-top outline-none last:border-0">
                         <td className="px-3 py-2 tabular-nums text-white/50">{g.partido.jornada}</td>
                         <td className="px-3 py-2 text-white/75">
                           <span className="block max-w-[260px] truncate">

@@ -12,6 +12,11 @@
  *
  * Sólo lectura: se baja una vez por pestaña con `useAbpTodas` (el mismo que
  * usa el laboratorio de ABP).
+ *
+ * Cada bolita del campo y cada gol de la lista llevan a su acción
+ * (`MenuAccion`, 04/11/2026): el vídeo (nuestro corte de `abp:cortes` si es
+ * un partido del Castilla; si no, el resumen de YouTube en su segundo) y,
+ * para el administrador, la acción dibujada en el laboratorio.
  */
 
 import { useEffect, useMemo, useState } from "react";
@@ -21,9 +26,12 @@ import { Button, Notice, Panel, Segmented } from "@/components/abp/ui";
 import { COMPARADO, ORO, tinta } from "@/components/data/graficas";
 import { Lectura } from "@/components/data/formas";
 import { Explicativo } from "@/components/ui/textos-analisis";
+import { BotonesAccion, irAFila, opcionesDeAccion, propsBolita, useMenuAccion, type OpcionMenuAccion } from "@/components/video/MenuAccion";
 import { useAbpTodas } from "@/hooks/useAbpAcciones";
+import { useAdmin } from "@/hooks/useAdmin";
 import { cargaCalendario } from "@/hooks/useCalendario";
-import { aMetros, zonaDe, type Accion, type PuntoWy, type TipoAccion } from "@/lib/abp-lab/acciones";
+import { aMetros, dibujable, enlaceAccionLab, tiempoVideo, videoDe, zonaDe, type Accion, type PuntoWy, type TipoAccion } from "@/lib/abp-lab/acciones";
+import { DOC_CORTES_ABP, type DocCortesAbp, type EnlaceAccionAbp } from "@/lib/abp/cortes-abp";
 import type { Zona } from "@/lib/abp-lab/modelo";
 import { mismoClub } from "@/lib/rivals/mismoClub";
 
@@ -31,7 +39,7 @@ type Grupo = "g2" | "g1" | "ambos";
 
 const SLUG: Record<Exclude<Grupo, "ambos">, string> = { g2: "primera-rfef-g2", g1: "primera-rfef-g1" };
 
-type Remate = Omit<Accion, "p"> & { partido: string; jornada: string; grupo: string };
+type Remate = Omit<Accion, "p"> & { partido: string; jornada: string; grupo: string; videos?: Record<string, { v: string; c: string }> };
 
 type FiltroTipo = TipoAccion | "todos";
 
@@ -98,6 +106,36 @@ const fechaCorta = (f: string) => (f.length >= 10 ? `${f.slice(8, 10)}/${f.slice
 
 const jCorta = (j: string) => j.replace(/^Jornada\s*/i, "J");
 
+const TIPO_CORTE: Record<TipoAccion, RegExp | null> = { corner: /c[oó]rner/i, falta: /falta/i, directa: /falta/i, penalti: /penalti/i, banda: null };
+
+/**
+ * Nuestro corte de una acción del Castilla (`abp:cortes`): misma jornada,
+ * mismo lado, mismo tipo y el minuto a ±2 (Wyscout y la hoja no cuentan
+ * igual el descuento). El más cercano; sin corte, null.
+ */
+function corteDe(a: Remate, doc: DocCortesAbp | null): EnlaceAccionAbp | null {
+  const lado = a.eq === NOSOTROS ? "favor" : a.rival === NOSOTROS ? "contra" : null;
+  const tipo = TIPO_CORTE[a.t];
+  const n = Number(a.jornada.replace(/\D/g, ""));
+
+  if (!doc || !lado || !tipo || !n) return null;
+
+  const partido = Object.values(doc.jornadas ?? {}).find((p) => p?.jornada === n && p.hudl);
+
+  if (!partido) return null;
+
+  const cerca = (partido.acciones ?? [])
+    .filter((x) => x.lado === lado && tipo.test(x.accion) && Math.abs(x.minuto - a.min) <= 2)
+    .sort((x, y) => Math.abs(x.minuto - a.min) - Math.abs(y.minuto - a.min))[0];
+
+  return cerca ? { ...(cerca.video ? { video: cerca.video } : {}), hudl: { url: partido.hudl, seg: cerca.seg } } : null;
+}
+
+/** «Gol · Córner · Rachad Fettal (Real Madrid Castilla) · 43'». */
+const tituloDe = (a: Remate) => `${a.r === "gol" ? "Gol" : "Remate"} · ${TIPO_TEXTO[a.t]}${a.rm ? ` · ${a.rm}` : ""}${a.eq ? ` (${a.eq})` : ""} · ${a.min}'`;
+
+const claveDe = (a: Remate) => `${a.id}-${a.seg}`;
+
 /* ------------------------------------------------------------------ */
 /*  EL CAMPO: media parte, la portería arriba                          */
 /* ------------------------------------------------------------------ */
@@ -108,7 +146,16 @@ const AL = 52.5;
 /** De Wyscout (0-100, atacando hacia x = 100) a metros con la portería arriba. */
 const enCampo = ([x, y]: PuntoWy) => ({ x: (y / 100) * AN, y: Math.min(AL - 0.5, ((100 - x) / 100) * 105) });
 
-function MediaCampo({ puntos, flechas }: { puntos: { id: string; p: PuntoWy; color: string; tenue?: boolean; titulo: string }[]; flechas: { id: string; de: PuntoWy; a: PuntoWy }[] }) {
+function MediaCampo({
+  puntos,
+  flechas,
+  onPunto,
+}: {
+  puntos: { id: string; p: PuntoWy; color: string; tenue?: boolean; titulo: string }[];
+  flechas: { id: string; de: PuntoWy; a: PuntoWy }[];
+  /** Pinchar (o Intro en) una bolita: el menú de su acción. */
+  onPunto?: (indice: number, origen: Parameters<Parameters<typeof propsBolita>[1]>[0]) => void;
+}) {
   const linea = tinta(0.28);
 
   const arco = Math.sqrt(9.15 ** 2 - (16.5 - 11) ** 2);
@@ -130,13 +177,16 @@ function MediaCampo({ puntos, flechas }: { puntos: { id: string; p: PuntoWy; col
         return <line key={f.id} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={ORO} strokeOpacity={0.22} strokeWidth={0.2} />;
       })}
 
-      {puntos.map((p) => {
+      {puntos.map((p, i) => {
         const c = enCampo(p.p);
 
+        /* El blanco del dedo es más grande que la bolita: a 390 px la bolita mide 4 px. */
         return (
-          <circle key={p.id} cx={c.x} cy={c.y} r={p.tenue ? 0.55 : 0.9} fill={p.color} fillOpacity={p.tenue ? 0.35 : 0.9} stroke={p.tenue ? "none" : tinta(0.7)} strokeWidth={0.12}>
+          <g key={p.id} {...(onPunto ? propsBolita(`${p.titulo}. Abre su vídeo o su gráfico`, (o) => onPunto(i, o)) : {})}>
             <title>{p.titulo}</title>
-          </circle>
+            {onPunto && <circle cx={c.x} cy={c.y} r={1.9} fill="transparent" />}
+            <circle cx={c.x} cy={c.y} r={p.tenue ? 0.55 : 0.9} fill={p.color} fillOpacity={p.tenue ? 0.35 : 0.9} stroke={p.tenue ? "none" : tinta(0.7)} strokeWidth={0.12} />
+          </g>
         );
       })}
     </svg>
@@ -188,6 +238,26 @@ export function PanelAbpCategoria() {
   const [orden, setOrden] = useState<"gf" | "gc" | "dif">("gf");
   const [todosGoles, setTodosGoles] = useState(false);
   const [proximoBs, setProximoBs] = useState("");
+  const [cortes, setCortes] = useState<DocCortesAbp | null>(null);
+
+  const { admin } = useAdmin();
+  const { abre, menu } = useMenuAccion();
+
+  /* Nuestros cortes de ABP (sólo lectura), para los partidos del Castilla. */
+  useEffect(() => {
+    let vivo = true;
+
+    fetch(`/api/docs?key=${encodeURIComponent(DOC_CORTES_ABP)}`)
+      .then((r) => (r.ok ? (r.json() as Promise<{ data?: DocCortesAbp | null }>) : null))
+      .then((d) => {
+        if (vivo) setCortes(d?.data ?? null);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      vivo = false;
+    };
+  }, []);
 
   /* El próximo rival, del calendario de BeSoccer (mismo criterio que «Un equipo de un vistazo»). */
   useEffect(() => {
@@ -218,7 +288,7 @@ export function PanelAbpCategoria() {
         c.acciones.flatMap((a) => {
           const m = c.partidos[a.id];
 
-          return m ? [{ ...a, fecha: m.f, partido: m.p, jornada: m.j, grupo: c.corto }] : [];
+          return m ? [{ ...a, fecha: m.f, partido: m.p, jornada: m.j, grupo: c.corto, videos: c.videos }] : [];
         }),
       );
   }, [datos, grupo]);
@@ -392,11 +462,48 @@ export function PanelAbpCategoria() {
 
   const golesVisibles = todosGoles ? goles : goles.slice(0, 20);
 
+  /** Lo que tiene de verdad cada acción: su vídeo y, para el administrador, su dibujo. */
+  const opcionesDe = (a: Remate, conFila: boolean): OpcionMenuAccion[] => {
+    const corte = corteDe(a, cortes);
+    const accion: Accion = { ...a, p: a.partido };
+    const yt = corte?.video ? null : videoDe(accion, { videos: a.videos });
+    const segundo = tiempoVideo(accion);
+    const exacto = Boolean(yt && segundo);
+
+    const opciones = opcionesDeAccion({
+      video: corte?.video ?? yt?.url,
+      videoEtiqueta: corte?.video || exacto ? "Ver el vídeo" : "Ver el resumen del partido",
+      ...(yt ? { videoDetalle: exacto ? `YouTube · ${segundo}` : "YouTube" } : {}),
+      hudl: corte?.hudl,
+      grafico: admin && dibujable(accion) ? enlaceAccionLab(a) : null,
+    });
+
+    /* Su fila en «Los goles, uno a uno» (abre la lista entera si hace falta). */
+    if (conFila && a.r === "gol") {
+      const clave = claveDe(a);
+
+      opciones.push({
+        clave: "tabla",
+        etiqueta: "Ver en la lista",
+        icono: "tabla",
+        hacer: () => {
+          if (!golesVisibles.some((g) => claveDe(g) === clave)) setTodosGoles(true);
+
+          window.setTimeout(() => irAFila(clave), 60);
+        },
+      });
+    }
+
+    return opciones;
+  };
+
   const nuestro = ranking.find((r) => r.equipo === NOSOTROS);
   const posNuestra = nuestro ? ranking.indexOf(nuestro) + 1 : 0;
 
   return (
     <div className="space-y-4">
+      {menu}
+
       {/* Los filtros */}
       <div className="flex flex-wrap items-center gap-2">
         <Segmented
@@ -556,12 +663,17 @@ export function PanelAbpCategoria() {
           }
         >
           <MediaCampo
+            onPunto={(i, origen) => {
+              const a = enMapa[i];
+
+              if (a) abre(origen, tituloDe(a), opcionesDe(a, true));
+            }}
             puntos={enMapa.map((a, i) => ({
               id: `${a.id}-${a.seg}-${i}`,
               p: (mapa === "caida" ? a.caida : a.remate) as PuntoWy,
               color: a.r !== "gol" ? tinta(0.6) : a.cabeza ? ORO : COMPARADO,
               tenue: a.r !== "gol",
-              titulo: `${a.r === "gol" ? "Gol" : "Remate"} · ${TIPO_TEXTO[a.t]} · ${a.rm ?? ""}${a.eq ? ` (${a.eq})` : ""} · ${a.min}'${a.xg != null ? ` · xG ${dec(a.xg)}` : ""}`,
+              titulo: `${tituloDe(a)}${a.xg != null ? ` · xG ${dec(a.xg)}` : ""}`,
             }))}
             flechas={
               mapa === "caida"
@@ -753,7 +865,7 @@ export function PanelAbpCategoria() {
         <Panel title="Los goles, uno a uno" subtitle={`${nGoles} goles · ${dec(xgGoles, 1)} xG · del más reciente al más antiguo`} icon={ListOrdered} bodyClassName="p-0">
           <ul className="divide-y divide-white/[0.05]">
             {golesVisibles.map((a, i) => (
-              <li key={`${a.id}-${a.seg}-${i}`} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 px-4 py-2.5 text-[12px] sm:px-5">
+              <li key={`${a.id}-${a.seg}-${i}`} data-fila-accion={claveDe(a)} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 px-4 py-2.5 text-[12px] outline-none sm:px-5">
                 <span className="w-20 shrink-0 tabular-nums text-white/40">
                   {fechaCorta(a.fecha)} · {jCorta(a.jornada)}
                 </span>
@@ -768,6 +880,9 @@ export function PanelAbpCategoria() {
                   </span>
                 </span>
                 {a.xg != null && <span className="shrink-0 tabular-nums text-white/50">xG {dec(a.xg)}</span>}
+                <span className="basis-full sm:pl-[5.75rem]">
+                  <BotonesAccion titulo={tituloDe(a)} opciones={opcionesDe(a, false)} />
+                </span>
               </li>
             ))}
           </ul>

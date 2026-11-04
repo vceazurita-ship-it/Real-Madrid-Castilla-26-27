@@ -73,6 +73,21 @@ function reparto(j: JornadaAcciones) {
     .join(" · ");
 }
 
+/**
+ * Una acción de Wyscout como borrador del taller: dibujada, con su relato.
+ * Lo usan «Al taller» y el enlace `?accion=<idPartido>-<seg>` del laboratorio.
+ */
+export function borradorDeAccion(a: Accion, competicion: string, jornada: string, dibujo = rutinaDeAccion(a)): Borrador {
+  return {
+    ...borradorVacio(),
+    nombre: `${a.eq ?? TIPO_ACCION[a.t]} · ${TIPO_ACCION[a.t].toLowerCase()} ${a.min}'`,
+    tipo: dibujo.tipo,
+    idea: relatoDe(a, competicion, jornada),
+    roles: dibujo.roles,
+    balon: dibujo.balon,
+  };
+}
+
 function Tarjeta({
   accion: a,
   puesto,
@@ -94,15 +109,7 @@ function Tarjeta({
 
   const zona = caida && !directo ? ZONA_TEXTO[zonaDe(caida, saque)] : "";
 
-  const alTaller = () =>
-    onAlTaller({
-      ...borradorVacio(),
-      nombre: `${a.eq ?? TIPO_ACCION[a.t]} · ${TIPO_ACCION[a.t].toLowerCase()} ${a.min}'`,
-      tipo: dibujo.tipo,
-      idea: relatoDe(a, competicion.nombre, jornada.etiqueta),
-      roles: dibujo.roles,
-      balon: dibujo.balon,
-    });
+  const alTaller = () => onAlTaller(borradorDeAccion(a, competicion.nombre, jornada.etiqueta, dibujo));
 
   return (
     <article className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">

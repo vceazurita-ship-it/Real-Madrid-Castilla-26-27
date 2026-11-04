@@ -30,7 +30,7 @@
 
 import type { Falta, LadoFalta } from "@/lib/faltas/datos";
 import { TITULO_FILTRO, marcaPieza } from "@/components/faltas/FiltrosCruzados";
-import { CampoZonas, type PuntoCampo } from "@/components/campo/CampoZonas";
+import { CampoZonas, type CampoZonasProps, type PuntoCampo } from "@/components/campo/CampoZonas";
 import { sitioEnCampo } from "@/lib/faltas/lectura";
 
 /* ------------------------------------------------------------------ */
@@ -60,6 +60,8 @@ export type CampoFaltasProps = {
   /** El lado marcado, para la leyenda. */
   ladoMarcado?: LadoFalta | null;
   onCajon?: (zona: string, carril: string) => void;
+  /** Pinchar una falta: el menú de su acción (vídeo, Hudl, su fila). */
+  onPunto?: CampoZonasProps["onPunto"];
   onZona?: (zona: string) => void;
   onCarril?: (carril: string) => void;
   onLado?: (lado: LadoFalta) => void;
@@ -79,6 +81,7 @@ export function CampoFaltas({
   carrilesMarcados = [],
   ladoMarcado = null,
   onCajon,
+  onPunto,
   onZona,
   onCarril,
   onLado,
@@ -121,6 +124,7 @@ export function CampoFaltas({
       zonasMarcadas={zonasMarcadas}
       carrilesMarcados={carrilesMarcados}
       onCajon={onCajon}
+      onPunto={onPunto}
       onZona={onZona}
       onCarril={onCarril}
       cuenta={cuenta}

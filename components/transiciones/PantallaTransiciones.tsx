@@ -76,6 +76,7 @@ import {
   type MetricaComparada,
 } from "@/components/abp/ComparativaPartido";
 import { VerAccion } from "@/components/video/VerAccion";
+import { opcionesDeAccion, useMenuAccion } from "@/components/video/MenuAccion";
 import { CampoZonas, type PuntoCampo } from "@/components/campo/CampoZonas";
 import { PorJugador, SinJugador, type ColumnaJugador } from "@/components/analisis/PorJugador";
 import { CARRILES_CAMPO, ZONAS_CAMPO } from "@/components/faltas/CampoFaltas";
@@ -619,6 +620,8 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
   );
   /** La fila encendida, compartida entre el campo y la tabla. */
   const [resaltado, setResaltado] = useState<string | null>(null);
+  /* El menú de cada punto del campo: su vídeo, Hudl y su fila (04/11/2026). */
+  const { abre: abreMenu, menu: menuAccion } = useMenuAccion();
   const [porcentajes, setPorcentajes] = useState(false);
   const [conDudosos, setConDudosos] = useState(true);
   /* Lo dudoso no es lo mismo en los dos modos (19/10/2026): en robos es la
@@ -1262,6 +1265,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
 
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
+      {menuAccion}
       <div className="flex">
         <Sidebar />
 
@@ -1494,6 +1498,24 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                   <p className="p-4 text-sm text-white/45 sm:p-5">{base.length === 0 ? T.vacio : T.vacioFiltro}</p>
                 ) : (
                   <CampoZonas
+                    onPunto={(id, origen) => {
+                      const r = paraCampo.find((x) => idDe(x) === id);
+
+                      if (!r) return;
+
+                      const opciones = opcionesDeAccion({
+                        video: r.video,
+                        hudl: r.hudlUrl && r.hudl != null ? { url: r.hudlUrl, seg: Math.round(r.hudl) } : null,
+                        fila: robos.some((x) => idDe(x) === id) ? id : null,
+                      });
+
+                      /* Sin vídeo ni fila, el punto hace lo de siempre: filtra su cajón. */
+                      if (!abreMenu(origen, puntosCampo.find((p) => p.id === id)?.titulo.split("\n")[0] ?? "", opciones))
+                        alternaVarios([
+                          ["zona", zonaDe(r)],
+                          ["carril", r.carril],
+                        ]);
+                    }}
                     puntos={puntosCampo}
                     zonas={ZONAS_CAMPO}
                     carriles={CARRILES_CAMPO}
@@ -2033,6 +2055,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                       {robos.map((r) => (
                         <tr
                           key={idDe(r)}
+                          data-fila-accion={idDe(r)}
                           onMouseEnter={() => setResaltado(idDe(r))}
                           onMouseLeave={() => setResaltado(null)}
                           className={`border-b border-white/5 align-top hover:bg-white/[0.02] ${
