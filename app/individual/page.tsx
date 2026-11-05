@@ -61,6 +61,7 @@ import { useSaveGuard } from "@/hooks/useSaveGuard";
 import { useBodyScrollLock } from "@/components/season/useBodyScrollLock";
 import { PlayerRatingsTab } from "@/components/ratings/PlayerRatingsTab";
 import { useRatingsSeason } from "@/hooks/useRatings";
+import { AreaMejora } from "@/components/individual/AreaMejora";
 import { playerEntries } from "@/lib/ratings/compute";
 import { getPlayerImage, PLAYER_PHOTO_FALLBACK } from "@/lib/playerImages";
 import { isHiddenPlayer } from "@/lib/hiddenPlayers";
@@ -201,6 +202,7 @@ type TabKey =
   | "perfil"
   | "seguimiento"
   | "valoraciones"
+  | "mejora"
   | "videos"
   | "informe";
 
@@ -1667,6 +1669,7 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "perfil", label: "Perfil" },
   { key: "seguimiento", label: "Seguimiento" },
   { key: "valoraciones", label: "Valoraciones" },
+  { key: "mejora", label: "Área de mejora" },
   { key: "videos", label: "Vídeos" },
   { key: "informe", label: "Informe" },
 ];
@@ -4160,6 +4163,10 @@ export default function IndividualPage() {
                     )}
 
                     {/* ---------- VALORACIONES ---------- */}
+
+                    {activeTab === "mejora" && (
+                      <AreaMejora nombre={selected.name} idJugador={selected.idJugador} ratings={ratingsSeason ?? null} />
+                    )}
 
                     {activeTab === "valoraciones" && (
                       <div className="min-w-0 space-y-5">
