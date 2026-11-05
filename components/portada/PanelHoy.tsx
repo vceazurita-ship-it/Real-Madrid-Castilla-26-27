@@ -26,7 +26,6 @@ import {
   Clock3,
   FileText,
   ListChecks,
-  PenTool,
   Scissors,
   Send,
   ShieldAlert,
@@ -58,8 +57,8 @@ type Herramienta = { href: string; titulo: string; desc: string; icono: LucideIc
 
 const MESA: Herramienta[] = [
   { href: "/coding", titulo: "Coding", desc: "Marcar el partido y cortar clips", icono: Scissors, soloAdmin: true },
-  { href: "/abp-pizarra", titulo: "Pizarra ABP", desc: "Rutinas, PDF y vídeo por jugador", icono: PenTool },
-  { href: "/pizarra-tactica", titulo: "Pizarra táctica", desc: "Los dos onces, a pantalla completa", icono: SquareKanban, completa: true },
+  /* Pizarra ABP y Pizarra táctica ya están en el bloque del partido (05/11/2026). */
+  { href: "/jugadores-sesion", titulo: "Jugadores sesión", desc: "Equipos de cada tarea del día", icono: SquareKanban },
   { href: "/microcycles", titulo: "Informes", desc: "Previa y post del partido", icono: FileText },
   { href: "/data-analisis", titulo: "Data análisis", desc: "Wyscout y Opta del grupo", icono: BarChart3 },
   { href: "/individual", titulo: "Individual", desc: "Fichas y seguimiento", icono: User },
@@ -328,7 +327,7 @@ function MesaDeTrabajo({ admin }: { admin: boolean }) {
       </p>
 
       {/* La que queda sola ocupa la fila (02/11/2026): a lo ancho en el móvil y, en la tableta, las de la última fila se reparten el hueco. */}
-      <div className={`mt-3 grid grid-cols-2 gap-2 [&>*:last-child:nth-child(odd)]:col-span-2 sm:flex sm:flex-wrap sm:[&>*]:min-w-[30%] sm:[&>*]:flex-1 ${admin ? "" : "lg:grid lg:grid-cols-5"}`}>
+      <div className={`mt-3 grid grid-cols-2 gap-2 [&>*:last-child:nth-child(odd)]:col-span-2 ${admin ? "lg:grid-cols-5 lg:[&>*:last-child:nth-child(odd)]:col-span-1" : "lg:grid-cols-4"}`}>
         {herramientas.map((h) => {
           const Icono = h.icono;
 

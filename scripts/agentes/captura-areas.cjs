@@ -32,6 +32,8 @@ const GRUPOS = {
   foco: ["/", "/scout-rival-abp?vista=coding", "/rivals"],
   /* Segunda ronda dirigida (29/10/2026): plan de partido, scout del rival y quiniela. */
   foco2: ["/match-preparation", "/scout-rival-collective", "/scout-rival-individual", "/quiniela"],
+  /* Ronda dirigida y barata (05/11/2026): portada y jugadores sesión hacia el 9,5. */
+  foco3: ["/", "/jugadores-sesion"],
 };
 module.exports = { GRUPOS };
 if (require.main !== module) return;

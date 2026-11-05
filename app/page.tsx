@@ -611,13 +611,16 @@ export default function Home() {
 
                       {resumenData?.xg != null && (
                         <p className="mt-3 border-t border-white/10 pt-2 text-[12px] leading-snug" style={{ color: "rgba(255,255,255,.75)" }}>
-                          Nosotros: {coma(resumenData.xg, 2)} esperados por partido
+                          Nosotros: {coma(resumenData.xg, 2)} goles esperados por partido
+                          {/* En palabras (05/11/2026): «−0,72 frente a lo esperado» no se entendía. */}
                           {resumenData.golesMenosXg != null &&
-                            ` · ${(() => {
+                            (() => {
                               const d = golesFrenteXg(resumenData.xg, resumenData.golesMenosXg, resumenData.partidos).diferencia;
 
-                              return `${d >= 0 ? "+" : "−"}${coma(Math.abs(d), 2)}`;
-                            })()} goles por partido frente a lo esperado`}
+                              if (Math.abs(d) < 0.005) return "; marcamos lo que generamos";
+
+                              return `; marcamos ${coma(Math.abs(d), 2)} ${d >= 0 ? "más" : "menos"} por partido de lo que generamos`;
+                            })()}
                         </p>
                       )}
                     </div>
@@ -802,11 +805,12 @@ export default function Home() {
                             value: seguimientos,
                             /* Con su base (30/10/2026): sin ella el 34 no se entendía sin leer el pie. */
                             caption: [
-                              totalJugadores ? `de ${totalJugadores} jugadores` : "",
+                              /* «41 de 18 jugadores» se leía como un error (05/11/2026). */
+                              totalJugadores ? `a ${totalJugadores} jugadores` : "",
                               ultimos30Dias === seguimientos ? `${ultimos7Dias} esta semana` : `${ultimos30Dias} en los últimos 30 días`,
                             ]
                               .filter(Boolean)
-                              .join(", "),
+                              .join(" · "),
                             destino: "Calendario Seguimiento",
                             loading: loadingSeguimiento,
                             icon: Activity,

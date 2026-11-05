@@ -679,7 +679,11 @@ export function valida(tarea: TareaEquipos, sesion: SesionEquipos, puestoDe: Pue
   if (tarea.comodines > 0 && r.comodines.length !== tarea.comodines) {
     avisos.push({
       nivel: "aviso",
-      texto: `Comodines: ${r.comodines.length} de ${tarea.comodines}`,
+      /* Con lo que hay que hacer (05/11/2026): «Comodines: 3 de 2» no lo decía. */
+      texto:
+        r.comodines.length > tarea.comodines
+          ? `Hay ${r.comodines.length} comodines y la tarea lleva ${tarea.comodines}: pasa ${r.comodines.length - tarea.comodines === 1 ? "uno" : r.comodines.length - tarea.comodines} a un equipo o pulsa «Otra propuesta»`
+          : `Faltan ${tarea.comodines - r.comodines.length === 1 ? "un comodín" : `${tarea.comodines - r.comodines.length} comodines`} (la tarea lleva ${tarea.comodines}): arrastra a alguien a la caja de comodines o pulsa «Otra propuesta»`,
     });
   } else if (tarea.comodines === 0 && r.comodines.length > 0) {
     avisos.push({ nivel: "aviso", texto: `Hay ${r.comodines.length} comodín(es) en una tarea sin comodines` });
@@ -817,6 +821,19 @@ export function completaReparto(
   const grupo = (j: JugadorSesion) => puestoDe.grupo?.(j) ?? linea(j);
 
   let cola = baraja(r.sinSitio, azar);
+
+  /* Los comodines que sobran vuelven a repartirse (05/11/2026): al bajar de 3
+     a 2, el tercero se quedaba de comodín y un equipo con un hueco libre. Se
+     queda de comodín quien menos veces lo ha sido. */
+  if (r.comodines.length > tarea.comodines) {
+    const sobran = [...r.comodines]
+      .sort((a, b) => (vecesComodin[b.id] ?? 0) - (vecesComodin[a.id] ?? 0))
+      .slice(0, r.comodines.length - tarea.comodines);
+
+    for (const j of sobran) delete sitio[j.id];
+
+    cola = [...cola, ...sobran];
+  }
 
   /* Comodines: medios primero, después cualquiera que no sea portero. */
   let faltanComodines = Math.max(0, tarea.comodines - r.comodines.length);

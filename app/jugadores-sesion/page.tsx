@@ -811,7 +811,8 @@ function EstructuraEquipo({
           className={`shrink-0 whitespace-nowrap rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${deCampo === total && !descompensado ? "bg-emerald-400/10 text-emerald-300/90" : "bg-amber-400/10 text-amber-300/90"}`}
           title={descompensado ? "Los huecos están llenos, pero las líneas no van parejas entre equipos: mira el validador" : "Jugadores de campo del equipo / huecos del dibujo (el portero no se dibuja)"}
         >
-          {deCampo}/{total} huecos
+          {/* Sin la palabra (05/11/2026): «9/10 huecos» se partía en «hueco s»; lo explica el title. */}
+          {deCampo}/{total}
         </span>
       </div>
 
@@ -968,6 +969,18 @@ function Paleta({ valor, onElige, onCierra }: { valor: string; onElige: (c: stri
       ))}
     </div>
   );
+}
+
+/** «CASTILLA SABADO» de la hoja → «Castilla sábado» (05/11/2026). */
+function tituloLegible(texto: string) {
+  const base = texto === texto.toUpperCase() && /[A-ZÁÉÍÓÚÑ]{3}/.test(texto) ? texto.toLowerCase() : texto;
+  const conTildes = base
+    .replace(/\bsabado\b/gi, (m) => (m[0] === "S" ? "Sábado" : "sábado"))
+    .replace(/\bmiercoles\b/gi, (m) => (m[0] === "M" ? "Miércoles" : "miércoles"))
+    .replace(/\bcompetcion\b|\bcompeticion\b/gi, "competición")
+    .replace(/\bsesion\b/gi, (m) => (m[0] === "S" ? "Sesión" : "sesión"));
+
+  return conTildes.charAt(0).toUpperCase() + conTildes.slice(1);
 }
 
 function Muestra({ color, onCambia, titulo }: { color: string; onCambia: (c: string) => void; titulo: string }) {
@@ -2990,13 +3003,17 @@ export default function JugadoresSesionPage() {
                       const opciones = grupo.sesiones.map(({ s }) => {
                         /* 29/10/2026: una sesión sin título lleva SIEMPRE su fecha («Sesión · 15 oct»);
                            sola entre dos fechas parecía un separador. Las repetidas, igual. */
-                        const repetida = sesiones.filter((o) => o.titulo === s.titulo).length > 1;
                         const sinTitulo = !s.titulo || s.titulo === "Sesión";
                         /* 30/10/2026: sin fecha de sesión, la del día en que se creó; el «nº 7» se colaba entre fechas. */
                         const dia = s.fecha ? `${s.fecha}T12:00:00` : s.creadaEn;
                         const cuando = dia ? new Date(dia) : null;
-                        const fechaCorta = cuando && !Number.isNaN(cuando.getTime()) ? cuando.toLocaleDateString("es-ES", { day: "numeric", month: "short" }) : "";
-                        const etiqueta = repetida || sinTitulo ? (fechaCorta ? `${s.titulo || "Sesión"} · ${fechaCorta}` : s.titulo || "Sesión") : s.titulo;
+                        /* 05/11/2026: todas con el mismo patrón, «jue 29/10 · Castilla sábado»: la
+                           fecha delante y el título de la hoja en letra normal y con tildes. */
+                        const fechaCorta = cuando && !Number.isNaN(cuando.getTime())
+                          ? cuando.toLocaleDateString("es-ES", { weekday: "short", day: "2-digit", month: "2-digit" }).replace(",", "")
+                          : "";
+                        const titulo = sinTitulo ? "" : tituloLegible(s.titulo);
+                        const etiqueta = [fechaCorta, titulo].filter(Boolean).join(" · ") || "Sesión";
 
                         return (
                           <option key={s.id} value={s.id} className="bg-[#11161C]">
@@ -3272,7 +3289,8 @@ export default function JugadoresSesionPage() {
                           irATarea(i);
                           setElegido(null);
                         }}
-                        title={`${t.nombre}: ${suyos.filter((a) => a.nivel === "error" || a.nivel === "aviso").map((a) => a.texto).join(" · ") || "lista"}. Arrástrala para cambiar el orden.`}
+                        /* El código del microciclo y el porqué del punto, en el title (05/11/2026): visibles eran ruido. */
+                        title={`${t.nombre}${enlacePlan[i] != null && planSesion[enlacePlan[i] as number]?.codigo ? ` (${planSesion[enlacePlan[i] as number]?.codigo} en el microciclo)` : ""}. ${!tareaLista(suyos) ? "Punto rojo: falta algo" : suyos.some((a) => a.nivel === "aviso") ? "Punto ámbar: con avisos" : "Punto verde: lista"}${suyos.some((a) => a.nivel === "error" || a.nivel === "aviso") ? ` (${suyos.filter((a) => a.nivel === "error" || a.nivel === "aviso").map((a) => a.texto).join(" · ")})` : ""}. Arrástrala para cambiar el orden.`}
                         aria-label={`Tarea ${i + 1}: ${t.nombre}. ${!tareaLista(suyos) ? "Hay algo que corregir" : suyos.some((a) => a.nivel === "aviso") ? "Con avisos" : "Lista"}`}
                         aria-current={i === activa ? "true" : undefined}
                         className={`flex min-w-0 cursor-grab items-center gap-2 rounded-xl border px-3 py-2 text-left transition active:cursor-grabbing ${
@@ -3286,18 +3304,13 @@ export default function JugadoresSesionPage() {
                         <span className="max-w-[170px] truncate text-[12px] font-semibold uppercase tracking-wide">
                           {i + 1}. {t.nombre}
                         </span>
-                        {/* Su tarea del microciclo y, si el análisis la midió, su resultado (24/10/2026). */}
-                        {enlacePlan[i] !== null && enlacePlan[i] !== undefined ? (
-                          <span className="shrink-0 text-[10px] font-semibold text-[#C8A96B]/80" title="La tarea del microciclo">
-                            {planSesion[enlacePlan[i] as number]?.codigo}
-                          </span>
-                        ) : null}
+                        {/* Si el análisis la midió, su resultado (24/10/2026). */}
                         {(() => {
                           const r = resultadosDe(i);
                           const pct = r.map((x) => x.porcentaje).filter(Boolean)[0];
 
                           return r.length && pct ? (
-                            <span className={`shrink-0 text-[10px] font-semibold ${r.some((x) => x.cumple === false) ? "text-amber-300" : r.some((x) => x.cumple === true) ? "text-emerald-300" : "text-white/55"}`} title={r.map((x) => `${x.objetivo}: ${x.lectura}`).join("\n")}>
+                            <span className={`shrink-0 text-[12px] font-semibold ${r.some((x) => x.cumple === false) ? "text-amber-300" : r.some((x) => x.cumple === true) ? "text-emerald-300" : "text-white/55"}`} title={r.map((x) => `${x.objetivo}: ${x.lectura}`).join("\n")}>
                               {pct}
                             </span>
                           ) : null;
@@ -3327,7 +3340,7 @@ export default function JugadoresSesionPage() {
                     onCambia={setVista}
                     opciones={[
                       { clave: "equipos", label: "Equipos", icono: UsersRound },
-                      { clave: "diapositivas", label: "Diapositivas", corto: "Diapos", icono: Expand, cuenta: sesion.tareas.length },
+                      { clave: "diapositivas", label: "Diapositivas", icono: Expand, cuenta: sesion.tareas.length },
                       { clave: "plantilla", label: "Plantilla del día", corto: "Plantilla", icono: Repeat2, cuenta: sesion.jugadores.length },
                     ]}
                   />
@@ -3349,7 +3362,7 @@ export default function JugadoresSesionPage() {
                     {fase === "inicio" && (
                       <div className="js-rapido flex min-w-0 flex-col gap-2.5 rounded-2xl border border-[#C8A96B]/25 bg-gradient-to-r from-[#C8A96B]/[0.08] via-white/[0.02] to-transparent p-3">
                         <div className="flex min-w-0 flex-wrap items-center gap-2">
-                          <span className="flex shrink-0 items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-[#C8A96B]">
+                          <span className="flex shrink-0 items-center gap-1.5 text-[12px] font-bold uppercase tracking-[0.18em] text-[#C8A96B]">
                             <Zap size={13} /> En un toque
                           </span>
                           <div className="flex min-w-0 flex-wrap gap-1.5">
@@ -3383,7 +3396,7 @@ export default function JugadoresSesionPage() {
 
                         {(ultimaVez || fuentesCopia.length > 0) && (
                           <div className="flex min-w-0 flex-wrap items-center gap-2">
-                            <span className="flex shrink-0 items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-white/50">
+                            <span className="flex shrink-0 items-center gap-1.5 text-[12px] font-bold uppercase tracking-[0.18em] text-white/60">
                               <History size={13} /> Repetir reparto
                             </span>
                             {ultimaVez && (
@@ -3412,10 +3425,11 @@ export default function JugadoresSesionPage() {
                                     Copiar de otra tarea…
                                   </option>
                                   {fuentesCopia.map((g) => (
-                                    <optgroup key={g.sesion.id} label={g.sesion.id === sesion.id ? "Hoy" : `${g.sesion.titulo || "Sesión"} · ${fechaCorta(g.sesion)}`} className="bg-[#11161C]">
+                                    <optgroup key={g.sesion.id} label={g.sesion.id === sesion.id ? "Hoy" : `${fechaCorta(g.sesion)}${g.sesion.titulo && g.sesion.titulo !== "Sesión" ? ` · ${tituloLegible(g.sesion.titulo)}` : ""}`} className="bg-[#11161C]">
                                       {g.tareas.map((t) => (
                                         <option key={t.id} value={`${g.sesion.id}::${t.id}`} className="bg-[#11161C]">
-                                          {t.nombre} · {t.equipos.length} {t.equipos.length === 1 ? "equipo" : "equipos"}
+                                          {/* Con la fecha (05/11/2026): «Ataque - Defensa · 2 equipos» salía cuatro veces igual. */}
+                                          {g.sesion.id === sesion.id ? "Hoy" : fechaCorta(g.sesion)} · {t.nombre} · {t.equipos.length} {t.equipos.length === 1 ? "equipo" : "equipos"}
                                           {t.comodines ? ` + ${t.comodines}` : ""}
                                         </option>
                                       ))}

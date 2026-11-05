@@ -510,11 +510,11 @@ export function ProximoPartido() {
                 onClick={() =>
                   setDiaAbierto({ fecha: diaDeHoy.fecha, nombre: diaDeHoy.nombre, rotulo: diaDeHoy.rotulo })
                 }
-                title={sesionDeHoy.join(" · ")}
+                title={`${/^MD-(\d+)$/.test(diaDeHoy.rotulo) ? `${diaDeHoy.rotulo}: ${diaDeHoy.rotulo.slice(3)} ${diaDeHoy.rotulo === "MD-1" ? "día" : "días"} antes del partido. ` : ""}${sesionDeHoy.join(" · ")}`}
                 className="group mt-3 flex w-full max-w-full items-center justify-between gap-2 rounded-xl border border-[#D8B45A]/50 bg-[#D8B45A]/10 px-4 py-2.5 text-left text-[13px] font-semibold text-[#F7D98B] transition hover:-translate-y-0.5 hover:bg-[#D8B45A]/20 sm:inline-flex sm:w-auto"
               >
                 <span className="min-w-0">
-                  Hoy {diaDeHoy.rotulo} · {sesionDeHoy.slice(0, 2).join(" + ")}
+                  Hoy {diaDeHoy.rotulo} · {sesionDeHoy.slice(0, 2).join(", ")}
                   {sesionDeHoy.length > 2 && ` y ${sesionDeHoy.length - 2} más`}
                 </span>
                 <ChevronRight className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
@@ -662,7 +662,8 @@ export function ProximoPartido() {
           */
           /* En el móvil, una fila que se desliza (02/11/2026): la rejilla de dos por fila alargaba la portada y se veía tosca. */
           const fila = (rotulo: string, atajos: { href: string; texto: string; title?: string }[]) => (
-            <div className="-mx-1 flex min-w-0 items-center gap-1.5 overflow-x-auto px-1 pb-0.5 sin-barra sm:flex-wrap sm:overflow-visible [&>a]:shrink-0 [&>a]:whitespace-nowrap">
+            /* Baja de línea también en el móvil (05/11/2026): al deslizarse, «Individual» se cortaba en «In…» sin aviso. */
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5 [&>a]:shrink-0 [&>a]:whitespace-nowrap">
               <span className="mr-1 shrink-0 text-[12px] font-semibold uppercase tracking-[0.18em] text-white/65">
                 {rotulo}
               </span>

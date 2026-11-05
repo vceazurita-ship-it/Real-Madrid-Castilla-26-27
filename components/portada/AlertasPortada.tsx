@@ -217,19 +217,10 @@ export function AlertasPortada({
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <Cuenta color={VERDE} icono={TrendingUp} cuantas={buenas.length} rotulo="a favor" />
+              {/* Las cuentas son los botones (05/11/2026): «+6 más» repetía lo que ya contaban. */}
+              <Cuenta color={VERDE} icono={TrendingUp} cuantas={buenas.length} rotulo="a favor" alPulsar={() => setAbierto(true)} />
 
-              <Cuenta color={NARANJA} icono={TrendingDown} cuantas={malas.length} rotulo="a vigilar" />
-
-              <button
-                type="button"
-                onClick={() => setAbierto(true)}
-                className="group inline-flex items-center gap-1.5 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3.5 py-2 text-[12px] font-medium text-[#C8A96B] transition hover:border-[#C8A96B]/70 hover:bg-[#C8A96B]/20"
-              >
-                {/* Lo que queda fuera, dicho (30/10/2026): «Ver las 10» con cuatro a la vista. */}
-                {alertas.length > enLaTira.length ? `+${alertas.length - enLaTira.length} más` : "Ver el detalle"}
-                <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-              </button>
+              <Cuenta color={NARANJA} icono={TrendingDown} cuantas={malas.length} rotulo="a vigilar" alPulsar={() => setAbierto(true)} />
             </div>
           </div>
 
@@ -262,7 +253,7 @@ export function AlertasPortada({
                   {/* La cifra en grande y la base debajo, en su línea (30/10/2026). */}
                   <span className="min-w-0">
                     <span className="line-clamp-2 block text-[13px] font-medium leading-snug text-white/85">
-                      {alerta.valor ? alerta.rotulo ?? alerta.titulo : alerta.titulo}
+                      {sinSiglas(alerta.valor ? alerta.rotulo ?? alerta.titulo : alerta.titulo)}
                     </span>
 
                     {alerta.valor && (
@@ -305,15 +296,21 @@ function Cuenta({
   icono: Icono,
   cuantas,
   rotulo,
+  alPulsar,
 }: {
   color: string;
   icono: typeof TrendingUp;
   cuantas: number;
   rotulo: string;
+  alPulsar: () => void;
 }) {
+  if (!cuantas) return null;
+
   return (
-    <span
-      className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[12px] font-medium tabular-nums"
+    <button
+      type="button"
+      onClick={alPulsar}
+      className="group inline-flex min-h-[36px] items-center gap-1.5 rounded-xl border px-3 py-2 text-[12px] font-medium tabular-nums transition hover:brightness-125"
       style={{
         borderColor: `${color}55`,
         background: `${color}14`,
@@ -323,10 +320,22 @@ function Cuenta({
       }}
     >
       <Icono className="h-3.5 w-3.5" />
-      {cuantas} {rotulo}
-    </span>
+      Ver {cuantas} {rotulo}
+      <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+    </button>
   );
 }
+
+/* Las siglas, en palabras en el titular (05/11/2026): «Roberto Martín · xA». */
+const SIGLAS: Record<string, string> = {
+  xG: "goles esperados (xG)",
+  xA: "asistencias esperadas (xA)",
+  xGA: "goles esperados en contra (xGA)",
+  npxG: "goles esperados sin penaltis (npxG)",
+  PPDA: "pases por acción defensiva (PPDA)",
+};
+
+const sinSiglas = (texto: string) => texto.replace(/\b(npxG|xGA|xG|xA|PPDA)\b(?!\))/g, (s) => SIGLAS[s] ?? s);
 
 /**
  * El pop-up.

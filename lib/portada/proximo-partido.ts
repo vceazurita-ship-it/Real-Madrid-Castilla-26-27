@@ -86,6 +86,9 @@ export async function contenidosDelDia(fecha: string): Promise<string[]> {
   const colFecha = titulos.findIndex((t) => t.startsWith("fecha"));
   const colContenido = titulos.findIndex((t) => t.startsWith("contenido principal") || t.startsWith("contenido p"));
   const colTarea = titulos.findIndex((t) => t === "tarea" || t.startsWith("tarea"));
+  /* Sin contenido escrito todavía, el tipo («Ataque - Defensa») antes que el
+     código de la tarea («J-T1»), que no dice nada (05/11/2026). */
+  const colTipo = titulos.findIndex((t) => t === "tipo tarea" || t.startsWith("tipo tarea"));
 
   if (colFecha < 0) return [];
 
@@ -95,7 +98,11 @@ export async function contenidosDelDia(fecha: string): Promise<string[]> {
   for (const fila of filas.slice(cabecera + 1)) {
     if (fechaIsoDeHoja(fila?.[colFecha]) !== fecha) continue;
 
-    const texto = String((colContenido >= 0 ? fila?.[colContenido] : "") || (colTarea >= 0 ? fila?.[colTarea] : "") || "").trim();
+    const crudo = String(
+      (colContenido >= 0 ? fila?.[colContenido] : "") || (colTipo >= 0 ? fila?.[colTipo] : "") || (colTarea >= 0 ? fila?.[colTarea] : "") || "",
+    ).trim();
+    /* «ATAQUE - DEFENSA» de la hoja, en letra normal. */
+    const texto = crudo === crudo.toUpperCase() && /[A-ZÁÉÍÓÚÑ]{3}/.test(crudo) ? crudo.toLowerCase() : crudo;
     const clave = texto.toLowerCase();
 
     if (!texto || vistos.has(clave)) continue;
