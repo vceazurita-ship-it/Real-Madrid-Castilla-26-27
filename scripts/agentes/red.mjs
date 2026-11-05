@@ -436,6 +436,7 @@ async function main() {
       foco: ["experto-futbol", "experto-analisis", "experto-marketing"],
       foco2: ["experto-futbol", "experto-analisis", "experto-marketing"],
       foco3: ["experto-futbol", "experto-marketing"],
+      foco4: ["experto-futbol", "experto-analisis"],
     };
     const solo = valor("grupo")?.split(",");
     const trabajos = [];

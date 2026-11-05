@@ -1544,7 +1544,7 @@ function PlayerCard({
     .join("");
   /* 30/10/2026: el pie sale en todas en cuanto llegan los seguimientos
      (también con 0), para que ninguna ficha quede más baja que las demás. */
-  const hayFooter = player.sessions !== null;
+  const hayFooter = (player.sessions ?? 0) > 0 || Boolean(player.videos) || Boolean(player.hasReport);
 
   return (
     <button
@@ -1584,7 +1584,8 @@ function PlayerCard({
           />
         )}
 
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0B0F14] via-[#0B0F14]/25 to-transparent" />
+        {/* Más oscuro abajo (05/11/2026): el nombre se perdía sobre el patrocinador de la camiseta. */}
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0B0F14] from-10% via-[#0B0F14]/55 via-35% to-transparent to-60%" />
 
         {player.externo && (
           <span className="absolute right-1.5 top-1.5 rounded-full bg-[#C8A96B] px-1.5 py-0.5 text-[8px] font-bold uppercase text-black">
@@ -1611,19 +1612,7 @@ function PlayerCard({
               {coma(player.score)} competencias
             </span>
           </span>
-        ) : (
-          /* 30/10/2026: sin ficha de scout lo dice, para que no parezca una carga fallida. */
-          <span
-            className="absolute left-1.5 top-1.5 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold"
-            style={{
-              background: "rgba(0,0,0,0.78)",
-              color: "rgba(255,255,255,0.85)",
-              borderColor: "rgba(255,255,255,0.25)",
-            }}
-          >
-            sin ficha
-          </span>
-        )}
+        ) : null /* 05/11/2026: sin ficha no se rotula (lo que no tiene dato no se nombra). */}
 
         <div className="absolute inset-x-0 bottom-0 min-w-0 p-2.5">
           <h3 className="truncate text-sm font-semibold leading-tight">
@@ -1637,14 +1626,15 @@ function PlayerCard({
       </div>
 
       {hayFooter && (
-        <div className="flex min-w-0 items-center justify-start gap-3 border-t border-white/10 bg-white/[0.02] px-2.5 py-2">
-          {player.sessions !== null && (
+        <div className="flex min-w-0 flex-wrap items-center justify-start gap-x-3 gap-y-1 border-t border-white/10 bg-white/[0.02] px-2.5 py-2">
+          {/* Rotulado y con su fecha (05/11/2026): «21» solo junto a una carpeta no decía qué contaba. */}
+          {(player.sessions ?? 0) > 0 && (
             <span
-              className="flex items-center gap-1 text-[10px] tabular-nums text-white/60"
+              className="flex min-w-0 items-center gap-1 whitespace-nowrap text-[11px] tabular-nums text-white/65"
               title={`${player.sessions} seguimientos en la temporada`}
             >
-              <ClipboardList size={11} />
-              {player.sessions}
+              <ClipboardList size={11} className="shrink-0" />
+              {`${player.sessions} seguim.${player.lastSession ? ` · último ${player.lastSession.toLocaleDateString("es-ES", { day: "numeric", month: "numeric" })}` : ""}`}
             </span>
           )}
 
@@ -2061,22 +2051,28 @@ export default function IndividualPage() {
   }, []);
 
   const stats = useMemo(() => {
-    const rated = mergedPlayers.filter((p) => p.score > 0);
+    /* Las cifras siguen al filtro Todos / Castilla / Otros (05/11/2026): con
+       «Castilla» marcaban 45 jugadores y la media de todos. */
+    const todos = teamFilter === "todos";
+    const enFiltro = todos ? mergedPlayers : mergedPlayers.filter((p) => (teamFilter === "castilla" ? !p.externo : p.externo));
 
-    const ultimas = mergedPlayers
+    const rated = enFiltro.filter((p) => p.score > 0);
+
+    const ultimas = enFiltro
       .map((p) => p.lastSession?.getTime() ?? 0)
       .filter((t) => t > 0);
 
     return {
-      players: mergedPlayers.length,
+      todos,
+      players: enFiltro.length,
       /* La cohorte de lib/fichajes, la misma que el Dashboard Plantilla. */
       castilla: cohorteCastilla(mergedPlayers, (p) => p.name, (p) => (p.externo ? "otro" : undefined)).length,
       ratedCastilla: rated.filter((p) => !p.externo).length,
       ultimoRegistro: ultimas.length ? new Date(Math.max(...ultimas)) : null,
       externos: mergedPlayers.filter((p) => p.externo).length,
       rated: rated.length,
-      tracked: mergedPlayers.filter((p) => (p.sessions ?? 0) > 0).length,
-      sessions: trackingData.length,
+      tracked: enFiltro.filter((p) => (p.sessions ?? 0) > 0).length,
+      sessions: todos ? trackingData.length : enFiltro.reduce((n, p) => n + (p.sessions ?? 0), 0),
       videos: videoData.length,
       reports: reportData.length,
       withVideos: mergedPlayers.filter((p) => (p.videos ?? 0) > 0).length,
@@ -2085,7 +2081,7 @@ export default function IndividualPage() {
         ? rated.reduce((acc, p) => acc + p.score, 0) / rated.length
         : 0,
     };
-  }, [mergedPlayers, trackingData, videoData, reportData]);
+  }, [mergedPlayers, trackingData, videoData, reportData, teamFilter]);
 
   /* 30/10/2026: la misma regla que /calendar y /individual_proc
      (lib/seguimiento): jugadores de campo del Castilla sin ningún registro
@@ -3264,6 +3260,31 @@ export default function IndividualPage() {
                 </div>
               )}
 
+              {/* SIN SEGUIMIENTO EN 14 DÍAS (misma regla que /calendar) */}
+              {sinSeguimiento.length > 0 && (
+                <div
+                  role="status"
+                  className="mt-6 rounded-xl border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-4 py-3 text-sm text-white/80"
+                >
+                  <span className="font-semibold text-[#C8A96B]">
+                    A quién toca seguir: {sinSeguimiento.length} del Castilla sin seguimiento en {DIAS_SIN_SEGUIMIENTO} días (jugadores de campo, sin contar porteros):
+                  </span>{" "}
+                  {sinSeguimiento.map((j, i) => (
+                    <span key={j.id}>
+                      <button
+                        type="button"
+                        onClick={() => openPlayer(j.jugador)}
+                        className="underline decoration-white/25 underline-offset-2 hover:text-[#C8A96B]"
+                      >
+                        {j.nombre}
+                      </button>
+                      {i < sinSeguimiento.length - 1 ? ", " : "."}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+
               {/* INDICADORES */}
 
               <div className="mt-6 grid min-w-0 grid-cols-2 gap-3 md:grid-cols-3 [&>*:last-child:nth-child(odd)]:col-span-2 md:[&>*:last-child:nth-child(odd)]:col-span-1">
@@ -3277,7 +3298,7 @@ export default function IndividualPage() {
                   hint={
                     pendiente.seguimiento
                       ? "cargando los seguimientos…"
-                      : `${stats.castilla} del Castilla + ${stats.externos} de otros equipos · ${stats.tracked} de ${stats.players} con algún seguimiento en la temporada`
+                      : `${stats.todos ? `${stats.castilla} del Castilla + ${stats.externos} de otros equipos · ` : base.de ? `${base.de.trim()} · ` : ""}${stats.tracked} de ${stats.players} con algún seguimiento en la temporada`
                   }
                 />
 
@@ -3288,7 +3309,7 @@ export default function IndividualPage() {
                   hint={
                     pendiente.seguimiento
                       ? "cargando los seguimientos…"
-                      : `registros en la temporada, de todos los jugadores${
+                      : `registros en la temporada, ${stats.todos ? "de todos los jugadores" : `de los jugadores${base.de}`}${
                           stats.ultimoRegistro
                             ? ` · último: ${stats.ultimoRegistro.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit" })}`
                             : ""
@@ -3301,7 +3322,7 @@ export default function IndividualPage() {
                     icon={Gauge}
                     label="Media competencias"
                     value={stats.avg.toFixed(1).replace(".", ",")}
-                    hint={`de ${stats.rated} con ficha de scout (${stats.ratedCastilla} del Castilla) · sobre 10 · no es la nota de partido`}
+                    hint={`de ${stats.rated} con ficha de scout${stats.todos ? ` (${stats.ratedCastilla} del Castilla)` : base.de} · sobre 10 · no es la nota de partido`}
                   />
                 )}
               </div>
@@ -3320,33 +3341,15 @@ export default function IndividualPage() {
                 </p>
               )}
 
-              {/* SIN SEGUIMIENTO EN 14 DÍAS (misma regla que /calendar) */}
-              {sinSeguimiento.length > 0 && (
-                <div
-                  role="status"
-                  className="mt-4 rounded-xl border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-4 py-3 text-sm text-white/80"
-                >
-                  <span className="font-semibold text-[#C8A96B]">
-                    Sin seguimiento en {DIAS_SIN_SEGUIMIENTO} días, hasta hoy ({sinSeguimiento.length}):
-                  </span>{" "}
-                  {sinSeguimiento.map((j, i) => (
-                    <span key={j.id}>
-                      <button
-                        type="button"
-                        onClick={() => openPlayer(j.jugador)}
-                        className="underline decoration-white/25 underline-offset-2 hover:text-[#C8A96B]"
-                      >
-                        {j.nombre}
-                      </button>
-                      {i < sinSeguimiento.length - 1 ? ", " : "."}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              <p className="mt-3 text-[11px] leading-relaxed text-white/45">
-                La cifra sobre cada foto es la media de sus cinco competencias
-                del scout (sobre 10), no la nota de partido de Valoraciones.
+              {/* Leyenda del distintivo (05/11/2026), en vez de la nota que repetía la tarjeta de la media. */}
+              <p className="mt-3 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-white/55">
+                <span>Competencias del scout, sobre 10 (no es la nota de partido):</span>
+                {([[8, "8 o más"], [6.5, "6,5 a 8"], [5, "5 a 6,5"], [0, "menos de 5"]] as const).map(([v, t]) => (
+                  <span key={t} className="inline-flex items-center gap-1">
+                    <span aria-hidden className="h-2 w-2 rounded-full" style={{ background: scoreColorHex(v) }} />
+                    {t}
+                  </span>
+                ))}
               </p>
 
               {/* FILTROS */}

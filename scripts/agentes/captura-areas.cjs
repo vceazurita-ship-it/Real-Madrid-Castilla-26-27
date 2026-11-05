@@ -34,6 +34,7 @@ const GRUPOS = {
   foco2: ["/match-preparation", "/scout-rival-collective", "/scout-rival-individual", "/quiniela"],
   /* Ronda dirigida y barata (05/11/2026): portada y jugadores sesión hacia el 9,5. */
   foco3: ["/", "/jugadores-sesion"],
+  foco4: ["/individual"],
 };
 module.exports = { GRUPOS };
 if (require.main !== module) return;
