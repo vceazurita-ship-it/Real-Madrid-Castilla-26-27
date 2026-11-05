@@ -237,6 +237,15 @@ if errorlevel 1 (
   echo FALLO en castilla-besoccer ^(codigo !errorlevel!^) >> "%LOG%"
   set "HUBO_FALLO=1"
 )
+rem  Valoraciones: minutos, titulares, goles, asistencias y tarjetas de cada
+rem  partido jugado (y el partido, si no estaba). Las notas no se tocan.
+echo. >> "%LOG%"
+echo --- Valoraciones con los datos de BeSoccer --- >> "%LOG%"
+call node scripts\valoraciones-besoccer.mjs --escribir >> "%LOG%" 2>&1
+if errorlevel 1 (
+  echo FALLO en valoraciones-besoccer ^(codigo !errorlevel!^) >> "%LOG%"
+  set "HUBO_FALLO=1"
+)
 :tras_3
 
 rem --- 4. las plantillas rivales: altas, bajas y dorsales ---
