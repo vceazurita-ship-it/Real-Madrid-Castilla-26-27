@@ -29,6 +29,8 @@ const ORO = "#D8B45A";
 const AZUL = "#4F8FE8";
 const ROJO = "#E5484D";
 const VERDE = "#1B9E77";
+/* Primera y Premier: colores que no se confunden con bueno (verde) y malo (rojo). */
+const COLOR_LIGA = ["#A78BFA", "#22D3EE"];
 
 /** /api/data-elite: los «Search results» de Primera y Premier, menores de 28 con 450′. */
 type Elite = { actualizado: string | null; ligas: { liga: string; jugadores: FilaJugador[] }[] };
@@ -79,7 +81,7 @@ function Radar({ ejes, capas, tam = 300 }: { ejes: string[]; capas: { valores: n
   if (n < 3) return null;
 
   return (
-    <svg viewBox={`0 0 ${tam} ${tam}`} className="h-auto w-full max-w-[360px]" role="img" aria-label={`Radar: ${ejes.join(", ")}`}>
+    <svg viewBox={`-92 -6 ${tam + 184} ${tam + 12}`} className="mx-auto h-auto w-full max-w-[460px]" role="img" aria-label={`Radar: ${ejes.join(", ")}`}>
       <defs>
         <radialGradient id="am-fondo">
           <stop offset="0%" stopColor={ORO} stopOpacity="0.10" />
@@ -99,11 +101,11 @@ function Radar({ ejes, capas, tam = 300 }: { ejes: string[]; capas: { valores: n
       ))}
       {ejes.map((eje, i) => {
         const [x, y] = punto(i, 100);
-        const [tx, ty] = punto(i, 122);
+        const [tx, ty] = punto(i, 113);
         return (
           <g key={eje}>
             <line x1={c} y1={c} x2={x} y2={y} stroke="currentColor" strokeOpacity={0.1} />
-            <text x={tx} y={ty} textAnchor={Math.abs(tx - c) < 8 ? "middle" : tx > c ? "start" : "end"} dominantBaseline="middle" fontSize="10" fill="currentColor" fillOpacity={0.75}>
+            <text x={tx} y={ty} textAnchor={Math.abs(tx - c) < 8 ? "middle" : tx > c ? "start" : "end"} dominantBaseline="middle" fontSize="12.5" fill="currentColor" fillOpacity={0.8}>
               {eje.length > 18 ? `${eje.slice(0, 17)}…` : eje}
             </text>
           </g>
@@ -164,12 +166,30 @@ export function AreaMejora({
 }) {
   const [jugadores, setJugadores] = useState<FilaJugador[] | null>(null);
   const [elite, setElite] = useState<Elite | null>(null);
+  const [sinDatos, setSinDatos] = useState(false);
 
   useEffect(() => {
     let vivo = true;
-    traeJson<{ jugadores?: FilaJugador[] }>("/api/data-analisis")
-      .then((r) => vivo && setJugadores(r?.jugadores ?? []))
-      .catch(() => vivo && setJugadores([]));
+    /* En frío la primera respuesta puede llegar sin jugadores (05/11/2026): se
+       decía «no está en Wyscout» de alguien que sí está. Se reintenta y, si
+       no llegan, se dice que no han llegado. */
+    const pide = async () => {
+      for (let intento = 0; intento < 3 && vivo; intento++) {
+        try {
+          const r = await traeJson<{ jugadores?: FilaJugador[] }>("/api/data-analisis", { forzar: intento > 0 });
+          if (r?.jugadores?.length) return r.jugadores;
+        } catch {
+          /* se reintenta */
+        }
+        await new Promise((ok) => setTimeout(ok, 2500 * (intento + 1)));
+      }
+      return null;
+    };
+    void pide().then((lista) => {
+      if (!vivo) return;
+      setJugadores(lista ?? []);
+      setSinDatos(!lista);
+    });
     fetch("/api/data-elite")
       .then((r) => (r.ok ? r.json() : null))
       .then((e: Elite | null) => vivo && e?.ligas?.length && setElite(e))
@@ -200,7 +220,7 @@ export function AreaMejora({
       edad: contraEdad.filter((p) => p.metrica.grupo === g).map((p) => p.percentil),
     })).filter((g) => g.todos.length);
 
-    const ordenados = [...contraEdad].sort((a, b) => b.percentil - a.percentil);
+    const ordenados = [...contraEdad].filter((p) => !/penalti/i.test(p.metrica.nombre)).sort((a, b) => b.percentil - a.percentil);
 
     const mediana = (p: Percentil) => {
       const vals = deSuEdad.map((j) => j.datos[p.metrica.columna]).filter((v): v is number => typeof v === "number").sort((a, b) => a - b);
@@ -264,14 +284,14 @@ export function AreaMejora({
       {analisis ? (
         <>
           {/* Cabecera: dos índices y la tendencia */}
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 [&>*:last-child:nth-child(odd)]:col-span-2 sm:[&>*:last-child:nth-child(odd)]:col-span-1">
             {[
               { t: `Contra los ${etiquetaPuesto.toLowerCase()} de su edad (±3)`, v: analisis.indiceEdad, n: analisis.nEdad },
               { t: `Contra todos los ${etiquetaPuesto.toLowerCase()} de la categoría`, v: analisis.indiceTodos, n: analisis.nPuesto },
             ].map((k) => (
-              <div key={k.t} className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.06] to-transparent p-4">
+              <div key={k.t} className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.06] to-transparent p-3 sm:p-4">
                 <p className="text-[12px] text-white/60">{k.t}</p>
-                <p className="mt-1 text-3xl font-black tabular-nums" style={{ color: (k.v ?? 0) >= 66 ? VERDE : (k.v ?? 0) >= 40 ? ORO : ROJO }}>
+                <p className="mt-1 text-2xl font-black tabular-nums sm:text-3xl" style={{ color: (k.v ?? 0) >= 66 ? VERDE : (k.v ?? 0) >= 40 ? ORO : ROJO }}>
                   {k.v ?? "—"}
                   <span className="ml-1 text-sm font-semibold text-white/50">/ 100</span>
                 </p>
@@ -279,9 +299,9 @@ export function AreaMejora({
               </div>
             ))}
             {notas.length > 0 && (
-              <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.06] to-transparent p-4">
+              <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.06] to-transparent p-3 sm:p-4">
                 <p className="flex items-center gap-1.5 text-[12px] text-white/60"><TrendingUp size={13} /> Valoración del cuerpo técnico</p>
-                <p className="mt-1 text-3xl font-black tabular-nums text-white">{coma(media(notas.map((n) => n.nota)))}</p>
+                <p className="mt-1 text-2xl font-black tabular-nums sm:text-3xl text-white">{coma(media(notas.map((n) => n.nota)))}</p>
                 <p className="flex items-center gap-1 text-[12px] text-white/55">
                   {notas.length} partidos
                   {tendencia !== null && Math.abs(tendencia) >= 0.2 && (
@@ -295,14 +315,14 @@ export function AreaMejora({
           </div>
 
           {/* El radar por momentos del juego */}
-          <div className="grid items-center gap-5 rounded-2xl border border-white/10 bg-[radial-gradient(circle_at_30%_20%,rgba(216,180,90,.10),transparent_55%)] p-4 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
+          <div className="grid items-center gap-5 rounded-2xl border border-white/10 bg-[radial-gradient(circle_at_30%_20%,rgba(216,180,90,.10),transparent_55%)] p-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
             <div className="text-white">
               <Radar
                 ejes={analisis.grupos.map((g) => g.grupo)}
                 capas={[
                   { nombre: "Su edad", color: ORO, valores: analisis.grupos.map((g) => media(g.edad.length ? g.edad : g.todos)) },
                   { nombre: "Categoría", color: AZUL, valores: analisis.grupos.map((g) => media(g.todos)) },
-                  ...contraElite.map((e, k) => ({ nombre: e.liga, color: k ? ROJO : VERDE, valores: analisis.grupos.map((g) => e.grupos[GRUPOS_JUGADOR.indexOf(g.grupo)] || 0) })),
+                  ...contraElite.map((e, k) => ({ nombre: e.liga, color: COLOR_LIGA[k % 2], valores: analisis.grupos.map((g) => e.grupos[GRUPOS_JUGADOR.indexOf(g.grupo)] || 0) })),
                 ]}
               />
             </div>
@@ -312,7 +332,7 @@ export function AreaMejora({
                 Percentil en cada grupo de métricas de su puesto ({etiquetaPuesto.toLowerCase()}). 50 es la mitad del grupo.{" "}
                 <span style={{ color: ORO }}>●</span> contra los de su edad ±3 · <span style={{ color: AZUL }}>●</span> contra toda la categoría
                 {contraElite.map((e, k) => (
-                  <span key={e.liga}> · <span style={{ color: k ? ROJO : VERDE }}>●</span> contra {e.liga} ({e.n})</span>
+                  <span key={e.liga}> · <span style={{ color: COLOR_LIGA[k % 2] }}>●</span> contra {e.liga} ({e.n})</span>
                 ))}
               </p>
               <ul className="space-y-1.5">
@@ -320,7 +340,7 @@ export function AreaMejora({
                   const v = Math.round(media(g.edad.length ? g.edad : g.todos));
                   return (
                     <li key={g.grupo} className="flex items-center gap-2 text-[13px]">
-                      <span className="w-36 shrink-0 truncate text-white/75">{g.grupo}</span>
+                      <span className="w-32 shrink-0 truncate text-white/75" title={g.grupo}>{g.grupo}</span>
                       <span className="relative h-2 flex-1 overflow-hidden rounded-full bg-white/10">
                         <span className="absolute inset-y-0 left-0 rounded-full transition-all duration-700" style={{ width: `${v}%`, background: v >= 66 ? VERDE : v >= 40 ? ORO : ROJO }} />
                         <span className="absolute inset-y-0 left-1/2 w-px bg-white/40" />
@@ -351,7 +371,7 @@ export function AreaMejora({
                         <span className="shrink-0 tabular-nums font-semibold" style={{ color: b.color }}>p{Math.round(p.percentil)}</span>
                       </div>
                       <p className="text-[12px] text-white/50">
-                        {coma(p.valor, 2)}{mediana !== null ? ` · la mediana de su edad, ${coma(mediana, 2)}` : ""} · {p.metrica.grupo}
+                        {coma(p.valor, Math.abs(p.valor) >= 10 ? 1 : 2)}{mediana !== null ? ` · la mediana de su edad, ${coma(mediana, Math.abs(mediana) >= 10 ? 1 : 2)}` : ""} · {p.metrica.grupo}
                       </p>
                     </li>
                   ))}
@@ -370,14 +390,17 @@ export function AreaMejora({
                 {contraElite.map((e, k) => (
                   <div key={e.liga} className="rounded-xl border border-white/10 bg-black/20 p-3">
                     <div className="flex items-baseline justify-between gap-2">
-                      <span className="text-sm font-semibold" style={{ color: k ? ROJO : VERDE }}>{e.liga}</span>
+                      <span className="text-sm font-semibold" style={{ color: COLOR_LIGA[k % 2] }}>{e.liga}</span>
                       <span className="text-[12px] text-white/50">{e.n} jugadores</span>
                     </div>
                     <p className="mt-1 text-2xl font-black tabular-nums text-white">
                       {e.indice ?? "—"}<span className="ml-1 text-sm font-semibold text-white/50">percentil medio</span>
                     </p>
                     {e.parecidos.length > 0 && (
-                      <ul className="mt-2 space-y-1">
+                      <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/45">Se parece a · % de parecido</p>
+                    )}
+                    {e.parecidos.length > 0 && (
+                      <ul className="mt-1 space-y-1">
                         {e.parecidos.map(({ j, sim }) => (
                           <li key={j.jugador + j.equipo} className="flex items-center justify-between gap-2 text-[13px]">
                             <span className="min-w-0 truncate text-white/85">{j.jugador} <span className="text-white/45">· {j.equipo} · {j.edad} años</span></span>
@@ -394,7 +417,9 @@ export function AreaMejora({
         </>
       ) : (
         <p className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/65">
-          No está en la descarga de Wyscout de la categoría con minutos esta temporada: el radar sale en cuanto juegue y entre en la siguiente descarga.
+          {sinDatos
+            ? "Los datos de Wyscout no han llegado: vuelve a abrir la pestaña en un momento."
+            : "No está en la descarga de Wyscout de la categoría con minutos esta temporada: el radar sale en cuanto juegue y entre en la siguiente descarga."}
         </p>
       )}
 
