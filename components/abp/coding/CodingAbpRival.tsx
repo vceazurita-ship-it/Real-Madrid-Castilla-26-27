@@ -123,21 +123,32 @@ function carpetaDe(segmentos: string[]): CarpetaKey | null {
 | «CORNER OF-3») toma el siguiente libre, en orden de ruta para que sea
 | siempre el mismo.
 */
-async function leeCarpeta(raiz: FileSystemDirectoryHandle): Promise<Abierta & { sinSitio: number }> {
+/*
+| Nuestro ABP dentro de la carpeta del rival (05/11/2026): «J10 - CARTAGENA»
+| trae también «J9 - ABP ALGECIRAS - CASTILLA», lo nuestro de la jornada
+| anterior. El coding del rival lo salta y el nuestro (/setpieces) sólo lee eso.
+*/
+const esCarpetaPropia = (nombre: string) => /\bCASTILLA\b/i.test(nombre.normalize("NFD").replace(/[̀-ͯ]/g, ""));
+
+async function leeCarpeta(raiz: FileSystemDirectoryHandle, lado: "rival" | "propio" = "rival"): Promise<Abierta & { sinSitio: number }> {
+  let propia: string | null = lado === "propio" && esCarpetaPropia(raiz.name) ? raiz.name : null;
   const encontrados: { carpeta: CarpetaKey; ruta: string; nombre: string; n: number | null; handle: FileSystemFileHandle; dir: FileSystemDirectoryHandle }[] = [];
   let sinSitio = 0;
 
-  const recorre = async (dir: FileSystemDirectoryHandle, camino: string[]) => {
+  const recorre = async (dir: FileSystemDirectoryHandle, camino: string[], dentro = lado === "rival" || Boolean(propia)) => {
     for (const [nombre, h] of await hijos(dir)) {
       if (nombre.startsWith(".") || nombre.startsWith("._")) continue;
 
       if (h.kind === "directory") {
         if (nombre.toLowerCase() === "_descartados") continue;
-        await recorre(h as FileSystemDirectoryHandle, [...camino, nombre]);
+        const suya = esCarpetaPropia(nombre);
+        if (lado === "rival" && suya) continue;
+        if (lado === "propio" && suya && !propia) propia = nombre;
+        await recorre(h as FileSystemDirectoryHandle, [...camino, nombre], dentro || suya);
         continue;
       }
 
-      if (!VIDEO.test(nombre)) continue;
+      if (!VIDEO.test(nombre) || !dentro) continue;
 
       const carpeta = carpetaDe([...camino, nombre.replace(/-\d+\.\w+$/, "")]);
 
@@ -170,12 +181,14 @@ async function leeCarpeta(raiz: FileSystemDirectoryHandle): Promise<Abierta & { 
   }
 
   /* El nombre de la jornada: si se eligió su «ABP», el de la carpeta de arriba no se conoce; vale el suyo. */
-  return { raiz, nombre: raiz.name, porCarpeta, sinSitio };
+  return { raiz, nombre: propia ?? raiz.name, porCarpeta, sinSitio };
 }
 
 /** «ABP - 10 CARTAGENA» → { rival: "CARTAGENA", jornada: 10 }. */
 function deLaCarpeta(nombre: string) {
-  const m = /(\d+)\s*[-–]?\s*(.+)$/.exec(nombre.replace(/^ABP\s*-\s*/i, ""));
+  /* «J9 - ABP ALGECIRAS - CASTILLA» → 9, «ALGECIRAS». */
+  const limpio = nombre.replace(/^ABP\s*-\s*/i, "").replace(/\bABP\b\s*-?\s*/gi, "").replace(/\s*-?\s*\bCASTILLA\b\s*-?\s*/gi, " ").trim();
+  const m = /(\d+)\s*[-–]?\s*(.+)$/.exec(limpio);
 
   return m ? { jornada: Number(m[1]), rival: m[2].trim() } : { jornada: null, rival: nombre.replace(/^ABP\s*-\s*/i, "").trim() };
 }
@@ -214,8 +227,11 @@ export function CodingAbpRival({
   jornadaPartido = null,
   onRecoger,
   onApuntes,
+  lado = "rival",
 }: {
   equipo: string | null;
+  /** «propio»: nuestro ABP de la jornada anterior, en /setpieces (05/11/2026). */
+  lado?: "rival" | "propio";
   /** «J10»: la jornada del partido contra este rival, para leer el estado sin abrir la carpeta. */
   jornadaPartido?: string | null;
   onRecoger?: () => void;
@@ -256,9 +272,12 @@ export function CodingAbpRival({
   | CARTAGENA». Así el estado se ve al entrar, sin abrir nada (30/10/2026).
   */
   const nJornada = Number((jornadaPartido ?? "").replace(/\D/g, "")) || null;
-  const esperada = equipo && nJornada ? codingKey(`ABP - ${nJornada} ${equipo}`) : null;
+  const propio = lado === "propio";
+  const esperada = !propio && equipo && nJornada ? codingKey(`ABP - ${nJornada} ${equipo}`) : null;
   const guardadaVale = guardada && (!nJornada || deLaCarpeta(guardada.name).jornada === nJornada);
-  const clave = abierta ? codingKey(abierta.nombre) : guardadaVale && guardada ? codingKey(guardada.name) : esperada ?? "abp-coding-rival:_";
+  const claveBase = abierta ? codingKey(abierta.nombre) : !propio && guardadaVale && guardada ? codingKey(guardada.name) : esperada ?? "abp-coding-rival:_";
+  const clave = propio ? claveBase.replace(/^abp-coding-rival:/, "abp-coding-propio:") : claveBase;
+  const ultima = propio ? "ultima-propio" : "ultima";
 
   const { value: doc, setValue: setDoc } = useRemoteDoc<CodingDoc>({ key: clave, kind: "abp-coding", fallback: CODING_VACIO });
 
@@ -266,17 +285,17 @@ export function CodingAbpRival({
 
   /* La carpeta de la última vez, si el navegador la recuerda. */
   useEffect(() => {
-    void idb<ConPermiso>("readonly", (s) => s.get("ultima")).then((h) => h && setGuardada(h));
-  }, []);
+    void idb<ConPermiso>("readonly", (s) => s.get(ultima)).then((h) => h && setGuardada(h));
+  }, [ultima]);
 
   const abre = async (h: ConPermiso) => {
     try {
       if (h.queryPermission && (await h.queryPermission({ mode: "readwrite" })) !== "granted") await h.requestPermission?.({ mode: "readwrite" });
 
-      const a = await leeCarpeta(h);
+      const a = await leeCarpeta(h, lado);
 
       if (!a.porCarpeta.size) {
-        toast.error("En esa carpeta ni en sus subcarpetas hay clips de córner, falta o saque de banda", {
+        toast.error(propio ? "En esa carpeta no hay una subcarpeta nuestra con clips: su nombre tiene que decir CASTILLA («J9 - ABP ALGECIRAS - CASTILLA»)" : "En esa carpeta ni en sus subcarpetas hay clips de córner, falta o saque de banda", {
           description: "La ruta o el nombre de cada vídeo tiene que decir CORNER, FALTA o SDB (y DEF si es defensivo).",
         });
         return;
@@ -287,7 +306,7 @@ export function CodingAbpRival({
         description: a.sinSitio ? `${a.sinSitio} vídeos no dicen si son córner, falta o saque de banda y se quedan fuera.` : undefined,
       });
 
-      void idb("readwrite", (s) => s.put(h, "ultima"));
+      void idb("readwrite", (s) => s.put(h, ultima));
       setAbierta(a);
       setCarpeta(CARPETAS.find((c) => a.porCarpeta.get(c.key)?.length)?.key ?? "CORNER OF");
       setIndice(0);
@@ -305,7 +324,7 @@ export function CodingAbpRival({
     }
 
     try {
-      await abre(await picker({ id: "abp-rival", mode: "readwrite" }));
+      await abre(await picker({ id: propio ? "abp-propio" : "abp-rival", mode: "readwrite" }));
     } catch {
       /* Cancelado. */
     }
@@ -740,7 +759,7 @@ export function CodingAbpRival({
   const decididos = todos.filter(([, c]) => c.estado !== "pendiente").length;
   const descartados = CARPETAS.flatMap((c) => (abierta?.porCarpeta.get(c.key) ?? []).filter((a) => doc.clips[idClip(c.key, a.n)]?.estado === "descartado" && !doc.clips[idClip(c.key, a.n)]?.fuera).map((a) => ({ c: c.key, a })));
 
-  const automatico = textoCoding(rival || equipo || "", porCarpeta, conResumen);
+  const automatico = textoCoding(rival || equipo || "", porCarpeta, conResumen, propio ? `ABP CASTILLA${jornada ? ` J${jornada}` : ""}${rival ? ` VS ${rival.toUpperCase()}` : ""}` : undefined);
 
   /* Lo escrito a mano manda; el automático queda para volver a él. */
   const aMano = typeof doc.texto === "string";
@@ -761,7 +780,8 @@ export function CodingAbpRival({
 
   const claveTablero = jornada ? tableroDeJornada(jornada) : "";
 
-  const hayTablero = Boolean(claveTablero && pizarra.tableros?.[claveTablero]);
+  /* Lo nuestro no va a la pizarra del rival. */
+  const hayTablero = !propio && Boolean(claveTablero && pizarra.tableros?.[claveTablero]);
 
   const nombreRival = rival || equipo || "rival";
 
@@ -1065,7 +1085,9 @@ export function CodingAbpRival({
             Carpeta de la jornada{nJornada ? ` · J${nJornada}` : ""}
           </h3>
           <p className="mt-1 hidden text-sm text-white/65 md:block">
-            Abre en tu ordenador la carpeta de {equipo ?? "el rival"} de esta jornada. Los clips no se suben: se ven desde tu ordenador.
+            {propio
+              ? "Abre la carpeta de la jornada del rival (p. ej. «J10 - CARTAGENA»): de dentro sólo se lee lo nuestro, la subcarpeta «… CASTILLA»."
+              : `Abre en tu ordenador la carpeta de ${equipo ?? "el rival"} de esta jornada; lo nuestro que venga dentro («… CASTILLA») va en Balón parado ofensivo → Clips.`} Los clips no se suben: se ven desde tu ordenador.
           </p>
         </div>
 

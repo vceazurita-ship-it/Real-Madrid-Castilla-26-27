@@ -320,8 +320,8 @@ const peso = (c: ClipEstado) => (c.etiquetas?.desenlace === "Gol" ? 0 : c.etique
  * Sale sólo lo elegido; un elegido sin nota lleva sus etiquetas para no
  * quedarse en un número suelto.
  */
-export function textoCoding(rival: string, porCarpeta: Map<CarpetaKey, [number, ClipEstado][]>, conResumen: boolean): string {
-  const lineas = [`ABP RIVAL ${rival.toUpperCase()}`];
+export function textoCoding(rival: string, porCarpeta: Map<CarpetaKey, [number, ClipEstado][]>, conResumen: boolean, titulo?: string): string {
+  const lineas = [titulo ?? `ABP RIVAL ${rival.toUpperCase()}`];
 
   for (const fase of ["of", "def"] as const) {
     const carpetas = CARPETAS.filter((c) => c.fase === fase);

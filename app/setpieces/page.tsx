@@ -13,6 +13,7 @@ import {
   Workflow as PestanaWorkflow,
   Users as PestanaUsers,
   Clock as PestanaClock,
+  Film as PestanaFilm,
 } from "lucide-react";
 import ABPFlowField, { zonaRemateDelCampo } from '@/components/abp/ABPFlowField';
 import { AbpHeader, FilterDrawer, Select, TeamPicker } from '@/components/abp/ui';
@@ -85,6 +86,7 @@ import {
   useState,
 } from "react";
 import Papa from "papaparse";
+import { CodingAbpRival } from "@/components/abp/coding/CodingAbpRival";
 import {
   ResponsiveContainer,
   BarChart,
@@ -2438,7 +2440,7 @@ const textosExplicativos = useTextosExplicativos();
 | paneles se esconden (no se desmontan): el filtro cruzado sigue valiendo y,
 | al descargar el PDF, se enseñan todos para que se capture cada gráfico.
 */
-const [vista, setVista] = usePestanaUrl<"resumen" | "donde" | "como" | "quien" | "cuando">("vista", ["resumen", "donde", "como", "quien", "cuando"], "resumen");
+const [vista, setVista] = usePestanaUrl<"resumen" | "donde" | "como" | "quien" | "cuando" | "clips">("vista", ["resumen", "donde", "como", "quien", "cuando", "clips"], "resumen");
 const [todoVisible, setTodoVisible] = useState(false);
 const oculto = (clave: string) => (todoVisible || vista === clave ? "" : "hidden");
 
@@ -2950,9 +2952,17 @@ const pie = (
                   { clave: "como", label: "Cómo lo sacamos", icono: PestanaWorkflow },
                   { clave: "quien", label: "Quién", icono: PestanaUsers },
                   { clave: "cuando", label: "Cuándo", icono: PestanaClock },
+                  { clave: "clips", label: "Clips de la jornada", icono: PestanaFilm },
                 ]}
               />
             </div>
+
+            {/* Coding de nuestro ABP (05/11/2026): los clips de la jornada anterior que vienen en la carpeta del rival («… CASTILLA»). Misma criba, etiquetas y texto que el del rival. */}
+            {vista === "clips" && (
+              <div className="mt-5 lg:px-2">
+                <CodingAbpRival equipo={null} lado="propio" />
+              </div>
+            )}
 
             <div className={oculto("resumen")}>
             <LecturaRapida
