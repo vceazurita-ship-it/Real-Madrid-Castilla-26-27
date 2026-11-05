@@ -215,11 +215,12 @@ export const ALMACEN_VACIO: AlmacenEquipos = { sesiones: [] };
 /*  COLORES                                                            */
 /* ------------------------------------------------------------------ */
 
-/** Los petos del club. Los cuatro primeros son los de por defecto. */
+/** Los petos del club. Los cuatro primeros son los de por defecto
+    (05/11/2026: el segundo es el amarillo, no el verde). */
 export const COLORES = [
   { nombre: "Naranja", valor: "#F97316" },
-  { nombre: "Verde", valor: "#22C55E" },
   { nombre: "Amarillo", valor: "#FACC15" },
+  { nombre: "Verde", valor: "#22C55E" },
   { nombre: "Azul", valor: "#3B82F6" },
   { nombre: "Rojo", valor: "#EF4444" },
   { nombre: "Rosa", valor: "#EC4899" },
