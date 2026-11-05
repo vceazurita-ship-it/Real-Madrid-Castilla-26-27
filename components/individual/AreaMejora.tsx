@@ -394,7 +394,7 @@ export function AreaMejora({
             <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-white sm:p-5">
               <h4 className="text-sm font-bold uppercase tracking-[0.18em]" style={{ color: "#EC4899" }}>Radiografía de percentiles <span className="text-[11px] font-semibold normal-case tracking-normal text-white/55">· frente a los {analisis.nPuesto} de la categoría</span></h4>
               <p className="text-[12px] text-white/60">
-                <b className="text-white/85">{(() => { const o = [...analisis.cunas].sort((a, b) => b.percentil - a.percentil); return `Lo más alto: ${o[0].nombre.toLowerCase()} y ${o[1].nombre.toLowerCase()}; lo más bajo: ${o[o.length - 1].nombre.toLowerCase()}.`; })()}</b>{" "}
+                
                 {analisis.fila.edad} años · {analisis.fila.minutos}′ · {analisis.fila.partidos} partidos. La cuña rosa llega hasta su percentil (la discontinua es P50); a la derecha con balón, a la izquierda sin balón. Alto siempre es mejor: en las marcadas con ↓ (menos es mejor) ya está dado la vuelta.
               </p>
               <div className="hidden sm:block">
@@ -429,7 +429,7 @@ export function AreaMejora({
                 {analisis.mapa.ejes.y} frente a {analisis.mapa.ejes.x.toLowerCase()} <span className="text-[11px] font-semibold normal-case tracking-normal text-white/55">· frente a los {analisis.mapa.n} de la categoría</span>
               </h4>
               <p className="mb-2 text-[12px] text-white/55">
-                Los mismos {analisis.mapa.n} {etiquetaPuesto.toLowerCase()} de la categoría con {analisis.minimo}′ o más. Cada eje es su puesto dentro de su posición (0 el último, 100 el primero) en {analisis.mapa.ejes.gx.join(", ").toLowerCase()} y en {analisis.mapa.ejes.gy.join(", ").toLowerCase()}. Zona sombreada: entre los mejores en las dos cosas (la suma de los dos percentiles pasa de 160). Más es mejor en los dos ejes.
+                Los mismos {analisis.mapa.n} {etiquetaPuesto.toLowerCase()} de la categoría con {analisis.minimo}′ o más. Cada eje es su puesto dentro de su posición (0 el último, 100 el primero) en {analisis.mapa.ejes.gx.join(", ").toLowerCase()} y en {analisis.mapa.ejes.gy.join(", ").toLowerCase()}. Cada eje es la media de sus percentiles en esos grupos, vuelta a ordenar entre estos {analisis.mapa.n}: por eso no coincide con las barras de «Momentos del juego», que le comparan con los de su edad. Zona sombreada: entre los mejores en las dos cosas (suma de 160 o más). Más es mejor en los dos ejes.
               </p>
               <MapaDosEjes puntos={analisis.mapa.puntos} ejeX={analisis.mapa.ejes.x} ejeY={analisis.mapa.ejes.y} rotulos={analisis.mapa.ejes.rotulos} />
             </div>

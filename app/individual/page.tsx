@@ -1714,6 +1714,11 @@ export default function IndividualPage() {
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("perfil");
+
+  /* En el móvil la barra de pestañas se desplaza: la activa, al centro (05/11/2026). */
+  useEffect(() => {
+    document.querySelector(`[data-pestana-ficha="${activeTab}"]`)?.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+  }, [activeTab]);
   const [videoCategory, setVideoCategory] = useState("todas");
   const [playingVideo, setPlayingVideo] = useState<string | null>(null);
   const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(
@@ -3619,6 +3624,7 @@ export default function IndividualPage() {
                     return (
                       <button
                         key={tab.key}
+                        data-pestana-ficha={tab.key}
                         onClick={() => setActiveTab(tab.key)}
                         className={`relative flex shrink-0 items-center gap-2 whitespace-nowrap px-3 py-3 text-[11px] font-semibold uppercase tracking-[0.2em] transition ${
                           active

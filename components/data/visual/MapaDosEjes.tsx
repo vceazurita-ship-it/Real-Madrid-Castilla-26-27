@@ -88,7 +88,6 @@ export function MapaDosEjes({
 
   /* Los nombres de las esquinas, como cajas ocupadas desde el principio. */
   const esquinas = [
-    { texto: `${rotulos.ambos.toUpperCase()} ↗`, x: px(100), y: M.t - 12, fin: true, color: acento as string | undefined, peso: 800, t: estrecho ? letra - 1 : letra + 2 },
     { texto: `↑ ${rotulos.soloY.toUpperCase()}`, x: px(0), y: estrecho ? M.t - 32 : M.t - 14, fin: false, color: undefined, peso: 700, t: estrecho ? letra - 2 : letra },
     { texto: rotulos.soloX.toUpperCase(), x: px(99), y: estrecho ? py(3) - 16 : py(3), fin: true, color: undefined, peso: 700, t: estrecho ? letra - 2 : letra },
     { texto: (estrecho ? rotulos.nada.split(" ").slice(0, 2).join(" ") : rotulos.nada).toUpperCase(), x: px(2), y: py(6), fin: false, color: undefined, peso: 700, t: estrecho ? letra - 2 : letra },
@@ -216,6 +215,7 @@ export function MapaDosEjes({
       ))}
 
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-white/60">
+        <span><span style={{ color: acento }}>◥</span> Zona sombreada: <b style={{ color: acento }}>{rotulos.ambos.toLowerCase()}</b> (suma ≥ {umbral})</span>
         <span><b style={{ color: acento }}>Mejor en ambas:</b> {mejorAmbos.nombre} ({Math.round(mejorAmbos.x)} / {Math.round(mejorAmbos.y)})</span>
         <span><b className="text-white/80">Más «{rotulos.soloX.toLowerCase()}»:</b> {mejorX.nombre}</span>
         <span><b className="text-white/80">Más «{rotulos.soloY.toLowerCase()}»:</b> {mejorY.nombre}</span>
