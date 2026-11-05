@@ -147,7 +147,13 @@ function nombresDeColumna(cabecera: Record<string, string>, columnas: string[]) 
 
       if (conParentesis) {
         base = conParentesis[1].trim();
-        partes = conParentesis[2].split("/").map((t) => t.trim());
+        /*
+        | La primera columna es el TOTAL y las de dentro del paréntesis van
+        | después (05/11/2026). Antes las partes se ponían desde la primera y
+        | todo quedaba corrido una columna: «· carreras» era el total (20 en
+        | Cartagena), «· pases cruzados» las carreras (7) y «%» los centros (5).
+        */
+        partes = [base, ...conParentesis[2].split("/").map((t) => t.trim())];
       } else {
         partes = texto.split("/").map((t) => t.trim());
         base = partes[0];

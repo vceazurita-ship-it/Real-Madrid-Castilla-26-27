@@ -939,6 +939,8 @@ function derivado(clave: string, fila: FilaPartido): number | null {
   }
 
   if (clave === "@entradas-area") {
+    /* El total cuenta también las que no son carrera ni centro (05/11/2026). */
+    if (d["Entradas al área de penalti"] !== undefined) return d["Entradas al área de penalti"];
     const carrera = d["Entradas al área de penalti · carreras"];
     const pase = d["Entradas al área de penalti · pases cruzados"];
 

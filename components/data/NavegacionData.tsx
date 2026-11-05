@@ -293,7 +293,8 @@ export function SelectorArea({
   const porClave = new Map(areas.map((a) => [a.key, a]));
 
   return (
-    <label className="flex shrink-0 items-center">
+    /* En el móvil sobraba: repetía las pastillas y se cortaba (05/11/2026). */
+    <label className="hidden shrink-0 items-center md:flex">
       <span className="sr-only">Cambiar de área</span>
       <select
         value={valor}

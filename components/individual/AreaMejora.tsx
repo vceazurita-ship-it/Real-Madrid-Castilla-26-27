@@ -21,7 +21,31 @@ import { ArrowDownRight, ArrowUpRight, Crosshair, Sparkles, TrendingUp } from "l
 import { traeJson } from "@/lib/hojaCsv";
 import type { FilaJugador } from "@/lib/data-analisis/leer";
 import { casaNombre } from "@/lib/data-analisis/once";
-import { GRUPOS_JUGADOR, MINUTOS_MINIMOS, PUESTOS, puestoDe } from "@/lib/data-analisis/individual";
+import { GRUPOS_JUGADOR, MINUTOS_MINIMOS, PUESTOS, puestoDe, volumenDelPorcentaje } from "@/lib/data-analisis/individual";
+
+/** Los minutos con los que se compara en toda la pestaña. */
+const MINUTOS_COMPARA = 450;
+
+/*
+| QUÉ ENTRENAMOS (05/11/2026): cada área de mejora acaba en un objetivo de
+| campo con su criterio de éxito (la mediana de su edad). Por grupo de
+| métricas; el cuerpo técnico lo concreta en la tarea.
+*/
+const ENTRENAR: { patron: RegExp; tarea: string; medir: string }[] = [
+  { patron: /centro/i, tarea: "Centro tras ganar línea de fondo con dos rematadores atacando primer y segundo palo", medir: "centros que llegan a un compañero dentro del área" },
+  { patron: /conduc|progresi/i, tarea: "Rondo de progresión 4c4+3: fijar y conducir hasta 10 m cuando haya espacio a la espalda del medio", medir: "conducciones que superan una línea" },
+  { patron: /regate/i, tarea: "1c1 en banda con apoyo: encarar, amagar y salir por fuera o por dentro", medir: "regates completados" },
+  { patron: /aére|cabez/i, tarea: "Duelos aéreos en centros laterales: tiempo de salto y orientación del cuerpo", medir: "duelos aéreos ganados" },
+  { patron: /duelo/i, tarea: "Duelos 1c1 en carril con portería pequeña: proteger con el cuerpo y salir hacia dentro", medir: "duelos ganados" },
+  { patron: /remate|tiro|goles|xg/i, tarea: "Finalización tras pase atrás y tras conducción, con portero: atacar el espacio entre central y lateral", medir: "remates a puerta" },
+  { patron: /área|último tercio|profundidad|asist|xa\b|clave|desmarque/i, tarea: "Último pase en superioridad (3c2 en el último tercio): elegir entre pase atrás, pase al hueco o pared", medir: "pases que dejan a un compañero rematando" },
+  { patron: /pase|circula/i, tarea: "Juego de posición 5c5+3 a dos toques: perfil abierto antes de recibir y pase al pie del compañero libre", medir: "pases al pie con perfil abierto" },
+  { patron: /falta|tarjeta|amarilla/i, tarea: "Defensa sin falta: temporizar, orientar hacia fuera y no entrar al balón dividido por detrás", medir: "faltas cometidas" },
+  { patron: /presi|pérdida|transici|recupera.*alt/i, tarea: "Transición tras pérdida 4c4: presión en 5 segundos sobre el poseedor, cerrando su pase hacia delante", medir: "recuperaciones en los 5 segundos siguientes a perder" },
+  { patron: /intercep|recupera|entrada|defens|despej|bloque/i, tarea: "Defensa del lado débil en 6c6: cerrar la línea de pase interior y anticipar al que recibe de espaldas", medir: "anticipaciones e interceptaciones" },
+];
+/** La tarea que mide lo mismo que falta. */
+const tareaDe = (nombre: string) => ENTRENAR.find((e) => e.patron.test(nombre)) ?? null;
 import { indiceDe, percentilesDe, type Percentil } from "@/lib/comparativa-u21";
 import type { RatingsSeason } from "@/lib/ratings/types";
 import { RadiografiaPercentiles, type CunaPercentil } from "@/components/data/visual/RadiografiaPercentiles";
@@ -90,7 +114,7 @@ function aRango(vals: number[]) {
 function cunasDe(ps: Percentil[]): CunaPercentil[] {
   const sale: CunaPercentil[] = [];
   for (const lado of ["con", "sin"] as const) {
-    const suyas = ps.filter((p) => p.metrica.fase === lado && !/penalti/i.test(p.metrica.nombre));
+    const suyas = ps.filter((p) => p.metrica.fase === lado && !/penalti/i.test(p.metrica.nombre) && p.valor !== 0);
     const porGrupo = new Map<string, Percentil[]>();
     for (const p of suyas) porGrupo.set(p.metrica.grupo, [...(porGrupo.get(p.metrica.grupo) ?? []), p]);
     const elegidas: Percentil[] = [];
@@ -99,7 +123,7 @@ function cunasDe(ps: Percentil[]): CunaPercentil[] {
     }
     for (const p of elegidas) {
       sale.push({
-        nombre: p.metrica.nombre.replace(/ %$/, ""),
+        nombre: `${p.metrica.nombre.replace(/ %$/, "")}${p.metrica.mejorAlto === false ? " ↓" : ""}`,
         valor: p.metrica.unidad === "porcentaje" ? `${coma(p.valor, 1)} %` : coma(p.valor, Math.abs(p.valor) >= 10 ? 1 : 2),
         percentil: p.percentil,
         lado,
@@ -113,64 +137,6 @@ function cunasDe(ps: Percentil[]): CunaPercentil[] {
 const media = (xs: number[]) => (xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : 0);
 const coma = (n: number, d = 1) => n.toFixed(d).replace(".", ",");
 
-/** Un radar en SVG: ejes con su rótulo, la referencia (50) y una o dos capas. */
-function Radar({ ejes, capas, tam = 300 }: { ejes: string[]; capas: { valores: number[]; color: string; nombre: string }[]; tam?: number }) {
-  const c = tam / 2;
-  const r = tam / 2 - 46;
-  const n = ejes.length;
-  const punto = (i: number, v: number) => {
-    const a = (Math.PI * 2 * i) / n - Math.PI / 2;
-    return [c + Math.cos(a) * r * (v / 100), c + Math.sin(a) * r * (v / 100)] as const;
-  };
-  const poligono = (vals: number[]) => vals.map((v, i) => punto(i, Math.max(3, v)).join(",")).join(" ");
-
-  if (n < 3) return null;
-
-  return (
-    <svg viewBox={`-92 -6 ${tam + 184} ${tam + 12}`} className="mx-auto h-auto w-full max-w-[460px]" role="img" aria-label={`Radar: ${ejes.join(", ")}`}>
-      <defs>
-        <radialGradient id="am-fondo">
-          <stop offset="0%" stopColor={ORO} stopOpacity="0.10" />
-          <stop offset="100%" stopColor={ORO} stopOpacity="0" />
-        </radialGradient>
-      </defs>
-      <circle cx={c} cy={c} r={r} fill="url(#am-fondo)" />
-      {[25, 50, 75, 100].map((anillo) => (
-        <polygon
-          key={anillo}
-          points={ejes.map((_, i) => punto(i, anillo).join(",")).join(" ")}
-          fill="none"
-          stroke="currentColor"
-          strokeOpacity={anillo === 50 ? 0.35 : 0.12}
-          strokeDasharray={anillo === 50 ? "3 3" : undefined}
-        />
-      ))}
-      {ejes.map((eje, i) => {
-        const [x, y] = punto(i, 100);
-        const [tx, ty] = punto(i, 113);
-        return (
-          <g key={eje}>
-            <line x1={c} y1={c} x2={x} y2={y} stroke="currentColor" strokeOpacity={0.1} />
-            <text x={tx} y={ty} textAnchor={Math.abs(tx - c) < 8 ? "middle" : tx > c ? "start" : "end"} dominantBaseline="middle" fontSize="12.5" fill="currentColor" fillOpacity={0.8}>
-              {eje.length > 18 ? `${eje.slice(0, 17)}…` : eje}
-            </text>
-          </g>
-        );
-      })}
-      {capas.map((capa, k) => (
-        <g key={capa.nombre} className="am-capa" style={{ animationDelay: `${k * 180}ms` }}>
-          <polygon points={poligono(capa.valores)} fill={capa.color} fillOpacity={k === 0 ? 0.22 : 0.08} stroke={capa.color} strokeWidth={k === 0 ? 2 : 1.5} strokeDasharray={k === 0 ? undefined : "4 3"} />
-          {k === 0 &&
-            capa.valores.map((v, i) => {
-              const [x, y] = punto(i, Math.max(3, v));
-              return <circle key={i} cx={x} cy={y} r={3} fill={capa.color}><title>{`${ejes[i]}: percentil ${Math.round(v)}`}</title></circle>;
-            })}
-        </g>
-      ))}
-    </svg>
-  );
-}
-
 /** La nota de cada partido, con su media móvil de tres. */
 function Tendencia({ puntos }: { puntos: { fecha: string; rival: string; nota: number }[] }) {
   if (puntos.length < 2) return null;
@@ -183,10 +149,10 @@ function Tendencia({ puntos }: { puntos: { fecha: string; rival: string; nota: n
 
   return (
     <svg viewBox={`0 0 ${an} ${al}`} className="h-auto w-full" role="img" aria-label="Nota por partido">
-      {[5, 7, 9].map((v) => (
+      {[4, 5.5, 7, 8.5, 10].map((v) => (
         <g key={v}>
           <line x1={20} x2={an - 10} y1={y(v)} y2={y(v)} stroke="currentColor" strokeOpacity={0.1} />
-          <text x={4} y={y(v)} fontSize="9" dominantBaseline="middle" fill="currentColor" fillOpacity={0.5}>{v}</text>
+          <text x={2} y={y(v)} fontSize="10" dominantBaseline="middle" fill="currentColor" fillOpacity={0.55}>{String(v).replace(".", ",")}</text>
         </g>
       ))}
       <polyline points={movil.map((v, i) => `${x(i)},${y(v)}`).join(" ")} fill="none" stroke={ORO} strokeWidth={2.5} strokeLinecap="round" />
@@ -254,7 +220,10 @@ export function AreaMejora({
     if (!fila) return null;
 
     const puesto = puestoDe(fila.posicion);
-    const delPuesto = actuales.filter((j) => j.minutos >= MINUTOS_MINIMOS && puestoDe(j.posicion) === puesto);
+    /* Una sola población (05/11/2026): 450′ en todo, como el mapa y la élite. Antes convivían 90′ y 450′ y el mismo jugador salía 78 en un sitio y 88 en otro. */
+    const conMinutos = actuales.filter((j) => j.minutos >= MINUTOS_COMPARA && puestoDe(j.posicion) === puesto);
+    const delPuesto = conMinutos.length >= 15 ? conMinutos : actuales.filter((j) => j.minutos >= MINUTOS_MINIMOS && puestoDe(j.posicion) === puesto);
+    const minimo = conMinutos.length >= 15 ? MINUTOS_COMPARA : MINUTOS_MINIMOS;
     const deSuEdad = delPuesto.filter((j) => j.edad > 0 && Math.abs(j.edad - fila.edad) <= 3);
 
     const contraTodos = percentilesDe(fila, delPuesto, puesto);
@@ -266,7 +235,25 @@ export function AreaMejora({
       edad: contraEdad.filter((p) => p.metrica.grupo === g).map((p) => p.percentil),
     })).filter((g) => g.todos.length);
 
-    const ordenados = [...contraEdad].filter((p) => !/penalti/i.test(p.metrica.nombre)).sort((a, b) => b.percentil - a.percentil);
+    /* De cuántas acciones sale cada porcentaje (05/11/2026): «88,9 %» de 9 centros no es una fortaleza. */
+    const baseDe = (p: Percentil) => {
+      if (p.metrica.unidad !== "porcentaje") {
+        /* Por 90′ → total de la temporada: «≈ 8 en 646′». */
+        return { total: Math.round((p.valor * fila.minutos) / 90), aciertos: null as number | null };
+      }
+      const v = volumenDelPorcentaje(fila, p.metrica.columna);
+      if (v.cuantas === null) return null;
+      const total = Math.round((v.cuantas * fila.minutos) / 90);
+      return { total, aciertos: Math.round((p.valor / 100) * total) as number | null };
+    };
+    /* Uno por grupo (05/11/2026): tres «acierto de pase» seguidos decían lo mismo. */
+    const unoPorGrupo = (lista: Percentil[]) => lista.filter((p, i) => lista.findIndex((q) => q.metrica.grupo === p.metrica.grupo) === i);
+    /* Puesto entre los de su edad: «16º de 17». */
+    const puestoEnEdad = (p: Percentil) => Math.max(1, Math.round((1 - p.percentil / 100) * (deSuEdad.length - 1)) + 1);
+    const ordenados = [...contraEdad]
+      .filter((p) => !/penalti/i.test(p.metrica.nombre))
+      .filter((p) => p.metrica.unidad !== "porcentaje" || (baseDe(p)?.total ?? 0) >= 15)
+      .sort((a, b) => b.percentil - a.percentil);
 
     const mediana = (p: Percentil) => {
       const vals = deSuEdad.map((j) => j.datos[p.metrica.columna]).filter((v): v is number => typeof v === "number").sort((a, b) => a - b);
@@ -277,10 +264,10 @@ export function AreaMejora({
     const ejes = EJES[puesto];
     let mapa: { puntos: PuntoMapa[]; ejes: NonNullable<typeof ejes>; n: number } | null = null;
     if (ejes) {
-      const base = delPuesto.filter((j) => j.minutos >= 450);
+      const base = delPuesto;
       const conEl = base.some((j) => j === fila) ? base : [...base, fila];
       const crudos = conEl.map((j) => {
-        const ps = percentilesDe(j, base.length >= 15 ? base : delPuesto, puesto);
+        const ps = percentilesDe(j, base, puesto);
         const m = (gs: string[]) => media(ps.filter((p) => gs.includes(p.metrica.grupo)).map((p) => p.percentil));
         return { j, x: m(ejes.gx), y: m(ejes.gy) };
       });
@@ -310,8 +297,9 @@ export function AreaMejora({
       indiceTodos: indiceDe(contraTodos),
       indiceEdad: indiceDe(contraEdad),
       grupos,
-      fuertes: ordenados.slice(0, 4).map((p) => ({ p, mediana: mediana(p) })),
-      mejora: ordenados.slice(-4).reverse().map((p) => ({ p, mediana: mediana(p) })),
+      minimo,
+      fuertes: unoPorGrupo(ordenados).slice(0, 3).map((p) => ({ p, mediana: mediana(p), base: baseDe(p), puesto: puestoEnEdad(p) })),
+      mejora: unoPorGrupo([...ordenados].reverse()).slice(0, 3).map((p) => ({ p, mediana: mediana(p), base: baseDe(p), puesto: puestoEnEdad(p) })),
       contraEdad,
     };
   }, [jugadores, nombre, apodo]);
@@ -353,67 +341,84 @@ export function AreaMejora({
   const etiquetaPuesto = analisis ? PUESTOS.find((p) => p.key === analisis.puesto)?.label ?? analisis.puesto : "";
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 pb-10">
       <style>{`.am-capa{transform-origin:center;animation:am-entra .7s cubic-bezier(.2,.8,.2,1) both}@keyframes am-entra{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:scale(1)}}`}</style>
 
       {analisis ? (
         <>
-          {/* Cabecera: dos índices y la tendencia */}
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 [&>*:last-child:nth-child(odd)]:col-span-2 sm:[&>*:last-child:nth-child(odd)]:col-span-1">
-            {[
-              { t: `Contra los ${etiquetaPuesto.toLowerCase()} de su edad (±3)`, v: analisis.indiceEdad, n: analisis.nEdad },
-              { t: `Contra todos los ${etiquetaPuesto.toLowerCase()} de la categoría`, v: analisis.indiceTodos, n: analisis.nPuesto },
-            ].map((k) => (
-              <div key={k.t} className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.06] to-transparent p-3 sm:p-4">
-                <p className="text-[12px] text-white/60">{k.t}</p>
-                <p className="mt-1 text-2xl font-black tabular-nums sm:text-3xl" style={{ color: (k.v ?? 0) >= 66 ? VERDE : (k.v ?? 0) >= 40 ? ORO : ROJO }}>
-                  {k.v ?? "—"}
-                  <span className="ml-1 text-sm font-semibold text-white/50">/ 100</span>
-                </p>
-                <p className="text-[12px] text-white/50">percentil medio · {k.n} jugadores · Wyscout</p>
-              </div>
-            ))}
+          {/* Con qué se compara: una sola línea fija para toda la pestaña */}
+          <p className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[12px] text-white/65">
+            <b className="text-white/85">Cómo leerlo:</b> {etiquetaPuesto} con {analisis.minimo}′ o más esta temporada, valores por 90′ (Wyscout). <b className="text-white/85">p98</b> = mejor que el 98 % de con quien se compara; cada bloque dice con quién.
+          </p>
+
+          {/* En tres líneas, lo que importa (05/11/2026): estaba al final, tras tres pantallas. */}
+          {analisis.fuertes[0] && analisis.mejora[0] && (
+            <div className="rounded-2xl border border-[#D8B45A]/30 bg-[#D8B45A]/[0.06] p-4 text-[13px] leading-relaxed text-white/85">
+              <p><b style={{ color: VERDE }}>Lo mejor:</b> {analisis.fuertes[0].p.metrica.nombre.replace(/ %$/, "")} (p{Math.round(analisis.fuertes[0].p.percentil)}, {analisis.fuertes[0].puesto}º de {analisis.nEdad} de su edad).</p>
+              <p><b style={{ color: ROJO }}>Lo que más le falta:</b> {analisis.mejora[0].p.metrica.nombre.replace(/ %$/, "")} (p{Math.round(analisis.mejora[0].p.percentil)}, {analisis.mejora[0].puesto}º de {analisis.nEdad}).</p>
+              {tareaDe(analisis.mejora[0].p.metrica.nombre) && <p><b className="text-white">Esta semana:</b> {tareaDe(analisis.mejora[0].p.metrica.nombre)!.tarea.split(":")[0]}.</p>}
+            </div>
+          )}
+
+          <div className="grid gap-2 sm:grid-cols-2 sm:gap-3">
+            <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.06] to-transparent p-3 sm:p-4">
+              <p className="text-[12px] text-white/60">Nota de perfil · percentil medio en las métricas de su puesto</p>
+              <p className="mt-1 text-3xl font-black tabular-nums" style={{ color: (analisis.indiceEdad ?? 0) >= 66 ? VERDE : (analisis.indiceEdad ?? 0) >= 40 ? ORO : ROJO }}>
+                {analisis.indiceEdad}{" "}
+                <span className="text-sm font-semibold text-white/50">/ 100 frente a los {analisis.nEdad} de su edad</span>
+              </p>
+              <p className="text-[12px] text-white/55">
+                {analisis.indiceTodos === analisis.indiceEdad ? "La misma frente a toda la categoría" : `${analisis.indiceTodos} frente a toda la categoría`} · {analisis.fila.minutos}′ en {analisis.fila.partidos} partidos
+                {analisis.fila.minutos >= 450 ? " · base sólida" : " · muestra corta: orientativa"}
+              </p>
+            </div>
             {notas.length > 0 && (
               <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.06] to-transparent p-3 sm:p-4">
-                <p className="flex items-center gap-1.5 text-[12px] text-white/60"><TrendingUp size={13} /> Valoración del cuerpo técnico</p>
-                <p className="mt-1 text-2xl font-black tabular-nums sm:text-3xl text-white">{coma(media(notas.map((n) => n.nota)))}</p>
-                <p className="flex items-center gap-1 text-[12px] text-white/55">
-                  {notas.length} partidos
-                  {tendencia !== null && Math.abs(tendencia) >= 0.2 && (
-                    <span className="inline-flex items-center" style={{ color: tendencia > 0 ? VERDE : ROJO }}>
-                      · {tendencia > 0 ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />} {coma(Math.abs(tendencia))} en los 3 últimos
-                    </span>
-                  )}
+                <p className="flex items-center gap-1.5 text-[12px] text-white/60"><TrendingUp size={13} /> Nota del cuerpo técnico en Valoraciones (0-10, por partido)</p>
+                <p className="mt-1 text-3xl font-black tabular-nums text-white">
+                  {coma(media(notas.map((n) => n.nota)))}{" "}
+                  <span className="text-sm font-semibold text-white/50">de media en {notas.length} partidos</span>
                 </p>
+                {tendencia !== null && (
+                  <p className="flex items-center gap-1 text-[12px]" style={{ color: Math.abs(tendencia) < 0.2 ? undefined : tendencia > 0 ? VERDE : ROJO }}>
+                    {Math.abs(tendencia) >= 0.2 && (tendencia > 0 ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />)}
+                    {coma(media(notas.slice(-3).map((n) => n.nota)))} en los 3 últimos ({tendencia >= 0 ? "+" : "−"}{coma(Math.abs(tendencia))} sobre los anteriores)
+                  </p>
+                )}
               </div>
             )}
           </div>
 
           {/* Radiografía de percentiles: cada métrica, su valor por 90 y su percentil */}
           {analisis.cunas.length >= 6 && (
-            <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#0B0F14] p-4 text-white sm:p-5" style={{ color: "#fff", backgroundColor: "#0B0F14" }}>
-              <div className="mb-1 flex flex-wrap items-end justify-between gap-2">
-                <div>
-                  <p className="text-[12px] font-bold uppercase tracking-[0.22em]" style={{ color: "#EC4899" }}>Radiografía de percentiles</p>
-                  <p className="text-[12px]" style={{ color: "rgba(255,255,255,.6)" }}>
-                    {etiquetaPuesto} · {analisis.fila.edad} años · {analisis.fila.minutos}′ · {analisis.fila.partidos} partidos · {analisis.fila.equipo}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-4xl font-black tabular-nums leading-none" style={{ color: "#EC4899" }}>{analisis.indiceTodos ?? "—"}</p>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,.55)" }}>nota de perfil</p>
-                </div>
+            <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-white sm:p-5">
+              <h4 className="text-sm font-bold uppercase tracking-[0.18em]" style={{ color: "#EC4899" }}>Radiografía de percentiles <span className="text-[11px] font-semibold normal-case tracking-normal text-white/55">· frente a los {analisis.nPuesto} de la categoría</span></h4>
+              <p className="text-[12px] text-white/60">
+                <b className="text-white/85">{(() => { const o = [...analisis.cunas].sort((a, b) => b.percentil - a.percentil); return `Lo más alto: ${o[0].nombre.toLowerCase()} y ${o[1].nombre.toLowerCase()}; lo más bajo: ${o[o.length - 1].nombre.toLowerCase()}.`; })()}</b>{" "}
+                {analisis.fila.edad} años · {analisis.fila.minutos}′ · {analisis.fila.partidos} partidos. La cuña rosa llega hasta su percentil (la discontinua es P50); a la derecha con balón, a la izquierda sin balón. Alto siempre es mejor: en las marcadas con ↓ (menos es mejor) ya está dado la vuelta.
+              </p>
+              <div className="hidden sm:block">
+                <RadiografiaPercentiles cunas={analisis.cunas} />
               </div>
-              <RadiografiaPercentiles cunas={analisis.cunas} />
-              <div className="mt-2 rounded-xl border p-3 text-[12px]" style={{ borderColor: "rgba(255,255,255,.12)", color: "rgba(255,255,255,.7)" }}>
-                <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,.5)" }}>Con qué se compara</p>
-                <p>Percentiles frente a {analisis.nPuesto} {etiquetaPuesto.toLowerCase()} de la categoría con {MINUTOS_MINIMOS}′ o más · valores por 90 minutos · Wyscout.</p>
-                <p className="mt-1 font-semibold" style={{ color: analisis.fila.minutos >= 450 && analisis.nPuesto >= 30 ? "#EC4899" : "#FBBF24" }}>
-                  {analisis.fila.minutos >= 450 && analisis.nPuesto >= 30
-                    ? "✓ Base sólida: minutos y comparables suficientes para que la nota sea estable."
-                    : `Muestra corta (${analisis.fila.minutos}′): tómalo como orientación, puede moverse mucho.`}
-                </p>
-              </div>
+              {/* En el móvil la pizza no se lee: la misma información en barras. */}
+              <ul className="mt-3 space-y-2 sm:hidden">
+                {(["con", "sin"] as const).map((lado) => (
+                  <li key={lado}>
+                    <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.16em] text-white/50">{lado === "con" ? "Con balón" : "Sin balón"}</p>
+                    <ul className="space-y-1.5">
+                      {analisis.cunas.filter((c) => c.lado === lado).map((c) => (
+                        <li key={c.nombre} className="text-[13px]">
+                          <div className="flex items-baseline justify-between gap-2">
+                            <span className="min-w-0 truncate text-white/80">{c.nombre}</span>
+                            <span className="shrink-0 tabular-nums"><b className="text-white">{c.valor}</b> <span style={{ color: "#EC4899" }}>P{Math.round(c.percentil)}</span></span>
+                          </div>
+                          <span className="mt-0.5 block h-1.5 overflow-hidden rounded-full bg-white/10"><span className="block h-full rounded-full" style={{ width: `${c.percentil}%`, background: "#EC4899" }} /></span>
+                        </li>
+                      ))}
+                    </ul>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 
@@ -421,74 +426,83 @@ export function AreaMejora({
           {analisis.mapa && (
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-white">
               <h4 className="text-sm font-bold uppercase tracking-[0.14em] text-[#D8B45A]">
-                {analisis.mapa.ejes.y} frente a {analisis.mapa.ejes.x.toLowerCase()}
+                {analisis.mapa.ejes.y} frente a {analisis.mapa.ejes.x.toLowerCase()} <span className="text-[11px] font-semibold normal-case tracking-normal text-white/55">· frente a los {analisis.mapa.n} de la categoría</span>
               </h4>
               <p className="mb-2 text-[12px] text-white/55">
-                {analisis.mapa.n} {etiquetaPuesto.toLowerCase()} de la categoría con 450′ o más. Cada eje es su puesto dentro de su posición (0 el último, 100 el primero) en {analisis.mapa.ejes.gx.join(", ").toLowerCase()} y en {analisis.mapa.ejes.gy.join(", ").toLowerCase()}. Las diagonales suman los dos ejes; la zona sombreada es la élite en ambos.
+                Los mismos {analisis.mapa.n} {etiquetaPuesto.toLowerCase()} de la categoría con {analisis.minimo}′ o más. Cada eje es su puesto dentro de su posición (0 el último, 100 el primero) en {analisis.mapa.ejes.gx.join(", ").toLowerCase()} y en {analisis.mapa.ejes.gy.join(", ").toLowerCase()}. Zona sombreada: entre los mejores en las dos cosas (la suma de los dos percentiles pasa de 160). Más es mejor en los dos ejes.
               </p>
               <MapaDosEjes puntos={analisis.mapa.puntos} ejeX={analisis.mapa.ejes.x} ejeY={analisis.mapa.ejes.y} rotulos={analisis.mapa.ejes.rotulos} />
             </div>
           )}
 
-          {/* El radar por momentos del juego */}
-          <div className="grid items-center gap-5 rounded-2xl border border-white/10 bg-[radial-gradient(circle_at_30%_20%,rgba(216,180,90,.10),transparent_55%)] p-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
-            <div className="text-white">
-              <Radar
-                ejes={analisis.grupos.map((g) => g.grupo)}
-                capas={[
-                  { nombre: "Su edad", color: ORO, valores: analisis.grupos.map((g) => media(g.edad.length ? g.edad : g.todos)) },
-                  { nombre: "Categoría", color: AZUL, valores: analisis.grupos.map((g) => media(g.todos)) },
-                  ...contraElite.map((e, k) => ({ nombre: e.liga, color: COLOR_LIGA[k % 2], valores: analisis.grupos.map((g) => e.grupos[GRUPOS_JUGADOR.indexOf(g.grupo)] || 0) })),
-                ]}
-              />
-            </div>
-            <div className="min-w-0 space-y-3">
-              <h4 className="text-sm font-bold uppercase tracking-[0.14em] text-[#D8B45A]">Momentos del juego</h4>
-              <p className="text-[12px] text-white/55">
-                Percentil en cada grupo de métricas de su puesto ({etiquetaPuesto.toLowerCase()}). 50 es la mitad del grupo.{" "}
-                <span style={{ color: ORO }}>●</span> contra los de su edad ±3 · <span style={{ color: AZUL }}>●</span> contra toda la categoría
-                {contraElite.map((e, k) => (
-                  <span key={e.liga}> · <span style={{ color: COLOR_LIGA[k % 2] }}>●</span> contra {e.liga} ({e.n})</span>
-                ))}
-              </p>
-              <ul className="space-y-1.5">
-                {analisis.grupos.map((g) => {
-                  const v = Math.round(media(g.edad.length ? g.edad : g.todos));
-                  return (
-                    <li key={g.grupo} className="flex items-center gap-2 text-[13px]">
-                      <span className="w-32 shrink-0 truncate text-white/75" title={g.grupo}>{g.grupo}</span>
-                      <span className="relative h-2 flex-1 overflow-hidden rounded-full bg-white/10">
-                        <span className="absolute inset-y-0 left-0 rounded-full transition-all duration-700" style={{ width: `${v}%`, background: v >= 66 ? VERDE : v >= 40 ? ORO : ROJO }} />
-                        <span className="absolute inset-y-0 left-1/2 w-px bg-white/40" />
-                      </span>
-                      <span className="w-8 text-right tabular-nums text-white/80">{v}</span>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
+          {/* Momentos del juego: barras (frente a su edad) con marcas para la categoría y la élite (05/11/2026: el radar salía diminuto y repetía las barras). */}
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-white">
+            <h4 className="text-sm font-bold uppercase tracking-[0.14em] text-[#D8B45A]">Momentos del juego <span className="text-[11px] font-semibold normal-case tracking-normal text-white/55">· frente a los {analisis.nEdad} de su edad{analisis.nEdad < 25 ? " (pocos: tendencia)" : ""}</span></h4>
+            <p className="mb-3 text-[12px] text-white/55">
+              Percentil medio en cada grupo de métricas de su puesto; 50 es la mitad. La barra, frente a los de su edad; las marcas, el mismo jugador frente a otras muestras (por eso un mismo grupo puede dar cifras distintas):{" "}
+              <span style={{ color: AZUL }}>▮</span> toda la categoría ({analisis.nPuesto})
+              {contraElite.map((e, k) => (
+                <span key={e.liga}> · <span style={{ color: COLOR_LIGA[k % 2] }}>▮</span> {e.liga} ({e.n}{e.n < 25 ? ", pocos" : ""})</span>
+              ))}
+            </p>
+            <ul className="grid gap-x-8 gap-y-2.5 md:grid-cols-2">
+              {analisis.grupos.map((g) => {
+                const v = Math.round(media(g.edad.length ? g.edad : g.todos));
+                const marcas = [
+                  { color: AZUL, valor: media(g.todos), nombre: "categoría" },
+                  ...contraElite.map((e, k) => ({ color: COLOR_LIGA[k % 2], valor: e.grupos[GRUPOS_JUGADOR.indexOf(g.grupo)] || 0, nombre: e.liga })),
+                ].filter((m) => m.valor > 0);
+                return (
+                  <li key={g.grupo} className="text-[13px]" title={marcas.map((m) => `${m.nombre}: ${Math.round(m.valor)}`).join(" · ")}>
+                    <div className="mb-1 flex items-baseline justify-between gap-2">
+                      <span className="min-w-0 truncate text-white/80">{g.grupo}</span>
+                      <span className="shrink-0 tabular-nums"><b style={{ color: v >= 66 ? VERDE : v >= 40 ? ORO : ROJO }}>{v}</b>{marcas.map((m) => <span key={m.nombre} className="ml-1.5 text-[11px]" style={{ color: m.color }}>{Math.round(m.valor)}</span>)}</span>
+                    </div>
+                    <span className="relative block h-2.5 rounded-full bg-white/10">
+                      <span className="absolute inset-y-0 left-0 rounded-full transition-all duration-700" style={{ width: `${v}%`, background: v >= 66 ? VERDE : v >= 40 ? ORO : ROJO }} />
+                      <span className="absolute inset-y-0 left-1/2 w-px bg-white/40" />
+                      {marcas.map((m) => (
+                        <span key={m.nombre} className="absolute -top-0.5 h-3.5 w-1 -translate-x-1/2 rounded-sm" style={{ left: `${m.valor}%`, background: m.color }} />
+                      ))}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
 
           {/* Lo que le distingue y lo que tiene que mejorar */}
           <div className="grid gap-3 md:grid-cols-2">
             {[
-              { t: "Lo que le distingue", icono: Sparkles, color: VERDE, lista: analisis.fuertes },
-              { t: "Área de mejora", icono: Crosshair, color: ROJO, lista: analisis.mejora },
+              { t: "Lo que le distingue", icono: Sparkles, color: VERDE, lista: analisis.fuertes, entrenar: false },
+              { t: "Área de mejora", icono: Crosshair, color: ROJO, lista: analisis.mejora, entrenar: true },
             ].map((b) => (
               <div key={b.t} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                 <h4 className="mb-2 flex items-center gap-2 text-sm font-bold" style={{ color: b.color }}>
                   <b.icono size={15} /> {b.t}
                 </h4>
                 <ul className="space-y-2">
-                  {b.lista.map(({ p, mediana }) => (
+                  {b.lista.map(({ p, mediana, base, puesto }) => (
                     <li key={p.metrica.columna} className="text-[13px]" title={p.metrica.comoLeer}>
                       <div className="flex items-baseline justify-between gap-2">
                         <span className="min-w-0 truncate text-white/85">{p.metrica.nombre}</span>
-                        <span className="shrink-0 tabular-nums font-semibold" style={{ color: b.color }}>p{Math.round(p.percentil)}</span>
+                        <span className="shrink-0 tabular-nums font-semibold" style={{ color: b.color }}>p{Math.round(p.percentil)} <span className="text-[11px] font-normal text-white/50">· {puesto}º de {analisis.nEdad}</span></span>
                       </div>
-                      <p className="text-[12px] text-white/50">
-                        {coma(p.valor, Math.abs(p.valor) >= 10 ? 1 : 2)}{mediana !== null ? ` · la mediana de su edad, ${coma(mediana, Math.abs(mediana) >= 10 ? 1 : 2)}` : ""} · {p.metrica.grupo}
+                      <p className="text-[12px] text-white/55">
+                        {p.metrica.unidad === "porcentaje"
+                          ? `${coma(p.valor, 1)} %${base?.aciertos !== null && base ? ` (≈ ${base.aciertos} de ${base.total}${base.total < 20 ? ", pocas: tendencia" : ""})` : ""}`
+                          : base && base.total === 0
+                            ? `0 por 90′ (ninguno en ${analisis.fila.minutos}′)`
+                            : `${coma(p.valor, Math.abs(p.valor) >= 10 ? 1 : 2)} por 90′${base ? ` (≈ ${base.total} en ${analisis.fila.minutos}′${base.total < 20 ? ", pocas: tendencia" : ""})` : ""}`}
+                        {mediana !== null ? ` · mediana de su edad: ${p.metrica.unidad === "porcentaje" ? `${coma(mediana, 1)} %` : coma(mediana, Math.abs(mediana) >= 10 ? 1 : 2)}` : ""}
                       </p>
+                      {b.entrenar && tareaDe(p.metrica.nombre) && (
+                        <p className="mt-1 rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1.5 text-[12px] text-white/75">
+                          <b className="text-white/90">Qué entrenamos:</b> {tareaDe(p.metrica.nombre)!.tarea}.
+                          <span className="mt-1 block text-white/70"><b className="text-white/85">Qué medir en la tarea:</b> {tareaDe(p.metrica.nombre)!.medir}, para ver si se acerca al objetivo de partido.</span>
+                          {mediana !== null && <span className="block text-white/60"><b className="text-white/75">Objetivo de partido:</b> acercarse a {p.metrica.unidad === "porcentaje" ? `${coma(mediana, 1)} %` : `${coma(mediana, Math.abs(mediana) >= 10 ? 1 : 2)} por 90′`}{p.metrica.mejorAlto === false ? " o menos" : ""}, la mediana de los {analisis.nEdad} de su edad (Wyscout).</span>}
+                        </p>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -507,17 +521,20 @@ export function AreaMejora({
                   <div key={e.liga} className="rounded-xl border border-white/10 bg-black/20 p-3">
                     <div className="flex items-baseline justify-between gap-2">
                       <span className="text-sm font-semibold" style={{ color: COLOR_LIGA[k % 2] }}>{e.liga}</span>
-                      <span className="text-[12px] text-white/50">{e.n} jugadores</span>
+                      <span className="text-[12px] text-white/50">{e.n} jugadores{e.n < 25 ? " · pocos: tendencia" : ""}</span>
                     </div>
                     <p className="mt-1 text-2xl font-black tabular-nums text-white">
-                      {e.indice ?? "—"}<span className="ml-1 text-sm font-semibold text-white/50">percentil medio</span>
+                      {e.indice}{" "}<span className="text-sm font-semibold text-white/50">percentil medio</span>
                     </p>
-                    {e.parecidos.length > 0 && (
-                      <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/45">Se parece a · % de parecido</p>
+                    {e.parecidos.filter((x) => x.sim >= 0.4).length === 0 && e.parecidos[0] && (
+                      <p className="mt-2 text-[12px] text-white/55">Ninguno con un estilo de verdad parecido: el más cercano, {e.parecidos[0].j.jugador} ({Math.round(e.parecidos[0].sim * 100)} %).</p>
                     )}
-                    {e.parecidos.length > 0 && (
+                    {e.parecidos.filter((x) => x.sim >= 0.4).length > 0 && (
+                      <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/45" title="Similitud de la forma de jugar en todas las métricas de su puesto (coseno entre perfiles normalizados): 100 % es idéntico, 0 % nada que ver. Sólo los de 20 % o más.">Se parece a · similitud de estilo en {analisis.contraEdad.length} métricas</p>
+                    )}
+                    {e.parecidos.filter((x) => x.sim >= 0.4).length > 0 && (
                       <ul className="mt-1 space-y-1">
-                        {e.parecidos.map(({ j, sim }) => (
+                        {e.parecidos.filter((x) => x.sim >= 0.4).map(({ j, sim }) => (
                           <li key={j.jugador + j.equipo} className="flex items-center justify-between gap-2 text-[13px]">
                             <span className="min-w-0 truncate text-white/85">{j.jugador} <span className="text-white/45">· {j.equipo} · {j.edad} años</span></span>
                             <span className="shrink-0 tabular-nums text-white/60">{Math.round(sim * 100)} %</span>
@@ -542,7 +559,9 @@ export function AreaMejora({
       {notas.length >= 2 && (
         <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
           <h4 className="mb-1 text-sm font-bold text-white">Nota partido a partido</h4>
-          <p className="mb-2 text-[12px] text-white/50">Puntos: cada partido (verde 7 o más, azul 5,5 a 7, rojo por debajo) · línea dorada: media de los tres últimos.</p>
+          <p className="mb-2 text-[12px] text-white/50">
+            {notas.length} partidos, de {coma(Math.min(...notas.map((n) => n.nota)))} a {coma(Math.max(...notas.map((n) => n.nota)))}; media de los 3 últimos, {coma(media(notas.slice(-3).map((n) => n.nota)))}. Puntos: cada partido, de {notas[0].rival} a {notas[notas.length - 1].rival} (verde 7 o más, azul 5,5 a 7, rojo por debajo) · línea dorada: media de los tres últimos.
+          </p>
           <div className="text-white"><Tendencia puntos={notas} /></div>
         </div>
       )}

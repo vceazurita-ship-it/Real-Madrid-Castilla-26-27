@@ -47,7 +47,7 @@ function dosLineas(texto: string, max = 22): string[] {
   return corte < 0 ? [texto] : [texto.slice(0, corte), texto.slice(corte + 1)];
 }
 
-export function RadiografiaPercentiles({ cunas, acento = "#EC4899", centro = "P90" }: { cunas: CunaPercentil[]; acento?: string; centro?: string }) {
+export function RadiografiaPercentiles({ cunas, acento = "#EC4899", centro = "/90′" }: { cunas: CunaPercentil[]; acento?: string; centro?: string }) {
   const der = cunas.filter((c) => c.lado === "con");
   const izq = cunas.filter((c) => c.lado === "sin");
 
@@ -60,7 +60,7 @@ export function RadiografiaPercentiles({ cunas, acento = "#EC4899", centro = "P9
   if (colocadas.length < 4) return null;
 
   return (
-    <svg viewBox={`-40 -10 ${ANCHO + 80} ${ALTO + 20}`} className="h-auto w-full" role="img" aria-label={`Radiografía de percentiles: ${cunas.map((c) => `${c.nombre} p${Math.round(c.percentil)}`).join(", ")}`}>
+    <svg viewBox={`-40 100 ${ANCHO + 80} ${ALTO - 180}`} className="h-auto w-full" role="img" aria-label={`Radiografía de percentiles: ${cunas.map((c) => `${c.nombre} p${Math.round(c.percentil)}`).join(", ")}`}>
       <defs>
         <radialGradient id="rp-halo">
           <stop offset="55%" stopColor={acento} stopOpacity="0.10" />
@@ -82,7 +82,7 @@ export function RadiografiaPercentiles({ cunas, acento = "#EC4899", centro = "P9
         const lx = dch ? CX + R + 62 : CX - R - 62;
         /* Alturas fijas por lado (05/11/2026): por el coseno, los de arriba y abajo se pisaban. */
         const ly = total < 2 ? CY : CY - R - 6 + (fila * (2 * R + 30)) / (total - 1);
-        const lineas = dosLineas(c.nombre.toUpperCase(), 20);
+        const lineas = dosLineas(c.nombre.toUpperCase(), 18);
 
         return (
           <g key={c.nombre} className="rp-cuna" style={{ animationDelay: `${i * 45}ms` }}>
@@ -92,14 +92,14 @@ export function RadiografiaPercentiles({ cunas, acento = "#EC4899", centro = "P9
             <path d={trozo(a0 + 0.012, a1 - 0.012, R0, r1)} fill={acento} fillOpacity={intensidad} />
             <circle cx={ax} cy={ay} r={3.5} fill="currentColor" fillOpacity={0.7} />
             <polyline points={`${ax},${ay} ${dch ? lx - 14 : lx + 14},${ly}`} fill="none" stroke="currentColor" strokeOpacity={0.35} />
-            <text x={lx} y={ly - 6} textAnchor={dch ? "start" : "end"} fontSize="32" fontWeight="800" fill="currentColor">
+            <text x={lx} y={ly - 6} textAnchor={dch ? "start" : "end"} fontSize="38" fontWeight="800" fill="currentColor">
               {c.valor}
             </text>
             {lineas.map((l, k) => (
-              <text key={k} x={lx} y={ly + 16 + k * 15} textAnchor={dch ? "start" : "end"} fontSize="12" fontWeight="700" letterSpacing="0.05em" fill="currentColor" fillOpacity={0.6}>
+              <text key={k} x={lx} y={ly + 20 + k * 20} textAnchor={dch ? "start" : "end"} fontSize="18" fontWeight="700" letterSpacing="0.02em" fill="currentColor" fillOpacity={0.6}>
                 {l}
                 {k === lineas.length - 1 && (
-                  <tspan fill={acento} fillOpacity={1}>{` · P${Math.round(c.percentil)}`}</tspan>
+                  <tspan fill={acento} fillOpacity={1} fontWeight="800">{` · P${Math.round(c.percentil)}`}</tspan>
                 )}
               </text>
             ))}

@@ -35,13 +35,16 @@ const GRUPOS = {
   /* Ronda dirigida y barata (05/11/2026): portada y jugadores sesión hacia el 9,5. */
   foco3: ["/", "/jugadores-sesion"],
   foco4: ["/individual"],
+  mejora: ["/individual (ficha → pestaña Área de mejora)", "/data-analisis?area=equipo (mapa «Progresar y pisar área»)"],
 };
 module.exports = { GRUPOS };
 if (require.main !== module) return;
 
 const pedidos = process.argv.slice(2);
 const tareas = Object.entries(GRUPOS).flatMap(([g, rutas]) => rutas.map((r) => ({ g, r })))
-  .filter(({ g, r }) => !pedidos.length || pedidos.includes(g) || pedidos.includes(r));
+  .filter(({ g, r }) => !pedidos.length || pedidos.includes(g) || pedidos.includes(r))
+  /* Las rutas con espacio son descripciones (grupo «mejora»): las captura un arnés propio. */
+  .filter(({ r }) => !r.includes(" "));
 
 const espera = (ms) => new Promise((r) => setTimeout(r, ms));
 

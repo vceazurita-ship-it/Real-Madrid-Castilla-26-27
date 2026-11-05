@@ -274,7 +274,12 @@ export function onceTipoDe(plantilla: JugadorEquipo[]) {
 const ordinal = (n: number) => `${n}º`;
 
 /** «Toques por entrada» → «toques por entrada», pero «PPDA» se queda como está. */
-const enFrase = (t: string) => (/^\p{Lu}\p{Ll}/u.test(t) ? t[0].toLowerCase() + t.slice(1) : t);
+const enFrase = (t: string) => {
+  /* La jerga, en palabras (05/11/2026). */
+  if (/^goles\s*[−-]\s*xG/i.test(t)) return "goles por encima de los esperados (goles − goles esperados, xG)";
+  if (/^PPDA/.test(t)) return "PPDA (pases que deja dar al rival antes de presionar; menos es más presión)";
+  return /^\p{Lu}\p{Ll}/u.test(t) ? t[0].toLowerCase() + t.slice(1) : t;
+};
 
 export function sintesisDe(equipo: string, resumen: ResumenEquipo, perfil: PerfilColectivo | null, plantilla: JugadorEquipo[], minimoMinutos = 270): string[] {
   const frases: string[] = [];
@@ -306,7 +311,7 @@ export function sintesisDe(equipo: string, resumen: ResumenEquipo, perfil: Perfi
       );
     } else if (mejorFase.length >= 2) {
       frases.push(
-        `Lo mejor de su juego, ${mejorFase[0].label.toLowerCase()} (${mejorFase[0].percentil} de 100); lo más flojo, ${mejorFase[mejorFase.length - 1].label.toLowerCase()} (${mejorFase[mejorFase.length - 1].percentil} de 100).`,
+        `Lo mejor de su juego, ${mejorFase[0].label.toLowerCase()} (${mejorFase[0].percentil} de 100); ${(mejorFase[mejorFase.length - 1].percentil ?? 0) >= 40 ? "lo menos destacado" : "lo más flojo"}, ${mejorFase[mejorFase.length - 1].label.toLowerCase()} (${mejorFase[mejorFase.length - 1].percentil} de 100). Con ${resumen.partidos} partidos es una tendencia, no un veredicto.`,
       );
     }
     if (perfil.fuertes.length)

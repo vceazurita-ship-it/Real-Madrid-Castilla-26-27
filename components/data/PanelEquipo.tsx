@@ -93,26 +93,36 @@ function Tarjeta({ titulo, children, extra }: { titulo: string; children: React.
 | @fernandosb9: progresar bien y pisar área no siempre van juntos.
 */
 const COL_PROGRESIVOS = "Pases progresivos · precisos";
-const COL_ENTRADAS = ["Entradas al área de penalti · carreras", "Entradas al área de penalti · pases cruzados"];
+const COL_ENTRADAS = "Entradas al área de penalti";
+const COL_CARRERAS = "Entradas al área de penalti · carreras";
+const COL_CENTROS = "Entradas al área de penalti · pases cruzados";
 
-function mapaDeProgresion(liga: FilaPartido[], competicion: string, equipo: string): PuntoMapa[] {
-  const porEquipo = new Map<string, { prog: number[]; ent: number[] }>();
+type PuntoProgresion = PuntoMapa & { prog: number; ent: number; partidos: number; carreras: number; centros: number; pCarreras: number; pCentros: number };
+
+function mapaDeProgresion(liga: FilaPartido[], competicion: string, equipo: string): PuntoProgresion[] {
+  const porEquipo = new Map<string, { prog: number[]; ent: number[]; car: number[]; cen: number[] }>();
   for (const fila of liga) {
     if (fila.competicion !== competicion) continue;
     const prog = fila.datos[COL_PROGRESIVOS];
-    const ent = COL_ENTRADAS.map((c) => fila.datos[c]).filter((v): v is number => typeof v === "number");
-    if (typeof prog !== "number" || ent.length < 2) continue;
-    const e = porEquipo.get(fila.equipo) ?? { prog: [], ent: [] };
+    const ent = fila.datos[COL_ENTRADAS];
+    if (typeof prog !== "number" || typeof ent !== "number") continue;
+    const e = porEquipo.get(fila.equipo) ?? { prog: [], ent: [], car: [], cen: [] };
     e.prog.push(prog);
-    e.ent.push(ent[0] + ent[1]);
+    e.ent.push(ent);
+    e.car.push(fila.datos[COL_CARRERAS] ?? 0);
+    e.cen.push(fila.datos[COL_CENTROS] ?? 0);
     porEquipo.set(fila.equipo, e);
   }
   const filas = [...porEquipo].filter(([, v]) => v.prog.length >= 2).map(([nombre, v]) => ({
     nombre,
     prog: v.prog.reduce((a, b) => a + b, 0) / v.prog.length,
     ent: v.ent.reduce((a, b) => a + b, 0) / v.ent.length,
+    car: v.car.reduce((a, b) => a + b, 0) / v.car.length,
+    cen: v.cen.reduce((a, b) => a + b, 0) / v.cen.length,
     n: v.prog.length,
   }));
+  const rc = (() => { const v = filas.map((x) => x.car); const o = [...v].sort((a, b) => a - b); return v.map((x) => (100 * o.indexOf(x)) / Math.max(1, v.length - 1)); })();
+  const rn = (() => { const v = filas.map((x) => x.cen); const o = [...v].sort((a, b) => a - b); return v.map((x) => (100 * o.indexOf(x)) / Math.max(1, v.length - 1)); })();
   const rango = (vals: number[]) => {
     const o = [...vals].sort((a, b) => a - b);
     return vals.map((v) => (vals.length < 2 ? 50 : (100 * o.indexOf(v)) / (vals.length - 1)));
@@ -127,8 +137,38 @@ function mapaDeProgresion(liga: FilaPartido[], competicion: string, equipo: stri
     propio: x.nombre === NOSOTROS || x.nombre === equipo,
     color: x.nombre === NOSOTROS ? "#D8B45A" : x.nombre === equipo ? "#4F8FE8" : undefined,
     detalle: `${x.prog.toFixed(1).replace(".", ",")} progresivos precisos y ${x.ent.toFixed(1).replace(".", ",")} entradas al área por partido · ${x.n} partidos`,
+    prog: x.prog,
+    ent: x.ent,
+    partidos: x.n,
+    carreras: x.car,
+    centros: x.cen,
+    pCarreras: rc[i],
+    pCentros: rn[i],
   }));
 }
+
+/** «Spain. Primera Division RFEF» → «Primera Federación». */
+const nombreCompeticion = (c: string) => c.replace(/^[A-Z][a-z]+\.\s*/, "").replace(/Primera Division RFEF/i, "Primera Federación");
+
+/** La jerga, en palabras, la primera vez que sale (05/11/2026). */
+/** xG y xA, en palabras, en los chips de la plantilla. */
+const chip = (n: string) =>
+  n
+    .replace(/^xG\b/, "Goles esperados")
+    .replace(/\bxG\b/g, "goles esperados")
+    .replace(/^xA\b/, "Asistencias esperadas")
+    .replace(/\bxA\b/g, "asistencias esperadas")
+    .replace(/Asistencias de la asistencia/i, "Pase previo a la asistencia");
+
+function nombreLlano(nombre: string) {
+  if (/^xG en contra/i.test(nombre)) return nombre.replace(/^xG/i, "Goles esperados (xG)");
+  if (/^goles\s*[−-]\s*xG/i.test(nombre)) return "Goles por encima de los esperados (goles − goles esperados, xG)";
+  if (/^PPDA/.test(nombre)) return "PPDA · presiona antes cuanto menor es";
+  return nombre;
+}
+
+/** Nivel de un percentil, en palabras. */
+const nivel = (p: number) => (p >= 80 ? "de los que más" : p >= 60 ? "por encima de la media" : p >= 40 ? "en la media" : p >= 20 ? "por debajo de la media" : "de los que menos");
 
 export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadores: FilaJugador[] }) {
   const escudoDe = useEscudos();
@@ -206,9 +246,9 @@ export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadore
   const filaMetrica = (x: MetricaEquipo) => (
     <div key={x.metrica.key} title={x.metrica.comoLeer}>
       <div className="flex items-baseline justify-between gap-2 text-xs">
-        <span className="truncate text-white/80">{x.metrica.nombre}</span>
+        <span className="truncate text-white/80">{nombreLlano(x.metrica.nombre)}{x.metrica.mejorAlto === false ? " ↓" : ""}</span>
         <span className="shrink-0 tabular-nums text-white/45">
-          {formatea(x.valor, x.metrica.unidad)} · {ordinal(x.puesto)}/{x.de}
+          {x.metrica.key === "rojas" && resumen.partidos ? `${Math.round(x.valor * resumen.partidos)} en ${resumen.partidos} partidos` : formatea(x.valor, x.metrica.unidad)} · {ordinal(x.puesto)} de {x.de}
         </span>
       </div>
       <div className="mt-1">
@@ -232,23 +272,23 @@ export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadore
             <select
               value={equipo}
               onChange={(e) => setElegido(e.target.value)}
-              className="max-w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-lg font-semibold text-white"
+              className="w-full max-w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-base font-semibold text-white sm:w-auto sm:text-lg"
               aria-label="Equipo"
             >
               {porCompeticion.map((c) => (
-                <optgroup key={c.competicion} label={c.competicion} className="bg-[#11161C]">
+                <optgroup key={c.competicion} label={nombreCompeticion(c.competicion)} className="bg-[#11161C]">
                   {c.equipos.map((e) => (
                     <option key={e} value={e} className="bg-[#11161C]">
                       {jornadaDe(e)?.etiqueta ? `${jornadaDe(e)?.etiqueta} · ` : ""}
                       {e}
-                      {e === delProximo ? " · próximo rival" : ""}
+                      {e === delProximo ? " (próximo)" : ""}
                     </option>
                   ))}
                 </optgroup>
               ))}
             </select>
             <p className="mt-1 text-xs text-white/45">
-              {perfil?.competicion ?? ""}
+              {perfil?.competicion ? nombreCompeticion(perfil.competicion) : ""}
               {resumen.tabla ? ` · ${ordinal(resumen.tabla.puesto)} de ${resumen.tabla.de} por puntos por partido` : ""}
             </p>
             <div className="mt-2 flex flex-wrap gap-1.5">
@@ -312,17 +352,54 @@ export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadore
         const puntos = comp ? mapaDeProgresion(liga, comp, equipo) : [];
         if (puntos.length < 6) return null;
         return (
-          <Tarjeta titulo={`Progresar y pisar área · ${puntos.length} equipos de su competición`}>
+          <Tarjeta titulo={`Progresar y pisar área · ${puntos.length} equipos · ${Math.max(...puntos.map((p) => p.partidos))} partidos cada uno, tendencia`}>
+            {(() => {
+              const suyo = puntos.find((p) => p.id === equipo);
+              const nuestro = puntos.find((p) => p.id === NOSOTROS);
+              if (!suyo || !nuestro || equipo === NOSOTROS) return null;
+              const c = (n: number) => n.toFixed(1).replace(".", ",");
+              return (
+                <p className="mb-1 text-[15px] font-semibold text-white">
+                  {Math.abs(suyo.ent - nuestro.ent) < 1 ? `${equipo} y el Castilla pisan el área lo mismo` : suyo.ent > nuestro.ent ? `${equipo} llega más al área que nosotros` : `Llegamos más al área que ${equipo}`}: {c(suyo.ent)} entradas por partido frente a {c(nuestro.ent)}.
+                </p>
+              );
+            })()}
             <p className="mb-2 text-[12px] text-white/55">
-              Pases progresivos precisos y entradas al área (conduciendo o con pase) por partido, en percentil dentro de la competición. <span style={{ color: "#D8B45A" }}>●</span> {NOSOTROS}
-              {equipo !== NOSOTROS && <> · <span style={{ color: "#4F8FE8" }}>●</span> {equipo}</>}. Pasa el ratón por un punto para ver sus cifras.
+              Pases progresivos precisos y entradas al área por partido de esta temporada (Wyscout), en percentil dentro de la competición; más es mejor en los dos. <span style={{ color: "#D8B45A" }}>●</span> {NOSOTROS}
+              {equipo !== NOSOTROS && <> · <span style={{ color: "#4F8FE8" }}>●</span> {equipo}</>}.
             </p>
             <MapaDosEjes
-              puntos={puntos}
+              detallePropios={false}
+              puntos={puntos.map((p) => ({ ...p, hueco: p.partidos < Math.max(...puntos.map((q) => q.partidos)) }))}
               ejeX="Pases progresivos precisos"
               ejeY="Entradas al área"
               rotulos={{ ambos: "Progresan y llegan", soloX: "Progresan sin llegar", soloY: "Llegan sin construir", nada: "Ni una cosa ni otra" }}
             />
+            {(() => {
+              const suyo = puntos.find((p) => p.id === equipo);
+              const nuestro = puntos.find((p) => p.id === NOSOTROS);
+              if (!suyo) return null;
+              const c = (n: number) => n.toFixed(1).replace(".", ",");
+              const deEl = `${equipo}: ${c(suyo.prog)} pases progresivos precisos por partido (P${Math.round(suyo.x)}, ${nivel(suyo.x)}) y ${c(suyo.ent)} entradas al área (P${Math.round(suyo.y)}, ${nivel(suyo.y)}).`;
+              let frente = "";
+              if (nuestro && equipo !== NOSOTROS) {
+                const masArea = nuestro.ent - suyo.ent;
+                const masProg = nuestro.prog - suyo.prog;
+                frente = ` Frente al Castilla (${c(nuestro.prog)} y ${c(nuestro.ent)}): ${Math.abs(masArea) < 1 ? "pisan el área lo mismo" : masArea > 0 ? `pisamos más área (+${c(masArea)} por partido)` : `pisa más área que nosotros (+${c(-masArea)} por partido)`}${Math.abs(masProg) < 1 ? " y progresamos igual" : masProg > 0 ? ` y progresamos más (+${c(masProg)})` : ` y progresa más (+${c(-masProg)})`}.`;
+              }
+              /* La orden, según su vía de llegada medida (carreras o centros), no una frase fija. */
+              const via = suyo.pCentros >= suyo.pCarreras
+                ? `Entra sobre todo con pase: ${c(suyo.centros)} entradas al área con pase por partido (P${Math.round(suyo.pCentros)}) frente a ${c(suyo.carreras)} conduciendo (P${Math.round(suyo.pCarreras)}).`
+                : `Entra sobre todo conduciendo: ${c(suyo.carreras)} entradas al área conduciendo por partido (P${Math.round(suyo.pCarreras)}) frente a ${c(suyo.centros)} con pase (P${Math.round(suyo.pCentros)}).`;
+              const accion =
+                equipo === NOSOTROS
+                  ? ""
+                  : suyo.y >= 60
+                    ? ` ${via} ${suyo.pCentros >= suyo.pCarreras ? "Defender el área con gente y ganar el primer balón." : "Cerrar por dentro y no dejarle encarar de cara."}`
+                    : ` Llega poco (${c(suyo.ent)} entradas por partido): se le puede dejar progresar por fuera y esperar en el área.`;
+              return <p className="mt-2 rounded-lg border border-[#D8B45A]/30 bg-[#D8B45A]/[0.06] px-3 py-2 text-[13px] leading-relaxed text-white/85"><b>Lectura:</b> {deEl}{frente}{accion}</p>;
+            })()}
+            <p className="mt-1 text-[11px] text-white/45">Medias por partido de esta temporada ({Math.max(...puntos.map((p) => p.partidos))} partidos como mucho por equipo): es una tendencia, no un veredicto.</p>
           </Tarjeta>
         );
       })()}
@@ -382,8 +459,8 @@ export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadore
           <Tarjeta titulo="Su estilo">
             <div className="space-y-1.5">
               {perfil.estilo.map((x) => (
-                <div key={x.metrica.key} className="flex items-baseline justify-between gap-2 text-xs" title={x.metrica.comoLeer}>
-                  <span className="truncate text-white/75">{x.metrica.nombre}</span>
+                <div key={x.metrica.key} className="flex flex-wrap items-baseline justify-between gap-x-2 text-xs" title={x.metrica.comoLeer}>
+                  <span className="min-w-0 truncate text-white/75">{nombreLlano(x.metrica.nombre)}</span>
                   <span className="shrink-0 tabular-nums">
                     <b className="text-white/90">{formatea(x.valor, x.metrica.unidad)}</b>
                     <span className="text-white/40">
@@ -454,7 +531,7 @@ export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadore
                   <tr className="text-left text-[10px] uppercase tracking-wider text-white/40">
                     <th className="py-2 pr-2 font-medium">Jugador</th>
                     <th className="px-1 font-medium" title="Puesto">Pos.</th>
-                    <th className="px-1 text-right font-medium">Edad</th>
+                    <th className="hidden px-1 text-right font-medium sm:table-cell">Edad</th>
                     <th className="px-1 text-right font-medium" title="Minutos jugados">Min.</th>
                     <th className="px-1 text-right font-medium" title="Goles">G</th>
                     <th className="px-1 text-right font-medium" title="Asistencias">A</th>
@@ -468,13 +545,13 @@ export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadore
                   </tr>
                 </thead>
                 <tbody>
-                  {plantilla.map((j) => (
+                  {plantilla.filter((j) => j.fila.minutos >= 90).map((j) => (
                     <tr key={j.fila.jugador} className="border-t border-white/[0.05] align-top">
                       <td className="py-1.5 pr-2 font-medium text-white/85">{j.fila.jugador}</td>
                       <td className="px-1 text-white/55" title={j.fila.posicion}>
                         {PUESTOS.find((p) => p.key === j.puesto)?.corto} <span className="text-white/30">{j.fila.posicion.split(",")[0]}</span>
                       </td>
-                      <td className="px-1 text-right tabular-nums text-white/60">{j.fila.edad || "—"}</td>
+                      <td className="hidden px-1 text-right tabular-nums text-white/60 sm:table-cell">{j.fila.edad > 0 ? j.fila.edad : null}</td>
                       <td className="px-1 text-right tabular-nums text-white/60">{j.fila.minutos}′</td>
                       <td className="px-1 text-right tabular-nums text-white/75">{j.goles || ""}</td>
                       <td className="px-1 text-right tabular-nums text-white/75">{j.asistencias || ""}</td>
@@ -488,17 +565,17 @@ export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadore
                       </td>
                       <td className="px-1 py-1">
                         <div className="flex flex-wrap gap-1">
-                          {j.destaca.map((p) => (
-                            <span key={p.metrica.columna} className="rounded px-1.5 py-0.5 text-[10px]" style={{ background: `${MEJOR}22`, color: MEJOR }}>
-                              {p.metrica.nombre} P{p.percentil}
+                          {j.fila.minutos < 300 && <span className="rounded px-1.5 py-0.5 text-[11px] text-white/50 ring-1 ring-white/15">muestra corta ({j.fila.minutos}′)</span>}
+                          {j.destaca.slice(0, 3).map((p) => (
+                            <span key={p.metrica.columna} className="rounded px-1.5 py-0.5 text-[11px]" style={{ background: `${MEJOR}22`, color: MEJOR, opacity: j.fila.minutos < 300 ? 0.55 : 1 }}>
+                              {chip(p.metrica.nombre)} P{p.percentil}
                             </span>
                           ))}
-                          {j.flojea.map((p) => (
-                            <span key={p.metrica.columna} className="rounded px-1.5 py-0.5 text-[10px]" style={{ background: `${PEOR}22`, color: PEOR }}>
-                              {p.metrica.nombre} P{p.percentil}
+                          {j.flojea.slice(0, 2).map((p) => (
+                            <span key={p.metrica.columna} className="rounded px-1.5 py-0.5 text-[11px]" style={{ background: `${PEOR}22`, color: PEOR, opacity: j.fila.minutos < 300 ? 0.55 : 1 }}>
+                              {chip(p.metrica.nombre)} P{p.percentil}
                             </span>
                           ))}
-                          {j.fila.minutos < 90 && <span className="text-[10px] text-white/30">menos de 90′: sin percentil</span>}
                         </div>
                       </td>
                     </tr>

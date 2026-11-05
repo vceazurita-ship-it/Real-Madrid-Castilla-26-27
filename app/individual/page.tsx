@@ -73,14 +73,6 @@ import { recordDateKey } from "@/lib/calendar";
 import { creaSeguimientos } from "@/lib/seguimiento-escribir";
 import { SeleccionJugadores } from "@/components/seguimiento/SeleccionJugadores";
 
-import {
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  Radar,
-  ResponsiveContainer,
-} from "recharts";
 import { confirmar } from "@/lib/avisos";
 
 /* ------------------------------------------------------------------ */
@@ -3092,13 +3084,6 @@ export default function IndividualPage() {
 
   /* ---------------- bloques de la ficha ---------------- */
 
-  const radarData = selected
-    ? METRICS.map((m) => ({
-        subject: m.short,
-        value: Number(selected[m.key] || 0),
-      }))
-    : [];
-
   const competencePanel = selected && (
     <Panel title="Perfil competencial" icon={Gauge}>
       <div className="mb-3 flex items-center gap-3">
@@ -3117,27 +3102,7 @@ export default function IndividualPage() {
         </div>
       </div>
 
-      <div className="h-[220px] w-full min-w-0">
-        <ResponsiveContainer width="100%" height="100%">
-          <RadarChart data={radarData} outerRadius="72%">
-            <PolarGrid stroke="rgba(255,255,255,0.12)" />
-
-            <PolarAngleAxis
-              dataKey="subject"
-              tick={{ fill: "rgba(255,255,255,0.55)", fontSize: 10 }}
-            />
-
-            <PolarRadiusAxis domain={[0, 10]} tick={false} axisLine={false} />
-
-            <Radar
-              dataKey="value"
-              stroke={GOLD}
-              fill={GOLD}
-              fillOpacity={0.35}
-            />
-          </RadarChart>
-        </ResponsiveContainer>
-      </div>
+      {/* 05/11/2026: fuera el radar pequeño, repetía las cinco barras de debajo. */}
 
       <div className="mt-3 space-y-2.5">
         {METRICS.map((metric) => {
@@ -3170,21 +3135,18 @@ export default function IndividualPage() {
     </Panel>
   );
 
-  const quickFacts = selected && (
-    <div className="grid grid-cols-3 gap-2">
-      {[
-        {
-          icon: ClipboardList,
-          label: "Seguimientos",
-          value: selected.sessions ?? "—",
-        },
-        { icon: Video, label: "Vídeos", value: selected.videos ?? "—" },
-        {
-          icon: FileText,
-          label: "Informe",
-          value: selected.hasReport ? "Sí" : "—",
-        },
-      ].map((fact) => (
+  /* 05/11/2026: sólo las que tienen dato («Vídeos 0» e «Informe —» no decían nada). */
+  const hechos = selected
+    ? [
+        { icon: ClipboardList, label: "Seguimientos", value: selected.sessions ?? 0 },
+        { icon: Video, label: "Vídeos", value: selected.videos ?? 0 },
+        { icon: FileText, label: "Informe", value: selected.hasReport ? "Sí" : 0 },
+      ].filter((h) => h.value !== 0)
+    : [];
+
+  const quickFacts = selected && hechos.length > 0 && (
+    <div className={`grid gap-2 ${hechos.length === 1 ? "grid-cols-1" : hechos.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
+      {hechos.map((fact) => (
         <div
           key={fact.label}
           className="min-w-0 rounded-xl border border-white/10 bg-white/[0.025] px-3 py-2.5 text-center"
