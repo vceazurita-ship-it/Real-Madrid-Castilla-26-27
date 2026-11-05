@@ -128,6 +128,10 @@ const PUERTO = 9333;
    competición pedida sin grupo no busca grupo: la Premier no tiene. */
 const PAIS = argumento("pais") ?? "España";
 const COMPETICION = argumento("competicion") ?? "Primera Division RFEF";
+/* En el buscador de jugadores las competiciones llevan el país delante y hay
+   cuarenta «Premier League»: la de Egipto salía primero (05/11/2026). Con
+   `--competicion-buscador=England. Premier League` se elige ésa exacta. */
+const COMPETICION_BUSCADOR = argumento("competicion-buscador");
 const GRUPO = argumento("grupo") ?? (argumento("competicion") ? null : "Group 2");
 
 const espera = (ms) => new Promise((listo) => setTimeout(listo, ms));
@@ -1907,9 +1911,9 @@ async function preparaBuscador(buscador) {
     };
   `);
 
-  if (!puesto.competicion.includes(COMPETICION)) {
-    if (!(await buscador.eligeEn("Competiciones", COMPETICION))) {
-      throw new Error(`No sale «${COMPETICION}» en las competiciones.`);
+  if (COMPETICION_BUSCADOR || !puesto.competicion.includes(COMPETICION)) {
+    if (!(await buscador.eligeEn("Competiciones", COMPETICION_BUSCADOR ?? COMPETICION))) {
+      throw new Error(`No sale «${COMPETICION_BUSCADOR ?? COMPETICION}» en las competiciones.`);
     }
 
     await espera(3500);

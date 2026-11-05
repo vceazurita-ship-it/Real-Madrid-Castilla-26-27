@@ -240,7 +240,7 @@ if defined MES if not exist ".cache\wyscout\elite-%MES%.txt" (
   set "ELITE_OK=1"
   call node scripts\wyscout-liga.mjs "--pais=Espa" "--competicion=La Liga" "--carpeta=public/data/wys-elite/laliga" --solo-jugadores --desatendido >> "%LOG%" 2>&1
   if errorlevel 1 set "ELITE_OK=0"
-  call node scripts\wyscout-liga.mjs "--pais=Inglaterra" "--competicion=Premier League" "--carpeta=public/data/wys-elite/premier" --solo-jugadores --desatendido >> "%LOG%" 2>&1
+  call node scripts\wyscout-liga.mjs "--pais=Inglaterra" "--competicion=Premier League" "--competicion-buscador=England. Premier League" "--carpeta=public/data/wys-elite/premier" --solo-jugadores --desatendido >> "%LOG%" 2>&1
   if errorlevel 1 set "ELITE_OK=0"
   if "!ELITE_OK!"=="1" echo %DATE% %TIME% > ".cache\wyscout\elite-%MES%.txt"
 )
