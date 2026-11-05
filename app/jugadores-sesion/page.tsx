@@ -101,6 +101,7 @@ import {
   FUERA,
   PUESTOS,
   actualizaLista,
+  ajustaComodines,
   completaReparto,
   conEquipos,
   limpiaJugador,
@@ -1141,6 +1142,8 @@ export default function JugadoresSesionPage() {
   */
   const [intentoCarga, setIntentoCarga] = useState(0);
   const [agotadoEn, setAgotadoEn] = useState(-1);
+  /* En el móvil los ajustes de la tarea van plegados (05/11/2026): el primer campo salía a 2.000 px. */
+  const [ajustesMovil, setAjustesMovil] = useState(false);
 
   useEffect(() => {
     if (status !== "loading") return;
@@ -3444,7 +3447,28 @@ export default function JugadoresSesionPage() {
                     )}
 
                     {/* --- configuración de la tarea --- */}
-                    <div className="flex min-w-0 flex-wrap items-end gap-x-5 gap-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                    <div
+                      className={`flex min-w-0 flex-wrap items-end gap-x-5 gap-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 max-md:p-3 ${
+                        ajustesMovil ? "" : "max-md:[&>*:not(.js-acciones)]:hidden"
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setAjustesMovil((v) => !v)}
+                        aria-expanded={ajustesMovil}
+                        className="js-acciones flex w-full min-w-0 items-center gap-2 text-left text-[13px] font-semibold text-white/80 md:hidden"
+                      >
+                        <SlidersHorizontal size={14} className="shrink-0 text-[#C8A96B]" />
+                        <span className="min-w-0 flex-1 truncate">
+                          Ajustes de la tarea
+                          <span className="font-normal text-white/50">
+                            {" "}
+                            · {tarea.equipos.length} {tarea.equipos.length === 1 ? "equipo" : "equipos"}
+                            {tarea.comodines > 0 ? ` · ${tarea.comodines} ${tarea.comodines === 1 ? "comodín" : "comodines"}` : ""}
+                          </span>
+                        </span>
+                        <ChevronRight size={15} className={`shrink-0 text-white/50 transition ${ajustesMovil ? "rotate-90" : ""}`} />
+                      </button>
                       <label className="block min-w-[200px] flex-1">
                         <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">Tarea</span>
                         <input
@@ -3645,7 +3669,7 @@ export default function JugadoresSesionPage() {
                         </div>
                       </div>
 
-                      <div className="flex flex-wrap gap-2">
+                      <div className="js-acciones flex flex-wrap gap-2">
                         <Button
                           icon={Wand2}
                           disabled={!reparto.sinSitio.length}
@@ -3776,6 +3800,25 @@ export default function JugadoresSesionPage() {
                               </span>
                             )}
                             {/* La propuesta de cambio, en su propio botón y en su propia línea. */}
+                            {problemas.some((a) => a.ajustaComodines) && (
+                              <span className="mt-1.5 flex flex-wrap gap-1.5">
+                                {problemas
+                                  .filter((a) => a.ajustaComodines)
+                                  .map((a) => (
+                                    <button
+                                      key={a.texto}
+                                      type="button"
+                                      onClick={() => {
+                                        cambiaTarea((t) => ajustaComodines(t, sesion.jugadores, opcionesReparto));
+                                        toast.success("Comodines ajustados", { action: { label: "Deshacer", onClick: deshaz } });
+                                      }}
+                                      className="inline-flex rounded-md border border-current px-2 py-1 text-[12px] font-semibold"
+                                    >
+                                      {a.ajustaComodines}
+                                    </button>
+                                  ))}
+                              </span>
+                            )}
                             {problemas.some((a) => a.arreglo) && (
                               <span className="mt-1.5 flex flex-wrap gap-1.5">
                                 {problemas

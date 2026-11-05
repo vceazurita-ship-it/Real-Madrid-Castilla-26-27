@@ -525,8 +525,8 @@ export default function Home() {
                       ? `${rivalSemana.nombre} de un vistazo, en Data Análisis`
                       : "Lo que dicen los informes de Wyscout y Opta: el Castilla contra su historia, contra el grupo y la categoría entera"
                   }
-                  /* Más baja en el móvil (30/10/2026): ocupaba casi dos pantallas antes de «Datos destacados». Desde el 02/11/2026, en el móvil la tarjeta de cifras no flota sobre la foto: va bajo una franja de foto y la caja mide lo que la tarjeta. */
-                  className="light-sweep group relative block overflow-hidden rounded-[28px] border border-white/10 sm:min-h-[320px] xl:min-h-[400px]"
+                  /* Más baja en el móvil (30/10/2026): ocupaba casi dos pantallas antes de «Datos destacados». Desde el 02/11/2026, en el móvil la tarjeta de cifras no flota sobre la foto: va bajo una franja de foto y la caja mide lo que la tarjeta. Desde el 05/11/2026, igual en escritorio: la foto sola ocupaba media cabecera. */
+                  className="light-sweep group relative block self-start overflow-hidden rounded-[28px] border border-white/10"
                 >
                   <div
                     aria-hidden
@@ -573,7 +573,7 @@ export default function Home() {
                   */}
                   {rivalSemana ? (
                     <div
-                      className="relative mx-3 mb-3 mt-28 sm:absolute sm:m-0 sm:inset-x-3 sm:bottom-3 rounded-[22px] border border-white/10 px-4 py-4 backdrop-blur-xl sm:inset-x-4 sm:bottom-4 sm:px-5"
+                      className="relative mx-3 mb-3 mt-20 sm:mx-4 sm:mb-4 rounded-[22px] border border-white/10 px-4 py-4 backdrop-blur-xl sm:px-5"
                       style={{ backgroundColor: "rgba(2,6,13,.94)" }}
                     >
                       <p className="flex items-center justify-between gap-3 text-[12px] uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,.9)" }}>
@@ -627,7 +627,7 @@ export default function Home() {
                   ) : cargandoData && resumenData?.xg == null ? (
                     /* Mientras llegan las cifras: una línea que lo dice, no dos títulos sobre un fondo vacío (30/10/2026). */
                     <div
-                      className="relative mx-3 mb-3 mt-28 sm:absolute sm:m-0 sm:inset-x-3 sm:bottom-3 rounded-[22px] border border-white/10 px-4 py-4 backdrop-blur-xl sm:inset-x-4 sm:bottom-4 sm:px-5"
+                      className="relative mx-3 mb-3 mt-20 sm:mx-4 sm:mb-4 rounded-[22px] border border-white/10 px-4 py-4 backdrop-blur-xl sm:px-5"
                       style={{ backgroundColor: "rgba(2,6,13,.94)" }}
                       aria-busy="true"
                     >
@@ -639,7 +639,7 @@ export default function Home() {
                     </div>
                   ) : resumenData?.xg != null && (
                   <div
-                    className="relative mx-3 mb-3 mt-28 sm:absolute sm:m-0 sm:inset-x-3 sm:bottom-3 flex flex-col gap-3 rounded-[22px] border border-white/10 px-4 py-4 backdrop-blur-xl sm:inset-x-4 sm:bottom-4 sm:grid sm:grid-cols-2 sm:items-end sm:gap-5 sm:px-5 xl:flex xl:flex-col xl:items-stretch xl:gap-3"
+                    className="relative mx-3 mb-3 mt-20 sm:mx-4 sm:mb-4 flex flex-col gap-3 rounded-[22px] border border-white/10 px-4 py-4 backdrop-blur-xl sm:grid sm:grid-cols-2 sm:items-end sm:gap-5 sm:px-5 xl:flex xl:flex-col xl:items-stretch xl:gap-3"
                     style={{ backgroundColor: "rgba(2,6,13,.94)" }}
                   >
                     <div className="min-w-0">

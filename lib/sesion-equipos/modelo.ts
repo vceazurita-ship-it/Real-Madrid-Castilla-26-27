@@ -608,6 +608,8 @@ export type Aviso = {
   texto: string;
   /** Un arreglo de un toque (21/10/2026): cambiar de equipo a estos dos. */
   arreglo?: { a: string; b: string; texto: string };
+  /** Botón que deja los comodines en los que lleva la tarea (05/11/2026). */
+  ajustaComodines?: string;
 };
 
 /** El puesto de un jugador: el puesto a mano, si no el de la plantilla. */
@@ -682,8 +684,9 @@ export function valida(tarea: TareaEquipos, sesion: SesionEquipos, puestoDe: Pue
       /* Con lo que hay que hacer (05/11/2026): «Comodines: 3 de 2» no lo decía. */
       texto:
         r.comodines.length > tarea.comodines
-          ? `Hay ${r.comodines.length} comodines y la tarea lleva ${tarea.comodines}: pasa ${r.comodines.length - tarea.comodines === 1 ? "uno" : r.comodines.length - tarea.comodines} a un equipo o pulsa «Otra propuesta»`
-          : `Faltan ${tarea.comodines - r.comodines.length === 1 ? "un comodín" : `${tarea.comodines - r.comodines.length} comodines`} (la tarea lleva ${tarea.comodines}): arrastra a alguien a la caja de comodines o pulsa «Otra propuesta»`,
+          ? `Hay ${r.comodines.length} comodines (${r.comodines.map((j) => j.nombre).join(", ")}) y la tarea lleva ${tarea.comodines}`
+          : `Faltan ${tarea.comodines - r.comodines.length === 1 ? "un comodín" : `${tarea.comodines - r.comodines.length} comodines`}: la tarea lleva ${tarea.comodines}`,
+      ajustaComodines: r.comodines.length > tarea.comodines ? "Pasar a los equipos los que sobran" : "Sacar comodines de los equipos más largos",
     });
   } else if (tarea.comodines === 0 && r.comodines.length > 0) {
     avisos.push({ nivel: "aviso", texto: `Hay ${r.comodines.length} comodín(es) en una tarea sin comodines` });
@@ -905,6 +908,45 @@ export function completaReparto(
     sitio[j.id] = corto.id;
     tamano[corto.id] += 1;
     deLinea[corto.id][l] = (deLinea[corto.id][l] ?? 0) + 1;
+  }
+
+  return { ...tarea, sitio };
+}
+
+/**
+ * Deja los comodines justos que lleva la tarea (05/11/2026), sin tocar a nadie
+ * más. Si sobran, vuelven al equipo más corto quienes más veces lo han sido; si
+ * faltan, salen del equipo más largo (medios primero, nunca un portero) los que
+ * menos veces lo han sido.
+ */
+export function ajustaComodines(tarea: TareaEquipos, jugadores: JugadorSesion[], opciones: OpcionesReparto = {}): TareaEquipos {
+  const r = repartoDe(tarea, jugadores);
+
+  if (r.comodines.length > tarea.comodines) return completaReparto(tarea, jugadores, opciones);
+
+  const { puestoDe = soloAMano, vecesComodin = {} } = opciones;
+
+  const sitio = { ...tarea.sitio };
+
+  const porEquipo = Object.fromEntries(tarea.equipos.map((e) => [e.id, [...(r.porEquipo[e.id] ?? [])]]));
+
+  for (let falta = tarea.comodines - r.comodines.length; falta > 0; falta--) {
+    const largo = [...tarea.equipos].sort((a, b) => porEquipo[b.id].length - porEquipo[a.id].length)[0];
+
+    if (!largo) break;
+
+    const elegido = [...porEquipo[largo.id]]
+      .filter((j) => puestoDe(j) !== "POR")
+      .sort(
+        (a, b) =>
+          Number(puestoDe(b) === "MED") - Number(puestoDe(a) === "MED") ||
+          (vecesComodin[a.id] ?? 0) - (vecesComodin[b.id] ?? 0),
+      )[0];
+
+    if (!elegido) break;
+
+    sitio[elegido.id] = COMODIN;
+    porEquipo[largo.id] = porEquipo[largo.id].filter((j) => j.id !== elegido.id);
   }
 
   return { ...tarea, sitio };
