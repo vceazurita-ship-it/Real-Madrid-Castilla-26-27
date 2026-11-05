@@ -1,7 +1,25 @@
 import type { NextConfig } from "next";
 
+/* Render gratis = 512 MB en total (montón de JS + memoria nativa + sharp). El
+   05/11/2026 se pasó y Render reinició el servicio (503/429 mientras tanto).
+   Por eso, sólo allí: no precargar las ~120 rutas al arrancar, caché de
+   páginas en disco y no en memoria, y fotos de una en una. Ver
+   node_modules/next/dist/docs/01-app/02-guides/memory-usage.md. */
+const enRender = Boolean(process.env.RENDER);
+
 const nextConfig: NextConfig = {
   turbopack: {},
+
+  ...(enRender
+    ? {
+        cacheMaxMemorySize: 16 * 1024 * 1024,
+        experimental: {
+          preloadEntriesOnStart: false,
+          imgOptConcurrency: 1,
+          imgOptSequentialRead: true,
+        },
+      }
+    : {}),
 
   /*
   | Los binarios de vídeo no se empaquetan.

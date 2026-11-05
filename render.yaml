@@ -16,7 +16,8 @@ services:
       - key: NODE_VERSION
         value: "22"
       - key: NODE_OPTIONS
-        value: --max-old-space-size=460
+        # 460 dejaba sin sitio a la memoria nativa (sharp, búferes): 512 MB y reinicio.
+        value: --max-old-space-size=320
       - key: SIN_TIPOS_EN_BUILD
         value: "1"
       - key: NEXT_TELEMETRY_DISABLED

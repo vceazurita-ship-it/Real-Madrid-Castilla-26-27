@@ -22,3 +22,7 @@ jobs:
     steps:
       - name: Visitar la web
         run: curl -fsS -o /dev/null --retry 2 --retry-delay 20 --max-time 90 https://rmcf-castilla.onrender.com/api/docs?key=castilla:calendario || true
+      # Tras un reinicio, que los datos de Data análisis ya estén en memoria
+      # cuando entre la primera persona (05/11/2026).
+      - name: Calentar Data análisis
+        run: curl -fsS -o /dev/null --max-time 90 "https://rmcf-castilla.onrender.com/api/data-analisis?resumen=1" || true

@@ -57,9 +57,33 @@ export const dynamic = "force-dynamic";
 
 export const maxDuration = 60;
 
-const VIDA = 10 * 60 * 1000;
+/*
+| En Render (05/11/2026) la carpeta sí está en el disco, y releer los .xlsx
+| cada diez minutos costaba decenas de segundos en su CPU gratis y doblaba la
+| memoria (la copia vieja y la nueva a la vez: 512 MB y reinicio). Allí los
+| datos sólo cambian con un push, y cada push redespliega: se lee el índice
+| ya hecho en el build, del disco, una vez por arranque.
+*/
+const EN_RENDER = Boolean(process.env.RENDER);
+
+const VIDA = EN_RENDER ? Number.POSITIVE_INFINITY : 10 * 60 * 1000;
 
 let guardado: { datos: Dataset; en: number } | null = null;
+
+/** El índice del build leído del disco (sólo Render); null si no está. */
+async function leeIndiceDelDisco(): Promise<Dataset | null> {
+  try {
+    const { readFile } = await import("node:fs/promises");
+    const { join } = await import("node:path");
+    const crudo = JSON.parse(await readFile(join(process.cwd(), "public", "data", "analisis.json"), "utf8"));
+
+    return Array.isArray(crudo?.partidos) && crudo.partidos.length > 0 ? expandeIndice(crudo) : null;
+  } catch (error) {
+    console.error("[data-analisis] índice en disco", error);
+
+    return null;
+  }
+}
 
 /**
  * El índice estático, pedido al propio origen.
@@ -1207,9 +1231,11 @@ async function contesta(peticion: Request) {
   }
 
   try {
-    let datos = await leeDatos();
+    const delDisco = EN_RENDER ? await leeIndiceDelDisco() : null;
 
-    let origen: "carpeta" | "indice" = "carpeta";
+    let datos = delDisco ?? (await leeDatos());
+
+    let origen: "carpeta" | "indice" = delDisco ? "indice" : "carpeta";
 
     /*
     | Sin partidos casi nunca significa «la carpeta está vacía»: significa que
