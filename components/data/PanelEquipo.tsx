@@ -32,6 +32,7 @@ import {
 import { mismoClub } from "@/lib/rivals/mismoClub";
 import { comparaPorCalendario } from "@/lib/rivals/orden-calendario";
 import { useOrdenRivales } from "@/hooks/useOrdenRivales";
+import { MapaDosEjes, type PuntoMapa } from "@/components/data/visual/MapaDosEjes";
 import { Explicativo } from "@/components/ui/textos-analisis";
 
 const NOSOTROS = "Real Madrid Castilla";
@@ -82,6 +83,51 @@ function Tarjeta({ titulo, children, extra }: { titulo: string; children: React.
       {children}
     </div>
   );
+}
+
+/*
+| CÓMO PROGRESA LA COMPETICIÓN (05/11/2026)
+|
+| Pases progresivos precisos frente a entradas al área, por partido, de cada
+| equipo de su competición, en percentil dentro de ella. Idea de
+| @fernandosb9: progresar bien y pisar área no siempre van juntos.
+*/
+const COL_PROGRESIVOS = "Pases progresivos · precisos";
+const COL_ENTRADAS = ["Entradas al área de penalti · carreras", "Entradas al área de penalti · pases cruzados"];
+
+function mapaDeProgresion(liga: FilaPartido[], competicion: string, equipo: string): PuntoMapa[] {
+  const porEquipo = new Map<string, { prog: number[]; ent: number[] }>();
+  for (const fila of liga) {
+    if (fila.competicion !== competicion) continue;
+    const prog = fila.datos[COL_PROGRESIVOS];
+    const ent = COL_ENTRADAS.map((c) => fila.datos[c]).filter((v): v is number => typeof v === "number");
+    if (typeof prog !== "number" || ent.length < 2) continue;
+    const e = porEquipo.get(fila.equipo) ?? { prog: [], ent: [] };
+    e.prog.push(prog);
+    e.ent.push(ent[0] + ent[1]);
+    porEquipo.set(fila.equipo, e);
+  }
+  const filas = [...porEquipo].filter(([, v]) => v.prog.length >= 2).map(([nombre, v]) => ({
+    nombre,
+    prog: v.prog.reduce((a, b) => a + b, 0) / v.prog.length,
+    ent: v.ent.reduce((a, b) => a + b, 0) / v.ent.length,
+    n: v.prog.length,
+  }));
+  const rango = (vals: number[]) => {
+    const o = [...vals].sort((a, b) => a - b);
+    return vals.map((v) => (vals.length < 2 ? 50 : (100 * o.indexOf(v)) / (vals.length - 1)));
+  };
+  const rx = rango(filas.map((x) => x.prog));
+  const ry = rango(filas.map((x) => x.ent));
+  return filas.map((x, i) => ({
+    id: x.nombre,
+    nombre: x.nombre,
+    x: rx[i],
+    y: ry[i],
+    propio: x.nombre === NOSOTROS || x.nombre === equipo,
+    color: x.nombre === NOSOTROS ? "#D8B45A" : x.nombre === equipo ? "#4F8FE8" : undefined,
+    detalle: `${x.prog.toFixed(1).replace(".", ",")} progresivos precisos y ${x.ent.toFixed(1).replace(".", ",")} entradas al área por partido · ${x.n} partidos`,
+  }));
 }
 
 export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadores: FilaJugador[] }) {
@@ -259,6 +305,27 @@ export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadore
           </div>
         </div>
       </div>
+
+      {/* ---------------- cómo progresa la competición ---------------- */}
+      {(() => {
+        const comp = liga.find((fila) => fila.equipo === equipo)?.competicion ?? "";
+        const puntos = comp ? mapaDeProgresion(liga, comp, equipo) : [];
+        if (puntos.length < 6) return null;
+        return (
+          <Tarjeta titulo={`Progresar y pisar área · ${puntos.length} equipos de su competición`}>
+            <p className="mb-2 text-[12px] text-white/55">
+              Pases progresivos precisos y entradas al área (conduciendo o con pase) por partido, en percentil dentro de la competición. <span style={{ color: "#D8B45A" }}>●</span> {NOSOTROS}
+              {equipo !== NOSOTROS && <> · <span style={{ color: "#4F8FE8" }}>●</span> {equipo}</>}. Pasa el ratón por un punto para ver sus cifras.
+            </p>
+            <MapaDosEjes
+              puntos={puntos}
+              ejeX="Pases progresivos precisos"
+              ejeY="Entradas al área"
+              rotulos={{ ambos: "Progresan y llegan", soloX: "Progresan sin llegar", soloY: "Llegan sin construir", nada: "Ni una cosa ni otra" }}
+            />
+          </Tarjeta>
+        );
+      })()}
 
       {/* ---------------- la síntesis y las fases ---------------- */}
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">

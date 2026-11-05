@@ -24,6 +24,9 @@ import { casaNombre } from "@/lib/data-analisis/once";
 import { GRUPOS_JUGADOR, MINUTOS_MINIMOS, PUESTOS, puestoDe } from "@/lib/data-analisis/individual";
 import { indiceDe, percentilesDe, type Percentil } from "@/lib/comparativa-u21";
 import type { RatingsSeason } from "@/lib/ratings/types";
+import { RadiografiaPercentiles, type CunaPercentil } from "@/components/data/visual/RadiografiaPercentiles";
+import { MapaDosEjes, type PuntoMapa } from "@/components/data/visual/MapaDosEjes";
+import type { Puesto } from "@/lib/data-analisis/individual";
 
 const ORO = "#D8B45A";
 const AZUL = "#4F8FE8";
@@ -62,6 +65,49 @@ function parecidos(yo: FilaJugador, otros: FilaJugador[], columnas: string[], cu
     })
     .sort((x, y) => y.sim - x.sim)
     .slice(0, cuantos);
+}
+
+/*
+| Los dos ejes del mapa de cada puesto (05/11/2026): lo que un entrenador
+| pregunta de él, cada eje una media de percentiles de grupos de métricas.
+*/
+const EJES: Record<Puesto, { x: string; y: string; gx: string[]; gy: string[]; rotulos: { ambos: string; soloX: string; soloY: string; nada: string } } | null> = {
+  POR: null,
+  CEN: { x: "Salida de balón", y: "Defensa", gx: ["Progresión", "Circulación"], gy: ["Defensa", "Duelos"], rotulos: { ambos: "Completos", soloX: "Constructores", soloY: "Defensivos", nada: "Sin destacar todavía" } },
+  LAT: { x: "Ataque", y: "Defensa", gx: ["Creación", "Progresión", "Ocupación del área"], gy: ["Defensa", "Duelos"], rotulos: { ambos: "Completos", soloX: "Carrileros", soloY: "Defensivos", nada: "Sin destacar todavía" } },
+  MED: { x: "Construcción", y: "Recuperación", gx: ["Circulación", "Progresión", "Creación"], gy: ["Defensa", "Duelos", "Presión y transición"], rotulos: { ambos: "Box to box", soloX: "Organizadores", soloY: "Destructores", nada: "Sin destacar todavía" } },
+  BAN: { x: "Creación", y: "Gol", gx: ["Creación", "Progresión"], gy: ["Valor gol", "Ocupación del área"], rotulos: { ambos: "Completos", soloX: "Creadores", soloY: "Finalizadores", nada: "Sin destacar todavía" } },
+  DEL: { x: "Gol", y: "Juego asociado", gx: ["Valor gol", "Ocupación del área"], gy: ["Creación", "Circulación", "Duelos"], rotulos: { ambos: "Completos", soloX: "Rematadores", soloY: "Asociativos", nada: "Sin destacar todavía" } },
+};
+
+/** Percentil de cada valor dentro de la lista (0 el peor, 100 el mejor). */
+function aRango(vals: number[]) {
+  const orden = [...vals].sort((a, b) => a - b);
+  return vals.map((v) => (vals.length < 2 ? 50 : (100 * orden.indexOf(v)) / (vals.length - 1)));
+}
+
+/** De cada fase, hasta seis métricas repartidas entre sus grupos. */
+function cunasDe(ps: Percentil[]): CunaPercentil[] {
+  const sale: CunaPercentil[] = [];
+  for (const lado of ["con", "sin"] as const) {
+    const suyas = ps.filter((p) => p.metrica.fase === lado && !/penalti/i.test(p.metrica.nombre));
+    const porGrupo = new Map<string, Percentil[]>();
+    for (const p of suyas) porGrupo.set(p.metrica.grupo, [...(porGrupo.get(p.metrica.grupo) ?? []), p]);
+    const elegidas: Percentil[] = [];
+    for (let vuelta = 0; elegidas.length < 6 && vuelta < 6; vuelta++) {
+      for (const lista of porGrupo.values()) if (lista[vuelta] && elegidas.length < 6) elegidas.push(lista[vuelta]);
+    }
+    for (const p of elegidas) {
+      sale.push({
+        nombre: p.metrica.nombre.replace(/ %$/, ""),
+        valor: p.metrica.unidad === "porcentaje" ? `${coma(p.valor, 1)} %` : coma(p.valor, Math.abs(p.valor) >= 10 ? 1 : 2),
+        percentil: p.percentil,
+        lado,
+        ayuda: p.metrica.comoLeer,
+      });
+    }
+  }
+  return sale;
 }
 
 const media = (xs: number[]) => (xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : 0);
@@ -227,7 +273,36 @@ export function AreaMejora({
       return vals.length ? vals[Math.floor(vals.length / 2)] : null;
     };
 
+    /* El mapa: todos los de su puesto con 450′, cada eje re-escalado a percentil. */
+    const ejes = EJES[puesto];
+    let mapa: { puntos: PuntoMapa[]; ejes: NonNullable<typeof ejes>; n: number } | null = null;
+    if (ejes) {
+      const base = delPuesto.filter((j) => j.minutos >= 450);
+      const conEl = base.some((j) => j === fila) ? base : [...base, fila];
+      const crudos = conEl.map((j) => {
+        const ps = percentilesDe(j, base.length >= 15 ? base : delPuesto, puesto);
+        const m = (gs: string[]) => media(ps.filter((p) => gs.includes(p.metrica.grupo)).map((p) => p.percentil));
+        return { j, x: m(ejes.gx), y: m(ejes.gy) };
+      });
+      const rx = aRango(crudos.map((c) => c.x));
+      const ry = aRango(crudos.map((c) => c.y));
+      mapa = {
+        ejes,
+        n: base.length,
+        puntos: crudos.map((c, i) => ({
+          id: `${c.j.jugador}|${c.j.equipo}`,
+          nombre: c.j.jugador,
+          x: rx[i],
+          y: ry[i],
+          propio: c.j === fila,
+          detalle: `${c.j.equipo} · ${c.j.edad} años · ${c.j.minutos}′`,
+        })),
+      };
+    }
+
     return {
+      mapa,
+      cunas: cunasDe(contraTodos),
       fila,
       puesto,
       nPuesto: delPuesto.length,
@@ -313,6 +388,47 @@ export function AreaMejora({
               </div>
             )}
           </div>
+
+          {/* Radiografía de percentiles: cada métrica, su valor por 90 y su percentil */}
+          {analisis.cunas.length >= 6 && (
+            <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#0B0F14] p-4 text-white sm:p-5" style={{ color: "#fff", backgroundColor: "#0B0F14" }}>
+              <div className="mb-1 flex flex-wrap items-end justify-between gap-2">
+                <div>
+                  <p className="text-[12px] font-bold uppercase tracking-[0.22em]" style={{ color: "#EC4899" }}>Radiografía de percentiles</p>
+                  <p className="text-[12px]" style={{ color: "rgba(255,255,255,.6)" }}>
+                    {etiquetaPuesto} · {analisis.fila.edad} años · {analisis.fila.minutos}′ · {analisis.fila.partidos} partidos · {analisis.fila.equipo}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-4xl font-black tabular-nums leading-none" style={{ color: "#EC4899" }}>{analisis.indiceTodos ?? "—"}</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,.55)" }}>nota de perfil</p>
+                </div>
+              </div>
+              <RadiografiaPercentiles cunas={analisis.cunas} />
+              <div className="mt-2 rounded-xl border p-3 text-[12px]" style={{ borderColor: "rgba(255,255,255,.12)", color: "rgba(255,255,255,.7)" }}>
+                <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,.5)" }}>Con qué se compara</p>
+                <p>Percentiles frente a {analisis.nPuesto} {etiquetaPuesto.toLowerCase()} de la categoría con {MINUTOS_MINIMOS}′ o más · valores por 90 minutos · Wyscout.</p>
+                <p className="mt-1 font-semibold" style={{ color: analisis.fila.minutos >= 450 && analisis.nPuesto >= 30 ? "#EC4899" : "#FBBF24" }}>
+                  {analisis.fila.minutos >= 450 && analisis.nPuesto >= 30
+                    ? "✓ Base sólida: minutos y comparables suficientes para que la nota sea estable."
+                    : `Muestra corta (${analisis.fila.minutos}′): tómalo como orientación, puede moverse mucho.`}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Mapa de su puesto: dos ejes, zona de élite y su sitio */}
+          {analisis.mapa && (
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-white">
+              <h4 className="text-sm font-bold uppercase tracking-[0.14em] text-[#D8B45A]">
+                {analisis.mapa.ejes.y} frente a {analisis.mapa.ejes.x.toLowerCase()}
+              </h4>
+              <p className="mb-2 text-[12px] text-white/55">
+                {analisis.mapa.n} {etiquetaPuesto.toLowerCase()} de la categoría con 450′ o más. Cada eje es su puesto dentro de su posición (0 el último, 100 el primero) en {analisis.mapa.ejes.gx.join(", ").toLowerCase()} y en {analisis.mapa.ejes.gy.join(", ").toLowerCase()}. Las diagonales suman los dos ejes; la zona sombreada es la élite en ambos.
+              </p>
+              <MapaDosEjes puntos={analisis.mapa.puntos} ejeX={analisis.mapa.ejes.x} ejeY={analisis.mapa.ejes.y} rotulos={analisis.mapa.ejes.rotulos} />
+            </div>
+          )}
 
           {/* El radar por momentos del juego */}
           <div className="grid items-center gap-5 rounded-2xl border border-white/10 bg-[radial-gradient(circle_at_30%_20%,rgba(216,180,90,.10),transparent_55%)] p-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
