@@ -445,7 +445,7 @@ const COLUMNAS_UTILES = new Set<string>([
  * Se distingue del resto por la cabecera: si la primera celda dice «Jugador»,
  * es esto. Cualquier otro `.xlsx` de la carpeta sigue su camino de siempre.
  */
-function jugadoresDeXlsx(bytes: Buffer): FilaJugador[] {
+export function jugadoresDeXlsx(bytes: Buffer): FilaJugador[] {
   const filas = hojaDeXlsx(bytes);
 
   if (filas.length < 2) return [];

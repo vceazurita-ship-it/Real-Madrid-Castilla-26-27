@@ -229,15 +229,31 @@ echo --- Publicando --- >> "%LOG%"
 
 call node scripts\wyscout-al-dia.cjs --paso=publicar >> "%LOG%" 2>&1
 
-git add "public/data/wys" "public/data/analisis.json" >> "%LOG%" 2>&1
+rem  LA ELITE, UNA VEZ AL MES (05/11/2026): los jugadores de Primera y de la
+rem  Premier para el «Area de mejora» de la ficha individual. Si falla, se
+rem  reintenta la semana siguiente; no tumba la publicacion de la semana.
+set "MES="
+for /f %%m in ('powershell -NoProfile -Command "Get-Date -Format yyyy-MM"') do set "MES=%%m"
+if defined MES if not exist ".cache\wyscout\elite-%MES%.txt" (
+  echo. >> "%LOG%"
+  echo --- Elite del mes ^(Primera y Premier^) --- >> "%LOG%"
+  set "ELITE_OK=1"
+  call node scripts\wyscout-liga.mjs "--pais=Espa" "--competicion=La Liga" "--carpeta=public/data/wys-elite/laliga" --solo-jugadores --desatendido >> "%LOG%" 2>&1
+  if errorlevel 1 set "ELITE_OK=0"
+  call node scripts\wyscout-liga.mjs "--pais=Inglaterra" "--competicion=Premier League" "--carpeta=public/data/wys-elite/premier" --solo-jugadores --desatendido >> "%LOG%" 2>&1
+  if errorlevel 1 set "ELITE_OK=0"
+  if "!ELITE_OK!"=="1" echo %DATE% %TIME% > ".cache\wyscout\elite-%MES%.txt"
+)
+
+git add "public/data/wys" "public/data/wys-elite" "public/data/analisis.json" >> "%LOG%" 2>&1
 
 rem  Habia algo que guardar? Se mira ANTES del commit (09/10/2026): si el
 rem  commit falla por otra cosa (un index.lock, un hook), no es "no habia nada
 rem  nuevo" y la semana no puede quedar hecha con los datos sin publicar.
 set "HAYCAMBIOS=0"
-git diff --cached --quiet -- "public/data/wys" "public/data/analisis.json" || set "HAYCAMBIOS=1"
+git diff --cached --quiet -- "public/data/wys" "public/data/wys-elite" "public/data/analisis.json" || set "HAYCAMBIOS=1"
 
-git commit -m "Los datos de Wyscout de la semana %SEMANA%" -- "public/data/wys" "public/data/analisis.json" >> "%LOG%" 2>&1
+git commit -m "Los datos de Wyscout de la semana %SEMANA%" -- "public/data/wys" "public/data/wys-elite" "public/data/analisis.json" >> "%LOG%" 2>&1
 
 if not errorlevel 1 goto :empuja
 

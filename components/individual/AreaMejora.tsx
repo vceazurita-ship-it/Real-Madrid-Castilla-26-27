@@ -21,7 +21,7 @@ import { ArrowDownRight, ArrowUpRight, Crosshair, Sparkles, TrendingUp } from "l
 import { traeJson } from "@/lib/hojaCsv";
 import type { FilaJugador } from "@/lib/data-analisis/leer";
 import { casaNombre } from "@/lib/data-analisis/once";
-import { GRUPOS_JUGADOR, MINUTOS_MINIMOS, PUESTOS, puestoDe, type Puesto } from "@/lib/data-analisis/individual";
+import { GRUPOS_JUGADOR, MINUTOS_MINIMOS, PUESTOS, puestoDe } from "@/lib/data-analisis/individual";
 import { indiceDe, percentilesDe, type Percentil } from "@/lib/comparativa-u21";
 import type { RatingsSeason } from "@/lib/ratings/types";
 
@@ -30,11 +30,37 @@ const AZUL = "#4F8FE8";
 const ROJO = "#E5484D";
 const VERDE = "#1B9E77";
 
-type Elite = {
-  actualizado: string;
-  /** Por puesto: mediana de cada columna de Wyscout de los de Primera / Premier. */
-  ligas: { liga: string; jugadores: { nombre: string; equipo: string; edad: number; puesto: Puesto; datos: Record<string, number> }[] }[];
-};
+/** /api/data-elite: los «Search results» de Primera y Premier, menores de 28 con 450′. */
+type Elite = { actualizado: string | null; ligas: { liga: string; jugadores: FilaJugador[] }[] };
+
+/*
+| «Se parece a»: el estilo, no el nivel. Cada métrica del puesto se pasa a
+| z-score dentro del grupo (él + los de élite de su puesto y edad) y se mide
+| el coseno entre perfiles: dos jugadores con la misma forma de jugar se
+| parecen aunque uno haga todo el doble.
+*/
+function parecidos(yo: FilaJugador, otros: FilaJugador[], columnas: string[], cuantos = 3) {
+  const todos = [yo, ...otros];
+  const cols = columnas.filter((c) => todos.filter((j) => typeof j.datos[c] === "number").length >= todos.length * 0.8);
+  if (cols.length < 5) return [];
+  const est = cols.map((c) => {
+    const v = todos.map((j) => j.datos[c] ?? 0);
+    const m = media(v);
+    const d = Math.sqrt(media(v.map((x) => (x - m) ** 2))) || 1;
+    return { c, m, d };
+  });
+  const vec = (j: FilaJugador) => est.map(({ c, m, d }) => ((j.datos[c] ?? m) - m) / d);
+  const a = vec(yo);
+  const na = Math.hypot(...a) || 1;
+  return otros
+    .map((j) => {
+      const b = vec(j);
+      const sim = a.reduce((s2, x, i) => s2 + x * b[i], 0) / (na * (Math.hypot(...b) || 1));
+      return { j, sim };
+    })
+    .sort((x, y) => y.sim - x.sim)
+    .slice(0, cuantos);
+}
 
 const media = (xs: number[]) => (xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : 0);
 const coma = (n: number, d = 1) => n.toFixed(d).replace(".", ",");
@@ -144,9 +170,9 @@ export function AreaMejora({
     traeJson<{ jugadores?: FilaJugador[] }>("/api/data-analisis")
       .then((r) => vivo && setJugadores(r?.jugadores ?? []))
       .catch(() => vivo && setJugadores([]));
-    fetch("/data/wys-elite/resumen.json")
+    fetch("/api/data-elite")
       .then((r) => (r.ok ? r.json() : null))
-      .then((e) => vivo && setElite(e))
+      .then((e: Elite | null) => vivo && e?.ligas?.length && setElite(e))
       .catch(() => {});
     return () => {
       vivo = false;
@@ -211,11 +237,16 @@ export function AreaMejora({
     if (!elite || !analisis) return [];
     return elite.ligas
       .map((liga) => {
-        const pares = liga.jugadores.filter((j) => j.puesto === analisis.puesto && Math.abs(j.edad - analisis.fila.edad) <= 3);
+        const pares = liga.jugadores.filter((j) => puestoDe(j.posicion) === analisis.puesto && Math.abs(j.edad - analisis.fila.edad) <= 3);
         if (pares.length < 5) return null;
-        const filas = pares.map((j) => ({ ...analisis.fila, jugador: j.nombre, equipo: j.equipo, edad: j.edad, minutos: 900, datos: j.datos }));
-        const ps = percentilesDe(analisis.fila, filas, analisis.puesto);
-        return { liga: liga.liga, n: pares.length, indice: indiceDe(ps), grupos: GRUPOS_JUGADOR.map((g) => media(ps.filter((p) => p.metrica.grupo === g).map((p) => p.percentil))) };
+        const ps = percentilesDe(analisis.fila, pares, analisis.puesto);
+        return {
+          liga: liga.liga,
+          n: pares.length,
+          indice: indiceDe(ps),
+          grupos: GRUPOS_JUGADOR.map((g) => media(ps.filter((p) => p.metrica.grupo === g).map((p) => p.percentil))),
+          parecidos: parecidos(analisis.fila, pares, analisis.contraEdad.map((p) => p.metrica.columna)),
+        };
       })
       .filter((x): x is NonNullable<typeof x> => x !== null);
   }, [elite, analisis]);
@@ -328,6 +359,38 @@ export function AreaMejora({
               </div>
             ))}
           </div>
+
+          {contraElite.length > 0 && (
+            <div className="rounded-2xl border border-white/10 bg-[linear-gradient(135deg,rgba(27,158,119,.10),transparent_45%,rgba(229,72,77,.08))] p-4">
+              <h4 className="text-sm font-bold uppercase tracking-[0.14em] text-[#D8B45A]">Frente a la élite de su edad</h4>
+              <p className="mb-3 text-[12px] text-white/55">
+                Mismo puesto y ±3 años, con 450′ o más esta temporada · Wyscout{elite?.actualizado ? ` · descarga del ${elite.actualizado.split("-").reverse().join("/")}` : ""}. «Se parece a»: la misma forma de jugar, no el mismo nivel.
+              </p>
+              <div className="grid gap-3 md:grid-cols-2">
+                {contraElite.map((e, k) => (
+                  <div key={e.liga} className="rounded-xl border border-white/10 bg-black/20 p-3">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="text-sm font-semibold" style={{ color: k ? ROJO : VERDE }}>{e.liga}</span>
+                      <span className="text-[12px] text-white/50">{e.n} jugadores</span>
+                    </div>
+                    <p className="mt-1 text-2xl font-black tabular-nums text-white">
+                      {e.indice ?? "—"}<span className="ml-1 text-sm font-semibold text-white/50">percentil medio</span>
+                    </p>
+                    {e.parecidos.length > 0 && (
+                      <ul className="mt-2 space-y-1">
+                        {e.parecidos.map(({ j, sim }) => (
+                          <li key={j.jugador + j.equipo} className="flex items-center justify-between gap-2 text-[13px]">
+                            <span className="min-w-0 truncate text-white/85">{j.jugador} <span className="text-white/45">· {j.equipo} · {j.edad} años</span></span>
+                            <span className="shrink-0 tabular-nums text-white/60">{Math.round(sim * 100)} %</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </>
       ) : (
         <p className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/65">
