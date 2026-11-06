@@ -1360,6 +1360,7 @@ export function TableroSlide({
   onCambiarTrazo,
   tiempo = null,
   soloVer = false,
+  sinCasillasVacias = false,
   hastaFase,
   onPasoNuevo,
   rivalElegido = null,
@@ -1393,6 +1394,12 @@ export function TableroSlide({
   tiempo?: number | null;
   /** Proyector y exportación: sin huecos, sin tiradores, sin arrastrar. */
   soloVer?: boolean;
+  /**
+   * PDF de cada jugador (06/11/2026, expertos): la casilla «Nº» en blanco es
+   * para escribir a mano en la hoja impresa; en el móvil del jugador es un
+   * hueco que parece un fallo. Sólo sale si el dorsal ya está decidido.
+   */
+  sinCasillasVacias?: boolean;
   /**
    * Hoja de una fase, para el PDF y el PowerPoint «por fases»: sólo las
    * flechas hasta esa fase, con las caras en su sitio de salida.
@@ -2040,6 +2047,8 @@ export function TableroSlide({
   /* La casilla del dorsal del rival la pide la plantilla, por grupos. */
   const dorsalDe = (ficha: FichaPizarra) => {
     const puesto = puestoDe(slide, ficha.puesto);
+
+    if (sinCasillasVacias && !(ficha.puesto && slide.marcas?.[ficha.puesto])) return false;
 
     return puesto ? pideDorsal(slide, puesto) : false;
   };

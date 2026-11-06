@@ -93,20 +93,44 @@ const esLectura = (url, metodo, cuerpo) =>
     fs.mkdirSync(dest, { recursive: true });
     execFileSync("powershell", ["-NoProfile", "-Command", `Expand-Archive -LiteralPath '${path.join(DESCARGAS, zip)}' -DestinationPath '${dest}' -Force`]);
     console.log("zip:", zip);
+    /* Las hojas de los PDF, en imagen (06/11/2026): el juez de comunicación no lee un PDF de imágenes. */
+    const paginas = path.join(SALIDA, "paginas");
+    fs.mkdirSync(paginas, { recursive: true });
+    const pdfs = fs.readdirSync(dest, { recursive: true }).map(String).filter((f) => /\.pdf$/i.test(f)).sort();
+    pdfs.forEach((rel, k) => {
+      const b = fs.readFileSync(path.join(dest, rel));
+      let i = 0, n = 0;
+      const base = path.basename(rel, ".pdf");
+      const general = /general/i.test(rel);
+      while ((i = b.indexOf("stream", i)) >= 0) {
+        let s = i + 6; if (b[s] === 13) s++; if (b[s] === 10) s++;
+        const head = b.slice(Math.max(0, i - 400), i).toString("latin1");
+        const e = b.indexOf("endstream", s);
+        if (/DCTDecode/.test(head.slice(head.lastIndexOf("<<")))) {
+          n++;
+          /* Del general y del primero, todas; del resto, la portada y la primera acción. */
+          if (general || k === 0 || n <= 2 || /POR|-1-|-13-/.test(base)) fs.writeFileSync(path.join(paginas, `${base}-p${String(n).padStart(2, "0")}.jpg`), b.slice(s, e));
+        }
+        i = e + 9;
+      }
+    });
+    console.log("páginas en imagen:", fs.readdirSync(paginas).length);
   } else console.log("NO llegó el .zip de la pizarra");
   medidas.push({ ruta: "/abp-pizarra (Exportar → Solo documentos)", errores: errores.slice(0, 5) });
 
   /* 2. Informe de ABP de la semana: previa y post. */
   for (const [ruta, boton, pestanas, prefijo] of [
     ["/abp-microciclo", "Informe de la semana", ["Previa del partido", "Post partido"], "informe-abp"],
-    ["/microcycles", "Informe del partido", ["Previa", "Post partido"], "informe-partido"],
+    ["/microcycles", "Informe del partido", ["Previa del partido", "Post (tras el partido)"], "informe-partido"],
   ]) {
     errores = [];
+    await envia("Emulation.setDeviceMetricsOverride", { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
     await envia("Page.navigate", { url: `${BASE}${ruta}` });
     const hay = await hasta(`[...document.querySelectorAll("button")].some((b) => !b.disabled && b.innerText.includes(${JSON.stringify(boton)}))`, 150);
     console.log(ruta, "botón:", hay);
     if (!hay) continue;
-    await pulsa(boton); await espera(30000);
+    for (let k = 0; k < 4; k++) { console.log("  pulsa:", await pulsa(boton)); await espera(6000); const n = await js(`document.querySelectorAll("[role=dialog]").length`); console.log("  diálogos:", n); if (n) break; }
+    await espera(24000);
     for (const p of pestanas) {
       console.log("  pestaña", p, await pulsa(p, true));
       await espera(15000);

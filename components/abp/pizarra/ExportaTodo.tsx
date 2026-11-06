@@ -66,7 +66,8 @@ import {
 } from "@/lib/abp/cache-exportar";
 import { ruedaMaterial, type MaterialJugada } from "@/lib/abp/rodaje-jugada";
 import { duracionResponsabilidad, videoResponsabilidad } from "@/lib/abp/video-responsabilidad";
-import { cargaEscudos, cometidosDe, nombreArchivo, nombreCorto, preparaJugador } from "@/lib/abp/pizarra-jugador";
+import { cargaEscudos, cometidosDe, filasParaPdf, nombreArchivo, nombreCorto, preparaJugador } from "@/lib/abp/pizarra-jugador";
+import { porteroDelOnce, usePorteroDelOnce } from "@/components/abp/pizarra/usePorteroDelOnce";
 import { faltanFotos, fotosDeHojas } from "@/lib/abp/fotos-tablero";
 import { creaPptx } from "@/lib/export/pptx";
 import { apodo, descarga, pdfDeLienzos, pintado } from "@/lib/export/lienzos";
@@ -204,6 +205,7 @@ export function ExportaTodo({
   jornada?: string;
   escudoRival?: string;
 }) {
+  const portero = usePorteroDelOnce(players);
   const [montaje, setMontaje] = useState<Montaje>(null);
   const [tareas, setTareas] = useState<Tarea[] | null>(null);
   const [enMarcha, setEnMarcha] = useState(false);
@@ -306,7 +308,9 @@ export function ExportaTodo({
     setEnMarcha(true);
 
     const inicio = performance.now();
-    const ids = piezas.documentos ? jugadoresDelTablero(tablero).map((fila) => fila.playerId) : [];
+    /* En segundo plano arranca antes de que el once llegue: se espera aquí. */
+    const elPortero = portero ?? (piezas.documentos ? await porteroDelOnce(players) : undefined);
+    const ids = piezas.documentos ? filasParaPdf(tablero, players, elPortero).map((fila) => fila.playerId) : [];
     const videos = piezas.videos && sabeVideo ? conJugada : [];
     /* Los vídeos de cada jugador: los que salen en alguna diapositiva con jugada. */
     const conVideoJugador =
@@ -693,7 +697,7 @@ export function ExportaTodo({
       const hojasFases = hojasDe(slides, fases, contexto);
       const fotosFasesFaltan = faltanFotos(hojasFases.map((h) => h.clave)).length;
       const pdfs = trabajoPdfs.foto();
-      const ids = jugadoresDelTablero(tablero).map((fila) => fila.playerId);
+      const ids = filasParaPdf(tablero, players, portero).map((fila) => fila.playerId);
       const pdfsFaltan = ids.filter((id) => !(pdfs.huella === huella && pdfs.hechos[id])).length;
       const videos = sabeVideo ? conJugada : [];
       const segundosVideos = videos
@@ -747,7 +751,7 @@ export function ExportaTodo({
       }
     };
 
-    const nJugadores = jugadoresDelTablero(tablero).length;
+    const nJugadores = filasParaPdf(tablero, players, portero).length;
     const nVideos = sabeVideo ? conJugada.length : 0;
     const nVideosJugador = sabeVideo
       ? jugadoresDelTablero(tablero).filter((fila) => cometidosDe(tablero, fila.playerId, players).some((a) => fasesDe(slides[a.indice]?.trazos) > 0)).length

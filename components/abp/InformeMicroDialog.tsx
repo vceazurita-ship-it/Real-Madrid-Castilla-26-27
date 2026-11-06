@@ -1684,7 +1684,7 @@ export function InformeMicroDialog({
           informe.avisos.length > 0 && (
             <details className="rounded-xl border border-amber-400/25 bg-amber-400/[0.05] px-3 py-2 text-[12px] text-white/70">
               <summary className="cursor-pointer font-semibold text-amber-200">
-                Lo que este informe no sabe ({informe.avisos.length})
+                Para el analista · no va en el correo ({informe.avisos.length})
               </summary>
               <ul className="mt-2 ml-4 list-disc space-y-1">
                 {informe.avisos.map((aviso) => (

@@ -35,6 +35,7 @@ import {
   TABLERO_W,
   adornosDe,
   gruposDe,
+  jugadoresDelTablero,
   lineasConsignas,
   normalizaConsigna,
   puestoDe,
@@ -46,7 +47,7 @@ import {
   type VistaCampo,
 } from "@/lib/abp/pizarra";
 import type { TipoTrazo, TrazoPizarra } from "@/lib/abp/trazos";
-import { aMetros } from "@/lib/abp-lab/puente-pizarra";
+import { aLienzo, aMetros } from "@/lib/abp-lab/puente-pizarra";
 import {
   C,
   ajusta,
@@ -118,7 +119,128 @@ export type CometidoAccion = {
   marcaDorsal: string;
   /** Dónde están sus compañeros de zona (su grupo): el recorte del PDF los deja dentro. */
   zona: { x: number; y: number }[];
+  /** Los demás de la diapositiva: la chapa «TÚ» busca el hueco donde no tape a nadie. */
+  otros: { x: number; y: number }[];
+  /** El portero no tiene ficha en las diapositivas: su hoja va sin aro y encuadrada en la portería. */
+  sinFicha?: boolean;
 };
+
+/*
+| EL PORTERO TAMBIÉN TIENE SU PDF (06/11/2026, expertos)
+|
+| Las plantillas de la pizarra dibujan a los diez de campo: salían 10 PDF y el
+| portero se quedaba sin el suyo. Sale de las consignas que le nombran
+| («Portero lidera la atención al 1 + 2») y, en las defensivas, de lo que le
+| toca siempre a un portero en esa acción. Las ofensivas iguales, una vez.
+*/
+const PORTERO = /portero|^por\b|guardameta|^gk\b/i;
+
+export const esPortero = (player: Player | undefined) => Boolean(player && PORTERO.test(player.posicion ?? ""));
+
+const TAREA_PORTERO: Record<string, string> = {
+  "corner-def": "Mandas en el área pequeña: sales a por todo balón que puedas atacar",
+  "falta-lat-def": "Ordenas la línea y sales a por lo que caiga entre la línea y tú",
+  "falta-dir-def": "Colocas la barrera y te quedas en tu palo: ves salir el balón",
+  "banda-def": "Hablas a la línea: avisas de la carrera libre y sales al balón al área",
+};
+
+function accionDelPortero(tablero: TableroPizarra, indice: number): CometidoAccion[] {
+  const slide = tablero.slides[indice];
+  const lado = PLANTILLA_BY_KEY.get(slide.plantilla)?.lado ?? "ofensivo";
+  const suyas = lineasConsignas(slide.notas)
+    .filter((linea) => linea.tipo === "consigna" && /(^|[^a-z])portero([^a-z]|$)/.test(plano(linea.texto)))
+    .map((linea) => normalizaConsigna(linea.texto.replace(/^portero\s*:\s*/i, "")))
+    .map((texto) => texto.charAt(0).toLocaleUpperCase("es-ES") + texto.slice(1).replace(/\bAtención\b/g, "atención"));
+
+  if (lado === "ofensivo" && suyas.length === 0) return [];
+
+  const tarea = lado === "defensivo" ? (TAREA_PORTERO[slide.plantilla] ?? "Mandas en tu área: hablas y ordenas a la línea") : "Ordenas el equilibrio atrás: hablas a los que se quedan";
+  const enLienzo = (x: number, y: number) => aLienzo(slide.vista, { x, y });
+  const porteria = [enLienzo(30.3, 0), enLienzo(37.7, 0), enLienzo(34, 5.5)].filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
+  const balon = (slide.trazos ?? []).filter((t) => t.tipo === "balon").flatMap((t) => [{ x: t.x2, y: t.y2 }]);
+
+  return [
+    {
+      indice,
+      titulo: tituloVisible(tablero.slides, indice),
+      lado,
+      puestos: [{ sigla: "POR", label: "Portero", grupo: "Portería" }],
+      mision: "",
+      senal: "",
+      consignas: suyas.slice(0, MAX_CONSIGNAS),
+      rival: "",
+      despues: "",
+      pasos: [],
+      pasosFase: [],
+      con: [],
+      para: "",
+      foco: [...porteria, ...balon],
+      marcaPunto: null,
+      despuesDibujado: false,
+      tarea,
+      marcaDorsal: "",
+      zona: [],
+      otros: slide.fichas.filter((f) => f.x >= 0 && f.y >= 0).map((f) => ({ x: f.x, y: f.y })),
+      sinFicha: true,
+    },
+  ];
+}
+
+/** Los del tablero y, si no está dibujado, el portero del once: los PDF que salen. */
+export function filasParaPdf(tablero: TableroPizarra, players: Map<string, Player>, portero?: string) {
+  const filas = jugadoresDelTablero(tablero).map((fila) => ({ ...fila, sinFichas: false }));
+
+  if (portero && !filas.some((fila) => fila.playerId === portero) && cometidosDe(tablero, portero, players).length > 0) {
+    filas.push({ playerId: portero, slides: 0, fichas: 0, sinFichas: true });
+  }
+
+  return filas;
+}
+
+/*
+| Lo que hace en una defensiva cuando no tiene marca ni flechas (06/11/2026,
+| expertos): salía «Marca (3.º)» o «Balón», el rol sin verbo.
+*/
+function verboDefensivo(puestos: { label: string }[]) {
+  const l = plano(puestos[0]?.label ?? "").trim();
+  const n = l.match(/(\d+)$/)?.[1];
+
+  if (/^marca/.test(l)) return `Marcas en la línea${n ? ` (puesto ${n})` : ""}: atacas el balón antes que tu hombre`;
+  if (/^balon$/.test(l)) return "Atacas el primer balón: despejas lo que caiga en tu zona";
+  if (/juego en corto/.test(l)) return "Sales al juego en corto: que no la reciban cómodos";
+  if (/^corta/.test(l)) return "Defiendes la corta: ganas el primer contacto";
+  if (/^area$/.test(l)) return "Cierras el área: atacas lo que caiga dentro";
+  if (/rechace corto/.test(l)) return "Atacas el rechace corto en la frontal";
+  if (/rechace largo/.test(l)) return "Vigilas el rechace largo y la segunda jugada";
+  if (/^rechace/.test(l)) return "Atacas el rechace";
+  if (/barrera.*punta/.test(l)) return "Cierras la barrera en la punta: tapas el palo";
+  if (/^barrera/.test(l)) {
+    const sitio = (l.split("·")[1] ?? "").trim().replace(/ i$/, " izquierda").replace(/ d$/, " derecha");
+    return `Formas la barrera${sitio ? ` (${sitio})` : ""}: saltáis a la vez, nadie se gira`;
+  }
+  if (/^suelo$/.test(l)) return "Te tumbas tras la barrera: tapas el disparo raso";
+  if (/2.? jugada/.test(l)) return "Atacas la segunda jugada: el balón que salga de la barrera";
+  if (/al sacador/.test(l)) return "Presionas al sacador: que no saque cómodo";
+  if (/defensa de banda/.test(l)) return "Defiendes la banda: sales al que recibe el saque";
+  if (/zaguero|equilibr/.test(l)) return "Te quedas atrás: cierras la contra";
+
+  return "";
+}
+
+/**
+ * Los nombres de los nuestros con su mayúscula en las consignas (06/11/2026,
+ * expertos): «sacador aguado» → «sacador Aguado».
+ */
+function conNombres(texto: string, players: Map<string, Player>) {
+  const nombres = new Map<string, string>();
+
+  for (const p of players.values()) {
+    const corto = nombreCorto(p);
+    if (corto.length >= 3 && !/\s/.test(corto)) nombres.set(plano(corto), corto.charAt(0).toLocaleUpperCase("es-ES") + corto.slice(1).toLocaleLowerCase("es-ES"));
+  }
+
+  return texto.replace(/(?<!\p{L})\p{L}{3,}(?!\p{L})/gu, (palabra) => nombres.get(plano(palabra)) ?? palabra);
+}
 
 /** A cuánto de su ficha un rival dibujado es «el suyo». */
 const CERCA_RIVAL = 170;
@@ -285,10 +407,18 @@ function tareaPorPasos(
 /** Los cometidos sin el mismo «DESPUÉS» repetido en cada lámina: sólo en la primera (06/11/2026, expertos). */
 export function cometidosDe(tablero: TableroPizarra, playerId: string, players: Map<string, Player>): CometidoAccion[] {
   const visto = new Set<string>();
-  return cometidosCrudos(tablero, playerId, players).map((a) => {
+  const ofensivasPortero = new Set<string>();
+  return cometidosCrudos(tablero, playerId, players).filter((a) => {
+    if (!a.sinFicha || a.lado !== "ofensivo") return true;
+    const clave = a.consignas.join("|");
+    if (ofensivasPortero.has(clave)) return false;
+    ofensivasPortero.add(clave);
+    return true;
+  }).map((a) => {
     if (!a.despuesDibujado || !a.despues) return a;
-    if (visto.has(a.despues)) return { ...a, despuesDibujado: false };
-    visto.add(a.despues);
+    const remate = a.despues.split(":").pop()!.trim().toLowerCase();
+    if (visto.has(remate)) return { ...a, despuesDibujado: false };
+    visto.add(remate);
     return a;
   });
 }
@@ -301,7 +431,7 @@ function cometidosCrudos(
   return tablero.slides.flatMap((slide, indice) => {
     const suyas = slide.fichas.filter((ficha) => ficha.playerId === playerId);
 
-    if (suyas.length === 0) return [];
+    if (suyas.length === 0) return esPortero(players.get(playerId)) ? accionDelPortero(tablero, indice) : [];
 
     const lado = PLANTILLA_BY_KEY.get(slide.plantilla)?.lado ?? "ofensivo";
     const grupos = gruposDe(slide);
@@ -449,7 +579,7 @@ function cometidosCrudos(
         puestos,
         mision: mision.charAt(0).toLocaleUpperCase("es-ES") + mision.slice(1),
         senal,
-        consignas: consignasSuyas(lineasConsignas(slide.notas), claves, siglas),
+        consignas: consignasSuyas(lineasConsignas(slide.notas), claves, siglas).map((texto) => conNombres(texto, players)),
         rival,
         despues: despues ? despues.charAt(0).toLocaleUpperCase("es-ES") + despues.slice(1).toLowerCase() : "",
         pasos,
@@ -462,6 +592,9 @@ function cometidosCrudos(
         tarea,
         marcaDorsal,
         zona,
+        otros: slide.fichas
+          .filter((ficha) => ficha.playerId !== playerId && ficha.x >= 0 && ficha.y >= 0)
+          .map((ficha) => ({ x: ficha.x, y: ficha.y })),
       },
     ];
   });
@@ -876,6 +1009,7 @@ function resalta(
   punto: { x: number; y: number } | null,
   marca: { x: number; y: number } | null,
   accion: CometidoAccion,
+  otros: { x: number; y: number }[] = [],
 ) {
   const z = HOJA_W / enc.sw;
   /* Los tamaños, de la ficha en la foto: si la pizarra acercó el campo, el aro crece con ella. */
@@ -942,20 +1076,36 @@ function resalta(
   }
 
   if (yo) {
-    const radio = 50 * s;
+    const radio = 42 * s;
 
     ctx.strokeStyle = "rgba(255,255,255,.95)";
-    ctx.lineWidth = 14;
+    ctx.lineWidth = 12;
     ctx.beginPath();
     ctx.arc(yo.x, top + yo.y, radio, 0, Math.PI * 2);
     ctx.stroke();
     ctx.strokeStyle = C.rosa;
-    ctx.lineWidth = 8;
+    ctx.lineWidth = 7;
     ctx.stroke();
 
+    /*
+    | Donde no tape a nadie (06/11/2026, expertos): arriba tapaba el nombre del
+    | de delante. Se prueba arriba, a los lados y abajo; gana el primero con
+    | aire y, si ninguno lo tiene, el que más.
+    */
+    const ocupados = otros.map(enHoja);
+    const candidatos = [
+      { x: yo.x, y: yo.y - radio - 33 },
+      { x: yo.x + radio + 58, y: yo.y - radio * 0.5 },
+      { x: yo.x - radio - 58, y: yo.y - radio * 0.5 },
+      { x: yo.x, y: yo.y + radio + 92 },
+    ].filter((p) => p.y - 23 > 4 && p.y + 23 < enc.alto - 4 && p.x - 48 > 0 && p.x + 48 < HOJA_W);
+    const aire = (p: { x: number; y: number }) => Math.min(9999, ...ocupados.map((o) => Math.hypot((o.x - p.x) / 1.5, o.y - p.y)));
+    const sitioChapa =
+      candidatos.find((p) => aire(p) > 62 * s) ?? [...candidatos].sort((a, b) => aire(b) - aire(a))[0] ?? { x: yo.x, y: yo.y - radio - 33 };
+
     chapa(ctx, "TÚ", {
-      x: yo.x,
-      y: Math.max(top + 10, top + yo.y - radio - 56),
+      x: sitioChapa.x,
+      y: Math.max(top + 10, top + sitioChapa.y - 23),
       alto: 46,
       fondo: C.rosa,
       tinta: C.navy,
@@ -1017,7 +1167,7 @@ function titulares(accion: CometidoAccion, suyos: Map<string, SuJugador> | undef
       return { grande, debajo: mayuscula([accion.tarea ? minuscula(accion.tarea) : "", con, para].filter(Boolean).join(" · ")) };
     }
 
-    return { grande: accion.tarea || puesto, debajo: mayuscula([con, para].filter(Boolean).join(" · ")) };
+    return { grande: accion.tarea || verboDefensivo(accion.puestos) || puesto, debajo: mayuscula([con, para].filter(Boolean).join(" · ")) };
   }
 
   if (accion.tarea) return { grande: accion.tarea, debajo: mayuscula([con, para].filter(Boolean).join(" · ")) };
@@ -1031,6 +1181,7 @@ function titulares(accion: CometidoAccion, suyos: Map<string, SuJugador> | undef
 
 type PlanAccion = {
   yo: { x: number; y: number } | null;
+  otros: { x: number; y: number }[];
   marca: { x: number; y: number } | null;
   enc: Encuadre | null;
   grande: string[];
@@ -1188,7 +1339,9 @@ function planAccion(
   suyos: Map<string, SuJugador> | undefined,
 ): PlanAccion {
   const enFoto = (p: { x: number; y: number }) => ({ x: marco.dx + p.x * marco.k, y: marco.dy + p.y * marco.k });
-  const yo = punto ?? (accion.foco[0] ? enFoto({ x: accion.foco[0].x, y: accion.foco[0].y - 50 }) : null);
+  const yo = accion.sinFicha ? null : punto ?? (accion.foco[0] ? enFoto({ x: accion.foco[0].x, y: accion.foco[0].y - 50 }) : null);
+  /* Cara y nombre de cada uno de los demás, en la foto. */
+  const otros = accion.otros.flatMap((p) => [enFoto({ x: p.x, y: p.y - 50 }), enFoto({ x: p.x, y: p.y + 4 })]);
   const marca = accion.marcaPunto ? enFoto({ x: accion.marcaPunto.x, y: accion.marcaPunto.y - 30 }) : null;
   const enc = conTablero ? encuadre(accion, yo, marco) : null;
 
@@ -1206,7 +1359,7 @@ function planAccion(
   const yNotas = yCampo + (enc ? enc.alto + 8 : 0);
   const alto = bloqueNotas(medida, accion, yNotas, false) + 10 + PIE_H;
 
-  return { yo, marca, enc, grande: lineasGrande, debajo: lineasDebajo, yCampo, alto };
+  return { yo, otros, marca, enc, grande: lineasGrande, debajo: lineasDebajo, yCampo, alto };
 }
 
 function dibujaAccion(
@@ -1226,7 +1379,7 @@ function dibujaAccion(
   bloqueArriba(ctx, accion, plan, true);
 
   /* El campo, encuadrado en lo suyo y con él en foco. */
-  const { enc, yo, marca, yCampo } = plan;
+  const { enc, yo, marca, yCampo, otros } = plan;
 
   if (tablero && enc) {
     const k = ("width" in tablero ? Number(tablero.width) : TABLERO_W) / TABLERO_W;
@@ -1235,7 +1388,7 @@ function dibujaAccion(
     ctx.fillRect(0, yCampo - 8, HOJA_W, 8);
     ctx.imageSmoothingQuality = "high";
     ctx.drawImage(tablero, enc.sx * k, enc.sy * k, enc.sw * k, enc.sh * k, 0, yCampo, HOJA_W, enc.alto);
-    resalta(ctx, enc, yCampo, yo, marca, accion);
+    resalta(ctx, enc, yCampo, yo, marca, accion, otros);
 
     ctx.fillStyle = C.rosa;
     ctx.fillRect(0, yCampo + enc.alto, HOJA_W, 8);

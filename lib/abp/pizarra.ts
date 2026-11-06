@@ -1,3 +1,4 @@
+import { corrigeErratas } from "@/lib/textos/erratas";
 import { reescribeTextos } from "@/lib/abp/textos-jugadores";
 import type { Player } from "@/types/player";
 import { idVigente } from "@/lib/fichajes";
@@ -2314,6 +2315,8 @@ export const CONSIGNAS_MAX = 3;
  * se respeta como está (hay nombres y siglas que el cuerpo técnico escribe a
  * posta). «1ª» pasa a «1.ª», como se escribe el ordinal.
  */
+/* «lanzadador», «ultimo»: erratas de la hoja corregidas al pintar (06/11/2026). */
+
 export function normalizaConsigna(texto: string) {
   const base = normalizaConsignaBase(texto);
 
@@ -2322,7 +2325,7 @@ export function normalizaConsigna(texto: string) {
 }
 
 function normalizaConsignaBase(texto: string) {
-  const limpio = texto
+  const limpio = corrigeErratas(texto)
     .trim()
     .replace(/(\d)([ªº])/g, "$1.$2")
     /* «2.DIRECTA» sin espacio tras el número de orden. */

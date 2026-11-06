@@ -1461,7 +1461,7 @@ function PronosticoCorto({ inf }: { inf: InformePartido }) {
     <Panel titulo="EL PRONÓSTICO">
       <BarraResultado p={pr} alto={40} />
       <div style={{ marginTop: 10, fontSize: 19, fontWeight: 600, lineHeight: 1.25, color: C.suave }}>
-        Marcador más probable <b style={{ color: C.crema }}>{pr.marcador}</b> · si se cumplen las metas del plan, <b style={{ color: C.oro }}>{pct(pr.conPlan.victoria)}</b> de victoria
+        Marcador más probable <b style={{ color: C.crema }}>{pr.marcador}</b> · si se cumplen las tres metas de «Cómo lo ganamos», <b style={{ color: C.oro }}>{pct(pr.conPlan.victoria)}</b> de victoria
       </div>
       <div style={{ marginTop: 6, fontSize: 15, color: C.tenue }}>{pr.base}</div>
     </Panel>

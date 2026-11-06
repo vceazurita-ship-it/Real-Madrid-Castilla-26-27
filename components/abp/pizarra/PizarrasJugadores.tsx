@@ -24,7 +24,9 @@ import { toast } from "sonner";
 
 import type { Player } from "@/types/player";
 import { Button, Dialog } from "@/components/abp/ui";
-import { jugadoresDelTablero, type TableroPizarra } from "@/lib/abp/pizarra";
+import { type TableroPizarra } from "@/lib/abp/pizarra";
+import { filasParaPdf } from "@/lib/abp/pizarra-jugador";
+import { usePorteroDelOnce } from "@/components/abp/pizarra/usePorteroDelOnce";
 import { nombreCorto } from "@/lib/abp/pizarra-jugador";
 import { enlaceWhatsapp, esTelefono, telefonoLegible } from "@/lib/correo/whatsapp";
 import { descarga } from "@/lib/export/lienzos";
@@ -51,6 +53,7 @@ export function PizarrasJugadores({
   jornada?: string;
   escudoRival?: string;
 }) {
+  const portero = usePorteroDelOnce(players);
   const [abierto, setAbierto] = useState(false);
   const [enviados, setEnviados] = useState<Set<string>>(new Set());
 
@@ -65,14 +68,14 @@ export function PizarrasJugadores({
   /* Los del tablero, por dorsal: es como se nombran en el vestuario. */
   const jugadores = useMemo(
     () =>
-      jugadoresDelTablero(tablero)
+      filasParaPdf(tablero, players, portero)
         .map((fila) => ({ ...fila, player: players.get(fila.playerId) }))
         .sort(
           (a, b) =>
             (a.player?.dorsal ?? 99) - (b.player?.dorsal ?? 99) ||
             nombreCorto(a.player).localeCompare(nombreCorto(b.player), "es"),
         ),
-    [tablero, players],
+    [tablero, players, portero],
   );
 
   /* Lo que cambia al mover la pizarra deja viejos los PDF ya hechos. */
@@ -226,7 +229,8 @@ export function PizarrasJugadores({
       .join("\n");
 
   const videosListos = jugadores.flatMap((fila) => (videos[fila.playerId] ? [videos[fila.playerId]] : []));
-  const faltanVideos = listos.map((fila) => fila.playerId).filter((id) => !videos[id]);
+  /* El portero no está dibujado: su vídeo no tendría a quién seguir. */
+  const faltanVideos = listos.filter((fila) => !fila.sinFichas).map((fila) => fila.playerId).filter((id) => !videos[id]);
 
   const reintentaSubida = async (playerId: string) => {
     const { subeVideo } = await import("@/components/abp/pizarra/MesaVideos");
@@ -409,7 +413,7 @@ export function PizarrasJugadores({
                             Compartir
                           </Button>
                         )}
-                        {sabeVideo && (
+                        {sabeVideo && !fila.sinFichas && (
                           videos[fila.playerId]?.fallo ? (
                             <Button icon={Film} onClick={() => void reintentaSubida(fila.playerId)} title="No se subió: el mensaje saldría sin el vídeo">
                               Reintentar

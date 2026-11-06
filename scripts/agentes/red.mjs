@@ -449,7 +449,7 @@ async function main() {
       if (!fs.existsSync(carpeta)) continue;
       const entradas = fs.readdirSync(carpeta).filter((f) => f.endsWith(".txt") || f === "medidas.json").map((f) => path.join(carpeta, f));
       /* Los exportables (06/11/2026): los PDF de las subcarpetas también van al juez. */
-      for (const sub of fs.readdirSync(carpeta, { recursive: true })) if (/\.pdf$/i.test(String(sub))) entradas.push(path.join(carpeta, String(sub)));
+      for (const sub of fs.readdirSync(carpeta, { recursive: true })) if (/\.pdf$/i.test(String(sub)) || /^paginas[\\/].+\.jpg$/i.test(String(sub))) entradas.push(path.join(carpeta, String(sub)));
       const rel = path.relative(RAIZ, carpeta).replace(/\\/g, "/");
       for (const nombre of JUECES[g]) {
         trabajos.push(() => agente({

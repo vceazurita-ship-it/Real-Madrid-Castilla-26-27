@@ -268,6 +268,7 @@ export function MesaPdfs({
             slide={encargo.tablero.slides[indice]}
             titulo={tituloVisible(encargo.tablero.slides, indice)}
             soloVer
+            sinCasillasVacias
             players={encargo.players}
             temporada={encargo.temporada}
             rival={encargo.rival}

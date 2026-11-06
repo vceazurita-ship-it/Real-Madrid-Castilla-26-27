@@ -1260,7 +1260,14 @@ const SOLO_DIBUJO = /^(?:estructura\s*:?\s*)?1-\d(?:-\d){1,3}(?:\s*(?:\/|,|\by\b
  * directo con última línea». `textos`: los campos de esa fase, por orden de
  * importancia; si el primero es sólo el dibujo, la frase la pone el siguiente.
  */
+/** «1-4-2-3-1» → «4-2-3-1» (06/11/2026, expertos): el resumen decía el dibujo de las dos maneras. */
+export const sinPorteroEnDibujo = (t: string) => t.replace(/(?<![\d-])1-(\d(?:-\d){1,3})(?![\d-])/g, "$1");
+
 export function fraseDeFase(titulo: string, textos: string[], n = 120) {
+  return sinPorteroEnDibujo(fraseDeFaseCruda(titulo, textos, n));
+}
+
+function fraseDeFaseCruda(titulo: string, textos: string[], n: number) {
   const verbo = /salen/i.test(titulo) ? "Salen" : /atacan/i.test(titulo) ? "Atacan" : /defienden/i.test(titulo) ? "Defienden" : "";
 
   const frases = textos
@@ -1295,6 +1302,66 @@ export function fraseDeFase(titulo: string, textos: string[], n = 120) {
  * nombre que sea de su plantilla pasa a nombre y apellido, y la primera vez,
  * con sus rasgos de defensor flojo («lento, pierde duelos»).
  */
+/**
+ * Los nombres que el scouting escribe a mano, como en su plantilla (06/11/2026,
+ * expertos): «mehdi Puch» → «Mehdi Puch», «Hidalgo» → «Fidalgo» (una letra de
+ * diferencia con alguien de su plantilla y cinco o más letras).
+ */
+export function corrigeNombres(texto: string, plantilla: JugadorRival[]) {
+  /* «javi J»: la inicial suelta sobra, el apellido lo pone `explicaDano`. */
+  const primeros = new Map<string, string[]>();
+  for (const j of plantilla) {
+    const partes = String(j.nombre ?? "").split(/\s+/).filter(Boolean);
+    if (partes.length > 1) primeros.set(plano(partes[0])[0] ?? "", partes.slice(1).map((p) => (plano(p)[0] ?? "").charAt(0)));
+  }
+  texto = texto.replace(/(?<!\p{L})(\p{L}{3,}) (\p{Lu})\.?(?![\p{L}])/gu, (todo, nombre: string, inicial: string) =>
+    primeros.get(plano(nombre)[0] ?? "")?.includes(inicial.normalize("NFD").charAt(0).toLowerCase()) ? nombre : todo,
+  );
+
+  const tokens = new Map<string, string>();
+
+  for (const j of plantilla) {
+    for (const t of String(j.nombre ?? "").split(/[\s.]+/)) {
+      if (t.length >= 3) tokens.set(plano(t)[0] ?? "", t.charAt(0).toLocaleUpperCase("es-ES") + t.slice(1).toLocaleLowerCase("es-ES"));
+    }
+  }
+
+  const unaLetra = (a: string, b: string) => {
+    if (Math.abs(a.length - b.length) > 1) return false;
+    let i = 0;
+    while (i < a.length && a[i] === b[i]) i++;
+    return a.slice(i + 1) === b.slice(i + 1) || a.slice(i + 1) === b.slice(i) || a.slice(i) === b.slice(i + 1);
+  };
+
+  return texto.replace(/(?<!\p{L})\p{L}{3,}(?!\p{L})/gu, (palabra) => {
+    const clave = plano(palabra)[0] ?? "";
+    const exacto = tokens.get(clave);
+
+    /* Sólo los nombres propios: una palabra común en minúscula que coincide con un nombre no se toca si no está en la plantilla. */
+    if (exacto) return palabra === palabra.toLocaleLowerCase("es-ES") && palabra.length < 4 ? palabra : exacto;
+
+    if (palabra.length >= 5 && /^\p{Lu}/u.test(palabra)) {
+      const cerca = [...tokens.entries()].find(([k]) => k.length >= 5 && unaLetra(clave, k));
+      if (cerca) return cerca[1];
+    }
+
+    return palabra;
+  });
+}
+
+/**
+ * La jerga de la hoja de ABP en palabras (06/11/2026, expertos): «3 vs 2 y 4
+ * vs 3 estando + 4 vs 2 apareciendo» → «3 contra 2 y 4 contra 3 ya en el
+ * área, y 4 contra 2 llegando desde atrás».
+ */
+export function sinJergaAbp(texto: string) {
+  return texto
+    .replace(/(\d)\s*vs\.?\s*(\d)/gi, "$1 contra $2")
+    .replace(/\s+estando\b/gi, " ya en el área")
+    .replace(/\s*\+\s*(\d+ contra \d+) apareciendo\b/gi, ", y $1 llegando desde atrás")
+    .replace(/\bapareciendo\b/gi, "llegando desde atrás");
+}
+
 export function explicaDano(texto: string, plantilla: JugadorRival[]) {
   let salida = texto;
 
@@ -1340,7 +1407,7 @@ export function textoDeMeta(momento: Palanca["momento"], meta: number, desde: nu
 
   if (momento === "Con balón") return `Llegar a ${cifra(meta, "decimal")} goles esperados o más (contra su defensa y en este campo, el pronóstico nos da ${cifra(desde, "decimal")})`;
 
-  return `Sacar +${cifra(meta, "decimal")} goles esperados a balón parado (a favor menos en contra)`;
+  return `Un córner con remate claro más que de costumbre (+${cifra(meta, "decimal")} goles esperados a balón parado)`;
 }
 
 /**
@@ -2287,7 +2354,9 @@ export function tareasDeConsigna(consigna: string, micro: Microciclo | null, opc
 
       const entre = [que, min].filter(Boolean).join(", ");
 
-      return `${t.dia} ${t.tarea}${entre ? ` (${entre})` : ""}`;
+      /* «Mar 3 M-T2» era un código (06/11/2026, expertos): «Mar 3 · tarea 2». */
+      const n = /T\s*(\d+)\s*$/i.exec(String(t.tarea ?? ""))?.[1];
+      return `${t.dia} · ${n ? `tarea ${n}` : t.tarea}${entre ? ` (${entre})` : ""}`;
     });
 }
 
@@ -2946,7 +3015,11 @@ export function metaDeClave(inf: Pick<InformePartido, "duelo" | "pronostico"> & 
   }
 
   /* En la diapositiva, la meta sin el pronóstico entre paréntesis: tres cifras en la línea (guion). */
-  const textoMeta = meta ? minusculaInicial(opciones.corta ? meta.texto.replace(/\s*\([^)]*\)\s*$/, "") : meta.texto) : "";
+  const corta = (t: string) => {
+    const pron = /el pronóstico (?:nos|les) da (\d+(?:,\d+)?)\)\s*$/.exec(t)?.[1];
+    return t.replace(/\s*\([^)]*\)\s*$/, "") + (pron ? ` (hoy se esperan ${pron})` : "");
+  };
+  const textoMeta = meta ? minusculaInicial(opciones.corta ? corta(meta.texto) : meta.texto) : "";
 
   return [hoy, ellos, textoMeta ? `meta: ${textoMeta}` : ""].filter(Boolean).join(" · ");
 }

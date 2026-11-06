@@ -32,7 +32,7 @@ import { rivalTokenId } from "@/lib/tactics/rivals";
 import { CONCLUSIONES, SECTIONS } from "@/lib/rivals/scout-colectivo-campos";
 import { findStats, highlightSeason, type RivalStatsDoc } from "@/lib/rivals/stats";
 import { golesTemporadaDe } from "./goles-temporada";
-import { explicaDano, fraseDeFase, fraseUtil, mismoJugador, pronostica, rotulosDeDuelos, type Cronica } from "./modelo";
+import { corrigeNombres, sinJergaAbp, explicaDano, fraseDeFase, fraseUtil, mismoJugador, pronostica, rotulosDeDuelos, type Cronica } from "./modelo";
 import type { CortePartido } from "@/lib/video-informe/guion";
 import type { PartidoBeSoccer } from "@/lib/quiniela/besoccer";
 
@@ -476,8 +476,8 @@ function planDe(fila: Fila | null): Plan | null {
     claves: enFrases(texto(fila.CLAVES_PARTIDO) || texto(fila.PLAN_PARTIDO), 5),
     ataque: texto(fila.ATAQUE),
     defensa: texto(fila.DEFENSA),
-    abpOf: texto(fila.ABP_OF),
-    abpDef: texto(fila.ABP_DEF),
+    abpOf: sinJergaAbp(texto(fila.ABP_OF)),
+    abpDef: sinJergaAbp(texto(fila.ABP_DEF)),
     emocionales: texto(fila.CLAVES_EMOCIONALES),
     estado: texto(fila.ESTADO_EQUIPO),
     estructuraOf: texto(fila.ESTRUCTURA_OF),
@@ -686,7 +686,15 @@ export async function cargaInforme(entrada: {
   const plantilla = suyas.map((f) => jugadorDe(f, stats));
 
   /* «…por el perfil de Ángel» → «…de Ángel Gomez (lento, pierde duelos)». */
-  if (colectivo) colectivo.resumen.dano = colectivo.resumen.dano.map((t) => explicaDano(t, plantilla));
+  if (colectivo) {
+    /* «Javi Jiménez (…) J»: la inicial que escribió el scouting sobra cuando ya va el apellido que empieza por ella. */
+    const sinInicialSuelta = (t: string) =>
+      t.replace(/ (\p{Lu})\.?(?=$|[\s,;.])/gu, (todo, inicial: string, pos: number) =>
+        new RegExp(`(^|[^\\p{L}])${inicial}\\p{L}{2,}`, "u").test(t.slice(Math.max(0, pos - 60), pos)) ? "" : todo,
+      );
+    colectivo.resumen.dano = colectivo.resumen.dano.map((t) => sinInicialSuelta(explicaDano(corrigeNombres(t, plantilla), plantilla)));
+    colectivo.resumen.fases = colectivo.resumen.fases.map((f) => ({ ...f, texto: corrigeNombres(f.texto, plantilla) }));
+  }
 
   const informeRival = findInforme(informes, equipoHoja);
 

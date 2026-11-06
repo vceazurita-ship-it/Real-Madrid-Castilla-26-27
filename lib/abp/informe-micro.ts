@@ -5793,9 +5793,20 @@ export function pinceladaAbp(informe: InformeMicro): PinceladaAbp {
     texto: informe.minutosAbp.texto,
   };
 
-  const objetivo = `${fmtMin(informe.objetivo.minimo)}-${fmtMin(informe.objetivo.maximo)}`;
+  /*
+  | El objetivo con su fuente y la diferencia (06/11/2026, expertos): «1 h 50′ ·
+  | objetivo 1 h 0′-1 h 7′» no decía de dónde salía ni si era mucho. Ahora
+  | «previsto 60-67′ (+43′) · 90-100′ en 6 días, aquí 4».
+  */
+  const ob = informe.objetivo;
+  const objetivo = `${ob.minimo}-${ob.maximo}′`;
+  const diferencia = minutos > ob.maximo ? ` (+${minutos - ob.maximo}′)` : minutos < ob.minimo ? ` (−${ob.minimo - minutos}′)` : " (dentro)";
+  const fuenteObjetivo =
+    ob.diasEntreno && ob.diasEntreno < OBJETIVO_ABP.dias
+      ? `${OBJETIVO_ABP.minimo}-${OBJETIVO_ABP.maximo}′ en ${OBJETIVO_ABP.dias} días, aquí ${ob.diasEntreno}`
+      : `referencia del cuerpo técnico`;
 
-  const pieMinutos = `objetivo ${objetivo}`;
+  const pieMinutos = `previsto ${objetivo}${diferencia} · ${fuenteObjetivo}`;
 
   const tareas = informe.valoracion.valoradas
     ? [
@@ -5816,7 +5827,7 @@ export function pinceladaAbp(informe: InformeMicro): PinceladaAbp {
         /* Sin el partido en las hojas, se habla de la semana y no se nombra lo que falta. */
         titular: `${rivalNombre ? `La semana del partido ante ${rivalNombre}: ` : "La semana: "}${fmtMin(minutos)} de balón parado`,
         claves: [`Objetivo de la semana: ${objetivo}`],
-        cifras: [{ rotulo: "Minutos de ABP", valor: fmtMin(minutos), pie: pieMinutos }, ...tareas],
+        cifras: [{ rotulo: "Minutos de ABP", valor: `${minutos}′`, pie: pieMinutos }, ...tareas],
         rival,
         minutos: minutosPincelada,
       };
@@ -5940,7 +5951,7 @@ export function pinceladaAbp(informe: InformeMicro): PinceladaAbp {
         { rotulo: "Goles ABP", valor: `${p.favor.goles}·${p.contra.goles}`, pie: "a favor · en contra" },
         { rotulo: "Remates ABP", valor: `${p.favor.remates}·${p.contra.remates}`, pie: "a favor · en contra" },
         { rotulo: "xG ABP", valor: `${dec(p.favor.xg, 2)}·${dec(p.contra.xg, 2)}`, pie: "a favor · en contra" },
-        { rotulo: "Minutos de ABP", valor: fmtMin(minutos), pie: pieMinutos },
+        { rotulo: "Minutos de ABP", valor: `${minutos}′`, pie: pieMinutos },
       ],
       rival,
       minutos: minutosPincelada,
@@ -6059,9 +6070,10 @@ export function pinceladaAbp(informe: InformeMicro): PinceladaAbp {
         ? informe.trabajos.length
           ? [{ rotulo: "Planificado", valor: String(informe.trabajos.length), pie: informe.trabajos.length === 1 ? "tarea" : "tareas" }]
           : []
-        : [{ rotulo: "Minutos de ABP", valor: fmtMin(minutos), pie: pieMinutos }]),
+        : [{ rotulo: "Minutos de ABP", valor: `${minutos}′`, pie: pieMinutos }]),
     ],
-    rival,
+    /* Cada cifra, una vez (06/11/2026, expertos): «sacan 6,2 córners» salía en las claves y otra vez aquí. */
+    rival: rival.filter((linea) => !(linea.match(/\d+,\d+/g) ?? []).some((cifra) => claves.some((clave) => clave.includes(cifra)))),
     minutos: minutosPincelada,
   };
 }

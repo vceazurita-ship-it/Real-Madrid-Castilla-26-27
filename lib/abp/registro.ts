@@ -16,6 +16,7 @@
  * y las posiciones fijas se rompen en silencio.
  */
 
+import { corrigeErratas } from "@/lib/textos/erratas";
 import Papa from "papaparse";
 
 import { norm, num } from "./model";
@@ -199,6 +200,8 @@ export async function filasPublicadasDelMicro(micro: number | string, temporada:
     .map((f) => Object.fromEntries(cab.map((c, k) => [c, f[k] ?? ""])));
 }
 
+/* Las erratas de la hoja se corrigen al leer (06/11/2026): «Crecieminto» salía en los informes. */
+
 export async function loadRegistro(): Promise<RegistroDataset> {
   const parsed = Papa.parse<string[]>(await bajaRegistro(), {
     header: false,
@@ -274,12 +277,12 @@ export async function loadRegistro(): Promise<RegistroDataset> {
       fecha: texto(fila, col.fecha),
       tarea,
       tipoTarea: texto(fila, col.tipoTarea),
-      fase: texto(fila, col.fase),
+      fase: corrigeErratas(texto(fila, col.fase)),
       formato: texto(fila, col.formato),
       espacio: texto(fila, col.espacio),
       grupo: texto(fila, col.grupo),
-      contenidoPrincipal: texto(fila, col.principal),
-      contenidoSecundario: texto(fila, col.secundario),
+      contenidoPrincipal: corrigeErratas(texto(fila, col.principal)),
+      contenidoSecundario: corrigeErratas(texto(fila, col.secundario)),
       tiempo: numero(fila, col.tiempo),
       intensidad: numero(fila, col.intensidad),
       carga: numero(fila, col.carga),
@@ -293,9 +296,9 @@ export async function loadRegistro(): Promise<RegistroDataset> {
       incertidumbre: numero(fila, col.incertidumbre),
       familiaridad: numero(fila, col.familiaridad),
       motivacion: numero(fila, col.motivacion),
-      observaciones: texto(fila, col.observaciones),
+      observaciones: corrigeErratas(texto(fila, col.observaciones)),
       evaluacion: numero(fila, col.evaluacion),
-      analisisPost: texto(fila, col.analisisPost),
+      analisisPost: corrigeErratas(texto(fila, col.analisisPost)),
     });
   });
 
