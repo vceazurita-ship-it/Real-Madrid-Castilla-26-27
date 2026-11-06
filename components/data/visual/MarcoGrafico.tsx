@@ -108,10 +108,10 @@ export function MarcoGrafico({
       <div className="mb-2 flex flex-wrap items-center justify-end gap-1.5">
         {propia && <span className="mr-auto rounded-full bg-[#C8A96B]/15 px-2 py-0.5 text-[11px] font-semibold text-[#C8A96B]">Ponderación propia</span>}
         {tipos && tipos.length > 1 && (
-          <label className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1 text-[12px] text-white/75" title="Ver el mismo dato en otra visualización">
+          <label className="inline-flex items-center gap-1 rounded-lg border border-[rgb(var(--rmcf-ink-rgb)/0.10)] bg-white/[0.04] px-2 py-1 text-[12px] text-[rgb(var(--rmcf-ink-rgb)/0.75)]" title="Ver el mismo dato en otra visualización">
             <LayoutGrid size={13} aria-hidden />
             <span className="sr-only">Ver como</span>
-            <select value={tipo} onChange={(e) => onTipo?.(e.target.value)} className="bg-transparent text-[12px] font-semibold text-white/85 outline-none">
+            <select value={tipo} onChange={(e) => onTipo?.(e.target.value)} className="bg-transparent text-[12px] font-semibold text-[rgb(var(--rmcf-ink-rgb)/0.85)] outline-none">
               {tipos.map((t) => (
                 <option key={t.clave} value={t.clave} className="bg-[#11161C]">{t.nombre}</option>
               ))}
@@ -119,7 +119,7 @@ export function MarcoGrafico({
           </label>
         )}
         {items && items.length > 1 && onPesos && (
-          <button type="button" onClick={abre} className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1 text-[12px] font-semibold text-white/80 hover:border-[#C8A96B]/50" title="Elegir cuánto pesa cada dato en el cálculo">
+          <button type="button" onClick={abre} className="inline-flex items-center gap-1 rounded-lg border border-[rgb(var(--rmcf-ink-rgb)/0.10)] bg-white/[0.04] px-2 py-1 text-[12px] font-semibold text-[rgb(var(--rmcf-ink-rgb)/0.80)] hover:border-[#C8A96B]/50" title="Elegir cuánto pesa cada dato en el cálculo">
             <SlidersHorizontal size={13} aria-hidden /> Ponderar
           </button>
         )}
@@ -129,12 +129,12 @@ export function MarcoGrafico({
 
       {abierto && items && (
         <div className="modal-veil fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true" aria-label="Ponderación" onClick={() => setAbierto(false)}>
-          <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl border border-white/10 bg-[#0B0F14] p-4 text-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl border border-[rgb(var(--rmcf-ink-rgb)/0.10)] bg-[var(--rmcf-surface,#0B0F14)] p-4 text-[rgb(var(--rmcf-ink-rgb))] shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-1 flex items-center justify-between">
               <h3 className="text-base font-bold">Ponderación</h3>
-              <button type="button" onClick={() => setAbierto(false)} aria-label="Cerrar" className="rounded-lg p-1 text-white/60 hover:text-white"><X size={16} /></button>
+              <button type="button" onClick={() => setAbierto(false)} aria-label="Cerrar" className="rounded-lg p-1 text-[rgb(var(--rmcf-ink-rgb)/0.60)] hover:text-[rgb(var(--rmcf-ink-rgb))]"><X size={16} /></button>
             </div>
-            <p className="mb-3 text-[12px] text-white/60">Cuánto pesa cada dato en el cálculo: 0 lo quita, 1 es lo normal, 3 lo triplica. Se guarda en este aparato.</p>
+            <p className="mb-3 text-[12px] text-[rgb(var(--rmcf-ink-rgb)/0.60)]">Cuánto pesa cada dato en el cálculo: 0 lo quita, 1 es lo normal, 3 lo triplica. Se guarda en este aparato.</p>
             {grupos.map((g) => (
               <div key={g} className="mb-3">
                 {g && <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.14em] text-[#C8A96B]">{g}</p>}
@@ -142,16 +142,16 @@ export function MarcoGrafico({
                   const v = borrador[i.clave] ?? 1;
                   return (
                     <label key={i.clave} className="mb-1.5 flex items-center gap-2 text-[13px]">
-                      <span className="w-36 shrink-0 truncate text-white/80">{i.nombre}</span>
+                      <span className="w-36 shrink-0 truncate text-[rgb(var(--rmcf-ink-rgb)/0.80)]">{i.nombre}</span>
                       <input type="range" min={0} max={3} step={0.5} value={v} onChange={(e) => setBorrador((b) => ({ ...b, [i.clave]: Number(e.target.value) }))} className="flex-1 accent-[#C8A96B]" />
-                      <span className="w-8 text-right tabular-nums text-white/85">{String(v).replace(".", ",")}</span>
+                      <span className="w-8 text-right tabular-nums text-[rgb(var(--rmcf-ink-rgb)/0.85)]">{String(v).replace(".", ",")}</span>
                     </label>
                   );
                 })}
               </div>
             ))}
             <div className="mt-2 flex flex-wrap justify-end gap-2">
-              <button type="button" onClick={() => { onPesos?.(null); setAbierto(false); }} className="inline-flex items-center gap-1 rounded-lg border border-white/15 px-3 py-1.5 text-[13px] text-white/80"><RotateCcw size={13} /> Por defecto</button>
+              <button type="button" onClick={() => { onPesos?.(null); setAbierto(false); }} className="inline-flex items-center gap-1 rounded-lg border border-[rgb(var(--rmcf-ink-rgb)/0.15)] px-3 py-1.5 text-[13px] text-[rgb(var(--rmcf-ink-rgb)/0.80)]"><RotateCcw size={13} /> Por defecto</button>
               <button type="button" onClick={() => { const limpio = Object.fromEntries(Object.entries(borrador).filter(([, v]) => v !== 1)); onPesos?.(limpio); setAbierto(false); }} className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-[13px] font-semibold" style={{ background: "#C8A96B", color: "#0B0F14" }}><Save size={13} /> Guardar</button>
             </div>
           </div>

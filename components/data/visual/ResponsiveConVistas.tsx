@@ -86,15 +86,15 @@ export function ResponsiveConVistas({ children, width = "100%", height = "100%",
             aria-label="Ver este gráfico de otra forma"
             aria-expanded={menu}
             title="Ver como: clásicos (barras, líneas, tabla) o actuales (piruleta, mapa de calor, pesas)"
-            className="rounded-md border border-white/15 bg-[#0B0F14] p-1 text-white/70 transition hover:text-[#C8A96B]"
+            className="rounded-md border border-[rgb(var(--rmcf-ink-rgb)/0.15)] bg-[var(--rmcf-surface,#0B0F14)] p-1 text-[rgb(var(--rmcf-ink-rgb)/0.70)] transition hover:text-[#C8A96B]"
           >
             <LayoutGrid size={13} />
           </button>
           {menu && (
-            <div role="menu" className="absolute right-0 mt-1 w-44 overflow-hidden rounded-lg border border-white/15 bg-[#0B0F14] py-1 text-[12px] shadow-xl">
+            <div role="menu" className="absolute right-0 mt-1 w-44 overflow-hidden rounded-lg border border-[rgb(var(--rmcf-ink-rgb)/0.15)] bg-[var(--rmcf-surface,#0B0F14)] py-1 text-[12px] shadow-xl">
               {(["Clásicos", "Actuales"] as const).map((familia) => (
                 <div key={familia}>
-                  <p className="px-3 pb-0.5 pt-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-white/45">{familia}</p>
+                  <p className="px-3 pb-0.5 pt-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[rgb(var(--rmcf-ink-rgb)/0.45)]">{familia}</p>
                   {disponibles.filter((t) => t.familia === familia).map((t) => (
                     <button
                       key={t.clave}
@@ -105,7 +105,7 @@ export function ResponsiveConVistas({ children, width = "100%", height = "100%",
                         setTipo(t.clave);
                         setMenu(false);
                       }}
-                      className={`block w-full px-3 py-1.5 text-left hover:bg-white/10 ${vista === t.clave ? "font-semibold text-[#C8A96B]" : "text-white/85"}`}
+                      className={`block w-full px-3 py-1.5 text-left hover:bg-[rgb(var(--rmcf-ink-rgb)/0.08)] ${vista === t.clave ? "font-semibold text-[#C8A96B]" : "text-[rgb(var(--rmcf-ink-rgb)/0.85)]"}`}
                     >
                       {t.nombre}
                     </button>
@@ -154,7 +154,7 @@ export function ResponsiveConVistas({ children, width = "100%", height = "100%",
       {vista === "tabla" && datos && (
         <div className="h-full overflow-auto pt-7">
           <table className="w-full text-[12px]">
-            <thead className="text-left text-white/55">
+            <thead className="text-left text-[rgb(var(--rmcf-ink-rgb)/0.55)]">
               <tr>
                 {etiqueta && <th className="px-2 py-1 font-medium">{etiqueta}</th>}
                 {numericas.map((k) => (
@@ -164,10 +164,10 @@ export function ResponsiveConVistas({ children, width = "100%", height = "100%",
             </thead>
             <tbody>
               {datos.map((f, i) => (
-                <tr key={i} className="border-t border-white/10">
-                  {etiqueta && <td className="px-2 py-1 text-white/85">{fmt(f[etiqueta])}</td>}
+                <tr key={i} className="border-t border-[rgb(var(--rmcf-ink-rgb)/0.10)]">
+                  {etiqueta && <td className="px-2 py-1 text-[rgb(var(--rmcf-ink-rgb)/0.85)]">{fmt(f[etiqueta])}</td>}
                   {numericas.map((k) => (
-                    <td key={k} className="px-2 py-1 text-right tabular-nums text-white/75">{fmt(f[k])}</td>
+                    <td key={k} className="px-2 py-1 text-right tabular-nums text-[rgb(var(--rmcf-ink-rgb)/0.75)]">{fmt(f[k])}</td>
                   ))}
                 </tr>
               ))}
@@ -183,16 +183,16 @@ export function ResponsiveConVistas({ children, width = "100%", height = "100%",
         const max = Math.max(...filas.map((f) => Math.abs(f.v)), 1);
         return (
           <div className="h-full overflow-auto pt-7 pr-1">
-            <p className="mb-1 text-[11px] text-white/55">{k}, de más a menos</p>
+            <p className="mb-1 text-[11px] text-[rgb(var(--rmcf-ink-rgb)/0.55)]">{k}, de más a menos</p>
             <ul className="space-y-1">
               {filas.map((f, i) => (
                 <li key={i} className="flex items-center gap-2 text-[12px]">
-                  <span className="w-28 shrink-0 truncate text-white/80" title={f.n}>{f.n}</span>
+                  <span className="w-28 shrink-0 truncate text-[rgb(var(--rmcf-ink-rgb)/0.80)]" title={f.n}>{f.n}</span>
                   <span className="relative h-3 flex-1">
                     <span className="absolute left-0 top-1/2 h-px -translate-y-1/2 bg-white/30" style={{ width: `${(Math.abs(f.v) / max) * 100}%` }} />
                     <span className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ left: `${(Math.abs(f.v) / max) * 100}%`, background: COLORES[0] }} />
                   </span>
-                  <span className="w-12 shrink-0 text-right tabular-nums text-white/80">{fmt(f.v)}</span>
+                  <span className="w-12 shrink-0 text-right tabular-nums text-[rgb(var(--rmcf-ink-rgb)/0.80)]">{fmt(f.v)}</span>
                 </li>
               ))}
             </ul>
@@ -206,7 +206,7 @@ export function ResponsiveConVistas({ children, width = "100%", height = "100%",
         return (
           <div className="h-full overflow-auto pt-7">
             <table className="w-full border-separate border-spacing-0.5 text-[12px]">
-              <thead className="text-white/55">
+              <thead className="text-[rgb(var(--rmcf-ink-rgb)/0.55)]">
                 <tr>
                   {etiqueta && <th className="px-2 py-1 text-left font-medium">{etiqueta}</th>}
                   {numericas.map((k) => <th key={k} className="px-2 py-1 font-medium">{k}</th>)}
@@ -215,12 +215,12 @@ export function ResponsiveConVistas({ children, width = "100%", height = "100%",
               <tbody>
                 {datos.map((f, i) => (
                   <tr key={i}>
-                    {etiqueta && <td className="px-2 py-1 text-white/85">{fmt(f[etiqueta])}</td>}
+                    {etiqueta && <td className="px-2 py-1 text-[rgb(var(--rmcf-ink-rgb)/0.85)]">{fmt(f[etiqueta])}</td>}
                     {numericas.map((k) => {
                       const [a, b] = rango[k];
                       const t = b > a ? (num(f[k]) - a) / (b - a) : 0.5;
                       return (
-                        <td key={k} className="rounded px-2 py-1 text-center tabular-nums text-white/90" style={{ background: `rgba(216,180,90,${0.08 + t * 0.62})` }}>
+                        <td key={k} className="rounded px-2 py-1 text-center tabular-nums text-[rgb(var(--rmcf-ink-rgb)/0.90)]" style={{ background: `rgba(216,180,90,${0.08 + t * 0.62})` }}>
                           {fmt(f[k])}
                         </td>
                       );
@@ -229,7 +229,7 @@ export function ResponsiveConVistas({ children, width = "100%", height = "100%",
                 ))}
               </tbody>
             </table>
-            <p className="mt-1 text-[11px] text-white/50">Más intenso = más alto dentro de su columna.</p>
+            <p className="mt-1 text-[11px] text-[rgb(var(--rmcf-ink-rgb)/0.50)]">Más intenso = más alto dentro de su columna.</p>
           </div>
         );
       })()}
@@ -243,7 +243,7 @@ export function ResponsiveConVistas({ children, width = "100%", height = "100%",
         const pos = (v: number) => ((v - min) / (max - min || 1)) * 100;
         return (
           <div className="h-full overflow-auto pt-7 pr-1">
-            <p className="mb-1 flex gap-3 text-[11px] text-white/60">
+            <p className="mb-1 flex gap-3 text-[11px] text-[rgb(var(--rmcf-ink-rgb)/0.60)]">
               <span><span style={{ color: COLORES[0] }}>●</span> {k1}</span>
               <span><span style={{ color: COLORES[1] }}>●</span> {k2}</span>
             </p>
@@ -253,13 +253,13 @@ export function ResponsiveConVistas({ children, width = "100%", height = "100%",
                 const b = pos(num(f[k2]));
                 return (
                   <li key={i} className="flex items-center gap-2 text-[12px]" title={`${k1} ${fmt(f[k1])} · ${k2} ${fmt(f[k2])}`}>
-                    <span className="w-28 shrink-0 truncate text-white/80">{nombreDe(f, i)}</span>
+                    <span className="w-28 shrink-0 truncate text-[rgb(var(--rmcf-ink-rgb)/0.80)]">{nombreDe(f, i)}</span>
                     <span className="relative h-3 flex-1">
                       <span className="absolute top-1/2 h-0.5 -translate-y-1/2 bg-white/30" style={{ left: `${Math.min(a, b)}%`, width: `${Math.abs(a - b)}%` }} />
                       <span className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ left: `${a}%`, background: COLORES[0] }} />
                       <span className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ left: `${b}%`, background: COLORES[1] }} />
                     </span>
-                    <span className="w-20 shrink-0 text-right tabular-nums text-white/75">{fmt(f[k1])} · {fmt(f[k2])}</span>
+                    <span className="w-20 shrink-0 text-right tabular-nums text-[rgb(var(--rmcf-ink-rgb)/0.75)]">{fmt(f[k1])} · {fmt(f[k2])}</span>
                   </li>
                 );
               })}
