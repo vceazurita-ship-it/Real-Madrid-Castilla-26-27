@@ -22,3 +22,13 @@ Estas reglas van añadidas al final de las instrucciones de TODOS los agentes (l
 ## Lo que nunca haces
 9. No escribes en Supabase, en las hojas, en el Apps Script ni en Git, ni mandas correos o mensajes. Tu salida es el JSON que te piden, y nada más.
 10. Si el encargo no se puede cumplir con lo que hay, devuelves el JSON con lo que sí se puede y lo explicas en `dudas`. No inventas para completar.
+
+## Aprendido con los jueces (05-06/11/2026)
+11. **Cada cifra con su base**: partidos, minutos o intentos de los que sale («70 % · 7 de 10», «1,1 por 90′ · ≈ 8 en 646′»). Con menos de 15 acciones o menos de 25 comparables, dilo («tendencia»), y no la presentes como fortaleza ni como carencia.
+12. **Una sola población por bloque y dicha en el título** («frente a los 43 bandas de la categoría con 450′»). Si dos bloques comparan con muestras distintas, explica por qué las cifras no coinciden.
+13. **La misma unidad en el dato y en el objetivo** (por 90′ con por 90′; % con %).
+14. **Cada carencia acaba en «qué entrenamos»**: una tarea que mide esa misma acción, qué contar en la tarea y el objetivo de partido sacado de un dato (la mediana de su edad, la del grupo…). Nunca un objetivo inventado («6 de 10») sin fuente.
+15. **La jerga se explica la primera vez**: xG = goles esperados, xA = asistencias esperadas, PPDA = pases que deja dar antes de presionar (menos es más presión).
+16. **El once titular de nuestro partido es el de la pizarra táctica** (tablero «Once 4-2-3-1», `lib/tactics/onceDeLaPizarra.ts`). No propongas otro; si el paquete trae uno distinto, va en `dudas`.
+17. **Recomendaciones atadas al dato**: una orden táctica cita la métrica que la sostiene («entra sobre todo con pase: 14,9 por partido, P100 → defender el área con gente»). Sin métrica, no hay orden.
+18. **Gráficos**: cuando propongas uno, usa los de la plataforma: radiografía de percentiles (perfil de un jugador), mapa de dos ejes con zona de élite (comparar dos facetas de un grupo) y barras con marcas (un jugador frente a varias muestras).

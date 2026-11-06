@@ -50,6 +50,7 @@ import { indiceDe, percentilesDe, type Percentil } from "@/lib/comparativa-u21";
 import type { RatingsSeason } from "@/lib/ratings/types";
 import { RadiografiaPercentiles, type CunaPercentil } from "@/components/data/visual/RadiografiaPercentiles";
 import { MapaDosEjes, type PuntoMapa } from "@/components/data/visual/MapaDosEjes";
+import { MarcoGrafico, usePesos, useTipoGrafico } from "@/components/data/visual/MarcoGrafico";
 import type { Puesto } from "@/lib/data-analisis/individual";
 
 const ORO = "#D8B45A";
@@ -179,6 +180,10 @@ export function AreaMejora({
   const [jugadores, setJugadores] = useState<FilaJugador[] | null>(null);
   const [elite, setElite] = useState<Elite | null>(null);
   const [sinDatos, setSinDatos] = useState(false);
+  /* Gráficos pinchables (06/11/2026): tipo de visualización y ponderación, recordados en el aparato. */
+  const [tipoRadiografia, setTipoRadiografia] = useTipoGrafico("radiografia", "pizza", ["pizza", "barras"] as const);
+  const [tipoMapa, setTipoMapa] = useTipoGrafico("mapa-mejora", "mapa", ["mapa", "ranking"] as const);
+  const [pesosMapa, setPesosMapa] = usePesos("mapa-mejora");
 
   useEffect(() => {
     let vivo = true;
@@ -268,7 +273,19 @@ export function AreaMejora({
       const conEl = base.some((j) => j === fila) ? base : [...base, fila];
       const crudos = conEl.map((j) => {
         const ps = percentilesDe(j, base, puesto);
-        const m = (gs: string[]) => media(ps.filter((p) => gs.includes(p.metrica.grupo)).map((p) => p.percentil));
+        /* Media de cada grupo y, entre grupos, con el peso elegido (1 por defecto). */
+        const m = (gs: string[]) => {
+          let suma = 0;
+          let pesoTotal = 0;
+          for (const g of gs) {
+            const vals = ps.filter((p) => p.metrica.grupo === g).map((p) => p.percentil);
+            const w = pesosMapa[g] ?? 1;
+            if (!vals.length || w <= 0) continue;
+            suma += media(vals) * w;
+            pesoTotal += w;
+          }
+          return pesoTotal ? suma / pesoTotal : 0;
+        };
         return { j, x: m(ejes.gx), y: m(ejes.gy) };
       });
       const rx = aRango(crudos.map((c) => c.x));
@@ -302,7 +319,7 @@ export function AreaMejora({
       mejora: unoPorGrupo([...ordenados].reverse()).slice(0, 3).map((p) => ({ p, mediana: mediana(p), base: baseDe(p), puesto: puestoEnEdad(p) })),
       contraEdad,
     };
-  }, [jugadores, nombre, apodo]);
+  }, [jugadores, nombre, apodo, pesosMapa]);
 
   const notas = useMemo(() => {
     if (!ratings) return [];
@@ -354,9 +371,9 @@ export function AreaMejora({
           {/* En tres líneas, lo que importa (05/11/2026): estaba al final, tras tres pantallas. */}
           {analisis.fuertes[0] && analisis.mejora[0] && (
             <div className="rounded-2xl border border-[#D8B45A]/30 bg-[#D8B45A]/[0.06] p-4 text-[13px] leading-relaxed text-white/85">
-              <p><b style={{ color: VERDE }}>Lo mejor:</b> {analisis.fuertes[0].p.metrica.nombre.replace(/ %$/, "")} (p{Math.round(analisis.fuertes[0].p.percentil)}, {analisis.fuertes[0].puesto}º de {analisis.nEdad} de su edad).</p>
-              <p><b style={{ color: ROJO }}>Lo que más le falta:</b> {analisis.mejora[0].p.metrica.nombre.replace(/ %$/, "")} (p{Math.round(analisis.mejora[0].p.percentil)}, {analisis.mejora[0].puesto}º de {analisis.nEdad}).</p>
-              {tareaDe(analisis.mejora[0].p.metrica.nombre) && <p><b className="text-white">Esta semana:</b> {tareaDe(analisis.mejora[0].p.metrica.nombre)!.tarea.split(":")[0]}.</p>}
+              <p><b style={{ color: VERDE }}>Destaca en {analisis.fuertes[0].p.metrica.nombre.replace(/ %$/, "").toLowerCase()}:</b> es el {analisis.fuertes[0].puesto}º de los {analisis.nEdad} de su edad (p{Math.round(analisis.fuertes[0].p.percentil)}).</p>
+              <p><b style={{ color: ROJO }}>Le falta {analisis.mejora[0].p.metrica.nombre.replace(/ %$/, "").toLowerCase()}:</b> es el {analisis.mejora[0].puesto}º de {analisis.nEdad} (p{Math.round(analisis.mejora[0].p.percentil)}).</p>
+              {tareaDe(analisis.mejora[0].p.metrica.nombre) && <p><b className="text-white">Esta semana entrenamos:</b> {tareaDe(analisis.mejora[0].p.metrica.nombre)!.tarea.split(":")[0]}.</p>}
             </div>
           )}
 
@@ -397,11 +414,14 @@ export function AreaMejora({
                 
                 {analisis.fila.edad} años · {analisis.fila.minutos}′ · {analisis.fila.partidos} partidos. La cuña rosa llega hasta su percentil (la discontinua es P50); a la derecha con balón, a la izquierda sin balón. Alto siempre es mejor: en las marcadas con ↓ (menos es mejor) ya está dado la vuelta.
               </p>
-              <div className="hidden sm:block">
-                <RadiografiaPercentiles cunas={analisis.cunas} />
-              </div>
+              <MarcoGrafico tipos={[{ clave: "pizza", nombre: "Radiografía" }, { clave: "barras", nombre: "Barras" }]} tipo={tipoRadiografia} onTipo={(t) => setTipoRadiografia(t as "pizza" | "barras")}>
+              {tipoRadiografia === "pizza" && (
+                <div className="hidden sm:block">
+                  <RadiografiaPercentiles cunas={analisis.cunas} />
+                </div>
+              )}
               {/* En el móvil la pizza no se lee: la misma información en barras. */}
-              <ul className="mt-3 space-y-2 sm:hidden">
+              <ul className={`mt-3 space-y-2 ${tipoRadiografia === "pizza" ? "sm:hidden" : "sm:grid sm:grid-cols-2 sm:gap-x-8 sm:space-y-0"}`}>
                 {(["con", "sin"] as const).map((lado) => (
                   <li key={lado}>
                     <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.16em] text-white/50">{lado === "con" ? "Con balón" : "Sin balón"}</p>
@@ -419,6 +439,7 @@ export function AreaMejora({
                   </li>
                 ))}
               </ul>
+              </MarcoGrafico>
             </div>
           )}
 
@@ -431,7 +452,38 @@ export function AreaMejora({
               <p className="mb-2 text-[12px] text-white/55">
                 Los mismos {analisis.mapa.n} {etiquetaPuesto.toLowerCase()} de la categoría con {analisis.minimo}′ o más. Cada eje es su puesto dentro de su posición (0 el último, 100 el primero) en {analisis.mapa.ejes.gx.join(", ").toLowerCase()} y en {analisis.mapa.ejes.gy.join(", ").toLowerCase()}. Cada eje es la media de sus percentiles en esos grupos, vuelta a ordenar entre estos {analisis.mapa.n}: por eso no coincide con las barras de «Momentos del juego», que le comparan con los de su edad. Zona sombreada: entre los mejores en las dos cosas (suma de 160 o más). Más es mejor en los dos ejes.
               </p>
-              <MapaDosEjes puntos={analisis.mapa.puntos} ejeX={analisis.mapa.ejes.x} ejeY={analisis.mapa.ejes.y} rotulos={analisis.mapa.ejes.rotulos} />
+              <MarcoGrafico
+                tipos={[{ clave: "mapa", nombre: "Mapa" }, { clave: "ranking", nombre: "Ranking" }]}
+                tipo={tipoMapa}
+                onTipo={(t) => setTipoMapa(t as "mapa" | "ranking")}
+                items={[
+                  ...analisis.mapa.ejes.gx.map((g) => ({ clave: g, nombre: g, grupo: `Eje «${analisis.mapa!.ejes.x}»` })),
+                  ...analisis.mapa.ejes.gy.filter((g) => !analisis.mapa!.ejes.gx.includes(g)).map((g) => ({ clave: g, nombre: g, grupo: `Eje «${analisis.mapa!.ejes.y}»` })),
+                ]}
+                pesos={pesosMapa}
+                onPesos={setPesosMapa}
+              >
+                {tipoMapa === "mapa" ? (
+                  <MapaDosEjes puntos={analisis.mapa.puntos} ejeX={analisis.mapa.ejes.x} ejeY={analisis.mapa.ejes.y} rotulos={analisis.mapa.ejes.rotulos} />
+                ) : (
+                  <ol className="space-y-1 text-[13px]">
+                    {(() => {
+                      const orden = [...analisis.mapa.puntos].sort((a, b) => b.x + b.y - (a.x + a.y));
+                      const suyo = orden.findIndex((p) => p.propio);
+                      return orden
+                        .map((p, i) => ({ p, i }))
+                        .filter(({ i }) => i < 10 || i === suyo)
+                        .map(({ p, i }) => (
+                          <li key={p.id} className={`flex items-center gap-2 rounded-lg px-2 py-1 ${p.propio ? "bg-[#D8B45A]/15 font-semibold" : ""}`}>
+                            <span className="w-7 tabular-nums text-white/50">{i + 1}º</span>
+                            <span className="min-w-0 flex-1 truncate text-white/85">{p.nombre} <span className="text-white/45">· {p.detalle}</span></span>
+                            <span className="shrink-0 tabular-nums text-white/70">{Math.round(p.x)} · {Math.round(p.y)}</span>
+                          </li>
+                        ));
+                    })()}
+                  </ol>
+                )}
+              </MarcoGrafico>
             </div>
           )}
 
@@ -449,14 +501,14 @@ export function AreaMejora({
               {analisis.grupos.map((g) => {
                 const v = Math.round(media(g.edad.length ? g.edad : g.todos));
                 const marcas = [
-                  { color: AZUL, valor: media(g.todos), nombre: "categoría" },
-                  ...contraElite.map((e, k) => ({ color: COLOR_LIGA[k % 2], valor: e.grupos[GRUPOS_JUGADOR.indexOf(g.grupo)] || 0, nombre: e.liga })),
+                  { color: AZUL, valor: media(g.todos), nombre: "categoría", corto: "Cat." },
+                  ...contraElite.map((e, k) => ({ color: COLOR_LIGA[k % 2], valor: e.grupos[GRUPOS_JUGADOR.indexOf(g.grupo)] || 0, nombre: e.liga, corto: e.liga === "Premier" ? "Prem." : "1.ª" })),
                 ].filter((m) => m.valor > 0);
                 return (
                   <li key={g.grupo} className="text-[13px]" title={marcas.map((m) => `${m.nombre}: ${Math.round(m.valor)}`).join(" · ")}>
                     <div className="mb-1 flex items-baseline justify-between gap-2">
                       <span className="min-w-0 truncate text-white/80">{g.grupo}</span>
-                      <span className="shrink-0 tabular-nums"><b style={{ color: v >= 66 ? VERDE : v >= 40 ? ORO : ROJO }}>{v}</b>{marcas.map((m) => <span key={m.nombre} className="ml-1.5 text-[11px]" style={{ color: m.color }}>{Math.round(m.valor)}</span>)}</span>
+                      <span className="shrink-0 tabular-nums"><span className="text-[11px] text-white/50">Edad </span><b style={{ color: v >= 66 ? VERDE : v >= 40 ? ORO : ROJO }}>{v}</b>{marcas.map((m) => <span key={m.nombre} className="ml-2 text-[11px]" style={{ color: m.color }}>{m.corto} {Math.round(m.valor)}</span>)}</span>
                     </div>
                     <span className="relative block h-2.5 rounded-full bg-white/10">
                       <span className="absolute inset-y-0 left-0 rounded-full transition-all duration-700" style={{ width: `${v}%`, background: v >= 66 ? VERDE : v >= 40 ? ORO : ROJO }} />

@@ -33,6 +33,7 @@ import { mismoClub } from "@/lib/rivals/mismoClub";
 import { comparaPorCalendario } from "@/lib/rivals/orden-calendario";
 import { useOrdenRivales } from "@/hooks/useOrdenRivales";
 import { MapaDosEjes, type PuntoMapa } from "@/components/data/visual/MapaDosEjes";
+import { MarcoGrafico, useTipoGrafico } from "@/components/data/visual/MarcoGrafico";
 import { Explicativo } from "@/components/ui/textos-analisis";
 
 const NOSOTROS = "Real Madrid Castilla";
@@ -171,6 +172,7 @@ function nombreLlano(nombre: string) {
 const nivel = (p: number) => (p >= 80 ? "de los que más" : p >= 60 ? "por encima de la media" : p >= 40 ? "en la media" : p >= 20 ? "por debajo de la media" : "de los que menos");
 
 export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadores: FilaJugador[] }) {
+  const [tipoProgresion, setTipoProgresion] = useTipoGrafico("progresion-equipos", "mapa", ["mapa", "ranking"] as const);
   const escudoDe = useEscudos();
   /* Nuestra competición por calendario y cada rival con su jornada (11/10/2026). */
   const { orden, jornadaDe } = useOrdenRivales();
@@ -368,6 +370,18 @@ export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadore
               Pases progresivos precisos y entradas al área por partido de esta temporada (Wyscout), en percentil dentro de la competición; más es mejor en los dos. <span style={{ color: "#D8B45A" }}>●</span> {NOSOTROS}
               {equipo !== NOSOTROS && <> · <span style={{ color: "#4F8FE8" }}>●</span> {equipo}</>}.
             </p>
+            <MarcoGrafico tipos={[{ clave: "mapa", nombre: "Mapa" }, { clave: "ranking", nombre: "Ranking" }]} tipo={tipoProgresion} onTipo={(t) => setTipoProgresion(t as "mapa" | "ranking")}>
+            {tipoProgresion === "ranking" ? (
+              <ol className="space-y-1 text-[13px]">
+                {[...puntos].sort((a, b) => b.ent - a.ent).map((p, i) => (
+                  <li key={p.id} className={`flex items-center gap-2 rounded-lg px-2 py-1 ${p.propio ? "bg-[#D8B45A]/15 font-semibold" : ""}`}>
+                    <span className="w-7 tabular-nums text-white/50">{i + 1}º</span>
+                    <span className="min-w-0 flex-1 truncate text-white/85">{p.nombre}</span>
+                    <span className="shrink-0 tabular-nums text-white/70">{p.ent.toFixed(1).replace(".", ",")} entradas · {p.prog.toFixed(1).replace(".", ",")} progresivos</span>
+                  </li>
+                ))}
+              </ol>
+            ) : (
             <MapaDosEjes
               detallePropios={false}
               puntos={puntos.map((p) => ({ ...p, hueco: p.partidos < Math.max(...puntos.map((q) => q.partidos)) }))}
@@ -375,6 +389,8 @@ export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadore
               ejeY="Entradas al área"
               rotulos={{ ambos: "Progresan y llegan", soloX: "Progresan sin llegar", soloY: "Llegan sin construir", nada: "Ni una cosa ni otra" }}
             />
+            )}
+            </MarcoGrafico>
             {(() => {
               const suyo = puntos.find((p) => p.id === equipo);
               const nuestro = puntos.find((p) => p.id === NOSOTROS);
