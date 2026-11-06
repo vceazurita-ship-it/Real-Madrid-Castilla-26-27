@@ -82,6 +82,9 @@ import {
   type Referencia,
 } from "@/lib/comparativa-u21";
 import { Explicativo } from "@/components/ui/textos-analisis";
+import { MapaDosEjes, type PuntoMapa } from "@/components/data/visual/MapaDosEjes";
+import { RadiografiaPercentiles, type CunaPercentil } from "@/components/data/visual/RadiografiaPercentiles";
+import { MarcoGrafico, useTipoGrafico } from "@/components/data/visual/MarcoGrafico";
 
 type Respuesta = { ok: boolean; jugadores?: FilaJugador[]; error?: string };
 type RegistroSeguimiento = { ID_JUGADOR: string; NOMBRE?: string; FECHA?: string };
@@ -987,7 +990,7 @@ function Graficos({
           {puntos.length < 3 ? (
             <p className="mt-6 text-sm text-white/45">No hay bastantes jugadores con esas dos métricas para dibujarlas.</p>
           ) : (
-            <Dispersion puntos={puntos} x={x} y={y} mx={mx} my={my} elegido={elegido} nombreDe={nombreDe} onElige={onElige} />
+            <VistasDispersion puntos={puntos} x={x} y={y} mx={mx} my={my} elegido={elegido} nombreDe={nombreDe} onElige={onElige} />
           )}
 
           <div className="mt-2 flex flex-wrap items-center gap-4 text-[11px] text-white/45">
@@ -1067,6 +1070,54 @@ function Graficos({
         </aside>
       </div>
     </div>
+  );
+}
+
+/*
+| La dispersión con «ver como» (06/11/2026): la de siempre (valores), el mapa
+| de élite (cada eje en percentil dentro de los que se ven, diagonales y zona
+| de los mejores en las dos cosas) o el ranking por la suma.
+*/
+function VistasDispersion(props: Parameters<typeof Dispersion>[0]) {
+  const [tipo, setTipo] = useTipoGrafico("comparativa-dispersion", "dispersion", ["dispersion", "mapa", "ranking"] as const);
+  const { puntos, x, y, nombreDe } = props;
+  const mapa = useMemo<PuntoMapa[]>(() => {
+    const rango = (vals: number[]) => {
+      const o = [...vals].sort((a, b) => a - b);
+      return vals.map((v) => (vals.length < 2 ? 50 : (100 * o.indexOf(v)) / (vals.length - 1)));
+    };
+    const rx = rango(puntos.map((p) => p.x));
+    const ry = rango(puntos.map((p) => p.y));
+    return puntos.map((p, i) => ({
+      id: `${p.jugador.jugador}|${p.jugador.equipo}`,
+      nombre: nombreDe(p.jugador),
+      x: rx[i],
+      y: ry[i],
+      propio: p.nuestro,
+      color: p.nuestro ? ORO : p.comparado ? COMPARADO : undefined,
+      detalle: `${p.jugador.equipo} · ${p.jugador.edad} años · ${x} ${p.x.toFixed(2).replace(".", ",")} · ${y} ${p.y.toFixed(2).replace(".", ",")}`,
+    }));
+  }, [puntos, x, y, nombreDe]);
+  return (
+    <MarcoGrafico
+      tipos={[{ clave: "dispersion", nombre: "Dispersión (valores)" }, { clave: "mapa", nombre: "Mapa de élite (percentiles)" }, { clave: "ranking", nombre: "Ranking" }]}
+      tipo={tipo}
+      onTipo={(t) => setTipo(t as "dispersion" | "mapa" | "ranking")}
+    >
+      {tipo === "dispersion" && <Dispersion {...props} />}
+      {tipo === "mapa" && <MapaDosEjes puntos={mapa} ejeX={x} ejeY={y} rotulos={{ ambos: "Mejores en las dos", soloX: `Sólo ${x.toLowerCase()}`, soloY: `Sólo ${y.toLowerCase()}`, nada: "Sin destacar todavía" }} />}
+      {tipo === "ranking" && (
+        <ol className="space-y-1 text-[13px]">
+          {[...mapa].sort((a, b) => b.x + b.y - (a.x + a.y)).slice(0, 20).map((p, i) => (
+            <li key={p.id} className={`flex items-center gap-2 rounded-lg px-2 py-1 ${p.propio ? "bg-[#C8A96B]/15 font-semibold" : ""}`}>
+              <span className="w-7 tabular-nums text-white/50">{i + 1}º</span>
+              <span className="min-w-0 flex-1 truncate text-white/85">{p.nombre} <span className="text-white/45">· {p.detalle}</span></span>
+              <span className="shrink-0 tabular-nums text-white/70">{Math.round(p.x)} · {Math.round(p.y)}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </MarcoGrafico>
   );
 }
 
@@ -1275,8 +1326,29 @@ function Detalle({
   const nube = useMemo(() => nubeDe(jugadores, fila.puesto), [jugadores, fila.puesto]);
   const puestoLabel = PUESTOS.find((p) => p.key === fila.puesto)?.label.toLowerCase() ?? "";
 
+  /* La radiografía de percentiles (06/11/2026): seis con balón y seis sin balón, repartidas entre grupos. */
+  const cunas: CunaPercentil[] = (["con", "sin"] as const).flatMap((lado) => {
+    const suyas = fila.percentiles.filter((p) => p.metrica.fase === lado && p.valor !== 0 && !/penalti/i.test(p.metrica.nombre));
+    const vistos = new Set<string>();
+    const primero = suyas.filter((p) => (vistos.has(p.metrica.grupo) ? false : (vistos.add(p.metrica.grupo), true)));
+    const resto = suyas.filter((p) => !primero.includes(p));
+    return [...primero, ...resto].slice(0, 6).map((p) => ({
+      nombre: `${p.metrica.nombre.replace(/ %$/, "")}${p.metrica.mejorAlto === false ? " ↓" : ""}`,
+      valor: p.metrica.unidad === "porcentaje" ? `${p.valor.toFixed(1).replace(".", ",")} %` : p.valor.toFixed(Math.abs(p.valor) >= 10 ? 1 : 2).replace(".", ","),
+      percentil: p.percentil,
+      lado,
+    }));
+  });
+
   return (
     <div className="mt-6 grid gap-4 xl:grid-cols-[320px_1fr_1fr]">
+      {cunas.length >= 6 && (
+        <div className="hidden rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-white sm:block xl:col-span-3">
+          <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#C8A96B]">Radiografía de percentiles <span className="text-[11px] font-semibold normal-case tracking-normal text-white/55">· frente a su referencia ({REFERENCIAS.find((r) => r.key === refe)?.label.toLowerCase()})</span></p>
+          <p className="text-[12px] text-white/55">La cuña llega hasta su percentil; a la derecha con balón, a la izquierda sin balón. Alto siempre es mejor (en las marcadas con ↓ ya está dado la vuelta).</p>
+          <div className="mx-auto max-w-[900px]"><RadiografiaPercentiles cunas={cunas} /></div>
+        </div>
+      )}
       {/* ---- quién es ---- */}
       <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
         <div className="flex items-center gap-3">
