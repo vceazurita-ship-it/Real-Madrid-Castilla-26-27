@@ -26,6 +26,10 @@
 import { useEffect, useId, useMemo, useState } from "react";
 
 import { CASOS_MINIMOS, formatea, type Unidad } from "@/lib/data-analisis/metricas";
+import { usePathname } from "next/navigation";
+import { MarcoGrafico, useTipoGrafico } from "@/components/data/visual/MarcoGrafico";
+import { MapaDosEjes } from "@/components/data/visual/MapaDosEjes";
+import { BarrasMedia, Desviacion, Franja, MediaMovil, Pesas, Piruleta, TablaEquipos, TablaSerie, aPercentiles } from "@/components/data/visual/VistasData";
 import {
   buscadorDeEscudos,
   traeEscudos,
@@ -338,7 +342,7 @@ export type FilaEquipo = { equipo: string; valor: number | null };
  * menos tiene. El Castilla va en oro y los demás en tinta apagada, y cada barra
  * lleva su nombre escrito: el color destaca, pero quien identifica es el rótulo.
  */
-export function BarrasEquipos({
+function BarrasEquiposBase({
   filas,
   unidad,
   mejorAlto,
@@ -448,7 +452,7 @@ export type Punto = { equipo: string; x: number; y: number };
  * cuánto se presiona contra cuánto se concede. Las medianas parten el dibujo en
  * cuatro para poder decir «arriba a la derecha» y que signifique algo.
  */
-export function Dispersion({
+function DispersionBase({
   puntos,
   etiquetaX,
   etiquetaY,
@@ -740,7 +744,7 @@ export type PuntoSerie = { etiqueta: string; valor: number | null; nota?: string
  * dibujo obligarían a dos ejes verticales, que es la forma más rápida de hacer
  * decir a una gráfica lo que uno quiera. Si hacen falta dos, van dos gráficas.
  */
-export function Evolucion({
+function EvolucionBase({
   serie,
   unidad,
   media,
@@ -903,5 +907,110 @@ export function Evolucion({
             : "Pasa el ratón por un punto (o tócalo) para ver el detalle."}
       </p>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  «VER COMO» EN LAS TRES PIEZAS COMUNES (06/11/2026)                 */
+/* ------------------------------------------------------------------ */
+/*
+| Toda pantalla que usa estas piezas gana el selector: clásicos y actuales.
+| Cada gráfico recuerda la suya (por pantalla y por su sitio en ella), y se
+| cambia cuando se quiera, las veces que se quiera.
+*/
+
+/** Un id por gráfico: la pantalla y su sitio en el árbol (useId es estable entre recargas). */
+function useIdGrafico(tipo: string) {
+  const ruta = usePathname();
+  return `${tipo}:${ruta}:${useId()}`;
+}
+
+const VISTAS_BARRAS = [
+  { clave: "barras", nombre: "Barras (clásico)" },
+  { clave: "piruleta", nombre: "Piruleta ordenada" },
+  { clave: "desviacion", nombre: "Desviación sobre la mediana" },
+  { clave: "franja", nombre: "Franja de puntos" },
+  { clave: "tabla", nombre: "Tabla con percentil" },
+] as const;
+
+export function BarrasEquipos(props: Parameters<typeof BarrasEquiposBase>[0]) {
+  const [tipo, setTipo] = useTipoGrafico(useIdGrafico("barras"), "barras", VISTAS_BARRAS.map((v) => v.clave));
+  const orden = props.filas
+    .filter((f): f is { equipo: string; valor: number } => f.valor !== null)
+    .sort((a, b) => (props.mejorAlto === false ? a.valor - b.valor : b.valor - a.valor));
+  const comun = { filas: orden, unidad: props.unidad, destacado: props.destacado, comparado: props.comparado };
+  return (
+    <MarcoGrafico tipos={[...VISTAS_BARRAS]} tipo={tipo} onTipo={(t) => setTipo(t as typeof tipo)}>
+      {tipo === "barras" && <BarrasEquiposBase {...props} />}
+      {tipo === "piruleta" && <Piruleta {...comun} />}
+      {tipo === "desviacion" && <Desviacion {...comun} mejorAlto={props.mejorAlto} />}
+      {tipo === "franja" && <Franja {...comun} />}
+      {tipo === "tabla" && <TablaEquipos {...comun} />}
+    </MarcoGrafico>
+  );
+}
+
+const VISTAS_DISPERSION = [
+  { clave: "dispersion", nombre: "Dispersión (clásico)" },
+  { clave: "elite", nombre: "Mapa de élite (percentiles)" },
+  { clave: "pesas", nombre: "Pesas: los dos ejes por equipo" },
+  { clave: "ranking", nombre: "Ranking por la suma" },
+] as const;
+
+export function Dispersion(props: Parameters<typeof DispersionBase>[0]) {
+  const [tipo, setTipo] = useTipoGrafico(useIdGrafico("dispersion"), "dispersion", VISTAS_DISPERSION.map((v) => v.clave));
+  const conP = aPercentiles(props.puntos);
+  return (
+    <MarcoGrafico tipos={[...VISTAS_DISPERSION]} tipo={tipo} onTipo={(t) => setTipo(t as typeof tipo)}>
+      {tipo === "dispersion" && <DispersionBase {...props} />}
+      {tipo === "elite" && (
+        <MapaDosEjes
+          puntos={conP.map((p) => ({
+            id: p.equipo,
+            nombre: p.equipo,
+            x: p.px,
+            y: p.py,
+            propio: p.equipo === props.destacado || p.equipo === props.comparado,
+            color: p.equipo === props.destacado ? "#C8A96B" : p.equipo === props.comparado ? "#4F8FE8" : undefined,
+            detalle: `${props.etiquetaX} ${formatea(p.x, props.unidadX)} · ${props.etiquetaY} ${formatea(p.y, props.unidadY)}`,
+          }))}
+          ejeX={props.etiquetaX}
+          ejeY={props.etiquetaY}
+          rotulos={{ ambos: "Altos en las dos", soloX: `Sólo ${props.etiquetaX.toLowerCase()}`, soloY: `Sólo ${props.etiquetaY.toLowerCase()}`, nada: "Bajos en las dos" }}
+        />
+      )}
+      {tipo === "pesas" && <Pesas puntos={conP} etiquetaX={props.etiquetaX} etiquetaY={props.etiquetaY} destacado={props.destacado} comparado={props.comparado} />}
+      {tipo === "ranking" && (
+        <ol className="space-y-1 text-[12px]">
+          {[...conP].sort((a, b) => b.px + b.py - (a.px + a.py)).map((p, i) => (
+            <li key={p.equipo} className="flex items-center gap-2 border-b border-white/10 py-1">
+              <span className="w-6 tabular-nums text-white/45">{i + 1}</span>
+              <span className={`min-w-0 flex-1 truncate ${p.equipo === props.destacado || p.equipo === props.comparado ? "font-semibold" : "text-white/80"}`} style={{ color: p.equipo === props.destacado ? "#C8A96B" : p.equipo === props.comparado ? "#4F8FE8" : undefined }}>{p.equipo}</span>
+              <span className="tabular-nums text-white/65">{formatea(p.x, props.unidadX)} · {formatea(p.y, props.unidadY)}</span>
+              <span className="w-16 text-right tabular-nums text-white/50">P{Math.round(p.px)} · P{Math.round(p.py)}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </MarcoGrafico>
+  );
+}
+
+const VISTAS_EVOLUCION = [
+  { clave: "linea", nombre: "Línea (clásico)" },
+  { clave: "barras", nombre: "Barras frente a la media" },
+  { clave: "movil", nombre: "Media móvil de 3" },
+  { clave: "tabla", nombre: "Tabla" },
+] as const;
+
+export function Evolucion(props: Parameters<typeof EvolucionBase>[0]) {
+  const [tipo, setTipo] = useTipoGrafico(useIdGrafico("evolucion"), "linea", VISTAS_EVOLUCION.map((v) => v.clave));
+  return (
+    <MarcoGrafico tipos={[...VISTAS_EVOLUCION]} tipo={tipo} onTipo={(t) => setTipo(t as typeof tipo)}>
+      {tipo === "linea" && <EvolucionBase {...props} />}
+      {tipo === "barras" && <BarrasMedia serie={props.serie} unidad={props.unidad} media={props.media} />}
+      {tipo === "movil" && <MediaMovil serie={props.serie} unidad={props.unidad} />}
+      {tipo === "tabla" && <TablaSerie serie={props.serie} unidad={props.unidad} />}
+    </MarcoGrafico>
   );
 }

@@ -17,7 +17,7 @@
 | que traduce el modo día (globals.css), nunca fijos en `style`.
 */
 
-import { Children, isValidElement, useMemo, useState, type ReactElement, type ReactNode } from "react";
+import { Children, isValidElement, useId, useMemo, useState, type ReactElement, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { LayoutGrid } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -59,6 +59,8 @@ const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : 0
 
 export function ResponsiveConVistas({ children, width = "100%", height = "100%", ...resto }: { children?: ReactNode; width?: number | `${number}%`; height?: number | `${number}%`; [k: string]: unknown }) {
   const ruta = usePathname();
+  /* Cada gráfico, su vista (06/11/2026): con sólo la ruta y las columnas, dos gráficos iguales cambiaban a la vez. */
+  const sitio = useId();
   const datos = useMemo(() => datosDe(children), [children]);
 
   /* Las columnas: la etiqueta (primer texto) y las numéricas. */
@@ -70,7 +72,7 @@ export function ResponsiveConVistas({ children, width = "100%", height = "100%",
     return { etiqueta: eti, numericas: n.slice(0, 6) };
   }, [datos]);
 
-  const firma = `${ruta}|${etiqueta}|${numericas.join(",")}`;
+  const firma = `${ruta}|${sitio}|${etiqueta}|${numericas.join(",")}`;
   const [tipo, setTipo] = useTipoGrafico<Tipo>(`rc:${firma}`, "original", TIPOS.map((t) => t.clave));
   const [menu, setMenu] = useState(false);
 
