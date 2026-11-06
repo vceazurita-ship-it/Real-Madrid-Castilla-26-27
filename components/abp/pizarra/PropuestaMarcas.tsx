@@ -31,31 +31,10 @@ import {
   type Marcador,
 } from "@/lib/abp/marcas-corner";
 import { puestosDeGrupo, type SlidePizarra } from "@/lib/abp/pizarra";
-import { buildAerialThreats, loadRivalAbp } from "@/lib/abp/rival";
-import { SCOUT_DOC_KEY, actionsOf } from "@/lib/abp/rivalScout";
-import { casaNombre, sitioDe } from "@/lib/data-analisis/once";
-import type { FilaJugador } from "@/lib/data-analisis/leer";
-import { nuestrosDe } from "@/lib/duelos-onces";
-import { traeJson } from "@/lib/hojaCsv";
-import type { RatingsSeason } from "@/lib/ratings/types";
-import { mismoClub } from "@/lib/rivals/mismoClub";
-import { suOnceTeorico } from "@/lib/tactics/oncesSemana";
-import { huecosDelUltimoOnce } from "@/lib/tactics/ultimoOnce";
-import { huecosDeLaPizarra } from "@/lib/tactics/huecosDeLaPizarra";
-import { leeTableroDeOnces } from "@/lib/tactics/onceDeLaPizarra";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
+import { cargaDatosMarcas, huecosDeMarca } from "@/lib/abp/marcas-datos";
 import type { Player } from "@/types/player";
 
-const numero = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v > 0 ? v : null);
-
-const norma = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
-
-/** Duelos aéreos que hay detrás del %: por noventa × minutos. */
-const duelosDe = (fila: FilaJugador | null | undefined) => {
-  const por90 = numero(fila?.datos["Duelos aéreos en los 90"]);
-
-  return por90 && fila ? (por90 * fila.minutos) / 90 : null;
-};
 
 export type FilaMarca = {
   puesto: string;
@@ -118,117 +97,17 @@ export function PropuestaMarcas({
     setCargando(true);
 
     try {
-      const [once, plantillas, abp, scout, wyscout, temporada, tablero] = await Promise.all([
-        suOnceTeorico(rival),
-        traeJson<unknown>("/api/rivals?action=rivalesPlantillas").catch(() => []),
-        loadRivalAbp().catch(() => ({ events: [] })),
-        fetch(`/api/docs?key=${SCOUT_DOC_KEY}`, { cache: "no-store" })
-          .then((r) => (r.ok ? r.json() : null))
-          .catch(() => null),
-        traeJson<{ jugadores?: FilaJugador[] }>("/api/data-analisis")
-          .then((r) => r.jugadores ?? [])
-          .catch(() => [] as FilaJugador[]),
-        traeJson<{ season?: RatingsSeason }>("/api/ratings/load")
-          .then((r) => r.season ?? null)
-          .catch(() => null),
-        leeTableroDeOnces().catch(() => null),
-      ]);
+      /* Los datos viven en lib/abp/marcas-datos.ts: los usa también la exportación. */
+      const base = await cargaDatosMarcas(rival, players);
 
-      const equipo = once.equipo;
-
-      /* ---------- Ellos: su once con todo lo que se sabe por arriba ---------- */
-
-      const eventos = abp.events.filter((e) => mismoClub(e.equipo, equipo) || mismoClub(e.equipo, rival));
-      const plantilla = buildAerialThreats(plantillas, eventos, equipo);
-
-      /* Su scouting de ABP también apunta quién remata. */
-      const delScout = new Map<string, number>();
-
-      for (const accion of actionsOf(scout?.data ?? null, equipo)) {
-        if (accion.rematador) delScout.set(norma(accion.rematador), (delScout.get(norma(accion.rematador)) ?? 0) + 1);
-      }
-
-      const suyosWy = wyscout.filter((j) => j.temporada === "actual" && (mismoClub(j.equipo, equipo) || mismoClub(j.equipo, rival)));
-
-      const atacantes: Atacante[] = once.tokens
-        .filter((t) => t.nombre)
-        .map((t) => {
-          const nombre = t.nombre!;
-          const hoja = casaNombre(nombre, plantilla, (p) => p.nombre);
-          const wy = casaNombre(nombre, suyosWy, (j) => j.jugador);
-
-          return {
-            clave: t.id,
-            nombre,
-            dorsal: String(hoja?.dorsal || t.label || "").trim(),
-            posicion: t.posicion ?? hoja?.posicion ?? "",
-            altura: hoja?.altura ?? numero(wy?.altura),
-            aereoPct: numero(wy?.datos["Duelos aéreos ganados, %"]),
-            aereos90: numero(wy?.datos["Duelos aéreos en los 90"]),
-            duelos: duelosDe(wy),
-            remates: (hoja?.remates ?? 0) + (delScout.get(norma(nombre)) ?? 0),
-            remataAbp: hoja?.remataAbp ?? false,
-          };
-        });
-
-      /* ---------- Nosotros: toda la plantilla, marcando los del once ---------- */
-
-      /* El once de la pizarra táctica manda (02/11/2026); si no es de este rival, el último de Valoraciones con lo cambiado en Duelos. */
-      const dePizarra = huecosDeLaPizarra(tablero, players, equipo);
-      /* Lo cambiado a mano en Duelos manda también sobre la pizarra (sin repetir a nadie). */
-      const conAMano = (base: Record<string, string>) => {
-        const fijos = new Set(Object.values(once.nuestroAMano));
-
-        return { ...Object.fromEntries(Object.entries(base).filter(([, id]) => !fijos.has(id))), ...once.nuestroAMano };
-      };
-      const { huecos } = dePizarra ? { huecos: conAMano(dePizarra.huecos) } : huecosDelUltimoOnce(temporada, players, once.nuestroAMano);
-      const titulares = new Set(Object.values(huecos).filter(Boolean));
-
-      const aereo = new Map(
-        nuestrosDe(
-          wyscout,
-          players.map((p) => ({ id: p.id, nombre: p.nombre, apodo: p.apodo, foto: p.foto, posicion: p.posicion })),
-        )
-          .filter((j) => j.fichaId)
-          .map((j) => [j.fichaId!, j]),
-      );
-
-      const plantel: Marcador[] = players
-        .filter((p) => p.activo !== false && (p.esCastilla || titulares.has(p.id)))
-        .map((p) => {
-          const j = aereo.get(p.id);
-
-          return {
-            playerId: p.id,
-            nombre: p.apodo || p.nombre,
-            rol: j?.puesto ?? sitioDe(p.posicion ?? "", null).puesto,
-            posicion: j?.posicion || p.posicion || "",
-            altura: j?.altura ?? null,
-            aereoPct: numero(j?.wyscout?.datos["Duelos aéreos ganados, %"]),
-            aereos90: numero(j?.wyscout?.datos["Duelos aéreos en los 90"]),
-            duelos: duelosDe(j?.wyscout),
-            titular: titulares.has(p.id),
-          };
-        });
-
-      const claves = new Set(puestos.map((p) => p.key));
-      const yaPuestos = new Map(slide.fichas.filter((f) => f.puesto && claves.has(f.puesto)).map((f) => [f.puesto!, f.playerId]));
-      const enMarca = new Set(yaPuestos.values());
-      const ocupados = new Set(slide.fichas.filter((f) => f.puesto && !enMarca.has(f.playerId)).map((f) => f.playerId));
-
-      if (!atacantes.length && !plantel.length) {
-        toast.info(`De ${equipo} no hay once ni plantilla para proponer marcas.`);
+      if (!base) {
+        toast.info(`De ${rival} no hay once ni plantilla para proponer marcas.`);
 
         return;
       }
 
-      const nuevos: Datos = {
-        plantel,
-        atacantes,
-        yaPuestos,
-        ocupados,
-        fuente: `${once.fuente}. Ellos: remates de ABP (hojas y scouting), altura y aéreos de Wyscout. Nosotros: puesto, altura y aéreos de Wyscout (el % pesa según los duelos que tiene detrás).`,
-      };
+      const { yaPuestos, ocupados } = huecosDeMarca(slide);
+      const nuevos: Datos = { plantel: base.plantel, atacantes: base.atacantes, yaPuestos, ocupados, fuente: base.fuente };
 
       setDatos(nuevos);
       propone(nuevos);

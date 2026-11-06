@@ -883,7 +883,25 @@ export type RivalAbpInforme = {
   filas: { rotulo: string; key: string; favor: number | null; puestoFavor: number | null; contra: number | null; puestoContra: number | null; medianaFavor: number; medianaContra: number }[];
   /** Una o dos frases, ya escritas. */
   lineas: string[];
+  /** Partidos medidos (Wyscout): la base de cada «por partido» y de cada porcentaje. */
+  partidos?: number;
 };
+
+/**
+ * La base de un porcentaje de córners con remate (segunda ronda de jueces):
+ * «33,9 %» → «33,9 % · 21 de 62 córners». Los córners salen de su media por
+ * partido × partidos medidos; los remates, del porcentaje.
+ */
+export function baseRemate(pct: number | null | undefined, cornersPorPartido: number | null | undefined, partidos: number | null | undefined) {
+  if (pct == null || cornersPorPartido == null || !partidos) return "";
+  const total = Math.round(cornersPorPartido * partidos);
+  if (total <= 0) return "";
+  return `${Math.round((pct / 100) * total)} de ${total} córners`;
+}
+
+/** «2.º» con su sentido: atacando, el que más; defendiendo, el que menos concede. */
+export const puestoConSentido = (puesto: number | null | undefined, de: number, lado: "favor" | "contra") =>
+  puesto ? `${puesto}.º ${lado === "contra" ? "que menos concede" : "que más saca"} de ${de}` : "";
 
 export type RivalAnalisisInforme = {
   equipo: string;
@@ -1966,13 +1984,19 @@ function rivalAbpDe(comparativa: ComparativaAbp | null, rival: string): RivalAbp
 
   const ataca = [
     trozo("corners", "favor", (v) => `sacan ${v} córners por partido`),
-    trozo("cornersRemate", "favor", (v) => `rematan el ${v} de sus córners`),
+    trozo("cornersRemate", "favor", (v) => {
+      const base = baseRemate(de("cornersRemate")?.favor, de("corners")?.favor, comparativa.jugados);
+      return `rematan el ${v} de sus córners${base ? ` (${base})` : ""}`;
+    }),
     trozo("abpRemate", "favor", (v) => `el ${v} de su balón parado acaba en remate`),
   ].filter(Boolean);
 
   const defiende = [
     trozo("corners", "contra", (v) => `conceden ${v} córners por partido`),
-    trozo("cornersRemate", "contra", (v) => `les rematan el ${v}`),
+    trozo("cornersRemate", "contra", (v) => {
+      const base = baseRemate(de("cornersRemate")?.contra, de("corners")?.contra, comparativa.jugados);
+      return `les rematan el ${v}${base ? ` (${base})` : ""}`;
+    }),
   ].filter(Boolean);
 
   const lineas = [
@@ -1987,6 +2011,7 @@ function rivalAbpDe(comparativa: ComparativaAbp | null, rival: string): RivalAbp
     equipos: n,
     filas: filas.filter((una) => una.favor !== null || una.contra !== null),
     lineas,
+    partidos: comparativa.jugados || undefined,
   };
 }
 
@@ -3787,7 +3812,8 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
             valor: primeraPrioridad.goles > 0 ? plural(primeraPrioridad.goles, primeraPrioridad.lado === "defensivo" ? "gol encajado" : "gol", primeraPrioridad.lado === "defensivo" ? "goles encajados" : "goles") : primeraPrioridad.base,
             pie:
               primeraPrioridad.goles > 0
-                ? `${mayuscula(aspectoEnFrase(primeraPrioridad.aspecto, primeraPrioridad.lado))}${primeraPrioridad.xg > 0 ? ` · ${dec(primeraPrioridad.xg, 2)} goles esperados` : ""}${rotuloDeLaPrimera(primeraPrioridad, sinSenal).sufijo}`
+                ? /* Con su base, para que la tarjeta se lea sola (segunda ronda de jueces): «5 de 45 con peligro». */
+                  `${mayuscula(aspectoEnFrase(primeraPrioridad.aspecto, primeraPrioridad.lado))} · ${primeraPrioridad.base} con peligro${primeraPrioridad.xg > 0 ? ` · ${dec(primeraPrioridad.xg, 2)} goles esperados` : ""}${rotuloDeLaPrimera(primeraPrioridad, sinSenal).sufijo}`
                 : `${mayuscula(aspectoEnFrase(primeraPrioridad.aspecto, primeraPrioridad.lado))}: acciones con peligro${primeraPrioridad.lado === "defensivo" ? " en contra" : ""}${golesConXg(primeraPrioridad)}${rotuloDeLaPrimera(primeraPrioridad, sinSenal).sufijo}`,
           },
         ]
@@ -3826,7 +3852,13 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
           {
             rotulo: "Su córner",
             valor: `${fmtMedida(suCorner.favor, "corners")} por partido`,
-            pie: [`${suCorner.puestoFavor}.º de ${rivalAbp.equipos}`, suRemate && suRemate.favor !== null && suRemate.puestoFavor ? `rematan el ${fmtMedida(suRemate.favor, "cornersRemate")}` : ""].filter(Boolean).join(" · "),
+            pie: [
+              puestoConSentido(suCorner.puestoFavor, rivalAbp.equipos, "favor"),
+              suRemate && suRemate.favor !== null && suRemate.puestoFavor
+                ? `rematan el ${fmtMedida(suRemate.favor, "cornersRemate")}${baseRemate(suRemate.favor, suCorner.favor, rivalAbp.partidos) ? ` (${baseRemate(suRemate.favor, suCorner.favor, rivalAbp.partidos)})` : ""}`
+                : "",
+              rivalAbp.partidos ? `${rivalAbp.partidos} partidos` : "",
+            ].filter(Boolean).join(" · "),
           },
         ]
       : []),
@@ -5761,7 +5793,7 @@ function asuntoAbp(
 
   const delRival =
     corners && corners.favor !== null && corners.contra !== null
-      ? `Saca ${fmtMedida(corners.favor, "corners")} córners por partido (${corners.puestoFavor}.º) y concede ${fmtMedida(corners.contra, "corners")} (${corners.puestoContra}.º). `
+      ? `Saca ${fmtMedida(corners.favor, "corners")} córners por partido (${puestoConSentido(corners.puestoFavor, informe.rivalAbp?.equipos ?? 20, "favor")}) y concede ${fmtMedida(corners.contra, "corners")} (${puestoConSentido(corners.puestoContra, informe.rivalAbp?.equipos ?? 20, "contra")}). `
       : "";
 
   return {
@@ -5796,17 +5828,19 @@ export function pinceladaAbp(informe: InformeMicro): PinceladaAbp {
   /*
   | El objetivo con su fuente y la diferencia (06/11/2026, expertos): «1 h 50′ ·
   | objetivo 1 h 0′-1 h 7′» no decía de dónde salía ni si era mucho. Ahora
-  | «previsto 60-67′ (+43′) · 90-100′ en 6 días, aquí 4».
+  | Una frase llana (segunda ronda): «en 4 días; lo previsto eran 60-67′,
+  | 43′ más». La referencia (90-100′ en una semana de 6) va entre paréntesis.
   */
   const ob = informe.objetivo;
   const objetivo = `${ob.minimo}-${ob.maximo}′`;
-  const diferencia = minutos > ob.maximo ? ` (+${minutos - ob.maximo}′)` : minutos < ob.minimo ? ` (−${ob.minimo - minutos}′)` : " (dentro)";
+  const diferencia = minutos > ob.maximo ? `, ${minutos - ob.maximo}′ más` : minutos < ob.minimo ? `, faltan ${ob.minimo - minutos}′` : ", dentro";
+  const enDias = ob.diasEntreno ? `en ${ob.diasEntreno} día${ob.diasEntreno === 1 ? "" : "s"}; ` : "";
   const fuenteObjetivo =
     ob.diasEntreno && ob.diasEntreno < OBJETIVO_ABP.dias
-      ? `${OBJETIVO_ABP.minimo}-${OBJETIVO_ABP.maximo}′ en ${OBJETIVO_ABP.dias} días, aquí ${ob.diasEntreno}`
-      : `referencia del cuerpo técnico`;
+      ? ` (${OBJETIVO_ABP.minimo}-${OBJETIVO_ABP.maximo}′ en una semana de ${OBJETIVO_ABP.dias})`
+      : " (referencia del cuerpo técnico)";
 
-  const pieMinutos = `previsto ${objetivo}${diferencia} · ${fuenteObjetivo}`;
+  const pieMinutos = `${enDias}lo previsto eran ${objetivo}${diferencia}${fuenteObjetivo}`;
 
   const tareas = informe.valoracion.valoradas
     ? [

@@ -20,6 +20,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { cargaDatosMarcas, conMarcasPropuestas, type DatosMarcasRival } from "@/lib/abp/marcas-datos";
 
 import type { Player } from "@/types/player";
 import { TableroSlide } from "@/components/abp/pizarra/TableroSlide";
@@ -152,6 +153,31 @@ export function usePizarraInforme(
     };
   }, []);
 
+  /*
+  | Las marcas sin poner, con la propuesta de «Quién marca a quién»
+  | (06/11/2026, segunda ronda de jueces): el informe, la lámina exportada y
+  | el PDF de cada marcador dicen ya las mismas parejas.
+  */
+  const [marcas, setMarcas] = useState<{ rival: string; datos: DatosMarcasRival | null } | null>(null);
+
+  useEffect(() => {
+    if (!rival || !players.length) return;
+
+    let vivo = true;
+
+    void cargaDatosMarcas(rival, players)
+      .catch(() => null)
+      .then((d) => {
+        if (vivo) setMarcas({ rival, datos: d });
+      });
+
+    return () => {
+      vivo = false;
+    };
+  }, [rival, players]);
+
+  const datosMarcas = marcas && marcas.rival === rival ? marcas.datos : null;
+
   /* Como en /abp-pizarra: con menos de siete casados, no hay once que valga. */
   const onceIds = useMemo(() => {
     const ids = once ? idsDelOnce(once, players) : [];
@@ -162,13 +188,13 @@ export function usePizarraInforme(
   const tablero = useMemo(() => {
     const encontrado = tableroDelPartido(store, rival, jornada);
 
-    return encontrado ? normalizaTablero(encontrado) : null;
-  }, [store, rival, jornada]);
+    return encontrado ? conMarcasPropuestas(normalizaTablero(encontrado), datosMarcas) : null;
+  }, [store, rival, jornada, datosMarcas]);
 
   const porId = useMemo(() => new Map(players.map((player) => [player.id, player])), [players]);
 
   /* Lo que identifica lo fotografiado: si no cambia, no se repite. */
-  const huella = tablero && players.length ? `${tablero.partidoId}|${tablero.actualizado ?? ""}|${tablero.slides.length}|${players.length}` : "";
+  const huella = tablero && players.length ? `${tablero.partidoId}|${tablero.actualizado ?? ""}|${tablero.slides.length}|${players.length}|${datosMarcas ? "marcas" : ""}` : "";
 
   useEffect(() => {
     if (!huella || huella === hecho || !tablero) return;

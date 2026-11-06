@@ -1478,11 +1478,7 @@ export function InformeMicroDialog({
                 <input type="checkbox" className="accent-[#C8A96B]" checked={conVideo} disabled={ocupado} onChange={(e) => setConVideo(e.target.checked)} />
                 Incluir nuestro vídeo de la jornada · «{videoJugadores.nombre.replace(/\.[a-z0-9]+$/i, "")}» ({Math.floor(videoJugadores.segundos / 60)}:{String(videoJugadores.segundos % 60).padStart(2, "0")}), con la entrada del informe delante
               </label>
-            ) : (
-              <p className="text-[11px] text-white/40">
-                Para que lleve nuestro vídeo, déjalo en ABP\VIDEO - JUGADORES con la jornada en el nombre ({jornadaPartido ? `«J${jornadaPartido}»` : "«J8»"}): el ordenador del club lo sube solo en un par de minutos.
-              </p>
-            )}
+            ) : null /* Cómo se le pone el vídeo: en el plegable del analista, al final (06/11/2026). */}
             {(esPost || (conVideo && videoJugadores)) && claveMontaje && estadoMontaje.clave === claveMontaje ? (
               <p className={`text-[11px] ${estadoMontaje.fallo ? "text-amber-300/80" : "text-white/45"}`}>
                 {estadoMontaje.listo
@@ -1497,12 +1493,6 @@ export function InformeMicroDialog({
             {ocupado ? (
               /* 02/11/2026: el envío ya no depende de esta ventana. */
               <p className="text-[11px] text-[#C8A96B]">Puedes cerrar y seguir con otra cosa: se sigue enviando y te avisa al terminar.</p>
-            ) : null}
-            {canal === "correo" ? (
-              <p className="text-[11px] text-white/35">
-                Sale de la cuenta de Google del club, la misma que sube los vídeos
-                al canal.
-              </p>
             ) : null}
           </div>
 
@@ -1529,84 +1519,37 @@ export function InformeMicroDialog({
         </div>
       }
     >
-      <div className="space-y-4">
-        {/*
-        | PREVIA O POST. Dos informes distintos de la misma semana: la previa
-        | cuenta qué se va a hacer y por qué; el post, qué pasó en el partido y
-        | si lo entrenado apareció. El asunto lleva la idea de cada uno (`asuntoAbp`).
-        */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
-            {(
-              [
-                { valor: "previa", rotulo: "Previa del partido" },
-                { valor: "post", rotulo: "Post partido" },
-              ] as { valor: ModoInforme; rotulo: string }[]
-            ).map((opcion) => (
-              <button
-                key={opcion.valor}
-                type="button"
-                onClick={() => setModoElegido(opcion.valor)}
-                disabled={opcion.valor === "post" && sinPost}
-                title={opcion.valor === "post" && sinPost ? "Se podrá sacar tras el partido, cuando haya acciones en las hojas de ABP" : undefined}
-                aria-pressed={modo === opcion.valor}
-                className={`rounded-lg px-3 py-1.5 text-[11px] transition disabled:cursor-not-allowed disabled:opacity-40 ${
-                  modo === opcion.valor
-                    ? "bg-[#C8A96B]/15 text-[#C8A96B]"
-                    : "text-white/50 hover:text-white"
-                }`}
-              >
-                {opcion.rotulo}
-              </button>
-            ))}
-          </div>
-
-          <span className="text-[11px] text-white/35">
-            {modo === "post"
-              ? accionesPartido.length > 0
-                ? `Qué pasó: las ${accionesPartido.length} acciones de la ${accionesPartido[0].jornada.etiqueta.toLowerCase()} en nuestras hojas, cruzadas con lo trabajado.`
-                : cargandoPropio
-                  ? "Buscando el partido en nuestras hojas de ABP…"
-                  : "Qué pasó. El partido todavía no tiene acciones en nuestras hojas de ABP."
-              : "Qué vamos a hacer y por qué: la semana, las urgencias, el rival y las claves."}
-          </span>
-        </div>
-
-        <Destinatarios
-          label="A quién se le manda"
-          canal={canal}
-          onCanal={(c) => setAjustes((a) => ({ ...a, canal: c }))}
-          correos={ajustes.destinatarios}
-          onCorreos={(destinatarios) => setAjustes((a) => ({ ...a, destinatarios }))}
-          telefonos={ajustes.telefonos ?? ""}
-          onTelefonos={(telefonos) => setAjustes((a) => ({ ...a, telefonos }))}
-        />
-
-        <p className="text-[11px] leading-relaxed text-white/35">
-          Se guardan solos y valen para todos los microciclos; los de otras veces se proponen debajo.
-        </p>
-
-        {/*
-        | QUÉ PARTIDOS ENTRAN EN EL DATO PROPIO.
-        |
-        | Por defecto, sólo competición. La pretemporada son siete partidos de
-        | julio contra tres de liga, y mezclándola el informe presumía de
-        | cuatro goles a balón parado que no se habían hecho en competición.
-        */}
-        {cuantasDePretemporada > 0 && (
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
-              {[
-                { valor: false, rotulo: "Sólo competición" },
-                { valor: true, rotulo: "Con pretemporada" },
-              ].map((opcion) => (
+      {/*
+      | 06/11/2026: la vista previa empezaba tras mucho scroll. Arriba queda una
+      | fila compacta (previa/post y a quién) y el asunto a la vista; el filtro
+      | de pretemporada y la entradilla, plegados con su resumen de una línea;
+      | lo del analista, en un único plegable al final. El `pb-24` en móvil deja
+      | que el final del informe asome por encima de los botones flotantes.
+      */}
+      <div className="space-y-3 pb-24 sm:pb-4">
+        <div className="grid gap-3 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-start">
+          {/*
+          | PREVIA O POST. Dos informes distintos de la misma semana: la previa
+          | cuenta qué se va a hacer y por qué; el post, qué pasó en el partido y
+          | si lo entrenado apareció. El asunto lleva la idea de cada uno (`asuntoAbp`).
+          */}
+          <div className="min-w-0 space-y-1">
+            <div className="flex w-fit items-center rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
+              {(
+                [
+                  { valor: "previa", rotulo: "Previa del partido" },
+                  { valor: "post", rotulo: "Post partido" },
+                ] as { valor: ModoInforme; rotulo: string }[]
+              ).map((opcion) => (
                 <button
-                  key={opcion.rotulo}
+                  key={opcion.valor}
                   type="button"
-                  onClick={() => setConPretemporada(opcion.valor)}
-                  aria-pressed={conPretemporada === opcion.valor}
-                  className={`rounded-lg px-3 py-1.5 text-[11px] transition ${
-                    conPretemporada === opcion.valor
+                  onClick={() => setModoElegido(opcion.valor)}
+                  disabled={opcion.valor === "post" && sinPost}
+                  aria-describedby={opcion.valor === "post" && sinPost ? "abp-informe-sin-post" : undefined}
+                  aria-pressed={modo === opcion.valor}
+                  className={`rounded-lg px-3 py-1.5 text-[11px] transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                    modo === opcion.valor
                       ? "bg-[#C8A96B]/15 text-[#C8A96B]"
                       : "text-white/50 hover:text-white"
                   }`}
@@ -1616,12 +1559,88 @@ export function InformeMicroDialog({
               ))}
             </div>
 
-            <span className="text-[11px] text-white/35">
-              {conPretemporada
-                ? `Dentro van también las ${cuantasDePretemporada} acciones de los amistosos de verano.`
-                : `Fuera quedan ${cuantasDePretemporada} acciones de pretemporada: el informe habla de competición.`}
-            </span>
+            {/* El motivo de la pestaña apagada, una vez y junto a ella (06/11/2026). */}
+            {sinPost ? (
+              <p id="abp-informe-sin-post" className="max-w-[20rem] text-[11px] leading-snug text-white/45">
+                Post partido: se podrá sacar tras el partido, cuando haya acciones en las hojas de ABP.
+              </p>
+            ) : null}
+
+            <p className="max-w-[20rem] text-[11px] leading-snug text-white/35">
+              {modo === "post"
+                ? accionesPartido.length > 0
+                  ? `Qué pasó: las ${accionesPartido.length} acciones de la ${accionesPartido[0].jornada.etiqueta.toLowerCase()} en nuestras hojas, cruzadas con lo trabajado.`
+                  : cargandoPropio
+                    ? "Buscando el partido en nuestras hojas de ABP…"
+                    : "Qué pasó. El partido todavía no tiene acciones en nuestras hojas de ABP."
+                : "Qué vamos a hacer y por qué: la semana, las urgencias, el rival y las claves."}
+            </p>
           </div>
+
+          {/* Las fichas, en minúsculas: venían en mayúsculas y el correo es el mismo (sólo se ve distinto). */}
+          <div className="min-w-0 [&_span.rounded-md]:lowercase">
+            <Destinatarios
+              label="A quién se le manda"
+              canal={canal}
+              onCanal={(c) => setAjustes((a) => ({ ...a, canal: c }))}
+              correos={ajustes.destinatarios}
+              onCorreos={(destinatarios) => setAjustes((a) => ({ ...a, destinatarios }))}
+              telefonos={ajustes.telefonos ?? ""}
+              onTelefonos={(telefonos) => setAjustes((a) => ({ ...a, telefonos }))}
+            />
+          </div>
+        </div>
+
+        {/*
+        | QUÉ PARTIDOS ENTRAN EN EL DATO PROPIO.
+        |
+        | Por defecto, sólo competición. La pretemporada son siete partidos de
+        | julio contra tres de liga, y mezclándola el informe presumía de
+        | cuatro goles a balón parado que no se habían hecho en competición.
+        | Plegado: el resumen dice el efecto sin abrirlo.
+        */}
+        {cuantasDePretemporada > 0 && (
+          <details className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
+            <summary className="cursor-pointer text-[11px] text-white/50 hover:text-white">
+              {(() => {
+                const n = propio?.partidos;
+                const cuantos = n ? ` (${n === 1 ? "un partido" : `${n} partidos`})` : "";
+
+                return conPretemporada
+                  ? `Con pretemporada${cuantos}: las cifras de abajo cuentan también los amistosos de verano`
+                  : `Sólo competición${cuantos}: las cifras de abajo no cuentan la pretemporada`;
+              })()}
+            </summary>
+
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <div className="flex items-center rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
+                {[
+                  { valor: false, rotulo: "Sólo competición" },
+                  { valor: true, rotulo: "Con pretemporada" },
+                ].map((opcion) => (
+                  <button
+                    key={opcion.rotulo}
+                    type="button"
+                    onClick={() => setConPretemporada(opcion.valor)}
+                    aria-pressed={conPretemporada === opcion.valor}
+                    className={`rounded-lg px-3 py-1.5 text-[11px] transition ${
+                      conPretemporada === opcion.valor
+                        ? "bg-[#C8A96B]/15 text-[#C8A96B]"
+                        : "text-white/50 hover:text-white"
+                    }`}
+                  >
+                    {opcion.rotulo}
+                  </button>
+                ))}
+              </div>
+
+              <span className="text-[11px] text-white/35">
+                {conPretemporada
+                  ? `Dentro van también las ${cuantasDePretemporada} acciones de los amistosos de verano.`
+                  : `Fuera quedan ${cuantasDePretemporada} acciones de pretemporada: el informe habla de competición.`}
+              </span>
+            </div>
+          </details>
         )}
 
         {pizarraInforme.deck}
@@ -1643,13 +1662,20 @@ export function InformeMicroDialog({
           /*
           | Cómo llega a la bandeja (21/10/2026): el asunto y la línea gris que
           | Gmail enseña debajo, antes del correo entero. Es lo primero que lee
-          | quien lo recibe y no se veía en ningún sitio.
+          | quien lo recibe. Plegado desde el 06/11/2026, pero el asunto va en
+          | el resumen: se ve siempre.
           */
-          <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-white/40">Así llega</p>
-            <p className="mt-1 text-[13px] font-semibold text-white">{informe.asunto}</p>
-            {informe.preencabezado && <p className="mt-0.5 text-[12px] text-white/55">{informe.preencabezado}</p>}
-          </div>
+          <details className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
+            <summary className="cursor-pointer text-[12px] text-white/55">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-white/40">Así llega · asunto</span>{" "}
+              <span className="font-semibold text-white">{informe.asunto}</span>
+            </summary>
+            {informe.preencabezado ? (
+              <p className="mt-1 text-[12px] text-white/55">{informe.preencabezado}</p>
+            ) : (
+              <p className="mt-1 text-[11px] text-white/35">Sin entradilla: Gmail enseña debajo el principio del correo.</p>
+            )}
+          </details>
         )}
 
         {/*
@@ -1678,21 +1704,36 @@ export function InformeMicroDialog({
         {/*
         | Lo que el informe no sabe va debajo y plegado (21/10/2026): delante
         | de la vista previa tapaba lo esencial. Antes de mandar se vuelve a
-        | enseñar entero (`AvisoAntesDeMandar`).
+        | enseñar entero (`AvisoAntesDeMandar`). Desde el 06/11/2026 es el
+        | único sitio con lo del analista: los avisos, cómo poner nuestro vídeo
+        | (antes también en el pie) y de dónde sale el correo.
         */}
-        {!(cargandoSeguimiento || cargandoComparativa || cargandoPropio || rivalInforme.cargando) &&
-          informe.avisos.length > 0 && (
-            <details className="rounded-xl border border-amber-400/25 bg-amber-400/[0.05] px-3 py-2 text-[12px] text-white/70">
-              <summary className="cursor-pointer font-semibold text-amber-200">
-                Para el analista · no va en el correo ({informe.avisos.length})
+        {(() => {
+          const conAvisos =
+            !(cargandoSeguimiento || cargandoComparativa || cargandoPropio || rivalInforme.cargando) && informe.avisos.length > 0;
+
+          return (
+            <details
+              className={`rounded-xl border px-3 py-2 text-[12px] text-white/70 ${
+                conAvisos ? "border-amber-400/25 bg-amber-400/[0.05]" : "border-white/10 bg-white/[0.03]"
+              }`}
+            >
+              <summary className={`cursor-pointer font-semibold ${conAvisos ? "text-amber-200" : "text-white/55"}`}>
+                Para el analista · no va en el correo{conAvisos ? ` (${informe.avisos.length})` : ""}
               </summary>
               <ul className="mt-2 ml-4 list-disc space-y-1">
-                {informe.avisos.map((aviso) => (
-                  <li key={aviso}>{aviso}</li>
-                ))}
+                {conAvisos ? informe.avisos.map((aviso) => <li key={aviso}>{aviso}</li>) : null}
+                {!esPost && !videoJugadores ? (
+                  <li>
+                    Para que lleve nuestro vídeo, déjalo en ABP\VIDEO - JUGADORES con la jornada en el nombre ({jornadaPartido ? `«J${jornadaPartido}»` : "«J8»"}): el ordenador del club lo sube solo en un par de minutos.
+                  </li>
+                ) : null}
+                <li>Los destinatarios se guardan solos y valen para todos los microciclos; los de otras veces se proponen debajo.</li>
+                {canal === "correo" ? <li>Sale de la cuenta de Google del club, la misma que sube los vídeos al canal.</li> : null}
               </ul>
             </details>
-          )}
+          );
+        })()}
       </div>
       {avisando && informe && (
         <AvisoAntesDeMandar

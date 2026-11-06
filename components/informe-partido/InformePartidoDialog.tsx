@@ -28,7 +28,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import { BookOpen, Check, Clapperboard, Download, ExternalLink, FileText, Loader2, Paperclip, Presentation, RefreshCw, Send, Upload } from "lucide-react";
+import { BookOpen, Check, ChevronDown, Clapperboard, Download, ExternalLink, FileText, Loader2, Paperclip, Presentation, RefreshCw, Send, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button, Dialog, Notice, Segmented } from "@/components/abp/ui";
@@ -176,6 +176,53 @@ function diaDeAqui(iso: string) {
 }
 
 const mb = (bytes: number | null) => (bytes === null ? "" : bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toLocaleString("es-ES", { maximumFractionDigits: 1 })} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`);
+
+/** Lo que va hecho de un «… · 2 de 26…» o un «… 40 %», para pintarlo en una barra; null si el texto no lo dice. */
+function fraccionDe(texto: string | null): number | null {
+  if (!texto) return null;
+
+  const partes = texto.match(/(\d+) de (\d+)/);
+
+  if (partes && Number(partes[2]) > 0) return Math.min(1, Number(partes[1]) / Number(partes[2]));
+
+  const tanto = texto.match(/(\d+(?:[.,]\d+)?)\s?%/);
+
+  return tanto ? Math.min(1, Number(tanto[1].replace(",", ".")) / 100) : null;
+}
+
+/**
+ * UN PLEGABLE CERRADO (06/11/2026, jueces: «el diálogo era un formulario
+ * enorme y el documento quedaba abajo»). Cabecera con su título y un resumen de
+ * una línea; el contenido sigue montado aunque esté cerrado (sólo se esconde),
+ * así no se pierde lo que lleva dentro (los vídeos que se montan, el selector
+ * de archivos). `control` va a la izquierda, fuera del botón: una casilla
+ * dentro del botón abría y cerraba a la vez.
+ */
+function Plegable({ titulo, resumen, control, destacado = false, aviso = false, children }: { titulo: ReactNode; resumen?: string; control?: ReactNode; destacado?: boolean; aviso?: boolean; children: ReactNode }) {
+  const [abierto, setAbierto] = useState(false);
+
+  return (
+    <section className={`min-w-0 rounded-xl border font-sans text-[12px] ${destacado ? "border-[#C8A96B]/30 bg-[#C8A96B]/[0.04]" : "border-white/10 bg-white/[0.02]"}`}>
+      <div className="flex items-start gap-2.5 px-3 py-2.5">
+        {control ? <span className="flex shrink-0 pt-[3px]">{control}</span> : null}
+        <button type="button" aria-expanded={abierto} onClick={() => setAbierto((v) => !v)} className="flex min-w-0 flex-1 items-start gap-2 text-left">
+          <span className="min-w-0 flex-1">
+            <span className={`block text-[13px] font-semibold ${aviso ? "text-amber-300" : "text-white/90"}`}>{titulo}</span>
+            {resumen ? (
+              <span className="block truncate text-[11px] text-white/45" title={resumen}>
+                {resumen}
+              </span>
+            ) : null}
+          </span>
+          <ChevronDown size={15} className={`mt-0.5 shrink-0 text-white/40 transition-transform ${abierto ? "rotate-180" : ""}`} />
+        </button>
+      </div>
+      <div hidden={!abierto} className="border-t border-white/10 px-3 py-3">
+        {children}
+      </div>
+    </section>
+  );
+}
 
 export function InformePartidoDialog({
   temporada,
@@ -1890,6 +1937,34 @@ export function InformePartidoDialog({
             ? "Enviar el completo"
             : "Enviar";
 
+  const fraccionPreparando = fraccionDe(preparando);
+
+  /* Las mismas piezas que monta «piezasDeVideo», contadas sin tocarlas (el linter no deja leerlas en el render: llevan refs dentro). */
+  const cuantasPiezas = informeVisto && puedeMontarVideo() ? 2 + (puedeVideoAbpPost ? 1 : 0) : 0;
+
+  /* Los resúmenes de una línea de cada plegable: lo que se manda sin abrirlo. */
+  const diaposMarcadas = TODAS_DIAPOS.filter((i) => diapoMarcada(i)).length;
+
+  const resumenCorreo1 = envio.resumen.activo
+    ? [`«${asuntoResumen}»`, `${diaposMarcadas} de ${TODAS_DIAPOS.length} diapositivas`, envio.resumen.pdf && "PDF adjunto", envio.resumen.ppt && "PowerPoint enlazado", envio.resumen.video && "vídeo"].filter(Boolean).join(" · ")
+    : "No se manda: márcalo para mandarlo";
+
+  const adjuntosElegidos = documentos.filter((d) => d.adjuntable && !quitados.has(d.url)).length;
+  const enlazados = documentos.filter((d) => !d.adjuntable).length;
+
+  const resumenCorreo2 = envio.completo.activo
+    ? [
+        `«${asuntoCompleto}»`,
+        `${capitulos.filter((x) => marcadoCapitulo(x.id)).length} de ${capitulos.length} capítulos`,
+        envio.completo.pdfCompleto && "PDF adjunto",
+        envio.completo.video && "vídeo",
+        adjuntosElegidos > 0 && (adjuntosElegidos === 1 ? "1 documento" : `${adjuntosElegidos} documentos`),
+        enlazados > 0 && (enlazados === 1 ? "1 enlace" : `${enlazados} enlaces`),
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : "No se manda: márcalo para mandarlo";
+
   return (
     <Dialog
       title="Informe del partido"
@@ -1906,9 +1981,17 @@ export function InformePartidoDialog({
               /* 02/11/2026: el envío ya no depende de esta ventana. */
               <span className="text-[#C8A96B]">Puedes cerrar y seguir con otra cosa: se sigue enviando y te avisa al terminar.</span>
             ) : preparando ? (
-              <>
-                <Loader2 size={12} className="animate-spin" /> {preparando}
-              </>
+              /* Una barra fina mientras corre (06/11/2026); al terminar, desaparece. */
+              <span className="flex min-w-0 items-center gap-2" role="status" aria-live="polite">
+                {fraccionPreparando !== null ? (
+                  <span className="h-1 w-24 shrink-0 overflow-hidden rounded-full bg-white/10" aria-hidden>
+                    <span className="block h-full rounded-full bg-[#C8A96B] transition-[width] duration-300" style={{ width: `${Math.max(4, Math.round(fraccionPreparando * 100))}%` }} />
+                  </span>
+                ) : (
+                  <Loader2 size={12} className="shrink-0 animate-spin" />
+                )}
+                <span className="min-w-0 truncate">{preparando}</span>
+              </span>
             ) : listoTodo ? (
               <>
                 <Check size={12} className="text-emerald-300" /> Diapositivas y PDF preparados: enviar es inmediato
@@ -1951,8 +2034,14 @@ export function InformePartidoDialog({
       }
     >
       <div className={`space-y-4 ${barlowCondensed.className}`} style={{ ["--fuente-informe" as string]: barlowCondensed.style.fontFamily, fontFamily: "inherit" }}>
-        <div className="flex flex-wrap items-end gap-3 font-sans">
-          <label className="min-w-[220px]">
+        {/*
+          ORDEN (06/11/2026, jueces): arriba, en una fila, el microciclo, el
+          momento y a quién; justo debajo, el documento. Todo lo demás (los dos
+          correos, la firma, los vídeos y los avisos) va plegado y cerrado, con
+          lo que lleva dicho en una línea.
+        */}
+        <div className="flex flex-wrap items-start gap-3 font-sans">
+          <label className="w-full min-w-0 sm:w-auto sm:min-w-[220px]">
             <span className={rotuloCaja}>Microciclo</span>
             <select
               value={elegido ? `${elegido.temporada}|${elegido.micro}` : ""}
@@ -1975,7 +2064,7 @@ export function InformePartidoDialog({
             </select>
           </label>
 
-          <div>
+          <div className="min-w-0 max-w-full">
             <span className={rotuloCaja}>Momento</span>
             <Segmented
               ariaLabel="Previa o post"
@@ -1991,7 +2080,7 @@ export function InformePartidoDialog({
                 setEnvio((x) => textosLimpios(x));
               }}
             />
-            <span className="mt-1 block text-[11px] text-white/45">
+            <span className="mt-1 block max-w-[300px] text-[11px] text-white/45">
               {informe && !informe.partido.jugado
                 ? "Aún no se ha jugado: el post se podrá sacar en cuanto haya resultado"
                 : momentoPedido === "previa"
@@ -2004,18 +2093,31 @@ export function InformePartidoDialog({
             </span>
           </div>
 
-          <div>
-            <span className={rotuloCaja}>Ver</span>
-            <Segmented
-              ariaLabel="Qué ver"
-              value={vista}
-              options={[
-                { key: "resumen", label: "Resumen · 3 diapositivas" },
-                { key: "completo", label: "Informe completo" },
-              ]}
-              onChange={(v) => setVista(v as "resumen" | "completo")}
+          <div className="min-w-0 flex-1 basis-[280px]">
+            <Destinatarios
+              label="A quién se le manda (los dos)"
+              canal={canal}
+              onCanal={(c) => setAjustes((a) => ({ ...a, canal: c }))}
+              correos={ajustes.destinatarios}
+              onCorreos={(destinatarios) => setAjustes((a) => ({ ...a, destinatarios }))}
+              telefonos={ajustes.telefonos ?? ""}
+              onTelefonos={(telefonos) => setAjustes((a) => ({ ...a, telefonos }))}
             />
           </div>
+        </div>
+
+        {/* ---------------- LA VISTA PREVIA ---------------- */}
+
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 font-sans">
+          <Segmented
+            ariaLabel="Qué ver"
+            value={vista}
+            options={[
+              { key: "resumen", label: "Resumen · 3 diapositivas" },
+              { key: "completo", label: "Informe completo" },
+            ]}
+            onChange={(v) => setVista(v as "resumen" | "completo")}
+          />
 
           <Button icon={cargando ? Loader2 : RefreshCw} disabled={cargando}
             onClick={() => {
@@ -2026,63 +2128,92 @@ export function InformePartidoDialog({
             title="Volver a leer todo">
             {cargando ? "Leyendo…" : "Releer"}
           </Button>
+
+          {/* El estado del balón parado, que llega aparte: discreto, y acaba o dice por qué no. */}
+          {informe && !cargando ? (
+            <span className="min-w-0 text-[11px] text-white/50" role="status" aria-live="polite">
+              {abpCargando ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <Loader2 size={11} className="shrink-0 animate-spin" /> Preparando el informe de ABP del microciclo…
+                </span>
+              ) : abpActual?.ok ? (
+                <span className="inline-flex items-center gap-1.5" title="Va su resumen en las diapositivas y el informe entero en el completo">
+                  <Check size={11} className="shrink-0 text-emerald-300" /> Balón parado listo
+                  {abpActual.imagenes.length ? ` (${abpActual.imagenes.length} gráficos y láminas)` : ""}
+                </span>
+              ) : abpActual ? (
+                <span className="text-amber-200/80">
+                  Balón parado: no ha llegado ({abpActual.error}). Sale con lo que hay del plan de ABP.{" "}
+                  {/* Se olvida el fallo antes de recargar: con la misma clave,
+                      seguía valiendo y la pantalla de ABP no se volvía a montar,
+                      así que «Reintentar» no hacía nada (19/10/2026). */}
+                  <button
+                    type="button"
+                    className="underline underline-offset-2"
+                    onClick={() => {
+                      setAbp(null);
+                      setTestigo((n) => n + 1);
+                    }}
+                  >
+                    Reintentar
+                  </button>
+                </span>
+              ) : null}
+            </span>
+          ) : null}
         </div>
 
-        {/* ---------------- A QUIÉN ---------------- */}
-
-        <div className="grid gap-3 font-sans md:grid-cols-[1fr_220px]">
-          <div className="min-w-0 space-y-3">
-            <Destinatarios
-              label="A quién se le manda (los dos)"
-              canal={canal}
-              onCanal={(c) => setAjustes((a) => ({ ...a, canal: c }))}
-              correos={ajustes.destinatarios}
-              onCorreos={(destinatarios) => setAjustes((a) => ({ ...a, destinatarios }))}
-              telefonos={ajustes.telefonos ?? ""}
-              onTelefonos={(telefonos) => setAjustes((a) => ({ ...a, telefonos }))}
-            />
-            {/*
-              Lo que recibirá cada persona, antes de mandarlo (23/10/2026,
-              marketing): antes el diálogo explicaba el mecanismo en tres
-              líneas y no enseñaba el mensaje. Los enlaces se ponen al enviar.
-            */}
-            {/* Los mensajes ya con enlaces salen en el panel de los informes al terminar el envío (02/11/2026). */}
-            {canal === "whatsapp" && informeVisto ? (
-              <div className="rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/40">Así le llega a cada uno</span>
-                <pre className="mt-1 whitespace-pre-wrap break-words font-sans text-[12px] leading-relaxed text-white/80">
-                  {mensajeWhatsapp({
-                    asunto: whatsappInforme(informeVisto).titular,
-                    lineas: whatsappInforme(informeVisto).lineas,
-                    mensaje: envio.resumen.mensaje,
-                    firma: (ajustes.firma ?? "").trim() || undefined,
-                    video: null,
-                    enlaces: [{ nombre: "Informe (PDF)", url: "enlace al enviar" }],
-                  })}
-                </pre>
+        <div ref={caja} className="min-w-0">
+          {!informeVisto || cargando ? (
+            <p className="flex items-center gap-2 py-10 font-sans text-sm text-white/45">
+              <Loader2 size={14} className="animate-spin" /> Juntando el microciclo, Data, el rival y el plan…
+            </p>
+          ) : vista === "resumen" ? (
+            anchoVista > 0 && (
+              <div className="space-y-3">
+                {diapoMarcada(0) && (
+                  <Escalada ancho={anchoVista}>
+                    <Uno inf={informeVisto} />
+                  </Escalada>
+                )}
+                {diapoMarcada(1) && (
+                  <Escalada ancho={anchoVista}>
+                    <Dos inf={informeVisto} />
+                  </Escalada>
+                )}
+                {diapoMarcada(2) && (
+                  <Escalada ancho={anchoVista}>
+                    <Tres inf={informeVisto} />
+                  </Escalada>
+                )}
               </div>
-            ) : null}
-          </div>
-          <label>
-            <span className={rotuloCaja}>Firma</span>
-            <input className={campo} value={ajustes.firma ?? ""} onChange={(e) => setAjustes((a) => ({ ...a, firma: e.target.value }))} placeholder="Cuerpo técnico" />
-            <span className="mt-1 block text-[10px] text-white/30">Va bajo el mensaje, si escribes uno.</span>
-          </label>
+            )
+          ) : (
+            <iframe title="Informe completo" srcDoc={htmlVista} className="h-[70vh] w-full rounded-xl border border-white/10 bg-white" />
+          )}
         </div>
 
-        {/* ---------------- QUÉ SE MANDA ---------------- */}
+        {informe && (
+          <p className="font-sans text-[11px] text-white/35">
+            <Download size={11} className="mr-1 inline" />
+            La vista es tal y como llega cada correo: el resumen con las diapositivas marcadas y el completo con los capítulos elegidos y el mensaje.
+          </p>
+        )}
+
+        {/* ---------------- QUÉ SE MANDA (plegado) ---------------- */}
 
         {informe && !cargando && (
-          <div className="grid gap-3 font-sans lg:grid-cols-2">
+          <div className="space-y-2">
             {/* EL RESUMEN */}
-            <div className={`rounded-xl border px-4 py-3 text-[12px] ${envio.resumen.activo ? "border-[#C8A96B]/30 bg-[#C8A96B]/[0.04]" : "border-white/10 bg-white/[0.02]"}`}>
-              <label className="flex cursor-pointer items-center gap-2">
-                <input type="checkbox" className="accent-[#C8A96B]" checked={envio.resumen.activo} onChange={(e) => cambia("resumen", { activo: e.target.checked })} />
-                <span className="text-[13px] font-semibold text-white/90">Correo 1 · Resumen</span>
-                <span className="text-white/35">las diapositivas dentro del correo, para leer en el móvil</span>
-              </label>
+            <Plegable
+              titulo="Correo 1 · Resumen"
+              resumen={resumenCorreo1}
+              destacado={envio.resumen.activo}
+              control={<input type="checkbox" aria-label="Mandar el correo 1, el resumen" className="accent-[#C8A96B]" checked={envio.resumen.activo} onChange={(e) => cambia("resumen", { activo: e.target.checked })} />}
+            >
+              <p className="text-white/35">Las diapositivas dentro del correo, para leer en el móvil.</p>
 
-              {envio.resumen.activo && (
+              {envio.resumen.activo ? (
                 <div className="mt-3 space-y-3">
                   <label className="block">
                     <span className={rotuloCaja}>Asunto</span>
@@ -2121,18 +2252,41 @@ export function InformePartidoDialog({
                     />
                   </label>
                 </div>
-              )}
-            </div>
+              ) : null}
+
+              {/*
+                Lo que recibirá cada persona, antes de mandarlo (23/10/2026,
+                marketing): antes el diálogo explicaba el mecanismo en tres
+                líneas y no enseñaba el mensaje. Los enlaces se ponen al enviar.
+              */}
+              {/* Los mensajes ya con enlaces salen en el panel de los informes al terminar el envío (02/11/2026). */}
+              {canal === "whatsapp" && informeVisto ? (
+                <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/40">Así le llega a cada uno</span>
+                  <pre className="mt-1 whitespace-pre-wrap break-words font-sans text-[12px] leading-relaxed text-white/80">
+                    {mensajeWhatsapp({
+                      asunto: whatsappInforme(informeVisto).titular,
+                      lineas: whatsappInforme(informeVisto).lineas,
+                      mensaje: envio.resumen.mensaje,
+                      firma: (ajustes.firma ?? "").trim() || undefined,
+                      video: null,
+                      enlaces: [{ nombre: "Informe (PDF)", url: "enlace al enviar" }],
+                    })}
+                  </pre>
+                </div>
+              ) : null}
+            </Plegable>
 
             {/* EL COMPLETO */}
-            <div className={`rounded-xl border px-4 py-3 text-[12px] ${envio.completo.activo ? "border-[#C8A96B]/30 bg-[#C8A96B]/[0.04]" : "border-white/10 bg-white/[0.02]"}`}>
-              <label className="flex cursor-pointer items-center gap-2">
-                <input type="checkbox" className="accent-[#C8A96B]" checked={envio.completo.activo} onChange={(e) => cambia("completo", { activo: e.target.checked })} />
-                <span className="text-[13px] font-semibold text-white/90">Correo 2 · Informe completo</span>
-                <span className="text-white/35">el documento de consulta, con sus adjuntos</span>
-              </label>
+            <Plegable
+              titulo="Correo 2 · Informe completo"
+              resumen={resumenCorreo2}
+              destacado={envio.completo.activo}
+              control={<input type="checkbox" aria-label="Mandar el correo 2, el informe completo" className="accent-[#C8A96B]" checked={envio.completo.activo} onChange={(e) => cambia("completo", { activo: e.target.checked })} />}
+            >
+              <p className="text-white/35">El documento de consulta, con sus adjuntos.</p>
 
-              {envio.completo.activo && (
+              {envio.completo.activo ? (
                 <div className="mt-3 space-y-3">
                   <label className="block">
                     <span className={rotuloCaja}>Asunto</span>
@@ -2149,7 +2303,7 @@ export function InformePartidoDialog({
                   </label>
 
                   <div>
-                    <div className="mb-1.5 flex items-center justify-between gap-2">
+                    <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
                       <span className={rotuloCaja}>Capítulos ({capitulos.filter((x) => marcadoCapitulo(x.id)).length} de {capitulos.length})</span>
                       <span className="flex gap-2 text-[10px] text-white/40">
                         <button type="button" className="underline-offset-2 hover:underline" onClick={() => cambia("completo", { capitulos: null })}>
@@ -2168,7 +2322,7 @@ export function InformePartidoDialog({
                   </div>
 
                   <div className="space-y-1.5">
-                    <div className="flex items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center justify-between gap-x-2">
                       <span className={rotuloCaja}>Adjuntos</span>
                       <span className="text-[10px] text-white/30">hasta {mb(TOPE_ADJUNTOS)} adjunto; lo demás va como botón de descarga</span>
                     </div>
@@ -2218,8 +2372,8 @@ export function InformePartidoDialog({
                           )}
                         </div>
                       ) : (
-                        <p key={d.url} className="flex items-center gap-2 text-white/50">
-                          <ExternalLink size={12} className="shrink-0 text-white/35" /> <span className="truncate">{d.nombre}</span> <span className="shrink-0 text-white/30">va como enlace</span>
+                        <p key={d.url} className="flex min-w-0 items-center gap-2 text-white/50">
+                          <ExternalLink size={12} className="shrink-0 text-white/35" /> <span className="min-w-0 truncate">{d.nombre}</span> <span className="shrink-0 text-white/30">va como enlace</span>
                         </p>
                       ),
                     )}
@@ -2255,100 +2409,51 @@ export function InformePartidoDialog({
                     />
                   </label>
                 </div>
-              )}
-            </div>
+              ) : null}
+            </Plegable>
           </div>
         )}
 
-        {informeVisto && !cargando ? <VideosDeLaSemana abp={videoAbp} piezas={piezasDeVideo} momento={informeVisto.momento} ocupado={Boolean(trabajando) || Boolean(preparando)} /> : null}
+        {/* LA FIRMA */}
+        <Plegable titulo="Firma" resumen={(ajustes.firma ?? "").trim() ? `«${(ajustes.firma ?? "").trim()}» · va bajo el mensaje, si escribes uno` : "Sin firma · va bajo el mensaje, si escribes uno"}>
+          <label className="block max-w-sm">
+            <span className={rotuloCaja}>Firma</span>
+            <input className={campo} value={ajustes.firma ?? ""} onChange={(e) => setAjustes((a) => ({ ...a, firma: e.target.value }))} placeholder="Cuerpo técnico" />
+            <span className="mt-1 block text-[10px] text-white/30">Va bajo el mensaje, si escribes uno.</span>
+          </label>
+        </Plegable>
 
-        {/* El estado del balón parado, que llega aparte. */}
-        {informe && !cargando && (
-          <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2.5 font-sans text-[12px] text-white/65">
-            <span className="mr-2 text-[10px] uppercase tracking-[0.16em] text-white/40">Balón parado</span>
-            {abpCargando ? (
-              <span className="inline-flex items-center gap-2">
-                <Loader2 size={12} className="animate-spin" /> Preparando el informe de ABP del microciclo…
-              </span>
-            ) : abpActual?.ok ? (
-              <span>
-                Listo: va su resumen en las diapositivas y el informe entero en el completo
-                {abpActual.imagenes.length ? ` (${abpActual.imagenes.length} gráficos y láminas)` : ""}.
-              </span>
-            ) : abpActual ? (
-              <span className="text-amber-200/80">
-                No ha llegado ({abpActual.error}). El informe sale con lo que hay del plan de ABP.{" "}
-                {/* Se olvida el fallo antes de recargar: con la misma clave,
-                    seguía valiendo y la pantalla de ABP no se volvía a montar,
-                    así que «Reintentar» no hacía nada (19/10/2026). */}
-                <button
-                  className="underline underline-offset-2"
-                  onClick={() => {
-                    setAbp(null);
-                    setTestigo((n) => n + 1);
-                  }}
-                >
-                  Reintentar
-                </button>
-              </span>
-            ) : null}
-          </div>
-        )}
+        {/* Si no hay ni piezas ni vídeo de balón parado, VideosDeLaSemana no pinta nada: tampoco su plegable. */}
+        {informeVisto && !cargando && (cuantasPiezas > 0 || videoAbp) ? (
+          <Plegable
+            titulo="Vídeos de la semana"
+            resumen={[
+              cuantasPiezas ? (cuantasPiezas === 1 ? "1 pieza para montar" : `${cuantasPiezas} piezas para montar`) : "",
+              videoAbp ? "con el vídeo de balón parado de la jornada" : "",
+              "se descargan, no se envían",
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          >
+            <VideosDeLaSemana abp={videoAbp} piezas={piezasDeVideo} momento={informeVisto.momento} ocupado={Boolean(trabajando) || Boolean(preparando)} />
+          </Plegable>
+        ) : null}
 
         {informeVisto && informeVisto.avisos.length > 0 && (
-          /* Plegado en una línea (20/10/2026): antes eran decenas de líneas antes del asunto y del botón. */
-          <details className="font-sans">
-            <summary className="cursor-pointer select-none rounded-lg px-1 py-1 text-sm font-semibold text-amber-300">
-              {informeVisto.avisos.length === 1 ? "1 aviso para el analista" : `${informeVisto.avisos.length} avisos para el analista`}
-              <span className="ml-2 font-normal text-white/45">· no van en el correo; se recuerdan al enviar</span>
-            </summary>
-            <div className="mt-2">
-              <Notice tone="warn" title="Lo que este informe no sabe">
-                <ul className="ml-4 list-disc space-y-1">
-                  {informeVisto.avisos.map((a) => (
-                    <li key={a}>{a}</li>
-                  ))}
-                </ul>
-              </Notice>
-            </div>
-          </details>
-        )}
-
-        <div ref={caja} className="min-w-0">
-          {!informeVisto || cargando ? (
-            <p className="flex items-center gap-2 py-10 font-sans text-sm text-white/45">
-              <Loader2 size={14} className="animate-spin" /> Juntando el microciclo, Data, el rival y el plan…
-            </p>
-          ) : vista === "resumen" ? (
-            anchoVista > 0 && (
-              <div className="space-y-3">
-                {diapoMarcada(0) && (
-                  <Escalada ancho={anchoVista}>
-                    <Uno inf={informeVisto} />
-                  </Escalada>
-                )}
-                {diapoMarcada(1) && (
-                  <Escalada ancho={anchoVista}>
-                    <Dos inf={informeVisto} />
-                  </Escalada>
-                )}
-                {diapoMarcada(2) && (
-                  <Escalada ancho={anchoVista}>
-                    <Tres inf={informeVisto} />
-                  </Escalada>
-                )}
-              </div>
-            )
-          ) : (
-            <iframe title="Informe completo" srcDoc={htmlVista} className="h-[70vh] w-full rounded-xl border border-white/10 bg-white" />
-          )}
-        </div>
-
-        {informe && (
-          <p className="font-sans text-[11px] text-white/35">
-            <Download size={11} className="mr-1 inline" />
-            La vista es tal y como llega cada correo: el resumen con las diapositivas marcadas y el completo con los capítulos elegidos y el mensaje.
-          </p>
+          /* Plegado y al final (20/10/2026 y 06/11/2026): no se mezcla con lo que se lee. */
+          <Plegable
+            aviso
+            titulo={informeVisto.avisos.length === 1 ? "1 aviso para el analista" : `${informeVisto.avisos.length} avisos para el analista`}
+            resumen="No van en el correo; se recuerdan al enviar"
+          >
+            <Notice tone="warn" title="Lo que este informe no sabe">
+              <ul className="ml-4 list-disc space-y-1">
+                {informeVisto.avisos.map((a) => (
+                  <li key={a}>{a}</li>
+                ))}
+              </ul>
+            </Notice>
+          </Plegable>
         )}
       </div>
 

@@ -27,7 +27,7 @@
 | cuenta cada paso y deja cancelar; lo que falle en un paso no tumba el resto.
 */
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { flushSync } from "react-dom";
 import { Check, ChevronDown, Clapperboard, FileStack, Loader2, MonitorPlay, PackageOpen, Printer, UserRound, X } from "lucide-react";
 import { toast } from "sonner";
@@ -68,6 +68,8 @@ import { ruedaMaterial, type MaterialJugada } from "@/lib/abp/rodaje-jugada";
 import { duracionResponsabilidad, videoResponsabilidad } from "@/lib/abp/video-responsabilidad";
 import { cargaEscudos, cometidosDe, filasParaPdf, nombreArchivo, nombreCorto, preparaJugador } from "@/lib/abp/pizarra-jugador";
 import { porteroDelOnce, usePorteroDelOnce } from "@/components/abp/pizarra/usePorteroDelOnce";
+import { useDatosMarcas } from "@/components/abp/pizarra/useDatosMarcas";
+import { cargaDatosMarcas, conMarcasPropuestas } from "@/lib/abp/marcas-datos";
 import { faltanFotos, fotosDeHojas } from "@/lib/abp/fotos-tablero";
 import { creaPptx } from "@/lib/export/pptx";
 import { apodo, descarga, pdfDeLienzos, pintado } from "@/lib/export/lienzos";
@@ -188,7 +190,7 @@ function esperaPdfs(huella: string, ids: string[], cancelado: () => boolean, top
 type Opcion = "todo" | "documentos" | "videos" | "videosJugador" | "pptx" | "pdf";
 
 export function ExportaTodo({
-  tablero,
+  tablero: tableroGuardado,
   players,
   temporada,
   rival,
@@ -206,6 +208,13 @@ export function ExportaTodo({
   escudoRival?: string;
 }) {
   const portero = usePorteroDelOnce(players);
+  /*
+  | Las marcas que el analista no ha puesto salen con la propuesta de «Quién
+  | marca a quién» (segunda ronda de jueces: casillas «Nº» vacías en el
+  | córner defensivo). En segundo plano el tablero ya llega con ellas.
+  */
+  const datosMarcas = useDatosMarcas(trabajo ? "" : rival, players);
+  const tablero = useMemo(() => (trabajo ? tableroGuardado : conMarcasPropuestas(tableroGuardado, datosMarcas)), [trabajo, tableroGuardado, datosMarcas]);
   const [montaje, setMontaje] = useState<Montaje>(null);
   const [tareas, setTareas] = useState<Tarea[] | null>(null);
   const [enMarcha, setEnMarcha] = useState(false);
@@ -689,7 +698,6 @@ export function ExportaTodo({
   /* ---------------------------------------------------------------- */
 
   if (!trabajo) {
-    const datos = { tablero, players, temporada, rival, jornada, escudoRival };
 
     /* Lo que falta por hacer de cada pieza, mirando lo ya guardado. */
     const calcula = (fases: boolean) => {
@@ -733,11 +741,15 @@ export function ExportaTodo({
       };
     };
 
-    const elige = (opcion: Opcion) => {
+    const elige = async (opcion: Opcion) => {
       setAbierto(false);
 
+      /* Si la propuesta de marcas aún no ha llegado, se espera (unos segundos): sin ella el córner defensivo saldría en blanco. */
+      const conMarcas = datosMarcas || !rival ? tablero : conMarcasPropuestas(tableroGuardado, await cargaDatosMarcas(rival, [...players.values()]).catch(() => null));
+      const datos = { tablero: conMarcas, players, temporada, rival, jornada, escudoRival };
+
       if (opcion === "pptx" || opcion === "pdf") {
-        trabajoExportar.encarga({ tipo: "pizarra", formato: opcion, porFases: opcion === "pdf" && porFases, datos: { slides, players, temporada, rival, jornada } });
+        trabajoExportar.encarga({ tipo: "pizarra", formato: opcion, porFases: opcion === "pdf" && porFases, datos: { slides: conMarcas.slides, players, temporada, rival, jornada } });
       } else {
         trabajoExportar.encarga({
           tipo: "todo",
@@ -855,7 +867,7 @@ export function ExportaTodo({
                       type="button"
                       role="menuitem"
                       disabled={!puede}
-                      onClick={() => elige(clave)}
+                      onClick={() => void elige(clave)}
                       className="flex w-full items-start gap-2.5 rounded-lg px-3 py-2 text-left transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45"
                     >
                       <Icono size={16} className="mt-0.5 shrink-0 text-[#C8A96B]" />

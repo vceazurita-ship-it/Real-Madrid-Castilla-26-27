@@ -179,7 +179,8 @@ function accionDelPortero(tablero: TableroPizarra, indice: number): CometidoAcci
       despuesDibujado: false,
       tarea,
       marcaDorsal: "",
-      zona: [],
+      /* Sin ficha suya, el encuadre abarca a todos: se cortaban compañeros (segunda ronda). */
+      zona: slide.fichas.filter((f) => f.x >= 0 && f.y >= 0).map((f) => ({ x: f.x, y: f.y })),
       otros: slide.fichas.filter((f) => f.x >= 0 && f.y >= 0).map((f) => ({ x: f.x, y: f.y })),
       sinFicha: true,
     },
@@ -896,7 +897,8 @@ function dibujaResumen(ctx: Ctx, cx: Contexto, acciones: CometidoAccion[], total
 
     const tx = discoX + r + 26;
     const maxW = HOJA_W - MARGEN - 24 - anchoHoja - 24 - tx;
-    const detalle = [accion.puestos.map((p) => p.label).join(" · "), accion.rival].filter(Boolean).join(" · ").toUpperCase();
+    /* Lo que hace, no sólo el puesto (segunda ronda de jueces): «Arrancas en la fase 2 · atacas el 2.º palo». */
+    const detalle = (titulares(accion, undefined).grande || [accion.puestos.map((p) => p.label).join(" · "), accion.rival].filter(Boolean).join(" · ")).toUpperCase();
 
     ctx.fillStyle = C.navy;
     ajusta(ctx, accion.titulo.toUpperCase(), maxW, Math.min(46, alto * 0.36), 700, 1);
@@ -1243,8 +1245,9 @@ function bloqueArriba(ctx: Ctx, accion: CometidoAccion, plan: Pick<PlanAccion, "
     ctx.fillText(sigla, MARGEN + r, y + r + px * 0.35);
     ctx.textAlign = "left";
 
+    /* «POR PORTERO» se leía como un fallo (segunda ronda de jueces): «Tu puesto: portero». */
     const linea = [
-      accion.puestos.map((p) => p.label).join(" · "),
+      `Tu puesto: ${accion.puestos.map((p) => p.label).join(" · ")}`,
       accion.lado === "ofensivo" ? accion.rival : "",
     ]
       .filter(Boolean)

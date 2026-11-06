@@ -1893,6 +1893,7 @@ export function TableroSlide({
   /* Las siglas que se ven en el campo (las de los puestos con alguien), con lo que significan. */
   const conGente = new Set(slide.fichas.map((ficha) => ficha.puesto).filter(Boolean) as string[]);
   const leyenda = leyendaSiglas(puestos.filter((puesto) => conGente.has(puesto.key)));
+  const significadoDe = new Map(leyenda.map((una) => [una.sigla.toUpperCase(), una.significado]));
 
   const maqueta = maquetaDe(conPanel, franja, soloVer ? cajaDeJugada(slide) : null);
 
@@ -1976,6 +1977,19 @@ export function TableroSlide({
       const ajuste = Math.min(1, Math.max(0.55, libre / el.offsetHeight));
       const leyenda = leyendaRef.current?.offsetHeight ?? 0;
 
+      /*
+      | En lo exportado (PDF, PowerPoint, PDF por jugador) cada fila del panel
+      | lleva lo que quiere decir su sigla (segunda ronda de jueces: las
+      | ofensivas iban con BZ, BC, RL sin explicar).
+      */
+      /* En lo exportado cada fila ya dice su sigla: la leyenda de abajo sobra. */
+      if (soloVer) {
+        setAjustePanel(ajuste);
+        setCabeLeyenda(false);
+
+        return;
+      }
+
       setAjustePanel(ajuste);
       setCabeLeyenda(ajuste >= 1 && leyenda > 0 && el.offsetHeight + 14 + leyenda <= libre);
     };
@@ -1989,7 +2003,7 @@ export function TableroSlide({
     if (leyendaRef.current) observer.observe(leyendaRef.current);
 
     return () => observer.disconnect();
-  }, [altoPanel, conPanel, leyenda.length]);
+  }, [altoPanel, conPanel, leyenda.length, soloVer]);
 
   useEffect(() => {
     const caja = notasRef.current;
@@ -2699,6 +2713,17 @@ export function TableroSlide({
                             </span>
 
                             {/*
+                            | Lo que quiere decir la sigla, en la misma fila (segunda ronda
+                            | de jueces): la leyenda de abajo no cabía en las láminas
+                            | cargadas y BZ, BC o RL salían sin explicar. Sólo en lo exportado.
+                            */}
+                            {soloVer && player && significadoDe.get(siglaDe(puesto).toUpperCase()) && (
+                              <span className="max-w-[46%] shrink-0 truncate text-[15px] font-medium normal-case text-white/60">
+                                {significadoDe.get(siglaDe(puesto).toUpperCase())}
+                              </span>
+                            )}
+
+                            {/*
                             | La misma casilla que la ficha del campo, aquí en
                             | fila: el panel se lee de un vistazo antes de salir
                             | y es donde el cuerpo técnico apunta los dorsales
@@ -2802,16 +2827,21 @@ export function TableroSlide({
             }}
           >
             <div className="flex h-full gap-6 py-4 pl-5 pr-7">
-              <p
-                className="shrink-0 text-[15px] font-bold uppercase leading-none tracking-[0.3em]"
-                style={{
-                  color: COLORES.oroTinta,
-                  writingMode: "vertical-rl",
-                  transform: "rotate(180deg)",
-                }}
-              >
-                Consignas
-              </p>
+              {/* Con la franja baja (dos consignas) el rótulo vertical salía cortado («CONSIGN»): se encoge y, si aún no cabe, no sale. */}
+              {franja - AIRE * 1.5 - 32 >= 84 && (
+                <p
+                  className="shrink-0 font-bold uppercase leading-none"
+                  style={{
+                    color: COLORES.oroTinta,
+                    writingMode: "vertical-rl",
+                    transform: "rotate(180deg)",
+                    fontSize: franja - AIRE * 1.5 - 32 >= 150 ? 15 : 11,
+                    letterSpacing: franja - AIRE * 1.5 - 32 >= 150 ? "0.3em" : "0.1em",
+                  }}
+                >
+                  Consignas
+                </p>
+              )}
 
               {/*
               | Una sola columna y numeradas (01/11/2026, expertos): a dos

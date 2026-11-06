@@ -27,6 +27,8 @@ import { Button, Dialog } from "@/components/abp/ui";
 import { type TableroPizarra } from "@/lib/abp/pizarra";
 import { filasParaPdf } from "@/lib/abp/pizarra-jugador";
 import { usePorteroDelOnce } from "@/components/abp/pizarra/usePorteroDelOnce";
+import { useDatosMarcas } from "@/components/abp/pizarra/useDatosMarcas";
+import { conMarcasPropuestas } from "@/lib/abp/marcas-datos";
 import { nombreCorto } from "@/lib/abp/pizarra-jugador";
 import { enlaceWhatsapp, esTelefono, telefonoLegible } from "@/lib/correo/whatsapp";
 import { descarga } from "@/lib/export/lienzos";
@@ -39,7 +41,7 @@ import { puedeHacerVideo } from "@/lib/tactics/lamina";
 type Hecho = HechoPdf;
 
 export function PizarrasJugadores({
-  tablero,
+  tablero: tableroGuardado,
   players,
   temporada,
   rival,
@@ -54,6 +56,9 @@ export function PizarrasJugadores({
   escudoRival?: string;
 }) {
   const portero = usePorteroDelOnce(players);
+  /* Las marcas sin poner, con la propuesta de «Quién marca a quién» (como en «Exportar»). */
+  const datosMarcas = useDatosMarcas(rival, players);
+  const tablero = useMemo(() => conMarcasPropuestas(tableroGuardado, datosMarcas), [tableroGuardado, datosMarcas]);
   const [abierto, setAbierto] = useState(false);
   const [enviados, setEnviados] = useState<Set<string>>(new Set());
 

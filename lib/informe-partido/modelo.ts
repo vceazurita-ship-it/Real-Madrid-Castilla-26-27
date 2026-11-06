@@ -1264,7 +1264,22 @@ const SOLO_DIBUJO = /^(?:estructura\s*:?\s*)?1-\d(?:-\d){1,3}(?:\s*(?:\/|,|\by\b
 export const sinPorteroEnDibujo = (t: string) => t.replace(/(?<![\d-])1-(\d(?:-\d){1,3})(?![\d-])/g, "$1");
 
 export function fraseDeFase(titulo: string, textos: string[], n = 120) {
-  return sinPorteroEnDibujo(fraseDeFaseCruda(titulo, textos, n));
+  const frase = sinPorteroEnDibujo(fraseDeFaseCruda(titulo, textos, n));
+
+  /*
+  | «Defienden en 4-3-3 o 4-4-2: se pueden estructurar en 4-3-3 / 4-4-2»
+  | (segunda ronda de jueces): si lo de después de los dos puntos sólo repite
+  | el dibujo, sobra.
+  */
+  const [cabeza, ...resto] = frase.split(/:\s/);
+  if (!resto.length) return frase;
+  const cola = resto.join(": ");
+  const RELLENO = /^(?:se|pueden?|estructura(?:r|n|ndo)?|forma(?:r|n)?|juega(?:n)?|en|o|y|con|sistema|dibujo|también|tambien|normalmente|un|una|el|la)$/i;
+  const queda = cola
+    .replace(/\d(?:-\d){2,4}/g, " ")
+    .split(/[\s/,.;·]+/)
+    .filter((p) => p && !RELLENO.test(p));
+  return queda.length === 0 ? cabeza : frase;
 }
 
 function fraseDeFaseCruda(titulo: string, textos: string[], n: number) {
@@ -1580,7 +1595,7 @@ export function pronostica(inf: { duelo: Duelo | null; partido: { lado: "casa" |
       victoria: rangoVictoria(lNos, lRiv, nNos, nRiv),
       conPlan: rangoVictoria(lNos * 1.15 + 0.12, lRiv * 0.8, nNos, nRiv),
     },
-    base: `xG y goles de la temporada antes del partido (${nNos} y ${nRiv} partidos) · ${campo === 1 ? "sin factor campo" : campo > 1 ? "en casa" : "fuera"}`,
+    base: `Modelo de Poisson con los goles esperados (70 %) y los goles (30 %) de la temporada antes del partido (${nNos} y ${nRiv} partidos) · ${campo === 1 ? "sin factor campo" : campo > 1 ? "en casa" : "fuera"}`,
   };
 }
 
@@ -2249,6 +2264,14 @@ const RASGO_DEBIL: [RegExp, string][] = [
   [/deja centrar/i, "deja centrar"],
 ];
 
+/** «190», «1,90», «1.90 m» → «1,90 m»; lo que no se entienda, "". */
+function alturaEnMetros(texto: string | undefined) {
+  const n = Number(String(texto ?? "").replace(",", ".").replace(/[^\d.]/g, ""));
+  if (!Number.isFinite(n) || n <= 0) return "";
+  const m = n > 100 ? n / 100 : n;
+  return m >= 1.5 && m <= 2.2 ? `${m.toFixed(2).replace(".", ",")} m` : "";
+}
+
 /* En el orden de la tabla y no en el de la ficha: «lento y pierde duelos», no «pierde duelos y lento». */
 const rasgosDebiles = (j: JugadorRival) => RASGO_DEBIL.filter(([re]) => j.rasgos.some((r) => re.test(r.trim()))).map(([, t]) => t);
 
@@ -2266,9 +2289,23 @@ export function defensorDebil(inf: Pick<InformePartido, "colectivo" | "once">) {
 
   const tokens = new Set(plano(campos.map((c) => c.texto).join(" ")));
 
-  const nombrado = defensas.find((j) => plano(j.nombre).some((t) => t.length >= 4 && tokens.has(t)));
+  /*
+  | Primero, el que nombra «Dónde hacerles daño» (segunda ronda de jueces): el
+  | titular decía «punto débil: Rentero» mientras «Dónde hacerles daño» nombraba
+  | a Jiménez, y Rentero era además su rematador a balón parado.
+  */
+  const tokensDano = new Set(plano((inf.colectivo?.resumen?.dano ?? []).join(" ")));
+  const delDano = defensas.find((j) => plano(j.nombre).some((t) => t.length >= 4 && tokensDano.has(t)));
 
-  const jugador = nombrado ?? [...defensas].filter((j) => rasgosDebiles(j).length >= 2).sort((a, b) => rasgosDebiles(b).length - rasgosDebiles(a).length)[0];
+  const nombrado = delDano ?? defensas.find((j) => plano(j.nombre).some((t) => t.length >= 4 && tokens.has(t)));
+
+  /* Si «Dónde hacerles daño» señala a otros (no a un defensor), no se elige aquí un tercero: el titular y la idea saldrían con otro nombre. */
+  if (!nombrado && tokensDano.size > 0) return null;
+
+  /* Su rematador por arriba no es «el flojo» aunque la ficha le ponga pegas: es su peligro. */
+  const peligroArriba = (j: JugadorRival) => j.rasgos.some((r) => /rematador|a[eé]re|cabeza/i.test(r));
+
+  const jugador = nombrado ?? [...defensas].filter((j) => rasgosDebiles(j).length >= 2 && !peligroArriba(j)).sort((a, b) => rasgosDebiles(b).length - rasgosDebiles(a).length)[0];
 
   if (!jugador) return null;
 
@@ -2580,7 +2617,11 @@ export function planPorFases(inf: Omit<InformePartido, "sintesis">): { fase: str
       texto: primeraQueQuepa(
         flojo ? `Marcamos a ${quienes}: su balón parado rinde poco (${flojo})` : "",
         cornerEnContra ? `Marcamos a ${quienes} en los córners en contra` : "",
-        `Marcamos a ${quienes} en su balón parado: ${minusculaInicial(sinSiglas(rasgo))}`,
+        /* «Marcamos a Rentero en su balón parado: rematador de balón parado» era una tautología: el dato es su altura. */
+        /rematador/i.test(rasgo) && alturaEnMetros(rematadores[0].altura)
+          ? `Marcamos a ${quienes}: su rematador, ${alturaEnMetros(rematadores[0].altura)}`
+          : "",
+        /rematador/i.test(rasgo) ? "" : `Marcamos a ${quienes} en su balón parado: ${minusculaInicial(sinSiglas(rasgo))}`,
         `Marcamos a ${quienes} en su balón parado`,
         `Marcamos a ${apellido(rematadores[0].nombre)} en su balón parado`,
       ),
@@ -3016,6 +3057,8 @@ export function metaDeClave(inf: Pick<InformePartido, "duelo" | "pronostico"> & 
 
   /* En la diapositiva, la meta sin el pronóstico entre paréntesis: tres cifras en la línea (guion). */
   const corta = (t: string) => {
+    /* La de balón parado guarda su cifra («+0,12 goles esperados a balón parado»): sin ella la meta no tenía número. */
+    if (/goles esperados a balón parado\)\s*$/.test(t)) return t;
     const pron = /el pronóstico (?:nos|les) da (\d+(?:,\d+)?)\)\s*$/.exec(t)?.[1];
     return t.replace(/\s*\([^)]*\)\s*$/, "") + (pron ? ` (hoy se esperan ${pron})` : "");
   };
@@ -3642,6 +3685,12 @@ function titularDePrevia(inf: Omit<InformePartido, "sintesis">, principal: strin
 
     return debil.rasgos.length ? `Su punto débil: ${ap}, ${yFinal(debil.rasgos)}` : `Su punto débil: ${ap}`;
   }
+
+  /* Sin defensor señalado, el primero de «Dónde hacerles daño»: el titular y esa lista dicen lo mismo (segunda ronda de jueces). */
+  const dano0 = !debil ? inf.colectivo?.resumen?.dano?.[0] : undefined;
+  const [donde, quien] = dano0 ? dano0.split(/:\s/) : [];
+
+  if (quien && inf.partido.rival) return `El punto débil del ${inf.partido.rival}: ${quien.replace(/\s*\(.*$/, "").trim()} (${minusculaInicial(donde.trim())})`;
 
   const arma = inf.pronostico?.suFuerte;
 

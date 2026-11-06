@@ -285,6 +285,15 @@ function FilaDuelo({ m, equipos, compacta = false }: { m: MetricaDuelo; equipos:
  * panel (con la proporción de un campo) y coloca en tanto por ciento: con un
  * alto fijo, un panel más bajo lo encogía y se comía al portero.
  */
+/** El apellido; si dos lo comparten (dos «JIMENEZ»), con la inicial delante (segunda ronda de jueces). */
+function apellidoUnico(nombre: string, once: JugadorRival[]) {
+  const ap = (n: string) => n.trim().split(" ").slice(-1)[0] ?? "";
+  const suyo = ap(nombre);
+  const repetido = once.filter((o) => ap(o.nombre).toLowerCase() === suyo.toLowerCase()).length > 1;
+  const partes = nombre.trim().split(" ");
+  return repetido && partes.length > 1 ? `${partes[0].charAt(0)}. ${suyo}` : suyo;
+}
+
 function Campo({ once, resaltar }: { once: JugadorRival[]; resaltar?: Set<string> }) {
   const linea = "2px solid rgba(255,255,255,0.22)";
 
@@ -328,7 +337,7 @@ function Campo({ once, resaltar }: { once: JugadorRival[]; resaltar?: Set<string
               <Cara j={j} size={Math.round(54 * escala)} color={resaltar?.has(j.clave) ? C.oro : C.rival} />
             </div>
             <div style={{ marginTop: 3, fontSize: Math.max(13, Math.round(18 * escala)), fontWeight: 700, color: "#fff", textTransform: "uppercase", textShadow: "0 1px 3px rgba(0,0,0,0.8)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-              {j.nombre.split(" ").slice(-1)[0]}
+              {apellidoUnico(j.nombre, once)}
             </div>
           </div>
         );
@@ -1153,9 +1162,9 @@ function cuentaDuelos(atacar: DueloJugadores[], vigilar: DueloJugadores[], medid
 
   const repetidos = filas - distintos;
 
-  const dobles = repetidos ? ` (${repetidos === 1 ? "uno sale" : `${repetidos} salen`} con balón y sin él)` : "";
 
-  return distintos >= medidos ? `Los ${medidos} duelos medidos${dobles}` : `Los ${distintos} duelos más claros de los ${medidos} medidos${dobles}`;
+  /* Lo que se ve, contado (segunda ronda de jueces: «los 5» con 6 tarjetas). */
+  return `${filas} tarjetas (${atacar.length} con balón y ${vigilar.length} sin balón) de ${medidos} duelos medidos${repetidos ? `; ${repetidos === 1 ? "un duelo sale" : `${repetidos} duelos salen`} en las dos` : ""}`;
 }
 
 function PanelDuelos({ inf, post }: { inf: InformePartido; post: boolean }) {
@@ -1196,11 +1205,17 @@ function PanelDuelos({ inf, post }: { inf: InformePartido; post: boolean }) {
         </>
       ) : null}
       <div style={{ marginTop: "auto", paddingTop: 12, fontSize: 15, color: C.tenue }}>
-        {cuentaDuelos(atacar, vigilar, medidos)} · con balón de uno contra sin balón del otro · cada cifra pequeña es su percentil contra los de su puesto en la categoría (97 = mejor que 97 de cada 100); la grande, la diferencia media de los cruces de su fila · {recorta(d.fuenteSuya, 70)}
+        {cuentaDuelos(atacar, vigilar, medidos)} · con balón de uno contra sin balón del otro · cada cifra pequeña es su percentil contra los de su puesto en la categoría (97 = mejor que 97 de cada 100); la grande, la diferencia media de esos percentiles en su fila (en positivo, a nuestro favor; en negativo, al suyo) · {recorta(d.fuenteSuya, 70)}
       </div>
     </Panel>
   );
 }
+
+/** Las siglas de las métricas en palabras (segunda ronda de jueces): «Goles − xG» no se lee en una charla. */
+const enPalabras = (nombre: string) =>
+  nombre
+    .replace(/^Goles\s*[−-]\s*xG$/i, "Goles marcados menos esperados")
+    .replace(/\bxG\b/g, "goles esperados");
 
 function PanelVistazo({ inf }: { inf: InformePartido }) {
   const v = inf.vistazo;
@@ -1249,6 +1264,8 @@ function PanelVistazo({ inf }: { inf: InformePartido }) {
               </div>
             ))}
           </div>
+          {/* La lectura de las barras (segunda ronda de jueces): «56 de 100» no decía qué era. */}
+          <div style={{ marginTop: 6, fontSize: 14, color: C.tenue }}>Índice de 0 a 100 contra la categoría: 50 es la mitad; más alto, mejor</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 14 }}>
             {[
               { t: "DESTACA EN", l: v.fuertes, c: C.bien },
@@ -1258,12 +1275,13 @@ function PanelVistazo({ inf }: { inf: InformePartido }) {
                 <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: "0.16em", color: g.c }}>{g.t}</div>
                 {g.l.slice(0, 3).map((m) => (
                   <div key={m.nombre} style={{ fontSize: 18, fontWeight: 600, lineHeight: 1.25, color: C.crema, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {m.nombre} <span style={{ color: C.tenue }}>{m.mediana ? `${m.valor} · mediana ${m.mediana}` : ordinal(m.puesto)}</span>
+                    {enPalabras(m.nombre)} <span style={{ color: C.tenue }}>{m.mediana ? `${m.valor} · mediana ${m.mediana}` : ordinal(m.puesto)}</span>
                   </div>
                 ))}
               </div>
             ))}
           </div>
+          <div style={{ marginTop: 6, fontSize: 14, color: C.tenue }}>Por partido, media de sus {v.partidos} partidos · mediana de la categoría</div>
           {v.figuras.length ? (
             <div style={{ marginTop: "auto", paddingTop: 12 }}>
               <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: "0.16em", color: C.rival, marginBottom: 6 }}>LOS QUE MÁS RINDEN PARA SU PUESTO · ÍNDICE DE 0 A 100</div>
@@ -1461,7 +1479,7 @@ function PronosticoCorto({ inf }: { inf: InformePartido }) {
     <Panel titulo="EL PRONÓSTICO">
       <BarraResultado p={pr} alto={40} />
       <div style={{ marginTop: 10, fontSize: 19, fontWeight: 600, lineHeight: 1.25, color: C.suave }}>
-        Marcador más probable <b style={{ color: C.crema }}>{pr.marcador}</b> · si se cumplen las tres metas de «Cómo lo ganamos», <b style={{ color: C.oro }}>{pct(pr.conPlan.victoria)}</b> de victoria
+        Marcador más probable <b style={{ color: C.crema }}>{pr.marcador}</b> · si cumplimos las metas del plan (sin balón, con balón y balón parado), <b style={{ color: C.oro }}>{pct(pr.conPlan.victoria)}</b> de victoria
       </div>
       <div style={{ marginTop: 6, fontSize: 15, color: C.tenue }}>{pr.base}</div>
     </Panel>

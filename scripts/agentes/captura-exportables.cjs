@@ -135,6 +135,15 @@ const esLectura = (url, metodo, cuerpo) =>
       console.log("  pestaña", p, await pulsa(p, true));
       await espera(15000);
       await foto(`${prefijo}-${/post/i.test(p) ? "post" : "previa"}`);
+      /* Y a 390 px (segunda ronda de jueces: lo pedían para juzgar el móvil). */
+      if (!/post/i.test(p)) {
+        await envia("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
+        await espera(2500);
+        const m = await envia("Page.captureScreenshot", { format: "jpeg", quality: 60 });
+        fs.writeFileSync(path.join(SALIDA, `${prefijo}-previa-movil.jpg`), Buffer.from(m.data, "base64"));
+        await envia("Emulation.setDeviceMetricsOverride", { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
+        await espera(1500);
+      }
     }
     medidas.push({ ruta: `${ruta} (${boton})`, errores: errores.slice(0, 5) });
   }
