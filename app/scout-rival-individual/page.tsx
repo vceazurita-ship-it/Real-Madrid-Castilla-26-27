@@ -277,7 +277,7 @@ export default function ScoutRivalIndividual() {
 
             {/* El título dice a quién se mira (30/10/2026). */}
             <h1 className="mt-2 text-3xl font-bold sm:text-4xl">
-              {equipo ? `Vídeos · ${equipo}` : "Vídeos del rival"}
+              {vista === "visionados" ? "Visionados de clips" : equipo ? `Vídeos · ${equipo}` : "Vídeos del rival"}
             </h1>
 
             <Explicativo>

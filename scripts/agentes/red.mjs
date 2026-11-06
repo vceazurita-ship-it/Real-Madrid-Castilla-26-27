@@ -437,6 +437,7 @@ async function main() {
       foco2: ["experto-futbol", "experto-analisis", "experto-marketing"],
       foco3: ["experto-futbol", "experto-marketing"],
       foco4: ["experto-futbol", "experto-analisis"],
+      nuevo: ["experto-analisis", "experto-marketing"],
       mejora: ["experto-futbol", "experto-analisis", "experto-marketing"],
     };
     const solo = valor("grupo")?.split(",");

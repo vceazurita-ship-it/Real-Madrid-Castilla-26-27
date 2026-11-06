@@ -116,15 +116,20 @@ export function PanelVisionados() {
 
           <h2 className="pt-4 text-xl font-bold">Dentro de la app (Scout Individual)</h2>
 
-          <section className="flex flex-wrap items-end gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-            <label className="min-w-0 flex-1">
-              <span className="mb-1 flex items-center gap-1.5 text-[12px] text-white/60"><UserRound size={13} /> En este aparato ve los clips</span>
-              <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Tu nombre (p. ej. Julián)" className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[14px] text-white outline-none focus:border-[#C8A96B]/60" />
-            </label>
-            <button type="button" onClick={guardaNombre} disabled={nombre.trim() === guardado} className="rounded-xl border border-[#C8A96B]/50 px-4 py-2 text-[13px] font-semibold text-[#C8A96B] disabled:opacity-40">
-              {guardado && nombre.trim() === guardado ? "Guardado" : "Guardar"}
-            </button>
-          </section>
+          {guardado && nombre.trim() === guardado ? (
+            <p className="flex flex-wrap items-center gap-2 text-[13px] text-white/70">
+              <UserRound size={14} className="text-[#C8A96B]" /> En este aparato los clips los ve <b className="text-white/90">{guardado}</b>
+              <button type="button" onClick={() => setNombre("")} className="text-[12px] text-[#C8A96B] underline underline-offset-2">cambiar</button>
+            </p>
+          ) : (
+            <section className="flex flex-wrap items-end gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+              <label className="min-w-0 flex-1">
+                <span className="mb-1 flex items-center gap-1.5 text-[12px] text-white/65"><UserRound size={13} /> Tu nombre, para saber quién ve cada clip en este aparato (se guarda sólo aquí)</span>
+                <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="p. ej. Julián" className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[14px] text-white outline-none focus:border-[#C8A96B]/60" />
+              </label>
+              <button type="button" onClick={guardaNombre} disabled={!nombre.trim()} className="rounded-xl border border-[#C8A96B]/50 px-4 py-2 text-[13px] font-semibold text-[#C8A96B] disabled:opacity-40">Guardar</button>
+            </section>
+          )}
 
           <div className="flex flex-wrap gap-2">
             {PERIODOS.map((p) => (
@@ -144,7 +149,8 @@ export function PanelVisionados() {
             <div className="h-40 animate-pulse rounded-2xl border border-white/10 bg-white/[0.03]" aria-label="Cargando" />
           ) : lista.length === 0 ? (
             <p className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-[14px] text-white/65">
-              <Eye size={14} className="mr-1 inline" /> Todavía no se ha abierto ningún clip en este periodo. Se apunta desde el 06/11/2026, al abrir un clip en Scout Individual.
+              <Eye size={14} className="mr-1 inline" /> Aún no se ha abierto ningún clip en este periodo. Cuenta cada vez que alguien abre un clip en la pestaña Clips (desde el 06/11/2026): quién, cuántas veces, de qué jugador y de qué puesto.{" "}
+              <a href="/scout-rival-individual?vista=clips" className="font-semibold text-[#C8A96B] underline underline-offset-2">Ir a los clips</a>
             </p>
           ) : (
             <>

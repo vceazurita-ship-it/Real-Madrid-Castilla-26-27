@@ -116,7 +116,17 @@ export function BloqueYoutube() {
   }, [resp, squads, jornadaDe]);
 
   if (!resp) return <div className="h-40 animate-pulse rounded-2xl border border-white/10 bg-white/[0.03]" aria-label="Leyendo el canal de YouTube" />;
-  if (!datos) return <p className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-[14px] text-white/65">{resp.aviso ?? "El canal no tiene clips en listas."}</p>;
+  /* Sin ninguna foto todavía: qué va a salir aquí y cuándo, no sólo el aviso (06/11/2026). */
+  if (!datos)
+    return (
+      <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+        <h2 className="flex items-center gap-2 text-lg font-bold"><PlayCircle size={17} className="text-[#C8A96B]" /> En el canal de YouTube</h2>
+        <p className="mt-1 text-[14px] text-white/75">
+          Aquí saldrán las vistas de cada clip desde la jornada 1: por rival y jornada, por puesto y por jugador, los más vistos y lo que se ha visto tras cada partido.
+        </p>
+        <p className="mt-2 text-[12px] text-white/55">{resp.aviso ?? "El canal no tiene clips en listas."}</p>
+      </section>
+    );
 
   const fecha = (iso: string) => new Date(iso).toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit" });
 

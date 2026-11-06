@@ -11,7 +11,8 @@ import {
  * es «xg», y se dice qué es.
  */
 const enFrase = (nombre: string) =>
-  nombre.toLowerCase().replace(/\bxg\b/g, "goles esperados (xG)");
+  /* Si el nombre ya dice «goles esperados», no se glosa otra vez (06/11/2026: salía «goles esperados (goles esperados (xG))»). */
+  /goles esperados/i.test(nombre) ? nombre.toLowerCase().replace(/\bxg\b/g, "xG") : nombre.toLowerCase().replace(/\bxg\b/g, "goles esperados (xG)");
 
 /**
  * Lo que dice cada gráfico, escrito.
@@ -398,7 +399,7 @@ export function lecturaDeDispersion(
   const relacion =
     Math.abs(r) < 0.25
       ? "En esta liga las dos cosas van por libre: una no explica la otra."
-      : `En esta liga las dos van ${r > 0 ? "de la mano" : "en sentido contrario"} (r = ${r.toFixed(2)}), así que subir una suele ${r > 0 ? "acompañar a" : "costar"} la otra.`;
+      : `En esta liga las dos van ${r > 0 ? "de la mano" : "en sentido contrario"} (r = ${r.toFixed(2).replace(".", ",").replace("-", "−")}, con ${n} equipos): ${Math.abs(r) < 0.5 ? "una tendencia débil, no una regla" : `subir una suele ${r > 0 ? "acompañar a" : "costar"} la otra`}.`;
 
   if (!nuestro) return relacion;
 
