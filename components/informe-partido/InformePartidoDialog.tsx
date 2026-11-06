@@ -50,6 +50,7 @@ import { trabajoEnvios, type ResultadoEnvio } from "@/lib/informes/trabajo-envio
 import { bloqueVideoHtml } from "@/lib/video-informe/portada-video";
 import { VIDEO_JUGADORES_KEY, eligeVideoJugadores, normalizaVideosJugadores, type VideoJugadores } from "@/lib/abp/video-jugadores";
 import { cargaInforme, microsDisponibles, type MicroDisponible } from "@/lib/informe-partido/carga";
+import { cargaCalendarioONulo } from "@/hooks/useCalendario";
 import { completoEnHojas, type HojasCompleto } from "@/lib/informe-partido/pdf-completo";
 import { informeUnicoPdf, paginaDeEnlaces, paginaDelVideo, type EnlaceInforme } from "@/lib/informe-partido/pdf-unico";
 import { ROTULO_DOCUMENTO, type TipoDocumentoRival } from "@/lib/rivals/documentos";
@@ -241,13 +242,23 @@ export function InformePartidoDialog({
   useEffect(() => {
     let cancelado = false;
 
-    microsDisponibles()
-      .then((lista) => {
+    /* Sin elección, el micro del PRÓXIMO partido del calendario (06/11/2026): el
+       más reciente de la hoja podía ser ya el de la jornada siguiente. */
+    Promise.all([microsDisponibles(), cargaCalendarioONulo().catch(() => null)])
+      .then(([lista, calendario]) => {
         if (cancelado) return;
 
         setMicros(lista);
 
-        setElegido((actual) => actual ?? (lista[0] ? { temporada: lista[0].temporada, micro: lista[0].micro } : null));
+        const hoy = new Date().toISOString().slice(0, 10);
+        const sig = [...(calendario ?? [])].sort((a, b) => a.cuando.localeCompare(b.cuando)).find((p) => p.cuando && p.cuando.slice(0, 10) >= hoy);
+        const norma = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+        const rival = sig ? norma(/castilla/i.test(sig.local) ? sig.visitante : sig.local) : "";
+        const llave = rival.split(/\s+/).filter((w) => w.length > 3)[0] ?? rival;
+        const delProximo = llave ? lista.find((m) => norma(m.rival).includes(llave)) : undefined;
+        const defecto = delProximo ?? lista[0];
+
+        setElegido((actual) => actual ?? (defecto ? { temporada: defecto.temporada, micro: defecto.micro } : null));
       })
       .catch(() => {
         if (!cancelado) setMicros([]);
@@ -1971,16 +1982,22 @@ export function InformePartidoDialog({
               value={momento}
               options={[
                 { key: "previa", label: "Previa del partido" },
-                { key: "post", label: "Post partido" },
+                { key: "post", label: informe && !informe.partido.jugado ? "Post (tras el partido)" : "Post partido" },
               ]}
               onChange={(m) => {
+                /* Sin partido jugado no hay post (06/11/2026): salían láminas vacías y «0′ de balón parado». */
+                if (m === "post" && informe && !informe.partido.jugado) return;
                 setMomentoPedido(m as Momento);
                 setEnvio((x) => textosLimpios(x));
               }}
             />
-            <span className="mt-1 block text-[10px] text-white/35">
-              {momentoPedido
+            <span className="mt-1 block text-[11px] text-white/45">
+              {informe && !informe.partido.jugado
+                ? "Aún no se ha jugado: el post se podrá sacar en cuanto haya resultado"
+                : momentoPedido === "previa"
                 ? "Elegido a mano: la previa se puede sacar aunque ya se haya jugado"
+                : momentoPedido === "post"
+                  ? "Post del partido jugado"
                 : informe?.partido.jugado
                   ? "Ya se jugó: sale el post (la previa sigue disponible)"
                   : "Aún no se ha jugado: sale la previa"}

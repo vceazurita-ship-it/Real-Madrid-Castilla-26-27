@@ -35,6 +35,7 @@ const GRUPOS = {
   /* Ronda dirigida y barata (05/11/2026): portada y jugadores sesión hacia el 9,5. */
   foco3: ["/", "/jugadores-sesion"],
   foco4: ["/individual"],
+  informes: ["exportables de /abp-pizarra (PDF general, PowerPoint y PDF de cada jugador, en pizarra/)", "informe de ABP de la semana (/abp-microciclo)", "informe del partido previa y post (/microcycles)"],
   nuevo: ["/comparative_ind", "/scout-rival-individual?vista=visionados", "/data-analisis?area=todos"],
   mejora: ["/individual (ficha → pestaña Área de mejora)", "/data-analisis?area=equipo (mapa «Progresar y pisar área»)"],
 };

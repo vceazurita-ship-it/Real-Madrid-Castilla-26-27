@@ -282,7 +282,18 @@ function tareaPorPasos(
 }
 
 /** Las acciones en las que sale un jugador, en el orden de la charla. */
-export function cometidosDe(
+/** Los cometidos sin el mismo «DESPUÉS» repetido en cada lámina: sólo en la primera (06/11/2026, expertos). */
+export function cometidosDe(tablero: TableroPizarra, playerId: string, players: Map<string, Player>): CometidoAccion[] {
+  const visto = new Set<string>();
+  return cometidosCrudos(tablero, playerId, players).map((a) => {
+    if (!a.despuesDibujado || !a.despues) return a;
+    if (visto.has(a.despues)) return { ...a, despuesDibujado: false };
+    visto.add(a.despues);
+    return a;
+  });
+}
+
+function cometidosCrudos(
   tablero: TableroPizarra,
   playerId: string,
   players: Map<string, Player>,
@@ -729,7 +740,8 @@ function dibujaResumen(ctx: Ctx, cx: Contexto, acciones: CometidoAccion[], total
     /* La sigla, que es lo que busca en la pizarra. */
     const r = Math.min(48, alto * 0.36);
     const discoX = MARGEN + 40 + r;
-    const sigla = accion.puestos.map((p) => p.sigla).join("·") || "★";
+    /* Con más de dos puestos, la sigla en clave no se lee («D3·I1·P3·F3»): el número de lanzamientos. */
+    const sigla = accion.puestos.length > 2 ? `×${accion.puestos.length}` : accion.puestos.map((p) => p.sigla).join("·") || "★";
 
     ctx.fillStyle = C.rosa;
     ctx.beginPath();
@@ -975,8 +987,24 @@ const metros = (cm: number | null) => (cm && cm >= 150 && cm <= 215 ? `${(cm / 1
  * pasos; sin flechas, el titular «Atacas con Carvajal y Óscar»; y si no hay
  * nada de eso, su puesto. Debajo, más pequeño, con quién y para qué.
  */
+/**
+ * Varios puestos en la misma acción (las directas), en palabras (06/11/2026):
+ * salía «Falta lateral d · 2 · penalti · 2 · falta frontal · 2». Ahora
+ * «Tiras: penalti (2.º), falta lateral derecha (2.º) y falta frontal (2.º)».
+ */
+function puestosEnPalabras(puestos: { label: string }[]) {
+  const uno = (label: string) => {
+    const limpio = label.toLocaleLowerCase("es-ES").replace(/\s*·\s*/g, " ").trim();
+    const m = limpio.match(/^(.*?)\s+(\d+)$/);
+    const nombre = (m ? m[1] : limpio).replace(/\bd$/, "derecha").replace(/\bi$/, "izquierda");
+    return m ? `${nombre} (${m[2]}.º)` : nombre;
+  };
+  const partes = puestos.map((p) => uno(p.label));
+  return partes.length > 1 ? `Tiras: ${partes.slice(0, -1).join(", ")} y ${partes[partes.length - 1]}` : mayuscula(partes[0] ?? "");
+}
+
 function titulares(accion: CometidoAccion, suyos: Map<string, SuJugador> | undefined) {
-  const puesto = mayuscula(accion.puestos.map((p) => p.label).join(" · ").toLocaleLowerCase("es-ES"));
+  const puesto = puestosEnPalabras(accion.puestos);
   const con = accion.con.length ? `con ${lista(accion.con)}` : "";
   const para = accion.para ? `para ${minuscula(accion.para)}` : "";
 
@@ -1050,7 +1078,8 @@ function bloqueArriba(ctx: Ctx, accion: CometidoAccion, plan: Pick<PlanAccion, "
 
   /* 2 · Su sigla y su puesto (y quién le vigila), pequeño. */
   if (pinta) {
-    const sigla = accion.puestos.map((p) => p.sigla).join("·") || "★";
+    /* Con más de dos puestos, la sigla en clave no se lee («D3·I1·P3·F3»): el número de lanzamientos. */
+    const sigla = accion.puestos.length > 2 ? `×${accion.puestos.length}` : accion.puestos.map((p) => p.sigla).join("·") || "★";
     const r = 22;
 
     ctx.fillStyle = C.rosa;

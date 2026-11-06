@@ -438,6 +438,7 @@ async function main() {
       foco3: ["experto-futbol", "experto-marketing"],
       foco4: ["experto-futbol", "experto-analisis"],
       nuevo: ["experto-analisis", "experto-marketing"],
+      informes: ["experto-futbol", "experto-analisis", "experto-marketing"],
       mejora: ["experto-futbol", "experto-analisis", "experto-marketing"],
     };
     const solo = valor("grupo")?.split(",");
@@ -447,6 +448,8 @@ async function main() {
       const carpeta = path.join(RAIZ, ".cache", "expertos", "areas", g);
       if (!fs.existsSync(carpeta)) continue;
       const entradas = fs.readdirSync(carpeta).filter((f) => f.endsWith(".txt") || f === "medidas.json").map((f) => path.join(carpeta, f));
+      /* Los exportables (06/11/2026): los PDF de las subcarpetas también van al juez. */
+      for (const sub of fs.readdirSync(carpeta, { recursive: true })) if (/\.pdf$/i.test(String(sub))) entradas.push(path.join(carpeta, String(sub)));
       const rel = path.relative(RAIZ, carpeta).replace(/\\/g, "/");
       for (const nombre of JUECES[g]) {
         trabajos.push(() => agente({

@@ -818,10 +818,17 @@ export async function cargaInforme(entrada: {
       marcado.campo,
     );
 
+    /* Quien no tiene sitio (sin puesto en Plantillas) va en filas ordenadas, no
+       se queda fuera del campo (06/11/2026: la lámina salía con un solo jugador). */
+    const sinSitio = jugadores.filter((j) => !sitios.get(j.clave));
     const conCampo = jugadores.map((j) => {
       const sitio = sitios.get(j.clave);
 
-      return sitio ? { ...j, x: sitio.x, y: 1 - sitio.y } : j;
+      if (sitio) return { ...j, x: sitio.x, y: 1 - sitio.y };
+      const i = sinSitio.indexOf(j);
+      const fila = Math.floor(i / 4);
+      const enFila = Math.min(4, sinSitio.length - fila * 4);
+      return { ...j, x: (i % 4 + 1) / (enFila + 1), y: 0.3 + fila * 0.22 };
     });
 
     once = {
