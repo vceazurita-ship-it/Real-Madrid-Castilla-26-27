@@ -22,7 +22,7 @@
 
 import Link from "next/link";
 import { CalendarDays, ClipboardList, ExternalLink, Loader2, Users } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Dialog } from "@/components/abp/ui";
@@ -32,7 +32,7 @@ import { aplicaPropuesta, propuestaCognitiva } from "@/lib/registro/propuesta";
 import type { RegistroTarea } from "@/lib/abp/registro";
 import { SeguimientoRapido } from "@/components/seguimiento/SeguimientoRapido";
 import { usePlayers } from "@/hooks/usePlayers";
-import { loadRegistro } from "@/lib/abp/registro";
+import { filasPublicadasDelMicro, loadRegistro } from "@/lib/abp/registro";
 import { fechaIsoDeHoja, filasDelMicro, microDeFilas, revisaMicro, type MicroNuevo, type TareaNueva } from "@/lib/registro/hoja";
 
 type Pestana = "sesion" | "seguimiento";
@@ -41,7 +41,7 @@ type Estado =
   | { fase: "cargando" }
   | { fase: "sin-sesion" }
   | { fase: "error"; mensaje: string }
-  | { fase: "lista"; micro: MicroNuevo; numero: number };
+  | { fase: "lista"; micro: MicroNuevo; numero: number; enVivo?: boolean };
 
 const CAMPO_NUM = "w-16 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5 text-center text-sm tabular-nums text-white outline-none focus:border-[#C8A96B]/50";
 
@@ -52,6 +52,8 @@ export function DiaRapido({ fecha, titulo, rotulo, onClose }: { fecha: string; t
   const [guardando, setGuardando] = useState(false);
   /* Las tareas de la hoja: de ellas sale la propuesta de la demanda cognitiva. */
   const [historico, setHistorico] = useState<RegistroTarea[]>([]);
+  /* Si se ha tocado algo con la copia publicada, lo que llega en vivo no lo pisa. */
+  const tocado = useRef(false);
   /* Para «Volver a leer» tras un fallo: el efecto de carga lo lleva en sus dependencias. */
   const [intento, setIntento] = useState(0);
   const { players } = usePlayers();
@@ -87,6 +89,15 @@ export function DiaRapido({ fecha, titulo, rotulo, onClose }: { fecha: string; t
         }
 
         const { micro: numero, temporada, rival } = delDia[0];
+
+        /* Al momento, con la copia publicada (06/11/2026): antes no se veía nada hasta que contestaba el Apps Script. */
+        try {
+          const publicadas = await filasPublicadasDelMicro(numero, temporada);
+          if (vivo && publicadas.length) setEstado({ fase: "lista", numero, micro: microDeFilas(publicadas, { temporada, micro: numero, rival }), enVivo: false });
+        } catch {
+          /* sin copia: se espera a la hoja */
+        }
+
         const r = await fetch("/api/registro", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -96,7 +107,10 @@ export function DiaRapido({ fecha, titulo, rotulo, onClose }: { fecha: string; t
 
         if (!r.ok || !datos.ok || !Array.isArray(datos.filas) || !datos.filas.length) throw new Error(datos.error ?? "La hoja no ha devuelto el microciclo.");
 
-        if (vivo) setEstado({ fase: "lista", numero, micro: microDeFilas(datos.filas, { temporada, micro: numero, rival }) });
+        if (vivo) {
+          const deVerdad = microDeFilas(datos.filas, { temporada, micro: numero, rival });
+          setEstado((previo) => (previo.fase === "lista" && tocado.current ? { ...previo, enVivo: true } : { fase: "lista", numero, micro: deVerdad, enVivo: true }));
+        }
       } catch (error) {
         if (vivo) setEstado({ fase: "error", mensaje: error instanceof Error ? error.message : "No se ha podido leer la hoja." });
       }
@@ -118,6 +132,7 @@ export function DiaRapido({ fecha, titulo, rotulo, onClose }: { fecha: string; t
   );
 
   const cambiaTarea = (indice: number, cambio: Partial<TareaNueva>) => {
+    tocado.current = true;
     if (estado.fase !== "lista") return;
 
     setCambiado(true);
@@ -174,7 +189,8 @@ export function DiaRapido({ fecha, titulo, rotulo, onClose }: { fecha: string; t
         <button
           type="button"
           onClick={guarda}
-          disabled={!cambiado || guardando}
+          disabled={!cambiado || guardando || (estado.fase === "lista" && estado.enVivo === false)}
+          title={estado.fase === "lista" && estado.enVivo === false ? "Comprobando la hoja en vivo antes de guardar…" : undefined}
           className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-[#0B0F14] transition disabled:opacity-50"
           style={{ background: "#C8A96B" }}
         >
@@ -185,6 +201,13 @@ export function DiaRapido({ fecha, titulo, rotulo, onClose }: { fecha: string; t
     ) : undefined;
 
   return (
+    <>
+    {/* Sugerencias: lo que ya se ha escrito en la hoja. */}
+    {(["contenidoPrincipal", "contenidoSecundario", "fase"] as const).map((campo) => (
+      <datalist key={campo} id={campo === "contenidoPrincipal" ? "dr-cp" : campo === "contenidoSecundario" ? "dr-cs" : "dr-fase"}>
+        {[...new Set(historico.map((h) => String(h[campo] ?? "").trim()).filter(Boolean))].sort().map((v) => <option key={v} value={v} />)}
+      </datalist>
+    ))}
     <Dialog title={titulo} subtitle={`${rotulo}${estado.fase === "lista" ? ` · microciclo ${estado.numero}` : ""}`} onClose={onClose} footer={pie} sinGuardar={cambiado}>
       <div className="mb-4 flex gap-1 rounded-xl border border-white/10 p-1 text-sm" role="tablist">
         {(
@@ -273,6 +296,19 @@ export function DiaRapido({ fecha, titulo, rotulo, onClose }: { fecha: string; t
                     <input type="number" inputMode="numeric" min={0} max={10} value={t.intensidad || ""} onChange={(e) => cambiaTarea(i, { intensidad: Math.min(10, Math.max(0, Math.round(Number(e.target.value) || 0))) })} className={CAMPO_NUM} />
                   </label>
                 </div>
+                {/* Contenidos y fase, editables (06/11/2026), con lo ya usado en la hoja como sugerencia. */}
+                <div className="mt-2.5 grid gap-2 sm:grid-cols-3">
+                  {([
+                    ["contenidoPrincipal", "Contenido principal", "dr-cp"],
+                    ["contenidoSecundario", "Contenido secundario", "dr-cs"],
+                    ["fase", "Fase del juego", "dr-fase"],
+                  ] as const).map(([campo, rotulo, lista]) => (
+                    <label key={campo} className="block text-[11px] uppercase tracking-[0.12em] text-white/50">
+                      {rotulo}
+                      <input list={lista} value={String(t[campo] ?? "")} onChange={(e) => cambiaTarea(i, { [campo]: e.target.value } as Partial<TareaNueva>)} className="mt-1 w-full rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5 text-[13px] normal-case tracking-normal text-white outline-none focus:border-[#C8A96B]/60" />
+                    </label>
+                  ))}
+                </div>
                 <div className="mt-2.5">
                   <CamposCognitivos tarea={t} propuesta={propuestas[i] ?? null} onCambia={(cambio) => cambiaTarea(i, cambio)} />
                 </div>
@@ -285,5 +321,6 @@ export function DiaRapido({ fecha, titulo, rotulo, onClose }: { fecha: string; t
         </div>
       )}
     </Dialog>
+    </>
   );
 }

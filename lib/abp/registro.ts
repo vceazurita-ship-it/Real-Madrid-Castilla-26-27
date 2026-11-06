@@ -181,6 +181,24 @@ async function bajaRegistro(): Promise<string> {
   throw ultimo instanceof Error ? ultimo : new Error("No se pudo leer el registro de tareas");
 }
 
+/**
+ * Las filas de un microciclo desde la copia publicada (06/11/2026): rápida, con
+ * las mismas cabeceras que la hoja. La portada las enseña al momento mientras
+ * llegan las de verdad por el Apps Script (30-70 s en frío).
+ */
+export async function filasPublicadasDelMicro(micro: number | string, temporada: string): Promise<Record<string, unknown>[]> {
+  const filas = Papa.parse<string[]>(await bajaRegistro(), { header: false, skipEmptyLines: true }).data;
+  const i = filas.findIndex((f) => norm(f?.[0]) === "temporada");
+  if (i < 0) return [];
+  const cab = filas[i].map((v) => String(v ?? "").trim());
+  const iT = indiceDe(cab, "temporada");
+  const iM = indiceDe(cab, "micro");
+  return filas
+    .slice(i + 1)
+    .filter((f) => String(f[iM] ?? "").trim() === String(micro).trim() && (!temporada || String(f[iT] ?? "").trim() === String(temporada).trim()))
+    .map((f) => Object.fromEntries(cab.map((c, k) => [c, f[k] ?? ""])));
+}
+
 export async function loadRegistro(): Promise<RegistroDataset> {
   const parsed = Papa.parse<string[]>(await bajaRegistro(), {
     header: false,
