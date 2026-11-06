@@ -5833,14 +5833,14 @@ export function pinceladaAbp(informe: InformeMicro): PinceladaAbp {
   */
   const ob = informe.objetivo;
   const objetivo = `${ob.minimo}-${ob.maximo}′`;
-  const diferencia = minutos > ob.maximo ? `, ${minutos - ob.maximo}′ más` : minutos < ob.minimo ? `, faltan ${ob.minimo - minutos}′` : ", dentro";
   const enDias = ob.diasEntreno ? `en ${ob.diasEntreno} día${ob.diasEntreno === 1 ? "" : "s"}; ` : "";
   const fuenteObjetivo =
     ob.diasEntreno && ob.diasEntreno < OBJETIVO_ABP.dias
       ? ` (${OBJETIVO_ABP.minimo}-${OBJETIVO_ABP.maximo}′ en una semana de ${OBJETIVO_ABP.dias})`
       : " (referencia del cuerpo técnico)";
 
-  const pieMinutos = `${enDias}lo previsto eran ${objetivo}${diferencia}${fuenteObjetivo}`;
+  /* Más corto (tercera ronda): «en 4 días · previsto 60-67′ (90-100′ en una semana de 6)». */
+  const pieMinutos = `${enDias.replace(/; $/, "")}${enDias ? " · " : ""}previsto ${objetivo}${fuenteObjetivo}`;
 
   const tareas = informe.valoracion.valoradas
     ? [

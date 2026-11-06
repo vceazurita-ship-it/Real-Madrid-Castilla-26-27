@@ -730,6 +730,8 @@ export type PinceladaAbp = {
   xgTemporada?: { favor: number; contra: number; partidos: number } | null;
   /** Previa: la prioridad nº 1 del informe de ABP, tal cual (24/10/2026): la previa del partido dice lo mismo. */
   prioridad?: { consigna: string; texto: string } | null;
+  /** Previa: las líneas del WhatsApp del informe de ABP; la que empieza por «Saca» es nuestra rutina de ataque. */
+  whatsapp?: string[];
 };
 
 /**
@@ -2300,7 +2302,7 @@ export function defensorDebil(inf: Pick<InformePartido, "colectivo" | "once">) {
   const nombrado = delDano ?? defensas.find((j) => plano(j.nombre).some((t) => t.length >= 4 && tokens.has(t)));
 
   /* Si «Dónde hacerles daño» señala a otros (no a un defensor), no se elige aquí un tercero: el titular y la idea saldrían con otro nombre. */
-  if (!nombrado && tokensDano.size > 0) return null;
+  if (tokensDano.size > 0 && !delDano) return null;
 
   /* Su rematador por arriba no es «el flojo» aunque la ficha le ponga pegas: es su peligro. */
   const peligroArriba = (j: JugadorRival) => j.rasgos.some((r) => /rematador|a[eé]re|cabeza/i.test(r));
@@ -2604,7 +2606,16 @@ export function planPorFases(inf: Omit<InformePartido, "sintesis">): { fase: str
   /* El scouting puede llamar «fortaleza» a un balón parado que en los datos rinde poco: se dice (24/10/2026, experto de análisis). */
   const flojo = abpDelRivalFlojo(d);
 
-  if (prioridadAbp && ES_CONSIGNA.test(prioridadAbp)) {
+  /*
+  | La línea de balón parado del plan va bajo «Sacamos más de nuestro balón
+  | parado»: es NUESTRO ataque (segunda ronda de jueces: salía «Marcamos a
+  | Rentero», que es defender). Si el informe de ABP trae la rutina, manda.
+  */
+  const nuestraRutina = inf.momento === "post" ? "" : (inf.abp?.pincelada?.whatsapp ?? []).find((l) => /^Saca /.test(l)) ?? "";
+
+  if (nuestraRutina) {
+    lineas.push({ fase: "Balón parado", texto: primeraQueQuepa(nuestraRutina, nuestraRutina.split(";")[0]) });
+  } else if (prioridadAbp && ES_CONSIGNA.test(prioridadAbp)) {
     const quienes = rematadores.length ? apellidos(rematadores.map((j) => j.nombre)) : "";
 
     lineas.push({ fase: "Balón parado", texto: primeraQueQuepa(quienes ? `${prioridadAbp}; marcamos a ${quienes}` : "", prioridadAbp) });

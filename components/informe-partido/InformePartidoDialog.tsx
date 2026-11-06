@@ -295,7 +295,8 @@ export function InformePartidoDialog({
       .then(([lista, calendario]) => {
         if (cancelado) return;
 
-        setMicros(lista);
+        /* Las semanas sin partido («No competición») no tienen informe de partido. */
+        setMicros(lista.filter((m) => !/no\s+competici/i.test(m.rival)));
 
         const hoy = new Date().toISOString().slice(0, 10);
         const sig = [...(calendario ?? [])].sort((a, b) => a.cuando.localeCompare(b.cuando)).find((p) => p.cuando && p.cuando.slice(0, 10) >= hoy);
@@ -2093,7 +2094,8 @@ export function InformePartidoDialog({
             </span>
           </div>
 
-          <div className="min-w-0 flex-1 basis-[280px]">
+          {/* Los correos en minúscula al pintarlos (como en el de ABP): el valor no cambia. */}
+          <div className="min-w-0 flex-1 basis-[280px] [&_span.rounded-md]:lowercase">
             <Destinatarios
               label="A quién se le manda (los dos)"
               canal={canal}

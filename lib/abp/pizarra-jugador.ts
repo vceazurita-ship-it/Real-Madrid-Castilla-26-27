@@ -875,7 +875,9 @@ function dibujaResumen(ctx: Ctx, cx: Contexto, acciones: CometidoAccion[], total
     const r = Math.min(48, alto * 0.36);
     const discoX = MARGEN + 40 + r;
     /* Con más de dos puestos, la sigla en clave no se lee («D3·I1·P3·F3»): el número de lanzamientos. */
-    const sigla = accion.puestos.length > 2 ? `×${accion.puestos.length}` : accion.puestos.map((p) => p.sigla).join("·") || "★";
+    /* Si todas las filas llevan la misma sigla (el portero: «POR» cinco veces), el número de la acción. */
+    const todasIguales = acciones.length > 1 && acciones.every((a) => a.puestos.map((p) => p.sigla).join() === accion.puestos.map((p) => p.sigla).join());
+    const sigla = todasIguales ? String(orden + 1) : accion.puestos.length > 2 ? `×${accion.puestos.length}` : accion.puestos.map((p) => p.sigla).join("·") || "★";
 
     ctx.fillStyle = C.rosa;
     ctx.beginPath();

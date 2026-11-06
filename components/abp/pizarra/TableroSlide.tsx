@@ -1893,7 +1893,13 @@ export function TableroSlide({
   /* Las siglas que se ven en el campo (las de los puestos con alguien), con lo que significan. */
   const conGente = new Set(slide.fichas.map((ficha) => ficha.puesto).filter(Boolean) as string[]);
   const leyenda = leyendaSiglas(puestos.filter((puesto) => conGente.has(puesto.key)));
-  const significadoDe = new Map(leyenda.map((una) => [una.sigla.toUpperCase(), una.significado]));
+  /* Lo que es cada puesto, por su propio rótulo (no por la sigla: «E» puede ser «Ejecutor» o «Equilibra»). Si repite la sigla o el grupo, nada. */
+  const significadoPuesto = (puesto: { label?: string; sigla?: string; code: string }, grupo: string) => {
+    const label = String(puesto.label ?? "").replace(/s*·s*d+$/, "").trim();
+    const plano = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+
+    return !label || plano(label) === plano(grupo) || plano(label) === plano(siglaDe(puesto)) ? "" : label;
+  };
 
   const maqueta = maquetaDe(conPanel, franja, soloVer ? cajaDeJugada(slide) : null);
 
@@ -2717,9 +2723,9 @@ export function TableroSlide({
                             | de jueces): la leyenda de abajo no cabía en las láminas
                             | cargadas y BZ, BC o RL salían sin explicar. Sólo en lo exportado.
                             */}
-                            {soloVer && player && significadoDe.get(siglaDe(puesto).toUpperCase()) && (
-                              <span className="max-w-[46%] shrink-0 truncate text-[15px] font-medium normal-case text-white/60">
-                                {significadoDe.get(siglaDe(puesto).toUpperCase())}
+                            {soloVer && player && significadoPuesto(puesto, grupo.label) && (
+                              <span className="max-w-[48%] shrink-0 text-right text-[14px] font-medium normal-case leading-tight text-white/60">
+                                {significadoPuesto(puesto, grupo.label)}
                               </span>
                             )}
 

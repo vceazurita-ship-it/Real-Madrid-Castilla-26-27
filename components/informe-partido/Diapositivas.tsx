@@ -1180,6 +1180,8 @@ function PanelDuelos({ inf, post }: { inf: InformePartido; post: boolean }) {
 
   return (
     <Panel titulo={post ? "LOS DUELOS QUE PLANTEAMOS" : "LOS DUELOS"}>
+      {/* Cómo se lee, bajo el título (segunda ronda de jueces): antes sólo en el pie. */}
+      <div style={{ marginTop: -4, marginBottom: 10, fontSize: 15, color: C.tenue }}>Cada cruce: nuestro percentil – el suyo (de 0 a 100) · la cifra grande, la ventaja media: por encima de 0, nuestra</div>
       {atacar.length ? (
         <>
           <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: "0.18em", color: C.bien, marginBottom: 8 }}>
@@ -1214,8 +1216,10 @@ function PanelDuelos({ inf, post }: { inf: InformePartido; post: boolean }) {
 /** Las siglas de las métricas en palabras (segunda ronda de jueces): «Goles − xG» no se lee en una charla. */
 const enPalabras = (nombre: string) =>
   nombre
-    .replace(/^Goles\s*[−-]\s*xG$/i, "Goles marcados menos esperados")
-    .replace(/\bxG\b/g, "goles esperados");
+    .replace(/^Goles\s*[−-]\s*xG$/i, "Goles respecto a lo esperado")
+    .replace(/\bxG\b/g, "goles esperados")
+    /* «Centros precisos % 28,9 %»: el % ya va en la cifra. */
+    .replace(/\s*%$/, "");
 
 function PanelVistazo({ inf }: { inf: InformePartido }) {
   const v = inf.vistazo;
