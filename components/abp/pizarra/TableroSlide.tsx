@@ -2747,7 +2747,8 @@ export function TableroSlide({
                 aria-hidden={!cabeLeyenda}
                 style={{ height: cabeLeyenda ? undefined : 0, overflow: "hidden", visibility: cabeLeyenda ? undefined : "hidden" }}
               >
-                <div ref={leyendaRef} className="mt-3.5 border-t pt-3" style={{ borderColor: "rgba(200,169,107,.25)" }}>
+                {/* Más compacta (06/11/2026): con siete chapas no cabía y la lámina salía sin explicar sus siglas. */}
+                <div ref={leyendaRef} className="mt-2.5 border-t pt-2" style={{ borderColor: "rgba(200,169,107,.25)" }}>
                   <p
                     className="mb-2 text-[13px] font-semibold uppercase leading-none tracking-[0.26em]"
                     style={{ color: COLORES.oro }}
@@ -2755,9 +2756,9 @@ export function TableroSlide({
                     Siglas
                   </p>
 
-                  <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                  <div className="flex flex-wrap gap-x-3 gap-y-1">
                     {leyenda.map((una) => (
-                      <span key={una.sigla} className="text-[16px] leading-tight text-white/75">
+                      <span key={una.sigla} className="text-[14px] leading-tight text-white/75">
                         <b className="mr-1.5 font-bold" style={{ color: COLORES.oroClaro }}>
                           {una.sigla}
                         </b>

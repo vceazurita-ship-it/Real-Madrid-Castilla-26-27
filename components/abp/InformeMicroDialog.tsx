@@ -776,15 +776,18 @@ export function InformeMicroDialog({
   */
   const [modoElegido, setModoElegido] = useState<ModoInforme | null>(() => incrustado?.modo ?? null);
 
+  /* Sin partido jugado ni acciones en las hojas no hay post (06/11/2026, expertos): salía vacío. */
+  const sinPost = !datos.partidoCalendario?.jugado && accionesPartido.length === 0 && acciones !== null;
+
   const modo = useMemo<ModoInforme>(
     () =>
-      modoElegido ??
+      (sinPost && modoElegido === "post" ? "previa" : modoElegido) ??
       modoSugerido({
         fecha: fechaDelPartido(datos),
         jugado: datos.partidoCalendario?.jugado,
         hayAcciones: accionesPartido.length > 0,
       }),
-    [modoElegido, datos, accionesPartido],
+    [modoElegido, datos, accionesPartido, sinPost],
   );
 
   /*
@@ -1544,8 +1547,10 @@ export function InformeMicroDialog({
                 key={opcion.valor}
                 type="button"
                 onClick={() => setModoElegido(opcion.valor)}
+                disabled={opcion.valor === "post" && sinPost}
+                title={opcion.valor === "post" && sinPost ? "Se podrá sacar tras el partido, cuando haya acciones en las hojas de ABP" : undefined}
                 aria-pressed={modo === opcion.valor}
-                className={`rounded-lg px-3 py-1.5 text-[11px] transition ${
+                className={`rounded-lg px-3 py-1.5 text-[11px] transition disabled:cursor-not-allowed disabled:opacity-40 ${
                   modo === opcion.valor
                     ? "bg-[#C8A96B]/15 text-[#C8A96B]"
                     : "text-white/50 hover:text-white"

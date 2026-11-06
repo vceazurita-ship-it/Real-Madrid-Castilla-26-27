@@ -106,7 +106,7 @@ const esLectura = (url, metodo, cuerpo) =>
     const hay = await hasta(`[...document.querySelectorAll("button")].some((b) => !b.disabled && b.innerText.includes(${JSON.stringify(boton)}))`, 150);
     console.log(ruta, "botón:", hay);
     if (!hay) continue;
-    await pulsa(boton); await espera(15000);
+    await pulsa(boton); await espera(30000);
     for (const p of pestanas) {
       console.log("  pestaña", p, await pulsa(p, true));
       await espera(15000);

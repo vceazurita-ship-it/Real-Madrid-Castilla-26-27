@@ -1519,7 +1519,14 @@ const tareasDeLinea = (inf: InformePartido, texto: string) =>
 | Lo que no cuelga de ninguna clave queda en el informe completo.
 */
 function ClavesConTareas({ inf }: { inf: InformePartido }) {
-  const delPlan = (inf.plan?.claves ?? []).slice(0, 3);
+  /* Una clave por fase (06/11/2026, expertos): dos claves de «Con balón» pintaban
+     el mismo bloque dos veces, con las mismas cifras y tareas. */
+  const delPlan = (inf.plan?.claves ?? [])
+    .filter((clave, i, todas) => {
+      const fase = FASES_PLAN.find((f) => claveDeFase([clave], f) === 1) ?? clave;
+      return todas.findIndex((otra) => (FASES_PLAN.find((f) => claveDeFase([otra], f) === 1) ?? otra) === fase) === i;
+    })
+    .slice(0, 3);
 
   const principal = inf.sintesis.consigna[0] ?? "";
 
