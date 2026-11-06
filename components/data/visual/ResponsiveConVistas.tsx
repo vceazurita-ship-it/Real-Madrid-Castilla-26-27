@@ -52,6 +52,9 @@ const TIPOS = [
 type Tipo = (typeof TIPOS)[number]["clave"];
 
 const fmt = (v: unknown) => (typeof v === "number" ? (Number.isInteger(v) ? String(v) : v.toFixed(2).replace(".", ",")) : String(v ?? ""));
+/* Los nombres internos de las series, en castellano (06/11/2026): salían «name» y «total». */
+const ROTULOS: Record<string, string> = { name: "", label: "", nombre: "", value: "Valor", valor: "Valor", total: "Total", count: "Cantidad", cantidad: "Cantidad", pct: "%", porcentaje: "%", media: "Media", rating: "Nota", nota: "Nota", minutes: "Minutos", goals: "Goles", assists: "Asistencias" };
+const rotulo = (k: string) => (k in ROTULOS ? ROTULOS[k] : k.charAt(0).toUpperCase() + k.slice(1));
 const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
 
 export function ResponsiveConVistas({ children, width = "100%", height = "100%", ...resto }: { children?: ReactNode; width?: number | `${number}%`; height?: number | `${number}%`; [k: string]: unknown }) {
@@ -133,7 +136,7 @@ export function ResponsiveConVistas({ children, width = "100%", height = "100%",
               <Tooltip />
               {numericas.length > 1 && <Legend wrapperStyle={{ fontSize: 11 }} />}
               {numericas.map((k, i) => (
-                <Bar key={k} dataKey={k} fill={COLORES[i % COLORES.length]} radius={[3, 3, 0, 0]} />
+                <Bar key={k} dataKey={k} name={rotulo(k)} fill={COLORES[i % COLORES.length]} radius={[3, 3, 0, 0]} />
               ))}
             </BarChart>
           ) : (
@@ -144,7 +147,7 @@ export function ResponsiveConVistas({ children, width = "100%", height = "100%",
               <Tooltip />
               {numericas.length > 1 && <Legend wrapperStyle={{ fontSize: 11 }} />}
               {numericas.map((k, i) => (
-                <Line key={k} dataKey={k} stroke={COLORES[i % COLORES.length]} strokeWidth={2} dot={{ r: 3 }} />
+                <Line key={k} dataKey={k} name={rotulo(k)} stroke={COLORES[i % COLORES.length]} strokeWidth={2} dot={{ r: 3 }} />
               ))}
             </LineChart>
           )}
@@ -156,9 +159,9 @@ export function ResponsiveConVistas({ children, width = "100%", height = "100%",
           <table className="w-full text-[12px]">
             <thead className="text-left text-[rgb(var(--rmcf-ink-rgb)/0.55)]">
               <tr>
-                {etiqueta && <th className="px-2 py-1 font-medium">{etiqueta}</th>}
+                {etiqueta && <th className="px-2 py-1 font-medium">{rotulo(etiqueta)}</th>}
                 {numericas.map((k) => (
-                  <th key={k} className="px-2 py-1 text-right font-medium">{k}</th>
+                  <th key={k} className="px-2 py-1 text-right font-medium">{rotulo(k)}</th>
                 ))}
               </tr>
             </thead>
@@ -183,7 +186,7 @@ export function ResponsiveConVistas({ children, width = "100%", height = "100%",
         const max = Math.max(...filas.map((f) => Math.abs(f.v)), 1);
         return (
           <div className="h-full overflow-auto pt-7 pr-1">
-            <p className="mb-1 text-[11px] text-[rgb(var(--rmcf-ink-rgb)/0.55)]">{k}, de más a menos</p>
+            <p className="mb-1 text-[11px] text-[rgb(var(--rmcf-ink-rgb)/0.55)]">{rotulo(k)}, de más a menos</p>
             <ul className="space-y-1">
               {filas.map((f, i) => (
                 <li key={i} className="flex items-center gap-2 text-[12px]">
@@ -208,8 +211,8 @@ export function ResponsiveConVistas({ children, width = "100%", height = "100%",
             <table className="w-full border-separate border-spacing-0.5 text-[12px]">
               <thead className="text-[rgb(var(--rmcf-ink-rgb)/0.55)]">
                 <tr>
-                  {etiqueta && <th className="px-2 py-1 text-left font-medium">{etiqueta}</th>}
-                  {numericas.map((k) => <th key={k} className="px-2 py-1 font-medium">{k}</th>)}
+                  {etiqueta && <th className="px-2 py-1 text-left font-medium">{rotulo(etiqueta)}</th>}
+                  {numericas.map((k) => <th key={k} className="px-2 py-1 font-medium">{rotulo(k)}</th>)}
                 </tr>
               </thead>
               <tbody>
@@ -244,15 +247,15 @@ export function ResponsiveConVistas({ children, width = "100%", height = "100%",
         return (
           <div className="h-full overflow-auto pt-7 pr-1">
             <p className="mb-1 flex gap-3 text-[11px] text-[rgb(var(--rmcf-ink-rgb)/0.60)]">
-              <span><span style={{ color: COLORES[0] }}>●</span> {k1}</span>
-              <span><span style={{ color: COLORES[1] }}>●</span> {k2}</span>
+              <span><span style={{ color: COLORES[0] }}>●</span> {rotulo(k1)}</span>
+              <span><span style={{ color: COLORES[1] }}>●</span> {rotulo(k2)}</span>
             </p>
             <ul className="space-y-1.5">
               {datos.map((f, i) => {
                 const a = pos(num(f[k1]));
                 const b = pos(num(f[k2]));
                 return (
-                  <li key={i} className="flex items-center gap-2 text-[12px]" title={`${k1} ${fmt(f[k1])} · ${k2} ${fmt(f[k2])}`}>
+                  <li key={i} className="flex items-center gap-2 text-[12px]" title={`${rotulo(k1)} ${fmt(f[k1])} · ${rotulo(k2)} ${fmt(f[k2])}`}>
                     <span className="w-28 shrink-0 truncate text-[rgb(var(--rmcf-ink-rgb)/0.80)]">{nombreDe(f, i)}</span>
                     <span className="relative h-3 flex-1">
                       <span className="absolute top-1/2 h-0.5 -translate-y-1/2 bg-white/30" style={{ left: `${Math.min(a, b)}%`, width: `${Math.abs(a - b)}%` }} />
