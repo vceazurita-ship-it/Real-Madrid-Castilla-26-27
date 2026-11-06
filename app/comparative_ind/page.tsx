@@ -305,37 +305,38 @@ export default function ComparativaCategoria() {
 
   /* Lectura de dos o tres frases que se calcula sola con lo que hay en la tabla. */
   const lectura = useMemo(() => {
-    const frases: string[] = [];
+    const frases: { titulo: string; texto: string; tono: "bien" | "mal" | "ojo" }[] = [];
     /* La lectura sólo nombra a quien está en nuestra plantilla. */
     const propios = comparables.filter((x) => x.ficha);
     const nombre = (x: (typeof comparables)[number]) => x.ficha?.nombre || x.f.jugador.jugador;
 
     const primeros = propios.filter((x) => x.f.ranking?.posicion === 1 && x.f.ranking.de > 1);
     if (primeros.length)
-      frases.push(`Primeros de su puesto: ${primeros.map(nombre).join(", ")}.`);
+      frases.push({ titulo: "Los mejores de su puesto", texto: `${primeros.map(nombre).join(", ")}: primeros de su puesto en la referencia elegida.`, tono: "bien" });
 
     const baja = propios
       .filter((x) => x.f.evolucion?.fiable && x.f.evolucion.salto < -2)
       .sort((a, b) => (a.f.evolucion?.salto ?? 0) - (b.f.evolucion?.salto ?? 0))[0];
     if (baja?.f.evolucion)
-      frases.push(`Quien más baja respecto a 25/26: ${nombre(baja)} (${baja.f.evolucion.salto} puntos de índice).`);
+      frases.push({ titulo: `Baja respecto a 25/26: ${nombre(baja)}`, texto: `${baja.f.evolucion.salto} puntos de índice frente a la temporada pasada. Revisar con él qué ha cambiado: puesto, minutos o rol.`, tono: "mal" });
 
     /* 30/10/2026: todos los desajustes (antes sólo el primero) y qué hacer con cada uno. */
     const desajustes = propios.filter(
-      (x) => x.nota && x.nota.played >= 3 && ((x.nota.avg >= 7 && (x.f.indice ?? 0) < 50) || (x.nota.avg < 6 && (x.f.indice ?? 0) >= 60)),
+      /* Con menos de ${MUESTRA_CORTA}′ en Wyscout no se saca lectura: sería tendencia. */
+      (x) => x.f.jugador.minutos >= MUESTRA_CORTA && x.nota && x.nota.played >= 3 && ((x.nota.avg >= 7 && (x.f.indice ?? 0) < 50) || (x.nota.avg < 6 && (x.f.indice ?? 0) >= 60)),
     );
     for (const d of desajustes.slice(0, 3)) {
       if (!d.nota) continue;
       const notaAlta = d.nota.avg >= 7;
-      frases.push(
-        `${nombre(d)}: ${d.nota.avg.toFixed(1).replace(".", ",")} de nota de partido y ${d.f.indice} de índice${
+      frases.push({ titulo: `Nota y números no coinciden: ${nombre(d)}`, tono: "ojo", texto:
+        `${d.nota.avg.toFixed(1).replace(".", ",")} de nota de partido y ${d.f.indice} de índice${
           d.f.ranking ? ` (${textoRanking(d.f.ranking)})` : ""
         }; ${
           notaAlta
             ? "nuestra nota le ve mejor que sus números en Wyscout: revisar en vídeo qué valoramos que esas métricas no recogen."
             : "sus números le ven mejor que nuestra nota: revisar qué le pedimos que no está haciendo."
         }`,
-      );
+      });
     }
 
     return frases;
@@ -505,13 +506,18 @@ export default function ComparativaCategoria() {
                     </div>
 
                     {lectura.length > 0 && (
-                      <p className="mt-5 rounded-2xl border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-4 py-3 text-sm leading-relaxed text-white/80">
-                        {lectura.join(" ")}
-                      </p>
+                      <div className="mt-5 grid gap-3 md:grid-cols-3">
+                        {lectura.map((l) => (
+                          <div key={l.titulo} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4" style={{ borderTop: `3px solid ${l.tono === "bien" ? "#1B9E77" : l.tono === "mal" ? "#D95F02" : "#C8A96B"}` }}>
+                            <p className="text-sm font-semibold text-white">{l.titulo}</p>
+                            <p className="mt-1 text-[13px] leading-relaxed text-white/75">{l.texto}</p>
+                          </div>
+                        ))}
+                      </div>
                     )}
 
                     <p className="mt-5 text-xs text-white/40">Pincha en una columna para ordenar y en un jugador para abrir su ficha. El índice va de 0 a 100 (50 es la media del grupo de comparación); los minutos son los de Wyscout en la liga, así que pueden diferir de los minutos con nota de Valoraciones; el ranking compara con los jugadores de su puesto.</p>
-                    <div className="mt-2 overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02]">
+                    <div className="mt-2 overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02] pr-14">
                       <table className="w-full text-sm sm:min-w-[860px]">
                         <thead>
                           <tr className="text-left text-[11px] uppercase tracking-wider text-white/40">
@@ -561,7 +567,7 @@ export default function ComparativaCategoria() {
                                 }
                               }}
                               aria-label={`Abrir la ficha de ${ficha?.nombre ?? f.jugador.jugador}`}
-                              className={`cursor-pointer border-t border-white/[0.06] transition hover:bg-white/[0.04] focus-visible:bg-white/[0.06] focus-visible:outline-none ${f.jugador.minutos < MUESTRA_CORTA ? "opacity-60" : ""}`}
+                              className={`cursor-pointer border-t border-white/[0.06] transition hover:bg-white/[0.04] focus-visible:bg-white/[0.06] focus-visible:outline-none ${f.jugador.minutos < MUESTRA_CORTA ? "italic" : ""}`}
                             >
                               <td className="sticky left-0 z-[1] bg-[#0F141B] px-4 py-2.5">
                                 <div className="flex items-center gap-2.5">

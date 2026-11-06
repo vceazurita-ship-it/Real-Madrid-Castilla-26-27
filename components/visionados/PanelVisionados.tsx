@@ -131,6 +131,8 @@ export function PanelVisionados() {
             </section>
           )}
 
+          {/* Sin ningún visionado, los filtros sobran (06/11/2026). */}
+          {(todos ?? []).length > 0 && (
           <div className="flex flex-wrap gap-2">
             {PERIODOS.map((p) => (
               <button key={p.clave} type="button" onClick={() => setPeriodo(p.clave)} className={`rounded-full border px-3 py-1 text-[13px] ${periodo === p.clave ? "border-[#C8A96B] bg-[#C8A96B]/15 font-semibold text-[#C8A96B]" : "border-white/10 text-white/70"}`}>
@@ -144,6 +146,7 @@ export function PanelVisionados() {
               </select>
             )}
           </div>
+          )}
 
           {todos === null ? (
             <div className="h-40 animate-pulse rounded-2xl border border-white/10 bg-white/[0.03]" aria-label="Cargando" />

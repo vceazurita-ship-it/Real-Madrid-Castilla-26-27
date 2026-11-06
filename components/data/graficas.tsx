@@ -373,11 +373,28 @@ function BarrasEquiposBase({
 
   const tope = Math.max(...orden.map((f) => Math.abs(f.valor)), 1);
 
+  /* La mediana y el sitio del destacado, encima (06/11/2026): la lista sola no lo decía. */
+  const n = orden.length;
+  const vals = orden.map((f) => f.valor).sort((a, b) => a - b);
+  const med = n ? (n % 2 ? vals[(n - 1) / 2] : (vals[n / 2 - 1] + vals[n / 2]) / 2) : 0;
+  const iNuestro = orden.findIndex((f) => f.equipo === destacado);
+  const pDe = (i: number) => (n > 1 ? Math.round((100 * (n - 1 - i)) / (n - 1)) : 50);
+
   return (
     <div className="min-w-0 space-y-1">
+      {n > 0 && (
+        <p className="mb-2 flex flex-wrap gap-x-3 text-[12px] text-white/60">
+          <span>Mediana de los {n}: <b className="text-white/85">{formatea(med, unidad)}</b></span>
+          {iNuestro >= 0 && <span><b style={{ color: ORO }}>{destacado}</b>: {iNuestro + 1}º de {n}{mejorAlto === null ? "" : ` (P${pDe(iNuestro)})`}</span>}
+          {mejorAlto !== null && <span>Color: <span style={{ color: MEJOR }}>P60 o más</span> · en la media · <span style={{ color: PEOR }}>P40 o menos</span></span>}
+        </p>
+      )}
       {orden.map((fila, indice) => {
         const esNuestro = fila.equipo === destacado;
         const esOtro = !!comparado && fila.equipo === comparado;
+        /* El color que promete la leyenda de percentiles (06/11/2026): antes todas grises. */
+        const p = pDe(indice);
+        const deFondo = mejorAlto === null ? tinta(0.28) : p >= 60 ? `${MEJOR}B3` : p <= 40 ? `${PEOR}B3` : tinta(0.32);
 
         return (
           <button
@@ -420,7 +437,7 @@ function BarrasEquiposBase({
                 className="block h-3 rounded-[3px]"
                 style={{
                   width: `${Math.max(2, (Math.abs(fila.valor) / tope) * 100)}%`,
-                  background: esNuestro ? ORO : esOtro ? COMPARADO : tinta(0.28),
+                  background: esNuestro ? ORO : esOtro ? COMPARADO : deFondo,
                 }}
               />
             </span>

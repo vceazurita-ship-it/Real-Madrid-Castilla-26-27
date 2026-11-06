@@ -35,7 +35,7 @@ type Doc = { actualizado: string; fuente?: "api" | "paginas"; clips: Clip[]; lis
 const hoy = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Madrid" });
 
 const AVISO_CUOTA =
-  "YouTube ha agotado por hoy la cuota de consultas de la cuenta del club (la gastan las subidas de vídeo). Se renueva a las 09:00 y la foto del día se hace sola en cuanto haya cuota.";
+  "Las cifras de YouTube llegan a partir de las 09:00.";
 
 function enCastellano(mensaje: string) {
   if (/quota/i.test(mensaje)) return AVISO_CUOTA;

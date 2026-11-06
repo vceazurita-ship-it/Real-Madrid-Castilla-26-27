@@ -122,7 +122,7 @@ export function BloqueYoutube() {
       <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
         <h2 className="flex items-center gap-2 text-lg font-bold"><PlayCircle size={17} className="text-[#C8A96B]" /> En el canal de YouTube</h2>
         <p className="mt-1 text-[14px] text-white/75">
-          Aquí saldrán las vistas de cada clip desde la jornada 1: por rival y jornada, por puesto y por jugador, los más vistos y lo que se ha visto tras cada partido.
+          Vistas de cada clip desde la jornada 1, por rival, puesto y jugador.
         </p>
         <p className="mt-2 text-[12px] text-white/55">{resp.aviso ?? "El canal no tiene clips en listas."}</p>
       </section>

@@ -3896,6 +3896,9 @@ function SelectorMetrica({
       poder elegir los centros laterales. */
   soloFase?: Fase;
 }) {
+  /* Buscador (06/11/2026): con unas 70 métricas, la lista sola no se recorre. */
+  const [busca, setBusca] = useState("");
+  const casa = (nombre: string) => !busca.trim() || nombre.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").includes(busca.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim());
   return (
     <label className="flex items-center gap-1.5">
       {rotulo && (
@@ -3904,16 +3907,29 @@ function SelectorMetrica({
         </span>
       )}
 
+      <input
+        value={busca}
+        onChange={(e) => {
+          setBusca(e.target.value);
+          /* Si sólo queda una, se elige sola. */
+          const quedan = METRICAS.filter((m) => (!soloFase || m.fase === soloFase) && m.nombre.toLowerCase().includes(e.target.value.toLowerCase().trim()));
+          if (e.target.value.trim() && quedan.length === 1) onCambio(quedan[0].key);
+        }}
+        placeholder="Buscar…"
+        aria-label={`Buscar métrica${rotulo ? ` (${rotulo})` : ""}`}
+        className="w-20 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5 text-xs text-white outline-none placeholder:text-white/35 focus:w-32 focus:border-[#C8A96B]/50"
+      />
+
       <select
         value={valor}
         onChange={(e) => onCambio(e.target.value)}
         aria-label={rotulo ?? "Métrica"}
         className="rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-xs text-white outline-none transition focus:border-[#C8A96B]/50"
       >
-        {GRUPOS.map((grupo) => (
+        {GRUPOS.filter((grupo) => METRICAS.some((m) => m.grupo === grupo && (!soloFase || m.fase === soloFase) && (casa(m.nombre) || m.key === valor))).map((grupo) => (
           <optgroup key={grupo} label={grupo}>
             {METRICAS.filter(
-              (m) => m.grupo === grupo && (!soloFase || m.fase === soloFase),
+              (m) => m.grupo === grupo && (!soloFase || m.fase === soloFase) && (casa(m.nombre) || m.key === valor),
             ).map((m) => (
               <option key={m.key} value={m.key} className="bg-[#11161C]">
                 {m.nombre}
