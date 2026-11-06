@@ -18,7 +18,9 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { Search, Users } from "lucide-react";
+import { Eye, Search, Users, Video as IconoVideo } from "lucide-react";
+import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
+import { PanelVisionados } from "@/components/visionados/PanelVisionados";
 
 import { EsqueletoPantalla, EstadoVacio } from "@/components/ui/estados";
 import { Sidebar } from "@/components/ui/sidebar";
@@ -63,6 +65,8 @@ function seSabraAlLlegar(avisa: () => void) {
 }
 
 export default function ScoutRivalIndividual() {
+  /* Dos pestañas (06/11/2026): los clips y quién los ve. */
+  const [vista, setVista] = usePestanaUrl<"clips" | "visionados">("vista", ["clips", "visionados"], "clips");
   const escudoDe = useEscudos();
 
   const { squads, loading, error, reintenta } = useRivalSquads();
@@ -286,6 +290,23 @@ export default function ScoutRivalIndividual() {
             <p className="mt-3 max-w-2xl text-white/60">Los cortes de cada rival, jugador a jugador.</p>
           </header>
 
+          <div className="mt-5">
+            <Pestanas
+              etiqueta="Clips individuales"
+              valor={vista}
+              onCambia={setVista}
+              opciones={[
+                { clave: "clips", label: "Clips", icono: IconoVideo },
+                { clave: "visionados", label: "Visionados", icono: Eye },
+              ]}
+            />
+          </div>
+
+          {vista === "visionados" ? (
+            <div className="mt-5"><PanelVisionados /></div>
+          ) : (
+          <>
+
           {/* Si la hoja tarda más de 8 s, o falla, se dice y se deja reintentar. */}
           {(lento || (error && !loading)) && (
             <AvisoLento className="mt-6" onReintentar={reintenta} />
@@ -428,6 +449,8 @@ export default function ScoutRivalIndividual() {
               <EstadoVacio icon={Users} titulo="No hay plantillas rivales en la hoja todavía." />
             )}
           </div>
+          </>
+          )}
         </div>
       </main>
     </div>

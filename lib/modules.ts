@@ -36,7 +36,6 @@ import {
   Trophy,
   User,
   Users,
-  Eye,
 } from "lucide-react";
 
 import type { LucideIcon } from "lucide-react";
@@ -386,14 +385,6 @@ export const MODULES: AppModule[] = [
     desc: "Análisis jugador a jugador del rival",
     icon: Search,
     rank: 83,
-  },
-  {
-    href: "/visionados",
-    area: "RIVAL",
-    title: "Visionados de clips",
-    desc: "Quién ve los clips individuales del rival, cuántas veces y de qué puestos",
-    icon: Eye,
-    rank: 82,
   },
   {
     href: "/scout-rival-abp",
