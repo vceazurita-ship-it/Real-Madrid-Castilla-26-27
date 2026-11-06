@@ -151,10 +151,10 @@ export function PanelVisionados() {
           {todos === null ? (
             <div className="h-40 animate-pulse rounded-2xl border border-white/10 bg-white/[0.03]" aria-label="Cargando" />
           ) : lista.length === 0 ? (
-            <p className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-[14px] text-white/65">
-              <Eye size={14} className="mr-1 inline" /> Aún no se ha abierto ningún clip en este periodo. Cuenta cada vez que alguien abre un clip en la pestaña Clips (desde el 06/11/2026): quién, cuántas veces, de qué jugador y de qué puesto.{" "}
-              <a href="/scout-rival-individual?vista=clips" className="font-semibold text-[#C8A96B] underline underline-offset-2">Ir a los clips</a>
-            </p>
+            <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-[14px] text-white/70">
+              <Eye size={15} className="text-[#C8A96B]" /> Aún nadie ha abierto un clip desde la app.
+              <a href="/scout-rival-individual?vista=clips" className="rounded-xl border border-[#C8A96B]/50 px-3 py-1.5 text-[13px] font-semibold text-[#C8A96B]">Ir a los clips</a>
+            </div>
           ) : (
             <>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-4">

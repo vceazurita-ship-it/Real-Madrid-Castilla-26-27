@@ -385,6 +385,7 @@ function BarrasEquiposBase({
       {n > 0 && (
         <p className="mb-2 flex flex-wrap gap-x-3 text-[12px] text-white/60">
           <span>Mediana de los {n}: <b className="text-white/85">{formatea(med, unidad)}</b></span>
+          {mejorAlto !== null && <span className="font-semibold text-white/75">{mejorAlto ? "Más es mejor" : "Menos es mejor"}</span>}
           {iNuestro >= 0 && <span><b style={{ color: ORO }}>{destacado}</b>: {iNuestro + 1}º de {n}{mejorAlto === null ? "" : ` (P${pDe(iNuestro)})`}</span>}
           {mejorAlto !== null && <span>Color: <span style={{ color: MEJOR }}>P60 o más</span> · en la media · <span style={{ color: PEOR }}>P40 o menos</span></span>}
         </p>

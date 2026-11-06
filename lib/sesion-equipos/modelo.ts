@@ -685,8 +685,14 @@ export function valida(tarea: TareaEquipos, sesion: SesionEquipos, puestoDe: Pue
       texto:
         r.comodines.length > tarea.comodines
           ? `Hay ${r.comodines.length} comodines (${r.comodines.map((j) => j.nombre).join(", ")}) y la tarea lleva ${tarea.comodines}`
-          : `Faltan ${tarea.comodines - r.comodines.length === 1 ? "un comodín" : `${tarea.comodines - r.comodines.length} comodines`}: la tarea lleva ${tarea.comodines}`,
-      ajustaComodines: r.comodines.length > tarea.comodines ? "Pasar a los equipos los que sobran" : "Sacar comodines de los equipos más largos",
+          : `${tarea.comodines - r.comodines.length === 1 ? "Falta un comodín" : `Faltan ${tarea.comodines - r.comodines.length} comodines`}: la tarea lleva ${tarea.comodines}`,
+      /* El botón dice a quién mueve (06/11/2026). */
+      ajustaComodines: (() => {
+        const tras = ajustaComodines(tarea, sesion.jugadores, { puestoDe });
+        const movidos = sesion.jugadores.filter((j) => (tarea.sitio[j.id] === COMODIN) !== (tras.sitio[j.id] === COMODIN)).map((j) => j.nombre);
+        if (!movidos.length) return r.comodines.length > tarea.comodines ? "Pasar a los equipos los que sobran" : "Sacar comodines de los equipos más largos";
+        return r.comodines.length > tarea.comodines ? `Pasar a ${movidos.join(" y ")} a un equipo` : `Pasar a ${movidos.join(" y ")} a comodín`;
+      })(),
     });
   } else if (tarea.comodines === 0 && r.comodines.length > 0) {
     avisos.push({ nivel: "aviso", texto: `Hay ${r.comodines.length} comodín(es) en una tarea sin comodines` });

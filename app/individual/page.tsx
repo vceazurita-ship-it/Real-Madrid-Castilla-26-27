@@ -1519,6 +1519,9 @@ function RejillaJugadores({
   );
 }
 
+/* La hora de abrir la pantalla, una vez (no en cada render: regla de pureza). */
+const ABIERTA_EN = Date.now();
+
 function PlayerCard({
   player,
   onSelect,
@@ -1538,7 +1541,10 @@ function PlayerCard({
     .join("");
   /* 30/10/2026: el pie sale en todas en cuanto llegan los seguimientos
      (también con 0), para que ninguna ficha quede más baja que las demás. */
-  const hayFooter = (player.sessions ?? 0) > 0 || Boolean(player.videos) || Boolean(player.hasReport);
+  /* «Sin seguir» en la propia ficha (06/11/2026): del Castilla, de campo y más de 14 días sin registro. */
+  const diasSinSeguir = player.lastSession ? Math.floor((ABIERTA_EN - player.lastSession.getTime()) / 86_400_000) : null;
+  const sinSeguir = !player.externo && !/portero/i.test(player.linea) && player.sessions !== null && (diasSinSeguir === null || diasSinSeguir > DIAS_SIN_SEGUIMIENTO);
+  const hayFooter = sinSeguir || (player.sessions ?? 0) > 0 || Boolean(player.videos) || Boolean(player.hasReport);
 
   return (
     <button
@@ -1621,6 +1627,11 @@ function PlayerCard({
 
       {hayFooter && (
         <div className="flex min-w-0 flex-wrap items-center justify-start gap-x-3 gap-y-1 border-t border-white/10 bg-white/[0.02] px-2.5 py-2">
+          {sinSeguir && (
+            <span className="rounded-full bg-[#C8A96B]/20 px-1.5 py-0.5 text-[11px] font-semibold text-[#C8A96B]" title={`Más de ${DIAS_SIN_SEGUIMIENTO} días sin un registro de seguimiento`}>
+              Sin seguir{diasSinSeguir !== null ? ` · ${diasSinSeguir} días` : ""}
+            </span>
+          )}
           {/* Rotulado y con su fecha (05/11/2026): «21» solo junto a una carpeta no decía qué contaba. */}
           {(player.sessions ?? 0) > 0 && (
             <span

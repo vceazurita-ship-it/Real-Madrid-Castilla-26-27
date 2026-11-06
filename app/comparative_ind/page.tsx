@@ -100,7 +100,8 @@ const GRUPO_CORTO = 10;
 
 /** «2º de 34 · empatado», «4º de 8 · tendencia». */
 const textoRanking = (r: { posicion: number; de: number; empatados: number }) =>
-  `${ordinal(r.posicion)} de ${r.de}${r.empatados > 0 ? " · empatado" : ""}${r.de < GRUPO_CORTO ? " · tendencia" : ""}`;
+  /* Los empates como tramo (06/11/2026): «2º-3º de 34», no «2º · empatado». */
+  `${r.empatados > 0 ? `${r.posicion}º-${r.posicion + r.empatados}º` : ordinal(r.posicion)} de ${r.de}${r.de < GRUPO_CORTO ? " · tendencia" : ""}`;
 
 /** Por debajo, el índice se marca con asterisco: muestra corta. */
 const MUESTRA_CORTA = 300;
@@ -513,6 +514,9 @@ export default function ComparativaCategoria() {
                             <p className="mt-1 text-[13px] leading-relaxed text-white/75">{l.texto}</p>
                           </div>
                         ))}
+                        {lectura.some((l) => l.tono === "ojo") && (
+                          <p className="text-[12px] text-white/60 md:col-span-3">Cuando nota y números no coinciden: comentarlo en la próxima sesión de vídeo individual y fijar con el jugador una acción medible para la semana.</p>
+                        )}
                       </div>
                     )}
 
@@ -592,7 +596,7 @@ export default function ComparativaCategoria() {
                               <td className="hidden sm:table-cell px-2 text-white/70">{f.jugador.edad}</td>
                               <td className="hidden sm:table-cell px-2 text-white/60">{PUESTOS.find((p) => p.key === f.puesto)?.corto}</td>
                               <td className="hidden sm:table-cell px-2 text-right tabular-nums text-white/70">{f.jugador.minutos}′</td>
-                              <td className="hidden sm:table-cell px-2 text-right tabular-nums text-white/70">{nota && nota.played ? nota.avg.toFixed(1).replace(".", ",") : ""}</td>
+                              <td className="hidden sm:table-cell px-2 text-right tabular-nums text-white/70" title={nota && nota.played ? `Nota media de ${nota.played} partidos con nota (Valoraciones)` : undefined}>{nota && nota.played ? <>{nota.avg.toFixed(1).replace(".", ",")}<span className="ml-1 text-[11px] text-white/45">· {nota.played} p.{nota.played < 3 ? " · tendencia" : ""}</span></> : ""}</td>
                               <td className="px-3">
                                 <div className="flex items-center gap-2">
                                   <span className="w-7 text-right text-xs font-semibold tabular-nums" style={{ color: colorIndice(f.indice) }}>
