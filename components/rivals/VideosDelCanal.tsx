@@ -698,6 +698,24 @@ export function VideosDelCanal({
     if (destino) setAbierto(destino.video);
   };
 
+  /* Cada clip que se abre se apunta en /visionados (06/11/2026): quién —si
+     este aparato lo ha dicho—, qué clip, de qué jugador y de qué puesto. */
+  useEffect(() => {
+    if (!abierto) return;
+    const jugador = jugadorDelTitulo(abierto.titulo, plantilla);
+    let quien = "";
+    try {
+      quien = localStorage.getItem("rmcf:quien") ?? "";
+    } catch {
+      /* sin almacenamiento */
+    }
+    void fetch("/api/visionados", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ video: abierto.id, titulo: abierto.titulo, equipo, jugador: jugador?.nombre ?? "", puesto: jugador?.puesto ?? "", quien }),
+    }).catch(() => {});
+  }, [abierto, equipo, plantilla]);
+
   useEffect(() => {
     if (!abierto) return;
 
