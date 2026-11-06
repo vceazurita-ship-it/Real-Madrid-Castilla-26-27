@@ -1,5 +1,6 @@
 "use client";
 import { traeCsv } from "@/lib/hojaCsv";
+import { ResponsiveConVistas } from "@/components/data/visual/ResponsiveConVistas";
 import { EstadoError, Hueso } from "@/components/ui/estados";
 
 import { chipInk } from "@/lib/theme";
@@ -26,7 +27,6 @@ import {
   PolarRadiusAxis,
   Radar,
   RadarChart,
-  ResponsiveContainer,
   Tooltip,
 } from "recharts";
 
@@ -1171,7 +1171,7 @@ function RadarPanel({
                 Selecciona jugadores para dibujar el perfil
               </div>
             ) : (
-              <ResponsiveContainer
+              <ResponsiveConVistas
                 width="100%" minWidth={200}
                 height="100%"
                 initialDimension={{ width: horizontal ? 520 : 300, height: 320 }}
@@ -1264,7 +1264,7 @@ function RadarPanel({
                     />
                   ))}
                 </RadarChart>
-              </ResponsiveContainer>
+              </ResponsiveConVistas>
             )}
           </div>
 

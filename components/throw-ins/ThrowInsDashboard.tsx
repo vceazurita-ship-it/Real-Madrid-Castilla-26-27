@@ -1,10 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ResponsiveConVistas } from "@/components/data/visual/ResponsiveConVistas";
 import { BarraFiltros, ESTILO_ELEGIDO, PastillaPretemporada } from "@/components/filtros/BarraFiltros";
 import type { CSSProperties, ReactNode, SetStateAction } from "react";
 import Papa from "papaparse";
-import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { FileDown, LayoutDashboard, Map as MapaIcono, Workflow, ListOrdered } from "lucide-react";
 import { capturaNodo } from "@/lib/export/captura";
 import { EstadoError } from "@/components/ui/estados";
@@ -793,7 +802,7 @@ function DistributionChart({
       <h2 className="mb-5 text-lg font-semibold text-white">{title}</h2>
       {data.length ? (
         <div className="h-72" title={onPulsar ? "Pulsa para filtrar" : undefined}>
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveConVistas width="100%" height="100%">
             {/*
             | El clic va en el gráfico y no en la barra: con una barra de un
             | saque al lado de otra de cuarenta, la pequeña era un píxel. Así
@@ -845,7 +854,7 @@ function DistributionChart({
                 ))}
               </Bar>
             </BarChart>
-          </ResponsiveContainer>
+          </ResponsiveConVistas>
         </div>
       ) : (
         <p className="py-20 text-center text-sm text-slate-500">Aún no hay registros para esta visualización.</p>

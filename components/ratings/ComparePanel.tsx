@@ -1,6 +1,7 @@
 "use client";
 
 import { LecturaGrafico } from "@/components/ui/LecturaGrafico";
+import { ResponsiveConVistas } from "@/components/data/visual/ResponsiveConVistas";
 import { useMemo, useState } from "react";
 import {
   CartesianGrid,
@@ -12,7 +13,6 @@ import {
   PolarRadiusAxis,
   Radar,
   RadarChart,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
@@ -199,7 +199,7 @@ export function ComparePanel({
             bodyClassName="p-3 sm:p-4"
           >
             <div className="h-[300px] w-full min-w-0">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveConVistas width="100%" height="100%">
                 <LineChart
                   data={series}
                   margin={{ top: 10, right: 10, bottom: 0, left: -18 }}
@@ -276,7 +276,7 @@ export function ComparePanel({
                     />
                   ))}
                 </LineChart>
-              </ResponsiveContainer>
+              </ResponsiveConVistas>
             </div>
           </Panel>
 
@@ -301,7 +301,7 @@ export function ComparePanel({
                 <EmptyState title="Sin notas por área registradas" />
               ) : (
                 <div className="h-[280px] w-full min-w-0">
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveConVistas width="100%" height="100%">
                     <RadarChart data={radar} outerRadius="70%">
                       <PolarGrid stroke="rgba(255,255,255,0.12)" />
 
@@ -351,7 +351,7 @@ export function ComparePanel({
                         }}
                       />
                     </RadarChart>
-                  </ResponsiveContainer>
+                  </ResponsiveConVistas>
                 </div>
               )}
             </Panel>

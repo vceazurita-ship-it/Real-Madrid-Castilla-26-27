@@ -1,6 +1,7 @@
 "use client";
 
 import { LecturaGrafico } from "@/components/ui/LecturaGrafico";
+import { ResponsiveConVistas } from "@/components/data/visual/ResponsiveConVistas";
 import { useMemo } from "react";
 import {
   Area,
@@ -13,7 +14,6 @@ import {
   Radar,
   RadarChart,
   ReferenceLine,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
@@ -163,7 +163,7 @@ export function PlayerRatingsTab({
             <EmptyState title="Sin notas registradas" />
           ) : (
             <div className="h-[240px] w-full min-w-0">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveConVistas width="100%" height="100%">
                 <ComposedChart
                   data={series}
                   margin={{ top: 10, right: 10, bottom: 0, left: -18 }}
@@ -248,7 +248,7 @@ export function PlayerRatingsTab({
                     activeDot={{ r: 5.5 }}
                   />
                 </ComposedChart>
-              </ResponsiveContainer>
+              </ResponsiveConVistas>
             </div>
           )}
         </Panel>
@@ -273,7 +273,7 @@ export function PlayerRatingsTab({
               />
             ) : (
               <div className="h-[220px] w-full min-w-0">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveConVistas width="100%" height="100%">
                   <RadarChart data={radar} outerRadius="72%">
                     <PolarGrid stroke="rgba(255,255,255,0.12)" />
 
@@ -316,7 +316,7 @@ export function PlayerRatingsTab({
                       }}
                     />
                   </RadarChart>
-                </ResponsiveContainer>
+                </ResponsiveConVistas>
               </div>
             )}
           </Panel>

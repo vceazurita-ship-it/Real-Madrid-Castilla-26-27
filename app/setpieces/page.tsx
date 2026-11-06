@@ -1,5 +1,6 @@
 "use client";
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
+import { ResponsiveConVistas } from "@/components/data/visual/ResponsiveConVistas";
 import { traeCsv } from "@/lib/hojaCsv";
 import { EsqueletoPantalla, EstadoError, EstadoVacio } from "@/components/ui/estados";
 import { chipInk } from "@/lib/theme";
@@ -88,7 +89,6 @@ import {
 import Papa from "papaparse";
 import { CodingAbpRival } from "@/components/abp/coding/CodingAbpRival";
 import {
-  ResponsiveContainer,
   BarChart,
   Bar,
   XAxis,
@@ -4685,12 +4685,12 @@ h-[360px]
     w-full
   "
 >
-      <ResponsiveContainer
+      <ResponsiveConVistas
         width="100%"
         height="100%"
       >
         {children}
-      </ResponsiveContainer>
+      </ResponsiveConVistas>
     </div>
   );
 }

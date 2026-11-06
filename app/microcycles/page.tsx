@@ -1,5 +1,6 @@
 "use client";
 import { traeCsv } from "@/lib/hojaCsv";
+import { ResponsiveConVistas } from "@/components/data/visual/ResponsiveConVistas";
 import { EstadoError } from "@/components/ui/estados";
 import { useFiltroPersistente } from "@/hooks/useFiltroPersistente";
 
@@ -41,7 +42,6 @@ import {
   Target,
 } from "lucide-react";
 import {
-  ResponsiveContainer,
   BarChart,
   Bar,
   XAxis,
@@ -2542,7 +2542,7 @@ export default function Page() {
                   >
                     <div className="flex flex-col lg:flex-row items-center gap-4">
                       <div className="h-[260px] w-full lg:w-1/2">
-                        <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 300, height: 260 }}>
+                        <ResponsiveConVistas width="100%" height="100%" initialDimension={{ width: 300, height: 260 }}>
                           <PieChart>
                             <Pie
                               data={faseMetrics}
@@ -2573,7 +2573,7 @@ export default function Page() {
 
                             <Tooltip content={<DarkTooltip />} />
                           </PieChart>
-                        </ResponsiveContainer>
+                        </ResponsiveConVistas>
                       </div>
 
                       <div className="w-full lg:w-1/2 space-y-2">
@@ -2983,7 +2983,7 @@ export default function Page() {
                     }`}
                   >
                     <div style={{ height: contenidoPrincipalHeight }}>
-                      <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 560, height: contenidoPrincipalHeight }}>
+                      <ResponsiveConVistas width="100%" height="100%" initialDimension={{ width: 560, height: contenidoPrincipalHeight }}>
                         <BarChart
                           data={sortedByMetric(
                             contenidoPrincipalMetrics,
@@ -3084,7 +3084,7 @@ export default function Page() {
                             />
                           </Bar>
                         </BarChart>
-                      </ResponsiveContainer>
+                      </ResponsiveConVistas>
                     </div>
                   </Panel>
 
@@ -3093,7 +3093,7 @@ export default function Page() {
                     subtitle="Top 15 subcontenidos trabajados"
                   >
                     <div style={{ height: contenidoSecundarioHeight }}>
-                      <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 560, height: contenidoSecundarioHeight }}>
+                      <ResponsiveConVistas width="100%" height="100%" initialDimension={{ width: 560, height: contenidoSecundarioHeight }}>
                         <BarChart
                           data={contenidoSecundarioTop}
                           layout="vertical"
@@ -3170,7 +3170,7 @@ export default function Page() {
                             />
                           </Bar>
                         </BarChart>
-                      </ResponsiveContainer>
+                      </ResponsiveConVistas>
                     </div>
                   </Panel>
                 </div>
@@ -3289,7 +3289,7 @@ export default function Page() {
                     subtitle="Pulsa una barra para filtrar el dashboard"
                   >
                     <div style={{ height: taskChartHeight }}>
-                      <ResponsiveContainer width="100%" height="100%">
+                      <ResponsiveConVistas width="100%" height="100%">
                         <BarChart
                           data={[...tipoMetrics].sort(
                             (a, b) => b.eval - a.eval
@@ -3374,7 +3374,7 @@ export default function Page() {
                             />
                           </Bar>
                         </BarChart>
-                      </ResponsiveContainer>
+                      </ResponsiveConVistas>
                     </div>
                   </Panel>
 
@@ -3383,7 +3383,7 @@ export default function Page() {
                     subtitle="Top 12 estructuras de juego (jugadores + comodines)"
                   >
                     <div style={{ height: formatoHeight }}>
-                      <ResponsiveContainer width="100%" height="100%">
+                      <ResponsiveConVistas width="100%" height="100%">
                         <BarChart
                           data={formatoTop}
                           layout="vertical"
@@ -3438,7 +3438,7 @@ export default function Page() {
                             />
                           </Bar>
                         </BarChart>
-                      </ResponsiveContainer>
+                      </ResponsiveConVistas>
                     </div>
                   </Panel>
                 </div>
@@ -3661,7 +3661,7 @@ export default function Page() {
                     subtitle="Etiquetas cualitativas registradas por el staff"
                   >
                     <div style={{ height: analisisHeight }}>
-                      <ResponsiveContainer width="100%" height="100%">
+                      <ResponsiveConVistas width="100%" height="100%">
                         <BarChart
                           data={analisisMetrics}
                           layout="vertical"
@@ -3719,7 +3719,7 @@ export default function Page() {
                             />
                           </Bar>
                         </BarChart>
-                      </ResponsiveContainer>
+                      </ResponsiveConVistas>
                     </div>
                   </Panel>
                 </div>
@@ -4080,9 +4080,9 @@ function Chart({
   */
   return (
     <div className="w-full" style={{ height: height ?? 380 }}>
-      <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 560, height: height ?? 380 }}>
+      <ResponsiveConVistas width="100%" height="100%" initialDimension={{ width: 560, height: height ?? 380 }}>
         {children}
-      </ResponsiveContainer>
+      </ResponsiveConVistas>
     </div>
   );
 }

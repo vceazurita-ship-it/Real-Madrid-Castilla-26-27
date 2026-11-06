@@ -1,5 +1,6 @@
 "use client";
 import { traeJson } from "@/lib/hojaCsv";
+import { ResponsiveConVistas } from "@/components/data/visual/ResponsiveConVistas";
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
@@ -40,7 +41,6 @@ import {
 } from "lucide-react";
 
 import {
-  ResponsiveContainer,
   BarChart,
   Bar,
   XAxis,
@@ -2370,9 +2370,9 @@ function ChartBox({
 }) {
   return (
     <div className="w-full" style={{ height: height ?? 320 }}>
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveConVistas width="100%" height="100%">
         {children}
-      </ResponsiveContainer>
+      </ResponsiveConVistas>
     </div>
   );
 }

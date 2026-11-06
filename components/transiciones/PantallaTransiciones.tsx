@@ -28,6 +28,7 @@
  */
 
 import { useMemo, useState } from "react";
+import { ResponsiveConVistas } from "@/components/data/visual/ResponsiveConVistas";
 import {
   Bar,
   BarChart,
@@ -37,7 +38,6 @@ import {
   Legend,
   Pie,
   PieChart,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
@@ -1587,7 +1587,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                   </p>
                 ) : (
                   <div className="h-[280px]">
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveConVistas width="100%" height="100%">
                       <PieChart>
                         <Pie
                           data={porAccion}
@@ -1659,7 +1659,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                           }}
                         />
                       </PieChart>
-                    </ResponsiveContainer>
+                    </ResponsiveConVistas>
                   </div>
                 )}
               </Panel>
@@ -1681,7 +1681,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                 }
               >
                 <div className="h-[280px]">
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveConVistas width="100%" height="100%">
                     <BarChart data={porZona}>
                       <CartesianGrid stroke="#1E232A" vertical={false} />
 
@@ -1736,7 +1736,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                         </Bar>
                       ))}
                     </BarChart>
-                  </ResponsiveContainer>
+                  </ResponsiveConVistas>
                 </div>
               </Panel>
             </div>
@@ -1759,7 +1759,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                   </p>
                 ) : (
                   <div className="h-[280px]">
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveConVistas width="100%" height="100%">
                       <BarChart data={porDesenlace} layout="vertical" margin={{ left: 24 }}>
                         <CartesianGrid stroke="#1E232A" horizontal={false} />
 
@@ -1810,7 +1810,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                           />
                         </Bar>
                       </BarChart>
-                    </ResponsiveContainer>
+                    </ResponsiveConVistas>
                   </div>
                 )}
               </Panel>
@@ -1825,7 +1825,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                 icon={Clock}
               >
                 <div className="h-[280px]">
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveConVistas width="100%" height="100%">
                     <BarChart data={porTramo}>
                       <CartesianGrid stroke="#1E232A" vertical={false} />
 
@@ -1881,7 +1881,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                         </Bar>
                       ))}
                     </BarChart>
-                  </ResponsiveContainer>
+                  </ResponsiveConVistas>
                 </div>
               </Panel>
             </div>
@@ -1898,7 +1898,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                   icon={MapIcon}
                 >
                   <div className="h-[220px]">
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveConVistas width="100%" height="100%">
                       <BarChart data={porCarril}>
                         <CartesianGrid stroke="#1E232A" vertical={false} />
 
@@ -1954,7 +1954,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                           </Bar>
                         ))}
                       </BarChart>
-                    </ResponsiveContainer>
+                    </ResponsiveConVistas>
                   </div>
                 </Panel>
               </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { LecturaGrafico } from "@/components/ui/LecturaGrafico";
+import { ResponsiveConVistas } from "@/components/data/visual/ResponsiveConVistas";
 import { nombrePuesto } from "@/lib/posiciones";
 import { nombreVisible } from "@/lib/nombreJugador";
 import { useMemo, useState } from "react";
@@ -13,7 +14,6 @@ import {
   ComposedChart,
   Line,
   ReferenceLine,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
@@ -374,7 +374,7 @@ export function TeamPanel({
           <EmptyState title="Sin partidos valorados" />
         ) : (
           <div className="h-[260px] w-full min-w-0">
-            <ResponsiveContainer
+            <ResponsiveConVistas
                 width="100%"
                 height="100%"
                 minHeight={160}
@@ -464,7 +464,7 @@ export function TeamPanel({
                   isAnimationActive={false}
                 />
               </ComposedChart>
-            </ResponsiveContainer>
+            </ResponsiveConVistas>
           </div>
         )}
       </Panel>
@@ -490,7 +490,7 @@ export function TeamPanel({
               className="w-full min-w-0"
               style={{ height: Math.max(240, topChart.length * 42 + 56) }}
             >
-              <ResponsiveContainer
+              <ResponsiveConVistas
                 width="100%"
                 height="100%"
                 minHeight={160}
@@ -570,7 +570,7 @@ export function TeamPanel({
                     ))}
                   </Bar>
                 </BarChart>
-              </ResponsiveContainer>
+              </ResponsiveConVistas>
             </div>
           )}
 
@@ -590,7 +590,7 @@ export function TeamPanel({
               <EmptyState title="Sin datos" />
             ) : (
               <div className="h-[220px] w-full min-w-0">
-                <ResponsiveContainer
+                <ResponsiveConVistas
                 width="100%"
                 height="100%"
                 minHeight={160}
@@ -676,7 +676,7 @@ export function TeamPanel({
                       ))}
                     </Bar>
                   </BarChart>
-                </ResponsiveContainer>
+                </ResponsiveConVistas>
               </div>
             )}
 
