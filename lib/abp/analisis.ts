@@ -639,12 +639,13 @@ function analizaReparto(
     */
     const recuperamos = utiles.filter((uno) => uno.retencion).length || de((c) => c === "posicional");
     const conserva = de((c) => c === "posicional rival");
-    const llegan = de((c) => c.startsWith("conquista último tercio"));
+    /* La misma definición que la tabla (06/11/2026): último tercio, ocasión o gol. Decía 5 donde la tabla 7. */
+    const llegan = de((c) => c.startsWith("conquista último tercio") || c.includes("ocasi") || /^gol\b/.test(c));
     const otros = Math.max(0, total - recuperamos - conserva - llegan);
     const partes = [
       recuperamos ? `${recuperamos} los recuperamos` : "",
       conserva ? `${conserva} ${conserva === 1 ? "lo conserva" : "los conserva"} el rival` : "",
-      llegan ? `${llegan} le ${llegan === 1 ? "llega" : "llegan"} a último tercio` : "",
+      llegan ? `${llegan} le ${llegan === 1 ? "llega" : "llegan"} a último tercio, ocasión o gol` : "",
       otros ? `${otros} ${otros === 1 ? "acaba" : "acaban"} de otra forma` : "",
     ].filter(Boolean);
 

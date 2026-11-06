@@ -64,8 +64,16 @@ export function LecturaRapida({
 
   const { base, funciona, falla, entrenar } = lectura;
 
+  /*
+  | Con poca muestra, tendencia y no veredicto (06/11/2026, regla 11 de los
+  | agentes): con menos de 15 en total, las tres tarjetas van en gris y lo
+  | dicen; «el resto» lleva su número para que se sepa con qué se compara.
+  */
+  const corta = base.n < 15;
+  const gris = "var(--rmcf-rate-none)";
+
   const pieDe = (h: HallazgoLectura) =>
-    `${h.aciertos} de ${h.n} ${unidad} ${acierto} · el resto, ${pct(h.tasaResto)}${h.n < 10 ? " · indicio" : ""}`;
+    `${h.aciertos} de ${h.n} ${unidad} ${acierto} · los otros ${base.n - h.n}, ${pct(h.tasaResto)}${corta || h.n < 10 ? " · tendencia" : ""}`;
 
   return (
     <section
@@ -74,8 +82,8 @@ export function LecturaRapida({
     >
       {funciona && (
         <Tarjeta
-          rotulo="Qué funciona"
-          color="var(--rmcf-rate-good)"
+          rotulo={corta ? "Qué funciona (tendencia)" : "Qué funciona"}
+          color={corta ? gris : "var(--rmcf-rate-good)"}
           titular={`${capital(funciona.dimension)}: ${funciona.valor}`}
           cifra={pct(funciona.tasa)}
           pie={pieDe(funciona)}
@@ -83,8 +91,8 @@ export function LecturaRapida({
       )}
       {falla && (
         <Tarjeta
-          rotulo="Qué falla"
-          color="var(--rmcf-rate-low)"
+          rotulo={corta ? "Qué falla (tendencia)" : "Qué falla"}
+          color={corta ? gris : "var(--rmcf-rate-low)"}
           titular={`${capital(falla.dimension)}: ${falla.valor}`}
           cifra={pct(falla.tasa)}
           pie={pieDe(falla)}
@@ -92,11 +100,11 @@ export function LecturaRapida({
       )}
       {entrenar && (
         <Tarjeta
-          rotulo="Qué entrenar"
-          color="var(--rmcf-gold-ink)"
+          rotulo={corta ? "Qué entrenar (si se confirma)" : "Qué entrenar"}
+          color={corta ? gris : "var(--rmcf-gold-ink)"}
           titular={entrenar.titulo}
           cifra={String(Math.round(entrenar.hallazgo.impacto))}
-          pie={ganancia(Math.round(entrenar.hallazgo.impacto))}
+          pie={`${ganancia(Math.round(entrenar.hallazgo.impacto))} (si «${entrenar.hallazgo.valor}» rindiera como los otros ${base.n - entrenar.hallazgo.n})${corta ? " · con menos de 15 es tendencia" : ""}`}
         />
       )}
       <Tarjeta
@@ -104,7 +112,7 @@ export function LecturaRapida({
         color="var(--rmcf-rate-none)"
         titular={`${base.n} ${unidad} en ${base.jornadas} ${base.jornadas === 1 ? "jornada" : "jornadas"}`}
         cifra={pct(base.tasa)}
-        pie={`${base.aciertos} de ${base.n} ${acierto}, con los filtros de arriba`}
+        pie={`${base.aciertos} de ${base.n} ${acierto}, con los filtros de arriba${corta ? ". Con menos de 15, lo de al lado es tendencia" : ""}`}
       />
     </section>
   );

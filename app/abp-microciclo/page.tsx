@@ -484,11 +484,23 @@ export default function AbpMicrocicloPage() {
     return micros.find((micro) => micro.micro === numero && mismaTemporada(micro.temporada, temporada));
   }, [pedidoIncrustado, micros]);
 
+  /* Por defecto, el micro del PRÓXIMO partido del calendario (06/11/2026): abría
+     el último de la lista, que podía ser ya el de la jornada siguiente. */
+  const [abiertaEn] = useState(() => new Date().toISOString());
+  const delProximo = useMemo(() => {
+    const sig = [...calendario].sort((a, b) => a.cuando.localeCompare(b.cuando)).find((p) => p.cuando && p.cuando >= abiertaEn.slice(0, 10));
+    if (!sig) return "";
+    const rival = (/castilla/i.test(sig.local) ? sig.visitante : sig.local).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+    const llave = rival.split(/\s+/).filter((w) => w.length > 3)[0] ?? rival;
+    const candidatos = micros.filter((m) => m.rival.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().includes(llave));
+    return candidatos[candidatos.length - 1]?.clave ?? "";
+  }, [calendario, micros, abiertaEn]);
+
   const claveActiva = pedidoIncrustado
     ? (microIncrustado?.clave ?? "")
     : seleccion && micros.some((micro) => micro.clave === seleccion)
       ? seleccion
-      : (micros[micros.length - 1]?.clave ?? "");
+      : delProximo || (micros[micros.length - 1]?.clave ?? "");
 
   const microActivo = micros.find((micro) => micro.clave === claveActiva);
 

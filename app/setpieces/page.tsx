@@ -2851,15 +2851,18 @@ const pie = (
   muestra={{ n: metrics.goals, de: metrics.shots, unidad: "remates" }}
 />
       )}
+{/* Con pocas acciones repetía la de goles esperados (06/11/2026). */}
+{metrics.total >= 15 && (
 <Card
   title="Goles esperados por ABP"
   value={dosDecimales(metrics.xgAccion)}
   hint="Peligro medio de cada lanzamiento"
 />
+)}
 
 <Card
   title="Gol u ocasión"
-  value={`${tasaPeligro.toFixed(1).replace(".", ",")} %`}
+  value={`${tasaPeligro === 0 ? "0" : tasaPeligro.toFixed(1).replace(".", ",")} %`}
   hint="Acciones que acaban en gol u ocasión"
   muestra={{ n: accionesPeligrosas, de: metrics.total, unidad: "acciones" }}
 />
@@ -3027,7 +3030,8 @@ const pie = (
 </Panel>
 </div>
 
-<div className={`md:col-span-2 ${oculto("resumen")}`}>
+{/* Con menos de 15 acciones repetía «Acción a acción» (06/11/2026). */}
+<div className={`md:col-span-2 ${oculto("resumen")} ${metrics.total < 15 ? "hidden" : ""}`}>
 <Panel title="Situación Global" analisis={pie({})}>
   <div id="grafico-abp-flow">
     <ABPFlowField

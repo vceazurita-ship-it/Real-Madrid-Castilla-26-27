@@ -2882,7 +2882,8 @@ const pie = (
 </Panel>
 </div>
 
-<div className={`md:col-span-2 ${oculto("resumen")}`}>
+{/* Con menos de 15 acciones repetía «Acción a acción» (06/11/2026). */}
+<div className={`md:col-span-2 ${oculto("resumen")} ${metrics.total < 15 ? "hidden" : ""}`}>
 <Panel title="Situación Global" analisis={pie({})}>
   <div id="grafico-abp-flow">
 <ABPFlowField

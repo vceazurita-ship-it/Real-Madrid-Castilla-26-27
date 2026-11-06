@@ -83,6 +83,35 @@ export function leyendaSiglas(puestos: Pick<PuestoAbp, "code" | "sigla" | "label
 }
 
 /** Las siglas que en la misma diapositiva quieren decir dos cosas distintas. */
+/**
+ * Siglas nuevas para deshacer los choques (06/11/2026): a cada puesto de una
+ * sigla repetida con otro significado, las dos primeras letras de su
+ * significado («Equilibrio» → «EQ», «Zaguero 1» → «ZA»); si aún chocan, se
+ * numera. Devuelve { key del puesto: sigla nueva } sólo para los que cambian.
+ */
+export function siglasSinChoque(puestos: Pick<PuestoAbp, "key" | "code" | "sigla" | "label">[]): Record<string, string> {
+  const choques = new Set(siglasQueChocan(puestos).map((c) => c.sigla));
+  if (!choques.size) return {};
+  const usadas = new Set(puestos.filter((p) => !choques.has(p.sigla ?? p.code)).map((p) => p.sigla ?? p.code));
+  const nuevas: Record<string, string> = {};
+  const porSignificado = new Map<string, string>();
+  for (const p of puestos) {
+    const actual = p.sigla ?? p.code;
+    if (!choques.has(actual)) continue;
+    const sig = clave(sinLado(p.label));
+    let s = porSignificado.get(sig);
+    if (!s) {
+      const letras = sig.replace(/[^a-zñ]/g, "").toUpperCase();
+      s = letras.slice(0, 2) || actual;
+      for (let n = 2; usadas.has(s); n++) s = `${letras.slice(0, 1) || actual}${n}`;
+      usadas.add(s);
+      porSignificado.set(sig, s);
+    }
+    if (s !== actual) nuevas[p.key] = s;
+  }
+  return nuevas;
+}
+
 export function siglasQueChocan(puestos: Pick<PuestoAbp, "code" | "sigla" | "label">[]) {
   return leyendaSiglas(puestos).filter((una) => una.significados.length > 1);
 }

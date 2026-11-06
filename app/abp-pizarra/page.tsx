@@ -197,7 +197,7 @@ import {
 import { SCOUT_DOC_KEY, actionsOf } from "@/lib/abp/rivalScout";
 import { buildAerialThreats } from "@/lib/abp/rival";
 import { enElCampo } from "@/lib/abp/pizarra";
-import { siglasQueChocan } from "@/lib/abp/siglas";
+import { siglasQueChocan, siglasSinChoque } from "@/lib/abp/siglas";
 import { traeJson } from "@/lib/hojaCsv";
 import { VideoJugada } from "@/components/abp/pizarra/VideoJugada";
 import {
@@ -3290,18 +3290,31 @@ export default function PizarraAbpPage() {
                     )}
 
                     {/* Una sigla con dos significados en la misma diapositiva: se avisa, no se bloquea. */}
-                    {siglasQueChocan(puestosDe(slide)).map((choque) => (
-                      <p
-                        key={choque.sigla}
-                        className="flex flex-wrap items-center gap-1.5 border-b border-white/10 bg-amber-300/[0.06] px-3 py-2 text-[13px] text-amber-200"
-                      >
-                        <AlertTriangle size={13} className="shrink-0" />
-                        <span>
-                          La sigla <b className="font-semibold">«{choque.sigla}»</b> quiere decir dos cosas en esta
-                          diapositiva: {choque.significados.join(" y ")}. Cambia una de las dos chapas con doble clic.
-                        </span>
-                      </p>
-                    ))}
+                    {/* Un solo aviso, discreto, y el arreglo en un toque (06/11/2026). */}
+                    {(() => {
+                      const choques = siglasQueChocan(puestosDe(slide));
+                      if (!choques.length) return null;
+                      const nuevas = siglasSinChoque(puestosDe(slide));
+                      return (
+                        <p className="flex flex-wrap items-center gap-1.5 border-b border-white/10 bg-amber-300/[0.06] px-3 py-1.5 text-[12px] text-amber-200">
+                          <AlertTriangle size={13} className="shrink-0" />
+                          <span>
+                            {choques.map((c) => `«${c.sigla}» = ${c.significados.join(" / ")}`).join(" · ")}
+                          </span>
+                          {Object.keys(nuevas).length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                cambiaTexto((textos) => ({ ...textos, siglas: { ...(textos.siglas ?? {}), ...nuevas } }))
+                              }
+                              className="rounded-md border border-current px-2 py-0.5 font-semibold"
+                            >
+                              Darles siglas distintas ({Object.values(nuevas).join(", ")})
+                            </button>
+                          )}
+                        </p>
+                      );
+                    })()}
 
                     <TableroSlide
                       slide={slide}
