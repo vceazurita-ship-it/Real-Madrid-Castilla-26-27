@@ -237,6 +237,13 @@ if errorlevel 1 (
   echo FALLO en castilla-besoccer ^(codigo !errorlevel!^) >> "%LOG%"
   set "HUBO_FALLO=1"
 )
+rem  Vistas de los clips en el canal de YouTube (06/11/2026): la foto del dia
+rem  la hace la propia web al pedirla; asi /visionados sabe lo que se vio tras
+rem  cada partido. Si la web duerme, tarda un minuto en despertar.
+echo. >> "%LOG%"
+echo --- Vistas de los clips en YouTube --- >> "%LOG%"
+curl -s -m 180 -o NUL -w "HTTP %%{http_code}" https://rmcf-castilla.onrender.com/api/youtube/visionados >> "%LOG%" 2>&1
+echo. >> "%LOG%"
 rem  Valoraciones: minutos, titulares, goles, asistencias y tarjetas de cada
 rem  partido jugado (y el partido, si no estaba). Las notas no se tocan.
 echo. >> "%LOG%"

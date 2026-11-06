@@ -535,3 +535,22 @@ export async function meteEnLista(acceso: string, listaId: string, videoId: stri
 function limpiaTexto(valor: string) {
   return valor.replace(/[<>]/g, "").trim();
 }
+
+/**
+ * Las vistas de cada vídeo (06/11/2026), de cincuenta en cincuenta. YouTube da
+ * cuántas veces se ha visto, nunca quién: eso no lo da ni al dueño del canal.
+ */
+export async function dameEstadisticas(acceso: string, ids: string[]) {
+  const vistas = new Map<string, { vistas: number; meGusta: number; comentarios: number }>();
+  for (let i = 0; i < ids.length; i += 50) {
+    const lote = ids.slice(i, i + 50);
+    const datos = await llamaApi<{ items?: { id: string; statistics?: { viewCount?: string; likeCount?: string; commentCount?: string } }[] }>(
+      acceso,
+      `videos?part=statistics&id=${lote.join(",")}`,
+    );
+    for (const v of datos.items ?? []) {
+      vistas.set(v.id, { vistas: Number(v.statistics?.viewCount ?? 0), meGusta: Number(v.statistics?.likeCount ?? 0), comentarios: Number(v.statistics?.commentCount ?? 0) });
+    }
+  }
+  return vistas;
+}

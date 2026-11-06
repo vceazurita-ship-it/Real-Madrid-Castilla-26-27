@@ -20,6 +20,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
+import { MarcoGrafico, useTipoGrafico } from "@/components/data/visual/MarcoGrafico";
 import { Clock, Crosshair, Flag, ListOrdered, Shield, Users } from "lucide-react";
 
 import { Button, Notice, Panel, Segmented } from "@/components/abp/ui";
@@ -227,6 +228,8 @@ function Barra({ etiqueta, valor, max, detalle }: { etiqueta: string; valor: num
 /* ------------------------------------------------------------------ */
 
 export function PanelAbpCategoria() {
+  /* «Ver como» (06/11/2026): el campo o la lista de acciones. */
+  const [tipoCampo, setTipoCampo] = useTipoGrafico("abp-categoria-campo", "campo", ["campo", "lista"] as const);
   const { datos, fallo } = useAbpTodas(true);
 
   const [grupo, setGrupo] = useState<Grupo>("g2");
@@ -662,7 +665,20 @@ export function PanelAbpCategoria() {
             />
           }
         >
-          <MediaCampo
+          <MarcoGrafico tipos={[{ clave: "campo", nombre: "Campo" }, { clave: "lista", nombre: "Lista de acciones" }]} tipo={tipoCampo} onTipo={(t) => setTipoCampo(t as "campo" | "lista")}>
+            {tipoCampo === "lista" ? (
+              <ol className="max-h-[420px] space-y-1 overflow-auto text-[13px]">
+                {enMapa.map((a, i) => (
+                  <li key={`${a.id}-${a.seg}-${i}`} className="flex gap-2 border-b border-white/[0.06] pb-1 text-white/80">
+                    <span className="w-6 shrink-0 tabular-nums text-white/45">{i + 1}</span>
+                    <span className="min-w-0 flex-1">{tituloDe(a)}{a.xg != null ? <span className="text-white/50"> · xG {dec(a.xg)}</span> : null}</span>
+                    {a.r === "gol" && <span className="shrink-0 font-semibold text-[#C8A96B]">Gol</span>}
+                  </li>
+                ))}
+              </ol>
+            ) : null}
+          </MarcoGrafico>
+          {tipoCampo === "campo" && <MediaCampo
             onPunto={(i, origen) => {
               const a = enMapa[i];
 
@@ -680,7 +696,7 @@ export function PanelAbpCategoria() {
                 ? enMapa.filter((a) => a.r === "gol" && a.saque && a.caida).map((a, i) => ({ id: `${a.id}-${a.seg}-${i}`, de: a.saque as PuntoWy, a: a.caida as PuntoWy }))
                 : []
             }
-          />
+          />}
 
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-white/55">
             <span className="flex flex-wrap items-center gap-3">

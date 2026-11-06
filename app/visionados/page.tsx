@@ -14,6 +14,7 @@ import { Eye, UserRound } from "lucide-react";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
+import { BloqueYoutube } from "./BloqueYoutube";
 
 type Visionado = { cuando: string; video: string; titulo: string; equipo: string; jugador: string; puesto: string; quien: string };
 
@@ -115,11 +116,15 @@ export default function Visionados() {
         <div className="space-y-5 p-4 sm:p-6 md:p-10">
           <header>
             <p className="text-xs uppercase tracking-[0.3em] text-[#C8A96B]">RMCF CASTILLA · SCOUTING</p>
-            <h1 className="mt-2 text-3xl font-bold sm:text-4xl">Quién ve los clips del rival</h1>
+            <h1 className="mt-2 text-3xl font-bold sm:text-4xl">Visionados de los clips del rival</h1>
             <p className="mt-2 max-w-2xl text-[14px] text-white/65">
               Cada clip individual que se abre en Scout Individual: quién lo ve, cuántas veces, de qué jugadores y de qué puestos. El administrador se reconoce solo; en los demás aparatos, di aquí tu nombre una vez.
             </p>
           </header>
+
+          <BloqueYoutube />
+
+          <h2 className="pt-4 text-xl font-bold">Dentro de la app (Scout Individual)</h2>
 
           <section className="flex flex-wrap items-end gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
             <label className="min-w-0 flex-1">

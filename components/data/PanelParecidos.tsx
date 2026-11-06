@@ -18,6 +18,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
+import { MarcoGrafico, useTipoGrafico } from "@/components/data/visual/MarcoGrafico";
 
 import { Conclusiones, Explicativo } from "@/components/ui/textos-analisis";
 import { loadRegistro, type RegistroTarea } from "@/lib/abp/registro";
@@ -70,6 +71,8 @@ const Punto = ({ familia }: { familia: number }) => (
 const mismos = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.includes(x));
 
 export function PanelParecidos({ partidos }: { partidos: FilaPartido[] }) {
+  /* «Ver como» (06/11/2026): la red o la lista de parejas más parecidas. */
+  const [tipoRed, setTipoRed] = useTipoGrafico("parecidos-red", "red", ["red", "lista"] as const);
   const [modo, setModo] = useState<"partidos" | "sesiones" | "equipos">("partidos");
   const [tareas, setTareas] = useState<RegistroTarea[] | null>(null);
   const [fallo, setFallo] = useState(false);
@@ -292,7 +295,20 @@ export function PanelParecidos({ partidos }: { partidos: FilaPartido[] }) {
             )}
           </div>
 
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+          <MarcoGrafico tipos={[{ clave: "red", nombre: "Red" }, { clave: "lista", nombre: "Parejas más parecidas" }]} tipo={tipoRed} onTipo={(t) => setTipoRed(t as "red" | "lista")}>
+            {tipoRed === "lista" ? (
+              <ol className="mb-3 max-h-[420px] space-y-1 overflow-auto text-[13px]">
+                {[...red.aristas].sort((x, y) => y.peso - x.peso).slice(0, 30).map(({ a, b, peso }, i) => (
+                  <li key={`${a}-${b}`} className="flex items-center gap-2 border-b border-white/[0.06] pb-1 text-white/80">
+                    <span className="w-6 shrink-0 tabular-nums text-white/45">{i + 1}</span>
+                    <span className="min-w-0 flex-1 truncate">{red.elementos[a].etiqueta} ↔ {red.elementos[b].etiqueta}</span>
+                    <span className="shrink-0 tabular-nums text-white/65">{Math.round(peso * 100)} %</span>
+                  </li>
+                ))}
+              </ol>
+            ) : null}
+          </MarcoGrafico>
+          <div className={`grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px] ${tipoRed === "lista" ? "hidden" : ""}`}>
             {/* ---------------- la red (en el móvil se desliza en vez de encogerse hasta no leerse) ---------------- */}
             <div className="parecidos-red overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02]">
               <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full min-w-[680px]" role="group" aria-label={`Red de ${modo} parecidos`}>
