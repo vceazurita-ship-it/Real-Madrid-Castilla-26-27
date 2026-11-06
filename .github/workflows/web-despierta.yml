@@ -26,3 +26,7 @@ jobs:
       # cuando entre la primera persona (05/11/2026).
       - name: Calentar Data análisis
         run: curl -fsS -o /dev/null --max-time 90 "https://rmcf-castilla.onrender.com/api/data-analisis?resumen=1" || true
+      # Las vistas de los clips del canal (06/11/2026): la ruta hace una foto
+      # al día en cuanto YouTube tiene cuota y, si ya está, no gasta nada.
+      - name: Vistas de los clips en YouTube
+        run: curl -fsS -o /dev/null --max-time 90 "https://rmcf-castilla.onrender.com/api/youtube/visionados" || true
