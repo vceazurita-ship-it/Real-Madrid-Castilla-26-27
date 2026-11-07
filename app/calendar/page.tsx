@@ -531,7 +531,10 @@ export default function Calendar() {
 }
 
 function Objective({ label, value }: { label: string; value?: string }) {
-  if (!value) return null;
+  /* Un hueco o el «-» de la hoja tampoco se nombran (07/11/2026). */
+  const texto = (value ?? "").trim();
+
+  if (!texto || texto === "-" || texto === ".") return null;
 
   return (
     <div>

@@ -2199,6 +2199,14 @@ export default function DashboardSeguimiento() {
                     {feed.slice(0, feedLimit).map((s) => {
                       const open = expanded === s.ID_REGISTRO;
                       const jugador = playerMap[s.ID_JUGADOR];
+                      /* Sólo los objetivos escritos: uno vacío no se nombra, y sin
+                         objetivos ni feedback la tarjeta no se despliega (07/11/2026). */
+                      const objetivos = [
+                        { label: "Objetivo ofensivo", color: "#C8A96B", text: clean(s.OBJETIVO_OFENSIVO) },
+                        { label: "Objetivo defensivo", color: "#3B82F6", text: clean(s.OBJETIVO_DEFENSIVO) },
+                        { label: "Objetivo mental", color: "#8B5CF6", text: clean(s.OBJETIVO_MENTAL) },
+                      ].filter((o) => o.text);
+                      const conDetalle = objetivos.length > 0 || Boolean(clean(s.FEEDBACK));
 
                       return (
                         <div
@@ -2248,37 +2256,31 @@ export default function DashboardSeguimiento() {
                               </div>
                             </div>
 
-                            <ChevronDown
-                              className={`h-4 w-4 shrink-0 text-white/40 transition ${
-                                open ? "rotate-180" : ""
-                              }`}
-                            />
+                            {conDetalle && (
+                              <ChevronDown
+                                className={`h-4 w-4 shrink-0 text-white/40 transition ${
+                                  open ? "rotate-180" : ""
+                                }`}
+                              />
+                            )}
                           </button>
 
-                          {open && (
+                          {open && conDetalle && (
                             <div className="border-t border-white/5 p-4 pt-3.5">
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                <Objective
-                                  label="Objetivo ofensivo"
-                                  color="#C8A96B"
-                                  text={s.OBJETIVO_OFENSIVO}
-                                />
-
-                                <Objective
-                                  label="Objetivo defensivo"
-                                  color="#3B82F6"
-                                  text={s.OBJETIVO_DEFENSIVO}
-                                />
-
-                                <Objective
-                                  label="Objetivo mental"
-                                  color="#8B5CF6"
-                                  text={s.OBJETIVO_MENTAL}
-                                />
-                              </div>
+                              {objetivos.length > 0 && (
+                                <div
+                                  className={`grid grid-cols-1 gap-3 ${
+                                    objetivos.length === 3 ? "md:grid-cols-3" : objetivos.length === 2 ? "md:grid-cols-2" : ""
+                                  }`}
+                                >
+                                  {objetivos.map((o) => (
+                                    <Objective key={o.label} label={o.label} color={o.color} text={o.text} />
+                                  ))}
+                                </div>
+                              )}
 
                               {clean(s.FEEDBACK) && (
-                                <div className="mt-3 rounded-xl border border-white/5 bg-white/[0.03] p-3.5">
+                                <div className={`${objetivos.length ? "mt-3 " : ""}rounded-xl border border-white/5 bg-white/[0.03] p-3.5`}>
                                   <p className="mb-1.5 flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-white/40">
                                     <MessageSquareText className="h-3 w-3" />
                                     Feedback
@@ -2763,6 +2765,9 @@ function Objective({
 }) {
   const value = clean(text);
 
+  /* Sin texto no se pinta (nada de «Sin registrar»; 07/11/2026). */
+  if (!value) return null;
+
   return (
     <div
       className="rounded-xl border p-3"
@@ -2776,7 +2781,7 @@ function Objective({
       </p>
 
       <p className="text-sm leading-relaxed text-white/75">
-        {value || <span className="text-white/25">Sin registrar</span>}
+        {value}
       </p>
     </div>
   );

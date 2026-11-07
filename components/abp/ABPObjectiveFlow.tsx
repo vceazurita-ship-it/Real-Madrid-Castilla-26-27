@@ -809,15 +809,18 @@ return (
                 </div>
               </div>
 
-              <div className="mt-1 text-sm text-slate-300">
-                {def
-                  ? `${r.tiempo ? `${r.tiempo}` : "Tiempo -"}${
-                      r.tipoRemate ? ` · ${r.tipoRemate}` : ""
-                    }`
-                  : `Min ${r.minuto ?? "-"}${
-                      r.rematador ? ` · ${r.rematador}` : ""
-                    }`}
-              </div>
+              {/* Sólo lo escrito: sin «Tiempo -» ni «Min -» (07/11/2026). */}
+              {(() => {
+                const linea = (def
+                  ? [r.tiempo, r.tipoRemate]
+                  : [r.minuto != null && String(r.minuto).trim() ? `Min ${r.minuto}` : "", r.rematador]
+                )
+                  .map((parte) => String(parte ?? "").trim())
+                  .filter((parte) => parte && parte !== "-")
+                  .join(" · ");
+
+                return linea ? <div className="mt-1 text-sm text-slate-300">{linea}</div> : null;
+              })()}
 
               <div className="mt-2 text-xs text-slate-400">
                 <span className="text-[#E7D2A0]">{accion(r)}</span>

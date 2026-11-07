@@ -51,6 +51,15 @@
   Z6: 56,
 };
 
+/* El primer valor escrito; «-» o un hueco no cuentan (lo que no tiene dato no se nombra). */
+function datoDe(...valores: unknown[]): string {
+  for (const valor of valores) {
+    const texto = String(valor ?? "").trim();
+    if (texto && texto !== "-") return texto;
+  }
+  return "";
+}
+
 function getOriginCoords(tipoAccion: string, perfil?: string) {
   const t = (tipoAccion || "")
   .toLowerCase()
@@ -1507,16 +1516,20 @@ const atenuado = tipoElegido
                     )}
                   </div>
 
-                  <div className="shrink-0 text-xs text-slate-400 whitespace-nowrap">
-                    Min {r.minuto ?? r.Minuto ?? "-"}
-                  </div>
+                  {datoDe(r.minuto, r.Minuto) && (
+                    <div className="shrink-0 text-xs text-slate-400 whitespace-nowrap">
+                      Min {datoDe(r.minuto, r.Minuto)}
+                    </div>
+                  )}
                 </div>
 
                 <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                  <div className="col-span-2 rounded-lg border border-white/10 bg-white/5 px-2 py-1.5">
-                    <p className="text-slate-400">Tipo de acción</p>
-                    <p className="mt-0.5 font-medium text-white">{r.tipoAccion ?? r.Tipo_Accion ?? "-"}</p>
-                  </div>
+                  {datoDe(r.tipoAccion, r.Tipo_Accion) && (
+                    <div className="col-span-2 rounded-lg border border-white/10 bg-white/5 px-2 py-1.5">
+                      <p className="text-slate-400">Tipo de acción</p>
+                      <p className="mt-0.5 font-medium text-white">{datoDe(r.tipoAccion, r.Tipo_Accion)}</p>
+                    </div>
+                  )}
                   <span
                     className={
                       esCorto
@@ -1527,9 +1540,11 @@ const atenuado = tipoElegido
                     {esCorto ? "Juego en corto" : envio}
                   </span>
 
-                  <span className="rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-center font-medium leading-snug text-[#E7D2A0]">
-                    {r.resultadoFinal ?? r.Resultado_Final ?? "-"}
-                  </span>
+                  {datoDe(r.resultadoFinal, r.Resultado_Final) && (
+                    <span className="rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-center font-medium leading-snug text-[#E7D2A0]">
+                      {datoDe(r.resultadoFinal, r.Resultado_Final)}
+                    </span>
+                  )}
                 </div>
               </div>
             );
@@ -1568,30 +1583,41 @@ const atenuado = tipoElegido
               key={idx}
               className="rounded-xl border border-white/10 bg-white/[0.04] p-3"
             >
-              <p className="break-words text-sm font-medium">
-                {r.rematador ?? r.Rematador ?? "Sin rematador"}
-              </p>
-              <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                <div className="rounded-lg bg-white/5 px-2 py-1.5">
-                  <dt className="text-slate-400">Tipo de remate</dt>
-                  <dd className="mt-0.5 font-medium">{r.tipoRemate ?? r.Tipo_Remate ?? "-"}</dd>
-                </div>
-                <div className="rounded-lg bg-white/5 px-2 py-1.5">
-                  <dt className="text-slate-400">Minuto</dt>
-                  <dd className="mt-0.5 font-medium">{r.minuto ?? r.Minuto ?? "-"}</dd>
-                </div>
+              {datoDe(r.rematador, r.Rematador) && (
+                <p className="mb-3 break-words text-sm font-medium">
+                  {datoDe(r.rematador, r.Rematador)}
+                </p>
+              )}
+              {/* Sólo las casillas con dato (07/11/2026). */}
+              <dl className="grid grid-cols-2 gap-2 text-xs">
+                {datoDe(r.tipoRemate, r.Tipo_Remate) && (
+                  <div className="rounded-lg bg-white/5 px-2 py-1.5">
+                    <dt className="text-slate-400">Tipo de remate</dt>
+                    <dd className="mt-0.5 font-medium">{datoDe(r.tipoRemate, r.Tipo_Remate)}</dd>
+                  </div>
+                )}
+                {datoDe(r.minuto, r.Minuto) && (
+                  <div className="rounded-lg bg-white/5 px-2 py-1.5">
+                    <dt className="text-slate-400">Minuto</dt>
+                    <dd className="mt-0.5 font-medium">{datoDe(r.minuto, r.Minuto)}</dd>
+                  </div>
+                )}
                 <div className="col-span-2 rounded-lg bg-white/5 px-2 py-1.5">
                   <dt className="text-slate-400">Goles esperados</dt>
                   <dd className="mt-0.5 font-medium">{Number(r.xG ?? 0).toFixed(2).replace(".", ",")}</dd>
                 </div>
-                <div className="col-span-2 rounded-lg bg-white/5 px-2 py-1.5">
-                  <dt className="text-slate-400">Tipo de acción</dt>
-                  <dd className="mt-0.5 font-medium">{r.tipoAccion ?? r.Tipo_Accion ?? "-"}</dd>
-                </div>
-                <div className="col-span-2 rounded-lg bg-white/5 px-2 py-1.5">
-                  <dt className="text-slate-400">Resultado</dt>
-                  <dd className="mt-0.5 font-medium text-[#E7D2A0]">{r.resultadoFinal ?? r.Resultado_Final ?? "-"}</dd>
-                </div>
+                {datoDe(r.tipoAccion, r.Tipo_Accion) && (
+                  <div className="col-span-2 rounded-lg bg-white/5 px-2 py-1.5">
+                    <dt className="text-slate-400">Tipo de acción</dt>
+                    <dd className="mt-0.5 font-medium">{datoDe(r.tipoAccion, r.Tipo_Accion)}</dd>
+                  </div>
+                )}
+                {datoDe(r.resultadoFinal, r.Resultado_Final) && (
+                  <div className="col-span-2 rounded-lg bg-white/5 px-2 py-1.5">
+                    <dt className="text-slate-400">Resultado</dt>
+                    <dd className="mt-0.5 font-medium text-[#E7D2A0]">{datoDe(r.resultadoFinal, r.Resultado_Final)}</dd>
+                  </div>
+                )}
               </dl>
             </div>
           ))}

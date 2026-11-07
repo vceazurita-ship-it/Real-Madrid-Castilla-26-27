@@ -1048,16 +1048,17 @@ function MatchCard({
             <span className="truncate">{formatDate(match)}</span>
           </span>
 
-          <span
-            className={cn(
-              "shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-medium",
-              token
-                ? token.chip
-                : "border-white/10 bg-white/[0.03] text-white/45"
-            )}
-          >
-            {token ? token.label : "Sin resultado"}
-          </span>
+          {/* Sin resultado, el chip no sale (07/11/2026). */}
+          {token && (
+            <span
+              className={cn(
+                "shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-medium",
+                token.chip
+              )}
+            >
+              {token.label}
+            </span>
+          )}
         </span>
 
         {hasVideo ? (
@@ -1208,10 +1209,15 @@ function MatchModal({
             </h2>
 
             <p className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-white/50">
-              <span className="font-semibold text-[#C8A96B]">
-                {match.resultado || "Sin resultado"}
-              </span>
-              <span aria-hidden>·</span>
+              {/* Sin resultado escrito no se nombra (07/11/2026). */}
+              {match.resultado && (
+                <>
+                  <span className="font-semibold text-[#C8A96B]">
+                    {match.resultado}
+                  </span>
+                  <span aria-hidden>·</span>
+                </>
+              )}
               <span>{formatDate(match)}</span>
             </p>
 

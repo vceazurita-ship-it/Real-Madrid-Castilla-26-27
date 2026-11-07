@@ -539,9 +539,11 @@ export default function ThrowInFlow({
                       {read(row, "JORNADA") || "Partido"}
                       {read(row, "Rival") ? ` · ${read(row, "Rival")}` : ""}
                     </div>
-                    <div className="shrink-0 text-xs text-slate-400">
-                      {read(row, "Tiempo") || "-"} {read(row, "Minuto") ? `· min ${read(row, "Minuto")}` : ""}
-                    </div>
+                    {(read(row, "Tiempo") || read(row, "Minuto")) && (
+                      <div className="shrink-0 text-xs text-slate-400">
+                        {[read(row, "Tiempo"), read(row, "Minuto") ? `min ${read(row, "Minuto")}` : ""].filter(Boolean).join(" · ")}
+                      </div>
+                    )}
                   </div>
 
                   <div className="mt-2 text-xs text-slate-400">

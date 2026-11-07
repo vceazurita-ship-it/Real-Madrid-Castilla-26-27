@@ -641,6 +641,10 @@ export default function ScoutRivalAbpPage() {
     [aereos],
   );
 
+  /* Hay algo que enseñar en cada lista (las etiquetas de plantilla sólo valen en su ataque). */
+  const hayLanzadores = sacadores.length > 0 || (side === "ofensivo" && etiquetados.sacan.length > 0);
+  const hayRematadores = rematadores.length > 0 || (side === "ofensivo" && etiquetados.rematan.length > 0);
+
   /* --------------------------- lectura ----------------------------- */
 
   /*
@@ -1173,8 +1177,21 @@ export default function ScoutRivalAbpPage() {
                   | lo dicen y no se tira de las etiquetas de SU plantilla, que
                   | colaban a sus lanzadores en una lista que no es suya.
                   */}
-                  {vista === "quien" && (
-                  <div className="grid gap-5 xl:grid-cols-2">
+                  {/*
+                  | Lo que no tiene dato no se nombra (07/11/2026): el panel sin
+                  | nadie no sale, y si no hay ni lanzadores ni rematadores queda
+                  | una sola línea que dice cómo rellenarlo, no dos cajas vacías.
+                  */}
+                  {vista === "quien" && !hayLanzadores && !hayRematadores && (
+                    <EmptyState
+                      title="Sin lanzadores ni rematadores identificados"
+                      description="Anota el sacador y el rematador al registrar cada acción, o etiqueta a sus lanzadores y rematadores de ABP en la ficha de plantilla."
+                    />
+                  )}
+
+                  {vista === "quien" && (hayLanzadores || hayRematadores) && (
+                  <div className={`grid gap-5 ${hayLanzadores && hayRematadores ? "xl:grid-cols-2" : ""}`}>
+                    {hayLanzadores && (
                     <Panel
                       title={side === "ofensivo" ? "Lanzadores" : "Quién les lanza"}
                       subtitle={side === "ofensivo" ? "Quién ejecuta su balón parado" : "Los lanzadores de los equipos que les atacan"}
@@ -1187,19 +1204,16 @@ export default function ScoutRivalAbpPage() {
                     >
                       {sacadores.length > 0 ? (
                         <PeopleList people={sacadores} />
-                      ) : side === "ofensivo" && etiquetados.sacan.length > 0 ? (
+                      ) : (
                         <TaggedList
                           players={etiquetados.sacan}
                           note="Del scouting de plantilla, no de las acciones registradas."
                         />
-                      ) : (
-                        <EmptyState
-                          title="Sin lanzadores identificados"
-                          description="Anota el sacador al registrar cada acción, o etiqueta a sus lanzadores en la ficha de plantilla."
-                        />
                       )}
                     </Panel>
+                    )}
 
+                    {hayRematadores && (
                     <Panel
                       title={side === "ofensivo" ? "Rematadores" : "Quién les remata"}
                       subtitle={side === "ofensivo" ? "Quién ataca el balón" : "Los rematadores de los equipos que les atacan"}
@@ -1211,18 +1225,14 @@ export default function ScoutRivalAbpPage() {
                     >
                       {rematadores.length > 0 ? (
                         <PeopleList people={rematadores} />
-                      ) : side === "ofensivo" && etiquetados.rematan.length > 0 ? (
+                      ) : (
                         <TaggedList
                           players={etiquetados.rematan}
                           note="Del scouting de plantilla, no de las acciones registradas."
                         />
-                      ) : (
-                        <EmptyState
-                          title="Sin rematadores identificados"
-                          description="Anota el rematador al registrar cada acción, o etiqueta «Rematador de ABP» en su ficha."
-                        />
                       )}
                     </Panel>
+                    )}
                   </div>
                   )}
                 </>

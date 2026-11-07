@@ -440,15 +440,22 @@ export function ThrowInField({ rows, mode, filtros, onFiltrar }: ThrowInFieldPro
                     <div className="flex justify-between gap-3">
                       <p className="font-medium">
                         {read(row, "JORNADA") || "Partido"}{" "}
-                        <span className="font-normal text-slate-400">· {read(row, "Rival") || "Sin rival"}</span>
+                        {read(row, "Rival") && (
+                          <span className="font-normal text-slate-400">· {read(row, "Rival")}</span>
+                        )}
                       </p>
-                      <p className="shrink-0 text-slate-400">{read(row, "Tiempo") || "-"}</p>
+                      {read(row, "Tiempo") && (
+                        <p className="shrink-0 text-slate-400">{read(row, "Tiempo")}</p>
+                      )}
                     </div>
+                    {/* Sólo las casillas con dato (07/11/2026). */}
                     <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-                      <p className="rounded-lg bg-white/5 px-2 py-1.5">
-                        <span className="block text-slate-400">Envío</span>
-                        {read(row, "Tipo_Envio") || "-"}
-                      </p>
+                      {read(row, "Tipo_Envio") && (
+                        <p className="rounded-lg bg-white/5 px-2 py-1.5">
+                          <span className="block text-slate-400">Envío</span>
+                          {read(row, "Tipo_Envio")}
+                        </p>
+                      )}
                       <p className="rounded-lg bg-white/5 px-2 py-1.5">
                         <span className="block text-slate-400">Dirección</span>
                         {direccionDe(row).label}

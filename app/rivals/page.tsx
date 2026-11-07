@@ -5348,6 +5348,7 @@ export default function RivalPlayersPage() {
 
                   {/* DATOS EN HORIZONTAL — lo que se mira de un vistazo */}
 
+                  {datosCabecera.length > 0 && (
                   <dl className="mt-3 flex min-w-0 flex-wrap gap-2">
                     {datosCabecera.map((dato) => (
                       <div
@@ -5364,6 +5365,7 @@ export default function RivalPlayersPage() {
                       </div>
                     ))}
                   </dl>
+                  )}
                 </div>
 
                 {/* ONCE PROBABLE + ENLACES */}

@@ -1379,21 +1379,22 @@ function Detalle({
             {fila.ranking ? ` · ${textoRanking(fila.ranking)}` : ""}
           </span>
         </div>
+        {/* Lo que no tiene dato no se nombra: la fila sin valor no sale (07/11/2026). */}
         <dl className="mt-4 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
           {[
             ["Minutos", `${j.minutos}′ en ${j.partidos} partidos`],
-            ["Altura · peso", j.altura ? `${j.altura} cm · ${j.peso || "—"} kg` : "—"],
-            ["Pie", j.pie || "—"],
-            ["Contrato", j.contrato || "—"],
-            ["Nota media", nota && nota.played ? `${nota.avg.toFixed(1).replace(".", ",")} (${nota.played} partidos)` : "sin valorar"],
-            ["Titularidades", nota ? String(nota.starts) : "—"],
-            ["Goles · asist.", nota ? `${nota.goals} · ${nota.assists}` : "—"],
+            ["Altura · peso", j.altura ? (j.peso ? `${j.altura} cm · ${j.peso} kg` : `${j.altura} cm`) : j.peso ? `${j.peso} kg` : ""],
+            ["Pie", j.pie || ""],
+            ["Contrato", j.contrato || ""],
+            ["Nota media", nota && nota.played ? `${nota.avg.toFixed(1).replace(".", ",")} (${nota.played} partidos)` : ""],
+            ["Titularidades", nota ? String(nota.starts) : ""],
+            ["Goles · asist.", nota ? `${nota.goals} · ${nota.assists}` : ""],
             ["Seguimientos", seg ? `${seg.n}${seg.ultima ? ` · último ${seg.ultima.split("-").reverse().join("/")}` : ""}` : "0"],
             [
               "Evolución",
-              fila.evolucion ? `${fila.evolucion.salto > 0 ? "+" : ""}${fila.evolucion.salto} pts${fila.evolucion.fiable ? "" : " (poca muestra)"}` : "no jugó aquí el año pasado",
+              fila.evolucion ? `${fila.evolucion.salto > 0 ? "+" : ""}${fila.evolucion.salto} pts${fila.evolucion.fiable ? "" : " (poca muestra)"}` : "",
             ],
-          ].map(([t, v]) => (
+          ].filter(([, v]) => v).map(([t, v]) => (
             <div key={t} className="contents">
               <dt className="text-white/40">{t}</dt>
               <dd className="text-right text-white/80">{v}</dd>

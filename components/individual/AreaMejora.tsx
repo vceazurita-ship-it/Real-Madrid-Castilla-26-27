@@ -161,6 +161,14 @@ export function AreaMejora({
   const [tipoRadiografia, setTipoRadiografia] = useTipoGrafico("radiografia", "pizza", ["pizza", "barras"] as const);
   const [tipoMapa, setTipoMapa] = useTipoGrafico("mapa-mejora", "mapa", ["mapa", "ranking"] as const);
   const [pesosMapa, setPesosMapa] = usePesos("mapa-mejora");
+  /* La carga en frío (07/11/2026, jueces): un recuadro mudo parecía un hueco; a los 20 s se dice que tarda. */
+  const [tarda, setTarda] = useState(false);
+  const [vuelta, setVuelta] = useState(0);
+
+  useEffect(() => {
+    const reloj = setTimeout(() => setTarda(true), 20_000);
+    return () => clearTimeout(reloj);
+  }, [vuelta]);
 
   useEffect(() => {
     let vivo = true;
@@ -191,7 +199,7 @@ export function AreaMejora({
     return () => {
       vivo = false;
     };
-  }, []);
+  }, [vuelta]);
 
   const analisis = useMemo(() => {
     if (!jugadores?.length) return null;
@@ -331,7 +339,30 @@ export function AreaMejora({
   const eliteJugadores = useMemo<JugadorElite[]>(() => (elite ? elite.ligas.flatMap((l) => l.jugadores.map((j) => ({ ...j, liga: l.liga }))) : []), [elite]);
 
   if (jugadores === null) {
-    return <div className="h-64 animate-pulse rounded-2xl border border-white/10 bg-white/[0.03]" aria-label="Cargando el área de mejora" />;
+    return (
+      <div className="space-y-3" role="status" aria-live="polite">
+        <p className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[13px] text-white/70">
+          {tarda ? "Tarda más de lo normal: el servidor está leyendo los datos de Wyscout en frío. " : "Leyendo los datos de Wyscout de la categoría…"}
+          {tarda && (
+            <button
+              type="button"
+              onClick={() => {
+                setTarda(false);
+                setVuelta((v) => v + 1);
+              }}
+              className="ml-1 font-semibold text-[#D8B45A] underline underline-offset-2"
+            >
+              Volver a intentar
+            </button>
+          )}
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="h-24 animate-pulse rounded-2xl bg-white/[0.07]" />
+          <div className="h-24 animate-pulse rounded-2xl bg-white/[0.07]" />
+        </div>
+        <div className="mx-auto aspect-square w-full max-w-md animate-pulse rounded-full bg-white/[0.07]" />
+      </div>
+    );
   }
 
   const etiquetaPuesto = analisis ? PUESTOS.find((p) => p.key === analisis.puesto)?.label ?? analisis.puesto : "";
