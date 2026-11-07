@@ -34,6 +34,8 @@ import {
   conDato,
   cortaEnPausa,
   duelosDeLaLamina,
+  esTendenciaMinutos,
+  tendenciaDuelo,
   fraseUtil,
   lecturaXg,
   minutosAbpInforme,
@@ -589,9 +591,9 @@ function Cifra({ rotulo, valor, pie, color = C.crema }: { rotulo: string; valor:
   );
 }
 
-/* Goles y asistencias con sus minutos (25/10/2026): «2 goles y 1 asist. en 217′»; el suplente, «si entra». */
+/* Goles y asistencias con sus minutos (25/10/2026): «2 goles y 1 asist. en 217′»; el suplente, «si entra». Con menos de 450′, «(tendencia)» (07/11/2026, ronda 14). */
 const rasgosDe = (j: JugadorRival) =>
-  [j.desdeBanquillo ? "si entra" : "", [j.goles ? `${j.goles} ${j.goles === 1 ? "gol" : "goles"}` : "", j.asistencias ? `${j.asistencias} ${j.asistencias === 1 ? "asistencia" : "asist."}` : ""].filter(Boolean).join(" y ") + (j.minutos && (j.goles || j.asistencias) ? ` en ${j.minutos}′` : ""), ...j.rasgos.slice(0, j.desdeBanquillo ? 1 : 2)]
+  [j.desdeBanquillo ? "si entra" : "", [j.goles ? `${j.goles} ${j.goles === 1 ? "gol" : "goles"}` : "", j.asistencias ? `${j.asistencias} ${j.asistencias === 1 ? "asistencia" : "asist."}` : ""].filter(Boolean).join(" y ") + (j.minutos && (j.goles || j.asistencias) ? ` en ${j.minutos}′${esTendenciaMinutos(j.minutos) ? " (tendencia)" : ""}` : ""), ...j.rasgos.slice(0, j.desdeBanquillo ? 1 : 2)]
     .filter(Boolean)
     .join(" · ") || recorta(j.fortalezas.split(/\n/)[0] ?? "", 60);
 
@@ -1123,6 +1125,8 @@ function FilaDueloJugadores({ x, lado }: { x: DueloJugadores; lado: "con" | "sin
   /* Lo que hacemos en palabras y, debajo, las cifras que suman la grande (22/10/2026). */
   const conducta = conductaDuelo(x, lado);
   const cifras = cifrasDuelo(x, lado);
+  /* Con poca muestra, «tendencia» y quién (07/11/2026, ronda 14): menos de 450′ en Wyscout. */
+  const tendencia = tendenciaDuelo(x);
 
   return (
     <div style={{ display: "flex", gap: 16, alignItems: "center", padding: "10px 14px", borderRadius: 14, background: `${color}12`, border: `2px solid ${color}33` }}>
@@ -1144,7 +1148,12 @@ function FilaDueloJugadores({ x, lado }: { x: DueloJugadores; lado: "con" | "sin
             {conducta.charAt(0).toUpperCase() + conducta.slice(1)}
           </div>
         ) : null}
-        {cifras ? <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.2, color: C.tenue }}>{cifras}</div> : null}
+        {cifras || tendencia ? (
+          <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.2, color: C.tenue }}>
+            {cifras}
+            {tendencia ? <span style={{ color: C.oroClaro }}>{cifras ? " · " : ""}{tendencia}</span> : null}
+          </div>
+        ) : null}
       </div>
     </div>
   );

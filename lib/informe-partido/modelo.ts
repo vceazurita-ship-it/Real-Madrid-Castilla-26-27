@@ -406,6 +406,8 @@ export type DueloJugadores = {
   destacados: EnfrentamientoInforme[];
   /** Cómo se lee cada nombre cuando el apellido solo confunde («el 7 García», «J. Martínez»): `rotulosDeDuelos`. */
   rotulos?: Record<string, string>;
+  /** Los del cruce con menos de 450′ en Wyscout: su percentil es tendencia, no regla (07/11/2026, ronda 14). */
+  cortos?: { nombre: string; minutos: number }[];
 };
 
 export type DuelosInforme = {
@@ -570,6 +572,15 @@ export function conductaDuelo(x: DueloJugadores, lado: "con" | "sin") {
 }
 
 /** Las cifras que componen la del duelo, para el paréntesis del final: «conducción 97-38 · regate contra entrada 89-42». */
+/** «tendencia: Obeng, 201′» si alguno del cruce juega poco; si no, "". */
+export function tendenciaDuelo(x: DueloJugadores) {
+  const cortos = (x.cortos ?? []).filter((c) => esTendenciaMinutos(c.minutos));
+
+  if (!cortos.length) return "";
+
+  return `tendencia: ${cortos.map((c) => `${apellido(c.nombre)}, ${c.minutos}′`).join("; ")}`;
+}
+
 export function cifrasDuelo(x: DueloJugadores, lado: "con" | "sin") {
   return crucesDelDuelo(x, lado)
     .map((e) => `${e.titulo.toLowerCase()} ${lado === "con" ? e.nuestro : e.suyo}-${lado === "con" ? e.suyo : e.nuestro}`)
@@ -589,7 +600,10 @@ export function fraseDuelo(x: DueloJugadores, lado: "con" | "sin") {
   | dos paréntesis seguidos y dos dos puntos. Ahora: «Nuestra banda derecha ·
   | Fortuny ante el 11 Sanchez. Centramos: pierde por alto (cifras)».
   */
-  return `${primeraMayuscula(donde)} · ${quien}${conducta ? `. ${primeraMayuscula(conducta)}` : ""}${cifras ? ` (${cifras})` : ""}`;
+  const tendencia = tendenciaDuelo(x);
+  const parentesis = [cifras, tendencia].filter(Boolean).join(" · ");
+
+  return `${primeraMayuscula(donde)} · ${quien}${conducta ? `. ${primeraMayuscula(conducta)}` : ""}${parentesis ? ` (${parentesis})` : ""}`;
 }
 
 export type Sintesis = {
@@ -2296,8 +2310,18 @@ export function defensorDebil(inf: Pick<InformePartido, "colectivo" | "once">) {
   | titular decía «punto débil: Rentero» mientras «Dónde hacerles daño» nombraba
   | a Jiménez, y Rentero era además su rematador a balón parado.
   */
-  const tokensDano = new Set(plano((inf.colectivo?.resumen?.dano ?? []).join(" ")));
-  const delDano = defensas.find((j) => plano(j.nombre).some((t) => t.length >= 4 && tokensDano.has(t)));
+  /*
+  | Línea a línea y en su orden (07/11/2026, ronda 14): con todas las líneas
+  | juntas ganaba el primer defensor del once que saliera en CUALQUIERA, y
+  | Rentero (nombrado en la tercera, que la lámina no enseña) le quitaba el
+  | titular a Javi Jiménez, que es el que la lámina pone «atrás».
+  */
+  const lineasDano = inf.colectivo?.resumen?.dano ?? [];
+  const tokensDano = new Set(plano(lineasDano.join(" ")));
+  const delDano = lineasDano
+    .map((l) => new Set(plano(l)))
+    .map((tk) => defensas.find((j) => plano(j.nombre).some((t) => t.length >= 4 && tk.has(t))))
+    .find(Boolean);
 
   const nombrado = delDano ?? defensas.find((j) => plano(j.nombre).some((t) => t.length >= 4 && tokens.has(t)));
 
@@ -3088,6 +3112,17 @@ export const conPocaMuestra = (texto: string) =>
     .replace(/[;,]?\s*un partido, base corta/g, ": es un solo partido, lo tomamos como pista, no como regla")
     .replace(/[:;,·]?\s*base corta/g, ": pocas acciones, lo tomamos como pista, no como regla");
 
+/*
+| «Tendencia» cuando la base es corta (07/11/2026, ronda 14 de jueces), con
+| la misma vara que el resto de la app: menos de 450′ de un jugador
+| (`MUESTRA_CORTA_DUELO`, lib/duelos.ts) o menos de 20 acciones.
+*/
+export const MINUTOS_TENDENCIA = 450;
+export const ACCIONES_TENDENCIA = 20;
+
+export const esTendenciaMinutos = (minutos: number | null | undefined) => typeof minutos === "number" && minutos > 0 && minutos < MINUTOS_TENDENCIA;
+export const esTendenciaAcciones = (acciones: number | null | undefined) => typeof acciones === "number" && acciones > 0 && acciones < ACCIONES_TENDENCIA;
+
 /** La consigna de un tema del plan: «Sacamos más de cada robo». */
 export const consignaDeTema = (tema: string) => TEMAS_PLAN.find((t) => t.tema === tema)?.consigna ?? "";
 
@@ -3660,6 +3695,15 @@ export function preencabezadoInforme(inf: InformePartido) {
   return s.plan[0] ? `Cómo lo ganamos: ${minusculaInicial(s.plan[0].texto)}` : inf.pronostico?.idea || s.titular;
 }
 
+/** «En su salida, el más flojo» → «en su salida»; «Los más flojos atrás» → «atrás» (los rótulos de `DONDE_DANO` en carga.ts). */
+function lugarDeDano(donde: string) {
+  const d = donde.trim();
+
+  if (/^los m[aá]s flojos atr[aá]s$/i.test(d)) return "atrás";
+
+  return minusculaInicial(d.replace(/,\s*(?:el|los) m[aá]s flojos?$/i, "").trim());
+}
+
 /**
  * El titular de la previa sale de la idea principal (24/10/2026, marketing y
  * guion): afirmativo, una sola idea y sin pregunta. «Buscan en largo a la
@@ -3691,17 +3735,30 @@ function titularDePrevia(inf: Omit<InformePartido, "sintesis">, principal: strin
     | salía cuatro veces casi igual). «Algeciras CF sale en corto y busca en
     | largo; Gomez es lento y pierde duelos».
     */
-    /* Una sola idea por titular (24/10/2026, guion): el punto débil, sin el «sale en corto y busca en largo» delante, que es otra historia. */
-    if (inf.partido.rival) return `El punto débil del ${inf.partido.rival}: ${ap}${debil.rasgos.length ? `, ${yFinal(debil.rasgos)}` : ""}`;
-
-    return debil.rasgos.length ? `Su punto débil: ${ap}, ${yFinal(debil.rasgos)}` : `Su punto débil: ${ap}`;
+    /*
+    | Una sola idea por titular (24/10/2026, guion) y en las palabras de la
+    | sección que lo sostiene (07/11/2026, ronda 14): «El punto débil: Rentero»
+    | chocaba con «Dónde hacerles daño». Ahora el titular dice dónde les
+    | hacemos daño, con el mismo nombre que esa lista.
+    */
+    return debil.rasgos.length ? `Les hacemos daño por ${ap}: ${yFinal(debil.rasgos)}` : `Les hacemos daño por ${ap}`;
   }
 
   /* Sin defensor señalado, el primero de «Dónde hacerles daño»: el titular y esa lista dicen lo mismo (segunda ronda de jueces). */
-  const dano0 = !debil ? inf.colectivo?.resumen?.dano?.[0] : undefined;
+  const dano0 = !debil || !nombra ? inf.colectivo?.resumen?.dano?.[0] : undefined;
   const [donde, quien] = dano0 ? dano0.split(/:\s/) : [];
 
-  if (quien && inf.partido.rival) return `El punto débil del ${inf.partido.rival}: ${quien.replace(/\s*\(.*$/, "").trim()} (${minusculaInicial(donde.trim())})`;
+  if (donde && quien) {
+    const lugar = lugarDeDano(donde);
+    const nombre = quien.replace(/\s*\(.*$/, "").trim();
+
+    /* Un nombre (dos o tres palabras con mayúscula) va con «por»; una frase larga del scouting no cabe en un titular: sólo el lugar. */
+    const esNombre = /^\p{Lu}[\p{L}.'-]*(?:\s+\p{Lu}[\p{L}.'-]*){0,2}$/u.test(nombre);
+
+    if (lugar && esNombre) return `Les hacemos daño ${lugar}: ${nombre}`;
+    if (esNombre) return `Les hacemos daño por ${nombre}`;
+    if (lugar) return `Les hacemos daño ${lugar}`;
+  }
 
   const arma = inf.pronostico?.suFuerte;
 

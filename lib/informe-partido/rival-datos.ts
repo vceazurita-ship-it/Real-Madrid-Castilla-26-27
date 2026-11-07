@@ -21,7 +21,7 @@ import { PUESTOS } from "@/lib/data-analisis/individual";
 import { perfilDe, plantillaDe, resumenDe, sintesisDe, type MetricaEquipo, type PerfilColectivo } from "@/lib/data-analisis/equipo";
 import { alcanceWyscout, type PartidoCalendario } from "@/lib/data-analisis/alcance";
 import { duelosDelPartido, type FichaPropia } from "@/lib/duelos-onces";
-import { normalizaDuelos } from "@/lib/duelos";
+import { MUESTRA_CORTA_DUELO, normalizaDuelos } from "@/lib/duelos";
 import { puestoEnPalabras } from "@/lib/posiciones";
 import { huecosDelUltimoOnce } from "@/lib/tactics/ultimoOnce";
 import type { RatingsSeason } from "@/lib/ratings/types";
@@ -163,6 +163,8 @@ export async function duelosYVistazo(entrada: {
         conBalon: d.conBalon,
         sinBalon: d.sinBalon,
         resumen: d.resumen,
+        /* Menos de 450′ en Wyscout: el percentil es tendencia (07/11/2026, ronda 14). */
+        cortos: [...d.nuestros, ...d.suyos].filter((j) => j.minutos > 0 && j.minutos < MUESTRA_CORTA_DUELO).map((j) => ({ nombre: j.nombre, minutos: Math.round(j.minutos) })),
         destacados: d.facetas
           .filter((f) => f.diferencia !== null && (f.veredicto === "ventaja" || f.veredicto === "desventaja"))
           .sort((a, b) => Math.abs(b.diferencia ?? 0) - Math.abs(a.diferencia ?? 0))

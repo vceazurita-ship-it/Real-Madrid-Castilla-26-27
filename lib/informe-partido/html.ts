@@ -34,6 +34,7 @@ import {
   lecturaDeFilaDelPartido,
   loQuePasoEnElDuelo,
   baseMenorDeDiez,
+  esTendenciaMinutos,
   revisaPalancas,
   selloDatos,
   ventajaVisible,
@@ -358,7 +359,7 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
   }${
     inf.sintesis.vigilar.length
       ? `<p style="margin:12px 0 4px;font:700 12px/1.3 Arial,sans-serif;color:${ROJO};text-transform:uppercase;letter-spacing:.08em">A vigilar</p>${lista(
-          inf.sintesis.vigilar.map((j) => `${j.dorsal ? `${j.dorsal} · ` : ""}${j.nombre}${j.posicion ? ` (${j.posicion.toLowerCase()})` : ""}${j.desdeBanquillo ? " · si entra desde el banquillo" : ""}${j.goles || j.asistencias ? ` · ${[j.goles ? `${j.goles} ${j.goles === 1 ? "gol" : "goles"}` : "", j.asistencias ? `${j.asistencias} ${j.asistencias === 1 ? "asistencia" : "asistencias"}` : ""].filter(Boolean).join(" y ")}${j.minutos ? ` en ${j.minutos}′` : ""}` : ""}`),
+          inf.sintesis.vigilar.map((j) => `${j.dorsal ? `${j.dorsal} · ` : ""}${j.nombre}${j.posicion ? ` (${j.posicion.toLowerCase()})` : ""}${j.desdeBanquillo ? " · si entra desde el banquillo" : ""}${j.goles || j.asistencias ? ` · ${[j.goles ? `${j.goles} ${j.goles === 1 ? "gol" : "goles"}` : "", j.asistencias ? `${j.asistencias} ${j.asistencias === 1 ? "asistencia" : "asistencias"}` : ""].filter(Boolean).join(" y ")}${j.minutos ? ` en ${j.minutos}′${esTendenciaMinutos(j.minutos) ? " (tendencia)" : ""}` : ""}` : ""}`),
         )}`
       : ""
   }`;

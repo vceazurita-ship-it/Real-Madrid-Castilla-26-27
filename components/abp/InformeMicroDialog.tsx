@@ -19,7 +19,9 @@
  */
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { Loader2, Mail, RefreshCw, Send } from "lucide-react";
+import { BookOpen, Image as ImageIcon, Loader2, Mail, Maximize2, RefreshCw, Send } from "lucide-react";
+import { MenuDescargar } from "@/components/informe-partido/MenuDescargar";
+import { descarga, descargaDataUrl } from "@/lib/export/lienzos";
 import { toast } from "sonner";
 
 import { subeAdjunto } from "@/lib/correo/subeAdjunto";
@@ -377,6 +379,9 @@ export function InformeMicroDialog({
   );
 
   const [enviando, setEnviando] = useState(false);
+
+  /* Lo que se está descargando (07/11/2026, ronda 14): el PDF o las láminas, sin mandar nada. */
+  const [bajando, setBajando] = useState<string | null>(null);
 
   /*
   | NUESTRO VÍDEO DE LA JORNADA (17/10/2026, lo pidió el usuario): ya no se
@@ -1450,6 +1455,67 @@ export function InformeMicroDialog({
      fotografiarla (03/11/2026): con `null` el lienzo no existía, la pizarra
      se quedaba «cargando» y el informe del partido esperaba un minuto para
      acabar saliendo sin balón parado. */
+  /*
+  | DESCARGAR SIN MANDAR (07/11/2026, ronda 14 de jueces): el informe sólo
+  | salía por correo o WhatsApp. Ahora, desde el menú «Descargar»: el PDF (el
+  | mismo del correo, sin la página del vídeo) y las láminas sueltas; y «Ver
+  | en grande» abre el correo en una pestaña, donde el móvil deja ampliarlo.
+  */
+  const nombreDescarga = (() => {
+    const pc = datos.partidoCalendario;
+
+    const partido = { jornada: pc?.jornada ?? null, local: pc ? (pc.lado === "casa" ? "RM Castilla" : pc.rival) : "", visitante: pc ? (pc.lado === "casa" ? pc.rival : "RM Castilla") : "" };
+
+    return nombrePartidoPdf({ ...partido, sufijo: `ABP ${esPost ? "post" : "previa"}`, respaldo: informe.titulo }).replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim();
+  })();
+
+  const bajaPdfAbp = async () => {
+    try {
+      setBajando("Preparando el PDF…");
+
+      const hojas = await completoEnHojas(informeHtml(informe), (h, t) => setBajando(`PDF · hoja ${h} de ${t}…`), { titulo: informe.titulo });
+
+      descarga(await informeUnicoPdf({ titulo: informe.titulo, diapos: [], hojas }), `${nombreDescarga}.pdf`);
+    } catch (error) {
+      toast.error("No se ha podido sacar el PDF", { description: error instanceof Error ? error.message : "" });
+    } finally {
+      setBajando(null);
+    }
+  };
+
+  /* Las láminas y gráficos del informe, una imagen cada uno (sin las páginas de los PDF del rival, que ya son PDF). */
+  const laminasAbp = informe.graficos.filter((g) => !g.cid.startsWith("rival-doc-"));
+
+  const bajaLaminasAbp = async () => {
+    try {
+      setBajando("Preparando las láminas…");
+
+      for (const [i, g] of laminasAbp.entries()) {
+        const ext = /^data:image\/jpe?g/.test(g.imagen) ? "jpg" : "png";
+
+        await descargaDataUrl(g.imagen, `${nombreDescarga} - ${String(i + 1).padStart(2, "0")} ${g.titulo}`.replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim() + `.${ext}`);
+
+        /* Varias descargas seguidas: un respiro entre una y otra, o el navegador se salta alguna. */
+        await new Promise((r) => window.setTimeout(r, 350));
+      }
+    } catch (error) {
+      toast.error("No se han podido sacar las láminas", { description: error instanceof Error ? error.message : "" });
+    } finally {
+      setBajando(null);
+    }
+  };
+
+  /* El correo tal cual, en una pestaña: en el móvil se amplía con los dedos (en el marco, encogido a 390 px, no se leía). */
+  const verEnGrandeAbp = () => {
+    const url = URL.createObjectURL(new Blob([html], { type: "text/html;charset=utf-8" }));
+
+    const ventana = window.open(url, "_blank");
+
+    if (!ventana) toast.message("El navegador no ha dejado abrir la pestaña", { description: "Permite las ventanas emergentes de esta web y vuelve a probar." });
+
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  };
+
   if (incrustado) return <>{pizarraInforme.deck}</>;
 
   return (
@@ -1496,8 +1562,28 @@ export function InformeMicroDialog({
             ) : null}
           </div>
 
-          <div className="flex shrink-0 items-center gap-2">
-            <Button onClick={onClose}>Cerrar</Button>
+          {bajando ? (
+            <p className="flex min-w-0 items-center gap-1.5 text-[11px] text-white/55" role="status" aria-live="polite">
+              <Loader2 size={12} className="shrink-0 animate-spin" /> {bajando}
+            </p>
+          ) : null}
+
+          <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+            {/* En el móvil sobra «Cerrar» (la X de arriba cierra): así caben «Descargar» y «Enviar» en una fila (07/11/2026). */}
+            <span className="hidden sm:contents">
+              <Button onClick={onClose}>Cerrar</Button>
+            </span>
+
+            <MenuDescargar
+              disabled={Boolean(bajando) || cargandoSeguimiento || cargandoComparativa || cargandoPropio || rivalInforme.cargando || pizarraInforme.cargando}
+              opciones={[
+                { id: "pdf", rotulo: "Informe en PDF", detalle: "El mismo que va en el correo, para guardarlo o pasarlo", icon: BookOpen, onSelect: () => void bajaPdfAbp() },
+                ...(laminasAbp.length
+                  ? [{ id: "laminas", rotulo: `Láminas y gráficos (${laminasAbp.length})`, detalle: "Una imagen cada uno, para WhatsApp o una charla", icon: ImageIcon, onSelect: () => void bajaLaminasAbp() }]
+                  : []),
+                { id: "grande", rotulo: "Ver en grande", detalle: "El correo en una pestaña: en el móvil se amplía con los dedos", icon: Maximize2, onSelect: verEnGrandeAbp },
+              ]}
+            />
 
             <Button
               tone="primary"
@@ -1683,7 +1769,17 @@ export function InformeMicroDialog({
           mismo HTML que se manda, en un marco aislado para que sus estilos no
           se mezclen con los de la app.
         */}
-        <div className="overflow-hidden rounded-xl border border-white/10">
+        <div className="relative overflow-hidden rounded-xl border border-white/10">
+          {/* Colores fijos: va sobre la cabecera azul del correo, igual en los dos modos. */}
+          <button
+            type="button"
+            onClick={verEnGrandeAbp}
+            className="absolute right-2 top-2 z-10 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold shadow-lg"
+            style={{ background: "rgba(8,17,31,0.78)", color: "#F4EBDD", border: "1px solid rgba(200,169,107,0.55)" }}
+            title="Abrir el correo en una pestaña, para leerlo a pantalla completa"
+          >
+            <Maximize2 size={12} /> Ver en grande
+          </button>
           <iframe
             title="Vista previa del informe"
             srcDoc={html}

@@ -70,7 +70,12 @@ for (const nombre of ["informe-abp-previa", "informe-partido-previa"]) {
 
 /* El punto débil del titular, citado también en «Dónde hacerles daño» (lo pedían los jueces). */
 const partido = fs.existsSync(path.join(CARPETA, "informe-partido-previa.txt")) ? fs.readFileSync(path.join(CARPETA, "informe-partido-previa.txt"), "utf8") : "";
-const debil = /punto d[eé]bil[^:\n]*:\s*([A-ZÁÉÍÓÚÑ][\wÁÉÍÓÚÑáéíóúñ.]+(?:\s[A-ZÁÉÍÓÚÑ][\wáéíóúñ]+)?)/.exec(partido)?.[1];
+/* «Les hacemos daño por Jiménez: …» o «Les hacemos daño en su salida: Mehdi Puch» (07/11/2026); y el «punto débil» de antes. */
+const debil = (
+  /Les hacemos da[nñ]o por\s+([A-ZÁÉÍÓÚÑ][\wÁÉÍÓÚÑáéíóúñ.]+(?:\s[A-ZÁÉÍÓÚÑ][\wáéíóúñ]+)?)/.exec(partido) ??
+  /Les hacemos da[nñ]o[^:\n]*:\s*([A-ZÁÉÍÓÚÑ][\wÁÉÍÓÚÑáéíóúñ.]+(?:\s[A-ZÁÉÍÓÚÑ][\wáéíóúñ]+)?)/.exec(partido) ??
+  /punto d[eé]bil[^:\n]*:\s*([A-ZÁÉÍÓÚÑ][\wÁÉÍÓÚÑáéíóúñ.]+(?:\s[A-ZÁÉÍÓÚÑ][\wáéíóúñ]+)?)/.exec(partido)
+)?.[1];
 const dano = /D[oó]nde hacerles da[nñ]o([\s\S]{0,800})/i.exec(partido)?.[1] ?? "";
 
 if (debil) apunta("informe-partido-previa", "el punto débil del titular sale en «Dónde hacerles daño»", dano.includes(debil.split(" ").pop()), `titular: ${debil}`);

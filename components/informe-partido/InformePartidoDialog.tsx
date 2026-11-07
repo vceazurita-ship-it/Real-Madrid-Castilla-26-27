@@ -28,12 +28,14 @@
  */
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import { BookOpen, Check, ChevronDown, Clapperboard, Download, ExternalLink, FileText, Loader2, Paperclip, Presentation, RefreshCw, Send, Upload } from "lucide-react";
+import { BookOpen, Check, ChevronDown, Clapperboard, Download, ExternalLink, FileText, Image as ImageIcon, Loader2, Maximize2, Paperclip, Presentation, RefreshCw, Send, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button, Dialog, Notice, Segmented } from "@/components/abp/ui";
 import { DIAPO_H, DIAPO_W, DIAPOSITIVAS, Escalada } from "@/components/informe-partido/Diapositivas";
 import { VideosDeLaSemana, type PiezaDeVideo } from "@/components/informe-partido/VideosDeLaSemana";
+import { VerEnGrande } from "@/components/informe-partido/VerEnGrande";
+import { MenuDescargar } from "@/components/informe-partido/MenuDescargar";
 import { AvisoAntesDeMandar } from "@/components/correo/AvisoAntesDeMandar";
 import { Destinatarios } from "@/components/correo/Destinatarios";
 import { useAgendaEnvios } from "@/hooks/useAgendaEnvios";
@@ -57,7 +59,7 @@ import { ROTULO_DOCUMENTO, type TipoDocumentoRival } from "@/lib/rivals/document
 import { capitulosDe, informeHtml, informeTexto, resumenHtml, type Descarga, type ExtrasInforme } from "@/lib/informe-partido/html";
 import { asuntoInforme, queTocaEnElMicro, titularDelPlan, titularEstaSemana, whatsappInforme, type InformePartido, type Momento, type PinceladaAbp } from "@/lib/informe-partido/modelo";
 import { corteDeRed, fuentesIncrustadas, fuentesListas } from "@/lib/export/captura";
-import { capturaLienzos, descarga, esperaFotos, pintado, pdfDeLienzos } from "@/lib/export/lienzos";
+import { capturaLienzos, descarga, descargaDataUrl, esperaFotos, pintado, pdfDeLienzos } from "@/lib/export/lienzos";
 import { creaPptx } from "@/lib/export/pptx";
 import { barlowCondensed } from "@/lib/rivals/portada-font";
 import { pideVideoPostAbp, type VideoPostAbp } from "@/components/abp/jugadas-del-video";
@@ -1006,6 +1008,28 @@ export function InformePartidoDialog({
       descarga(pptDe(imagenes, indices), nombreDeArchivo(`${nombreLegible} - Resumen`, "pptx"));
     } catch (error) {
       toast.error("No se ha podido exportar", { description: error instanceof Error ? error.message : "" });
+    } finally {
+      setTrabajando(null);
+    }
+  };
+
+  /* Las diapositivas como imágenes sueltas (07/11/2026, ronda 14): para pasarlas por WhatsApp o pegarlas en una presentación. */
+  const bajaImagenes = async () => {
+    try {
+      setTrabajando("Preparando las imágenes…");
+
+      const { imagenes, indices } = await elegidas();
+
+      for (const [k, imagen] of imagenes.entries()) {
+        const ext = /^data:image\/png/.test(imagen) ? "png" : "jpg";
+
+        await descargaDataUrl(imagen, nombreDeArchivo(`${nombreLegible} - ${(indices[k] ?? k) + 1} ${rotuloDiapo(indices[k] ?? k)}`, ext));
+
+        /* El navegador encadena mal varias descargas seguidas: un respiro entre una y otra. */
+        await new Promise((r) => window.setTimeout(r, 350));
+      }
+    } catch (error) {
+      toast.error("No se han podido sacar las imágenes", { description: error instanceof Error ? error.message : "" });
     } finally {
       setTrabajando(null);
     }
@@ -1969,7 +1993,7 @@ export function InformePartidoDialog({
   return (
     <Dialog
       title="Informe del partido"
-      subtitle="Resumen en tres diapositivas e informe completo: la semana, los dos en datos, el rival de un vistazo, los duelos, el pronóstico, el plan y el balón parado"
+      subtitle="Resumen en tres diapositivas e informe completo, para el cuerpo técnico"
       onClose={cierra}
       footer={
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -2001,26 +2025,30 @@ export function InformePartidoDialog({
               "Las diapositivas y el PDF se preparan solos mientras lo revisas"
             ) : null}
           </p>
-          <div className="flex flex-wrap gap-2">
-            <Button icon={FileText} disabled={!informe || Boolean(trabajando) || cargando} onClick={() => void bajaPdf()} title="Las diapositivas elegidas, en PDF">
-              Resumen PDF
-            </Button>
-            <Button icon={Presentation} disabled={!informe || Boolean(trabajando) || cargando} onClick={() => void bajaPptx()} title="Las diapositivas elegidas, en PowerPoint">
-              Resumen PPT
-            </Button>
-            <Button icon={BookOpen} disabled={!informe || Boolean(trabajando) || cargando || abpCargando} onClick={() => void bajaCompleto()} title="El informe extenso en PDF, con los capítulos elegidos">
-              Completo PDF
-            </Button>
-            {puedeMontarVideo() ? (
-              <>
-                <Button icon={Clapperboard} disabled={!informe || Boolean(trabajando) || cargando} onClick={() => void bajaVideoJugadores()} title="La pieza corta en vertical para el móvil (45-75 s): a quién vigilar, sus acciones, las claves y la consigna. Se descarga; no se envía">
-                  Vídeo para jugadores
-                </Button>
-                <Button disabled={!informe || Boolean(trabajando) || cargando} onClick={() => void bajaVideoJugadores(false)} title="La misma pieza en horizontal (16:9), para proyectarla">
-                  16:9
-                </Button>
-              </>
-            ) : null}
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {/* Un solo «Descargar» (07/11/2026, ronda 14): seis botones sueltos ocupaban tres filas en el móvil. */}
+            <MenuDescargar
+              disabled={!informe || Boolean(trabajando) || cargando}
+              opciones={[
+                { id: "pdf", rotulo: "Resumen en PDF", detalle: "Las diapositivas elegidas, una por página", icon: FileText, onSelect: () => void bajaPdf() },
+                { id: "img", rotulo: "Resumen en imágenes", detalle: "Una imagen por diapositiva, para WhatsApp", icon: ImageIcon, onSelect: () => void bajaImagenes() },
+                { id: "ppt", rotulo: "Resumen en PowerPoint", detalle: "Las mismas diapositivas, para proyectar", icon: Presentation, onSelect: () => void bajaPptx() },
+                {
+                  id: "completo",
+                  rotulo: "Informe completo en PDF",
+                  detalle: abpCargando ? "Esperando al balón parado para meterlo" : "Con los capítulos elegidos",
+                  icon: BookOpen,
+                  disabled: abpCargando,
+                  onSelect: () => void bajaCompleto(),
+                },
+                ...(puedeMontarVideo()
+                  ? [
+                      { id: "video", rotulo: "Vídeo para jugadores · vertical", detalle: "45-75 s para el móvil; se descarga, no se envía", icon: Clapperboard, onSelect: () => void bajaVideoJugadores() },
+                      { id: "video169", rotulo: "Vídeo para jugadores · 16:9", detalle: "La misma pieza en horizontal, para proyectarla", icon: Clapperboard, onSelect: () => void bajaVideoJugadores(false) },
+                    ]
+                  : []),
+              ]}
+            />
             <Button
               tone="primary"
               icon={trabajando || esperaAbp || enviandoFuera ? Loader2 : Send}
@@ -2173,25 +2201,48 @@ export function InformePartidoDialog({
           ) : vista === "resumen" ? (
             anchoVista > 0 && (
               <div className="space-y-3">
-                {diapoMarcada(0) && (
-                  <Escalada ancho={anchoVista}>
-                    <Uno inf={informeVisto} />
-                  </Escalada>
-                )}
-                {diapoMarcada(1) && (
-                  <Escalada ancho={anchoVista}>
-                    <Dos inf={informeVisto} />
-                  </Escalada>
-                )}
-                {diapoMarcada(2) && (
-                  <Escalada ancho={anchoVista}>
-                    <Tres inf={informeVisto} />
-                  </Escalada>
+                {/* Cada lámina con «Ver en grande» (07/11/2026, ronda 14): en el móvil no se leía a 390 px. */}
+                {[Uno, Dos, Tres].map((Diapo, i) =>
+                  diapoMarcada(i) ? (
+                    <VerEnGrande
+                      key={i}
+                      ancho={DIAPO_W}
+                      alto={DIAPO_H}
+                      titulo={`${i + 1}/3 · ${rotuloDiapo(i)}`}
+                      className={barlowCondensed.className}
+                      style={{ ["--fuente-informe" as string]: barlowCondensed.style.fontFamily }}
+                      preview={
+                        <Escalada ancho={anchoVista}>
+                          <Diapo inf={informeVisto} />
+                        </Escalada>
+                      }
+                    >
+                      <Diapo inf={informeVisto} />
+                    </VerEnGrande>
+                  ) : null,
                 )}
               </div>
             )
           ) : (
-            <iframe title="Informe completo" srcDoc={htmlVista} className="h-[70vh] w-full rounded-xl border border-white/10 bg-white" />
+            <div className="relative">
+              {/* «Ver en grande» (07/11/2026, ronda 14): el correo en una pestaña, donde el móvil deja ampliarlo. Colores fijos: va sobre la cabecera azul del correo. */}
+              <button
+                type="button"
+                onClick={() => {
+                  const url = URL.createObjectURL(new Blob([htmlVista], { type: "text/html;charset=utf-8" }));
+
+                  if (!window.open(url, "_blank")) toast.message("El navegador no ha dejado abrir la pestaña", { description: "Permite las ventanas emergentes de esta web y vuelve a probar." });
+
+                  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+                }}
+                className="absolute right-2 top-2 z-10 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold shadow-lg"
+                style={{ background: "rgba(8,17,31,0.78)", color: "#F4EBDD", border: "1px solid rgba(200,169,107,0.55)" }}
+                title="Abrir el informe completo en una pestaña"
+              >
+                <Maximize2 size={12} /> Ver en grande
+              </button>
+              <iframe title="Informe completo" srcDoc={htmlVista} className="h-[70vh] w-full rounded-xl border border-white/10 bg-white" />
+            </div>
           )}
         </div>
 
