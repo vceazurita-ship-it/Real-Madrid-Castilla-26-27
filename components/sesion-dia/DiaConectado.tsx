@@ -94,12 +94,19 @@ export function DiaConectado({
   */
   const soloLectura = !onAcepta;
   const renombres = new Map<number, string>();
+  /* 07/11/2026: la tarea del plan que no se hizo sale en su sitio, «no se hizo», sin saltos en la numeración. */
+  const noSeHizo = new Set<number>();
 
   if (soloLectura) {
-    for (const p of propuestas) if (p.tipo === "renombrar") renombres.set(p.indice, p.a);
+    for (const p of propuestas) {
+      if (p.tipo === "renombrar") renombres.set(p.indice, p.a);
+      if (p.tipo === "quitar") noSeHizo.add(p.indice);
+    }
   }
 
-  const otrosCambios = soloLectura ? propuestas.filter((p) => p.tipo !== "renombrar") : propuestas;
+  const otrosCambios = soloLectura ? propuestas.filter((p) => p.tipo !== "renombrar" && p.tipo !== "quitar") : propuestas;
+  /* Con sesión, el día se cuenta entero: todas las tareas del plan, en su orden. */
+  const enteras = soloLectura && Boolean(sesion);
 
   /* Sin nada que contar no se dibuja la caja: sólo la fila con los accesos. */
   const vacio = !hayAlgo && propuestas.length === 0;
@@ -126,15 +133,18 @@ export function DiaConectado({
             const colocados = eq ? eq.equipos.filter((e) => e.jugadores.length) : [];
             const suyos = porTarea.get(k) ?? [];
             const otroNombre = renombres.get(k);
+            const quitada = noSeHizo.has(k);
+            const delPlan = nombreVisible(p.tipo, p.contenidoPrincipal, p.formato);
 
-            if (!colocados.length && !suyos.length && !(eq && eq.comodines.length) && !otroNombre) return null;
+            if (!enteras && !colocados.length && !suyos.length && !(eq && eq.comodines.length) && !otroNombre && !quitada) return null;
 
             return (
-              <li key={`${p.codigo}-${k}`} className="min-w-0 rounded-lg border border-white/[0.06] px-2.5 py-1.5">
+              <li key={`${p.codigo}-${k}`} className={`min-w-0 rounded-lg border border-white/[0.06] px-2.5 py-1.5 ${quitada ? "opacity-70" : ""}`}>
                 <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[12px]">
                   <span className="font-semibold text-[#C8A96B]">{p.codigo}</span>
-                  {/* Renombrada: el título es el del plan y la línea de abajo dice el de la sesión (30/10/2026; antes salía dos veces el mismo). */}
-                  <span className="min-w-0 truncate text-white/80">{nombreVisible(otroNombre ? undefined : t?.nombre, p.tipo, p.contenidoPrincipal, p.formato) || "Tarea sin nombre"}</span>
+                  {/* 07/11/2026: el título es el nombre de la sesión (lo que se hizo) y el del plan va de nota debajo. */}
+                  <span className={`min-w-0 truncate text-white/80 ${quitada ? "line-through decoration-white/30" : ""}`}>{nombreVisible(otroNombre, t?.nombre, p.tipo, p.contenidoPrincipal, p.formato) || "Tarea sin nombre"}</span>
+                  {quitada || (enteras && !t) ? <span className="rounded-full border border-white/15 px-1.5 text-[10px] font-semibold uppercase tracking-wide text-white/55">no se hizo</span> : null}
                   {colocados.map((e) => (
                     <span key={e.nombre + e.color} className="inline-flex items-center gap-1 text-[11px] text-white/60" title={e.jugadores.join(", ")}>
                       <span className="h-2.5 w-2.5 shrink-0 rounded-full border border-white/20" style={{ background: e.color }} aria-hidden />
@@ -143,9 +153,9 @@ export function DiaConectado({
                   ))}
                   {eq && eq.comodines.length ? <span className="text-[11px] text-white/50" title={eq.comodines.join(", ")}>+{eq.comodines.length} comodín{eq.comodines.length === 1 ? "" : "es"}</span> : null}
                 </p>
-                {otroNombre ? (
+                {otroNombre && delPlan && delPlan.toLowerCase() !== otroNombre.toLowerCase() ? (
                   <p className="text-[11px] text-white/50">
-                    {p.codigo} se llamó «{otroNombre}» en la sesión
+                    En el plan: «{delPlan}»
                   </p>
                 ) : null}
                 {suyos.map((r) => (

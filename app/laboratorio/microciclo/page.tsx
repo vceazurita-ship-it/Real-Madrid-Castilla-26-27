@@ -117,6 +117,7 @@ import { ValoracionTarea } from "@/components/registro/ValoracionTarea";
 import { CamposCognitivos } from "@/components/registro/CamposCognitivos";
 import { propuestaCognitiva } from "@/lib/registro/propuesta";
 import type { RegistroTarea } from "@/lib/abp/registro";
+import { comaDecimal, cuentaMicros, type CuentaMicro, type FilaCuenta } from "@/lib/microciclo/cuenta";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { loadRegistro, type RegistroDataset } from "@/lib/abp/registro";
@@ -594,24 +595,46 @@ function FilaTarea({
 /*  ELEGIR UN MICROCICLO DE LA HOJA                                    */
 /* ------------------------------------------------------------------ */
 
-/** «Micro 17 · Antequera (18 tareas · 4 días de entreno · nota 6.8)»: para elegir con criterio qué semana copiar. */
-function etiquetaMicroHoja(uno: { micro: number; rival: string; tareas: number }, todas: RegistroTarea[]) {
-  const suyas = todas.filter((tarea) => tarea.micro === uno.micro);
+/** Las tareas del registro en la forma que cuenta lib/microciclo/cuenta.ts. */
+const filasDeCuenta = (todas: RegistroTarea[], temporada?: string): FilaCuenta[] =>
+  todas
+    .filter((t) => !temporada || t.temporada.replace(/\s+/g, "") === temporada.replace(/\s+/g, ""))
+    .map((t) => ({
+      micro: t.micro,
+      rival: t.rival,
+      md: t.md,
+      fecha: t.fecha,
+      tarea: t.tarea,
+      fase: t.fase,
+      tipo: t.tipoTarea,
+      contenidoPrincipal: t.contenidoPrincipal,
+      tiempo: t.tiempo,
+      evaluacion: t.evaluacion,
+    }));
 
-  const dias = new Set(
-    suyas.filter((tarea) => !/competici/i.test(tarea.fase)).map((tarea) => tarea.fecha).filter(Boolean),
-  ).size;
+/*
+| «Micro 20 · Hércules (14 de entreno + partido · 4 días · valoración 6,7)»
+| (07/11/2026). Antes contaba a su manera —con las filas sin MD y el 2B dentro
+| del 2— y salía 18 donde Microciclos dice 15. Ahora la cuenta es la misma
+| (lib/microciclo/cuenta.ts), la nota lleva coma y dice qué es, y el 2B sale
+| junto al 2, que es el que se abre.
+*/
+function etiquetaMicroHoja(uno: { micro: number; rival: string; tareas: number; temporada?: string }, todas: RegistroTarea[]) {
+  const semanas = cuentaMicros(filasDeCuenta(todas, uno.temporada)).filter((c) => Math.floor(c.micro + 1e-9) === uno.micro);
 
-  const notas = suyas.map((tarea) => tarea.evaluacion).filter((nota) => nota > 0);
-  const nota = notas.length ? (notas.reduce((suma, valor) => suma + valor, 0) / notas.length).toFixed(1) : "";
+  const trozo = (c: CuentaMicro) => {
+    const partes = [
+      `${c.tareasEntreno} ${c.tareasEntreno === 1 ? "tarea" : "tareas"} de entreno${c.partidos ? ` + ${c.partidos === 1 ? "partido" : `${c.partidos} partidos`}` : ""}`,
+      c.entrenos > 0 ? `${c.entrenos} ${c.entrenos === 1 ? "día" : "días"}` : "",
+      c.valoradas ? `valoración media ${comaDecimal(c.valoracion)} en ${c.valoradas}` : "",
+    ].filter(Boolean);
 
-  const partes = [
-    `${uno.tareas} ${uno.tareas === 1 ? "tarea" : "tareas"}`,
-    dias > 0 ? `${dias} ${dias === 1 ? "día" : "días"} de entreno` : "",
-    nota ? `nota ${nota}` : "",
-  ].filter(Boolean);
+    return `${c.etiqueta}${c.rival ? ` · ${c.rival}` : ""} (${partes.join(" · ")})`;
+  };
 
-  return `Micro ${uno.micro}${uno.rival ? ` · ${uno.rival}` : ""} (${partes.join(" · ")})`;
+  if (!semanas.length) return `Micro ${uno.micro}${uno.rival ? ` · ${uno.rival}` : ""}`;
+
+  return `Micro ${semanas.map(trozo).join(" y ")}`;
 }
 
 function EligeMicro({
@@ -646,6 +669,86 @@ function EligeMicro({
       <Button icon={Pencil} disabled={!valor || abriendo} onClick={() => onAbrir(Number(valor))}>
         {abriendo ? "Leyendo la hoja…" : "Abrir para editar"}
       </Button>
+    </div>
+  );
+}
+
+/** «4h 32'» / «45'». */
+const minutosLegibles = (n: number) => {
+  const h = Math.floor(n / 60);
+  const m = Math.round(n % 60);
+
+  return h > 0 ? `${h}h ${String(m).padStart(2, "0")}'` : `${m}'`;
+};
+
+/*
+| LO QUE SE VA A COPIAR, ANTES DE CREAR (07/11/2026). Elegir la semana de
+| origen era a ciegas: ahora se ve cuántas tareas y minutos lleva cada MD, y el
+| total frente a la media de la temporada (sin el partido, en los micros con
+| tareas). Lo que no tiene minutos no enseña minutos.
+*/
+function ResumenOrigen({ micro, todas }: { micro: number | null; todas: RegistroTarea[] }) {
+  const datos = useMemo(() => {
+    if (!micro) return null;
+
+    const cuentas = cuentaMicros(filasDeCuenta(todas));
+    const suyas = todas.filter((t) => t.micro === micro && t.md.trim() && t.tarea.trim() && !/competici/i.test(t.fase));
+
+    if (!suyas.length) return null;
+
+    const porMd = new Map<string, { tareas: number; minutos: number }>();
+
+    for (const t of suyas) {
+      const md = t.md.trim().toUpperCase().replace(/\s+/g, "");
+      const uno = porMd.get(md) ?? { tareas: 0, minutos: 0 };
+
+      uno.tareas += 1;
+      uno.minutos += t.tiempo || 0;
+      porMd.set(md, uno);
+    }
+
+    const orden = (md: string) => {
+      const m = md.match(/^MD([+-])(\d+)$/);
+
+      return m ? (m[1] === "-" ? -Number(m[2]) : 10 + Number(m[2])) : 0;
+    };
+
+    const conMinutos = cuentas.filter((c) => c.minutosEntreno > 0);
+    const media = conMinutos.length >= 3 ? conMinutos.reduce((s, c) => s + c.minutosEntreno, 0) / conMinutos.length : 0;
+    const mediaTareas = cuentas.length >= 3 ? cuentas.reduce((s, c) => s + c.tareasEntreno, 0) / cuentas.length : 0;
+
+    return {
+      dias: [...porMd.entries()].sort((a, b) => orden(a[0]) - orden(b[0])),
+      tareas: suyas.length,
+      minutos: suyas.reduce((s, t) => s + (t.tiempo || 0), 0),
+      media,
+      mediaTareas,
+      micros: cuentas.length,
+    };
+  }, [micro, todas]);
+
+  if (!datos) return null;
+
+  return (
+    <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.02] p-3">
+      <p className="text-[12px] font-semibold text-white/80">
+        Se copian {datos.tareas} {datos.tareas === 1 ? "tarea" : "tareas"} de entreno del micro {micro}
+        {datos.minutos > 0 ? ` · ${minutosLegibles(datos.minutos)}` : ""}
+      </p>
+      {datos.media > 0 || datos.mediaTareas > 0 ? (
+        <p className="mt-0.5 text-[11px] text-white/50">
+          Media de la temporada ({datos.micros} micros): {comaDecimal(datos.mediaTareas)} tareas
+          {datos.media > 0 ? ` y ${minutosLegibles(datos.media)} por semana` : " por semana"}
+        </p>
+      ) : null}
+      <ul className="mt-2 flex flex-wrap gap-1.5">
+        {datos.dias.map(([md, d]) => (
+          <li key={md} className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[11px] text-white/70">
+            <span className="font-semibold text-[#C8A96B]">{md}</span> · {d.tareas} {d.tareas === 1 ? "tarea" : "tareas"}
+            {d.minutos > 0 ? ` · ${d.minutos}'` : ""}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -2109,6 +2212,11 @@ export default function EditorMicrocicloPage() {
                   <p className="mt-1 text-[11px] text-white/35">
                     Sus tareas entran atadas por MD —el MD-2 de aquella semana al MD-2 de ésta— y luego se cambia lo que toque.
                   </p>
+
+                  <ResumenOrigen
+                    micro={partirDe === "ultimo" ? ultimoConTareas : partirDe ? Number(partirDe) : null}
+                    todas={registro?.tareas ?? []}
+                  />
 
                   <label className="mt-2 flex items-center gap-2 text-[11px] text-white/55">
                     <input

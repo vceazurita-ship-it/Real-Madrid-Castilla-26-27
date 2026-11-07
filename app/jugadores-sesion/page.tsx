@@ -67,7 +67,7 @@ import { LAMINA_H, LAMINA_W, LaminaEquipos, LaminaEscalada } from "@/components/
 import { CampoEstructura } from "@/components/sesion-equipos/CampoEstructura";
 import { loadRegistro, type RegistroTarea } from "@/lib/abp/registro";
 import { lineaDeDetalle, type ContextoSesion } from "@/lib/sesion-equipos/registro";
-import { apuntaQuitada, cambiosDelPlan, detalleDePlan, enlaza, hayCambiosDelPlan, planDeRegistro, resultadosPorTarea, sesionDeFecha, traeDelPlan } from "@/lib/sesion-dia/conexion";
+import { apuntaQuitada, cambiosDelPlan, detalleDePlan, enlaza, firmaTarea, hayCambiosDelPlan, nombreEnSesion, parecido, planDeRegistro, resultadosPorTarea, sesionDeFecha, traeDelPlan } from "@/lib/sesion-dia/conexion";
 import { useDiasConectados } from "@/hooks/useDiasConectados";
 import { EnlacesDia } from "@/components/sesion-dia/EnlacesDia";
 import { LineaResultado } from "@/components/sesion-dia/DiaConectado";
@@ -1008,7 +1008,43 @@ function EstructuraEquipo({
       | equipos (si tienen a alguien fuera del dibujo, se le pone ahí; si no, el
       | puesto queda con un «+» donde soltar al que lo comparta).
       */}
-      {compartidos.length > 0 && (
+      {/* 07/11/2026: con dos o más, una sola línea plegable («7 puestos compartidos») en vez de siete avisos seguidos. */}
+      {compartidos.length > 1 && (
+        <details className="group rounded-lg border border-[#C8A96B]/25 bg-[#C8A96B]/[0.04] px-2 py-1.5 text-[11px] text-white/75">
+          <summary className="cursor-pointer select-none font-semibold text-white/85">
+            {compartidos.length} puestos compartidos
+            <span className="ml-1 font-normal text-white/50">
+              · {compartidos.map((h) => yNombres([h.jugador!, ...(h.companeros ?? [])].map((j) => j.nombre.split(" ")[0]))).join(" · ")}
+            </span>
+          </summary>
+          <ul className="mt-2 flex flex-col gap-1.5" aria-label="Puestos compartidos">
+            {compartidos.map((h) => (
+              <li key={h.jugador!.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-[#C8A96B]/20 px-2 py-1.5">
+                <span className="min-w-0">
+                  <b className="text-white/90">{yNombres([h.jugador!, ...(h.companeros ?? [])].map((j) => j.nombre))}</b>
+                </span>
+                {onCompartirEnOtros && otrosEquipos.length > 0 && (
+                  <span className="flex flex-wrap gap-1">
+                    {otrosEquipos.map((o) => (
+                      <button
+                        key={o.id}
+                        type="button"
+                        onClick={() => onCompartirEnOtros(h, o.id)}
+                        className="inline-flex items-center gap-1 rounded-md border border-white/15 bg-white/[0.04] px-2 py-0.5 text-[11px] font-semibold text-white/80 transition hover:border-[#C8A96B]/50 hover:text-white"
+                        title={`El mismo puesto, compartido también en ${o.nombre}`}
+                      >
+                        <span aria-hidden className="h-2 w-2 rounded-full" style={{ background: o.color }} />
+                        También en {o.nombre || "el otro"}
+                      </button>
+                    ))}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+      {compartidos.length === 1 && (
         <ul className="flex flex-col gap-1.5" aria-label="Puestos compartidos">
           {compartidos.map((h) => (
             <li key={h.jugador!.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-[#C8A96B]/25 bg-[#C8A96B]/[0.06] px-2 py-1.5 text-[11px] text-white/75">
@@ -2623,8 +2659,30 @@ export default function JugadoresSesionPage() {
   | enseñaban la línea, la valoración y el «faltan» de otra tarea. Sin código
   | del plan (tarea creada a mano), no se adivina nada.
   */
+  /*
+  | 07/11/2026: el código solo no basta. Si el plan se renumeró («1 tarea del
+  | plan que no está aquí · 2 renombradas»), el V-T1 de la sesión casaba con
+  | el nuevo V-T1 de la hoja y ANALÍTICA enseñaba «De la hoja: Rondo Complejo ·
+  | 7v3» y un «sobran 10» falso. La fila del plan tiene que ser la misma tarea
+  | —misma firma, el mismo nombre con que se trajo o un nombre parecido—; si
+  | no, no hay pareja: ni «De la hoja» ni comparación de formato.
+  */
   const detalles = useMemo(
-    () => enlacePlan.map((k, i) => (k === null || k === undefined || !sesion?.tareas[i]?.plan ? null : detalleDePlan(planSesion[k]))),
+    () =>
+      enlacePlan.map((k, i) => {
+        const t = sesion?.tareas[i];
+        const p = k === null || k === undefined ? undefined : planSesion[k];
+
+        if (!t?.plan || !p) return null;
+
+        const misma =
+          firmaTarea(p) === t.plan.firma ||
+          claveNombre(nombreEnSesion(p)) === claveNombre(t.plan.nombre) ||
+          parecido(t.nombre, nombreEnSesion(p)) >= 0.5 ||
+          (p.contenidoPrincipal.trim() !== "" && parecido(t.nombre, p.contenidoPrincipal) >= 0.5);
+
+        return misma ? detalleDePlan(p) : null;
+      }),
     [enlacePlan, planSesion, sesion],
   );
   const detalleDe = (i: number) => (sesion ? lineaDeDetalle(detalles[i], sesion.tareas[i]?.nombre ?? "") : "");
@@ -3246,11 +3304,19 @@ export default function JugadoresSesionPage() {
                           ? cuando.toLocaleDateString("es-ES", { weekday: "short", day: "2-digit", month: "2-digit" }).replace(",", "")
                           : "";
                         /* 07/11/2026: sin título, el mismo patrón que las demás («Castilla - viernes 16/10/26»). */
-                        const titulo = sinTitulo
-                          ? cuando && !Number.isNaN(cuando.getTime())
-                            ? `Castilla - ${cuando.toLocaleDateString("es-ES", { weekday: "long" })} ${cuando.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "2-digit" })}`
-                            : ""
-                          : tituloLegible(s.titulo);
+                        /*
+                        | 07/11/2026: «sáb 07/11 · Castilla - sábado 07/11/26» repetía la fecha.
+                        | El título sólo sale si dice algo más que el equipo, el día y la fecha.
+                        */
+                        const legible = sinTitulo ? "" : tituloLegible(s.titulo);
+                        const resto = legible
+                          .toLowerCase()
+                          .normalize("NFD")
+                          .replace(/[̀-ͯ]/g, "")
+                          .replace(/\b(rm|real madrid|castilla|sesion|lunes|martes|miercoles|jueves|viernes|sabado|domingo)\b/g, "")
+                          .replace(/\d{1,2}[/.-]\d{1,2}(?:[/.-]\d{2,4})?/g, "")
+                          .replace(/[\s\-–·,.:/]+/g, "");
+                        const titulo = resto ? legible : fechaCorta ? "" : legible;
                         const etiqueta = [fechaCorta, titulo].filter(Boolean).join(" · ") || "Sesión";
 
                         return (
@@ -3414,9 +3480,14 @@ export default function JugadoresSesionPage() {
                 ) : null}
                 {cambiosPlan && planSesion.length > 0 && hayCambiosDelPlan(cambiosPlan) ? (
                   <p className="min-w-0 text-[12px] text-amber-300">
+                    {/* 07/11/2026: dice cuáles, con su código y nombre, y el botón «Traer» va al lado. */}
                     {[
-                      cambiosPlan.nuevas.length ? `${cambiosPlan.nuevas.length} ${cambiosPlan.nuevas.length === 1 ? "tarea del plan que no está aquí" : "tareas del plan que no están aquí"}` : "",
-                      cambiosPlan.renombradas.length ? `${cambiosPlan.renombradas.length} ${cambiosPlan.renombradas.length === 1 ? "renombrada" : "renombradas"} en el plan` : "",
+                      cambiosPlan.nuevas.length
+                        ? `Falta${cambiosPlan.nuevas.length === 1 ? "" : "n"} del plan: ${cambiosPlan.nuevas.map((p) => `${p.codigo} ${nombreEnSesion(p).toLowerCase()}`).join(", ")}`
+                        : "",
+                      cambiosPlan.renombradas.length
+                        ? `renombrada${cambiosPlan.renombradas.length === 1 ? "" : "s"} en el plan: ${cambiosPlan.renombradas.map((r) => `${r.de.toLowerCase()} → ${r.a.toLowerCase()}`).join(", ")}`
+                        : "",
                       cambiosPlan.orden ? "otro orden en el plan" : "",
                     ]
                       .filter(Boolean)
@@ -3425,7 +3496,7 @@ export default function JugadoresSesionPage() {
                 ) : null}
                 {cambiosPlan && planSesion.length > 0 && (hayCambiosDelPlan(cambiosPlan) || cambiosPlan.sinVinculo > 0) ? (
                   <Button icon={Repeat2} onClick={traeDelMicrociclo} title="Añade las tareas del plan que faltan, pone sus nombres y su orden y ata cada tarea a la suya. Nadie pierde su sitio; se puede deshacer.">
-                    Traer del microciclo
+                    Traer
                   </Button>
                 ) : null}
                 <span className="flex-1" />
@@ -3739,16 +3810,26 @@ export default function JugadoresSesionPage() {
                       {(() => {
                         const k = enlacePlan[activa];
                         /* Sólo la de su código del plan (30/10/2026): sin él, la valoración sería de otra tarea. */
-                        const p = k === null || k === undefined || !tarea.plan ? null : planSesion[k];
+                        /* 07/11/2026: y sólo si es la misma tarea (la pareja de «De la hoja»): con el plan renumerado era la nota de otra. */
+                        const p = k === null || k === undefined || !tarea.plan || !detalles[activa] ? null : planSesion[k];
                         const suyos = resultadosDe(activa);
 
                         if (!suyos.length && !(p && (p.evaluacion > 0 || p.analisisPost))) return null;
+
+                        /* «SENSACIÓN JUGADOR» tal cual de la hoja no se leía: en minúscula y diciendo qué es. */
+                        const post = p?.analisisPost ? textoDeHoja(p.analisisPost) : "";
+                        const postLegible = post && post === post.toUpperCase() ? post.toLowerCase() : post;
 
                         return (
                           <div className="w-full min-w-0 space-y-1 rounded-xl border border-white/[0.06] px-3 py-2">
                             {p && (p.evaluacion > 0 || p.analisisPost) ? (
                               <p className="text-[11px] text-white/60">
-                                Valoración en el microciclo: {[p.evaluacion > 0 ? `nota ${String(p.evaluacion).replace(".", ",")}` : "", p.analisisPost ? textoDeHoja(p.analisisPost) : ""].filter(Boolean).join(" · ")}
+                                {[
+                                  p.evaluacion > 0 ? `Valoración en el microciclo: ${String(p.evaluacion).replace(".", ",")} de 10` : "",
+                                  postLegible ? `${p.evaluacion > 0 ? "a" : "A"}nálisis post: ${postLegible}` : "",
+                                ]
+                                  .filter(Boolean)
+                                  .join(" · ")}
                               </p>
                             ) : null}
                             {suyos.map((r) => (

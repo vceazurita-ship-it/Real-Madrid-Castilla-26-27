@@ -24,6 +24,9 @@ import {
 import { cn } from "@/lib/utils";
 import { EstadoError } from "@/components/ui/estados";
 import { buscadorDeEscudos, traeEscudos, type Escudos } from "@/lib/data-analisis/escudos";
+import { cuentaDias, esFilaDePartido, textoEntrenosYPartidos } from "@/lib/microciclo/cuenta";
+import { useCalendario } from "@/hooks/useCalendario";
+import { comoNuestro, horaDelCalendarioLocal, soloDia } from "@/lib/castilla/calendario";
 
 /** Nombre con el que sale el Castilla en la lista de escudos de BeSoccer. */
 const NOSOTROS = "RM Castilla";
@@ -34,11 +37,12 @@ const NOSOTROS = "RM Castilla";
  * reducido» apuntado como competición.
  */
 function esDiaDePartido(tareas: MicrocycleRecord[]) {
-  return tareas.some(
-    (t) =>
-      String(t.MD ?? "").trim().toUpperCase() === "MD" &&
-      /COMPETICION/.test(normalizeText(`${t["Tipo Tarea"]} ${t["Contenido Principal"]} ${t.Fase}`)),
-  );
+  return tareas.some((t) => esFilaDePartido(filaDeCuenta(t)));
+}
+
+/** Una fila de la hoja en la forma de lib/microciclo/cuenta.ts. */
+function filaDeCuenta(t: MicrocycleRecord) {
+  return { md: String(t.MD ?? ""), fase: t.Fase, tipo: t["Tipo Tarea"], contenidoPrincipal: t["Contenido Principal"] };
 }
 
 /** «UE SANT ANDREU» → «UE Sant Andreu»; las siglas cortas se quedan en mayúscula. */
@@ -286,6 +290,35 @@ export default function MicroCalendar() {
   const escudoDe = useMemo(() => buscadorDeEscudos(listaEscudos), [listaEscudos]);
 
   /*
+  | EL PARTIDO, CON HORA, LADO Y RESULTADO (07/11/2026). La hoja sólo dice
+  | «MD vs Gimnàstic · Competición»: la hora, si es en casa o fuera y el
+  | marcador salen del calendario de BeSoccer, el mismo del Calendario
+  | Operativo. Lo que BeSoccer no tiene no se escribe.
+  */
+  const { partidos: calendarioBesoccer } = useCalendario();
+
+  const partidoDelDia = useMemo(() => {
+    const mapa = new Map<string, ReturnType<typeof comoNuestro>>();
+
+    for (const p of calendarioBesoccer) {
+      if (typeof p?.cuando !== "string") continue;
+      mapa.set(soloDia(p.cuando), comoNuestro(p));
+    }
+
+    return mapa;
+  }, [calendarioBesoccer]);
+
+  /** «16:00 · en casa · 2-1» — sólo las piezas que hay. */
+  const lineaPartido = (key: string) => {
+    const p = partidoDelDia.get(key);
+    if (!p) return "";
+    const hora = horaDelCalendarioLocal(p.cuando);
+    const marcador = p.jugado && p.golesFavor !== null && p.golesContra !== null ? `${p.golesFavor}-${p.golesContra}` : "";
+
+    return [hora, p.lado === "casa" ? "en casa" : "fuera", marcador].filter(Boolean).join(" · ");
+  };
+
+  /*
   | TIEMPO LÍMITE (30/10/2026): a los 15 s sin hoja, el esqueleto deja paso a
   | un aviso con «Reintentar»; la petición sigue y, si llega, se pinta sola.
   */
@@ -356,46 +389,79 @@ export default function MicroCalendar() {
 
   const active = months[currentMonth];
 
+  /*
+  | LA MISMA CUENTA QUE EL CALENDARIO OPERATIVO (07/11/2026). «7 sesiones»
+  | contaba los dos partidos y /calendar_general decía 5: ahora son «5 entrenos
+  | + 2 partidos» en las dos (lib/microciclo/cuenta.ts). Las medias de carga son
+  | por día de entreno, sin la fila del partido.
+  |
+  | Y se compara con los MISMOS DÍAS del mes anterior: un mes a medias contra
+  | uno entero no dice nada. `hastaDia` corta el mes anterior en el último día
+  | que tiene registros el mes que se mira.
+  */
   const statsDelMes = useCallback(
-    (month: number, year: number) => {
-      let sesiones = 0;
+    (month: number, year: number, hastaDia = 31) => {
       let minutos = 0;
       let carga = 0;
       let cognitiva = 0;
       let tareas = 0;
-      let partidos = 0;
+      let ultimoDia = 0;
       const siglas = new Set<string>();
+      const porMd = new Map<string, { carga: number; dias: number }>();
+      const dentro = new Map<string, { md?: string; fase?: string; tipo?: string; contenidoPrincipal?: string }[]>();
 
       sessionDays.forEach((key) => {
         const date = parseDateKey(key);
-        if (date.getMonth() !== month || date.getFullYear() !== year) return;
+        if (date.getMonth() !== month || date.getFullYear() !== year || date.getDate() > hastaDia) return;
 
         const dayTasks = tasksByDay.get(key) ?? [];
+        const filas = dayTasks.map(filaDeCuenta);
 
-        sesiones += 1;
-        tareas += dayTasks.length;
-        if (esDiaDePartido(dayTasks)) partidos += 1;
+        dentro.set(key, filas);
+        ultimoDia = Math.max(ultimoDia, date.getDate());
+
+        const entreno = dayTasks.filter((t, i) => !esFilaDePartido(filas[i]));
+
+        tareas += entreno.length;
 
         dayTasks.forEach((t) => {
           const rotulo = `${t["Contenido Principal"] || t["Tipo Tarea"] || ""}`;
           siglasDe(rotulo).forEach((s) => siglas.add(s.sigla));
         });
 
-        dayTasks.forEach((t) => {
+        let cargaDia = 0;
+
+        entreno.forEach((t) => {
           minutos += minutesOf(t);
-          carga += Number(t["Carga Ponderada"]) || 0;
+          cargaDia += Number(t["Carga Ponderada"]) || 0;
           cognitiva += Number(t["Carga cognitiva"]) || 0;
         });
+
+        carga += cargaDia;
+
+        const md = String(entreno[0]?.MD ?? "").trim().toUpperCase().replace(/\s+/g, "");
+
+        if (md && cargaDia > 0) {
+          const uno = porMd.get(md) ?? { carga: 0, dias: 0 };
+
+          uno.carga += cargaDia;
+          uno.dias += 1;
+          porMd.set(md, uno);
+        }
       });
 
+      const { entrenos, partidos } = cuentaDias(dentro, () => true);
+
       return {
-        sesiones,
+        sesiones: entrenos,
         tareas,
         partidos,
         siglas,
         minutos,
-        cargaMedia: sesiones > 0 ? Math.round(carga / sesiones) : 0,
-        cognitivaMedia: sesiones > 0 ? Math.round(cognitiva / sesiones) : 0,
+        ultimoDia,
+        porMd,
+        cargaMedia: entrenos > 0 ? Math.round(carga / entrenos) : 0,
+        cognitivaMedia: entrenos > 0 ? Math.round(cognitiva / entrenos) : 0,
       };
     },
     [sessionDays, tasksByDay]
@@ -406,46 +472,71 @@ export default function MicroCalendar() {
     [statsDelMes, active]
   );
 
-  /* El mes anterior, para decir contra qué se comparan las cargas medias. */
+  /* El mes anterior, en los mismos días (del 1 al último con registros de este mes). */
   const mesPrevio = useMemo(() => {
     const month = active.month === 0 ? 11 : active.month - 1;
     const year = active.month === 0 ? active.year - 1 : active.year;
-    return { month, stats: statsDelMes(month, year) };
-  }, [statsDelMes, active]);
+    const hasta = monthStats.ultimoDia || 31;
+    const diasDelPrevio = new Date(year, month + 1, 0).getDate();
+    const completo = hasta >= diasDelPrevio;
+
+    return { month, completo, hasta, stats: statsDelMes(month, year, hasta) };
+  }, [statsDelMes, active, monthStats.ultimoDia]);
+
+  /** «octubre» o «el 1 al 8 de octubre»: contra qué días se compara. */
+  const nombrePrevio = mesPrevio.completo
+    ? MONTHS[mesPrevio.month].toLowerCase()
+    : `los mismos días de ${MONTHS[mesPrevio.month].toLowerCase()} (del 1 al ${mesPrevio.hasta})`;
 
   /** «+12 % sobre septiembre»; vacío si el mes anterior no tuvo sesiones. */
   const frente = (actual: number, previo: number) => {
     if (mesPrevio.stats.sesiones === 0 || previo <= 0) return "";
     const pct = Math.round(((actual - previo) / previo) * 100);
-    const nombre = MONTHS[mesPrevio.month].toLowerCase();
-    if (pct === 0) return ` · igual que en ${nombre}`;
-    return ` · ${pct > 0 ? "+" : "−"}${Math.abs(pct)} % sobre ${nombre}`;
+    if (pct === 0) return ` · igual que en ${nombrePrevio}`;
+    return ` · ${pct > 0 ? "+" : "−"}${Math.abs(pct)} % sobre ${nombrePrevio}`;
   };
 
-  /** «24 sesiones (4 partidos)»: la base de las medias de carga. */
-  const baseDelMes = `${monthStats.sesiones} ${monthStats.sesiones === 1 ? "sesión" : "sesiones"}${
-    monthStats.partidos ? ` (${monthStats.partidos} ${monthStats.partidos === 1 ? "partido" : "partidos"})` : ""
-  }`;
+  /** «5 entrenos + 2 partidos»: la base de las medias de carga. */
+  const baseDelMes = textoEntrenosYPartidos(monthStats.sesiones, monthStats.partidos);
 
   /*
   | «Más carga no es mejor» (30/10/2026): si cambia mucho contra el mes
   | anterior y hay otro número de partidos, se dice por qué puede ser.
+  | 07/11/2026: dice de qué días sale la comparación y acaba en una orden —qué
+  | MD subir o bajar la semana que viene—, sacada del MD que más se ha movido.
   */
   const lecturaCarga = (() => {
     const previo = mesPrevio.stats;
     if (previo.sesiones === 0 || previo.cargaMedia <= 0 || monthStats.sesiones === 0) return "";
     const pct = Math.round(((monthStats.cargaMedia - previo.cargaMedia) / previo.cargaMedia) * 100);
     if (Math.abs(pct) < 5) return "";
-    const nombre = MONTHS[mesPrevio.month].toLowerCase();
+    const base = `${monthStats.cargaMedia} por entreno frente a ${previo.cargaMedia} en ${nombrePrevio}`;
+
+    /* El MD que más se mueve, con su media por día. */
+    const cambios = [...monthStats.porMd.entries()]
+      .map(([md, a]) => {
+        const b = previo.porMd.get(md);
+        if (!b || b.carga <= 0) return null;
+        const mediaA = a.carga / a.dias;
+        const mediaB = b.carga / b.dias;
+        return { md, mediaA, mediaB, pct: Math.round(((mediaA - mediaB) / mediaB) * 100) };
+      })
+      .filter((c): c is { md: string; mediaA: number; mediaB: number; pct: number } => c !== null && Math.abs(c.pct) >= 10)
+      .sort((x, y) => Math.abs(y.pct) - Math.abs(x.pct));
+    const mueve = cambios[0];
+    const orden = mueve
+      ? ` La semana que viene, ${mueve.pct < 0 ? "subir" : "bajar"} el ${mueve.md} si no se busca ese cambio: ${Math.round(mueve.mediaA)} de media este mes frente a ${Math.round(mueve.mediaB)} (${mueve.pct > 0 ? "+" : "−"}${Math.abs(mueve.pct)} %).`
+      : "";
+
     if (pct < 0 && monthStats.partidos > previo.partidos) {
-      return `La carga media baja con más partidos que en ${nombre} (${monthStats.partidos} frente a ${previo.partidos}): es la descarga de las semanas de competición, no un peor trabajo.`;
+      return `La carga media baja un ${Math.abs(pct)} % (${base}) con más partidos (${monthStats.partidos} frente a ${previo.partidos}): es la descarga de las semanas de competición.${orden}`;
     }
     if (pct > 0 && monthStats.partidos < previo.partidos) {
-      return `La carga media sube con menos partidos que en ${nombre} (${monthStats.partidos} frente a ${previo.partidos}): hay más días de carga entre partidos.`;
+      return `La carga media sube un ${pct} % (${base}) con menos partidos (${monthStats.partidos} frente a ${previo.partidos}): hay más días de carga entre partidos.${orden}`;
     }
     return pct < 0
-      ? `La carga media baja un ${Math.abs(pct)} % frente a ${nombre} sin más partidos: conviene confirmar que es la descarga buscada.`
-      : `La carga media sube un ${pct} % frente a ${nombre}: vigilar la recuperación en los MD-1 y MD+1.`;
+      ? `La carga media baja un ${Math.abs(pct)} % (${base}) con los mismos partidos.${orden || " Si no es una descarga buscada, subir la carga del día más cargado de la semana que viene."}`
+      : `La carga media sube un ${pct} % (${base}).${orden || " Vigilar la recuperación en los MD-1 y MD+1 de la semana que viene."}`;
   })();
 
   const selectedDate = selectedKey ? parseDateKey(selectedKey) : null;
@@ -483,7 +574,7 @@ export default function MicroCalendar() {
       maxCognitiva,
       minutos,
       micro: head?.Micro ?? "",
-      md: head?.MD ?? "",
+      md: selectedTasks.map((t) => String(t.MD ?? "").trim()).find(Boolean) ?? "",
       rival: head?.Rival ?? "",
     };
   }, [selectedTasks]);
@@ -510,7 +601,7 @@ export default function MicroCalendar() {
       eyebrow="RMCF CASTILLA · ENTRENAMIENTO"
       title={
         monthStats.sesiones > 0
-          ? `${monthStats.sesiones} ${monthStats.sesiones === 1 ? "sesión" : "sesiones"} y ${formatMinutes(monthStats.minutos)} en ${MONTHS[active.month].toLowerCase()}`
+          ? `${textoEntrenosYPartidos(monthStats.sesiones, monthStats.partidos)}${monthStats.minutos > 0 ? ` y ${formatMinutes(monthStats.minutos)} de entreno` : ""} en ${MONTHS[active.month].toLowerCase()}`
           : "Calendario de Microciclo"
       }
       months={months}
@@ -522,28 +613,28 @@ export default function MicroCalendar() {
       stats={
         <>
           <CalendarStat
-            label="Sesiones"
+            label="Entrenos"
             value={monthStats.sesiones}
-            hint={`${monthStats.tareas} tareas en ${MONTHS[active.month].toLowerCase()}`}
+            hint={`${monthStats.partidos ? `+ ${monthStats.partidos} ${monthStats.partidos === 1 ? "partido" : "partidos"} · ` : ""}${monthStats.tareas} tareas de entreno en ${MONTHS[active.month].toLowerCase()}`}
           />
           <CalendarStat
             label="Volumen"
             value={formatMinutes(monthStats.minutos)}
-            hint={`en ${MONTHS[active.month].toLowerCase()}`}
+            hint={`de entreno en ${MONTHS[active.month].toLowerCase()}, sin los partidos`}
           />
           {/* Las dos cargas son puntos sin unidad: se dice de qué salen
               (19/10/2026), si no un 420 no le dice nada a nadie. 30/10/2026:
               y sobre cuántas sesiones y partidos, porque un mes con más
               partidos baja la media a propósito (bajar no es peor). */}
           <CalendarStat
-            label="Carga física media / sesión"
+            label="Carga física media / entreno"
             value={monthStats.cargaMedia}
-            hint={`Media por sesión de minutos × intensidad, sobre ${baseDelMes}${frente(monthStats.cargaMedia, mesPrevio.stats.cargaMedia)}`}
+            hint={`Minutos × intensidad por día de entreno, sobre ${baseDelMes}${frente(monthStats.cargaMedia, mesPrevio.stats.cargaMedia)}`}
           />
           <CalendarStat
-            label="Carga cognitiva media / sesión"
+            label="Carga cognitiva media / entreno"
             value={monthStats.cognitivaMedia}
-            hint={`Media por sesión de minutos × demanda cognitiva, sobre ${baseDelMes}${frente(monthStats.cognitivaMedia, mesPrevio.stats.cognitivaMedia)}`}
+            hint={`Minutos × demanda cognitiva por día de entreno, sobre ${baseDelMes}${frente(monthStats.cognitivaMedia, mesPrevio.stats.cognitivaMedia)}`}
           />
         </>
       }
@@ -576,9 +667,11 @@ export default function MicroCalendar() {
           [...phases.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "";
 
         const theme = phaseTheme(dominantPhase);
-        const md = dayTasks[0]?.MD;
+        /* 07/11/2026: el MD de cualquier tarea del día; sin ninguno, «fuera de micro» (nada de casilla sin etiqueta). */
+        const md = dayTasks.map((t) => String(t.MD ?? "").trim()).find(Boolean) ?? "";
 
         const partido = esDiaDePartido(dayTasks) ? String(dayTasks[0]?.Rival ?? "").trim() : "";
+        const detallePartido = partido ? lineaPartido(key) : "";
 
         return {
           hasContent: true,
@@ -586,12 +679,19 @@ export default function MicroCalendar() {
           onClick: () => setSelectedKey(key),
           badges: (
             <div className="flex items-center gap-1">
-              {md && (
+              {md ? (
                 <span
                   className="whitespace-nowrap rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase"
                   style={{ background: "#1F2937", color: "#FFFFFF" }}
                 >
                   {md}
+                </span>
+              ) : (
+                <span
+                  className="whitespace-nowrap rounded-full border border-white/15 px-1.5 py-0.5 text-[10px] font-semibold text-white/60"
+                  title="Sesión apuntada sin MD en la hoja: no entra en ningún microciclo"
+                >
+                  fuera de micro
                 </span>
               )}
 
@@ -619,6 +719,11 @@ export default function MicroCalendar() {
                     {nombreBonito(partido)}
                   </span>
                 </div>
+              )}
+              {detallePartido && (
+                <p className="truncate text-[10px] font-semibold text-[#C8A96B] md:text-[11px]" title={detallePartido}>
+                  {detallePartido}
+                </p>
               )}
 
               {/* 30/10/2026: una tarea sin minutos deja sólo su nombre (sin
@@ -699,9 +804,10 @@ export default function MicroCalendar() {
                 selectedTasks.length === 1 ? "tarea" : "tareas"
               }`,
               formatMinutes(selectedSummary.minutos),
-              selectedSummary.md,
+              selectedSummary.md || "fuera de micro",
               selectedSummary.micro && `Micro ${selectedSummary.micro}`,
               selectedSummary.rival && `vs ${selectedSummary.rival}`,
+              esDiaDePartido(selectedTasks) && selectedKey ? lineaPartido(selectedKey) : "",
             ]
               .filter(Boolean)
               .join(" · ")

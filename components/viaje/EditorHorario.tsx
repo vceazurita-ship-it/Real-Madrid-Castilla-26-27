@@ -180,6 +180,14 @@ function FilaCita({
 
   const desfase = desfaseCita(cita, dia, viaje);
 
+  /*
+  | 07/11/2026: en el móvil cada cita repetía el tipo, el día, «Madrugada» y
+  | cinco botones. A la vista sólo hora, qué es y el desfase; lo demás, tras
+  | «Editar cita». Una recién creada abre ya desplegada. En escritorio, igual que antes.
+  */
+  const [editar, setEditar] = useState(Boolean(enfoca));
+  const plegado = editar ? "" : "max-lg:hidden";
+
   return (
     <div
       ref={setNodeRef}
@@ -231,15 +239,29 @@ function FilaCita({
         value={cita.nota ?? ""}
         onChange={(evento) => onCambia({ nota: evento.target.value })}
         placeholder="Detalle: Lavandería, ENTREGA…"
-        className="col-span-full min-w-0 rounded-lg lg:col-span-1 border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-xs text-white/80 outline-none transition placeholder:text-white/25 focus:border-[#C8A96B]/50"
+        className={`${plegado} col-span-full min-w-0 rounded-lg lg:col-span-1 border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-xs text-white/80 outline-none transition placeholder:text-white/25 focus:border-[#C8A96B]/50`}
       />
+
+      {/* Plegada en el móvil: el detalle se lee, y un botón despliega el resto. */}
+      {!editar && (
+        <div className="col-span-full flex min-w-0 items-center gap-2 lg:hidden">
+          {cita.nota ? <p className="min-w-0 flex-1 truncate text-[11px] text-white/55">{cita.nota}</p> : <span className="flex-1" />}
+          <button
+            type="button"
+            onClick={() => setEditar(true)}
+            className="shrink-0 rounded-lg border border-white/10 px-2.5 py-1 text-[11px] font-semibold text-white/70 transition hover:text-white"
+          >
+            Editar cita
+          </button>
+        </div>
+      )}
 
       <select
         value={cita.tipo}
         onChange={(evento) =>
           onCambia({ tipo: evento.target.value as TipoCita })
         }
-        className="col-span-full min-w-0 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5 text-xs text-white outline-none transition focus:border-[#C8A96B]/50 lg:col-span-1"
+        className={`${plegado} col-span-full min-w-0 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5 text-xs text-white outline-none transition focus:border-[#C8A96B]/50 lg:col-span-1`}
       >
         {Object.entries(TIPO_CITA).map(([key, valor]) => (
           <option key={key} value={key} className="bg-[#11161C]">
@@ -248,7 +270,7 @@ function FilaCita({
         ))}
       </select>
 
-      <div className="col-span-full flex flex-wrap items-center gap-1 lg:col-span-1">
+      <div className={`${plegado} col-span-full flex flex-wrap items-center gap-1 lg:col-span-1`}>
         {/* Cambiar de día sin arrastrar: es como se edita desde el móvil. */}
         {dias.length > 1 && (
           <select
@@ -308,6 +330,14 @@ function FilaCita({
         <Button icon={CopyPlus} onClick={onDuplica} title="Duplicar media hora después" />
 
         <Button tone="danger" icon={Trash2} onClick={onQuita} title="Quitar la cita" />
+
+        <button
+          type="button"
+          onClick={() => setEditar(false)}
+          className="ml-auto rounded-lg border border-white/10 px-2.5 py-1 text-[11px] font-semibold text-white/60 transition hover:text-white lg:hidden"
+        >
+          Listo
+        </button>
       </div>
 
       {esDiaSiguiente(cita.minuto) && (

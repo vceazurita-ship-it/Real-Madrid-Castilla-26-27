@@ -28,11 +28,12 @@ import {
   currentMonthIndex,
   dateKey,
   formatMinutes,
-  normalizeText,
   parseDateKey,
   recordDateKey,
 } from "@/lib/calendar";
 import { traeJson } from "@/lib/hojaCsv";
+import { esFilaDePartido } from "@/lib/microciclo/cuenta";
+import { nombreCorto } from "@/lib/abp/informe-graficos";
 import { buscadorDeEscudos, traeEscudos, type Escudos } from "@/lib/data-analisis/escudos";
 import { cn } from "@/lib/utils";
 import { mismoEquipo } from "@/lib/data-analisis/nombres";
@@ -74,13 +75,23 @@ type EventoAuto = {
   /** Sólo los partidos: el rival y si es en casa (para el orden de los escudos). */
   rival?: string;
   enCasa?: boolean;
+  /** «2-1», nuestro primero; vacío si no se ha jugado. */
+  marcador?: string;
+  jornada?: number;
 };
 
 /** Una fila de la hoja de microciclos: lo poco que hace falta aquí (la misma fuente que /micro_calendar). */
 type FilaMicro = { Fecha?: string; MD?: string; Tiempo?: number | string; "Tipo Tarea"?: string; "Contenido Principal"?: string; Fase?: string };
 
-/** La sesión de un día: su MD y sus minutos. */
-type SesionDia = { md: string; minutos: number };
+/** La sesión de un día: su MD, sus minutos y el contenido con más minutos (07/11/2026). */
+type SesionDia = { md: string; minutos: number; principal: string; porContenido: Record<string, number> };
+
+/** «16:15» de los minutos de una cita (pueden pasar de 1440: la vuelta de madrugada). */
+const horaDeMinutos = (m: number) => {
+  const d = ((Math.round(m) % 1440) + 1440) % 1440;
+
+  return `${String(Math.floor(d / 60)).padStart(2, "0")}:${String(d % 60).padStart(2, "0")}`;
+};
 
 /** Nombre con el que sale el Castilla en la lista de escudos de BeSoccer. */
 const NOSOTROS = "RM Castilla";
@@ -219,15 +230,22 @@ export default function CalendarGeneralPage() {
           const key = recordDateKey(fila?.Fecha ?? "");
           if (!key) continue;
 
-          /* El partido ya sale de BeSoccer: la fila de competición no es sesión. */
+          /* El partido ya sale de BeSoccer: la fila de competición no es sesión.
+             La misma regla que /micro_calendar y /microcycles (lib/microciclo/cuenta.ts). */
           const md = String(fila.MD ?? "").trim();
-          const competicion = md.toUpperCase() === "MD" && /COMPETICION/.test(normalizeText(`${fila["Tipo Tarea"] ?? ""} ${fila["Contenido Principal"] ?? ""} ${fila.Fase ?? ""}`));
+          const competicion = esFilaDePartido({ md, fase: fila.Fase, tipo: fila["Tipo Tarea"], contenidoPrincipal: fila["Contenido Principal"] });
           if (competicion) continue;
 
           const previa = mapa.get(key);
           const minutos = Number(fila.Tiempo) || 0;
+          const contenido = String(fila["Contenido Principal"] || fila["Tipo Tarea"] || "").trim();
+          const porContenido = { ...(previa?.porContenido ?? {}) };
 
-          mapa.set(key, { md: previa?.md || md, minutos: (previa?.minutos ?? 0) + minutos });
+          if (contenido) porContenido[contenido] = (porContenido[contenido] ?? 0) + minutos;
+
+          const principal = Object.entries(porContenido).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "";
+
+          mapa.set(key, { md: previa?.md || md, minutos: (previa?.minutos ?? 0) + minutos, principal, porContenido });
         }
 
         setSesionesDia(mapa);
@@ -363,6 +381,14 @@ export default function CalendarGeneralPage() {
 
         const enCasa = /castilla/i.test(p.local);
         const rival = enCasa ? p.visitante : p.local;
+        /* 07/11/2026: el jugado dice su resultado (nuestro primero), como la portada. */
+        const conGoles = p as PartidoBesoccer & { golesLocal?: number | null; golesVisitante?: number | null };
+        const jugado = typeof conGoles.golesLocal === "number" && typeof conGoles.golesVisitante === "number";
+        const marcador = jugado
+          ? enCasa
+            ? `${conGoles.golesLocal}-${conGoles.golesVisitante}`
+            : `${conGoles.golesVisitante}-${conGoles.golesLocal}`
+          : "";
 
         lista.push({
           id: `partido-${p.jornada}-${m[1]}`,
@@ -371,9 +397,11 @@ export default function CalendarGeneralPage() {
           titulo: `J${String(p.jornada).padStart(2, "0")} · ${enCasa ? "Castilla vs" : "en"} ${rival}`,
           detalle: enCasa ? "En casa" : "A domicilio",
           hora: m[2] + ":" + m[3] === "00:00" ? "" : `${m[2]}:${m[3]}`,
-          enlace: "",
+          enlace: enCasa ? "" : `/desplazamiento?jornada=${p.jornada}`,
           rival,
           enCasa,
+          marcador,
+          jornada: p.jornada,
         });
       }
 
@@ -410,7 +438,7 @@ export default function CalendarGeneralPage() {
           titulo: `Viaje a ${rival}`,
           detalle: "Víspera del partido",
           hora: "",
-          enlace: "/desplazamiento",
+          enlace: `/desplazamiento?jornada=${p.jornada}`,
         });
       }
 
@@ -432,14 +460,19 @@ export default function CalendarGeneralPage() {
           .sort()[0];
 
         for (const fecha of fechas) {
+          /* La salida, del horario guardado (07/11/2026): la primera cita de viaje de ese día. */
+          const citas = (viaje.dias ?? []).find((d) => d.fecha === fecha)?.citas ?? [];
+          const salida = [...citas].filter((c) => c.tipo === "viaje").sort((a, b) => a.minuto - b.minuto)[0];
+          const regreso = Boolean(delPartido && fecha > delPartido);
+
           lista.push({
             id: `viaje-${viaje.partidoId}-${fecha}`,
             fecha,
             clase: "VIAJE",
-            titulo: delPartido && fecha > delPartido ? `Regreso de ${viaje.rival}` : `Viaje a ${viaje.rival}`,
+            titulo: regreso ? `Regreso de ${viaje.rival}` : `Viaje a ${viaje.rival}`,
             detalle: [viaje.estadio?.ciudad, viaje.hotel?.nombre].filter(Boolean).join(" · "),
-            hora: "",
-            enlace: "/desplazamiento",
+            hora: salida ? `${regreso ? "" : "salida "}${horaDeMinutos(salida.minuto)}` : "",
+            enlace: `/desplazamiento?partido=${encodeURIComponent(viaje.partidoId)}`,
           });
         }
       }
@@ -633,8 +666,11 @@ export default function CalendarGeneralPage() {
       if (tipos.has(type)) items.push({ label: TYPE_THEMES[type].label, color: TYPE_THEMES[type].dot });
     });
 
+    /* 07/11/2026: la sesión también tiene su entrada en la leyenda. */
+    if ([...sesionesDia.keys()].some(enMes)) items.push({ label: "Sesión", color: "bg-white/40" });
+
     return items;
-  }, [eventsByDay, autoByDay, active]);
+  }, [eventsByDay, autoByDay, sesionesDia, active]);
 
   const selectedDate = selectedKey ? parseDateKey(selectedKey) : null;
   const selectedEvents = selectedKey ? eventsByDay.get(selectedKey) ?? [] : [];
@@ -724,7 +760,7 @@ export default function CalendarGeneralPage() {
         <div className="space-y-2">
         {proximo ? (
           <Link
-            href={proximo.enCasa ? "/calendar" : "/desplazamiento"}
+            href={proximo.enCasa ? "/calendar" : `/desplazamiento?jornada=${proximo.jornada}`}
             className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl border border-[#C8A96B]/30 bg-[#C8A96B]/[0.06] px-4 py-3 text-sm transition hover:border-[#C8A96B]/60"
           >
             <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#C8A96B]">Próximo partido</span>
@@ -818,7 +854,7 @@ export default function CalendarGeneralPage() {
             <CalendarStat label="Viajes" value={monthStats.viajes} hint={`en ${MONTHS[active.month].toLowerCase()}`} />
           )}
           {monthStats.sesiones > 0 && (
-            <CalendarStat label="Sesiones" value={monthStats.sesiones} hint={`en ${MONTHS[active.month].toLowerCase()}, de la hoja de microciclos`} />
+            <CalendarStat label="Entrenos" value={monthStats.sesiones} hint={`en ${MONTHS[active.month].toLowerCase()}, de la hoja de microciclos (sin los partidos, como el Calendario de Microciclo)`} />
           )}
           {monthStats.eventos > 0 && (
             <CalendarStat label="Eventos del staff" value={monthStats.eventos} hint={`en ${MONTHS[active.month].toLowerCase()}`} />
@@ -867,8 +903,14 @@ export default function CalendarGeneralPage() {
                   {sesionDia.md}
                 </span>
               )}
-              {sesionDia && sesionDia.minutos > 0 && (
-                <span className="hidden rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-1.5 py-0.5 text-[10px] font-semibold text-[#C8A96B] md:inline">
+              {/* Sin MD en la hoja, se dice (el 3/11 salía sin etiqueta); los minutos van en la ficha de la sesión. */}
+              {sesionDia && !sesionDia.md && (
+                <span className="whitespace-nowrap rounded-full border border-white/15 px-1.5 py-0.5 text-[10px] font-semibold text-white/60" title="Sesión apuntada sin MD en la hoja">
+                  fuera de micro
+                </span>
+              )}
+              {sesionDia && hayPartido && sesionDia.minutos > 0 && (
+                <span className="rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-1.5 py-0.5 text-[10px] font-semibold text-[#C8A96B]">
                   {formatMinutes(sesionDia.minutos)}
                 </span>
               )}
@@ -895,8 +937,17 @@ export default function CalendarGeneralPage() {
             </div>
           ),
           children:
-            dayEvents.length > 0 || dayAuto.length > 0 ? (
+            dayEvents.length > 0 || dayAuto.length > 0 || (sesionDia && (sesionDia.minutos > 0 || sesionDia.principal)) ? (
               <>
+                {/* 07/11/2026: la sesión con su contenido principal y minutos, también en la agenda del móvil. */}
+                {sesionDia && !hayPartido && (sesionDia.minutos > 0 || sesionDia.principal) && (
+                  <div className="rounded-md border border-l-4 border-white/10 border-l-white/40 bg-white/[0.04] px-1.5 py-1" title={sesionDia.principal || "Sesión"}>
+                    <p className="truncate text-[10px] font-semibold md:text-[11px]">{sesionDia.principal || "Sesión"}</p>
+                    <p className="text-[9px] text-white/60 md:text-[10px]">
+                      {["Sesión", sesionDia.minutos > 0 ? formatMinutes(sesionDia.minutos) : ""].filter(Boolean).join(" · ")}
+                    </p>
+                  </div>
+                )}
                 {dayAuto.map((auto) =>
                   auto.clase === "PARTIDO" && auto.rival ? (
                     /* 30/10/2026: el escudo de casa primero, como se lee un partido:
@@ -911,10 +962,14 @@ export default function CalendarGeneralPage() {
                         <span className="shrink-0 text-[10px] font-semibold text-[#C8A96B]">vs</span>
                         <EscudoMini url={escudoDe(auto.enCasa ? auto.rival : NOSOTROS)} nombre={auto.enCasa ? auto.rival : "RM Castilla"} />
                       </div>
-                      <p className="mt-0.5 truncate text-[10px] font-semibold md:text-[11px]">{auto.titulo}</p>
+                      {/* 07/11/2026: nombre corto del club en la casilla (el completo, al tocar); resultado si ya se jugó. */}
+                      <p className="mt-0.5 truncate text-[10px] font-semibold md:text-[11px]">
+                        {auto.jornada ? `J${String(auto.jornada).padStart(2, "0")} · ` : ""}
+                        {auto.enCasa ? "vs " : "en "}
+                        {nombreCorto(auto.rival)}
+                      </p>
                       <p className="text-[9px] text-white/60 md:text-[10px]">
-                        {auto.enCasa ? "En casa" : "Fuera"}
-                        {auto.hora ? ` · ${auto.hora}` : ""}
+                        {[auto.enCasa ? "En casa" : "Fuera", auto.marcador || auto.hora].filter(Boolean).join(" · ")}
                       </p>
                     </div>
                   ) : (
@@ -1079,7 +1134,11 @@ export default function CalendarGeneralPage() {
                   <p className="text-lg font-semibold">
                     Sesión{s.md ? ` · ${s.md}` : ""}
                   </p>
-                  {s.minutos > 0 && <p className="mt-1 text-sm text-[#C8A96B]">{formatMinutes(s.minutos)} de trabajo</p>}
+                  {(s.minutos > 0 || s.principal) && (
+                    <p className="mt-1 text-sm text-[#C8A96B]">
+                      {[s.minutos > 0 ? `${formatMinutes(s.minutos)} de trabajo` : "", s.principal ? `sobre todo ${s.principal}` : ""].filter(Boolean).join(" · ")}
+                    </p>
+                  )}
                   <Link href="/micro_calendar" className="mt-3 inline-block text-xs text-[#C8A96B] transition hover:underline">
                     Ver las tareas en el calendario de microciclo →
                   </Link>
@@ -1098,9 +1157,7 @@ export default function CalendarGeneralPage() {
                 <p className="text-lg font-semibold">{auto.titulo}</p>
 
                 <p className="mt-1 text-sm text-[#C8A96B]">
-                  {AUTO_THEMES[auto.clase].label}
-                  {auto.hora ? ` · ${auto.hora}` : ""}
-                  {auto.detalle ? ` · ${auto.detalle}` : ""}
+                  {[AUTO_THEMES[auto.clase].label, auto.marcador ? `resultado ${auto.marcador}` : "", auto.hora, auto.detalle].filter(Boolean).join(" · ")}
                 </p>
 
                 {auto.enlace && (
