@@ -307,8 +307,6 @@ function groupBy(rows: RecordRow[], key: string) {
 */
 const MIN_MUESTRA = 3;
 
-/** Con menos de diez saques la cifra es un indicio, no un dato. */
-const indicio = (n: number) => (n < 20 ? ` (indicio: sólo ${n} ${n === 1 ? "saque" : "saques"})` : "");
 
 /* La consigna, sólo con muestra (30/10/2026, expertos): con 4-16 saques
    «repetirla» o «buscarlo más» es una orden sobre una anécdota. Por debajo
@@ -347,6 +345,15 @@ function nombreDe(key: string, valor: string) {
   }
 }
 
+/* «retroceso carril exterior» → «retroceso carril exterior (hacia atrás, pegado a la banda)». */
+function conGlosaCaida(valor: string) {
+  const sentido = /retroce/i.test(valor) ? "hacia atrás" : /progres/i.test(valor) ? "hacia delante" : "";
+  const carril = /exterior/i.test(valor) ? "pegado a la banda" : /interior/i.test(valor) ? "por dentro" : "";
+  const glosa = [sentido, carril].filter(Boolean).join(", ");
+
+  return glosa ? `${valor} (${glosa})` : valor;
+}
+
 function gruposDe(rows: RecordRow[], key: string, mode: Mode): Grupo[] {
   const mapa = new Map<string, Grupo>();
 
@@ -382,6 +389,17 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
   if (!rows.length) return [];
 
   const ofensivo = mode === "offensive";
+  /*
+  | Con menos de 20 saques la cifra es un indicio, no un dato. 07/11/2026
+  | (jueces): el aviso va una sola vez, al final del bloque, y no repetido
+  | «(indicio: sólo N saques)» en cada línea; cada línea ya lleva su base.
+  */
+  let menor = Infinity;
+  const indicio = (n: number) => {
+    if (n < 20) menor = Math.min(menor, n);
+
+    return "";
+  };
   /* 29/10/2026: «zona 3» se explica dentro de la propia conclusión la primera
      vez que sale (la leyenda va plegada y nadie la abría): «zona 3 (último
      tercio, junto al área rival)». Mismos textos que LeyendaSaques. */
@@ -568,7 +586,13 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
     }
   }
 
-  return frases.slice(0, 5);
+  const lineas = frases.slice(0, 5);
+
+  if (Number.isFinite(menor) && lineas.length > 1) {
+    lineas.push(`Tendencia, no dato: hay grupos de sólo ${menor} ${menor === 1 ? "saque" : "saques"} (menos de 20); hay que confirmarlo en las próximas jornadas.`);
+  }
+
+  return lineas;
 }
 
 /*
@@ -691,10 +715,20 @@ function metricasComparadas(actual: RecordRow[], anteriores: RecordRow[][], mode
       ofensivo,
       "último tercio, ocasión o gol",
     ),
-    cuenta("ocasiones", ofensivo ? "Ocasiones" : "Ocasiones del rival", ocasion, ofensivo, "ocasión o gol"),
+    /* 07/11/2026: se dice que están dentro de la fila de arriba, para que
+       «2 de 16» y «7 de 16» no parezcan dos cuentas de lo mismo. */
+    cuenta(
+      "ocasiones",
+      ofensivo ? "Ocasiones" : "Ocasiones del rival",
+      ocasion,
+      ofensivo,
+      "de los que llegan a último tercio, los que acaban en ocasión o gol",
+    ),
     cuenta("goles", ofensivo ? "Goles" : "Goles en contra", gol, ofensivo),
     /* En defensa, lo que sí es nuestro: robar el saque y llegar arriba. */
-    ...(ofensivo
+    /* 07/11/2026 (jueces): con menos de 5 robos, «0 de 2» frente a una media
+       de 1,2 compara un recuento con otra base: la fila no sale. */
+    ...(ofensivo || cuentaDe(conserva)(actual) < 5
       ? []
       : [
           /* 29/10/2026: la base son los saques que robamos, no todos los del
@@ -1415,18 +1449,34 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
   | recuperación—, que es nuestra en las dos hojas y la que tiene muestra: la
   | producción son dos o tres saques por partido y no da para cortar.
   */
+  /*
+  | Qué juzgan las tarjetas de arriba. En la ofensiva, conservar el balón. En
+  | la defensiva (07/11/2026, jueces), el peligro concedido —que el saque del
+  | rival llegue a nuestro último tercio, ocasión o gol; menos es mejor—: con
+  | la recuperación, «1 de 3 robados» tapaba que 7 de 16 nos llegaban arriba.
+  */
+  const aciertoLectura = useCallback(
+    (row: RecordRow) =>
+      isOffensive
+        ? esFavorable(parseResultado(read(row, "Resultado_Final")))
+        : esProduccion(parseResultado(read(row, "Resultado_Final")), "defensive"),
+    [isOffensive],
+  );
+
   const lectura = useMemo(() => {
     const dim = (key: string, nombre: string, entrenar: (valor: string) => string) => ({
       nombre,
       categoria: (row: RecordRow) => read(row, key),
-      rotulo: (valor: string) => nombreDe(key, valor),
+      /* La zona de caída se explica en la propia tarjeta (07/11/2026): la
+         leyenda va plegada y «retroceso carril exterior» no se entendía. */
+      rotulo: (valor: string) => (key === "Zona_Caida" ? conGlosaCaida(nombreDe(key, valor)) : nombreDe(key, valor)),
       entrenar,
     });
 
     return lecturaRapida({
       filas: filtered,
-      acierto: (row) => esFavorable(parseResultado(read(row, "Resultado_Final"))),
-      mejorAlto: true,
+      acierto: aciertoLectura,
+      mejorAlto: isOffensive,
       jornada: (row) => parseJornada(read(row, "JORNADA")),
       dimensiones: isOffensive
         ? [
@@ -1442,11 +1492,29 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
             dim("Receptor", "receptor", (v) => `${v[0]?.toUpperCase()}${v.slice(1)} del rival: presión al control`),
           ],
     });
-  }, [filtered, isOffensive]);
+  }, [filtered, isOffensive, aciertoLectura]);
+
+  /*
+  | El objetivo de partido de «Qué entrenar», con su fuente: lo mismo que
+  | mide la tarjeta, en las jornadas anteriores a la elegida (las de la tabla
+  | del partido). Sin anteriores, no hay objetivo que poner.
+  */
+  const objetivoLectura = useMemo(() => {
+    if (!comparativa || comparativa.anteriores.length === 0 || !comparativa.filasAnteriores.length) return null;
+
+    const filas = comparativa.filasAnteriores;
+    const n = comparativa.anteriores.length;
+
+    return {
+      tasa: filas.filter(aciertoLectura).length / filas.length,
+      fuente: n === 1 ? "la jornada anterior" : `media de las ${n} jornadas anteriores`,
+    };
+  }, [comparativa, aciertoLectura]);
 
   const etiquetas = useMemo<Etiquetas>(
     () => ({
-      peligro: isOffensive ? "Producción" : "Peligro concedido",
+      /* 07/11/2026: un solo nombre para la misma cifra en toda la pantalla, el de la tabla. */
+      peligro: isOffensive ? "Saques que llegan a último tercio" : "Saques del rival que llegan a último tercio",
       retencion: isOffensive ? "Retención" : "Recuperación",
       progresion: isOffensive ? "Progresión" : "Progresión rival",
       volumen: "Saques por jornada",
@@ -1712,18 +1780,9 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
               ) : null}
 
               <div className="flex flex-wrap items-center justify-end gap-3 px-1 text-xs text-white/40">
-                {hayPretemporada && filters.__competicion !== PRETEMPORADA ? (
-                  <label className="flex cursor-pointer items-center gap-2 text-white/70">
-                    <input
-                      type="checkbox"
-                      checked={incluirPretemporada}
-                      onChange={(event) => setIncluirPretemporada(event.target.checked)}
-                      className="h-3.5 w-3.5 accent-[#C8A96B]"
-                    />
-                    Incluir pretemporada
-                  </label>
-                ) : null}
-
+                {/* 07/11/2026: sin la casilla «Incluir pretemporada»: el chip de
+                    la barra de filtros hace lo mismo, como en ABP ofensivo y
+                    defensivo. */}
                 {/* Sin «Limpiar filtros» aquí (30/10/2026): la barra de debajo ya
                     tiene «Quitar filtros» y eran dos botones para lo mismo. */}
               </div>
@@ -1815,12 +1874,10 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                 <LecturaRapida
                   lectura={lectura}
                   unidad="saques"
-                  acierto={isOffensive ? "retenidos" : "recuperados"}
-                  ganancia={(k) =>
-                    isOffensive
-                      ? `${k === 1 ? "saque retenido" : "saques retenidos"} más si rindiera como el resto`
-                      : `${k === 1 ? "saque recuperado" : "saques recuperados"} más si se defendiera como el resto`
-                  }
+                  acierto={isOffensive ? "retenidos" : "que le llegan a último tercio"}
+                  mejorAlto={isOffensive}
+                  objetivo={objetivoLectura}
+                  tarea={{ href: "/abp-microciclo", rotulo: "Ver la tarea de saque de banda en el microciclo" }}
                   className="mb-6"
                 />
 

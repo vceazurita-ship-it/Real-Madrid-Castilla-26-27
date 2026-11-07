@@ -32,6 +32,7 @@ import {
 
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { confirmar } from "@/lib/avisos";
+import { corrigeErratas } from "@/lib/textos/erratas";
 
 /* ------------------------------------------------------------------ */
 /*  CABECERA                                                           */
@@ -776,6 +777,7 @@ export function TextArea({
   rows?: number;
 }) {
   const id = useId();
+  const corregido = corrigeErratas(value);
 
   return (
     <label htmlFor={id} className="block min-w-0">
@@ -789,8 +791,23 @@ export function TextArea({
         value={value}
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
+        spellCheck
+        lang="es"
         className="w-full resize-y rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#C8A96B]/50"
       />
+
+      {/* Comprobación ortográfica básica (07/11/2026): las erratas que ya
+          conocemos («Crecieminto», «ultimo») se ofrecen corregidas. */}
+      {corregido !== value && (
+        <button
+          type="button"
+          onClick={() => onChange(corregido)}
+          className="mt-1 text-left text-[11px] leading-snug text-white/55 underline-offset-2 hover:underline"
+        >
+          <span className="font-semibold" style={{ color: "var(--rmcf-gold-ink)" }}>Corregir · </span>
+          {corregido}
+        </button>
+      )}
     </label>
   );
 }

@@ -30,6 +30,7 @@ import {
 } from "@/components/abp/AnalisisSeccion";
 import { hablado, type ClaveMetrica } from "@/lib/abp/analisis";
 import { lecturaRapida } from "@/lib/abp/lectura-rapida";
+import { zonaLegible } from "@/lib/abp/accionFrase";
 import { LecturaRapida } from "@/components/abp/LecturaRapida";
 import ABPObjectiveFlow, {
   type ABPFlowCol,
@@ -106,6 +107,10 @@ import {
 
 const CSV_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub?gid=1071911136&single=true&output=csv";
+
+/* La hoja de ABP ofensivo: sólo para saber hasta qué jornada va el resto del área. */
+const CSV_URL_OFENSIVO =
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub?gid=675048698&single=true&output=csv";
 
 const COLORS = {
   gold: "#C8A96B",
@@ -505,6 +510,33 @@ const [tramoFilter, setTramoFilter] = useState("ALL");
     setError(null);
     setIntento((n) => n + 1);
   };
+
+  /*
+  | 07/11/2026 (jueces): esta pantalla abría en la J9 y las otras tres de ABP
+  | en la J10, sin decir por qué. Se lee la última jornada de la hoja de ABP
+  | ofensivo (de la copia del aparato si ya se abrió) y, si ésta va por
+  | detrás, el título de la tabla lo dice: «Último partido cargado: J9».
+  */
+  const [ultimaOfensiva, setUltimaOfensiva] = useState<JornadaAbp | null>(null);
+
+  useEffect(() => {
+    let vivo = true;
+
+    traeCsv(CSV_URL_OFENSIVO)
+      .then((t) => {
+        if (!vivo) return;
+
+        const lista = jornadasDe(parseCSV(t));
+        const clave = ultimaJornada(lista);
+
+        setUltimaOfensiva(lista.find((una) => una.clave === clave) ?? null);
+      })
+      .catch(() => {});
+
+    return () => {
+      vivo = false;
+    };
+  }, []);
 
   /* Las jornadas, cada una con su competición: ver `jornadasDe`. */
   const jornadas = useMemo(() => jornadasDe(rows), [rows]);
@@ -975,6 +1007,15 @@ const comparativa = (() => {
     tira,
   };
 })();
+
+/* La jornada que se compara es la última de esta hoja y la ofensiva ya va por una posterior. */
+const jornadaComparadaObj = jornadas.find((una) => una.clave === jornadaComparada);
+const vaPorDetras =
+  !!ultimaOfensiva &&
+  !!jornadaComparadaObj &&
+  jornadaComparada === ultimaJornada(jornadas) &&
+  ultimaOfensiva.competicion === jornadaComparadaObj.competicion &&
+  comparaJornadas(jornadaComparadaObj, ultimaOfensiva) < 0;
 
 /* Con una jornada puesta, elegir un rival de otra dejaría la página vacía:
    en ese caso se suelta la jornada, que lo que se quiere ver es el rival. */
@@ -2317,7 +2358,11 @@ const [vista, setVista] = usePestanaUrl<"resumen" | "donde" | "como" | "quien" |
 const [todoVisible, setTodoVisible] = useState(false);
 const oculto = (clave: string) => (todoVisible || vista === clave ? "" : "hidden");
 
-const conclusiones = useMemo(() => {
+/* Las jornadas anteriores a la elegida: la media que cita la conclusión de la zona. */
+const anterioresConclusion = jornada !== "ALL" && comparativa ? comparativa.filasAnteriores : null;
+const nAnterioresConclusion = comparativa?.anteriores ?? 0;
+
+const conclusiones = (() => {
   if (!filtered.length) return [];
 
   const resultado = (r: Row) => normalizaResultado(r.resultadoFinal);
@@ -2379,10 +2424,22 @@ const conclusiones = useMemo(() => {
   );
 
   if (zona && zona.valor > 0) {
+    /*
+    | 07/11/2026 (jueces): la zona lleva su base, la del filtro y la media de
+    | las jornadas anteriores con su fuente. Con menos de 15 acciones es una
+    | tendencia que vigilar, no una orden de tarea para el martes.
+    */
+    const nombreZona = zonaLegible(hablado(zona.nombre)) || hablado(zona.nombre).toLowerCase();
+    const media =
+      anterioresConclusion && anterioresConclusion.length
+        ? ` (media de las ${nAnterioresConclusion} jornadas anteriores: ${cifra((anterioresConclusion.filter(LECTOR.peligro).length / anterioresConclusion.length) * 100, 1)} % en gol u ocasión)`
+        : "";
+    const base = `${nombreZona}, ${Math.round(zona.valor * zona.n)} de ${zona.n} en gol u ocasión, frente a ${filtered.filter(LECTOR.peligro).length} de ${filtered.length} en todas sus acciones${media}`;
+
     frases.push(
-      /* 30/10/2026 (expertos): con su base al lado —el total de acciones
-         del filtro— y sin repetir «indicio», que ya dice la tarjeta. */
-      `Zona que más concede: ${hablado(zona.nombre).toLowerCase()}, ${Math.round(zona.valor * zona.n)} de ${zona.n} en gol u ocasión, frente a ${filtered.filter(LECTOR.peligro).length} de ${filtered.length} en todas sus acciones. Vídeo el lunes y tarea de vigilancia de esa zona y salida del portero el martes.`,
+      filtered.length < 15
+        ? `Tendencia (${filtered.length} acciones): la zona que más concede es ${base}. Si se repite, vídeo y tarea de vigilancia de esa zona y salida del portero.`
+        : `Zona que más concede: ${base}. Vídeo el lunes y tarea de vigilancia de esa zona y salida del portero el martes.`,
     );
   }
 
@@ -2412,11 +2469,8 @@ const conclusiones = useMemo(() => {
     }
   }
 
-  const remates = filtered.filter(LECTOR.remate).length;
-
-  frases.push(
-    `El rival remata el ${Math.round((remates / filtered.length) * 100)} % de sus ABP.`,
-  );
+  /* 07/11/2026: fuera «El rival remata el 43 % de sus ABP»: repetía la
+     tarjeta «Remate concedido» y la fila de la tabla. */
 
   const ganados = filtered.filter((r) => /gan/i.test(r.segundoBalon)).length;
   const perdidos = filtered.filter((r) => /perd/i.test(r.segundoBalon)).length;
@@ -2453,7 +2507,7 @@ const conclusiones = useMemo(() => {
       : null;
 
   return [...frases.filter(Boolean).slice(0, 4), cierre].filter(Boolean);
-}, [filtered, comparables]);
+})();
 
 /* Las cuatro tarjetas de arriba (02/11/2026). Aquí el acierto es del rival
    —gol u ocasión suya—, así que lo que «funciona» es lo que menos concede. */
@@ -2668,9 +2722,9 @@ const pie = (
     </FilterDrawer>
 <div className="mt-5">
   <p className="text-sm text-zinc-400 mb-3">
-    ABP en contra, ante (
-    {equiposVisualizados.length}
-    )
+    {equiposVisualizados.length === 1
+      ? `Rival${jornada !== "ALL" ? ` · ${jornadas.find((una) => una.clave === jornada)?.etiqueta ?? ""}` : ""}`
+      : `Rivales (${equiposVisualizados.length})`}
   </p>
 
   <div className="flex flex-wrap gap-2">
@@ -2825,11 +2879,21 @@ const pie = (
               lectura={lectura}
               unidad="acciones"
               acierto="en gol u ocasión del rival"
-              ganancia={(k) => `${k === 1 ? "acción" : "acciones"} con gol u ocasión del rival menos si se defendiera como el resto`}
+              mejorAlto={false}
+              objetivo={
+                anterioresConclusion && anterioresConclusion.length
+                  ? {
+                      tasa: anterioresConclusion.filter(LECTOR.peligro).length / anterioresConclusion.length,
+                      fuente: nAnterioresConclusion === 1 ? "la jornada anterior" : `media de las ${nAnterioresConclusion} jornadas anteriores`,
+                    }
+                  : null
+              }
+              tarea={{ href: "/abp-microciclo", rotulo: "Ver la tarea en el microciclo de ABP" }}
               className="mt-6"
             />
             {comparativa && (
     <ComparativaPartido
+      title={vaPorDetras ? `Último partido cargado: ${comparativa.partido}` : undefined}
       partido={comparativa.partido}
       anteriores={{ n: comparativa.anteriores }}
       metricas={comparativa.metricas}
@@ -2848,7 +2912,9 @@ const pie = (
             {/* La lectura de cabecera: lo que dicen los KPI de arriba puestos
                 al lado del global y de las jornadas anteriores. */}
             <div className="mt-6">
-              {pie({ destacado: true, dimension: "tipo de acción", categoria: (r) => r.tipoAccion })}
+              {/* Por zona de caída (07/11/2026, jueces): «Lo más frecuente es
+                  córner, 6 de 7» repetía la tabla; dónde nos cae no está arriba. */}
+              {pie({ destacado: true, dimension: "zona de caída", categoria: (r) => zonaLegible(r.zonaCaida) })}
             </div>
 
             {accionesLista.length > 0 && (

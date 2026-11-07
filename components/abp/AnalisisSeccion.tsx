@@ -350,6 +350,29 @@ export function AnalisisSeccion<T>({
     );
   }
 
+  /*
+  | 07/11/2026 (jueces, ronda 14): con una jornada elegida, la tabla «Este
+  | partido frente a los anteriores» ya dice la muestra, la cifra y su
+  | diferencia con la media, y con una jornada no hay tendencia. La lectura
+  | repetía las tres cosas; ahora sólo dice lo que no está arriba: cómo se
+  | reparten las acciones. Sin reparto que contar, no sale.
+  */
+  if (referencia?.filas.length && muestra.jornadas <= 1 && !muestra.sinFiltro) {
+    if (!reparto?.texto) return null;
+
+    return (
+      <section
+        className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.02] p-4 sm:p-5"
+        aria-label="Cómo se reparten las acciones"
+      >
+        <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-[#C8A96B]">
+          Cómo se reparten · {reparto.etiqueta}
+        </p>
+        <p className="mt-2 text-[13px] leading-relaxed text-white/65">{reparto.texto.replace(/\s*Indicio: muestra corta\.$/, "")}</p>
+      </section>
+    );
+  }
+
   return (
     <section
       className={`min-w-0 border-t border-white/10 bg-white/[0.02] ${

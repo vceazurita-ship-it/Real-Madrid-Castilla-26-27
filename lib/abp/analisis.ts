@@ -627,10 +627,34 @@ function analizaReparto(
   | revés. Son grupos distintos y se dicen juntos, en una sola frase.
   */
   const fraseGruposDefensa = (cats: { nombre: string; acciones: number }[], total: number) => {
-    if (!conGlosa || sentido === "ofensivo") return null;
+    if (!conGlosa) return null;
 
     const de = (prueba: (c: string) => boolean) =>
       cats.filter((una) => prueba(una.nombre.toLowerCase().replace(/\s+/g, " "))).reduce((a, una) => a + una.acciones, 0);
+
+    /*
+    | 07/11/2026 (jueces): en la banda ofensiva decía «5 de 19 acaban en poder
+    | del rival» junto a «9 de 19 retenidos», y faltaban 5 para sumar 19. Se
+    | dice el reparto entero, que cierra con el total.
+    */
+    if (sentido === "ofensivo") {
+      const llegan = utiles.filter((uno) => uno.peligro).length;
+      const conservan = utiles.filter((uno) => uno.retencion && !uno.peligro).length;
+      const pierden = de((c) => /\brival\b/.test(c));
+      const otros = Math.max(0, total - llegan - conservan - pierden);
+      const partes = [
+        llegan ? `${llegan} ${llegan === 1 ? "llega" : "llegan"} a último tercio, ocasión o gol` : "",
+        conservan ? `${conservan} ${conservan === 1 ? "se conserva" : "se conservan"} sin llegar` : "",
+        pierden ? `${pierden} ${pierden === 1 ? "acaba" : "acaban"} con el balón en poder del rival` : "",
+        otros ? `${otros} ${otros === 1 ? "acaba" : "acaban"} de otra forma` : "",
+      ].filter(Boolean);
+
+      if (partes.length < 2) return null;
+
+      const lista = partes.length === 2 ? partes.join(" y ") : `${partes.slice(0, -1).join(", ")} y ${partes[partes.length - 1]}`;
+
+      return `De ${total} saques: ${lista}.`;
+    }
     /*
     | 30/10/2026 (expertos): «recuperamos» sale de la misma marca que la
     | tarjeta y las conclusiones —la retención de cada saque—, no sólo de la
@@ -705,6 +729,13 @@ function analizaReparto(
 
   if (!lider) return null;
 
+  /*
+  | 07/11/2026 (jueces): «Lo más frecuente es falta lateral interior Z1: 1 de
+  | 4 (25 %)» es un empate a uno sin información. Sólo hay moda si la primera
+  | categoría tiene al menos dos acciones y ninguna otra empata con ella.
+  */
+  const hayModa = lider.acciones >= 2 && (categorias[1]?.acciones ?? 0) < lider.acciones;
+
   const movibles = categorias.filter((una) => Math.abs(una.deltaPp) >= 5);
 
   const sube = movibles.length
@@ -733,10 +764,14 @@ function analizaReparto(
     frases.push(grupos);
   } else if (escasa) {
     /* Con tan poco, el peso sobre el global no se juzga: se enseña la base. */
-    frases.push(
-      frasePlana(lider.nombre, `${lider.acciones} de ${utiles.length} saques (${formatoPct(lider.cuota)})`) ??
-        `Lo más frecuente es ${glosa(lider.nombre)}: ${lider.acciones} de ${utiles.length} acciones (${formatoPct(lider.cuota)}).`,
-    );
+    const plana = frasePlana(lider.nombre, `${lider.acciones} de ${utiles.length} saques (${formatoPct(lider.cuota)})`);
+
+    if (plana) frases.push(plana);
+    else if (hayModa) {
+      frases.push(`Lo más frecuente es ${glosa(lider.nombre)}: ${lider.acciones} de ${utiles.length} acciones (${formatoPct(lider.cuota)}).`);
+    }
+  } else if (!hayModa) {
+    /* Sin moda clara no hay «lo más frecuente» que decir. */
   } else {
     frases.push(
       (Math.abs(lider.deltaPp) < 5

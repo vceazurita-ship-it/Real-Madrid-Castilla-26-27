@@ -1,5 +1,7 @@
 import { corrigeErratas } from "@/lib/textos/erratas";
 import { reescribeTextos } from "@/lib/abp/textos-jugadores";
+/* Importación circular a propósito (siglas.ts lee `siglaDe` de aquí): sólo funciones, nada al cargar el módulo. */
+import { siglasSinChoque } from "@/lib/abp/siglas";
 import type { Player } from "@/types/player";
 import { idVigente } from "@/lib/fichajes";
 import { BASES, JORNADA_DESDE_BASE, baseDe, rivalesDeBase, sitiosDeBase, trazosDeBase } from "./pizarra-base";
@@ -451,6 +453,8 @@ export const PLANTILLAS: PlantillaSlide[] = [
     key: "directas",
     /* rev 6 (30/10/2026): la columna de la falta lateral I, simétrica a la D. */
     rev: 6,
+    /* Se pinta «FALTA DIRECTA OFENSIVA» (`nombreDeSlide`); aquí no se cambia
+       para que las diapositivas guardadas no pasen a tener «textos propios». */
     titulo: "DIRECTAS A PORTERÍA",
     vista: "porteria",
     lado: "ofensivo",
@@ -1702,22 +1706,47 @@ export function quitaVersion(tablero: TableroPizarra, versionId: string): Tabler
 }
 
 /** El puesto con su plantilla resuelta. */
+const PUESTOS_CACHE = new WeakMap<SlidePizarra, PuestoAbp[]>();
+
 export function puestosDe(slide: SlidePizarra): PuestoAbp[] {
+  const guardados = PUESTOS_CACHE.get(slide);
+
+  if (guardados) return guardados;
+
   const puestos = PLANTILLA_BY_KEY.get(slide.plantilla)?.puestos ?? [];
   const sitios = slide.sitios;
   /* La sigla reescrita en esta diapositiva (la chapa y la caja); el `code` no se toca. */
   const siglas = slide.textos?.siglas;
 
-  if (!sitios && !siglas) return puestos;
+  const base =
+    !sitios && !siglas
+      ? puestos
+      : puestos.map((puesto) => {
+          const sitio = sitios?.[puesto.key];
+          const sigla = siglas?.[puesto.key] ? limpiaSigla(siglas[puesto.key]) : "";
 
-  return puestos.map((puesto) => {
-    const sitio = sitios?.[puesto.key];
-    const sigla = siglas?.[puesto.key] ? limpiaSigla(siglas[puesto.key]) : "";
+          if (!sitio && !sigla) return puesto;
 
-    if (!sitio && !sigla) return puesto;
+          return { ...puesto, ...(sitio ?? {}), ...(sigla ? { sigla } : {}) };
+        });
 
-    return { ...puesto, ...(sitio ?? {}), ...(sigla ? { sigla } : {}) };
-  });
+  /*
+  | 07/11/2026 (jueces, ronda 14): una sigla con dos significados en la misma
+  | diapositiva («E» = Corta y Zaguero) se resolvía a mano con un botón. Ahora
+  | se resuelve sola al pintarla: los puestos que chocan llevan siglas
+  | distintas (las dos primeras letras de su significado) en la pantalla, el
+  | PDF, el PPT y el PDF por jugador, porque todos leen de aquí. Lo que el
+  | analista escribió a mano no se toca.
+  */
+  const auto = siglasSinChoque(base);
+  const cambian = Object.keys(auto).filter((key) => !siglas?.[key]);
+  const salida = cambian.length
+    ? base.map((puesto) => (cambian.includes(puesto.key) ? { ...puesto, sigla: auto[puesto.key] } : puesto))
+    : base;
+
+  PUESTOS_CACHE.set(slide, salida);
+
+  return salida;
 }
 
 /** Los puestos tal y como los escribe la plantilla: las siglas de marca de agua. */
@@ -2501,7 +2530,7 @@ export function tituloVisible(slides: SlidePizarra[], indice: number) {
     (otra, i) => i !== indice && otra.titulo.trim().toLowerCase() === titulo.toLowerCase(),
   );
 
-  if (!repetido) return titulo;
+  if (!repetido) return nombreDeSlide(titulo);
 
   const lineas = lineasConsignas(slide.notas);
   const orden = lineas.findIndex(
@@ -2512,7 +2541,7 @@ export function tituloVisible(slides: SlidePizarra[], indice: number) {
     (orden >= 0 ? lineas.slice(orden + 1) : lineas).find((linea) => linea.tipo === "consigna")
       ?.texto ?? "";
 
-  if (!pista) return titulo;
+  if (!pista) return nombreDeSlide(titulo);
 
   /* Hasta los dos puntos, si los hay («1.ª y 2.ª: …» → «1.ª y 2.ª»). */
   const corta = pista.includes(":") ? pista.split(":")[0] : pista;
@@ -2525,5 +2554,18 @@ export function tituloVisible(slides: SlidePizarra[], indice: number) {
     pie = (pie + " " + palabra).trim();
   }
 
-  return pie ? `${titulo} · ${pie}` : titulo;
+  return pie ? `${nombreDeSlide(titulo)} · ${limpiaPista(pie)}` : nombreDeSlide(titulo);
+}
+
+/*
+| 07/11/2026 (jueces): los nombres de diapositiva, como los defensivos.
+| «DIRECTAS A PORTERÍA» → «FALTA DIRECTA OFENSIVA» (la defensiva se llama
+| «FALTA DIRECTA DEFENSIVA»), y la pista «4.º Y 5.º» → «4.º y 5.º».
+*/
+function nombreDeSlide(titulo: string) {
+  return /^directas a porter[ií]a$/i.test(titulo.trim()) ? "FALTA DIRECTA OFENSIVA" : titulo;
+}
+
+function limpiaPista(pista: string) {
+  return pista.replace(/(\d\.?[ºª])\s+Y\s+(?=\d)/g, "$1 y ");
 }

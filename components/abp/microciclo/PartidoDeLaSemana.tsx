@@ -224,7 +224,8 @@ export function PartidoDeLaSemana({
             (antes «72′ de más (139′ − 67′ máximo)» repetía lo de debajo), y
             de dónde sale el objetivo, para que no parezca un número suelto. */}
         <p className="mt-1 flex flex-wrap items-baseline gap-x-1.5 text-sm text-white/80">
-          <span className="text-xl font-semibold tabular-nums text-white">{minutos}′</span>
+          {/* La misma unidad que «Carga» (07/11/2026): «1 h 50′», no «110′» en un sitio y «1 h 50′» en otro. */}
+          <span className="text-xl font-semibold tabular-nums text-white">{fmtMin(minutos)}</span>
           <span className="text-white/45">· objetivo {objetivo.minimo}-{objetivo.maximo}′</span>
           {estadoMinutos && (
             <span className={`text-[12px] font-medium ${estadoMinutos.clase}`}>· {estadoMinutos.texto}</span>
@@ -234,9 +235,10 @@ export function PartidoDeLaSemana({
         {objetivo.diasEntreno ? (
           /* La cuenta a la vista, para que se pueda comprobar (30/10/2026, expertos). */
           <p className="mt-0.5 text-[11px] text-white/50">
-            Referencia del cuerpo técnico: 90-100′ en 6 entrenamientos
+            {/* De dónde sale, en la propia línea (07/11/2026, jueces): la fija el cuerpo técnico y se prorratea con «Días entrenados». */}
+            Objetivo fijado por el cuerpo técnico: 90-100′ de balón parado por cada 6 días de sesión
             {objetivo.diasEntreno < 6
-              ? ` × ${objetivo.diasEntreno}/6 ${objetivo.diasEntreno === 1 ? "día" : "días"} de sesión = ${objetivo.minimo}-${objetivo.maximo}′`
+              ? `; esta semana, ${objetivo.diasEntreno} ${objetivo.diasEntreno === 1 ? "día" : "días"} de sesión (casilla «Días entrenados») → ${objetivo.minimo}-${objetivo.maximo}′`
               : ""}
             .
           </p>

@@ -184,6 +184,8 @@ export function suscribeHojas(oye: () => void) {
 /*  Pedir                                                              */
 /* ------------------------------------------------------------------ */
 
+const normalizaCsv = (texto: string) => texto.replace(/\r\n?/g, "\n").replace(/[ \t]+$/gm, "").trimEnd();
+
 const esRelectura = (url: string) => /[?&]fresco=1(&|$)/.test(url);
 
 /*
@@ -217,7 +219,9 @@ function baja(url: string, copiaEnsenada: string | null): Promise<string> {
 
       cambia({
         bajando: Math.max(0, estado.bajando - 1),
-        hayNuevas: estado.hayNuevas || (copiaEnsenada !== null && copiaEnsenada !== texto),
+        /* 07/11/2026: sólo si cambia el contenido, no los saltos de línea ni
+           los espacios del final (salía «Hay datos nuevos» sin cambio real). */
+        hayNuevas: estado.hayNuevas || (copiaEnsenada !== null && normalizaCsv(copiaEnsenada) !== normalizaCsv(texto)),
       });
 
       return texto;
