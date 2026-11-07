@@ -33,6 +33,7 @@ const require = createRequire(import.meta.url);
 const { entorno, salir } = require("../supabase-local.cjs");
 const { createClient } = require("@supabase/supabase-js");
 const { AQUI } = require("./transiciones-comun.cjs");
+import { subeAlmacen } from "../almacen.cjs";
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const CASA = path.dirname(AQUI);
@@ -185,7 +186,7 @@ async function principal() {
             continue;
           }
 
-          const { error } = await supabase.storage.from(BUCKET).upload(`${CARPETAS[a.area]}/${a.nombre}`, fs.readFileSync(fichero), { contentType: "video/mp4", upsert: true });
+          const { error } = await subeAlmacen(supabase, `${CARPETAS[a.area]}/${a.nombre}`, fichero, { contentType: "video/mp4", upsert: true });
 
           if (error) {
             rotos += 1;

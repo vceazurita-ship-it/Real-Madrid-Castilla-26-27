@@ -50,6 +50,7 @@ const mismoEquipo = (a, b) => mismoNombre(a, b) || mismoClub(a, b);
 const { DOC_GOLES, CASTILLA, leeMinuto } = require("../lib/goles/analisis.ts");
 const { ejeDeTipologia, rotuloSegundo } = require("../lib/goles/tecnico.ts");
 const { VISTO_EN_VIDEO } = require("../lib/goles/visto-en-video.ts");
+import { subeAlmacen } from "./almacen.cjs";
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 /* La carpeta de los partidos está dos niveles por encima del repo; desde una copia de trabajo (`.claude/worktrees/x`), cinco. */
@@ -1085,7 +1086,7 @@ async function cortaLosQueFaltan(supabase, porCortar, urlCorte) {
           continue;
         }
 
-        const { error } = await supabase.storage.from(BUCKET).upload(`${CARPETA_CORTES}/${x.nombre}`, fs.readFileSync(fichero), { contentType: "video/mp4", upsert: true });
+        const { error } = await subeAlmacen(supabase, `${CARPETA_CORTES}/${x.nombre}`, fichero, { contentType: "video/mp4", upsert: true });
 
         if (error) {
           console.log(`  ${x.nombre}: no se sube (${error.message})`);

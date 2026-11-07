@@ -25,13 +25,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+import { barreAdjuntos, hayHueco } from "@/lib/almacen/ocupacion";
 import { ADJUNTOS_PERMITIDOS, MAX_ADJUNTOS, puedeMandar } from "@/lib/correo/peticionInforme";
 
 export const dynamic = "force-dynamic";
 
 const BUCKET = "performance";
-
-const DIAS_INFORMES = 30;
 
 /** El tope del bucket `performance` por fichero (`file_size_limit`, medido el 15/10/2026). */
 const MAX_VIDEO = 50 * 1024 * 1024;
@@ -114,8 +113,16 @@ export async function POST(request: NextRequest) {
 
   const path = junto ? junto.replace(/\.pdf$/, ".jpg") : deRival ? `${CARPETA_RIVALES}${equipo}/${azar}-${limpiaNombre(nombre)}` : `2026/informes/${dia}/${azar}-${limpiaNombre(nombre)}`;
 
-  /* El barrido de lo viejo, sin esperar ni fallar por él. */
-  void barreInformes(supabase.storage.from(BUCKET)).catch((error) => console.error("[informe] barrido", error));
+  /*
+    El tope del plan gratis (07/11/2026, lib/almacen/ocupacion.ts): si no cabe,
+    se barre y se vuelve a medir; los adjuntos pequeños pasan siempre.
+  */
+  const hueco = await hayHueco(supabase, tamano);
+
+  if (!hueco.cabe) return mal(hueco.mensaje, 507);
+
+  /* El barrido de lo viejo y de las copias repetidas, sin esperar ni fallar por él. */
+  void barreAdjuntos(supabase).catch((error) => console.error("[informe] barrido", error));
 
   const { data, error } = await supabase.storage.from(BUCKET).createSignedUploadUrl(path);
 
@@ -127,24 +134,7 @@ export async function POST(request: NextRequest) {
 
   const publica = supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
 
-  return NextResponse.json({ ok: true, subida: data.signedUrl, token: data.token, path, url: publica });
-}
-
-/** Borra las carpetas de `2026/informes/` de hace más de `DIAS_INFORMES` días. */
-async function barreInformes(cubo: ReturnType<ReturnType<typeof createClient>["storage"]["from"]>) {
-  const corte = new Date(Date.now() - DIAS_INFORMES * 86_400_000).toISOString().slice(0, 10);
-
-  const { data: dias } = await cubo.list("2026/informes", { limit: 100 });
-
-  for (const dia of dias ?? []) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(dia.name) || dia.name >= corte) continue;
-
-    const { data: archivos } = await cubo.list(`2026/informes/${dia.name}`, { limit: 1000 });
-
-    const rutas = (archivos ?? []).map((a) => `2026/informes/${dia.name}/${a.name}`);
-
-    if (rutas.length) await cubo.remove(rutas);
-  }
+  return NextResponse.json({ ok: true, subida: data.signedUrl, token: data.token, path, url: publica, ...(hueco.aviso ? { aviso: hueco.aviso } : {}) });
 }
 
 /**

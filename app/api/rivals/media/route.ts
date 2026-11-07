@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+import { hayHueco } from "@/lib/almacen/ocupacion";
+
 /*
 |--------------------------------------------------------------------------
 | ARCHIVOS DE RECURSOS DEL RIVAL
@@ -76,6 +78,11 @@ export async function POST(request: NextRequest) {
     const path = `${folder}/${Date.now().toString(36)}-${limpiarNombre(
       file.name
     )}`;
+
+    /* El tope del plan gratis (07/11/2026): lo grande no entra si el almacén está lleno. */
+    const hueco = await hayHueco(supabase, file.size);
+
+    if (!hueco.cabe) return NextResponse.json({ success: false, error: hueco.mensaje }, { status: 507 });
 
     const buffer = Buffer.from(await file.arrayBuffer());
 

@@ -53,6 +53,7 @@ const { pintaPoster } = require("../../lib/video-informe/portada-video.ts");
 const { FRECUENCIA_AAC, pcm16aFlotante, remuestrea, reparteVoz } = require("../../lib/video-informe/voz.ts");
 const { bandaSonora, masteriza } = require("../../lib/video-informe/musica.ts");
 const { filasAbpDelPartido, momentosAbpDeHudl, casaConHudl, rotuloDeAccion, esGolDeLaAccion } = require("../../lib/abp/cortes-abp.ts");
+import { subeAlmacen } from "../almacen.cjs";
 
 const ejecuta = promisify(execFile);
 
@@ -921,7 +922,7 @@ function supabaseDe(env) {
 }
 
 async function sube(supabase, fichero, destino, tipo) {
-  const { error } = await supabase.storage.from(BUCKET).upload(destino, fs.readFileSync(fichero), { contentType: tipo, upsert: true });
+  const { error } = await subeAlmacen(supabase, destino, fichero, { contentType: tipo, upsert: true });
 
   if (error) throw new Error(error.message);
 

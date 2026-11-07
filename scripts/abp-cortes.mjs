@@ -35,6 +35,7 @@ const { publicada } = require("./partido/comun.cjs");
 const { entorno, salir } = require("./supabase-local.cjs");
 const { createClient } = require("@supabase/supabase-js");
 const { filasAbpDelPartido, momentosAbpDeHudl, casaConHudl, minutoDeJuego, clavesEnOrden, esGolDeLaAccion, DOC_CORTES_ABP } = require("../lib/abp/cortes-abp.ts");
+import { subeAlmacen } from "./almacen.cjs";
 
 const args = process.argv.slice(2);
 const bandera = (n) => args.includes(n);
@@ -283,7 +284,7 @@ async function main() {
             continue;
           }
 
-          const { error } = await supabase.storage.from(BUCKET).upload(`${CARPETA_BUCKET}/${x.clave}/${x.nombre}`, fs.readFileSync(fichero), { contentType: "video/mp4", upsert: true });
+          const { error } = await subeAlmacen(supabase, `${CARPETA_BUCKET}/${x.clave}/${x.nombre}`, fichero, { contentType: "video/mp4", upsert: true });
 
           if (error) {
             console.log(`  ${x.clave}/${x.nombre}: no sube (${error.message})`);

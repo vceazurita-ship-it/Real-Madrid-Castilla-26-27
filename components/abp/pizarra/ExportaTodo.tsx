@@ -89,7 +89,7 @@ const bytes = async (blob: Blob) => new Uint8Array(await blob.arrayBuffer()) as 
 class Cancelado extends Error {}
 
 /** Sube cuando cambia el vídeo de cada jugador: lo grabado antes no vale. */
-const VIDEO_JUGADOR = "responsabilidad-1";
+const VIDEO_JUGADOR = "responsabilidad-2";
 
 /**
  * Lo intenta y, si falla, una vez más: la segunda con el codificador del
@@ -166,7 +166,8 @@ function esperaPdfs(huella: string, ids: string[], cancelado: () => boolean, top
     const mira = () => {
       const e = trabajoPdfs.foto();
       const todos = e.huella === huella && ids.every((id) => e.hechos[id]);
-      const parado = e.huella === huella && !e.encargo;
+      /* Sin cola en marcha no llega nada más (también si la cola era de otra versión). */
+      const parado = !e.encargo;
 
       if (todos || parado || cancelado()) {
         quita();
@@ -418,17 +419,36 @@ export function ExportaTodo({
       /* 2 · Los PDF por jugador (el trabajo de segundo plano de «PDF por jugador», que guarda lo ya hecho). */
       if (ids.length) {
         marca("jugadores", "marcha");
-        trabajoPdfs.encarga({
-          huella,
-          tablero,
-          players,
-          temporada,
-          rival,
-          jornada,
-          escudoRival,
-          ids,
-          vuelta: `${window.location.pathname}${window.location.search}`,
-        });
+        const pide = () =>
+          trabajoPdfs.encarga({
+            huella,
+            tablero,
+            players,
+            temporada,
+            rival,
+            jornada,
+            escudoRival,
+            ids,
+            vuelta: `${window.location.pathname}${window.location.search}`,
+          });
+        /*
+          Si ya hay otra cola en marcha (p. ej. «PDF por jugador» de otra versión
+          de la pizarra, sin las marcas), el encargo se rechazaba en silencio y
+          «Todo» salía sin los PDF de los jugadores (07/11/2026). Se espera a que
+          acabe y se pide otra vez.
+        */
+        const listos = () => {
+          const e = trabajoPdfs.foto();
+
+          /* Hechos, o ya en la cola con esta misma versión: se espera abajo. */
+          return e.huella === huella && (Boolean(e.encargo) || ids.every((id) => e.hechos[id]));
+        };
+
+        for (let vuelta = 0; !pide() && !listos() && vuelta < 900; vuelta += 1) {
+          marca("jugadores", "marcha", "esperando a la cola anterior");
+          await new Promise((listo) => setTimeout(listo, 1000));
+          sigue();
+        }
 
         const quita = trabajoPdfs.suscribe(() => {
           const e = trabajoPdfs.foto();
@@ -719,8 +739,7 @@ export function ExportaTodo({
       const conVideo = duraciones.filter((s, k) => cometidosDe(tablero, ids[k], players).some((a) => fasesDe(slides[a.indice]?.trazos) > 0) && s > 0);
       const deJugadores = {
         segundos: conVideo.reduce((suma, s) => suma + segundosDeVideoJugador(s), 0),
-        /* A caudal variable salen a unos 8 Mb/s de los 12 pedidos (medido el 01/11/2026). */
-        mb: conVideo.reduce((suma, s) => suma + pesoMb("sala", s) * 0.7, 0),
+        mb: conVideo.reduce((suma, s) => suma + pesoMb("sala", s), 0),
       };
       const docs = { segundos: fotosFaltan * SEGUNDOS_POR_FOTO + 2, mb: slides.length * MB_POR_DIAPOSITIVA * 2 };
       const jugadores = { segundos: pdfsFaltan * SEGUNDOS_POR_PDF_JUGADOR, mb: ids.length * MB_POR_PDF_JUGADOR };

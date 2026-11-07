@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+import { hayHueco } from "@/lib/almacen/ocupacion";
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -27,6 +29,11 @@ export async function POST(request: NextRequest) {
   .replace(/[^a-zA-Z0-9._-]/g, "");
 
     const path = `${folder}/${fileName}`;
+
+    /* El tope del plan gratis (07/11/2026): lo grande no entra si el almacén está lleno. */
+    const hueco = await hayHueco(supabase, file.size);
+
+    if (!hueco.cabe) return NextResponse.json({ error: hueco.mensaje }, { status: 507 });
 
     const buffer = Buffer.from(await file.arrayBuffer());
 

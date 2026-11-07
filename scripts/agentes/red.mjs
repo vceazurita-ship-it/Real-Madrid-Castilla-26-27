@@ -447,6 +447,14 @@ async function main() {
       if (solo && !solo.includes(g)) continue;
       const carpeta = path.join(RAIZ, ".cache", "expertos", "areas", g);
       if (!fs.existsSync(carpeta)) continue;
+      /* La puerta determinista (07/11/2026): sin los exportables completos no se gastan jueces. */
+      if (g === "informes" && !process.argv.includes("--sin-puerta")) {
+        const { status } = (await import("node:child_process")).spawnSync(process.execPath, [path.join(RAIZ, "scripts", "agentes", "checks-exportables.mjs")], { stdio: "inherit" });
+        if (status !== 0) {
+          console.log("informes: la puerta falla (ver .cache/expertos/areas/informes/checks.md); sin jueces. --sin-puerta para saltarla.");
+          continue;
+        }
+      }
       const entradas = fs.readdirSync(carpeta).filter((f) => f.endsWith(".txt") || f === "medidas.json").map((f) => path.join(carpeta, f));
       /* Los exportables (06/11/2026): los PDF de las subcarpetas también van al juez. */
       for (const sub of fs.readdirSync(carpeta, { recursive: true })) if (/\.pdf$/i.test(String(sub)) || /^paginas[\\/].+\.jpg$/i.test(String(sub))) entradas.push(path.join(carpeta, String(sub)));

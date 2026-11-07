@@ -439,8 +439,18 @@ export async function videoJugador(opciones: {
     });
 
   try {
-    codificador.configure({ codec, width: W, height: H, bitrate: caudal, framerate: FPS, latencyMode: "quality", avc: { format: "avc" } });
+    /*
+      Calidad constante si el codificador sabe (07/11/2026, «más calidad y
+      menos peso»): en una escena dibujada pesa menos que el caudal fijo y se
+      ve mejor. Si no, el caudal de antes, que respeta el tope de peso.
+    */
+    const base = { codec, width: W, height: H, framerate: FPS, latencyMode: "quality" as const, avc: { format: "avc" as const } };
+    const fijo = { ...base, bitrateMode: "quantizer" as VideoEncoderBitrateMode };
+    const conCalidadFija = await VideoEncoder.isConfigSupported(fijo).then((r) => Boolean(r.supported)).catch(() => false);
 
+    codificador.configure(conCalidadFija ? fijo : { ...base, bitrate: caudal });
+
+    const cadaClave = FPS * (conCalidadFija ? 4 : 2);
     let cuadros = 0;
 
     const emite = async () => {
@@ -449,7 +459,7 @@ export async function videoJugador(opciones: {
       const cuadro = new VideoFrame(canvas, { timestamp: Math.round((cuadros * 1_000_000) / FPS), duration: Math.round(1_000_000 / FPS) });
 
       try {
-        codificador.encode(cuadro, { keyFrame: cuadros % (FPS * 2) === 0 });
+        codificador.encode(cuadro, { keyFrame: cuadros % cadaClave === 0, ...(conCalidadFija ? { avc: { quantizer: 23 } } : {}) } as VideoEncoderEncodeOptions);
       } finally {
         cuadro.close();
       }

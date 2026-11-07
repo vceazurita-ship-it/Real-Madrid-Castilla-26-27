@@ -56,7 +56,51 @@ export function AlertasPortada({
   seguimiento: FilaSeguimiento[];
 }) {
   const [deData, setDeData] = useState<Alerta[] | null>(null);
+  const [delAlmacen, setDelAlmacen] = useState<Alerta[]>([]);
   const [abierto, setAbierto] = useState(false);
+
+  /*
+  | El almacén de Supabase (07/11/2026): llegó a 3,5 GB de 1 sin que nadie lo
+  | viera. Lee la última medida guardada (no recorre el bucket) y avisa desde
+  | el 80 %.
+  */
+  useEffect(() => {
+    let vivo = true;
+
+    void fetch("/api/almacen")
+      .then((r) => r.json() as Promise<{ ok?: boolean; ocupacion?: { mb: number; tope: number }; aviso?: number; freno?: number }>)
+      .then((r) => {
+        const o = r.ocupacion;
+
+        if (!vivo || !r.ok || !o || o.mb < o.tope * (r.aviso ?? 0.8)) return;
+
+        const parte = Math.round((o.mb / o.tope) * 100);
+        const lleno = o.mb >= o.tope * (r.freno ?? 0.95);
+
+        setDelAlmacen([
+          {
+            clave: "almacen-lleno",
+            tono: "mala",
+            area: "Mantenimiento · almacén",
+            titulo: lleno ? `Almacén de vídeos lleno: ${parte} % del plan gratis` : `Almacén de vídeos al ${parte} % del plan gratis`,
+            detalle: lleno
+              ? "No se suben cortes ni vídeos nuevos hasta liberar espacio. Los PDF de los correos siguen pasando."
+              : "Conviene liberar espacio antes de que se frenen las subidas.",
+            cifra: `${Math.round(o.mb).toLocaleString("es-ES")} de ${o.tope.toLocaleString("es-ES")} MB`,
+            valor: `${parte} %`,
+            rotulo: "del almacén gratis",
+            fuerza: 100,
+            enlace: "/ajustes",
+            mira: "Ajustes → Almacén de ficheros",
+          },
+        ]);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      vivo = false;
+    };
+  }, []);
 
   /* La hora a la que se abrió la pantalla: ver el efecto de abajo. */
   const [ahora, setAhora] = useState(0);
@@ -145,10 +189,10 @@ export function AlertasPortada({
      encima: repetirlo aquí era contar dos veces lo mismo. */
   const alertas = useMemo(
     () =>
-      [...(deData ?? []).filter((a) => a.clave !== "goles-menos-xg"), ...otras].sort(
+      [...delAlmacen, ...(deData ?? []).filter((a) => a.clave !== "goles-menos-xg"), ...otras].sort(
         (a, b) => b.fuerza - a.fuerza,
       ),
-    [deData, otras],
+    [delAlmacen, deData, otras],
   );
 
   const buenas = alertas.filter((a) => a.tono === "buena");

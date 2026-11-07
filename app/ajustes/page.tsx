@@ -52,6 +52,7 @@ import { Topbar } from "@/components/ui/topbar";
 import { useAdmin } from "@/hooks/useAdmin";
 import { avisaCambioTextos, useTextosExplicativos } from "@/components/ui/textos-analisis";
 import { InterruptorOrdenadorPrincipal } from "@/components/video-partido/InterruptorOrdenadorPrincipal";
+import { OcupacionAlmacen } from "@/components/ajustes/OcupacionAlmacen";
 import {
   LIMITE_MIN,
   estadoEncargo,
@@ -733,6 +734,7 @@ export default function AjustesPage() {
             <InterruptorTextos />
 
             <InterruptorOrdenadorPrincipal />
+            <OcupacionAlmacen />
 
             {/* ---------------- EL ANÁLISIS DEL PARTIDO ---------------- */}
 

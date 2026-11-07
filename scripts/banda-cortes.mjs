@@ -40,6 +40,7 @@ const SOLO_VER = process.argv.includes("--ver");
 const CORTAR = process.argv.includes("--cortes");
 
 const { DOC_BANDA, claveBanda } = require("../lib/banda/cortes.ts");
+import { subeAlmacen } from "./almacen.cjs";
 const BUCKET = "performance";
 const CARPETA_CORTES = "2026/banda/clips";
 const ANTES = 3;
@@ -210,7 +211,7 @@ async function cortaLosQueFaltan(supabase, porCortar, urlCorte) {
 
         if (SOLO_VER) continue;
 
-        const { error } = await supabase.storage.from(BUCKET).upload(`${CARPETA_CORTES}/${x.nombre}`, fs.readFileSync(fichero), { contentType: "video/mp4", upsert: true });
+        const { error } = await subeAlmacen(supabase, `${CARPETA_CORTES}/${x.nombre}`, fichero, { contentType: "video/mp4", upsert: true });
 
         if (error) {
           console.log(`  ${x.nombre}: no se sube (${error.message})`);

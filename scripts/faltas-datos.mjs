@@ -28,6 +28,7 @@ import { fileURLToPath } from "node:url";
 const require = createRequire(import.meta.url);
 const { partidosHudl, faltasHudl, nombresEnBucket } = require("./partido/faltas-banda.cjs");
 const { uno } = require("./partido/comun.cjs");
+import { subeAlmacen } from "./almacen.cjs";
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
 const RAIZ = join(AQUI, "..");
@@ -710,7 +711,7 @@ async function ponCortes(lista) {
           continue;
         }
 
-        const { error } = await supabase.storage.from(BUCKET).upload(`${CARPETA_CORTES}/${c.nombre}`, readFileSync(fichero), { contentType: "video/mp4", upsert: true });
+        const { error } = await subeAlmacen(supabase, `${CARPETA_CORTES}/${c.nombre}`, fichero, { contentType: "video/mp4", upsert: true });
 
         if (error) {
           console.log(`  ${c.nombre}: no se sube (${error.message})`);

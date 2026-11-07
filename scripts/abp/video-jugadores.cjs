@@ -27,6 +27,7 @@ require(path.join(RAIZ, "scripts/cargador-ts.cjs"));
 const { createClient } = require(path.join(RAIZ, "node_modules/@supabase/supabase-js"));
 const { entorno } = require(path.join(RAIZ, "scripts/supabase-local.cjs"));
 const { VIDEO_JUGADORES_KEY, VIDEO_JUGADORES_KIND, jornadaDeNombre, normalizaVideosJugadores } = require(path.join(RAIZ, "lib/abp/video-jugadores.ts"));
+const { subeAlmacen } = require("../almacen.cjs");
 
 const CARPETA = process.env.VIDEO_JUGADORES_DIR || "C:\\Users\\Usuario\\Downloads\\RMCF CASTILLA\\ABP\\VIDEO - JUGADORES";
 const FFMPEG = path.join(RAIZ, "node_modules", "ffmpeg-static", "ffmpeg.exe");
@@ -171,7 +172,7 @@ async function principal() {
       console.log(`PASO: subiendo «${f.nombre}» (${mb.toFixed(1)} MB)`);
 
       const subeUno = async (fichero, destino, tipo) => {
-        const { error } = await supabase.storage.from(BUCKET).upload(destino, fs.readFileSync(fichero), { contentType: tipo, upsert: true });
+        const { error } = await subeAlmacen(supabase, destino, fichero, { contentType: tipo, upsert: true });
 
         if (error) throw new Error(error.message);
 

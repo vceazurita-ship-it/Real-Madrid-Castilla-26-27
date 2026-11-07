@@ -54,8 +54,24 @@ const MARGEN_RECORTE = 16;
  * mientras el rótulo grande ya anunciaba la nueva.
  */
 const ARRANQUE = 0.001;
-/** Las fotos guardadas: 0,95 no se distingue del original y una diapositiva pesa unos 300 kB. */
-const CALIDAD_FOTO = 0.95;
+/*
+| Las fotos guardadas SIN PÉRDIDA (07/11/2026, «más calidad y menos peso»):
+| WebP sin pérdida (1 en Chrome). Medido con el césped real: el JPEG 0,95
+| metía ruido que el codificador pagaba en bits; sin él, +2 dB de nitidez y un
+| 26 % menos de MP4. Donde el navegador no da WebP, sale PNG (también sin pérdida).
+*/
+const TIPO_FOTO = "image/webp";
+const CALIDAD_FOTO = 1;
+/*
+| Calidad constante (cuantizador fijo de H.264) en vez de caudal: lo quieto
+| (el campo) apenas pesa y lo que se mueve sale nítido. 20 para la tele; 23
+| para WhatsApp y el móvil, que se vuelven a comprimir. Si el codificador no
+| sabe (el del navegador sin tarjeta), se vuelve al caudal de antes.
+*/
+const CUANTIZADOR_TV = 20;
+const CUANTIZADOR_LIGERO = 23;
+/** Un fotograma completo cada 4 s con calidad constante (antes cada 2 s): pesa menos y se sigue pudiendo saltar. */
+const CLAVE_CADA_S = 4;
 
 type Caja = { x: number; y: number; w: number; h: number };
 
@@ -176,8 +192,8 @@ export async function ruedaMaterial({
     backgroundColor: COLORES.tinta,
     imagePlaceholder: PIXEL_VACIO,
     includeQueryParams: true,
-    formato: "jpeg" as const,
-    quality: 0.92,
+    /* Sin pérdida desde la captura: el JPEG de aquí se sumaba al de abajo. */
+    formato: "png" as const,
     width: TABLERO_W,
     height: TABLERO_H,
     /* A la medida nativa del tablero: 1920 × 1080, sin reescalar después. */
@@ -265,7 +281,7 @@ export async function ruedaMaterial({
     gctx.fillRect(0, 0, TABLERO_W, TABLERO_H);
     gctx.drawImage(imagen, 0, 0, TABLERO_W, TABLERO_H);
 
-    const blob = await new Promise<Blob | null>((listo) => guarda.toBlob(listo, "image/jpeg", CALIDAD_FOTO));
+    const blob = await new Promise<Blob | null>((listo) => guarda.toBlob(listo, TIPO_FOTO, CALIDAD_FOTO));
 
     if (!blob) throw new Error("No se ha podido guardar un fotograma");
 
@@ -451,8 +467,17 @@ export async function abreEmisor(
 
   /* Si este codificador no sabe ir a caudal fijo, a caudal variable: mejor eso que nada. */
   const sabe = await VideoEncoder.isConfigSupported(config).then((r) => Boolean(r.supported)).catch(() => false);
+  const cuantizador = caudal >= 8_000_000 ? CUANTIZADOR_TV : CUANTIZADOR_LIGERO;
+  const { bitrate: _sinCaudal, ...sinCaudal } = config;
 
-  codificador.configure(sabe ? config : { ...config, bitrateMode: "variable" });
+  void _sinCaudal;
+
+  const fijo: VideoEncoderConfig = { ...sinCaudal, bitrateMode: "quantizer" as VideoEncoderBitrateMode };
+  const conCalidadFija = modo === "variable" && (await VideoEncoder.isConfigSupported(fijo).then((r) => Boolean(r.supported)).catch(() => false));
+
+  codificador.configure(conCalidadFija ? fijo : sabe ? config : { ...config, bitrateMode: "variable" });
+
+  const cadaClave = FPS * (conCalidadFija ? CLAVE_CADA_S : 2);
 
   /* El hueco en la cola, por su evento; el reloj es sólo la red si el codificador se cae. */
   const hueco = () =>
@@ -484,7 +509,10 @@ export async function abreEmisor(
       });
 
       try {
-        codificador.encode(cuadro, { keyFrame: cuadros % (FPS * 2) === 0 });
+        codificador.encode(cuadro, {
+          keyFrame: cuadros % cadaClave === 0,
+          ...(conCalidadFija ? { avc: { quantizer: cuantizador } } : {}),
+        } as VideoEncoderEncodeOptions);
       } finally {
         cuadro.close();
       }

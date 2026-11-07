@@ -80,8 +80,9 @@ const esLectura = (url, metodo, cuerpo) =>
   console.log("pizarra lista:", lista);
   if (lista) {
     await pulsa("Exportar", true); await espera(800);
-    console.log("solo documentos:", await pulsa("Solo documentos"));
-    for (let i = 0; i < 360; i++) {
+    const opcionExportar = process.env.EXPORTAR_TODO === "1" ? "Todo en un" : "Solo documentos";
+    console.log(opcionExportar, await pulsa(opcionExportar));
+    for (let i = 0; i < (process.env.EXPORTAR_TODO === "1" ? 1500 : 360); i++) {
       await espera(1000);
       const zips = fs.readdirSync(DESCARGAS).filter((f) => /\.zip$/i.test(f));
       if (zips.length) { await espera(2000); break; }

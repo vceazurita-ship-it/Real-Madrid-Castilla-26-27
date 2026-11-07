@@ -128,7 +128,8 @@ export const hayVideo = (clave: string) => videos.tiene(clave);
 | vídeo de la diapositiva para otro destino y el de cada jugador sin volver a
 | fotografiar nada. Una pizarra tiene pocas diapositivas con jugada.
 */
-const materiales = new Memoria<MaterialJugada>(10);
+/* 6 (07/11/2026): las fotos van ahora sin pérdida y cada material pesa unas tres veces más. */
+const materiales = new Memoria<MaterialJugada>(6);
 
 export const materialGuardado = (clave: string) => materiales.lee(clave) ?? null;
 export const guardaMaterial = (clave: string, material: MaterialJugada) => materiales.guarda(clave, material);

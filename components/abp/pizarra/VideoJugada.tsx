@@ -43,7 +43,8 @@ import {
 } from "@/lib/abp/cache-exportar";
 
 /** Sube cuando cambia el montaje (ritmo, rótulos, calidad): lo grabado antes no vale. */
-const MONTAJE_VIDEO = "tv-1080-1";
+/* «-2» (07/11/2026): fotos sin pérdida y calidad constante; lo grabado antes no vale. */
+const MONTAJE_VIDEO = "tv-1080-2";
 
 /** La clave del vídeo de una diapositiva para un destino: si no ha cambiado nada, no se vuelve a grabar. */
 export const claveDelVideo = (
@@ -326,7 +327,8 @@ function pintaCapa(
 }
 
 export function pesoMb(destino: Destino, segundos: number) {
-  return (DESTINOS[destino].caudal * segundos * 1.05) / 8 / 1_000_000;
+  /* Con calidad constante sale más o menos a un tercio del caudal nominal (medido el 07/11/2026). */
+  return (DESTINOS[destino].caudal * segundos * 0.35) / 8 / 1_000_000;
 }
 
 const coma = (numero: number, decimales = 1) => numero.toFixed(decimales).replace(".", ",");

@@ -28,6 +28,7 @@ const require = createRequire(import.meta.url);
 const { entorno } = require("../supabase-local.cjs");
 const { createClient } = require("@supabase/supabase-js");
 const { GoogleGenAI, MediaResolution, createPartFromUri } = require("@google/genai");
+import { subeAlmacen } from "../almacen.cjs";
 
 const ejecuta = promisify(execFile);
 const REPO = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -740,7 +741,7 @@ async function analiza(supabase, env, objetivos, fuente, destino) {
       await fuente.clip(ss, dura, fichero, ejemplos.has(a.id) ? CLIP : CLIP_REVISION);
 
       const destinoBucket = `${carpeta}/${a.id}.mp4`;
-      const { error } = await supabase.storage.from(BUCKET).upload(destinoBucket, fs.readFileSync(fichero), { contentType: "video/mp4", upsert: true });
+      const { error } = await subeAlmacen(supabase, destinoBucket, fichero, { contentType: "video/mp4", upsert: true });
 
       if (error) throw new Error(error.message);
 
