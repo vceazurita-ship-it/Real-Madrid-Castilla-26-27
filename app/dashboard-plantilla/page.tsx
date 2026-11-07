@@ -405,7 +405,8 @@ export default function DashboardPlantilla() {
     {
       title: "Avisos",
       value: avisos.length,
-      base: "para hablar esta semana",
+      /* 07/11/2026: avisos no son jugadores (uno puede tener dos). */
+      base: `${new Set(avisos.map((a) => a.jugador.ficha.id)).size} jugadores · para hablar esta semana`,
     },
   ];
 
@@ -544,13 +545,41 @@ export default function DashboardPlantilla() {
               {/* CIFRAS */}
 
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-4 xl:grid-cols-5">
-                {kpis.map((kpi) => (
-                  <div key={kpi.title} className="min-w-0 rounded-xl border border-white/10 bg-white/[0.025] p-3 sm:p-4">
-                    <div className="text-xs text-white/50 sm:text-sm">{kpi.title}</div>
-                    <div className="mt-1 text-2xl font-bold tracking-tight text-white sm:mt-2 sm:text-3xl">{kpi.value}</div>
-                    <div className="mt-1 text-[11px] leading-snug text-white/45 sm:text-xs">{kpi.base}</div>
-                  </div>
-                ))}
+                {kpis.map((kpi) => {
+                  const cuerpo = (
+                    <>
+                      <div className="text-xs text-white/50 sm:text-sm">{kpi.title}</div>
+                      <div className="mt-1 text-2xl font-bold tracking-tight text-white sm:mt-2 sm:text-3xl">{kpi.value}</div>
+                      <div className="mt-1 text-[11px] leading-snug text-white/45 sm:text-xs">{kpi.base}</div>
+                    </>
+                  );
+
+                  /* 07/11/2026: «Avisos» lleva a su tarjeta. */
+                  if (kpi.title === "Avisos" && avisos.length > 0) {
+                    return (
+                      <button
+                        key={kpi.title}
+                        type="button"
+                        onClick={() => {
+                          setVista("plantilla");
+                          requestAnimationFrame(() =>
+                            document.getElementById("avisos-semana")?.scrollIntoView({ behavior: "smooth", block: "start" }),
+                          );
+                        }}
+                        className="min-w-0 rounded-xl border border-[#C8A96B]/30 bg-white/[0.025] p-3 text-left transition hover:border-[#C8A96B] sm:p-4"
+                      >
+                        {cuerpo}
+                        <div className="mt-1 text-[11px] font-medium text-[#C8A96B]">Ver los avisos →</div>
+                      </button>
+                    );
+                  }
+
+                  return (
+                    <div key={kpi.title} className="min-w-0 rounded-xl border border-white/10 bg-white/[0.025] p-3 sm:p-4">
+                      {cuerpo}
+                    </div>
+                  );
+                })}
               </div>
 
               <div className="sticky top-0 z-20 -mx-4 bg-[#0B0F14] px-4 py-2 sm:-mx-6 sm:px-6 md:-mx-8 md:px-8">
@@ -580,7 +609,9 @@ export default function DashboardPlantilla() {
                         <BloqueMinutos jugadores={filtrados} posibles={posibles} onAbre={abreFicha} />
                       </div>
                       <div className="min-w-0 space-y-6">
-                        <BloqueAvisos avisos={avisos} onAbre={abreFicha} partidosEquipo={partidosEquipo} />
+                        <div id="avisos-semana" className="scroll-mt-20">
+                          <BloqueAvisos avisos={avisos} onAbre={abreFicha} partidosEquipo={partidosEquipo} />
+                        </div>
                         <BloqueEdad jugadores={filtrados} />
                         <BloqueContratos jugadores={filtrados} />
                         <BloqueSesiones resumen={sesionesReg} jugadores={filtrados} />
@@ -749,10 +780,22 @@ function BloqueMinutos({ jugadores, posibles, onAbre }: { jugadores: Jugador[]; 
       base={
         <>
           Minutos de Wyscout sobre los {posibles}′ posibles. Titular y suplente, de Valoraciones (titular: marcado o 90′ jugados).
-          {deValoraciones ? " Con asterisco, minutos de Valoraciones: no tiene fila en Wyscout." : ""} En naranja, menos del 25 %.
+          {deValoraciones ? " Con asterisco, minutos de Valoraciones: no tiene fila en Wyscout." : ""}{" "}
+          Wyscout cuenta también el añadido y Valoraciones anota 90′ por partido completo: por eso los minutos de una y otra no coinciden.
         </>
       }
     >
+      {/* 07/11/2026: la leyenda de colores a la vista, junto al título. */}
+      <p className="-mt-1 mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-white/65">
+        <span className="inline-flex items-center gap-1.5">
+          <span aria-hidden className="h-2.5 w-5 rounded-sm" style={{ background: ORO }} />
+          25 % o más
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span aria-hidden className="h-2.5 w-5 rounded-sm" style={{ background: PEOR }} />
+          menos del 25 % (juega poco)
+        </span>
+      </p>
       <div className="space-y-5">
         {PUESTOS.map((p) => {
           const suyos = jugadores.filter((j) => j.puesto === p.key);
@@ -780,9 +823,13 @@ function BloqueMinutos({ jugadores, posibles, onAbre }: { jugadores: Jugador[]; 
                         onClick={() => onAbre(j.ficha.id)}
                         className="grid w-full min-w-0 grid-cols-[minmax(0,7.5rem)_minmax(0,1fr)_auto] items-center gap-3 rounded-lg px-1.5 py-1.5 text-left transition hover:bg-white/[0.04] sm:grid-cols-[minmax(0,11rem)_minmax(0,1fr)_auto]"
                       >
-                        <span className="flex min-w-0 items-center text-sm text-white/85">
-                          <span className="truncate">{nombreDe(j)}</span>
-                          <DeFuera jugador={j} />
+                        {/* 07/11/2026: en el móvil la etiqueta del equipo
+                            (JUV A, RMC) va debajo y el nombre no se corta. */}
+                        <span className="flex min-w-0 flex-col items-start text-sm leading-tight text-white/85 sm:flex-row sm:items-center">
+                          <span className="max-w-full break-words sm:truncate">{nombreDe(j)}</span>
+                          <span className="-ml-1.5 mt-0.5 sm:ml-0 sm:mt-0">
+                            <DeFuera jugador={j} />
+                          </span>
                         </span>
 
                         <Barra pct={pct} color={pct < 25 ? PEOR : ORO} />
@@ -831,7 +878,7 @@ function BloqueAvisos({
   return (
     <Bloque
       pregunta="¿De quién hay que hablar esta semana?"
-      base={`Sólo licencia del Castilla. Minutos y amarillas de Wyscout; partidos y notas, de Valoraciones (${partidosEquipo} partidos). Los porteros no entran en los avisos de minutos.`}
+      base={`Sólo licencia del Castilla. Minutos y amarillas de Wyscout; partidos y notas, de Valoraciones (${partidosEquipo} partidos). Los porteros no entran en los avisos de minutos. Los minutos posibles son los de los ${partidosEquipo} partidos (${partidosEquipo * 90}′) para todos, también para quien llegó con la liga empezada.`}
     >
       {avisos.length === 0 ? (
         <p className="text-sm text-white/60">Con estas reglas no sale ningún aviso esta semana.</p>
@@ -964,7 +1011,8 @@ function BloqueSesiones({ resumen, jugadores }: { resumen: ResumenSesiones; juga
   const filas = jugadores
     .map((j) => ({ j, d: resumen.porJugador.get(j.ficha.id) }))
     .filter((f): f is { j: Jugador; d: SesionesDeJugador } => Boolean(f.d))
-    .sort((a, b) => b.d.sesiones - a.d.sesiones || a.j.ficha.nombre.localeCompare(b.j.ficha.nombre, "es"));
+    /* 07/11/2026: de menos a más, para que arriba salga a quién le falta grupo. */
+    .sort((a, b) => a.d.sesiones - b.d.sesiones || a.j.ficha.nombre.localeCompare(b.j.ficha.nombre, "es"));
 
   if (!resumen.totalSesiones || !filas.length) return null;
 
@@ -973,17 +1021,23 @@ function BloqueSesiones({ resumen, jugadores }: { resumen: ResumenSesiones; juga
   return (
     <Bloque
       pregunta="¿Quién entrena con el grupo?"
-      base={`Sesiones registradas en Jugadores sesión ${SESIONES_DESDE_TEXTO}: ${resumen.totalSesiones} ${resumen.totalSesiones === 1 ? "sesión" : "sesiones"}, media de ${coma(media)} por jugador.`}
+      base={`Sesiones registradas en Jugadores sesión ${SESIONES_DESDE_TEXTO}: ${resumen.totalSesiones} ${resumen.totalSesiones === 1 ? "sesión" : "sesiones"}, media de ${coma(media)} por jugador. De menos a más; en naranja, por debajo del 70 % de las sesiones.`}
     >
-      <ul className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
-        {filas.map(({ j, d }) => (
-          <li key={j.ficha.id} className="flex min-w-0 items-baseline justify-between gap-3 text-sm">
-            <span className="min-w-0 truncate text-white/75">{nombreDe(j)}</span>
-            <span className="shrink-0 tabular-nums text-white/55">
-              {d.sesiones} de {resumen.totalSesiones}
-            </span>
-          </li>
-        ))}
+      <ul className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
+        {filas.map(({ j, d }) => {
+          const pct = Math.round((d.sesiones / resumen.totalSesiones) * 100);
+          const bajo = pct < 70;
+
+          return (
+            <li key={j.ficha.id} className="grid min-w-0 grid-cols-[minmax(0,1fr)_4.5rem_auto] items-center gap-3 text-sm">
+              <span className="min-w-0 truncate text-white/75">{nombreDe(j)}</span>
+              <Barra pct={pct} color={bajo ? PEOR : ORO} />
+              <span className="shrink-0 text-right tabular-nums" style={{ color: bajo ? PEOR : undefined }}>
+                <span className={bajo ? "font-semibold" : "text-white/60"}>{d.sesiones} de {resumen.totalSesiones}</span>
+              </span>
+            </li>
+          );
+        })}
       </ul>
     </Bloque>
   );

@@ -140,6 +140,30 @@ export const AXES: {
   },
 ];
 
+/**
+ * Qué entrenamos cuando un eje es el más bajo del once (07/11/2026): una
+ * tarea tipo y qué se cuenta en ella para saber si mejora. Es la propuesta
+ * de partida del cuerpo técnico; el objetivo lo pone la media de la plantilla.
+ */
+export const TAREA_POR_EJE: Record<MetricKey, { tarea: string; seCuenta: string }> = {
+  ea: {
+    tarea: "rondos y juegos de posición con cambio de orientación a la señal del entrenador",
+    seCuenta: "veces que mira antes de recibir en cada posesión",
+  },
+  ie: {
+    tarea: "partido condicionado empezando con el marcador en contra y decisiones arbitrales adversas",
+    seCuenta: "protestas o gestos tras un error propio o una decisión en contra",
+  },
+  ia: {
+    tarea: "pausas de 30 segundos en el juego reducido para decir en voz alta qué cambiaría",
+    seCuenta: "respuestas correctas al plan en cada pausa",
+  },
+  ee: {
+    tarea: "1 contra 1 y finalizaciones con tiempo limitado",
+    seCuenta: "acciones resueltas en el tiempo marcado",
+  },
+};
+
 /** «Control emocional (qué siento)» -> «Control emocional»: el nombre que se entiende sin la sigla. */
 export const nombreLargo = (axis: { detail: string }) => axis.detail.replace(/\s*\(.*\)\s*$/, "");
 

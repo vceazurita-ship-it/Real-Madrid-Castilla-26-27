@@ -36,6 +36,12 @@ export type CalendarDayCell = {
   badges?: ReactNode;
   /** Cuerpo scrollable de la celda. */
   children?: ReactNode;
+  /**
+   * La celda crece con su contenido en vez de recortarlo con su propio
+   * desplazamiento (07/11/2026): para páginas que ya limitan lo que pintan
+   * por día y añaden «+N más», como el calendario de seguimiento.
+   */
+  crece?: boolean;
 };
 
 export type CalendarLegendItem = {
@@ -486,7 +492,12 @@ function DayCell({
       </div>
 
       {cell.children && (
-        <div className="max-h-[80px] space-y-1 overflow-y-auto pr-1 md:max-h-[120px] md:space-y-2">
+        <div
+          className={cn(
+            "space-y-1 md:space-y-2",
+            !cell.crece && "max-h-[80px] overflow-y-auto pr-1 md:max-h-[120px]"
+          )}
+        >
           {cell.children}
         </div>
       )}

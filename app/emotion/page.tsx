@@ -21,6 +21,7 @@ import Papa from "papaparse";
 import { isHiddenPlayer } from "@/lib/hiddenPlayers";
 import { coma } from "@/lib/formatoNumero";
 import { posicionDe } from "@/lib/posiciones";
+import { nombreVisible } from "@/lib/nombreJugador";
 import {
   PolarAngleAxis,
   PolarGrid,
@@ -393,7 +394,16 @@ export default function EmotionPage() {
     ] as { clave: GroupKey; titulo: string }[]
   ).filter((c) => lineasConJugadores.has(c.clave));
 
+  /* 07/11/2026: «Joan», «Sergio» o «Aguado» de la hoja salen con el nombre
+     de la plantilla, como en el campo. */
+  const nombreDe = (n: string) => {
+    const ficha = mejorCasado([n], plantilla, (p) => [p.nombre, p.apodo]);
+
+    return nombreVisible(ficha?.nombre || n);
+  };
+
   const panelProps = (key: GroupKey) => ({
+    nombreDe,
     players: names,
     selected: groups[key],
     onChange: (value: string[]) => setGroup(key, value),
@@ -423,14 +433,22 @@ export default function EmotionPage() {
                     Rendimiento emocional
                   </h1>
 
-                  <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/50">
-                    El once de la pizarra táctica con su estado emocional:
-                    cada línea tiene su radar en su zona del campo, con los
-                    jugadores que hay en la pizarra. En «Fichas del once», el
-                    aro es la media de las cuatro dimensiones (0 a 10) y la
-                    flecha, cómo ha cambiado. Pulsa un jugador para ver su
-                    perfil; más abajo se cambia quién entra en cada radar.
+                  {/* 07/11/2026: dos frases; el resto, plegado en «Cómo leerlo». */}
+                  <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/60">
+                    El estado emocional del once de la pizarra táctica, línea a
+                    línea, de 0 a 10. Pulsa un jugador para ver su perfil.
                   </p>
+
+                  <details className="mt-1.5 max-w-2xl text-xs text-white/55" data-export-hide>
+                    <summary className="cursor-pointer select-none font-medium text-[#C8A96B]">Cómo leerlo</summary>
+                    <p className="mt-1.5 leading-relaxed">
+                      Cada línea tiene su radar en su zona del campo, con los
+                      jugadores que hay en la pizarra. En «Fichas del once», el
+                      aro es la media de las cuatro dimensiones y la flecha,
+                      cómo ha cambiado desde la evaluación anterior. Más abajo
+                      se cambia quién entra en cada radar.
+                    </p>
+                  </details>
 
                   {/* Una línea discreta: qué parte de lo que se ve no sale de la hoja. */}
                   {(editadosAqui > 0 || sinGuardar || estadoDoc === "error" || localOnly) && (
@@ -459,36 +477,39 @@ export default function EmotionPage() {
                   </button>
 
                   <button
-                    onClick={() => setShowTeamAverage((v) => !v)}
-                    aria-pressed={showTeamAverage}
-                    className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-medium transition ${
-                      showTeamAverage
-                        ? "border-white/25 bg-white/[0.08] text-white"
-                        : "border-white/10 bg-transparent text-white/50 hover:text-white/80"
-                    }`}
-                  >
-                    <span
-                      aria-hidden
-                      className="h-px w-5 border-t border-dashed border-current"
-                    />
-                    Media del equipo
-                  </button>
-
-                  <button
-                    onClick={resetGroups}
-                    className="inline-flex items-center gap-2 rounded-full border border-white/10 px-4 py-2 text-xs font-medium text-white/60 transition hover:border-white/25 hover:text-white"
-                  >
-                    <RefreshCw size={13} />
-                    Restablecer líneas
-                  </button>
-
-                  <button
                     onClick={openVideo}
                     className="inline-flex items-center gap-2 rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-4 py-2 text-xs font-semibold text-[#E4C977] transition hover:border-[#C8A96B] hover:bg-[#C8A96B]/20"
                   >
                     <Play size={13} />
                     Ver explicación
                   </button>
+
+                  {/* 07/11/2026: lo secundario, en «Más»: dos botones menos en la cabecera. */}
+                  <details className="relative">
+                    <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-full border border-white/10 px-4 py-2 text-xs font-medium text-white/65 transition hover:border-white/25 hover:text-white [&::-webkit-details-marker]:hidden">
+                      Más
+                    </summary>
+                    <div className="absolute right-0 z-30 mt-2 flex w-56 flex-col gap-1 rounded-2xl border border-white/10 bg-[#0B1622] p-2 shadow-xl">
+                      <button
+                        onClick={() => setShowTeamAverage((v) => !v)}
+                        aria-pressed={showTeamAverage}
+                        className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-medium transition hover:bg-white/[0.06] ${
+                          showTeamAverage ? "text-white" : "text-white/60"
+                        }`}
+                      >
+                        <span aria-hidden className="h-px w-5 border-t border-dashed border-current" />
+                        {showTeamAverage ? "Quitar la media del equipo" : "Ver la media del equipo"}
+                      </button>
+
+                      <button
+                        onClick={resetGroups}
+                        className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-medium text-white/65 transition hover:bg-white/[0.06] hover:text-white"
+                      >
+                        <RefreshCw size={13} />
+                        Restablecer líneas
+                      </button>
+                    </div>
+                  </details>
                 </div>
               </div>
             </header>
@@ -567,10 +588,13 @@ export default function EmotionPage() {
               </p>
 
               <div className="flex flex-wrap items-center gap-3">
+                <span className="text-xs font-semibold text-white/70">
+                  0 a 10, más es mejor{rows.length > 0 ? ` · ${rows.length} jugadores evaluados` : ""}
+                </span>
                 {SCALE.map((band) => (
                   <span
                     key={band.label}
-                    className="inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[.12em] text-white/45"
+                    className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-[.1em] text-white/60"
                   >
                     <span
                       aria-hidden
@@ -887,6 +911,7 @@ function RadarPanel({
   teamAverage,
   loading,
   horizontal = false,
+  nombreDe = (n: string) => n,
 }: {
   title: string;
   players: string[];
@@ -896,6 +921,8 @@ function RadarPanel({
   teamAverage: Record<MetricKey, number> | null;
   loading: boolean;
   horizontal?: boolean;
+  /** El nombre con el que se pinta (el de la plantilla), no el de la hoja. */
+  nombreDe?: (n: string) => string;
 }) {
   const [query, setQuery] = useState("");
   const [abierto, setAbierto] = useState(false);
@@ -1046,7 +1073,7 @@ function RadarPanel({
             <button
               key={s.name}
               onClick={() => toggle(s.name)}
-              title={`Quitar ${s.name}`}
+              title={`Quitar ${nombreDe(s.name)}`}
               className="inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] font-semibold sm:py-1 transition hover:brightness-125"
               style={{
                 background: `${s.color}25`,
@@ -1054,7 +1081,7 @@ function RadarPanel({
                 border: `1px solid ${s.color}40`,
               }}
             >
-              {s.name}
+              {nombreDe(s.name)}
               <X size={9} aria-hidden />
             </button>
           ))
@@ -1151,7 +1178,7 @@ function RadarPanel({
                   }`}
                 >
                   {active && <Check size={9} aria-hidden />}
-                  {name}
+                  {nombreDe(name)}
                 </button>
               );
             })}
@@ -1254,7 +1281,7 @@ function RadarPanel({
                   {series.map((s) => (
                     <Radar
                       key={s.name}
-                      name={s.name}
+                      name={nombreDe(s.name)}
                       dataKey={s.name}
                       stroke={s.color}
                       fill={s.color}

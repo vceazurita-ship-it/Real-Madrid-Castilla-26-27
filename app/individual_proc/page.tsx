@@ -52,8 +52,6 @@ import {
   Cell,
   LineChart,
   Line,
-  AreaChart,
-  Area,
   LabelList,
   ReferenceLine,
 } from "recharts";
@@ -344,8 +342,13 @@ export default function DashboardSeguimiento() {
   // 29/10/2026: en el móvil los 8 desplegables ocupaban casi dos pantallas
   // antes del primer dato; van plegados tras un botón «Filtros (n)».
   const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
+  /* 07/11/2026: los filtros secundarios (estrategia, modalidad, momento, mes
+     y semana) van plegados en «Más filtros»; se abren solos si hay alguno puesto. */
+  const [masFiltros, setMasFiltros] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>(emptyFilters);
+  const secundariosActivos = [filters.strategy, filters.modality, filters.moment, filters.month, filters.week].filter(Boolean).length;
+  const verSecundarios = masFiltros || secundariosActivos > 0;
 
   /*
   | Cuántos registros enseña el listado. Vuelve a 20 en cuanto cambian los
@@ -825,32 +828,26 @@ export default function DashboardSeguimiento() {
 
     if (!totalSessions) return out;
 
-    /* Con toda la plantilla cubierta no se repite el 100 % y el «18 de 18»:
-       una sola frase. */
-    out.push({
-      icon: UserCheck,
-      tone: "text-emerald-400",
-      text:
-        cubiertos >= squadSize
-          ? `Toda la plantilla (${squadSize} jugadores) ha recibido seguimiento.`
-          : `${cubiertos} de ${squadSize} jugadores de la plantilla han recibido seguimiento (${cm(coverage)} % de cobertura).`,
-    });
-
+    /* 07/11/2026: fuera las lecturas que repetían las tarjetas de arriba
+       (cobertura y último registro). Quedan las que piden algo, primero, y
+       cada una con su tarea. */
     if (untrackedPlayers.length) {
       out.push({
         icon: AlertTriangle,
         tone: "text-amber-400",
         text: `${untrackedPlayers.length} jugador${
           untrackedPlayers.length === 1 ? "" : "es"
-        } sin ningún registro con los filtros actuales.`,
+        } sin ningún registro en todo el periodo (con los filtros actuales). Es otra cuenta que «sin seguimiento en 14 días», que incluye también a quien tuvo alguno antes.`,
       });
     }
 
     if (strategyData[0]) {
+      const nombre = strategyData[0].name.charAt(0) + strategyData[0].name.slice(1).toLowerCase();
+
       out.push({
         icon: Layers,
         tone: "text-sky-400",
-        text: `"${strategyData[0].name}" es la estrategia dominante (${cm(strategyData[0].percentage)} % de los registros que la anotan).`,
+        text: `«${nombre}» es la estrategia más usada (${cm(strategyData[0].percentage)} % de los registros que la anotan).`,
       });
     }
 
@@ -872,14 +869,6 @@ export default function DashboardSeguimiento() {
         text: `La última semana ${verb} ${cm(Math.abs(
           weeklyDelta
         ))} seguimientos respecto a la anterior (media semanal: ${cm(weeklyMean)}).`,
-      });
-    }
-
-    if (sinceLast !== null) {
-      out.push({
-        icon: CalendarDays,
-        tone: "text-white/60",
-        text: `Último registro ${hace(sinceLast)} · ${nameOf(lastRecord!)}.`,
       });
     }
 
@@ -916,13 +905,13 @@ export default function DashboardSeguimiento() {
       .sort((a, b) => a.localeCompare(b, "es"));
 
     if (aCero.length > 0) {
-      out.push({
+      out.unshift({
         icon: AlertTriangle,
         tone: "text-amber-400",
         text: `Sin seguimiento en 14 días, hasta hoy: ${aCero.join(", ")}. Programa una sesión individual con ellos esta semana.`,
       });
     } else if (menos.length === 3) {
-      out.push({
+      out.unshift({
         icon: AlertTriangle,
         tone: "text-amber-400",
         text: `Menos seguimiento en 14 días: ${menos
@@ -939,7 +928,7 @@ export default function DashboardSeguimiento() {
       out.push({
         icon: Target,
         tone: "text-sky-400",
-        text: `${menor.name} sólo aparece en el ${cm(menor.percentage)} % de los seguimientos, frente al ${cm(mayor.percentage)} % de ${mayor.name.toLowerCase()}: hay margen para trabajar más lo ${menor.name.toLowerCase()}.`,
+        text: `${menor.name} sólo aparece en el ${cm(menor.percentage)} % de los seguimientos, frente al ${cm(mayor.percentage)} % de ${mayor.name.toLowerCase()}: en el próximo registro de cada jugador, anota también un objetivo ${menor.name.toLowerCase()}.`,
       });
     }
 
@@ -948,17 +937,11 @@ export default function DashboardSeguimiento() {
     hoy,
     delGrupo,
     totalSessions,
-    cubiertos,
-    squadSize,
-    coverage,
     untrackedPlayers,
     strategyData,
     momentData,
     weeklyDelta,
     weeklyMean,
-    sinceLast,
-    lastRecord,
-    nameOf,
     plantillaEnFoco,
     focusData,
   ]);
@@ -1098,7 +1081,7 @@ export default function DashboardSeguimiento() {
 
             {/* ---------------- Filters ---------------- */}
 
-            <div className="mt-6 rounded-[24px] md:rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-5 md:p-7 shadow-[0_12px_40px_rgba(0,0,0,0.35)]">
+            <div className="mt-6 rounded-[24px] md:rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-5 md:p-7">
               <button
                 type="button"
                 onClick={() => setFiltrosAbiertos((v) => !v)}
@@ -1150,6 +1133,16 @@ export default function DashboardSeguimiento() {
                   ]}
                 />
 
+                <button
+                  type="button"
+                  onClick={() => setMasFiltros((v) => !v)}
+                  aria-expanded={verSecundarios}
+                  className="self-end rounded-2xl border border-white/10 bg-[#11161C] px-4 py-3 text-left text-sm text-white/75 transition hover:border-[#C8A96B]/50"
+                >
+                  {verSecundarios ? "Menos filtros" : `Más filtros${secundariosActivos > 0 ? ` (${secundariosActivos})` : ""}`}
+                </button>
+
+                <div className={verSecundarios ? "contents" : "hidden"}>
                 <Select
                   label="Estrategia"
                   value={filters.strategy}
@@ -1218,6 +1211,7 @@ export default function DashboardSeguimiento() {
                   ]}
                 />
                 )}
+                </div>
               </div>
 
               <div className="mt-4 flex flex-col sm:flex-row gap-3">
@@ -1336,7 +1330,9 @@ export default function DashboardSeguimiento() {
 
             {/* ---------------- Tabs ---------------- */}
 
-            <div className="mt-8 flex gap-2 overflow-x-auto pb-1">
+            {/* 07/11/2026: en el móvil, dos por fila y enteras («Metodolo…»
+                se cortaba al deslizar). */}
+            <div className="mt-8 grid grid-cols-2 gap-2 pb-1 sm:flex sm:overflow-x-auto">
               {TABS.map((t) => {
                 const Icon = t.icon;
                 const active = tab === t.key;
@@ -1345,7 +1341,7 @@ export default function DashboardSeguimiento() {
                   <button
                     key={t.key}
                     onClick={() => setTab(t.key)}
-                    className={`inline-flex shrink-0 items-center gap-2 rounded-2xl border px-4 py-2.5 text-sm transition ${
+                    className={`inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl border px-3 py-2.5 text-sm transition sm:justify-start sm:px-4 ${
                       active
                         ? "border-[#C8A96B] bg-[#C8A96B] font-semibold text-black"
                         : "border-white/10 bg-white/[0.03] text-white/70 hover:border-white/25 hover:text-white"
@@ -1423,7 +1419,15 @@ export default function DashboardSeguimiento() {
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                   <Panel
                     title="Evolución semanal"
-                    subtitle={weeklyData.length < 3 ? "Seguimientos por semana" : `Media de ${weeklyMean} seguimientos por semana`}
+                    subtitle={
+                      weeklyData.length < 3
+                        ? "Seguimientos por semana"
+                        : `Media de ${cm(weeklyMean)} seguimientos por semana (raya)${
+                            weeklyData[weeklyData.length - 1]?.week === semanaDeHoy && diaDeSemana < 7
+                              ? ` · la última va en curso, día ${diaDeSemana} de 7`
+                              : ""
+                          } · pulsa una barra para filtrar`
+                    }
                   >
                     {/* 30/10/2026: con una o dos semanas, una barra por semana y la
                         que va en curso dice a qué día está; sin frases sobre lo
@@ -1455,8 +1459,12 @@ export default function DashboardSeguimiento() {
                       </div>
                     ) : (
                       <ChartBox>
-                      <AreaChart
+                      {/* 07/11/2026: barras con su cifra y la media en raya;
+                         la semana en curso, atenuada y rotulada, para que no
+                         se lea como un bajón. */}
+                      <BarChart
                         data={weeklyData}
+                        margin={{ top: 22, right: 8, left: -8, bottom: 0 }}
                         onClick={(state) => {
                           if (!state?.activeLabel) return;
 
@@ -1466,22 +1474,7 @@ export default function DashboardSeguimiento() {
                           );
                         }}
                       >
-                        <defs>
-                          <linearGradient id="wGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop
-                              offset="0%"
-                              stopColor={GOLD}
-                              stopOpacity={0.45}
-                            />
-                            <stop
-                              offset="100%"
-                              stopColor={GOLD}
-                              stopOpacity={0}
-                            />
-                          </linearGradient>
-                        </defs>
-
-                        <CartesianGrid stroke="#1E232A" vertical={false} />
+                        <CartesianGrid stroke="rgb(var(--rmcf-ink-rgb) / 0.1)" vertical={false} />
 
                         <XAxis
                           dataKey="week"
@@ -1491,8 +1484,9 @@ export default function DashboardSeguimiento() {
                           interval="preserveStartEnd"
                           tickFormatter={(w: string) => {
                             const fila = weeklyData.find((x) => x.week === w);
+                            const enCurso = w === semanaDeHoy && diaDeSemana < 7;
 
-                            return fila ? `${w} · ${fila.desde}` : w;
+                            return fila ? `${w} · ${fila.desde}${enCurso ? " (en curso)" : ""}` : w;
                           }}
                         />
 
@@ -1508,7 +1502,7 @@ export default function DashboardSeguimiento() {
 
                         <ReferenceLine
                           y={weeklyMean}
-                          stroke="rgba(255,255,255,.45)"
+                          stroke="rgb(var(--rmcf-ink-rgb) / 0.5)"
                           strokeDasharray="4 4"
                           label={{
                             value: `Media ${cm(weeklyMean)}`,
@@ -1518,16 +1512,27 @@ export default function DashboardSeguimiento() {
                           }}
                         />
 
-                        <Area
+                        <Bar
                           dataKey="value"
                           name="Seguimientos"
-                          stroke={GOLD}
-                          strokeWidth={3}
-                          fill="url(#wGrad)"
-                          dot={{ r: 4, fill: GOLD }}
-                          activeDot={{ r: 7 }}
-                        />
-                      </AreaChart>
+                          radius={[6, 6, 0, 0]}
+                          maxBarSize={56}
+                          isAnimationActive={false}
+                        >
+                          {weeklyData.map((w) => (
+                            <Cell
+                              key={w.week}
+                              fill={GOLD}
+                              fillOpacity={w.week === semanaDeHoy && diaDeSemana < 7 ? 0.45 : 1}
+                            />
+                          ))}
+                          <LabelList
+                            dataKey="value"
+                            position="top"
+                            style={{ fill: "rgb(var(--rmcf-ink-rgb) / 0.85)", fontSize: 12, fontWeight: 700 }}
+                          />
+                        </Bar>
+                      </BarChart>
                     </ChartBox>
                     )}
                   </Panel>
