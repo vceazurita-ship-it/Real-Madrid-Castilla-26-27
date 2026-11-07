@@ -37,7 +37,7 @@ import {
   DIBUJO_DE_PARTIDA,
 } from "@/lib/tactics/dosOnces";
 import { emptyDoc, normalizeDoc, tacticId } from "@/lib/tactics/helpers";
-import { escenasSinNumeroRepetido, onceIncompleto, oncesDeLaSemana, semanaActual } from "@/lib/tactics/oncesSemana";
+import { escenasSinNumeroRepetido, fichasDeSuOnceMarcado, onceIncompleto, oncesDeLaSemana, semanaActual } from "@/lib/tactics/oncesSemana";
 import type { RivalSquad } from "@/lib/tactics/rivals";
 import type { TacticsDoc } from "@/lib/tactics/types";
 import { cn } from "@/lib/utils";
@@ -812,6 +812,39 @@ function BoardEditor({
     };
   }, []);
 
+  /*
+  | ¿Ha cambiado su once después de rellenar el tablero? (07/11/2026, fútbol):
+  | el tablero tenía a Blazic y Yago Cantero y Plantillas/Duelos ya marcaban a
+  | Carlos Abad y Miki Bosch. Se mira una vez por semana rellenada; si no
+  | coinciden, un aviso con «Actualizar» (que es «Rellenar otra vez»).
+  */
+  const [suOnceDistinto, setSuOnceDistinto] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!deLaSemana || !partido?.rival || !doc.semanaOnces || status === "loading") return;
+
+    let vivo = true;
+    const semana = doc.semanaOnces;
+
+    void fichasDeSuOnceMarcado(partido.rival)
+      .then((marcadas) => {
+        const tablero = new Set((docVivo.current.scenes[0]?.tokens ?? []).filter((t) => t.kind === "away").map((t) => t.id));
+
+        if (!vivo || !marcadas) return;
+
+        /*
+        | Dos o más que faltan: con uno solo puede ser un marcado que no cabe en
+        | ningún hueco o el que se cambió a mano en Duelos, y el aviso no se iría nunca.
+        */
+        setSuOnceDistinto([...marcadas].filter((id) => !tablero.has(id)).length >= 2 ? semana : null);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      vivo = false;
+    };
+  }, [deLaSemana, partido?.rival, doc.semanaOnces, status]);
+
   /* El tablero de los onces guardado con dos «6»: se arregla una vez al abrirlo (21/10/2026). */
   const numerosMirados = useRef(false);
 
@@ -1039,6 +1072,23 @@ function BoardEditor({
             Rellenar otra vez
           </button>
           </span>
+          {suOnceDistinto && suOnceDistinto === doc.semanaOnces && !rellenando && (
+            <span className="flex basis-full flex-wrap items-center gap-2 rounded-xl border border-amber-400/40 bg-amber-400/[0.08] px-2.5 py-1.5 text-[12px] text-white/80">
+              <b className="font-semibold text-amber-300">El once del rival ha cambiado</b>
+              en Plantillas o en Duelos después de rellenar el tablero.
+              <button
+                type="button"
+                onClick={() => {
+                  setSuOnceDistinto(null);
+                  void rellenaSemana(true);
+                }}
+                className="inline-flex items-center gap-1 rounded-full border border-amber-400/50 px-2.5 py-0.5 font-semibold text-amber-300 transition hover:bg-amber-400/15"
+              >
+                <Wand2 size={12} />
+                Actualizar
+              </button>
+            </span>
+          )}
         </div>
       )}
 

@@ -29,6 +29,11 @@ import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { useEscudos } from "@/hooks/useEscudos";
 import { useDuelosClave, type DueloClave } from "@/hooks/useDuelosClave";
 import { useContrasteRival } from "@/hooks/useContrasteRival";
+import { useRivalSquads } from "@/hooks/useRivalSquads";
+import { desnuda } from "@/lib/rivals/youtube-listas";
+import { conTildes } from "@/lib/rivals/tildes";
+import { comoNombre } from "@/lib/duelos-onces";
+import { mismoClub } from "@/lib/rivals/mismoClub";
 import { DUELOS, fraseRecuentoPartes } from "@/lib/duelos";
 import { cargaOrdenRivales } from "@/lib/rivals/orden-calendario";
 
@@ -284,6 +289,22 @@ function ladoDuelo(texto: string): "d" | "i" | "" {
   if (/\b(i|izq|izquierdo)\b\.?/.test(t)) return "i";
 
   return "";
+}
+
+/* Palabras de puesto o de molde que, solas, no nombran un duelo. */
+const MOLDE_DUELO = new Set(["perfil", "lateral", "extremo", "central", "centrales", "mediocentro", "pivote", "pivotes", "delantero", "interior", "mediapunta", "abp", "vs", "derecho", "izquierdo", "portero"]);
+
+/**
+ * ¿La línea del analista dice algo? (07/11/2026): con una cifra, con un nombre
+ * propio o con seis palabras o más, sí; «ABP» o «Perfil derecho vs Perfil
+ * izquierdo», no.
+ */
+function diceAlgo(texto: string) {
+  const palabras = texto.trim().split(/\s+/).filter(Boolean);
+
+  if (/\d/.test(texto) || palabras.length >= 6) return true;
+
+  return palabras.some((p) => /^\p{Lu}/u.test(p) && !MOLDE_DUELO.has(p.toLowerCase().replace(/[^\p{L}]/gu, "")));
 }
 
 function lecturaDelAnalista(
@@ -801,7 +822,7 @@ function DatoCabecera({
 }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3.5">
-      <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.18em] text-white/40">
+      <p className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.16em] text-white/45">
         <Icon size={12} />
         {etiqueta}
       </p>
@@ -1067,7 +1088,7 @@ function AnilloProgreso({
       </div>
 
       <div>
-        <p className="text-[10px] uppercase tracking-[0.18em] text-white/40">
+        <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">
           Informe preparado
         </p>
 
@@ -1180,7 +1201,7 @@ function ReplicarPlan({
 
       {abierto && (
         <div className="absolute right-0 top-full z-40 mt-2 max-h-80 w-[min(20rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-white/10 bg-[#11161C] p-1 shadow-2xl">
-          <p className="px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-white/40">
+          <p className="px-3 py-2 text-[11px] uppercase tracking-[0.14em] text-white/45">
             Copiar el plan de…
           </p>
 
@@ -1487,6 +1508,42 @@ export default function MatchPreparation() {
   /* `/duelos` se abre con el mismo rival que este plan, no con el próximo. */
   const enlaceDuelos = rivalActivo?.EQUIPO ? `/duelos?equipo=${encodeURIComponent(rivalActivo.EQUIPO)}` : "/duelos";
   const contraste = useContrasteRival(rivalActivo?.EQUIPO ?? "");
+
+  /*
+  | Nombres de jugadores de OTRO rival en el plan (07/11/2026): se buscan los
+  | nombres deportivos de las demás plantillas (varias palabras, o una de seis
+  | letras o más) que no son de la plantilla de este rival.
+  */
+  const { squads } = useRivalSquads();
+  const nombresDeOtroRival = useMemo(() => {
+    const equipo = String(rivalActivo?.EQUIPO ?? "");
+
+    if (!rivalActivo || !equipo || squads.length === 0) return [];
+
+    const suya = squads.find((s) => mismoClub(s.equipo, equipo));
+
+    if (!suya) return [];
+
+    const propios = new Set(suya.players.map((p) => desnuda(p.nombre)));
+    const texto = ` ${desnuda(Object.values(rivalActivo).filter((v): v is string => typeof v === "string").join(" \n "))} `;
+    const vistos = new Map<string, { nombre: string; equipo: string }>();
+
+    for (const otra of squads) {
+      if (mismoClub(otra.equipo, equipo)) continue;
+
+      for (const p of otra.players) {
+        const limpio = desnuda(p.nombre);
+        const palabras = limpio.split(" ").filter(Boolean);
+
+        if (!limpio || propios.has(limpio) || (palabras.length < 2 && limpio.length < 6) || palabras.some((w) => w.length < 2)) continue;
+        if (!texto.includes(` ${limpio} `) || vistos.has(limpio)) continue;
+
+        vistos.set(limpio, { nombre: conTildes(comoNombre(p.nombre)), equipo: otra.equipo });
+      }
+    }
+
+    return [...vistos.values()].slice(0, 4);
+  }, [rivalActivo, squads]);
 
   const recursosDisponibles = [
     rivalActivo?.HUDL_PLAYLIST,
@@ -2102,7 +2159,7 @@ export default function MatchPreparation() {
         <div className="mp-print-area px-4 pb-28 pt-6 md:px-10 md:pb-16">
           {/* CABECERA */}
           <header className="mp-page-title mb-6">
-            <p className="text-[10px] uppercase tracking-[0.3em] text-[#C8A96B] md:text-xs">
+            <p className="text-[11px] uppercase tracking-[0.3em] text-[#C8A96B] md:text-xs">
               RMCF Castilla · Metodología
             </p>
 
@@ -2152,7 +2209,7 @@ export default function MatchPreparation() {
                   ))}
                   {/* Y los que escribió el analista sin cruce medido (31/10/2026), que también están abajo. */}
                   {(() => {
-                    const delAnalista = lecturaDelAnalista(rivalActivo, duelosClave.grupos).sinMedir.length;
+                    const delAnalista = lecturaDelAnalista(rivalActivo, duelosClave.grupos).sinMedir.filter((s) => diceAlgo(s.texto)).length;
 
                     return delAnalista > 0 ? (
                       <>
@@ -2172,6 +2229,8 @@ export default function MatchPreparation() {
                     <b className="text-[#C8A96B]">Doble cara</b>: {doble.titulo} ({doble.nuestros.join(" y ")} contra {doble.suyos.join(" y ")}):{" "}
                     <span className="text-emerald-300">{signo(doble.conBalon)}</span> <span className="text-white/50">con nuestro balón</span> ·{" "}
                     <span className="text-rose-300">{signo(doble.sinBalon)}</span> <span className="text-white/50">con el suyo</span>
+                    {/* Con los minutos (07/11/2026, análisis). */}
+                    {doble.base && <span className="text-white/50"> · {doble.base.replace(/^Base, minutos en Wyscout: /, "").replace(/ · muestra corta.*$/, "")} en Wyscout</span>}
                   </span>
                 ) : (
                   buscar && (
@@ -2183,6 +2242,7 @@ export default function MatchPreparation() {
                 {vigilar && (
                   <span className="min-w-0">
                     <b className="text-rose-300">Vigilar</b> <span className="text-white/50">(con su balón)</span>: {vigilar.titulo} ({vigilar.suyos.join(" y ")}, {signo(vigilar.valor)})
+                    {vigilar.base && <span className="text-white/50"> · {vigilar.base.replace(/^Base, minutos en Wyscout: /, "").replace(/ · muestra corta.*$/, "")} en Wyscout</span>}
                   </span>
                 )}
                 <Link href={enlaceDuelos} className="ml-auto shrink-0 text-xs text-[#C8A96B] hover:underline">
@@ -2629,10 +2689,9 @@ export default function MatchPreparation() {
                           tres tarjetas empujaban «Lo esencial» fuera de la
                           primera pantalla del móvil. Al editar vuelven. */}
                       {!editando && (() => {
-                        const lado = String(rivalActivo.LOCAL_VISITANTE ?? "").trim().toLowerCase();
+                        /* «En casa» ya va en la etiqueta de arriba (07/11/2026, fútbol): aquí, fecha y medidas. */
                         const partes = [
                           fechaConDia(fechaDe(rivalActivo)),
-                          lado.startsWith("l") ? "en casa" : lado.startsWith("v") ? "fuera" : "",
                           String(rivalActivo.DIMENSIONES ?? "").replace(/\s*[xX×]\s*/, "×").trim(),
                         ].filter(Boolean);
 
@@ -2840,6 +2899,18 @@ export default function MatchPreparation() {
                     </p>
                   </div>
                 </div>
+
+                {/*
+                  Nombres de otro rival (07/11/2026, fútbol): al replicar el plan de
+                  otra jornada se quedó «Ojo a salidas de 3 con De Blasis», que es
+                  del Cartagena. Se avisa en lectura y en edición; no se toca el texto.
+                */}
+                {nombresDeOtroRival.length > 0 && (
+                  <p className="mp-no-print mb-5 rounded-xl border border-rose-400/30 bg-rose-400/[0.07] px-4 py-2.5 text-[13px] leading-6 text-rose-200">
+                    <b className="font-semibold">Revisa el plan:</b>{" "}
+                    {nombresDeOtroRival.map((n) => `«${n.nombre}» no está en la plantilla de ${rivalActivo.EQUIPO} (es de ${n.equipo})`).join("; ")}. Puede venir de replicar otra jornada.
+                  </p>
+                )}
 
                 <div className="grid gap-5 lg:grid-cols-[1fr_1fr_0.8fr]">
                   <Bloque
@@ -3053,11 +3124,12 @@ export default function MatchPreparation() {
                         ninguno medido (31/10/2026): tarjetas propias, con el mismo
                         diseño que las de los datos, una por cada lista suya.
                       */}
-                      {lectura.sinMedir.length > 0 && (() => {
+                      {lectura.sinMedir.some((s) => diceAlgo(s.texto)) && (() => {
+                        /* 07/11/2026 (fútbol): «ABP» o «Perfil derecho vs Perfil izquierdo» a secas no dicen nada: la tarjeta no sale. */
                         const listas = ETIQUETAS_ANALISTA.map(([campo, etiqueta]) => ({
                           campo,
                           etiqueta,
-                          lineas: lectura.sinMedir.filter((s) => s.campo === campo),
+                          lineas: lectura.sinMedir.filter((s) => s.campo === campo && diceAlgo(s.texto)),
                         })).filter((l) => l.lineas.length > 0);
 
                         return (

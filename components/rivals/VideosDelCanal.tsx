@@ -102,7 +102,8 @@ function rangoDePuesto(puesto: string) {
 
   if (/portero|^(por|pt|gk)$/.test(p)) return 0;
   if (/lateral|central|defensa|carrilero|^(df|dfc|dfd|dfi|ld|li|lb|rb|cb)$/.test(p)) return 1;
-  if (/medio|pivote|interior|mediapunta|centrocampista|volante|^(mc|mcd|mco|mp|cmf|dmf|amf)$/.test(p)) return 2;
+  /* «Media punta» en dos palabras caía en delanteros por «punta» (07/11/2026). */
+  if (/medio|media\s*punta|pivote|interior|mediapunta|centrocampista|volante|^(mc|mcd|mco|mp|cmf|dmf|amf)$/.test(p)) return 2;
   if (/extremo|delantero|punta|banda|^(dc|ed|ei|ex|cf|lw|rw)$/.test(p)) return 3;
 
   return 4;
@@ -712,7 +713,7 @@ export function VideosDelCanal({
     void fetch("/api/visionados", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ video: abierto.id, titulo: abierto.titulo, equipo, jugador: jugador?.nombre ?? "", puesto: jugador?.puesto ?? "", quien }),
+      body: JSON.stringify({ video: abierto.id, titulo: abierto.titulo, equipo, jugador: jugador?.hoja ?? jugador?.nombre ?? "", puesto: jugador?.puesto ?? "", quien }),
     }).catch(() => {});
   }, [abierto, equipo, plantilla]);
 
@@ -990,7 +991,7 @@ export function VideosDelCanal({
               <span key={grupo.jugador} className="contents">
                 {/* El separador de línea, el mismo rótulo que en las fichas. */}
                 {empiezaLinea && variasLineas && (
-                  <span className="ml-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-white/35">
+                  <span className="ml-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-white/45">
                     {LINEAS[rango]}
                   </span>
                 )}
@@ -1368,6 +1369,13 @@ function Miniatura({ video }: { video: Video }) {
       alt=""
       loading="lazy"
       onError={() => (fuente === respaldo ? setRota(true) : setFuente(respaldo))}
+      /* YouTube no da error si no hay póster: sirve un gris de 120 × 90 (la de I. Obeng salía en blanco, 07/11/2026). */
+      onLoad={(e) => {
+        if (e.currentTarget.naturalWidth > 0 && e.currentTarget.naturalWidth <= 120) {
+          if (fuente === respaldo) setRota(true);
+          else setFuente(respaldo);
+        }
+      }}
       className="aspect-video w-full object-cover"
     />
   );
@@ -1416,7 +1424,7 @@ function Rejilla({
 
           <div className="p-2.5">
             {conJugador && (
-              <p className="mb-1 flex items-center gap-1.5 truncate text-[10px] font-semibold uppercase tracking-wide">
+              <p className="mb-1 flex items-center gap-1.5 truncate text-[11px] font-semibold uppercase tracking-wide">
                 {dorsal && (
                   <span className="tabular-nums text-[#C8A96B]">{dorsal}</span>
                 )}
@@ -1427,7 +1435,7 @@ function Rejilla({
               </p>
             )}
 
-            {conJugador && resumen && <p className="mb-1 text-[11px] tabular-nums text-white/60 sm:text-[10px]">{resumen}</p>}
+            {conJugador && resumen && <p className="mb-1 text-[11px] tabular-nums text-white/60">{resumen}</p>}
 
             {/* Qué mirar: su puesto y sus etiquetas de la ficha. */}
             {/* Las etiquetas son el criterio del analista, no una cifra: se

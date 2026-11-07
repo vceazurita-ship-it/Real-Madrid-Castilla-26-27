@@ -15,6 +15,7 @@ import { House, Plane } from "lucide-react";
 import { useRivalInforme } from "@/hooks/useRivalInforme";
 import { esLiga, findInforme, jugados } from "@/lib/rivals/informe";
 import { chipInk } from "@/lib/theme";
+import { nombreCorto } from "@/lib/abp/informe-graficos";
 
 const COLOR = { G: "#34D399", E: "#C8A96B", P: "#F87171" } as const;
 const LETRA = { G: "V", E: "E", P: "D" } as const;
@@ -65,7 +66,8 @@ export function TiraJornadas({ equipo }: { equipo: string }) {
   return (
     <div className="mb-6 min-w-0">
       <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/50">
-        Partidos de liga del rival · {jornadas.length}, sus jornadas del primero al último
+        {/* «Sus jornadas», no las nuestras (07/11/2026): su J1 no es nuestra J1. */}
+        Sus partidos de liga · {jornadas.length}, del primero al último (la jornada es la suya, no la nuestra)
       </p>
       {/* Degradado a la derecha (30/10/2026): en el móvil la tira sigue y no se veía. */}
       <ol
@@ -91,7 +93,8 @@ export function TiraJornadas({ equipo }: { equipo: string }) {
               {j.enCasa ? <House size={11} aria-hidden /> : <Plane size={11} aria-hidden />}
               J{j.n} · {j.enCasa ? "casa" : "fuera"}
             </span>
-            <span className="w-full truncate text-center text-[12px] font-semibold" title={j.rival}>{j.rival}</span>
+            {/* El nombre corto del club (07/11/2026): «Juventud Torr…» se cortaba; el entero, en el `title`. */}
+            <span className="w-full truncate text-center text-[12px] font-semibold" title={j.rival}>{nombreCorto(j.rival)}</span>
             <span className="tabular-nums">
               {LETRA[j.resultado]} {j.marcador}
             </span>

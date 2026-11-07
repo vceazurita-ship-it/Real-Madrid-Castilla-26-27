@@ -238,6 +238,9 @@ import { confirmar } from "@/lib/avisos";
 /** Amarillas que suspenden un partido en Primera y Segunda RFEF (la 5.ª, la 10.ª…). */
 const CICLO_AMARILLAS = 5;
 
+/** «Dónde hacerles daño» sólo nombra a quien ha jugado al menos esto (cinco partidos enteros). */
+const MINUTOS_MINIMOS_DANO = 450;
+
 /*
 |--------------------------------------------------------------------------
 | LO QUE NO HACE FALTA PARA PINTAR LA PANTALLA
@@ -3129,8 +3132,14 @@ export default function RivalPlayersPage() {
           minutos: base?.minutos ?? 0,
         };
       })
-      .filter((uno) => uno.nombre && uno.cruzan && uno.accion)
-      .sort((a, b) => b.rasgos.length - a.rasgos.length)
+      /*
+      | 07/11/2026 (jueces, ronda 14): en escritorio y en el móvil salían
+      | jugadores distintos (el empate a rasgos lo decidía el orden de la
+      | hoja). Orden fijo: rasgos, después minutos y, por último, el nombre; y
+      | fuera los de muestra corta (menos de 450′), que no sostienen un plan.
+      */
+      .filter((uno) => uno.nombre && uno.cruzan && uno.accion && uno.minutos >= MINUTOS_MINIMOS_DANO)
+      .sort((a, b) => b.rasgos.length - a.rasgos.length || b.minutos - a.minutos || a.nombre.localeCompare(b.nombre, "es"))
       .slice(0, 3)
       .map(({ nombre, puesto, rasgos, accion, base, minutos }) => ({ nombre, puesto, rasgos, accion, base, minutos }));
   }, [players, perfilesRival, perfilesPorFicha, selectedTeam, statsDoc]);
@@ -6325,7 +6334,7 @@ function PlayerRow({
           1.700 px. El «+» de quien no tiene etiquetas va al final de la línea
           del puesto.
         */}
-        <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
+        <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
           {slotEntry ? (
             <span
               className="shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold tracking-wider"
@@ -6347,7 +6356,7 @@ function PlayerRow({
           {secondSlot && (
             <span
               title={player["2º POSICIÓN"]}
-              className="shrink-0 rounded-md border border-white/10 px-1 py-0.5 text-[9px] text-white/45"
+              className="shrink-0 rounded-md border border-white/10 px-1 py-0.5 text-[10px] text-white/50"
             >
               2ª {secondSlot.slot.code}
             </span>
@@ -6358,8 +6367,9 @@ function PlayerRow({
               pinta «0′». */}
           {temporada && temporada.minutos > 0 && (
             <span
-              className="min-w-0 truncate text-[11px] tabular-nums text-white/55"
-              title={`${temporada.temporada}: ${temporada.partidos} partidos, titular en ${temporada.titular}, ${temporada.minutos} minutos (BeSoccer)`}
+              /* Dos líneas antes que «810′ · titular…» cortado (07/11/2026, jueces). */
+              className="min-w-0 break-words text-[11px] tabular-nums text-white/55"
+              title={`${temporada.temporada}:${temporada.partidos} partidos, titular en ${temporada.titular}, ${temporada.minutos} minutos (BeSoccer)`}
             >
               <span className="font-semibold text-white/75">{temporada.minutos.toLocaleString("es-ES")}′</span>
               {temporada.partidos > 0 &&

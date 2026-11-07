@@ -15,6 +15,7 @@ import { HUECOS, casaNombre, proponeOnce, sitioDe } from "@/lib/data-analisis/on
 import { mismoClub } from "@/lib/rivals/mismoClub";
 import { playerKey } from "@/lib/rivals/once";
 import { conTildes } from "@/lib/rivals/tildes";
+import { nombrePuesto } from "@/lib/posiciones";
 import type { InformeEquipo } from "@/lib/rivals/informe";
 import {
   HUECO_VACIO,
@@ -107,6 +108,7 @@ export function suyosDe(filasHoja: Fila[], equipo: string, jugadores: FilaJugado
         puesto: sitio.puesto,
         lado: sitio.lado,
         posicion: wy?.posicion.split(",")[0] || texto(f["POSICIÓN"]),
+        puestoHoja: nombrePuesto(texto(f["POSICIÓN"])).toLowerCase() || undefined,
         altura: alturaEnCm(wy?.altura || f.ALTURA),
         pie: wy?.pie || texto(f["PIE DOMINANTE"]),
         minutos: wy?.minutos ?? 0,

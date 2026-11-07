@@ -64,6 +64,7 @@ import { ApuntesAbp } from "@/components/abp/apuntes/ApuntesAbp";
 import { CodingAbpRival } from "@/components/abp/coding/CodingAbpRival";
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { useEscudos } from "@/hooks/useEscudos";
+import { useAdmin } from "@/hooks/useAdmin";
 import { useOrdenRivales } from "@/hooks/useOrdenRivales";
 import { useLento } from "@/hooks/useLento";
 import { AvisoLento } from "@/components/rivals/AvisoLento";
@@ -171,9 +172,14 @@ export default function ScoutRivalAbpPage() {
 
   const [grupo, setGrupo] = useState<Grupo>("liga");
   const [vistaElegida, setVista] = usePestanaUrl<Vista>("vista", VISTAS, "resumen");
+  const { admin } = useAdmin();
 
   /* Las láminas sólo existen en Liga: en Pretemporada se vuelve al resumen en vez de enseñar una pestaña vacía. */
-  const vistaPrevia: Vista = vistaElegida === "laminas" && grupo !== "liga" ? "resumen" : vistaElegida;
+  /* Y las del analista, sólo con sesión de administrador (07/11/2026): sin ella, al resumen. */
+  const vistaPrevia: Vista =
+    (vistaElegida === "laminas" && grupo !== "liga") || (!admin && ["coding", "laminas", "registrar"].includes(vistaElegida))
+      ? "resumen"
+      : vistaElegida;
   const [side, setSide] = useState<AbpSide>("ofensivo");
   const [origen, setOrigen] = useState<Origen>("todo");
   const [jornada, setJornada] = useState(TODOS);
@@ -773,8 +779,9 @@ export default function ScoutRivalAbpPage() {
                   />
 
                   <span className="text-[11px] text-white/35">
+                    {/* Dicho en una línea (07/11/2026): «Rivales de Primera RFEF» no decía qué se cuenta. */}
                     {grupo === "liga"
-                      ? "Rivales de Primera RFEF"
+                      ? "Los partidos de liga de nuestros rivales del grupo, en Primera Federación"
                       : "Amistosos de pretemporada, fuera de la competición"}
                   </span>
                 </div>
@@ -845,20 +852,29 @@ export default function ScoutRivalAbpPage() {
                 etiqueta="Vistas del balón parado del rival"
                 valor={vista}
                 onCambia={setVista}
+                /*
+                | 07/11/2026 (jueces): primero lo que lee el cuerpo técnico; el
+                | trabajo del analista (coding, recoger la carpeta, registrar)
+                | sólo con la sesión de administrador, al final.
+                */
                 opciones={[
                   { clave: "resumen", label: "¿Cuánto peligro tiene?", icono: LayoutDashboard },
-                  { clave: "coding", label: "Coding de clips", icono: Clapperboard },
-                  { clave: "apuntes", label: "Apuntes y vídeo", icono: NotebookPen },
-                  ...(grupo === "liga" ? [{ clave: "laminas" as const, label: "Recoger y láminas", icono: Images }] : []),
                   /* Sin acciones, las tres vistas que viven de ellas no salen. */
                   ...(delEquipo.length > 0
                     ? [
+                        { clave: "quien" as const, label: "¿Quién lo lanza y remata?", icono: Users },
                         { clave: "patrones" as const, label: "¿Qué repite?", icono: Shapes },
                         { clave: "banda" as const, label: "Saques de banda", icono: Flag },
-                        { clave: "quien" as const, label: "¿Quién lo lanza y remata?", icono: Users },
                       ]
                     : []),
-                  { clave: "registrar", label: "Registrar", icono: PenLine },
+                  { clave: "apuntes", label: "Apuntes y vídeo", icono: NotebookPen },
+                  ...(admin
+                    ? [
+                        { clave: "coding" as const, label: "Coding de clips", icono: Clapperboard },
+                        ...(grupo === "liga" ? [{ clave: "laminas" as const, label: "Recoger y láminas", icono: Images }] : []),
+                        { clave: "registrar" as const, label: "Registrar", icono: PenLine },
+                      ]
+                    : []),
                 ]}
               />
 
@@ -866,8 +882,9 @@ export default function ScoutRivalAbpPage() {
               | Recoger la carpeta (15/10/2026): con las pestañas quedó escondido
               | dentro de «Láminas» y no se encontraba; en Área del Rival está a la
               | vista. Desde cualquier otra vista de Liga, un botón lleva a él.
+              | 07/11/2026: sólo para el administrador; es tarea del analista.
               */}
-              {equipo && grupo === "liga" && vista !== "laminas" && vista !== "coding" && (
+              {admin && equipo && grupo === "liga" && vista !== "laminas" && vista !== "coding" && (
                 <button
                   type="button"
                   onClick={() => setVista("laminas")}

@@ -32,6 +32,7 @@ import { aplicaOnce, clave, huecosDelTablero, intercambia, nombreDeFicha, ordena
 import type { Elegido } from "@/lib/tactics/propuestaOnce";
 import type { TacticsDoc } from "@/lib/tactics/types";
 import { cn } from "@/lib/utils";
+import { nombrePuesto } from "@/lib/posiciones";
 import type { Player } from "@/types/player";
 
 import BajasPartido from "./BajasPartido";
@@ -319,7 +320,7 @@ export default function OnceTitular({
     <section aria-label="Nuestro once titular" className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3 sm:p-4">
       <header className="flex flex-wrap items-center gap-2">
         <div className="mr-auto min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#C8A96B]">Nuestro once</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#C8A96B]">Nuestro once</p>
           <p className="mt-0.5 text-[11px] leading-snug text-white/50">
             {elegidoDelBanco ? `Toca el puesto donde entra ${nombreDeFicha(elegidoDelBanco)}.` : "Toca un puesto para cambiarlo, o arrastra a alguien de abajo encima."}
           </p>
@@ -383,20 +384,21 @@ export default function OnceTitular({
                   }}
                   title={nombre ? `${rotulo}: ${nombre}. Toca para cambiarlo; arrástralo a otro puesto para cambiarles el sitio.` : `${rotulo}: toca para poner a alguien`}
                   className={cn(
-                    "flex min-w-0 max-w-[9.5rem] flex-1 touch-pan-y select-none items-center gap-2 rounded-xl border px-2 py-1.5 text-left transition sm:touch-none",
+                    "flex min-w-0 max-w-[9.5rem] flex-1 touch-pan-y select-none items-center gap-1 rounded-xl border px-1.5 py-1.5 text-left transition sm:touch-none sm:gap-2 sm:px-2",
                     "border-white/10 bg-white/[0.04] hover:bg-white/[0.07]",
                     sobre === k && "ring-2 ring-[#C8A96B]",
                     encaja && sobre !== k && "ring-1 ring-[#C8A96B]/60",
                     baja && "bg-amber-400/[0.08]",
                   )}
                 >
-                  <span className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full bg-white/10">
+                  {/* Más pequeña en el móvil: con la foto de 32 px, la línea de cuatro se quedaba en «A…» (07/11/2026). */}
+                  <span className="relative h-6 w-6 shrink-0 overflow-hidden rounded-full bg-white/10 sm:h-8 sm:w-8">
                     {token?.foto ? <Image src={token.foto} alt="" fill sizes="32px" className="pointer-events-none object-cover" unoptimized draggable={false} /> : null}
                     <span className="absolute -bottom-0.5 -right-0.5 rounded-full bg-[#11161C] px-1 text-[9px] font-bold tabular-nums leading-tight text-[#C8A96B]">{token?.label ?? ""}</span>
                   </span>
                   <span className="min-w-0">
                     <span className="block truncate text-[12px] font-semibold text-white/90">{nombre || "Toca para poner"}</span>
-                    <span className={cn("block truncate text-[10px]", baja ? "text-amber-300" : "text-white/40")}>{baja ?? CORTO[k]}</span>
+                    <span className={cn("block truncate text-[11px]", baja ? "text-amber-300" : "text-white/45")}>{baja ?? CORTO[k]}</span>
                   </span>
                 </button>
               );
@@ -407,7 +409,7 @@ export default function OnceTitular({
 
       {/* EL RESTO: TOCAR Y LUEGO UN PUESTO, O ARRASTRAR */}
       <div>
-        <p className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/40">
+        <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/45">
           <ArrowDownUp size={11} aria-hidden />
           Para entrar
         </p>
@@ -437,7 +439,8 @@ export default function OnceTitular({
               >
                 <span className="font-semibold tabular-nums text-[#C8A96B]">{p.dorsal ?? ""}</span>
                 <span className="max-w-[8rem] truncate font-semibold">{nombreDeFicha(p)}</span>
-                <span className="text-[10px] text-white/40">{estado ?? p.posicion}</span>
+                {/* El puesto en palabras: «8» era «Interior» (07/11/2026, jueces). */}
+                <span className="text-[11px] text-white/45">{estado ?? nombrePuesto(p.posicion ?? "")}</span>
               </button>
             );
           })}

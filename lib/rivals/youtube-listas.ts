@@ -151,6 +151,8 @@ function jornadaDeLista(nombre: string) {
 
 export type JugadorPlantilla = {
   nombre: string;
+  /** El nombre tal y como lo escribe la hoja, si `nombre` es el de pantalla: con él se apuntan los visionados. */
+  hoja?: string;
   dorsal?: string;
   /** Su puesto en la hoja, para decirlo bajo el nombre (23/10/2026). */
   puesto?: string;

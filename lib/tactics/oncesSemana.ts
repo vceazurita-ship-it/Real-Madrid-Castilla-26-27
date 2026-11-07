@@ -339,6 +339,33 @@ export async function oncesDeLaSemana(plantilla: Player[]): Promise<OncesSemana 
   };
 }
 
+/**
+ * Las fichas (id de token) de su once marcado en Plantillas rivales y de lo
+ * puesto a mano en Duelos (07/11/2026): con ellas la pizarra sabe si su once
+ * ha cambiado después de rellenar el tablero. `null` sin once marcado.
+ */
+export async function fichasDeSuOnceMarcado(rival: string): Promise<Set<string> | null> {
+  const filas = await traeJson<Fila[]>("/api/rivals?action=rivalesPlantillas").catch(() => [] as Fila[]);
+  const hoja = (Array.isArray(filas) ? filas : []).filter((f) => mismoClub(texto(f.NOMBRE_EQUIPO), rival));
+  const equipo = texto(hoja[0]?.NOMBRE_EQUIPO) || rival;
+  const [onceDoc, duelosDoc] = await Promise.all([leeDoc<unknown>(rivalOnceKey(equipo)), leeDoc<unknown>(`duelos:${slugClave(equipo)}`)]);
+  const marcados = normalizarOnce(onceDoc).titulares;
+
+  if (marcados.length < 7) return null;
+
+  const aMano = Object.values(normalizaDuelos(duelosDoc).suyo).filter((c) => c && c !== "∅");
+  const porClave = new Map(hoja.map((f) => [playerKey(f as never), f]));
+  const ids = new Set<string>();
+
+  for (const clave of new Set([...marcados, ...aMano])) {
+    const f = porClave.get(clave);
+
+    if (f) ids.add(rivalTokenId(texto(f.ID_JUGADOR) || `${equipo}-${texto(f["NOMBRE DEPORTIVO"]) || texto(f.JUGADOR)}`));
+  }
+
+  return ids;
+}
+
 /** La vía anterior, sólo si Wyscout o las plantillas no contestan. */
 async function oncesPorLaVieja(plantilla: Player[], semana: { semana: string; rival: string }, temporada: RatingsSeason | null): Promise<OncesSemana> {
   const suyo = await suOnceTeorico(semana.rival);

@@ -157,7 +157,8 @@ export function useDuelosClave(equipo: string) {
         const rotulo = (j: (typeof todos)[number]) => {
           if ((porApellido.get(apellidoDe(j.nombre))?.size ?? 0) < 2) return j.nombre;
 
-          const puesto = puestoEnPalabras(j.posicion.split(",")[0]?.trim() ?? "") || j.dorsal || "";
+          /* El de la hoja antes que el de Wyscout, como /duelos y Plantillas (07/11/2026). */
+          const puesto = j.puestoHoja || puestoEnPalabras(j.posicion.split(",")[0]?.trim() ?? "") || j.dorsal || "";
 
           return puesto ? `${j.nombre} (${puesto})` : j.nombre;
         };
@@ -186,7 +187,7 @@ export function useDuelosClave(equipo: string) {
           return {
             clave: d.def.clave,
             base: trozos.length
-              ? `Base: ${trozos.join(" · ")}${
+              ? `Base, minutos en Wyscout: ${trozos.join(" · ")}${
                   (mn > 0 && mn < MUESTRA_CORTA_DUELO) || (ms > 0 && ms < MUESTRA_CORTA_DUELO)
                     ? ` · muestra corta: menos de ${MUESTRA_CORTA_DUELO}′`
                     : ""
