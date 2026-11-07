@@ -77,6 +77,8 @@ import {
   type SlidePizarra,
 } from "@/lib/abp/pizarra";
 import { leyendaSiglas } from "@/lib/abp/siglas";
+import { esImplicito, porteroPropioDeLaLamina, rivalesDeLaLamina } from "@/lib/abp/rivales-implicitos";
+import { esPortero } from "@/lib/abp/pizarra-jugador";
 
 /* ------------------------------------------------------------------ */
 /*  TEXTOS QUE SE ESCRIBEN EN SU SITIO                                 */
@@ -332,6 +334,9 @@ function sinNumeroDeOrden(texto: string) {
 /** Medidas de una ficha en el lienzo, las del pptx: foto de 96×120. */
 const FOTO_W = 96;
 const FOTO_H = 120;
+
+/** «Óscar» → «oscar»: para buscar un nombre dentro de una consigna. */
+const sinTildesBajo = (texto: string) => texto.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 /* 01/11/2026: 40 y no 36, con el nombre a 18 px (era 14 y no se leía en la sala). */
 const CHAPA_H = 40;
 
@@ -515,7 +520,10 @@ function cajaDeJugada(slide: SlidePizarra): Caja | null {
     ys.push(ficha.y - FOTO_H - 34, ficha.y + 12);
   }
 
-  for (const rival of slide.rivales ?? []) {
+  /* Con los que se dibujan solos al enseñar (atacantes y porteros). */
+  const porteroPropio = porteroPropioDeLaLamina(slide);
+
+  for (const rival of [...rivalesDeLaLamina(slide), ...(porteroPropio ? [porteroPropio] : [])]) {
     xs.push(rival.x - 30, rival.x + 30);
     ys.push(rival.y - 60, rival.y + 8);
   }
@@ -1239,6 +1247,38 @@ function ChapaRival({
   );
 }
 
+/**
+ * Nuestro portero bajo palos en las láminas defensivas (07/11/2026): una
+ * chapa blanca con filo oro y «POR», del mismo tamaño que la del rival, para
+ * que la portería no salga vacía en el PDF.
+ */
+function ChapaPorteroPropio({ x, y }: { x: number; y: number }) {
+  const lado = 52;
+
+  return (
+    <div
+      data-portero
+      className="pointer-events-none absolute select-none"
+      style={{ left: x - lado / 2, top: y - lado - 4, width: lado, height: lado + 10, zIndex: profundidad(x, y) }}
+      aria-label="Nuestro portero"
+    >
+      <div
+        className="relative flex items-center justify-center rounded-full"
+        style={{
+          width: lado,
+          height: lado,
+          backgroundImage: "radial-gradient(70% 70% at 35% 30%, #FFFFFF 0%, #DCE3EC 100%)",
+          boxShadow: `0 0 0 3px ${COLORES.oro}, 0 8px 14px rgba(0,0,0,.5)`,
+        }}
+      >
+        <span className="text-[17px] font-bold leading-none" style={{ color: "#0B1A2E", fontFamily: "var(--fuente-pizarra, inherit)" }}>
+          POR
+        </span>
+      </div>
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /*  LEYENDA DE LAS FLECHAS                                             */
 /* ------------------------------------------------------------------ */
@@ -1523,6 +1563,33 @@ export function TableroSlide({
 
     return [...numeros, linea.tipo === "consigna" ? anterior + 1 : 0];
   }, []);
+
+  /*
+  | 07/11/2026 (jueces, exportables): las consignas van con letra (A, B, C…)
+  | y no con número, que en el campo ya son las fases de las flechas. Y cada
+  | letra se pinta también junto a la figura del jugador que nombra la
+  | consigna, para leer «B» en el panel y encontrarla en el campo.
+  */
+  const letraConsigna = (n: number) => (n > 0 ? String.fromCharCode(64 + Math.min(26, n)) : "");
+  const letrasPorFicha = new Map<string, string[]>();
+
+  lineas.forEach((linea, indice) => {
+    if (linea.tipo !== "consigna") return;
+
+    const texto = sinTildesBajo(linea.texto);
+
+    for (const ficha of slide.fichas.filter(enElCampo)) {
+      const player = players.get(ficha.playerId);
+      const nombres = [player?.apodo, player?.nombre?.split(/\s+/)[0]].filter((n): n is string => !!n && n.trim().length >= 3);
+
+      if (!nombres.some((nombre) => new RegExp(`(^|[^a-z0-9ñ])${sinTildesBajo(nombre).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z0-9ñ]|$)`).test(texto))) continue;
+
+      const letras = letrasPorFicha.get(ficha.id) ?? [];
+
+      letras.push(letraConsigna(numeroConsigna[indice]));
+      letrasPorFicha.set(ficha.id, letras);
+    }
+  });
 
   const conPanel = panel && grupos.length > 0;
   const conNotas = lineas.length > 0;
@@ -1939,8 +2006,18 @@ export function TableroSlide({
       )
     : null;
 
+  /*
+  | 07/11/2026 (jueces, exportables): al enseñar, la lámina lleva también al
+  | rival que no se ha dibujado —un atacante por marcador en las defensivas y
+  | su portero en las ofensivas— y a nuestro portero bajo palos en las
+  | defensivas. Ver `lib/abp/rivales-implicitos.ts`.
+  */
+  const rivalesVistos = soloVer ? rivalesDeLaLamina(slide) : (slide.rivales ?? []);
+  const porteroPropio =
+    soloVer && !slide.fichas.some((ficha) => esPortero(players.get(ficha.playerId))) ? porteroPropioDeLaLamina(slide) : null;
+
   /* Y los rivales, que no tapen a los nuestros: se apartan o van por debajo. */
-  const apartados = soloVer ? apartaRivales(slide.rivales ?? [], enCampo, separadas) : null;
+  const apartados = soloVer ? apartaRivales(rivalesVistos, enCampo, separadas) : null;
 
   /*
   | En qué momento de la jugada se está, fijo en la cabecera: en el proyector
@@ -2329,16 +2406,51 @@ export function TableroSlide({
           );
         })}
 
-        {(slide.rivales ?? []).map((rival) => (
+        {rivalesVistos.map((rival) => (
           <ChapaRival
             key={rival.id}
             rival={apartados?.has(rival.id) ? { ...rival, x: apartados.get(rival.id)!.x, y: apartados.get(rival.id)!.y } : rival}
             debajo={apartados?.get(rival.id)?.debajo ?? false}
             elegido={!soloVer && rivalElegido === rival.id}
-            editable={editaTrazos && herramienta === "mover"}
+            editable={!esImplicito(rival) && editaTrazos && herramienta === "mover"}
             onPointerDown={(event) => empiezaRival(event, rival)}
           />
         ))}
+
+        {porteroPropio && <ChapaPorteroPropio x={porteroPropio.x} y={porteroPropio.y} />}
+
+        {/* La letra de cada consigna junto a la figura que nombra (sólo al enseñar). */}
+        {soloVer &&
+          enCampo.map((ficha) => {
+            const letras = letrasPorFicha.get(ficha.id);
+
+            if (!letras?.length) return null;
+
+            const x = separadas?.get(ficha.id)?.x ?? ficha.x;
+
+            return (
+              <span
+                key={`letra-${ficha.id}`}
+                data-letra-consigna
+                className="pointer-events-none absolute flex items-center justify-center rounded-md font-bold"
+                style={{
+                  left: x + FOTO_W / 2 - 14,
+                  top: ficha.y - FOTO_H - 18,
+                  minWidth: 34,
+                  height: 34,
+                  padding: "0 6px",
+                  fontSize: 22,
+                  backgroundColor: COLORES.navy,
+                  color: COLORES.oroClaro,
+                  boxShadow: "0 0 0 2px #FFFFFF, 0 4px 10px rgba(0,0,0,.45)",
+                  zIndex: 2_900_000,
+                  fontFamily: "var(--fuente-pizarra, inherit)",
+                }}
+              >
+                {letras.join("·")}
+              </span>
+            );
+          })}
 
         {balon && <BalonEnJuego x={balon.x} y={balon.y} />}
 
@@ -2540,13 +2652,13 @@ export function TableroSlide({
               </span>
             )}
 
-            {(todos.length > 0 || (slide.rivales?.length ?? 0) > 0) && (
+            {(todos.length > 0 || rivalesVistos.length > 0) && (
               <LeyendaTrazos
                 tipos={[...new Set(todos.map((trazo) => trazo.tipo))]}
                 fases={totalFases}
                 conFase={etiquetaFase != null}
-                rivales={(slide.rivales?.length ?? 0) > 0}
-                conDorsal={(slide.rivales ?? []).some((otro) => Boolean(otro.dorsal))}
+                rivales={rivalesVistos.length > 0}
+                conDorsal={rivalesVistos.some((otro) => Boolean(otro.dorsal))}
               />
             )}
 
@@ -2903,7 +3015,7 @@ export function TableroSlide({
                           color: COLORES.oroClaro,
                         }}
                       >
-                        {numeroConsigna[indice]}
+                        {letraConsigna(numeroConsigna[indice])}
                       </span>
 
                       <span className={editaTextos ? "min-w-0 flex-1" : "min-w-0"}>

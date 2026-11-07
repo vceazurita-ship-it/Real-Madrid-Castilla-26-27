@@ -31,6 +31,7 @@ import {
 } from "@/components/abp/AnalisisSeccion";
 import { hablado, type ClaveMetrica } from "@/lib/abp/analisis";
 import { lecturaRapida } from "@/lib/abp/lectura-rapida";
+import { patronEnvio } from "@/lib/abp/accionFrase";
 import { LecturaRapida } from "@/components/abp/LecturaRapida";
 import ABPObjectiveFlow, {
   type ABPFlowCol,
@@ -395,6 +396,9 @@ const LECTOR: LectorAnalisis<Row> = {
     Boolean(r.tipoRemate) && !["No Remate", "No aplica"].includes(r.tipoRemate),
   xg: (r) => r.xg,
 };
+
+/** Cómo se sacó: envío y destino juntos («corto en 2v1», «tenso al primer palo»). */
+const patronDeEnvio = (r: Row) => patronEnvio(r.tipoEnvio, r.zonaCaida);
 
 export default function Page() {
 
@@ -2444,7 +2448,11 @@ const [vista, setVista] = usePestanaUrl<"resumen" | "donde" | "como" | "quien" |
 const [todoVisible, setTodoVisible] = useState(false);
 const oculto = (clave: string) => (todoVisible || vista === clave ? "" : "hidden");
 
-const conclusiones = useMemo(() => {
+/* Las jornadas anteriores a la elegida, para atar la tarea a un dato. */
+const anterioresConclusion = jornada !== "ALL" && comparativa ? comparativa.filasAnteriores : null;
+const nAnterioresConclusion = comparativa?.anteriores ?? 0;
+
+const conclusiones = (() => {
   if (!filtered.length) return [];
 
   const resultado = (r: Row) => normalizaResultado(r.resultadoFinal);
@@ -2454,10 +2462,54 @@ const conclusiones = useMemo(() => {
   const goles = filtered.filter((r) => resultado(r) === "Gol").length;
   const ocasiones = filtered.filter((r) => resultado(r) === "Ocasión").length;
   const xg = filtered.reduce((a, r) => a + r.xg, 0);
+  const remates = filtered.filter(LECTOR.remate).length;
+
+  /*
+  | 07/11/2026 (jueces): la primera frase dice qué se lanzó (córners y
+  | faltas, con su base), qué salió y explica «goles esperados» la primera
+  | vez. Antes era «4 ABP: 0 ocasiones y 0 goles, 0 goles esperados».
+  */
+  const corners = filtered.filter((r) => /c[oó]rner/i.test(r.tipoAccion)).length;
+  const faltas = filtered.filter((r) => /falta/i.test(r.tipoAccion)).length;
+  const tipos = [corners ? plural(corners, "córner", "córners") : "", faltas ? plural(faltas, "falta", "faltas") : ""].filter(Boolean).join(" y ");
+  const peligroN = ocasiones + goles;
 
   const frases: (string | null)[] = [
-    `${plural(filtered.length, "ABP", "ABP")}: ${plural(ocasiones, "ocasión", "ocasiones")} y ${plural(goles, "gol", "goles")}, ${cifra(xg, 2)} goles esperados.`,
+    `${plural(filtered.length, "ABP", "ABP")}${tipos ? ` (${tipos})` : ""}: ${
+      peligroN === 0 ? "ninguna acaba en gol u ocasión" : `${peligroN} en gol u ocasión (${plural(goles, "gol", "goles")})`
+    }, ${plural(remates, "remate", "remates")} y ${cifra(xg, 2)} goles esperados (goles esperados: la calidad de los remates).`,
   ];
+
+  /* El patrón de ejecución que domina, si lo hay, y qué dio antes. */
+  const porPatron = new Map<string, Row[]>();
+
+  filtered.forEach((r) => {
+    const p = patronDeEnvio(r);
+
+    if (p) porPatron.set(p, [...(porPatron.get(p) ?? []), r]);
+  });
+
+  const patrones = [...porPatron.entries()].sort((a, b) => b[1].length - a[1].length);
+  const dominante =
+    patrones[0] && patrones[0][1].length >= 2 && patrones[0][1].length * 2 > filtered.length && (patrones[1]?.[1].length ?? 0) < patrones[0][1].length
+      ? { nombre: patrones[0][0], filas: patrones[0][1] }
+      : null;
+  const antesMismo = dominante && anterioresConclusion ? anterioresConclusion.filter((r) => patronDeEnvio(r) === dominante.nombre) : [];
+  const antesRemate = antesMismo.filter(LECTOR.remate).length;
+
+  if (dominante) {
+    const conRemate = dominante.filas.filter(LECTOR.remate).length;
+
+    frases.push(
+      `${dominante.filas.length} de ${filtered.length} fueron ${dominante.nombre}${
+        conRemate === 0 ? " y ninguna llegó a remate" : `; ${conRemate} con remate`
+      }${
+        antesMismo.length >= 3
+          ? `. En las ${nAnterioresConclusion} jornadas anteriores, ese mismo patrón llegó a remate en ${antesRemate} de ${antesMismo.length}`
+          : ""
+      }.`,
+    );
+  }
 
   const zona = mejorGrupo(
     filtered,
@@ -2547,11 +2599,25 @@ const conclusiones = useMemo(() => {
     minutosVideo.length > 0
       ? conPeligro.length > 0
         ? `Al vídeo de la semana: ${plural(conPeligro.length, "jugada", "jugadas")} con remate o peligro (${minutosVideo.map((m) => `${m}′`).join(", ")}), para repetir lo que funcionó.`
-        : `Al vídeo de la semana: cómo se lanzaron las ${filtered.length} acciones sin remate (${minutosVideo.map((m) => `${m}′`).join(", ")}) y qué ajuste las acerca al área.`
+        : `Al vídeo de la semana: las ${filtered.length} acciones sin remate (${minutosVideo.map((m) => `${m}′`).join(", ")}).`
       : null;
 
-  return [...frases.filter(Boolean).slice(0, 4), cierre].filter(Boolean);
-}, [filtered]);
+  /*
+  | La tarea, atada a un dato (07/11/2026, jueces): qué se entrena, qué se
+  | cuenta en la tarea y el criterio, sacado de las jornadas anteriores. Con
+  | menos de 15 acciones se dice «tendencia» y no se ordena.
+  */
+  const criterioRemate =
+    anterioresConclusion && anterioresConclusion.length
+      ? Math.round((anterioresConclusion.filter(LECTOR.remate).length / anterioresConclusion.length) * 100)
+      : null;
+  const tarea =
+    dominante && remates === 0 && criterioRemate !== null
+      ? `${filtered.length < 15 ? "Tendencia que vigilar" : "Tarea del microciclo"}: ${dominante.nombre} ${/\bcort|\d+v\d+/i.test(dominante.nombre) ? "con salida a centro en dos toques" : "con desmarque y llegada al remate"}; se cuentan las acciones que acaban en remate · objetivo: ${criterioRemate} % con remate (media de las ${nAnterioresConclusion} jornadas anteriores).`
+      : null;
+
+  return [...frases.filter(Boolean).slice(0, 4), cierre, tarea].filter(Boolean);
+})();
 
 /* Las cuatro tarjetas de arriba (02/11/2026): qué funciona, qué falla y qué
    entrenar, cortando por lo que el cuerpo técnico puede cambiar en la
@@ -2773,11 +2839,11 @@ const pie = (
 
     </FilterDrawer>
 <div className="mt-5">
+  {/* 07/11/2026 (jueces): «Nuestro ABP contra (1)» → «Rival · Jornada 10». */}
   <p className="text-sm text-zinc-400 mb-3">
-    Nuestro ABP contra (
-    {[...new Set(filasRival.map((r) => r.rival))]
-      .length}
-    )
+    {new Set(filasRival.map((r) => r.rival)).size === 1
+      ? `Rival${jornada !== "ALL" ? ` · ${jornadas.find((una) => una.clave === jornada)?.etiqueta ?? ""}` : ""}`
+      : `Rivales (${new Set(filasRival.map((r) => r.rival)).size})`}
   </p>
 
   <div className="flex flex-wrap gap-2">
@@ -2972,7 +3038,15 @@ const pie = (
               lectura={lectura}
               unidad="acciones"
               acierto="en gol u ocasión"
-              ganancia={(k) => `${k === 1 ? "acción más" : "acciones más"} en gol u ocasión si rindiera como el resto`}
+              objetivo={
+                comparativa && comparativa.filasAnteriores.length
+                  ? {
+                      tasa: comparativa.filasAnteriores.filter(LECTOR.peligro).length / comparativa.filasAnteriores.length,
+                      fuente: comparativa.anteriores === 1 ? "la jornada anterior" : `media de las ${comparativa.anteriores} jornadas anteriores`,
+                    }
+                  : null
+              }
+              tarea={{ href: "/abp-microciclo", rotulo: "Ver la tarea en el microciclo de ABP" }}
               className="mt-6"
             />
             {comparativa && (
@@ -2995,7 +3069,10 @@ const pie = (
             {/* La lectura de cabecera: lo que dicen los KPI de arriba puestos
                 al lado del global y de las jornadas anteriores. */}
             <div className="mt-6">
-              {pie({ destacado: true, dimension: "tipo de acción", categoria: (r) => r.tipoAccion })}
+              {/* Por cómo se saca (envío y destino), no por tipo de acción: con
+                  un partido, «falta lateral interior Z1: 1 de 4» no decía nada
+                  y «3 de 4 en corto, 2v1» sí (07/11/2026, jueces). */}
+              {pie({ destacado: true, dimension: "envío", categoria: patronDeEnvio })}
             </div>
 
             {accionesLista.length > 0 && (

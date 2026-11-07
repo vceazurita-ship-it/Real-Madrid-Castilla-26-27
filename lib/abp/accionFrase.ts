@@ -37,6 +37,46 @@ export function fraseCaida(v?: string | null): string {
   return `cae en ${(v ?? "").trim()}`;
 }
 
+/**
+ * La zona de caída de la hoja, escrita igual en todas las listas (07/11/2026,
+ * jueces): «segundo Palo» → «segundo palo», «penalti» → «punto de penalti»,
+ * «6m» → «área pequeña», «2v1» → «2v1» tal cual. Lo que no reconoce, en
+ * minúscula.
+ */
+export function zonaLegible(v?: string | null): string {
+  const crudo = (v ?? "").trim();
+  const t = limpia(crudo);
+
+  if (!t) return "";
+  if (/^\d+\s*v\s*\d+$/.test(t)) return t.replace(/\s+/g, "");
+  if (/^z\s*\d+$/.test(t)) return `zona ${t.replace(/\D/g, "")}`;
+  if (t.includes("primer")) return "primer palo";
+  if (t.includes("segundo")) return "segundo palo";
+  if (/\b6\s*m\b/.test(t)) return "área pequeña";
+  if (t.includes("penalti") || t === "penal") return "punto de penalti";
+  if (t.includes("frontal")) return "frontal";
+
+  return crudo.toLocaleLowerCase("es-ES");
+}
+
+/**
+ * El patrón de ejecución de una acción, envío y destino juntos: «corto en
+ * 2v1», «tenso al primer palo», «bombeado al punto de penalti». Es lo que se
+ * entrena, y con muestra corta dice más que el tipo de acción.
+ */
+export function patronEnvio(envio?: string | null, zona?: string | null): string {
+  const e = (envio ?? "").trim();
+  const sinEnvio = !e || /no aplica/i.test(e);
+  const z = zonaLegible(/no aplica|^fuera$/i.test((zona ?? "").trim()) ? "" : zona);
+  const como = sinEnvio ? "" : e.toLocaleLowerCase("es-ES");
+
+  if (!z) return como;
+
+  const destino = /^\d+v\d+$/.test(z) ? `en ${z}` : z === "frontal" ? "a la frontal" : /^(área pequeña|primer palo|segundo palo|punto de penalti)$/.test(z) ? `al ${z}` : `a ${z}`;
+
+  return como ? `${como} ${destino}` : destino;
+}
+
 /** Desde dónde se remata, o que no hubo remate. */
 export function fraseRemate(v?: string | null): string {
   const t = limpia(v);

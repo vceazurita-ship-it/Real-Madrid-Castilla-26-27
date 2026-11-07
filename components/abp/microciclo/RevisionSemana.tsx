@@ -55,8 +55,23 @@ export function RevisionSemana({
   const ordenados = [...puntos].sort(
     (a, b) => orden[a.tono] - orden[b.tono] || Number(b.id === "minutos") - Number(a.id === "minutos"),
   );
-  const visibles = todos ? ordenados : ordenados.slice(0, 3);
+  /*
+  | 07/11/2026 (jueces): lo que hay que mirar sale entero —«Ver 1 más» no
+  | decía cuál— y lo que ya está bien es lo único que se pliega. Y una tarea
+  | se abre desde un solo punto: «Abrir «Córner directo + 6» del sábado» salía
+  | dos veces seguidas.
+  */
+  const visibles = todos ? ordenados : ordenados.filter((punto) => punto.tono !== "bien");
   const ocultos = ordenados.length - visibles.length;
+  const yaAbre = new Set<unknown>();
+  const abreUnaVez = new Map<string, boolean>();
+
+  for (const punto of visibles) {
+    const una = !!punto.trabajo && !yaAbre.has(punto.trabajo);
+
+    if (punto.trabajo) yaAbre.add(punto.trabajo);
+    abreUnaVez.set(punto.id, una);
+  }
 
   return (
     <Panel
@@ -72,7 +87,10 @@ export function RevisionSemana({
         {visibles.map((punto) => {
           const { Icono, clase, etiqueta } = ICONO[punto.tono];
 
-          const abre = punto.dia && punto.trabajo ? () => onAbrir(punto.dia as DiaKey, punto.trabajo as Trabajo) : null;
+          const abre =
+            punto.dia && punto.trabajo && abreUnaVez.get(punto.id)
+              ? () => onAbrir(punto.dia as DiaKey, punto.trabajo as Trabajo)
+              : null;
 
           return (
             <li
@@ -127,7 +145,7 @@ export function RevisionSemana({
           aria-expanded={todos}
           className="mt-2 inline-flex items-center gap-1 rounded-lg border border-white/12 px-2.5 py-1 text-[11.5px] font-medium text-white/65 transition hover:border-white/25 hover:text-white"
         >
-          {todos ? "Ver menos" : `Ver ${ocultos} más`}
+          {todos ? "Ver menos" : `Ver lo que ya está bien (${ocultos})`}
         </button>
       )}
     </Panel>

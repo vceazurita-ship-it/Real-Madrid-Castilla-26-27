@@ -178,6 +178,19 @@ type MicroOpcion = {
   planificado: boolean;
 };
 
+const VER_TODOS_MICROS = "__todos__";
+
+/* «REAL MADRID C» → «Real Madrid C»: el rival de la hoja va en mayúsculas. */
+function nombreMicro(rival: string) {
+  if (rival !== rival.toLocaleUpperCase("es-ES")) return rival;
+
+  return rival
+    .toLocaleLowerCase("es-ES")
+    .replace(/(^|[\s.(-])(\p{L})/gu, (_, antes: string, letra: string) => antes + letra.toLocaleUpperCase("es-ES"))
+    .replace(/\b(Cf|Fc|Cd|Ud|Sd|Ad|Ue|Rcd|Ca|Rc|Sad)\b/g, (sigla) => sigla.toUpperCase())
+    .replace(/\b(De|Del|La|Las|Los|Y)\b/g, (p, _a, desplaza: number) => (desplaza === 0 ? p : p.toLowerCase()));
+}
+
 const acota = (valor: number) => Math.max(0, Math.min(10, Math.round(valor)));
 
 /** Identifica una tarea de la hoja para no importarla dos veces. */
@@ -503,6 +516,21 @@ export default function AbpMicrocicloPage() {
       : delProximo || (micros[micros.length - 1]?.clave ?? "");
 
   const microActivo = micros.find((micro) => micro.clave === claveActiva);
+
+  /* El desplegable: el micro abierto y sus vecinos; «Ver todos» los enseña enteros. */
+  const [todosLosMicros, setTodosLosMicros] = useState(false);
+  const microsDelSelector = useMemo(() => {
+    const indiceProximo = micros.findIndex((micro) => micro.clave === delProximo);
+    const indiceActivo = Math.max(0, micros.findIndex((micro) => micro.clave === claveActiva));
+    const conMarca = micros.map((micro, indice) => ({
+      micro,
+      cerrado: micro.planificado && indiceProximo >= 0 && indice < indiceProximo,
+    }));
+
+    if (todosLosMicros || micros.length <= 8) return conMarca;
+
+    return conMarca.slice(Math.max(0, indiceActivo - 3), indiceActivo + 3);
+  }, [micros, delProximo, claveActiva, todosLosMicros]);
 
   const plan = useMemo<MicroPlan>(() => {
     const guardado = store.micros?.[claveActiva];
@@ -1591,13 +1619,23 @@ export default function AbpMicrocicloPage() {
                   Microciclo
                 </span>
 
+                {/*
+                | 07/11/2026 (jueces): el desplegable sacaba los 21 micros de la
+                | temporada; ahora el actual y sus vecinos, y «Ver todos» al
+                | final. La «✓» sólo en las semanas ya jugadas con plan: los
+                | micros futuros con plan guardado la llevaban como si
+                | estuvieran cerrados.
+                */}
                 <select
                   value={claveActiva}
-                  onChange={(event) => setSeleccion(event.target.value)}
+                  onChange={(event) => {
+                    if (event.target.value === VER_TODOS_MICROS) setTodosLosMicros(true);
+                    else setSeleccion(event.target.value);
+                  }}
                   disabled={!micros.length}
                   className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/50 disabled:opacity-40"
                 >
-                  {micros.map((micro) => (
+                  {microsDelSelector.map(({ micro, cerrado }) => (
                     <option
                       key={micro.clave}
                       value={micro.clave}
@@ -1608,11 +1646,16 @@ export default function AbpMicrocicloPage() {
                         jornadaDeMicro.has(micro.clave)
                           ? ` (J${jornadaDeMicro.get(micro.clave)})`
                           : ""
-                      } · ${micro.rival || "sin rival"}`}
-                      {micro.planificado ? " ✓" : ""}
+                      } · ${micro.rival ? nombreMicro(micro.rival) : "sin rival"}`}
+                      {cerrado ? " ✓" : ""}
                       {micro.enRegistro ? "" : " (nuevo)"}
                     </option>
                   ))}
+                  {microsDelSelector.length < micros.length ? (
+                    <option value={VER_TODOS_MICROS} className="bg-[#11161C]">
+                      {`Ver todos (${micros.length})…`}
+                    </option>
+                  ) : null}
                 </select>
               </label>
 
@@ -1695,7 +1738,11 @@ export default function AbpMicrocicloPage() {
               >
                 Exportar planificación
               </Button>
+              </span>
 
+              {/* 07/11/2026 (jueces): lo de una vez por semana —importar,
+                  copiar, crear— va detrás de «Más» también en el ordenador. */}
+              <span className={`contents ${masAcciones ? "" : "hidden"}`}>
               <Button
                 icon={Download}
                 onClick={() => setImportando(true)}
@@ -1724,11 +1771,9 @@ export default function AbpMicrocicloPage() {
               </Button>
               </span>
 
-              <span className="sm:hidden">
-                <Button icon={MoreHorizontal} onClick={() => setMasAcciones((v) => !v)} aria-pressed={masAcciones}>
-                  {masAcciones ? "Menos" : "Más"}
-                </Button>
-              </span>
+              <Button icon={MoreHorizontal} onClick={() => setMasAcciones((v) => !v)} aria-pressed={masAcciones}>
+                {masAcciones ? "Menos" : "Más"}
+              </Button>
             </div>
           </div>
 
@@ -1818,7 +1863,9 @@ export default function AbpMicrocicloPage() {
               <details className="mt-6 rounded-2xl border border-white/10 bg-white/[0.02] px-3 py-2 sm:px-4">
                 {/* 29/10/2026: titular con el dato, no un rótulo diminuto en mayúsculas. */}
                 <summary className="cursor-pointer select-none text-sm font-semibold text-white/80">
-                  Carga: {totales.diasConAbp} {totales.diasConAbp === 1 ? "día" : "días"}, {fmtMin(totales.minutos)}
+                  {/* «días con balón parado», que no son los «Días entrenados» de arriba: el
+                      jueves de descanso con tareas contaba aquí y no allí (07/11/2026). */}
+                  Carga: {fmtMin(totales.minutos)} en {totales.diasConAbp} {totales.diasConAbp === 1 ? "día con balón parado" : "días con balón parado"}
                   <span className="ml-2 text-[11px] font-normal text-white/40">· carga y minutos de la semana</span>
                 </summary>
                 <div className="mt-3">
@@ -1907,15 +1954,12 @@ export default function AbpMicrocicloPage() {
 
                   {/* 29/10/2026: las siglas de las fichas, explicadas una sola vez. */}
                   {/* 30/10/2026 (expertos): plegada en «Leyenda», no un párrafo de siglas encima del tablero. */}
-                  <details className="group mb-2 inline-block max-w-full">
-                    <summary className="inline-flex min-h-[32px] cursor-pointer list-none items-center gap-1.5 rounded-lg border border-white/10 px-2.5 text-[12px] text-white/65 transition hover:text-white marker:hidden [&::-webkit-details-marker]:hidden">
-                      Leyenda de las siglas
-                      <span aria-hidden className="text-white/40 transition group-open:rotate-180">▾</span>
-                    </summary>
-                    <p className="mt-1.5 text-[12px] leading-relaxed text-white/60">
-                      OF = ofensivo · DEF = defensivo · SAC = sacadores · FIJ = fijadores · REM = rematadores · PRE y POST = vídeo antes o después del campo · INTRA = vídeo durante la tarea · VÍDEO = sesión de vídeo · HOJA = viene del registro de tareas
-                    </p>
-                  </details>
+                  {/* 07/11/2026 (jueces): siempre a la vista y corta; las fichas ya
+                      dicen «ofensivo» y «defensivo» en palabras en todos los días. */}
+                  <p className="mb-2 text-[12px] leading-relaxed text-white/60">
+                    <span className="font-semibold text-white/75">Leyenda · </span>
+                    PRE y POST = vídeo antes o después del campo · INTRA = vídeo durante la tarea · VÍDEO = sesión de vídeo · CAMPO = en el campo · HOJA = viene del registro de tareas
+                  </p>
 
                   <SemanaGrid
                     dias={planVisto.dias}

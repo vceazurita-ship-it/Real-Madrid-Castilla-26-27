@@ -6,11 +6,24 @@
 |
 | Los colores van por las variables de la escala (`--rmcf-rate-*`), que ya
 | tienen su versión de día: nada de verdes claros sobre panel blanco.
+|
+| 07/11/2026 (jueces, ronda 14): con menos de 15 acciones EN EL GRUPO —no en
+| el total— no hay fortaleza ni carencia: la tarjeta sale en gris y se titula
+| «Indicio». Con menos de 5 no sale. Y «Qué entrenar» ya no promete «6
+| saques más si rindiera como el resto»: lleva la tarea, qué se cuenta en
+| ella y el objetivo de partido sacado de un dato con su fuente.
 */
+
+import Link from "next/link";
 
 import type { HallazgoLectura, LecturaRapida as Lectura } from "@/lib/abp/lectura-rapida";
 
 const pct = (x: number) => `${Math.round(x * 100)} %`;
+
+/** Por debajo de esto un grupo es indicio, no fortaleza ni carencia. */
+export const MUESTRA_FIRME = 15;
+/** Por debajo de esto un grupo no se enseña: 1 de 3 no es un hallazgo. */
+const MUESTRA_VISIBLE = 5;
 
 function capital(texto: string) {
   return texto ? texto[0].toUpperCase() + texto.slice(1) : texto;
@@ -22,12 +35,14 @@ function Tarjeta({
   titular,
   cifra,
   pie,
+  enlace,
 }: {
   rotulo: string;
   color: string;
   titular: string;
   cifra: string;
   pie: string;
+  enlace?: { href: string; rotulo: string };
 }) {
   return (
     <article className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-4 md:rounded-3xl md:p-5">
@@ -40,6 +55,15 @@ function Tarjeta({
         {cifra}
       </p>
       <p className="mt-2 text-xs leading-snug text-white/55">{pie}</p>
+      {enlace ? (
+        <Link
+          href={enlace.href}
+          className="mt-2 inline-block text-xs font-semibold underline underline-offset-2"
+          style={{ color: "var(--rmcf-gold-ink)" }}
+        >
+          {enlace.rotulo}
+        </Link>
+      ) : null}
     </article>
   );
 }
@@ -48,7 +72,9 @@ export function LecturaRapida({
   lectura,
   unidad,
   acierto,
-  ganancia,
+  objetivo,
+  tarea,
+  mejorAlto = true,
   className = "",
 }: {
   lectura: Lectura | null;
@@ -56,64 +82,83 @@ export function LecturaRapida({
   unidad: string;
   /** Lo que se cuenta, dicho tras la cifra: «en gol u ocasión», «retenidos». */
   acierto: string;
-  /** Lo que gana el equipo si lo que falla rinde como el resto. */
-  ganancia: (acciones: number) => string;
+  /**
+   * El objetivo de partido de la tarea, sacado de un dato: la media de las
+   * jornadas anteriores en lo mismo que mide la tarjeta. Sin dato no se pone.
+   */
+  objetivo?: { tasa: number; fuente: string } | null;
+  /** Dónde vive la tarea en la plataforma (el microciclo de ABP). */
+  tarea?: { href: string; rotulo: string };
+  /** En las defensivas que miden el peligro concedido, el objetivo es un techo. */
+  mejorAlto?: boolean;
   className?: string;
 }) {
   if (!lectura) return null;
 
-  const { base, funciona, falla, entrenar } = lectura;
+  const { base } = lectura;
+  const funciona = lectura.funciona && lectura.funciona.n >= MUESTRA_VISIBLE ? lectura.funciona : null;
+  const falla = lectura.falla && lectura.falla.n >= MUESTRA_VISIBLE ? lectura.falla : null;
+  const entrenar = lectura.entrenar && falla ? lectura.entrenar : null;
 
-  /*
-  | Con poca muestra, tendencia y no veredicto (06/11/2026, regla 11 de los
-  | agentes): con menos de 15 en total, las tres tarjetas van en gris y lo
-  | dicen; «el resto» lleva su número para que se sepa con qué se compara.
-  */
-  const corta = base.n < 15;
   const gris = "var(--rmcf-rate-none)";
+  const indicio = (h: HallazgoLectura) => h.n < MUESTRA_FIRME;
 
   const pieDe = (h: HallazgoLectura) =>
-    `${h.aciertos} de ${h.n} ${unidad} ${acierto} · los otros ${base.n - h.n}, ${pct(h.tasaResto)}${corta || h.n < 10 ? " · tendencia" : ""}`;
+    `${h.aciertos} de ${h.n} ${unidad} ${acierto} · los otros ${base.n - h.n}, ${pct(h.tasaResto)}`;
+
+  const hayIndicio = [funciona, falla].some((h) => h && indicio(h));
+
+  if (!funciona && !falla) return null;
 
   return (
-    <section
-      aria-label="Lectura rápida"
-      className={`grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4 md:gap-4 ${className}`}
-    >
-      {funciona && (
+    <section aria-label="Lectura rápida" className={`min-w-0 ${className}`}>
+      <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4 md:gap-4">
+        {funciona && (
+          <Tarjeta
+            rotulo={indicio(funciona) ? "Indicio a favor" : "Qué funciona"}
+            color={indicio(funciona) ? gris : "var(--rmcf-rate-good)"}
+            titular={`${capital(funciona.dimension)}: ${funciona.valor}`}
+            cifra={pct(funciona.tasa)}
+            pie={pieDe(funciona)}
+          />
+        )}
+        {falla && (
+          <Tarjeta
+            rotulo={indicio(falla) ? "Indicio en contra" : "Qué falla"}
+            color={indicio(falla) ? gris : "var(--rmcf-rate-low)"}
+            titular={`${capital(falla.dimension)}: ${falla.valor}`}
+            cifra={pct(falla.tasa)}
+            pie={pieDe(falla)}
+          />
+        )}
+        {entrenar && (
+          <Tarjeta
+            rotulo={indicio(entrenar.hallazgo) ? "Qué entrenar (si se confirma)" : "Qué entrenar"}
+            color={indicio(entrenar.hallazgo) ? gris : "var(--rmcf-gold-ink)"}
+            titular={entrenar.titulo}
+            cifra={objetivo ? pct(objetivo.tasa) : pct(entrenar.hallazgo.tasaResto)}
+            pie={
+              objetivo
+                ? `Objetivo de partido: ${mejorAlto ? "" : "como mucho "}${pct(objetivo.tasa)} ${acierto} (${objetivo.fuente}). En la tarea se cuentan los ${unidad} ${acierto}; hoy, ${entrenar.hallazgo.aciertos} de ${entrenar.hallazgo.n}.`
+                : `Objetivo: ${mejorAlto ? "" : "no pasar de "}lo que rinden los otros ${base.n - entrenar.hallazgo.n} ${unidad} (${pct(entrenar.hallazgo.tasaResto)}). En la tarea se cuentan los ${unidad} ${acierto}; hoy, ${entrenar.hallazgo.aciertos} de ${entrenar.hallazgo.n}.`
+            }
+            enlace={tarea}
+          />
+        )}
         <Tarjeta
-          rotulo={corta ? "Qué funciona (tendencia)" : "Qué funciona"}
-          color={corta ? gris : "var(--rmcf-rate-good)"}
-          titular={`${capital(funciona.dimension)}: ${funciona.valor}`}
-          cifra={pct(funciona.tasa)}
-          pie={pieDe(funciona)}
+          rotulo="Base"
+          color="var(--rmcf-rate-none)"
+          titular={`${base.n} ${unidad} en ${base.jornadas} ${base.jornadas === 1 ? "jornada" : "jornadas"}`}
+          cifra={pct(base.tasa)}
+          pie={`${base.aciertos} de ${base.n} ${acierto}, con los filtros de arriba`}
         />
-      )}
-      {falla && (
-        <Tarjeta
-          rotulo={corta ? "Qué falla (tendencia)" : "Qué falla"}
-          color={corta ? gris : "var(--rmcf-rate-low)"}
-          titular={`${capital(falla.dimension)}: ${falla.valor}`}
-          cifra={pct(falla.tasa)}
-          pie={pieDe(falla)}
-        />
-      )}
-      {entrenar && (
-        <Tarjeta
-          rotulo={corta ? "Qué entrenar (si se confirma)" : "Qué entrenar"}
-          color={corta ? gris : "var(--rmcf-gold-ink)"}
-          titular={entrenar.titulo}
-          cifra={String(Math.round(entrenar.hallazgo.impacto))}
-          pie={`${ganancia(Math.round(entrenar.hallazgo.impacto))} (si «${entrenar.hallazgo.valor}» rindiera como los otros ${base.n - entrenar.hallazgo.n})${corta ? " · con menos de 15 es tendencia" : ""}`}
-        />
-      )}
-      <Tarjeta
-        rotulo="Base"
-        color="var(--rmcf-rate-none)"
-        titular={`${base.n} ${unidad} en ${base.jornadas} ${base.jornadas === 1 ? "jornada" : "jornadas"}`}
-        cifra={pct(base.tasa)}
-        pie={`${base.aciertos} de ${base.n} ${acierto}, con los filtros de arriba${corta ? ". Con menos de 15, lo de al lado es tendencia" : ""}`}
-      />
+      </div>
+      {/* Un solo aviso de muestra para todo el bloque, no uno por tarjeta. */}
+      {hayIndicio ? (
+        <p className="mt-2 px-1 text-[11px] text-white/45">
+          En gris, grupos de menos de {MUESTRA_FIRME} {unidad}: tendencia que hay que confirmar, no fortaleza ni carencia.
+        </p>
+      ) : null}
     </section>
   );
 }

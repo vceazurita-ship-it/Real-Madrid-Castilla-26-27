@@ -25,8 +25,8 @@ const VACIO = { bajando: 0, deCopia: 0, masVieja: null, hayNuevas: false };
 function haceCuanto(ms: number, ahora: number): string {
   const min = Math.max(0, Math.round((ahora - ms) / 60_000));
 
-  if (min < 1) return "de ahora";
-  if (min < 60) return `de hace ${min} min`;
+  /* 07/11/2026 (jueces): «Datos de ahora» era ambiguo; con la hora se sabe de cuándo son. */
+  if (min < 60) return `de las ${new Date(ms).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}`;
 
   const h = Math.round(min / 60);
 

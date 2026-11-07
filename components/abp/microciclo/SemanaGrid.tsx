@@ -51,16 +51,15 @@ import { Copy, Monitor, Plus, Trash2 } from "lucide-react";
 import { chipInk } from "@/lib/theme";
 import { useTextosExplicativos } from "@/components/ui/textos-analisis";
 import { porqueDe } from "@/lib/abp/semana-revision";
+import { corrigeErratas } from "@/lib/textos/erratas";
 
 import {
   DIAS,
   DIA_KEYS,
   LADO_COLOR,
   LADO_LABEL,
-  LADO_SHORT,
   MOMENTO_SHORT,
   ROL_LABEL,
-  ROL_SHORT,
   TIPOS_DIA,
   aspectosDe,
   cargaCognitiva,
@@ -121,6 +120,14 @@ function enLista(partes: string[]) {
 /*  FICHA DE UN TRABAJO                                                */
 /* ------------------------------------------------------------------ */
 
+/** Un texto libre de la hoja, sin erratas ni siglas de la casa: «MdJ» → «modelo de juego». */
+function textoDeFicha(texto: string) {
+  return corrigeErratas(texto)
+    .replace(/\bMdJ\b/g, "modelo de juego")
+    .replace(/\bDef\b/g, "defensivo")
+    .replace(/\bOF\b/g, "ofensivo");
+}
+
 /** El contenido de la ficha, sin nada de arrastre: lo comparte el fantasma. */
 function TrabajoCuerpo({
   trabajo,
@@ -141,7 +148,9 @@ function TrabajoCuerpo({
   const explicativos = useTextosExplicativos();
 
   /* El porqué del boceto se ve siempre, como «Por qué» (21/10/2026). */
-  const { porque, resto: notas } = porqueDe(trabajo.notas, explicativos);
+  const { porque, resto: notasCrudas } = porqueDe(trabajo.notas, explicativos);
+  /* Erratas y siglas de la hoja, corregidas al pintar (07/11/2026): «Crecieminto en MdJ Propio». */
+  const notas = notasCrudas ? textoDeFicha(notasCrudas) : notasCrudas;
 
   const desgaste = [
     trabajo.intensidad > 0 ? `intensidad ${trabajo.intensidad}/10` : "",
@@ -195,7 +204,9 @@ function TrabajoCuerpo({
             }}
             title={LADO_LABEL[lado]}
           >
-            {detalle ? LADO_LABEL[lado].toUpperCase() : LADO_SHORT[lado]}
+            {/* La misma grafía en la ficha completa y en la compacta (07/11/2026):
+                el sábado salía «OF / DEF» y el resto de días «OFENSIVO». */}
+            {LADO_LABEL[lado].toUpperCase()}
           </span>
         ))}
 
@@ -212,22 +223,14 @@ function TrabajoCuerpo({
             VÍDEO
           </span>
         ) : (
-          detalle && (
-            <span className="rounded bg-white/[0.07] px-1.5 py-0.5 text-[11px] font-semibold text-white/40">
-              CAMPO
-            </span>
-          )
+          <span className="rounded bg-white/[0.07] px-1.5 py-0.5 text-[11px] font-semibold text-white/40">
+            CAMPO
+          </span>
         )}
 
-        {!detalle &&
-          trabajo.roles.map((rol) => (
-            <span
-              key={rol}
-              className="rounded bg-white/[0.07] px-1.5 py-0.5 text-[11px] font-semibold text-white/50"
-            >
-              {ROL_SHORT[rol]}
-            </span>
-          ))}
+        {/* Sin chapas FIJ / REM / SAC en la compacta (07/11/2026): eran otra
+            grafía que sólo salía en los días con tres tareas o más; «Con
+            fijadores…» va en la ficha completa. */}
 
         {trabajo.origen === "registro" && (
           <span
@@ -265,7 +268,7 @@ function TrabajoCuerpo({
         <p className="mt-1 text-[11px] leading-snug text-white/60">
           <span className="font-semibold text-emerald-300">Éxito · </span>
           {/* Sin siglas en la ficha (30/10/2026): «MdJ» → «modelo de juego». */}
-          {trabajo.objetivo.trim().replace(/\bMdJ\b/g, "modelo de juego")}
+          {textoDeFicha(trabajo.objetivo.trim())}
         </p>
       )}
 

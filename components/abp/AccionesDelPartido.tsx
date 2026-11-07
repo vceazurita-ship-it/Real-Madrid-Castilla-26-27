@@ -15,6 +15,7 @@ import { useState } from "react";
 
 import { VerAccion } from "@/components/video/VerAccion";
 import { desenlace, nombreDeAccion, type EnlaceAccionAbp, type FilaAbpCorte } from "@/lib/abp/cortes-abp";
+import { zonaLegible } from "@/lib/abp/accionFrase";
 
 export type AccionDeLista = {
   clave: string | null;
@@ -27,16 +28,21 @@ export type AccionDeLista = {
 /** Cuántas se ven antes de «Ver todas»: un partido entero cabe (la J10 tuvo 23). */
 const A_LA_VISTA = 25;
 
-const minuscula = (t: string) => t.charAt(0).toLocaleLowerCase("es-ES") + t.slice(1);
-
-/** «Bombeado al segundo palo», «En corto, 3v2»: lo que dice la hoja del envío. */
+/**
+ * «Bombeado · cae en punto de penalti», «Corto · 2v1»: lo que dice la hoja
+ * del envío y dónde cae, escrito igual en todas las filas (07/11/2026:
+ * «Bombeado, penalti» y «segundo Palo» no se entendían).
+ */
 function envioDe(f: FilaAbpCorte) {
-  const envio = f.envio && !/no aplica/i.test(f.envio) ? f.envio : "";
-  const zona = f.zonaCaida && !/no aplica|^fuera$/i.test(f.zonaCaida) ? f.zonaCaida : "";
+  const envio = f.envio && !/no aplica/i.test(f.envio) ? f.envio.trim() : "";
+  const crudo = f.zonaCaida && !/no aplica|^fuera$/i.test(f.zonaCaida) ? f.zonaCaida : "";
+  const zona = zonaLegible(crudo);
+  const enCorto = /^\d+v\d+$/.test(zona);
+  const dicho = zona ? (enCorto ? `en corto ${zona}` : `cae en ${zona}`) : "";
 
-  if (envio && zona) return `${envio}, ${minuscula(zona)}`;
+  if (envio && dicho) return `${envio.charAt(0).toLocaleUpperCase("es-ES")}${envio.slice(1).toLocaleLowerCase("es-ES")} · ${dicho}`;
 
-  return envio || zona;
+  return envio || (dicho ? dicho.charAt(0).toLocaleUpperCase("es-ES") + dicho.slice(1) : "");
 }
 
 /** «Saca Aguado · remata Mario»: sólo lo que la hoja tiene. */

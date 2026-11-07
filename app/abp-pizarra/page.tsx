@@ -304,35 +304,19 @@ function SelectorJornada({
 
   return (
     <div className="block min-w-0">
-      <span className="mb-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] uppercase tracking-[0.16em] text-white/40">
-        {rotulo}
-        {atajos.length > 1 && (
-          <span className="flex flex-wrap gap-1 normal-case tracking-normal">
-            {atajos.map((una) => (
-              <button
-                key={una.id}
-                type="button"
-                onClick={() => onCambia(una.id)}
-                aria-pressed={una.id === valor}
-                className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold transition ${
-                  una.id === valor
-                    ? "border-[#C8A96B]/60 bg-[#C8A96B]/15 text-[color:var(--rmcf-gold-ink)]"
-                    : "border-white/12 text-white/60 hover:border-white/30 hover:text-white"
-                }`}
-              >
-                {una.corto}
-                {una.proximo ? " · próximo" : ""}
-              </button>
-            ))}
-          </span>
-        )}
-      </span>
+      {/* 07/11/2026 (jueces): un solo selector de jornada. Las pastillas
+          J10/J11/J12 y el botón «Más jornadas» repetían lo del desplegable;
+          las demás jornadas salen desde el propio desplegable. */}
+      <span className="mb-1.5 block text-[11px] uppercase tracking-[0.16em] text-white/40">{rotulo}</span>
 
       <div className="flex min-w-0 items-center gap-2">
       <select
         value={valor}
         aria-label={rotulo}
-        onChange={(event) => onCambia(event.target.value)}
+        onChange={(event) => {
+          if (event.target.value === MAS_JORNADAS) setTodas((antes) => !antes);
+          else onCambia(event.target.value);
+        }}
         className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"
       >
         {vacio !== undefined && (
@@ -360,24 +344,22 @@ function SelectorJornada({
             ))}
           </optgroup>
         )}
+
+        {(plegadas > 0 || todas) && (
+          <option value={MAS_JORNADAS} className="bg-[#11161C]">
+            {todas ? "Sólo las jornadas cercanas" : `Más jornadas (${plegadas})…`}
+          </option>
+        )}
       </select>
       {junto}
       </div>
-
-      {(plegadas > 0 || todas) && (
-        <button
-          type="button"
-          onClick={() => setTodas((antes) => !antes)}
-          className="mt-1.5 inline-flex min-h-[30px] items-center rounded-lg border border-white/12 px-2.5 text-[13px] text-white/70 transition hover:border-[#C8A96B]/50 hover:text-white"
-        >
-          {todas ? "Sólo las jornadas cercanas" : `Más jornadas (${plegadas})`}
-        </button>
-      )}
 
       {pie}
     </div>
   );
 }
+
+const MAS_JORNADAS = "__mas_jornadas__";
 
 function marcaDeTablero(tablero?: TableroPizarra) {
   if (!tablero) return "";
@@ -2575,8 +2557,43 @@ export default function PizarraAbpPage() {
                   </Button>
                 )}
 
+                {/*
+                  Un único punto de exportación (01/11/2026): el menú «Exportar»
+                  lleva todo (.zip), solo documentos, solo vídeos, el PowerPoint
+                  y el PDF para imprimir, con lo que tarda y pesa cada uno. Lo
+                  que no ha cambiado desde la última vez sale al momento.
+                  07/11/2026 (jueces): Exportar va el primero y es la acción
+                  principal; «Colocar en todas» sólo lo es con la pizarra vacía.
+                */}
+                {tablero && tablero.slides.length > 0 && (
+                  <ExportaTodo
+                    tablero={tablero}
+                    players={porId}
+                    temporada={temporadaCorta(RATINGS_SEASON)}
+                    rival={tablero.rival || partido?.opponent || ""}
+                    escudoRival={escudoDe(tablero.rival || partido?.opponent || "")}
+                    jornada={tablero.jornada ? `J${String(tablero.jornada).padStart(2, "0")}` : undefined}
+                  />
+                )}
+
+                {/* Un PDF vertical por jugador, para el WhatsApp de antes del partido. */}
+                {tablero && tablero.slides.length > 0 && (
+                  <PizarrasJugadores
+                    tablero={tablero}
+                    players={porId}
+                    temporada={temporadaCorta(RATINGS_SEASON)}
+                    rival={tablero.rival || partido?.opponent || ""}
+                    escudoRival={escudoDe(tablero.rival || partido?.opponent || "")}
+                    jornada={
+                      tablero.jornada
+                        ? `J${String(tablero.jornada).padStart(2, "0")}`
+                        : undefined
+                    }
+                  />
+                )}
+
                 <Button
-                  tone="primary"
+                  tone={tablero && tieneFichas(tablero.slides) ? undefined : "primary"}
                   icon={Wand2}
                   onClick={() => coloca(true)}
                   disabled={!tablero || aprendidos === 0}
@@ -2630,38 +2647,6 @@ export default function PizarraAbpPage() {
                   </div>
                 </details>
 
-                {/*
-                  Un único punto de exportación (01/11/2026): el menú «Exportar»
-                  lleva todo (.zip), solo documentos, solo vídeos, el PowerPoint
-                  y el PDF para imprimir, con lo que tarda y pesa cada uno. Lo
-                  que no ha cambiado desde la última vez sale al momento.
-                */}
-                {tablero && tablero.slides.length > 0 && (
-                  <ExportaTodo
-                    tablero={tablero}
-                    players={porId}
-                    temporada={temporadaCorta(RATINGS_SEASON)}
-                    rival={tablero.rival || partido?.opponent || ""}
-                    escudoRival={escudoDe(tablero.rival || partido?.opponent || "")}
-                    jornada={tablero.jornada ? `J${String(tablero.jornada).padStart(2, "0")}` : undefined}
-                  />
-                )}
-
-                {/* Un PDF vertical por jugador, para el WhatsApp de antes del partido. */}
-                {tablero && tablero.slides.length > 0 && (
-                  <PizarrasJugadores
-                    tablero={tablero}
-                    players={porId}
-                    temporada={temporadaCorta(RATINGS_SEASON)}
-                    rival={tablero.rival || partido?.opponent || ""}
-                    escudoRival={escudoDe(tablero.rival || partido?.opponent || "")}
-                    jornada={
-                      tablero.jornada
-                        ? `J${String(tablero.jornada).padStart(2, "0")}`
-                        : undefined
-                    }
-                  />
-                )}
               </div>
             </div>
 
@@ -2943,7 +2928,9 @@ export default function PizarraAbpPage() {
                         ? "Plantilla en blanco"
                         : totales.cubiertos >= totales.total
                         ? /* Quién no aparece en alguna diapositiva se dice una sola vez, en «Control de la convocatoria». */
-                          "Todos los puestos tienen jugador"
+                          /* 07/11/2026 (jueces): «Todos los puestos tienen jugador» convivía con
+                             «7 avisos» de la convocatoria; esto sólo comprueba que no hay huecos. */
+                          "Ningún puesto vacío"
                         : `${totales.total - totales.cubiertos} ${
                             totales.total - totales.cubiertos === 1 ? "puesto sin jugador" : "puestos sin jugador"
                           }`
@@ -3289,6 +3276,15 @@ export default function PizarraAbpPage() {
                       </div>
                     )}
 
+                    {/* 07/11/2026 (jueces): en el móvil, la acción principal va
+                        encima de la lámina y no escondida debajo: en vertical es
+                        una miniatura que no se lee. */}
+                    <div className="border-b border-white/10 px-3 py-2 sm:hidden">
+                      <Button tone="primary" icon={Smartphone} onClick={() => setProyectando(activa)}>
+                        Ver la lámina en grande (horizontal)
+                      </Button>
+                    </div>
+
                     {/* Una sigla con dos significados en la misma diapositiva: se avisa, no se bloquea. */}
                     {/* Un solo aviso, discreto, y el arreglo en un toque (06/11/2026). */}
                     {(() => {
@@ -3359,9 +3355,6 @@ export default function PizarraAbpPage() {
                     | a horizontal) y las consignas van debajo como texto normal.
                     */}
                     <div className="mt-3 space-y-3 sm:hidden">
-                      <Button icon={Smartphone} onClick={() => setProyectando(activa)}>
-                        Ver en horizontal, a pantalla completa
-                      </Button>
 
                       {/* 29/10/2026: la miniatura no deja leer los rótulos de las asignaciones; van también en texto. */}
                       {slide.fichas.length > 0 && (
@@ -3559,7 +3552,8 @@ export default function PizarraAbpPage() {
                   <summary className="flex min-h-[44px] cursor-pointer select-none flex-wrap items-center gap-2 text-sm font-medium text-white/75">
                     <History size={15} className="text-[#C8A96B]" />
                     Historial
-                    <span className="text-xs font-normal text-white/50">
+                    {/* En el móvil, sin el resumen (07/11/2026): no tiene acción y alarga la fila. */}
+                    <span className="text-xs font-normal text-white/50 max-sm:hidden">
                       {[
                         versiones.length ? `${versiones.length} ${versiones.length === 1 ? "versión" : "versiones"}` : "",
                         versiones.length && !alDia ? "cambios sin congelar" : "",
@@ -4454,6 +4448,17 @@ function ControlDeGazapos({
     })
     .filter((uno) => uno.avisos > 0);
   const avisosEnDiapositivas = porDiapositiva.reduce((n, uno) => n + uno.avisos, 0) || avisos;
+  const primera = porDiapositiva[0];
+  const dondePrimera = primera
+    ? `la diapositiva ${primera.numero}${primera.titulo ? ` (${primera.titulo.toLocaleLowerCase("es-ES")})` : ""}${avisosEnDiapositivas > 1 ? "…" : ""}`
+    : "";
+  const primerAviso = primera
+    ? primera.faltan.length
+      ? `${primera.faltan[0].nombre} no sale en ${dondePrimera}`
+      : primera.sinPuesto.length
+        ? `${primera.sinPuesto[0]} sin puesto en ${dondePrimera}`
+        : ""
+    : "";
 
   return (
     <details className="group rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3">
@@ -4469,6 +4474,8 @@ function ControlDeGazapos({
             {porDiapositiva.length > 1 ? ` en ${porDiapositiva.length} diapositivas` : ""}
           </span>
         ) : null}
+        {/* El primero, a la vista en la misma línea (07/11/2026, jueces): «7 avisos» sin decir cuáles no servía. */}
+        {!limpio && primerAviso ? <span className="min-w-0 font-normal text-white/55">{primerAviso}</span> : null}
       </summary>
     <Panel
       className="mt-3"

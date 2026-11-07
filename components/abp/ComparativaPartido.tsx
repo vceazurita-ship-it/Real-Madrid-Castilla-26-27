@@ -156,6 +156,22 @@ export function ComparativaPartido({
     .map((m) => `${m.nombre}: sólo ${m.de}`)
     .join(" · ");
 
+  /*
+  | 07/11/2026 (jueces, ronda 14): la fila que se sale de todo lo visto antes
+  | —peor que el peor de los partidos anteriores— es el dato del partido,
+  | aunque la base sea corta: sale en naranja y la primera. En la banda
+  | defensiva, «7 de 16 llegan a último tercio» frente a un rango de 0 % a
+  | 40 % se perdía en gris entre las demás.
+  */
+  const fueraPorAbajo = (m: MetricaComparada) => {
+    if (m.mejorAlto !== true && m.mejorAlto !== false) return false;
+    if (!m.rango || anteriores.n < 3 || m.actual === null) return false;
+
+    return m.mejorAlto ? m.actual < m.rango[0] : m.actual > m.rango[1];
+  };
+  const peorFuera = metricas.find(fueraPorAbajo);
+  const ordenadas = peorFuera ? [peorFuera, ...metricas.filter((m) => m !== peorFuera)] : metricas;
+
   return (
     <Panel
       title={title}
@@ -204,7 +220,7 @@ export function ComparativaPartido({
           )}
 
           <ul className="divide-y divide-white/[0.06]">
-            {metricas.map((m) => {
+            {ordenadas.map((m) => {
               const formato = m.formato ?? numeroCorto;
               const juzga = m.mejorAlto === true || m.mejorAlto === false;
               const porcentaje = formato === formatoPorcentaje;
@@ -214,15 +230,18 @@ export function ComparativaPartido({
                   : null;
               /* Con pocas acciones detrás (cinco, salvo que la página pida más),
                  la fila se enseña pero no se juzga. */
-              const indicio = m.de !== undefined && m.de < muestraMinima;
-              const mejor = !indicio && d !== null && juzga && Math.abs(d) >= 0.05 ? (d > 0) === m.mejorAlto : null;
+              const fuera = m === peorFuera;
+              const indicio = !fuera && m.de !== undefined && m.de < muestraMinima;
+              const mejor = fuera ? false : !indicio && d !== null && juzga && Math.abs(d) >= 0.05 ? (d > 0) === m.mejorAlto : null;
               /* Una sola regla para la negrita: sólo si la diferencia pesa de
                  verdad (10 puntos en un porcentaje; un 15 % de la media, y al
                  menos medio punto, en un recuento) y la base no es un indicio. */
               const umbral = porcentaje ? 10 : Math.max(0.5, Math.abs(m.media ?? 0) * 0.15);
-              const destaca = !indicio && d !== null && Math.abs(d) >= umbral;
-              /* Un porcentaje de muy pocas acciones no se resta en puntos. */
-              const sinPuntos = porcentaje && m.de !== undefined && m.de < MUESTRA_MINIMA_FILA;
+              const destaca = fuera || (!indicio && d !== null && Math.abs(d) >= umbral);
+              /* Un porcentaje de muy pocas acciones va en gris, pero con sus
+                 puntos (07/11/2026): la palabra «indicio» en la columna de la
+                 diferencia no decía cuánto; la nota de arriba ya avisa. */
+              const sinPuntos = !fuera && porcentaje && m.de !== undefined && m.de < MUESTRA_MINIMA_FILA;
               /* El sentido ya sale con flecha y color: no se repite en el pie. */
               /* 29/10/2026: el sentido sale una sola vez, con flecha («▲ más es mejor»); fuera «más, mejor» del pie. */
               const pie = m.pie
@@ -254,20 +273,27 @@ export function ComparativaPartido({
                     {(pie || baseTexto || juzga || m.mejorAlto === null) && (
                       <p className="text-[11px] text-white/35">
                         {[baseTexto, pie || null].filter(Boolean).join(" · ")}
-                        {indicio ? " · indicio" : ""}
+                        {/* «indicio» ya no se repite en cada fila (07/11/2026):
+                            lo dice una vez la nota de base de arriba y la
+                            fila va en gris. */}
+                        {fuera ? (
+                          <span className="font-semibold" style={{ color: DIF_PEOR }}>
+                            {baseTexto || pie ? " · " : ""}peor que todos los anteriores
+                          </span>
+                        ) : null}
                         {/* El sentido, siempre y con su color, para no mezclar filas de «más» y de «menos». */}
                         {juzga && (
                           <span
                             className="font-medium"
                             style={{ color: ORO_TINTA }}
                           >
-                            {baseTexto || pie || indicio ? " · " : ""}
+                            {baseTexto || pie || fuera ? " · " : ""}
                             {m.mejorAlto ? "▲ más es mejor" : "▼ menos es mejor"}
                           </span>
                         )}
                         {m.mejorAlto === null && !m.tendencia && (
                           <span className="font-medium">
-                            {baseTexto || pie || indicio ? " · " : ""}
+                            {baseTexto || pie ? " · " : ""}
                             sin juicio
                           </span>
                         )}
@@ -322,9 +348,7 @@ export function ComparativaPartido({
                       ? diferencia(d, m.formatoDiferencia ?? formato, porcentaje)
                       : d === null
                       ? ""
-                      : sinPuntos
-                        ? "indicio"
-                        : m.igualEn && Math.abs(d) < 0.05
+                      : m.igualEn && Math.abs(d) < 0.05
                         ? m.igualEn
                         : diferencia(d, m.formatoDiferencia ?? formato, porcentaje)}
                   </span>
