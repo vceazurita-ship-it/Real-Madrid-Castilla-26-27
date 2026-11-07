@@ -99,11 +99,11 @@ function parecidos(yo: FilaJugador, otros: FilaJugador[], columnas: string[], cu
 */
 const EJES: Record<Puesto, { x: string; y: string; gx: string[]; gy: string[]; rotulos: { ambos: string; soloX: string; soloY: string; nada: string } } | null> = {
   POR: null,
-  CEN: { x: "Salida de balón", y: "Defensa", gx: ["Progresión", "Circulación"], gy: ["Defensa", "Duelos"], rotulos: { ambos: "Completos", soloX: "Constructores", soloY: "Defensivos", nada: "Sin destacar todavía" } },
-  LAT: { x: "Ataque", y: "Defensa", gx: ["Creación", "Progresión", "Ocupación del área"], gy: ["Defensa", "Duelos"], rotulos: { ambos: "Completos", soloX: "Carrileros", soloY: "Defensivos", nada: "Sin destacar todavía" } },
-  MED: { x: "Construcción", y: "Recuperación", gx: ["Circulación", "Progresión", "Creación"], gy: ["Defensa", "Duelos", "Presión y transición"], rotulos: { ambos: "Box to box", soloX: "Organizadores", soloY: "Destructores", nada: "Sin destacar todavía" } },
-  BAN: { x: "Creación", y: "Gol", gx: ["Creación", "Progresión"], gy: ["Valor gol", "Ocupación del área"], rotulos: { ambos: "Completos", soloX: "Creadores", soloY: "Finalizadores", nada: "Sin destacar todavía" } },
-  DEL: { x: "Gol", y: "Juego asociado", gx: ["Valor gol", "Ocupación del área"], gy: ["Creación", "Circulación", "Duelos"], rotulos: { ambos: "Completos", soloX: "Rematadores", soloY: "Asociativos", nada: "Sin destacar todavía" } },
+  CEN: { x: "Salida de balón", y: "Defensa", gx: ["Progresión", "Circulación"], gy: ["Defensa", "Duelos"], rotulos: { ambos: "Completos", soloX: "Constructores", soloY: "Defensivos", nada: "Por debajo en las dos" } },
+  LAT: { x: "Ataque", y: "Defensa", gx: ["Creación", "Progresión", "Ocupación del área"], gy: ["Defensa", "Duelos"], rotulos: { ambos: "Completos", soloX: "Carrileros", soloY: "Defensivos", nada: "Por debajo en las dos" } },
+  MED: { x: "Construcción", y: "Recuperación", gx: ["Circulación", "Progresión", "Creación"], gy: ["Defensa", "Duelos", "Presión y transición"], rotulos: { ambos: "Box to box", soloX: "Organizadores", soloY: "Destructores", nada: "Por debajo en las dos" } },
+  BAN: { x: "Creación", y: "Gol", gx: ["Creación", "Progresión"], gy: ["Valor gol", "Ocupación del área"], rotulos: { ambos: "Completos", soloX: "Creadores", soloY: "Finalizadores", nada: "Por debajo en las dos" } },
+  DEL: { x: "Gol", y: "Juego asociado", gx: ["Valor gol", "Ocupación del área"], gy: ["Creación", "Circulación", "Duelos"], rotulos: { ambos: "Completos", soloX: "Rematadores", soloY: "Asociativos", nada: "Por debajo en las dos" } },
 };
 
 /** Percentil de cada valor dentro de la lista (0 el peor, 100 el mejor). */
@@ -242,6 +242,13 @@ export function AreaMejora({
     const puestoEnEdad = (p: Percentil) => Math.max(1, Math.round((1 - p.percentil / 100) * (deSuEdad.length - 1)) + 1);
     const ordenados = [...contraEdad]
       .filter((p) => !/penalti/i.test(p.metrica.nombre))
+      /* Una acción que ni la mediana de su edad haría 10 veces en sus minutos es demasiado rara para juzgarla (07/11/2026, jueces). */
+      .filter((p) => {
+        if (p.metrica.unidad === "porcentaje") return true;
+        const vals = deSuEdad.map((j) => j.datos[p.metrica.columna]).filter((v): v is number => typeof v === "number").sort((a, b) => a - b);
+        const med = vals.length ? vals[Math.floor(vals.length / 2)] : 0;
+        return Math.max(med, p.valor) * fila.minutos / 90 >= 10;
+      })
       .filter((p) => p.metrica.unidad !== "porcentaje" || (baseDe(p)?.total ?? 0) >= 15)
       .sort((a, b) => b.percentil - a.percentil);
 
@@ -416,6 +423,45 @@ export function AreaMejora({
             )}
           </div>
 
+          {/* Lo que le distingue y lo que tiene que mejorar: arriba, antes de los gráficos (07/11/2026, jueces: el plan de trabajo llegaba tras dos pantallas). */}
+          <div className="grid gap-3 md:grid-cols-2">
+            {[
+              { t: "Lo que le distingue", icono: Sparkles, color: VERDE, lista: analisis.fuertes, entrenar: false },
+              { t: "Área de mejora", icono: Crosshair, color: ROJO, lista: analisis.mejora, entrenar: true },
+            ].map((b) => (
+              <div key={b.t} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <h4 className="mb-2 flex items-center gap-2 text-sm font-bold" style={{ color: b.color }}>
+                  <b.icono size={15} /> {b.t}
+                </h4>
+                <ul className="space-y-2">
+                  {b.lista.map(({ p, mediana, base, puesto }) => (
+                    <li key={p.metrica.columna} className="text-[13px]" title={p.metrica.comoLeer}>
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className="min-w-0 truncate text-white/85">{p.metrica.nombre}</span>
+                        <span className="shrink-0 tabular-nums font-semibold" style={{ color: b.color }}>p{Math.round(p.percentil)} <span className="text-[11px] font-normal text-white/50">· {puesto}º de {analisis.nEdad}</span></span>
+                      </div>
+                      <p className="text-[12px] text-white/55">
+                        {p.metrica.unidad === "porcentaje"
+                          ? `${coma(p.valor, 1)} %${base?.aciertos !== null && base ? ` (≈ ${base.aciertos} de ${base.total}${base.total < 20 ? ", pocas: tendencia" : ""})` : ""}`
+                          : base && base.total === 0
+                            ? `0 por 90′ (ninguno en ${analisis.fila.minutos}′)`
+                            : `${coma(p.valor, Math.abs(p.valor) >= 10 ? 1 : 2)} por 90′${base ? ` (≈ ${base.total} en ${analisis.fila.minutos}′${base.total < 20 ? ", pocas: tendencia" : ""})` : ""}`}
+                        {mediana !== null ? ` · mediana de su edad: ${p.metrica.unidad === "porcentaje" ? `${coma(mediana, 1)} %` : coma(mediana, Math.abs(mediana) >= 10 ? 1 : 2)}` : ""}
+                      </p>
+                      {b.entrenar && tareaDe(p.metrica.nombre) && (
+                        <p className="mt-1 rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1.5 text-[12px] text-white/75">
+                          <b className="text-white/90">Qué entrenamos:</b> {tareaDe(p.metrica.nombre)!.tarea}.
+                          <span className="mt-1 block text-white/70"><b className="text-white/85">Qué medir en la tarea:</b> {tareaDe(p.metrica.nombre)!.medir}, para ver si se acerca al objetivo de partido.</span>
+                          {mediana !== null && <span className="block text-white/60"><b className="text-white/75">Objetivo de partido:</b> acercarse a {p.metrica.unidad === "porcentaje" ? `${coma(mediana, 1)} %` : `${coma(mediana, Math.abs(mediana) >= 10 ? 1 : 2)} por 90′`}{p.metrica.mejorAlto === false ? " o menos" : ""}, la mediana de los {analisis.nEdad} de su edad (Wyscout).</span>}
+                        </p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+
           {/* Radiografía de percentiles: cada métrica, su valor por 90 y su percentil */}
           {analisis.cunas.length >= 6 && (
             <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-white sm:p-5">
@@ -531,45 +577,6 @@ export function AreaMejora({
                 );
               })}
             </ul>
-          </div>
-
-          {/* Lo que le distingue y lo que tiene que mejorar */}
-          <div className="grid gap-3 md:grid-cols-2">
-            {[
-              { t: "Lo que le distingue", icono: Sparkles, color: VERDE, lista: analisis.fuertes, entrenar: false },
-              { t: "Área de mejora", icono: Crosshair, color: ROJO, lista: analisis.mejora, entrenar: true },
-            ].map((b) => (
-              <div key={b.t} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                <h4 className="mb-2 flex items-center gap-2 text-sm font-bold" style={{ color: b.color }}>
-                  <b.icono size={15} /> {b.t}
-                </h4>
-                <ul className="space-y-2">
-                  {b.lista.map(({ p, mediana, base, puesto }) => (
-                    <li key={p.metrica.columna} className="text-[13px]" title={p.metrica.comoLeer}>
-                      <div className="flex items-baseline justify-between gap-2">
-                        <span className="min-w-0 truncate text-white/85">{p.metrica.nombre}</span>
-                        <span className="shrink-0 tabular-nums font-semibold" style={{ color: b.color }}>p{Math.round(p.percentil)} <span className="text-[11px] font-normal text-white/50">· {puesto}º de {analisis.nEdad}</span></span>
-                      </div>
-                      <p className="text-[12px] text-white/55">
-                        {p.metrica.unidad === "porcentaje"
-                          ? `${coma(p.valor, 1)} %${base?.aciertos !== null && base ? ` (≈ ${base.aciertos} de ${base.total}${base.total < 20 ? ", pocas: tendencia" : ""})` : ""}`
-                          : base && base.total === 0
-                            ? `0 por 90′ (ninguno en ${analisis.fila.minutos}′)`
-                            : `${coma(p.valor, Math.abs(p.valor) >= 10 ? 1 : 2)} por 90′${base ? ` (≈ ${base.total} en ${analisis.fila.minutos}′${base.total < 20 ? ", pocas: tendencia" : ""})` : ""}`}
-                        {mediana !== null ? ` · mediana de su edad: ${p.metrica.unidad === "porcentaje" ? `${coma(mediana, 1)} %` : coma(mediana, Math.abs(mediana) >= 10 ? 1 : 2)}` : ""}
-                      </p>
-                      {b.entrenar && tareaDe(p.metrica.nombre) && (
-                        <p className="mt-1 rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1.5 text-[12px] text-white/75">
-                          <b className="text-white/90">Qué entrenamos:</b> {tareaDe(p.metrica.nombre)!.tarea}.
-                          <span className="mt-1 block text-white/70"><b className="text-white/85">Qué medir en la tarea:</b> {tareaDe(p.metrica.nombre)!.medir}, para ver si se acerca al objetivo de partido.</span>
-                          {mediana !== null && <span className="block text-white/60"><b className="text-white/75">Objetivo de partido:</b> acercarse a {p.metrica.unidad === "porcentaje" ? `${coma(mediana, 1)} %` : `${coma(mediana, Math.abs(mediana) >= 10 ? 1 : 2)} por 90′`}{p.metrica.mejorAlto === false ? " o menos" : ""}, la mediana de los {analisis.nEdad} de su edad (Wyscout).</span>}
-                        </p>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
           </div>
 
           {/* Cara a cara con la élite (07/11/2026): elegir jugadores de Primera y Premier y verlos encima de su radiografía. */}

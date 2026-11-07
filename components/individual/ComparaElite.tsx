@@ -22,7 +22,7 @@ import { useMemo, useState } from "react";
 import { Search, X } from "lucide-react";
 
 import type { FilaJugador } from "@/lib/data-analisis/leer";
-import { puestoDe, type Puesto } from "@/lib/data-analisis/individual";
+import { puestoDe, volumenDelPorcentaje, type Puesto } from "@/lib/data-analisis/individual";
 import { indiceDe, percentilesDe, type Percentil } from "@/lib/comparativa-u21";
 import { RadiografiaPercentiles, type CunaPercentil } from "@/components/data/visual/RadiografiaPercentiles";
 
@@ -32,6 +32,24 @@ const MAX = 3;
 
 const coma = (n: number, d = 1) => n.toFixed(d).replace(".", ",");
 const idDe = (j: FilaJugador) => `${j.jugador}|${j.equipo}`;
+/** «xG» → «Goles esperados (xG)»: la jerga, explicada la primera vez. */
+const nombreMetrica = (n: string) =>
+  n
+    .replace(/ %$/, "")
+    .replace(/^xG$/i, "Goles esperados (xG)")
+    .replace(/^xA$/i, "Asistencias esperadas (xA)")
+    .replace(/\bxG\b(?! \()/g, "goles esperados")
+    .replace(/\bxA\b(?! \()/g, "asistencias esperadas");
+
+/** Cuántas acciones hay detrás de una cifra en sus minutos (por 90′ → total; % → intentos). */
+function accionesDe(j: FilaJugador, p: Percentil) {
+  if (p.metrica.unidad === "porcentaje") {
+    const v = volumenDelPorcentaje(j, p.metrica.columna);
+    return v.cuantas === null ? null : (v.cuantas * j.minutos) / 90;
+  }
+  return (p.valor * j.minutos) / 90;
+}
+
 const valorEscrito = (p: Percentil) => (p.metrica.unidad === "porcentaje" ? `${coma(p.valor, 1)} %` : coma(p.valor, Math.abs(p.valor) >= 10 ? 1 : 2));
 
 /** De cada fase, hasta seis métricas repartidas entre sus grupos (la misma regla de la radiografía de la ficha). */
@@ -118,6 +136,8 @@ export function ComparaElite({
         .filter((p) => !/penalti/i.test(p.metrica.nombre))
         .map((p) => ({ mio: p, suyo: calculo.suyos[0].get(p.metrica.columna) }))
         .filter((d): d is { mio: Percentil; suyo: Percentil } => Boolean(d.suyo))
+        /* Con menos de 15 acciones en los dos, la diferencia es ruido (07/11/2026, jueces). */
+        .filter((d) => Math.max(accionesDe(fila, d.mio) ?? 0, accionesDe(primero, d.suyo) ?? 0) >= 15)
         .map((d) => ({ ...d, brecha: d.suyo.percentil - d.mio.percentil }))
     : [];
   const leSaca = [...diferencias].sort((a, b) => b.brecha - a.brecha).filter((d) => d.brecha >= 15).slice(0, 3);
@@ -147,13 +167,13 @@ export function ComparaElite({
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <span className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-semibold" style={{ borderColor: `${ROSA}66`, color: ROSA }}>
           ● {nombreCorto}
-          {calculo.indice != null && <span className="font-normal text-white/60" title="Nota de perfil: su percentil medio en las métricas del puesto, contra la misma vara">· nota {calculo.indice}</span>}
+          {calculo.indice != null && <span className="font-normal text-white/60" title="Nota de perfil: su percentil medio en las métricas del puesto, contra la misma vara">· nota {calculo.indice} frente a la élite · {fila.minutos}′</span>}
         </span>
         {comparados.map((j, k) => (
           <span key={idDe(j)} className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-2.5 py-1 text-[12px]">
             <span style={{ color: COLORES[k] }}>●</span>
             <span className="font-semibold text-white/90">{j.jugador}</span>
-            <span className="text-white/50">· {j.equipo} · {j.liga === "Premier" ? "Premier" : "Primera"} · {j.edad} años</span>
+            <span className="text-white/50">· {j.equipo} · {j.liga === "Premier" ? "Premier" : "Primera"} · {j.edad} años · {j.minutos}′</span>
             {calculo.indices[k] != null && <span className="text-white/70" title="Nota de perfil contra la misma vara">· nota {calculo.indices[k]}</span>}
             <button type="button" aria-label={`Quitar a ${j.jugador}`} onClick={() => pon(ids.filter((x) => x !== idDe(j)))} className="ml-0.5 rounded-full p-0.5 text-white/50 hover:bg-white/10 hover:text-white">
               <X size={12} />
@@ -203,6 +223,10 @@ export function ComparaElite({
         )}
       </div>
 
+      <p className="mt-2 text-[11px] text-white/50">
+        «Nota»: percentil medio en las métricas de su puesto frente a estos {vara.lista.length} de élite. No coincide con la de arriba, que le compara con los de su categoría y su edad.
+      </p>
+
       {/* En escritorio, la radiografía con los superpuestos */}
       <div className="mt-2 hidden sm:block">
         <RadiografiaPercentiles cunas={calculo.cunas} superpuestos={superpuestos} />
@@ -244,16 +268,16 @@ export function ComparaElite({
                 Dónde le saca <span style={{ color: COLORES[0] }}>{primero.jugador}</span>
               </p>
               <ul className="mt-1.5 space-y-1.5">
-                {leSaca.map(({ mio, suyo, brecha }) => (
+                {leSaca.map(({ mio, suyo }) => (
                   <li key={mio.metrica.columna} className="text-[13px]" title={mio.metrica.comoLeer}>
                     <div className="flex items-baseline justify-between gap-2">
-                      <span className="min-w-0 truncate text-white/85">{mio.metrica.nombre.replace(/ %$/, "")}</span>
-                      <span className="shrink-0 tabular-nums text-[12px] text-white/55">{brecha} puntos</span>
+                      <span className="min-w-0 truncate text-white/85">{nombreMetrica(mio.metrica.nombre)}</span>
+                      <span className="shrink-0 tabular-nums text-[12px] text-white/55">p{Math.round(mio.percentil)} → p{Math.round(suyo.percentil)}</span>
                     </div>
                     <p className="text-[12px] text-white/60">
                       <b style={{ color: ROSA }}>{valorEscrito(mio)}</b> frente a <b style={{ color: COLORES[0] }}>{valorEscrito(suyo)}</b>
                       {mio.metrica.unidad === "porcentaje" ? "" : " por 90′"}
-                      {mio.metrica.mejorAlto === false ? " (menos es mejor)" : ""} · p{Math.round(mio.percentil)} frente a p{Math.round(suyo.percentil)}
+                      {mio.metrica.mejorAlto === false ? " (menos es mejor)" : ""}
                     </p>
                   </li>
                 ))}
@@ -266,11 +290,11 @@ export function ComparaElite({
                 Donde <span style={{ color: ROSA }}>{nombreCorto}</span> ya está por delante
               </p>
               <ul className="mt-1.5 space-y-1.5">
-                {leGana.map(({ mio, suyo, brecha }) => (
+                {leGana.map(({ mio, suyo }) => (
                   <li key={mio.metrica.columna} className="text-[13px]" title={mio.metrica.comoLeer}>
                     <div className="flex items-baseline justify-between gap-2">
-                      <span className="min-w-0 truncate text-white/85">{mio.metrica.nombre.replace(/ %$/, "")}</span>
-                      <span className="shrink-0 tabular-nums text-[12px] text-white/55">+{-brecha} puntos</span>
+                      <span className="min-w-0 truncate text-white/85">{nombreMetrica(mio.metrica.nombre)}</span>
+                      <span className="shrink-0 tabular-nums text-[12px] text-white/55">p{Math.round(mio.percentil)} frente a p{Math.round(suyo.percentil)}</span>
                     </div>
                     <p className="text-[12px] text-white/60">
                       <b style={{ color: ROSA }}>{valorEscrito(mio)}</b> frente a <b style={{ color: COLORES[0] }}>{valorEscrito(suyo)}</b>

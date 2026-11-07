@@ -39,10 +39,16 @@ const espera = (ms) => new Promise((r) => setTimeout(r, ms));
       ruta: "/individual",
       prepara: async () => {
         for (let i = 0; i < 25; i++) { await espera(1500); if (await js(`[...document.querySelectorAll("button")].some((x) => x.querySelector("h3") && x.innerText.includes(${JSON.stringify(JUGADOR)}))`)) break; }
-        await js(`[...document.querySelectorAll("button")].find((x) => x.querySelector("h3") && x.innerText.includes(${JSON.stringify(JUGADOR)})).click()`);
-        await espera(2500);
-        await js(`[...document.querySelectorAll("button")].find((x) => x.innerText.trim().toLowerCase() === "área de mejora").click()`);
-        await espera(12000);
+        /* Con reintentos (07/11/2026): el clic antes de hidratar no abría la ficha y los jueces juzgaban la lista. */
+        for (let k = 0; k < 6; k++) {
+          await js(`[...document.querySelectorAll("button")].find((x) => x.querySelector("h3") && x.innerText.includes(${JSON.stringify(JUGADOR)}))?.click()`);
+          await espera(2500);
+          if (await js(`[...document.querySelectorAll("button")].some((x) => x.innerText.trim().toLowerCase() === "área de mejora")`)) break;
+        }
+        await js(`[...document.querySelectorAll("button")].find((x) => x.innerText.trim().toLowerCase() === "área de mejora")?.click()`);
+        /* Hasta que salga el bloque de la élite (o 40 s). */
+        for (let k = 0; k < 20; k++) { await espera(2000); if (await js(`document.body.innerText.toLowerCase().includes("cara a cara con la élite")`)) break; }
+        await espera(2000);
       },
       texto: `(() => { const t = [...document.querySelectorAll("[role=dialog], .modal-veil, [aria-modal=true]")].pop(); return (t || document.body).innerText; })()`,
     },
