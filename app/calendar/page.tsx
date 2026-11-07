@@ -187,15 +187,25 @@ export default function Calendar() {
 
   const castillaTotal = useMemo(() => players.filter((p) => p.esCastilla).length, [players]);
 
-  /* La leyenda sólo con los tipos que hay en el mes. */
-  const legend = useMemo<CalendarLegendItem[]>(
-    () =>
-      TIPOS.filter((tipo) => monthStats.porTipo[tipo] > 0).map((tipo) => ({
-        label: STRATEGY_STYLES[tipo].label,
-        color: STRATEGY_STYLES[tipo].dot,
-      })),
-    [monthStats],
-  );
+  /* 07/11/2026: la temporada con su población dicha: los del Castilla y,
+     aparte, los de fuera (la hoja también apunta a jugadores de otros equipos). */
+  const temporadaCastilla = useMemo(() => {
+    const nuestros = new Set(players.filter((p) => p.esCastilla).map((p) => p.id));
+
+    return trackingData.filter((s) => nuestros.has(s.ID_JUGADOR)).length;
+  }, [trackingData, players]);
+
+  /* 07/11/2026: la leyenda con los tipos que hay en TODA la hoja (con el
+     filtro de jugador), no sólo en el mes: la rejilla enseña también días
+     del mes de al lado y una «Charla» del 29/10 se quedaba sin leyenda. */
+  const legend = useMemo<CalendarLegendItem[]>(() => {
+    const hay = new Set(visibleData.map((s) => strategyKey(s.ESTRATEGIA)));
+
+    return TIPOS.filter((tipo) => hay.has(tipo)).map((tipo) => ({
+      label: STRATEGY_STYLES[tipo].label,
+      color: STRATEGY_STYLES[tipo].dot,
+    }));
+  }, [visibleData]);
 
   /* Jugadores de campo del Castilla sin ningún seguimiento en los últimos 14
      días: lo que se pregunta el lunes. Sale de la misma hoja, sin filtro de
@@ -207,9 +217,32 @@ export default function Calendar() {
   const sinSeguimiento = useMemo(() => {
     if (loading || error || crudoTrackingData.length === 0) return [];
 
-    return sinSeguimientoReciente(trackingData, players, hoy, (fecha) => recordDateKey(fecha)).map(
-      (p) => ({ id: p.id, nombre: nombreVisible(p.nombre) }),
-    );
+    /* 07/11/2026: con los días desde su último seguimiento, de más a menos;
+       quien no tiene ninguno va primero. */
+    const ultimo = new Map<string, string>();
+
+    trackingData.forEach((s) => {
+      const clave = recordDateKey(s.FECHA);
+
+      if (!clave) return;
+
+      const previa = ultimo.get(s.ID_JUGADOR);
+
+      if (!previa || clave > previa) ultimo.set(s.ID_JUGADOR, clave);
+    });
+
+    const hoyMedianoche = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+
+    return sinSeguimientoReciente(trackingData, players, hoy, (fecha) => recordDateKey(fecha))
+      .map((p) => {
+        const clave = ultimo.get(p.id);
+        const dias = clave
+          ? Math.round((hoyMedianoche.getTime() - parseDateKey(clave).getTime()) / 86_400_000)
+          : null;
+
+        return { id: p.id, nombre: nombreVisible(p.nombre), dias };
+      })
+      .sort((a, b) => (b.dias ?? Infinity) - (a.dias ?? Infinity));
   }, [players, trackingData, crudoTrackingData, loading, error, hoy]);
 
   const selectedDate = selectedKey ? parseDateKey(selectedKey) : null;
@@ -270,6 +303,9 @@ export default function Calendar() {
                 >
                   {j.nombre}
                 </button>
+                <span className="text-white/55">
+                  {j.dias == null ? " (ningún registro)" : ` (${j.dias} días)`}
+                </span>
                 {i < sinSeguimiento.length - 1 ? ", " : "."}
               </span>
             ))}
@@ -287,7 +323,13 @@ export default function Calendar() {
                 : ""
             }`}
             value={monthStats.total}
-            hint={playerFilter ? undefined : `${trackingData.length} en toda la temporada`}
+            hint={
+              playerFilter
+                ? undefined
+                : temporadaCastilla < trackingData.length
+                  ? `Temporada: ${temporadaCastilla} de jugadores del Castilla (${trackingData.length} contando los de otros equipos)`
+                  : `${trackingData.length} en toda la temporada`
+            }
           />
           <CalendarStat
             label="Jugadores con seguimiento"
@@ -356,17 +398,49 @@ export default function Calendar() {
           </select>
         </div>
       }
-      renderDay={({ key }) => {
+      renderDay={({ key, isToday }) => {
         const daySessions = sessionsByDay.get(key) ?? [];
         const hasSessions = daySessions.length > 0;
 
-        if (!hasSessions) return {};
+        /* 07/11/2026: en el día de hoy, a quién toca seguir (los mismos de
+           la franja de arriba), como sugerencia; cada nombre abre su ficha. */
+        const tocaHoy =
+          isToday && !playerFilter && sinSeguimiento.length > 0 ? (
+            <div className="rounded-md border border-dashed border-[#C8A96B]/40 px-1.5 py-1">
+              <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[#C8A96B] md:text-[10px]">
+                Toca seguir
+              </p>
+              {sinSeguimiento.slice(0, 3).map((j) => (
+                <button
+                  key={j.id}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openPlayer(j.id);
+                  }}
+                  className="block w-full truncate text-left text-[9px] text-white/75 hover:text-[#C8A96B] md:text-[11px]"
+                >
+                  {j.nombre}
+                </button>
+              ))}
+              {sinSeguimiento.length > 3 && (
+                <p className="text-[9px] text-white/55 md:text-[10px]">y {sinSeguimiento.length - 3} más</p>
+              )}
+            </div>
+          ) : null;
+
+        if (!hasSessions) {
+          return tocaHoy ? { hasContent: true, crece: true, children: tocaHoy } : {};
+        }
 
         const visible = daySessions.slice(0, MAX_VISIBLE_PER_DAY);
         const hidden = daySessions.length - visible.length;
 
         return {
           hasContent: true,
+          /* 07/11/2026: la celda crece con sus tres tarjetas y el «+N más»;
+             antes los recortaba y el 4/11 decía 6 y enseñaba 2. */
+          crece: true,
           onClick: () => setSelectedKey(key),
           badges: (
             <span className="rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-2 py-0.5 text-[10px] font-semibold text-[#C8A96B]">
@@ -400,20 +474,25 @@ export default function Calendar() {
                       style.stripe
                     )}
                   >
-                    <p className="truncate text-[9px] font-semibold md:text-[11px]">
+                    {/* 07/11/2026: el tipo lo dice la franja de color (y la
+                        leyenda); en texto sólo en el globo, para no repetirlo. */}
+                    <p
+                      className="truncate text-[9px] font-semibold md:text-[11px]"
+                      title={`${style.label}${session.QUIEN ? ` · ${session.QUIEN}` : ""}`}
+                    >
                       {nombreVisible(jugador?.nombre ?? session.NOMBRE ?? session.ID_JUGADOR)}
                     </p>
 
-                    <p className="text-[8px] text-white/60 md:text-[9px]">
-                      {session.ESTRATEGIA}
-                    </p>
-
-                    <p className="truncate text-[8px] text-white/40 md:text-[10px]">
-                      {session.QUIEN}
-                    </p>
+                    {session.QUIEN?.trim() && (
+                      <p className="truncate text-[8px] text-white/55 md:text-[10px]">
+                        {session.QUIEN}
+                      </p>
+                    )}
                   </div>
                 );
               })}
+
+              {tocaHoy}
 
               {hidden > 0 && (
                 <button
@@ -435,9 +514,10 @@ export default function Calendar() {
       {!loading && !error && trackingData.length > 0 && (
         <div className="px-4 pb-4 md:px-8">
           <p className="text-xs leading-relaxed text-white/55">
-            La franja de color de cada tarjeta dice el tipo (campo, vídeo,
-            charla o vídeo y charla); debajo, quién lo hizo. Si un día tiene
-            más de {MAX_VISIBLE_PER_DAY}, «+N más» abre el día completo.
+            La franja de color de cada tarjeta dice el tipo (ver la leyenda bajo
+            el calendario; al pasar por encima, en texto); debajo del nombre,
+            quién lo hizo. Si un día tiene más de {MAX_VISIBLE_PER_DAY}, «+N
+            más» abre el día completo. Hoy lleva a quién toca seguir.
           </p>
         </div>
       )}

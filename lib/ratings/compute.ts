@@ -121,7 +121,9 @@ export function summarize(
   return {
     playerId,
     played: rated.length,
-    starts: entries.filter((item) => item.entry.starter).length,
+    /* Sobre las mismas entradas que `played` (las que llevan nota): si no,
+       salía «2 PJ · 3 TIT» con un partido de titular sin valorar (07/11/2026). */
+    starts: rated.filter((item) => item.entry.starter).length,
     minutes: minutesTotal,
     avg: mean(notes),
     weighted,

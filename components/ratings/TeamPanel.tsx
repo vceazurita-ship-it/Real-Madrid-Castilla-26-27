@@ -12,8 +12,11 @@ import {
   CartesianGrid,
   Cell,
   ComposedChart,
+  LabelList,
   Line,
   ReferenceLine,
+  Scatter,
+  ScatterChart,
   Tooltip,
   XAxis,
   YAxis,
@@ -58,7 +61,6 @@ import {
   CURSOR_LINEA,
   ChartTooltip,
   GRID_STROKE,
-  TickNombre,
 } from "./charts";
 import {
   EmptyState,
@@ -153,6 +155,8 @@ export function TeamPanel({
 }) {
   const [sortKey, setSortKey] = useState<SortKey>("avg");
   const [minMatches, setMinMatches] = useState(1);
+  const [todasCols, setTodasCols] = useState(false);
+  const colSec = todasCols ? "" : "max-sm:hidden";
 
   const eligible = useMemo(
     () => ranked.filter((entry) => entry.summary.played >= minMatches),
@@ -256,17 +260,46 @@ export function TeamPanel({
     [matchSummaries]
   );
 
-  const topChart = useMemo(
-    () =>
-      /* 29/10/2026: diez en vez de ocho, para que la tarjeta llene el alto
-         de la columna del podio y no quede un hueco en blanco. */
-      bestSorted.slice(0, 10).map((entry) => ({
-        name: entry.player.nombre,
+  /* 07/11/2026: nota frente a minutos de todos los que tienen 4+ partidos.
+     Se rotulan sólo los tres primeros, el último y el de más minutos, para
+     que los nombres no se pisen. */
+  const topChart = useMemo(() => {
+    const masMinutos = [...elegiblesTop].sort(
+      (a, b) => b.summary.minutes - a.summary.minutes
+    )[0];
+
+    return elegiblesTop.map((entry, index) => {
+      const nombre = nombreVisible(entry.player.nombre);
+      const rotular =
+        index < 3 ||
+        index === elegiblesTop.length - 1 ||
+        entry === masMinutos;
+
+      return {
+        name: nombre,
+        rotulo: rotular ? nombre.split(" ").slice(-1)[0] : "",
         value: entry.summary.avg,
+        minutes: entry.summary.minutes,
         played: entry.summary.played,
-      })),
-    [bestSorted]
-  );
+      };
+    });
+  }, [elegiblesTop]);
+
+  const dominioNota = useMemo((): [number, number] => {
+    const valores = topChart.map((p) => p.value);
+    const lo = Math.min(4, ...valores.map((v) => Math.floor(v)));
+    const hi = Math.max(9, ...valores.map((v) => Math.ceil(v)));
+
+    return [lo, hi];
+  }, [topChart]);
+
+  const ticksNota = useMemo(() => {
+    const out: number[] = [];
+
+    for (let v = dominioNota[0]; v <= dominioNota[1]; v += 1) out.push(v);
+
+    return out;
+  }, [dominioNota]);
 
   const byLine = useMemo(() => {
     return LINE_GROUPS.map((group) => {
@@ -288,6 +321,22 @@ export function TeamPanel({
       return { name: group.label, value, players: members.length, notas };
     }).filter((item) => item.players > 0);
   }, [ranked]);
+
+  const dominioLineas = useMemo((): [number, number] => {
+    const valores = byLine.map((l) => l.value);
+    const lo = Math.min(4, ...valores.map((v) => Math.floor(v)));
+    const hi = Math.max(9, ...valores.map((v) => Math.ceil(v)));
+
+    return [lo, hi];
+  }, [byLine]);
+
+  const ticksLineas = useMemo(() => {
+    const out: number[] = [];
+
+    for (let v = dominioLineas[0]; v <= dominioLineas[1]; v += 1) out.push(v);
+
+    return out;
+  }, [dominioLineas]);
 
   if (ranked.length === 0) {
     return (
@@ -317,10 +366,10 @@ export function TeamPanel({
 
         <StatCard
           label="Mejor media"
-          value={best ? best.player.nombre : "—"}
+          value={best ? nombreVisible(best.player.nombre) : ""}
           hint={
             best
-              ? `${formatRating(best.summary.avg)} en ${plural(best.summary.played, "partido", "partidos")}`
+              ? `${formatRating(best.summary.avg)} en ${plural(best.summary.played, "partido", "partidos")} · nota del cuerpo técnico, no el índice Wyscout (está en Comparativa categoría)`
               : undefined
           }
           accent="var(--rmcf-gold-ink)"
@@ -330,12 +379,12 @@ export function TeamPanel({
           label="Mayor progresión"
           value={
             mostImproved
-              ? mostImproved.player.nombre
-              : "—"
+              ? nombreVisible(mostImproved.player.nombre)
+              : ""
           }
           hint={
             mostImproved
-              ? `${formatSigned(mostImproved.summary.trend)} en las últimas 3 · ${mostImproved.summary.played} PJ · entre quienes tienen ${MIN_FIABLE}+ PJ`
+              ? `${formatSigned(mostImproved.summary.trend)}: sus 3 últimas notas frente a las 3 anteriores · ${mostImproved.summary.played} PJ · entre quienes tienen ${MIN_FIABLE}+ PJ`
               : undefined
           }
           accent="var(--rmcf-rate-good)"
@@ -344,7 +393,7 @@ export function TeamPanel({
         {decisivoClaro && topScorer && (
           <StatCard
             label="Más decisivo"
-            value={topScorer.player.nombre}
+            value={nombreVisible(topScorer.player.nombre)}
             hint={`${plural(topScorer.summary.goals, "gol", "goles")} · ${plural(topScorer.summary.assists, "asistencia", "asistencias")}`}
             accent="var(--rmcf-rate-top)"
           />
@@ -473,12 +522,8 @@ export function TeamPanel({
 
       <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
         <Panel
-          title="Top valoraciones"
-          subtitle={
-            elegiblesTop.length > topChart.length
-              ? `Los ${topChart.length} mejores de ${elegiblesTop.length} con ${MIN_FIABLE}+ partidos`
-              : `Los ${topChart.length} jugadores con ${MIN_FIABLE}+ partidos`
-          }
+          title="Nota y minutos"
+          subtitle={`Los ${topChart.length} jugadores con ${MIN_FIABLE}+ partidos · cada punto, un jugador · arriba, mejor nota; a la derecha, más minutos`}
           lectura={<LecturaGrafico nota={lecturaTop(elegiblesTop)} />}
           icon={Trophy}
           bodyClassName="p-3 sm:p-4"
@@ -486,30 +531,37 @@ export function TeamPanel({
           {topChart.length === 0 ? (
             <EmptyState title="Sin datos suficientes" />
           ) : (
-            <div
-              className="w-full min-w-0"
-              style={{ height: Math.max(240, topChart.length * 42 + 56) }}
-            >
+            <div className="h-[300px] w-full min-w-0 sm:h-[340px]">
               <ResponsiveConVistas
                 width="100%"
                 height="100%"
                 minHeight={160}
                 initialDimension={{ width: 320, height: 190 }}
               >
-                <BarChart
-                  data={topChart}
-                  layout="vertical"
-                  margin={{ top: 22, right: 34, bottom: 0, left: 8 }}
-                  barCategoryGap={10}
-                >
-                  <CartesianGrid stroke={GRID_STROKE} horizontal={false} />
+                {/* 07/11/2026: antes era un ranking en barras que repetía
+                    la tabla de abajo; ahora cruza la nota con los minutos,
+                    que la tabla no deja ver de un vistazo. */}
+                <ScatterChart margin={{ top: 18, right: 18, bottom: 4, left: -14 }}>
+                  <CartesianGrid stroke={GRID_STROKE} />
 
-                  {/* 29/10/2026: eje 0-10 a la vista, para leer cada barra
-                      contra la escala y contra la media del equipo. */}
                   <XAxis
                     type="number"
-                    domain={[0, 10]}
-                    ticks={[0, 2, 4, 6, 8, 10]}
+                    dataKey="minutes"
+                    name="Minutos"
+                    domain={[0, "dataMax"]}
+                    stroke={AXIS.stroke}
+                    tick={AXIS.tick}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(v: number) => `${v}′`}
+                  />
+
+                  <YAxis
+                    type="number"
+                    dataKey="value"
+                    name="Media"
+                    domain={dominioNota}
+                    ticks={ticksNota}
                     stroke={AXIS.stroke}
                     tick={AXIS.tick}
                     tickLine={false}
@@ -518,31 +570,21 @@ export function TeamPanel({
 
                   {teamAverage > 0 && (
                     <ReferenceLine
-                      x={teamAverage}
+                      y={teamAverage}
                       stroke="rgb(var(--rmcf-ink-rgb) / 0.45)"
                       style={{ stroke: "rgb(var(--rmcf-ink-rgb) / 0.45)" }}
                       strokeDasharray="4 4"
                       label={{
                         value: `media del equipo ${formatRating(teamAverage)}`,
-                        position: "top",
+                        position: "insideTopRight",
                         fontSize: 11,
                         fill: "rgb(var(--rmcf-ink-rgb) / 0.7)",
                       }}
                     />
                   )}
 
-                  <YAxis
-                    type="category"
-                    dataKey="name"
-                    width={104}
-                    stroke={AXIS.stroke}
-                    tick={<TickNombre />}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-
                   <Tooltip
-                    cursor={CURSOR_BARRA}
+                    cursor={CURSOR_LINEA}
                     content={({ active, payload }) => {
                       if (!active || !payload?.length) return null;
 
@@ -558,18 +600,51 @@ export function TeamPanel({
                               color: ratingColor(point.value),
                             },
                             { label: "Partidos", value: point.played },
+                            { label: "Minutos", value: `${point.minutes}′` },
                           ]}
                         />
                       );
                     }}
                   />
 
-                  <Bar dataKey="value" isAnimationActive={false} radius={[0, 8, 8, 0]} barSize={18}>
-                    {topChart.map((point) => (
-                      <Cell key={point.name} fill={ratingColorHex(point.value)} style={{ fill: ratingColor(point.value) }} />
-                    ))}
-                  </Bar>
-                </BarChart>
+                  <Scatter
+                    data={topChart}
+                    isAnimationActive={false}
+                    shape={(props: unknown) => {
+                      const { cx, cy, payload } = props as {
+                        cx?: number;
+                        cy?: number;
+                        payload?: (typeof topChart)[number];
+                      };
+
+                      if (cx == null || cy == null || !payload) return <g />;
+
+                      return (
+                        <g>
+                          <circle
+                            cx={cx}
+                            cy={cy}
+                            r={6}
+                            fill={ratingColorHex(payload.value)}
+                            style={{ fill: ratingColor(payload.value) }}
+                            stroke="rgb(var(--rmcf-ink-rgb) / 0.35)"
+                          />
+                          {payload.rotulo && (
+                            <text
+                              x={cx}
+                              y={cy - 10}
+                              textAnchor="middle"
+                              fontSize={11}
+                              style={{ fill: "rgb(var(--rmcf-ink-rgb) / 0.8)" }}
+                            >
+                              {payload.rotulo}
+                            </text>
+                          )}
+                        </g>
+                      );
+                    }}
+                  />
+                </ScatterChart>
               </ResponsiveConVistas>
             </div>
           )}
@@ -589,7 +664,7 @@ export function TeamPanel({
             {byLine.length === 0 ? (
               <EmptyState title="Sin datos" />
             ) : (
-              <div className="h-[220px] w-full min-w-0">
+              <div className="h-[250px] w-full min-w-0">
                 <ResponsiveConVistas
                 width="100%"
                 height="100%"
@@ -598,7 +673,7 @@ export function TeamPanel({
               >
                   <BarChart
                     data={byLine}
-                    margin={{ top: 18, right: 6, bottom: 0, left: -22 }}
+                    margin={{ top: 30, right: 6, bottom: 0, left: -22 }}
                   >
                     <CartesianGrid stroke={GRID_STROKE} vertical={false} />
 
@@ -610,27 +685,37 @@ export function TeamPanel({
                       tickLine={false}
                       axisLine={false}
                       interval={0}
-                      height={38}
+                      height={52}
                       tick={(props: { x?: number | string; y?: number | string; payload?: { value?: string } }) => {
                         const nombre = String(props.payload?.value ?? "");
                         const linea = byLine.find((x) => x.name === nombre);
 
+                        /* 07/11/2026: la base en dos renglones; en una sola
+                           línea se pisaba con la de al lado en el móvil. */
                         return (
                           <text x={props.x} y={props.y} textAnchor="middle" style={{ fill: "rgb(var(--rmcf-ink-rgb) / 0.7)" }}>
                             <tspan x={props.x} dy={12} fontSize={11}>{nombre}</tspan>
                             {linea && (
-                              <tspan x={props.x} dy={14} fontSize={10} style={{ fill: "rgb(var(--rmcf-ink-rgb) / 0.5)" }}>
-                                {linea.players} jug. · {linea.notas} notas
-                              </tspan>
+                              <>
+                                <tspan x={props.x} dy={13} fontSize={10} style={{ fill: "rgb(var(--rmcf-ink-rgb) / 0.55)" }}>
+                                  {linea.players} jug.
+                                </tspan>
+                                <tspan x={props.x} dy={12} fontSize={10} style={{ fill: "rgb(var(--rmcf-ink-rgb) / 0.55)" }}>
+                                  {linea.notas} notas
+                                </tspan>
+                              </>
                             )}
                           </text>
                         );
                       }}
                     />
 
+                    {/* 07/11/2026: de 4 a 9, como la evolución del equipo:
+                        desde 0 las diferencias de casi un punto no se veían. */}
                     <YAxis
-                      domain={[0, 10]}
-                      ticks={[0, 5, 10]}
+                      domain={dominioLineas}
+                      ticks={ticksLineas}
+                      allowDataOverflow
                       stroke={AXIS.stroke}
                       tick={AXIS.tick}
                       tickLine={false}
@@ -674,6 +759,39 @@ export function TeamPanel({
                         /* 29/10/2026: la línea con menos de 3 jugadores con nota (tendencia) va atenuada, como el ranking. */
                         <Cell key={point.name} fill={ratingColorHex(point.value)} fillOpacity={point.players < 3 ? 0.5 : 1} style={{ fill: ratingColor(point.value) }} />
                       ))}
+
+                      {/* La cifra encima de cada barra y, si es muestra
+                          corta, «tendencia» sobre ella. */}
+                      <LabelList
+                        dataKey="value"
+                        content={(props: unknown) => {
+                          const { x, y, width, index } = props as {
+                            x?: number | string;
+                            y?: number | string;
+                            width?: number | string;
+                            index?: number;
+                          };
+                          const punto = index != null ? byLine[index] : undefined;
+
+                          if (!punto || x == null || y == null) return null;
+
+                          const cx = Number(x) + Number(width ?? 0) / 2;
+                          const cy = Number(y);
+
+                          return (
+                            <g>
+                              <text x={cx} y={cy - 5} textAnchor="middle" fontSize={12} fontWeight={700} style={{ fill: "rgb(var(--rmcf-ink-rgb) / 0.9)" }}>
+                                {formatRating(punto.value)}
+                              </text>
+                              {punto.players < 3 && (
+                                <text x={cx} y={cy - 19} textAnchor="middle" fontSize={10} style={{ fill: "rgb(var(--rmcf-ink-rgb) / 0.55)" }}>
+                                  tendencia
+                                </text>
+                              )}
+                            </g>
+                          );
+                        }}
+                      />
                     </Bar>
                   </BarChart>
                 </ResponsiveConVistas>
@@ -740,7 +858,7 @@ export function TeamPanel({
 
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-white">
-                      {entry.player.nombre}
+                      {nombreVisible(entry.player.nombre)}
                     </p>
 
                     <p className="truncate text-[10px] uppercase tracking-[0.16em] text-white/30">
@@ -761,7 +879,7 @@ export function TeamPanel({
 
       <Panel
         title="Ranking de la plantilla"
-        subtitle={`Media del equipo ${formatRating(teamAverage)} · con menos de ${MIN_FIABLE} partidos, tendencia · pulsa un jugador para ver su ficha`}
+        subtitle={`Media del equipo ${formatRating(teamAverage)} · con menos de ${MIN_FIABLE} partidos, tendencia (fila atenuada) · Pond. = media por minutos · Forma = últimos 5 · Tend. = 3 últimas frente a las 3 anteriores · pulsa un jugador para ver su ficha`}
         icon={ArrowDownWideNarrow}
         bodyClassName="p-0"
         action={
@@ -781,25 +899,35 @@ export function TeamPanel({
               value={sortKey}
               onChange={setSortKey}
             />
+
+            {/* 07/11/2026: en el móvil, sólo lo esencial (PJ, Min, Media,
+                Tend., G+A); el resto, a un toque. */}
+            <button
+              type="button"
+              onClick={() => setTodasCols((v) => !v)}
+              className="rounded-lg border border-white/10 px-2.5 py-1 text-[11px] text-white/65 transition hover:bg-white/[0.05] sm:hidden"
+            >
+              {todasCols ? "Menos columnas" : "Ver más columnas"}
+            </button>
           </div>
         }
       >
         <div className="min-w-0 overflow-x-auto">
-          <table className="w-full min-w-[840px] border-collapse text-sm">
+          <table className={`w-full border-collapse text-sm ${todasCols ? "min-w-[840px]" : "sm:min-w-[840px]"}`}>
             <thead>
               <tr className="border-b border-white/10 text-[10px] uppercase tracking-[0.16em] text-white/35">
                 <th className="hidden px-4 py-3 text-left font-medium sm:table-cell">#</th>
                 <th className="sticky left-0 z-[1] bg-[#11161D] px-2 py-3 text-left font-medium max-sm:pl-4">Jugador</th>
-                <th className="px-2 py-3 text-center font-medium">PJ</th>
-                <th className="px-2 py-3 text-center font-medium">Tit.</th>
+                <th className="px-2 py-3 text-center font-medium" title="Partidos con nota">PJ</th>
+                <th className={`px-2 py-3 text-center font-medium ${colSec}`} title="Titularidades en esos partidos con nota">Tit.</th>
                 <th className="px-2 py-3 text-center font-medium">Min</th>
                 <th className="px-2 py-3 text-left font-medium">Media</th>
-                <th className="px-2 py-3 text-center font-medium">Pond.</th>
-                <th className="px-2 py-3 text-center font-medium">Forma</th>
-                <th className="px-2 py-3 text-center font-medium">Tend.</th>
-                <th className="px-2 py-3 text-center font-medium">Máx</th>
-                <th className="px-2 py-3 text-center font-medium">Mín</th>
-                <th className="px-4 py-3 text-center font-medium">G+A</th>
+                <th className={`px-2 py-3 text-center font-medium ${colSec}`} title="Media ponderada por minutos">Pond.</th>
+                <th className={`px-2 py-3 text-center font-medium ${colSec}`} title="Media de los últimos 5 partidos">Forma</th>
+                <th className="px-2 py-3 text-center font-medium" title="Sus 3 últimas notas frente a las 3 anteriores">Tend.</th>
+                <th className={`px-2 py-3 text-center font-medium ${colSec}`} title="Su mejor nota en sus PJ">Máx</th>
+                <th className={`px-2 py-3 text-center font-medium ${colSec}`} title="Su peor nota en sus PJ">Mín</th>
+                <th className="px-4 py-3 text-center font-medium" title="Goles + asistencias">G+A</th>
               </tr>
             </thead>
 
@@ -808,7 +936,15 @@ export function TeamPanel({
                 <tr
                   key={entry.player.id}
                   onClick={() => onSelectPlayer(entry.player.id)}
-                  className="cursor-pointer border-b border-white/5 transition hover:bg-white/[0.03]"
+                  title={
+                    entry.summary.played < MIN_FIABLE
+                      ? `Tendencia: ${entry.summary.played} PJ con nota`
+                      : undefined
+                  }
+                  className={`cursor-pointer border-b border-white/5 transition hover:bg-white/[0.03] ${
+                    /* 07/11/2026: la tendencia atenúa TODAS sus cifras, no sólo la barra. */
+                    entry.summary.played < MIN_FIABLE ? "[&>td:nth-child(n+4)]:opacity-55" : ""
+                  }`}
                 >
                   <td className="hidden px-4 py-2.5 text-[11px] tabular-nums text-white/30 sm:table-cell">
                     {index + 1}
@@ -843,7 +979,7 @@ export function TeamPanel({
                     {entry.summary.played}
                   </td>
 
-                  <td className="px-2 py-2.5 text-center tabular-nums text-white/45">
+                  <td className={`${colSec} px-2 py-2.5 text-center tabular-nums text-white/45`}>
                     {entry.summary.starts}
                   </td>
 
@@ -854,7 +990,7 @@ export function TeamPanel({
                   <td className="px-2 py-2.5">
                     <div className="flex min-w-[132px] items-center gap-2">
                       {/* Con pocos partidos la media es tendencia: se atenúa y lleva sus PJ al lado. */}
-                      <div className={`flex min-w-0 flex-1 items-center gap-2 ${entry.summary.played < MIN_FIABLE ? "opacity-50" : ""}`}>
+                      <div className="flex min-w-0 flex-1 items-center gap-2">
                         <RatingBadge value={entry.summary.avg} size="sm" />
                         <RatingBar value={entry.summary.avg} />
                       </div>
@@ -864,11 +1000,11 @@ export function TeamPanel({
                     </div>
                   </td>
 
-                  <td className="px-2 py-2.5 text-center tabular-nums text-white/60">
+                  <td className={`${colSec} px-2 py-2.5 text-center tabular-nums text-white/60`}>
                     {formatRating(entry.summary.weighted)}
                   </td>
 
-                  <td className="px-2 py-2.5 text-center tabular-nums text-white/60">
+                  <td className={`${colSec} px-2 py-2.5 text-center tabular-nums text-white/60`}>
                     {formatRating(entry.summary.form)}
                   </td>
 
@@ -876,11 +1012,11 @@ export function TeamPanel({
                     <TrendPill value={entry.summary.trend} />
                   </td>
 
-                  <td className="px-2 py-2.5 text-center tabular-nums text-emerald-300/80">
+                  <td className={`${colSec} px-2 py-2.5 text-center tabular-nums text-emerald-300/80`}>
                     {formatRating(entry.summary.best?.entry.rating ?? 0)}
                   </td>
 
-                  <td className="px-2 py-2.5 text-center tabular-nums text-rose-300/70">
+                  <td className={`${colSec} px-2 py-2.5 text-center tabular-nums text-rose-300/70`}>
                     {formatRating(entry.summary.worst?.entry.rating ?? 0)}
                   </td>
 
@@ -961,9 +1097,9 @@ function lecturaTop(elegibles: RankedPlayer[]): string | null {
   const abajo = elegibles[elegibles.length - 1];
 
   return (
-    `Arriba «${arriba.player.nombre}» con ${formatRating(arriba.summary.avg)} de nota; ` +
-    `el último de los ${elegibles.length} con ${MIN_FIABLE}+ partidos, «${abajo.player.nombre}», ` +
-    `con ${formatRating(abajo.summary.avg)} (${formatRating(arriba.summary.avg - abajo.summary.avg)} menos).`
+    `Arriba «${nombreVisible(arriba.player.nombre)}» con ${formatRating(arriba.summary.avg)} de nota en ${arriba.summary.minutes}′; ` +
+    `el último de los ${elegibles.length} con ${MIN_FIABLE}+ partidos, «${nombreVisible(abajo.player.nombre)}», ` +
+    `con ${formatRating(abajo.summary.avg)} en ${abajo.summary.minutes}′ (${formatRating(arriba.summary.avg - abajo.summary.avg)} menos).`
   );
 }
 
@@ -985,17 +1121,12 @@ function lecturaLineas(
     return `Las líneas van a la par (de ${formatRating(abajo.value)} a ${formatRating(arriba.value)}): ninguna tira del equipo hacia abajo.`;
   }
 
-  const queMirar: Record<string, string> = {
-    Ataque: "revisar ocasiones y último pase",
-    Medios: "revisar pérdidas y apoyos",
-    Defensas: "revisar duelos y vigilancias",
-    Porteros: "revisar juego con el pie y salidas",
-  };
-
+  /* 07/11/2026: fuera el «revisar ocasiones y último pase»: no salía de
+     ningún dato. La lectura dice sólo lo que mide la nota. */
   return (
-    `«${abajo.name}» es la línea a mejorar: ${formatRating(abajo.value)} de nota, ` +
-    `${formatRating(salto)} por debajo de «${arriba.name}»` +
-    (queMirar[abajo.name] ? `; ${queMirar[abajo.name]}.` : ".")
+    `«${abajo.name}», ${formatRating(abajo.value)} de nota: la línea más baja, ` +
+    `${formatRating(salto)} por debajo de «${arriba.name}» ` +
+    `(media de sus ${abajo.players} jugadores, ${abajo.notas} notas).`
   );
 }
 

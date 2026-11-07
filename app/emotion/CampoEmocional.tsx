@@ -31,7 +31,7 @@ import { chipInk } from "@/lib/theme";
 import { nombreVisible } from "@/lib/nombreJugador";
 import type { Player as Ficha } from "@/types/player";
 
-import { AXES, SCALE, SERIES_COLORS, average, bandFor, nombreLargo, type GroupKey, type MetricKey, type Player } from "./modelo";
+import { AXES, SCALE, SERIES_COLORS, TAREA_POR_EJE, average, bandFor, nombreLargo, type GroupKey, type MetricKey, type Player } from "./modelo";
 import { mejorCasado, onceDeLaPizarra, type OnceDeLaPizarra } from "@/lib/tactics/onceDeLaPizarra";
 
 /* ------------------------------------------------------------------ */
@@ -437,7 +437,7 @@ export function CampoEmocional({
             <Campo titulares={titulares} cargando={cargando} elegido={elegido} onElegir={elige} />
           )}
 
-          <Leyenda radares={vista === "radares"} />
+          <Leyenda radares={vista === "radares"} plantilla={rows.length} />
 
           {banquillo.length > 0 && (
             <Banquillo suplentes={banquillo} elegido={elegido} onElegir={elige} />
@@ -787,9 +787,14 @@ function RadarLinea({
           )}
         </div>
 
+        {/* 07/11/2026: con menos de 3 evaluados no se pone nivel (ÉLITE,
+            ALTA…): es tendencia, y se dice así. */}
         {banda && (
-          <p className="mt-0.5 text-[9px] font-semibold uppercase tracking-[.18em]" style={{ color: `${tono}CC` }}>
-            {banda.label}
+          <p
+            className="mt-0.5 text-[10px] font-semibold uppercase tracking-[.18em]"
+            style={{ color: evaluados.length < 3 ? "rgba(226,246,255,.6)" : `${tono}CC` }}
+          >
+            {evaluados.length < 3 ? `tendencia · ${evaluados.length} ${evaluados.length === 1 ? "jugador" : "jugadores"}` : `${banda.label} · ${evaluados.length} jugadores`}
           </p>
         )}
 
@@ -802,7 +807,7 @@ function RadarLinea({
 
       {/* 01/11/2026: lienzo más ancho y los ejes de los lados en dos renglones
           (nombre y cifra): «Controlar 8,3» y «Ejecutar 9,0» se cortaban por el borde. */}
-      <svg viewBox="-80 -54 160 108" className={`mx-auto w-full ${tumbada ? "max-w-[300px] sm:max-w-[260px] xl:max-w-[236px]" : "max-w-[300px] sm:max-w-[286px]"}`} role="img" aria-label={`Radar de ${titulo}`}>
+      <svg viewBox="-90 -57 180 114" className={`mx-auto w-full ${tumbada ? "max-w-[300px] sm:max-w-[260px] xl:max-w-[236px]" : "max-w-[300px] sm:max-w-[286px]"}`} role="img" aria-label={`Radar de ${titulo}`}>
         {[2.5, 5, 7.5, 10].map((v) => (
           <polygon
             key={v}
@@ -857,13 +862,13 @@ function RadarLinea({
               x={x + dx}
               y={y + dy}
               textAnchor={i === 1 ? "start" : i === 3 ? "end" : "middle"}
-              fontSize={6.4}
+              fontSize={7.8}
               fontWeight={600}
               fill="rgba(226,246,255,.78)"
             >
               {a.corto}
               {mediaEje && (
-                <tspan fill={tono} {...(lado ? { x: x + dx, dy: 7.4 } : { dx: 2 })}>
+                <tspan fill={tono} {...(lado ? { x: x + dx, dy: 8.6 } : { dx: 2 })}>
                   {coma(mediaEje[i])}
                 </tspan>
               )}
@@ -1020,7 +1025,8 @@ function FichaJugador({
       </span>
 
       <span
-        className="max-w-[76px] truncate rounded-full px-2 py-[2px] text-[10px] font-semibold sm:max-w-[96px] sm:text-[11px]"
+        /* 07/11/2026: hasta dos renglones; «Álvaro Lez…» se cortaba en el móvil. */
+        className="line-clamp-2 max-w-[84px] break-words rounded-lg px-2 py-[2px] text-center text-[10px] font-semibold leading-tight sm:max-w-[100px] sm:text-[11px]"
         style={{ background: "rgba(3,8,17,.72)", color: "#F5F7FA" }}
       >
         {c.nombre}
@@ -1029,13 +1035,16 @@ function FichaJugador({
   );
 }
 
-function Leyenda({ radares = false }: { radares?: boolean }) {
+function Leyenda({ radares = false, plantilla = 0 }: { radares?: boolean; plantilla?: number }) {
   return (
-    <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] text-white/55">
+    <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-white/60">
+      {/* 07/11/2026: la escala dicha en el propio gráfico. */}
+      <span className="font-semibold text-white/75">Escala de 0 a 10: más es mejor</span>
+
       {radares && (
         <span className="inline-flex items-center gap-1.5">
           <span aria-hidden className="h-0 w-5 border-t-2 border-dashed" style={{ borderColor: "#E4C977" }} />
-          media de la plantilla
+          media de la plantilla{plantilla > 0 ? ` (${plantilla} jugadores evaluados)` : ""}
         </span>
       )}
 
@@ -1116,10 +1125,10 @@ function PanelLateral({
 }) {
   if (seleccionado?.dato) return <PerfilJugador c={seleccionado} dato={seleccionado.dato} teamAverage={teamAverage} onCerrar={onCerrar} />;
 
-  return <LecturaDelOnce titulares={titulares} onElegir={onElegir} />;
+  return <LecturaDelOnce titulares={titulares} teamAverage={teamAverage} onElegir={onElegir} />;
 }
 
-function LecturaDelOnce({ titulares, onElegir }: { titulares: Colocado[]; onElegir: (clave: string | null) => void }) {
+function LecturaDelOnce({ titulares, teamAverage, onElegir }: { titulares: Colocado[]; teamAverage: Record<MetricKey, number> | null; onElegir: (clave: string | null) => void }) {
   const evaluados = titulares.filter((c): c is Colocado & { dato: Player } => Boolean(c.dato));
 
   if (evaluados.length === 0) {
@@ -1163,6 +1172,24 @@ function LecturaDelOnce({ titulares, onElegir }: { titulares: Colocado[]; onEleg
         <span className="font-semibold text-white">A trabajar: {nombreLargo(flojo.axis).toLowerCase()}</span> ({coma(flojo.valor)}), que se entrena en{" "}
         {flojo.axis.moment.toLowerCase()}.
       </p>
+
+      {/* 07/11/2026: que «A trabajar» acabe en una tarea, con qué se cuenta
+          y el objetivo (la media de la plantilla en ese eje). */}
+      <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-[13px] leading-relaxed text-white/75">
+        <p className="text-[10px] font-semibold uppercase tracking-[.2em] text-[#C8A96B]">Qué entrenamos</p>
+        <p className="mt-1">
+          <span className="font-semibold text-white">Tarea:</span> {TAREA_POR_EJE[flojo.axis.key].tarea}.
+        </p>
+        <p>
+          <span className="font-semibold text-white">Se cuenta:</span> {TAREA_POR_EJE[flojo.axis.key].seCuenta}.
+        </p>
+        {teamAverage && teamAverage[flojo.axis.key] > flojo.valor && (
+          <p>
+            <span className="font-semibold text-white">Objetivo:</span> llevar el once de {coma(flojo.valor)} a{" "}
+            {coma(teamAverage[flojo.axis.key])} en {flojo.axis.corto.toLowerCase()}, la media de la plantilla.
+          </p>
+        )}
+      </div>
 
       {alertas.length > 0 && (
         <div className="mt-4 rounded-2xl px-3 py-2.5" style={{ background: "rgba(255,77,94,.1)", boxShadow: "inset 0 0 0 1px rgba(255,77,94,.35)" }}>

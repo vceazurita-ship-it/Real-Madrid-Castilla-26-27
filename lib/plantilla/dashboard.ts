@@ -301,7 +301,7 @@ export const AVISOS: Record<TipoAviso, { titulo: string; regla: string; accion: 
   },
   nota: {
     titulo: "Nota a la baja",
-    regla: "sus tres últimas notas, un punto o más por debajo de las tres anteriores",
+    regla: "la media de sus tres últimas notas, un punto o más por debajo de la de las tres anteriores (de la anterior a la última)",
     accion: "revisar sus últimos partidos en vídeo",
   },
 };
@@ -338,7 +338,21 @@ export function avisosDe<F extends FichaPlantilla>(lista: JugadorDash<F>[], part
     }
 
     if (j.notas && j.notas.played >= 6 && j.notas.trend <= -1) {
-      avisos.push({ tipo: "nota", jugador: j, cifra: `${j.notas.trend.toFixed(1).replace(".", ",")} puntos` });
+      /* 07/11/2026: con su base, «de 6,8 a 5,8», y no un «-1,0 puntos» suelto. */
+      const notas = j.notas.entries.map((e) => e.entry.rating).filter((n) => n > 0);
+      const media = (xs: number[]) => xs.reduce((a, n) => a + n, 0) / (xs.length || 1);
+      const coma1 = (n: number) => n.toFixed(1).replace(".", ",");
+      const antesN = notas.slice(-6, -3);
+      const ultimasN = notas.slice(-3);
+
+      avisos.push({
+        tipo: "nota",
+        jugador: j,
+        cifra:
+          antesN.length && ultimasN.length
+            ? `de ${coma1(media(antesN))} a ${coma1(media(ultimasN))}`
+            : `${coma1(j.notas.trend)} puntos`,
+      });
     }
   }
 
