@@ -449,7 +449,7 @@ export function ListaClips({
               <th className="px-2 py-1.5 font-medium">Categoría</th>
               <th className="px-2 py-1.5 text-right font-medium">In</th>
               <th className="px-2 py-1.5 text-right font-medium">Out</th>
-              <th className="px-2 py-1.5 text-right font-medium">Dur.</th>
+              <th className="min-w-[4.5rem] whitespace-nowrap px-2 py-1.5 text-right font-medium">Dur.</th>
               <th className="px-2 py-1.5 text-right font-medium">Acciones</th>
             </tr>
           </thead>
@@ -601,7 +601,7 @@ export function ListaClips({
                     {formateaMs(clip.codingFinMs)}
                   </td>
 
-                  <td className="px-2 py-1.5 text-right text-[11px] tabular-nums text-white/40">
+                  <td className="min-w-[4.5rem] whitespace-nowrap px-2 py-1.5 text-right text-[11px] tabular-nums text-white/40">
                     {formateaDuracion(duracionClip(clip))}
                     {chapaPizarras(fila.pizarras)}
                   </td>

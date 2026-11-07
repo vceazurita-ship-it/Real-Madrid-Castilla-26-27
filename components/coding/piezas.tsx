@@ -387,19 +387,47 @@ export function PanelCategorias({
   cuentas: Record<string, number>;
   onElegir: (id: string) => void;
 }) {
+  /* 07/11/2026: las que aún no tienen cortes van en una fila compacta de
+     chips (siguen siendo pulsables y con su tecla); las tarjetas grandes,
+     sólo para las que ya cuentan algo o la elegida. */
+  const grandes = categorias.filter((c) => (cuentas[c.id] ?? 0) > 0 || c.id === activa);
+  const vacias = categorias.filter((c) => !grandes.includes(c));
+
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-2">
-      {categorias.map((categoria) => (
-        <Pad
-          key={categoria.id}
-          color={categoria.color}
-          nombre={categoria.nombre}
-          tecla={categoria.tecla}
-          cuenta={cuentas[categoria.id] ?? 0}
-          activo={categoria.id === activa}
-          onClick={() => onElegir(categoria.id)}
-        />
-      ))}
+    <div className="space-y-2">
+      {grandes.length > 0 && (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-2">
+          {grandes.map((categoria) => (
+            <Pad
+              key={categoria.id}
+              color={categoria.color}
+              nombre={categoria.nombre}
+              tecla={categoria.tecla}
+              cuenta={cuentas[categoria.id] ?? 0}
+              activo={categoria.id === activa}
+              onClick={() => onElegir(categoria.id)}
+            />
+          ))}
+        </div>
+      )}
+
+      {vacias.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {vacias.map((categoria) => (
+            <button
+              key={categoria.id}
+              type="button"
+              onClick={() => onElegir(categoria.id)}
+              title={categoria.tecla ? `${categoria.nombre} · tecla ${categoria.tecla}` : categoria.nombre}
+              className="inline-flex items-center gap-1.5 rounded-full border border-white/10 px-2.5 py-1 text-[11.5px] text-white/75 transition hover:border-white/25 hover:text-white"
+            >
+              <span aria-hidden className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: categoria.color }} />
+              {categoria.nombre}
+              {categoria.tecla && <span className="font-mono text-[10px] text-white/45">{categoria.tecla}</span>}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

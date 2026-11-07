@@ -1188,6 +1188,22 @@ export default function DataAnalisisPage() {
 
     const nombreFase = (f: Fase) => FASES.find((x) => x.key === f)?.label.toLowerCase() ?? "";
     const p = (x: { fila: FilaPercentil }) => Math.round(x.fila.percentil as number);
+    /* 07/11/2026: la métrica en palabras, con su cifra, la mediana de la liga
+       y el puesto; nunca un «(P100)» suelto ni «goles − xg». */
+    const enPalabras = (x: { fila: FilaPercentil }) => {
+      const f = x.fila;
+      const nombre =
+        f.key === "golesMenosXg"
+          ? (f.valor ?? 0) < 0
+            ? "marca menos de lo que generan sus ocasiones"
+            : "marca más de lo que generan sus ocasiones"
+          : f.nombre.toLowerCase();
+      const cifra = `${formatea(f.valor, f.unidad)}${f.unidad === "porcentaje" ? "" : f.key === "golesMenosXg" ? " goles por partido frente a su xG" : " por partido"}`;
+      const ref = f.mediana !== null ? `, mediana de la liga ${formatea(f.mediana, f.unidad)}` : "";
+      const puesto = f.puesto ? `; ${f.puesto}º de ${f.deCuantos}` : "";
+
+      return `${nombre} (${cifra}${ref}${puesto})`;
+    };
     const claves: ConclusionResumen[] = [];
 
     const ultimo = nuestrosPartidos[0];
@@ -1203,7 +1219,7 @@ export default function DataAnalisisPage() {
         titular: etiquetaDePartido(ultimo),
         detalle:
           mejor && peor && mejor !== peor
-            ? `Lo mejor, ${mejor.fila.nombre.toLowerCase()} (P${p(mejor)}); lo que más costó, ${peor.fila.nombre.toLowerCase()} (P${p(peor)}).`
+            ? `Lo mejor, ${enPalabras(mejor)}; lo que más costó, ${enPalabras(peor)}.`
             : undefined,
         tono,
         area: "campo",
@@ -1222,7 +1238,7 @@ export default function DataAnalisisPage() {
         claves.push({
           id: "fuerte",
           rotulo: `Lo más fuerte · ${nombreFase(arriba.met.fase)}`,
-          titular: `${arriba.fila.nombre}, P${p(arriba)} de la liga`,
+          titular: `${arriba.fila.nombre}, P${p(arriba)} sobre ${arriba.fila.deCuantos} equipos · ${nuestrosPartidos.length} partidos`,
           detalle: dice(arriba),
           tono: "bien",
           area: "liga",
@@ -1235,8 +1251,9 @@ export default function DataAnalisisPage() {
         claves.push({
           id: "flojo",
           rotulo: `Lo más flojo · ${nombreFase(abajo.met.fase)}`,
-          titular: `${abajo.fila.nombre}, P${p(abajo)} de la liga`,
-          detalle: `${dice(abajo)} Qué hacemos: ${TAREA_POR_FASE[abajo.met.fase] ?? "una tarea de juego"}.`,
+          titular: `${abajo.fila.nombre}, P${p(abajo)} sobre ${abajo.fila.deCuantos} equipos · ${nuestrosPartidos.length} partidos`,
+          /* 07/11/2026: la orden atada a la métrica, con su sentido y su objetivo. */
+          detalle: `${dice(abajo)} Qué hacemos: ${TAREA_POR_FASE[abajo.met.fase] ?? "una tarea de juego"}; objetivo, ${abajo.met.mejorAlto ? "subir" : "bajar"} ${abajo.fila.nombre.toLowerCase()}${abajo.fila.mediana !== null ? ` hacia la mediana (${formatea(abajo.fila.mediana, abajo.fila.unidad)})` : ""} (${abajo.met.mejorAlto ? "más" : "menos"} es mejor).`,
           tono: "mal",
           area: "liga",
           fase: abajo.met.fase,
@@ -1262,7 +1279,7 @@ export default function DataAnalisisPage() {
           titular: nombreEquipo(enLaLiga ?? rival),
           detalle:
             suyas.length >= 4
-              ? `Su punto fuerte, ${suyas[0].fila.nombre.toLowerCase()} (P${p(suyas[0])}); su punto débil, ${suyas[suyas.length - 1].fila.nombre.toLowerCase()} (P${p(suyas[suyas.length - 1])}).`
+              ? `Su punto fuerte, ${enPalabras(suyas[0])}; su punto débil, ${enPalabras(suyas[suyas.length - 1])}.`
               : undefined,
           tono: "neutro",
           area: "equipo",
@@ -1467,7 +1484,17 @@ export default function DataAnalisisPage() {
                     </p>
                   </div>
 
-                  {AREAS_CON_PERCENTIL.includes(area) && <LeyendaPercentil />}
+                  {AREAS_CON_PERCENTIL.includes(area) && (
+                    <LeyendaPercentil
+                      poblacion={
+                        area === "individual" || area === "destacados" || area === "once"
+                          ? "los jugadores de su puesto en la liga"
+                          : equiposLiga.length > 1
+                            ? `los ${equiposLiga.length} equipos de la liga`
+                            : undefined
+                      }
+                    />
+                  )}
                 </div>
 
                 {alcances && area !== "abp" && area !== "abpCategoria" && (

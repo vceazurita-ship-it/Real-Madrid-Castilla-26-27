@@ -68,6 +68,30 @@ const PRINCIPIOS: DefPrincipio[] = [
   { bloque: "tdef", busca: /replegar ante ataque/i, texto: "Replegar ante ataque a la última línea.", indicadores: [r("contrasRemate", "Contraataques del rival que acaban en remate %")] },
 ];
 
+/** Ancla del principio en /identidad-campo: fija aunque la hoja cambie de orden. */
+const anclaDe = (p: DefPrincipio) => `principio-${PRINCIPIOS.indexOf(p)}`;
+
+/**
+ * 07/11/2026: lo que /game-model enseña bajo cada principio que se mide en el
+ * partido: con qué métricas y adónde saltar para verlo. Null si el principio
+ * no tiene indicador (no se promete una medida que no existe).
+ */
+export function medidaDelPrincipio(fase: string, bloque: string, principio: string) {
+  const def = PRINCIPIOS.find((p) => {
+    const b = BLOQUES.find((x) => x.key === p.bloque)!;
+
+    return b.fase === fase.trim() && b.hoja === bloque.trim() && p.busca.test(principio);
+  });
+
+  if (!def) return null;
+
+  const metricas = def.indicadores
+    .map((i) => i.etiqueta ?? METRICA_POR_KEY.get(i.metrica)?.nombre ?? "")
+    .filter(Boolean);
+
+  return metricas.length ? { ancla: anclaDe(def), metricas } : null;
+}
+
 /** Los valores del vestuario que dejan huella en el partido. El texto es el del documento de valores. */
 const VALORES: { key: string; valor: string; conducta: string; indicadores: Indicador[] }[] = [
   { key: "valentia", valor: "Exigencia y valentía", conducta: "Disputar cada balón dividido como una final.", indicadores: [n("duelosGanados"), n("duelosAereos")] },
@@ -270,6 +294,38 @@ const PERFIL_PUESTO: Partial<Record<Puesto, Rasgo[]>> = {
   ],
 };
 
+const plano = (t: string) =>
+  t.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/\bvs\.?\b/g, "contra").replace(/[^a-z0-9]+/g, " ").trim();
+
+/** Posición de la hoja de contenidos («CENTRALES», «EXTREMOS»…) → puesto de DATA. */
+const PUESTO_DE_HOJA: [RegExp, Puesto][] = [
+  [/central/i, "CEN"],
+  [/lateral|carrilero/i, "LAT"],
+  [/mediocentro|medio|pivote|interior|mediapunta/i, "MED"],
+  [/extremo|banda/i, "BAN"],
+  [/delanter|punta/i, "DEL"],
+];
+
+/**
+ * 07/11/2026: la métrica de Wyscout con la que /identidad-campo mide un
+ * contenido del puesto, para enseñarla bajo el contenido en
+ * /identidad-posicional. Null si el contenido no tiene indicador.
+ */
+export function medidaDelContenido(posicionHoja: string, contenido: string): string | null {
+  const puesto = PUESTO_DE_HOJA.find(([re]) => re.test(posicionHoja))?.[1];
+  const rasgos = puesto ? PERFIL_PUESTO[puesto] : undefined;
+
+  if (!rasgos) return null;
+
+  const c = plano(contenido);
+
+  return rasgos.find((r) => {
+    const t = plano(r.texto);
+
+    return c === t || c.startsWith(`${t} `) || t.startsWith(`${c} `);
+  })?.columna ?? null;
+}
+
 export const NOMBRE_PUESTO: Record<Puesto, string> = { POR: "Portero", CEN: "Central", LAT: "Lateral", MED: "Centrocampista", BAN: "Extremo", DEL: "Delantero" };
 
 function encajes(jugadores: FilaJugador[]): JugadorEncaje[] {
@@ -384,10 +440,10 @@ export function identidadEnElCampo(partidos: FilaPartido[], jugadores: FilaJugad
   const bloques: BloqueMedido[] = BLOQUES.flatMap((b) => {
     const principios: PrincipioMedido[] = vigentes
       .filter((v) => v.def.bloque === b.key)
-      .flatMap((v, i) => {
+      .flatMap((v) => {
         const a = agrega(v.def.indicadores);
 
-        return a ? [{ id: `${b.key}-${i}`, bloque: b.key, texto: v.texto, clave: v.clave, ...a }] : [];
+        return a ? [{ id: anclaDe(v.def), bloque: b.key, texto: v.texto, clave: v.clave, ...a }] : [];
       });
 
     if (!principios.length) return [];

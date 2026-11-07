@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/knowledge-kit";
 import { cn } from "@/lib/utils";
 import { confirmar } from "@/lib/avisos";
+import { medidaDelPrincipio } from "@/lib/identidad/campo";
 
 type Principio = {
   ID: number;
@@ -795,15 +796,23 @@ export default function GameModelPage() {
                 </h1>
 
                 {!loading && !error && (
-                  <p className="mt-2 text-sm text-gray-500">
-                    {filtrando
-                      ? `${principios.length} de ${totalApartado} principios`
-                      : `${totalApartado} principio${totalApartado === 1 ? "" : "s"}`}
-                    {" · "}
-                    <Link href="/identidad-campo" className="text-[#C8A96B] hover:underline">
-                      ¿Se nos reconoce en el campo?
+                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-gray-500">
+                    <span>
+                      {filtrando
+                        ? `${principios.length} de ${totalApartado} principios`
+                        : `${totalApartado} principio${totalApartado === 1 ? "" : "s"}`}
+                    </span>
+                    {/* 07/11/2026: era texto dorado que no parecía enlace. */}
+                    <Link
+                      href="/identidad-campo"
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-lg border border-[#C8A96B]/40 px-2.5 py-1 text-xs font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)] transition-colors hover:bg-[#C8A96B]/10",
+                        focusRing,
+                      )}
+                    >
+                      Ver en el campo →
                     </Link>
-                  </p>
+                  </div>
                 )}
               </div>
 
@@ -846,22 +855,26 @@ export default function GameModelPage() {
                 {!editing &&
                   claves.length > 0 &&
                   claves.length < principios.length && (
-                    /* 30/10/2026: una sola señal para lo innegociable. La
-                       línea lo nombra y dice quién lo marca; las tarjetas
-                       llevan el borde dorado, sin la etiqueta «CLAVE». */
+                    /* 07/11/2026: una sola señal para lo innegociable. Sin la
+                       frase de método (repetía las chapas): cada nombre salta
+                       a su tarjeta. */
                     <div className="mb-4 border-l-2 border-[#C8A96B] pl-3">
                       <p className="text-base font-medium text-gray-200 lg:text-lg">
-                        <span className="font-bold text-[#C8A96B]">
+                        <Lock className="mr-1 inline h-4 w-4 -translate-y-px text-[color:var(--rmcf-gold-ink,#C8A96B)]" aria-hidden />
+                        <span className="font-bold text-[color:var(--rmcf-gold-ink,#C8A96B)]">
                           Lo que no se negocia:
                         </span>{" "}
-                        {claves
-                          .map((p) => quitaClave(p.PRINCIPIO).replace(/[.\s]+$/, ""))
-                          .join(" · ")}
-                      </p>
-                      <p className="mt-1 text-xs text-gray-400">
-                        <Lock className="mr-1 inline h-3 w-3 text-[#C8A96B]" aria-hidden />
-                        Marcados por el cuerpo técnico como innegociables; en la
-                        lista llevan el candado y el borde dorado.
+                        {claves.map((p, i) => (
+                          <span key={p.ID}>
+                            {i > 0 && " · "}
+                            <a
+                              href={`#principio-${p.ID}`}
+                              className="underline decoration-[#C8A96B]/50 underline-offset-4 hover:decoration-[#C8A96B]"
+                            >
+                              {quitaClave(p.PRINCIPIO).replace(/[.\s]+$/, "")}
+                            </a>
+                          </span>
+                        ))}
                       </p>
                     </div>
                   )}
@@ -869,15 +882,21 @@ export default function GameModelPage() {
                   {principios.map((p) => (
                     <li
                       key={p.ID}
+                      id={`principio-${p.ID}`}
                       className={cn(
-                        "rounded-2xl border bg-white/[0.03] p-4 transition-colors hover:border-[#C8A96B]/30 hover:bg-white/[0.05] lg:p-5",
+                        "scroll-mt-24 rounded-2xl border bg-white/[0.03] transition-colors hover:border-[#C8A96B]/30 hover:bg-white/[0.05]",
+                        /* 07/11/2026: la tarjeta de una sola línea va compacta
+                           para que el apartado entero quepa en la primera pantalla. */
+                        editing || tieneDetalle(p) || medidaDe(p)
+                          ? "p-4 lg:p-5"
+                          : "px-4 py-3 lg:px-5",
                         !editing && esClave(p.PRINCIPIO)
                           ? "border-[#C8A96B]/50"
                           : "border-white/10",
                       )}
                     >
                       <div className="flex min-w-0 items-start gap-3 lg:gap-4">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#C8A96B] text-xs font-bold tabular-nums text-black lg:h-10 lg:w-10 lg:text-sm">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#C8A96B] text-xs font-bold tabular-nums text-black lg:text-sm">
                           {p.ORDEN}
                         </div>
 
@@ -1004,6 +1023,34 @@ export default function GameModelPage() {
 | despliega y enseña sólo eso. Sin nada de eso es una línea sin flecha: no se
 | promete un desplegable vacío.
 */
+/**
+ * 07/11/2026: con qué se mide el principio en el partido (lib/identidad/campo.ts)
+ * y el salto a su fila en /identidad-campo. Null si no tiene indicador.
+ */
+const medidaDe = (p: Principio) =>
+  medidaDelPrincipio(p.FASE ?? "", p.BLOQUE ?? "", p.PRINCIPIO ?? "");
+
+function MedidaPrincipio({ p }: { p: Principio }) {
+  const m = medidaDe(p);
+
+  if (!m) return null;
+
+  return (
+    <p className="mt-1.5 flex flex-wrap items-baseline gap-x-2 text-xs leading-relaxed text-gray-400">
+      <span>
+        <span className="font-semibold text-gray-300">Se mide cada jornada:</span>{" "}
+        {m.metricas.join(" · ")}
+      </span>
+      <Link
+        href={`/identidad-campo#${m.ancla}`}
+        className="font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)] hover:underline"
+      >
+        Cómo sale →
+      </Link>
+    </p>
+  );
+}
+
 function FichaPrincipio({ p, query }: { p: Principio; query: string }) {
   const titulo = (
     <Highlight text={quitaClave(p.PRINCIPIO).replace(/\.$/, "")} query={query} />
@@ -1011,16 +1058,21 @@ function FichaPrincipio({ p, query }: { p: Principio; query: string }) {
 
   if (!tieneDetalle(p)) {
     return (
-      <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-white lg:text-base">
-        {titulo}
-      </p>
+      <>
+        <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-white lg:text-base">
+          {titulo}
+        </p>
+        <MedidaPrincipio p={p} />
+      </>
     );
   }
 
   const d = detalle(p);
 
+  /* 07/11/2026: lo innegociable con texto se lee abierto, sin un clic más. */
   return (
-    <details className="group">
+    <>
+    <details className="group" open={esClave(p.PRINCIPIO) || undefined}>
       <summary className="flex cursor-pointer list-none items-start justify-between gap-3 text-sm leading-relaxed text-white lg:text-base [&::-webkit-details-marker]:hidden">
         <span className="min-w-0 break-words">{titulo}</span>
         <ChevronDown
@@ -1060,5 +1112,7 @@ function FichaPrincipio({ p, query }: { p: Principio; query: string }) {
         )}
       </div>
     </details>
+    <MedidaPrincipio p={p} />
+    </>
   );
 }

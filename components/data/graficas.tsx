@@ -95,17 +95,21 @@ export const colorPercentil = (p: number | null) =>
   p === null ? tinta(0.3) : p >= PERCENTIL_ALTO ? MEJOR : p <= PERCENTIL_BAJO ? PEOR : ORO;
 
 /** La leyenda de esa escala, para la cabecera de cada área. */
-export function LeyendaPercentil() {
+export function LeyendaPercentil({ poblacion }: { poblacion?: string } = {}) {
   const punto = (color: string) => (
     <span aria-hidden className="inline-block h-2 w-2 shrink-0 rounded-full" style={{ background: color }} />
   );
 
+  /* 07/11/2026: la leyenda dice contra quién y qué es un percentil la primera vez. */
   return (
     <span
       className="inline-flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-white/55"
       title="P80 es estar mejor que el 80 % de los equipos (o de los jugadores de su puesto) con los que se compara"
     >
-      <span className="font-semibold uppercase tracking-[0.14em] text-white/40">Percentil</span>
+      <span className="font-semibold uppercase tracking-[0.14em] text-white/40">
+        Percentil{poblacion ? ` frente a ${poblacion}` : ""}
+      </span>
+      <span>P60 = mejor que el 60 %{poblacion ? "" : " de con quien se compara"}</span>
       <span className="inline-flex items-center gap-1">{punto(MEJOR)}P{PERCENTIL_ALTO} o más</span>
       <span className="inline-flex items-center gap-1">{punto(ORO)}en la media</span>
       <span className="inline-flex items-center gap-1">{punto(PEOR)}P{PERCENTIL_BAJO} o menos</span>

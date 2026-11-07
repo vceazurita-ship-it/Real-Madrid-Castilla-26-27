@@ -221,10 +221,14 @@ type PlantillaRival = {
 /* 29/10/2026: el nombre del fichero, legible: sin «.mp4», sin guiones bajos y con
    las tildes que el nombre del fichero perdió («Duelos_a_reos» -> «Duelos aéreos»). */
 function nombreLimpio(nombre: string) {
+  /* 07/11/2026: NFC (en macOS las tildes llegan separadas de la letra) y las
+     tildes que la descarga cambió por «_»: «Anto_n» → «Antón». */
   return nombre
+    .normalize("NFC")
     .replace(/\.mp4$/i, "")
     .replace(/_/g, " ")
     .replace(/\ba reos\b/gi, "aéreos")
+    .replace(/\bAnto n\b/g, "Antón")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -1499,6 +1503,24 @@ function Coding() {
       clipsDeVideo(sesion.sesion.clips, videosSesion, sesion.sesion.fuente),
     [sesion.sesion.clips, sesion.sesion.fuente, videosSesion],
   );
+
+  /*
+  | 07/11/2026: UN SOLO RECUENTO. La cabecera, el rótulo junto al rival y la
+  | línea de tiempo decían 0, 1 y 6 a la vez. Todos salen de aquí: cortes del
+  | vídeo abierto y del partido, sin los «vídeo completo» (clips de jugador de
+  | otro uso), que se cuentan aparte.
+  */
+  const recuento = useMemo(() => {
+    const esCorte = (clip: { jugadorId?: string }) => clip.jugadorId !== SUJETO_VIDEO_COMPLETO.id;
+    const delPartido = sesion.sesion.clips.filter(esCorte);
+
+    return {
+      enVideo: clips.filter(esCorte).length,
+      enPartido: delPartido.length,
+      deJugador: sesion.sesion.clips.length - delPartido.length,
+      msPartido: totalCodificadoMs(delPartido),
+    };
+  }, [clips, sesion.sesion.clips]);
 
   const clipsPorFuente = useMemo(
     () => clipsPorVideo(sesion.sesion.clips, videosSesion),
@@ -4011,9 +4033,8 @@ function Coding() {
                   cuenta: cuentasColectivo[uno.id] ?? 0,
                 })),
               ];
-              const total = clips.filter(
-                (clip) => clip.jugadorId !== SUJETO_VIDEO_COMPLETO.id,
-              ).length;
+              /* 07/11/2026: el marcador cuenta el partido, como el rótulo del rival. */
+              const total = recuento.enPartido;
 
               return ambito === "partido" ? (
                 <MarcadorCoding
@@ -4167,19 +4188,16 @@ function Coding() {
 
                   <div className="flex min-w-0 gap-2">
                     <select
-                      value={rivalEnConflicto ? "" : (rival?.clave ?? "")}
+                      /* 07/11/2026: el rival de la jornada viene elegido
+                         siempre; si un vídeo nombra a otro equipo, el aviso
+                         va junto al vídeo con un solo botón. */
+                      value={rival?.clave ?? ""}
                       aria-label="Rival"
                       onChange={(evento) => cambiaUrl("equipo", evento.target.value)}
                       className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"
                     >
                       {rivales.length === 0 && (
                         <option value="">Cargando el calendario…</option>
-                      )}
-
-                      {rivales.length > 0 && rivalEnConflicto && (
-                        <option value="" className="bg-[#11161C]">
-                          Elige rival
-                        </option>
                       )}
 
                       {rivales.map((uno) => (
@@ -4216,9 +4234,12 @@ function Coding() {
               */}
               <div className="flex items-end gap-2">
                 <span className="rounded-xl border border-white/10 px-3 py-2 text-[11px] text-white/60">
-                  {clips.length !== sesion.sesion.clips.length
-                    ? `${clips.length} ${clips.length === 1 ? "corte" : "cortes"} en este vídeo · ${sesion.sesion.clips.length} en el partido · ${formateaTotal(totalCodificadoMs(sesion.sesion.clips))}`
-                    : `${sesion.sesion.clips.length} ${sesion.sesion.clips.length === 1 ? "corte" : "cortes"} en el partido · ${formateaTotal(totalCodificadoMs(sesion.sesion.clips))}`}
+                  {src && recuento.enVideo !== recuento.enPartido
+                    ? `${recuento.enVideo} ${recuento.enVideo === 1 ? "corte" : "cortes"} en este vídeo · ${recuento.enPartido} en el partido · ${formateaTotal(recuento.msPartido)}`
+                    : `${recuento.enPartido} ${recuento.enPartido === 1 ? "corte" : "cortes"} en el partido · ${formateaTotal(recuento.msPartido)}`}
+                  {recuento.deJugador > 0
+                    ? ` · ${recuento.deJugador} ${recuento.deJugador === 1 ? "clip" : "clips"} de jugador aparte`
+                    : ""}
                 </span>
               </div>
             </div>
@@ -4226,8 +4247,8 @@ function Coding() {
             {rivalEnConflicto && rival ? (
               <div className="mt-4 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-[#C8A96B]/35 bg-[#C8A96B]/[0.08] px-3.5 py-2.5">
                 <p className="min-w-0 flex-1 text-[12px] leading-snug text-white/75">
-                  <b className="text-white">Los {sesion.sesion.clips.length} cortes se guardarán con el rival que elijas.</b>{" "}
-                  Un vídeo abierto lleva el nombre de otro equipo, no el de {rival.nombre}, el rival de la jornada.
+                  <b className="text-white">Un vídeo abierto lleva el nombre de otro equipo.</b>{" "}
+                  Los cortes se guardan con {rival.nombre}, el rival de la jornada, al confirmarlo.
                 </p>
                 <Button onClick={() => cambiaUrl("equipo", rival.clave)} title={`Fijar ${rival.nombre} como rival de estos vídeos`}>
                   Usar {rival.nombre}
@@ -4342,7 +4363,7 @@ function Coding() {
                        De pie (31/10/2026) la lista es una hoja abajo: el
                        vídeo se queda con el 55 % de arriba y todo el ancho.
                        Los 320 px son ANCHO_PANEL_COMPLETA. */
-                    className={`aspect-video w-full bg-black ${
+                    className={`${src ? "aspect-video" : "h-32"} w-full bg-black ${
                       enPantallaCompleta && src
                         ? `h-full ${panelCompleta ? "landscape:w-[calc(100%-320px)] portrait:h-[55%]" : ""}`
                         : ""
@@ -4463,11 +4484,11 @@ function Coding() {
                           .getElementById("coding-el-video")
                           ?.scrollIntoView({ behavior: "smooth", block: "start" })
                       }
-                      className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white/35 transition hover:text-white/70"
+                      className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-white/60 transition hover:text-white"
                     >
                       <Video size={26} />
-                      <span className="text-xs">Elige el vídeo del partido</span>
-                      <span className="text-[11px] text-white/25">
+                      <span className="text-sm font-semibold">Elige el vídeo del partido</span>
+                      <span className="text-[11px] text-white/45">
                         de la carpeta, de un enlace o del ordenador
                       </span>
                     </button>
@@ -4623,10 +4644,18 @@ function Coding() {
                               <span
                                 className={`max-w-[168px] truncate text-[11.5px] ${
                                   activo ? "text-white" : "text-white/70"
-                                } ${listo ? "" : "line-through decoration-white/30"}`}
+                                } ${listo ? "" : "italic"}`}
               >
                                 {nombreLimpio(video.nombre)}
                               </span>
+
+                              {/* 07/11/2026: tachado se leía como descartado; es
+                                  un fichero que hay que volver a abrir. */}
+                              {!listo && (
+                                <span className="shrink-0 rounded bg-white/10 px-1 text-[9px] uppercase tracking-wide text-white/55">
+                                  reabrir
+                                </span>
+                              )}
 
                               <span className="shrink-0 text-[10px] tabular-nums text-white/40">
                                 {cuantos}
