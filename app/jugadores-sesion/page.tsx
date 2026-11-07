@@ -151,6 +151,21 @@ import { onceDeLaPizarra, type OnceDeLaPizarra } from "@/lib/tactics/onceDeLaPiz
 import { traeJson } from "@/lib/hojaCsv";
 import type { FilaJugador } from "@/lib/data-analisis/leer";
 import { confirmar } from "@/lib/avisos";
+import { corrigeErratas } from "@/lib/textos/erratas";
+
+/*
+| Lo que llega de la hoja en mayúsculas y con prisa («ÚTIL TRANSFERENCIA
+| COMPETCIÓN») se lee en frase normal y sin la errata (07/11/2026). La hoja
+| no se toca.
+*/
+const ERRATAS_SESION: Record<string, string> = { competcion: "competición", competción: "competición", competicon: "competición" };
+function textoDeHoja(texto: string): string {
+  const limpio = corrigeErratas(texto.trim()).replace(/[\p{L}]+/gu, (p) => ERRATAS_SESION[p.toLocaleLowerCase("es-ES")] ?? p);
+  const letras = limpio.replace(/[^\p{L}]/gu, "");
+  if (letras.length < 4 || letras !== letras.toLocaleUpperCase("es-ES")) return limpio;
+  const bajo = limpio.toLocaleLowerCase("es-ES");
+  return bajo.charAt(0).toLocaleUpperCase("es-ES") + bajo.slice(1);
+}
 
 const EJEMPLO = `CASTILLA - SÁBADO 26/09/26
 ==========================
@@ -809,7 +824,7 @@ function EstructuraEquipo({
   const [creando, setCreando] = useState<{ portero: boolean; lineas: number[] } | null>(null);
 
   const [refCaja, anchoCaja] = useAncho<HTMLDivElement>();
-  const anchoCampo = Math.max(200, Math.min(grande ? 640 : 440, anchoCaja || 260));
+  const anchoCampo = Math.max(180, Math.min(grande ? 640 : 440, anchoCaja || 220));
 
   const abreCreador = () => {
     const l = lineasDe(equipo.estructura);
@@ -821,7 +836,7 @@ function EstructuraEquipo({
   const cuentaCreado = creando ? creando.lineas.reduce((s, n) => s + n, 0) + (creando.portero ? 1 : 0) : 0;
 
   return (
-    <div className="basis-full space-y-2" onClick={(e) => e.stopPropagation()}>
+    <div className="min-w-0 max-w-full basis-full space-y-2" onClick={(e) => e.stopPropagation()}>
       {/* 29/10/2026: con tres equipos y comodines a 1440 px se cortaban «6/6 huecos» y
           «Recolocar según el dibujo»: el desplegable tiene un ancho base y, si no cabe,
           «Crear» y el contador bajan a otra línea enteros; el pie va en dos renglones. */}
@@ -965,7 +980,7 @@ function EstructuraEquipo({
       )}
 
       {total > 0 ? (
-        <div ref={refCaja} className="flex w-full justify-center">
+        <div ref={refCaja} className="flex w-full min-w-0 justify-center">
           <CampoEstructura
             flecha
             huecos={huecos}
@@ -1286,6 +1301,8 @@ export default function JugadoresSesionPage() {
   const [agotadoEn, setAgotadoEn] = useState(-1);
   /* En el móvil los ajustes de la tarea van plegados (05/11/2026): el primer campo salía a 2.000 px. */
   const [ajustesMovil, setAjustesMovil] = useState(false);
+  /* Formato y «Al soltar» plegados mientras estén en su valor de siempre (07/11/2026). */
+  const [masOpciones, setMasOpciones] = useState(false);
 
   useEffect(() => {
     if (status !== "loading") return;
@@ -2998,7 +3015,8 @@ export default function JugadoresSesionPage() {
   const fechaCorta = (s: SesionEquipos) => {
     const dia = s.fecha ? new Date(`${s.fecha}T12:00:00`) : new Date(s.creadaEn);
 
-    return Number.isNaN(dia.getTime()) ? s.titulo || "Sesión" : dia.toLocaleDateString("es-ES", { day: "numeric", month: "short" });
+    /* Con el día de la semana (07/11/2026): «jue 5 nov». */
+    return Number.isNaN(dia.getTime()) ? s.titulo || "Sesión" : dia.toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" }).replace(",", "");
   };
 
   const copiaDe = (origenSesion: SesionEquipos, origen: TareaEquipos) => {
@@ -3189,7 +3207,7 @@ export default function JugadoresSesionPage() {
         <section className="flex min-w-0 flex-1 flex-col">
           <Topbar />
 
-          <div className="min-w-0 px-4 py-6 sm:px-6 lg:px-10">
+          <div className="min-w-0 px-4 pb-24 pt-6 sm:px-6 md:pr-20 lg:pl-10">
             <AbpHeader
               area="RMCF Castilla · Entrenamiento"
               title="Jugadores sesión"
@@ -3227,7 +3245,12 @@ export default function JugadoresSesionPage() {
                         const fechaCorta = cuando && !Number.isNaN(cuando.getTime())
                           ? cuando.toLocaleDateString("es-ES", { weekday: "short", day: "2-digit", month: "2-digit" }).replace(",", "")
                           : "";
-                        const titulo = sinTitulo ? "" : tituloLegible(s.titulo);
+                        /* 07/11/2026: sin título, el mismo patrón que las demás («Castilla - viernes 16/10/26»). */
+                        const titulo = sinTitulo
+                          ? cuando && !Number.isNaN(cuando.getTime())
+                            ? `Castilla - ${cuando.toLocaleDateString("es-ES", { weekday: "long" })} ${cuando.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "2-digit" })}`
+                            : ""
+                          : tituloLegible(s.titulo);
                         const etiqueta = [fechaCorta, titulo].filter(Boolean).join(" · ") || "Sesión";
 
                         return (
@@ -3548,6 +3571,13 @@ export default function JugadoresSesionPage() {
                   </button>
                 </div>
 
+                {/* Qué dice el punto de cada tarea, a la vista (07/11/2026): antes sólo en el title. */}
+                <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-white/55">
+                  <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-400" /> lista</span>
+                  <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-amber-300" /> con avisos</span>
+                  <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-red-400" /> falta algo</span>
+                </p>
+
                 <div className="mt-4">
                   <Pestanas
                     etiqueta="Vistas de la sesión"
@@ -3682,7 +3712,7 @@ export default function JugadoresSesionPage() {
                         <ChevronRight size={15} className={`shrink-0 text-white/50 transition ${ajustesMovil ? "rotate-90" : ""}`} />
                       </button>
                       <label className="block min-w-[200px] flex-1">
-                        <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">Tarea</span>
+                        <span className="mb-1.5 block text-[12px] uppercase tracking-[0.14em] text-white/55">Tarea</span>
                         <input
                           value={tarea.nombre}
                           onChange={(e) => cambiaTarea((t) => ({ ...t, nombre: e.target.value }), `nombre:${tarea.id}`)}
@@ -3693,7 +3723,7 @@ export default function JugadoresSesionPage() {
 
                       {/* Las reglas en una línea (21/10/2026): salen bajo el título de la diapositiva, con lo que trae la hoja de registro. */}
                       <label className="block min-w-[220px] flex-[2]">
-                        <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">
+                        <span className="mb-1.5 block text-[12px] uppercase tracking-[0.14em] text-white/55">
                           Reglas <span className="normal-case tracking-normal text-white/30">(salen en la diapositiva)</span>
                         </span>
                         <input
@@ -3718,7 +3748,7 @@ export default function JugadoresSesionPage() {
                           <div className="w-full min-w-0 space-y-1 rounded-xl border border-white/[0.06] px-3 py-2">
                             {p && (p.evaluacion > 0 || p.analisisPost) ? (
                               <p className="text-[11px] text-white/60">
-                                Valoración en el microciclo: {[p.evaluacion > 0 ? String(p.evaluacion) : "", p.analisisPost].filter(Boolean).join(" · ")}
+                                Valoración en el microciclo: {[p.evaluacion > 0 ? `nota ${String(p.evaluacion).replace(".", ",")}` : "", p.analisisPost ? textoDeHoja(p.analisisPost) : ""].filter(Boolean).join(" · ")}
                               </p>
                             ) : null}
                             {suyos.map((r) => (
@@ -3729,7 +3759,7 @@ export default function JugadoresSesionPage() {
                       })()}
 
                       <div>
-                        <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">Equipos</span>
+                        <span className="mb-1.5 block text-[12px] uppercase tracking-[0.14em] text-white/55">Equipos</span>
                         <Segmented
                           ariaLabel="Número de equipos"
                           value={String(tarea.equipos.length)}
@@ -3738,8 +3768,9 @@ export default function JugadoresSesionPage() {
                         />
                       </div>
 
+                      {(masOpciones || tarea.conEstructura) && (
                       <div>
-                        <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">Formato</span>
+                        <span className="mb-1.5 block text-[12px] uppercase tracking-[0.14em] text-white/55">Formato</span>
                         <Segmented
                           ariaLabel="Sólo equipos o con estructura"
                           value={tarea.conEstructura ? "estructura" : "equipos"}
@@ -3763,9 +3794,10 @@ export default function JugadoresSesionPage() {
                           }
                         />
                       </div>
+                      )}
 
                       <div>
-                        <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">Cambio a mitad</span>
+                        <span className="mb-1.5 block text-[12px] uppercase tracking-[0.14em] text-white/55">Cambio a mitad</span>
                         {tareaBase?.cambio ? (
                           <div className="flex items-center gap-1.5">
                             <Segmented
@@ -3812,8 +3844,9 @@ export default function JugadoresSesionPage() {
                         )}
                       </div>
 
+                      {(masOpciones || modoSoltar === "compartir") && (
                       <div>
-                        <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">Al soltar encima de otro</span>
+                        <span className="mb-1.5 block text-[12px] uppercase tracking-[0.14em] text-white/55">Al soltar encima de otro</span>
                         <Segmented
                           ariaLabel="Qué pasa al soltar a un jugador encima de otro"
                           value={modoSoltar}
@@ -3824,10 +3857,24 @@ export default function JugadoresSesionPage() {
                           onChange={setModoSoltar}
                         />
                       </div>
+                      )}
+
+                      {!(tarea.conEstructura && modoSoltar === "compartir") && (
+                        <button
+                          type="button"
+                          onClick={() => setMasOpciones((v) => !v)}
+                          aria-expanded={masOpciones}
+                          className="flex min-h-[32px] items-center gap-1 self-end rounded-lg px-2 py-1 text-[12px] font-semibold text-white/60 transition hover:text-white"
+                          title="Formato con estructura y qué pasa al soltar a un jugador encima de otro"
+                        >
+                          <ChevronRight size={13} className={`transition ${masOpciones ? "rotate-90" : ""}`} />
+                          {masOpciones ? "Menos opciones" : "Más opciones"}
+                        </button>
+                      )}
 
                       {tarea.conEstructura && (
                         <div>
-                          <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">Tamaño del campo</span>
+                          <span className="mb-1.5 block text-[12px] uppercase tracking-[0.14em] text-white/55">Tamaño del campo</span>
                           <Segmented
                             ariaLabel="Tamaño del campo"
                             value={campoGrande ? "grande" : "normal"}
@@ -3841,7 +3888,7 @@ export default function JugadoresSesionPage() {
                       )}
 
                       <div>
-                        <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">Comodines</span>
+                        <span className="mb-1.5 block text-[12px] uppercase tracking-[0.14em] text-white/55">Comodines</span>
                         <div className="flex items-center gap-2">
                           <Segmented
                             ariaLabel="¿Hay comodines?"
@@ -4466,7 +4513,7 @@ export default function JugadoresSesionPage() {
                         )}
                       </div>
                       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                        <span className="text-[10px] uppercase tracking-[0.16em] text-white/40">La imagen</span>
+                        <span className="text-[12px] uppercase tracking-[0.14em] text-white/55">La imagen</span>
                         <Segmented
                           ariaLabel="Qué lleva la imagen que se descarga"
                           value={formaLamina}
