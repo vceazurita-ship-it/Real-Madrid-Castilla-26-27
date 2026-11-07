@@ -41,10 +41,11 @@ import { baseSuyaDe, nuestrosDe, onceNuestroDe, onceSuyoDe, suyosDe } from "@/li
 import { fuenteUltimoOnce, huecosDelUltimoOnce } from "@/lib/tactics/ultimoOnce";
 import { huecosDeLaPizarra } from "@/lib/tactics/huecosDeLaPizarra";
 import { leeTableroDeOnces, type TableroDeOnces } from "@/lib/tactics/onceDeLaPizarra";
-import { puestoEnPalabras } from "@/lib/posiciones";
+import { nombrePuesto, puestoEnPalabras } from "@/lib/posiciones";
 import type { RatingsSeason } from "@/lib/ratings/types";
 import {
   DUELOS_VACIO,
+  fraseMomentos,
   fraseRecuentoDuelos,
   HUECO_VACIO,
   UMBRAL_DUELO,
@@ -122,8 +123,12 @@ const puestoLegible = (sigla: string) => {
   /* El número de rol de la hoja («6») se traduce; si no se sabe, no se pinta (24/10/2026). */
   if (/^\d+$/.test(primera)) return ROL_NUMERO[primera] ?? "";
 
-  return puestoEnPalabras(primera) || primera;
+  /* «CENTRAL» de la hoja sale como los demás, en minúscula (07/11/2026). */
+  return puestoEnPalabras(primera) || nombrePuesto(primera).toLowerCase();
 };
+
+/** El puesto que se enseña: el de la hoja (el mismo de Plantillas rivales) y, sin él, el de Wyscout (07/11/2026). */
+const puestoVisible = (j: JugadorDuelo) => j.puestoHoja || puestoLegible(j.posicion);
 
 async function leeDoc<T>(key: string): Promise<T | null> {
   try {
@@ -513,17 +518,15 @@ export default function DuelosPage() {
                     return fraseRecuentoDuelos(pintados.length, atacar.length, vigilar.length, enLosDos);
                   })()}
                 </span>
-                {/* «Momentos», no duelos (29/10/2026): un duelo puede contar a favor con balón y en contra sin él. */}
-                <span style={{ color: MEJOR }} title="Momentos con el balón nuestro en los que les sacamos ventaja (un duelo puede estar a favor y en contra)">
-                  ● {atacar.length} {atacar.length === 1 ? "momento" : "momentos"} a favor
-                </span>
-                <span style={{ color: PEOR }} title="Momentos con el balón suyo en los que nos sacan ventaja">
-                  ● {vigilar.length} en contra
-                </span>
-                {/* Las dos palabras, definidas en una línea (30/10/2026): «1 sólo a favor» y
-                    «5 momentos a favor» parecían decir cosas distintas del mismo duelo. */}
-                <span className="basis-full text-[11px] text-white/45">
-                  Duelo: un hueco del once contra su par. Momento: ese duelo con el balón de uno de los dos; cada duelo tiene dos.
+                {/*
+                  «Momentos», no duelos (29/10/2026): un duelo puede contar a favor con
+                  balón y en contra sin él. 07/11/2026 (jueces): «5 a favor · 5 en
+                  contra» sumaba 10 de 16 sin decir por qué; ahora la frase cuenta los
+                  16 y dice el umbral que decide cuál cuenta.
+                */}
+                <span className="basis-full text-[11px] text-white/50">
+                  Duelo: un hueco del once contra su par. Para buscar: ganamos con nuestro balón; para vigilar: perdemos con el
+                  suyo; de doble cara: las dos cosas. {fraseMomentos(pintados.length, atacar.length, vigilar.length)}
                 </span>
               </span>
               {!cargando && temporada === undefined && (
@@ -561,7 +564,9 @@ export default function DuelosPage() {
                           {modo === "nuestro" ? "· con el balón nuestro" : modo === "suyo" ? `· con el balón de ${equipoVisto}` : "· balance de los dos momentos"}
                         </span>
                       </p>
-                      <p className="text-[11px] text-white/40">Pincha en un duelo para verlo abajo</p>
+                      <p className="text-[11px] text-white/45">
+                        Pincha en un duelo para verlo abajo<span className="sm:hidden"> · desliza el campo a los lados</span>
+                      </p>
                     </div>
                     <Campo
                       once={onceNuestro}
@@ -588,6 +593,12 @@ export default function DuelosPage() {
                       {/* La clave de los «P73» de las tarjetas, siempre a la vista:
                           la explicación larga de abajo se puede apagar (19/10/2026). */}
                       <span className="basis-full sm:basis-auto sm:ml-auto">P73 = mejor que el 73 % de los de su puesto (P100, el mejor)</span>
+                      {/* «Medular −2» no decía qué mide (07/11/2026, análisis). */}
+                      {duelosVistos.some((d) => d.def.tipo === "medio-medio" && d.veredicto !== "sin-datos") && (
+                        <span className="basis-full">
+                          Medular: nuestro doble pivote contra el suyo, en puntos de percentil (+ a favor nuestro, − a favor de {equipoVisto || "ellos"}).
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -709,19 +720,23 @@ function Campo({
     const { x, y } = px(p);
     return (
       <g key={key}>
-        <circle cx={x} cy={y} r={15} fill={nuestro ? ORO_CAMPO : "rgba(255,255,255,0.88)"} stroke="rgba(0,0,0,0.4)" strokeWidth={1} />
-        <text x={x} y={y + 4} textAnchor="middle" fontSize={11} fontWeight={700} fill="#0B0F14">
+        {/* 07/11/2026: letra más grande (en el móvil el campo se desliza y no baja de 680 px de ancho: ≥12 px reales). */}
+        <circle cx={x} cy={y} r={17} fill={nuestro ? ORO_CAMPO : "rgba(255,255,255,0.88)"} stroke="rgba(0,0,0,0.4)" strokeWidth={1} />
+        <text x={x} y={y + 5} textAnchor="middle" fontSize={14} fontWeight={700} fill="#0B0F14">
           {j ? (nuestro ? (PUESTOS.find((q) => q.key === j.puesto)?.corto ?? "") : j.dorsal || "") : "?"}
         </text>
-        <text x={x} y={y + 29} textAnchor="middle" fontSize={11} fill={nuestro ? ORO_CAMPO : "rgba(255,255,255,0.85)"} fontWeight={600}>
-          {j ? apellidoDe(j) : "—"}
-        </text>
+        {j && (
+          <text x={x} y={y + 34} textAnchor="middle" fontSize={15} fill={nuestro ? ORO_CAMPO : "rgba(255,255,255,0.85)"} fontWeight={600}>
+            {apellidoDe(j)}
+          </text>
+        )}
       </g>
     );
   };
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="mt-3 w-full" style={{ maxHeight: "max(300px, calc(100vh - 330px))" }} role="img" aria-label="Duelos en el campo">
+    <div className="-mx-4 mt-3 overflow-x-auto px-4 sm:mx-0 sm:overflow-visible sm:px-0">
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full min-w-[680px] sm:min-w-0" style={{ maxHeight: "max(300px, calc(100vh - 330px))" }} role="img" aria-label="Duelos en el campo">
       <rect x={0} y={0} width={W} height={H} rx={10} fill="#12301f" />
       {[...Array(10)].map((_, i) => (
         <rect key={i} x={(i * W) / 10} y={0} width={W / 10} height={H} fill={i % 2 ? "rgba(255,255,255,0.025)" : "transparent"} />
@@ -774,6 +789,7 @@ function Campo({
       {HUECOS.map((h) => ficha(once[h.clave], SITIO[h.clave], true, `n-${h.clave}`))}
       {HUECOS.map((h) => ficha(suyo[h.clave], espejo(SITIO[h.clave]), false, `s-${h.clave}`))}
     </svg>
+    </div>
   );
 }
 
@@ -797,7 +813,8 @@ function baseDe(d: ResultadoDuelo) {
 
   return {
     poca: (n.min > 0 && n.min < MINUTOS_MUESTRA) || (s.min > 0 && s.min < MINUTOS_MUESTRA) || n.min === 0 || s.min === 0,
-    texto: partes.length ? `Base: ${partes.join(" · ")}` : "",
+    /* Con la fuente escrita (07/11/2026): Plantillas rivales cuenta los minutos de BeSoccer. */
+    texto: partes.length ? `Base, minutos en Wyscout: ${partes.join(" · ")}` : "",
   };
 }
 
@@ -948,7 +965,7 @@ function LadoOnce({
                         {gente.map((g) => (
                           <option key={g.clave} value={g.clave} className="bg-[#11161C]">
                             {g.dorsal ? `${g.dorsal}. ` : ""}
-                            {[g.nombre, puestoLegible(g.posicion), g.minutos ? `${g.minutos}′` : ""].filter(Boolean).join(" · ")}
+                            {[g.nombre, puestoVisible(g), g.minutos ? `${g.minutos}′` : ""].filter(Boolean).join(" · ")}
                           </option>
                         ))}
                       </optgroup>
@@ -1181,7 +1198,7 @@ function Tarjeta({
   const color = COLOR[d.veredicto];
 
   const noEsMediapunta = (j: JugadorDuelo) => {
-    const puesto = puestoLegible(j.posicion);
+    const puesto = puestoVisible(j);
 
     return Boolean(puesto) && !/mediapunta|^AMF$|^AM$|^10$/i.test(puesto);
   };
@@ -1199,12 +1216,16 @@ function Tarjeta({
           <Foto src={j.foto} nombre={j.nombre} size={34} borde={nuestro ? ORO : tinta(0.5)} />
           <div className="min-w-0">
             <p className={`truncate text-sm font-medium ${nuestro ? "text-[#C8A96B]" : "text-white/90"}`}>{j.nombre}</p>
-            <p className="truncate text-[10px] text-white/40">
+            <p className="text-[11px] text-white/45">
               {[
-                puestoLegible(j.posicion),
+                puestoVisible(j),
                 j.altura ? `${j.altura} cm` : "",
-                /* Con poca muestra el percentil engaña: se avisa. */
-                j.wyscout ? (j.minutos < 270 ? `${j.minutos}′, pocos minutos` : `${j.minutos}′`) : "",
+                /*
+                | Con poca muestra el percentil engaña: se avisa. 07/11/2026: por
+                | debajo de 450′ (cinco partidos enteros) y con la fuente escrita,
+                | que Plantillas rivales cuenta los de BeSoccer.
+                */
+                j.wyscout ? (j.minutos < 450 ? `${j.minutos}′ en Wyscout, poca muestra` : `${j.minutos}′ en Wyscout`) : "",
               ]
                 .filter(Boolean)
                 .join(" · ")}
@@ -1252,7 +1273,7 @@ function Tarjeta({
       {/* Si el rival no juega con mediapunta, el hueco lo ocupa otro puesto: se dice cuál. */}
       {enHuecoMedia.map(({ j, de }) => (
         <p key={j.clave} className="mt-2 text-[11px] text-white/50">
-          {de === "nuestro" ? "En nuestro once" : `En el once de ${equipo}`} no hay mediapunta: {apellidoDe(j)} ocupa ese hueco y juega de {puestoLegible(j.posicion)}.
+          {de === "nuestro" ? "En nuestro once" : `En el once de ${equipo}`} no hay mediapunta: {apellidoDe(j)} ocupa ese hueco y juega de {puestoVisible(j)}.
         </p>
       ))}
 

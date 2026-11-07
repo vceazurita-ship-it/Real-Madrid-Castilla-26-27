@@ -120,7 +120,7 @@ export function Panel({
             {Icon && <Icon size={15} className="shrink-0 text-[#C8A96B]" />}
 
             <div className="min-w-0">
-              <h2 className="truncate text-sm font-semibold text-white">
+              <h2 className="break-words text-sm font-semibold text-white">
                 {title}
               </h2>
 

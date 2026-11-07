@@ -164,11 +164,10 @@ export function VistazoRival({
             titulo={enEseCampo.donde === "fuera" ? "Lejos de casa" : "En su campo"}
             pie={`${enEseCampo.fila.favor}-${enEseCampo.fila.contra} en goles · ${enEseCampo.fila.jugados} ${enEseCampo.fila.jugados === 1 ? "partido" : "partidos"}`}
           >
-            <p className="flex items-baseline gap-1.5">
-              <span className="text-lg font-semibold tabular-nums">{balanceDe(enEseCampo.fila)}</span>
-              <span className="text-xs text-white/45">
-                {enEseCampo.fila.puntos} de {enEseCampo.fila.jugados * 3} pts posibles
-              </span>
+            {/* El balance en una sola línea y los puntos debajo: en el móvil «2V 0E 2D» se partía (07/11/2026). */}
+            <p className="whitespace-nowrap text-lg font-semibold tabular-nums">{balanceDe(enEseCampo.fila)}</p>
+            <p className="text-xs text-white/45">
+              {enEseCampo.fila.puntos} de {enEseCampo.fila.jugados * 3} pts posibles
             </p>
           </Casilla>
         )}
@@ -202,7 +201,8 @@ export function VistazoRival({
         {dibujo && (
           <Casilla
             titulo="Dibujo que más repite"
-            pie={`${dibujo.veces} de sus ${dibujo.de} alineaciones`}
+            /* Con menos de 15 alineaciones es tendencia, no costumbre (07/11/2026, análisis). */
+            pie={`${dibujo.veces} de sus ${dibujo.de} alineaciones${dibujo.de < 15 ? " · tendencia" : ""}`}
           >
             <p className="flex items-center gap-1.5">
               <LayoutGrid size={13} className="shrink-0 text-[#C8A96B]" aria-hidden />
@@ -213,7 +213,16 @@ export function VistazoRival({
         )}
 
         {goleadores.length > 0 && (
-          <Casilla titulo="Le hacen los goles" ancha>
+          <Casilla
+            titulo="Le hacen los goles"
+            ancha
+            /* La base: de cuántos goles y en cuántos partidos (07/11/2026, análisis). */
+            pie={
+              tabla && tabla.favor > 0
+                ? `${goleadores.reduce((suma, g) => suma + g.goles, 0)} de sus ${tabla.favor} goles · ${tabla.jugados} ${tabla.jugados === 1 ? "partido" : "partidos"}`
+                : undefined
+            }
+          >
             <ul className="min-w-0 space-y-0.5">
               {goleadores.map((g) => (
                 <li key={g.nombre} className="flex min-w-0 items-center gap-1.5 text-sm">

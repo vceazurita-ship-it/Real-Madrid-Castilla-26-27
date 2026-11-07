@@ -45,6 +45,12 @@ export type JugadorDuelo = {
   lado: Lado;
   /** Lo que se enseña como posición: la de Wyscout si hay, si no la de la hoja. */
   posicion: string;
+  /**
+   * El puesto de la hoja en palabras (sólo suyos), el mismo que enseña
+   * Plantillas rivales: Wyscout llama «delantero centro» a un extremo que
+   * jugó por dentro algún día (07/11/2026, jueces). Se enseña antes que `posicion`.
+   */
+  puestoHoja?: string;
   /** En centímetros; null si no se sabe. */
   altura: number | null;
   pie: string;
@@ -596,20 +602,29 @@ export function fraseRecuentoPartes(medidos: number, aFavor: number, enContra: n
   };
 }
 
+/*
+| 07/11/2026 (jueces, ronda 14): /duelos decía «2 sólo a favor, 2 sólo en
+| contra, 3 que ganamos con balón…» y el Plan de partido «2 para buscar, 3 de
+| doble cara, 2 para vigilar»: lo mismo con dos redacciones. Ahora la frase
+| sale de `fraseRecuentoPartes`, y las dos pantallas dicen lo mismo.
+*/
 export function fraseRecuentoDuelos(medidos: number, aFavor: number, enContra: number, enLosDos: number): string {
-  const ambos = Math.max(0, enLosDos);
-  const soloAFavor = Math.max(0, aFavor - ambos);
-  const soloEnContra = Math.max(0, enContra - ambos);
-  const parejos = Math.max(0, medidos - (soloAFavor + soloEnContra + ambos));
-
-  const partes = [
-    soloAFavor > 0 ? `${soloAFavor} sólo a favor` : "",
-    soloEnContra > 0 ? `${soloEnContra} sólo en contra` : "",
-    ambos > 0 ? `${ambos} que ganamos con balón y perdemos sin él` : "",
-    parejos > 0 ? `${parejos} ${parejos === 1 ? "parejo" : "parejos"}` : "",
-  ].filter(Boolean);
   /* «medidos» (29/10/2026): la cifra tiene que ser la de tarjetas pintadas, no la de huecos del once. */
-  const base = `${medidos} ${medidos === 1 ? "duelo medido" : "duelos medidos"}`;
+  const { base, partes } = fraseRecuentoPartes(medidos, aFavor, enContra, enLosDos);
 
-  return partes.length > 0 ? `${base}: ${partes.join(", ")}` : base;
+  return partes.length > 0 ? `${base}: ${partes.map((p) => p.texto).join(", ")}` : base;
+}
+
+/**
+ * Los momentos (cada duelo tiene dos: con nuestro balón y con el suyo) y el
+ * umbral que decide cuál cuenta: «De los 16 momentos, 5 a favor y 5 en
+ * contra (±10 de percentil o más); los otros 6, sin diferencia clara».
+ */
+export function fraseMomentos(medidos: number, aFavor: number, enContra: number): string {
+  const total = medidos * 2;
+  const resto = Math.max(0, total - aFavor - enContra);
+
+  if (total === 0) return "";
+
+  return `De los ${total} momentos (cada duelo con nuestro balón y con el suyo), ${aFavor} a favor y ${enContra} en contra: cuentan los que se despegan ${UMBRAL_DUELO} puntos de percentil o más${resto > 0 ? `; los otros ${resto}, sin diferencia clara` : ""}.`;
 }

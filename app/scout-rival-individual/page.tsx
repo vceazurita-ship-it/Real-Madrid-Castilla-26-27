@@ -47,6 +47,8 @@ import {
 } from "@/lib/rivals/orden-calendario";
 import { Explicativo } from "@/components/ui/textos-analisis";
 import { mismoClub } from "@/lib/rivals/mismoClub";
+import { conTildes } from "@/lib/rivals/tildes";
+import { comoNombre } from "@/lib/duelos-onces";
 
 /*
 | `?equipo=<NOMBRE>` (26/10/2026): desde la ficha del rival o la portada se
@@ -249,7 +251,9 @@ export default function ScoutRivalIndividual() {
         partidos: temporada?.partidos,
         titularidades: temporada?.titular,
         minutos: temporada?.minutos,
-        nombre: jugador.nombre,
+        /* Como en Plantillas, con tildes y en caja de nombre: «SAMU VAZQUEZ» → «Samu Vázquez» (07/11/2026). */
+        nombre: conTildes(comoNombre(jugador.nombre)),
+        hoja: jugador.nombre,
         dorsal: dorsalesRepetidos.has(String(jugador.dorsal ?? "").trim()) ? "" : jugador.dorsal,
         puesto: jugador.posicion,
         etiquetas: etiquetasDe[`${equipo}|${jugador.nombre}`] ?? [],

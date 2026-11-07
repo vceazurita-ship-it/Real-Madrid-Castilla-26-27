@@ -61,6 +61,22 @@ function cifra1(valor: number | null, unidad: Unidad) {
 
 /** «Mejor que 8 de cada 10» / «Peor que 8 de cada 10»: percentil ya orientado. El extremo se dice como es: «el mejor/peor de los 20». */
 function lectura(percentil: number, equipos: number, mejorAlto?: boolean | null) {
+  const base = lecturaSinPuesto(percentil, equipos, mejorAlto);
+
+  /*
+  | Con el puesto absoluto (07/11/2026, análisis): «peor que 9 de cada 10» no
+  | decía si era el 18.º o el 20.º. El 1.º es el mejor (o, en una métrica de
+  | estilo, el que más).
+  */
+  if (!equipos || equipos < 2) return base;
+
+  const puesto = 1 + Math.round(((100 - percentil) / 100) * (equipos - 1));
+  const extremo = /^el (mejor|peor|que más|que menos) de los/.test(base.texto);
+
+  return extremo ? base : { ...base, texto: `${base.texto} (${puesto}.º de ${equipos}${mejorAlto === null ? ", de más a menos" : ""})` };
+}
+
+function lecturaSinPuesto(percentil: number, equipos: number, mejorAlto?: boolean | null) {
   /* Métrica de estilo: se compara, no se juzga (que te centren más no es una virtud). */
   if (mejorAlto === null) {
     if (percentil >= 97) return { texto: `el que más de los ${equipos}`, bueno: null };
@@ -114,13 +130,13 @@ function consignaOfensiva(aspecto: Aspecto, equipos: number) {
 
   if (corners) {
     partes.push(
-      `Concede ${cifra1(corners.valor, corners.unidad)} córners por partido (mediana ${cifra1(corners.mediana, corners.unidad)}; ${lectura(corners.percentil, equipos, false).texto}): llegar a línea de fondo y forzar córner; preparar dos rutinas de córner ofensivo.`,
+      `Concede ${cifra1(corners.valor, corners.unidad)} córners por partido (mediana ${cifra1(corners.mediana, corners.unidad)}; ${lecturaSinPuesto(corners.percentil, equipos, false).texto}): llegar a línea de fondo y forzar córner; preparar dos rutinas de córner ofensivo.`,
     );
   }
 
   if (conRemate) {
     partes.push(
-      `Le rematan el ${cifra1(conRemate.valor, conRemate.unidad)} de los córners (mediana ${cifra1(conRemate.mediana, conRemate.unidad)}; ${lectura(conRemate.percentil, equipos, false).texto}): cargar el área con nuestros mejores rematadores en cada córner.`,
+      `Le rematan el ${cifra1(conRemate.valor, conRemate.unidad)} de los córners (mediana ${cifra1(conRemate.mediana, conRemate.unidad)}; ${lecturaSinPuesto(conRemate.percentil, equipos, false).texto}): cargar el área con nuestros mejores rematadores en cada córner.`,
     );
   }
 
@@ -148,11 +164,16 @@ function queHacemosConCentros(
   const acierto = filas.find((f) => f.nombre === "Centros precisos %");
   const recibe = filas.find((f) => f.nombre === "Centros que recibe");
 
-  /* Lo que recibe (menos es mejor): si es más que la mediana, se le ataca por fuera. */
-  const lesCentramos =
-    recibe && recibe.valor > recibe.mediana
-      ? `reciben ${cifra1(recibe.valor, recibe.unidad)} centros por partido (mediana ${cifra1(recibe.mediana, recibe.unidad)}) → atacarles por fuera, con extremo y lateral doblando y tres hombres en el área.`
-      : "";
+  /*
+  | Lo que recibe (menos es mejor): si es más que la mediana, se le ataca por
+  | fuera. 07/11/2026 (fútbol): también cuando reciben pocos, que es la otra
+  | mitad del «Qué hacemos»; y con el sujeto claro (son ellos los que reciben).
+  */
+  const lesCentramos = !recibe
+    ? ""
+    : recibe.valor > recibe.mediana
+      ? `${equipo} recibe ${cifra1(recibe.valor, recibe.unidad)} centros por partido (mediana ${cifra1(recibe.mediana, recibe.unidad)}) → atacarles por fuera, con extremo y lateral doblando y tres hombres en el área.`
+      : `${equipo} recibe ${cifra1(recibe.valor, recibe.unidad)} centros por partido (mediana ${cifra1(recibe.mediana, recibe.unidad)}): no dejan centrar → el centro no es la primera vía; llegar por dentro y centrar sólo con el área cargada.`;
 
   if (!volumen || !acierto) return { titular: "", nosCentran: "", lesCentramos };
 
@@ -164,13 +185,15 @@ function queHacemosConCentros(
   const mal = dif < -2;
 
   const cuanto = `${cifra1(volumen.valor, volumen.unidad)} por partido (mediana ${cifra1(volumen.mediana, volumen.unidad)})`;
-  const comoAcierta = `${bien ? "con más acierto que la liga" : mal ? "con menos acierto que la liga" : "con un acierto como el de la liga"} (${cifra1(acierto.valor, acierto.unidad)} frente a ${cifra1(acierto.mediana, acierto.unidad)})`;
+  /* Con la base: «58 de 201» (07/11/2026, fútbol). */
+  const baseAcierto = acierto.base ? `, ${Math.round(acierto.base.arriba)} de ${Math.round(acierto.base.abajo)} precisos` : "";
+  const comoAcierta = `${bien ? "con más acierto que la liga" : mal ? "con menos acierto que la liga" : "con un acierto como el de la liga"} (${cifra1(acierto.valor, acierto.unidad)} frente a ${cifra1(acierto.mediana, acierto.unidad)}${baseAcierto})`;
 
   const accion =
     muchos && bien
       ? "cerrar el carril exterior y proteger el segundo palo"
       : muchos && mal
-        ? "dejarles centrar y ganar el área, sin perseguir el balón hasta la banda"
+        ? "dejarles centrar desde fuera del área, nunca sin presión al que centra, y ganar el área"
         : muchos
           ? "cerrar el carril exterior y ganar el área"
           : bien
@@ -179,7 +202,7 @@ function queHacemosConCentros(
 
   return {
     titular: `${equipo} centra ${muchos ? "mucho" : "poco"}, ${cifra1(volumen.valor, volumen.unidad)} por partido: ${accion.split(",")[0]}`,
-    nosCentran: `centran ${cuanto} ${comoAcierta} → ${accion}.`,
+    nosCentran: `${equipo} centra ${cuanto} ${comoAcierta} → ${accion}.`,
     lesCentramos,
   };
 }
@@ -296,8 +319,17 @@ export function AbpWyscoutRival({
 
   /* La consigna sale de lo etiquetado: marcar al más alto de los rematadores y vigilar al que saca. */
   const alturaDe = (uno: RivalPlayerAerial) => Number(uno.altura) || 0;
-  const conCm = (uno: RivalPlayerAerial) => `${uno.nombre}${alturaDe(uno) ? ` (${alturaDe(uno)} cm)` : ""}`;
-  const porAltura = (lista: RivalPlayerAerial[]) => [...lista].sort((a, b) => alturaDe(b) - alturaDe(a));
+  /*
+  | 07/11/2026 (análisis): la base de cada rematador, no sólo la altura:
+  | «Miki Bosch (190 cm, 4 remates)». Y se ordena primero por remates
+  | contados y, a igualdad, por altura.
+  */
+  const conCm = (uno: RivalPlayerAerial) => {
+    const partes = [alturaDe(uno) ? `${alturaDe(uno)} cm` : "", uno.remates > 0 ? `${uno.remates} ${uno.remates === 1 ? "remate" : "remates"}` : ""].filter(Boolean);
+
+    return `${uno.nombre}${partes.length ? ` (${partes.join(", ")})` : ""}`;
+  };
+  const porAltura = (lista: RivalPlayerAerial[]) => [...lista].sort((a, b) => (b.remates || 0) - (a.remates || 0) || alturaDe(b) - alturaDe(a));
 
   /*
   | Con once probable: primero los titulares que rematan (etiquetados, con
@@ -310,10 +342,17 @@ export function AbpWyscoutRival({
     : [];
   const rematanFuera = titulares ? porAltura(rematan.filter((uno) => !esTitular(uno))) : [];
   const rematanVisibles = titulares ? [...titularesQueRematan, ...rematanFuera] : rematan;
-  const masAlto = titulares ? titularesQueRematan[0] : porAltura(rematan)[0];
+  /*
+  | 07/11/2026 (fútbol): «nuestro central más alto» salía para dos rematadores
+  | distintos. Ahora se empareja por orden: nuestro más alto con su primer
+  | rematador, el segundo más alto con el segundo; quien entre desde el
+  | banquillo lo coge el que marcaba al que sale.
+  */
+  const principales = (titulares ? titularesQueRematan : porAltura(rematan)).slice(0, 2);
+  const ORDINAL = ["nuestro jugador más alto", "nuestro segundo más alto"];
   const consigna = [
-    masAlto ? `emparejar a nuestro central más alto con ${conCm(masAlto)} en el córner` : "",
-    ...rematanFuera.slice(0, 2).map((uno) => `si entra ${conCm(uno)}: nuestro central más alto con él`),
+    principales.length ? `en el córner, ${principales.map((uno, i) => `${ORDINAL[i]} con ${conCm(uno)}`).join(" y ")}` : "",
+    ...rematanFuera.slice(0, 2).map((uno) => `si entra ${conCm(uno)}, lo coge quien marcaba al que sale`),
     sacan.length > 0 ? `vigilar la trayectoria de ${sacan.map((uno) => uno.nombre).join(" y ")} en el saque` : "",
   ]
     .filter(Boolean)
@@ -345,13 +384,13 @@ export function AbpWyscoutRival({
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">Qué hacemos</p>
                 {nosCentran && (
                   <p>
-                    <b className="text-white">Cuando nos centran: </b>
+                    <b className="text-white">Cuando ellos centran: </b>
                     {nosCentran}
                   </p>
                 )}
                 {lesCentramos && (
                   <p>
-                    <b className="text-white">Cuando les centramos: </b>
+                    <b className="text-white">Cuando nosotros les centramos: </b>
                     {lesCentramos}
                   </p>
                 )}
@@ -511,8 +550,11 @@ export function AbpWyscoutRival({
                   </span>
                 </p>
 
-                {(g.goles < 10 || g.partidos < 10) && (
-                  <p className="mt-0.5 text-[11px] italic text-white/50">Tendencia, pocos casos: no lo damos por hecho.</p>
+                {/* 07/11/2026 (análisis): la muestra son los goles a balón parado, no los totales. */}
+                {(g.abp < 10 || g.partidos < 10) && (
+                  <p className="mt-0.5 text-[11px] italic text-white/55">
+                    Tendencia ({g.abp} {g.abp === 1 ? "gol" : "goles"} a balón parado): ni fortaleza ni carencia todavía.
+                  </p>
                 )}
 
                 {g.hayOrigen && g.abp > 0 && (

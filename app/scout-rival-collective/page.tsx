@@ -12,7 +12,16 @@ import { traeJson } from "@/lib/hojaCsv";
 import { mismoClub } from "@/lib/rivals/mismoClub";
 import { conTildes } from "@/lib/rivals/tildes";
 import { sinErratas } from "@/lib/rivals/erratas";
-import { completaNombres } from "@/lib/rivals/completa-nombres";
+import { completaNombres, conNombresDeLaPlantilla, type FichaNombre } from "@/lib/rivals/completa-nombres";
+
+/*
+| El texto del analista con los nombres de la plantilla (07/11/2026): primero
+| se completa el nombre de pila suelto y luego se corrige lo escrito de
+| memoria («Hidalgo» → Fidalgo, «23. Javi J.» → 23 · Javi Jiménez). Una frase
+| que se queda en una coma («Interiores pueden perseguir,») acaba en punto.
+*/
+const conPlantilla = (texto: string, nombres: string[], fichas: FichaNombre[]) =>
+  conNombresDeLaPlantilla(completaNombres(texto, nombres), fichas).replace(/[,;:]\s*$/, ".");
 import { comoNombre } from "@/lib/duelos-onces";
 import { formatea } from "@/lib/data-analisis/metricas";
 import { aJornada, claveFecha } from "@/lib/abp/jornada";
@@ -26,6 +35,8 @@ import RecursosRival, {
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { AvisoLento } from "@/components/rivals/AvisoLento";
 import { TiraJornadas } from "@/components/rivals/TiraJornadas";
+import { useRivalInforme } from "@/hooks/useRivalInforme";
+import { findInforme } from "@/lib/rivals/informe";
 import { useEscudos } from "@/hooks/useEscudos";
 import { useLento } from "@/hooks/useLento";
 import Link from "next/link";
@@ -438,6 +449,8 @@ export default function ScoutRivalCollective() {
   }, []);
 
   const equipoActivo = String(rivalActivo?.EQUIPO ?? "");
+  /* El mismo documento de BeSoccer que la tira de jornadas (se baja una vez por pestaña). */
+  const informeRival = useRivalInforme({ alEntrar: true });
 
   useEffect(() => {
     if (!equipoActivo) return;
@@ -472,6 +485,19 @@ export default function ScoutRivalCollective() {
         .filter((f) => mismoClub(String(f.NOMBRE_EQUIPO ?? ""), equipoActivo))
         .map((f) => conTildes(comoNombre(String(f["NOMBRE DEPORTIVO"] ?? "").trim() || String(f.JUGADOR ?? "").trim())))
         .filter(Boolean),
+    [plantillaRival, equipoActivo],
+  );
+
+  /* Con el dorsal, para corregir lo que escribe el analista de memoria («23. Javi J.», «Hidalgo») (07/11/2026). */
+  const fichasRival = useMemo<FichaNombre[]>(
+    () =>
+      plantillaRival
+        .filter((f) => mismoClub(String(f.NOMBRE_EQUIPO ?? ""), equipoActivo))
+        .map((f) => ({
+          nombre: conTildes(comoNombre(String(f["NOMBRE DEPORTIVO"] ?? "").trim() || String(f.JUGADOR ?? "").trim())),
+          dorsal: String(f.DORSAL ?? "").trim(),
+        }))
+        .filter((f) => f.nombre),
     [plantillaRival, equipoActivo],
   );
 
@@ -562,12 +588,12 @@ export default function ScoutRivalCollective() {
         .filter((l) => !esVacio(l)),
     }));
     const corta = (t: string) => {
-      const completo = completaNombres(t, nombresRival);
+      const completo = conPlantilla(t, nombresRival, fichasRival);
 
       return completo.length > 180 ? `${completo.slice(0, 177).trimEnd()}…` : completo;
     };
     /* `entera`: la línea cabe sin recortar, así que en «Conclusiones» ya no hace falta repetirla. */
-    const idea = (c: (typeof campos)[number], l: string) => ({ campo: c.campo, titulo: c.titulo, texto: corta(l), linea: l, entera: completaNombres(l, nombresRival).length <= 180 });
+    const idea = (c: (typeof campos)[number], l: string) => ({ campo: c.campo, titulo: c.titulo, texto: corta(l), linea: l, entera: conPlantilla(l, nombresRival, fichasRival).length <= 180 });
     /* La primera línea de cada conclusión; si faltan, las siguientes de las que tengan más hasta llegar a tres. */
     const ideas = campos.flatMap((c) => (c.lineas[0] ? [idea(c, c.lineas[0])] : []));
 
@@ -607,17 +633,85 @@ export default function ScoutRivalCollective() {
     (f) => modoEdicion || (!YA_EN_EL_PLAN.includes(f.campo) && !esVacio(restoConclusion(f.campo))),
   );
 
-  /* Hasta tres puntos donde hacerles daño, cada uno de un campo distinto. */
-  const dano = CAMPOS_DANO.map(({ campo, rotulo }) => ({
-    campo,
-    rotulo,
-    texto:
-      valorDe(campo)
-        .split(/\r?\n/)
-        .map(limpiaLinea)
-        .find((l) => !esVacio(l)) ?? "",
-  }))
-    .filter((d) => d.texto)
+  const primeraLinea = (campo: string) =>
+    valorDe(campo)
+      .split(/\r?\n/)
+      .map(limpiaLinea)
+      .find((l) => !esVacio(l)) ?? "";
+
+  /*
+  | Hasta tres puntos donde hacerles daño, cada uno de un campo distinto.
+  | 07/11/2026 (jueces): con un solo punto («Débil en su presión: 23. Javi J.»)
+  | el bloque no mandaba nada. Ahora entra también su salida de balón: el
+  | analista escribe «Rentero / Bosch» (mayor / menor capacidad) y, si en la
+  | estructura dice que les cuesta progresar ante presión alta, eso es el «Qué
+  | hacemos», con su frase. Nada se inventa: sin esos textos, no sale.
+  */
+  const dano = (() => {
+    const lista: { campo: string; rotulo: string; texto: string; queHacemos?: string }[] = [];
+    const centrales = primeraLinea("OF_INICIO_CENTRAL_CAPACIDAD").split(/\s*\/\s*/).map((t) => t.trim()).filter(Boolean);
+
+    if (centrales.length === 2) {
+      const frasePresion = valorDe("OF_INICIO_ESTRUCTURA")
+        .split(/(?<=\.)\s+|\r?\n/)
+        .map((t) => t.trim())
+        .find((t) => /dificultad[^.]*presi[oó]n/i.test(t));
+
+      lista.push({
+        campo: "OF_INICIO_CENTRAL_CAPACIDAD",
+        rotulo: "Su salida de balón",
+        texto: `El central de menor capacidad es ${centrales[1]} (el de más, ${centrales[0]}).`,
+        queHacemos: frasePresion
+          ? `Presión alta y que la salida pase por ${centrales[1]}: «${frasePresion.replace(/\.$/, "")}».`
+          : undefined,
+      });
+    }
+
+    for (const { campo, rotulo } of [
+      CAMPOS_DANO.find((c) => c.campo === "DEF_REINICIO_JUGADORES_DEBILES")!,
+      { campo: "OF_INICIO_JUGADOR_DEBIL_DENTRO", rotulo: "Débil por dentro" },
+      ...CAMPOS_DANO.filter((c) => c.campo !== "DEF_REINICIO_JUGADORES_DEBILES"),
+    ]) {
+      const texto = primeraLinea(campo);
+
+      if (texto) lista.push({ campo, rotulo, texto });
+    }
+
+    return lista.slice(0, 3);
+  })();
+
+  /*
+  | El espejo, «Cómo nos hacen daño» (07/11/2026, fútbol): lo que el analista
+  | ya ha escrito de su ataque, la primera línea de cada campo. Sin texto, no sale.
+  */
+  /*
+  | Contraste con los datos (07/11/2026, fútbol): el analista escribe el
+  | dibujo con el portero («1-4-2-3-1») y por fase; BeSoccer cuenta el de
+  | sus alineaciones. Una línea con los dos, en el formato de /rivals.
+  */
+  const dibujoMedido = (() => {
+    const primera = findInforme(informeRival.doc, equipoActivo)?.estructuras?.[0];
+    const de = (findInforme(informeRival.doc, equipoActivo)?.estructuras ?? []).reduce((s, e) => s + e.veces, 0);
+
+    return primera?.estructura && de > 0 ? { dibujo: primera.estructura.replace(/^1-(?=\d-\d)/, ""), veces: primera.veces, de } : null;
+  })();
+  const dibujosEscritos = [
+    { campo: "OF_INICIO_ESTRUCTURA", fase: "en la salida" },
+    { campo: "OF_CAMPO_ESTRUCTURA", fase: "en campo contrario" },
+    { campo: "DEF_BLOQUE_MEDIO_ESTRUCTURA", fase: "defendiendo en bloque medio" },
+  ]
+    .map((c) => ({ ...c, dibujo: (valorDe(c.campo).match(/\b1-\d(?:-\d){2,3}\b/)?.[0] ?? "").replace(/^1-/, "") }))
+    .filter((c) => c.dibujo);
+
+  const peligro = [
+    { campo: "OF_AREA_JUGADORES", rotulo: "Atacan el área" },
+    { campo: "OF_AREA_CENTROS", rotulo: "Sus centros" },
+    { campo: "OF_CAMPO_CARRIL_EXTERIOR", rotulo: "Por fuera" },
+    { campo: "OF_INICIO_JUGAR_ESPACIO", rotulo: "Al espacio" },
+    { campo: "OF_REINICIO_REFERENCIAS", rotulo: "Sus referencias" },
+  ]
+    .map((c) => ({ ...c, texto: primeraLinea(c.campo) }))
+    .filter((c) => c.texto)
     .slice(0, 3);
 
   /* Las siglas que aparecen en lo que ha escrito el analista. */
@@ -1059,6 +1153,8 @@ export default function ScoutRivalCollective() {
                 {rivalActivo && !modoEdicion && lineaPartido && (
                   <label className="relative inline-flex max-w-full cursor-pointer items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1 font-semibold text-white/80 transition hover:border-[#C8A96B]/50">
                     <CalendarDays size={14} className="shrink-0 text-white/45" />
+                    {/* «Nuestra jornada» (07/11/2026): la tira de abajo cuenta las suyas y la misma J no era el mismo partido. */}
+                    <span className="shrink-0 text-[11px] font-medium uppercase tracking-wider text-white/45">Nuestra jornada</span>
                     <span className="min-w-0 truncate">{lineaPartido}</span>
                     <ChevronDown size={14} className="shrink-0 text-white/45" data-export-hide />
                     <select
@@ -1227,19 +1323,49 @@ export default function ScoutRivalCollective() {
           {!modoEdicion && rivalActivo && dano.length > 0 && (
             <section id="hacerles-dano" aria-label="Dónde hacerles daño" className="mb-6 scroll-mt-20 rounded-2xl border border-emerald-400/25 bg-emerald-400/[0.05] px-5 py-4">
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-300">Dónde hacerles daño</p>
+              {/* 07/11/2026 (marketing): el rótulo lleva a su tarjeta; fuera el «Ver la tarjeta entera ↓» repetido y la frase meta. */}
               <ul className="mt-2 grid gap-3 md:grid-cols-3">
                 {dano.map((d) => (
                   <li key={d.campo} className="min-w-0">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/50">{d.rotulo}</p>
-                    <p className="mt-0.5 text-sm leading-6 text-white/85">{conSiglas(sinErratas(completaNombres(d.texto, nombresRival)))}</p>
-                    <a href={`#campo-${d.campo}`} data-export-hide className="mt-1 inline-block text-[12px] font-semibold text-emerald-300 hover:underline">
-                      Ver la tarjeta entera ↓
+                    <a href={`#campo-${d.campo}`} className="text-[12px] font-semibold text-white/60 hover:text-emerald-300 hover:underline">
+                      {d.rotulo} ↓
                     </a>
+                    <p className="mt-0.5 text-sm leading-6 text-white/85">{conSiglas(sinErratas(conPlantilla(d.texto, nombresRival, fichasRival)))}</p>
+                    {d.queHacemos && (
+                      <p className="mt-1 text-sm leading-6 text-white/85">
+                        <b className="font-semibold text-emerald-300">Qué hacemos:</b> {conSiglas(sinErratas(conPlantilla(d.queHacemos, nombresRival, fichasRival)))}
+                      </p>
+                    )}
                   </li>
                 ))}
               </ul>
-              <p className="mt-2 text-[12px] text-white/55">Lectura del analista: lo que ha escrito de su fase defensiva tras ver sus partidos.</p>
+              <p className="mt-2 text-[11px] text-white/50">Del informe del analista, tras ver sus partidos.</p>
             </section>
+          )}
+
+          {!modoEdicion && rivalActivo && peligro.length > 0 && (
+            <section aria-label="Cómo nos hacen daño" className="mb-6 rounded-2xl border border-rose-400/25 bg-rose-400/[0.05] px-5 py-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-rose-300">Cómo nos hacen daño</p>
+              <ul className="mt-2 grid gap-3 md:grid-cols-3">
+                {peligro.map((d) => (
+                  <li key={d.campo} className="min-w-0">
+                    <a href={`#campo-${d.campo}`} className="text-[12px] font-semibold text-white/60 hover:text-rose-300 hover:underline">
+                      {d.rotulo} ↓
+                    </a>
+                    <p className="mt-0.5 text-sm leading-6 text-white/85">{conSiglas(sinErratas(conPlantilla(d.texto, nombresRival, fichasRival)))}</p>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {!modoEdicion && rivalActivo && dibujoMedido && dibujosEscritos.length > 0 && (
+            <p className="mb-6 rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-2.5 text-[13px] leading-6 text-white/65">
+              <b className="text-white/80">Contraste con los datos</b>
+              {" · "}El analista los ve en {dibujosEscritos.map((d) => `${d.dibujo} ${d.fase}`).join(", ")}; en sus alineaciones (BeSoccer), el{" "}
+              {dibujoMedido.dibujo} sale en {dibujoMedido.veces} de {dibujoMedido.de}
+              {dibujosEscritos.some((d) => d.dibujo !== dibujoMedido.dibujo) ? ": el dibujo de partida y el de cada fase no tienen por qué coincidir." : ", lo mismo que escribe el analista."}
+            </p>
           )}
 
           {modoEdicion && (
@@ -1383,7 +1509,11 @@ export default function ScoutRivalCollective() {
                   {section.titulo}
                 </h2>
 
-                <p className="text-sm text-white/50">{section.subtitulo}</p>
+                {/* «Lectura del analista» una sola vez por fase, no en cada tarjeta (07/11/2026, marketing). */}
+                <p className="text-sm text-white/50">
+                  {section.subtitulo}
+                  {!modoEdicion && " · lectura del analista tras ver sus partidos"}
+                </p>
               </div>
 
               <div className="mt-6 grid grid-cols-1 items-start gap-6 xl:grid-cols-2">
@@ -1401,14 +1531,12 @@ export default function ScoutRivalCollective() {
                         style={{ background: section.accent }}
                       />
 
-                      <h3 className="text-sm font-bold uppercase tracking-[0.18em] text-white/85">
+                      {/* Sin versalitas espaciadas (07/11/2026, marketing): se lee como titular. */}
+                      <h3 className="text-base font-bold tracking-tight text-white/90">
                         {bloque.titulo}
                       </h3>
 
                       <span className="h-px flex-1 bg-white/10" />
-
-                      {/* De dónde sale cada afirmación (30/10/2026, análisis). */}
-                      {!modoEdicion && <span className="shrink-0 text-[11px] text-white/45">Lectura del analista</span>}
                     </div>
 
                     <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2">
@@ -1427,6 +1555,7 @@ export default function ScoutRivalCollective() {
                               editando={modoEdicion}
                               accent={section.accent}
                               nombres={nombresRival}
+                              fichas={fichasRival}
                               enDano={dano.some((d) => d.campo === field.campo)}
                               onChange={(v) => setCampo(field.campo, v)}
                             />
@@ -1477,6 +1606,7 @@ export default function ScoutRivalCollective() {
                   accent="#C8A96B"
                   destacado
                   nombres={nombresRival}
+                  fichas={fichasRival}
                   onChange={(v) => setCampo(field.campo, v)}
                 />
               ))}
@@ -1554,6 +1684,7 @@ function Campo({
   accent,
   destacado = false,
   nombres = [],
+  fichas = [],
   enDano = false,
   onChange,
 }: {
@@ -1563,6 +1694,7 @@ function Campo({
   accent: string;
   destacado?: boolean;
   nombres?: string[];
+  fichas?: FichaNombre[];
   /** Ya sale arriba, en «Dónde hacerles daño»: se pinta plegada y con el sello (30/10/2026). */
   enDano?: boolean;
   onChange: (value: string) => void;
@@ -1620,12 +1752,12 @@ function Campo({
         <details>
           <summary className="cursor-pointer select-none text-[13px] text-white/60">Ver el texto entero</summary>
           <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-white/80">
-            {conSiglas(sinErratas(completaNombres(contenido, nombres)))}
+            {conSiglas(sinErratas(conPlantilla(contenido, nombres, fichas)))}
           </p>
         </details>
       ) : (
         <p className="whitespace-pre-wrap text-sm leading-6 text-white/80">
-          {conSiglas(sinErratas(completaNombres(contenido, nombres)))}
+          {conSiglas(sinErratas(conPlantilla(contenido, nombres, fichas)))}
         </p>
       )}
     </div>
