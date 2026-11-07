@@ -48,7 +48,8 @@ const ENTRENAR: { patron: RegExp; tarea: string; medir: string }[] = [
 const tareaDe = (nombre: string) => ENTRENAR.find((e) => e.patron.test(nombre)) ?? null;
 import { indiceDe, percentilesDe, type Percentil } from "@/lib/comparativa-u21";
 import type { RatingsSeason } from "@/lib/ratings/types";
-import { RadiografiaPercentiles, type CunaPercentil } from "@/components/data/visual/RadiografiaPercentiles";
+import { RadiografiaPercentiles } from "@/components/data/visual/RadiografiaPercentiles";
+import { ComparaElite, cunasDe, type JugadorElite } from "@/components/individual/ComparaElite";
 import { MapaDosEjes, type PuntoMapa } from "@/components/data/visual/MapaDosEjes";
 import { MarcoGrafico, usePesos, useTipoGrafico } from "@/components/data/visual/MarcoGrafico";
 import type { Puesto } from "@/lib/data-analisis/individual";
@@ -109,30 +110,6 @@ const EJES: Record<Puesto, { x: string; y: string; gx: string[]; gy: string[]; r
 function aRango(vals: number[]) {
   const orden = [...vals].sort((a, b) => a - b);
   return vals.map((v) => (vals.length < 2 ? 50 : (100 * orden.indexOf(v)) / (vals.length - 1)));
-}
-
-/** De cada fase, hasta seis métricas repartidas entre sus grupos. */
-function cunasDe(ps: Percentil[]): CunaPercentil[] {
-  const sale: CunaPercentil[] = [];
-  for (const lado of ["con", "sin"] as const) {
-    const suyas = ps.filter((p) => p.metrica.fase === lado && !/penalti/i.test(p.metrica.nombre) && p.valor !== 0);
-    const porGrupo = new Map<string, Percentil[]>();
-    for (const p of suyas) porGrupo.set(p.metrica.grupo, [...(porGrupo.get(p.metrica.grupo) ?? []), p]);
-    const elegidas: Percentil[] = [];
-    for (let vuelta = 0; elegidas.length < 6 && vuelta < 6; vuelta++) {
-      for (const lista of porGrupo.values()) if (lista[vuelta] && elegidas.length < 6) elegidas.push(lista[vuelta]);
-    }
-    for (const p of elegidas) {
-      sale.push({
-        nombre: `${p.metrica.nombre.replace(/ %$/, "")}${p.metrica.mejorAlto === false ? " ↓" : ""}`,
-        valor: p.metrica.unidad === "porcentaje" ? `${coma(p.valor, 1)} %` : coma(p.valor, Math.abs(p.valor) >= 10 ? 1 : 2),
-        percentil: p.percentil,
-        lado,
-        ayuda: p.metrica.comoLeer,
-      });
-    }
-  }
-  return sale;
 }
 
 const media = (xs: number[]) => (xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : 0);
@@ -351,6 +328,8 @@ export function AreaMejora({
       .filter((x): x is NonNullable<typeof x> => x !== null);
   }, [elite, analisis]);
 
+  const eliteJugadores = useMemo<JugadorElite[]>(() => (elite ? elite.ligas.flatMap((l) => l.jugadores.map((j) => ({ ...j, liga: l.liga }))) : []), [elite]);
+
   if (jugadores === null) {
     return <div className="h-64 animate-pulse rounded-2xl border border-white/10 bg-white/[0.03]" aria-label="Cargando el área de mejora" />;
   }
@@ -561,6 +540,18 @@ export function AreaMejora({
               </div>
             ))}
           </div>
+
+          {/* Cara a cara con la élite (07/11/2026): elegir jugadores de Primera y Premier y verlos encima de su radiografía. */}
+          {eliteJugadores.length > 0 && (
+            <ComparaElite
+              fila={analisis.fila}
+              puesto={analisis.puesto}
+              nombreCorto={apodo || nombre}
+              elite={eliteJugadores}
+              sugeridos={contraElite.flatMap((e) => e.parecidos.filter((x) => x.sim >= 0.4).slice(0, 1).map((x) => `${x.j.jugador}|${x.j.equipo}`))}
+              actualizado={elite?.actualizado}
+            />
+          )}
 
           {contraElite.length > 0 && (
             <div className="rounded-2xl border border-white/10 bg-[linear-gradient(135deg,rgba(27,158,119,.10),transparent_45%,rgba(229,72,77,.08))] p-4">

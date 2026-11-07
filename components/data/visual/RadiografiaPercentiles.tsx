@@ -19,7 +19,16 @@ export type CunaPercentil = {
   percentil: number;
   lado: "con" | "sin";
   ayuda?: string;
+  /** La columna de la métrica, para casar a otros jugadores en la misma cuña. */
+  clave?: string;
 };
+
+/**
+ * Otro jugador encima (07/11/2026, «comparar con la élite»): un arco de su
+ * color a la altura de su percentil en cada cuña, y su percentil bajo el
+ * rótulo. `percentiles` va en el orden de `cunas`; null = sin dato.
+ */
+export type Superpuesto = { nombre: string; color: string; percentiles: (number | null)[] };
 
 const ANCHO = 1000;
 const ALTO = 720;
@@ -47,7 +56,8 @@ function dosLineas(texto: string, max = 22): string[] {
   return corte < 0 ? [texto] : [texto.slice(0, corte), texto.slice(corte + 1)];
 }
 
-export function RadiografiaPercentiles({ cunas, acento = "#EC4899", centro = "/90′" }: { cunas: CunaPercentil[]; acento?: string; centro?: string }) {
+export function RadiografiaPercentiles({ cunas, acento = "#EC4899", centro = "/90′", superpuestos = [] }: { cunas: CunaPercentil[]; acento?: string; centro?: string; superpuestos?: Superpuesto[] }) {
+  const indice = new Map(cunas.map((c, i) => [c, i]));
   const der = cunas.filter((c) => c.lado === "con");
   const izq = cunas.filter((c) => c.lado === "sin");
 
@@ -86,10 +96,18 @@ export function RadiografiaPercentiles({ cunas, acento = "#EC4899", centro = "/9
 
         return (
           <g key={c.nombre} className="rp-cuna" style={{ animationDelay: `${i * 45}ms` }}>
-            <title>{`${c.nombre}: ${c.valor} · percentil ${Math.round(c.percentil)}${c.ayuda ? ` · ${c.ayuda}` : ""}`}</title>
+            <title>{`${c.nombre}: ${c.valor} · percentil ${Math.round(c.percentil)}${superpuestos.map((s) => { const sp = s.percentiles[indice.get(c) ?? -1]; return sp == null ? "" : ` · ${s.nombre} ${Math.round(sp)}`; }).join("")}${c.ayuda ? ` · ${c.ayuda}` : ""}`}</title>
             {/* El fondo de la cuña entera: dónde está el techo. */}
             <path d={trozo(a0 + 0.012, a1 - 0.012, R0, R)} fill="currentColor" fillOpacity={0.07} />
             <path d={trozo(a0 + 0.012, a1 - 0.012, R0, r1)} fill={acento} fillOpacity={intensidad} />
+            {/* Los superpuestos: un arco de su color a la altura de su percentil. */}
+            {superpuestos.map((s) => {
+              const sp = s.percentiles[indice.get(c) ?? -1];
+              if (sp == null) return null;
+              const rr = R0 + ((R - R0) * Math.max(2, Math.min(100, sp))) / 100;
+              const pa = (a: number) => `${CX + Math.sin(a) * rr},${CY - Math.cos(a) * rr}`;
+              return <path key={s.nombre} d={`M${pa(a0 + 0.03)} A${rr},${rr} 0 0 1 ${pa(a1 - 0.03)}`} fill="none" stroke={s.color} strokeWidth={5} strokeLinecap="round" />;
+            })}
             <circle cx={ax} cy={ay} r={3.5} fill="currentColor" fillOpacity={0.7} />
             <polyline points={`${ax},${ay} ${dch ? lx - 14 : lx + 14},${ly}`} fill="none" stroke="currentColor" strokeOpacity={0.35} />
             <text x={lx} y={ly - 6} textAnchor={dch ? "start" : "end"} fontSize="38" fontWeight="800" fill="currentColor">
@@ -101,6 +119,16 @@ export function RadiografiaPercentiles({ cunas, acento = "#EC4899", centro = "/9
                 {k === lineas.length - 1 && (
                   <tspan fill={acento} fillOpacity={1} fontWeight="800">{` · P${Math.round(c.percentil)}`}</tspan>
                 )}
+                {/* Los superpuestos, en la misma línea (una línea aparte se montaba sobre la cifra de la métrica siguiente). */}
+                {/* Con uno solo: con dos o tres el rótulo se saldría del gráfico (se leen en el arco y en el título). */}
+                {k === lineas.length - 1 &&
+                  superpuestos.length === 1 &&
+                  superpuestos.map((s) => {
+                    const sp = s.percentiles[indice.get(c) ?? -1];
+                    return sp == null ? null : (
+                      <tspan key={s.nombre} fill={s.color} fillOpacity={1} fontWeight="800">{`  ● ${Math.round(sp)}`}</tspan>
+                    );
+                  })}
               </text>
             ))}
           </g>

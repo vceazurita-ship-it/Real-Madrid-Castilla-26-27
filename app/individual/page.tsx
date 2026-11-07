@@ -1429,7 +1429,14 @@ function FormModal({
   );
 }
 
-/* Texto largo del perfil / informe, con aviso cuando aún no hay contenido. */
+/** ¿Tiene contenido de verdad? (lo vacío o el texto por defecto no cuentan). */
+function hayTexto(text?: unknown) {
+  const clean = String(text ?? "").trim();
+
+  return Boolean(clean) && clean !== DEFAULT_CON_BALON && clean !== DEFAULT_SIN_BALON && clean !== DEFAULT_MENTAL;
+}
+
+/* Texto largo del perfil / informe. Lo vacío no se pinta (07/11/2026): quien lo usa ya no pone el panel. */
 function ProfileText({ text }: { text?: string }) {
   /* String(): un fichaje del puente puede traer un número o nada en vez de texto (30/10/2026). */
   const clean = String(text ?? "").trim();
@@ -1440,11 +1447,7 @@ function ProfileText({ text }: { text?: string }) {
     clean === DEFAULT_SIN_BALON ||
     clean === DEFAULT_MENTAL;
 
-  if (empty) {
-    return (
-      <p className="text-sm italic text-white/25">Contenido por definir</p>
-    );
-  }
+  if (empty) return null;
 
   return (
     <p className="whitespace-pre-line text-sm leading-relaxed text-white/70">
@@ -3100,7 +3103,8 @@ export default function IndividualPage() {
 
   /* ---------------- bloques de la ficha ---------------- */
 
-  const competencePanel = selected && (
+  /* Sólo con alguna competencia valorada (07/11/2026, «que no salga vacío»). */
+  const competencePanel = selected && METRICS.some((m) => Number(selected[m.key] || 0) > 0) && (
     <Panel title="Perfil competencial" icon={Gauge}>
       <div className="mb-3 flex items-center gap-3">
         <ScoreRing value={selected.score} />
@@ -3121,7 +3125,7 @@ export default function IndividualPage() {
       {/* 05/11/2026: fuera el radar pequeño, repetía las cinco barras de debajo. */}
 
       <div className="mt-3 space-y-2.5">
-        {METRICS.map((metric) => {
+        {METRICS.filter((metric) => Number(selected[metric.key] || 0) > 0).map((metric) => {
           const value = Number(selected[metric.key] || 0);
 
           return (
@@ -3130,7 +3134,7 @@ export default function IndividualPage() {
                 <span className="truncate text-white/50">{metric.label}</span>
 
                 <span className="shrink-0 tabular-nums text-white/70">
-                  {value || "—"}
+                  {value}
                   <span className="text-white/25">/10</span>
                 </span>
               </div>
@@ -3733,23 +3737,28 @@ export default function IndividualPage() {
                           </GoldButton>
                         </div>
 
-                        <div className="grid min-w-0 gap-4 lg:grid-cols-2">
-                          <Panel title="Con balón" icon={Target}>
-                            <ProfileText text={selected.conBalon} />
-                          </Panel>
+                        {/* Sólo lo escrito (07/11/2026, «que no salga vacío»). */}
+                        {(hayTexto(selected.conBalon) || hayTexto(selected.sinBalon) || hayTexto(selected.mental)) && (
+                          <div className="grid min-w-0 gap-4 lg:grid-cols-2">
+                            {hayTexto(selected.conBalon) && (
+                              <Panel title="Con balón" icon={Target}>
+                                <ProfileText text={selected.conBalon} />
+                              </Panel>
+                            )}
 
-                          <Panel title="Sin balón" icon={Shield}>
-                            <ProfileText text={selected.sinBalon} />
-                          </Panel>
+                            {hayTexto(selected.sinBalon) && (
+                              <Panel title="Sin balón" icon={Shield}>
+                                <ProfileText text={selected.sinBalon} />
+                              </Panel>
+                            )}
 
-                          <Panel
-                            title="Mental"
-                            icon={Brain}
-                            className="lg:col-span-2"
-                          >
-                            <ProfileText text={selected.mental} />
-                          </Panel>
-                        </div>
+                            {hayTexto(selected.mental) && (
+                              <Panel title="Mental" icon={Brain} className="lg:col-span-2">
+                                <ProfileText text={selected.mental} />
+                              </Panel>
+                            )}
+                          </div>
+                        )}
 
                         {selected.hudlPerfilUrl && (
                           <Panel title="Perfil Hudl" icon={ExternalLink}>
@@ -3897,7 +3906,9 @@ export default function IndividualPage() {
                                         label: "Feedback",
                                         value: item.FEEDBACK,
                                       },
-                                    ].map((block) => (
+                                    ]
+                                      .filter((block) => hayTexto(block.value))
+                                      .map((block) => (
                                       <div
                                         key={block.label}
                                         className="min-w-0 rounded-xl border border-white/5 bg-white/[0.02] p-3"
@@ -3907,7 +3918,7 @@ export default function IndividualPage() {
                                         </h4>
 
                                         <p className="whitespace-pre-line text-sm leading-relaxed text-white/70">
-                                          {block.value || "—"}
+                                          {block.value}
                                         </p>
                                       </div>
                                     ))}
@@ -4220,40 +4231,20 @@ export default function IndividualPage() {
                           />
                         ) : (
                           <div className="grid min-w-0 gap-4 lg:grid-cols-2">
-                            <Panel
-                              title="Resumen ejecutivo"
-                              icon={FileText}
-                              className="lg:col-span-2"
-                            >
-                              <ProfileText
-                                text={playerReport.RESUMEN_EJECUTIVO}
-                              />
-                            </Panel>
-
-                            <Panel title="Fortalezas" icon={CheckCircle2}>
-                              <ProfileText
-                                text={playerReport.FORTALEZAS_INFORME}
-                              />
-                            </Panel>
-
-                            <Panel title="Aspectos de mejora" icon={Target}>
-                              <ProfileText
-                                text={playerReport.ASPECTOS_MEJORA_INFORME}
-                              />
-                            </Panel>
-
-                            <Panel title="Objetivos" icon={Target}>
-                              <ProfileText text={playerReport.OBJETIVOS} />
-                            </Panel>
-
-                            <Panel
-                              title="Observaciones finales"
-                              icon={ClipboardList}
-                            >
-                              <ProfileText
-                                text={playerReport.OBSERVACIONES_FINALES}
-                              />
-                            </Panel>
+                            {/* Sólo los apartados escritos (07/11/2026). */}
+                            {[
+                              { titulo: "Resumen ejecutivo", icono: FileText, texto: playerReport.RESUMEN_EJECUTIVO, ancho: true },
+                              { titulo: "Fortalezas", icono: CheckCircle2, texto: playerReport.FORTALEZAS_INFORME },
+                              { titulo: "Aspectos de mejora", icono: Target, texto: playerReport.ASPECTOS_MEJORA_INFORME },
+                              { titulo: "Objetivos", icono: Target, texto: playerReport.OBJETIVOS },
+                              { titulo: "Observaciones finales", icono: ClipboardList, texto: playerReport.OBSERVACIONES_FINALES },
+                            ]
+                              .filter((a) => hayTexto(a.texto))
+                              .map((a) => (
+                                <Panel key={a.titulo} title={a.titulo} icon={a.icono} className={a.ancho ? "lg:col-span-2" : undefined}>
+                                  <ProfileText text={a.texto} />
+                                </Panel>
+                              ))}
                           </div>
                         )}
                       </div>
