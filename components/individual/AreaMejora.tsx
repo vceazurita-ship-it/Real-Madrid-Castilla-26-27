@@ -161,6 +161,8 @@ export function AreaMejora({
   const [tipoRadiografia, setTipoRadiografia] = useTipoGrafico("radiografia", "pizza", ["pizza", "barras"] as const);
   const [tipoMapa, setTipoMapa] = useTipoGrafico("mapa-mejora", "mapa", ["mapa", "ranking"] as const);
   const [pesosMapa, setPesosMapa] = usePesos("mapa-mejora");
+  /* Filtro de edad del mapa de su puesto (07/11/2026): «de X a Y años»; null = sin tope. */
+  const [edadMapa, setEdadMapa] = useState<{ desde: number | null; hasta: number | null }>({ desde: null, hasta: null });
   /* La carga en frío (07/11/2026, jueces): un recuadro mudo parecía un hueco; a los 20 s se dice que tarda. */
   const [tarda, setTarda] = useState(false);
   const [vuelta, setVuelta] = useState(0);
@@ -259,9 +261,13 @@ export function AreaMejora({
 
     /* El mapa: todos los de su puesto con 450′, cada eje re-escalado a percentil. */
     const ejes = EJES[puesto];
-    let mapa: { puntos: PuntoMapa[]; ejes: NonNullable<typeof ejes>; n: number } | null = null;
+    let mapa: { puntos: PuntoMapa[]; ejes: NonNullable<typeof ejes>; n: number; nTotal: number; edades: number[]; elFuera: boolean } | null = null;
     if (ejes) {
-      const base = delPuesto;
+      /* Con filtro de edad se ordena sólo entre los de esa edad (él siempre dentro). */
+      const filtrando = edadMapa.desde !== null || edadMapa.hasta !== null;
+      const base = filtrando
+        ? delPuesto.filter((j) => j === fila || (j.edad > 0 && (edadMapa.desde === null || j.edad >= edadMapa.desde) && (edadMapa.hasta === null || j.edad <= edadMapa.hasta)))
+        : delPuesto;
       const conEl = base.some((j) => j === fila) ? base : [...base, fila];
       const crudos = conEl.map((j) => {
         const ps = percentilesDe(j, base, puesto);
@@ -280,11 +286,16 @@ export function AreaMejora({
         };
         return { j, x: m(ejes.gx), y: m(ejes.gy) };
       });
+      const elFuera = filtrando && !(fila.edad > 0 && (edadMapa.desde === null || fila.edad >= edadMapa.desde) && (edadMapa.hasta === null || fila.edad <= edadMapa.hasta));
       const rx = aRango(crudos.map((c) => c.x));
       const ry = aRango(crudos.map((c) => c.y));
       mapa = {
         ejes,
-        n: base.length,
+        /* Él entra siempre; si su edad cae fuera del filtro no se cuenta en «los n de esa edad». */
+        elFuera,
+        n: conEl.length - (elFuera ? 1 : 0),
+        nTotal: delPuesto.length,
+        edades: delPuesto.map((j) => j.edad).filter((e) => e > 0),
         puntos: crudos.map((c, i) => ({
           id: `${c.j.jugador}|${c.j.equipo}`,
           nombre: c.j.jugador,
@@ -320,7 +331,7 @@ export function AreaMejora({
         .slice(0, 3),
       contraEdad,
     };
-  }, [jugadores, nombre, apodo, pesosMapa]);
+  }, [jugadores, nombre, apodo, pesosMapa, edadMapa]);
 
   const notas = useMemo(() => {
     if (!ratings) return [];
@@ -382,6 +393,7 @@ export function AreaMejora({
   }
 
   const etiquetaPuesto = analisis ? PUESTOS.find((p) => p.key === analisis.puesto)?.label ?? analisis.puesto : "";
+  const textoEdad = textoDeEdad(edadMapa);
 
   return (
     <div className="space-y-5 pb-10">
@@ -526,10 +538,18 @@ export function AreaMejora({
           {analisis.mapa && (
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-white">
               <h4 className="text-sm font-bold uppercase tracking-[0.14em] text-[#D8B45A]">
-                {analisis.mapa.ejes.y} frente a {analisis.mapa.ejes.x.toLowerCase()} <span className="text-[11px] font-semibold normal-case tracking-normal text-white/55">· frente a los {analisis.mapa.n} de la categoría</span>
+                {analisis.mapa.ejes.y} frente a {analisis.mapa.ejes.x.toLowerCase()} <span className="text-[11px] font-semibold normal-case tracking-normal text-white/55">· frente a los {analisis.mapa.n}{textoEdad ? ` ${textoEdad}` : ""} de la categoría{analisis.mapa.elFuera ? ` (y él, con ${analisis.fila.edad})` : ""}</span>
               </h4>
+              <FiltroEdad
+                valor={edadMapa}
+                onCambio={setEdadMapa}
+                suya={analisis.fila.edad}
+                edades={analisis.mapa.edades}
+                n={analisis.mapa.n}
+                nTotal={analisis.mapa.nTotal}
+              />
               <p className="mb-2 text-[12px] text-white/55">
-                Los mismos {analisis.mapa.n} {etiquetaPuesto.toLowerCase()} de la categoría con {analisis.minimo}′ o más. Cada eje es su puesto dentro de su posición (0 el último, 100 el primero) en {analisis.mapa.ejes.gx.join(", ").toLowerCase()} y en {analisis.mapa.ejes.gy.join(", ").toLowerCase()}. Cada eje es la media de sus percentiles en esos grupos, vuelta a ordenar entre estos {analisis.mapa.n}: por eso no coincide con las barras de «Momentos del juego», que le comparan con los de su edad. Zona sombreada: entre los mejores en las dos cosas (suma de 160 o más). Más es mejor en los dos ejes.
+                {textoEdad ? `Los ${analisis.mapa.n} ${etiquetaPuesto.toLowerCase()} ${textoEdad}` : `Los mismos ${analisis.mapa.n} ${etiquetaPuesto.toLowerCase()}`} de la categoría con {analisis.minimo}′ o más. Cada eje es su puesto dentro de su posición (0 el último, 100 el primero) en {analisis.mapa.ejes.gx.join(", ").toLowerCase()} y en {analisis.mapa.ejes.gy.join(", ").toLowerCase()}. Cada eje es la media de sus percentiles en esos grupos, vuelta a ordenar entre estos {analisis.mapa.n}: por eso no coincide con las barras de «Momentos del juego», que le comparan con los de su edad. Zona sombreada: entre los mejores en las dos cosas (suma de 160 o más). Más es mejor en los dos ejes.
               </p>
               <MarcoGrafico
                 tipos={[{ clave: "mapa", nombre: "Mapa" }, { clave: "ranking", nombre: "Ranking" }]}
@@ -542,7 +562,11 @@ export function AreaMejora({
                 pesos={pesosMapa}
                 onPesos={setPesosMapa}
               >
-                {tipoMapa === "mapa" ? (
+                {analisis.mapa.n - (analisis.mapa.elFuera ? 0 : 1) < 5 ? (
+                  <p className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-4 text-center text-[13px] text-white/70">
+                    Con ese filtro sólo quedan {analisis.mapa.n} {etiquetaPuesto.toLowerCase()} con {analisis.minimo}′: hacen falta 5 además de él para ordenarlos. Abre el margen de edad.
+                  </p>
+                ) : tipoMapa === "mapa" ? (
                   <MapaDosEjes puntos={analisis.mapa.puntos} ejeX={analisis.mapa.ejes.x} ejeY={analisis.mapa.ejes.y} rotulos={analisis.mapa.ejes.rotulos} />
                 ) : (
                   <ol className="space-y-1 text-[13px]">
@@ -669,6 +693,82 @@ export function AreaMejora({
           <div className="text-white"><Tendencia puntos={notas} /></div>
         </div>
       )}
+    </div>
+  );
+}
+
+type RangoEdad = { desde: number | null; hasta: number | null };
+
+/** «sub-21», «de 22 a 25 años», «de 24 años o más»; vacío sin filtro. */
+function textoDeEdad({ desde, hasta }: RangoEdad) {
+  if (desde === null && hasta === null) return "";
+  if (desde === null) return `sub-${hasta}`;
+  if (hasta === null) return `de ${desde} años o más`;
+  if (desde === hasta) return `de ${desde} años`;
+  return `de ${desde} a ${hasta} años`;
+}
+
+/* Filtro de edad del mapa (07/11/2026, petición del analista): atajos y un rango a medida.
+   Se ordena de nuevo sólo entre los de esa edad; él entra siempre. */
+function FiltroEdad({ valor, onCambio, suya, edades, n, nTotal }: { valor: RangoEdad; onCambio: (v: RangoEdad) => void; suya: number; edades: number[]; n: number; nTotal: number }) {
+  const min = edades.length ? Math.min(...edades) : 16;
+  const max = edades.length ? Math.max(...edades) : 38;
+  const opciones = Array.from({ length: max - min + 1 }, (_, i) => min + i);
+  const cuenta = (r: RangoEdad) => edades.filter((e) => (r.desde === null || e >= r.desde) && (r.hasta === null || e <= r.hasta)).length;
+  const atajos: { t: string; r: RangoEdad }[] = [
+    { t: "Todas", r: { desde: null, hasta: null } },
+    { t: "Sub-21", r: { desde: null, hasta: 21 } },
+    { t: "Sub-23", r: { desde: null, hasta: 23 } },
+    ...(suya > 0 ? [{ t: `Su edad ±2 (${suya - 2}-${suya + 2})`, r: { desde: suya - 2, hasta: suya + 2 } }] : []),
+  ];
+  const igual = (a: RangoEdad, b: RangoEdad) => a.desde === b.desde && a.hasta === b.hasta;
+  return (
+    <div className="mb-2 mt-1 flex flex-wrap items-center gap-1.5 text-[12px]" role="group" aria-label="Filtrar el mapa por edad">
+      <span className="mr-0.5 font-semibold text-white/60">Edad:</span>
+      {atajos.map((a) => {
+        const activo = igual(valor, a.r);
+        const cuantos = cuenta(a.r);
+        return (
+          <button
+            key={a.t}
+            type="button"
+            onClick={() => onCambio(a.r)}
+            aria-pressed={activo}
+            className={`rounded-full border px-2.5 py-1 font-semibold transition-colors ${activo ? "border-[#D8B45A] bg-[#D8B45A]/20 text-[#D8B45A]" : "border-white/15 bg-white/[0.04] text-white/75 hover:border-white/30"}`}
+          >
+            {a.t} <span className="font-normal tabular-nums text-white/45">{cuantos}</span>
+          </button>
+        );
+      })}
+      <span className="ml-1 inline-flex items-center gap-1 text-white/60">
+        de
+        <select
+          aria-label="Edad mínima"
+          value={valor.desde ?? min}
+          onChange={(e) => {
+            /* El más joven = sin tope por abajo; si el máximo queda por debajo, se abre. */
+            const d = Number(e.target.value) <= min ? null : Number(e.target.value);
+            onCambio({ desde: d, hasta: valor.hasta !== null && d !== null && valor.hasta < d ? null : valor.hasta });
+          }}
+          className="rounded-md border border-white/10 bg-white/[0.04] px-1 py-0.5 text-white"
+        >
+          {opciones.map((e) => <option key={e} value={e}>{e}</option>)}
+        </select>
+        a
+        <select
+          aria-label="Edad máxima"
+          value={valor.hasta ?? max}
+          onChange={(e) => {
+            const h = Number(e.target.value) >= max ? null : Number(e.target.value);
+            onCambio({ desde: valor.desde !== null && h !== null && valor.desde > h ? null : valor.desde, hasta: h });
+          }}
+          className="rounded-md border border-white/10 bg-white/[0.04] px-1 py-0.5 text-white"
+        >
+          {opciones.map((e) => <option key={e} value={e}>{e}</option>)}
+        </select>
+        años
+      </span>
+      {n !== nTotal && <span className="text-white/45">· {n} de {nTotal}</span>}
     </div>
   );
 }

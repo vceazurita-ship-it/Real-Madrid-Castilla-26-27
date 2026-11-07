@@ -398,6 +398,19 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Puesto", es: "Se corrige con lib/posiciones.ts: la hoja guarda números de rol" },
         ],
       },
+      {
+        titulo: "Área de mejora y Tendencia",
+        filas: [
+          { que: "Mapa de su puesto", es: "Todos los de su puesto en Primera RFEF con 450′ o más, en dos ejes" },
+          {
+            que: "Filtro de edad del mapa",
+            es: "Todas, sub-21, sub-23, su edad ±2 o un rango a mano",
+            cuenta: "Se vuelve a ordenar sólo entre los de esa edad; él entra siempre. Hacen falta 5 además de él",
+          },
+          { que: "Cara a cara con la élite", es: "Hasta 3 jugadores de Primera o Premier sobre su radiografía" },
+          { que: "Tendencia", es: "Nota partido a partido, Wyscout semana a semana y 26/27 frente a 25/26" },
+        ],
+      },
     ],
   },
   {

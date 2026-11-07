@@ -24,7 +24,7 @@
 */
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDownRight, ArrowUpRight, CalendarClock, History, Minus, TrendingUp } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, CalendarClock, History, TrendingUp } from "lucide-react";
 
 import { traeJson } from "@/lib/hojaCsv";
 import type { FilaJugador } from "@/lib/data-analisis/leer";
@@ -165,7 +165,8 @@ function Cambio({ delta, umbral, mejorAlto, texto }: { delta: number; umbral: nu
   const color = quieto ? undefined : bueno ? VERDE : ROJO;
   return (
     <span className="inline-flex items-center gap-0.5 tabular-nums" style={{ color }}>
-      {quieto ? <Minus size={12} /> : delta > 0 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+      {/* Sin cambio claro: «≈ −2,1» (07/11/2026: el icono de raya junto al signo menos se leía «— −2,1»). */}
+      {quieto ? <span aria-hidden>≈ </span> : delta > 0 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
       {texto}
     </span>
   );
@@ -827,13 +828,13 @@ export function Tendencia({
           <p className="mb-3 text-[12px] text-white/55">
             Wyscout · cada temporada contra su propia categoría ({etiquetaPuesto.toLowerCase()}): se compara su percentil, no el número, porque la liga y el rol cambian. 25/26: {wys.temporadas.antes.minutos}′ en {wys.temporadas.antes.partidos} partidos{wys.temporadas.antes.equipo ? ` (${wys.temporadas.antes.equipo})` : ""}{wys.temporadas.fiable ? "" : `, menos de ${MINUTOS_MINIMOS_ANTERIOR}′: tendencia`} · 26/27: {wys.temporada.minutos}′ en {wys.temporada.partidos}{wys.temporada.minutos < 450 ? ", muestra corta: tendencia" : ""}. Las de ↓ ya vienen dadas la vuelta (subir es mejorar).
           </p>
-          <p className="mb-3 text-3xl font-black tabular-nums" style={{ color: wys.temporadas.salto > 2 ? VERDE : wys.temporadas.salto < -2 ? ROJO : undefined }}>
+          <p className="mb-3 text-2xl font-black leading-tight tabular-nums sm:text-3xl" style={{ color: wys.temporadas.salto > 2 ? VERDE : wys.temporadas.salto < -2 ? ROJO : undefined }}>
             {wys.temporadas.salto === 0 ? (
-              <>Igual que en 25/26 <span className="text-sm font-semibold text-white/50">de media en {wys.temporadas.filas.length} métricas: sube en unas y baja en otras</span></>
+              <>Igual que en 25/26 <span className="block text-sm font-semibold leading-snug text-white/50 sm:inline">de media en {wys.temporadas.filas.length} métricas: sube en unas y baja en otras</span></>
             ) : (
               <>
                 {wys.temporadas.salto > 0 ? "+" : "−"}
-                {Math.abs(wys.temporadas.salto)} <span className="text-sm font-semibold text-white/50">puntos de percentil de media en {wys.temporadas.filas.length} métricas</span>
+                {Math.abs(wys.temporadas.salto)} <span className="text-sm font-semibold leading-snug text-white/50">puntos de percentil de media en {wys.temporadas.filas.length} métricas</span>
               </>
             )}
           </p>

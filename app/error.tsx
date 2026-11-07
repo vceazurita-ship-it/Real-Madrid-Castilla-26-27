@@ -9,17 +9,59 @@
  * blanco sin decir nada. Esto la recoge: dice qué ha fallado, ofrece volver
  * a intentarlo (que vuelve a montar la pantalla) y volver a la portada. El
  * menú no se pinta porque es parte de lo que puede haber fallado.
+ *
+ * VERSIÓN NUEVA PUBLICADA (07/11/2026): tras cada despliegue en Render, una
+ * pestaña abierta pide trozos de la compilación anterior que ya no existen
+ * («Failed to load chunk»). No es un fallo: se recarga sola una vez (con un
+ * candado de 30 s en sessionStorage para no entrar en bucle).
  */
 
 import { useEffect } from "react";
 import Link from "next/link";
 import { AlertTriangle, Home, RefreshCw } from "lucide-react";
 
+const ES_VERSION_VIEJA = /Failed to load chunk|Loading chunk [w-]+ failed|ChunkLoadError|dynamically imported module|Importing a module script failed/i;
+const CANDADO = "rmcf:recarga-version";
+
+function puedeRecargar() {
+  try {
+    const ultima = Number(sessionStorage.getItem(CANDADO) || 0);
+    if (Date.now() - ultima < 30_000) return false;
+    sessionStorage.setItem(CANDADO, String(Date.now()));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  const versionVieja = ES_VERSION_VIEJA.test(`${error?.name ?? ""} ${error?.message ?? ""}`);
+
   useEffect(() => {
     /* Que quede en la consola: es lo que se mira después para arreglarlo. */
     console.error(error);
-  }, [error]);
+    if (versionVieja && puedeRecargar()) window.location.reload();
+  }, [error, versionVieja]);
+
+  if (versionVieja) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#0B0F14] px-4 text-white">
+        <div className="w-full max-w-lg rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-center sm:p-8" role="status">
+          <RefreshCw size={22} className="mx-auto animate-spin text-[#C8A96B]" />
+          <h1 className="mt-3 text-lg font-semibold">Hay una versión nueva de la app</h1>
+          <p className="mt-2 text-sm text-white/70">Se está cargando. Si no cambia en unos segundos, recarga la página.</p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="mt-4 inline-flex items-center gap-2 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/15 px-4 py-2 text-sm text-[#C8A96B] transition hover:bg-[#C8A96B]/25"
+          >
+            <RefreshCw size={14} />
+            Recargar ahora
+          </button>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#0B0F14] px-4 text-white">
