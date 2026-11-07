@@ -48,7 +48,8 @@ export function MapaDosEjes({
   puntos: PuntoMapa[];
   ejeX: string;
   ejeY: string;
-  rotulos: { ambos: string; soloX: string; soloY: string; nada: string };
+  /** `nadaCorto`: el de la esquina de abajo en el móvil (recortar a dos palabras dejaba «NI UNA»). */
+  rotulos: { ambos: string; soloX: string; soloY: string; nada: string; nadaCorto?: string };
   acento?: string;
   umbral?: number;
   /** Las cifras de lo nuestro en texto bajo el mapa (la ficha); el panel de equipo ya las da en su lectura. */
@@ -90,7 +91,7 @@ export function MapaDosEjes({
   const esquinas = [
     { texto: `↑ ${rotulos.soloY.toUpperCase()}`, x: px(0), y: estrecho ? M.t - 32 : M.t - 14, fin: false, color: undefined, peso: 700, t: estrecho ? letra - 2 : letra },
     { texto: rotulos.soloX.toUpperCase(), x: px(99), y: estrecho ? py(3) - 16 : py(3), fin: true, color: undefined, peso: 700, t: estrecho ? letra - 2 : letra },
-    { texto: (estrecho ? rotulos.nada.split(" ").slice(0, 2).join(" ") : rotulos.nada).toUpperCase(), x: px(2), y: py(6), fin: false, color: undefined, peso: 700, t: estrecho ? letra - 2 : letra },
+    { texto: (estrecho ? rotulos.nadaCorto ?? rotulos.nada.split(" ").slice(0, 2).join(" ") : rotulos.nada).toUpperCase(), x: px(2), y: estrecho ? py(6) - 12 : py(6), fin: false, color: undefined, peso: 700, t: estrecho ? letra - 2 : letra },
   ];
   const ocupadas: Caja[] = esquinas.map((e) => {
     const w = e.texto.length * e.t * 0.68;

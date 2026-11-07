@@ -387,7 +387,7 @@ export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadore
               puntos={puntos.map((p) => ({ ...p, hueco: p.partidos < Math.max(...puntos.map((q) => q.partidos)) }))}
               ejeX="Pases progresivos precisos"
               ejeY="Entradas al área"
-              rotulos={{ ambos: "Progresan y llegan", soloX: "Progresan sin llegar", soloY: "Llegan sin construir", nada: "Ni una cosa ni otra" }}
+              rotulos={{ ambos: "Progresan y llegan", soloX: "Progresan sin llegar", soloY: "Llegan sin construir", nada: "Ni una cosa ni otra", nadaCorto: "Ninguna" }}
             />
             )}
             </MarcoGrafico>

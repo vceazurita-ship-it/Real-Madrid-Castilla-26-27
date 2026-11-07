@@ -97,13 +97,13 @@ function parecidos(yo: FilaJugador, otros: FilaJugador[], columnas: string[], cu
 | Los dos ejes del mapa de cada puesto (05/11/2026): lo que un entrenador
 | pregunta de él, cada eje una media de percentiles de grupos de métricas.
 */
-const EJES: Record<Puesto, { x: string; y: string; gx: string[]; gy: string[]; rotulos: { ambos: string; soloX: string; soloY: string; nada: string } } | null> = {
+const EJES: Record<Puesto, { x: string; y: string; gx: string[]; gy: string[]; rotulos: { ambos: string; soloX: string; soloY: string; nada: string; nadaCorto?: string } } | null> = {
   POR: null,
-  CEN: { x: "Salida de balón", y: "Defensa", gx: ["Progresión", "Circulación"], gy: ["Defensa", "Duelos"], rotulos: { ambos: "Completos", soloX: "Constructores", soloY: "Defensivos", nada: "Por debajo en las dos" } },
-  LAT: { x: "Ataque", y: "Defensa", gx: ["Creación", "Progresión", "Ocupación del área"], gy: ["Defensa", "Duelos"], rotulos: { ambos: "Completos", soloX: "Carrileros", soloY: "Defensivos", nada: "Por debajo en las dos" } },
-  MED: { x: "Construcción", y: "Recuperación", gx: ["Circulación", "Progresión", "Creación"], gy: ["Defensa", "Duelos", "Presión y transición"], rotulos: { ambos: "Box to box", soloX: "Organizadores", soloY: "Destructores", nada: "Por debajo en las dos" } },
-  BAN: { x: "Creación", y: "Gol", gx: ["Creación", "Progresión"], gy: ["Valor gol", "Ocupación del área"], rotulos: { ambos: "Completos", soloX: "Creadores", soloY: "Finalizadores", nada: "Por debajo en las dos" } },
-  DEL: { x: "Gol", y: "Juego asociado", gx: ["Valor gol", "Ocupación del área"], gy: ["Creación", "Circulación", "Duelos"], rotulos: { ambos: "Completos", soloX: "Rematadores", soloY: "Asociativos", nada: "Por debajo en las dos" } },
+  CEN: { x: "Salida de balón", y: "Defensa", gx: ["Progresión", "Circulación"], gy: ["Defensa", "Duelos"], rotulos: { ambos: "Completos", soloX: "Constructores", soloY: "Defensivos", nada: "Por debajo en las dos", nadaCorto: "Por debajo" } },
+  LAT: { x: "Ataque", y: "Defensa", gx: ["Creación", "Progresión", "Ocupación del área"], gy: ["Defensa", "Duelos"], rotulos: { ambos: "Completos", soloX: "Carrileros", soloY: "Defensivos", nada: "Por debajo en las dos", nadaCorto: "Por debajo" } },
+  MED: { x: "Construcción", y: "Recuperación", gx: ["Circulación", "Progresión", "Creación"], gy: ["Defensa", "Duelos", "Presión y transición"], rotulos: { ambos: "Box to box", soloX: "Organizadores", soloY: "Destructores", nada: "Por debajo en las dos", nadaCorto: "Por debajo" } },
+  BAN: { x: "Creación", y: "Gol", gx: ["Creación", "Progresión"], gy: ["Valor gol", "Ocupación del área"], rotulos: { ambos: "Completos", soloX: "Creadores", soloY: "Finalizadores", nada: "Por debajo en las dos", nadaCorto: "Por debajo" } },
+  DEL: { x: "Gol", y: "Juego asociado", gx: ["Valor gol", "Ocupación del área"], gy: ["Creación", "Circulación", "Duelos"], rotulos: { ambos: "Completos", soloX: "Rematadores", soloY: "Asociativos", nada: "Por debajo en las dos", nadaCorto: "Por debajo" } },
 };
 
 /** Percentil de cada valor dentro de la lista (0 el peor, 100 el mejor). */
@@ -308,7 +308,16 @@ export function AreaMejora({
       grupos,
       minimo,
       fuertes: unoPorGrupo(ordenados).slice(0, 3).map((p) => ({ p, mediana: mediana(p), base: baseDe(p), puesto: puestoEnEdad(p) })),
-      mejora: unoPorGrupo([...ordenados].reverse()).slice(0, 3).map((p) => ({ p, mediana: mediana(p), base: baseDe(p), puesto: puestoEnEdad(p) })),
+      /* Carencias firmes (15 acciones o más) con tarea; las de muestra corta, aparte y sin tarea (07/11/2026, jueces). */
+      mejora: unoPorGrupo([...ordenados].reverse())
+        .map((p) => ({ p, mediana: mediana(p), base: baseDe(p), puesto: puestoEnEdad(p) }))
+        .filter((x) => !(x.base && x.base.total < 15))
+        .slice(0, 3),
+      vigilar: unoPorGrupo([...ordenados].reverse())
+        .slice(0, 6)
+        .map((p) => ({ p, base: baseDe(p) }))
+        .filter((x) => x.base && x.base.total < 15 && x.p.percentil < 40)
+        .slice(0, 3),
       contraEdad,
     };
   }, [jugadores, nombre, apodo, pesosMapa]);
@@ -402,7 +411,8 @@ export function AreaMejora({
                 <span className="text-sm font-semibold text-white/50">/ 100 frente a los {analisis.nEdad} de su edad</span>
               </p>
               <p className="text-[12px] text-white/55">
-                {analisis.indiceTodos === analisis.indiceEdad ? "La misma frente a toda la categoría" : `${analisis.indiceTodos} frente a toda la categoría`} · {analisis.fila.minutos}′ en {analisis.fila.partidos} partidos
+                {analisis.fila.minutos}′ en {analisis.fila.partidos} partidos
+                {analisis.indiceTodos !== analisis.indiceEdad ? ` · ${analisis.indiceTodos} frente a toda la categoría` : ""}
                 {analisis.fila.minutos >= 450 ? " · base sólida" : " · muestra corta: orientativa"}
               </p>
             </div>
@@ -458,6 +468,19 @@ export function AreaMejora({
                     </li>
                   ))}
                 </ul>
+                {b.entrenar && analisis.vigilar.length > 0 && (
+                  <div className="mt-3 border-t border-white/10 pt-2">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/50">A vigilar · muestra corta, sin tarea</p>
+                    <ul className="mt-1 space-y-1">
+                      {analisis.vigilar.map(({ p, base }) => (
+                        <li key={p.metrica.columna} className="flex items-baseline justify-between gap-2 text-[12px] text-white/65" title={p.metrica.comoLeer}>
+                          <span className="min-w-0 truncate">{p.metrica.nombre.replace(/ %$/, "")}</span>
+                          <span className="shrink-0 tabular-nums">p{Math.round(p.percentil)} · ≈ {base!.total} en {analisis.fila.minutos}′</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             ))}
           </div>

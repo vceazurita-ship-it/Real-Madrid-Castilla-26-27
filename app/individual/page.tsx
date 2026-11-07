@@ -62,6 +62,7 @@ import { useBodyScrollLock } from "@/components/season/useBodyScrollLock";
 import { PlayerRatingsTab } from "@/components/ratings/PlayerRatingsTab";
 import { useRatingsSeason } from "@/hooks/useRatings";
 import { AreaMejora } from "@/components/individual/AreaMejora";
+import { Tendencia } from "@/components/individual/Tendencia";
 import { playerEntries } from "@/lib/ratings/compute";
 import { getPlayerImage, PLAYER_PHOTO_FALLBACK } from "@/lib/playerImages";
 import { isHiddenPlayer } from "@/lib/hiddenPlayers";
@@ -195,6 +196,7 @@ type TabKey =
   | "seguimiento"
   | "valoraciones"
   | "mejora"
+  | "tendencia"
   | "videos"
   | "informe";
 
@@ -1676,6 +1678,7 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "seguimiento", label: "Seguimiento" },
   { key: "valoraciones", label: "Valoraciones" },
   { key: "mejora", label: "Área de mejora" },
+  { key: "tendencia", label: "Tendencia" },
   { key: "videos", label: "Vídeos" },
   { key: "informe", label: "Informe" },
 ];
@@ -4156,6 +4159,11 @@ export default function IndividualPage() {
 
                     {activeTab === "mejora" && (
                       <AreaMejora nombre={selected.name} idJugador={selected.idJugador} ratings={ratingsSeason ?? null} />
+                    )}
+
+                    {/* Tendencia (07/11/2026): la nota y Wyscout semana a semana, y esta temporada frente a la pasada. */}
+                    {activeTab === "tendencia" && (
+                      <Tendencia nombre={selected.name} idJugador={selected.idJugador} ratings={ratingsSeason ?? null} />
                     )}
 
                     {activeTab === "valoraciones" && (

@@ -50,6 +50,14 @@ function accionesDe(j: FilaJugador, p: Percentil) {
   return (p.valor * j.minutos) / 90;
 }
 
+/** El valor con su base: «72,0 % (≈ 18 de 25)» o «1,25 por 90′ (≈ 8 en 646′)». */
+function conBase(j: FilaJugador, p: Percentil) {
+  const n = accionesDe(j, p);
+  if (n === null) return valorEscrito(p);
+  if (p.metrica.unidad === "porcentaje") return `${valorEscrito(p)} (≈ ${Math.round((p.valor / 100) * n)} de ${Math.round(n)})`;
+  return `${valorEscrito(p)} (≈ ${Math.round(n)} en ${j.minutos}′)`;
+}
+
 const valorEscrito = (p: Percentil) => (p.metrica.unidad === "porcentaje" ? `${coma(p.valor, 1)} %` : coma(p.valor, Math.abs(p.valor) >= 10 ? 1 : 2));
 
 /** De cada fase, hasta seis métricas repartidas entre sus grupos (la misma regla de la radiografía de la ficha). */
@@ -136,8 +144,12 @@ export function ComparaElite({
         .filter((p) => !/penalti/i.test(p.metrica.nombre))
         .map((p) => ({ mio: p, suyo: calculo.suyos[0].get(p.metrica.columna) }))
         .filter((d): d is { mio: Percentil; suyo: Percentil } => Boolean(d.suyo))
-        /* Con menos de 15 acciones en los dos, la diferencia es ruido (07/11/2026, jueces). */
-        .filter((d) => Math.max(accionesDe(fila, d.mio) ?? 0, accionesDe(primero, d.suyo) ?? 0) >= 15)
+        /* La diferencia sólo con base: en porcentajes, 15 intentos o más en los DOS; en por 90′, 15 acciones en alguno (07/11/2026, jueces). */
+        .filter((d) =>
+          d.mio.metrica.unidad === "porcentaje"
+            ? Math.min(accionesDe(fila, d.mio) ?? 0, accionesDe(primero, d.suyo) ?? 0) >= 15
+            : Math.max(accionesDe(fila, d.mio) ?? 0, accionesDe(primero, d.suyo) ?? 0) >= 15,
+        )
         .map((d) => ({ ...d, brecha: d.suyo.percentil - d.mio.percentil }))
     : [];
   const leSaca = [...diferencias].sort((a, b) => b.brecha - a.brecha).filter((d) => d.brecha >= 15).slice(0, 3);
@@ -275,8 +287,8 @@ export function ComparaElite({
                       <span className="shrink-0 tabular-nums text-[12px] text-white/55">p{Math.round(mio.percentil)} → p{Math.round(suyo.percentil)}</span>
                     </div>
                     <p className="text-[12px] text-white/60">
-                      <b style={{ color: ROSA }}>{valorEscrito(mio)}</b> frente a <b style={{ color: COLORES[0] }}>{valorEscrito(suyo)}</b>
-                      {mio.metrica.unidad === "porcentaje" ? "" : " por 90′"}
+                      <b style={{ color: ROSA }}>{conBase(fila, mio)}</b> frente a <b style={{ color: COLORES[0] }}>{conBase(primero, suyo)}</b>
+                      {mio.metrica.unidad === "porcentaje" ? "" : " · por 90′"}
                       {mio.metrica.mejorAlto === false ? " (menos es mejor)" : ""}
                     </p>
                   </li>
@@ -297,8 +309,8 @@ export function ComparaElite({
                       <span className="shrink-0 tabular-nums text-[12px] text-white/55">p{Math.round(mio.percentil)} frente a p{Math.round(suyo.percentil)}</span>
                     </div>
                     <p className="text-[12px] text-white/60">
-                      <b style={{ color: ROSA }}>{valorEscrito(mio)}</b> frente a <b style={{ color: COLORES[0] }}>{valorEscrito(suyo)}</b>
-                      {mio.metrica.unidad === "porcentaje" ? "" : " por 90′"}
+                      <b style={{ color: ROSA }}>{conBase(fila, mio)}</b> frente a <b style={{ color: COLORES[0] }}>{conBase(primero, suyo)}</b>
+                      {mio.metrica.unidad === "porcentaje" ? "" : " · por 90′"}
                       {mio.metrica.mejorAlto === false ? " (menos es mejor)" : ""}
                     </p>
                   </li>
