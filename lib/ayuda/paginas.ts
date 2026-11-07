@@ -1191,7 +1191,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Chip del puesto", es: "En los que suben del RMC o del Juvenil A, el puesto aprendido de cómo los colocáis (borde de puntos) o el fijado a mano (lleno). Tocarlo lo corrige para todas las sesiones" },
           { que: "Completar", es: "Coloca sólo a los que faltan, en el equipo más corto, sin mover a nadie" },
           { que: "Como la anterior", es: "Copia los equipos, colores y comodines de la tarea de antes" },
-          { que: "Soltar encima de otro", es: "«Cambiar»: los dos se intercambian el sitio. «Compartir puesto»: van juntos en el mismo hueco" },
+          { que: "Soltar encima de otro", es: "«Cambiar»: los dos se intercambian el sitio. «Compartir puesto»: van juntos en el mismo hueco (dos, tres o los que hagan falta)", cuenta: "Debajo del campo, «También en…» comparte ese mismo puesto en el otro equipo: entra el que esté fuera del dibujo o queda un «+» donde soltarlo" },
           { que: "Teclado", es: "Con un jugador elegido: 1-6 equipo, C comodín, F fuera, 0 sin colocar. Ctrl+Z deshace, Ctrl+Y rehace" },
         ],
       },
@@ -1208,6 +1208,7 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           { que: "Esta / Todas", es: "Imágenes .jpg a 1920×1080, una por tarea (dos si hay cambio a mitad)" },
           { que: "PDF", es: "Todas las diapositivas en un solo archivo, una por página" },
+          { que: "La imagen: Limpia", es: "Sólo el título de la tarea y los campos, con los nombres más grandes; vale para las imágenes y el PDF" },
           { que: "Texto", es: "Los equipos en texto para el grupo de WhatsApp, un equipo por línea" },
         ],
       },

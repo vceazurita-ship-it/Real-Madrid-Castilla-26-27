@@ -12,13 +12,20 @@
  * central arriba), las fichas son más grandes y el nombre va en una etiqueta
  * que se lee sobre el césped. Y el césped entero es un sitio donde soltar
  * (`campoDestino`): quien se suelta en un punto vacío se queda en ese punto.
+ *
+ * PUESTOS COMPARTIDOS SIN CORTES (07/11/2026): en un puesto caben varios (dos,
+ * tres, cuatro…). Sus nombres van uno debajo de otro en la etiqueta de la
+ * ficha, cada uno en un renglón si le cabe, con su propia letra: la que cabe
+ * hasta la ficha de detrás. Antes la etiqueta de dos crecía hacia abajo hasta
+ * taparse con la línea siguiente o salirse del campo. Además ninguna etiqueta
+ * se sale por las bandas (se arrima hacia dentro) ni por abajo (si no cabe
+ * bajo la ficha, va encima).
  */
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 
 import type { Hueco } from "@/lib/sesion-equipos/estructura";
-import { tintaSobre } from "@/lib/sesion-equipos/modelo";
+import { tintaSobre, type JugadorSesion } from "@/lib/sesion-equipos/modelo";
 
-/** Lo que mide la palabra más larga de un nombre, en letras: el nombre se parte sólo entre palabras. */
 /*
 | El nombre en dos renglones como mucho (30/10/2026): «HUGO DE LLANOS» salía
 | en tres, una palabra por línea. Se parte por donde los dos renglones quedan
@@ -44,8 +51,6 @@ const enDosRenglones = (nombre: string): string[] => {
 
   return mejor;
 };
-
-const renglonMasLargo = (nombre: string) => Math.max(3, ...enDosRenglones(nombre).map((t) => t.length));
 
 /** Proporción del medio campo que se dibuja: alto = ancho × esto. */
 export const PROPORCION_CAMPO = 1.08;
@@ -80,16 +85,22 @@ function Lineas({ trazo, grosor }: { trazo: string; grosor: number }) {
   );
 }
 
+/** Los del hueco: el titular y, detrás, los que comparten su puesto. */
+const nombresDe = (h: Hueco): JugadorSesion[] => (h.jugador ? [h.jugador, ...(h.companeros ?? [])] : []);
+
 export function CampoEstructura({
   huecos,
   color,
   ancho,
   claro = false,
+  grande = false,
   elegido = null,
   onToca,
   destinoDe,
+  destinoParDe,
   sobre = null,
   onArrastra,
+  onArrastraCompanero,
   campoDestino,
   flecha = false,
   style,
@@ -100,15 +111,25 @@ export function CampoEstructura({
   ancho: number;
   /** Césped claro, para la lámina en fondo blanco. */
   claro?: boolean;
+  /**
+   * Nombres lo más grandes posible (07/11/2026, la lámina limpia): tope de
+   * letra más alto y la medida de la mayúscula más ajustada a la Barlow
+   * Condensed (0,42 em en vez de 0,5).
+   */
+  grande?: boolean;
   /** El hueco tocado, a la espera del segundo para cambiarlos. */
   elegido?: number | null;
   onToca?: (indice: number) => void;
   /** El destino de cada hueco para soltar ahí a alguien que se arrastra («hueco:<equipo>:<n>»). */
   destinoDe?: (indice: number) => string;
+  /** El «+» de un puesto abierto a compartirse (07/11/2026): soltar ahí lo comparte («par:<equipo>:<titular>»). */
+  destinoParDe?: (indice: number) => string;
   /** El destino que hay debajo del arrastre ahora mismo. */
   sobre?: string | null;
   /** Empieza a arrastrar al jugador de un hueco. */
   onArrastra?: (indice: number, e: ReactPointerEvent) => void;
+  /** Empieza a arrastrar a uno de los que comparten puesto (su nombre en la etiqueta). */
+  onArrastraCompanero?: (jugador: JugadorSesion, e: ReactPointerEvent) => void;
   /** El destino del césped entero: soltar en un punto vacío deja al jugador ahí («campo:<equipo>»). */
   campoDestino?: string;
   /** Una flecha discreta con el sentido del ataque (hacia arriba: la portería propia va abajo). */
@@ -116,6 +137,51 @@ export function CampoEstructura({
   style?: CSSProperties;
 }) {
   const alto = ancho * PROPORCION_CAMPO;
+  /* Lo que mide una mayúscula de la Barlow Condensed en negrita, en em, con algo de margen; y el relleno de la etiqueta. */
+  const EM = grande ? 0.42 : 0.5;
+  const anchoTexto = (texto: string, f: number) => f * (Math.max(3, texto.length) * EM + 0.9);
+
+  /*
+  | Cada nombre cabe en su trozo de línea: con cuatro en fila, la cuarta
+  | parte del campo. El mismo ancho en la lámina. Los huecos de una línea
+  | están a 1/(n+1) del campo uno de otro: con 1,1 veces eso, dos nombres
+  | largos vecinos se montaban (21/10/2026). Con 0,96 queda una rendija.
+  */
+  const anchoNombreDe = (h: Hueco) => {
+    const enSuLinea = h.linea < 0 ? 3 : huecos.filter((x) => x.linea === h.linea && !x.aMano).length || 3;
+
+    return Math.min(ancho / 2.6, (ancho / (enSuLinea + 1)) * 0.96);
+  };
+
+  /*
+  | Los renglones de un nombre. Solo en su puesto, como siempre: en dos si
+  | tiene dos palabras. Compartiendo, en uno si le cabe (la etiqueta de tres
+  | no puede tener seis renglones).
+  */
+  const renglonesDe = (nombre: string, f: number, w: number, compartido: boolean) =>
+    compartido && anchoTexto(nombre, f) <= w ? [nombre] : enDosRenglones(nombre);
+
+  const relleno = (f: number) => Math.max(1, f / 8);
+  const raya = (f: number) => 2 * Math.max(1, f / 6) + 1;
+
+  /** Lo que mide de alto la etiqueta de un hueco con esa letra (sin el aire sobre ella). */
+  const altoEtiqueta = (h: Hueco, f: number) => {
+    const quienes = nombresDe(h);
+    const compartido = quienes.length > 1;
+    const w = anchoNombreDe(h);
+    const filas = quienes.reduce((s, j) => s + renglonesDe(j.nombre, f, w, compartido).length, 0);
+
+    return filas * 1.02 * f + 2 * relleno(f) + (quienes.length - 1) * raya(f);
+  };
+
+  /** Que cada renglón de la etiqueta quepa a lo ancho. */
+  const cabeAncho = (h: Hueco, f: number) => {
+    const quienes = nombresDe(h);
+    const w = anchoNombreDe(h);
+
+    return quienes.every((j) => renglonesDe(j.nombre, f, w, quienes.length > 1).every((r) => anchoTexto(r, f) <= w));
+  };
+
   /*
   | Lo que hay de una línea a la siguiente (21/10/2026). Con cuatro líneas y
   | nombres en dos renglones, la etiqueta de una línea tapaba la ficha de la
@@ -133,48 +199,96 @@ export function CampoEstructura({
   | de antes de encoger, y el nombre de una línea acababa encima de las fichas
   | de la siguiente («ÁNGEL CARVAJAL» sobre los tres de detrás). Se vuelve a
   | calcular con el hueco ya encogido, y otra vez la escala con esa letra.
+  |
+  | Con puestos compartidos (07/11/2026) la etiqueta de atrás puede ser más
+  | alta que dos renglones: se cuenta la de cada hueco, y la escala no baja
+  | de 0,72 (lo que falte lo pone la letra de ese puesto, más pequeña).
   */
-  const yMax = Math.max(0.01, ...huecos.filter((h) => h.jugador).map((h) => h.y));
+  const conJugador = huecos.filter((h) => h.jugador);
   const medidas = (escala: number) => {
     const hueco = entreLineas * alto * escala;
-    const ficha = Math.max(16, Math.min(50, ancho / 10, hueco * 0.38));
+    const ficha = Math.max(16, Math.min(grande ? 56 : 50, ancho / 10, hueco * 0.38));
     /* En la lámina exportada (`claro`) los nombres van más grandes: se leen en la tele del vestuario. */
     const letra = Math.min(
-      claro ? Math.max(10, Math.min(36, ancho / 16)) : Math.max(9, Math.min(28, ancho / 21)),
+      grande ? Math.max(12, Math.min(48, ancho / 13)) : claro ? Math.max(10, Math.min(36, ancho / 16)) : Math.max(9, Math.min(28, ancho / 21)),
       /* Dos renglones (1,02 de alto cada uno, más el relleno) y una rendija antes de la ficha siguiente. */
       Math.max(8, (hueco - ficha - 14) / 2.4),
     );
-    const sitioAbajo = alto - 6 - ficha / 2 - letra * 2.5 - 8;
-    const escalaY = !onToca && yMax * alto > sitioAbajo ? sitioAbajo / (yMax * alto) : 1;
+    let escalaY = 1;
+    if (!onToca) {
+      for (const h of conJugador) {
+        const sitio = alto - 6 - ficha / 2 - Math.max(2, ficha / 12) - altoEtiqueta(h, letra) - 4;
+        if (h.y * alto > sitio) escalaY = Math.min(escalaY, sitio / (h.y * alto));
+      }
+      escalaY = Math.max(0.72, escalaY);
+    }
     return { ficha, letra, escalaY };
   };
   const primera = medidas(1);
   const { ficha, letra } = primera.escalaY < 1 ? medidas(primera.escalaY) : primera;
   const escalaY = primera.escalaY < 1 ? medidas(primera.escalaY).escalaY : 1;
+  const aire = Math.max(2, ficha / 12);
+  const pad = onToca ? 4 : 0;
 
   /*
   | Una sola letra para todos los nombres del campo (30/10/2026): cada uno se
   | ajustaba a su hueco y «JOAN MARTÍNEZ» salía más pequeño que sus vecinos.
-  | Ahora manda el que menos sitio tiene, y todos se leen igual.
+  | Ahora manda el que menos sitio tiene, y todos se leen igual. Los puestos
+  | compartidos no cuentan (07/11/2026): llevan la suya, para no encoger a
+  | todo el equipo por uno.
   */
-  const anchoNombreDe = (h: Hueco) => {
-    const enSuLinea = h.linea < 0 ? 3 : huecos.filter((x) => x.linea === h.linea && !x.aMano).length || 3;
-
-    return Math.min(ancho / 2.6, (ancho / (enSuLinea + 1)) * 0.96);
-  };
+  const solos = conJugador.filter((h) => !h.companeros?.length);
   const tamanoNombre = Math.max(
     8,
-    Math.min(
-      letra,
-      ...huecos
-        .filter((h) => h.jugador)
-        .map((h) => {
-          const largo = Math.max(renglonMasLargo(h.jugador!.nombre), h.pareja ? renglonMasLargo(h.pareja.nombre) : 0);
-
-          return Math.min(letra * (h.pareja ? 0.88 : 1), anchoNombreDe(h) / (largo * 0.5 + 0.9));
-        }),
-    ),
+    Math.min(letra, ...solos.map((h) => anchoNombreDe(h) / (Math.max(3, ...enDosRenglones(h.jugador!.nombre).map((t) => t.length)) * EM + 0.9))),
   );
+
+  /** El centro de la ficha, en píxeles del campo. */
+  const centro = (h: Hueco) => ({ cx: h.x * ancho, cy: h.y * escalaY * alto });
+
+  /*
+  | Cuánto sitio tiene la etiqueta bajo la ficha (07/11/2026): hasta la ficha
+  | más cercana de detrás que caiga debajo de ella, o hasta el fondo del campo.
+  */
+  const sitioAbajo = (h: Hueco) => {
+    const { cx, cy } = centro(h);
+    const w = anchoNombreDe(h);
+    let hasta = alto - 6;
+    let fondo = true;
+    for (const o of conJugador) {
+      if (o === h) continue;
+      const c = centro(o);
+      if (c.cy <= cy + 1 || Math.abs(c.cx - cx) >= (w + Math.max(ficha, anchoNombreDe(o) * 0.6)) / 2) continue;
+      if (c.cy - ficha / 2 - 4 < hasta) {
+        hasta = c.cy - ficha / 2 - 4;
+        fondo = false;
+      }
+    }
+    return { sitio: hasta - (cy + ficha / 2 + aire), fondo };
+  };
+
+  /*
+  | Cada hueco: su letra y si la etiqueta va debajo (lo normal) o encima, si
+  | abajo no cabe ni con letra pequeña (un jugador soltado junto a la línea de
+  | fondo en la pantalla).
+  */
+  const disposicion = huecos.map((h) => {
+    if (!h.jugador) return { tamano: tamanoNombre, encima: false };
+
+    const compartido = (h.companeros?.length ?? 0) > 0;
+    const { sitio: abajo, fondo } = sitioAbajo(h);
+    const arriba = centro(h).cy - ficha / 2 - aire - 4;
+    const minimo = Math.min(tamanoNombre, 10);
+    /* Sólo contra la línea de fondo: entre dos líneas, encima pisaría los nombres de la de delante. */
+    const encima = fondo && altoEtiqueta(h, minimo) > abajo && arriba > abajo;
+    const sitio = encima ? arriba : abajo;
+
+    if (!compartido && altoEtiqueta(h, tamanoNombre) <= sitio) return { tamano: tamanoNombre, encima };
+
+    let f = tamanoNombre;
+    while (f > 8 && (!cabeAncho(h, f) || altoEtiqueta(h, f) > sitio)) f -= 0.5;
+    return { tamano: Math.max(8, f), encima };
+  });
 
   const tinta = tintaSobre(color);
   /* Más pálidas en la lámina (21/10/2026): con 0,42 la línea del área y el semicírculo ensuciaban los nombres de encima. */
@@ -241,14 +355,18 @@ export function CampoEstructura({
         const es = elegido === i;
         const destino = destinoDe?.(i);
         const debajo = Boolean(destino && sobre === destino);
-        /*
-        | Cada nombre cabe en su trozo de línea: con cuatro en fila, la cuarta
-        | parte del campo. El mismo ancho en la lámina. Los huecos de una línea
-        | están a 1/(n+1) del campo uno de otro: con 1,1 veces eso, dos nombres
-        | largos vecinos se montaban (21/10/2026). Con 0,96 queda una rendija.
-        */
+        const quienes = nombresDe(h);
+        const compartido = quienes.length > 1;
+        const { tamano, encima } = disposicion[i];
         const anchoNombre = anchoNombreDe(h);
-        const nombre = enDosRenglones(h.jugador?.nombre ?? "").join("\n");
+        const { cx, cy } = centro(h);
+        /* Arrimada hacia dentro en las bandas (07/11/2026): la etiqueta de un lateral se cortaba en el borde. */
+        const izquierda = Math.min(Math.max(2, cx - anchoNombre / 2), Math.max(2, ancho - 2 - anchoNombre));
+        const desvio = cx - (izquierda + anchoNombre / 2);
+        const destinoPar = h.abierto && onToca ? destinoParDe?.(i) : undefined;
+        const sobrePar = Boolean(destinoPar && sobre === destinoPar);
+        const borde = claro ? "rgba(11,15,20,0.18)" : "rgba(255,255,255,0.25)";
+
         return (
           <div
             key={i}
@@ -257,24 +375,24 @@ export function CampoEstructura({
             onPointerDown={onArrastra && h.jugador ? (e) => onArrastra(i, e) : undefined}
             style={{
               position: "absolute",
-              left: `${h.x * 100}%`,
-              top: `${h.y * escalaY * 100}%`,
-              /* La FICHA en el punto, el nombre colgando (21/10/2026): centrando el bloque entero, un nombre en dos renglones subía su ficha y la línea no quedaba recta. */
-              transform: `translate(-50%, ${-(ficha / 2 + (onToca ? 4 : 0))}px)`,
+              left: izquierda - pad,
+              /* La FICHA en el punto, el nombre colgando (21/10/2026); o encima, si abajo no cabe. */
+              ...(encima ? { bottom: alto - (cy + ficha / 2 + pad) } : { top: cy - ficha / 2 - pad }),
               display: "flex",
-              flexDirection: "column",
+              flexDirection: encima ? "column-reverse" : "column",
               alignItems: "center",
-              width: anchoNombre,
+              width: anchoNombre + pad * 2,
+              boxSizing: "border-box",
               /* Un blanco generoso para el dedo, aunque la ficha sea pequeña. */
-              padding: onToca ? 4 : 0,
+              padding: pad,
               cursor: onArrastra && h.jugador ? "grab" : onToca ? "pointer" : "default",
               touchAction: onArrastra && h.jugador ? "pan-y" : undefined,
               userSelect: "none",
-              zIndex: es || debajo ? 3 : h.aMano ? 2 : 1,
+              zIndex: es || debajo || sobrePar ? 3 : h.aMano ? 2 : 1,
             }}
             title={
               h.jugador
-                ? `${h.jugador.nombre}${h.pareja ? ` y ${h.pareja.nombre} (comparten puesto)` : ""}${onToca ? " · arrástralo a cualquier punto, o toca otro para cambiarlos" : ""}`
+                ? `${quienes.map((j) => j.nombre).join(", ")}${compartido ? ` (comparten puesto)` : ""}${onToca ? " · arrástralo a cualquier punto, o toca otro para cambiarlos" : ""}`
                 : onToca
                   ? "Hueco libre: suelta aquí a un jugador"
                   : "Hueco libre"
@@ -284,6 +402,7 @@ export function CampoEstructura({
               style={{
                 width: ficha,
                 height: ficha,
+                flexShrink: 0,
                 borderRadius: 999,
                 background: h.jugador
                   ? `radial-gradient(circle at 35% 30%, rgba(255,255,255,0.35), rgba(255,255,255,0) 55%), ${color}`
@@ -294,7 +413,7 @@ export function CampoEstructura({
                   ? `${Math.max(2, ficha / 16)}px solid ${es ? "#C8A96B" : claro ? "rgba(11,15,20,0.35)" : "#FFFFFF"}`
                   : `2px dashed ${claro ? "rgba(20,83,45,0.5)" : "rgba(255,255,255,0.6)"}`,
                 boxShadow: es || debajo ? "0 0 0 4px #C8A96B" : h.jugador ? "0 3px 8px rgba(0,0,0,0.35)" : "none",
-                transform: debajo ? "scale(1.22)" : undefined,
+                transform: `translateX(${desvio}px)${debajo ? " scale(1.22)" : ""}`,
                 transition: "transform 120ms, box-shadow 120ms",
                 color: tinta,
                 fontSize: ficha * 0.36,
@@ -306,8 +425,8 @@ export function CampoEstructura({
                 position: "relative",
               }}
             >
-              {/* Comparte puesto: una segunda ficha asomando detrás, con un «2». */}
-              {h.pareja && (
+              {/* Comparten puesto: una segunda ficha asomando detrás, con cuántos son. */}
+              {compartido && (
                 <span
                   style={{
                     position: "absolute",
@@ -326,16 +445,44 @@ export function CampoEstructura({
                     justifyContent: "center",
                   }}
                 >
-                  2
+                  {quienes.length}
+                </span>
+              )}
+              {/* Puesto abierto a compartirse (07/11/2026): un «+» donde soltar al que lo comparte. */}
+              {destinoPar && (
+                <span
+                  data-destino={destinoPar}
+                  title="Puesto abierto para compartir: suelta aquí a quien lo comparte"
+                  style={{
+                    position: "absolute",
+                    left: -ficha * 0.5,
+                    top: -ficha * 0.2,
+                    width: ficha * 0.66,
+                    height: ficha * 0.66,
+                    borderRadius: 999,
+                    background: sobrePar ? "#C8A96B" : "rgba(11,15,20,0.55)",
+                    border: `2px dashed ${sobrePar ? "#FFFFFF" : "#C8A96B"}`,
+                    color: sobrePar ? "#0B0F14" : "#E9D5A8",
+                    fontSize: ficha * 0.42,
+                    fontWeight: 800,
+                    lineHeight: 1,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    transform: sobrePar ? "scale(1.25)" : undefined,
+                    transition: "transform 120ms",
+                  }}
+                >
+                  +
                 </span>
               )}
             </span>
             <span
               style={{
-                marginTop: Math.max(2, ficha / 12),
+                [encima ? "marginBottom" : "marginTop"]: aire,
                 maxWidth: "100%",
                 /* Que la palabra más larga del nombre quepa entera en su línea. */
-                fontSize: tamanoNombre,
+                fontSize: tamano,
                 fontWeight: 700,
                 lineHeight: 1.02,
                 textTransform: "uppercase",
@@ -346,16 +493,35 @@ export function CampoEstructura({
                 color: h.jugador ? (claro ? "#0B0F14" : "#FFFFFF") : claro ? "rgba(11,15,20,0.4)" : "rgba(255,255,255,0.55)",
                 background: h.jugador ? (claro ? "rgba(255,255,255,0.92)" : "rgba(6,12,9,0.62)") : "transparent",
                 boxShadow: h.jugador && claro ? "0 1px 3px rgba(11,26,51,0.12)" : "none",
-                borderRadius: Math.max(4, tamanoNombre / 3),
-                padding: h.jugador ? `${Math.max(1, tamanoNombre / 8)}px ${Math.max(3, tamanoNombre / 3)}px` : 0,
+                borderRadius: Math.max(4, tamano / 3),
+                padding: h.jugador ? `${relleno(tamano)}px ${Math.max(3, tamano / 3)}px` : 0,
               }}
             >
-              {h.jugador ? nombre : onToca ? "libre" : "—"}
-              {h.jugador && h.pareja && (
-                <span style={{ display: "block", marginTop: Math.max(1, tamanoNombre / 6), paddingTop: Math.max(1, tamanoNombre / 6), borderTop: `1px solid ${claro ? "rgba(11,15,20,0.18)" : "rgba(255,255,255,0.25)"}` }}>
-                  {enDosRenglones(h.pareja.nombre).join("\n")}
-                </span>
-              )}
+              {h.jugador
+                ? quienes.map((j, k) => (
+                    <span
+                      key={j.id}
+                      data-nombre-campo=""
+                      onPointerDown={
+                        k > 0 && onArrastraCompanero
+                          ? (e) => {
+                              e.stopPropagation();
+                              onArrastraCompanero(j, e);
+                            }
+                          : undefined
+                      }
+                      style={{
+                        display: "block",
+                        cursor: k > 0 && onArrastraCompanero ? "grab" : undefined,
+                        ...(k > 0 ? { marginTop: Math.max(1, tamano / 6), paddingTop: Math.max(1, tamano / 6), borderTop: `1px solid ${borde}` } : {}),
+                      }}
+                    >
+                      {renglonesDe(j.nombre, tamano, anchoNombre, compartido).join("\n")}
+                    </span>
+                  ))
+                : onToca
+                  ? "libre"
+                  : "—"}
             </span>
           </div>
         );

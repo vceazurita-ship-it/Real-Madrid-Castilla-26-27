@@ -17,7 +17,7 @@
  * estructura, por rara que sea, sin tener que escribirla.
  */
 import { colocaPorAfinidad, puntosDeLineas, type Punto as PuntoAfinidad } from "@/lib/sesion-equipos/demarcacion";
-import type { JugadorSesion, Puesto } from "@/lib/sesion-equipos/modelo";
+import { companerosEn, puestoAbierto, type JugadorSesion, type Pares, type Puesto } from "@/lib/sesion-equipos/modelo";
 
 /** Un punto del campo en tanto por uno: x de izquierda a derecha, y de la portería contraria (0) a la suya (1). */
 export type Punto = { x: number; y: number };
@@ -121,29 +121,47 @@ export type Hueco = {
   jugador: JugadorSesion | null;
   /** El punto lo puso alguien a mano: se guarda y se respeta. */
   aMano?: boolean;
-  /** Comparte el puesto con el jugador del hueco (08/10/2026): se turnan o hacen el puesto a la vez. */
-  pareja?: JugadorSesion | null;
+  /**
+   * Comparten el puesto con el jugador del hueco (08/10/2026; varios desde el
+   * 07/11/2026): se turnan o hacen el puesto a la vez.
+   */
+  companeros?: JugadorSesion[];
+  /** El puesto está abierto a compartirse y aún no tiene compañero (07/11/2026): en pantalla, un «+» donde soltar. */
+  abierto?: boolean;
 };
 
 /**
- * Las parejas válidas de un equipo (08/10/2026): titular → compañero, los dos
- * en el equipo, sin cadenas (un compañero no puede tener a su vez compañero).
+ * Los puestos compartidos válidos de un equipo (08/10/2026): titular →
+ * compañeros, todos en el equipo, sin cadenas (un compañero no puede tener a
+ * su vez compañeros) y nadie en dos. Desde el 07/11/2026, tantos como se
+ * quiera en el mismo puesto.
  */
-export function parejasDe(jugadores: JugadorSesion[], pares?: Record<string, string>) {
-  const companeros = new Map<string, JugadorSesion>();
-  if (!pares) return companeros;
+export function parejasDe(jugadores: JugadorSesion[], pares?: Pares) {
+  const salida = new Map<string, JugadorSesion[]>();
+  if (!pares) return salida;
 
+  const porId = new Map(jugadores.map((j) => [j.id, j]));
   const usados = new Set<string>();
-  for (const [titular, companero] of Object.entries(pares)) {
-    if (!companero || titular === companero || usados.has(titular) || usados.has(companero)) continue;
-    const t = jugadores.find((j) => j.id === titular);
-    const c = jugadores.find((j) => j.id === companero);
-    if (!t || !c) continue;
-    companeros.set(titular, c);
-    usados.add(titular);
-    usados.add(companero);
+  /* Un titular de un puesto no puede ser a la vez compañero en otro: se leen primero los titulares. */
+  const titulares = Object.keys(pares).filter((t) => porId.has(t));
+  for (const t of titulares) usados.add(t);
+
+  for (const titular of titulares) {
+    const companeros: JugadorSesion[] = [];
+    for (const c of companerosEn(pares, titular)) {
+      const j = porId.get(c);
+      if (!j || usados.has(c)) continue;
+      companeros.push(j);
+      usados.add(c);
+    }
+    if (companeros.length) salida.set(titular, companeros);
   }
-  return companeros;
+  return salida;
+}
+
+/** Los titulares con el puesto abierto y aún sin compañero (07/11/2026). */
+export function abiertosDe(jugadores: JugadorSesion[], pares?: Pares, parejas = parejasDe(jugadores, pares)) {
+  return new Set(Object.keys(pares ?? {}).filter((t) => puestoAbierto(pares, t) && !parejas.has(t) && jugadores.some((j) => j.id === t)));
 }
 
 const ORDEN: (Puesto | undefined)[] = ["POR", "DEF", "MED", "EXT", "DEL", undefined];
@@ -168,15 +186,16 @@ export function colocaEnEstructura(
   puestoDe: (j: JugadorSesion) => Puesto | undefined,
   orden?: string[],
   posiciones?: (Punto | null)[],
-  pares?: Record<string, string>,
+  pares?: Pares,
   /** Dónde juega cada uno (14/10/2026, lib/sesion-equipos/demarcacion.ts). Sin él, por puesto como antes. */
   preferido?: (j: JugadorSesion) => PuntoAfinidad,
-): { huecos: Hueco[]; sobran: JugadorSesion[]; porteros: JugadorSesion[]; parejas: Map<string, JugadorSesion> } {
+): { huecos: Hueco[]; sobran: JugadorSesion[]; porteros: JugadorSesion[]; parejas: Map<string, JugadorSesion[]> } {
   const lleva = conPortero(estructura);
 
-  /* El compañero no ocupa hueco: va en el de su titular. */
+  /* Los compañeros no ocupan hueco: van en el de su titular. */
   const parejas = parejasDe(jugadores, pares);
-  const ocultos = new Set([...parejas.values()].map((j) => j.id));
+  const abiertos = abiertosDe(jugadores, pares, parejas);
+  const ocultos = new Set([...parejas.values()].flat().map((j) => j.id));
   const visibles = jugadores.filter((j) => !ocultos.has(j.id));
 
   const porteros = visibles.filter((j) => puestoDe(j) === "POR");
@@ -186,10 +205,12 @@ export function colocaEnEstructura(
   const pref = preferido ?? (puestoDe as { preferido?: (j: JugadorSesion) => PuntoAfinidad }).preferido;
   const r = colocaDeCampo(deCampo, lineas, puestoDe, lleva ? orden?.slice(1) : orden, lleva ? posiciones?.slice(1) : posiciones, pref);
 
-  const huecos = r.huecos.map((h) => (h.jugador && parejas.has(h.jugador.id) ? { ...h, pareja: parejas.get(h.jugador.id) } : h));
+  const huecos = r.huecos.map((h) =>
+    !h.jugador ? h : parejas.has(h.jugador.id) ? { ...h, companeros: parejas.get(h.jugador.id) } : abiertos.has(h.jugador.id) ? { ...h, abierto: true } : h,
+  );
 
-  /* Un titular fuera del dibujo (o portero) arrastra a su compañero con él. */
-  const conSuPareja = (lista: JugadorSesion[]) => lista.flatMap((j) => (parejas.has(j.id) ? [j, parejas.get(j.id)!] : [j]));
+  /* Un titular fuera del dibujo (o portero) arrastra a sus compañeros con él. */
+  const conSuPareja = (lista: JugadorSesion[]) => lista.flatMap((j) => [j, ...(parejas.get(j.id) ?? [])]);
 
   return { huecos, sobran: conSuPareja(r.sobran), porteros: conSuPareja(porteros), parejas };
 }
@@ -331,6 +352,25 @@ export function colocaEnPunto(huecos: Hueco[], jugador: JugadorSesion, punto: Pu
   }
 
   return guardaHuecos(nuevos);
+}
+
+/**
+ * «El mismo puesto» en otro equipo (07/11/2026): el hueco ocupado más cerca
+ * de ese punto del campo. Con el mismo dibujo es el mismo hueco; con otro, el
+ * que más se le parece. -1 si el equipo no tiene a nadie en el campo.
+ */
+export function huecoMasCercano(huecos: Hueco[], punto: Punto) {
+  let mejor = -1;
+  let distancia = Infinity;
+  huecos.forEach((h, i) => {
+    if (!h.jugador) return;
+    const d = (h.x - punto.x) ** 2 + (h.y - punto.y) ** 2;
+    if (d < distancia) {
+      distancia = d;
+      mejor = i;
+    }
+  });
+  return mejor;
 }
 
 /** Saca al jugador del sitio que ocupaba en el campo (deja el hueco vacío). */
