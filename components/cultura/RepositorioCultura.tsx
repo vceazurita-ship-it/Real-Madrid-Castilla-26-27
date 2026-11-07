@@ -564,7 +564,7 @@ export function RepositorioCultura() {
 
             <Panel
               title="Vista previa"
-              subtitle="El documento a tamaño real, escalado a la columna: es el mismo dibujo que se descarga"
+              subtitle="Lo mismo que se descarga"
               icon={Layers}
             >
               {/* En el móvil, una diapositiva cada vez con flechas. */}
@@ -604,28 +604,37 @@ export function RepositorioCultura() {
                     key={indice}
                     className={`min-w-0 ${indice === hojaActiva ? "" : "max-lg:hidden"}`}
                   >
-                    <p className="mb-2 text-[10px] uppercase tracking-[0.2em] text-white/35">
-                      {indice + 1} / {aLaVista.diapositivas.length} ·{" "}
-                      {(previa ? titulosDocumento(previa) : titulos)[indice]}
-                    </p>
+                    {/* 07/11/2026: el botón de ampliar sale del lienzo (tapaba la
+                        chapa «PORTADA / VALOR n») y va con su nombre junto al
+                        contador; la diapositiva entera también lo abre. */}
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <p className="min-w-0 text-[10px] uppercase tracking-[0.2em] text-white/35">
+                        {indice + 1} / {aLaVista.diapositivas.length} ·{" "}
+                        {(previa ? titulosDocumento(previa) : titulos)[indice]}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setVisor(indice)}
+                        className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-white/15 px-2.5 py-1.5 text-xs font-medium text-white/80 transition hover:bg-white/10 hover:text-white"
+                      >
+                        <Maximize2 size={13} aria-hidden />
+                        Pantalla completa
+                      </button>
+                    </div>
 
                     <button
                       type="button"
                       onClick={() => setVisor(indice)}
                       aria-label={`Abrir la diapositiva ${indice + 1} a pantalla completa`}
-                      className="group relative block w-full overflow-hidden rounded-xl border border-white/10 text-left"
+                      className="block w-full overflow-hidden rounded-xl border border-white/10 text-left"
                     >
                       <Escalado ancho={SLIDE_W} alto={SLIDE_H}>
                         <HojaCultura documento={aLaVista} hoja={hoja} />
                       </Escalado>
-
-                      <span
-                        className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-lg text-white opacity-80 transition group-hover:opacity-100"
-                        style={{ background: "rgba(0,0,0,0.55)" }}
-                      >
-                        <Maximize2 size={15} />
-                      </span>
                     </button>
+                    <p className="mt-1.5 text-center text-[11px] text-white/40 lg:hidden">
+                      Toca la diapositiva para verla en grande
+                    </p>
                   </div>
                 ))}
               </div>

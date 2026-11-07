@@ -41,7 +41,7 @@ function GraficaPuntos({
       </p>
       <svg
         viewBox={`0 0 ${W} ${H}`}
-        className="mt-3 h-auto w-full"
+        className="mt-3 h-auto w-full max-w-[720px]"
         role="img"
         aria-label="Puntos acumulados del Castilla frente a la media de la liga"
       >
@@ -388,6 +388,17 @@ useEffect(() => {
 
                 <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
               </div>
+
+              {/* 07/11/2026: el titular con el dato, no sólo la etiqueta de la sección. */}
+              {tabla && tabla.jugados > 0 ? (
+                <p className="mt-3 text-base font-medium text-white/85 sm:text-lg">
+                  {tabla.puesto}º de {tabla.deCuantos} con {tabla.puntos} puntos tras {tabla.jugados}{" "}
+                  {tabla.jugados === 1 ? "jornada" : "jornadas"}
+                  {liga.mediaPuntos !== null
+                    ? `: ${(tabla.puntos / tabla.jugados).toLocaleString("es-ES", { maximumFractionDigits: 1 })} por partido frente a ${liga.mediaPuntos.toLocaleString("es-ES", { maximumFractionDigits: 1 })} de media en la liga.`
+                    : "."}
+                </p>
+              ) : null}
             </div>
 
             {tabla ? (
@@ -406,7 +417,8 @@ useEffect(() => {
                         ? `en ${tabla.jugados} partidos · ${dec(tabla.puntos / tabla.jugados)} por partido${liga.mediaPuntos !== null ? ` · liga ${dec(liga.mediaPuntos)}` : ""}`
                         : "",
                     ],
-                    ["Balance", `${tabla.ganados}-${tabla.empatados}-${tabla.perdidos}`, "ganados · empatados · perdidos"],
+                    /* 07/11/2026: «4-3-3» se leía como un sistema de juego. */
+                    ["Balance", `${tabla.ganados} G · ${tabla.empatados} E · ${tabla.perdidos} P`, "ganados · empatados · perdidos"],
                     [
                       "Goles",
                       `${tabla.favor}-${tabla.contra}`,
@@ -422,7 +434,7 @@ useEffect(() => {
                     <p className="text-[11px] uppercase tracking-[0.25em] text-[#C8A96B]">
                       {etiqueta}
                     </p>
-                    <p className="mt-1 text-3xl font-semibold leading-none text-white">{valor}</p>
+                    <p className={`mt-1 font-semibold leading-none text-white ${valor.length > 9 ? "text-2xl sm:text-3xl" : "text-3xl"}`}>{valor}</p>
                     {referencia ? <p className="mt-1.5 whitespace-pre-line text-[12px] leading-snug text-white/60">{referencia}</p> : null}
                   </div>
                 ))}
@@ -549,7 +561,7 @@ useEffect(() => {
             ) : null}
 
             <div className="mb-3 flex flex-wrap items-center gap-3 rounded-2xl border border-[#C8A96B]/40 bg-white/[0.04] px-4 py-3 text-sm text-white/80">
-              <span className="min-w-0 flex-1">
+              <span className="min-w-0 flex-1 basis-full sm:basis-auto">
                 Informe completo de la competición en Power BI.
               </span>
               <a

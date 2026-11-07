@@ -847,19 +847,28 @@ export function PantallaGoles() {
             options={TAMANOS.map((t) => ({ key: String(t), label: `${t}'` }))}
           />
         </div>
-        <label className="block min-w-0">
-          <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">O a medida (cortes)</span>
-          <input
-            value={cortes}
-            onChange={(e) => setCortes(e.target.value)}
-            placeholder="20, 45, 70"
-            className="w-40 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#C8A96B]/50"
-          />
-        </label>
-        <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white/70">
-          <input type="checkbox" checked={descuentos} onChange={(e) => setDescuentos(e.target.checked)} className="accent-[#C8A96B]" />
-          Descuentos aparte
-        </label>
+        {/* 07/11/2026: franjas de 15′ por defecto; los cortes a medida y los
+            descuentos, que un entrenador casi nunca toca, bajo «Más opciones». */}
+        <details className="group min-w-0">
+          <summary className="cursor-pointer list-none rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white/70 hover:text-white [&::-webkit-details-marker]:hidden">
+            Más opciones{cortes.trim() || descuentos ? " · en uso" : ""} <span aria-hidden className="inline-block transition-transform group-open:rotate-180">▾</span>
+          </summary>
+          <div className="mt-2 flex min-w-0 flex-wrap items-end gap-3">
+            <label className="block min-w-0">
+              <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">Tramos a medida (minutos de corte)</span>
+              <input
+                value={cortes}
+                onChange={(e) => setCortes(e.target.value)}
+                placeholder="20, 45, 70"
+                className="w-40 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#C8A96B]/50"
+              />
+            </label>
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white/70">
+              <input type="checkbox" checked={descuentos} onChange={(e) => setDescuentos(e.target.checked)} className="accent-[#C8A96B]" />
+              Descuentos aparte
+            </label>
+          </div>
+        </details>
       </div>
       </div>
 
@@ -878,9 +887,10 @@ export function PantallaGoles() {
             opciones={[
               { clave: "resumen", label: "Resumen", icono: LayoutDashboard },
               { clave: "minutos", label: "Minutos", icono: Clock },
-              { clave: "casa", label: "Casa y fuera", icono: Home },
-              { clave: "tipo", label: "Cómo llegan", icono: Shapes },
-              { clave: "goles", label: "Gol a gol", icono: ListOrdered, cuenta: goles.length },
+              /* 07/11/2026: nombres cortos en el móvil para que quepan las cinco. */
+              { clave: "casa", label: "Casa y fuera", corto: "Casa", icono: Home },
+              { clave: "tipo", label: "Cómo llegan", corto: "Tipo", icono: Shapes },
+              { clave: "goles", label: "Gol a gol", corto: "Goles", icono: ListOrdered, cuenta: goles.length },
             ]}
           />
 
@@ -909,13 +919,13 @@ export function PantallaGoles() {
             <StatCard
               label={nos("Nuestro mejor tramo", "Su mejor tramo")}
               value={tramos.fuerte ? tramos.fuerte.franja.nombre : "Ninguno"}
-              hint={tramos.fuerte ? `${tramos.fuerte.gf} a favor${incompleto ? "" : ` · ${fmt(media(tramos.fuerte.gf, delEquipo.length))}/partido (liga ${fmt(tramos.fuerte.ligaPP)})`}${aviso ? " · tendencia" : ""}` : masGoleadora ? `ninguno por encima de la liga` : "sin goles a favor"}
+              hint={tramos.fuerte ? `${tramos.fuerte.gf} a favor${incompleto ? "" : ` · ${fmt(media(tramos.fuerte.gf, delEquipo.length))}/partido (liga ${fmt(tramos.fuerte.ligaPP)})`}${aviso || tramos.fuerte.gf <= 3 ? ` · tendencia (${delEquipo.length} partidos)` : ""}` : masGoleadora ? `ninguno por encima de la liga` : "sin goles a favor"}
               accent={tramos.fuerte ? MEJOR : undefined}
             />
             <StatCard
               label={nos("Nuestro tramo más débil", "Su tramo más débil")}
               value={tramos.flojo ? tramos.flojo.franja.nombre : "Ninguno"}
-              hint={tramos.flojo ? `${tramos.flojo.gc} en contra${incompleto ? "" : ` · ${fmt(media(tramos.flojo.gc, delEquipo.length))}/partido (liga ${fmt(tramos.flojo.ligaContraPP)})`}${aviso ? " · tendencia" : ""}` : masEncajada ? "ninguno por encima de la liga" : "sin goles en contra"}
+              hint={tramos.flojo ? `${tramos.flojo.gc} en contra${incompleto ? "" : ` · ${fmt(media(tramos.flojo.gc, delEquipo.length))}/partido (liga ${fmt(tramos.flojo.ligaContraPP)})`}${aviso || tramos.flojo.gc <= 3 ? ` · tendencia (${delEquipo.length} partidos)` : ""}` : masEncajada ? "ninguno por encima de la liga" : "sin goles en contra"}
               accent={tramos.flojo ? PEOR : undefined}
             />
           </StatRow>
@@ -923,7 +933,7 @@ export function PantallaGoles() {
 
           {/* ---------------- lo importante ---------------- */}
           {importante.length > 0 ? (
-          <Panel title={nos("Lo importante: qué hacemos y qué concedemos", "Lo importante")} subtitle={`${nombreEquipo(equipo)} ·${jugadosCalendario > delEquipo.length ? `${delEquipo.length} de ${jugadosCalendario} partidos jugados` : `${delEquipo.length} ${delEquipo.length === 1 ? "partido" : "partidos"}`}${jUltimaFiltro > 0 ? `, hasta la J${jUltimaFiltro}` : ""}${condicion === "todos" ? "" : ` · sólo ${rotuloLugar(condicion)}`}.${incompleto ? "" : " Siempre comparado con la media de la liga."}${sinMinuto.length ? ` En ${sinMinuto.length === 1 ? "un partido" : `${sinMinuto.length} partidos`} falta el minuto de algún gol: cuenta en los totales y no en las franjas.` : ""}`} icon={Lightbulb}>
+          <Panel title={nos("Qué hacemos y qué concedemos", "Lo importante")} subtitle={`${nombreEquipo(equipo)} ·${jugadosCalendario > delEquipo.length ? `${delEquipo.length} de ${jugadosCalendario} partidos jugados` : `${delEquipo.length} ${delEquipo.length === 1 ? "partido" : "partidos"}`}${jUltimaFiltro > 0 ? `, hasta la J${jUltimaFiltro}` : ""}${condicion === "todos" ? "" : ` · sólo ${rotuloLugar(condicion)}`}.${incompleto ? "" : " Siempre comparado con la media de la liga."}${sinMinuto.length ? ` En ${sinMinuto.length === 1 ? "un partido" : `${sinMinuto.length} partidos`} falta el minuto de algún gol: cuenta en los totales y no en las franjas.` : ""}`} icon={Lightbulb}>
             <ul className="space-y-2.5">
               {importante.map((frase, i) => (
                 <li key={i} className="flex gap-2.5 text-[13px] leading-relaxed text-white/80">

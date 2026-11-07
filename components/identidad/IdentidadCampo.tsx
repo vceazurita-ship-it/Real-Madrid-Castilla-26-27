@@ -164,7 +164,7 @@ function TarjetaBloque({ b, partidos }: { b: BloqueMedido; partidos: PartidoEje[
 
       <ul className="mt-4 space-y-3 border-t border-white/10 pt-3">
         {b.principios.map((p) => (
-          <li key={p.id} className="min-w-0">
+          <li key={p.id} id={p.id} className="min-w-0 scroll-mt-24 rounded-lg target:bg-[#C8A96B]/10 target:ring-1 target:ring-[#C8A96B]/50">
             <div className="flex items-baseline justify-between gap-3 text-[13px]">
               <span className="min-w-0 text-white/85">
                 {p.clave && <Star size={11} className="mr-1 inline -translate-y-px" style={{ color: ORO }} aria-label="Principio clave" />}
@@ -399,6 +399,16 @@ export function IdentidadCampo() {
     for (const j of d?.jugadores ?? []) m.set(j.puesto, [...(m.get(j.puesto) ?? []), j]);
 
     return ["CEN", "LAT", "MED", "BAN", "DEL"].filter((k) => m.has(k)).map((k) => ({ puesto: k, lista: m.get(k)! }));
+  }, [d]);
+
+  /* 07/11/2026: /game-model enlaza a cada principio con ancla; los datos
+     llegan después de que el navegador busque el ancla, así que se salta aquí. */
+  useEffect(() => {
+    if (!d || typeof window === "undefined") return;
+
+    const id = decodeURIComponent(window.location.hash.slice(1));
+
+    if (id) document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [d]);
 
   if (estado.cargando) return <LoadingState rows={5} label="Cruzando la identidad con los partidos y la semana…" />;

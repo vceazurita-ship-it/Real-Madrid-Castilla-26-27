@@ -192,7 +192,7 @@ export function StatCard({
       </p>
 
       {hint && (
-        <p className="mt-0.5 truncate text-[11px] text-white/35">{hint}</p>
+        <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-white/45">{hint}</p>
       )}
     </div>
   );

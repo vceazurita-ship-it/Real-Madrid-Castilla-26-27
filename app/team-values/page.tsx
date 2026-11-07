@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/knowledge-kit";
 import { cn } from "@/lib/utils";
 import { DOCUMENTO_VALORES } from "@/lib/cultura/documentos/valores";
+import { conVotos } from "@/components/cultura/HojaCultura";
 import { confirmar } from "@/lib/avisos";
 
 /*
@@ -77,7 +78,7 @@ const ESPACIO_ESCRITAS = "team-values";
 /** Descripción de cada etapa de la hoja de ruta: qué se hace con el vestuario. Las secciones nuevas caen al texto por defecto. */
 const DESCRIPCIONES: Record<string, string> = {
   MARCO:
-    "Lo que acordamos en el cuerpo técnico antes de hablar con el vestuario: identidad, propósito y cultura.",
+    "Antes del vestuario: qué cultura queremos y cómo la construimos.",
   PLANIFICACION:
     "Cómo se organiza el proceso: quién hace qué y en qué semana.",
   "SEMANA 1": "Con el vestuario: qué significa pertenecer a este grupo.",
@@ -568,7 +569,12 @@ export default function TeamValuesPage() {
                         activa ? "text-black/70" : "text-gray-400",
                       )}
                     >
-                      Etapa {i + 1} · {total} contenido{total === 1 ? "" : "s"}
+                      {/* 07/11/2026: la semana real, si la hoja la trae en FECHA. */}
+                      {data
+                        .filter((r) => r.SECCION === s)
+                        .map((r) => limpio(r.FECHA))
+                        .find(Boolean) || `Etapa ${i + 1}`}{" "}
+                      · {total} contenido{total === 1 ? "" : "s"}
                     </span>
                   </button>
                 );
@@ -589,51 +595,17 @@ export default function TeamValuesPage() {
 
           {/* ---------------------------------------------- contenido */}
 
-          {/* pr-12 por debajo de lg (29/10/2026, marketing): el ⋮ flotante del
-              menú de herramientas tapaba el final de las líneas de las tarjetas.
-              30/10/2026: y pb-24, para que tampoco tape la última. */}
+          {/* 07/11/2026: sin el pr-12 del móvil (descentraba las tarjetas
+              frente al selector de etapas); pb-24 para que el ⋮ flotante no
+              tape la última. */}
           <main
             className={cn(
-              "min-w-0 flex-1 p-4 pr-12 pb-24 lg:p-8 lg:pb-24",
+              "min-w-0 flex-1 p-4 pb-24 lg:p-8 lg:pb-24",
               editing && "pb-32 lg:pb-32",
             )}
           >
-            {/* Resultado del proceso: los valores votados (30/10/2026). */}
-            {VALORES_VOTADOS.length > 0 && (
-              <Link
-                href="/identidad-cultura"
-                className={cn(
-                  "block rounded-2xl border border-[#C8A96B]/40 bg-[#C8A96B]/[0.07] p-4 transition-colors hover:border-[#C8A96B]/70 lg:rounded-3xl lg:p-5",
-                  focusRing,
-                )}
-              >
-                <span className="flex flex-wrap items-baseline justify-between gap-2">
-                  <span className="text-sm font-semibold text-[#C8A96B]">
-                    Lo que votó la plantilla: {VALORES_VOTADOS.length} valores
-                  </span>
-                  <span className="text-xs font-medium text-[#C8A96B]">
-                    Ver el documento →
-                  </span>
-                </span>
-
-                <span className="mt-3 grid grid-cols-1 gap-x-6 gap-y-1.5 sm:grid-cols-2 xl:grid-cols-3">
-                  {VALORES_VOTADOS.map((v) => (
-                    <span key={v.numero} className="flex min-w-0 items-baseline gap-2 text-sm">
-                      <span className="font-semibold tabular-nums text-[#C8A96B]">
-                        {v.numero}
-                      </span>
-                      <span className="min-w-0">
-                        <span className="font-semibold text-white">{v.titulo}</span>{" "}
-                        <span className="text-gray-400">· {v.votos.replace(/^Votado por /, "")}</span>
-                      </span>
-                    </span>
-                  ))}
-                </span>
-              </Link>
-            )}
-
             {/* Título + acciones */}
-            <div className="mt-6 flex flex-row items-start justify-between gap-4">
+            <div className="flex flex-row items-start justify-between gap-4">
               <div className="min-w-0">
                 <h1 className="text-3xl font-bold leading-tight text-white sm:text-4xl lg:text-5xl">
                   {seccion ? rotuloSeccion(seccion) : ""}
@@ -865,6 +837,37 @@ export default function TeamValuesPage() {
               </div>
             )}
 
+            {/* 07/11/2026: el resultado de la votación va al pie, compacto:
+                arriba parecía la cabecera de la etapa y repetía el documento.
+                Todo en votos, como en el recuento (valores y antivalores se
+                cuentan por separado); el detalle está en el documento. */}
+            {VALORES_VOTADOS.length > 0 && !editing && (
+              <div className="mt-8 flex flex-col gap-3 rounded-2xl border border-[#C8A96B]/40 bg-[#C8A96B]/[0.07] p-4 sm:flex-row sm:items-center sm:justify-between lg:p-5">
+                <p className="min-w-0 text-sm leading-relaxed text-gray-300">
+                  <span className="font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)]">
+                    Resultado de la votación (votos):
+                  </span>{" "}
+                  {VALORES_VOTADOS.map((v, i) => (
+                    <span key={v.numero} className="whitespace-nowrap">
+                      {i > 0 && " · "}
+                      <span className="font-semibold text-white">{v.titulo}</span>{" "}
+                      <span className="tabular-nums">
+                        {conVotos(v.votos).match(/^\d+/)?.[0] ?? ""}
+                      </span>
+                    </span>
+                  ))}
+                </p>
+                <Link
+                  href="/identidad-cultura"
+                  className={cn(
+                    "inline-flex shrink-0 items-center justify-center rounded-xl bg-[#C8A96B] px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-[#d6ba80]",
+                    focusRing,
+                  )}
+                >
+                  Ver el documento →
+                </Link>
+              </div>
+            )}
           </main>
         </div>
       </div>

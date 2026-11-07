@@ -38,6 +38,7 @@ import { usePlayers } from "@/hooks/usePlayers";
 import { nombrePuesto } from "@/lib/posiciones";
 import type { Player } from "@/types/player";
 import { confirmar } from "@/lib/avisos";
+import { medidaDelContenido } from "@/lib/identidad/campo";
 
 type PosicionItem = {
   ID: number;
@@ -858,7 +859,7 @@ export default function IdentidadPosicionalPage() {
           <aside
             aria-label="Posiciones"
             /* 30/10/2026: en el móvil, buscador y puestos fijos arriba al bajar. */
-            className="w-full border-white/10 p-4 max-lg:sticky max-lg:top-0 max-lg:z-20 max-lg:border-b max-lg:bg-[#0B0F14] max-lg:py-3 lg:w-[280px] lg:shrink-0 lg:border-r lg:p-6 xl:w-[320px]"
+            className="w-full border-white/10 p-4 max-lg:sticky max-lg:top-0 max-lg:z-20 max-lg:border-b max-lg:bg-[var(--background)] max-lg:py-3 lg:w-[280px] lg:shrink-0 lg:border-r lg:p-6 xl:w-[320px]"
           >
             <SectionLabel className="text-[#C8A96B] max-lg:hidden">Posiciones</SectionLabel>
 
@@ -871,9 +872,9 @@ export default function IdentidadPosicionalPage() {
             />
 
             {/* 30/10/2026: en el móvil la tira cortaba los puestos («ME…»)
-                sin decir que seguía. Ahora es una rejilla de 3×2 con los seis
+                sin decir que seguía. Ahora es una rejilla de 2×3 con los seis
                 a la vista; en escritorio, la lista de siempre. */}
-            <nav className="mt-3 grid grid-cols-3 gap-2 lg:mt-5 lg:grid-cols-1">
+            <nav className="mt-3 grid grid-cols-2 gap-2 lg:mt-5 lg:grid-cols-1">
               {posiciones.map((p) => {
                 const total = visibles.filter((x) => x.POSICION === p).length;
                 const activo = posicion === p;
@@ -893,9 +894,13 @@ export default function IdentidadPosicionalPage() {
                       filtrando && total === 0 && !activo && "opacity-40",
                     )}
                   >
-                    <IconoPuesto posicion={p} activo={activo} />
-                    <span className="flex min-w-0 flex-1 flex-col lg:flex-row lg:items-center lg:justify-between lg:gap-3">
-                      <span className="min-w-0 break-words text-xs font-semibold leading-tight sm:text-sm">
+                    {/* 07/11/2026: en el móvil, dos columnas sin icono y el nombre
+                        entero («MEDIOCENTROS» se partía en tres columnas). */}
+                    <span className="max-lg:hidden">
+                      <IconoPuesto posicion={p} activo={activo} />
+                    </span>
+                    <span className="flex min-w-0 flex-1 flex-row items-center justify-between gap-2 lg:gap-3">
+                      <span className="min-w-0 whitespace-nowrap text-xs font-semibold leading-tight sm:text-sm">
                         {p}
                       </span>
                       <span
@@ -945,20 +950,24 @@ export default function IdentidadPosicionalPage() {
                   {quienes.length > 0 && !editing && (
                     /* 30/10/2026: cada nombre lleva a su ficha individual; la
                        fuente es la plantilla del Castilla. */
-                    <p className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm text-gray-400">
-                      <span className="text-gray-500">Sus jugadores en la plantilla:</span>
-                      {quienes.map((uno, i) => (
-                        <span key={uno.nombre}>
-                          <Link
-                            href={`/individual?nombre=${encodeURIComponent(uno.nombre ?? "")}`}
-                            className="font-medium text-gray-200 underline decoration-dotted underline-offset-2 hover:text-[#C8A96B]"
-                          >
-                            {uno.corto}
-                          </Link>
-                          {i < quienes.length - 1 ? " ·" : ""}
-                        </span>
+                    /* 07/11/2026: chips visibles que abren su «Área de mejora»:
+                       del contenido del puesto a su plan de trabajo. */
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+                      <span className="text-gray-400">Sus jugadores · su área de mejora:</span>
+                      {quienes.map((uno) => (
+                        <Link
+                          key={uno.nombre}
+                          href={`/individual?nombre=${encodeURIComponent(uno.nombre ?? "")}&pestana=mejora`}
+                          className={cn(
+                            "inline-flex items-center gap-1 rounded-full border border-[#C8A96B]/40 px-3 py-1 text-xs font-semibold text-gray-200 transition-colors hover:bg-[#C8A96B]/10 hover:text-white",
+                            focusRing,
+                          )}
+                        >
+                          {uno.corto}
+                          <span aria-hidden className="text-[color:var(--rmcf-gold-ink,#C8A96B)]">→</span>
+                        </Link>
                       ))}
-                    </p>
+                    </div>
                   )}
                 </div>
 
@@ -1169,16 +1178,37 @@ function FichaContenido({
 
   const d = detalle(item);
 
+  /* 07/11/2026: si /identidad-campo mide este contenido con una métrica de
+     Wyscout, se dice cuál: la etiqueta se convierte en algo que se puede
+     seguir partido a partido. Sin métrica, no se escribe nada. */
+  const columna = medidaDelContenido(item.POSICION ?? "", item.CONTENIDO ?? "");
+  const medida = columna && (
+    <p className="mt-1 text-xs leading-relaxed text-gray-400">
+      <span className="font-semibold text-gray-300">Se mide en el partido:</span>{" "}
+      {columna.replace(/\/90$/, " por 90 minutos")}{" "}
+      <Link
+        href="/identidad-campo"
+        className="font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)] hover:underline"
+      >
+        Cómo sale →
+      </Link>
+    </p>
+  );
+
   if (!Object.values(d).some(Boolean)) {
     return (
-      <p className="min-w-0 whitespace-pre-wrap break-words text-[14px] leading-relaxed text-gray-200 lg:text-[15px]">
-        {texto}
-      </p>
+      <div className="min-w-0 flex-1">
+        <p className="min-w-0 whitespace-pre-wrap break-words text-[14px] leading-relaxed text-gray-200 lg:text-[15px]">
+          {texto}
+        </p>
+        {medida}
+      </div>
     );
   }
 
   return (
-    <details className="group min-w-0 flex-1">
+    <div className="min-w-0 flex-1">
+    <details className="group min-w-0">
       <summary className="flex cursor-pointer list-none items-start justify-between gap-3 text-[14px] leading-relaxed text-gray-200 lg:text-[15px] [&::-webkit-details-marker]:hidden">
         <span className="min-w-0 break-words">{texto}</span>
         <ChevronDown
@@ -1218,5 +1248,7 @@ function FichaContenido({
         )}
       </div>
     </details>
+    {medida}
+    </div>
   );
 }

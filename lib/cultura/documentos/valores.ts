@@ -250,7 +250,10 @@ const VALORES: Valor[] = [
         titulo: "Fuera del campo",
         matiz: "Aprendizaje y objetivo común",
         suma: {
-          rotulo: "Aprendizaje y objetivo común",
+          /* 07/11/2026: la chapa lleva el nombre del valor, como las otras
+             nueve fichas; el ámbito («Aprendizaje y objetivo común») sigue
+             en el matiz. El texto de la conducta no se toca. */
+          rotulo: "Exigencia y valentía",
           texto:
             "Pedir vídeo al cuerpo técnico para pulir errores. Trabajar hacia la " +
             "meta colectiva por encima de contratos o intereses personales.",
@@ -288,7 +291,10 @@ export const DOCUMENTO_VALORES: DocumentoCultura = {
         "Estos cinco valores **no los ha escrito el cuerpo técnico: los ha votado " +
         "la plantilla**. Cada uno viene con su antivalor enfrentado —lo que lo " +
         "destruye— y con las conductas por las que se reconoce, dentro y fuera del " +
-        "campo. Lo que se mide no es lo que decimos, es **lo que se ve cada día**.",
+        "campo. Lo que se mide no es lo que decimos, es **lo que se ve cada día**. " +
+        /* 07/11/2026: la base de las cifras, para que «22» del antivalor no
+           se lea como más votantes que la plantilla. */
+        "Cada cifra son votos del recuento; valores y antivalores se cuentan por separado.",
       indice: VALORES.map((valor) => ({
         numero: valor.numero,
         titulo: valor.titulo,

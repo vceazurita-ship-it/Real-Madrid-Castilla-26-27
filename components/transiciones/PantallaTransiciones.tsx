@@ -74,6 +74,7 @@ import {
   porcentajeAgregado,
   porcentajeDe,
   type MetricaComparada,
+  UMBRAL_TENDENCIA_PARTIDOS,
 } from "@/components/abp/ComparativaPartido";
 import { VerAccion } from "@/components/video/VerAccion";
 import { opcionesDeAccion, useMenuAccion } from "@/components/video/MenuAccion";
@@ -149,10 +150,10 @@ type Textos = {
     rotuloSalida: string;
   };
   conclusiones: {
-    adelante: (pct: number, n: number, de: number) => string;
+    adelante: (pct: string, n: number, de: number) => string;
     /** `juegan`: los de esa zona que se juegan con pase o conducción; `adelante`, los que salen hacia delante. */
     zona: (zona: string, n: number, total: number, adelante: number, juegan: number) => string;
-    acaba: (llegan: number, pierden: number, de: number) => string;
+    acaba: (llegan: string, pierden: string, de: number) => string;
     dura: (s: string) => string;
   };
   dudosos: string;
@@ -323,9 +324,10 @@ function zonaDe(r: Robo) {
   return "campo propio";
 }
 
-function pct(parte: number, total: number) {
-  if (!total) return 0;
-  return Math.round((parte / total) * 100);
+/* 07/11/2026: con un decimal, igual que la tabla de la comparativa (5,7 %, no 6 %). */
+function pct(parte: number, total: number): string {
+  if (!total) return "0";
+  return numeroCorto((parte / total) * 100);
 }
 
 /** 8.43 → "8,4". */
@@ -1020,7 +1022,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
     */
     const nRef = anteriores.length;
     const baseMedia = nRef
-      ? `frente a ${nRef === 1 ? "un partido" : `${nRef} partidos`}${nRef <= 7 ? ", tendencia" : ""}`
+      ? `frente a ${nRef === 1 ? "un partido" : `${nRef} partidos`}${nRef < UMBRAL_TENDENCIA_PARTIDOS ? ", tendencia" : ""}`
       : "";
 
     return {
@@ -1176,7 +1178,13 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
 
       const d = m.actual - m.media;
 
-      if (Math.abs(d) < 0.05 || (d > 0) === m.mejorAlto) continue;
+      /* 07/11/2026: una diferencia de 0,2 puntos no manda tarea. Por debajo
+         de 5 puntos en un porcentaje (o de un 10 % de la media en un
+         recuento) la métrica está en la media y la tarea pasa a la que se
+         desvía de verdad. */
+      const margen = m.formato === formatoPorcentaje ? 5 : Math.max(0.5, Math.abs(m.media) * 0.1);
+
+      if (Math.abs(d) < margen || (d > 0) === m.mejorAlto) continue;
 
       const peso = Math.abs(d) / Math.max(Math.abs(m.media), 1);
 
@@ -1192,7 +1200,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
     /* La base de la cifra («11 de 66») y, con pocos partidos detrás, que es tendencia. */
     const base = m.pie?.match(/^\d+ de \d+/)?.[0];
     const nRef = comparativa.anteriores.n;
-    const aviso = ` (media de ${nRef === 1 ? "un solo partido" : `${nRef} partidos`}${modo === "robos" ? "" : ", los etiquetados en vídeo"}${nRef <= 6 ? ", tendencia" : ""})`;
+    const aviso = ` (media de ${nRef === 1 ? "un solo partido" : `${nRef} partidos`}${modo === "robos" ? "" : ", los etiquetados en vídeo"}${nRef < UMBRAL_TENDENCIA_PARTIDOS ? ", tendencia" : ""})`;
 
     return {
       texto: `${m.nombre}: ${formato(m.actual!)}${base ? ` (${base})` : ""} frente a ${formato(m.media!)}${aviso}. Conviene trabajar en la semana una tarea de ${tarea}; criterio de éxito, ${m.nombre.toLowerCase()} ${m.mejorAlto ? "por encima de" : "por debajo de"} ${formato(m.media!)} en el próximo partido.`,
@@ -1445,7 +1453,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
               )}
 
               <Cifra
-                valor={`${pct(adelante, jugados.length)}%`}
+                valor={`${pct(adelante, jugados.length)} %`}
                 rotulo={T.cifras.adelante}
                 pie={`${adelante} de ${jugados.length} con pase o conducción`}
                 color={COLOR_ACCION.ADELANTE}
@@ -1456,7 +1464,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
               />
 
               <Cifra
-                valor={`${pct(jugados.length - adelante, jugados.length)}%`}
+                valor={`${pct(jugados.length - adelante, jugados.length)} %`}
                 rotulo={T.cifras.horizontal}
                 pie={`${jugados.length - adelante} de ${jugados.length}`}
                 color={ACERO}
@@ -1622,7 +1630,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                               const n = Number(v);
                               if (!Number.isFinite(n)) return "";
                               return porcentajes
-                                ? `${pct(n, paraAccion.length)}%`
+                                ? `${pct(n, paraAccion.length)} %`
                                 : String(n);
                             }}
                           />

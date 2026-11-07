@@ -118,7 +118,7 @@ export function lecturaCondicion(corto: string, cL: Condicion, cV: Condicion, lL
     let porque = "";
 
     if (c.nw) {
-      if (p < 0 && frente(c.tiros, l.tiros) >= 0 && frente(c.precision, l.precision) < 0) porque = ` Falla la puntería, no el volumen. En los ${c.nw} partidos medidos remata ${n1(c.tiros)} veces por partido (liga ${n1(l.tiros)}), pero sólo ${n1(c.aPuerta)} a puerta (liga ${n1(l.aPuerta)}).`; // 29/10/2026: la conclusión primero y la cifra después, en dos frases cortas.
+      if (p < 0 && frente(c.tiros, l.tiros) >= 0 && frente(c.precision, l.precision) < 0) porque = ` Falla la puntería, no el volumen. En los ${c.nw} partidos ${donde === "Fuera" ? "de fuera" : "en casa"} remata ${n1(c.tiros)} veces por partido (liga ${n1(l.tiros)}), pero sólo ${n1(c.aPuerta)} a puerta (liga ${n1(l.aPuerta)}).`; // 29/10/2026: la conclusión primero y la cifra después, en dos frases cortas.
       else if (p < 0 && frente(c.tiros, l.tiros) < 0) porque = ` Genera poco: ${n1(c.tiros)} remates por partido frente a ${n1(l.tiros)}.`;
       else if (p < 0 && frente(c.gc, l.gc) > 0) porque = ` Lo que pesa es lo que encaja: ${n2(c.gc)} por partido frente a ${n2(l.gc)}.`;
       else if (p < 0 && c.golesMenosXg < -0.3) porque = ` Marca menos de lo que generan sus ocasiones (${n2(c.golesMenosXg)} goles por partido por debajo de su xG).`;
@@ -237,25 +237,34 @@ export function loImportante(e: EntradaImportante): Importante[] {
 
   const { flojo, fuerte } = tramosClave(e.filas);
 
+  /* 07/11/2026 (regla 11): un tramo con 3 goles o menos es tendencia: se
+     vigila, no se manda tarea de entrenamiento por él. */
+  const vigilar = (n: number, tramo: string) =>
+    `A vigilar en los próximos partidos: con ${veces(n)} en el ${tramo} todavía no pide una tarea propia.`;
+
   if (flojo) {
     const nombre = flojo.franja.nombre;
 
     filas.push({
       texto: `${e.corto} encaja más que la liga en el ${nombre}: ${veces(flojo.gc)} en contra${e.incompleto ? "" : `, ${n2(media(flojo.gc, e.partidos))} por partido frente a ${n2(flojo.ligaContraPP)} de la liga`}${flojo.gc <= 3 ? ` (tendencia, ${base(e.partidos)})` : ""}.`,
-      accion: flojo.franja.parte === 2 && flojo.franja.desde >= 61 ? `Esta semana, ${TAREA_VENTAJA}` : `Esta semana, tarea de concentración y de ajuste defensivo en el tramo ${nombre}, con el partido en marcha.`,
+      accion: flojo.gc <= 3 ? vigilar(flojo.gc, nombre) : flojo.franja.parte === 2 && flojo.franja.desde >= 61 ? `Esta semana, ${TAREA_VENTAJA}` : `Esta semana, tarea de concentración y de ajuste defensivo en el tramo ${nombre}, con el partido en marcha.`,
     });
   } else if (fuerte) {
     filas.push({
       texto: `${e.corto} marca más que la liga en el ${fuerte.franja.nombre}: ${veces(fuerte.gf)}${e.incompleto ? "" : `, ${n2(media(fuerte.gf, e.partidos))} por partido frente a ${n2(fuerte.ligaPP)} de la liga`}${fuerte.gf <= 3 ? ` (tendencia, ${base(e.partidos)})` : ""}.`,
-      accion: `Esta semana, repetir en el entrenamiento lo que ocurre en el tramo ${fuerte.franja.nombre} y llevarlo a otros momentos del partido.`,
+      accion: fuerte.gf <= 3 ? vigilar(fuerte.gf, fuerte.franja.nombre) : `Esta semana, repetir en el entrenamiento lo que ocurre en el tramo ${fuerte.franja.nombre} y llevarlo a otros momentos del partido.`,
     });
   }
 
-  const condicion = lecturaCondicion(e.corto, e.cL, e.cV, e.lL, e.lV).find((f) => f.includes("por debajo de"));
+  const lecturas = lecturaCondicion(e.corto, e.cL, e.cV, e.lL, e.lV);
+  const condicion = lecturas.find((f) => f.includes("por debajo de"));
 
   if (condicion) {
-    const accion = condicion.includes("falla la puntería")
-      ? TAREA_FINALIZACION
+    /* 07/11/2026: la causa elige la tarea. Antes se buscaba «falla la
+       puntería» en minúscula y nunca casaba: salía «revisar con el vídeo». */
+    const ligaDe = condicion.startsWith("Fuera") ? e.lV : e.lL;
+    const accion = /falla la punter[ií]a/i.test(condicion)
+      ? `finalización con oposición; objetivo de partido, más de ${n1(ligaDe.aPuerta)} remates a puerta por partido (media de la liga).`
       : condicion.includes("Genera poco")
         ? "llegadas al área con superioridad en el último tercio; criterio de éxito, tres remates desde dentro del área."
         : condicion.includes("lo que encaja")

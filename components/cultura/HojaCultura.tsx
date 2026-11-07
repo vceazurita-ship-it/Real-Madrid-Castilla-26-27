@@ -46,9 +46,17 @@ import {
 /*  PIEZAS                                                             */
 /* ------------------------------------------------------------------ */
 
-/** «Egoísmo (22)» → «Egoísmo (22 votos)»; «(+3 Amistad)» → «(+3 votos a Amistad)». */
-function conVotos(texto: string): string {
+/**
+ * «Egoísmo (22)» → «Egoísmo (22 votos)»; «(+3 Amistad)» → «(+3 votos a Amistad)».
+ * 07/11/2026: y «Votado por 9 jugadores» → «9 votos». El recuento cuenta votos
+ * en los dos lados; con «jugadores» en uno y «votos» en el otro parecía que el
+ * antivalor (22) había tenido más votantes que la plantilla entera.
+ */
+export function conVotos(texto: string): string {
   return texto
+    .replace(/^Votado por (\d+) jugador(?:es)?/i, (_, n: string) =>
+      `${n} ${n === "1" ? "voto" : "votos"}`,
+    )
     .replace(/\(\+(\d+)\s+([^)]+)\)/g, (_, n: string, a: string) =>
       `(+${n} ${n === "1" ? "voto" : "votos"} a ${a})`,
     )

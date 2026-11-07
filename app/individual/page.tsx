@@ -2009,9 +2009,14 @@ export default function IndividualPage() {
               ? (players.find((p) => mismoJugador(p.name, porNombre))?.idJugador ?? null)
               : null;
 
+          /* 07/11/2026: ?pestana=mejora abre directamente esa pestaña
+             (desde /identidad-posicional, del puesto a su plan de trabajo). */
+          const pestanaPedida = new URLSearchParams(window.location.search).get("pestana");
+          const pestana = TABS.find((t) => t.key === pestanaPedida)?.key ?? "perfil";
+
           if (wanted && players.some((p) => p.idJugador === wanted)) {
             setSelectedId(wanted);
-            setActiveTab("perfil");
+            setActiveTab(pestana);
 
             window.history.replaceState({}, "", "/individual");
           }

@@ -66,6 +66,9 @@ export type MetricaComparada = {
 /** Con menos acciones que éstas, una diferencia es un indicio y no un dato. */
 export const MUESTRA_MINIMA_FILA = 5;
 
+/** 07/11/2026: con menos partidos que éstos detrás, la media es tendencia (igual en robos, pérdidas, faltas y goles). */
+export const UMBRAL_TENDENCIA_PARTIDOS = 10;
+
 export type TiraJornadas = {
   /** Cabecera de cada columna: «J3», «J4»… */
   jornadas: string[];
@@ -206,7 +209,7 @@ export function ComparativaPartido({
           </div>
 
           {/* Con pocos partidos detrás, la media es una tendencia y no una regla. */}
-          {anteriores.n > 0 && anteriores.n <= 6 && (
+          {anteriores.n > 0 && anteriores.n < UMBRAL_TENDENCIA_PARTIDOS && (
             <p className="border-b border-white/10 py-2 pl-4 pr-14 text-[11px] italic text-white/50 sm:pl-5 sm:pr-5">
               Tendencia: la media sale de {anteriores.n === 1 ? "un solo partido" : `${anteriores.n} partidos`}.
             </p>
@@ -232,7 +235,12 @@ export function ComparativaPartido({
                  la fila se enseña pero no se juzga. */
               const fuera = m === peorFuera;
               const indicio = !fuera && m.de !== undefined && m.de < muestraMinima;
-              const mejor = fuera ? false : !indicio && d !== null && juzga && Math.abs(d) >= 0.05 ? (d > 0) === m.mejorAlto : null;
+              /* 07/11/2026: por debajo de este margen la diferencia es «igual»
+                 (2 puntos en un porcentaje, un 5 % de la media en un
+                 recuento): 64,9 % frente a 64,7 % no es ni mejora ni empeora. */
+              const margenIgual = porcentaje ? 2 : Math.max(0.05, Math.abs(m.media ?? 0) * 0.05);
+              const igual = d !== null && Math.abs(d) < margenIgual;
+              const mejor = fuera ? false : !indicio && d !== null && juzga && !igual ? (d > 0) === m.mejorAlto : null;
               /* Una sola regla para la negrita: sólo si la diferencia pesa de
                  verdad (10 puntos en un porcentaje; un 15 % de la media, y al
                  menos medio punto, en un recuento) y la base no es un indicio. */
@@ -294,7 +302,8 @@ export function ComparativaPartido({
                         {m.mejorAlto === null && !m.tendencia && (
                           <span className="font-medium">
                             {baseTexto || pie ? " · " : ""}
-                            sin juicio
+                            {/* 07/11/2026: «sin juicio» descolocaba; se dice por qué. */}
+                            ni más ni menos es mejor por sí solo
                           </span>
                         )}
                       </p>
@@ -350,6 +359,8 @@ export function ComparativaPartido({
                       ? ""
                       : m.igualEn && Math.abs(d) < 0.05
                         ? m.igualEn
+                        : igual
+                        ? "igual"
                         : diferencia(d, m.formatoDiferencia ?? formato, porcentaje)}
                   </span>
                 </li>

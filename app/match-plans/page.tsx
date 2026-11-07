@@ -571,18 +571,25 @@ export default function Page() {
               </p>
 
               <div className="mt-4 flex items-center gap-5">
+                {/* 07/11/2026: el mismo nombre que en el menú. */}
                 <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-                  Vídeo Análisis de Partidos
+                  Vídeo Análisis Partidos
                 </h1>
 
                 <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
               </div>
 
-              <p className="mt-3 max-w-2xl text-sm text-white/55">
-                Los vídeos de análisis de cada partido ya jugado, microciclo a
-                microciclo. No es la previa del próximo rival —eso es
-                «Preparación de Partido»—: aquí está el material de vídeo de la
-                temporada.
+              {/* 07/11/2026: un titular con el dato, y el subtítulo sin nombrar
+                  otra pantalla que aquí no se enlaza. */}
+              {metrics.played > 0 ? (
+                <p className="mt-3 text-base font-medium text-white/85 sm:text-lg">
+                  {metrics.wins > 0 ? `Ganamos ${metrics.wins} de ${metrics.played}` : `${metrics.played} partidos de liga`}:{" "}
+                  {metrics.goalsFor} {metrics.goalsFor === 1 ? "gol" : "goles"} a favor y {metrics.goalsAgainst} en contra.
+                </p>
+              ) : null}
+
+              <p className="mt-2 max-w-2xl text-sm text-white/55">
+                El vídeo de análisis de cada partido ya jugado, microciclo a microciclo.
               </p>
 
               <SelloDeFechas fuente="Calendario" fechas={fechasJugadas} queEs="partidos" />
@@ -803,7 +810,12 @@ function MetricsPanel({
         <Stat
           title="Partidos"
           value={metrics.total}
-          hint={`${metrics.played} disputados`}
+          hint={
+            /* 07/11/2026: «10 · 10 disputados» repetía la cifra. */
+            metrics.total === metrics.played
+              ? "de liga, todos con resultado"
+              : `${metrics.played} de liga con resultado`
+          }
           icon={<Video className="h-4 w-4" />}
         />
 
@@ -887,9 +899,13 @@ function MetricsPanel({
             })}
           </div>
 
-          <p className="mt-2 text-[11px] text-white/35">
-            Del más reciente al más antiguo
-          </p>
+          {/* 07/11/2026: la racha con su base en puntos. */}
+          {metrics.lastFive.length > 0 ? (
+            <p className="mt-2 text-[11px] text-white/55">
+              {metrics.lastFive.reduce((s, m) => s + (m.outcome === "W" ? 3 : m.outcome === "D" ? 1 : 0), 0)} de{" "}
+              {metrics.lastFive.length * 3} puntos · del más reciente al más antiguo
+            </p>
+          ) : null}
         </div>
       </div>
 
