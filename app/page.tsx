@@ -406,7 +406,22 @@ export default function Home() {
     }
   }, [intentos])
 
-  const hayFallos = errorSeguimiento || errorData
+  /*
+  | TOPE DEL «CARGANDO» DE WYSCOUT (07/11/2026, los tres jueces). En escritorio
+  | la tarjeta se quedaba en «Cargando las cifras de Wyscout…» y parecía rota.
+  | A los 8 s el aviso se retira y queda la foto sola; la petición sigue y, si
+  | llega luego, la tarjeta sale con sus cifras.
+  */
+  const [cifrasTarde, setCifrasTarde] = useState(false)
+
+  useEffect(() => {
+    const reloj = setTimeout(() => setCifrasTarde(true), 8_000)
+
+    return () => clearTimeout(reloj)
+  }, [])
+
+  /* Las cifras de Wyscout no son de «El equipo en cifras»: su fallo no pide reintentar ahí. */
+  const hayFallos = errorSeguimiento
 
   /*
   | EL RIVAL, DE MD-4 A MD-1 (30/10/2026, fútbol)
@@ -526,7 +541,8 @@ export default function Home() {
                       : "Lo que dicen los informes de Wyscout y Opta: el Castilla contra su historia, contra el grupo y la categoría entera"
                   }
                   /* Más baja en el móvil (30/10/2026): ocupaba casi dos pantallas antes de «Datos destacados». Desde el 02/11/2026, en el móvil la tarjeta de cifras no flota sobre la foto: va bajo una franja de foto y la caja mide lo que la tarjeta. Desde el 05/11/2026, igual en escritorio: la foto sola ocupaba media cabecera. */
-                  className="light-sweep group relative block self-start overflow-hidden rounded-[28px] border border-white/10"
+                  /* min-h (07/11/2026): sin cifras queda la foto sola, no una caja de alto cero. */
+                  className="light-sweep group relative block min-h-[180px] self-start overflow-hidden rounded-[28px] border border-white/10 xl:min-h-[240px]"
                 >
                   <div
                     aria-hidden
@@ -603,7 +619,7 @@ export default function Home() {
                         )}
                         {rivalSemana.posesion != null && (
                           <li>
-                            {coma(rivalSemana.posesion, 0)} % de posesión media
+                            {coma(rivalSemana.posesion, 0)} % de posesión media en {rivalSemana.partidos} {rivalSemana.partidos === 1 ? "partido" : "partidos"}
                             {rivalSemana.puestoPosesion != null && ` · ${rivalSemana.puestoPosesion}º de ${rivalSemana.deCuantos}`}
                           </li>
                         )}
@@ -624,7 +640,7 @@ export default function Home() {
                         </p>
                       )}
                     </div>
-                  ) : cargandoData && resumenData?.xg == null ? (
+                  ) : cargandoData && !cifrasTarde && resumenData?.xg == null ? (
                     /* Mientras llegan las cifras: una línea que lo dice, no dos títulos sobre un fondo vacío (30/10/2026). */
                     <div
                       className="relative mx-3 mb-3 mt-20 sm:mx-4 sm:mb-4 rounded-[22px] border border-white/10 px-4 py-4 backdrop-blur-xl sm:px-5"
@@ -646,7 +662,7 @@ export default function Home() {
                       <p className="flex items-center justify-between gap-3 text-[12px] uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,.9)" }}>
                         {/* Corto en el móvil (02/11/2026): el largo ocupaba tres renglones. */}
                         <span className="min-w-0">
-                          <span className="sm:hidden">xG por partido</span>
+                          <span className="sm:hidden">Goles esperados</span>
                           <span className="hidden sm:inline">Goles esperados (xG) por partido</span>
                         </span>
                         <span className="inline-flex shrink-0 items-center gap-1 normal-case tracking-normal sm:hidden xl:inline-flex" style={{ color: "#F7D98B" }}>
@@ -655,8 +671,10 @@ export default function Home() {
                         </span>
                       </p>
 
-                      <p className="mt-2 text-3xl font-bold leading-none" style={{ color: "#fff" }}>
-                        {coma(resumenData.xg, 2)}
+                      <p className="mt-2 flex flex-wrap items-baseline gap-x-2 leading-none" style={{ color: "#fff" }}>
+                        <span className="text-3xl font-bold">{coma(resumenData.xg, 2)}</span>
+                        {/* En el móvil el rótulo es corto: la unidad va junto a la cifra (07/11/2026). */}
+                        <span className="text-[13px] sm:hidden" style={{ color: "rgba(255,255,255,.9)" }}>por partido · calidad de las ocasiones</span>
                       </p>
 
                       <div className="mt-3 h-1 w-36 max-w-full overflow-hidden rounded-full bg-white/10">
@@ -788,47 +806,58 @@ export default function Home() {
               <SectionHeader
                 icon={BarChart3}
                 title="El equipo en cifras"
-                caption="Seguimiento de los jugadores de campo del Castilla, en vivo de la hoja"
+                caption="Los jugadores de campo del Castilla"
               />
 
               <div className="mt-5">
-                {/* Si la hoja de seguimiento no contesta, su casilla no se pinta (sin
-                    «—» ni «sin datos»): queda el «Reintentar» de debajo (30/10/2026). */}
+                {/*
+                  Una población y una base por casilla (07/11/2026, análisis y marketing):
+                  «15 de 18 con seguimiento» es la cifra principal, con el % de apoyo;
+                  los 44 dicen su periodo (desde el 21 oct) y no repiten el 18.
+                  Si la hoja de seguimiento no contesta, sale sólo la plantilla y el
+                  «Reintentar» de debajo (sin «—» ni «sin datos»).
+                */}
                 <Cifras
-                  cifras={[
-                    ...(errorSeguimiento
-                      ? []
+                  cifras={
+                    errorSeguimiento
+                      ? [
+                          {
+                            href: "/individual",
+                            label: "Del Castilla",
+                            value: totalJugadores,
+                            caption: "jugadores de campo",
+                            destino: "Fichas de nuestros jugadores",
+                            loading: cargandoPlantilla,
+                            icon: Users,
+                          },
+                        ]
                       : [
+                          {
+                            href: "/individual",
+                            label: "Con seguimiento",
+                            value: jugadoresSeguimiento,
+                            suffix: totalJugadores ? ` de ${totalJugadores}` : undefined,
+                            caption: totalJugadores
+                              ? `jugadores de campo con al menos un seguimiento · ${cobertura} % de la plantilla`
+                              : "jugadores de campo con al menos un seguimiento",
+                            destino: "Fichas de nuestros jugadores",
+                            loading: loadingSeguimiento || cargandoPlantilla,
+                            icon: Users,
+                          },
                           {
                             href: "/calendar",
                             label: "Seguimientos",
                             value: seguimientos,
-                            /* Con su base (30/10/2026): sin ella el 34 no se entendía sin leer el pie. */
                             caption: [
-                              /* «41 de 18 jugadores» se leía como un error (05/11/2026). */
-                              totalJugadores ? `a ${totalJugadores} jugadores` : "",
+                              `registrados desde el ${new Date(`${SESIONES_CONTADAS_DESDE}T12:00:00Z`).toLocaleDateString("es-ES", { day: "numeric", month: "short", timeZone: "Europe/Madrid" }).replace(".", "")}`,
                               ultimos30Dias === seguimientos ? `${ultimos7Dias} esta semana` : `${ultimos30Dias} en los últimos 30 días`,
-                            ]
-                              .filter(Boolean)
-                              .join(" · "),
+                            ].join(" · "),
                             destino: "Calendario Seguimiento",
                             loading: loadingSeguimiento,
                             icon: Activity,
                           },
-                        ]),
-                    {
-                      href: "/individual",
-                      label: "Del Castilla",
-                      value: totalJugadores,
-                      caption: errorSeguimiento
-                        ? "jugadores de campo"
-                        : `jugadores de campo · ${jugadoresSeguimiento} de ${totalJugadores} con seguimiento (${cobertura} %)`,
-                      /* «Plantilla» a secas se confundía con «Plantilla del rival» de la tarjeta del partido (30/10/2026). */
-                      destino: "Fichas de nuestros jugadores",
-                      loading: cargandoPlantilla,
-                      icon: Users,
-                    },
-                  ]}
+                        ]
+                  }
                 />
               </div>
 

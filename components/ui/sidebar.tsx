@@ -565,6 +565,20 @@ export function Sidebar() {
         encima del contenido sin que éste se mueva. En móvil no ocupa nada
         (el panel es `fixed`).
       */}
+      {/*
+        LA FRANJA DE TODA LA PÁGINA (07/11/2026, fútbol). El hueco pegajoso
+        mide la pantalla; en páginas largas, al bajar (y en las capturas de
+        página entera) el blanco del rail se cortaba a media altura y debajo
+        quedaba el gris de la página. Esta franja estira hasta el final con el
+        mismo fondo y borde, y el hueco pegajoso va dentro.
+      */}
+      <div
+        data-export-hide
+        className={cn(
+          "w-0 shrink-0 self-stretch transition-[width] duration-300 ease-in-out md:border-r md:border-white/10 md:bg-[#111827]",
+          fijado ? "md:w-[280px]" : "md:w-[78px]",
+        )}
+      >
       <div
         data-export-hide
         /*
@@ -573,10 +587,7 @@ export function Sidebar() {
           el menú desplegado se quedaba por debajo de la cabecera (`z-30`) y de
           las fotos de la página. Por debajo de los modales (`z-50`) sigue.
         */
-        className={cn(
-          "relative w-0 shrink-0 self-start transition-[width] duration-300 ease-in-out md:sticky md:top-0 md:z-40 md:h-[100dvh]",
-          fijado ? "md:w-[280px]" : "md:w-[78px]",
-        )}
+        className="relative w-full md:sticky md:top-0 md:z-40 md:h-[100dvh]"
       >
       <aside
         onMouseEnter={alEntrar}
@@ -851,6 +862,7 @@ export function Sidebar() {
           })}
         </nav>
       </aside>
+      </div>
       </div>
     </>
   )

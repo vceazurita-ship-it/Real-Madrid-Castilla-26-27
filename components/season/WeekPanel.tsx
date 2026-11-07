@@ -431,8 +431,9 @@ export default function WeekPanel({
           <UploadZone
             id="zona-subida"
             compacta
-            estado={isCurrentWeek ? "Esta semana no hay material" : `La ${week.week.toLowerCase()} no tiene material`}
-            boton="Subir"
+            /* 07/11/2026 (los tres jueces): sin frase negativa; sólo la invitación a subir. */
+            estado={`Sube aquí el material de la ${week.week.toLowerCase()}`}
+            boton={isCurrentWeek ? "Subir el material de esta semana" : "Subir"}
             type="todo"
             maxFiles={20}
             busy={uploading !== null}

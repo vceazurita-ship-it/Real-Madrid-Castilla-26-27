@@ -135,7 +135,7 @@ export function Parrilla({
 
         {ejemploSolo && (
           <li className="flex items-center gap-1.5">
-            <span className="rounded-full bg-[#C8A96B]/10 px-2 py-0.5 text-[10px] text-[#C8A96B]">
+            <span className="rounded-full bg-[#C8A96B]/10 px-2 py-0.5 text-[11.5px] text-[#C8A96B]">
               Solo {ejemploSolo}
             </span>
             : el único que puso ese signo en ese partido
@@ -189,7 +189,8 @@ export function Parrilla({
               )}
             </span>
 
-            <ul className="mt-2.5 grid grid-cols-6 gap-x-1 gap-y-2">
+            {/* 4 por fila y el nombre en dos renglones (07/11/2026): con 6 se cortaba «J. Lópe…». */}
+            <ul className="mt-2.5 grid grid-cols-4 gap-x-1.5 gap-y-2.5">
               {jugadores.map((slug) => {
                 const persona = PERSONA_POR_SLUG.get(slug);
                 const signo = fila.signos[slug];
@@ -197,7 +198,7 @@ export function Parrilla({
                 return (
                   <li key={slug} className="flex min-w-0 flex-col items-center gap-0.5">
                     <Avatar slug={slug} lado={26} />
-                    <span className="w-full truncate text-center text-[11px] leading-tight text-white/55">{persona ? nombreCorto(persona) : slug}</span>
+                    <span className="line-clamp-2 w-full break-words text-center text-[12px] leading-tight text-white/70">{persona ? nombreCorto(persona) : slug}</span>
                     <span
                       className={`inline-flex h-6 w-7 items-center justify-center rounded-md border text-[12px] font-semibold ${tono(signo, fila.resultado)}`}
                       title={signo ? NOMBRE_DEL_SIGNO[signo as Signo] : "No lo puso"}
@@ -229,16 +230,17 @@ export function Parrilla({
 
       <div className="min-w-0 overflow-x-auto max-sm:hidden">
         <table
-          className="w-full text-[12px]"
-          style={{ minWidth: `${340 + jugadores.length * 58}px` }}
+          /* 07/11/2026 (marketing): letra a 12-13 px y columnas más anchas. */
+          className="w-full text-[13px]"
+          style={{ minWidth: `${360 + jugadores.length * 68}px` }}
         >
           <thead>
             <tr>
-              <th className="pb-3 text-left text-[10px] uppercase tracking-[0.12em] font-medium text-white/40">
+              <th className="pb-3 text-left text-[12px] uppercase tracking-[0.12em] font-medium text-white/55">
                 Partido
               </th>
 
-              <th className="w-[112px] pb-3 text-center text-[10px] uppercase tracking-[0.12em] font-medium text-white/40">
+              <th className="w-[112px] pb-3 text-center text-[12px] uppercase tracking-[0.12em] font-medium text-white/55">
                 Reparto
               </th>
 
@@ -246,12 +248,12 @@ export function Parrilla({
                 const persona = PERSONA_POR_SLUG.get(slug);
 
                 return (
-                  <th key={slug} className="w-[58px] pb-3 align-bottom">
+                  <th key={slug} className="w-[68px] pb-3 align-bottom">
                     <span className="flex flex-col items-center gap-1">
                       <Avatar slug={slug} lado={26} />
 
                       {/* En dos renglones, sin cortar («J. López de…», 30/10/2026). */}
-                      <span className="line-clamp-2 block max-w-[56px] break-words text-center text-[11px] font-normal leading-tight text-white/55">
+                      <span className="line-clamp-2 block max-w-[66px] break-words text-center text-[12px] font-normal leading-tight text-white/70">
                         {persona ? nombreCorto(persona) : slug}
                       </span>
 
@@ -277,7 +279,7 @@ export function Parrilla({
                         {fila.partido.local}
                       </span>
 
-                      <span className="block truncate text-[11px] text-white/40">
+                      <span className="block truncate text-[12px] text-white/55">
                         {fila.partido.visitante}
                       </span>
                     </span>
@@ -292,7 +294,7 @@ export function Parrilla({
                   {/* Lo que se comenta: el pleno y el que se la jugó solo. */}
                   <span className="mt-1 flex flex-wrap gap-1">
                     {fila.unanime && (
-                      <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] text-white/50">
+                      <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[11.5px] text-white/60">
                         Todos igual
                       </span>
                     )}
@@ -300,7 +302,7 @@ export function Parrilla({
                     {fila.solitarios.map((slug) => (
                       <span
                         key={slug}
-                        className="rounded-full bg-[#C8A96B]/10 px-2 py-0.5 text-[10px] text-[#C8A96B]"
+                        className="rounded-full bg-[#C8A96B]/10 px-2 py-0.5 text-[11.5px] text-[#C8A96B]"
                         title={`Es el único que puso ${fila.signos[slug]}: ${
                           NOMBRE_DEL_SIGNO[fila.signos[slug] as Signo]
                         }`}
@@ -345,7 +347,7 @@ export function Parrilla({
                 {jugadores.map((slug) => (
                   <td key={slug} className="px-1 py-2 text-center">
                     <span
-                      className={`inline-flex h-7 w-8 items-center justify-center rounded-md border text-[12px] font-semibold ${tono(
+                      className={`inline-flex h-8 w-9 items-center justify-center rounded-md border text-[13px] font-semibold ${tono(
                         fila.signos[slug],
                         fila.resultado,
                       )}`}
@@ -396,7 +398,7 @@ export function Parrilla({
       </div>
 
       <p className="mt-3 text-[11px] leading-relaxed text-white/50">
-        Casilla vacía: no apostó. Copa: el que más acertó en la jornada.
+        Casilla vacía: no apostó. La copa marca, en la fila de aciertos, al que más acertó de la jornada (si empatan, la llevan todos).
       </p>
     </Panel>
   );

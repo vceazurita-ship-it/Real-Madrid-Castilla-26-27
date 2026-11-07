@@ -134,7 +134,9 @@ export function nombresDestino(destinatarios: string[], agenda: ContactoAgenda[]
     .map((d) => {
       const usuario = d.split("@")[0];
 
-      return porCorreo.get(d.trim().toLowerCase()) ?? nombreDelStaff(usuario) ?? legible(usuario);
+      /* Sin nombre conocido, el correo entero (07/11/2026, fútbol): «Mikelatszp»
+         no decía quién era; el usuario «legible» sólo si no es un correo. */
+      return porCorreo.get(d.trim().toLowerCase()) ?? nombreDelStaff(usuario) ?? (d.includes("@") ? d.trim() : legible(usuario));
     })
     .filter(Boolean);
 
@@ -394,7 +396,7 @@ export default function ListaAlertas({
                   )}
 
                   {/* Los destinatarios, todos y por nombre: «Víctor Cea y 1 más» no decía quién (30/10/2026). */}
-                  <p title={alerta.destinatarios.join(", ")}>
+                  <p title={alerta.destinatarios.join(", ")} className="[overflow-wrap:anywhere]">
                     <Users className="mr-1.5 inline-block h-3.5 w-3.5 -translate-y-px" aria-hidden />
                     {todos}
                   </p>
@@ -459,12 +461,12 @@ export default function ListaAlertas({
                 </button>
               </div>
             ) : (
-            <div className="mt-auto flex flex-nowrap items-center gap-1 border-t border-white/[0.06] pt-3">
+            <div className="mt-auto flex flex-wrap items-center gap-x-1 gap-y-0.5 border-t border-white/[0.06] pt-2">
               <button
                 type="button"
                 onClick={() => onEditar(alerta)}
                 disabled={bloqueada}
-                className="inline-flex items-center gap-1.5 rounded-full px-2 py-1.5 text-xs text-white/60 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-40 sm:px-3"
+                className="inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1.5 text-[12.5px] text-white/60 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-40 sm:px-3"
               >
                 <Pencil className="h-3.5 w-3.5" aria-hidden />
                 Editar
@@ -476,7 +478,7 @@ export default function ListaAlertas({
                   type="button"
                   onClick={() => onAlternarActiva(alerta)}
                   disabled={bloqueada}
-                  className="inline-flex items-center gap-1.5 rounded-full px-2 py-1.5 text-xs font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/10 disabled:opacity-40 sm:px-3"
+                  className="inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1.5 text-[12.5px] font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/10 disabled:opacity-40 sm:px-3"
                 >
                   <BellRing className="h-3.5 w-3.5" aria-hidden />
                   Reactivar
@@ -487,7 +489,7 @@ export default function ListaAlertas({
                 type="button"
                 onClick={() => onEnviarAhora(alerta)}
                 disabled={bloqueada}
-                className="inline-flex items-center gap-1.5 rounded-full px-2 py-1.5 text-xs text-white/60 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-40 sm:px-3"
+                className="inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1.5 text-[12.5px] text-white/60 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-40 sm:px-3"
               >
                 <Send className="h-3.5 w-3.5" aria-hidden />
                 Enviar ahora
@@ -499,10 +501,10 @@ export default function ListaAlertas({
                 disabled={bloqueada}
                 aria-label="Borrar"
                 title="Borrar"
-                className="ml-auto inline-flex items-center gap-1.5 rounded-full px-2 py-1.5 text-xs text-red-300/80 sm:px-3 transition hover:bg-red-500/10 hover:text-red-300 disabled:opacity-40"
+                className="ml-auto inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1.5 text-[12.5px] text-red-300/80 sm:px-3 transition hover:bg-red-500/10 hover:text-red-300 disabled:opacity-40"
               >
                 <Trash2 className="h-3.5 w-3.5" aria-hidden />
-                <span className="hidden sm:inline">Borrar</span>
+                Borrar
               </button>
             </div>
             )}
@@ -511,25 +513,26 @@ export default function ListaAlertas({
   };
 
   return (
-    <div className="space-y-2.5 @3xl:grid @3xl:grid-cols-2 @3xl:items-stretch @3xl:gap-2.5 @3xl:space-y-0 @5xl:grid-cols-3">
+    <div className="space-y-2.5 @3xl:grid @3xl:grid-cols-2 @3xl:items-stretch @3xl:gap-2.5 @3xl:space-y-0">
       {vivas.map((alerta) => pinta(alerta))}
 
       {/* Las silenciadas no suenan: se apartan para que la lista diga lo que
           sí va a salir. */}
       {silenciadas.length > 0 && (
-        <details className="group pt-1 @3xl:col-span-2 @5xl:col-span-3" open={vivas.length === 0}>
+        <details className="group pt-1 @3xl:col-span-2" open={vivas.length === 0}>
           <summary className="cursor-pointer select-none rounded-xl px-2 py-2 text-[13px] text-white/60 transition hover:text-white">
             Silenciadas ({silenciadas.length})
           </summary>
 
-          <div className="mt-2 space-y-2.5 @3xl:grid @3xl:grid-cols-2 @3xl:items-stretch @3xl:gap-2.5 @3xl:space-y-0 @5xl:grid-cols-3">
+          <div className="mt-2 space-y-2.5 @3xl:grid @3xl:grid-cols-2 @3xl:items-stretch @3xl:gap-2.5 @3xl:space-y-0">
             {silenciadas.map((alerta) => pinta(alerta))}
           </div>
         </details>
       )}
 
       {caducadas.length > 0 && (
-        <details className="group pt-1 @3xl:col-span-2 @5xl:col-span-3">
+        /* Abierta (07/11/2026, marketing y análisis): plegada en una línea larga parecía un error. */
+        <details className="group pt-1 @3xl:col-span-2" open>
           {/* 30/10/2026: el porqué y cuáles, en el propio título plegado; sin
               abrirlo, «Caducadas (1)» parecía un error. */}
           <summary className="cursor-pointer select-none rounded-xl px-2 py-2 text-[13px] leading-relaxed text-white/60 transition hover:text-white">
@@ -546,7 +549,7 @@ export default function ListaAlertas({
             })()}
           </summary>
 
-          <div className="mt-2 space-y-2.5 @3xl:grid @3xl:grid-cols-2 @3xl:items-stretch @3xl:gap-2.5 @3xl:space-y-0 @5xl:grid-cols-3">
+          <div className="mt-2 space-y-2.5 @3xl:grid @3xl:grid-cols-2 @3xl:items-stretch @3xl:gap-2.5 @3xl:space-y-0">
             {caducadas.map((alerta) => pinta(alerta))}
           </div>
 

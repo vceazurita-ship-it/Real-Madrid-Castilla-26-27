@@ -85,7 +85,7 @@ export function Cifras({ cifras }: { cifras: Cifra[] }) {
             />
 
             <div className="flex items-start justify-between gap-2">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[color:var(--accent)]">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[color:var(--accent)]">
                 {cifra.label}
               </p>
 
@@ -97,15 +97,15 @@ export function Cifras({ cifras }: { cifras: Cifra[] }) {
                 <Numero value={cifra.value} loading={cifra.loading} />
 
                 {cifra.suffix && (
-                  <span className="ml-0.5 text-base font-semibold text-white/40">
+                  <span className="ml-0.5 text-lg font-semibold text-white/55">
                     {cifra.suffix}
                   </span>
                 )}
               </p>
 
-              <p className="mt-2 text-[12px] leading-snug text-white/50">{cifra.caption}</p>
+              <p className="mt-2 text-[12.5px] leading-snug text-white/70">{cifra.caption}</p>
 
-              <p className="mt-3 flex items-center gap-1 text-[11px] font-medium text-white/40 transition-colors duration-300 group-hover:text-[color:var(--accent)]">
+              <p className="mt-3 flex items-center gap-1 text-[12px] font-medium text-white/55 transition-colors duration-300 group-hover:text-[color:var(--accent)]">
                 {cifra.destino}
                 <ChevronRight className="h-3 w-3 transition-transform duration-300 group-hover:translate-x-0.5" />
               </p>

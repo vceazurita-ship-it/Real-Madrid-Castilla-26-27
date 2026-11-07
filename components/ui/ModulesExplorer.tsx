@@ -215,9 +215,9 @@ export default function ModulesExplorer({ limite }: { limite?: number } = {}) {
         </div>
       )}
 
-      <p className="mt-5 text-[12px] text-white/45">
+      <p className="mt-5 text-[12px] text-white/60">
         {recortado
-          ? `Las ${vistas.length} que más usas, de ${MODULES.length}`
+          ? `Las ${vistas.length} que más abres en este aparato, de ${MODULES.length}`
           : `${results.length} de ${MODULES.length} áreas${area || query ? " · filtrando" : " · lo que más usas aparece primero"}`}
       </p>
     </div>

@@ -20,7 +20,7 @@
  * él mismo por si BeSoccer le deja algún día.
  */
 
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   AlertTriangle,
   BarChart3,
@@ -30,7 +30,6 @@ import {
   Download,
   Loader2,
   Lock,
-  LogIn,
   LogOut,
   Monitor,
   RefreshCw,
@@ -50,6 +49,7 @@ import { comoNuestro, type PartidoNuestro } from "@/lib/castilla/calendario";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { useAdmin } from "@/hooks/useAdmin";
+import { PuertaAdmin } from "@/components/admin/PuertaAdmin";
 import { avisaCambioTextos, useTextosExplicativos } from "@/components/ui/textos-analisis";
 import { InterruptorOrdenadorPrincipal } from "@/components/video-partido/InterruptorOrdenadorPrincipal";
 import { OcupacionAlmacen } from "@/components/ajustes/OcupacionAlmacen";
@@ -263,6 +263,8 @@ function EstadoLinea({
 export default function AjustesPage() {
   /* Sólo el administrador (02/10/2026): usuario y contraseña propios. */
   const { admin: yo, entra, sale } = useAdmin();
+  const vuelta = useVuelta();
+  const vaAlLaboratorio = vuelta.startsWith("/laboratorio");
 
   const [pidiendo, setPidiendo] = useState<Tarea | null>(null);
 
@@ -512,9 +514,14 @@ export default function AjustesPage() {
 
           <div className="min-w-0 px-4 py-6 sm:px-6 lg:px-10">
             <AbpHeader
-              area="RMCF Castilla · Ajustes"
-              title="Poner al día"
-              lead="Lo que normalmente se actualiza solo, pedido a mano cuando no se quiere esperar."
+              /* Quien llega desde el laboratorio sin sesión ve dónde va a entrar (07/11/2026). */
+              area={vaAlLaboratorio && !yo ? "RMCF Castilla · Balón parado" : "RMCF Castilla · Ajustes"}
+              title={vaAlLaboratorio && !yo ? "Laboratorio de ABP" : "Poner al día"}
+              lead={
+                vaAlLaboratorio && !yo
+                  ? undefined
+                  : "Lo que normalmente se actualiza solo, pedido a mano cuando no se quiere esperar."
+              }
               aside={
                 yo ? (
                   <Button icon={LogOut} onClick={() => void sale()} title="Cerrar la sesión de administrador">
@@ -530,7 +537,7 @@ export default function AjustesPage() {
               </p>
             )}
 
-            {yo === false && <PuertaAdmin onEntra={entra} />}
+            {yo === false && <PuertaAjustes vuelta={vuelta} onEntra={entra} />}
 
             {yo && (
             <>
@@ -1184,94 +1191,42 @@ function InterruptorTextos() {
 /*  LA PUERTA                                                          */
 /* ------------------------------------------------------------------ */
 
+/*
+| DE DÓNDE VENÍA (30/10/2026). Un enlace viejo puede traer ?vuelta=/laboratorio/abp
+| (desde el 07/11 el laboratorio pinta su propia puerta): se dice y, al entrar,
+| se vuelve allí. Sólo direcciones de la casa: empieza por «/» y no por «//» ni
+| «/\», que el navegador lee como otra web. useSyncExternalStore: el servidor
+| pinta «» y el navegador lee la dirección sin descuadre de hidratación.
+*/
+const leeVuelta = () => {
+  const pedida = new URLSearchParams(window.location.search).get("vuelta") ?? "";
+
+  return /^\/(?![/\\])/.test(pedida) ? pedida : "";
+};
+
+const sinSuscripcion = () => () => {};
+
+function useVuelta() {
+  return useSyncExternalStore(sinSuscripcion, leeVuelta, () => "");
+}
+
 /** Usuario y contraseña del administrador: sin ellos no se ve nada de Ajustes. */
-function PuertaAdmin({ onEntra }: { onEntra: (email: string, contrasena: string) => Promise<void> }) {
-  const [email, setEmail] = useState("");
-  const [contrasena, setContrasena] = useState("");
-  const [entrando, setEntrando] = useState(false);
-  const [error, setError] = useState("");
-  /*
-  | DE DÓNDE VENÍA (30/10/2026). El laboratorio de ABP manda aquí con
-  | ?vuelta=/laboratorio/abp: la puerta lo dice y, al entrar, se vuelve allí.
-  | Sólo direcciones de la casa: empieza por «/» y no por «//». La puerta no
-  | sale en el HTML del servidor (se pinta cuando ya se sabe que no hay
-  | sesión), así que leer la dirección al montar no rompe la hidratación.
-  */
-  const [vuelta] = useState(() => {
-    if (typeof window === "undefined") return "";
-
-    const pedida = new URLSearchParams(window.location.search).get("vuelta") ?? "";
-
-    /* Sólo rutas de la propia app: «//» y «/\» las lee el navegador como otra web. */
-    return /^\/(?![/\\])/.test(pedida) ? pedida : "";
-  });
+function PuertaAjustes({ vuelta, onEntra }: { vuelta: string; onEntra: (email: string, contrasena: string) => Promise<void> }) {
   const deLaboratorio = vuelta.startsWith("/laboratorio");
 
-  const envia = async (e: FormEvent) => {
-    e.preventDefault();
-
-    setEntrando(true);
-    setError("");
-
-    try {
-      await onEntra(email, contrasena);
-
-      /* Navegación entera, para que el candado del servidor vea la sesión. */
-      if (vuelta) window.location.replace(vuelta);
-    } catch (fallo) {
-      setError(fallo instanceof Error ? fallo.message : "No se ha podido entrar.");
-      setContrasena("");
-    } finally {
-      setEntrando(false);
-    }
-  };
-
   return (
-    <form
-      onSubmit={(e) => void envia(e)}
-      className="mx-auto mt-10 max-w-sm rounded-2xl border border-white/10 bg-white/[0.03] p-6"
-    >
-      <div className="flex items-center gap-2.5">
-        <Lock size={16} className="text-[#C8A96B]" aria-hidden />
-        <h2 className="text-sm font-semibold text-white">{deLaboratorio ? "Laboratorio de ABP" : "Acceso de administrador"}</h2>
-      </div>
-
-      <p className="mt-2 text-[12px] leading-relaxed text-white/55">
-        {deLaboratorio
-          ? "Sólo entra el administrador. Al entrar vuelves al laboratorio."
-          : "Ajustes lanza trabajos en el ordenador del club que escriben en las hojas y publican la plataforma. Sólo entra el administrador."}
-      </p>
-
-      <label className="mt-5 block">
-        <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">Usuario</span>
-        <input
-          type="email"
-          autoComplete="username"
-          autoFocus
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none focus:border-[#C8A96B]/50"
-        />
-      </label>
-
-      <label className="mt-3 block">
-        <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">Contraseña</span>
-        <input
-          type="password"
-          autoComplete="current-password"
-          value={contrasena}
-          onChange={(e) => setContrasena(e.target.value)}
-          className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none focus:border-[#C8A96B]/50"
-        />
-      </label>
-
-      {error && <p className="mt-3 text-[12px] text-red-300">{error}</p>}
-
-      <div className="mt-5 flex justify-end">
-        <Button tone="primary" type="submit" icon={entrando ? Loader2 : LogIn} disabled={entrando || !email || !contrasena}>
-          {entrando ? "Entrando…" : "Entrar"}
-        </Button>
-      </div>
-    </form>
+    <div className="mt-10">
+      <PuertaAdmin
+        titulo={deLaboratorio ? "Entrar en el laboratorio" : "Acceso de administrador"}
+        texto={
+          deLaboratorio
+            ? "Sólo entra el administrador. Al entrar vuelves al laboratorio."
+            : "Ajustes lanza trabajos en el ordenador del club que escriben en las hojas y publican la plataforma. Sólo entra el administrador."
+        }
+        onEntra={onEntra}
+        /* Navegación entera, para que el candado del servidor vea la sesión. */
+        onDentro={vuelta ? () => window.location.replace(vuelta) : undefined}
+      />
+    </div>
   );
 }

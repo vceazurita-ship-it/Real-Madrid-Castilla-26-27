@@ -571,7 +571,8 @@ export default function QuinielaPage() {
               <Panel
                 title="Ranking de acierto"
                 /* Una sola regla escrita, la misma que aplica el cálculo (30/10/2026, expertos). */
-                subtitle="Toda la temporada. Cuenta desde tu primera apuesta; después, la que no pones es fallo. A igual porcentaje, manda quien más acierta; con los dos iguales, se comparte puesto."
+                /* La regla de «desde tu primera apuesta» va una sola vez, en «Cómo se cuenta» (07/11/2026). */
+                subtitle="Toda la temporada. A igual porcentaje, manda quien más acierta; con los dos iguales, se comparte puesto."
                 icon={Trophy}
               >
                 {(
@@ -947,7 +948,7 @@ export default function QuinielaPage() {
                   onClick={() => setEligiendoJugadores((v) => !v)}
                   title="Quién juega a la quiniela esta temporada"
                 >
-                  {jugadores.length} jugando
+                  Quién juega
                 </Button>
               </div>
             </div>
@@ -1430,9 +1431,17 @@ export default function QuinielaPage() {
                 }
                 icon={UtensilsCrossed}
               >
+                {/* Sin ningún partido jugado del bloque, el orden no significa nada
+                    (07/11/2026, guionista y marketing): una línea y sin puestos. */}
+                {!cerrado && tablaBloque.every((fila) => fila.jugados === 0) ? (
+                  <p className="text-[13px] leading-relaxed text-white/75">
+                    El bloque arranca con la jornada {bloque.desde}: los dos primeros de las jornadas {bloque.desde} a {bloque.hasta} comen invitados por el resto.
+                  </p>
+                ) : null}
+
                 {/* Con el bloque en marcha sólo importan los dos que van
                     comiendo gratis; el resto, plegado. */}
-                {[cerrado ? tablaBloque : tablaBloque.slice(0, 2), cerrado ? [] : tablaBloque.slice(2)].map((grupo, parte) => grupo.length === 0 ? null : (
+                {(!cerrado && tablaBloque.every((fila) => fila.jugados === 0) ? [] : [cerrado ? tablaBloque : tablaBloque.slice(0, 2), cerrado ? [] : tablaBloque.slice(2)]).map((grupo, parte) => grupo.length === 0 ? null : (
                 <details key={parte} open={parte === 0} className={parte === 1 ? "mt-2" : undefined}>
                 <summary className={parte === 0 ? "hidden" : "cursor-pointer select-none text-[11px] text-white/50 hover:text-white"}>
                   {`Ver los otros ${grupo.length}`}

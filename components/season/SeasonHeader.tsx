@@ -104,7 +104,8 @@ export default function SeasonHeader({
           {(() => {
             const material = [
               stats.images > 0 ? `${stats.images} ${stats.images === 1 ? "imagen" : "imágenes"}` : "",
-              stats.pdfs > 0 ? `${stats.pdfs} ${stats.pdfs === 1 ? "PDF" : "PDFs"}` : "",
+              /* «PDF» invariable, como se escribe en español (07/11/2026). */
+              stats.pdfs > 0 ? `${stats.pdfs} PDF` : "",
             ]
               .filter(Boolean)
               .join(" y ");
@@ -159,6 +160,15 @@ export default function SeasonHeader({
                   } ${semana.actual ? "ring-2 ring-[#C8A96B] ring-offset-1 ring-offset-[#0B0F14]" : ""}`}
                 >
                   {i + 1}
+                  {/* La semana en curso, dicha y no sólo con el aro (07/11/2026). */}
+                  {semana.actual && (
+                    <span
+                      aria-hidden
+                      className="pointer-events-none absolute -bottom-4 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.08em] text-[#C8A96B]"
+                    >
+                      ahora
+                    </span>
+                  )}
                   {semana.conMaterial && (
                     <span
                       aria-hidden
@@ -171,7 +181,7 @@ export default function SeasonHeader({
                 </button>
               ))}
             </div>
-            <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-white/55">
+            <p className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-white/65">
               <span className="inline-flex items-center gap-1.5">
                 <span className="inline-block h-3 w-3 rounded-[3px] bg-emerald-400" />
                 <Check size={11} strokeWidth={3} className="-ml-1 text-emerald-400" aria-hidden /> con material
