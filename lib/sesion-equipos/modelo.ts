@@ -129,6 +129,80 @@ export function puestosDesdePlantilla(jugadores: JugadorSesion[], plantilla: Fic
   return salida;
 }
 
+/**
+ * LOS QUE COMPARTEN PUESTO (08/10/2026; varios desde el 07/11/2026).
+ *
+ * Titular → compañero(s). Lo guardado antes es un id suelto (dos en el
+ * puesto) y se sigue leyendo; con tres o más va una lista. Una lista vacía es
+ * un puesto «abierto»: se ha pedido que se comparta (p. ej. para que cuadre
+ * con el otro equipo) y espera a que alguien se suelte en él. Se lee y se
+ * escribe sólo con las funciones de aquí abajo (`companerosEn`,
+ * `conCompaneros`, `quitaDePares`).
+ */
+export type Pares = Record<string, string | string[]>;
+
+/** «A», «A y B», «A, B y C». */
+export function yNombres(nombres: string[]) {
+  if (nombres.length < 2) return nombres.join("");
+  return `${nombres.slice(0, -1).join(", ")} y ${nombres[nombres.length - 1]}`;
+}
+
+/** Los compañeros guardados de un titular, siempre en lista (lo viejo era un id suelto). */
+export function companerosEn(pares: Pares | undefined, titular: string): string[] {
+  const v = pares?.[titular];
+  if (v === undefined) return [];
+  return (Array.isArray(v) ? v : [v]).filter(Boolean);
+}
+
+/** El puesto de un titular está abierto a compartirse: lista guardada, aunque esté vacía. */
+export const puestoAbierto = (pares: Pares | undefined, titular: string) => Array.isArray(pares?.[titular]);
+
+/**
+ * Los pares con los compañeros de un titular puestos. `null` deshace el
+ * puesto compartido; `[]` lo deja abierto. Uno solo se escribe como id suelto,
+ * como antes: así lo sigue entendiendo una pantalla sin actualizar.
+ */
+export function conCompaneros(pares: Pares | undefined, titular: string, ids: string[] | null): Pares {
+  const salida: Pares = { ...(pares ?? {}) };
+  if (ids === null) delete salida[titular];
+  else salida[titular] = ids.length === 1 ? ids[0] : [...ids];
+  return salida;
+}
+
+/**
+ * Saca a un jugador de los puestos compartidos de un equipo. Si era
+ * compañero, se va de la lista (y si no queda nadie, el puesto deja de ser
+ * compartido); si era el titular, el primer compañero se queda su hueco
+ * (`orden`) y los demás siguen con él.
+ */
+export function quitaDePares(pares: Pares | undefined, orden: string[] | undefined, id: string): { pares: Pares | undefined; orden: string[] | undefined } {
+  if (!pares) return { pares, orden };
+
+  let tocado = false;
+  let salida: Pares = { ...pares };
+  let nuevoOrden = orden;
+
+  for (const titular of Object.keys(pares)) {
+    const companeros = companerosEn(pares, titular);
+
+    if (titular === id) {
+      tocado = true;
+      delete salida[titular];
+      const [heredero, ...resto] = companeros;
+      if (heredero) {
+        if (nuevoOrden) nuevoOrden = nuevoOrden.map((x) => (x === id ? heredero : x));
+        if (resto.length) salida = conCompaneros(salida, heredero, resto);
+      }
+    } else if (companeros.includes(id)) {
+      tocado = true;
+      const quedan = companeros.filter((c) => c !== id);
+      salida = conCompaneros(salida, titular, quedan.length ? quedan : null);
+    }
+  }
+
+  return tocado ? { pares: salida, orden: nuevoOrden } : { pares, orden };
+}
+
 export type EquipoTarea = {
   id: string;
   nombre: string;
@@ -140,8 +214,8 @@ export type EquipoTarea = {
   orden?: string[];
   /** El punto de cada hueco puesto a mano (mismo índice que `orden`; null = el del dibujo). */
   posiciones?: ({ x: number; y: number } | null)[];
-  /** Dos en el mismo puesto (08/10/2026): titular → compañero. Ver lib/sesion-equipos/estructura.ts. */
-  pares?: Record<string, string>;
+  /** Varios en el mismo puesto (08/10 y 07/11/2026): titular → compañero(s). Ver `Pares`. */
+  pares?: Pares;
   /**
    * El `orden` lo puso la herramienta, no una persona (14/10/2026): al cambiar
    * de dibujo se reubica sola. No se aprende de él (lib/sesion-equipos/aprendizaje.ts)
@@ -1066,23 +1140,11 @@ export function reemplazaJugador(sesion: SesionEquipos, id: string, crudo: strin
   };
 }
 
-/** Saca a un jugador de un equipo: su hueco queda libre y, si era titular de una pareja, su compañero se queda el hueco. */
-function sinJugador<E extends { orden?: string[]; pares?: Record<string, string> }>(e: E, id: string): E {
-  let orden = e.orden;
-  let pares = e.pares;
-
-  if (pares) {
-    const quedan: Record<string, string> = {};
-    for (const [titular, companero] of Object.entries(pares)) {
-      if (companero === id) continue;
-      if (titular === id) {
-        if (orden) orden = orden.map((x) => (x === id ? companero : x));
-        continue;
-      }
-      quedan[titular] = companero;
-    }
-    pares = quedan;
-  }
+/** Saca a un jugador de un equipo: su hueco queda libre y, si era titular de un puesto compartido, el primer compañero se queda el hueco. */
+function sinJugador<E extends { orden?: string[]; pares?: Pares }>(e: E, id: string): E {
+  const quitado = quitaDePares(e.pares, e.orden, id);
+  let orden = quitado.orden;
+  const pares = quitado.pares;
 
   if (orden?.includes(id)) orden = orden.map((x) => (x === id ? "" : x));
 

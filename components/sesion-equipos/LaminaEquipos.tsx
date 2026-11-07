@@ -27,6 +27,7 @@ import {
   repartoDe,
   tintaSobre,
   type JugadorSesion,
+  type Pares,
   type Puesto,
   type SesionEquipos,
   type TareaEquipos,
@@ -50,9 +51,9 @@ type Columna = {
   estructura?: string;
   orden?: string[];
   posiciones?: ({ x: number; y: number } | null)[];
-  pares?: Record<string, string>;
-  /** Titular → compañero, ya resuelto: el compañero va en la fila de su titular. */
-  parejas?: Map<string, JugadorSesion>;
+  pares?: Pares;
+  /** Titular → compañeros, ya resuelto: los compañeros van en la fila de su titular. */
+  parejas?: Map<string, JugadorSesion[]>;
   /** Los del equipo, compañeros incluidos (en la lista el compañero no tiene fila propia). */
   cuenta?: number;
 };
@@ -65,14 +66,14 @@ function Nombre({
   color,
   tamano,
   portero,
-  pareja,
+  companeros,
 }: {
   jugador: JugadorSesion;
   color: string;
   tamano: number;
   portero?: boolean;
-  /** Comparte puesto con él (08/10/2026): los dos en la misma fila. */
-  pareja?: JugadorSesion;
+  /** Comparten puesto con él (08/10/2026; varios desde el 07/11/2026): todos en la misma fila. */
+  companeros?: JugadorSesion[];
 }) {
   return (
     <div
@@ -105,12 +106,12 @@ function Nombre({
         }}
       >
         {jugador.nombre}
-        {pareja && (
-          <>
+        {companeros?.map((c) => (
+          <span key={c.id}>
             <span style={{ color: ORO, margin: `0 ${tamano * 0.18}px` }}>/</span>
-            {pareja.nombre}
-          </>
-        )}
+            {c.nombre}
+          </span>
+        ))}
       </span>
       {portero && (
         <span style={{ fontSize: tamano * 0.42, fontWeight: 700, letterSpacing: "0.08em", color: "#FFFFFF", background: ORO, borderRadius: 8, padding: `${tamano * 0.04}px ${tamano * 0.14}px`, flexShrink: 0 }}>
@@ -141,7 +142,15 @@ export function LaminaEquipos({
   puestoDe,
   detalle = "",
   contexto = null,
+  limpia = false,
 }: {
+  /**
+   * LA LÁMINA LIMPIA (07/11/2026): sólo el título de la tarea y los campos,
+   * con los nombres lo más grandes que quepan. Sin franjas de equipo,
+   * leyendas, porteros, comodines, «fuera», cabecera ni pie. Una tarea sin
+   * estructura no tiene campos: salen sus equipos en lista, sin más.
+   */
+  limpia?: boolean;
   sesion: SesionEquipos;
   tarea: TareaEquipos;
   indice: number;
@@ -172,7 +181,7 @@ export function LaminaEquipos({
   const columnas: Columna[] = tarea.equipos.map((e) => {
     const suyos = r.porEquipo[e.id] ?? [];
     const parejas = parejasDe(suyos, e.pares);
-    const companeros = new Set([...parejas.values()].map((j) => j.id));
+    const companeros = new Set([...parejas.values()].flat().map((j) => j.id));
     const estructura = tarea.conEstructura ? e.estructura : undefined;
     return {
       clave: e.id,
@@ -238,7 +247,7 @@ export function LaminaEquipos({
           ...columnas
             .filter((c) => !c.estructura)
             .flatMap((c) =>
-            c.jugadores.map((j) => (j.nombre.length + (c.parejas?.get(j.id) ? c.parejas.get(j.id)!.nombre.length + 3 : 0)) * 0.35 + 0.8 + (j.etiqueta ? 2.4 : 0) + (j.baja ? 5 : 0) + (porPuesto(j) === "POR" ? 2.4 : 0)),
+            c.jugadores.map((j) => (j.nombre.length + (c.parejas?.get(j.id) ?? []).reduce((n, x) => n + x.nombre.length + 3, 0)) * 0.35 + 0.8 + (j.etiqueta ? 2.4 : 0) + (j.baja ? 5 : 0) + (porPuesto(j) === "POR" ? 2.4 : 0)),
           ),
         ),
     ),
@@ -261,6 +270,64 @@ export function LaminaEquipos({
     return porteros.length > 0 || sobran.length > 0;
   });
   const anchoCampo = Math.min(anchoEquipo - 40, (LAMINA_H - (cabecera ? 520 : 335) - extra + (lineaPortero ? 0 : 40) - (cambios.length ? 60 : 0) - (pieCorto ? 52 : 0)) / 1.08);
+
+  if (limpia) {
+    const titulo = `${tareaBase.nombre || `Tarea ${indice + 1}`}${fase === "cambio" ? " · tras el cambio" : ""}`;
+    /* Con dibujo, sólo los equipos (cada uno es un campo); sin él, también los comodines, que son una lista más. */
+    const deLaLamina = tarea.conEstructura ? columnas.filter((c) => c.estructura) : columnas;
+    const n = Math.max(1, deLaLamina.length);
+    const hueco = 36;
+    const anchoCol = (LAMINA_W - 96 - (n - 1) * hueco) / n;
+    const ALTO_TITULO = 116;
+    const altoUtil = LAMINA_H - 48 - ALTO_TITULO;
+    const anchoCampoLimpio = Math.min(anchoCol, altoUtil / 1.08);
+    const letraTitulo = Math.min(92, (LAMINA_W - 96) / Math.max(8, titulo.length * 0.47));
+
+    return (
+      <div
+        data-lamina-equipos
+        style={{ ...fuente, width: LAMINA_W, height: LAMINA_H, position: "relative", overflow: "hidden", background: FONDO, color: TINTA, padding: "24px 48px", boxSizing: "border-box", display: "flex", flexDirection: "column" }}
+      >
+        <div
+          style={{
+            height: ALTO_TITULO,
+            flexShrink: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: letraTitulo,
+            fontWeight: 700,
+            lineHeight: 1,
+            letterSpacing: "0.01em",
+            textTransform: "uppercase",
+            textAlign: "center",
+            whiteSpace: "nowrap",
+            color: TINTA,
+          }}
+        >
+          {titulo}
+        </div>
+        <div style={{ flex: 1, minHeight: 0, display: "flex", justifyContent: "center", alignItems: "center", gap: hueco }}>
+          {deLaLamina.map((c) => {
+            if (c.estructura) {
+              const { huecos } = colocaEnEstructura(c.jugadores, c.estructura, porPuesto, c.orden, c.posiciones, c.pares);
+              return <CampoEstructura key={c.clave} huecos={huecos} color={c.color} ancho={anchoCampoLimpio} claro grande />;
+            }
+            /* Una fila de más por cada puesto compartido: sus nombres pueden ir en dos renglones. */
+            const filasLista = c.jugadores.length + c.jugadores.filter((j) => c.parejas?.get(j.id)?.length).length;
+            const letra = Math.min(84, (altoUtil - 24) / (Math.max(4, filasLista) * 1.5), (anchoCol - 70) / Math.max(8, ...c.jugadores.map((j) => (j.nombre.length + (c.parejas?.get(j.id) ?? []).reduce((s, x) => s + x.nombre.length + 3, 0)) * 0.35 + 0.8)));
+            return (
+              <div key={c.clave} style={{ width: anchoCol, alignSelf: "stretch", display: "flex", flexDirection: "column", justifyContent: "flex-start", paddingTop: 12, gap: letra * 0.22, minWidth: 0 }}>
+                {c.jugadores.map((j) => (
+                  <Nombre key={j.id} jugador={{ ...j, etiqueta: undefined, baja: undefined }} color={c.color} tamano={letra} companeros={c.parejas?.get(j.id)} />
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -436,7 +503,7 @@ export function LaminaEquipos({
               ) : (
                 <div style={{ padding: "22px 22px 18px", display: "grid", gridTemplateColumns: dosColumnas ? "1fr 1fr" : "1fr", gridAutoFlow: dosColumnas ? "column" : "row", gridTemplateRows: dosColumnas ? `repeat(${filas}, auto)` : undefined, columnGap: 20, rowGap: tamano * 0.22, alignContent: "start", minWidth: 0 }}>
                   {c.jugadores.map((j) => (
-                    <Nombre key={j.id} jugador={j} color={c.color} tamano={tamano} portero={porPuesto(j) === "POR"} pareja={c.parejas?.get(j.id)} />
+                    <Nombre key={j.id} jugador={j} color={c.color} tamano={tamano} portero={porPuesto(j) === "POR"} companeros={c.parejas?.get(j.id)} />
                   ))}
                 </div>
               )}

@@ -16,6 +16,7 @@ import {
   COMODIN,
   FUERA,
   repartoDe,
+  yNombres,
   type FaseCambio,
   type JugadorSesion,
   type PuestoDe,
@@ -82,7 +83,8 @@ export type CambioJugador = { jugador: JugadorSesion; texto: string };
 /** Dónde está cada uno dentro de su equipo: el hueco del dibujo y con quién comparte puesto. */
 function sitiosDe(t: TareaEquipos, jugadores: JugadorSesion[], puestoDe: PuestoDe, preferido?: (j: JugadorSesion) => { x: number; y: number }) {
   const reparto = repartoDe(t, jugadores);
-  const porJugador = new Map<string, { hueco: number | null; con: JugadorSesion | null }>();
+  /* `con`: los demás del mismo puesto (desde el 07/11/2026 pueden ser varios). */
+  const porJugador = new Map<string, { hueco: number | null; con: JugadorSesion[] }>();
   /* Quién ocupa cada hueco de cada equipo. */
   const ocupantes = new Map<string, (JugadorSesion | null)[]>();
 
@@ -94,15 +96,16 @@ function sitiosDe(t: TareaEquipos, jugadores: JugadorSesion[], puestoDe: PuestoD
       const { huecos } = colocaEnEstructura(suyos, e.estructura, puestoDe, e.orden, e.posiciones, e.pares, preferido);
       ocupantes.set(e.id, huecos.map((h) => h.jugador));
       huecos.forEach((h, i) => {
-        if (h.jugador) porJugador.set(h.jugador.id, { hueco: i, con: h.pareja ?? null });
-        if (h.jugador && h.pareja) porJugador.set(h.pareja.id, { hueco: i, con: h.jugador });
+        if (!h.jugador) return;
+        const todos = [h.jugador, ...(h.companeros ?? [])];
+        for (const j of todos) porJugador.set(j.id, { hueco: i, con: todos.filter((x) => x.id !== j.id) });
       });
     }
 
-    for (const [titular, companero] of parejas) {
-      const tit = suyos.find((j) => j.id === titular) ?? null;
-      if (!porJugador.has(companero.id)) porJugador.set(companero.id, { hueco: null, con: tit });
-      if (!porJugador.has(titular)) porJugador.set(titular, { hueco: null, con: companero });
+    for (const [titular, companeros] of parejas) {
+      const tit = suyos.find((j) => j.id === titular);
+      const todos = tit ? [tit, ...companeros] : companeros;
+      for (const j of todos) if (!porJugador.has(j.id)) porJugador.set(j.id, { hueco: null, con: todos.filter((x) => x.id !== j.id) });
     }
   }
 
@@ -136,9 +139,12 @@ export function cambiosDe(t: TareaEquipos, jugadores: JugadorSesion[], puestoDe:
     if (de !== a) partes.push(`${nombreDe(de)} → ${nombreDe(a)}${donde ? ` (${donde})` : ""}`);
     else if (ya?.hueco != null && ahora?.hueco != null && ya.hueco !== ahora.hueco) partes.push(donde ? `cambia de sitio, ${donde}` : "cambia de sitio");
 
-    if ((ya?.con?.id ?? null) !== (ahora?.con?.id ?? null)) {
-      if (ahora?.con) partes.push(`comparte puesto con ${ahora.con.nombre}`);
-      else if (ya?.con) partes.push(`deja de compartir con ${ya.con.nombre}`);
+    const claveCon = (c?: JugadorSesion[]) => (c ?? []).map((x) => x.id).sort().join(",");
+    const nombres = (c: JugadorSesion[]) => yNombres(c.map((x) => x.nombre));
+
+    if (claveCon(ya?.con) !== claveCon(ahora?.con)) {
+      if (ahora?.con.length) partes.push(`comparte puesto con ${nombres(ahora.con)}`);
+      else if (ya?.con.length) partes.push(`deja de compartir con ${nombres(ya.con)}`);
     }
 
     if (partes.length) salida.push({ jugador: j, texto: partes.join(" · ") });

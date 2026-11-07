@@ -85,6 +85,7 @@ import {
   lineasDe,
   normalizaEstructura,
   parejasDe,
+  huecoMasCercano,
   huecosDeCampo,
   paraGuardar,
   type Hueco,
@@ -125,10 +126,15 @@ import {
   textoDeTarea,
   tintaSobre,
   valida,
+  companerosEn,
+  conCompaneros,
+  quitaDePares,
+  yNombres,
   type AlmacenEquipos,
   type Aviso,
   type EquipoTarea,
   type JugadorSesion,
+  type Pares,
   type Puesto,
   type PuestoDe,
   type SesionEquipos,
@@ -272,7 +278,7 @@ function Chip({
         </span>
       )}
       {conQuien && (
-        <span className="shrink-0 rounded bg-[#C8A96B]/15 px-1 text-[9px] font-bold text-[#E9D5A8]" title="Comparten puesto">
+        <span className="min-w-0 max-w-[50%] truncate rounded bg-[#C8A96B]/15 px-1 text-[9px] font-bold text-[#E9D5A8]" title={`Comparte puesto con ${conQuien}`}>
           = {conQuien}
         </span>
       )}
@@ -455,29 +461,82 @@ function sueltaPareja(t: TareaEquipos, id: string): TareaEquipos {
   let tocada = false;
 
   const equipos = t.equipos.map((e) => {
-    if (!e.pares) return e;
+    const { pares, orden } = quitaDePares(e.pares, e.orden, id);
 
-    let esta = false;
-    const pares = { ...e.pares };
-    let orden = e.orden;
-
-    for (const [titular, companero] of Object.entries(e.pares)) {
-      if (companero === id) {
-        delete pares[titular];
-        esta = true;
-      } else if (titular === id) {
-        delete pares[titular];
-        esta = true;
-        if (orden) orden = orden.map((x) => (x === id ? companero : x));
-      }
-    }
-
-    if (!esta) return e;
+    if (pares === e.pares) return e;
     tocada = true;
     return { ...e, pares, orden };
   });
 
   return tocada ? { ...t, equipos } : t;
+}
+
+/**
+ * EL MISMO PUESTO COMPARTIDO EN LOS DEMÁS EQUIPOS (07/11/2026). En un equipo
+ * comparten puesto dos (o más) y el otro equipo tiene que poder hacer lo
+ * mismo. El «mismo puesto» es el hueco del otro equipo más cerca de ese punto
+ * del campo (con el mismo dibujo, el mismo hueco). Si el otro equipo tiene a
+ * gente fuera del dibujo, los más cercanos a ese sitio (por su sitio
+ * preferido) pasan a compartirlo, tantos como compañeros hay en el original;
+ * si no, el puesto queda abierto (una lista vacía en `pares`) con un «+» en
+ * el campo donde soltar a quien sea. Devuelve la tarea y una nota por equipo.
+ */
+function compartePuestoEnOtros(
+  t: TareaEquipos,
+  jugadores: JugadorSesion[],
+  puestoDe: PuestoDe,
+  equipoId: string,
+  titularId: string,
+  soloEn?: string,
+): { tarea: TareaEquipos; notas: string[]; cambia: boolean } {
+  const notas: string[] = [];
+  const reparto = repartoDe(t, jugadores);
+  const origen = t.equipos.find((e) => e.id === equipoId);
+  if (!origen) return { tarea: t, notas, cambia: false };
+
+  const fuente = colocaEnEstructura(reparto.porEquipo[equipoId] ?? [], origen.estructura, puestoDe, origen.orden, origen.posiciones, origen.pares).huecos.find(
+    (h) => h.jugador?.id === titularId,
+  );
+  if (!fuente) return { tarea: t, notas, cambia: false };
+
+  const cuantos = Math.max(1, fuente.companeros?.length ?? 0);
+  let cambia = false;
+
+  const equipos = t.equipos.map((e) => {
+    if (e.id === equipoId || (soloEn && e.id !== soloEn)) return e;
+
+    const { huecos, sobran } = colocaEnEstructura(reparto.porEquipo[e.id] ?? [], e.estructura, puestoDe, e.orden, e.posiciones, e.pares);
+    const k = huecoMasCercano(huecos, fuente);
+    const tit = huecos[k]?.jugador;
+    if (!tit) return e;
+
+    /* Ya comparte ese puesto: no se toca. */
+    if (huecos[k].companeros?.length || huecos[k].abierto) {
+      notas.push(`${e.nombre || "El otro"}: ya lo comparte ${tit.nombre}`);
+      return e;
+    }
+
+    const pref = puestoDe.preferido;
+    const candidatos = sobran
+      .filter((j) => puestoDe(j) !== "POR")
+      .map((j) => {
+        const p = pref?.(j);
+        return { j, d: p ? (p.x - fuente.x) ** 2 + (p.y - fuente.y) ** 2 : 0 };
+      })
+      .sort((a, b) => a.d - b.d)
+      .slice(0, cuantos)
+      .map((c) => c.j);
+    const ids = candidatos.map((j) => j.id);
+    /* Los que pasan a compartirlo dejan de ser un hueco suelto en el orden («» lo deja vacío sin correr a nadie). */
+    const orden = e.orden?.some((x) => ids.includes(x)) ? e.orden.map((x) => (ids.includes(x) ? "" : x)) : e.orden;
+
+    notas.push(candidatos.length ? `${e.nombre || "El otro"}: ${yNombres([tit, ...candidatos].map((j) => j.nombre))}` : `${e.nombre || "El otro"}: abierto el de ${tit.nombre}`);
+    cambia = true;
+
+    return { ...e, orden, pares: conCompaneros(e.pares, tit.id, ids), autoOrden: undefined };
+  });
+
+  return { tarea: cambia ? { ...t, equipos } : t, notas, cambia };
 }
 
 /**
@@ -573,14 +632,20 @@ function copiaRepartoDe(destino: TareaEquipos, jugadores: JugadorSesion[], orige
 
 /** El titular con el que comparte puesto un jugador, si es compañero de alguien. */
 function titularDe(t: TareaEquipos, id: string): string | null {
-  for (const e of t.equipos) for (const [titular, companero] of Object.entries(e.pares ?? {})) if (companero === id) return titular;
+  for (const e of t.equipos) for (const titular of Object.keys(e.pares ?? {})) if (companerosEn(e.pares, titular).includes(id)) return titular;
   return null;
 }
 
-/** Su compañero, si es titular de una pareja. */
-function companeroDe(t: TareaEquipos, id: string): string | null {
-  for (const e of t.equipos) if (e.pares?.[id]) return e.pares[id];
-  return null;
+/** Sus compañeros, si es titular de un puesto compartido (07/11/2026: pueden ser varios). */
+function companerosDe(t: TareaEquipos, id: string): string[] {
+  for (const e of t.equipos) if (e.pares?.[id] !== undefined) return companerosEn(e.pares, id);
+  return [];
+}
+
+/** Con quiénes comparte puesto un jugador, sea el titular o uno de los compañeros. */
+function compartenCon(t: TareaEquipos, id: string): string[] {
+  const titular = titularDe(t, id) ?? id;
+  return [titular, ...companerosDe(t, titular)].filter((x) => x !== id);
 }
 
 /** Las siglas cortas de cada puesto, en el orden en que se lee un equipo. */
@@ -686,8 +751,17 @@ function EstructuraEquipo({
   onRecoloca,
   onGuardaMia,
   onBorraMia,
+  otrosEquipos = [],
+  onCompartirEnOtros,
+  onCierraAbierto,
 }: {
   equipo: EquipoTarea;
+  /** Los demás equipos de la tarea, para ofrecer «compartirlo también en…» (07/11/2026). */
+  otrosEquipos?: { id: string; nombre: string; color: string }[];
+  /** Abre el mismo puesto a compartirse en los demás equipos (o en uno, con `destino`). */
+  onCompartirEnOtros?: (hueco: Hueco, destino?: string) => void;
+  /** Deja de ofrecer el «+» de un puesto abierto sin compañero. */
+  onCierraAbierto?: (titular: string) => void;
   /** Hay un aviso de líneas descompensadas: el «10/10» no va en verde. */
   descompensado?: boolean;
   jugadores: JugadorSesion[];
@@ -711,8 +785,11 @@ function EstructuraEquipo({
   /* Los porteros no se dibujan: la cuenta es de los de campo contra los huecos de campo. */
   const total = huecosDeCampo(equipo.estructura);
   /* Los que comparten puesto ocupan un solo hueco: el compañero no cuenta. */
-  const companerosFuera = sobran.filter((j) => [...parejas.values()].some((c) => c.id === j.id)).length;
-  const deCampo = jugadores.length - porteros.length - huecos.filter((h) => h.pareja).length - companerosFuera;
+  const enParejas = new Set([...parejas.values()].flat().map((j) => j.id));
+  const companerosFuera = sobran.filter((j) => enParejas.has(j.id)).length;
+  const deCampo = jugadores.length - porteros.length - huecos.reduce((n, h) => n + (h.companeros?.length ?? 0), 0) - companerosFuera;
+  const compartidos = huecos.filter((h) => h.jugador && h.companeros?.length);
+  const abiertos = huecos.filter((h) => h.jugador && h.abierto);
   const actual = normalizaEstructura(equipo.estructura ?? "");
   /*
   | Sólo los dibujos que cuadran (30/10/2026): la lista entera pasa de cien y,
@@ -897,16 +974,81 @@ function EstructuraEquipo({
             elegido={elegido}
             onToca={(i) => onToca(i, huecos)}
             destinoDe={(i) => `hueco:${equipo.id}:${i}`}
+            destinoParDe={(i) => `par:${equipo.id}:${huecos[i]?.jugador?.id ?? ""}`}
             campoDestino={`campo:${equipo.id}`}
             sobre={sobre}
             onArrastra={(i, e) => {
               const j = huecos[i]?.jugador;
               if (j) onArrastra(j, e);
             }}
+            onArrastraCompanero={onArrastra}
           />
         </div>
       ) : (
         <p className="text-[11px] text-white/40">Elige una estructura o créala con «Crear».</p>
+      )}
+      {/*
+      | PUESTOS COMPARTIDOS (07/11/2026): debajo del campo, quiénes comparten y
+      | un botón para que ese mismo puesto se comparta también en los demás
+      | equipos (si tienen a alguien fuera del dibujo, se le pone ahí; si no, el
+      | puesto queda con un «+» donde soltar al que lo comparta).
+      */}
+      {compartidos.length > 0 && (
+        <ul className="flex flex-col gap-1.5" aria-label="Puestos compartidos">
+          {compartidos.map((h) => (
+            <li key={h.jugador!.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-[#C8A96B]/25 bg-[#C8A96B]/[0.06] px-2 py-1.5 text-[11px] text-white/75">
+              <span className="min-w-0">
+                <b className="text-white/90">{yNombres([h.jugador!, ...(h.companeros ?? [])].map((j) => j.nombre))}</b> comparten puesto
+              </span>
+              {onCompartirEnOtros && otrosEquipos.length > 0 && (
+                <span className="flex flex-wrap gap-1">
+                  {otrosEquipos.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => onCompartirEnOtros(h)}
+                      className="rounded-md border border-[#C8A96B]/50 bg-[#C8A96B]/15 px-2 py-0.5 text-[11px] font-semibold text-[#E9D5A8] transition hover:bg-[#C8A96B]/25"
+                      title="El mismo puesto, compartido también en los demás equipos"
+                    >
+                      Compartirlo también en los demás
+                    </button>
+                  )}
+                  {otrosEquipos.map((o) => (
+                    <button
+                      key={o.id}
+                      type="button"
+                      onClick={() => onCompartirEnOtros(h, o.id)}
+                      className="inline-flex items-center gap-1 rounded-md border border-white/15 bg-white/[0.04] px-2 py-0.5 text-[11px] font-semibold text-white/80 transition hover:border-[#C8A96B]/50 hover:text-white"
+                      title={`El mismo puesto, compartido también en ${o.nombre}`}
+                    >
+                      <span aria-hidden className="h-2 w-2 rounded-full" style={{ background: o.color }} />
+                      También en {o.nombre || "el otro"}
+                    </button>
+                  ))}
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {abiertos.length > 0 && (
+        <ul className="flex flex-col gap-1.5" aria-label="Puestos abiertos para compartir">
+          {abiertos.map((h) => (
+            <li key={h.jugador!.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-dashed border-[#C8A96B]/40 px-2 py-1.5 text-[11px] text-white/70">
+              <span className="min-w-0">
+                El puesto de <b className="text-white/90">{h.jugador!.nombre}</b> está abierto: suelta en el «+» a quien lo comparte.
+              </span>
+              {onCierraAbierto && (
+                <button
+                  type="button"
+                  onClick={() => onCierraAbierto(h.jugador!.id)}
+                  className="rounded-md border border-white/15 px-2 py-0.5 text-[11px] font-semibold text-white/70 transition hover:border-white/30 hover:text-white"
+                >
+                  No compartir
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
       )}
       {porteros.length > 0 && (
         <p className="text-[11px] text-white/55">
@@ -1357,7 +1499,14 @@ export default function JugadoresSesionPage() {
   | Con la cabecera de la tarea por defecto (21/10/2026): la imagen que va al
   | grupo tiene que decir qué tarea es y de qué día. Sólo equipos, desmarcándola.
   */
-  const [conCabecera, setConCabecera] = useState(true);
+  /*
+  | Y la LIMPIA (07/11/2026): sólo el título de la tarea y los campos, con los
+  | nombres más grandes. Es una de las tres formas de la imagen; las otras dos
+  | siguen como estaban (con cabecera, o sólo los equipos).
+  */
+  const [formaLamina, setFormaLamina] = useState<"cabecera" | "equipos" | "limpia">("cabecera");
+  const conCabecera = formaLamina === "cabecera";
+  const limpia = formaLamina === "limpia";
 
   /*
   | LA TAREA DE LA HOJA (21/10/2026). Lo que el cuerpo técnico escribió en el
@@ -1511,6 +1660,40 @@ export default function JugadoresSesionPage() {
    * estaba ocupado por un compañero, se cambian de sitio; si lo ocupaba alguien
    * y el que llega es de otro equipo, el de antes pasa al primer hueco libre.
    */
+  /*
+  | Se ofrece desde el aviso de «comparten puesto», que se crea antes de que
+  | se guarde ese cambio: el botón lee la tarea de ahora (la ref), no la
+  | de cuando se creó el aviso.
+  */
+  const tareaVigente = useRef(tarea);
+  useEffect(() => {
+    tareaVigente.current = tarea;
+  }, [tarea]);
+
+  const compartirEnOtros = useCallback(
+    (equipoId: string, titularId: string, soloEn?: string) => {
+      const actual = tareaVigente.current;
+      if (!sesion || !actual) return;
+
+      const { notas, cambia } = compartePuestoEnOtros(actual, sesion.jugadores, puestoDe, equipoId, titularId, soloEn);
+
+      if (!cambia) {
+        toast.error(notas.length ? "Ese puesto ya se comparte en los demás" : "Ningún otro equipo tiene a alguien en ese puesto", {
+          description: notas.length ? notas.join(" · ") : "Coloca primero a alguien en ese sitio del otro campo.",
+        });
+        return;
+      }
+
+      cambiaTarea((t) => compartePuestoEnOtros(t, sesion.jugadores, puestoDe, equipoId, titularId, soloEn).tarea);
+
+      toast.success("Puesto compartido también en el otro equipo", {
+        description: `${notas.join(" · ")}.${notas.some((n) => n.includes("abierto")) ? " Lo abierto lleva un «+» en el campo: suelta ahí a quien lo comparte." : ""}`,
+        action: { label: "Deshacer", onClick: deshaz },
+      });
+    },
+    [cambiaTarea, deshaz, puestoDe, sesion],
+  );
+
   /**
    * Dos en el mismo puesto (08/10/2026): `jugadorId` pasa a compartir el de
    * `otroId` en su equipo. Sale de su pareja anterior y de su hueco.
@@ -1526,15 +1709,16 @@ export default function JugadoresSesionPage() {
         return;
       }
 
-      /* Si el otro ya es compañero de alguien, se comparte con su titular… si está libre. */
+      /*
+      | Si el otro ya es compañero de alguien, se comparte con su titular. Desde
+      | el 07/11/2026 caben tantos como se quiera: el que llega se suma a la
+      | lista (antes, con dos, decía «ese puesto ya lo comparten dos»).
+      */
       const titular = titularDe(tarea, otroId) ?? otroId;
 
-      if (companeroDe(tarea, titular) && companeroDe(tarea, titular) !== jugadorId) {
-        const nombre = sesion?.jugadores.find((j) => j.id === companeroDe(tarea, titular))?.nombre;
-        toast.error(`Ese puesto ya lo comparten dos${nombre ? ` (con ${nombre})` : ""}`);
-        return;
-      }
+      if (titular === jugadorId || companerosDe(tarea, titular).includes(jugadorId)) return;
 
+      /* Si el que llega era titular de otro puesto compartido, sus compañeros se quedan su hueco (sueltaPareja). */
       cambiaTarea((t0) => {
         const t = sueltaPareja(t0, jugadorId);
 
@@ -1545,22 +1729,50 @@ export default function JugadoresSesionPage() {
             /* Fuera de cualquier hueco: va en el de su titular. */
             const orden = e.orden?.includes(jugadorId) ? e.orden.map((x) => (x === jugadorId ? "" : x)) : e.orden;
 
-            return e.id === equipoId ? { ...e, orden, pares: { ...(e.pares ?? {}), [titular]: jugadorId } } : orden === e.orden ? e : { ...e, orden };
+            return e.id === equipoId
+              ? { ...e, orden, pares: conCompaneros(e.pares, titular, [...companerosEn(e.pares, titular), jugadorId]) }
+              : orden === e.orden
+                ? e
+                : { ...e, orden };
           }),
         };
       });
 
-      const a = sesion?.jugadores.find((j) => j.id === jugadorId)?.nombre;
-      const b = sesion?.jugadores.find((j) => j.id === titular)?.nombre;
+      const todos = [titular, ...companerosDe(tarea, titular), jugadorId].map((id) => sesion?.jugadores.find((j) => j.id === id)?.nombre ?? "");
+      const otros = tarea.conEstructura ? tarea.equipos.filter((e) => e.id !== equipoId) : [];
 
-      toast.success(`${a} y ${b} comparten puesto`, { description: "Arrastra a cualquiera de los dos a otro sitio para separarlos." });
+      toast.success(`${yNombres(todos)} comparten puesto`, {
+        description: otros.length
+          ? `¿También en ${yNombres(otros.map((e) => e.nombre || "el otro"))}? Lo tienes debajo del campo.`
+          : "Arrastra a cualquiera a otro sitio para separarlo.",
+        action: otros.length ? { label: otros.length === 1 ? `También en ${otros[0].nombre || "el otro"}` : "También en los demás", onClick: () => compartirEnOtros(equipoId, titular) } : undefined,
+      });
     },
-    [cambiaTarea, sesion, tarea],
+    [cambiaTarea, compartirEnOtros, sesion, tarea],
+  );
+
+
+
+  /** Quita el «+» de un puesto abierto que al final no se comparte. */
+  const cierraAbierto = useCallback(
+    (titularId: string) =>
+      cambiaTarea((t) => ({
+        ...t,
+        equipos: t.equipos.map((e) => (e.pares && Array.isArray(e.pares[titularId]) && !companerosEn(e.pares, titularId).length ? { ...e, pares: conCompaneros(e.pares, titularId, null) } : e)),
+      })),
+    [cambiaTarea],
   );
 
   const aplicaDestino = useCallback(
     (jugadorId: string, destino: string, punto?: Punto) => {
       if (destino === "sin") return coloca(jugadorId, null);
+
+      /* En el «+» de un puesto abierto (07/11/2026): lo comparte, esté como esté «Al soltar encima de otro». */
+      if (destino.startsWith("par:")) {
+        const titular = destino.split(":")[2];
+        if (titular && titular !== jugadorId) emparejaCon(jugadorId, titular);
+        return;
+      }
 
       /* Encima de otro jugador (en las fichas): comparte su puesto, o va a su sitio. */
       if (destino.startsWith("jug:")) {
@@ -2352,7 +2564,7 @@ export default function JugadoresSesionPage() {
       }
 
       const nombreDe = ({ i, fase: f }: { i: number; fase: Fase }) =>
-        `${String(i + 1).padStart(2, "0")}${f === "cambio" ? "b" : ""}-${apodo(sesion.tareas[i].nombre, "tarea")}${f === "cambio" ? "-tras-el-cambio" : ""}.jpg`;
+        `${String(i + 1).padStart(2, "0")}${f === "cambio" ? "b" : ""}-${apodo(sesion.tareas[i].nombre, "tarea")}${f === "cambio" ? "-tras-el-cambio" : ""}${limpia ? "-limpia" : ""}.jpg`;
 
       /*
       | Una a una, sin .zip (08/10/2026): cada imagen se descarga suelta, de
@@ -2944,19 +3156,19 @@ export default function JugadoresSesionPage() {
         onCorrige={(donde) => setCorrigiendo({ id: j.id, ...donde })}
         conQuien={(() => {
           if (!tarea) return undefined;
-          const otro = titularDe(tarea, j.id) ?? companeroDe(tarea, j.id);
-          return otro ? sesion?.jugadores.find((x) => x.id === otro)?.nombre : undefined;
+          const otros = compartenCon(tarea, j.id).map((id) => sesion?.jugadores.find((x) => x.id === id)?.nombre ?? "").filter(Boolean);
+          return otros.length ? otros.join(", ") : undefined;
         })()}
       />
     );
   };
 
   /** Una lista de equipo con cada compañero justo detrás de su titular. */
-  const conParejasJuntas = (lista: JugadorSesion[], pares?: Record<string, string>) => {
+  const conParejasJuntas = (lista: JugadorSesion[], pares?: Pares) => {
     const parejas = parejasDe(lista, pares);
-    const companeros = new Set([...parejas.values()].map((j) => j.id));
+    const companeros = new Set([...parejas.values()].flat().map((j) => j.id));
 
-    return ordenPorPuesto(lista.filter((j) => !companeros.has(j.id)), puestoDe).flatMap((j) => (parejas.has(j.id) ? [j, parejas.get(j.id)!] : [j]));
+    return ordenPorPuesto(lista.filter((j) => !companeros.has(j.id)), puestoDe).flatMap((j) => [j, ...(parejas.get(j.id) ?? [])]);
   };
 
   /* Lo pegado en el diálogo que aún no se ha usado: nueva lista, o una lista cambiada sin «Actualizar». */
@@ -3991,6 +4203,9 @@ export default function JugadoresSesionPage() {
                               mias={misEstructuras}
                               onGuardaMia={guardaMia}
                               onBorraMia={borraMia}
+                              otrosEquipos={tarea.equipos.filter((x) => x.id !== equipo.id).map((x) => ({ id: x.id, nombre: x.nombre, color: x.color }))}
+                              onCompartirEnOtros={(h, soloEn) => h.jugador && compartirEnOtros(equipo.id, h.jugador.id, soloEn)}
+                              onCierraAbierto={cierraAbierto}
                               onRecoloca={() =>
                                 cambiaTarea((t) => ({
                                   ...t,
@@ -4040,7 +4255,7 @@ export default function JugadoresSesionPage() {
                             />
                           )}
                           {(tarea.conEstructura
-                            ? (({ sobran, porteros, huecos }) => [...porteros, ...sobran, ...huecos.flatMap((h) => (h.pareja ? [h.pareja] : []))])(
+                            ? (({ sobran, porteros, huecos }) => [...porteros, ...sobran, ...huecos.flatMap((h) => h.companeros ?? [])])(
                                 colocaEnEstructura(reparto.porEquipo[equipo.id] ?? [], equipo.estructura, puestoDe, equipo.orden, equipo.posiciones, equipo.pares),
                               )
                             : conParejasJuntas(reparto.porEquipo[equipo.id] ?? [], equipo.pares)
@@ -4247,20 +4462,29 @@ export default function JugadoresSesionPage() {
                         title="En el móvil, toca para verla en grande"
                       >
                         {anchoPrevia > 0 && (
-                          <LaminaEscalada ancho={anchoPrevia} puestoDe={puestoDe} sesion={sesion} tarea={tareaBase ?? tarea} fase={fase} cabecera={conCabecera} indice={activa} total={sesion.tareas.length} detalle={detalleDe(activa)} contexto={contexto} />
+                          <LaminaEscalada ancho={anchoPrevia} puestoDe={puestoDe} sesion={sesion} tarea={tareaBase ?? tarea} fase={fase} cabecera={conCabecera} limpia={limpia} indice={activa} total={sesion.tareas.length} detalle={detalleDe(activa)} contexto={contexto} />
                         )}
                       </div>
-                      <label className="mt-2 flex w-fit cursor-pointer items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-[12px] text-white/75 transition hover:border-white/25">
-                        <input
-                          type="checkbox"
-                          checked={conCabecera}
-                          onChange={(e) => setConCabecera(e.target.checked)}
-                          className="h-3.5 w-3.5 accent-[#C8A96B]"
+                      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                        <span className="text-[10px] uppercase tracking-[0.16em] text-white/40">La imagen</span>
+                        <Segmented
+                          ariaLabel="Qué lleva la imagen que se descarga"
+                          value={formaLamina}
+                          options={[
+                            { key: "cabecera", label: "Con cabecera" },
+                            { key: "equipos", label: "Sólo equipos" },
+                            { key: "limpia", label: "Limpia" },
+                          ]}
+                          onChange={setFormaLamina}
                         />
-                        <span className="min-w-0">
-                          Con cabecera <span className="text-white/40">(título de la tarea, sesión y pie). Sin marcar, la imagen lleva sólo los equipos.</span>
+                        <span className="min-w-0 text-[11px] text-white/40">
+                          {formaLamina === "cabecera"
+                            ? "Título de la tarea, sesión y pie."
+                            : formaLamina === "equipos"
+                              ? "Los equipos, con quién no hace la tarea al pie."
+                              : "Sólo el título de la tarea y los campos, con los nombres más grandes."}
                         </span>
-                      </label>
+                      </div>
                       <div className="mt-2 flex items-center justify-between text-[11px] text-white/40">
                         <button type="button" disabled={activa === 0} onClick={() => { irATarea(activa - 1); setElegido(null); }} className="inline-flex items-center gap-1 hover:text-white disabled:opacity-30">
                           <ChevronLeft size={13} /> Anterior
@@ -4632,7 +4856,7 @@ export default function JugadoresSesionPage() {
           style={{ position: "fixed", left: -30000, top: 0, width: LAMINA_W, pointerEvents: "none" }}
         >
           {exportando.laminas.map(({ i, fase: f }) => (
-            <LaminaEquipos key={`${sesion.tareas[i].id}-${f}`} puestoDe={puestoDe} sesion={sesion} tarea={sesion.tareas[i]} fase={f} cabecera={conCabecera} indice={i} total={sesion.tareas.length} detalle={detalleDe(i)} contexto={contexto} />
+            <LaminaEquipos key={`${sesion.tareas[i].id}-${f}`} puestoDe={puestoDe} sesion={sesion} tarea={sesion.tareas[i]} fase={f} cabecera={conCabecera} limpia={limpia} indice={i} total={sesion.tareas.length} detalle={detalleDe(i)} contexto={contexto} />
           ))}
         </div>
       )}
