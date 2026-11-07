@@ -24,8 +24,15 @@ export const BUCKET = "performance";
 export const TOPE_MB = 1024;
 /** A partir de aquí se avisa en Ajustes y en la portada. */
 export const AVISO = 0.8;
-/** A partir de aquí se frenan las subidas grandes. */
+/** A partir de aquí se frenan las subidas grandes (si el freno está encendido). */
 export const FRENO = 0.95;
+/*
+| El freno, APAGADO por decisión del usuario (07/11/2026): los cortes de las
+| pantallas de análisis se quedan aunque el almacén pase del gratis. Se avisa
+| (portada, Ajustes, respuesta de la subida) y se barren los repetidos. Para
+| encenderlo: ALMACEN_FRENO=1 en el entorno del servidor.
+*/
+export const FRENO_ACTIVO = process.env.ALMACEN_FRENO === "1";
 /** Lo que siempre pasa aunque esté lleno (los adjuntos de un correo). */
 const SIEMPRE_PASA_MB = 25;
 export const DOC_OCUPACION = "almacen:ocupacion";
@@ -200,6 +207,8 @@ export async function hayHueco(sb: SupabaseClient, bytes: number): Promise<Hueco
   if (pasaria(ocupacion)) {
     return ocupacion.mb + mb > TOPE_MB * AVISO ? { cabe: true, aviso: `El almacén va por ${estado}: conviene liberar espacio (Ajustes → Almacén).` } : { cabe: true };
   }
+
+  if (!FRENO_ACTIVO) return { cabe: true, aviso: `El almacén pasa del plan gratis (${estado}): conviene liberar espacio (Ajustes → Almacén).` };
 
   if (mb <= SIEMPRE_PASA_MB) return { cabe: true, aviso: `El almacén está lleno (${estado}). Este fichero pasa, pero hay que liberar espacio (Ajustes → Almacén).` };
 

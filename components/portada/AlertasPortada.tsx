@@ -68,14 +68,15 @@ export function AlertasPortada({
     let vivo = true;
 
     void fetch("/api/almacen")
-      .then((r) => r.json() as Promise<{ ok?: boolean; ocupacion?: { mb: number; tope: number }; aviso?: number; freno?: number }>)
+      .then((r) => r.json() as Promise<{ ok?: boolean; ocupacion?: { mb: number; tope: number }; aviso?: number; freno?: number; frenoActivo?: boolean }>)
       .then((r) => {
         const o = r.ocupacion;
 
         if (!vivo || !r.ok || !o || o.mb < o.tope * (r.aviso ?? 0.8)) return;
 
         const parte = Math.round((o.mb / o.tope) * 100);
-        const lleno = o.mb >= o.tope * (r.freno ?? 0.95);
+        const lleno = o.mb >= o.tope * (r.freno ?? 0.95) && Boolean(r.frenoActivo);
+        const pasado = o.mb > o.tope;
 
         setDelAlmacen([
           {
@@ -85,7 +86,9 @@ export function AlertasPortada({
             titulo: lleno ? `Almacén de vídeos lleno: ${parte} % del plan gratis` : `Almacén de vídeos al ${parte} % del plan gratis`,
             detalle: lleno
               ? "No se suben cortes ni vídeos nuevos hasta liberar espacio. Los PDF de los correos siguen pasando."
-              : "Conviene liberar espacio antes de que se frenen las subidas.",
+              : pasado
+                ? "Por encima del plan gratis: se sigue subiendo, pero Supabase puede limitar el proyecto. Libera lo que sobre."
+                : "Conviene liberar espacio antes de pasar del plan gratis.",
             cifra: `${Math.round(o.mb).toLocaleString("es-ES")} de ${o.tope.toLocaleString("es-ES")} MB`,
             valor: `${parte} %`,
             rotulo: "del almacén gratis",

@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { useAdmin } from "@/hooks/useAdmin";
 
 type Ocupacion = { mb: number; tope: number; ficheros: number; carpetas?: { carpeta: string; mb: number; n: number }[]; medido: string };
-type Respuesta = { ok: boolean; ocupacion?: Ocupacion; aviso?: number; freno?: number; liberados?: number; error?: string };
+type Respuesta = { ok: boolean; ocupacion?: Ocupacion; aviso?: number; freno?: number; frenoActivo?: boolean; liberados?: number; error?: string };
 
 const mb = (n: number) => Math.round(n).toLocaleString("es-ES");
 
@@ -106,7 +106,9 @@ export function OcupacionAlmacen() {
           {nivel !== "bien" && (
             <p className="mt-1 text-[12px] leading-relaxed" style={{ color }}>
               {nivel === "lleno"
-                ? "Lleno: los vídeos y ficheros de más de 25 MB no se suben y el ordenador del club no sube cortes nuevos hasta liberar espacio. Los PDF de los correos siguen pasando."
+                ? datos?.frenoActivo
+                  ? "Lleno: los vídeos y ficheros de más de 25 MB no se suben y el ordenador del club no sube cortes nuevos hasta liberar espacio. Los PDF de los correos siguen pasando."
+                  : "Por encima del plan gratis. Todo se sigue subiendo (freno apagado: los cortes de análisis se quedan); Supabase puede avisar o limitar el proyecto. Libera lo que sobre."
                 : "Por encima del 80 %: conviene liberar espacio antes de que se frenen las subidas."}
             </p>
           )}

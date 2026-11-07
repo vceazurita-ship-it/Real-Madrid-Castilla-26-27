@@ -12,7 +12,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { COOKIE_ADMIN, esAdmin } from "@/lib/admin/sesion";
-import { AVISO, FRENO, barreAdjuntos, clienteAlmacen, mideOcupacion, ultimaOcupacion } from "@/lib/almacen/ocupacion";
+import { AVISO, FRENO, FRENO_ACTIVO, barreAdjuntos, clienteAlmacen, mideOcupacion, ultimaOcupacion } from "@/lib/almacen/ocupacion";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     const medir = request.nextUrl.searchParams.get("medir") === "1";
     const ocupacion = medir ? await mideOcupacion(sb, true) : ((await ultimaOcupacion(sb)) ?? (await mideOcupacion(sb)));
 
-    return NextResponse.json({ ok: true, ocupacion, aviso: AVISO, freno: FRENO });
+    return NextResponse.json({ ok: true, ocupacion, aviso: AVISO, freno: FRENO, frenoActivo: FRENO_ACTIVO });
   } catch (error) {
     console.error("[almacen] GET", error);
 
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     const liberados = await barreAdjuntos(sb);
     const ocupacion = await mideOcupacion(sb, true);
 
-    return NextResponse.json({ ok: true, liberados: Math.round(liberados * 10) / 10, ocupacion, aviso: AVISO, freno: FRENO });
+    return NextResponse.json({ ok: true, liberados: Math.round(liberados * 10) / 10, ocupacion, aviso: AVISO, freno: FRENO, frenoActivo: FRENO_ACTIVO });
   } catch (error) {
     console.error("[almacen] barrer", error);
 

@@ -209,8 +209,8 @@ if (ALIGERAR && HACER) {
       fsx.writeFileSync(local, Buffer.from(await data.arrayBuffer()));
     }
 
-    /* Con el freno quitado: se sustituye un fichero por otro más pequeño. */
-    process.env.ALMACEN_SIN_FRENO = "1";
+    /* Sin freno: se sustituye un fichero por otro más pequeño. */
+    delete process.env.ALMACEN_FRENO;
 
     const tam = fsx.statSync(local).size;
     const { error, ligero } = await subeAlmacen(sb, f.ruta, local, { contentType: "video/mp4", upsert: true }, { recomprime: true, soloSiAligera: true });

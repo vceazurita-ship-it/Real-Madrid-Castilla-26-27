@@ -182,7 +182,13 @@ export function MapaDosEjes({
           const r = rotulo.get(p.id);
           return (
             <g key={p.id} className="md-punto" style={{ animationDelay: `${Math.min(i, 60) * 12}ms` }} onMouseEnter={() => setEncima(p.id)} onClick={() => setEncima(p.id)}>
-              {propio && <circle cx={px(p.x)} cy={py(p.y)} r={13} fill="none" stroke={color} strokeWidth={2} className="md-pulso" />}
+              {/* El pulso, animando el radio (07/11/2026): con transform: scale el navegador lo escalaba como imagen y se veía pixelado. */}
+              {propio && (
+                <circle cx={px(p.x)} cy={py(p.y)} r={9} fill="none" stroke={color} strokeWidth={2}>
+                  <animate attributeName="r" values="9;25" dur="2.2s" repeatCount="indefinite" />
+                  <animate attributeName="opacity" values="0.9;0" dur="2.2s" repeatCount="indefinite" />
+                </circle>
+              )}
               <circle cx={px(p.x)} cy={py(p.y)} r={propio ? 7.5 : estrecho ? 5 : 4.2} fill={p.hueco ? "none" : color} fillOpacity={propio ? 1 : r ? 0.85 : 0.35} stroke={propio ? "#fff" : p.hueco ? "currentColor" : "none"} strokeOpacity={p.hueco ? 0.6 : 1} strokeWidth={1.5}>
                 <title>{`${p.nombre}${p.detalle ? ` · ${p.detalle}` : ""} · ${ejeX} ${Math.round(p.x)} · ${ejeY} ${Math.round(p.y)}`}</title>
               </circle>
@@ -224,7 +230,7 @@ export function MapaDosEjes({
       </div>
       {activo && !activo.propio && <p className="text-[12px] text-white/75">{activo.nombre}{activo.detalle ? ` · ${activo.detalle}` : ""} · {Math.round(activo.x)} / {Math.round(activo.y)}</p>}
 
-      <style>{`.md-punto{animation:md-entra .5s ease-out both;cursor:pointer}.md-rotulo{paint-order:stroke;stroke:var(--background);stroke-width:4px;stroke-linejoin:round}@keyframes md-entra{from{opacity:0}to{opacity:1}}.md-pulso{transform-box:fill-box;transform-origin:center;animation:md-pulso 2.2s ease-out infinite}@keyframes md-pulso{0%{opacity:.9;transform:scale(.7)}100%{opacity:0;transform:scale(1.9)}}`}</style>
+      <style>{`.md-punto{animation:md-entra .5s ease-out both;cursor:pointer}.md-rotulo{paint-order:stroke;stroke:var(--background);stroke-width:2.5px;stroke-linejoin:round;text-rendering:geometricPrecision}@keyframes md-entra{from{opacity:0}to{opacity:1}}`}</style>
     </div>
   );
 }

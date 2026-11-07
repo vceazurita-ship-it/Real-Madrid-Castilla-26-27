@@ -15,7 +15,9 @@
 |      informe y ABP, un 40-50 % menos con SSIM 0,99 (no se distingue).
 |   2. Se mide lo que ocupa el bucket (una vez por ejecución, luego se suma lo
 |      subido). Si pasaría del 95 % de 1 GB, NO se sube y se devuelve un error
-|      que el script ya pinta («no sube (…)»). `ALMACEN_SIN_FRENO=1` lo salta.
+|      que el script ya pinta («no sube (…)»). El freno está APAGADO por decisión
+|      del usuario (07/11/2026: los cortes se quedan aunque se pase): sólo avisa.
+|      Se enciende con `ALMACEN_FRENO=1`.
 | La medida se guarda en el documento `almacen:ocupacion` (Ajustes y portada).
 */
 
@@ -38,6 +40,7 @@ try {
 }
 
 let ocupadoMb = null;
+let avisado = false;
 
 async function recorre(sb, prefijo) {
   let mb = 0;
@@ -137,7 +140,14 @@ async function subeAlmacen(sb, ruta, fichero, opciones = {}, { recomprime = /\/c
     ocupadoMb = 0;
   }
 
-  if (ocupadoMb + mb > TOPE_MB * FRENO && process.env.ALMACEN_SIN_FRENO !== "1") {
+  const pasa = ocupadoMb + mb > TOPE_MB * FRENO;
+
+  if (pasa && process.env.ALMACEN_FRENO !== "1" && !avisado) {
+    avisado = true;
+    console.warn(`[almacén] por encima del plan gratis (${Math.round(ocupadoMb)} de ${TOPE_MB} MB): se sube igual (freno apagado)`);
+  }
+
+  if (pasa && process.env.ALMACEN_FRENO === "1") {
     if (usar !== fichero) fs.rmSync(usar, { force: true });
 
     return { data: null, error: { message: `almacén lleno (${Math.round(ocupadoMb)} de ${TOPE_MB} MB): libera espacio con node scripts/limpia-supabase.mjs` } };

@@ -1,4 +1,15 @@
-@import "tailwindcss";
+/*
+| Sin rastreo automático (07/11/2026): Tailwind no lee .git/info/exclude y se
+| metía en las copias de trabajo de los agentes (.claude/worktrees: un
+| repositorio entero con su .next); la compilación se colgaba aquí. Las clases
+| sólo viven en estas carpetas; si se crea otra con componentes, añádela.
+*/
+@import "tailwindcss" source(none);
+@source "../app";
+@source "../components";
+@source "../lib";
+@source "../hooks";
+@source "../context";
 
 /* Las barras de la pizarra solo pueden flotar sobre el césped si hay sitio de
    verdad. La paleta mide unos 400 px de alto, así que no basta con mirar el
