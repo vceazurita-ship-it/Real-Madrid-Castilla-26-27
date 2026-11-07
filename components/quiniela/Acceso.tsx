@@ -73,9 +73,12 @@ export function Acceso({
   sinPista = false,
   botonEntrar = "Entrar",
   compacto = false,
+  abierto = false,
 }: {
   /** Franja baja en vez de panel (29/10/2026, marketing): el formulario no debe tapar el ranking y los partidos. */
   compacto?: boolean;
+  /** Compacto pero con el formulario ya a la vista (07/11/2026): cuando entrar es lo primero que hay que hacer. */
+  abierto?: boolean;
   /** El texto del botón de enviar al entrar: distinto de la pestaña «Entrar» cuando hace falta (no repetirlo). */
   botonEntrar?: string;
   yo: Yo | null;
@@ -191,7 +194,7 @@ export function Acceso({
 
   const nombreCorreo = correo.includes("@") ? correo.split("@")[0] : "";
 
-  if (compacto && !desplegado) {
+  if (compacto && !desplegado && !abierto) {
     return (
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5">
         <p className="flex min-w-0 items-center gap-2 text-[12.5px] text-white/70">

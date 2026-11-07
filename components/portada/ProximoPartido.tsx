@@ -363,9 +363,11 @@ export function ProximoPartido() {
                   {proximo.rival}
                 </h1>
 
+                {/* 07/11/2026 (marketing): en el móvil el día va en su renglón y la hora
+                    con el campo en el siguiente; antes quedaba un «·» huérfano al final. */}
                 <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[14px] text-white/70 sm:text-[15px]">
-                  <span>{diaLargo(proximo.cuando)}</span>
-                  <span className="text-white/30">·</span>
+                  <span className="basis-full sm:basis-auto">{diaLargo(proximo.cuando)}</span>
+                  <span className="hidden text-white/30 sm:inline">·</span>
                   <span className="tabular-nums">{horaCorta(proximo.cuando)}</span>
                   <span className="text-white/30">·</span>
                   <span>
@@ -513,9 +515,16 @@ export function ProximoPartido() {
                 title={`${/^MD-(\d+)$/.test(diaDeHoy.rotulo) ? `${diaDeHoy.rotulo}: ${diaDeHoy.rotulo.slice(3)} ${diaDeHoy.rotulo === "MD-1" ? "día" : "días"} antes del partido. ` : ""}${sesionDeHoy.join(" · ")}`}
                 className="group mt-3 flex w-full max-w-full items-center justify-between gap-2 rounded-xl border border-[#D8B45A]/50 bg-[#D8B45A]/10 px-4 py-2.5 text-left text-[13px] font-semibold text-[#F7D98B] transition hover:-translate-y-0.5 hover:bg-[#D8B45A]/20 sm:inline-flex sm:w-auto"
               >
+                {/* 07/11/2026 (fútbol): en escritorio, todos los contenidos del día (sin
+                    «y 2 más»); en el móvil, el primero y cuántos quedan, en un renglón. */}
                 <span className="min-w-0">
-                  Hoy {diaDeHoy.rotulo} · {sesionDeHoy.slice(0, 2).join(", ")}
-                  {sesionDeHoy.length > 2 && ` y ${sesionDeHoy.length - 2} más`}
+                  <span className="sm:hidden">
+                    Hoy {diaDeHoy.rotulo} · {sesionDeHoy[0]}
+                    {sesionDeHoy.length > 1 && <span className="font-medium opacity-80"> · +{sesionDeHoy.length - 1}</span>}
+                  </span>
+                  <span className="hidden sm:inline">
+                    Hoy {diaDeHoy.rotulo} · {sesionDeHoy.join(" · ")}
+                  </span>
                 </span>
                 <ChevronRight className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
               </button>
@@ -823,12 +832,30 @@ function Racha({ ultimos, cargando, ultimo }: { ultimos: PartidoNuestro[]; carga
               })}
       </span>
       {!cargando && ultimo && ultimo.golesFavor !== null && ultimo.golesContra !== null && (
-        <span className="basis-full whitespace-nowrap text-[12px] text-white/50 sm:basis-auto">
-          El último: <span className="text-white/75">{ultimo.golesFavor}-{ultimo.golesContra} {ultimo.lado === "casa" ? "en casa con" : "en"} {ultimo.rival}</span>
+        /* Con fecha y jornada (07/11/2026, análisis), a 12 px y con contraste normal. */
+        <span className="basis-full text-[12px] text-white/70 sm:basis-auto">
+          El último: <span className="font-semibold text-white/85">{ultimo.golesFavor}-{ultimo.golesContra} {ultimo.lado === "casa" ? "en casa con" : "en"} {ultimo.rival}</span>
+          {(() => {
+            const cuando = [ultimo.jornada ? `jornada ${ultimo.jornada}` : "", diaCorto(ultimo.cuando)].filter(Boolean).join(", ");
+
+            return cuando ? <span className="text-white/65"> · {cuando}</span> : null;
+          })()}
         </span>
       )}
     </Link>
   );
+}
+
+/** «dom 1 nov»: el día del último partido, corto. */
+function diaCorto(cuando: string) {
+  const fecha = new Date(cuando);
+
+  if (Number.isNaN(fecha.getTime())) return "";
+
+  return fecha
+    .toLocaleDateString("es-ES", { timeZone: "Europe/Madrid", weekday: "short", day: "numeric", month: "short" })
+    .replace(/\./g, "")
+    .replace(",", "");
 }
 
 /** Nuestra fila de la tabla, en una línea. Lleva al equipo de un vistazo. */
@@ -869,6 +896,11 @@ function Clasificacion({ informe }: { informe: RespuestaPortada | null }) {
             {fila.ganados}V {fila.empatados}E {fila.perdidos}D
             <span className="mx-2 text-white/30">·</span>
             goles {fila.favor} a favor y {fila.contra} en contra
+          </span>
+          {/* La base (07/11/2026, análisis): «10 partidos» frente a «Jornada 11» parecía
+              una contradicción. Es la tabla tras los jugados, y dice de dónde sale. */}
+          <span className="basis-full text-[12px] text-white/60">
+            Clasificación tras los {fila.ganados + fila.empatados + fila.perdidos} partidos ya jugados, sin contar el que viene · BeSoccer
           </span>
         </span>
       ) : null}

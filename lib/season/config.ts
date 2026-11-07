@@ -19,10 +19,11 @@ export const SEASON_LABEL = "2026 / 2027";
 
 export const AREA_CONFIG: Record<SeasonArea, AreaConfig> = {
   general: {
-    eyebrow: "RMCF CASTILLA · GENERAL",
-    title: "Área General",
+    /* Un solo nombre en la pestaña, el título y el menú (07/11/2026, fútbol). */
+    eyebrow: "RMCF CASTILLA · OPERATIVA",
+    title: "Repositorio semanal",
     description:
-      "Planificación semanal de la temporada. Busca una semana, consulta sus imágenes y documentos, o sube nuevos archivos.",
+      "Material semanal del cuerpo técnico: planificaciones, imágenes y PDF. Abre una semana para verlo o subir lo nuevo.",
     storagePrefix: "2026/general",
     api: {
       load: "/api/general/load",

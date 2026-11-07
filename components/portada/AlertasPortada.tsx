@@ -57,6 +57,8 @@ export function AlertasPortada({
 }) {
   const [deData, setDeData] = useState<Alerta[] | null>(null);
   const [abierto, setAbierto] = useState(false);
+  /* Cuál se ve en el carrusel del móvil (07/11/2026, fútbol): «1 de 4» y puntos. */
+  const [enVista, setEnVista] = useState(0);
 
   /* La hora a la que se abrió la pantalla: ver el efecto de abajo. */
   const [ahora, setAhora] = useState(0);
@@ -225,6 +227,14 @@ export function AlertasPortada({
           </div>
 
           <div
+            onScroll={(e) => {
+              const tira = e.currentTarget;
+              const primera = tira.firstElementChild as HTMLElement | null;
+
+              if (!primera) return;
+
+              setEnVista(Math.min(enLaTira.length - 1, Math.round(tira.scrollLeft / (primera.offsetWidth + 8))));
+            }}
             /* En el móvil, en carrusel (02/11/2026): apiladas, las cuatro ocupaban dos pantallas. */
             className={`-mx-1 mt-4 flex snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-1 sin-barra [&>*]:w-[85%] [&>*]:shrink-0 [&>*]:snap-start sm:mx-0 sm:grid sm:overflow-visible sm:px-0 sm:pb-0 sm:[&>*]:w-auto ${
               enLaTira.length === 4 ? "sm:grid-cols-2 xl:grid-cols-4" : "lg:grid-cols-3"
@@ -280,6 +290,21 @@ export function AlertasPortada({
               </div>
             ))}
           </div>
+
+          {/* Que se vea que se desliza (sólo en el móvil, donde va en carrusel). */}
+          {enLaTira.length > 1 && (
+            <div className="mt-2.5 flex items-center justify-center gap-2 sm:hidden" aria-hidden>
+              {enLaTira.map((alerta, i) => (
+                <span
+                  key={alerta.clave}
+                  className={`h-1.5 rounded-full transition-all ${i === enVista ? "w-4 bg-[#C8A96B]" : "w-1.5 bg-white/25"}`}
+                />
+              ))}
+              <span className="ml-1 text-[11px] tabular-nums text-white/60">
+                {enVista + 1} de {enLaTira.length} · desliza
+              </span>
+            </div>
+          )}
         </div>
       </div>
 

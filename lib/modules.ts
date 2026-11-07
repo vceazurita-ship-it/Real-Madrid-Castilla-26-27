@@ -544,7 +544,7 @@ export const MODULES: AppModule[] = [
   {
     href: "/general",
     area: "OPERATIVA",
-    title: "Repositorio General",
+    title: "Repositorio semanal",
     desc: "Documentación compartida del cuerpo técnico",
     icon: Database,
     rank: 58,

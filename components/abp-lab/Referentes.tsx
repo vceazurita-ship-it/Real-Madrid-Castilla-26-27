@@ -6,7 +6,10 @@
  * cada cosa; una rutina se lleva al taller con un botón.
  */
 
-import { useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { usePlayers } from "@/hooks/usePlayers";
+import { ordenaMarcadores } from "@/lib/abp/marcas-corner";
+import { cargaDatosMarcas } from "@/lib/abp/marcas-datos";
 import { useAbpLigas, useProximoRival } from "@/hooks/useAbpLigas";
 import { METRICA, equipoQueCasa, posicionEn, tablaDe } from "@/lib/abp-ligas/modelo";
 import { mismoClub } from "@/lib/rivals/mismoClub";
@@ -147,15 +150,11 @@ function TareaRutina({ r, plegable = false, porDato = false }: { r: RutinaRefere
 
   return (
     <div className="mt-2 space-y-1 text-[12px] leading-snug text-white/65">
-      {r.defensa && (
+      {/* 07/11/2026 (fútbol): elegida por el dato no se pinta la defensa; sugería que el
+          rival defiende así, y eso no se sabe. Ahí manda el dato de Wyscout de encima. */}
+      {r.defensa && !porDato && (
         <p>
-          {porDato ? (
-            /* 29/10/2026: elegida por el dato, no por su defensa: no se dice que el rival defienda así.
-               30/10/2026: sin «compruébalo en su vídeo», que dejaba la tarea al lector. */
-            <><span className="font-semibold text-white/85">Funciona contra defensa {DEFENSA_TEXTO[r.defensa]}</span></>
-          ) : (
-            <><span className="font-semibold text-white/85">Contra quién funciona:</span> defensa {DEFENSA_TEXTO[r.defensa]}</>
-          )}
+          <span className="font-semibold text-white/85">Contra quién funciona:</span> defensa {DEFENSA_TEXTO[r.defensa]}
         </p>
       )}
       {plegable ? (
@@ -187,6 +186,54 @@ const coma = (v: number) => v.toFixed(1).replace(".", ",");
  * partido, puesto en la liga y mediana) y se propone una rutina de córner de la
  * biblioteca: en corto si lo defienden bien, un bloqueo si les cuesta.
  */
+/*
+| A QUIÉN LIBERA EL BLOQUEO (07/11/2026, fútbol). En la charla de ABP hace
+| falta el nombre. Sale de la misma cuenta que «Quién marca a quién» en
+| /abp-pizarra (lib/abp/marcas-datos.ts): nuestro once (el de la pizarra
+| táctica manda) ordenado por poder aéreo —puesto, altura y duelos aéreos de
+| Wyscout, con el % encogido si hay pocos duelos—. Sin altura ni duelos
+| detrás, no se da nombre.
+*/
+type Rematador = { nombre: string; base: string };
+
+function useNuestroRematador(rival: string): Rematador | null {
+  const { players } = usePlayers();
+
+  const [hallado, setHallado] = useState<{ rival: string; quien: Rematador | null } | null>(null);
+
+  useEffect(() => {
+    if (!rival || !players.length) return;
+
+    let vivo = true;
+
+    void cargaDatosMarcas(rival, players)
+      .catch(() => null)
+      .then((datos) => {
+        if (!vivo) return;
+
+        const mejor = datos ? ordenaMarcadores(datos.plantel.filter((m) => m.titular))[0] : undefined;
+        const base = mejor
+          ? [
+              mejor.altura ? `${(mejor.altura / 100).toFixed(2).replace(".", ",")} m` : "",
+              mejor.aereoPct != null && mejor.duelos
+                ? `${Math.round(mejor.aereoPct)} % de duelos aéreos ganados en ${Math.round(mejor.duelos)}`
+                : "",
+            ]
+              .filter(Boolean)
+              .join(" · ")
+          : "";
+
+        setHallado({ rival, quien: mejor && base ? { nombre: mejor.nombre, base } : null });
+      });
+
+    return () => {
+      vivo = false;
+    };
+  }, [rival, players]);
+
+  return hallado && hallado.rival === rival ? hallado.quien : null;
+}
+
 function EstaSemana({ onAlTaller }: { onAlTaller: (rutina: RutinaReferente, referente: string) => void }) {
   const { rival } = useContextoLab();
 
@@ -195,6 +242,8 @@ function EstaSemana({ onAlTaller }: { onAlTaller: (rutina: RutinaReferente, refe
   const { datos } = useAbpLigas();
 
   const nombre = rival?.equipo || proximo || "";
+
+  const rematador = useNuestroRematador(nombre);
 
   const estructura = rival?.corner ?? null;
 
@@ -280,7 +329,9 @@ function EstaSemana({ onAlTaller }: { onAlTaller: (rutina: RutinaReferente, refe
             ? `Por qué: ${POR_QUE[defensa]}.`
             : duro
               ? "Lo defienden bien: en corto se evita el duelo en el área."
-              : "Les cuesta: un bloqueo deja a nuestro rematador sin marca."}
+              : rematador
+                ? `Les cuesta: un bloqueo libera a ${rematador.nombre}, nuestro mejor rematador por arriba en el once (${rematador.base}; Wyscout).`
+                : "Les cuesta: un bloqueo deja libre al rematador."}
         </p>
       ) : null}
       {x && r && (

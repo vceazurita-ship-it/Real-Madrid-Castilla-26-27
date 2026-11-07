@@ -230,7 +230,7 @@ export function EstadoJornada({
             className="ml-2 inline-flex min-h-[32px] items-center gap-1 text-[12px] text-[#C8A96B] underline-offset-2 transition hover:underline"
           >
             <Smile size={13} aria-hidden />
-            {verCaritas ? "Ocultar las caritas" : "Ver las caritas"}
+            {verCaritas ? "Ocultar quién ha apostado" : "Ver quién ha apostado"}
           </button>
         ) : null}
       </Dato>

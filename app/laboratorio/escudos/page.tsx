@@ -20,7 +20,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Download, RefreshCw, ShieldCheck } from "lucide-react";
+import { Copy, Download, RefreshCw, ShieldCheck } from "lucide-react";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
@@ -35,8 +35,59 @@ import {
   type EscudoLiga,
   type EscudoListo,
 } from "@/lib/laboratorio/escudos-liga";
+import { nombreOficial } from "@/lib/equipos/nombres";
+import { aviso } from "@/lib/avisos";
 
 type Estado = "cargando" | "listo" | "vacio" | "error";
+
+/*
+| COPIAR UN ESCUDO SUELTO (07/11/2026, marketing). La cabecera promete que se
+| copia y se pega; ahora cada tarjeta lo hace sin pasar por el .pptx. Se pinta
+| en un lienzo (mismo origen, por el proxy) y se copia en PNG con su
+| transparencia. El ClipboardItem recibe la promesa para que Safari no pierda
+| el gesto del clic mientras se dibuja.
+*/
+async function pngDelEscudo(url: string): Promise<Blob> {
+  const img = new Image();
+
+  img.crossOrigin = "anonymous";
+  img.src = urlDeEscudo(url);
+  await img.decode();
+
+  const lienzo = document.createElement("canvas");
+
+  lienzo.width = img.naturalWidth || 640;
+  lienzo.height = img.naturalHeight || 640;
+  lienzo.getContext("2d")?.drawImage(img, 0, 0, lienzo.width, lienzo.height);
+
+  return new Promise((listo, falla) =>
+    lienzo.toBlob((blob) => (blob ? listo(blob) : falla(new Error("No se ha podido preparar el PNG."))), "image/png"),
+  );
+}
+
+async function copiaEscudo(url: string, equipo: string) {
+  try {
+    if (typeof ClipboardItem === "undefined" || !navigator.clipboard?.write) throw new Error("sin portapapeles");
+
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": pngDelEscudo(url) })]);
+    aviso.exito(`Escudo de ${equipo} copiado`, "Pégalo donde haga falta: va en PNG transparente.");
+  } catch {
+    /* Sin permiso de portapapeles (o navegador viejo): se descarga el PNG. */
+    try {
+      const blob = await pngDelEscudo(url);
+      const enlace = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+
+      a.href = enlace;
+      a.download = `${equipo}.png`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(enlace), 5_000);
+      aviso.info(`Escudo de ${equipo} descargado`, "Este navegador no deja copiar imágenes: va en PNG transparente.");
+    } catch {
+      aviso.error(`No se ha podido copiar el escudo de ${equipo}`);
+    }
+  }
+}
 
 /*
 | ¿TRAE FONDO? (30/10/2026, expertos). En vez de pedir «revisa que ninguno
@@ -133,7 +184,8 @@ export default function EscudosPage() {
         const lista = sinRepetidos(
           (Array.isArray(datos?.escudos) ? datos.escudos : []).map(
             (uno: { equipo?: string; escudo?: string }) => ({
-              equipo: uno.equipo ?? "",
+              /* El mismo nombre que en la quiniela (07/11/2026): lib/equipos/nombres.ts. */
+              equipo: nombreOficial(uno.equipo ?? ""),
               url: uno.escudo ?? "",
             }),
           ),
@@ -274,6 +326,13 @@ export default function EscudosPage() {
               </button>
             </div>
 
+            {/* La base del documento, bajo el botón (07/11/2026, marketing). */}
+            {estado === "listo" && escudos.length > 0 ? (
+              <p className="mt-2 text-[12px] text-white/60">
+                {escudos.length - faltan.length} escudos · {hojas} {hojas === 1 ? "diapositiva" : "diapositivas"} de hasta 20 · fuente BeSoccer · o copia cada uno suelto desde su tarjeta
+              </p>
+            ) : null}
+
             {/* Una sola caja ámbar con lo que falta o trae fondo. */}
             {estado === "listo" && (faltan.length > 0 || fondos.length > 0) ? (
               <p className="mt-3 rounded-xl border border-amber-400/40 bg-amber-400/[0.08] px-3 py-2 text-sm text-amber-200">
@@ -383,10 +442,22 @@ export default function EscudosPage() {
                                 </div>
                                 <figcaption
                                   style={{ color: "#E4CE9B" }}
-                                  className="text-center text-[11px] font-semibold uppercase tracking-[0.1em]"
+                                  className="text-center text-[11px] font-semibold uppercase tracking-[0.1em] [overflow-wrap:anywhere]"
                                 >
                                   {uno.equipo}
                                 </figcaption>
+                                {imagenes[uno.url] === "listo" ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => void copiaEscudo(uno.url, uno.equipo)}
+                                    title={`Copiar el escudo de ${uno.equipo} en PNG transparente`}
+                                    style={{ color: "#E4CE9B", borderColor: "rgba(228,206,155,0.35)" }}
+                                    className="mt-auto inline-flex min-h-9 items-center gap-1.5 rounded-lg border px-2.5 text-[12px] font-medium transition hover:brightness-125"
+                                  >
+                                    <Copy size={13} aria-hidden />
+                                    Copiar PNG
+                                  </button>
+                                ) : null}
                                 {imagenes[uno.url] === "fallo" || conFondo[uno.url] ? (
                                   <span style={{ color: "#F5B94A" }} className="text-center text-[11px]">
                                     {imagenes[uno.url] === "fallo" ? "No llega el escudo" : "Trae fondo"}

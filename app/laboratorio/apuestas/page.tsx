@@ -147,7 +147,9 @@ export default function ApuestasPage() {
         subtitulo="Entra con tu cuenta de la quiniela"
         /* La franja de una línea: un solo botón de acceso y, con sesión, el nombre (30/10/2026). */
         compacto
-        botonEntrar="Entrar y apostar"
+        /* Sin apuestas, el formulario ya a la vista (07/11/2026, marketing): el primer paso es una acción. */
+        abierto={sinApuestas}
+        botonEntrar="Entrar y lanzar la primera"
       />
     </div>
   );
@@ -179,20 +181,18 @@ export default function ApuestasPage() {
 
             {/* La cifra de contexto arriba, con los chips de la quiniela (30/10/2026). */}
             {estado === "listo" && (
-              <p className="mt-4 flex flex-wrap gap-2 text-[12px]">
-                <span className="rounded-full border border-white/12 bg-white/[0.04] px-2.5 py-1 font-semibold tabular-nums text-white/80">
+              /* Una sola línea de contexto (07/11/2026, marketing): antes eran dos píldoras. */
+              <p className="mt-4 text-[13px] tabular-nums text-white/70">
+                <span className="font-semibold text-white/85">
                   {doc.apuestas.length === 1 ? "1 apuesta" : `${doc.apuestas.length} apuestas`}
                 </span>
                 {vivas.length > 0 && (
-                  <span className="rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-2.5 py-1 font-semibold tabular-nums text-[#E4CE9B]">
+                  <span className="font-semibold text-[#C8A96B]">
+                    {" · "}
                     {vivas.length === 1 ? "1 abierta" : `${vivas.length} abiertas`}
                   </span>
                 )}
-                {estadoQuiniela === "listo" && (
-                  <span className="rounded-full border border-white/12 bg-white/[0.04] px-2.5 py-1 tabular-nums text-white/70">
-                    {juegan} juegan con cuenta en la quiniela
-                  </span>
-                )}
+                {estadoQuiniela === "listo" && ` · ${juegan} con cuenta en la quiniela`}
               </p>
             )}
 
@@ -217,7 +217,7 @@ export default function ApuestasPage() {
             {yo && !lanzando && (
               <div className="mt-4">
                 <Button tone="primary" icon={Megaphone} onClick={() => setLanzando(true)}>
-                  Lanzar apuesta
+                  {sinApuestas ? "Lanzar la primera apuesta" : "Lanzar apuesta"}
                 </Button>
               </div>
             )}
@@ -233,7 +233,8 @@ export default function ApuestasPage() {
                 tres pasos dentro del propio ejemplo: la lista aparte repetía lo
                 mismo. */}
             {sinApuestas && (
-              <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4 max-sm:mr-10">
+              /* Mismo ancho que la tarjeta de entrada (07/11/2026): sin el margen del ⋮, que da la página. */
+              <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4">
                 <p className="text-[15px] font-semibold text-white/85">Así se verá la primera:</p>
                 {/* Ilustrativa y que se note (30/10/2026): borde discontinuo grueso,
                     sello dorado y «inventado» en el veredicto. */}
@@ -251,18 +252,18 @@ export default function ApuestasPage() {
                   <p className="text-[13px] leading-snug text-white/65">
                     Quien la lanza pone el día de comprobación: el último de la vuelta. Hasta el día antes, los demás se ponen a favor o en contra; ese día, cualquiera que haya entrado da el veredicto.
                   </p>
-                  {/* Los dos botones de verdad, desactivados: así se ve dónde se pulsará. */}
+                  {/* Los dos botones de verdad, desactivados y sin cuentas inventadas
+                      (07/11/2026, marketing): un «6 a favor» se leía como dato. */}
                   <div className="flex flex-wrap gap-2">
                     <button type="button" disabled className="inline-flex min-h-[36px] items-center gap-1.5 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-3 text-[13px] font-medium text-emerald-300 disabled:cursor-not-allowed">
-                      <ThumbsUp size={14} /> A favor · 6
+                      <ThumbsUp size={14} /> A favor
                     </button>
                     <button type="button" disabled className="inline-flex min-h-[36px] items-center gap-1.5 rounded-xl border border-rose-400/30 bg-rose-400/10 px-3 text-[13px] font-medium text-rose-300 disabled:cursor-not-allowed">
-                      <ThumbsDown size={14} /> En contra · 4
+                      <ThumbsDown size={14} /> En contra
                     </button>
                   </div>
                   <p className="text-[13px] text-white/65">
-                    <span className="uppercase tracking-[0.14em] text-white/50">Veredicto</span>{" "}
-                    <span className="font-semibold text-emerald-300">Si se cumpliera</span>, acertarían quien la lanzó y los 6 que fueron a favor.
+                    Si se cumple, aciertan quien la lanzó y los que se pusieron a favor; si no, los que fueron en contra.
                   </p>
                 </article>
               </div>
