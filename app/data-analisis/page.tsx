@@ -551,6 +551,10 @@ export default function DataAnalisisPage() {
   */
   const [competicion, setCompeticion] = useState("");
   const [sistema, setSistema] = useState("");
+  /* En el móvil, los filtros secundarios se pliegan (07/11/2026); el que
+     está puesto se queda siempre a la vista. */
+  const [masFiltros, setMasFiltros] = useState(false);
+  const plegable = masFiltros ? "flex" : "flex max-sm:hidden";
 
   /*
   | UN SOLO PARTIDO, cuando se quiere mirar una jornada y no la temporada.
@@ -871,6 +875,23 @@ export default function DataAnalisisPage() {
       valor: valorEnGrupo(met, deLaLiga.filter((p) => p.equipo === equipo), modo),
     }));
   }, [deLaLiga, equiposLiga, metricaTabla, modo]);
+
+  /* La base de «Todos contra todos» (07/11/2026): fuente, equipos y partidos
+     de cada uno, para el pie de los dos gráficos y la lectura del cruce. */
+  const baseLiga = useMemo(() => {
+    const porEquipo = new Map<string, number>();
+    for (const p of deLaLiga) porEquipo.set(p.equipo, (porEquipo.get(p.equipo) ?? 0) + 1);
+    const ns = [...porEquipo.values()];
+    if (!ns.length) return null;
+    const min = Math.min(...ns);
+    const max = Math.max(...ns);
+    return {
+      equipos: ns.length,
+      min,
+      max,
+      partidos: min === max ? `${max} ${max === 1 ? "partido" : "partidos"}` : `${min} a ${max} partidos`,
+    };
+  }, [deLaLiga]);
 
   const puntos = useMemo(() => {
     const mx = METRICA_POR_KEY.get(metricaX);
@@ -1375,7 +1396,7 @@ export default function DataAnalisisPage() {
                 {/* ===================== BARRA ===================== */}
 
                 {/* 02/11/2026: bloques a la izquierda, buscador de áreas a la derecha (debajo hasta 1536 px: a 1366 el sexto bloque salía cortado). */}
-                <div className="mt-4 flex min-w-0 flex-col gap-3 2xl:flex-row 2xl:items-center 2xl:justify-between">
+                <div data-pastillas-areas className="mt-4 flex min-w-0 flex-col gap-3 2xl:flex-row 2xl:items-center 2xl:justify-between">
                   <div className="min-w-0 flex-1">
                     <Pestanas<Bloque>
                       etiqueta="Bloques de Data análisis"
@@ -1499,7 +1520,7 @@ export default function DataAnalisisPage() {
                     ayuda a nadie.
                   */}
                   {!AREAS_SIN_FILTROS_LIGA.includes(area) && competiciones.length > 1 && (
-                    <label className="flex items-center gap-2">
+                    <label className={`${plegable} items-center gap-2`}>
                       <span className="text-[11px] uppercase tracking-[0.16em] text-white/40">
                         Competición
                       </span>
@@ -1581,7 +1602,7 @@ export default function DataAnalisisPage() {
                     elegido va en azul en todos los gráficos.
                   */}
                   {AREAS_CON_EQUIPO.includes(area) && equiposLiga.length > 1 && (
-                    <label className="flex items-center gap-2">
+                    <label className={`${otroEquipo ? "flex" : plegable} items-center gap-2`}>
                       <span
                         className={`text-[11px] uppercase tracking-[0.16em] ${otroEquipo ? "" : "text-white/40"}`}
                         style={otroEquipo ? { color: COMPARADO } : undefined}
@@ -1639,7 +1660,7 @@ export default function DataAnalisisPage() {
                   )}
 
                   {!AREAS_SIN_FILTROS_LIGA.includes(area) && sistemas.length > 1 && (
-                    <label className="flex items-center gap-2">
+                    <label className={`${sistema ? "flex" : plegable} items-center gap-2`}>
                       <span className="text-[11px] uppercase tracking-[0.16em] text-white/40">
                         Sistema
                       </span>
@@ -1663,8 +1684,20 @@ export default function DataAnalisisPage() {
                     </label>
                   )}
 
+                  {/* 07/11/2026: en el móvil, temporada y partido a la vista; lo demás tras «Más filtros». */}
+                  {!AREAS_SIN_FILTROS_LIGA.includes(area) && (
+                    <button
+                      type="button"
+                      onClick={() => setMasFiltros((v) => !v)}
+                      aria-expanded={masFiltros}
+                      className="rounded-xl border border-white/10 px-3 py-2 text-xs text-white/70 sm:hidden"
+                    >
+                      {masFiltros ? "Menos filtros" : "Más filtros"}
+                    </button>
+                  )}
+
                   {!AREAS_SIN_FILTROS_LIGA.includes(area) && area !== "equipo" && (
-                    <div className="flex flex-wrap items-center rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
+                    <div className={`${modo === "promedio" ? plegable : "flex"} flex-wrap items-center rounded-xl border border-white/10 bg-white/[0.03] p-0.5`}>
                       {[
                         { valor: "promedio" as ModoValor, rotulo: "Por partido" },
                         { valor: "total" as ModoValor, rotulo: "Total" },
@@ -2269,6 +2302,15 @@ export default function DataAnalisisPage() {
                                 </span>
                               )}
                             </p>
+
+                            {/* Fuente, base y aviso de muestra, al pie (07/11/2026). */}
+                            {baseLiga && (
+                              <p className="mt-2 text-[11px] leading-relaxed text-white/45">
+                                Wyscout · {baseLiga.equipos} equipos · {baseLiga.partidos} cada uno · {modo === "total" ? "total de la temporada" : "media por partido"} · {metTabla.mejorAlto === null ? "ni más ni menos es mejor: describe el estilo" : metTabla.mejorAlto ? "más es mejor" : "menos es mejor"}.
+                                {baseLiga.max < 15 && " Con tan pocas jornadas, entre dos equipos cercanos en la lista puede no haber diferencia real: fíjate en el tramo (arriba, en la media o abajo), no en el puesto exacto."}
+                                {modo === "total" && baseLiga.min !== baseLiga.max && " En total, quien lleva más partidos suma más: para comparar, mejor por partido."}
+                              </p>
+                            )}
                           </>
                         )}
                       </Panel>
@@ -2289,6 +2331,7 @@ export default function DataAnalisisPage() {
                       onCambiaX={cambiaX}
                       onCambiaY={cambiaY}
                       nota={`${equiposLiga.length} equipos de ${laQueMando}. El Castilla va en oro${otroEquipo ? ` y ${otroEquipo}, en azul` : ""}.`}
+                      base={baseLiga ? `Wyscout · ${baseLiga.equipos} equipos · ${baseLiga.partidos} cada uno · ${modo === "total" ? "total" : "por partido"}` : undefined}
                     />
                   </>
                 )}
@@ -3035,7 +3078,10 @@ function ParDeMetricas({
   nota,
   rotulaTodos = false,
   comparado,
+  base,
 }: {
+  /** Fuente y muestra, al pie del dibujo y en la lectura (07/11/2026). */
+  base?: string;
   titulo: string;
   subtitulo: string;
   puntos: { equipo: string; x: number; y: number }[];
@@ -3059,7 +3105,7 @@ function ParDeMetricas({
   const metY = METRICA_POR_KEY.get(metricaY);
 
   return (
-    <div className="mt-5 grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
+    <div data-dos-metricas className="mt-5 grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
       <Panel
         title="Pregúntaselo"
         subtitle="Por momento del juego. Al elegir una, se rellenan los dos ejes de al lado."
@@ -3109,9 +3155,11 @@ function ParDeMetricas({
               medianasDe={rotulaTodos ? "de nuestras temporadas" : "de la liga"}
             />
 
+            {base && <p className="mt-1 text-[11px] text-white/45">{base}.</p>}
+
             {metX && metY && (
               <Lectura>
-                {lecturaDeDispersion(puntos, destacado, metX, metY)}
+                {lecturaDeDispersion(puntos, destacado, metX, metY, base)}
               </Lectura>
             )}
           </>

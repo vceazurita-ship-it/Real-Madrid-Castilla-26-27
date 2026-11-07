@@ -277,17 +277,20 @@ export default function ScoutRivalIndividual() {
 
             {/* El título dice a quién se mira (30/10/2026). */}
             <h1 className="mt-2 text-3xl font-bold sm:text-4xl">
-              {vista === "visionados" ? "Visionados de clips" : equipo ? `Vídeos · ${equipo}` : "Vídeos del rival"}
+              {/* Visionados: el título no repite la pestaña (07/11/2026). */}
+              {vista !== "visionados" && equipo ? `Vídeos · ${equipo}` : "Vídeos del rival"}
             </h1>
 
-            <Explicativo>
+            {vista !== "visionados" && <Explicativo>
             <p className="mt-3 max-w-2xl text-white/60">
               Los cortes que montamos en el coding, repartidos por jugador. Cada
               rival tiene su lista en nuestro canal y aquí se ve sin salir de la
               plataforma.
             </p>
-            </Explicativo>
-            <p className="mt-3 max-w-2xl text-white/60">Los cortes de cada rival, jugador a jugador.</p>
+            </Explicativo>}
+            <p className="mt-3 max-w-2xl text-white/60">
+              {vista === "visionados" ? "Cuántas veces se ven los clips: en YouTube, donde los ven los jugadores, y en la app." : "Los cortes de cada rival, jugador a jugador."}
+            </p>
           </header>
 
           <div className="mt-5">

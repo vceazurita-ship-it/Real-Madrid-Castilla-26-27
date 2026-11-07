@@ -438,7 +438,11 @@ function BarrasEquiposBase({
                 className="block h-3 rounded-[3px]"
                 style={{
                   width: `${Math.max(2, (Math.abs(fila.valor) / tope) * 100)}%`,
-                  background: esNuestro ? ORO : esOtro ? COMPARADO : deFondo,
+                  /* El Castilla en el oro de la marca también en modo día
+                     (el oro de texto es marrón y se confundía con las demás);
+                     el canto oscuro lo separa del blanco (07/11/2026). */
+                  background: esNuestro ? "#C8A96B" : esOtro ? COMPARADO : deFondo,
+                  boxShadow: esNuestro ? `inset 0 0 0 1px ${ORO}` : undefined,
                 }}
               />
             </span>
@@ -544,6 +548,16 @@ function DispersionBase({
 
   const medX = [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)] ?? 0;
   const medY = [...ys].sort((a, b) => a - b)[Math.floor(ys.length / 2)] ?? 0;
+
+  /* Los extremos de cada eje también llevan nombre (07/11/2026): sin pasar el
+     ratón se sabe quién marca el techo y el suelo de la liga. */
+  const extremos = new Set<string>();
+  if (puntos.length > 3) {
+    const por = (f: (p: Punto) => number) => [...puntos].sort((a, b) => f(a) - f(b));
+    const ox = por((p) => p.x);
+    const oy = por((p) => p.y);
+    for (const p of [ox[0], ox[ox.length - 1], oy[0], oy[oy.length - 1]]) if (p) extremos.add(p.equipo);
+  }
 
   return (
     <div className="min-w-0">
@@ -722,12 +736,12 @@ function DispersionBase({
                   style={{ cursor: alPulsar ? "pointer" : "default" }}
                 />
 
-                {(esNuestro || esOtro || rotulaTodos) && (
+                {(esNuestro || esOtro || rotulaTodos || extremos.has(punto.equipo)) && (
                   <text
                     x={cx}
                     y={cy - lado / 2 - 5}
-                    textAnchor="middle"
-                    fontSize={11}
+                    textAnchor={cx < M.izquierda + 50 ? "start" : cx > W - M.derecha - 50 ? "end" : "middle"}
+                    fontSize={esNuestro || esOtro ? 11 : 10}
                     fontWeight={esNuestro || esOtro ? 700 : 500}
                     fill={esNuestro ? tinta(0.9) : esOtro ? COMPARADO : tinta(0.55)}
                   >

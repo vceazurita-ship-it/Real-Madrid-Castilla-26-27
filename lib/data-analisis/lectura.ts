@@ -374,6 +374,8 @@ export function lecturaDeDispersion(
   nosotros: string,
   metX: Metrica,
   metY: Metrica,
+  /** «Wyscout · 20 equipos · 10 partidos cada uno · por partido». */
+  base?: string,
 ) {
   if (puntos.length < 4) return null;
 
@@ -396,10 +398,14 @@ export function lecturaDeDispersion(
 
   const r = sx > 0 && sy > 0 ? cov / (sx * sy) : 0;
 
-  const relacion =
-    Math.abs(r) < 0.25
-      ? "En esta liga las dos cosas van por libre: una no explica la otra."
-      : `En esta liga las dos van ${r > 0 ? "de la mano" : "en sentido contrario"} (r = ${r.toFixed(2).replace(".", ",").replace("-", "−")}, con ${n} equipos): ${Math.abs(r) < 0.5 ? "una tendencia débil, no una regla" : `subir una suele ${r > 0 ? "acompañar a" : "costar"} la otra`}.`;
+  /* 07/11/2026 (jueces): la base entre paréntesis y, por debajo de |r| = 0,3,
+     ni relación ni lectura de cuadrante: sólo dónde queda el Castilla. */
+  const muestra = base ? base.replace(/^Wyscout · /, "") : `${n} equipos`;
+  const rTexto = r.toFixed(2).replace(".", ",").replace("-", "−");
+  const debil = Math.abs(r) < 0.3;
+  const relacion = debil
+    ? `En esta liga las dos cosas van por libre (r = ${rTexto}; ${muestra}): una no explica la otra, así que el cuadrante dice dónde está cada uno, no por qué.`
+    : `En esta liga las dos van ${r > 0 ? "de la mano" : "en sentido contrario"} (r = ${rTexto}; ${muestra}): ${Math.abs(r) < 0.5 ? "una tendencia débil, no una regla" : `subir una suele ${r > 0 ? "acompañar a" : "costar"} la otra`}.`;
 
   if (!nuestro) return relacion;
 

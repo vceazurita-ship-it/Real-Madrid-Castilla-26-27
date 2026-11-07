@@ -19,7 +19,7 @@
  * sigue abriendo donde prometía.
  */
 
-import { useMemo, useRef, useState, type ComponentType } from "react";
+import { useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import Link from "next/link";
 import { ArrowRight, Search } from "lucide-react";
 
@@ -292,9 +292,20 @@ export function SelectorArea({
 }) {
   const porClave = new Map(areas.map((a) => [a.key, a]));
 
+  /* 07/11/2026 (jueces, dos rondas): con las pastillas a la vista repetía lo
+     mismo justo debajo; ahora sólo sale cuando ya no se ven. */
+  const [pastillasVisibles, setPastillasVisibles] = useState(true);
+  useEffect(() => {
+    const el = document.querySelector("[data-pastillas-areas]");
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(([e]) => setPastillasVisibles(e.isIntersecting), { rootMargin: "-120px 0px 0px 0px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
   return (
     /* En el móvil sobraba: repetía las pastillas y se cortaba (05/11/2026). */
-    <label className="hidden shrink-0 items-center md:flex">
+    <label className={`hidden shrink-0 items-center ${pastillasVisibles ? "" : "md:flex"}`}>
       <span className="sr-only">Cambiar de área</span>
       <select
         value={valor}

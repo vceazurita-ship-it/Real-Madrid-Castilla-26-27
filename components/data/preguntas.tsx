@@ -114,7 +114,7 @@ export function BateriaDePreguntas({
       {/* El par que está puesto, venga de donde venga. */}
       <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2.5">
         <p className="text-[10px] uppercase tracking-[0.16em] text-white/40">
-          {elegida ? "La contesta este cruce" : "Cruce puesto a mano"}
+          {elegida ? "La contesta este cruce" : "Ejes elegidos a mano"}
         </p>
 
         <p className="mt-1.5 text-[12px] leading-relaxed text-white/60">
@@ -132,9 +132,26 @@ export function BateriaDePreguntas({
         </p>
 
         <p className="mt-2 border-t border-white/[0.06] pt-2 text-[11.5px] leading-relaxed text-white/45">
-          {elegida
-            ? elegida.comoSeLee
-            : "Elige una pregunta o cambia los dos selectores del gráfico: los dos caminos llevan al mismo dibujo."}
+          {elegida ? (
+            elegida.comoSeLee
+          ) : (
+            /* 07/11/2026: antes era texto sin acción; ahora lleva a los selectores. */
+            <>
+              Elige una pregunta de arriba o{" "}
+              <button
+                type="button"
+                onClick={(e) => {
+                  const sel = e.currentTarget.closest("[data-dos-metricas]")?.querySelector<HTMLSelectElement>('select[aria-label="Eje X"]');
+                  sel?.scrollIntoView({ behavior: "smooth", block: "center" });
+                  sel?.focus();
+                }}
+                className="font-semibold text-[#C8A96B] underline underline-offset-2"
+              >
+                cambia los ejes del gráfico
+              </button>
+              .
+            </>
+          )}
         </p>
       </div>
     </div>

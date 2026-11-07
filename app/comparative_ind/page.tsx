@@ -106,6 +106,9 @@ const textoRanking = (r: { posicion: number; de: number; empatados: number }) =>
 /** Por debajo, el índice se marca con asterisco: muestra corta. */
 const MUESTRA_CORTA = 300;
 
+/** Entre −3 y +3 puntos de índice frente a 25/26 se lee «estable» (07/11/2026). */
+const ESTABLE = 3;
+
 const apellido = (nombre: string) => nombre.split(" ").slice(-1)[0];
 
 const formatea = (v: number) => (Math.abs(v) >= 10 ? v.toFixed(0) : v.toFixed(2).replace(/\.?0+$/, ""));
@@ -254,6 +257,15 @@ export default function ComparativaCategoria() {
     return m;
   }, [seguimientos, players]);
 
+  /* Desde cuándo cuenta la columna de seguimientos: el registro más antiguo. */
+  const desdeSeguimientos = useMemo(() => {
+    const fechas = alineaSeguimiento(seguimientos, players)
+      .map((s) => String(s.FECHA ?? "").slice(0, 10))
+      .filter((f) => /^\d{4}-\d{2}-\d{2}$/.test(f))
+      .sort();
+    return fechas[0] ? fechas[0].split("-").reverse().join("/") : "";
+  }, [seguimientos, players]);
+
   /* Todo lo nuestro de cada fila, resuelto una vez: la tabla ordena por ello. */
   const conFicha = useMemo(
     () =>
@@ -316,7 +328,7 @@ export default function ComparativaCategoria() {
       frases.push({ titulo: "Los mejores de su puesto", texto: `${primeros.map(nombre).join(", ")}: primeros de su puesto en la referencia elegida.`, tono: "bien" });
 
     const baja = propios
-      .filter((x) => x.f.evolucion?.fiable && x.f.evolucion.salto < -2)
+      .filter((x) => x.f.evolucion?.fiable && x.f.evolucion.salto < -ESTABLE)
       .sort((a, b) => (a.f.evolucion?.salto ?? 0) - (b.f.evolucion?.salto ?? 0))[0];
     if (baja?.f.evolucion)
       frases.push({ titulo: `Baja respecto a 25/26: ${nombre(baja)}`, texto: `${baja.f.evolucion.salto} puntos de índice frente a la temporada pasada. Revisar con él qué ha cambiado: puesto, minutos o rol.`, tono: "mal" });
@@ -326,18 +338,21 @@ export default function ComparativaCategoria() {
       /* Con menos de ${MUESTRA_CORTA}′ en Wyscout no se saca lectura: sería tendencia. */
       (x) => x.f.jugador.minutos >= MUESTRA_CORTA && x.nota && x.nota.played >= 3 && ((x.nota.avg >= 7 && (x.f.indice ?? 0) < 50) || (x.nota.avg < 6 && (x.f.indice ?? 0) >= 60)),
     );
+    /* 07/11/2026 (jueces): el «qué hacemos» sale de la métrica del índice que
+       más se separa de la nota, no una frase común para todos. */
     for (const d of desajustes.slice(0, 3)) {
       if (!d.nota) continue;
       const notaAlta = d.nota.avg >= 7;
-      frases.push({ titulo: `Nota y números no coinciden: ${nombre(d)}`, tono: "ojo", texto:
-        `${d.nota.avg.toFixed(1).replace(".", ",")} de nota de partido y ${d.f.indice} de índice${
-          d.f.ranking ? ` (${textoRanking(d.f.ranking)})` : ""
-        }; ${
-          notaAlta
-            ? "nuestra nota le ve mejor que sus números en Wyscout: revisar en vídeo qué valoramos que esas métricas no recogen."
-            : "sus números le ven mejor que nuestra nota: revisar qué le pedimos que no está haciendo."
-        }`,
-      });
+      const porPercentil = [...d.f.percentiles].sort((a, b) => a.percentil - b.percentil);
+      const peor = porPercentil[0];
+      const mejor = porPercentil[porPercentil.length - 1];
+      const puesto = PUESTOS.find((p) => p.key === d.f.puesto)?.label.toLowerCase() ?? "su puesto";
+      const p = (x: { percentil: number }) => `p${Math.round(x.percentil)}`;
+      const base = `${d.nota.avg.toFixed(1).replace(".", ",")} de nota (${d.nota.played} partidos) y ${d.f.indice} de índice${d.f.ranking ? ` (${textoRanking(d.f.ranking)})` : ""}`;
+      const texto = notaAlta
+        ? `${base}. Le baja el índice ${peor ? `${peor.metrica.nombre.toLowerCase()} (${p(peor)} entre los ${puesto})` : "su perfil en Wyscout"}. Qué hacemos: ver con él 3 acciones de ${peor ? peor.metrica.nombre.toLowerCase() : "esa fase"} y decidir si es carencia (meta para la semana) o el rol que le damos (se apunta en su seguimiento).`
+        : `${base}. Su índice se sostiene en ${mejor ? `${mejor.metrica.nombre.toLowerCase()} (${p(mejor)} entre los ${puesto})` : "sus números de Wyscout"}. Qué hacemos: contrastar en vídeo si eso es lo que le pedimos en su puesto; si no, fijar con él una acción sobre ${peor && peor !== mejor ? `${peor.metrica.nombre.toLowerCase()} (${p(peor)}), su punto más bajo` : "lo que le pedimos"}.`;
+      frases.push({ titulo: `Nota y números no coinciden: ${nombre(d)}`, tono: "ojo", texto });
     }
 
     return frases;
@@ -377,7 +392,7 @@ export default function ComparativaCategoria() {
       comparados: conIndice.length,
       top3: filas.filter((f) => f.ranking && f.ranking.posicion <= 3).length,
       media: conIndice.length ? Math.round(conIndice.reduce((s, f) => s + (f.indice ?? 0), 0) / conIndice.length) : null,
-      mejoran: filas.filter((f) => f.evolucion?.fiable && f.evolucion.salto > 0).length,
+      mejoran: filas.filter((f) => f.evolucion?.fiable && f.evolucion.salto > ESTABLE).length,
       /* Contra cuántos jugadores de su puesto se compara cada uno. */
       grupoMin: Math.min(...filas.map((f) => f.ranking?.de ?? Infinity)),
       grupoMax: Math.max(...filas.map((f) => f.ranking?.de ?? 0)),
@@ -496,7 +511,7 @@ export default function ComparativaCategoria() {
                         { t: "Jugadores comparados", v: kpis.comparados, h: "con índice esta temporada" },
                         { t: "Top 3 de su puesto", v: kpis.top3, h: "en el ranking de su puesto" },
                         ...(kpis.media !== null ? [{ t: "Índice medio", v: kpis.media, h: "de los nuestros comparados" }] : []),
-                        { t: "Mejoran respecto a 25/26", v: kpis.mejoran, h: "con muestra suficiente el año pasado" },
+                        { t: "Mejoran respecto a 25/26", v: kpis.mejoran, h: `más de ${ESTABLE} pts, con muestra el año pasado` },
                       ].map((k) => (
                         <div key={k.t} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                           <p className="text-xs text-white/50">{k.t}</p>
@@ -514,9 +529,6 @@ export default function ComparativaCategoria() {
                             <p className="mt-1 text-[13px] leading-relaxed text-white/75">{l.texto}</p>
                           </div>
                         ))}
-                        {lectura.some((l) => l.tono === "ojo") && (
-                          <p className="text-[12px] text-white/60 md:col-span-3">Cuando nota y números no coinciden: comentarlo en la próxima sesión de vídeo individual y fijar con el jugador una acción medible para la semana.</p>
-                        )}
                       </div>
                     )}
 
@@ -530,15 +542,16 @@ export default function ComparativaCategoria() {
                                 ["nombre", "Jugador", "sticky left-0 z-[1] bg-[#0F141B] px-4"],
                                 ["edad", "Edad", "hidden sm:table-cell px-2"],
                                 [null, "Puesto", "hidden sm:table-cell px-2"],
-                                ["minutos", "Min. liga", "hidden sm:table-cell px-2 text-right"],
-                                ["nota", "Nota", "hidden sm:table-cell px-2 text-right"],
-                                ["indice", `Índice (${ref === "todos" ? "categoría" : ref === "u21" ? "sub-21" : "sub-23"}) · más es mejor`, "px-3 sm:w-44"],
-                                ["ranking", "Ranking en su puesto", "px-2"],
-                                ["evolucion", "Evolución (pts vs 25/26)", "hidden sm:table-cell px-2"],
-                                ["seguimientos", "Seguimientos", "hidden sm:table-cell px-2 text-right"],
-                              ] as [Orden | null, string, string][]
-                            ).map(([clave, texto, clase]) => (
-                              <th key={texto} className={`py-3 font-medium ${clase}`}>
+                                ["minutos", "Min. liga", "hidden sm:table-cell px-2 text-right", "Minutos en la liga según Wyscout"],
+                                ["nota", "Nota", "hidden sm:table-cell px-2 text-right", "Nota media de partido en Valoraciones · nº de partidos con nota"],
+                                /* 07/11/2026: rótulo corto (en el móvil ocupaba cuatro líneas); «más es mejor» va en la línea de arriba y en el globo. */
+                                ["indice", `Índice ${ref === "todos" ? "categoría" : ref === "u21" ? "sub-21" : "sub-23"}`, "px-3 sm:w-44", "De 0 a 100; 50 = la media de su puesto en el grupo elegido. Más es mejor."],
+                                ["ranking", "Ranking", "px-2", "Puesto entre los de su posición del grupo. «2º-3º de 34» = empatado en índice con otro."],
+                                ["evolucion", "Evolución (pts)", "hidden sm:table-cell px-2", `Puntos de índice frente a 25/26; entre −${ESTABLE} y +${ESTABLE}, estable. «Nuevo»: sin minutos en la categoría el año pasado.`],
+                                ["seguimientos", "Nº seguim.", "hidden sm:table-cell px-2 text-right", `Registros de Calendario Seguimiento de cada jugador${desdeSeguimientos ? `, desde el ${desdeSeguimientos}` : ""}.`],
+                              ] as [Orden | null, string, string, string?][]
+                            ).map(([clave, texto, clase, ayuda]) => (
+                              <th key={texto} className={`py-3 font-medium ${clase}`} title={ayuda}>
                                 {clave ? (
                                   <button
                                     type="button"
@@ -584,8 +597,8 @@ export default function ComparativaCategoria() {
                                         PUESTOS.find((p) => p.key === f.puesto)?.corto,
                                         `${f.jugador.minutos}′`,
                                         nota && nota.played ? `nota ${nota.avg.toFixed(1).replace(".", ",")}` : null,
-                                        f.evolucion ? `${f.evolucion.salto > 0 ? "+" : ""}${f.evolucion.salto} vs 25/26` : null,
-                                        seg?.n ? `${seg.n} seg.` : null,
+                                        f.evolucion ? (Math.abs(f.evolucion.salto) <= ESTABLE ? "estable vs 25/26" : `${f.evolucion.salto > 0 ? "+" : ""}${f.evolucion.salto} pts vs 25/26`) : "nuevo",
+                                        seg?.n ? `${seg.n} seguim.` : null,
                                       ]
                                         .filter(Boolean)
                                         .join(" · ")}
@@ -599,11 +612,13 @@ export default function ComparativaCategoria() {
                               <td className="hidden sm:table-cell px-2 text-right tabular-nums text-white/70" title={nota && nota.played ? `Nota media de ${nota.played} partidos con nota (Valoraciones)` : undefined}>{nota && nota.played ? <>{nota.avg.toFixed(1).replace(".", ",")}<span className="ml-1 text-[11px] text-white/45">· {nota.played} p.{nota.played < 3 ? " · tendencia" : ""}</span></> : ""}</td>
                               <td className="px-3">
                                 <div className="flex items-center gap-2">
-                                  <span className="w-7 text-right text-xs font-semibold tabular-nums" style={{ color: colorIndice(f.indice) }}>
-                                    {f.indice ?? "—"}
+                                  {/* Muestra corta: en gris, que no se lea como fortaleza o carencia (07/11/2026). */}
+                                  <span className="w-7 text-right text-xs font-semibold tabular-nums" style={{ color: f.jugador.minutos < MUESTRA_CORTA ? tinta(0.55) : colorIndice(f.indice) }}>
+                                    {f.indice}
                                   </span>
-                                  <Barra valor={f.indice ?? 0} color={colorIndice(f.indice)} />
+                                  <Barra valor={f.indice ?? 0} color={f.jugador.minutos < MUESTRA_CORTA ? tinta(0.3) : colorIndice(f.indice)} />
                                 </div>
+                                {f.jugador.minutos < MUESTRA_CORTA && <span className="block text-[10px] not-italic text-white/45">tendencia · {f.jugador.minutos}′</span>}
                               </td>
                               <td
                                 className="px-2 text-xs text-white/70"
@@ -616,18 +631,21 @@ export default function ComparativaCategoria() {
                                 {f.evolucion ? (
                                   <span
                                     className={`inline-flex items-center gap-0.5 ${f.evolucion.fiable ? "" : "opacity-45"}`}
-                                    style={{ color: f.evolucion.salto > 2 ? MEJOR : f.evolucion.salto < -2 ? PEOR : tinta(0.6) }}
-                                    title={f.evolucion.fiable ? "Salto medio de percentil frente a su categoría del año pasado" : "El año pasado jugó menos de 450′: poca muestra"}
+                                    style={{ color: f.evolucion.salto > ESTABLE ? MEJOR : f.evolucion.salto < -ESTABLE ? PEOR : tinta(0.6) }}
+                                    title={f.evolucion.fiable ? `${f.evolucion.salto > 0 ? "+" : ""}${f.evolucion.salto} puntos de índice frente a su categoría del año pasado` : "El año pasado jugó menos de 450′: poca muestra"}
                                   >
-                                    {f.evolucion.salto > 2 ? <ArrowUpRight size={13} /> : f.evolucion.salto < -2 ? <ArrowDownRight size={13} /> : <Minus size={13} />}
-                                    {f.evolucion.salto > 0 ? "+" : ""}
-                                    {f.evolucion.salto}
+                                    {f.evolucion.salto > ESTABLE ? <ArrowUpRight size={13} /> : f.evolucion.salto < -ESTABLE ? <ArrowDownRight size={13} /> : <Minus size={13} />}
+                                    {Math.abs(f.evolucion.salto) <= ESTABLE ? (
+                                      <>estable<span className="ml-1 text-[10px] opacity-70">({f.evolucion.salto > 0 ? "+" : ""}{f.evolucion.salto})</span></>
+                                    ) : (
+                                      <>{f.evolucion.salto > 0 ? "+" : ""}{f.evolucion.salto} pts</>
+                                    )}
                                   </span>
                                 ) : (
-                                  <span className="text-white/30">nuevo</span>
+                                  <span className="text-white/45" title="Sin minutos en la categoría en 25/26">nuevo</span>
                                 )}
                               </td>
-                              <td className="hidden sm:table-cell px-2 text-right tabular-nums text-white/60">{seg?.n ?? 0}</td>
+                              <td className="hidden sm:table-cell px-2 text-right tabular-nums text-white/60">{seg?.n ? seg.n : ""}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -636,9 +654,16 @@ export default function ComparativaCategoria() {
 
                     {cortos && (
                       <p className="mt-3 text-xs text-white/50">
-                        <span className="text-[#C8A96B]">*</span> Menos de {MUESTRA_CORTA}′: muestra corta, el índice puede moverse mucho. El índice compara con su puesto en la categoría; la nota, sólo nuestras valoraciones.
+                        <span className="text-[#C8A96B]">*</span> Menos de {MUESTRA_CORTA}′: muestra corta, el índice va en gris porque puede moverse mucho (tendencia). El índice compara con su puesto en la categoría; la nota, sólo nuestras valoraciones.
                       </p>
                     )}
+
+                    {/* 07/11/2026: qué cuentan Evolución y Nº de seguimientos, junto a la tabla. */}
+                    <p className="mt-3 text-xs text-white/50">
+                      <b className="font-medium text-white/65">Evolución</b>: puntos de índice frente a su categoría en 25/26; entre −{ESTABLE} y +{ESTABLE} se lee estable; «nuevo», sin minutos en la categoría el año pasado.{" "}
+                      <b className="font-medium text-white/65">Nº de seguimientos</b>: registros de Calendario Seguimiento de cada jugador{desdeSeguimientos ? `, desde el ${desdeSeguimientos}` : ""}.{" "}
+                      <b className="font-medium text-white/65">Ranking</b>: «2º-3º de 34» es un empate en índice con otro jugador del puesto.
+                    </p>
 
                     {pocosMinutos.length > 0 && (
                       <p className="mt-3 text-xs text-white/55">

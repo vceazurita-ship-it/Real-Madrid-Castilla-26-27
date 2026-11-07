@@ -48,6 +48,15 @@ const apellido = (n: string) => {
 
 const COLOR_RES = { G: MEJOR, E: "#C8A96B", P: PEOR } as const;
 
+/** Dos medias por partido con menos de un 10 % (o de 1) de diferencia: parecidos. */
+const parecidos = (a: number, b: number) => Math.abs(a - b) < Math.max(1, 0.1 * Math.max(Math.abs(a), Math.abs(b)));
+
+/** El «mejor índice» exige los mismos minutos que la ficha individual. */
+const MINUTOS_INDICE = 450;
+
+/** Qué es el índice, dicho en la cabecera de la tabla y en la tarjeta. */
+const QUE_ES_INDICE = "Índice: percentil medio en las métricas de su puesto (0-100; 50 = un jugador medio de su puesto en la categoría).";
+
 /** Líneas del campo: blancas en los dos temas (el césped no cambia con el modo día). */
 const LINEA = "rgba(255,255,255,.3)";
 
@@ -225,7 +234,9 @@ export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadore
   const perfil = useMemo(() => perfilDe(equipo, liga), [equipo, liga]);
   const plantilla = useMemo(() => plantillaDe(equipo, jugadores), [equipo, jugadores]);
   const once = useMemo(() => onceTipoDe(plantilla), [plantilla]);
-  const frases = useMemo(() => sintesisDe(equipo, resumen, perfil, plantilla), [equipo, resumen, perfil, plantilla]);
+  /* 07/11/2026: «el que más rinde» con 450′, el mismo mínimo que la ficha individual. */
+  const frases = useMemo(() => sintesisDe(equipo, resumen, perfil, plantilla, MINUTOS_INDICE), [equipo, resumen, perfil, plantilla]);
+  const [escudoRoto, setEscudoRoto] = useState("");
 
   const escudo = escudoDe(equipo);
   const lideres = useMemo(() => {
@@ -236,9 +247,9 @@ export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadore
       { t: "Asistencias", j: max((j) => j.asistencias), v: (j: JugadorEquipo) => String(j.asistencias) },
       { t: "Minutos", j: max((j) => j.fila.minutos), v: (j: JugadorEquipo) => `${j.fila.minutos}′` },
       {
-        t: "Mejor índice",
-        j: [...conMinutos].sort((a, b) => (b.indice ?? 0) - (a.indice ?? 0))[0],
-        v: (j: JugadorEquipo) => String(j.indice ?? "—"),
+        t: `Mejor índice (${MINUTOS_INDICE}′ o más)`,
+        j: [...conMinutos].filter((j) => j.indice !== null && j.fila.minutos >= MINUTOS_INDICE).sort((a, b) => (b.indice ?? 0) - (a.indice ?? 0))[0],
+        v: (j: JugadorEquipo) => `${j.indice} · ${j.fila.minutos}′`,
       },
     ].filter((x) => x.j);
   }, [plantilla]);
@@ -264,11 +275,14 @@ export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadore
       {/* ---------------- quién es ---------------- */}
       <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
         <div className="flex flex-wrap items-center gap-4">
-          {escudo ? (
+          {/* Sin escudo (o si no carga), las iniciales: nunca un círculo vacío (07/11/2026). */}
+          {escudo && escudoRoto !== escudo ? (
             // eslint-disable-next-line @next/next/no-img-element -- escudo por el proxy propio
-            <img src={escudo} alt="" className="h-14 w-14 object-contain" />
+            <img src={escudo} alt="" className="h-14 w-14 object-contain" onError={() => setEscudoRoto(escudo)} />
           ) : (
-            <span className="h-14 w-14 rounded-full bg-white/10" />
+            <span aria-hidden className="flex h-14 w-14 items-center justify-center rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 text-base font-bold text-[#C8A96B]">
+              {equipo.replace(/\b(CF|CD|UD|SD|FC|RCD|Real|Club|de|del|la|B)\b\.?/g, " ").trim().split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p.charAt(0).toUpperCase()).join("") || equipo.charAt(0)}
+            </span>
           )}
           <div className="min-w-0 flex-1">
             <select
@@ -311,7 +325,7 @@ export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadore
             {[
               { t: "PJ", d: "Partidos jugados con informe de Wyscout", v: resumen.partidos },
               { t: "G-E-P", d: "Ganados, empatados y perdidos", v: `${resumen.g}-${resumen.e}-${resumen.p}` },
-              { t: "Goles", d: "A favor y en contra", v: `${resumen.gf}-${resumen.gc}` },
+              { t: "Goles favor · contra", d: "A favor y en contra", v: `${resumen.gf} · ${resumen.gc}` },
               { t: "Pts/partido", d: "Puntos por partido", v: resumen.partidos ? (resumen.puntos / resumen.partidos).toFixed(2).replace(".", ",") : "—" },
             ].map((k) => (
               <div key={k.t} className="text-center" title={k.d}>
@@ -362,13 +376,14 @@ export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadore
               const c = (n: number) => n.toFixed(1).replace(".", ",");
               return (
                 <p className="mb-1 text-[15px] font-semibold text-white">
-                  {Math.abs(suyo.ent - nuestro.ent) < 1 ? `${equipo} y el Castilla pisan el área lo mismo` : suyo.ent > nuestro.ent ? `${equipo} llega más al área que nosotros` : `Llegamos más al área que ${equipo}`}: {c(suyo.ent)} entradas por partido frente a {c(nuestro.ent)}.
+                  {parecidos(suyo.ent, nuestro.ent) ? `${equipo} y el Castilla, parecidos en llegada al área` : suyo.ent > nuestro.ent ? `${equipo} llega más al área que nosotros` : `Llegamos más al área que ${equipo}`}: {c(suyo.ent)} entradas por partido frente a {c(nuestro.ent)}.
                 </p>
               );
             })()}
             <p className="mb-2 text-[12px] text-white/55">
               Pases progresivos precisos y entradas al área por partido de esta temporada (Wyscout), en percentil dentro de la competición; más es mejor en los dos. <span style={{ color: "#D8B45A" }}>●</span> {NOSOTROS}
-              {equipo !== NOSOTROS && <> · <span style={{ color: "#4F8FE8" }}>●</span> {equipo}</>}.
+              {equipo !== NOSOTROS && <> · <span style={{ color: "#4F8FE8" }}>●</span> {equipo}</>}
+              {puntos.some((p) => p.partidos < Math.max(...puntos.map((q) => q.partidos))) && <> · ○ hueco = con menos partidos</>}.
             </p>
             <MarcoGrafico tipos={[{ clave: "mapa", nombre: "Mapa" }, { clave: "ranking", nombre: "Ranking" }]} tipo={tipoProgresion} onTipo={(t) => setTipoProgresion(t as "mapa" | "ranking")}>
             {tipoProgresion === "ranking" ? (
@@ -401,12 +416,13 @@ export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadore
               if (nuestro && equipo !== NOSOTROS) {
                 const masArea = nuestro.ent - suyo.ent;
                 const masProg = nuestro.prog - suyo.prog;
-                frente = ` Frente al Castilla (${c(nuestro.prog)} y ${c(nuestro.ent)}): ${Math.abs(masArea) < 1 ? "pisan el área lo mismo" : masArea > 0 ? `pisamos más área (+${c(masArea)} por partido)` : `pisa más área que nosotros (+${c(-masArea)} por partido)`}${Math.abs(masProg) < 1 ? " y progresamos igual" : masProg > 0 ? ` y progresamos más (+${c(masProg)})` : ` y progresa más (+${c(-masProg)})`}.`;
+                /* 07/11/2026: por debajo de un 10 % de diferencia, «parecidos», no un titular. */
+                const ordinalDe = (clave: "x" | "y") => [...puntos].sort((a, b) => b[clave] - a[clave]).findIndex((p) => p.id === NOSOTROS) + 1;
+                frente = ` Frente al Castilla (${c(nuestro.prog)} progresivos, ${ordinalDe("x")}º de ${puntos.length}; ${c(nuestro.ent)} entradas, ${ordinalDe("y")}º): ${parecidos(suyo.ent, nuestro.ent) ? "parecidos en llegada al área" : masArea > 0 ? `pisamos más área (+${c(masArea)} por partido)` : `pisa más área que nosotros (+${c(-masArea)} por partido)`}${parecidos(suyo.prog, nuestro.prog) ? " y parecidos en progresión" : masProg > 0 ? ` y progresamos más (+${c(masProg)})` : ` y progresa más (+${c(-masProg)})`}.`;
               }
-              /* La orden, según su vía de llegada medida (carreras o centros), no una frase fija. */
-              const via = suyo.pCentros >= suyo.pCarreras
-                ? `Entra sobre todo con pase: ${c(suyo.centros)} entradas al área con pase por partido (P${Math.round(suyo.pCentros)}) frente a ${c(suyo.carreras)} conduciendo (P${Math.round(suyo.pCarreras)}).`
-                : `Entra sobre todo conduciendo: ${c(suyo.carreras)} entradas al área conduciendo por partido (P${Math.round(suyo.pCarreras)}) frente a ${c(suyo.centros)} con pase (P${Math.round(suyo.pCentros)}).`;
+              /* La orden, según su vía de llegada medida (carreras o centros), no una frase fija.
+                 Con la base (07/11/2026): las dos vías no suman el total, el resto llega por otras. */
+              const via = `De sus ${c(suyo.ent)} entradas al área por partido, ${c(suyo.centros)} llegan con pase (P${Math.round(suyo.pCentros)}) y ${c(suyo.carreras)} conduciendo (P${Math.round(suyo.pCarreras)})${suyo.ent - suyo.centros - suyo.carreras >= 1 ? `; el resto (${c(suyo.ent - suyo.centros - suyo.carreras)}), por otras vías` : ""}.`;
               const accion =
                 equipo === NOSOTROS
                   ? ""
@@ -537,6 +553,7 @@ export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadore
               </div>
             ))}
           </div>
+          {lideres.some((l) => l.t.startsWith("Mejor índice")) && <p className="-mt-2 text-[11px] text-white/45">{QUE_ES_INDICE}</p>}
 
           <Tarjeta titulo={`La plantilla · ${plantilla.length} con minutos`}>
             <div className="max-h-[520px] overflow-auto">
@@ -546,16 +563,13 @@ export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadore
                 <thead className="sticky top-0 bg-[#11161C]">
                   <tr className="text-left text-[10px] uppercase tracking-wider text-white/40">
                     <th className="py-2 pr-2 font-medium">Jugador</th>
-                    <th className="px-1 font-medium" title="Puesto">Pos.</th>
-                    <th className="hidden px-1 text-right font-medium sm:table-cell">Edad</th>
+                    {/* La edad va en la línea del puesto, sólo cuando existe: sin celdas vacías (07/11/2026). */}
+                    <th className="px-1 font-medium" title="Puesto y edad">Pos. · edad</th>
                     <th className="px-1 text-right font-medium" title="Minutos jugados">Min.</th>
                     <th className="px-1 text-right font-medium" title="Goles">G</th>
                     <th className="px-1 text-right font-medium" title="Asistencias">A</th>
-                    <th
-                      className="w-28 px-2 font-medium"
-                      title="La media de sus percentiles en las métricas de su puesto, de 0 a 100: 50 es un jugador medio de su puesto en la categoría"
-                    >
-                      Índice
+                    <th className="w-28 px-2 font-medium" title={QUE_ES_INDICE}>
+                      Índice <span className="normal-case tracking-normal text-white/35">(0-100)</span>
                     </th>
                     <th className="px-1 font-medium">Destaca / flojea (percentil en su puesto)</th>
                   </tr>
@@ -566,8 +580,8 @@ export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadore
                       <td className="py-1.5 pr-2 font-medium text-white/85">{j.fila.jugador}</td>
                       <td className="px-1 text-white/55" title={j.fila.posicion}>
                         {PUESTOS.find((p) => p.key === j.puesto)?.corto} <span className="text-white/30">{j.fila.posicion.split(",")[0]}</span>
+                        {j.fila.edad > 0 && <span className="text-white/45"> · {j.fila.edad} años</span>}
                       </td>
-                      <td className="hidden px-1 text-right tabular-nums text-white/60 sm:table-cell">{j.fila.edad > 0 ? j.fila.edad : null}</td>
                       <td className="px-1 text-right tabular-nums text-white/60">{j.fila.minutos}′</td>
                       <td className="px-1 text-right tabular-nums text-white/75">{j.goles || ""}</td>
                       <td className="px-1 text-right tabular-nums text-white/75">{j.asistencias || ""}</td>

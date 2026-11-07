@@ -12,6 +12,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
@@ -875,11 +876,14 @@ function StatTile({
   label,
   value,
   hint,
+  children,
 }: {
   icon: typeof Users;
   label: string;
   value: string | number;
   hint?: string;
+  /** Lo que va debajo de la cifra (la leyenda de colores, 07/11/2026). */
+  children?: React.ReactNode;
 }) {
   return (
     <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.025] p-4 transition hover:border-white/20">
@@ -893,6 +897,8 @@ function StatTile({
       {hint && (
         <p className="mt-0.5 break-words text-[11px] leading-snug text-white/40">{hint}</p>
       )}
+
+      {children}
     </div>
   );
 }
@@ -1469,9 +1475,12 @@ const REJILLA =
 function RejillaJugadores({
   jugadores,
   onSelect,
+  lista = false,
 }: {
   jugadores: MergedPlayer[];
   onSelect: (player: MergedPlayer) => void;
+  /** Vista en lista compacta (la del móvil por defecto, 07/11/2026). */
+  lista?: boolean;
 }) {
   const propios = jugadores.filter((p) => !p.externo);
   const externos = jugadores.filter((p) => p.externo);
@@ -1481,15 +1490,24 @@ function RejillaJugadores({
   const [verExternos, setVerExternos] = useState(false);
   const muestraExternos = verExternos || propios.length === 0;
 
+  const pinta = (grupo: MergedPlayer[], primeros: boolean) =>
+    lista ? (
+      <div className="grid min-w-0 gap-2 md:grid-cols-2">
+        {grupo.map((player) => (
+          <FilaListaJugador key={player.idJugador} player={player} onSelect={onSelect} />
+        ))}
+      </div>
+    ) : (
+      <div className={REJILLA}>
+        {grupo.map((player, i) => (
+          <PlayerCard key={player.idJugador} player={player} onSelect={onSelect} prioridad={primeros && i < 8} />
+        ))}
+      </div>
+    );
+
   return (
     <div className="space-y-5">
-      {propios.length > 0 && (
-        <div className={REJILLA}>
-          {propios.map((player, i) => (
-            <PlayerCard key={player.idJugador} player={player} onSelect={onSelect} prioridad={i < 8} />
-          ))}
-        </div>
-      )}
+      {propios.length > 0 && pinta(propios, true)}
 
       {externos.length > 0 && !muestraExternos && (
         <button
@@ -1513,19 +1531,62 @@ function RejillaJugadores({
             </button>
           )}
 
-          <div className={REJILLA}>
-            {externos.map((player) => (
-              <PlayerCard key={player.idJugador} player={player} onSelect={onSelect} />
-            ))}
-          </div>
+          {pinta(externos, false)}
         </div>
       )}
     </div>
   );
 }
 
+/* Fichas o lista (07/11/2026): en el móvil arranca en lista, porque recorrer
+   22 fichas de foto a dos columnas eran once pantallas. La elección se recuerda
+   en el aparato; mientras no se elige, manda el ancho. */
+const CLAVE_VISTA = "rmcf:individual:vista";
+const MOVIL = "(max-width: 639px)";
+const avisosVista = new Set<() => void>();
+function suscribeVista(aviso: () => void) {
+  avisosVista.add(aviso);
+  const mq = typeof window !== "undefined" ? window.matchMedia(MOVIL) : null;
+  mq?.addEventListener("change", aviso);
+  return () => {
+    avisosVista.delete(aviso);
+    mq?.removeEventListener("change", aviso);
+  };
+}
+function leeVista(): "fichas" | "lista" {
+  try {
+    const v = localStorage.getItem(CLAVE_VISTA);
+    if (v === "fichas" || v === "lista") return v;
+  } catch {
+    /* sin almacenamiento */
+  }
+  return window.matchMedia(MOVIL).matches ? "lista" : "fichas";
+}
+function guardaVista(v: "fichas" | "lista") {
+  try {
+    localStorage.setItem(CLAVE_VISTA, v);
+  } catch {
+    /* sin almacenamiento */
+  }
+  avisosVista.forEach((a) => a());
+}
+function useVistaPlantilla() {
+  return useSyncExternalStore(suscribeVista, leeVista, () => "fichas" as const);
+}
+
 /* La hora de abrir la pantalla, una vez (no en cada render: regla de pureza). */
 const ABIERTA_EN = Date.now();
+
+/** Días desde su último seguimiento (null si no tiene ninguno). */
+function diasDesdeSeguimiento(player: MergedPlayer) {
+  return player.lastSession ? Math.floor((ABIERTA_EN - player.lastSession.getTime()) / 86_400_000) : null;
+}
+
+/** Del Castilla, de campo y más de 14 días sin registro (la regla del aviso de arriba). */
+function estaSinSeguir(player: MergedPlayer) {
+  const dias = diasDesdeSeguimiento(player);
+  return !player.externo && !/portero/i.test(player.linea) && player.sessions !== null && (dias === null || dias > DIAS_SIN_SEGUIMIENTO);
+}
 
 function PlayerCard({
   player,
@@ -1546,10 +1607,8 @@ function PlayerCard({
     .join("");
   /* 30/10/2026: el pie sale en todas en cuanto llegan los seguimientos
      (también con 0), para que ninguna ficha quede más baja que las demás. */
-  /* «Sin seguir» en la propia ficha (06/11/2026): del Castilla, de campo y más de 14 días sin registro. */
-  const diasSinSeguir = player.lastSession ? Math.floor((ABIERTA_EN - player.lastSession.getTime()) / 86_400_000) : null;
-  const sinSeguir = !player.externo && !/portero/i.test(player.linea) && player.sessions !== null && (diasSinSeguir === null || diasSinSeguir > DIAS_SIN_SEGUIMIENTO);
-  const hayFooter = sinSeguir || (player.sessions ?? 0) > 0 || Boolean(player.videos) || Boolean(player.hasReport);
+  /* «Sin seguir» en la propia ficha (06/11/2026): del Castilla, de campo y más de 14 días sin registro (PieFicha). */
+  const { valoradas, pocas, detalle: detalleFicha } = baseFicha(player);
 
   return (
     <button
@@ -1589,19 +1648,17 @@ function PlayerCard({
           />
         )}
 
-        {/* Más oscuro abajo (05/11/2026): el nombre se perdía sobre el patrocinador de la camiseta. */}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0B0F14] from-10% via-[#0B0F14]/55 via-35% to-transparent to-60%" />
 
         {player.externo && (
-          <span className="absolute right-1.5 top-1.5 rounded-full bg-[#C8A96B] px-1.5 py-0.5 text-[8px] font-bold uppercase text-black">
+          <span className="absolute right-1.5 top-1.5 rounded-full bg-[#C8A96B] px-1.5 py-0.5 text-[10px] font-bold uppercase text-black">
             Otro equipo
           </span>
         )}
 
         {player.score > 0 ? (
           <span
-            title="Media de competencias (no es la nota de partido)"
-            className="absolute left-1.5 top-1.5 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold tabular-nums backdrop-blur"
+            title={detalleFicha}
+            className="absolute left-1.5 top-1.5 rounded-full border px-1.5 py-0.5 text-[11px] font-semibold tabular-nums backdrop-blur"
             /* Este distintivo va siempre sobre un velo negro encima de la
                foto, en los dos temas: mantiene la escala luminosa. */
             style={{
@@ -1613,59 +1670,111 @@ function PlayerCard({
               background: "rgba(0,0,0,0.78)",
             }}
           >
-            <span title="Media de competencias (no es la nota de partido)">
-              {coma(player.score)} competencias
-            </span>
+            {coma(player.score)} · {valoradas.length}/{METRICS.length}
+            {pocas && <span className="font-normal opacity-80"> · tendencia</span>}
           </span>
         ) : null /* 05/11/2026: sin ficha no se rotula (lo que no tiene dato no se nombra). */}
-
-        <div className="absolute inset-x-0 bottom-0 min-w-0 p-2.5">
-          <h3 className="truncate text-sm font-semibold leading-tight">
-            {nombreVisible(player.name)}
-          </h3>
-
-          <p className="truncate text-[9px] uppercase tracking-[0.2em] text-white/40">
-            {player.puesto}
-          </p>
-        </div>
       </div>
 
-      {hayFooter && (
-        <div className="flex min-w-0 flex-wrap items-center justify-start gap-x-3 gap-y-1 border-t border-white/10 bg-white/[0.02] px-2.5 py-2">
-          {sinSeguir && (
-            <span className="rounded-full bg-[#C8A96B]/20 px-1.5 py-0.5 text-[11px] font-semibold text-[#C8A96B]" title={`Más de ${DIAS_SIN_SEGUIMIENTO} días sin un registro de seguimiento`}>
-              Sin seguir{diasSinSeguir !== null ? ` · ${diasSinSeguir} días` : ""}
-            </span>
-          )}
-          {/* Rotulado y con su fecha (05/11/2026): «21» solo junto a una carpeta no decía qué contaba. */}
-          {(player.sessions ?? 0) > 0 && (
-            <span
-              className="flex min-w-0 items-center gap-1 whitespace-nowrap text-[11px] tabular-nums text-white/65"
-              title={`${player.sessions} seguimientos en la temporada`}
-            >
-              <ClipboardList size={11} className="shrink-0" />
-              {`${player.sessions} seguim.${player.lastSession ? ` · último ${player.lastSession.toLocaleDateString("es-ES", { day: "numeric", month: "numeric" })}` : ""}`}
-            </span>
-          )}
+      {/* 07/11/2026: nombre y puesto en una franja sólida bajo la foto; sobre
+          la camiseta (clara en modo día o con patrocinador) no se leían. */}
+      <div className="min-w-0 px-2.5 pt-2">
+        <h3 className="truncate text-sm font-semibold leading-tight">
+          {nombreVisible(player.name)}
+        </h3>
 
-          {Boolean(player.videos) && (
-            <span
-              className="flex items-center gap-1 text-[10px] tabular-nums text-white/60"
-              title={`${player.videos} vídeos`}
-            >
-              <Video size={11} />
-              {player.videos}
-            </span>
-          )}
+        <p className="truncate text-[11px] uppercase tracking-[0.14em] text-white/55">
+          {player.puesto}
+        </p>
+      </div>
 
-          {player.hasReport && (
-            <span className="text-[#C8A96B]" title="Con informe">
-              <FileText size={11} />
-            </span>
-          )}
+      {/* Pie de la misma altura en todas las fichas (07/11/2026). */}
+      <div className="mt-auto flex min-h-[38px] min-w-0 flex-wrap items-center justify-start gap-x-3 gap-y-1 px-2.5 py-2">
+        <PieFicha player={player} />
+      </div>
+    </button>
+  );
+}
+
+/** La base de la media (07/11/2026): cuántas de las cinco competencias valoró el scout. */
+function baseFicha(player: MergedPlayer) {
+  const valoradas = METRICS.filter((m) => Number(player[m.key] || 0) > 0);
+  const pocas = valoradas.length < 3;
+  const detalle = `Media de ${valoradas.length} de ${METRICS.length} competencias del scout, sobre 10: ${valoradas
+    .map((m) => `${m.label} ${coma(Number(player[m.key]))}`)
+    .join(" · ")}${pocas ? ". Pocas valoradas: tendencia" : ""}.`;
+  return { valoradas, pocas, detalle };
+}
+
+/** Una fila de la vista en lista (07/11/2026): lo mismo que la ficha, en 56 px. */
+function FilaListaJugador({ player, onSelect }: { player: MergedPlayer; onSelect: (player: MergedPlayer) => void }) {
+  const { valoradas, pocas, detalle } = baseFicha(player);
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(player)}
+      className={`flex w-full min-w-0 items-center gap-3 rounded-xl border px-3 py-2 text-left transition hover:border-[#C8A96B]/50 ${
+        player.externo ? "border-dashed border-[#C8A96B]/40" : "border-white/10 bg-white/[0.025]"
+      }`}
+    >
+      <div className="min-w-0 flex-1">
+        <p className="flex min-w-0 items-baseline gap-2">
+          <span className="truncate text-sm font-semibold">{nombreVisible(player.name)}</span>
+          <span className="shrink-0 truncate text-[11px] uppercase tracking-[0.12em] text-white/50">{player.puesto}</span>
+        </p>
+        <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5">
+          <PieFicha player={player} />
         </div>
+      </div>
+      {player.score > 0 && (
+        <span className="shrink-0 text-right tabular-nums" title={detalle}>
+          <span className="block text-base font-bold" style={{ color: scoreColor(player.score) }}>{coma(player.score)}</span>
+          <span className="block text-[10px] text-white/45">{valoradas.length}/{METRICS.length}{pocas ? " · tendencia" : ""}</span>
+        </span>
       )}
     </button>
+  );
+}
+
+/** Lo que se sabe de su seguimiento, rotulado: en la ficha y en la lista. */
+function PieFicha({ player }: { player: MergedPlayer }) {
+  const diasSinSeguir = diasDesdeSeguimiento(player);
+  const sinSeguir = estaSinSeguir(player);
+  return (
+    <>
+      {sinSeguir && (
+        <span
+          className={`rounded-full px-1.5 py-0.5 text-[11px] font-semibold ${diasSinSeguir === null || diasSinSeguir >= 2 * DIAS_SIN_SEGUIMIENTO ? "bg-[#F87171]/15 text-[#F87171]" : "bg-[#C8A96B]/20 text-[#C8A96B]"}`}
+          title={`Más de ${DIAS_SIN_SEGUIMIENTO} días sin un registro de seguimiento`}
+        >
+          {diasSinSeguir !== null ? `Sin seguir · ${diasSinSeguir} días` : "Sin seguimiento"}
+        </span>
+      )}
+      {/* Rotulado y con su fecha (05/11/2026): «21» solo junto a una carpeta no decía qué contaba. */}
+      {player.sessions !== null && (player.sessions > 0 || !sinSeguir) && (
+        <span
+          className="flex min-w-0 items-center gap-1 whitespace-nowrap text-[11px] tabular-nums text-white/65"
+          title={`${player.sessions} seguimientos en la temporada`}
+        >
+          <ClipboardList size={11} className="shrink-0" />
+          {`${player.sessions} seguim.${player.lastSession && diasSinSeguir !== null && !sinSeguir ? ` · ${diasSinSeguir === 0 ? "hoy" : diasSinSeguir === 1 ? "ayer" : `hace ${diasSinSeguir} días`}` : ""}`}
+        </span>
+      )}
+
+      {Boolean(player.videos) && (
+        <span className="flex items-center gap-1 text-[11px] tabular-nums text-white/60" title={`${player.videos} vídeos individuales`}>
+          <Video size={11} className="shrink-0" />
+          {player.videos} {player.videos === 1 ? "vídeo" : "vídeos"}
+        </span>
+      )}
+
+      {player.hasReport && (
+        <span className="flex items-center gap-1 text-[11px] text-[#C8A96B]" title="Con informe individual">
+          <FileText size={11} className="shrink-0" />
+          informe
+        </span>
+      )}
+    </>
   );
 }
 
@@ -1724,8 +1833,9 @@ export default function IndividualPage() {
     "todos" | "castilla" | "externos"
   >("castilla"); // 29/10/2026: abre con la plantilla; los de otros equipos, un clic en «Otros».
   const [sortBy, setSortBy] = useState<
-    "posicion" | "nombre" | "seguimientos" | "valoracion"
+    "posicion" | "nombre" | "seguimientos" | "atrasados" | "valoracion"
   >("posicion");
+  const vista = useVistaPlantilla();
 
   /* ---------------- ficha ---------------- */
 
@@ -2079,8 +2189,22 @@ export default function IndividualPage() {
       .map((p) => p.lastSession?.getTime() ?? 0)
       .filter((t) => t > 0);
 
+    /* Referencias de las cifras (07/11/2026): mediana de seguimientos por
+       jugador y el tramo de las medias de competencias. */
+    const porJugador = enFiltro.map((p) => p.sessions ?? 0).sort((a, b) => a - b);
+    const mitad = Math.floor(porJugador.length / 2);
+    const medianaSeg = porJugador.length
+      ? porJugador.length % 2
+        ? porJugador[mitad]
+        : Math.round((porJugador[mitad - 1] + porJugador[mitad]) / 2)
+      : 0;
+    const notas = rated.map((p) => p.score);
+
     return {
       todos,
+      medianaSeg,
+      minScore: notas.length ? Math.min(...notas) : 0,
+      maxScore: notas.length ? Math.max(...notas) : 0,
       players: enFiltro.length,
       /* La cohorte de lib/fichajes, la misma que el Dashboard Plantilla. */
       castilla: cohorteCastilla(mergedPlayers, (p) => p.name, (p) => (p.externo ? "otro" : undefined)).length,
@@ -2187,15 +2311,24 @@ export default function IndividualPage() {
       return [...list].sort((a, b) => b.score - a.score);
     }
 
+    /* 07/11/2026: los que llevan más tiempo sin seguimiento, primero (sin ninguno, arriba del todo). */
+    if (sortBy === "atrasados") {
+      const dias = (p: MergedPlayer) => diasDesdeSeguimiento(p) ?? Number.MAX_SAFE_INTEGER;
+      return [...list].sort((a, b) => Number(Boolean(a.externo)) - Number(Boolean(b.externo)) || dias(b) - dias(a));
+    }
+
     /* Sin otro orden, el Castilla va primero y los de otros equipos al final
-       (el orden relativo de cada grupo se conserva). */
+       (el orden relativo de cada grupo se conserva); dentro, los que toca
+       seguir delante, para que el aviso de arriba se vea en la rejilla. */
     return [...list].sort(
-      (a, b) => Number(Boolean(a.externo)) - Number(Boolean(b.externo)),
+      (a, b) =>
+        Number(Boolean(a.externo)) - Number(Boolean(b.externo)) ||
+        Number(estaSinSeguir(b)) - Number(estaSinSeguir(a)),
     );
   }, [baseList, lineFilter, sortBy]);
 
   const hasFilters =
-    Boolean(search) || lineFilter !== "todas" || teamFilter !== "todos";
+    Boolean(search) || lineFilter !== "todas" || teamFilter !== "castilla";
 
   const currentIndex = selected
     ? mergedPlayers.findIndex((p) => p.idJugador === selected.idJugador)
@@ -3207,8 +3340,9 @@ export default function IndividualPage() {
               </p>
 
               <div className="mt-4 flex min-w-0 items-center gap-4">
+                {/* El mismo nombre que su entrada del menú (07/11/2026). */}
                 <h1 className="min-w-0 truncate text-2xl font-semibold md:text-4xl">
-                  Seguimiento
+                  Plantilla
                 </h1>
 
                 <div className="hidden h-px min-w-0 flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent md:block" />
@@ -3297,7 +3431,7 @@ export default function IndividualPage() {
                   hint={
                     pendiente.seguimiento
                       ? "cargando los seguimientos…"
-                      : `registros en la temporada, ${stats.todos ? "de todos los jugadores" : `de los jugadores${base.de}`}${
+                      : `registros en la temporada, ${stats.todos ? "de todos los jugadores" : `de los jugadores${base.de}`} · mediana ${stats.medianaSeg} por jugador${
                           stats.ultimoRegistro
                             ? ` · último: ${stats.ultimoRegistro.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit" })}`
                             : ""
@@ -3310,8 +3444,18 @@ export default function IndividualPage() {
                     icon={Gauge}
                     label="Media competencias"
                     value={stats.avg.toFixed(1).replace(".", ",")}
-                    hint={`de ${stats.rated} con ficha de scout${stats.todos ? ` (${stats.ratedCastilla} del Castilla)` : base.de} · sobre 10 · no es la nota de partido`}
-                  />
+                    hint={`de ${stats.rated} con ficha de scout${stats.todos ? ` (${stats.ratedCastilla} del Castilla)` : base.de} · sobre 10, más es mejor · de ${coma(stats.minScore)} a ${coma(stats.maxScore)} · no es la nota de partido`}
+                  >
+                    {/* La leyenda del distintivo de las fichas, dentro de su tarjeta (07/11/2026). */}
+                    <p className="mt-2 flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-white/55">
+                      {([[8, "8 o más"], [6.5, "6,5 a 8"], [5, "5 a 6,5"], [0, "menos de 5"]] as const).map(([v, t]) => (
+                        <span key={t} className="inline-flex items-center gap-1">
+                          <span aria-hidden className="h-2 w-2 rounded-full" style={{ background: scoreColorHex(v) }} />
+                          {t}
+                        </span>
+                      ))}
+                    </p>
+                  </StatTile>
                 )}
               </div>
 
@@ -3329,16 +3473,6 @@ export default function IndividualPage() {
                 </p>
               )}
 
-              {/* Leyenda del distintivo (05/11/2026), en vez de la nota que repetía la tarjeta de la media. */}
-              <p className="mt-3 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-white/55">
-                <span>Competencias del scout, sobre 10 (no es la nota de partido):</span>
-                {([[8, "8 o más"], [6.5, "6,5 a 8"], [5, "5 a 6,5"], [0, "menos de 5"]] as const).map(([v, t]) => (
-                  <span key={t} className="inline-flex items-center gap-1">
-                    <span aria-hidden className="h-2 w-2 rounded-full" style={{ background: scoreColorHex(v) }} />
-                    {t}
-                  </span>
-                ))}
-              </p>
 
               {/* FILTROS */}
 
@@ -3396,14 +3530,30 @@ export default function IndividualPage() {
                     <option value="posicion">Por posición</option>
                     <option value="nombre">Por nombre</option>
                     <option value="seguimientos">Más seguidos</option>
+                    <option value="atrasados">Más días sin seguimiento</option>
                     <option value="valoracion">Mejor valorados</option>
                   </select>
+
+                  <div className="flex shrink-0 rounded-2xl border border-white/10 bg-white/[0.025] p-1" role="group" aria-label="Cómo ver la plantilla">
+                    {(["fichas", "lista"] as const).map((v) => (
+                      <button
+                        key={v}
+                        type="button"
+                        aria-pressed={vista === v}
+                        onClick={() => guardaVista(v)}
+                        className={`rounded-xl px-3 py-2 text-xs transition ${vista === v ? "bg-[#C8A96B] text-black" : "text-white/50 hover:text-white"}`}
+                      >
+                        {v === "fichas" ? "Fichas" : "Lista"}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
               {/* LÍNEAS */}
 
-              <div className="mt-4 flex min-w-0 flex-wrap items-center gap-2">
+              {/* En el móvil, una sola fila que se desliza (07/11/2026): eran cuatro renglones. */}
+              <div className="-mx-4 mt-4 flex min-w-0 flex-nowrap items-center gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
                 <button
                   onClick={() => setLineFilter("todas")}
                   className={`flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs transition ${
@@ -3454,7 +3604,7 @@ export default function IndividualPage() {
                     onClick={() => {
                       setSearch("");
                       setLineFilter("todas");
-                      setTeamFilter("todos");
+                      setTeamFilter("castilla");
                     }}
                     className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 px-3 py-1.5 text-xs text-white/40 transition hover:border-white/30 hover:text-white"
                   >
@@ -3482,7 +3632,7 @@ export default function IndividualPage() {
                           onClick={() => {
                             setSearch("");
                             setLineFilter("todas");
-                            setTeamFilter("todos");
+                            setTeamFilter("castilla");
                           }}
                         >
                           Limpiar filtros
@@ -3519,14 +3669,14 @@ export default function IndividualPage() {
                           </span>
                         </div>
 
-                        <RejillaJugadores jugadores={linePlayers} onSelect={openPlayer} />
+                        <RejillaJugadores jugadores={linePlayers} onSelect={openPlayer} lista={vista === "lista"} />
                       </section>
                     );
                   })}
                 </div>
               ) : (
                 <div className="mt-8">
-                  <RejillaJugadores jugadores={filtered} onSelect={openPlayer} />
+                  <RejillaJugadores jugadores={filtered} onSelect={openPlayer} lista={vista === "lista"} />
                 </div>
               )}
             </div>

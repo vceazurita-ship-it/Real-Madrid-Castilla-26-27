@@ -7,33 +7,53 @@
 | Quién: el administrador por su sesión; los demás, si este aparato ha dicho
 | su nombre aquí. Si no se sabe quién, se ve igual qué vídeos y qué puestos
 | se están mirando.
+|
+| 07/11/2026 (jueces 5–5,5): una sola frase de entrada (la da la cabecera);
+| el nombre en una línea «Viendo como: X · cambiar»; arriba, tres cifras que
+| juntan YouTube y la app con su base; sin nada que contar, un único vacío
+| con «Ir a los clips» como botón. Cada cifra de la app lleva su periodo y
+| una referencia (mediana de veces por clip).
 */
 
 import { useEffect, useMemo, useState } from "react";
-import { Eye, UserRound } from "lucide-react";
+import { Eye, PlayCircle, UserRound } from "lucide-react";
 
-import { BloqueYoutube } from "./BloqueYoutube";
+import { BloqueYoutube, useDatosYoutube } from "./BloqueYoutube";
 
 type Visionado = { cuando: string; video: string; titulo: string; equipo: string; jugador: string; puesto: string; quien: string };
 
+const DESDE = "06/11/2026";
+/** El servidor apunta «Sin identificar» cuando el aparato no ha dicho su nombre. */
+const conNombre = (q: string) => Boolean(q) && q !== "Sin identificar";
 const PERIODOS = [
   { clave: "7", nombre: "Últimos 7 días", dias: 7 },
   { clave: "30", nombre: "Últimos 30 días", dias: 30 },
-  { clave: "todo", nombre: "Todo", dias: 0 },
+  { clave: "todo", nombre: `Todo (desde el ${DESDE})`, dias: 0 },
 ] as const;
 
-function cuenta<T extends string>(lista: Visionado[], clave: (v: Visionado) => T) {
-  const m = new Map<T, number>();
-  for (const v of lista) m.set(clave(v), (m.get(clave(v)) ?? 0) + 1);
+/** Lo que no tiene clave (puesto o rival sin dato) no se nombra. */
+function cuenta(lista: Visionado[], clave: (v: Visionado) => string) {
+  const m = new Map<string, number>();
+  for (const v of lista) {
+    const k = clave(v);
+    if (k) m.set(k, (m.get(k) ?? 0) + 1);
+  }
   return [...m].sort((a, b) => b[1] - a[1]);
 }
+
+const mediana = (xs: number[]) => {
+  if (!xs.length) return 0;
+  const o = [...xs].sort((a, b) => a - b);
+  const m = Math.floor(o.length / 2);
+  return o.length % 2 ? o[m] : Math.round((o[m - 1] + o[m]) / 2);
+};
 
 function Barras({ titulo, filas, total }: { titulo: string; filas: [string, number][]; total: number }) {
   if (!filas.length) return null;
   const max = filas[0][1];
   return (
-    <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-      <h2 className="mb-3 text-sm font-bold uppercase tracking-[0.14em] text-[#C8A96B]">{titulo}</h2>
+    <section className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+      <h3 className="mb-3 text-sm font-bold uppercase tracking-[0.14em] text-[#C8A96B]">{titulo}</h3>
       <ul className="space-y-2">
         {filas.slice(0, 12).map(([nombre, n]) => (
           <li key={nombre} className="text-[13px]">
@@ -49,12 +69,27 @@ function Barras({ titulo, filas, total }: { titulo: string; filas: [string, numb
   );
 }
 
+function IrALosClips({ principal = false }: { principal?: boolean }) {
+  return (
+    <a
+      href="/scout-rival-individual?vista=clips"
+      className={principal
+        ? "inline-flex items-center gap-2 rounded-xl bg-[#C8A96B] px-4 py-2 text-[14px] font-semibold text-[#0B0F14]"
+        : "inline-flex items-center gap-1.5 rounded-xl border border-[#C8A96B]/50 px-3 py-1.5 text-[13px] font-semibold text-[#C8A96B]"}
+    >
+      <PlayCircle size={15} /> Ir a los clips
+    </a>
+  );
+}
+
 export function PanelVisionados() {
   const [todos, setTodos] = useState<Visionado[] | null>(null);
   const [periodo, setPeriodo] = useState<(typeof PERIODOS)[number]["clave"]>("30");
   const [rival, setRival] = useState("");
   const [nombre, setNombre] = useState("");
   const [guardado, setGuardado] = useState("");
+  const [editando, setEditando] = useState(false);
+  const yt = useDatosYoutube();
 
   useEffect(() => {
     let vivo = true;
@@ -90,7 +125,7 @@ export function PanelVisionados() {
     for (const v of lista) {
       const e = m.get(v.video) ?? { v, n: 0, quien: new Set<string>() };
       e.n += 1;
-      e.quien.add(v.quien);
+      if (conNombre(v.quien)) e.quien.add(v.quien);
       m.set(v.video, e);
     }
     return [...m.values()].sort((a, b) => b.n - a.n);
@@ -104,35 +139,95 @@ export function PanelVisionados() {
       /* sin almacenamiento */
     }
     setGuardado(nombre.trim());
+    setEditando(false);
   };
 
+  /* Resumen de arriba: YouTube (acumulado) y la app (todo, desde el 06/11). */
+  const app = useMemo(() => todos ?? [], [todos]);
+  const resumen = useMemo(() => {
+    const d = yt.datos;
+    const vistasYt = d?.total ?? 0;
+    if (!vistasYt && !app.length) return null;
+    const vistos = new Set<string>([...(d?.filas ?? []).filter((f) => f.vistas > 0).map((f) => f.id), ...app.map((v) => v.video)]);
+    const totalClips = d?.filas.length ?? 0;
+    const personas = new Set(app.map((v) => v.quien).filter(conNombre)).size;
+    const porClipApp = new Map<string, { n: number; v: Visionado }>();
+    for (const v of app) porClipApp.set(v.video, { n: (porClipApp.get(v.video)?.n ?? 0) + 1, v });
+    const topApp = [...porClipApp.values()].sort((a, b) => b.n - a.n)[0];
+    const topYt = d?.top && d.top.vistas > 0 ? d.top : null;
+    const top = topYt
+      ? { nombre: topYt.jugador || topYt.titulo, base: `${topYt.vistas} vistas en YouTube${topYt.equipo ? ` · ${topYt.equipo}` : ""}` }
+      : topApp
+        ? { nombre: topApp.v.jugador || topApp.v.titulo, base: `${topApp.n} ${topApp.n === 1 ? "vez" : "veces"} en la app${topApp.v.equipo ? ` · ${topApp.v.equipo}` : ""}` }
+        : null;
+    return [
+      { t: "Vistas", v: String(vistasYt + app.length), base: [vistasYt ? `${vistasYt} en YouTube` : "", app.length ? `${app.length} en la app` : ""].filter(Boolean).join(" · ") },
+      { t: "Clips vistos", v: String(vistos.size), base: totalClips ? `de ${totalClips} en el canal` : "al menos una vez" },
+      ...(personas ? [{ t: "Personas en la app", v: String(personas), base: `con nombre, desde el ${DESDE}` }] : []),
+      ...(top ? [{ t: "El más visto", v: top.nombre, base: top.base, texto: true }] : []),
+    ].slice(0, 3);
+  }, [yt.datos, app]);
+
+  const cargando = todos === null || yt.resp === null;
+  const nada = !cargando && !resumen;
+
   return (
-        <div className="space-y-5">
-          <p className="max-w-2xl text-[14px] text-white/65">
-            Cuántas veces se ven los clips individuales de los rivales: en el canal de YouTube (donde los ven los jugadores) y dentro de la app.
-          </p>
+    <div className="space-y-5">
+      {/* Quién mira en este aparato: una línea, no un bloque. */}
+      {guardado && !editando ? (
+        <p className="flex flex-wrap items-center gap-1.5 text-[13px] text-white/65">
+          <UserRound size={14} className="text-[#C8A96B]" /> Viendo como <b className="text-white/90">{guardado}</b> ·
+          <button type="button" onClick={() => setEditando(true)} className="text-[#C8A96B] underline underline-offset-2">cambiar</button>
+        </p>
+      ) : (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            guardaNombre();
+          }}
+          className="flex flex-wrap items-center gap-2 text-[13px] text-white/65"
+        >
+          <UserRound size={14} className="text-[#C8A96B]" />
+          <label htmlFor="quien-ve">Viendo como</label>
+          <input id="quien-ve" value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="tu nombre" className="w-36 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1 text-[13px] text-white outline-none focus:border-[#C8A96B]/60" />
+          <button type="submit" disabled={!nombre.trim()} className="rounded-lg border border-[#C8A96B]/50 px-2.5 py-1 text-[12px] font-semibold text-[#C8A96B] disabled:opacity-40">Guardar</button>
+          <span className="text-[11px] text-white/45">se guarda sólo en este aparato</span>
+        </form>
+      )}
 
-          <BloqueYoutube />
+      {cargando ? (
+        <div className="h-28 animate-pulse rounded-2xl border border-white/10 bg-white/[0.03]" aria-label="Cargando" />
+      ) : nada ? (
+        <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+          <div className="min-w-0 flex-1">
+            <p className="flex items-center gap-2 text-[15px] font-semibold text-white/90"><Eye size={16} className="text-[#C8A96B]" /> Aún no hay visionados.</p>
+            {yt.resp?.aviso && <p className="mt-1 text-[13px] text-white/60">{yt.resp.aviso}</p>}
+          </div>
+          <IrALosClips principal />
+        </div>
+      ) : (
+        resumen && (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {resumen.map((k) => (
+              <div key={k.t} className="min-w-0 rounded-2xl border border-[#C8A96B]/25 bg-white/[0.03] p-4">
+                <p className="text-[12px] text-white/60">{k.t}</p>
+                <p className={`${"texto" in k && k.texto ? "truncate text-xl" : "text-3xl"} font-black tabular-nums`}>{k.v}</p>
+                <p className="text-[11px] text-white/45">{k.base}</p>
+              </div>
+            ))}
+          </div>
+        )
+      )}
 
-          <h2 className="pt-4 text-xl font-bold">Dentro de la app (Scout Individual)</h2>
+      <BloqueYoutube {...yt} />
 
-          {guardado && nombre.trim() === guardado ? (
-            <p className="flex flex-wrap items-center gap-2 text-[13px] text-white/70">
-              <UserRound size={14} className="text-[#C8A96B]" /> En este aparato los clips los ve <b className="text-white/90">{guardado}</b>
-              <button type="button" onClick={() => setNombre("")} className="text-[12px] text-[#C8A96B] underline underline-offset-2">cambiar</button>
-            </p>
-          ) : (
-            <section className="flex flex-wrap items-end gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
-              <label className="min-w-0 flex-1">
-                <span className="mb-1 flex items-center gap-1.5 text-[12px] text-white/65"><UserRound size={13} /> Tu nombre, para saber quién ve cada clip en este aparato (se guarda sólo aquí)</span>
-                <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="p. ej. Julián" className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[14px] text-white outline-none focus:border-[#C8A96B]/60" />
-              </label>
-              <button type="button" onClick={guardaNombre} disabled={!nombre.trim()} className="rounded-xl border border-[#C8A96B]/50 px-4 py-2 text-[13px] font-semibold text-[#C8A96B] disabled:opacity-40">Guardar</button>
-            </section>
-          )}
+      {!cargando && app.length > 0 && (
+        <>
+          <div className="flex flex-wrap items-baseline justify-between gap-2 pt-2">
+            <h2 className="text-xl font-bold">Dentro de la app</h2>
+            <p className="text-[12px] text-white/55">Cada vez que alguien abre un clip en Clips, desde el {DESDE}.</p>
+          </div>
 
-          {/* Sin ningún visionado, los filtros sobran (06/11/2026). */}
-          {(todos ?? []).length > 0 && (
           <div className="flex flex-wrap gap-2">
             {PERIODOS.map((p) => (
               <button key={p.clave} type="button" onClick={() => setPeriodo(p.clave)} className={`rounded-full border px-3 py-1 text-[13px] ${periodo === p.clave ? "border-[#C8A96B] bg-[#C8A96B]/15 font-semibold text-[#C8A96B]" : "border-white/10 text-white/70"}`}>
@@ -146,58 +241,56 @@ export function PanelVisionados() {
               </select>
             )}
           </div>
-          )}
 
-          {todos === null ? (
-            <div className="h-40 animate-pulse rounded-2xl border border-white/10 bg-white/[0.03]" aria-label="Cargando" />
-          ) : lista.length === 0 ? (
+          {lista.length === 0 ? (
             <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-[14px] text-white/70">
-              <Eye size={15} className="text-[#C8A96B]" /> Aún nadie ha abierto un clip desde la app.
-              <a href="/scout-rival-individual?vista=clips" className="rounded-xl border border-[#C8A96B]/50 px-3 py-1.5 text-[13px] font-semibold text-[#C8A96B]">Ir a los clips</a>
+              <Eye size={15} className="text-[#C8A96B]" /> En este periodo nadie ha abierto un clip desde la app.
+              <IrALosClips />
             </div>
           ) : (
             <>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                 {[
-                  { t: "Visionados", v: lista.length },
-                  { t: "Personas", v: new Set(lista.map((v) => v.quien)).size },
-                  { t: "Clips distintos", v: clips.length },
-                  { t: "Rivales", v: new Set(lista.map((v) => v.equipo)).size },
+                  { t: "Veces abiertos", v: lista.length, base: PERIODOS.find((p) => p.clave === periodo)?.nombre.toLowerCase() ?? "" },
+                  { t: "Personas", v: new Set(lista.map((v) => v.quien).filter(conNombre)).size, base: "con nombre en su aparato" },
+                  { t: "Clips distintos", v: clips.length, base: yt.datos ? `de ${yt.datos.filas.length} en el canal` : "abiertos al menos una vez" },
+                  { t: "Veces por clip", v: mediana(clips.map((c) => c.n)), base: "mediana" },
                 ].map((k) => (
                   <div key={k.t} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                     <p className="text-[12px] text-white/60">{k.t}</p>
                     <p className="text-3xl font-black tabular-nums">{k.v}</p>
+                    <p className="text-[11px] text-white/45">{k.base}</p>
                   </div>
                 ))}
               </div>
 
               <div className="grid gap-4 lg:grid-cols-3">
                 <Barras titulo="Quién los ve" filas={cuenta(lista, (v) => v.quien)} total={lista.length} />
-                <Barras titulo="De qué puestos" filas={cuenta(lista, (v) => v.puesto || "Puesto sin dato")} total={lista.length} />
-                <Barras titulo="De qué rivales" filas={cuenta(lista, (v) => v.equipo || "Sin rival")} total={lista.length} />
+                <Barras titulo="De qué puestos" filas={cuenta(lista, (v) => v.puesto)} total={lista.length} />
+                <Barras titulo="De qué rivales" filas={cuenta(lista, (v) => v.equipo)} total={lista.length} />
               </div>
 
               <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                <h2 className="mb-3 text-sm font-bold uppercase tracking-[0.14em] text-[#C8A96B]">Los clips más vistos</h2>
+                <h3 className="mb-3 text-sm font-bold uppercase tracking-[0.14em] text-[#C8A96B]">Los clips más abiertos</h3>
                 <ol className="space-y-1.5 text-[13px]">
                   {clips.slice(0, 25).map(({ v, n, quien }, i) => (
                     <li key={v.video} className="flex flex-wrap items-baseline gap-x-2 border-b border-white/[0.06] pb-1.5">
                       <span className="w-7 tabular-nums text-white/50">{i + 1}º</span>
-                      <span className="min-w-0 flex-1 text-white/85">{v.jugador || v.titulo} <span className="text-white/50">· {[v.puesto, v.equipo].filter(Boolean).join(" · ")}</span></span>
+                      <span className="min-w-0 flex-1 text-white/85">{v.jugador || v.titulo} <span className="text-white/50">{[v.puesto, v.equipo].filter(Boolean).map((x) => ` · ${x}`).join("")}</span></span>
                       <span className="tabular-nums text-white/80">{n} {n === 1 ? "vez" : "veces"}</span>
-                      <span className="w-full pl-9 text-[12px] text-white/50">Lo han visto: {[...quien].join(", ")}</span>
+                      {quien.size > 0 && <span className="w-full pl-9 text-[12px] text-white/50">Lo han visto: {[...quien].join(", ")}</span>}
                     </li>
                   ))}
                 </ol>
               </section>
 
               <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                <h2 className="mb-3 text-sm font-bold uppercase tracking-[0.14em] text-[#C8A96B]">Últimos visionados</h2>
+                <h3 className="mb-3 text-sm font-bold uppercase tracking-[0.14em] text-[#C8A96B]">Últimos visionados</h3>
                 <ul className="space-y-1 text-[13px]">
                   {[...lista].reverse().slice(0, 20).map((v, i) => (
                     <li key={i} className="flex flex-wrap gap-x-2 text-white/80">
                       <span className="tabular-nums text-white/50">{new Date(v.cuando).toLocaleString("es-ES", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
-                      <b className="font-semibold">{v.quien}</b>
+                      {v.quien && <b className="font-semibold">{v.quien}</b>}
                       <span>{v.jugador || v.titulo}</span>
                       <span className="text-white/50">{[v.puesto, v.equipo].filter(Boolean).join(" · ")}</span>
                     </li>
@@ -206,6 +299,16 @@ export function PanelVisionados() {
               </section>
             </>
           )}
-        </div>
+        </>
+      )}
+
+      {/* Hay YouTube pero nadie ha abierto un clip en la app: una línea, con el botón. */}
+      {!cargando && !nada && app.length === 0 && (
+        <p className="flex flex-wrap items-center gap-3 text-[13px] text-white/60">
+          <Eye size={14} className="text-[#C8A96B]" /> Dentro de la app aún nadie ha abierto un clip.
+          <IrALosClips />
+        </p>
+      )}
+    </div>
   );
 }
