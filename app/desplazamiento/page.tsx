@@ -252,27 +252,40 @@ function ListaPendiente({ viaje, onIr = irA }: { viaje: Desplazamiento; onIr?: (
         </div>
 
         <p className="text-xs tabular-nums text-white/60">
-          {completo ? "Todo listo para exportar" : `${hechos} de ${lista.length}`}
+          {completo ? "Todo listo para exportar" : `${hechos} de ${lista.length} hechos`}
         </p>
       </div>
 
+      {/*
+      | 07/11/2026: lo que falta, con su nombre y un enlace que baja a su campo
+      | (y lo abre en el móvil). Lo hecho queda en una línea, sin competir.
+      */}
       {!completo && (
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {lista.map((p) => (
-            <button
-              key={p.clave}
-              type="button"
-              onClick={() => onIr(p.seccion)}
-              title={p.hecho ? "Hecho" : "Falta: ir a la sección"}
-              className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] transition ${
-                p.hecho ? "border-white/10 text-white/35" : "border-[#C8A96B]/40 text-white/80 hover:bg-[#C8A96B]/10"
-              }`}
-            >
-              {p.hecho ? <CheckCircle2 size={12} className="text-emerald-400/70" /> : <Circle size={12} className="text-[#C8A96B]" />}
-              {p.rotulo}
-            </button>
-          ))}
-        </div>
+        <>
+          <p className="mt-2 text-[11px] font-semibold text-white/70">Falta:</p>
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            {lista
+              .filter((p) => !p.hecho)
+              .map((p) => (
+                <button
+                  key={p.clave}
+                  type="button"
+                  onClick={() => onIr(p.seccion)}
+                  title="Ir al campo"
+                  className="flex items-center gap-1 rounded-full border border-[#C8A96B]/40 px-2.5 py-1 text-[11px] text-white/80 transition hover:bg-[#C8A96B]/10"
+                >
+                  <Circle size={12} className="text-[#C8A96B]" />
+                  {p.rotulo}
+                </button>
+              ))}
+          </div>
+          {hechos > 0 && (
+            <p className="mt-2 flex flex-wrap items-center gap-1 text-[11px] text-white/40">
+              <CheckCircle2 size={12} className="text-emerald-400/70" />
+              Hecho: {lista.filter((p) => p.hecho).map((p) => p.rotulo.toLowerCase()).join(", ")}
+            </p>
+          )}
+        </>
       )}
     </div>
   );
@@ -410,8 +423,29 @@ export default function DesplazamientoPage() {
       setCargando(false);
       setCalendarioTarda(false);
 
+      /*
+      | Llegada desde el Calendario Operativo (07/11/2026):
+      | /desplazamiento?partido=<id del viaje> o ?jornada=<N>.
+      */
+      const parametros = new URLSearchParams(window.location.search);
+      const partidoUrl = parametros.get("partido");
+      const jornadaUrl = Number(parametros.get("jornada")) || 0;
+
+      if (partidoUrl || jornadaUrl) {
+        const calendario = mezclaCalendario(csv, hoja);
+        const destino =
+          (partidoUrl ? calendario.find((item) => item.id === partidoUrl) : undefined) ??
+          (jornadaUrl ? calendario.find((item) => Number(item.competition.match(/^Jornada\s+(\d+)/i)?.[1]) === jornadaUrl) : undefined);
+
+        if (destino) setPedido(destino.id);
+
+        window.history.replaceState({}, "", "/desplazamiento");
+
+        return;
+      }
+
       /* Llegada desde el plan de partido: /desplazamiento?rival=<ID>. */
-      const pedidoUrl = new URLSearchParams(window.location.search).get("rival");
+      const pedidoUrl = parametros.get("rival");
 
       if (!pedidoUrl) return;
 
@@ -1118,12 +1152,7 @@ export default function DesplazamientoPage() {
                         </Notice>
                       ) : (
                         <Notice title="Cambia los días; se guarda solo">
-                          Parte de los datos del calendario y de un viaje propuesto:{" "}
-                          {viaje.condicion === "visitante"
-                            ? "dos días —la víspera y el partido—, que es lo que se hace casi todas las jornadas fuera de casa"
-                            : "un día, el del partido"}
-                          . Cámbialo a gusto —se añaden y se quitan días— y en
-                          cuanto escribas algo se guarda solo.
+                          Viaje propuesto de {viaje.condicion === "visitante" ? "dos días (víspera y partido)" : "un día"}: en cuanto escribas algo, se guarda.
                         </Notice>
                       )}
                     </div>

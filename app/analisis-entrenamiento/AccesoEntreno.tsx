@@ -18,6 +18,39 @@ import { Topbar } from "@/components/ui/topbar";
 import { useQuinielaSesion } from "@/hooks/useQuinielaSesion";
 import { PERSONA_POR_SLUG } from "@/lib/quiniela/staff";
 
+/** La ficha de objetivos tal como se ve dentro, con un ejemplo inventado. */
+function MuestraFicha() {
+  const filas = [
+    { jugador: "Jugador A", correctas: 9, total: 14, cumple: true },
+    { jugador: "Jugador B", correctas: 5, total: 11, cumple: false },
+  ];
+
+  return (
+    <figure className="rounded-2xl border border-white/10 bg-white/[0.03] p-4" aria-label="Ejemplo de la ficha de objetivos">
+      <figcaption className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/45">Así se ve dentro</span>
+        <span className="rounded-full border border-white/15 px-2 py-0.5 text-[10px] font-semibold text-white/55">Ejemplo, sin datos reales</span>
+      </figcaption>
+      <p className="text-sm font-semibold text-white">
+        <span className="text-[#C8A96B]">MD-3 · T2</span> Rondo 7v3
+      </p>
+      <p className="mt-1 text-[12px] text-white/65">Objetivo: perfilarse antes de recibir · meta 60 %</p>
+      <ul className="mt-3 space-y-1.5">
+        {filas.map((f) => (
+          <li key={f.jugador} className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] text-white/75">
+            <span className="font-semibold text-white/85">{f.jugador}</span>
+            <span>
+              {f.correctas} de {f.total} acciones correctas ({Math.round((f.correctas / f.total) * 100)} %)
+            </span>
+            <span className={`font-semibold ${f.cumple ? "text-emerald-300" : "text-amber-300"}`}>{f.cumple ? "· cumple" : "· no llega"}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-3 text-[11px] text-white/45">Cada acción lleva su clip, y el mensaje para el jugador sale de lo que se vio.</p>
+    </figure>
+  );
+}
+
 export function AccesoEntreno() {
   const router = useRouter();
   const sesion = useQuinielaSesion();
@@ -53,9 +86,16 @@ export function AccesoEntreno() {
                 </li>
               ))}
             </ul>
-            <p className="text-xs text-white/50">Es para el cuerpo técnico: entra con tu cuenta.</p>
 
-            <Acceso sinPista yo={yo} cargando={sesion.cargando} manda={sesion.manda} titulo="Entra para ver qué objetivo cumplió cada jugador" botonEntrar="Ver el análisis" subtitulo="La misma cuenta que la quiniela y las apuestas del staff" />
+            {/*
+            | Una muestra de lo que hay dentro (07/11/2026), sin datos de nadie:
+            | una tarea, un objetivo y su base, como lo enseña la ficha. Está
+            | escrita a mano y lo dice, para que no se lea como un dato.
+            */}
+            <MuestraFicha />
+
+            {/* Título corto: en el móvil «Entra para ver qué objetivo cumplió…» se cortaba y repetía la entrada. */}
+            <Acceso sinPista yo={yo} cargando={sesion.cargando} manda={sesion.manda} titulo="Entra con tu cuenta del staff" botonEntrar="Ver el análisis" subtitulo="La misma cuenta que la quiniela y las apuestas del staff" />
 
             {yo && !delCuerpoTecnico ? (
               <Notice tone="warn" title="Esta cuenta no es del cuerpo técnico">

@@ -21,6 +21,8 @@ import { DiaConectado } from "@/components/sesion-dia/DiaConectado";
 import { useDiasConectados } from "@/hooks/useDiasConectados";
 import { planDeRegistro, propuestasDeLaSesion, sesionDeFecha, type FilaPlan } from "@/lib/sesion-dia/conexion";
 import type { LucideIcon } from "lucide-react";
+import { nombreCorto as nombreCortoEquipo } from "@/lib/abp/informe-graficos";
+import { etiquetaMicro, fechaIsoDeHoja, separaSemanas } from "@/lib/microciclo/cuenta";
 import {
   Activity,
   ArrowDown,
@@ -559,61 +561,9 @@ function parseCSV(text: string): Row[] {
 /*  Un micro con dos rivales son dos semanas                           */
 /* ------------------------------------------------------------------ */
 
-/** «dd/mm/aaaa» → «aaaa-mm-dd», para ordenar. */
-const fechaIso = (f: string) => {
-  const m = f.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-  return m ? `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}` : "";
-};
-
-/**
- * Con partido entre semana, la hoja apunta dos semanas con el mismo número de
- * micro: el 13 lleva al Sant Andreu (miércoles) y al Alcorcón (domingo), y
- * cada tarea dice de cuál es. Agrupando sólo por número se juntaban en una y
- * la del Alcorcón no aparecía.
- *
- * Se separan sin tocar la numeración del cuerpo técnico: el primer rival (por
- * fecha) se queda con el 13 y el siguiente pasa a ser el «13B» —internamente
- * 13,1, para que siga ordenado entre el 13 y el 14—. Una tarea sin rival
- * escrito es de la semana del primero.
- */
-function separaSemanas(filas: Row[]): Row[] {
-  const porMicro = new Map<number, Row[]>();
-
-  for (const f of filas) porMicro.set(f.micro, [...(porMicro.get(f.micro) ?? []), f]);
-
-  const salida: Row[] = [];
-
-  for (const [micro, suyas] of porMicro) {
-    const rivales = [...new Set(suyas.map((f) => f.rival.trim()).filter(Boolean))].sort((a, b) => {
-      const primera = (r: string) =>
-        suyas
-          .filter((f) => f.rival.trim() === r)
-          .map((f) => fechaIso(f.fecha))
-          .filter(Boolean)
-          .sort()[0] ?? "";
-      return primera(a).localeCompare(primera(b));
-    });
-
-    for (const f of suyas) {
-      const i = Math.max(0, rivales.indexOf(f.rival.trim()));
-      salida.push({ ...f, rival: f.rival.trim() || rivales[0] || "", micro: micro + i / 10 });
-    }
-  }
-
-  return salida;
-}
-
-/** 13 → «13»; 13,1 → «13B»; 13,2 → «13C». */
-function etiquetaMicro(micro: number | string) {
-  const n = Number(micro);
-
-  if (!Number.isFinite(n)) return String(micro);
-
-  const entero = Math.floor(n + 1e-9);
-  const extra = Math.round((n - entero) * 10);
-
-  return extra > 0 ? `${entero}${String.fromCharCode(65 + extra)}` : String(entero);
-}
+/* Desde el 07/11/2026 la separación (13 y «13B») y la etiqueta viven en
+   lib/microciclo/cuenta.ts: el editor y los calendarios cuentan igual. */
+const fechaIso = fechaIsoDeHoja;
 
 /**
  * El micro que toca hoy, para abrir la pantalla en él.
@@ -984,6 +934,10 @@ export default function Page() {
       ),
       evaluadas: evals.length,
       sesiones: new Set(filtered.map((r) => `${r.micro}-${r.md}`)).size,
+      /* La misma cuenta en todas las pantallas (07/11/2026): «X entrenos + Y partidos». */
+      entrenos: new Set(filtered.filter((r) => !isCompeticion(r.fase)).map((r) => `${r.micro}-${r.md}`)).size,
+      partidos: new Set(filtered.filter((r) => isCompeticion(r.fase)).map((r) => `${r.micro}-${r.md}`)).size,
+      tareasEntreno: filtered.filter((r) => !isCompeticion(r.fase)).length,
       diversidad: new Set(filtered.map((r) => r.tipo).filter(Boolean)).size,
       jugadores: avg(filtered.map((r) => r.nJug).filter((n) => n > 0)),
     };
@@ -1007,6 +961,9 @@ export default function Page() {
         label: `M${etiquetaMicro(m)}`,
         rival: set.find((r) => r.rival)?.rival || "",
         tareas: set.length,
+        /* Las de entreno (sin el partido): un micro con sólo el partido no es «1 tarea · 0'». */
+        entreno: noComp.length,
+        tiempoEntreno: sum(noComp.map((r) => r.tiempo)),
         tiempo: sum(set.map((r) => r.tiempo)),
         eval: avg(evals),
         valoradas: evals.length,
@@ -1072,6 +1029,13 @@ export default function Page() {
         faltan: [...faltan].sort(ordenMd),
         loadDias: loadA,
         eval: evA > 0 && evB > 0 ? +(evA - evB).toFixed(1) : 0,
+        /* Antes → después, para que cada diferencia lleve su base (07/11/2026). */
+        evalAntes: evB,
+        evalAhora: evA,
+        loadAntes: loadB,
+        loadAhora: loadA,
+        cogAntes: cogB,
+        cogAhora: cogA,
         load: loadA - loadB,
         loadPct: pctCambio(loadA, loadB),
         cog: cogA - cogB,
@@ -1086,7 +1050,13 @@ export default function Page() {
       mismosDias: null as string[] | null,
       faltan: [] as string[],
       loadDias: cur.load,
-      eval: +(cur.eval - prev.eval).toFixed(1),
+      eval: cur.eval > 0 && prev.eval > 0 ? +(cur.eval - prev.eval).toFixed(1) : 0,
+      evalAntes: prev.eval,
+      evalAhora: cur.eval,
+      loadAntes: prev.load,
+      loadAhora: cur.load,
+      cogAntes: prev.cog,
+      cogAhora: cur.cog,
       load: cur.load - prev.load,
       loadPct: pctCambio(cur.load, prev.load),
       cog: cur.cog - prev.cog,
@@ -1230,8 +1200,21 @@ export default function Page() {
     const scale = (value: number, max: number) =>
       +Math.min((value / (max || 1)) * 10, 10).toFixed(1);
 
-    const maxLoadTask = Math.max(...rows.map((r) => r.carga), 1);
-    const maxCogTask = Math.max(...rows.map((r) => r.cargaCog), 1);
+    /*
+    | MISMA ESCALA QUE EL RESTO (07/11/2026). La carga por tarea se medía
+    | contra la tarea más cargada de la hoja —el partido, 90'— y salía 0,7 de
+    | 10. Ahora el 10 es el micro de la temporada con más carga por tarea de
+    | entreno, y se cuenta sin el partido, como el resto de la metodología.
+    */
+    const porTarea = (key: "carga" | "cargaCog", set: Row[]) => {
+      const s = set.filter((r) => !isCompeticion(r.fase));
+
+      return s.length ? sum(s.map((r) => r[key])) / s.length : 0;
+    };
+    const maxPorMicro = (key: "carga" | "cargaCog") =>
+      Math.max(...micros.map((m) => porTarea(key, rows.filter((r) => r.micro === m))), 1);
+    const loadTarea = porTarea("carga", filtered);
+    const cogTarea = porTarea("cargaCog", filtered);
     const maxDiversidad = Math.max(
       ...microStats.map((m) => m.diversidad),
       1
@@ -1243,13 +1226,13 @@ export default function Page() {
       { metric: "Exig. cog.", value: metrics.exigCog, raw: metrics.exigCog },
       {
         metric: "Fís./tarea",
-        value: scale(avgLoadPerTask, maxLoadTask),
-        raw: Math.round(avgLoadPerTask),
+        value: scale(loadTarea, maxPorMicro("carga")),
+        raw: Math.round(loadTarea),
       },
       {
         metric: "Cog./tarea",
-        value: scale(avgCogPerTask, maxCogTask),
-        raw: Math.round(avgCogPerTask),
+        value: scale(cogTarea, maxPorMicro("cargaCog")),
+        raw: Math.round(cogTarea),
       },
       {
         metric: "Diversidad",
@@ -1259,9 +1242,9 @@ export default function Page() {
     ];
   }, [
     rows,
+    filtered,
+    micros,
     metrics,
-    avgLoadPerTask,
-    avgCogPerTask,
     microStats,
   ]);
 
@@ -1507,12 +1490,44 @@ export default function Page() {
     /* Con días sin medir (30/10/2026) el reparto de la carga por MD y la «descarga» no se leen: faltan días. */
     const aMedias = Boolean(microDelta?.faltan.length);
 
+    /* La base de cada lectura es la misma población que la cifra (07/11/2026):
+       sin el partido, «de 14 tareas de entreno», no las 15 de la cabecera. */
+    const baseTareas = `${work.length} tarea${work.length === 1 ? "" : "s"}${excludeComp ? " de entreno" : ""}`;
+
     if (peakMD && peakMD.carga > 0 && !aMedias) {
+      /* Contra qué se compara: el peso medio de ese MD en los micros de la temporada. */
+      let mediaTemporada = 0;
+
+      if (micro !== "ALL") {
+        const pcts = micros
+          .map((m) => {
+            const set = rows.filter((r) => r.micro === m && (!excludeComp || !isCompeticion(r.fase)));
+            const total = sum(set.map((r) => r.carga));
+            const delMd = sum(set.filter((r) => r.md === peakMD.md).map((r) => r.carga));
+
+            return total > 0 && delMd > 0 ? (delMd / total) * 100 : null;
+          })
+          .filter((n): n is number => n !== null);
+
+        mediaTemporada = pcts.length >= 3 ? avg(pcts) : 0;
+      }
+
+      const dif = mediaTemporada ? peakMD.pctCarga - mediaTemporada : 0;
+      const orden = !mediaTemporada
+        ? peakMD.pctCarga >= 50
+          ? ": comprobar que el pico cae en el día que se quiere."
+          : "."
+        : dif >= 8
+          ? `, por encima del ${fmtDec(mediaTemporada)} % de su media en la temporada: si no se busca, repartir parte de su carga en los otros días.`
+          : dif <= -8
+            ? `, por debajo del ${fmtDec(mediaTemporada)} % de su media en la temporada: el pico de la semana es más bajo de lo habitual.`
+            : `, en línea con su media de la temporada (${fmtDec(mediaTemporada)} %).`;
+
       out.push({
         icon: Flame,
         tone: "text-[#C8A96B]",
-        peso: peakMD.pctCarga >= 50 ? 65 : 35,
-        text: `${peakMD.md} concentra el ${fmtDec(peakMD.pctCarga)} % de la carga física del periodo${excludeComp ? "" : " (el partido cuenta en las cuentas)"}${peakMD.pctCarga >= 50 ? ": comprobar que el pico cae en el día que se quiere." : "."}`,
+        peso: peakMD.pctCarga >= 50 || Math.abs(dif) >= 8 ? 65 : 35,
+        text: `${peakMD.md} concentra el ${fmtDec(peakMD.pctCarga)} % de la carga física del periodo${excludeComp ? "" : " (el partido cuenta en las cuentas)"}${orden}`,
       });
     }
 
@@ -1538,7 +1553,7 @@ export default function Page() {
         icon: Target,
         tone: "text-rose-400",
         peso: 90,
-        text: `"${worstTipo.name}", valorado ${fmt1(worstTipo.eval)}: revisar el diseño o el día en que se aplica.`,
+        text: `"${worstTipo.name}", valorado ${fmt1(worstTipo.eval)} de media en ${worstTipo.tareas} tareas: revisar el diseño o el día en que se aplica.`,
       });
     }
 
@@ -1561,7 +1576,7 @@ export default function Page() {
         icon: Layers,
         tone: "text-sky-400",
         peso: 20,
-        text: `El contenido más trabajado es "${topContenido.name}" (${topContenido.tareas} tarea${topContenido.tareas === 1 ? "" : "s"} · ${fmt1(topContenido.pctTareas)} % del total).`,
+        text: `El contenido más trabajado es "${topContenido.name}" (${topContenido.tareas} de ${baseTareas} · ${fmt1(topContenido.pctTareas)} %).`,
       });
     }
 
@@ -1571,12 +1586,12 @@ export default function Page() {
         microDelta.prev.eval > 0
           ? microDelta.eval === 0
             ? "la evaluación se mantiene"
-            : `la evaluación ${microDelta.eval > 0 ? "sube" : "baja"} ${fmtDec(Math.abs(microDelta.eval))} pts`
+            : `la evaluación ${microDelta.eval > 0 ? "sube" : "baja"} ${fmtDec(Math.abs(microDelta.eval))} pts${microDelta.evalAntes > 0 && microDelta.evalAhora > 0 ? ` (${fmtDec(microDelta.evalAntes)} → ${fmtDec(microDelta.evalAhora)})` : ""}`
           : "";
       const cargaTxt =
         microDelta.load === 0
           ? "la carga física se mantiene"
-          : `la carga física ${microDelta.load > 0 ? "sube" : "baja"} ${fmtDec(Math.abs(microDelta.loadPct))} %`;
+          : `la carga física ${microDelta.load > 0 ? "sube" : "baja"} ${fmtDec(Math.abs(microDelta.loadPct))} %${microDelta.loadAntes > 0 ? ` (${fmtInt(microDelta.loadAntes)} → ${fmtInt(microDelta.loadAhora)})` : ""}`;
 
       out.push({
         icon: Activity,
@@ -1607,6 +1622,10 @@ export default function Page() {
     microDelta,
     metrics.evaluadas,
     excludeComp,
+    work.length,
+    micro,
+    micros,
+    rows,
   ]);
 
   /* ---------------- options ---------------- */
@@ -1636,11 +1655,11 @@ export default function Page() {
   /* El titular del micro elegido: «Micro 18: 19 tareas y 3h 14'; carga física 1.165 (−37,7 % sobre el M17)». */
   const titular =
     selectedMicroStat && metrics.tasks > 0
-      ? `Micro ${etiquetaMicro(selectedMicroStat.micro)}: ${metrics.tasks} tareas${metrics.tiempo > 0 ? ` y ${fmtMin(metrics.tiempo)}` : ""}${
+      ? `Micro ${etiquetaMicro(selectedMicroStat.micro)}: ${metrics.tasks} tareas${metrics.tareasEntreno !== metrics.tasks ? ` (${metrics.tareasEntreno} de entreno)` : ""}${metrics.tiempo > 0 ? ` y ${fmtMin(metrics.tiempo)}` : ""}${
           metrics.load > 0
             ? microDelta?.mismosDias
               ? `; carga física ${listaDias(microDelta.mismosDias)}: ${fmtInt(microDelta.loadDias)}${microDelta.load !== 0 ? `, ${microDelta.load < 0 ? "−" : "+"}${fmtDec(Math.abs(microDelta.loadPct))} % frente a los mismos días del M${etiquetaMicro(microDelta.prev.micro)}` : ""} (${listaDias(microDelta.faltan)}, sin medir todavía)`
-              : `; carga física ${fmtInt(metrics.load)}${microDelta && microDelta.load !== 0 ? ` (${microDelta.load < 0 ? "−" : "+"}${fmtDec(Math.abs(microDelta.loadPct))} % sobre el M${etiquetaMicro(microDelta.prev.micro)})` : ""}`
+              : `; carga física ${fmtInt(metrics.load)}${microDelta && microDelta.load !== 0 ? ` (${microDelta.load < 0 ? "−" : "+"}${fmtDec(Math.abs(microDelta.loadPct))} % sobre el M${etiquetaMicro(microDelta.prev.micro)}, que tuvo ${fmtInt(microDelta.loadAntes)})` : ""}`
             : ""
         }`
       : null;
@@ -1890,12 +1909,13 @@ export default function Page() {
                           )}
                         </div>
 
+                        {/* Nombre corto del club (Nàstic, Cartagena): sin «…» en el móvil (07/11/2026). */}
                         {m.rival && (
                           <p
                             className="mt-1 truncate text-sm font-semibold"
                             title={m.rival}
                           >
-                            {m.rival}
+                            {nombreCortoEquipo(m.rival)}
                           </p>
                         )}
 
@@ -1906,7 +1926,9 @@ export default function Page() {
                         )}
 
                         <p className="mt-3 text-[11px] text-white/50">
-                          {m.tareas} tarea{m.tareas === 1 ? "" : "s"} · {fmtMin(m.tiempo)}
+                          {m.entreno === 0
+                            ? "Sólo el partido · sin tareas de entreno"
+                            : `${m.entreno} tarea${m.entreno === 1 ? "" : "s"} de entreno${m.tiempoEntreno > 0 ? ` · ${fmtMin(m.tiempoEntreno)}` : ""}`}
                         </p>
 
                         <div className="mt-2 h-1.5 rounded-full bg-white/10">
@@ -2119,7 +2141,7 @@ export default function Page() {
                   icon={ListChecks}
                   title="Tareas"
                   value={fmtInt(metrics.tasks)}
-                  hint={`${metrics.sesiones} sesiones`}
+                  hint={`${metrics.tareasEntreno} de entreno · ${metrics.entrenos} entreno${metrics.entrenos === 1 ? "" : "s"}${metrics.partidos ? ` + ${metrics.partidos} partido${metrics.partidos === 1 ? "" : "s"}` : ""}`}
                   delta={microDelta?.tareas}
                   deltaTono="neutro"
                   deltaQue="tareas"
@@ -2148,6 +2170,7 @@ export default function Page() {
                     delta={microDelta?.eval}
                     decimals={1}
                     deltaFrente={frenteA}
+                    deltaBase={microDelta && microDelta.evalAntes > 0 && microDelta.evalAhora > 0 ? `${fmtDec(microDelta.evalAntes)} → ${fmtDec(microDelta.evalAhora)}` : undefined}
                   />
                 )}
 
@@ -2162,6 +2185,7 @@ export default function Page() {
                   decimals={1}
                   deltaTono="neutro"
                   deltaFrente={frenteA}
+                  deltaBase={microDelta && microDelta.loadAntes > 0 ? `${fmtInt(microDelta.loadAntes)} → ${fmtInt(microDelta.loadAhora)}` : undefined}
                 />
 
                 <StatCard
@@ -2175,6 +2199,7 @@ export default function Page() {
                   decimals={1}
                   deltaTono="neutro"
                   deltaFrente={frenteA}
+                  deltaBase={microDelta && microDelta.cogAntes > 0 ? `${fmtInt(microDelta.cogAntes)} → ${fmtInt(microDelta.cogAhora)}` : undefined}
                 />
 
                 <StatCard
@@ -2189,7 +2214,8 @@ export default function Page() {
 
             {/* ---------------- Tabs ---------------- */}
 
-            <div className="mt-8 flex gap-2 overflow-x-auto pb-1">
+            {/* En el móvil las pestañas pasan a otra línea: ninguna queda escondida a la derecha (07/11/2026). */}
+            <div className="mt-8 flex flex-wrap gap-2 pb-1 sm:flex-nowrap sm:overflow-x-auto">
               {TABS.map((t) => {
                 const Icon = t.icon;
                 const active = tab === t.key;
@@ -2357,6 +2383,7 @@ export default function Page() {
                           yAxisId="right"
                           orientation="right"
                           domain={[0, 10]}
+                          ticks={[0, 2, 4, 6, 8, 10]}
                           tick={{ fill: COLORS.purple, fontSize: 11 }}
                           axisLine={false}
                           tickLine={false}
@@ -2408,7 +2435,7 @@ export default function Page() {
 
                   <Panel
                     title="Perfil del microciclo"
-                    subtitle="Cada eje de 0 a 10; la carga por tarea, respecto a la tarea más cargada"
+                    subtitle="Cada eje de 0 a 10. Carga por tarea de entreno: 10 = el micro de la temporada que más carga por tarea tuvo. Diversidad: 10 = el micro con más tipos de tarea"
                   >
                     <Chart>
                       <RadarChart
@@ -2498,6 +2525,7 @@ export default function Page() {
 
                         <YAxis
                           domain={[0, 10]}
+                          ticks={[0, 2, 4, 6, 8, 10]}
                           tick={{ fill: "#94A3B8", fontSize: 11 }}
                           axisLine={false}
                           tickLine={false}
@@ -2705,6 +2733,7 @@ export default function Page() {
                           yAxisId="right"
                           orientation="right"
                           domain={[0, 10]}
+                          ticks={[0, 2, 4, 6, 8, 10]}
                           tick={{ fill: COLORS.gold, fontSize: 11 }}
                           axisLine={false}
                           tickLine={false}
@@ -3303,6 +3332,7 @@ export default function Page() {
                           <XAxis
                             type="number"
                             domain={[0, 10]}
+                            ticks={[0, 2, 4, 6, 8, 10]}
                             tick={{ fill: "#94A3B8", fontSize: 11 }}
                             axisLine={false}
                             tickLine={false}
@@ -3528,6 +3558,7 @@ export default function Page() {
 
                         <YAxis
                           domain={[0, 10]}
+                          ticks={[0, 2, 4, 6, 8, 10]}
                           tick={{ fill: "#94A3B8", fontSize: 11 }}
                           axisLine={false}
                           tickLine={false}
@@ -3605,6 +3636,7 @@ export default function Page() {
                           dataKey="demandaCog"
                           name="Demanda cognitiva"
                           domain={[0, 10]}
+                          ticks={[0, 2, 4, 6, 8, 10]}
                           tick={{ fill: "#94A3B8", fontSize: 11 }}
                         />
 
@@ -3613,6 +3645,7 @@ export default function Page() {
                           dataKey="eval"
                           name="Evaluación"
                           domain={[0, 10]}
+                          ticks={[0, 2, 4, 6, 8, 10]}
                           tick={{ fill: "#94A3B8", fontSize: 11 }}
                         />
 
@@ -4131,6 +4164,7 @@ function StatCard({
   deltaTono = "valor",
   deltaFrente,
   deltaQue,
+  deltaBase,
 }: {
   icon: LucideIcon;
   title: string;
@@ -4138,6 +4172,8 @@ function StatCard({
   hint?: string;
   accent?: string;
   delta?: number;
+  /** Antes → después, la base de la diferencia: «7,0 → 6,7» (07/11/2026). */
+  deltaBase?: string;
   deltaSuffix?: string;
   decimals?: number;
   /** «valor»: subir es mejor (verde/rojo). «neutro»: sólo dice el sentido. */
@@ -4193,6 +4229,7 @@ function StatCard({
             {deltaSuffix}
             {deltaQue ? ` ${deltaQue}` : ""}
             {deltaFrente ? ` frente ${frenteCon(deltaFrente)}` : ""}
+            {deltaBase ? ` (${deltaBase})` : ""}
           </span>
         )}
 
@@ -4205,9 +4242,11 @@ function StatCard({
             }`}
           >
             <DeltaIcon className="h-2.5 w-2.5" />
+            {delta > 0 ? "+" : "−"}
             {fmtDec(Math.abs(delta), decimals)}
             {deltaSuffix}
             {deltaFrente ? ` frente ${frenteCon(deltaFrente)}` : ""}
+            {deltaBase ? ` (${deltaBase})` : ""}
           </span>
         )}
       </div>

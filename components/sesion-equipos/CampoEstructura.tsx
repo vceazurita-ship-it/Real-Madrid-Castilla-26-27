@@ -164,19 +164,30 @@ export function CampoEstructura({
   const relleno = (f: number) => Math.max(1, f / 8);
   const raya = (f: number) => 2 * Math.max(1, f / 6) + 1;
 
+  /*
+  | EN EL MÓVIL, UN SOLO RÓTULO POR PUESTO COMPARTIDO (07/11/2026). A 390 px
+  | los tres nombres de un puesto compartido se montaban sobre los de al lado
+  | («DIEGO AGUADO / LAMINI FATI» encima de OSCAR NAASEI). En la pantalla
+  | estrecha la etiqueta lleva al titular y «+1»; los demás, en la lista de
+  | debajo del campo. La lámina (sin tocar) sigue con todos.
+  */
+  const compacto = Boolean(onToca) && ancho < 380;
+  const enEtiqueta = (h: Hueco): JugadorSesion[] => (compacto && h.jugador && h.companeros?.length ? [h.jugador] : nombresDe(h));
+  const conMas = (h: Hueco) => (compacto && h.jugador && h.companeros?.length ? h.companeros.length : 0);
+
   /** Lo que mide de alto la etiqueta de un hueco con esa letra (sin el aire sobre ella). */
   const altoEtiqueta = (h: Hueco, f: number) => {
-    const quienes = nombresDe(h);
+    const quienes = enEtiqueta(h);
     const compartido = quienes.length > 1;
     const w = anchoNombreDe(h);
-    const filas = quienes.reduce((s, j) => s + renglonesDe(j.nombre, f, w, compartido).length, 0);
+    const filas = quienes.reduce((s, j) => s + renglonesDe(j.nombre, f, w, compartido).length, 0) + (conMas(h) ? 1 : 0);
 
     return filas * 1.02 * f + 2 * relleno(f) + (quienes.length - 1) * raya(f);
   };
 
   /** Que cada renglón de la etiqueta quepa a lo ancho. */
   const cabeAncho = (h: Hueco, f: number) => {
-    const quienes = nombresDe(h);
+    const quienes = enEtiqueta(h);
     const w = anchoNombreDe(h);
 
     return quienes.every((j) => renglonesDe(j.nombre, f, w, quienes.length > 1).every((r) => anchoTexto(r, f) <= w));
@@ -498,7 +509,8 @@ export function CampoEstructura({
               }}
             >
               {h.jugador
-                ? quienes.map((j, k) => (
+                ? [
+                  ...enEtiqueta(h).map((j, k) => (
                     <span
                       key={j.id}
                       data-nombre-campo=""
@@ -516,9 +528,15 @@ export function CampoEstructura({
                         ...(k > 0 ? { marginTop: Math.max(1, tamano / 6), paddingTop: Math.max(1, tamano / 6), borderTop: `1px solid ${borde}` } : {}),
                       }}
                     >
-                      {renglonesDe(j.nombre, tamano, anchoNombre, compartido).join("\n")}
+                      {renglonesDe(j.nombre, tamano, anchoNombre, enEtiqueta(h).length > 1).join("\n")}
                     </span>
-                  ))
+                  )),
+                  conMas(h) ? (
+                    <span key="mas" style={{ display: "block", opacity: 0.8 }}>
+                      +{conMas(h)}
+                    </span>
+                  ) : null,
+                ]
                 : onToca
                   ? "libre"
                   : "—"}

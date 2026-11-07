@@ -124,7 +124,9 @@ export function comoDesfase(minutos: number) {
   const h = Math.floor((total % 1440) / 60);
   const m = total % 60;
 
-  if (d) return h ? `${signo}${d} d ${h} h` : `${signo}${d} d`;
+  /* 07/11/2026: con días también van los minutos. «−1 d 5 h» de las 16:00
+     con el partido a las 21:15 se leía como las 16:15; es «−1 d 5 h 15». */
+  if (d) return `${signo}${d} d${h ? ` ${h} h` : ""}${m ? ` ${m}${h ? "" : " min"}` : ""}`;
 
   if (!h) return `${signo}${m} min`;
 
