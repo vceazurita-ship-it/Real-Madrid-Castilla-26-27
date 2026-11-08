@@ -19,7 +19,7 @@
  * `components/sesion-equipos/LaminaEquipos.tsx`.
  */
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -93,7 +93,8 @@ import {
 } from "@/lib/sesion-equipos/estructura";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { cambiosDe, creaCambio, guardaVistaCambio, quitaCambio, vistaCambio, type Fase } from "@/lib/sesion-equipos/cambio";
-import { apodo, capturaLienzos, descarga, pdfDeLienzos, pintado } from "@/lib/export/lienzos";
+import { apodo, capturaLienzos, pdfDeLienzos } from "@/lib/export/lienzos";
+import { descargaEnMarcha, descargas, encargaDescarga, type ResultadoDescarga } from "@/lib/trabajos/descargas";
 import { barlowCondensed } from "@/lib/rivals/portada-font";
 import {
   ALMACEN_VACIO,
@@ -1240,6 +1241,15 @@ function Contador({ valor, min, max, onCambia }: { valor: number; min: number; m
  * guiones, o con el apartado de lesionados pegado al de disponibles) se ve
  * antes de hacer equipos con él.
  */
+/** Por dónde va la descarga en segundo plano con este título (null si no hay ninguna en marcha). */
+function useTrabajoEnMarcha(titulo: string) {
+  return useSyncExternalStore(
+    descargas.suscribe,
+    () => descargas.foto().trabajos.find((t) => t.titulo === titulo && (t.estado === "esperando" || t.estado === "en-marcha"))?.texto ?? null,
+    () => null,
+  );
+}
+
 function LecturaLista({ texto, sesion }: { texto: string; sesion?: SesionEquipos | null }) {
   const lista = useMemo(() => leeLista(texto), [texto]);
 
@@ -1546,7 +1556,6 @@ export default function JugadoresSesionPage() {
 
   const [presentando, setPresentando] = useState(false);
 
-  const [exportando, setExportando] = useState<null | { laminas: { i: number; fase: Fase }[]; paso: string }>(null);
 
   /*
   | Con la cabecera de la tarea por defecto (21/10/2026): la imagen que va al
@@ -2523,130 +2532,6 @@ export default function JugadoresSesionPage() {
 
   const tiraArrastrada = useRef<number | null>(null);
 
-  /* ---------------- exportar ---------------- */
-
-  const lienzos = useRef<HTMLDivElement | null>(null);
-
-  /** Las diapositivas de unas tareas: con cambio a mitad, dos (inicio y tras el cambio). */
-  const laminasDe = (indices: number[]) =>
-    indices.flatMap((i) => (sesion?.tareas[i]?.cambio ? [{ i, fase: "inicio" as Fase }, { i, fase: "cambio" as Fase }] : [{ i, fase: "inicio" as Fase }]));
-
-  const exporta = async (laminas: { i: number; fase: Fase }[], formato: "jpg" | "pdf" | "vertical" = "jpg") => {
-    if (!sesion || exportando || !laminas.length) return;
-
-    setExportando({ laminas, paso: "Preparando…" });
-
-    try {
-      await pintado();
-      await document.fonts?.ready;
-      await pintado();
-
-      const raiz = lienzos.current;
-
-      if (!raiz) throw new Error("no se ha podido montar la imagen");
-
-      const imagenes = await capturaLienzos(raiz, "[data-lamina-equipos]", {
-        ancho: LAMINA_W,
-        alto: LAMINA_H,
-        /*
-        | Blanco, como la lámina (21/10/2026). `html-to-image` pone este color
-        | de fondo al nodo que captura, encima del suyo: con el azul noche de
-        | antes la imagen y el PDF salían con el marco oscuro que no se veía en
-        | la vista previa.
-        */
-        fondo: "#FFFFFF",
-        alPaso: (hechas, total) => setExportando({ laminas, paso: `Imagen ${hechas} de ${total}…` }),
-      });
-
-      /*
-      | En un solo PDF (21/10/2026): una página por diapositiva, en el orden de
-      | la sesión. Es lo que se manda al grupo o se deja en la tableta del campo
-      | de una vez, sin diez imágenes sueltas.
-      */
-      /*
-      | Para el móvil (21/10/2026): la sesión entera en una imagen vertical de
-      | 1080 × 1920, las diapositivas una debajo de otra. Es la que se adjunta
-      | al mensaje del grupo; se descarga y la adjunta el analista.
-      */
-      if (formato === "vertical") {
-        setExportando({ laminas, paso: "Montando la imagen vertical…" });
-
-        const lienzo = document.createElement("canvas");
-        lienzo.width = 1080;
-        lienzo.height = 1920;
-        const ctx = lienzo.getContext("2d");
-        if (!ctx) throw new Error("el navegador no deja dibujar la imagen");
-
-        ctx.fillStyle = "#FFFFFF";
-        ctx.fillRect(0, 0, 1080, 1920);
-        ctx.fillStyle = "#0B1A33";
-        ctx.fillRect(0, 0, 1080, 12);
-        ctx.font = "700 40px sans-serif";
-        ctx.fillText(sesion.titulo.toUpperCase(), 40, 80, 1000);
-
-        const arriba = 120;
-        const sitio = (1920 - arriba - 30) / imagenes.length;
-        const alto = Math.min(LAMINA_H * (1000 / LAMINA_W), sitio - 20);
-        const ancho = alto * (LAMINA_W / LAMINA_H);
-
-        for (let k = 0; k < imagenes.length; k += 1) {
-          const img = new Image();
-          img.src = imagenes[k];
-          await img.decode();
-          ctx.drawImage(img, (1080 - ancho) / 2, arriba + k * sitio, ancho, alto);
-        }
-
-        const blob = await new Promise<Blob | null>((listo) => lienzo.toBlob(listo, "image/png"));
-        if (!blob) throw new Error("no se ha podido montar la imagen");
-
-        descarga(blob, `${apodo(sesion.titulo, "sesion")}-movil.png`);
-        toast.success("Imagen para el móvil descargada", { description: "Adjúntala al mensaje del grupo." });
-
-        return;
-      }
-
-      if (formato === "pdf") {
-        setExportando({ laminas, paso: "Montando el PDF…" });
-
-        const doc = await pdfDeLienzos(imagenes, { ancho: LAMINA_W, alto: LAMINA_H, orientacion: "landscape", margen: 0 });
-
-        descarga(doc.output("blob") as Blob, `${apodo(sesion.titulo, "sesion")}-equipos.pdf`);
-        toast.success("PDF descargado", { description: `${imagenes.length} ${imagenes.length === 1 ? "página" : "páginas"}, una por diapositiva.` });
-
-        return;
-      }
-
-      const nombreDe = ({ i, fase: f }: { i: number; fase: Fase }) =>
-        `${String(i + 1).padStart(2, "0")}${f === "cambio" ? "b" : ""}-${apodo(sesion.tareas[i].nombre, "tarea")}${f === "cambio" ? "-tras-el-cambio" : ""}${limpia ? "-limpia" : ""}.jpg`;
-
-      /*
-      | Una a una, sin .zip (08/10/2026): cada imagen se descarga suelta, de
-      | seguido. Con un respiro entre una y otra, porque el navegador ignora
-      | descargas disparadas en el mismo instante (la primera vez puede
-      | preguntar si se permiten varias: hay que decir que sí).
-      */
-      for (let k = 0; k < imagenes.length; k += 1) {
-        if (k > 0) await new Promise((listo) => window.setTimeout(listo, 450));
-
-        setExportando({ laminas, paso: `Descargando ${k + 1} de ${imagenes.length}…` });
-
-        const blob = await fetch(imagenes[k]).then((r) => r.blob());
-
-        descarga(blob, `${apodo(sesion.titulo, "sesion")}-${nombreDe(laminas[k])}`);
-      }
-
-      toast.success(imagenes.length === 1 ? "Imagen descargada" : `${imagenes.length} imágenes descargadas, una a una`, {
-        description: imagenes.length > 1 ? "Si el navegador pregunta si permite varias descargas, di que sí." : undefined,
-      });
-    } catch (error) {
-      toast.error("No se ha podido exportar", {
-        description: error instanceof Error ? error.message : "Inténtalo otra vez",
-      });
-    } finally {
-      setExportando(null);
-    }
-  };
-
   /* ---------------- lo que se ve ---------------- */
 
   const reparto = sesion && tarea ? repartoDe(tarea, sesion.jugadores) : null;
@@ -2686,6 +2571,175 @@ export default function JugadoresSesionPage() {
     [enlacePlan, planSesion, sesion],
   );
   const detalleDe = (i: number) => (sesion ? lineaDeDetalle(detalles[i], sesion.tareas[i]?.nombre ?? "") : "");
+
+  /* ---------------- exportar ---------------- */
+
+  /** Las diapositivas de unas tareas: con cambio a mitad, dos (inicio y tras el cambio). */
+  const laminasDe = (indices: number[]) =>
+    indices.flatMap((i) => (sesion?.tareas[i]?.cambio ? [{ i, fase: "inicio" as Fase }, { i, fase: "cambio" as Fase }] : [{ i, fase: "inicio" as Fase }]));
+
+  /** El rótulo de cada exportación: el mismo en la píldora y en el botón. */
+  const tituloExporta = (formato: "jpg" | "pdf" | "vertical", laminas: { i: number; fase: Fase }[]) => {
+    const nombre = sesion?.titulo ?? "Sesión";
+
+    if (formato === "pdf") return `PDF de la sesión · ${nombre}`;
+    if (formato === "vertical") return `Imagen para el grupo · ${nombre}`;
+    if (laminas.length === 1 && sesion) return `Imagen · ${sesion.tareas[laminas[0].i]?.nombre ?? "tarea"}${laminas[0].fase === "cambio" ? " (tras el cambio)" : ""}`;
+
+    return `Imágenes de la sesión · ${nombre}`;
+  };
+
+  /* Por dónde va «Descargar las N», para rotular el botón aunque se haya ido y vuelto. */
+  const pasoTodas = useTrabajoEnMarcha(tituloExporta("jpg", laminasDe((sesion?.tareas ?? []).map((_, i) => i))));
+
+  /*
+  | EN SEGUNDO PLANO (08/11/2026), como las de ABP: el clic deja el encargo
+  | con la foto de la sesión tal como está (tareas, forma de la lámina,
+  | detalle) y el anfitrión del layout pinta las láminas fuera de pantalla, las
+  | fotografía y baja el fichero aunque se cambie de pantalla.
+  */
+  const exporta = (laminas: { i: number; fase: Fase }[], formato: "jpg" | "pdf" | "vertical" = "jpg") => {
+    if (!sesion || !laminas.length) return;
+
+    const titulo = tituloExporta(formato, laminas);
+
+    if (descargaEnMarcha(titulo)) {
+      toast.info("Ya se está preparando", { description: titulo });
+
+      return;
+    }
+
+    const foto = sesion;
+    const cabecera = conCabecera;
+    const sinNada = limpia;
+    const ctx = contexto;
+    const puestos = puestoDe;
+    const detallesFoto = laminas.map(({ i }) => detalleDe(i));
+
+    encargaDescarga({
+      titulo,
+      vuelta: "/jugadores-sesion",
+      ancho: LAMINA_W,
+      mesa: (
+        <div>
+          {laminas.map(({ i, fase: f }, k) => (
+            <LaminaEquipos key={`${foto.tareas[i].id}-${f}`} puestoDe={puestos} sesion={foto} tarea={foto.tareas[i]} fase={f} cabecera={cabecera} limpia={sinNada} indice={i} total={foto.tareas.length} detalle={detallesFoto[k]} contexto={ctx} />
+          ))}
+        </div>
+      ),
+      tarea: ({ raiz, avanza }) => exportaLaminas({ raiz, avanza, laminas, formato, sesion: foto, limpia: sinNada }),
+    });
+
+    if (formato === "jpg" && laminas.length > 1) {
+      toast.info("Se descargan una a una al terminar", { description: "Si el navegador pregunta si permite varias descargas, di que sí." });
+    }
+  };
+
+  const exportaLaminas = async ({
+    raiz,
+    avanza,
+    laminas,
+    formato,
+    sesion,
+    limpia,
+  }: {
+    raiz: HTMLElement | null;
+    avanza: (texto: string, fraccion?: number) => void;
+    laminas: { i: number; fase: Fase }[];
+    formato: "jpg" | "pdf" | "vertical";
+    sesion: SesionEquipos;
+    limpia: boolean;
+  }): Promise<ResultadoDescarga | ResultadoDescarga[]> => {
+    {
+      if (!raiz) throw new Error("no se ha podido montar la imagen");
+
+      avanza("Fotografiando las diapositivas…", 0);
+
+      const imagenes = await capturaLienzos(raiz, "[data-lamina-equipos]", {
+        ancho: LAMINA_W,
+        alto: LAMINA_H,
+        /*
+        | Blanco, como la lámina (21/10/2026). `html-to-image` pone este color
+        | de fondo al nodo que captura, encima del suyo: con el azul noche de
+        | antes la imagen y el PDF salían con el marco oscuro que no se veía en
+        | la vista previa.
+        */
+        fondo: "#FFFFFF",
+        alPaso: (hechas, total) => avanza(`Imagen ${hechas} de ${total}…`, (hechas / total) * 0.9),
+      });
+
+      /*
+      | En un solo PDF (21/10/2026): una página por diapositiva, en el orden de
+      | la sesión. Es lo que se manda al grupo o se deja en la tableta del campo
+      | de una vez, sin diez imágenes sueltas.
+      */
+      /*
+      | Para el móvil (21/10/2026): la sesión entera en una imagen vertical de
+      | 1080 × 1920, las diapositivas una debajo de otra. Es la que se adjunta
+      | al mensaje del grupo; se descarga y la adjunta el analista.
+      */
+      if (formato === "vertical") {
+        avanza("Montando la imagen vertical…", 0.95);
+
+        const lienzo = document.createElement("canvas");
+        lienzo.width = 1080;
+        lienzo.height = 1920;
+        const ctx = lienzo.getContext("2d");
+        if (!ctx) throw new Error("el navegador no deja dibujar la imagen");
+
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillRect(0, 0, 1080, 1920);
+        ctx.fillStyle = "#0B1A33";
+        ctx.fillRect(0, 0, 1080, 12);
+        ctx.font = "700 40px sans-serif";
+        ctx.fillText(sesion.titulo.toUpperCase(), 40, 80, 1000);
+
+        const arriba = 120;
+        const sitio = (1920 - arriba - 30) / imagenes.length;
+        const alto = Math.min(LAMINA_H * (1000 / LAMINA_W), sitio - 20);
+        const ancho = alto * (LAMINA_W / LAMINA_H);
+
+        for (let k = 0; k < imagenes.length; k += 1) {
+          const img = new Image();
+          img.src = imagenes[k];
+          await img.decode();
+          ctx.drawImage(img, (1080 - ancho) / 2, arriba + k * sitio, ancho, alto);
+        }
+
+        const blob = await new Promise<Blob | null>((listo) => lienzo.toBlob(listo, "image/png"));
+        if (!blob) throw new Error("no se ha podido montar la imagen");
+
+        /* Adjúntala al mensaje del grupo: el aviso del anfitrión dice cuándo está. */
+        return { blob, nombre: `${apodo(sesion.titulo, "sesion")}-movil.png` };
+      }
+
+      if (formato === "pdf") {
+        avanza("Montando el PDF…", 0.95);
+
+        const doc = await pdfDeLienzos(imagenes, { ancho: LAMINA_W, alto: LAMINA_H, orientacion: "landscape", margen: 0 });
+
+        return { blob: doc.output("blob") as Blob, nombre: `${apodo(sesion.titulo, "sesion")}-equipos.pdf` };
+      }
+
+      const nombreDe = ({ i, fase: f }: { i: number; fase: Fase }) =>
+        `${String(i + 1).padStart(2, "0")}${f === "cambio" ? "b" : ""}-${apodo(sesion.tareas[i].nombre, "tarea")}${f === "cambio" ? "-tras-el-cambio" : ""}${limpia ? "-limpia" : ""}.jpg`;
+
+      /*
+      | Una a una, sin .zip (08/10/2026): cada imagen se descarga suelta, de
+      | seguido. El anfitrión deja un respiro entre una y otra, porque el
+      | navegador ignora descargas disparadas en el mismo instante (la primera
+      | vez puede preguntar si se permiten varias: hay que decir que sí).
+      */
+      const salida: ResultadoDescarga[] = [];
+
+      for (let k = 0; k < imagenes.length; k += 1) {
+        salida.push({ blob: await fetch(imagenes[k]).then((r) => r.blob()), nombre: `${apodo(sesion.titulo, "sesion")}-${nombreDe(laminas[k])}` });
+      }
+
+      return salida;
+    }
+  };
+
 
   /* Los que hacen la tarea sin demarcación: el reparto «por puesto» no sabe dónde juegan (21/10/2026). */
   const sinDemarcacion = sesion && reparto ? [...Object.values(reparto.porEquipo).flat(), ...reparto.comodines, ...reparto.sinSitio].filter((j) => !puestoDe(j)) : [];
@@ -4550,22 +4604,21 @@ export default function JugadoresSesionPage() {
                           <Button icon={MessageSquareText} onClick={() => void copiaTexto(false)} title="Los equipos de esta tarea en texto, para el grupo">
                             Copiar texto
                           </Button>
-                          <Button icon={Download} disabled={Boolean(exportando)} onClick={() => void exporta([{ i: activa, fase }])} title="Esta tarea en imagen (.jpg), en el momento que estás viendo">
+                          <Button icon={Download} onClick={() => exporta([{ i: activa, fase }])} title="Esta tarea en imagen (.jpg), en el momento que estás viendo">
                             Descargar esta
                           </Button>
                           <Button
                             tone="primary"
-                            icon={exportando ? Loader2 : Download}
-                            disabled={Boolean(exportando)}
-                            onClick={() => void exporta(laminasDe(sesion.tareas.map((_, i) => i)))}
+                            icon={pasoTodas ? Loader2 : Download}
+                            disabled={Boolean(pasoTodas)}
+                            onClick={() => exporta(laminasDe(sesion.tareas.map((_, i) => i)))}
                             title="Todas las tareas, una imagen cada una (dos si hay cambio a mitad), descargadas una a una"
                           >
-                            {exportando ? exportando.paso : `Descargar las ${laminasDe(sesion.tareas.map((_, i) => i)).length}`}
+                            {pasoTodas ?? `Descargar las ${laminasDe(sesion.tareas.map((_, i) => i)).length}`}
                           </Button>
                           <Button
                             icon={FileDown}
-                            disabled={Boolean(exportando)}
-                            onClick={() => void exporta(laminasDe(sesion.tareas.map((_, i) => i)), "pdf")}
+                            onClick={() => exporta(laminasDe(sesion.tareas.map((_, i) => i)), "pdf")}
                             title="Todas las tareas en un solo PDF, una página por diapositiva"
                           >
                             PDF de la sesión
@@ -4975,19 +5028,7 @@ export default function JugadoresSesionPage() {
         />
       )}
 
-      {/* ---------------- LIENZOS PARA EXPORTAR (fuera de pantalla) ---------------- */}
-
-      {exportando && sesion && (
-        <div
-          ref={lienzos}
-          aria-hidden
-          style={{ position: "fixed", left: -30000, top: 0, width: LAMINA_W, pointerEvents: "none" }}
-        >
-          {exportando.laminas.map(({ i, fase: f }) => (
-            <LaminaEquipos key={`${sesion.tareas[i].id}-${f}`} puestoDe={puestoDe} sesion={sesion} tarea={sesion.tareas[i]} fase={f} cabecera={conCabecera} limpia={limpia} indice={i} total={sesion.tareas.length} detalle={detalleDe(i)} contexto={contexto} />
-          ))}
-        </div>
-      )}
+      {/* Los lienzos para exportar los pinta ya el anfitrión de descargas (la `mesa` de `exporta`). */}
 
       {/* ---------------- EL ARRASTRE EN CURSO ---------------- */}
 

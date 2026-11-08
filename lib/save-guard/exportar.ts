@@ -9,6 +9,8 @@
 | local: TXT para leerlo y CSV para pegarlo de vuelta en la hoja.
 */
 
+import { encargaDescarga } from "@/lib/trabajos/descargas";
+
 import { CampoPerdido, explicarMotivo, normalizarValor } from "./verificar";
 
 /** Marca de orden de bytes: sin ella Excel abre los acentos rotos. */
@@ -110,34 +112,35 @@ export function construirCsv({ registro }: ContenidoRescatable): string {
   return `${BOM}${cabeceras}\n${valores}\n`;
 }
 
-/** Dispara la descarga en el navegador y suelta el object URL. */
+/**
+ * Encarga la descarga al anfitrión de descargas en segundo plano
+ * (`lib/trabajos/descargas.ts`, 08/11/2026): el contenido ya va hecho texto,
+ * así que no depende de la pantalla. En el ordenador se baja al momento; en
+ * móvil y tableta sale «Descargar» en el aviso, y la píldora lo deja a mano
+ * aunque se cambie de pantalla.
+ */
 export function descargarTexto(
   nombre: string,
   contenido: string,
-  mime: string
+  mime: string,
+  titulo = `Copia · ${nombre}`
 ): void {
-  const blob = new Blob([contenido], { type: `${mime};charset=utf-8` });
-
-  const url = URL.createObjectURL(blob);
-
-  const enlace = document.createElement("a");
-
-  enlace.href = url;
-  enlace.download = nombre;
-
-  document.body.appendChild(enlace);
-  enlace.click();
-  document.body.removeChild(enlace);
-
-  /* Revocar en el mismo tick cancela la descarga en algunos navegadores. */
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  encargaDescarga({
+    titulo,
+    vuelta: typeof window === "undefined" ? undefined : window.location.pathname + window.location.search,
+    tarea: async () => ({
+      blob: new Blob([contenido], { type: `${mime};charset=utf-8` }),
+      nombre,
+    }),
+  });
 }
 
 export function descargarTxt(contenido: ContenidoRescatable): void {
   descargarTexto(
     nombreDeArchivo(contenido.titulo, "txt"),
     construirTxt(contenido),
-    "text/plain"
+    "text/plain",
+    `Copia en TXT · ${contenido.titulo}`
   );
 }
 
@@ -145,7 +148,8 @@ export function descargarCsv(contenido: ContenidoRescatable): void {
   descargarTexto(
     nombreDeArchivo(contenido.titulo, "csv"),
     construirCsv(contenido),
-    "text/csv"
+    "text/csv",
+    `Copia en CSV · ${contenido.titulo}`
   );
 }
 
@@ -160,7 +164,8 @@ export function descargarJson(titulo: string, documento: unknown): void {
   descargarTexto(
     nombreDeArchivo(titulo, "json"),
     JSON.stringify(documento, null, 2),
-    "application/json"
+    "application/json",
+    `Copia en JSON · ${titulo}`
   );
 }
 

@@ -2,6 +2,7 @@
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { ResponsiveConVistas } from "@/components/data/visual/ResponsiveConVistas";
 import { traeCsv } from "@/lib/hojaCsv";
+import { descargaEnMarcha, encargaDescarga } from "@/lib/trabajos/descargas";
 import { EsqueletoPantalla, EstadoError, EstadoVacio } from "@/components/ui/estados";
 import { chipInk } from "@/lib/theme";
 import { Sidebar } from "@/components/ui/sidebar";
@@ -1625,18 +1626,54 @@ const totalTipoCarrera =
   },
 };
 /* El PDF captura cada gráfico por su id: con las pestañas, se enseñan todos un momento. */
-const exportaPDF = async () => {
-  setTodoVisible(true);
+/*
+| En segundo plano (08/11/2026), como las de ABP. Fotografía los gráficos que
+| hay en la pantalla (`pantalla: true`): mientras tanto los enlaces esperan, y
+| en cuanto están hechas las fotos se suelta la pantalla. La tabla, el pie y
+| bajar el fichero siguen aunque se cambie de página; la píldora enseña por
+| dónde va y avisa al terminar.
+*/
+const exportaPDF = () => {
+  const titulo = "PDF · ABP ofensivo";
 
-  try {
-    await new Promise((resolve) => setTimeout(resolve, 1400));
-    await downloadPDF();
-  } finally {
-    setTodoVisible(false);
-  }
+  if (descargaEnMarcha(titulo)) return;
+
+  encargaDescarga({
+    titulo,
+    vuelta: window.location.pathname + window.location.search,
+    pantalla: true,
+    tarea: async ({ avanza, sueltaPantalla }) => {
+      let soltada = false;
+
+      const suelta = () => {
+        if (soltada) return;
+
+        soltada = true;
+        setTodoVisible(false);
+        sueltaPantalla();
+      };
+
+      setTodoVisible(true);
+
+      try {
+        avanza("Preparando los gráficos…", 0.02);
+        await new Promise((resolve) => setTimeout(resolve, 1400));
+
+        return await downloadPDF({ alFotos: suelta, avanza });
+      } finally {
+        suelta();
+      }
+    },
+  });
 };
 
-const downloadPDF = async () => {
+const downloadPDF = async ({
+  alFotos,
+  avanza,
+}: {
+  alFotos: () => void;
+  avanza: (texto: string, fraccion?: number) => void;
+}) => {
   /*
   | El motor de PDF llega al pulsar, no al abrir la pantalla.
   |
@@ -2223,6 +2260,8 @@ while (index < charts.length) {
     const chart =
       charts[index];
 
+    avanza(`Gráfico ${index + 1} de ${charts.length}…`, 0.05 + (index / charts.length) * 0.8);
+
     const element =
       document.getElementById(
         chart.id
@@ -2287,6 +2326,19 @@ while (index < charts.length) {
     );
   }
 }
+
+  /* Las fotos están hechas: los textos vuelven a su color y la pantalla queda
+     libre. Lo que sigue (tabla, pie) ya no la mira. */
+  originalStyles.forEach(({ el, fill, estilo, weight }) => {
+    if (fill) el.setAttribute("fill", fill);
+
+    el.style.fill = estilo;
+
+    if (weight) el.setAttribute("font-weight", weight);
+  });
+
+  alFotos();
+  avanza("Montando la tabla…", 0.9);
 
   // ===================================================
   // TABLA
@@ -2403,32 +2455,16 @@ while (index < charts.length) {
       }
     );
   }
-originalStyles.forEach(
-  ({ el, fill, estilo, weight }) => {
-    if (fill)
-      el.setAttribute(
-        "fill",
-        fill
-      );
-
-    el.style.fill = estilo;
-
-    if (weight)
-      el.setAttribute(
-        "font-weight",
-        weight
-      );
-  }
-);
   /* La fecha del nombre, la de aquí: con `toISOString` a pelo, un PDF
      sacado pasada la medianoche llevaba la del día anterior (19/10/2026). */
   const ahora = new Date();
 
-  doc.save(
-    `ABP_Ofensivo_${new Date(ahora.getTime() - ahora.getTimezoneOffset() * 60000)
+  return {
+    blob: doc.output("blob"),
+    nombre: `ABP_Ofensivo_${new Date(ahora.getTime() - ahora.getTimezoneOffset() * 60000)
       .toISOString()
-      .slice(0, 10)}.pdf`
-  );
+      .slice(0, 10)}.pdf`,
+  };
 };
 
 /*

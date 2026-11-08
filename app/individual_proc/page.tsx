@@ -19,6 +19,7 @@ import { alineaSeguimiento, DIAS_SIN_SEGUIMIENTO, esDeSeguimiento, sinSeguimient
 import { SESIONES_CONTADAS_DESDE, SESIONES_DESDE_TEXTO } from "@/lib/sesion-equipos/estadistica";
 import { recordDateKey } from "@/lib/calendar";
 import { PLAYER_PHOTO_FALLBACK } from "@/lib/playerImages";
+import { descargaEnMarcha, encargaDescarga } from "@/lib/trabajos/descargas";
 
 import {
   AlertTriangle,
@@ -979,7 +980,13 @@ export default function DashboardSeguimiento() {
     };
   }, [players, tracking]);
 
+  /* En segundo plano (08/11/2026): la foto de los registros se toma en el clic
+     y el anfitrión de descargas la baja y avisa. */
   const exportCSV = () => {
+    const titulo = "CSV · Seguimiento individual";
+
+    if (descargaEnMarcha(titulo)) return;
+
     const header = [
       "Fecha",
       "Jugador",
@@ -1014,18 +1021,16 @@ export default function DashboardSeguimiento() {
         .join(",")
     );
 
-    const blob = new Blob([`﻿${[header.join(","), ...lines].join("\n")}`], {
-      type: "text/csv;charset=utf-8;",
+    const texto = `﻿${[header.join(","), ...lines].join("\n")}`;
+
+    encargaDescarga({
+      titulo,
+      vuelta: "/individual_proc",
+      tarea: async () => ({
+        blob: new Blob([texto], { type: "text/csv;charset=utf-8;" }),
+        nombre: "seguimiento_individual.csv",
+      }),
     });
-
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-
-    a.href = url;
-    a.download = "seguimiento_individual.csv";
-    a.click();
-
-    URL.revokeObjectURL(url);
   };
 
   const filterLabel = (key: keyof Filters, value: string) => {

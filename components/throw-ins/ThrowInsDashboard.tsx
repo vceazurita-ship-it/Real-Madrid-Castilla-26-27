@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { ResponsiveConVistas } from "@/components/data/visual/ResponsiveConVistas";
 import { BarraFiltros, ESTILO_ELEGIDO, PastillaPretemporada } from "@/components/filtros/BarraFiltros";
 import type { CSSProperties, ReactNode, SetStateAction } from "react";
@@ -15,11 +15,11 @@ import {
   YAxis,
 } from "recharts";
 import { FileDown, LayoutDashboard, Map as MapaIcono, Workflow, ListOrdered } from "lucide-react";
-import { capturaNodo } from "@/lib/export/captura";
+import { capturaNodo, fotograma } from "@/lib/export/captura";
+import { descargaEnMarcha, descargas, encargaDescarga } from "@/lib/trabajos/descargas";
 import { EstadoError } from "@/components/ui/estados";
 import { THEME_COLOR, chipInk } from "@/lib/theme";
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
-import { descargaDataUrl } from "@/lib/export/lienzos";
 import { traeCsv } from "@/lib/hojaCsv";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { BANDA_VACIO, DOC_BANDA, accionDeFila, type BandaCortes } from "@/lib/banda/cortes";
@@ -961,6 +961,15 @@ const ORDEN_EN_JORNADA = new WeakMap<RecordRow, number>();
 /* En la tabla, lo que no se sabe no se escribe («Sin dato» sigue siendo el valor del filtro). */
 const sinHueco = (valor: string) => (valor === "Sin dato" ? "" : valor);
 
+/** Por dónde va la descarga en segundo plano con este título (null si no hay ninguna en marcha). */
+function useTrabajoEnMarcha(titulo: string) {
+  return useSyncExternalStore(
+    descargas.suscribe,
+    () => descargas.foto().trabajos.find((t) => t.titulo === titulo && (t.estado === "esperando" || t.estado === "en-marcha"))?.texto ?? null,
+    () => null,
+  );
+}
+
 export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProps) {
   /* El corte de cada saque y su segundo en Hudl (`scripts/banda-cortes.mjs`). Sólo se lee. */
   const { value: cortesBanda } = useRemoteDoc<BandaCortes>({ key: DOC_BANDA, kind: "banda", fallback: BANDA_VACIO });
@@ -1569,44 +1578,75 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
     />
   );
 
-  const exportPng = useCallback(async () => {
-    if (!contentRef.current) return;
+  /*
+  | En segundo plano (08/11/2026), como las de ABP. Fotografía el panel que se
+  | ve (`pantalla: true`): mientras dura la foto los enlaces esperan; en cuanto
+  | está hecha se suelta la pantalla y el anfitrión del layout baja el PNG y
+  | avisa, aunque se haya cambiado de página.
+  */
+  const tituloPng = `PNG · Saque de banda ${isOffensive ? "ofensivo" : "defensivo"}`;
 
-    setExporting(true);
+  const exportPng = useCallback(() => {
+    if (!contentRef.current || descargaEnMarcha(tituloPng)) return;
+
     setErrorPng("");
 
-    try {
-      // El PNG salía sin título ni filtros: dos capturas del mismo panel eran
-      // indistinguibles. Esperamos a que React pinte la cabecera de exportación.
-      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-      /* Las pestañas que no se veían se montan ahora: sus gráficos tienen que medirse y acabar de dibujarse (14/10/2026). */
-      await new Promise((resolve) => setTimeout(resolve, 1300));
+    const nodo = contentRef.current;
 
-      /* `capturaNodo`: el panel entero a 2× se pasa del lienzo de un iPad,
-         y en Safari la primera pasada sale sin los escudos. */
-      /* El fondo, el del tema que se ve (19/10/2026): con el negro fijo, en
-         modo día la tinta oscura de los textos caía sobre negro y el PNG
-         salía ilegible. Y la fecha del nombre, la local, no la de Greenwich. */
-      const tema = document.documentElement.dataset.theme === "dark" ? "dark" : "light";
-      const ahora = new Date();
-      const hoy = new Date(ahora.getTime() - ahora.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    encargaDescarga({
+      titulo: tituloPng,
+      vuelta: window.location.pathname + window.location.search,
+      pantalla: true,
+      tarea: async ({ avanza, sueltaPantalla }) => {
+        setExporting(true);
 
-      const { dataUrl } = await capturaNodo(contentRef.current, {
-        backgroundColor: THEME_COLOR[tema],
-        pixelRatio: 2,
-        cacheBust: true,
-      });
+        let dataUrl: string;
+        let nombre: string;
 
-      await descargaDataUrl(
-        dataUrl,
-        `saque-banda-${isOffensive ? "ofensivo" : "defensivo"}-${hoy}.png`,
-      );
-    } catch {
-      setErrorPng("No se pudo generar la imagen del panel. Vuelve a intentarlo.");
-    } finally {
-      setExporting(false);
-    }
-  }, [isOffensive]);
+        try {
+          avanza("Preparando el panel…", 0.1);
+          // El PNG salía sin título ni filtros: dos capturas del mismo panel eran
+          // indistinguibles. Esperamos a que React pinte la cabecera de exportación.
+          /* Con `fotograma` y no `requestAnimationFrame`: escondida la pestaña, éste no llega. */
+          await fotograma();
+          await fotograma();
+          /* Las pestañas que no se veían se montan ahora: sus gráficos tienen que medirse y acabar de dibujarse (14/10/2026). */
+          await new Promise((resolve) => setTimeout(resolve, 1300));
+
+          /* `capturaNodo`: el panel entero a 2× se pasa del lienzo de un iPad,
+             y en Safari la primera pasada sale sin los escudos. */
+          /* El fondo, el del tema que se ve (19/10/2026): con el negro fijo, en
+             modo día la tinta oscura de los textos caía sobre negro y el PNG
+             salía ilegible. Y la fecha del nombre, la local, no la de Greenwich. */
+          const tema = document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+          const ahora = new Date();
+          const hoy = new Date(ahora.getTime() - ahora.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+
+          avanza("Fotografiando el panel…", 0.4);
+
+          ({ dataUrl } = await capturaNodo(nodo, {
+            backgroundColor: THEME_COLOR[tema],
+            pixelRatio: 2,
+            cacheBust: true,
+          }));
+
+          nombre = `saque-banda-${isOffensive ? "ofensivo" : "defensivo"}-${hoy}.png`;
+        } catch (error) {
+          setErrorPng("No se pudo generar la imagen del panel. Vuelve a intentarlo.");
+
+          throw error;
+        } finally {
+          setExporting(false);
+          sueltaPantalla();
+        }
+
+        /* Por `Blob`: en iOS el `data:` abre la imagen en vez de bajarla. */
+        return { blob: await (await fetch(dataUrl)).blob(), nombre };
+      },
+    });
+  }, [isOffensive, tituloPng]);
+
+  const exportandoPng = useTrabajoEnMarcha(tituloPng) !== null;
 
   const tableRows = filtered.slice(0, MAX_TABLA);
 
@@ -1676,11 +1716,11 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                 <button
                   type="button"
                   onClick={exportPng}
-                  disabled={exporting || loading}
+                  disabled={exportandoPng || loading}
                   className="flex shrink-0 items-center gap-2 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-4 py-2.5 text-sm text-[#E7D2A0] transition hover:bg-[#C8A96B]/20 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <FileDown size={16} />
-                  {exporting ? "Generando…" : "Descargar PNG"}
+                  {exportandoPng ? "Generando…" : "Descargar PNG"}
                 </button>
               }
             />
