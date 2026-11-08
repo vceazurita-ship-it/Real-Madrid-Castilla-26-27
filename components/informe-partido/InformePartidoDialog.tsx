@@ -47,7 +47,7 @@ import { SEGUNDOS_CONSIGNAS, SEGUNDOS_CONSIGNAS_MINIMOS, consignasDePartido, gui
 import { consignasDePost, sinConsignasDeAbp } from "@/lib/video-informe/piezas";
 import { buscadorDeEscudos, traeEscudos } from "@/lib/data-analisis/escudos";
 import { puedeMontarVideo, type VideoMontado } from "@/lib/video-informe/monta";
-import { trabajoVideo } from "@/lib/video-informe/trabajo-video";
+import { huellaVideo, trabajoVideo } from "@/lib/video-informe/trabajo-video";
 import { trabajoEnvios, type ResultadoEnvio } from "@/lib/informes/trabajo-envios";
 import { bloqueVideoHtml } from "@/lib/video-informe/portada-video";
 import { VIDEO_JUGADORES_KEY, eligeVideoJugadores, normalizaVideosJugadores, type VideoJugadores } from "@/lib/abp/video-jugadores";
@@ -1140,16 +1140,21 @@ export function InformePartidoDialog({
     encargaDescarga({
       titulo,
       vuelta: VUELTA_INFORME,
-      tarea: async ({ avanza }) => {
+      tarea: async ({ avanza, senal }) => {
         avanza("Vídeo para jugadores…");
 
-        const v = await trabajoVideo.pide(rotulo, await guion(), {
+        const g = await guion();
+        const opciones = {
           tope: SEGUNDOS_CONSIGNAS,
           minimo: vertical ? SEGUNDOS_CONSIGNAS_MINIMOS : undefined,
           vertical,
           fuente: barlowCondensed.style.fontFamily,
-          alPaso: (t) => avanza(`Vídeo para jugadores · ${t}`),
-        });
+        };
+
+        /* La ✕ de la píldora también para el montaje, no sólo la descarga. */
+        senal.addEventListener("abort", () => trabajoVideo.cancela(huellaVideo(g, opciones)), { once: true });
+
+        const v = await trabajoVideo.pide(rotulo, g, { ...opciones, alPaso: (t) => avanza(`Vídeo para jugadores · ${t}`) });
 
         return { blob: v.blob, nombre };
       },
