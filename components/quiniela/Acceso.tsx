@@ -74,7 +74,14 @@ export function Acceso({
   botonEntrar = "Entrar",
   compacto = false,
   abierto = false,
+  notaLectura = "Para ver el ranking y los partidos no hace falta entrar.",
 }: {
+  /**
+   * La línea de pie de la franja compacta: qué se ve sin entrar. Cada pantalla
+   * dice lo suyo (08/11/2026: en apuestas hablaba del ranking y los partidos
+   * de la quiniela). Vacía, no sale.
+   */
+  notaLectura?: string;
   /** Franja baja en vez de panel (29/10/2026, marketing): el formulario no debe tapar el ranking y los partidos. */
   compacto?: boolean;
   /** Compacto pero con el formulario ya a la vista (07/11/2026): cuando entrar es lo primero que hay que hacer. */
@@ -199,7 +206,7 @@ export function Acceso({
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5">
         <p className="flex min-w-0 items-center gap-2 text-[12.5px] text-white/70">
           <KeyRound className="h-3.5 w-3.5 shrink-0 text-[#C8A96B]" aria-hidden />
-          <span>Entra con tu correo para apostar. El ranking y los partidos se ven sin entrar.</span>
+          <span>Entra con tu correo para apostar.{notaLectura ? ` ${notaLectura}` : ""}</span>
         </p>
 
         <Button tone="primary" icon={KeyRound} onClick={() => setDesplegado(true)}>
@@ -218,16 +225,10 @@ export function Acceso({
       className="max-sm:[&>header]:pr-12"
       action={
         /* Compacto, un solo «Entrar» (29/10/2026, análisis): la pestaña y el
-           botón decían lo mismo. Registrarse pasa a un enlace. */
-        compacto ? (
-          <button
-            type="button"
-            onClick={() => setModo(registrando ? "entrar" : "registrar")}
-            className="text-[12px] text-white/60 underline-offset-2 transition hover:text-white hover:underline"
-          >
-            {registrando ? "Ya tengo cuenta" : "¿Primera vez? Registrarme"}
-          </button>
-        ) : (
+           botón decían lo mismo. Registrarse baja bajo el formulario, con
+           su área táctil de 44 px (08/11/2026, marketing): arriba a la
+           derecha y en letra pequeña no se veía. */
+        compacto ? undefined : (
         <Segmented
           ariaLabel="Entrar o registrarse"
           value={modo}
@@ -331,9 +332,20 @@ export function Acceso({
         </p>
       ) : null}
 
-      <p className={`${compacto ? "mt-2" : "mt-3"} text-[11px] leading-relaxed text-white/40`}>
+      {compacto ? (
+        <button
+          type="button"
+          onClick={() => setModo(registrando ? "entrar" : "registrar")}
+          className="mt-2 inline-flex min-h-11 items-center text-[13px] font-medium text-[#C8A96B] underline underline-offset-2 transition hover:text-white"
+        >
+          {registrando ? "Ya tengo cuenta: entrar" : "¿Primera vez? Regístrate aquí"}
+        </button>
+      ) : null}
+
+      {compacto && !registrando && !notaLectura ? null : (
+      <p className={`${compacto ? "mt-1" : "mt-3"} text-[12px] leading-relaxed text-white/55`}>
         {compacto && !registrando ? (
-          <>Para ver el ranking y los partidos no hace falta entrar.</>
+          <>{notaLectura}</>
         ) : sinPista ? (
           <>Si no recuerdas la contraseña, pídela al administrador.</>
         ) : registrando ? (
@@ -357,6 +369,7 @@ export function Acceso({
           </>
         )}
       </p>
+      )}
     </Panel>
   );
 }

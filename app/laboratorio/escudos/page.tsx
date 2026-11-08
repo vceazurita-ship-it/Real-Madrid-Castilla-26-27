@@ -20,7 +20,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Copy, Download, RefreshCw, ShieldCheck } from "lucide-react";
+import { Check, Copy, Download, RefreshCw, ShieldCheck } from "lucide-react";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
@@ -65,12 +65,14 @@ async function pngDelEscudo(url: string): Promise<Blob> {
   );
 }
 
-async function copiaEscudo(url: string, equipo: string) {
+async function copiaEscudo(url: string, equipo: string): Promise<"copiado" | "descargado" | "fallo"> {
   try {
     if (typeof ClipboardItem === "undefined" || !navigator.clipboard?.write) throw new Error("sin portapapeles");
 
     await navigator.clipboard.write([new ClipboardItem({ "image/png": pngDelEscudo(url) })]);
     aviso.exito(`Escudo de ${equipo} copiado`, "Pégalo donde haga falta: va en PNG transparente.");
+
+    return "copiado";
   } catch {
     /* Sin permiso de portapapeles (o navegador viejo): se descarga el PNG. */
     try {
@@ -83,11 +85,31 @@ async function copiaEscudo(url: string, equipo: string) {
       a.click();
       setTimeout(() => URL.revokeObjectURL(enlace), 5_000);
       aviso.info(`Escudo de ${equipo} descargado`, "Este navegador no deja copiar imágenes: va en PNG transparente.");
+
+      return "descargado";
     } catch {
       aviso.error(`No se ha podido copiar el escudo de ${equipo}`);
+
+      return "fallo";
     }
   }
 }
+
+/** Nuestro escudo va con borde oro para encontrarlo de un vistazo (08/11/2026). */
+const esNuestro = (equipo: string) => /castilla/i.test(equipo);
+
+/*
+| UNA IMAGEN QUE NO LLEGA NO PUEDE DEJAR LA PANTALLA COLGADA (08/11/2026). La
+| captura sin ventana se quedó una noche entera en la vista móvil: el botón de
+| descarga espera a que lleguen TODAS las imágenes, y una petición al proxy que
+| no contesta (o un `onLoad` que se dispara antes de hidratar y React no ve)
+| dejaba la página «Preparando escudos…» para siempre. Ahora la lista tiene un
+| tope de 20 s, cada imagen otro de 15 s (pasado, cuenta como «no llega» y el
+| .pptx sale sin ella), al montar se mira si la imagen ya estaba completa, y el
+| esqueleto de carga pinta 10 tarjetas animadas en vez de 40.
+*/
+const TOPE_LISTA_MS = 20_000;
+const TOPE_IMAGEN_MS = 15_000;
 
 /*
 | ¿TRAE FONDO? (30/10/2026, expertos). En vez de pedir «revisa que ninguno
@@ -122,12 +144,12 @@ function traeFondo(img: HTMLImageElement) {
   }
 }
 
-/** «2026-10-30T…» → «30/10». */
-function diaMes(iso: string | null) {
+/** «2026-11-08T…» → «08/11/2026». */
+function fechaLarga(iso: string | null) {
   const d = iso ? new Date(iso) : null;
 
   return d && !Number.isNaN(d.getTime())
-    ? `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`
+    ? `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`
     : "";
 }
 
@@ -148,6 +170,8 @@ export default function EscudosPage() {
   /** Cuántos escudos llevamos preparados mientras se arma el documento. */
   const [haciendo, setHaciendo] = useState<number | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
+  /** La tarjeta que acaba de copiar dice «Copiado» durante 2 s. */
+  const [copiado, setCopiado] = useState<string | null>(null);
 
   /*
   | El testigo es lo que dispara la recarga.
@@ -173,7 +197,11 @@ export default function EscudosPage() {
 
     (async () => {
       try {
-        const respuesta = await fetch("/api/data-analisis?escudos=1");
+        const corte = new AbortController();
+        const tope = setTimeout(() => corte.abort(), TOPE_LISTA_MS);
+        const respuesta = await fetch("/api/data-analisis?escudos=1", { signal: corte.signal }).finally(() =>
+          clearTimeout(tope),
+        );
 
         /* Un 500 con cuerpo de error se leía como «lista vacía» y mandaba a
            bajar un documento que a lo mejor ya estaba bajado. */
@@ -216,6 +244,49 @@ export default function EscudosPage() {
     setImagenes((previo) =>
       previo[url] === como ? previo : { ...previo, [url]: como },
     );
+  }, []);
+
+  /* Tope por imagen: la que no ha llegado en 15 s cuenta como «no llega». */
+  useEffect(() => {
+    if (estado !== "listo" || !escudos.length) return;
+
+    const reloj = setTimeout(() => {
+      setImagenes((previo) => {
+        const sinLlegar = escudos.filter((e) => !previo[e.url]);
+
+        if (!sinLlegar.length) return previo;
+
+        const siguiente = { ...previo };
+
+        for (const e of sinLlegar) siguiente[e.url] = "fallo";
+
+        return siguiente;
+      });
+    }, TOPE_IMAGEN_MS);
+
+    return () => clearTimeout(reloj);
+  }, [estado, escudos]);
+
+  /* Si la imagen ya estaba completa antes de hidratar, su `onLoad` no llega. */
+  const yaCargada = useCallback(
+    (url: string, img: HTMLImageElement | null) => {
+      if (!img || !img.complete) return;
+
+      if (img.naturalWidth > 0) {
+        marca(url, "listo");
+        miraFondo(url, img);
+      } else {
+        marca(url, "fallo");
+      }
+    },
+    [marca, miraFondo],
+  );
+
+  const copia = useCallback(async (url: string, equipo: string) => {
+    if ((await copiaEscudo(url, equipo)) === "fallo") return;
+
+    setCopiado(url);
+    setTimeout(() => setCopiado((actual) => (actual === url ? null : actual)), 2_000);
   }, []);
 
   const faltan = escudos.filter((e) => imagenes[e.url] === "fallo");
@@ -290,10 +361,15 @@ export default function EscudosPage() {
               lead="Los escudos de la categoría en un .pptx, por orden alfabético: cada uno es un objeto suelto con su PNG transparente, que se copia y se pega donde haga falta."
             />
 
-            {/* La nota del pie, arriba y con su fecha (30/10/2026, expertos). */}
-            <p className="mt-2 text-[12px] text-white/55">
-              Escudos de BeSoccer{diaMes(alDia) ? ` · al día el ${diaMes(alDia)}` : ""}
-            </p>
+            {/* Una sola línea de estado: cuántos, de dónde y de cuándo
+                (08/11/2026, marketing). El botón ya no repite la cuenta. */}
+            {estado === "listo" && escudos.length > 0 ? (
+              <p className="mt-2 text-[13px] text-white/70">
+                <strong className="font-semibold text-white">{escudos.length - faltan.length} escudos</strong> de BeSoccer
+                {fechaLarga(alDia) ? ` · actualizados el ${fechaLarga(alDia)}` : ""} · {hojas}{" "}
+                {hojas === 1 ? "diapositiva" : "diapositivas"} de hasta 20
+              </p>
+            ) : null}
 
             {/* ---------------- mandos ---------------- */}
 
@@ -312,26 +388,20 @@ export default function EscudosPage() {
                   ? `Preparando ${haciendo} de ${escudos.length}…`
                   : estado === "cargando" || (estado === "listo" && pendientes > 0)
                     ? `Preparando escudos…${escudos.length ? ` ${conImagen}/${escudos.length}` : ""}`
-                    : `Descargar .pptx${escudos.length ? ` · ${escudos.length - faltan.length} escudos` : ""}`}
+                    : "Descargar .pptx"}
               </button>
 
               <button
                 type="button"
                 onClick={pideLista}
                 disabled={haciendo !== null || estado === "cargando"}
-                className="inline-flex items-center justify-center gap-1.5 self-center text-[13px] text-white/60 underline-offset-2 transition hover:text-white hover:underline disabled:opacity-40 sm:self-auto"
+                className="inline-flex min-h-11 items-center justify-center gap-1.5 self-center px-3 text-[13px] text-white/60 underline-offset-2 transition hover:text-white hover:underline disabled:opacity-40 sm:self-auto"
               >
                 <RefreshCw size={14} className={estado === "cargando" ? "animate-spin" : undefined} />
                 Actualizar escudos
               </button>
             </div>
 
-            {/* La base del documento, bajo el botón (07/11/2026, marketing). */}
-            {estado === "listo" && escudos.length > 0 ? (
-              <p className="mt-2 text-[12px] text-white/60">
-                {escudos.length - faltan.length} escudos · {hojas} {hojas === 1 ? "diapositiva" : "diapositivas"} de hasta 20 · fuente BeSoccer · o copia cada uno suelto desde su tarjeta
-              </p>
-            ) : null}
 
             {/* Una sola caja ámbar con lo que falta o trae fondo. */}
             {estado === "listo" && (faltan.length > 0 || fondos.length > 0) ? (
@@ -354,13 +424,13 @@ export default function EscudosPage() {
             <div className="mt-5">
               <Panel
                 title="Vista previa del documento"
-                subtitle="Así salen sobre el azul noche del documento."
+                subtitle="Así salen sobre el azul noche del documento. Cada tarjeta copia su escudo suelto en PNG."
                 icon={ShieldCheck}
               >
                 {estado === "cargando" ? (
                   <div role="status" aria-label="Pidiendo los escudos">
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
-                      {Array.from({ length: 40 }, (_, i) => (
+                      {Array.from({ length: 10 }, (_, i) => (
                         <div
                           key={i}
                           style={{ background: "#04121F" }}
@@ -412,7 +482,10 @@ export default function EscudosPage() {
                                   borderColor:
                                     imagenes[uno.url] === "fallo" || conFondo[uno.url]
                                       ? "#F5B94A"
-                                      : undefined,
+                                      : esNuestro(uno.equipo)
+                                        ? "#C8A96B"
+                                        : undefined,
+                                  borderWidth: esNuestro(uno.equipo) ? 2 : undefined,
                                 }}
                                 className="flex flex-col items-center gap-2 rounded-xl border border-white/10 p-3"
                               >
@@ -428,10 +501,12 @@ export default function EscudosPage() {
                                   {imagenes[uno.url] !== "fallo" ? (
                                     /* eslint-disable-next-line @next/next/no-img-element */
                                     <img
+                                      ref={imagenes[uno.url] ? undefined : (img) => yaCargada(uno.url, img)}
                                       src={urlDeEscudo(uno.url)}
                                       alt={uno.equipo}
                                       className="relative h-16 w-16 object-contain"
                                       loading="eager"
+                                      decoding="async"
                                       onLoad={(evento) => {
                                         marca(uno.url, "listo");
                                         miraFondo(uno.url, evento.currentTarget);
@@ -442,20 +517,22 @@ export default function EscudosPage() {
                                 </div>
                                 <figcaption
                                   style={{ color: "#E4CE9B" }}
-                                  className="text-center text-[11px] font-semibold uppercase tracking-[0.1em] [overflow-wrap:anywhere]"
+                                  /* El nombre tal cual, como en la quiniela; en mayúsculas sólo en el PPT. */
+                                  className="text-center text-[12px] font-semibold leading-snug [overflow-wrap:anywhere]"
                                 >
                                   {uno.equipo}
                                 </figcaption>
                                 {imagenes[uno.url] === "listo" ? (
                                   <button
                                     type="button"
-                                    onClick={() => void copiaEscudo(uno.url, uno.equipo)}
+                                    onClick={() => void copia(uno.url, uno.equipo)}
+                                    aria-live="polite"
                                     title={`Copiar el escudo de ${uno.equipo} en PNG transparente`}
                                     style={{ color: "#E4CE9B", borderColor: "rgba(228,206,155,0.35)" }}
                                     className="mt-auto inline-flex min-h-9 items-center gap-1.5 rounded-lg border px-2.5 text-[12px] font-medium transition hover:brightness-125"
                                   >
-                                    <Copy size={13} aria-hidden />
-                                    Copiar PNG
+                                    {copiado === uno.url ? <Check size={13} aria-hidden /> : <Copy size={13} aria-hidden />}
+                                    {copiado === uno.url ? "Copiado" : "Copiar PNG"}
                                   </button>
                                 ) : null}
                                 {imagenes[uno.url] === "fallo" || conFondo[uno.url] ? (

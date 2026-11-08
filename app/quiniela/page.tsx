@@ -289,6 +289,28 @@ export default function QuinielaPage() {
     return [...tablaBase.filter((f) => !pocas(f)), ...tablaBase.filter(pocas)];
   }, [tablaBase, maxJugados]);
 
+  /* «A. Galisteo manda: 61 % · 38 de 62. M. Chena, a dos aciertos.» */
+  const gancho = useMemo(() => {
+    const [primero, segundo] = tabla.filter(
+      (f) => f.total.jugados > 0 && !(maxJugados > 0 && (f.total.jugados * 2 < maxJugados || f.apostados * 2 < f.total.jugados)),
+    );
+    const uno = primero ? PERSONA_POR_SLUG.get(primero.slug) : undefined;
+
+    if (!primero || !uno) return "";
+
+    const base = `${nombreCorto(uno)} manda: ${primero.total.porcentaje.toFixed(0)} % · ${primero.total.aciertos} de ${primero.total.jugados}.`;
+    const dos = segundo ? PERSONA_POR_SLUG.get(segundo.slug) : undefined;
+
+    if (!segundo || !dos) return base;
+
+    const distancia = primero.total.aciertos - segundo.total.aciertos;
+    const NUMEROS = ["", "un", "dos", "tres", "cuatro", "cinco"];
+
+    if (distancia <= 0) return `${base} ${nombreCorto(dos)}, con los mismos aciertos.`;
+
+    return `${base} ${nombreCorto(dos)}, a ${NUMEROS[distancia] ?? distancia} ${distancia === 1 ? "acierto" : "aciertos"}.`;
+  }, [tabla, maxJugados]);
+
   /* La jornada desde la que cuenta cada uno: «entró en la jornada 4». */
   const primeraDe = useMemo(
     () => new Map(jugadores.map((slug) => [slug, primeraJornadaDe(doc, slug)])),
@@ -548,6 +570,10 @@ export default function QuinielaPage() {
 
   const jugados = laJornada.resultados.filter(Boolean).length;
 
+  /* Con la jornada cerrada el acceso baja al final: el botón «Entrar» de
+     arriba lleva hasta él. Abierta, la franja de acceso ya va arriba. */
+  const entrarArriba = !yo && !sesion.cargando && plazo.cerrada && vista === "jornada";
+
   /* El estado de guardado, en el idioma de `SaveState`. */
   const estadoGuardado =
     estado === "cargando"
@@ -569,12 +595,15 @@ export default function QuinielaPage() {
             {tabla.some((fila) => fila.total.jugados > 0) && (
             <div className="mt-5">
               <Panel
-                title="Ranking de acierto"
-                /* Una sola regla escrita, la misma que aplica el cálculo (30/10/2026, expertos). */
-                /* La regla de «desde tu primera apuesta» va una sola vez, en «Cómo se cuenta» (07/11/2026). */
-                subtitle="Toda la temporada. A igual porcentaje, manda quien más acierta; con los dos iguales, se comparte puesto."
+                title="Ranking de acierto · toda la temporada"
+                /* La base, en el propio panel y sin abrir «Reglas» (08/11/2026, marketing). */
+                subtitle="Acierto = partidos acertados / partidos jugados desde tu primera apuesta."
                 icon={Trophy}
               >
+                <p className="-mt-1 mb-2 text-[12px] leading-relaxed text-white/60">
+                  A igual porcentaje, manda quien más acierta; con los dos iguales, el puesto se comparte y lleva «=» (=8: empatados en el octavo).
+                  {" "}Jornadas ganadas: las que cada uno cerró con más aciertos que nadie.
+                </p>
                 {(
                   <div className="min-w-0 overflow-x-auto sm:pr-14">
                     <table className="w-full text-[12px] sm:min-w-[520px]">
@@ -666,7 +695,7 @@ export default function QuinielaPage() {
                                       {fila.total.aciertos}/{fila.total.jugados}
                                       {fila.jornadasGanadas > 0
                                         ? ` · ${fila.jornadasGanadas} ${
-                                            fila.jornadasGanadas === 1 ? "jornada" : "jornadas"
+                                            fila.jornadasGanadas === 1 ? "jornada ganada" : "jornadas ganadas"
                                           }`
                                         : ""}
                                     </span>
@@ -894,6 +923,27 @@ export default function QuinielaPage() {
               }
             />
 
+            {/* Quién va ganando, lo primero (08/11/2026, guionista y
+                marketing): sale del ranking ya calculado, y el botón «Entrar»
+                sube a esta franja para no buscarlo tres pantallas abajo. */}
+            {(gancho || entrarArriba) && (
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+                {gancho ? (
+                  <p className="min-w-0 flex-1 text-[14px] font-semibold leading-snug text-white">
+                    {gancho}
+                  </p>
+                ) : null}
+                {entrarArriba ? (
+                  <a
+                    href="#acceso-quiniela"
+                    className="inline-flex min-h-11 items-center justify-center rounded-xl border border-[#C8A96B]/45 bg-[#C8A96B]/15 px-5 text-sm font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/25"
+                  >
+                    Entrar
+                  </a>
+                ) : null}
+              </div>
+            )}
+
             {/* ---------------------- LA JORNADA ---------------------- */}
 
             <div className="mt-6 flex flex-wrap items-center gap-2">
@@ -981,7 +1031,7 @@ export default function QuinielaPage() {
                 empuje hacia abajo. Con la jornada cerrada el acceso baja al
                 final (lo que se quiere ver es el resumen y el reparto). */}
             {vista === "jornada" && !plazo.cerrada && (
-              <div className="mt-5">
+              <div id={yo ? undefined : "acceso-quiniela"} className="mt-5 scroll-mt-24">
                 <Acceso
                   compacto
                   yo={sesion.yo}
@@ -1427,15 +1477,18 @@ export default function QuinielaPage() {
                 subtitle={
                   cerrado
                     ? "Bloque cerrado: éstos son los dos que no pagan"
-                    : "Cada diez jornadas, los dos primeros comen invitados por el resto. Así va el bloque en marcha."
+                    : tablaBloque.every((fila) => fila.jugados === 0)
+                      ? undefined
+                      : `Los dos primeros del bloque comen invitados por el resto. Así va, tras ${Math.max(...tablaBloque.map((fila) => fila.jugados))} partidos jugados.`
                 }
                 icon={UtensilsCrossed}
               >
                 {/* Sin ningún partido jugado del bloque, el orden no significa nada
-                    (07/11/2026, guionista y marketing): una línea y sin puestos. */}
+                    (07/11/2026, guionista y marketing): una sola frase, sin
+                    subtítulo que la repita (08/11/2026). */}
                 {!cerrado && tablaBloque.every((fila) => fila.jugados === 0) ? (
                   <p className="text-[13px] leading-relaxed text-white/75">
-                    El bloque arranca con la jornada {bloque.desde}: los dos primeros de las jornadas {bloque.desde} a {bloque.hasta} comen invitados por el resto.
+                    Arranca el bloque {bloque.desde}-{bloque.hasta}: los dos primeros comen invitados por el resto.
                   </p>
                 ) : null}
 

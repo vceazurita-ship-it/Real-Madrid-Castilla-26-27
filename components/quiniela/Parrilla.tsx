@@ -51,6 +51,37 @@ const COLOR_SIGNO: Record<Signo, string> = {
   "2": "rgb(120 170 255 / 0.55)",
 };
 
+/*
+| LA TIRA DE REPARTO (08/11/2026, marketing). Los números iban pegados al borde
+| en tramos estrechos («1» en un tramo de 18 px). Ahora el número va dentro
+| sólo si el tramo pasa del 20 % del ancho; el reparto completo se lee siempre
+| en la línea de texto de debajo («1 · 8   X · 3»), con el signo delante.
+*/
+function Reparto({ votos, total, alto }: { votos: Record<Signo, number>; total: number; alto: number }) {
+  const resumen = SIGNOS.filter((signo) => votos[signo] > 0)
+    .map((signo) => `${signo} · ${votos[signo]}`)
+    .join("   ");
+
+  return (
+    <span className="mt-2 block w-full min-w-[96px] sm:mt-0">
+      <span className="flex w-full overflow-hidden rounded" style={{ height: alto }} aria-hidden>
+        {SIGNOS.map((signo) =>
+          votos[signo] > 0 ? (
+            <span
+              key={signo}
+              className="flex items-center justify-center text-[11px] font-semibold tabular-nums text-black/70"
+              style={{ flex: `${votos[signo]} 1 0`, minWidth: 4, background: COLOR_SIGNO[signo] }}
+            >
+              {total > 0 && votos[signo] / total > 0.2 ? votos[signo] : null}
+            </span>
+          ) : null,
+        )}
+      </span>
+      <span className="mt-0.5 block whitespace-pre text-[11px] tabular-nums text-white/60">{resumen}</span>
+    </span>
+  );
+}
+
 export function Parrilla({
   jornada,
   jugadores,
@@ -159,8 +190,8 @@ export function Parrilla({
       {/*
       | EN EL MÓVIL, UNA TARJETA POR PARTIDO (30/10/2026, expertos). A 390 px
       | la tabla de once columnas sólo dejaba ver el reparto: aquí cada partido
-      | lleva las once caras con el signo de cada uno, en una rejilla de 6 + 5,
-      | y el reparto debajo del título (con sitio para el botón flotante ⋮).
+      | lleva el reparto debajo del título (con sitio para el botón flotante ⋮)
+      | y una línea por signo con quienes lo pusieron.
       */}
       <ul className="space-y-3 sm:hidden">
         {filas.map((fila) => (
@@ -175,35 +206,40 @@ export function Parrilla({
               )}
             </div>
 
-            <span className="mt-2 flex h-[20px] w-full overflow-hidden rounded" title={SIGNOS.map((signo) => `${signo}: ${fila.votos[signo]}`).join(" · ")}>
-              {SIGNOS.map((signo) =>
-                fila.votos[signo] > 0 ? (
-                  <span
-                    key={signo}
-                    className="flex items-center justify-center text-[11px] font-semibold tabular-nums text-black/70"
-                    style={{ flex: `${fila.votos[signo]} 1 0`, minWidth: 18, background: COLOR_SIGNO[signo] }}
-                  >
-                    {fila.votos[signo]}
-                  </span>
-                ) : null,
-              )}
-            </span>
+            <Reparto votos={fila.votos} total={fila.rellenado} alto={20} />
 
-            {/* 4 por fila y el nombre en dos renglones (07/11/2026): con 6 se cortaba «J. Lópe…». */}
-            <ul className="mt-2.5 grid grid-cols-4 gap-x-1.5 gap-y-2.5">
-              {jugadores.map((slug) => {
-                const persona = PERSONA_POR_SLUG.get(slug);
-                const signo = fila.signos[slug];
+            {/*
+            | SIGNOS EN LÍNEA (08/11/2026, marketing). Antes, once fotos con su
+            | nombre y su signo en una rejilla de 4 columnas por partido: una
+            | jornada de 9 partidos eran 5 pantallas. Ahora una línea por signo
+            | con quienes lo pusieron (foto pequeña + nombre), coloreada por el
+            | resultado: la jornada cabe en unas dos pantallas.
+            */}
+            <ul className="mt-2.5 space-y-1.5">
+              {[...SIGNOS, null].map((signo) => {
+                const quienes = jugadores.filter((slug) => (fila.signos[slug] ?? null) === signo);
+
+                if (!quienes.length) return null;
 
                 return (
-                  <li key={slug} className="flex min-w-0 flex-col items-center gap-0.5">
-                    <Avatar slug={slug} lado={26} />
-                    <span className="line-clamp-2 w-full break-words text-center text-[12px] leading-tight text-white/70">{persona ? nombreCorto(persona) : slug}</span>
+                  <li key={signo ?? "nada"} className="flex items-start gap-2">
                     <span
-                      className={`inline-flex h-6 w-7 items-center justify-center rounded-md border text-[12px] font-semibold ${tono(signo, fila.resultado)}`}
-                      title={signo ? NOMBRE_DEL_SIGNO[signo as Signo] : "No lo puso"}
+                      className={`inline-flex h-6 min-w-7 shrink-0 items-center justify-center rounded-md border px-1 text-[12px] font-semibold ${tono(signo as Signo | null, fila.resultado)}`}
+                      title={signo ? NOMBRE_DEL_SIGNO[signo] : "No lo puso"}
                     >
                       {signo ?? "·"}
+                    </span>
+                    <span className="flex min-w-0 flex-wrap gap-x-2.5 gap-y-1 pt-0.5">
+                      {quienes.map((slug) => {
+                        const persona = PERSONA_POR_SLUG.get(slug);
+
+                        return (
+                          <span key={slug} className="inline-flex items-center gap-1 text-[12px] leading-5 text-white/75">
+                            <Avatar slug={slug} lado={18} />
+                            {persona ? nombreCorto(persona) : slug}
+                          </span>
+                        );
+                      })}
                     </span>
                   </li>
                 );
@@ -212,7 +248,7 @@ export function Parrilla({
 
             {(fila.unanime || fila.solitarios.length > 0) && (
               <span className="mt-2 flex flex-wrap gap-1">
-                {fila.unanime && <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[11px] text-white/55">Todos igual</span>}
+                {fila.unanime && <span className="rounded-full bg-[#C8A96B]/10 px-2 py-0.5 text-[11.5px] text-[#C8A96B]">Todos igual</span>}
                 {fila.solitarios.map((slug) => {
                   const persona = PERSONA_POR_SLUG.get(slug);
 
@@ -294,7 +330,7 @@ export function Parrilla({
                   {/* Lo que se comenta: el pleno y el que se la jugó solo. */}
                   <span className="mt-1 flex flex-wrap gap-1">
                     {fila.unanime && (
-                      <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[11.5px] text-white/60">
+                      <span className="rounded-full bg-[#C8A96B]/10 px-2 py-0.5 text-[11.5px] text-[#C8A96B]">
                         Todos igual
                       </span>
                     )}
@@ -320,28 +356,7 @@ export function Parrilla({
 
                 {/* La tira de reparto: 1 en dorado, X en gris, 2 en azul. */}
                 <td className="min-w-[112px] px-1 py-2 pr-3">
-                  <span
-                    className="flex h-[22px] w-full min-w-[96px] overflow-hidden rounded"
-                    title={SIGNOS.map((signo) => `${signo}: ${fila.votos[signo]}`).join(" · ")}
-                  >
-                    {SIGNOS.map((signo) =>
-                      fila.votos[signo] > 0 ? (
-                        <span
-                          key={signo}
-                          className="flex items-center justify-center text-[11px] font-semibold tabular-nums text-black/70"
-                          /* Cada tramo crece con sus votos pero nunca baja de
-                             16 px, para que el número se lea aunque sea 1 de 10. */
-                          style={{
-                            flex: `${fila.votos[signo]} 1 0`,
-                            minWidth: 18,
-                            background: COLOR_SIGNO[signo],
-                          }}
-                        >
-                          {fila.votos[signo]}
-                        </span>
-                      ) : null,
-                    )}
-                  </span>
+                  <Reparto votos={fila.votos} total={fila.rellenado} alto={22} />
                 </td>
 
                 {jugadores.map((slug) => (
