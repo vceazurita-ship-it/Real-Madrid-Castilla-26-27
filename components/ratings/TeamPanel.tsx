@@ -268,7 +268,8 @@ export function TeamPanel({
       (a, b) => b.summary.minutes - a.summary.minutes
     )[0];
 
-    return elegiblesTop.map((entry, index) => {
+    const maxMin = Math.max(1, ...elegiblesTop.map((e) => e.summary.minutes));
+    const puntos = elegiblesTop.map((entry, index) => {
       const nombre = nombreVisible(entry.player.nombre);
       const rotular =
         index < 3 ||
@@ -281,8 +282,21 @@ export function TeamPanel({
         value: entry.summary.avg,
         minutes: entry.summary.minutes,
         played: entry.summary.played,
+        /* 08/11/2026: si dos rótulos chocan (Cestero sobre Aguado), el
+           segundo va debajo del punto. */
+        abajo: false,
       };
     });
+
+    const rotulados = puntos.filter((p) => p.rotulo);
+    rotulados.forEach((p, i) => {
+      const choca = rotulados
+        .slice(0, i)
+        .some((q) => !q.abajo && Math.abs(q.minutes - p.minutes) / maxMin < 0.14 && Math.abs(q.value - p.value) < 0.45);
+      if (choca) p.abajo = true;
+    });
+
+    return puntos;
   }, [elegiblesTop]);
 
   const dominioNota = useMemo((): [number, number] => {
@@ -384,7 +398,7 @@ export function TeamPanel({
           }
           hint={
             mostImproved
-              ? `${formatSigned(mostImproved.summary.trend)}: sus 3 últimas notas frente a las 3 anteriores · ${mostImproved.summary.played} PJ · entre quienes tienen ${MIN_FIABLE}+ PJ`
+              ? `${formatSigned(mostImproved.summary.trend)}: ${desdeHasta(mostImproved)}sus 3 últimas notas frente a las 3 anteriores · ${mostImproved.summary.played} PJ · media de la temporada ${formatRating(mostImproved.summary.avg)} · entre quienes tienen ${MIN_FIABLE}+ PJ`
               : undefined
           }
           accent="var(--rmcf-rate-good)"
@@ -574,12 +588,8 @@ export function TeamPanel({
                       stroke="rgb(var(--rmcf-ink-rgb) / 0.45)"
                       style={{ stroke: "rgb(var(--rmcf-ink-rgb) / 0.45)" }}
                       strokeDasharray="4 4"
-                      label={{
-                        value: `media del equipo ${formatRating(teamAverage)}`,
-                        position: "insideTopRight",
-                        fontSize: 11,
-                        fill: "rgb(var(--rmcf-ink-rgb) / 0.7)",
-                      }}
+                      /* 08/11/2026: sin rótulo dentro: caía sobre los puntos
+                         (Fortea). La media se dice bajo el gráfico. */
                     />
                   )}
 
@@ -632,7 +642,7 @@ export function TeamPanel({
                           {payload.rotulo && (
                             <text
                               x={cx}
-                              y={cy - 10}
+                              y={payload.abajo ? cy + 19 : cy - 10}
                               textAnchor="middle"
                               fontSize={11}
                               style={{ fill: "rgb(var(--rmcf-ink-rgb) / 0.8)" }}
@@ -649,7 +659,21 @@ export function TeamPanel({
             </div>
           )}
 
-          {topChart.length > 0 && <LeyendaColorNota />}
+          {topChart.length > 0 && (
+            <>
+              <LeyendaColorNota />
+              {teamAverage > 0 && (
+                <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-white/55">
+                  <span
+                    aria-hidden
+                    className="inline-block w-5 border-t-2 border-dashed"
+                    style={{ borderColor: "rgb(var(--rmcf-ink-rgb) / 0.45)" }}
+                  />
+                  media del equipo {formatRating(teamAverage)} · arriba a la derecha, más nota y más minutos: los referentes; abajo a la derecha, mucho minuto con nota baja: a revisar
+                </p>
+              )}
+            </>
+          )}
         </Panel>
 
         <div className="min-w-0 space-y-4">
@@ -1090,6 +1114,18 @@ export function TeamPanel({
 }
 
 /** «Arriba «Mestre» con 7,4; el último de los 17 con 4+ partidos, «Rachad», con 4,6 (2,8 menos).» */
+/** «de 4,7 a 6,5 · »: la media de las 3 anteriores y la de las 3 últimas. */
+function desdeHasta(jugador: RankedPlayer): string {
+  const notas = jugador.summary.entries
+    .map((item) => item.entry.rating)
+    .filter((nota) => nota > 0);
+  const ultimas = notas.slice(-3);
+  const anteriores = notas.slice(-6, -3);
+  if (!ultimas.length || !anteriores.length) return "";
+  const media = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+  return `de ${formatRating(media(anteriores))} a ${formatRating(media(ultimas))}, `;
+}
+
 function lecturaTop(elegibles: RankedPlayer[]): string | null {
   if (elegibles.length < 2) return null;
 
@@ -1099,7 +1135,9 @@ function lecturaTop(elegibles: RankedPlayer[]): string | null {
   return (
     `Arriba «${nombreVisible(arriba.player.nombre)}» con ${formatRating(arriba.summary.avg)} de nota en ${arriba.summary.minutes}′; ` +
     `el último de los ${elegibles.length} con ${MIN_FIABLE}+ partidos, «${nombreVisible(abajo.player.nombre)}», ` +
-    `con ${formatRating(abajo.summary.avg)} en ${abajo.summary.minutes}′ (${formatRating(arriba.summary.avg - abajo.summary.avg)} menos).`
+    `con ${formatRating(abajo.summary.avg)} en ${abajo.summary.minutes}′ (${formatRating(arriba.summary.avg - abajo.summary.avg)} menos). ` +
+    /* 08/11/2026 (jueces): que la lectura acabe en una acción. */
+    `Qué hacemos: ver en vídeo sus 3 últimos partidos y fijar con él una acción para la semana.`
   );
 }
 

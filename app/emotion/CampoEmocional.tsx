@@ -807,7 +807,7 @@ function RadarLinea({
 
       {/* 01/11/2026: lienzo más ancho y los ejes de los lados en dos renglones
           (nombre y cifra): «Controlar 8,3» y «Ejecutar 9,0» se cortaban por el borde. */}
-      <svg viewBox="-90 -57 180 114" className={`mx-auto w-full ${tumbada ? "max-w-[300px] sm:max-w-[260px] xl:max-w-[236px]" : "max-w-[300px] sm:max-w-[286px]"}`} role="img" aria-label={`Radar de ${titulo}`}>
+      <svg viewBox="-90 -57 180 114" className={`mx-auto w-full ${tumbada ? "max-w-[300px] sm:max-w-[260px] xl:max-w-[248px]" : "max-w-[300px] sm:max-w-[286px]"}`} role="img" aria-label={`Radar de ${titulo}`}>
         {[2.5, 5, 7.5, 10].map((v) => (
           <polygon
             key={v}
@@ -862,7 +862,9 @@ function RadarLinea({
               x={x + dx}
               y={y + dy}
               textAnchor={i === 1 ? "start" : i === 3 ? "end" : "middle"}
-              fontSize={7.8}
+              /* 08/11/2026: 8,6 sobre 180 de lienzo y 248 px de ancho mínimo
+                 en escritorio: ~11,8 px, legible a 1440 (antes ~10). */
+              fontSize={8.6}
               fontWeight={600}
               fill="rgba(226,246,255,.78)"
             >
@@ -1093,6 +1095,8 @@ function Banquillo({
   return (
     <div className="mt-4 rounded-[22px] border border-white/10 bg-[#08131F]/70 px-3 pb-3 pt-2.5 [:root[data-theme=light]_&]:border-slate-300 [:root[data-theme=light]_&]:bg-white/80">
       <p className="mb-2 text-[10px] uppercase tracking-[.25em] text-white/40">Banquillo · evaluados fuera del once</p>
+      {/* 08/11/2026: el número blanco de cada ficha es el dorsal; sin rótulo se leía como nota. */}
+      <p className="-mt-1 mb-2 text-[11px] text-white/45">El círculo blanco es el dorsal; la nota emocional va en el aro.</p>
 
       <div className="flex flex-wrap justify-center gap-x-3 gap-y-3 sm:justify-start">
         {suplentes.map((c) => (
@@ -1187,6 +1191,20 @@ function LecturaDelOnce({ titulares, teamAverage, onElegir }: { titulares: Coloc
           <p>
             <span className="font-semibold text-white">Objetivo:</span> llevar el once de {coma(flojo.valor)} a{" "}
             {coma(teamAverage[flojo.axis.key])} en {flojo.axis.corto.toLowerCase()}, la media de la plantilla.
+          </p>
+        )}
+        {/* 08/11/2026 (jueces): la tarea con nombres: los tres titulares más bajos en ese eje. */}
+        {evaluados.length > 3 && (
+          <p className="mt-1 flex flex-wrap items-center gap-1.5">
+            <span className="font-semibold text-white">Jugadores foco:</span>
+            {[...evaluados]
+              .sort((a, b) => a.dato[flojo.axis.key] - b.dato[flojo.axis.key])
+              .slice(0, 3)
+              .map((c) => (
+                <button key={c.clave} type="button" onClick={() => onElegir(c.clave)} className="rounded-full border border-white/10 px-2 py-0.5 text-xs text-white/80 hover:text-white">
+                  {c.nombre} {coma(c.dato[flojo.axis.key])}
+                </button>
+              ))}
           </p>
         )}
       </div>

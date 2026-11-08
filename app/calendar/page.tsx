@@ -376,7 +376,7 @@ export default function Calendar() {
             <option value="">Todos los jugadores</option>
 
             {/* 30/10/2026: el Castilla primero y los de otros equipos aparte. */}
-            <optgroup label="Castilla">
+            <optgroup label={`Castilla (${players.filter((p) => p.esCastilla).length})`}>
               {players
                 .filter((p) => p.esCastilla)
                 .map((p) => (
@@ -386,7 +386,7 @@ export default function Calendar() {
                 ))}
             </optgroup>
 
-            <optgroup label="Otros equipos">
+            <optgroup label={`Otros equipos (${players.filter((p) => !p.esCastilla).length})`}>
               {players
                 .filter((p) => !p.esCastilla)
                 .map((p) => (
@@ -398,39 +398,15 @@ export default function Calendar() {
           </select>
         </div>
       }
-      renderDay={({ key, isToday }) => {
+      renderDay={({ key }) => {
         const daySessions = sessionsByDay.get(key) ?? [];
         const hasSessions = daySessions.length > 0;
 
-        /* 07/11/2026: en el día de hoy, a quién toca seguir (los mismos de
-           la franja de arriba), como sugerencia; cada nombre abre su ficha. */
-        const tocaHoy =
-          isToday && !playerFilter && sinSeguimiento.length > 0 ? (
-            <div className="rounded-md border border-dashed border-[#C8A96B]/40 px-1.5 py-1">
-              <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[#C8A96B] md:text-[10px]">
-                Toca seguir
-              </p>
-              {sinSeguimiento.slice(0, 3).map((j) => (
-                <button
-                  key={j.id}
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    openPlayer(j.id);
-                  }}
-                  className="block w-full truncate text-left text-[9px] text-white/75 hover:text-[#C8A96B] md:text-[11px]"
-                >
-                  {j.nombre}
-                </button>
-              ))}
-              {sinSeguimiento.length > 3 && (
-                <p className="text-[9px] text-white/55 md:text-[10px]">y {sinSeguimiento.length - 3} más</p>
-              )}
-            </div>
-          ) : null;
+        /* 08/11/2026: el «Toca seguir» de la casilla de hoy repetía la franja
+           de arriba (que ya da los días); se deja sólo la franja. */
 
         if (!hasSessions) {
-          return tocaHoy ? { hasContent: true, crece: true, children: tocaHoy } : {};
+          return {};
         }
 
         const visible = daySessions.slice(0, MAX_VISIBLE_PER_DAY);
@@ -491,8 +467,6 @@ export default function Calendar() {
                   </div>
                 );
               })}
-
-              {tocaHoy}
 
               {hidden > 0 && (
                 <button

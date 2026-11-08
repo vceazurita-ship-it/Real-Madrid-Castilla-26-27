@@ -379,7 +379,7 @@ export default function DashboardPlantilla() {
 
   const kpis: { title: string; value: string | number; base: string }[] = [
     {
-      title: "Jugadores",
+      title: filtrados.length > delCastilla ? `Jugadores · ${delCastilla} + ${filtrados.length - delCastilla} de fuera` : "Jugadores del Castilla",
       value: filtrados.length,
       base: `${delCastilla} con licencia del Castilla${filtrados.length > delCastilla ? ` y ${filtrados.length - delCastilla} de fuera con minutos` : ""}`,
     },
@@ -398,7 +398,8 @@ export default function DashboardPlantilla() {
           {
             title: "Minutos sub-21",
             value: `${Math.round((minutosSub21 / minutosConEdad) * 100)} %`,
-            base: `de los minutos jugados, con 20 años o menos (Wyscout)`,
+            /* 08/11/2026 (jueces): un porcentaje solo no dice si es mucho; se da la base en minutos. */
+            base: `${minutosSub21.toLocaleString("es-ES")}′ de ${minutosConEdad.toLocaleString("es-ES")}′ jugados, por jugadores de 20 años o menos (Wyscout, ${conEdad.length} jugadores con edad)`,
           },
         ]
       : []),
@@ -842,6 +843,8 @@ function BloqueMinutos({ jugadores, posibles, onAbre }: { jugadores: Jugador[]; 
                           {j.titular + j.suplente > 0 && (
                             <span className="block text-[11px] text-white/50">
                               {j.titular} tit. · {j.suplente} sup.
+                              {/* 08/11/2026: con un solo partido de titular, el % no es firme. */}
+                              {j.titular <= 1 && j.minutos > 0 && <span className="text-white/45"> · tendencia</span>}
                             </span>
                           )}
                         </span>
@@ -1017,20 +1020,31 @@ function BloqueSesiones({ resumen, jugadores }: { resumen: ResumenSesiones; juga
   if (!resumen.totalSesiones || !filas.length) return null;
 
   const media = filas.reduce((acc, f) => acc + f.d.sesiones, 0) / filas.length;
+  /* 08/11/2026 (jueces): la base, y quién del Castilla no sale en la lista. */
+  const delCastilla = jugadores.filter((j) => j.ficha.delCastilla);
+  const conSesion = filas.filter((f) => f.j.ficha.delCastilla).length;
+  const sinSesion = delCastilla.filter((j) => !resumen.porJugador.has(j.ficha.id));
 
   return (
     <Bloque
-      pregunta="¿Quién entrena con el grupo?"
+      pregunta={`¿Quién entrena con el grupo? · ${conSesion} de ${delCastilla.length} del Castilla con sesión registrada`}
       base={`Sesiones registradas en Jugadores sesión ${SESIONES_DESDE_TEXTO}: ${resumen.totalSesiones} ${resumen.totalSesiones === 1 ? "sesión" : "sesiones"}, media de ${coma(media)} por jugador. De menos a más; en naranja, por debajo del 70 % de las sesiones.`}
     >
-      <ul className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
+      {sinSesion.length > 0 && (
+        <p className="mb-3 text-[13px] leading-snug" style={{ color: PEOR }}>
+          <span className="font-semibold">Sin ninguna sesión en la lista del día ({sinSesion.length}):</span>{" "}
+          {sinSesion.map(nombreDe).join(", ")}. Puede ser ausencia o que la lista del delegado lo escriba con otro nombre.
+        </p>
+      )}
+      {/* 08/11/2026: el nombre nunca se corta; dos columnas sólo con ancho de sobra. */}
+      <ul className="grid gap-x-6 gap-y-2 2xl:grid-cols-2">
         {filas.map(({ j, d }) => {
           const pct = Math.round((d.sesiones / resumen.totalSesiones) * 100);
           const bajo = pct < 70;
 
           return (
-            <li key={j.ficha.id} className="grid min-w-0 grid-cols-[minmax(0,1fr)_4.5rem_auto] items-center gap-3 text-sm">
-              <span className="min-w-0 truncate text-white/75">{nombreDe(j)}</span>
+            <li key={j.ficha.id} className="grid min-w-0 grid-cols-[minmax(8rem,1fr)_4.5rem_auto] items-center gap-3 text-sm">
+              <span className="min-w-0 break-words leading-tight text-white/75">{nombreDe(j)}</span>
               <Barra pct={pct} color={bajo ? PEOR : ORO} />
               <span className="shrink-0 text-right tabular-nums" style={{ color: bajo ? PEOR : undefined }}>
                 <span className={bajo ? "font-semibold" : "text-white/60"}>{d.sesiones} de {resumen.totalSesiones}</span>
