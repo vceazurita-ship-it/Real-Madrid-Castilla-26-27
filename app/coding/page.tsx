@@ -143,7 +143,7 @@ import {
   leeXmlSportscode,
   xmlDeClips,
 } from "@/lib/coding/intercambio";
-import { descarga } from "@/lib/export/lienzos";
+import { encargaDescarga } from "@/lib/trabajos/descargas";
 import { caratulaDeJugador } from "@/lib/coding/portada";
 import {
   CLAVE_CONFIG_CODING,
@@ -3860,7 +3860,8 @@ function Coding() {
   | pestaña: cerrarla tiraba diez minutos de trabajo sin una pregunta. Y una I
   | pendiente es un corte que todavía no existe.
   */
-  const hayAlgoEnVuelo = exportador.exportando || inicioMs !== null;
+  /* El montaje va en segundo plano (08/11/2026), pero sigue viviendo en la pestaña. */
+  const hayAlgoEnVuelo = exportador.exportando || exportador.enSegundoPlano || inicioMs !== null;
 
   useEffect(() => {
     if (!hayAlgoEnVuelo) return;
@@ -5446,14 +5447,19 @@ function Coding() {
 
                     <Button
                       icon={FileDown}
-                      onClick={() =>
-                        descarga(
-                          new Blob([xmlDeClips(clipsDeLaLista, config.categorias)], {
-                            type: "application/xml",
-                          }),
-                          `${apodoCoding(titulo) || "coding"}-sportscode.xml`,
-                        )
-                      }
+                      onClick={() => {
+                        /* Por el gestor de descargas (08/11/2026): la foto se saca aquí. */
+                        const blob = new Blob([xmlDeClips(clipsDeLaLista, config.categorias)], {
+                          type: "application/xml",
+                        });
+                        const nombre = `${apodoCoding(titulo) || "coding"}-sportscode.xml`;
+
+                        encargaDescarga({
+                          titulo: `XML SportsCode · ${titulo || "coding"}`,
+                          vuelta: window.location.pathname + window.location.search,
+                          tarea: async () => ({ blob, nombre }),
+                        });
+                      }}
                       disabled={clipsDeLaLista.length === 0}
                       title="Los cortes de la lista como timeline de SportsCode (lo abren también Nacsport y Metrica Play)"
                     >
@@ -5462,15 +5468,19 @@ function Coding() {
 
                     <Button
                       icon={FileDown}
-                      onClick={() =>
-                        descarga(
-                          new Blob(
-                            [csvDeClips(clipsDeLaLista, config.categorias, videoDeClip)],
-                            { type: "text/csv;charset=utf-8" },
-                          ),
-                          `${apodoCoding(titulo) || "coding"}-cortes.csv`,
-                        )
-                      }
+                      onClick={() => {
+                        const blob = new Blob(
+                          [csvDeClips(clipsDeLaLista, config.categorias, videoDeClip)],
+                          { type: "text/csv;charset=utf-8" },
+                        );
+                        const nombre = `${apodoCoding(titulo) || "coding"}-cortes.csv`;
+
+                        encargaDescarga({
+                          titulo: `CSV de cortes · ${titulo || "coding"}`,
+                          vuelta: window.location.pathname + window.location.search,
+                          tarea: async () => ({ blob, nombre }),
+                        });
+                      }}
                       disabled={clipsDeLaLista.length === 0}
                       title="Los cortes de la lista en una tabla para Excel"
                     >

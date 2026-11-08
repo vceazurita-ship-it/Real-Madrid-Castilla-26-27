@@ -5,7 +5,8 @@ import { saveLineup } from "@/lib/saveLineup";
 import { usePlayers } from "@/hooks/usePlayers";
 import { capturaNodo } from "@/lib/export/captura";
 import { descargaDataUrl } from "@/lib/export/lienzos";
-import { useState } from "react";
+import { descargaEnMarcha, encargaDescarga } from "@/lib/trabajos/descargas";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   Loader2,
@@ -25,6 +26,25 @@ const formations = [
   "3-4-3",
 ];
 
+
+/** Pone en la mesa de la descarga la lámina ya preparada (un nodo suelto). */
+function MesaLamina({ lamina }: { lamina: HTMLElement }) {
+  const sitio = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const caja = sitio.current;
+
+    caja?.appendChild(lamina);
+
+    return () => {
+      lamina.remove();
+    };
+  }, [lamina]);
+
+  return <div ref={sitio} />;
+}
+
+const TITULO_PNG = "Alineación · PNG";
 
 export default function FormationToolbar() {
   const [showSaveModal, setShowSaveModal] = useState(false);
@@ -145,15 +165,23 @@ async function guardar() {
   );
 }
 
-async function generateImage() {
+/**
+ * La lámina de la alineación: una copia del campo con su cabecera, hecha AL
+ * PULSAR (08/11/2026). Es una foto: no depende de la pantalla, así que se
+ * puede fotografiar en segundo plano aunque se cambie de pantalla.
+ */
+function preparaLamina(): HTMLElement | null {
   const node = document.getElementById("football-pitch");
 
   if (!node) return null;
 
+  /* El modo exportación sólo hace falta para la copia: el clon se lo lleva. */
   node.classList.add("export-mode");
 
   // Clon del campo
   const clone = node.cloneNode(true) as HTMLElement;
+
+  node.classList.remove("export-mode");
 
   clone.style.width = "100%";
 clone.style.height = "700px";      // <- importante
@@ -239,39 +267,58 @@ clone.style.overflow = "hidden";
   wrapper.appendChild(divider);
   wrapper.appendChild(clone);
 
+  return wrapper;
+}
+
+/* `capturaNodo` y no `toPng`: en Safari la primera pasada sale sin las
+   caras, y en un iPad hay tope de lienzo. */
+const capturaLamina = async (lamina: HTMLElement) =>
+  (await capturaNodo(lamina, { cacheBust: true, pixelRatio: 2 })).dataUrl;
+
+async function generateImage() {
+  const wrapper = preparaLamina();
+
+  if (!wrapper) return null;
+
   document.body.appendChild(wrapper);
 
-  /* `capturaNodo` y no `toPng`: en Safari la primera pasada sale sin las
-     caras, y en un iPad hay tope de lienzo.
-
-     En un `finally` (19/10/2026): si la captura fallaba, la copia del campo
-     se quedaba pegada al final de la página y el campo de verdad, en modo
-     exportación. */
+  /* En un `finally` (19/10/2026): si la captura fallaba, la copia del campo
+     se quedaba pegada al final de la página. */
   try {
-    const { dataUrl } = await capturaNodo(wrapper, {
-      cacheBust: true,
-      pixelRatio: 2,
-    });
-
-    return dataUrl;
+    return await capturaLamina(wrapper);
   } finally {
     wrapper.remove();
-
-    node.classList.remove("export-mode");
   }
 }
 
-async function exportPitch() {
-  try {
-    const dataUrl = await generateImage();
-
-    if (!dataUrl) return;
-
-    await descargaDataUrl(dataUrl, "alineacion.png");
-  } catch (err) {
-    console.error(err);
-    toast.error("No se ha podido sacar la imagen de la alineación");
+/*
+| En segundo plano (08/11/2026), como las descargas de ABP: la lámina se
+| copia al pulsar y se fotografía en la mesa del gestor de descargas, con la
+| píldora del progreso y el aviso al terminar.
+*/
+function exportPitch() {
+  if (descargaEnMarcha(TITULO_PNG)) {
+    toast("Ya se está preparando", { description: TITULO_PNG });
+    return;
   }
+
+  const lamina = preparaLamina();
+
+  if (!lamina) return;
+
+  encargaDescarga({
+    titulo: TITULO_PNG,
+    vuelta: window.location.pathname + window.location.search,
+    ancho: 1200,
+    mesa: <MesaLamina lamina={lamina} />,
+    tarea: async ({ avanza }) => {
+      avanza("Sacando la imagen…");
+
+      const dataUrl = await capturaLamina(lamina);
+
+      return { blob: await (await fetch(dataUrl)).blob(), nombre: "alineacion.png" };
+    },
+  });
 }
 async function sharePitch() {
   try {

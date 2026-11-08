@@ -26,7 +26,7 @@ import { Film, Package, Scissors, SquareCheck, SquareDashed } from "lucide-react
 import { toast } from "sonner";
 
 import { Button } from "@/components/abp/ui";
-import { descarga } from "@/lib/export/lienzos";
+import { descargaEnMarcha, encargaDescarga } from "@/lib/trabajos/descargas";
 import { borraImagenes, preparaImagenes } from "@/lib/coding/imagenes";
 import { caratulaDeJugador, type DatosCaratula } from "@/lib/coding/portada";
 import {
@@ -89,7 +89,6 @@ export function ClipsDelJugador({
 
   const [cargando, setCargando] = useState(true);
   const [elegidos, setElegidos] = useState<string[]>([]);
-  const [trabajando, setTrabajando] = useState(false);
 
   /* En texto para el efecto: un array nuevo en cada render lo relanzaría. */
   const nombresClave = (nombres ?? [])
@@ -176,81 +175,93 @@ export function ClipsDelJugador({
         );
       }
 
-      setTrabajando(true);
-
-      const aviso = toast.loading(
+      const nombre = `${apodoCoding(caratula.nombre)}-cortes`;
+      const titulo =
         formato === "unificado"
-          ? `Montando el vídeo con ${lista.length} cortes…`
-          : `Cortando ${lista.length} cortes…`,
-      );
+          ? `Vídeo unificado · ${caratula.nombre}`
+          : `Cortes sueltos (ZIP) · ${caratula.nombre}`;
 
-      /* La carátula sube al bucket y se borra al terminar: ver más abajo. */
-      let rutas: string[] = [];
-
-      try {
-        const portada =
-          formato === "unificado" ? await caratulaDeJugador(caratula) : null;
-
-        /*
-        | La carátula no viaja dentro de la petición.
-        |
-        | Es un fotograma a toda página, y en el cuerpo del JSON se pasa ella
-        | sola de los 4,5 MB que aguanta una petición en el despliegue: era el
-        | 413 del vídeo unificado. Ver `lib/coding/imagenes.ts`.
-        */
-        const imagenes = await preparaImagenes({ portada });
-
-        rutas = imagenes.rutas;
-
-        const respuesta = await fetch("/api/coding/export", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            modo: "preciso",
-            formato,
-            nombre: `${apodoCoding(caratula.nombre)}-cortes`,
-            portada: imagenes.portada,
-            portadaSegundos: 4,
-            clips: lista.map((clip) => ({
-              nombre: `${apodoCoding(clip.sesionTitulo)}/${String(clip.numero).padStart(3, "0")}`,
-              inicioMs: clip.inicioMs,
-              finMs: clip.finMs,
-              fuente:
-                clip.fuente?.tipo === "url"
-                  ? { tipo: "url", url: clip.fuente.url }
-                  : clip.fuente?.tipo === "archivo"
-                    ? { tipo: "archivo", ruta: clip.fuente.ruta }
-                    : undefined,
-            })),
-          }),
-        });
-
-        if (!respuesta.ok) {
-          const error = await respuesta.json().catch(() => null);
-
-          throw new Error(
-            error?.error ?? `El servidor respondió ${respuesta.status}`,
-          );
-        }
-
-        descarga(
-          await respuesta.blob(),
-          `${apodoCoding(caratula.nombre)}-cortes.${formato === "zip" ? "zip" : "mp4"}`,
-        );
-
-        toast.success("Listo", { id: aviso });
-      } catch (error) {
-        console.error("[cortes del jugador]", error);
-
-        toast.error(
-          error instanceof Error ? error.message : "No se ha podido exportar.",
-          { id: aviso },
-        );
-      } finally {
-        setTrabajando(false);
-
-        void borraImagenes(rutas);
+      if (descargaEnMarcha(titulo)) {
+        toast("Ya se está preparando", { description: titulo });
+        return;
       }
+
+      /* La foto de lo pedido: la tarea no puede leer la pantalla, que puede irse. */
+      const datosCaratula = caratula;
+
+      /*
+      | En segundo plano (08/11/2026): el servidor corta y la píldora enseña
+      | por dónde va; se puede seguir por la app y avisa al terminar.
+      */
+      encargaDescarga({
+        titulo,
+        vuelta: window.location.pathname + window.location.search,
+        tarea: async ({ avanza, senal }) => {
+          avanza(
+            formato === "unificado"
+              ? `Montando el vídeo con ${lista.length} cortes…`
+              : `Cortando ${lista.length} cortes…`,
+          );
+
+          /* La carátula sube al bucket y se borra al terminar: ver más abajo. */
+          let rutas: string[] = [];
+
+          try {
+            const portada =
+              formato === "unificado" ? await caratulaDeJugador(datosCaratula) : null;
+
+            /*
+            | La carátula no viaja dentro de la petición.
+            |
+            | Es un fotograma a toda página, y en el cuerpo del JSON se pasa ella
+            | sola de los 4,5 MB que aguanta una petición en el despliegue: era el
+            | 413 del vídeo unificado. Ver `lib/coding/imagenes.ts`.
+            */
+            const imagenes = await preparaImagenes({ portada });
+
+            rutas = imagenes.rutas;
+
+            const respuesta = await fetch("/api/coding/export", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              signal: senal,
+              body: JSON.stringify({
+                modo: "preciso",
+                formato,
+                nombre,
+                portada: imagenes.portada,
+                portadaSegundos: 4,
+                clips: lista.map((clip) => ({
+                  nombre: `${apodoCoding(clip.sesionTitulo)}/${String(clip.numero).padStart(3, "0")}`,
+                  inicioMs: clip.inicioMs,
+                  finMs: clip.finMs,
+                  fuente:
+                    clip.fuente?.tipo === "url"
+                      ? { tipo: "url", url: clip.fuente.url }
+                      : clip.fuente?.tipo === "archivo"
+                        ? { tipo: "archivo", ruta: clip.fuente.ruta }
+                        : undefined,
+                })),
+              }),
+            });
+
+            if (!respuesta.ok) {
+              const error = await respuesta.json().catch(() => null);
+
+              throw new Error(
+                error?.error ?? `El servidor respondió ${respuesta.status}`,
+              );
+            }
+
+            return {
+              blob: await respuesta.blob(),
+              nombre: `${nombre}.${formato === "zip" ? "zip" : "mp4"}`,
+            };
+          } finally {
+            void borraImagenes(rutas);
+          }
+        },
+      });
     },
     [caratula, seleccionados],
   );
@@ -289,7 +300,6 @@ export function ClipsDelJugador({
         <Button
           tone="primary"
           icon={Film}
-          disabled={trabajando}
           onClick={() => void exporta("unificado")}
           title="Todos los cortes elegidos en un solo vídeo, con la carátula delante"
         >
@@ -298,7 +308,6 @@ export function ClipsDelJugador({
 
         <Button
           icon={Package}
-          disabled={trabajando}
           onClick={() => void exporta("zip")}
         >
           Cortes sueltos (ZIP)

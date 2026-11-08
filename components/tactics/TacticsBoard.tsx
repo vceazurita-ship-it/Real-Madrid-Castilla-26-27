@@ -21,7 +21,8 @@ import {
   useRef,
   useState,
 } from "react";
-import { apodo, descarga, descargaDataUrl, pdfDeHojas } from "@/lib/export/lienzos";
+import { apodo, pdfDeHojas } from "@/lib/export/lienzos";
+import { descargaEnMarcha, encargaDescarga } from "@/lib/trabajos/descargas";
 import { toast } from "sonner";
 import {
   AlignHorizontalSpaceAround,
@@ -1710,19 +1711,21 @@ export default function TacticsBoard({
     [partido, rivalDelCampo, scenes.length, singleScene, tituloDeSalida]
   );
 
-  const exporta = async (que: Formato) => {
-    if (formato) return;
+  /** Deja la pizarra como estaba antes de exportar. */
+  const acabaExportar = () => {
+    setFotograma(null);
+    setFichasGiradas(false);
+    setExporting(false);
+    setFormato(null);
+    setProgreso("");
+  };
 
-    timeline.pause();
-    setFormato(que);
-    setExporting(true);
-    setEditingShape(null);
-
-    const esVideo = que === "mp4" || que === "mp4-whatsapp" || que === "mp4-vertical";
-
-    const aviso = toast.loading(
-      esVideo ? "Montando el vídeo…" : que === "pptx" ? "Montando el PowerPoint…" : que === "pdf" ? "Montando el PDF…" : "Preparando la imagen…"
-    );
+  /*
+  | Copiar la escena no es descargar: va al portapapeles, que sólo deja
+  | escribir con la pestaña delante y nada más pulsar. Se queda como estaba.
+  */
+  const copiaEscena = async () => {
+    const aviso = toast.loading("Preparando la imagen…");
 
     try {
       const familia = await cargaFuentesLamina();
@@ -1732,211 +1735,313 @@ export default function TacticsBoard({
 
       const { lienzo, ctx } = lienzoLamina();
 
-      if (que === "portada") {
-        pintaPortada(ctx, LAMINA_W, LAMINA_H, portadaDe(), familia, await cargaEscudo());
-        await descargaDataUrl(lienzo.toDataURL("image/jpeg", 0.9), `${nombreFichero}-portada.jpg`);
-        toast.success("Portada descargada: la imagen para el correo o el enlace del vídeo", { id: aviso });
+      await laminaDe(safeIndex, 0, ctx, familia, datosDe(safeIndex));
 
-        return;
+      const blob = await new Promise<Blob | null>((resolve) => lienzo.toBlob(resolve, "image/png"));
+
+      if (!blob || typeof ClipboardItem === "undefined" || !navigator.clipboard?.write) {
+        throw new Error("El navegador no deja copiar imágenes");
       }
 
-      if (que === "png" || que === "copia") {
-        await laminaDe(safeIndex, 0, ctx, familia, datosDe(safeIndex));
-
-        if (que === "copia") {
-          const blob = await new Promise<Blob | null>((resolve) => lienzo.toBlob(resolve, "image/png"));
-
-          if (!blob || typeof ClipboardItem === "undefined" || !navigator.clipboard?.write) {
-            throw new Error("El navegador no deja copiar imágenes");
-          }
-
-          await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-          toast.success("Escena copiada: pégala en WhatsApp o en el correo", { id: aviso });
-        } else {
-          await descargaDataUrl(lienzo.toDataURL("image/png"), `${nombreFichero}-${apodo(scene.nombre, "escena")}.png`);
-          toast.success("Imagen descargada", { id: aviso });
-        }
-
-        return;
-      }
-
-      const indices = singleScene ? [safeIndex] : scenes.map((_, indice) => indice);
-
-      if (que === "pdf" || que === "pptx") {
-        const hojas: { imagen: string; textos: Awaited<ReturnType<typeof laminaDe>> }[] = [];
-
-        for (const indice of indices) {
-          setProgreso(`${hojas.length + 1} / ${indices.length}`);
-
-          const textos = await laminaDe(indice, 0, ctx, familia, datosDe(indice), que === "pptx");
-
-          hojas.push({ imagen: lienzo.toDataURL("image/jpeg", 0.92), textos });
-        }
-
-        if (que === "pdf") {
-          /* A sangre: la banda azul llega al borde de la hoja, como la lámina. */
-          const pdf = await pdfDeHojas(
-            hojas.map((hoja) => ({
-              imagen: hoja.imagen,
-              ancho: LAMINA_W,
-              alto: LAMINA_H,
-              orientacion: "landscape" as const,
-              margen: 0,
-              bandas: { arriba: PALETA_LAMINA.azul, abajo: PALETA_LAMINA.papel },
-            }))
-          );
-
-          pdf.save(`${nombreFichero}.pdf`);
-          toast.success(`PDF listo · ${hojas.length} ${hojas.length === 1 ? "hoja" : "hojas"}`, { id: aviso });
-        } else {
-          const blob = creaPptx(
-            hojas.map((hoja, indice) => ({
-              titulo: scenes[indices[indice]]?.nombre ?? `Escena ${indice + 1}`,
-              imagen: hoja.imagen,
-              capas: hoja.textos.map((texto) => ({ nombre: texto.nombre, texto: texto.texto, ...texto.capa })),
-            })),
-            { titulo: tituloDeSalida, autor: "RMCF Castilla", aplicacion: "Pizarra táctica" }
-          );
-
-          descarga(blob, `${nombreFichero}.pptx`);
-          toast.success(`PowerPoint listo · ${hojas.length} ${hojas.length === 1 ? "diapositiva" : "diapositivas"}, con los textos editables`, { id: aviso });
-        }
-
-        return;
-      }
-
-      /* ------------------------------------------------ el vídeo */
-
-      const destino = DESTINOS[que];
-      const vertical = que === "mp4-vertical";
-      const codec = await codecLamina(destino.ancho, destino.alto, destino.caudal);
-
-      if (!codec) throw new Error("Este navegador no sabe montar vídeo. Prueba con Chrome o Edge.");
-
-      /* El lienzo del vídeo: el de la lámina, el vertical o el de 720p (que se pinta reducido). */
-      const salida = vertical || que === "mp4-whatsapp" ? document.createElement("canvas") : lienzo;
-
-      salida.width = destino.ancho;
-      salida.height = destino.alto;
-
-      const ctxSalida = salida === lienzo ? ctx : salida.getContext("2d");
-
-      if (vertical) {
-        setFichasGiradas(true);
-        await dosFotogramas();
-      }
-
-      if (!ctxSalida) throw new Error("El navegador no da un lienzo 2D");
-
-      let fallo: Error | null = null;
-      const muxor = new MuxorMp4();
-      const codificador = new VideoEncoder({
-        output: (trozo, metadatos) => {
-          const descripcion = metadatos?.decoderConfig?.description;
-
-          if (descripcion) muxor.configuraVideo({ ancho: destino.ancho, alto: destino.alto, descripcion: copiaBytes(descripcion) });
-
-          const datos = new Uint8Array(new ArrayBuffer(trozo.byteLength));
-
-          trozo.copyTo(datos);
-          muxor.añadeVideo(datos as Bytes, Math.max(0, trozo.timestamp), trozo.duration || 1_000_000 / FPS_LAMINA, trozo.type === "key");
-        },
-        error: (e) => {
-          fallo = e instanceof Error ? e : new Error(String(e));
-        },
-      });
-
-      codificador.configure({
-        codec,
-        width: destino.ancho,
-        height: destino.alto,
-        bitrate: destino.caudal,
-        framerate: FPS_LAMINA,
-        latencyMode: "quality",
-        avc: { format: "avc" },
-      });
-
-      /*
-      | Guion del vídeo (21/10/2026): la portada (título, escudo y contra
-      | quién), y luego cada escena quieta de 3 a 4 s —lo que se tarda en leer
-      | su nota— y el movimiento hasta la siguiente en 1,5 s con su estela. La
-      | nota y el número de escena cambian al llegar, no al salir: lo que se
-      | lee es lo que se ve.
-      */
-      const porTramo = Math.round((SEGMENT_MS / 1000) * FPS_LAMINA);
-      const plan: ({ portada: true } | { portada?: false; index: number; t: number; rotulo: number })[] = [];
-
-      for (let k = 0; k < Math.round(PORTADA_S * FPS_LAMINA); k += 1) plan.push({ portada: true });
-
-      for (let indice = 0; indice < scenes.length; indice += 1) {
-        const quieta = Math.round(lecturaDe(scenes[indice]?.nota, indice === scenes.length - 1) * FPS_LAMINA);
-
-        for (let k = 0; k < quieta; k += 1) plan.push({ index: indice, t: 0, rotulo: indice });
-
-        if (indice === scenes.length - 1) break;
-
-        for (let k = 1; k < porTramo; k += 1) {
-          const t = k / porTramo;
-
-          plan.push({ index: indice, t, rotulo: t >= 0.86 ? indice + 1 : indice });
-        }
-      }
-
-      const escudoImg = await cargaEscudo();
-      let previo = "";
-
-      for (let k = 0; k < plan.length; k += 1) {
-        if (fallo) throw fallo;
-
-        const paso = plan[k];
-        const clave = paso.portada ? "portada" : `${paso.index}|${paso.t}|${paso.rotulo}`;
-
-        /* Los fotogramas quietos se repiten sin volver a pintar. */
-        if (clave !== previo) {
-          if (paso.portada) {
-            pintaPortada(ctxSalida, destino.ancho, destino.alto, portadaDe(), familia, escudoImg);
-          } else if (vertical) {
-            pintaLaminaVertical(ctxSalida, await campoDe(paso.index, paso.t), datosDe(paso.rotulo), familia);
-          } else {
-            await laminaDe(paso.index, paso.t, ctx, familia, datosDe(paso.rotulo));
-
-            if (salida !== lienzo) ctxSalida.drawImage(lienzo, 0, 0, destino.ancho, destino.alto);
-          }
-
-          previo = clave;
-        }
-
-        const cuadro = new VideoFrame(salida, { timestamp: Math.round((k * 1_000_000) / FPS_LAMINA), duration: Math.round(1_000_000 / FPS_LAMINA) });
-
-        codificador.encode(cuadro, { keyFrame: k % (FPS_LAMINA * 2) === 0 });
-        cuadro.close();
-
-        if (k % 10 === 0) setProgreso(`${Math.round((k / plan.length) * 100)} %`);
-
-        while (codificador.encodeQueueSize > 6) await new Promise((resolve) => setTimeout(resolve, 5));
-      }
-
-      await codificador.flush();
-      codificador.close();
-
-      if (fallo) throw fallo;
-
-      const fichero = muxor.cierra();
-      const sufijo = que === "mp4-whatsapp" ? "-whatsapp" : vertical ? "-movil" : "";
-
-      descarga(fichero, `${nombreFichero}${sufijo}.mp4`);
-
-      toast.success(`Vídeo listo · ${coma(plan.length / FPS_LAMINA)} s · ${coma(fichero.size / 1_000_000)} MB · ${destino.ancho} × ${destino.alto}`, { id: aviso });
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+      toast.success("Escena copiada: pégala en WhatsApp o en el correo", { id: aviso });
     } catch (error) {
       console.error("[pizarra] exportación", error);
       toast.error(error instanceof Error && error.message ? error.message : "No se ha podido exportar", { id: aviso });
     } finally {
-      setFotograma(null);
-      setFichasGiradas(false);
-      setExporting(false);
-      setFormato(null);
-      setProgreso("");
+      acabaExportar();
     }
+  };
+
+  /*
+  | EN SEGUNDO PLANO (08/11/2026), como las descargas de ABP: la píldora
+  | enseña el progreso, la ✕ cancela y avisa al terminar.
+  |
+  | Las láminas y el vídeo se pintan con ESTE campo (el SVG de la pantalla,
+  | moviendo la cámara fotograma a fotograma), así que van con `pantalla`: si
+  | se pulsa un enlace mientras tanto, se va en cuanto acaban las fotos. Armar
+  | el PDF o el PowerPoint, cerrar el vídeo y bajarlo ya no necesitan la
+  | pantalla. La portada no usa el campo y va del todo aparte.
+  */
+  const exporta = (que: Formato) => {
+    if (formato) return;
+
+    if (que === "copia") {
+      timeline.pause();
+      setFormato(que);
+      setExporting(true);
+      setEditingShape(null);
+      void copiaEscena();
+
+      return;
+    }
+
+    const esVideo = que === "mp4" || que === "mp4-whatsapp" || que === "mp4-vertical";
+
+    const titulo = `${
+      esVideo ? DESTINOS[que].titulo : que === "pptx" ? "PowerPoint" : que === "pdf" ? "PDF" : que === "portada" ? "Portada" : "Imagen"
+    } · ${tituloDeSalida || "Pizarra"}`;
+
+    if (descargaEnMarcha(titulo)) {
+      toast("Ya se está preparando", { description: titulo });
+      return;
+    }
+
+    timeline.pause();
+    setFormato(que);
+    setExporting(true);
+    setEditingShape(null);
+
+    encargaDescarga({
+      titulo,
+      vuelta: window.location.pathname + window.location.search,
+      pantalla: que !== "portada",
+      tarea: async ({ avanza, sueltaPantalla, senal }) => {
+        /* El progreso, en el botón y en la píldora. */
+        const paso = (texto: string, fraccion?: number, enBoton?: string) => {
+          if (enBoton !== undefined) setProgreso(enBoton);
+          avanza(texto, fraccion);
+        };
+
+        const sigue = () => {
+          if (senal.aborted) throw new Error("Exportación cancelada");
+        };
+
+        /* La pantalla ya no hace falta: la pizarra vuelve a estar libre. */
+        const suelta = () => {
+          acabaExportar();
+          sueltaPantalla();
+        };
+
+        try {
+          paso(esVideo ? "Montando el vídeo…" : que === "pptx" ? "Montando el PowerPoint…" : que === "pdf" ? "Montando el PDF…" : "Preparando la imagen…");
+
+          const familia = await cargaFuentesLamina();
+
+          /* Un par de fotogramas para que la cámara ya esté en reposo y el campo plano. */
+          await dosFotogramas();
+
+          const { lienzo, ctx } = lienzoLamina();
+
+          if (que === "portada") {
+            pintaPortada(ctx, LAMINA_W, LAMINA_H, portadaDe(), familia, await cargaEscudo());
+
+            const imagen = lienzo.toDataURL("image/jpeg", 0.9);
+
+            suelta();
+
+            return { blob: await (await fetch(imagen)).blob(), nombre: `${nombreFichero}-portada.jpg` };
+          }
+
+          if (que === "png") {
+            await laminaDe(safeIndex, 0, ctx, familia, datosDe(safeIndex));
+
+            const imagen = lienzo.toDataURL("image/png");
+
+            suelta();
+
+            return { blob: await (await fetch(imagen)).blob(), nombre: `${nombreFichero}-${apodo(scene.nombre, "escena")}.png` };
+          }
+
+          const indices = singleScene ? [safeIndex] : scenes.map((_, indice) => indice);
+
+          if (que === "pdf" || que === "pptx") {
+            const hojas: { imagen: string; textos: Awaited<ReturnType<typeof laminaDe>> }[] = [];
+
+            for (const indice of indices) {
+              sigue();
+
+              const cuenta = `${hojas.length + 1} / ${indices.length}`;
+
+              paso(`Hoja ${cuenta}`, hojas.length / indices.length, cuenta);
+
+              const textos = await laminaDe(indice, 0, ctx, familia, datosDe(indice), que === "pptx");
+
+              hojas.push({ imagen: lienzo.toDataURL("image/jpeg", 0.92), textos });
+            }
+
+            /* Las fotos ya están: lo que queda no toca la pizarra. */
+            suelta();
+            paso(que === "pdf" ? "Armando el PDF…" : "Armando el PowerPoint…", 1);
+
+            if (que === "pdf") {
+              /* A sangre: la banda azul llega al borde de la hoja, como la lámina. */
+              const pdf = await pdfDeHojas(
+                hojas.map((hoja) => ({
+                  imagen: hoja.imagen,
+                  ancho: LAMINA_W,
+                  alto: LAMINA_H,
+                  orientacion: "landscape" as const,
+                  margen: 0,
+                  bandas: { arriba: PALETA_LAMINA.azul, abajo: PALETA_LAMINA.papel },
+                }))
+              );
+
+              return { blob: pdf.output("blob"), nombre: `${nombreFichero}.pdf` };
+            }
+
+            const blob = creaPptx(
+              hojas.map((hoja, indice) => ({
+                titulo: scenes[indices[indice]]?.nombre ?? `Escena ${indice + 1}`,
+                imagen: hoja.imagen,
+                capas: hoja.textos.map((texto) => ({ nombre: texto.nombre, texto: texto.texto, ...texto.capa })),
+              })),
+              { titulo: tituloDeSalida, autor: "RMCF Castilla", aplicacion: "Pizarra táctica" }
+            );
+
+            return { blob, nombre: `${nombreFichero}.pptx` };
+          }
+
+          /* ------------------------------------------------ el vídeo */
+
+          const destino = DESTINOS[que];
+          const vertical = que === "mp4-vertical";
+          const codec = await codecLamina(destino.ancho, destino.alto, destino.caudal);
+
+          if (!codec) throw new Error("Este navegador no sabe montar vídeo. Prueba con Chrome o Edge.");
+
+          /* El lienzo del vídeo: el de la lámina, el vertical o el de 720p (que se pinta reducido). */
+          const salida = vertical || que === "mp4-whatsapp" ? document.createElement("canvas") : lienzo;
+
+          salida.width = destino.ancho;
+          salida.height = destino.alto;
+
+          const ctxSalida = salida === lienzo ? ctx : salida.getContext("2d");
+
+          if (vertical) {
+            setFichasGiradas(true);
+            await dosFotogramas();
+          }
+
+          if (!ctxSalida) throw new Error("El navegador no da un lienzo 2D");
+
+          let fallo: Error | null = null;
+          const muxor = new MuxorMp4();
+          const codificador = new VideoEncoder({
+            output: (trozo, metadatos) => {
+              const descripcion = metadatos?.decoderConfig?.description;
+
+              if (descripcion) muxor.configuraVideo({ ancho: destino.ancho, alto: destino.alto, descripcion: copiaBytes(descripcion) });
+
+              const datos = new Uint8Array(new ArrayBuffer(trozo.byteLength));
+
+              trozo.copyTo(datos);
+              muxor.añadeVideo(datos as Bytes, Math.max(0, trozo.timestamp), trozo.duration || 1_000_000 / FPS_LAMINA, trozo.type === "key");
+            },
+            error: (e) => {
+              fallo = e instanceof Error ? e : new Error(String(e));
+            },
+          });
+
+          codificador.configure({
+            codec,
+            width: destino.ancho,
+            height: destino.alto,
+            bitrate: destino.caudal,
+            framerate: FPS_LAMINA,
+            latencyMode: "quality",
+            avc: { format: "avc" },
+          });
+
+          /*
+          | Guion del vídeo (21/10/2026): la portada (título, escudo y contra
+          | quién), y luego cada escena quieta de 3 a 4 s —lo que se tarda en leer
+          | su nota— y el movimiento hasta la siguiente en 1,5 s con su estela. La
+          | nota y el número de escena cambian al llegar, no al salir: lo que se
+          | lee es lo que se ve.
+          */
+          const porTramo = Math.round((SEGMENT_MS / 1000) * FPS_LAMINA);
+          const plan: ({ portada: true } | { portada?: false; index: number; t: number; rotulo: number })[] = [];
+
+          for (let k = 0; k < Math.round(PORTADA_S * FPS_LAMINA); k += 1) plan.push({ portada: true });
+
+          for (let indice = 0; indice < scenes.length; indice += 1) {
+            const quieta = Math.round(lecturaDe(scenes[indice]?.nota, indice === scenes.length - 1) * FPS_LAMINA);
+
+            for (let k = 0; k < quieta; k += 1) plan.push({ index: indice, t: 0, rotulo: indice });
+
+            if (indice === scenes.length - 1) break;
+
+            for (let k = 1; k < porTramo; k += 1) {
+              const t = k / porTramo;
+
+              plan.push({ index: indice, t, rotulo: t >= 0.86 ? indice + 1 : indice });
+            }
+          }
+
+          const escudoImg = await cargaEscudo();
+          let previo = "";
+
+          try {
+            for (let k = 0; k < plan.length; k += 1) {
+              if (fallo) throw fallo;
+
+              sigue();
+
+              const tramo = plan[k];
+              const clave = tramo.portada ? "portada" : `${tramo.index}|${tramo.t}|${tramo.rotulo}`;
+
+              /* Los fotogramas quietos se repiten sin volver a pintar. */
+              if (clave !== previo) {
+                if (tramo.portada) {
+                  pintaPortada(ctxSalida, destino.ancho, destino.alto, portadaDe(), familia, escudoImg);
+                } else if (vertical) {
+                  pintaLaminaVertical(ctxSalida, await campoDe(tramo.index, tramo.t), datosDe(tramo.rotulo), familia);
+                } else {
+                  await laminaDe(tramo.index, tramo.t, ctx, familia, datosDe(tramo.rotulo));
+
+                  if (salida !== lienzo) ctxSalida.drawImage(lienzo, 0, 0, destino.ancho, destino.alto);
+                }
+
+                previo = clave;
+              }
+
+              const cuadro = new VideoFrame(salida, { timestamp: Math.round((k * 1_000_000) / FPS_LAMINA), duration: Math.round(1_000_000 / FPS_LAMINA) });
+
+              codificador.encode(cuadro, { keyFrame: k % (FPS_LAMINA * 2) === 0 });
+              cuadro.close();
+
+              if (k % 10 === 0) {
+                const cuanto = `${Math.round((k / plan.length) * 100)} %`;
+
+                paso(`Montando el vídeo · ${coma(k / FPS_LAMINA)} de ${coma(plan.length / FPS_LAMINA)} s`, k / plan.length, cuanto);
+              }
+
+              while (codificador.encodeQueueSize > 6) await new Promise((resolve) => setTimeout(resolve, 5));
+            }
+          } catch (error) {
+            /* Cancelado o roto a mitad: el codificador no se queda abierto. */
+            try {
+              codificador.close();
+            } catch {
+              /* Ya lo había cerrado su propio error. */
+            }
+
+            throw error;
+          }
+
+          /* Todos los fotogramas pintados: la pizarra ya no hace falta. */
+          suelta();
+          paso("Cerrando el vídeo…", 1);
+
+          await codificador.flush();
+          codificador.close();
+
+          if (fallo) throw fallo;
+
+          const fichero = muxor.cierra();
+          const sufijo = que === "mp4-whatsapp" ? "-whatsapp" : vertical ? "-movil" : "";
+
+          return { blob: fichero, nombre: `${nombreFichero}${sufijo}.mp4` };
+        } catch (error) {
+          if (!senal.aborted) console.error("[pizarra] exportación", error);
+
+          throw error;
+        } finally {
+          acabaExportar();
+        }
+      },
+    });
   };
 
   const canUndo = past.length > 0;
