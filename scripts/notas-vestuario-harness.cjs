@@ -98,7 +98,7 @@ require.cache[require.resolve(path.join(ROOT, "lib/export/lienzos.ts"))] = {
   loaded: true,
   exports: {
     descarga: () => undefined,
-    pdfDeLienzos: async () => ({ save: () => undefined }),
+    pdfDeLienzos: async () => ({ save: () => undefined, output: () => new Blob([]) }),
   },
 };
 

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Check, Copy, FileDown, MessageCircle, Share2, Users, X } from "lucide-react";
 
 import { enlaceWhatsapp, telefonoLegible, type MensajeWhatsapp } from "@/lib/correo/whatsapp";
+import { descarga as bajaFichero } from "@/lib/export/lienzos";
 
 /**
  * Los mensajes de WhatsApp listos (15/10/2026): un botón por mensaje y por
@@ -30,16 +31,13 @@ export function PanelWhatsapp({ mensajes, telefonos, archivo, onCierra }: { mens
     }
   };
 
+  /*
+  | El PDF ya está hecho (lo preparó el envío): bajarlo es instantáneo y va
+  | dentro del toque, que es lo que el móvil exige. No pasa por el gestor de
+  | descargas en segundo plano: ahí costaría un segundo toque en el aviso.
+  */
   const descarga = () => {
-    if (!archivo) return;
-
-    const url = URL.createObjectURL(archivo);
-    const a = document.createElement("a");
-
-    a.href = url;
-    a.download = archivo.name;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    if (archivo) bajaFichero(archivo, archivo.name);
   };
 
   const abre = (clave: string, numero: string | null, texto: string) => {

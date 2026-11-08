@@ -7,6 +7,12 @@
  * Reutiliza lo que ya hay: `pdfDeHojas` y `descarga` de `lib/export/lienzos`,
  * el `MuxorMp4` del coding y el códec de las láminas de la pizarra táctica.
  * El GIF lo monta `gif.ts`. No se sube nada a ningún sitio.
+ *
+ * `armaPdf`, `armaVideo` y `armaGif` montan el fichero y lo DEVUELVEN
+ * (08/11/2026): la pizarra los encarga al gestor de descargas en segundo plano
+ * (`lib/trabajos/descargas.ts`), que los baja y avisa al terminar. El rodaje
+ * que reciben es el de la mesa fuera de pantalla
+ * (`components/abp-lab/MesaRodaje.tsx`), no la pizarra que se ve.
  */
 
 import { MuxorMp4 } from "@/lib/coding/mp4";
@@ -163,7 +169,12 @@ function lienzo(W: number, H: number) {
  * plano `requestAnimationFrame` no llega y la exportación se quedaba colgada.
  */
 const pintado = () =>
-  new Promise<void>((listo) => {
+  /* Escondida, el reloj de 60 ms se va a un segundo (o a un minuto): ahora
+     que se exporta en segundo plano (08/11/2026) se sigue sin esperar, que el
+     `flushSync` del rodaje ya ha pintado. */
+  typeof document !== "undefined" && document.hidden
+    ? Promise.resolve()
+    : new Promise<void>((listo) => {
     const hecho = () => {
       clearTimeout(reloj);
       listo();
@@ -214,8 +225,16 @@ export async function exportaPng(rodaje: Rodaje, t: number, nombre: string) {
   descarga(await pngDe(rodaje, t), `${nombreFichero(nombre)}.png`);
 }
 
+export type Fichero = { blob: Blob; nombre: string; formato: string; bytes: number; segundos?: number };
+
 /** Una hoja por momento: salida, golpeo, remate y final. */
-export async function exportaPdf(rodaje: Rodaje, instantes: { t: number; label: string }[], nombre: string, pie: string) {
+export async function armaPdf(
+  rodaje: Rodaje,
+  instantes: { t: number; label: string }[],
+  nombre: string,
+  pie: string,
+  avance: (fraccion: number) => void = () => undefined,
+): Promise<Fichero> {
   const hojas = [];
 
   for (const [i, m] of instantes.entries()) {
@@ -226,11 +245,15 @@ export async function exportaPdf(rodaje: Rodaje, instantes: { t: number; label: 
     pintaCuadro(ctx, 1920, 1080, await fotograma(rodaje, m.t, 1800), { ...r, momento: `${i + 1} · ${m.label}` }, rodaje.familia);
 
     hojas.push({ imagen: c.toDataURL("image/jpeg", 0.9), ancho: 1920, alto: 1080, orientacion: "landscape" as const, pie: { izquierda: pie, derecha: `${i + 1} / ${instantes.length}` } });
+
+    avance(((i + 1) / instantes.length) * 0.9);
   }
 
   const doc = await pdfDeHojas(hojas);
 
-  descarga(doc.output("blob"), `${nombreFichero(nombre)}.pdf`);
+  const blob = doc.output("blob");
+
+  return { blob, nombre: `${nombreFichero(nombre)}.pdf`, formato: "PDF", bytes: blob.size };
 }
 
 /* ------------------------------------------------------------------ */
@@ -277,7 +300,7 @@ function copia(origen: AllowSharedBufferSource): Bytes {
 export const sabeVideo = () => puedeHacerVideo() || typeof MediaRecorder !== "undefined";
 
 /** MP4 con WebCodecs; si el navegador no sabe, WebM grabando el lienzo. */
-export async function exportaVideo(rodaje: Rodaje, nombre: string, avance: (fraccion: number) => void, ancho = 1920, alto = 1080) {
+export async function armaVideo(rodaje: Rodaje, nombre: string, avance: (fraccion: number) => void, ancho = 1920, alto = 1080): Promise<Fichero> {
   const fps = 30;
 
   const instantes = guion(fps);
@@ -342,9 +365,7 @@ export async function exportaVideo(rodaje: Rodaje, nombre: string, avance: (frac
 
       const fichero = muxor.cierra();
 
-      descarga(fichero, `${nombreFichero(nombre)}.mp4`);
-
-      return { formato: "MP4", bytes: fichero.size, segundos: instantes.length / fps };
+      return { blob: fichero, nombre: `${nombreFichero(nombre)}.mp4`, formato: "MP4", bytes: fichero.size, segundos: instantes.length / fps };
     } finally {
       if (codificador.state !== "closed") codificador.close();
     }
@@ -393,13 +414,11 @@ export async function exportaVideo(rodaje: Rodaje, nombre: string, avance: (frac
 
   const fichero = new Blob(trozos, { type: "video/webm" });
 
-  descarga(fichero, `${nombreFichero(nombre)}.webm`);
-
-  return { formato: "WebM", bytes: fichero.size, segundos: instantes.length / fps };
+  return { blob: fichero, nombre: `${nombreFichero(nombre)}.webm`, formato: "WebM", bytes: fichero.size, segundos: instantes.length / fps };
 }
 
 /** El GIF: 720 de ancho a unos 12 fotogramas por segundo, con la paleta de la propia jugada. */
-export async function exportaGif(rodaje: Rodaje, nombre: string, avance: (fraccion: number) => void) {
+export async function armaGif(rodaje: Rodaje, nombre: string, avance: (fraccion: number) => void): Promise<Fichero> {
   const ancho = 720;
 
   const alto = 405;
@@ -437,9 +456,7 @@ export async function exportaGif(rodaje: Rodaje, nombre: string, avance: (fracci
 
   const fichero = montaGif(ancho, alto, paleta, fotogramas);
 
-  descarga(fichero, `${nombreFichero(nombre)}.gif`);
-
   avance(1);
 
-  return { formato: "GIF", bytes: fichero.size, segundos: fotogramas.reduce((s, f) => s + f.centesimas, 0) / 100 };
+  return { blob: fichero, nombre: `${nombreFichero(nombre)}.gif`, formato: "GIF", bytes: fichero.size, segundos: fotogramas.reduce((s, f) => s + f.centesimas, 0) / 100 };
 }

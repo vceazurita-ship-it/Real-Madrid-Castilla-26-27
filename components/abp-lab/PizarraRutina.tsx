@@ -60,7 +60,9 @@ import { estructuraPara, useSimulacionFija, type ContextoSim, type QueDefensa, t
 import { ANCHO, VUELO, encuadre, focoDe, fondoVisible, golpeoDe, limita, posicionesEn, recorridoBalon, reflejada, salidas, type Marco } from "@/lib/abp-lab/campo";
 import { VISTAS, creaCamara, type Vista } from "@/lib/abp-lab/camara";
 import { leeFoto } from "@/lib/abp-lab/fotos";
-import { exportaGif, exportaPdf, exportaPng, exportaVideo, pngDe, sabeVideo, type Rodaje, type Rotulo } from "@/lib/abp-lab/exporta";
+import { armaGif, armaPdf, armaVideo, exportaPng, nombreFichero, pngDe, sabeVideo, type Rodaje, type Rotulo } from "@/lib/abp-lab/exporta";
+import { MesaRodaje, claveMesa, rodajeDeMesa } from "@/components/abp-lab/MesaRodaje";
+import { descargaEnMarcha, encargaDescarga } from "@/lib/trabajos/descargas";
 import { DEFENSAS, ENVIOS, PAPELES, TIPOS, etiqueta, type Envio, type Punto, type Rol } from "@/lib/abp-lab/modelo";
 import { MARCAS, momentoDe } from "@/lib/abp-lab/simulacion";
 import { PRESION_LABEL } from "@/lib/abp-lab/ventaja";
@@ -101,6 +103,14 @@ export const ATAJOS: { teclas: string; que: string }[] = [
   { teclas: "Ctrl + Z · Ctrl + Mayús + Z", que: "Deshacer · rehacer" },
   { teclas: "?", que: "Esta ayuda" },
 ];
+
+/** Cómo se llama cada exportación en la píldora de descargas. */
+const QUE_EXPORTA: Record<"png" | "pdf" | "video" | "gif", string> = {
+  png: "PNG",
+  pdf: "PDF por momentos",
+  video: "Vídeo",
+  gif: "GIF",
+};
 
 /* ------------------------------------------------------------------ */
 /*  FOTOS LEÍDAS (para que salgan al exportar)                          */
@@ -521,46 +531,71 @@ export function PizarraRutina({
    */
   const rodajeDe = (): Rodaje => ({ pon: (v) => flushSync(() => setT(v)), svg: () => svg.current, rotulo, familia: FAMILIA_PORTADA });
 
-  const exporta = async (formato: "png" | "pdf" | "video" | "gif") => {
-    if (exportando) return;
-
+  /*
+  | En segundo plano (08/11/2026), como las de ABP: el clic deja el encargo con
+  | la foto de la rutina (cámara, capas, defensa, fotos y rótulo de ese
+  | momento) y la mesa del gestor vuelve a pintar la pizarra fuera de la
+  | pantalla con su propio reloj (`MesaRodaje`). La pizarra que se ve no se
+  | para ni se mueve, y el vídeo o el GIF siguen aunque se cambie de pantalla.
+  */
+  const exporta = (formato: "png" | "pdf" | "video" | "gif") => {
     setMenuExporta(false);
-
-    const antes = reloj.ahora();
-
-    para();
-
-    setExportando({ que: formato, avance: 0 });
-
-    await esperaFuentePortada().catch(() => undefined);
-
-    const rodaje = rodajeDe();
 
     const nombre = rutina.nombre || "rutina";
 
-    try {
-      if (formato === "png") {
-        await exportaPng(rodaje, antes, nombre);
-        toast.success("PNG descargado");
-      } else if (formato === "pdf") {
-        await exportaPdf(rodaje, MARCAS, nombre, `RM Castilla · Laboratorio de ABP · ${nombre}`);
-        toast.success("PDF descargado: una hoja por momento");
-      } else if (formato === "video") {
-        const r = await exportaVideo(rodaje, nombre, (a) => setExportando({ que: formato, avance: a }));
+    const titulo = `${QUE_EXPORTA[formato]} · ${nombre}`;
 
-        toast.success(`Vídeo ${r.formato} · ${r.segundos.toFixed(1).replace(".", ",")} s · ${(r.bytes / 1_000_000).toFixed(1).replace(".", ",")} MB`);
-      } else {
-        const r = await exportaGif(rodaje, nombre, (a) => setExportando({ que: formato, avance: a }));
+    if (exportando || descargaEnMarcha(titulo)) return;
 
-        toast.success(`GIF · ${(r.bytes / 1_000_000).toFixed(1).replace(".", ",")} MB`);
-      }
-    } catch (error) {
-      console.error("[laboratorio-abp] exportar", error);
-      toast.error(error instanceof Error && error.message ? error.message : "No se ha podido exportar");
-    } finally {
-      setT(antes);
-      setExportando(null);
-    }
+    const antes = reloj.ahora();
+
+    const clave = claveMesa();
+
+    encargaDescarga({
+      titulo,
+      vuelta: window.location.pathname + window.location.search,
+      ancho: 1280,
+      mesa: (
+        <MesaRodaje
+          clave={clave}
+          inicial={antes}
+          rotulo={rotulo}
+          familia={FAMILIA_PORTADA}
+          rutina={rutina}
+          porId={porId}
+          cam={cam}
+          paleta={paleta}
+          fija={sim}
+          capas={capas}
+          fotos={fotos}
+          etiqueta={`Pizarra de ${nombre}`}
+        />
+      ),
+      tarea: async ({ avanza }) => {
+        await esperaFuentePortada().catch(() => undefined);
+
+        const rodaje = rodajeDeMesa(clave);
+
+        if (!rodaje) throw new Error("No hay pizarra que exportar");
+
+        const fraccion = (a: number) => avanza(formato === "video" ? "Montando el vídeo…" : formato === "gif" ? "Montando el GIF…" : "Pintando los momentos…", a);
+
+        if (formato === "png") {
+          avanza("Pintando la imagen…");
+
+          return { blob: await pngDe(rodaje, antes), nombre: `${nombreFichero(nombre)}.png` };
+        }
+
+        const r =
+          formato === "pdf"
+            ? await armaPdf(rodaje, MARCAS, nombre, `RM Castilla · Laboratorio de ABP · ${nombre}`, fraccion)
+            : formato === "video"
+              ? await armaVideo(rodaje, nombre, fraccion)
+              : await armaGif(rodaje, nombre, fraccion);
+
+        return { blob: r.blob, nombre: r.nombre };
+      },
+    });
   };
 
   /** La jugada como imagen en el portapapeles (o descargada, si el navegador no deja) y la pizarra de ABP abierta al lado. */
@@ -803,7 +838,7 @@ export function PizarraRutina({
                   ...(sabeVideo() ? [{ k: "video" as const, label: "Vídeo", detalle: "MP4 1920 × 1080 con rótulos", icon: Film }] : []),
                   { k: "gif" as const, label: "GIF animado", detalle: "Para WhatsApp, sin reproductor", icon: FileImage },
                 ].map((o) => (
-                  <button key={o.k} type="button" role="menuitem" onClick={() => void exporta(o.k)} className="flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left transition hover:bg-white/[0.06]">
+                  <button key={o.k} type="button" role="menuitem" onClick={() => exporta(o.k)} className="flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left transition hover:bg-white/[0.06]">
                     <o.icon size={15} className="mt-0.5 shrink-0 text-[#C8A96B]" />
                     <span className="min-w-0">
                       <span className="block text-[12.5px] font-semibold text-white/90">{o.label}</span>

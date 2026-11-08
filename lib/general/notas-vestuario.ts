@@ -409,8 +409,14 @@ const TITULO: Record<ClaveNota, string> = {
   local: "Bienvenida al vestuario visitante",
 };
 
+/*
+| `armaNota…` sólo monta el fichero y lo devuelve (08/11/2026): la pantalla lo
+| encarga al gestor de descargas en segundo plano, que es quien lo baja.
+| `exportNota…` lo arma y lo baja en el acto (el arnés de Node lo usa así).
+*/
+
 /** Una diapositiva 16:9 con la nota. */
-export async function exportNotaPptx(clave: ClaveNota, nota: NotaVestuario) {
+export async function armaNotaPptx(clave: ClaveNota, nota: NotaVestuario) {
   const canvas = await hoja(1920, 1080, nota);
 
   const blob = creaPptx(
@@ -421,9 +427,15 @@ export async function exportNotaPptx(clave: ClaveNota, nota: NotaVestuario) {
     },
   );
 
-  descarga(blob, `${ARCHIVO[clave]}.pptx`);
+  return { blob, nombre: `${ARCHIVO[clave]}.pptx` };
+}
 
-  return `${ARCHIVO[clave]}.pptx`;
+export async function exportNotaPptx(clave: ClaveNota, nota: NotaVestuario) {
+  const { blob, nombre } = await armaNotaPptx(clave, nota);
+
+  descarga(blob, nombre);
+
+  return nombre;
 }
 
 /**
@@ -433,7 +445,7 @@ export async function exportNotaPptx(clave: ClaveNota, nota: NotaVestuario) {
  * hoja de texto: subirlo más sólo engorda el PDF que alguien va a mandar por
  * WhatsApp para que lo impriman en el hotel.
  */
-export async function exportNotaPdf(clave: ClaveNota, nota: NotaVestuario) {
+export async function armaNotaPdf(clave: ClaveNota, nota: NotaVestuario) {
   const canvas = await hoja(794, 1123, nota);
 
   const doc = await pdfDeLienzos([canvas.toDataURL("image/png")], {
@@ -444,7 +456,13 @@ export async function exportNotaPdf(clave: ClaveNota, nota: NotaVestuario) {
     margen: 0,
   });
 
-  doc.save(`${ARCHIVO[clave]}.pdf`);
+  return { blob: doc.output("blob"), nombre: `${ARCHIVO[clave]}.pdf` };
+}
 
-  return `${ARCHIVO[clave]}.pdf`;
+export async function exportNotaPdf(clave: ClaveNota, nota: NotaVestuario) {
+  const { blob, nombre } = await armaNotaPdf(clave, nota);
+
+  descarga(blob, nombre);
+
+  return nombre;
 }

@@ -22,17 +22,18 @@
 | `lib/general/notas-vestuario`.
 */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { FileText, Handshake, Presentation, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button, Field, Panel, SaveState, TextArea } from "@/components/abp/ui";
+import { descargaEnMarcha, descargas, encargaDescarga } from "@/lib/trabajos/descargas";
 import {
   ARCHIVO,
   NOTAS_ORIGINALES,
+  armaNotaPdf,
+  armaNotaPptx,
   dibujaNota,
-  exportNotaPdf,
-  exportNotaPptx,
   type ClaveNota,
   type NotaVestuario,
 } from "@/lib/general/notas-vestuario";
@@ -156,29 +157,35 @@ export function NotasVestuario({
 
   /* ---------------------------- DESCARGAS ---------------------------- */
 
-  const [ocupado, setOcupado] = useState<"pdf" | "pptx" | null>(null);
+  /*
+  | En segundo plano (08/11/2026), como las de ABP: el clic deja el encargo con
+  | la nota tal y como está escrita en ese momento y vuelve; el gestor común la
+  | dibuja, la baja y avisa al terminar aunque se cambie de pantalla. Sin mesa:
+  | la hoja se pinta en un lienzo, no hay DOM que fotografiar.
+  */
+  const tituloDe = (formato: "pdf" | "pptx") =>
+    `Nota de vestuario · ${PESTANAS.find((p) => p.clave === clave)?.titulo ?? clave} · ${formato === "pdf" ? "PDF" : "PPT"}`;
 
-  const descarga = async (formato: "pdf" | "pptx") => {
-    setOcupado(formato);
+  const enPdf = useSyncExternalStore(descargas.suscribe, () => descargaEnMarcha(tituloDe("pdf")), () => false);
+  const enPptx = useSyncExternalStore(descargas.suscribe, () => descargaEnMarcha(tituloDe("pptx")), () => false);
 
-    try {
-      const nombre =
-        formato === "pdf"
-          ? await exportNotaPdf(clave, notaHoja)
-          : await exportNotaPptx(clave, notaHoja);
+  const descarga = (formato: "pdf" | "pptx") => {
+    const titulo = tituloDe(formato);
 
-      toast.success("Nota descargada", { description: nombre });
-    } catch (error) {
-      console.error("[NotasVestuario] descarga", error);
+    if (descargaEnMarcha(titulo)) return;
 
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "No se ha podido generar el documento.",
-      );
-    } finally {
-      setOcupado(null);
-    }
+    const quien = clave;
+    const foto = notaHoja;
+
+    encargaDescarga({
+      titulo,
+      vuelta: window.location.pathname,
+      tarea: async ({ avanza }) => {
+        avanza("Dibujando la nota…");
+
+        return formato === "pdf" ? armaNotaPdf(quien, foto) : armaNotaPptx(quien, foto);
+      },
+    });
   };
 
   return (
@@ -260,18 +267,18 @@ export function NotasVestuario({
             <Button
               icon={FileText}
               tone="primary"
-              disabled={ocupado !== null}
+              disabled={enPdf}
               onClick={() => descarga("pdf")}
             >
-              {ocupado === "pdf" ? "Generando…" : "PDF · A4 para imprimir"}
+              {enPdf ? "Generando…" : "PDF · A4 para imprimir"}
             </Button>
 
             <Button
               icon={Presentation}
-              disabled={ocupado !== null}
+              disabled={enPptx}
               onClick={() => descarga("pptx")}
             >
-              {ocupado === "pptx" ? "Generando…" : "PPT · diapositiva"}
+              {enPptx ? "Generando…" : "PPT · diapositiva"}
             </Button>
           </div>
 

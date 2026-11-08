@@ -7,12 +7,12 @@
  * (tablero oscuro en los dos temas) para que el PNG salga igual.
  */
 
-import { useRef } from "react";
+import { useSyncExternalStore } from "react";
 import { ImageDown } from "lucide-react";
 
 import { capturaNodo } from "@/lib/export/captura";
-import { descargaDataUrl } from "@/lib/export/lienzos";
 import { caidasDe, type ClipEstado } from "@/lib/abp/coding-rival";
+import { descargaEnMarcha, descargas, encargaDescarga } from "@/lib/trabajos/descargas";
 
 /* El área y su frontal (x de 10 a 58 m, 24 m de fondo) con la portería arriba; 1 m = 9 px. */
 const E = 9;
@@ -32,30 +32,24 @@ const LIBRE: Record<string, [number, number]> = { "1.er palo": [29.5, 4.5], Cent
 
 const COLOR: Record<string, string> = { Izquierda: "#5AA9FF", Derecha: "#D8B45A", Central: "#9AE6B4", "Sin lado": "#C7CDD6" };
 
-export function CampogramaCaidas({ titulo, clips, defensivo }: { titulo: string; clips: [number, ClipEstado][]; defensivo: boolean }) {
-  const nodo = useRef<HTMLDivElement>(null);
+type Props = { titulo: string; clips: [number, ClipEstado][]; defensivo: boolean };
 
-  const { cuenta, total } = caidasDe(clips);
-
+function libresDe(clips: [number, ClipEstado][], defensivo: boolean) {
   const libres = new Map<string, number>();
 
   if (defensivo) for (const [, c] of clips) if (c.etiquetas?.libre) libres.set(c.etiquetas.libre, (libres.get(c.etiquetas.libre) ?? 0) + 1);
 
-  if (!total && !libres.size) return <p className="text-sm text-white/50">Marca la caída (y el lado) de los clips y aquí se dibujan.</p>;
+  return libres;
+}
 
+/** La lámina: sólo depende de sus datos, para pintarla también en la mesa de las descargas. */
+function LaminaCaidas({ titulo, clips, defensivo }: Props) {
+  const { cuenta, total } = caidasDe(clips);
+  const libres = libresDe(clips, defensivo);
   const lados = Object.keys(cuenta);
 
-  const png = async () => {
-    if (!nodo.current) return;
-
-    const { dataUrl } = await capturaNodo(nodo.current, { pixelRatio: 2, backgroundColor: "#0E2A1E" });
-
-    await descargaDataUrl(dataUrl, `caidas-${titulo.toLowerCase().replace(/[^a-z0-9]+/gi, "-")}.png`);
-  };
-
   return (
-    <div className="space-y-2">
-      <div ref={nodo} style={{ background: "#0E2A1E", padding: 12, borderRadius: 12, width: W + 24 }}>
+      <div data-lamina-caidas style={{ background: "#0E2A1E", padding: 12, borderRadius: 12, width: W + 24 }}>
         <div style={{ color: "#FFFFFF", fontWeight: 700, fontSize: 14, marginBottom: 6 }}>
           {titulo} · {total} caídas
         </div>
@@ -109,8 +103,49 @@ export function CampogramaCaidas({ titulo, clips, defensivo }: { titulo: string;
           ))}
         </div>
       </div>
-      <button type="button" onClick={() => void png()} className="flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 text-xs text-white/80 hover:bg-white/5">
-        <ImageDown size={14} /> Descargar PNG (para la pizarra o el informe)
+  );
+}
+
+export function CampogramaCaidas({ titulo, clips, defensivo }: Props) {
+  const tituloDescarga = `PNG de caídas · ${titulo}`;
+  const enMarcha = useSyncExternalStore(descargas.suscribe, () => descargaEnMarcha(tituloDescarga), () => false);
+
+  const { total } = caidasDe(clips);
+
+  if (!total && !libresDe(clips, defensivo).size) return <p className="text-sm text-white/50">Marca la caída (y el lado) de los clips y aquí se dibujan.</p>;
+
+  /*
+  | En segundo plano (08/11/2026), como las de ABP: la lámina se vuelve a
+  | pintar en la mesa del gestor con los clips de este momento y se fotografía
+  | allí, aunque se cambie de pantalla.
+  */
+  const png = () => {
+    if (descargaEnMarcha(tituloDescarga)) return;
+
+    const nombre = `caidas-${titulo.toLowerCase().replace(/[^a-z0-9]+/gi, "-")}.png`;
+
+    encargaDescarga({
+      titulo: tituloDescarga,
+      vuelta: window.location.pathname + window.location.search,
+      ancho: W + 24,
+      mesa: <LaminaCaidas titulo={titulo} clips={clips} defensivo={defensivo} />,
+      tarea: async ({ raiz }) => {
+        const lamina = raiz?.querySelector<HTMLElement>("[data-lamina-caidas]");
+
+        if (!lamina) throw new Error("No se ha podido pintar el campograma");
+
+        const { dataUrl } = await capturaNodo(lamina, { pixelRatio: 2, backgroundColor: "#0E2A1E" });
+
+        return { blob: await (await fetch(dataUrl)).blob(), nombre };
+      },
+    });
+  };
+
+  return (
+    <div className="space-y-2">
+      <LaminaCaidas titulo={titulo} clips={clips} defensivo={defensivo} />
+      <button type="button" onClick={png} disabled={enMarcha} className="flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 text-xs text-white/80 hover:bg-white/5 disabled:opacity-60">
+        <ImageDown size={14} /> {enMarcha ? "Preparando el PNG…" : "Descargar PNG (para la pizarra o el informe)"}
       </button>
     </div>
   );
