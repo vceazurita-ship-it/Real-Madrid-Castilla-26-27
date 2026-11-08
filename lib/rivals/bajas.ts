@@ -21,7 +21,7 @@ export type BajaRival = "lesionado" | "sancionado" | "tocado";
 
 const texto = (v: unknown) => String(v ?? "").trim();
 
-const sinTildes = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+const sinTildes = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
 /** «lesionado», «sancionado» o «tocado» (duda); `null` si está disponible. */
 export function bajaDe(fila: Fila): BajaRival | null {
@@ -31,10 +31,13 @@ export function bajaDe(fila: Fila): BajaRival | null {
     .map((t) => sinTildes(t.trim()))
     .filter(Boolean);
 
-  const dice = (re: RegExp) => re.test(estado) || etiquetas.some((t) => re.test(t));
+  /* Por palabra y sin negación: «Recuperado de lesión», «Sin lesiones» o
+     «Sancionable» no son bajas (08/11/2026). */
+  const descarta = /recuperad|sin lesion|sancionable|vuelve|alta medica/;
+  const dice = (re: RegExp) => [estado, ...etiquetas].some((t) => re.test(t) && !descarta.test(t));
 
-  if (dice(/sancion/)) return "sancionado";
-  if (dice(/lesion|de baja/)) return "lesionado";
+  if (dice(/\bsancionad|\bsancion\b/)) return "sancionado";
+  if (dice(/\blesionad|\blesion\b|\bde baja\b/)) return "lesionado";
   if (dice(/tocad|molestia/)) return "tocado";
 
   return null;

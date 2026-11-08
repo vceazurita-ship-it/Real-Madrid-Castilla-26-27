@@ -735,7 +735,8 @@ export default function DashboardSeguimiento() {
   /* 30/10/2026: qué día de la semana es hoy (1 = lunes), para no comparar
      una semana a medias con una entera. */
   const diaDeSemana = ((hoy.getDay() + 6) % 7) + 1;
-  const semanaDeHoy = `S${getSeasonWeek(hoy.toISOString())}`;
+  /* Fecha LOCAL (08/11/2026): con toISOString, entre las 00:00 y las 02:00 de un lunes aún era domingo en UTC y la semana en curso salía como la anterior. */
+  const semanaDeHoy = `S${getSeasonWeek(`${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`)}`;
 
   /* 08/11/2026 (jueces): la media sólo con semanas completas; la que va en
      curso se pinta, pero no entra en la media. */

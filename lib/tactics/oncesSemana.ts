@@ -425,17 +425,12 @@ export function tableroSinTocar(escenas: { id: string; tokens: TacticToken[]; sh
 
   if (escena.id.startsWith("onces-auto-")) return escena.id === idEscenaOnces(escena.tokens);
 
-  /* Rellenado antes del 08/11/2026 (sin huella): sin tocar si cada ficha sigue en el sitio de su hueco. */
-  const sitios = Object.keys(FICHA_DEL_HUECO).map(sitioDelHueco);
-  const enSuSitio = (t: TacticToken) =>
-    sitios.some((s) => {
-      const x = t.kind === "away" ? 100 - s.x : s.x;
-      const y = t.kind === "away" ? PITCH_HEIGHT - s.y : s.y;
-
-      return Math.abs(t.x - x) < 0.01 && Math.abs(t.y - y) < 0.01;
-    });
-
-  return escena.tokens.length > 0 && escena.tokens.every(enSuSitio);
+  /* Rellenado antes del 08/11/2026 (sin huella): NUNCA se da por no tocado.
+     Cambiar un jugador (pinchar la ficha, «Para entrar») cambia el nombre y
+     no el sitio, así que «cada ficha en su hueco» no prueba nada y la
+     autoactualización pisaba esos cambios. Para estos tableros sólo sale el
+     aviso «Actualizar», que decide el analista. */
+  return false;
 }
 
 /** La vía anterior, sólo si Wyscout o las plantillas no contestan. */

@@ -327,7 +327,7 @@ useEffect(() => {
       <div className="flex">
         <Sidebar />
 
-        <section className="w-full relative">
+        <section className="relative min-w-0 flex-1">
           <Topbar />
 
           {/* Botón desktop */}

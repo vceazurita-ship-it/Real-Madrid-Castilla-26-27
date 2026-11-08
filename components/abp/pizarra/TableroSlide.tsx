@@ -79,6 +79,7 @@ import {
 import { leyendaSiglas } from "@/lib/abp/siglas";
 import { esImplicito, porteroPropioDeLaLamina, rivalesDeLaLamina } from "@/lib/abp/rivales-implicitos";
 import { esPortero } from "@/lib/abp/pizarra-jugador";
+import { useEscalaCara } from "@/lib/abp/escala-cara";
 
 /* ------------------------------------------------------------------ */
 /*  TEXTOS QUE SE ESCRIBEN EN SU SITIO                                 */
@@ -649,6 +650,8 @@ function Ficha({
   onQuitar: () => void;
 }) {
   const nombre = player?.apodo ?? player?.nombre ?? "";
+  /* Cada recorte está encuadrado a su manera: se iguala el tamaño de la cara (08/11/2026). */
+  const escalaCara = useEscalaCara(player?.foto);
 
   return (
     <div
@@ -704,6 +707,8 @@ function Ficha({
         draggable={false}
         className="relative block h-[120px] w-[96px] object-contain object-bottom"
         style={{
+          transform: escalaCara !== 1 ? `scale(${escalaCara.toFixed(3)})` : undefined,
+          transformOrigin: "50% 100%",
           filter:
             foco === "si"
               ? `drop-shadow(0 0 10px ${COLORES.rosa}) drop-shadow(0 0 4px ${COLORES.rosa}) drop-shadow(0 8px 12px rgba(0,0,0,.6))`

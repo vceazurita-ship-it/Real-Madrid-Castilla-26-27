@@ -490,7 +490,7 @@ export default function EmotionPage() {
                     <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-full border border-white/10 px-4 py-2 text-xs font-medium text-white/65 transition hover:border-white/25 hover:text-white [&::-webkit-details-marker]:hidden">
                       Más
                     </summary>
-                    <div className="absolute right-0 z-30 mt-2 flex w-56 flex-col gap-1 rounded-2xl border border-white/10 bg-[#0B1622] p-2 shadow-xl">
+                    <div className="absolute left-0 z-30 mt-2 flex w-56 flex-col sm:left-auto sm:right-0 gap-1 rounded-2xl border border-white/10 bg-[#0B1622] p-2 shadow-xl">
                       <button
                         onClick={() => setShowTeamAverage((v) => !v)}
                         aria-pressed={showTeamAverage}
