@@ -594,7 +594,8 @@ export function VideosDelCanal({
   const jugadoresPorPuesto = useMemo(
     () =>
       [...grupos.jugadores].sort(
-        (a, b) => rangoDePuesto(a.puesto) - rangoDePuesto(b.puesto) || b.minutos - a.minutos,
+        /* Dentro de cada puesto, primero los del once probable (08/11/2026, jueces): el miércoles se ve primero a quien va a jugar. */
+        (a, b) => rangoDePuesto(a.puesto) - rangoDePuesto(b.puesto) || Number(b.titular) - Number(a.titular) || b.minutos - a.minutos,
       ),
     [grupos.jugadores],
   );
@@ -1137,6 +1138,10 @@ export function VideosDelCanal({
                   <h3 className="truncate text-sm font-semibold text-white">
                     {grupo.jugador}
                   </h3>
+
+                  {grupo.titular && (
+                    <span className="rounded-full border border-[#C8A96B]/50 px-1.5 py-0.5 text-[11px] font-semibold text-[#C8A96B]">Once probable</span>
+                  )}
 
                   <span className="text-[11px] text-white/35">
                     {grupo.videos.length}{" "}

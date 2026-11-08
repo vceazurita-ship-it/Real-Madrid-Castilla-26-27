@@ -49,6 +49,7 @@ import { Explicativo } from "@/components/ui/textos-analisis";
 import { mismoClub } from "@/lib/rivals/mismoClub";
 import { conTildes } from "@/lib/rivals/tildes";
 import { comoNombre } from "@/lib/duelos-onces";
+import { rotuloDePuesto } from "@/lib/rivals/lineas-puesto";
 
 /*
 | `?equipo=<NOMBRE>` (26/10/2026): desde la ficha del rival o la portada se
@@ -255,7 +256,8 @@ export default function ScoutRivalIndividual() {
         nombre: conTildes(comoNombre(jugador.nombre)),
         hoja: jugador.nombre,
         dorsal: dorsalesRepetidos.has(String(jugador.dorsal ?? "").trim()) ? "" : jugador.dorsal,
-        puesto: jugador.posicion,
+        /* El rótulo de Plantillas rivales: «MEDIO CENTRO» → «Mediocentro» (08/11/2026, jueces). */
+        puesto: rotuloDePuesto(String(jugador.posicion ?? "")),
         etiquetas: etiquetasDe[`${equipo}|${jugador.nombre}`] ?? [],
         titular:
           titularesDe.equipo === equipo && titularesDe.claves.includes(clavesDe[`${equipo}|${jugador.nombre}`] ?? "\u0000"),

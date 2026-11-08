@@ -116,7 +116,7 @@ export default function AreaRivalPage() {
             title={equipo ? `Área · ${equipo}` : "Área del Rival"}
             crest={equipo ? <EscudoEquipo nombre={equipo} escudo={escudoDe(equipo)} lado={40} /> : undefined}
             /* 07/11/2026 (jueces): la entrada prometía perfil, trayectoria y caída de los remates, que no siempre hay; dice lo que se ve. */
-            lead="Cuánto centran y con qué acierto, cuántos centros reciben y qué hacemos en cada caso, según Wyscout; debajo, las láminas y los clips de la jornada si el analista las ha subido."
+            lead="Cuánto centran y con qué acierto, cuántos centros reciben y qué hacemos en cada caso, según Wyscout."
           />
 
           {cargando ? (

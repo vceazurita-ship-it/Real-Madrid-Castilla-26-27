@@ -37,6 +37,8 @@ import { AvisoLento } from "@/components/rivals/AvisoLento";
 import { TiraJornadas } from "@/components/rivals/TiraJornadas";
 import { useRivalInforme } from "@/hooks/useRivalInforme";
 import { findInforme } from "@/lib/rivals/informe";
+import { useDuelosClave } from "@/hooks/useDuelosClave";
+import { dibujoDeLaTemporada } from "@/lib/rivals/posiciones-temporada";
 import { useEscudos } from "@/hooks/useEscudos";
 import { useLento } from "@/hooks/useLento";
 import Link from "next/link";
@@ -168,6 +170,11 @@ const SIGLAS: { sigla: string; patron: RegExp; significado: string }[] = [
   { sigla: "PTO", patron: /(?<![\p{L}\d])PTO(?![\p{L}\d])/u, significado: "portero" },
   { sigla: "Intervalo", patron: /(?<![\p{L}\d])intervalos?(?![\p{L}\d])/iu, significado: "distancia entre líneas (o entre dos jugadores de la misma línea)" },
   { sigla: "ABP", patron: /(?<![\p{L}\d])ABPs?(?![\p{L}\d])/u, significado: "balón parado" },
+  /* 08/11/2026 (jueces): EXI, «interiores», «base» y los dibujos con portero salían sin explicar. */
+  { sigla: "EXI / EXD", patron: /(?<![\p{L}\d])EX[ID]s?(?![\p{L}\d])/u, significado: "extremo izquierdo / extremo derecho" },
+  { sigla: "Interiores", patron: /(?<![\p{L}\d])[Ii]nteriores(?![\p{L}\d])/u, significado: "centrocampistas que juegan por delante del pivote, uno a cada lado (el 8 y el 10)" },
+  { sigla: "Base", patron: /(?<![\p{L}\d])[Bb]ase(?![\p{L}\d])/u, significado: "en la salida, la base es el mediocentro que recibe de los centrales para iniciar" },
+  { sigla: "1-4-1-3-2", patron: /(?<![\p{L}\d-])1-\d(?:-\d){2,3}(?![\p{L}\d-])/u, significado: "dibujo contando al portero (el «1-»): 1-4-2-3-1 es el 4-2-3-1" },
 ];
 
 /*
@@ -221,6 +228,24 @@ const CAMPOS_DANO: { campo: string; rotulo: string }[] = [
   { campo: "DEF_AREA_JUGADOR_DEBIL", rotulo: "Débil en su área" },
   { campo: "TRANSICION_DEF_DIFICULTADES_ESPALDA", rotulo: "Tras pérdida, a su espalda" },
 ];
+
+/*
+| Lo que pregunta cada campo de «Dónde hacerles daño» cuando el analista sólo
+| escribe un nombre (08/11/2026): el porqué y su consecuencia en el campo.
+*/
+const POR_QUE_DEL_CAMPO: Record<string, { porque: string; queHacemos: string }> = {
+  DEF_REINICIO_JUGADORES_DEBILES: {
+    porque: "el que peor presiona cuando reanudamos el juego (saque de puerta, de banda o falta en nuestro campo).",
+    queHacemos: "iniciar nuestros reinicios por su zona y atraerle para salir por detrás de él.",
+  },
+  OF_INICIO_JUGADOR_DEBIL_DENTRO: {
+    porque: "el más débil cuando su salida de balón pasa por dentro.",
+    queHacemos: "saltar a presionarle cuando reciba por dentro, de espaldas, y cerrarle el pase de cara.",
+  },
+};
+
+/** Para comparar nombres sin tildes ni mayúsculas. */
+const sinTildesBajo = (t: string) => t.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 
 type FilaEstilo = {
   nombre: string;
@@ -648,7 +673,7 @@ export default function ScoutRivalCollective() {
   | hacemos», con su frase. Nada se inventa: sin esos textos, no sale.
   */
   const dano = (() => {
-    const lista: { campo: string; rotulo: string; texto: string; queHacemos?: string }[] = [];
+    const lista: { campo: string; rotulo: string; texto: string; queHacemos?: string; deducido?: boolean }[] = [];
     const centrales = primeraLinea("OF_INICIO_CENTRAL_CAPACIDAD").split(/\s*\/\s*/).map((t) => t.trim()).filter(Boolean);
 
     if (centrales.length === 2) {
@@ -674,11 +699,47 @@ export default function ScoutRivalCollective() {
     ]) {
       const texto = primeraLinea(campo);
 
-      if (texto) lista.push({ campo, rotulo, texto });
+      if (!texto) continue;
+
+      /*
+      | 08/11/2026 (jueces, fútbol): «Débil en su presión ↓ 23 · Javi Jiménez»
+      | daba sólo un nombre. Cuando el campo trae un nombre suelto, la tarjeta
+      | dice qué pregunta ese campo (el porqué) y su consecuencia («Qué
+      | hacemos»), rotulada como deducida del campo.
+      */
+      const soloNombre = texto.split(/\s+/).length <= 5 && !/[.,;:]\s|\b(es|son|tiene|le|les|cuando|por)\b/i.test(texto);
+      const porque = POR_QUE_DEL_CAMPO[campo];
+
+      if (soloNombre && porque) lista.push({ campo, rotulo, texto: `${texto}: ${porque.porque}`, queHacemos: porque.queHacemos, deducido: true });
+      else lista.push({ campo, rotulo, texto });
     }
 
     return lista.slice(0, 3);
   })();
+
+  /*
+  | Contraste con Duelos (08/11/2026, fútbol): el analista ponía a Mehdi como
+  | «débil por dentro» y /duelos lo saca como su mejor amenaza entre líneas.
+  | Si un jugador de la tarjeta sale en Duelos como amenaza (perdemos con su
+  | balón), se dice debajo con la cifra. La misma cuenta que /duelos.
+  */
+  const duelosClave = useDuelosClave(equipoActivo);
+  const contrasteDuelos = (texto: string) => {
+    if (!duelosClave) return "";
+    const plano = sinTildesBajo(texto);
+    const amenazas = [...duelosClave.grupos.vigilar, ...duelosClave.grupos.doble];
+
+    for (const d of amenazas) {
+      const quien = d.suyos.find((n) => {
+        const apellido = sinTildesBajo(n.replace(/\s*\(.*\)$/, "")).split(" ").pop() ?? "";
+        return apellido.length > 2 && plano.includes(apellido);
+      });
+
+      if (quien && d.sinBalon !== null) return `Contraste con Duelos: ${quien} sale como amenaza en «${d.titulo}», ${d.sinBalon} con su balón (Wyscout, percentil contra su puesto).`;
+    }
+
+    return "";
+  };
 
   /*
   | El espejo, «Cómo nos hacen daño» (07/11/2026, fútbol): lo que el analista
@@ -689,11 +750,18 @@ export default function ScoutRivalCollective() {
   | dibujo con el portero («1-4-2-3-1») y por fase; BeSoccer cuenta el de
   | sus alineaciones. Una línea con los dos, en el formato de /rivals.
   */
+  /*
+  | 08/11/2026 (jueces): aquí salía «5 de 8» (todas las alineaciones del
+  | documento) y en /rivals «7 de 10» (las de la temporada). Ahora la misma
+  | función que el campograma de /rivals, con la misma muestra.
+  */
   const dibujoMedido = (() => {
-    const primera = findInforme(informeRival.doc, equipoActivo)?.estructuras?.[0];
-    const de = (findInforme(informeRival.doc, equipoActivo)?.estructuras ?? []).reduce((s, e) => s + e.veces, 0);
+    const informe = findInforme(informeRival.doc, equipoActivo);
+    const lectura = dibujoDeLaTemporada(informe);
 
-    return primera?.estructura && de > 0 ? { dibujo: primera.estructura.replace(/^1-(?=\d-\d)/, ""), veces: primera.veces, de } : null;
+    return lectura?.estructura && lectura.alineaciones > 0
+      ? { dibujo: lectura.estructura.replace(/^1-(?=\d-\d)/, ""), veces: lectura.veces, de: lectura.alineaciones }
+      : null;
   })();
   const dibujosEscritos = [
     { campo: "OF_INICIO_ESTRUCTURA", fase: "en la salida" },
@@ -1333,8 +1401,11 @@ export default function ScoutRivalCollective() {
                     <p className="mt-0.5 text-sm leading-6 text-white/85">{conSiglas(sinErratas(conPlantilla(d.texto, nombresRival, fichasRival)))}</p>
                     {d.queHacemos && (
                       <p className="mt-1 text-sm leading-6 text-white/85">
-                        <b className="font-semibold text-emerald-300">Qué hacemos:</b> {conSiglas(sinErratas(conPlantilla(d.queHacemos, nombresRival, fichasRival)))}
+                        <b className="font-semibold text-emerald-300">Qué hacemos{d.deducido ? " (se deduce del campo)" : ""}:</b> {conSiglas(sinErratas(conPlantilla(d.queHacemos, nombresRival, fichasRival)))}
                       </p>
+                    )}
+                    {contrasteDuelos(conPlantilla(d.texto, nombresRival, fichasRival)) && (
+                      <p className="mt-1 text-[12px] leading-5 text-[#C8A96B]">{contrasteDuelos(conPlantilla(d.texto, nombresRival, fichasRival))}</p>
                     )}
                   </li>
                 ))}
@@ -1363,7 +1434,7 @@ export default function ScoutRivalCollective() {
             <p className="mb-6 rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-2.5 text-[13px] leading-6 text-white/65">
               <b className="text-white/80">Contraste con los datos</b>
               {" · "}El analista los ve en {dibujosEscritos.map((d) => `${d.dibujo} ${d.fase}`).join(", ")}; en sus alineaciones (BeSoccer), el{" "}
-              {dibujoMedido.dibujo} sale en {dibujoMedido.veces} de {dibujoMedido.de}
+              {dibujoMedido.dibujo} sale en {dibujoMedido.veces} de sus {dibujoMedido.de} alineaciones, la misma cuenta que Plantillas rivales
               {dibujosEscritos.some((d) => d.dibujo !== dibujoMedido.dibujo) ? ": el dibujo de partida y el de cada fase no tienen por qué coincidir." : ", lo mismo que escribe el analista."}
             </p>
           )}

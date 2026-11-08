@@ -1510,6 +1510,29 @@ export default function MatchPreparation() {
   const contraste = useContrasteRival(rivalActivo?.EQUIPO ?? "");
 
   /*
+  | El modelo de juego, el plan frente a Scout Colectivo (08/11/2026, jueces):
+  | «Lo esencial» decía «control por la posesión» y el colectivo, «juegan
+  | directo, modelo no asociativo». Los dos textos están en la misma fila de la
+  | hoja; si uno habla de posesión y el otro de juego directo, se dice.
+  */
+  const contrasteModelo = useMemo(() => {
+    if (!rivalActivo) return null;
+    const plan = ["FORTALEZAS", "ATAQUE", "CLAVES_PARTIDO", "ESTRUCTURA_OF", "ESTADO_EQUIPO"].map((k) => String(rivalActivo[k] ?? "")).join("\n");
+    const colectivo = Object.entries(rivalActivo)
+      .filter(([k]) => /^(OF_|TRANSICION_|CONCLUSION)/.test(k))
+      .map(([, v]) => String(v ?? ""))
+      .join("\n");
+    const frase = colectivo
+      .split(/(?<=\.)\s+|\n/)
+      .map((t) => t.trim())
+      .find((t) => /\bdirect[oa]s?\b|no asociativ/i.test(t));
+
+    if (!frase || !/posesi[oó]n/i.test(plan) || /posesi[oó]n/i.test(colectivo)) return null;
+
+    return frase.replace(/\.$/, "");
+  }, [rivalActivo]);
+
+  /*
   | Nombres de jugadores de OTRO rival en el plan (07/11/2026): se buscan los
   | nombres deportivos de las demás plantillas (varias palabras, o una de seis
   | letras o más) que no son de la plantilla de este rival.
@@ -3330,6 +3353,14 @@ export default function MatchPreparation() {
                 </div>
 
                 {/* Sólo para el analista (no sale en el PDF ni en el PPT): lo medido, al lado de lo escrito. */}
+                {contrasteModelo && !editando && (
+                  <p className="mp-no-print mt-4 rounded-xl border border-amber-400/30 bg-amber-400/[0.06] px-4 py-2.5 text-[12.5px] leading-6 text-white/70">
+                    <b className="text-amber-300">Contraste con Scout Colectivo</b>
+                    {" · "}Este plan habla de posesión y el analista, en Scout Colectivo, escribe «{contrasteModelo}». Conviene dejar un solo
+                    modelo antes de la charla.
+                  </p>
+                )}
+
                 {contraste && !editando && (
                   <p className="mp-no-print mt-4 rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-2.5 text-[12.5px] leading-6 text-white/60">
                     <b className="text-white/75">Contraste con los datos</b>

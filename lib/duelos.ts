@@ -61,6 +61,8 @@ export type JugadorDuelo = {
   corto?: string;
   /** El id de su ficha en nuestra plantilla (sólo nuestros): para casar con el último once de Valoraciones. */
   fichaId?: string;
+  /** Rival de baja según la hoja (estado o etiqueta de su ficha): no entra solo en el once. */
+  baja?: "lesionado" | "sancionado" | "tocado";
 };
 
 /** «1,84», «1.84», «184», «184 cm» → 184. */

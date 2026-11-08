@@ -22,7 +22,7 @@
 
 import Image from "next/image";
 import { ArrowDownUp, Sparkles, Undo2 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { toast } from "sonner";
 
 import { HUECOS } from "@/lib/data-analisis/once";
@@ -93,8 +93,9 @@ export default function OnceTitular({
           const libreB = disponible(b) ? 0 : 1;
 
           return (
-            libreA - libreB ||
+            /* Primero la plantilla del Castilla y después los que vienen del juvenil, cada grupo junto (08/11/2026, jueces). */
             Number(b.esCastilla) - Number(a.esCastilla) ||
+            libreA - libreB ||
             (ORDEN_PUESTO[puestoDeFicha(a).puesto] ?? 9) - (ORDEN_PUESTO[puestoDeFicha(b).puesto] ?? 9) ||
             nombreDeFicha(a).localeCompare(nombreDeFicha(b), "es")
           );
@@ -414,14 +415,20 @@ export default function OnceTitular({
           Para entrar
         </p>
         <div className="flex gap-1.5 overflow-x-auto pb-1" onPointerMove={mueve} onPointerUp={suelta} onPointerCancel={cancela}>
-          {banquillo.map((p) => {
+          {banquillo.map((p, i) => {
             const libre = disponible(p);
+            const empiezaJuvenil = !p.esCastilla && (i === 0 || banquillo[i - 1].esCastilla);
             const estado = estadoEnPalabras(p);
             const elegido = delBanco === p.id;
 
             return (
+              <Fragment key={p.id}>
+              {empiezaJuvenil && (
+                <span className="flex shrink-0 items-center border-l border-white/15 pl-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-white/45">
+                  Del juvenil
+                </span>
+              )}
               <button
-                key={p.id}
                 type="button"
                 onPointerDown={(e) => empieza(e, { tipo: "banco", id: p.id }, nombreDeFicha(p))}
                 onClick={() => {
@@ -442,6 +449,7 @@ export default function OnceTitular({
                 {/* El puesto en palabras: «8» era «Interior» (07/11/2026, jueces). */}
                 <span className="text-[11px] text-white/45">{estado ?? nombrePuesto(p.posicion ?? "")}</span>
               </button>
+              </Fragment>
             );
           })}
         </div>

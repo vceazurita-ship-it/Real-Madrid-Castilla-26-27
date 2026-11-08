@@ -245,7 +245,8 @@ export function resumenDeTemporada(jugador: Pick<JugadorPlantilla, "partidos" | 
 
   const partes = [`titular en ${jugador.titularidades ?? 0} de ${jugador.partidos}`];
 
-  if (jugador.minutos) partes.push(`${jugador.minutos.toLocaleString("es-ES")} min`);
+  /* Con la fuente (08/11/2026, jueces): no chocan con los minutos de Wyscout de /duelos. */
+  if (jugador.minutos) partes.push(`${jugador.minutos.toLocaleString("es-ES")}′ en BeSoccer`);
 
   return partes.join(" · ");
 }

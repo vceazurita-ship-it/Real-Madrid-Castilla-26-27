@@ -60,7 +60,7 @@ function Casilla({
       <div className="mt-1 min-w-0">{children}</div>
 
       {/* Dos renglones antes que «El último: 2-0 en casa co…» en el móvil. */}
-      {pie && <p className="mt-1 line-clamp-2 text-[11px] text-white/45">{pie}</p>}
+      {pie && <p className="mt-1 text-xs text-white/50">{pie}</p>}
     </div>
   );
 }
@@ -97,7 +97,7 @@ export function VistazoRival({
   enlaces,
 }: {
   /** Dónde hacerles daño: jugadores con etiquetas de debilidad y rasgos flojos en Wyscout. */
-  dano?: { nombre: string; puesto: string; rasgos: string[]; accion?: string; base?: string; minutos?: number }[];
+  dano?: { nombre: string; puesto: string; rasgos: string[]; accion?: string; base?: string; minutos?: number; contraste?: string }[];
   /** Bajas de la hoja, apercibidos y rojas de BeSoccer; `null` si no hay nada. */
   avisos?: AvisosRival | null;
   equipo: string;
@@ -126,7 +126,7 @@ export function VistazoRival({
 
         {jornada && !jornada.jugado && (
           /* «fuera» a secas no decía de quién: es dónde jugamos nosotros. */
-          <p className="shrink-0 text-[11px] text-white/45">
+          <p className="shrink-0 text-xs text-white/50">
             {jornada.titulo.replace(/ · (fuera|en casa)$/, " · jugamos $1")}
           </p>
         )}
@@ -249,21 +249,21 @@ export function VistazoRival({
             <span key={`f-${uno.nombre}`} className="flex items-center gap-1.5">
               <UserX size={12} className="shrink-0 text-[#F87171]" aria-hidden />
               {uno.nombre}
-              <span className="text-[11px] text-white/45">{uno.estado}</span>
+              <span className="text-xs text-white/50">{uno.estado}</span>
             </span>
           ))}
           {avisos.apercibidos.map((uno) => (
             <span key={`a-${uno.nombre}`} className="flex items-center gap-1.5">
               <span className="h-3 w-2 shrink-0 rounded-[2px] bg-[#FACC15]" aria-hidden />
               {uno.nombre}
-              <span className="text-[11px] text-white/45">a una amarilla del ciclo ({uno.amarillas})</span>
+              <span className="text-xs text-white/50">a una amarilla del ciclo ({uno.amarillas})</span>
             </span>
           ))}
           {avisos.rojas.map((uno) => (
             <span key={`r-${uno.nombre}`} className="flex items-center gap-1.5">
               <span className="h-3 w-2 shrink-0 rounded-[2px] bg-[#EF4444]" aria-hidden />
               {uno.nombre}
-              <span className="text-[11px] text-white/45">
+              <span className="text-xs text-white/50">
                 {uno.rojas === 1 ? "una roja esta temporada" : `${uno.rojas} rojas esta temporada`}
               </span>
             </span>
@@ -279,6 +279,8 @@ export function VistazoRival({
 
           {/* Primero la frase, luego los dos grupos: una lista de «p15 · p80» no se leía (guion, 21/10). */}
           {fraseDeAspectos(aspectos) && <p className="mb-2 pr-10 text-sm text-white/75 md:pr-0">{fraseDeAspectos(aspectos)}</p>}
+          {/* El puesto se lee solo (08/11/2026, análisis): no hay que fiarse de «Fuerte/Flojo». */}
+          {equipos > 0 && <p className="mb-2 text-xs text-white/50">Puesto entre los {equipos}: el 1.º es el mejor de la categoría en ese aspecto; el {equipos}.º, el peor.</p>}
 
           <div className="grid min-w-0 gap-2 sm:grid-cols-2">
             {[
@@ -341,6 +343,7 @@ export function VistazoRival({
                     {(uno.minutos ?? 0) > 0 && (uno.minutos ?? 0) < MUESTRA_CORTA ? ` · muestra corta: menos de ${MUESTRA_CORTA}′` : ""}
                   </p>
                 ) : null}
+                {uno.contraste ? <p className="mt-0.5 text-[12px] text-[#C8A96B]">{uno.contraste}</p> : null}
               </li>
             ))}
           </ul>

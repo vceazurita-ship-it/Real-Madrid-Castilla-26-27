@@ -15,6 +15,7 @@ import { HUECOS, casaNombre, proponeOnce, sitioDe } from "@/lib/data-analisis/on
 import { mismoClub } from "@/lib/rivals/mismoClub";
 import { playerKey } from "@/lib/rivals/once";
 import { conTildes } from "@/lib/rivals/tildes";
+import { bajaDe } from "@/lib/rivals/bajas";
 import { nombrePuesto } from "@/lib/posiciones";
 import type { InformeEquipo } from "@/lib/rivals/informe";
 import {
@@ -113,21 +114,35 @@ export function suyosDe(filasHoja: Fila[], equipo: string, jugadores: FilaJugado
         pie: wy?.pie || texto(f["PIE DOMINANTE"]),
         minutos: wy?.minutos ?? 0,
         wyscout: wy,
+        baja: bajaDe(f) ?? undefined,
       };
     });
 }
 
+/** Lesionado o sancionado: no entra solo en el once (sí si alguien lo pone a mano). */
+const fuera = (j: JugadorDuelo) => j.baja === "lesionado" || j.baja === "sancionado";
+
 /** Su once de partida: el marcado, su último once o los de más minutos. */
 export function baseSuyaDe(suyos: JugadorDuelo[], marcados: string[] | null, informe: InformeEquipo | null) {
   const porClave = new Map(suyos.map((j) => [j.clave, j]));
+  /*
+  | 08/11/2026 (jueces, ronda 14): el once marcado llevaba a Yago Cantero, con
+  | la etiqueta «Lesionado» en su ficha, y la pizarra lo colocaba. Los de baja
+  | salen de la base y se dice quién y por qué; su hueco lo rellena el motor.
+  */
+  const sinBajas = (lista: JugadorDuelo[]) => lista.filter((j) => !fuera(j));
+  const nota = (lista: JugadorDuelo[]) => {
+    const quitados = lista.filter(fuera);
+    return quitados.length ? `, sin ${quitados.map((j) => `${j.nombre} (${j.baja})`).join(" ni ")}` : "";
+  };
   const deLaMarca = (marcados ?? []).map((k) => porClave.get(k)).filter((j): j is JugadorDuelo => Boolean(j));
-  if (deLaMarca.length >= 7) return { lista: deLaMarca, fuente: "Once probable marcado en Plantillas rivales" };
+  if (deLaMarca.length >= 7) return { lista: sinBajas(deLaMarca), fuente: `Once probable marcado en Plantillas rivales${nota(deLaMarca)}` };
   const ultimo = informe?.onces?.find((o) => o.jugadores.length > 0);
   if (ultimo) {
     const lista = ultimo.jugadores.map((u) => casaNombre(u.nombre, suyos, (j) => j.nombre)).filter((j): j is JugadorDuelo => Boolean(j));
-    if (lista.length >= 7) return { lista, fuente: `Su último once en BeSoccer (${ultimo.estructura || "sin dibujo"}): nadie ha marcado el once probable` };
+    if (lista.length >= 7) return { lista: sinBajas(lista), fuente: `Su último once en BeSoccer (${ultimo.estructura || "sin dibujo"})${nota(lista)}: nadie ha marcado el once probable` };
   }
-  return { lista: suyos, fuente: "Los de más minutos: no hay once marcado ni alineaciones de BeSoccer" };
+  return { lista: sinBajas(suyos), fuente: "Los de más minutos: no hay once marcado ni alineaciones de BeSoccer" };
 }
 
 const candidato = (j: JugadorDuelo) => ({
@@ -197,7 +212,8 @@ export const onceNuestroDe = (
 /** Su base va primero (le sobran minutos) y el resto de la plantilla completa los huecos que falten. */
 export function onceSuyoDe(suyos: JugadorDuelo[], base: JugadorDuelo[], manual: Record<string, string>) {
   const enBase = new Set(base.map((j) => j.clave));
-  const ordenados = suyos.map((j) => (enBase.has(j.clave) ? { ...j, minutos: j.minutos + 1e6 } : j));
+  /* Los de baja, al fondo: sólo entran si no queda nadie más para su hueco o si se ponen a mano. */
+  const ordenados = suyos.map((j) => (enBase.has(j.clave) ? { ...j, minutos: j.minutos + 1e6 } : fuera(j) ? { ...j, minutos: j.minutos - 1e6 } : j));
   const resultado = armaOnce(ordenados, ordenados, manual);
   const porClave = new Map(suyos.map((j) => [j.clave, j]));
   return Object.fromEntries(Object.entries(resultado).map(([h, j]) => [h, j ? porClave.get(j.clave) : undefined])) as Record<

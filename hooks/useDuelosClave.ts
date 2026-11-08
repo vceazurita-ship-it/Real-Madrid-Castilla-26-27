@@ -197,7 +197,16 @@ export function useDuelosClave(equipo: string) {
             sinBalon: d.sinBalon ?? null,
             titulo: d.def.titulo,
             nuestros: d.nuestros.map(rotulo),
-            suyos: d.suyos.map(rotulo),
+            /* Si su puesto en la hoja es del otro lado que el hueco («su extremo izquierdo» con Narro, extremo derecho), se dice (08/11/2026, jueces). */
+            suyos: d.suyos.map((j) => {
+              const base = rotulo(j);
+              const hoja = j.puestoHoja ?? "";
+              const izquierdo = d.def.suyos.some((h) => h.endsWith("-i"));
+              const derecho = d.def.suyos.some((h) => h.endsWith("-d"));
+              const otroLado = (izquierdo && /derech/.test(hoja)) || (derecho && /izquierd/.test(hoja));
+
+              return otroLado && !base.includes("(") ? `${base} (${hoja} en su plantilla, cambiado de banda)` : base;
+            }),
             valor,
             minutos: tamanos.length ? MINUTOS_MINIMOS : 0,
             muestra: !tamanos.length ? [] : menor === mayor ? [menor] : [menor, mayor],

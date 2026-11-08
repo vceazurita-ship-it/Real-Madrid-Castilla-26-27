@@ -348,6 +348,19 @@ function masRepetida(alineaciones: OncePartido[], informe: InformeEquipo) {
  * pantalla, para poder devolver el resultado con **sus** claves y que quien lo
  * use no tenga que volver a cruzar nada.
  */
+/**
+ * Sólo el dibujo que más repite y su muestra, sin plantilla (08/11/2026): lo
+ * lee Scout Colectivo para contar igual que el campograma de /rivals.
+ */
+export function dibujoDeLaTemporada(informe: InformeEquipo | null | undefined) {
+  if (!informe) return null;
+
+  const { elegidas } = alineacionesDeLaTemporada(informe);
+  const estructura = masRepetida(elegidas, informe);
+
+  return estructura ? { estructura, veces: elegidas.filter((once) => once.estructura === estructura).length, alineaciones: elegidas.length } : null;
+}
+
 export function leePosicionesDeLaTemporada(
   informe: InformeEquipo | null | undefined,
   plantilla: JugadorDeLaHoja[],
