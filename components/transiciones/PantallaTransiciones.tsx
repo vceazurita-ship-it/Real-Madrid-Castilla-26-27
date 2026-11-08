@@ -73,6 +73,7 @@ import {
   mediaPorPartido,
   porcentajeAgregado,
   porcentajeDe,
+  rangoDe,
   type MetricaComparada,
   UMBRAL_TENDENCIA_PARTIDOS,
 } from "@/components/abp/ComparativaPartido";
@@ -963,6 +964,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
         nombre: T.serieTotal,
         actual: actuales.length,
         media: mediaPorPartido(anteriores, (f) => f.length),
+        rango: rangoDe(anteriores, (f) => f.length),
         mejorAlto: robosMode ? true : false,
         pie: robosMode ? "cuantos más, mejor" : "cuantas menos, mejor",
       },
@@ -971,6 +973,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
         nombre: robosMode ? "Salen hacia delante" : "El rival sale hacia delante",
         actual: porcentajeDe(actuales, (f) => adelante(jugadas(f)), (f) => jugadas(f).length),
         media: porcentajeAgregado(anteriores, (f) => adelante(jugadas(f)), (f) => jugadas(f).length),
+        rango: rangoDe(anteriores, (f) => porcentajeDe(f, (x) => adelante(jugadas(x)), (x) => jugadas(x).length)),
         formato: formatoPorcentaje,
         formatoDiferencia: formatoPuntos,
         mejorAlto: robosMode ? true : false,
@@ -1001,6 +1004,9 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
         nombre: robosMode ? "Robos en campo rival" : "Pérdidas en campo propio",
         actual: enCampo(robosMode ? "campo rival" : "campo propio")(actuales),
         media: mediaPorPartido(anteriores, enCampo(robosMode ? "campo rival" : "campo propio")),
+        /* 08/11/2026: el mínimo y el máximo de los anteriores, para ver si el
+           objetivo (la media) es realista. */
+        rango: rangoDe(anteriores, enCampo(robosMode ? "campo rival" : "campo propio")),
         mejorAlto: robosMode ? true : false,
         pie: robosMode ? "la presión alta que funciona" : "las que más peligro traen",
       },
@@ -1117,7 +1123,8 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
 
     /* Una sola base por cifra: los que salen adelante se cuentan sobre los que se juegan, como en la tabla. */
     if (top && top.total > 0) {
-      frases.push(T.conclusiones.zona(top.zona, top.total, total, top.adelante, top.juegan));
+      /* 08/11/2026: una cifra por línea, cada una con su base. */
+      frases.push(...T.conclusiones.zona(top.zona, top.total, total, top.adelante, top.juegan).split(/(?<=.) (?=De es)/));
     }
 
     const seguidas = robos.filter((r) => r.desenlace);
@@ -1202,11 +1209,38 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
     const nRef = comparativa.anteriores.n;
     const aviso = ` (media de ${nRef === 1 ? "un solo partido" : `${nRef} partidos`}${modo === "robos" ? "" : ", los etiquetados en vídeo"}${nRef < UMBRAL_TENDENCIA_PARTIDOS ? ", tendencia" : ""})`;
 
+    const rango = m.rango && m.rango[0] !== m.rango[1] ? ` (en esos partidos, de ${formato(m.rango[0])} a ${formato(m.rango[1])})` : "";
+
     return {
-      texto: `${m.nombre}: ${formato(m.actual!)}${base ? ` (${base})` : ""} frente a ${formato(m.media!)}${aviso}. Conviene trabajar en la semana una tarea de ${tarea}; criterio de éxito, ${m.nombre.toLowerCase()} ${m.mejorAlto ? "por encima de" : "por debajo de"} ${formato(m.media!)} en el próximo partido.`,
+      texto: `${m.nombre}: ${formato(m.actual!)}${base ? ` (${base})` : ""} frente a ${formato(m.media!)}${aviso}. Conviene trabajar en la semana una tarea de ${tarea}; criterio de éxito, ${m.nombre.toLowerCase()} ${m.mejorAlto ? "por encima de" : "por debajo de"} ${formato(m.media!)} en el próximo partido${rango}.`,
+      /* 08/11/2026: el titular destacado encima de la tabla. */
+      titular: `${m.nombre}: ${formato(m.actual!)} frente a ${formato(m.media!)} de media`,
       filtro,
     };
   }, [comparativa, modo]);
+
+  /*
+  | 08/11/2026: en pérdidas, la salida del rival hacia delante lleva su
+  | lectura aunque esté en la media: qué significa y qué objetivo deja.
+  */
+  const lecturaSalida = useMemo(() => {
+    if (modo !== "perdidas" || !comparativa) return undefined;
+
+    const m = comparativa.metricas.find((x) => x.clave === "adelante");
+
+    if (!m || m.actual === null || m.media === null) return undefined;
+
+    const f = m.formato ?? numeroCorto;
+    const d = m.actual - m.media;
+
+    if (Math.abs(d) < 2) {
+      return `El rival sale hacia delante en el ${f(m.actual)} de las pérdidas que juega, igual que la media (${f(m.media)}): la contrapresión tras pérdida rinde como siempre. Objetivo para el próximo partido, bajar del ${f(m.media)}.`;
+    }
+
+    return d > 0
+      ? `El rival sale hacia delante en el ${f(m.actual)}, por encima de la media (${f(m.media)}): nos sorprende tras perder. Objetivo para el próximo partido, bajar del ${f(m.media)} con contrapresión en los 5 segundos siguientes.`
+      : `El rival sale hacia delante en el ${f(m.actual)}, por debajo de la media (${f(m.media)}): la contrapresión funcionó. Objetivo, mantenerse por debajo del ${f(m.media)}.`;
+  }, [modo, comparativa]);
 
   /* ------------------------------------------------------------------ */
   /*  Por jugador                                                        */
@@ -1286,10 +1320,18 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
               title={T.titulo}
               lead={
                 modo === "perdidas"
-                  ? "Pérdidas etiquetadas en vídeo, partido a partido: no son las pérdidas por partido de Wyscout que salen en Data Análisis, que cuentan con otro criterio."
+                  ? "Cada pérdida, vista y etiquetada en el vídeo."
                   : undefined
               }
             />
+
+            {/* 08/11/2026: la diferencia con Wyscout, plegada (en el subtítulo era jerga en dos líneas). */}
+            {modo === "perdidas" ? (
+              <details className="mt-2 max-w-3xl text-sm text-white/55">
+                <summary className="cursor-pointer text-white/60 underline decoration-dotted underline-offset-2">¿Por qué no coincide con Data Análisis?</summary>
+                <p className="mt-1">Wyscout cuenta las pérdidas por partido con otro criterio; aquí cuenta sólo el balón que teníamos y pasa a ser del rival, con el balón en juego.</p>
+              </details>
+            ) : null}
 
             <SelloDeFechas fuente="Vídeo etiquetado" fechas={fechasConDato} queEs={T.unidad} />
 
@@ -1404,6 +1446,27 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
 
             {/* 29/10/2026: en el móvil se deja a la derecha el ancho del botón ⋮
                 flotante, que tapaba la columna DIFERENCIA («−5,3» salía «−5,»). */}
+            {/* 08/11/2026: lo que pide trabajo, como titular encima de la tabla
+                (antes era un renglón más de la tabla y la última conclusión). */}
+            {queToca ? (
+              <div className="mt-5 rounded-2xl border border-amber-400/40 bg-amber-400/[0.06] px-4 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-300">Lo que pide trabajo esta semana</p>
+                <p className="mt-1 text-base font-semibold text-white sm:text-lg">{queToca.titular}</p>
+                <p className="mt-1 text-sm leading-relaxed text-white/75">{queToca.texto}</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    limpia();
+                    if (queToca.filtro.length) alternaVarios(queToca.filtro);
+                    setVista("lista");
+                  }}
+                  className="mt-2 rounded-xl border border-white/15 bg-white/[0.04] px-3 py-1.5 text-sm text-white/80 transition hover:border-[#C8A96B]/40"
+                >
+                  {modo === "robos" ? "Ver esos robos, uno a uno" : "Ver esas pérdidas, una a una"}
+                </button>
+              </div>
+            ) : null}
+
             {comparativa && (
               <div className="pr-12 sm:pr-0">
               <ComparativaPartido
@@ -1422,26 +1485,15 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
               </div>
             )}
 
-            <Conclusiones items={[...conclusiones, queToca?.texto]} className="mt-5" />
-
-            {queToca ? (
-              <button
-                type="button"
-                onClick={() => {
-                  limpia();
-                  if (queToca.filtro.length) alternaVarios(queToca.filtro);
-                  setVista("lista");
-                }}
-                className="mt-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/75 transition hover:border-[#C8A96B]/40"
-              >
-                {modo === "robos" ? "Ver esos robos, uno a uno" : "Ver esas pérdidas, una a una"}
-              </button>
-            ) : null}
+            <Conclusiones items={[...conclusiones, lecturaSalida]} className="mt-5" />
 
             {/* ---------------- cifras ---------------- */}
 
             {/* 30/10/2026: con un solo partido el total ya está en la tabla de arriba
                 (y en el filtro): la tarjeta repetía «38 robos · 1 partido» (marketing). */}
+            {/* 08/11/2026: con un partido y su tabla, las tarjetas repetían las
+                mismas cifras (60 %, 40 %, 16,8 s): sólo salen en temporada. */}
+            {unPartido && comparativa ? null : (
             <div className={`mt-5 grid grid-cols-2 gap-3 ${unPartido ? "lg:grid-cols-3" : "lg:grid-cols-4"}`}>
               {unPartido ? null : (
               <Cifra
@@ -1483,6 +1535,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                 />
               ) : null}
             </div>
+            )}
 
             </>
             )}

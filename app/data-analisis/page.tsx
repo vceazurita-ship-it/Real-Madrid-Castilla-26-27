@@ -450,7 +450,7 @@ export default function DataAnalisisPage() {
       try {
         /*
         | Por `traeJson`: la respuesta queda en el aparato y la pantalla abre
-        | al momento con lo de la última vez. «Releer la carpeta» (`intento`)
+        | al momento con lo de la última vez. «Actualizar datos» (`intento`)
         | salta la copia y además pide al servidor que vuelva a leer los
         | ficheros (`?refrescar=1`), que es lo que el botón promete. Como esa
         | URL es otra, se tira también la copia de la normal: si no, la próxima
@@ -477,7 +477,7 @@ export default function DataAnalisisPage() {
         if (!vivo) return;
 
         if (primero === TARDA) {
-          setDatos({ ok: false, error: "La carpeta de datos tarda más de lo normal en abrirse. Pulsa «Releer la carpeta» para volver a intentarlo; si llega la lectura que sigue en marcha, los informes aparecerán solos." });
+          setDatos({ ok: false, error: "La carpeta de datos tarda más de lo normal en abrirse. Pulsa «Actualizar datos» para volver a intentarlo; si llega la lectura que sigue en marcha, los informes aparecerán solos." });
           setCargando(false);
 
           const r = await pide;
@@ -1190,7 +1190,9 @@ export default function DataAnalisisPage() {
     const p = (x: { fila: FilaPercentil }) => Math.round(x.fila.percentil as number);
     /* 07/11/2026: la métrica en palabras, con su cifra, la mediana de la liga
        y el puesto; nunca un «(P100)» suelto ni «goles − xg». */
-    const enPalabras = (x: { fila: FilaPercentil }) => {
+    /* 08/11/2026: con el sentido (▲/▼) y, en un solo partido, la base dicha:
+       «en el partido» frente a la mediana por partido de la liga. */
+    const enPalabras = (x: { fila: FilaPercentil; met: Metrica }, unSoloPartido = false) => {
       const f = x.fila;
       const nombre =
         f.key === "golesMenosXg"
@@ -1198,11 +1200,16 @@ export default function DataAnalisisPage() {
             ? "marca menos de lo que generan sus ocasiones"
             : "marca más de lo que generan sus ocasiones"
           : f.nombre.toLowerCase();
-      const cifra = `${formatea(f.valor, f.unidad)}${f.unidad === "porcentaje" ? "" : f.key === "golesMenosXg" ? " goles por partido frente a su xG" : " por partido"}`;
-      const ref = f.mediana !== null ? `, mediana de la liga ${formatea(f.mediana, f.unidad)}` : "";
-      const puesto = f.puesto ? `; ${f.puesto}º de ${f.deCuantos}` : "";
+      const cifra = `${formatea(f.valor, f.unidad)}${f.unidad === "porcentaje" ? (unSoloPartido ? " en el partido" : "") : f.key === "golesMenosXg" ? " goles por partido frente a sus goles esperados (xG)" : unSoloPartido ? " en el partido" : " por partido"}`;
+      const ref = f.mediana !== null
+        ? unSoloPartido
+          ? `, frente a la mediana por partido de los ${f.deCuantos} equipos, ${formatea(f.mediana, f.unidad)}`
+          : `, mediana de la liga ${formatea(f.mediana, f.unidad)}`
+        : "";
+      const puesto = f.puesto && !unSoloPartido ? `; ${f.puesto}º de ${f.deCuantos}` : "";
+      const sentido = x.met.mejorAlto ? "▲ más es mejor" : "▼ menos es mejor";
 
-      return `${nombre} (${cifra}${ref}${puesto})`;
+      return `${nombre} (${cifra}${ref}${puesto}; ${sentido})`;
     };
     const claves: ConclusionResumen[] = [];
 
@@ -1219,7 +1226,7 @@ export default function DataAnalisisPage() {
         titular: etiquetaDePartido(ultimo),
         detalle:
           mejor && peor && mejor !== peor
-            ? `Lo mejor, ${enPalabras(mejor)}; lo que más costó, ${enPalabras(peor)}.`
+            ? `Lo mejor, ${enPalabras(mejor, true)}; lo que más costó, ${enPalabras(peor, true)}.`
             : undefined,
         tono,
         area: "campo",
@@ -1355,7 +1362,7 @@ export default function DataAnalisisPage() {
                   }}
                   disabled={cargando}
                 >
-                  Releer la carpeta
+                  Actualizar datos
                 </Button>
               }
             />
@@ -1390,7 +1397,7 @@ export default function DataAnalisisPage() {
                         En el ordenador donde está la carpeta:
                       </strong>{" "}
                       comprueba que en <code>public/data/wys</code> hay «Team
-                      Stats» en <code>.xlsx</code> y pulsa «Releer la carpeta».
+                      Stats» en <code>.xlsx</code> y pulsa «Actualizar datos».
                     </li>
 
                     <li>

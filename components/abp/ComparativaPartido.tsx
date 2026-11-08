@@ -173,6 +173,17 @@ export function ComparativaPartido({
     return m.mejorAlto ? m.actual < m.rango[0] : m.actual > m.rango[1];
   };
   const peorFuera = metricas.find(fueraPorAbajo);
+  /* 08/11/2026: si alguna fila sale «igual» o lleva barras, la clave de
+     lectura se dice a la vista (antes no se sabía de dónde salía «igual» ni
+     qué escala tenían las barras). */
+  const hayIgual = metricas.some((m) => {
+    if (m.actual === null || m.media === null || m.tendencia) return false;
+    const pct = (m.formato ?? numeroCorto) === formatoPorcentaje;
+    const d = Math.abs(visto(m.actual, pct, m.formato) - visto(m.media, pct, m.formato));
+
+    return d >= 0.05 && d < (pct ? 2 : Math.max(0.05, Math.abs(m.media) * 0.05));
+  });
+  const hayBarras = metricas.some((m) => !m.tendencia && m.actual !== null);
   const ordenadas = peorFuera ? [peorFuera, ...metricas.filter((m) => m !== peorFuera)] : metricas;
 
   return (
@@ -212,6 +223,18 @@ export function ComparativaPartido({
           {anteriores.n > 0 && anteriores.n < UMBRAL_TENDENCIA_PARTIDOS && (
             <p className="border-b border-white/10 py-2 pl-4 pr-14 text-[11px] italic text-white/50 sm:pl-5 sm:pr-5">
               Tendencia: la media sale de {anteriores.n === 1 ? "un solo partido" : `${anteriores.n} partidos`}.
+            </p>
+          )}
+
+          {(hayIgual || hayBarras) && (
+            <p className="border-b border-white/10 py-2 pl-4 pr-14 text-[11px] text-white/55 sm:pl-5 sm:pr-5">
+              {hayBarras ? (
+                <>
+                  <span className="mr-1 inline-block h-1 w-4 rounded-full align-middle" style={{ background: ORO }} aria-hidden /> este partido ·{" "}
+                  <span className="mr-1 inline-block h-1 w-4 rounded-full bg-white/35 align-middle" aria-hidden /> la media; las dos barras de cada fila van a la misma escala.
+                </>
+              ) : null}
+              {hayIgual ? `${hayBarras ? " " : ""}«Igual»: a menos de 2 puntos en un porcentaje o del 5 % de la media en un recuento.` : null}
             </p>
           )}
 

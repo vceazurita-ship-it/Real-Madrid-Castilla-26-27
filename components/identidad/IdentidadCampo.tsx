@@ -557,7 +557,7 @@ export function IdentidadCampo() {
         <Seccion titulo="Cada jugador y su puesto" sub="Cuánto se parece cada uno a lo que pide la Identidad Posicional, frente a los de su puesto en la categoría.">
           <div className="grid gap-4 xl:grid-cols-2">
             {porPuesto.map(({ puesto, lista }) => (
-              <div key={puesto} className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+              <div key={puesto} id={`puesto-${puesto}`} className="min-w-0 scroll-mt-24 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 target:ring-1 target:ring-[#C8A96B]/50">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/45">{PLURAL[puesto] ?? NOMBRE_PUESTO[puesto as keyof typeof NOMBRE_PUESTO]}</p>
                 <ul className="divide-y divide-white/10">
                   {lista.map((j) => <FilaJugador key={j.nombre} j={j} />)}

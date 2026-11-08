@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
-import { Play, ExternalLink } from "lucide-react";
+import { Play, ExternalLink, Home, Plane } from "lucide-react";
 import { traeJson } from "@/lib/hojaCsv";
 import { useCalendario } from "@/hooks/useCalendario";
 import { comoNuestro, ordenaPartidos } from "@/lib/castilla/calendario";
@@ -95,6 +95,10 @@ function GraficaPuntos({
             <>
               <text x={x(i) + 9} y={yC + 4} textAnchor="start" fontSize={15} fontWeight={600} fill="#C8A96B">
                 Castilla {fmt(ultimo.acumulados)}
+                {/* 08/11/2026: la diferencia con la media, en el propio rótulo. */}
+                {media !== undefined && Math.abs(ultimo.acumulados - media) >= 0.05
+                  ? ` (${ultimo.acumulados > media ? "+" : "−"}${fmt(Math.abs(ultimo.acumulados - media))})`
+                  : ""}
               </text>
               {media !== undefined ? (
                 <text x={x(i) + 9} y={yM + 4} textAnchor="start" fontSize={15} fill="currentColor" fillOpacity={0.7}>
@@ -476,6 +480,8 @@ useEffect(() => {
                         <th className="px-3 py-3 text-right font-medium sm:px-4">
                           <span className="sm:hidden">Pts</span>
                           <span className="hidden sm:inline">Puntos</span>
+                          {/* 08/11/2026: el sentido, como en el resto de tablas. */}
+                          <span className="hidden text-[10px] font-normal normal-case tracking-normal text-white/50 sm:block">▲ más es mejor</span>
                         </th>
                         <th className="hidden px-4 py-3 text-right font-medium sm:table-cell">Acumulados</th>
                         {liga.acumuladaLiga.size > 0 ? (
@@ -488,7 +494,8 @@ useEffect(() => {
                             ) : null}
                           </th>
                         ) : null}
-                        {conPuesto ? <th className="px-3 py-3 text-right font-medium sm:px-4">Puesto</th> : null}
+                        {/* 08/11/2026: margen a la derecha para que el botón flotante no tape el puesto. */}
+                        {conPuesto ? <th className="px-3 py-3 text-right font-medium sm:pl-4 sm:pr-16">Puesto</th> : null}
                       </tr>
                     </thead>
                     <tbody>
@@ -505,7 +512,15 @@ useEffect(() => {
                             </span>
                           </td>
                           <td className="hidden px-4 py-2.5 text-white/70 sm:table-cell">
-                            {uno.lado === "casa" ? "En casa" : "Fuera"}
+                            {/* 08/11/2026: casa y fuera con icono, no sólo texto. */}
+                            <span className="inline-flex items-center gap-1.5">
+                              {uno.lado === "casa" ? (
+                                <Home className="h-3.5 w-3.5 text-[#C8A96B]" aria-hidden />
+                              ) : (
+                                <Plane className="h-3.5 w-3.5 text-white/50" aria-hidden />
+                              )}
+                              {uno.lado === "casa" ? "En casa" : "Fuera"}
+                            </span>
                           </td>
                           <td className="px-3 py-2.5 text-center sm:px-4">
                             <span
@@ -528,7 +543,7 @@ useEffect(() => {
                             </td>
                           ) : null}
                           {conPuesto ? (
-                            <td className="px-3 py-2.5 text-right sm:px-4">{liga.puestos.get(uno.jornada)}º</td>
+                            <td className="px-3 py-2.5 text-right sm:pl-4 sm:pr-16">{liga.puestos.get(uno.jornada)}º</td>
                           ) : null}
                         </tr>
                       ))}
@@ -562,7 +577,8 @@ useEffect(() => {
 
             <div className="mb-3 flex flex-wrap items-center gap-3 rounded-2xl border border-[#C8A96B]/40 bg-white/[0.04] px-4 py-3 text-sm text-white/80">
               <span className="min-w-0 flex-1 basis-full sm:basis-auto">
-                Informe completo de la competición en Power BI.
+                Informe completo de la competición en Power BI.{" "}
+                <span className="text-white/60">Sale de la plataforma: se abre en una pestaña nueva y puede pedir la cuenta de Microsoft.</span>
               </span>
               <a
                 href={src}
@@ -571,19 +587,18 @@ useEffect(() => {
                 className="inline-flex items-center gap-2 rounded-full bg-[#C8A96B] px-4 py-2 font-semibold text-black"
               >
                 <ExternalLink size={14} />
-                Abrir en Power BI (pestaña nueva)
+                Abrir Power BI
               </a>
             </div>
 
             {/* Vídeo */}
             <div ref={videoRef} className="mt-10 sm:mt-14 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-              <span className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">Explicación visual</span>
               <button
                 onClick={() => window.open(videoUrl, "_blank")}
                 className="inline-flex items-center gap-1.5 font-semibold text-[#C8A96B] underline-offset-4 hover:underline"
               >
                 <ExternalLink className="h-3.5 w-3.5" aria-hidden />
-                Cómo se usa el informe (vídeo)
+                Vídeo: cómo se lee el informe de Power BI
               </button>
             </div>
           </div>

@@ -687,6 +687,8 @@ export function PantallaGoles() {
   const deTipologia = lecturaTipologia(tipologia.cuenta.favor, tipologia.cuenta.contra, tipologia.totalFavor, tipologia.totalContra);
   const dePrimero = incompleto ? [] : lecturaPrimero(primero.eq, primero.lg);
   const aviso = avisoMuestra(delEquipo.length);
+  const totalFranjasGf = filasFranja.reduce((s, f) => s + f.gf, 0);
+  const totalFranjasGc = filasFranja.reduce((s, f) => s + f.gc, 0);
   const tramos = tramosClave(filasFranja);
   const importante = loImportante({
     corto,
@@ -709,6 +711,9 @@ export function PantallaGoles() {
     conTipologia: esNuestro,
     incompleto,
   });
+  /* 08/11/2026: bajo la tabla, sólo la lectura que no esté ya en «Qué hacemos
+     y qué concedemos» (antes la de «marca primero» salía dos veces). */
+  const primeroSinRepetir = dePrimero.filter((f) => !importante.some((i) => i.texto === f));
   const conLigaContra = condicion !== "todos";
 
   /* Los goles con tipología (los de nuestros partidos), con la corrección a mano encima de la de Hudl. Los que faltan por elegir no se dibujan. */
@@ -917,15 +922,17 @@ export function PantallaGoles() {
             <StatCard label="Goles a favor" value={gf} hint={`${fmt(media(gf, delEquipo.length))} por partido${incompleto ? "" : ` · media de los ${equipos.length} equipos: ${fmt(ligaGolesPP)}`}`} accent={ORO} />
             <StatCard label="Goles en contra" value={gc} hint={`${fmt(media(gc, delEquipo.length))} por partido${incompleto ? "" : ` · media de los ${equipos.length} equipos: ${fmt(ligaContraPP)}`}`} accent={PEOR} />
             <StatCard
-              label={nos("Nuestro mejor tramo", "Su mejor tramo")}
+              /* 08/11/2026: con 3 goles o menos no es una fortaleza, es el
+                 tramo con más goles: se rotula así y lleva su base («3 de 13»). */
+              label={tramos.fuerte && tramos.fuerte.gf <= 3 ? "Tramo con más goles a favor" : nos("Nuestro mejor tramo", "Su mejor tramo")}
               value={tramos.fuerte ? tramos.fuerte.franja.nombre : "Ninguno"}
-              hint={tramos.fuerte ? `${tramos.fuerte.gf} a favor${incompleto ? "" : ` · ${fmt(media(tramos.fuerte.gf, delEquipo.length))}/partido (liga ${fmt(tramos.fuerte.ligaPP)})`}${aviso || tramos.fuerte.gf <= 3 ? ` · tendencia (${delEquipo.length} partidos)` : ""}` : masGoleadora ? `ninguno por encima de la liga` : "sin goles a favor"}
+              hint={tramos.fuerte ? `${tramos.fuerte.gf} de ${totalFranjasGf} goles a favor${incompleto ? "" : ` · ${fmt(media(tramos.fuerte.gf, delEquipo.length))}/partido (liga ${fmt(tramos.fuerte.ligaPP)})`}${aviso || tramos.fuerte.gf <= 3 ? ` · tendencia (${delEquipo.length} partidos)` : ""}` : masGoleadora ? `ninguno por encima de la liga` : "sin goles a favor"}
               accent={tramos.fuerte ? MEJOR : undefined}
             />
             <StatCard
-              label={nos("Nuestro tramo más débil", "Su tramo más débil")}
+              label={tramos.flojo && tramos.flojo.gc <= 3 ? "Tramo con más goles en contra" : nos("Nuestro tramo más débil", "Su tramo más débil")}
               value={tramos.flojo ? tramos.flojo.franja.nombre : "Ninguno"}
-              hint={tramos.flojo ? `${tramos.flojo.gc} en contra${incompleto ? "" : ` · ${fmt(media(tramos.flojo.gc, delEquipo.length))}/partido (liga ${fmt(tramos.flojo.ligaContraPP)})`}${aviso || tramos.flojo.gc <= 3 ? ` · tendencia (${delEquipo.length} partidos)` : ""}` : masEncajada ? "ninguno por encima de la liga" : "sin goles en contra"}
+              hint={tramos.flojo ? `${tramos.flojo.gc} de ${totalFranjasGc} goles en contra${incompleto ? "" : ` · ${fmt(media(tramos.flojo.gc, delEquipo.length))}/partido (liga ${fmt(tramos.flojo.ligaContraPP)})`}${aviso || tramos.flojo.gc <= 3 ? ` · tendencia (${delEquipo.length} partidos)` : ""}` : masEncajada ? "ninguno por encima de la liga" : "sin goles en contra"}
               accent={tramos.flojo ? PEOR : undefined}
             />
           </StatRow>
@@ -936,11 +943,11 @@ export function PantallaGoles() {
           <Panel title={nos("Qué hacemos y qué concedemos", "Lo importante")} subtitle={`${nombreEquipo(equipo)} ·${jugadosCalendario > delEquipo.length ? `${delEquipo.length} de ${jugadosCalendario} partidos jugados` : `${delEquipo.length} ${delEquipo.length === 1 ? "partido" : "partidos"}`}${jUltimaFiltro > 0 ? `, hasta la J${jUltimaFiltro}` : ""}${condicion === "todos" ? "" : ` · sólo ${rotuloLugar(condicion)}`}.${incompleto ? "" : " Siempre comparado con la media de la liga."}${sinMinuto.length ? ` En ${sinMinuto.length === 1 ? "un partido" : `${sinMinuto.length} partidos`} falta el minuto de algún gol: cuenta en los totales y no en las franjas.` : ""}`} icon={Lightbulb}>
             <ul className="space-y-2.5">
               {importante.map((frase, i) => (
-                <li key={i} className="flex gap-2.5 text-[13px] leading-relaxed text-white/80">
+                <li key={i} className="flex gap-2.5 text-[14px] leading-relaxed text-white/80">
                   <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-[#C8A96B]" aria-hidden />
                   <span>
                     {frase.texto}
-                    <span className="mt-0.5 block text-[12px] font-medium" style={{ color: "var(--rmcf-gold-ink)" }}>
+                    <span className="mt-0.5 block text-[13px] font-medium" style={{ color: "var(--rmcf-gold-ink)" }}>
                       {frase.accion}
                     </span>
                   </span>
@@ -958,7 +965,7 @@ export function PantallaGoles() {
             title={nos("¿Qué pasa cuando marcamos primero?", "¿Qué pasa cuando marca primero?")}
             subtitle="Cómo acaban los partidos según quién abre el marcador, frente a la liga con la misma condición."
             icon={Trophy}
-            analisis={dePrimero.length ? <div className="px-4 pb-4 sm:px-5"><Lectura>{dePrimero.join(" ")}</Lectura></div> : undefined}
+            analisis={primeroSinRepetir.length ? <div className="px-4 pb-4 sm:px-5"><Lectura>{primeroSinRepetir.join(" ")}</Lectura></div> : undefined}
           >
             <Tabla
               cabeza={["", "Partidos", "Ganados", "Empatados", "Perdidos", "Puntos / partido", "Liga: puntos / partido"]}
@@ -968,7 +975,11 @@ export function PantallaGoles() {
                 const l = primero.lg[k];
 
                 return [
-                  k === "propio" ? nos("Marcamos primero", "Marca primero") : k === "rival" ? nos("Nos marcan primero", "Recibe primero") : "Nadie marca (0-0)",
+                  /* 08/11/2026: con menos de 5 partidos la fila es tendencia. */
+                  <span key={`f-${k}`}>
+                    {k === "propio" ? nos("Marcamos primero", "Marca primero") : k === "rival" ? nos("Nos marcan primero", "Recibe primero") : "Nadie marca (0-0)"}
+                    {e.n < 5 ? <span className="ml-1.5 whitespace-nowrap text-[11px] font-normal text-white/45">tendencia</span> : null}
+                  </span>,
                   e.n,
                   e.G,
                   e.E,

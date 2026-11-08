@@ -118,7 +118,7 @@ export function lecturaCondicion(corto: string, cL: Condicion, cV: Condicion, lL
     let porque = "";
 
     if (c.nw) {
-      if (p < 0 && frente(c.tiros, l.tiros) >= 0 && frente(c.precision, l.precision) < 0) porque = ` Falla la puntería, no el volumen. En los ${c.nw} partidos ${donde === "Fuera" ? "de fuera" : "en casa"} remata ${n1(c.tiros)} veces por partido (liga ${n1(l.tiros)}), pero sólo ${n1(c.aPuerta)} a puerta (liga ${n1(l.aPuerta)}).`; // 29/10/2026: la conclusión primero y la cifra después, en dos frases cortas.
+      if (p < 0 && frente(c.tiros, l.tiros) >= 0 && frente(c.precision, l.precision) < 0) porque = ` ${c.nw < 10 ? `Tendencia (${c.nw} partidos): falla` : "Falla"} la puntería, no el volumen. En los ${c.nw} partidos ${donde === "Fuera" ? "de fuera" : "en casa"} remata ${n1(c.tiros)} veces por partido (liga ${n1(l.tiros)}), pero sólo ${n1(c.aPuerta)} a puerta (liga ${n1(l.aPuerta)}).`; // 29/10/2026: la conclusión primero y la cifra después, en dos frases cortas.
       else if (p < 0 && frente(c.tiros, l.tiros) < 0) porque = ` Genera poco: ${n1(c.tiros)} remates por partido frente a ${n1(l.tiros)}.`;
       else if (p < 0 && frente(c.gc, l.gc) > 0) porque = ` Lo que pesa es lo que encaja: ${n2(c.gc)} por partido frente a ${n2(l.gc)}.`;
       else if (p < 0 && c.golesMenosXg < -0.3) porque = ` Marca menos de lo que generan sus ocasiones (${n2(c.golesMenosXg)} goles por partido por debajo de su xG).`;
@@ -168,14 +168,18 @@ export function lecturaPrimero(eq: ResumenPrimero, lg: ResumenPrimero) {
     const f = frente(pts(eq.propio), pts(lg.propio));
     const dice = f < 0 ? "se le escapan ventajas" : f > 0 ? "sabe cerrar los partidos" : "como el resto";
 
-    frases.push(`Cuando marca primero gana ${eq.propio.G} de ${eq.propio.n} (${n2(pts(eq.propio))} puntos por partido; la liga, ${n2(pts(lg.propio))}): ${dice}.`);
+    const muestra = eq.propio.n < 5 ? ` (tendencia: ${eq.propio.n} ${eq.propio.n === 1 ? "partido" : "partidos"})` : "";
+
+    frases.push(`Cuando marca primero gana ${eq.propio.G} de ${eq.propio.n} (${n2(pts(eq.propio))} puntos por partido; la liga, ${n2(pts(lg.propio))}): ${dice}${muestra}.`);
   }
 
   if (eq.rival.n) {
     const f = frente(pts(eq.rival), pts(lg.rival));
     const dice = f > 0 ? "remonta más que la media" : f < 0 ? "le cuesta reaccionar" : "reacciona como el resto";
+    /* 08/11/2026: con menos de 5 partidos es tendencia, no rasgo. */
+    const muestra = eq.rival.n < 5 ? ` (tendencia: ${eq.rival.n} ${eq.rival.n === 1 ? "partido" : "partidos"})` : "";
 
-    frases.push(`Cuando recibe primero saca ${n2(pts(eq.rival))} puntos por partido (la liga, ${n2(pts(lg.rival))}): ${dice}.`);
+    frases.push(`Cuando recibe primero saca ${n2(pts(eq.rival))} puntos por partido (la liga, ${n2(pts(lg.rival))}): ${dice}${muestra}.`);
   }
 
   return frases;
