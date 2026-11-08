@@ -34,6 +34,7 @@ import {
   ChevronRight,
   ClipboardList,
   ExternalLink,
+  FileDown,
   FileText,
   Gauge,
   Loader2,
@@ -1858,6 +1859,13 @@ export default function IndividualPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("perfil");
 
+  /* PDF de la ficha (08/11/2026): mientras se exporta se pintan a la vez las
+     pestañas pedidas (todas, o la que se elija) y se fotografían. */
+  const [exportando, setExportando] = useState<TabKey[] | null>(null);
+  const [pasoPdf, setPasoPdf] = useState<string | null>(null);
+  const [menuPdf, setMenuPdf] = useState(false);
+  const ver = (clave: TabKey) => (exportando ? exportando.includes(clave) : activeTab === clave);
+
   /* En el móvil la barra de pestañas se desplaza: la activa, al centro (05/11/2026). */
   useEffect(() => {
     document.querySelector(`[data-pestana-ficha="${activeTab}"]`)?.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
@@ -2209,6 +2217,7 @@ export default function IndividualPage() {
 
   useBodyScrollLock(Boolean(selected));
 
+
   /* Cambiar de jugador reinicia el estado propio de las pestañas. */
   const goToPlayer = useCallback((player: MergedPlayer) => {
     setSelectedId(player.idJugador);
@@ -2470,6 +2479,48 @@ export default function IndividualPage() {
         return db - da;
       });
   }, [videoData, selected]);
+
+  const exportaPdf = useCallback(
+    async (claves: TabKey[]) => {
+      if (!selected || exportando) return;
+
+      /* En la ficha completa, lo que no tiene dato no se nombra: sin vídeos
+         ni informe, esas páginas sólo decían «no hay». */
+      if (claves.length > 1) {
+        claves = claves.filter(
+          (clave) => !(clave === "videos" && playerVideos.length === 0) && !(clave === "informe" && !selected.hasReport),
+        );
+      }
+
+      setMenuPdf(false);
+      setExportando(claves);
+      setPasoPdf("Preparando la ficha…");
+
+      try {
+        /* Que React monte las pestañas; esperar a sus datos lo hace exportaFichaPdf. */
+        await new Promise((listo) => setTimeout(listo, 300));
+
+        const secciones = claves
+          .map((clave) => ({
+            titulo: TABS.find((t) => t.key === clave)?.label ?? clave,
+            nodo: document.querySelector<HTMLElement>(`[data-ficha-seccion="${clave}"]`),
+          }))
+          .filter((s): s is { titulo: string; nodo: HTMLElement } => Boolean(s.nodo));
+
+        const { exportaFichaPdf } = await import("@/lib/export/fichaPdf");
+        const alcance = claves.length > 1 ? "Ficha completa" : (secciones[0]?.titulo ?? "Ficha");
+        const paginas = await exportaFichaPdf({ jugador: nombreVisible(selected.name), alcance, secciones, alPaso: setPasoPdf });
+
+        toast.success(`PDF listo: ${alcance.toLowerCase()} de ${nombreVisible(selected.name)} (${paginas} ${paginas === 1 ? "página" : "páginas"}).`);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "No se pudo hacer el PDF.");
+      } finally {
+        setExportando(null);
+        setPasoPdf(null);
+      }
+    },
+    [selected, exportando, playerVideos.length],
+  );
 
   const videoCategories = useMemo(
     () =>
@@ -3816,6 +3867,46 @@ export default function IndividualPage() {
                     {currentIndex + 1} / {mergedPlayers.length}
                   </span>
 
+                  <div className="relative" data-export-hide>
+                    <button
+                      onClick={() => setMenuPdf((abierto) => !abierto)}
+                      disabled={Boolean(exportando)}
+                      aria-expanded={menuPdf}
+                      aria-label="Exportar la ficha a PDF"
+                      className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 text-xs font-medium text-[#C8A96B] transition hover:bg-[#C8A96B]/20 disabled:opacity-60"
+                    >
+                      {exportando ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />}
+                      <span className="hidden sm:inline">{exportando ? "Haciendo PDF…" : "PDF"}</span>
+                    </button>
+
+                    {menuPdf && !exportando && (
+                      <div className="absolute right-0 top-10 z-20 w-60 overflow-hidden rounded-2xl border border-white/10 bg-[#11161D] p-1.5 shadow-2xl">
+                        <button
+                          onClick={() => exportaPdf(TABS.map((t) => t.key))}
+                          className="flex w-full flex-col rounded-xl px-3 py-2.5 text-left transition hover:bg-white/5"
+                        >
+                          <span className="text-sm font-semibold text-white">Ficha completa</span>
+                          <span className="text-[11px] text-white/45">Todas las pestañas, una tras otra</span>
+                        </button>
+
+                        <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/35">Sólo una sección</p>
+
+                        {TABS.map((tab) => (
+                          <button
+                            key={tab.key}
+                            onClick={() => exportaPdf([tab.key])}
+                            className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition hover:bg-white/5 ${
+                              tab.key === activeTab ? "text-[#C8A96B]" : "text-white/80"
+                            }`}
+                          >
+                            {tab.label}
+                            {tab.key === activeTab && <span className="text-[10px] text-white/40">la que ves</span>}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
                   <button
                     onClick={closePlayer}
                     aria-label="Cerrar ficha"
@@ -3874,6 +3965,13 @@ export default function IndividualPage() {
                 </div>
               </div>
 
+              {pasoPdf && (
+                <div data-export-hide className="flex shrink-0 items-center gap-2 border-b border-[#C8A96B]/20 bg-[#C8A96B]/10 px-4 py-2 text-xs text-[#C8A96B]">
+                  <Loader2 size={13} className="animate-spin" />
+                  {pasoPdf}
+                </div>
+              )}
+
               {/* CUERPO */}
 
               <div className="min-w-0 flex-1 overflow-y-auto">
@@ -3918,8 +4016,8 @@ export default function IndividualPage() {
 
                     {/* ---------- PERFIL ---------- */}
 
-                    {activeTab === "perfil" && (
-                      <div className="min-w-0 space-y-5">
+                    {ver("perfil") && (
+                      <div data-ficha-seccion="perfil" className="min-w-0 space-y-5">
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <div className="min-w-0">
                             <h3 className="text-lg font-semibold sm:text-xl">
@@ -3996,8 +4094,8 @@ export default function IndividualPage() {
 
                     {/* ---------- SEGUIMIENTO ---------- */}
 
-                    {activeTab === "seguimiento" && (
-                      <div className="min-w-0 space-y-5">
+                    {ver("seguimiento") && (
+                      <div data-ficha-seccion="seguimiento" className="min-w-0 space-y-5">
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <div className="min-w-0">
                             <h3 className="text-lg font-semibold sm:text-xl">
@@ -4159,8 +4257,8 @@ export default function IndividualPage() {
 
                     {/* ---------- VÍDEOS ---------- */}
 
-                    {activeTab === "videos" && (
-                      <div className="min-w-0 space-y-5">
+                    {ver("videos") && (
+                      <div data-ficha-seccion="videos" className="min-w-0 space-y-5">
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <div className="min-w-0">
                             <h3 className="text-lg font-semibold sm:text-xl">
@@ -4360,17 +4458,21 @@ export default function IndividualPage() {
 
                     {/* ---------- VALORACIONES ---------- */}
 
-                    {activeTab === "mejora" && (
-                      <AreaMejora nombre={selected.name} idJugador={selected.idJugador} ratings={ratingsSeason ?? null} />
+                    {ver("mejora") && (
+                      <div data-ficha-seccion="mejora" className="min-w-0">
+                        <AreaMejora nombre={selected.name} idJugador={selected.idJugador} ratings={ratingsSeason ?? null} />
+                      </div>
                     )}
 
                     {/* Tendencia (07/11/2026): la nota y Wyscout semana a semana, y esta temporada frente a la pasada. */}
-                    {activeTab === "tendencia" && (
-                      <Tendencia nombre={selected.name} idJugador={selected.idJugador} ratings={ratingsSeason ?? null} />
+                    {ver("tendencia") && (
+                      <div data-ficha-seccion="tendencia" className="min-w-0">
+                        <Tendencia nombre={selected.name} idJugador={selected.idJugador} ratings={ratingsSeason ?? null} />
+                      </div>
                     )}
 
-                    {activeTab === "valoraciones" && (
-                      <div className="min-w-0 space-y-5">
+                    {ver("valoraciones") && (
+                      <div data-ficha-seccion="valoraciones" className="min-w-0 space-y-5">
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <div className="min-w-0">
                             <h3 className="text-lg font-semibold sm:text-xl">
@@ -4411,8 +4513,8 @@ export default function IndividualPage() {
 
                     {/* ---------- INFORME ---------- */}
 
-                    {activeTab === "informe" && (
-                      <div className="min-w-0 space-y-5">
+                    {ver("informe") && (
+                      <div data-ficha-seccion="informe" className="min-w-0 space-y-5">
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <div className="min-w-0">
                             <h3 className="text-lg font-semibold sm:text-xl">
