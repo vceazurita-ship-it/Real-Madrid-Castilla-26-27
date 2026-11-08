@@ -2,17 +2,22 @@
  * PDF de la ficha individual (08/11/2026).
  *
  * Desde /individual se puede sacar en PDF la ficha completa de un jugador o
- * una sola pestaña (por ejemplo «Área de mejora"). Se fotografía lo que la
+ * una sola pestaña (por ejemplo «Área de mejora»). Se fotografía lo que la
  * pantalla ya pinta, así que el PDF dice exactamente lo mismo que la ficha.
  *
- * Cómo se reparte en páginas: cada sección se fotografía **bloque a bloque**
- * (sus hijos directos) y los bloques se apilan en hojas A4 verticales sin
- * partirlos; sólo un bloque más alto que una hoja entera se corta. Así no
- * salen tarjetas partidas por la mitad, que es lo que pasaba al cortar una
- * foto larga a tiras.
+ * - **Ancho de documento fijo.** Mientras se exporta, cada sección se maqueta a
+ *   `ANCHO_DOC` px, sea cual sea el aparato. Desde el móvil (≈360 px) el PDF
+ *   salía estirado, basto y descolocado; en el portátil (≈1100 px), con la
+ *   letra diminuta. Con un ancho fijo sale igual desde cualquier sitio.
+ * - **Reparto en hojas.** Se planifica con las medidas de la página: cada
+ *   bloque entra entero en la hoja si cabe; si no cabe y en la hoja queda
+ *   mucho hueco, o si es más alto que una hoja, se baja a sus partes (sus
+ *   hijos). Sólo lo que no se puede partir y no cabe en una hoja se corta.
+ * - **Cabecera** en la primera hoja: jugador, sección y fecha.
  *
  * Cada hoja lleva al pie el jugador, la sección y la página. Lo marcado con
- * `data-export-hide` (botones de edición) no sale.
+ * `data-export-hide` y los mandos de pantalla (botones de edición, selectores)
+ * no salen.
  */
 import { capturaNodo, fuentesListas, respira } from "@/lib/export/captura";
 import { apodo, descarga, esperaFotos, PIXEL_VACIO, type HojaPdf } from "@/lib/export/lienzos";
@@ -25,8 +30,14 @@ export type SeccionFicha = {
 /** A4 vertical en puntos, con los mismos márgenes y pie que `pdfDeHojas`. */
 const A4 = { ancho: 595.28, alto: 841.89, margen: 26, pie: 26 };
 const PROPORCION = (A4.alto - A4.margen * 2 - A4.pie) / (A4.ancho - A4.margen * 2);
+/** Ancho al que se maqueta la ficha para el PDF: unos 11 pt de letra en el A4. */
+const ANCHO_DOC = 820;
+const ALTO_HOJA = Math.floor(ANCHO_DOC * PROPORCION);
 const NITIDEZ = 2;
-const HUECO = 16; // px CSS entre bloques
+const HUECO = 14; // px CSS entre bloques
+const CABECERA = 74; // px CSS de la cabecera de la primera hoja
+/** Si al saltar de hoja quedaría más de esto vacío, el bloque se parte. */
+const HUECO_MAXIMO = 0.35;
 
 /** El primer color de fondo opaco subiendo desde el nodo: el del modo día o el de noche. */
 export function fondoDe(nodo: HTMLElement) {
@@ -43,115 +54,32 @@ export function fondoDe(nodo: HTMLElement) {
   return "#0B0F14";
 }
 
-/** Los bloques de una sección: sus hijos visibles; si sólo tiene uno, los de ese. */
-function bloquesDe(nodo: HTMLElement): HTMLElement[] {
-  let raiz = nodo;
-
-  for (let vuelta = 0; vuelta < 3; vuelta++) {
-    const hijos = visibles(raiz);
-
-    if (hijos.length !== 1) break;
-
-    raiz = hijos[0];
-  }
-
-  const hijos = visibles(raiz);
-
-  return hijos.length ? hijos : [raiz];
-}
-
 function visibles(nodo: HTMLElement) {
   return Array.from(nodo.children).filter(
     (hijo): hijo is HTMLElement =>
       hijo instanceof HTMLElement &&
       !hijo.hasAttribute("data-export-hide") &&
+      !esMando(hijo) &&
       hijo.getBoundingClientRect().height > 1,
   );
 }
 
-function cargaImagen(dataUrl: string) {
-  return new Promise<HTMLImageElement>((listo, falla) => {
-    const imagen = new Image();
-
-    imagen.onload = () => listo(imagen);
-    imagen.onerror = () => falla(new Error("No se pudo leer la captura"));
-    imagen.src = dataUrl;
-  });
-}
-
-type Bloque = { imagen: HTMLImageElement; ancho: number; alto: number; nitidez: number };
-
-/**
- * Apila los bloques en hojas. Devuelve una imagen JPEG por hoja, con la
- * proporción exacta del hueco útil del A4.
- */
-function apila(bloques: Bloque[], anchoCss: number, fondo: string) {
-  const altoHojaCss = Math.floor(anchoCss * PROPORCION);
-  const hojas: string[] = [];
-
-  let lienzo: HTMLCanvasElement | null = null;
-  let ctx: CanvasRenderingContext2D | null = null;
-  let y = 0;
-
-  const nueva = () => {
-    if (lienzo) hojas.push(lienzo.toDataURL("image/jpeg", 0.9));
-
-    lienzo = document.createElement("canvas");
-    lienzo.width = Math.round(anchoCss * NITIDEZ);
-    lienzo.height = Math.round(altoHojaCss * NITIDEZ);
-    ctx = lienzo.getContext("2d");
-
-    if (!ctx) throw new Error("El navegador no deja dibujar el PDF.");
-
-    ctx.fillStyle = fondo;
-    ctx.fillRect(0, 0, lienzo.width, lienzo.height);
-    y = 0;
-  };
-
-  nueva();
-
-  for (const bloque of bloques) {
-    /* Los bloques se dibujan a su ancho real (≤ ancho de la sección). */
-    const escala = Math.min(1, anchoCss / bloque.ancho);
-    const alto = bloque.alto * escala;
-    const ancho = bloque.ancho * escala;
-
-    if (alto <= altoHojaCss) {
-      if (y > 0 && y + alto > altoHojaCss) nueva();
-
-      ctx!.drawImage(bloque.imagen, 0, y * NITIDEZ, ancho * NITIDEZ, alto * NITIDEZ);
-      y += alto + HUECO;
-      continue;
-    }
-
-    /* Más alto que una hoja: se corta a tiras, cada una en su hoja. */
-    if (y > 0) nueva();
-
-    const fuentePorCss = bloque.imagen.naturalHeight / alto;
-
-    for (let desde = 0; desde < alto; desde += altoHojaCss) {
-      if (desde > 0) nueva();
-
-      const tramo = Math.min(altoHojaCss, alto - desde);
-
-      ctx!.drawImage(
-        bloque.imagen,
-        0,
-        desde * fuentePorCss,
-        bloque.imagen.naturalWidth,
-        tramo * fuentePorCss,
-        0,
-        0,
-        ancho * NITIDEZ,
-        tramo * NITIDEZ,
-      );
-      y = tramo + HUECO;
-    }
+/** Los hijos van uno debajo de otro (no en columnas): se pueden repartir en hojas. */
+function apilados(hijos: HTMLElement[]) {
+  for (let i = 1; i < hijos.length; i++) {
+    if (hijos[i].getBoundingClientRect().top < hijos[i - 1].getBoundingClientRect().bottom - 2) return false;
   }
 
-  if (lienzo && y > 0) hojas.push((lienzo as HTMLCanvasElement).toDataURL("image/jpeg", 0.9));
+  return hijos.length > 1;
+}
 
-  return { hojas, anchoCss, altoHojaCss };
+/** Tiene borde o fondo propio: es una tarjeta y partirla la deja sin marco. */
+function tieneMarco(nodo: HTMLElement) {
+  const estilo = getComputedStyle(nodo);
+  const borde = parseFloat(estilo.borderTopWidth) > 0 && estilo.borderTopStyle !== "none";
+  const fondo = estilo.backgroundColor && estilo.backgroundColor !== "transparent" && !/rgba\([^)]*,\s*0\)$/.test(estilo.backgroundColor);
+
+  return borde || Boolean(fondo);
 }
 
 /**
@@ -171,6 +99,106 @@ function esMando(nodo: HTMLElement) {
   if (tag !== "BUTTON" && tag !== "A") return false;
 
   return (nodo.textContent ?? "").trim().length < 32 && Boolean(nodo.querySelector("svg"));
+}
+
+/* ------------------------------------------------------------------ */
+/*  REPARTO EN HOJAS                                                   */
+/* ------------------------------------------------------------------ */
+
+type Pieza = { nodo: HTMLElement; alto: number; hoja: number; y: number };
+
+/**
+ * Coloca los bloques de una sección en hojas con sus medidas reales. Devuelve
+ * cada pieza con su hoja y su altura dentro de ella. `inicio` es lo que ya
+ * ocupa la primera hoja (la cabecera).
+ */
+function planifica(raiz: HTMLElement, inicio: number): Pieza[] {
+  const piezas: Pieza[] = [];
+  let hoja = 0;
+  let y = inicio;
+
+  const salta = () => {
+    hoja += 1;
+    y = 0;
+  };
+
+  const coloca = (nodo: HTMLElement, hondura: number) => {
+    const alto = Math.ceil(nodo.getBoundingClientRect().height);
+
+    if (y + alto <= ALTO_HOJA) {
+      piezas.push({ nodo, alto, hoja, y });
+      y += alto + HUECO;
+
+      return;
+    }
+
+    const hijos = hondura < 5 ? visibles(nodo) : [];
+    const partible = apilados(hijos);
+    const quedaria = (ALTO_HOJA - y) / ALTO_HOJA;
+
+    /* Partir sólo lo que no cabe en una hoja entera, o una LISTA (filas
+       sueltas sin marco común) cuando saltar dejaría mucho blanco. Una tarjeta
+       que cabe va entera a la hoja siguiente: partida perdía el marco y el
+       título quedaba en una hoja y el gráfico en otra. */
+    const esLista = partible && !tieneMarco(nodo);
+
+    if (partible && (alto > ALTO_HOJA || (esLista && y > 0 && quedaria > HUECO_MAXIMO))) {
+      for (const hijo of hijos) coloca(hijo, hondura + 1);
+
+      return;
+    }
+
+    if (y > 0) salta();
+
+    piezas.push({ nodo, alto, hoja, y });
+    /* Más alto que una hoja y sin partes: se cortará a tiras (ver `pinta`). */
+    const hojasQueOcupa = Math.max(1, Math.ceil(alto / ALTO_HOJA));
+
+    hoja += hojasQueOcupa - 1;
+    y = alto - (hojasQueOcupa - 1) * ALTO_HOJA + HUECO;
+
+    if (y >= ALTO_HOJA) salta();
+  };
+
+  /* La sección misma no se pinta: se reparten sus partes. */
+  const partes = visibles(raiz);
+
+  for (const parte of partes.length ? partes : [raiz]) coloca(parte, 0);
+
+  return piezas;
+}
+
+function cargaImagen(dataUrl: string) {
+  return new Promise<HTMLImageElement>((listo, falla) => {
+    const imagen = new Image();
+
+    imagen.onload = () => listo(imagen);
+    imagen.onerror = () => falla(new Error("No se pudo leer la captura"));
+    imagen.src = dataUrl;
+  });
+}
+
+/** Cabecera de la primera hoja: el jugador en grande, la sección y la fecha. */
+function pintaCabecera(ctx: CanvasRenderingContext2D, jugador: string, seccion: string, fecha: string, tinta: string, familia: string) {
+  const s = NITIDEZ;
+
+  ctx.save();
+  ctx.fillStyle = "#C8A96B";
+  ctx.font = `600 ${11 * s}px ${familia}`;
+  ctx.textBaseline = "top";
+  ctx.fillText("REAL MADRID CASTILLA · FICHA INDIVIDUAL", 0, 4 * s);
+  ctx.fillStyle = tinta;
+  ctx.font = `700 ${30 * s}px ${familia}`;
+  ctx.fillText(jugador, 0, 20 * s);
+  ctx.font = `500 ${13 * s}px ${familia}`;
+  ctx.globalAlpha = 0.7;
+  const derecha = `${seccion} · ${fecha}`;
+  ctx.textAlign = "right";
+  ctx.fillText(derecha, ANCHO_DOC * s, 34 * s);
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = "#C8A96B";
+  ctx.fillRect(0, (CABECERA - 12) * s, ANCHO_DOC * s, 2 * s);
+  ctx.restore();
 }
 
 /** Lo que una pestaña pinta mientras lee sus datos. */
@@ -212,6 +240,21 @@ export async function esperaDatos(nodos: HTMLElement[], tope = 60_000) {
   return false;
 }
 
+/** Maqueta la sección a ancho de documento; devuelve cómo dejarla como estaba. */
+function fijaAncho(nodo: HTMLElement) {
+  const antes = nodo.getAttribute("style");
+
+  nodo.style.width = `${ANCHO_DOC}px`;
+  nodo.style.minWidth = `${ANCHO_DOC}px`;
+  nodo.style.maxWidth = `${ANCHO_DOC}px`;
+  nodo.style.flex = "none";
+
+  return () => {
+    if (antes === null) nodo.removeAttribute("style");
+    else nodo.setAttribute("style", antes);
+  };
+}
+
 export async function exportaFichaPdf(opciones: {
   jugador: string;
   /** Lo que sale en el nombre del fichero y en el pie: «Ficha completa», «Área de mejora»… */
@@ -227,13 +270,9 @@ export async function exportaFichaPdf(opciones: {
 
   await esperaDatos(secciones.map((s) => s.nodo));
 
-  await fuentesListas();
-
-  for (const seccion of secciones) await esperaFotos(seccion.nodo);
-
-  await respira(2);
-
   const fondo = fondoDe(secciones[0].nodo);
+  const tinta = getComputedStyle(secciones[0].nodo).color || "#111";
+  const familia = getComputedStyle(document.body).fontFamily || "sans-serif";
   const fecha = new Date().toLocaleDateString("es-ES");
   const hojasPdf: HojaPdf[] = [];
 
@@ -263,51 +302,99 @@ export async function exportaFichaPdf(opciones: {
     el.textContent = originales[i].replace(/animation(-[a-z-]+)?\s*:[^;}]+;?/g, "");
   });
 
+  const deshaz = secciones.map((s) => fijaAncho(s.nodo));
+
   try {
-    await capturaSecciones();
+    /* Que los gráficos que miden su caja (ResizeObserver) se redibujen al ancho nuevo. */
+    await new Promise((r) => setTimeout(r, 700));
+    await respira(2);
+    await fuentesListas();
+
+    for (const seccion of secciones) await esperaFotos(seccion.nodo);
+
+    for (const [orden, seccion] of secciones.entries()) {
+      alPaso?.(`Preparando ${seccion.titulo.toLowerCase()} (${orden + 1} de ${secciones.length})…`);
+
+      const conCabecera = orden === 0;
+      const piezas = planifica(seccion.nodo, conCabecera ? CABECERA : 0);
+
+      if (!piezas.length) continue;
+
+      const nHojas = Math.max(...piezas.map((p) => p.hoja + Math.max(1, Math.ceil((p.y + p.alto) / ALTO_HOJA)) - 1)) + 1;
+      const lienzos = Array.from({ length: nHojas }, () => {
+        const lienzo = document.createElement("canvas");
+
+        lienzo.width = ANCHO_DOC * NITIDEZ;
+        lienzo.height = ALTO_HOJA * NITIDEZ;
+
+        const ctx = lienzo.getContext("2d");
+
+        if (!ctx) throw new Error("El navegador no deja dibujar el PDF.");
+
+        ctx.fillStyle = fondo;
+        ctx.fillRect(0, 0, lienzo.width, lienzo.height);
+
+        return { lienzo, ctx, usada: false };
+      });
+
+      if (conCabecera) {
+        pintaCabecera(lienzos[0].ctx, jugador, seccion.titulo, fecha, tinta, familia);
+        lienzos[0].usada = true;
+      }
+
+      for (const pieza of piezas) {
+        let imagen: HTMLImageElement;
+
+        try {
+          imagen = await cargaImagen((await capturaNodo(pieza.nodo, comunes)).dataUrl);
+        } catch {
+          /* Un bloque que no se deja fotografiar (un vídeo incrustado) no tumba el PDF. */
+          continue;
+        }
+
+        const ancho = Math.min(ANCHO_DOC, pieza.nodo.getBoundingClientRect().width);
+        const x = Math.max(0, pieza.nodo.getBoundingClientRect().left - seccion.nodo.getBoundingClientRect().left);
+        const porCss = imagen.naturalHeight / pieza.alto;
+
+        /* Lo que pasa de una hoja se corta a tiras, cada una en la siguiente. */
+        for (let desde = 0, hoja = pieza.hoja, y = pieza.y; desde < pieza.alto; hoja += 1, y = 0) {
+          const tramo = Math.min(pieza.alto - desde, ALTO_HOJA - y);
+          const destino = lienzos[hoja];
+
+          if (!destino) break;
+
+          destino.ctx.drawImage(imagen, 0, desde * porCss, imagen.naturalWidth, tramo * porCss, x * NITIDEZ, y * NITIDEZ, ancho * NITIDEZ, tramo * NITIDEZ);
+          destino.usada = true;
+          desde += tramo;
+        }
+      }
+
+      const usadas = lienzos.filter((l) => l.usada);
+
+      usadas.forEach(({ lienzo }, i) => {
+        hojasPdf.push({
+          imagen: lienzo.toDataURL("image/jpeg", 0.9),
+          ancho: ANCHO_DOC,
+          alto: ALTO_HOJA,
+          orientacion: "portrait",
+          margen: A4.margen,
+          pie: {
+            izquierda: jugador,
+            centro: usadas.length > 1 ? `${seccion.titulo} · ${i + 1}/${usadas.length}` : seccion.titulo,
+            derecha: fecha,
+          },
+        });
+
+        lienzo.width = 0;
+        lienzo.height = 0;
+      });
+    }
   } finally {
+    deshaz.forEach((vuelve) => vuelve());
     quieto.remove();
     estilosPropios.forEach((el, i) => {
       el.textContent = originales[i];
     });
-  }
-
-  async function capturaSecciones() {
-  for (const [orden, seccion] of secciones.entries()) {
-    alPaso?.(`Preparando ${seccion.titulo.toLowerCase()} (${orden + 1} de ${secciones.length})…`);
-
-    const anchoCss = Math.ceil(seccion.nodo.getBoundingClientRect().width);
-    const bloques: Bloque[] = [];
-
-    for (const nodo of bloquesDe(seccion.nodo)) {
-      try {
-        const foto = await capturaNodo(nodo, comunes);
-
-        bloques.push({ imagen: await cargaImagen(foto.dataUrl), ancho: foto.ancho, alto: foto.alto, nitidez: foto.nitidez });
-      } catch {
-        /* Un bloque que no se deja fotografiar (un vídeo incrustado) no tumba el PDF. */
-      }
-    }
-
-    if (!bloques.length) continue;
-
-    const { hojas, anchoCss: w, altoHojaCss: h } = apila(bloques, anchoCss, fondo);
-
-    hojas.forEach((imagen, i) => {
-      hojasPdf.push({
-        imagen,
-        ancho: w,
-        alto: h,
-        orientacion: "portrait",
-        margen: A4.margen,
-        pie: {
-          izquierda: jugador,
-          centro: hojas.length > 1 ? `${seccion.titulo} · ${i + 1}/${hojas.length}` : seccion.titulo,
-          derecha: fecha,
-        },
-      });
-    });
-  }
   }
 
   if (!hojasPdf.length) throw new Error("La ficha ha salido vacía.");

@@ -535,23 +535,42 @@ export default function ScoutRivalCollective() {
   const flushPendiente = useRef<() => Promise<boolean>>(async () => true);
 
   /*
-  | El desplegable: el partido que toca y los ya jugados, no las 38 jornadas.
-  | Se quedan también el rival abierto y, en edición, todos, por si el
-  | analista adelanta trabajo.
+  | El desplegable: TODAS las jornadas (08/11/2026). Antes sólo el partido que
+  | toca y los jugados, y las posteriores sólo salían tras pulsar «Editar»: el
+  | analista no podía abrir una jornada futura para adelantar el scout. Ahora
+  | van todas, en dos grupos: las jugadas con la que toca, y «Por jugar».
   */
-  const visibles = useMemo(() => {
-    if (modoEdicion || limiteJornada === null) return rivales;
+  const visibles = rivales;
 
-    return rivales.filter((r) => {
+  const esPorJugar = useCallback(
+    (r: Rival) => {
       const n = Number(r.JORNADA);
 
-      return (
-        !Number.isFinite(n) ||
-        n <= limiteJornada ||
-        String(r.ID) === String(rivalActivo?.ID)
-      );
-    });
-  }, [rivales, limiteJornada, modoEdicion, rivalActivo]);
+      return limiteJornada !== null && Number.isFinite(n) && n > limiteJornada;
+    },
+    [limiteJornada],
+  );
+
+  const opcionesJornada = (
+    <>
+      <optgroup label="Jugadas y la que toca">
+        {visibles.filter((r) => !esPorJugar(r)).map((r) => (
+          <option key={r.ID} value={r.ID}>
+            J{r.JORNADA} · {r.EQUIPO}
+          </option>
+        ))}
+      </optgroup>
+      {visibles.some(esPorJugar) && (
+        <optgroup label="Por jugar (para adelantar trabajo)">
+          {visibles.filter(esPorJugar).map((r) => (
+            <option key={r.ID} value={r.ID}>
+              J{r.JORNADA} · {r.EQUIPO}
+            </option>
+          ))}
+        </optgroup>
+      )}
+    </>
+  );
 
   const indice = useMemo(
     () =>
@@ -1233,13 +1252,7 @@ export default function ScoutRivalCollective() {
                       className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
                       data-export-hide
                     >
-                      <optgroup label="Jornada del Castilla (rival que nos tocó)">
-                        {visibles.map((r) => (
-                          <option key={r.ID} value={r.ID}>
-                            J{r.JORNADA} · {r.EQUIPO}
-                          </option>
-                        ))}
-                      </optgroup>
+                      {opcionesJornada}
                     </select>
                   </label>
                 )}
@@ -1480,11 +1493,7 @@ export default function ScoutRivalCollective() {
               >
                 {rivales.length === 0 && <option value="">Sin rivales</option>}
 
-                {visibles.map((r) => (
-                  <option key={r.ID} value={r.ID}>
-                    J{r.JORNADA} · {r.EQUIPO}
-                  </option>
-                ))}
+                {opcionesJornada}
               </select>
               )}
 
