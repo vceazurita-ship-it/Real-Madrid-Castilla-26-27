@@ -126,7 +126,7 @@ export default function ApuestasPage() {
     vivas.length > 0
       ? `${vivas.length === 1 ? "Una apuesta abierta" : `${vivas.length} apuestas abiertas`}: entra y ponte a favor o en contra`
       : estado === "listo" && doc.apuestas.length === 0
-        ? "Lanza la primera apuesta"
+        ? "Aún no hay apuestas: entra y lanza la primera"
         : "Entra para apostar";
 
   const pasos = (
@@ -149,7 +149,10 @@ export default function ApuestasPage() {
         compacto
         /* Sin apuestas, el formulario ya a la vista (07/11/2026, marketing): el primer paso es una acción. */
         abierto={sinApuestas}
-        botonEntrar="Entrar y lanzar la primera"
+        /* Un solo botón, «Entrar» (08/11/2026, marketing); el título ya dice qué viene después. */
+        botonEntrar="Entrar"
+        /* Lo que se ve sin entrar es lo de esta pantalla, no el ranking de la quiniela. */
+        notaLectura={vivas.length > 0 ? "Para ver las apuestas abiertas no hace falta entrar." : ""}
       />
     </div>
   );
@@ -192,7 +195,8 @@ export default function ApuestasPage() {
                     {vivas.length === 1 ? "1 abierta" : `${vivas.length} abiertas`}
                   </span>
                 )}
-                {estadoQuiniela === "listo" && ` · ${juegan} con cuenta en la quiniela`}
+                {/* Qué significa la cifra (08/11/2026): quiénes pueden apostar. */}
+                {estadoQuiniela === "listo" && ` · pueden apostar los ${juegan} con cuenta en la quiniela`}
               </p>
             )}
 
@@ -209,8 +213,9 @@ export default function ApuestasPage() {
               ) : null}
             </div>
 
-            {/* Sin apuestas, el ejemplo va primero y el acceso después, como acción (30/10/2026). */}
-            {!accesoAbajo && !sinApuestas && acceso}
+            {/* El acceso en la mitad de arriba, también sin apuestas: es la
+                única acción; el ejemplo va plegado debajo (08/11/2026, marketing). */}
+            {!accesoAbajo && acceso}
 
             {/* ------------------------ LANZAR UNA --------------------- */}
 
@@ -234,20 +239,21 @@ export default function ApuestasPage() {
                 mismo. */}
             {sinApuestas && (
               /* Mismo ancho que la tarjeta de entrada (07/11/2026): sin el margen del ⋮, que da la página. */
-              <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4">
-                <p className="text-[15px] font-semibold text-white/85">Así se verá la primera:</p>
+              /* Plegado (08/11/2026, marketing): el ejemplo competía con la acción real. */
+              <details className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2">
+                <summary className="flex min-h-11 cursor-pointer items-center text-[14px] font-semibold text-white/85">Ver cómo se verá</summary>
                 {/* Ilustrativa y que se note (30/10/2026): borde discontinuo grueso,
                     sello dorado y «inventado» en el veredicto. */}
-                <article aria-label="Ejemplo de apuesta, no es real" className="mt-3 flex max-w-xl select-none flex-col gap-3 rounded-2xl border-2 border-dashed border-[#C8A96B]/50 bg-white/[0.02] p-4">
-                  <span className="inline-flex w-fit items-center rounded-full bg-[#C8A96B] px-3 py-1 text-[12px] font-bold uppercase tracking-[0.16em] text-black">
+                <article aria-label="Ejemplo de apuesta, no es real" className="mb-2 mt-2 flex max-w-xl select-none flex-col gap-3 rounded-2xl border-2 border-dashed border-[#C8A96B]/50 bg-white/[0.02] p-4">
+                  <span className="inline-flex w-fit items-center rounded-full bg-[#C8A96B] px-3 py-1 text-[12px] font-bold text-black">
                     Ejemplo · no es real
                   </span>
                   <p className="text-[15px] font-medium leading-snug text-white/90">
                     «El Castilla acaba la primera vuelta entre los cinco primeros»
                   </p>
                   <p className="text-[13px] text-white/65">
-                    <span className="uppercase tracking-[0.14em] text-white/50">Se juega</span>{" "}
-                    <span className="text-[#E4CE9B]">Un desayuno para todo el staff</span>
+                    <span className="font-semibold text-white/70">Se juega:</span>{" "}
+                    <span className="text-[#E4CE9B]">un desayuno para todo el staff</span>
                   </p>
                   <p className="text-[13px] leading-snug text-white/65">
                     Quien la lanza pone el día de comprobación: el último de la vuelta. Hasta el día antes, los demás se ponen a favor o en contra; ese día, cualquiera que haya entrado da el veredicto.
@@ -262,14 +268,18 @@ export default function ApuestasPage() {
                       <ThumbsDown size={14} /> En contra
                     </button>
                   </div>
+                  {/* El recuento tal cual saldrá, sin nombres inventados (08/11/2026). */}
+                  <p className="text-[13px] tabular-nums text-white/75">
+                    <span className="font-semibold text-emerald-300">0 a favor</span> ·{" "}
+                    <span className="font-semibold text-rose-300">0 en contra</span>
+                    <span className="block text-[12px] text-white/55">Debajo de cada lado saldrán los nombres de quienes se pongan.</span>
+                  </p>
                   <p className="text-[13px] text-white/65">
                     Si se cumple, aciertan quien la lanzó y los que se pusieron a favor; si no, los que fueron en contra.
                   </p>
                 </article>
-              </div>
+              </details>
             )}
-
-            {!accesoAbajo && sinApuestas && acceso}
 
 
 
@@ -627,8 +637,8 @@ function Tarjeta({
         «{apuesta.prediccion}»
       </p>
 
-      <p className="text-[12px] text-white/55">
-        <span className="uppercase tracking-[0.14em] text-white/35">Se juega</span>{" "}
+      <p className="text-[13px] text-white/65">
+        <span className="font-semibold text-white/70">Se juega:</span>{" "}
         <span className="text-[#E4CE9B]">{apuesta.enJuego}</span>
       </p>
 
