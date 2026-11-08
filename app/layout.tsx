@@ -19,6 +19,7 @@ import { TrabajoPdfs } from "@/components/abp/pizarra/TrabajoPdfs";
 import { TrabajoExportar } from "@/components/abp/pizarra/TrabajoExportar";
 import { TrabajoInformes } from "@/components/informes/TrabajoInformes";
 import { AvisoEncargos } from "@/components/ui/AvisoEncargos";
+import { DescargasEnSegundoPlano } from "@/components/ui/DescargasEnSegundoPlano";
 import { AvisoTareasPendientes } from "@/components/portada/AvisoTareasPendientes";
 import { LanzaderaGlobal } from "@/components/video/LanzaderaGlobal";
 
@@ -143,6 +144,8 @@ export default function RootLayout({
             <TrabajoExportar />
             {/* Y los vídeos de los informes PRE y POST del partido y de ABP, y sus envíos por correo o WhatsApp (02/11/2026). */}
             <TrabajoInformes />
+            {/* Y TODAS las demás descargas de la app (PDF, PPT, PNG, ZIP): siguen al cambiar de pantalla y avisan al terminar (08/11/2026). */}
+            <DescargasEnSegundoPlano />
             {/* Los encargos de Ajustes avisan al terminar, estés donde estés (29/10/2026). */}
             <AvisoEncargos />
             {/* Al entrar, lo que quedó sin hacer de días anteriores en «Mis tareas» (31/10/2026). */}

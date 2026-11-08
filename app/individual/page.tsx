@@ -77,6 +77,7 @@ import { creaSeguimientos } from "@/lib/seguimiento-escribir";
 import { SeleccionJugadores } from "@/components/seguimiento/SeleccionJugadores";
 
 import { confirmar } from "@/lib/avisos";
+import { encargaDescarga } from "@/lib/trabajos/descargas";
 
 /* ------------------------------------------------------------------ */
 /*  CONSTANTES                                                         */
@@ -2496,28 +2497,55 @@ export default function IndividualPage() {
       setExportando(claves);
       setPasoPdf("Preparando la ficha…");
 
-      try {
-        /* Que React monte las pestañas; esperar a sus datos lo hace exportaFichaPdf. */
-        await new Promise((listo) => setTimeout(listo, 300));
+      const jugador = nombreVisible(selected.name);
+      const alcance = claves.length > 1 ? "Ficha completa" : (TABS.find((t) => t.key === claves[0])?.label ?? "Ficha");
 
-        const secciones = claves
-          .map((clave) => ({
-            titulo: TABS.find((t) => t.key === clave)?.label ?? clave,
-            nodo: document.querySelector<HTMLElement>(`[data-ficha-seccion="${clave}"]`),
-          }))
-          .filter((s): s is { titulo: string; nodo: HTMLElement } => Boolean(s.nodo));
+      /*
+      | En segundo plano (08/11/2026), como las de ABP: la píldora enseña el
+      | progreso y avisa al terminar. Esta fotografía la ficha que está a la
+      | vista (`pantalla`): si se pulsa un enlace mientras tanto, se va en
+      | cuanto acaban las fotos; montar el PDF ya no necesita la pantalla.
+      */
+      encargaDescarga({
+        titulo: `PDF · ${alcance} de ${jugador}`,
+        vuelta: "/individual",
+        pantalla: true,
+        tarea: async ({ avanza, sueltaPantalla }) => {
+          try {
+            /* Que React monte las pestañas; esperar a sus datos lo hace exportaFichaPdf. */
+            await new Promise((listo) => setTimeout(listo, 300));
 
-        const { exportaFichaPdf } = await import("@/lib/export/fichaPdf");
-        const alcance = claves.length > 1 ? "Ficha completa" : (secciones[0]?.titulo ?? "Ficha");
-        const paginas = await exportaFichaPdf({ jugador: nombreVisible(selected.name), alcance, secciones, alPaso: setPasoPdf });
+            const secciones = claves
+              .map((clave) => ({
+                titulo: TABS.find((t) => t.key === clave)?.label ?? clave,
+                nodo: document.querySelector<HTMLElement>(`[data-ficha-seccion="${clave}"]`),
+              }))
+              .filter((s): s is { titulo: string; nodo: HTMLElement } => Boolean(s.nodo));
 
-        toast.success(`PDF listo: ${alcance.toLowerCase()} de ${nombreVisible(selected.name)} (${paginas} ${paginas === 1 ? "página" : "páginas"}).`);
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "No se pudo hacer el PDF.");
-      } finally {
-        setExportando(null);
-        setPasoPdf(null);
-      }
+            const { exportaFichaPdf } = await import("@/lib/export/fichaPdf");
+
+            const hecho = await exportaFichaPdf({
+              jugador,
+              alcance,
+              secciones,
+              alPaso: (texto, fraccion) => {
+                setPasoPdf(texto);
+                avanza(texto, fraccion);
+              },
+              alSoltar: () => {
+                setExportando(null);
+                setPasoPdf(null);
+                sueltaPantalla();
+              },
+            });
+
+            return { blob: hecho.blob, nombre: hecho.nombre };
+          } finally {
+            setExportando(null);
+            setPasoPdf(null);
+          }
+        },
+      });
     },
     [selected, exportando, playerVideos.length],
   );

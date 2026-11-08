@@ -20,7 +20,8 @@
  * no salen.
  */
 import { capturaNodo, fuentesListas, respira } from "@/lib/export/captura";
-import { apodo, descarga, esperaFotos, PIXEL_VACIO, type HojaPdf } from "@/lib/export/lienzos";
+import { apodo, esperaFotos, PIXEL_VACIO, type HojaPdf } from "@/lib/export/lienzos";
+import type { ResultadoDescarga } from "@/lib/trabajos/descargas";
 
 export type SeccionFicha = {
   titulo: string;
@@ -260,9 +261,11 @@ export async function exportaFichaPdf(opciones: {
   /** Lo que sale en el nombre del fichero y en el pie: «Ficha completa», «Área de mejora»… */
   alcance: string;
   secciones: SeccionFicha[];
-  alPaso?: (texto: string) => void;
-}) {
-  const { jugador, alcance, secciones, alPaso } = opciones;
+  alPaso?: (texto: string, fraccion?: number) => void;
+  /** Ya no hace falta la pantalla (fotos hechas): el resto va en segundo plano. */
+  alSoltar?: () => void;
+}): Promise<ResultadoDescarga & { paginas: number }> {
+  const { jugador, alcance, secciones, alPaso, alSoltar } = opciones;
 
   if (!secciones.length) throw new Error("No hay nada que exportar en esta ficha.");
 
@@ -313,7 +316,7 @@ export async function exportaFichaPdf(opciones: {
     for (const seccion of secciones) await esperaFotos(seccion.nodo);
 
     for (const [orden, seccion] of secciones.entries()) {
-      alPaso?.(`Preparando ${seccion.titulo.toLowerCase()} (${orden + 1} de ${secciones.length})…`);
+      alPaso?.(`Fotografiando ${seccion.titulo.toLowerCase()} (${orden + 1} de ${secciones.length})`, orden / secciones.length);
 
       const conCabecera = orden === 0;
       const piezas = planifica(seccion.nodo, conCabecera ? CABECERA : 0);
@@ -399,12 +402,11 @@ export async function exportaFichaPdf(opciones: {
 
   if (!hojasPdf.length) throw new Error("La ficha ha salido vacía.");
 
-  alPaso?.("Montando el PDF…");
+  alSoltar?.();
+  alPaso?.("Montando el PDF…", 0.95);
 
   const { pdfDeHojas } = await import("@/lib/export/lienzos");
   const doc = await pdfDeHojas(hojasPdf);
 
-  descarga(doc.output("blob"), `${apodo(jugador, "jugador")}-${apodo(alcance, "ficha")}.pdf`);
-
-  return hojasPdf.length;
+  return { blob: doc.output("blob"), nombre: `${apodo(jugador, "jugador")}-${apodo(alcance, "ficha")}.pdf`, paginas: hojasPdf.length };
 }
