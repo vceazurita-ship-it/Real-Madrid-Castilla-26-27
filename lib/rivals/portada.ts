@@ -691,8 +691,8 @@ function descarga(url: string, nombre: string) {
 |--------------------------------------------------------------------------
 */
 
-/** PNG a 3840×2160: el que se pega como fondo de una diapositiva. */
-export async function exportPortadaPng(data: PortadaData) {
+/** PNG a 3840×2160, sin descargarlo (para el gestor de descargas en segundo plano). */
+export async function portadaPng(data: PortadaData) {
   const lienzo = await pintaPortada(data);
 
   const blob = await new Promise<Blob | null>((resolve) =>
@@ -701,8 +701,14 @@ export async function exportPortadaPng(data: PortadaData) {
 
   if (!blob) throw new Error("El lienzo no ha devuelto la imagen.");
 
+  return { blob, nombre: nombreArchivo(data, "png") };
+}
+
+/** PNG a 3840×2160: el que se pega como fondo de una diapositiva. */
+export async function exportPortadaPng(data: PortadaData) {
+  const { blob, nombre } = await portadaPng(data);
+
   const url = URL.createObjectURL(blob);
-  const nombre = nombreArchivo(data, "png");
 
   descarga(url, nombre);
 
@@ -721,6 +727,21 @@ export async function exportPortadaPng(data: PortadaData) {
  * que ya no pasa por WhatsApp.
  */
 export async function exportPortadaPdf(data: PortadaData) {
+  const { doc, nombre } = await documentoPortadaPdf(data);
+
+  doc.save(nombre);
+
+  return nombre;
+}
+
+/** El mismo PDF, sin descargarlo (para el gestor de descargas en segundo plano). */
+export async function portadaPdf(data: PortadaData) {
+  const { doc, nombre } = await documentoPortadaPdf(data);
+
+  return { blob: doc.output("blob") as Blob, nombre };
+}
+
+async function documentoPortadaPdf(data: PortadaData) {
   const lienzo = await pintaPortada(data);
 
   const { jsPDF } = await import("jspdf");
@@ -755,11 +776,7 @@ export async function exportPortadaPdf(data: PortadaData) {
     "FAST",
   );
 
-  const nombre = nombreArchivo(data, "pdf");
-
-  doc.save(nombre);
-
-  return nombre;
+  return { doc, nombre: nombreArchivo(data, "pdf") };
 }
 
 /*

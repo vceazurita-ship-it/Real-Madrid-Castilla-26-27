@@ -64,6 +64,7 @@ import {
 } from "@/lib/abp/rivalScout";
 import type { DocStatus } from "@/hooks/useRemoteDoc";
 import { confirmar } from "@/lib/avisos";
+import { encargaDescarga } from "@/lib/trabajos/descargas";
 
 const SIDE_OPTIONS: { key: AbpSide; label: string }[] = [
   { key: "ofensivo", label: "Ataca él" },
@@ -173,19 +174,19 @@ export function RivalScoutEditor({
     onChange(actions.filter((item) => item.id !== id));
   };
 
+  /* Por el gestor de descargas (08/11/2026), como el resto: en móvil sale
+     «Descargar» en el aviso y la descarga no se pierde. */
   const exportCsv = () => {
     const blob = new Blob([actionsToCsv(equipo, actions)], {
       type: "text/csv;charset=utf-8",
     });
+    const nombre = `abp-rival-${equipo.toLowerCase().replace(/\s+/g, "-")}.csv`;
 
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-
-    link.href = url;
-    link.download = `abp-rival-${equipo.toLowerCase().replace(/\s+/g, "-")}.csv`;
-    link.click();
-
-    URL.revokeObjectURL(url);
+    encargaDescarga({
+      titulo: `CSV de ABP · ${equipo}`,
+      vuelta: "/scout-rival-abp",
+      tarea: async () => ({ blob, nombre }),
+    });
   };
 
   /* Se muestran por partido y en el orden en que ocurrieron. */

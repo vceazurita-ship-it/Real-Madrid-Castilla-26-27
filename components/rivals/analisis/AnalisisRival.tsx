@@ -30,14 +30,15 @@ import {
   Trash2,
   Video,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 
 import { PizarraLamina, type OpcionJugador } from "@/components/rivals/analisis/PizarraLamina";
 import { useAdmin } from "@/hooks/useAdmin";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
-import { apodo, descarga, pdfDeLienzos } from "@/lib/export/lienzos";
+import { apodo, pdfDeLienzos } from "@/lib/export/lienzos";
 import { creaPptx } from "@/lib/export/pptx";
+import { descargaEnMarcha, descargas, encargaDescarga } from "@/lib/trabajos/descargas";
 import { estadoEncargo, type Mantenimiento } from "@/lib/mantenimiento";
 import {
   ANALISIS_KIND,
@@ -668,7 +669,6 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
 
   /* -------------------------- exportar -------------------------- */
 
-  const [exportando, setExportando] = useState<"pdf" | "ppt" | null>(null);
   const [alcance, setAlcance] = useState<"lamina" | "jornada">("jornada");
 
   /* Sólo las que tienen algo: una diapositiva con el campo vacío sobra. */
@@ -680,61 +680,75 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
 
   const aExportar = alcance === "lamina" ? (lamina ? [lamina] : []) : laminasJornada;
 
-  const exporta = async (formato: "pdf" | "ppt") => {
-    if (!aExportar.length || exportando) return;
+  const baseExportar =
+    alcance === "lamina" && lamina
+      ? `${jornada} ${equipo} ${lamina.titulo}`
+      : `${jornada} ${equipo} ${ambito === "abp" ? "ABP" : "area"}`;
 
-    setExportando(formato);
+  const tituloExportar = (formato: "pdf" | "ppt") => `${formato === "pdf" ? "PDF" : "PPT"} · ${baseExportar}`;
 
-    try {
-      const diapositivas: { titulo: string; imagen: string }[] = [];
+  /* Lo que está en marcha en el gestor de descargas: el botón lo dice y no
+     se lanzan dos iguales. */
+  const pdfEnMarcha = useSyncExternalStore(descargas.suscribe, () => descargaEnMarcha(tituloExportar("pdf")), () => false);
+  const pptEnMarcha = useSyncExternalStore(descargas.suscribe, () => descargaEnMarcha(tituloExportar("ppt")), () => false);
 
+  /*
+  | En segundo plano (08/11/2026), como las de ABP: las láminas se fotografían
+  | como datos al pulsar y se dibujan, se montan y se bajan aunque se cambie de
+  | pantalla. La píldora enseña por cuál va.
+  */
+  const exporta = (formato: "pdf" | "ppt") => {
+    const titulo = tituloExportar(formato);
 
-      /* En serie: varias láminas de 1920 a la vez tumban la pestaña. */
-      for (const una of aExportar) {
-        diapositivas.push({
-          titulo: una.titulo,
-          imagen: await laminaImagen(una, { ficha, escudo, equipo, jornada }, { formato: "image/jpeg" }),
+    if (!aExportar.length || descargaEnMarcha(titulo)) return;
+
+    const laminas = aExportar.map((una) => structuredClone(una));
+    const contexto = { ficha, escudo, equipo, jornada };
+    const nombre = apodo(baseExportar, "analisis");
+    const tituloPpt = `${ambito === "abp" ? "Balón parado" : "Área"} · ${equipo} · ${jornada}`;
+
+    encargaDescarga({
+      titulo,
+      vuelta: typeof window !== "undefined" ? window.location.pathname + window.location.search : undefined,
+      tarea: async ({ avanza, senal }) => {
+        const diapositivas: { titulo: string; imagen: string }[] = [];
+
+        /* En serie: varias láminas de 1920 a la vez tumban la pestaña. */
+        for (const [i, una] of laminas.entries()) {
+          if (senal.aborted) return;
+
+          avanza(`Lámina ${i + 1}/${laminas.length}`, i / laminas.length);
+
+          diapositivas.push({
+            titulo: una.titulo,
+            imagen: await laminaImagen(una, contexto, { formato: "image/jpeg" }),
+          });
+        }
+
+        avanza(formato === "pdf" ? "Montando el PDF…" : "Montando el PowerPoint…", 0.95);
+
+        if (formato === "pdf") {
+          const pdf = await pdfDeLienzos(
+            diapositivas.map((una) => una.imagen),
+            {
+              ancho: 1920,
+              alto: 1080,
+              orientacion: "landscape",
+              margen: 0,
+            },
+          );
+
+          return { blob: pdf.output("blob"), nombre: `${nombre}.pdf` };
+        }
+
+        const blob = creaPptx(diapositivas, {
+          titulo: tituloPpt,
+          aplicacion: "RMCF Castilla · Análisis del rival",
         });
-      }
 
-
-      const imagenes = diapositivas.map((una) => una.imagen);
-
-      const base =
-        alcance === "lamina" && lamina
-          ? `${jornada} ${equipo} ${lamina.titulo}`
-          : `${jornada} ${equipo} ${ambito === "abp" ? "ABP" : "area"}`;
-
-      const nombre = apodo(base, "analisis");
-
-      if (formato === "pdf") {
-        const pdf = await pdfDeLienzos(imagenes, {
-          ancho: 1920,
-          alto: 1080,
-          orientacion: "landscape",
-          margen: 0,
-        });
-
-        descarga(pdf.output("blob"), `${nombre}.pdf`);
-      } else {
-        const blob = creaPptx(
-          diapositivas,
-          {
-            titulo: `${ambito === "abp" ? "Balón parado" : "Área"} · ${equipo} · ${jornada}`,
-            aplicacion: "RMCF Castilla · Análisis del rival",
-          },
-        );
-
-        descarga(blob, `${nombre}.pptx`);
-      }
-    } catch (error) {
-      /* El detalle del navegador (en inglés) va a la consola; al cuerpo
-         técnico, un aviso que se entienda (19/10/2026). */
-      console.error("[análisis del rival] exportación", error);
-      toast.error("No se ha podido exportar.", { description: "Vuelve a intentarlo; si se repite, recarga la página." });
-    } finally {
-      setExportando(null);
-    }
+        return { blob, nombre: `${nombre}.pptx` };
+      },
+    });
   };
 
   /* -------------------------- nueva jornada -------------------------- */
@@ -883,21 +897,23 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
             <>
               <button
                 type="button"
-                onClick={() => void exporta("pdf")}
-                disabled={!aExportar.length || Boolean(exportando)}
+                onClick={() => exporta("pdf")}
+                disabled={!aExportar.length || pdfEnMarcha}
+                title={pdfEnMarcha ? "Se está preparando: puedes seguir usando la app, te aviso al terminar" : undefined}
                 className={`${boton} border border-white/15 text-white/80 hover:bg-white/10`}
               >
-                {exportando === "pdf" ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />} PDF
+                {pdfEnMarcha ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />} PDF
               </button>
               {/* El PPT es para editarlo: sólo en edición (30/10/2026). */}
               {edita && (
                 <button
                   type="button"
-                  onClick={() => void exporta("ppt")}
-                  disabled={!aExportar.length || Boolean(exportando)}
+                  onClick={() => exporta("ppt")}
+                  disabled={!aExportar.length || pptEnMarcha}
+                  title={pptEnMarcha ? "Se está preparando: puedes seguir usando la app, te aviso al terminar" : undefined}
                   className={`${boton} border border-white/15 text-white/80 hover:bg-white/10`}
                 >
-                  {exportando === "ppt" ? <Loader2 size={14} className="animate-spin" /> : <Presentation size={14} />} PPT
+                  {pptEnMarcha ? <Loader2 size={14} className="animate-spin" /> : <Presentation size={14} />} PPT
                 </button>
               )}
             </>

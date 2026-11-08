@@ -28,6 +28,12 @@ export type PortadaSlot = {
   etiqueta: string;
   /** Genera y descarga. Devuelve el nombre del archivo. */
   exportar: (formato: "png" | "pdf") => Promise<string>;
+  /**
+   * Genera SIN descargar: el archivo y su nombre, para meterlo en
+   * `encargaDescarga` (descargas en segundo plano, 08/11/2026). Los datos se
+   * fotografían al llamarla, así que la tarea sigue aunque se cierre la ficha.
+   */
+  genera: (formato: "png" | "pdf") => Promise<{ blob: Blob; nombre: string }>;
 };
 
 let actual: PortadaSlot | null = null;

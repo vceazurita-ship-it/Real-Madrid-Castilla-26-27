@@ -44,8 +44,11 @@ import {
   exportPortadaPdf,
   exportPortadaPng,
   metricasDeTemporada,
+  portadaPdf,
+  portadaPng,
   type PortadaData,
 } from "@/lib/rivals/portada";
+import { descargaEnMarcha, descargas, encargaDescarga } from "@/lib/trabajos/descargas";
 import { ofrecePortada } from "@/lib/rivals/portada-slot";
 import { mismoClub } from "@/lib/rivals/mismoClub";
 import { explicaErrorScript } from "@/lib/appsScriptErrors";
@@ -234,8 +237,16 @@ import {
 
 import type { LucideIcon } from "lucide-react";
 import { guardaDocumentoRival, type TipoDocumentoRival } from "@/lib/rivals/documentos";
-import { descarga } from "@/lib/export/lienzos";
 import { confirmar } from "@/lib/avisos";
+
+/** ¿Hay en marcha una descarga con este título? Se repinta al cambiar el gestor. */
+function useDescargaEnMarcha(titulo: string) {
+  return useSyncExternalStore(
+    descargas.suscribe,
+    () => descargaEnMarcha(titulo),
+    () => false,
+  );
+}
 
 /** Amarillas que suspenden un partido en Primera y Segunda RFEF (la 5.ª, la 10.ª…). */
 const CICLO_AMARILLAS = 5;
@@ -1380,6 +1391,72 @@ export default function RivalPlayersPage() {
       filas: { player: RivalPlayer; estado: OncePdfEstado }[],
       modo: "descargar" | "ver" = "descargar",
     ) => {
+      if (modo === "descargar") {
+        /*
+        | En segundo plano (08/11/2026), como las de ABP: se fotografían los
+        | datos ahora y el PDF se monta y se baja aunque se cambie de pantalla.
+        | El pop-up se cierra al momento; la píldora enseña el progreso.
+        */
+        const equipo = equipoDelOnce;
+        const titulo =
+          variante === "portero" ? `PDF para el portero · ${equipo}` : `PDF del once · ${equipo}`;
+
+        if (descargaEnMarcha(titulo)) {
+          toast.message("Ya se está preparando", { description: titulo });
+
+          return true;
+        }
+
+        try {
+          const datos = {
+            equipo,
+            escudo: escudoDe(equipo),
+            jugadores: [...filas]
+              .sort((a, b) => ordenDelOnce(a.player, b.player))
+              .map(({ player, estado }) => fichaDePdf(player, estado)),
+            tema: theme,
+            campo: once.doc.campo,
+            variante,
+          };
+
+          encargaDescarga({
+            titulo,
+            vuelta: "/rivals",
+            tarea: async ({ avanza }) => {
+              avanza("Montando el PDF…");
+
+              const { buildOncePdf } = await import("@/lib/rivals/once-pdf");
+
+              const { doc, nombre } = await buildOncePdf(datos);
+              const blob = doc.output("blob") as Blob;
+
+              /*
+              | El del once se guarda también como el último PDF de la plantilla
+              | del rival: el informe del partido (Microciclos) lo adjunta solo.
+              | Sin esperar: la descarga no depende de esto.
+              */
+              if (variante === "once") {
+                void guardaDocumentoRival(equipo, "plantilla-pdf", blob, nombre).then((r) =>
+                  r.ok
+                    ? toast.message("Guardado para el informe del partido", { description: "Irá adjunto al informe completo desde Microciclos." })
+                    : toast.message("No se ha guardado para el informe del partido", { description: r.motivo }),
+                );
+              }
+
+              return { blob, nombre };
+            },
+          });
+
+          return true;
+        } catch (error) {
+          console.error("Error preparando el PDF del rival:", error);
+
+          toast.error("No se ha podido generar el PDF.");
+
+          return false;
+        }
+      }
+
       setExportando(true);
 
       try {
@@ -1405,43 +1482,14 @@ export default function RivalPlayersPage() {
             ? `Para el portero · ${equipoDelOnce}`
             : `Once probable · ${equipoDelOnce}`;
 
-        if (modo === "ver") {
-          /* El mismo motor, pero el documento se queda en memoria: `blob` es
-             lo que el visor del navegador sabe abrir sin ninguna librería. */
-          const { buildOncePdf } = await import("@/lib/rivals/once-pdf");
-
-          const { doc, nombre } = await buildOncePdf(datos);
-
-          setVistaPdf({ blob: doc.output("blob"), nombre, titulo: rotulo });
-
-          return true;
-        }
-
+        /* La vista previa: el mismo motor, pero el documento se queda en
+           memoria: `blob` es lo que el visor del navegador sabe abrir sin
+           ninguna librería. */
         const { buildOncePdf } = await import("@/lib/rivals/once-pdf");
 
         const { doc, nombre } = await buildOncePdf(datos);
 
-        doc.save(nombre);
-
-        toast.success(
-          variante === "portero"
-            ? "PDF para el portero exportado"
-            : "Once probable exportado",
-          { description: nombre },
-        );
-
-        /*
-        | El del once se guarda también como el último PDF de la plantilla del
-        | rival: el informe del partido (Microciclos) lo adjunta solo. Sin
-        | esperar: la descarga ya ha salido y esto no la puede estropear.
-        */
-        if (variante === "once") {
-          void guardaDocumentoRival(equipoDelOnce, "plantilla-pdf", doc.output("blob") as Blob, nombre).then((r) =>
-            r.ok
-              ? toast.message("Guardado para el informe del partido", { description: "Irá adjunto al informe completo desde Microciclos." })
-              : toast.message("No se ha guardado para el informe del partido", { description: r.motivo }),
-          );
-        }
+        setVistaPdf({ blob: doc.output("blob"), nombre, titulo: rotulo });
 
         return true;
       } catch (error) {
@@ -1770,41 +1818,41 @@ export default function RivalPlayersPage() {
     }
   }, [equipoDelOnce, fueraDePerfil, jugadoresPlantilla, once, proponeOnce]);
 
-  const exportarAlineacionPptx = useCallback(async () => {
+  const tituloAlineacion = `PowerPoint de día de partido · ${equipoDelOnce}`;
+  const alineacionEnMarcha = useDescargaEnMarcha(tituloAlineacion);
+
+  const exportarAlineacionPptx = useCallback(() => {
     if (!plantillaCampo.length) return;
 
-    setExportando(true);
+    if (descargaEnMarcha(tituloAlineacion)) {
+      toast.message("Ya se está preparando", { description: tituloAlineacion });
 
-    try {
-      const { exportAlineacionPptx } = await import(
-        "@/lib/rivals/alineacion-ppt"
-      );
-
-      const nombre = await exportAlineacionPptx({
-        equipo: equipoDelOnce,
-        escudo: escudoDe(equipoDelOnce),
-        temporada: temporadaCorta(statsDoc?.temporada),
-        jugadores: jugadoresPlantilla,
-        /* El mismo dibujo que se está viendo en la pantalla: el documento se
-           lleva a la reunión lo que ya se ha mirado. */
-        dibujo: dibujoDelEquipo,
-      });
-
-      toast.success("Campograma de día de partido exportado", {
-        description: `${nombre} · borra en PowerPoint a los que no salen`,
-      });
-    } catch (error) {
-      console.error("Error exportando el campograma del rival:", error);
-
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "No se ha podido generar el PowerPoint.",
-      );
-    } finally {
-      setExportando(false);
+      return;
     }
+
+    /* En segundo plano (08/11/2026): los datos se fotografían ahora; las
+       fotos y el montaje siguen aunque se cambie de pantalla. */
+    const datos = {
+      equipo: equipoDelOnce,
+      escudo: escudoDe(equipoDelOnce),
+      temporada: temporadaCorta(statsDoc?.temporada),
+      jugadores: jugadoresPlantilla,
+      /* El mismo dibujo que se está viendo en la pantalla: el documento se
+         lleva a la reunión lo que ya se ha mirado. */
+      dibujo: dibujoDelEquipo,
+    };
+
+    encargaDescarga({
+      titulo: tituloAlineacion,
+      vuelta: "/rivals",
+      tarea: async ({ avanza }) => {
+        const { pptxAlineacion } = await import("@/lib/rivals/alineacion-ppt");
+
+        return pptxAlineacion(datos, avanza);
+      },
+    });
   }, [
+    tituloAlineacion,
     plantillaCampo,
     jugadoresPlantilla,
     statsDoc,
@@ -2341,45 +2389,51 @@ export default function RivalPlayersPage() {
     selectedTeam,
   ]);
 
-  /** Lo que sale del editor: las hojas ya retocadas, al `.pptx`. */
+  /**
+   * Lo que sale del editor: las hojas ya retocadas, al `.pptx`.
+   *
+   * En segundo plano (08/11/2026): las hojas y los datos se fotografían al
+   * pulsar, el editor se cierra al momento (sus retoques ya están guardados
+   * en su documento) y el PowerPoint se monta y se baja aunque se cambie de
+   * pantalla.
+   */
   const exportarInformeEditado = useCallback(
-    async (hojas: HojaInforme[]) => {
+    (hojas: HojaInforme[]) => {
       if (!datosInforme) return;
 
-      setExportando(true);
+      const equipo = equipoDelOnce;
+      const titulo = `Informe del rival · ${equipo}`;
 
-      try {
-        const { pptxHojasInforme } = await import(
-          "@/lib/rivals/informe-ppt"
-        );
+      if (descargaEnMarcha(titulo)) {
+        toast.message("Ya se está preparando", { description: titulo });
 
-        const { blob, nombre } = await pptxHojasInforme(hojas, datosInforme);
-
-        descarga(blob, nombre);
-
-        toast.success("Informe del rival exportado", {
-          description: `${nombre} · cada elemento va suelto y se edita en PowerPoint`,
-        });
-
-        /* Y se guarda como el último informe del rival, para el del partido. */
-        void guardaDocumentoRival(equipoDelOnce, "informe-pptx", blob, nombre).then((r) =>
-          r.ok
-            ? toast.message("Guardado para el informe del partido", { description: "Irá adjunto al informe completo desde Microciclos." })
-            : toast.message("No se ha guardado para el informe del partido", { description: r.motivo }),
-        );
-
-        setHojasInforme(null);
-      } catch (error) {
-        console.error("Error exportando el informe del rival:", error);
-
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : "No se ha podido generar el informe.",
-        );
-      } finally {
-        setExportando(false);
+        return;
       }
+
+      const datos = datosInforme;
+
+      encargaDescarga({
+        titulo,
+        vuelta: "/rivals",
+        tarea: async ({ avanza }) => {
+          avanza(`Montando ${hojas.length} diapositivas…`);
+
+          const { pptxHojasInforme } = await import("@/lib/rivals/informe-ppt");
+
+          const { blob, nombre } = await pptxHojasInforme(hojas, datos);
+
+          /* Y se guarda como el último informe del rival, para el del partido. */
+          void guardaDocumentoRival(equipo, "informe-pptx", blob, nombre).then((r) =>
+            r.ok
+              ? toast.message("Guardado para el informe del partido", { description: "Irá adjunto al informe completo desde Microciclos." })
+              : toast.message("No se ha guardado para el informe del partido", { description: r.motivo }),
+          );
+
+          return { blob, nombre };
+        },
+      });
+
+      setHojasInforme(null);
     },
     [datosInforme, equipoDelOnce],
   );
@@ -2590,6 +2644,14 @@ export default function RivalPlayersPage() {
         return formato === "png"
           ? exportPortadaPng(data)
           : exportPortadaPdf(data);
+      },
+      /* Para las descargas en segundo plano: los datos se leen ya, al pedirla. */
+      genera: (formato) => {
+        const data = portadaRef.current;
+
+        if (!data) return Promise.reject(new Error("Ya no hay ninguna ficha abierta."));
+
+        return formato === "png" ? portadaPng(data) : portadaPdf(data);
       },
     });
 
@@ -3988,7 +4050,7 @@ export default function RivalPlayersPage() {
                             etiqueta: "PowerPoint de día de partido",
                             explica: "La plantilla entera colocada, para borrar a los que no salgan.",
                             icono: "ppt" as const,
-                            onClick: () => void exportarAlineacionPptx(),
+                            onClick: () => exportarAlineacionPptx(),
                           },
                         ]
                       : []),
@@ -4735,18 +4797,18 @@ export default function RivalPlayersPage() {
                             <button
                               type="button"
                               data-export-hide
-                              onClick={() => { setExportarAbierto(false); void exportarAlineacionPptx(); }}
-                              disabled={exportando}
+                              onClick={() => { setExportarAbierto(false); exportarAlineacionPptx(); }}
+                              disabled={exportando || alineacionEnMarcha}
                               title={`PowerPoint de día de partido de ${equipoDelOnce} — la plantilla entera colocada, para borrar a los que no salgan`}
                               role="menuitem"
                               className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/15 disabled:opacity-50"
                             >
-                              {exportando ? (
+                              {exportando || alineacionEnMarcha ? (
                                 <Loader2 size={11} className="animate-spin" />
                               ) : (
                                 <Presentation size={11} />
                               )}
-                              PowerPoint de día de partido
+                              {alineacionEnMarcha ? "PowerPoint en marcha…" : "PowerPoint de día de partido"}
                             </button>
                           )}
 
@@ -5014,7 +5076,7 @@ export default function RivalPlayersPage() {
           equipo={equipoDelOnce}
           hojas={hojasInforme}
           exportando={exportando}
-          onExportar={(hojas) => void exportarInformeEditado(hojas)}
+          onExportar={(hojas) => exportarInformeEditado(hojas)}
           onCerrar={() => setHojasInforme(null)}
         />
       )}

@@ -775,11 +775,28 @@ function nombreArchivo(data: AlineacionData) {
 /**
  * Monta el `.pptx` y lo descarga. Devuelve cómo se ha llamado.
  *
+ * La pantalla de rivales usa `pptxAlineacion` (sin descargar) desde el gestor
+ * de descargas en segundo plano; esta queda para los arneses.
+ */
+export async function exportAlineacionPptx(data: AlineacionData) {
+  const { blob, nombre } = await pptxAlineacion(data);
+
+  descarga(blob, nombre);
+
+  return nombre;
+}
+
+/**
+ * Monta el `.pptx` sin descargarlo: el archivo y su nombre.
+ *
  * Las fotos se piden **de seis en seis**: veinticinco `fetch` a la vez contra
  * el proxy hacen que alguno se caiga por tiempo de espera, y una ficha sin
  * cara en el vestuario es una ficha que no sirve.
  */
-export async function exportAlineacionPptx(data: AlineacionData) {
+export async function pptxAlineacion(
+  data: AlineacionData,
+  avanza?: (texto: string, fraccion?: number) => void,
+) {
   await esperaFuentePortada();
 
   const { fichas, k } = reparteAlineacion(data.jugadores, data.dibujo);
@@ -799,6 +816,8 @@ export async function exportAlineacionPptx(data: AlineacionData) {
   for (let i = 0; i < conFoto.length; i += TANDA) {
     const tanda = conFoto.slice(i, i + TANDA);
 
+    avanza?.(`Fotos ${i}/${conFoto.length}`, (i / conFoto.length) * 0.8);
+
     const cargadas = await Promise.all(
       tanda.map((jugador) => cargaImagen(jugador.foto).catch(() => null)),
     );
@@ -807,6 +826,8 @@ export async function exportAlineacionPptx(data: AlineacionData) {
       retratos.set(jugador.clave, cargadas[indice]);
     });
   }
+
+  avanza?.("Montando el PowerPoint…", 0.85);
 
   /* -------------------------------------------------- el fondo */
 
@@ -848,9 +869,5 @@ export async function exportAlineacionPptx(data: AlineacionData) {
     },
   );
 
-  const nombre = nombreArchivo(data);
-
-  descarga(blob, nombre);
-
-  return nombre;
+  return { blob, nombre: nombreArchivo(data) };
 }
