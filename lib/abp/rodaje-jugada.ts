@@ -42,8 +42,15 @@ export const FPS = FPS_LAMINA;
  * Fotos por fase en movimiento (01/11/2026: 12 → 20, «los vídeos parecen poco
  * fluidos»). Entre una y otra no se repite la foto: las fichas van sueltas y
  * se colocan en cada fotograma sobre su curva.
+ *
+ * 08/11/2026: 20 → 40, otra vez «poco fluidos». Las fichas ya iban sobre su
+ * curva; lo que daba tirones era el FONDO (las flechas que crecen), que sólo
+ * cambia de foto en foto: con ~90 fotogramas por fase eran 4-5 fotogramas por
+ * foto, 6-7 saltos por segundo medidos en el MP4 (la diferencia entre
+ * fotogramas sube y baja con ese periodo). Con 40, ~2 fotogramas por foto.
+ * Cuesta casi el doble de fotos al rodar el material.
  */
-export const FOTOS_POR_FASE = 20;
+export const FOTOS_POR_FASE = 40;
 /** Lo que se mueve suelto por encima del fondo. */
 const MOVILES = "[data-ficha],[data-balon]";
 /** Margen del recorte, para llevarse la sombra. */
