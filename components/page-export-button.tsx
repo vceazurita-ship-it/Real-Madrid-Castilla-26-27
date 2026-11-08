@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   Download,
   FileImage,
@@ -14,8 +14,8 @@ import { toast } from "sonner";
 
 import { ItemMenuFlotante } from "@/components/ui/MenuFlotante";
 import { capturaNodo, conLimite, conTope, fotograma, fuentesListas } from "@/lib/export/captura";
-import { descargaDataUrl } from "@/lib/export/lienzos";
 import { usePortadaOfrecida } from "@/lib/rivals/portada-slot";
+import { descargaEnMarcha, descargas, encargaDescarga, type ResultadoDescarga } from "@/lib/trabajos/descargas";
 
 /**
  * Botón flotante disponible en todas las páginas.
@@ -97,6 +97,12 @@ type Capture = {
   boxes: Box[];
   /** La captura es la de un pop-up abierto, no la de la página. */
   dialog: boolean;
+  /*
+  | Lo que el PDF lee de la pantalla, apuntado en el momento de la foto: el
+  | PDF se monta en segundo plano y para entonces se puede estar en otra.
+  */
+  background: string;
+  label: string;
 };
 
 function fileBaseName(suffix?: string) {
@@ -310,7 +316,10 @@ async function enterExportMode(keep?: HTMLElement | null): Promise<Cleanup> {
   );
 
   for (const el of elements) {
-    if (el.closest("[data-export-hide]")) continue;
+    /* La mesa de otra descarga en segundo plano (`DescargasEnSegundoPlano`)
+       está fuera de la pantalla y se puede estar fotografiando a la vez:
+       esconderla le dejaría la foto en blanco. */
+    if (el.closest("[data-export-hide], [data-descarga-mesa]")) continue;
 
     const cs = getComputedStyle(el);
 
@@ -378,7 +387,7 @@ async function enterExportMode(keep?: HTMLElement | null): Promise<Cleanup> {
   ];
 
   for (const el of scrollers) {
-    if (el.closest("[data-export-hide]")) continue;
+    if (el.closest("[data-export-hide], [data-descarga-mesa]")) continue;
 
     const cs = getComputedStyle(el);
 
@@ -679,6 +688,7 @@ async function capturePage(): Promise<Capture> {
         if (!(node instanceof HTMLElement)) return true;
 
         if (node.hasAttribute("data-export-hide")) return false;
+        if (node.hasAttribute("data-descarga-mesa")) return false;
         if (node.hasAttribute("data-sonner-toaster")) return false;
         if (node.tagName === "SCRIPT") return false;
         if (node.tagName === "NOSCRIPT") return false;
@@ -713,6 +723,8 @@ async function capturePage(): Promise<Capture> {
       pixelRatio: captura.nitidez,
       boxes,
       dialog: Boolean(dialog),
+      background: resolveBackground(document.body),
+      label: document.title || "Real Madrid Castilla",
     };
   } finally {
     restore();
@@ -727,12 +739,6 @@ function loadImage(src: string) {
     img.onerror = () => reject(new Error("No se pudo leer la captura"));
     img.src = src;
   });
-}
-
-/* Por `Blob`, no por `data:`: en iOS el `data:` abre la imagen en vez de
-   bajarla. Ver `descargaDataUrl`. */
-function downloadDataUrl(dataUrl: string, filename: string) {
-  return descargaDataUrl(dataUrl, filename);
 }
 
 /** Busca hacia arriba el primer corte que no parta una tarjeta. */
@@ -843,10 +849,10 @@ async function buildPagedPdf(capture: Capture) {
   const pages = paginate(capture, sliceHeight);
 
   const canvas = document.createElement("canvas");
-  const background = resolveBackground(document.body);
+  const background = capture.background;
 
   const stamp = new Date().toLocaleDateString("es-ES");
-  const label = document.title || "Real Madrid Castilla";
+  const label = capture.label;
 
   pages.forEach((page, index) => {
     if (index > 0) doc.addPage();
@@ -910,9 +916,21 @@ async function buildSinglePagePdf(capture: Capture) {
 
 type Mode = "png" | "pdf" | "pdf-single" | "portada-png" | "portada-pdf";
 
+/* Los encargos que ha dejado este botón. */
+const nuestros = new Set<string>();
+
+/* Ocupado sólo mientras se fotografía la pantalla: montar el PDF va aparte y
+   se puede pedir otro formato mientras tanto. */
+const fotografiando = () =>
+  descargas
+    .foto()
+    .trabajos.some(
+      (t) => nuestros.has(t.id) && t.reteniendo && (t.estado === "esperando" || t.estado === "en-marcha"),
+    );
+
 export function PageExportButton() {
   const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState<Mode | null>(null);
+  const busy = useSyncExternalStore(descargas.suscribe, fotografiando, () => false);
 
   /*
   | La portada del jugador rival no se captura de la pantalla: se dibuja con
@@ -950,95 +968,120 @@ export function PageExportButton() {
     };
   }, [open]);
 
+  /*
+  | EN SEGUNDO PLANO (08/11/2026), como las exportaciones de ABP.
+  |
+  | Esto fotografía la pantalla que está a la vista, así que va con
+  | `pantalla: true`: mientras se hacen las fotos los enlaces esperan (se
+  | navega en cuanto acaban). Montar el PDF, recortar las hojas y bajar el
+  | fichero ya no necesitan la pantalla y siguen aunque se cambie de página;
+  | la píldora del anfitrión enseña por dónde va y avisa al terminar.
+  |
+  | Lo que el fichero lee de la pantalla —nombre, fondo, rótulo del pie— se
+  | apunta en el clic o en la foto, nunca después.
+  */
   const run = useCallback(
-    async (mode: Mode, loadingText: string, action: (c: Capture) => Promise<string>) => {
-      setBusy(mode);
+    (mode: Mode, formato: string, action: (c: Capture, base: string, avanza: (texto: string, fraccion?: number) => void) => Promise<ResultadoDescarga>) => {
       setOpen(false);
 
-      const toastId = toast.loading(loadingText);
+      const dialog = Boolean(findOpenDialog());
+      const pantallaActual = (document.title || window.location.pathname).split("|")[0].trim() || "esta pantalla";
+      const titulo = `${formato} · ${dialog ? "ficha de " : ""}${pantallaActual}`;
 
-      try {
-        const capture = await capturePage();
-        const message = await action(capture);
+      if (descargaEnMarcha(titulo)) {
+        toast.info("Ya se está preparando", { description: titulo });
 
-        toast.success(message, { id: toastId });
-      } catch (error) {
-        console.error(`[export] ${mode}`, error);
-        toast.error("No se pudo generar la exportación", { id: toastId });
-      } finally {
-        setBusy(null);
+        return;
       }
+
+      /* Sufijo del nombre de fichero: distingue la ficha de la página. */
+      const base = fileBaseName(dialog ? "ficha" : undefined);
+      const vuelta = window.location.pathname + window.location.search;
+
+      const id = encargaDescarga({
+        titulo,
+        vuelta,
+        pantalla: true,
+        tarea: async ({ avanza, sueltaPantalla }) => {
+          avanza("Fotografiando la pantalla…", 0.1);
+
+          let capture: Capture;
+
+          try {
+            capture = await capturePage();
+          } finally {
+            sueltaPantalla();
+          }
+
+          avanza(mode === "png" ? "Preparando la imagen…" : "Montando el PDF…", 0.6);
+
+          return action(capture, base, avanza);
+        },
+      });
+
+      nuestros.add(id);
     },
     []
   );
 
-  /* Sufijo del nombre de fichero: distingue la ficha de la página. */
-  const suffix = (capture: Capture) => (capture.dialog ? "ficha" : undefined);
-
   const exportPng = useCallback(
     () =>
-      run("png", "Generando PNG…", async (capture) => {
-        downloadDataUrl(capture.dataUrl, `${fileBaseName(suffix(capture))}.png`);
-
-        return `PNG descargado (${capture.width}×${capture.height} px)`;
-      }),
+      run("png", "PNG", async (capture, base) => ({
+        blob: await (await fetch(capture.dataUrl)).blob(),
+        nombre: `${base}.png`,
+      })),
     [run]
   );
 
   const exportPdf = useCallback(
     () =>
-      run("pdf", "Generando PDF A4…", async (capture) => {
+      run("pdf", "PDF A4", async (capture, base, avanza) => {
         const { doc, pages } = await buildPagedPdf(capture);
 
-        doc.save(`${fileBaseName(suffix(capture))}.pdf`);
+        avanza(`${pages} ${pages === 1 ? "página" : "páginas"}`, 0.95);
 
-        return `PDF descargado (${pages} ${pages === 1 ? "página" : "páginas"})`;
+        return { blob: doc.output("blob"), nombre: `${base}.pdf` };
       }),
     [run]
   );
 
   const exportPdfSingle = useCallback(
     () =>
-      run("pdf-single", "Generando PDF de una hoja…", async (capture) => {
+      run("pdf-single", "PDF de una hoja", async (capture, base) => {
         const doc = await buildSinglePagePdf(capture);
 
-        doc.save(`${fileBaseName(suffix(capture))}_hoja-unica.pdf`);
-
-        return "PDF de una hoja descargado";
+        return { blob: doc.output("blob"), nombre: `${base}_hoja-unica.pdf` };
       }),
     [run]
   );
 
   /*
-  | La portada no pasa por `run`: ese flujo captura la pantalla antes de
-  | actuar, y aquí no hay nada que capturar —la diapositiva se dibuja desde
-  | cero con los datos del jugador—.
+  | La portada no pasa por `run`: no hay nada que fotografiar —la diapositiva
+  | se dibuja desde cero con los datos del jugador— y la baja ella misma
+  | (`portada.exportar`, de la pantalla de rivales), así que va sin pantalla
+  | y sin descarga del anfitrión.
   */
   const exportPortada = useCallback(
-    async (formato: "png" | "pdf") => {
+    (formato: "png" | "pdf") => {
       if (!portada) return;
 
-      const modo = formato === "png" ? "portada-png" : "portada-pdf";
-
-      setBusy(modo);
       setOpen(false);
 
-      const toastId = toast.loading("Generando portada…");
+      const titulo = `Portada ${formato.toUpperCase()} · ${portada.etiqueta}`;
 
-      try {
-        const nombre = await portada.exportar(formato);
+      if (descargaEnMarcha(titulo)) return;
 
-        toast.success("Portada descargada", {
-          id: toastId,
-          description: nombre,
-        });
-      } catch (error) {
-        console.error("[export] portada", error);
+      const exportar = portada.exportar;
 
-        toast.error("No se pudo generar la portada", { id: toastId });
-      } finally {
-        setBusy(null);
-      }
+      encargaDescarga({
+        titulo,
+        vuelta: window.location.pathname + window.location.search,
+        sinDescarga: true,
+        tarea: async ({ avanza }) => {
+          avanza("Dibujando la portada…");
+          await exportar(formato);
+        },
+      });
     },
     [portada]
   );

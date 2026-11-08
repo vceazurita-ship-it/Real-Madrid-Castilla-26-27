@@ -19,13 +19,13 @@
  * pantalla dice siempre cuántos ha encontrado.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Check, Copy, Download, RefreshCw, ShieldCheck } from "lucide-react";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { AbpHeader, Panel } from "@/components/abp/ui";
-import { descarga } from "@/lib/export/lienzos";
+import { descargaEnMarcha, descargas, encargaDescarga } from "@/lib/trabajos/descargas";
 import {
   creaPptEscudos,
   nombreDelFichero,
@@ -93,6 +93,17 @@ async function copiaEscudo(url: string, equipo: string): Promise<"copiado" | "de
       return "fallo";
     }
   }
+}
+
+const TITULO_PPT = "Escudos de la liga · .pptx";
+
+/** Por dónde va la descarga en segundo plano con este título (null si no hay ninguna en marcha). */
+function useTrabajoEnMarcha(titulo: string) {
+  return useSyncExternalStore(
+    descargas.suscribe,
+    () => descargas.foto().trabajos.find((t) => t.titulo === titulo && (t.estado === "esperando" || t.estado === "en-marcha"))?.texto ?? null,
+    () => null,
+  );
 }
 
 /** Nuestro escudo va con borde oro para encontrarlo de un vistazo (08/11/2026). */
@@ -167,8 +178,6 @@ export default function EscudosPage() {
   /** Cuándo se bajaron los escudos de BeSoccer por última vez. */
   const [alDia, setAlDia] = useState<string | null>(null);
 
-  /** Cuántos escudos llevamos preparados mientras se arma el documento. */
-  const [haciendo, setHaciendo] = useState<number | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   /** La tarjeta que acaba de copiar dice «Copiado» durante 2 s. */
   const [copiado, setCopiado] = useState<string | null>(null);
@@ -306,41 +315,58 @@ export default function EscudosPage() {
    * 640×640 a la vez es pedirle al móvil que se caiga. De paso el contador va
    * diciendo por dónde va, que con veinte imágenes se nota la espera.
    */
-  const descargaPpt = useCallback(async () => {
-    if (!escudos.length) return;
+  /*
+  | En segundo plano (08/11/2026), como las de ABP: el clic deja el encargo
+  | con la lista de escudos de ese momento y el anfitrión del layout lo arma,
+  | enseña por dónde va y baja el .pptx aunque se cambie de pantalla.
+  */
+  const haciendo = useTrabajoEnMarcha(TITULO_PPT);
 
-    setHaciendo(0);
+  const descargaPpt = useCallback(() => {
+    if (!escudos.length || descargaEnMarcha(TITULO_PPT)) return;
+
     setAviso(null);
 
-    const listos: EscudoListo[] = [];
-    const fallidos: string[] = [];
+    const lista = escudos;
 
-    for (const uno of escudos) {
-      try {
-        listos.push(await preparaEscudo(uno));
-      } catch (error) {
-        console.error("[escudos] preparar", uno.equipo, error);
-        fallidos.push(uno.equipo);
-      }
+    encargaDescarga({
+      titulo: TITULO_PPT,
+      vuelta: "/laboratorio/escudos",
+      tarea: async ({ avanza, senal }) => {
+        const listos: EscudoListo[] = [];
+        const fallidos: string[] = [];
 
-      setHaciendo(listos.length + fallidos.length);
-    }
+        for (const uno of lista) {
+          if (senal.aborted) throw new Error("Cancelado");
 
-    if (!listos.length) {
-      setHaciendo(null);
-      setAviso("No se ha podido preparar ningún escudo.");
+          try {
+            listos.push(await preparaEscudo(uno));
+          } catch (error) {
+            console.error("[escudos] preparar", uno.equipo, error);
+            fallidos.push(uno.equipo);
+          }
 
-      return;
-    }
+          const hechos = listos.length + fallidos.length;
 
-    descarga(creaPptEscudos(listos), nombreDelFichero());
+          avanza(`Preparando ${hechos} de ${lista.length}…`, hechos / lista.length);
+        }
 
-    setHaciendo(null);
-    setAviso(
-      fallidos.length
-        ? `Documento con ${listos.length} escudos. Se han quedado fuera: ${fallidos.join(", ")}.`
-        : `Documento con ${listos.length} escudos, listo.`,
-    );
+        if (!listos.length) {
+          setAviso("No se ha podido preparar ningún escudo.");
+
+          throw new Error("No se ha podido preparar ningún escudo.");
+        }
+
+        /* Si se sigue en la pantalla, el resumen queda escrito debajo del botón. */
+        setAviso(
+          fallidos.length
+            ? `Documento con ${listos.length} escudos. Se han quedado fuera: ${fallidos.join(", ")}.`
+            : `Documento con ${listos.length} escudos, listo.`,
+        );
+
+        return { blob: creaPptEscudos(listos), nombre: nombreDelFichero() };
+      },
+    });
   }, [escudos]);
 
   return (
@@ -385,7 +411,7 @@ export default function EscudosPage() {
               >
                 <Download size={16} />
                 {haciendo !== null
-                  ? `Preparando ${haciendo} de ${escudos.length}…`
+                  ? haciendo
                   : estado === "cargando" || (estado === "listo" && pendientes > 0)
                     ? `Preparando escudos…${escudos.length ? ` ${conImagen}/${escudos.length}` : ""}`
                     : "Descargar .pptx"}
