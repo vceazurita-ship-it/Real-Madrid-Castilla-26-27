@@ -21,7 +21,7 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { BookOpen, Image as ImageIcon, Loader2, Mail, Maximize2, RefreshCw, Send } from "lucide-react";
 import { MenuDescargar } from "@/components/informe-partido/MenuDescargar";
-import { descarga, descargaDataUrl } from "@/lib/export/lienzos";
+import { descargaEnMarcha, encargaDescarga } from "@/lib/trabajos/descargas";
 import { toast } from "sonner";
 
 import { subeAdjunto } from "@/lib/correo/subeAdjunto";
@@ -379,9 +379,6 @@ export function InformeMicroDialog({
   );
 
   const [enviando, setEnviando] = useState(false);
-
-  /* Lo que se está descargando (07/11/2026, ronda 14): el PDF o las láminas, sin mandar nada. */
-  const [bajando, setBajando] = useState<string | null>(null);
 
   /*
   | NUESTRO VÍDEO DE LA JORNADA (17/10/2026, lo pidió el usuario): ya no se
@@ -1469,40 +1466,63 @@ export function InformeMicroDialog({
     return nombrePartidoPdf({ ...partido, sufijo: `ABP ${esPost ? "post" : "previa"}`, respaldo: informe.titulo }).replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim();
   })();
 
-  const bajaPdfAbp = async () => {
-    try {
-      setBajando("Preparando el PDF…");
+  /*
+  | En segundo plano (08/11/2026, como las de la pizarra de ABP): el clic deja
+  | el encargo con el HTML del informe de ese momento y vuelve; la píldora
+  | enseña el progreso, avisa al terminar y sigue aunque se cierre el diálogo.
+  | Todo es dato (el completo monta su propia caja): sin mesa.
+  */
+  const bajaPdfAbp = () => {
+    const titulo = `Informe de ABP en PDF · ${nombreDescarga}`;
 
-      const hojas = await completoEnHojas(informeHtml(informe), (h, t) => setBajando(`PDF · hoja ${h} de ${t}…`), { titulo: informe.titulo });
+    if (descargaEnMarcha(titulo)) return;
 
-      descarga(await informeUnicoPdf({ titulo: informe.titulo, diapos: [], hojas }), `${nombreDescarga}.pdf`);
-    } catch (error) {
-      toast.error("No se ha podido sacar el PDF", { description: error instanceof Error ? error.message : "" });
-    } finally {
-      setBajando(null);
-    }
+    const cuerpo = informeHtml(informe);
+    const tituloDoc = informe.titulo;
+    const nombre = `${nombreDescarga}.pdf`;
+
+    encargaDescarga({
+      titulo,
+      vuelta: "/abp-microciclo",
+      tarea: async ({ avanza }) => {
+        avanza("Preparando el PDF…");
+
+        const hojas = await completoEnHojas(cuerpo, (h, t) => avanza(`PDF · hoja ${h} de ${t}…`, t ? (h / t) * 0.9 : undefined), { titulo: tituloDoc });
+
+        avanza("Montando el PDF…", 0.95);
+
+        return { blob: await informeUnicoPdf({ titulo: tituloDoc, diapos: [], hojas }), nombre };
+      },
+    });
   };
 
   /* Las láminas y gráficos del informe, una imagen cada uno (sin las páginas de los PDF del rival, que ya son PDF). */
   const laminasAbp = informe.graficos.filter((g) => !g.cid.startsWith("rival-doc-"));
 
-  const bajaLaminasAbp = async () => {
-    try {
-      setBajando("Preparando las láminas…");
+  const bajaLaminasAbp = () => {
+    const titulo = `Láminas de ABP · ${nombreDescarga}`;
 
-      for (const [i, g] of laminasAbp.entries()) {
-        const ext = /^data:image\/jpe?g/.test(g.imagen) ? "jpg" : "png";
+    if (descargaEnMarcha(titulo)) return;
 
-        await descargaDataUrl(g.imagen, `${nombreDescarga} - ${String(i + 1).padStart(2, "0")} ${g.titulo}`.replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim() + `.${ext}`);
+    const laminas = laminasAbp.map((g, i) => ({
+      imagen: g.imagen,
+      nombre: `${nombreDescarga} - ${String(i + 1).padStart(2, "0")} ${g.titulo}`.replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim() + `.${/^data:image\/jpe?g/.test(g.imagen) ? "jpg" : "png"}`,
+    }));
 
-        /* Varias descargas seguidas: un respiro entre una y otra, o el navegador se salta alguna. */
-        await new Promise((r) => window.setTimeout(r, 350));
-      }
-    } catch (error) {
-      toast.error("No se han podido sacar las láminas", { description: error instanceof Error ? error.message : "" });
-    } finally {
-      setBajando(null);
-    }
+    encargaDescarga({
+      titulo,
+      vuelta: "/abp-microciclo",
+      tarea: async ({ avanza }) => {
+        const salida: { blob: Blob; nombre: string }[] = [];
+
+        for (const [i, l] of laminas.entries()) {
+          avanza(`Lámina ${i + 1} de ${laminas.length}…`, i / laminas.length);
+          salida.push({ blob: await (await fetch(l.imagen)).blob(), nombre: l.nombre });
+        }
+
+        return salida;
+      },
+    });
   };
 
   /* El correo tal cual, en una pestaña: en el móvil se amplía con los dedos (en el marco, encogido a 390 px, no se leía). */
@@ -1562,12 +1582,6 @@ export function InformeMicroDialog({
             ) : null}
           </div>
 
-          {bajando ? (
-            <p className="flex min-w-0 items-center gap-1.5 text-[11px] text-white/55" role="status" aria-live="polite">
-              <Loader2 size={12} className="shrink-0 animate-spin" /> {bajando}
-            </p>
-          ) : null}
-
           <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
             {/* En el móvil sobra «Cerrar» (la X de arriba cierra): así caben «Descargar» y «Enviar» en una fila (07/11/2026). */}
             <span className="hidden sm:contents">
@@ -1575,7 +1589,7 @@ export function InformeMicroDialog({
             </span>
 
             <MenuDescargar
-              disabled={Boolean(bajando) || cargandoSeguimiento || cargandoComparativa || cargandoPropio || rivalInforme.cargando || pizarraInforme.cargando}
+              disabled={cargandoSeguimiento || cargandoComparativa || cargandoPropio || rivalInforme.cargando || pizarraInforme.cargando}
               opciones={[
                 { id: "pdf", rotulo: "Informe en PDF", detalle: "El mismo que va en el correo, para guardarlo o pasarlo", icon: BookOpen, onSelect: () => void bajaPdfAbp() },
                 ...(laminasAbp.length

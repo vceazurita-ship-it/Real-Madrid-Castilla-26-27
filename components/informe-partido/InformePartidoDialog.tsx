@@ -59,7 +59,8 @@ import { ROTULO_DOCUMENTO, type TipoDocumentoRival } from "@/lib/rivals/document
 import { capitulosDe, informeHtml, informeTexto, resumenHtml, type Descarga, type ExtrasInforme } from "@/lib/informe-partido/html";
 import { asuntoInforme, queTocaEnElMicro, titularDelPlan, titularEstaSemana, whatsappInforme, type InformePartido, type Momento, type PinceladaAbp } from "@/lib/informe-partido/modelo";
 import { corteDeRed, fuentesIncrustadas, fuentesListas } from "@/lib/export/captura";
-import { capturaLienzos, descarga, descargaDataUrl, esperaFotos, pintado, pdfDeLienzos } from "@/lib/export/lienzos";
+import { capturaLienzos, esperaFotos, pintado, pdfDeLienzos } from "@/lib/export/lienzos";
+import { descargaEnMarcha, encargaDescarga } from "@/lib/trabajos/descargas";
 import { creaPptx } from "@/lib/export/pptx";
 import { barlowCondensed } from "@/lib/rivals/portada-font";
 import { pideVideoPostAbp, type VideoPostAbp } from "@/components/abp/jugadas-del-video";
@@ -162,6 +163,50 @@ const nombreDeArchivo = (base: string, ext: string) => `${base.replace(/[\\/:*?"
 
 /* Lo que se espera al informe de ABP antes de darlo por perdido. */
 const ESPERA_ABP = 120_000;
+
+/* De dónde salen las descargas del informe (para «Ver» en el aviso al terminar). */
+const VUELTA_INFORME = "/microcycles";
+
+/**
+ * Las tres diapositivas a su tamaño, para fotografiarlas. Las pinta el diálogo
+ * fuera de pantalla (se preparan solas) y, para las descargas en segundo plano
+ * (08/11/2026), la «mesa» del gestor de descargas con la foto del informe del
+ * momento del clic: así la descarga sigue aunque se cierre el diálogo.
+ */
+function LaminasDiapositivas({ inf }: { inf: InformePartido }) {
+  const [Uno, Dos, Tres] = DIAPOSITIVAS[inf.momento];
+
+  return (
+    <div className={barlowCondensed.className} style={{ width: DIAPO_W, ["--fuente-informe" as string]: barlowCondensed.style.fontFamily }}>
+      <Uno inf={inf} />
+      <Dos inf={inf} />
+      <Tres inf={inf} />
+    </div>
+  );
+}
+
+/** Las diapositivas en JPEG, fotografiadas dentro de `raiz` (la del diálogo o la mesa de la descarga). */
+async function capturaDiapositivas(dameRaiz: () => HTMLElement | null) {
+  /* `fuentesListas` y no `document.fonts.ready` a pelo (03/11/2026): con
+     una fuente de fuera sin contestar, aquello no se resolvía nunca y el
+     envío se quedaba en «diapositivas…». */
+  await fuentesListas();
+  await pintado();
+  await pintado();
+
+  const raiz = dameRaiz();
+
+  if (!raiz) throw new Error("No se han podido montar las diapositivas.");
+
+  /* Los escudos y las caras, cargados (con tope), y las fuentes incrustadas
+     UNA vez para las tres: sin ellas, cada diapositiva vuelve a leer todas
+     las hojas de estilo de la página (03/11/2026, como la pizarra de ABP). */
+  await esperaFotos(raiz);
+
+  const fontEmbedCSS = await fuentesIncrustadas(raiz, {});
+
+  return capturaLienzos(raiz, "[data-diapositiva-partido]", { ancho: DIAPO_W, alto: DIAPO_H, fondo: "#08111F", nitidez: 1, fontEmbedCSS });
+}
 
 /**
  * El día («YYYY-MM-DD») de un instante, con el reloj de aquí. `creado` va en
@@ -787,27 +832,7 @@ export function InformePartidoDialog({
 
     if (cache.current.diapos?.clave === clave) return cache.current.diapos.imagenes;
 
-    const imagenes = (async () => {
-      /* `fuentesListas` y no `document.fonts.ready` a pelo (03/11/2026): con
-         una fuente de fuera sin contestar, aquello no se resolvía nunca y el
-         envío se quedaba en «diapositivas…». */
-      await fuentesListas();
-      await pintado();
-      await pintado();
-
-      const raiz = lienzos.current;
-
-      if (!raiz) throw new Error("No se han podido montar las diapositivas.");
-
-      /* Los escudos y las caras, cargados (con tope), y las fuentes incrustadas
-         UNA vez para las tres: sin ellas, cada diapositiva vuelve a leer todas
-         las hojas de estilo de la página (03/11/2026, como la pizarra de ABP). */
-      await esperaFotos(raiz);
-
-      const fontEmbedCSS = await fuentesIncrustadas(raiz, {});
-
-      return capturaLienzos(raiz, "[data-diapositiva-partido]", { ancho: DIAPO_W, alto: DIAPO_H, fondo: "#08111F", nitidez: 1, fontEmbedCSS });
-    })();
+    const imagenes = capturaDiapositivas(() => lienzos.current);
 
     cache.current.diapos = { clave, imagenes };
 
@@ -854,8 +879,6 @@ export function InformePartidoDialog({
     return hojas;
   };
 
-  /** El completo suelto en PDF, para el botón «Completo PDF». */
-  const damePdfCompleto = async (alPaso?: (h: number, t: number) => void) => informeUnicoPdf({ titulo: tituloPdf, diapos: [], hojas: await dameHojasCompleto(alPaso) });
 
   /*
   | El vídeo resumen, montado UNA vez por informe (16/10/2026). Antes se
@@ -985,66 +1008,94 @@ export function InformePartidoDialog({
     return { imagenes: indices.map((i) => todas[i]).filter(Boolean), indices };
   };
 
-  const bajaPdf = async () => {
-    try {
-      setTrabajando("Preparando el PDF…");
+  /*
+  | LAS DESCARGAS, EN SEGUNDO PLANO (08/11/2026, como las de ABP): el clic deja
+  | el encargo en `lib/trabajos/descargas.ts` y vuelve; la píldora enseña el
+  | progreso y avisa al terminar, y se puede cerrar el diálogo o cambiar de
+  | pantalla. Si las diapositivas ya están preparadas se usan; si no, se pintan
+  | en la «mesa» del gestor con la foto del informe del momento del clic (no
+  | dependen de que el diálogo siga abierto).
+  */
+  const encargaResumen = (formato: "pdf" | "pptx" | "img") => {
+    if (!informeVisto) return;
 
-      const { imagenes } = await elegidas();
+    const titulo = `${formato === "pdf" ? "Resumen en PDF" : formato === "pptx" ? "Resumen en PowerPoint" : "Resumen en imágenes"} · ${nombreLegible}`;
 
-      descarga(await pdfDe(imagenes), nombreDeArchivo(`${nombreLegible} - Resumen`, "pdf"));
-    } catch (error) {
-      toast.error("No se ha podido exportar", { description: error instanceof Error ? error.message : "" });
-    } finally {
-      setTrabajando(null);
-    }
+    if (descargaEnMarcha(titulo)) return;
+
+    const inf = informeVisto;
+    const indices = indicesDiapos.length ? indicesDiapos : TODAS_DIAPOS;
+    const base = nombreLegible;
+    const rotulos = indices.map(rotuloDiapo);
+    /* Sólo las ya terminadas: las que van por la mitad se fotografían en el diálogo, que puede cerrarse. */
+    const hechas = preparado.diapos === claveDiapos ? cache.current.diapos?.imagenes : undefined;
+
+    encargaDescarga({
+      titulo,
+      vuelta: VUELTA_INFORME,
+      mesa: hechas ? undefined : <LaminasDiapositivas inf={inf} />,
+      ancho: DIAPO_W,
+      tarea: async ({ raiz, avanza }) => {
+        avanza("Dibujando las diapositivas…");
+
+        const todas = await (hechas ?? capturaDiapositivas(() => raiz));
+        const imagenes = indices.map((i) => todas[i]).filter(Boolean);
+
+        if (formato === "pdf") {
+          avanza("Montando el PDF…", 0.8);
+
+          return { blob: await pdfDe(imagenes), nombre: nombreDeArchivo(`${base} - Resumen`, "pdf") };
+        }
+
+        if (formato === "pptx") {
+          avanza("Montando el PowerPoint…", 0.8);
+
+          return { blob: pptDe(imagenes, indices), nombre: nombreDeArchivo(`${base} - Resumen`, "pptx") };
+        }
+
+        /* Las diapositivas como imágenes sueltas (07/11/2026, ronda 14): para pasarlas por WhatsApp o pegarlas en una presentación. */
+        return Promise.all(
+          imagenes.map(async (imagen, k) => ({
+            blob: await (await fetch(imagen)).blob(),
+            nombre: nombreDeArchivo(`${base} - ${(indices[k] ?? k) + 1} ${rotulos[k] ?? rotuloDiapo(k)}`, /^data:image\/png/.test(imagen) ? "png" : "jpg"),
+          })),
+        );
+      },
+    });
   };
 
-  const bajaPptx = async () => {
-    try {
-      setTrabajando("Preparando el PowerPoint…");
+  const bajaPdf = () => encargaResumen("pdf");
 
-      const { imagenes, indices } = await elegidas();
+  const bajaPptx = () => encargaResumen("pptx");
 
-      descarga(pptDe(imagenes, indices), nombreDeArchivo(`${nombreLegible} - Resumen`, "pptx"));
-    } catch (error) {
-      toast.error("No se ha podido exportar", { description: error instanceof Error ? error.message : "" });
-    } finally {
-      setTrabajando(null);
-    }
-  };
+  const bajaImagenes = () => encargaResumen("img");
 
-  /* Las diapositivas como imágenes sueltas (07/11/2026, ronda 14): para pasarlas por WhatsApp o pegarlas en una presentación. */
-  const bajaImagenes = async () => {
-    try {
-      setTrabajando("Preparando las imágenes…");
+  /* El completo: sólo datos (`completoEnHojas` monta su propia caja), sin mesa. */
+  const bajaCompleto = () => {
+    if (!informeVisto) return;
 
-      const { imagenes, indices } = await elegidas();
+    const titulo = `Informe completo en PDF · ${nombreLegible}`;
 
-      for (const [k, imagen] of imagenes.entries()) {
-        const ext = /^data:image\/png/.test(imagen) ? "png" : "jpg";
+    if (descargaEnMarcha(titulo)) return;
 
-        await descargaDataUrl(imagen, nombreDeArchivo(`${nombreLegible} - ${(indices[k] ?? k) + 1} ${rotuloDiapo(indices[k] ?? k)}`, ext));
+    const nombre = nombreDeArchivo(`${nombreLegible} - Informe completo`, "pdf");
+    /* Las hojas de estos capítulos, con el informe del momento del clic: las ya hechas (o en marcha) o unas nuevas. */
+    const hojas = dameHojasCompleto;
+    const tituloDoc = tituloPdf;
 
-        /* El navegador encadena mal varias descargas seguidas: un respiro entre una y otra. */
-        await new Promise((r) => window.setTimeout(r, 350));
-      }
-    } catch (error) {
-      toast.error("No se han podido sacar las imágenes", { description: error instanceof Error ? error.message : "" });
-    } finally {
-      setTrabajando(null);
-    }
-  };
+    encargaDescarga({
+      titulo,
+      vuelta: VUELTA_INFORME,
+      tarea: async ({ avanza }) => {
+        avanza("Preparando el PDF del completo…");
 
-  const bajaCompleto = async () => {
-    try {
-      setTrabajando("Preparando el PDF del completo…");
+        const listas = await hojas((h, t) => avanza(`PDF del completo · hoja ${h} de ${t}…`, t ? (h / t) * 0.9 : undefined));
 
-      descarga(await damePdfCompleto((h, t) => setTrabajando(`PDF del completo · hoja ${h} de ${t}…`)), nombreDeArchivo(`${nombreLegible} - Informe completo`, "pdf"));
-    } catch (error) {
-      toast.error("No se ha podido exportar el completo", { description: error instanceof Error ? error.message : "" });
-    } finally {
-      setTrabajando(null);
-    }
+        avanza("Montando el PDF…", 0.95);
+
+        return { blob: await informeUnicoPdf({ titulo: tituloDoc, diapos: [], hojas: listas }), nombre };
+      },
+    });
   };
 
   /*
@@ -1074,24 +1125,35 @@ export function InformePartidoDialog({
 
   const hayPiezaDePost = useMemo(() => (informeVisto?.momento === "post" ? consignasDePost(informeVisto) !== null : false), [informeVisto]);
 
-  const bajaVideoJugadores = async (vertical = true) => {
-    try {
-      setTrabajando("Vídeo para jugadores…");
+  /* En segundo plano (08/11/2026): el montaje ya iba por `trabajoVideo`; ahora también la descarga, con su píldora y su aviso. */
+  const bajaVideoJugadores = (vertical = true) => {
+    if (!informeVisto) return;
 
-      const v = await trabajoVideo.pide(`Vídeo para jugadores · ${tituloPdf}`, await guionJugadores(), {
-        tope: SEGUNDOS_CONSIGNAS,
-        minimo: vertical ? SEGUNDOS_CONSIGNAS_MINIMOS : undefined,
-        vertical,
-        fuente: barlowCondensed.style.fontFamily,
-        alPaso: (t) => setTrabajando(`Vídeo para jugadores · ${t}`),
-      });
+    const titulo = `Vídeo para jugadores${vertical ? "" : " · 16:9"} · ${nombreLegible}`;
 
-      descarga(v.blob, nombreDeArchivo(`${nombreLegible} - Consignas para jugadores${vertical ? "" : " (16x9)"}`, "mp4"));
-    } catch (error) {
-      toast.error("No se ha podido montar el vídeo", { description: error instanceof Error ? error.message : "" });
-    } finally {
-      setTrabajando(null);
-    }
+    if (descargaEnMarcha(titulo)) return;
+
+    const rotulo = `Vídeo para jugadores · ${tituloPdf}`;
+    const guion = guionJugadores;
+    const nombre = nombreDeArchivo(`${nombreLegible} - Consignas para jugadores${vertical ? "" : " (16x9)"}`, "mp4");
+
+    encargaDescarga({
+      titulo,
+      vuelta: VUELTA_INFORME,
+      tarea: async ({ avanza }) => {
+        avanza("Vídeo para jugadores…");
+
+        const v = await trabajoVideo.pide(rotulo, await guion(), {
+          tope: SEGUNDOS_CONSIGNAS,
+          minimo: vertical ? SEGUNDOS_CONSIGNAS_MINIMOS : undefined,
+          vertical,
+          fuente: barlowCondensed.style.fontFamily,
+          alPaso: (t) => avanza(`Vídeo para jugadores · ${t}`),
+        });
+
+        return { blob: v.blob, nombre };
+      },
+    });
   };
 
   /*
@@ -2538,12 +2600,9 @@ export function InformePartidoDialog({
         <div
           ref={lienzos}
           aria-hidden
-          className={barlowCondensed.className}
-          style={{ position: "fixed", left: -30000, top: 0, width: DIAPO_W, pointerEvents: "none", ["--fuente-informe" as string]: barlowCondensed.style.fontFamily }}
+          style={{ position: "fixed", left: -30000, top: 0, width: DIAPO_W, pointerEvents: "none" }}
         >
-          <Uno inf={informeVisto} />
-          <Dos inf={informeVisto} />
-          <Tres inf={informeVisto} />
+          <LaminasDiapositivas inf={informeVisto} />
         </div>
       )}
     </Dialog>
