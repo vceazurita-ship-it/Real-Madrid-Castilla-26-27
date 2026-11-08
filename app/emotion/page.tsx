@@ -455,9 +455,10 @@ export default function EmotionPage() {
                     <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-white/45" data-export-hide>
                       {editadosAqui > 0 && (
                         <span>
+                          {/* 08/11/2026: en lenguaje de entrenador, no de base de datos. */}
                           {editadosAqui === 1
-                            ? "1 valoración editada aquí: manda sobre la hoja."
-                            : `${editadosAqui} valoraciones editadas aquí: mandan sobre la hoja.`}
+                            ? "1 valoración cambiada en esta pantalla: se ve la tuya, no la de la hoja."
+                            : `${editadosAqui} valoraciones cambiadas en esta pantalla: se ven las tuyas, no las de la hoja.`}
                         </span>
                       )}
                       <SaveState status={estadoDoc} localOnly={localOnly} savedAt={lastSavedAt} sinGuardar={sinGuardar} onGuardar={() => void guardaYa()} />
@@ -613,6 +614,12 @@ export default function EmotionPage() {
               className="scroll-mt-24 rounded-[34px] border border-white/10 bg-[#08131F]/60 p-4 sm:p-5 lg:p-6 [:root[data-theme=light]_&]:border-slate-300 [:root[data-theme=light]_&]:bg-white/80"
             >
               {/* Sin imagen de campo detrás (26/10/2026): ensuciaba los radares y los chips. */}
+              {/* 08/11/2026 (jueces): las seis líneas se solapan a propósito (petición
+                  del analista); se dice aquí para que no parezca un error. */}
+              <p className="mb-3 text-xs leading-relaxed text-white/55">
+                Seis lecturas del mismo once: un jugador puede contar en dos líneas (un lateral está en su perfil y en la
+                defensa), así que cada media se lee por separado y no se suman entre sí. Con uno o dos evaluados, la media es tendencia.
+              </p>
               <div className="space-y-4">
                 {lineasConJugadores.has("leftSide") && (
                   <RadarPanel

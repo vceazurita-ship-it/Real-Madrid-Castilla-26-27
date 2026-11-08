@@ -111,17 +111,24 @@ const AXIS = { fill: "#94A3B8", fontSize: 11 };
 const SEASON_START_MONTH = 6; // julio (0-index)
 const SEASON_START_DAY = 8;
 
+/*
+| 08/11/2026 (jueces): las semanas van de LUNES a domingo, como el microciclo.
+| El 8 de julio de 2026 cae en miércoles: las semanas salían de miércoles a
+| martes y el «día 6 de 7» no cuadraba. Se arranca en el lunes de esa semana.
+*/
+function lunesDeTemporada(año: number) {
+  const d = new Date(año, SEASON_START_MONTH, SEASON_START_DAY);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return d;
+}
+
 function getSeasonWeek(fecha: string) {
   const d = new Date(fecha);
 
   const seasonStartYear =
     d.getMonth() >= SEASON_START_MONTH ? d.getFullYear() : d.getFullYear() - 1;
 
-  const seasonStart = new Date(
-    seasonStartYear,
-    SEASON_START_MONTH,
-    SEASON_START_DAY
-  );
+  const seasonStart = lunesDeTemporada(seasonStartYear);
 
   const diffDays = Math.floor(
     (d.getTime() - seasonStart.getTime()) / 86400000
@@ -130,22 +137,23 @@ function getSeasonWeek(fecha: string) {
   return Math.floor(diffDays / 7) + 1;
 }
 
-/** «8 jul»: el primer día de la semana de temporada `week`; la fecha de un registro da el año. */
+/** «lun 2 – dom 8 nov»: la semana de temporada `week`; la fecha de un registro da el año. */
 function inicioDeSemana(week: number, referencia: string) {
   const d = new Date(referencia);
 
   const año =
     d.getMonth() >= SEASON_START_MONTH ? d.getFullYear() : d.getFullYear() - 1;
 
-  const inicio = new Date(
-    año,
-    SEASON_START_MONTH,
-    SEASON_START_DAY + (week - 1) * 7
-  );
+  const inicio = lunesDeTemporada(año);
+  inicio.setDate(inicio.getDate() + (week - 1) * 7);
+  const fin = new Date(inicio);
+  fin.setDate(fin.getDate() + 6);
 
-  return inicio
-    .toLocaleDateString("es-ES", { day: "numeric", month: "short" })
-    .replace(".", "");
+  const mes = (x: Date) => x.toLocaleDateString("es-ES", { month: "short" }).replace(".", "");
+
+  return inicio.getMonth() === fin.getMonth()
+    ? `lun ${inicio.getDate()} – dom ${fin.getDate()} ${mes(fin)}`
+    : `lun ${inicio.getDate()} ${mes(inicio)} – dom ${fin.getDate()} ${mes(fin)}`;
 }
 
 const norm = (v?: string) =>
@@ -724,16 +732,19 @@ export default function DashboardSeguimiento() {
     return out;
   }, [filteredTracking, totalSessions]);
 
-  const weeklyMean = weeklyData.length
-    ? +(
-        weeklyData.reduce((a, b) => a + b.value, 0) / weeklyData.length
-      ).toFixed(1)
-    : 0;
-
   /* 30/10/2026: qué día de la semana es hoy (1 = lunes), para no comparar
      una semana a medias con una entera. */
   const diaDeSemana = ((hoy.getDay() + 6) % 7) + 1;
   const semanaDeHoy = `S${getSeasonWeek(hoy.toISOString())}`;
+
+  /* 08/11/2026 (jueces): la media sólo con semanas completas; la que va en
+     curso se pinta, pero no entra en la media. */
+  const semanasCerradas = weeklyData.filter((w) => !(w.week === semanaDeHoy && diaDeSemana < 7));
+  const weeklyMean = semanasCerradas.length
+    ? +(
+        semanasCerradas.reduce((a, b) => a + b.value, 0) / semanasCerradas.length
+      ).toFixed(1)
+    : 0;
 
   const weeklyDelta = useMemo(() => {
     if (weeklyData.length < 3) return null;
@@ -1297,9 +1308,13 @@ export default function DashboardSeguimiento() {
 
                 <StatCard
                   icon={CalendarDays}
-                  title={totalWeeks === 1 ? "Esta semana" : "Media semanal"}
-                  value={cm(averageWeek)}
-                  hint={totalWeeks === 1 ? "1 semana activa" : `${totalWeeks} semanas activas`}
+                  title={semanasCerradas.length >= 1 && weeklyData.length > 1 ? "Media semanal" : "Esta semana"}
+                  value={cm(semanasCerradas.length >= 1 && weeklyData.length > 1 ? weeklyMean : averageWeek)}
+                  hint={
+                    semanasCerradas.length >= 1 && weeklyData.length > 1
+                      ? `media de ${semanasCerradas.length} ${semanasCerradas.length === 1 ? "semana completa" : "semanas completas"} (lunes a domingo)${semanasCerradas.length < weeklyData.length ? `; la actual va aparte, día ${diaDeSemana} de 7` : ""}`
+                      : totalWeeks === 1 ? "1 semana activa" : `${totalWeeks} semanas activas`
+                  }
                   accent="#4C7A67"
                   delta={weeklyDelta ?? undefined}
                 />
@@ -1422,7 +1437,7 @@ export default function DashboardSeguimiento() {
                     subtitle={
                       weeklyData.length < 3
                         ? "Seguimientos por semana"
-                        : `Media de ${cm(weeklyMean)} seguimientos por semana (raya)${
+                        : `Media de ${cm(weeklyMean)} seguimientos por semana completa (raya), de lunes a domingo${
                             weeklyData[weeklyData.length - 1]?.week === semanaDeHoy && diaDeSemana < 7
                               ? ` · la última va en curso, día ${diaDeSemana} de 7`
                               : ""
@@ -1442,7 +1457,7 @@ export default function DashboardSeguimiento() {
                             <div key={w.week}>
                               <div className="mb-1 flex items-baseline justify-between gap-3 text-sm">
                                 <span className="text-white/75">
-                                  Semana del {w.desde}
+                                  Semana {w.desde}
                                   {enCurso ? ` · en curso, día ${diaDeSemana} de 7` : ""}
                                 </span>
                                 <span className="tabular-nums font-semibold text-[#C8A96B]">{w.value}</span>
@@ -1486,7 +1501,10 @@ export default function DashboardSeguimiento() {
                             const fila = weeklyData.find((x) => x.week === w);
                             const enCurso = w === semanaDeHoy && diaDeSemana < 7;
 
-                            return fila ? `${w} · ${fila.desde}${enCurso ? " (en curso)" : ""}` : w;
+                            /* «lun 2 – dom 8 nov» no cabe en el eje: se queda el lunes y el mes. */
+                            const lunes = fila ? fila.desde.split(" – ")[0] : "";
+                            const mes = fila ? fila.desde.split(" ").slice(-1)[0] : "";
+                            return fila ? `${/\d+ \p{L}+$/u.test(lunes) ? lunes : `${lunes} ${mes}`}${enCurso ? " (en curso)" : ""}` : w;
                           }}
                         />
 

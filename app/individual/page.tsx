@@ -65,7 +65,7 @@ import { useRatingsSeason } from "@/hooks/useRatings";
 import { AreaMejora } from "@/components/individual/AreaMejora";
 import { Tendencia } from "@/components/individual/Tendencia";
 import { playerEntries } from "@/lib/ratings/compute";
-import { getPlayerImage, PLAYER_PHOTO_FALLBACK } from "@/lib/playerImages";
+import { getPlayerImage, normalizePlayerName, PLAYER_PHOTO_FALLBACK } from "@/lib/playerImages";
 import { isHiddenPlayer } from "@/lib/hiddenPlayers";
 import { cohorteCastilla, esDelCastilla, idVigente, mismoJugador } from "@/lib/fichajes";
 import { alineaSeguimiento, DIAS_SIN_SEGUIMIENTO, sinSeguimientoReciente } from "@/lib/seguimiento";
@@ -1670,7 +1670,13 @@ function PlayerCard({
               background: "rgba(0,0,0,0.78)",
             }}
           >
-            {coma(player.score)} · {valoradas.length}/{METRICS.length}
+            {/* 08/11/2026: «7,6 · 5/5» no decía qué era el 5/5. Se rotula
+                «scout» y el número de competencias sólo sale si faltan. */}
+            <span className="font-normal opacity-80">scout </span>
+            {coma(player.score)}
+            {valoradas.length < METRICS.length && (
+              <span className="font-normal opacity-80"> · {valoradas.length} de {METRICS.length} competencias</span>
+            )}
             {pocas && <span className="font-normal opacity-80"> · tendencia</span>}
           </span>
         ) : null /* 05/11/2026: sin ficha no se rotula (lo que no tiene dato no se nombra). */}
@@ -1729,7 +1735,7 @@ function FilaListaJugador({ player, onSelect }: { player: MergedPlayer; onSelect
       {player.score > 0 && (
         <span className="shrink-0 text-right tabular-nums" title={detalle}>
           <span className="block text-base font-bold" style={{ color: scoreColor(player.score) }}>{coma(player.score)}</span>
-          <span className="block text-[10px] text-white/45">{valoradas.length}/{METRICS.length}{pocas ? " · tendencia" : ""}</span>
+          <span className="block text-[10px] text-white/45">{valoradas.length < METRICS.length ? `scout · ${valoradas.length} de ${METRICS.length}` : "scout"}{pocas ? " · tendencia" : ""}</span>
         </span>
       )}
     </button>
@@ -1750,8 +1756,18 @@ function PieFicha({ player }: { player: MergedPlayer }) {
           {diasSinSeguir !== null ? `Sin seguir · ${diasSinSeguir} días` : "Sin seguimiento"}
         </span>
       )}
+      {/* 08/11/2026: los porteros no entran en el aviso (llevan su propia
+          planificación), pero su fila no puede quedarse sin señal. */}
+      {!sinSeguir && player.sessions === 0 && (
+        <span
+          className="rounded-full border border-white/15 px-1.5 py-0.5 text-[11px] text-white/60"
+          title={/portero/i.test(player.linea) ? "Los porteros llevan su seguimiento con su entrenador, fuera de esta hoja" : "Sin registros de seguimiento en la temporada"}
+        >
+          {/portero/i.test(player.linea) ? "Seguimiento del entrenador de porteros" : "Sin seguimiento"}
+        </span>
+      )}
       {/* Rotulado y con su fecha (05/11/2026): «21» solo junto a una carpeta no decía qué contaba. */}
-      {player.sessions !== null && (player.sessions > 0 || !sinSeguir) && (
+      {player.sessions !== null && player.sessions > 0 && (
         <span
           className="flex min-w-0 items-center gap-1 whitespace-nowrap text-[11px] tabular-nums text-white/65"
           title={`${player.sessions} seguimientos en la temporada`}
@@ -2078,8 +2094,22 @@ export default function IndividualPage() {
       .filter((fila) => fila.ID_JUGADOR && fila.NOMBRE)
       .map((fila) => ({ id: fila.ID_JUGADOR, nombre: fila.NOMBRE }));
 
+    /* 08/11/2026: el ID de la lista de esta pantalla está escrito a mano y
+       la hoja da de alta después con otro (Hugo de Llanos entró por el
+       puente como JUG-55): sin esto, sus registros quedaban con el ID de la
+       hoja y la ficha decía «Sin seguimiento» mientras /calendar le daba su
+       último registro. Se traduce el ID de la hoja al de la lista por
+       NOMBRE, la misma regla que /calendar. */
+    /* Sólo los registros que traen NOMBRE: uno sin nombre con un ID que la
+       hoja ha dado a otro puede ser de quien lo tuvo antes. */
+    const porNombreLista = new Map<string, string>(
+      players.map((p) => [normalizePlayerName(p.name), p.idJugador]),
+    );
+
     return alineaSeguimiento(trackingData, plantilla).map((fila) => {
-      const id = idVigente(fila.ID_JUGADOR);
+      const vigente = idVigente(fila.ID_JUGADOR);
+      const porNombre = fila.NOMBRE ? porNombreLista.get(normalizePlayerName(fila.NOMBRE)) : undefined;
+      const id = porNombre ?? vigente;
 
       return id === fila.ID_JUGADOR ? fila : { ...fila, ID_JUGADOR: id };
     });
@@ -2087,8 +2117,18 @@ export default function IndividualPage() {
 
   const mergedPlayers = useMemo<MergedPlayer[]>(() => {
     return players.map((p) => {
+      /* El ID de esta lista está escrito a mano y la hoja renumera: si la
+         hoja ya tiene al jugador con otro ID (Hugo de Llanos entró por el
+         puente como JUG-55 y la hoja lo dio de alta después), se cruza por
+         NOMBRE (los seguimientos ya vienen traducidos en `trackingAlineado`). */
+      const filaPorNombre = sheetData.find(
+        (r) => r.NOMBRE && normalizePlayerName(r.NOMBRE) === normalizePlayerName(p.name),
+      );
+
       const row =
-        sheetData.find((r) => idVigente(r.ID_JUGADOR) === p.idJugador) || {};
+        sheetData.find((r) => idVigente(r.ID_JUGADOR) === p.idJugador) ||
+        filaPorNombre ||
+        {};
 
       const sessions = trackingAlineado.filter(
         (t) => t.ID_JUGADOR === p.idJugador,
@@ -3393,21 +3433,29 @@ export default function IndividualPage() {
                   role="status"
                   className="mt-6 rounded-xl border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-4 py-3 text-sm text-white/80"
                 >
-                  <span className="font-semibold text-[#C8A96B]">
-                    A quién toca seguir: {sinSeguimiento.length} del Castilla sin seguimiento en {DIAS_SIN_SEGUIMIENTO} días (jugadores de campo, sin contar porteros):
-                  </span>{" "}
-                  {sinSeguimiento.map((j, i) => (
-                    <span key={j.id}>
-                      <button
-                        type="button"
-                        onClick={() => openPlayer(j.jugador)}
-                        className="underline decoration-white/25 underline-offset-2 hover:text-[#C8A96B]"
-                      >
-                        {j.nombre}
-                      </button>
-                      {i < sinSeguimiento.length - 1 ? ", " : "."}
-                    </span>
-                  ))}
+                  <p className="font-semibold text-[#C8A96B]">
+                    A quién toca seguir: {sinSeguimiento.length} del Castilla sin seguimiento en {DIAS_SIN_SEGUIMIENTO} días
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-white/55">Jugadores de campo con licencia del Castilla; los porteros llevan su seguimiento aparte. Cada uno abre su ficha.</p>
+                  {/* 08/11/2026: en chips con sus días, para leerlo de un vistazo en el móvil. */}
+                  <div className="mt-2 flex min-w-0 flex-wrap gap-1.5">
+                    {[...sinSeguimiento]
+                      .map((j) => ({ ...j, dias: diasDesdeSeguimiento(j.jugador) }))
+                      .sort((a, b) => (b.dias ?? 9999) - (a.dias ?? 9999))
+                      .map((j) => (
+                        <button
+                          key={j.id}
+                          type="button"
+                          onClick={() => openPlayer(j.jugador)}
+                          className="inline-flex min-w-0 items-center gap-1.5 rounded-full border border-[#C8A96B]/40 bg-white/[0.04] px-2.5 py-1 text-xs transition hover:border-[#C8A96B]"
+                        >
+                          <span className="truncate font-semibold">{j.nombre}</span>
+                          <span className="shrink-0 tabular-nums text-white/60">
+                            {j.dias !== null ? `${j.dias} días` : "ningún registro"}
+                          </span>
+                        </button>
+                      ))}
+                  </div>
                 </div>
               )}
 
@@ -3449,7 +3497,7 @@ export default function IndividualPage() {
                     icon={Gauge}
                     label="Media competencias"
                     value={stats.avg.toFixed(1).replace(".", ",")}
-                    hint={`de ${stats.rated} con ficha de scout${stats.todos ? ` (${stats.ratedCastilla} del Castilla)` : base.de} · sobre 10, más es mejor · de ${coma(stats.minScore)} a ${coma(stats.maxScore)} · no es la nota de partido`}
+                    hint={`nota del scout, no la de partido (ésa está en Valoraciones) · de ${stats.rated} con ficha${stats.todos ? ` (${stats.ratedCastilla} del Castilla)` : base.de} · sobre 10 · de ${coma(stats.minScore)} a ${coma(stats.maxScore)} · cada ficha media sus 5 competencias; si faltan, se dice`}
                   >
                     {/* La leyenda del distintivo de las fichas, dentro de su tarjeta (07/11/2026). */}
                     <p className="mt-2 flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-white/55">

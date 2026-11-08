@@ -318,14 +318,20 @@ export default function ComparativaCategoria() {
 
   /* Lectura de dos o tres frases que se calcula sola con lo que hay en la tabla. */
   const lectura = useMemo(() => {
-    const frases: { titulo: string; texto: string; tono: "bien" | "mal" | "ojo" }[] = [];
+    const frases: { titulo: string; texto: string; tono: "bien" | "mal" | "ojo" | "tendencia"; abre?: string[] }[] = [];
     /* La lectura sólo nombra a quien está en nuestra plantilla. */
     const propios = comparables.filter((x) => x.ficha);
     const nombre = (x: (typeof comparables)[number]) => x.ficha?.nombre || x.f.jugador.jugador;
 
     const primeros = propios.filter((x) => x.f.ranking?.posicion === 1 && x.f.ranking.de > 1);
     if (primeros.length)
-      frases.push({ titulo: "Los mejores de su puesto", texto: `${primeros.map(nombre).join(", ")}: primeros de su puesto en la referencia elegida.`, tono: "bien" });
+      frases.push({
+        titulo: "Los mejores de su puesto",
+        /* 08/11/2026: cada uno con contra cuántos se compara. */
+        texto: `${primeros.map((x) => `${nombre(x)} (1º de ${x.f.ranking?.de}${(x.f.ranking?.de ?? 0) < GRUPO_CORTO ? " · tendencia" : ""})`).join(", ")}: primeros de su puesto en la referencia elegida.`,
+        tono: "bien",
+        abre: primeros.map((x) => x.f.jugador.jugador),
+      });
 
     const baja = propios
       .filter((x) => x.f.evolucion?.fiable && x.f.evolucion.salto < -ESTABLE)
@@ -347,12 +353,20 @@ export default function ComparativaCategoria() {
       const peor = porPercentil[0];
       const mejor = porPercentil[porPercentil.length - 1];
       const puesto = PUESTOS.find((p) => p.key === d.f.puesto)?.label.toLowerCase() ?? "su puesto";
-      const p = (x: { percentil: number }) => `p${Math.round(x.percentil)}`;
+      /* 08/11/2026: «p98» era jerga; se escribe entero. */
+      const p = (x: { percentil: number }) => `percentil ${Math.round(x.percentil)}: supera al ${Math.round(x.percentil)} % de los ${puesto} comparados`;
+      const corto = (d.f.ranking?.de ?? 0) < GRUPO_CORTO;
       const base = `${d.nota.avg.toFixed(1).replace(".", ",")} de nota (${d.nota.played} partidos) y ${d.f.indice} de índice${d.f.ranking ? ` (${textoRanking(d.f.ranking)})` : ""}`;
       const texto = notaAlta
-        ? `${base}. Le baja el índice ${peor ? `${peor.metrica.nombre.toLowerCase()} (${p(peor)} entre los ${puesto})` : "su perfil en Wyscout"}. Qué hacemos: ver con él 3 acciones de ${peor ? peor.metrica.nombre.toLowerCase() : "esa fase"} y decidir si es carencia (meta para la semana) o el rol que le damos (se apunta en su seguimiento).`
-        : `${base}. Su índice se sostiene en ${mejor ? `${mejor.metrica.nombre.toLowerCase()} (${p(mejor)} entre los ${puesto})` : "sus números de Wyscout"}. Qué hacemos: contrastar en vídeo si eso es lo que le pedimos en su puesto; si no, fijar con él una acción sobre ${peor && peor !== mejor ? `${peor.metrica.nombre.toLowerCase()} (${p(peor)}), su punto más bajo` : "lo que le pedimos"}.`;
-      frases.push({ titulo: `Nota y números no coinciden: ${nombre(d)}`, tono: "ojo", texto });
+        ? `${base}. Le baja el índice ${peor ? `${peor.metrica.nombre.toLowerCase()} (${p(peor)})` : "su perfil en Wyscout"}. Qué hacemos: ver con él 3 acciones de ${peor ? peor.metrica.nombre.toLowerCase() : "esa fase"} y decidir si es carencia (meta para la semana) o el rol que le damos (se apunta en su seguimiento).`
+        : `${base}. Su índice se sostiene en ${mejor ? `${mejor.metrica.nombre.toLowerCase()} (${p(mejor)})` : "sus números de Wyscout"}. Qué hacemos: contrastar en vídeo si eso es lo que le pedimos en su puesto; si no, fijar con él una acción sobre ${peor && peor !== mejor ? `${peor.metrica.nombre.toLowerCase()} (percentil ${Math.round(peor.percentil)}), su punto más bajo; objetivo: acercarlo al percentil 50, la mediana del puesto` : "lo que le pedimos"}.`;
+      /* 08/11/2026 (jueces): con un grupo corto (8 porteros) no es alerta, es tendencia en gris. */
+      frases.push({
+        titulo: corto ? `Tendencia, ${d.f.ranking?.de} ${puesto}: ${nombre(d)}` : `Nota y números no coinciden: ${nombre(d)}`,
+        tono: corto ? "tendencia" : "ojo",
+        texto,
+        abre: [d.f.jugador.jugador],
+      });
     }
 
     return frases;
@@ -524,9 +538,18 @@ export default function ComparativaCategoria() {
                     {lectura.length > 0 && (
                       <div className="mt-5 grid gap-3 md:grid-cols-3">
                         {lectura.map((l) => (
-                          <div key={l.titulo} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4" style={{ borderTop: `3px solid ${l.tono === "bien" ? "#1B9E77" : l.tono === "mal" ? "#D95F02" : "#C8A96B"}` }}>
-                            <p className="text-sm font-semibold text-white">{l.titulo}</p>
+                          <div key={l.titulo} className={`rounded-2xl border border-white/10 bg-white/[0.03] p-4 ${l.tono === "tendencia" ? "opacity-80" : ""}`} style={{ borderTop: `3px solid ${l.tono === "bien" ? "#1B9E77" : l.tono === "mal" ? "#D95F02" : l.tono === "tendencia" ? tinta(0.3) : "#C8A96B"}` }}>
+                            <p className={`text-sm font-semibold ${l.tono === "tendencia" ? "text-white/70" : "text-white"}`}>{l.titulo}</p>
                             <p className="mt-1 text-[13px] leading-relaxed text-white/75">{l.texto}</p>
+                            {l.abre && l.abre.length > 0 && (
+                              <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                                {l.abre.map((j) => (
+                                  <button key={j} type="button" onClick={() => abreFicha(j)} className="font-semibold text-[#C8A96B] underline-offset-2 hover:underline">
+                                    Ficha de {nombreVisible(conFicha.find((x) => x.f.jugador.jugador === j)?.ficha?.nombre || j)} →
+                                  </button>
+                                ))}
+                              </p>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -625,7 +648,7 @@ export default function ComparativaCategoria() {
                                 title={f.ranking?.fueraDeEdad ? "Pasa de la edad del grupo: se le coloca entre ellos contando como uno más" : undefined}
                               >
                                 {f.ranking ? textoRanking(f.ranking) : ""}
-                                {f.ranking?.fueraDeEdad && <span className="text-white/45"> · +{ref === "u21" ? 21 : 23}</span>}
+                                {f.ranking?.fueraDeEdad && <span className="block text-[10px] text-white/45">mayor de {ref === "u21" ? 21 : 23}, contado como uno más</span>}
                               </td>
                               <td className="hidden sm:table-cell px-2 text-xs">
                                 {f.evolucion ? (
@@ -681,7 +704,7 @@ export default function ComparativaCategoria() {
 
                     {ref !== "todos" && comparables.some((x) => x.f.ranking?.fueraDeEdad) && (
                       <p className="mt-3 text-xs text-white/55">
-                        «+{ref === "u21" ? 21 : 23}»: pasa de la edad del grupo y se le coloca entre ellos contando como uno
+                        «Mayor de {ref === "u21" ? 21 : 23}»: pasa de la edad del grupo y se le coloca entre ellos contando como uno
                         más; por eso su «de N» lleva uno más que el de un compañero del mismo puesto que sí entra.
                       </p>
                     )}
