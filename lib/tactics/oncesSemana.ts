@@ -24,6 +24,7 @@ import { formations } from "@/lib/formations";
 import { traeJson } from "@/lib/hojaCsv";
 import { findInforme, type InformeDoc } from "@/lib/rivals/informe";
 import { slugClave } from "@/lib/rivals/media";
+import { bajaDe, estaFuera } from "@/lib/rivals/bajas";
 import { mismoClub } from "@/lib/rivals/mismoClub";
 import { normalizarOnce, playerKey, rivalOnceKey } from "@/lib/rivals/once";
 import type { RatingsSeason } from "@/lib/ratings/types";
@@ -188,6 +189,7 @@ export async function suOnceTeorico(rival: string) {
       foto: foto && foto !== "." ? foto : undefined,
       posicion: texto(f["POSICIÓN"]) || texto(f["2º POSICIÓN"]),
       sitio: sitioDe(texto(f["POSICIÓN"]), null),
+      fuera: estaFuera(f),
     };
   });
 
@@ -217,7 +219,7 @@ export async function suOnceTeorico(rival: string) {
   if (Object.keys(aMano).length) fuente = `${fuente}, con lo cambiado en Duelos`;
 
   const huecos = proponeOnce(
-    jugadores.map((j) => ({ id: j.clave, sitio: j.sitio, minutos: enBase.has(j.clave) ? 10_000 : 0 })),
+    jugadores.map((j) => ({ id: j.clave, sitio: j.sitio, minutos: j.fuera ? -10_000 : enBase.has(j.clave) ? 10_000 : 0 })),
     aMano,
   );
 
@@ -349,9 +351,13 @@ export async function fichasDeSuOnceMarcado(rival: string): Promise<Set<string> 
   const hoja = (Array.isArray(filas) ? filas : []).filter((f) => mismoClub(texto(f.NOMBRE_EQUIPO), rival));
   const equipo = texto(hoja[0]?.NOMBRE_EQUIPO) || rival;
   const [onceDoc, duelosDoc] = await Promise.all([leeDoc<unknown>(rivalOnceKey(equipo)), leeDoc<unknown>(`duelos:${slugClave(equipo)}`)]);
-  const marcados = normalizarOnce(onceDoc).titulares;
+  const marcadosTodos = normalizarOnce(onceDoc).titulares;
 
-  if (marcados.length < 7) return null;
+  if (marcadosTodos.length < 7) return null;
+
+  /* Los de baja no cuentan: el motor los deja fuera y el aviso no se iría nunca (08/11/2026). */
+  const deBaja = new Set(hoja.filter(estaFuera).map((f) => playerKey(f as never)));
+  const marcados = marcadosTodos.filter((k) => !deBaja.has(k));
 
   const aMano = Object.values(normalizaDuelos(duelosDoc).suyo).filter((c) => c && c !== "∅");
   const porClave = new Map(hoja.map((f) => [playerKey(f as never), f]));
@@ -364,6 +370,72 @@ export async function fichasDeSuOnceMarcado(rival: string): Promise<Set<string> 
   }
 
   return ids;
+}
+
+/**
+ * Los rivales de baja, por id de ficha del tablero (08/11/2026, fútbol): la
+ * pizarra avisa si alguno sigue colocado. Lesionado, sancionado o tocado
+ * (duda), según el estado de la hoja o las etiquetas de su ficha.
+ */
+export async function bajasDelRival(rival: string): Promise<Map<string, { nombre: string; baja: string }>> {
+  const filas = await traeJson<Fila[]>("/api/rivals?action=rivalesPlantillas").catch(() => [] as Fila[]);
+  const hoja = (Array.isArray(filas) ? filas : []).filter((f) => mismoClub(texto(f.NOMBRE_EQUIPO), rival));
+  const equipo = texto(hoja[0]?.NOMBRE_EQUIPO) || rival;
+  const salida = new Map<string, { nombre: string; baja: string }>();
+
+  for (const f of hoja) {
+    const baja = bajaDe(f);
+    const nombre = texto(f["NOMBRE DEPORTIVO"]) || texto(f.JUGADOR);
+
+    if (baja) salida.set(rivalTokenId(texto(f.ID_JUGADOR) || `${equipo}-${nombre}`), { nombre, baja });
+  }
+
+  return salida;
+}
+
+/*
+| ¿TABLERO SIN TOCAR? (08/11/2026)
+|
+| Los jueces vieron el tablero con el once viejo del rival (Yago Cantero,
+| lesionado) y un aviso «Actualizar» que nadie pulsaba. Si nadie ha tocado el
+| tablero desde que se rellenó, se actualiza solo. Para saberlo, la escena del
+| relleno lleva en su id la huella de sus fichas: si la huella sigue siendo la
+| misma, nadie ha movido, cambiado ni dibujado nada.
+*/
+export function huellaFichas(tokens: TacticToken[]): string {
+  const cadena = [...tokens]
+    .map((t) => `${t.id}:${t.label}:${t.nombre ?? ""}:${Math.round(t.x * 10)}:${Math.round(t.y * 10)}`)
+    .sort()
+    .join("|");
+  let h = 5381;
+
+  for (let i = 0; i < cadena.length; i++) h = ((h * 33) ^ cadena.charCodeAt(i)) >>> 0;
+
+  return h.toString(36);
+}
+
+export const idEscenaOnces = (tokens: TacticToken[]) => `onces-auto-${huellaFichas(tokens)}`;
+
+export function tableroSinTocar(escenas: { id: string; tokens: TacticToken[]; shapes: unknown[] }[]): boolean {
+  if (escenas.length !== 1) return false;
+
+  const [escena] = escenas;
+
+  if (escena.shapes.length > 0) return false;
+
+  if (escena.id.startsWith("onces-auto-")) return escena.id === idEscenaOnces(escena.tokens);
+
+  /* Rellenado antes del 08/11/2026 (sin huella): sin tocar si cada ficha sigue en el sitio de su hueco. */
+  const sitios = Object.keys(FICHA_DEL_HUECO).map(sitioDelHueco);
+  const enSuSitio = (t: TacticToken) =>
+    sitios.some((s) => {
+      const x = t.kind === "away" ? 100 - s.x : s.x;
+      const y = t.kind === "away" ? PITCH_HEIGHT - s.y : s.y;
+
+      return Math.abs(t.x - x) < 0.01 && Math.abs(t.y - y) < 0.01;
+    });
+
+  return escena.tokens.length > 0 && escena.tokens.every(enSuSitio);
 }
 
 /** La vía anterior, sólo si Wyscout o las plantillas no contestan. */

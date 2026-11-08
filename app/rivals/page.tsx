@@ -109,6 +109,8 @@ import { conTildes } from "@/lib/rivals/tildes";
 import { fraseDeDano, nombrePropio } from "@/lib/rivals/dano";
 import { useRivalPerfiles } from "@/hooks/useRivalPerfiles";
 import VistazoRival from "@/components/rivals/VistazoRival";
+import { bajaDe } from "@/lib/rivals/bajas";
+import { LINE_DEFINITIONS, type LineKey } from "@/lib/rivals/lineas-puesto";
 import { ParaLaSemana } from "@/components/rivals/ParaLaSemana";
 import ResumenesRival from "@/components/rivals/ResumenesRival";
 import PerfilWyscoutCard from "@/components/rivals/PerfilWyscoutCard";
@@ -453,195 +455,7 @@ function leerEnlaceDirecto() {
 | por líneas, el color del badge y el campograma.
 */
 
-type LineKey = "portero" | "defensa" | "medio" | "ataque";
-
-/*
-| Cada línea se parte en "slots": la posición canónica con su código corto
-| (POR, LD, DFC…). El orden de los slots manda en la aparición de los
-| subgrupos dentro de la línea; para clasificar un texto libre no vale ese
-| orden, sino el patrón más largo que encaje (ver getSlot).
-*/
-
-type PositionSlot = {
-  key: string;
-  code: string;
-  label: string;
-  match: string[];
-};
-
-const LINE_DEFINITIONS: {
-  key: LineKey;
-  title: string;
-  slots: PositionSlot[];
-  color: string;
-}[] = [
-  {
-    key: "portero",
-    title: "PORTEROS",
-    color: "#D4A017",
-    slots: [
-      {
-        key: "por",
-        code: "POR",
-        label: "Portero",
-        match: ["portero", "arquero", "guardameta", "guardavallas"],
-      },
-    ],
-  },
-  {
-    key: "defensa",
-    title: "DEFENSAS",
-    color: "#7DA6D9",
-    slots: [
-      {
-        key: "ld",
-        code: "LD",
-        label: "Lateral derecho",
-        match: [
-          "lateral derecho",
-          "lateral der",
-          "lateral d",
-          "defensa derecho",
-          "carrilero derecho",
-          "carrilero der",
-        ],
-      },
-      {
-        key: "dfc",
-        code: "DFC",
-        label: "Central",
-        match: ["central", "zaguero", "defensa central", "libero"],
-      },
-      {
-        key: "li",
-        code: "LI",
-        label: "Lateral izquierdo",
-        match: [
-          "lateral izquierdo",
-          "lateral izq",
-          "lateral i",
-          "defensa izquierdo",
-          "carrilero izquierdo",
-          "carrilero izq",
-        ],
-      },
-      {
-        key: "car",
-        code: "CAR",
-        label: "Carrilero",
-        match: ["carrilero"],
-      },
-      {
-        key: "def",
-        code: "DEF",
-        label: "Defensa",
-        match: ["lateral", "defensa"],
-      },
-    ],
-  },
-  {
-    key: "medio",
-    title: "CENTROCAMPISTAS",
-    color: "#52B788",
-    slots: [
-      {
-        key: "mcd",
-        code: "MCD",
-        label: "Pivote",
-        match: [
-          "mediocentro defensivo",
-          "medio centro defensivo",
-          "mediocampista defensivo",
-          /* La hoja abrevia: "MEDIO CENTRO DEF". */
-          "mediocentro def",
-          "medio centro def",
-          "pivote",
-        ],
-      },
-      {
-        key: "mc",
-        code: "MC",
-        label: "Mediocentro",
-        match: [
-          "mediocentro",
-          "medio centro",
-          "centrocampista",
-          "mediocampista",
-        ],
-      },
-      {
-        key: "int",
-        code: "INT",
-        label: "Interior",
-        /* "interir" es una errata que trae la hoja. */
-        match: ["interior", "interir", "volante"],
-      },
-      {
-        key: "mp",
-        code: "MP",
-        label: "Mediapunta",
-        match: [
-          "media punta",
-          "mediapunta",
-          "enganche",
-          "mediocentro ofensivo",
-          "medio centro ofensivo",
-          /* La hoja abrevia: "MEDIO CENTRO OF". */
-          "mediocentro of",
-          "medio centro of",
-        ],
-      },
-      {
-        key: "med",
-        code: "MED",
-        label: "Medio",
-        match: ["medio"],
-      },
-    ],
-  },
-  {
-    key: "ataque",
-    title: "ATACANTES",
-    color: "#D46A6A",
-    slots: [
-      {
-        key: "ed",
-        code: "ED",
-        label: "Extremo derecho",
-        match: ["extremo derecho", "extremo der", "extremo d", "banda derecha"],
-      },
-      {
-        key: "ei",
-        code: "EI",
-        label: "Extremo izquierdo",
-        match: [
-          "extremo izquierdo",
-          "extremo izq",
-          "extremo i",
-          "banda izquierda",
-        ],
-      },
-      {
-        key: "ext",
-        code: "EXT",
-        label: "Extremo",
-        match: ["extremo", "exterior"],
-      },
-      {
-        key: "sd",
-        code: "SD",
-        label: "Segundo punta",
-        match: ["segundo delantero", "segunda punta", "segundo punta"],
-      },
-      {
-        key: "dc",
-        code: "DC",
-        label: "Delantero",
-        match: ["delantero", "punta", "ariete", "killer"],
-      },
-    ],
-  },
-];
+/* Las líneas y sus puestos viven en lib/rivals/lineas-puesto.ts (08/11/2026). */
 
 /* Qué línea es cada puesto, para poder pintar del color que toca cuando el
    sitio no sale de la hoja sino de lo que el jugador lleva jugado. */
@@ -3093,6 +2907,39 @@ export default function RivalPlayersPage() {
   | Hasta tres, los que más suman. Lo que no tiene dato no se nombra: sin
   | candidatos, la línea no sale.
   */
+  /*
+  | Lo que dice el analista de sus centrales en Scout Colectivo
+  | («Rentero / Bosch»: el de más capacidad y el de menos), para no mandar a
+  | presionar a uno aquí y al otro allí (08/11/2026, jueces). Se lee de la
+  | misma caché de la hoja que usa el colectivo; si no hay texto, nada.
+  */
+  const [centralesAnalista, setCentralesAnalista] = useState<{ equipo: string; mas: string; menos: string } | null>(null);
+
+  useEffect(() => {
+    if (!selectedTeam) return;
+
+    let vivo = true;
+
+    traeJson<unknown>("/api/rivals?action=rivales")
+      .then((filas) => {
+        if (!vivo || !Array.isArray(filas)) return;
+
+        const texto = (filas as Record<string, unknown>[])
+          .filter((f) => mismoClub(String(f.EQUIPO ?? ""), selectedTeam))
+          .map((f) => String(f.OF_INICIO_CENTRAL_CAPACIDAD ?? "").split(/$/m)[0].trim())
+          .filter(Boolean)
+          .pop();
+        const partes = (texto ?? "").split(/\s*\/\s*/).map((t) => t.trim()).filter(Boolean);
+
+        setCentralesAnalista(partes.length === 2 ? { equipo: selectedTeam, mas: partes[0], menos: partes[1] } : null);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      vivo = false;
+    };
+  }, [selectedTeam]);
+
   const danoDelRival = useMemo(() => {
     if (!perfilesRival) return [];
 
@@ -3117,7 +2964,7 @@ export default function RivalPlayersPage() {
         const temporada = statsDoc ? highlightSeason(findStats(statsDoc, p)?.temporadas ?? [], statsDoc.temporada) : null;
         const base =
           temporada && temporada.minutos > 0
-            ? { minutos: temporada.minutos, partidos: temporada.partidos, fuente: "" }
+            ? { minutos: temporada.minutos, partidos: temporada.partidos, fuente: " en BeSoccer" }
             : perfil && perfil.minutos > 0
               ? { minutos: Math.round(perfil.minutos), partidos: perfil.partidos, fuente: " en Wyscout" }
               : null;
@@ -3141,8 +2988,21 @@ export default function RivalPlayersPage() {
       .filter((uno) => uno.nombre && uno.cruzan && uno.accion && uno.minutos >= MINUTOS_MINIMOS_DANO)
       .sort((a, b) => b.rasgos.length - a.rasgos.length || b.minutos - a.minutos || a.nombre.localeCompare(b.nombre, "es"))
       .slice(0, 3)
-      .map(({ nombre, puesto, rasgos, accion, base, minutos }) => ({ nombre, puesto, rasgos, accion, base, minutos }));
-  }, [players, perfilesRival, perfilesPorFicha, selectedTeam, statsDoc]);
+      .map(({ nombre, puesto, rasgos, accion, base, minutos }) => {
+        /*
+        | Si Wyscout señala al central que el analista da por el de MÁS
+        | capacidad, se dice en una línea y la orden es una sola: la del analista.
+        */
+        const apellido = (t: string) => normalize(t.replace(/^\d+\s*[.·-]?\s*/, "")).split(" ").pop() ?? "";
+        const analista = centralesAnalista && centralesAnalista.equipo === selectedTeam ? centralesAnalista : null;
+        const choca = analista && apellido(analista.mas) && normalize(nombre).includes(apellido(analista.mas));
+        const contraste = choca
+          ? `Orden: presionar a ${conTildes(analista.menos)}, el central de menor capacidad según el analista (Scout Colectivo). Ojo: en Wyscout el que pierde balones es ${nombre} (${base}).`
+          : "";
+
+        return { nombre, puesto, rasgos, accion: choca ? "" : accion, base, minutos, contraste };
+      });
+  }, [players, perfilesRival, perfilesPorFicha, selectedTeam, statsDoc, centralesAnalista]);
 
   /* La temporada en curso de cada uno, para el listado. */
   const temporadaDe = (player: RivalPlayer) =>
@@ -3195,8 +3055,16 @@ export default function RivalPlayersPage() {
     for (const player of suyos) {
       const estado = textoUtil(player.ESTADO).toUpperCase();
 
-      /* «NO EN PLANTILLA» (se fue del club) ya sale en «Ya no están» de la lista, no aquí (29/10/2026). */
+      /*
+      | «NO EN PLANTILLA» (se fue del club) ya sale en «Ya no están» de la lista, no aquí (29/10/2026).
+      | 08/11/2026 (jueces): también las etiquetas de su ficha («Lesionado»,
+      | «Tocado»), que es donde el cuerpo técnico las marca: Yago Cantero
+      | estaba lesionado en su ficha y no salía aquí.
+      */
+      const baja = bajaDe(player as unknown as Record<string, unknown>);
+
       if (estado && estado !== "ACTIVO" && estado !== "NO EN PLANTILLA") fuera.push({ nombre: nombre(player), estado: estado.toLowerCase() });
+      else if (baja) fuera.push({ nombre: nombre(player), estado: baja === "tocado" ? "tocado, duda" : baja });
 
       const temporada = statsDoc
         ? (findStats(statsDoc, player)?.temporadas ?? []).find((t) => t.temporada === statsDoc.temporada)
@@ -3210,6 +3078,9 @@ export default function RivalPlayersPage() {
 
       /* Una roja pasada no es una baja ni un apercibimiento: no se pinta (experto de fútbol, 29/10/2026). */
     }
+
+    /* Primero los que no juegan seguro; los tocados (duda), después. */
+    fuera.sort((a, b) => Number(/tocado/.test(a.estado)) - Number(/tocado/.test(b.estado)));
 
     return fuera.length || apercibidos.length || rojas.length ? { fuera, apercibidos, rojas } : null;
   }, [players, selectedTeam, statsDoc]);

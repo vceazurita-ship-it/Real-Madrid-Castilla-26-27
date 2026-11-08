@@ -37,7 +37,7 @@ import {
   DIBUJO_DE_PARTIDA,
 } from "@/lib/tactics/dosOnces";
 import { emptyDoc, normalizeDoc, tacticId } from "@/lib/tactics/helpers";
-import { escenasSinNumeroRepetido, fichasDeSuOnceMarcado, onceIncompleto, oncesDeLaSemana, semanaActual } from "@/lib/tactics/oncesSemana";
+import { bajasDelRival, escenasSinNumeroRepetido, fichasDeSuOnceMarcado, idEscenaOnces, onceIncompleto, oncesDeLaSemana, semanaActual, tableroSinTocar } from "@/lib/tactics/oncesSemana";
 import type { RivalSquad } from "@/lib/tactics/rivals";
 import type { TacticsDoc } from "@/lib/tactics/types";
 import { cn } from "@/lib/utils";
@@ -779,7 +779,8 @@ function BoardEditor({
           return {
             ...base,
             semanaOnces: onces.semana,
-            scenes: [{ id: tacticId("scene"), nombre: `Onces · ${onces.rival}`, tokens: onces.tokens, shapes: [] }],
+            /* La huella en el id: así se sabe después si alguien lo ha tocado (08/11/2026). */
+            scenes: [{ id: idEscenaOnces(onces.tokens), nombre: `Onces · ${onces.rival}`, tokens: onces.tokens, shapes: [] }],
           };
         });
 
@@ -819,6 +820,30 @@ function BoardEditor({
   | coinciden, un aviso con «Actualizar» (que es «Rellenar otra vez»).
   */
   const [suOnceDistinto, setSuOnceDistinto] = useState<string | null>(null);
+  const autoActualizado = useRef(false);
+
+  /* Rivales de baja que siguen en el tablero (08/11/2026): nunca se coloca a un lesionado sin decirlo. */
+  const [bajasRival, setBajasRival] = useState<Map<string, { nombre: string; baja: string }>>(new Map());
+
+  useEffect(() => {
+    if (!deLaSemana || !partido?.rival) return;
+
+    let vivo = true;
+
+    void bajasDelRival(partido.rival)
+      .then((m) => {
+        if (vivo) setBajasRival(m);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      vivo = false;
+    };
+  }, [deLaSemana, partido?.rival]);
+
+  const bajasEnTablero = deLaSemana
+    ? (doc.scenes[0]?.tokens ?? []).filter((t) => t.kind === "away" && bajasRival.has(t.id)).map((t) => bajasRival.get(t.id)!)
+    : [];
 
   useEffect(() => {
     if (!deLaSemana || !partido?.rival || !doc.semanaOnces || status === "loading") return;
@@ -836,14 +861,23 @@ function BoardEditor({
         | Dos o más que faltan: con uno solo puede ser un marcado que no cabe en
         | ningún hueco o el que se cambió a mano en Duelos, y el aviso no se iría nunca.
         */
-        setSuOnceDistinto([...marcadas].filter((id) => !tablero.has(id)).length >= 2 ? semana : null);
+        const distinto = [...marcadas].filter((id) => !tablero.has(id)).length >= 2;
+
+        /* Sin tocar desde el relleno: se actualiza solo, una vez por visita (08/11/2026, fútbol). */
+        if (distinto && !autoActualizado.current && tableroSinTocar(docVivo.current.scenes)) {
+          autoActualizado.current = true;
+          void rellenaSemana(true);
+          return;
+        }
+
+        setSuOnceDistinto(distinto ? semana : null);
       })
       .catch(() => undefined);
 
     return () => {
       vivo = false;
     };
-  }, [deLaSemana, partido?.rival, doc.semanaOnces, status]);
+  }, [deLaSemana, partido?.rival, doc.semanaOnces, status, rellenaSemana]);
 
   /* El tablero de los onces guardado con dos «6»: se arregla una vez al abrirlo (21/10/2026). */
   const numerosMirados = useRef(false);
@@ -1072,23 +1106,6 @@ function BoardEditor({
             Rellenar otra vez
           </button>
           </span>
-          {suOnceDistinto && suOnceDistinto === doc.semanaOnces && !rellenando && (
-            <span className="flex basis-full flex-wrap items-center gap-2 rounded-xl border border-amber-400/40 bg-amber-400/[0.08] px-2.5 py-1.5 text-[12px] text-white/80">
-              <b className="font-semibold text-amber-300">El once del rival ha cambiado</b>
-              en Plantillas o en Duelos después de rellenar el tablero.
-              <button
-                type="button"
-                onClick={() => {
-                  setSuOnceDistinto(null);
-                  void rellenaSemana(true);
-                }}
-                className="inline-flex items-center gap-1 rounded-full border border-amber-400/50 px-2.5 py-0.5 font-semibold text-amber-300 transition hover:bg-amber-400/15"
-              >
-                <Wand2 size={12} />
-                Actualizar
-              </button>
-            </span>
-          )}
         </div>
       )}
 
@@ -1166,6 +1183,39 @@ function BoardEditor({
           hint="Para animar: duplica la escena, mueve las fichas en la copia y pulsa ▶. Para presentar: pantalla completa y → (o el mando) avanza la jugada escena a escena."
         />
       </div>
+
+
+      {/*
+        Los avisos del once rival, como pie del tablero y no encima (08/11/2026,
+        jueces): arriba empujaban el campo hacia abajo.
+      */}
+      {deLaSemana && ((suOnceDistinto && suOnceDistinto === doc.semanaOnces && !rellenando) || bajasEnTablero.length > 0) && (
+        <div className="flex flex-col gap-1.5 px-1 text-[12px] text-white/70">
+          {bajasEnTablero.length > 0 && (
+            <p className="min-w-0">
+              <b className="font-semibold text-[#F87171]">De baja y en el tablero:</b>{" "}
+              {bajasEnTablero.map((b) => `${b.nombre} (${b.baja})`).join(", ")}. Toca dos veces su ficha para cambiarlo.
+            </p>
+          )}
+        {suOnceDistinto && suOnceDistinto === doc.semanaOnces && !rellenando && (
+          <span className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-400/40 bg-amber-400/[0.08] px-2.5 py-1.5 text-[12px] text-white/80">
+            <b className="font-semibold text-amber-300">El once del rival ha cambiado</b>
+            en Plantillas o en Duelos después de rellenar el tablero.
+            <button
+              type="button"
+              onClick={() => {
+                setSuOnceDistinto(null);
+                void rellenaSemana(true);
+              }}
+              className="inline-flex items-center gap-1 rounded-full border border-amber-400/50 px-2.5 py-0.5 font-semibold text-amber-300 transition hover:bg-amber-400/15"
+            >
+              <Wand2 size={12} />
+              Actualizar
+            </button>
+          </span>
+        )}
+        </div>
+      )}
 
       <style>{`@media (max-width: 639px) { body:has([data-lienzo-pizarra="a-la-vista"]) [data-menu-flotante] { opacity: 0; pointer-events: none; transform: translateY(16px); transition: opacity .2s, transform .2s; } }`}</style>
     </div>
