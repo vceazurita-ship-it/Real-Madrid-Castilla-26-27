@@ -180,7 +180,6 @@ export function SaveGuardDialog({
               onClick={() => {
                 descargarTxt(contenido);
                 marcarExportado();
-                toast.success("Copia descargada en TXT");
               }}
               className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-sm font-medium text-white transition hover:bg-white/[0.09]"
             >
@@ -193,7 +192,6 @@ export function SaveGuardDialog({
               onClick={() => {
                 descargarCsv(contenido);
                 marcarExportado();
-                toast.success("Copia descargada en CSV");
               }}
               className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-sm font-medium text-white transition hover:bg-white/[0.09]"
             >

@@ -1057,9 +1057,9 @@ export function PageExportButton() {
 
   /*
   | La portada no pasa por `run`: no hay nada que fotografiar —la diapositiva
-  | se dibuja desde cero con los datos del jugador— y la baja ella misma
-  | (`portada.exportar`, de la pantalla de rivales), así que va sin pantalla
-  | y sin descarga del anfitrión.
+  | se dibuja desde cero con los datos del jugador—. `portada.genera` (de la
+  | pantalla de rivales) devuelve el fichero y lo baja el anfitrión, así en el
+  | móvil también sale «Descargar» en el aviso.
   */
   const exportPortada = useCallback(
     (formato: "png" | "pdf") => {
@@ -1071,15 +1071,15 @@ export function PageExportButton() {
 
       if (descargaEnMarcha(titulo)) return;
 
-      const exportar = portada.exportar;
+      const genera = portada.genera;
 
       encargaDescarga({
         titulo,
         vuelta: window.location.pathname + window.location.search,
-        sinDescarga: true,
         tarea: async ({ avanza }) => {
           avanza("Dibujando la portada…");
-          await exportar(formato);
+
+          return genera(formato);
         },
       });
     },
