@@ -17,6 +17,7 @@ import { fmtMin } from "@/lib/abp/microciclo";
 import { textoPlanificacion, tituloPlanificacion, type DiaPlanificado } from "@/lib/abp/planificacion-semana";
 import { capturaNodo } from "@/lib/export/captura";
 import { apodo, descarga, descargaDataUrl, pdfDeHojas } from "@/lib/export/lienzos";
+import { descargaEnMarcha, encargaDescarga } from "@/lib/trabajos/descargas";
 
 const TINTA = "#0B1E3A";
 const ORO = "#B8963E";
@@ -183,6 +184,41 @@ export function Lamina({ dias, micro, rival, casillas = false }: { dias: DiaPlan
   );
 }
 
+/**
+ * Las tres láminas, para la mesa de la descarga en segundo plano (08/11/2026):
+ * llevan dentro la foto de la semana del momento del clic y se fotografían por
+ * su `data-plan-lamina`, aunque el diálogo ya se haya cerrado.
+ */
+function MesaPlanificacion({ dias, micro, rival }: { dias: DiaPlanificado[]; micro: number; rival: string }) {
+  return (
+    <div style={{ width: 1080 }}>
+      <div data-plan-lamina="calendario">
+        <Calendario dias={dias} micro={micro} rival={rival} />
+      </div>
+      <div data-plan-lamina="detalle">
+        <Lamina dias={dias} micro={micro} rival={rival} />
+      </div>
+      <div data-plan-lamina="detalle-pdf">
+        <Lamina dias={dias} micro={micro} rival={rival} casillas />
+      </div>
+    </div>
+  );
+}
+
+/** El calendario y el detalle, fotografiados (del diálogo o de la mesa de la descarga). */
+async function capturaLaminas(calendario: HTMLElement | null, detalle: HTMLElement | null) {
+  if (!detalle || !calendario) throw new Error("Sin láminas");
+
+  const cal = await capturaNodo(calendario, { pixelRatio: 2, backgroundColor: "#FFFFFF" });
+
+  const det = await capturaNodo(detalle, { pixelRatio: 2, backgroundColor: "#FFFFFF" });
+
+  return [cal, det] as const;
+}
+
+/** En el móvil y la tableta se comparte (WhatsApp, galería…): eso pide el toque del clic y no va en segundo plano. */
+const comparte = () => typeof navigator.canShare === "function" && matchMedia("(pointer: coarse)").matches;
+
 export function ExportarPlanificacion({ dias, micro, rival, onCerrar }: { dias: DiaPlanificado[]; micro: number; rival: string; onCerrar: () => void }) {
   const lamina = useRef<HTMLDivElement>(null);
 
@@ -199,16 +235,52 @@ export function ExportarPlanificacion({ dias, micro, rival, onCerrar }: { dias: 
   const nombre = `ABP-planificacion-micro-${micro}${rival ? `-${apodo(rival)}` : ""}`;
 
   /* Las dos láminas: el calendario (apaisado) y el detalle (vertical). */
-  const capturas = async (imprimible = false) => {
-    const detalle = imprimible ? laminaPdf.current : lamina.current;
+  const capturas = async (imprimible = false) => capturaLaminas(calendario.current, imprimible ? laminaPdf.current : lamina.current);
 
-    if (!detalle || !calendario.current) throw new Error("Sin láminas");
+  /*
+  | En el ordenador, en segundo plano (08/11/2026, como en ABP): el clic deja
+  | el encargo con la semana de ese momento y vuelve; la píldora enseña el
+  | progreso y avisa al terminar, aunque se cierre el diálogo.
+  */
+  const encarga = (formato: "png" | "pdf") => {
+    const titulo = `${formato === "pdf" ? "PDF" : "Imágenes"} de la planificación · Micro ${micro}${rival ? ` · ${rival}` : ""}`;
 
-    const cal = await capturaNodo(calendario.current, { pixelRatio: 2, backgroundColor: "#FFFFFF" });
+    if (descargaEnMarcha(titulo)) return;
 
-    const det = await capturaNodo(detalle, { pixelRatio: 2, backgroundColor: "#FFFFFF" });
+    const base = nombre;
 
-    return [cal, det] as const;
+    encargaDescarga({
+      titulo,
+      vuelta: "/abp-microciclo",
+      mesa: <MesaPlanificacion dias={dias} micro={micro} rival={rival} />,
+      ancho: 1080,
+      tarea: async ({ raiz, avanza }) => {
+        avanza("Dibujando las láminas…", 0.1);
+
+        const pide = (que: string) => raiz?.querySelector<HTMLElement>(`[data-plan-lamina="${que}"]`) ?? null;
+        const [cal, det] = await capturaLaminas(pide("calendario"), pide(formato === "pdf" ? "detalle-pdf" : "detalle"));
+
+        if (formato === "png") {
+          return Promise.all(
+            (
+              [
+                [cal.dataUrl, `${base}-1-calendario.png`],
+                [det.dataUrl, `${base}-2-detalle.png`],
+              ] as const
+            ).map(async ([url, n]) => ({ blob: await (await fetch(url)).blob(), nombre: n })),
+          );
+        }
+
+        avanza("Montando el PDF…", 0.8);
+
+        const documento = await pdfDeHojas([
+          { imagen: cal.dataUrl, ancho: cal.ancho, alto: cal.alto, orientacion: "landscape", margen: 18 },
+          { imagen: det.dataUrl, ancho: det.ancho, alto: det.alto, orientacion: "portrait", margen: 18 },
+        ]);
+
+        return { blob: documento.output("blob"), nombre: `${base}.pdf` };
+      },
+    });
   };
 
   /* En el móvil, a la hoja de compartir (WhatsApp, galería…); si no, se descarga. */
@@ -222,6 +294,8 @@ export function ExportarPlanificacion({ dias, micro, rival, onCerrar }: { dias: 
 
   /* Dos imágenes: el calendario y el detalle. */
   const imagenes = async () => {
+    if (!comparte()) return encarga("png");
+
     setHaciendo(true);
 
     try {
@@ -247,6 +321,8 @@ export function ExportarPlanificacion({ dias, micro, rival, onCerrar }: { dias: 
 
   /* Un PDF de dos páginas: el calendario apaisado y el detalle en vertical. */
   const pdf = async () => {
+    if (!comparte()) return encarga("pdf");
+
     setHaciendo(true);
 
     try {

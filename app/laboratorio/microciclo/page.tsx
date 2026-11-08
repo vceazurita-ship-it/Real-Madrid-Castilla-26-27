@@ -41,7 +41,7 @@
  * mira lo que va a escribir y se pulsa a conciencia.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   CalendarClock,
   CheckCircle2,
@@ -110,7 +110,8 @@ import {
   textoDelPartido,
 } from "@/lib/registro/semana";
 import { capturaNodo } from "@/lib/export/captura";
-import { apodo, descarga, descargaDataUrl, pdfDeHojas } from "@/lib/export/lienzos";
+import { apodo, pdfDeHojas } from "@/lib/export/lienzos";
+import { descargaEnMarcha, descargas, encargaDescarga } from "@/lib/trabajos/descargas";
 
 import { AbpHeader, Button, Field, Notice, Panel, Select } from "@/components/abp/ui";
 import { ValoracionTarea } from "@/components/registro/ValoracionTarea";
@@ -801,12 +802,12 @@ export default function EditorMicrocicloPage() {
   /* La tarea a la que se acaba de saltar desde el tablero, para resaltarla. */
   const [enfocada, setEnfocada] = useState<string | null>(null);
 
-  const [exportando, setExportando] = useState<"png" | "pdf" | null>(null);
+  /* Para rotular «En marcha…» los botones de la lámina mientras su descarga sigue en segundo plano. */
+  useSyncExternalStore(descargas.suscribe, descargas.foto, descargas.foto);
 
   /* Editar o copiar otro se pliega: lo principal de la entrada es crear el siguiente. */
   const [verOtras, setVerOtras] = useState(false);
 
-  const laminaRef = useRef<HTMLDivElement>(null);
 
   /* Lo que dice el calendario: se resuelve al cargar, no en cada render. */
   const [partido, setPartido] = useState<{
@@ -1638,43 +1639,61 @@ export default function EditorMicrocicloPage() {
 
   /* --------------------- LA LÁMINA Y EL TEXTO --------------------- */
 
-  const exporta = async (formato: "png" | "pdf") => {
-    if (!micro || !laminaRef.current) return;
+  /*
+  | En segundo plano (08/11/2026, como en ABP): el clic deja el encargo con la
+  | semana de ese momento y la lámina se pinta en la «mesa» del gestor de
+  | descargas; la píldora enseña el progreso y avisa al terminar, aunque se
+  | cambie de pantalla.
+  */
+  const tituloLamina = (formato: "png" | "pdf") => `${formato === "png" ? "Lámina PNG" : "PDF"} de la semana · Microciclo ${micro?.micro ?? ""}`;
 
-    setExportando(formato);
+  const exporta = (formato: "png" | "pdf") => {
+    if (!micro) return;
 
-    /* El alto sale del contenido: una semana corta no deja media hoja vacía. */
-    const alto = Math.max(LAMINA.altoMinimo, Math.ceil(laminaRef.current.offsetHeight));
+    const titulo = tituloLamina(formato);
 
-    try {
-      const { dataUrl } = await capturaNodo(laminaRef.current, {
-        formato: formato === "pdf" ? "jpeg" : "png",
-        pixelRatio: 1.5,
-        backgroundColor: "#FFFFFF",
-        width: LAMINA.ancho,
-        height: alto,
-      });
+    if (descargaEnMarcha(titulo)) return;
 
-      const nombre = `RMCF Castilla - Microciclo ${micro.micro} - ${apodo(partidoDelMicro?.rival || micro.rival, "semana")}`;
+    const nombre = `RMCF Castilla - Microciclo ${micro.micro} - ${apodo(partidoDelMicro?.rival || micro.rival, "semana")}`;
 
-      if (formato === "png") {
-        await descargaDataUrl(dataUrl, `${nombre}.png`);
-      } else {
+    encargaDescarga({
+      titulo,
+      vuelta: "/laboratorio/microciclo",
+      mesa: (
+        <div data-lamina-semana>
+          <LaminaSemana micro={micro} partido={partidoDelMicro} referencia={referencia} />
+        </div>
+      ),
+      ancho: LAMINA.ancho,
+      tarea: async ({ raiz, avanza }) => {
+        const nodo = raiz?.querySelector<HTMLElement>("[data-lamina-semana]")?.firstElementChild as HTMLElement | null | undefined;
+
+        if (!nodo) throw new Error("No se ha podido montar la lámina.");
+
+        avanza("Dibujando la lámina…", 0.2);
+
+        /* El alto sale del contenido: una semana corta no deja media hoja vacía. */
+        const alto = Math.max(LAMINA.altoMinimo, Math.ceil(nodo.offsetHeight));
+
+        const { dataUrl } = await capturaNodo(nodo, {
+          formato: formato === "pdf" ? "jpeg" : "png",
+          pixelRatio: 1.5,
+          backgroundColor: "#FFFFFF",
+          width: LAMINA.ancho,
+          height: alto,
+        });
+
+        if (formato === "png") return { blob: await (await fetch(dataUrl)).blob(), nombre: `${nombre}.png` };
+
+        avanza("Montando el PDF…", 0.8);
+
         const doc = await pdfDeHojas([
           { imagen: dataUrl, ancho: LAMINA.ancho, alto, orientacion: "landscape", margen: 18 },
         ]);
 
-        descarga(doc.output("blob"), `${nombre}.pdf`);
-      }
-
-      toast.success(formato === "png" ? "Lámina de la semana descargada" : "PDF de la semana descargado");
-    } catch (error) {
-      toast.error("No se ha podido sacar la lámina", {
-        description: error instanceof Error ? error.message : "Inténtalo otra vez",
-      });
-    } finally {
-      setExportando(null);
-    }
+        return { blob: doc.output("blob"), nombre: `${nombre}.pdf` };
+      },
+    });
   };
 
   const copiaTexto = async () => {
@@ -2588,12 +2607,12 @@ export default function EditorMicrocicloPage() {
                         Correo
                       </Button>
 
-                      <Button icon={ImageDown} disabled={exportando !== null} onClick={() => void exporta("png")} title="La semana en una lámina">
-                        {exportando === "png" ? "Sacando…" : "Lámina PNG"}
+                      <Button icon={ImageDown} disabled={descargaEnMarcha(tituloLamina("png"))} onClick={() => exporta("png")} title="La semana en una lámina">
+                        {descargaEnMarcha(tituloLamina("png")) ? "En marcha…" : "Lámina PNG"}
                       </Button>
 
-                      <Button icon={FileDown} disabled={exportando !== null} onClick={() => void exporta("pdf")} title="La lámina en un A4 apaisado">
-                        {exportando === "pdf" ? "Sacando…" : "PDF"}
+                      <Button icon={FileDown} disabled={descargaEnMarcha(tituloLamina("pdf"))} onClick={() => exporta("pdf")} title="La lámina en un A4 apaisado">
+                        {descargaEnMarcha(tituloLamina("pdf")) ? "En marcha…" : "PDF"}
                       </Button>
                     </div>
                   }
@@ -3067,10 +3086,7 @@ export default function EditorMicrocicloPage() {
                   </Button>
                 </div>
 
-                {/* La lámina se monta fuera de la vista para poder fotografiarla: apartada con posición, nunca con display:none, que se captura en blanco. */}
-                <div aria-hidden className="pointer-events-none fixed left-[-20000px] top-0">
-                  <LaminaSemana ref={laminaRef} micro={micro} partido={partidoDelMicro} referencia={referencia} />
-                </div>
+                {/* La lámina ya no se monta aquí: la pinta la «mesa» del gestor de descargas al pedirla (08/11/2026). */}
               </>
             )}
           </div>
