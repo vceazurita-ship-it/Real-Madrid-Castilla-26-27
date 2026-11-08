@@ -193,6 +193,7 @@ import {
   SUBIDA_CANCELADA,
 } from "@/lib/coding/youtube-cliente";
 import { fechaDeHoy, rellenaPlantilla } from "@/lib/coding/youtube-plantillas";
+import { nombreVideo } from "@/lib/coding/nombres";
 import { esperaFuentePortada, FAMILIA_PORTADA } from "@/lib/rivals/portada-font";
 import { fetchMatches, matchLabel } from "@/lib/ratings/matches";
 import {
@@ -220,18 +221,9 @@ type PlantillaRival = {
 
 /* 29/10/2026: el nombre del fichero, legible: sin «.mp4», sin guiones bajos y con
    las tildes que el nombre del fichero perdió («Duelos_a_reos» -> «Duelos aéreos»). */
-function nombreLimpio(nombre: string) {
-  /* 07/11/2026: NFC (en macOS las tildes llegan separadas de la letra) y las
-     tildes que la descarga cambió por «_»: «Anto_n» → «Antón». */
-  return nombre
-    .normalize("NFC")
-    .replace(/\.mp4$/i, "")
-    .replace(/_/g, " ")
-    .replace(/\ba reos\b/gi, "aéreos")
-    .replace(/\bAnto n\b/g, "Antón")
-    .replace(/\s+/g, " ")
-    .trim();
-}
+/* 08/11/2026: la limpieza vive en lib/coding/nombres para que la tabla de
+   cortes diga lo mismo que los chips. */
+const nombreLimpio = nombreVideo;
 
 /**
  * Las plantillas del scouting, con foto.
@@ -1453,13 +1445,17 @@ function Coding() {
   /* 29/10/2026: el aviso sólo sale si un vídeo abierto lleva el nombre de OTRO
      equipo del calendario; si ninguno nombra a nadie, el desplegable ya viene
      con el rival de la jornada y no hay nada que avisar. */
+  /* 08/11/2026: devuelve el equipo que nombra el vídeo, para ofrecerlo como
+     segunda opción junto al rival por defecto. */
   const rivalEnConflicto = useMemo(() => {
-    if (!rivalSinElegir || !rival) return false;
+    if (!rivalSinElegir || !rival) return null;
 
-    return rivales.some(
-      (uno) =>
-        uno.clave !== rival.clave &&
-        videosSesion.some((video) => apodoCoding(video.nombre).includes(apodoSinSiglas(uno.nombre))),
+    return (
+      rivales.find(
+        (uno) =>
+          uno.clave !== rival.clave &&
+          videosSesion.some((video) => apodoCoding(video.nombre).includes(apodoSinSiglas(uno.nombre))),
+      ) ?? null
     );
   }, [rivalSinElegir, rival, rivales, videosSesion]);
 
@@ -4246,13 +4242,21 @@ function Coding() {
 
             {rivalEnConflicto && rival ? (
               <div className="mt-4 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-[#C8A96B]/35 bg-[#C8A96B]/[0.08] px-3.5 py-2.5">
-                <p className="min-w-0 flex-1 text-[12px] leading-snug text-white/75">
-                  <b className="text-white">Un vídeo abierto lleva el nombre de otro equipo.</b>{" "}
-                  Los cortes se guardan con {rival.nombre}, el rival de la jornada, al confirmarlo.
+                {/* 08/11/2026: el rival por defecto es el del último partido
+                    jugado (no el próximo): el texto lo dice así, y las dos
+                    salidas van en botones, la del rival por defecto primero. */}
+                <p className="min-w-0 flex-1 text-[13px] leading-snug text-white/75">
+                  <b className="text-white">Un vídeo abierto lleva el nombre de {rivalEnConflicto.nombre}.</b>{" "}
+                  Los cortes se guardarán con {rival.nombre}, el rival del último partido, salvo que elijas otro.
                 </p>
-                <Button onClick={() => cambiaUrl("equipo", rival.clave)} title={`Fijar ${rival.nombre} como rival de estos vídeos`}>
-                  Usar {rival.nombre}
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button tone="primary" onClick={() => cambiaUrl("equipo", rival.clave)} title={`Fijar ${rival.nombre} como rival de estos vídeos`}>
+                    Usar {rival.nombre}
+                  </Button>
+                  <Button onClick={() => cambiaUrl("equipo", rivalEnConflicto.clave)} title={`Fijar ${rivalEnConflicto.nombre} como rival de estos vídeos`}>
+                    Codificar como {rivalEnConflicto.nombre}
+                  </Button>
+                </div>
               </div>
             ) : null}
 

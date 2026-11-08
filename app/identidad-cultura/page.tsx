@@ -21,6 +21,23 @@ import { AbpHeader } from "@/components/abp/ui";
 import { RepositorioCultura } from "@/components/cultura/RepositorioCultura";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
+import { DOCUMENTO_VALORES } from "@/lib/cultura/documentos/valores";
+import { conVotos } from "@/components/cultura/HojaCultura";
+
+/*
+| 08/11/2026: el titular dice la idea con el dato («Humildad, el más votado»)
+| y sale del propio documento: si cambia el recuento, cambia el titular.
+*/
+const TITULAR = (() => {
+  const portada = DOCUMENTO_VALORES.diapositivas.find((d) => d.tipo === "portada");
+  const indice = portada && portada.tipo === "portada" ? portada.indice : [];
+  const votos = (t: string) => Number(conVotos(t).match(/^\d+/)?.[0] ?? 0);
+  const primero = [...indice].sort((a, b) => votos(b.votos) - votos(a.votos))[0];
+
+  if (!primero || !votos(primero.votos)) return "Los valores que votó la plantilla";
+
+  return `${indice.length} valores votados por la plantilla: ${primero.titulo}, el más votado (${votos(primero.votos)} votos)`;
+})();
 
 export default function IdentidadCulturaPage() {
   return (
@@ -35,7 +52,7 @@ export default function IdentidadCulturaPage() {
             <AbpHeader
               area="RMCF Castilla · Identidad"
               /* 30/10/2026: titular con mensaje; «Identidad» ya lo dice el área. */
-              title="Los valores que votó la plantilla"
+              title={TITULAR}
               lead="Cinco valores, cada uno con lo que suma y lo que no se admite, dentro y fuera del campo. Listos para proyectar en la sala o imprimir."
             />
 

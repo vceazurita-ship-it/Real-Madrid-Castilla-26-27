@@ -42,6 +42,7 @@ import { BarChart3, Crosshair, LayoutDashboard, List, Map as MapIcon, Shield, Sw
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
+import { cn } from "@/lib/utils";
 import { AbpHeader, Panel } from "@/components/abp/ui";
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { ComparativaPartido } from "@/components/abp/ComparativaPartido";
@@ -485,13 +486,23 @@ export default function FaltasPage() {
 
     if (!comparativa || !c || c.actual === null || c.media === null || comparativa.anteriores < 1) return null;
 
-    const tope = Math.max(1, Math.round(c.media));
     const mas = c.actual > c.media;
+    /* 08/11/2026: la orden se apoya en el reparto por zonas de NUESTRAS
+       faltas (las en contra) y el objetivo dice de dónde sale la cifra. */
+    const nuestras = (partido?.faltas ?? []).filter((f) => f.lado === "defensivo");
+    const porZona = ["nuestro campo", "medio campo", "campo rival"]
+      .map((z) => ({ z, n: nuestras.filter((f) => sitioEnCampo(f).zona === z).length }))
+      .filter((x) => x.n > 0)
+      .sort((a, b) => b.n - a.n);
+    const reparto = porZona.length && nuestras.length
+      ? ` De las ${nuestras.length}, ${porZona.map((x) => `${x.n} en ${x.z}`).join(", ")}.`
+      : "";
+    const zonaTarea = porZona[0]?.z ?? "medio campo";
 
-    return `Qué hacemos: en contra ${c.actual} frente a ${decimal(c.media)} de media. ${
-      mas ? "Trabajar en la semana la defensa de duelos sin falta en medio campo" : "Mantener la defensa de duelos sin falta en medio campo"
-    }; criterio de éxito, ${mas ? "menos" : "no más"} de ${tope} faltas en contra.`;
-  }, [comparativa]);
+    return `Qué hacemos: en contra ${c.actual} frente a ${decimal(c.media)} de media de los ${comparativa.anteriores} anteriores.${reparto} ${
+      mas ? `Trabajar en la semana la defensa de duelos sin falta en ${zonaTarea}` : `Mantener la defensa de duelos sin falta en ${zonaTarea}`
+    }; criterio de éxito, ${mas ? "por debajo de" : "no pasar de"} la media de ${decimal(c.media)} faltas en contra.`;
+  }, [comparativa, partido]);
 
   /*
   | Por jugador: con el lado y todo lo pinchado menos el propio jugador (así
@@ -741,20 +752,41 @@ export default function FaltasPage() {
 
                 /* 30/10/2026: un titular con verbo y la cifra que manda, no la tabla
                    repetida en una frase (marketing). */
-                const frente = (m: typeof f) => (m.media !== null && comparativa.anteriores > 0 ? ` (media ${decimal(m.media)})` : "");
+                /* 08/11/2026: dos titulares con el vocabulario de la pantalla
+                   («en contra» = las que cometemos, «a favor» = las que nos
+                   hacen) y el color según el sentido: en contra, menos es mejor;
+                   a favor no se juzga. */
                 const n = comparativa.anteriores;
-                const dif = c.media !== null && n > 0 ? c.actual - c.media : null;
-                const cometidas =
-                  dif === null
-                    ? `Cometimos ${c.actual} ${c.actual === 1 ? "falta" : "faltas"}`
-                    : Math.abs(dif) < 0.05
-                      ? `Cometimos ${c.actual} ${c.actual === 1 ? "falta" : "faltas"}, lo mismo que la media de ${n === 1 ? "el anterior" : `los ${n} anteriores`}`
-                      : `Cometimos ${c.actual} ${c.actual === 1 ? "falta" : "faltas"}, ${decimal(Math.abs(dif))} ${dif < 0 ? "menos" : "más"} que la media de ${n === 1 ? "el anterior" : `los ${n} anteriores`}`;
+                const deLos = n === 1 ? "el anterior" : `los ${n} anteriores`;
+                const comoVa = (m: typeof f) => {
+                  if (m.media === null || n < 1) return { texto: "", dif: 0 };
+                  const d = (m.actual as number) - m.media;
+
+                  return Math.abs(d) < 0.05
+                    ? { texto: `igual que la media de ${deLos} (${decimal(m.media)})`, dif: 0 }
+                    : { texto: `${decimal(Math.abs(d))} ${d < 0 ? "menos" : "más"} que la media de ${deLos} (${decimal(m.media)})`, dif: d };
+                };
+                const vc = comoVa(c);
+                const vf = comoVa(f);
 
                 return (
-                  <p className="mt-3 text-sm font-medium text-white/80">
-                    {cometidas}. Nos hicieron {f.actual}{frente(f)}.
-                  </p>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    <p
+                      className={cn(
+                        "rounded-xl border px-3 py-2 text-sm text-white/80",
+                        vc.dif > 0 ? "border-amber-400/40 bg-amber-400/[0.06]" : vc.dif < 0 ? "border-emerald-400/40 bg-emerald-400/[0.06]" : "border-white/10",
+                      )}
+                    >
+                      <span className="block text-[11px] font-semibold uppercase tracking-[0.14em] text-white/50">En contra · las que cometimos · menos es mejor</span>
+                      <span className="text-lg font-bold tabular-nums text-white">{c.actual}</span>
+                      {vc.texto ? <span>, {vc.texto}</span> : null}
+                    </p>
+                    <p className="rounded-xl border border-white/10 px-3 py-2 text-sm text-white/80">
+                      <span className="block text-[11px] font-semibold uppercase tracking-[0.14em] text-white/50">A favor · las que nos hicieron</span>
+                      <span className="text-lg font-bold tabular-nums text-white">{f.actual}</span>
+                      {vf.texto ? <span>, {vf.texto}</span> : null}
+                    </p>
+                  </div>
                 );
               })()}
               {/*
@@ -773,7 +805,8 @@ export default function FaltasPage() {
               {comparativa.metricas.some(escasa) ? (
                 <details className="mt-2 rounded-xl border border-white/10 bg-white/[0.02] px-4 py-2 text-[12px] text-white/65">
                   <summary className="cursor-pointer select-none font-medium text-white/75">
-                    Casos escasos ({comparativa.metricas.filter(escasa).length}): pocos para leer una diferencia
+                    {/* 08/11/2026: plegado, pero diciendo cuáles son. */}
+                    Pocos casos para leer una diferencia: {comparativa.metricas.filter(escasa).map((m) => m.nombre).join(", ")}
                   </summary>
                   <ul className="mt-2 space-y-1">
                     {comparativa.metricas.filter(escasa).map((m) => (

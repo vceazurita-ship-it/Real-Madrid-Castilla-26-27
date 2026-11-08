@@ -38,7 +38,54 @@ import { usePlayers } from "@/hooks/usePlayers";
 import { nombrePuesto } from "@/lib/posiciones";
 import type { Player } from "@/types/player";
 import { confirmar } from "@/lib/avisos";
-import { medidaDelContenido } from "@/lib/identidad/campo";
+import {
+  MINUTOS_CONTENIDO,
+  cifraDelContenido,
+  medidaDelContenido,
+  nombreColumna,
+} from "@/lib/identidad/campo";
+import type { FilaJugador } from "@/lib/data-analisis/leer";
+
+/*
+| 08/11/2026: los jugadores de Wyscout (los de la categoría) para poner la
+| cifra del grupo bajo cada contenido medido. Una sola petición para la
+| pantalla; si falla, el contenido dice sólo con qué se mide.
+*/
+let promesaJugadores: Promise<FilaJugador[]> | null = null;
+
+function useJugadoresWyscout() {
+  const [lista, setLista] = useState<FilaJugador[] | null>(null);
+
+  useEffect(() => {
+    let vivo = true;
+
+    (promesaJugadores ??= traeJson<{ ok: boolean; jugadores?: FilaJugador[] }>(
+      "/api/data-analisis",
+    ).then((r) => r.jugadores ?? [])).then(
+      (j) => vivo && setLista(j),
+      () => {
+        promesaJugadores = null;
+      },
+    );
+
+    return () => {
+      vivo = false;
+    };
+  }, []);
+
+  return lista;
+}
+
+const PLURAL_PUESTO: Record<string, string> = {
+  CEN: "Centrales",
+  LAT: "Laterales",
+  MED: "Centrocampistas",
+  BAN: "Extremos",
+  DEL: "Delanteros",
+};
+
+const cifraTexto = (v: number, porcentaje: boolean) =>
+  porcentaje ? `${v.toFixed(1).replace(".", ",")} %` : v.toFixed(2).replace(".", ",");
 
 type PosicionItem = {
   ID: number;
@@ -1169,6 +1216,7 @@ function FichaContenido({
   item: PosicionItem;
   query: string;
 }) {
+  const jugadoresWyscout = useJugadoresWyscout();
   const texto = (
     <Highlight
       text={item.CONTENIDO.replace(/\bvs\.?(?=\s)/gi, "contra").replace(/\.$/, "")}
@@ -1182,17 +1230,48 @@ function FichaContenido({
      Wyscout, se dice cuál: la etiqueta se convierte en algo que se puede
      seguir partido a partido. Sin métrica, no se escribe nada. */
   const columna = medidaDelContenido(item.POSICION ?? "", item.CONTENIDO ?? "");
+  /* 08/11/2026: con la cifra del grupo (cada jugador nuestro con 450′ frente
+     a la mediana del puesto en la categoría), en español y con ancla. */
+  const cifra =
+    jugadoresWyscout && columna
+      ? cifraDelContenido(jugadoresWyscout, item.POSICION ?? "", item.CONTENIDO ?? "")
+      : null;
   const medida = columna && (
-    <p className="mt-1 text-xs leading-relaxed text-gray-400">
-      <span className="font-semibold text-gray-300">Se mide en el partido:</span>{" "}
-      {columna.replace(/\/90$/, " por 90 minutos")}{" "}
+    <div className="mt-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[13px] leading-relaxed text-gray-300">
+      <p>
+        <span className="font-semibold text-white">Se mide en el partido:</span>{" "}
+        {nombreColumna(columna)}
+      </p>
+      {cifra && (
+        <p className="mt-0.5">
+          {cifra.nuestros.map((j, i) => {
+            const bien = cifra.mejorAlto ? j.valor >= cifra.mediana : j.valor <= cifra.mediana;
+
+            return (
+              <span key={j.nombre} className="whitespace-nowrap">
+                {i > 0 && <span className="text-gray-500"> · </span>}
+                {j.nombre}{" "}
+                <span className={cn("font-bold tabular-nums", bien ? "text-emerald-400" : "text-amber-400")}>
+                  {bien ? "▲" : "▼"} {cifraTexto(j.valor, cifra.porcentaje)}
+                </span>
+              </span>
+            );
+          })}
+          <span className="text-gray-400">
+            {" "}
+            · mediana de {cifra.n} {(PLURAL_PUESTO[cifra.puesto] ?? "jugadores").toLowerCase()} de la
+            categoría con {MINUTOS_CONTENIDO}′:{" "}
+            <span className="tabular-nums">{cifraTexto(cifra.mediana, cifra.porcentaje)}</span>
+          </span>
+        </p>
+      )}
       <Link
-        href="/identidad-campo"
-        className="font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)] hover:underline"
+        href={`/identidad-campo${cifra ? `#puesto-${cifra.puesto}` : ""}`}
+        className="mt-1 inline-block font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)] hover:underline"
       >
-        Cómo sale →
+        Ver el puesto en Identidad en el Campo →
       </Link>
-    </p>
+    </div>
   );
 
   if (!Object.values(d).some(Boolean)) {

@@ -22,6 +22,7 @@
 import { useState } from "react";
 
 import { useMiniatura } from "@/lib/coding/miniaturas";
+import { nombreVideo } from "@/lib/coding/nombres";
 import {
   ChevronDown,
   ChevronUp,
@@ -45,6 +46,7 @@ import {
   type ComportamientoColectivo,
   type DescriptorCoding,
   type JugadorCoding,
+  SUJETO_VIDEO_COMPLETO,
 } from "@/lib/coding/modelo";
 
 /** Las tarjetas que se enseñan de cada vez en el teléfono. */
@@ -71,14 +73,8 @@ function leeTags(texto: string) {
 /* 29/10/2026: el nombre del vídeo legible en la tabla y en la tarjeta del móvil,
    igual que en los chips de la página: «4-R._Richarte_Remates» sale «4-R. Richarte
    Remates». El nombre entero del fichero sigue en el title. */
-function nombreLegible(nombre: string) {
-  return nombre
-    .replace(/\.[^.]+$/, "")
-    .replace(/_/g, " ")
-    .replace(/\ba reos\b/gi, "aéreos")
-    .replace(/\s+/g, " ")
-    .trim();
-}
+/* 08/11/2026: la misma limpieza que los chips de vídeo (lib/coding/nombres). */
+const nombreLegible = nombreVideo;
 
 export function ListaClips({
   clips,
@@ -209,6 +205,11 @@ export function ListaClips({
     pizarras: pizarrasDe?.(clip) ?? 0,
   }));
 
+  /* 08/11/2026: el «Vídeo completo» no es de nadie. Si todos los cortes lo
+     son, la columna «Quién» no informa (decía «EQUIPO» en cada fila) y no sale. */
+  const esCompleto = (clip: ClipCoding) => clip.jugadorId === SUJETO_VIDEO_COMPLETO.id;
+  const conQuien = clips.some((clip) => !esCompleto(clip));
+
   if (clips.length === 0) {
     return (
       <p className="py-10 text-center text-xs text-white/30">
@@ -274,7 +275,7 @@ export function ListaClips({
      como si fuera un jugador más. */
   const quien = (clip: ClipCoding) => (
     <span className="flex min-w-0 items-center gap-2">
-      {clip.sujeto === "colectivo" ? (
+      {esCompleto(clip) ? null : clip.sujeto === "colectivo" ? (
         <span
           title="Comportamiento colectivo: del equipo, no de un jugador"
           className="shrink-0 rounded bg-white/[0.08] px-1 text-[9px] uppercase tracking-[0.12em] text-white/40"
@@ -379,7 +380,7 @@ export function ListaClips({
                   {String(indice + 1).padStart(3, "0")}
                 </span>
 
-                <span className="min-w-0 flex-1">{quien(fila.clip)}</span>
+                <span className="min-w-0 flex-1">{conQuien ? quien(fila.clip) : null}</span>
 
                 <span className="shrink-0 text-[11px] tabular-nums text-white/50">
                   {formateaDuracion(duracionClip(fila.clip))}
@@ -445,7 +446,7 @@ export function ListaClips({
               <th className="px-2 py-1.5 font-medium">#</th>
               {videoDe && <th className="px-2 py-1.5 font-medium">Vídeo</th>}
               {/* Jugador o comportamiento colectivo: los dos son el sujeto. */}
-              <th className="px-2 py-1.5 font-medium">Quién</th>
+              {conQuien && <th className="px-2 py-1.5 font-medium">Quién</th>}
               <th className="px-2 py-1.5 font-medium">Categoría</th>
               <th className="px-2 py-1.5 text-right font-medium">In</th>
               <th className="px-2 py-1.5 text-right font-medium">Out</th>
@@ -584,7 +585,7 @@ export function ListaClips({
                     </td>
                   )}
 
-                  <td className="max-w-[190px] px-2 py-1.5">{quien(clip)}</td>
+                  {conQuien && <td className="max-w-[190px] px-2 py-1.5">{quien(clip)}</td>}
 
                   <td className="px-2 py-1.5">
                     <span className="flex min-w-0 flex-wrap items-center gap-1.5">

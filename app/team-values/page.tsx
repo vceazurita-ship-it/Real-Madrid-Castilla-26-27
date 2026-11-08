@@ -48,6 +48,11 @@ const VALORES_VOTADOS = (() => {
   return portada && portada.tipo === "portada" ? portada.indice : [];
 })();
 
+const MAX_VOTOS = Math.max(
+  0,
+  ...VALORES_VOTADOS.map((v) => Number(conVotos(v.votos).match(/^\d+/)?.[0] ?? 0)),
+);
+
 type CulturaItem = {
   ID: number;
   SECCION: string;
@@ -815,8 +820,13 @@ export default function TeamValuesPage() {
                   )}
                 >
                   <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden />
-                  <span className="truncate">
-                    {rotuloSeccion(secciones[etapaIndex - 1] ?? "")}
+                  <span className="flex min-w-0 flex-col items-start text-left">
+                    <span className="text-[11px] uppercase tracking-wider text-gray-500">
+                      Etapa anterior
+                    </span>
+                    <span className="max-w-full truncate">
+                      {rotuloSeccion(secciones[etapaIndex - 1] ?? "")}
+                    </span>
                   </span>
                 </button>
 
@@ -829,8 +839,13 @@ export default function TeamValuesPage() {
                     focusRing,
                   )}
                 >
-                  <span className="truncate">
-                    {rotuloSeccion(secciones[etapaIndex + 1] ?? "")}
+                  <span className="flex min-w-0 flex-col items-end text-right">
+                    <span className="text-[11px] uppercase tracking-wider text-gray-500">
+                      Siguiente etapa
+                    </span>
+                    <span className="max-w-full truncate font-semibold text-white">
+                      {rotuloSeccion(secciones[etapaIndex + 1] ?? "")}
+                    </span>
                   </span>
                   <ChevronRight className="h-4 w-4 shrink-0" aria-hidden />
                 </button>
@@ -842,30 +857,53 @@ export default function TeamValuesPage() {
                 Todo en votos, como en el recuento (valores y antivalores se
                 cuentan por separado); el detalle está en el documento. */}
             {VALORES_VOTADOS.length > 0 && !editing && (
-              <div className="mt-8 flex flex-col gap-3 rounded-2xl border border-[#C8A96B]/40 bg-[#C8A96B]/[0.07] p-4 sm:flex-row sm:items-center sm:justify-between lg:p-5">
-                <p className="min-w-0 text-sm leading-relaxed text-gray-300">
-                  <span className="font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)]">
-                    Resultado de la votación (votos):
-                  </span>{" "}
-                  {VALORES_VOTADOS.map((v, i) => (
-                    <span key={v.numero} className="whitespace-nowrap">
-                      {i > 0 && " · "}
-                      <span className="font-semibold text-white">{v.titulo}</span>{" "}
-                      <span className="tabular-nums">
-                        {conVotos(v.votos).match(/^\d+/)?.[0] ?? ""}
-                      </span>
-                    </span>
-                  ))}
-                </p>
-                <Link
-                  href="/identidad-cultura"
-                  className={cn(
-                    "inline-flex shrink-0 items-center justify-center rounded-xl bg-[#C8A96B] px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-[#d6ba80]",
-                    focusRing,
-                  )}
-                >
-                  Ver el documento →
-                </Link>
+              /* 08/11/2026: la línea de texto se cortaba a 390 px («Comp…») y
+                 no se leía el orden de un vistazo: ahora es una barra por valor,
+                 a escala del más votado. */
+              <div className="mt-8 rounded-2xl border border-[#C8A96B]/40 bg-[#C8A96B]/[0.07] p-4 lg:p-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)]">
+                      Resultado de la votación
+                    </p>
+                    <p className="mt-0.5 text-xs text-gray-400">
+                      Votos de la plantilla a cada valor; los antivalores se cuentan aparte.
+                    </p>
+                  </div>
+                  <Link
+                    href="/identidad-cultura"
+                    className={cn(
+                      "inline-flex shrink-0 items-center justify-center rounded-xl bg-[#C8A96B] px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-[#d6ba80]",
+                      focusRing,
+                    )}
+                  >
+                    Ver el documento ({DOCUMENTO_VALORES.diapositivas.length} diapositivas) →
+                  </Link>
+                </div>
+                <ul className="mt-4 space-y-2">
+                  {VALORES_VOTADOS.map((v) => {
+                    const n = Number(conVotos(v.votos).match(/^\d+/)?.[0] ?? 0);
+                    return (
+                      <li
+                        key={v.numero}
+                        className="grid grid-cols-[minmax(0,9rem)_1fr_auto] items-center gap-3 text-sm sm:grid-cols-[minmax(0,12rem)_1fr_auto]"
+                      >
+                        <span className="min-w-0 break-words font-semibold text-white">
+                          {v.titulo}
+                        </span>
+                        <span className="h-2.5 overflow-hidden rounded-full bg-white/[0.08]">
+                          <span
+                            className="block h-full rounded-full bg-[#C8A96B]"
+                            style={{ width: `${MAX_VOTOS > 0 ? (n / MAX_VOTOS) * 100 : 0}%` }}
+                          />
+                        </span>
+                        <span className="tabular-nums text-gray-300">
+                          {n} {n === 1 ? "voto" : "votos"}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
               </div>
             )}
           </main>

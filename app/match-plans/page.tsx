@@ -33,13 +33,11 @@ import {
   Goal,
   House,
   LoaderCircle,
-  Minus,
   Plane,
   Play,
   RotateCcw,
   Search,
   Target,
-  Trophy,
   Video,
   VideoOff,
   X,
@@ -101,6 +99,8 @@ type Metrics = {
   avgFor: string;
   avgAgainst: string;
   lastFive: Match[];
+  /** 08/11/2026: todos los de liga con resultado, del más antiguo al más reciente. */
+  todos: Match[];
 };
 
 /* ------------------------------------------------------------------ */
@@ -485,6 +485,9 @@ export default function Page() {
       .filter((m) => m.outcome !== null && m.esLiga)
       .sort((a, b) => (b.date?.getTime() ?? 0) - (a.date?.getTime() ?? 0))
       .slice(0, 5);
+    const todos = [...filtered]
+      .filter((m) => m.outcome !== null && m.esLiga)
+      .sort((a, b) => (a.date?.getTime() ?? 0) - (b.date?.getTime() ?? 0));
 
     const pct = (n: number) => (played > 0 ? Math.round((n / played) * 100) : 0);
 
@@ -505,6 +508,7 @@ export default function Page() {
       avgFor: played > 0 ? (goalsFor / played).toFixed(1).replace(".", ",") : "0,0",
       avgAgainst: played > 0 ? (goalsAgainst / played).toFixed(1).replace(".", ",") : "0,0",
       lastFive,
+      todos,
     };
   }, [filtered]);
 
@@ -800,9 +804,16 @@ function MetricsPanel({
   ligaPP: number | null;
   ligaBase: { equipos: number; jornadas: number } | null;
 }) {
-  /* Con pocos partidos los porcentajes son una tendencia, no un dato firme. */
-  const base = (n: number) => `${n} de ${metrics.played}`;
-  const liga = ligaPP !== null ? ` · liga ${ligaPP.toFixed(1).replace(".", ",")}` : "";
+  /* 08/11/2026: frente a la liga con el sentido en palabras («igual»,
+     «0,2 mejor»), para no comparar cifras a ojo. */
+  const frenteLiga = (goles: number, mejorAlto: boolean) => {
+    if (ligaPP === null || metrics.played === 0) return "";
+    const coma = (n: number) => n.toFixed(1).replace(".", ",");
+    const d = Math.round((goles / metrics.played - ligaPP) * 10) / 10;
+    const juicio = Math.abs(d) < 0.05 ? "igual" : `${coma(Math.abs(d))} ${(d > 0) === mejorAlto ? "mejor" : "peor"}`;
+
+    return ` · liga ${coma(ligaPP)}: ${juicio}`;
+  };
 
   return (
     <section className="rounded-[28px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-4 sm:p-6">
@@ -819,43 +830,48 @@ function MetricsPanel({
           icon={<Video className="h-4 w-4" />}
         />
 
-        <Stat
-          title="Victorias"
-          value={metrics.wins}
-          hint={base(metrics.wins)}
-          icon={<Trophy className="h-4 w-4" />}
-          accent="text-emerald-400"
-        />
+        {/* 08/11/2026: «4 de 10» salía en el titular y otra vez en tres
+            tarjetas: queda una barra con los partidos en orden y el reparto. */}
+        <div className="col-span-2 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4 lg:col-span-3">
+          <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">
+            Resultados · {metrics.wins} V · {metrics.draws} E · {metrics.losses} D
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-1">
+            {metrics.todos.map((m) => {
+              const token = OUTCOME[m.outcome as Outcome];
 
-        <Stat
-          title="Empates"
-          value={metrics.draws}
-          hint={base(metrics.draws)}
-          icon={<Minus className="h-4 w-4" />}
-          accent="text-amber-400"
-        />
-
-        <Stat
-          title="Derrotas"
-          value={metrics.losses}
-          hint={base(metrics.losses)}
-          icon={<XCircle className="h-4 w-4" />}
-          accent="text-rose-400"
-        />
+              return (
+                <span
+                  key={m.id}
+                  title={`${m.partido} · ${m.resultado} · ${formatDate(m)}`}
+                  className={cn(
+                    "flex h-7 min-w-7 items-center justify-center rounded-md border px-1 text-[11px] font-semibold",
+                    token.chip,
+                  )}
+                >
+                  {token.short}
+                </span>
+              );
+            })}
+          </div>
+          <p className="mt-2 text-[11px] text-white/55">
+            {metrics.played} partidos de liga, del más antiguo al más reciente
+          </p>
+        </div>
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat
           title="Goles a favor"
           value={metrics.goalsFor}
-          hint={`${metrics.avgFor} por partido · ${metrics.played} partidos · más, mejor${liga}`}
+          hint={`${metrics.avgFor} por partido · ${metrics.played} partidos · ▲ más es mejor${frenteLiga(metrics.goalsFor, true)}`}
           icon={<Goal className="h-4 w-4" />}
         />
 
         <Stat
           title="Goles en contra"
           value={metrics.goalsAgainst}
-          hint={`${metrics.avgAgainst} por partido · ${metrics.played} partidos · menos, mejor${liga}`}
+          hint={`${metrics.avgAgainst} por partido · ${metrics.played} partidos · ▼ menos es mejor${frenteLiga(metrics.goalsAgainst, false)}`}
           icon={<Target className="h-4 w-4" />}
         />
 
@@ -903,7 +919,7 @@ function MetricsPanel({
           {metrics.lastFive.length > 0 ? (
             <p className="mt-2 text-[11px] text-white/55">
               {metrics.lastFive.reduce((s, m) => s + (m.outcome === "W" ? 3 : m.outcome === "D" ? 1 : 0), 0)} de{" "}
-              {metrics.lastFive.length * 3} puntos · del más reciente al más antiguo
+              {metrics.lastFive.length * 3} puntos en {metrics.lastFive.length} partidos · del más reciente al más antiguo
             </p>
           ) : null}
         </div>
@@ -1085,7 +1101,8 @@ function MatchCard({
         ) : match.enCoding ? (
           <Link
             href="/coding"
-            className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-[#C8A96B]/60 px-3 py-1.5 text-xs font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/10"
+            /* 08/11/2026: el vídeo de análisis (sus cortes) es la acción principal; Hudl y el resumen, debajo y en gris. */
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[#C8A96B] px-4 py-2.5 text-sm font-semibold text-black transition hover:opacity-90"
           >
             <Play className="h-3.5 w-3.5" />
             Cortes en Coding

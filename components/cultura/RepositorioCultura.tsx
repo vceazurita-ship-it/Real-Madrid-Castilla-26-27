@@ -567,9 +567,11 @@ export function RepositorioCultura() {
               subtitle="Lo mismo que se descarga"
               icon={Layers}
             >
-              {/* En el móvil, una diapositiva cada vez con flechas. */}
+              {/* Una diapositiva cada vez con flechas, también en escritorio
+                  (08/11/2026: apiladas eran más de tres pantallas de scroll),
+                  y una tira con todas para saltar a un valor. */}
               {totalHojas > 1 && (
-                <div className="mb-3 flex items-center justify-between gap-3 lg:hidden">
+                <div className="mb-3 flex items-center justify-between gap-3">
                   <button
                     type="button"
                     onClick={() => setActiva(Math.max(0, hojaActiva - 1))}
@@ -598,17 +600,38 @@ export function RepositorioCultura() {
                 </div>
               )}
 
+              {totalHojas > 1 && (
+                <div className="-mx-1 mb-3 flex gap-1.5 overflow-x-auto px-1 pb-1">
+                  {aLaVista.diapositivas.map((_, indice) => (
+                    <button
+                      key={indice}
+                      type="button"
+                      onClick={() => setActiva(indice)}
+                      aria-current={indice === hojaActiva ? "true" : undefined}
+                      className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-left text-xs transition ${
+                        indice === hojaActiva
+                          ? "border-[#C8A96B] bg-[#C8A96B]/15 font-semibold text-white"
+                          : "border-white/10 text-white/60 hover:bg-white/10 hover:text-white"
+                      }`}
+                    >
+                      <span className="tabular-nums">{indice + 1}</span>{" "}
+                      {(previa ? titulosDocumento(previa) : titulos)[indice]}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               <div className="space-y-5">
                 {aLaVista.diapositivas.map((hoja, indice) => (
                   <div
                     key={indice}
-                    className={`min-w-0 ${indice === hojaActiva ? "" : "max-lg:hidden"}`}
+                    className={`min-w-0 ${indice === hojaActiva ? "" : "hidden"}`}
                   >
                     {/* 07/11/2026: el botón de ampliar sale del lienzo (tapaba la
                         chapa «PORTADA / VALOR n») y va con su nombre junto al
                         contador; la diapositiva entera también lo abre. */}
                     <div className="mb-2 flex items-center justify-between gap-3">
-                      <p className="min-w-0 text-[10px] uppercase tracking-[0.2em] text-white/35">
+                      <p className="min-w-0 text-xs uppercase tracking-[0.16em] text-white/50">
                         {indice + 1} / {aLaVista.diapositivas.length} ·{" "}
                         {(previa ? titulosDocumento(previa) : titulos)[indice]}
                       </p>
@@ -632,8 +655,8 @@ export function RepositorioCultura() {
                         <HojaCultura documento={aLaVista} hoja={hoja} />
                       </Escalado>
                     </button>
-                    <p className="mt-1.5 text-center text-[11px] text-white/40 lg:hidden">
-                      Toca la diapositiva para verla en grande
+                    <p className="mt-1.5 text-center text-[11px] text-white/40">
+                      Pulsa la diapositiva para verla en grande
                     </p>
                   </div>
                 ))}

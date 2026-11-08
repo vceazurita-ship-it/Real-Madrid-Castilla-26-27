@@ -326,7 +326,83 @@ export function medidaDelContenido(posicionHoja: string, contenido: string): str
   })?.columna ?? null;
 }
 
-export const NOMBRE_PUESTO: Record<Puesto, string> = { POR: "Portero", CEN: "Central", LAT: "Lateral", MED: "Centrocampista", BAN: "Extremo", DEL: "Delantero" };
+/** 08/11/2026: las columnas de Wyscout en español natural, para pintarlas. */
+const ALIAS_COLUMNA: Record<string, string> = {
+  "Pases progresivos/90": "Pases progresivos por 90 minutos",
+  "Carreras en progresión/90": "Conducciones en progresión por 90 minutos",
+  "Precisión pases, %": "% de pases acertados",
+  "Duelos aéreos ganados, %": "% de duelos aéreos ganados",
+  "Interceptaciones/90": "Interceptaciones por 90 minutos",
+  "Duelos defensivos ganados, %": "% de duelos defensivos ganados",
+  "Centros/90": "Centros por 90 minutos",
+  "Ataque en profundidad/90": "Desmarques en profundidad por 90 minutos",
+  "Duelos atacantes ganados, %": "% de duelos ofensivos ganados",
+  "Regates realizados, %": "% de regates logrados",
+  "Toques en el área de penalti/90": "Toques en el área por 90 minutos",
+  "xG/90": "Goles esperados (xG) por 90 minutos",
+  "Acciones defensivas realizadas/90": "Acciones defensivas por 90 minutos",
+};
+
+export const nombreColumna = (columna: string) =>
+  ALIAS_COLUMNA[columna] ??
+  columna.replace(/\/90$/, " por 90 minutos").replace(/^(.*),\s*%$/, (_, t: string) => `% de ${t.charAt(0).toLowerCase()}${t.slice(1)}`);
+
+/** Minutos para que la cifra de un jugador cuente como dato y no como tendencia. */
+export const MINUTOS_CONTENIDO = 450;
+
+export type CifraDelContenido = {
+  columna: string;
+  nombre: string;
+  porcentaje: boolean;
+  mejorAlto: boolean;
+  nuestros: { nombre: string; valor: number; minutos: number }[];
+  mediana: number;
+  /** Jugadores del puesto en la categoría con los minutos de corte. */
+  n: number;
+  puesto: Puesto;
+};
+
+/**
+ * 08/11/2026: la cifra del contenido para el grupo del puesto: cada jugador
+ * nuestro con minutos y la mediana del puesto en la categoría (450′). Null
+ * si el contenido no se mide o no hay a quién comparar.
+ */
+export function cifraDelContenido(jugadores: FilaJugador[], posicionHoja: string, contenido: string): CifraDelContenido | null {
+  const columna = medidaDelContenido(posicionHoja, contenido);
+  const puesto = PUESTO_DE_HOJA.find(([re]) => re.test(posicionHoja))?.[1];
+
+  if (!columna || !puesto) return null;
+
+  const rasgo = PERFIL_PUESTO[puesto]?.find((r) => r.columna === columna);
+  const delPuesto = universoDe(jugadores, "liga").filter((j) => puestoDe(j.posicion) === puesto && j.minutos >= MINUTOS_CONTENIDO);
+  const valores = delPuesto.map((j) => valorDe(j, columna)).filter((v): v is number => v !== null && Number.isFinite(v)).sort((a, b) => a - b);
+
+  if (valores.length < 6) return null;
+
+  const nuestros = delPuesto
+    .filter(esNuestro)
+    .flatMap((j) => {
+      const v = valorDe(j, columna);
+
+      return v === null || !Number.isFinite(v) ? [] : [{ nombre: j.jugador, valor: v, minutos: j.minutos }];
+    })
+    .sort((a, b) => b.minutos - a.minutos);
+
+  if (!nuestros.length) return null;
+
+  return {
+    columna,
+    nombre: nombreColumna(columna),
+    porcentaje: /%/.test(columna),
+    mejorAlto: rasgo?.mejorAlto ?? true,
+    nuestros,
+    mediana: valores[Math.floor(valores.length / 2)],
+    n: valores.length,
+    puesto,
+  };
+}
+
+export const NOMBRE_PUESTO: Record<Puesto, string> ={ POR: "Portero", CEN: "Central", LAT: "Lateral", MED: "Centrocampista", BAN: "Extremo", DEL: "Delantero" };
 
 function encajes(jugadores: FilaJugador[]): JugadorEncaje[] {
   const liga = universoDe(jugadores, "liga");
@@ -512,6 +588,94 @@ export function identidadEnElCampo(partidos: FilaPartido[], jugadores: FilaJugad
     jugadores: jugadoresEncaje,
     conclusiones: conclusionesDe(bloques, valores, jugadoresEncaje, ejes, indiceGlobal),
   };
+}
+
+/* ------------------------------------------------------------------ */
+/*  LA CIFRA DE CADA PRINCIPIO, PARA /game-model (08/11/2026)          */
+/* ------------------------------------------------------------------ */
+
+export type CifraDelPrincipio = {
+  nombre: string;
+  unidad: Metrica["unidad"];
+  mejorAlto: boolean;
+  /** Último partido de la competición principal. */
+  ultimo: { valor: number; rival: string; jornada: number; base: { de: number; total: number } | null };
+  /** Media de la temporada (mismo cálculo que /identidad-campo). */
+  temporada: number;
+  partidos: number;
+  /** Mediana de la media de temporada de los equipos de la categoría. */
+  mediana: number;
+  equipos: number;
+};
+
+/**
+ * La cifra con la que se vigila cada principio medible: último partido (con
+ * su base si es un %), temporada y mediana de la categoría. Mismo origen y
+ * mismas reglas que `identidadEnElCampo` (lo que no tiene dato no sale).
+ * La clave es el ancla de /identidad-campo.
+ */
+export function cifrasDelModelo(partidos: FilaPartido[]): Map<string, CifraDelPrincipio[]> {
+  const fuera = new Map<string, CifraDelPrincipio[]>();
+  const delAno = partidos.filter((f) => f.fecha >= DESDE);
+  const nuestras = delAno.filter((f) => f.equipo === NOSOTROS);
+
+  if (nuestras.length < 2) return fuera;
+
+  const competicion = competicionPrincipal(nuestras);
+  const comp = delAno.filter((f) => f.competicion === competicion);
+  const mias = comp.filter((f) => f.equipo === NOSOTROS).sort((a, b) => a.fecha.localeCompare(b.fecha));
+  const equipos = [...new Set(comp.map((f) => f.equipo))];
+  const porLlave = new Map(comp.map((f) => [`${f.fecha}|${f.equipo}`, f] as const));
+  const filasDe = (equipo: string, lado: Indicador["lado"]) => {
+    const suyas = comp.filter((f) => f.equipo === equipo);
+
+    return lado === "nuestro" ? suyas : suyas.map((f) => rivalDe(f, porLlave)).filter((f): f is FilaPartido => Boolean(f));
+  };
+
+  for (const def of PRINCIPIOS) {
+    const cifras = def.indicadores.flatMap((ind): CifraDelPrincipio[] => {
+      const m = METRICA_POR_KEY.get(ind.metrica);
+      const ultimaFila = mias.at(-1);
+
+      if (!m || !ultimaFila) return [];
+
+      const temporada = valorEnGrupo(m, filasDe(NOSOTROS, ind.lado), "promedio");
+      const fila = ind.lado === "nuestro" ? ultimaFila : rivalDe(ultimaFila, porLlave);
+      const ultimo = fila ? valorEnGrupo(m, [fila], "promedio") : null;
+
+      if (temporada === null || ultimo === null || !Number.isFinite(temporada) || !Number.isFinite(ultimo)) return [];
+
+      const deLaLiga = equipos
+        .map((e) => valorEnGrupo(m, filasDe(e, ind.lado), "promedio"))
+        .filter((v): v is number => v !== null && Number.isFinite(v))
+        .sort((a, b) => a - b);
+
+      if (deLaLiga.length < 6) return [];
+
+      const num = m.numerador && !m.numerador.startsWith("@") ? fila?.datos[m.numerador] : undefined;
+      const den = m.denominador && !m.denominador.startsWith("@") ? fila?.datos[m.denominador] : undefined;
+
+      return [{
+        nombre: ind.etiqueta ?? m.nombre,
+        unidad: m.unidad,
+        mejorAlto: ind.mejorAlto,
+        ultimo: {
+          valor: ultimo,
+          rival: ultimaFila.rival,
+          jornada: mias.length,
+          base: Number.isFinite(num) && Number.isFinite(den) && (den as number) > 0 ? { de: Math.round(num as number), total: Math.round(den as number) } : null,
+        },
+        temporada,
+        partidos: mias.length,
+        mediana: deLaLiga[Math.floor(deLaLiga.length / 2)],
+        equipos: deLaLiga.length,
+      }];
+    });
+
+    if (cifras.length) fuera.set(anclaDe(def), cifras);
+  }
+
+  return fuera;
 }
 
 /* ------------------------------------------------------------------ */

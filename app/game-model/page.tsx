@@ -1,5 +1,5 @@
 "use client";
-import { olvidaCsv, traeCsv } from "@/lib/hojaCsv";
+import { olvidaCsv, traeCsv, traeJson } from "@/lib/hojaCsv";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -41,7 +41,13 @@ import {
 } from "@/components/ui/knowledge-kit";
 import { cn } from "@/lib/utils";
 import { confirmar } from "@/lib/avisos";
-import { medidaDelPrincipio } from "@/lib/identidad/campo";
+import {
+  cifrasDelModelo,
+  medidaDelPrincipio,
+  type CifraDelPrincipio,
+} from "@/lib/identidad/campo";
+import { formatea } from "@/lib/data-analisis/metricas";
+import type { FilaPartido } from "@/lib/data-analisis/leer";
 
 type Principio = {
   ID: number;
@@ -876,6 +882,7 @@ export default function GameModelPage() {
                           </span>
                         ))}
                       </p>
+                      <BalanceInnegociables claves={claves} />
                     </div>
                   )}
                 <ul className="space-y-3">
@@ -1030,23 +1037,155 @@ export default function GameModelPage() {
 const medidaDe = (p: Principio) =>
   medidaDelPrincipio(p.FASE ?? "", p.BLOQUE ?? "", p.PRINCIPIO ?? "");
 
-function MedidaPrincipio({ p }: { p: Principio }) {
-  const m = medidaDe(p);
+/*
+| 08/11/2026: la cifra de cada principio medible (último partido, temporada y
+| mediana de la categoría), del mismo cálculo que /identidad-campo. Se pide una
+| vez para toda la pantalla; si la lectura falla, se enseña sólo con qué se
+| mide; si llega y el principio no tiene dato, la línea no sale.
+*/
+type EstadoCifras = "cargando" | "error" | Map<string, CifraDelPrincipio[]>;
 
-  if (!m) return null;
+let promesaCifras: Promise<Map<string, CifraDelPrincipio[]>> | null = null;
+
+const pideCifras = () =>
+  (promesaCifras ??= traeJson<{ ok: boolean; partidos?: FilaPartido[] }>(
+    "/api/data-analisis",
+  ).then((r) => {
+    if (!r.ok || !r.partidos) throw new Error("Sin partidos");
+    return cifrasDelModelo(r.partidos);
+  }));
+
+function useCifras(): EstadoCifras {
+  const [estado, setEstado] = useState<EstadoCifras>("cargando");
+
+  useEffect(() => {
+    let vivo = true;
+
+    pideCifras().then(
+      (m) => vivo && setEstado(m),
+      () => {
+        promesaCifras = null;
+        if (vivo) setEstado("error");
+      },
+    );
+
+    return () => {
+      vivo = false;
+    };
+  }, []);
+
+  return estado;
+}
+
+/** «Duelos ofensivos ganados %» → «% de duelos ofensivos ganados». */
+const enEspanol = (nombre: string) => {
+  const m = nombre.match(/^(.*?)\s*%\s*(\(.*\))?$/);
+
+  return m ? `% de ${m[1].charAt(0).toLowerCase()}${m[1].slice(1)}${m[2] ? ` ${m[2]}` : ""}` : nombre;
+};
+
+/** El último partido queda del lado bueno de la mediana de la categoría. */
+const cumple = (c: CifraDelPrincipio) =>
+  c.mejorAlto ? c.ultimo.valor >= c.mediana : c.ultimo.valor <= c.mediana;
+
+function CifraLinea({ c }: { c: CifraDelPrincipio }) {
+  const bien = cumple(c);
 
   return (
-    <p className="mt-1.5 flex flex-wrap items-baseline gap-x-2 text-xs leading-relaxed text-gray-400">
-      <span>
-        <span className="font-semibold text-gray-300">Se mide cada jornada:</span>{" "}
-        {m.metricas.join(" · ")}
+    <li className="min-w-0">
+      <span className="font-semibold text-white">{enEspanol(c.nombre)}</span>
+      {": "}
+      <span className="whitespace-nowrap">
+        <span
+          className={cn(
+            "font-bold tabular-nums",
+            bien ? "text-emerald-400" : "text-amber-400",
+          )}
+        >
+          {bien ? "▲" : "▼"} {formatea(c.ultimo.valor, c.unidad)}
+        </span>
+        {c.ultimo.base && (
+          <span className="tabular-nums text-gray-400">
+            {" "}
+            ({c.ultimo.base.de} de {c.ultimo.base.total})
+          </span>
+        )}
+      </span>{" "}
+      <span className="text-gray-400">
+        en el último partido, ante {c.ultimo.rival}
+        {" · "}
+        <span className="whitespace-nowrap">
+          temporada {formatea(c.temporada, c.unidad)} en {c.partidos} partidos
+        </span>
+        {" · "}
+        <span className="whitespace-nowrap">
+          mediana de {c.equipos} equipos {formatea(c.mediana, c.unidad)}
+        </span>
+        {!c.mejorAlto && " (menos es mejor)"}
       </span>
+    </li>
+  );
+}
+
+function MedidaPrincipio({ p }: { p: Principio }) {
+  const m = medidaDe(p);
+  const cifras = useCifras();
+
+  if (!m || cifras === "cargando") return null;
+
+  const suyas = cifras === "error" ? null : cifras.get(m.ancla);
+
+  if (cifras !== "error" && !suyas?.length) return null;
+
+  return (
+    <div className="mt-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[13px] leading-relaxed text-gray-300">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-400">
+        Se mide cada jornada · Wyscout
+      </p>
+      {suyas ? (
+        <ul className="mt-1 space-y-1">
+          {suyas.map((c) => (
+            <CifraLinea key={c.nombre} c={c} />
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-1">{m.metricas.map(enEspanol).join(" · ")}</p>
+      )}
       <Link
         href={`/identidad-campo#${m.ancla}`}
-        className="font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)] hover:underline"
+        className="mt-1 inline-block font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)] hover:underline"
       >
-        Cómo sale →
+        Ver partido a partido →
       </Link>
+    </div>
+  );
+}
+
+/** Cuántos innegociables medidos quedaron del lado bueno en el último partido. */
+function BalanceInnegociables({ claves }: { claves: Principio[] }) {
+  const cifras = useCifras();
+
+  if (typeof cifras === "string") return null;
+
+  const medidos = claves.flatMap((p) => {
+    const m = medidaDe(p);
+    const c = m ? cifras.get(m.ancla) : undefined;
+
+    return c?.length ? [c] : [];
+  });
+
+  if (!medidos.length) return null;
+
+  const cumplidos = medidos.filter((c) => c.every(cumple)).length;
+
+  return (
+    <p className="mt-1 text-sm text-gray-400">
+      En el último partido,{" "}
+      <span className="font-semibold text-white">
+        {cumplidos} de {medidos.length}
+      </span>{" "}
+      {medidos.length === 1 ? "medido quedó" : "medidos quedaron"} del lado bueno
+      de la mediana de la categoría.
     </p>
   );
 }
