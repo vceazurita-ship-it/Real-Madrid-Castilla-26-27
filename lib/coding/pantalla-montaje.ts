@@ -13,6 +13,11 @@
  * que no se ve no se descodifica igual, y lo que se graba es lo que se
  * descodifica—. De paso hace de puerta: mientras se monta, las teclas del
  * coding no llegan a la página de detrás.
+ *
+ * Desde el 08/11/2026 el coding monta EN SEGUNDO PLANO (`EnSegundoPlano`):
+ * sin velo ni guardia de teclado, con el progreso en la píldora de descargas
+ * y, sólo para el motor de respaldo, su `<video>` en una ventanita en la
+ * esquina. La pantalla de siempre queda para quien llame sin `avanza`.
  */
 
 import type { RotuloClip } from "@/lib/coding/rotulo";
@@ -86,6 +91,34 @@ export type PeticionNavegador = {
    * unificado: es lo que separa una jugada de la siguiente sin un salto seco.
    */
   fundidoMs?: number;
+  /**
+   * EN SEGUNDO PLANO (08/11/2026): por dónde va, para la píldora de
+   * descargas (`lib/trabajos/descargas.ts`). Con esto el montaje no pone su
+   * pantalla delante ni se queda con el teclado: ver `EnSegundoPlano`.
+   */
+  avanza?: (texto: string, fraccion?: number) => void;
+  /** La ✕ de la píldora: cancela el montaje como el botón de la pantalla. */
+  senal?: AbortSignal;
+};
+
+/**
+ * Lo que hace falta para montar sin pantalla delante.
+ *
+ * El analista pidió que las descargas no bloqueen la app (08/11/2026). Así
+ * que, en vez del velo a pantalla completa con su cuenta, su «Cancelar» y su
+ * guardia del teclado:
+ *
+ * - el progreso va a la píldora (`avanza`) y cancelar es su ✕ (`senal`);
+ * - el teclado sigue siendo de la página;
+ * - el `<video>` del motor de respaldo **sigue teniendo que verse** —un vídeo
+ *   que no se ve no se descodifica igual—, así que se enseña en una ventanita
+ *   en la esquina, colgada de `document.body` (no la desmonta React al
+ *   cambiar de pantalla) y sin tapar nada ni coger clics. El motor rápido no
+ *   reproduce nada: con él la ventanita ni sale.
+ */
+export type EnSegundoPlano = {
+  avanza: (texto: string, fraccion?: number) => void;
+  senal?: AbortSignal;
 };
 
 /** Cuánto negro va encima en el ms `t` de un corte que dura `dura`: de 0 a 1. */
@@ -121,23 +154,56 @@ export type PantallaMontaje = ReturnType<typeof montaEscenario>;
  */
 export const CORTE_ATASCADO = "El montaje se ha quedado atascado.";
 
-export function montaEscenario(titulo: string) {
+export function montaEscenario(titulo: string, fondo?: EnSegundoPlano) {
   /*
   | El vídeo de la pantalla de detrás se para.
   |
   | Componer las pizarras lo deja como estaba —y eso puede ser reproduciendo—,
   | y dos partidos sonando a la vez mientras se monta no hay quien lo aguante.
+  |
+  | En segundo plano no: el analista sigue trabajando con su vídeo, y el del
+  | montaje va mudo (el sonido se graba por WebAudio, sin altavoz).
   */
-  for (const otro of document.querySelectorAll("video")) {
-    if (!otro.paused) otro.pause();
+  if (!fondo) {
+    for (const otro of document.querySelectorAll("video")) {
+      if (!otro.paused) otro.pause();
+    }
   }
 
   const raiz = document.createElement("div");
 
-  raiz.setAttribute("role", "dialog");
-  raiz.setAttribute("aria-label", "Montando el vídeo");
+  if (fondo) {
+    /*
+    | La ventanita de la esquina: sólo se enseña con el motor de respaldo
+    | (`enseñaVideo(true)`), que necesita su `<video>` a la vista. No coge
+    | clics ni teclas y no tapa la píldora, que va abajo a la izquierda.
+    */
+    raiz.setAttribute("aria-hidden", "true");
+    raiz.setAttribute("data-export-hide", "");
 
-  Object.assign(raiz.style, {
+    Object.assign(raiz.style, {
+      position: "fixed",
+      right: "12px",
+      bottom: "max(12px, env(safe-area-inset-bottom))",
+      width: "min(42vw, 260px)",
+      zIndex: "2147483000",
+      display: "none",
+      flexDirection: "column",
+      gap: "6px",
+      padding: "8px",
+      borderRadius: "14px",
+      background: "rgba(8,11,15,0.92)",
+      boxShadow: "0 0 0 1px rgba(216,180,90,.4), 0 8px 24px rgba(0,0,0,.35)",
+      color: "#fff",
+      font: "10px/1.4 system-ui, -apple-system, Segoe UI, sans-serif",
+      pointerEvents: "none",
+    });
+  } else {
+    raiz.setAttribute("role", "dialog");
+    raiz.setAttribute("aria-label", "Montando el vídeo");
+  }
+
+  if (!fondo) Object.assign(raiz.style, {
     position: "fixed",
     inset: "0",
     zIndex: "2147483000",
@@ -183,6 +249,11 @@ export function montaEscenario(titulo: string) {
 
   caja.append(video, lienzo);
 
+  if (fondo) {
+    caja.style.width = "100%";
+    caja.style.borderRadius = "8px";
+  }
+
   const paso = document.createElement("div");
 
   paso.style.cssText =
@@ -224,6 +295,36 @@ export function montaEscenario(titulo: string) {
     cancelar.textContent = "Cancelando…";
     cancelar.disabled = true;
   };
+
+  /* En segundo plano, cancelar es la ✕ de la píldora. */
+  const alAbortar = () => cancela();
+
+  if (fondo?.senal) {
+    if (fondo.senal.aborted) cancela();
+    else fondo.senal.addEventListener("abort", alAbortar);
+  }
+
+  /*
+  | El eco a la píldora: el paso y, si el vigía tiene algo que decir (sin
+  | avanzar desde hace tanto, un paso que no puede contar), eso. Sólo se manda
+  | lo que cambia —al 1 %—: cada aviso repinta la píldora.
+  */
+  let fraccionActual = 0;
+  let ecoDicho = "";
+
+  const informa = () => {
+    if (!fondo) return;
+
+    const texto = aviso.textContent || paso.textContent || "Montando el vídeo…";
+    const firma = `${texto}|${Math.round(fraccionActual * 100)}`;
+
+    if (firma === ecoDicho) return;
+
+    ecoDicho = firma;
+    fondo.avanza(texto, fraccionActual);
+  };
+
+  const eco = fondo ? window.setInterval(informa, 1000) : 0;
 
   /*
   |--------------------------------------------------------------------------
@@ -377,9 +478,25 @@ export function montaEscenario(titulo: string) {
     }
   };
 
-  window.addEventListener("keydown", teclas, true);
+  /* En segundo plano el teclado sigue siendo de la página: el analista trabaja. */
+  if (!fondo) window.addEventListener("keydown", teclas, true);
 
-  raiz.append(encabezado, caja, paso, canal, aviso, cancelar);
+  /* La letra pequeña de la ventanita: qué motor monta y qué no hay que hacer. */
+  const nota = document.createElement("div");
+
+  nota.style.cssText = "color:rgba(255,255,255,.55);font-size:10px;line-height:1.4";
+
+  if (fondo) {
+    encabezado.style.textAlign = "left";
+    encabezado.style.letterSpacing = ".08em";
+    encabezado.style.whiteSpace = "nowrap";
+    encabezado.style.overflow = "hidden";
+    encabezado.style.textOverflow = "ellipsis";
+
+    raiz.append(encabezado, caja, nota);
+  } else {
+    raiz.append(encabezado, caja, paso, canal, aviso, cancelar);
+  }
 
   document.body.append(raiz);
 
@@ -458,7 +575,8 @@ export function montaEscenario(titulo: string) {
 
     /** La letra pequeña de abajo, distinta según el motor que esté montando. */
     explica: (texto: string) => {
-      aviso.textContent = texto;
+      if (fondo) nota.textContent = texto;
+      else aviso.textContent = texto;
     },
 
     /** La medida real del vídeo, para que la caja no deforme la vista. */
@@ -469,6 +587,9 @@ export function montaEscenario(titulo: string) {
     /** El `<video>` sólo lo enseña el motor que reproduce para grabar. */
     enseñaVideo: (visible: boolean) => {
       video.style.display = visible ? "" : "none";
+
+      /* En segundo plano, la ventanita entera: sólo hace falta si se reproduce. */
+      if (fondo) raiz.style.display = visible ? "flex" : "none";
     },
 
     dice: (texto: string, fraccion: number) => {
@@ -489,10 +610,18 @@ export function montaEscenario(titulo: string) {
 
         aviso.textContent = "";
       }
+
+      fraccionActual = Math.min(1, Math.max(0, fraccion));
+
+      informa();
     },
 
     cierra: () => {
       window.clearInterval(vigia);
+
+      if (eco) window.clearInterval(eco);
+
+      fondo?.senal?.removeEventListener("abort", alAbortar);
 
       window.removeEventListener("keydown", teclas, true);
 

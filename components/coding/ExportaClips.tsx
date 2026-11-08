@@ -29,7 +29,7 @@
  * pero ya no es el único camino ni hace falta para exportar.
  */
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, useSyncExternalStore } from "react";
 import {
   Eye,
   Film,
@@ -49,7 +49,12 @@ import { toast } from "sonner";
 import { Button } from "@/components/abp/ui";
 import { NotaPlegable } from "@/components/coding/piezas";
 import { NOMBRE_PRIVACIDAD } from "@/lib/coding/youtube-cliente";
-import { descarga, descargaDataUrl } from "@/lib/export/lienzos";
+import {
+  descargaEnMarcha,
+  descargas,
+  encargaDescarga,
+  type ResultadoDescarga,
+} from "@/lib/trabajos/descargas";
 import { VERTICAL } from "@/lib/coding/vertical";
 import {
   borraImagenes,
@@ -82,6 +87,75 @@ import { posterDeVideo } from "@/lib/coding/poster";
 import { esperaFuentePortada } from "@/lib/rivals/portada-font";
 
 export type ModoCorteUI = "preciso" | "rapido";
+
+/*
+|--------------------------------------------------------------------------
+| LAS EXPORTACIONES DEL CODING, EN SEGUNDO PLANO (08/11/2026)
+|--------------------------------------------------------------------------
+|
+| Van por el gestor común de descargas (`lib/trabajos/descargas.ts`): píldora
+| con el progreso, ✕ para cancelar, aviso al terminar y se puede cambiar de
+| pantalla. Aquí sólo hacen falta dos cosas propias.
+*/
+
+/** Los encargos que ha dejado el coding: para el aviso al cerrar la pestaña. */
+const encargosCoding = new Set<string>();
+
+const codingEnVuelo = () =>
+  descargas
+    .foto()
+    .trabajos.some((t) => encargosCoding.has(t.id) && (t.estado === "esperando" || t.estado === "en-marcha"));
+
+/** El último montaje en el navegador que ha pedido turno. */
+let colaMontaje: Promise<void> = Promise.resolve();
+
+/**
+ * Un montaje en el navegador detrás de otro, nunca dos a la vez.
+ *
+ * Cada uno abre su descodificador y su codificador del partido —o reproduce
+ * un `<video>` a tiempo real, el de respaldo—: dos a la vez se pelean por la
+ * máquina y los dos van peor, o el navegador se queda sin descodificadores.
+ * El segundo espera en la píldora («En cola») y la ✕ lo quita de la fila.
+ */
+async function enTurno<T>(
+  avanza: (texto: string, fraccion?: number) => void,
+  senal: AbortSignal,
+  faena: () => Promise<T>,
+): Promise<T | undefined> {
+  const antes = colaMontaje;
+  let suelta: () => void = () => undefined;
+  const mio = new Promise<void>((listo) => {
+    suelta = listo;
+  });
+
+  colaMontaje = antes.then(() => mio);
+
+  try {
+    let libre = false;
+
+    const turno = antes.then(() => {
+      libre = true;
+
+      return "turno" as const;
+    });
+
+    /* Si el de antes ya ha acabado, ni se enseña la cola. */
+    await Promise.resolve();
+
+    if (!libre) avanza("En cola: espera a que acabe el montaje de antes…");
+
+    const cancelado = new Promise<"cancelado">((listo) => {
+      if (senal.aborted) listo("cancelado");
+      else senal.addEventListener("abort", () => listo("cancelado"), { once: true });
+    });
+
+    if ((await Promise.race([turno, cancelado])) === "cancelado") return undefined;
+
+    return await faena();
+  } finally {
+    suelta();
+  }
+}
 
 /**
  * Los topes de peso que se ofrecen, en megas.
@@ -395,16 +469,55 @@ export function useExportador(opciones: {
     [],
   );
 
-  const descargaPoster = useCallback(
-    async (peticion: PeticionExport, imagen: string | null) => {
-      if (!imagen) return;
+  /*
+  | El póster como fichero, para que lo baje el anfitrión de las descargas
+  | junto al vídeo (detrás de él: `bajaTodo` los separa 400 ms).
+  */
+  const ficheroDePoster = useCallback(
+    async (peticion: PeticionExport, imagen: string | null): Promise<ResultadoDescarga | null> => {
+      if (!imagen) return null;
 
       try {
-        await descargaDataUrl(imagen, `${peticion.nombre}-poster.jpg`);
+        return { blob: await (await fetch(imagen)).blob(), nombre: `${peticion.nombre}-poster.jpg` };
       } catch (error) {
         console.warn("[coding] el póster no se ha podido guardar", error);
+
+        return null;
       }
     },
+    [],
+  );
+
+  /*
+  | Lo que se hace con el vídeo además de bajarlo (la subida a YouTube).
+  |
+  | Va DESPUÉS de que el anfitrión lo baje, como antes iba después de
+  | `descarga()`: la tarea devuelve el fichero y esto entra un momento más
+  | tarde. Sus errores se los come quien lo implementa.
+  */
+  const despuesDeBajar = useCallback(
+    (blob: Blob, nombre: string) => {
+      if (!alTerminarVideo) return;
+
+      setTimeout(() => {
+        void Promise.resolve(alTerminarVideo(blob, nombre)).catch((error) => {
+          console.warn("[coding] lo de después del vídeo ha fallado", error);
+        });
+      }, 1_500);
+    },
+    [alTerminarVideo],
+  );
+
+  /* El título de la píldora: qué sale y de qué. */
+  const tituloDe = useCallback(
+    (peticion: PeticionExport) =>
+      `${
+        peticion.formato === "zip"
+          ? "Cortes sueltos (ZIP)"
+          : peticion.formato === "unificado"
+            ? "Vídeo unificado"
+            : "Corte"
+      } · ${peticion.nombre}`,
     [],
   );
 
@@ -416,89 +529,99 @@ export function useExportador(opciones: {
   | Es el único camino que funciona igual en esta máquina y con la app
   | desplegada: el fichero no sale del disco, así que no hay techo de subida
   | que valga ni función que se acabe a los 300 s. Lo hace todo
-  | `lib/coding/navegador.ts`, que además pone su propia pantalla con la
-  | cuenta y el botón de cancelar —va a tiempo real, y eso hay que verlo—.
+  | `lib/coding/navegador.ts`.
+  |
+  | EN SEGUNDO PLANO (08/11/2026), como las descargas de ABP: el clic deja el
+  | encargo con su foto —el `File` del partido, los cortes, las pizarras ya
+  | compuestas, los ajustes— y vuelve. El progreso va a la píldora, cancelar
+  | es su ✕ y se puede seguir codificando o irse a otra pantalla. El motor
+  | rápido no reproduce nada; el de respaldo enseña su `<video>` en una
+  | ventanita en la esquina (ver `EnSegundoPlano` en `pantalla-montaje`).
   */
   const montaAqui = useCallback(
-    async (
+    (
       peticion: PeticionExport,
       fichero: Blob,
       /** El fichero de cada corte, cuando no todos salen del mismo vídeo. */
       ficheroDe?: (clip: ClipCoding) => Blob | undefined,
     ) => {
-      setExportando(true);
+      const tituloPildora = tituloDe(peticion);
 
-      try {
-        /* Sin la letra descargada, el lienzo pinta el rótulo con la de respaldo. */
-        if (rotulos) await Promise.all([esperaFuentePortada(), cargaEscudoRotulo()]);
-
-        const resultado = await cortaEnElNavegador({
-          fichero,
-          titulo: titulo ? `${titulo} · ${peticion.nombre}` : peticion.nombre,
-          formato: peticion.formato,
-          portada: peticion.portada ?? null,
-          portadaSegundos: SEGUNDOS_CARATULA,
-          fundidoMs,
-          fps,
-          topeMegas,
-          topeAncho,
-          familiaRotulo,
-          clips: nombraClips(peticion).map(({ clip, nombre }) => ({
-            nombre,
-            inicioMs: clip.inicioMs,
-            finMs: clip.finMs,
-            paradas: peticion.paradas?.get(clip.id),
-            fichero: ficheroDe?.(clip),
-            rotulo: rotuloDe(clip),
-          })),
-        });
-
-        const nombre = `${peticion.nombre}.${resultado.extension}`;
-
-        const poster = await preparaPoster(peticion, resultado.blob);
-
-        descarga(resultado.blob, nombre);
-
-        toast.success("Vídeo listo", {
-          description: `${nombre} · ${megas(resultado.blob.size)} · ${reloj(
-            resultado.segundos,
-          )}${
-            resultado.vecesReal && resultado.vecesReal >= 1.5
-              ? ` · ×${resultado.vecesReal} más rápido que el vídeo`
-              : ""
-          }${resultado.conSonido ? "" : " · sin sonido: el partido viene mudo"}`,
-        });
-
-        if (peticion.formato !== "zip") {
-          setUltimo({ nombre, segundos: resultado.segundos, bytes: resultado.blob.size });
-        }
-
-        await descargaPoster(peticion, poster);
-
-        if (peticion.formato !== "zip") {
-          await alTerminarVideo?.(resultado.blob, nombre);
-        }
-      } catch (error) {
-        if (error instanceof Error && error.message === CORTE_CANCELADO) {
-          toast("Montaje cancelado", {
-            description: "El coding y las pizarras se quedan como estaban.",
-          });
-
-          return;
-        }
-
-        console.error("[coding] montaje en el navegador", error);
-
-        toast.error(
-          error instanceof Error ? error.message : "No se ha podido montar el vídeo.",
-        );
-      } finally {
-        setExportando(false);
+      if (descargaEnMarcha(tituloPildora)) {
+        toast("Ya se está montando", { description: tituloPildora });
+        return;
       }
+
+      /* La foto: todo lo que el montaje necesita, sacado ahora de la pantalla. */
+      const clips = nombraClips(peticion).map(({ clip, nombre }) => ({
+        nombre,
+        inicioMs: clip.inicioMs,
+        finMs: clip.finMs,
+        paradas: peticion.paradas?.get(clip.id),
+        fichero: ficheroDe?.(clip),
+        rotulo: rotuloDe(clip),
+      }));
+
+      const ajustes = {
+        fichero,
+        titulo: titulo ? `${titulo} · ${peticion.nombre}` : peticion.nombre,
+        formato: peticion.formato,
+        portada: peticion.portada ?? null,
+        portadaSegundos: SEGUNDOS_CARATULA,
+        fundidoMs,
+        fps,
+        topeMegas,
+        topeAncho,
+        familiaRotulo,
+        clips,
+      };
+
+      const conRotulos = rotulos;
+
+      const id = encargaDescarga({
+        titulo: tituloPildora,
+        vuelta: window.location.pathname + window.location.search,
+        tarea: ({ avanza, senal }) =>
+          enTurno(avanza, senal, async () => {
+            /* Sin la letra descargada, el lienzo pinta el rótulo con la de respaldo. */
+            if (conRotulos) await Promise.all([esperaFuentePortada(), cargaEscudoRotulo()]);
+
+            let resultado: Awaited<ReturnType<typeof cortaEnElNavegador>>;
+
+            try {
+              resultado = await cortaEnElNavegador({ ...ajustes, avanza, senal });
+            } catch (error) {
+              /* Cancelado con la ✕: el anfitrión ya lo ha quitado, no es un fallo. */
+              if (error instanceof Error && error.message === CORTE_CANCELADO) return;
+
+              throw error;
+            }
+
+            const nombre = `${peticion.nombre}.${resultado.extension}`;
+
+            avanza("Preparando el póster…", 1);
+
+            /* El póster ANTES de bajar el vídeo: ver `preparaPoster`. */
+            const poster = await ficheroDePoster(peticion, await preparaPoster(peticion, resultado.blob));
+
+            if (!resultado.conSonido) {
+              toast(`${nombre}: sin sonido`, { description: "El partido viene mudo." });
+            }
+
+            if (peticion.formato !== "zip") {
+              setUltimo({ nombre, segundos: resultado.segundos, bytes: resultado.blob.size });
+              despuesDeBajar(resultado.blob, nombre);
+            }
+
+            return poster ? [{ blob: resultado.blob, nombre }, poster] : { blob: resultado.blob, nombre };
+          }),
+      });
+
+      encargosCoding.add(id);
     },
     [
-      alTerminarVideo,
-      descargaPoster,
+      despuesDeBajar,
+      ficheroDePoster,
       preparaPoster,
       familiaRotulo,
       fps,
@@ -507,6 +630,7 @@ export function useExportador(opciones: {
       rotuloDe,
       rotulos,
       titulo,
+      tituloDe,
       topeAncho,
       topeMegas,
     ],
@@ -519,15 +643,23 @@ export function useExportador(opciones: {
   | acaba de copiar el partido a la carpeta, la sesión todavía no se ha
   | enterado —ese cambio llega en el siguiente render— y la exportación tiene
   | que salir ya con la ruta nueva, no con la que se quedó en el cierre.
+  |
+  | También en segundo plano (08/11/2026): sólo son datos y una petición al
+  | servidor, así que va sin mesa; la ✕ de la píldora corta la petición.
   */
   const lanza = useCallback(
-    async (
+    (
       peticion: PeticionExport,
       fuenteServidor: FuenteServidor,
       /** El vídeo de cada corte, cuando no todos salen del mismo. */
       fuenteDe?: (clip: ClipCoding) => FuenteServidor | undefined,
     ) => {
-      setExportando(true);
+      const tituloPildora = tituloDe(peticion);
+
+      if (descargaEnMarcha(tituloPildora)) {
+        toast("Ya se está preparando", { description: tituloPildora });
+        return;
+      }
 
       /*
       | El aviso lleva reloj, y no es un adorno.
@@ -554,217 +686,210 @@ export function useExportador(opciones: {
       const texto = (transcurrido: number) =>
         `${faena}… ${reloj(transcurrido)}${previsto > 20 ? ` de ~${reloj(previsto)}` : ""}`;
 
-      const aviso = toast.loading("Preparando la exportación…");
+      /* La foto de los ajustes y de los cortes, sacada ahora de la pantalla. */
+      const ajustes = { modo, fundidoMs, topeMegas, topeAncho, familiaRotulo, rotulos };
 
-      /* Lo subido al bucket, para dejarlo limpio pase lo que pase. */
-      let rutas: string[] = [];
+      const cortes = nombraClips(peticion).map(({ clip, nombre }) => ({
+        clip,
+        nombre,
+        fuente: fuenteDe?.(clip),
+        rotulo: rotuloDe(clip),
+      }));
 
-      /* El reloj del corte arranca cuando arranca el corte, no antes. */
-      let arranque = Date.now();
-      let tic: ReturnType<typeof setInterval> | undefined;
+      const id = encargaDescarga({
+        titulo: tituloPildora,
+        vuelta: window.location.pathname + window.location.search,
+        tarea: async ({ avanza, senal }) => {
+          avanza("Preparando la exportación…");
 
-      try {
-        /*
-        | La carátula y las pizarras **no van dentro de la petición**.
-        |
-        | Son fotogramas a la resolución del partido, y metidos en el JSON se
-        | pasan de los 4,5 MB que aguanta el cuerpo de una petición en el
-        | despliegue: eso era el 413 que salía al exportar, antes incluso de
-        | que el servidor mirara nada. Suben sueltas y aquí sólo viaja el
-        | enlace. Ver `lib/coding/imagenes.ts`.
-        */
-        const imagenes = await preparaImagenes({
-          portada: peticion.portada,
-          paradas: peticion.paradas,
-          onProgreso: (hechas, total) => {
-            toast.loading(`Subiendo las imágenes… ${hechas} de ${total}`, {
-              id: aviso,
+          /* Lo subido al bucket, para dejarlo limpio pase lo que pase. */
+          let rutas: string[] = [];
+
+          /* El reloj del corte arranca cuando arranca el corte, no antes. */
+          let tic: ReturnType<typeof setInterval> | undefined;
+
+          try {
+            /*
+            | La carátula y las pizarras **no van dentro de la petición**.
+            |
+            | Son fotogramas a la resolución del partido, y metidos en el JSON se
+            | pasan de los 4,5 MB que aguanta el cuerpo de una petición en el
+            | despliegue: eso era el 413 que salía al exportar, antes incluso de
+            | que el servidor mirara nada. Suben sueltas y aquí sólo viaja el
+            | enlace. Ver `lib/coding/imagenes.ts`.
+            */
+            const imagenes = await preparaImagenes({
+              portada: peticion.portada,
+              paradas: peticion.paradas,
+              onProgreso: (hechas, total) => {
+                avanza(`Subiendo las imágenes… ${hechas} de ${total}`, total ? hechas / total : undefined);
+              },
             });
-          },
-        });
 
-        rutas = imagenes.rutas;
+            rutas = imagenes.rutas;
 
-        /*
-        | El rótulo va ya pintado: el servidor lo pone encima tal cual, y así
-        | es el mismo de los dos motores del navegador. Hace falta la letra y
-        | el escudo antes de pintarlo.
-        */
-        const pintados = rotulos && peticion.clips.length <= ROTULOS_PINTADOS_MAX;
+            /*
+            | El rótulo va ya pintado: el servidor lo pone encima tal cual, y así
+            | es el mismo de los dos motores del navegador. Hace falta la letra y
+            | el escudo antes de pintarlo.
+            */
+            const pintados = ajustes.rotulos && cortes.length <= ROTULOS_PINTADOS_MAX;
 
-        if (pintados) await Promise.all([esperaFuentePortada(), cargaEscudoRotulo()]);
+            if (pintados) await Promise.all([esperaFuentePortada(), cargaEscudoRotulo()]);
 
-        const conImagen = (clip: ClipCoding) => {
-          const rotulo = rotuloDe(clip);
+            const conImagen = (rotulo: (typeof cortes)[number]["rotulo"]) => {
+              if (!rotulo || !pintados) return rotulo;
 
-          if (!rotulo || !pintados) return rotulo;
+              return {
+                ...rotulo,
+                imagen: imagenDeRotulo(rotulo, ajustes.familiaRotulo ?? "sans-serif")?.imagen,
+              };
+            };
 
-          return {
-            ...rotulo,
-            imagen: imagenDeRotulo(rotulo, familiaRotulo ?? "sans-serif")?.imagen,
-          };
-        };
+            const cuerpo = JSON.stringify({
+              fuente: fuenteServidor,
+              modo: ajustes.modo,
+              formato: peticion.formato,
+              nombre: peticion.nombre,
+              portada: imagenes.portada,
+              portadaSegundos: SEGUNDOS_CARATULA,
+              fundidoMs: ajustes.fundidoMs,
+              topeMegas: ajustes.topeMegas,
+              medida: ajustes.topeAncho,
+              clips: cortes.map(({ clip, nombre, fuente: suya, rotulo }) => ({
+                nombre,
+                inicioMs: clip.inicioMs,
+                finMs: clip.finMs,
+                pizarras: imagenes.paradas.get(clip.id),
+                fuente: suya,
+                rotulo: conImagen(rotulo),
+              })),
+            });
 
-        const cuerpo = JSON.stringify({
-          fuente: fuenteServidor,
-          modo,
-          formato: peticion.formato,
-          nombre: peticion.nombre,
-          portada: imagenes.portada,
-          portadaSegundos: SEGUNDOS_CARATULA,
-          fundidoMs,
-          topeMegas,
-          medida: topeAncho,
-          clips: nombraClips(peticion).map(({ clip, nombre }) => ({
-            nombre,
-            inicioMs: clip.inicioMs,
-            finMs: clip.finMs,
-            pizarras: imagenes.paradas.get(clip.id),
-            fuente: fuenteDe?.(clip),
-            rotulo: conImagen(clip),
-          })),
-        });
+            /* Si alguna imagen no ha podido subir, que se sepa aquí y por qué. */
+            const grande = pesaDemasiado(cuerpo);
 
-        /* Si alguna imagen no ha podido subir, que se sepa aquí y por qué. */
-        const grande = pesaDemasiado(cuerpo);
+            if (grande) throw new Error(grande);
 
-        if (grande) throw new Error(grande);
+            const arranque = Date.now();
 
-        arranque = Date.now();
+            avanza(texto(0));
 
-        toast.loading(texto(0), { id: aviso });
+            tic = setInterval(() => {
+              const transcurrido = Math.round((Date.now() - arranque) / 1000);
 
-        tic = setInterval(() => {
-          toast.loading(texto(Math.round((Date.now() - arranque) / 1000)), {
-            id: aviso,
-          });
-        }, 1000);
+              avanza(
+                texto(transcurrido),
+                previsto > 20 ? Math.min(0.95, transcurrido / previsto) : undefined,
+              );
+            }, 1000);
 
-        /*
-        | Con plazo, y generoso.
-        |
-        | `fetch` no se rinde nunca por su cuenta: si el servidor se cae a
-        | media codificación —o el ffmpeg de la máquina se queda colgado con un
-        | partido pesado— el aviso se queda contando segundos hasta que alguien
-        | recarga la página. Con esto sale un error que se puede leer.
-        |
-        | El plazo se calcula sobre lo que dura el vídeo porque `preciso` va a
-        | ~1× tiempo real: cuatro veces eso más dos minutos de arranque es de
-        | sobra para el peor caso, y sigue siendo un plazo.
-        */
-        const plazoMs = Math.max(
-          5 * 60_000,
-          120_000 + segundosDeVideo * 4 * 1000,
-        );
-
-        const corta = new AbortController();
-
-        const seAcabo = setTimeout(() => corta.abort(), plazoMs);
-
-        let respuesta: Response;
-
-        try {
-          respuesta = await fetch("/api/coding/export", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: cuerpo,
-            signal: corta.signal,
-          });
-        } catch (error) {
-          if (corta.signal.aborted) {
-            throw new Error(
-              `El servidor no ha contestado en ${Math.round(plazoMs / 60_000)} ` +
-                `minutos. Prueba con menos cortes, o abre el partido desde el ` +
-                `ordenador para montarlo aquí sin servidor.`,
+            /*
+            | Con plazo, y generoso.
+            |
+            | `fetch` no se rinde nunca por su cuenta: si el servidor se cae a
+            | media codificación —o el ffmpeg de la máquina se queda colgado con un
+            | partido pesado— el aviso se queda contando segundos hasta que alguien
+            | recarga la página. Con esto sale un error que se puede leer.
+            |
+            | El plazo se calcula sobre lo que dura el vídeo porque `preciso` va a
+            | ~1× tiempo real: cuatro veces eso más dos minutos de arranque es de
+            | sobra para el peor caso, y sigue siendo un plazo.
+            */
+            const plazoMs = Math.max(
+              5 * 60_000,
+              120_000 + segundosDeVideo * 4 * 1000,
             );
+
+            const corta = new AbortController();
+
+            const seAcabo = setTimeout(() => corta.abort(), plazoMs);
+
+            /* La ✕ de la píldora también corta la petición. */
+            const alCancelar = () => corta.abort();
+
+            senal.addEventListener("abort", alCancelar);
+
+            let respuesta: Response;
+
+            try {
+              respuesta = await fetch("/api/coding/export", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: cuerpo,
+                signal: corta.signal,
+              });
+            } catch (error) {
+              if (corta.signal.aborted && !senal.aborted) {
+                throw new Error(
+                  `El servidor no ha contestado en ${Math.round(plazoMs / 60_000)} ` +
+                    `minutos. Prueba con menos cortes, o abre el partido desde el ` +
+                    `ordenador para montarlo aquí sin servidor.`,
+                );
+              }
+
+              throw error;
+            } finally {
+              clearTimeout(seAcabo);
+              senal.removeEventListener("abort", alCancelar);
+            }
+
+            if (!respuesta.ok) {
+              const error = await respuesta.json().catch(() => null);
+
+              throw new Error(error?.error ?? explica(respuesta.status));
+            }
+
+            const blob = await respuesta.blob();
+
+            /* El contador se para aquí: lo que queda ya no es el corte. */
+            if (tic) {
+              clearInterval(tic);
+              tic = undefined;
+            }
+
+            const extension = peticion.formato === "zip" ? "zip" : "mp4";
+            const nombre = `${peticion.nombre}.${extension}`;
+
+            avanza("Preparando el póster…", 1);
+
+            const poster = await ficheroDePoster(peticion, await preparaPoster(peticion, blob));
+
+            /* Ni la segunda pasada lo mete: que se sepa antes de mandarlo. */
+            if (extension === "mp4" && ajustes.topeMegas > 0 && blob.size > ajustes.topeMegas * 1_000_000) {
+              toast.warning(`Pesa ${megas(blob.size)}, más que el tope de ${ajustes.topeMegas} MB`, {
+                description: "Es demasiado largo para ese tope: pártelo en dos listas o elige un tope mayor.",
+                duration: 10_000,
+              });
+            }
+
+            if (peticion.formato !== "zip") {
+              setUltimo({
+                nombre,
+                /* Lo que dura de verdad: los cortes y, si la lleva, la carátula. */
+                segundos:
+                  segundosDeVideo + (peticion.formato === "unificado" && peticion.portada ? SEGUNDOS_CARATULA : 0),
+                bytes: blob.size,
+              });
+
+              despuesDeBajar(blob, nombre);
+            }
+
+            return poster ? [{ blob, nombre }, poster] : { blob, nombre };
+          } finally {
+            if (tic) clearInterval(tic);
+
+            /* Las imágenes eran de usar y tirar: no se quedan en el bucket. */
+            void borraImagenes(rutas);
           }
+        },
+      });
 
-          throw error;
-        } finally {
-          clearTimeout(seAcabo);
-        }
-
-        if (!respuesta.ok) {
-          const error = await respuesta.json().catch(() => null);
-
-          throw new Error(error?.error ?? explica(respuesta.status));
-        }
-
-        const blob = await respuesta.blob();
-
-        const extension = peticion.formato === "zip" ? "zip" : "mp4";
-
-        const poster = await preparaPoster(peticion, blob);
-
-        descarga(blob, `${peticion.nombre}.${extension}`);
-
-        /*
-        | EL CONTADOR SE PARA AQUÍ, NO EN EL `finally`.
-        |
-        | Estaba sólo en el `finally`, o sea DESPUÉS de esperar a
-        | `alTerminarVideo`, que es por donde entra la subida a YouTube. Con la
-        | subida encendida, el intervalo saltaba un segundo después del
-        | «Vídeo listo» y convertía ese mismo aviso —comparten `id`— otra vez
-        | en «Montando el vídeo…», contando segundos durante toda la subida. Y
-        | `setExportando(false)` esperaba lo mismo, así que los botones de
-        | exportar se quedaban apagados mientras el diálogo del nombre esperaba
-        | a que alguien escribiera.
-        */
-        if (tic) {
-          clearInterval(tic);
-          tic = undefined;
-        }
-
-        setExportando(false);
-
-        toast.success("Vídeo listo", {
-          id: aviso,
-          description: `${peticion.nombre}.${extension} · ${megas(blob.size)} · ${reloj(
-            Math.round((Date.now() - arranque) / 1000),
-          )}`,
-        });
-
-        /* Ni la segunda pasada lo mete: que se sepa antes de mandarlo. */
-        if (extension === "mp4" && topeMegas > 0 && blob.size > topeMegas * 1_000_000) {
-          toast.warning(`Pesa ${megas(blob.size)}, más que el tope de ${topeMegas} MB`, {
-            description: "Es demasiado largo para ese tope: pártelo en dos listas o elige un tope mayor.",
-            duration: 10_000,
-          });
-        }
-
-        if (peticion.formato !== "zip") {
-          setUltimo({
-            nombre: `${peticion.nombre}.${extension}`,
-            /* Lo que dura de verdad: los cortes y, si la lleva, la carátula. */
-            segundos:
-              segundosDeVideo + (peticion.formato === "unificado" && peticion.portada ? SEGUNDOS_CARATULA : 0),
-            bytes: blob.size,
-          });
-        }
-
-        await descargaPoster(peticion, poster);
-
-        if (peticion.formato !== "zip") {
-          await alTerminarVideo?.(blob, `${peticion.nombre}.${extension}`);
-        }
-      } catch (error) {
-        console.error("[coding] exportación", error);
-
-        toast.error(
-          error instanceof Error ? error.message : "No se ha podido exportar.",
-          { id: aviso },
-        );
-      } finally {
-        if (tic) clearInterval(tic);
-        setExportando(false);
-
-        /* Las imágenes eran de usar y tirar: no se quedan en el bucket. */
-        void borraImagenes(rutas);
-      }
+      encargosCoding.add(id);
     },
     [
-      alTerminarVideo,
-      descargaPoster,
+      despuesDeBajar,
+      ficheroDePoster,
       preparaPoster,
       familiaRotulo,
       fundidoMs,
@@ -772,6 +897,7 @@ export function useExportador(opciones: {
       nombraClips,
       rotuloDe,
       rotulos,
+      tituloDe,
       topeAncho,
       topeMegas,
     ],
@@ -831,7 +957,7 @@ export function useExportador(opciones: {
 
         setExportando(false);
 
-        await lanza(peticion, { tipo: "archivo", ruta });
+        lanza(peticion, { tipo: "archivo", ruta });
       } catch (error) {
         console.error("[coding] llevar el vídeo a la carpeta", error);
 
@@ -899,7 +1025,7 @@ export function useExportador(opciones: {
             return;
           }
 
-          await montaAqui(
+          montaAqui(
             peticion,
             ficheros![deClip(peticion.clips[0])],
             (clip) => ficheros?.[deClip(clip)],
@@ -909,7 +1035,7 @@ export function useExportador(opciones: {
         }
 
         if (nombres.every((nombre) => enServidor(videoDe(nombre)))) {
-          await lanza(
+          lanza(
             peticion,
             enServidor(videoDe(deClip(peticion.clips[0])))!,
             (clip) => enServidor(videoDe(deClip(clip))) ?? undefined,
@@ -969,7 +1095,7 @@ export function useExportador(opciones: {
       */
       if (ficheroLocal && (!fuente || fuente.tipo === "local")) {
         if (puedeCortarAqui()) {
-          await montaAqui(peticion, ficheroLocal);
+          montaAqui(peticion, ficheroLocal);
 
           return;
         }
@@ -1008,7 +1134,7 @@ export function useExportador(opciones: {
         return;
       }
 
-      await lanza(
+      lanza(
         peticion,
         fuente.tipo === "url"
           ? { tipo: "url", url: fuente.url }
@@ -1027,7 +1153,13 @@ export function useExportador(opciones: {
     ],
   );
 
-  return { exporta, exportando, ultimo };
+  /*
+  | Hay un encargo del coding en marcha en segundo plano. `exportando` ya sólo
+  | dura lo que se copia el partido a la carpeta: el montaje no bloquea nada.
+  */
+  const enSegundoPlano = useSyncExternalStore(descargas.suscribe, codingEnVuelo, () => false);
+
+  return { exporta, exportando, ultimo, enSegundoPlano };
 }
 
 /**

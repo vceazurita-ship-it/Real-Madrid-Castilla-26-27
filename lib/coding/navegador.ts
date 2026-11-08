@@ -1356,7 +1356,15 @@ export async function cortaEnElNavegador(
 
   if (clips.length === 0) throw new Error("No hay clips que exportar.");
 
-  const escenario = montaEscenario(peticion.titulo ?? "Montando el vídeo");
+  /*
+  | Con `avanza` (08/11/2026) el montaje va en segundo plano: sin pantalla
+  | delante, con el progreso en la píldora de descargas y cancelar en su ✕.
+  | Ver `EnSegundoPlano` en `pantalla-montaje`.
+  */
+  const escenario = montaEscenario(
+    peticion.titulo ?? "Montando el vídeo",
+    peticion.avanza ? { avanza: peticion.avanza, senal: peticion.senal } : undefined,
+  );
 
   /*
   | El montaje corre contra el vigía de la pantalla.

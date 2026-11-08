@@ -135,6 +135,7 @@ import {
 } from "@/lib/coding/modelo";
 import { Button, Dialog } from "@/components/abp/ui";
 import { FAMILIA_PORTADA, esperaFuentePortada } from "@/lib/rivals/portada-font";
+import { encargaDescarga } from "@/lib/trabajos/descargas";
 
 /* ================================================================== */
 /*  DÓNDE ESTÁ LA IMAGEN                                               */
@@ -1618,13 +1619,19 @@ function EditorPizarra({
       return;
     }
 
-    const enlace = document.createElement("a");
+    /*
+    | Por el gestor de descargas (08/11/2026), como el resto de la app: el
+    | fotograma ya está compuesto aquí (necesita el `<video>` de la pantalla);
+    | lo demás —pasarlo a fichero y bajarlo, o «Descargar» en el móvil— va
+    | aparte y avisa al terminar.
+    */
+    const segundo = Math.round(localRef.current.tMs / 1000);
 
-    enlace.href = png;
-    enlace.download = `pizarra-${Math.round(localRef.current.tMs / 1000)}s.png`;
-    enlace.click();
-
-    toast.success("Pizarra guardada como imagen");
+    encargaDescarga({
+      titulo: `Pizarra · ${segundo} s`,
+      vuelta: window.location.pathname + window.location.search,
+      tarea: async () => ({ blob: await (await fetch(png)).blob(), nombre: `pizarra-${segundo}s.png` }),
+    });
   }, [video]);
 
   const pantallaCompleta = useCallback(() => {
