@@ -17,24 +17,22 @@
  * La maquinaria —esperas, captura en serie, ZIP del `.pptx`— es la común de
  * `lib/export/`, la misma que usan la pizarra de balón parado y el
  * desplazamiento de partido.
+ *
+ * En segundo plano (08/11/2026), como las de ABP: el clic deja el encargo con
+ * el documento de ese momento; el anfitrión del layout pinta los lienzos fuera
+ * de la pantalla (`mesa`), los fotografía y monta el fichero aunque se cambie
+ * de pantalla, con su progreso y su aviso al terminar.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { FileDown, FileText, MonitorPlay } from "lucide-react";
-import { toast } from "sonner";
 
 import { Button, Panel } from "@/components/abp/ui";
 import { DocumentoLienzos } from "@/components/cultura/HojaCultura";
 import { creaPptx } from "@/lib/export/pptx";
-import {
-  apodo,
-  capturaLienzos,
-  descarga,
-  esperaFotos,
-  pdfDeLienzos,
-  pintado,
-} from "@/lib/export/lienzos";
+import { apodo, capturaLienzos, pdfDeLienzos } from "@/lib/export/lienzos";
 import { esperaFuentePortada } from "@/lib/rivals/portada-font";
+import { descargaEnMarcha, descargas, encargaDescarga } from "@/lib/trabajos/descargas";
 import {
   COLORES_CULTURA as C,
   SLIDE_H,
@@ -45,50 +43,38 @@ import {
 
 type Formato = "pptx" | "pdf";
 
-const ETIQUETA: Record<Formato, string> = {
-  pptx: "Montando el PowerPoint…",
-  pdf: "Montando el PDF…",
+const NOMBRE_FORMATO: Record<Formato, string> = {
+  pptx: "PowerPoint",
+  pdf: "PDF",
 };
 
-/*
-| 30/10/2026: el título del documento va en este mismo panel («01 · Valores
-| y antivalores» y debajo las descargas): antes salía la tarjeta del
-| documento y, justo debajo, «Sacar el documento», dos cabeceras seguidas.
-*/
-export function ExportaCultura({
-  documento,
-  titulo,
-  subtitulo,
-  accion,
-  children,
-}: {
-  documento: DocumentoCultura;
-  titulo?: string;
-  subtitulo?: string;
-  accion?: React.ReactNode;
-  children?: React.ReactNode;
-}) {
-  const lienzosRef = useRef<HTMLDivElement>(null);
+const tituloDescarga = (formato: Formato, documento: DocumentoCultura) =>
+  `${NOMBRE_FORMATO[formato]} · ${documento.titulo}`;
 
-  /* Cerrojo: sin él, un segundo render dispararía otra exportación encima. */
-  const corriendo = useRef(false);
+/** ¿Está en marcha esa descarga? Se repinta cuando cambia. */
+function useEnMarcha(titulo: string) {
+  return useSyncExternalStore(
+    descargas.suscribe,
+    () => descargaEnMarcha(titulo),
+    () => false,
+  );
+}
 
-  const [formato, setFormato] = useState<Formato | null>(null);
-  const [paso, setPaso] = useState("");
+function encargaCultura(documento: DocumentoCultura, formato: Formato) {
+  const titulo = tituloDescarga(formato, documento);
 
-  const exporta = useCallback(async () => {
-    const raiz = lienzosRef.current;
+  if (descargaEnMarcha(titulo)) return;
 
-    if (!raiz || !formato || corriendo.current) return;
+  encargaDescarga({
+    titulo,
+    vuelta: window.location.pathname,
+    ancho: SLIDE_W,
+    /* Los lienzos de repuesto: el documento entero a tamaño real. */
+    mesa: <DocumentoLienzos documento={documento} />,
+    tarea: async ({ raiz, avanza }) => {
+      if (!raiz) throw new Error("Sin diapositivas");
 
-    corriendo.current = true;
-
-    const aviso = toast.loading(ETIQUETA[formato]);
-
-    try {
-      await pintado();
       await esperaFuentePortada();
-      await esperaFotos(raiz);
 
       const titulos = titulosDocumento(documento);
 
@@ -101,7 +87,7 @@ export function ExportaCultura({
         ancho: SLIDE_W,
         alto: SLIDE_H,
         fondo: C.papel,
-        alPaso: (hechas, total) => setPaso(`${hechas}/${total}`),
+        alPaso: (hechas, total) => avanza(`${hechas}/${total} diapositivas`, (hechas / total) * 0.9),
       });
 
       if (imagenes.length === 0) throw new Error("Sin diapositivas");
@@ -111,6 +97,8 @@ export function ExportaCultura({
       const nombre = documento.archivo || apodo(documento.titulo, "documento");
 
       if (formato === "pptx") {
+        avanza("Montando el PowerPoint…", 0.95);
+
         const blob = creaPptx(
           imagenes.map((imagen, indice) => ({
             titulo: titulos[indice] ?? `Diapositiva ${indice + 1}`,
@@ -122,14 +110,10 @@ export function ExportaCultura({
           },
         );
 
-        descarga(blob, `${nombre}.pptx`);
-
-        toast.success(`PowerPoint listo · ${imagenes.length} diapositivas`, {
-          id: aviso,
-        });
-
-        return;
+        return { blob, nombre: `${nombre}.pptx` };
       }
+
+      avanza("Montando el PDF…", 0.95);
 
       const doc = await pdfDeLienzos(imagenes, {
         ancho: SLIDE_W,
@@ -150,41 +134,31 @@ export function ExportaCultura({
         creator: "RMCF Castilla",
       });
 
-      doc.save(`${nombre}.pdf`);
+      return { blob: doc.output("blob"), nombre: `${nombre}.pdf` };
+    },
+  });
+}
 
-      toast.success(`PDF listo · ${imagenes.length} hojas`, { id: aviso });
-    } catch (error) {
-      console.error("[cultura] exportación", error);
-
-      toast.error("No se ha podido exportar el documento", { id: aviso });
-    } finally {
-      corriendo.current = false;
-
-      setFormato(null);
-      setPaso("");
-    }
-  }, [documento, formato]);
-
-  useEffect(() => {
-    if (!formato) return;
-
-    let vivo = true;
-
-    /* Un respiro para que los lienzos de repuesto entren en el DOM. */
-    const id = window.setTimeout(() => {
-      if (vivo) void exporta();
-    }, 60);
-
-    return () => {
-      vivo = false;
-      window.clearTimeout(id);
-    };
-  }, [exporta, formato]);
-
-  const ocupado = formato !== null;
-
-  const rotulo = (mio: Formato, texto: string) =>
-    formato === mio ? `Montando… ${paso}` : texto;
+/*
+| 30/10/2026: el título del documento va en este mismo panel («01 · Valores
+| y antivalores» y debajo las descargas): antes salía la tarjeta del
+| documento y, justo debajo, «Sacar el documento», dos cabeceras seguidas.
+*/
+export function ExportaCultura({
+  documento,
+  titulo,
+  subtitulo,
+  accion,
+  children,
+}: {
+  documento: DocumentoCultura;
+  titulo?: string;
+  subtitulo?: string;
+  accion?: React.ReactNode;
+  children?: React.ReactNode;
+}) {
+  const enPdf = useEnMarcha(tituloDescarga("pdf", documento));
+  const enPptx = useEnMarcha(tituloDescarga("pptx", documento));
 
   return (
     <Panel
@@ -199,20 +173,20 @@ export function ExportaCultura({
         <Button
           tone="primary"
           icon={FileText}
-          onClick={() => setFormato("pdf")}
-          disabled={ocupado}
+          onClick={() => encargaCultura(documento, "pdf")}
+          disabled={enPdf}
           title="Una diapositiva por hoja A4 apaisada, con pie numerado"
         >
-          {rotulo("pdf", "Descargar en PDF")}
+          {enPdf ? "Preparando el PDF…" : "Descargar en PDF"}
         </Button>
 
         <Button
           icon={MonitorPlay}
-          onClick={() => setFormato("pptx")}
-          disabled={ocupado}
+          onClick={() => encargaCultura(documento, "pptx")}
+          disabled={enPptx}
           title="Cada diapositiva como imagen a tamaño de proyección"
         >
-          {rotulo("pptx", "Descargar en PowerPoint")}
+          {enPptx ? "Preparando el PowerPoint…" : "Descargar en PowerPoint"}
         </Button>
       </div>
 
@@ -220,29 +194,6 @@ export function ExportaCultura({
         El PowerPoint se abre en cualquier portátil, aunque no tenga la
         tipografía del club.
       </p>
-
-      {/*
-      | Los lienzos de repuesto: el documento entero a tamaño real y apartado de
-      | la pantalla. Con posición, nunca con `display:none`, que captura en
-      | blanco. Sólo existen mientras dura la exportación.
-      */}
-      {ocupado && (
-        <div
-          ref={lienzosRef}
-          aria-hidden
-          data-export-hide
-          className="pointer-events-none"
-          style={{
-            position: "fixed",
-            top: 0,
-            left: -(SLIDE_W + 300),
-            width: SLIDE_W,
-            zIndex: -1,
-          }}
-        >
-          <DocumentoLienzos documento={documento} />
-        </div>
-      )}
     </Panel>
   );
 }

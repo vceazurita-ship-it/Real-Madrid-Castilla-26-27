@@ -17,26 +17,24 @@
  * Como en la pizarra de balón parado, los lienzos se montan **fuera de la
  * pantalla** a tamaño real sólo mientras dura la exportación, y la maquinaria
  * —esperas, captura y PDF— es la de `lib/export/lienzos.ts`.
+ *
+ * En segundo plano (08/11/2026), como las de ABP: el clic deja el encargo con
+ * el viaje tal y como está en ese momento (si el autoguardado lo renueva
+ * después, da igual) y el anfitrión del layout pinta los lienzos en su mesa
+ * fuera de la pantalla, los fotografía y monta el fichero aunque se cambie de
+ * pantalla, con su progreso y su aviso al terminar.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { FileDown, FileText, MonitorPlay, Printer, Files } from "lucide-react";
-import { toast } from "sonner";
 
 import { Button, Panel } from "@/components/abp/ui";
 import { DossierViaje, titulosDossier } from "@/components/viaje/DossierViaje";
 import { HojasHorario } from "@/components/viaje/HojaHorario";
 import { creaPptx } from "@/lib/export/pptx";
-import {
-  apodo,
-  capturaLienzos,
-  descarga,
-  esperaFotos,
-  pdfDeHojas,
-  pintado,
-  type HojaPdf,
-} from "@/lib/export/lienzos";
+import { apodo, capturaLienzos, pdfDeHojas, type HojaPdf } from "@/lib/export/lienzos";
 import { esperaFuentePortada } from "@/lib/rivals/portada-font";
+import { descargaEnMarcha, descargas, encargaDescarga } from "@/lib/trabajos/descargas";
 import {
   COLORES_VIAJE as C,
   DOSSIER_H,
@@ -49,35 +47,48 @@ import {
 
 type Formato = "pptx" | "dossier" | "horario" | "todo";
 
-const ETIQUETA: Record<Formato, string> = {
-  pptx: "Montando el PowerPoint…",
-  dossier: "Montando el PDF del dossier…",
-  horario: "Montando el horario…",
-  todo: "Montando el documento entero…",
+const QUE: Record<Formato, string> = {
+  pptx: "Dossier en PowerPoint",
+  dossier: "Dossier en PDF",
+  horario: "Horario para imprimir",
+  todo: "Desplazamiento en PDF",
 };
 
-export function ExportaViaje({ viaje }: { viaje: Desplazamiento }) {
-  const lienzosRef = useRef<HTMLDivElement>(null);
+const tituloDescarga = (formato: Formato, viaje: Desplazamiento) =>
+  `${QUE[formato]} · ${viaje.rival || "RMCF Castilla"}${viaje.jornada ? ` · J${viaje.jornada}` : ""}`;
 
-  /* Cerrojo: el autoguardado renueva el objeto y volvería a disparar el efecto. */
-  const corriendo = useRef(false);
+/** ¿Está en marcha esa descarga? Se repinta cuando cambia. */
+function useEnMarcha(titulo: string) {
+  return useSyncExternalStore(
+    descargas.suscribe,
+    () => descargaEnMarcha(titulo),
+    () => false,
+  );
+}
 
-  const [formato, setFormato] = useState<Formato | null>(null);
-  const [paso, setPaso] = useState("");
+function encargaViaje(viaje: Desplazamiento, formato: Formato) {
+  const titulo = tituloDescarga(formato, viaje);
 
-  const exporta = useCallback(async () => {
-    const raiz = lienzosRef.current;
+  if (descargaEnMarcha(titulo)) return;
 
-    if (!raiz || !formato || corriendo.current) return;
+  const quiereDossier = formato !== "horario";
+  const quiereHorario = formato === "horario" || formato === "todo";
 
-    corriendo.current = true;
+  encargaDescarga({
+    titulo,
+    vuelta: window.location.pathname,
+    ancho: DOSSIER_W,
+    /* Los lienzos de repuesto: el dossier y el horario a tamaño real. */
+    mesa: (
+      <div>
+        {quiereDossier && <DossierViaje viaje={viaje} />}
+        {quiereHorario && <HojasHorario viaje={viaje} />}
+      </div>
+    ),
+    tarea: async ({ raiz, avanza }) => {
+      if (!raiz) throw new Error("No hay nada que exportar");
 
-    const aviso = toast.loading(ETIQUETA[formato]);
-
-    try {
-      await pintado();
       await esperaFuentePortada();
-      await esperaFotos(raiz);
 
       const nombre = `desplazamiento-${apodo(viaje.rival, "partido")}${
         viaje.jornada ? `-j${apodo(viaje.jornada)}` : ""
@@ -93,15 +104,14 @@ export function ExportaViaje({ viaje }: { viaje: Desplazamiento }) {
 
       const titulos = titulosDossier(viaje);
 
-      const quiereDossier = formato !== "horario";
-      const quiereHorario = formato === "horario" || formato === "todo";
+      const totalNodos = raiz.querySelectorAll("[data-viaje-slide], [data-viaje-hoja]").length || 1;
 
       const diapositivas = quiereDossier
         ? await capturaLienzos(raiz, "[data-viaje-slide]", {
             ancho: DOSSIER_W,
             alto: DOSSIER_H,
             fondo: C.papel,
-            alPaso: (hechas, total) => setPaso(`dossier ${hechas}/${total}`),
+            alPaso: (hechas, total) => avanza(`Dossier ${hechas}/${total}`, (hechas / totalNodos) * 0.9),
           })
         : [];
 
@@ -110,12 +120,15 @@ export function ExportaViaje({ viaje }: { viaje: Desplazamiento }) {
             ancho: HOJA_W,
             alto: HOJA_H,
             fondo: C.papel,
-            alPaso: (hechas, total) => setPaso(`horario ${hechas}/${total}`),
+            alPaso: (hechas, total) =>
+              avanza(`Horario ${hechas}/${total}`, ((diapositivas.length + hechas) / totalNodos) * 0.9),
           })
         : [];
 
       if (formato === "pptx") {
         if (diapositivas.length === 0) throw new Error("Sin diapositivas");
+
+        avanza("Montando el PowerPoint…", 0.95);
 
         const blob = creaPptx(
           diapositivas.map((imagen, indice) => ({
@@ -128,13 +141,7 @@ export function ExportaViaje({ viaje }: { viaje: Desplazamiento }) {
           },
         );
 
-        descarga(blob, `${nombre}.pptx`);
-
-        toast.success(`PowerPoint listo · ${diapositivas.length} diapositivas`, {
-          id: aviso,
-        });
-
-        return;
+        return { blob, nombre: `${nombre}.pptx` };
       }
 
       /*
@@ -166,49 +173,23 @@ export function ExportaViaje({ viaje }: { viaje: Desplazamiento }) {
 
       if (paginas.length === 0) throw new Error("No hay nada que exportar");
 
+      avanza("Montando el PDF…", 0.95);
+
       const doc = await pdfDeHojas(paginas);
 
       const sufijo =
         formato === "horario" ? "horario" : formato === "todo" ? "completo" : "dossier";
 
-      doc.save(`${nombre}-${sufijo}.pdf`);
+      return { blob: doc.output("blob"), nombre: `${nombre}-${sufijo}.pdf` };
+    },
+  });
+}
 
-      toast.success(
-        `PDF listo · ${paginas.length} ${paginas.length === 1 ? "hoja" : "hojas"}`,
-        { id: aviso },
-      );
-    } catch (error) {
-      console.error("[desplazamiento] exportación", error);
-
-      toast.error("No se ha podido exportar el desplazamiento", { id: aviso });
-    } finally {
-      corriendo.current = false;
-
-      setFormato(null);
-      setPaso("");
-    }
-  }, [formato, viaje]);
-
-  useEffect(() => {
-    if (!formato) return;
-
-    let vivo = true;
-
-    /* Un respiro para que los lienzos de repuesto entren en el DOM. */
-    const id = window.setTimeout(() => {
-      if (vivo) void exporta();
-    }, 60);
-
-    return () => {
-      vivo = false;
-      window.clearTimeout(id);
-    };
-  }, [exporta, formato]);
-
-  const ocupado = formato !== null;
-
-  const rotulo = (mio: Formato, texto: string) =>
-    formato === mio ? `Montando… ${paso}` : texto;
+export function ExportaViaje({ viaje }: { viaje: Desplazamiento }) {
+  const enTodo = useEnMarcha(tituloDescarga("todo", viaje));
+  const enPptx = useEnMarcha(tituloDescarga("pptx", viaje));
+  const enDossier = useEnMarcha(tituloDescarga("dossier", viaje));
+  const enHorario = useEnMarcha(tituloDescarga("horario", viaje));
 
   return (
     <Panel
@@ -222,40 +203,40 @@ export function ExportaViaje({ viaje }: { viaje: Desplazamiento }) {
         <Button
           tone="primary"
           icon={Files}
-          onClick={() => setFormato("todo")}
-          disabled={ocupado}
+          onClick={() => encargaViaje(viaje, "todo")}
+          disabled={enTodo}
           title="Dossier apaisado y horario vertical en un solo PDF"
         >
-          {rotulo("todo", "Todo en un PDF")}
+          {enTodo ? "Preparando…" : "Todo en un PDF"}
         </Button>
 
         <Button
           icon={MonitorPlay}
-          onClick={() => setFormato("pptx")}
-          disabled={ocupado}
+          onClick={() => encargaViaje(viaje, "pptx")}
+          disabled={enPptx}
           title="El dossier como .pptx, una diapositiva por hoja a 1920×1080"
         >
-          {rotulo("pptx", "Dossier en PowerPoint")}
+          {enPptx ? "Preparando…" : "Dossier en PowerPoint"}
         </Button>
 
         <Button
           icon={FileText}
-          onClick={() => setFormato("dossier")}
-          disabled={ocupado}
+          onClick={() => encargaViaje(viaje, "dossier")}
+          disabled={enDossier}
           title="El dossier en PDF, A4 apaisado"
         >
-          {rotulo("dossier", "Dossier en PDF")}
+          {enDossier ? "Preparando…" : "Dossier en PDF"}
         </Button>
 
         <Button
           icon={Printer}
-          onClick={() => setFormato("horario")}
-          disabled={ocupado || viaje.dias.length === 0}
+          onClick={() => encargaViaje(viaje, "horario")}
+          disabled={enHorario || viaje.dias.length === 0}
           title={viaje.dias.length === 0 ? "El viaje no tiene ningún día: añade uno en el horario" : `${viaje.dias.length} ${
             viaje.dias.length === 1 ? "hoja" : "hojas"
           } de horario en A4 vertical, una por día del viaje, listas para imprimir`}
         >
-          {rotulo("horario", "Horario para imprimir")}
+          {enHorario ? "Preparando…" : "Horario para imprimir"}
         </Button>
       </div>
 
@@ -266,29 +247,6 @@ export function ExportaViaje({ viaje }: { viaje: Desplazamiento }) {
         cada diapositiva como imagen a tamaño de proyección, así que se abre en
         cualquier portátil aunque no tenga la app ni las tipografías.
       </p>
-
-      {/*
-      | Los lienzos de repuesto: el dossier y el horario montados a tamaño real
-      | y apartados de la pantalla. Sólo existen mientras dura la exportación.
-      */}
-      {ocupado && (
-        <div
-          ref={lienzosRef}
-          aria-hidden
-          data-export-hide
-          className="pointer-events-none"
-          style={{
-            position: "fixed",
-            top: 0,
-            left: -(DOSSIER_W + 300),
-            width: DOSSIER_W,
-            zIndex: -1,
-          }}
-        >
-          <DossierViaje viaje={viaje} />
-          <HojasHorario viaje={viaje} />
-        </div>
-      )}
     </Panel>
   );
 }

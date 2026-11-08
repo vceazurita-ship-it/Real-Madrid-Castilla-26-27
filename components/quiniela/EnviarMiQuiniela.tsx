@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/abp/ui";
 import { descarga } from "@/lib/export/lienzos";
+import { descargaEnMarcha, encargaDescarga } from "@/lib/trabajos/descargas";
 import { enlaceWhatsappConImagen, mensajeCorto } from "@/lib/quiniela/envio";
 import { blobABase64, creaLamina } from "@/lib/quiniela/lamina";
 import type { Signo } from "@/lib/quiniela/modelo";
@@ -53,6 +54,38 @@ export function EnviarMiQuiniela({
   }
 
   async function porWhatsapp() {
+    /*
+    | Sin compartir ficheros (el ordenador): la imagen se prepara y se baja en
+    | segundo plano (08/11/2026) y el chat se abre en el acto, dentro del
+    | gesto. Se pregunta con un fichero vacío del mismo tipo: `canShare` mira
+    | el tipo, no el contenido.
+    */
+    const puedeCompartir = Boolean(navigator.canShare?.({ files: [new File([""], archivo, { type: "image/png" })] }));
+
+    if (!puedeCompartir) {
+      const titulo = `Mi quiniela · jornada ${jornada}`;
+
+      if (!descargaEnMarcha(titulo)) {
+        const pinta = lamina;
+
+        encargaDescarga({
+          titulo,
+          vuelta: window.location.pathname,
+          tarea: async ({ avanza }) => {
+            avanza("Pintando la lámina…");
+
+            return { blob: await pinta(), nombre: archivo };
+          },
+        });
+      }
+
+      window.open(enlaceWhatsappConImagen(jornada, telefono), "_blank", "noopener,noreferrer");
+      toast.success("Te bajo la imagen: adjúntala en WhatsApp");
+
+      return;
+    }
+
+    /* El móvil: se comparte la imagen, que necesita el toque; no es una descarga. */
     setOcupado("whatsapp");
 
     try {
