@@ -53,6 +53,11 @@ const MAX_VOTOS = Math.max(
   ...VALORES_VOTADOS.map((v) => Number(conVotos(v.votos).match(/^\d+/)?.[0] ?? 0)),
 );
 
+const TOTAL_VOTOS = VALORES_VOTADOS.reduce(
+  (t, v) => t + Number(conVotos(v.votos).match(/^\d+/)?.[0] ?? 0),
+  0,
+);
+
 type CulturaItem = {
   ID: number;
   SECCION: string;
@@ -867,7 +872,7 @@ export default function TeamValuesPage() {
                       Resultado de la votación
                     </p>
                     <p className="mt-0.5 text-xs text-gray-400">
-                      Votos de la plantilla a cada valor; los antivalores se cuentan aparte.
+                      {TOTAL_VOTOS} votos de la plantilla a los cinco valores; los antivalores se cuentan aparte.
                     </p>
                   </div>
                   <Link

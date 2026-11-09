@@ -624,13 +624,13 @@ export default function Home() {
                       <p className="mt-2 flex flex-wrap items-baseline gap-x-2 leading-none" style={{ color: "#fff" }}>
                         <span className="text-3xl font-bold tabular-nums">{coma(rivalSemana.xg, 2)}</span>
                         <span className="text-[13px]" style={{ color: "rgba(255,255,255,.9)" }}>
-                          goles esperados por partido
+                          goles esperados por partido · {rivalSemana.partidos} {rivalSemana.partidos === 1 ? "partido" : "partidos"} · Wyscout
                         </span>
                       </p>
 
                       <ul className="mt-3 space-y-1 text-[13px] leading-snug" style={{ color: "rgba(255,255,255,.9)" }}>
                         {rivalSemana.puestoXg != null && (
-                          <li>{rivalSemana.puestoXg}º de {rivalSemana.deCuantos} del grupo generando ocasiones</li>
+                          <li>{rivalSemana.puestoXg}º de {rivalSemana.deCuantos} equipos generando ocasiones</li>
                         )}
                         {rivalSemana.xgContra != null && (
                           <li>
@@ -908,7 +908,7 @@ export default function Home() {
               <SectionHeader
                 icon={LayoutGrid}
                 title="Áreas de trabajo"
-                caption="Las mismas del menú lateral"
+                caption="Las seis que más se usan; el resto, en «Ver todas las áreas»"
               />
 
               {/* Las 46 repetían el menú lateral (30/10/2026): el buscador y las
