@@ -50,6 +50,23 @@ export const DOCS_OPTA = {
   castilla: "opta:castilla",
   /** Jugador del Castilla × partido. Claves: partido, fecha, playerId, jugador, rival. */
   castillaPartidos: "opta:castilla-partidos",
+  /*
+   * EVENTO A EVENTO (toda la temporada). Coordenadas de Opta: x 0-100 hacia la
+   * portería rival, y 0-100 (0 = banda derecha del que ataca). GoalmouthY/Z:
+   * por dónde cruza la línea de gol (Y 45,2-54,8 entre palos; Z < 38 bajo el
+   * larguero). `segundo` = segundos de partido; `secuencia` ata eventos de la
+   * misma jugada (un saque de ABP con el remate que provoca).
+   */
+  /** Cada remate de la categoría (≈11.400): tirador, x/y, xG, xGOT, parte del cuerpo, situación, presión. */
+  remates: "opta:remates",
+  /** Cada penalti de la categoría: lanzador, portero, pie, dónde entra, posición del portero. */
+  penaltis: "opta:penaltis",
+  /** Castilla: pases, recuperaciones, duelos… con x/y, destino, receptor, xA, xPV. */
+  castillaEventos: "opta:castilla-eventos",
+  /** Cada saque de córner, falta y banda de la categoría (abp = corner|falta|banda). */
+  abpEventos: "opta:abp-eventos",
+  /** Cada equipo en cada partido por tramos de 5 minutos (tramo = minuto ÷ 5): xG, remates, toques en área, posesión… */
+  momento: "opta:momento",
   /** Directo: `opta:directo:<partido>`, lo escribe el proceso de GitHub. */
   directo: (partido: string) => `opta:directo:${partido}`,
 } as const;

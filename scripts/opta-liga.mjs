@@ -29,6 +29,11 @@
  *   opta:jugadores         todos los jugadores de la categoría (selección)
  *   opta:castilla          los jugadores del Castilla, TODAS las métricas de jugador
  *   opta:castilla-partidos cada jugador del Castilla en cada partido (selección)
+ *   opta:remates           cada remate de la categoría (x, y, xG, xGOT, parte del cuerpo, presión…)
+ *   opta:penaltis          cada penalti: lanzador, portero, pie, dónde entra (GoalmouthY/Z)
+ *   opta:castilla-eventos  pases, recuperaciones, duelos… del Castilla con coordenadas
+ *   opta:abp-eventos       cada saque de córner, falta y banda de la categoría
+ *   opta:momento           cada equipo en cada partido por tramos de 5 minutos
  *
  * Todas con la misma forma: { cols: string[], filas: (string|number|null)[][] }.
  */
@@ -54,6 +59,8 @@ const LIGA = "Primera División RFEF";
 
 const EN_SECO = process.argv.includes("--en-seco");
 const SOLO_SESION = process.argv.includes("--sesion");
+/** Sólo lo de evento a evento (más rápido para probar). */
+const SOLO_EVENTOS = process.argv.includes("--solo-eventos");
 
 /* Partido a partido (equipos): lo que se mira de un partido. */
 const POR_PARTIDO = [
@@ -61,7 +68,7 @@ const POR_PARTIDO = [
   "PsAtt", "Pass%", "Ps%InA3rd", "TouchOpBox", "Chance", "KeyPass", "Crosses", "CrossCmp",
   "LgBall", "LgBallCp", "ThrghBalls", "Recovery", "PosWonA3rd", "PosWonM3rd", "PosWonD3rd",
   "Int", "Clrnce", "AerialWon", "Aerial%", "Duel%", "Tackle%", "FoulCom", "FoulSuf", "Yellow",
-  "PossLost", "Disposs", "Sequences", "SeqEndInA3", "Seq9+Pass", "DirectSpeed",
+  "PossLost", "PsLostD3", "PsLostM3", "PsLostA3", "ThrghBlCmp", "Disposs", "Sequences", "SeqEndInA3", "Seq9+Pass", "DirectSpeed",
   "Corners", "CrnrWon", "CrnrLost", "GoalCrnrs", "GoalDirFK", "GoalThr", "ShotDirFK",
   "ThrowIn", "ThrowInSc", "CrnrOnTgt", "CrnrOffTgt", "FKOnTgt", "FKOffTgt", "Saves",
 ];
@@ -145,7 +152,7 @@ async function conecta() {
     if (m.id && pend.has(m.id)) { pend.get(m.id)(m); pend.delete(m.id); }
   };
 
-  const evalua = (expresion, plazo = 240_000) =>
+  const evalua = (expresion, plazo = 480_000) =>
     new Promise((ok, mal) => {
       const i = ++id;
       const t = setTimeout(() => { pend.delete(i); mal(new Error("Opta no contesta (plazo agotado).")); }, plazo);
@@ -281,6 +288,7 @@ async function principal() {
 
   const docs = {};
 
+  if (!SOLO_EVENTOS) {
   console.log("Equipos (todas las métricas)…");
   docs["opta:equipos"] = await porTrozos(evalua, {
     base: "teamId, fullName as equipo, optaTeamId", desde: "team 't'", sufijo: "LIMIT 100",
@@ -314,6 +322,67 @@ async function principal() {
     desde: "player 'p'", sufijo: "BY game LIMIT 3000", f: SC, tabla: "player p", metricas: solo(JUGADOR_PARTIDO), nClave: 5,
   });
 
+  }
+
+  /*
+  | EVENTO A EVENTO (09/11/2026): `FROM team BY event`. En el WHERE no valen
+  | las métricas de evento ([x|EVENT]); se filtra con los «q» de Opta, como
+  | hacen los filtros de la web: q9 = penalti; playType = tipo de jugada.
+  | Coordenadas Opta: x 0-100 hacia la portería rival, y 0-100 de derecha a
+  | izquierda; GoalmouthY/Z = por dónde cruza la línea (Y 45,2-54,8 = entre
+  | palos; Z < 38 = bajo el larguero).
+  */
+  const ev = (campos, donde, limite = 30000) =>
+    consulta(
+      evalua,
+      `SELECT game.gameId as partido, format("date","yyyy-MM-dd",game.gameDate) as fecha, teamId, newest(team.game.fullName) AS equipo, opponent.game.fullName as rival, event.period as parte, event.gameClock as segundo, event.playType as tipo, ${campos} FROM team BY event WHERE ${donde} ORDER BY game.gameDate DEFAULT, event.gameEventIndex DEFAULT LIMIT ${limite}`,
+      S,
+      "team t",
+    );
+  const TIROS = "event.playType IN ('GOAL','PENALTYGOAL','ATTEMPTSAVED','MISS','POST')";
+
+  console.log("Remates de la categoría (evento a evento)…");
+  docs["opta:remates"] = await ev(
+    "event.sequenceId AS secuencia, lookup(event.shooter,fullName) AS tirador, event.shooterPlayerId AS tiradorId, lookup(event.assister,fullName) AS asistente, [EventX|EVENT],[EventY|EVENT],[xG|EVENT],[xGOT|EVENT],[ShotBodyPart|EVENT],[ShotPlayStyle|EVENT],[Pressure|EVENT],[PlyrsBtwn|EVENT],[GoalmouthY|EVENT],[GoalmouthZ|EVENT],[MatchState|EVENT]",
+    TIROS,
+  );
+
+  console.log("Penaltis de la categoría…");
+  docs["opta:penaltis"] = await ev(
+    "lookup(event.shooter,fullName) AS tirador, event.shooterPlayerId AS tiradorId, lookup(event.goalie,fullName) AS portero, event.goaliePlayerId AS porteroId, [ShotBodyPart|EVENT],[GoalmouthY|EVENT],[GoalmouthZ|EVENT],[xGOT|EVENT],[GKx|EVENT],[GKy|EVENT],[MatchState|EVENT]",
+    `event.q9 AND ${TIROS}`,
+    2000,
+  );
+
+  console.log("Castilla evento a evento (pases, recuperaciones, duelos…)…");
+  docs["opta:castilla-eventos"] = await ev(
+    "event.sequenceId AS secuencia, event.possessionNumInPeriod AS posesion, lookup(event.toucher,fullName) AS jugador, event.toucherPlayerId AS jugadorId, lookup(event.receiver,fullName) AS receptor, [EventX|EVENT],[EventY|EVENT],[PassEndX|EVENT],[PassEndY|EVENT],[PsCompleted|EVENT],[Chance|EVENT],[xA|EVENT],[xPVAdded|EVENT],[MatchState|EVENT]",
+    `team.teamId = '${CASTILLA_OPTA}' AND event.playType IN ('PASS','BALLRECOVERY','INTERCEPTION','TACKLE','ATTEMPTEDTACKLE','DISPOSSESSED','TAKEON','AERIAL','CLEARANCE','CHALLENGE','BLOCKEDPASS','OFFSIDEPASS','FOUL','ERROR')`,
+    60000,
+  );
+
+  /* Balón parado de TODA la categoría: cada saque (córner q6, falta q5, banda q107) con
+     dónde sale y dónde cae; con `secuencia` se ata al remate que provoca (opta:remates). */
+  console.log("Balón parado de la categoría (cada saque)…");
+  /* Una consulta por tipo de saque: las 36.000 de golpe pasan del plazo. */
+  const abpCampos = "event.sequenceId AS secuencia, lookup(event.passer,fullName) AS lanzador, lookup(event.receiver,fullName) AS receptor, [EventX|EVENT],[EventY|EVENT],[PassEndX|EVENT],[PassEndY|EVENT],[PsCompleted|EVENT],[CornerType|EVENT],[MatchState|EVENT]";
+  let abp = null;
+  for (const [nombre, q] of [["corner", "event.q6"], ["falta", "event.q5"], ["banda", "event.q107"]]) {
+    const r = await ev(`'${nombre}' AS abp, ${abpCampos}`, `${q} AND event.playType = 'PASS'`, 40000);
+    abp = abp ? { cols: abp.cols, filas: abp.filas.concat(r.filas) } : r;
+    console.log(`  ${nombre}: ${r.filas.length}`);
+  }
+  docs["opta:abp-eventos"] = abp;
+
+  /* Momentum: cada equipo en cada partido por tramos de 5 minutos (tramo = minuto ÷ 5). */
+  console.log("Momentum de cada partido (tramos de 5 minutos)…");
+  docs["opta:momento"] = await consulta(
+    evalua,
+    "SELECT game.gameId as partido, teamId, newest(team.game.fullName) AS equipo, floor(event.gameClock / 300) as tramo, [ExpG],[ShtIncBl],[TouchOpBox],[TchsA3],[PsAtt],[Poss%],[Recovery],[PosWonA3rd],[PossLost] FROM team BY event GROUP BY game.gameId, teamId, floor(event.gameClock / 300) LIMIT 30000",
+    S,
+    "team t",
+  );
+
   const usadas = new Set(Object.values(docs).flatMap((d) => d.cols));
   docs["opta:meta"] = {
     actualizado: new Date().toISOString(),
@@ -329,6 +398,7 @@ async function principal() {
   console.log(`Copia local en ${CACHE}`);
 
   if (EN_SECO) { console.log("En seco: no se sube nada."); return; }
+  if (SOLO_EVENTOS) for (const k of Object.keys(docs)) if (!/remates|penaltis|eventos|momento/.test(k)) delete docs[k];
   await subeDocs(docs);
 }
 
