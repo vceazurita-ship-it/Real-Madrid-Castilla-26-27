@@ -1391,7 +1391,7 @@ function Tarjeta({
       {d.cobertura.con < d.cobertura.de && d.veredicto !== "sin-datos" && (
         <p className="mt-2 text-xs text-white/55">
           {/* Sin «de N» (29/10/2026): el total incluía enfrentamientos sin dato, y lo que no tiene dato no se nombra. */}
-          Con datos de Wyscout en {d.cobertura.con} {d.cobertura.con === 1 ? "pareja" : "parejas"} de este duelo; las demás no tienen minutos y no cuentan. Poca muestra: tómalo como tendencia.
+          Con datos de Wyscout en {d.cobertura.con} {d.cobertura.con === 1 ? "pareja" : "parejas"} de este duelo; las demás no tienen minutos y no cuentan.{d.cobertura.con < 3 && " Poca muestra: tómalo como tendencia."}
         </p>
       )}
     </div>
