@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { useEffect, useMemo, useState } from "react"
 import {
   Activity,
@@ -550,11 +551,26 @@ export default function Home() {
                     boxShadow: "inset 0 0 0 1px rgba(216,180,90,.28), 0 18px 50px rgba(6,13,28,.35)",
                   }}
                 >
-                  {/* Rejilla de campo muy suave: textura, no dibujo. */}
+                  {/* 09/11/2026: de fondo, el Alfredo Di Stéfano de noche (petición del analista); el azul del club queda en el degradado, que oscurece abajo para leer las cifras. */}
+                  <Image
+                    src="/stadium-bg.png"
+                    alt=""
+                    fill
+                    sizes="(max-width: 1279px) 100vw, 480px"
+                    priority
+                    className="pointer-events-none object-cover object-[50%_45%] transition-transform duration-[4000ms] group-hover:scale-105"
+                  />
+
+                  {/* En pantalla ancha el panel es alto y las cifras van abajo, sobre el césped; en tableta y móvil el texto ocupa casi todo y cae sobre la grada iluminada: velo más oscuro y parejo. */}
                   <div
                     aria-hidden
-                    className="pointer-events-none absolute inset-0 opacity-[0.07]"
-                    style={{ backgroundImage: "linear-gradient(rgba(255,255,255,.9) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.9) 1px, transparent 1px)", backgroundSize: "44px 44px", maskImage: "linear-gradient(180deg, #000 0%, transparent 75%)", WebkitMaskImage: "linear-gradient(180deg, #000 0%, transparent 75%)" }}
+                    className="pointer-events-none absolute inset-0 hidden xl:block"
+                    style={{ background: "linear-gradient(180deg, rgba(6,13,28,.30) 0%, rgba(6,13,28,.10) 30%, rgba(11,24,51,.78) 62%, rgba(6,13,28,.96) 100%)" }}
+                  />
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0 xl:hidden"
+                    style={{ background: "linear-gradient(180deg, rgba(6,13,28,.72) 0%, rgba(11,24,51,.84) 45%, rgba(6,13,28,.94) 100%)" }}
                   />
 
                   {escudoRivalSemana && (
@@ -563,8 +579,8 @@ export default function Home() {
                       src={escudoRivalSemana}
                       alt=""
                       aria-hidden
-                      className="pointer-events-none absolute -right-12 top-[38%] h-64 w-64 -translate-y-1/2 object-contain opacity-[0.16] transition-transform duration-700 group-hover:scale-105 xl:-right-16 xl:h-[26rem] xl:w-[26rem]"
-                      style={{ filter: "saturate(.9)" }}
+                      className="pointer-events-none absolute -right-10 top-[34%] h-56 w-56 -translate-y-1/2 object-contain opacity-[0.28] transition-transform duration-700 group-hover:scale-105 xl:-right-12 xl:h-80 xl:w-80"
+                      style={{ filter: "drop-shadow(0 10px 30px rgba(0,0,0,.55))" }}
                     />
                   )}
 
