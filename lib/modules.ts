@@ -1,4 +1,5 @@
 import {
+  Activity,
   AlarmClock,
   Bus,
   BarChart3,
@@ -207,6 +208,16 @@ export const MODULES: AppModule[] = [
       "percentiles",
       "abp propio",
     ],
+  },
+  /* El área Opta (09/11/2026): colectivo, liga, jugadores, buscador y directo. */
+  {
+    href: "/opta",
+    area: "COMPETICIÓN",
+    title: "Área Opta",
+    desc: "El Castilla, la liga y los jugadores según Opta, con buscador y directo",
+    icon: Activity,
+    rank: 87,
+    alias: ["opta", "trumedia", "provision", "xg", "scouting", "buscador de jugadores", "directo", "en vivo"],
   },
 
   /* ------------------------------------------------------------- METODOLOGÍA */
