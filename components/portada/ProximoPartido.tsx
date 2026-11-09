@@ -366,11 +366,12 @@ export function ProximoPartido() {
                 {/* 07/11/2026 (marketing): en el móvil el día va en su renglón y la hora
                     con el campo en el siguiente; antes quedaba un «·» huérfano al final. */}
                 <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[14px] text-white/70 sm:text-[15px]">
-                  <span className="basis-full sm:basis-auto">{diaLargo(proximo.cuando)}</span>
-                  <span className="hidden text-white/30 sm:inline">·</span>
-                  <span className="tabular-nums">{horaCorta(proximo.cuando)}</span>
-                  <span className="text-white/30">·</span>
+                  <span className="basis-full xl:basis-auto">{diaLargo(proximo.cuando)}</span>
+                  <span className="hidden text-white/30 xl:inline">·</span>
+                  {/* 09/11/2026: hora y campo en un solo trozo: en el móvil el campo largo bajaba de renglón y dejaba «21:15 ·» colgando. */}
                   <span>
+                    <span className="tabular-nums">{horaCorta(proximo.cuando)}</span>
+                    <span className="mx-2 text-white/30">·</span>
                     {proximo.lado === "casa"
                       ? "En casa"
                       : rival?.estadio
@@ -438,10 +439,11 @@ export function ProximoPartido() {
 
         {semana.length > 0 && (
           <div className="mt-6">
-            {/* Una sola fila aunque el micro tenga más de siete días (02/11/2026). */}
+            {/* Una sola fila aunque el micro tenga más de siete días (02/11/2026). Desde el 09/11/2026 cada día tiene un ancho mínimo legible: con 8-9 días en el móvil quedaban palillos; si no caben, la tira se desliza. */}
+            <div className="-mx-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <div
-              className="grid grid-cols-7 gap-1 pb-1 sm:gap-1.5"
-              style={{ gridTemplateColumns: `repeat(${semana.length}, minmax(0, 1fr))` }}
+              className="grid gap-1 pb-1 sm:gap-1.5"
+              style={{ gridTemplateColumns: `repeat(${semana.length}, minmax(${semana.length > 6 ? 52 : 0}px, 1fr))` }}
             >
               {semana.map((dia) => {
                 const esHoy = dia.fecha === hoy;
@@ -500,6 +502,7 @@ export function ProximoPartido() {
                   </button>
                 );
               })}
+            </div>
             </div>
 
             {/* 30/10/2026 (fútbol): el botón dice qué toca —«Hoy MD-1 ·
@@ -580,7 +583,8 @@ export function ProximoPartido() {
         {/* ---------- Lo que se prepara para ese partido ---------- */}
 
         {/* Móvil: el azul ocupa la fila y debajo los otros tres en una sola fila (29/10/2026, fútbol). El hueco para el botón flotante lo da ya la portada entera (30/10/2026). Igual en tableta y portátil (02/11/2026): en fila suelta la «Pizarra táctica» se quedaba sola en otra línea. */}
-        <div className={`mt-6 grid gap-2 sm:gap-2.5 ${proximo?.lado === "fuera" ? "grid-cols-4 [&>a:first-child]:col-span-4" : "grid-cols-3 [&>a:first-child]:col-span-3"}`}>
+        {/* 09/11/2026: fuera son cuatro accesos; en el móvil, dos por fila («Desplazamiento» no cabía en un cuarto de pantalla). */}
+        <div className={`mt-6 grid gap-2 sm:gap-2.5 ${proximo?.lado === "fuera" ? "grid-cols-2 [&>a:first-child]:col-span-2 sm:grid-cols-4 sm:[&>a:first-child]:col-span-4" : "grid-cols-3 [&>a:first-child]:col-span-3"}`}>
           <Link
             href={enlacePlantilla}
             title={nombreRival ? `La plantilla de ${nombreRival}` : undefined}
@@ -764,7 +768,7 @@ function Accion({
       onClick={() => trackModuleVisit(modulo(href))}
       className="group inline-flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl border border-white/12 bg-white/[0.04] px-1.5 py-2.5 text-center text-[12.5px] leading-tight sm:flex-row sm:gap-2 sm:px-4 sm:py-3 sm:text-[14px] font-medium text-white/85 transition-all duration-300 hover:-translate-y-0.5 hover:border-white/25 hover:bg-white/[0.07] hover:text-white"
     >
-      <Icono className="h-[17px] w-[17px] text-[#D8B45A]" />
+      <Icono className="h-[17px] w-[17px] shrink-0 text-[#D8B45A]" />
       {texto}
     </Link>
   );

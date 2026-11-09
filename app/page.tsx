@@ -1,7 +1,6 @@
 "use client"
 
 import Link from "next/link"
-import Image from "next/image"
 import { useEffect, useMemo, useState } from "react"
 import {
   Activity,
@@ -32,6 +31,7 @@ import { useCalendario } from "@/hooks/useCalendario"
 import { alrededorDe } from "@/lib/castilla/calendario"
 import { diaEnMadrid } from "@/lib/portada/proximo-partido"
 import { mismoEquipo } from "@/lib/data-analisis/nombres"
+import { useEscudos } from "@/hooks/useEscudos"
 
 type Seguimiento = {
   ID_JUGADOR?: string
@@ -433,6 +433,8 @@ export default function Home() {
   */
   const { partidos: calendario, cargando: sinCalendario } = useCalendario()
 
+  const escudoDe = useEscudos()
+
   const rivalSemana = useMemo(() => {
     if (sinCalendario || !ahora || !resumenData?.liga?.length) return null
 
@@ -460,6 +462,8 @@ export default function Home() {
     }
   }, [ahora, calendario, resumenData, sinCalendario])
 
+  const escudoRivalSemana = rivalSemana ? escudoDe(rivalSemana.nombre) : undefined
+
   return (
     <main className="min-h-screen bg-[#02060D] text-white">
       <div className="flex">
@@ -470,7 +474,7 @@ export default function Home() {
 
           {/* pb-24: el botón flotante de herramientas no tapa la última fila (30/10/2026).
               Y margen a la derecha: tapaba el borde de la tarjeta del partido. */}
-          <section className="space-y-8 py-4 pb-24 px-4 sm:py-6 sm:pb-24 sm:pl-6 sm:pr-[76px] xl:space-y-10 xl:py-10 xl:pb-24 xl:pl-10 xl:pr-[76px]">
+          <section className="space-y-8 py-4 pb-24 px-4 sm:py-6 sm:pb-24 sm:px-6 xl:space-y-10 xl:py-10 xl:pb-24 xl:pl-10 xl:pr-[76px]">
             {admin && (
               <div role="tablist" className="flex gap-2">
                 {(["portada", "tareas"] as const).map((v) => (
@@ -538,27 +542,33 @@ export default function Home() {
                   /* Más baja en el móvil (30/10/2026): ocupaba casi dos pantallas antes de «Datos destacados». Desde el 02/11/2026, en el móvil la tarjeta de cifras no flota sobre la foto: va bajo una franja de foto y la caja mide lo que la tarjeta. Desde el 05/11/2026, igual en escritorio: la foto sola ocupaba media cabecera. */
                   /* min-h (07/11/2026): sin cifras queda la foto sola, no una caja de alto cero. */
                   /* 09/11/2026: a toda la altura de la columna (antes quedaba media tarjeta vacía bajo la foto) y las cifras abajo. */
-                  className="light-sweep group relative flex min-h-[220px] flex-col justify-end overflow-hidden rounded-[28px] border border-white/10 xl:min-h-[320px] xl:self-stretch"
+                  /* 09/11/2026 («la foto de la derecha no me gusta»): sin foto —era nuestra ciudad deportiva desde el aire, tapada por la tarjeta y sin nada que ver con el rival—. Panel propio en azul del club, siempre oscuro (colores en línea: igual en modo día), con el escudo del rival de marca de agua y las cifras directamente encima. */
+                  className="group relative flex min-h-[220px] flex-col justify-end overflow-hidden rounded-[28px] xl:min-h-[320px] xl:self-stretch"
+                  style={{
+                    background:
+                      "radial-gradient(120% 80% at 100% 0%, rgba(216,180,90,.18), transparent 55%), radial-gradient(90% 70% at 0% 100%, rgba(37,99,235,.22), transparent 60%), linear-gradient(160deg, #13284F 0%, #0B1833 55%, #060D1C 100%)",
+                    boxShadow: "inset 0 0 0 1px rgba(216,180,90,.28), 0 18px 50px rgba(6,13,28,.35)",
+                  }}
                 >
+                  {/* Rejilla de campo muy suave: textura, no dibujo. */}
                   <div
                     aria-hidden
-                    className="animate-pulse-glow absolute left-1/2 top-1/2 h-80 w-80 rounded-full bg-cyan-400/20 blur-3xl"
+                    className="pointer-events-none absolute inset-0 opacity-[0.07]"
+                    style={{ backgroundImage: "linear-gradient(rgba(255,255,255,.9) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.9) 1px, transparent 1px)", backgroundSize: "44px 44px", maskImage: "linear-gradient(180deg, #000 0%, transparent 75%)", WebkitMaskImage: "linear-gradient(180deg, #000 0%, transparent 75%)" }}
                   />
 
-                  <div className="particles" aria-hidden />
+                  {escudoRivalSemana && (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={escudoRivalSemana}
+                      alt=""
+                      aria-hidden
+                      className="pointer-events-none absolute -right-12 top-[38%] h-64 w-64 -translate-y-1/2 object-contain opacity-[0.16] transition-transform duration-700 group-hover:scale-105 xl:-right-16 xl:h-[26rem] xl:w-[26rem]"
+                      style={{ filter: "saturate(.9)" }}
+                    />
+                  )}
 
-                  <Image
-                    src="/hero-field.webp"
-                    alt=""
-                    fill
-                    sizes="(max-width: 1279px) 100vw, 480px"
-                    className="animate-hero object-cover transition-transform duration-[4000ms] group-hover:scale-110"
-                  />
-
-                  <div
-                    aria-hidden
-                    className="absolute inset-0 bg-gradient-to-t from-[#02060D]/90 via-[#02060D]/25 to-transparent"
-                  />
+                  <div aria-hidden className="pointer-events-none absolute inset-x-6 top-0 h-px" style={{ background: "linear-gradient(90deg, transparent, rgba(216,180,90,.8), transparent)" }} />
 
                   {/*
                     30/10/2026: fuera la chapa «Data Análisis» de encima de la
@@ -569,7 +579,7 @@ export default function Home() {
                       panel, y sin datos queda la foto sola (sin rótulos sobre nada). */}
                   {rivalSemana && (
                   <div className="absolute left-4 top-4 max-w-[calc(100%-32px)]">
-                    <p className="inline-block truncate rounded-full border border-white/10 px-3.5 py-1.5 text-[12px] leading-relaxed backdrop-blur-xl" style={{ color: "#fff", backgroundColor: "rgba(2,6,13,.94)", maxWidth: "100%" }}>
+                    <p className="inline-block truncate rounded-full px-3.5 py-1.5 text-[12px] font-semibold leading-relaxed" style={{ color: "#F7D98B", backgroundColor: "rgba(216,180,90,.14)", boxShadow: "inset 0 0 0 1px rgba(216,180,90,.35)", maxWidth: "100%" }}>
                       {`${rivalSemana.nombre} · ${rivalSemana.partidos} ${rivalSemana.partidos === 1 ? "partido" : "partidos"} · Wyscout`}
                     </p>
                   </div>
@@ -585,8 +595,7 @@ export default function Home() {
                   */}
                   {rivalSemana ? (
                     <div
-                      className="relative mx-3 mb-3 mt-20 sm:mx-4 sm:mb-4 rounded-[22px] border border-white/10 px-4 py-4 backdrop-blur-xl sm:px-5"
-                      style={{ backgroundColor: "rgba(2,6,13,.94)" }}
+                      className="relative px-5 pb-5 pt-16 sm:px-6 sm:pb-6"
                     >
                       <p className="flex items-center justify-between gap-3 text-[12px] uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,.9)" }}>
                         <span className="min-w-0 truncate">El rival · {rivalSemana.faltan === 1 ? "MD-1" : `MD-${rivalSemana.faltan}`}</span>
@@ -639,8 +648,7 @@ export default function Home() {
                   ) : cargandoData && !cifrasTarde && resumenData?.xg == null ? (
                     /* Mientras llegan las cifras: una línea que lo dice, no dos títulos sobre un fondo vacío (30/10/2026). */
                     <div
-                      className="relative mx-3 mb-3 mt-20 sm:mx-4 sm:mb-4 rounded-[22px] border border-white/10 px-4 py-4 backdrop-blur-xl sm:px-5"
-                      style={{ backgroundColor: "rgba(2,6,13,.94)" }}
+                      className="relative px-5 pb-5 pt-16 sm:px-6 sm:pb-6"
                       aria-busy="true"
                     >
                       <p className="flex items-center gap-2 text-[13px]" style={{ color: "rgba(255,255,255,.85)" }}>
@@ -651,8 +659,7 @@ export default function Home() {
                     </div>
                   ) : resumenData?.xg != null && (
                   <div
-                    className="relative mx-3 mb-3 mt-20 sm:mx-4 sm:mb-4 flex flex-col gap-3 rounded-[22px] border border-white/10 px-4 py-4 backdrop-blur-xl sm:grid sm:grid-cols-2 sm:items-end sm:gap-5 sm:px-5 xl:flex xl:flex-col xl:items-stretch xl:gap-3"
-                    style={{ backgroundColor: "rgba(2,6,13,.94)" }}
+                    className="relative flex flex-col gap-3 px-5 pb-5 pt-16 sm:grid sm:grid-cols-2 sm:items-end sm:gap-5 sm:px-6 sm:pb-6 xl:flex xl:flex-col xl:items-stretch xl:gap-3"
                   >
                     <div className="min-w-0">
                       <p className="flex items-center justify-between gap-3 text-[12px] uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,.9)" }}>
@@ -772,7 +779,6 @@ export default function Home() {
                     </span>
                   )}
 
-                  <div className="scan-line" aria-hidden />
                 </Link>
               </div>
             </div>
