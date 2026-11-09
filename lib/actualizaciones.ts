@@ -171,6 +171,20 @@ export const ACTUALIZACIONES: Actualizacion[] = [
     enlace: "/individual",
   },
 
+  {
+    clave: "opta",
+    nombre: "Datos de Opta de la categoría",
+    alimenta: "El área Opta, el balón parado de la categoría en el Laboratorio de ABP y el Área de mejora y la Tendencia de la ficha individual",
+    fuente: "Opta ProVision",
+    /* 09/11/2026: tarea «RMCF Castilla - Opta» (scripts/opta-semanal.cmd) y el botón de Ajustes. */
+    cuando: "Cada lunes a las 7:30 y al pulsar",
+    grupo: "semanal",
+    cadaHoras: 24 * 7,
+    docs: ["opta:meta"],
+    encargo: "opta",
+    enlace: "/opta",
+  },
+
   /* ---------- Durante el día ---------- */
   {
     clave: "calendario",

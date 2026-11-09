@@ -54,6 +54,16 @@ export const ETAPAS: Record<Tarea, Etapa[]> = {
     { nombre: "Resultados de la quiniela", minutos: 0.5, marca: /^--- Resultados de la quiniela/ },
   ],
 
+  /* scripts/opta-liga.mjs (09/11/2026). */
+  opta: [
+    { nombre: "Abrir Opta", minutos: 0.3, marca: /^Sesión de Opta/ },
+    { nombre: "Equipos", minutos: 1.5, marca: /^Equipos \(todas/ },
+    { nombre: "Partido a partido", minutos: 0.3, marca: /^Partido a partido/ },
+    { nombre: "Jugadores de la categoría", minutos: 0.3, marca: /^Jugadores de la categoría/ },
+    { nombre: "Jugadores del Castilla", minutos: 1.5, marca: /^Castilla \(todas/ },
+    { nombre: "Publicar", minutos: 0.3, marca: /^Copia local/ },
+  ],
+
   wyscout: [
     { nombre: "Abrir Wyscout", minutos: 1, marca: /^--- Descarga/ },
     /* Desde el 04/11/2026 sólo los que tienen algo nuevo («3 equipos en esta pasada:»). */
@@ -124,6 +134,7 @@ const FALLO: Record<Tarea, RegExp> = {
   carpeta: /FALLO|no encuentro la carpeta/i,
   partido: /^✗ /,
   entreno: /^FALLO/,
+  opta: /caducado|rechaza|no contesta|No encuentro/i,
 };
 
 /* ------------------------------------------------------------------ */

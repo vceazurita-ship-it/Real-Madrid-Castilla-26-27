@@ -47,7 +47,7 @@ export type SesionYoutube = {
    leen. Lo hace `scripts/analisis-partido.cjs`. */
 /* `entreno` (16/10/2026, en obras): el análisis de un entrenamiento por objetivos
    (scripts/entreno/analiza-entreno.mjs). */
-export const TAREAS = ["quiniela", "rivales", "wyscout", "carpeta", "partido", "entreno"] as const;
+export const TAREAS = ["quiniela", "rivales", "wyscout", "carpeta", "partido", "entreno", "opta"] as const;
 
 export type Tarea = (typeof TAREAS)[number];
 
@@ -165,6 +165,8 @@ export const LIMITE_MIN: Record<Tarea, number> = {
   /* Bajar de Hudl un entrenamiento de dos horas, que Gemini lo vea por partes
      (con su espera por la cuota) y cortar los clips. */
   entreno: 4 * 60,
+  /* Medido (09/11/2026): unos cuatro minutos toda la categoría. */
+  opta: 30,
 };
 
 export function esTarea(valor: unknown): valor is Tarea {

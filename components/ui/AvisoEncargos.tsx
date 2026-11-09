@@ -26,6 +26,7 @@ const NOMBRE: Record<Tarea, string> = {
   carpeta: "Carpeta de análisis del rival",
   partido: "Análisis del partido",
   entreno: "Análisis de entrenamiento",
+  opta: "Datos de Opta",
 };
 
 export function AvisoEncargos() {

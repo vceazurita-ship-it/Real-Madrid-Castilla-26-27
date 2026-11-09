@@ -829,7 +829,7 @@ function limpiaRegistros() {
   try {
     const viejos = fs
       .readdirSync(REGISTRO)
-      .filter((f) => /^(quiniela|wyscout|calendario|rivales|carpeta|partido|pendientes|entreno|videojug|agentes)-\d+\.log$/.test(f))
+      .filter((f) => /^(quiniela|wyscout|calendario|rivales|carpeta|partido|pendientes|entreno|videojug|agentes|opta)-\d+\.log$/.test(f))
       .sort()
       .reverse()
       .slice(40);
@@ -845,6 +845,32 @@ function limpiaRegistros() {
     for (const f of [...viejos, ...deGoogle]) fs.rmSync(path.join(REGISTRO, f), { force: true });
   } catch {
     /* nada */
+  }
+}
+
+/**
+ * Opta (09/11/2026): `opta-liga.mjs` baja la categoría entera de Opta
+ * ProVision con la sesión del Chrome propio (perfil rmcf-opta, puerto 9335)
+ * y la sube a Supabase. No comparte Chrome con Wyscout ni con el partido.
+ */
+async function haceOpta() {
+  await empieza("opta");
+
+  apunta("Opta: bajando Primera RFEF…");
+  const { codigo, texto } = await ejecuta(
+    "opta",
+    process.execPath,
+    [path.join(RAIZ, "scripts/opta-liga.mjs")],
+    sigue("opta"),
+  );
+
+  if (codigo === 0) {
+    await acaba("opta", true, "datos de Opta al día");
+    apunta("Opta: hecho.");
+  } else {
+    const ultima = texto.trim().split(/\r?\n/).pop() ?? "";
+    await acaba("opta", false, ultima.slice(0, 200) || `ha fallado (código ${codigo})`);
+    apunta(`Opta: FALLO (código ${codigo}).`);
   }
 }
 
@@ -1434,6 +1460,7 @@ async function ronda() {
     carpeta: estadoEncargo("carpeta", encargos.carpeta),
     partido: estadoEncargo("partido", encargos.partido),
     entreno: estadoEncargo("entreno", encargos.entreno),
+    opta: estadoEncargo("opta", encargos.opta),
   };
 
   if (estados.entreno === "pedido" && !enMarcha.has("entreno") && !enMarcha.has("wyscout") && !enMarcha.has("partido")) {
@@ -1442,6 +1469,10 @@ async function ronda() {
 
   if (estados.carpeta === "pedido" && !enMarcha.has("carpeta")) {
     arranca("carpeta", haceCarpeta);
+  }
+
+  if (estados.opta === "pedido" && !enMarcha.has("opta")) {
+    arranca("opta", haceOpta);
   }
 
   if (estados.quiniela === "pedido" && !enMarcha.has("quiniela")) {

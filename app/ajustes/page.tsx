@@ -59,6 +59,7 @@ import { PuertaAdmin } from "@/components/admin/PuertaAdmin";
 import { avisaCambioTextos, useTextosExplicativos } from "@/components/ui/textos-analisis";
 import { InterruptorOrdenadorPrincipal } from "@/components/video-partido/InterruptorOrdenadorPrincipal";
 import { OcupacionAlmacen } from "@/components/ajustes/OcupacionAlmacen";
+import { OptaDirecto } from "@/components/ajustes/OptaDirecto";
 import {
   LIMITE_MIN,
   estadoEncargo,
@@ -108,6 +109,7 @@ const NOMBRE: Record<Tarea, string> = {
   carpeta: "Carpeta de análisis del rival",
   partido: "Análisis del partido",
   entreno: "Análisis de entrenamiento",
+  opta: "Datos de Opta",
 };
 
 const TARDA: Record<Tarea, string> = {
@@ -117,6 +119,7 @@ const TARDA: Record<Tarea, string> = {
   carpeta: "unos cuatro segundos por vídeo",
   partido: "unas horas: mira en vídeo cada jugada a balón parado",
   entreno: "entre veinte minutos y una hora",
+  opta: "unos cinco minutos",
 };
 
 /** Lo que dice el pie de cada panel. */
@@ -424,7 +427,7 @@ export default function AjustesPage() {
      avisar con un toast cuando acabe. */
   const esperando = useRef<Partial<Record<Tarea, string>>>({});
 
-  const activo = (["quiniela", "rivales", "wyscout", "partido"] as Tarea[]).some((tarea) => {
+  const activo = (["quiniela", "rivales", "wyscout", "partido", "opta"] as Tarea[]).some((tarea) => {
     const suyo = estadoEncargo(tarea, estado[tarea], ahora);
 
     return suyo === "pedido" || suyo === "en-marcha";
@@ -633,6 +636,7 @@ export default function AjustesPage() {
     carpeta: deTarea("carpeta"),
     partido: deTarea("partido"),
     entreno: deTarea("entreno"),
+    opta: deTarea("opta"),
   } satisfies Record<Tarea, EstadoEncargo>;
 
   const ocupada = (tarea: Tarea) =>
@@ -750,6 +754,41 @@ export default function AjustesPage() {
             </div>
 
             <div className="mt-5 grid min-w-0 gap-5 xl:grid-cols-3">
+              {/* ------------------- OPTA (09/11/2026) ------------------- */}
+
+              <Panel
+                title="Datos de Opta"
+                subtitle="Primera RFEF entera, de Opta ProVision · cada lunes"
+                icon={BarChart3}
+                action={
+                  <Button
+                    tone="primary"
+                    icon={RefreshCw}
+                    disabled={!yo || pidiendo !== null || ocupada("opta")}
+                    onClick={() => void pide("opta")}
+                  >
+                    {rotulo("opta", "Traer y publicar")}
+                  </Button>
+                }
+              >
+                <p className="text-[12px] leading-relaxed text-white/45">
+                  Los 40 equipos con todas sus métricas, cada partido, los jugadores de la categoría y los
+                  nuestros con todo. Alimenta el área Opta, el Laboratorio de ABP y la ficha individual. Usa
+                  la ventana de Chrome de Opta del ordenador del club: si la sesión caduca, se entra a mano ahí.
+                </p>
+
+                <EstadoLinea
+                  tarea="opta"
+                  estado={estados.opta}
+                  encargo={estado.opta}
+                  vigia={vigia}
+                  ahora={ahora}
+                  onOrden={(que) => void ordena("opta", que)}
+                />
+
+                <OptaDirecto deshabilitado={!yo} />
+              </Panel>
+
               {/* ------------------- LA QUINIELA ------------------- */}
 
               <Panel
