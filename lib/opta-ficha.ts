@@ -135,7 +135,22 @@ export const METRICAS_FICHA: MetricaFicha[] = [
   { a: "Pass%", nombre: "Acierto en el pase", grupo: "Circulación", modo: "pct", mejorAlto: true, base: "PsAtt", tambienPortero: true },
   { a: "Ps%InA3rd", nombre: "Acierto en el pase en el último tercio", grupo: "Circulación", modo: "pct", mejorAlto: true, base: "TchsA3" },
   { a: "LgBallCp", nombre: "Balones largos completados", grupo: "Circulación", modo: "p90", mejorAlto: true, tambienPortero: true },
-  { a: "LongBall%", nombre: "Acierto en balón largo", grupo: "Circulación", modo: "pct", mejorAlto: true, base: "LgBall", tambienPortero: true },
+  /* `LongBall%` de Opta NO es el acierto: es qué parte de los pases son largos.
+     El acierto se calcula: completados / intentados. */
+  {
+    a: "LgBallAcierto",
+    nombre: "Acierto en balón largo",
+    grupo: "Circulación",
+    modo: "pct",
+    mejorAlto: true,
+    base: "LgBall",
+    tambienPortero: true,
+    calcula: (f) => {
+      const hechos = Number(f.LgBallCp);
+      const intentos = Number(f.LgBall);
+      return Number.isFinite(hechos) && intentos > 0 ? hechos / intentos : null;
+    },
+  },
   { a: "TchsA3", nombre: "Toques en el último tercio", grupo: "Circulación", modo: "p90", mejorAlto: true },
 
   { a: "Crosses", nombre: "Centros", grupo: "Centros y regate", modo: "p90", mejorAlto: true },
