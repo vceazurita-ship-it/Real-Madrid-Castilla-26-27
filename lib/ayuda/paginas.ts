@@ -60,6 +60,50 @@ const XG: FilaAyuda = {
 };
 
 export const AYUDAS: AyudaDePagina[] = [
+  /* ==================== ÁREA OPTA (09/11/2026) ==================== */
+  {
+    ruta: "/opta",
+    titulo: "Área Opta",
+    resumen:
+      "Lo que da de sí la descarga de Opta de Primera RFEF: el Castilla por fases, la liga entera, nuestros jugadores con su ficha, un buscador de la categoría y el directo del partido.",
+    origen:
+      "Opta ProVision (TruMedia). La descarga la hace scripts/opta-liga.mjs desde Ajustes y cada lunes, y queda en Supabase (no en el repositorio). El directo lo escribe scripts/opta-directo.mjs mientras se juega.",
+    bloques: [
+      {
+        titulo: "Las cinco pestañas",
+        filas: [
+          { que: "Castilla", es: "Cada fase con su valor por partido, su puesto y su percentil; abajo, partido a partido contra la media del grupo" },
+          { que: "La liga", es: "Todos los equipos con las columnas que se elijan (también cualquiera de las 1.280 de Opta) y el cruce de dos métricas" },
+          { que: "Jugadores", es: "La plantilla por 90 minutos; al pinchar uno, su ficha contra los de su puesto y su partido a partido" },
+          { que: "Buscador", es: "Jugadores de la categoría por puesto, edad, minutos y una métrica por 90" },
+          { que: "Directo", es: "Las cifras del partido del día mientras se juega; se pone al día sola cada minuto" },
+        ],
+      },
+      {
+        titulo: "Cómo se calcula",
+        filas: [
+          PERCENTIL,
+          XG,
+          { que: "Grupo del Castilla", es: "Opta no dice el grupo: se saca de quién ha jugado contra quién", cuenta: "Equipos que se han enfrentado = mismo grupo (componentes del grafo de partidos)" },
+          { que: "Por partido", es: "Los recuentos, entre los partidos jugados; los porcentajes y cocientes, tal cual", cuenta: "remates ÷ PJ; posesión, PPDA o xG por remate no se dividen" },
+          { que: "Por 90", es: "Cifra del jugador llevada a un partido entero", cuenta: "valor ÷ minutos × 90" },
+          { que: "Puesto del jugador", es: "Se compara con los de su familia: porteros, centrales, laterales, mediocentros, mediapuntas, bandas o delanteros" },
+          { que: "Mínimo de minutos", es: "Para entrar en la muestra del percentil; 270′ por defecto y se cambia" },
+          { que: "Goles evitados", es: "Lo que el portero salva por encima de lo esperado", cuenta: "xG en contra − goles encajados" },
+          { que: "PPDA", es: "Pases que se deja dar al rival por cada acción defensiva: menos, más presión" },
+          { que: "Diferenciales (La liga)", es: "Lo de cada equipo menos lo de su rival, de media por partido", cuenta: "Σ (propio − rival) ÷ partidos; en los porcentajes, puntos" },
+          { que: "Dependencia", es: "Qué parte del total del equipo pone cada jugador", cuenta: "jugador ÷ total del equipo × 100 (el mayor entre el de Opta y la suma de sus jugadores)" },
+          { que: "Perfil de remate", es: "Zona, parte del cuerpo y situación de los remates de un jugador del Castilla, con sus goles", cuenta: "Remates sin los bloqueados, como los parte Opta" },
+          { que: "Un partido, cara a cara", es: "Los dos equipos de un partido del Castilla con las cifras de ese día" },
+        ],
+      },
+    ],
+    ojo: [
+      "Con pocos partidos jugados, un puesto en la tabla se mueve mucho por un solo resultado.",
+      "Una cifra por 90 de alguien con pocos minutos es una tendencia, no un retrato: por eso el mínimo.",
+      "El directo depende de que Opta publique durante el juego; si sólo publica al acabar, las cifras llegan al final.",
+    ],
+  },
   /* ==================== DATA ANÁLISIS ==================== */
   {
     ruta: "/data-analisis",
