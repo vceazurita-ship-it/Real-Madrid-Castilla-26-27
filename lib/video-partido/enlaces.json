@@ -164,7 +164,7 @@
         "url": "https://www.hudl.com/watch/video/VmlkZW82YWU3NjZkMzIxMTJiZjUwOTE1YWU5MDI="
       },
       "tactica": {
-        "fichero": "J 10 - CASTILLA - CARTAGENA.mov"
+        "fichero": "J 10 - RM Castilla - Hercules CF.mov"
       },
       "resumen": {
         "id": "rVznrTdN66w",
@@ -172,6 +172,11 @@
         "canal": "Real Federación Española Fútbol",
         "titulo": "Resumen #PrimeraFederación | Real Madrid Castilla 2-0 FC Cartagena| Jornada 10 | Temporada 2026/2027"
       }
+    },
+    {
+      "jornada": 11,
+      "fecha": "2026-11-08",
+      "partido": "Real Madrid Castilla - Hércules"
     }
   ]
 }
