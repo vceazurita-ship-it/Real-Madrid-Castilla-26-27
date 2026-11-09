@@ -153,7 +153,7 @@ export function ComparaElite({
         .map((d) => ({ ...d, brecha: d.suyo.percentil - d.mio.percentil }))
     : [];
   const leSaca = [...diferencias].sort((a, b) => b.brecha - a.brecha).filter((d) => d.brecha >= 15).slice(0, 3);
-  const leGana = [...diferencias].sort((a, b) => a.brecha - b.brecha).filter((d) => d.brecha <= -10).slice(0, 2);
+  const leGana = [...diferencias].sort((a, b) => a.brecha - b.brecha).filter((d) => d.brecha <= -10 && !/acciones defensivas|defensivas realizadas/i.test(d.mio.metrica.nombre)).slice(0, 2); /* tener más o menos acciones defensivas no es mejor por sí solo */
 
   const candidatos = vara.lista
     .filter((j) => !ids.includes(idDe(j)))
@@ -284,7 +284,7 @@ export function ComparaElite({
                   <li key={mio.metrica.columna} className="text-[13px]" title={mio.metrica.comoLeer}>
                     <div className="flex items-baseline justify-between gap-2">
                       <span className="min-w-0 truncate text-white/85">{nombreMetrica(mio.metrica.nombre)}</span>
-                      <span className="shrink-0 tabular-nums text-[12px] text-white/55">p{Math.round(mio.percentil)} → p{Math.round(suyo.percentil)}</span>
+                      <span className="shrink-0 tabular-nums text-[12px] text-white/55">p{Math.round(mio.percentil)} → p{Math.round(suyo.percentil)} <span className="text-white/40">(él → {primero.jugador.split(" ").slice(-1)[0]}, frente a {vara.lista.length} de élite)</span></span>
                     </div>
                     <p className="text-[12px] text-white/60">
                       <b style={{ color: ROSA }}>{conBase(fila, mio)}</b> frente a <b style={{ color: COLORES[0] }}>{conBase(primero, suyo)}</b>
@@ -306,7 +306,7 @@ export function ComparaElite({
                   <li key={mio.metrica.columna} className="text-[13px]" title={mio.metrica.comoLeer}>
                     <div className="flex items-baseline justify-between gap-2">
                       <span className="min-w-0 truncate text-white/85">{nombreMetrica(mio.metrica.nombre)}</span>
-                      <span className="shrink-0 tabular-nums text-[12px] text-white/55">p{Math.round(mio.percentil)} frente a p{Math.round(suyo.percentil)}</span>
+                      <span className="shrink-0 tabular-nums text-[12px] text-white/55">p{Math.round(mio.percentil)} frente a p{Math.round(suyo.percentil)} <span className="text-white/40">(frente a {vara.lista.length} de élite)</span></span>
                     </div>
                     <p className="text-[12px] text-white/60">
                       <b style={{ color: ROSA }}>{conBase(fila, mio)}</b> frente a <b style={{ color: COLORES[0] }}>{conBase(primero, suyo)}</b>

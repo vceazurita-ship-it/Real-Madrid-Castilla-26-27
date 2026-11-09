@@ -368,7 +368,7 @@ export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadore
         const puntos = comp ? mapaDeProgresion(liga, comp, equipo) : [];
         if (puntos.length < 6) return null;
         return (
-          <Tarjeta titulo={`Progresar y pisar área · ${puntos.length} equipos · ${Math.max(...puntos.map((p) => p.partidos))} partidos cada uno, tendencia`}>
+          <Tarjeta titulo={`Progresar y pisar área · ${puntos.length} equipos · ${(() => { const mn = Math.min(...puntos.map((p) => p.partidos)); const mx = Math.max(...puntos.map((p) => p.partidos)); return mn === mx ? `${mx} partidos cada uno` : `de ${mn} a ${mx} partidos`; })()}, tendencia`}>
             {(() => {
               const suyo = puntos.find((p) => p.id === equipo);
               const nuestro = puntos.find((p) => p.id === NOSOTROS);
@@ -418,7 +418,7 @@ export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadore
                 const masProg = nuestro.prog - suyo.prog;
                 /* 07/11/2026: por debajo de un 10 % de diferencia, «parecidos», no un titular. */
                 const ordinalDe = (clave: "x" | "y") => [...puntos].sort((a, b) => b[clave] - a[clave]).findIndex((p) => p.id === NOSOTROS) + 1;
-                frente = ` Frente al Castilla (${c(nuestro.prog)} progresivos, ${ordinalDe("x")}º de ${puntos.length}; ${c(nuestro.ent)} entradas, ${ordinalDe("y")}º): ${parecidos(suyo.ent, nuestro.ent) ? "parecidos en llegada al área" : masArea > 0 ? `pisamos más área (+${c(masArea)} por partido)` : `pisa más área que nosotros (+${c(-masArea)} por partido)`}${parecidos(suyo.prog, nuestro.prog) ? " y parecidos en progresión" : masProg > 0 ? ` y progresamos más (+${c(masProg)})` : ` y progresa más (+${c(-masProg)})`}.`;
+                frente = ` Frente al Castilla, con la misma medida (percentil y puesto de ${puntos.length}): ${c(nuestro.prog)} progresivos, P${Math.round(nuestro.x)} · ${ordinalDe("x")}º, y ${c(nuestro.ent)} entradas, P${Math.round(nuestro.y)} · ${ordinalDe("y")}º. En llegada al área, ${parecidos(suyo.ent, nuestro.ent) ? `diferencia de sólo ${c(Math.abs(masArea))} por partido (menos de un 10 %: parecidos)` : masArea > 0 ? `pisamos más área (+${c(masArea)} por partido)` : `pisa más área que nosotros (+${c(-masArea)} por partido)`}${parecidos(suyo.prog, nuestro.prog) ? `; en progresión, diferencia de sólo ${c(Math.abs(masProg))} (parecidos)` : masProg > 0 ? `; y progresamos más (+${c(masProg)})` : `; y progresa más (+${c(-masProg)})`}.`;
               }
               /* La orden, según su vía de llegada medida (carreras o centros), no una frase fija.
                  Con la base (07/11/2026): las dos vías no suman el total, el resto llega por otras. */
@@ -427,11 +427,11 @@ export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadore
                 equipo === NOSOTROS
                   ? ""
                   : suyo.y >= 60
-                    ? ` ${via} ${suyo.pCentros >= suyo.pCarreras ? "Defender el área con gente y ganar el primer balón." : "Cerrar por dentro y no dejarle encarar de cara."}`
+                    ? ` ${via} ${suyo.pCentros >= suyo.pCarreras ? "Defender el área con gente y ganar el primer balón." : "Cerrar por dentro y no dejarle encarar de cara."} Qué entrenamos: ${suyo.pCentros >= suyo.pCarreras ? "defensa del área ante centro y pase al hueco, con tres atacantes entrando al área contra cuatro defensas" : "1c1 defensivo orientando hacia fuera y cierre del carril interior ante conducción"}. Qué contar: entradas al área que concede el equipo por partido, con el dato de este rival (${c(suyo.ent)}) como techo de la tarea.`
                     : ` Llega poco (${c(suyo.ent)} entradas por partido): se le puede dejar progresar por fuera y esperar en el área.`;
               return <p className="mt-2 rounded-lg border border-[#D8B45A]/30 bg-[#D8B45A]/[0.06] px-3 py-2 text-[13px] leading-relaxed text-white/85"><b>Lectura:</b> {deEl}{frente}{accion}</p>;
             })()}
-            <p className="mt-1 text-[11px] text-white/45">Medias por partido de esta temporada ({Math.max(...puntos.map((p) => p.partidos))} partidos como mucho por equipo): es una tendencia, no un veredicto.</p>
+            <p className="mt-1 text-[11px] text-white/45">Medias por partido de esta temporada ({Math.max(...puntos.map((p) => p.partidos))} partidos como mucho por equipo): es una tendencia, no un veredicto. «Parecidos» = menos de un 10 % de diferencia en la media por partido.</p>
           </Tarjeta>
         );
       })()}
