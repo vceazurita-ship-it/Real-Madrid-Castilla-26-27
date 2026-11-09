@@ -61,7 +61,7 @@ function ClubDelHistorial({
     <span className="flex min-w-0 items-center gap-1.5">
       <span
         aria-hidden
-        className="flex h-[18px] w-[18px] shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-white/[0.06] text-[9px] font-bold text-white/45"
+        className="flex h-[18px] w-[18px] shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-white/[0.06] text-xs font-bold text-white/45"
       >
         {escudo && !roto ? (
           /* eslint-disable-next-line @next/next/no-img-element */
@@ -127,13 +127,13 @@ export function PlayerStatsCard({
   return (
     <section className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.02] p-3 sm:p-4">
       <header className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h3 className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-white/40">
+        <h3 className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-white/40">
           <Sparkles size={12} className="text-[#C8A96B]" />
           Rendimiento
         </h3>
 
         {stats?.url && (
-          <Explicativo><span className="text-[10px] text-white/25">BeSoccer</span></Explicativo>
+          <Explicativo><span className="text-xs text-white/25">BeSoccer</span></Explicativo>
         )}
       </header>
 
@@ -148,7 +148,7 @@ export function PlayerStatsCard({
             className="mx-auto aspect-[2/3] w-full max-w-[132px] sm:max-w-none"
           />
 
-          <p className="mt-1 text-center text-[9px] leading-tight text-white/30">
+          <p className="mt-1 text-center text-xs leading-tight text-white/30">
             Zona estimada por posición
           </p>
         </div>
@@ -171,7 +171,7 @@ export function PlayerStatsCard({
                   <tr className="border-b border-white/10">
                     <th
                       scope="col"
-                      className="py-1.5 pr-2 text-left text-[9px] font-semibold uppercase tracking-[0.14em] text-white/35"
+                      className="py-1.5 pr-2 text-left text-xs font-semibold uppercase tracking-[0.14em] text-white/35"
                     >
                       Temporada
                     </th>
@@ -181,7 +181,7 @@ export function PlayerStatsCard({
                         key={col.key}
                         scope="col"
                         title={col.titulo}
-                        className={`px-1.5 py-1.5 text-[9px] font-semibold uppercase tracking-[0.1em] text-white/35 ${
+                        className={`px-1.5 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-white/35 ${
                           col.secundaria ? "hidden sm:table-cell" : ""
                         }`}
                       >
@@ -207,7 +207,7 @@ export function PlayerStatsCard({
                           className="min-w-0 py-1.5 pr-2 text-left font-normal"
                         >
                           <span
-                            className={`block text-[10px] font-semibold uppercase tracking-[0.08em] ${
+                            className={`block text-xs font-semibold uppercase tracking-[0.08em] ${
                               actual ? "text-[#C8A96B]" : "text-white/45"
                             }`}
                           >
@@ -268,7 +268,7 @@ export function PlayerStatsCard({
                               </span>
 
                               {detalle && (
-                                <span className="block text-[9px] leading-tight text-white/30">
+                                <span className="block text-xs leading-tight text-white/30">
                                   {detalle}
                                 </span>
                               )}
