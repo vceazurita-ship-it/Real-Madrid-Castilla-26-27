@@ -61,6 +61,12 @@ const EN_SECO = process.argv.includes("--en-seco");
 const SOLO_SESION = process.argv.includes("--sesion");
 /** Sólo lo de evento a evento (más rápido para probar). */
 const SOLO_EVENTOS = process.argv.includes("--solo-eventos");
+/**
+ * Las temporadas anteriores de Primera RFEF (24/25, 25/26…): ya no cambian, así
+ * que sólo se bajan con --historico (una vez, o al empezar temporada).
+ * Docs: opta:hist:<2025-2026>:equipos | :jugadores | :castilla, misma forma.
+ */
+const HISTORICO = process.argv.includes("--historico");
 
 /* Partido a partido (equipos): lo que se mira de un partido. */
 const POR_PARTIDO = [
@@ -273,7 +279,8 @@ async function principal() {
 
   /* Temporada: la más reciente de Primera RFEF. */
   const temporadas = await evalua(`fetch("/dp/descriptor/query?name=queryFindSeasons&isOpponent=false&reportType=summary&site=realmadrid").then((r) => r.json()).then((j) => j._data.rows)`);
-  const rfef = temporadas.filter((t) => t[3] === LIGA).sort((a, b) => String(b[5]).localeCompare(String(a[5])))[0];
+  const todasRfef = temporadas.filter((t) => t[3] === LIGA).sort((a, b) => String(b[5]).localeCompare(String(a[5])));
+  const rfef = todasRfef[0];
   if (!rfef) throw new Error(`No encuentro ${LIGA} en Opta.`);
   const S = { sseas: [rfef[0]] };
   console.log(`Temporada: ${rfef[1]} (último partido ${rfef[2]})`);
@@ -288,7 +295,19 @@ async function principal() {
 
   const docs = {};
 
-  if (!SOLO_EVENTOS) {
+  if (HISTORICO) {
+    for (const t of todasRfef.slice(1)) {
+      const clave = `opta:hist:${String(t[5]).replace("/", "-")}`;
+      const SH = { sseas: [t[0]] };
+      console.log(`Histórico ${t[1]}: equipos…`);
+      docs[`${clave}:equipos`] = await porTrozos(evalua, { base: "teamId, fullName as equipo, optaTeamId", desde: "team 't'", sufijo: "LIMIT 100", f: SH, tabla: "team t", metricas: deEquipo, nClave: 3 });
+      console.log(`Histórico ${t[1]}: jugadores…`);
+      docs[`${clave}:jugadores`] = await porTrozos(evalua, { base: "playerId, fullName as jugador, newest(team.game.teamId) as teamId, newest(team.game.fullName) as equipo, mode(game.gameDetailedPosition) as puesto", desde: "player 'p'", sufijo: "WHERE (game.player) RANK order ORDER BY [Min] DESC LIMIT 3000", f: SH, tabla: "player p", metricas: solo(JUGADOR_CATEGORIA), nClave: 5 });
+    }
+    docs["opta:temporadas"] = { temporadas: todasRfef.map((t) => ({ id: t[0], nombre: t[1], clave: String(t[5]).replace("/", "-"), actual: t === rfef })) };
+  }
+
+  if (!SOLO_EVENTOS && !HISTORICO) {
   console.log("Equipos (todas las métricas)…");
   docs["opta:equipos"] = await porTrozos(evalua, {
     base: "teamId, fullName as equipo, optaTeamId", desde: "team 't'", sufijo: "LIMIT 100",
@@ -332,6 +351,8 @@ async function principal() {
   | izquierda; GoalmouthY/Z = por dónde cruza la línea (Y 45,2-54,8 = entre
   | palos; Z < 38 = bajo el larguero).
   */
+  if (HISTORICO) { cierra(); await subeDocs(docs); return; }
+
   const ev = (campos, donde, limite = 30000) =>
     consulta(
       evalua,
