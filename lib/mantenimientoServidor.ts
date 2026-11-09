@@ -12,6 +12,7 @@ import {
   CLAVE_YOUTUBE,
   normalizaMantenimiento,
   type Mantenimiento,
+  type OrdenEncargo,
   type DatosCarpeta,
   type DatosEntreno,
   type SesionYoutube,
@@ -59,6 +60,8 @@ export async function pideEncargo(
         ...estado[tarea],
         pedidoEn,
         pedidoPor: quien,
+        /* Pedir otra vez (o reanudar) quita la pausa. */
+        pausado: undefined,
         ...(datos ? { datos } : {}),
         /* Cada pedido dice el suyo: uno sin plan es «todo», y no hereda el
            plan de la vez anterior. */
@@ -69,5 +72,19 @@ export async function pideEncargo(
         ...(tarea === "wyscout" ? { completo: completo ? true : undefined } : {}),
       },
     };
+  });
+}
+
+/**
+ * Una orden sobre la pasada en marcha (09/11/2026): cancelar, pausar o
+ * reiniciar. Sólo apunta la orden; el vigía la ve en su ronda y corta.
+ */
+export async function ordenaEncargo(tarea: Tarea, que: OrdenEncargo, quien: string): Promise<Mantenimiento> {
+  const en = new Date().toISOString();
+
+  return cambiaDoc<Mantenimiento>(CLAVE_MANTENIMIENTO, "mantenimiento", (data) => {
+    const estado = normalizaMantenimiento(data);
+
+    return { ...estado, [tarea]: { ...estado[tarea], orden: { que, en, por: quien } } };
   });
 }

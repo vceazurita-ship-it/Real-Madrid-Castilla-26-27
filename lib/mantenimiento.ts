@@ -51,7 +51,26 @@ export const TAREAS = ["quiniela", "rivales", "wyscout", "carpeta", "partido", "
 
 export type Tarea = (typeof TAREAS)[number];
 
+/**
+ * Lo que se le puede mandar a una pasada EN MARCHA desde Ajustes (09/11/2026).
+ * Lo pidió el analista: poder pausar, cancelar o reiniciar un proceso largo
+ * sin tocar el ordenador del club. Lo atiende el vigía en su ronda (~10 s):
+ * corta el árbol de procesos y apunta cómo acabó.
+ *
+ * - `cancelar`: se corta y se queda así.
+ * - `pausar`: se corta y queda `pausado`; «Reanudar» sigue desde la etapa
+ *   en que iba (las que repiten trabajo a trozos) o lo empieza de nuevo.
+ * - `reiniciar`: se corta y se vuelve a pedir igual, desde el principio.
+ */
+export type OrdenEncargo = "cancelar" | "pausar" | "reiniciar";
+
+export const ORDENES: readonly OrdenEncargo[] = ["cancelar", "pausar", "reiniciar"];
+
 export type Encargo = {
+  /** La última orden sobre la pasada en marcha; vale si es posterior a `empezadoEn`. */
+  orden?: { que: OrdenEncargo; en: string; por?: string };
+  /** La pasada se paró con «Pausar» y está esperando a «Reanudar». */
+  pausado?: boolean;
   /** Cuándo se pidió la última vez, y quién. */
   pedidoEn?: string;
   pedidoPor?: string;

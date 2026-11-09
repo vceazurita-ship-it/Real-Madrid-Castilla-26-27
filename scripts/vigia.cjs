@@ -207,14 +207,47 @@ const empieza = (tarea) => marca(tarea, { empezadoEn: new Date().toISOString() }
 | hubiera ido bien. Ahora se reintenta con esperas crecientes hasta que
 | entra, y la pantalla sabe además cuándo fue la última buena (`bienEn`).
 */
+/*
+| Pausar, cancelar o reiniciar desde Ajustes (09/11/2026). La ronda ve la
+| orden, corta el árbol de procesos de la tarea y la apunta aquí; `acaba`
+| cambia entonces el «ha fallado (código 1)» por lo que de verdad pasó y, al
+| reiniciar, vuelve a dejarla pedida. Mientras la orden está puesta, `ejecuta`
+| no lanza el paso siguiente de esa tarea.
+*/
+const cortadoPorOrden = new Map();
+const ordenesAtendidas = new Set();
+
+const TEXTO_ORDEN = {
+  cancelar: "cancelado desde Ajustes",
+  pausar: "en pausa desde Ajustes: «Reanudar» sigue desde donde iba",
+  reiniciar: "cortado para reiniciar desde Ajustes; vuelve a empezar",
+};
+
 async function acaba(tarea, ok, resultado, extra = {}) {
+  const orden = cortadoPorOrden.get(tarea);
+
+  if (orden) {
+    cortadoPorOrden.delete(tarea);
+    ok = false;
+    resultado = TEXTO_ORDEN[orden];
+    extra = { ...extra, pausado: orden === "pausar" ? true : undefined };
+  }
+
   const hechoEn = new Date().toISOString();
 
   const cambio = { hechoEn, ok, resultado, ...extra, ...(ok ? { bienEn: hechoEn } : {}), ...cierraSeguimiento(tarea, ok) };
 
   for (let intento = 0; ; intento++) {
     try {
-      return await marca(tarea, cambio);
+      await marca(tarea, cambio);
+
+      /* Un segundo después del «hecho», para que cuente como pedido nuevo. */
+      if (orden === "reiniciar") {
+        await marca(tarea, { pedidoEn: new Date(Date.now() + 1000).toISOString(), pedidoPor: "reiniciado desde Ajustes", pausado: undefined });
+        apunta(`${tarea}: reiniciado desde Ajustes; vuelve a la cola.`);
+      }
+
+      return;
     } catch (error) {
       if (intento === 0) apunta(`${tarea}: no se puede apuntar cómo acabó (${claro(error.message)}); se reintenta hasta que haya red.`);
 
@@ -724,6 +757,13 @@ function corta(tarea) {
  */
 function ejecuta(tarea, orden, args, alLinea, variables) {
   return new Promise((resolve) => {
+    /* Cortada desde Ajustes: no se lanza el paso siguiente. */
+    if (cortadoPorOrden.has(tarea)) {
+      resolve({ codigo: -2, texto: TEXTO_ORDEN[cortadoPorOrden.get(tarea)] });
+
+      return;
+    }
+
     /* Con segundos: dos pasadas de la misma tarea dentro del mismo minuto
        compartían fichero y la segunda borraba el registro de la primera, que
        es justo el que se va a mirar cuando algo falle. */
@@ -1283,6 +1323,7 @@ function miraVideoJugadores() {
 /** Arranca un trabajo sin esperarlo: la quiniela no tiene por qué esperar a Wyscout. */
 function arranca(tarea, trabajo) {
   enMarcha.add(tarea);
+  cortadoPorOrden.delete(tarea);
 
   trabajo()
     .catch(async (error) => {
@@ -1338,8 +1379,53 @@ setInterval(() => {
   }
 }, 2_000).unref();
 
+/**
+ * Las órdenes de Ajustes sobre lo que está en marcha o en cola (09/11/2026).
+ * Vale la orden posterior al arranque (o al pedido, si aún no ha empezado).
+ */
+async function atiendeOrdenes(encargos) {
+  for (const [tarea, encargo] of Object.entries(encargos)) {
+    const orden = encargo?.orden;
+
+    if (!orden?.en || !TEXTO_ORDEN[orden.que]) continue;
+
+    const clave = `${tarea}:${orden.en}`;
+
+    if (ordenesAtendidas.has(clave)) continue;
+
+    const en = Date.parse(orden.en);
+
+    if (enMarcha.has(tarea)) {
+      if (!(en > Date.parse(encargo.empezadoEn ?? "") || !encargo.empezadoEn)) continue;
+
+      ordenesAtendidas.add(clave);
+      cortadoPorOrden.set(tarea, orden.que);
+      apunta(`${tarea}: «${orden.que}» desde Ajustes; se corta la pasada.`);
+      corta(tarea);
+      continue;
+    }
+
+    /* Pedido y sin empezar: cancelar o pausar lo saca de la cola. */
+    if (estadoEncargo(tarea, encargo) === "pedido" && en > Date.parse(encargo.pedidoEn ?? "") && orden.que !== "reiniciar") {
+      ordenesAtendidas.add(clave);
+      await marca(tarea, { hechoEn: new Date().toISOString(), ok: false, resultado: orden.que === "pausar" ? "en pausa antes de empezar" : "cancelado antes de empezar", pausado: orden.que === "pausar" ? true : undefined });
+      apunta(`${tarea}: «${orden.que}» antes de empezar; sale de la cola.`);
+      continue;
+    }
+
+    ordenesAtendidas.add(clave);
+  }
+}
+
 async function ronda() {
-  const encargos = await leeEncargos();
+  let encargos = await leeEncargos();
+
+  try {
+    await atiendeOrdenes(encargos);
+    encargos = await leeEncargos();
+  } catch (error) {
+    apunta(`Órdenes de Ajustes: ${claro(error.message)}`);
+  }
 
   const estados = {
     quiniela: estadoEncargo("quiniela", encargos.quiniela),

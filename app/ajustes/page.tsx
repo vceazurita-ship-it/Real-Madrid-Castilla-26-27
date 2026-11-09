@@ -30,6 +30,10 @@ import {
   Download,
   Loader2,
   Lock,
+  Pause,
+  Play,
+  RotateCcw,
+  Square,
   LogOut,
   Monitor,
   RefreshCw,
@@ -39,6 +43,7 @@ import {
 } from "lucide-react";
 import { Actualizaciones } from "@/components/ajustes/Actualizaciones";
 import { toast } from "sonner";
+import { confirmar } from "@/lib/avisos";
 
 import { AbpHeader, Button, Notice, Panel } from "@/components/abp/ui";
 import { ProgresoEncargo, RecorridoEncargo, RepetirEncargo } from "@/components/ajustes/ProgresoEncargo";
@@ -60,6 +65,7 @@ import {
   vigiaVivo,
   type EstadoEncargo,
   type Mantenimiento,
+  type OrdenEncargo,
   type SesionYoutube as EstadoYoutube,
   type Tarea,
   type Vigia,
@@ -114,6 +120,81 @@ const TARDA: Record<Tarea, string> = {
 };
 
 /** Lo que dice el pie de cada panel. */
+/**
+ * Pausar, cancelar o reiniciar (09/11/2026). Lo pidió el analista para no
+ * tener que ir al ordenador del club cuando un proceso largo se tuerce. Sólo
+ * deja la orden: el vigía la ve en ~10 s, corta y apunta cómo quedó.
+ */
+function MandosEncargo({
+  estado,
+  encargo,
+  ocupado,
+  onOrden,
+}: {
+  estado: EstadoEncargo;
+  encargo: Mantenimiento[Tarea];
+  ocupado: boolean;
+  onOrden: (que: OrdenEncargo) => void;
+}) {
+  /* Una orden posterior al arranque (o al pedido) que el vigía aún no ha atendido. */
+  const desde = Date.parse((estado === "en-marcha" ? encargo?.empezadoEn : encargo?.pedidoEn) ?? "") || 0;
+  const pendiente = encargo?.orden && Date.parse(encargo.orden.en) > desde ? encargo.orden.que : null;
+
+  if (pendiente) {
+    return (
+      <p className="flex items-center gap-1.5 text-amber-300">
+        <Loader2 size={12} className="shrink-0 animate-spin" aria-hidden />
+        {pendiente === "cancelar" ? "Cancelando" : pendiente === "pausar" ? "Pausando" : "Reiniciando"}: el ordenador del club lo corta en unos segundos…
+      </p>
+    );
+  }
+
+  const boton =
+    "inline-flex min-h-[32px] items-center gap-1.5 rounded-lg border border-white/15 px-2.5 text-white/70 transition hover:border-white/30 hover:text-white disabled:opacity-40";
+
+  const pregunta = async (que: OrdenEncargo) => {
+    const textos: Record<OrdenEncargo, { titulo: string; texto: string; aceptar: string }> = {
+      pausar: {
+        titulo: "¿Pausar el proceso?",
+        texto: "Se para ahora. Con «Reanudar» sigue desde la etapa en que iba, sin repetir lo ya hecho cuando se pueda.",
+        aceptar: "Pausar",
+      },
+      cancelar: {
+        titulo: "¿Cancelar el proceso?",
+        texto: "Se corta ahora y no sigue. Lo ya publicado se queda como está; para hacerlo otra vez, vuelve a pedirlo.",
+        aceptar: "Cancelar el proceso",
+      },
+      reiniciar: {
+        titulo: "¿Reiniciar el proceso?",
+        texto: "Se corta ahora y vuelve a empezar desde el principio, igual que se pidió.",
+        aceptar: "Reiniciar",
+      },
+    };
+
+    const t = textos[que];
+
+    if (await confirmar({ titulo: t.titulo, texto: t.texto, aceptar: t.aceptar, cancelar: "Seguir como está", peligro: que === "cancelar" })) onOrden(que);
+  };
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {estado === "en-marcha" && (
+        <button type="button" disabled={ocupado} onClick={() => void pregunta("pausar")} className={boton}>
+          <Pause size={12} aria-hidden /> Pausar
+        </button>
+      )}
+      <button type="button" disabled={ocupado} onClick={() => void pregunta("cancelar")} className={boton}>
+        <Square size={11} aria-hidden /> Cancelar
+      </button>
+      {estado === "en-marcha" && (
+        <button type="button" disabled={ocupado} onClick={() => void pregunta("reiniciar")} className={boton}>
+          <RotateCcw size={12} aria-hidden /> Reiniciar
+        </button>
+      )}
+    </div>
+  );
+}
+
 function EstadoLinea({
   tarea,
   estado,
@@ -121,6 +202,7 @@ function EstadoLinea({
   ahora,
   encargo,
   onPide,
+  onOrden,
   ocupado = false,
 }: {
   tarea: Tarea;
@@ -130,6 +212,8 @@ function EstadoLinea({
   encargo: Mantenimiento[Tarea];
   /** Pedirlo otra vez: con plan, sólo esas etapas; sin él, entero. */
   onPide?: (plan?: number[]) => void;
+  /** Pausar, cancelar o reiniciar la pasada en marcha o en cola (09/11/2026). */
+  onOrden?: (que: OrdenEncargo) => void;
   ocupado?: boolean;
 }) {
   const vivo = vigiaVivo(vigia, ahora);
@@ -192,6 +276,26 @@ function EstadoLinea({
             empezadoEn={encargo?.empezadoEn}
           />
         </>
+      )}
+
+      {onOrden && (estado === "en-marcha" || estado === "pedido") && (
+        <MandosEncargo estado={estado} encargo={encargo} ocupado={ocupado} onOrden={onOrden} />
+      )}
+
+      {/* En pausa: se reanuda desde la etapa en que iba (o entero, si no se puede a trozos). */}
+      {encargo?.pausado && estado !== "en-marcha" && estado !== "pedido" && onPide && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-3 py-2">
+          <Pause size={12} className="shrink-0 text-[#C8A96B]" aria-hidden />
+          <span className="text-[#C8A96B]">En pausa {hace(encargo.hechoEn, ahora)}.</span>
+          <button
+            type="button"
+            disabled={ocupado}
+            onClick={() => onPide(recomendado ?? undefined)}
+            className="ml-auto inline-flex min-h-[32px] items-center gap-1.5 rounded-lg border border-[#C8A96B]/50 px-3 font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/20 disabled:opacity-40"
+          >
+            <Play size={12} aria-hidden /> {recomendado ? "Reanudar desde donde iba" : "Reanudar"}
+          </button>
+        </div>
       )}
 
       {estado === "cortado" && (
@@ -436,6 +540,31 @@ export default function AjustesPage() {
     }
   };
 
+  /* Pausar, cancelar o reiniciar lo que está en marcha (09/11/2026). */
+  const ordena = async (tarea: Tarea, que: OrdenEncargo) => {
+    try {
+      const respuesta = await fetch("/api/mantenimiento", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tarea, orden: que }),
+      });
+
+      const datos = (await respuesta.json()) as { ok?: boolean; error?: string };
+
+      if (!respuesta.ok || !datos.ok) throw new Error(datos.error ?? `HTTP ${respuesta.status}`);
+
+      toast.success(que === "cancelar" ? "Cancelando" : que === "pausar" ? "Pausando" : "Reiniciando", {
+        description: "El ordenador del club lo corta en unos segundos.",
+      });
+
+      recarga();
+    } catch (error) {
+      toast.error("No se ha podido mandar la orden", {
+        description: error instanceof Error ? error.message : "Inténtalo otra vez",
+      });
+    }
+  };
+
   const actualizaQuiniela = async () => {
     setPidiendo("quiniela");
     setParte(null);
@@ -651,6 +780,7 @@ export default function AjustesPage() {
                   encargo={estado.quiniela}
                   vigia={vigia}
                   ahora={ahora}
+                  onOrden={(que) => void ordena("quiniela", que)}
                 />
 
                 {parte && parte.length > 0 && (
@@ -716,6 +846,7 @@ export default function AjustesPage() {
                   ahora={ahora}
                   ocupado={!yo || pidiendo !== null || ocupada("rivales")}
                   onPide={(plan) => void pide("rivales", plan)}
+                  onOrden={(que) => void ordena("rivales", que)}
                 />
               </Panel>
 
@@ -780,6 +911,7 @@ export default function AjustesPage() {
                   ahora={ahora}
                   ocupado={!yo || pidiendo !== null || ocupada("wyscout")}
                   onPide={(plan) => void pide("wyscout", plan)}
+                  onOrden={(que) => void ordena("wyscout", que)}
                 />
               </Panel>
             </div>
@@ -894,6 +1026,7 @@ export default function AjustesPage() {
                   ahora={ahora}
                   ocupado={!yo || pidiendo !== null || ocupada("partido")}
                   onPide={(plan) => void pide("partido", plan, jornadaElegida || undefined)}
+                  onOrden={(que) => void ordena("partido", que)}
                 />
               </Panel>
             </div>

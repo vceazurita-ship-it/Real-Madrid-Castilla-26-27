@@ -16,9 +16,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { COOKIE_ADMIN, esAdmin } from "@/lib/admin/sesion";
-import { esTarea, type DatosCarpeta } from "@/lib/mantenimiento";
+import { esTarea, ORDENES, type DatosCarpeta, type OrdenEncargo } from "@/lib/mantenimiento";
 import { completaPlan, REPETIBLE } from "@/lib/progreso";
-import { leeMantenimiento, pideEncargo } from "@/lib/mantenimientoServidor";
+import { leeMantenimiento, ordenaEncargo, pideEncargo } from "@/lib/mantenimientoServidor";
 import { COOKIE, leeSesion } from "@/lib/quiniela/sesion";
 import { PERSONA_POR_SLUG } from "@/lib/quiniela/staff";
 
@@ -59,6 +59,7 @@ export async function POST(request: NextRequest) {
     plan?: unknown;
     fecha?: unknown;
     completo?: unknown;
+    orden?: unknown;
   };
 
   const tarea = cuerpo.tarea ?? "rivales";
@@ -76,6 +77,24 @@ export async function POST(request: NextRequest) {
       { ok: false, error: "Sólo el administrador puede pedir esto. Entra en Ajustes con su usuario." },
       { status: 403 },
     );
+  }
+
+  /* Pausar, cancelar o reiniciar la pasada en marcha (09/11/2026): sólo se
+     apunta la orden; el vigía corta en su ronda siguiente. */
+  if (cuerpo.orden !== undefined) {
+    if (!ORDENES.includes(cuerpo.orden as OrdenEncargo)) {
+      return NextResponse.json({ ok: false, error: "Esa orden no existe." }, { status: 400 });
+    }
+
+    try {
+      const estado = await ordenaEncargo(tarea, cuerpo.orden as OrdenEncargo, slug);
+
+      return NextResponse.json({ ok: true, estado });
+    } catch (error) {
+      console.error("[mantenimiento] ordenar", error);
+
+      return NextResponse.json({ ok: false, error: "No se ha podido mandar la orden." }, { status: 503 });
+    }
   }
 
   /* La carpeta necesita saber cuál y de quién: sin eso el vigía no puede
