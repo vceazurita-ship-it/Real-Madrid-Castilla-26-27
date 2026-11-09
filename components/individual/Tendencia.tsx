@@ -48,6 +48,7 @@ import { useInstantaneas } from "@/hooks/useInstantaneas";
 import { AREA_KEYS, AREA_LABELS, type AreaKey, type RatingsSeason } from "@/lib/ratings/types";
 import { BarrasMedia } from "@/components/data/visual/VistasData";
 import { MarcoGrafico, useTipoGrafico } from "@/components/data/visual/MarcoGrafico";
+import { OptaTendencia } from "@/components/individual/OptaTendencia";
 
 const ORO = "#D8B45A";
 const AZUL = "#4F8FE8";
@@ -476,14 +477,19 @@ export function Tendencia({
 
   if (nada) {
     return (
-      <p className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/65">
-        Aquí saldrá su evolución: la nota de cada partido en cuanto el cuerpo técnico le valore en Valoraciones, y sus datos de Wyscout semana a semana desde la siguiente descarga semanal en la que tenga minutos.
-      </p>
+      <div className="min-w-0 space-y-5 pb-10">
+        <OptaTendencia nombre={nombre} apodo={apodo} />
+        <p className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/65">
+          Aquí saldrá su evolución: la nota de cada partido en cuanto el cuerpo técnico le valore en Valoraciones, y sus datos de Wyscout semana a semana desde la siguiente descarga semanal en la que tenga minutos.
+        </p>
+      </div>
     );
   }
 
   return (
     <div className="min-w-0 space-y-5 pb-10">
+      {/* Opta (09/11/2026): cada partido de liga, con la métrica que se elija. */}
+      <OptaTendencia nombre={nombre} apodo={apodo} />
       {/* ================= VALORACIONES ================= */}
       {hayNotas && resumenNotas && (
         <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-white">

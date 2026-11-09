@@ -55,6 +55,7 @@ import { indiceDe, percentilesDe, type Percentil } from "@/lib/comparativa-u21";
 import type { RatingsSeason } from "@/lib/ratings/types";
 import { RadiografiaPercentiles } from "@/components/data/visual/RadiografiaPercentiles";
 import { ComparaElite, cunasDe, type JugadorElite } from "@/components/individual/ComparaElite";
+import { OptaPuesto } from "@/components/individual/OptaPuesto";
 import { MapaDosEjes, type PuntoMapa } from "@/components/data/visual/MapaDosEjes";
 import { MarcoGrafico, usePesos, useTipoGrafico } from "@/components/data/visual/MarcoGrafico";
 import type { Puesto } from "@/lib/data-analisis/individual";
@@ -711,6 +712,9 @@ export function AreaMejora({
             : "No está en la descarga de Wyscout de la categoría con minutos esta temporada: el radar sale en cuanto juegue y entre en la siguiente descarga."}
         </p>
       )}
+
+      {/* Opta (09/11/2026): su puesto en Primera RFEF, sumado a lo de Wyscout y con la fuente escrita. */}
+      <OptaPuesto nombre={nombre} apodo={apodo} />
 
       {notas.length >= 2 && (
         <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">

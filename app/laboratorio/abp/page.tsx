@@ -22,13 +22,14 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BarChart3, BookMarked, FlaskConical, LayoutTemplate, Swords, Target, Trophy } from "lucide-react";
+import { BarChart3, BookMarked, Database, FlaskConical, LayoutTemplate, Swords, Target, Trophy } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 
 import { AbpHeader, Notice } from "@/components/abp/ui";
 import { traeDeLaPizarra } from "@/components/abp-lab/EnLaPizarra";
 import { MejorJornada, borradorDeAccion } from "@/components/abp-lab/MejorJornada";
+import { OptaBalonParado } from "@/components/abp-lab/OptaBalonParado";
 import { Referentes } from "@/components/abp-lab/Referentes";
 import { Retos } from "@/components/abp-lab/Retos";
 import { Taller, borradorVacio, type Borrador } from "@/components/abp-lab/Taller";
@@ -55,7 +56,7 @@ function defensaDe(texto?: string): Defensa {
   return zona && hombre ? "mixta" : zona ? "zona" : hombre ? "hombre" : "cualquiera";
 }
 
-type Pestana = "referentes" | "jornada" | "pizarra" | "taller" | "retos";
+type Pestana = "referentes" | "jornada" | "pizarra" | "taller" | "retos" | "opta";
 
 const PESTANAS: { key: Pestana; label: string; corto: string; icon: typeof Trophy; lema: string }[] = [
   /* Sin lema (30/10/2026): «Lo que hacen los mejores» encima del buscador no aportaba nada. */
@@ -64,6 +65,8 @@ const PESTANAS: { key: Pestana; label: string; corto: string; icon: typeof Troph
   { key: "pizarra", label: "En la pizarra", corto: "Pizarra", icon: LayoutTemplate, lema: "Nuestras jugadas en uso" },
   { key: "taller", label: "Taller", corto: "Taller", icon: FlaskConical, lema: "Nuestras rutinas" },
   { key: "retos", label: "Retos", corto: "Retos", icon: Swords, lema: "La competición" },
+  /* 09/11/2026: el Castilla frente a su grupo y a la categoría, con los datos de Opta. */
+  { key: "opta", label: "Opta · balón parado de la categoría", corto: "Opta", icon: Database, lema: "Opta · Primera RFEF, los dos grupos" },
 ];
 
 function esPestana(valor: string | null): valor is Pestana {
@@ -507,6 +510,8 @@ export default function LaboratorioAbpPage() {
                   setAbierto={setBorrador}
                 />
               )}
+
+              {pestana === "opta" && <OptaBalonParado />}
 
               {pestana === "retos" && <Retos doc={doc} jugadores={jugadores} porId={porId} guarda={guarda} ocupado={ocupado} cargando={estado === "cargando"} />}
             </div>
