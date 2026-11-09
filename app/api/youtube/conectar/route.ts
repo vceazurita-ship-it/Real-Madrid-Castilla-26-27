@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { urlPublica } from "@/lib/origen";
 
 import { PERMISOS, credenciales, urlDeVuelta } from "@/lib/coding/youtube";
 
@@ -18,7 +19,7 @@ import { PERMISOS, credenciales, urlDeVuelta } from "@/lib/coding/youtube";
 export async function GET(request: NextRequest) {
   const { id, hay } = credenciales();
 
-  const vuelta = new URL("/coding", request.url);
+  const vuelta = urlPublica("/coding", request);
 
   if (!hay) {
     vuelta.searchParams.set("youtube", "sin-credenciales");
@@ -53,7 +54,7 @@ export async function GET(request: NextRequest) {
     sameSite: "lax",
     path: "/",
     maxAge: 600,
-    secure: request.nextUrl.protocol === "https:",
+    secure: urlPublica("/", request).protocol === "https:",
   });
 
   return respuesta;

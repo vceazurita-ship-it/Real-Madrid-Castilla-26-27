@@ -29,6 +29,7 @@
  */
 
 import { readDoc, writeDoc } from "@/lib/docStore";
+import { urlPublica } from "@/lib/origen";
 import {
   PLANTILLA_DESCRIPCION,
   PLANTILLA_TITULO,
@@ -196,7 +197,7 @@ export function credenciales() {
  * la consola de Google. El panel la enseña para poder copiarla.
  */
 export function urlDeVuelta(peticion: Request) {
-  return new URL("/api/youtube/callback", peticion.url).toString();
+  return urlPublica("/api/youtube/callback", peticion).toString();
 }
 
 /* ------------------------------------------------------------------ */

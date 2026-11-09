@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { urlPublica } from "@/lib/origen";
 
 /**
  * EL ANÁLISIS DE ENTRENAMIENTO SE HA MUDADO (19/10/2026).
@@ -11,7 +12,7 @@ import { NextRequest, NextResponse } from "next/server";
  * dirección.
  */
 export function GET(request: NextRequest) {
-  const destino = new URL("/analisis-entrenamiento", request.url);
+  const destino = urlPublica("/analisis-entrenamiento", request);
 
   destino.search = request.nextUrl.search;
 

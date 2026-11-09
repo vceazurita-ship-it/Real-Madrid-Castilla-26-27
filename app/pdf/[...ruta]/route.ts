@@ -14,6 +14,7 @@
 |
 | Sólo vale para `2026/informes/…pdf`: no es un redireccionador abierto.
 */
+import { urlPublica } from "@/lib/origen";
 
 export const dynamic = "force-dynamic";
 
@@ -51,7 +52,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ ruta
   const publica = `${base}/storage/v1/object/public/performance/${ruta}`;
   const imagen = publica.replace(/\.pdf$/, ".jpg");
   const titulo = tituloDeNombre(m[1]);
-  const aqui = new URL(request.url).toString();
+  const aqui = urlPublica(new URL(request.url).pathname, request).toString();
 
   const html = `<!doctype html>
 <html lang="es">

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { urlPublica } from "@/lib/origen";
 
 import {
   credenciales,
@@ -22,7 +23,7 @@ import {
  * configuración del cuerpo técnico.
  */
 export async function GET(request: NextRequest) {
-  const vuelta = new URL("/coding", request.url);
+  const vuelta = urlPublica("/coding", request);
 
   const acaba = (resultado: string) => {
     vuelta.searchParams.set("youtube", resultado);
