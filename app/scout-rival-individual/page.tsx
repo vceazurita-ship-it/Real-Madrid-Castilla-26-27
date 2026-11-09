@@ -325,7 +325,7 @@ export default function ScoutRivalIndividual() {
 
           <section className="mt-6 min-w-0 rounded-3xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
             <div className="flex flex-wrap items-center gap-3">
-              <span className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-white/40">
+              <span className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-white/40">
                 <Users size={13} />
                 Rival
               </span>
@@ -412,7 +412,7 @@ export default function ScoutRivalIndividual() {
                     }`}
                   >
                     {proximo && (
-                      <span className="absolute -top-1.5 rounded-full bg-[#C8A96B] px-1.5 py-px text-[8px] font-bold uppercase tracking-wider text-black">
+                      <span className="absolute -top-1.5 rounded-full bg-[#C8A96B] px-1.5 py-px text-xs font-bold uppercase tracking-wider text-black">
                         Próximo
                       </span>
                     )}
@@ -420,7 +420,7 @@ export default function ScoutRivalIndividual() {
                     <EscudoEquipo nombre={nombre} escudo={escudoDe(nombre)} lado={26} />
 
                     <span
-                      className={`line-clamp-2 text-center text-[10px] leading-tight ${
+                      className={`line-clamp-2 text-center text-xs leading-tight ${
                         activo ? "text-[#C8A96B]" : "text-white/55"
                       }`}
                     >

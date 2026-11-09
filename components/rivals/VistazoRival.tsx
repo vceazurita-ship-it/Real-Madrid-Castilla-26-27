@@ -53,7 +53,7 @@ function Casilla({
 }) {
   return (
     <div className={`min-w-0 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 ${ancha ? "col-span-2 md:col-span-1" : ""}`}>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/50">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/50">
         {titulo}
       </p>
 
@@ -185,7 +185,7 @@ export function VistazoRival({
                   key={`${r.fecha}-${i}`}
                   title={`${r.fecha} · ${PALABRA[r.resultado]} ${r.marcador} ${r.enCasa ? "en casa" : "fuera"} contra ${r.rival}`}
                   aria-label={`${PALABRA[r.resultado]} ${r.marcador} contra ${r.rival}`}
-                  className="flex h-6 min-w-6 items-center justify-center rounded-md px-1 text-[11px] font-bold"
+                  className="flex h-6 min-w-6 items-center justify-center rounded-md px-1 text-xs font-bold"
                   style={{
                     background: `${COLOR_RESULTADO[r.resultado]}26`,
                     color: chipInk(COLOR_RESULTADO[r.resultado]),
@@ -244,7 +244,7 @@ export function VistazoRival({
       */}
       {avisos && (
         <div className="mt-3 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1.5 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/50">Bajas y apercibidos</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/50">Bajas y apercibidos</p>
           {avisos.fuera.map((uno) => (
             <span key={`f-${uno.nombre}`} className="flex items-center gap-1.5">
               <UserX size={12} className="shrink-0 text-[#F87171]" aria-hidden />
@@ -252,13 +252,24 @@ export function VistazoRival({
               <span className="text-xs text-white/50">{uno.estado}</span>
             </span>
           ))}
-          {avisos.apercibidos.map((uno) => (
-            <span key={`a-${uno.nombre}`} className="flex items-center gap-1.5">
+          {/* Con tres o más a una amarilla, una sola línea: repetir «a una amarilla del ciclo» cuatro veces era ruido (09/11/2026). */}
+          {avisos.apercibidos.length >= 3 ? (
+            <span className="flex flex-wrap items-center gap-1.5">
               <span className="h-3 w-2 shrink-0 rounded-[2px] bg-[#FACC15]" aria-hidden />
-              {uno.nombre}
-              <span className="text-xs text-white/50">a una amarilla del ciclo ({uno.amarillas})</span>
+              {avisos.apercibidos.length} jugadores a una amarilla del ciclo
+              <span className="text-xs text-white/60">
+                {avisos.apercibidos.map((uno) => `${uno.nombre} (${uno.amarillas})`).join(", ")}
+              </span>
             </span>
-          ))}
+          ) : (
+            avisos.apercibidos.map((uno) => (
+              <span key={`a-${uno.nombre}`} className="flex items-center gap-1.5">
+                <span className="h-3 w-2 shrink-0 rounded-[2px] bg-[#FACC15]" aria-hidden />
+                {uno.nombre}
+                <span className="text-xs text-white/50">a una amarilla del ciclo ({uno.amarillas})</span>
+              </span>
+            ))
+          )}
           {avisos.rojas.map((uno) => (
             <span key={`r-${uno.nombre}`} className="flex items-center gap-1.5">
               <span className="h-3 w-2 shrink-0 rounded-[2px] bg-[#EF4444]" aria-hidden />
@@ -273,7 +284,7 @@ export function VistazoRival({
 
       {aspectos.length > 0 && (
         <div className="mt-3 min-w-0">
-          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/50">
+          <p className="mb-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-white/50">
             Lo que le hace distinto · Wyscout, contra {equipos > 0 ? `los ${equipos} de` : ""} la categoría
           </p>
 
@@ -290,7 +301,7 @@ export function VistazoRival({
               .filter((grupo) => grupo.lista.length > 0)
               .map((grupo) => (
                 <div key={grupo.titulo} className="min-w-0">
-                  <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: chipInk(grupo.color) }}>
+                  <p className="mb-1 text-xs font-semibold uppercase tracking-[0.14em]" style={{ color: chipInk(grupo.color) }}>
                     {grupo.titulo}
                   </p>
                   <ul className="flex min-w-0 flex-wrap gap-1.5">
@@ -322,7 +333,7 @@ export function VistazoRival({
 
       {dano.length > 0 && (
         <div className="mt-3 min-w-0">
-          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/50">Dónde hacerles daño</p>
+          <p className="mb-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-white/50">Dónde hacerles daño</p>
 
           {/*
             30/10/2026: la base va en su propia línea debajo de la frase («485′ ·

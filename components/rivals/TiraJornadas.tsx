@@ -65,7 +65,7 @@ export function TiraJornadas({ equipo }: { equipo: string }) {
   */
   return (
     <div className="mb-6 min-w-0">
-      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/50">
+      <p className="mb-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-white/50">
         {/* «Sus jornadas», no las nuestras (07/11/2026): su J1 no es nuestra J1. */}
         Sus partidos de liga · {jornadas.length}, del primero al último (la jornada es la suya, no la nuestra)
       </p>
@@ -89,7 +89,7 @@ export function TiraJornadas({ equipo }: { equipo: string }) {
               borderStyle: j.enCasa ? "solid" : "dashed",
             }}
           >
-            <span className="inline-flex items-center gap-1 text-[11px] font-medium opacity-80">
+            <span className="inline-flex items-center gap-1 text-xs font-medium opacity-80">
               {j.enCasa ? <House size={11} aria-hidden /> : <Plane size={11} aria-hidden />}
               J{j.n} · {j.enCasa ? "casa" : "fuera"}
             </span>
@@ -101,7 +101,7 @@ export function TiraJornadas({ equipo }: { equipo: string }) {
           </li>
         ))}
       </ol>
-      <p className="mt-1 text-[11px] text-white/55">V: ganó · E: empató · D: perdió. El marcador va con sus goles primero. Borde continuo: en su casa; discontinuo: fuera.</p>
+      <p className="mt-1 text-xs text-white/55">V: ganó · E: empató · D: perdió. El marcador va con sus goles primero. Borde continuo: en su casa; discontinuo: fuera.</p>
     </div>
   );
 }

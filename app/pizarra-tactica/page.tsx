@@ -412,7 +412,7 @@ export default function PizarraTacticaPage() {
           >
             {!sinCromo && (
             <header>
-              <p className="text-[10px] uppercase tracking-[0.32em] text-[#C8A96B] sm:text-[11px]">
+              <p className="text-xs uppercase tracking-[0.32em] text-[#C8A96B] sm:text-[11px]">
                 RMCF Castilla · Metodología
               </p>
 
@@ -459,12 +459,12 @@ export default function PizarraTacticaPage() {
                 className="rounded-3xl border border-white/10 bg-[#11161D] p-3 xl:sticky xl:top-6"
               >
                 <div className="mb-3 flex items-center justify-between">
-                  <p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.25em] text-white/45">
+                  <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.25em] text-white/45">
                     <FolderOpen size={13} className="text-[#C8A96B]" />
                     Pizarras
                   </p>
 
-                  <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-white/55">
+                  <span className="rounded-full bg-white/5 px-2 py-0.5 text-xs font-semibold tabular-nums text-white/55">
                     {boards.length}
                   </span>
                 </div>

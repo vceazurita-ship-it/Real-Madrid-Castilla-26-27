@@ -2211,8 +2211,8 @@ export default function MatchPreparation() {
             const vigilar = duelosClave.grupos.vigilar[0];
 
             return (
-              <div className="mp-no-print -mt-3 mb-5 flex min-w-0 flex-wrap items-center gap-x-5 gap-y-1.5 rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-2.5 text-[13px] text-white/75">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/50">Los duelos, en una línea</span>
+              <div className="mp-no-print -mt-3 mb-5 hidden min-w-0 flex-wrap items-center gap-x-5 md:flex gap-y-1.5 rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-2.5 text-[13px] text-white/75">
+                <span className="text-xs font-semibold uppercase tracking-[0.2em] text-white/60">Los duelos, en una línea</span>
                 <span className="min-w-0 tabular-nums text-white/65">
                   {recuento.base}
                   {recuento.partes.length > 0 && ": "}
@@ -2917,7 +2917,7 @@ export default function MatchPreparation() {
                   <div>
                     <h2 className="text-lg font-bold">Plan de juego</h2>
 
-                    <p className="text-xs text-white/40">
+                    <p className="text-xs text-white/60">
                       Comportamientos con y sin balón, y acciones a balón parado
                     </p>
                   </div>

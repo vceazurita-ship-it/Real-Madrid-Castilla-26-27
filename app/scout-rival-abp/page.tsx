@@ -1050,7 +1050,7 @@ export default function ScoutRivalAbpPage() {
                     <div className="overflow-x-auto">
                       <table className="w-full min-w-[640px] border-collapse text-sm">
                         <thead>
-                          <tr className="border-b border-white/10 text-left text-[10px] uppercase tracking-[0.16em] text-white/40">
+                          <tr className="border-b border-white/10 text-left text-xs uppercase tracking-[0.16em] text-white/40">
                             <th className="px-4 py-2.5 font-medium sm:px-5">
                               Acción
                             </th>
@@ -1156,7 +1156,7 @@ export default function ScoutRivalAbpPage() {
                             key={zone.zona}
                             className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3.5"
                           >
-                            <p className="text-[10px] uppercase tracking-[0.18em] text-white/40">
+                            <p className="text-xs uppercase tracking-[0.18em] text-white/40">
                               Zona {zone.zona}
                             </p>
 
@@ -1414,7 +1414,7 @@ function AerialList({ players }: { players: RivalPlayerAerial[] }) {
             </span>
 
             {player.remataAbp && (
-              <span className="hidden shrink-0 rounded-full border border-[#C8A96B]/40 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-[#C8A96B] sm:inline">
+              <span className="hidden shrink-0 rounded-full border border-[#C8A96B]/40 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-[#C8A96B] sm:inline">
                 Remata
               </span>
             )}

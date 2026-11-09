@@ -74,7 +74,7 @@ export function ParaLaSemana({
             <ChevronDown size={13} className={`transition sm:hidden ${abierto ? "rotate-180" : ""}`} />
           </button>
         </h2>
-        <p className="text-[11px] text-white/45">Lo que se saca de {equipo}, cada uno con su botón</p>
+        <p className="text-xs text-white/45">Lo que se saca de {equipo}, cada uno con su botón</p>
       </header>
 
       <ul className={`min-w-0 grid-cols-1 gap-2 sm:grid sm:grid-cols-2 xl:grid-cols-4 ${abierto ? "grid" : "hidden"}`}>

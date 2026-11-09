@@ -799,7 +799,7 @@ export function VideosDelCanal({
       <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
         <ListVideo size={15} className="shrink-0 text-[#C8A96B]" />
 
-        <span className="text-[10px] uppercase tracking-[0.16em] text-white/40">
+        <span className="text-xs uppercase tracking-[0.16em] text-white/40">
           Lista del canal
         </span>
 
@@ -1110,7 +1110,7 @@ export function VideosDelCanal({
             {porLinea.map(({ rango, rotulo, unCorte, variosCortes }) => (
             <div key={rango} className="min-w-0 space-y-4">
             {conRotulos && (
-              <p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">
+              <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-white/45">
                 {rotulo}
                 <span className="h-px flex-1 bg-white/10" />
               </p>
