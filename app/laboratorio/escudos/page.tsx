@@ -532,10 +532,23 @@ export default function EscudosPage() {
                                       alt={uno.equipo}
                                       className="relative h-16 w-16 object-contain"
                                       loading="eager"
-                                      decoding="async"
+                                      /* «listo» sólo con la imagen ya decodificada y con tamaño (09/11/2026):
+                                         antes la tarjeta enseñaba «Copiar PNG» con el escudo aún en blanco. */
+                                      decoding="sync"
                                       onLoad={(evento) => {
-                                        marca(uno.url, "listo");
-                                        miraFondo(uno.url, evento.currentTarget);
+                                        const img = evento.currentTarget;
+
+                                        void img
+                                          .decode()
+                                          .catch(() => {})
+                                          .then(() => {
+                                            if (img.naturalWidth > 0) {
+                                              marca(uno.url, "listo");
+                                              miraFondo(uno.url, img);
+                                            } else {
+                                              marca(uno.url, "fallo");
+                                            }
+                                          });
                                       }}
                                       onError={() => marca(uno.url, "fallo")}
                                     />

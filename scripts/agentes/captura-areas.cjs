@@ -136,6 +136,14 @@ const MIDE = `(() => {
         await envia("Page.navigate", { url: BASE + r });
         await espera(movil ? 7000 : 11000);
       }
+      /* Que no se juzgue un esqueleto (09/11/2026): con el ordenador cargado
+         (el análisis del partido con ffmpeg) una pantalla seguía en «cargando»
+         a los 11 s y los jueces puntuaron cajas grises. Hasta 40 s más. */
+      for (let i = 0; i < 20; i++) {
+        const cargando = (await envia("Runtime.evaluate", { expression: "!!document.querySelector('main .animate-pulse, main [aria-label=\"Cargando\"], main [aria-busy=\"true\"]')", returnByValue: true }))?.result?.value;
+        if (!cargando) break;
+        await espera(2000);
+      }
       const v = (await envia("Runtime.evaluate", { expression: MIDE, returnByValue: true }))?.result?.value ?? {};
       /* Página entera hasta 3 pantallas de alto, para que se vea más que la cabecera. */
       const alto = Math.min(movil ? 2500 : 3000, (await envia("Runtime.evaluate", { expression: "document.documentElement.scrollHeight", returnByValue: true }))?.result?.value ?? 1000);

@@ -111,6 +111,13 @@ function nombreDelStaff(usuario: string) {
 }
 
 /** Quién recibe el correo, por nombre: «ana, luis y 2 más». */
+/** Un correo sin nombre conocido, tapado (09/11/2026): «m•••@gmail.com». La pantalla la ve cualquiera del cuerpo técnico. */
+function enmascara(correo: string) {
+  const [usuario, dominio] = correo.split("@");
+
+  return `${usuario.slice(0, 1)}•••@${dominio ?? ""}`;
+}
+
 export function nombresDestino(destinatarios: string[], agenda: ContactoAgenda[] = [], completo = false) {
   /* Lo que no se reconoce se lee «V. Ceazurita»: palabras con mayúscula, la
      inicial suelta con punto y sin los números del usuario. La expresión
@@ -136,7 +143,7 @@ export function nombresDestino(destinatarios: string[], agenda: ContactoAgenda[]
 
       /* Sin nombre conocido, el correo entero (07/11/2026, fútbol): «Mikelatszp»
          no decía quién era; el usuario «legible» sólo si no es un correo. */
-      return porCorreo.get(d.trim().toLowerCase()) ?? nombreDelStaff(usuario) ?? (d.includes("@") ? d.trim() : legible(usuario));
+      return porCorreo.get(d.trim().toLowerCase()) ?? nombreDelStaff(usuario) ?? (d.includes("@") ? enmascara(d.trim()) : legible(usuario));
     })
     .filter(Boolean);
 
@@ -396,7 +403,7 @@ export default function ListaAlertas({
                   )}
 
                   {/* Los destinatarios, todos y por nombre: «Víctor Cea y 1 más» no decía quién (30/10/2026). */}
-                  <p title={alerta.destinatarios.join(", ")} className="[overflow-wrap:anywhere]">
+                  <p title={todos} className="[overflow-wrap:anywhere]">
                     <Users className="mr-1.5 inline-block h-3.5 w-3.5 -translate-y-px" aria-hidden />
                     {todos}
                   </p>
