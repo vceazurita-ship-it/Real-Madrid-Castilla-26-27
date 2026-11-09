@@ -187,3 +187,34 @@ export function textoEntrenosYPartidos(entrenos: number, partidos: number) {
 /** «6,7»: coma decimal, una cifra. */
 export const comaDecimal = (n: number, decimales = 1) =>
   n.toLocaleString("es-ES", { minimumFractionDigits: decimales, maximumFractionDigits: decimales });
+
+/**
+ * El MD de un día de entreno que la hoja dejó sin MD (09/11/2026): se saca del
+ * próximo partido del calendario, como cuenta el microciclo («MD-2» = dos días
+ * antes). Los dos calendarios usan esta misma regla, así que ningún día de
+ * entreno queda «fuera de micro» si hay partido a la vista (hasta 6 días).
+ * Fechas «AAAA-MM-DD»; devuelve «» si no hay partido cercano.
+ */
+export function mdDeLaFecha(dia: string, fechasDePartido: Iterable<string>) {
+  const aDias = (f: string) => {
+    const [a, m, d] = f.split("-").map(Number);
+
+    return Math.round(Date.UTC(a, (m || 1) - 1, d || 1) / 86_400_000);
+  };
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dia)) return "";
+
+  const hoy = aDias(dia);
+
+  let mejor = 0;
+
+  for (const f of fechasDePartido) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(f)) continue;
+
+    const falta = aDias(f) - hoy;
+
+    if (falta >= 1 && falta <= 6 && (mejor === 0 || falta < mejor)) mejor = falta;
+  }
+
+  return mejor ? `MD-${mejor}` : "";
+}

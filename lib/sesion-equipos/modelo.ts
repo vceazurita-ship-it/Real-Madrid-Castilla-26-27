@@ -742,6 +742,12 @@ export function valida(tarea: TareaEquipos, sesion: SesionEquipos, puestoDe: Pue
 
   if (vacios.length) {
     avisos.push({ nivel: "error", texto: `Sin jugadores: ${vacios.map((e) => e.nombre).join(", ")}` });
+  } else if (Math.max(...tamanos) - Math.min(...tamanos) > 1 && /anal[ií]tic|espec[ií]fic/i.test(tarea.nombre)) {
+    /* En una analítica o un trabajo específico el reparto desigual es buscado (09/11/2026): no se avisa. */
+    avisos.push({
+      nivel: "ok",
+      texto: `Grupos de trabajo: ${tarea.equipos.map((e, i) => `${e.nombre} ${tamanos[i]}`).join(" · ")}`,
+    });
   } else if (Math.max(...tamanos) - Math.min(...tamanos) > 1) {
     avisos.push({
       nivel: "aviso",

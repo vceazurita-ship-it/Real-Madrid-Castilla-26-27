@@ -24,7 +24,7 @@ import {
 import { cn } from "@/lib/utils";
 import { EstadoError } from "@/components/ui/estados";
 import { buscadorDeEscudos, traeEscudos, type Escudos } from "@/lib/data-analisis/escudos";
-import { cuentaDias, esFilaDePartido, textoEntrenosYPartidos } from "@/lib/microciclo/cuenta";
+import { cuentaDias, esFilaDePartido, mdDeLaFecha, textoEntrenosYPartidos } from "@/lib/microciclo/cuenta";
 import { useCalendario } from "@/hooks/useCalendario";
 import { comoNuestro, horaDelCalendarioLocal, soloDia } from "@/lib/castilla/calendario";
 
@@ -418,9 +418,10 @@ export default function MicroCalendar() {
         const filas = dayTasks.map(filaDeCuenta);
 
         dentro.set(key, filas);
-        ultimoDia = Math.max(ultimoDia, date.getDate());
-
         const entreno = dayTasks.filter((t, i) => !esFilaDePartido(filas[i]));
+
+        /* La ventana de comparación acaba en la última sesión de entreno, no en un partido posterior (09/11/2026). */
+        if (entreno.length > 0) ultimoDia = Math.max(ultimoDia, date.getDate());
 
         tareas += entreno.length;
 
@@ -497,7 +498,7 @@ export default function MicroCalendar() {
   };
 
   /** «5 entrenos + 2 partidos»: la base de las medias de carga. */
-  const baseDelMes = textoEntrenosYPartidos(monthStats.sesiones, monthStats.partidos);
+  const baseDelMes = textoEntrenosYPartidos(monthStats.sesiones, 0);
 
   /*
   | «Más carga no es mejor» (30/10/2026): si cambia mucho contra el mes
@@ -668,7 +669,9 @@ export default function MicroCalendar() {
 
         const theme = phaseTheme(dominantPhase);
         /* 07/11/2026: el MD de cualquier tarea del día; sin ninguno, «fuera de micro» (nada de casilla sin etiqueta). */
-        const md = dayTasks.map((t) => String(t.MD ?? "").trim()).find(Boolean) ?? "";
+        const mdHoja = dayTasks.map((t) => String(t.MD ?? "").trim()).find(Boolean) ?? "";
+        /* Sin MD en la hoja, el del próximo partido del calendario (misma regla que /calendar_general). */
+        const md = mdHoja || (esDiaDePartido(dayTasks) ? "" : mdDeLaFecha(key, partidoDelDia.keys()));
 
         const partido = esDiaDePartido(dayTasks) ? String(dayTasks[0]?.Rival ?? "").trim() : "";
         const detallePartido = partido ? lineaPartido(key) : "";
@@ -715,7 +718,7 @@ export default function MicroCalendar() {
                   <Escudo url={escudoDe(NOSOTROS)} nombre="RM Castilla" className="h-4 w-4 md:h-5 md:w-5" />
                   <span className="shrink-0 text-[10px] font-semibold text-[#C8A96B]">vs</span>
                   <Escudo url={escudoDe(partido)} nombre={nombreBonito(partido)} className="h-4 w-4 md:h-5 md:w-5" />
-                  <span className="hidden min-w-0 truncate text-[11px] font-semibold text-white/85 md:inline">
+                  <span className="min-w-0 truncate text-[10px] font-semibold text-white/85 md:text-[11px]">
                     {nombreBonito(partido)}
                   </span>
                 </div>

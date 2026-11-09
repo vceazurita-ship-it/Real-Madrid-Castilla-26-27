@@ -10,6 +10,7 @@
  * desde Data análisis abre la misma acción después de entrar.
  */
 
+import Link from "next/link";
 import { AbpHeader } from "@/components/abp/ui";
 import { PuertaAdmin } from "@/components/admin/PuertaAdmin";
 import { Sidebar } from "@/components/ui/sidebar";
@@ -30,17 +31,35 @@ export function PuertaLaboratorio() {
           <div className="flex min-w-0 flex-1 flex-col px-4 pb-24 pt-6 sm:px-6 sm:pb-10 lg:px-10">
             <AbpHeader
               area="RMCF Castilla · Balón parado"
-              title="Laboratorio de ABP"
-              lead="Donde se inventa el balón parado del Castilla: la pizarra viva, el encaje de cada rutina con el próximo rival y los retos de la plantilla en el proyector."
+              title="Prueba una rutina de córner contra el próximo rival"
+              lead="El laboratorio de ABP, para el administrador: monta la jugada, mira cómo encaja con el rival y llévala al proyector."
             />
 
-            <div className="flex flex-1 items-start justify-center pt-8 sm:items-center sm:pt-0">
-              <PuertaAdmin
-                titulo="Entrar en el laboratorio"
-                texto="Sólo entra el administrador. Al entrar se abre la sección que pediste."
-                onEntra={entra}
-                onDentro={() => window.location.reload()}
-              />
+            <div className="mt-6 grid max-w-5xl items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
+              <ul className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+                {[
+                  ["Pizarra viva", "La rutina en metros, con jugadores que se mueven."],
+                  ["Encaje con el rival", "Qué zona de su defensa ataca cada rutina."],
+                  ["Retos de proyector", "Preguntas para la plantilla sobre la jugada."],
+                ].map(([t, d]) => (
+                  <li key={t} className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                    <p className="text-sm font-semibold text-white">{t}</p>
+                    <p className="mt-1 text-xs text-white/60">{d}</p>
+                  </li>
+                ))}
+              </ul>
+
+              <div className="flex flex-col items-start gap-3">
+                <PuertaAdmin
+                  titulo="Entrar en el laboratorio"
+                  texto="Sólo entra el administrador. Al entrar volverás a esta misma pantalla del laboratorio."
+                  onEntra={entra}
+                  onDentro={() => window.location.reload()}
+                />
+                <Link href="/setpieces" className="text-xs text-white/60 underline underline-offset-4 hover:text-white">
+                  Volver a ABP Ofensivo
+                </Link>
+              </div>
             </div>
           </div>
         </section>
