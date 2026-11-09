@@ -169,11 +169,16 @@ function queHacemosConCentros(
   | fuera. 07/11/2026 (fútbol): también cuando reciben pocos, que es la otra
   | mitad del «Qué hacemos»; y con el sujeto claro (son ellos los que reciben).
   */
+  /* 09/11/2026 (jueces): con un valor cerca de la mediana (menos de un 15 % de
+     diferencia) no es un rasgo del equipo sino una tendencia; no se da como orden. */
+  const cercaDeLaMediana = !!recibe && Math.abs(recibe.valor - recibe.mediana) <= recibe.mediana * 0.15;
   const lesCentramos = !recibe
     ? ""
     : recibe.valor > recibe.mediana
       ? `${equipo} recibe ${cifra1(recibe.valor, recibe.unidad)} centros por partido (mediana ${cifra1(recibe.mediana, recibe.unidad)}) → atacarles por fuera, con extremo y lateral doblando y tres hombres en el área.`
-      : `${equipo} recibe ${cifra1(recibe.valor, recibe.unidad)} centros por partido (mediana ${cifra1(recibe.mediana, recibe.unidad)}): no dejan centrar → el centro no es la primera vía; llegar por dentro y centrar sólo con el área cargada.`;
+      : cercaDeLaMediana
+        ? `${equipo} recibe ${cifra1(recibe.valor, recibe.unidad)} centros por partido (mediana ${cifra1(recibe.mediana, recibe.unidad)}), cerca de lo normal en la liga: como tendencia, probar primero por dentro y centrar con el área cargada.`
+        : `${equipo} recibe ${cifra1(recibe.valor, recibe.unidad)} centros por partido (mediana ${cifra1(recibe.mediana, recibe.unidad)}): no dejan centrar → el centro no es la primera vía; llegar por dentro y centrar sólo con el área cargada.`;
 
   if (!volumen || !acierto) return { titular: "", nosCentran: "", lesCentramos };
 
@@ -381,7 +386,10 @@ export function AbpWyscoutRival({
             return (
               <div className="mb-4 space-y-1.5 border-b border-white/10 pb-3 text-sm text-white/85">
                 {titular && <p className="text-base font-semibold text-white md:text-lg">{titular}</p>}
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">Qué hacemos</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/50">Qué hacemos</p>
+                <p className="text-xs text-white/55">
+                  Centro lateral: pase al área desde las bandas. Wyscout lo da por preciso cuando le llega a un compañero.
+                </p>
                 {nosCentran && (
                   <p>
                     <b className="text-white">Cuando ellos centran: </b>
@@ -425,7 +433,7 @@ export function AbpWyscoutRival({
                         <span className="min-w-0 text-sm text-white/80">
                           {rotuloDe(fila)}
                           {/* También las que no son ni mejores ni peores (30/10/2026): sin etiqueta parecía un olvido. */}
-                          <span className="ml-2 text-[11px] font-normal text-white/40">
+                          <span className="ml-2 text-xs font-normal text-white/40">
                             {fila.mejorAlto == null ? "ni mejor ni peor: dice cuánto pesa" : fila.mejorAlto ? "más es mejor" : "menos es mejor"}
                           </span>
                         </span>
@@ -434,26 +442,26 @@ export function AbpWyscoutRival({
                           {cifra1(fila.valor, fila.unidad)}
                           {/* La unidad también en balón parado: «5,4 por partido» (30/10/2026). */}
                           {fila.unidad !== "porcentaje" && (
-                            <span className="ml-1 text-[11px] font-normal text-white/55">por partido</span>
+                            <span className="ml-1 text-xs font-normal text-white/55">por partido</span>
                           )}
                           {/* La base (partidos) va una vez, en el subtítulo (30/10/2026); aquí sólo si esta fila tiene otra. */}
                           {ambito === "area" && fila.partidos != null && fila.partidos !== aspecto.filas[0]?.partidos && (
-                            <span className="ml-2 text-[11px] font-normal text-white/55">
+                            <span className="ml-2 text-xs font-normal text-white/55">
                               en {fila.partidos} {fila.partidos === 1 ? "partido" : "partidos"}
                             </span>
                           )}
                           {fila.unidad === "porcentaje" && fila.base && (
-                            <span className="ml-2 text-[11px] font-normal text-white/55">
+                            <span className="ml-2 text-xs font-normal text-white/55">
                               {Math.round(fila.base.arriba)} de {Math.round(fila.base.abajo)}
                             </span>
                           )}
-                          <span className="ml-2 text-[11px] font-normal text-white/40">
+                          <span className="ml-2 text-xs font-normal text-white/40">
                             mediana {cifra1(fila.mediana, fila.unidad)}
                           </span>
                         </span>
 
                         <span
-                          className="w-full text-[11px]"
+                          className="w-full text-xs"
                           style={{
                             color:
                               lee.bueno === true
@@ -463,6 +471,7 @@ export function AbpWyscoutRival({
                                   : undefined,
                           }}
                         >
+                          {lee.bueno === true ? "▲ " : lee.bueno === false ? "▼ " : ""}
                           {lee.texto}
                         </span>
                       </li>
