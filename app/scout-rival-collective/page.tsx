@@ -1241,7 +1241,7 @@ export default function ScoutRivalCollective() {
                   <label className="relative inline-flex max-w-full cursor-pointer items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1 font-semibold text-white/80 transition hover:border-[#C8A96B]/50">
                     <CalendarDays size={14} className="shrink-0 text-white/45" />
                     {/* «Nuestra jornada» (07/11/2026): la tira de abajo cuenta las suyas y la misma J no era el mismo partido. */}
-                    <span className="shrink-0 text-[11px] font-medium uppercase tracking-wider text-white/45">Nuestra jornada</span>
+                    <span className="shrink-0 text-xs font-medium uppercase tracking-wider text-white/45">Nuestra jornada</span>
                     <span className="min-w-0 truncate">{lineaPartido}</span>
                     <ChevronDown size={14} className="shrink-0 text-white/45" data-export-hide />
                     <select
@@ -1353,7 +1353,7 @@ export default function ScoutRivalCollective() {
           {/* Lo esencial antes de recorrer las secciones: la primera línea de tres conclusiones (23/10/2026). */}
           {!modoEdicion && rivalActivo && esencial.length > 0 && (
             <section aria-label="Lo esencial del rival" className="mb-6 rounded-2xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.06] px-5 py-4">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#C8A96B]">{esencial.length === 1 ? "Lo esencial" : `Lo esencial, en ${esencial.length === 2 ? "dos" : "tres"} ideas`}</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#C8A96B]">{esencial.length === 1 ? "Lo esencial" : `Lo esencial, en ${esencial.length === 2 ? "dos" : "tres"} ideas`}</p>
               <ul className="mt-2 grid gap-3 md:grid-cols-3">
                 {esencial
                   .reduce<{ titulo: string; textos: string[] }[]>((grupos, e) => {
@@ -1364,7 +1364,7 @@ export default function ScoutRivalCollective() {
                   }, [])
                   .map((g) => (
                     <li key={g.titulo} className="min-w-0">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/50">{g.titulo}</p>
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/50">{g.titulo}</p>
                       {g.textos.length === 1 ? (
                         <p className="mt-0.5 text-sm leading-6 text-white/85">{conSiglas(sinErratas(g.textos[0]))}</p>
                       ) : (
@@ -1391,7 +1391,7 @@ export default function ScoutRivalCollective() {
               <Link href={enlacePlanDePartido(rivalActivo)} className="mt-3 inline-block text-sm font-semibold text-[#C8A96B] hover:underline">
                 Ver Plan de partido →
               </Link>
-              <p className="mt-2 text-[11px] text-white/40">
+              <p className="mt-2 text-xs text-white/40">
                 Fuente: las conclusiones que ha escrito el analista tras ver los partidos del rival
                 {conclusionesVisibles.length > 0 ? "; el resto está abajo, en «Conclusiones»" : ""}.
               </p>
@@ -1403,7 +1403,7 @@ export default function ScoutRivalCollective() {
               leía dos veces. */}
           {!modoEdicion && rivalActivo && dano.length > 0 && (
             <section id="hacerles-dano" aria-label="Dónde hacerles daño" className="mb-6 scroll-mt-20 rounded-2xl border border-emerald-400/25 bg-emerald-400/[0.05] px-5 py-4">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-300">Dónde hacerles daño</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300">Dónde hacerles daño</p>
               {/* 07/11/2026 (marketing): el rótulo lleva a su tarjeta; fuera el «Ver la tarjeta entera ↓» repetido y la frase meta. */}
               <ul className="mt-2 grid gap-3 md:grid-cols-3">
                 {dano.map((d) => (
@@ -1423,13 +1423,13 @@ export default function ScoutRivalCollective() {
                   </li>
                 ))}
               </ul>
-              <p className="mt-2 text-[11px] text-white/50">Del informe del analista, tras ver sus partidos.</p>
+              <p className="mt-2 text-xs text-white/50">Del informe del analista, tras ver sus partidos.</p>
             </section>
           )}
 
           {!modoEdicion && rivalActivo && peligro.length > 0 && (
             <section aria-label="Cómo nos hacen daño" className="mb-6 rounded-2xl border border-rose-400/25 bg-rose-400/[0.05] px-5 py-4">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-rose-300">Cómo nos hacen daño</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-rose-300">Cómo nos hacen daño</p>
               <ul className="mt-2 grid gap-3 md:grid-cols-3">
                 {peligro.map((d) => (
                   <li key={d.campo} className="min-w-0">
@@ -1698,7 +1698,7 @@ export default function ScoutRivalCollective() {
           {!modoEdicion && siglasUsadas.length > 0 && (
             /* Abierto (30/10/2026, análisis): cerrado sólo se veía el título. */
             <details open data-export-hide className="mt-10 rounded-2xl border border-white/10 bg-[#111827] px-5 py-3 text-sm text-white/70">
-              <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">Todas las siglas (también al pasar el ratón por cada una)</summary>
+              <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.18em] text-white/50">Todas las siglas (también al pasar el ratón por cada una)</summary>
               <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
                 {siglasUsadas.map((s) => (
                   <div key={s.sigla} className="flex gap-2">
@@ -1797,14 +1797,14 @@ function Campo({
     >
       <div className="mb-2 flex items-start justify-between gap-2">
         <p
-          className="text-[11px] font-semibold uppercase tracking-wider"
+          className="text-xs font-semibold uppercase tracking-wider"
           style={{ color: chipInk(editando ? "#FBBF24" : accent) }}
         >
           {field.titulo}
         </p>
 
         {enDano && !editando && (
-          <a href="#hacerles-dano" data-export-hide className="shrink-0 rounded-md bg-emerald-400/10 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-300 hover:underline">
+          <a href="#hacerles-dano" data-export-hide className="shrink-0 rounded-md bg-emerald-400/10 px-1.5 py-0.5 text-xs font-semibold text-emerald-300 hover:underline">
             ↑ en Dónde hacerles daño
           </a>
         )}
@@ -1814,7 +1814,7 @@ function Campo({
           al cuerpo técnico: queda sólo al pasar el ratón (19/10/2026). */}
       {editando && field.ayuda && (
         <div className="mb-2 flex flex-wrap items-center gap-2" data-export-hide>
-          <span className="text-[11px] text-white/35" title={`Columna de la hoja: ${field.campo}`}>
+          <span className="text-xs text-white/35" title={`Columna de la hoja: ${field.campo}`}>
             {field.ayuda}
           </span>
         </div>

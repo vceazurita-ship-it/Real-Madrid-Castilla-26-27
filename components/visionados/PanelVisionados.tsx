@@ -41,25 +41,23 @@ function cuenta(lista: Visionado[], clave: (v: Visionado) => string) {
   return [...m].sort((a, b) => b[1] - a[1]);
 }
 
-const mediana = (xs: number[]) => {
-  if (!xs.length) return 0;
-  const o = [...xs].sort((a, b) => a - b);
-  const m = Math.floor(o.length / 2);
-  return o.length % 2 ? o[m] : Math.round((o[m - 1] + o[m]) / 2);
-};
-
 function Barras({ titulo, filas, total }: { titulo: string; filas: [string, number][]; total: number }) {
   if (!filas.length) return null;
+  /* Con pocas aperturas el porcentaje engaña: «3 de 8» y aviso de tendencia (09/11/2026). */
+  const poca = total < 15;
   const max = filas[0][1];
   return (
     <section className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-      <h3 className="mb-3 text-sm font-bold uppercase tracking-[0.14em] text-[#C8A96B]">{titulo}</h3>
+      <h3 className="mb-3 text-sm font-bold uppercase tracking-[0.14em] text-[#C8A96B]">
+        {titulo}
+        {poca && <span className="ml-2 text-xs font-normal normal-case tracking-normal italic text-white/55">tendencia: menos de 15 visionados</span>}
+      </h3>
       <ul className="space-y-2">
         {filas.slice(0, 12).map(([nombre, n]) => (
           <li key={nombre} className="text-[13px]">
             <div className="mb-0.5 flex items-baseline justify-between gap-2">
               <span className="min-w-0 truncate text-white/85">{nombre}</span>
-              <span className="shrink-0 tabular-nums text-white/70">{n} · {Math.round((100 * n) / total)} %</span>
+              <span className="shrink-0 tabular-nums text-white/70">{poca ? `${n} de ${total}` : `${n} · ${Math.round((100 * n) / total)} %`}</span>
             </div>
             <span className="block h-2 rounded-full bg-white/10"><span className="block h-full rounded-full bg-[#C8A96B]" style={{ width: `${(100 * n) / max}%` }} /></span>
           </li>
@@ -119,6 +117,13 @@ export function PanelVisionados() {
     return (todos ?? []).filter((v) => (!dias || ahora - new Date(v.cuando).getTime() <= dias * 86400000) && (!rival || v.equipo === rival));
   }, [todos, periodo, rival, ahora]);
 
+  /* Los rangos que dan lo mismo que «Todo» no se ofrecen (los datos empiezan el 06/11). */
+  const periodosUtiles = useMemo(() => {
+    const cuantas = (dias: number) => (todos ?? []).filter((v) => !dias || ahora - new Date(v.cuando).getTime() <= dias * 86400000).length;
+    const total = cuantas(0);
+    return PERIODOS.filter((p) => p.dias === 0 || cuantas(p.dias) !== total);
+  }, [todos, ahora]);
+
   const rivales = useMemo(() => [...new Set((todos ?? []).map((v) => v.equipo).filter(Boolean))].sort(), [todos]);
   const clips = useMemo(() => {
     const m = new Map<string, { v: Visionado; n: number; quien: Set<string> }>();
@@ -130,6 +135,9 @@ export function PanelVisionados() {
     }
     return [...m.values()].sort((a, b) => b.n - a.n);
   }, [lista]);
+
+  /* Todos a una vez: es un empate, no un ranking. */
+  const empate = clips.length > 1 && clips.every((c) => c.n === clips[0].n);
 
   const guardaNombre = () => {
     try {
@@ -144,6 +152,15 @@ export function PanelVisionados() {
 
   /* Resumen de arriba: YouTube (acumulado) y la app (todo, desde el 06/11). */
   const app = useMemo(() => todos ?? [], [todos]);
+  /* Clips del canal que nadie ha abierto ni en YouTube ni en la app. */
+  const sinAbrir = useMemo(() => {
+    const filas = yt.datos?.filas ?? [];
+    if (!filas.length) return null;
+    const enApp = new Set(app.map((v) => v.video));
+    const n = filas.filter((f) => f.vistas === 0 && !enApp.has(f.id)).length;
+    return n > 0 ? { n, de: filas.length } : null;
+  }, [yt.datos, app]);
+
   const resumen = useMemo(() => {
     const d = yt.datos;
     const vistasYt = d?.total ?? 0;
@@ -153,7 +170,8 @@ export function PanelVisionados() {
     const personas = new Set(app.map((v) => v.quien).filter(conNombre)).size;
     const porClipApp = new Map<string, { n: number; v: Visionado }>();
     for (const v of app) porClipApp.set(v.video, { n: (porClipApp.get(v.video)?.n ?? 0) + 1, v });
-    const topApp = [...porClipApp.values()].sort((a, b) => b.n - a.n)[0];
+    /* Si todos van a una vez es un empate, no un «más visto» (09/11/2026). */
+    const topApp = [...porClipApp.values()].sort((a, b) => b.n - a.n).find((x) => x.n > 1);
     const topYt = d?.top && d.top.vistas > 0 ? d.top : null;
     const top = topYt
       ? { nombre: topYt.jugador || topYt.titulo, base: `${topYt.vistas} vistas en YouTube${topYt.equipo ? ` · ${topYt.equipo}` : ""}` }
@@ -161,18 +179,24 @@ export function PanelVisionados() {
         ? { nombre: topApp.v.jugador || topApp.v.titulo, base: `${topApp.n} ${topApp.n === 1 ? "vez" : "veces"} en la app${topApp.v.equipo ? ` · ${topApp.v.equipo}` : ""}` }
         : null;
     return [
-      { t: "Vistas", v: String(vistasYt + app.length), base: [vistasYt ? `${vistasYt} en YouTube` : "", app.length ? `${app.length} en la app` : ""].filter(Boolean).join(" · ") },
-      { t: "Clips vistos", v: String(vistos.size), base: totalClips ? `de ${totalClips} en el canal` : "al menos una vez" },
+      { t: "Clips vistos", v: String(vistos.size), base: [totalClips ? `de ${totalClips} en el canal` : "", vistasYt ? `${vistasYt} vistas en YouTube` : "", app.length ? `${app.length} aperturas en la app` : ""].filter(Boolean).join(" · ") },
       ...(personas ? [{ t: "Personas en la app", v: String(personas), base: `con nombre, desde el ${DESDE}` }] : []),
+      ...(sinAbrir ? [{ t: "Sin abrir", v: `${sinAbrir.n} de ${sinAbrir.de}`, base: "clips del canal que nadie ha visto: reenvíalos por WhatsApp" }] : []),
       ...(top ? [{ t: "El más visto", v: top.nombre, base: top.base, texto: true }] : []),
-    ].slice(0, 3);
-  }, [yt.datos, app]);
+    ].slice(0, 4);
+  }, [yt.datos, app, sinAbrir]);
 
   const cargando = todos === null || yt.resp === null;
   const nada = !cargando && !resumen;
 
   return (
     <div className="space-y-5">
+      {/* Mientras nadie se identifique, un aviso único arriba y el campo a la vista (09/11/2026). */}
+      {!guardado && !editando && (
+        <p className="rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 py-2 text-sm text-white/85">
+          Para saber quién ve cada clip, escribe tu nombre aquí abajo.
+        </p>
+      )}
       {/* Quién mira en este aparato: una línea, no un bloque. */}
       {guardado && !editando ? (
         <p className="flex flex-wrap items-center gap-1.5 text-[13px] text-white/65">
@@ -191,7 +215,7 @@ export function PanelVisionados() {
           <label htmlFor="quien-ve">Viendo como</label>
           <input id="quien-ve" value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="tu nombre" className="w-36 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1 text-[13px] text-white outline-none focus:border-[#C8A96B]/60" />
           <button type="submit" disabled={!nombre.trim()} className="rounded-lg border border-[#C8A96B]/50 px-2.5 py-1 text-[12px] font-semibold text-[#C8A96B] disabled:opacity-40">Guardar</button>
-          <span className="text-[11px] text-white/45">se guarda sólo en este aparato</span>
+          <span className="text-xs text-white/55">se guarda sólo en este aparato</span>
         </form>
       )}
 
@@ -207,12 +231,12 @@ export function PanelVisionados() {
         </div>
       ) : (
         resumen && (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {resumen.map((k) => (
               <div key={k.t} className="min-w-0 rounded-2xl border border-[#C8A96B]/25 bg-white/[0.03] p-4">
                 <p className="text-[12px] text-white/60">{k.t}</p>
                 <p className={`${"texto" in k && k.texto ? "truncate text-xl" : "text-3xl"} font-black tabular-nums`}>{k.v}</p>
-                <p className="text-[11px] text-white/45">{k.base}</p>
+                <p className="text-xs text-white/55">{k.base}</p>
               </div>
             ))}
           </div>
@@ -229,7 +253,7 @@ export function PanelVisionados() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            {PERIODOS.map((p) => (
+            {periodosUtiles.length > 1 && periodosUtiles.map((p) => (
               <button key={p.clave} type="button" onClick={() => setPeriodo(p.clave)} className={`rounded-full border px-3 py-1 text-[13px] ${periodo === p.clave ? "border-[#C8A96B] bg-[#C8A96B]/15 font-semibold text-[#C8A96B]" : "border-white/10 text-white/70"}`}>
                 {p.nombre}
               </button>
@@ -249,53 +273,29 @@ export function PanelVisionados() {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                {[
-                  { t: "Veces abiertos", v: lista.length, base: PERIODOS.find((p) => p.clave === periodo)?.nombre.toLowerCase() ?? "" },
-                  { t: "Personas", v: new Set(lista.map((v) => v.quien).filter(conNombre)).size, base: "con nombre en su aparato" },
-                  { t: "Clips distintos", v: clips.length, base: yt.datos ? `de ${yt.datos.filas.length} en el canal` : "abiertos al menos una vez" },
-                  { t: "Veces por clip", v: mediana(clips.map((c) => c.n)), base: "mediana" },
-                ].map((k) => (
-                  <div key={k.t} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                    <p className="text-[12px] text-white/60">{k.t}</p>
-                    <p className="text-3xl font-black tabular-nums">{k.v}</p>
-                    <p className="text-[11px] text-white/45">{k.base}</p>
-                  </div>
-                ))}
-              </div>
+              <p className="text-sm text-white/70">
+                {lista.length} {lista.length === 1 ? "apertura" : "aperturas"} de {clips.length} {clips.length === 1 ? "clip distinto" : "clips distintos"}
+                {clips.length === lista.length ? ", ninguno repetido" : ""}.
+              </p>
 
               <div className="grid gap-4 lg:grid-cols-3">
-                <Barras titulo="Quién los ve" filas={cuenta(lista, (v) => v.quien)} total={lista.length} />
+                <Barras titulo="Quién los ve" filas={cuenta(lista, (v) => (conNombre(v.quien) ? v.quien : ""))} total={lista.length} />
                 <Barras titulo="De qué puestos" filas={cuenta(lista, (v) => v.puesto)} total={lista.length} />
                 <Barras titulo="De qué rivales" filas={cuenta(lista, (v) => v.equipo)} total={lista.length} />
               </div>
 
               <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                <h3 className="mb-3 text-sm font-bold uppercase tracking-[0.14em] text-[#C8A96B]">Los clips más abiertos</h3>
+                <h3 className="mb-3 text-sm font-bold uppercase tracking-[0.14em] text-[#C8A96B]">{empate ? "Los clips abiertos" : "Los clips más abiertos"}</h3>
                 <ol className="space-y-1.5 text-[13px]">
                   {clips.slice(0, 25).map(({ v, n, quien }, i) => (
                     <li key={v.video} className="flex flex-wrap items-baseline gap-x-2 border-b border-white/[0.06] pb-1.5">
-                      <span className="w-7 tabular-nums text-white/50">{i + 1}º</span>
+                      {!empate && <span className="w-7 tabular-nums text-white/50">{i + 1}º</span>}
                       <span className="min-w-0 flex-1 text-white/85">{v.jugador || v.titulo} <span className="text-white/50">{[v.puesto, v.equipo].filter(Boolean).map((x) => ` · ${x}`).join("")}</span></span>
                       <span className="tabular-nums text-white/80">{n} {n === 1 ? "vez" : "veces"}</span>
                       {quien.size > 0 && <span className="w-full pl-9 text-[12px] text-white/50">Lo han visto: {[...quien].join(", ")}</span>}
                     </li>
                   ))}
                 </ol>
-              </section>
-
-              <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                <h3 className="mb-3 text-sm font-bold uppercase tracking-[0.14em] text-[#C8A96B]">Últimos visionados</h3>
-                <ul className="space-y-1 text-[13px]">
-                  {[...lista].reverse().slice(0, 20).map((v, i) => (
-                    <li key={i} className="flex flex-wrap gap-x-2 text-white/80">
-                      <span className="tabular-nums text-white/50">{new Date(v.cuando).toLocaleString("es-ES", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
-                      {v.quien && <b className="font-semibold">{v.quien}</b>}
-                      <span>{v.jugador || v.titulo}</span>
-                      <span className="text-white/50">{[v.puesto, v.equipo].filter(Boolean).join(" · ")}</span>
-                    </li>
-                  ))}
-                </ul>
               </section>
             </>
           )}

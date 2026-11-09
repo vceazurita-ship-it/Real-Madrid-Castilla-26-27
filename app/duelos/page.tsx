@@ -461,7 +461,7 @@ export default function DuelosPage() {
             </p>
 
             <div className="sticky top-[81px] z-20 -mx-4 mt-6 flex flex-wrap items-center gap-3 border-b border-white/[0.06] bg-[#0B0F14]/95 px-4 pb-3 pt-3 backdrop-blur sm:-mx-8 sm:px-8 md:top-[97px]">
-              <span className="text-[11px] uppercase tracking-wider text-white/35">Rival</span>
+              <span className="text-xs uppercase tracking-wider text-white/55">Rival</span>
               {escudo && (
                 // eslint-disable-next-line @next/next/no-img-element -- escudo pequeño por el proxy propio
                 <img src={escudo} alt="" className="h-6 w-6 object-contain" />
@@ -525,7 +525,7 @@ export default function DuelosPage() {
                   16 y dice el umbral que decide cuál cuenta.
                 */}
                 {/* 08/11/2026 (jueces): la explicación, plegada; arriba sólo el recuento con el dato. */}
-                <details className="basis-full text-[11px] text-white/50">
+                <details className="basis-full text-xs text-white/50">
                   <summary className="cursor-pointer select-none text-white/55 hover:text-white">Cómo se cuenta</summary>
                   <span className="mt-1 block">
                     Duelo: un hueco del once contra su par. Para buscar: ganamos con nuestro balón; para vigilar: perdemos con el
@@ -534,7 +534,7 @@ export default function DuelosPage() {
                 </details>
               </span>
               {!cargando && temporada === undefined && (
-                <span className="basis-full text-[11px] text-white/45">
+                <span className="basis-full text-xs text-white/45">
                   Nuestro once: propuesto con los minutos de Wyscout; pasa al último once en cuanto llegue Valoraciones.
                 </span>
               )}
@@ -569,7 +569,7 @@ export default function DuelosPage() {
                           {modo === "nuestro" ? "· con el balón nuestro" : modo === "suyo" ? `· con el balón de ${equipoVisto}` : "· balance de los dos momentos"}
                         </span>
                       </p>
-                      <p className="text-[11px] text-white/45">
+                      <p className="text-xs text-white/45">
                         Pincha en un duelo para verlo abajo<span className="sm:hidden"> · desliza el campo a los lados</span>
                       </p>
                     </div>
@@ -583,7 +583,7 @@ export default function DuelosPage() {
                         document.getElementById(`duelo-${c}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
                       }}
                     />
-                    <div className="mt-2 flex flex-wrap gap-4 text-[11px] text-white/45">
+                    <div className="mt-2 flex flex-wrap gap-4 text-xs text-white/45">
                       <span className="inline-flex items-center gap-1.5">
                         <span className="h-2.5 w-2.5 rounded-full" style={{ background: ORO_CAMPO }} /> Castilla
                       </span>
@@ -628,7 +628,7 @@ export default function DuelosPage() {
 
                 {ZONAS.map((z) => (
                   <div key={z.key} className="mt-8">
-                    <p className="mb-3 text-[11px] uppercase tracking-[0.25em] text-white/40">{z.label}</p>
+                    <p className="mb-3 text-xs uppercase tracking-[0.25em] text-white/40">{z.label}</p>
                     <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
                       {duelosVistos
                         .filter((d) => d.def.zona === z.key && d.veredicto !== "sin-datos")
@@ -640,14 +640,14 @@ export default function DuelosPage() {
                 ))}
 
                 {fueraDeLectura.length > 0 && (
-                  <p className="mt-6 text-[11px] text-white/40">
+                  <p className="mt-6 text-xs text-white/40">
                     Fuera de la lectura:{" "}
                     {fueraDeLectura.map((d) => `${nombresDe(d.nuestros)} y ${nombresDe(d.suyos)}`).join("; ")} (minutos insuficientes).
                   </p>
                 )}
 
                 <Explicativo>
-                <p className="mt-8 border-t border-white/[0.06] pt-4 text-[11px] leading-relaxed text-white/35">
+                <p className="mt-8 border-t border-white/[0.06] pt-4 text-xs leading-relaxed text-white/55">
                   Cada duelo se mira en los dos sentidos: con el balón nuestro (lo que hace con balón el nuestro contra lo que hace sin
                   balón el suyo: regate contra entrada, desmarque contra anticipación, pase que rompe líneas contra corte, centro
                   contra juego aéreo, remate contra bloqueo…) y con el balón suyo (al revés). Cada métrica va en percentil contra los
@@ -873,7 +873,7 @@ function Claves({
                 <span className="flex min-w-0 items-baseline justify-between gap-2 text-sm text-white/85">
                   <span className="min-w-0 break-words">
                     {d.def.titulo}
-                    <span className="ml-1.5 text-[11px] font-normal text-white/40">{sentido === "con" ? "con balón nuestro" : "con balón suyo"}</span>
+                    <span className="ml-1.5 text-xs font-normal text-white/40">{sentido === "con" ? "con balón nuestro" : "con balón suyo"}</span>
                   </span>
                   {/* Con poca muestra, la cifra va en gris y con el aviso pegado (30/10/2026). */}
                   <b
@@ -883,7 +883,7 @@ function Claves({
                   >
                     {valor !== null && valor > 0 ? "+" : ""}
                     {valor}
-                    {pocaMuestra && <span className="ml-1 text-[11px] font-normal">· poca muestra</span>}
+                    {pocaMuestra && <span className="ml-1 text-xs font-normal">· poca muestra</span>}
                   </b>
                 </span>
                 <span className="mt-0.5 block break-words text-xs text-white/50">
@@ -891,11 +891,11 @@ function Claves({
                     ? marcadas.map((f) => `${f.titulo} (P${f.nuestro} contra P${f.suyo})`).join(" · ")
                     : "Ventaja repartida, sin un enfrentamiento que se despegue."}
                 </span>
-                <span className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-white/45">
+                <span className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-white/45">
                   {/* «Cuenta en los dos sentidos» salía en casi todas las filas: ahora
                       va en el título de la cifra, al pasar el ratón (30/10/2026). */}
                   {pocaMuestra && <span className="font-semibold" style={{ color: ORO }}>léelo como pista, no como hecho</span>}
-                  <span className="text-white/35">{base.texto}</span>
+                  <span className="text-white/55">{base.texto}</span>
                 </span>
               </button>
             </li>
@@ -937,13 +937,13 @@ function LadoOnce({
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <p className="text-sm font-semibold">{titulo}</p>
           {tocados > 0 && (
-            <button type="button" onClick={() => deshaz(lado)} className="inline-flex items-center gap-1 text-[11px] text-[#C8A96B] hover:underline">
+            <button type="button" onClick={() => deshaz(lado)} className="inline-flex items-center gap-1 text-xs text-[#C8A96B] hover:underline">
               <RotateCcw size={11} /> Volver a la propuesta ({tocados} {tocados === 1 ? "cambio" : "cambios"})
             </button>
           )}
         </div>
         <Explicativo>
-          <p className="mt-0.5 text-[11px] text-white/40">{fuente}</p>
+          <p className="mt-0.5 text-xs text-white/40">{fuente}</p>
         </Explicativo>
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
           {HUECOS.map((h) => {
@@ -1064,19 +1064,19 @@ function bloquesDe(d: ResultadoDuelo, modo: Modo, equipo: string) {
         return (
           <div key={b.sentido} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-2.5">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider" style={{ background: fondo, color: tono }}>
+              <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold uppercase tracking-wider" style={{ background: fondo, color: tono }}>
                 <CircleDot size={11} />
                 {aire ? "Balón dividido · por arriba" : nuestroBalon ? "Balón: Castilla" : `Balón: ${equipo}`}
               </span>
               {b.balance !== null && (
-                <span className="text-[11px] font-semibold tabular-nums" style={{ color: textoDe(COLOR[b.veredicto]) }}>
+                <span className="text-xs font-semibold tabular-nums" style={{ color: textoDe(COLOR[b.veredicto]) }}>
                   {ROTULO_CORTO[b.veredicto]} {b.balance > 0 ? "+" : ""}
                   {b.balance}
                 </span>
               )}
             </div>
             {!aire && (
-              <p className="mt-1.5 text-[11px] text-white/55">
+              <p className="mt-1.5 text-xs text-white/55">
                 {nuestroBalon ? (
                   <>
                     <b className="text-[#C8A96B]">{nombresDe(d.nuestros)}</b> {verbo(d.nuestros, "ataca")} con el balón ·{" "}
@@ -1091,7 +1091,7 @@ function bloquesDe(d: ResultadoDuelo, modo: Modo, equipo: string) {
               </p>
             )}
 
-            <div className="mt-2 flex justify-between gap-2 text-[9.5px] font-semibold uppercase tracking-wider text-white/35">
+            <div className="mt-2 flex justify-between gap-2 text-[9.5px] font-semibold uppercase tracking-wider text-white/55">
               <span className="min-w-0">Castilla · {aire ? "por arriba" : nuestroBalon ? "con balón" : "sin balón"}</span>
               <span className="min-w-0 text-right">{equipo} · {aire ? "por arriba" : nuestroBalon ? "sin balón" : "con balón"}</span>
             </div>
@@ -1112,20 +1112,20 @@ function bloquesDe(d: ResultadoDuelo, modo: Modo, equipo: string) {
 
                 return (
                   <div title={`${f.explica}\n${f.frase}`}>
-                    <div className="flex items-baseline justify-between gap-2 text-[11px]">
+                    <div className="flex items-baseline justify-between gap-2 text-xs">
                       <span className="w-10 tabular-nums" style={{ color: f.nuestro === null ? tinta(0.3) : ORO }}>
                         {f.nuestro === null ? "—" : `P${f.nuestro}`}
                       </span>
                       <span className="min-w-0 flex-1 text-center">
                         <span className="text-white/80">{f.titulo}</span>
-                        <span className="ml-1.5 text-[10px] font-semibold" style={{ color: gana.color }}>
+                        <span className="ml-1.5 text-xs font-semibold" style={{ color: gana.color }}>
                           {gana.texto}
                         </span>
                       </span>
                       <span className="w-10 text-right tabular-nums text-white/70">{f.suyo === null ? "—" : `P${f.suyo}`}</span>
                     </div>
                     {f.sentido !== "aire" && (
-                      <div className="flex justify-between gap-2 text-[9.5px] text-white/35">
+                      <div className="flex justify-between gap-2 text-[9.5px] text-white/55">
                         <span className="min-w-0 flex-1 truncate">{rotuloColumna(f.columnaNuestra)}</span>
                         <span className="min-w-0 flex-1 truncate text-right">{rotuloColumna(f.columnaSuya)}</span>
                       </div>
@@ -1169,7 +1169,7 @@ function FacetasRecortadas({ items }: { items: { diff: number; key: string; nodo
             e.stopPropagation();
             setTodas((v) => !v);
           }}
-          className="text-[11px] font-semibold text-[#C8A96B] hover:underline"
+          className="text-xs font-semibold text-[#C8A96B] hover:underline"
         >
           {todas ? "Ver sólo las dos de más diferencia" : resto === 1 ? "Ver la restante" : `Ver las ${resto} restantes`}
         </button>
@@ -1245,13 +1245,13 @@ function Tarjeta({
 
   const gente = (lista: JugadorDuelo[], nuestro: boolean) => (
     <div className={`flex min-w-0 flex-1 flex-col gap-1.5 ${nuestro ? "items-start" : "items-start sm:items-end sm:text-right"}`}>
-      {lista.length === 0 && <span className="text-xs text-white/35">Sin nadie en el hueco</span>}
+      {lista.length === 0 && <span className="text-xs text-white/55">Sin nadie en el hueco</span>}
       {lista.map((j) => (
         <div key={j.clave} className={`flex min-w-0 max-w-full items-center gap-2 ${nuestro ? "" : "sm:flex-row-reverse"}`}>
           <Foto src={j.foto} nombre={j.nombre} size={34} borde={nuestro ? ORO : tinta(0.5)} />
           <div className="min-w-0">
             <p className={`truncate text-sm font-medium ${nuestro ? "text-[#C8A96B]" : "text-white/90"}`}>{j.nombre}</p>
-            <p className="text-[11px] text-white/45">
+            <p className="text-xs text-white/45">
               {[
                 puestoVisible(j),
                 j.altura ? `${j.altura} cm` : "",
@@ -1284,7 +1284,7 @@ function Tarjeta({
       <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
         <div className="min-w-0">
           <p className="text-sm font-semibold">{d.def.titulo}</p>
-          <p className="text-[11px] text-white/40">{d.def.subtitulo}</p>
+          <p className="text-xs text-white/40">{d.def.subtitulo}</p>
         </div>
         <span className="shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold" style={{ background: `${color}22`, color: textoDe(color) }}>
           {/* 29/10/2026: «Parejo 0» con +47 y −47 debajo parecía un duelo sin nada;
@@ -1299,23 +1299,23 @@ function Tarjeta({
         </span>
       </div>
 
-      {modo === "ambos" && comoSale && <p className="mt-1.5 text-[11px] tabular-nums text-white/45">{comoSale}</p>}
+      {modo === "ambos" && comoSale && <p className="mt-1.5 text-xs tabular-nums text-white/45">{comoSale}</p>}
 
       <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
         {gente(d.nuestros, true)}
-        <span className="text-[10px] uppercase tracking-wider text-white/30 sm:pt-2">vs</span>
+        <span className="text-xs uppercase tracking-wider text-white/55 sm:pt-2">vs</span>
         {gente(d.suyos, false)}
       </div>
 
       {/* Si el rival no juega con mediapunta, el hueco lo ocupa otro puesto: se dice cuál. */}
       {enHuecoMedia.map(({ j, de, hueco }) => (
-        <p key={j.clave} className="mt-2 text-[11px] text-white/50">
+        <p key={j.clave} className="mt-2 text-xs text-white/50">
           {de === "nuestro" ? "En nuestro once" : `En el once de ${equipo}`} no hay {hueco}: {apellidoDe(j)} ocupa ese hueco y juega de {puestoVisible(j)}.
         </p>
       ))}
 
       {cambiadoDeBanda.map((j) => (
-        <p key={`banda-${j.clave}`} className="mt-2 text-[11px] text-white/50">
+        <p key={`banda-${j.clave}`} className="mt-2 text-xs text-white/50">
           {apellidoDe(j)} es {j.puestoHoja} en la plantilla de {equipo}: en este once cae a la otra banda. Si va a jugar en la suya, cámbialo en «Cambiar los onces».
         </p>
       ))}
@@ -1323,7 +1323,7 @@ function Tarjeta({
       <div className="mt-4">{bloquesDe(d, modo, equipo)}</div>
 
       {d.altura && (
-        <p className="mt-3 text-[11px] text-white/45">
+        <p className="mt-3 text-xs text-white/45">
           Altura media: <span className="text-[#C8A96B]">{d.altura.nuestra} cm</span> frente a {d.altura.suya} cm de {equipo}.
         </p>
       )}
@@ -1357,15 +1357,15 @@ function Tarjeta({
                       className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] transition ${pareja === i ? "bg-white/[0.07]" : "hover:bg-white/[0.04]"}`}
                     >
                       <span className="min-w-0 flex-1 truncate">
-                        <b className="text-[#C8A96B]">{nombresDe(p.nuestros)}</b> <span className="text-white/35">vs</span> <b className="text-white/85">{nombresDe(p.suyos)}</b>
+                        <b className="text-[#C8A96B]">{nombresDe(p.nuestros)}</b> <span className="text-white/55">vs</span> <b className="text-white/85">{nombresDe(p.suyos)}</b>
                       </span>
                       {modo === "ambos" && (
-                        <span className="shrink-0 text-[10px] tabular-nums text-white/45">
+                        <span className="shrink-0 text-xs tabular-nums text-white/45">
                           con balón {p.conBalon === null ? "—" : `${p.conBalon > 0 ? "+" : ""}${p.conBalon}`} · sin balón{" "}
                           {p.sinBalon === null ? "—" : `${p.sinBalon > 0 ? "+" : ""}${p.sinBalon}`}
                         </span>
                       )}
-                      <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: `${c}22`, color: textoDe(c) }}>
+                      <span className="shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold" style={{ background: `${c}22`, color: textoDe(c) }}>
                         {ROTULO_CORTO[p.veredicto]}
                         {v !== null ? ` ${v > 0 ? "+" : ""}${v}` : ""}
                       </span>
@@ -1374,7 +1374,7 @@ function Tarjeta({
                   </div>
                 );
               })}
-              <p className="px-2 pt-1 text-[10px] text-white/35">Cada pareja por separado: así se ve si la ventaja es de los dos o de uno solo.</p>
+              <p className="px-2 pt-1 text-xs text-white/55">Cada pareja por separado: así se ve si la ventaja es de los dos o de uno solo.</p>
             </div>
           )}
         </div>
@@ -1382,16 +1382,16 @@ function Tarjeta({
 
       <p className="mt-3 text-xs leading-relaxed text-white/70">{d.resumen}</p>
       {activo && (
-        <ul className="mt-2 space-y-1 border-t border-white/[0.06] pt-2 text-[11px] leading-relaxed text-white/50">
+        <ul className="mt-2 space-y-1 border-t border-white/[0.06] pt-2 text-xs leading-relaxed text-white/50">
           {d.facetas.map((f) => (
             <li key={f.sentido + f.titulo}>{f.frase}</li>
           ))}
         </ul>
       )}
       {d.cobertura.con < d.cobertura.de && d.veredicto !== "sin-datos" && (
-        <p className="mt-2 text-[10px] text-white/35">
+        <p className="mt-2 text-xs text-white/55">
           {/* Sin «de N» (29/10/2026): el total incluía enfrentamientos sin dato, y lo que no tiene dato no se nombra. */}
-          Medido en {d.cobertura.con} {d.cobertura.con === 1 ? "enfrentamiento" : "enfrentamientos"}.
+          Con datos de Wyscout en {d.cobertura.con} {d.cobertura.con === 1 ? "pareja" : "parejas"} de este duelo; las demás no tienen minutos y no cuentan. Poca muestra: tómalo como tendencia.
         </p>
       )}
     </div>
