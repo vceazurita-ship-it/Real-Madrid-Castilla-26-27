@@ -1540,7 +1540,7 @@ export default function Page() {
         icon: Star,
         tone: "text-emerald-400",
         peso: 50,
-        text: `"${bestTipo.name}", el mejor valorado (${fmt1(bestTipo.eval)} de media en ${bestTipo.tareas} tarea${bestTipo.tareas === 1 ? "" : "s"}): mantenerlo en el plan.`,
+        text: `"${bestTipo.name}", el mejor valorado (${fmt1(bestTipo.eval)} de media en ${bestTipo.tareas} tarea${bestTipo.tareas === 1 ? "" : "s"}): ${bestTipo.tareas >= 5 ? "mantenerlo en el plan" : "tendencia, con pocas tareas todavía"}.`,
       });
     }
 
@@ -1553,7 +1553,7 @@ export default function Page() {
         icon: Target,
         tone: "text-rose-400",
         peso: 90,
-        text: `"${worstTipo.name}", valorado ${fmt1(worstTipo.eval)} de media en ${worstTipo.tareas} tareas: revisar el diseño o el día en que se aplica.`,
+        text: `"${worstTipo.name}", valorado ${fmt1(worstTipo.eval)} de media en ${worstTipo.tareas} tareas: ${worstTipo.tareas >= 5 ? "revisar el diseño o el día en que se aplica" : "tendencia, con pocas tareas todavía; míralo si se repite"}.`,
       });
     }
 
@@ -2152,7 +2152,7 @@ export default function Page() {
                   icon={Clock}
                   title="Tiempo total"
                   value={fmtMin(metrics.tiempo)}
-                  hint={`${Math.round(avgTimePerTask)}' por tarea`}
+                  hint={`Con partido incluido · ${Math.round(avgTimePerTask)}' por tarea`}
                   delta={microDelta?.tiempo}
                   deltaSuffix="'"
                   deltaTono="neutro"
@@ -2165,7 +2165,7 @@ export default function Page() {
                     icon={Star}
                     title="Valoración media"
                     value={fmtDec(metrics.eval)}
-                    hint={`${metrics.evaluadas} tarea${metrics.evaluadas === 1 ? "" : "s"} valorada${metrics.evaluadas === 1 ? "" : "s"}`}
+                    hint={`${metrics.evaluadas} tarea${metrics.evaluadas === 1 ? "" : "s"} valorada${metrics.evaluadas === 1 ? "" : "s"}${metrics.evaluadas > metrics.tareasEntreno && metrics.tareasEntreno > 0 ? ` (${metrics.tareasEntreno} de entreno + partido)` : ""}`}
                     accent={getEvalColor(metrics.eval)}
                     delta={microDelta?.eval}
                     decimals={1}
@@ -2206,7 +2206,7 @@ export default function Page() {
                   icon={Gauge}
                   title="Cognitiva / física"
                   value={fmtDec(cogRatio, 2)}
-                  hint={`más de 1 = pesa más lo cognitivo${metrics.intensidad ? ` · intensidad media ${fmtDec(metrics.intensidad)}` : ""}`}
+                  hint={`más de 1 = pesa más lo cognitivo; menos de 1, lo físico${metrics.intensidad ? ` · intensidad media ${fmtDec(metrics.intensidad)}` : ""}`}
                   accent={COLORS.green}
                 />
               </div>

@@ -3537,12 +3537,12 @@ export default function JugadoresSesionPage() {
                     {/* 07/11/2026: dice cuáles, con su código y nombre, y el botón «Traer» va al lado. */}
                     {[
                       cambiosPlan.nuevas.length
-                        ? `Falta${cambiosPlan.nuevas.length === 1 ? "" : "n"} del plan: ${cambiosPlan.nuevas.map((p) => `${p.codigo} ${nombreEnSesion(p).toLowerCase()}`).join(", ")}`
+                        ? `${cambiosPlan.nuevas.length === 1 ? "Falta esta tarea" : "Faltan estas tareas"} en la sesión: ${cambiosPlan.nuevas.map((p) => `${p.codigo} ${nombreEnSesion(p).toLowerCase()}`).join(", ")}. Añádela con «Traer» o ignórala`
                         : "",
                       cambiosPlan.renombradas.length
                         ? `renombrada${cambiosPlan.renombradas.length === 1 ? "" : "s"} en el plan: ${cambiosPlan.renombradas.map((r) => `${r.de.toLowerCase()} → ${r.a.toLowerCase()}`).join(", ")}`
                         : "",
-                      cambiosPlan.orden ? "otro orden en el plan" : "",
+                      cambiosPlan.orden ? "el plan tiene las tareas en otro orden" : "",
                     ]
                       .filter(Boolean)
                       .join(" · ")}

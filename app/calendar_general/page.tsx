@@ -32,7 +32,7 @@ import {
   recordDateKey,
 } from "@/lib/calendar";
 import { traeJson } from "@/lib/hojaCsv";
-import { esFilaDePartido } from "@/lib/microciclo/cuenta";
+import { esFilaDePartido, mdDeLaFecha } from "@/lib/microciclo/cuenta";
 import { nombreCorto } from "@/lib/abp/informe-graficos";
 import { buscadorDeEscudos, traeEscudos, type Escudos } from "@/lib/data-analisis/escudos";
 import { cn } from "@/lib/utils";
@@ -854,7 +854,7 @@ export default function CalendarGeneralPage() {
             <CalendarStat label="Viajes" value={monthStats.viajes} hint={`en ${MONTHS[active.month].toLowerCase()}`} />
           )}
           {monthStats.sesiones > 0 && (
-            <CalendarStat label="Entrenos" value={monthStats.sesiones} hint={`en ${MONTHS[active.month].toLowerCase()}, de la hoja de microciclos (sin los partidos, como el Calendario de Microciclo)`} />
+            <CalendarStat label="Entrenos" value={monthStats.sesiones} hint={`sin partidos · en ${MONTHS[active.month].toLowerCase()}`} />
           )}
           {monthStats.eventos > 0 && (
             <CalendarStat label="Eventos del staff" value={monthStats.eventos} hint={`en ${MONTHS[active.month].toLowerCase()}`} />
@@ -904,11 +904,20 @@ export default function CalendarGeneralPage() {
                 </span>
               )}
               {/* Sin MD en la hoja, se dice (el 3/11 salía sin etiqueta); los minutos van en la ficha de la sesión. */}
-              {sesionDia && !sesionDia.md && (
-                <span className="whitespace-nowrap rounded-full border border-white/15 px-1.5 py-0.5 text-[10px] font-semibold text-white/60" title="Sesión apuntada sin MD en la hoja">
-                  fuera de micro
-                </span>
-              )}
+              {sesionDia && !sesionDia.md && (() => {
+                /* Sin MD en la hoja, se saca del próximo partido del calendario (misma regla que /micro_calendar). */
+                const deducido = mdDeLaFecha(key, [...autoByDay.entries()].filter(([, l]) => l.some((a) => a.clase === "PARTIDO")).map(([k]) => k));
+
+                return deducido ? (
+                  <span className="siempre-oscuro whitespace-nowrap rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase" style={{ background: "#1F2937", color: "#FFFFFF" }} title="MD calculado por la fecha del próximo partido (la hoja no lo trae)">
+                    {deducido}
+                  </span>
+                ) : (
+                  <span className="whitespace-nowrap rounded-full border border-white/15 px-1.5 py-0.5 text-[10px] font-semibold text-white/60" title="Sesión apuntada sin MD en la hoja">
+                    fuera de micro
+                  </span>
+                );
+              })()}
               {sesionDia && hayPartido && sesionDia.minutos > 0 && (
                 <span className="rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-1.5 py-0.5 text-[10px] font-semibold text-[#C8A96B]">
                   {formatMinutes(sesionDia.minutos)}

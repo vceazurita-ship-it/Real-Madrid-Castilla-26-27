@@ -625,7 +625,9 @@ function etiquetaMicroHoja(uno: { micro: number; rival: string; tareas: number; 
 
   const trozo = (c: CuentaMicro) => {
     const partes = [
-      `${c.tareasEntreno} ${c.tareasEntreno === 1 ? "tarea" : "tareas"} de entreno${c.partidos ? ` + ${c.partidos === 1 ? "partido" : `${c.partidos} partidos`}` : ""}`,
+      c.tareasEntreno === 0 && c.partidos
+        ? c.partidos === 1 ? "sólo el partido" : `sólo ${c.partidos} partidos`
+        : `${c.tareasEntreno} ${c.tareasEntreno === 1 ? "tarea" : "tareas"} de entreno${c.partidos ? ` + ${c.partidos === 1 ? "partido" : `${c.partidos} partidos`}` : ""}`,
       c.entrenos > 0 ? `${c.entrenos} ${c.entrenos === 1 ? "día" : "días"}` : "",
       c.valoradas ? `valoración media ${comaDecimal(c.valoracion)} en ${c.valoradas}` : "",
     ].filter(Boolean);
@@ -2215,7 +2217,7 @@ export default function EditorMicrocicloPage() {
                       {
                         value: "ultimo",
                         label: ultimoConTareas
-                          ? `El último: micro ${ultimoConTareas} · ${microsDeLaHoja.find((uno) => uno.micro === ultimoConTareas)?.rival ?? ""}`
+                          ? `El último: ${etiquetaMicroHoja(microsDeLaHoja.find((uno) => uno.micro === ultimoConTareas) ?? { micro: ultimoConTareas, rival: "", tareas: 1 }, registro?.tareas ?? [])}`
                           : "El último (no hay ninguno con tareas)",
                       },
                       { value: "", label: "Semana en blanco" },

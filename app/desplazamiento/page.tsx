@@ -263,20 +263,29 @@ function ListaPendiente({ viaje, onIr = irA }: { viaje: Desplazamiento; onIr?: (
       {!completo && (
         <>
           <p className="mt-2 text-[11px] font-semibold text-white/70">Falta:</p>
-          <div className="mt-1 flex flex-wrap gap-1.5">
-            {lista
-              .filter((p) => !p.hecho)
-              .map((p) => (
-                <button
-                  key={p.clave}
-                  type="button"
-                  onClick={() => onIr(p.seccion)}
-                  title="Ir al campo"
-                  className="flex items-center gap-1 rounded-full border border-[#C8A96B]/40 px-2.5 py-1 text-[11px] text-white/80 transition hover:bg-[#C8A96B]/10"
-                >
-                  <Circle size={12} className="text-[#C8A96B]" />
-                  {p.rotulo}
-                </button>
+          <div className="mt-1 flex flex-col gap-1.5">
+            {/* Agrupado por bloque (09/11/2026): estadio, hotel, horario… cada grupo con su enlace al campo. */}
+            {(["viaje-partido", "viaje-estadio", "viaje-hotel", "viaje-horario", "viaje-avisos"] as const)
+              .map((seccion) => ({ seccion, faltan: lista.filter((p) => !p.hecho && p.seccion === seccion) }))
+              .filter((g) => g.faltan.length > 0)
+              .map((g) => (
+                <div key={g.seccion} className="flex flex-wrap items-center gap-1.5">
+                  <span className="w-16 shrink-0 text-[11px] font-semibold text-white/55">
+                    {{ "viaje-partido": "Partido", "viaje-estadio": "Estadio", "viaje-hotel": "Hotel", "viaje-horario": "Horario", "viaje-avisos": "Avisos" }[g.seccion]}
+                  </span>
+                  {g.faltan.map((p) => (
+                    <button
+                      key={p.clave}
+                      type="button"
+                      onClick={() => onIr(p.seccion)}
+                      title="Ir al campo"
+                      className="flex items-center gap-1 rounded-full border border-[#C8A96B]/40 px-2.5 py-1 text-[11px] text-white/80 transition hover:bg-[#C8A96B]/10"
+                    >
+                      <Circle size={12} className="text-[#C8A96B]" />
+                      {p.rotulo}
+                    </button>
+                  ))}
+                </div>
               ))}
           </div>
           {hechos > 0 && (
@@ -1221,7 +1230,7 @@ export default function DesplazamientoPage() {
                           value={viaje.rival}
                           onChange={(valor) => campo("rival", valor)}
                           placeholder={partido.opponent}
-                          hint="Como se quiere leer: la hoja dice el nombre oficial y en la caseta se dice el corto."
+                          hint="El nombre corto, como se dice en la caseta."
                         />
 
                         <Field

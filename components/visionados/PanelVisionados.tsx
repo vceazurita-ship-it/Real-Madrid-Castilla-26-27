@@ -59,7 +59,7 @@ function Barras({ titulo, filas, total }: { titulo: string; filas: [string, numb
           <li key={nombre} className="text-[13px]">
             <div className="mb-0.5 flex items-baseline justify-between gap-2">
               <span className="min-w-0 truncate text-white/85">{nombre}</span>
-              <span className="shrink-0 tabular-nums text-white/70">{n} · {Math.round((100 * n) / total)} %</span>
+              <span className="shrink-0 tabular-nums text-white/70">{total < 15 ? `${n} de ${total}` : `${n} · ${Math.round((100 * n) / total)} %`}</span>
             </div>
             <span className="block h-2 rounded-full bg-white/10"><span className="block h-full rounded-full bg-[#C8A96B]" style={{ width: `${(100 * n) / max}%` }} /></span>
           </li>
@@ -118,6 +118,14 @@ export function PanelVisionados() {
     const dias = PERIODOS.find((p) => p.clave === periodo)?.dias ?? 0;
     return (todos ?? []).filter((v) => (!dias || ahora - new Date(v.cuando).getTime() <= dias * 86400000) && (!rival || v.equipo === rival));
   }, [todos, periodo, rival, ahora]);
+
+  /* Un rango que da las mismas aperturas que «Todo» no se ofrece (09/11/2026): los datos empiezan el 06/11. */
+  const periodoUtil = (clave: string) => {
+    if (clave === "todo") return true;
+    const dias = PERIODOS.find((p) => p.clave === clave)?.dias ?? 0;
+    const dentro = (todos ?? []).filter((v) => ahora - new Date(v.cuando).getTime() <= dias * 86400000).length;
+    return dentro !== (todos ?? []).length || clave === periodo;
+  };
 
   const rivales = useMemo(() => [...new Set((todos ?? []).map((v) => v.equipo).filter(Boolean))].sort(), [todos]);
   const clips = useMemo(() => {
@@ -229,7 +237,7 @@ export function PanelVisionados() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            {PERIODOS.map((p) => (
+            {PERIODOS.filter((p) => periodoUtil(p.clave)).map((p) => (
               <button key={p.clave} type="button" onClick={() => setPeriodo(p.clave)} className={`rounded-full border px-3 py-1 text-[13px] ${periodo === p.clave ? "border-[#C8A96B] bg-[#C8A96B]/15 font-semibold text-[#C8A96B]" : "border-white/10 text-white/70"}`}>
                 {p.nombre}
               </button>
@@ -249,33 +257,33 @@ export function PanelVisionados() {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                {[
-                  { t: "Veces abiertos", v: lista.length, base: PERIODOS.find((p) => p.clave === periodo)?.nombre.toLowerCase() ?? "" },
-                  { t: "Personas", v: new Set(lista.map((v) => v.quien).filter(conNombre)).size, base: "con nombre en su aparato" },
-                  { t: "Clips distintos", v: clips.length, base: yt.datos ? `de ${yt.datos.filas.length} en el canal` : "abiertos al menos una vez" },
-                  { t: "Veces por clip", v: mediana(clips.map((c) => c.n)), base: "mediana" },
-                ].map((k) => (
-                  <div key={k.t} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                    <p className="text-[12px] text-white/60">{k.t}</p>
-                    <p className="text-3xl font-black tabular-nums">{k.v}</p>
-                    <p className="text-[11px] text-white/45">{k.base}</p>
-                  </div>
-                ))}
-              </div>
+              <p className="text-[14px] text-white/75">
+                <b className="text-white">{lista.length}</b> {lista.length === 1 ? "apertura" : "aperturas"} de{" "}
+                <b className="text-white">{clips.length}</b> {clips.length === 1 ? "clip" : "clips"}
+                {clips.length === lista.length ? ", ninguno repetido" : `, mediana de ${mediana(clips.map((c) => c.n))} por clip`}
+                {yt.datos ? ` · ${clips.length} de ${yt.datos.filas.length} en el canal` : ""}
+                {lista.length < 15 ? <span className="text-white/50"> · tendencia: menos de 15 visionados</span> : null}
+              </p>
 
               <div className="grid gap-4 lg:grid-cols-3">
-                <Barras titulo="Quién los ve" filas={cuenta(lista, (v) => v.quien)} total={lista.length} />
+                {lista.some((v) => conNombre(v.quien)) ? (
+                  <Barras titulo="Quién los ve" filas={cuenta(lista, (v) => (conNombre(v.quien) ? v.quien : ""))} total={lista.length} />
+                ) : (
+                  <section className="min-w-0 rounded-2xl border border-[#C8A96B]/30 bg-[#C8A96B]/[0.06] p-4 text-[13px] text-white/80">
+                    <h3 className="mb-2 text-sm font-bold uppercase tracking-[0.14em] text-[#C8A96B]">Quién los ve</h3>
+                    Pon tu nombre arriba, en «Viendo como», para que cuente quién ve cada clip.
+                  </section>
+                )}
                 <Barras titulo="De qué puestos" filas={cuenta(lista, (v) => v.puesto)} total={lista.length} />
                 <Barras titulo="De qué rivales" filas={cuenta(lista, (v) => v.equipo)} total={lista.length} />
               </div>
 
               <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                <h3 className="mb-3 text-sm font-bold uppercase tracking-[0.14em] text-[#C8A96B]">Los clips más abiertos</h3>
+                <h3 className="mb-3 text-sm font-bold uppercase tracking-[0.14em] text-[#C8A96B]">{clips.length > 1 && clips.every((c) => c.n === clips[0].n) ? `${clips.length} clips vistos, ninguno por encima de los demás` : "Los clips más abiertos"}</h3>
                 <ol className="space-y-1.5 text-[13px]">
                   {clips.slice(0, 25).map(({ v, n, quien }, i) => (
                     <li key={v.video} className="flex flex-wrap items-baseline gap-x-2 border-b border-white/[0.06] pb-1.5">
-                      <span className="w-7 tabular-nums text-white/50">{i + 1}º</span>
+                      <span className="w-7 tabular-nums text-white/50">{clips.every((c) => c.n === clips[0].n) ? "·" : `${i + 1}º`}</span>
                       <span className="min-w-0 flex-1 text-white/85">{v.jugador || v.titulo} <span className="text-white/50">{[v.puesto, v.equipo].filter(Boolean).map((x) => ` · ${x}`).join("")}</span></span>
                       <span className="tabular-nums text-white/80">{n} {n === 1 ? "vez" : "veces"}</span>
                       {quien.size > 0 && <span className="w-full pl-9 text-[12px] text-white/50">Lo han visto: {[...quien].join(", ")}</span>}
@@ -284,6 +292,7 @@ export function PanelVisionados() {
                 </ol>
               </section>
 
+              {lista.length > clips.length && (
               <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                 <h3 className="mb-3 text-sm font-bold uppercase tracking-[0.14em] text-[#C8A96B]">Últimos visionados</h3>
                 <ul className="space-y-1 text-[13px]">
@@ -297,6 +306,7 @@ export function PanelVisionados() {
                   ))}
                 </ul>
               </section>
+              )}
             </>
           )}
         </>

@@ -355,19 +355,31 @@ export function cambiosDelPlan(sesion: SesionEquipos, plan: TareaPlan[]): Cambio
   const quitadas = new Set(sesion.planQuitadas ?? []);
   const ordenados = enlace.filter((k): k is number => k !== null);
 
+  const nombresSesion = new Set(sesion.tareas.map((t) => claveNombre(t.nombre)));
+
+  const renombradasBrutas = sesion.tareas.flatMap((t, i) => {
+    const k = enlace[i];
+
+    if (k === null || !t.plan) return [];
+
+    const delPlan = nombreEnSesion(plan[k]);
+    const sinTocar = claveNombre(t.nombre) === claveNombre(t.plan.nombre);
+
+    return sinTocar && claveNombre(delPlan) !== claveNombre(t.nombre) ? [{ id: t.id, de: t.nombre, a: delPlan }] : [];
+  });
+
+  /* Un intercambio en círculo («analítica → rondo, rondo → analítica») no es un cambio de nombre: son dos tareas
+     que sólo han cambiado de sitio. Se empareja por nombre antes de dar nada por renombrado (09/11/2026). */
+  const sonIntercambio = (r: { de: string; a: string }) =>
+    renombradasBrutas.some((o) => claveNombre(o.de) === claveNombre(r.a) && claveNombre(o.a) === claveNombre(r.de));
+
+  const renombradas = renombradasBrutas.filter((r) => !sonIntercambio(r));
+
   return {
-    nuevas: plan.filter((p, k) => !usadas.has(k) && !quitadas.has(firmaTarea(p))),
-    renombradas: sesion.tareas.flatMap((t, i) => {
-      const k = enlace[i];
-
-      if (k === null || !t.plan) return [];
-
-      const delPlan = nombreEnSesion(plan[k]);
-      const sinTocar = claveNombre(t.nombre) === claveNombre(t.plan.nombre);
-
-      return sinTocar && claveNombre(delPlan) !== claveNombre(t.nombre) ? [{ id: t.id, de: t.nombre, a: delPlan }] : [];
-    }),
-    orden: ordenados.some((k, i) => i > 0 && k < ordenados[i - 1]),
+    /* Una tarea del plan que la sesión ya tiene con su nombre sí se hizo: no se da por faltante. */
+    nuevas: plan.filter((p, k) => !usadas.has(k) && !quitadas.has(firmaTarea(p)) && !nombresSesion.has(claveNombre(nombreEnSesion(p)))),
+    renombradas,
+    orden: renombradasBrutas.some(sonIntercambio) || ordenados.some((k, i) => i > 0 && k < ordenados[i - 1]),
     sinVinculo: sesion.tareas.filter((t, i) => enlace[i] !== null && !t.plan).length,
   };
 }
