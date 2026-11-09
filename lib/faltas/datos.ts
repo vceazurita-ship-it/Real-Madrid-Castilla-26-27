@@ -5,7 +5,7 @@
  * scripts/faltas-datos.mjs a partir de los CSV de
  * Downloads/RMCF CASTILLA/ANALISIS FALTAS.
  *
- * Generado: 2026-11-04
+ * Generado: 2026-11-09
  */
 
 export type LadoFalta = "ofensivo" | "defensivo";
@@ -3716,6 +3716,420 @@ export const PARTIDOS: PartidoFaltas[] = [
         },
         "jugador": "Diego Aguado",
         "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j10-cartagena-def-5964.mp4"
+      }
+    ]
+  },
+  {
+    "jornada": "J11",
+    "rival": "Hércules",
+    "local": true,
+    "fecha": "2026-11-08",
+    "resultado": "2-2",
+    "clips": "Hudl · Castilla · «2026-11-08 Real Madrid Castilla - Hércules 2 - 2» (timeline de Sportscode) y la cámara táctica J 11 - RM Castilla - Hercules CF.mov",
+    "notas": [
+      "Sale del timeline de Sportscode subido a Hudl —minuto, quién la hace, sobre quién y la tarjeta— y cada falta se mira después en la retransmisión y en la cámara táctica del club: zona, carril, distancia, defensores y la nota salen de la imagen.",
+      "El campo se cuenta siempre hacia la portería que ataca quien saca la falta."
+    ],
+    "id": "j11-hercules",
+    "faltas": [
+      {
+        "clip": "of-c01",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 6,
+        "nota": "T1 min 2 (TV 01:24). Narro (22) derriba por detrás a Rober (20) en conducción unos metros dentro del campo del Castilla cerca de la banda cercana (izquierda del Castilla). El balón lo recoge Ciria (17) junto a la medular y el saque no se ve en las imágenes (Hudl dice Cestero). Táctica: La táctica casa (s_02 abajo): Rober cae junto a la banda izquierda un par de metros dentro de nuestro campo. Más cerca de su portería que el balón quedan Abad y 5 del Hércules (línea de 4 y un medio), con Narro y otro medio a la altura del balón y 3 por detrás.",
+        "minuto": "1'22\" (táctica 1:32)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWYxZWNhYzJlMTM3ODdjNTQ0NGRkYWY=",
+          "seg": 80
+        },
+        "jugador": "Roberto Martín",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j11-hercules-of-80.mp4"
+      },
+      {
+        "clip": "of-c02",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": 9,
+        "nota": "T1 min 3 (TV ~02:34). Antoñín Cortés (17) carga a Joan (5) en un duelo aéreo dentro del círculo central en el lado del Castilla tras un saque largo del Hércules. Joan queda en el suelo y el Castilla saca en corto y juega atrás (Hudl: Óscar y pase atrás de Fortea). Táctica: Casa: el duelo aéreo Cortés-Joan es en el círculo central, justo en nuestro lado, y el balón suelto se va hacia nuestra banda derecha. Entre el balón y su portería quedan Abad y 8 del Hércules, Cortés en el balón y sólo uno por detrás en la banda izquierda.",
+        "minuto": "2'30\" (táctica 2:40)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWYxZWNhYzJlMTM3ODdjNTQ0NGRkYWY=",
+          "seg": 148
+        },
+        "jugador": "Joan Martínez",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j11-hercules-of-148.mp4"
+      },
+      {
+        "clip": "def-c01",
+        "lado": "defensivo",
+        "zona": "campo rival",
+        "carril": "derecha",
+        "distancia": "media",
+        "entre": 5,
+        "nota": "TV 03:57. Cestero (6) derriba a Samu Vázquez (2) cerca de la banda cercana (derecha del Hércules) a unos 10-15 m del área del Castilla tras una pared con Narro. Juego parado y Samu en el suelo, no se ve el saque. Entre el balón y la portería se ven al menos Aguado (3), Óscar (21), Cestero y Mestre, pero no a todos con claridad, entre queda en ?. Táctica: Casa: Cestero y Samu caen junto a la banda izquierda del Castilla en nuestro campo, más cerca del medio campo de lo que parecía en la TV (unos 20-25 m del área, sigue siendo media). Por detrás del balón quedan Mestre, los dos centrales, el lateral derecho y Aguado pegado a la banda, con otro jugador del Castilla a la altura del balón.",
+        "minuto": "3'54\" (táctica 4:04)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWYxZWNhYzJlMTM3ODdjNTQ0NGRkYWY=",
+          "seg": 232
+        },
+        "jugador": "Jorge Cestero",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j11-hercules-def-232.mp4"
+      },
+      {
+        "clip": "def-c02",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": 5,
+        "nota": "TV ~19:02. Mano de Pol Fortuny (10) en el círculo central, en el lado del Hércules a pocos metros de la línea de medio campo. Fortuny, Sergio Martínez (16) y Cestero protestan al árbitro y Ciria (17) retiene el balón antes de entregarlo. No se ve el saque (según Hudl lo saca Fidalgo y el Hércules juega atrás). Táctica: Casa: la acción es justo encima del círculo central, unos metros en campo del Hércules, y después Ciria retiene el balón con el juego parado. Por detrás del balón sólo quedan la línea de 4 del Castilla, ya pasado el medio campo en nuestro lado, y Mestre.",
+        "minuto": "18'59\" (táctica 19:09)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWYxZWNhYzJlMTM3ODdjNTQ0NGRkYWY=",
+          "seg": 1137
+        },
+        "jugador": "Pol Fortuny",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j11-hercules-def-1137.mp4"
+      },
+      {
+        "clip": "of-c03",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": 6,
+        "nota": "T1 min 21 (TV 20:40). Gismera (16) derriba a Martínez (16) al borde del círculo central ya en campo del Hércules y casi en el eje del campo (Hudl lo pone en la izquierda: la imagen dice centro). Se saca en corto (Hudl: Cestero) y el Castilla progresa por la derecha con Fortea y Carvajal. Táctica: Casa: Martínez cae a la izquierda del círculo central unos 10 m dentro del campo del Hércules (en el carril, entre centro e izquierda: se deja centro). Entre el balón y su portería quedan Abad y 5 del Hércules (línea de 4 y un medio), con Gismera en el balón, otro más a la misma altura en el lado derecho y 3 por detrás.",
+        "minuto": "20'38\" (táctica 20:49)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWYxZWNhYzJlMTM3ODdjNTQ0NGRkYWY=",
+          "seg": 1236
+        },
+        "jugador": "Martínez",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j11-hercules-of-1236.mp4"
+      },
+      {
+        "clip": "def-c03",
+        "lado": "defensivo",
+        "zona": "campo propio",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "TV 26:16. Tras un saque de banda de Samu Vázquez en campo del Hércules, Aguado (3) derriba a Narro (22) en el borde del área del Hércules, junto al vértice del lado cercano (carril dudoso entre derecha y centro). Ningún jugador del Castilla queda por detrás del balón, por eso entre es 11, y la saca el portero Carlos Abad. Táctica: Casa: tras el saque de banda en la banda izquierda del Castilla, el derribado queda en el suelo junto al vértice izquierdo del área del Hércules, fuera del área entre el área y la banda (derecha del Hércules). Uno o dos blancos están a la altura del balón o algo más cerca de la línea de fondo rival y el portero Mestre queda fuera del plano, por eso entre en ? (no parece 11, más bien 9-10).",
+        "minuto": "26'12\" (táctica 26:22)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWYxZWNhYzJlMTM3ODdjNTQ0NGRkYWY=",
+          "seg": 1570
+        },
+        "jugador": "Diego Aguado",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j11-hercules-def-1570.mp4"
+      },
+      {
+        "clip": "def-c04",
+        "lado": "defensivo",
+        "zona": "campo propio",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "TV 33:02. Óscar Naasei (21) entra por detrás a Narro (22) en el carril central del campo del Hércules, unos 30 m por delante de su portería y no en medio campo como dice la propuesta. Óscar protesta y el balón vuelve hacia la zona de Abad para sacar, no se ven todos los jugadores del Castilla. Táctica: no casa con la TV. No está en la ventana (1810-1881): todo el tramo es posesión del Castilla en campo del Hércules (ataque por la izquierda hasta su área y circulación en medio campo) y no se ve la salida del Hércules ni la entrada de Óscar a Narro con el juego parado. Sólo en 1880-1881 empieza el Hércules a tener el balón cerca del círculo central, así que la falta debe caer justo después del final de la ventana.",
+        "minuto": "32'58\" (táctica 30:52)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWYxZWNhYzJlMTM3ODdjNTQ0NGRkYWY=",
+          "seg": 1976
+        },
+        "jugador": "Oscar Naasei",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j11-hercules-def-1976.mp4"
+      },
+      {
+        "clip": "def-c05",
+        "lado": "defensivo",
+        "zona": "campo propio",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "TV 37:18. Córner del Castilla sacado por Aguado desde la izquierda y en el salto Joan Martínez (5) hace falta a Rentero (4) dentro del área del Hércules, junto al vértice lejano del área pequeña, y ambos caen. Falta en ataque que corta el córner, con muchos jugadores del Castilla dentro del área rival, entre queda en ?. Táctica: Córner de Aguado desde la esquina izquierda en 2107 y en 2108 salto en el área con dos jugadores al suelo junto al vértice lejano del área pequeña (2109-2110 Castilla protesta con los brazos en alto) como en la TV 37:18. El dron sólo enfoca la mitad del Hércules y no se ven el portero ni toda la zaga del Castilla, así que entre queda en ?.",
+        "minuto": "37'15\" (táctica 35:08)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWYxZWNhYzJlMTM3ODdjNTQ0NGRkYWY=",
+          "seg": 2233
+        },
+        "jugador": "Joan Martínez",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j11-hercules-def-2233.mp4"
+      },
+      {
+        "clip": "of-c04",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T1 min 43 (TV ~42:49). Choque junto al círculo central en campo del Castilla tras el despeje de Óscar y el juego sigue unos segundos hasta que el árbitro pita hacia 42:56 entre protestas de Narro (22). La entrada de Gismera sobre Fortuny no se distingue en la imagen y el balón se coloca algo a la derecha del eje en campo propio (Hudl: saca Fortea en corto). Táctica: En 2440 hay un jugador del Hércules en el suelo en el círculo central del lado del Castilla tras el duelo aéreo (TV 42:49) y el juego sigue hasta el pitido hacia 2447 con un jugador del Hércules protestando (TV 42:56-57). La falta se saca en 2455 algo a la derecha del eje unos 15 m dentro de campo propio. La entrada de Gismera a Fortuny no se distingue y por eso entre queda en ?.",
+        "minuto": "42'51\" (táctica 40:44)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWYxZWNhYzJlMTM3ODdjNTQ0NGRkYWY=",
+          "seg": 2569
+        },
+        "jugador": "Pol Fortuny",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j11-hercules-of-2569.mp4"
+      },
+      {
+        "clip": "of-c05",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T1 min 44 (TV 43:34). Fidalgo (18) entra a Rober (20) en la medular junto al círculo central cuando recibía de Cestero. El Castilla coloca el balón en su lado del círculo y saca rápido en corto (Hudl: Martínez) y la jugada se pierde a los pocos segundos. Táctica: Rober recibe en el círculo en 2481 (TV 43:31) y en 2482-2483 se enreda con Fidalgo sobre la línea de medio campo en el borde izquierdo del círculo y cae con un compañero protestando (TV 43:33-34). Con el Hércules bastante adelantado parecen quedar unos 6 de campo más el portero por delante del balón pero a este tamaño no se cuentan con seguridad (entre ?).",
+        "minuto": "43'29\" (táctica 41:22)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWYxZWNhYzJlMTM3ODdjNTQ0NGRkYWY=",
+          "seg": 2607
+        },
+        "jugador": "Roberto Martín",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j11-hercules-of-2607.mp4"
+      },
+      {
+        "clip": "def-c06",
+        "lado": "defensivo",
+        "zona": "campo propio",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T1 (46:03 TV, añadido). Tras pase de Narro, Diego Aguado derriba a Soldevila junto al pico del área del Hércules por el lado cercano (unos 25 m de su portería). El árbitro da ventaja porque el Hércules sigue con el balón y a los 10 s (46:13) para el juego y amonesta a Aguado. No se ve el saque. Táctica: Casa: en 2634-2635 hay un choque junto al pico izquierdo del área del Hércules (arriba) con un jugador al suelo como la entrada de Aguado a Soldevila en la TV (46:03) y el Hércules sigue con el balón con ventaja hasta que el árbitro para y amonesta hacia 2644-2645 (46:13 en la TV). Casi todo el Castilla está por detrás del balón (unos 8-9 con el portero) pero a esta resolución no se puede contar con seguridad quién queda a la altura del balón: entre=?. Zona/carril/distancia confirmados.",
+        "minuto": "45+1'06\" (táctica 43:59)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWYxZWNhYzJlMTM3ODdjNTQ0NGRkYWY=",
+          "seg": 2764
+        },
+        "jugador": "Diego Aguado",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j11-hercules-def-2764.mp4"
+      },
+      {
+        "clip": "of-c06",
+        "lado": "ofensivo",
+        "zona": "campo rival",
+        "carril": "izquierda",
+        "distancia": "media",
+        "entre": null,
+        "nota": "T1 min 49 (TV 48:29, añadido). Samu Vázquez (2) derriba a Cestero (6) justo fuera de la esquina del área del Hércules por la banda cercana (izquierda del Castilla) tras una pared con Ciria (17). Falta lateral junto al área con muchos defensores dentro pero sin poder contarlos todos en la TV y el saque no entra en las imágenes. Táctica: Casa: en 2779 el duelo de Cestero con Samu Vázquez justo fuera de la esquina izquierda del área del Hércules y en 2780 los dos en el suelo (TV 48:29-48:30). El balón queda a la altura de la línea del área por fuera del lateral izquierdo. Casi todo el Hércules está dentro del área (7-8 más el portero) pero hay dos o tres a la altura del balón y no se puede afirmar el número: entre=?. Zona/carril/distancia confirmados.",
+        "minuto": "45+3'26\" (táctica 46:20)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWYxZWNhYzJlMTM3ODdjNTQ0NGRkYWY=",
+          "seg": 2904
+        },
+        "jugador": "Jorge Cestero",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j11-hercules-of-2904.mp4"
+      },
+      {
+        "clip": "of-c07",
+        "lado": "ofensivo",
+        "zona": "campo rival",
+        "carril": "derecha",
+        "distancia": "media",
+        "entre": null,
+        "nota": "TV 47:54. Gismera (16) derriba a Cestero (6) en campo del Hércules a unos 35-40 m de la portería, entre el centro y la banda cercana (derecha del Castilla), Cestero protesta con los brazos abiertos y el árbitro para el juego. Primeros planos de Gismera y de Cestero (amarilla según Hudl, la tarjeta no se ve en las imágenes) y no se ve cómo se saca. Táctica: Casa con desfase ≈ −80: tras el pelotazo de Abad y la disputa en el medio campo (3094-3095) el Castilla avanza por el centro-derecha y en 3100-3101 hay un choque en un grupo de jugadores a unos 33-38 m de la portería del Hércules a la derecha del centro y el juego se para en 3102-3103. Bloque granate replegado pero a esta resolución no se distingue quién queda por delante del balón: entre=?. Zona carril y distancia confirmados.",
+        "minuto": "47'53\" (táctica 51:44)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWYxZWNhYzJlMTM3ODdjNTQ0NGRkYWY=",
+          "seg": 3178
+        },
+        "jugador": "Jorge Cestero",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j11-hercules-of-3178.mp4"
+      },
+      {
+        "clip": "of-c08",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 6,
+        "nota": "TV 51:56. Carvajal (19) conduce tras la salida de Mestre y Cestero y Miki Bosch (24) lo zancadillea en campo propio del Castilla, unos 15 m antes del medio campo y algo a la derecha del centro (entre centro y derecha). El árbitro saca amarilla a Bosch (se ve a las 52:00-52:01) y no se ve el saque. Táctica: Casa con desfase ≈ −80: Carvajal cae en 3344-3345 unos 10 m dentro de nuestro campo a la derecha del centro tras la salida de Mestre (lo deja en el suelo en 3345-3347 como en la TV). Se ven los 10 de campo del Hércules: 5 más cerca de su portería que el balón más el portero (entre=6) y otros 2 casi a la altura del balón.",
+        "minuto": "51'56\" (táctica 55:47)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWYxZWNhYzJlMTM3ODdjNTQ0NGRkYWY=",
+          "seg": 3421
+        },
+        "jugador": "Ángel Carvajal",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j11-hercules-of-3421.mp4"
+      },
+      {
+        "clip": "def-c07",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 4,
+        "nota": "T2 (53:59 TV). Jorge Cestero entra a Fidalgo cuando conduce en campo del Hércules (unos 15 m por detrás del medio campo, lado cercano) y Fidalgo queda en el suelo. Es casi el límite con campo propio (Hudl lo pone en el tercio propio). No se ve el saque. Táctica: Casa con desfase ≈ −80: Fidalgo conduce por nuestra banda derecha (la izquierda del Hércules) y en 3466 Cestero le entra unos 10 m dentro del campo del Hércules y en 3467 Fidalgo está en el suelo. Por detrás del balón quedan 3 del Castilla (dos centrales en el medio campo y el lateral derecho) más Mestre (entre=4) con otro casi a la altura del balón. Zona carril y distancia confirmados.",
+        "minuto": "53'57\" (táctica 57:48)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWYxZWNhYzJlMTM3ODdjNTQ0NGRkYWY=",
+          "seg": 3542
+        },
+        "jugador": "Jorge Cestero",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j11-hercules-def-3542.mp4"
+      },
+      {
+        "clip": "def-c08",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 10,
+        "nota": "T2 (55:21-55:23 TV). Saque largo de Mestre hacia Aguado y duelo aéreo con Samu Vázquez junto a la banda lejana unos 10 m dentro del campo del Hércules. Samu queda dolorido en el suelo y Aguado se interesa por él (Hudl lo pone en el tercio propio del Hércules pero la imagen lo sitúa cerca del medio campo). No se ve el saque. Táctica: Casa con desfase ≈ −78 (TV 55:22 ↔ 3552): Mestre saca en largo desde su área en 3547 y en 3551 llega el balón al duelo aéreo de Aguado con Samu Vázquez junto a la banda izquierda del Castilla unos 10 m dentro del campo del Hércules  en 3552 Samu ya está en el suelo y el juego se para. En ese instante todos los demás jugadores del Castilla están por detrás del balón (9 de campo más el portero) aunque el conteo es a baja resolución. Zona carril y distancia confirmados.",
+        "minuto": "55'22\" (táctica 59:13)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWYxZWNhYzJlMTM3ODdjNTQ0NGRkYWY=",
+          "seg": 3627
+        },
+        "jugador": "Diego Aguado",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j11-hercules-def-3627.mp4"
+      },
+      {
+        "clip": "def-c09",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2 (56:21 TV). Miki Bosch conduce y entra en campo del Castilla por el lado cercano y Ángel Carvajal le hace falta unos 12 m pasado el medio campo. El árbitro deja seguir y unos 5 s después (56:26) para el juego y señala la falta. No se ve el saque. Táctica: Casa con desfase ≈ −78 a −74 (TV 56:21 ↔ 3611 ±2): tras el parón de la falta anterior el Hércules reanuda y Bosch conduce por la derecha del Castilla (lado de la TV) hasta pasar el medio campo y el duelo con Carvajal se ve en 3609-3613 unos 10-12 m dentro del campo del Castilla. El árbitro deja seguir y la ventana acaba (3616) antes de que se pare el juego. Varios jugadores del Castilla están a la altura del balón y no se distingue quién queda por delante: entre=?.",
+        "minuto": "56'20\" (táctica 60:12)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWYxZWNhYzJlMTM3ODdjNTQ0NGRkYWY=",
+          "seg": 3685
+        },
+        "jugador": "Ángel Carvajal",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j11-hercules-def-3685.mp4"
+      },
+      {
+        "clip": "of-c09",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 3,
+        "nota": "TV 64:36. Tras un córner del Hércules el Castilla despeja y Roberto Martín (20) cae junto a la esquina del área propia por la banda lejana (izquierda del Castilla) en una disputa con Soldevila (10). El juego sigue unos segundos (el Hércules recupera) y en las imágenes no se ve el pitido ni el saque. Táctica: Casa con desfase ≈ −79 (TV 64:36 ↔ 4105): tras el despeje del córner Rober cae en 4104-4105 en la disputa con Soldevila unos metros fuera del área del Castilla por el carril izquierdo (algo metido hacia dentro, a ~8 m del centro). En ese instante sólo dos jugadores de campo del Hércules más su portero están por delante del balón (el resto se había quedado tras el córner y un jugador del Hércules estaba siendo atendido fuera del campo). El juego sigue y hacia 4114-4119 se para y el Castilla reanuda más arriba en su campo por la izquierda: no se ve con seguridad dónde se sacó.",
+        "minuto": "64'34\" (táctica 68:26)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWYxZWNhYzJlMTM3ODdjNTQ0NGRkYWY=",
+          "seg": 4179
+        },
+        "jugador": "Roberto Martín",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j11-hercules-of-4179.mp4"
+      },
+      {
+        "clip": "def-c10",
+        "lado": "defensivo",
+        "zona": "campo propio",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": 5,
+        "nota": "T2 (66:02-66:03 TV). Tras un ataque del Castilla con remate de Fortea, el balón queda en la frontal del área del Hércules y Ángel Carvajal comete falta sobre David López en el semicírculo. Falta para el Hércules a unos 20 m de su propia portería y los jugadores del Castilla protestan. No se ve el saque. Táctica: Casa con desfase ≈ −79 (balón por encima del larguero tras el remate en 4186 ↔ TV 65:57 y falta en 4191 ↔ TV 66:02): el duelo de Carvajal con David López es en el borde del área del Hércules justo a la derecha de la medialuna (vista del Castilla). En ese instante 4 jugadores de campo del Castilla más Mestre están por detrás del balón y los otros 5 metidos en el área o a la altura de la jugada. Zona carril y distancia confirmados.",
+        "minuto": "65'57\" (táctica 69:48)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWYxZWNhYzJlMTM3ODdjNTQ0NGRkYWY=",
+          "seg": 4262
+        },
+        "jugador": "Ángel Carvajal",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j11-hercules-def-4262.mp4"
+      },
+      {
+        "clip": "of-c10",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "TV 70:14. Tras un centro del Hércules Joan Martínez (5) despeja en la frontal de su área y Alex Jiménez (11) le golpea, Joan queda en el suelo junto a la media luna y el árbitro pita falta. La saca Mestre desde su campo (según Hudl, +18 s). Táctica: Casa con desfase ≈ −80 (TV 70:14-70:15 ↔ 4443-4444): tras el centro del Hércules Joan despeja en la medialuna de nuestra área en 4442-4443 y en 4444 está en el suelo junto a la medialuna con el balón suelto en el área y el juego sigue hasta que se para. Casi todo el Hércules está por delante del balón pero 2-3 granates quedan a la altura de la jugada o algo por detrás (entre ≈ 8-9 contando a su portero) y a esta resolución no se puede fijar. Zona carril y distancia confirmados.",
+        "minuto": "70'13\" (táctica 74:04)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWYxZWNhYzJlMTM3ODdjNTQ0NGRkYWY=",
+          "seg": 4518
+        },
+        "jugador": "Joan Martínez",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j11-hercules-of-4518.mp4"
+      },
+      {
+        "clip": "of-c11",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "TV ~74:45. En las imágenes (sólo a_01-a_06, hasta 74:54) se ve un duelo de Fortea (2) con Javi Jiménez (23) en la banda cercana (derecha del Castilla) junto a su área, el balón sale y Javi Jiménez saca de banda para el Hércules. La mano de Andy Escudero que marca Hudl no se ve porque el tramo se corta justo tras el saque de banda, así que zona y distancia salen del dato de Hudl y del sitio de la jugada y el carril queda como ?. Táctica: Casa con desfase ≈ −74 (algo distinto del −78): duelo de Fortea con Javi Jiménez junto a nuestra banda derecha un poco por encima de la altura del área en 4714-4721 y Javi espera en la banda para sacar en 4722-4725 (TV 74:46-74:51). Tras el saque largo (4726) no se distingue la mano de Escudero pero desde 4730 Mestre va con el brazo en alto a colocar el balón en el borde central de su área mientras todos esperan en el centro de nuestro campo (4733-4741): la falta se saca desde ahí en largo y el carril es centro. Entre no se puede contar porque no se ve el instante de la mano.",
+        "minuto": "74'52\" (táctica 78:44)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWYxZWNhYzJlMTM3ODdjNTQ0NGRkYWY=",
+          "seg": 4797
+        },
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j11-hercules-of-4797.mp4"
+      },
+      {
+        "clip": "def-c11",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 4,
+        "nota": "TV 75:53 (min 76). Cestero (6) derriba a Soldevila (10) junto a la banda lejana unos metros dentro del campo del Hércules, en el tercio medio y no en su tercio propio como proponía la csv. La TV corta a Cestero protestando y no se ve el saque. Táctica: Casa con desfase ≈ −81 (TV 75:53 ↔ 4780-4781): duelo de Cestero con Soldevila en 4780 por nuestra banda izquierda unos 10-12 m dentro del campo del Hércules y en 4781-4782 Soldevila en el suelo con varios blancos alrededor. Por detrás del balón quedan 2 del Castilla junto al medio campo y uno en el círculo central más Mestre (entre=4) con otro casi a la altura de la falta en el centro-derecha. Zona carril y distancia confirmados.",
+        "minuto": "75'52\" (táctica 79:44)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWYxZWNhYzJlMTM3ODdjNTQ0NGRkYWY=",
+          "seg": 4857
+        },
+        "jugador": "Jorge Cestero",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j11-hercules-def-4857.mp4"
+      },
+      {
+        "clip": "def-c12",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": 9,
+        "nota": "TV 82:31 (min 83). Cestero (6) hace falta a Alex Jiménez (11), que conducía junto al borde del círculo central en campo del Hércules, en el tercio medio y no en su campo propio como proponía la csv. Según Hudl la saca Fidalgo (18) y siguen jugando, en la TV sólo se ve a Cestero yéndose. Táctica: Casa con desfase −114 (TV 82:31 ↔ 5145): Cestero entra a Alex Jiménez a un par de metros por encima del círculo central ya en campo del Hércules y en 5145-5146 están los dos en el suelo. Entre el balón y la portería del Hércules hay 8 de campo (el más cercano casi a la altura del balón) más el portero y sólo 1 granate queda por detrás. Zona carril y distancia confirmados.",
+        "minuto": "82'30\" (táctica 85:47)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWYxZWNhYzJlMTM3ODdjNTQ0NGRkYWY=",
+          "seg": 5255
+        },
+        "jugador": "Jorge Cestero",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j11-hercules-def-5255.mp4"
+      },
+      {
+        "clip": "def-c13",
+        "lado": "defensivo",
+        "zona": "campo rival",
+        "carril": "derecha",
+        "distancia": "media",
+        "entre": 6,
+        "nota": "TV 83:49 (min 84). Óscar Naasei (21) derriba a Soldevila (10) junto a la esquina lejana del área del Castilla, algo más abierto que el pico del área. La barrera es de 3 (con un granate dentro), hay 6 blancos más en el área y Mestre, y Soldevila marca directo el 1-2 (TV ~85:00). Táctica: Casa con desfase −114/−115 (TV 83:49 ↔ 5222-5223): Soldevila conduce por fuera de nuestra área en el lado izquierdo de la imagen (derecha del Hércules) y Óscar le derriba en 5222-5223 a unos metros del borde del área dentro de la anchura del área pero fuera del área chica. En ese instante hay 5 blancos claramente más cerca de nuestra línea de fondo que el balón más Mestre (6) y un 7º casi a la misma altura por fuera. Zona carril y distancia confirmados (el balón queda 4-5 m fuera del área y abierto).",
+        "minuto": "83'48\" (táctica 87:05)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWYxZWNhYzJlMTM3ODdjNTQ0NGRkYWY=",
+          "seg": 5333
+        },
+        "jugador": "Oscar Naasei",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j11-hercules-def-5333.mp4"
+      },
+      {
+        "clip": "def-c14",
+        "lado": "defensivo",
+        "zona": "campo propio",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "TV 91:07 (min 92, +6). Falta del Castilla sobre un jugador del Hércules (Hudl: Leiva sobre Samu Vázquez, no se ve el dorsal) junto a la banda lejana, a la altura del área del Hércules. Un blanco protesta en primer plano y no se ve el saque. Táctica: Casa con desfase ≈ −114 (TV 91:06-91:07 ↔ 5660-5662): duelo pegado a la banda izquierda del dron (derecha del Hércules) a la altura del borde de su área y en 5661-5663 hay un jugador en el suelo junto a la línea. Muchos blancos están dentro o a la altura del área del Hércules y con el dron tan lejos no se puede contar quién queda entre balón y nuestra portería (entre ? aunque son la mayoría). Zona carril y distancia confirmados.",
+        "minuto": "90+1'07\" (táctica 94:23)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWYxZWNhYzJlMTM3ODdjNTQ0NGRkYWY=",
+          "seg": 5772
+        },
+        "jugador": "Álvaro Leiva",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/faltas/clips/j11-hercules-def-5772.mp4"
       }
     ]
   }
