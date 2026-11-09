@@ -524,7 +524,7 @@ export default function ComparativaCategoria() {
                       {[
                         { t: "Jugadores comparados", v: kpis.comparados, h: "con índice esta temporada" },
                         { t: "Top 3 de su puesto", v: kpis.top3, h: "en el ranking de su puesto" },
-                        ...(kpis.media !== null ? [{ t: "Índice medio", v: kpis.media, h: "de los nuestros comparados" }] : []),
+                        ...(kpis.media !== null ? [{ t: "Índice medio", v: kpis.media, h: `de los nuestros comparados · ${kpis.media >= 50 ? "+" : "−"}${Math.abs(Math.round(kpis.media - 50))} sobre 50, la media de su puesto en la categoría`.replace("+-", "−") }] : []),
                         { t: "Mejoran respecto a 25/26", v: kpis.mejoran, h: `más de ${ESTABLE} pts, con muestra el año pasado` },
                       ].map((k) => (
                         <div key={k.t} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">

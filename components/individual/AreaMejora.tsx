@@ -25,6 +25,10 @@ import { GRUPOS_JUGADOR, MINUTOS_MINIMOS, PUESTOS, puestoDe, volumenDelPorcentaj
 
 /** Los minutos con los que se compara en toda la pestaña. */
 const MINUTOS_COMPARA = 450;
+/** Acciones mínimas para dar una carencia por firme: un solo corte en el filtro, en «A vigilar» y en el rótulo «tendencia». */
+const MUESTRA_MIN = 15;
+/** Por debajo de este percentil es carencia real; de ahí a p65 es «en la media» y no lleva tarea. */
+const P_CARENCIA = 35;
 
 /*
 | QUÉ ENTRENAMOS (05/11/2026): cada área de mejora acaba en un objetivo de
@@ -32,6 +36,7 @@ const MINUTOS_COMPARA = 450;
 | métricas; el cuerpo técnico lo concreta en la tarea.
 */
 const ENTRENAR: { patron: RegExp; tarea: string; medir: string }[] = [
+  { patron: /toques en el área|entradas al área/i, tarea: "Ataque al área en centro lateral y pase atrás: llegar a tiempo al primer palo, al punto de penalti y al segundo palo", medir: "toques dentro del área" },
   { patron: /centro/i, tarea: "Centro tras ganar línea de fondo con dos rematadores atacando primer y segundo palo", medir: "centros que llegan a un compañero dentro del área" },
   { patron: /conduc|progresi/i, tarea: "Rondo de progresión 4c4+3: fijar y conducir hasta 10 m cuando haya espacio a la espalda del medio", medir: "conducciones que superan una línea" },
   { patron: /regate/i, tarea: "1c1 en banda con apoyo: encarar, amagar y salir por fuera o por dentro", medir: "regates completados" },
@@ -322,12 +327,12 @@ export function AreaMejora({
       /* Carencias firmes (15 acciones o más) con tarea; las de muestra corta, aparte y sin tarea (07/11/2026, jueces). */
       mejora: unoPorGrupo([...ordenados].reverse())
         .map((p) => ({ p, mediana: mediana(p), base: baseDe(p), puesto: puestoEnEdad(p) }))
-        .filter((x) => !(x.base && x.base.total < 15))
+        .filter((x) => !(x.base && x.base.total < MUESTRA_MIN) && x.p.percentil < P_CARENCIA)
         .slice(0, 3),
       vigilar: unoPorGrupo([...ordenados].reverse())
         .slice(0, 6)
         .map((p) => ({ p, base: baseDe(p) }))
-        .filter((x) => x.base && x.base.total < 15 && x.p.percentil < 40)
+        .filter((x) => x.base && x.base.total < MUESTRA_MIN && x.p.percentil < 40)
         .slice(0, 3),
       contraEdad,
     };
@@ -424,7 +429,7 @@ export function AreaMejora({
               </p>
               <p className="text-[12px] text-white/55">
                 {analisis.fila.minutos}′ en {analisis.fila.partidos} partidos
-                {analisis.indiceTodos !== analisis.indiceEdad ? ` · ${analisis.indiceTodos} frente a toda la categoría` : ""}
+                {analisis.indiceTodos !== analisis.indiceEdad ? ` · otra referencia: ${analisis.indiceTodos} frente a los ${analisis.nPuesto} de toda la categoría en su puesto` : ""}
                 {analisis.fila.minutos >= 450 ? " · base sólida" : " · muestra corta: orientativa"}
               </p>
             </div>
@@ -433,7 +438,7 @@ export function AreaMejora({
                 <p className="flex items-center gap-1.5 text-[12px] text-white/60"><TrendingUp size={13} /> Nota del cuerpo técnico en Valoraciones (0-10, por partido)</p>
                 <p className="mt-1 text-3xl font-black tabular-nums text-white">
                   {coma(media(notas.map((n) => n.nota)))}{" "}
-                  <span className="text-sm font-semibold text-white/50">de media en {notas.length} partidos</span>
+                  <span className="text-sm font-semibold text-white/50">de media en {notas.length} {notas.length === 1 ? "partido" : "partidos"}{notas.length < 5 ? " · tendencia, pocas valoraciones" : ""}</span>
                 </p>
                 {tendencia !== null && (
                   <p className="flex items-center gap-1 text-[12px]" style={{ color: Math.abs(tendencia) < 0.2 ? undefined : tendencia > 0 ? VERDE : ROJO }}>
@@ -456,6 +461,11 @@ export function AreaMejora({
                 <h4 className="mb-2 flex items-center gap-2 text-sm font-bold" style={{ color: b.color }}>
                   <b.icono size={15} /> {b.t}
                 </h4>
+                {b.entrenar && b.lista.length === 0 && (
+                  <p className="text-[12px] text-white/65">
+                    Ninguna métrica queda por debajo del percentil {P_CARENCIA} con {MUESTRA_MIN} acciones o más: está en la media de su edad y no hay tarea que programar por datos.
+                  </p>
+                )}
                 <ul className="space-y-2">
                   {b.lista.map(({ p, mediana, base, puesto }) => (
                     <li key={p.metrica.columna} className="text-[13px]" title={p.metrica.comoLeer}>
@@ -465,10 +475,10 @@ export function AreaMejora({
                       </div>
                       <p className="text-[12px] text-white/55">
                         {p.metrica.unidad === "porcentaje"
-                          ? `${coma(p.valor, 1)} %${base?.aciertos !== null && base ? ` (≈ ${base.aciertos} de ${base.total}${base.total < 20 ? ", pocas: tendencia" : ""})` : ""}`
+                          ? `${coma(p.valor, 1)} %${base?.aciertos !== null && base ? ` (≈ ${base.aciertos} de ${base.total}${base.total < MUESTRA_MIN ? ", pocas: tendencia" : ""})` : ""}`
                           : base && base.total === 0
                             ? `0 por 90′ (ninguno en ${analisis.fila.minutos}′)`
-                            : `${coma(p.valor, Math.abs(p.valor) >= 10 ? 1 : 2)} por 90′${base ? ` (≈ ${base.total} en ${analisis.fila.minutos}′${base.total < 20 ? ", pocas: tendencia" : ""})` : ""}`}
+                            : `${coma(p.valor, Math.abs(p.valor) >= 10 ? 1 : 2)} por 90′${base ? ` (≈ ${base.total} en ${analisis.fila.minutos}′${base.total < MUESTRA_MIN ? ", pocas: tendencia" : ""})` : ""}`}
                         {mediana !== null ? ` · mediana de su edad: ${p.metrica.unidad === "porcentaje" ? `${coma(mediana, 1)} %` : coma(mediana, Math.abs(mediana) >= 10 ? 1 : 2)}` : ""}
                       </p>
                       {b.entrenar && tareaDe(p.metrica.nombre) && (
@@ -683,7 +693,7 @@ export function AreaMejora({
                         {e.parecidos.filter((x) => x.sim >= 0.4).map(({ j, sim }) => (
                           <li key={j.jugador + j.equipo} className="flex items-center justify-between gap-2 text-[13px]">
                             <span className="min-w-0 truncate text-white/85">{j.jugador} <span className="text-white/45">· {j.equipo} · {j.edad} años</span></span>
-                            <span className="shrink-0 tabular-nums text-white/60">{Math.round(sim * 100)} %</span>
+                            <span className="shrink-0 tabular-nums text-white/60">{Math.round(sim * 100)} %{sim < 0.6 ? " · parecido moderado" : ""}</span>
                           </li>
                         ))}
                       </ul>
