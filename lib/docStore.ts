@@ -214,6 +214,39 @@ export async function cambiaDoc<T>(
  * lectura del almacén que no va por clave exacta, y por eso lleva tope: una
  * temporada son decenas de documentos, no miles.
  */
+/**
+ * Sólo las fechas (09/11/2026, pestaña «Actualizaciones» de Ajustes): cuándo
+ * se escribió por última vez cada documento, sin bajar su contenido (algunos
+ * pesan megas). Con `prefijos`, la más reciente de los que empiezan así.
+ */
+export async function fechasDeDocs(claves: string[], prefijos: string[] = []): Promise<Record<string, string | null>> {
+  const fechas: Record<string, string | null> = {};
+
+  if (claves.length) {
+    const { data, error } = await supabase.from(TABLE).select("key, updated_at").in("key", claves);
+
+    if (error && !isMissingTable(error)) throw new Error(error.message);
+
+    for (const clave of claves) fechas[clave] = null;
+    for (const fila of data ?? []) fechas[String(fila.key)] = fila.updated_at ?? null;
+  }
+
+  for (const prefijo of prefijos) {
+    const { data, error } = await supabase
+      .from(TABLE)
+      .select("updated_at")
+      .like("key", `${prefijo}%`)
+      .order("updated_at", { ascending: false })
+      .limit(1);
+
+    if (error && !isMissingTable(error)) throw new Error(error.message);
+
+    fechas[`${prefijo}*`] = data?.[0]?.updated_at ?? null;
+  }
+
+  return fechas;
+}
+
 export async function listDocs<T = unknown>(
   prefix: string,
   limite = 200,

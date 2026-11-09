@@ -37,6 +37,7 @@ import {
   Unlock,
   UploadCloud,
 } from "lucide-react";
+import { Actualizaciones } from "@/components/ajustes/Actualizaciones";
 import { toast } from "sonner";
 
 import { AbpHeader, Button, Notice, Panel } from "@/components/abp/ui";
@@ -265,6 +266,21 @@ export default function AjustesPage() {
   const { admin: yo, entra, sale } = useAdmin();
   const vuelta = useVuelta();
   const vaAlLaboratorio = vuelta.startsWith("/laboratorio");
+
+  /* Pestañas (09/11/2026): los encargos de siempre y «Actualizaciones», la lista de lo que se pone al día solo. */
+  const [pestana, setPestana] = useState<"encargos" | "actualizaciones">(() =>
+    typeof window !== "undefined" && new URLSearchParams(window.location.search).get("pestana") === "actualizaciones" ? "actualizaciones" : "encargos",
+  );
+  const cambiaPestana = (p: "encargos" | "actualizaciones") => {
+    setPestana(p);
+
+    const url = new URL(window.location.href);
+
+    if (p === "actualizaciones") url.searchParams.set("pestana", p);
+    else url.searchParams.delete("pestana");
+
+    window.history.replaceState({}, "", url);
+  };
 
   const [pidiendo, setPidiendo] = useState<Tarea | null>(null);
 
@@ -516,11 +532,13 @@ export default function AjustesPage() {
             <AbpHeader
               /* Quien llega desde el laboratorio sin sesión ve dónde va a entrar (07/11/2026). */
               area={vaAlLaboratorio && !yo ? "RMCF Castilla · Balón parado" : "RMCF Castilla · Ajustes"}
-              title={vaAlLaboratorio && !yo ? "Laboratorio de ABP" : "Poner al día"}
+              title={vaAlLaboratorio && !yo ? "Laboratorio de ABP" : yo && pestana === "actualizaciones" ? "Actualizaciones" : "Poner al día"}
               lead={
                 vaAlLaboratorio && !yo
                   ? undefined
-                  : "Lo que normalmente se actualiza solo, pedido a mano cuando no se quiere esperar."
+                  : yo && pestana === "actualizaciones"
+                    ? "Todo lo que se pone al día solo: cuándo se hace y de cuándo es el último dato."
+                    : "Lo que normalmente se actualiza solo, pedido a mano cuando no se quiere esperar."
               }
               aside={
                 yo ? (
@@ -540,6 +558,38 @@ export default function AjustesPage() {
             {yo === false && <PuertaAjustes vuelta={vuelta} onEntra={entra} />}
 
             {yo && (
+              <div role="tablist" aria-label="Ajustes" className="mt-6 inline-flex flex-wrap gap-1 rounded-2xl border border-white/10 bg-white/[0.03] p-1">
+                {(
+                  [
+                    ["encargos", "Poner al día"],
+                    ["actualizaciones", "Actualizaciones"],
+                  ] as const
+                ).map(([clave, rotulo]) => (
+                  <button
+                    key={clave}
+                    type="button"
+                    role="tab"
+                    aria-selected={pestana === clave}
+                    onClick={() => cambiaPestana(clave)}
+                    className={`min-h-[40px] rounded-xl px-4 text-sm font-semibold transition ${
+                      pestana === clave ? "bg-[#C8A96B] text-black" : "text-white/65 hover:bg-white/5 hover:text-white"
+                    }`}
+                  >
+                    {rotulo}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {yo && pestana === "actualizaciones" && (
+              <Actualizaciones
+                estado={estado}
+                ahora={ahora}
+                pide={(tarea) => void (tarea === "quiniela" ? actualizaQuiniela() : pide(tarea))}
+              />
+            )}
+
+            {yo && pestana === "encargos" && (
             <>
 
             {/* ---------------- EL ORDENADOR DEL CLUB ---------------- */}
