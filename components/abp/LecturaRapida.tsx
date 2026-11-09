@@ -36,8 +36,11 @@ function Tarjeta({
   cifra,
   pie,
   enlace,
+  pequena = false,
 }: {
   rotulo: string;
+  /** Cifra en tamaño de texto (muestra corta): no gritar un 100 % de 5. */
+  pequena?: boolean;
   color: string;
   titular: string;
   cifra: string;
@@ -51,7 +54,10 @@ function Tarjeta({
         {rotulo}
       </p>
       <p className="mt-2 break-words text-sm font-semibold leading-snug text-white/90 md:text-[15px]">{titular}</p>
-      <p className="mt-2 text-3xl font-semibold tabular-nums leading-none" style={{ color }}>
+      <p
+        className={`mt-2 font-semibold tabular-nums leading-none ${pequena ? "text-xl" : "text-3xl"}`}
+        style={{ color }}
+      >
         {cifra}
       </p>
       <p className="mt-2 text-xs leading-snug text-white/55">{pie}</p>
@@ -118,7 +124,8 @@ export function LecturaRapida({
             rotulo={indicio(funciona) ? "Indicio a favor" : "Qué funciona"}
             color={indicio(funciona) ? gris : "var(--rmcf-rate-good)"}
             titular={`${capital(funciona.dimension)}: ${funciona.valor}`}
-            cifra={pct(funciona.tasa)}
+            cifra={indicio(funciona) ? `${funciona.aciertos} de ${funciona.n} · tendencia` : pct(funciona.tasa)}
+            pequena={indicio(funciona)}
             pie={pieDe(funciona)}
           />
         )}
@@ -127,7 +134,8 @@ export function LecturaRapida({
             rotulo={indicio(falla) ? "Indicio en contra" : "Qué falla"}
             color={indicio(falla) ? gris : "var(--rmcf-rate-low)"}
             titular={`${capital(falla.dimension)}: ${falla.valor}`}
-            cifra={pct(falla.tasa)}
+            cifra={indicio(falla) ? `${falla.aciertos} de ${falla.n} · tendencia` : pct(falla.tasa)}
+            pequena={indicio(falla)}
             pie={pieDe(falla)}
           />
         )}
@@ -136,7 +144,8 @@ export function LecturaRapida({
             rotulo={indicio(entrenar.hallazgo) ? "Qué entrenar (si se confirma)" : "Qué entrenar"}
             color={indicio(entrenar.hallazgo) ? gris : "var(--rmcf-gold-ink)"}
             titular={entrenar.titulo}
-            cifra={objetivo ? pct(objetivo.tasa) : pct(entrenar.hallazgo.tasaResto)}
+            cifra={`${objetivo ? pct(objetivo.tasa) : pct(entrenar.hallazgo.tasaResto)}${indicio(entrenar.hallazgo) ? ` · provisional, ${entrenar.hallazgo.n} ${unidad}` : ""}`}
+            pequena={indicio(entrenar.hallazgo)}
             pie={
               objetivo
                 ? `Objetivo de partido: ${mejorAlto ? "" : "como mucho "}${pct(objetivo.tasa)} ${acierto} (${objetivo.fuente}). En la tarea se cuentan los ${unidad} ${acierto}; hoy, ${entrenar.hallazgo.aciertos} de ${entrenar.hallazgo.n}.`

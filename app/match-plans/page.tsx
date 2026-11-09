@@ -587,7 +587,8 @@ export default function Page() {
                   otra pantalla que aquí no se enlaza. */}
               {metrics.played > 0 ? (
                 <p className="mt-3 text-base font-medium text-white/85 sm:text-lg">
-                  {metrics.wins > 0 ? `Ganamos ${metrics.wins} de ${metrics.played}` : `${metrics.played} partidos de liga`}:{" "}
+                  {metrics.wins > 0 ? `Ganamos ${metrics.wins} de ${metrics.played}` : `${metrics.played} partidos de liga`}
+                  {matches.some((m) => !m.esLiga) ? " (liga, sin pretemporada)" : ""}:{" "}
                   {metrics.goalsFor} {metrics.goalsFor === 1 ? "gol" : "goles"} a favor y {metrics.goalsAgainst} en contra.
                 </p>
               ) : null}

@@ -717,13 +717,20 @@ function metricasComparadas(actual: RecordRow[], anteriores: RecordRow[][], mode
     ),
     /* 07/11/2026: se dice que están dentro de la fila de arriba, para que
        «2 de 16» y «7 de 16» no parezcan dos cuentas de lo mismo. */
-    cuenta(
-      "ocasiones",
-      ofensivo ? "Ocasiones" : "Ocasiones del rival",
-      ocasion,
-      ofensivo,
-      "de los que llegan a último tercio, los que acaban en ocasión o gol",
-    ),
+    {
+      ...cuenta(
+        "ocasiones",
+        ofensivo ? "Ocasiones" : "Ocasiones del rival",
+        ocasion,
+        ofensivo,
+        "de los que llegan a último tercio, los que acaban en ocasión o gol",
+      ),
+      /* 09/11/2026 (jueces): la base es la de su propia definición, las
+         llegadas a último tercio, no todos los saques: «2 de 7», no «2 de 16». */
+      ...(cuentaDe(produce)(actual) > 0
+        ? { n: cuentaDe(ocasion)(actual), de: cuentaDe(produce)(actual), unidad: "llegadas" }
+        : {}),
+    },
     cuenta("goles", ofensivo ? "Goles" : "Goles en contra", gol, ofensivo),
     /* En defensa, lo que sí es nuestro: robar el saque y llegar arriba. */
     /* 07/11/2026 (jueces): con menos de 5 robos, «0 de 2» frente a una media
