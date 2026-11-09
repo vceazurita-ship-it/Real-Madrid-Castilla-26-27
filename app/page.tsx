@@ -470,7 +470,7 @@ export default function Home() {
 
           {/* pb-24: el botón flotante de herramientas no tapa la última fila (30/10/2026).
               Y margen a la derecha: tapaba el borde de la tarjeta del partido. */}
-          <section className="space-y-8 py-4 pb-24 pl-4 pr-12 sm:py-6 sm:pb-24 sm:pl-6 sm:pr-[76px] xl:space-y-10 xl:py-10 xl:pb-24 xl:pl-10 xl:pr-[76px]">
+          <section className="space-y-8 py-4 pb-24 px-4 sm:py-6 sm:pb-24 sm:pl-6 sm:pr-[76px] xl:space-y-10 xl:py-10 xl:pb-24 xl:pl-10 xl:pr-[76px]">
             {admin && (
               <div role="tablist" className="flex gap-2">
                 {(["portada", "tareas"] as const).map((v) => (
@@ -492,22 +492,17 @@ export default function Home() {
             {/* ============================ PORTADA ============================ */}
 
             <div className="portada-entra relative overflow-hidden rounded-[28px] border border-[#173A61]/60 bg-[#030B15] shadow-[0_0_80px_rgba(0,80,255,.08)] xl:rounded-[36px]">
-              {/* Fondo ambiental: estadio + halos de color */}
-              <Image
-                src="/stadium-bg.png"
-                alt=""
-                fill
-                sizes="100vw"
-                /* Es la imagen grande de la portada: `priority` la saca de la
-                   carga perezosa además de subirle la prioridad de red, que es
-                   lo único que hacía `fetchPriority` por su cuenta. */
-                priority
-                className="pointer-events-none object-cover opacity-[0.10]"
-              />
-
+              {/*
+                Fondo (09/11/2026, «la foto se ve mal»): fuera la foto del
+                estadio al 10 % detrás del texto —borrosa y lavada, sobre todo
+                en modo día y en el móvil—. Queda el fondo limpio con sus halos
+                y un filo dorado arriba; la foto va nítida en el panel de la
+                derecha, a toda la altura.
+              */}
               <div
                 aria-hidden
-                className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-[#030B15]/60 to-[#030B15]"
+                className="pointer-events-none absolute inset-x-8 top-0 h-px"
+                style={{ background: "linear-gradient(90deg, transparent, rgba(216,180,90,.7), transparent)" }}
               />
 
               <div
@@ -542,7 +537,8 @@ export default function Home() {
                   }
                   /* Más baja en el móvil (30/10/2026): ocupaba casi dos pantallas antes de «Datos destacados». Desde el 02/11/2026, en el móvil la tarjeta de cifras no flota sobre la foto: va bajo una franja de foto y la caja mide lo que la tarjeta. Desde el 05/11/2026, igual en escritorio: la foto sola ocupaba media cabecera. */
                   /* min-h (07/11/2026): sin cifras queda la foto sola, no una caja de alto cero. */
-                  className="light-sweep group relative block min-h-[180px] self-start overflow-hidden rounded-[28px] border border-white/10 xl:min-h-[240px]"
+                  /* 09/11/2026: a toda la altura de la columna (antes quedaba media tarjeta vacía bajo la foto) y las cifras abajo. */
+                  className="light-sweep group relative flex min-h-[220px] flex-col justify-end overflow-hidden rounded-[28px] border border-white/10 xl:min-h-[320px] xl:self-stretch"
                 >
                   <div
                     aria-hidden
@@ -763,6 +759,17 @@ export default function Home() {
                       </div>
                     )}
                   </div>
+                  )}
+
+                  {/* Sin cifras (09/11/2026): no la foto sola, sino adónde lleva. */}
+                  {!rivalSemana && !(cargandoData && !cifrasTarde) && resumenData?.xg == null && (
+                    <span
+                      className="relative m-4 inline-flex items-center gap-1.5 self-start rounded-full border border-white/15 px-3.5 py-1.5 text-[13px] font-semibold backdrop-blur-xl"
+                      style={{ color: "#F7D98B", backgroundColor: "rgba(2,6,13,.85)" }}
+                    >
+                      Data análisis
+                      <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                    </span>
                   )}
 
                   <div className="scan-line" aria-hidden />
