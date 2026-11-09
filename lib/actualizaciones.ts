@@ -232,8 +232,10 @@ export const ACTUALIZACIONES: Actualizacion[] = [
     nombre: "Goles a balón parado de las ligas",
     alimenta: "«Goles a balón parado» de Data análisis: la categoría frente a otras ligas",
     fuente: "Wyscout (equipos) y Opta",
-    cuando: "A mano, con actualizar-abp-ligas.cmd en el ordenador del club",
-    grupo: "mano",
+    /* 09/11/2026: tarea «RMCF Castilla - ABP de las ligas» (scripts/abp-ligas-semanal.cmd). */
+    cuando: "Cada lunes a las 7:00",
+    grupo: "semanal",
+    cadaHoras: 24 * 7,
     ficheros: ["public/data/abp-ligas.json"],
     enlace: "/data-analisis",
   },
