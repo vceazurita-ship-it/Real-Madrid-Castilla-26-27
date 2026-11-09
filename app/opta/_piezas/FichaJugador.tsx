@@ -16,6 +16,7 @@ import { cortoMetrica, defMetrica, METRICAS_OPTA, nombreMetrica, PERFIL_FAMILIA 
 
 import { Elegir, ElegirAmbito, fmt, Panel } from "./comun";
 import { PerfilRemate } from "./PerfilRemate";
+import { RematesJugador } from "./Remates";
 import type { DatosOpta } from "./useOpta";
 
 const PERFIL_GENERAL = ["Goal", "ExpG", "Chance", "xA", "Pass%", "Recovery", "Duel%", "PossLost"];
@@ -157,6 +158,8 @@ export function FichaJugador({
       </div>
 
       {completa && <PerfilRemate fila={completa} />}
+
+      <RematesJugador datos={datos} jugador={jugador} />
 
       {esNuestro && susPartidos.length > 0 && evo && (
         <div className="mt-5 border-t border-white/10 pt-4">

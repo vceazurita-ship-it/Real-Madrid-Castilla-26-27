@@ -29,6 +29,7 @@ import { toast } from "sonner";
 import { AbpHeader, Notice } from "@/components/abp/ui";
 import { traeDeLaPizarra } from "@/components/abp-lab/EnLaPizarra";
 import { MejorJornada, borradorDeAccion } from "@/components/abp-lab/MejorJornada";
+import { OptaAbpEventos } from "@/components/abp-lab/OptaAbpEventos";
 import { OptaBalonParado } from "@/components/abp-lab/OptaBalonParado";
 import { Referentes } from "@/components/abp-lab/Referentes";
 import { Retos } from "@/components/abp-lab/Retos";
@@ -511,7 +512,12 @@ export default function LaboratorioAbpPage() {
                 />
               )}
 
-              {pestana === "opta" && <OptaBalonParado />}
+              {pestana === "opta" && (
+                <>
+                  <OptaBalonParado />
+                  <OptaAbpEventos />
+                </>
+              )}
 
               {pestana === "retos" && <Retos doc={doc} jugadores={jugadores} porId={porId} guarda={guarda} ocupado={ocupado} cargando={estado === "cargando"} />}
             </div>

@@ -16,6 +16,16 @@
  * - **Directo**: las cifras del partido que se está jugando, si el proceso
  *   del directo está en marcha.
  *
+ * Evento a evento (09/11/2026), cada documento cargado sólo en su pestaña
+ * (`app/opta/_piezas/eventos.ts`):
+ *
+ * - **Fases**: el Castilla acción a acción (red de pases, pases progresivos,
+ *   recuperaciones y pérdidas por altura).
+ * - **Partidos**: cualquier partido de la categoría, con su momentum por
+ *   tramos de 5′ y los remates de los dos.
+ * - **Remates**: el mapa de remates de cualquier equipo, a favor y en contra.
+ * - **11 metros**: cada penalti, en la portería, con lanzadores y porteros.
+ *
  * Los datos no están en el repositorio (es público): viven en Supabase y se
  * leen por /api/docs (`lib/opta.ts`). Las cuentas, en `lib/opta-analisis.ts`;
  * los nombres en castellano, en `lib/opta-nombres.ts`.
@@ -31,13 +41,21 @@ import { Topbar } from "@/components/ui/topbar";
 import { Buscador } from "./_piezas/Buscador";
 import { Colectivo } from "./_piezas/Colectivo";
 import { Directo } from "./_piezas/Directo";
+import { Fases } from "./_piezas/Fases";
 import { Jugadores } from "./_piezas/Jugadores";
 import { Liga } from "./_piezas/Liga";
+import { PartidosCategoria } from "./_piezas/Momentum";
+import { Penaltis } from "./_piezas/Penaltis";
+import { RematesEquipo } from "./_piezas/Remates";
 import { useOpta } from "./_piezas/useOpta";
 
 const PESTANAS = [
   { clave: "castilla", nombre: "Castilla" },
+  { clave: "fases", nombre: "Fases" },
   { clave: "liga", nombre: "La liga" },
+  { clave: "partidos", nombre: "Partidos" },
+  { clave: "remates", nombre: "Remates" },
+  { clave: "penaltis", nombre: "11 metros" },
   { clave: "jugadores", nombre: "Jugadores" },
   { clave: "buscador", nombre: "Buscador" },
   { clave: "directo", nombre: "Directo" },
@@ -144,7 +162,15 @@ export default function OptaPage() {
             ) : datos ? (
               <>
                 {pestana === "castilla" && <Colectivo datos={datos} />}
+                {pestana === "fases" && <Fases datos={datos} />}
                 {pestana === "liga" && <Liga datos={datos} />}
+                {pestana === "partidos" && <PartidosCategoria datos={datos} />}
+                {pestana === "remates" && (
+                  <div className="mt-6">
+                    <RematesEquipo datos={datos} />
+                  </div>
+                )}
+                {pestana === "penaltis" && <Penaltis datos={datos} />}
                 {pestana === "jugadores" && <Jugadores datos={datos} minimo={minimo} setMinimo={setMinimo} />}
                 {pestana === "buscador" && <Buscador datos={datos} minimo={minimo} setMinimo={setMinimo} />}
                 {pestana === "directo" && <Directo datos={datos} />}

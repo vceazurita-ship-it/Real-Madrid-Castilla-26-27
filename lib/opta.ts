@@ -56,6 +56,11 @@ export const DOCS_OPTA = {
    * por dónde cruza la línea de gol (Y 45,2-54,8 entre palos; Z < 38 bajo el
    * larguero). `segundo` = segundos de partido; `secuencia` ata eventos de la
    * misma jugada (un saque de ABP con el remate que provoca).
+   *
+   * OJO: remates, penaltis y abp-eventos traen CADA EVENTO DOS VECES (una por
+   * equipo del partido) y castilla-eventos trae los de los dos equipos. Se
+   * leen siempre por `lib/opta-eventos.ts`, que los deja de uno en uno y con
+   * su equipo.
    */
   /** Cada remate de la categoría (≈11.400): tirador, x/y, xG, xGOT, parte del cuerpo, situación, presión. */
   remates: "opta:remates",
