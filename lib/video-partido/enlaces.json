@@ -176,7 +176,13 @@
     {
       "jornada": 11,
       "fecha": "2026-11-08",
-      "partido": "Real Madrid Castilla - Hércules"
+      "partido": "Real Madrid Castilla - Hércules",
+      "resumen": {
+        "id": "1JMSgW2g-j8",
+        "url": "https://www.youtube.com/watch?v=1JMSgW2g-j8",
+        "canal": "Real Federación Española Fútbol",
+        "titulo": "Resumen #PrimeraFederación | Real Madrid Castilla 2-2 Hércules CF | Jornada 11 | Temporada 2026/2027"
+      }
     }
   ]
 }
