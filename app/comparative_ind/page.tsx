@@ -85,6 +85,7 @@ import { Explicativo } from "@/components/ui/textos-analisis";
 import { MapaDosEjes, type PuntoMapa } from "@/components/data/visual/MapaDosEjes";
 import { RadiografiaPercentiles, type CunaPercentil } from "@/components/data/visual/RadiografiaPercentiles";
 import { MarcoGrafico, useTipoGrafico } from "@/components/data/visual/MarcoGrafico";
+import { ComparativaOpta } from "./ComparativaOpta";
 
 type Respuesta = { ok: boolean; jugadores?: FilaJugador[]; error?: string };
 type RegistroSeguimiento = { ID_JUGADOR: string; NOMBRE?: string; FECHA?: string };
@@ -176,6 +177,8 @@ export default function ComparativaCategoria() {
   const [pestana, setPestana] = useState<Pestana>("ranking");
   const [elegido, setElegido] = useState<string | null>(null);
   const [orden, setOrden] = useState<{ por: Orden; desc: boolean }>({ por: "indice", desc: true });
+  /* 09/11/2026: la misma comparativa con Opta y con sus temporadas pasadas. */
+  const [fuente, setFuente] = useState<"wyscout" | "opta">("wyscout");
 
   /* Subirlo relanza la lectura: el botón «Reintentar» del aviso de error. */
   const [intento, setIntento] = useState(0);
@@ -420,6 +423,19 @@ export default function ComparativaCategoria() {
     { key: "cara", label: "Contra otros equipos", icono: <Swords size={15} /> },
   ];
 
+  /* Wyscout (esta temporada y la pasada, los dos grupos) u Opta (todas las temporadas de Primera RFEF que hay). */
+  const selectorFuente = (
+    <>
+      <span className="mr-1 text-[11px] uppercase tracking-wider text-white/35">Fuente</span>
+      <Chip activo={fuente === "wyscout"} onClick={() => setFuente("wyscout")} fuerte>
+        Wyscout
+      </Chip>
+      <Chip activo={fuente === "opta"} onClick={() => setFuente("opta")} fuerte>
+        Opta
+      </Chip>
+    </>
+  );
+
   return (
     <main className="min-h-screen bg-[#0B0F14] pb-24 text-white">
       <div className="flex">
@@ -439,8 +455,13 @@ export default function ComparativaCategoria() {
               y seguimientos.
             </p>
 
+            {fuente === "opta" ? (
+              <ComparativaOpta players={players} selectorFuente={selectorFuente} />
+            ) : (
+            <>
             {/* ---------------- filtros y pestañas, siempre a la vista ---------------- */}
             <div className="sticky top-[81px] z-20 -mx-4 mt-6 border-b border-white/[0.06] bg-[#0B0F14]/95 px-4 pb-3 pt-3 backdrop-blur sm:-mx-8 sm:px-8 md:top-[97px]">
+              <div className="mb-2 flex flex-wrap items-center gap-2">{selectorFuente}</div>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="mr-1 text-[11px] uppercase tracking-wider text-white/35">Contra</span>
                 {REFERENCIAS.map((r) => (
@@ -808,6 +829,8 @@ export default function ComparativaCategoria() {
                 </p>
                 </Explicativo>
               </>
+            )}
+            </>
             )}
           </section>
         </div>
