@@ -254,6 +254,7 @@ export function TeamPanel({
           name: formatMatchDateShort(item.match),
           label: matchLabel(item.match),
           result: item.match.result,
+          casa: item.match.isHome,
           avg: item.avg,
           rated: item.rated,
         })),
@@ -408,7 +409,7 @@ export function TeamPanel({
           <StatCard
             label="Más decisivo"
             value={nombreVisible(topScorer.player.nombre)}
-            hint={`${plural(topScorer.summary.goals, "gol", "goles")} · ${plural(topScorer.summary.assists, "asistencia", "asistencias")}`}
+            hint={`${plural(topScorer.summary.goals, "gol", "goles")} · ${plural(topScorer.summary.assists, "asistencia", "asistencias")} en ${plural(topScorer.summary.played, "partido", "partidos")} y ${topScorer.summary.minutes}′ · goles y asistencias de la hoja de Valoraciones`}
             accent="var(--rmcf-rate-top)"
           />
         )}
@@ -418,7 +419,7 @@ export function TeamPanel({
 
       <Panel
         title="Evolución del equipo"
-        subtitle="Media de las notas de cada partido · un punto por partido"
+        subtitle="Media de las notas de cada partido · un punto por partido · lleno, en casa; hueco, fuera · línea de puntos, la media de la temporada"
         lectura={
           <LecturaGrafico
             serie={evolution.map((punto) => ({
@@ -522,7 +523,27 @@ export function TeamPanel({
                   dataKey="avg"
                   stroke="#C8A96B"
                   strokeWidth={2.5}
-                  dot={{ r: 3.5, fill: "#C8A96B", strokeWidth: 0 }}
+                  /* 09/11/2026 (jueces): local = punto lleno, visitante = hueco. */
+                  dot={(props: unknown) => {
+                    const { cx, cy, payload, index } = props as {
+                      cx?: number;
+                      cy?: number;
+                      index?: number;
+                      payload?: (typeof evolution)[number];
+                    };
+                    if (cx == null || cy == null || !payload) return <g key={index} />;
+                    return (
+                      <circle
+                        key={index}
+                        cx={cx}
+                        cy={cy}
+                        r={payload.casa ? 3.5 : 3.8}
+                        fill={payload.casa ? "#C8A96B" : "none"}
+                        stroke="#C8A96B"
+                        strokeWidth={payload.casa ? 0 : 1.8}
+                      />
+                    );
+                  }}
                   activeDot={{ r: 5.5 }}
                   isAnimationActive={false}
                 />

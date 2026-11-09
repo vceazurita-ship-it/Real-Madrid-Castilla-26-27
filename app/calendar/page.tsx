@@ -327,12 +327,12 @@ export default function Calendar() {
               playerFilter
                 ? undefined
                 : temporadaCastilla < trackingData.length
-                  ? `Temporada: ${temporadaCastilla} de jugadores del Castilla (${trackingData.length} contando los de otros equipos)`
+                  ? `Temporada 26/27: ${temporadaCastilla} registros${castillaTotal > 0 ? ` de ${castillaTotal} jugadores` : ""} del Castilla (otros equipos, aparte: ${trackingData.length - temporadaCastilla})`
                   : `${trackingData.length} en toda la temporada`
             }
           />
           <CalendarStat
-            label="Jugadores con seguimiento"
+            label={`Jugadores con seguimiento en ${MONTHS[active.month].toLowerCase()}`}
             value={monthStats.jugadores}
             hint={
               castillaTotal > 0
