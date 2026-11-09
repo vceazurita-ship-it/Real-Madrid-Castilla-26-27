@@ -14,6 +14,7 @@ import { fechaCorta, NOMBRE_CASTILLA, partidosDe, valorPartido, type Fila } from
 import { defMetrica, nombreMetrica } from "@/lib/opta-nombres";
 
 import { Elegir, fmt, Panel } from "./comun";
+import { Momentum } from "./Momentum";
 import type { DatosOpta } from "./useOpta";
 
 const METRICAS = [
@@ -99,6 +100,7 @@ export function FichaPartido({ datos }: { datos: DatosOpta }) {
           );
         })}
       </div>
+      <Momentum datos={datos} partido={String(visto.fila.partido)} teamId={CASTILLA_OPTA} />
     </Panel>
   );
 }

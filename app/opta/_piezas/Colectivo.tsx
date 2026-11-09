@@ -25,6 +25,7 @@ import { defMetrica, FASES_EQUIPO, METRICAS_OPTA, nombreMetrica } from "@/lib/op
 import { Cifra, Elegir, ElegirAmbito, fmt, Panel } from "./comun";
 import { Dependencia } from "./Dependencia";
 import { FichaPartido } from "./FichaPartido";
+import { RematesEquipo } from "./Remates";
 import type { DatosOpta } from "./useOpta";
 
 const NO_METRICA = new Set(["partido", "fecha", "teamId", "equipo"]);
@@ -185,6 +186,8 @@ export function Colectivo({ datos }: { datos: DatosOpta }) {
       )}
 
       <FichaPartido datos={datos} />
+
+      <RematesEquipo datos={datos} teamId={CASTILLA_OPTA} titulo="Los remates del Castilla, uno a uno" />
 
       <Dependencia datos={datos} teamId={CASTILLA_OPTA} />
     </div>
