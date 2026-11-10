@@ -210,16 +210,87 @@ export const onceNuestroDe = (
 };
 
 /** Su base va primero (le sobran minutos) y el resto de la plantilla completa los huecos que falten. */
+/*
+| A qué huecos puede ir cada puesto cuando el suyo está lleno, del más al menos
+| natural. Los dos primeros son «su sitio»; más allá, el jugador está fuera de
+| sitio y el duelo de ese hueco no se mide (10/11/2026, jueces).
+*/
+const AFINES: Record<string, string[]> = {
+  POR: ["POR"],
+  CEN: ["CEN", "LAT", "MED"],
+  LAT: ["LAT", "BAN", "CEN"],
+  MED: ["MED", "BAN", "CEN"],
+  BAN: ["BAN", "DEL", "LAT", "MED"],
+  DEL: ["DEL", "BAN"],
+};
+
+/** `true` si el jugador ocupa un hueco que no es de su puesto ni de uno vecino (un central en la banda). */
+export function fueraDeSitio(j: JugadorDuelo | undefined, hueco: string) {
+  const h = HUECOS.find((x) => x.clave === hueco);
+
+  if (!j || !h) return false;
+
+  return !(AFINES[j.puesto] ?? [j.puesto]).slice(0, 2).includes(h.puesto);
+}
+
+/*
+| Coloca SÓLO a los de la base (10/11/2026, jueces). Antes la base subía un
+| millón de minutos pero competía con todos en cada pasada: en la tercera
+| («su puesto, aunque sea del otro lado») un extremo de fuera de la base ganaba
+| la banda a un titular que no era extremo, y el once marcado en Plantillas
+| (3-5-2 con Fran Gil y Pere Marco) salía con Ramírez y Shinno. Ahora los
+| titulares van primero a su puesto, luego a uno afín y al final a lo que
+| quede; sólo si faltan titulares (bajas) entra alguien de fuera.
+*/
+function colocaBase(base: JugadorDuelo[], reservados: Record<string, string>) {
+  const puestos: Record<string, string> = { ...reservados };
+  const usados = new Set(Object.values(reservados));
+  const rellena = (vale: (hueco: (typeof HUECOS)[number], j: JugadorDuelo) => boolean) => {
+    for (const hueco of HUECOS) {
+      if (puestos[hueco.clave]) continue;
+      const elegido = base.filter((j) => !usados.has(j.clave) && vale(hueco, j)).sort((a, b) => b.minutos - a.minutos)[0];
+      if (elegido) {
+        puestos[hueco.clave] = elegido.clave;
+        usados.add(elegido.clave);
+      }
+    }
+  };
+  rellena((h, j) => j.puesto === h.puesto && j.lado === h.lado);
+  rellena((h, j) => j.puesto === h.puesto && (h.lado === "C" || j.lado === "C" || j.lado === h.lado));
+  rellena((h, j) => j.puesto === h.puesto);
+  for (let k = 1; k < 4; k++) rellena((h, j) => (AFINES[j.puesto] ?? [])[k] === h.puesto);
+  rellena(() => true);
+  return puestos;
+}
+
 export function onceSuyoDe(suyos: JugadorDuelo[], base: JugadorDuelo[], manual: Record<string, string>) {
   const enBase = new Set(base.map((j) => j.clave));
   /* Los de baja, al fondo: sólo entran si no queda nadie más para su hueco o si se ponen a mano. */
   const ordenados = suyos.map((j) => (enBase.has(j.clave) ? { ...j, minutos: j.minutos + 1e6 } : fuera(j) ? { ...j, minutos: j.minutos - 1e6 } : j));
-  const resultado = armaOnce(ordenados, ordenados, manual);
+  const elegidos = Object.fromEntries(Object.entries(manual).filter(([, c]) => c !== HUECO_VACIO && suyos.some((j) => j.clave === c)));
+  const vaciados = Object.fromEntries(Object.entries(manual).filter(([, c]) => c === HUECO_VACIO));
+  /* Los vaciados a mano se reservan con su marca: no los rellena nadie. */
+  const deLaBase = colocaBase(base.filter((j) => !Object.values(elegidos).includes(j.clave)), { ...elegidos, ...vaciados });
+  const llenos = Object.fromEntries(Object.entries(deLaBase).filter(([, c]) => c !== HUECO_VACIO));
+  const resultado = armaOnce(ordenados, ordenados, { ...llenos, ...vaciados });
   const porClave = new Map(suyos.map((j) => [j.clave, j]));
   return Object.fromEntries(Object.entries(resultado).map(([h, j]) => [h, j ? porClave.get(j.clave) : undefined])) as Record<
     string,
     JugadorDuelo | undefined
   >;
+}
+
+/**
+ * Los duelos que tienen pareja de verdad (10/11/2026, jueces). Si en el hueco
+ * del rival hay alguien fuera de sitio —el tercer central de un 3-5-2 en la
+ * banda—, ese duelo no existe en el campo y no se mide: «nuestro lateral
+ * contra su extremo» con un central enfrente sacaba conclusiones absurdas.
+ */
+export function separaSinPareja(duelos: ResultadoDuelo[], onceSuyo: Record<string, JugadorDuelo | undefined>) {
+  const sinSitio = new Set(Object.entries(onceSuyo).filter(([h, j]) => fueraDeSitio(j, h)).map(([h]) => h));
+  const conPareja = duelos.filter((d) => !d.def.suyos.some((h) => sinSitio.has(h)));
+  const fueraDeSitioEn = [...sinSitio].map((h) => ({ hueco: h, jugador: onceSuyo[h]! }));
+  return { conPareja, fueraDeSitioEn };
 }
 
 /** Todo de una vez, para quien no tiene pantalla (el informe). */
@@ -238,8 +309,9 @@ export function duelosDelPartido(entrada: {
   const suyos = suyosDe(entrada.filasHoja, entrada.equipo, entrada.jugadores);
   const base = baseSuyaDe(suyos, entrada.marcados, entrada.informe);
   const referencias = referenciasPorPuesto(entrada.jugadores);
+  const onceSuyo = onceSuyoDe(suyos, base.lista, entrada.aMano.suyo);
   return {
-    duelos: mideDuelos(onceNuestroDe(nuestros, entrada.aMano.nuestro, entrada.baseNuestra, entrada.fichas), onceSuyoDe(suyos, base.lista, entrada.aMano.suyo), referencias),
+    duelos: separaSinPareja(mideDuelos(onceNuestroDe(nuestros, entrada.aMano.nuestro, entrada.baseNuestra, entrada.fichas), onceSuyo, referencias), onceSuyo).conPareja,
     fuenteSuya: base.fuente,
   };
 }

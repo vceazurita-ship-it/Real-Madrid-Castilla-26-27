@@ -37,7 +37,7 @@ import { findInforme, type InformeDoc } from "@/lib/rivals/informe";
 import { PUESTOS } from "@/lib/data-analisis/individual";
 import { HUECOS } from "@/lib/data-analisis/once";
 import type { FilaJugador } from "@/lib/data-analisis/leer";
-import { baseSuyaDe, nuestrosDe, onceNuestroDe, onceSuyoDe, suyosDe } from "@/lib/duelos-onces";
+import { baseSuyaDe, nuestrosDe, onceNuestroDe, onceSuyoDe, separaSinPareja, suyosDe } from "@/lib/duelos-onces";
 import { fuenteUltimoOnce, huecosDelUltimoOnce } from "@/lib/tactics/ultimoOnce";
 import { huecosDeLaPizarra } from "@/lib/tactics/huecosDeLaPizarra";
 import { leeTableroDeOnces, type TableroDeOnces } from "@/lib/tactics/onceDeLaPizarra";
@@ -50,6 +50,7 @@ import {
   HUECO_VACIO,
   UMBRAL_DUELO,
   ZONAS,
+  ROTULO_HUECO,
   mideDuelos,
   normalizaDuelos,
   rotuloColumna,
@@ -347,7 +348,11 @@ export default function DuelosPage() {
   const onceNuestro = useMemo(() => onceNuestroDe(nuestros, aMano.nuestro, baseNuestra, players), [nuestros, aMano.nuestro, baseNuestra, players]);
   const onceSuyo = useMemo(() => onceSuyoDe(suyos, baseSuya.lista, aMano.suyo), [suyos, baseSuya, aMano.suyo]);
 
-  const duelos = useMemo(() => mideDuelos(onceNuestro, onceSuyo, referencias), [onceNuestro, onceSuyo, referencias]);
+  /* Sin el duelo cuyo hueco del rival lo ocupa alguien fuera de sitio (10/11/2026, jueces). */
+  const { conPareja: duelos, fueraDeSitioEn } = useMemo(
+    () => separaSinPareja(mideDuelos(onceNuestro, onceSuyo, referencias), onceSuyo),
+    [onceNuestro, onceSuyo, referencias],
+  );
 
   /*
   | QUIÉN TIENE EL BALÓN (06/10/2026). Se puede mirar cada duelo con el balón
@@ -431,8 +436,21 @@ export default function DuelosPage() {
   */
   const pintados = conDato.filter((d) => ZONAS.some((z) => z.key === d.def.zona));
   const clavesPintadas = new Set(duelos.filter((d) => d.veredicto !== "sin-datos" && ZONAS.some((z) => z.key === d.def.zona)).map((d) => d.def.clave));
-  const atacar = duelos.filter((d) => clavesPintadas.has(d.def.clave) && (d.conBalon ?? 0) >= UMBRAL_DUELO).sort((a, b) => (b.conBalon ?? 0) - (a.conBalon ?? 0));
-  const vigilar = duelos.filter((d) => clavesPintadas.has(d.def.clave) && (d.sinBalon ?? 0) <= -UMBRAL_DUELO).sort((a, b) => (a.sinBalon ?? 0) - (b.sinBalon ?? 0));
+  /*
+  | Con menos de 450′ en un lado, el duelo no se destaca (10/11/2026, jueces,
+  | regla 11): va a «Con pocos minutos», plegado, y no cuenta en el titular.
+  */
+  const fiable = (d: ResultadoDuelo) => !baseDe(d).poca;
+  const atacarTodos = duelos.filter((d) => clavesPintadas.has(d.def.clave) && (d.conBalon ?? 0) >= UMBRAL_DUELO).sort((a, b) => (b.conBalon ?? 0) - (a.conBalon ?? 0));
+  const vigilarTodos = duelos.filter((d) => clavesPintadas.has(d.def.clave) && (d.sinBalon ?? 0) <= -UMBRAL_DUELO).sort((a, b) => (a.sinBalon ?? 0) - (b.sinBalon ?? 0));
+  const atacar = atacarTodos.filter(fiable);
+  const vigilar = vigilarTodos.filter(fiable);
+  const recuento = fraseRecuentoDuelos(
+    pintados.length,
+    atacar.length,
+    vigilar.length,
+    atacar.filter((a) => vigilar.some((v) => v.def.clave === a.def.clave)).length,
+  );
 
   const cargando = jugadores === null || plantillasLeidas === null || (!equipoVisto && !proximoListo);
   const escudo = equipoVisto ? escudoDe(equipoVisto) : null;
@@ -455,6 +473,13 @@ export default function DuelosPage() {
               hacer.
               <Explicativo> Cada jugador se mide contra los de su puesto en la categoría (Wyscout, esta temporada).</Explicativo>
             </p>
+            {/* El dato arriba (10/11/2026, jueces): el recuento es el titular; la clave del percentil, debajo. */}
+            {!cargando && equipoVisto && pintados.length > 0 && (
+              <p className="mt-3 max-w-3xl text-lg font-semibold leading-snug text-white sm:text-xl">
+                Contra {equipoVisto}: {recuento.replace(/^\d+ duelos? medidos?: /, "")}
+                <span className="ml-2 text-sm font-normal text-white/50">({pintados.length} duelos medidos)</span>
+              </p>
+            )}
             <p className="mt-2 max-w-3xl text-xs text-white/45">
               Cada cifra es un percentil: P73 es mejor que el 73 % de los jugadores de su puesto con al menos 90′. Un +45 son
               45 puntos de percentil a favor nuestro; un −28, 28 a favor del rival. Con pocos minutos, la cifra es menos fiable.
@@ -512,11 +537,7 @@ export default function DuelosPage() {
               </div>
               <span className={`ml-auto flex-wrap items-center gap-x-3 gap-y-1 text-xs ${cargando ? "hidden" : "flex"}`}>
                 <span className="font-semibold text-white/80" title="Duelos con datos en los dos lados">
-                  {(() => {
-                    const enLosDos = atacar.filter((a) => vigilar.some((v) => v.def.clave === a.def.clave)).length;
-
-                    return fraseRecuentoDuelos(pintados.length, atacar.length, vigilar.length, enLosDos);
-                  })()}
+                  {recuento}
                 </span>
                 {/*
                   «Momentos», no duelos (29/10/2026): un duelo puede contar a favor con
@@ -529,7 +550,7 @@ export default function DuelosPage() {
                   <summary className="cursor-pointer select-none text-white/55 hover:text-white">Cómo se cuenta</summary>
                   <span className="mt-1 block">
                     Duelo: un hueco del once contra su par. Para buscar: ganamos con nuestro balón; para vigilar: perdemos con el
-                    suyo; de doble cara: las dos cosas. {fraseMomentos(pintados.length, atacar.length, vigilar.length)}
+                    suyo; de doble cara: las dos cosas. {fraseMomentos(pintados.length, atacar.length, vigilar.length)} Con menos de 450′ de Wyscout en uno de los lados, el duelo no se destaca: va en «Con pocos minutos».
                   </span>
                 </details>
               </span>
@@ -570,7 +591,7 @@ export default function DuelosPage() {
                         </span>
                       </p>
                       <p className="text-xs text-white/45">
-                        Pincha en un duelo para verlo abajo<span className="sm:hidden"> · desliza el campo a los lados</span>
+                        Pincha en un duelo para verlo abajo
                       </p>
                     </div>
                     <Campo
@@ -608,8 +629,8 @@ export default function DuelosPage() {
                   </div>
 
                   <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-1">
-                    {modo !== "suyo" && <Claves titulo="Dónde les podemos hacer daño · con balón nuestro" lista={atacar} contraria={vigilar} sentido="con" color={MEJOR} vacio="Con balón, ningún duelo claramente a favor." onElige={setElegido} />}
-                    {modo !== "nuestro" && <Claves titulo="Dónde nos pueden hacer daño · con balón suyo" lista={vigilar} contraria={atacar} sentido="sin" color={PEOR} vacio="Sin balón, ningún duelo claramente en contra." onElige={setElegido} />}
+                    {modo !== "suyo" && <Claves titulo="Dónde les podemos hacer daño · con balón nuestro" lista={atacar} pocos={atacarTodos.filter((d) => !fiable(d))} contraria={vigilar} sentido="con" color={MEJOR} vacio="Con balón, ningún duelo con minutos suficientes claramente a favor." onElige={setElegido} />}
+                    {modo !== "nuestro" && <Claves titulo="Dónde nos pueden hacer daño · con balón suyo" lista={vigilar} pocos={vigilarTodos.filter((d) => !fiable(d))} contraria={atacar} sentido="sin" color={PEOR} vacio="Sin balón, ningún duelo con minutos suficientes claramente en contra." onElige={setElegido} />}
                   </div>
                 </div>
 
@@ -631,13 +652,40 @@ export default function DuelosPage() {
                     <p className="mb-3 text-xs uppercase tracking-[0.25em] text-white/40">{z.label}</p>
                     <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
                       {duelosVistos
-                        .filter((d) => d.def.zona === z.key && d.veredicto !== "sin-datos")
+                        .filter((d) => d.def.zona === z.key && d.veredicto !== "sin-datos" && fiable(d))
                         .map((d) => (
                           <Tarjeta key={`${d.def.clave}|${d.nuestros.map((j) => j.clave).join(",")}|${d.suyos.map((j) => j.clave).join(",")}`} d={d} activo={elegido === d.def.clave} onElige={() => setElegido(d.def.clave)} equipo={equipoVisto} modo={modo} />
                         ))}
                     </div>
                   </div>
                 ))}
+
+                {/* Los de poca muestra, plegados y al final (10/11/2026, jueces). */}
+                {(() => {
+                  const pocos = duelosVistos.filter((d) => ZONAS.some((z) => z.key === d.def.zona) && d.veredicto !== "sin-datos" && !fiable(d));
+
+                  return pocos.length ? (
+                    <details className="mt-8 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+                      <summary className="cursor-pointer select-none text-sm font-semibold text-white/75">
+                        Con pocos minutos: {pocos.length} {pocos.length === 1 ? "duelo" : "duelos"} (menos de 450′ de Wyscout en un lado; pista, no hecho)
+                      </summary>
+                      <div className="mt-4 grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
+                        {pocos.map((d) => (
+                          <Tarjeta key={`poco-${d.def.clave}`} d={d} activo={elegido === d.def.clave} onElige={() => setElegido(d.def.clave)} equipo={equipoVisto} modo={modo} />
+                        ))}
+                      </div>
+                    </details>
+                  ) : null;
+                })()}
+
+                {/* El rival no juega con nuestro dibujo: quien cae fuera de sitio no tiene pareja y su duelo no se mide. */}
+                {fueraDeSitioEn.length > 0 && (
+                  <p className="mt-6 text-xs text-white/50">
+                    Sin pareja en nuestro 4-2-3-1:{" "}
+                    {fueraDeSitioEn.map(({ jugador, hueco }) => `${jugador.nombre}, ${puestoVisible(jugador)}, en el hueco de ${(ROTULO_HUECO.get(hueco) ?? hueco).toLowerCase()}`).join("; ")}.
+                    En su dibujo no hay ese puesto y el duelo de ese sitio no se mide.
+                  </p>
+                )}
 
                 {fueraDeLectura.length > 0 && (
                   <p className="mt-6 text-xs text-white/40">
@@ -726,12 +774,12 @@ function Campo({
     return (
       <g key={key}>
         {/* 07/11/2026: letra más grande (en el móvil el campo se desliza y no baja de 680 px de ancho: ≥12 px reales). */}
-        <circle cx={x} cy={y} r={17} fill={nuestro ? ORO_CAMPO : "rgba(255,255,255,0.88)"} stroke="rgba(0,0,0,0.4)" strokeWidth={1} />
-        <text x={x} y={y + 5} textAnchor="middle" fontSize={14} fontWeight={700} fill="#0B0F14">
+        <circle cx={x} cy={y} r={19} fill={nuestro ? ORO_CAMPO : "rgba(255,255,255,0.88)"} stroke="rgba(0,0,0,0.4)" strokeWidth={1} />
+        <text x={x} y={y + 6} textAnchor="middle" className="text-[20px] sm:text-[15px]" fontWeight={700} fill="#0B0F14">
           {j ? (nuestro ? (PUESTOS.find((q) => q.key === j.puesto)?.corto ?? "") : j.dorsal || "") : "?"}
         </text>
         {j && (
-          <text x={x} y={y + 34} textAnchor="middle" fontSize={15} fill={nuestro ? ORO_CAMPO : "rgba(255,255,255,0.85)"} fontWeight={600}>
+          <text x={x} y={y + 44} textAnchor="middle" className="text-[25px] sm:text-[18px]" fill={nuestro ? ORO_CAMPO : "rgba(255,255,255,0.85)"} fontWeight={600}>
             {apellidoDe(j)}
           </text>
         )}
@@ -740,8 +788,10 @@ function Campo({
   };
 
   return (
-    <div className="-mx-4 mt-3 overflow-x-auto px-4 sm:mx-0 sm:overflow-visible sm:px-0">
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full min-w-[680px] sm:min-w-0" style={{ maxHeight: "max(300px, calc(100vh - 330px))" }} role="img" aria-label="Duelos en el campo">
+    /* Encajado al ancho (10/11/2026, jueces): a 390 px se cortaba por la derecha y había que deslizarlo.
+       Las letras crecen en el móvil para que, escaladas, sigan por encima de 11 px. */
+    <div className="mt-3 min-w-0">
+    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" className="h-auto w-full" style={{ maxHeight: "max(300px, calc(100vh - 330px))" }} role="img" aria-label="Duelos en el campo">
       <rect x={0} y={0} width={W} height={H} rx={10} fill="#12301f" />
       {[...Array(10)].map((_, i) => (
         <rect key={i} x={(i * W) / 10} y={0} width={W / 10} height={H} fill={i % 2 ? "rgba(255,255,255,0.025)" : "transparent"} />
@@ -816,11 +866,41 @@ function baseDe(d: ResultadoDuelo) {
     s.min > 0 ? `${s.min}′${s.solo ? ` (sólo ${s.solo})` : ""} los suyos` : "",
   ].filter(Boolean);
 
+  /* Quien no tiene minutos en Wyscout ya no entra en la media: se dice quién (10/11/2026, jueces). */
+  const sin = (d.sinMinutos ?? []).map((j) => apellidoDe(j));
+
   return {
     poca: (n.min > 0 && n.min < MINUTOS_MUESTRA) || (s.min > 0 && s.min < MINUTOS_MUESTRA) || n.min === 0 || s.min === 0,
-    /* Con la fuente escrita (07/11/2026): Plantillas rivales cuenta los minutos de BeSoccer. */
-    texto: partes.length ? `Wyscout: ${partes.join(" · ")}` : "",
+    /* Con la fuente escrita (07/11/2026): Plantillas rivales cuenta los minutos de BeSoccer.
+       Son los minutos de ESTOS jugadores; la población del percentil (cabecera) es todo su puesto con 90′ o más. */
+    texto: [
+      partes.length ? `Minutos en Wyscout de quien menos ha jugado: ${partes.join(" · ")}` : "",
+      sin.length ? `${sin.join(" y ")}, sin minutos en Wyscout: fuera de la media` : "",
+    ]
+      .filter(Boolean)
+      .join(" · "),
   };
+}
+
+/** Dos percentiles en una regla de 0 a 100: el nuestro en oro, el suyo en blanco (10/11/2026, jueces). */
+function BarraDosExtremos({ titulo, nuestro, suyo }: { titulo: string; nuestro: number | null; suyo: number | null }) {
+  if (nuestro === null || suyo === null) return null;
+
+  const [a, b] = nuestro <= suyo ? [nuestro, suyo] : [suyo, nuestro];
+
+  return (
+    <span className="mt-1 grid grid-cols-[minmax(0,7.5rem)_minmax(0,1fr)_auto] items-center gap-2 text-[12px] text-white/60">
+      <span className="truncate" title={titulo}>{titulo}</span>
+      <span className="relative h-2 rounded-full bg-white/[0.07]" aria-hidden>
+        <span className="absolute top-1/2 h-0.5 -translate-y-1/2 bg-white/30" style={{ left: `${a}%`, width: `${b - a}%` }} />
+        <span className="absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ left: `${nuestro}%`, background: ORO }} />
+        <span className="absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-black/30 bg-white" style={{ left: `${suyo}%` }} />
+      </span>
+      <span className="tabular-nums">
+        <b style={{ color: ORO }}>P{nuestro}</b> · P{suyo}
+      </span>
+    </span>
+  );
 }
 
 function Claves({
@@ -831,9 +911,12 @@ function Claves({
   vacio,
   onElige,
   contraria = [],
+  pocos = [],
 }: {
   titulo: string;
   lista: ResultadoDuelo[];
+  /** Los que también entrarían pero con menos de 450′ en un lado: plegados debajo. */
+  pocos?: ResultadoDuelo[];
   sentido: "con" | "sin";
   color: string;
   vacio: string;
@@ -846,9 +929,40 @@ function Claves({
       <p className="text-sm font-semibold" style={{ color }}>
         {titulo}
       </p>
+      <p className="mt-0.5 text-[11px] text-white/45">
+        <span style={{ color: ORO }}>●</span> nuestro · <span className="text-white/80">●</span> suyo, en percentil de su puesto
+      </p>
       {lista.length === 0 ? (
         <p className="mt-2 text-sm text-white/45">{vacio}</p>
       ) : (
+        <FilasClaves lista={lista} sentido={sentido} color={color} contraria={contraria} onElige={onElige} />
+      )}
+      {pocos.length > 0 && (
+        <details className="mt-3 border-t border-white/[0.06] pt-2">
+          <summary className="cursor-pointer select-none text-xs font-semibold text-white/55 hover:text-white">
+            Con pocos minutos: {pocos.length} {pocos.length === 1 ? "duelo más" : "duelos más"}
+          </summary>
+          <FilasClaves lista={pocos} sentido={sentido} color={color} contraria={contraria} onElige={onElige} />
+        </details>
+      )}
+    </div>
+  );
+}
+
+function FilasClaves({
+  lista,
+  sentido,
+  color,
+  contraria,
+  onElige,
+}: {
+  lista: ResultadoDuelo[];
+  sentido: "con" | "sin";
+  color: string;
+  contraria: ResultadoDuelo[];
+  onElige: (clave: string) => void;
+}) {
+  return (
         <ul className="mt-2 space-y-2.5">
           {/* Por la cifra que se ve (29/10/2026): con la poca muestra al final salía −21 antes que −34; la poca muestra ya lleva su aviso. */}
           {[...lista].sort((a, b) => Math.abs(b.bloques.find((x) => x.sentido === sentido)?.balance ?? 0) - Math.abs(a.bloques.find((x) => x.sentido === sentido)?.balance ?? 0)).map((d) => {
@@ -886,11 +1000,16 @@ function Claves({
                     {pocaMuestra && <span className="ml-1 text-xs font-normal">· poca muestra</span>}
                   </b>
                 </span>
-                <span className="mt-0.5 block break-words text-xs text-white/50">
-                  {marcadas.length
-                    ? marcadas.map((f) => `${f.titulo} (P${f.nuestro} contra P${f.suyo})`).join(" · ")
-                    : "Ventaja repartida, sin un enfrentamiento que se despegue."}
-                </span>
+                {/* Una regla por enfrentamiento: la distancia se ve sin leer (10/11/2026, jueces). */}
+                {marcadas.length ? (
+                  <span className="mt-1 block">
+                    {marcadas.map((f) => (
+                      <BarraDosExtremos key={f.titulo} titulo={f.titulo} nuestro={f.nuestro} suyo={f.suyo} />
+                    ))}
+                  </span>
+                ) : (
+                  <span className="mt-0.5 block break-words text-xs text-white/50">Ventaja repartida, sin un enfrentamiento que se despegue.</span>
+                )}
                 <span className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-white/45">
                   {/* «Cuenta en los dos sentidos» salía en casi todas las filas: ahora
                       va en el título de la cifra, al pasar el ratón (30/10/2026). */}
@@ -902,8 +1021,6 @@ function Claves({
             );
           })}
         </ul>
-      )}
-    </div>
   );
 }
 
@@ -1091,7 +1208,7 @@ function bloquesDe(d: ResultadoDuelo, modo: Modo, equipo: string) {
               </p>
             )}
 
-            <div className="mt-2 flex justify-between gap-2 text-[9.5px] font-semibold uppercase tracking-wider text-white/55">
+            <div className="mt-2 flex justify-between gap-2 text-[11px] font-semibold uppercase tracking-wider text-white/55">
               <span className="min-w-0">Castilla · {aire ? "por arriba" : nuestroBalon ? "con balón" : "sin balón"}</span>
               <span className="min-w-0 text-right">{equipo} · {aire ? "por arriba" : nuestroBalon ? "sin balón" : "con balón"}</span>
             </div>
@@ -1125,7 +1242,7 @@ function bloquesDe(d: ResultadoDuelo, modo: Modo, equipo: string) {
                       <span className="w-10 text-right tabular-nums text-white/70">{f.suyo === null ? "—" : `P${f.suyo}`}</span>
                     </div>
                     {f.sentido !== "aire" && (
-                      <div className="flex justify-between gap-2 text-[9.5px] text-white/55">
+                      <div className="flex justify-between gap-2 text-[11px] text-white/55">
                         <span className="min-w-0 flex-1 truncate">{rotuloColumna(f.columnaNuestra)}</span>
                         <span className="min-w-0 flex-1 truncate text-right">{rotuloColumna(f.columnaSuya)}</span>
                       </div>
@@ -1150,12 +1267,12 @@ function bloquesDe(d: ResultadoDuelo, modo: Modo, equipo: string) {
   );
 }
 
-/* Las dos métricas con más diferencia a la vista; el resto, desplegable (24/10/2026). */
+/* Las tres métricas con más diferencia a la vista; el resto, desplegable (24/10/2026). */
 function FacetasRecortadas({ items }: { items: { diff: number; key: string; nodo: ReactNode }[] }) {
   const [todas, setTodas] = useState(false);
   const orden = [...items].sort((a, b) => b.diff - a.diff);
-  const vistas = todas ? items : orden.slice(0, 2);
-  const resto = items.length - 2;
+  const vistas = todas ? items : orden.slice(0, 3);
+  const resto = items.length - 3;
 
   return (
     <div className="mt-1.5 space-y-2.5">

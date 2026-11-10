@@ -160,6 +160,35 @@ export default function ScoutRivalIndividual() {
 
   const { doc: statsDoc } = useRivalStats();
 
+  /*
+  | Los visionados apuntados en la app (10/11/2026, jueces): la cifra va en la
+  | pestaña y cada ficha dice cuántas veces se ha abierto. Sólo se lee.
+  */
+  const [visionados, setVisionados] = useState<{ video: string }[]>([]);
+
+  useEffect(() => {
+    let vivo = true;
+
+    fetch("/api/visionados", { cache: "no-store" })
+      .then((r) => r.json() as Promise<{ visionados?: { video: string }[] }>)
+      .then((j) => {
+        if (vivo && Array.isArray(j?.visionados)) setVisionados(j.visionados);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      vivo = false;
+    };
+  }, []);
+
+  const vistasPorVideo = useMemo(() => {
+    const mapa: Record<string, number> = {};
+
+    for (const v of visionados) if (v?.video) mapa[v.video] = (mapa[v.video] ?? 0) + 1;
+
+    return mapa;
+  }, [visionados]);
+
   /* Los titulares del once probable marcado en Plantillas rivales (sólo se lee). */
   const [titularesDe, setTitularesDe] = useState<{ equipo: string; claves: string[] }>({ equipo: "", claves: [] });
 
@@ -306,7 +335,7 @@ export default function ScoutRivalIndividual() {
               onCambia={setVista}
               opciones={[
                 { clave: "clips", label: "Clips", icono: IconoVideo },
-                { clave: "visionados", label: "Visionados", icono: Eye },
+                { clave: "visionados", label: "Visionados", icono: Eye, cuenta: visionados.length || undefined },
               ]}
             />
           </div>
@@ -451,6 +480,7 @@ export default function ScoutRivalIndividual() {
                 key={equipo}
                 equipo={equipo}
                 plantilla={plantilla}
+                visionados={vistasPorVideo}
               />
             ) : (loading || !ordenListo) && !lento ? (
               <EsqueletoPantalla titulo="las plantillas rivales" cifras={0} paneles={1} />
