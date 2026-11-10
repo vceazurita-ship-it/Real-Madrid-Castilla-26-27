@@ -14,7 +14,8 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { FileDown, LayoutDashboard, Map as MapaIcono, Workflow, ListOrdered } from "lucide-react";
+import { Database, FileDown, LayoutDashboard, Map as MapaIcono, Workflow, ListOrdered } from "lucide-react";
+import { OptaBandaDia } from "@/components/abp/OptaDia";
 import { capturaNodo, fotograma } from "@/lib/export/captura";
 import { descargaEnMarcha, descargas, encargaDescarga } from "@/lib/trabajos/descargas";
 import { EstadoError } from "@/components/ui/estados";
@@ -1041,7 +1042,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
   | dónde se saca y adónde va, cómo acaba, y saque a saque. Al exportar el PNG
   | se pintan todas, que la imagen es el informe entero.
   */
-  const [vista, setVista] = usePestanaUrl<"resumen" | "donde" | "como" | "lista">("vista", ["resumen", "donde", "como", "lista"], "resumen");
+  const [vista, setVista] = usePestanaUrl<"resumen" | "donde" | "como" | "lista" | "opta">("vista", ["resumen", "donde", "como", "lista", "opta"], "resumen");
   const FILTERS = useMemo(() => filtersFor(mode), [mode]);
   const CHARTS = useMemo(() => chartsFor(mode), [mode]);
 
@@ -1908,6 +1909,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                         /* 29/10/2026: sin la cuenta en la pestaña: en el móvil
                            se leía como un «23» suelto sobre la tabla. */
                         { clave: "lista", label: "Saque a saque", icono: ListOrdered },
+                        { clave: "opta", label: "Categoría · Opta", corto: "Opta", icono: Database },
                       ]}
                     />
                   </div>
@@ -2255,6 +2257,9 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                   </div>
                 </section>
                 )}
+
+                {/* Opta (10/11/2026): los saques de banda de toda la categoría. Fuera del PDF; sólo se monta (y se pide) en su pestaña. */}
+                {!exporting && vista === "opta" && <OptaBandaDia lado={isOffensive ? "favor" : "contra"} />}
               </div>
             )}
           </div>

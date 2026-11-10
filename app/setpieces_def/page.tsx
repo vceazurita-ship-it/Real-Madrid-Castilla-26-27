@@ -15,7 +15,9 @@ import {
   Workflow as PestanaWorkflow,
   Users as PestanaUsers,
   Clock as PestanaClock,
+  Database as PestanaDatabase,
 } from "lucide-react";
+import { OptaAbpDia } from "@/components/abp/OptaDia";
 import ABPFlowField, { zonaRemateDelCampo } from '@/components/abp/ABPFlowField';
 import { AbpHeader, FilterDrawer, Select, TeamPicker } from '@/components/abp/ui';
 import { useEscudos } from "@/hooks/useEscudos";
@@ -2390,7 +2392,7 @@ const textosExplicativos = useTextosExplicativos();
 | paneles se esconden (no se desmontan): el filtro cruzado sigue valiendo y,
 | al descargar el PDF, se enseñan todos para que se capture cada gráfico.
 */
-const [vista, setVista] = usePestanaUrl<"resumen" | "donde" | "como" | "quien" | "cuando">("vista", ["resumen", "donde", "como", "quien", "cuando"], "resumen");
+const [vista, setVista] = usePestanaUrl<"resumen" | "donde" | "como" | "quien" | "cuando" | "opta">("vista", ["resumen", "donde", "como", "quien", "cuando", "opta"], "resumen");
 const [todoVisible, setTodoVisible] = useState(false);
 const oculto = (clave: string) => (todoVisible || vista === clave ? "" : "hidden");
 
@@ -2906,9 +2908,17 @@ const pie = (
                   { clave: "como", label: "Cómo nos atacan", icono: PestanaWorkflow },
                   { clave: "quien", label: "Quién nos hace daño", icono: PestanaUsers },
                   { clave: "cuando", label: "Cuándo", icono: PestanaClock },
+                  { clave: "opta", label: "Categoría · Opta", corto: "Opta", icono: PestanaDatabase },
                 ]}
               />
             </div>
+
+            {/* Opta (10/11/2026): lo que nos hacen a balón parado frente a la categoría. Sólo se monta (y se pide) en su pestaña. */}
+            {vista === "opta" && (
+              <div className="mt-5 lg:px-2">
+                <OptaAbpDia lado="contra" />
+              </div>
+            )}
 
             <div className={oculto("resumen")}>
             <LecturaRapida
