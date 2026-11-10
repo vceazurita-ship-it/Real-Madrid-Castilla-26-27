@@ -14,6 +14,7 @@ import Link from "next/link";
 import Papa from "papaparse";
 import { AlertTriangle, ArrowUpRight, CheckCircle2, Star, TrendingDown } from "lucide-react";
 
+import { IdentidadOpta } from "@/components/identidad/IdentidadOpta";
 import { Conclusiones, Explicativo } from "@/components/ui/textos-analisis";
 import { ErrorState, LoadingState } from "@/components/ui/knowledge-kit";
 import { loadRegistro } from "@/lib/abp/registro";
@@ -482,6 +483,9 @@ export function IdentidadCampo() {
           {defensa.map((b) => <TarjetaBloque key={b.key} b={b} partidos={d.partidos} />)}
         </div>
       </Seccion>
+
+      {/* 10/11/2026: los mismos principios, medidos con Opta (otra fuente). */}
+      <IdentidadOpta />
 
       {d.bloques.some((b) => b.entreno !== null) && (
         <Seccion titulo="Lo que entrenamos y lo que sale" sub="Cada fase según el tiempo que le damos en la semana y cómo sale en el partido.">
