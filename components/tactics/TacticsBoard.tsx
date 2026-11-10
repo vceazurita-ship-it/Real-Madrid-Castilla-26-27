@@ -3041,6 +3041,8 @@ export default function TacticsBoard({
                       y={style.radius + 2.1}
                       textAnchor="middle"
                       fontSize={1.55}
+                      /* En el móvil el campo mide 350 px y 1,55 eran unos 5 px: se sube a ~9 px (10/11/2026, jueces). */
+                      className="max-sm:[font-size:2.6px]"
                       fontWeight={600}
                       fill="rgba(255,255,255,.95)"
                       stroke="rgba(0,0,0,.55)"
