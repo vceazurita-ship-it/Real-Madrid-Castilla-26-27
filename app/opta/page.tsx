@@ -36,6 +36,10 @@
  * - **Estilos** (10/11/2026): quién aprieta y cuándo en toda la liga (mapa
  *   de calor por franjas de 15′), el Venn de dominio, peligro y solidez y la
  *   radiografía de 22 métricas de cualquier equipo (`_piezas/Estilos.tsx`).
+ * - **Talento** (10/11/2026): dispersión de percentiles de dos métricas por
+ *   90 con la zona élite, ranking por perfil con su «ADN», goles que valen
+ *   puntos y goles desde el banquillo (`opta:remates` y
+ *   `opta:jugadores-partidos`, sólo en esa pestaña).
  *
  * Los datos no están en el repositorio (es público): viven en Supabase y se
  * leen por /api/docs (`lib/opta.ts`). Las cuentas, en `lib/opta-analisis.ts`;
@@ -60,6 +64,7 @@ import { Liga } from "./_piezas/Liga";
 import { PartidosCategoria } from "./_piezas/Momentum";
 import { Penaltis } from "./_piezas/Penaltis";
 import { RematesEquipo } from "./_piezas/Remates";
+import { Talento } from "./_piezas/Talento";
 import { useOpta } from "./_piezas/useOpta";
 
 const PESTANAS = [
@@ -73,6 +78,7 @@ const PESTANAS = [
   { clave: "estilos", nombre: "Estilos" },
   { clave: "jugadores", nombre: "Jugadores" },
   { clave: "buscador", nombre: "Buscador" },
+  { clave: "talento", nombre: "Talento" },
   { clave: "directo", nombre: "Directo" },
 ] as const;
 type Pestana = (typeof PESTANAS)[number]["clave"];
@@ -190,6 +196,7 @@ export default function OptaPage() {
                 {pestana === "estilos" && <Estilos datos={datos} />}
                 {pestana === "jugadores" && <Jugadores datos={datos} minimo={minimo} setMinimo={setMinimo} />}
                 {pestana === "buscador" && <Buscador datos={datos} minimo={minimo} setMinimo={setMinimo} />}
+                {pestana === "talento" && <Talento datos={datos} />}
                 {pestana === "directo" && <Directo datos={datos} />}
               </>
             ) : null}
