@@ -232,7 +232,7 @@ function EnElCampo({ datos, yo }: { datos: DatosOpta; yo: Fila }) {
       <CampoOpta ariaLabel={`${visto.nombre} de ${String(yo.jugador ?? "")}`} maxAlto={420}>
         {(p) => (
           <>
-            {[33.3, 60].map((x) => {
+            {[33.3, 66.7].map((x) => {
               const [x1, y1] = p(x, 0);
               const [x2, y2] = p(x, 100);
               return <line key={x} x1={x1} y1={y1} x2={x2} y2={y2} style={{ stroke: "rgba(242,201,76,0.35)", strokeWidth: 2, strokeDasharray: "10 10" }} />;
@@ -279,7 +279,7 @@ function EnElCampo({ datos, yo }: { datos: DatosOpta; yo: Fila }) {
           </>
         )}
       </CampoOpta>
-      <p className="mt-1.5 text-[11px] text-white/45">Atacando siempre hacia la derecha. Las rayas parten el campo en primer tercio, zona media y campo rival.</p>
+      <p className="mt-1.5 text-[11px] text-white/45">Atacando siempre hacia la derecha. Las rayas parten el campo en tres tercios iguales: primer tercio, tercio medio y último tercio.</p>
     </div>
   );
 }

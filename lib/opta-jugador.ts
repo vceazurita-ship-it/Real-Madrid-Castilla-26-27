@@ -121,8 +121,8 @@ export const MODOS_CAMPO: { clave: ModoCampo; nombre: string; que: string }[] = 
 ];
 
 export const ALTURAS_CAMPO: { clave: Altura3; nombre: string }[] = [
-  { clave: "alta", nombre: "En campo rival" },
-  { clave: "media", nombre: "Zona media" },
+  { clave: "alta", nombre: "En el último tercio" },
+  { clave: "media", nombre: "En el tercio medio" },
   { clave: "baja", nombre: "En su primer tercio" },
 ];
 

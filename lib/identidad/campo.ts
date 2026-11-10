@@ -103,7 +103,8 @@ const VALORES: { key: string; valor: string; conducta: string; indicadores: Indi
 /*  TIPOS DE SALIDA                                                    */
 /* ------------------------------------------------------------------ */
 
-export type IndicadorMedido = { nombre: string; valor: number; unidad: Metrica["unidad"]; percentil: number; mediana: number };
+/** `metrica` y `lado`: la clave de `METRICAS` y de quién es, para cruzarla con Opta (lib/fuentes.ts). */
+export type IndicadorMedido = { nombre: string; metrica: string; lado: "nuestro" | "rival"; valor: number; unidad: Metrica["unidad"]; percentil: number; mediana: number };
 
 export type PrincipioMedido = {
   id: string;
@@ -477,7 +478,7 @@ export function identidadEnElCampo(partidos: FilaPartido[], jugadores: FilaJugad
     const orden = [...deLaLiga].sort((a, b) => a - b);
 
     return {
-      medido: { nombre: ind.etiqueta ?? m.nombre, valor, unidad: m.unidad, percentil: Math.round(p), mediana: orden[Math.floor(orden.length / 2)] } satisfies IndicadorMedido,
+      medido: { nombre: ind.etiqueta ?? m.nombre, metrica: ind.metrica, lado: ind.lado, valor, unidad: m.unidad, percentil: Math.round(p), mediana: orden[Math.floor(orden.length / 2)] } satisfies IndicadorMedido,
       tendencia,
     };
   };

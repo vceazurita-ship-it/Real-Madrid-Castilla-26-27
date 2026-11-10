@@ -265,8 +265,8 @@ function Progresion({ acciones, todas, partidos, jugador, alElegir }: { acciones
 
 type Modo = "recuperaciones" | "perdidas";
 const ALTURAS: { clave: Altura3; nombre: string; detalle: string }[] = [
-  { clave: "alta", nombre: "Arriba", detalle: "en campo rival (x ≥ 60): presión alta" },
-  { clave: "media", nombre: "Zona media", detalle: "entre el primer tercio y el campo rival" },
+  { clave: "alta", nombre: "Arriba", detalle: "en el último tercio: presión alta" },
+  { clave: "media", nombre: "Zona media", detalle: "en el tercio medio" },
   { clave: "baja", nombre: "Atrás", detalle: "en el primer tercio: bloque bajo" },
 ];
 
@@ -302,7 +302,7 @@ function RecuperacionesPerdidas({ acciones, todas, partidos, jugador, alElegir }
       subtitulo={
         modo === "recuperaciones"
           ? "Recuperaciones, intercepciones y entradas ganadas del Castilla, en el sitio donde se hicieron."
-          : "Pases fallados, regates perdidos, balones robados en conducción y errores del Castilla."
+          : "Pases fallados, regates perdidos y balones robados en conducción del Castilla."
       }
       derecha={
         <Botonera
@@ -330,7 +330,7 @@ function RecuperacionesPerdidas({ acciones, todas, partidos, jugador, alElegir }
         <CampoOpta ariaLabel={modo === "recuperaciones" ? "Recuperaciones del Castilla" : "Pérdidas del Castilla"} maxAlto={420}>
           {(p) => (
             <>
-              {[33.3, 60].map((x) => {
+              {[33.3, 66.7].map((x) => {
                 const [x1, y1] = p(x, 0);
                 const [x2, y2] = p(x, 100);
                 return <line key={x} x1={x1} y1={y1} x2={x2} y2={y2} style={{ stroke: "rgba(242,201,76,0.35)", strokeWidth: 2, strokeDasharray: "10 10" }} />;

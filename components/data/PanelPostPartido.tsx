@@ -38,6 +38,8 @@ import { Notice } from "@/components/abp/ui";
 import { PanelCampograma } from "@/components/data/PanelCampograma";
 import { useCalendarioCastilla } from "@/components/data/SelloJornada";
 import { Hueso } from "@/components/ui/estados";
+import { SelloFuente } from "@/components/ui/SelloFuente";
+import { chipInk } from "@/lib/theme";
 import { partidoDeFecha } from "@/lib/data-analisis/alcance";
 import type { FilaPartido } from "@/lib/data-analisis/leer";
 import { temporadaDe } from "@/lib/data-analisis/metricas";
@@ -45,15 +47,15 @@ import { CASTILLA_OPTA } from "@/lib/opta";
 import { fechaCorta, NOMBRE_CASTILLA } from "@/lib/opta-analisis";
 import { CASTILLA_WYSCOUT, castillaWyscout, emparejaPartidos, enlaceConPartido, temporadaVigente, type PartidoPost } from "@/lib/post-partido";
 
-/*
-| TODO-SELLO: sustituir por `components/ui/SelloFuente.tsx` en cuanto esté en
-| esta rama (lo está creando otro trabajo a la vez). La fuente va aquí, en
-| pequeño, y nunca en el título del bloque.
-*/
-function Sello({ children }: { children: ReactNode }) {
+/**
+ * Lo contado a mano no es de ningún proveedor: no lleva `SelloFuente` (sólo
+ * Opta y Wyscout), sino esta chapa con su misma forma, para que se lea igual.
+ */
+function SelloPropio({ children }: { children: ReactNode }) {
   return (
-    <span className="inline-flex shrink-0 items-center rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em] text-white/50">
-      {children}
+    <span className="inline-flex max-w-full shrink-0 items-center gap-1.5 rounded-full bg-white/[0.04] px-2 py-0.5 text-[10.5px] font-medium leading-tight text-white/55">
+      <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: chipInk("#C8A96B") }} />
+      <span className="min-w-0 truncate">{children}</span>
     </span>
   );
 }
@@ -80,7 +82,11 @@ function Bloque({ titulo, pregunta, sello, icono: Icono, children }: { titulo: s
   );
 }
 
-export function PanelPostPartido({ wyscout }: { wyscout: FilaPartido[] }) {
+/**
+ * `wyscoutCaido`: el informe de Wyscout no se ha podido leer. Entonces sólo se
+ * quita lo de Wyscout, con un aviso corto, y lo de Opta sigue entero.
+ */
+export function PanelPostPartido({ wyscout, wyscoutCaido = false }: { wyscout: FilaPartido[]; wyscoutCaido?: boolean }) {
   const { datos, cargando } = useOpta();
   const calendario = useCalendarioCastilla();
 
@@ -118,14 +124,26 @@ export function PanelPostPartido({ wyscout }: { wyscout: FilaPartido[] }) {
     );
   }
 
-  if (!visto) return null;
+  const avisoWyscout = wyscoutCaido && (
+    <div className="mt-5">
+      <Notice tone="warn" title="Wyscout no ha cargado">
+        Falta «Partido en el campo»; lo de Opta sale abajo. Pulsa «Actualizar datos» para volver a intentarlo.
+      </Notice>
+    </div>
+  );
+
+  if (!visto) return avisoWyscout || null;
 
   const cal = calendario ? partidoDeFecha(calendario.partidos, visto.fecha) : null;
   const enCasa = cal ? /castilla|real madrid/i.test(cal.local) : visto.wyscout ? visto.wyscout.partido.startsWith(CASTILLA_WYSCOUT) : null;
   const jornada = jornadaDe(visto);
+  /* La jornada sólo si es la de verdad (la del calendario de BeSoccer). */
+  const hasta = jornada ? `J${jornada}` : undefined;
 
   return (
     <>
+      {avisoWyscout}
+
       {/* EL PARTIDO: el único selector, y lo que manda sobre todo lo de abajo. */}
       <div className="mt-5 flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 sm:px-5">
         <div className="min-w-0">
@@ -149,7 +167,7 @@ export function PanelPostPartido({ wyscout }: { wyscout: FilaPartido[] }) {
         )}
       </div>
 
-      {(!visto.opta || !visto.wyscout) && (
+      {(!visto.opta || (!visto.wyscout && !wyscoutCaido)) && (
         <div className="mt-3">
           <Notice tone="info" title={!visto.wyscout ? "Wyscout aún no tiene este partido" : "Opta aún no tiene este partido"}>
             {!visto.wyscout
@@ -160,7 +178,7 @@ export function PanelPostPartido({ wyscout }: { wyscout: FilaPartido[] }) {
       )}
 
       {/* 1 · OPTA: EL CARA A CARA, EL MOMENTUM Y LOS REMATES */}
-      {visto.opta && datos && <BloqueOpta datos={datos} partido={visto} />}
+      {visto.opta && datos && <BloqueOpta datos={datos} partido={visto} hasta={hasta} />}
 
       {/* 2 · WYSCOUT: EL PARTIDO EN EL CAMPO */}
       {visto.wyscout && (
@@ -168,7 +186,7 @@ export function PanelPostPartido({ wyscout }: { wyscout: FilaPartido[] }) {
           titulo="Partido en el campo"
           pregunta="¿Qué pasó en cada momento, y es lo que solemos hacer?"
           icono={LayoutGrid}
-          sello={<Sello>Wyscout · informe del partido</Sello>}
+          sello={<SelloFuente fuente="wyscout" poblacion={equiposW ? `liga (${equiposW} equipos)` : "informe del partido"} hasta={hasta} className="shrink-0" />}
         >
           <PanelCampograma
             /* Con la clave del partido: cambiarlo arriba empieza el bloque de cero. */
@@ -184,14 +202,14 @@ export function PanelPostPartido({ wyscout }: { wyscout: FilaPartido[] }) {
       )}
 
       {/* 3 · OPTA: LAS FASES ACCIÓN A ACCIÓN */}
-      {visto.opta && datos && <BloqueFases datos={datos} partido={visto.clave} />}
+      {visto.opta && datos && <BloqueFases datos={datos} partido={visto.clave} hasta={hasta} />}
 
       {/* 4 · LO CONTADO A MANO, ABIERTO EN ESTE PARTIDO */}
       <Bloque
         titulo="Visto en el vídeo"
         pregunta="Robos, pérdidas y faltas de este partido, contados jugada a jugada."
         icono={Crosshair}
-        sello={<Sello>Registro propio · vídeo</Sello>}
+        sello={<SelloPropio>Registro propio · vídeo</SelloPropio>}
       >
         <div className="grid gap-2 sm:grid-cols-3">
           <Enlace href={enlaceConPartido("/laboratorio/transiciones", visto)} icono={Swords} titulo="Robos y transiciones" texto="Qué hicimos con cada balón robado." />
@@ -234,7 +252,7 @@ function Enlace({ href, icono: Icono, titulo, texto }: { href: string; icono: ty
 }
 
 /** Las fases de Opta del partido; si su documento aún no trae el partido, el bloque no sale. */
-function BloqueFases({ datos, partido }: { datos: DatosOpta; partido: string }) {
+function BloqueFases({ datos, partido, hasta }: { datos: DatosOpta; partido: string; hasta?: string }) {
   const { acciones, cargando } = useAcciones(datos);
   const hay = useMemo(() => acciones.some((a) => a.nuestra && a.partido === partido), [acciones, partido]);
   if (!cargando && !hay) return null;
@@ -243,7 +261,7 @@ function BloqueFases({ datos, partido }: { datos: DatosOpta; partido: string }) 
       titulo="Acción a acción"
       pregunta="¿Cómo nos asociamos, cuánto progresamos y dónde robamos y perdimos?"
       icono={Footprints}
-      sello={<Sello>Opta · evento a evento</Sello>}
+      sello={<SelloFuente fuente="opta" poblacion="evento a evento" hasta={hasta} className="shrink-0" />}
     >
       <Fases datos={datos} partidoFijo={partido} />
     </Bloque>
@@ -251,7 +269,7 @@ function BloqueFases({ datos, partido }: { datos: DatosOpta; partido: string }) 
 }
 
 /** El cara a cara, el momentum y los remates de los dos, del partido de Opta. */
-function BloqueOpta({ datos, partido }: { datos: DatosOpta; partido: PartidoPost }) {
+function BloqueOpta({ datos, partido, hasta }: { datos: DatosOpta; partido: PartidoPost; hasta?: string }) {
   const p = partido.opta!;
   const id = partido.clave;
   const { remates, cargando } = useRemates(datos);
@@ -266,7 +284,7 @@ function BloqueOpta({ datos, partido }: { datos: DatosOpta; partido: PartidoPost
       titulo="El partido, cara a cara"
       pregunta="¿Quién hizo más, cuándo mandó cada uno y desde dónde se remató?"
       icono={Swords}
-      sello={<Sello>Opta · cifras del partido</Sello>}
+      sello={<SelloFuente fuente="opta" poblacion="cifras del partido" hasta={hasta} className="shrink-0" />}
     >
       <CaraACara datos={datos} partido={id} teamId={CASTILLA_OPTA} />
       <Momentum datos={datos} partido={id} teamId={CASTILLA_OPTA} />

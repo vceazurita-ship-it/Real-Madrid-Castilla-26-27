@@ -190,10 +190,14 @@ function ElPartido({
   const f = delPartido.fila;
   const nuestra = opta.equipos.find((e) => e.teamId === CASTILLA_OPTA);
   const media = (a: string) => mediaDe(nuestra, a, opta.catalogo);
+  /* 10/11/2026: los cocientes (PPDA) de la temporada no son una media de
+     partidos, sino el cociente de las sumas: el pie lo dice así. */
   const pieMedia = (a: string) => {
     const m = media(a);
-    return m == null ? undefined : `media de la temporada ${coma(m)}`;
+    if (m == null) return undefined;
+    return defMetrica(a, opta.catalogo).tasa ? `temporada en conjunto ${coma(m)} (no es la media de los partidos)` : `media por partido de la temporada ${coma(m)}`;
   };
+  const conPie = (que: string, a: string) => [que, pieMedia(a)].filter(Boolean).join(" · ");
   const cabecera = `${partido.jornada} · ${delPartido.rival} · ${fechaCorta(delPartido.fecha)}`;
 
   if (modo === "faltas") {
@@ -259,7 +263,16 @@ function ElPartido({
       <p className="text-[11px] text-white/50">{cabecera}</p>
 
       <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-        <Casilla rotulo={robos ? "Recuperaciones" : "Pérdidas"} valor={String(total)} pie={pieMedia(robos ? "Recovery" : "PossLost")} />
+        {/* Lo que cuenta cada casilla, dicho: el mapa de abajo no cuenta lo mismo. */}
+        <Casilla
+          rotulo={robos ? "Recuperaciones" : "Pérdidas"}
+          valor={String(total)}
+          pie={
+            robos
+              ? conPie("balón suelto o que el rival da; sin intercepciones ni entradas", "Recovery")
+              : conPie("recuento de Opta: todo pase que no llega, regate perdido o balón robado", "PossLost")
+          }
+        />
         {tercios.every((t) => t != null) && (
           <Casilla
             rotulo="Por tercios"
@@ -324,7 +337,6 @@ const TIPOS: Record<"robos" | "perdidas", { clave: string; nombre: string; color
     { clave: "Pass", nombre: "Pase que no llega", color: SOBRE_CESPED.rival, es: (a) => a.tipo === "Pass" },
     { clave: "Dispossessed", nombre: "Robado en conducción", color: SOBRE_CESPED.palo, es: (a) => a.tipo === "Dispossessed" },
     { clave: "TakeOn", nombre: "Regate perdido", color: SOBRE_CESPED.gol, es: (a) => a.tipo === "TakeOn" },
-    { clave: "Error", nombre: "Error", color: SOBRE_CESPED.puerta, es: (a) => a.tipo === "Error" },
   ],
 };
 
@@ -346,15 +358,17 @@ function MapaOpta({ modo, partidoOpta }: { modo: "robos" | "perdidas"; partidoOp
   if (!lista.length) return null;
 
   const tipos = TIPOS[modo].map((t) => ({ ...t, n: lista.filter(t.es).length })).filter((t) => t.n > 0);
+  const cuantos = (clave: string) => tipos.find((t) => t.clave === clave)?.n ?? 0;
   const colorDe = (a: AccionCastilla) => TIPOS[modo].find((t) => t.es(a))?.color ?? SOBRE_CESPED.tenue;
   const porTercio = [lista.filter((a) => a.x < 33.3).length, lista.filter((a) => a.x >= 33.3 && a.x < 66.7).length, lista.filter((a) => a.x >= 66.7).length];
 
   return (
     <div className="mt-3 min-w-0">
       <p className="text-[11px] leading-relaxed text-white/55">
+        {/* 10/11/2026: el mapa no cuenta lo mismo que la casilla de arriba, y se dice. */}
         {modo === "robos"
-          ? `${lista.length} acciones con las que el Castilla se queda el balón: recuperaciones, intercepciones y entradas ganadas`
-          : `${lista.length} acciones en las que el Castilla deja de tener el balón: pases que no llegan, regates perdidos, balones robados y errores`}
+          ? `${lista.length} acciones con las que el Castilla se queda el balón: ${cuantos("BallRecovery")} recuperaciones de balón suelto (las de la casilla «Recuperaciones»), ${cuantos("Interception")} intercepciones y ${cuantos("Tackle")} entradas ganadas`
+          : `${lista.length} acciones del registro evento a evento en las que el Castilla deja de tener el balón: pases que no llegan, regates perdidos y balones robados. No es la cifra de la casilla «Pérdidas»: ese es el recuento propio de Opta, que da por perdidas más acciones de las que el registro pone en el campo`}
         {`. Por tercios: ${porTercio.join(" · ")} (propio · medio · último). El Castilla ataca hacia la derecha.`}
       </p>
       <div className="mt-2 max-w-3xl">

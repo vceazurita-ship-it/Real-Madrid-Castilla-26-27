@@ -291,13 +291,15 @@ export const PREGUNTAS: Pregunta[] = [
       "Es la factura directa de la transición. Abajo a la derecha se pierde atrás y aun así no se concede: el repliegue funciona.",
   },
   {
+    /* 10/11/2026: el PPDA no es presión tras pérdida, es la presión sobre la
+       salida del rival: la pregunta pasa a «sin balón». La clave se queda. */
     key: "presion-tras-perdida",
-    momento: "trDef",
-    texto: "Al perderlo, ¿apretamos o nos replegamos?",
+    momento: "sin",
+    texto: "Cuando sacan ellos, ¿apretamos su salida o les esperamos?",
     x: "recuperacionesAltas",
     y: "ppda",
     comoSeLee:
-      "Muchas recuperaciones altas con PPDA baja es presión tras pérdida. Pocas y PPDA alta es replegarse y esperar en bloque medio.",
+      "El PPDA mide la presión sobre la salida del rival: cuántos pases le dejamos dar en su campo por cada acción defensiva nuestra. Muchas recuperaciones altas con PPDA baja es apretar su salida; pocas y PPDA alta, esperarle en bloque medio.",
   },
   {
     key: "falta-tactica",

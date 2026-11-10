@@ -1392,16 +1392,32 @@ export default function DataAnalisisPage() {
               </div>
             )}
 
-            {!cargando && !datos?.ok && (
+            {/* 10/11/2026: si Wyscout no carga, la puerta «Post del partido» no se
+                tapa entera: se quita sólo lo de Wyscout (aviso corto dentro) y lo
+                de Opta sigue. En las demás áreas, el aviso general de siempre. */}
+            {!cargando && (!datos?.ok || partidos.length === 0) && area === "post" && (
+              <div id="data-bloques">
+                <PanelPostPartido wyscout={[]} wyscoutCaido />
+              </div>
+            )}
+
+            {!cargando && !datos?.ok && area !== "post" && (
               <div className="mt-6">
                 <Notice tone="warn" title="No se ha podido leer la carpeta de datos">
                   {datos?.error ??
                     "Comprueba que existe public/data con sus carpetas opta y wys."}
+                  <button
+                    type="button"
+                    onClick={() => setArea("post")}
+                    className="mt-2 block text-left text-sm font-semibold text-[#C8A96B] underline-offset-2 hover:underline"
+                  >
+                    El post del partido de Opta sí se puede abrir →
+                  </button>
                 </Notice>
               </div>
             )}
 
-            {!cargando && datos?.ok && partidos.length === 0 && (
+            {!cargando && datos?.ok && partidos.length === 0 && area !== "post" && (
               <div className="mt-6">
                 <Notice tone="warn" title="No ha llegado ningún informe">
                   <p>

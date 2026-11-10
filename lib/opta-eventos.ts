@@ -866,13 +866,24 @@ export const esAlUltimoTercio = (a: AccionCastilla) => esPase(a) && a.ok && a.x 
 export const esRecuperacion = (a: AccionCastilla) =>
   a.tipo === "BallRecovery" || a.tipo === "Interception" || (a.tipo === "Tackle" && a.ok);
 
-/** Pérdida: pase fallado, regate perdido, robado en conducción o error. */
+/**
+ * Pérdida: pase fallado, regate perdido o robado en conducción.
+ * 10/11/2026: sin el «Error» de Opta. Es un evento aparte que marca la acción
+ * que acaba en remate o gol del rival: viene sin jugador (el registro lo
+ * atribuye por la posesión y a veces cae del lado que no es) y, cuando es
+ * nuestro, va pegado a la acción fallada, que ya cuenta: era contar doble.
+ */
 export const esPerdida = (a: AccionCastilla) =>
-  (a.tipo === "Pass" && !a.ok) || a.tipo === "Dispossessed" || (a.tipo === "TakeOn" && !a.ok) || a.tipo === "Error";
+  (a.tipo === "Pass" && !a.ok) || a.tipo === "Dispossessed" || (a.tipo === "TakeOn" && !a.ok);
 
 export type Altura3 = "alta" | "media" | "baja";
-/** Altura de la acción: en campo rival (presión alta), en el medio o en el propio tercio (bloque bajo). */
-export const alturaAccion = (x: number): Altura3 => (x >= 60 ? "alta" : x >= 33.3 ? "media" : "baja");
+/**
+ * Altura de la acción, en tres tercios iguales (los de Opta: PosWonA3rd,
+ * PsLostA3…): último tercio (presión alta), tercio medio o primer tercio
+ * (bloque bajo). 10/11/2026: antes «alta» era x ≥ 60 y se llamaba «campo
+ * rival», que empieza en 50: ni una cosa ni otra.
+ */
+export const alturaAccion = (x: number): Altura3 => (x >= 66.7 ? "alta" : x >= 33.3 ? "media" : "baja");
 
 export type NodoRed = { jugador: string; x: number; y: number; pases: number };
 export type EnlaceRed = { a: string; b: string; n: number };

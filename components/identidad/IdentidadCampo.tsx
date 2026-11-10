@@ -15,6 +15,7 @@ import Papa from "papaparse";
 import { AlertTriangle, ArrowUpRight, CheckCircle2, Star, TrendingDown } from "lucide-react";
 
 import { IdentidadOpta } from "@/components/identidad/IdentidadOpta";
+import { NotaMetodo, SelloFuente } from "@/components/ui/SelloFuente";
 import { Conclusiones, Explicativo } from "@/components/ui/textos-analisis";
 import { ErrorState, LoadingState } from "@/components/ui/knowledge-kit";
 import { loadRegistro } from "@/lib/abp/registro";
@@ -30,6 +31,7 @@ import {
   type JugadorEncaje,
   type PartidoEje,
 } from "@/lib/identidad/campo";
+import { notaWyscout } from "@/lib/opta-identidad";
 
 const MODELO_CSV =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub?gid=1322156567&single=true&output=csv";
@@ -179,6 +181,8 @@ function TarjetaBloque({ b, partidos }: { b: BloqueMedido; partidos: PartidoEje[
             <p className="mt-1 text-[11px] leading-snug text-white/45">
               {p.indicadores.map((i) => `${i.nombre} ${formatea(i.valor, i.unidad)} (categoría ${formatea(i.mediana, i.unidad)})`).join(" · ")}
             </p>
+            {/* 10/11/2026: donde manda Opta (abajo), se dice, y si no es la misma cuenta. */}
+            {p.indicadores.map((i) => (i.lado === "nuestro" ? <NotaMetodo key={i.metrica} nota={notaWyscout(i.metrica)} className="mt-0.5" /> : null))}
           </li>
         ))}
       </ul>
@@ -416,6 +420,8 @@ export function IdentidadCampo() {
   if (estado.error) return <ErrorState message={estado.error} onRetry={() => { setEstado({ cargando: true }); setIntento((n) => n + 1); }} />;
   if (!d) return null;
 
+  /* Nuestra cifra de Wyscout de cada indicador, para que la parte de Opta diga si casa. */
+  const wyscout = new Map(d.bloques.flatMap((b) => b.principios.flatMap((p) => p.indicadores.filter((i) => i.lado === "nuestro").map((i) => [i.metrica, i.valor] as const))));
   const ataque = d.bloques.filter((b) => b.fase === "ATAQUE");
   const defensa = d.bloques.filter((b) => b.fase === "DEFENSA");
   const ultimo = d.partidos.at(-1);
@@ -433,6 +439,13 @@ export function IdentidadCampo() {
             Cuánto se parece lo que hacemos en el partido a nuestro modelo, de 0 a 100 frente a los {d.equipos} equipos de la categoría.
             {ultimo && <> Hasta la J{ultimo.jornada} ({ultimo.rival}).</>}
           </p>
+          <SelloFuente
+            fuente="wyscout"
+            poblacion={`${d.competicion} (${d.equipos} equipos)`}
+            partidos={d.partidos.length || undefined}
+            detalle="los principios con sus indicadores de Wyscout; en presión, pérdidas, xG y remates manda la parte de abajo"
+            className="mt-2"
+          />
           <div className="mt-3 flex flex-wrap gap-2">
             <Link href="/game-model" className="inline-flex items-center gap-1 rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-white/70 hover:text-white">
               Identidad de Juego <ArrowUpRight size={12} aria-hidden />
@@ -485,7 +498,7 @@ export function IdentidadCampo() {
       </Seccion>
 
       {/* 10/11/2026: los mismos principios, medidos con Opta (otra fuente). */}
-      <IdentidadOpta />
+      <IdentidadOpta wyscout={wyscout} />
 
       {d.bloques.some((b) => b.entreno !== null) && (
         <Seccion titulo="Lo que entrenamos y lo que sale" sub="Cada fase según el tiempo que le damos en la semana y cómo sale en el partido.">

@@ -21,7 +21,8 @@ import { BLOQUES } from "@/lib/identidad/campo";
 import { DOCS_OPTA, aObjetos, type MetaOpta, type TablaOpta } from "@/lib/opta";
 import { gruposDe } from "@/lib/opta-analisis";
 import { momentoDe } from "@/lib/opta-eventos";
-import { ULTIMOS, dominioOpta, identidadOpta, type MedidaOpta, type Tendencia } from "@/lib/opta-identidad";
+import { CRUCES, ULTIMOS, dominioOpta, identidadOpta, notaOpta, type MedidaOpta, type Tendencia } from "@/lib/opta-identidad";
+import { NotaMetodo, SelloFuente } from "@/components/ui/SelloFuente";
 
 const ORO = "var(--rmcf-gold-ink, #C8A96B)";
 
@@ -72,9 +73,12 @@ function Serie({ m }: { m: MedidaOpta }) {
   );
 }
 
-function Fila({ m }: { m: MedidaOpta }) {
+function Fila({ m, wyscout }: { m: MedidaOpta; wyscout?: Map<string, number> }) {
   const color = colorPercentil(m.percentil);
   const t = m.tendencia ? TEXTO_TENDENCIA[m.tendencia] : null;
+  /* 10/11/2026: si arriba (Wyscout) sale el mismo principio, quién manda y si es la misma cuenta. */
+  const cruce = CRUCES.find((c) => c.rasgo === m.rasgo.id);
+  const nota = cruce ? notaOpta(m.rasgo.id, m.valor, wyscout?.get(cruce.wyscout)) : null;
 
   return (
     <li className="min-w-0 py-3 first:pt-0 last:pb-0">
@@ -103,6 +107,7 @@ function Fila({ m }: { m: MedidaOpta }) {
           .join(" · ")}
       </p>
       <p className="mt-0.5 text-[11px] leading-snug text-white/45">{m.rasgo.que}</p>
+      <NotaMetodo nota={nota} className="mt-0.5" />
       {m.serie.length > 0 && (
         <>
           <Serie m={m} />
@@ -117,6 +122,7 @@ function Fila({ m }: { m: MedidaOpta }) {
               )}
             </p>
           )}
+          {m.ultimos != null && m.antes != null && <NotaMetodo nota={m.aviso} className="mt-0.5" />}
         </>
       )}
     </li>
@@ -136,7 +142,8 @@ function Dominio({ partidos, grupos }: { partidos: ReturnType<typeof aObjetos>; 
   );
 }
 
-export function IdentidadOpta() {
+/** `wyscout`: la cifra de cada indicador de Wyscout de arriba (clave de `METRICAS` → valor), para la nota del cruce. */
+export function IdentidadOpta({ wyscout }: { wyscout?: Map<string, number> } = {}) {
   const { docs, cargando } = useDocsOpta<[MetaOpta, TablaOpta, TablaOpta]>(DOCS_OPTA.meta, DOCS_OPTA.equipos, DOCS_OPTA.partidos);
   const [meta, tEquipos, tPartidos] = docs;
   const [verDominio, setVerDominio] = useState(false);
@@ -154,12 +161,22 @@ export function IdentidadOpta() {
 
   return (
     <section className="min-w-0">
-      <h2 className="text-[11px] font-semibold uppercase tracking-[0.22em]" style={{ color: ORO }}>
-        Medido con Opta
-      </h2>
+      {/* 10/11/2026: la fuente va en el sello, no en el título (lib/fuentes.ts). */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        <h2 className="text-[11px] font-semibold uppercase tracking-[0.22em]" style={{ color: ORO }}>
+          Los mismos principios, evento a evento
+        </h2>
+        <SelloFuente
+          fuente="opta"
+          poblacion={`categoría (${medidas[0].deCategoria} equipos)`}
+          hasta={hasta ? `hasta el ${hasta}` : undefined}
+          partidos={nuestros || undefined}
+          detalle="presión (PPDA), pérdidas y recuperaciones por zona, xG y remates: aquí manda Opta"
+        />
+      </div>
       <p className="mt-1 text-[13px] text-white/55">
-        Los principios que Opta puede medir con una cifra de equipo, frente a los {medidas[0].deCategoria} equipos de Primera RFEF (los dos grupos). Es otra fuente que la de arriba (Wyscout): cuando
-        las dos dicen lo mismo, la lectura es firme.
+        Los principios que se pueden medir evento a evento con una cifra de equipo, frente a los {medidas[0].deCategoria} equipos de Primera RFEF (los dos grupos). En presión, pérdidas y
+        recuperaciones por zona, xG y remates manda esta cifra; en los duelos, la de arriba. Cuando las dos no son la misma cuenta, lo dice debajo de cada una.
       </p>
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
         <LeyendaPercentil poblacion="la categoría" />
@@ -175,7 +192,7 @@ export function IdentidadOpta() {
             <h3 className="text-base font-semibold text-white">{b.label}</h3>
             <ul className="mt-3 divide-y divide-white/10">
               {ms.map((m) => (
-                <Fila key={m.rasgo.id} m={m} />
+                <Fila key={m.rasgo.id} m={m} wyscout={wyscout} />
               ))}
             </ul>
           </article>
@@ -202,9 +219,9 @@ export function IdentidadOpta() {
       </div>
 
       <p className="mt-3 text-[11px] leading-relaxed text-white/45">
-        Fuente: Opta{hasta ? ` · hasta el partido del ${hasta}` : ""}{nuestros ? ` · ${nuestros} partidos del Castilla` : ""}. La cifra es por partido (los porcentajes y el PPDA, tal cual) y el percentil, contra
-        la categoría: más alto, más nuestro. La línea es nuestro partido a partido (arriba, mejor; la raya, la mediana de la categoría; sombreados, los {ULTIMOS} últimos); «mejora» o «empeora»
-        sólo cuando la diferencia con los partidos anteriores es mayor que lo que oscila de un partido a otro. No se pintan la transición defensiva (Opta no da por equipo los contraataques del rival)
+        La cifra es por partido; los porcentajes y el PPDA, el cociente de la temporada (sumas de todos los partidos). El percentil, contra la categoría: más alto, más nuestro. La línea es
+        nuestro partido a partido (arriba, mejor; la raya, la mediana de la categoría; sombreados, los {ULTIMOS} últimos). «Últimos {ULTIMOS}» y «antes» se cuentan igual que la cifra grande, y
+        donde Opta no lo permite se avisa; «mejora» o «empeora» sólo cuando la diferencia con los partidos anteriores es mayor que lo que oscila de un partido a otro. No se pintan la transición defensiva (Opta no da por equipo los contraataques del rival)
         ni los pases al hueco (menos de uno por partido: muestra demasiado pequeña).
       </p>
     </section>

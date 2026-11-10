@@ -27,7 +27,7 @@
  */
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Flame, Swords } from "lucide-react";
 
 import { PanelEquipo } from "@/components/data/PanelEquipo";
@@ -48,6 +48,8 @@ import { FRANJAS, momentumLiga } from "@/lib/opta-estilos";
 import { casaEquipo, enArea } from "@/lib/opta-eventos";
 import { defDe, metricasPartido, partidosPorEquipo, serieEvolucion, type Modo } from "@/lib/opta-evolucion";
 import { mismoClub } from "@/lib/rivals/mismoClub";
+import type { Sello as DatosSello } from "@/lib/fuentes";
+import { SelloFuente } from "@/components/ui/SelloFuente";
 
 /**
  * Las métricas de Wyscout que aquí son «2.ª lectura» porque manda Opta:
@@ -88,17 +90,9 @@ const CIFRAS: { a: string; wys: string; nombre: string; inverso?: boolean; estil
 
 const coma = (v: number, d = 2) => v.toFixed(d).replace(".", ",");
 
-/*
-| TODO-SELLO: cuando llegue `components/ui/SelloFuente.tsx` (y `lib/fuentes.ts`),
-| cambiar este <span> por el sello común. Va pequeño, por bloque, nunca en el
-| título.
-*/
-function Sello({ children }: { children: ReactNode }) {
-  return (
-    <span className="inline-flex shrink-0 items-center rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/45">
-      {children}
-    </span>
-  );
+/** El sello común (`SelloFuente`): pequeño, por bloque, nunca en el título. Sin datos, nada. */
+function Sello({ de }: { de: DatosSello | null }) {
+  return de ? <SelloFuente {...de} className="shrink-0" /> : null;
 }
 
 type Pestana = "vistazo" | "estilo" | "evolucion" | "remates";
@@ -212,19 +206,21 @@ function Contenido({ equipo }: { equipo: string }) {
   const vista = pestanas.some((p) => p.clave === pestana) ? pestana : pestanas[0]?.clave;
 
   /* Lo que la cabecera de cada bloque dice de su fuente. */
-  const selloOpta = useMemo(() => {
-    if (!opta || !idOpta) return "";
+  /* 10/11/2026: el número es de partidos jugados, no la jornada («J11» se leía
+     como jornada 11 y un aplazado lo desmiente): se dice «11 partidos». */
+  const selloOpta = useMemo<DatosSello | null>(() => {
+    if (!opta || !idOpta) return null;
     const g = opta.grupos.get(idOpta);
     const enGrupo = opta.equipos.filter((f) => opta.grupos.get(String(f.teamId ?? "")) === g).length;
     const jugados = opta.partidos.filter((f) => f.teamId === idOpta).length;
-    return `Opta · grupo de ${enGrupo}${jugados ? ` · J${jugados}` : ""}`;
+    return { fuente: "opta", poblacion: `grupo (${enGrupo} equipos)`, partidos: jugados || undefined };
   }, [opta, idOpta]);
-  const selloWys = useMemo(() => {
-    if (!wys || !equipoWys) return "";
+  const selloWys = useMemo<DatosSello | null>(() => {
+    if (!wys || !equipoWys) return null;
     const suyas = wys.liga.filter((f) => f.equipo === equipoWys);
     const comp = suyas[0]?.competicion ?? "";
     const equipos = new Set(wys.liga.filter((f) => f.competicion === comp).map((f) => f.equipo)).size;
-    return `Wyscout · grupo de ${equipos} · J${suyas.length}`;
+    return { fuente: "wyscout", poblacion: `grupo (${equipos} equipos)`, partidos: suyas.length || undefined };
   }, [wys, equipoWys]);
 
   if (!cargaWys && !cargaOpta && !equipoWys && !idOpta) return null;
@@ -249,7 +245,7 @@ function Contenido({ equipo }: { equipo: string }) {
         ) : (
           <div className="min-w-0">
             <div className="flex justify-end">
-              <Sello>{selloWys}</Sello>
+              <Sello de={selloWys} />
             </div>
             <PanelEquipo liga={wys.liga} jugadores={wys.jugadores} fijo={equipoWys} segundaLectura={idOpta ? SEGUNDA_LECTURA_WYSCOUT : undefined} />
           </div>
@@ -261,7 +257,7 @@ function Contenido({ equipo }: { equipo: string }) {
           <Momentos opta={opta} teamId={idOpta} sello={selloOpta} />
           <div className="min-w-0">
             <div className="mb-2 flex justify-end">
-              <Sello>{selloOpta}</Sello>
+              <Sello de={selloOpta} />
             </div>
             <Radiografia datos={opta} teamId={idOpta} />
           </div>
@@ -277,7 +273,7 @@ function Contenido({ equipo }: { equipo: string }) {
 /*  LAS CUATRO CIFRAS (Opta manda, Wyscout segunda lectura)            */
 /* ------------------------------------------------------------------ */
 
-function CifrasClave({ opta, teamId, wys, sello }: { opta: DatosOpta; teamId: string; wys: FilaPartido[]; sello: string }) {
+function CifrasClave({ opta, teamId, wys, sello }: { opta: DatosOpta; teamId: string; wys: FilaPartido[]; sello: DatosSello | null }) {
   const { equipos, grupos, catalogo } = opta;
   const fila = equipos.find((f) => f.teamId === teamId);
   const delGrupo = useMemo(() => equipos.filter((f) => grupos.get(String(f.teamId ?? "")) === grupos.get(teamId)), [equipos, grupos, teamId]);
@@ -300,7 +296,7 @@ function CifrasClave({ opta, teamId, wys, sello }: { opta: DatosOpta; teamId: st
     <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/45">Las cifras que más se preguntan</p>
-        <Sello>{sello}</Sello>
+        <Sello de={sello} />
       </div>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {cifras.map((c) => (
@@ -322,7 +318,7 @@ function CifrasClave({ opta, teamId, wys, sello }: { opta: DatosOpta; teamId: st
 /*  QUIÉN APRIETA Y CUÁNDO (su fila de momentumLiga)                   */
 /* ------------------------------------------------------------------ */
 
-function Momentos({ opta, teamId, sello }: { opta: DatosOpta; teamId: string; sello: string }) {
+function Momentos({ opta, teamId, sello }: { opta: DatosOpta; teamId: string; sello: DatosSello | null }) {
   /* Sólo el momento (≈1 MB): las franjas no necesitan los remates. */
   const { momento, cargando } = useMomento();
   const filas = useMemo(() => momentumLiga(momento, []), [momento]);
@@ -342,7 +338,7 @@ function Momentos({ opta, teamId, sello }: { opta: DatosOpta; teamId: string; se
     <Panel
       titulo="Quién aprieta y cuándo"
       subtitulo={`Parte de los minutos en que ${nombre} es el que aprieta (más xG y más toques en el área que el rival en ese rato), por franjas de 15′. El color, contra su grupo.`}
-      derecha={<Sello>{sello}</Sello>}
+      derecha={<Sello de={sello} />}
     >
       <p className="mb-3 text-[15px] font-semibold text-white">
         {fuerte && `Aprieta más entre el ${fuerte}′`}
@@ -377,7 +373,7 @@ function Momentos({ opta, teamId, sello }: { opta: DatosOpta; teamId: string; se
 /*  JORNADA A JORNADA                                                  */
 /* ------------------------------------------------------------------ */
 
-function EvolucionRival({ opta, teamId, sello }: { opta: DatosOpta; teamId: string; sello: string }) {
+function EvolucionRival({ opta, teamId, sello }: { opta: DatosOpta; teamId: string; sello: DatosSello | null }) {
   const { partidos, grupos, catalogo } = opta;
   const [modo, setModo] = useState<Modo>("partido");
   const porEquipo = useMemo(() => partidosPorEquipo(partidos), [partidos]);
@@ -395,7 +391,7 @@ function EvolucionRival({ opta, teamId, sello }: { opta: DatosOpta; teamId: stri
       subtitulo={`Seis cifras partido a partido: ${nombre}, sus rivales en esos mismos partidos y la media de su grupo en esa jornada (su partido n.º 1, 2, 3…).`}
       derecha={
         <>
-          <Sello>{sello}</Sello>
+          <Sello de={sello} />
           <Botonera
             etiqueta="Cómo se cuenta"
             valor={modo}
@@ -430,7 +426,7 @@ function EvolucionRival({ opta, teamId, sello }: { opta: DatosOpta; teamId: stri
 
 const deDentro = (rs: { x: number; y: number }[]) => (rs.length ? rs.filter((r) => enArea(r.x, r.y)).length / rs.length : null);
 
-function RematesRival({ opta, teamId, sello }: { opta: DatosOpta; teamId: string; sello: string }) {
+function RematesRival({ opta, teamId, sello }: { opta: DatosOpta; teamId: string; sello: DatosSello | null }) {
   /* Los remates (≈3 MB), sólo aquí. */
   const { remates, cargando, hay } = useRemates(opta);
   const g = opta.grupos.get(teamId);
@@ -457,7 +453,7 @@ function RematesRival({ opta, teamId, sello }: { opta: DatosOpta; teamId: string
     <Panel
       titulo="Dónde rematan y desde dónde les rematan"
       subtitulo={`Cada remate de la temporada en su sitio; el tamaño, su xG. Pincha un punto para ver el remate.`}
-      derecha={<Sello>{sello}</Sello>}
+      derecha={<Sello de={sello} />}
     >
       {frase && (
         <p className="mb-3 text-[15px] font-semibold text-white">
