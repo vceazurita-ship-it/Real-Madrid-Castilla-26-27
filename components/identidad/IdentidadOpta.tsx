@@ -180,8 +180,8 @@ export function IdentidadOpta({ wyscout }: { wyscout?: Map<string, number> } = {
       </p>
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
         <LeyendaPercentil poblacion="la categoría" />
-        <Link href="/opta?pestana=castilla" className="inline-flex items-center gap-1 rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-white/70 hover:text-white">
-          Área Opta <ArrowUpRight size={12} aria-hidden />
+        <Link href="/data-analisis?area=colectivo" className="inline-flex items-center gap-1 rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-white/70 hover:text-white">
+          Análisis de datos <ArrowUpRight size={12} aria-hidden />
         </Link>
       </div>
 

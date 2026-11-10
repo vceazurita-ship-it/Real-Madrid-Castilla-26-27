@@ -145,7 +145,10 @@ import { PanelAbpCategoria } from "@/components/data/PanelAbpCategoria";
 import { PanelIndividual } from "@/components/data/PanelIndividual";
 import { PanelOnce } from "@/components/data/PanelOnce";
 import { PanelTransferencia } from "@/components/data/PanelTransferencia";
-import { rotuloDeEje, type Pregunta } from "@/lib/data-analisis/preguntas";
+import { puntosConOpta, rotuloDeEje, type Pregunta } from "@/lib/data-analisis/preguntas";
+import { useDocsOpta } from "@/hooks/useDocsOpta";
+import { DOCS_OPTA, type MetaOpta, type TablaOpta } from "@/lib/opta";
+import type { Fuente } from "@/lib/fuentes";
 import {
   DURACION_POSESION,
   METRICAS_OPTA,
@@ -1003,7 +1006,16 @@ export default function DataAnalisisPage() {
     };
   }, [deLaLiga]);
 
-  const puntos = useMemo(() => {
+  /* Fuente principal (10/11/2026): en la temporada en curso y por partido,
+     xG, remates y PPDA de cada equipo salen de Opta (lib/fuentes.ts); lo
+     demás, de Wyscout. Son documentos ligeros que el Post ya trae. */
+  const { docs: optaLigero } = useDocsOpta<[MetaOpta, TablaOpta, TablaOpta]>(DOCS_OPTA.meta, DOCS_OPTA.equipos, DOCS_OPTA.partidos);
+  const tablasOpta = useMemo(
+    () => (optaLigero[1] && optaLigero[2] ? { meta: optaLigero[0], equipos: optaLigero[1], partidos: optaLigero[2] } : null),
+    [optaLigero],
+  );
+
+  const puntosWyscout = useMemo(() => {
     const mx = METRICA_POR_KEY.get(metricaX);
     const my = METRICA_POR_KEY.get(metricaY);
 
@@ -1023,6 +1035,15 @@ export default function DataAnalisisPage() {
       })
       .filter((p): p is { equipo: string; x: number; y: number } => p !== null);
   }, [contraDe, contraX, contraY, deLaLiga, equiposLiga, metricaX, metricaY, modo]);
+
+  const conOpta = useMemo(
+    () =>
+      laQueMando === actual && modo === "promedio" && tablasOpta
+        ? puntosConOpta(puntosWyscout, { x: metricaX, y: metricaY, contraX, contraY }, tablasOpta)
+        : null,
+    [actual, contraX, contraY, laQueMando, metricaX, metricaY, modo, puntosWyscout, tablasOpta],
+  );
+  const puntos = conOpta?.puntos ?? puntosWyscout;
 
   /* --------------------------- HISTORIA ---------------------------- */
 
@@ -2567,8 +2588,9 @@ export default function DataAnalisisPage() {
                       onPregunta={eligePregunta}
                       onCambiaX={cambiaX}
                       onCambiaY={cambiaY}
-                      nota={`${equiposLiga.length} equipos de ${laQueMando}. El Castilla va en oro${otroEquipo ? ` y ${otroEquipo}, en azul` : ""}.`}
-                      base={baseLiga ? `Wyscout · ${baseLiga.equipos} equipos · ${baseLiga.partidos} cada uno · ${modo === "total" ? "total" : "por partido"}` : undefined}
+                      nota={`${equiposLiga.length} equipos de ${laQueMando}. El Castilla va en oro${otroEquipo ? ` y ${otroEquipo}, en azul` : ""}.${conOpta?.nota ? ` ${conOpta.nota}` : ""}`}
+                      fuentes={conOpta?.fuentes}
+                      base={baseLiga ? `Wyscout · ${baseLiga.equipos} equipos · ${baseLiga.partidos} cada uno · ${modo === "total" ? "total" : "por partido"}${conOpta && (conOpta.fuentes.x === "opta" || conOpta.fuentes.y === "opta") ? " · xG, remates y PPDA de Opta" : ""}` : undefined}
                     />
                   </>
                 )}
@@ -3316,6 +3338,7 @@ function ParDeMetricas({
   rotulaTodos = false,
   comparado,
   base,
+  fuentes,
 }: {
   /** Fuente y muestra, al pie del dibujo y en la lectura (07/11/2026). */
   base?: string;
@@ -3337,6 +3360,8 @@ function ParDeMetricas({
   nota?: string;
   /** Escribe el rótulo de todos los puntos: en nuestra historia, el año. */
   rotulaTodos?: boolean;
+  /** De qué fuente sale cada eje (10/11/2026): «· Opta» junto al eje que manda Opta. */
+  fuentes?: { x?: Fuente; y?: Fuente };
 }) {
   const metX = METRICA_POR_KEY.get(metricaX);
   const metY = METRICA_POR_KEY.get(metricaY);
@@ -3355,6 +3380,7 @@ function ParDeMetricas({
           metricaY={metricaY}
           contraX={contraX}
           contraY={contraY}
+          fuentes={fuentes}
         />
       </Panel>
 
