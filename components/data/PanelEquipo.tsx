@@ -180,7 +180,24 @@ function nombreLlano(nombre: string) {
 /** Nivel de un percentil, en palabras. */
 const nivel = (p: number) => (p >= 80 ? "de los que más" : p >= 60 ? "por encima de la media" : p >= 40 ? "en la media" : p >= 20 ? "por debajo de la media" : "de los que menos");
 
-export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadores: FilaJugador[] }) {
+/**
+ * `fijo` (10/11/2026, Scout colectivo → «Datos del rival»): el equipo de
+ * Wyscout ya elegido fuera; sin desplegable ni atajos. `segundaLectura`: las
+ * claves de métrica que en esa pantalla manda otra fuente (Opta para xG,
+ * remates, PPDA, ABP…): se enseñan más discretas y con su rótulo. Sin estas
+ * dos, Data análisis se queda como estaba.
+ */
+export function PanelEquipo({
+  liga,
+  jugadores,
+  fijo,
+  segundaLectura,
+}: {
+  liga: FilaPartido[];
+  jugadores: FilaJugador[];
+  fijo?: string;
+  segundaLectura?: ReadonlySet<string>;
+}) {
   const [tipoProgresion, setTipoProgresion] = useTipoGrafico("progresion-equipos", "mapa", ["mapa", "ranking"] as const);
   const escudoDe = useEscudos();
   /* Nuestra competición por calendario y cada rival con su jornada (11/10/2026). */
@@ -228,7 +245,9 @@ export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadore
 
   const todos = useMemo(() => [...new Set(porCompeticion.flatMap((c) => c.equipos))], [porCompeticion]);
   const delProximo = proximo ? todos.find((e) => mismoClub(e, proximo)) ?? "" : "";
-  const equipo = (elegido && todos.includes(elegido) ? elegido : "") || delProximo || (todos.includes(NOSOTROS) ? NOSOTROS : todos[0] ?? "");
+  const equipo = fijo && todos.includes(fijo) ? fijo : (elegido && todos.includes(elegido) ? elegido : "") || delProximo || (todos.includes(NOSOTROS) ? NOSOTROS : todos[0] ?? "");
+  const esSegunda = (x: MetricaEquipo) => !!segundaLectura?.has(x.metrica.key);
+  const rotuloSegunda = <span className="ml-1 rounded border border-white/15 px-1 text-[9px] uppercase tracking-wider text-white/40">2.ª lectura</span>;
 
   const resumen = useMemo(() => resumenDe(equipo, liga, liga), [equipo, liga]);
   const perfil = useMemo(() => perfilDe(equipo, liga), [equipo, liga]);
@@ -257,9 +276,9 @@ export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadore
   if (!equipo) return <p className="mt-6 text-sm text-white/50">No hay partidos de Wyscout con estos filtros.</p>;
 
   const filaMetrica = (x: MetricaEquipo) => (
-    <div key={x.metrica.key} title={x.metrica.comoLeer}>
+    <div key={x.metrica.key} title={x.metrica.comoLeer} className={esSegunda(x) ? "opacity-60" : undefined}>
       <div className="flex items-baseline justify-between gap-2 text-xs">
-        <span className="truncate text-white/80">{nombreLlano(x.metrica.nombre)}{x.metrica.mejorAlto === false ? " ↓" : ""}</span>
+        <span className="truncate text-white/80">{nombreLlano(x.metrica.nombre)}{x.metrica.mejorAlto === false ? " ↓" : ""}{esSegunda(x) && rotuloSegunda}</span>
         <span className="shrink-0 tabular-nums text-white/45">
           {x.metrica.key === "rojas" && resumen.partidos ? `${Math.round(x.valor * resumen.partidos)} en ${resumen.partidos} partidos` : formatea(x.valor, x.metrica.unidad)} · {ordinal(x.puesto)} de {x.de}
         </span>
@@ -285,6 +304,9 @@ export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadore
             </span>
           )}
           <div className="min-w-0 flex-1">
+            {fijo ? (
+              <p className="truncate text-base font-semibold text-white sm:text-lg">{equipo}</p>
+            ) : (
             <select
               value={equipo}
               onChange={(e) => setElegido(e.target.value)}
@@ -303,11 +325,12 @@ export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadore
                 </optgroup>
               ))}
             </select>
+            )}
             <p className="mt-1 text-xs text-white/45">
               {perfil?.competicion ? nombreCompeticion(perfil.competicion) : ""}
               {resumen.tabla ? ` · ${ordinal(resumen.tabla.puesto)} de ${resumen.tabla.de} por puntos por partido` : ""}
             </p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
+            <div className={`mt-2 flex-wrap gap-1.5 ${fijo ? "hidden" : "flex"}`}>
               {delProximo && equipo !== delProximo && (
                 <button type="button" onClick={() => setElegido(delProximo)} className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-white/60 hover:text-white">
                   Próximo rival: {delProximo}
@@ -491,8 +514,8 @@ export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadore
           <Tarjeta titulo="Su estilo">
             <div className="space-y-1.5">
               {perfil.estilo.map((x) => (
-                <div key={x.metrica.key} className="flex flex-wrap items-baseline justify-between gap-x-2 text-xs" title={x.metrica.comoLeer}>
-                  <span className="min-w-0 truncate text-white/75">{nombreLlano(x.metrica.nombre)}</span>
+                <div key={x.metrica.key} className={`flex flex-wrap items-baseline justify-between gap-x-2 text-xs ${esSegunda(x) ? "opacity-60" : ""}`} title={x.metrica.comoLeer}>
+                  <span className="min-w-0 truncate text-white/75">{nombreLlano(x.metrica.nombre)}{esSegunda(x) && rotuloSegunda}</span>
                   <span className="shrink-0 tabular-nums">
                     <b className="text-white/90">{formatea(x.valor, x.metrica.unidad)}</b>
                     <span className="text-white/40">

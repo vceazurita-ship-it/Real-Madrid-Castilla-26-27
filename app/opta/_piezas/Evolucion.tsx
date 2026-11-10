@@ -59,7 +59,7 @@ const enMedia = (u: Unidad): Unidad => (u === "entero" ? "decimal" : u);
 const diferencia = (d: number | null, u: Unidad) =>
   d == null ? "" : `${d > 0 ? "+" : d < 0 ? "−" : ""}${u === "porcentaje" ? `${Math.abs(d).toFixed(1).replace(".", ",")} pts` : fmt(Math.abs(d), enMedia(u))}`;
 
-const nombreDeMetrica = (a: string, datos: DatosOpta) => defDe(a, datos.catalogo).nombre || nombreMetrica(a, datos.catalogo);
+export const nombreDeMetrica = (a: string, datos: DatosOpta) => defDe(a, datos.catalogo).nombre || nombreMetrica(a, datos.catalogo);
 
 export function Evolucion({ datos }: { datos: DatosOpta }) {
   const { partidos, grupos, catalogo } = datos;
@@ -165,7 +165,7 @@ export function Evolucion({ datos }: { datos: DatosOpta }) {
   );
 }
 
-function Leyenda({ nombre, liga, modo }: { nombre: string; liga: string; modo: Modo }) {
+export function Leyenda({ nombre, liga, modo }: { nombre: string; liga: string; modo: Modo }) {
   const raya = (color: string, discontinua = false) => (
     <svg width="22" height="8" aria-hidden className="shrink-0">
       <line x1="1" y1="4" x2="21" y2="4" style={{ stroke: color, strokeWidth: 2.5, strokeDasharray: discontinua ? "4 3" : undefined }} />
@@ -206,7 +206,7 @@ function trazo(puntos: ([number, number] | null)[]): string {
   return d.trim();
 }
 
-function MiniEvolucion({
+export function MiniEvolucion({
   nombre,
   def,
   serie,

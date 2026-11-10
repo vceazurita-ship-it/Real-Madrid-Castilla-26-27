@@ -33,6 +33,7 @@ import RecursosRival, {
   type RecursoFijo,
 } from "@/components/rivals/RecursosRival";
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
+import { DatosDelRival } from "@/components/rivals/DatosDelRival";
 import { AvisoLento } from "@/components/rivals/AvisoLento";
 import { TiraJornadas } from "@/components/rivals/TiraJornadas";
 import { useRivalInforme } from "@/hooks/useRivalInforme";
@@ -103,6 +104,8 @@ const NAV = [
   { id: "ofensivo", label: "Fase ofensiva" },
   { id: "defensivo", label: "Fase defensiva" },
   { id: "conclusiones", label: "Conclusiones" },
+  /* 10/11/2026: Wyscout y Opta del rival juntos (components/rivals/DatosDelRival.tsx). */
+  { id: "datos-rival", label: "Datos del rival" },
 ];
 
 function formatDate(value?: string, sinAnio = false) {
@@ -810,6 +813,8 @@ export default function ScoutRivalCollective() {
 
   /* ¿Se pinta esta sección? En lectura, sólo si algún campo tiene texto. */
   const seccionVisible = (id: string) => {
+    if (id === "datos-rival") return !!rivalActivo?.EQUIPO;
+
     if (modoEdicion) return true;
 
     if (id === "conclusiones") return conclusionesVisibles.length > 0;
@@ -1693,6 +1698,9 @@ export default function ScoutRivalCollective() {
             </div>
           </section>
           )}
+
+          {/* Wyscout y Opta del rival, por pregunta (10/11/2026). Se carga al asomar. */}
+          {rivalActivo?.EQUIPO && <DatosDelRival equipo={rivalActivo.EQUIPO} rivalId={String(rivalActivo.ID ?? "")} />}
 
           {/* Las siglas del texto del analista, sólo las que salen (29/10/2026). */}
           {!modoEdicion && siglasUsadas.length > 0 && (

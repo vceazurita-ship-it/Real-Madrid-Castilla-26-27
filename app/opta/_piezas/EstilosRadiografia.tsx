@@ -52,7 +52,8 @@ function sector(r1: number, r2: number, a1: number, a2: number) {
 
 type Escala = "grupo" | "todos";
 
-export const Radiografia = forwardRef<HTMLDivElement, { datos: DatosOpta; teamId: string; alCambiar: (t: string) => void }>(function Radiografia(
+/* Sin `alCambiar`, el equipo viene fijado de fuera (Scout colectivo) y no sale el desplegable. */
+export const Radiografia = forwardRef<HTMLDivElement, { datos: DatosOpta; teamId: string; alCambiar?: (t: string) => void }>(function Radiografia(
   { datos, teamId, alCambiar },
   ref,
 ) {
@@ -94,7 +95,7 @@ export const Radiografia = forwardRef<HTMLDivElement, { datos: DatosOpta; teamId
         subtitulo={`22 métricas por partido. El largo de cada porción es su percentil contra ${contra}: P80 es estar por encima del 80 %. Donde menos es mejor (xG y remates en contra, PPDA, ocasiones de ABP concedidas) se da la vuelta.`}
         derecha={
           <>
-            <Elegir etiqueta="Equipo" valor={id} alCambiar={alCambiar} opciones={lista.map((e) => ({ clave: e.teamId, nombre: e.equipo }))} />
+            {alCambiar && <Elegir etiqueta="Equipo" valor={id} alCambiar={alCambiar} opciones={lista.map((e) => ({ clave: e.teamId, nombre: e.equipo }))} />}
             <Botonera
               etiqueta="Contra quién"
               valor={escala}
