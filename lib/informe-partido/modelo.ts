@@ -2246,6 +2246,20 @@ export function vistazoCoherente(v: VistazoRival | null, plantilla: JugadorRival
   return { vistazo: { ...v, figuras }, avisos };
 }
 
+/** «central», «lateral» (con carrilero), «medio», «extremo», «delantero», «portero»; "" si no se sabe. */
+const familiaDePuesto = (puesto: string) => {
+  const p = puesto.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+  if (/portero|\bpor\b/.test(p)) return "portero";
+  if (/central|\bdfc\b/.test(p)) return "central";
+  if (/lateral|carrilero|\bld\b|\bli\b/.test(p)) return "lateral";
+  if (/pivote|medio|mediocentro|interior|volante|\bmc\b|\bmcd\b|\bmco\b/.test(p)) return "medio";
+  if (/extremo|banda|\bed\b|\bei\b/.test(p)) return "extremo";
+  if (/delantero|punta|\bdc\b/.test(p)) return "delantero";
+
+  return "";
+};
+
 const ladoDe = (puesto: string) => (/\bizq|\bizd|\bizdo\b|\biz\b/i.test(puesto) ? "izquierdo" : /\bder|\bdch|\bdcho\b/i.test(puesto) ? "derecho" : "");
 
 /**
@@ -2263,13 +2277,28 @@ export function puestosCoherentes(v: VistazoRival | null, jugadores: JugadorRiva
   return jugadores.map((j) => {
     const lado = ladoDe(j.posicion);
 
-    if (!lado) return j;
-
     const casan = puestos.filter((p) => mismoJugador(j.nombre, p.nombre));
 
     if (casan.length !== 1) return j;
 
     const wy = casan[0];
+
+    /*
+    | Un solo puesto en todo el informe (10/11/2026, fútbol): Royo salía de
+    | «central izquierdo» en Wyscout y de «lateral izdo» en la ficha, el mismo
+    | lado pero otro puesto. Si la familia (central, lateral, medio…) no casa,
+    | manda también Wyscout.
+    */
+    const familia = familiaDePuesto(j.posicion);
+    const suFamilia = familiaDePuesto(wy.posicion);
+
+    if (familia && suFamilia && familia !== suFamilia) {
+      avisos?.push(`La ficha de ${j.nombre} dice «${j.posicion}» y Wyscout lo pone de ${wy.posicion} (${wy.minutos}′): sale el de Wyscout; revisa la ficha.`);
+
+      return { ...j, posicion: wy.posicion.toUpperCase() };
+    }
+
+    if (!lado) return j;
 
     const suyo = ladoDe(wy.posicion);
 
@@ -2546,7 +2575,11 @@ export function planPorFases(inf: Omit<InformePartido, "sintesis">): { fase: str
 
     lineas.push({
       fase: "Sin balón",
+      /* Quién dobla, dónde y sobre quién (10/11/2026, fútbol): «Montalvo gana en cuerpo a
+         cuerpo» colgaba su punto fuerte sin decir qué hacemos. */
       texto: primeraQueQuepa(
+        clave && vigilar.nuestros.length ? `Doblamos ${lugar}: ${apellidos(vigilar.nuestros)} sobre ${quien} (${clave.suyo} frente a ${clave.nuestro})` : "",
+        clave && vigilar.nuestros.length ? `Doblamos ${lugar}: ${apellidos(vigilar.nuestros)} sobre ${quien} (${clave.suyo}-${clave.nuestro})` : "",
         clave ? `Doblamos ${lugar}: ${quien} ${ganan} en ${clave.titulo.toLowerCase()} (${clave.suyo} frente a ${clave.nuestro})` : "",
         clave ? `Doblamos ${lugar}: ${quien} ${ganan} en ${clave.titulo.toLowerCase()}` : "",
         `Doblamos ${lugar} ante ${quien}`,
@@ -3711,7 +3744,7 @@ function lugarDeDano(donde: string) {
 
   if (/^los m[aá]s flojos atr[aá]s$/i.test(d)) return "atrás";
 
-  return minusculaInicial(d.replace(/,\s*(?:el|los) m[aá]s flojos?$/i, "").trim());
+  return minusculaInicial(d.replace(/,\s*(?:el|los) m[aá]s flojos?$/i, "").replace(/,\s*a quien (?:presionar|atacar)$/i, "").trim());
 }
 
 /**

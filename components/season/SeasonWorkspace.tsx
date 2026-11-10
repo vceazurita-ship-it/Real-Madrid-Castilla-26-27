@@ -270,13 +270,18 @@ export default function SeasonWorkspace({ area }: Props) {
                   onReload={() => reloadSeason({ keepSelection: true })}
                 />
 
-                {/* SELECTOR EN MÓVIL */}
+                {/*
+                | LA LISTA DE SEMANAS, PLEGADA (10/11/2026, análisis y marketing):
+                | la tira de arriba ya lleva a cada semana pasada y la semana
+                | abierta va al lado; la lista por meses repetía lo mismo. Se
+                | despliega para buscar una semana futura o por fecha.
+                */}
 
                 <button
                   type="button"
                   onClick={() => setNavOpen((value) => !value)}
                   aria-expanded={navOpen}
-                  className="mb-4 flex w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-[#11161D] px-4 py-3 text-left xl:hidden"
+                  className="mb-4 flex w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-[#11161D] px-4 py-3 text-left xl:max-w-[380px]"
                 >
                   <span className="min-w-0">
                     <span className="block text-xs uppercase tracking-wider text-white/40">
@@ -290,15 +295,15 @@ export default function SeasonWorkspace({ area }: Props) {
 
                   <span className="inline-flex shrink-0 items-center gap-2 text-sm text-[#C8A96B]">
                     <ListFilter size={16} />
-                    {navOpen ? "Ocultar" : "Cambiar"}
+                    {navOpen ? "Ocultar la lista" : "Buscar otra semana"}
                   </span>
                 </button>
 
-                <div className="grid items-start gap-6 xl:grid-cols-[380px_1fr]">
+                <div className={`grid items-start gap-6 ${navOpen ? "xl:grid-cols-[380px_1fr]" : ""}`}>
                   <div
                     className={`${
                       navOpen ? "block" : "hidden"
-                    } xl:sticky xl:top-6 xl:block`}
+                    } xl:sticky xl:top-6`}
                   >
                     <WeekNavigator
                       season={season}

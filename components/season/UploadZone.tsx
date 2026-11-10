@@ -97,14 +97,18 @@ export default function UploadZone({
           <span className="block text-sm font-medium text-white/85">
             {busy ? busyLabel : isDragActive ? "Suelta los archivos aquí" : estado ?? "Arrastra los archivos o pulsa el botón"}
           </span>
-          <span className="block text-[13px] text-white/65">{formatos} · o arrástralos aquí</span>
+          {/* «o arrástralos aquí» sólo con ratón (10/11/2026): en táctil no se puede arrastrar. */}
+          <span className="block text-[13px] text-white/65">
+            {formatos}
+            <span className="hidden [@media(pointer:fine)]:inline"> · o arrástralos aquí</span>
+          </span>
         </span>
 
         <button
           type="button"
           onClick={open}
           disabled={busy}
-          className="inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-[#C8A96B] px-4 text-sm font-semibold text-[#0B0F14] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+          className="inline-flex min-h-12 w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-[#C8A96B] px-4 text-sm font-semibold text-[#0B0F14] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
         >
           {busy ? <Loader2 size={16} className="animate-spin" /> : <UploadCloud size={16} />}
           {boton}

@@ -508,6 +508,22 @@ function planDe(fila: Fila | null): Plan | null {
   return hayAlgo ? plan : null;
 }
 
+/*
+| El texto de la ficha del rival, repasado antes de la diapositiva (10/11/2026,
+| marketing): tildes que la hoja no lleva («linea»), «recurrido» por
+| «recorrido», la frase que acaba en «desde todas», «a pares» sin decir qué es
+| y dos nombres unidos por un guion («Montalvo - Eugeni»). La hoja no se toca.
+*/
+function pulirScouting(t: string) {
+  return t
+    .replace(/\blinea(s?)\b/g, "línea$1")
+    .replace(/\bLinea(s?)\b/g, "Línea$1")
+    .replace(/\brecurrido\b/g, "recorrido")
+    .replace(/\bdesde todas$/i, "desde todas las zonas")
+    .replace(/:\s*a pares$/i, ": emparejados al hombre")
+    .replace(/(\p{Lu}[\p{Ll}]+) - (\p{Lu}[\p{Ll}]+)/gu, "$1 y $2");
+}
+
 function colectivoDe(fila: Fila | null, extra: Record<string, string>): Colectivo | null {
   if (!fila) return null;
 
@@ -531,7 +547,7 @@ function colectivoDe(fila: Fila | null, extra: Record<string, string>): Colectiv
   | Los campos van por orden de importancia y `fraseDeFase` toma la frase del
   | siguiente si el primero sólo trae el dibujo.
   */
-  const fase = (titulo: string, campos: string[]) => ({ titulo, texto: fraseDeFase(titulo, campos.map(valor).filter(Boolean), 140) });
+  const fase = (titulo: string, campos: string[]) => ({ titulo, texto: pulirScouting(fraseDeFase(titulo, campos.map(valor).filter(Boolean), 140)) });
 
   const fases = [
     fase("Cómo salen", ["OF_INICIO_ESTRUCTURA", "OF_REINICIO_CONTEXTO", "OF_REINICIO_REFERENCIAS", "OF_INICIO_ASOCIACIONES"]),
@@ -550,9 +566,11 @@ function colectivoDe(fila: Fila | null, extra: Record<string, string>): Colectiv
     ["TRANSICION_DEF_DIFICULTADES_ESPALDA", "Tras pérdida, a su espalda"],
     ["DEF_BLOQUE_ALTO_ESPALDA", "A la espalda de su presión"],
     ["DEF_BLOQUE_MEDIO_ESPALDA", "A la espalda de su bloque"],
-    ["OF_INICIO_JUGADOR_DEBIL_DENTRO", "En su salida, el más flojo"],
-    ["DEF_REINICIO_JUGADORES_DEBILES", "Los más flojos atrás"],
-    ["DEF_AREA_JUGADOR_DEBIL", "En su área, los más flojos"],
+    /* «A quien presionar», no «el más flojo» (10/11/2026, marketing): es la lectura del
+       scouting, sin una cifra que lo mida; no se vende como un dato. */
+    ["OF_INICIO_JUGADOR_DEBIL_DENTRO", "En su salida, a quien presionar"],
+    ["DEF_REINICIO_JUGADORES_DEBILES", "Atrás, a quien atacar"],
+    ["DEF_AREA_JUGADOR_DEBIL", "En su área, a quien atacar"],
     ["DEBILIDADES_INDIVIDUALES", ""],
   ];
 
@@ -565,7 +583,9 @@ function colectivoDe(fila: Fila | null, extra: Record<string, string>): Colectiv
 
     vistos.add(t);
 
-    return [donde ? `${donde}: ${t.charAt(0).toLowerCase()}${t.slice(1)}` : t];
+    const limpio = pulirScouting(t);
+
+    return [donde ? `${donde}: ${limpio.charAt(0).toLowerCase()}${limpio.slice(1)}` : limpio];
   }).slice(0, 3);
 
   return bloques.length || conclusiones.length ? { bloques, conclusiones, resumen: { fases, dano } } : null;

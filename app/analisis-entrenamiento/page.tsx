@@ -851,6 +851,11 @@ export default function AnalisisEntrenamientoPage() {
                       ? "Lo normal es que el análisis no reconozca a los jugadores: añade su peto o su dorsal en «Cómo reconocerlo» y vuelve a analizar."
                       : "Cuando el análisis del día esté hecho, aquí salen sus acciones con su clip para validarlas."
                   }
+                  /* Cada vacío con su salida (10/11/2026): no se queda en un mensaje sin acción. */
+                  acciones={[
+                    { texto: analisis ? "Revisar cómo reconocerlo" : "Ver los objetivos del día", icono: Target, onClick: () => setPestana("objetivos") },
+                    ...(!analisis && ultimoAnalizado ? [{ texto: `Abrir el ${ddmm(ultimoAnalizado)}, último día analizado`, icono: BarChart3, onClick: () => setFecha(ultimoAnalizado) }] : []),
+                  ]}
                 />
               )
             ) : pestana === "objetivos" ? (
@@ -1042,11 +1047,20 @@ function Cargando({ texto, onReintentar }: { texto: string; onReintentar?: () =>
   );
 }
 
-function Vacio({ titulo, texto }: { titulo: string; texto: string }) {
+function Vacio({ titulo, texto, acciones = [] }: { titulo: string; texto: string; acciones?: { texto: string; icono: typeof Target; onClick: () => void }[] }) {
   return (
     <div className="rounded-xl border border-dashed border-white/12 px-5 py-8 text-center">
       <p className="text-sm font-medium text-white/75">{titulo}</p>
-      <p className="mx-auto mt-1.5 max-w-lg text-xs leading-relaxed text-white/50">{texto}</p>
+      <p className="mx-auto mt-1.5 max-w-lg text-xs leading-relaxed text-white/55">{texto}</p>
+      {acciones.length ? (
+        <div className="mt-3 flex flex-wrap justify-center gap-2">
+          {acciones.map((a, i) => (
+            <Button key={a.texto} icon={a.icono} tone={i === 0 ? "primary" : undefined} onClick={a.onClick}>
+              {a.texto}
+            </Button>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -600,9 +600,9 @@ export default function QuinielaPage() {
                 subtitle="Acierto = partidos acertados / partidos jugados desde tu primera apuesta."
                 icon={Trophy}
               >
+                {/* Una línea (10/11/2026, marketing): el desempate entero va en «Cómo se cuenta · Reglas», abajo. */}
                 <p className="-mt-1 mb-2 text-[12px] leading-relaxed text-white/60">
-                  A igual porcentaje, manda quien más acierta; con los dos iguales, el puesto se comparte y lleva «=» (=8: empatados en el octavo).
-                  {" "}Jornadas ganadas: las que cada uno cerró con más aciertos que nadie.
+                  «=» es puesto compartido: mismo porcentaje y mismos aciertos.
                 </p>
                 {(
                   <div className="min-w-0 overflow-x-auto sm:pr-14">
@@ -652,7 +652,8 @@ export default function QuinielaPage() {
                                 lider ? "bg-[#C8A96B]/[0.07]" : ""
                               }`}
                             >
-                              <td className="py-1.5 text-right text-[11px] tabular-nums text-white/45">
+                              {/* El «=» a 12 px y sin cifras tabulares (10/11/2026): a 11 px en el móvil se leía «≈». */}
+                              <td className="py-1.5 text-right text-[12px] font-semibold text-white/55">
                                 {pocasApuestas(fila) ? "" : compartido ? `=${puesto + 1}` : indice + 1}
                               </td>
 
@@ -1089,8 +1090,9 @@ export default function QuinielaPage() {
               <Panel
                 title="Los partidos"
                 subtitle={
+                  /* Sin sesión, el subtítulo no repite «Entra con tu correo»: ya lo dice el aviso de arriba (10/11/2026). */
                   !yo
-                    ? "Entra con tu correo para apostar y meter resultados"
+                    ? undefined
                     : plazo.cerrada
                       ? "Jornada cerrada: tu apuesta ya no se puede cambiar"
                       : !docAlDia
@@ -1167,17 +1169,14 @@ export default function QuinielaPage() {
                               : ""
                         }`}
                       >
-                        <p className="text-[13px] text-white/85">
-                          <span className="mr-1.5 text-[10px] tabular-nums text-white/30">
+                        {/* Local y visitante en una línea (10/11/2026, marketing): los nueve partidos caben en una pantalla. */}
+                        <p className="text-[13px] leading-snug text-white/85">
+                          <span className="mr-1.5 text-[11px] tabular-nums text-white/40">
                             {indice + 1}
                           </span>
-                          {partido.local}
-                        </p>
-
-                        <p className="pl-4 text-[12px] text-white/45">
-                          {partido.visitante}
-                          {!yo && partido.fecha ? (
-                            <span className="text-white/35">{` · ${fechaCorta(partido.fecha)}`}</span>
+                          {partido.local} <span className="text-white/40">–</span> {partido.visitante}
+                          {partido.fecha ? (
+                            <span className="whitespace-nowrap text-[12px] text-white/50">{` · ${fechaCorta(partido.fecha)}`}</span>
                           ) : null}
                         </p>
 
@@ -1479,7 +1478,8 @@ export default function QuinielaPage() {
                     ? "Bloque cerrado: éstos son los dos que no pagan"
                     : tablaBloque.every((fila) => fila.jugados === 0)
                       ? undefined
-                      : `Los dos primeros del bloque comen invitados por el resto. Así va, tras ${Math.max(...tablaBloque.map((fila) => fila.jugados))} partidos jugados.`
+                      /* La base, dicha (10/11/2026, marketing): estos porcentajes no son los del ranking porque sólo cuentan este bloque. */
+                      : `Cuenta sólo las jornadas ${bloque.desde} a ${bloque.hasta}, por eso no coincide con el ranking. Los dos primeros comen invitados por el resto. Así va, tras ${Math.max(...tablaBloque.map((fila) => fila.jugados))} partidos jugados.`
                 }
                 icon={UtensilsCrossed}
               >
@@ -1570,6 +1570,12 @@ export default function QuinielaPage() {
                   <summary className="cursor-pointer select-none">
                     Reglas
                   </summary>
+                  <p className="mt-1">
+                    A igual porcentaje, manda quien más acierta; con los dos
+                    iguales, el puesto se comparte y lleva «=» (=8: empatados
+                    en el octavo). Jornadas ganadas: las que cada uno cerró con
+                    más aciertos que nadie.
+                  </p>
                   <p className="mt-1">
                     Un partido sin resultado no cuenta para nadie, ni a favor
                     ni en contra. No pronosticar sólo es fallo cuando el

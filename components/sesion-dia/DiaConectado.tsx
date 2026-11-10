@@ -151,7 +151,7 @@ export function DiaConectado({
                       {e.nombre} {e.jugadores.length}
                     </span>
                   ))}
-                  {eq && eq.comodines.length ? <span className="text-[11px] text-white/50" title={eq.comodines.join(", ")}>+{eq.comodines.length} comodín{eq.comodines.length === 1 ? "" : "es"}</span> : null}
+                  {eq && eq.comodines.length ? <span className="text-[11px] text-white/50" title={eq.comodines.join(", ")}>+{eq.comodines.length} {eq.comodines.length === 1 ? "comodín" : "comodines"}</span> : null}
                 </p>
                 {otroNombre && delPlan && delPlan.toLowerCase() !== otroNombre.toLowerCase() ? (
                   <p className="text-[11px] text-white/50">

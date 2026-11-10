@@ -20,7 +20,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { Check, Copy, Download, RefreshCw, ShieldCheck } from "lucide-react";
+import { Check, Copy, Download, RefreshCw, Search, ShieldCheck, X } from "lucide-react";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
@@ -70,7 +70,7 @@ async function copiaEscudo(url: string, equipo: string): Promise<"copiado" | "de
     if (typeof ClipboardItem === "undefined" || !navigator.clipboard?.write) throw new Error("sin portapapeles");
 
     await navigator.clipboard.write([new ClipboardItem({ "image/png": pngDelEscudo(url) })]);
-    aviso.exito(`Escudo de ${equipo} copiado`, "Pégalo donde haga falta: va en PNG transparente.");
+    aviso.exito(`Copiado: ${equipo}`, "Pégalo donde haga falta: va en PNG transparente.");
 
     return "copiado";
   } catch {
@@ -307,6 +307,12 @@ export default function EscudosPage() {
     escudos.length,
   ]);
 
+  /* Buscador sobre la parrilla (10/11/2026, marketing): quien quiere un solo escudo no recorre 40 tarjetas. */
+  const [busca, setBusca] = useState("");
+  const plano = (t: string) => t.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+  const consulta = plano(busca.trim());
+  const encontrados = consulta ? escudos.filter((e) => plano(`${e.equipo} ${nombreOficial(e.equipo)}`).includes(consulta)) : escudos;
+
   /**
    * Arma el documento.
    *
@@ -414,7 +420,7 @@ export default function EscudosPage() {
                   ? haciendo
                   : estado === "cargando" || (estado === "listo" && pendientes > 0)
                     ? `Preparando escudos…${escudos.length ? ` ${conImagen}/${escudos.length}` : ""}`
-                    : "Descargar .pptx"}
+                    : `Descargar .pptx · ${escudos.length - faltan.length} escudos`}
               </button>
 
               <button
@@ -487,13 +493,38 @@ export default function EscudosPage() {
 
                 {estado === "listo" ? (
                   <div className="space-y-5">
-                    {Array.from({ length: hojas }, (_, h) => {
-                      const tanda = escudos.slice(h * 20, h * 20 + 20);
+                    <div className="relative max-w-sm">
+                      <Search size={15} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
+                      <input
+                        value={busca}
+                        onChange={(e) => setBusca(e.target.value)}
+                        placeholder="Buscar un equipo…"
+                        aria-label="Buscar un escudo por equipo"
+                        className="min-h-11 w-full rounded-xl border border-white/10 bg-[#0B0F14] py-2 pl-9 pr-9 text-sm text-white placeholder:text-white/40 focus:border-[#C8A96B]/50 focus:outline-none"
+                      />
+                      {busca ? (
+                        <button
+                          type="button"
+                          onClick={() => setBusca("")}
+                          aria-label="Limpiar la búsqueda"
+                          className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-white/50 hover:text-white"
+                        >
+                          <X size={14} />
+                        </button>
+                      ) : null}
+                    </div>
+
+                    {consulta && !encontrados.length ? (
+                      <p className="text-sm text-white/60">Ningún equipo coincide con «{busca.trim()}».</p>
+                    ) : null}
+
+                    {Array.from({ length: consulta ? (encontrados.length ? 1 : 0) : hojas }, (_, h) => {
+                      const tanda = consulta ? encontrados : escudos.slice(h * 20, h * 20 + 20);
 
                       return (
                         <div key={h}>
                           <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/50">
-                            Diapositiva {h + 1} · {tanda.length}
+                            {consulta ? `${tanda.length} ${tanda.length === 1 ? "escudo" : "escudos"}` : `Diapositiva ${h + 1} · ${tanda.length}`}
                           </h3>
                           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
                             {tanda.map((uno) => (
@@ -561,6 +592,12 @@ export default function EscudosPage() {
                                 >
                                   {uno.equipo}
                                 </figcaption>
+                                {/* El marco oro, explicado (10/11/2026). */}
+                                {esNuestro(uno.equipo) ? (
+                                  <span style={{ color: "#C8A96B" }} className="-mt-1 text-[11px] font-semibold uppercase tracking-[0.1em]">
+                                    Nuestro escudo
+                                  </span>
+                                ) : null}
                                 {imagenes[uno.url] === "listo" ? (
                                   <button
                                     type="button"

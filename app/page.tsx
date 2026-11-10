@@ -136,6 +136,22 @@ function SectionHeader({
   )
 }
 
+/**
+ * El puesto en el grupo con color de significado (10/11/2026, análisis): el
+ * tercio de arriba en verde y el de abajo en naranja, del lado del equipo que
+ * se mide. Va en un panel siempre oscuro: colores en línea, no por clase.
+ */
+function Puesto({ puesto, de }: { puesto: number; de: number }) {
+  const tercio = de > 0 ? puesto / de : 0.5
+  const color = tercio <= 1 / 3 ? "#34D399" : tercio > 2 / 3 ? "#FB923C" : "rgba(255,255,255,.9)"
+
+  return (
+    <span className="font-semibold tabular-nums" style={{ color }}>
+      {puesto}º de {de}
+    </span>
+  )
+}
+
 export default function Home() {
   /* «Mis tareas» del microciclo: una pestaña sólo para el administrador (28/10/2026). */
   const { admin } = useAdmin()
@@ -739,55 +755,46 @@ export default function Home() {
                             </span>
                           </p>
 
-                          {/* 10/11/2026: sello de la cifra y, si manda Opta, Wyscout de segunda lectura. */}
+                          {/* 10/11/2026 (expertos): una sola fuente por cifra —Opta si la tiene, Wyscout si no— y el sello más grande: a 10,5 px no se leía sobre la foto. */}
                           <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
-                            <SelloFuente oscuro {...selloDe(rivalXg.fuente, rivalXg.deCuantos, rivalXg.partidos)} />
-                            {rivalXg.wyscoutXg != null && (
-                              <span className="text-[11px]" style={{ color: "rgba(255,255,255,.62)" }}>
-                                Wyscout: {coma(rivalXg.wyscoutXg, 2)} en {rivalSemana.partidos} {rivalSemana.partidos === 1 ? "partido" : "partidos"}
-                              </span>
-                            )}
+                            <SelloFuente oscuro className="text-[12px]!" {...selloDe(rivalXg.fuente, rivalXg.deCuantos, rivalXg.partidos)} />
                           </p>
 
+                          {/*
+                            10/11/2026 (expertos): tres líneas del rival con su base y el
+                            puesto en color con significado —verde, de los mejores del
+                            grupo; naranja, de los peores—, siempre de su lado. La
+                            posesión es estilo, no mejor ni peor: sin color. Fuera la
+                            nota «En contra, Wyscout da…» y la línea «Nosotros»: lo
+                            nuestro ya está en «Opta de un vistazo».
+                          */}
                           <ul className="mt-3 space-y-1 text-[13px] leading-snug" style={{ color: "rgba(255,255,255,.9)" }}>
                             {rivalXg.puestoXg != null && (
-                              <li>{rivalXg.puestoXg}º de {rivalXg.deCuantos} equipos generando ocasiones</li>
+                              <li>
+                                <Puesto puesto={rivalXg.puestoXg} de={rivalXg.deCuantos} /> generando ocasiones (más es mejor)
+                              </li>
                             )}
                             {rivalXg.xgContra != null && (
                               <li>
                                 Concede {coma(rivalXg.xgContra, 2)} esperados por partido
-                                {rivalXg.puestoXgContra != null && ` · ${rivalXg.puestoXgContra}º de ${rivalXg.deCuantos} (menos es mejor)`}
+                                {rivalXg.puestoXgContra != null && (
+                                  <>
+                                    {" · "}
+                                    <Puesto puesto={rivalXg.puestoXgContra} de={rivalXg.deCuantos} /> (menos es mejor)
+                                  </>
+                                )}
                               </li>
                             )}
                             {rivalXg.posesion != null && (
                               <li>
                                 {coma(rivalXg.posesion, 0)} % de posesión media
-                                {rivalXg.puestoPosesion != null && ` · ${rivalXg.puestoPosesion}º de ${rivalXg.deCuantos}`}
+                                {rivalXg.puestoPosesion != null && ` · ${rivalXg.puestoPosesion}º de ${rivalXg.deCuantos} en tener el balón`}
                               </li>
                             )}
                           </ul>
-
-                          {/* Sólo si pasan el umbral de `lib/fuentes.ts`; por debajo, nada. */}
-                          <NotaMetodo oscuro className="mt-2" nota={rivalXg.notaXg} />
-                          <NotaMetodo oscuro className="mt-1" nota={rivalXg.notaXgContra ? `En contra, ${rivalXg.notaXgContra}` : null} />
                         </>
                       )}
 
-                      {!esperaOpta && nuestroXg && (
-                        <p className="mt-3 border-t border-white/10 pt-2 text-[12px] leading-snug" style={{ color: "rgba(255,255,255,.75)" }}>
-                          Nosotros: {coma(nuestroXg.xg, 2)} goles esperados por partido
-                          {/* En palabras (05/11/2026): «−0,72 frente a lo esperado» no se entendía. */}
-                          {nuestroXg.diferencia != null &&
-                            (() => {
-                              const d = nuestroXg.diferencia;
-
-                              if (Math.abs(d) < 0.005) return "; marcamos lo que generamos";
-
-                              return `; marcamos ${coma(Math.abs(d), 2)} ${d >= 0 ? "más" : "menos"} por partido de lo que generamos`;
-                            })()}
-                          {nuestroXg.fuente !== rivalXg.fuente && ` · ${nuestroXg.fuente === "opta" ? "Opta" : "Wyscout"}`}
-                        </p>
-                      )}
                     </div>
                   ) : cargandoTarjeta ? (
                     /* Mientras llegan las cifras: una línea que lo dice, no dos títulos sobre un fondo vacío (30/10/2026). */
@@ -968,7 +975,7 @@ export default function Home() {
                             label: "Del Castilla",
                             value: totalJugadores,
                             caption: "jugadores de campo",
-                            destino: "Fichas de nuestros jugadores",
+                            destino: "Abrir las fichas de nuestros jugadores",
                             loading: cargandoPlantilla,
                             icon: Users,
                           },
@@ -982,7 +989,7 @@ export default function Home() {
                             caption: totalJugadores
                               ? `jugadores de campo con al menos un seguimiento · ${cobertura} % de la plantilla`
                               : "jugadores de campo con al menos un seguimiento",
-                            destino: "Fichas de nuestros jugadores",
+                            destino: "Abrir las fichas de nuestros jugadores",
                             loading: loadingSeguimiento || cargandoPlantilla,
                             icon: Users,
                           },
@@ -994,7 +1001,7 @@ export default function Home() {
                               `registrados desde el ${new Date(`${SESIONES_CONTADAS_DESDE}T12:00:00Z`).toLocaleDateString("es-ES", { day: "numeric", month: "short", timeZone: "Europe/Madrid" }).replace(".", "")}`,
                               ultimos30Dias === seguimientos ? `${ultimos7Dias} esta semana` : `${ultimos30Dias} en los últimos 30 días`,
                             ].join(" · "),
-                            destino: "Calendario Seguimiento",
+                            destino: "Abrir los seguimientos",
                             loading: loadingSeguimiento,
                             icon: Activity,
                           },

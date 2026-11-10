@@ -211,32 +211,42 @@ export function alertasDeData(
         ? "la más baja"
         : `${puesto}º por la cola`;
 
+    /* La referencia: la mediana del grupo, con el mismo formato que la cifra. */
+    const orden = [...todos].sort((a, b) => a - b);
+    const mitad = Math.floor(orden.length / 2);
+    const mediana = orden.length % 2 ? orden[mitad] : (orden[mitad - 1] + orden[mitad]) / 2;
+    const med =
+      metrica.unidad === "decimal"
+        ? mediana.toFixed(1).replace(".", ",")
+        : formatea(mediana, metrica.unidad);
+
+    /*
+    | 10/11/2026 (marketing): en el extremo de recuperaciones el titular dice
+    | la lectura, no la métrica: «Somos los que menos recuperamos: 71,0 por
+    | partido frente a una mediana de 77,9».
+    */
+    const lectura =
+      metrica.key === "recuperaciones" && puesto === 1
+        ? `Somos los que ${arriba ? "más" : "menos"} recuperamos`
+        : null;
+
     alertas.push({
       clave: `metrica-${metrica.key}`,
       tono: arriba ? "buena" : "mala",
       area: "Data · contra el grupo",
-      titulo: `${nombreTitulo}: ${valor}, ${lugar} de los ${todos.length} equipos del grupo`,
-      rotulo: nombreTitulo,
+      titulo: lectura
+        ? `${lectura}: ${valor} por partido frente a una mediana de ${med}`
+        : `${nombreTitulo}: ${valor}, ${lugar} de los ${todos.length} equipos del grupo`,
+      rotulo: lectura ? `${lectura} · por partido` : nombreTitulo,
       valor,
       detalle: metrica.comoLeer,
-      cifra: (() => {
-        /* La referencia: la mediana del grupo, con el mismo formato que la cifra. */
-        const orden = [...todos].sort((a, b) => a - b);
-        const mitad = Math.floor(orden.length / 2);
-        const mediana = orden.length % 2 ? orden[mitad] : (orden[mitad - 1] + orden[mitad]) / 2;
-        const med =
-          metrica.unidad === "decimal"
-            ? mediana.toFixed(1).replace(".", ",")
-            : formatea(mediana, metrica.unidad);
-
-        return `${lugar} de los ${todos.length} equipos del grupo (${metrica.mejorAlto ? "más es mejor" : "menos es mejor"}) · mediana ${med} · ${nuestros.length} ${nuestros.length === 1 ? "partido" : "partidos"} del Castilla · Wyscout`;
-      })(),
+      cifra: `${lugar} de los ${todos.length} equipos del grupo (${metrica.mejorAlto ? "más es mejor" : "menos es mejor"}) · mediana ${med} · ${nuestros.length} ${nuestros.length === 1 ? "partido" : "partidos"} del Castilla · Wyscout`,
       fuerza: Math.min(100, Math.abs(p - 50) * 2),
       enlace: metrica.key === "recuperaciones" ? "/laboratorio/transiciones" : "/data-analisis?area=liga",
       /* Todas con la misma forma, «Ver …», como las de jugadores. */
       mira:
         metrica.key === "recuperaciones"
-          ? "Ver a qué altura robamos, zona a zona"
+          ? "Ver a qué altura robamos, para llevarlo a la tarea"
           : "Ver la métrica contra el grupo en Data análisis",
     });
   }
@@ -383,7 +393,8 @@ export function alertasDeData(
         rotulo: `${jugador.jugador} · ${nombreMetrica.charAt(0).toLowerCase()}${nombreMetrica.slice(1)}`,
         valor: v,
         detalle: `Con ${jugador.minutos}′ jugados no es una casualidad de un rato.`,
-        cifra: `${deCuantos}percentil ${mejor.percentil} entre ${iguales.length} jugadores de su puesto · ${jugador.minutos}′ · Wyscout`,
+        /* Misma base en todas (10/11/2026): percentil · muestra · partidos · minutos · fuente. */
+        cifra: `${deCuantos}percentil ${mejor.percentil} entre ${iguales.length} jugadores de su puesto · ${jugador.partidos} ${jugador.partidos === 1 ? "partido" : "partidos"} · ${jugador.minutos}′ · Wyscout`,
         fuerza: Math.min(100, (mejor.percentil - 50) * 2),
         enlace: "/data-analisis?area=individual",
         /* Una acción concreta y no el pie genérico (29/10/2026, fútbol). */

@@ -116,10 +116,6 @@ export default function ApuestasPage() {
       ? `${vivas.length === 1 ? "Una apuesta abierta" : `${vivas.length} apuestas abiertas`} · próxima comprobación el ${fechaLarga(vivas[0].comprobar)}`
       : "Uno tira una predicción y dice qué se juega. Los demás se ponen a favor o en contra, y el día señalado se comprueba quién tenía razón.";
 
-  /* Quien no ha entrado lee primero lo que hay; el acceso baja debajo de la
-     lista. Sin nada que leer, el acceso sigue arriba como invitación. */
-  const accesoAbajo =
-    !yo && !sesion.cargando && estado === "listo" && doc.apuestas.length > 0;
 
   /* Con apuestas abiertas, el acceso lo dice con el dato y el verbo. */
   const tituloAcceso =
@@ -204,7 +200,8 @@ export default function ApuestasPage() {
 
             <div className="mt-5">
               {estado === "listo" && doc.apuestas.length > 0 ? (
-                <details className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/70">
+                /* Con una sola apuesta, abierto (10/11/2026): son tres líneas y explican la tarjeta. */
+                <details open={doc.apuestas.length === 1} className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/70">
                   <summary className="cursor-pointer text-[12px] font-semibold uppercase tracking-[0.14em] text-white/60">
                     Cómo funciona
                   </summary>
@@ -215,7 +212,8 @@ export default function ApuestasPage() {
 
             {/* El acceso en la mitad de arriba, también sin apuestas: es la
                 única acción; el ejemplo va plegado debajo (08/11/2026, marketing). */}
-            {!accesoAbajo && acceso}
+            {/* Un solo acceso, arriba (10/11/2026, marketing): las tarjetas ya no piden entrar cada una. */}
+            {acceso}
 
             {/* ------------------------ LANZAR UNA --------------------- */}
 
@@ -291,13 +289,14 @@ export default function ApuestasPage() {
             <div className="mt-5">
               <Panel
                 title="En juego"
-                subtitle={
-                  vivas.length
-                    ? `${vivas.length === 1 ? "Una apuesta" : `${vivas.length} apuestas`} sin resolver, la que antes se comprueba primero`
-                    : undefined
-                }
                 icon={Dices}
               >
+                {/* El texto de apoyo a 12 px (10/11/2026): el subtítulo del panel se leía pequeño. */}
+                {vivas.length > 0 && (
+                  <p className="-mt-1 mb-3 text-[12px] text-white/60">
+                    {vivas.length === 1 ? "Una apuesta sin resolver" : `${vivas.length} apuestas sin resolver, la que antes se comprueba primero`}
+                  </p>
+                )}
                 {estado === "cargando" && (
                   <p className="text-sm text-white/50">Leyendo las apuestas…</p>
                 )}
@@ -309,7 +308,8 @@ export default function ApuestasPage() {
                 )}
 
                 {vivas.length > 0 && (
-                  <div className="grid gap-3 lg:grid-cols-2">
+                  /* Dos columnas sólo con dos o más (10/11/2026): una sola apuesta dejaba media pantalla vacía. */
+                  <div className={`grid gap-3 ${vivas.length > 1 ? "lg:grid-cols-2" : ""}`}>
                     {vivas.map((apuesta) => (
                       <Tarjeta
                         key={apuesta.id}
@@ -335,7 +335,7 @@ export default function ApuestasPage() {
                   subtitle="Las apuestas ya comprobadas, de la última a la primera"
                   icon={CalendarCheck}
                 >
-                  <div className="grid gap-3 lg:grid-cols-2">
+                  <div className={`grid gap-3 ${resueltas.length > 1 ? "lg:grid-cols-2" : ""}`}>
                     {resueltas.map((apuesta) => (
                       <Tarjeta
                         key={apuesta.id}
@@ -404,7 +404,6 @@ export default function ApuestasPage() {
             </div>
             )}
 
-            {accesoAbajo && acceso}
           </div>
         </section>
       </div>
@@ -622,7 +621,7 @@ function Tarjeta({
               {nombreDe(apuesta.autor)}
               {soyAutor && <span className="ml-1.5 text-[10px] uppercase tracking-[0.14em] text-[#C8A96B]">tú</span>}
             </p>
-            <p className="text-[11px] text-white/40">Lanzada el {diaDe(apuesta.creadaEn)}</p>
+            <p className="text-[12px] text-white/55">Lanzada el {diaDe(apuesta.creadaEn)}</p>
           </div>
         </div>
 
@@ -653,7 +652,6 @@ function Tarjeta({
           tono="emerald"
           activo={miPostura === "favor"}
           puedo={puedoPosicionarme && !ocupado}
-          pideEntrar={!yo && estado === "abierta"}
           onPulsa={() => postura("favor")}
         />
 
@@ -664,7 +662,6 @@ function Tarjeta({
           tono="rose"
           activo={miPostura === "contra"}
           puedo={puedoPosicionarme && !ocupado}
-          pideEntrar={!yo && estado === "abierta"}
           onPulsa={() => postura("contra")}
         />
       </div>
@@ -726,7 +723,6 @@ function Bando({
   tono,
   activo,
   puedo,
-  pideEntrar = false,
   onPulsa,
 }: {
   titulo: string;
@@ -737,8 +733,6 @@ function Bando({
   tono: "emerald" | "rose";
   activo: boolean;
   puedo: boolean;
-  /** Sin sesión y abierta: el botón sale apagado y dice por qué. */
-  pideEntrar?: boolean;
   onPulsa: () => void;
 }) {
   const total = gente.length + (autor ? 1 : 0);
@@ -777,30 +771,24 @@ function Bando({
           </button>
         )}
 
-        {pideEntrar && (
-          <button
-            type="button"
-            disabled
-            title="Entra para apostar"
-            className="rounded-lg border border-white/10 px-2 py-1 text-[11px] font-semibold text-white/45"
-          >
-            Entra para apostar
-          </button>
-        )}
       </div>
 
       <div className="mt-2 flex min-h-[28px] flex-wrap items-center gap-1.5">
+        {/* Con su nombre al lado (10/11/2026, marketing): la foto sola no se identificaba. */}
         {autor && (
-          <span
-            title={`${nombreDe(autor)} · lanzó la apuesta`}
-            className="rounded-full ring-2 ring-[#C8A96B]/70"
-          >
-            <Avatar slug={autor} lado={26} />
+          <span title={`${nombreDe(autor)} · lanzó la apuesta`} className="inline-flex items-center gap-1.5 text-[12px] text-white/80">
+            <span className="rounded-full ring-2 ring-[#C8A96B]/70">
+              <Avatar slug={autor} lado={26} />
+            </span>
+            {cortoDe(autor)}
           </span>
         )}
 
         {gente.map((slug) => (
-          <Avatar key={slug} slug={slug} lado={26} />
+          <span key={slug} title={nombreDe(slug)} className="inline-flex items-center gap-1.5 text-[12px] text-white/80">
+            <Avatar slug={slug} lado={26} />
+            {cortoDe(slug)}
+          </span>
         ))}
       </div>
     </div>

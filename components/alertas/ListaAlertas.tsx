@@ -5,6 +5,7 @@ import {
   AlarmClock,
   BellOff,
   BellRing,
+  MoreHorizontal,
   Paperclip,
   Pencil,
   Repeat,
@@ -74,6 +75,13 @@ function fechaValida(iso: string | null | undefined) {
   return Boolean(iso) && !Number.isNaN(new Date(String(iso)).getTime());
 }
 
+/** «RMCF - caritas» -> «caritas»: todas las tareas son del club. */
+function sinPrefijo(titulo: string) {
+  const limpio = titulo.trim().replace(/^RMCFs*[-–—·:]s*/i, "");
+
+  return limpio || titulo.trim();
+}
+
 /** Minúsculas, sin tildes y sólo letras: «López de Lerma» -> «lopezdelerma». */
 function plano(texto: string) {
   return texto
@@ -110,14 +118,33 @@ function nombreDelStaff(usuario: string) {
   return null;
 }
 
-/** Quién recibe el correo, por nombre: «ana, luis y 2 más». */
-/** Un correo sin nombre conocido, tapado (09/11/2026): «m•••@gmail.com». La pantalla la ve cualquiera del cuerpo técnico. */
-function enmascara(correo: string) {
-  const [usuario, dominio] = correo.split("@");
+/*
+| Quién recibe el correo (10/11/2026, marketing): los nombres conocidos y,
+| los correos sin nombre, contados («1 destinatario externo»). Antes salían
+| tapados, «m•••@gmail.com», que no decía nada y parecía un fallo.
+*/
+export function listaDestino(destinatarios: string[], agenda: ContactoAgenda[] = []) {
+  const porCorreo = new Map(
+    agenda
+      .filter((c) => c.nombre?.trim())
+      .map((c) => [c.email.trim().toLowerCase(), c.nombre.trim()] as const),
+  );
+  const nombres: string[] = [];
+  let externos = 0;
 
-  return `${usuario.slice(0, 1)}•••@${dominio ?? ""}`;
+  for (const d of destinatarios) {
+    const nombre = porCorreo.get(d.trim().toLowerCase()) ?? nombreDelStaff(d.split("@")[0]);
+
+    if (nombre) nombres.push(nombre);
+    else if (d.trim()) externos += 1;
+  }
+
+  const externo = externos ? `${externos} ${externos === 1 ? "destinatario externo" : "destinatarios externos"}` : "";
+
+  return { nombres, externos, externo };
 }
 
+/** Quién recibe el correo, por nombre: «Ana, Luis y 1 destinatario externo». */
 export function nombresDestino(destinatarios: string[], agenda: ContactoAgenda[] = [], completo = false) {
   /* Lo que no se reconoce se lee «V. Ceazurita»: palabras con mayúscula, la
      inicial suelta con punto y sin los números del usuario. La expresión
@@ -137,15 +164,16 @@ export function nombresDestino(destinatarios: string[], agenda: ContactoAgenda[]
       .map((c) => [c.email.trim().toLowerCase(), c.nombre.trim()] as const),
   );
 
-  const nombres = destinatarios
+  const conocidos = destinatarios
+    .filter((d) => !d.includes("@") || porCorreo.has(d.trim().toLowerCase()) || nombreDelStaff(d.split("@")[0]))
     .map((d) => {
       const usuario = d.split("@")[0];
 
-      /* Sin nombre conocido, el correo entero (07/11/2026, fútbol): «Mikelatszp»
-         no decía quién era; el usuario «legible» sólo si no es un correo. */
-      return porCorreo.get(d.trim().toLowerCase()) ?? nombreDelStaff(usuario) ?? (d.includes("@") ? enmascara(d.trim()) : legible(usuario));
+      return porCorreo.get(d.trim().toLowerCase()) ?? nombreDelStaff(usuario) ?? legible(usuario);
     })
     .filter(Boolean);
+  const { externo } = listaDestino(destinatarios.filter((d) => d.includes("@")), agenda);
+  const nombres = externo ? [...conocidos, externo] : conocidos;
 
   if (nombres.length === 0) return "Sin destinatarios";
   if (nombres.length === 1) return nombres[0];
@@ -195,6 +223,9 @@ export default function ListaAlertas({
   const [ahora, setAhora] = useState(0);
   /* La tarjeta que está pidiendo confirmación para borrarse. */
   const [borrando, setBorrando] = useState<string | null>(null);
+  /* La tarjeta con el menú «⋯» abierto y la que enseña todos sus destinatarios. */
+  const [menu, setMenu] = useState<string | null>(null);
+  const [destinosAbiertos, setDestinosAbiertos] = useState<string | null>(null);
 
   useEffect(() => {
     const id = setTimeout(() => setAhora(Date.now()), 0);
@@ -255,13 +286,25 @@ export default function ListaAlertas({
   const silenciadas = todasSilenciadas.filter((a) => !caducada(a));
   const caducadas = todasSilenciadas.filter(caducada);
 
+  const gruposSilenciadas = silenciadas.reduce<{ clave: string; partido: string; alertas: Alerta[] }[]>((grupos, a) => {
+    const s = a.repeticion === "partido" && ahora > 0 ? saldriaSiSeReactiva(a, partidos, new Date(ahora)) : null;
+    const partido = s ? partidoDelAviso(partidos, s.cuando, s.dias) : "";
+    const grupo = grupos.find((g) => g.partido === partido);
+
+    if (grupo) grupo.alertas.push(a);
+    else grupos.push({ clave: partido || "otras", partido, alertas: [a] });
+
+    return grupos;
+  }, []);
+
   const pinta = (alerta: Alerta) => {
         const bloqueada = comprobando || ocupada === alerta.id;
 
         /* Se pintaba en minúsculas tal cual se apuntó, y el cuerpo repetía el
            título cuando sólo se había escrito uno. */
         const frase = tituloLegible;
-        const titulo = frase(alerta.titulo.trim());
+        /* Sin el prefijo «RMCF -» (10/11/2026): todas son del club y lo repetían. */
+        const titulo = frase(sinPrefijo(alerta.titulo));
         const mensaje = alerta.mensaje?.trim() ?? "";
         const repiteTitulo =
           mensaje.toLowerCase() === alerta.titulo.trim().toLowerCase();
@@ -387,6 +430,12 @@ export default function ListaAlertas({
               }
 
               const todos = nombresDestino(alerta.destinatarios, agenda, true);
+              /* Dos nombres a la vista y «+N» que despliega el resto (10/11/2026). */
+              const destino = listaDestino(alerta.destinatarios, agenda);
+              const piezas = destino.externo ? [...destino.nombres, destino.externo] : destino.nombres;
+              const abiertos = destinosAbiertos === alerta.id;
+              const visibles = abiertos || piezas.length <= 2 ? piezas : piezas.slice(0, 2);
+              const resto = piezas.length - visibles.length;
 
               return (
                 <div className="mb-3 mt-3 space-y-1.5 text-[13px] leading-relaxed text-white/60">
@@ -405,7 +454,17 @@ export default function ListaAlertas({
                   {/* Los destinatarios, todos y por nombre: «Víctor Cea y 1 más» no decía quién (30/10/2026). */}
                   <p title={todos} className="[overflow-wrap:anywhere]">
                     <Users className="mr-1.5 inline-block h-3.5 w-3.5 -translate-y-px" aria-hidden />
-                    {todos}
+                    {piezas.length ? visibles.join(", ") : "Sin destinatarios"}
+                    {resto > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => setDestinosAbiertos(alerta.id)}
+                        className="ml-1.5 rounded-full border border-white/15 px-1.5 text-[12px] font-semibold text-white/75 hover:text-white"
+                        aria-label={`Ver los ${resto} destinatarios que faltan`}
+                      >
+                        +{resto}
+                      </button>
+                    ) : null}
                   </p>
 
                   {(normalizaAvisos(alerta.avisos).length > 0 ||
@@ -468,51 +527,112 @@ export default function ListaAlertas({
                 </button>
               </div>
             ) : (
-            <div className="mt-auto flex flex-wrap items-center gap-x-1 gap-y-0.5 border-t border-white/[0.06] pt-2">
-              <button
-                type="button"
-                onClick={() => onEditar(alerta)}
-                disabled={bloqueada}
-                className="inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1.5 text-[12.5px] text-white/60 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-40 sm:px-3"
-              >
-                <Pencil className="h-3.5 w-3.5" aria-hidden />
-                Editar
-              </button>
+            /*
+            | 10/11/2026 (análisis y marketing): una acción principal por tarjeta
+            | —«Reactivar» en la silenciada, «Editar y ponerle fecha» en la
+            | caducada, «Editar» en la viva— y el resto en «⋯». «Borrar» ya no
+            | queda al lado de «Reactivar» y sigue pidiendo confirmación.
+            */
+            <div className="mt-auto border-t border-white/[0.06] pt-2">
+              <div className="flex flex-wrap items-center gap-x-1 gap-y-1">
+                {!alerta.activa && !caducada(alerta) ? (
+                  <button
+                    type="button"
+                    onClick={() => onAlternarActiva(alerta)}
+                    disabled={bloqueada}
+                    className="inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-full bg-[#C8A96B] px-3.5 py-1.5 text-[13px] font-semibold text-[#0B0F14] transition hover:brightness-110 disabled:opacity-40"
+                  >
+                    <BellRing className="h-3.5 w-3.5" aria-hidden />
+                    Reactivar
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => onEditar(alerta)}
+                    disabled={bloqueada}
+                    className={`inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 text-[13px] transition disabled:opacity-40 ${
+                      caducada(alerta)
+                        ? "bg-[#C8A96B] font-semibold text-[#0B0F14] hover:brightness-110"
+                        : "border border-white/15 font-medium text-white/80 hover:bg-white/[0.06] hover:text-white"
+                    }`}
+                  >
+                    <Pencil className="h-3.5 w-3.5" aria-hidden />
+                    {caducada(alerta) ? "Editar y ponerle fecha" : "Editar"}
+                  </button>
+                )}
 
-              {/* 30/10/2026: la silenciada lleva su «Reactivar» con texto; la campana sola no se entendía. */}
-              {!alerta.activa && (
                 <button
                   type="button"
-                  onClick={() => onAlternarActiva(alerta)}
+                  onClick={() => setMenu((m) => (m === alerta.id ? null : alerta.id))}
                   disabled={bloqueada}
-                  className="inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1.5 text-[12.5px] font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/10 disabled:opacity-40 sm:px-3"
+                  aria-expanded={menu === alerta.id}
+                  aria-label="Más acciones"
+                  title="Más acciones"
+                  className="ml-auto inline-flex min-h-10 min-w-10 items-center justify-center rounded-full text-white/60 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-40"
                 >
-                  <BellRing className="h-3.5 w-3.5" aria-hidden />
-                  Reactivar
+                  <MoreHorizontal className="h-4 w-4" aria-hidden />
                 </button>
+              </div>
+
+              {menu === alerta.id && (
+                <div className="mt-1 flex flex-wrap items-center gap-x-1 gap-y-1 rounded-2xl bg-white/[0.03] p-1">
+                  {!alerta.activa && !caducada(alerta) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMenu(null);
+                        onEditar(alerta);
+                      }}
+                      disabled={bloqueada}
+                      className="inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-[12.5px] text-white/70 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-40"
+                    >
+                      <Pencil className="h-3.5 w-3.5" aria-hidden />
+                      Editar
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenu(null);
+                      onEnviarAhora(alerta);
+                    }}
+                    disabled={bloqueada}
+                    className="inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-[12.5px] text-white/70 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-40"
+                  >
+                    <Send className="h-3.5 w-3.5" aria-hidden />
+                    Enviar ahora
+                  </button>
+
+                  {alerta.activa && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMenu(null);
+                        onAlternarActiva(alerta);
+                      }}
+                      disabled={bloqueada}
+                      className="inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-[12.5px] text-white/70 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-40"
+                    >
+                      <BellOff className="h-3.5 w-3.5" aria-hidden />
+                      Silenciar
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenu(null);
+                      setBorrando(alerta.id);
+                    }}
+                    disabled={bloqueada}
+                    className="ml-auto inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-[12.5px] text-red-300/80 transition hover:bg-red-500/10 hover:text-red-300 disabled:opacity-40"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                    Borrar…
+                  </button>
+                </div>
               )}
-
-              <button
-                type="button"
-                onClick={() => onEnviarAhora(alerta)}
-                disabled={bloqueada}
-                className="inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1.5 text-[12.5px] text-white/60 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-40 sm:px-3"
-              >
-                <Send className="h-3.5 w-3.5" aria-hidden />
-                Enviar ahora
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setBorrando(alerta.id)}
-                disabled={bloqueada}
-                aria-label="Borrar"
-                title="Borrar"
-                className="ml-auto inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1.5 text-[12.5px] text-red-300/80 sm:px-3 transition hover:bg-red-500/10 hover:text-red-300 disabled:opacity-40"
-              >
-                <Trash2 className="h-3.5 w-3.5" aria-hidden />
-                Borrar
-              </button>
             </div>
             )}
           </article>
@@ -531,9 +651,19 @@ export default function ListaAlertas({
             Silenciadas ({silenciadas.length})
           </summary>
 
-          <div className="mt-2 space-y-2.5 @3xl:grid @3xl:grid-cols-2 @3xl:items-stretch @3xl:gap-2.5 @3xl:space-y-0">
-            {silenciadas.map((alerta) => pinta(alerta))}
-          </div>
+          {/* Agrupadas por partido (10/11/2026, análisis), ya en orden de salida. */}
+          {gruposSilenciadas.map((g) => (
+            <div key={g.clave} className="mt-2">
+              {gruposSilenciadas.length > 1 || g.partido ? (
+                <p className="mb-1.5 px-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-white/55">
+                  {g.partido ? `Partido ${g.partido}` : "Sin partido"}
+                </p>
+              ) : null}
+              <div className="space-y-2.5 @3xl:grid @3xl:grid-cols-2 @3xl:items-stretch @3xl:gap-2.5 @3xl:space-y-0">
+                {g.alertas.map((alerta) => pinta(alerta))}
+              </div>
+            </div>
+          ))}
         </details>
       )}
 
@@ -542,27 +672,15 @@ export default function ListaAlertas({
         <details className="group pt-1 @3xl:col-span-2" open>
           {/* 30/10/2026: el porqué y cuáles, en el propio título plegado; sin
               abrirlo, «Caducadas (1)» parecía un error. */}
+          {/* 10/11/2026: «Caducadas (1)» y, en cada tarjeta, su fecha y «Editar y ponerle fecha»; la explicación larga sobraba. */}
           <summary className="cursor-pointer select-none rounded-xl px-2 py-2 text-[13px] leading-relaxed text-white/60 transition hover:text-white">
-            Caducadas ({caducadas.length}):{" "}
-            {caducadas.map((a) => `«${tituloLegible(a.titulo.trim())}»`).join(", ")}
-            {" · "}
-            {caducadas.length === 1 ? "no volvería a salir aunque se reactive" : "no volverían a salir aunque se reactiven"}
-            {(() => {
-              const ultimas = caducadas
-                .filter((a) => fechaValida(a.ultimoEnvio))
-                .map((a) => fechaDeSalida(a.ultimoEnvio));
-
-              return ultimas.length === caducadas.length && ultimas.length === 1 ? ` (el último aviso salió el ${ultimas[0]})` : "";
-            })()}
+            Caducadas ({caducadas.length}) · {caducadas.length === 1 ? "no volvería a salir aunque se reactive" : "no volverían a salir aunque se reactiven"}
           </summary>
 
           <div className="mt-2 space-y-2.5 @3xl:grid @3xl:grid-cols-2 @3xl:items-stretch @3xl:gap-2.5 @3xl:space-y-0">
             {caducadas.map((alerta) => pinta(alerta))}
           </div>
 
-          <p className="mt-2 px-2 text-[13px] text-white/60">
-            No queda una fecha por delante en la que avisar: para volver a usarla, edítala y ponle una nueva.
-          </p>
         </details>
       )}
     </div>

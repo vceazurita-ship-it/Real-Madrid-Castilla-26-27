@@ -120,18 +120,40 @@ export function VerEnGrande({
     );
   })();
 
+  const abre = () => setVista({ w: window.innerWidth, h: window.innerHeight });
+
+  /*
+  | El botón, debajo de la lámina (10/11/2026, fútbol y marketing): encima tapaba
+  | la fecha y la hora del encabezado. Y tocar la lámina ya la abre en grande:
+  | en el móvil, a 390 px, no se lee de otra forma.
+  */
   return (
-    <div className="relative">
-      {preview}
-      <button
-        type="button"
-        onClick={() => setVista({ w: window.innerWidth, h: window.innerHeight })}
-        className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold shadow-lg"
-        style={BOTON}
-        title="Ver la lámina a pantalla completa"
+    <div>
+      <div
+        role="button"
+        tabIndex={0}
+        aria-label={`${titulo}: abrir en grande`}
+        onClick={abre}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            abre();
+          }
+        }}
+        className="cursor-zoom-in"
       >
-        <Maximize2 size={12} /> Ver en grande
-      </button>
+        {preview}
+      </div>
+      <div className="mt-1 flex justify-end">
+        <button
+          type="button"
+          onClick={abre}
+          className="inline-flex min-h-8 items-center gap-1 rounded-full border border-white/15 px-3 py-1 text-[12px] font-semibold text-white/75 hover:border-white/30 hover:text-white"
+          title="Ver la lámina a pantalla completa"
+        >
+          <Maximize2 size={12} /> Ver en grande
+        </button>
+      </div>
       {grande && typeof document !== "undefined" ? createPortal(grande, document.body) : null}
     </div>
   );

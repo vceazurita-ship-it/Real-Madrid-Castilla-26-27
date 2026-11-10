@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 import {
   CalendarShell,
-  CalendarStat,
   type CalendarLegendItem,
 } from "@/components/ui/calendar-shell";
 import {
@@ -38,7 +37,7 @@ import { buscadorDeEscudos, traeEscudos, type Escudos } from "@/lib/data-analisi
 import { cn } from "@/lib/utils";
 import { mismoEquipo } from "@/lib/data-analisis/nombres";
 import { CALENDARIO_CASTILLA_KEY, type PartidoBesoccer } from "@/lib/viaje/calendario";
-import type { ViajeStore } from "@/lib/viaje/modelo";
+import { viajeVacio, type ViajeStore } from "@/lib/viaje/modelo";
 
 type EventType =
   | "REUNION"
@@ -431,13 +430,28 @@ export default function CalendarGeneralPage() {
 
         if (yaGuardado) continue;
 
+        /* 10/11/2026: la salida es la misma que propone Desplazamiento al
+           abrir el partido (viajeVacio: la plantilla de dos días), y se dice
+           que es propuesta mientras nadie guarde el horario. */
+        const propuesto = viajeVacio(`calendario-${p.jornada}`, {
+          rival,
+          fecha: m[1],
+          hora: p.cuando.slice(11, 16) === "00:00" ? "" : p.cuando.slice(11, 16),
+          condicion: "visitante",
+        });
+        const salidaPropuesta = [...(propuesto.dias.find((d) => d.fecha === vispera)?.citas ?? [])]
+          .filter((c) => c.tipo === "viaje")
+          .sort((a, b) => a.minuto - b.minuto)[0];
+
         lista.push({
           id: `viaje-propuesto-${p.jornada}-${vispera}`,
           fecha: vispera,
           clase: "VIAJE",
           titulo: `Viaje a ${rival}`,
-          detalle: "Víspera del partido",
-          hora: "",
+          detalle: salidaPropuesta
+            ? "Víspera del partido · horario propuesto por Desplazamiento, aún sin guardar"
+            : "Víspera del partido",
+          hora: salidaPropuesta ? `salida ${horaDeMinutos(salidaPropuesta.minuto)}` : "",
           enlace: `/desplazamiento?jornada=${p.jornada}`,
         });
       }
@@ -541,6 +555,12 @@ export default function CalendarGeneralPage() {
 
     return map;
   }, [autoEventos]);
+
+  /* Los días con partido del calendario, para el MD de los días que aún no tienen sesión. */
+  const diasDePartido = useMemo(
+    () => [...autoByDay.entries()].filter(([, l]) => l.some((a) => a.clase === "PARTIDO")).map(([k]) => k),
+    [autoByDay]
+  );
 
   const eventsByDay = useMemo(() => {
     const map = new Map<string, GeneralEvent[]>();
@@ -747,6 +767,19 @@ export default function CalendarGeneralPage() {
       events: (current?.events ?? []).filter((item) => item.id !== id),
     }));
 
+  /* «4 partidos · 2 viajes · 8 entrenos»: lo que antes eran las tarjetas del mes. */
+  const resumenMes = [
+    [monthStats.partidos, "partido", "partidos"],
+    [monthStats.viajes, "viaje", "viajes"],
+    [monthStats.sesiones, "entreno", "entrenos"],
+    [monthStats.eventos, "evento del staff", "eventos del staff"],
+    [monthStats.imagenes, "imagen", "imágenes"],
+    [monthStats.pdfs, "PDF", "PDF"],
+  ]
+    .filter(([n]) => Number(n) > 0)
+    .map(([n, uno, varios]) => `${n} ${Number(n) === 1 ? uno : varios}`)
+    .join(" · ");
+
   return (
     <CalendarShell
       eyebrow="RMCF CASTILLA · OPERATIVA"
@@ -758,14 +791,17 @@ export default function CalendarGeneralPage() {
       legend={legend}
       franja={
         <div className="space-y-2">
+        {/* 10/11/2026: el próximo partido y la cuenta del mes en una sola línea (antes, tres tarjetas aparte). */}
+        <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
         {proximo ? (
           <Link
             href={proximo.enCasa ? "/calendar" : `/desplazamiento?jornada=${proximo.jornada}`}
             className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl border border-[#C8A96B]/30 bg-[#C8A96B]/[0.06] px-4 py-3 text-sm transition hover:border-[#C8A96B]/60"
           >
             <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#C8A96B]">Próximo partido</span>
-            <span className="min-w-0 font-semibold text-white">
-              J{String(proximo.jornada).padStart(2, "0")} · {proximo.enCasa ? "Castilla vs" : "en"} {proximo.rival}
+            {/* 10/11/2026: el mismo nombre corto que las casillas («Nàstic»); el completo, al pasar. */}
+            <span className="min-w-0 font-semibold text-white" title={proximo.rival}>
+              J{String(proximo.jornada).padStart(2, "0")} · {proximo.enCasa ? "vs" : "en"} {nombreCorto(proximo.rival)}
             </span>
             <span className="text-white/70">
               {new Date(`${proximo.fecha}T12:00:00`).toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" })}
@@ -788,6 +824,12 @@ export default function CalendarGeneralPage() {
             <span className="h-3 w-20 animate-pulse rounded-full bg-white/[0.07]" />
           </div>
         ) : null}
+        {resumenMes && (
+          <p className="min-w-0 text-sm text-white/70">
+            <span className="font-semibold text-white">{resumenMes}</span> en {MONTHS[active.month].toLowerCase()}
+          </p>
+        )}
+        </div>
 
         {docCargando && (
           <p className="flex items-center gap-2 text-xs text-white/55">
@@ -844,29 +886,6 @@ export default function CalendarGeneralPage() {
         )}
         </div>
       }
-      stats={
-        <>
-          {/* Cada cifra con su nombre y su base (30/10/2026). */}
-          {monthStats.partidos > 0 && (
-            <CalendarStat label="Partidos" value={monthStats.partidos} hint={`en ${MONTHS[active.month].toLowerCase()}`} />
-          )}
-          {monthStats.viajes > 0 && (
-            <CalendarStat label="Viajes" value={monthStats.viajes} hint={`en ${MONTHS[active.month].toLowerCase()}`} />
-          )}
-          {monthStats.sesiones > 0 && (
-            <CalendarStat label="Entrenos" value={monthStats.sesiones} hint={`sin partidos · en ${MONTHS[active.month].toLowerCase()}`} />
-          )}
-          {monthStats.eventos > 0 && (
-            <CalendarStat label="Eventos del staff" value={monthStats.eventos} hint={`en ${MONTHS[active.month].toLowerCase()}`} />
-          )}
-          {monthStats.imagenes > 0 && (
-            <CalendarStat label="Imágenes" value={monthStats.imagenes} />
-          )}
-          {monthStats.pdfs > 0 && (
-            <CalendarStat label="PDFs" value={monthStats.pdfs} />
-          )}
-        </>
-      }
       renderDay={({ key }) => {
         const dayEvents = eventsByDay.get(key) ?? [];
         const dayFiles = filesByDay[key] ?? EMPTY_FILES;
@@ -906,7 +925,7 @@ export default function CalendarGeneralPage() {
               {/* Sin MD en la hoja, se dice (el 3/11 salía sin etiqueta); los minutos van en la ficha de la sesión. */}
               {sesionDia && !sesionDia.md && (() => {
                 /* Sin MD en la hoja, se saca del próximo partido del calendario (misma regla que /micro_calendar). */
-                const deducido = mdDeLaFecha(key, [...autoByDay.entries()].filter(([, l]) => l.some((a) => a.clase === "PARTIDO")).map(([k]) => k));
+                const deducido = mdDeLaFecha(key, diasDePartido);
 
                 return deducido ? (
                   <span className="siempre-oscuro whitespace-nowrap rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase" style={{ background: "#1F2937", color: "#FFFFFF" }} title="MD calculado por la fecha del próximo partido (la hoja no lo trae)">
@@ -926,6 +945,21 @@ export default function CalendarGeneralPage() {
               {libre && (
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-white/45">Libre</span>
               )}
+              {/* 10/11/2026: más allá de la última sesión apuntada, el MD que
+                  toca por el calendario de partidos, en trazo discontinuo
+                  (es previsto: la hoja aún no tiene la sesión). */}
+              {!sesionDia && !hayPartido && tramoSesiones !== null && key > tramoSesiones.hasta && (() => {
+                const previsto = mdDeLaFecha(key, diasDePartido);
+
+                return previsto ? (
+                  <span
+                    className="whitespace-nowrap rounded-full border border-dashed border-white/25 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-white/60"
+                    title="MD previsto por la fecha del próximo partido: la hoja aún no tiene la sesión"
+                  >
+                    {previsto}
+                  </span>
+                ) : null;
+              })()}
               {imageCount > 0 && (
                 <span className="flex items-center gap-1 rounded-full border border-sky-500/30 bg-sky-500/15 px-1.5 py-0.5">
                   <ImageIcon className="h-3 w-3 text-sky-300" />
@@ -951,7 +985,7 @@ export default function CalendarGeneralPage() {
                 {/* 07/11/2026: la sesión con su contenido principal y minutos, también en la agenda del móvil. */}
                 {sesionDia && !hayPartido && (sesionDia.minutos > 0 || sesionDia.principal) && (
                   <div className="rounded-md border border-l-4 border-white/10 border-l-white/40 bg-white/[0.04] px-1.5 py-1" title={sesionDia.principal || "Sesión"}>
-                    <p className="truncate text-[10px] font-semibold md:text-[11px]">{sesionDia.principal || "Sesión"}</p>
+                    <p className="line-clamp-2 break-words text-[10px] font-semibold leading-tight md:text-[11px]">{sesionDia.principal || "Sesión"}</p>
                     <p className="text-[9px] text-white/60 md:text-[10px]">
                       {["Sesión", sesionDia.minutos > 0 ? formatMinutes(sesionDia.minutos) : ""].filter(Boolean).join(" · ")}
                     </p>
@@ -993,7 +1027,8 @@ export default function CalendarGeneralPage() {
                       title={auto.titulo}
                       className="line-clamp-2 break-words text-[9px] font-semibold md:text-[11px]"
                     >
-                      {auto.titulo}
+                      {/* El rival con el mismo nombre corto que el partido de la casilla. */}
+                      {auto.titulo.replace(/^(Viaje a|Regreso de) (.+)$/, (_, que: string, quien: string) => `${que} ${nombreCorto(quien)}`)}
                     </p>
 
                     <p className="text-[8px] text-white/60 md:text-[9px]">

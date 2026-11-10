@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import {
   CalendarCheck,
   Check,
@@ -55,6 +56,19 @@ export default function SeasonHeader({
 }: Props) {
   const config = AREA_CONFIG[area];
 
+  /* En el móvil la tira va en una fila que se desliza (10/11/2026): se abre centrada en la semana en curso, moviendo sólo la tira. */
+  const tiraRef = useRef<HTMLDivElement>(null);
+  const actualId = tiraSemanas.find((s) => s.actual)?.id ?? null;
+
+  useEffect(() => {
+    const tira = tiraRef.current;
+    const casilla = tira?.querySelector<HTMLElement>("[data-actual='1']");
+    if (!tira || !casilla || tira.scrollWidth <= tira.clientWidth) return;
+    tira.scrollLeft = casilla.offsetLeft - tira.clientWidth / 2 + casilla.clientWidth / 2;
+  }, [actualId]);
+
+  const semanaVacia = !!currentWeek && !weekHasFiles(currentWeek);
+
   return (
     <header className="mb-8">
       <div className="flex flex-wrap items-center gap-3">
@@ -109,30 +123,17 @@ export default function SeasonHeader({
             ]
               .filter(Boolean)
               .join(" y ");
+            /* 10/11/2026 (marketing): fuera «sin subidas desde la semana 9»; lo último
+               subido va como texto secundario en la semana vacía, con su enlace. */
             const partes = [
               stats.seasonWeek !== null ? `Semana ${stats.seasonWeek} de ${stats.seasonTotal}` : currentWeek?.week ?? "",
               material ? `${material} en ${stats.completed} de ${stats.totalWeeks} semanas` : "",
               currentWeek && weekHasFiles(currentWeek) ? "esta semana ya tiene material" : "",
             ].filter(Boolean);
-            const desde = !(currentWeek && weekHasFiles(currentWeek)) && ultimaConMaterial ? ultimaConMaterial : null;
+            void ultimaConMaterial;
 
-            return partes.length || desde ? (
-              <p className="mt-3 text-base font-medium text-white/85">
-                {partes.join(" · ")}
-                {desde ? (
-                  <>
-                    {partes.length ? " · " : ""}
-                    <button
-                      type="button"
-                      onClick={() => onSelectWeek?.(desde.id)}
-                      className="font-medium underline decoration-white/30 underline-offset-4 hover:decoration-[#C8A96B]"
-                      title={`Abrir la ${desde.week.toLowerCase()}`}
-                    >
-                      sin subidas desde la {desde.week.toLowerCase()}
-                    </button>
-                  </>
-                ) : null}
-              </p>
+            return partes.length ? (
+              <p className="mt-3 text-base font-medium text-white/85">{partes.join(" · ")}</p>
             ) : null;
           })()}
 
@@ -141,7 +142,8 @@ export default function SeasonHeader({
             {/* Cada casilla con su número, 40 px en el móvil, y con material lleva además
                 una marca (30/10/2026): el color solo no vale en modo día ni con daltonismo. */}
             <div
-              className="mt-3 flex max-w-full flex-wrap items-center gap-1.5 sm:gap-1"
+              ref={tiraRef}
+              className="-mx-1 mt-3 flex max-w-full flex-nowrap items-center gap-1.5 overflow-x-auto px-1 pb-5 pt-1 sm:mx-0 sm:flex-wrap sm:gap-1 sm:overflow-visible sm:px-0 sm:pb-0"
               role="group"
               aria-label="Semanas con y sin material"
             >
@@ -149,11 +151,12 @@ export default function SeasonHeader({
                 <button
                   key={semana.id}
                   type="button"
+                  data-actual={semana.actual ? "1" : undefined}
                   onClick={() => onSelectWeek?.(semana.id)}
                   title={`${semana.nombre}${semana.fechas ? " · " + semana.fechas : ""}${semana.conMaterial ? " · con material" : " · sin material"}`}
                   aria-label={`${semana.nombre}${semana.fechas ? ", " + semana.fechas : ""}${semana.conMaterial ? ", con material" : ", sin material"}`}
                   /* 32 px de toque también en escritorio (30/10/2026). */
-                  className={`relative flex h-10 w-10 items-center justify-center rounded-[6px] text-[13px] font-semibold tabular-nums transition hover:scale-110 sm:h-8 sm:w-8 sm:text-[12px] ${
+                  className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-[6px] text-[13px] font-semibold tabular-nums transition hover:scale-110 sm:h-8 sm:w-8 sm:text-[12px] ${
                     semana.conMaterial
                       ? "bg-emerald-400 text-[#0B0F14]"
                       : "border border-white/20 bg-white/[0.04] text-white/55"
@@ -164,7 +167,7 @@ export default function SeasonHeader({
                   {semana.actual && (
                     <span
                       aria-hidden
-                      className="pointer-events-none absolute -bottom-4 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.08em] text-[#C8A96B]"
+                      className="pointer-events-none absolute -bottom-4 left-1/2 -translate-x-1/2 whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.08em] text-[#C8A96B]"
                     >
                       ahora
                     </span>
@@ -181,7 +184,7 @@ export default function SeasonHeader({
                 </button>
               ))}
             </div>
-            <p className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-white/65">
+            <p className="mt-1 flex flex-wrap sm:mt-5 items-center gap-x-3 gap-y-1 text-[12px] text-white/65">
               <span className="inline-flex items-center gap-1.5">
                 <span className="inline-block h-3 w-3 rounded-[3px] bg-emerald-400" />
                 <Check size={11} strokeWidth={3} className="-ml-1 text-emerald-400" aria-hidden /> con material
@@ -189,7 +192,6 @@ export default function SeasonHeader({
               <span className="inline-flex items-center gap-1.5">
                 <span className="inline-block h-3 w-3 rounded-[3px] border border-white/30" /> sin material
               </span>
-              <span>Pulsa una semana para abrirla.</span>
             </p>
             </>
           )}
@@ -204,6 +206,18 @@ export default function SeasonHeader({
             «Montar desplazamiento»: ya está en la barra de Operativa.
           */}
           {/* Con la semana vacía el único «Subir» es el de la tarjeta de la semana (30/10/2026). */}
+          {/* La acción principal arriba también en el móvil (10/11/2026): allí la zona de subida quedaba a dos pantallas. En escritorio ya está a la vista, al lado. */}
+          {semanaVacia && currentWeek && (
+            <button
+              type="button"
+              onClick={onGoToCurrentWeek}
+              className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#C8A96B] px-4 text-sm font-semibold text-[#0B0F14] transition hover:brightness-110 sm:w-auto xl:hidden"
+            >
+              <CalendarCheck size={17} />
+              {`Subir el material de la ${currentWeek.week.toLowerCase()}`}
+            </button>
+          )}
+
           {currentWeek && weekHasFiles(currentWeek) && (
             <button
               type="button"
@@ -228,14 +242,15 @@ export default function SeasonHeader({
           {stats.images > 0 && (
             <button type="button" onClick={onOpenImages} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/15 px-4 text-sm font-medium text-white/75 transition hover:bg-white/[0.06] hover:text-white">
               <ImageIcon size={16} className="text-[#C8A96B]" />
-              Ver las imágenes
+              {/* Con su recuento (10/11/2026): dice qué hay antes de abrirlo. */}
+              {`${stats.images} ${stats.images === 1 ? "imagen" : "imágenes"}`}
             </button>
           )}
 
           {stats.pdfs > 0 && (
             <button type="button" onClick={onOpenPdfs} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/15 px-4 text-sm font-medium text-white/75 transition hover:bg-white/[0.06] hover:text-white">
               <FileText size={16} className="text-[#C8A96B]" />
-              Ver los PDFs
+              {`${stats.pdfs} PDF`}
             </button>
           )}
         </div>

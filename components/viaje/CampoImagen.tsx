@@ -177,26 +177,19 @@ export function CampoImagen({
         )}
       </div>
 
-      {/* El fondo oscuro, sólo con imagen (19/10/2026): vacío, en modo día la
-          tabla de globals.css dejaba el texto blanco sobre gris claro. */}
-      <div className={`mt-2 overflow-hidden rounded-xl border border-white/10 ${imagen?.url ? "bg-black/25" : "bg-white/[0.03]"}`}>
-        {imagen?.url ? (
-          /* eslint-disable-next-line @next/next/no-img-element */
+      {/* El fondo oscuro, sólo con imagen (19/10/2026). 10/11/2026: vacío ya
+          no reserva una caja de 144 px: la fila de botones basta para añadirla
+          (y se sigue pudiendo pegar con Ctrl+V o soltar el archivo encima). */}
+      {imagen?.url && (
+        <div className="mt-2 overflow-hidden rounded-xl border border-white/10 bg-black/25">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={imagen.url}
             alt=""
             className="block h-36 w-full object-cover"
           />
-        ) : (
-          <div className="flex h-36 flex-col items-center justify-center gap-1 px-3 text-center">
-            <ImagePlus size={20} className="text-white/25" />
-
-            <p className="text-[11px] leading-snug text-white/35">
-              Pega con Ctrl+V, suelta el archivo aquí o elígelo
-            </p>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
 
       <input
         ref={entradaRef}
@@ -224,7 +217,7 @@ export function CampoImagen({
           ) : (
             <ImagePlus size={12} />
           )}
-          {subiendo ? "Subiendo…" : "Elegir"}
+          {subiendo ? "Subiendo…" : imagen?.url ? "Cambiar" : "Añadir imagen"}
         </button>
 
         <button
@@ -237,6 +230,7 @@ export function CampoImagen({
         </button>
       </div>
 
+      {imagen?.url && (
       <input
         value={imagen?.pie ?? ""}
         onChange={(evento) =>
@@ -250,6 +244,7 @@ export function CampoImagen({
         placeholder={ayuda}
         className="mt-2 w-full rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-xs text-white outline-none transition placeholder:text-white/25 focus:border-[#C8A96B]/50 disabled:opacity-40"
       />
+      )}
     </div>
   );
 }

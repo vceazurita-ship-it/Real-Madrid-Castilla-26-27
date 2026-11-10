@@ -422,12 +422,15 @@ export default function WeekPanel({
             zonas iguales más el botón de la cabecera eran tres «subir». Los
             archivos se reparten por tipo al soltarlos. */}
         {tab === "upload" && vacia && (
-          /*
+          <div className="space-y-2">
+          {/*
           | 30/10/2026: una fila —qué pasa y el único «Subir»— en vez del bloque
           | enorme de arrastre. «Lo último subido… · abrir la semana 9» se
           | quita: la línea de estado de arriba ya dice «sin subidas desde la
           | semana 9» y lleva a ella.
-          */
+          | 10/11/2026: la cabecera ya no lo dice; vuelve aquí, en pequeño y
+          | con su enlace, debajo de la única acción.
+          */}
           <UploadZone
             id="zona-subida"
             compacta
@@ -447,6 +450,20 @@ export default function WeekPanel({
               })();
             }}
           />
+          {hayUltimo && ultimaConArchivos && onSelectWeek ? (
+            <p className="px-1 text-[12px] text-white/60">
+              Lo último subido:{" "}
+              <button
+                type="button"
+                onClick={() => onSelectWeek(ultimaConArchivos.id)}
+                className="font-medium text-white/80 underline decoration-white/30 underline-offset-4 hover:decoration-[#C8A96B]"
+              >
+                {ultimaConArchivos.week.toLowerCase()}
+                {weekRangeLabel(ultimaConArchivos) ? ` (${weekRangeLabel(ultimaConArchivos)})` : ""}
+              </button>
+            </p>
+          ) : null}
+          </div>
         )}
 
         {tab === "upload" && !vacia && (

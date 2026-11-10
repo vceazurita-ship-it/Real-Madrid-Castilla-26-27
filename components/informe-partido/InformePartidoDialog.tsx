@@ -2013,8 +2013,18 @@ export function InformePartidoDialog({
 
   const rotuloCaja = "mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40";
 
+  /*
+  | Mientras se dibujan las diapositivas y las hojas del completo («8 de 19»),
+  | Descargar y Enviar esperan, con su porcentaje (10/11/2026, análisis): así no
+  | sale un documento a medias. El vídeo, que tarda minutos, no bloquea.
+  */
+  const fraccionDoc = preparando && /^Preparando (?:las diapositivas|el PDF del completo)/.test(preparando) ? (fraccionDe(preparando) ?? 0) : null;
+  const preparandoDoc = fraccionDoc !== null;
+
   const botonEnviar = trabajando
     ? trabajando
+    : preparandoDoc
+      ? `Preparando el PDF · ${Math.round(fraccionDoc * 100)} %`
     : enviandoFuera
       ? "Enviando…"
       : esperaAbp
@@ -2095,7 +2105,7 @@ export function InformePartidoDialog({
           <div className="flex flex-wrap items-center justify-end gap-2">
             {/* Un solo «Descargar» (07/11/2026, ronda 14): seis botones sueltos ocupaban tres filas en el móvil. */}
             <MenuDescargar
-              disabled={!informe || Boolean(trabajando) || cargando}
+              disabled={!informe || Boolean(trabajando) || cargando || preparandoDoc}
               opciones={[
                 { id: "pdf", rotulo: "Resumen en PDF", detalle: "Las diapositivas elegidas, una por página", icon: FileText, onSelect: () => void bajaPdf() },
                 { id: "img", rotulo: "Resumen en imágenes", detalle: "Una imagen por diapositiva, para WhatsApp", icon: ImageIcon, onSelect: () => void bajaImagenes() },
@@ -2118,8 +2128,8 @@ export function InformePartidoDialog({
             />
             <Button
               tone="primary"
-              icon={trabajando || esperaAbp || enviandoFuera ? Loader2 : Send}
-              disabled={!informe || Boolean(trabajando) || enviandoFuera || cargando || esperaAbp || Boolean(subiendo)}
+              icon={trabajando || esperaAbp || enviandoFuera || preparandoDoc ? Loader2 : Send}
+              disabled={!informe || Boolean(trabajando) || enviandoFuera || cargando || esperaAbp || Boolean(subiendo) || preparandoDoc}
               onClick={pulsaEnviar}
               title={esperaAbp ? "Esperando al informe de balón parado del microciclo" : undefined}
             >
@@ -2152,11 +2162,25 @@ export function InformePartidoDialog({
               }}
               className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none focus:border-[#C8A96B]/50"
             >
-              {(micros ?? []).map((m) => (
-                <option key={`${m.temporada}|${m.micro}`} value={`${m.temporada}|${m.micro}`} className="bg-[#11161C]">
-                  Micro {m.micro} · {m.rival || "sin rival"}
-                </option>
-              ))}
+              {/* El hueco de la lista se rotula (10/11/2026, análisis): saltaba del 13 al 11 sin decir que el 12 fue una semana sin partido. */}
+              {(micros ?? []).flatMap((m, i, todos) => {
+                const siguiente = todos[i + 1];
+                const huecos =
+                  siguiente && siguiente.temporada === m.temporada && Number.isInteger(m.micro) && Number.isInteger(siguiente.micro) && m.micro - siguiente.micro > 1 && m.micro - siguiente.micro <= 4
+                    ? Array.from({ length: m.micro - siguiente.micro - 1 }, (_, k) => m.micro - k - 1)
+                    : [];
+
+                return [
+                  <option key={`${m.temporada}|${m.micro}`} value={`${m.temporada}|${m.micro}`} className="bg-[#11161C]">
+                    Micro {m.micro} · {m.rival || "sin rival"}
+                  </option>,
+                  ...huecos.map((n) => (
+                    <option key={`${m.temporada}|hueco-${n}`} value="" disabled className="bg-[#11161C]">
+                      Micro {n} · semana sin partido, sin informe
+                    </option>
+                  )),
+                ];
+              })}
             </select>
           </label>
 

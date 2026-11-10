@@ -345,7 +345,8 @@ function Chip({
             e.stopPropagation();
             onQuitar();
           }}
-          className="-mr-1 ml-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded text-white/35 transition hover:bg-red-400/20 hover:text-red-300"
+          /* 10/11/2026: en el móvil el toque abarca 44 px (un ::after invisible) sin agrandar la ficha. */
+          className="relative -mr-1 ml-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded text-white/35 transition hover:bg-red-400/20 hover:text-red-300 max-md:h-6 max-md:w-6 max-md:after:absolute max-md:after:-inset-2.5 max-md:after:content-['']"
         >
           <X size={12} />
         </span>
@@ -2778,6 +2779,12 @@ export default function JugadoresSesionPage() {
           hay > esperados
             ? `La hoja dice ${formato.trim()} (${esperados}) y hay ${hay} colocados: ¿${dif} ${dif === 1 ? "sobra o es comodín" : "sobran o son comodines"}?`
             : `La hoja dice ${formato.trim()} (${esperados}) y hay ${hay} colocados: ${dif === 1 ? "falta 1" : `faltan ${dif}`}.`,
+        titular:
+          hay > esperados
+            ? `${dif === 1 ? "Sobra 1 jugador" : `Sobran ${dif} jugadores`} (o ${dif === 1 ? "es comodín" : "son comodines"})`
+            : dif === 1
+              ? "Falta 1 jugador"
+              : `Faltan ${dif} jugadores`,
       },
     ];
   })();
@@ -3762,6 +3769,15 @@ export default function JugadoresSesionPage() {
                           </div>
                         </div>
 
+                        {/* 10/11/2026: el criterio y «Repetir reparto», plegados bajo «Más»;
+                            a la vista sólo la fila de formatos. El rótulo dice el criterio en uso. */}
+                        <details className="group min-w-0">
+                          <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-lg px-1 py-1 text-[12px] font-semibold text-white/70 hover:text-white [&::-webkit-details-marker]:hidden">
+                            <MoreHorizontal size={13} /> Más · criterio: {rotuloCriterio(criterio)}
+                            {ultimaVez || fuentesCopia.length > 0 ? " · repetir reparto" : ""}
+                            <ChevronRight size={13} className="transition group-open:rotate-90" />
+                          </summary>
+                          <div className="mt-2 flex min-w-0 flex-col gap-2.5">
                         {selectorCriterio}
 
                         {(ultimaVez || fuentesCopia.length > 0) && (
@@ -3810,6 +3826,8 @@ export default function JugadoresSesionPage() {
                             )}
                           </div>
                         )}
+                          </div>
+                        </details>
                       </div>
                     )}
 
@@ -4178,13 +4196,28 @@ export default function JugadoresSesionPage() {
                         >
                           {grave ? ICONO_AVISO.error : problemas.length ? ICONO_AVISO.aviso : ICONO_AVISO.ok}
                           <span className="min-w-0">
-                            {problemas.length
-                              ? problemas.map((a) => (
-                                  <span key={a.texto} className="block">
-                                    {a.texto}
-                                  </span>
-                                ))
-                              : "Lista para presentar: nadie olvidado, nadie repetido y equipos parejos por puesto."}
+                            {/* 10/11/2026: una línea de titular («Faltan 3 jugadores») y el
+                                detalle plegado; las acciones siguen a la vista debajo. */}
+                            {problemas.length === 0 ? (
+                              "Lista para presentar: nadie olvidado, nadie repetido y equipos parejos por puesto."
+                            ) : problemas.length === 1 && !problemas[0].titular ? (
+                              <span className="block">{problemas[0].texto}</span>
+                            ) : (
+                              <>
+                                <span className="block font-semibold">
+                                  {problemas[0].titular ?? problemas[0].texto}
+                                  {problemas.length > 1 ? ` · ${problemas.length - 1} ${problemas.length === 2 ? "aviso más" : "avisos más"}` : ""}
+                                </span>
+                                <details className="mt-0.5">
+                                  <summary className="cursor-pointer select-none text-[11px] underline underline-offset-2 opacity-80">Ver el detalle</summary>
+                                  {problemas.map((a) => (
+                                    <span key={a.texto} className="mt-0.5 block">
+                                      {a.texto}
+                                    </span>
+                                  ))}
+                                </details>
+                              </>
+                            )}
                             {sinDemarcacion.length > 0 && (
                               <span className="mt-1 block">
                                 {sinDemarcacion.length === 1 ? "1 sin demarcación" : `${sinDemarcacion.length} sin demarcación`} ({sinDemarcacion.map((j) => j.nombre).join(", ")}): el reparto por puesto no sabe dónde juegan.{" "}

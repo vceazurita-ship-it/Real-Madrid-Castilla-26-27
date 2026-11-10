@@ -11,6 +11,13 @@
  * - **El último partido**: resultado, xG de los dos y el momentum en
  *   miniatura (la curva de `curvaMomento`, la misma de «Análisis de datos»).
  *
+ * 10/11/2026 (expertos): la base en el título («11 partidos»), «puesto en el
+ * grupo» como cabecera de la columna, «xG» y «PPDA» explicados la primera vez
+ * y el balón parado marcado como tendencia (pocos remates por partido). El
+ * último partido enseña de entrada remates y PPDA de los dos (vienen en
+ * `opta:partidos`, ya cargado); el momentum se suma debajo cuando llega y,
+ * mientras tanto o si no hay serie, no se dibuja caja ninguna.
+ *
  * Sólo documentos ligeros al abrir la portada (`opta:meta`, `opta:equipos`,
  * `opta:partidos`, ≈0,5 MB, compartidos con «Análisis de datos»). El momento (≈1 MB) se
  * pide cuando la tarjeta entra en pantalla, no antes; sin remates, ni ABP
@@ -28,11 +35,19 @@ import { useDocsOpta } from "@/hooks/useDocsOpta";
 import { useOptaLigero } from "@/hooks/useOptaLigero";
 import { trackModuleVisit } from "@/lib/module-usage";
 import { CASTILLA_OPTA, DOCS_OPTA, type TablaOpta } from "@/lib/opta";
-import { NOMBRE_CASTILLA, fechaCorta, nombreEquipo, partidosDe, type PartidoEquipo } from "@/lib/opta-analisis";
+import { NOMBRE_CASTILLA, fechaCorta, nombreEquipo, partidosDe, valorPartido, type PartidoEquipo } from "@/lib/opta-analisis";
 import { UMBRAL_DOMINIO } from "@/lib/opta-estilos";
 import { curvaMomento, momentoDe } from "@/lib/opta-eventos";
 import { contextoGrupo, equipoOptaDe, hastaElPartido, type FilaLab, type MetricaLab } from "@/lib/opta-laboratorio";
 import { SelloFuente } from "@/components/ui/SelloFuente";
+
+/** Lo que se lee bajo el nombre de cada fila: la sigla explicada y el sentido. */
+const AYUDA: Record<string, string> = {
+  ExpG: "goles esperados · más es mejor",
+  ExpGAg: "goles esperados que concede · menos es mejor",
+  PPDA: "pases que deja dar antes de presionar · menos es más presión",
+  xGSetPly: "tendencia: pocos remates por partido",
+};
 
 /** Las cuatro de la tarjeta, todas por partido. */
 const CLAVE: MetricaLab[] = [
@@ -77,6 +92,7 @@ export function OptaPortada() {
 
   const hasta = hastaElPartido(opta.meta, opta.partidos);
   const deCuantos = nuestro[0]?.pos.deCuantos ?? 0;
+  const jugados = partidosDe(opta.partidos, CASTILLA_OPTA).length;
 
   return (
     <div className="min-w-0">
@@ -85,16 +101,18 @@ export function OptaPortada() {
           <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#D8B45A]/25 bg-[#D8B45A]/[0.08]">
             <Database className="h-4 w-4 text-[#D8B45A]" />
           </span>
-          <h2 className="fuente-club text-[20px] font-bold uppercase tracking-[0.08em] text-white/85">Opta de un vistazo</h2>
+          <h2 className="fuente-club text-[20px] font-bold uppercase tracking-[0.08em] text-white/85">
+            Opta de un vistazo
+            {jugados > 0 ? <span className="text-white/55"> · {jugados} {jugados === 1 ? "partido" : "partidos"}</span> : null}
+          </h2>
         </div>
-        {/* 10/11/2026: el sello de la fuente (`lib/fuentes.ts`); la cifra de cada celda es por partido y el puesto, en su grupo. */}
+        {/* 10/11/2026: el sello de la fuente (`lib/fuentes.ts`); «puesto en el grupo» va de cabecera de la tabla. */}
         <p className="flex flex-wrap items-center gap-2 text-[12px] text-white/50">
           <SelloFuente fuente="opta" poblacion={`grupo (${deCuantos} equipos)`} hasta={hasta ? `hasta el ${hasta}` : undefined} />
-          <span>puesto en el grupo</span>
         </p>
       </div>
 
-      <div className="mt-5 grid min-w-0 gap-px overflow-hidden rounded-3xl border border-white/[0.08] bg-white/[0.06] lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
+      <div className={`mt-5 grid min-w-0 gap-px overflow-hidden rounded-3xl border border-white/[0.08] bg-white/[0.06] ${ultimo ? "lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]" : ""}`}>
         {/* ---------- frente a frente ---------- */}
         <Link
           href="/data-analisis?area=estilos"
@@ -106,7 +124,7 @@ export function OptaPortada() {
           <table className="mt-3 w-full table-fixed text-left tabular-nums">
             <thead>
               <tr className="text-[11px] text-white/55">
-                <th className="w-[38%] pb-1.5 pr-2 font-medium" />
+                <th className="w-[38%] pb-1.5 pr-2 align-bottom text-[11px] font-medium leading-tight text-white/55">por partido · puesto en el grupo</th>
                 <th className="pb-1.5 pr-2 text-right font-semibold">
                   <span className="block truncate" style={{ color: ORO }}>Castilla</span>
                 </th>
@@ -126,7 +144,11 @@ export function OptaPortada() {
                   <tr key={x.a} className="border-t border-white/[0.06]" title={x.comoLeer}>
                     <td className="py-2 pr-2 align-top text-[12.5px] leading-tight text-white/75">
                       {x.nombre}
-                      {x.mejor === false ? <span className="block text-[10.5px] text-white/50">menos es mejor</span> : null}
+                      {AYUDA[x.a] ? (
+                        <span className="mt-0.5 block text-[11px] leading-snug text-white/55">{AYUDA[x.a]}</span>
+                      ) : x.mejor === false ? (
+                        <span className="block text-[11px] text-white/55">menos es mejor</span>
+                      ) : null}
                     </td>
                     <Celda x={x} />
                     {rival ? r ? <Celda x={r} /> : <td /> : null}
@@ -142,7 +164,7 @@ export function OptaPortada() {
         </Link>
 
         {/* ---------- el último partido ---------- */}
-        {ultimo ? <UltimoPartido ultimo={ultimo} /> : <div className="hidden bg-[#07121F] lg:block" />}
+        {ultimo ? <UltimoPartido ultimo={ultimo} /> : null}
       </div>
     </div>
   );
@@ -194,6 +216,20 @@ function UltimoPartido({ ultimo }: { ultimo: PartidoEquipo }) {
   const xgB = typeof ultimo.otra?.ExpG === "number" ? ultimo.otra.ExpG : null;
   const marcador = ultimo.gf != null && ultimo.gc != null ? `${ultimo.gf}-${ultimo.gc}` : "";
 
+  /* Remates y PPDA de los dos, del mismo `opta:partidos` que ya está cargado. */
+  const filas = (
+    [
+      ["Remates", "ShtIncBl", 0, "bloqueados incluidos"],
+      ["PPDA", "PPDA", 1, "menos es más presión"],
+    ] as const
+  )
+    .map(([nombre, a, d, ayuda]) => {
+      const nos = valorPartido(ultimo.fila, a);
+      const ellos = ultimo.otra ? valorPartido(ultimo.otra, a) : null;
+      return nos != null && ellos != null ? { nombre, ayuda, nos: coma(nos, d), ellos: coma(ellos, d) } : null;
+    })
+    .filter((x): x is NonNullable<typeof x> => x !== null);
+
   return (
     <Link
       ref={caja}
@@ -212,7 +248,26 @@ function UltimoPartido({ ultimo }: { ultimo: PartidoEquipo }) {
         </p>
       ) : null}
 
-      <div className="mt-3 min-h-[118px]">{aLaVista ? <Curva partido={String(ultimo.fila.partido ?? "")} rival={ultimo.rival} /> : <Hueco />}</div>
+      {filas.length ? (
+        <dl className="mt-3 grid grid-cols-[minmax(0,1fr)_auto_auto] gap-x-3 gap-y-1.5 text-[12.5px] tabular-nums">
+          <span />
+          <span className="text-right text-[11px] font-semibold" style={{ color: ORO }}>Castilla</span>
+          <span className="max-w-[7rem] truncate text-right text-[11px] font-semibold" style={{ color: COMPARADO }} title={ultimo.rival}>
+            {ultimo.rival}
+          </span>
+          {filas.map((x) => (
+            <div key={x.nombre} className="contents">
+              <dt className="min-w-0 text-white/75">
+                {x.nombre} <span className="text-[11px] text-white/50">· {x.ayuda}</span>
+              </dt>
+              <dd className="text-right font-semibold text-white">{x.nos}</dd>
+              <dd className="text-right font-semibold text-white">{x.ellos}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
+
+      {aLaVista ? <Curva partido={String(ultimo.fila.partido ?? "")} rival={ultimo.rival} /> : null}
 
       <p className="mt-auto flex items-center gap-1 pt-3 text-[12px] font-medium text-white/55 transition-colors duration-300 group-hover:text-[#D8B45A]">
         Opta · el Castilla, partido a partido
@@ -222,8 +277,6 @@ function UltimoPartido({ ultimo }: { ultimo: PartidoEquipo }) {
   );
 }
 
-const Hueco = () => <div className="h-[88px] animate-pulse rounded-xl bg-white/[0.05]" aria-hidden />;
-
 const W = 320;
 const H = 88;
 
@@ -232,8 +285,8 @@ function Curva({ partido, rival }: { partido: string; rival: string }) {
   const p = useMemo(() => momentoDe(docs[0]).get(partido), [docs, partido]);
   const curva = useMemo(() => (p ? curvaMomento(p, CASTILLA_OPTA, "mezcla") : []), [p]);
 
-  if (cargando) return <Hueco />;
-  if (curva.length < 4) return null;
+  /* Sin caja mientras llega ni si no hay serie: nada de hueco a la vista. */
+  if (cargando || curva.length < 4) return null;
 
   const n = curva.length;
   const cero = H / 2;
@@ -247,7 +300,7 @@ function Curva({ partido, rival }: { partido: string; rival: string }) {
   const id = `opta-portada-${partido}`;
 
   return (
-    <div className="min-w-0">
+    <div className="mt-3 min-w-0">
       <svg viewBox={`0 0 ${W} ${H}`} className="block h-[88px] w-full" preserveAspectRatio="none" role="img" aria-label={`Momentum del partido contra ${rival}: arriba el Castilla, abajo el rival`}>
         <defs>
           <clipPath id={`${id}-a`}>

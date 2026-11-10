@@ -959,13 +959,14 @@ ${pr ? barraPronostico(pr, esPost ? "LO QUE DABA EL PRONÓSTICO" : "EL PRONÓSTI
 
   const vistazoCap = vz
     ? `${tarjetas([
-        { rotulo: "G · E · P", valor: `${vz.g}-${vz.e}-${vz.p}`, pie: `${vz.partidos} partidos` },
+        /* «4G 3E 3P», no «4-3-3», que se lee como un dibujo (10/11/2026). */
+        { rotulo: "Resultados", valor: `${vz.g}G ${vz.e}E ${vz.p}P`, pie: `en ${vz.partidos} partidos` },
         { rotulo: "Goles", valor: `${vz.gf}-${vz.gc}`, pie: "a favor · en contra" },
         /* Un solo puesto, el de BeSoccer por puntos (20/10/2026); el de Wyscout por puntos por partido, sólo sin él. */
         ctx?.puesto
           ? { rotulo: "En la tabla", valor: ordinal(ctx.puesto), pie: ctx.puntos !== null ? `${ctx.puntos} pts` : "" }
           : { rotulo: "En la tabla", valor: vz.tabla ? ordinal(vz.tabla.puesto) : "", pie: vz.tabla ? `de ${vz.tabla.de}, por puntos por partido` : "" },
-        { rotulo: "Forma", valor: vz.forma.map((f) => f.resultado).join(" ") || "", pie: vz.sistemas[0] ? `sistema: ${vz.sistemas[0].sistema}` : "" },
+        { rotulo: "Forma", valor: vz.forma.map((f) => f.resultado).join(" ") || "", pie: vz.sistemas[0] ? `dibujo: ${vz.sistemas[0].sistema}${vz.sistemas[0].partidos ? ` en ${vz.sistemas[0].partidos} de ${vz.partidos}` : ""}` : "" },
       ])}${vz.frases.length ? `${etiqueta("En pocas palabras")}${lista(vz.frases)}` : ""}${
         vz.fases.length
           ? `${etiqueta("Por fases · percentil contra su competición")}${tabla(
@@ -1159,11 +1160,22 @@ export function resumenHtml(inf: InformePartido, cids: string[], opciones: { con
      fuera una sola. */
   const llevaPdf = (opciones.descargas ?? []).some((d) => /\.pdf$/i.test(d.nombre));
 
-  const pie = opciones.conCompleto
-    ? "El informe completo, con todo el detalle y sus documentos, llega en otro correo."
-    : llevaPdf
-      ? `${cids.length === 1 ? "La diapositiva va" : "Las diapositivas van"} también en PDF adjunto.`
+  /* El método de los duelos, aquí y no en la diapositiva (10/11/2026, análisis): la lámina sólo dice cómo se lee. */
+  const metodo =
+    !esPost && inf.duelosJugadores?.lista.length
+      ? "Los duelos: lo que hace con balón uno contra lo que hace sin balón el otro. Cada cifra pequeña es su percentil contra los de su puesto en la categoría (97 = mejor que 97 de cada 100); la grande, la diferencia media de esos percentiles en su fila: en positivo, a nuestro favor. Con menos de 450 minutos de un jugador, va como tendencia."
       : "";
+
+  const pie = [
+    opciones.conCompleto
+      ? "El informe completo, con todo el detalle y sus documentos, llega en otro correo."
+      : llevaPdf
+        ? `${cids.length === 1 ? "La diapositiva va" : "Las diapositivas van"} también en PDF adjunto.`
+        : "",
+    metodo,
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${esc(titulo)}</title></head><body style="margin:0;padding:0;background:#08111F">${preheader(opciones.mensaje?.trim() ? opciones.mensaje.trim().slice(0, 140) : preencabezadoInforme(inf))}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#08111F"><tr><td align="center" style="padding:20px 8px"><table role="presentation" width="960" cellpadding="0" cellspacing="0" style="width:100%;max-width:960px">
 <tr><td style="padding:4px 4px 14px"><p style="margin:0;font:700 11px/1.3 Arial,sans-serif;letter-spacing:.24em;color:#C8A96B">REAL MADRID CASTILLA · ${esPost ? "POST PARTIDO" : "PREVIA"} · RESUMEN</p><p style="margin:6px 0 0;font:700 24px/1.25 Arial,sans-serif;color:#F7F4EC">${esc(titulo)}</p>${

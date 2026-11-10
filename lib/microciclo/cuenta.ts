@@ -85,6 +85,15 @@ export function separaSemanas<T extends { micro: number; rival: string; fecha: s
   return salida;
 }
 
+/**
+ * El rival como se lee en pantalla (10/11/2026): la hoja apunta «NO COMPETICIÓN»
+ * en la semana sin partido y la ficha lo recortaba a «COMPETICIÓN». Las dos
+ * pantallas dicen «Sin partido».
+ */
+export function rivalDelMicro(rival: string) {
+  return /^\s*(no|sin)\s+competici/.test(sinTildes(rival)) ? "Sin partido" : rival;
+}
+
 /** 13 → «13»; 13,1 → «13B»; 13,2 → «13C». */
 export function etiquetaMicro(micro: number | string) {
   const n = Number(micro);
@@ -140,7 +149,8 @@ export function cuentaMicros(filas: FilaCuenta[]): CuentaMicro[] {
     .sort((a, b) => a[0] - b[0])
     .map(([micro, suyas]) => {
       const entreno = suyas.filter((f) => !esFilaDePartido(f));
-      const notas = suyas.map((f) => Number(f.evaluacion) || 0).filter((n) => n > 0);
+      /* La valoración, sólo de las tareas de entreno (10/11/2026), como /microcycles. */
+      const notas = entreno.map((f) => Number(f.evaluacion) || 0).filter((n) => n > 0);
       const dia = (f: FilaCuenta) => fechaIsoDeHoja(f.fecha) || f.md;
 
       return {

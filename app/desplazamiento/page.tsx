@@ -318,14 +318,32 @@ function EnlaceRuta({ desde, hasta, rotulo }: { desde: string; hasta: string; ro
  * de autobús ni kilómetros que contar, y los campos vacíos ocupaban media
  * pantalla. Siguen ahí, bajo «Datos del estadio», por si se quieren rellenar.
  */
-function Plegable({ plegado, children }: { plegado: boolean; children: React.ReactNode }) {
-  if (!plegado) return <>{children}</>;
+/*
+| 10/11/2026: también se pliega lo que está vacío (estadio sin dirección ni
+| planos, hotel sin nada). La decisión se toma al abrir el viaje y no cambia
+| al escribir: si se desplegara a la primera letra, el campo se montaría de
+| nuevo y perdería el foco. Va con `key` del viaje para rehacerla al cambiar.
+*/
+function Plegable({
+  plegado,
+  titulo = "Datos del estadio",
+  detalle = "dirección, distancia, plano y ruta",
+  children,
+}: {
+  plegado: boolean;
+  titulo?: string;
+  detalle?: string;
+  children: React.ReactNode;
+}) {
+  const [plegar] = useState(plegado);
+
+  if (!plegar) return <>{children}</>;
 
   return (
     <details className="group mt-3 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
       <summary className="cursor-pointer select-none text-xs font-semibold text-white/70 hover:text-white">
-        Datos del estadio
-        <span className="ml-2 font-normal text-white/40">dirección, distancia, plano y ruta</span>
+        {titulo}
+        <span className="ml-2 font-normal text-white/40">{detalle}</span>
       </summary>
       <div className="pb-1">{children}</div>
     </details>
@@ -1195,6 +1213,48 @@ export default function DesplazamientoPage() {
                     );
                   })()}
 
+                  {/*
+                  | ================= EL VIAJE DE UN VISTAZO =================
+                  | 10/11/2026: salida, hotel y horario en una tarjeta de lectura
+                  | antes del formulario. Lo que no está escrito no se nombra.
+                  */}
+                  {(() => {
+                    const dias = [...viaje.dias].filter((d) => d.fecha).sort((a, b) => a.fecha.localeCompare(b.fecha));
+                    const primero = dias.find((d) => d.citas.length > 0);
+                    const salidaCita = primero
+                      ? [...primero.citas].sort((a, b) => a.minuto - b.minuto).find((c) => c.tipo === "viaje") ??
+                        [...primero.citas].sort((a, b) => a.minuto - b.minuto)[0]
+                      : undefined;
+                    const citas = dias.reduce((n, d) => n + d.citas.length, 0);
+                    const filas = [
+                      !enCasa && primero && salidaCita
+                        ? ["Salida", `${diaLargo(primero.fecha).split(" ")[0].toLowerCase()} ${aHora(salidaCita.minuto)}${viaje.origen ? ` · desde ${viaje.origen}` : ""}`]
+                        : null,
+                      viaje.fecha
+                        ? ["Partido", `${diaLargo(viaje.fecha).toLowerCase()}${viaje.hora ? ` · ${viaje.hora}` : ""}${viaje.estadio.nombre ? ` · ${viaje.estadio.nombre}` : ""}`]
+                        : null,
+                      !enCasa && viaje.conHotel && viaje.hotel.nombre.trim()
+                        ? ["Hotel", [viaje.hotel.nombre, viaje.hotel.entrada].filter((x) => x.trim()).join(" · ")]
+                        : null,
+                      citas > 0
+                        ? ["Horario", `${dias.length} ${dias.length === 1 ? "día" : "días"} · ${citas} ${citas === 1 ? "cita" : "citas"}${guardado ? "" : " · propuesto, sin guardar"}`]
+                        : null,
+                    ].filter((f): f is string[] => f !== null);
+
+                    if (!filas.length) return null;
+
+                    return (
+                      <dl className="mt-4 grid min-w-0 gap-x-6 gap-y-2 rounded-2xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.05] px-4 py-3 sm:grid-cols-2 lg:grid-cols-4">
+                        {filas.map(([que, valor]) => (
+                          <div key={que} className="min-w-0">
+                            <dt className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">{que}</dt>
+                            <dd className="mt-0.5 break-words text-sm font-semibold text-white">{valor}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    );
+                  })()}
+
                   {/* ================== EL PARTIDO ================== */}
 
                   <div className="mt-5 scroll-mt-20" id="viaje-partido">
@@ -1404,7 +1464,16 @@ export default function DesplazamientoPage() {
                         />
                       </div>
 
-                      <Plegable plegado={enCasa}>
+                      <Plegable
+                        key={`estadio-${viaje.partidoId}-${status === "loading" ? "leyendo" : "listo"}`}
+                        plegado={
+                          enCasa ||
+                          (![viaje.estadio.direccion, viaje.estadio.distancia, viaje.estadio.tiempo, viaje.estadio.enlace].some((x) => x.trim()) &&
+                            !viaje.estadio.plano?.url &&
+                            !viaje.estadio.ruta?.url)
+                        }
+                        detalle={enCasa ? undefined : "vacío: dirección, distancia, plano y ruta"}
+                      >
                       <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                         <Field
                           label="Dirección"
@@ -1481,6 +1550,16 @@ export default function DesplazamientoPage() {
                         subtitle="Dónde se come y se descansa, y a cuánto queda del campo"
                         icon={Hotel}
                       >
+                        <Plegable
+                          key={`hotel-${viaje.partidoId}-${status === "loading" ? "leyendo" : "listo"}`}
+                          plegado={
+                            ![viaje.hotel.nombre, viaje.hotel.direccion, viaje.hotel.telefono, viaje.hotel.entrada, viaje.hotel.distancia, viaje.hotel.tiempo, viaje.hotel.enlace].some((x) => x.trim()) &&
+                            !viaje.hotel.foto?.url &&
+                            !viaje.hotel.ruta?.url
+                          }
+                          titulo="Añadir el hotel"
+                          detalle="aún vacío: nombre, dirección, teléfono, entrada y fotos"
+                        >
                         <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                           <Field
                             label="Nombre"
@@ -1559,6 +1638,7 @@ export default function DesplazamientoPage() {
                             onCambio={(imagen) => hotel({ ruta: imagen })}
                           />
                         </div>
+                        </Plegable>
                       </Panel>
                     </div>
                   )}

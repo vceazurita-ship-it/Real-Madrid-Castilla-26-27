@@ -14,11 +14,6 @@ import { weekFileCount, weekHasFiles, weekRangeLabel } from "@/lib/season/utils"
 
 type Filter = "all" | "with-files";
 
-const FILTERS: { id: Filter; label: string }[] = [
-  { id: "all", label: "Todas" },
-  { id: "with-files", label: "Con archivos" },
-];
-
 interface Props {
   season: MonthData[];
   selectedWeekId: number | null;
@@ -33,7 +28,7 @@ export default function WeekNavigator({
   onSelectWeek,
 }: Props) {
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<Filter>("all");
+  const [filter] = useState<Filter>("all");
   const [collapsed, setCollapsed] = useState<Record<number, boolean>>({});
   const [restoAbierto, setRestoAbierto] = useState(false);
 
@@ -92,11 +87,6 @@ export default function WeekNavigator({
       }))
       .filter((month) => month.weeks.length > 0);
   }, [season, filter, normalizedQuery]);
-
-  const visibleWeeks = filteredMonths.reduce(
-    (total, month) => total + month.weeks.length,
-    0
-  );
 
   const searching = normalizedQuery.length > 0 || filter !== "all";
 
@@ -210,26 +200,7 @@ export default function WeekNavigator({
           )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-1.5">
-          {FILTERS.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => setFilter(item.id)}
-              className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
-                filter === item.id
-                  ? "bg-[#C8A96B] text-[#0B0F14]"
-                  : "border border-white/10 text-white/50 hover:border-white/20 hover:text-white"
-              }`}
-            >
-              {item.label}
-            </button>
-          ))}
-
-          <span className="ml-auto text-xs tabular-nums text-white/30">
-            {visibleWeeks} semanas
-          </span>
-        </div>
+        {/* Un solo filtro, el buscador (10/11/2026): «Todas / Con archivos / 52 semanas» no se entendían. «Con archivos» ya lo da la tira de arriba. */}
       </div>
 
       {/* LISTA */}

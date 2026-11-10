@@ -28,8 +28,8 @@ function MuestraFicha() {
   return (
     <figure className="rounded-2xl border border-white/10 bg-white/[0.03] p-4" aria-label="Ejemplo de la ficha de objetivos">
       <figcaption className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/45">Así se ve dentro</span>
-        <span className="rounded-full border border-white/15 px-2 py-0.5 text-[10px] font-semibold text-white/55">Ejemplo, sin datos reales</span>
+        <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/55">Así se lee una tarea</span>
+        <span className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] font-semibold text-white/60">Muestra del formato</span>
       </figcaption>
       <p className="text-sm font-semibold text-white">
         <span className="text-[#C8A96B]">MD-3 · T2</span> Rondo 7v3
@@ -46,7 +46,13 @@ function MuestraFicha() {
           </li>
         ))}
       </ul>
-      <p className="mt-3 text-[11px] text-white/45">Cada acción lleva su clip, y el mensaje para el jugador sale de lo que se vio.</p>
+      {/*
+      | 10/11/2026: los expertos pedían el último análisis real, anonimizado.
+      | No se hace: esta puerta la ve cualquiera (web y repositorio públicos) y
+      | un análisis del vestuario, aun sin nombres, no debe salir de la cuenta
+      | del staff. Se queda la muestra del formato y se dice qué es.
+      */}
+      <p className="mt-3 text-[12px] text-white/55">Cada acción lleva su clip, y el mensaje para el jugador sale de lo que se vio. Jugadores y cifras de la muestra son ilustrativos.</p>
     </figure>
   );
 }
@@ -70,9 +76,12 @@ export function AccesoEntreno() {
         <section className="flex min-w-0 flex-1 flex-col">
           <Topbar />
 
-          <div className="mx-auto w-full min-w-0 max-w-2xl space-y-5 px-4 py-6 sm:px-6">
+          <div className="mx-auto w-full min-w-0 max-w-5xl space-y-5 px-4 py-6 sm:px-6">
             <AbpHeader area="RMCF Castilla · Entrenamiento" title="Análisis de entrenamiento" lead="Mira qué objetivo cumplió cada jugador en la sesión." />
 
+            {/* Dos columnas en escritorio (10/11/2026): lo que hay dentro a la izquierda, la entrada a la derecha. */}
+            <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
+            <div className="min-w-0 space-y-5">
             {/* Lo que hay dentro, antes de entrar (24/10/2026): quien llega desde el menú no sabía qué aporta la pantalla. */}
             <ul className="space-y-1.5 text-sm text-white/70">
               {[
@@ -93,6 +102,9 @@ export function AccesoEntreno() {
             | escrita a mano y lo dice, para que no se lea como un dato.
             */}
             <MuestraFicha />
+            </div>
+
+            <div className="min-w-0 space-y-4">
 
             {/* Título corto: en el móvil «Entra para ver qué objetivo cumplió…» se cortaba y repetía la entrada. */}
             <Acceso sinPista yo={yo} cargando={sesion.cargando} manda={sesion.manda} titulo="Entra con tu cuenta del staff" botonEntrar="Ver el análisis" subtitulo="La misma cuenta que la quiniela y las apuestas del staff" />
@@ -105,15 +117,15 @@ export function AccesoEntreno() {
 
             {delCuerpoTecnico ? <p className="text-sm text-white/60">Abriendo el análisis…</p> : null}
 
-            {/* Un botón secundario, no un enlace en letra pequeña (24/10/2026): pasaba desapercibido. */}
-            <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-              <p className="min-w-0 flex-1 text-sm text-white/70">¿Eres el administrador? Entra en Ajustes con tu usuario y vuelve aquí.</p>
-              <Link
-                href="/ajustes"
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-[#C8A96B]/50 px-3 py-1.5 text-xs font-medium text-[#C8A96B] transition hover:bg-[#C8A96B]/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#C8A96B]"
-              >
-                Ir a Ajustes
-              </Link>
+            {/* El acceso del administrador, un enlace pequeño al pie (10/11/2026): al cuerpo técnico no le toca. */}
+            <p className="text-xs text-white/50">
+              Administrador:{" "}
+              <Link href="/ajustes" className="rounded text-white/70 underline underline-offset-4 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#C8A96B]">
+                entra en Ajustes
+              </Link>{" "}
+              y vuelve aquí.
+            </p>
+            </div>
             </div>
           </div>
         </section>

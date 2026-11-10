@@ -406,6 +406,9 @@ export default function MicroCalendar() {
       let cognitiva = 0;
       let tareas = 0;
       let ultimoDia = 0;
+      /* 10/11/2026: los días de entreno con carga apuntada. Los planificados
+         (sin minutos todavía) no bajan la media ni alargan la ventana. */
+      let hechos = 0;
       const siglas = new Set<string>();
       const porMd = new Map<string, { carga: number; dias: number }>();
       const dentro = new Map<string, { md?: string; fase?: string; tipo?: string; contenidoPrincipal?: string }[]>();
@@ -419,9 +422,6 @@ export default function MicroCalendar() {
 
         dentro.set(key, filas);
         const entreno = dayTasks.filter((t, i) => !esFilaDePartido(filas[i]));
-
-        /* La ventana de comparación acaba en la última sesión de entreno, no en un partido posterior (09/11/2026). */
-        if (entreno.length > 0) ultimoDia = Math.max(ultimoDia, date.getDate());
 
         tareas += entreno.length;
 
@@ -440,6 +440,14 @@ export default function MicroCalendar() {
 
         carga += cargaDia;
 
+        /* La ventana de comparación acaba en el último entreno HECHO (con carga),
+           no en un partido ni en un día sólo planificado (10/11/2026). */
+        const conCarga = cargaDia > 0 || entreno.some((t) => minutesOf(t) > 0);
+        if (entreno.length > 0 && conCarga) {
+          hechos += 1;
+          ultimoDia = Math.max(ultimoDia, date.getDate());
+        }
+
         const md = String(entreno[0]?.MD ?? "").trim().toUpperCase().replace(/\s+/g, "");
 
         if (md && cargaDia > 0) {
@@ -455,14 +463,16 @@ export default function MicroCalendar() {
 
       return {
         sesiones: entrenos,
+        hechos,
+        planificados: Math.max(0, entrenos - hechos),
         tareas,
         partidos,
         siglas,
         minutos,
         ultimoDia,
         porMd,
-        cargaMedia: entrenos > 0 ? Math.round(carga / entrenos) : 0,
-        cognitivaMedia: entrenos > 0 ? Math.round(cognitiva / entrenos) : 0,
+        cargaMedia: hechos > 0 ? Math.round(carga / hechos) : 0,
+        cognitivaMedia: hechos > 0 ? Math.round(cognitiva / hechos) : 0,
       };
     },
     [sessionDays, tasksByDay]
@@ -497,8 +507,16 @@ export default function MicroCalendar() {
     return ` · ${pct > 0 ? "+" : "−"}${Math.abs(pct)} % sobre ${nombrePrevio}`;
   };
 
-  /** «5 entrenos + 2 partidos»: la base de las medias de carga. */
-  const baseDelMes = textoEntrenosYPartidos(monthStats.sesiones, 0);
+  /** «5 entrenos hechos»: la base de las medias de carga (sólo los días con carga). */
+  const baseDelMes = `${monthStats.hechos} ${monthStats.hechos === 1 ? "entreno hecho" : "entrenos hechos"}`;
+  /** «5 entrenos hechos + 3 planificados + 2 partidos»: lo que hay en el mes. */
+  const cuentaDelMes = [
+    monthStats.planificados > 0 ? baseDelMes : textoEntrenosYPartidos(monthStats.sesiones, 0),
+    monthStats.planificados > 0 ? `${monthStats.planificados} ${monthStats.planificados === 1 ? "planificado" : "planificados"}` : "",
+    monthStats.partidos ? textoEntrenosYPartidos(0, monthStats.partidos) : "",
+  ]
+    .filter(Boolean)
+    .join(" + ");
 
   /*
   | «Más carga no es mejor» (30/10/2026): si cambia mucho contra el mes
@@ -508,7 +526,7 @@ export default function MicroCalendar() {
   */
   const lecturaCarga = (() => {
     const previo = mesPrevio.stats;
-    if (previo.sesiones === 0 || previo.cargaMedia <= 0 || monthStats.sesiones === 0) return "";
+    if (previo.hechos === 0 || previo.cargaMedia <= 0 || monthStats.hechos === 0) return "";
     const pct = Math.round(((monthStats.cargaMedia - previo.cargaMedia) / previo.cargaMedia) * 100);
     if (Math.abs(pct) < 5) return "";
     const base = `${monthStats.cargaMedia} por entreno frente a ${previo.cargaMedia} en ${nombrePrevio}`;
@@ -525,9 +543,21 @@ export default function MicroCalendar() {
       .filter((c): c is { md: string; mediaA: number; mediaB: number; pct: number } => c !== null && Math.abs(c.pct) >= 10)
       .sort((x, y) => Math.abs(y.pct) - Math.abs(x.pct));
     const mueve = cambios[0];
-    const orden = mueve
-      ? ` La semana que viene, ${mueve.pct < 0 ? "subir" : "bajar"} el ${mueve.md} si no se busca ese cambio: ${Math.round(mueve.mediaA)} de media este mes frente a ${Math.round(mueve.mediaB)} (${mueve.pct > 0 ? "+" : "−"}${Math.abs(mueve.pct)} %).`
+    /* 10/11/2026: cada cifra con su base («310 en 1 MD-4 de noviembre frente a
+       222 de media en 3 MD-4 de octubre»). Con menos de 3 sesiones de ese MD
+       en cualquiera de los dos lados es una tendencia: se dice, sin orden. */
+    const enDias = (n: number, md: string, mes: string) => `${n} ${md} de ${mes}`;
+    const mesActual = MONTHS[active.month].toLowerCase();
+    const mesAntes = MONTHS[mesPrevio.month].toLowerCase();
+    const cifras = mueve
+      ? `${Math.round(mueve.mediaA)}${monthStats.porMd.get(mueve.md)!.dias > 1 ? " de media" : ""} en ${enDias(monthStats.porMd.get(mueve.md)!.dias, mueve.md, mesActual)} frente a ${Math.round(mueve.mediaB)}${previo.porMd.get(mueve.md)!.dias > 1 ? " de media" : ""} en ${enDias(previo.porMd.get(mueve.md)!.dias, mueve.md, mesAntes)} (${mueve.pct > 0 ? "+" : "−"}${Math.abs(mueve.pct)} %)`
       : "";
+    const pocas = mueve ? Math.min(monthStats.porMd.get(mueve.md)!.dias, previo.porMd.get(mueve.md)!.dias) < 3 : false;
+    const orden = !mueve
+      ? ""
+      : pocas
+        ? ` Tendencia en el ${mueve.md}, con pocas sesiones para mover nada: ${cifras}.`
+        : ` La semana que viene, ${mueve.pct < 0 ? "subir" : "bajar"} el ${mueve.md} si no se busca ese cambio: ${cifras}.`;
 
     if (pct < 0 && monthStats.partidos > previo.partidos) {
       return `La carga media baja un ${Math.abs(pct)} % (${base}) con más partidos (${monthStats.partidos} frente a ${previo.partidos}): es la descarga de las semanas de competición.${orden}`;
@@ -602,7 +632,7 @@ export default function MicroCalendar() {
       eyebrow="RMCF CASTILLA · ENTRENAMIENTO"
       title={
         monthStats.sesiones > 0
-          ? `${textoEntrenosYPartidos(monthStats.sesiones, monthStats.partidos)}${monthStats.minutos > 0 ? ` y ${formatMinutes(monthStats.minutos)} de entreno` : ""} en ${MONTHS[active.month].toLowerCase()}`
+          ? `${cuentaDelMes}${monthStats.minutos > 0 ? ` y ${formatMinutes(monthStats.minutos)} de entreno` : ""} en ${MONTHS[active.month].toLowerCase()}`
           : "Calendario de Microciclo"
       }
       months={months}
@@ -616,7 +646,7 @@ export default function MicroCalendar() {
           <CalendarStat
             label="Entrenos"
             value={monthStats.sesiones}
-            hint={`${monthStats.partidos ? `+ ${monthStats.partidos} ${monthStats.partidos === 1 ? "partido" : "partidos"} · ` : ""}${monthStats.tareas} tareas de entreno en ${MONTHS[active.month].toLowerCase()}`}
+            hint={`${monthStats.planificados > 0 ? `${monthStats.hechos} hechos y ${monthStats.planificados} planificados · ` : ""}${monthStats.partidos ? `+ ${monthStats.partidos} ${monthStats.partidos === 1 ? "partido" : "partidos"} · ` : ""}${monthStats.tareas} tareas de entreno en ${MONTHS[active.month].toLowerCase()}`}
           />
           <CalendarStat
             label="Volumen"
@@ -705,6 +735,17 @@ export default function MicroCalendar() {
                   {formatMinutes(totalMinutes)}
                 </span>
               )}
+              {/* 10/11/2026: un entreno que aún no tiene minutos en la hoja es
+                  un día planificado; se dice, para que el mes se lea igual de
+                  principio a fin (la hoja no guarda minutos previstos). */}
+              {totalMinutes === 0 && !esDiaDePartido(dayTasks) && (
+                <span
+                  className="whitespace-nowrap rounded-full border border-white/15 px-1.5 py-0.5 text-[10px] font-semibold text-white/60"
+                  title="Entreno planificado: la hoja aún no tiene sus minutos ni su intensidad"
+                >
+                  planificado
+                </span>
+              )}
             </div>
           ),
           children: (
@@ -734,7 +775,8 @@ export default function MicroCalendar() {
               {orderedBlocks.map(([name, minutes]) => (
                 <div key={name} title={tituloConSiglas(name)}>
                   <div className="flex items-baseline justify-between gap-2">
-                    <span className="truncate text-[11px] md:text-xs">{name}</span>
+                    {/* 10/11/2026: dos líneas antes de cortar; el nombre entero va en el title. */}
+                    <span className="line-clamp-2 min-w-0 break-words text-[11px] leading-tight md:text-xs">{name}</span>
 
                     {minutes > 0 && (
                       <span className="shrink-0 text-[11px] text-white/55">
@@ -780,8 +822,7 @@ export default function MicroCalendar() {
       {!loading && monthStats.sesiones > 0 && (
         <div className="min-w-0 space-y-2 px-4 pb-6 text-[12px] text-white/60 md:px-8">
           <p>
-            El fondo de cada día es el color de la fase con más minutos; las barras, el peso de cada contenido en los
-            minutos de la sesión.
+            Fondo del día = fase con más minutos · barra = minutos de ese contenido sobre los de la sesión.
           </p>
           {lecturaCarga && <p>{lecturaCarga}</p>}
           {monthStats.siglas.size > 0 && (

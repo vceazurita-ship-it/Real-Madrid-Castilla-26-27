@@ -22,7 +22,7 @@ import { useDiasConectados } from "@/hooks/useDiasConectados";
 import { planDeRegistro, propuestasDeLaSesion, sesionDeFecha, type FilaPlan } from "@/lib/sesion-dia/conexion";
 import type { LucideIcon } from "lucide-react";
 import { nombreCorto as nombreCortoEquipo } from "@/lib/abp/informe-graficos";
-import { etiquetaMicro, fechaIsoDeHoja, separaSemanas } from "@/lib/microciclo/cuenta";
+import { esFilaDePartido, etiquetaMicro, fechaIsoDeHoja, rivalDelMicro, separaSemanas } from "@/lib/microciclo/cuenta";
 import {
   Activity,
   ArrowDown,
@@ -113,7 +113,7 @@ const norm = (v?: string) =>
     .toLowerCase()
     .trim();
 
-const isCompeticion = (fase?: string) => norm(fase).includes("competicion");
+/* El partido es la fila de competición del día MD: la misma regla que el editor (lib/microciclo/cuenta.ts, 10/11/2026). */
 
 function num(v?: string) {
   if (!v) return 0;
@@ -893,7 +893,7 @@ export default function Page() {
 
   /** Working set for methodology analytics (competition optionally excluded) */
   const work = useMemo(
-    () => (excludeComp ? filtered.filter((r) => !isCompeticion(r.fase)) : filtered),
+    () => (excludeComp ? filtered.filter((r) => !esFilaDePartido(r)) : filtered),
     [filtered, excludeComp]
   );
 
@@ -919,7 +919,9 @@ export default function Page() {
   /* ---------------- global metrics ---------------- */
 
   const metrics = useMemo(() => {
-    const evals = filtered.map((r) => r.evaluacion).filter((n) => n > 0);
+    /* La valoración, sólo de las tareas de entreno (10/11/2026): con el partido salían
+       «14 valoradas» en un micro de 13 tareas de entreno. */
+    const evals = filtered.filter((r) => !esFilaDePartido(r)).map((r) => r.evaluacion).filter((n) => n > 0);
 
     return {
       eval: avg(evals),
@@ -935,9 +937,9 @@ export default function Page() {
       evaluadas: evals.length,
       sesiones: new Set(filtered.map((r) => `${r.micro}-${r.md}`)).size,
       /* La misma cuenta en todas las pantallas (07/11/2026): «X entrenos + Y partidos». */
-      entrenos: new Set(filtered.filter((r) => !isCompeticion(r.fase)).map((r) => `${r.micro}-${r.md}`)).size,
-      partidos: new Set(filtered.filter((r) => isCompeticion(r.fase)).map((r) => `${r.micro}-${r.md}`)).size,
-      tareasEntreno: filtered.filter((r) => !isCompeticion(r.fase)).length,
+      entrenos: new Set(filtered.filter((r) => !esFilaDePartido(r)).map((r) => `${r.micro}-${r.md}`)).size,
+      partidos: new Set(filtered.filter((r) => esFilaDePartido(r)).map((r) => `${r.micro}-${r.md}`)).size,
+      tareasEntreno: filtered.filter((r) => !esFilaDePartido(r)).length,
       diversidad: new Set(filtered.map((r) => r.tipo).filter(Boolean)).size,
       jugadores: avg(filtered.map((r) => r.nJug).filter((n) => n > 0)),
     };
@@ -947,13 +949,17 @@ export default function Page() {
   const avgCogPerTask = metrics.tasks ? metrics.cog / metrics.tasks : 0;
   const avgTimePerTask = metrics.tasks ? metrics.tiempo / metrics.tasks : 0;
   const cogRatio = metrics.load ? metrics.cog / metrics.load : 0;
+  /* ¿Hay algo medido? (10/11/2026). Un micro con las tareas sin tiempo ni intensidad
+     salía con «0'», «0», «0,00» y «−100 % frente al M20»: lo que no tiene minutos no
+     se pinta ni se compara. */
+  const hayCarga = metrics.load > 0 && metrics.tiempo > 0;
 
   /** Per-microcycle aggregates over the FULL dataset (for trends & rail) */
   const microStats = useMemo(() => {
     return micros.map((m) => {
       const set = rows.filter((r) => r.micro === m);
-      const noComp = set.filter((r) => !isCompeticion(r.fase));
-      const evals = set.map((r) => r.evaluacion).filter((n) => n > 0);
+      const noComp = set.filter((r) => !esFilaDePartido(r));
+      const evals = noComp.map((r) => r.evaluacion).filter((n) => n > 0);
       const fecha = set.map((r) => parseFecha(r.fecha)).filter(Boolean) as Date[];
 
       return {
@@ -1001,7 +1007,7 @@ export default function Page() {
     | compara sólo en los días MD que sí lo están, contra esos mismos días del
     | micro anterior, y se dice.
     */
-    const deCur = rows.filter((r) => r.micro === cur.micro && !isCompeticion(r.fase));
+    const deCur = rows.filter((r) => r.micro === cur.micro && !esFilaDePartido(r));
     const medido = (r: Row) => r.tiempo > 0 && r.intensidad > 0;
     const mds = [...new Set(deCur.map((r) => r.md).filter(Boolean))];
     const medidos = mds.filter((md) => deCur.some((r) => r.md === md && medido(r)));
@@ -1013,7 +1019,7 @@ export default function Page() {
     const ordenMd = (a: string, b: string) => posMd(a) - posMd(b);
 
     if (faltan.length && medidos.length) {
-      const enDias = (m: number) => rows.filter((r) => r.micro === m && !isCompeticion(r.fase) && medidos.includes(r.md));
+      const enDias = (m: number) => rows.filter((r) => r.micro === m && !esFilaDePartido(r) && medidos.includes(r.md));
       const a = enDias(cur.micro);
       const b = enDias(prev.micro);
       const evA = avg(a.map((r) => r.evaluacion).filter((n) => n > 0));
@@ -1207,7 +1213,7 @@ export default function Page() {
     | entreno, y se cuenta sin el partido, como el resto de la metodología.
     */
     const porTarea = (key: "carga" | "cargaCog", set: Row[]) => {
-      const s = set.filter((r) => !isCompeticion(r.fase));
+      const s = set.filter((r) => !esFilaDePartido(r));
 
       return s.length ? sum(s.map((r) => r[key])) / s.length : 0;
     };
@@ -1220,6 +1226,7 @@ export default function Page() {
       1
     );
 
+    /* Sólo los ejes con dato (10/11/2026): sin minutos, «Intensidad 0» con «Exig. cog. 9» no dice nada. */
     return [
       { metric: "Evaluación", value: metrics.eval, raw: metrics.eval },
       { metric: "Intensidad", value: metrics.intensidad, raw: metrics.intensidad },
@@ -1239,7 +1246,7 @@ export default function Page() {
         value: scale(metrics.diversidad, maxDiversidad),
         raw: metrics.diversidad,
       },
-    ];
+    ].filter((d) => d.value > 0);
   }, [
     rows,
     filtered,
@@ -1501,7 +1508,7 @@ export default function Page() {
       if (micro !== "ALL") {
         const pcts = micros
           .map((m) => {
-            const set = rows.filter((r) => r.micro === m && (!excludeComp || !isCompeticion(r.fase)));
+            const set = rows.filter((r) => r.micro === m && (!excludeComp || !esFilaDePartido(r)));
             const total = sum(set.map((r) => r.carga));
             const delMd = sum(set.filter((r) => r.md === peakMD.md).map((r) => r.carga));
 
@@ -1557,7 +1564,7 @@ export default function Page() {
       });
     }
 
-    out.push({
+    if (hayCarga) out.push({
       icon: Brain,
       tone: "text-violet-400",
       peso: 30,
@@ -1580,7 +1587,8 @@ export default function Page() {
       });
     }
 
-    if (microDelta) {
+    /* Sin minutos medidos no hay comparación de carga; la de la evaluación, sólo con 5 tareas valoradas o más (10/11/2026). */
+    if (microDelta && (hayCarga || metrics.evaluadas >= 5)) {
       const prevM = microDelta.mismosDias ? `los mismos días del M${etiquetaMicro(microDelta.prev.micro)} (${listaDias(microDelta.mismosDias)})` : `M${etiquetaMicro(microDelta.prev.micro)}`;
       const evalTxt =
         microDelta.prev.eval > 0
@@ -1593,7 +1601,14 @@ export default function Page() {
           ? "la carga física se mantiene"
           : `la carga física ${microDelta.load > 0 ? "sube" : "baja"} ${fmtDec(Math.abs(microDelta.loadPct))} %${microDelta.loadAntes > 0 ? ` (${fmtInt(microDelta.loadAntes)} → ${fmtInt(microDelta.loadAhora)})` : ""}`;
 
-      out.push({
+      if (!hayCarga) {
+        if (evalTxt) out.push({
+          icon: Activity,
+          tone: "text-amber-400",
+          peso: 70,
+          text: `Respecto al M${etiquetaMicro(microDelta.prev.micro)}, ${evalTxt}, en ${metrics.evaluadas} tareas valoradas; el tiempo y la intensidad aún no están medidos.`,
+        });
+      } else out.push({
         icon: Activity,
         tone: "text-amber-400",
         peso: 70,
@@ -1601,7 +1616,7 @@ export default function Page() {
       });
     }
 
-    const sinEval = filtered.length - metrics.evaluadas;
+    const sinEval = metrics.tareasEntreno - metrics.evaluadas;
 
     if (sinEval > 0) {
       out.push({
@@ -1621,6 +1636,8 @@ export default function Page() {
     contenidoPrincipalMetrics,
     microDelta,
     metrics.evaluadas,
+    metrics.tareasEntreno,
+    hayCarga,
     excludeComp,
     work.length,
     micro,
@@ -1915,7 +1932,7 @@ export default function Page() {
                             className="mt-1 truncate text-sm font-semibold"
                             title={m.rival}
                           >
-                            {nombreCortoEquipo(m.rival)}
+                            {rivalDelMicro(m.rival) === m.rival ? nombreCortoEquipo(m.rival) : rivalDelMicro(m.rival)}
                           </p>
                         )}
 
@@ -1948,7 +1965,8 @@ export default function Page() {
 
             {/* ---------------- Filters ---------------- */}
 
-            <div className="rounded-[24px] sm:rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-5 sm:p-7 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm">
+            {/* Cabecera más ligera (10/11/2026): sin sombra ni degradado, los filtros no compiten con los indicadores. */}
+            <div className="rounded-[24px] border border-white/10 bg-white/[0.02] p-4 sm:p-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
                 <Select
                   value={micro}
@@ -1958,7 +1976,7 @@ export default function Page() {
                     { value: "ALL", label: "Todos los microciclos" },
                     ...[...microOptions].reverse().map((m) => ({
                       value: String(m.micro),
-                      label: `Micro ${etiquetaMicro(m.micro)}${m.rival ? ` · ${m.rival}` : ""}`,
+                      label: `Micro ${etiquetaMicro(m.micro)}${m.rival ? ` · ${rivalDelMicro(m.rival)}` : ""}`,
                     })),
                   ]}
                 />
@@ -2148,6 +2166,18 @@ export default function Page() {
                   deltaFrente={frenteA}
                 />
 
+                {/* Sin minutos medidos, una sola tarjeta que lo dice en vez de cuatro ceros (10/11/2026). */}
+                {!hayCarga && (
+                  <div className="col-span-2 rounded-2xl border border-white/10 bg-white/[0.03] p-4 md:col-span-2 xl:col-span-4">
+                    <p className="text-xs text-white/50">Tiempo y carga</p>
+                    <p className="mt-1 text-sm font-semibold text-white/85">
+                      Tiempo e intensidad aún sin medir en {metrics.tareasEntreno === 1 ? "la tarea" : `las ${metrics.tareasEntreno} tareas`} de entreno
+                    </p>
+                    <p className="mt-1 text-[12px] text-white/50">La carga física, la cognitiva y su comparación salen cuando se apunten los minutos.</p>
+                  </div>
+                )}
+
+                {hayCarga && (<>
                 <StatCard
                   icon={Clock}
                   title="Tiempo total"
@@ -2159,13 +2189,15 @@ export default function Page() {
                   deltaFrente={frenteA}
                 />
 
+                </>)}
+
                 {/* 30/10/2026: sin valoraciones la tarjeta no se pinta (nada de «—»). */}
                 {metrics.eval > 0 && (
                   <StatCard
                     icon={Star}
                     title="Valoración media"
                     value={fmtDec(metrics.eval)}
-                    hint={`${metrics.evaluadas} tarea${metrics.evaluadas === 1 ? "" : "s"} valorada${metrics.evaluadas === 1 ? "" : "s"}${metrics.evaluadas > metrics.tareasEntreno && metrics.tareasEntreno > 0 ? ` (${metrics.tareasEntreno} de entreno + partido)` : ""}`}
+                    hint={`${metrics.evaluadas} de ${metrics.tareasEntreno} tarea${metrics.tareasEntreno === 1 ? "" : "s"} de entreno valorada${metrics.evaluadas === 1 ? "" : "s"}`}
                     accent={getEvalColor(metrics.eval)}
                     delta={microDelta?.eval}
                     decimals={1}
@@ -2174,6 +2206,7 @@ export default function Page() {
                   />
                 )}
 
+                {hayCarga && (<>
                 <StatCard
                   icon={Flame}
                   title="Carga física"
@@ -2209,6 +2242,7 @@ export default function Page() {
                   hint={`más de 1 = pesa más lo cognitivo; menos de 1, lo físico${metrics.intensidad ? ` · intensidad media ${fmtDec(metrics.intensidad)}` : ""}`}
                   accent={COLORS.green}
                 />
+                </>)}
               </div>
             </div>
 
@@ -2292,7 +2326,8 @@ export default function Page() {
                     title="La semana en sesión"
                     subtitle="Los equipos de Jugadores sesión y lo que midió el análisis de entrenamiento, junto a cada tarea"
                   >
-                    <div className="grid min-w-0 grid-cols-1 gap-3 xl:grid-cols-2">
+                    {/* Una lista de días, de arriba abajo (10/11/2026): en dos columnas quedaba el martes a un lado y el miércoles suelto. */}
+                    <div className="grid min-w-0 grid-cols-1 gap-4">
                       {diasDelMicro.map((d) => {
                         const equipos = sesionDeFecha(almacenEquipos?.sesiones, d.fecha);
 
@@ -2352,6 +2387,11 @@ export default function Page() {
                     title="Distribución de carga en el microciclo"
                     subtitle="Carga física y cognitiva por día, con intensidad media"
                   >
+                    {!mdData.some((d) => d.carga > 0 || d.cargaCog > 0) ? (
+                      <p className="rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-6 text-sm text-white/60">
+                        Las {metrics.tareasEntreno} tareas de entreno aún no tienen tiempo ni intensidad: la carga por día sale en cuanto se midan.
+                      </p>
+                    ) : (<>
                     {diasSinMedida.length > 0 && (
                       <p className="mb-2 text-[11px] text-white/45">
                         {diasSinMedida.join(", ")}: sesión sin tiempo o
@@ -2431,12 +2471,14 @@ export default function Page() {
                         />
                       </ComposedChart>
                     </Chart>
+                    </>)}
                   </Panel>
 
                   <Panel
                     title="Perfil del microciclo"
                     subtitle="Cada eje de 0 a 10. Carga por tarea de entreno: 10 = el micro de la temporada que más carga por tarea tuvo. Diversidad: 10 = el micro con más tipos de tarea"
                   >
+                    {radarData.length >= 3 ? (
                     <Chart>
                       <RadarChart
                         cx="50%"
@@ -2473,6 +2515,11 @@ export default function Page() {
                         />
                       </RadarChart>
                     </Chart>
+                    ) : (
+                      <p className="rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-4 text-sm text-white/60">
+                        El perfil se dibuja con tiempo e intensidad medidos; hasta entonces, sólo lo que ya tiene dato.
+                      </p>
+                    )}
 
                     <div className="mt-4 grid grid-cols-3 gap-2">
                       {radarData.map((d) => (

@@ -70,6 +70,7 @@ import {
   Eraser,
   GripVertical,
   Link2,
+  MoreHorizontal,
   Plus,
   Trash2,
   Undo2,
@@ -221,7 +222,8 @@ function FilaCita({
         />
 
         {desfase !== null && (
-          <p className="mt-1 text-center text-[10px] tabular-nums text-white/35">
+          /* 10/11/2026: a 12 px y con más contraste; se leía «−1 d 4 h 15» con lupa. */
+          <p className="mt-1 text-center text-[12px] tabular-nums text-white/55">
             {desfase === 0 ? "saque inicial" : comoDesfase(desfase)}
           </p>
         )}
@@ -287,33 +289,12 @@ function FilaCita({
           </select>
         )}
 
-        {/*
-        | La vuelta que llega a las 3:15 pertenece a la hoja del día que se
-        | jugó: esto la manda a la madrugada de después, y otra vez la trae.
-        */}
-        <button
-          type="button"
-          onClick={() =>
-            onCambia({
-              minuto: esDiaSiguiente(cita.minuto)
-                ? cita.minuto - 1440
-                : cita.minuto + 1440,
-            })
-          }
-          aria-pressed={esDiaSiguiente(cita.minuto)}
-          title={
-            esDiaSiguiente(cita.minuto)
-              ? "Es de madrugada, ya del día siguiente. Pulsa para volverla a este día."
-              : "Pasarla a la madrugada del día siguiente (la vuelta de un viaje largo)"
-          }
-          className={`rounded-lg border px-2 py-1.5 text-[11px] transition ${
-            esDiaSiguiente(cita.minuto)
-              ? "border-[#C8A96B]/50 bg-[#C8A96B]/10 text-[#C8A96B]"
-              : "border-white/10 text-white/45 hover:text-white"
-          }`}
-        >
-          Madrugada
-        </button>
+        {/* La cita de madrugada lo dice a la vista; el cambio está en «⋯». */}
+        {esDiaSiguiente(cita.minuto) && (
+          <span className="rounded-lg border border-[#C8A96B]/50 bg-[#C8A96B]/10 px-2 py-1.5 text-[11px] text-[#C8A96B]" title="Es de madrugada, ya del día siguiente">
+            Madrugada del día siguiente
+          </span>
+        )}
 
         <Button
           icon={ArrowUp}
@@ -327,9 +308,46 @@ function FilaCita({
           title="Cinco minutos después"
         />
 
-        <Button icon={CopyPlus} onClick={onDuplica} title="Duplicar media hora después" />
-
-        <Button tone="danger" icon={Trash2} onClick={onQuita} title="Quitar la cita" />
+        {/*
+        | 10/11/2026: lo de menos uso, en «⋯» (eran ocho botones por cita). Se abre
+        | en línea, no flotando: el día lleva overflow-hidden y lo cortaría.
+        | La vuelta que llega a las 3:15 pertenece a la hoja del día que se
+        | jugó: «Pasar a la madrugada» la manda a la de después, y otra vez la trae.
+        */}
+        <details className="open:basis-full">
+          <summary
+            className="flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-lg border border-white/10 text-white/60 transition hover:text-white [&::-webkit-details-marker]:hidden"
+            aria-label="Más acciones de la cita"
+            title="Más acciones de la cita"
+          >
+            <MoreHorizontal size={14} />
+          </summary>
+          <div className="mt-1 flex flex-wrap gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1">
+            {[
+              {
+                texto: esDiaSiguiente(cita.minuto) ? "Volver a este día" : "Pasar a la madrugada del día siguiente",
+                hace: () => onCambia({ minuto: esDiaSiguiente(cita.minuto) ? cita.minuto - 1440 : cita.minuto + 1440 }),
+                peligro: false,
+              },
+              { texto: "Duplicar media hora después", hace: onDuplica, peligro: false },
+              { texto: "Quitar la cita", hace: onQuita, peligro: true },
+            ].map((op) => (
+              <button
+                key={op.texto}
+                type="button"
+                onClick={(evento) => {
+                  evento.currentTarget.closest("details")?.removeAttribute("open");
+                  op.hace();
+                }}
+                className={`rounded-lg px-2.5 py-2 text-left text-[12px] font-semibold transition ${
+                  op.peligro ? "text-red-300 hover:bg-red-500/10" : "text-white/80 hover:bg-white/[0.06] hover:text-white"
+                }`}
+              >
+                {op.texto}
+              </button>
+            ))}
+          </div>
+        </details>
 
         <button
           type="button"

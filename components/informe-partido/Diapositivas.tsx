@@ -265,7 +265,8 @@ function FilaDuelo({ m, equipos, compacta = false }: { m: MetricaDuelo; equipos:
       </div>
       <div style={{ width: numero, textAlign: alinear === "left" ? "right" : "left", whiteSpace: "nowrap" }}>
         <span style={{ fontSize: compacta ? 24 : 30, fontWeight: 700, color: C.crema }}>{cifra(dato?.valor ?? null, m.unidad)}</span>
-        <span style={{ fontSize: compacta ? 15 : 19, fontWeight: 600, color: C.tenue, marginLeft: 5, marginRight: 5 }}>{dato ? ordinal(dato.puesto) : ""}</span>
+        {/* «8,18 · 1.º» (10/11/2026): pegados se leían «8,181.º». */}
+        <span style={{ fontSize: compacta ? 15 : 19, fontWeight: 600, color: C.tenue, marginLeft: 5, marginRight: 5 }}>{dato ? `· ${ordinal(dato.puesto)}` : ""}</span>
       </div>
     </div>
   );
@@ -275,6 +276,10 @@ function FilaDuelo({ m, equipos, compacta = false }: { m: MetricaDuelo; equipos:
       {lado(m.nosotros, C.oro, "left")}
       <div style={{ flex: 1, textAlign: "center", fontSize: compacta ? 16 : 22, lineHeight: 1.05, fontWeight: 700, letterSpacing: "0.04em", color: C.suave, textTransform: "uppercase" }}>
         {sinSiglas(m.nombre)}
+        {/* Las de «menos es mejor» lo dicen (10/11/2026): pérdidas en campo propio, goles esperados en contra… */}
+        {m.mejorAlto === false ? (
+          <div style={{ fontSize: compacta ? 12 : 15, fontWeight: 600, letterSpacing: "0.08em", color: C.tenue, marginTop: 2 }}>MENOS ES MEJOR</div>
+        ) : null}
       </div>
       {lado(m.rival, C.rival, "right")}
       <span style={{ display: "none" }}>{equipos}</span>
@@ -581,11 +586,11 @@ function BarraResultado({ p, alto = 64, resaltar }: { p: Probabilidades; alto?: 
   );
 }
 
-function Cifra({ rotulo, valor, pie, color = C.crema }: { rotulo: string; valor: string; pie?: string; color?: string }) {
+function Cifra({ rotulo, valor, pie, color = C.crema, tamano = 40 }: { rotulo: string; valor: string; pie?: string; color?: string; tamano?: number }) {
   return (
     <div style={{ padding: "12px 16px", borderRadius: 14, background: "rgba(255,255,255,0.04)", border: `2px solid ${C.borde}` }}>
       <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: "0.16em", color: C.tenue, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{rotulo}</div>
-      <div style={{ fontSize: 40, fontWeight: 700, lineHeight: 1.05, color }}>{valor}</div>
+      <div style={{ fontSize: tamano, fontWeight: 700, lineHeight: tamano < 40 ? 1.35 : 1.05, color, whiteSpace: "nowrap" }}>{valor}</div>
       {pie ? <div style={{ fontSize: 15, color: C.tenue, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{pie}</div> : null}
     </div>
   );
@@ -677,8 +682,26 @@ function PanelAbp({ inf, titulo = "BALÓN PARADO", compacto = false }: { inf: In
   */
   const sinMinutos = inf.momento === "previa" && !minutosAbpInforme(inf).minutos;
 
-  const cifras = (p?.cifras ?? []).filter((c) => !(sinMinutos && (esCeroDeMinutos(c.valor) || esCeroDeMinutos(c.pie ?? ""))));
-  const claves = (p?.claves ?? []).filter((t) => !(sinMinutos && (esCeroDeMinutos(t) || /faltan \d+['′]|sin trabajar/i.test(t))));
+  /*
+  | Una sola frase para lo planificado (10/11/2026, fútbol y marketing): el
+  | informe de ABP manda «Planificado 2 tareas» y, debajo, «No figura en el plan
+  | de la semana» de la nº 1, y se leían como contradicción. Aquí se funden: la
+  | cifra sale y la frase dice en cuántas tareas no está. Y la jerga de la hoja
+  | («Z2», «p.barrera») se escribe entera.
+  */
+  const planificado = (p?.cifras ?? []).find((c) => /^planificad/i.test(c.rotulo));
+  const tareasPlan = planificado ? Number(String(planificado.valor).replace(/\D/g, "")) || 0 : 0;
+  const noFigura = (p?.claves ?? []).some((t) => /no figura en el plan de la semana/i.test(t));
+  const sinJerga = (t: string) =>
+    t
+      .replace(/no figura en el plan de la semana/i, tareasPlan ? `no está en ${tareasPlan === 1 ? "la tarea" : `ninguna de las ${tareasPlan} tareas`} de balón parado de la semana` : "no está en el plan de la semana")
+      .replace(/zona de directa p\.\s?barrera/gi, "zona de la falta directa, al palo de la barrera")
+      .replace(/\bp\.\s?barrera\b/gi, "palo de la barrera")
+      .replace(/\bdesde Z(\d)\b/g, "desde la zona $1")
+      .replace(/\bZ(\d)\b/g, "zona $1");
+
+  const cifras = (p?.cifras ?? []).filter((c) => !(sinMinutos && (esCeroDeMinutos(c.valor) || esCeroDeMinutos(c.pie ?? ""))) && !(noFigura && c === planificado));
+  const claves = (p?.claves ?? []).filter((t) => !(sinMinutos && (esCeroDeMinutos(t) || /faltan \d+['′]|sin trabajar/i.test(t)))).map(sinJerga);
   const titularAbp = p && !(sinMinutos && esCeroDeMinutos(p.titular)) ? p.titular : "";
 
   if (!p && !plan && !planDef) return null;
@@ -709,7 +732,7 @@ function PanelAbp({ inf, titulo = "BALÓN PARADO", compacto = false }: { inf: In
             {p.rival.slice(0, compacto ? 0 : 1).map((t) => (
               <div key={t} style={{ fontSize: 19, fontWeight: 600, lineHeight: 1.15, color: C.crema }}>
                 <span style={{ color: C.rival }}>▸ </span>
-                {recorta(t, 130)}
+                {recorta(sinJerga(t), 130)}
               </div>
             ))}
           </div>
@@ -1135,7 +1158,11 @@ function FilaDueloJugadores({ x, lado }: { x: DueloJugadores; lado: "con" | "sin
           {valor !== null && valor > 0 ? "+" : ""}
           {valor}
         </div>
-        <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.12em", color: C.tenue }}>{LUGAR_CORTO[x.clave] ?? ""}</div>
+        <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: "0.1em", color: C.tenue }}>{LUGAR_CORTO[x.clave] ?? ""}</div>
+        {/* Con pocos minutos, el aviso se ve en la tarjeta, no sólo en la frase (10/11/2026). */}
+        {tendencia ? (
+          <div style={{ marginTop: 4, display: "inline-block", padding: "1px 6px", borderRadius: 6, border: `1px solid ${C.oroClaro}`, fontSize: 13, fontWeight: 700, letterSpacing: "0.08em", color: C.oroClaro }}>◐ TENDENCIA</div>
+        ) : null}
       </div>
       <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.05, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -1149,7 +1176,7 @@ function FilaDueloJugadores({ x, lado }: { x: DueloJugadores; lado: "con" | "sin
           </div>
         ) : null}
         {cifras || tendencia ? (
-          <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.2, color: C.tenue }}>
+          <div style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.2, color: C.tenue }}>
             {cifras}
             {tendencia ? <span style={{ color: C.oroClaro }}>{cifras ? " · " : ""}{tendencia}</span> : null}
           </div>
@@ -1216,7 +1243,8 @@ function PanelDuelos({ inf, post }: { inf: InformePartido; post: boolean }) {
         </>
       ) : null}
       <div style={{ marginTop: "auto", paddingTop: 12, fontSize: 15, color: C.tenue }}>
-        {cuentaDuelos(atacar, vigilar, medidos)} · con balón de uno contra sin balón del otro · cada cifra pequeña es su percentil contra los de su puesto en la categoría (97 = mejor que 97 de cada 100); la grande, la diferencia media de esos percentiles en su fila (en positivo, a nuestro favor; en negativo, al suyo) · {recorta(d.fuenteSuya, 70)}
+        {/* Sólo cómo se lee (10/11/2026, análisis): el método largo va al pie del correo. */}
+        {cuentaDuelos(atacar, vigilar, medidos)} · cifra pequeña: percentil contra su puesto (97 = mejor que 97 de cada 100) · ◐ tendencia: menos de 450′
       </div>
     </Panel>
   );
@@ -1242,7 +1270,8 @@ function PanelVistazo({ inf }: { inf: InformePartido }) {
       {(
         <>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
-            <Cifra rotulo="G · E · P" valor={`${v.g}-${v.e}-${v.p}`} pie={`${v.partidos} partidos`} />
+            {/* «4G 3E 3P» (10/11/2026): «4-3-3» se leía como un dibujo táctico. */}
+            <Cifra rotulo="RESULTADOS" valor={`${v.g}G ${v.e}E ${v.p}P`} pie={`en ${v.partidos} partidos`} tamano={30} />
             <Cifra rotulo="GOLES" valor={`${v.gf}-${v.gc}`} pie="a favor · en contra" />
             {/* Un solo puesto en todo el informe, el de BeSoccer por puntos (20/10/2026): aquí salía
                 el de Wyscout por puntos por partido («11.º») junto al «13.º» de la diapositiva 1. */}
@@ -1262,7 +1291,7 @@ function PanelVistazo({ inf }: { inf: InformePartido }) {
                 {f.resultado}
               </span>
             ))}
-            <span style={{ marginLeft: "auto", fontSize: 18, fontWeight: 600, color: C.suave }}>{v.sistemas.slice(0, 2).map((s) => s.sistema).join(" · ")}</span>
+            {/* El dibujo sale una sola vez, con su base, al pie de su once (10/11/2026). */}
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 18px", marginTop: 14 }}>
             {v.fases.filter((f) => f.percentil !== null).map((f) => (
@@ -1443,6 +1472,18 @@ function Siguiente({ texto }: { texto: string }) {
   return <div style={{ marginTop: 14, fontSize: 18, fontWeight: 700, letterSpacing: "0.16em", color: C.tenue, textAlign: "right" }}>{texto.toUpperCase()} →</div>;
 }
 
+/**
+ * Un solo dibujo del rival, con su base (10/11/2026): «Dibujo más usado: 3-4-2-1 en 6 de
+ * 10 partidos (Wyscout)». Antes salían a la vez «3-4-2-1 · 3-5-2» y el del once.
+ */
+function dibujoConBase(inf: InformePartido) {
+  const s = inf.vistazo?.sistemas[0];
+
+  if (s && s.partidos > 0 && inf.vistazo?.partidos) return `Dibujo más usado: ${s.sistema} en ${s.partidos} de ${inf.vistazo.partidos} partidos (Wyscout)`;
+
+  return inf.duelo?.esquema.rival ? `Dibujo más usado: ${inf.duelo.esquema.rival}` : "";
+}
+
 /** PREVIA · 1 «El rival»: la pregunta, cómo juegan, de un vistazo y su once. */
 function PreviaRival({ inf }: { inf: InformePartido }) {
   const ctx = inf.contexto;
@@ -1471,7 +1512,7 @@ function PreviaRival({ inf }: { inf: InformePartido }) {
         <Panel titulo={inf.once.fuente === "marcado" ? "SU ONCE PROBABLE" : "SU ÚLTIMO ONCE"} acento={C.rival}>
           {inf.once.jugadores.length ? <Campo once={inf.once.jugadores} /> : null}
           <div style={{ marginTop: 8, fontSize: 18, color: C.tenue, textAlign: "center" }}>
-            {[inf.duelo?.esquema.rival && `Dibujo más usado: ${inf.duelo.esquema.rival}`, ctx?.entrenador && `Entrenador: ${ctx.entrenador}`].filter(Boolean).join(" · ")}
+            {[dibujoConBase(inf), ctx?.entrenador && `Entrenador: ${ctx.entrenador}`].filter(Boolean).join(" · ")}
           </div>
         </Panel>
       </div>
@@ -1492,8 +1533,14 @@ function PronosticoCorto({ inf }: { inf: InformePartido }) {
     <Panel titulo="EL PRONÓSTICO">
       <BarraResultado p={pr} alto={40} />
       <div style={{ marginTop: 10, fontSize: 19, fontWeight: 600, lineHeight: 1.25, color: C.suave }}>
-        Marcador más probable <b style={{ color: C.crema }}>{pr.marcador}</b> · si cumplimos las metas del plan (sin balón, con balón y balón parado), <b style={{ color: C.oro }}>{pct(pr.conPlan.victoria)}</b> de victoria
+        Marcador más probable <b style={{ color: C.crema }}>{pr.marcador}</b>
       </div>
+      {/* Qué hacer con el pronóstico (10/11/2026, marketing): la orden, con las dos cifras. */}
+      {pr.conPlan.victoria > pr.victoria ? (
+        <div style={{ marginTop: 6, fontSize: 21, fontWeight: 700, lineHeight: 1.25, color: C.crema }}>
+          Qué hacer con ello: cumplir las tres metas del plan (con balón, sin balón y balón parado) sube la victoria del {pct(pr.victoria)} al <span style={{ color: C.oro }}>{pct(pr.conPlan.victoria)}</span>
+        </div>
+      ) : null}
       <div style={{ marginTop: 6, fontSize: 15, color: C.tenue }}>{pr.base}</div>
     </Panel>
   );
@@ -1549,6 +1596,32 @@ const tareasDeLinea = (inf: InformePartido, texto: string) =>
 | de su fase) con su tarea. La línea que es LA IDEA no se repite: se marca.
 | Lo que no cuelga de ninguna clave queda en el informe completo.
 */
+/*
+| La meta, grande, y su base debajo (10/11/2026, análisis): «meta: llegar a 1,60
+| goles esperados» iba al final de una frase larga, con «hoy se esperan 1,39» y
+| las cifras de la temporada, en letra pequeña.
+*/
+function MetaYBase({ texto, rotulo = "" }: { texto: string; rotulo?: string }) {
+  if (!texto) return null;
+
+  const [base, metaCruda = ""] = texto.split(/\s·\smeta:\s/);
+  const hoy = /\s*\((hoy se esperan [^)]*)\)\s*$/.exec(metaCruda)?.[1] ?? "";
+  const meta = metaCruda.replace(/\s*\(hoy se esperan [^)]*\)\s*$/, "");
+  const lineaBase = [hoy ? hoy.charAt(0).toUpperCase() + hoy.slice(1) : "", base].filter(Boolean).join(" · ");
+
+  if (!meta) return <div style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.2, marginTop: 4, color: C.suave }}>{base}</div>;
+
+  return (
+    <div style={{ marginTop: 6 }}>
+      <div style={{ fontSize: 26, fontWeight: 700, lineHeight: 1.1, color: C.oro }}>
+        <span style={{ fontSize: 16, letterSpacing: "0.16em", color: C.tenue, marginRight: 8 }}>{rotulo ? `META ${rotulo.toUpperCase()}` : "META"}</span>
+        {meta.charAt(0).toUpperCase() + meta.slice(1)}
+      </div>
+      {lineaBase ? <div style={{ fontSize: 18, fontWeight: 600, lineHeight: 1.2, marginTop: 3, color: C.suave }}>{lineaBase}</div> : null}
+    </div>
+  );
+}
+
 function ClavesConTareas({ inf }: { inf: InformePartido }) {
   /* Una clave por fase (06/11/2026, expertos): dos claves de «Con balón» pintaban
      el mismo bloque dos veces, con las mismas cifras y tareas. */
@@ -1576,8 +1649,16 @@ function ClavesConTareas({ inf }: { inf: InformePartido }) {
 
         const tareas = concreta ? tareasDeLinea(inf, concreta.texto) : [];
 
-        /* De LA IDEA, sólo su porqué («lento y pierde duelos»): la consigna ya está arriba. */
-        const dato = concreta ? (idea ? concreta.texto.split(/:\s/).slice(1).join(": ") : concreta.texto) : "";
+        /*
+        | La línea entera, también la de LA IDEA (10/11/2026, fútbol): con sólo su
+        | porqué quedaba «Montalvo gana en cuerpo a cuerpo», un punto fuerte del
+        | rival sin la orden. Ahora va la orden con su dato.
+        */
+        const dato = concreta ? concreta.texto : "";
+
+        /* En balón parado, a favor y en contra por separado (10/11/2026): «Sacamos más de
+           nuestro balón parado» llevaba debajo «Marcamos a Gil y Rijn», que es defensa. */
+        const enContra = fase === "Balón parado" && /^(?:marcamos|defendemos|vigilamos|emparejamos|tapamos)\b/i.test(dato);
 
         return (
           <div key={clave}>
@@ -1588,13 +1669,16 @@ function ClavesConTareas({ inf }: { inf: InformePartido }) {
             <div style={{ fontSize: 31, fontWeight: 700, lineHeight: 1.12, color: C.crema, marginTop: 2 }}>{claveEnCorto(clave)}</div>
             {idea ? (
               <div style={{ fontSize: 22, fontWeight: 700, marginTop: 5, color: C.oro }}>
-                ★ Por aquí, LA IDEA{dato ? <span style={{ fontWeight: 600, color: C.suave }}> · {dato}</span> : null}
+                ★ Por aquí, LA IDEA{dato ? <span style={{ fontWeight: 600, color: C.suave }}> · {enContra ? "En contra: " : ""}{dato}</span> : null}
               </div>
             ) : dato ? (
-              <div style={{ fontSize: 23, fontWeight: 600, lineHeight: 1.2, marginTop: 5, color: C.suave }}>{dato}</div>
+              <div style={{ fontSize: 23, fontWeight: 600, lineHeight: 1.2, marginTop: 5, color: C.suave }}>
+                {enContra ? <span style={{ color: C.rival, fontWeight: 700 }}>En contra · </span> : null}
+                {dato}
+              </div>
             ) : null}
-            {metaDeClave(inf, clave, { corta: true }) ? <div style={{ fontSize: 19, fontWeight: 600, lineHeight: 1.2, marginTop: 4, color: C.suave }}>{metaDeClave(inf, clave, { corta: true })}</div> : null}
-            {tareas.length ? <div style={{ fontSize: 19, fontWeight: 600, marginTop: 4, color: C.tenue }}>→ {tareas.join(" · ")}</div> : null}
+            <MetaYBase texto={metaDeClave(inf, clave, { corta: true })} rotulo={enContra ? "A favor" : ""} />
+            {tareas.length ? <div style={{ fontSize: 20, fontWeight: 600, marginTop: 4, color: C.tenue }}>→ {tareas.join(" · ")}</div> : null}
           </div>
         );
       })}

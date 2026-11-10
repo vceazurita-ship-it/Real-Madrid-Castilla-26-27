@@ -67,7 +67,7 @@ export function alertasDeFichajes(cotejo: CotejoRival | null, ahora: number): Al
       cifra: `${dias} días`,
       fuerza: Math.min(92, 55 + dias * 4),
       enlace: "/ajustes",
-      mira: "Si la tarea nocturna ha corrido, y el registro de .cache/jornada-nocturna.",
+      mira: "Ver la tarea nocturna en Ajustes",
     });
   }
 
@@ -111,7 +111,7 @@ export function alertasDeFichajes(cotejo: CotejoRival | null, ahora: number): Al
     area: "Rivales · BeSoccer",
     titulo: `${altas + bajas} cambios de plantilla en ${equipos.length} ${equipos.length === 1 ? "equipo rival" : "equipos rivales"}, sin pasar a su ficha`,
     detalle: `${nombres}${equipos.length > 3 ? " y alguno más" : ""}. BeSoccer ya los tiene; la hoja no. No se escriben solos a propósito: hay que repasarlos antes.`,
-    cifra: `${trozos.join(" y ")} · revisarlas en Plantillas rivales`,
+    cifra: `${trozos.join(" y ")} en ${equipos.length} ${equipos.length === 1 ? "rival" : "rivales"}`,
     /*
     | Una baja pesa más que un alta: un jugador que ya no está sigue saliendo
     | en el informe del próximo rival, y ahí sí se prepara un partido contra
@@ -119,7 +119,9 @@ export function alertasDeFichajes(cotejo: CotejoRival | null, ahora: number): Al
     */
     fuerza: Math.min(90, 48 + altas * 3 + bajas * 8 + (dias ?? 0) * 2),
     enlace: "/rivals",
-    mira: "Quién falta, y correr rivals-altas-bajas.mjs --preparar y --escribir.",
+    mira: "Ver en Plantillas rivales",
+    /* La orden de terminal (rivals-altas-bajas.mjs --preparar y --escribir) es
+       del analista: la lleva el vigía desde Ajustes, no la portada (10/11/2026). */
   });
 
   return alertas;

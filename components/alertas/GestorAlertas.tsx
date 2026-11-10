@@ -243,7 +243,6 @@ export default function GestorAlertas() {
     return Number.isFinite(t) && t > ahora;
   };
   const nSilenciadas = alertas.filter((a) => !a.activa && reactivable(a)).length;
-  const nCaducadas = alertas.filter((a) => !a.activa && !reactivable(a)).length;
 
   /* Si todas están silenciadas: la que saldría antes al reactivarlas. */
   const primeraAlReactivar = (() => {
@@ -324,31 +323,47 @@ export default function GestorAlertas() {
 
       {/* Lo que dice la pantalla en cinco segundos. Sin alertas con fecha, no sale. */}
       {!cargando && !fallo && !resumen && alertas.length > 0 && (
+        /*
+        | 10/11/2026 (análisis y marketing): un panel de estado con una frase y
+        | una sola acción principal. El recuento por tipo ya lo dan los
+        | títulos de «Silenciadas (3)» y «Caducadas (1)», debajo.
+        */
         <div className="rounded-2xl bg-amber-500/10 px-4 py-3 text-[13px] leading-relaxed text-amber-200">
           <p>
             <b className="font-semibold">
-              {nSilenciadas === 0
-                ? `${nCaducadas === 1 ? "La tarea está caducada" : `Las ${nCaducadas} tareas están caducadas`}: no saldrá ningún correo.`
-                : `${nSilenciadas === 1 ? (nCaducadas ? "1 tarea silenciada" : "La tarea está silenciada") : nCaducadas ? `${nSilenciadas} tareas silenciadas` : `Las ${nSilenciadas} tareas están silenciadas`}${nCaducadas ? ` y ${nCaducadas} ${nCaducadas === 1 ? "caducada" : "caducadas"}` : ""}: no saldrá ningún correo.`}
+              {primeraAlReactivar && nSilenciadas > 0
+                ? `Ninguna alerta saldrá hasta el ${fechaLegible(primeraAlReactivar.cuando.toISOString()).replace(/,/g, "")} si las reactivas.`
+                : nSilenciadas > 0
+                  ? "Ninguna alerta saldrá hasta que las reactives."
+                  : "Ninguna alerta va a salir: hay que ponerles fecha nueva."}
             </b>
-            {primeraAlReactivar && (
-              <>
-                {" "}Si las reactivas, el primero saldría el {fechaLegible(primeraAlReactivar.cuando.toISOString())}.
-              </>
-            )}
           </p>
 
+          <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-2">
+          {nSilenciadas > 0 ? (
           <button
             type="button"
             onClick={() => setConfirmaReactivar(true)}
             disabled={ocupada !== null || comprobando}
-            className="mt-2.5 inline-flex max-w-full items-center gap-1.5 rounded-full bg-[#C8A96B] px-4 py-2 text-[13px] font-semibold text-[#0B0F14] transition hover:brightness-110 disabled:opacity-40"
+            className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-[#C8A96B] px-4 py-2 text-[13px] font-semibold text-[#0B0F14] transition hover:brightness-110 disabled:opacity-40"
           >
             <BellRing className="h-4 w-4 shrink-0" aria-hidden />
             <span className="truncate">
               {nSilenciadas === 1 ? "Reactivar la silenciada" : "Reactivar todas"}
             </span>
           </button>
+          ) : null}
+
+          {/* La secundaria, como enlace: no compite con «Reactivar todas». */}
+          <button
+            type="button"
+            onClick={abrirNueva}
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-full px-2 text-[13px] font-medium text-white/75 underline decoration-white/30 underline-offset-4 transition hover:text-white"
+          >
+            <Plus className="h-4 w-4" aria-hidden />
+            Nueva tarea con alerta
+          </button>
+          </div>
         </div>
       )}
 
@@ -368,6 +383,8 @@ export default function GestorAlertas() {
 
       {/* ----------------------- NUEVA ------------------------- */}
 
+      {/* Con el panel de estado a la vista, «Nueva tarea» va dentro de él. */}
+      {!(!cargando && !fallo && !resumen && alertas.length > 0) && (
       <button
         type="button"
         onClick={abrirNueva}
@@ -381,6 +398,7 @@ export default function GestorAlertas() {
         <Plus className="h-4 w-4" aria-hidden />
         Nueva tarea con alerta
       </button>
+      )}
 
       {/* ----------------------- LISTA ------------------------- */}
 

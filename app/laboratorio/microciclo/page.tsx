@@ -118,7 +118,7 @@ import { ValoracionTarea } from "@/components/registro/ValoracionTarea";
 import { CamposCognitivos } from "@/components/registro/CamposCognitivos";
 import { propuestaCognitiva } from "@/lib/registro/propuesta";
 import type { RegistroTarea } from "@/lib/abp/registro";
-import { comaDecimal, cuentaMicros, type CuentaMicro, type FilaCuenta } from "@/lib/microciclo/cuenta";
+import { comaDecimal, cuentaMicros, esFilaDePartido, rivalDelMicro, type CuentaMicro, type FilaCuenta } from "@/lib/microciclo/cuenta";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { loadRegistro, type RegistroDataset } from "@/lib/abp/registro";
@@ -632,10 +632,10 @@ function etiquetaMicroHoja(uno: { micro: number; rival: string; tareas: number; 
       c.valoradas ? `valoración media ${comaDecimal(c.valoracion)} en ${c.valoradas}` : "",
     ].filter(Boolean);
 
-    return `${c.etiqueta}${c.rival ? ` · ${c.rival}` : ""} (${partes.join(" · ")})`;
+    return `${c.etiqueta}${c.rival ? ` · ${rivalDelMicro(c.rival)}` : ""} (${partes.join(" · ")})`;
   };
 
-  if (!semanas.length) return `Micro ${uno.micro}${uno.rival ? ` · ${uno.rival}` : ""}`;
+  if (!semanas.length) return `Micro ${uno.micro}${uno.rival ? ` · ${rivalDelMicro(uno.rival)}` : ""}`;
 
   return `Micro ${semanas.map(trozo).join(" y ")}`;
 }
@@ -695,7 +695,10 @@ function ResumenOrigen({ micro, todas }: { micro: number | null; todas: Registro
     if (!micro) return null;
 
     const cuentas = cuentaMicros(filasDeCuenta(todas));
-    const suyas = todas.filter((t) => t.micro === micro && t.md.trim() && t.tarea.trim() && !/competici/i.test(t.fase));
+    /* Las de entreno con la misma regla que /microcycles (10/11/2026): el partido es la fila de competición del MD. */
+    const suyas = todas.filter(
+      (t) => t.micro === micro && t.md.trim() && t.tarea.trim() && !esFilaDePartido({ md: t.md, fase: t.fase, tipo: t.tipoTarea, contenidoPrincipal: t.contenidoPrincipal }),
+    );
 
     if (!suyas.length) return null;
 
@@ -2175,6 +2178,29 @@ export default function EditorMicrocicloPage() {
               </Notice>
             )}
 
+            {/* Los tres pasos a la vista, con el que toca (10/11/2026): antes el 2 era una línea gris plegada. */}
+            {!micro && proximo && !cargando && !sinHoja && (
+              <ol aria-label="Pasos para crear el microciclo" className="grid gap-2 sm:grid-cols-3">
+                {[
+                  ["1", "La semana", "Marca los días libres y de qué semana partes", true],
+                  ["2", "El contenido", "Cada día con sus tareas, tiempos e intensidad", false],
+                  ["3", "Revisar y escribir", "Se mira la carga y se escribe en la hoja", false],
+                ].map(([n, t, d, ahora]) => (
+                  <li
+                    key={String(n)}
+                    aria-current={ahora ? "step" : undefined}
+                    className={`rounded-xl border px-3 py-2 ${ahora ? "border-[#C8A96B]/60 bg-[#C8A96B]/10" : "border-white/10 bg-white/[0.02]"}`}
+                  >
+                    <p className={`text-[12px] font-semibold ${ahora ? "text-[#E9D5A8]" : "text-white/70"}`}>
+                      {n} · {t}
+                      <span className="ml-2 text-[11px] font-normal text-white/50">{ahora ? "Ahora" : "Después"}</span>
+                    </p>
+                    <p className="mt-0.5 text-[12px] text-white/55">{d}</p>
+                  </li>
+                ))}
+              </ol>
+            )}
+
             {!micro && proximo && !cargando && !sinHoja && (
               <Panel
                 title="1 · La semana: marca los días libres"
@@ -2209,7 +2235,7 @@ export default function EditorMicrocicloPage() {
                   }}
                 />
 
-                <div className="mt-4 max-w-md">
+                <div className="mt-4 max-w-3xl">
                   <Select
                     label="Partir de lo que ya está en la hoja"
                     value={partirDe}
@@ -2260,13 +2286,14 @@ export default function EditorMicrocicloPage() {
                     Crear el microciclo {ultimoMicro + 1}
                   </Button>
 
-                  <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-white/45">
-                    <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">Atajos</span>
+                  {/* Atajos con forma de botón secundario (10/11/2026): parecían texto. */}
+                  <div className="flex flex-wrap items-center gap-2 text-[12px]">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/50">Atajos</span>
                     <button
                       type="button"
                       onClick={() => setLibresPlan(null)}
                       title="Libre sólo el día después del partido"
-                      className="font-semibold text-white/70 underline-offset-2 hover:text-white hover:underline"
+                      className="min-h-9 rounded-xl border border-white/15 bg-white/[0.04] px-3 py-1.5 font-semibold text-white/80 hover:border-white/30 hover:text-white"
                     >
                       Semana tipo
                     </button>
@@ -2274,11 +2301,11 @@ export default function EditorMicrocicloPage() {
                       type="button"
                       onClick={() => setLibresPlan([])}
                       title="Todos los días con sesión"
-                      className="font-semibold text-white/70 underline-offset-2 hover:text-white hover:underline"
+                      className="min-h-9 rounded-xl border border-white/15 bg-white/[0.04] px-3 py-1.5 font-semibold text-white/80 hover:border-white/30 hover:text-white"
                     >
                       Todos los días de entreno
                     </button>
-                  </p>
+                  </div>
                 </div>
               </Panel>
             )}

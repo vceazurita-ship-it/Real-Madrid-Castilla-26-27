@@ -684,6 +684,8 @@ export type Aviso = {
   arreglo?: { a: string; b: string; texto: string };
   /** Botón que deja los comodines en los que lleva la tarea (05/11/2026). */
   ajustaComodines?: string;
+  /** Lo que dice el aviso en una línea («Faltan 3 jugadores»), si el texto es largo (10/11/2026). */
+  titular?: string;
 };
 
 /** El puesto de un jugador: el puesto a mano, si no el de la plantilla. */

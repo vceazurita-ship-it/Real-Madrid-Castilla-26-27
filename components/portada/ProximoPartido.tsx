@@ -690,12 +690,36 @@ export function ProximoPartido() {
             </div>
           );
 
-          return (
-            <div className="mt-4 space-y-2">
-              {hoyToca && deHoy.length > 0 && fila("Hoy", deHoy)}
+          /*
+          | 10/11/2026 (marketing): en el móvil, «Hoy» y «Del rival» en UNA fila
+          | que se desliza, con los rótulos dentro y un fundido (máscara, sin color: vale en modo día) a la derecha que
+          | dice que sigue (el corte sin aviso de «Individual» del 05/11 era por
+          | no tenerlo). Ahorra dos o tres renglones del héroe. En tableta y
+          | escritorio, las dos filas de siempre.
+          */
+          const rotuloEnFila = (texto: string) => (
+            <span key={`r-${texto}`} className="shrink-0 self-center pl-1 pr-0.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/65 first:pl-0">
+              {texto}
+            </span>
+          );
 
-              {delRival.length > 0 && fila("Del rival", delRival)}
-            </div>
+          return (
+            <>
+              <div className="relative mt-4 sm:hidden">
+                <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 pr-8 [mask-image:linear-gradient(to_right,black_85%,transparent)] [scrollbar-width:none] [&>a]:shrink-0 [&>a]:whitespace-nowrap">
+                  {hoyToca && deHoy.length > 0 && rotuloEnFila("Hoy")}
+                  {hoyToca && deHoy.map((atajo) => <Atajo key={`h-${atajo.texto}`} href={atajo.href} texto={atajo.texto} title={atajo.title} />)}
+                  {delRival.length > 0 && rotuloEnFila("Del rival")}
+                  {delRival.map((atajo) => <Atajo key={`r-${atajo.texto}`} href={atajo.href} texto={atajo.texto} title={atajo.title} />)}
+                </div>
+              </div>
+
+              <div className="mt-4 hidden space-y-2 sm:block">
+                {hoyToca && deHoy.length > 0 && fila("Hoy", deHoy)}
+
+                {delRival.length > 0 && fila("Del rival", delRival)}
+              </div>
+            </>
           );
         })()}
       </div>
@@ -812,7 +836,11 @@ function Racha({ ultimos, cargando, ultimo }: { ultimos: PartidoNuestro[]; carga
       {/* Qué lado es el más reciente, dicho (30/10/2026). */}
       {/* La aclaración a 12 px y con más contraste (30/10/2026). */}
       <span className="text-[12px] font-semibold uppercase tracking-[0.2em] text-white/55">
-        Últimos {ultimos.length || 5} <span className="normal-case tracking-normal font-medium text-white/80">· el más reciente, a la derecha</span>
+        Últimos {ultimos.length || 5}{" "}
+        <span className="normal-case tracking-normal font-medium text-white/80">
+          <span className="sm:hidden">· el último, a la derecha</span>
+          <span className="hidden sm:inline">· el más reciente, a la derecha</span>
+        </span>
       </span>
 
       <span className="flex items-center gap-1.5">
@@ -908,7 +936,10 @@ function Clasificacion({ informe }: { informe: RespuestaPortada | null }) {
           {/* La base (07/11/2026, análisis): «10 partidos» frente a «Jornada 11» parecía
               una contradicción. Es la tabla tras los jugados, y dice de dónde sale. */}
           <span className="basis-full text-[12px] text-white/60">
-            Clasificación tras los {fila.ganados + fila.empatados + fila.perdidos} partidos ya jugados, sin contar el que viene · BeSoccer
+            <span className="sm:hidden">Tras los {fila.ganados + fila.empatados + fila.perdidos} jugados · BeSoccer</span>
+            <span className="hidden sm:inline">
+              Clasificación tras los {fila.ganados + fila.empatados + fila.perdidos} partidos ya jugados, sin contar el que viene · BeSoccer
+            </span>
           </span>
         </span>
       ) : null}

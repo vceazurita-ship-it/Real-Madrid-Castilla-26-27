@@ -251,7 +251,7 @@ export const SECCIONES: Seccion[] = [
       { href: "/calendar_general", label: "Calendario Operativa", icon: CalendarCog },
       /* El viaje es logística, no partido (11/10/2026). */
       { href: "/desplazamiento", label: "Desplazamiento", icon: Bus },
-      { href: "/general", label: "Repositorio", icon: Database },
+      { href: "/general", label: "Repositorio semanal", icon: Database },
       /* Las tareas con alerta, con su barra de Operativa como /general (30/10/2026). */
       { href: "/alertas", label: "Tareas y alertas", icon: AlarmClock },
       /* Los escudos son mantenimiento del club, no un laboratorio (11/10/2026). */

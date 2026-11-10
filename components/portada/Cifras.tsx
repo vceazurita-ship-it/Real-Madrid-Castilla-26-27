@@ -105,7 +105,7 @@ export function Cifras({ cifras }: { cifras: Cifra[] }) {
 
               <p className="mt-2 text-[12.5px] leading-snug text-white/70">{cifra.caption}</p>
 
-              <p className="mt-3 flex items-center gap-1 text-[12px] font-medium text-white/55 transition-colors duration-300 group-hover:text-[color:var(--accent)]">
+              <p className="mt-3 flex items-center gap-1 text-[12.5px] font-semibold text-[color:var(--accent)] transition-colors duration-300">
                 {cifra.destino}
                 <ChevronRight className="h-3 w-3 transition-transform duration-300 group-hover:translate-x-0.5" />
               </p>
