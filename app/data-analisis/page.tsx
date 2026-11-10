@@ -39,22 +39,30 @@ import {
   Award,
   BarChart3,
   Brain,
+  CircleDot,
   ClipboardCheck,
   Clock,
   Compass,
   Database,
   Crosshair,
   Flag,
+  Footprints,
+  Goal,
   History,
   LayoutGrid,
   Loader2,
   Network,
+  Palette,
   Percent,
+  Radio,
   RefreshCw,
   Scale,
+  Search,
   Shield,
   ShieldCheck,
+  Sparkles,
   Swords,
+  Table2,
   Target,
   Timer,
   User,
@@ -125,6 +133,8 @@ import { BateriaDePreguntas } from "@/components/data/preguntas";
 import { PanelAbpPropio } from "@/components/data/PanelAbpPropio";
 import { PanelCampograma } from "@/components/data/PanelCampograma";
 import { PanelPostPartido } from "@/components/data/PanelPostPartido";
+import { esAreaOpta, PanelAreaOpta, type AreaOpta } from "@/components/data/AreasOpta";
+import { SelloFuente } from "@/components/ui/SelloFuente";
 import { PanelDestacados } from "@/components/data/PanelDestacados";
 import { PanelEquipo } from "@/components/data/PanelEquipo";
 import { PanelParecidos } from "@/components/data/PanelParecidos";
@@ -212,7 +222,9 @@ type Area =
   | "individual"
   | "once"
   | "abp"
-  | "transferencia";
+  | "transferencia"
+  /* 10/11/2026 (fase 4): las que eran pestañas de /opta (components/data/AreasOpta.tsx). */
+  | AreaOpta;
 
 /** Las áreas donde tiene sentido ponerse al lado de otro equipo de la categoría. */
 const AREAS_CON_EQUIPO: Area[] = ["campo", "liga", "todos", "destacados", "golesAbp"];
@@ -366,6 +378,27 @@ const AREAS: { key: Area; label: string; icono: typeof History; pregunta: string
     icono: Brain,
     pregunta: "¿Lo que se entrena se ve el domingo?",
   },
+  /*
+    LAS QUE ERAN EL «ÁREA OPTA» (10/11/2026, fase 4). Cada pestaña de /opta
+    es ahora un área del bloque que responde a su pregunta; el nombre dice lo
+    que se ve, nunca el proveedor (la fuente va en el sello). Las que
+    responden a la misma pregunta que otra van con ella como segunda lectura
+    (`LECTURAS`) y no ocupan botón propio.
+  */
+  { key: "directo", label: "En directo", icono: Radio, pregunta: "¿Cómo va el partido que se está jugando?" },
+  { key: "fases", label: "Red de pases, progresión y robos", icono: Footprints, pregunta: "¿Cómo nos asociamos, cuánto progresamos y dónde robamos y perdimos?" },
+  { key: "colectivo", label: "Contra el grupo, por fases", icono: Scale, pregunta: "¿En qué puesto de nuestro grupo estamos en cada fase, y cómo ha ido partido a partido?" },
+  { key: "evolucion", label: "Nuestra evolución jornada a jornada", icono: History, pregunta: "¿Cómo evoluciona cada métrica, jornada a jornada, contra nuestros rivales y la media?" },
+  { key: "remates", label: "Nuestros remates", icono: Goal, pregunta: "¿Desde dónde rematamos y nos rematan, y con qué peligro?" },
+  { key: "plantilla", label: "La plantilla por 90′", icono: User, pregunta: "¿Qué hace cada uno por 90 minutos, contra los de su puesto en la categoría?" },
+  { key: "buscador", label: "Buscador de la categoría", icono: Search, pregunta: "¿Quién destaca en la categoría por puesto, edad y métrica?" },
+  { key: "talento", label: "Talento y goles que valen", icono: Sparkles, pregunta: "¿Quién está en la zona élite, qué goles dan puntos y quién marca desde el banquillo?" },
+  { key: "tablaLiga", label: "La liga en una tabla", icono: Table2, pregunta: "¿Cómo queda la liga en las métricas que se elijan, y cruzando dos?" },
+  { key: "estilos", label: "Estilos de juego", icono: Palette, pregunta: "¿Quién aprieta y cuándo, y qué equipo domina, crea peligro o es sólido?" },
+  { key: "evolucionLiga", label: "Un equipo jornada a jornada", icono: History, pregunta: "¿Cómo ha evolucionado este equipo, contra sus rivales y la media?" },
+  { key: "rematesLiga", label: "Los remates de un equipo", icono: Goal, pregunta: "¿Desde dónde remata este equipo y desde dónde le rematan?" },
+  { key: "partidoCategoria", label: "Cualquier partido", icono: Activity, pregunta: "¿Qué pasó en cualquier partido de la categoría, tramo a tramo?" },
+  { key: "penaltis", label: "Penaltis", icono: CircleDot, pregunta: "¿Dónde se tiran los penaltis, quién los mete y quién los para?" },
 ];
 
 /*
@@ -385,6 +418,14 @@ const AREAS: { key: Area; label: string; icono: typeof History; pregunta: string
 | destacados). Se separan en «Nuestro equipo» y «Rival y categoría», y delante
 | va el resumen. Las claves de área son las mismas.
 */
+/*
+| UNA SOLA ÁREA DE DATOS (10/11/2026, fase 4). Había dos por proveedor —ésta,
+| con Wyscout, y /opta con doce pestañas—; ahora es ésta sola, por pregunta.
+| Cada bloque lleva cinco botones como mucho: lo que respondía a la misma
+| pregunta en las dos se ha juntado en un botón con dos (o tres) lecturas
+| (`LECTURAS`); la primera es la que se abre. /opta?pestana= lleva aquí
+| (app/opta/page.tsx).
+*/
 type Bloque = "post" | "resumen" | "nosotros" | "jugadores" | "rival" | "balonParado" | "entrenamiento";
 
 const BLOQUES: {
@@ -395,12 +436,18 @@ const BLOQUES: {
   /** Una pantalla de fuera que es parte natural del bloque. */
   enlace?: { href: string; label: string };
 }[] = [
-  { clave: "post", label: "Post del partido", icono: ClipboardCheck, areas: ["post"] },
+  { clave: "post", label: "El partido", icono: ClipboardCheck, areas: ["post", "directo"] },
   { clave: "resumen", label: "Resumen", icono: Compass, areas: ["resumen"] },
-  { clave: "nosotros", label: "Nuestro equipo", icono: Shield, areas: ["campo", "liga", "historia", "parecidos"] },
-  { clave: "jugadores", label: "Jugadores", icono: Users, areas: ["individual", "once", "eventos"] },
-  { clave: "rival", label: "Rival y categoría", icono: Swords, areas: ["equipo", "todos", "destacados"] },
-  { clave: "balonParado", label: "Balón parado", icono: Flag, areas: ["golesAbp", "abpCategoria", "abp"] },
+  { clave: "nosotros", label: "Nuestro equipo", icono: Shield, areas: ["campo", "liga", "historia", "remates", "parecidos"] },
+  { clave: "jugadores", label: "Jugadores", icono: Users, areas: ["individual", "once", "eventos", "buscador", "talento"] },
+  {
+    clave: "rival",
+    label: "Rival y categoría",
+    icono: Swords,
+    areas: ["equipo", "todos", "destacados", "estilos", "partidoCategoria"],
+    enlace: { href: "/scout-rival-collective", label: "Datos del rival en Scout colectivo" },
+  },
+  { clave: "balonParado", label: "Balón parado", icono: Flag, areas: ["golesAbp", "abpCategoria", "abp", "penaltis"] },
   {
     clave: "entrenamiento",
     label: "Entreno e identidad",
@@ -418,7 +465,52 @@ const AREAS_CON_PERCENTIL: Area[] = ["resumen", "liga", "equipo", "todos", "dest
 
 const CLAVES_AREA = AREAS.map((a) => a.key);
 
-const bloqueDe = (area: Area) => BLOQUES.find((g) => g.areas.includes(area)) ?? BLOQUES[0];
+/*
+| LAS LECTURAS (10/11/2026, fase 4): un botón, varias maneras de leer la misma
+| pregunta. La clave es el área del botón; la lista, en orden, sus lecturas
+| (la primera es la que se abre al pulsar el botón). Manda la fuente que
+| manda en esa magnitud (lib/fuentes.ts): en lo colectivo contra la liga, la
+| descarga de la categoría; en el perfil del jugador, la de la carpeta.
+*/
+const LECTURAS: Partial<Record<Area, { area: Area; label: string }[]>> = {
+  campo: [
+    { area: "campo", label: "Por momentos" },
+    { area: "fases", label: "Pase a pase" },
+  ],
+  liga: [
+    { area: "colectivo", label: "Lo esencial por fase" },
+    { area: "liga", label: "Métrica a métrica" },
+  ],
+  historia: [
+    { area: "historia", label: "Temporada a temporada" },
+    { area: "evolucion", label: "Jornada a jornada" },
+  ],
+  individual: [
+    { area: "individual", label: "Dentro de la plantilla" },
+    { area: "plantilla", label: "Por 90′ y contra su puesto" },
+  ],
+  equipo: [
+    { area: "equipo", label: "De un vistazo" },
+    { area: "evolucionLiga", label: "Jornada a jornada" },
+    { area: "rematesLiga", label: "Sus remates" },
+  ],
+  todos: [
+    { area: "tablaLiga", label: "Tabla de toda la liga" },
+    { area: "todos", label: "Una métrica, ordenada" },
+  ],
+};
+
+/** El área del botón al que pertenece (la misma, si no es una lectura de otra). */
+const cabezaDe = (area: Area): Area =>
+  (Object.entries(LECTURAS) as [Area, { area: Area }[]][]).find(([, ls]) => ls.some((l) => l.area === area))?.[0] ?? area;
+
+/** Lo que se abre al pulsar el botón de un área: su primera lectura. */
+const entradaDe = (area: Area): Area => LECTURAS[area]?.[0]?.area ?? area;
+
+const bloqueDe = (area: Area) => BLOQUES.find((g) => g.areas.includes(cabezaDe(area))) ?? BLOQUES[0];
+
+/* Para el mapa del resumen, el buscador y el desplegable: cada lectura, también, con su nombre. */
+const BLOQUES_NAV = BLOQUES.map((b) => ({ ...b, areas: b.areas.flatMap((a) => LECTURAS[a]?.map((l) => l.area) ?? [a]) }));
 
 /** «06/09 · vs Teruel (2-1)», que es como se pide un partido de viva voz. */
 function etiquetaDePartido(fila: FilaPartido) {
@@ -1354,130 +1446,59 @@ export default function DataAnalisisPage() {
     return `Los ${logs.length} partidos del curso · ${evento.rival} · ${acciones}`;
   }, [elLog, evento, logs.length]);
 
-  return (
-    <main className="min-h-screen bg-[#0B0F14] text-white">
-      <div className="flex">
-        <Sidebar />
+  /*
+  | El sello de fuente de cada área (10/11/2026, fase 4): de dónde sale, con
+  | quién se compara y hasta dónde llega. Las de la descarga de la categoría
+  | lo ponen ellas (components/data/AreasOpta.tsx); el post, en cada bloque.
+  | Lo registrado a mano (nuestro balón parado, el entrenamiento) no lleva.
+  */
+  const hastaWyscout = alcances?.wyscout.jornada ? `J${alcances.wyscout.jornada}` : undefined;
+  const ligaWyscout = equiposLiga.length > 1 ? `liga (${equiposLiga.length} equipos)` : "liga";
+  const SELLOS: Partial<Record<Area, Parameters<typeof SelloFuente>[0]>> = {
+    campo: { fuente: "wyscout", poblacion: "informe del partido", hasta: hastaWyscout },
+    historia: { fuente: "wyscout", poblacion: "nuestras temporadas", hasta: hastaWyscout },
+    liga: { fuente: "wyscout", poblacion: ligaWyscout, hasta: hastaWyscout },
+    todos: { fuente: "wyscout", poblacion: ligaWyscout, hasta: hastaWyscout },
+    destacados: { fuente: "wyscout", poblacion: ligaWyscout, hasta: hastaWyscout },
+    equipo: { fuente: "wyscout", poblacion: ligaWyscout, hasta: hastaWyscout },
+    parecidos: { fuente: "wyscout", poblacion: "nuestros partidos", hasta: hastaWyscout },
+    individual: { fuente: "wyscout", poblacion: "jugadores de su puesto", hasta: hastaWyscout },
+    golesAbp: { fuente: "wyscout", poblacion: ligaWyscout, hasta: hastaWyscout },
+    abpCategoria: { fuente: "wyscout", poblacion: "los dos grupos, evento a evento" },
+    eventos: { fuente: "opta", poblacion: "log de eventos", hasta: alcances?.opta.jornada ? `J${alcances.opta.jornada}` : undefined },
+  };
+  const selloDelArea = SELLOS[area];
 
-        <section className="flex min-w-0 flex-1 flex-col">
-          <Topbar />
-
-          <div className="min-w-0 px-4 py-6 sm:px-6 lg:px-10">
-            <AbpHeader
-              area="RMCF Castilla · Data análisis"
-              title="Data Análisis"
-              lead={
-                <Explicativo>
-                  Lo que dicen los informes de Wyscout y Opta que se dejan en la carpeta de datos: el Castilla contra su historia, contra la liga de este año y la liga entera comparada consigo misma. Cada número lleva escrito cómo se lee.
-                </Explicativo>
-              }
-              aside={
-                <Button
-                  icon={RefreshCw}
-                  onClick={() => {
-                    setCargando(true);
-                    setIntento((n) => n + 1);
-                  }}
-                  disabled={cargando}
-                >
-                  Actualizar datos
-                </Button>
-              }
-            />
-
-            {cargando && (
-              <div className="mt-8 flex items-center justify-center gap-2 py-16 text-sm text-white/40">
-                <Loader2 size={16} className="animate-spin" />
-                Abriendo los informes de la carpeta…
-              </div>
-            )}
-
-            {/* 10/11/2026: si Wyscout no carga, la puerta «Post del partido» no se
-                tapa entera: se quita sólo lo de Wyscout (aviso corto dentro) y lo
-                de Opta sigue. En las demás áreas, el aviso general de siempre. */}
-            {!cargando && (!datos?.ok || partidos.length === 0) && area === "post" && (
-              <div id="data-bloques">
-                <PanelPostPartido wyscout={[]} wyscoutCaido />
-              </div>
-            )}
-
-            {!cargando && !datos?.ok && area !== "post" && (
-              <div className="mt-6">
-                <Notice tone="warn" title="No se ha podido leer la carpeta de datos">
-                  {datos?.error ??
-                    "Comprueba que existe public/data con sus carpetas opta y wys."}
-                  <button
-                    type="button"
-                    onClick={() => setArea("post")}
-                    className="mt-2 block text-left text-sm font-semibold text-[#C8A96B] underline-offset-2 hover:underline"
-                  >
-                    El post del partido de Opta sí se puede abrir →
-                  </button>
-                </Notice>
-              </div>
-            )}
-
-            {!cargando && datos?.ok && partidos.length === 0 && area !== "post" && (
-              <div className="mt-6">
-                <Notice tone="warn" title="No ha llegado ningún informe">
-                  <p>
-                    Ni por la carpeta ni por el índice. Son dos cosas distintas y
-                    conviene saber cuál falla:
-                  </p>
-
-                  <ul className="mt-2 space-y-1.5">
-                    <li>
-                      <strong className="text-white/70">
-                        En el ordenador donde está la carpeta:
-                      </strong>{" "}
-                      comprueba que en <code>public/data/wys</code> hay «Team
-                      Stats» en <code>.xlsx</code> y pulsa «Actualizar datos».
-                    </li>
-
-                    <li>
-                      <strong className="text-white/70">
-                        En la plataforma desplegada:
-                      </strong>{" "}
-                      esta copia no puede abrir la carpeta —sube al alojamiento
-                      pero la función no la tiene en su disco—, así que lee el
-                      índice que se monta al compilar. Si sale vacío, es que se
-                      desplegó sin informes: vuelve a desplegar con los ficheros
-                      dentro.
-                    </li>
-                  </ul>
-                </Notice>
-              </div>
-            )}
-
-            {!cargando && datos?.ok && partidos.length > 0 && (
-              <>
-                {/* ===================== BARRA ===================== */}
+  /* 10/11/2026 (fase 4): la barra de bloques y áreas y la cabecera, las mismas
+     para las áreas de la carpeta y para las de la descarga de la categoría. */
+  const barraYCabecera = (
+    <>
 
                 {/* 02/11/2026: bloques a la izquierda, buscador de áreas a la derecha (debajo hasta 1536 px: a 1366 el sexto bloque salía cortado). */}
                 <div data-pastillas-areas className="mt-4 flex min-w-0 flex-col gap-3 2xl:flex-row 2xl:items-center 2xl:justify-between">
                   <div className="min-w-0 flex-1">
                     <Pestanas<Bloque>
-                      etiqueta="Bloques de Data análisis"
+                      etiqueta="Bloques de Análisis de datos"
                       opciones={BLOQUES.map((g) => ({ clave: g.clave, label: g.label, icono: g.icono, cuenta: g.areas.length > 1 ? g.areas.length : undefined }))}
                       valor={bloqueDe(area).clave}
-                      onCambia={(g) => setArea((BLOQUES.find((x) => x.clave === g) ?? BLOQUES[0]).areas[0])}
+                      onCambia={(g) => setArea(entradaDe((BLOQUES.find((x) => x.clave === g) ?? BLOQUES[0]).areas[0]))}
                     />
                   </div>
 
-                  <BuscadorAreas areas={AREAS} bloques={BLOQUES} onIr={irA} />
+                  <BuscadorAreas areas={AREAS} bloques={BLOQUES_NAV} onIr={irA} />
                 </div>
 
                 {(bloqueDe(area).areas.length > 1 || bloqueDe(area).enlace) && (
                   <div className="mt-3 flex min-w-0 gap-1 overflow-x-auto rounded-xl border border-white/10 bg-white/[0.03] p-1 scrollbar-none max-sm:pr-6 max-sm:[mask-image:linear-gradient(to_right,black_calc(100%-32px),transparent)] sm:inline-flex sm:max-w-full">
                     {bloqueDe(area).areas.map((clave) => {
                       const item = AREAS.find((a) => a.key === clave)!;
-                      const activa = area === clave;
+                      const activa = cabezaDe(area) === clave;
 
                       return (
                         <button
                           key={clave}
                           type="button"
-                          onClick={() => setArea(clave)}
+                          onClick={() => setArea(entradaDe(clave))}
                           aria-pressed={activa}
                           title={item.pregunta}
                           className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
@@ -1509,11 +1530,11 @@ export default function DataAnalisisPage() {
                 <div className="mt-5 flex min-w-0 flex-wrap items-end justify-between gap-x-6 gap-y-2">
                   <div className="min-w-0">
                     <h2 className="text-xl font-semibold tracking-tight text-white sm:text-2xl">
-                      {AREAS.find((a) => a.key === area)?.label}
+                      {AREAS.find((a) => a.key === cabezaDe(area))?.label}
                     </h2>
                     <p className="mt-0.5 text-[13px] text-white/65">
                       {AREAS.find((a) => a.key === area)?.pregunta}
-                      {(area === "equipo" || area === "parecidos" || area === "liga") && (
+                      {(cabezaDe(area) === "equipo" || area === "parecidos" || cabezaDe(area) === "liga") && (
                         <>
                           {" "}
                           {/* Enlace cruzado con Identidad (02/11/2026). */}
@@ -1523,6 +1544,11 @@ export default function DataAnalisisPage() {
                         </>
                       )}
                     </p>
+                    {selloDelArea && (
+                      <div className="mt-1.5">
+                        <SelloFuente {...selloDelArea} />
+                      </div>
+                    )}
                   </div>
 
                   {AREAS_CON_PERCENTIL.includes(area) && (
@@ -1537,6 +1563,145 @@ export default function DataAnalisisPage() {
                     />
                   )}
                 </div>
+
+                {LECTURAS[cabezaDe(area)] && (
+                  <div
+                    role="group"
+                    aria-label="Cómo leerlo"
+                    className="mt-3 flex min-w-0 max-w-full items-center gap-1 overflow-x-auto rounded-full border border-white/10 bg-white/[0.02] p-1 scrollbar-none sm:inline-flex"
+                  >
+                    {LECTURAS[cabezaDe(area)]!.map((l) => (
+                      <button
+                        key={l.area}
+                        type="button"
+                        onClick={() => setArea(l.area)}
+                        aria-pressed={area === l.area}
+                        title={AREAS.find((a) => a.key === l.area)?.pregunta}
+                        className={`min-h-[36px] shrink-0 whitespace-nowrap rounded-full px-3 text-xs font-medium transition ${
+                          area === l.area ? "bg-white/[0.12] text-white" : "text-white/55 hover:text-white"
+                        }`}
+                      >
+                        {l.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+    </>
+  );
+
+  return (
+    <main className="min-h-screen bg-[#0B0F14] text-white">
+      <div className="flex">
+        <Sidebar />
+
+        <section className="flex min-w-0 flex-1 flex-col">
+          <Topbar />
+
+          <div className="min-w-0 px-4 py-6 sm:px-6 lg:px-10">
+            <AbpHeader
+              area="RMCF Castilla · Análisis de datos"
+              title="Análisis de datos"
+              lead={
+                <Explicativo>
+                  El partido, nuestro equipo, los jugadores, el rival y la categoría y el balón parado: cada pregunta en su sitio, contestada con la fuente que mejor la mide (va en un sello pequeño). Cada número lleva escrito cómo se lee.
+                </Explicativo>
+              }
+              aside={
+                <Button
+                  icon={RefreshCw}
+                  onClick={() => {
+                    setCargando(true);
+                    setIntento((n) => n + 1);
+                  }}
+                  disabled={cargando}
+                >
+                  Actualizar datos
+                </Button>
+              }
+            />
+
+            {cargando && !esAreaOpta(area) && (
+              <div className="mt-8 flex items-center justify-center gap-2 py-16 text-sm text-white/40">
+                <Loader2 size={16} className="animate-spin" />
+                Abriendo los informes de la carpeta…
+              </div>
+            )}
+
+            {/* 10/11/2026: si Wyscout no carga, la puerta «Post del partido» no se
+                tapa entera: se quita sólo lo de Wyscout (aviso corto dentro) y lo
+                de Opta sigue. En las demás áreas, el aviso general de siempre. */}
+            {!cargando && (!datos?.ok || partidos.length === 0) && area === "post" && (
+              <>
+                {barraYCabecera}
+                <div id="data-bloques">
+                  <PanelPostPartido wyscout={[]} wyscoutCaido />
+                </div>
+              </>
+            )}
+
+            {/* 10/11/2026 (fase 4): las áreas de la descarga de la categoría no
+                dependen de la carpeta: salen aunque ésta no cargue (o mientras). */}
+            {esAreaOpta(area) && (
+              <>
+                {barraYCabecera}
+                <IndiceBloques clave={area} antes={<SelectorArea valor={area} areas={AREAS} bloques={BLOQUES_NAV} onIr={irA} />} />
+                <div id="data-bloques">
+                  <PanelAreaOpta area={area} />
+                </div>
+              </>
+            )}
+
+            {!cargando && !datos?.ok && area !== "post" && !esAreaOpta(area) && (
+              <div className="mt-6">
+                <Notice tone="warn" title="No se ha podido leer la carpeta de datos">
+                  {datos?.error ??
+                    "Comprueba que existe public/data con sus carpetas opta y wys."}
+                  <button
+                    type="button"
+                    onClick={() => setArea("post")}
+                    className="mt-2 block text-left text-sm font-semibold text-[#C8A96B] underline-offset-2 hover:underline"
+                  >
+                    El post del partido de Opta sí se puede abrir →
+                  </button>
+                </Notice>
+              </div>
+            )}
+
+            {!cargando && datos?.ok && partidos.length === 0 && area !== "post" && !esAreaOpta(area) && (
+              <div className="mt-6">
+                <Notice tone="warn" title="No ha llegado ningún informe">
+                  <p>
+                    Ni por la carpeta ni por el índice. Son dos cosas distintas y
+                    conviene saber cuál falla:
+                  </p>
+
+                  <ul className="mt-2 space-y-1.5">
+                    <li>
+                      <strong className="text-white/70">
+                        En el ordenador donde está la carpeta:
+                      </strong>{" "}
+                      comprueba que en <code>public/data/wys</code> hay «Team
+                      Stats» en <code>.xlsx</code> y pulsa «Actualizar datos».
+                    </li>
+
+                    <li>
+                      <strong className="text-white/70">
+                        En la plataforma desplegada:
+                      </strong>{" "}
+                      esta copia no puede abrir la carpeta —sube al alojamiento
+                      pero la función no la tiene en su disco—, así que lee el
+                      índice que se monta al compilar. Si sale vacío, es que se
+                      desplegó sin informes: vuelve a desplegar con los ficheros
+                      dentro.
+                    </li>
+                  </ul>
+                </Notice>
+              </div>
+            )}
+
+            {!cargando && datos?.ok && partidos.length > 0 && !esAreaOpta(area) && (
+              <>
+                {barraYCabecera}
 
                 {alcances && area !== "abp" && area !== "abpCategoria" && area !== "post" && (
                   <SelloJornada
@@ -1815,14 +1980,14 @@ export default function DataAnalisisPage() {
                     02/11/2026: abre con el desplegable de áreas, para cambiar sin volver arriba. */}
                 <IndiceBloques
                   clave={area}
-                  antes={<SelectorArea valor={area} areas={AREAS} bloques={BLOQUES} onIr={irA} />}
+                  antes={<SelectorArea valor={area} areas={AREAS} bloques={BLOQUES_NAV} onIr={irA} />}
                 />
 
                 <div id="data-bloques">
                 {area === "post" && <PanelPostPartido wyscout={partidos} />}
 
                 {area === "resumen" && (
-                  <PanelResumen conclusiones={clavesResumen} areas={AREAS} bloques={BLOQUES} onIr={irA} />
+                  <PanelResumen conclusiones={clavesResumen} areas={AREAS} bloques={BLOQUES_NAV} onIr={irA} />
                 )}
 
                 {/* =============== 0 · EL CAMPOGRAMA =============== */}

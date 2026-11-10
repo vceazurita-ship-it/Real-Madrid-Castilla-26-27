@@ -21,7 +21,6 @@ import {
 | cae.
 */
 import {
-  Activity,
   AlarmClock,
   Settings,
   ArrowLeft,
@@ -218,8 +217,7 @@ export const SECCIONES: Seccion[] = [
       { href: "/laboratorio/faltas", label: "Análisis de faltas", icon: Crosshair },
       { href: "/analisis-goles", label: "Análisis de goles", icon: Goal },
       { href: "/collective_history", label: "Histórico Competición", icon: History },
-      { href: "/data-analisis", label: "Data Análisis", icon: Sigma },
-      { href: "/opta", label: "Área Opta", icon: Activity },
+      { href: "/data-analisis", label: "Análisis de datos", icon: Sigma },
     ],
   },
   {

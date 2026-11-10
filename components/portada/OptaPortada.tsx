@@ -9,10 +9,10 @@
  *   PPDA y xG a balón parado. Si el rival no casa con Opta o no es del
  *   grupo, sale sólo el Castilla.
  * - **El último partido**: resultado, xG de los dos y el momentum en
- *   miniatura (la curva de `curvaMomento`, la misma de `/opta`).
+ *   miniatura (la curva de `curvaMomento`, la misma de «Análisis de datos»).
  *
  * Sólo documentos ligeros al abrir la portada (`opta:meta`, `opta:equipos`,
- * `opta:partidos`, ≈0,5 MB, compartidos con `/opta`). El momento (≈1 MB) se
+ * `opta:partidos`, ≈0,5 MB, compartidos con «Análisis de datos»). El momento (≈1 MB) se
  * pide cuando la tarjeta entra en pantalla, no antes; sin remates, ni ABP
  * evento a evento, ni acciones del Castilla. Mientras carga, la tarjeta ya
  * tiene su alto: no empuja la portada.
@@ -97,10 +97,10 @@ export function OptaPortada() {
       <div className="mt-5 grid min-w-0 gap-px overflow-hidden rounded-3xl border border-white/[0.08] bg-white/[0.06] lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
         {/* ---------- frente a frente ---------- */}
         <Link
-          href="/opta?pestana=estilos"
-          onClick={() => trackModuleVisit("/opta")}
+          href="/data-analisis?area=estilos"
+          onClick={() => trackModuleVisit("/data-analisis")}
           className="group min-w-0 bg-[#07121F] p-5 transition-colors duration-300 hover:bg-[#0B1728]"
-          title="Los estilos de la categoría en Opta: dominio, peligro y solidez de cada equipo"
+          title="Los estilos de la categoría: dominio, peligro y solidez de cada equipo"
         >
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#D8B45A]">{rival ? "Frente a frente · por partido" : "El Castilla · por partido"}</p>
           <table className="mt-3 w-full table-fixed text-left tabular-nums">
@@ -197,10 +197,10 @@ function UltimoPartido({ ultimo }: { ultimo: PartidoEquipo }) {
   return (
     <Link
       ref={caja}
-      href="/opta?pestana=castilla"
-      onClick={() => trackModuleVisit("/opta")}
+      href="/data-analisis?area=post"
+      onClick={() => trackModuleVisit("/data-analisis")}
       className="group flex min-w-0 flex-col bg-[#07121F] p-5 transition-colors duration-300 hover:bg-[#0B1728]"
-      title="La ficha del partido en Opta"
+      title="El post del partido"
     >
       <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#D8B45A]">El último partido · {fechaCorta(ultimo.fecha)}</p>
       <p className="mt-2 truncate text-[15px] font-semibold text-white">

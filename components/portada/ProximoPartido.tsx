@@ -268,6 +268,10 @@ export function ProximoPartido() {
       ? {
           rotulo: faltan <= 0 ? "MD" : "MD-1",
           atajos: [
+            /* 10/11/2026 (fase 4): el día de partido, las cifras en directo, lo primero. */
+            ...(faltan <= 0
+              ? [{ href: "/data-analisis?area=directo", texto: "En directo", title: "Las cifras del partido mientras se juega" }]
+              : []),
             { href: conRival("/abp-pizarra"), texto: "PDF y vídeo ABP por jugador", title: "La pizarra de balón parado: «PDF por jugador» para mandarlo por WhatsApp" },
             { href: conRival("/match-preparation"), texto: "Plan de partido", title: `El plan contra ${nombreRival}` },
             { href: conEquipo("/duelos"), texto: "Duelos", title: `Nuestro once contra el de ${nombreRival}` },
@@ -278,7 +282,7 @@ export function ProximoPartido() {
             rotulo: `MD+${pasados}`,
             atajos: [
               { href: "/microcycles", texto: "Informe post", title: `El informe del partido contra ${anterior.rival}, desde Microciclos` },
-              { href: "/data-analisis", texto: "Data análisis", title: "Los datos del último partido" },
+              { href: "/data-analisis?area=post", texto: "Análisis de datos", title: "El post del último partido" },
               { href: "/collective_history", texto: "Histórico", title: "Todos los partidos de la temporada" },
             ],
           }

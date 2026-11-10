@@ -4064,7 +4064,7 @@ export default function IndividualPage() {
                             href={`/data-analisis?area=individual&jugador=${encodeURIComponent(selected.name)}`}
                             className="ml-auto text-xs text-white/50 underline decoration-white/20 underline-offset-4 hover:text-[#F7D98B]"
                           >
-                            Sus datos en Data análisis
+                            Sus datos en Análisis de datos
                           </Link>
 
                           <GoldButton icon={Pencil} onClick={openProfileForm}>

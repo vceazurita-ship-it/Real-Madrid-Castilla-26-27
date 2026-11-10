@@ -1,5 +1,4 @@
 import {
-  Activity,
   AlarmClock,
   Bus,
   BarChart3,
@@ -185,15 +184,17 @@ export const MODULES: AppModule[] = [
     alias: ["notas", "puntuaciones"],
   },
   /*
-    Data Análisis cierra la semana de competición: es la lectura de lo que
+    Análisis de datos cierra la semana de competición: es la lectura de lo que
     dejó el partido. Los alias son largos a propósito —aquí se busca por el
     nombre de la plataforma («opta», «wyscout») tanto como por el del módulo—.
+    10/11/2026 (fase 4): recoge también lo que era el «Área Opta» (/opta
+    redirige aquí), así que se queda con sus alias.
   */
   {
     href: "/data-analisis",
     area: "COMPETICIÓN",
-    title: "Data Análisis",
-    desc: "Los informes de Opta y Wyscout, y nuestro balón parado",
+    title: "Análisis de datos",
+    desc: "El partido, nuestro equipo, los jugadores, el rival y la categoría, y el balón parado",
     icon: Sigma,
     rank: 88,
     alias: [
@@ -207,17 +208,19 @@ export const MODULES: AppModule[] = [
       "métricas",
       "percentiles",
       "abp propio",
+      "data análisis",
+      "data analisis",
+      "área opta",
+      "trumedia",
+      "provision",
+      "scouting",
+      "buscador de jugadores",
+      "talento",
+      "estilos",
+      "penaltis",
+      "directo",
+      "en vivo",
     ],
-  },
-  /* El área Opta (09/11/2026): colectivo, liga, jugadores, buscador y directo. */
-  {
-    href: "/opta",
-    area: "COMPETICIÓN",
-    title: "Área Opta",
-    desc: "El Castilla, la liga y los jugadores según Opta, con buscador y directo",
-    icon: Activity,
-    rank: 87,
-    alias: ["opta", "trumedia", "provision", "xg", "scouting", "buscador de jugadores", "directo", "en vivo"],
   },
 
   /* ------------------------------------------------------------- METODOLOGÍA */

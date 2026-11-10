@@ -1,11 +1,18 @@
 "use client";
 
 /**
- * Los seis documentos de Opta que usa el área, pedidos una vez.
+ * Los seis documentos de Opta que usan las áreas de «Análisis de datos»,
+ * pedidos una vez.
  *
  * Con la forma que pasa el linter de React 19 (ver `hooks/useRemoteDoc.ts`):
  * el fetch va dentro del efecto, con su bandera `vivo`, y la recarga manual es
  * sólo un testigo que cambia.
+ *
+ * 10/11/2026 (fase 4): las pestañas de `/opta` son ahora áreas sueltas de
+ * `/data-analisis`, y cada una monta este hook sólo cuando se abre. Para que
+ * pasar de un área a otra no vuelva a bajar los seis documentos, la descarga
+ * se guarda para toda la pestaña del navegador (como `hooks/useDocsOpta.ts`);
+ * «Volver a mirar» (`recarga`) la olvida.
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -34,13 +41,13 @@ type Crudo = {
   castillaPartidos: TablaOpta | null;
 };
 
-export function useOpta() {
-  const [crudo, setCrudo] = useState<Crudo | null>(null);
-  const [testigo, setTestigo] = useState(0);
+/* La descarga compartida: una promesa para todas las áreas; si no llega nada, se olvida. */
+let enVuelo: Promise<Crudo> | null = null;
+let listo: Crudo | null = null;
 
-  useEffect(() => {
-    let vivo = true;
-    void Promise.all([
+function trae(): Promise<Crudo> {
+  if (!enVuelo) {
+    enVuelo = Promise.all([
       traeOpta<MetaOpta>(DOCS_OPTA.meta),
       traeOpta(DOCS_OPTA.equipos),
       traeOpta(DOCS_OPTA.partidos),
@@ -48,7 +55,23 @@ export function useOpta() {
       traeOpta(DOCS_OPTA.castilla),
       traeOpta(DOCS_OPTA.castillaPartidos),
     ]).then(([meta, equipos, partidos, jugadores, castilla, castillaPartidos]) => {
-      if (vivo) setCrudo({ meta, equipos, partidos, jugadores, castilla, castillaPartidos });
+      const crudo = { meta, equipos, partidos, jugadores, castilla, castillaPartidos };
+      if (equipos) listo = crudo;
+      else enVuelo = null;
+      return crudo;
+    });
+  }
+  return enVuelo;
+}
+
+export function useOpta() {
+  const [crudo, setCrudo] = useState<Crudo | null>(() => listo);
+  const [testigo, setTestigo] = useState(0);
+
+  useEffect(() => {
+    let vivo = true;
+    void trae().then((c) => {
+      if (vivo) setCrudo(c);
     });
     return () => {
       vivo = false;
@@ -56,6 +79,8 @@ export function useOpta() {
   }, [testigo]);
 
   const recarga = useCallback(() => {
+    enVuelo = null;
+    listo = null;
     setCrudo(null);
     setTestigo((n) => n + 1);
   }, []);

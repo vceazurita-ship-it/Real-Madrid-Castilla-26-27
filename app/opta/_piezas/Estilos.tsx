@@ -269,8 +269,10 @@ function VennEstilos({ datos, alElegir }: { datos: DatosOpta; alElegir: (teamId:
   );
 }
 
-export function Estilos({ datos }: { datos: DatosOpta }) {
-  const [equipo, setEquipo] = useState(CASTILLA_OPTA);
+/** `inicial`: el equipo de la radiografía al abrir (el próximo rival, si se sabe). */
+export function Estilos({ datos, inicial }: { datos: DatosOpta; inicial?: string }) {
+  const [elegido, setEquipo] = useState<string | null>(null);
+  const equipo = elegido ?? inicial ?? CASTILLA_OPTA;
   const caja = useRef<HTMLDivElement>(null);
   const abre = (teamId: string) => {
     setEquipo(teamId);

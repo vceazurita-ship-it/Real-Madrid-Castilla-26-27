@@ -159,9 +159,11 @@ export function Momentum({ datos, partido, teamId }: { datos: DatosOpta; partido
 }
 
 /** Cualquier partido de la categoría: la curva y los remates de los dos. */
-export function PartidosCategoria({ datos }: { datos: DatosOpta }) {
+/** `inicial`: el equipo con el que se abre (el próximo rival, si se sabe). */
+export function PartidosCategoria({ datos, inicial }: { datos: DatosOpta; inicial?: string }) {
   const equipos = useMemo(() => equiposDe(datos), [datos]);
-  const [teamId, setTeamId] = useState(CASTILLA_OPTA);
+  const [elegidoEquipo, setTeamId] = useState<string | null>(null);
+  const teamId = elegidoEquipo ?? inicial ?? CASTILLA_OPTA;
   const suyos = useMemo(() => partidosDe(datos.partidos, teamId).filter((p) => p.otra), [datos.partidos, teamId]);
   const [elegido, setElegido] = useState("");
   const visto = suyos.find((p) => String(p.fila.partido) === elegido) ?? suyos[suyos.length - 1];

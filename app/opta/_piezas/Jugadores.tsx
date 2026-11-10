@@ -72,7 +72,7 @@ export function Jugadores({ datos, minimo, setMinimo }: { datos: DatosOpta; mini
   return (
     <div className="mt-6 space-y-6">
       <Panel
-        titulo="La plantilla en Opta"
+        titulo="La plantilla por 90′"
         subtitulo="Cifras por 90 minutos (los porcentajes, tal cual). Pulsa un jugador para ver su ficha; pulsa una cabecera para ordenar."
         derecha={
           <>

@@ -1343,7 +1343,7 @@ function FichaJugador({
             </Link>
             {j.wy && (
               <Link href={`/data-analisis?area=individual&jugador=${encodeURIComponent(j.wy.jugador)}`} className="text-[#C8A96B] transition hover:text-[#e0c68d]">
-                Sus datos en Data análisis
+                Sus datos en Análisis de datos
               </Link>
             )}
             {j.ficha.hudl && (

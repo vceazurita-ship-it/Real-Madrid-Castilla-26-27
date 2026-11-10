@@ -151,11 +151,11 @@ type Lado = "favor" | "contra";
 /* Por id: en «en contra» rematan jugadores de veinte equipos y dos pueden llamarse igual. */
 const claveTirador = (r: Remate) => r.tiradorId || r.tirador;
 
-export function RematesEquipo({ datos, teamId: fijo, titulo }: { datos: DatosOpta; teamId?: string; titulo?: string }) {
+export function RematesEquipo({ datos, teamId: fijo, titulo, inicial }: { datos: DatosOpta; teamId?: string; titulo?: string; inicial?: string }) {
   const { remates, cargando, hay } = useRemates(datos);
   const equipos = useMemo(() => equiposDe(datos), [datos]);
-  const [elegidoEquipo, setEquipo] = useState(CASTILLA_OPTA);
-  const teamId = fijo ?? elegidoEquipo;
+  const [elegidoEquipo, setEquipo] = useState<string | null>(null);
+  const teamId = fijo ?? elegidoEquipo ?? inicial ?? CASTILLA_OPTA;
   const [lado, setLado] = useState<Lado>("favor");
   const [situacion, setSituacion] = useState<Situacion>("todas");
   const [cuerpo, setCuerpo] = useState<Cuerpo>("todos");

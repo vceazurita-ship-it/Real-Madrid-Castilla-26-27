@@ -207,7 +207,7 @@ export function BuscadorAreas({
     <div className="relative w-full sm:w-72">
       <label className="flex min-h-[44px] items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 focus-within:border-[#C8A96B]/50">
         <Search size={15} className="shrink-0 text-white/45" />
-        <span className="sr-only">Buscar un área de Data análisis</span>
+        <span className="sr-only">Buscar un área de Análisis de datos</span>
         <input
           ref={caja}
           type="search"

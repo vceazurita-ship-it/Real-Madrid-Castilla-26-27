@@ -85,7 +85,7 @@ export function OptaDirecto({ deshabilitado }: { deshabilitado?: boolean }) {
 
       <p className="mt-2 text-[12px] leading-relaxed text-white/45">
         Corre en GitHub: mira cada minuto los partidos de Primera RFEF de hoy (el nuestro y los demás) y los
-        deja en <Link href="/opta?tab=directo" className="underline">Opta → Directo</Link>.
+        deja en <Link href="/data-analisis?area=directo" className="underline">Análisis de datos → En directo</Link>.
       </p>
 
       {estado && !estado.preparado && (

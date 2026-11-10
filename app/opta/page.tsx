@@ -1,222 +1,27 @@
-"use client";
-
 /**
- * ÁREA OPTA (09/11/2026).
+ * /opta YA NO ES UNA PANTALLA (10/11/2026, fase 4).
  *
- * Lo que da de sí la descarga de Opta (TruMedia ProVision) de Primera RFEF,
- * en doce pestañas (`PESTANAS`; `?pestana=<clave>` abre cualquiera). En el
- * móvil la barra no se parte en filas —ocupaba media pantalla pegada arriba—:
- * se desliza de lado y se centra sola en la pestaña abierta.
+ * El «Área Opta» tenía doce pestañas por proveedor. Ahora cada una es un área
+ * de «Análisis de datos» (/data-analisis), en el bloque que responde a su
+ * pregunta (`components/data/AreasOpta.tsx`), y esto sólo redirige para que
+ * los enlaces viejos, los marcadores y los correos sigan llevando a su sitio:
  *
- * Las de la primera descarga:
+ *   /opta                     → /data-analisis?area=colectivo
+ *   /opta?pestana=<clave>     → /data-analisis?area=<la nueva>   (AREA_DE_PESTANA)
+ *   /opta?tab=<clave>         → lo mismo (lo usaba el enlace de Ajustes)
  *
- * - **Castilla**: el colectivo por fases, con puesto y percentil en el grupo,
- *   y su evolución partido a partido contra la media del grupo.
- * - **La liga**: todos los equipos en una tabla ordenable con las métricas que
- *   se quieran, y la dispersión de dos métricas.
- * - **Jugadores**: la plantilla por 90 minutos; cada uno, con su ficha de
- *   percentiles contra su puesto y su partido a partido.
- * - **Buscador**: jugadores de toda la categoría por puesto, edad y métrica.
- * - **Directo**: las cifras del partido que se está jugando, si el proceso
- *   del directo está en marcha.
- *
- * Evento a evento (09/11/2026), cada documento cargado sólo en su pestaña
- * (`app/opta/_piezas/eventos.ts`):
- *
- * - **Fases**: el Castilla acción a acción (red de pases, pases progresivos,
- *   recuperaciones y pérdidas por altura).
- * - **Partidos**: cualquier partido de la categoría, con el cara a cara de
- *   las cifras de los dos (barras enfrentadas), su momentum por tramos de 5′
- *   y los remates de los dos.
- * - **Remates**: el mapa de remates de cualquier equipo, a favor y en contra.
- * - **11 metros**: cada penalti, en la portería, con lanzadores y porteros, y
- *   el ranking de equipos a favor y en contra.
- *
- * Jornada a jornada (10/11/2026):
- *
- * - **Evolución**: cualquier equipo métrica a métrica, contra sus rivales y la
- *   media de la liga en cada jornada, por partido o acumulado; y su arranque
- *   contra su proceso (las primeras N jornadas frente a las últimas N).
- * - **Estilos** (10/11/2026): quién aprieta y cuándo en toda la liga (mapa
- *   de calor por franjas de 15′), el Venn de dominio, peligro y solidez y la
- *   radiografía de 22 métricas de cualquier equipo (`_piezas/Estilos.tsx`).
- * - **Talento** (10/11/2026): dispersión de percentiles de dos métricas por
- *   90 con la zona élite, ranking por perfil con su «ADN», goles que valen
- *   puntos y goles desde el banquillo (`opta:remates` y
- *   `opta:jugadores-partidos`, sólo en esa pestaña).
- *
- * Los datos no están en el repositorio (es público): viven en Supabase y se
- * leen por /api/docs (`lib/opta.ts`). Las cuentas, en `lib/opta-analisis.ts`;
- * los nombres en castellano, en `lib/opta-nombres.ts`.
+ * Las piezas siguen en `app/opta/_piezas/` (las importan las áreas nuevas, el
+ * post del partido y «Datos del rival»); la carpeta `_piezas` no es ruta.
  */
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { Activity, Database } from "lucide-react";
+import { redirect } from "next/navigation";
 
-import { EsqueletoPantalla, EstadoVacio } from "@/components/ui/estados";
-import { Sidebar } from "@/components/ui/sidebar";
-import { Topbar } from "@/components/ui/topbar";
+import { AREA_DE_PESTANA } from "@/lib/data-analisis/areas-opta";
 
-import { Buscador } from "./_piezas/Buscador";
-import { Colectivo } from "./_piezas/Colectivo";
-import { Directo } from "./_piezas/Directo";
-import { Estilos } from "./_piezas/Estilos";
-import { Evolucion } from "./_piezas/Evolucion";
-import { Fases } from "./_piezas/Fases";
-import { Jugadores } from "./_piezas/Jugadores";
-import { Liga } from "./_piezas/Liga";
-import { PartidosCategoria } from "./_piezas/Momentum";
-import { Penaltis } from "./_piezas/Penaltis";
-import { RematesEquipo } from "./_piezas/Remates";
-import { Talento } from "./_piezas/Talento";
-import { useOpta } from "./_piezas/useOpta";
-
-const PESTANAS = [
-  { clave: "castilla", nombre: "Castilla" },
-  { clave: "fases", nombre: "Fases" },
-  { clave: "liga", nombre: "La liga" },
-  { clave: "evolucion", nombre: "Evolución" },
-  { clave: "partidos", nombre: "Partidos" },
-  { clave: "remates", nombre: "Remates" },
-  { clave: "penaltis", nombre: "11 metros" },
-  { clave: "estilos", nombre: "Estilos" },
-  { clave: "jugadores", nombre: "Jugadores" },
-  { clave: "buscador", nombre: "Buscador" },
-  { clave: "talento", nombre: "Talento" },
-  { clave: "directo", nombre: "Directo" },
-] as const;
-type Pestana = (typeof PESTANAS)[number]["clave"];
-
-const esPestana = (v: string | null): v is Pestana => PESTANAS.some((p) => p.clave === v);
-
-/* `?pestana=` de la URL, sin Suspense y con la instantánea de servidor vacía (como en Duelos). */
-const leePestana = () => new URLSearchParams(window.location.search).get("pestana") ?? "";
-const sinPestana = () => "";
-function alLlegar(avisa: () => void) {
-  const t = setTimeout(avisa, 0);
-  return () => clearTimeout(t);
-}
-
-const MINIMO_INICIAL = 270;
-
-export default function OptaPage() {
-  const { datos, cargando, recarga } = useOpta();
-  const enlazada = useSyncExternalStore(alLlegar, leePestana, sinPestana);
-  const [elegida, setElegida] = useState<Pestana | null>(null);
-  const pestana: Pestana = elegida ?? (esPestana(enlazada) ? enlazada : "castilla");
-  const [minimo, setMinimo] = useState(MINIMO_INICIAL);
-
-  /* En el móvil la barra se desliza: que la pestaña abierta (también la del enlace) quede a la vista. */
-  const barra = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const caja = barra.current;
-    const activa = caja?.querySelector<HTMLElement>('[aria-selected="true"]');
-    if (!caja || !activa || caja.scrollWidth <= caja.clientWidth) return;
-    caja.scrollTo({ left: activa.offsetLeft - (caja.clientWidth - activa.offsetWidth) / 2, behavior: "smooth" });
-  }, [pestana]);
-
-  const cambia = (p: Pestana) => {
-    setElegida(p);
-    const url = new URL(window.location.href);
-    url.searchParams.set("pestana", p);
-    window.history.replaceState(null, "", url.toString());
-  };
-
-  const meta = datos?.meta ?? null;
-  const sinDatos = !cargando && (!datos || datos.equipos.length === 0);
-  const ultimo = meta?.temporada?.ultimoPartido ? new Date(meta.temporada.ultimoPartido.replace(" ", "T")) : null;
-
-  return (
-    <main className="min-h-screen bg-[#0B0F14] text-white">
-      <div className="flex">
-        <Sidebar />
-        <div className="min-w-0 flex-1">
-          <Topbar />
-
-          <section className="px-4 pb-12 pt-6 sm:px-8 sm:pt-10">
-            <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">RMCF CASTILLA · ANÁLISIS</p>
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              <Activity className="h-7 w-7 text-[#C8A96B]" />
-              <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Área Opta</h1>
-            </div>
-            <p className="mt-3 max-w-3xl text-sm text-white/55">
-              El Castilla, la liga y los jugadores de Primera RFEF según Opta: cada cifra con su puesto y su percentil contra el grupo o
-              contra toda la categoría.
-            </p>
-            {meta && (
-              <p className="mt-2 text-xs text-white/45">
-                {[
-                  meta.temporada?.nombre?.replace(" (Spain)", ""),
-                  ultimo && !Number.isNaN(ultimo.getTime())
-                    ? `hasta el partido del ${ultimo.toLocaleDateString("es-ES", { day: "numeric", month: "long" })}`
-                    : "",
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </p>
-            )}
-
-            <div
-              ref={barra}
-              role="tablist"
-              aria-label="Área Opta"
-              className="sticky top-[81px] z-20 mt-6 flex max-w-full gap-1 overflow-x-auto overscroll-x-contain rounded-2xl border border-white/10 bg-[#0B0F14]/95 p-1 backdrop-blur [scrollbar-width:none] md:top-[97px] md:inline-flex md:flex-wrap md:overflow-visible"
-            >
-              {PESTANAS.map((p) => (
-                <button
-                  key={p.clave}
-                  type="button"
-                  role="tab"
-                  aria-selected={pestana === p.clave}
-                  onClick={() => cambia(p.clave)}
-                  className={`min-h-[40px] shrink-0 whitespace-nowrap rounded-xl px-4 text-sm font-semibold transition ${
-                    pestana === p.clave ? "bg-[#C8A96B] text-black" : "text-white/65 hover:text-white"
-                  }`}
-                >
-                  {p.nombre}
-                </button>
-              ))}
-            </div>
-
-            {cargando ? (
-              <div className="mt-6">
-                <EsqueletoPantalla titulo="los datos de Opta" />
-              </div>
-            ) : sinDatos && pestana !== "directo" ? (
-              <EstadoVacio
-                className="mt-6"
-                icon={Database}
-                titulo="Todavía no hay datos de Opta"
-                texto="Se descargan desde Ajustes (encargo «Opta») y solos cada lunes. En cuanto estén, aparecen aquí."
-                accion={
-                  <button type="button" onClick={recarga} className="rounded-xl border border-white/15 bg-white/[0.05] px-3 py-2 text-sm text-white/85">
-                    Volver a mirar
-                  </button>
-                }
-              />
-            ) : datos ? (
-              <>
-                {pestana === "castilla" && <Colectivo datos={datos} />}
-                {pestana === "fases" && <Fases datos={datos} />}
-                {pestana === "liga" && <Liga datos={datos} />}
-                {pestana === "evolucion" && <Evolucion datos={datos} />}
-                {pestana === "partidos" && <PartidosCategoria datos={datos} />}
-                {pestana === "remates" && (
-                  <div className="mt-6">
-                    <RematesEquipo datos={datos} />
-                  </div>
-                )}
-                {pestana === "penaltis" && <Penaltis datos={datos} />}
-                {pestana === "estilos" && <Estilos datos={datos} />}
-                {pestana === "jugadores" && <Jugadores datos={datos} minimo={minimo} setMinimo={setMinimo} />}
-                {pestana === "buscador" && <Buscador datos={datos} minimo={minimo} setMinimo={setMinimo} />}
-                {pestana === "talento" && <Talento datos={datos} />}
-                {pestana === "directo" && <Directo datos={datos} />}
-              </>
-            ) : null}
-          </section>
-        </div>
-      </div>
-    </main>
-  );
+export default async function OptaPage({ searchParams }: { searchParams: Promise<{ [clave: string]: string | string[] | undefined }> }) {
+  const sp = await searchParams;
+  const uno = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
+  const pedida = uno(sp.pestana) || uno(sp.tab);
+  const area = AREA_DE_PESTANA[pedida] ?? AREA_DE_PESTANA.castilla;
+  redirect(`/data-analisis?area=${area}`);
 }

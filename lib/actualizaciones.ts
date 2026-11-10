@@ -149,7 +149,7 @@ export const ACTUALIZACIONES: Actualizacion[] = [
   {
     clave: "wyscout",
     nombre: "Datos de Wyscout de la liga",
-    alimenta: "Data análisis, el once por tres fuentes, Duelos, percentiles y las fichas individuales",
+    alimenta: "Análisis de datos, el once por tres fuentes, Duelos, percentiles y las fichas individuales",
     fuente: "Wyscout",
     cuando: "Cada martes y al pulsar",
     grupo: "semanal",
@@ -174,7 +174,7 @@ export const ACTUALIZACIONES: Actualizacion[] = [
   {
     clave: "opta",
     nombre: "Datos de Opta de la categoría",
-    alimenta: "El área Opta, el balón parado de la categoría en el Laboratorio de ABP y el Área de mejora y la Tendencia de la ficha individual",
+    alimenta: "Las áreas de Análisis de datos (y el post del partido), el balón parado de la categoría en el Laboratorio de ABP y el Área de mejora y la Tendencia de la ficha individual",
     fuente: "Opta ProVision",
     /* 09/11/2026: tarea «RMCF Castilla - Opta» (scripts/opta-semanal.cmd) y el botón de Ajustes. */
     cuando: "Cada lunes a primera hora (en la nube) y al pulsar",
@@ -182,7 +182,7 @@ export const ACTUALIZACIONES: Actualizacion[] = [
     cadaHoras: 24 * 7,
     docs: ["opta:meta"],
     encargo: "opta",
-    enlace: "/opta",
+    enlace: "/data-analisis?area=colectivo",
   },
 
   /* ---------- Durante el día ---------- */
@@ -244,7 +244,7 @@ export const ACTUALIZACIONES: Actualizacion[] = [
   {
     clave: "abp-ligas",
     nombre: "Goles a balón parado de las ligas",
-    alimenta: "«Goles a balón parado» de Data análisis: la categoría frente a otras ligas",
+    alimenta: "«Goles a balón parado» de Análisis de datos: la categoría frente a otras ligas",
     fuente: "Wyscout (equipos) y Opta",
     /* 09/11/2026: tarea «RMCF Castilla - ABP de las ligas» (scripts/abp-ligas-semanal.cmd). */
     cuando: "Cada lunes a las 7:00",

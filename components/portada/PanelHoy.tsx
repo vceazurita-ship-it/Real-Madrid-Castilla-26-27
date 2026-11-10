@@ -60,7 +60,7 @@ const MESA: Herramienta[] = [
   /* Pizarra ABP y Pizarra táctica ya están en el bloque del partido (05/11/2026). */
   { href: "/jugadores-sesion", titulo: "Jugadores sesión", desc: "Equipos de cada tarea del día", icono: SquareKanban },
   { href: "/microcycles", titulo: "Informes", desc: "Previa y post del partido", icono: FileText },
-  { href: "/data-analisis", titulo: "Data análisis", desc: "Wyscout y Opta del grupo", icono: BarChart3 },
+  { href: "/data-analisis", titulo: "Análisis de datos", desc: "El partido, el equipo, los jugadores y la categoría", icono: BarChart3 },
   { href: "/individual", titulo: "Individual", desc: "Fichas y seguimiento", icono: User },
 ];
 

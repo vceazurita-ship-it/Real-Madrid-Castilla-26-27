@@ -723,7 +723,7 @@ export default function Home() {
                       <p className="flex items-center justify-between gap-3 text-[12px] uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,.9)" }}>
                         <span className="min-w-0 truncate">El rival · {rivalSemana.faltan === 1 ? "MD-1" : `MD-${rivalSemana.faltan}`}</span>
                         <span className="inline-flex shrink-0 items-center gap-1 normal-case tracking-normal" style={{ color: "#F7D98B" }}>
-                          Data análisis
+                          Análisis de datos
                           <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
                         </span>
                       </p>
@@ -814,7 +814,7 @@ export default function Home() {
                           <span className="hidden sm:inline">Goles esperados (xG) por partido</span>
                         </span>
                         <span className="inline-flex shrink-0 items-center gap-1 normal-case tracking-normal sm:hidden xl:inline-flex" style={{ color: "#F7D98B" }}>
-                          Data análisis
+                          Análisis de datos
                           <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
                         </span>
                       </p>
@@ -897,7 +897,7 @@ export default function Home() {
                       className="relative m-4 inline-flex items-center gap-1.5 self-start rounded-full border border-white/15 px-3.5 py-1.5 text-[13px] font-semibold backdrop-blur-xl"
                       style={{ color: "#F7D98B", backgroundColor: "rgba(2,6,13,.85)" }}
                     >
-                      Data análisis
+                      Análisis de datos
                       <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
                     </span>
                   )}

@@ -7,7 +7,7 @@
  * al rival frente a su grupo; nada evento a evento.
  *
  * Pasan por `useDocsOpta`: una petición por clave para toda la pestaña, así
- * que si se abre `/opta` después ya están.
+ * que si se abre «Análisis de datos» después ya están.
  */
 
 import { useMemo } from "react";

@@ -61,10 +61,15 @@ const diferencia = (d: number | null, u: Unidad) =>
 
 export const nombreDeMetrica = (a: string, datos: DatosOpta) => defDe(a, datos.catalogo).nombre || nombreMetrica(a, datos.catalogo);
 
-export function Evolucion({ datos }: { datos: DatosOpta }) {
+/**
+ * `fijo`: el equipo no se elige (en «Nuestro equipo», el Castilla). `inicial`:
+ * con qué equipo se abre (en «Rival y categoría», el próximo rival).
+ */
+export function Evolucion({ datos, fijo, inicial }: { datos: DatosOpta; fijo?: string; inicial?: string }) {
   const { partidos, grupos, catalogo } = datos;
   const equipos = useMemo(() => equiposDe(datos), [datos]);
-  const [teamId, setTeamId] = useState(CASTILLA_OPTA);
+  const [elegido, setTeamId] = useState<string | null>(null);
+  const teamId = fijo ?? elegido ?? inicial ?? CASTILLA_OPTA;
   const [ambito, setAmbito] = useState<AmbitoLiga>("grupo");
   const [modo, setModo] = useState<Modo>("partido");
   const [elegidas, setElegidas] = useState<string[]>(POR_DEFECTO);
@@ -92,12 +97,14 @@ export function Evolucion({ datos }: { datos: DatosOpta }) {
         titulo="Jornada a jornada"
         subtitulo={`Cada métrica partido a partido: ${nombre}, sus rivales en esos mismos partidos y la media de ${quienLiga} en esa jornada (el partido n.º 1, 2, 3… de cada equipo).`}
         derecha={
-          <Elegir
-            etiqueta="Equipo"
-            valor={teamId}
-            alCambiar={setTeamId}
-            opciones={equipos.map((e) => ({ clave: e.teamId, nombre: e.equipo }))}
-          />
+          fijo ? undefined : (
+            <Elegir
+              etiqueta="Equipo"
+              valor={teamId}
+              alCambiar={setTeamId}
+              opciones={equipos.map((e) => ({ clave: e.teamId, nombre: e.equipo }))}
+            />
+          )
         }
       >
         <div className="mb-3 flex flex-wrap items-center gap-2">

@@ -357,10 +357,10 @@ export function OptaFicha({ nombre, apodo, alIr }: { nombre: string; apodo?: str
         subtitulo={`${fuente}. Liga, esta temporada.`}
         derecha={
           <Link
-            href="/opta?pestana=jugadores"
+            href="/data-analisis?area=plantilla"
             className="inline-flex items-center gap-1 rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-white/70 hover:text-white"
           >
-            Más en el área Opta <ArrowUpRight size={12} aria-hidden />
+            La plantilla por 90′ <ArrowUpRight size={12} aria-hidden />
           </Link>
         }
       >
