@@ -19,6 +19,7 @@ import { NotaMetodo, SelloFuente } from "@/components/ui/SelloFuente";
 import { Conclusiones, Explicativo } from "@/components/ui/textos-analisis";
 import { ErrorState, LoadingState } from "@/components/ui/knowledge-kit";
 import { loadRegistro } from "@/lib/abp/registro";
+import { cargaCalendario } from "@/hooks/useCalendario";
 import { traeCsv, traeJson } from "@/lib/hojaCsv";
 import type { FilaJugador, FilaPartido } from "@/lib/data-analisis/leer";
 import { formatea } from "@/lib/data-analisis/metricas";
@@ -26,6 +27,7 @@ import {
   NOMBRE_PUESTO,
   identidadEnElCampo,
   nivel,
+  rotuloPartido,
   type BloqueMedido,
   type IdentidadEnElCampo,
   type JugadorEncaje,
@@ -109,7 +111,7 @@ function Tendencia({ valores, partidos, alto = 80 }: { valores: (number | null)[
           className="pointer-events-none absolute -top-8 z-10 whitespace-nowrap rounded-md border border-white/10 bg-[#11161C] px-2 py-1 text-[11px] text-white/85 shadow-lg"
           style={{ left: `${(elegido.x / ancho) * 100}%`, transform: "translateX(-50%)" }}
         >
-          J{partidos[elegido.i].jornada} · {partidos[elegido.i].rival} {partidos[elegido.i].marcador} · <b>{elegido.v}</b>
+          {rotuloPartido(partidos[elegido.i])} · {partidos[elegido.i].rival} {partidos[elegido.i].marcador} · <b>{elegido.v}</b>
         </div>
       )}
     </div>
@@ -285,7 +287,7 @@ function Mapa({ bloques, partidos }: { bloques: BloqueMedido[]; partidos: Partid
             <th className="w-[34%] text-left font-normal" />
             {partidos.map((p) => (
               <th key={p.fecha} className="px-0.5 pb-1 text-center font-medium text-white/55" title={`${p.rival} ${p.marcador}`}>
-                <span className="block">J{p.jornada}</span>
+                <span className="block">{rotuloPartido(p, true)}</span>
                 <span className="block truncate text-[10px] font-normal text-white/35">{p.rival.split(" ")[0]}</span>
               </th>
             ))}
@@ -299,7 +301,7 @@ function Mapa({ bloques, partidos }: { bloques: BloqueMedido[]; partidos: Partid
                 v === null ? (
                   <td key={i} />
                 ) : (
-                  <td key={i} className="h-8 rounded-[4px] text-center font-semibold tabular-nums text-white/90" style={{ background: fondoDe(v) }} title={`J${partidos[i].jornada} · ${partidos[i].rival} ${partidos[i].marcador} · ${b.label}: ${v}`}>
+                  <td key={i} className="h-8 rounded-[4px] text-center font-semibold tabular-nums text-white/90" style={{ background: fondoDe(v) }} title={`${rotuloPartido(partidos[i])} · ${partidos[i].rival} ${partidos[i].marcador} · ${b.label}: ${v}`}>
                     {v}
                   </td>
                 ),
@@ -366,19 +368,21 @@ export function IdentidadCampo() {
 
     (async () => {
       try {
-        const [data, registro, hoja] = await Promise.all([
+        const [data, registro, hoja, calendario] = await Promise.all([
           traeJson<Respuesta>("/api/data-analisis", { forzar: intento > 0 }),
           loadRegistro().catch(() => ({ tareas: [], micros: [] })),
           traeCsv(MODELO_CSV, { forzar: intento > 0 })
             .then((t) => Papa.parse<Record<string, string>>(t, { header: true, skipEmptyLines: true }).data)
             .catch(() => null),
+          /* La jornada de verdad de cada partido, del calendario (como la portada). */
+          cargaCalendario().catch(() => []),
         ]);
 
         if (!vivo) return;
 
         if (!data.ok || !data.partidos) throw new Error(data.error || "No se han podido leer los partidos.");
 
-        setEstado({ cargando: false, datos: identidadEnElCampo(data.partidos, data.jugadores ?? [], registro.tareas, hoja) });
+        setEstado({ cargando: false, datos: identidadEnElCampo(data.partidos, data.jugadores ?? [], registro.tareas, hoja, calendario) });
       } catch (e) {
         if (vivo) setEstado({ cargando: false, error: e instanceof Error ? e.message : "No se ha podido leer." });
       }
@@ -437,7 +441,7 @@ export function IdentidadCampo() {
           </div>
           <p className="mt-2 text-[13px] leading-snug text-white/60">
             Cuánto se parece lo que hacemos en el partido a nuestro modelo, de 0 a 100 frente a los {d.equipos} equipos de la categoría.
-            {ultimo && <> Hasta la J{ultimo.jornada} ({ultimo.rival}).</>}
+            {ultimo && (ultimo.jornada ? <> Hasta la J{ultimo.jornada} ({ultimo.rival}).</> : <> {d.partidos.length} partidos, hasta el de {ultimo.rival}.</>)}
           </p>
           <SelloFuente
             fuente="wyscout"

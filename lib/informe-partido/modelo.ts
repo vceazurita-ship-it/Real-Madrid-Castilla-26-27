@@ -44,6 +44,10 @@ export type MetricaDuelo = {
   media?: number | null;
   nosotros: { valor: number; puesto: number; percentil: number | null } | null;
   rival: { valor: number; puesto: number; percentil: number | null } | null;
+  /** «opta» cuando la fila sale de Opta (xG, remates y PPDA: `lib/cifras-equipo.ts`); sin nada, Wyscout. */
+  fuente?: "opta" | "wyscout";
+  /** Partidos nuestros detrás de la media, si la fila es de Opta. */
+  partidos?: number;
 };
 
 export type PartidoForma = { fecha: string; rival: string; gf: number; gc: number; xg: number };
@@ -73,6 +77,8 @@ export type Duelo = {
       desviacion?: number | null;
       /** El recuento detrás de un porcentaje del partido: «6 de 8» (24/10/2026). */
       recuento?: { de: number; total: number } | null;
+      /** «opta» cuando la fila del partido sale de Opta. */
+      fuente?: "opta" | "wyscout";
     }[];
   };
 };
@@ -1050,7 +1056,11 @@ export function selloDatos(inf: { duelo: Duelo | null; vistazo: VistazoRival | n
 
   const partidos = d.jugados.nosotros === d.jugados.rival ? `${d.jugados.nosotros} partidos de cada uno` : `${d.jugados.nosotros} partidos nuestros y ${d.jugados.rival} suyos`;
 
-  return `Wyscout ${d.temporada}${jornada && jornada > 0 ? `, hasta la J${jornada} incluida` : ""} · ${partidos}`;
+  /* xG, remates y PPDA los manda Opta (10/11/2026, `lib/cifras-equipo.ts`): se dice una vez, aquí. */
+  const deOpta = [...new Set(d.metricas.filter((x) => x.fuente === "opta").map((x) => (x.key === "ppda" ? "PPDA" : /^tiros/.test(x.key) ? "remates" : "xG")))];
+  const opta = deOpta.length ? ` · ${deOpta.length > 1 ? `${deOpta.slice(0, -1).join(", ")} y ${deOpta[deOpta.length - 1]}` : deOpta[0]}, según Opta` : "";
+
+  return `Wyscout ${d.temporada}${jornada && jornada > 0 ? `, hasta la J${jornada} incluida` : ""} · ${partidos}${opta}`;
 }
 
 /** Los tres del rival que más pesan: goles + asistencias, minutos, y lo que diga la ficha. */

@@ -32,6 +32,8 @@ import { rivalTokenId } from "@/lib/tactics/rivals";
 import { CONCLUSIONES, SECTIONS } from "@/lib/rivals/scout-colectivo-campos";
 import { findStats, highlightSeason, type RivalStatsDoc } from "@/lib/rivals/stats";
 import { golesTemporadaDe } from "./goles-temporada";
+import { dueloConOpta, type TablasOpta } from "@/lib/cifras-equipo";
+import { CASTILLA_OPTA, DOCS_OPTA, traeOpta, type MetaOpta } from "@/lib/opta";
 import { corrigeNombres, sinJergaAbp, explicaDano, fraseDeFase, fraseUtil, mismoJugador, pronostica, rotulosDeDuelos, type Cronica } from "./modelo";
 import type { CortePartido } from "@/lib/video-informe/guion";
 import type { PartidoBeSoccer } from "@/lib/quiniela/besoccer";
@@ -711,7 +713,16 @@ export async function cargaInforme(entrada: {
     claveJornada ? doc<{ url?: string; creado?: string; segundos?: number; poster?: string | null; ligero?: string | null }>(`informe-video:${claveJornada}`) : Promise.resolve(null),
   ]);
 
-  const [onceDoc, analisisDoc, clipsDoc, duelo, mediaDoc, generadosDoc] = await Promise.all([
+  /*
+  | Opta (10/11/2026): xG, remates y PPDA salen de Opta, como en la portada y
+  | en DATA (`lib/cifras-equipo.ts`). Sólo las tablas de equipo y de partido;
+  | si no llegan, el informe sigue con Wyscout como hasta ahora.
+  */
+  const optaP: Promise<TablasOpta | null> = Promise.all([traeOpta(DOCS_OPTA.equipos), traeOpta(DOCS_OPTA.partidos), traeOpta<MetaOpta>(DOCS_OPTA.meta)])
+    .then(([equipos, partidos, meta]) => (equipos && partidos ? { equipos, partidos, meta } : null))
+    .catch(() => null);
+
+  const [onceDoc, analisisDoc, clipsDoc, dueloWyscout, mediaDoc, generadosDoc] = await Promise.all([
     doc<unknown>(rivalOnceKey(equipoHoja)),
     doc<unknown>(analisisKey(equipoHoja)),
     doc<{ jornadas?: Record<string, { docs?: { nombre: string; url: string }[]; clips?: { seccion: string; partido: string; nombre: string; url: string; texto?: string }[] }> }>(clipsKey(equipoHoja)),
@@ -724,6 +735,11 @@ export async function cargaInforme(entrada: {
     filaRival ? doc<unknown>(rivalMediaKey(texto(filaRival.ID))) : Promise.resolve(null),
     doc<unknown>(rivalDocumentosKey(equipoHoja)),
   ]);
+
+  const opta = await optaP;
+
+  /* Las medias de antes del partido, como las de Wyscout (`corte`). */
+  const duelo = dueloConOpta(dueloWyscout, opta, { nosotros: CASTILLA_OPTA, corte: partido ? soloDia(partido.cuando) : null });
 
   /* Lo último que se sacó en Plantillas rivales: va primero y marcado. */
   const generados = normalizaDocumentos(generadosDoc).docs.map((d) => ({
@@ -798,9 +814,10 @@ export async function cargaInforme(entrada: {
   | recogen al final, mientras se arma lo demás. Si fallan, el informe sale
   | sin esos dos bloques y lo avisa.
   */
-  const extrasRival = cargaPlantilla()
-    .then((fichas) =>
+  const extrasRival = Promise.all([cargaPlantilla(), optaP])
+    .then(([fichas, optaVistazo]) =>
       duelosYVistazo({
+        opta: optaVistazo,
         rival,
         equipoHoja,
         filasHoja: Array.isArray(plantillas) ? plantillas : [],

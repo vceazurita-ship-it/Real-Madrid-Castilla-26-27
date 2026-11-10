@@ -1,4 +1,6 @@
 import { METRICA_POR_KEY } from "./metricas";
+import { cifraEquipo, WYSCOUT_A_MAGNITUD, type TablasOpta } from "@/lib/cifras-equipo";
+import { nombresOpta, type Fuente } from "@/lib/fuentes";
 
 /**
  * La batería de preguntas.
@@ -433,3 +435,62 @@ export const PREGUNTAS_VALIDAS = PREGUNTAS.filter(
 /** Cómo se rotula un eje cuando el valor es el del rival. */
 export const rotuloDeEje = (nombre: string, contra?: boolean) =>
   contra ? `${nombre} (del rival)` : nombre;
+
+/* ------------------------------------------------------------------ */
+/*  LOS EJES QUE MANDA OPTA (10/11/2026)                               */
+/* ------------------------------------------------------------------ */
+
+/*
+| xG, xG en contra, remates (a favor y en contra) y PPDA los manda Opta
+| (`lib/fuentes.ts`): la portada y el área de datos ya los dan de Opta, y una
+| pregunta que contesta con el PPDA de Wyscout daba otra cifra para lo mismo.
+| Con «del rival» se lee la otra cara en Opta («remates del rival» = nuestros
+| remates en contra); el PPDA del rival contra nosotros no está en Opta y ese
+| eje se queda en Wyscout.
+*/
+const DEL_RIVAL: Record<string, string | null> = { tiros: "tirosContra", tirosContra: "tiros", xg: "xgContra", xgContra: "xg", ppda: null };
+
+/** La clave que se lee en Opta para un eje (o null si ese eje sigue en Wyscout). */
+export function ejeOpta(clave: string, contra = false): string | null {
+  if (!WYSCOUT_A_MAGNITUD[clave]) return null;
+  return contra ? DEL_RIVAL[clave] ?? null : clave;
+}
+
+export type PuntoDispersion = { equipo: string; x: number; y: number };
+
+/**
+ * Los puntos del cruce (un equipo cada uno, nombre de Wyscout) con los ejes
+ * que manda Opta leídos en Opta: misma media por partido de la temporada y
+ * PPDA como cociente de las sumas (`cifraEquipo`). El equipo que Opta no
+ * tiene sale del dibujo en ese eje: nunca un punto con una cifra de cada
+ * fuente en el mismo eje. Sólo vale para la temporada en curso y en media por
+ * partido; para otras temporadas o en totales, los puntos tal cual.
+ *
+ * `nota`: «PPDA, según Opta» para el pie del dibujo (vacío si nada cambia).
+ */
+export function puntosConOpta(
+  puntos: PuntoDispersion[],
+  ejes: { x: string; y: string; contraX?: boolean; contraY?: boolean },
+  opta: TablasOpta | null | undefined,
+): { puntos: PuntoDispersion[]; fuentes: { x: Fuente; y: Fuente }; nota: string } {
+  const claveX = opta ? ejeOpta(ejes.x, ejes.contraX) : null;
+  const claveY = opta ? ejeOpta(ejes.y, ejes.contraY) : null;
+  const lee = (clave: string | null, equipo: string, antes: number) => {
+    if (!clave) return antes;
+    const c = cifraEquipo(clave, equipo, { opta });
+    return c?.fuente === "opta" ? c.valor : null;
+  };
+  const conOpta = !claveX && !claveY
+    ? puntos
+    : puntos
+        .map((p) => ({ equipo: p.equipo, x: lee(claveX, p.equipo, p.x), y: lee(claveY, p.equipo, p.y) }))
+        .filter((p): p is PuntoDispersion => p.x !== null && p.y !== null);
+  /* Con menos de la mitad de los equipos en Opta, mejor el dibujo de antes. */
+  if (conOpta.length < Math.max(3, puntos.length / 2)) return { puntos, fuentes: { x: "wyscout", y: "wyscout" }, nota: "" };
+  const nombres = nombresOpta([...(claveX ? [ejes.x] : []), ...(claveY ? [ejes.y] : [])]);
+  return {
+    puntos: conOpta,
+    fuentes: { x: claveX ? "opta" : "wyscout", y: claveY ? "opta" : "wyscout" },
+    nota: nombres ? `${nombres}, según Opta` : "",
+  };
+}

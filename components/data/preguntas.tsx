@@ -10,6 +10,7 @@ import {
   type Momento,
   type Pregunta,
 } from "@/lib/data-analisis/preguntas";
+import type { Fuente } from "@/lib/fuentes";
 
 /**
  * La batería de preguntas, en pantalla.
@@ -29,6 +30,7 @@ export function BateriaDePreguntas({
   metricaY,
   contraX,
   contraY,
+  fuentes,
 }: {
   activa: string | null;
   onElegir: (pregunta: Pregunta) => void;
@@ -36,6 +38,8 @@ export function BateriaDePreguntas({
   metricaY: string;
   contraX: boolean;
   contraY: boolean;
+  /** La fuente de cada eje cuando no es Wyscout (`puntosConOpta`): se dice en una palabra. */
+  fuentes?: { x?: Fuente; y?: Fuente };
 }) {
   /* Se abre por el momento de la pregunta puesta, si la hay. */
   const [momento, setMomento] = useState<Momento>(
@@ -123,12 +127,14 @@ export function BateriaDePreguntas({
             {metX?.nombre ?? "—"}
           </strong>
           {contraX && <span className="text-[#C8A96B]"> (del rival)</span>}
+          {fuentes?.x === "opta" && <span className="text-white/40"> · Opta</span>}
           <br />
           <span className="text-white/40">Eje Y · </span>
           <strong className="font-semibold text-white/85">
             {metY?.nombre ?? "—"}
           </strong>
           {contraY && <span className="text-[#C8A96B]"> (del rival)</span>}
+          {fuentes?.y === "opta" && <span className="text-white/40"> · Opta</span>}
         </p>
 
         <p className="mt-2 border-t border-white/[0.06] pt-2 text-[11.5px] leading-relaxed text-white/45">

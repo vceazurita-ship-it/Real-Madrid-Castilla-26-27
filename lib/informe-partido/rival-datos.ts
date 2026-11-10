@@ -19,6 +19,7 @@ import { formatea, temporadaDe } from "@/lib/data-analisis/metricas";
 const conComa = (t: string) => t.replace(/(\d)\.(\d)/g, "$1,$2").replace(/(\d)%/g, "$1 %");
 import { PUESTOS } from "@/lib/data-analisis/individual";
 import { perfilDe, plantillaDe, resumenDe, sintesisDe, type MetricaEquipo, type PerfilColectivo } from "@/lib/data-analisis/equipo";
+import { nombresOpta, perfilConOpta, type TablasOpta } from "@/lib/cifras-equipo";
 import { alcanceWyscout, type PartidoCalendario } from "@/lib/data-analisis/alcance";
 import { duelosDelPartido, type FichaPropia } from "@/lib/duelos-onces";
 import { MUESTRA_CORTA_DUELO, normalizaDuelos } from "@/lib/duelos";
@@ -128,6 +129,8 @@ export async function duelosYVistazo(entrada: {
   fichas: FichaPropia[];
   /** El once del tablero de la pizarra táctica de esta semana (hueco → ficha / clave): manda sobre lo de hoy. Sólo lectura. */
   pizarra?: PizarraOnces | null;
+  /** Las tablas de Opta: xG, remates y PPDA del vistazo salen de ahí (`lib/cifras-equipo.ts`). */
+  opta?: TablasOpta | null;
 }): Promise<{ duelos: DuelosInforme | null; vistazo: VistazoRival | null; avisos: string[] }> {
   const avisos: string[] = [];
   const [wy, manual] = await Promise.all([leeWyscout(), leeDoc<unknown>(`duelos:${slugClave(entrada.equipoHoja || "sin-equipo")}`)]);
@@ -202,7 +205,8 @@ export async function duelosYVistazo(entrada: {
   let vistazo: VistazoRival | null = null;
   if (equipo) {
     const resumen = resumenDe(equipo, deLaTemporada, deLaTemporada);
-    const perfil = limpiaPerfil(perfilDe(equipo, deLaTemporada));
+    const perfil = limpiaPerfil(perfilConOpta(perfilDe(equipo, deLaTemporada), equipo, entrada.opta));
+    const conOpta = nombresOpta((perfil?.metricas ?? []).filter((x) => x.fuente === "opta").map((x) => x.metrica.key));
     const plantilla = plantillaDe(equipo, wy.jugadores);
     const alcance = alcanceWyscout(wy.partidos, entrada.calendario, claveDeHoy());
     const met = (x: { metrica: { nombre: string; unidad: Parameters<typeof formatea>[1] }; valor: number; puesto: number; de: number; mediana: number }) => ({
@@ -218,7 +222,7 @@ export async function duelosYVistazo(entrada: {
       competicion: perfil?.competicion ?? "",
       alcance: alcance.jornada
         ? /* Que la jornada esté a medias va en los avisos, no en el informe (19/10/2026). */
-          `Wyscout hasta la J${alcance.jornada}${alcance.estado === "completa" ? " · jornada completa" : ""}`
+          `Wyscout hasta la J${alcance.jornada}${alcance.estado === "completa" ? " · jornada completa" : ""}${conOpta ? ` · ${conOpta}, según Opta` : ""}`
         : "",
       partidos: resumen.partidos,
       g: resumen.g,
