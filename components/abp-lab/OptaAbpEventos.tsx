@@ -273,7 +273,7 @@ export function OptaAbpEventos() {
                 <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-white/55">
                   <Punto color={SOBRE_CESPED.gol}>Gol en la jugada</Punto>
                   <Punto color={SOBRE_CESPED.verde}>Acaba en remate</Punto>
-                  <Punto color="rgb(var(--rmcf-ink-rgb) / 0.45)">Llega a un compañero</Punto>
+                  <Punto color="rgba(255,255,255,0.75)">Llega a un compañero</Punto>
                   <Punto color={SOBRE_CESPED.rival}>No llega</Punto>
                 </p>
                 {visto && <p className="mt-1 text-[12px] text-white/75">{textoSaque(visto)}</p>}
@@ -356,7 +356,8 @@ export function OptaAbpEventos() {
 function Punto({ color, children }: { color: string; children: string }) {
   return (
     <span className="inline-flex items-center gap-1.5">
-      <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: color }} />
+      {/* Con filo oscuro: el punto blanco del campo (llega a un compañero) también se ve en modo día. */}
+      <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: color, boxShadow: "0 0 0 1px rgba(0,0,0,0.4)" }} />
       {children}
     </span>
   );

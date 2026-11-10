@@ -93,11 +93,13 @@ export type MetricaFicha = {
   a: string;
   nombre: string;
   grupo: string;
-  /** p90: total → por 90′; pct: tanto por uno de Opta; dif: valor tal cual (diferencia de goles). */
+  /** p90: total → por 90′; pct: tanto por uno de Opta; dif: diferencia con signo, también por 90′ (los goles evitados). */
   modo: "p90" | "pct" | "dif";
   mejorAlto: boolean;
   /** Para los porcentajes: la columna con los intentos (cuántos hay detrás). */
   base?: string;
+  /** Para los porcentajes sin columna de intentos: cuántos hay detrás, deducido (null si no se sabe). */
+  intentos?: (f: FilaOpta) => number | null;
   /** Derivada de otras columnas. */
   calcula?: (f: FilaOpta) => number | null;
   /** Sólo para estos puestos; sin esto, todos menos el portero. */
@@ -110,6 +112,18 @@ const cociente = (a: string, b: string) => (f: FilaOpta) => {
   const x = num(f[a]);
   const y = num(f[b]);
   return x != null && y != null && y > 0 ? x / y : null;
+};
+
+/*
+| Opta no trae los duelos aéreos disputados: se deducen de los ganados y su
+| porcentaje (7 ganados al 70 % son 10). Con un 0 % no se sabe cuántos hubo.
+| Los de campo propio y rival son parte de esos, así que con menos de 15 en
+| total tampoco se juzgan (antes un 0 % en 2 duelos salía como carencia).
+*/
+export const aereosDisputados = (f: FilaOpta) => {
+  const ganados = num(f.AerialWon);
+  const pct = num(f["Aerial%"]);
+  return ganados != null && pct != null && pct > 0 ? Math.round(ganados / pct) : null;
 };
 
 export const GRUPOS_FICHA = ["Gol", "Creación", "Circulación", "Centros y regate", "Duelos", "Defensa", "Pérdidas y faltas", "Portería"] as const;
@@ -162,9 +176,9 @@ export const METRICAS_FICHA: MetricaFicha[] = [
   { a: "Duel%", nombre: "Duelos ganados %", grupo: "Duelos", modo: "pct", mejorAlto: true },
   { a: "Tackle%", nombre: "Acierto en la entrada", grupo: "Duelos", modo: "pct", mejorAlto: true },
   { a: "AerialWon", nombre: "Duelos aéreos ganados", grupo: "Duelos", modo: "p90", mejorAlto: true },
-  { a: "Aerial%", nombre: "Duelos aéreos ganados %", grupo: "Duelos", modo: "pct", mejorAlto: true },
-  { a: "Arl%DH", nombre: "Aéreos ganados en campo propio %", grupo: "Duelos", modo: "pct", mejorAlto: true },
-  { a: "Arl%AH", nombre: "Aéreos ganados en campo rival %", grupo: "Duelos", modo: "pct", mejorAlto: true },
+  { a: "Aerial%", nombre: "Duelos aéreos ganados %", grupo: "Duelos", modo: "pct", mejorAlto: true, intentos: aereosDisputados },
+  { a: "Arl%DH", nombre: "Aéreos ganados en campo propio %", grupo: "Duelos", modo: "pct", mejorAlto: true, intentos: aereosDisputados },
+  { a: "Arl%AH", nombre: "Aéreos ganados en campo rival %", grupo: "Duelos", modo: "pct", mejorAlto: true, intentos: aereosDisputados },
 
   { a: "Recovery", nombre: "Recuperaciones", grupo: "Defensa", modo: "p90", mejorAlto: true },
   { a: "PosWonA3rd", nombre: "Recuperaciones en el último tercio", grupo: "Defensa", modo: "p90", mejorAlto: true },
@@ -194,11 +208,15 @@ export function metricasDelPuesto(p: PuestoOpta) {
   return METRICAS_FICHA.filter((m) => (m.puestos ? m.puestos.includes(p) : p !== "POR" || m.tambienPortero));
 }
 
-/** El valor de la métrica en una fila: por 90′, en tanto por uno o tal cual. */
+/**
+ * El valor de la métrica en una fila: por 90′ o en tanto por uno. La diferencia
+ * (goles evitados) también va por 90′: es un total de la temporada y, tal cual,
+ * un portero con 990′ salía por delante de uno con 270′ sólo por haber jugado más.
+ */
 export function valorFicha(m: MetricaFicha, f: FilaOpta): number | null {
   const crudo = m.calcula ? m.calcula(f) : num(f[m.a]);
   if (crudo == null) return null;
-  if (m.modo !== "p90") return crudo;
+  if (m.modo === "pct") return crudo;
   const min = num(f.Min);
   return min && min > 0 ? (crudo / min) * 90 : null;
 }
