@@ -18,7 +18,7 @@ import { useMemo, useState } from "react";
 import { COMPARADO, ORO, tinta } from "@/components/data/graficas";
 import { CASTILLA_OPTA } from "@/lib/opta";
 import { fechaCorta, partidosDe } from "@/lib/opta-analisis";
-import { curvaMomento, type MedidaMomento, type Remate } from "@/lib/opta-eventos";
+import { curvaMomento, segundoEnEje, type MedidaMomento, type Remate } from "@/lib/opta-eventos";
 
 import { Botonera, Elegir, Panel } from "./comun";
 import { equiposDe, nombreDe, useMomento, useRemates } from "./eventos";
@@ -77,7 +77,7 @@ export function Momentum({ datos, partido, teamId }: { datos: DatosOpta; partido
   const niveles: number[] = [];
   const ultimo: Record<"a" | "b", { x: number; nivel: number } | null> = { a: null, b: null };
   goles.forEach((g, i) => {
-    const x = xDe(Math.min(n, g.segundo / 300));
+    const x = xDe(Math.min(n, segundoEnEje(g.parte, g.segundo) / 300));
     const lado = golDe(g);
     const previo = ultimo[lado];
     const nivel = previo && Math.abs(x - previo.x) < SEPARA_ROTULOS ? 1 - previo.nivel : 0;
@@ -127,7 +127,7 @@ export function Momentum({ datos, partido, teamId }: { datos: DatosOpta; partido
 
         {/* Los goles, en el eje: los suyos arriba y los del rival abajo. */}
         {goles.map((g, i) => {
-          const x = xDe(Math.min(n, g.segundo / 300));
+          const x = xDe(Math.min(n, segundoEnEje(g.parte, g.segundo) / 300));
           const arriba = golDe(g) === "a";
           const nivel = niveles[i] ?? 0;
           const y = arriba ? M.arriba - 12 - nivel * 12 : H - M.abajo + 12 + nivel * 12;

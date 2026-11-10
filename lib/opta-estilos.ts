@@ -30,7 +30,7 @@
 
 import { CASTILLA_OPTA, percentil, type MetricaOpta } from "@/lib/opta";
 import { NOMBRE_CASTILLA, nombreEquipo, valorEquipo, type Fila } from "@/lib/opta-analisis";
-import { curvaMomento, enArea, type MomentoPartido, type Remate, type Tramo } from "@/lib/opta-eventos";
+import { curvaMomento, enArea, tramoDe, type MomentoPartido, type Remate, type Tramo } from "@/lib/opta-eventos";
 
 /* ------------------------------------------------------------------ */
 /*  1. MOMENTUM DE TODA LA LIGA                                        */
@@ -43,7 +43,7 @@ export const UMBRAL_DOMINIO = 0.05;
 export const FRANJAS: { clave: string; nombre: string; desde: number; hasta: number }[] = [
   { clave: "f1", nombre: "0-15", desde: 0, hasta: 2 },
   { clave: "f2", nombre: "16-30", desde: 3, hasta: 5 },
-  { clave: "f3", nombre: "31-45", desde: 6, hasta: 8 },
+  { clave: "f3", nombre: "31-45+", desde: 6, hasta: 8 },
   { clave: "f4", nombre: "46-60", desde: 9, hasta: 11 },
   { clave: "f5", nombre: "61-75", desde: 12, hasta: 14 },
   { clave: "f6", nombre: "76-90+", desde: 15, hasta: Number.POSITIVE_INFINITY },
@@ -91,8 +91,8 @@ export function apretabaAntes(p: MomentoPartido, r: Remate): number | null {
   const ea = p.equipos.find((e) => e.teamId === r.teamId);
   const eb = p.equipos.find((e) => e.teamId !== r.teamId);
   if (!ea || !eb) return null;
-  const k = Math.floor(r.segundo / 300);
-  const f = (r.segundo - k * 300) / 300;
+  const k = tramoDe(r.parte, r.segundo);
+  const f = Math.min(1, Math.max(0, (r.segundo - Math.floor(r.segundo / 300) * 300) / 300));
   const actual = brutoTramo(ea.tramos.get(k), eb.tramos.get(k), { xG: r.xG, toque: enArea(r.x, r.y) ? 1 : 0 });
   if (k === 0) return actual;
   const anterior = brutoTramo(ea.tramos.get(k - 1), eb.tramos.get(k - 1));
@@ -271,8 +271,12 @@ export const FAMILIAS_RADIOGRAFIA: { clave: Familia; nombre: string }[] = [
   { clave: "abp", nombre: "Balón parado" },
 ];
 
-/** Las 22 porciones, en el orden en que se pintan. `inverso`: menos es mejor. */
-export const METRICAS_RADIOGRAFIA: { a: string; familia: Familia; inverso?: boolean }[] = [
+/**
+ * Las 22 porciones, en el orden en que se pintan. `inverso`: menos es mejor.
+ * `estilo` (10/11/2026): tener más balón o dar más pases no es jugar mejor,
+ * es una forma de jugar; se pintan, pero no cuentan en la nota de juego.
+ */
+export const METRICAS_RADIOGRAFIA: { a: string; familia: Familia; inverso?: boolean; estilo?: boolean }[] = [
   { a: "ExpG", familia: "ataque" },
   { a: "ShtIncBl", familia: "ataque" },
   { a: "SOG", familia: "ataque" },
@@ -282,10 +286,10 @@ export const METRICAS_RADIOGRAFIA: { a: string; familia: Familia; inverso?: bool
   { a: "PsIntoPen", familia: "progresion" },
   { a: "SeqEndInA3", familia: "progresion" },
   { a: "TchsA3", familia: "progresion" },
-  { a: "Poss%", familia: "posesion" },
-  { a: "PsAtt", familia: "posesion" },
+  { a: "Poss%", familia: "posesion", estilo: true },
+  { a: "PsAtt", familia: "posesion", estilo: true },
   { a: "Pass%", familia: "posesion" },
-  { a: "Seq9+Pass", familia: "posesion" },
+  { a: "Seq9+Pass", familia: "posesion", estilo: true },
   { a: "PPDA", familia: "defensa", inverso: true },
   { a: "HighTurnovers", familia: "defensa" },
   { a: "PosWonA3rd", familia: "defensa" },
@@ -297,7 +301,10 @@ export const METRICAS_RADIOGRAFIA: { a: string; familia: Familia; inverso?: bool
   { a: "ChncSetPl|OPP", familia: "abp", inverso: true },
 ];
 
-export type Porcion = { a: string; familia: Familia; inverso: boolean; valor: number | null; percentil: number | null };
+export type Porcion = { a: string; familia: Familia; inverso: boolean; estilo: boolean; valor: number | null; percentil: number | null };
+
+/** Cuántas porciones cuentan en la nota de juego (las que no son de estilo). */
+export const EN_LA_NOTA = METRICAS_RADIOGRAFIA.filter((m) => !m.estilo).length;
 
 /** Las porciones de un equipo contra `muestra` (que lo incluye) y su nota de juego. */
 export function radiografia(
@@ -308,12 +315,12 @@ export function radiografia(
   const porciones = METRICAS_RADIOGRAFIA.map((m): Porcion => {
     const valor = valorEquipo(equipo, m.a, "partido", catalogo);
     const xs = muestra.map((f) => valorEquipo(f, m.a, "partido", catalogo));
-    return { a: m.a, familia: m.familia, inverso: !!m.inverso, valor, percentil: percentil(valor, xs, m.inverso) };
+    return { a: m.a, familia: m.familia, inverso: !!m.inverso, estilo: !!m.estilo, valor, percentil: percentil(valor, xs, m.inverso) };
   });
   const porFamilia = Object.fromEntries(
     FAMILIAS_RADIOGRAFIA.map((f) => [f.clave, media(porciones.filter((p) => p.familia === f.clave).map((p) => p.percentil))]),
   ) as Record<Familia, number | null>;
-  return { porciones, nota: media(porciones.map((p) => p.percentil)), porFamilia };
+  return { porciones, nota: media(porciones.filter((p) => !p.estilo).map((p) => p.percentil)), porFamilia };
 }
 
 /** El nombre corto para el Venn (nombres, no datos). */

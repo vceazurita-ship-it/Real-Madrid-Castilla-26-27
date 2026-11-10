@@ -13,7 +13,7 @@ import { forwardRef, useMemo, useState } from "react";
 import { ORO, tinta, useEscudos } from "@/components/data/graficas";
 import { CASTILLA_OPTA } from "@/lib/opta";
 import { nombreEquipo } from "@/lib/opta-analisis";
-import { FAMILIAS_RADIOGRAFIA, radiografia, type Familia } from "@/lib/opta-estilos";
+import { EN_LA_NOTA, FAMILIAS_RADIOGRAFIA, radiografia, type Familia } from "@/lib/opta-estilos";
 import { cortoMetrica, defMetrica, nombreMetrica, type DefMetrica } from "@/lib/opta-nombres";
 
 import { Botonera, Elegir, fmt, Panel } from "./comun";
@@ -164,7 +164,7 @@ export const Radiografia = forwardRef<HTMLDivElement, { datos: DatosOpta; teamId
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
               <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/45">Nota de juego</p>
               <p className="mt-1 text-3xl font-semibold tabular-nums text-white">{rx.nota != null ? Math.round(rx.nota) : ""}</p>
-              <p className="mt-0.5 text-xs text-white/55">Media de los 22 percentiles contra {contra}: 50 es la media.</p>
+              <p className="mt-0.5 text-xs text-white/55">Media de {EN_LA_NOTA} percentiles contra {contra}: 50 es la media. Posesión, pases y secuencias largas son estilo: se ven, pero no cuentan.</p>
             </div>
             <ul className="space-y-1.5">
               {FAMILIAS_RADIOGRAFIA.map((f) => (

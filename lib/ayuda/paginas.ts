@@ -98,7 +98,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Un partido, cara a cara", es: "Los dos equipos de un partido del Castilla con las cifras de ese día" },
           { que: "Dominio (Estilos)", es: "Parte de los minutos en que el equipo es el que aprieta, con la curva de momentum de cada tramo de 5′", cuenta: "tramos con la curva a su favor por más de 0,05 ÷ tramos jugados; cada gol, con los 5′ anteriores sin el propio remate" },
           { que: "Índices de estilo", es: "Dominio (posesión, pases, toques en el último tercio, PPDA), peligro (xG, remates, toques en el área, ocasiones) y solidez (xG, remates, remates a puerta y goles en contra)", cuenta: "Media de los percentiles por partido entre los equipos que se ven" },
-          { que: "Nota de juego", es: "La media de los 22 percentiles de la radiografía de un equipo, contra su grupo o la categoría" },
+          { que: "Nota de juego", es: "La media de los percentiles de la radiografía de un equipo, contra su grupo o la categoría; posesión, pases y secuencias largas son estilo y no cuentan" },
         ],
       },
     ],

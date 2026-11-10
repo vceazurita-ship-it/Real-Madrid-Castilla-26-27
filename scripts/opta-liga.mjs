@@ -442,7 +442,7 @@ async function principal() {
   console.log("Momentum de cada partido (tramos de 5 minutos)…");
   docs["opta:momento"] = await consulta(
     evalua,
-    "SELECT game.gameId as partido, teamId, newest(team.game.fullName) AS equipo, floor(event.gameClock / 300) as tramo, [ExpG],[ShtIncBl],[TouchOpBox],[TchsA3],[PsAtt],[Poss%],[Recovery],[PosWonA3rd],[PossLost] FROM team BY event GROUP BY game.gameId, teamId, floor(event.gameClock / 300) LIMIT 60000",
+    "SELECT game.gameId as partido, teamId, newest(team.game.fullName) AS equipo, event.period as parte, floor(event.gameClock / 300) as tramo, [ExpG],[ShtIncBl],[TouchOpBox],[TchsA3],[PsAtt],[Poss%],[Recovery],[PosWonA3rd],[PossLost] FROM team BY event GROUP BY game.gameId, teamId, event.period, floor(event.gameClock / 300) LIMIT 60000",
     S,
     "team t",
   );

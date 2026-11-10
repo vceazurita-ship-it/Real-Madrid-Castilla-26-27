@@ -631,6 +631,26 @@ export type MomentoPartido = { partido: string; equipos: { teamId: string; equip
 
 const cacheMomento = new WeakMap<TablaOpta, Map<string, MomentoPartido>>();
 
+/**
+ * El tramo de 5′ de un instante (10/11/2026). El reloj de Opta corre seguido:
+ * el descuento de la primera parte pasa de 2.700″ y se pisaba con el arranque
+ * de la segunda. Con la parte, el descuento de la primera se queda en su
+ * último tramo (40-45+, el 8) y la segunda empieza siempre en el 9.
+ */
+export function tramoDe(parte: number | null | undefined, segundo: number): number {
+  const k = Math.floor(segundo / 300);
+  if (parte === 1) return Math.min(k, 8);
+  if (parte === 2) return Math.max(k, 9);
+  return k;
+}
+
+/** El segundo para dibujar: el descuento de la primera parte, en el 45′. */
+export function segundoEnEje(parte: number | null | undefined, segundo: number): number {
+  if (parte === 1) return Math.min(segundo, 2699);
+  if (parte === 2) return Math.max(segundo, 2700);
+  return segundo;
+}
+
 export function momentoDe(t: TablaOpta | null): Map<string, MomentoPartido> {
   const salida = new Map<string, MomentoPartido>();
   if (!t) return salida;
@@ -645,8 +665,12 @@ export function momentoDe(t: TablaOpta | null): Map<string, MomentoPartido> {
     if (!p) salida.set(partido, (p = { partido, equipos: [] }));
     let e = p.equipos.find((x) => x.teamId === teamId);
     if (!e) p.equipos.push((e = { teamId, equipo: str(g(f, "equipo")), tramos: new Map() }));
-    const tramo = num(g(f, "tramo")) ?? 0;
-    e.tramos.set(tramo, {
+    /* Con la columna «parte» (descargas desde el 10/11/2026), el descuento
+       de la primera se suma a su tramo 8; sin ella, como venía. */
+    const bruto = num(g(f, "tramo")) ?? 0;
+    const parte = c("parte") >= 0 ? num(g(f, "parte")) : null;
+    const tramo = parte == null ? bruto : parte === 1 ? Math.min(bruto, 8) : Math.max(bruto, 9);
+    const nuevo = {
       tramo,
       xG: num(g(f, "ExpG")) ?? 0,
       remates: num(g(f, "ShtIncBl")) ?? 0,
@@ -657,7 +681,26 @@ export function momentoDe(t: TablaOpta | null): Map<string, MomentoPartido> {
       recuperaciones: num(g(f, "Recovery")) ?? 0,
       recuperacionesArriba: num(g(f, "PosWonA3rd")) ?? 0,
       perdidas: num(g(f, "PossLost")) ?? 0,
-    });
+    };
+    const ya = e.tramos.get(tramo);
+    if (ya) {
+      /* La posesión, media pesada por los pases de cada trozo. */
+      const pp = ya.pases + nuevo.pases;
+      const pos =
+        ya.posesion == null ? nuevo.posesion : nuevo.posesion == null ? ya.posesion : pp > 0 ? (ya.posesion * ya.pases + nuevo.posesion * nuevo.pases) / pp : (ya.posesion + nuevo.posesion) / 2;
+      e.tramos.set(tramo, {
+        tramo,
+        xG: ya.xG + nuevo.xG,
+        remates: ya.remates + nuevo.remates,
+        toquesArea: ya.toquesArea + nuevo.toquesArea,
+        toquesUltimoTercio: ya.toquesUltimoTercio + nuevo.toquesUltimoTercio,
+        pases: pp,
+        posesion: pos,
+        recuperaciones: ya.recuperaciones + nuevo.recuperaciones,
+        recuperacionesArriba: ya.recuperacionesArriba + nuevo.recuperacionesArriba,
+        perdidas: ya.perdidas + nuevo.perdidas,
+      });
+    } else e.tramos.set(tramo, nuevo);
   }
   cacheMomento.set(t, salida);
   return salida;

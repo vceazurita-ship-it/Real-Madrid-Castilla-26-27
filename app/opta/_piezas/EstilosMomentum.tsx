@@ -192,8 +192,8 @@ export function MomentumLiga({ datos }: { datos: DatosOpta }) {
             Cómo se cuenta: cada tramo de 5′ es la curva de momentum de la pestaña «Partidos» (xG y toques en el área de los dos, suavizada con los
             tramos de al lado); aprieta el que la tiene a su favor por más de {UMBRAL_DOMINIO.toFixed(2).replace(".", ",")} en una escala de −1 a 1. En
             los tramos igualados no aprieta nadie, así que lo de los dos no suma 100 %. Cada gol se mira con los 5′ anteriores sin contar el propio
-            remate; los autogoles no entran. Opta lleva el reloj de corrido: el descuento de la primera parte cae en la franja 46-60 y el de la
-            segunda, en la 76-90+. En «GC», menos es mejor y el color se da la vuelta.
+            remate; los autogoles no entran. El descuento de cada parte cuenta en su última franja (31-45+ y
+            76-90+). En «GC», menos es mejor y el color se da la vuelta.
           </p>
         </>
       )}
