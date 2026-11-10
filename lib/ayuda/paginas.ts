@@ -70,13 +70,14 @@ export const AYUDAS: AyudaDePagina[] = [
       "Opta ProVision (TruMedia). La descarga la hace scripts/opta-liga.mjs desde Ajustes y cada lunes, y queda en Supabase (no en el repositorio). El directo lo escribe scripts/opta-directo.mjs mientras se juega.",
     bloques: [
       {
-        titulo: "Las cinco pestañas",
+        titulo: "Las pestañas",
         filas: [
           { que: "Castilla", es: "Cada fase con su valor por partido, su puesto y su percentil; abajo, partido a partido contra la media del grupo" },
           { que: "La liga", es: "Todos los equipos con las columnas que se elijan (también cualquiera de las 1.280 de Opta) y el cruce de dos métricas" },
           { que: "Jugadores", es: "La plantilla por 90 minutos; al pinchar uno, su ficha contra los de su puesto y su partido a partido" },
           { que: "Buscador", es: "Jugadores de la categoría por puesto, edad, minutos y una métrica por 90" },
           { que: "Directo", es: "Las cifras del partido del día mientras se juega; se pone al día sola cada minuto" },
+          { que: "Estilos", es: "Quién aprieta y cuándo en toda la liga, el Venn de dominio, peligro y solidez y la radiografía de 22 métricas de cualquier equipo" },
         ],
       },
       {
@@ -95,6 +96,9 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Dependencia", es: "Qué parte del total del equipo pone cada jugador", cuenta: "jugador ÷ total del equipo × 100 (el mayor entre el de Opta y la suma de sus jugadores)" },
           { que: "Perfil de remate", es: "Zona, parte del cuerpo y situación de los remates de un jugador del Castilla, con sus goles", cuenta: "Remates sin los bloqueados, como los parte Opta" },
           { que: "Un partido, cara a cara", es: "Los dos equipos de un partido del Castilla con las cifras de ese día" },
+          { que: "Dominio (Estilos)", es: "Parte de los minutos en que el equipo es el que aprieta, con la curva de momentum de cada tramo de 5′", cuenta: "tramos con la curva a su favor por más de 0,05 ÷ tramos jugados; cada gol, con los 5′ anteriores sin el propio remate" },
+          { que: "Índices de estilo", es: "Dominio (posesión, pases, toques en el último tercio, PPDA), peligro (xG, remates, toques en el área, ocasiones) y solidez (xG, remates, remates a puerta y goles en contra)", cuenta: "Media de los percentiles por partido entre los equipos que se ven" },
+          { que: "Nota de juego", es: "La media de los 22 percentiles de la radiografía de un equipo, contra su grupo o la categoría" },
         ],
       },
     ],

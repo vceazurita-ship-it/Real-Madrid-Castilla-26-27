@@ -25,6 +25,9 @@
  *   tramos de 5′ y los remates de los dos.
  * - **Remates**: el mapa de remates de cualquier equipo, a favor y en contra.
  * - **11 metros**: cada penalti, en la portería, con lanzadores y porteros.
+ * - **Estilos** (10/11/2026): quién aprieta y cuándo en toda la liga (mapa
+ *   de calor por franjas de 15′), el Venn de dominio, peligro y solidez y la
+ *   radiografía de 22 métricas de cualquier equipo (`_piezas/Estilos.tsx`).
  *
  * Los datos no están en el repositorio (es público): viven en Supabase y se
  * leen por /api/docs (`lib/opta.ts`). Las cuentas, en `lib/opta-analisis.ts`;
@@ -41,6 +44,7 @@ import { Topbar } from "@/components/ui/topbar";
 import { Buscador } from "./_piezas/Buscador";
 import { Colectivo } from "./_piezas/Colectivo";
 import { Directo } from "./_piezas/Directo";
+import { Estilos } from "./_piezas/Estilos";
 import { Fases } from "./_piezas/Fases";
 import { Jugadores } from "./_piezas/Jugadores";
 import { Liga } from "./_piezas/Liga";
@@ -56,6 +60,7 @@ const PESTANAS = [
   { clave: "partidos", nombre: "Partidos" },
   { clave: "remates", nombre: "Remates" },
   { clave: "penaltis", nombre: "11 metros" },
+  { clave: "estilos", nombre: "Estilos" },
   { clave: "jugadores", nombre: "Jugadores" },
   { clave: "buscador", nombre: "Buscador" },
   { clave: "directo", nombre: "Directo" },
@@ -171,6 +176,7 @@ export default function OptaPage() {
                   </div>
                 )}
                 {pestana === "penaltis" && <Penaltis datos={datos} />}
+                {pestana === "estilos" && <Estilos datos={datos} />}
                 {pestana === "jugadores" && <Jugadores datos={datos} minimo={minimo} setMinimo={setMinimo} />}
                 {pestana === "buscador" && <Buscador datos={datos} minimo={minimo} setMinimo={setMinimo} />}
                 {pestana === "directo" && <Directo datos={datos} />}
