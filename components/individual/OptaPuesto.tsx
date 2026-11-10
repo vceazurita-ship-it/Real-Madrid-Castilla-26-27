@@ -60,7 +60,7 @@ function Tarjeta({ l, bien }: { l: Linea; bien: boolean }) {
       </p>
       <p className="mt-1 text-[12px] text-white/60">
         <b className="tabular-nums" style={{ color: colorDe(l.p) }}>p{l.p}</b> · {l.puesto}º de {l.de} · {textoFicha(l.m, l.valor)}
-        {l.m.modo === "p90" ? " por 90′" : ""}
+        {l.m.modo !== "pct" ? " por 90′" : ""}
         {l.mediana != null ? ` (mediana del puesto, ${textoFicha(l.m, l.mediana)})` : ""}
       </p>
     </li>
@@ -110,6 +110,7 @@ export function OptaPuesto({ nombre, apodo }: { nombre: string; apodo?: string }
       let juzgable = true;
       if (m.modo === "p90") juzgable = (Math.max(mediana ?? 0, valor) * minutos) / 90 >= VOLUMEN_MIN;
       if (m.modo === "pct" && m.base) juzgable = (num(yo[m.base]) ?? 0) >= INTENTOS_MIN;
+      else if (m.modo === "pct" && m.intentos) juzgable = (m.intentos(yo) ?? 0) >= INTENTOS_MIN;
 
       const mejores = muestra.filter((v) => (m.mejorAlto ? v > valor : v < valor)).length;
       lineas.push({ m, valor, mediana, p, juzgable, puesto: mejores + 1, de: muestra.length });

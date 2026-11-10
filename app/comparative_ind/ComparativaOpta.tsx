@@ -33,7 +33,7 @@ import { ArrowDownRight, ArrowDownUp, ArrowUpRight, History, Loader2, Minus, Sca
 import { MEJOR, ORO, PEOR, tinta } from "@/components/data/graficas";
 import { Explicativo } from "@/components/ui/textos-analisis";
 import { nombreVisible } from "@/lib/nombreJugador";
-import { casaOpta } from "@/lib/opta-ficha";
+import { aereosDisputados, casaOpta } from "@/lib/opta-ficha";
 import { CASTILLA_OPTA, DOCS_OPTA, PUESTO_OPTA, aObjetos, num, percentil, traeOpta, type Celda, type TablaOpta } from "@/lib/opta";
 import { FAMILIAS, FAMILIA_PUESTO, METRICAS_OPTA, PERFIL_FAMILIA, cortoMetrica, type DefMetrica } from "@/lib/opta-nombres";
 import type { Player } from "@/types/player";
@@ -72,6 +72,13 @@ const BASE_PCT: Record<string, string> = {
   "LongBall%": "PsAtt",
 };
 
+/** Los porcentajes sin columna de intentos: se deducen (los aéreos, de ganados y porcentaje). */
+const INTENTOS_PCT: Record<string, (f: Fila) => number | null> = {
+  "Aerial%": aereosDisputados,
+  "Arl%DH": aereosDisputados,
+  "Arl%AH": aereosDisputados,
+};
+
 /** Las columnas de `opta:jugadores` que el diccionario común no traduce. Son nombres, no datos. */
 const EXTRA: Record<string, DefMetrica> = {
   TchsM3: { nombre: "Toques en el tercio medio", corto: "Toques medio", unidad: "entero", mejor: null },
@@ -97,6 +104,15 @@ const EXTRA: Record<string, DefMetrica> = {
 /** Lo que no es métrica: claves, partidos, minutos y edad. */
 const NO_METRICA = new Set(["playerId", "jugador", "teamId", "equipo", "puesto", "GM", "Min", "Age"]);
 
+/*
+| Sólo del portero. En un jugador de campo Opta da GAg = 0 y GABA = su xG en
+| contra en el campo, así que «Goles evitados» salía con 1,0 por 90′ en un
+| central; las paradas y los centros atrapados son ceros. Fuera de su ficha,
+| de su evolución y de los ejes de los jugadores de campo.
+*/
+const SOLO_PORTERO = new Set(["Saves", "SvInBox", "SvOutBox", "CrossClaim", "CrossPunch", "GABA", "GAg", "Save%", "xGOTConc", "CleanSheet", "SvPen"]);
+const valeParaFamilia = (a: string, familia: Familia | "campo" | null) => familia === "Porteros" || !SOLO_PORTERO.has(a);
+
 const defDe = (a: string): DefMetrica | null => METRICAS_OPTA[a] ?? EXTRA[a] ?? null;
 const esTasa = (d: DefMetrica) => Boolean(d.tasa) || d.unidad === "porcentaje";
 const nombreDe = (a: string) => defDe(a)?.nombre ?? a;
@@ -110,6 +126,8 @@ function valorDe(a: string, f: Fila): number | null {
   if (esTasa(d)) {
     const base = BASE_PCT[a];
     if (base && (num(f[base]) ?? 0) < INTENTOS_MIN) return null;
+    const intentos = INTENTOS_PCT[a];
+    if (intentos && (intentos(f) ?? 0) < INTENTOS_MIN) return null;
     return crudo;
   }
   const min = num(f.Min);
@@ -162,7 +180,7 @@ function metricasIndice(familia: Familia, cols: Set<string>) {
 /** Todas las métricas de la tabla con nombre, las del puesto primero. */
 function metricasTodas(familia: Familia | null, cols: string[]) {
   const perfil = familia ? PERFIL_FAMILIA[familia] ?? [] : [];
-  const resto = cols.filter((c) => !NO_METRICA.has(c) && defDe(c) && !perfil.includes(c));
+  const resto = cols.filter((c) => !NO_METRICA.has(c) && defDe(c) && !perfil.includes(c) && valeParaFamilia(c, familia));
   return { perfil: perfil.filter((a) => cols.includes(a)), resto };
 }
 
@@ -204,7 +222,7 @@ function comparaTemporada(filas: Fila[], nuestros: Fila[], edad: number | null):
     if (hecha) return hecha;
     const muestra = muestraDe(filas, familia, edad);
     const metricas = metricasIndice(familia, cols);
-    const todas = [...cols].filter((c) => !NO_METRICA.has(c) && defDe(c));
+    const todas = [...cols].filter((c) => !NO_METRICA.has(c) && defDe(c) && valeParaFamilia(c, familia));
     const valores = new Map<string, number[]>();
     for (const a of todas) valores.set(a, muestra.map((f) => valorDe(a, f)).filter((v): v is number => v != null));
     const indices = muestra.map((f) => indiceContra(f, metricas, valores)).filter((v): v is number => v != null);
@@ -370,7 +388,11 @@ export function ComparativaOpta({ players, selectorFuente }: { players: Player[]
   /* De la fila de Opta a la ficha de la plantilla (foto y nombre). */
   const fichaDe = useMemo(() => {
     const m = new Map<string, Player>();
-    const todosNuestros = [...filasActual.filter(esNuestro), ...nuestrosTemporada];
+    /* Uno por jugador de Opta: con el mismo jugador en dos temporadas, el cruce
+       por apellido veía dos candidatos y no casaba («Cestero», «Ávaro Leiva»). */
+    const porId = new Map<string, Fila>();
+    for (const f of [...filasActual.filter(esNuestro), ...nuestrosTemporada]) if (!porId.has(idDe(f))) porId.set(idDe(f), f);
+    const todosNuestros = [...porId.values()];
     for (const p of players) {
       const f = casaOpta(p.nombre, p.apodo, todosNuestros);
       if (f && !m.has(idDe(f))) m.set(idDe(f), p);
@@ -817,13 +839,16 @@ function Graficos({
   const vista = PREGUNTAS_OPTA[pregunta]?.fase === fase ? pregunta : primeraDe(fase);
   const p = PREGUNTAS_OPTA[vista];
 
-  const cols = useMemo(() => (filas.length ? Object.keys(filas[0]) : []), [filas]);
-  const metricasEje = useMemo(() => cols.filter((c) => !NO_METRICA.has(c) && defDe(c)), [cols]);
-  const x = ejes && metricasEje.includes(ejes.x) ? ejes.x : p.x;
-  const y = ejes && metricasEje.includes(ejes.y) ? ejes.y : p.y;
-
   /* Las de portería, sólo con porteros; el resto, con el puesto de arriba (todos = jugadores de campo). */
   const familiaGrafico: Familia | "campo" = fase === "porteria" ? "Porteros" : familia === "todos" ? "campo" : familia;
+
+  const cols = useMemo(() => (filas.length ? Object.keys(filas[0]) : []), [filas]);
+  const metricasEje = useMemo(
+    () => cols.filter((c) => !NO_METRICA.has(c) && defDe(c) && valeParaFamilia(c, familiaGrafico)),
+    [cols, familiaGrafico],
+  );
+  const x = ejes && metricasEje.includes(ejes.x) ? ejes.x : p.x;
+  const y = ejes && metricasEje.includes(ejes.y) ? ejes.y : p.y;
   const puntos = useMemo(() => {
     const cuenta = (f: Fila) => {
       const fam = familiaDe(f);
@@ -1279,7 +1304,7 @@ function Evolucion({
       const muestra = familia ? fs.filter((o) => idDe(o) !== idDe(f) && familiaDe(o) === familia && minutosDe(o) >= MINUTOS) : [];
       const m = new Map<string, { valor: number; p: number | null }>();
       for (const a of Object.keys(f)) {
-        if (NO_METRICA.has(a) || !defDe(a)) continue;
+        if (NO_METRICA.has(a) || !defDe(a) || !valeParaFamilia(a, familia)) continue;
         const v = valorDe(a, f);
         if (v == null) continue;
         const valores = muestra.map((o) => valorDe(a, o)).filter((x): x is number => x != null);

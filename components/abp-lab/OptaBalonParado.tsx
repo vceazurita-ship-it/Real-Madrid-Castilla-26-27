@@ -155,12 +155,14 @@ export function OptaBalonParado() {
   }
 
   const lineas = datos.lineas.filter((l) => l.m.seccion === seccion);
-  const juzgables = datos.lineas.filter((l) => l.m.mejorAlto !== null && !l.pocos && l.grupo.p != null);
-  const orden = [...juzgables].sort((a, b) => (b.grupo.p ?? 0) - (a.grupo.p ?? 0));
-  const mejor = orden[0];
-  const peor = orden.at(-1);
   const pobl = datos.hayGrupo ? "grupo" : "categoría";
   const pos = (l: Fila) => (datos.hayGrupo ? l.grupo : l.categoria);
+  /* Lo mejor y lo peor, contra el grupo si se sabe y si no contra la categoría
+     (antes se ordenaba siempre por el grupo: sin grupo, el resumen no salía). */
+  const juzgables = datos.lineas.filter((l) => l.m.mejorAlto !== null && !l.pocos && pos(l).p != null);
+  const orden = [...juzgables].sort((a, b) => (pos(b).p ?? 0) - (pos(a).p ?? 0));
+  const mejor = orden[0];
+  const peor = orden.at(-1);
 
   return (
     <div className="space-y-4">
