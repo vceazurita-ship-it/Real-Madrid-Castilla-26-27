@@ -46,7 +46,7 @@ jobs:
       # Sólo hace falta supabase-js: se instala aparte, sin el árbol entero de la web.
       - run: |
           mkdir -p "$RUNNER_TEMP/opta" && cp scripts/opta-directo.mjs "$RUNNER_TEMP/opta/"
-          cd "$RUNNER_TEMP/opta" && npm init -y > /dev/null && npm install --no-audit --no-fund @supabase/supabase-js > /dev/null
+          cd "$RUNNER_TEMP/opta" && npm init -y > /dev/null && npm install --no-audit --no-fund --ignore-scripts @supabase/supabase-js > /dev/null
       - run: node "$RUNNER_TEMP/opta/opta-directo.mjs"
         env:
           OPTA_USUARIO: ${{ secrets.OPTA_USUARIO }}

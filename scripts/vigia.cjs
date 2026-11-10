@@ -857,15 +857,25 @@ async function haceOpta() {
   await empieza("opta");
 
   apunta("Opta: bajando Primera RFEF…");
+  const progreso = sigue("opta");
+  /* `opta-liga.mjs` avisa si una consulta llega justo a su LIMIT: Opta corta sin decirlo. */
+  let topes = 0;
   const { codigo, texto } = await ejecuta(
     "opta",
     process.execPath,
     [path.join(RAIZ, "scripts/opta-liga.mjs")],
-    sigue("opta"),
+    (linea) => {
+      if (/^AVISO: .*LIMIT/.test(linea)) topes += 1;
+      progreso(linea);
+    },
   );
 
   if (codigo === 0) {
-    await acaba("opta", true, "datos de Opta al día");
+    await acaba(
+      "opta",
+      true,
+      topes ? `datos de Opta al día, pero ${topes} consulta(s) llegaron a su tope de filas: puede faltar algo (mira el registro)` : "datos de Opta al día",
+    );
     apunta("Opta: hecho.");
   } else {
     const ultima = texto.trim().split(/\r?\n/).pop() ?? "";

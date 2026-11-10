@@ -25,8 +25,17 @@ import { createClient } from "@supabase/supabase-js";
 
 const SITIO = "https://realmadrid.opta.trumediasports.com";
 const LIGA = "Primera División RFEF";
-const DURACION_MIN = Number(process.env.DURACION_MIN || 150);
-const INTERVALO_S = Math.max(30, Number(process.env.INTERVALO_S || 60));
+/* Acotados aquí también: el workflow se puede lanzar a mano con cualquier
+   texto, y un NaN dejaba el bucle sin vueltas (duración) o sin espera
+   (intervalo: setTimeout(NaN) es 1 ms, una consulta tras otra a Opta). */
+const numero = (v, porDefecto, min, max) => {
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? Math.min(max, Math.max(min, n)) : porDefecto;
+};
+const DURACION_MIN = numero(process.env.DURACION_MIN, 150, 1, 300);
+const INTERVALO_S = numero(process.env.INTERVALO_S, 60, 30, 600);
+/* Tantas vueltas seguidas fallando y se para: mejor eso que cinco horas de error. */
+const FALLOS_SEGUIDOS_MAX = 10;
 const SOLO = (process.env.PARTIDO || "").trim();
 
 const METRICAS = [
@@ -86,6 +95,8 @@ async function consulta(statement, f, tabla) {
   });
   if (r.status === 401 || r.status === 403) throw Object.assign(new Error("sesión caída"), { sesion: true });
   if (!r.ok) throw new Error(`Opta rechaza la consulta (${r.status}).`);
+  /* Con la sesión caducada puede contestar 200 con la página de entrar. */
+  if (!(r.headers.get("content-type") ?? "").includes("json")) throw Object.assign(new Error("sesión caída"), { sesion: true });
   const j = await r.json();
   const d = j._data ?? j;
   return { cols: d.header.map((h) => h.columnId), filas: d.rows.map((f) => f.map((v) => (Array.isArray(v) ? v[1] : v))) };
@@ -147,18 +158,29 @@ async function principal() {
   await entra();
   const S = { sseas: [await temporada()] };
 
+  let fallos = 0;
+
   while (Date.now() < fin) {
     try {
       const indice = await vuelta(S);
+      fallos = 0;
       if (indice.length && indice.every((p) => p.conDatos && /played|full/i.test(String(p.estado)))) {
         console.log("Todos los partidos del día acabados: fin.");
         break;
       }
     } catch (e) {
-      if (e.sesion) { console.log("Sesión caída: vuelvo a entrar."); await entra(); }
-      else console.log(`Vuelta fallida: ${String(e.message).slice(0, 120)}`);
+      fallos += 1;
+      if (e.sesion) {
+        console.log("Sesión caída: vuelvo a entrar.");
+        /* Si el re-login falla, se reintenta en la vuelta siguiente: antes
+           el error salía del catch y tumbaba el directo entero. */
+        await entra().catch((e2) => console.log(`No he podido volver a entrar: ${String(e2?.message ?? e2).slice(0, 120)}`));
+      } else console.log(`Vuelta fallida: ${String(e?.message ?? e).slice(0, 120)}`);
+      if (fallos >= FALLOS_SEGUIDOS_MAX) throw new Error(`${fallos} vueltas seguidas fallando: se para.`);
     }
-    await espera(INTERVALO_S * 1000);
+    /* La última espera no pasa de la hora de acabar. */
+    const queda = fin - Date.now();
+    if (queda > 0) await espera(Math.min(INTERVALO_S * 1000, queda));
   }
 }
 

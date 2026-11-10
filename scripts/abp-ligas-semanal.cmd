@@ -47,14 +47,16 @@ echo ================================================= >> "%LOG%"
 echo. >> "%LOG%"
 echo --- Primera RFEF, Group 1 --- >> "%LOG%"
 call node scripts\wyscout-liga.mjs --grupo="Group 1" --solo-equipos --carpeta=public/data/wys-ligas/primera-rfef-g1 --desatendido >> "%LOG%" 2>&1
-if errorlevel 1 if not errorlevel 8 set "INCOMPLETO=1"
+rem  Cualquier salida distinta de 0 es liga a medias. Antes ponia
+rem  "if not errorlevel 8" y se escapaba justo el 8, el de INCOMPLETO.
+if errorlevel 1 set "INCOMPLETO=1"
 findstr /c:"HA CADUCADO" "%LOG%" >NUL 2>&1 && set "CADUCADA=1"
 
 if "%CADUCADA%"=="0" (
   echo. >> "%LOG%"
   echo --- Premier League --- >> "%LOG%"
   call node scripts\wyscout-liga.mjs --pais=Inglaterra --competicion="Premier League" --solo-equipos --carpeta=public/data/wys-ligas/premier-league --desatendido >> "%LOG%" 2>&1
-  if errorlevel 1 if not errorlevel 8 set "INCOMPLETO=1"
+  if errorlevel 1 set "INCOMPLETO=1"
   findstr /c:"HA CADUCADO" "%LOG%" >NUL 2>&1 && set "CADUCADA=1"
 )
 

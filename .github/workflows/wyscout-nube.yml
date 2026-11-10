@@ -34,9 +34,7 @@ jobs:
   wyscout:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    env:
-      WYS_USUARIO: ${{ secrets.WYS_USUARIO }}
-      WYS_CLAVE: ${{ secrets.WYS_CLAVE }}
+    # Los secretos, sólo en los pasos que los usan (no en el npm install).
     steps:
       - uses: actions/checkout@v4
 
@@ -44,14 +42,18 @@ jobs:
         with:
           node-version: 22
 
+      # Sólo fflate. Un .mjs NO mira NODE_PATH: lo encuentra por el enlace
+      # node_modules de la raíz (Node sube de scripts/ a la raíz buscando).
       - name: Lo que necesita el script (sólo fflate)
         run: |
           mkdir -p "$RUNNER_TEMP/wys" && cd "$RUNNER_TEMP/wys"
           npm init -y > /dev/null
-          npm install --no-audit --no-fund fflate@0.8.2 > /dev/null
-          echo "NODE_PATH=$RUNNER_TEMP/wys/node_modules" >> "$GITHUB_ENV"
+          npm install --no-audit --no-fund --ignore-scripts fflate@0.8.2 > /dev/null
 
       - name: Hay secretos
+        env:
+          WYS_USUARIO: ${{ secrets.WYS_USUARIO }}
+          WYS_CLAVE: ${{ secrets.WYS_CLAVE }}
         run: |
           if [ -z "$WYS_USUARIO" ] || [ -z "$WYS_CLAVE" ]; then
             echo "::error::Faltan los secretos WYS_USUARIO / WYS_CLAVE."
@@ -59,6 +61,9 @@ jobs:
           fi
 
       - name: Prueba · entrar en Wyscout
+        env:
+          WYS_USUARIO: ${{ secrets.WYS_USUARIO }}
+          WYS_CLAVE: ${{ secrets.WYS_CLAVE }}
         run: |
           ln -s "$RUNNER_TEMP/wys/node_modules" node_modules
           codigo=0

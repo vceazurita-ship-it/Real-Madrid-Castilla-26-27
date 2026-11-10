@@ -282,7 +282,9 @@ function EstadoLinea({
       )}
 
       {onOrden && (estado === "en-marcha" || estado === "pedido") && (
-        <MandosEncargo estado={estado} encargo={encargo} ocupado={ocupado} onOrden={onOrden} />
+        /* NO con `ocupado`: ese viene de `ocupada(tarea)`, que es justo
+           «pedido o en marcha», y dejaba los tres botones siempre apagados. */
+        <MandosEncargo estado={estado} encargo={encargo} ocupado={false} onOrden={onOrden} />
       )}
 
       {/* En pausa: se reanuda desde la etapa en que iba (o entero, si no se puede a trozos). */}
@@ -783,6 +785,9 @@ export default function AjustesPage() {
                   encargo={estado.opta}
                   vigia={vigia}
                   ahora={ahora}
+                  ocupado={!yo || pidiendo !== null || ocupada("opta")}
+                  /* Sin esto, tras «Pausar» no salía el botón «Reanudar». */
+                  onPide={() => void pide("opta")}
                   onOrden={(que) => void ordena("opta", que)}
                 />
 
@@ -819,6 +824,8 @@ export default function AjustesPage() {
                   encargo={estado.quiniela}
                   vigia={vigia}
                   ahora={ahora}
+                  ocupado={!yo || pidiendo !== null || ocupada("quiniela")}
+                  onPide={() => void actualizaQuiniela()}
                   onOrden={(que) => void ordena("quiniela", que)}
                 />
 
