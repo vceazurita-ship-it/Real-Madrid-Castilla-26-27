@@ -445,12 +445,15 @@ export default function DuelosPage() {
   const vigilarTodos = duelos.filter((d) => clavesPintadas.has(d.def.clave) && (d.sinBalon ?? 0) <= -UMBRAL_DUELO).sort((a, b) => (a.sinBalon ?? 0) - (b.sinBalon ?? 0));
   const atacar = atacarTodos.filter(fiable);
   const vigilar = vigilarTodos.filter(fiable);
-  const recuento = fraseRecuentoDuelos(
-    pintados.length,
+  /* Lo mismo que el Plan de partido (useDuelosClave): tendencia = se inclina, pero con poca muestra. */
+  const tendencias = new Set([...atacarTodos, ...vigilarTodos].filter((d) => !fiable(d)).map((d) => d.def.clave));
+  const recuentoBase = fraseRecuentoDuelos(
+    pintados.length - tendencias.size,
     atacar.length,
     vigilar.length,
     atacar.filter((a) => vigilar.some((v) => v.def.clave === a.def.clave)).length,
-  );
+  ).replace(/^\d+ duelos? medidos?/, `${pintados.length} ${pintados.length === 1 ? "duelo medido" : "duelos medidos"}`);
+  const recuento = tendencias.size ? `${recuentoBase}, ${tendencias.size} con pocos minutos (tendencia)` : recuentoBase;
 
   const cargando = jugadores === null || plantillasLeidas === null || (!equipoVisto && !proximoListo);
   const escudo = equipoVisto ? escudoDe(equipoVisto) : null;
@@ -652,7 +655,7 @@ export default function DuelosPage() {
                     <p className="mb-3 text-xs uppercase tracking-[0.25em] text-white/40">{z.label}</p>
                     <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
                       {duelosVistos
-                        .filter((d) => d.def.zona === z.key && d.veredicto !== "sin-datos" && fiable(d))
+                        .filter((d) => d.def.zona === z.key && d.veredicto !== "sin-datos" && !tendencias.has(d.def.clave))
                         .map((d) => (
                           <Tarjeta key={`${d.def.clave}|${d.nuestros.map((j) => j.clave).join(",")}|${d.suyos.map((j) => j.clave).join(",")}`} d={d} activo={elegido === d.def.clave} onElige={() => setElegido(d.def.clave)} equipo={equipoVisto} modo={modo} />
                         ))}
@@ -662,7 +665,7 @@ export default function DuelosPage() {
 
                 {/* Los de poca muestra, plegados y al final (10/11/2026, jueces). */}
                 {(() => {
-                  const pocos = duelosVistos.filter((d) => ZONAS.some((z) => z.key === d.def.zona) && d.veredicto !== "sin-datos" && !fiable(d));
+                  const pocos = duelosVistos.filter((d) => ZONAS.some((z) => z.key === d.def.zona) && d.veredicto !== "sin-datos" && tendencias.has(d.def.clave));
 
                   return pocos.length ? (
                     <details className="mt-8 rounded-2xl border border-white/10 bg-white/[0.02] p-4">

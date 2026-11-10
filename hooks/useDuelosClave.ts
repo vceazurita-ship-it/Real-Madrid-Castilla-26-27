@@ -76,6 +76,8 @@ export type DuelosClave = {
     doble: DueloClave[];
     vigilar: DueloClave[];
     parejos: DueloClave[];
+    /** A favor o en contra, pero con menos de 450′ de Wyscout en un lado: tendencia, fuera del resumen (10/11/2026, regla 11). */
+    tendencia: DueloClave[];
   };
 };
 
@@ -213,28 +215,45 @@ export function useDuelosClave(equipo: string) {
           };
         };
 
+        /*
+        | Muestra corta (10/11/2026, jueces, regla 11): con menos de 450′ en un
+        | lado —o sin minutos—, el duelo es tendencia. No cuenta como «buscar» ni
+        | «vigilar», igual que en /duelos, y va aparte.
+        */
+        const corto = (d: (typeof duelos)[number]) => {
+          const minLado = (l: (typeof d.nuestros)) => {
+            const con = l.filter((j) => j.wyscout);
+            return con.length ? Math.min(...con.map((j) => j.minutos || 0)) : 0;
+          };
+          const mn = minLado(d.nuestros);
+          const ms = minLado(d.suyos);
+          return mn < MUESTRA_CORTA_DUELO || ms < MUESTRA_CORTA_DUELO;
+        };
         const ventaja = duelos
+          .filter((d) => !corto(d))
           .filter((d) => (d.conBalon ?? 0) >= UMBRAL_DUELO)
           .sort((a, b) => (b.conBalon ?? 0) - (a.conBalon ?? 0))
           .slice(0, 2)
           .map((d) => aDuelo(d, d.conBalon ?? 0));
 
         const riesgo = duelos
+          .filter((d) => !corto(d))
           .filter((d) => (d.sinBalon ?? 0) <= -UMBRAL_DUELO)
           .sort((a, b) => (a.sinBalon ?? 0) - (b.sinBalon ?? 0))
           .slice(0, 2)
           .map((d) => aDuelo(d, d.sinBalon ?? 0));
 
-        const conVentajaNuestra = duelos.filter((d) => (d.conBalon ?? 0) >= UMBRAL_DUELO).length;
-        const conVentajaSuya = duelos.filter((d) => (d.sinBalon ?? 0) <= -UMBRAL_DUELO).length;
+        const conVentajaNuestra = duelos.filter((d) => !corto(d) && (d.conBalon ?? 0) >= UMBRAL_DUELO).length;
+        const conVentajaSuya = duelos.filter((d) => !corto(d) && (d.sinBalon ?? 0) <= -UMBRAL_DUELO).length;
         const medidos = duelos.filter((d) => d.veredicto !== "sin-datos").length;
         const enLosDos = duelos.filter(
-          (d) => (d.conBalon ?? 0) >= UMBRAL_DUELO && (d.sinBalon ?? 0) <= -UMBRAL_DUELO,
+          (d) => !corto(d) && (d.conBalon ?? 0) >= UMBRAL_DUELO && (d.sinBalon ?? 0) <= -UMBRAL_DUELO,
         ).length;
 
         const medidosTodos = duelos.filter((d) => d.veredicto !== "sin-datos");
-        const aFavor = (d: (typeof duelos)[number]) => (d.conBalon ?? 0) >= UMBRAL_DUELO;
-        const enContra = (d: (typeof duelos)[number]) => (d.sinBalon ?? 0) <= -UMBRAL_DUELO;
+        const aFavor = (d: (typeof duelos)[number]) => !corto(d) && (d.conBalon ?? 0) >= UMBRAL_DUELO;
+        const enContra = (d: (typeof duelos)[number]) => !corto(d) && (d.sinBalon ?? 0) <= -UMBRAL_DUELO;
+        const tiraA = (d: (typeof duelos)[number]) => corto(d) && ((d.conBalon ?? 0) >= UMBRAL_DUELO || (d.sinBalon ?? 0) <= -UMBRAL_DUELO);
         const grupos = {
           buscar: medidosTodos
             .filter((d) => aFavor(d) && !enContra(d))
@@ -249,14 +268,17 @@ export function useDuelosClave(equipo: string) {
             .sort((a, b) => (a.sinBalon ?? 0) - (b.sinBalon ?? 0))
             .map((d) => aDuelo(d, d.sinBalon ?? 0)),
           parejos: medidosTodos
-            .filter((d) => !aFavor(d) && !enContra(d))
+            .filter((d) => !aFavor(d) && !enContra(d) && !tiraA(d))
             .map((d) => aDuelo(d, d.conBalon ?? 0)),
+          tendencia: medidosTodos
+            .filter(tiraA)
+            .map((d) => aDuelo(d, (d.conBalon ?? 0) >= UMBRAL_DUELO ? (d.conBalon ?? 0) : (d.sinBalon ?? 0))),
         };
 
         if (vivo) {
           setEstado({
             equipo,
-            datos: ventaja.length || riesgo.length ? { ventaja, riesgo, conVentajaNuestra, conVentajaSuya, medidos, enLosDos, grupos } : null,
+            datos: ventaja.length || riesgo.length || grupos.tendencia.length ? { ventaja, riesgo, conVentajaNuestra, conVentajaSuya, medidos, enLosDos, grupos } : null,
           });
         }
       } catch (error) {
