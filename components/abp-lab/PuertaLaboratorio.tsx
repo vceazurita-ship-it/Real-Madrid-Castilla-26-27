@@ -9,15 +9,17 @@
  * recarga con su consulta intacta (?seccion=jornada, ?accion=…): un enlace
  * desde Data análisis abre la misma acción después de entrar.
  *
- * 10/11/2026 (expertos): fuera el aviso en ventana modal, que tapaba el
- * formulario y obligaba a pulsar «Soy yo, entrar». El aviso es una línea en la
- * propia tarjeta de acceso, sin correo personal (la web y el repositorio son
- * públicos), y hay un solo «Volver a ABP Ofensivo». Cada herramienta lleva un
+ * 10/11/2026: el laboratorio sale en el menú para todos y, a quien llega sin
+ * ser el administrador, le salta un aviso en ventana: no tiene acceso, sólo
+ * entra el usuario v.ceazurita@gmail.com. Lo pidió así el analista (con su
+ * correo a la vista); un experto propuso quitar la ventana y NO se quita.
+ * «Soy yo, entrar» la cierra y deja el acceso. Cada herramienta lleva un
  * dibujo de lo que hace, sin datos del rival: el contenido no sale sin sesión.
  */
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
+import { Lock } from "lucide-react";
 import { AbpHeader } from "@/components/abp/ui";
 import { PuertaAdmin } from "@/components/admin/PuertaAdmin";
 import { Sidebar } from "@/components/ui/sidebar";
@@ -95,6 +97,7 @@ const HERRAMIENTAS: { titulo: string; texto: string; dibujo: ReactNode }[] = [
 
 export function PuertaLaboratorio() {
   const { entra } = useAdmin();
+  const [aviso, setAviso] = useState(true);
 
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
@@ -145,6 +148,40 @@ export function PuertaLaboratorio() {
           </div>
         </section>
       </div>
+
+      {aviso && (
+        <div className="modal-veil fixed inset-0 z-[70] flex items-end justify-center p-0 sm:items-center sm:p-4">
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="lab-abp-sin-acceso"
+            className="w-full max-w-md rounded-t-2xl border border-white/10 bg-[#11161C] p-5 shadow-2xl sm:rounded-2xl"
+          >
+            <div className="flex items-center gap-2">
+              <Lock size={16} className="text-[#D8B45A]" aria-hidden />
+              <h2 id="lab-abp-sin-acceso" className="text-base font-semibold text-white">
+                No tienes acceso al Laboratorio de ABP
+              </h2>
+            </div>
+            <p className="mt-2 text-sm leading-relaxed text-white/70">
+              De momento sólo puede entrar el usuario <span className="font-semibold text-white">v.ceazurita@gmail.com</span>. Si
+              necesitas algo de aquí, pídeselo a Víctor.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Link href="/setpieces" className="inline-flex min-h-11 items-center rounded-full bg-[#D8B45A] px-4 text-sm font-semibold text-[#0B0F14]">
+                Volver a ABP Ofensivo
+              </Link>
+              <button
+                type="button"
+                onClick={() => setAviso(false)}
+                className="inline-flex min-h-11 items-center rounded-full border border-white/15 px-4 text-sm text-white/80 hover:text-white"
+              >
+                Soy yo, entrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
