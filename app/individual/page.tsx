@@ -65,6 +65,7 @@ import { PlayerRatingsTab } from "@/components/ratings/PlayerRatingsTab";
 import { useRatingsSeason } from "@/hooks/useRatings";
 import { AreaMejora } from "@/components/individual/AreaMejora";
 import { Tendencia } from "@/components/individual/Tendencia";
+import { OptaFicha } from "@/components/individual/OptaFicha";
 import { playerEntries } from "@/lib/ratings/compute";
 import { getPlayerImage, normalizePlayerName, PLAYER_PHOTO_FALLBACK } from "@/lib/playerImages";
 import { isHiddenPlayer } from "@/lib/hiddenPlayers";
@@ -200,6 +201,7 @@ type TabKey =
   | "valoraciones"
   | "mejora"
   | "tendencia"
+  | "opta"
   | "videos"
   | "informe";
 
@@ -1806,6 +1808,7 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "valoraciones", label: "Valoraciones" },
   { key: "mejora", label: "Área de mejora" },
   { key: "tendencia", label: "Tendencia" },
+  { key: "opta", label: "Opta" },
   { key: "videos", label: "Vídeos" },
   { key: "informe", label: "Informe" },
 ];
@@ -4496,6 +4499,17 @@ export default function IndividualPage() {
                     {ver("tendencia") && (
                       <div data-ficha-seccion="tendencia" className="min-w-0">
                         <Tendencia nombre={selected.name} idJugador={selected.idJugador} ratings={ratingsSeason ?? null} />
+                      </div>
+                    )}
+
+                    {/* Opta (10/11/2026): partido a partido con titular/suplente, remates, acciones en el campo y temporadas pasadas. */}
+                    {ver("opta") && (
+                      <div data-ficha-seccion="opta" className="min-w-0">
+                        <OptaFicha
+                          nombre={selected.name}
+                          apodo={nombresSeleccionado.slice(1).find((n) => n !== selected.name)}
+                          alIr={exportando ? undefined : setActiveTab}
+                        />
                       </div>
                     )}
 
