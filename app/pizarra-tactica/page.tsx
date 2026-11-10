@@ -41,6 +41,7 @@ import { bajasDelRival, escenasSinNumeroRepetido, fichasDeSuOnceMarcado, idEscen
 import type { RivalSquad } from "@/lib/tactics/rivals";
 import type { TacticsDoc } from "@/lib/tactics/types";
 import { cn } from "@/lib/utils";
+import { mismoClub } from "@/lib/rivals/mismoClub";
 
 interface BoardRef {
   id: string;
@@ -1065,10 +1066,19 @@ function BoardEditor({
             {fuentes
               ? `${fuentes.nuestra} (el Castilla ataca hacia la derecha) · vs ${fuentes.rival}, hacia la izquierda: ${fuentes.suya.charAt(0).toLowerCase()}${fuentes.suya.slice(1)}.`
               : doc.semanaOnces
-                ? `Nuestro once y el suyo para el ${diaYLugar(doc.semanaOnces.split("|")[0], doc.semanaOnces.split("|")[1], partido)}.`
+                ? `Nuestro once y el suyo para el ${diaYLugar(
+                    doc.semanaOnces.split("|")[0],
+                    /* El nombre de Plantillas rivales, el de las demás pantallas (10/11/2026, jueces): no «Gimnàstic Tarragona». */
+                    rivalSquads.find((s) => mismoClub(s.equipo, doc.semanaOnces!.split("|")[1] ?? ""))?.equipo ?? doc.semanaOnces.split("|")[1],
+                    partido,
+                  )}.`
                 : "Se rellenan solos cada semana con nuestro último once y el teórico del rival."}
+            {/* Con su espacio de verdad: en el texto copiado salía «Tarragona.Toca» (10/11/2026). */}
             {doc.semanaOnces && (
-              <b className="ml-1 font-semibold text-white/85">Toca dos veces una ficha para cambiar al jugador.</b>
+              <>
+                {" "}
+                <b className="font-semibold text-white/85">Toca dos veces una ficha para cambiar al jugador.</b>
+              </>
             )}
           </span>
           <span className="flex items-center gap-3 text-white/70" aria-label="Leyenda de colores">

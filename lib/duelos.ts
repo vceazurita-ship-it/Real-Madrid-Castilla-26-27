@@ -262,7 +262,12 @@ export const MUESTRA_CORTA_DUELO = 450;
  * sin él) manda la suma, y si se compensan, «se anulan».
  */
 export function veredictoDeCabecera(conBalon: number | null, sinBalon: number | null, veredicto: Veredicto): Veredicto | "anulan" {
-  if ((conBalon ?? 0) >= UMBRAL_DUELO && (sinBalon ?? 0) <= -UMBRAL_DUELO) {
+  /* Los dos desequilibrios, en cualquier sentido (10/11/2026, jueces): −34 con
+     el balón nuestro y +34 con el suyo no es un duelo «parejo», se anulan. */
+  if (
+    ((conBalon ?? 0) >= UMBRAL_DUELO && (sinBalon ?? 0) <= -UMBRAL_DUELO) ||
+    ((conBalon ?? 0) <= -UMBRAL_DUELO && (sinBalon ?? 0) >= UMBRAL_DUELO)
+  ) {
     const suma = (conBalon ?? 0) + (sinBalon ?? 0);
 
     return Math.abs(suma) < UMBRAL_DUELO ? "anulan" : suma < 0 ? "desventaja" : "ventaja";
@@ -325,6 +330,8 @@ export type ResultadoDuelo = {
    * separado, para ver si la ventaja es de los dos o de uno solo.
    */
   parejas: ResultadoDuelo[];
+  /** Los del once que no tienen minutos en Wyscout: no entran en la media y se dice (10/11/2026). */
+  sinMinutos?: JugadorDuelo[];
 };
 
 const media = (v: number[]) => (v.length ? v.reduce((a, b) => a + b, 0) / v.length : null);
@@ -479,9 +486,12 @@ export function mideDuelo(
       const gana = verbo(nuestro ? nuestros : suyos, "gana");
       const conSuBalon = lista(nuestro ? con : sin, v);
       const sinBalonSuyo = lista(nuestro ? sin : con, v);
+      /* «Atacando» y «defendiendo», no «con/sin balón»: con el mismo nombre de
+         enfrentamiento en los dos sentidos («regate contra entrada»), la frase
+         parecía decir que ganaban los dos lo mismo (10/11/2026, jueces). */
       const partes = [
-        conSuBalon.length ? `con su balón ${gana} en ${y(conSuBalon)}` : "",
-        sinBalonSuyo.length ? `sin balón ${gana} en ${y(sinBalonSuyo)}` : "",
+        conSuBalon.length ? `atacando ${gana} en ${y(conSuBalon)}` : "",
+        sinBalonSuyo.length ? `defendiendo ${gana} en ${y(sinBalonSuyo)}` : "",
         aire && aire.veredicto === v ? `${gana} por arriba` : "",
       ].filter(Boolean);
       return { partes, todo: [...conSuBalon, ...sinBalonSuyo, ...(aire && aire.veredicto === v ? ["por arriba"] : [])] };
@@ -508,7 +518,10 @@ export function mideDuelo(
       return partes.length ? `${cabeza}: ${partes.join("; ")}.` : `${cabeza}.`;
     }
 
-    const cabeza = leido === "anulan" ? "Se anulan" : "Duelo parejo";
+    const cabeza =
+      leido === "anulan"
+        ? `Se anulan (${conBalon !== null && conBalon > 0 ? "+" : ""}${conBalon} con el balón nuestro, ${sinBalon !== null && sinBalon > 0 ? "+" : ""}${sinBalon} con el suyo)`
+        : "Duelo parejo";
     const partes = [
       deN.partes.length ? `${quienN} ${deN.partes.join("; ")}` : "",
       deS.partes.length ? `${quienS} ${deS.partes.join("; ")}` : "",
@@ -543,14 +556,22 @@ export function mideDuelos(
   suyoOnce: Record<string, JugadorDuelo | undefined>,
   referencias: Map<Puesto, FilaJugador[]>,
 ): ResultadoDuelo[] {
-  return DUELOS.map((def) =>
-    mideDuelo(
-      def,
-      def.nuestros.map((h) => nuestroOnce[h]).filter((j): j is JugadorDuelo => Boolean(j)),
-      def.suyos.map((h) => suyoOnce[h]).filter((j): j is JugadorDuelo => Boolean(j)),
-      referencias,
-    ),
-  );
+  /*
+  | Quien no tiene minutos en Wyscout no entra en la media (10/11/2026, jueces):
+  | «Cestero y S. Martínez, P86» era la cifra de Cestero sola. Si a un lado no
+  | le queda nadie con minutos, se mide con todos y el duelo sale sin datos.
+  */
+  const conMinutos = (lista: JugadorDuelo[]) => {
+    const medibles = lista.filter((j) => j.wyscout && j.minutos > 0);
+    return medibles.length ? { medibles, fuera: lista.filter((j) => !medibles.includes(j)) } : { medibles: lista, fuera: [] };
+  };
+  return DUELOS.map((def) => {
+    const n = conMinutos(def.nuestros.map((h) => nuestroOnce[h]).filter((j): j is JugadorDuelo => Boolean(j)));
+    const s = conMinutos(def.suyos.map((h) => suyoOnce[h]).filter((j): j is JugadorDuelo => Boolean(j)));
+    const r = mideDuelo(def, n.medibles, s.medibles, referencias);
+    const fuera = [...n.fuera, ...s.fuera];
+    return fuera.length ? { ...r, sinMinutos: fuera } : r;
+  });
 }
 
 export const ROTULO_HUECO = new Map(HUECOS.map((h) => [h.clave, h.rotulo]));

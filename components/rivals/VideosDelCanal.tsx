@@ -44,6 +44,8 @@ import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { useCalendario } from "@/hooks/useCalendario";
 import { comoNuestro } from "@/lib/castilla/calendario";
 import { nombreEquipo } from "@/lib/equipos";
+import { mismoClub } from "@/lib/rivals/mismoClub";
+import Link from "next/link";
 import {
   CLAVE_LISTAS,
   LISTAS_VACIAS,
@@ -227,9 +229,12 @@ function nombreDeLista(nombre: string, rivalDeJornada?: Map<number, string>) {
 export function VideosDelCanal({
   equipo,
   plantilla,
+  visionados = {},
 }: {
   equipo: string;
   plantilla: JugadorPlantilla[];
+  /** Cuántas veces se ha abierto cada vídeo en la app, por su id (10/11/2026). */
+  visionados?: Record<string, number>;
 }) {
   const [estado, setEstado] = useState<Estado>({ fase: "cargando" });
   const [busca, setBusca] = useState("");
@@ -240,6 +245,12 @@ export function VideosDelCanal({
   const rivalDeJornada = useMemo(
     () => new Map(partidos.map((p) => comoNuestro(p)).filter((p) => p.jornada && p.rival).map((p) => [p.jornada, nombreEquipo(p.rival)] as const)),
     [partidos],
+  );
+
+  /* Las jornadas en que jugamos contra este rival: la lista «J12 · …» es la suya aunque se llame por su apodo (10/11/2026). */
+  const jornadasDelEquipo = useMemo(
+    () => partidos.map((p) => comoNuestro(p)).filter((p) => p.jornada && p.rival && mismoClub(nombreEquipo(p.rival), equipo)).map((p) => p.jornada),
+    [partidos, equipo],
   );
 
   /*
@@ -423,8 +434,8 @@ export function VideosDelCanal({
        su lista en el canal era una pantalla vacía sin motivo (29/10/2026). */
     const puesta = aMano && aMano !== SIN_LISTA ? listas.find((item) => item.id === aMano) : null;
 
-    return puesta ?? buscaLista(listas, equipo);
-  }, [clave, elegidas.porEquipo, equipo, estado]);
+    return puesta ?? buscaLista(listas, equipo, jornadasDelEquipo);
+  }, [clave, elegidas.porEquipo, equipo, estado, jornadasDelEquipo]);
 
   /*
   | ¿Y si la lista puesta a mano no es la de este equipo?
@@ -439,7 +450,7 @@ export function VideosDelCanal({
     lista && elegidas.porEquipo?.[clave] === lista.id,
   );
 
-  const sospechosa = puestaAMano && lista ? parecido(lista.nombre, equipo) < 0.6 : false;
+  const sospechosa = puestaAMano && lista ? parecido(lista.nombre, equipo) < 0.6 && !buscaLista([lista], equipo, jornadasDelEquipo) : false;
 
   const olvidaLaLista = () =>
     setElegidas((actual) => {
@@ -515,6 +526,9 @@ export function VideosDelCanal({
   );
 
   const cargandoVideos = Boolean(listaId) && traidos.listaId !== listaId;
+
+  /* El partido de la lista para el pie de cada ficha: «J12 · Gimnàstic de Tarragona». */
+  const etiquetaLista = lista ? nombreDeLista(lista.nombre, rivalDeJornada) : "";
 
   /* ------------------- REPARTIDOS POR JUGADOR -------------------- */
 
@@ -615,20 +629,23 @@ export function VideosDelCanal({
   | columna de 260 px en una pantalla de 1440. Los que tienen varios siguen con
   | su cabecera.
   */
-  const porLinea = useMemo(
-    () =>
-      LINEAS.map((rotulo, rango) => {
-        const suyos = jugadoresVisibles.filter((g) => rangoDePuesto(g.puesto) === rango);
+  /* Primero el once probable (10/11/2026, jueces): al abrir se ven los cortes de quien va a jugar, sin elegir nada. */
+  const porLinea = useMemo(() => {
+    const titulares = jugadoresVisibles.filter((g) => g.titular);
+    const hayOnce = titulares.length > 0 && titulares.length < jugadoresVisibles.length;
+    const resto = hayOnce ? jugadoresVisibles.filter((g) => !g.titular) : jugadoresVisibles;
+    const linea = (rango: number, rotulo: string, suyos: typeof jugadoresVisibles) => ({
+      rango,
+      rotulo,
+      unCorte: suyos.filter((g) => g.videos.length === 1).flatMap((g) => g.videos),
+      variosCortes: suyos.filter((g) => g.videos.length > 1),
+    });
 
-        return {
-          rango,
-          rotulo,
-          unCorte: suyos.filter((g) => g.videos.length === 1).flatMap((g) => g.videos),
-          variosCortes: suyos.filter((g) => g.videos.length > 1),
-        };
-      }).filter((linea) => linea.unCorte.length > 0 || linea.variosCortes.length > 0),
-    [jugadoresVisibles],
-  );
+    return [
+      ...(hayOnce ? [linea(-1, "Once probable", titulares)] : []),
+      ...LINEAS.map((rotulo, rango) => linea(rango, rotulo, resto.filter((g) => rangoDePuesto(g.puesto) === rango))),
+    ].filter((l) => l.unCorte.length > 0 || l.variosCortes.length > 0);
+  }, [jugadoresVisibles]);
 
   /* Con varias líneas se rotula cada una; con una sola, el rótulo sobra. */
   const conRotulos = porLinea.length > 1;
@@ -846,14 +863,9 @@ export function VideosDelCanal({
         <span className="text-[11px] text-white/30">{estado.canal}</span>
       </div>
 
-      {!lista && (
-        /* Sin lista no se deja una caja vacía (30/10/2026): una línea bajo
-           el selector y nada más. */
-        <p className="mt-2 px-1 text-[12px] leading-relaxed text-white/50">
-          Este rival aún no tiene lista en el canal. Si la tiene con otro nombre,
-          elígela arriba y queda recordada para todo el cuerpo técnico.
-        </p>
-      )}
+      {/* Sin lista (10/11/2026, jueces): ni instrucciones al analista ni hueco;
+          la plantilla con la ficha de cada jugador, que es contenido. */}
+      {!lista && <PlantillaSinVideos equipo={equipo} plantilla={plantilla} />}
 
       {sospechosa && lista && (
         <div className="mt-3 flex flex-wrap items-center gap-3 rounded-2xl border border-amber-400/30 bg-amber-400/[0.07] px-4 py-3">
@@ -880,7 +892,7 @@ export function VideosDelCanal({
       {lista && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
           {/* A todo el ancho en el móvil: compartiendo fila con los botones se quedaba en «Buscar en l…». */}
-          <div className="relative w-full min-w-0 sm:w-auto sm:flex-1">
+          <div className="relative min-w-[9rem] flex-1">
             <Search
               size={14}
               className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/30"
@@ -904,7 +916,7 @@ export function VideosDelCanal({
           <div className="flex shrink-0 items-center rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
             {[
               { valor: true, label: "Por jugador" },
-              { valor: false, label: "Todos seguidos" },
+              { valor: false, label: "Todos" },
             ].map((modo) => (
               <button
                 key={modo.label}
@@ -927,7 +939,8 @@ export function VideosDelCanal({
             secciones por jugador el listado salía a trompicones: tres columnas
             arriba y una al final, con media pantalla en blanco.
           */}
-          <div className="flex shrink-0 items-center rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
+          {/* En el móvil la rejilla es de dos: el tamaño sólo sirve en pantallas anchas (10/11/2026). */}
+          <div className="hidden shrink-0 items-center rounded-xl border border-white/10 bg-white/[0.03] p-0.5 sm:flex">
             {TAMANOS.map((item) => (
               <button
                 key={item.key}
@@ -962,7 +975,7 @@ export function VideosDelCanal({
       {/* ---------------------- QUIÉN TIENE VÍDEO ---------------------- */}
 
       {lista && !cargandoVideos && videos.length > 0 && (
-        <p className="mt-3 text-[11px] text-white/45">
+        <p className="mt-3 text-[12px] text-white/55">
           En cada ficha:{" "}
           <span className="font-semibold" style={{ color: MEJOR }}>verde = lo que hace bien</span>
           {" · "}
@@ -1047,11 +1060,7 @@ export function VideosDelCanal({
         </div>
       )}
 
-      {!cargandoVideos && lista && !falloVideos && videos.length === 0 && (
-        <p className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-6 text-center text-xs text-white/40">
-          Esa lista todavía no tiene vídeos que se puedan ver.
-        </p>
-      )}
+      {!cargandoVideos && lista && !falloVideos && videos.length === 0 && <PlantillaSinVideos equipo={equipo} plantilla={plantilla} />}
 
       {!cargandoVideos && lista && videos.length > 0 && mostrados.length === 0 && (
         <p className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-6 text-center text-xs text-white/40">
@@ -1086,6 +1095,8 @@ export function VideosDelCanal({
             columnas={columnas}
             conJugador
             equipo={equipo}
+            etiqueta={etiquetaLista}
+            visionados={visionados}
             onAbrir={setAbierto}
             onCopiar={copiaEnlace}
           />
@@ -1122,7 +1133,7 @@ export function VideosDelCanal({
                   <p className="mb-2 text-[11px] text-white/35">Un corte por jugador</p>
                 )}
 
-                <Rejilla piezas={unCorte} columnas={columnas} conJugador equipo={equipo} onAbrir={setAbierto} onCopiar={copiaEnlace} />
+                <Rejilla piezas={unCorte} columnas={columnas} conJugador equipo={equipo} etiqueta={etiquetaLista} visionados={visionados} onAbrir={setAbierto} onCopiar={copiaEnlace} />
               </div>
             )}
 
@@ -1149,12 +1160,20 @@ export function VideosDelCanal({
                   </span>
 
                   {grupo.resumen && <span className="text-[11px] text-white/45">· {grupo.resumen}</span>}
+
+                  {(() => {
+                    const vistos = grupo.videos.reduce((suma, pieza) => suma + (visionados[pieza.video.id] ?? 0), 0);
+
+                    return vistos > 0 ? <span className="text-[11px] tabular-nums text-white/45">· {vistos} {vistos === 1 ? "visionado" : "visionados"} en la app</span> : null;
+                  })()}
                 </div>
 
                 <Rejilla
                   piezas={grupo.videos}
                   columnas={columnas}
                   equipo={equipo}
+                  etiqueta={etiquetaLista}
+                  visionados={visionados}
                   onAbrir={setAbierto}
                   onCopiar={copiaEnlace}
                 />
@@ -1194,6 +1213,8 @@ export function VideosDelCanal({
             <Rejilla
               piezas={grupos.sueltos}
               columnas={columnas}
+              etiqueta={etiquetaLista}
+              visionados={visionados}
               onAbrir={setAbierto}
               onCopiar={copiaEnlace}
             />
@@ -1391,10 +1412,16 @@ function Rejilla({
   columnas,
   conJugador,
   equipo,
+  etiqueta = "",
+  visionados = {},
   onAbrir,
   onCopiar,
 }: {
   piezas: Pieza[];
+  /** La lista de la que sale («J12 · Gimnàstic de Tarragona»), para el pie. */
+  etiqueta?: string;
+  /** Aperturas en la app por id de vídeo. */
+  visionados?: Record<string, number>;
   /** El rival: un título que sólo dice su nombre no se repite en la ficha. */
   equipo?: string;
   /** Las clases de columnas, ya resueltas: ver `TAMANOS`. */
@@ -1446,7 +1473,7 @@ function Rejilla({
             {/* Las etiquetas son el criterio del analista, no una cifra: se
                 dice al pasar por ellas (30/10/2026, análisis). */}
             {conJugador && (puesto || etiquetas.length > 0) && (
-              <p className="mb-1 line-clamp-3 text-[11px] leading-snug text-white/55">
+              <p className="mb-1 line-clamp-3 text-[12px] leading-snug text-white/60">
                 {puesto}
                 {etiquetas.map((e, i) => (
                   <span
@@ -1477,7 +1504,13 @@ function Rejilla({
               );
             })()}
 
-            <div className="mt-1.5 flex items-center justify-end gap-2">
+            {/* El pie (10/11/2026, jueces): de qué lista y qué corte es, y cuántas veces se ha visto.
+                El minuto del partido no viaja en el canal, así que no se pone. */}
+            <div className="mt-1.5 flex items-center gap-2">
+              <span className="min-w-0 flex-1 truncate text-[11px] tabular-nums text-white/40">
+                {[etiqueta, `corte ${video.posicion + 1}`, visionados[video.id] ? `${visionados[video.id]} ${visionados[video.id] === 1 ? "visionado" : "visionados"}` : ""].filter(Boolean).join(" · ")}
+              </span>
+
               <button
                 type="button"
                 onClick={() => onCopiar(video)}
@@ -1491,5 +1524,73 @@ function Rejilla({
         </div>
       ))}
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  SIN VÍDEOS: LA PLANTILLA                                           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Sin lista emparejada, o con la lista vacía, la pantalla no se queda en un
+ * aviso (10/11/2026, jueces): enseña la plantilla, primero el once probable y
+ * después por puesto, con lo que el analista ha escrito de cada uno y el
+ * enlace a su ficha.
+ */
+function PlantillaSinVideos({ equipo, plantilla }: { equipo: string; plantilla: JugadorPlantilla[] }) {
+  const ordenados = [...plantilla].sort(
+    (a, b) => Number(Boolean(b.titular)) - Number(Boolean(a.titular)) || rangoDePuesto(a.puesto ?? "") - rangoDePuesto(b.puesto ?? "") || (b.minutos ?? 0) - (a.minutos ?? 0),
+  );
+
+  if (ordenados.length === 0) return null;
+
+  const titulares = ordenados.filter((j) => j.titular).length;
+
+  return (
+    <section className="mt-4 min-w-0">
+      <header className="mb-3 flex flex-wrap items-baseline gap-2 border-b border-white/10 pb-2">
+        <h2 className="text-sm font-semibold text-white">
+          {titulares ? `Su once probable y el resto de la plantilla: ${ordenados.length} jugadores` : `Su plantilla: ${ordenados.length} jugadores`}
+        </h2>
+        <span className="text-[12px] text-white/45">Todavía sin cortes en el canal · cada ficha abre la del jugador</span>
+      </header>
+
+      <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+        {ordenados.map((jugador) => {
+          const resumen = resumenDeTemporada(jugador);
+
+          return (
+            <Link
+              key={jugador.hoja ?? jugador.nombre}
+              href={`/rivals?equipo=${encodeURIComponent(equipo)}`}
+              className="min-w-0 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 transition hover:border-[#C8A96B]/40"
+            >
+              <p className="flex min-w-0 items-center gap-1.5 text-sm font-semibold text-white">
+                {jugador.dorsal && <span className="tabular-nums text-[#C8A96B]">{jugador.dorsal}</span>}
+                <span className="min-w-0 truncate" title={jugador.nombre}>{jugador.nombre}</span>
+                {jugador.titular && (
+                  <span className="shrink-0 rounded-full border border-[#C8A96B]/50 px-1.5 py-0.5 text-[11px] font-semibold text-[#C8A96B]">Once probable</span>
+                )}
+              </p>
+
+              {(jugador.puesto || resumen) && (
+                <p className="mt-0.5 text-[12px] tabular-nums text-white/55">{[jugador.puesto, resumen].filter(Boolean).join(" · ")}</p>
+              )}
+
+              {(jugador.etiquetas?.length ?? 0) > 0 && (
+                <p className="mt-0.5 line-clamp-2 text-[12px] leading-snug">
+                  {jugador.etiquetas!.map((e, i) => (
+                    <span key={e} className="font-semibold" style={{ color: esEtiquetaDebil(e) ? PEOR : MEJOR }}>
+                      {i > 0 ? " · " : ""}
+                      {e}
+                    </span>
+                  ))}
+                </p>
+              )}
+            </Link>
+          );
+        })}
+      </div>
+    </section>
   );
 }

@@ -56,6 +56,8 @@ const RUIDO = new Set([
   "atletico",
   "balompie",
   "b",
+  "real",
+  "individual",
   "sad",
   "rival",
   "rivales",
@@ -89,9 +91,29 @@ export type ListaCanal = { id: string; nombre: string; cuenta: number };
  * si las palabras que identifican al equipo están en la lista. «Águilas FC» y
  * «ÁGUILAS 26/27 · cortes» comparten la única palabra que importa.
  */
+/*
+| Apodos con los que se bautizan las listas y que no comparten ninguna palabra
+| con el nombre oficial (10/11/2026, jueces): la lista de la J12 se llama
+| «Nastic» y el rival es el «Gimnàstic de Tarragona», así que la pantalla decía
+| que no tenía lista teniéndola en el desplegable. El apodo se cambia por las
+| palabras del nombre oficial antes de comparar.
+*/
+const APODOS: Record<string, string[]> = {
+  nastic: ["gimnastic", "tarragona"],
+  gimnastic: ["gimnastic", "tarragona"],
+  maja: ["rayo", "majadahonda"],
+  majadahonda: ["rayo", "majadahonda"],
+  ibicenco: ["ibiza"],
+  blanquiazul: ["hercules"],
+  hercules: ["hercules"],
+  cartagenero: ["cartagena"],
+};
+
+const conApodos = (palabras: string[]) => [...new Set(palabras.flatMap((palabra) => APODOS[palabra] ?? [palabra]))];
+
 export function parecido(nombreLista: string, equipo: string) {
-  const dela = palabrasClave(nombreLista);
-  const del = palabrasClave(equipo);
+  const dela = conApodos(palabrasClave(nombreLista));
+  const del = conApodos(palabrasClave(equipo));
 
   if (dela.length === 0 || del.length === 0) return 0;
 
@@ -119,11 +141,20 @@ export function parecido(nombreLista: string, equipo: string) {
  * El listón está alto a propósito: enseñar los vídeos del Alcorcón en la ficha
  * del Águilas es peor que no enseñar ninguno, porque nadie lo comprobaría.
  */
-export function buscaLista(listas: ListaCanal[], equipo: string) {
+export function buscaLista(listas: ListaCanal[], equipo: string, jornadasDelEquipo: number[] = []) {
   let mejor: { lista: ListaCanal; punto: number } | null = null;
 
+  /*
+  | Por la jornada (10/11/2026): las listas se llaman «J12 · …», y la J12 de
+  | nuestro calendario es contra este rival. Si el número casa, vale como si casara el
+  | nombre: así se elige sola aunque el apodo no esté en la tabla.
+  */
+  const suyas = new Set(jornadasDelEquipo);
+
   for (const lista of listas) {
-    const punto = parecido(lista.nombre, equipo);
+    const porNombre = parecido(lista.nombre, equipo);
+    const porJornada = suyas.has(jornadaDeLista(lista.nombre)) ? 0.6 : 0;
+    const punto = Math.max(porNombre, porJornada);
 
     /* A igual parecido gana la de la jornada más reciente: «J10 Cartagena»
        antes que «J3 Cartagena» o que una suelta sin jornada (29/10/2026). */

@@ -307,7 +307,14 @@ export async function oncesDeLaSemana(plantilla: Player[]): Promise<OncesSemana 
     if (!ficha) return [];
 
     const sitio = sitioDeFicha(ficha);
-    const p = nuestro?.fichaId ? fichaDe.get(nuestro.fichaId) : undefined;
+    /*
+    | El dorsal sale siempre de la ficha (10/11/2026, jueces): sin `fichaId`
+    | (cruzado sólo por Wyscout) caía el número del hueco y Carvajal salía con
+    | el 9 en el campo y con el 19 en la lista. Se busca la ficha por nombre.
+    */
+    const p =
+      (nuestro?.fichaId ? fichaDe.get(nuestro.fichaId) : undefined) ??
+      (nuestro ? (casaNombre(nuestro.nombre, plantilla, (f) => f.apodo || f.nombre) ?? casaNombre(nuestro.nombre, plantilla, (f) => f.nombre) ?? undefined) : undefined);
 
     return [
       {

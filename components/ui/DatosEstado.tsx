@@ -195,7 +195,8 @@ export function DatosEstado() {
         title="Ha llegado una hoja con cambios: recargar la pantalla para verla (es instantáneo)"
       >
         <RefreshCw size={12} />
-        <span className="hidden sm:inline">Hay datos nuevos ·</span> Recargar
+        {/* Que se entienda sin pasar el ratón (10/11/2026, jueces): qué ha cambiado y qué hace el botón. */}
+        <span className="hidden sm:inline">La hoja trae cambios · </span>Recargar para verlos
       </button>
     );
   }

@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ReactNode,
 } from "react";
 
 import Link from "next/link";
@@ -292,7 +293,9 @@ function ladoDuelo(texto: string): "d" | "i" | "" {
 }
 
 /* Palabras de puesto o de molde que, solas, no nombran un duelo. */
-const MOLDE_DUELO = new Set(["perfil", "lateral", "extremo", "central", "centrales", "mediocentro", "pivote", "pivotes", "delantero", "interior", "mediapunta", "abp", "vs", "derecho", "izquierdo", "portero"]);
+const MOLDE_DUELO = new Set(["perfil", "lateral", "extremo", "central", "centrales", "mediocentro", "pivote", "pivotes", "delantero", "interior", "mediapunta", "abp", "vs", "derecho", "izquierdo", "portero",
+  /* «Duelos en ABP» a secas salía como tarjeta vacía (10/11/2026, jueces). */
+  "duelos", "duelo", "extremos", "laterales", "banda", "bandas", "medios", "delanteros"]);
 
 /**
  * ¿La línea del analista dice algo? (07/11/2026): con una cifra, con un nombre
@@ -309,9 +312,9 @@ function diceAlgo(texto: string) {
 
 function lecturaDelAnalista(
   rival: Record<string, unknown> | null | undefined,
-  grupos: { buscar: DueloClave[]; doble: DueloClave[]; vigilar: DueloClave[]; parejos: DueloClave[] },
+  grupos: { buscar: DueloClave[]; doble: DueloClave[]; vigilar: DueloClave[]; parejos: DueloClave[]; tendencia?: DueloClave[] },
 ) {
-  const medidos = new Set([...grupos.buscar, ...grupos.doble, ...grupos.vigilar, ...grupos.parejos].map((d) => d.clave));
+  const medidos = new Set([...grupos.buscar, ...grupos.doble, ...grupos.vigilar, ...grupos.parejos, ...(grupos.tendencia ?? [])].map((d) => d.clave));
   const etiquetas = new Map<string, LineaAnalista[]>();
   const sinMedir: LineaAnalista[] = [];
 
@@ -663,6 +666,26 @@ function ReadText({
     [value, separarPorPuntoYComa]
   );
 
+  /*
+  | Cinco líneas y «ver más» (10/11/2026, jueces): las columnas del plan
+  | llegaban a veinte líneas y se leían como un muro. Lo plegado sigue en el
+  | papel (print:flex), que es donde se lee entero.
+  */
+  const [todo, setTodo] = useState(false);
+  const LIMITE = 5;
+  const plegadas = todo ? 0 : Math.max(0, items.length - LIMITE);
+  const oculta = (indice: number) => (!todo && plegadas > 1 && indice >= LIMITE ? "hidden print:flex" : "");
+  const verMas =
+    plegadas > 1 ? (
+      <button
+        type="button"
+        onClick={() => setTodo(true)}
+        className="mp-no-print mt-2 text-[13px] font-semibold text-[#C8A96B] hover:underline print:hidden"
+      >
+        Ver {plegadas} líneas más
+      </button>
+    ) : null;
+
   if (!items.length) {
     return (
       /* El aviso dice cómo rellenarlo: en el papel no pinta nada (lo que no
@@ -677,6 +700,7 @@ function ReadText({
   if (apartados) {
     /* El título sin viñeta y en negrita; lo que cuelga de él, sangrado. */
     return (
+      <>
       <ul className="space-y-2.5 text-[14px] leading-6 text-white/85">
         {items.map((item, indice) => {
           const titulo = esTituloDeApartado(item);
@@ -685,12 +709,12 @@ function ReadText({
           return titulo ? (
             <li
               key={`${indice}-${item.slice(0, 12)}`}
-              className={`font-bold tracking-wide text-white ${indice > 0 ? "pt-2" : ""}`}
+              className={`font-bold tracking-wide text-white ${indice > 0 ? "pt-2" : ""} ${oculta(indice)}`}
             >
               <ConSiglas texto={item} />
             </li>
           ) : (
-            <li key={`${indice}-${item.slice(0, 12)}`} className={`flex gap-2.5 ${dentro ? "pl-4" : ""}`}>
+            <li key={`${indice}-${item.slice(0, 12)}`} className={`flex gap-2.5 ${dentro ? "pl-4" : ""} ${oculta(indice)}`}>
               <span
                 aria-hidden
                 className="mt-[9px] h-1.5 w-1.5 shrink-0 rounded-full bg-[#C8A96B]/70"
@@ -703,13 +727,16 @@ function ReadText({
           );
         })}
       </ul>
+      {verMas}
+      </>
     );
   }
 
   return (
+    <>
     <ul className="space-y-2.5 text-[14px] leading-6 text-white/85">
       {items.map((item, indice) => (
-        <li key={`${indice}-${item.slice(0, 12)}`} className="flex gap-2.5">
+        <li key={`${indice}-${item.slice(0, 12)}`} className={`flex gap-2.5 ${oculta(indice)}`}>
           <span
             aria-hidden
             className="mt-[9px] h-1.5 w-1.5 shrink-0 rounded-full bg-[#C8A96B]/70"
@@ -719,6 +746,8 @@ function ReadText({
         </li>
       ))}
     </ul>
+    {verMas}
+    </>
   );
 }
 
@@ -741,7 +770,10 @@ function Bloque({
   vacio,
   apartados = false,
   className = "",
+  lectura,
 }: {
+  /** Cómo se pinta en lectura, si no es la lista de viñetas de siempre. */
+  lectura?: ReactNode;
   titulo: string;
   icon?: LucideIcon;
   tone?: Tone;
@@ -793,6 +825,8 @@ function Bloque({
           minHeight={minHeight}
           tone={tone}
         />
+      ) : lectura ? (
+        lectura
       ) : (
         <ReadText
           value={value}
@@ -802,6 +836,60 @@ function Bloque({
         />
       )}
     </div>
+  );
+}
+
+/*
+| ESTADO DEL EQUIPO COMO LISTA (10/11/2026, jueces): «Hugo: lesión muscular…»
+| pasa a una fila por jugador con su estado en una chapa. El estado se lee de
+| lo escrito (lesión, selección, sanción, duda); la fecha de vuelta sólo sale
+| si el analista la escribió: no se inventa.
+*/
+function estadoDe(texto: string) {
+  const t = texto.toLowerCase();
+
+  if (/sanci/.test(t)) return { rotulo: "Sancionado", clase: "border-rose-400/40 text-rose-300" };
+  if (/selecci|convocad/.test(t)) return { rotulo: "Con su selección", clase: "border-sky-400/40 text-sky-300" };
+  if (/lesi|rotura|operad|baja/.test(t)) return { rotulo: "Lesionado", clase: "border-rose-400/40 text-rose-300" };
+  if (/duda|molest|tocad|carga/.test(t)) return { rotulo: "Duda", clase: "border-amber-400/40 text-amber-300" };
+  if (/disponible|alta|vuelve|recuperad/.test(t)) return { rotulo: "Disponible", clase: "border-emerald-400/40 text-emerald-300" };
+
+  return null;
+}
+
+function vueltaDe(texto: string) {
+  const m = /(vuelve|regresa|alta|disponible)[^.;]*?(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?|MD[+-]?\d|\bJ\d{1,2}\b|\d{1,2} de [a-záéíóú]+)/i.exec(texto);
+
+  return m ? m[2] : "";
+}
+
+function EstadoEquipo({ value }: { value: unknown }) {
+  const lineas = aVinetas(value, false);
+
+  return (
+    <ul className="space-y-2.5 text-[14px] leading-6 text-white/85">
+      {lineas.map((linea, i) => {
+        const m = /^([^:]{2,32}):\s*(.+)$/.exec(linea);
+        const estado = m ? estadoDe(m[2]) : null;
+        const vuelta = m ? vueltaDe(m[2]) : "";
+
+        return m ? (
+          <li key={`${i}-${linea.slice(0, 10)}`} className="min-w-0">
+            <span className="flex flex-wrap items-center gap-2">
+              <b className="font-semibold text-white">{m[1].trim()}</b>
+              {estado && <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${estado.clase}`}>{estado.rotulo}</span>}
+              {vuelta && <span className="text-[12px] text-white/60">vuelve: {vuelta}</span>}
+            </span>
+            <span className="block text-[13px] leading-5 text-white/65">{m[2]}</span>
+          </li>
+        ) : (
+          <li key={`${i}-${linea.slice(0, 10)}`} className="flex gap-2.5 text-white/75">
+            <span aria-hidden className="mt-[9px] h-1.5 w-1.5 shrink-0 rounded-full bg-sky-300/60" />
+            <span>{linea}</span>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -1533,6 +1621,30 @@ export default function MatchPreparation() {
   }, [rivalActivo]);
 
   /*
+  | Las estructuras, el plan frente a Scout Colectivo (10/11/2026, jueces): el
+  | plan decía 1-5-4-1 y 1-3-5-2, el colectivo 1-5-3-2 y BeSoccer 4-4-2, y sólo
+  | se avisaba de la posesión. Si los dibujos escritos aquí no son los del
+  | colectivo, se ponen juntos en una línea; BeSoccer va en la de los datos.
+  */
+  const contrasteEstructuras = useMemo(() => {
+    if (!rivalActivo) return null;
+    const dibujos = (texto: unknown) => [...new Set(String(texto ?? "").match(/\b1\s*-\s*\d(?:\s*-\s*\d){2,3}\b/g) ?? [])].map((d) => d.replace(/\s+/g, ""));
+    const delPlan = [...new Set([...dibujos(rivalActivo.ESTRUCTURA_OF), ...dibujos(rivalActivo.ESTRUCTURA_DEF)])];
+    const delColectivo = [
+      { campo: "OF_INICIO_ESTRUCTURA", fase: "en la salida" },
+      { campo: "OF_CAMPO_ESTRUCTURA", fase: "en campo contrario" },
+      { campo: "DEF_BLOQUE_MEDIO_ESTRUCTURA", fase: "defendiendo en bloque medio" },
+    ]
+      .map((c) => ({ ...c, dibujo: dibujos(rivalActivo[c.campo])[0] ?? "" }))
+      .filter((c) => c.dibujo);
+
+    if (!delPlan.length || !delColectivo.length) return null;
+    const enAmbos = delColectivo.every((c) => delPlan.includes(c.dibujo)) && delPlan.every((d) => delColectivo.some((c) => c.dibujo === d));
+
+    return enAmbos ? null : { delPlan, delColectivo };
+  }, [rivalActivo]);
+
+  /*
   | Nombres de jugadores de OTRO rival en el plan (07/11/2026): se buscan los
   | nombres deportivos de las demás plantillas (varias palabras, o una de seis
   | letras o más) que no son de la plantilla de este rival.
@@ -1547,7 +1659,17 @@ export default function MatchPreparation() {
 
     if (!suya) return [];
 
-    const propios = new Set(suya.players.map((p) => desnuda(p.nombre)));
+    /*
+    | Con y sin la inicial (10/11/2026, jueces): la hoja escribe «P. DE BLASIS»
+    | y el plan «De Blasis»; con la «p» suelta el nombre se descartaba entero.
+    */
+    const variantes = (nombre: string) => {
+      const limpio = desnuda(nombre);
+      const sinInicial = limpio.split(" ").filter((w) => w.length >= 2).join(" ");
+
+      return [...new Set([limpio, sinInicial])].filter(Boolean);
+    };
+    const propios = new Set(suya.players.flatMap((p) => variantes(p.nombre)));
     const texto = ` ${desnuda(Object.values(rivalActivo).filter((v): v is string => typeof v === "string").join(" \n "))} `;
     const vistos = new Map<string, { nombre: string; equipo: string }>();
 
@@ -1555,13 +1677,15 @@ export default function MatchPreparation() {
       if (mismoClub(otra.equipo, equipo)) continue;
 
       for (const p of otra.players) {
-        const limpio = desnuda(p.nombre);
-        const palabras = limpio.split(" ").filter(Boolean);
+        for (const limpio of variantes(p.nombre)) {
+          const palabras = limpio.split(" ").filter(Boolean);
 
-        if (!limpio || propios.has(limpio) || (palabras.length < 2 && limpio.length < 6) || palabras.some((w) => w.length < 2)) continue;
-        if (!texto.includes(` ${limpio} `) || vistos.has(limpio)) continue;
+          if (!limpio || propios.has(limpio) || (palabras.length < 2 && limpio.length < 6) || palabras.some((w) => w.length < 2)) continue;
+          if (!texto.includes(` ${limpio} `) || vistos.has(limpio)) continue;
 
-        vistos.set(limpio, { nombre: conTildes(comoNombre(p.nombre)), equipo: otra.equipo });
+          vistos.set(limpio, { nombre: conTildes(comoNombre(p.nombre)), equipo: otra.equipo });
+          break;
+        }
       }
     }
 
@@ -2196,84 +2320,7 @@ export default function MatchPreparation() {
             </p>
           </header>
 
-          {/*
-            En una línea, lo que dicen los datos del cruce de onces (30/10/2026):
-            cada número enlaza con su grupo en «Duelos», donde ahora se pintan
-            todos los medidos —antes la frase contaba ocho y se veían tres—.
-            Y el duelo que más pesa: el de doble cara, si lo hay, con sus dos
-            cifras; si no, el primero para buscar y el primero para vigilar.
-          */}
-          {duelosClave && !editando && (duelosClave.ventaja.length > 0 || duelosClave.riesgo.length > 0) && (() => {
-            const recuento = fraseRecuentoPartes(duelosClave.medidos, duelosClave.conVentajaNuestra, duelosClave.conVentajaSuya, duelosClave.enLosDos);
-            const signo = (n: number | null) => (n == null ? "" : `${n > 0 ? "+" : n < 0 ? "−" : ""}${Math.abs(n)}`);
-            const doble = duelosClave.grupos.doble[0];
-            const buscar = duelosClave.grupos.buscar[0];
-            const vigilar = duelosClave.grupos.vigilar[0];
-
-            return (
-              <div className="mp-no-print -mt-3 mb-5 hidden min-w-0 flex-wrap items-center gap-x-5 md:flex gap-y-1.5 rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-2.5 text-[13px] text-white/75">
-                <span className="text-xs font-semibold uppercase tracking-[0.2em] text-white/60">Los duelos, en una línea</span>
-                <span className="min-w-0 tabular-nums text-white/65">
-                  {recuento.base}
-                  {recuento.partes.length > 0 && ": "}
-                  {recuento.partes.map((p, i) => (
-                    <span key={p.grupo}>
-                      {i > 0 && ", "}
-                      <a
-                        href={`#duelos-${p.grupo}`}
-                        onClick={() => {
-                          if (p.grupo === "parejos") document.getElementById("duelos-parejos")?.setAttribute("open", "");
-                        }}
-                        className="underline decoration-white/25 underline-offset-4 hover:text-[#C8A96B] hover:decoration-[#C8A96B]"
-                      >
-                        {p.texto}
-                      </a>
-                    </span>
-                  ))}
-                  {/* Y los que escribió el analista sin cruce medido (31/10/2026), que también están abajo. */}
-                  {(() => {
-                    const delAnalista = lecturaDelAnalista(rivalActivo, duelosClave.grupos).sinMedir.filter((s) => diceAlgo(s.texto)).length;
-
-                    return delAnalista > 0 ? (
-                      <>
-                        {" · "}
-                        <a
-                          href="#duelos-analista"
-                          className="underline decoration-white/25 underline-offset-4 hover:text-[#C8A96B] hover:decoration-[#C8A96B]"
-                        >
-                          {delAnalista} más del analista
-                        </a>
-                      </>
-                    ) : null;
-                  })()}
-                </span>
-                {doble ? (
-                  <span className="min-w-0">
-                    <b className="text-[#C8A96B]">Doble cara</b>: {doble.titulo} ({doble.nuestros.join(" y ")} contra {doble.suyos.join(" y ")}):{" "}
-                    <span className="text-emerald-300">{signo(doble.conBalon)}</span> <span className="text-white/50">con nuestro balón</span> ·{" "}
-                    <span className="text-rose-300">{signo(doble.sinBalon)}</span> <span className="text-white/50">con el suyo</span>
-                    {/* Con los minutos (07/11/2026, análisis). */}
-                    {doble.base && <span className="text-white/50"> · {doble.base.replace(/^Base, minutos en Wyscout: /, "").replace(/ · muestra corta.*$/, "")} en Wyscout</span>}
-                  </span>
-                ) : (
-                  buscar && (
-                    <span className="min-w-0">
-                      <b className="text-emerald-300">Buscar</b> <span className="text-white/50">(con nuestro balón)</span>: {buscar.titulo} ({buscar.nuestros.join(" y ")}, {signo(buscar.valor)})
-                    </span>
-                  )
-                )}
-                {vigilar && (
-                  <span className="min-w-0">
-                    <b className="text-rose-300">Vigilar</b> <span className="text-white/50">(con su balón)</span>: {vigilar.titulo} ({vigilar.suyos.join(" y ")}, {signo(vigilar.valor)})
-                    {vigilar.base && <span className="text-white/50"> · {vigilar.base.replace(/^Base, minutos en Wyscout: /, "").replace(/ · muestra corta.*$/, "")} en Wyscout</span>}
-                  </span>
-                )}
-                <Link href={enlaceDuelos} className="ml-auto shrink-0 text-xs text-[#C8A96B] hover:underline">
-                  Quién contra quién, con percentil
-                </Link>
-              </div>
-            );
-          })()}
+          {/* «Los duelos, en una línea» se quitó (10/11/2026, jueces): repetía la sección «Duelos», que es la que queda, con su enlace al detalle. */}
 
           {/* BARRA DE CONTROL */}
           <div className="mp-no-print sticky top-[81px] z-20 -mx-4 mb-6 border-b border-white/10 bg-[#0B0F14]/90 px-4 py-3 backdrop-blur-xl md:top-[97px] md:-mx-10 md:px-10">
@@ -2390,38 +2437,8 @@ export default function MatchPreparation() {
 
                 {!cargando && rivalActivo && (
                   <>
-                    {/* En el móvil, Boceto y Replicar van en un menú «Más» y sólo «Informe» y «Editar» quedan a la vista (29/10/2026). */}
-                    <div className="hidden items-center gap-2 md:flex">
-                    <button
-                      type="button"
-                      onClick={() => setBocetoAbierto(true)}
-                      disabled={jornadasReplicables.length === 0}
-                      title={
-                        jornadasReplicables.length === 0
-                          ? "Todavía no hay otra jornada con plan escrito de la que partir"
-                          : "Replicar el plan de la semana anterior con «?» en lo que los datos dicen que puede cambiar y «*» en lo que proponen incorporar"
-                      }
-                      className="
-                        flex items-center gap-2 rounded-xl border border-[#C8A96B]/40
-                        bg-[#C8A96B]/10 px-3.5 py-2.5 text-sm text-[#C8A96B] transition
-                        hover:bg-[#C8A96B]/20
-                        disabled:cursor-not-allowed disabled:opacity-40
-                      "
-                    >
-                      <Sparkles size={15} />
-
-                      {/* En el móvil, rótulo corto: el icono solo no se entiende (29/10/2026). */}
-                      <span className="md:hidden">Boceto</span>
-                      <span className="hidden md:inline">Proponer boceto</span>
-                    </button>
-
-                    <ReplicarPlan
-                      jornadas={jornadasReplicables}
-                      onElegir={replicarDe}
-                    />
-                    </div>
-
-                    <details className="group relative md:hidden">
+                    {/* Un solo botón principal, «Informe» (10/11/2026, jueces): boceto, replicar y editar van en «Más» en todas las pantallas. */}
+                    <details className="group relative">
                       <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-xl border border-white/15 px-3.5 py-2.5 text-sm text-white/75 [&::-webkit-details-marker]:hidden">
                         Más
                         <ChevronDown size={13} className="transition group-open:rotate-180" />
@@ -2439,6 +2456,18 @@ export default function MatchPreparation() {
                         </button>
 
                         <ReplicarPlan jornadas={jornadasReplicables} onElegir={replicarDe} />
+
+                        {!editando && (
+                          <button
+                            type="button"
+                            onClick={entrarEnEdicion}
+                            title="Editar informe (Ctrl+E)"
+                            className="flex items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-white/80 hover:bg-white/[0.06]"
+                          >
+                            <Pencil size={14} />
+                            Editar informe
+                          </button>
+                        )}
                       </div>
                     </details>
 
@@ -2503,24 +2532,7 @@ export default function MatchPreparation() {
                       Modo edición
                     </span>
                   </>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={entrarEnEdicion}
-                    disabled={!rivalActivo}
-                    title="Editar informe (Ctrl+E)"
-                    className="
-                      flex shrink-0 items-center gap-2 rounded-xl border border-[#C8A96B]/50
-                      bg-[#C8A96B]/10 px-3.5 py-2.5 text-sm font-semibold text-[#C8A96B] sm:px-4
-                      transition hover:bg-[#C8A96B]/20
-                      disabled:cursor-not-allowed disabled:opacity-40
-                    "
-                  >
-                    <Pencil size={15} />
-                    <span className="sm:hidden">Editar</span>
-                    <span className="hidden sm:inline">Editar informe</span>
-                  </button>
-                )}
+                ) : null}
               </div>
             </div>
 
@@ -2842,6 +2854,7 @@ export default function MatchPreparation() {
                     icon={Activity}
                     tone="blue"
                     value={rivalActivo.ESTADO_EQUIPO}
+                    lectura={<EstadoEquipo value={rivalActivo.ESTADO_EQUIPO} />}
                     editando={editando}
                     onChange={(v) => setCampo("ESTADO_EQUIPO", v)}
                     placeholder="Lesionados, sanciones, carga acumulada, dinámica..."
@@ -3005,10 +3018,11 @@ export default function MatchPreparation() {
 
                 {/* Las siglas que se usan arriba (29/10/2026). */}
                 {!editando && (
-                  /* Abierto (30/10/2026, análisis): cerrado sólo se veía el título. */
-                  <details open className="mp-no-print mt-4 text-[13px] text-white/60">
-                    <summary className="cursor-pointer select-none text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">
-                      Siglas (también al pasar el ratón o tocar cada una)
+                  /* Plegado otra vez (10/11/2026, jueces): abierto empujaba el contenido. El resumen
+                     ya dice cuáles son, y cada sigla subrayada se explica al tocarla. */
+                  <details className="mp-no-print mt-4 text-[13px] text-white/60">
+                    <summary className="cursor-pointer select-none text-[12px] font-semibold text-white/55">
+                      Siglas: CP, CR, ABP, PTO, Z1… · tócalas en el texto o ábrelas aquí
                     </summary>
                     <ul className="mt-2 grid gap-x-6 gap-y-1 sm:grid-cols-2">
                       {Object.entries(SIGLAS_PLAN).map(([sigla, significado]) => (
@@ -3063,6 +3077,33 @@ export default function MatchPreparation() {
                   balón: <su línea>») y lo que no casa va en tarjetas propias,
                   «Duelos del analista» (31/10/2026).
                 */}
+                {/* El recuento como titular de la sección (10/11/2026): la línea de arriba de la página se quitó. */}
+                {duelosClave && !editando && (() => {
+                  const r = fraseRecuentoPartes(duelosClave.medidos - duelosClave.grupos.tendencia.length, duelosClave.conVentajaNuestra, duelosClave.conVentajaSuya, duelosClave.enLosDos);
+
+                  return (
+                    <p className="mb-1 text-[15px] font-semibold text-white/90">
+                      {duelosClave.medidos} {duelosClave.medidos === 1 ? "duelo medido" : "duelos medidos"}
+                      {r.partes.length > 0 && ": "}
+                      {r.partes.map((p, i) => (
+                        <span key={p.grupo}>
+                          {i > 0 && ", "}
+                          <a href={`#duelos-${p.grupo}`} className="underline decoration-white/25 underline-offset-4 hover:text-[#C8A96B]">
+                            {p.texto}
+                          </a>
+                        </span>
+                      ))}
+                      {duelosClave.grupos.tendencia.length > 0 && (
+                        <span className="font-normal text-white/55">
+                          {r.partes.length ? ", " : ": "}
+                          <a href="#duelos-tendencia" className="underline decoration-white/25 underline-offset-4 hover:text-[#C8A96B]">
+                            {duelosClave.grupos.tendencia.length} con pocos minutos (tendencia)
+                          </a>
+                        </span>
+                      )}
+                    </p>
+                  );
+                })()}
                 {duelosClave && !editando && (
                   <p className="mb-3 text-[13px] text-white/55">
                     El número de cada duelo es la diferencia de percentil con su par, frente a los jugadores de su puesto con {duelosClave.ventaja[0]?.minutos || duelosClave.riesgo[0]?.minutos || 90} min o más: positivo, ventaja nuestra; negativo, ventaja suya.
@@ -3072,10 +3113,10 @@ export default function MatchPreparation() {
                   const lectura = lecturaDelAnalista(rivalActivo, duelosClave.grupos);
                   const signo = (n: number | null) => (n == null ? "" : `${n > 0 ? "+" : n < 0 ? "−" : ""}${Math.abs(n)}`);
 
-                  const tarjeta = (d: DueloClave, modo: "buscar" | "doble" | "vigilar" | "parejos") => (
+                  const tarjeta = (d: DueloClave, modo: "buscar" | "doble" | "vigilar" | "parejos" | "tendencia") => (
                     <li key={d.clave} className="flex gap-2.5">
                       {modo !== "doble" && modo !== "parejos" && (
-                        <b className={`w-10 shrink-0 tabular-nums ${modo === "buscar" ? "text-emerald-300" : "text-rose-300"}`}>
+                        <b className={`w-10 shrink-0 tabular-nums ${modo === "tendencia" ? "text-white/60" : modo === "buscar" ? "text-emerald-300" : "text-rose-300"}`}>
                           {signo(d.valor)}
                         </b>
                       )}
@@ -3138,6 +3179,18 @@ export default function MatchPreparation() {
                           </summary>
                           <ul className="mt-3 space-y-3 text-[14px] leading-6 text-white/80">
                             {duelosClave.grupos.parejos.map((d) => tarjeta(d, "parejos"))}
+                          </ul>
+                        </details>
+                      )}
+
+                      {/* Regla 11 (10/11/2026, jueces): con menos de 450′ en un lado no es amenaza ni oportunidad, es tendencia. */}
+                      {duelosClave.grupos.tendencia.length > 0 && (
+                        <details id="duelos-tendencia" className="mb-4 scroll-mt-56 rounded-2xl border border-white/[0.07] bg-white/[0.02] px-4 py-3">
+                          <summary className="cursor-pointer select-none text-[13px] font-semibold text-white/70">
+                            {duelosClave.grupos.tendencia.length} {duelosClave.grupos.tendencia.length === 1 ? "tendencia" : "tendencias"} con pocos minutos (menos de 450′ en un lado) · ver
+                          </summary>
+                          <ul className="mt-3 space-y-3 text-[14px] leading-6 text-white/80">
+                            {duelosClave.grupos.tendencia.map((d) => tarjeta(d, "tendencia"))}
                           </ul>
                         </details>
                       )}
@@ -3358,6 +3411,16 @@ export default function MatchPreparation() {
                     <b className="text-amber-300">Contraste con Scout Colectivo</b>
                     {" · "}Este plan habla de posesión y el analista, en Scout Colectivo, escribe «{contrasteModelo}». Conviene dejar un solo
                     modelo antes de la charla.
+                  </p>
+                )}
+
+                {contrasteEstructuras && !editando && (
+                  <p className="mp-no-print mt-4 rounded-xl border border-amber-400/30 bg-amber-400/[0.06] px-4 py-2.5 text-[12.5px] leading-6 text-white/70">
+                    <b className="text-amber-300">Contraste de estructuras</b>
+                    {" · "}Aquí: {contrasteEstructuras.delPlan.join(", ")}. En Scout Colectivo:{" "}
+                    {contrasteEstructuras.delColectivo.map((c) => `${c.dibujo} ${c.fase}`).join(", ")}.
+                    {contraste?.dibujo ? ` En sus alineaciones de BeSoccer: ${contraste.dibujo.estructura.replace(/^1-/, "")} (${contraste.dibujo.veces} de ${contraste.dibujo.de}).` : ""} Conviene dejar
+                    un solo dibujo de referencia antes de la charla.
                   </p>
                 )}
 
