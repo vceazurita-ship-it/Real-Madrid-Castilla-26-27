@@ -116,10 +116,18 @@ const PERFIL = path.join(
 
 const DESCARGAS = path.join(PERFIL, "descargas");
 
+/* En la nube (GitHub Actions, 10/11/2026) no hay Program Files: el Chrome de
+   Linux, o el que diga CHROME_PATH. */
+const EN_LA_NUBE = process.env.GITHUB_ACTIONS === "true";
+
 const CHROME = [
+  process.env.CHROME_PATH,
   "C:/Program Files/Google/Chrome/Application/chrome.exe",
   "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe",
-].find((ruta) => fs.existsSync(ruta));
+  "/usr/bin/google-chrome",
+  "/usr/bin/google-chrome-stable",
+  "/usr/bin/chromium-browser",
+].find((ruta) => ruta && fs.existsSync(ruta));
 
 const PUERTO = 9333;
 
@@ -239,6 +247,7 @@ function abreChrome() {
       */
       "--restore-last-session",
       "--window-size=1600,1000",
+      ...(EN_LA_NUBE ? ["--no-sandbox", "--disable-dev-shm-usage"] : []),
       "https://wyscout.hudl.com/app/",
     ],
     { stdio: "ignore" },
@@ -731,6 +740,12 @@ async function estaDentro(nav) {
 const FICHERO_CREDENCIAL = path.join(CACHE, "credencial.json");
 
 function leeCredencial() {
+  /* En la nube, de los secretos de GitHub (WYS_USUARIO / WYS_CLAVE): ni se
+     escriben en el registro ni salen de este proceso. */
+  if (process.env.WYS_USUARIO && process.env.WYS_CLAVE) {
+    return { correo: process.env.WYS_USUARIO.trim(), clave: process.env.WYS_CLAVE };
+  }
+
   if (!fs.existsSync(FICHERO_CREDENCIAL)) return null;
 
   try {
@@ -839,6 +854,25 @@ async function esperaLogin(nav) {
     if (pideEntrar && !cuenta && i >= 3) break;
 
     await espera(3000);
+  }
+
+  /* En la nube no hay ventana que mirar: qué se ha encontrado, sin cuenta ni
+     datos (el registro de GitHub es público). */
+  if (EN_LA_NUBE) {
+    const visto = await nav
+      .js(`
+        const t = ((document.body || {}).innerText || "").toLowerCase();
+        return {
+          sitio: location.host + location.pathname.replace(/[0-9a-f-]{16,}/gi, "…"),
+          codigo: /verif|c[oó]digo|code|one-time|mfa|two-factor|2fa/.test(t),
+          robot: /captcha|robot|unusual|inusual|blocked|bloque/.test(t) || !!document.querySelector("iframe[src*=captcha], iframe[src*=challenge]"),
+          claveMal: /incorrect|wrong password|contraseña incorrecta|invalid/.test(t),
+          pideClave: !!document.querySelector("input[type=password]"),
+        };
+      `)
+      .catch(() => null);
+
+    console.log(`  NUBE · página: ${visto?.sitio ?? "?"} · pide código: ${visto?.codigo ? "sí" : "no"} · captcha/bloqueo: ${visto?.robot ? "sí" : "no"} · contraseña rechazada: ${visto?.claveMal ? "sí" : "no"} · sigue pidiendo contraseña: ${visto?.pideClave ? "sí" : "no"}`);
   }
 
   if (!cuenta) {
@@ -2729,6 +2763,14 @@ async function principal() {
     }
 
     dentro = true;
+
+    /* La prueba de la nube (10/11/2026): sólo saber si Hudl deja entrar desde
+       ahí. Sin nombres de cuenta: el registro de GitHub es público. */
+    if (bandera("solo-entrar") && !bandera("cambiar-cuenta")) {
+      console.log("  PRUEBA: dentro de Wyscout. Aquí se para (--solo-entrar).\n");
+
+      return;
+    }
 
     enPaso("equipos");
 

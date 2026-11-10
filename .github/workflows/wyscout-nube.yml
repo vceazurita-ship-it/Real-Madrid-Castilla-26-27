@@ -1,0 +1,73 @@
+# Wyscout sin el ordenador del club (10/11/2026)
+#
+# Corre scripts/wyscout-liga.mjs en un servidor de GitHub con un Chrome de
+# Linux en una pantalla virtual (xvfb). Entra solo con la cuenta de los
+# secretos WYS_USUARIO / WYS_CLAVE (Settings → Secrets and variables →
+# Actions); nunca están en el código ni salen en el registro.
+#
+# De momento sólo la PRUEBA: ¿deja Hudl entrar desde aquí, sin pedir un código
+# ni bloquear? Se lanza a mano en Actions → «Wyscout en la nube» → Run
+# workflow. Si entra, el siguiente paso es la descarga semanal entera.
+#
+# El repo es público y este registro se ve: el script no escribe ni la cuenta
+# ni nombres; sólo si ha entrado o no.
+
+name: Wyscout en la nube
+
+on:
+  workflow_dispatch:
+    inputs:
+      modo:
+        description: "prueba = sólo entrar en Wyscout"
+        default: "prueba"
+        type: choice
+        options: [prueba]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wyscout-nube
+  cancel-in-progress: false
+
+jobs:
+  wyscout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      WYS_USUARIO: ${{ secrets.WYS_USUARIO }}
+      WYS_CLAVE: ${{ secrets.WYS_CLAVE }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Lo que necesita el script (sólo fflate)
+        run: |
+          mkdir -p "$RUNNER_TEMP/wys" && cd "$RUNNER_TEMP/wys"
+          npm init -y > /dev/null
+          npm install --no-audit --no-fund fflate@0.8.2 > /dev/null
+          echo "NODE_PATH=$RUNNER_TEMP/wys/node_modules" >> "$GITHUB_ENV"
+
+      - name: Hay secretos
+        run: |
+          if [ -z "$WYS_USUARIO" ] || [ -z "$WYS_CLAVE" ]; then
+            echo "::error::Faltan los secretos WYS_USUARIO / WYS_CLAVE."
+            exit 1
+          fi
+
+      - name: Prueba · entrar en Wyscout
+        run: |
+          ln -s "$RUNNER_TEMP/wys/node_modules" node_modules
+          codigo=0
+          CHROME_PATH="$(command -v google-chrome || command -v google-chrome-stable)" \
+            xvfb-run -a -s "-screen 0 1600x1000x24" \
+            node scripts/wyscout-liga.mjs --solo-entrar --desatendido --sin-jugadores || codigo=$?
+          case $codigo in
+            0) echo "::notice::Wyscout deja entrar desde GitHub." ;;
+            2) echo "::error::Wyscout NO ha dejado entrar (código, bloqueo o contraseña)." ;;
+            *) echo "::error::El script ha fallado con el código $codigo." ;;
+          esac
+          exit $codigo
