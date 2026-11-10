@@ -8,8 +8,9 @@
  *
  * - `Momentum`: la curva de un partido, vista desde `teamId` (arriba él,
  *   abajo el rival). Va en la ficha del partido del Castilla.
- * - `PartidosCategoria`: cualquier partido de la categoría, con su curva y
- *   los mapas de remate de los dos equipos (pestaña «Partidos»).
+ * - `PartidosCategoria`: cualquier partido de la categoría, con el cara a
+ *   cara de las cifras (`CaraACara`, de FichaPartido.tsx), su curva y los
+ *   mapas de remate de los dos equipos (pestaña «Partidos»).
  */
 
 import { useMemo, useState } from "react";
@@ -21,6 +22,7 @@ import { curvaMomento, type MedidaMomento, type Remate } from "@/lib/opta-evento
 
 import { Botonera, Elegir, Panel } from "./comun";
 import { equiposDe, nombreDe, useMomento, useRemates } from "./eventos";
+import { CaraACara } from "./FichaPartido";
 import { MapaRemates } from "./Remates";
 import type { DatosOpta } from "./useOpta";
 
@@ -182,6 +184,7 @@ export function PartidosCategoria({ datos }: { datos: DatosOpta }) {
           </>
         }
       >
+        {visto && <CaraACara datos={datos} partido={partido} teamId={teamId} conAbp />}
         {visto && <Momentum datos={datos} partido={partido} teamId={teamId} />}
 
         {!cargando && delPartido.length > 0 && visto && (
