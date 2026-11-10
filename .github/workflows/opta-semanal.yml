@@ -1,0 +1,88 @@
+# Opta de la semana — sin el ordenador del club (10/11/2026)
+#
+# Lo que antes hacía la tarea «RMCF Castilla - Opta» del ordenador del club
+# (lunes 7:30, con el Chrome de Opta): baja Primera RFEF entera de Opta
+# ProVision y la deja en Supabase (opta:*), con scripts/opta-liga.mjs en su
+# modo nube (entra con usuario y contraseña, sin Chrome).
+#
+# Cuándo: cada lunes a las 5:30 UTC (6:30 en invierno, 7:30 en verano en
+# Madrid) y cuando se pulsa «Traer y publicar» en Ajustes → Datos de Opta
+# (POST /api/nube/lanzar), o a mano en Actions → «Opta de la semana».
+# Cómo va, en Ajustes: scripts/nube-encargo.mjs lo apunta en `mantenimiento`.
+#
+# Secretos: OPTA_USUARIO, OPTA_CLAVE, NEXT_PUBLIC_SUPABASE_URL,
+# SUPABASE_SERVICE_ROLE_KEY. El repo es público y este registro se ve: el
+# script sólo escribe recuentos de filas, nunca datos ni la cuenta.
+
+name: Opta de la semana
+
+on:
+  schedule:
+    - cron: "30 5 * * 1"
+  workflow_dispatch:
+    inputs:
+      modo:
+        description: "normal = todo · eventos = sólo evento a evento · historico = temporadas anteriores"
+        default: "normal"
+        type: choice
+        options: [normal, eventos, historico]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: opta-semanal
+  cancel-in-progress: false
+
+jobs:
+  opta:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      # Sólo supabase-js: aparte, sin el árbol entero de la web, y enlazado
+      # como node_modules para que los scripts de scripts/ lo encuentren.
+      - name: Lo que necesitan los scripts
+        run: |
+          mkdir -p "$RUNNER_TEMP/dep" && cd "$RUNNER_TEMP/dep"
+          npm init -y > /dev/null
+          npm install --no-audit --no-fund --ignore-scripts @supabase/supabase-js@2 > /dev/null
+          ln -s "$RUNNER_TEMP/dep/node_modules" "$GITHUB_WORKSPACE/node_modules"
+
+      - name: En marcha (Ajustes)
+        run: node scripts/nube-encargo.mjs opta empieza
+
+      - name: Bajar Opta y subirlo
+        id: baja
+        env:
+          OPTA_USUARIO: ${{ secrets.OPTA_USUARIO }}
+          OPTA_CLAVE: ${{ secrets.OPTA_CLAVE }}
+          MODO: ${{ inputs.modo || 'normal' }}
+        run: |
+          case "$MODO" in
+            eventos)   extra="--solo-eventos" ;;
+            historico) extra="--historico" ;;
+            *)         extra="" ;;
+          esac
+          node scripts/opta-liga.mjs --nube $extra 2>&1 | tee "$RUNNER_TEMP/opta.log"
+          exit "${PIPESTATUS[0]}"
+
+      - name: Cómo ha ido (Ajustes)
+        if: always()
+        run: |
+          if [ "${{ steps.baja.outcome }}" = "success" ]; then
+            avisos=$(grep -c "^AVISO" "$RUNNER_TEMP/opta.log" || true)
+            if [ "$avisos" != "0" ]; then texto="hecho en la nube; $avisos consultas llegaron a su tope de filas"; else texto="hecho en la nube"; fi
+            node scripts/nube-encargo.mjs opta acaba ok "$texto"
+          else
+            motivo=$(grep -v "^\s*$" "$RUNNER_TEMP/opta.log" 2>/dev/null | tail -1 | cut -c1-180)
+            node scripts/nube-encargo.mjs opta acaba fallo "en la nube: ${motivo:-ha fallado}"
+          fi

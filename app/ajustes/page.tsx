@@ -102,6 +102,9 @@ function hace(iso: string | undefined, ahora: number) {
   return dias === 1 ? "ayer" : `hace ${dias} días`;
 }
 
+/** Las tareas que se lanzan en GitHub y no en el ordenador del club (POST /api/nube/lanzar). */
+const TAREAS_NUBE = new Set<Tarea>(["opta"]);
+
 const NOMBRE: Record<Tarea, string> = {
   quiniela: "Resultados de la quiniela",
   rivales: "Jornada de BeSoccer",
@@ -507,6 +510,28 @@ export default function AjustesPage() {
   const pide = async (tarea: Tarea, plan?: number[], jornada?: number, completo = false) => {
     setPidiendo(tarea);
 
+    /* En la nube (10/11/2026): Opta ya no necesita el ordenador del club; se
+       lanza en GitHub y el propio proceso apunta aquí cómo va. */
+    if (TAREAS_NUBE.has(tarea)) {
+      try {
+        const respuesta = await fetch("/api/nube/lanzar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tarea }),
+        });
+        const datos = (await respuesta.json()) as { success?: boolean; error?: string; estado?: Mantenimiento | null };
+        if (!respuesta.ok || !datos.success) throw new Error(datos.error ?? `HTTP ${respuesta.status}`);
+        esperando.current[tarea] = datos.estado?.[tarea]?.pedidoEn ?? new Date().toISOString();
+        toast.success("Lanzado en la nube", { description: "Lo hace GitHub, sin el ordenador del club: unos minutos." });
+        recarga();
+      } catch (error) {
+        toast.error("No se ha podido lanzar", { description: error instanceof Error ? error.message : "Inténtalo otra vez" });
+      } finally {
+        setPidiendo(null);
+      }
+      return;
+    }
+
     try {
       const respuesta = await fetch("/api/mantenimiento", {
         method: "POST",
@@ -775,8 +800,8 @@ export default function AjustesPage() {
               >
                 <p className="text-[12px] leading-relaxed text-white/45">
                   Los 40 equipos con todas sus métricas, cada partido, los jugadores de la categoría y los
-                  nuestros con todo. Alimenta el área Opta, el Laboratorio de ABP y la ficha individual. Usa
-                  la ventana de Chrome de Opta del ordenador del club: si la sesión caduca, se entra a mano ahí.
+                  nuestros con todo. Alimenta el área Opta, el Laboratorio de ABP y la ficha individual. Corre
+                  en la nube (GitHub), sin el ordenador del club: cada lunes a primera hora y al pulsar.
                 </p>
 
                 <EstadoLinea
@@ -788,7 +813,8 @@ export default function AjustesPage() {
                   ocupado={!yo || pidiendo !== null || ocupada("opta")}
                   /* Sin esto, tras «Pausar» no salía el botón «Reanudar». */
                   onPide={() => void pide("opta")}
-                  onOrden={(que) => void ordena("opta", que)}
+                  /* En la nube no hay vigía que corte: sin pausar ni cancelar. */
+                  onOrden={estado.opta?.pedidoPor === "nube" || estado.opta?.enLaNube ? undefined : (que) => void ordena("opta", que)}
                 />
 
                 <OptaDirecto deshabilitado={!yo} />

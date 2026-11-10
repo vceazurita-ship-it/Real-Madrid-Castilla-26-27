@@ -74,6 +74,8 @@ export type Encargo = {
   /** Cuándo se pidió la última vez, y quién. */
   pedidoEn?: string;
   pedidoPor?: string;
+  /** La última pasada la hizo GitHub, no el ordenador del club (10/11/2026). */
+  enLaNube?: boolean;
   /** Cuándo empezó el ordenador del club a hacerlo. */
   empezadoEn?: string;
   /** Cuándo terminó y cómo fue. */

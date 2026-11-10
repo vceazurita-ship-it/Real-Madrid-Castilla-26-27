@@ -136,8 +136,72 @@ async function abreChrome() {
   await espera(6000);
 }
 
+/*
+| EN LA NUBE (10/11/2026): sin Chrome. En GitHub Actions (o con --nube) se entra
+| con OPTA_USUARIO / OPTA_CLAVE como hace el directo (probado: Opta deja entrar
+| desde GitHub y no echa la sesión del Chrome del club), y las mismas
+| expresiones que se mandaban a la página se ejecutan aquí con un `fetch` que
+| pone la dirección de Opta y la cookie. Así todo lo demás no cambia.
+*/
+const EN_LA_NUBE = process.argv.includes("--nube") || (process.env.GITHUB_ACTIONS === "true" && !!process.env.OPTA_USUARIO);
+
+async function conectaNube() {
+  const usuario = process.env.OPTA_USUARIO;
+  const clave = process.env.OPTA_CLAVE;
+  if (!usuario || !clave) throw new Error("No encuentro OPTA_USUARIO / OPTA_CLAVE para entrar en Opta desde la nube.");
+
+  const galletas = new Map();
+  const guarda = (r) => {
+    for (const c of r.headers.getSetCookie?.() ?? []) {
+      const [par] = c.split(";");
+      const i = par.indexOf("=");
+      if (i > 0) galletas.set(par.slice(0, i).trim(), par.slice(i + 1).trim());
+    }
+  };
+  const cabecera = () => [...galletas].map(([k, v]) => `${k}=${v}`).join("; ");
+
+  const entra = async () => {
+    galletas.clear();
+    const r = await fetch(`${SITIO}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ username: usuario, password: clave, pathSite: "soccer" }),
+      redirect: "manual",
+    });
+    guarda(r);
+    if (r.status >= 400) throw new Error(`Opta rechaza la entrada desde la nube (${r.status}).`);
+  };
+
+  /* El `fetch` de la «página»: relativo a Opta, con la cookie, y si la
+     sesión se cae a mitad (401/403), se vuelve a entrar una vez. */
+  const fetchOpta = async (url, opciones = {}) => {
+    const pide = () =>
+      fetch(String(url).startsWith("http") ? url : `${SITIO}${url}`, {
+        ...opciones,
+        headers: { ...(opciones.headers ?? {}), Cookie: cabecera() },
+        redirect: "manual",
+      });
+    let r = await pide();
+    guarda(r);
+    if (r.status === 401 || r.status === 403) {
+      await entra();
+      r = await pide();
+      guarda(r);
+    }
+    return r;
+  };
+
+  await entra();
+
+  const evalua = async (expresion) => new Function("fetch", `return (${expresion});`)(fetchOpta);
+
+  return { evalua, cierra: () => {} };
+}
+
 /** Abre un canal CDP con la pestaña de Opta y devuelve `evalua(js)`. */
 async function conecta() {
+  if (EN_LA_NUBE) return conectaNube();
+
   await abreChrome();
 
   let pag = (await pestanas()).find((p) => p.type === "page" && p.url.includes("trumedia"));
@@ -299,7 +363,7 @@ async function principal() {
   const { evalua, cierra } = await conecta();
 
   if (!(await sesionViva(evalua))) {
-    throw new Error("La sesión de Opta ha caducado: entra a mano en la ventana de Opta (perfil rmcf-opta) y vuelve a lanzarlo.");
+    throw new Error(EN_LA_NUBE ? "Opta no deja entrar desde la nube: revisa OPTA_USUARIO / OPTA_CLAVE en los secretos de GitHub." : "La sesión de Opta ha caducado: entra a mano en la ventana de Opta (perfil rmcf-opta) y vuelve a lanzarlo.");
   }
   console.log("Sesión de Opta: viva.");
   if (SOLO_SESION) { cierra(); return; }

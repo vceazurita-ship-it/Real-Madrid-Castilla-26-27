@@ -1481,7 +1481,8 @@ async function ronda() {
     arranca("carpeta", haceCarpeta);
   }
 
-  if (estados.opta === "pedido" && !enMarcha.has("opta")) {
+  /* Opta pedido «de la nube» (10/11/2026) lo hace GitHub: aquí no se toca. */
+  if (estados.opta === "pedido" && !enMarcha.has("opta") && encargos.opta?.pedidoPor !== "nube") {
     arranca("opta", haceOpta);
   }
 
