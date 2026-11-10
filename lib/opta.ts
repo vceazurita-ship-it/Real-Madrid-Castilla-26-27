@@ -50,6 +50,8 @@ export const DOCS_OPTA = {
   castilla: "opta:castilla",
   /** Jugador del Castilla × partido. Claves: partido, fecha, playerId, jugador, rival. */
   castillaPartidos: "opta:castilla-partidos",
+  /** Toda la categoría jugador × partido (ligero). Claves: partido, playerId, jugador, teamId; Min, GS (1 = titular), Goal, ShtIncBl, SOG, ExpG, Ast, xA, Chance, TouchOpBox. */
+  jugadoresPartidos: "opta:jugadores-partidos",
   /*
    * EVENTO A EVENTO (toda la temporada). Coordenadas de Opta: x 0-100 hacia la
    * portería rival, y 0-100 (0 = banda derecha del que ataca). GoalmouthY/Z:

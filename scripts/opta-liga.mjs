@@ -341,6 +341,15 @@ async function principal() {
     desde: "player 'p'", sufijo: "BY game LIMIT 3000", f: SC, tabla: "player p", metricas: solo(JUGADOR_PARTIDO), nClave: 5,
   });
 
+  /* Toda la categoría jugador × partido, ligero: si empezó (GS), minutos y lo
+     de gol. Para «desde el banquillo» (titular / suplente) y el reparto de goles. */
+  console.log("Jugadores de la categoría partido a partido…");
+  docs["opta:jugadores-partidos"] = await porTrozos(evalua, {
+    base: "game.gameId as partido, playerId, fullName as jugador, newest(team.game.teamId) as teamId",
+    desde: "player 'p'", sufijo: "BY game LIMIT 30000", f: S, tabla: "player p",
+    metricas: solo(["Min", "GS", "Goal", "ShtIncBl", "SOG", "ExpG", "Ast", "xA", "Chance", "TouchOpBox"]), nClave: 4,
+  });
+
   }
 
   /*
