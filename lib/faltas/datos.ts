@@ -5,7 +5,7 @@
  * scripts/faltas-datos.mjs a partir de los CSV de
  * Downloads/RMCF CASTILLA/ANALISIS FALTAS.
  *
- * Generado: 2026-11-09
+ * Generado: 2026-11-10
  */
 
 export type LadoFalta = "ofensivo" | "defensivo";
@@ -3771,7 +3771,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "derecha",
         "distancia": "media",
         "entre": 5,
-        "nota": "TV 03:57. Cestero (6) derriba a Samu Vázquez (2) cerca de la banda cercana (derecha del Hércules) a unos 10-15 m del área del Castilla tras una pared con Narro. Juego parado y Samu en el suelo, no se ve el saque. Entre el balón y la portería se ven al menos Aguado (3), Óscar (21), Cestero y Mestre, pero no a todos con claridad, entre queda en ?. Táctica: Casa: Cestero y Samu caen junto a la banda izquierda del Castilla en nuestro campo, más cerca del medio campo de lo que parecía en la TV (unos 20-25 m del área, sigue siendo media). Por detrás del balón quedan Mestre, los dos centrales, el lateral derecho y Aguado pegado a la banda, con otro jugador del Castilla a la altura del balón.",
+        "nota": "TV 03:57. Cestero (6) derriba a Samu Vázquez (2) cerca de la banda cercana (derecha del Hércules) a unos 10-15 m del área del Castilla tras una pared con Narro. Juego parado y Samu en el suelo, no se ve el saque. Entre el balón y la portería se ven al menos Aguado (3), Óscar (21), Cestero y Mestre, pero no a todos con claridad. Táctica: Casa: Cestero y Samu caen junto a la banda izquierda del Castilla en nuestro campo, más cerca del medio campo de lo que parecía en la TV (unos 20-25 m del área, sigue siendo media). Por detrás del balón quedan Mestre, los dos centrales, el lateral derecho y Aguado pegado a la banda, con otro jugador del Castilla a la altura del balón.",
         "minuto": "3'54\" (táctica 4:04)",
         "hudl": {
           "url": "https://www.hudl.com/watch/video/VmlkZW82YWYxZWNhYzJlMTM3ODdjNTQ0NGRkYWY=",
@@ -3851,7 +3851,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "centro",
         "distancia": "lejana",
         "entre": null,
-        "nota": "TV 37:18. Córner del Castilla sacado por Aguado desde la izquierda y en el salto Joan Martínez (5) hace falta a Rentero (4) dentro del área del Hércules, junto al vértice lejano del área pequeña, y ambos caen. Falta en ataque que corta el córner, con muchos jugadores del Castilla dentro del área rival, entre queda en ?. Táctica: Córner de Aguado desde la esquina izquierda en 2107 y en 2108 salto en el área con dos jugadores al suelo junto al vértice lejano del área pequeña (2109-2110 Castilla protesta con los brazos en alto) como en la TV 37:18. El dron sólo enfoca la mitad del Hércules y no se ven el portero ni toda la zaga del Castilla, así que entre queda en ?.",
+        "nota": "TV 37:18. Córner del Castilla sacado por Aguado desde la izquierda y en el salto Joan Martínez (5) hace falta a Rentero (4) dentro del área del Hércules, junto al vértice lejano del área pequeña, y ambos caen. Falta en ataque que corta el córner, con muchos jugadores del Castilla dentro del área rival. Táctica: Córner de Aguado desde la esquina izquierda en 2107 y en 2108 salto en el área con dos jugadores al suelo junto al vértice lejano del área pequeña (2109-2110 Castilla protesta con los brazos en alto) como en la TV 37:18. El dron sólo enfoca la mitad del Hércules y no se ven el portero ni toda la zaga del Castilla.",
         "minuto": "37'15\" (táctica 35:08)",
         "hudl": {
           "url": "https://www.hudl.com/watch/video/VmlkZW82YWYxZWNhYzJlMTM3ODdjNTQ0NGRkYWY=",
@@ -3867,7 +3867,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "centro",
         "distancia": "lejana",
         "entre": null,
-        "nota": "T1 min 43 (TV ~42:49). Choque junto al círculo central en campo del Castilla tras el despeje de Óscar y el juego sigue unos segundos hasta que el árbitro pita hacia 42:56 entre protestas de Narro (22). La entrada de Gismera sobre Fortuny no se distingue en la imagen y el balón se coloca algo a la derecha del eje en campo propio (Hudl: saca Fortea en corto). Táctica: En 2440 hay un jugador del Hércules en el suelo en el círculo central del lado del Castilla tras el duelo aéreo (TV 42:49) y el juego sigue hasta el pitido hacia 2447 con un jugador del Hércules protestando (TV 42:56-57). La falta se saca en 2455 algo a la derecha del eje unos 15 m dentro de campo propio. La entrada de Gismera a Fortuny no se distingue y por eso entre queda en ?.",
+        "nota": "T1 min 43 (TV ~42:49). Choque junto al círculo central en campo del Castilla tras el despeje de Óscar y el juego sigue unos segundos hasta que el árbitro pita hacia 42:56 entre protestas de Narro (22). La entrada de Gismera sobre Fortuny no se distingue en la imagen y el balón se coloca algo a la derecha del eje en campo propio (Hudl: saca Fortea en corto). Táctica: En 2440 hay un jugador del Hércules en el suelo en el círculo central del lado del Castilla tras el duelo aéreo (TV 42:49) y el juego sigue hasta el pitido hacia 2447 con un jugador del Hércules protestando (TV 42:56-57). La falta se saca en 2455 algo a la derecha del eje unos 15 m dentro de campo propio. La entrada de Gismera a Fortuny no se distingue y.",
         "minuto": "42'51\" (táctica 40:44)",
         "hudl": {
           "url": "https://www.hudl.com/watch/video/VmlkZW82YWYxZWNhYzJlMTM3ODdjNTQ0NGRkYWY=",

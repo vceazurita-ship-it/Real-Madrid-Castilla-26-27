@@ -152,8 +152,21 @@ function parteLinea(linea, lado) {
     distancia: deLaLista(p[3], DISTANCIAS),
     /* Cuántos defensores hay entre la falta y su portería, portero incluido. */
     entre: numero(p[4]),
-    nota: p.slice(5).join(" — ").trim(),
+    nota: sinHuecos(p.slice(5).join(" — ").trim()),
   };
+}
+
+/*
+| Lo que no tiene dato no se nombra (10/11/2026): la nota de la cámara táctica
+| trae a veces «entre queda en ?» cuando no se ven los defensores. El número
+| ya va vacío en `entre`; en el texto sobra.
+*/
+function sinHuecos(nota) {
+  return nota
+    .replace(/[,;]?\s*(?:así que|por eso|y)?\s*entre queda en \?/gi, "")
+    .replace(/\s+\./g, ".")
+    .replace(/\.\s*\./g, ".")
+    .trim();
 }
 
 /* ------------------------------------------------------------------ */
