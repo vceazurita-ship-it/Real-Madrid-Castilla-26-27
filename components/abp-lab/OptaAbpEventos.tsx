@@ -59,14 +59,14 @@ const dec = (v: number, d = 2) => v.toFixed(d).replace(".", ",");
 const delTipo = (s: Saque, t: Tipo) => (t === "corner" ? s.abp === "corner" : t === "falta" ? esFaltaAlArea(s) : esBandaLarga(s));
 
 /** Dónde cae, mirado desde el lado del saque: primer palo es el más cercano. */
-function zonaCaida(s: Saque): string {
+export function zonaCaida(s: Saque): string {
   if (s.abp === "corner" && s.rosca === "Short") return "En corto";
   if (!enArea(s.finX, s.finY)) return "Fuera del área";
   const cerca = s.y < 50 ? s.finY : 100 - s.finY;
   const zona = cerca < 45.2 ? "Primer palo" : cerca <= 54.8 ? "Al centro" : "Segundo palo";
   return s.finX >= 94.2 ? `${zona} (área chica)` : zona;
 }
-const ORDEN_ZONAS = ["Primer palo (área chica)", "Primer palo", "Al centro (área chica)", "Al centro", "Segundo palo (área chica)", "Segundo palo", "Fuera del área", "En corto"];
+export const ORDEN_ZONAS = ["Primer palo (área chica)", "Primer palo", "Al centro (área chica)", "Al centro", "Segundo palo (área chica)", "Segundo palo", "Fuera del área", "En corto"];
 
 function Cifra({ rotulo, valor, detalle }: { rotulo: string; valor: string; detalle?: string }) {
   return (
