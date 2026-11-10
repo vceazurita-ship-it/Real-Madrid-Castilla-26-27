@@ -65,9 +65,12 @@ export function TiraJornadas({ equipo }: { equipo: string }) {
   */
   return (
     <div className="mb-6 min-w-0">
-      <p className="mb-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-white/50">
-        {/* «Sus jornadas», no las nuestras (07/11/2026): su J1 no es nuestra J1. */}
-        Sus partidos de liga · {jornadas.length}, del primero al último (la jornada es la suya, no la nuestra)
+      {/* «Sus jornadas», no las nuestras (07/11/2026): su J1 no es nuestra J1.
+          10/11/2026 (jueces): el balance va en el rótulo, sin versalitas. */}
+      <p className="mb-1.5 text-[13px] font-semibold text-white/70">
+        Sus {jornadas.length} partidos de liga: {jornadas.filter((j) => j.resultado === "G").length}V{" "}
+        {jornadas.filter((j) => j.resultado === "E").length}E {jornadas.filter((j) => j.resultado === "P").length}D
+        <span className="font-normal text-white/50"> · del primero al último (la jornada es la suya, no la nuestra)</span>
       </p>
       {/* Degradado a la derecha (30/10/2026): en el móvil la tira sigue y no se veía. */}
       <ol

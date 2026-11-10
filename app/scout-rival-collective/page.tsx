@@ -11,6 +11,9 @@ import { guardaEnLaHoja, leeRivales } from "@/lib/hojaRivales";
 import { traeJson } from "@/lib/hojaCsv";
 import { mismoClub } from "@/lib/rivals/mismoClub";
 import { conTildes } from "@/lib/rivals/tildes";
+import { esEtiquetaDebil } from "@/lib/rivals/youtube-listas";
+import { centralesDelAnalista, fraseCentrales, sinAusentes } from "@/lib/rivals/lectura-analista";
+import { estaFuera } from "@/lib/rivals/bajas";
 import { sinErratas } from "@/lib/rivals/erratas";
 import { completaNombres, conNombresDeLaPlantilla, type FichaNombre } from "@/lib/rivals/completa-nombres";
 
@@ -575,6 +578,51 @@ export default function ScoutRivalCollective() {
     </>
   );
 
+  /*
+  | El desplegable de la cabecera (10/11/2026, jueces): las 38 jornadas
+  | mezcladas eran mucho para cambiar de partido. Arriba, las jornadas contra
+  | ESTE rival (ida y vuelta); debajo, cada otro rival una sola vez, con la
+  | jornada que toca o la última jugada.
+  */
+  const opcionesCabecera = (() => {
+    const equipo = String(rivalActivo?.EQUIPO ?? "");
+    const suyas = visibles.filter((r) => equipo && mismoClub(String(r.EQUIPO ?? ""), equipo));
+    const porEquipo = new Map<string, (typeof visibles)[number]>();
+
+    for (const r of visibles) {
+      const nombre = String(r.EQUIPO ?? "");
+      if (!nombre || (equipo && mismoClub(nombre, equipo))) continue;
+      const clave = nombre.toLowerCase();
+      const ya = porEquipo.get(clave);
+      /* La primera por jugar gana a las jugadas; entre jugadas, la última (van en orden de jornada). */
+      if (!ya || !esPorJugar(ya)) porEquipo.set(clave, r);
+    }
+
+    return (
+      <>
+        {suyas.length > 0 && (
+          <optgroup label={`Contra ${equipo}`}>
+            {suyas.map((r) => (
+              <option key={r.ID} value={r.ID}>
+                J{r.JORNADA} · {r.EQUIPO}
+                {esPorJugar(r) ? " · por jugar" : ""}
+              </option>
+            ))}
+          </optgroup>
+        )}
+        <optgroup label="Otro rival">
+          {[...porEquipo.values()]
+            .sort((a, b) => Number(a.JORNADA) - Number(b.JORNADA))
+            .map((r) => (
+              <option key={r.ID} value={r.ID}>
+                J{r.JORNADA} · {r.EQUIPO}
+              </option>
+            ))}
+        </optgroup>
+      </>
+    );
+  })();
+
   const indice = useMemo(
     () =>
       rivalActivo
@@ -608,6 +656,31 @@ export default function ScoutRivalCollective() {
         : String(rivalActivo?.[campo] ?? ""),
     [extras, idRival, rivalActivo]
   );
+
+  /*
+  | Referencias que no van a jugar (10/11/2026, jueces): «Meshak (ausente)»
+  | no sirve para el partido. En lectura se quitan las marcadas como ausentes
+  | y las de quien está de baja en Plantillas; si no queda nadie, el campo no
+  | se pinta. Lo guardado no se toca.
+  */
+  const paraLeer = (campo: string) => {
+    const valor = valorDe(campo);
+
+    if (!/REFERENCIA/.test(campo)) return valor;
+
+    const deBaja = (trozo: string) => {
+      const enTrozo = sinTildesBajo(trozo);
+
+      return plantillaRival.some((f) => {
+        if (!mismoClub(String(f.NOMBRE_EQUIPO ?? ""), equipoActivo) || !estaFuera(f)) return false;
+        const apellido = sinTildesBajo(String(f["NOMBRE DEPORTIVO"] ?? f.JUGADOR ?? "")).split(/\s+/).filter((p) => p.length >= 3).pop() ?? "";
+
+        return apellido.length >= 3 && enTrozo.includes(apellido);
+      });
+    };
+
+    return sinAusentes(valor, deBaja);
+  };
 
   /* Cuántos campos del informe están rellenos: da sensación de progreso. */
   const completados = useMemo(() => {
@@ -696,9 +769,10 @@ export default function ScoutRivalCollective() {
   */
   const dano = (() => {
     const lista: { campo: string; rotulo: string; texto: string; queHacemos?: string; deducido?: boolean }[] = [];
-    const centrales = primeraLinea("OF_INICIO_CENTRAL_CAPACIDAD").split(/\s*\/\s*/).map((t) => t.trim()).filter(Boolean);
+    /* La misma lectura que /rivals (10/11/2026): «Van Rijn + Royo / Fran Gil» son dos de más y uno de menos. */
+    const centrales = centralesDelAnalista(primeraLinea("OF_INICIO_CENTRAL_CAPACIDAD"));
 
-    if (centrales.length === 2) {
+    if (centrales) {
       const frasePresion = valorDe("OF_INICIO_ESTRUCTURA")
         .split(/(?<=\.)\s+|\r?\n/)
         .map((t) => t.trim())
@@ -707,10 +781,11 @@ export default function ScoutRivalCollective() {
       lista.push({
         campo: "OF_INICIO_CENTRAL_CAPACIDAD",
         rotulo: "Su salida de balón",
-        texto: `El central de menor capacidad es ${centrales[1]} (el de más, ${centrales[0]}).`,
+        texto: fraseCentrales(centrales),
         queHacemos: frasePresion
-          ? `Presión alta y que la salida pase por ${centrales[1]}: «${frasePresion.replace(/\.$/, "")}».`
-          : undefined,
+          ? `Presión alta y que la salida pase por ${centrales.menos.join(" y ")}: «${frasePresion.replace(/\.$/, "")}».`
+          : `Presión alta orientada para que la salida pase por ${centrales.menos.join(" y ")}.`,
+        deducido: !frasePresion,
       });
     }
 
@@ -745,6 +820,31 @@ export default function ScoutRivalCollective() {
   | Si un jugador de la tarjeta sale en Duelos como amenaza (perdemos con su
   | balón), se dice debajo con la cifra. La misma cuenta que /duelos.
   */
+  /*
+  | Contraste con su ficha (10/11/2026, jueces): «Débil en su presión: Fran
+  | Gil» y en Plantillas lleva «Saca el balón jugado». Si un jugador nombrado
+  | en la tarjeta tiene en su ficha una fortaleza con balón, se dice debajo.
+  */
+  const contrasteFicha = (texto: string) => {
+    const enTexto = sinTildesBajo(texto);
+    const lineas: string[] = [];
+
+    for (const f of plantillaRival) {
+      if (!mismoClub(String(f.NOMBRE_EQUIPO ?? ""), equipoActivo)) continue;
+      const nombre = conTildes(comoNombre(String(f["NOMBRE DEPORTIVO"] ?? "").trim() || String(f.JUGADOR ?? "").trim()));
+      const partes = sinTildesBajo(nombre).split(/\s+/).filter((p) => p.length >= 3);
+      const apellido = partes[partes.length - 1] ?? "";
+      if (!apellido || !new RegExp(`(^|[^a-z])${apellido}([^a-z]|$)`).test(enTexto)) continue;
+      const fuertes = String(f.IMPACTO ?? "")
+        .split(";")
+        .map((e) => e.trim())
+        .filter((e) => e && !esEtiquetaDebil(e) && /bal[oó]n|salida|pase|jugad|pie|conduc|limpi/i.test(e));
+      if (fuertes.length) lineas.push(`${nombre} lleva «${fuertes.join("», «")}» en su ficha de Plantillas rivales`);
+    }
+
+    return lineas.length ? `Contraste con su ficha: ${lineas.join("; ")}. Conviene dejar una sola lectura.` : "";
+  };
+
   const duelosClave = useDuelosClave(equipoActivo);
   const contrasteDuelos = (texto: string) => {
     if (!duelosClave) return "";
@@ -1208,7 +1308,7 @@ export default function ScoutRivalCollective() {
               {/* El escudo firma el informe: el desplegable de abajo es un
                   <select> nativo y no puede llevarlo, así que el club se
                   reconoce aquí. */}
-              <h1 className="mt-2 flex min-w-0 items-center gap-3 text-4xl font-black tracking-tight sm:text-5xl">
+              <h1 className="mt-2 flex min-w-0 items-center gap-3 text-3xl font-black leading-tight tracking-tight sm:text-5xl">
                 {rivalActivo?.EQUIPO && (
                   <EscudoEquipo
                     nombre={rivalActivo.EQUIPO}
@@ -1220,7 +1320,8 @@ export default function ScoutRivalCollective() {
                 {cargando ? (
                   <Hueso className="h-10 w-64" />
                 ) : (
-                  <span className="min-w-0 truncate">{rivalActivo?.EQUIPO || "Sin rival"}</span>
+                  /* En el móvil el nombre salta de línea en vez de cortarse («Gimnàstic de T…», 10/11/2026). */
+                  <span className="min-w-0 break-words sm:truncate">{rivalActivo?.EQUIPO || "Sin rival"}</span>
                 )}
               </h1>
 
@@ -1257,7 +1358,7 @@ export default function ScoutRivalCollective() {
                       className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
                       data-export-hide
                     >
-                      {opcionesJornada}
+                      {opcionesCabecera}
                     </select>
                   </label>
                 )}
@@ -1408,7 +1509,11 @@ export default function ScoutRivalCollective() {
               leía dos veces. */}
           {!modoEdicion && rivalActivo && dano.length > 0 && (
             <section id="hacerles-dano" aria-label="Dónde hacerles daño" className="mb-6 scroll-mt-20 rounded-2xl border border-emerald-400/25 bg-emerald-400/[0.05] px-5 py-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300">Dónde hacerles daño</p>
+              {/* Titular sin versalitas ni espaciado (10/11/2026, jueces): a 390 px no se parte. La fuente, al lado. */}
+              <p className="flex flex-wrap items-baseline gap-x-2 text-base font-bold text-emerald-300">
+                Dónde hacerles daño
+                <span className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] font-semibold text-white/60">del analista, tras ver sus partidos</span>
+              </p>
               {/* 07/11/2026 (marketing): el rótulo lleva a su tarjeta; fuera el «Ver la tarjeta entera ↓» repetido y la frase meta. */}
               <ul className="mt-2 grid gap-3 md:grid-cols-3">
                 {dano.map((d) => (
@@ -1425,16 +1530,24 @@ export default function ScoutRivalCollective() {
                     {contrasteDuelos(conPlantilla(d.texto, nombresRival, fichasRival)) && (
                       <p className="mt-1 text-[12px] leading-5 text-[#C8A96B]">{contrasteDuelos(conPlantilla(d.texto, nombresRival, fichasRival))}</p>
                     )}
+                    {contrasteFicha(conPlantilla(d.texto, nombresRival, fichasRival)) && (
+                      <p className="mt-1 text-[12px] leading-5 text-[#C8A96B]">{contrasteFicha(conPlantilla(d.texto, nombresRival, fichasRival))}</p>
+                    )}
                   </li>
                 ))}
               </ul>
-              <p className="mt-2 text-xs text-white/50">Del informe del analista, tras ver sus partidos.</p>
+              <p className="mt-2 text-xs text-white/50">
+                Es lectura de vídeo, sin métrica detrás: las cifras de Wyscout de cada jugador están en su ficha de Plantillas rivales y en Duelos.
+              </p>
             </section>
           )}
 
           {!modoEdicion && rivalActivo && peligro.length > 0 && (
             <section aria-label="Cómo nos hacen daño" className="mb-6 rounded-2xl border border-rose-400/25 bg-rose-400/[0.05] px-5 py-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-rose-300">Cómo nos hacen daño</p>
+              <p className="flex flex-wrap items-baseline gap-x-2 text-base font-bold text-rose-300">
+                Cómo nos hacen daño
+                <span className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] font-semibold text-white/60">del analista</span>
+              </p>
               <ul className="mt-2 grid gap-3 md:grid-cols-3">
                 {peligro.map((d) => (
                   <li key={d.campo} className="min-w-0">
@@ -1450,7 +1563,8 @@ export default function ScoutRivalCollective() {
 
           {!modoEdicion && rivalActivo && dibujoMedido && dibujosEscritos.length > 0 && (
             <p className="mb-6 rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-2.5 text-[13px] leading-6 text-white/65">
-              <b className="text-white/80">Contraste con los datos</b>
+              <b className="text-white/80">Contraste con los datos</b>{" "}
+              <span className="rounded-full border border-white/15 px-1.5 py-px text-[11px] font-semibold text-white/60">dato · BeSoccer</span>
               {" · "}El analista los ve en {dibujosEscritos.map((d) => `${d.dibujo} ${d.fase}`).join(", ")}; en sus alineaciones (BeSoccer), el{" "}
               {dibujoMedido.dibujo} sale en {dibujoMedido.veces} de sus {dibujoMedido.de} alineaciones, la misma cuenta que Plantillas rivales
               {dibujosEscritos.some((d) => d.dibujo !== dibujoMedido.dibujo) ? ": el dibujo de partida y el de cada fase no tienen por qué coincidir." : ", lo mismo que escribe el analista."}
@@ -1626,7 +1740,7 @@ export default function ScoutRivalCollective() {
 
                     <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2">
                       {(() => {
-                        const visibles = bloque.campos.filter((f) => modoEdicion || tiene(f));
+                        const visibles = bloque.campos.filter((f) => modoEdicion || (tiene(f) && !esVacio(paraLeer(f.campo))));
 
                         /* Con un número impar, el último ocupa todo el ancho: sin columna vacía al lado. */
                         return visibles.map((field, i) => (
@@ -1636,7 +1750,7 @@ export default function ScoutRivalCollective() {
                           >
                             <Campo
                               field={field}
-                              valor={valorDe(field.campo)}
+                              valor={modoEdicion ? valorDe(field.campo) : paraLeer(field.campo)}
                               editando={modoEdicion}
                               accent={section.accent}
                               nombres={nombresRival}

@@ -51,6 +51,7 @@ import {
 import { descargaEnMarcha, descargas, encargaDescarga } from "@/lib/trabajos/descargas";
 import { ofrecePortada } from "@/lib/rivals/portada-slot";
 import { mismoClub } from "@/lib/rivals/mismoClub";
+import { centralesDelAnalista, estaEn, type CentralesDelAnalista } from "@/lib/rivals/lectura-analista";
 import { explicaErrorScript } from "@/lib/appsScriptErrors";
 import {
   ONCE_COLOR,
@@ -2975,7 +2976,7 @@ export default function RivalPlayersPage() {
   | presionar a uno aquí y al otro allí (08/11/2026, jueces). Se lee de la
   | misma caché de la hoja que usa el colectivo; si no hay texto, nada.
   */
-  const [centralesAnalista, setCentralesAnalista] = useState<{ equipo: string; mas: string; menos: string } | null>(null);
+  const [centralesAnalista, setCentralesAnalista] = useState<({ equipo: string } & CentralesDelAnalista) | null>(null);
 
   useEffect(() => {
     if (!selectedTeam) return;
@@ -2991,9 +2992,10 @@ export default function RivalPlayersPage() {
           .map((f) => String(f.OF_INICIO_CENTRAL_CAPACIDAD ?? "").split(/$/m)[0].trim())
           .filter(Boolean)
           .pop();
-        const partes = (texto ?? "").split(/\s*\/\s*/).map((t) => t.trim()).filter(Boolean);
+        /* La misma lectura que Scout Colectivo (10/11/2026): «Van Rijn + Royo / Fran Gil» son DOS de más. */
+        const leidos = centralesDelAnalista(texto ?? "");
 
-        setCentralesAnalista(partes.length === 2 ? { equipo: selectedTeam, mas: partes[0], menos: partes[1] } : null);
+        setCentralesAnalista(leidos ? { equipo: selectedTeam, ...leidos } : null);
       })
       .catch(() => undefined);
 
@@ -3055,12 +3057,12 @@ export default function RivalPlayersPage() {
         | Si Wyscout señala al central que el analista da por el de MÁS
         | capacidad, se dice en una línea y la orden es una sola: la del analista.
         */
-        const apellido = (t: string) => normalize(t.replace(/^\d+\s*[.·-]?\s*/, "")).split(" ").pop() ?? "";
         const analista = centralesAnalista && centralesAnalista.equipo === selectedTeam ? centralesAnalista : null;
-        const choca = analista && apellido(analista.mas) && normalize(nombre).includes(apellido(analista.mas));
-        const contraste = choca
-          ? `Orden: presionar a ${conTildes(analista.menos)}, el central de menor capacidad según el analista (Scout Colectivo). Ojo: en Wyscout el que pierde balones es ${nombre} (${base}).`
-          : "";
+        const choca = Boolean(analista && estaEn(nombre, analista.mas));
+        const contraste =
+          choca && analista
+            ? `Orden: presionar a ${analista.menos.map((n) => conTildes(n)).join(" y ")}, ${analista.menos.length > 1 ? "los centrales" : "el central"} de menor capacidad con balón según el analista (Scout Colectivo). Contraste: en Wyscout el que pierde balones es ${nombre} (${base}), al que el analista da por uno de los de más capacidad.`
+            : "";
 
         return { nombre, puesto, rasgos, accion: choca ? "" : accion, base, minutos, contraste };
       });
@@ -3889,7 +3891,8 @@ export default function RivalPlayersPage() {
             )}
 
             <div className={`mt-8 max-w-full items-center gap-2 ${selectedTeam && !cambiandoEquipo ? "hidden sm:flex" : "flex"}`}>
-              <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-2">
+              {/* Una fila de chips bajos que se desliza (10/11/2026, jueces): antes empujaba «Cómo llega» hacia abajo. */}
+              <div className="scrollbar-none flex min-w-0 flex-1 gap-1.5 overflow-x-auto pb-1 pr-6 [mask-image:linear-gradient(to_right,#000_calc(100%-32px),transparent)]">
                 {teams.map((team) => (
                   <button
                     key={team.name}
@@ -3905,7 +3908,7 @@ export default function RivalPlayersPage() {
                       setPositionSearch("");
                       setSearch("");
                     }}
-                    className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl border px-4 py-3 text-sm transition ${
+                    className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-[13px] transition ${
                       selectedTeam === team.name
                         ? "border-[#C8A96B] bg-[#C8A96B]/10 text-[#C8A96B]"
                         : "border-white/10 bg-white/[0.03] text-white/60 hover:border-white/30"
@@ -3932,21 +3935,10 @@ export default function RivalPlayersPage() {
                     | el primero y no es una casualidad del alfabeto.
                     */}
                     {esElProximo(ordenRivales, team.name) && (
-                      <span className="rounded-full bg-[#C8A96B] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-black">
+                      <span className="rounded-full bg-[#C8A96B] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-black">
                         Próximo
                       </span>
                     )}
-
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-[10px] ${
-                        selectedTeam === team.name
-                          ? "bg-[#C8A96B]/20"
-                          : "bg-white/5 text-white/40"
-                      }`}
-                      title={`${team.count} jugadores en su plantilla`}
-                    >
-                      {team.count}<span className="hidden sm:inline"> en plantilla</span>
-                    </span>
                   </button>
                 ))}
               </div>
@@ -4656,7 +4648,7 @@ export default function RivalPlayersPage() {
                               }}
                               disabled={sugiriendo || exportando}
                               title={`Proponer el once de ${equipoDelOnce} con los últimos onces que ha sacado — después se cambia a mano`}
-                              className="hidden items-center gap-1 rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2.5 py-1 font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/20 disabled:opacity-50 sm:flex sm:px-2 sm:py-0.5"
+                              className="hidden"
                             >
                               {sugiriendo ? (
                                 <Loader2 size={11} className="animate-spin" />
@@ -4722,7 +4714,8 @@ export default function RivalPlayersPage() {
                                 className="flex items-center gap-1.5 rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 py-1 font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/20 disabled:opacity-50"
                               >
                                 {exportando ? <Loader2 size={13} className="animate-spin" /> : <FileDown size={13} />}
-                                Exportar
+                                {/* «Más» (10/11/2026, jueces): «Informe» es la única acción principal; aquí, sugerir el once y lo que se descarga. */}
+                                Más
                                 <ChevronDown size={13} aria-hidden />
                               </button>
 
@@ -4731,6 +4724,28 @@ export default function RivalPlayersPage() {
                                   role="menu"
                                   className="absolute right-0 top-full z-30 mt-1 flex w-60 flex-col gap-0.5 rounded-xl border border-white/10 bg-[#11161D] p-1.5 shadow-xl"
                                 >
+                          <button
+                            type="button"
+                            role="menuitem"
+                            disabled={sugiriendo || exportando}
+                            onClick={async () => {
+                              setExportarAbierto(false);
+                              if (
+                                onceResumen.titulares > 0 &&
+                                !(await confirmar(
+                                  "Ya hay un once marcado. ¿Sustituirlo por el que se propone con los últimos onces del rival?",
+                                ))
+                              ) {
+                                return;
+                              }
+                              void sugerirOnce();
+                            }}
+                            title={`Proponer el once de ${equipoDelOnce} con los últimos onces que ha sacado — después se cambia a mano`}
+                            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/15 disabled:opacity-50"
+                          >
+                            {sugiriendo ? <Loader2 size={11} className="animate-spin" /> : <Wand2 size={11} />}
+                            Sugerir el once
+                          </button>
                           {/*
                             El once, en un PDF que salta a cada ficha.
 
@@ -6243,7 +6258,7 @@ function PlayerRow({
         {player.DORSAL !== "" && player.DORSAL !== undefined && (
           <span
             aria-label={`Dorsal ${player.DORSAL}`}
-            className="absolute -bottom-1 -right-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#C8A96B] px-1 text-[10px] font-bold tabular-nums text-black shadow"
+            className="absolute -bottom-1 -right-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#C8A96B] px-1 text-[11px] font-bold tabular-nums text-black shadow"
           >
             {player.DORSAL}
           </span>
@@ -6270,7 +6285,7 @@ function PlayerRow({
         <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
           {slotEntry ? (
             <span
-              className="shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold tracking-wider"
+              className="shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-bold tracking-wider"
               style={{
                 background: `${slotEntry.line.color}26`,
                 color: chipInk(slotEntry.line.color),
@@ -6280,7 +6295,7 @@ function PlayerRow({
             </span>
           ) : (
             player["POSICIÓN"] && (
-              <span className="min-w-0 shrink truncate text-[10px] text-white/45">
+              <span className="min-w-0 shrink truncate text-[11px] text-white/45">
                 {player["POSICIÓN"]}
               </span>
             )
@@ -6289,7 +6304,7 @@ function PlayerRow({
           {secondSlot && (
             <span
               title={player["2º POSICIÓN"]}
-              className="shrink-0 rounded-md border border-white/10 px-1 py-0.5 text-[10px] text-white/50"
+              className="shrink-0 rounded-md border border-white/10 px-1 py-0.5 text-[11px] text-white/50"
             >
               2ª {secondSlot.slot.code}
             </span>
@@ -6322,7 +6337,7 @@ function PlayerRow({
               }}
               title="Poner etiquetas a este jugador"
               aria-label="Poner etiquetas a este jugador"
-              className="ml-auto flex shrink-0 items-center rounded-full border border-dashed border-white/15 px-1.5 py-0.5 text-[9px] text-white/35 opacity-40 transition hover:border-[#C8A96B] hover:text-[#C8A96B] focus-visible:opacity-100 group-hover:opacity-100"
+              className="ml-auto flex shrink-0 items-center rounded-full border border-dashed border-white/15 px-1.5 py-0.5 text-[11px] text-white/35 opacity-40 transition hover:border-[#C8A96B] hover:text-[#C8A96B] focus-visible:opacity-100 group-hover:opacity-100"
             >
               <Plus size={9} className="shrink-0" />
             </button>
@@ -6330,7 +6345,7 @@ function PlayerRow({
         </div>
 
         {showTeam && (
-          <p className="mt-0.5 min-w-0 truncate text-[10px] text-white/30">
+          <p className="mt-0.5 min-w-0 truncate text-[11px] text-white/30">
             {player.NOMBRE_EQUIPO}
           </p>
         )}
@@ -6346,7 +6361,7 @@ function PlayerRow({
                 <span
                   key={tag.key}
                   title={tag.label}
-                  className="flex max-w-full items-center gap-1 whitespace-nowrap rounded-full px-1.5 py-0.5 text-[9px] font-medium"
+                  className="flex max-w-full items-center gap-1 whitespace-nowrap rounded-full px-1.5 py-0.5 text-[11px] font-medium"
                   style={{
                     background: `${tag.color}1F`,
                     color: chipInk(tag.color),
@@ -6370,7 +6385,7 @@ function PlayerRow({
                 }}
                 title="Añadir o quitar etiquetas"
                 aria-label="Añadir o quitar etiquetas"
-                className="flex items-center gap-1 rounded-full border border-dashed border-white/15 px-1.5 py-0.5 text-[9px] text-white/35 transition hover:border-[#C8A96B] hover:text-[#C8A96B]"
+                className="flex items-center gap-1 rounded-full border border-dashed border-white/15 px-1.5 py-0.5 text-[11px] text-white/35 transition hover:border-[#C8A96B] hover:text-[#C8A96B]"
               >
                 <Plus size={9} className="shrink-0" />
               </button>
@@ -6383,7 +6398,7 @@ function PlayerRow({
 
       {player.ROL && (
         <div className="hidden min-w-0 shrink-0 text-right 2xl:block">
-          <p className="text-[9px] uppercase tracking-wider text-white/30">
+          <p className="text-[11px] uppercase tracking-wider text-white/30">
             Rol
           </p>
 
@@ -6412,7 +6427,7 @@ function PlayerRow({
           aria-label={`Once probable de ${
             player["NOMBRE DEPORTIVO"] || player.JUGADOR
           }: ${onceEstado ? ONCE_ETIQUETA[onceEstado] : "sin marcar"}`}
-          className={`flex h-7 shrink-0 items-center justify-center rounded-full border text-[10px] font-bold transition ${onceEstado === "titular" || onceEstado === "duda" ? "px-2" : "w-7"}`}
+          className={`flex h-7 shrink-0 items-center justify-center rounded-full border text-[11px] font-bold transition ${onceEstado === "titular" || onceEstado === "duda" ? "px-2" : "w-7"}`}
           style={
             onceColor
               ? {

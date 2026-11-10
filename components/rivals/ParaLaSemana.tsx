@@ -37,6 +37,25 @@ const ICONOS = {
   ppt: Presentation,
 } as const;
 
+function BotonPieza({ pieza, ocupado }: { pieza: PiezaDeLaSemana; ocupado: boolean }) {
+  const Icono = ICONOS[pieza.icono];
+
+  return (
+    <button
+      type="button"
+      onClick={pieza.onClick}
+      disabled={ocupado}
+      className="flex h-full w-full min-w-0 items-start gap-2.5 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-left transition hover:border-[#C8A96B]/50 hover:bg-[#C8A96B]/10 disabled:opacity-50"
+    >
+      <Icono size={16} className="mt-0.5 shrink-0 text-[#C8A96B]" aria-hidden />
+      <span className="min-w-0">
+        <span className="block text-[13px] font-semibold text-white/90">{pieza.etiqueta}</span>
+        <span className="mt-0.5 block text-[12px] leading-snug text-white/50">{pieza.explica}</span>
+      </span>
+    </button>
+  );
+}
+
 export function ParaLaSemana({
   equipo,
   jornada,
@@ -77,28 +96,29 @@ export function ParaLaSemana({
         <p className="text-xs text-white/45">Lo que se saca de {equipo}, cada uno con su botón</p>
       </header>
 
-      <ul className={`min-w-0 grid-cols-1 gap-2 sm:grid sm:grid-cols-2 xl:grid-cols-4 ${abierto ? "grid" : "hidden"}`}>
-        {piezas.map((pieza) => {
-          const Icono = ICONOS[pieza.icono];
-
-          return (
-            <li key={pieza.clave} className="min-w-0">
-              <button
-                type="button"
-                onClick={pieza.onClick}
-                disabled={ocupado}
-                className="flex h-full w-full min-w-0 items-start gap-2.5 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-left transition hover:border-[#C8A96B]/50 hover:bg-[#C8A96B]/10 disabled:opacity-50"
-              >
-                <Icono size={16} className="mt-0.5 shrink-0 text-[#C8A96B]" aria-hidden />
-                <span className="min-w-0">
-                  <span className="block text-[13px] font-semibold text-white/90">{pieza.etiqueta}</span>
-                  <span className="mt-0.5 block text-[12px] leading-snug text-white/50">{pieza.explica}</span>
-                </span>
-              </button>
-            </li>
-          );
-        })}
+      {/* Dos a la vista y el resto en «Más» (10/11/2026, jueces): cuatro tarjetas iguales no decían cuál es la de cada semana. */}
+      <ul className={`min-w-0 grid-cols-1 gap-2 sm:grid sm:grid-cols-2 ${abierto ? "grid" : "hidden"}`}>
+        {piezas.slice(0, 2).map((pieza) => (
+          <li key={pieza.clave} className="min-w-0">
+            <BotonPieza pieza={pieza} ocupado={ocupado} />
+          </li>
+        ))}
       </ul>
+
+      {piezas.length > 2 && (
+        <details className={`mt-2 min-w-0 ${abierto ? "block" : "hidden"} sm:block`}>
+          <summary className="cursor-pointer select-none text-[13px] font-semibold text-white/60 hover:text-white">
+            Más: {piezas.slice(2).map((p) => p.etiqueta).join(" · ")}
+          </summary>
+          <ul className="mt-2 grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2">
+            {piezas.slice(2).map((pieza) => (
+              <li key={pieza.clave} className="min-w-0">
+                <BotonPieza pieza={pieza} ocupado={ocupado} />
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
 
       <div className="mt-3 flex min-w-0 flex-wrap items-center gap-2 text-[13px]">
         <span className="text-white/50">Mandar al cuerpo técnico:</span>

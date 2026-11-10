@@ -65,6 +65,14 @@ function Casilla({
   );
 }
 
+/** La cifra de un aspecto de Wyscout con su unidad: «47,3 %», «11,2». */
+function cifraAspecto(valor: number, unidad: string) {
+  if (!Number.isFinite(valor)) return "";
+  const texto = valor.toLocaleString("es-ES", { maximumFractionDigits: unidad === "entero" ? 0 : 1 });
+
+  return unidad === "porcentaje" ? `${texto} %` : unidad === "minutos" ? `${texto}′` : texto;
+}
+
 /** «Destaca en dominio con balón y eficacia, pero se queda corto en producción de remate.» */
 function fraseDeAspectos(aspectos: AspectoDestacado[]) {
   const lista = (nombres: string[]) =>
@@ -132,10 +140,14 @@ export function VistazoRival({
         )}
       </header>
 
-      {/* Primero la lectura, luego las cifras que la sostienen. */}
-      {fraseDelVistazo(vistazo) && (
-        <p className="mb-3 text-sm text-white/80 sm:text-[15px]">{fraseDelVistazo(vistazo)}</p>
-      )}
+      {/* Primero la lectura, luego las cifras que la sostienen. Con lo flojo de Wyscout al final (10/11/2026, jueces): el titular dice dónde atacarle. */}
+      {(() => {
+        const flojos = aspectos.filter((a) => a.desviacion < 0).map((a) => a.aspecto.toLowerCase());
+        const lista = flojos.length > 1 ? `${flojos.slice(0, -1).join(", ")} y ${flojos[flojos.length - 1]}` : flojos[0];
+        const titular = [fraseDelVistazo(vistazo), flojos.length ? `Flojo en ${lista} (Wyscout).` : ""].filter(Boolean).join(" ");
+
+        return titular ? <p className="mb-3 text-sm font-medium text-white/85 sm:text-[15px]">{titular}</p> : null;
+      })()}
 
       {vistazo && (
       <div className="grid min-w-0 grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-5">
@@ -219,7 +231,7 @@ export function VistazoRival({
             /* La base: de cuántos goles y en cuántos partidos (07/11/2026, análisis). */
             pie={
               tabla && tabla.favor > 0
-                ? `${goleadores.reduce((suma, g) => suma + g.goles, 0)} de sus ${tabla.favor} goles · ${tabla.jugados} ${tabla.jugados === 1 ? "partido" : "partidos"}`
+                ? `${goleadores.reduce((suma, g) => suma + g.goles, 0)} de sus ${tabla.favor} goles (${Math.round((100 * goleadores.reduce((suma, g) => suma + g.goles, 0)) / tabla.favor)} %) en ${tabla.jugados} ${tabla.jugados === 1 ? "partido" : "partidos"} · BeSoccer, todos los jugados (las pantallas de Wyscout pueden ir una jornada por detrás)`
                 : undefined
             }
           >
@@ -313,6 +325,13 @@ export function VistazoRival({
                         style={{ borderColor: `${grupo.color}55`, background: `${grupo.color}14` }}
                       >
                         <span className="min-w-0 break-words font-medium">{a.aspecto}</span>
+                        {/* El valor y su referencia (10/11/2026, jueces): el puesto solo no decía cuánto. */}
+                        {a.filas[0] && (
+                          <span className="basis-full text-[11px] tabular-nums text-white/60">
+                            {a.filas[0].nombre}: {cifraAspecto(a.filas[0].valor, a.filas[0].unidad)} · mediana de la categoría {cifraAspecto(a.filas[0].mediana, a.filas[0].unidad)}
+                            {/ppda/i.test(a.filas[0].nombre) ? " (pases que deja dar antes de presionar: menos es más presión)" : ""}
+                          </span>
+                        )}
                         <span className="shrink-0 tabular-nums text-white/50">
                           {a.desviacion >= 0
                             ? equipos > 0

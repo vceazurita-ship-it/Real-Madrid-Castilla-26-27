@@ -62,6 +62,9 @@ const ARREGLO: Record<string, string> = {
   aqui: "aquí",
   alli: "allí",
   tambíen: "también",
+  /* 10/11/2026 (jueces): las que salieron en la charla del Nàstic. */
+  recurrido: "recorrido",
+  disminuyo: "disminuyó",
 };
 
 /* Una palabra suelta: letras (con tildes) y nada pegado. */
@@ -71,7 +74,16 @@ const PALABRA = /[\p{L}]+/gu;
 export function sinErratas(texto: string): string {
   if (!texto) return texto;
 
-  return texto.replace(PALABRA, (palabra) => {
+  /*
+  | Lo que no es una palabra suelta (10/11/2026, jueces): «defensa en. bloque»
+  | (un punto tras una preposición, antes de minúscula) y «Si, se encuentran»
+  | (el «sí» afirmativo al empezar la frase).
+  */
+  const arreglado = texto
+    .replace(/\b(en|de|del|al|a|con|por|y)\.\s+(?=\p{Ll})/gu, "$1 ")
+    .replace(/(^|[.!?]\s+|\n)Si,\s/g, "$1Sí, ");
+
+  return arreglado.replace(PALABRA, (palabra) => {
     const bien = ARREGLO[palabra.toLowerCase()];
 
     if (!bien || bien === palabra.toLowerCase()) return palabra;
