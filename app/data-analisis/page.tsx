@@ -39,6 +39,7 @@ import {
   Award,
   BarChart3,
   Brain,
+  ClipboardCheck,
   Clock,
   Compass,
   Database,
@@ -123,6 +124,7 @@ import {
 import { BateriaDePreguntas } from "@/components/data/preguntas";
 import { PanelAbpPropio } from "@/components/data/PanelAbpPropio";
 import { PanelCampograma } from "@/components/data/PanelCampograma";
+import { PanelPostPartido } from "@/components/data/PanelPostPartido";
 import { PanelDestacados } from "@/components/data/PanelDestacados";
 import { PanelEquipo } from "@/components/data/PanelEquipo";
 import { PanelParecidos } from "@/components/data/PanelParecidos";
@@ -195,6 +197,7 @@ type Respuesta = {
 };
 
 type Area =
+  | "post"
   | "resumen"
   | "equipo"
   | "parecidos"
@@ -216,9 +219,22 @@ const AREAS_CON_EQUIPO: Area[] = ["campo", "liga", "todos", "destacados", "goles
 
 const AREAS: { key: Area; label: string; icono: typeof History; pregunta: string }[] = [
   /*
+    POST DEL PARTIDO (10/11/2026): la puerta con la que se abre la sección.
+    El último partido del Castilla —o el que se elija— con Opta y Wyscout
+    juntos bajo un solo selector (components/data/PanelPostPartido.tsx).
+    Se integra por pregunta, no por proveedor: la fuente va en un sello.
+  */
+  {
+    key: "post",
+    label: "Post del partido",
+    icono: ClipboardCheck,
+    pregunta: "¿Qué pasó en el partido y por qué?",
+  },
+  /*
     RESUMEN (02/11/2026): la puerta de la sección. Las claves de la jornada,
     cada una con el botón que lleva a donde se ve entera, y el mapa de todo
-    lo que hay. Es lo que se abre sin `?area=`.
+    lo que hay. Se abrió sin `?area=` hasta el 10/11/2026; ahora abre «Post
+    del partido» y el resumen sigue a un toque (`?area=resumen`).
   */
   {
     key: "resumen",
@@ -369,7 +385,7 @@ const AREAS: { key: Area; label: string; icono: typeof History; pregunta: string
 | destacados). Se separan en «Nuestro equipo» y «Rival y categoría», y delante
 | va el resumen. Las claves de área son las mismas.
 */
-type Bloque = "resumen" | "nosotros" | "jugadores" | "rival" | "balonParado" | "entrenamiento";
+type Bloque = "post" | "resumen" | "nosotros" | "jugadores" | "rival" | "balonParado" | "entrenamiento";
 
 const BLOQUES: {
   clave: Bloque;
@@ -379,6 +395,7 @@ const BLOQUES: {
   /** Una pantalla de fuera que es parte natural del bloque. */
   enlace?: { href: string; label: string };
 }[] = [
+  { clave: "post", label: "Post del partido", icono: ClipboardCheck, areas: ["post"] },
   { clave: "resumen", label: "Resumen", icono: Compass, areas: ["resumen"] },
   { clave: "nosotros", label: "Nuestro equipo", icono: Shield, areas: ["campo", "liga", "historia", "parecidos"] },
   { clave: "jugadores", label: "Jugadores", icono: Users, areas: ["individual", "once", "eventos"] },
@@ -394,7 +411,7 @@ const BLOQUES: {
 ];
 
 /* Las áreas que se miran con los filtros de la liga (temporada, competición, sistema, por partido o total). */
-const AREAS_SIN_FILTROS_LIGA: Area[] = ["resumen", "eventos", "abp", "abpCategoria", "individual", "transferencia", "parecidos"];
+const AREAS_SIN_FILTROS_LIGA: Area[] = ["post", "resumen", "eventos", "abp", "abpCategoria", "individual", "transferencia", "parecidos"];
 
 /* Las que pintan percentiles: llevan la leyenda de la escala en la cabecera. */
 const AREAS_CON_PERCENTIL: Area[] = ["resumen", "liga", "equipo", "todos", "destacados", "individual", "once"];
@@ -434,8 +451,9 @@ export default function DataAnalisisPage() {
   | pantalla devolvía siempre a «Contra la liga», y un enlace copiado no
   | llevaba al área que se estaba mirando.
   */
-  /* 02/11/2026: sin `?area=` se abre el resumen; los enlaces con área siguen igual. */
-  const [area, setArea] = usePestanaUrl<Area>("area", CLAVES_AREA, "resumen");
+  /* 02/11/2026: sin `?area=` se abre el resumen; los enlaces con área siguen igual.
+     10/11/2026: sin `?area=` se abre «Post del partido» (también `?area=post`). */
+  const [area, setArea] = usePestanaUrl<Area>("area", CLAVES_AREA, "post");
 
   /* La fase que se está mirando dentro de «Contra la liga». */
   const [fase, setFase] = useState<Fase>("con");
@@ -1504,7 +1522,7 @@ export default function DataAnalisisPage() {
                   )}
                 </div>
 
-                {alcances && area !== "abp" && area !== "abpCategoria" && (
+                {alcances && area !== "abp" && area !== "abpCategoria" && area !== "post" && (
                   <SelloJornada
                     alcances={area === "eventos" ? [alcances.opta] : [alcances.wyscout]}
                     nota={
@@ -1760,7 +1778,9 @@ export default function DataAnalisisPage() {
 
                   <Explicativo>
                   <span className="text-[11px] text-white/30">
-                    {area === "abp"
+                    {area === "post"
+                      ? "El mismo partido en Opta y en Wyscout, con un solo selector"
+                      : area === "abp"
                       ? "Registro propio del cuerpo técnico, no de Wyscout ni de Opta"
                       : area === "abpCategoria"
                         ? "Los balones parados con remate de la Primera RFEF, evento a evento de Wyscout"
@@ -1783,6 +1803,8 @@ export default function DataAnalisisPage() {
                 />
 
                 <div id="data-bloques">
+                {area === "post" && <PanelPostPartido wyscout={partidos} />}
+
                 {area === "resumen" && (
                   <PanelResumen conclusiones={clavesResumen} areas={AREAS} bloques={BLOQUES} onIr={irA} />
                 )}

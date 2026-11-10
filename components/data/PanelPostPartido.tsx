@@ -1,0 +1,293 @@
+"use client";
+
+/**
+ * POST DEL PARTIDO (10/11/2026): la puerta con la que se abre Data análisis.
+ *
+ * Contesta «¿qué pasó y por qué?» del último partido del Castilla —o del que
+ * se elija— con UN SOLO selector que manda sobre todo lo de abajo:
+ *
+ *   1. El cara a cara de las cifras, el momentum por tramos y los remates de
+ *      los dos (Opta: `CaraACara`, `Momentum`, `MapaRemates` del área Opta).
+ *   2. «Partido en el campo» de Wyscout (`PanelCampograma`, con el partido
+ *      fijado): cada momento sobre el campo y lo que solemos hacer.
+ *   3. Las fases acción a acción de Opta (`Fases`, sólo ese partido).
+ *   4. Los laboratorios de robos, pérdidas y faltas abiertos en ese partido,
+ *      y al pie, el microciclo.
+ *
+ * Las piezas se importan, no se copian. El partido se ata entre las dos
+ * fuentes en `lib/post-partido.ts` (rival + fecha más cercana, ≤ 4 días). Si
+ * una fuente aún no lo tiene, su bloque no se pinta y arriba lo dice.
+ *
+ * Los documentos pesados de Opta (remates ≈ 3 MB, acciones del Castilla
+ * ≈ 3 MB, momento ≈ 1 MB) se piden sólo al montar esta puerta y se
+ * comparten entre las piezas (`hooks/useDocsOpta.ts`).
+ */
+
+import { useMemo, useState, type ReactNode } from "react";
+import Link from "next/link";
+import { ArrowRight, CalendarDays, Crosshair, Footprints, LayoutGrid, ShieldAlert, Swords, Timer } from "lucide-react";
+
+import { CaraACara } from "@/app/opta/_piezas/FichaPartido";
+import { Fases } from "@/app/opta/_piezas/Fases";
+import { Momentum } from "@/app/opta/_piezas/Momentum";
+import { MapaRemates } from "@/app/opta/_piezas/Remates";
+import { Elegir } from "@/app/opta/_piezas/comun";
+import { nombreDe, useAcciones, useRemates } from "@/app/opta/_piezas/eventos";
+import { useOpta, type DatosOpta } from "@/app/opta/_piezas/useOpta";
+import { Notice } from "@/components/abp/ui";
+import { PanelCampograma } from "@/components/data/PanelCampograma";
+import { useCalendarioCastilla } from "@/components/data/SelloJornada";
+import { Hueso } from "@/components/ui/estados";
+import { partidoDeFecha } from "@/lib/data-analisis/alcance";
+import type { FilaPartido } from "@/lib/data-analisis/leer";
+import { temporadaDe } from "@/lib/data-analisis/metricas";
+import { CASTILLA_OPTA } from "@/lib/opta";
+import { fechaCorta, NOMBRE_CASTILLA } from "@/lib/opta-analisis";
+import { CASTILLA_WYSCOUT, castillaWyscout, emparejaPartidos, enlaceConPartido, temporadaVigente, type PartidoPost } from "@/lib/post-partido";
+
+/*
+| TODO-SELLO: sustituir por `components/ui/SelloFuente.tsx` en cuanto esté en
+| esta rama (lo está creando otro trabajo a la vez). La fuente va aquí, en
+| pequeño, y nunca en el título del bloque.
+*/
+function Sello({ children }: { children: ReactNode }) {
+  return (
+    <span className="inline-flex shrink-0 items-center rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em] text-white/50">
+      {children}
+    </span>
+  );
+}
+
+/**
+ * Un bloque de la puerta: `section > header h2`, que es lo que lee el índice
+ * fijo de la pantalla (`IndiceBloques`) para ponerle su chip.
+ */
+function Bloque({ titulo, pregunta, sello, icono: Icono, children }: { titulo: string; pregunta: string; sello: ReactNode; icono: typeof Swords; children: ReactNode }) {
+  return (
+    <section className="mt-5 min-w-0 rounded-2xl border border-white/10 bg-white/[0.02] p-4 sm:p-5">
+      <header className="mb-3 flex flex-wrap items-start justify-between gap-2">
+        <div className="flex min-w-0 items-start gap-2.5">
+          <Icono size={16} className="mt-0.5 shrink-0 text-[#C8A96B]" />
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold text-white">{titulo}</h2>
+            <p className="mt-0.5 text-xs text-white/55">{pregunta}</p>
+          </div>
+        </div>
+        {sello}
+      </header>
+      {children}
+    </section>
+  );
+}
+
+export function PanelPostPartido({ wyscout }: { wyscout: FilaPartido[] }) {
+  const { datos, cargando } = useOpta();
+  const calendario = useCalendarioCastilla();
+
+  const optaPartidos = useMemo(() => datos?.partidos ?? [], [datos]);
+  const optaEquipos = useMemo(() => datos?.equipos ?? [], [datos]);
+  const temporada = useMemo(() => temporadaVigente(optaPartidos, wyscout), [optaPartidos, wyscout]);
+  const lista = useMemo(() => emparejaPartidos(optaPartidos, optaEquipos, wyscout, temporada), [optaPartidos, optaEquipos, wyscout, temporada]);
+
+  /* Por defecto, el último jugado; lo elegido se guarda por su clave. */
+  const [elegido, setElegido] = useState("");
+  const visto = lista.find((p) => p.clave === elegido) ?? lista[0] ?? null;
+
+  /* Lo de Wyscout para el campograma: la temporada de liga y la de la categoría. */
+  const nuestrosW = useMemo(() => castillaWyscout(wyscout, temporada), [wyscout, temporada]);
+  const contrariosW = useMemo(() => {
+    const claves = new Set(nuestrosW.map((p) => `${p.fecha}|${p.partido}`));
+    return wyscout.filter((p) => p.rival === CASTILLA_WYSCOUT && claves.has(`${p.fecha}|${p.partido}`));
+  }, [wyscout, nuestrosW]);
+  const ligaW = useMemo(() => wyscout.filter((p) => temporadaDe(p.fecha) === temporada && /primera/i.test(p.competicion)), [wyscout, temporada]);
+  const equiposW = useMemo(() => new Set(ligaW.map((p) => p.equipo)).size, [ligaW]);
+
+  const jornadaDe = (p: PartidoPost) => (calendario ? (partidoDeFecha(calendario.partidos, p.fecha)?.jornada ?? null) : null);
+  const etiqueta = (p: PartidoPost) => {
+    const j = jornadaDe(p);
+    const marcador = p.gf != null && p.gc != null ? ` ${p.gf}-${p.gc}` : "";
+    return `${j ? `J${j} · ` : ""}${fechaCorta(p.fecha)} · ${p.rival}${marcador}`;
+  };
+
+  if (cargando) {
+    return (
+      <div className="mt-5 space-y-4" role="status" aria-label="Cargando el partido">
+        <Hueso className="h-24" />
+        <Hueso className="h-96" />
+      </div>
+    );
+  }
+
+  if (!visto) return null;
+
+  const cal = calendario ? partidoDeFecha(calendario.partidos, visto.fecha) : null;
+  const enCasa = cal ? /castilla|real madrid/i.test(cal.local) : visto.wyscout ? visto.wyscout.partido.startsWith(CASTILLA_WYSCOUT) : null;
+  const jornada = jornadaDe(visto);
+
+  return (
+    <>
+      {/* EL PARTIDO: el único selector, y lo que manda sobre todo lo de abajo. */}
+      <div className="mt-5 flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 sm:px-5">
+        <div className="min-w-0">
+          <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">
+            {[jornada ? `Jornada ${jornada}` : "", fechaCorta(visto.fecha), enCasa === null ? "" : enCasa ? "en casa" : "fuera"].filter(Boolean).join(" · ")}
+          </p>
+          <p className="mt-0.5 break-words text-lg font-semibold text-white sm:text-xl">
+            {NOMBRE_CASTILLA}{" "}
+            {visto.gf != null && visto.gc != null && <span className="tabular-nums text-[#C8A96B]">{`${visto.gf}-${visto.gc}`} </span>}
+            {visto.rival}
+          </p>
+        </div>
+        {lista.length > 1 && (
+          <Elegir
+            etiqueta="Partido"
+            valor={visto.clave}
+            alCambiar={setElegido}
+            className="max-sm:w-full"
+            opciones={lista.map((p) => ({ clave: p.clave, nombre: etiqueta(p) }))}
+          />
+        )}
+      </div>
+
+      {(!visto.opta || !visto.wyscout) && (
+        <div className="mt-3">
+          <Notice tone="info" title={!visto.wyscout ? "Wyscout aún no tiene este partido" : "Opta aún no tiene este partido"}>
+            {!visto.wyscout
+              ? "Su informe suele llegar el martes; entonces sale aquí el partido en el campo."
+              : "Su descarga se hace los lunes; entonces salen aquí el cara a cara, el momentum, los remates y las fases."}
+          </Notice>
+        </div>
+      )}
+
+      {/* 1 · OPTA: EL CARA A CARA, EL MOMENTUM Y LOS REMATES */}
+      {visto.opta && datos && <BloqueOpta datos={datos} partido={visto} />}
+
+      {/* 2 · WYSCOUT: EL PARTIDO EN EL CAMPO */}
+      {visto.wyscout && (
+        <Bloque
+          titulo="Partido en el campo"
+          pregunta="¿Qué pasó en cada momento, y es lo que solemos hacer?"
+          icono={LayoutGrid}
+          sello={<Sello>Wyscout · informe del partido</Sello>}
+        >
+          <PanelCampograma
+            /* Con la clave del partido: cambiarlo arriba empieza el bloque de cero. */
+            key={visto.clave}
+            nuestros={nuestrosW}
+            contrarios={contrariosW}
+            liga={ligaW}
+            equipos={equiposW}
+            temporada={temporada}
+            fijo={`${visto.wyscout.fecha}|${visto.wyscout.rival}`}
+          />
+        </Bloque>
+      )}
+
+      {/* 3 · OPTA: LAS FASES ACCIÓN A ACCIÓN */}
+      {visto.opta && datos && <BloqueFases datos={datos} partido={visto.clave} />}
+
+      {/* 4 · LO CONTADO A MANO, ABIERTO EN ESTE PARTIDO */}
+      <Bloque
+        titulo="Visto en el vídeo"
+        pregunta="Robos, pérdidas y faltas de este partido, contados jugada a jugada."
+        icono={Crosshair}
+        sello={<Sello>Registro propio · vídeo</Sello>}
+      >
+        <div className="grid gap-2 sm:grid-cols-3">
+          <Enlace href={enlaceConPartido("/laboratorio/transiciones", visto)} icono={Swords} titulo="Robos y transiciones" texto="Qué hicimos con cada balón robado." />
+          <Enlace href={enlaceConPartido("/laboratorio/perdidas", visto)} icono={ShieldAlert} titulo="Pérdidas y transiciones defensivas" texto="Qué hizo el rival con cada balón perdido." />
+          <Enlace href={enlaceConPartido("/laboratorio/faltas", visto)} icono={Timer} titulo="Faltas" texto="Dónde se pitaron y con cuánta gente detrás." />
+        </div>
+      </Bloque>
+
+      {/* AL PIE: QUÉ SE LLEVA A LA SEMANA */}
+      <div className="mt-5 flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.06] px-4 py-3 sm:px-5">
+        <p className="flex min-w-0 items-center gap-2 text-sm font-semibold text-white">
+          <CalendarDays size={16} className="shrink-0 text-[#C8A96B]" />
+          ¿Qué toca en el microciclo?
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/microcycles" className="inline-flex items-center gap-1 rounded-xl border border-white/10 px-3 py-2 text-sm text-white/85 hover:border-[#C8A96B]/50">
+            Microciclo <ArrowRight size={14} />
+          </Link>
+          <Link href="/abp-microciclo" className="inline-flex items-center gap-1 rounded-xl border border-white/10 px-3 py-2 text-sm text-white/85 hover:border-[#C8A96B]/50">
+            Microciclo de ABP <ArrowRight size={14} />
+          </Link>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function Enlace({ href, icono: Icono, titulo, texto }: { href: string; icono: typeof Swords; titulo: string; texto: string }) {
+  return (
+    <Link href={href} className="group flex min-w-0 items-start gap-2.5 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2.5 transition hover:border-[#C8A96B]/50">
+      <Icono size={15} className="mt-0.5 shrink-0 text-[#C8A96B]" />
+      <span className="min-w-0">
+        <span className="flex items-center gap-1 text-sm font-semibold text-white">
+          {titulo} <ArrowRight size={13} className="shrink-0 opacity-60 transition group-hover:translate-x-0.5" />
+        </span>
+        <span className="mt-0.5 block text-xs text-white/55">{texto}</span>
+      </span>
+    </Link>
+  );
+}
+
+/** Las fases de Opta del partido; si su documento aún no trae el partido, el bloque no sale. */
+function BloqueFases({ datos, partido }: { datos: DatosOpta; partido: string }) {
+  const { acciones, cargando } = useAcciones(datos);
+  const hay = useMemo(() => acciones.some((a) => a.nuestra && a.partido === partido), [acciones, partido]);
+  if (!cargando && !hay) return null;
+  return (
+    <Bloque
+      titulo="Acción a acción"
+      pregunta="¿Cómo nos asociamos, cuánto progresamos y dónde robamos y perdimos?"
+      icono={Footprints}
+      sello={<Sello>Opta · evento a evento</Sello>}
+    >
+      <Fases datos={datos} partidoFijo={partido} />
+    </Bloque>
+  );
+}
+
+/** El cara a cara, el momentum y los remates de los dos, del partido de Opta. */
+function BloqueOpta({ datos, partido }: { datos: DatosOpta; partido: PartidoPost }) {
+  const p = partido.opta!;
+  const id = partido.clave;
+  const { remates, cargando } = useRemates(datos);
+  const delPartido = useMemo(() => remates.filter((r) => r.partido === id), [remates, id]);
+  const lados = [
+    { id: CASTILLA_OPTA, n: NOMBRE_CASTILLA },
+    { id: p.rivalId, n: nombreDe(p.rivalId, p.rival) },
+  ];
+
+  return (
+    <Bloque
+      titulo="El partido, cara a cara"
+      pregunta="¿Quién hizo más, cuándo mandó cada uno y desde dónde se remató?"
+      icono={Swords}
+      sello={<Sello>Opta · cifras del partido</Sello>}
+    >
+      <CaraACara datos={datos} partido={id} teamId={CASTILLA_OPTA} />
+      <Momentum datos={datos} partido={id} teamId={CASTILLA_OPTA} />
+
+      {cargando ? (
+        <div className="mt-5 h-64 animate-pulse rounded-2xl bg-white/[0.05]" role="status" aria-label="Cargando los remates" />
+      ) : (
+        delPartido.length > 0 && (
+          <div className="mt-5 grid gap-5 border-t border-white/10 pt-4 lg:grid-cols-2">
+            {lados.map((lado) => {
+              const rs = delPartido.filter((r) => r.teamId === lado.id);
+              return (
+                <div key={lado.id} className="min-w-0">
+                  <h3 className="mb-2 text-sm font-semibold text-white">Remates de {lado.n}</h3>
+                  {rs.length ? <MapaRemates remates={rs} ariaLabel={`Remates de ${lado.n} en el partido`} enContra={lado.id !== CASTILLA_OPTA} maxAlto={360} /> : <p className="text-sm text-white/55">No remató.</p>}
+                </div>
+              );
+            })}
+          </div>
+        )
+      )}
+    </Bloque>
+  );
+}

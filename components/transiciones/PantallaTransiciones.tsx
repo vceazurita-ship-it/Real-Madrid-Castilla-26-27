@@ -84,6 +84,7 @@ import { PorJugador, SinJugador, type ColumnaJugador } from "@/components/analis
 import { CARRILES_CAMPO, ZONAS_CAMPO } from "@/components/faltas/CampoFaltas";
 import { anterioresPorFecha, ultimoPorFecha } from "@/lib/abp/ultimo-partido";
 import { OptaLaboratorio } from "@/components/opta-partido/OptaLaboratorio";
+import { partidoEnlazado, usePartidoDeLaUrl } from "@/lib/partido-enlazado";
 import {
   BarraFiltros,
   Filtrable,
@@ -614,7 +615,14 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
   | Se abre en el último partido analizado, no en «todos»: lo que se quiere
   | mirar el lunes es lo del domingo. «Todos los partidos» sigue a un toque.
   */
-  const [quienElegido, setQuien] = useState<string>(
+  /*
+  | 10/11/2026: con `?fecha=&rival=` (lo manda «Post del partido» de Data
+  | análisis) se abre en ese partido. Lo que se elija después manda.
+  */
+  const enlace = usePartidoDeLaUrl();
+  const enlazado = partidoEnlazado(PARTIDOS, enlace.fecha, enlace.rival)?.id ?? null;
+  const [quienSuelto, setQuien] = useState<string | null>(null);
+  const [quienDefecto] = useState<string>(
     () =>
       ultimoPorFecha(
         PARTIDOS.filter(
@@ -622,6 +630,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
         ),
       )?.id ?? "todos",
   );
+  const quienElegido = quienSuelto ?? enlazado ?? quienDefecto;
   /** La fila encendida, compartida entre el campo y la tabla. */
   const [resaltado, setResaltado] = useState<string | null>(null);
   /* El menú de cada punto del campo: su vídeo, Hudl y su fila (04/11/2026). */
@@ -678,7 +687,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
   const unPartido = quien !== "todos";
 
   /** Pinchar un partido en la tabla: se queda con él, o vuelve a todos. */
-  const alternaPartido = (id: string) => setQuien((antes) => (antes === id ? "todos" : id));
+  const alternaPartido = (id: string) => setQuien(quien === id ? "todos" : id);
 
   /*
   | Cuál se va a actualizar: el que se esté mirando, o el último. Se mira la

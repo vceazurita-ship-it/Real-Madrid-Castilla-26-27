@@ -53,6 +53,7 @@ import { CORTE_TRANSICION, aFavor, comparativaFaltas, cortaTransicion, decimal, 
 import { CampoFaltas, CARRILES_CAMPO, sitioEnCampo, ZONAS_CAMPO } from "@/components/faltas/CampoFaltas";
 import { ComoActualizar } from "@/components/faltas/ComoActualizar";
 import { OptaLaboratorio } from "@/components/opta-partido/OptaLaboratorio";
+import { partidoEnlazado, usePartidoDeLaUrl } from "@/lib/partido-enlazado";
 import { VerAccion } from "@/components/video/VerAccion";
 import { opcionesDeAccion, useMenuAccion } from "@/components/video/MenuAccion";
 import { PorJugador, SinJugador, type ColumnaJugador } from "@/components/analisis/PorJugador";
@@ -209,7 +210,10 @@ export default function FaltasPage() {
   | domingo, no la primera jornada. Si al quitar la pretemporada el elegido
   | desaparece, se vuelve al último de los que quedan.
   */
-  const [partidoId, setPartidoId] = useState<string>(ultimoPorFecha(partidosVisibles)?.id ?? "");
+  /* 10/11/2026: con `?fecha=&rival=` (de «Post del partido») se abre en ese partido; lo que se elija después manda. */
+  const enlace = usePartidoDeLaUrl();
+  const [partidoSuelto, setPartidoId] = useState<string | null>(null);
+  const partidoId = partidoSuelto ?? partidoEnlazado(partidosVisibles, enlace.fecha, enlace.rival)?.id ?? ultimoPorFecha(partidosVisibles)?.id ?? "";
 
   /** Los botones de partido, en el orden en que se jugaron (como en Robos y Pérdidas). */
   const partidosEnOrden = useMemo(

@@ -35,6 +35,7 @@ export function PanelCampograma({
   equipos,
   temporada,
   otro = null,
+  fijo,
 }: {
   /** Nuestras filas de la temporada elegida. */
   nuestros: FilaPartido[];
@@ -47,6 +48,11 @@ export function PanelCampograma({
   temporada: string;
   /** El equipo de la categoría elegido arriba para compararse, si lo hay. */
   otro?: OtroEquipo | null;
+  /**
+   * El partido, ya elegido fuera (`fecha|rival`, 10/11/2026): lo manda el
+   * selector único de «Post del partido» y aquí no se pinta el propio.
+   */
+  fijo?: string;
 }) {
   const [momento, setMomento] = useState<MomentoJuego>("con");
 
@@ -94,7 +100,9 @@ export function PanelCampograma({
   | mismo número elegido y la pantalla pasaba a otro partido sin avisar; si el
   | elegido ya no está, se vuelve al último jugado.
   */
-  const [claveElegida, setClaveElegida] = useState("");
+  const [claveSuelta, setClaveElegida] = useState("");
+
+  const claveElegida = fijo ?? claveSuelta;
 
   const claveDe = (p: FilaPartido) => `${p.fecha}|${p.rival}`;
 
@@ -209,6 +217,7 @@ export function PanelCampograma({
           ))}
         </div>
 
+        {!fijo && (
         <label className="flex items-center gap-2">
           <span className="text-[10px] uppercase tracking-[0.16em] text-white/40">
             Qué se mira
@@ -231,6 +240,7 @@ export function PanelCampograma({
             ))}
           </select>
         </label>
+        )}
 
         {/* Y contra qué se compara: nosotros o la categoría entera. */}
         <div className="flex flex-wrap items-center rounded-xl border border-white/10 bg-white/[0.03] p-0.5">

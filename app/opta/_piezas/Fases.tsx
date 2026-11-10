@@ -38,9 +38,15 @@ const corto = (n: string) => {
   return partes.length > 1 ? partes.slice(1).join(" ") : n;
 };
 
-export function Fases({ datos }: { datos: DatosOpta }) {
+/**
+ * `partidoFijo` (10/11/2026): el partido ya elegido fuera —el selector único
+ * de «Post del partido»—; entonces no se pinta el selector propio y sólo se
+ * enseña ese partido.
+ */
+export function Fases({ datos, partidoFijo }: { datos: DatosOpta; partidoFijo?: string }) {
   const { acciones, cargando } = useAcciones(datos);
-  const [partido, setPartido] = useState("");
+  const [partidoSuelto, setPartido] = useState("");
+  const partido = partidoFijo ?? partidoSuelto;
   const [jugador, setJugador] = useState("");
 
   const nuestras = useMemo(() => acciones.filter((a) => a.nuestra), [acciones]);
@@ -60,21 +66,27 @@ export function Fases({ datos }: { datos: DatosOpta }) {
   const nPartidos = partido ? 1 : partidos.length;
 
   if (cargando) return <div className="mt-6 h-72 animate-pulse rounded-2xl bg-white/[0.05]" role="status" aria-label="Cargando las acciones del Castilla" />;
-  if (!nuestras.length) return null;
+  if (!nuestras.length || (partidoFijo && !delPartido.length)) return null;
 
   return (
     <div className="mt-6 space-y-4">
       <Panel
         titulo="El Castilla, acción a acción"
-        subtitulo="Cada pase, recuperación y pérdida del Castilla esta temporada según Opta. Siempre atacando hacia la derecha."
+        subtitulo={
+          partidoFijo
+            ? "Cada pase, recuperación y pérdida del Castilla en este partido según Opta. Siempre atacando hacia la derecha."
+            : "Cada pase, recuperación y pérdida del Castilla esta temporada según Opta. Siempre atacando hacia la derecha."
+        }
         derecha={
           <>
+            {!partidoFijo && (
             <Elegir
               etiqueta="Partido"
               valor={partido}
               alCambiar={setPartido}
               opciones={[{ clave: "", nombre: `Toda la temporada (${partidos.length})` }, ...partidos.map((p) => ({ clave: p.partido, nombre: `${fechaCorta(p.fecha)} · ${p.rival}` }))]}
             />
+            )}
             <Elegir etiqueta="Jugador" valor={jugadorVisto} alCambiar={setJugador} opciones={[{ clave: "", nombre: "Todo el equipo" }, ...jugadores.map((n) => ({ clave: n, nombre: n }))]} />
           </>
         }
