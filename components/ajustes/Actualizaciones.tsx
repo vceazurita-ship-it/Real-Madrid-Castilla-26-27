@@ -14,7 +14,7 @@ import { AlertTriangle, ArrowUpRight, CheckCircle2, CircleDashed, Loader2, Refre
 import { ACTUALIZACIONES, GRUPOS, frescura, type EstadoFrescura, type FechaActualizacion } from "@/lib/actualizaciones";
 import { estadoEncargo, type Mantenimiento, type Tarea } from "@/lib/mantenimiento";
 
-const SE_PIDE_AQUI: Tarea[] = ["quiniela", "rivales", "wyscout"];
+const SE_PIDE_AQUI: Tarea[] = ["quiniela", "rivales", "wyscout", "opta"];
 
 function hace(iso: string, ahora: number) {
   const min = Math.max(0, Math.round((ahora - Date.parse(iso)) / 60_000));

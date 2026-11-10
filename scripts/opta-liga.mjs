@@ -192,9 +192,27 @@ const CONSULTA_EN_PAGINA = `async (statement, f, tabla) => {
   return { cols: d.header.map((h) => h.columnId), filas: d.rows.map((f) => f.map((v) => Array.isArray(v) ? v[1] : v)) };
 }`;
 
+/**
+ * Si una consulta devuelve justo su LIMIT, casi seguro que se ha quedado
+ * corta: Opta no avisa, corta. Se dice en el registro (lo lee el vigía) para
+ * subir el tope antes de que falten filas sin que nadie lo vea.
+ */
+function avisaTope(statement, filas) {
+  const tope = Number(statement.match(/\bLIMIT\s+(\d+)\s*$/i)?.[1]);
+  if (tope && filas >= tope) {
+    console.log(`AVISO: ${filas} filas, justo el LIMIT ${tope}: puede faltar algo; sube el tope en opta-liga.mjs. (${statement.slice(0, 120)})`);
+  }
+}
+
 async function consulta(evalua, statement, f, tabla) {
   const r = await evalua(`(${CONSULTA_EN_PAGINA})(${JSON.stringify(statement)}, ${JSON.stringify(f)}, ${JSON.stringify(tabla)})`);
-  if (!r || r.error) throw new Error(`Opta rechaza la consulta: ${r?.error ?? "sin respuesta"}\n${statement.slice(0, 200)}`);
+  /* En una sola línea: el vigía enseña en Ajustes la última línea del
+     registro, y con la consulta en otra se veía el SQL en vez del motivo. */
+  if (!r || r.error) {
+    const motivo = String(r?.error ?? "sin respuesta").replace(/\s+/g, " ").slice(0, 200);
+    throw new Error(`Opta rechaza la consulta: ${motivo} · ${statement.slice(0, 120)}`);
+  }
+  avisaTope(statement, r.filas.length);
   return r;
 }
 
@@ -205,6 +223,11 @@ async function consulta(evalua, statement, f, tabla) {
 async function porTrozos(evalua, { base, desde, sufijo, f, tabla, metricas, nClave, trozo = 90 }) {
   let cols = null;
   const filas = new Map();
+  /* Columnas de métricas cosidas hasta ahora. Una fila que falte en un trozo
+     (o que sólo salga en uno posterior, p. ej. si el LIMIT corta distinto) se
+     rellena con null: antes sus cifras se corrían a las columnas de otra
+     métrica sin que nada lo dijera. */
+  let ancho = 0;
 
   for (let i = 0; i < metricas.length; i += trozo) {
     const parte = metricas.slice(i, i + trozo);
@@ -220,9 +243,13 @@ async function porTrozos(evalua, { base, desde, sufijo, f, tabla, metricas, nCla
     for (const fila of r.filas) {
       const v = fila.slice(salto);
       const clave = v.slice(0, nClave).join("|");
-      if (!filas.has(clave)) filas.set(clave, v.slice(0, nClave));
-      filas.get(clave).push(...v.slice(nClave));
+      if (!filas.has(clave)) filas.set(clave, [...v.slice(0, nClave), ...Array(ancho).fill(null)]);
+      const suya = filas.get(clave);
+      /* Repetida en el mismo trozo: vale la primera. */
+      if (suya.length === nClave + ancho) suya.push(...v.slice(nClave));
     }
+    ancho += rcols.length - nClave;
+    for (const suya of filas.values()) while (suya.length < nClave + ancho) suya.push(null);
 
     process.stdout.write(`  ${Math.min(i + trozo, metricas.length)}/${metricas.length} métricas\r`);
   }
@@ -346,7 +373,7 @@ async function principal() {
   console.log("Jugadores de la categoría partido a partido…");
   docs["opta:jugadores-partidos"] = await porTrozos(evalua, {
     base: "game.gameId as partido, playerId, fullName as jugador, newest(team.game.teamId) as teamId",
-    desde: "player 'p'", sufijo: "BY game LIMIT 30000", f: S, tabla: "player p",
+    desde: "player 'p'", sufijo: "BY game LIMIT 60000", f: S, tabla: "player p",
     metricas: solo(["Min", "GS", "Goal", "ShtIncBl", "SOG", "ExpG", "Ast", "xA", "Chance", "TouchOpBox"]), nClave: 4,
   });
 
@@ -405,7 +432,7 @@ async function principal() {
   const abpCampos = "event.sequenceId AS secuencia, lookup(event.passer,fullName) AS lanzador, lookup(event.receiver,fullName) AS receptor, [EventX|EVENT],[EventY|EVENT],[PassEndX|EVENT],[PassEndY|EVENT],[PsCompleted|EVENT],[CornerType|EVENT],[MatchState|EVENT]";
   let abp = null;
   for (const [nombre, q] of [["corner", "event.q6"], ["falta", "event.q5"], ["banda", "event.q107"]]) {
-    const r = await ev(`'${nombre}' AS abp, ${abpCampos}`, `${q} AND event.playType = 'PASS'`, 40000);
+    const r = await ev(`'${nombre}' AS abp, ${abpCampos}`, `${q} AND event.playType = 'PASS'`, 60000);
     abp = abp ? { cols: abp.cols, filas: abp.filas.concat(r.filas) } : r;
     console.log(`  ${nombre}: ${r.filas.length}`);
   }
@@ -415,7 +442,7 @@ async function principal() {
   console.log("Momentum de cada partido (tramos de 5 minutos)…");
   docs["opta:momento"] = await consulta(
     evalua,
-    "SELECT game.gameId as partido, teamId, newest(team.game.fullName) AS equipo, floor(event.gameClock / 300) as tramo, [ExpG],[ShtIncBl],[TouchOpBox],[TchsA3],[PsAtt],[Poss%],[Recovery],[PosWonA3rd],[PossLost] FROM team BY event GROUP BY game.gameId, teamId, floor(event.gameClock / 300) LIMIT 30000",
+    "SELECT game.gameId as partido, teamId, newest(team.game.fullName) AS equipo, floor(event.gameClock / 300) as tramo, [ExpG],[ShtIncBl],[TouchOpBox],[TchsA3],[PsAtt],[Poss%],[Recovery],[PosWonA3rd],[PossLost] FROM team BY event GROUP BY game.gameId, teamId, floor(event.gameClock / 300) LIMIT 60000",
     S,
     "team t",
   );
@@ -431,7 +458,7 @@ async function principal() {
   cierra();
 
   fs.mkdirSync(CACHE, { recursive: true });
-  for (const [k, v] of Object.entries(docs)) fs.writeFileSync(path.join(CACHE, `${k.replace(":", "-")}.json`), JSON.stringify(v));
+  for (const [k, v] of Object.entries(docs)) fs.writeFileSync(path.join(CACHE, `${k.replaceAll(":", "-")}.json`), JSON.stringify(v));
   console.log(`Copia local en ${CACHE}`);
 
   if (EN_SECO) { console.log("En seco: no se sube nada."); return; }

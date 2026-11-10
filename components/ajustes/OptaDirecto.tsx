@@ -60,7 +60,15 @@ export function OptaDirecto({ deshabilitado }: { deshabilitado?: boolean }) {
     }
   };
 
-  const enMarcha = estado?.ultima && estado.ultima.estado !== "completed";
+  const enMarcha = !!estado?.ultima && estado.ultima.estado !== "completed";
+
+  /* Mientras corre, se vuelve a mirar cada minuto: si no, el botón se quedaba
+     en «En marcha» hasta recargar la página aunque el directo ya hubiera acabado. */
+  useEffect(() => {
+    if (!enMarcha) return;
+    const reloj = setInterval(() => setVuelta((v) => v + 1), 60_000);
+    return () => clearInterval(reloj);
+  }, [enMarcha]);
 
   return (
     <div className="mt-4 rounded-xl border border-white/[0.07] px-3 py-3">
@@ -90,7 +98,14 @@ export function OptaDirecto({ deshabilitado }: { deshabilitado?: boolean }) {
       {estado?.ultima && (
         <p className="mt-2 text-[12px] text-white/45">
           Última: {new Date(estado.ultima.empezo).toLocaleString("es-ES", { dateStyle: "short", timeStyle: "short" })} ·{" "}
-          {estado.ultima.estado === "completed" ? (estado.ultima.resultado === "success" ? "terminó bien" : "falló") : "en marcha"} ·{" "}
+          {estado.ultima.estado !== "completed"
+            ? "en marcha"
+            : estado.ultima.resultado === "success"
+              ? "terminó bien"
+              : estado.ultima.resultado === "cancelled"
+                ? "cancelado"
+                : "falló"}{" "}
+          ·{" "}
           <a href={estado.ultima.enlace} target="_blank" rel="noreferrer" className="underline">
             ver en GitHub
           </a>

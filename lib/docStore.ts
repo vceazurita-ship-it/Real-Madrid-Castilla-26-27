@@ -206,15 +206,6 @@ export async function cambiaDoc<T>(
 }
 
 /**
- * Los documentos cuya clave empieza por un prefijo.
- *
- * Lo pide el coding: los clips de un jugador están repartidos por todas las
- * sesiones —una por partido y por rival— y la ficha del jugador tiene que
- * poder reunirlos sin saber de antemano qué partidos existen. Es la única
- * lectura del almacén que no va por clave exacta, y por eso lleva tope: una
- * temporada son decenas de documentos, no miles.
- */
-/**
  * Sólo las fechas (09/11/2026, pestaña «Actualizaciones» de Ajustes): cuándo
  * se escribió por última vez cada documento, sin bajar su contenido (algunos
  * pesan megas). Con `prefijos`, la más reciente de los que empiezan así.
@@ -247,6 +238,15 @@ export async function fechasDeDocs(claves: string[], prefijos: string[] = []): P
   return fechas;
 }
 
+/**
+ * Los documentos cuya clave empieza por un prefijo.
+ *
+ * Lo pide el coding: los clips de un jugador están repartidos por todas las
+ * sesiones —una por partido y por rival— y la ficha del jugador tiene que
+ * poder reunirlos sin saber de antemano qué partidos existen. Es la única
+ * lectura del almacén que no va por clave exacta, y por eso lleva tope: una
+ * temporada son decenas de documentos, no miles.
+ */
 export async function listDocs<T = unknown>(
   prefix: string,
   limite = 200,
