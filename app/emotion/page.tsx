@@ -179,6 +179,17 @@ export default function EmotionPage() {
   const rows = useMemo(() => aplicaEdiciones(rowsHoja, docEmocional), [rowsHoja, docEmocional]);
   const editadosAqui = Object.keys(docEmocional.jugadores).length;
 
+  /* 10/11/2026: la fecha de la última valoración editada, para que cada nota lleve su base temporal. */
+  const fechaValoracion = useMemo(
+    () =>
+      Object.values(docEmocional.jugadores)
+        .map((e) => e.editado)
+        .filter((f) => /^\d{4}-\d{2}-\d{2}/.test(f))
+        .sort()
+        .at(-1) ?? null,
+    [docEmocional],
+  );
+
   const [editando, setEditando] = useState(false);
   const { players: plantilla } = usePlayers();
 
@@ -295,6 +306,40 @@ export default function EmotionPage() {
 
     return { top: sorted[0], bottom: sorted[sorted.length - 1] };
   }, [teamAverage]);
+
+  /*
+  | 10/11/2026: la frase de arriba. Media de cada línea con los valorados de
+  | verdad (quien lleva la media de la plantilla no cuenta) y el titular más
+  | bajo de las seis líneas.
+  */
+  const conclusion = useMemo(() => {
+    const TITULO: Record<GroupKey, string> = {
+      keeper: "portero y defensa",
+      defense: "defensa",
+      leftSide: "perfil izquierdo",
+      rightSide: "perfil derecho",
+      midfield: "medios",
+      strikers: "puntas",
+    };
+    const reales = (k: GroupKey) =>
+      (groups[k] ?? []).map((n) => getPlayer(n)).filter((p): p is Player => Boolean(p && !p.estimado));
+    const lineas = (Object.keys(TITULO) as GroupKey[])
+      .map((k) => ({ k, ps: reales(k) }))
+      .filter((l) => l.ps.length > 0)
+      .map((l) => ({ ...l, media: l.ps.reduce((a, p) => a + average(p), 0) / l.ps.length }))
+      .sort((a, b) => b.media - a.media);
+
+    if (lineas.length < 2) return null;
+
+    const alta = lineas[0];
+    const baja = lineas[lineas.length - 1];
+    const todos = [...new Map(lineas.flatMap((l) => l.ps).map((p) => [p.jugador, p])).values()];
+    const peor = [...todos].sort((a, b) => average(a) - average(b))[0];
+    const base = (l: typeof alta) => `${coma(l.media)} · ${l.ps.length} ${l.ps.length === 1 ? "jugador" : "jugadores"}`;
+    const nombre = nombreVisible(mejorCasado([peor.jugador], plantilla, (p) => [p.nombre, p.apodo])?.nombre || peor.jugador);
+
+    return `La línea más entera es ${TITULO[alta.k]} (${base(alta)}) y la más justa, ${TITULO[baja.k]} (${base(baja)}); el titular más bajo es ${nombre}, con ${coma(average(peor))} de media.`;
+  }, [groups, getPlayer, plantilla]);
 
   const setGroup = useCallback((key: GroupKey, value: string[]) => {
     setGroups((prev) => ({ ...prev, [key]: value }));
@@ -450,16 +495,30 @@ export default function EmotionPage() {
                     </p>
                   </details>
 
+                  {/* 10/11/2026: la conclusión antes de los radares: línea más alta,
+                      más baja y el titular más bajo, con la media real (sin
+                      los que llevan la media de la plantilla). */}
+                  {conclusion && (
+                    <p className="mt-3 max-w-2xl text-base font-medium leading-snug text-white">{conclusion}</p>
+                  )}
+
                   {/* Una línea discreta: qué parte de lo que se ve no sale de la hoja. */}
                   {(editadosAqui > 0 || sinGuardar || estadoDoc === "error" || localOnly) && (
-                    <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-white/45" data-export-hide>
+                    <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-white/60" data-export-hide>
                       {editadosAqui > 0 && (
-                        <span>
-                          {/* 08/11/2026: en lenguaje de entrenador, no de base de datos. */}
-                          {editadosAqui === 1
-                            ? "1 valoración cambiada en esta pantalla: se ve la tuya, no la de la hoja."
-                            : `${editadosAqui} valoraciones cambiadas en esta pantalla: se ven las tuyas, no las de la hoja.`}
-                        </span>
+                        /* 10/11/2026: no son copias del aparato: la capa
+                           `emotion:valoraciones` está guardada para todo el
+                           cuerpo técnico. Un chip con fecha y «Ver». */
+                        <button
+                          type="button"
+                          onClick={() => setEditando(true)}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-2.5 py-0.5 text-white/75 transition hover:border-[#C8A96B] hover:text-white"
+                        >
+                          {editadosAqui === 1 ? "1 valoración" : `${editadosAqui} valoraciones`} hechas en la app
+                          {fechaValoracion ? ` (la última, ${fechaValoracion.slice(8, 10)}/${fechaValoracion.slice(5, 7)})` : ""}
+                          , el resto de la hoja
+                          <span className="font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)]">Ver →</span>
+                        </button>
                       )}
                       <SaveState status={estadoDoc} localOnly={localOnly} savedAt={lastSavedAt} sinGuardar={sinGuardar} onGuardar={() => void guardaYa()} />
                     </p>
@@ -490,13 +549,13 @@ export default function EmotionPage() {
                     <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-full border border-white/10 px-4 py-2 text-xs font-medium text-white/65 transition hover:border-white/25 hover:text-white [&::-webkit-details-marker]:hidden">
                       Más
                     </summary>
-                    <div className="absolute left-0 z-30 mt-2 flex w-56 flex-col sm:left-auto sm:right-0 gap-1 rounded-2xl border border-white/10 bg-[#0B1622] p-2 shadow-xl">
+                    {/* 10/11/2026: fondo y letra del tema de día (antes, fondo
+                        oscuro fijo con letra oscura del modo día: contraste 1,05). */}
+                    <div className="absolute left-0 z-30 mt-2 flex w-56 flex-col sm:left-auto sm:right-0 gap-1 rounded-2xl border border-white/10 bg-[#0B1622] p-2 shadow-xl [:root[data-theme=light]_&]:border-slate-300 [:root[data-theme=light]_&]:bg-white">
                       <button
                         onClick={() => setShowTeamAverage((v) => !v)}
                         aria-pressed={showTeamAverage}
-                        className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-medium transition hover:bg-white/[0.06] ${
-                          showTeamAverage ? "text-white" : "text-white/60"
-                        }`}
+                        className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-medium text-white transition hover:bg-white/[0.06] [:root[data-theme=light]_&]:text-slate-900 [:root[data-theme=light]_&]:hover:bg-slate-100"
                       >
                         <span aria-hidden className="h-px w-5 border-t border-dashed border-current" />
                         {showTeamAverage ? "Quitar la media del equipo" : "Ver la media del equipo"}
@@ -504,7 +563,7 @@ export default function EmotionPage() {
 
                       <button
                         onClick={resetGroups}
-                        className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-medium text-white/65 transition hover:bg-white/[0.06] hover:text-white"
+                        className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-medium text-white transition hover:bg-white/[0.06] [:root[data-theme=light]_&]:text-slate-900 [:root[data-theme=light]_&]:hover:bg-slate-100"
                       >
                         <RefreshCw size={13} />
                         Restablecer líneas
@@ -518,6 +577,7 @@ export default function EmotionPage() {
             {/* ------------------------------- El once de la pizarra (29/10/2026) */}
             {!error && (
               <CampoEmocional
+                fechaValoracion={fechaValoracion}
                 rows={rows}
                 loading={loading}
                 teamAverage={teamAverage}

@@ -165,14 +165,37 @@ export default function Calendar() {
 
   const active = months[currentMonth];
 
+  /* 10/11/2026: lo fechado después de hoy es lo programado: se pinta con su
+     estilo y no entra en «hasta hoy». */
+  const hoyKey = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`;
+
   const monthStats = useMemo(() => {
+    const hoyClave = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`;
     const inMonth = visibleData.filter((s) => {
       const key = recordDateKey(s.FECHA);
-      if (!key) return false;
+      if (!key || key > hoyClave) return false;
 
       const d = parseDateKey(key);
       return d.getMonth() === active.month && d.getFullYear() === active.year;
     });
+
+    /* La referencia: el mes anterior hasta el mismo día (si es el mes en
+       curso) o entero, para que el número tenga con qué compararse. */
+    const enCurso = active.month === hoy.getMonth() && active.year === hoy.getFullYear();
+    const mesPrevio = active.month === 0 ? 11 : active.month - 1;
+    const anioPrevio = active.month === 0 ? active.year - 1 : active.year;
+    const anterior = visibleData.filter((s) => {
+      const key = recordDateKey(s.FECHA);
+      if (!key) return false;
+
+      const d = parseDateKey(key);
+      return d.getMonth() === mesPrevio && d.getFullYear() === anioPrevio && (!enCurso || d.getDate() <= hoy.getDate());
+    }).length;
+    const programados = visibleData.filter((s) => {
+      const key = recordDateKey(s.FECHA);
+
+      return Boolean(key) && (key as string) > hoyClave;
+    }).length;
 
     const ids = new Set(inMonth.map((s) => s.ID_JUGADOR));
     const jugadores = ids.size;
@@ -182,8 +205,8 @@ export default function Calendar() {
       TIPOS.map((tipo) => [tipo, inMonth.filter((s) => strategyKey(s.ESTRATEGIA) === tipo).length]),
     ) as Record<StrategyKey, number>;
 
-    return { total: inMonth.length, jugadores, castillaConSeguimiento, porTipo };
-  }, [visibleData, active, players]);
+    return { total: inMonth.length, jugadores, castillaConSeguimiento, porTipo, anterior, enCurso, mesPrevio, programados };
+  }, [visibleData, active, players, hoy]);
 
   const castillaTotal = useMemo(() => players.filter((p) => p.esCastilla).length, [players]);
 
@@ -291,24 +314,29 @@ export default function Calendar() {
             role="status"
             className="rounded-xl border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-4 py-3 text-sm text-white/80"
           >
-            <span className="font-semibold text-[#C8A96B]">
-              Sin seguimiento en {DIAS_SIN_SEGUIMIENTO} días, hasta hoy ({sinSeguimiento.length}):
-            </span>{" "}
-            {sinSeguimiento.map((j, i) => (
-              <span key={j.id}>
+            {/* 10/11/2026: el mismo bloque que /individual: titular, base y
+                un chip por jugador con sus días, que abre su ficha. */}
+            <p className="font-semibold text-[#C8A96B]">
+              A quién toca seguir: {sinSeguimiento.length} del Castilla sin seguimiento en {DIAS_SIN_SEGUIMIENTO} días
+            </p>
+            <p className="mt-0.5 text-[11px] text-white/55">
+              Jugadores de campo con licencia del Castilla; los porteros llevan su seguimiento aparte. Cada uno abre su ficha.
+            </p>
+            <div className="mt-2 flex min-w-0 flex-wrap gap-1.5">
+              {sinSeguimiento.map((j) => (
                 <button
+                  key={j.id}
                   type="button"
                   onClick={() => openPlayer(j.id)}
-                  className="underline-offset-2 hover:text-[#C8A96B] hover:underline"
+                  className="inline-flex min-w-0 items-center gap-1.5 rounded-full border border-[#C8A96B]/40 bg-white/[0.04] px-2.5 py-1 text-xs transition hover:border-[#C8A96B]"
                 >
-                  {j.nombre}
+                  <span className="truncate font-semibold">{j.nombre}</span>
+                  <span className="shrink-0 tabular-nums text-white/60">
+                    {j.dias == null ? "ningún registro" : `${j.dias} días`}
+                  </span>
                 </button>
-                <span className="text-white/55">
-                  {j.dias == null ? " (ningún registro)" : ` (${j.dias} días)`}
-                </span>
-                {i < sinSeguimiento.length - 1 ? ", " : "."}
-              </span>
-            ))}
+              ))}
+            </div>
           </div>
         ) : undefined
       }
@@ -326,9 +354,9 @@ export default function Calendar() {
             hint={
               playerFilter
                 ? undefined
-                : temporadaCastilla < trackingData.length
+                : `${monthStats.enCurso ? `${MONTHS[monthStats.mesPrevio].toLowerCase()} al mismo día: ${monthStats.anterior}` : `${MONTHS[monthStats.mesPrevio].toLowerCase()}: ${monthStats.anterior}`}${monthStats.programados > 0 ? ` · ${monthStats.programados} programado${monthStats.programados === 1 ? "" : "s"} después de hoy, aparte` : ""} · ${temporadaCastilla < trackingData.length
                   ? `Temporada 26/27: ${temporadaCastilla} registros${castillaTotal > 0 ? ` de ${castillaTotal} jugadores` : ""} del Castilla (otros equipos, aparte: ${trackingData.length - temporadaCastilla})`
-                  : `${trackingData.length} en toda la temporada`
+                  : `${trackingData.length} en toda la temporada`}`
             }
           />
           <CalendarStat
@@ -447,16 +475,20 @@ export default function Calendar() {
                     }}
                     className={cn(
                       "cursor-pointer rounded-md border border-l-4 border-[#C8A96B]/20 bg-[#C8A96B]/10 px-1.5 py-1 transition-all hover:border-[#C8A96B]",
-                      style.stripe
+                      style.stripe,
+                      key > hoyKey && "border-dashed bg-transparent opacity-75",
                     )}
                   >
+                    {key > hoyKey && (
+                      <p className="text-[8px] font-semibold uppercase tracking-wide text-white/60 md:text-[9px]">Programado</p>
+                    )}
                     {/* 07/11/2026: el tipo lo dice la franja de color (y la
                         leyenda); en texto sólo en el globo, para no repetirlo. */}
                     <p
                       className="truncate text-[9px] font-semibold md:text-[11px]"
                       title={`${style.label}${session.QUIEN ? ` · ${session.QUIEN}` : ""}`}
                     >
-                      {nombreVisible(jugador?.nombre ?? session.NOMBRE ?? session.ID_JUGADOR)}
+                      {nombreVisible(jugador?.nombre || session.NOMBRE?.trim() || "Sin jugador en la hoja")}
                     </p>
 
                     {session.QUIEN?.trim() && (
@@ -540,7 +572,7 @@ export default function Calendar() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="truncate text-lg font-semibold">
-                        {nombreVisible(jugador?.nombre ?? session.NOMBRE ?? session.ID_JUGADOR)}
+                        {nombreVisible(jugador?.nombre || session.NOMBRE?.trim() || "Sin jugador en la hoja")}
                       </p>
 
                       <p className="mt-1 text-sm text-[#C8A96B]">

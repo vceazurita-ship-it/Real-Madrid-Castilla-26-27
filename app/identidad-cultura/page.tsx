@@ -23,6 +23,7 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { DOCUMENTO_VALORES } from "@/lib/cultura/documentos/valores";
 import { conVotos } from "@/components/cultura/HojaCultura";
+import { ResumenValores, TOTAL_VOTOS_VALORES } from "@/components/cultura/ResumenValores";
 
 /*
 | 08/11/2026: el titular dice la idea con el dato («Humildad, el más votado»)
@@ -36,7 +37,8 @@ const TITULAR = (() => {
 
   if (!primero || !votos(primero.votos)) return "Los valores que votó la plantilla";
 
-  return `${indice.length} valores votados por la plantilla: ${primero.titulo}, el más votado (${votos(primero.votos)} votos)`;
+  /* 10/11/2026: con su base, «9 de 32 votos». */
+  return `${indice.length} valores votados por la plantilla: ${primero.titulo}, el más votado (${votos(primero.votos)} de ${TOTAL_VOTOS_VALORES} votos)`;
 })();
 
 export default function IdentidadCulturaPage() {
@@ -55,6 +57,16 @@ export default function IdentidadCulturaPage() {
               title={TITULAR}
               lead="Cinco valores, cada uno con lo que suma y lo que no se admite, dentro y fuera del campo. Listos para proyectar en la sala o imprimir."
             />
+
+            {/* 10/11/2026: cada valor con sus votos y su antivalor, en texto y en
+                la misma pantalla: en el móvil la miniatura no se lee, y así el
+                recuento se comprueba sin abrir las diapositivas. */}
+            <section className="mt-5 max-w-3xl rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <h2 className="text-sm font-semibold text-white">Los cinco valores y lo que los destruye</h2>
+              <div className="mt-2">
+                <ResumenValores />
+              </div>
+            </section>
 
             <div className="mt-6">
               <RepositorioCultura />

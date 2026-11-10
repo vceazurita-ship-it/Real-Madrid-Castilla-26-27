@@ -61,7 +61,34 @@ function casaCon(nombre: string, plantilla: FichaCruce[]): string | null {
     }),
   );
 
-  return casan.length === 1 ? casan[0].id : null;
+  if (casan.length === 1) return casan[0].id;
+  if (casan.length > 1) return null;
+
+  /*
+  | 10/11/2026: al revés. La lista del delegado escribe el nombre entero
+  | («JESUS FORTEA», «JORGE CESTERO», «RACHAD FETTAL») y la plantilla sólo el
+  | apellido o el apodo: con la regla de arriba, 14 de 22 del Castilla salían
+  | «sin ninguna sesión» (Fortea, con el 100 % de los minutos). Ahora vale
+  | también que TODAS las palabras de la ficha estén en la lista, con al menos
+  | una de 4 letras («Pol» solo no ata a «POL DURÁN»). Primero el nombre de
+  | la ficha y, si no casa nadie, el apodo («Óscar» para «OSCAR NAASEI»); con
+  | dos candidatos, ninguno.
+  */
+  const enLaLista = new Set(palabras);
+  const contiene = (n: string) => {
+    const suyas = claveNombre(n).split(" ").filter((w) => w.length > 2);
+
+    return suyas.some((w) => w.length >= 4) && suyas.every((w) => casaPalabra(w, enLaLista));
+  };
+
+  for (const campo of ["nombre", "apodo"] as const) {
+    const porCampo = plantilla.filter((p) => contiene(p[campo] ?? ""));
+
+    if (porCampo.length === 1) return porCampo[0].id;
+    if (porCampo.length > 1) return null;
+  }
+
+  return null;
 }
 
 export function resumenDeSesiones(almacen: AlmacenEquipos | null | undefined, plantilla: FichaCruce[]): ResumenSesiones {

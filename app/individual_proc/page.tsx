@@ -201,7 +201,14 @@ function daysAgo(v: string) {
 
   if (!d) return null;
 
-  return Math.floor((Date.now() - d.getTime()) / 86400000);
+  /* 10/11/2026: días de calendario (de medianoche a medianoche), la misma
+     cuenta que /calendar e /individual; por horas, un registro de ayer por
+     la tarde era «hoy». */
+  const ahora = new Date();
+  const hoy0 = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate()).getTime();
+  const dia0 = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+
+  return Math.round((hoy0 - dia0) / 86400000);
 }
 
 /** «hoy», «ayer» o «hace N días»: lo que se dice en voz alta. */
@@ -330,21 +337,25 @@ export default function DashboardSeguimiento() {
   | activa más y puede colarse como el registro más reciente. Se dice cuántos
   | son al lado del total, para que no desaparezcan en silencio.
   */
+  const [hoy] = useState(() => new Date());
+
   const tracking = useMemo(
     () => {
       /* Sólo cuenta desde SESIONES_CONTADAS_DESDE; lo anterior (y lo que no
-         tiene fecha) no entra en ningún cálculo ni texto de la pantalla. */
+         tiene fecha) no entra en ningún cálculo ni texto de la pantalla.
+         10/11/2026: y nada fechado después de hoy (un registro del 11/11
+         salía como «Último registro: hoy»): eso es lo programado. */
       const desde = new Date(`${SESIONES_CONTADAS_DESDE}T00:00:00`).getTime();
+      const hasta = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 23, 59, 59, 999).getTime();
       return delGrupo.filter((s) => {
         const d = fechaValida(s.FECHA);
-        return d !== null && d.getTime() >= desde;
+        return d !== null && d.getTime() >= desde && d.getTime() <= hasta;
       });
     },
-    [delGrupo],
+    [delGrupo, hoy],
   );
 
   const sinFecha = 0;
-  const [hoy] = useState(() => new Date());
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TabKey>("resumen");
   const [search, setSearch] = useState("");
@@ -741,7 +752,13 @@ export default function DashboardSeguimiento() {
 
   /* 08/11/2026 (jueces): la media sólo con semanas completas; la que va en
      curso se pinta, pero no entra en la media. */
-  const semanasCerradas = weeklyData.filter((w) => !(w.week === semanaDeHoy && diaDeSemana < 7));
+  /* 10/11/2026: tampoco la primera si el conteo empezó a media semana (el
+     21/10 fue miércoles): «3 semanas completas» eran 2 y una de 5 días. */
+  const semanaDeInicio = `S${getSeasonWeek(`${SESIONES_CONTADAS_DESDE}T12:00:00`)}`;
+  const inicioEnLunes = new Date(`${SESIONES_CONTADAS_DESDE}T12:00:00`).getDay() === 1;
+  const semanasCerradas = weeklyData.filter(
+    (w) => !(w.week === semanaDeHoy && diaDeSemana < 7) && (inicioEnLunes || w.week !== semanaDeInicio),
+  );
   const weeklyMean = semanasCerradas.length
     ? +(
         semanasCerradas.reduce((a, b) => a + b.value, 0) / semanasCerradas.length
@@ -912,10 +929,21 @@ export default function DashboardSeguimiento() {
     /* Misma regla y misma ventana (14 días) que el aviso de /calendar: quien
        no tiene ningún seguimiento. Sólo si nadie está a cero se nombran los
        tres con menos. */
+    /* 10/11/2026: con los días desde su último registro (hasta hoy), como
+       /calendar, para que la orden lleve su base. */
+    const ultimoDias = (id: string) => {
+      const dias = delGrupo
+        .filter((s) => s.ID_JUGADOR === id)
+        .map((s) => daysAgo(s.FECHA))
+        .filter((d): d is number => d !== null && d >= 0);
+
+      return dias.length ? Math.min(...dias) : null;
+    };
     const aCero = plantillaEnFoco
       .filter((p) => aCeroIds.has(p.id))
-      .map((p) => nombreVisible(p.nombre))
-      .sort((a, b) => a.localeCompare(b, "es"));
+      .map((p) => ({ nombre: nombreVisible(p.nombre), dias: ultimoDias(p.id) }))
+      .sort((a, b) => (b.dias ?? 9999) - (a.dias ?? 9999))
+      .map((p) => `${p.nombre} (${p.dias === null ? "ningún registro" : `${p.dias} días`})`);
 
     if (aCero.length > 0) {
       out.unshift({
@@ -1292,22 +1320,25 @@ export default function DashboardSeguimiento() {
                   /* 29/10/2026: una sola base por tarjeta: aquí registros (y
                      cuántos de ellos llevan feedback); los jugadores van en
                      «Con seguimiento» y «Cobertura». */
-                  hint={`registros ${SESIONES_DESDE_TEXTO} · ${withFeedback} de ${totalSessions} con feedback`}
+                  /* 10/11/2026: la ventana dicha (el registro de la temporada
+                     está en /calendar) y, con un filtro que deja menos de 15,
+                     el aviso de que es tendencia. */
+                  hint={`registros ${SESIONES_DESDE_TEXTO}, cuando empezó el registro completo (la temporada entera, en Calendario) · ${withFeedback} de ${totalSessions} con feedback${totalSessions > 0 && totalSessions < 15 ? " · tendencia: menos de 15 registros" : ""}`}
                 />
 
                 <StatCard
                   icon={Users}
                   title="Con seguimiento"
                   value={cubiertos}
-                  hint={`jugadores con algún registro · ${cm(avgPerPlayer)} registros por jugador`}
+                  hint={`jugadores con algún registro ${SESIONES_DESDE_TEXTO} · ${cm(avgPerPlayer)} registros por jugador (de ${totalSessions})`}
                   accent="#6E7F99"
                 />
 
                 <StatCard
                   icon={UserCheck}
-                  title="Cobertura"
+                  title="Cobertura · de campo del Castilla"
                   value={`${cm(coverage)} %`}
-                  hint={`${cubiertos} de ${squadSize} jugadores de campo del Castilla`}
+                  hint={`${cubiertos} de ${squadSize} jugadores de campo con licencia del Castilla ${SESIONES_DESDE_TEXTO} (sin porteros ni otras licencias)`}
                   accent={coverage >= 80 ? "#10B981" : coverage >= 50 ? "#C8A96B" : "#EF4444"}
                   progress={coverage}
                 />
@@ -1318,7 +1349,7 @@ export default function DashboardSeguimiento() {
                   value={cm(semanasCerradas.length >= 1 && weeklyData.length > 1 ? weeklyMean : averageWeek)}
                   hint={
                     semanasCerradas.length >= 1 && weeklyData.length > 1
-                      ? `media de ${semanasCerradas.length} ${semanasCerradas.length === 1 ? "semana completa" : "semanas completas"} (lunes a domingo)${semanasCerradas.length < weeklyData.length ? `; la actual va aparte, día ${diaDeSemana} de 7` : ""}`
+                      ? `registros por semana: media de ${semanasCerradas.length} ${semanasCerradas.length === 1 ? "semana completa" : "semanas completas"} (lunes a domingo)${semanasCerradas.length < weeklyData.length ? "; la primera (desde el miércoles 21/10) y la actual van aparte" : ""}`
                       : totalWeeks === 1 ? "1 semana activa" : `${totalWeeks} semanas activas`
                   }
                   accent="#4C7A67"
@@ -1342,7 +1373,7 @@ export default function DashboardSeguimiento() {
                     icon={Clock}
                     title="Último registro"
                     value={corto(sinceLast)}
-                    hint={lastRecord ? nameOf(lastRecord) : ""}
+                    hint={lastRecord ? `${nameOf(lastRecord)} · el más reciente de ${totalSessions}` : ""}
                     accent="#F97316"
                   />
                 )}

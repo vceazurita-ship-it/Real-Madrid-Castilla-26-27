@@ -47,6 +47,7 @@ import {
   type CifraDelPrincipio,
 } from "@/lib/identidad/campo";
 import { formatea } from "@/lib/data-analisis/metricas";
+import { cargaCalendario } from "@/hooks/useCalendario";
 import type { FilaPartido } from "@/lib/data-analisis/leer";
 
 type Principio = {
@@ -90,6 +91,9 @@ const CSV_URL =
 
 /** Nombre de las notas de lo recién escrito en `localStorage`. */
 const ESPACIO_ESCRITAS = "game-model";
+
+/** Lo más que se enseña el esqueleto antes de pasar al aviso con «Reintentar». */
+const ESPERA_MAXIMA_MS = 12_000;
 
 /** Orden preferido de las fases; cualquier otra se añade detrás en el orden de la hoja. */
 const ORDEN_FASES = ["ATAQUE", "DEFENSA"];
@@ -135,6 +139,22 @@ export default function GameModelPage() {
 
   useEffect(() => {
     let cancelado = false;
+
+    /*
+    | 10/11/2026: tope al esqueleto. Sin copia en el aparato, la hoja publicada
+    | puede no contestar en mucho rato y la pantalla se quedaba en «Cargando
+    | principios…» mientras la cabecera ya decía que no se había podido
+    | actualizar. A los 12 s sale el aviso con «Reintentar»; la descarga sigue
+    | por detrás y, si llega, pinta los principios sola.
+    */
+    const tope = setTimeout(() => {
+      if (cancelado) return;
+
+      setError(
+        "La hoja del modelo de juego no contesta. Si es la primera vez que se abre en este aparato, el servidor de Google puede tardar hasta un minuto: los principios aparecen solos en cuanto lleguen.",
+      );
+      setLoading(false);
+    }, ESPERA_MAXIMA_MS);
 
     (async () => {
       try {
@@ -200,12 +220,14 @@ export default function GameModelPage() {
             : "Error desconocido al leer la hoja de cálculo.",
         );
       } finally {
+        clearTimeout(tope);
         if (!cancelado) setLoading(false);
       }
     })();
 
     return () => {
       cancelado = true;
+      clearTimeout(tope);
     };
   }, [recarga]);
 
@@ -613,9 +635,11 @@ export default function GameModelPage() {
               aria-label="Fase del juego"
               className="flex gap-2 rounded-2xl border border-white/10 bg-white/[0.03] p-1"
             >
-              {fases.map((f) => {
+              {/* 10/11/2026: las fases son fijas; mientras llega la hoja se
+                  pintan ya (sin pulsar) en vez de una caja vacía. */}
+              {(fases.length ? fases : ORDEN_FASES).map((f) => {
                 const Icono = ICONO_FASE[f] ?? Target;
-                const activa = fase === f;
+                const activa = fase === f || (!fases.length && f === ORDEN_FASES[0]);
 
                 return (
                   <button
@@ -623,6 +647,7 @@ export default function GameModelPage() {
                     role="tab"
                     type="button"
                     aria-selected={activa}
+                    disabled={!fases.length}
                     onClick={() => seleccionarFase(f)}
                     className={cn(
                       "flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold transition-all",
@@ -637,10 +662,6 @@ export default function GameModelPage() {
                   </button>
                 );
               })}
-
-              {fases.length === 0 && (
-                <div className="h-10 flex-1 animate-pulse rounded-xl bg-white/[0.04]" />
-              )}
             </div>
 
             <SearchField
@@ -1047,12 +1068,15 @@ type EstadoCifras = "cargando" | "error" | Map<string, CifraDelPrincipio[]>;
 
 let promesaCifras: Promise<Map<string, CifraDelPrincipio[]>> | null = null;
 
+/* 10/11/2026: con el calendario, para decir la jornada de verdad del último
+   partido (como /identidad-campo) y no el número de partidos jugados. */
 const pideCifras = () =>
-  (promesaCifras ??= traeJson<{ ok: boolean; partidos?: FilaPartido[] }>(
-    "/api/data-analisis",
-  ).then((r) => {
+  (promesaCifras ??= Promise.all([
+    traeJson<{ ok: boolean; partidos?: FilaPartido[] }>("/api/data-analisis"),
+    cargaCalendario().catch(() => []),
+  ]).then(([r, calendario]) => {
     if (!r.ok || !r.partidos) throw new Error("Sin partidos");
-    return cifrasDelModelo(r.partidos);
+    return cifrasDelModelo(r.partidos, calendario);
   }));
 
 function useCifras(): EstadoCifras {
@@ -1088,40 +1112,49 @@ const enEspanol = (nombre: string) => {
 const cumple = (c: CifraDelPrincipio) =>
   c.mejorAlto ? c.ultimo.valor >= c.mediana : c.ultimo.valor <= c.mediana;
 
+/** «J11, 08/11» si se sabe la jornada; si no, «11.º partido, 08/11». */
+const cualPartido = (u: CifraDelPrincipio["ultimo"]) => {
+  const [, mes, dia] = u.fecha.slice(0, 10).split("-");
+  const fecha = dia && mes ? `, ${dia}/${mes}` : "";
+
+  return u.jornada ? `J${u.jornada}${fecha}` : `${u.orden}.º partido${fecha}`;
+};
+
+/*
+| 10/11/2026: la flecha se calcula contra la mediana de la categoría, no
+| contra la temporada propia; la línea lo dice («por debajo de la mediana…»),
+| con la base de esa mediana (equipos del grupo, partidos de la temporada) y
+| el sentido de la medida. Antes «▼ 15,4 %» con la temporada en 12,7 % se
+| leía como que había bajado respecto a nosotros mismos.
+*/
 function CifraLinea({ c }: { c: CifraDelPrincipio }) {
   const bien = cumple(c);
+  const igual = c.ultimo.valor === c.mediana;
 
   return (
-    <li className="min-w-0">
-      <span className="font-semibold text-white">{enEspanol(c.nombre)}</span>
-      {": "}
-      <span className="whitespace-nowrap">
-        <span
-          className={cn(
-            "font-bold tabular-nums",
-            bien ? "text-emerald-400" : "text-amber-400",
-          )}
-        >
-          {bien ? "▲" : "▼"} {formatea(c.ultimo.valor, c.unidad)}
-        </span>
-        {c.ultimo.base && (
-          <span className="tabular-nums text-gray-400">
-            {" "}
-            ({c.ultimo.base.de} de {c.ultimo.base.total})
-          </span>
+    <li className="min-w-0 break-words">
+      <span className="font-semibold text-white">{enEspanol(c.nombre)}</span>{" "}
+      <span className="text-gray-400">({c.mejorAlto ? "más es mejor" : "menos es mejor"})</span>
+      <br />
+      <span
+        className={cn(
+          "font-bold tabular-nums",
+          igual ? "text-gray-200" : bien ? "text-emerald-400" : "text-amber-400",
         )}
-      </span>{" "}
+      >
+        {igual ? "=" : bien ? "▲" : "▼"} {formatea(c.ultimo.valor, c.unidad)}
+      </span>
+      {c.ultimo.base && (
+        <span className="tabular-nums text-gray-400">
+          {" "}
+          ({c.ultimo.base.de} de {c.ultimo.base.total})
+        </span>
+      )}{" "}
       <span className="text-gray-400">
-        en el último partido, ante {c.ultimo.rival}
-        {" · "}
-        <span className="whitespace-nowrap">
-          temporada {formatea(c.temporada, c.unidad)} en {c.partidos} partidos
-        </span>
-        {" · "}
-        <span className="whitespace-nowrap">
-          mediana de {c.equipos} equipos {formatea(c.mediana, c.unidad)}
-        </span>
-        {!c.mejorAlto && " (menos es mejor)"}
+        ante {c.ultimo.rival} ({cualPartido(c.ultimo)}) ·{" "}
+        {igual ? "igual que" : c.ultimo.valor > c.mediana ? "por encima de" : "por debajo de"} la mediana de los{" "}
+        {c.equipos} equipos del grupo ({formatea(c.mediana, c.unidad)}) · nuestra temporada{" "}
+        {formatea(c.temporada, c.unidad)} en {c.partidos} partidos
       </span>
     </li>
   );
@@ -1131,16 +1164,24 @@ function MedidaPrincipio({ p }: { p: Principio }) {
   const m = medidaDe(p);
   const cifras = useCifras();
 
-  if (!m || cifras === "cargando") return null;
+  if (cifras === "cargando") return null;
 
-  const suyas = cifras === "error" ? null : cifras.get(m.ancla);
+  const suyas = !m || cifras === "error" ? null : cifras.get(m.ancla);
 
-  if (cifras !== "error" && !suyas?.length) return null;
+  /* 10/11/2026: un innegociable sin cifra se queda con su insignia (es de la
+     hoja del cuerpo técnico), pero dice cómo se comprueba el lunes. */
+  if (!m || (cifras !== "error" && !suyas?.length)) {
+    return esClave(p.PRINCIPIO) ? (
+      <p className="mt-1.5 text-[13px] leading-relaxed text-gray-400">
+        Se comprueba en el vídeo del partido: Wyscout no trae una medida para este principio.
+      </p>
+    ) : null;
+  }
 
   return (
     <div className="mt-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[13px] leading-relaxed text-gray-300">
       <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-400">
-        Se mide cada jornada · Wyscout
+        Se mide cada jornada · Wyscout · ▲ mejor que la mediana del grupo · ▼ peor
       </p>
       {suyas ? (
         <ul className="mt-1 space-y-1">

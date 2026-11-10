@@ -19,6 +19,7 @@ import { isHiddenPlayer } from "@/lib/hiddenPlayers";
 import { ALMACEN_VACIO, type AlmacenEquipos } from "@/lib/sesion-equipos/modelo";
 import { SESIONES_DESDE_TEXTO, resumenDeSesiones, type ResumenSesiones, type SesionesDeJugador } from "@/lib/sesion-equipos/estadistica";
 import { PUESTOS, type Puesto } from "@/lib/data-analisis/individual";
+import { CORTE_SUB21_TEXTO, EDAD_SUB21 } from "@/lib/comparativa-u21";
 import type { FilaJugador, FilaPartido } from "@/lib/data-analisis/leer";
 import {
   AVISOS,
@@ -374,8 +375,10 @@ export default function DashboardPlantilla() {
   const conMinutos = filtrados.filter((j) => j.minutos > 0 || j.apariciones.some((a) => a.jugo)).length;
   const conEdad = filtrados.filter((j) => j.edad !== null && j.fuenteMinutos === "wyscout");
   const minutosConEdad = conEdad.reduce((a, j) => a + j.minutos, 0);
-  const minutosSub21 = conEdad.filter((j) => (j.edad ?? 99) <= 20).reduce((a, j) => a + j.minutos, 0);
+  const minutosSub21 = conEdad.filter((j) => (j.edad ?? 99) <= EDAD_SUB21).reduce((a, j) => a + j.minutos, 0);
   const ultimo = partidos[partidos.length - 1];
+  const valorados = partidos.filter((p) => [...p.jugadores.values()].some((r) => Number(r.rating) > 0));
+  const ultimoValorado = valorados[valorados.length - 1];
 
   const kpis: { title: string; value: string | number; base: string }[] = [
     {
@@ -399,7 +402,7 @@ export default function DashboardPlantilla() {
             title: "Minutos sub-21",
             value: `${Math.round((minutosSub21 / minutosConEdad) * 100)} %`,
             /* 08/11/2026 (jueces): un porcentaje solo no dice si es mucho; se da la base en minutos. */
-            base: `${minutosSub21.toLocaleString("es-ES")}′ de ${minutosConEdad.toLocaleString("es-ES")}′ jugados, por jugadores de 20 años o menos (Wyscout, ${conEdad.length} jugadores con edad)`,
+            base: `${minutosSub21.toLocaleString("es-ES")}′ de ${minutosConEdad.toLocaleString("es-ES")}′ jugados por los de ${CORTE_SUB21_TEXTO}, la misma regla que la Comparativa (${conEdad.length} jugadores con edad)`,
           },
         ]
       : []),
@@ -407,7 +410,8 @@ export default function DashboardPlantilla() {
       title: "Avisos",
       value: avisos.length,
       /* 07/11/2026: avisos no son jugadores (uno puede tener dos). */
-      base: `${new Set(avisos.map((a) => a.jugador.ficha.id)).size} jugadores · para hablar esta semana`,
+      /* 10/11/2026: qué los dispara, en la propia tarjeta. */
+      base: `${new Set(avisos.map((a) => a.jugador.ficha.id)).size} jugadores · por minutos (Wyscout), partidos sin jugar y notas (Valoraciones) y amarillas`,
     },
   ];
 
@@ -440,9 +444,14 @@ export default function DashboardPlantilla() {
 
             {/* De dónde sale cada cosa y hasta cuándo, en una línea. */}
             <p className="mt-2 text-[13px] leading-snug text-white/60">
-              {ultimo
-                ? `Valoraciones: ${partidos.length} ${partidos.length === 1 ? "partido" : "partidos"}, el último ante ${rivalCorto(ultimo.match.opponent)} (${fechaCorta(ultimo.match.date)})`
-                : "Valoraciones: cargando partidos"}
+              {/* 10/11/2026: se cuentan los partidos con alguna nota (la cifra de
+                  /ratings) y se nombra el último valorado; si hay jugados sin
+                  valorar todavía, se dice en la misma línea. */}
+              {ultimoValorado
+                ? `Valoraciones: ${valorados.length} ${valorados.length === 1 ? "partido valorado" : "partidos valorados"}${partidos.length > valorados.length ? ` de ${partidos.length} jugados` : ""}, el último ante ${rivalCorto(ultimoValorado.match.opponent)} (${fechaCorta(ultimoValorado.match.date)})`
+                : ultimo
+                  ? `Valoraciones: ${partidos.length} ${partidos.length === 1 ? "partido jugado" : "partidos jugados"}, todavía por valorar`
+                  : "Valoraciones: cargando partidos"}
               {" · "}
               {wyEstado === "listo"
                 ? `Wyscout: ${wyscout?.partidos ? partidosWyscout(wyscout.partidos, hoy) : 0} partidos del Castilla en la descarga`
@@ -838,7 +847,11 @@ function BloqueMinutos({ jugadores, posibles, onAbre }: { jugadores: Jugador[]; 
                         <span className="text-right tabular-nums">
                           <span className="block text-sm font-semibold text-white">
                             {j.minutos}′{j.fuenteMinutos === "valoraciones" && j.minutos > 0 ? "*" : ""}
-                            <span className="ml-1.5 text-xs font-normal text-white/50">{pct} %</span>
+                            {/* 10/11/2026: separado («804′81 %» se leía como una cifra) y,
+                                si pasa de los posibles, se dice que es por el añadido. */}
+                            <span className="ml-1.5 text-xs font-normal text-white/50">
+                              · {pct} %{j.minutos > posibles ? " (con el añadido)" : ""}
+                            </span>
                           </span>
                           {j.titular + j.suplente > 0 && (
                             <span className="block text-[11px] text-white/50">
@@ -888,7 +901,11 @@ function BloqueAvisos({
       ) : (
         <div className="space-y-4">
           {ORDEN_AVISOS.map((tipo) => {
-            const suyos = avisos.filter((a) => a.tipo === tipo);
+            /* 10/11/2026: quien juega poco y además lleva tres sin jugar va en
+               una sola fila (la de «Juega poco») con las dos razones. */
+            const tambienSinJugar = new Set(avisos.filter((a) => a.tipo === "sinJugar").map((a) => a.jugador.ficha.id));
+            const juegaPoco = new Set(avisos.filter((a) => a.tipo === "pocos").map((a) => a.jugador.ficha.id));
+            const suyos = avisos.filter((a) => a.tipo === tipo && !(tipo === "sinJugar" && juegaPoco.has(a.jugador.ficha.id)));
             if (!suyos.length) return null;
             const def = AVISOS[tipo];
 
@@ -910,6 +927,9 @@ function BloqueAvisos({
                       >
                         <span className="font-medium text-white/90">{nombreDe(a.jugador)}</span>
                         <span className="ml-1.5 tabular-nums text-white/55">{a.cifra}</span>
+                        {tipo === "pocos" && tambienSinJugar.has(a.jugador.ficha.id) && (
+                          <span className="ml-1.5 text-white/55">· y tres partidos sin jugar</span>
+                        )}
                       </button>
                     </li>
                   ))}

@@ -399,7 +399,8 @@ export function TeamPanel({
           }
           hint={
             mostImproved
-              ? `${formatSigned(mostImproved.summary.trend)}: ${desdeHasta(mostImproved)}sus 3 últimas notas frente a las 3 anteriores · ${mostImproved.summary.played} PJ · media de la temporada ${formatRating(mostImproved.summary.avg)} · entre quienes tienen ${MIN_FIABLE}+ PJ`
+              ? /* 10/11/2026: dos datos y la base, como tendencia: son 3 notas contra 3. */
+                `${formatSigned(mostImproved.summary.trend)} · ${desdeHasta(mostImproved)}3 últimas frente a 3 anteriores · tendencia`
               : undefined
           }
           accent="var(--rmcf-rate-good)"
@@ -409,7 +410,7 @@ export function TeamPanel({
           <StatCard
             label="Más decisivo"
             value={nombreVisible(topScorer.player.nombre)}
-            hint={`${plural(topScorer.summary.goals, "gol", "goles")} · ${plural(topScorer.summary.assists, "asistencia", "asistencias")} en ${plural(topScorer.summary.played, "partido", "partidos")} y ${topScorer.summary.minutes}′ · goles y asistencias de la hoja de Valoraciones`}
+            hint={`${plural(topScorer.summary.goals, "gol", "goles")} · ${plural(topScorer.summary.assists, "asistencia", "asistencias")} en ${plural(topScorer.summary.played, "partido", "partidos")}${topScorer.summary.played < 10 ? " · muestra pequeña" : ""}`}
             accent="var(--rmcf-rate-top)"
           />
         )}
@@ -446,7 +447,8 @@ export function TeamPanel({
               >
               <ComposedChart
                 data={evolution}
-                margin={{ top: 10, right: 10, bottom: 0, left: -18 }}
+                /* 10/11/2026: margen a la derecha para que la última fecha no se corte («31 o»). */
+                margin={{ top: 10, right: 24, bottom: 0, left: -18 }}
               >
                 <defs>
                   <linearGradient id="teamAvgFill" x1="0" y1="0" x2="0" y2="1">
@@ -463,6 +465,7 @@ export function TeamPanel({
                   tick={AXIS.tick}
                   tickLine={false}
                   axisLine={false}
+                  padding={{ left: 8, right: 8 }}
                 />
 
                 <YAxis
@@ -1093,7 +1096,9 @@ export function TeamPanel({
           bodyClassName="p-0"
         >
           <ul className="min-w-0 divide-y divide-white/5">
+            {/* 10/11/2026: sólo los valorados; un partido sin notas no se nombra. */}
             {[...matchSummaries]
+              .filter((item) => item.rated > 0)
               .reverse()
               .slice(0, 10)
               .map((item) => (

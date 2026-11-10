@@ -601,8 +601,11 @@ export function RepositorioCultura() {
               )}
 
               {totalHojas > 1 && (
-                <div className="-mx-1 mb-3 flex gap-1.5 overflow-x-auto px-1 pb-1">
-                  {aLaVista.diapositivas.map((_, indice) => (
+                /* 10/11/2026: las pestañas dicen el valor («2 Humildad»), no «Valor 1»
+                   (la chapa del lienzo sigue igual), y en el móvil se difuminan por
+                   la derecha para que se vea que hay más. */
+                <div className="-mx-1 mb-3 flex gap-1.5 overflow-x-auto px-1 pb-1 pr-6 [mask-image:linear-gradient(to_right,black_85%,transparent)] lg:pr-1 lg:[mask-image:none]">
+                  {aLaVista.diapositivas.map((hojaTab, indice) => (
                     <button
                       key={indice}
                       type="button"
@@ -615,7 +618,11 @@ export function RepositorioCultura() {
                       }`}
                     >
                       <span className="tabular-nums">{indice + 1}</span>{" "}
-                      {(previa ? titulosDocumento(previa) : titulos)[indice]}
+                      {hojaTab.tipo === "valor"
+                        ? hojaTab.valor.titulo
+                        : hojaTab.tipo === "conductas"
+                          ? `${hojaTab.valor.titulo} · Conductas`
+                          : (previa ? titulosDocumento(previa) : titulos)[indice]}
                     </button>
                   ))}
                 </div>

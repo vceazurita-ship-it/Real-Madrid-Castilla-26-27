@@ -32,8 +32,17 @@ import {
 
 export type Referencia = "u21" | "u23" | "todos";
 
+/*
+| 10/11/2026: una sola definición de «sub-21» para la Comparativa y el
+| Dashboard de plantilla (que contaba «20 años o menos» mientras aquí
+| entraban los de 21). Edad de Wyscout, 21 años o menos; el corte se escribe
+| igual en las dos pantallas.
+*/
+export const EDAD_SUB21 = 21;
+export const CORTE_SUB21_TEXTO = "21 años o menos (edad de Wyscout)";
+
 export const REFERENCIAS: { key: Referencia; label: string; edad: number }[] = [
-  { key: "u21", label: "Sub-21 de la categoría", edad: 21 },
+  { key: "u21", label: "Sub-21 de la categoría", edad: EDAD_SUB21 },
   { key: "u23", label: "Sub-23 de la categoría", edad: 23 },
   { key: "todos", label: "Toda la categoría", edad: 99 },
 ];
@@ -101,8 +110,18 @@ export type FilaComparativa = {
    * compañero del mismo puesto que sí entra.
    */
   ranking: { posicion: number; de: number; empatados: number; fueraDeEdad: boolean } | null;
-  /** Salto medio de percentil contra su categoría del año pasado. */
-  evolucion: { salto: number; fiable: boolean } | null;
+  /**
+   * Salto medio de percentil contra su categoría del año pasado. 10/11/2026:
+   * con los minutos de las dos temporadas (la base) y las dos métricas que
+   * más caen, para que «baja» diga en qué y qué se entrena.
+   */
+  evolucion: {
+    salto: number;
+    fiable: boolean;
+    minutosAhora: number;
+    minutosAntes: number;
+    peores: { nombre: string; percentilAntes: number; percentilAhora: number }[];
+  } | null;
 };
 
 /**
@@ -149,7 +168,17 @@ export function comparativa(jugadores: FilaJugador[], ref: Referencia): FilaComp
 
     const evo = evolucionDe(jugador, jugadores);
     const evolucion = evo.filas.length
-      ? { salto: Math.round(evo.filas.reduce((s, f) => s + f.salto, 0) / evo.filas.length), fiable: evo.fiable }
+      ? {
+          salto: Math.round(evo.filas.reduce((s, f) => s + f.salto, 0) / evo.filas.length),
+          fiable: evo.fiable,
+          minutosAhora: jugador.minutos,
+          minutosAntes: evo.antes?.minutos ?? 0,
+          peores: [...evo.filas]
+            .sort((a, b) => a.salto - b.salto)
+            .filter((f) => f.salto < 0)
+            .slice(0, 2)
+            .map((f) => ({ nombre: f.metrica.nombre, percentilAntes: Math.round(f.percentilAntes), percentilAhora: Math.round(f.percentilAhora) })),
+        }
       : null;
 
     return { jugador, puesto, referencia, percentiles, indice, ranking, evolucion };
