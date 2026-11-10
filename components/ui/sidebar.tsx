@@ -204,7 +204,8 @@ export const SECCIONES: Seccion[] = [
       { href: "/abp-microciclo", label: "Microciclo ABP", icon: CalendarRange },
       { href: "/abp-pizarra", label: "Pizarra ABP", icon: Projector },
       /* «Solo que lo vea yo» (20/10/2026): referentes, taller, retos y datos de ABP. */
-      { href: "/laboratorio/abp", label: "Laboratorio ABP", icon: FlaskConical, soloAdmin: true },
+      /* 10/11/2026: a la vista de todos; sin ser el administrador, la página avisa (PuertaLaboratorio). */
+      { href: "/laboratorio/abp", label: "Laboratorio ABP", icon: FlaskConical },
     ],
   },
   {

@@ -10,7 +10,9 @@
  * desde Data análisis abre la misma acción después de entrar.
  */
 
+import { useState } from "react";
 import Link from "next/link";
+import { Lock } from "lucide-react";
 import { AbpHeader } from "@/components/abp/ui";
 import { PuertaAdmin } from "@/components/admin/PuertaAdmin";
 import { Sidebar } from "@/components/ui/sidebar";
@@ -19,6 +21,9 @@ import { useAdmin } from "@/hooks/useAdmin";
 
 export function PuertaLaboratorio() {
   const { entra } = useAdmin();
+  /* 10/11/2026: el laboratorio sale en el menú para todos; quien no es el
+     administrador ve este aviso al llegar. «Soy yo» lo cierra y deja la puerta. */
+  const [aviso, setAviso] = useState(true);
 
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
@@ -64,6 +69,40 @@ export function PuertaLaboratorio() {
           </div>
         </section>
       </div>
+
+      {aviso && (
+        <div className="modal-veil fixed inset-0 z-[70] flex items-end justify-center p-0 sm:items-center sm:p-4">
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="lab-abp-sin-acceso"
+            className="w-full max-w-md rounded-t-2xl border border-white/10 bg-[#11161C] p-5 shadow-2xl sm:rounded-2xl"
+          >
+            <div className="flex items-center gap-2">
+              <Lock size={16} className="text-[#D8B45A]" aria-hidden />
+              <h2 id="lab-abp-sin-acceso" className="text-base font-semibold text-white">
+                No tienes acceso al Laboratorio de ABP
+              </h2>
+            </div>
+            <p className="mt-2 text-sm leading-relaxed text-white/70">
+              De momento sólo puede entrar el usuario <span className="font-semibold text-white">v.ceazurita@gmail.com</span>. Si
+              necesitas algo de aquí, pídeselo a él.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Link href="/setpieces" className="rounded-full bg-[#D8B45A] px-4 py-2 text-sm font-semibold text-[#0B0F14]">
+                Volver a ABP Ofensivo
+              </Link>
+              <button
+                type="button"
+                onClick={() => setAviso(false)}
+                className="rounded-full border border-white/15 px-4 py-2 text-sm text-white/80 hover:text-white"
+              >
+                Soy yo, entrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
