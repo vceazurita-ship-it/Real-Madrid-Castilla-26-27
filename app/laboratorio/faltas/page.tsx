@@ -52,6 +52,7 @@ import { PARTIDOS, type Falta, type LadoFalta } from "@/lib/faltas/datos";
 import { CORTE_TRANSICION, aFavor, comparativaFaltas, cortaTransicion, decimal, enContra, laQueMas } from "@/lib/faltas/lectura";
 import { CampoFaltas, CARRILES_CAMPO, sitioEnCampo, ZONAS_CAMPO } from "@/components/faltas/CampoFaltas";
 import { ComoActualizar } from "@/components/faltas/ComoActualizar";
+import { OptaLaboratorio } from "@/components/opta-partido/OptaLaboratorio";
 import { VerAccion } from "@/components/video/VerAccion";
 import { opcionesDeAccion, useMenuAccion } from "@/components/video/MenuAccion";
 import { PorJugador, SinJugador, type ColumnaJugador } from "@/components/analisis/PorJugador";
@@ -833,6 +834,20 @@ export default function FaltasPage() {
             ) : null}
 
             <Conclusiones items={queHacemos ? [...conclusiones, queHacemos] : conclusiones} className="mt-4" />
+
+            {/* 10/11/2026: Opta cuenta lo mismo (faltas pitadas): el partido al lado del etiquetado y el grupo. */}
+            <OptaLaboratorio
+              modo="faltas"
+              partido={partido ? { rival: partido.rival, fecha: partido.fecha, jornada: jornadaCorta(partido.jornada) } : null}
+              aMano={
+                partido
+                  ? {
+                      cometidas: partido.faltas.filter((f) => f.lado === "defensivo").length,
+                      recibidas: partido.faltas.filter((f) => f.lado === "ofensivo").length,
+                    }
+                  : null
+              }
+            />
             </>
             )}
 

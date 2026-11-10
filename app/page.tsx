@@ -20,6 +20,7 @@ import { Cifras } from "@/components/portada/Cifras"
 import { ProximoPartido } from "@/components/portada/ProximoPartido"
 import { MisTareas } from "@/components/portada/MisTareas"
 import { PanelHoy } from "@/components/portada/PanelHoy"
+import { OptaPortada } from "@/components/portada/OptaPortada"
 import { EVENTO_ABRIR as EVENTO_ABRIR_TAREAS } from "@/lib/portada/mis-tareas"
 import { useAdmin } from "@/hooks/useAdmin"
 import { trackModuleVisit } from "@/lib/module-usage"
@@ -820,6 +821,12 @@ export default function Home() {
             <AvisoConexionGoogle />
 
             <AlertasPortada plantilla={plantilla} seguimiento={seguimientoTodo} />
+
+            {/* ============================ OPTA =============================== */}
+
+            {/* 10/11/2026: el próximo rival y nosotros en cuatro cifras de Opta, y el
+                momentum del último partido. Sólo documentos ligeros: ver el componente. */}
+            <OptaPortada />
 
             {/* ACCESO RÁPIDO, fuera (30/10/2026): repetía los botones del héroe
                 y la rejilla de áreas; tres caminos al mismo sitio. */}
