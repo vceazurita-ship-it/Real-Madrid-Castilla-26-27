@@ -25,6 +25,10 @@
  *   tramos de 5′ y los remates de los dos.
  * - **Remates**: el mapa de remates de cualquier equipo, a favor y en contra.
  * - **11 metros**: cada penalti, en la portería, con lanzadores y porteros.
+ * - **Talento** (10/11/2026): dispersión de percentiles de dos métricas por
+ *   90 con la zona élite, ranking por perfil con su «ADN», goles que valen
+ *   puntos y goles desde el banquillo (`opta:remates` y
+ *   `opta:jugadores-partidos`, sólo en esa pestaña).
  *
  * Los datos no están en el repositorio (es público): viven en Supabase y se
  * leen por /api/docs (`lib/opta.ts`). Las cuentas, en `lib/opta-analisis.ts`;
@@ -47,6 +51,7 @@ import { Liga } from "./_piezas/Liga";
 import { PartidosCategoria } from "./_piezas/Momentum";
 import { Penaltis } from "./_piezas/Penaltis";
 import { RematesEquipo } from "./_piezas/Remates";
+import { Talento } from "./_piezas/Talento";
 import { useOpta } from "./_piezas/useOpta";
 
 const PESTANAS = [
@@ -58,6 +63,7 @@ const PESTANAS = [
   { clave: "penaltis", nombre: "11 metros" },
   { clave: "jugadores", nombre: "Jugadores" },
   { clave: "buscador", nombre: "Buscador" },
+  { clave: "talento", nombre: "Talento" },
   { clave: "directo", nombre: "Directo" },
 ] as const;
 type Pestana = (typeof PESTANAS)[number]["clave"];
@@ -173,6 +179,7 @@ export default function OptaPage() {
                 {pestana === "penaltis" && <Penaltis datos={datos} />}
                 {pestana === "jugadores" && <Jugadores datos={datos} minimo={minimo} setMinimo={setMinimo} />}
                 {pestana === "buscador" && <Buscador datos={datos} minimo={minimo} setMinimo={setMinimo} />}
+                {pestana === "talento" && <Talento datos={datos} />}
                 {pestana === "directo" && <Directo datos={datos} />}
               </>
             ) : null}

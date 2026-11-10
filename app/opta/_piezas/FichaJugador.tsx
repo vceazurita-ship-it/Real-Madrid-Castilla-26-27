@@ -3,7 +3,8 @@
 /**
  * LA FICHA DE UN JUGADOR: sus métricas por 90 con el percentil contra los de
  * su puesto en la categoría (con un mínimo de minutos), y —si es del
- * Castilla— su partido a partido.
+ * Castilla— su partido a partido. Si sale en temporadas pasadas de Opta,
+ * una tarjeta por temporada (`Temporadas.tsx`).
  */
 
 import { useMemo, useState } from "react";
@@ -17,6 +18,7 @@ import { cortoMetrica, defMetrica, METRICAS_OPTA, nombreMetrica, PERFIL_FAMILIA 
 import { Elegir, ElegirAmbito, fmt, Panel } from "./comun";
 import { PerfilRemate } from "./PerfilRemate";
 import { RematesJugador } from "./Remates";
+import { TemporadasJugador } from "./Temporadas";
 import type { DatosOpta } from "./useOpta";
 
 const PERFIL_GENERAL = ["Goal", "ExpG", "Chance", "xA", "Pass%", "Recovery", "Duel%", "PossLost"];
@@ -160,6 +162,8 @@ export function FichaJugador({
       {completa && <PerfilRemate fila={completa} />}
 
       <RematesJugador datos={datos} jugador={jugador} />
+
+      <TemporadasJugador datos={datos} playerId={String(jugador.playerId ?? "")} minimo={minimo} />
 
       {esNuestro && susPartidos.length > 0 && evo && (
         <div className="mt-5 border-t border-white/10 pt-4">
