@@ -1,0 +1,71 @@
+# Correo de las 7:00 con lo que quedó sin hacer en «Mis tareas» — sin el
+# ordenador del club (10/11/2026)
+#
+# Lo que hacía la tarea «RMCF Castilla - Tareas pendientes» del ordenador del
+# club: scripts/tareas-pendientes-correo.mjs lee Supabase y la hoja de
+# registro, y si hay algo pendiente de días anteriores manda el correo desde
+# la cuenta del club.
+#
+# Cuándo: cada día a las 6:00 UTC (7:00 en Madrid en invierno, 8:00 en
+# verano) y a mano en Actions → «Tareas pendientes» → Run workflow.
+#
+# Secretos: NEXT_PUBLIC_SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY (ya están) y
+# los del correo, copiados de Render → Environment: YOUTUBE_CLIENT_ID y
+# YOUTUBE_CLIENT_SECRET (el correo sale por la API de Gmail con la cuenta de
+# Google conectada en la app) o, si se usa SMTP, GMAIL_SMTP_USER y
+# GMAIL_APP_PASSWORD. Sin ninguno, lo dice y para sin fallar.
+
+name: Tareas pendientes
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tareas-pendientes
+  cancel-in-progress: false
+
+jobs:
+  correo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+      YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+      GMAIL_SMTP_USER: ${{ secrets.GMAIL_SMTP_USER }}
+      GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+    steps:
+      - name: Hay con qué mandar el correo
+        id: hay
+        run: |
+          if [ -z "$YOUTUBE_CLIENT_ID$GMAIL_APP_PASSWORD" ]; then
+            echo "::notice::Faltan los secretos del correo (YOUTUBE_CLIENT_ID/YOUTUBE_CLIENT_SECRET o GMAIL_SMTP_USER/GMAIL_APP_PASSWORD): no se manda nada."
+            echo "seguir=no" >> "$GITHUB_OUTPUT"
+          else
+            echo "seguir=si" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.hay.outputs.seguir == 'si'
+
+      - uses: actions/setup-node@v4
+        if: steps.hay.outputs.seguir == 'si'
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Dependencias
+        if: steps.hay.outputs.seguir == 'si'
+        run: npm ci --ignore-scripts --no-audit --no-fund > /dev/null
+
+      - name: Correo de tareas pendientes
+        if: steps.hay.outputs.seguir == 'si'
+        env:
+          TZ: Europe/Madrid
+        run: node scripts/tareas-pendientes-correo.mjs
