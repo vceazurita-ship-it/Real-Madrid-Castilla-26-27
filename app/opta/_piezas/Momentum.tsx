@@ -33,8 +33,10 @@ const MEDIDAS: { clave: MedidaMomento; nombre: string }[] = [
 ];
 
 const W = 900;
-const H = 240;
-const M = { izq: 12, der: 12, arriba: 34, abajo: 34 };
+const H = 252;
+/* Arriba y abajo, dos alturas de rótulo de gol: dos goles seguidos del mismo equipo no se pisan. */
+const M = { izq: 12, der: 12, arriba: 34, abajo: 46 };
+const SEPARA_ROTULOS = 90;
 
 export function Momentum({ datos, partido, teamId }: { datos: DatosOpta; partido: string; teamId: string }) {
   const { momento, cargando } = useMomento();
@@ -71,6 +73,17 @@ export function Momentum({ datos, partido, teamId }: { datos: DatosOpta; partido
 
   const suma = (e: typeof ea, k: "xG" | "toquesArea") => [...e.tramos.values()].reduce((s, t) => s + t[k], 0);
   const golDe = (r: Remate) => (r.teamId === teamId ? "a" : "b");
+  /* Si un rótulo cae muy cerca del anterior de su mismo lado, sube (o baja) un piso. */
+  const niveles: number[] = [];
+  const ultimo: Record<"a" | "b", { x: number; nivel: number } | null> = { a: null, b: null };
+  goles.forEach((g, i) => {
+    const x = xDe(Math.min(n, g.segundo / 300));
+    const lado = golDe(g);
+    const previo = ultimo[lado];
+    const nivel = previo && Math.abs(x - previo.x) < SEPARA_ROTULOS ? 1 - previo.nivel : 0;
+    niveles[i] = nivel;
+    ultimo[lado] = { x, nivel };
+  });
   const tramoEncima = encima != null ? curva[encima] : null;
   const ta = encima != null ? ea.tramos.get(encima) : undefined;
   const tb = encima != null ? eb.tramos.get(encima) : undefined;
@@ -116,7 +129,8 @@ export function Momentum({ datos, partido, teamId }: { datos: DatosOpta; partido
         {goles.map((g, i) => {
           const x = xDe(Math.min(n, g.segundo / 300));
           const arriba = golDe(g) === "a";
-          const y = arriba ? M.arriba - 12 : H - M.abajo + 12;
+          const nivel = niveles[i] ?? 0;
+          const y = arriba ? M.arriba - 12 - nivel * 12 : H - M.abajo + 12 + nivel * 12;
           return (
             <g key={i}>
               <line x1={x} y1={cero} x2={x} y2={arriba ? M.arriba - 4 : H - M.abajo + 4} style={{ stroke: arriba ? ORO : COMPARADO, strokeWidth: 1.5, strokeDasharray: "2 3" }} />

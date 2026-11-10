@@ -147,7 +147,9 @@ export const PUESTO_OPTA: Record<string, string> = {
 /** Formatea según el formato de Opta (PERCENT viene en tanto por uno). */
 export function formatea(v: number | null, formato?: string, decimales = 1): string {
   if (v == null) return "";
-  if (formato === "PERCENT") return `${(v * 100).toFixed(decimales)} %`;
-  if (formato === "INTEGER" && Number.isInteger(v)) return String(v);
+  /* El catálogo lleva la máscara detrás («PERCENT|0.0'%'|-»): cuenta la primera parte. */
+  const tipo = String(formato ?? "").split("|")[0];
+  if (tipo === "PERCENT") return `${(v * 100).toFixed(decimales)} %`;
+  if (tipo === "INTEGER" && Number.isInteger(v)) return String(v);
   return v.toFixed(decimales === 1 && Math.abs(v) < 10 ? 2 : decimales);
 }

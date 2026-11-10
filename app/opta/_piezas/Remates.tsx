@@ -14,7 +14,7 @@
 import { useMemo, useState } from "react";
 
 import { CampoOpta, SOBRE_CESPED } from "@/components/campo/CampoOpta";
-import { CASTILLA_OPTA } from "@/lib/opta";
+import { CASTILLA_OPTA, num } from "@/lib/opta";
 import { fechaCorta, type Fila } from "@/lib/opta-analisis";
 import { CUERPO, MARCADOR, PRESION, resumenRemates, SITUACION, TIPO_REMATE, type Remate } from "@/lib/opta-eventos";
 
@@ -148,6 +148,9 @@ const CUERPOS: { clave: Cuerpo; nombre: string }[] = [
 
 type Lado = "favor" | "contra";
 
+/* Por id: en «en contra» rematan jugadores de veinte equipos y dos pueden llamarse igual. */
+const claveTirador = (r: Remate) => r.tiradorId || r.tirador;
+
 export function RematesEquipo({ datos, teamId: fijo, titulo }: { datos: DatosOpta; teamId?: string; titulo?: string }) {
   const { remates, cargando, hay } = useRemates(datos);
   const equipos = useMemo(() => equiposDe(datos), [datos]);
@@ -165,7 +168,7 @@ export function RematesEquipo({ datos, teamId: fijo, titulo }: { datos: DatosOpt
         (r) =>
           enSituacion(r, situacion) &&
           (cuerpo === "todos" || (cuerpo === "cabeza" ? r.cuerpo === "Head" : r.cuerpo !== "Head")) &&
-          (!jugador || r.tirador === jugador),
+          (!jugador || claveTirador(r) === jugador),
       ),
     [delLado, situacion, cuerpo, jugador],
   );
@@ -173,13 +176,18 @@ export function RematesEquipo({ datos, teamId: fijo, titulo }: { datos: DatosOpt
   const tiradores = useMemo(() => {
     const m = new Map<string, Remate[]>();
     for (const r of delLado.filter((x) => enSituacion(x, situacion) && (cuerpo === "todos" || (cuerpo === "cabeza" ? x.cuerpo === "Head" : x.cuerpo !== "Head"))))
-      m.set(r.tirador, [...(m.get(r.tirador) ?? []), r]);
+      m.set(claveTirador(r), [...(m.get(claveTirador(r)) ?? []), r]);
     return [...m.entries()]
-      .map(([nombre, rs]) => ({ nombre, ...resumenRemates(rs), equipo: lado === "contra" ? [...new Set(rs.map((x) => x.equipo))].join(", ") : "" }))
+      .map(([clave, rs]) => ({ clave, nombre: rs[0].tirador, ...resumenRemates(rs), equipo: lado === "contra" ? [...new Set(rs.map((x) => nombreDe(x.teamId, x.equipo)))].join(", ") : "" }))
       .sort((a, b) => b.xG - a.xG);
   }, [delLado, situacion, cuerpo, lado]);
 
   const nombre = nombreDe(teamId, equipos.find((e) => e.teamId === teamId)?.equipo ?? "");
+
+  /* Los goles en propia puerta no son remates: sin ellos, el mapa se queda corto frente a los goles de la tabla (Castilla, Liga). */
+  const filaEquipo = datos.equipos.find((f) => f.teamId === teamId);
+  const oficiales = num(filaEquipo?.[lado === "favor" ? "Goal" : "GA"]);
+  const enPropia = oficiales != null ? oficiales - delLado.filter((r) => r.gol).length : 0;
 
   if (cargando)
     return (
@@ -224,13 +232,22 @@ export function RematesEquipo({ datos, teamId: fijo, titulo }: { datos: DatosOpt
         <Botonera etiqueta="Parte del cuerpo" valor={cuerpo} alCambiar={setCuerpo} opciones={CUERPOS} />
         {jugador && (
           <button type="button" onClick={() => setJugador("")} className="rounded-lg border border-white/15 px-2.5 py-1.5 text-xs text-white/75 hover:text-white">
-            {jugador} ✕
+            {delLado.find((r) => claveTirador(r) === jugador)?.tirador ?? ""} ✕
           </button>
         )}
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
-        <MapaRemates remates={filtrados} enContra={lado === "contra"} ariaLabel={`Mapa de remates ${lado === "favor" ? "de" : "contra"} ${nombre}`} />
+        <div className="min-w-0">
+          <MapaRemates remates={filtrados} enContra={lado === "contra"} ariaLabel={`Mapa de remates ${lado === "favor" ? "de" : "contra"} ${nombre}`} />
+          {enPropia > 0 && situacion === "todas" && cuerpo === "todos" && !jugador && (
+            <p className="mt-1 text-[11px] text-white/50">
+              {`${lado === "favor" ? "Le marcaron además" : "Encajó además"} ${enPropia === 1 ? "un gol" : `${enPropia} goles`} en propia puerta, que no ${
+                enPropia === 1 ? "es un remate y no sale" : "son remates y no salen"
+              } aquí: ${oficiales} ${lado === "favor" ? "a favor" : "en contra"} en total.`}
+            </p>
+          )}
+        </div>
 
         {tiradores.length > 0 && (
           <div className="min-w-0 overflow-x-auto">
@@ -250,9 +267,9 @@ export function RematesEquipo({ datos, teamId: fijo, titulo }: { datos: DatosOpt
               <tbody>
                 {tiradores.slice(0, 15).map((t) => (
                   <tr
-                    key={t.nombre}
-                    onClick={() => setJugador(jugador === t.nombre ? "" : t.nombre)}
-                    className={`cursor-pointer border-b border-white/[0.06] hover:bg-white/[0.04] ${jugador === t.nombre ? "bg-white/[0.06]" : ""}`}
+                    key={t.clave}
+                    onClick={() => setJugador(jugador === t.clave ? "" : t.clave)}
+                    className={`cursor-pointer border-b border-white/[0.06] hover:bg-white/[0.04] ${jugador === t.clave ? "bg-white/[0.06]" : ""}`}
                   >
                     <td className="max-w-[160px] truncate py-1.5 pr-2 text-white/85" title={t.equipo || undefined}>
                       {t.nombre}

@@ -14,9 +14,13 @@ import { ORO, tinta, useEscudos } from "@/components/data/graficas";
 import { CASTILLA_OPTA } from "@/lib/opta";
 import { nombreEquipo } from "@/lib/opta-analisis";
 import { FAMILIAS_RADIOGRAFIA, radiografia, type Familia } from "@/lib/opta-estilos";
-import { cortoMetrica, defMetrica, nombreMetrica } from "@/lib/opta-nombres";
+import { cortoMetrica, defMetrica, nombreMetrica, type DefMetrica } from "@/lib/opta-nombres";
 
 import { Botonera, Elegir, fmt, Panel } from "./comun";
+
+/** «1,45 por partido · P62», sin la parte que no tenga dato (nada de una «P» suelta). */
+const conP = (v: number | null, def: DefMetrica, p: number | null, sufijo = false) =>
+  [v != null ? `${fmt(v, def.unidad)}${sufijo && !def.tasa ? " por partido" : ""}` : "", p != null ? `P${p}` : ""].filter(Boolean).join(" · ");
 import { equiposDe } from "./eventos";
 import type { DatosOpta } from "./useOpta";
 
@@ -34,6 +38,7 @@ const C = T / 2;
 const R0 = 58;
 const R = 250;
 const HUECO = 0.012;
+const MARGEN_X = 70;
 
 const polar = (r: number, a: number) => [C + r * Math.sin(a), C - r * Math.cos(a)] as const;
 function sector(r1: number, r2: number, a1: number, a2: number) {
@@ -103,7 +108,14 @@ export const Radiografia = forwardRef<HTMLDivElement, { datos: DatosOpta; teamId
         }
       >
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_260px]">
-          <svg viewBox={`0 0 ${T} ${T}`} className="mx-auto block h-auto w-full max-w-[640px]" role="img" aria-label={`Radiografía de ${nombre}: nota de juego ${rx.nota != null ? Math.round(rx.nota) : ""}`} onMouseLeave={() => setEncima(null)}>
+          {/* Con margen a los lados: los rótulos de las porciones de las 3 y las 9 se salían del lienzo y se cortaban. */}
+          <svg
+            viewBox={`${-MARGEN_X} 0 ${T + 2 * MARGEN_X} ${T}`}
+            className="mx-auto block h-auto w-full max-w-[700px]"
+            role="img"
+            aria-label={`Radiografía de ${nombre}${rx.nota != null ? `: nota de juego ${Math.round(rx.nota)}` : ""}`}
+            onMouseLeave={() => setEncima(null)}
+          >
             {/* Las guías: P25, P50, P75 y P100. */}
             {[25, 50, 75, 100].map((p) => (
               <circle key={p} cx={C} cy={C} r={R0 + ((R - R0) * p) / 100} style={{ fill: "none", stroke: tinta(p === 50 ? 0.22 : 0.1), strokeDasharray: p === 100 ? undefined : "3 4" }} />
@@ -122,7 +134,7 @@ export const Radiografia = forwardRef<HTMLDivElement, { datos: DatosOpta; teamId
               const resalta = encima === p.a;
               return (
                 <g key={p.a} onMouseEnter={() => setEncima(p.a)} onFocus={() => setEncima(p.a)} tabIndex={0} style={{ outline: "none" }}>
-                  <title>{`${nombreMetrica(p.a, catalogo)}: ${fmt(p.valor, def.unidad)}${def.tasa ? "" : " por partido"} · P${p.percentil ?? ""}${p.inverso ? " (menos es mejor)" : ""}`}</title>
+                  <title>{`${nombreMetrica(p.a, catalogo)}: ${conP(p.valor, def, p.percentil, true)}${p.inverso ? " (menos es mejor)" : ""}`}</title>
                   <path d={sector(R0, R, a1, a2)} style={{ fill: tinta(resalta ? 0.08 : 0.035) }} />
                   {p.percentil != null && <path d={sector(R0, largo, a1, a2)} style={{ fill: color, fillOpacity: resalta ? 0.95 : 0.78 }} />}
                   {p.percentil != null && p.percentil >= 12 && (
@@ -134,7 +146,7 @@ export const Radiografia = forwardRef<HTMLDivElement, { datos: DatosOpta; teamId
                     {cortoMetrica(p.a, catalogo)}
                   </text>
                   <text x={lx} y={ly + 10} textAnchor={ancla} style={{ fill: tinta(0.55), fontSize: 12 }}>
-                    {`${fmt(p.valor, def.unidad)} · P${p.percentil ?? ""}`}
+                    {conP(p.valor, def, p.percentil)}
                   </text>
                 </g>
               );
@@ -165,8 +177,7 @@ export const Radiografia = forwardRef<HTMLDivElement, { datos: DatosOpta; teamId
             </ul>
             {vista && (
               <p className="text-xs text-white/65">
-                <span className="font-semibold text-white">{nombreMetrica(vista.a, catalogo)}</span>: {fmt(vista.valor, defMetrica(vista.a, catalogo).unidad)}{defMetrica(vista.a, catalogo).tasa ? "" : " por partido"} · P
-                {vista.percentil}
+                <span className="font-semibold text-white">{nombreMetrica(vista.a, catalogo)}</span>: {conP(vista.valor, defMetrica(vista.a, catalogo), vista.percentil, true)}
                 {vista.inverso ? " (menos es mejor)" : ""}
               </p>
             )}
