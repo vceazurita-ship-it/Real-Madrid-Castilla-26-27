@@ -2376,7 +2376,14 @@ function normalizaConsignaBase(texto: string) {
   | se bajan las palabras en mayúsculas del arranque, que son las que se
   | quedaron con el bloqueo puesto.
   */
-  const palabras = limpio.split(" ");
+  /*
+  | 10/11/2026 (jueces): también los tramos en mayúsculas a media línea
+  | («SACADOR Aguado Y SON DIRECTAS PARA REMATE»): dos o más palabras
+  | seguidas en mayúsculas, alguna de cuatro letras o más, se bajan. Las
+  | siglas sueltas («ABP», «R1») se quedan; los nombres los vuelve a subir
+  | quien pinta (`ajustaNombres`).
+  */
+  const palabras = bajaTramosEnMayusculas(limpio).split(" ");
   let i = 0;
 
   while (i < palabras.length && /^[A-ZÁÉÍÓÚÜÑ]{2,}[.,;:]?$/.test(palabras[i])) {
@@ -2384,11 +2391,38 @@ function normalizaConsignaBase(texto: string) {
     i += 1;
   }
 
-  if (i < 2) return limpio;
+  if (i < 2) return palabras.join(" ");
 
   const junta = palabras.join(" ");
 
   return junta.charAt(0).toLocaleUpperCase("es-ES") + junta.slice(1);
+}
+
+function bajaTramosEnMayusculas(texto: string) {
+  const palabras = texto.split(" ");
+  const gritada = (p: string) => /^[A-ZÁÉÍÓÚÜÑ]{1,}[.,;:]?$/.test(p) && !/\d/.test(p);
+  let i = 0;
+
+  while (i < palabras.length) {
+    if (!gritada(palabras[i])) {
+      i += 1;
+      continue;
+    }
+
+    let j = i;
+
+    while (j < palabras.length && gritada(palabras[j])) j += 1;
+
+    const tramo = palabras.slice(i, j);
+
+    if (tramo.length >= 2 && tramo.some((p) => p.replace(/[.,;:]$/, "").length >= 4)) {
+      for (let k = i; k < j; k += 1) palabras[k] = palabras[k].toLocaleLowerCase("es-ES");
+    }
+
+    i = j;
+  }
+
+  return palabras.join(" ");
 }
 
 export type LineaConsigna =
@@ -2532,16 +2566,23 @@ export function tituloVisible(slides: SlidePizarra[], indice: number) {
 
   if (!repetido) return nombreDeSlide(titulo);
 
-  const lineas = lineasConsignas(slide.notas);
-  const orden = lineas.findIndex(
-    (linea) => linea.tipo === "subtitulo" && /^orden/i.test(linea.texto),
-  );
+  /*
+  | 10/11/2026 (jueces): las tres de córner salían con la misma pista
+  | («1. cortas para 3x2.»). Si la pista se repite entre las del mismo
+  | título, cada una lleva su número de variante; y sin el «1.» de delante
+  | ni el punto final.
+  */
+  const hermanas = slides
+    .map((otra, i) => ({ otra, i }))
+    .filter(({ otra }) => otra.titulo.trim().toLowerCase() === titulo.toLowerCase());
+  const pista = pistaDe(slide);
+  const pistaRepetida = hermanas.some(({ otra, i }) => i !== indice && pistaDe(otra).toLowerCase() === pista.toLowerCase());
 
-  const pista =
-    (orden >= 0 ? lineas.slice(orden + 1) : lineas).find((linea) => linea.tipo === "consigna")
-      ?.texto ?? "";
+  if (!pista || pistaRepetida) {
+    const numero = hermanas.findIndex(({ i }) => i === indice) + 1;
 
-  if (!pista) return nombreDeSlide(titulo);
+    return `${nombreDeSlide(titulo)} · variante ${numero} de ${hermanas.length}`;
+  }
 
   /* Hasta los dos puntos, si los hay («1.ª y 2.ª: …» → «1.ª y 2.ª»). */
   const corta = pista.includes(":") ? pista.split(":")[0] : pista;
@@ -2555,6 +2596,16 @@ export function tituloVisible(slides: SlidePizarra[], indice: number) {
   }
 
   return pie ? `${nombreDeSlide(titulo)} · ${limpiaPista(pie)}` : nombreDeSlide(titulo);
+}
+
+/** La primera consigna tras «Orden» (o la primera), sin el número de orden ni el punto final. */
+function pistaDe(slide: SlidePizarra) {
+  const lineas = lineasConsignas(slide.notas);
+  const orden = lineas.findIndex((linea) => linea.tipo === "subtitulo" && /^orden/i.test(linea.texto));
+  const texto = (orden >= 0 ? lineas.slice(orden + 1) : lineas).find((linea) => linea.tipo === "consigna")?.texto ?? "";
+  const limpio = texto.replace(/^\s*\d{1,2}\s*[.)]\s*/, "").replace(/[.;:,\s]+$/, "").trim();
+
+  return limpio ? limpio.charAt(0).toLocaleUpperCase("es-ES") + limpio.slice(1) : "";
 }
 
 /*

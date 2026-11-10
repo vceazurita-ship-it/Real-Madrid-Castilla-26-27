@@ -25,6 +25,7 @@ export function fraseCaida(v?: string | null): string {
   if (superioridad) return `juego en corto (${superioridad[1]} contra ${superioridad[2]})`;
 
   if (t.includes("bloque") && t.includes("barrera")) return "se queda en la barrera";
+  if (/\bp\.?\s*barrera|palo\s*(de\s*la\s*)?barrera/.test(t)) return "directa al palo de la barrera";
   if (t.includes("barrera")) return "directa a la barrera";
   if (t.includes("arriba")) return "cae arriba de la portería";
   if (t.includes("abajo")) return "cae abajo de la portería";
@@ -49,6 +50,9 @@ export function zonaLegible(v?: string | null): string {
 
   if (!t) return "";
   if (/^\d+\s*v\s*\d+$/.test(t)) return t.replace(/\s+/g, "");
+  /* 10/11/2026 (jueces): «directa p.barrera» → «directa al palo de la barrera»; «p.portero», igual. */
+  if (/\bp\.?\s*barrera|palo\s*(de\s*la\s*)?barrera/.test(t)) return t.includes("directa") ? "directa al palo de la barrera" : "palo de la barrera";
+  if (/\bp\.?\s*portero|palo\s*(del\s*)?portero/.test(t)) return t.includes("directa") ? "directa al palo del portero" : "palo del portero";
   if (/^z\s*\d+$/.test(t)) return `zona ${t.replace(/\D/g, "")}`;
   if (t.includes("primer")) return "primer palo";
   if (t.includes("segundo")) return "segundo palo";

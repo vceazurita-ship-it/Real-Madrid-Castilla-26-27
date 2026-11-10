@@ -24,6 +24,8 @@ import { Explicativo } from "@/components/ui/textos-analisis";
 const ORO = "#C8A96B";
 /** El oro como texto: en modo día baja de luz para leerse sobre blanco. */
 const ORO_TINTA = "var(--rmcf-gold-ink)";
+/* La barra de «la media», con la tinta del tema: se ve de día y de noche (10/11/2026). */
+const MEDIA_BARRA = "rgb(var(--rmcf-ink-rgb) / .5)";
 /** Los dos de las gráficas de datos: separan bien también para daltonismo. */
 /* Como texto de la diferencia llevan su variable (globals.css): el mando de
    los chips los dejaba en marrón oscuro sobre blanco y no se leían como
@@ -219,29 +221,28 @@ export function ComparativaPartido({
             </span>
           </div>
 
-          {/* Con pocos partidos detrás, la media es una tendencia y no una regla. */}
-          {anteriores.n > 0 && anteriores.n < UMBRAL_TENDENCIA_PARTIDOS && (
-            <p className="border-b border-white/10 py-2 pl-4 pr-14 text-[11px] italic text-white/50 sm:pl-5 sm:pr-5">
-              Tendencia: la media sale de {anteriores.n === 1 ? "un solo partido" : `${anteriores.n} partidos`}.
-            </p>
-          )}
-
-          {(hayIgual || hayBarras) && (
-            <p className="border-b border-white/10 py-2 pl-4 pr-14 text-[11px] text-white/55 sm:pl-5 sm:pr-5">
+          {/*
+          | 10/11/2026 (jueces): una sola línea de leyenda antes de la primera
+          | fila (eran hasta tres), a 12 px, y la marca de «la media» con un
+          | color que se ve también en el modo día.
+          */}
+          {(hayIgual || hayBarras || hayIndicios || (anteriores.n > 0 && anteriores.n < UMBRAL_TENDENCIA_PARTIDOS)) && (
+            <p className="border-b border-white/10 py-2 pl-4 pr-14 text-[12px] leading-snug text-white/60 sm:pl-5 sm:pr-5">
               {hayBarras ? (
                 <>
-                  <span className="mr-1 inline-block h-1 w-4 rounded-full align-middle" style={{ background: ORO }} aria-hidden /> este partido ·{" "}
-                  <span className="mr-1 inline-block h-1 w-4 rounded-full bg-white/35 align-middle" aria-hidden /> la media; las dos barras de cada fila van a la misma escala.
+                  <span className="mr-1 inline-block h-1.5 w-4 rounded-full align-middle" style={{ background: ORO }} aria-hidden />este partido ·{" "}
+                  <span className="mr-1 inline-block h-1.5 w-4 rounded-full align-middle" style={{ background: MEDIA_BARRA }} aria-hidden />la media
                 </>
               ) : null}
-              {hayIgual ? `${hayBarras ? " " : ""}«Igual»: a menos de 2 puntos en un porcentaje o del 5 % de la media en un recuento.` : null}
-            </p>
-          )}
-
-          {/* Muestra corta: se dice a la vista, no sólo en el método. */}
-          {hayIndicios && (
-            <p className="border-b border-white/10 py-2 pl-4 pr-14 text-[11px] text-white/55 sm:pl-5 sm:pr-5">
-              Cada fila es de un solo partido ({accionesPartido} {unidadPartido}).{notaCortas ? ` ${notaCortas}.` : ""} En gris = indicio, no un dato firme; verde es mejor que de costumbre y naranja, peor.
+              {[
+                anteriores.n > 0 && anteriores.n < UMBRAL_TENDENCIA_PARTIDOS ? `media de ${anteriores.n === 1 ? "un solo partido" : `${anteriores.n} partidos`} (tendencia)` : "",
+                hayIndicios ? `«indicio»: fila de pocas ${unidadPartido}${notaCortas ? ` (${notaCortas})` : ""}` : "",
+                hayIgual ? "«igual»: a menos de 2 puntos o del 5 % de la media" : "",
+              ]
+                .filter(Boolean)
+                .map((trozo, i) => `${i === 0 && !hayBarras ? "" : " · "}${i === 0 && !hayBarras ? trozo.charAt(0).toUpperCase() + trozo.slice(1) : trozo}`)
+                .join("")}
+              .
             </p>
           )}
 
@@ -296,14 +297,13 @@ export function ComparativaPartido({
               return (
                 <li
                   key={m.clave}
-                  style={indicio ? { opacity: 0.7 } : undefined}
                   className="grid grid-cols-3 items-center gap-x-3 gap-y-1.5 py-2.5 pl-4 pr-10 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.8fr)] sm:pl-5 sm:pr-16"
                 >
                   <div className="col-span-3 min-w-0 sm:col-span-1">
                     <p className="text-sm font-medium text-white/85 sm:truncate sm:font-normal" title={m.nombre}>{m.nombre}</p>
                     {(pie || baseTexto || juzga || m.mejorAlto === null) && (
-                      <p className="text-[11px] text-white/35">
-                        {[baseTexto, pie || null].filter(Boolean).join(" · ")}
+                      <p className="text-[12px] text-white/60">
+                        {[baseTexto, indicio ? "indicio" : null, pie || null].filter(Boolean).join(" · ")}
                         {/* «indicio» ya no se repite en cada fila (07/11/2026):
                             lo dice una vez la nota de base de arriba y la
                             fila va en gris. */}
@@ -335,16 +335,17 @@ export function ComparativaPartido({
                       <p className="mt-1 text-[11px] font-medium" style={{ color: "rgb(var(--rmcf-ink-rgb) / .55)" }}>tendencia, pocos casos</p>
                     ) : (
                     <div className="mt-1.5 space-y-1">
-                      <span className="block h-1 overflow-hidden rounded-full bg-white/[0.06]">
+                      {/* Con valor 0 la barra se pinta igual, como una marca de 3 px (10/11/2026). */}
+                      <span className="block h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
                         <span
                           className="block h-full rounded-full"
-                          style={{ width: `${m.actual === null ? 0 : (Math.max(0, m.actual) / tope) * 100}%`, background: ORO }}
+                          style={{ width: `${m.actual === null ? 0 : (Math.max(0, m.actual) / tope) * 100}%`, minWidth: m.actual === null ? 0 : 3, background: ORO }}
                         />
                       </span>
-                      <span className="block h-1 overflow-hidden rounded-full bg-white/[0.06]">
+                      <span className="block h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
                         <span
-                          className="block h-full rounded-full bg-white/35"
-                          style={{ width: `${m.media === null ? 0 : (Math.max(0, m.media) / tope) * 100}%` }}
+                          className="block h-full rounded-full"
+                          style={{ width: `${m.media === null ? 0 : (Math.max(0, m.media) / tope) * 100}%`, minWidth: m.media === null ? 0 : 3, background: MEDIA_BARRA }}
                         />
                       </span>
                     </div>
@@ -366,7 +367,7 @@ export function ComparativaPartido({
                   <span className="text-right tabular-nums">
                     <span className="block text-lg text-white/70">{m.media === null ? "" : formato(m.media)}</span>
                     {m.rango && anteriores.n > 1 && m.rango[0] !== m.rango[1] ? (
-                      <span className="block text-[11px] text-white/45">
+                      <span className="block text-[12px] text-white/55">
                         de {formato(m.rango[0])} a {formato(m.rango[1])}
                         {/* 10/11/2026: el rango de pocos partidos tampoco es norma. */}
                         {anteriores.n < UMBRAL_TENDENCIA_PARTIDOS ? " · tendencia" : ""}
@@ -412,7 +413,7 @@ export function ComparativaPartido({
                     {tira.jornadas.map((j, i) => (
                       <th
                         key={j}
-                        className="pb-1 text-right font-medium"
+                        className="whitespace-nowrap pb-1 pl-2 text-right font-medium"
                         style={i === tira.jornadas.length - 1 ? { color: ORO_TINTA } : undefined}
                       >
                         {j}

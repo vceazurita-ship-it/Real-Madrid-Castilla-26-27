@@ -77,6 +77,7 @@ import {
 } from "./informe-graficos";
 
 import type { AccionAbp } from "@/lib/data-analisis/abp-propio";
+import { zonaLegible } from "@/lib/abp/accionFrase";
 import { agrupa, enlaceEnSegundo, rotuloRef, segundoEnVideo, type Apunte, type VideoApuntes } from "@/lib/abp/apuntes";
 import { buildAerialThreats } from "./rival";
 import { teamKey } from "./model";
@@ -900,8 +901,22 @@ export function baseRemate(pct: number | null | undefined, cornersPorPartido: nu
 }
 
 /** «2.º» con su sentido: atacando, el que más; defendiendo, el que menos concede. */
-export const puestoConSentido = (puesto: number | null | undefined, de: number, lado: "favor" | "contra") =>
-  puesto ? `${puesto}.º ${lado === "contra" ? "que menos concede" : "que más saca"} de ${de}` : "";
+/*
+| 10/11/2026 (jueces): «20.º de 20 de los que más conceden» se leía en los
+| dos sentidos. Ahora siempre «el que más concede de los 20» o «3.º que más
+| concede de 20». `puestoContra` va de menos a más (1 = el que menos concede).
+*/
+export const puestoConSentido = (puesto: number | null | undefined, de: number, lado: "favor" | "contra") => {
+  if (!puesto) return "";
+
+  const verbo = lado === "contra" ? "concede" : "saca";
+  const desdeArriba = lado === "contra" ? de - puesto + 1 : puesto;
+
+  if (desdeArriba === 1) return `el que más ${verbo} de los ${de}`;
+  if (desdeArriba === de) return `el que menos ${verbo} de los ${de}`;
+
+  return `${desdeArriba}.º que más ${verbo} de ${de}`;
+};
 
 export type RivalAnalisisInforme = {
   equipo: string;
@@ -1584,7 +1599,8 @@ function patronDe(acciones: AccionAbp[], aspecto: AspectoKey, lado: AbpLado, riv
   const zona = comun((a) => {
     const m = a.tipo.match(/\b(interior|exterior)?\s*(Z\s?\d)\b/i);
 
-    return m ? [m[2].replace(/\s/g, "").toUpperCase(), m[1]?.toLowerCase()].filter(Boolean).join(" ") : "";
+    /* 10/11/2026 (jueces): «Z2» se escribe entero, «zona 2». */
+    return m ? [`zona ${m[2].replace(/\D/g, "")}`, m[1]?.toLowerCase()].filter(Boolean).join(" ") : "";
   });
 
   const envio = comun((a) => a.envio.toLowerCase());
@@ -1592,9 +1608,28 @@ function patronDe(acciones: AccionAbp[], aspecto: AspectoKey, lado: AbpLado, riv
 
   if (!zona && !caida) return null;
 
-  const destino = caida ? (/palo/.test(caida) ? ` al ${caida}` : ` a la zona de ${caida}`) : "";
+  /*
+  | 10/11/2026 (jueces): «envío a la zona de directa p.barrera» → «directa al
+  | palo de la barrera». La caída, con las mismas palabras que la pantalla.
+  */
+  const legible = caida ? zonaLegible(caida) : "";
+  const directa = /^directa /.test(legible);
+  const destino = !legible
+    ? ""
+    : directa
+      ? ` ${legible.replace(/^directa /, "")}`
+      : /palo|penalti|área pequeña/.test(legible)
+        ? ` al ${legible}`
+        : legible === "frontal"
+          ? " a la frontal"
+          : ` a la zona de ${legible}`;
 
-  const como = [zona ? `desde ${zona}` : "", envio || destino ? `${envio ? `envío ${envio}` : "envío"}${destino}` : ""].filter(Boolean).join(", ");
+  const como = [
+    zona ? `desde la ${zona}` : "",
+    directa ? `directa${destino}` : envio || destino ? `${envio ? `envío ${envio}` : "envío"}${destino}` : "",
+  ]
+    .filter(Boolean)
+    .join(", ");
 
   /* El verbo sale del desenlace (26/10/2026, análisis): un saque de banda que acabó en ocasión sin remate no «nos remató». */
   const una = suyas[0];
@@ -3305,10 +3340,10 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
         .map((una) => `${consignaDe(una.aspecto, una.lado)}: ${una.contraRival}`),
       /* El volumen de córners que conceden va en «Para hoy» y en la cifra de arriba: aquí, sólo el cruce con lo nuestro. */
       volumen && nuestroRemate && nuestroRemate.puestoFavor > n / 2
-        ? `Conceden ${fmtMedida(volumen.contra, "corners")} córners por partido (${volumen.puestoContra}.º de ${n}; la mediana, ${fmtMedida(volumen.medianaContra, "corners")}) y nosotros rematamos el ${fmtMedida(nuestroRemate.favor, "cornersRemate")} de los nuestros (${nuestroRemate.puestoFavor}.º): la mejora está en el remate, no en el volumen`
+        ? `Conceden ${fmtMedida(volumen.contra, "corners")} córners por partido (${puestoConSentido(volumen.puestoContra, n, "contra")}; la mediana, ${fmtMedida(volumen.medianaContra, "corners")}) y nosotros rematamos el ${fmtMedida(nuestroRemate.favor, "cornersRemate")} de los nuestros (${nuestroRemate.puestoFavor}.º): la mejora está en el remate, no en el volumen`
         : "",
       remateAbp
-        ? `Su balón parado defensivo, todas las jugadas, se deja rematar: el ${fmtMedida(remateAbp.contra, "abpRemate")} acaba en remate (${remateAbp.puestoContra}.º de ${n}; la mediana, ${fmtMedida(remateAbp.medianaContra, "abpRemate")})`
+        ? `Su balón parado defensivo, todas las jugadas, se deja rematar: el ${fmtMedida(remateAbp.contra, "abpRemate")} acaba en remate (${puestoConSentido(remateAbp.puestoContra, n, "contra")}; la mediana, ${fmtMedida(remateAbp.medianaContra, "abpRemate")})`
         : "",
       ...familias.slice(0, 1).map((f) => `${f.articulo}: les rematan el ${fmtMedida(f.valor, f.key)} (${f.puesto}.º de ${n}; la mediana, ${fmtMedida(f.mediana, f.key)})`),
       /* Nuestros rematadores van en «Para hoy», con el sacador de la pizarra: aquí no se repiten (31/10/2026). */
@@ -3813,7 +3848,8 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
             pie:
               primeraPrioridad.goles > 0
                 ? /* Con su base, para que la tarjeta se lea sola (segunda ronda de jueces): «5 de 45 con peligro». */
-                  `${mayuscula(aspectoEnFrase(primeraPrioridad.aspecto, primeraPrioridad.lado))} · ${primeraPrioridad.base} con peligro${primeraPrioridad.xg > 0 ? ` · ${dec(primeraPrioridad.xg, 2)} goles esperados` : ""}${rotuloDeLaPrimera(primeraPrioridad, sinSenal).sufijo}`
+                  /* 10/11/2026 (jueces): con menos de 15 acciones, «tendencia» en la propia tarjeta. */
+                  `${mayuscula(aspectoEnFrase(primeraPrioridad.aspecto, primeraPrioridad.lado))} · ${primeraPrioridad.base} con peligro${primeraPrioridad.xg > 0 ? ` · ${dec(primeraPrioridad.xg, 2)} goles esperados` : ""}${primeraPrioridad.acciones < 15 ? ` · tendencia, ${primeraPrioridad.acciones} acciones` : ""}${rotuloDeLaPrimera(primeraPrioridad, sinSenal).sufijo}`
                 : `${mayuscula(aspectoEnFrase(primeraPrioridad.aspecto, primeraPrioridad.lado))}: acciones con peligro${primeraPrioridad.lado === "defensivo" ? " en contra" : ""}${golesConXg(primeraPrioridad)}${rotuloDeLaPrimera(primeraPrioridad, sinSenal).sufijo}`,
           },
         ]
@@ -3823,7 +3859,10 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
           {
             rotulo: "Planificado",
             valor: plural(trabajos.length, "tarea", "tareas"),
-            pie: fraseLista(planificado.map((uno) => uno.dia.toLowerCase())),
+            /* La misma cuenta que «Lo esencial» (10/11/2026): si la nº 1 no está en ninguna, se dice aquí también. */
+            pie: `${fraseLista(planificado.map((uno) => uno.dia.toLowerCase()))}${
+              primeraPrioridad && !primeraPrioridad.planificado ? ` · ninguna de ${enMinuscula(aspectoEnFrase(primeraPrioridad.aspecto, primeraPrioridad.lado))}` : ""
+            }`,
           },
         ]
       : []),
@@ -3852,8 +3891,11 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
           {
             rotulo: "Su córner",
             valor: `${fmtMedida(suCorner.favor, "corners")} por partido`,
+            /* Con la mediana de la liga y el sentido dentro de la tarjeta (10/11/2026, jueces). */
             pie: [
               puestoConSentido(suCorner.puestoFavor, rivalAbp.equipos, "favor"),
+              `mediana de los ${rivalAbp.equipos}: ${fmtMedida(suCorner.medianaFavor, "corners")}`,
+              "más es peor para nosotros",
               suRemate && suRemate.favor !== null && suRemate.puestoFavor
                 ? `rematan el ${fmtMedida(suRemate.favor, "cornersRemate")}${baseRemate(suRemate.favor, suCorner.favor, rivalAbp.partidos) ? ` (${baseRemate(suRemate.favor, suCorner.favor, rivalAbp.partidos)})` : ""}`
                 : "",
@@ -3867,7 +3909,11 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
           {
             rotulo: "Córners que conceden",
             valor: `${fmtMedida(suCorner.contra, "corners")} por partido`,
-            pie: `${suCorner.puestoContra}.º de ${rivalAbp.equipos}${suCorner.puestoContra > (2 * rivalAbp.equipos) / 3 ? ": de los que más conceden" : suCorner.puestoContra <= rivalAbp.equipos / 3 ? ": de los que menos conceden" : ""}`,
+            pie: [
+              puestoConSentido(suCorner.puestoContra, rivalAbp.equipos, "contra"),
+              `mediana de los ${rivalAbp.equipos}: ${fmtMedida(suCorner.medianaContra, "corners")}`,
+              "más es mejor para nosotros: más córners a favor",
+            ].join(" · "),
           },
         ]
       : []),
@@ -5417,8 +5463,16 @@ export function informeHtml(
   */
   const primeraEsencia = informe.prioridades.find((una) => !una.esBanda);
 
+  /*
+  | 10/11/2026 (jueces): «Del partido contra Hércules: nos marcaron con la
+  | falta directa» y la clave «La que nos marcaron contra el Hércules…»
+  | contaban lo mismo dos veces. Si una clave ya nombra ese partido, no sale.
+  */
+  const rivalAnterior = /contra (?:el |la )?(.+?) \(/.exec(informe.vieneDe ?? "")?.[1]?.toLowerCase() ?? "";
+  const yaEnClaves = Boolean(rivalAnterior) && esencia.claves.some((c) => c.toLowerCase().includes(rivalAnterior));
+
   const vieneBajoTitular =
-    informe.modo !== "post" && informe.vieneDe && (!primeraEsencia || informe.vieneDe.toLowerCase().includes(primeraEsencia.aspecto.toLowerCase())) ? informe.vieneDe : "";
+    informe.modo !== "post" && informe.vieneDe && !yaEnClaves && (!primeraEsencia || informe.vieneDe.toLowerCase().includes(primeraEsencia.aspecto.toLowerCase())) ? informe.vieneDe : "";
 
   const cabecera = informe.portada.partido || informe.titulo;
 
@@ -6024,7 +6078,7 @@ export function pinceladaAbp(informe: InformeMicro): PinceladaAbp {
 
   const base =
     primera && primera.goles > 0
-      ? `${golesLado > primera.goles ? `Son ${primera.goles} de los ${golesLado} goles que ${enContra ? "hemos encajado" : "hemos marcado"} a balón parado` : `Son todos los goles que ${enContra ? "hemos encajado" : "hemos marcado"} a balón parado`}, con ${primera.peligros} de ${primera.acciones} ${/^córner directo/i.test(primera.aspecto) ? "córners directos" : /^córner/i.test(primera.aspecto) ? "córners" : "acciones"} con peligro`
+      ? `${golesLado > primera.goles ? `${primera.goles === 1 ? "Es 1" : `Son ${primera.goles}`} de los ${golesLado} goles que ${enContra ? "hemos encajado" : "hemos marcado"} a balón parado` : `Son todos los goles que ${enContra ? "hemos encajado" : "hemos marcado"} a balón parado`}, con ${primera.peligros} de ${primera.acciones} ${/^córner directo/i.test(primera.aspecto) ? "córners directos" : /^córner/i.test(primera.aspecto) ? "córners" : "acciones"} con peligro${primera.acciones < 15 ? " (tendencia: menos de 15 acciones)" : ""}`
       : primera?.delAnterior
         ? mayuscula(primera.delAnterior)
         : primera
@@ -6039,7 +6093,8 @@ export function pinceladaAbp(informe: InformeMicro): PinceladaAbp {
       ? `Trabajado ${fraseLista(diasDeLaPrimera)}`
       : informe.sinMinutos
         ? dias.length
-          ? `No figura en el plan de la semana`
+          ? /* 10/11/2026 (jueces): una sola frase con la cuenta del plan; decía «No figura en el plan» junto a «Planificado: 2 tareas». */
+            `${mayuscula(aspectoEnFrase(primera.aspecto, primera.lado))} no está en ninguna de las ${plural(informe.trabajos.length, "tarea", "tareas")} de la semana (${fraseLista(dias)})`
           : ""
         : "Sin tarea propia esta semana"
     : "";

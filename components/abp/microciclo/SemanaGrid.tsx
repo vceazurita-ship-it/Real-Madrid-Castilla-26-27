@@ -150,7 +150,9 @@ function TrabajoCuerpo({
   /* El porqué del boceto se ve siempre, como «Por qué» (21/10/2026). */
   const { porque, resto: notasCrudas } = porqueDe(trabajo.notas, explicativos);
   /* Erratas y siglas de la hoja, corregidas al pintar (07/11/2026): «Crecieminto en MdJ Propio». */
-  const notas = notasCrudas ? textoDeFicha(notasCrudas) : notasCrudas;
+  /* 10/11/2026 (jueces): el código suelto de la hoja («X-T2») no dice nada en la ficha: no se pinta. */
+  const soloCodigo = Boolean(notasCrudas && /^\s*[A-Z]{1,4}-T\d+\s*$/i.test(notasCrudas));
+  const notas = notasCrudas && !soloCodigo ? textoDeFicha(notasCrudas) : "";
 
   const desgaste = [
     trabajo.intensidad > 0 ? `intensidad ${trabajo.intensidad}/10` : "",

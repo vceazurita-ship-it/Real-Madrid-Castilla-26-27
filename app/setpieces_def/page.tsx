@@ -34,7 +34,7 @@ import {
 import { hablado, type ClaveMetrica } from "@/lib/abp/analisis";
 import { lecturaRapida } from "@/lib/abp/lectura-rapida";
 import { zonaLegible } from "@/lib/abp/accionFrase";
-import { LecturaRapida } from "@/components/abp/LecturaRapida";
+import { LecturaRapida, MUESTRA_FIRME } from "@/components/abp/LecturaRapida";
 import ABPObjectiveFlow, {
   type ABPFlowCol,
 } from "@/components/abp/ABPObjectiveFlow";
@@ -2407,12 +2407,24 @@ const conclusiones = (() => {
   const tasaPeligroDe = (grupo: Row[]) =>
     grupo.filter(LECTOR.peligro).length / grupo.length;
 
-  const goles = filtered.filter(LECTOR.gol).length;
   const ocasiones = filtered.filter((r) => resultado(r) === "Ocasión").length;
   const xg = filtered.reduce((a, r) => a + r.xg, 0);
 
+  /*
+  | 10/11/2026 (jueces): la misma definición que la tarjeta «Gol u ocasión»
+  | —«1 de 7 acaba en gol u ocasión (el gol de falta directa, 86′)»—, y no
+  | «0 ocasiones y 1 gol», que chocaba con «1 de 7».
+  */
+  const peligroN = filtered.filter(LECTOR.peligro).length;
+  const golesDichos = filtered
+    .filter(LECTOR.gol)
+    .map((r) => `${hablado(r.tipoAccion.trim().toLowerCase())}${r.contexto.minuto.minuto != null ? `, ${r.contexto.minuto.minuto}′` : ""}`);
   const frases: (string | null)[] = [
-    `${plural(filtered.length, "ABP", "ABP")} en contra: ${plural(ocasiones, "ocasión", "ocasiones")} y ${plural(goles, "gol encajado", "goles encajados")}, ${cifra(xg, 2)} goles esperados.`,
+    `${plural(filtered.length, "ABP", "ABP")} en contra: ${
+      peligroN === 0 ? "ninguna acaba en gol u ocasión" : `${peligroN} de ${filtered.length} ${peligroN === 1 ? "acaba" : "acaban"} en gol u ocasión`
+    }${
+      golesDichos.length ? ` (${golesDichos.length === 1 ? "el gol" : `${golesDichos.length} goles`}: ${golesDichos.join("; ")})` : ocasiones ? ` (${plural(ocasiones, "ocasión", "ocasiones")}, ningún gol)` : ""
+    }, ${cifra(xg, 2)} goles esperados concedidos.`,
   ];
 
   /* «Remates concedidos» y «ocasiones» cuentan las mismas jugadas: se dice, y
@@ -2528,7 +2540,7 @@ const conclusiones = (() => {
 
   if (contras > 0) {
     frases.push(
-      `Salimos a la contra tras ${plural(contras, "ABP rival", "ABP rivales")}.`,
+      `Salimos a la contra en ${contras} de ${filtered.length} ABP rivales.`,
     );
   }
 
@@ -2544,7 +2556,27 @@ const conclusiones = (() => {
       ? `Al vídeo de la semana: ${plural(minutosRemate.length, "jugada", "jugadas")} con remate o peligro (${minutosRemate.map((m) => `${m}′`).join(", ")}) y cómo se defendió cada una.`
       : null;
 
-  return [...frases.filter(Boolean).slice(0, 4), cierre].filter(Boolean);
+  /*
+  | 10/11/2026 (jueces): las conclusiones cierran con «Qué entrenamos» atado
+  | al dato, como en banda. Con un gol encajado, la tarea va a esa acción;
+  | si no, a lo que más concede en las tarjetas (más abajo, con la lectura).
+  */
+  const golEncajado = filtered.find(LECTOR.gol);
+  const objetivoRemate =
+    anterioresConclusion && anterioresConclusion.length
+      ? `objetivo: como mucho ${Math.round((anterioresConclusion.filter(LECTOR.remate).length / anterioresConclusion.length) * 100)} % de acciones con remate (media de las ${nAnterioresConclusion} jornadas anteriores)`
+      : "";
+  const tarea = golEncajado
+    ? `Qué entrenamos${filtered.length < MUESTRA_FIRME ? " (tendencia que vigilar)" : ""}: ${
+        /directa/i.test(golEncajado.tipoAccion)
+          ? "barrera y colocación del portero en la falta directa"
+          : /c[oó]rner/i.test(golEncajado.tipoAccion)
+            ? "marcas y primer contacto en el córner defensivo"
+            : `defensa de la ${hablado(golEncajado.tipoAccion.trim().toLowerCase())}`
+      } (gol encajado${golEncajado.contexto.minuto.minuto != null ? `, ${golEncajado.contexto.minuto.minuto}′` : ""}); se cuentan los remates concedidos${objetivoRemate ? ` · ${objetivoRemate}` : ""}.`
+    : null;
+
+  return [...frases.filter(Boolean).slice(0, 4), cierre, tarea].filter(Boolean);
 })();
 
 /* Las cuatro tarjetas de arriba (02/11/2026). Aquí el acierto es del rival
@@ -2583,6 +2615,44 @@ const lectura = useMemo(
     }),
   [filtered],
 );
+
+/* Sin gol encajado, «Qué entrenamos» sale de lo que más concede en las tarjetas (10/11/2026). */
+const conclusionesVista = (() => {
+  if (conclusiones.some((c) => typeof c === "string" && c.startsWith("Qué entrenamos")) || !lectura?.entrenar) return conclusiones;
+
+  const h = lectura.entrenar.hallazgo;
+  const objetivo =
+    anterioresConclusion && anterioresConclusion.length
+      ? `objetivo: como mucho ${Math.round((anterioresConclusion.filter(LECTOR.peligro).length / anterioresConclusion.length) * 100)} % en gol u ocasión (media de las ${nAnterioresConclusion} jornadas anteriores)`
+      : `objetivo: no pasar de lo que concede el resto (${h.aciertosResto} de ${h.resto})`;
+
+  return [
+    ...conclusiones,
+    `Qué entrenamos${h.n < MUESTRA_FIRME ? " (tendencia que vigilar)" : ""}: ${lectura.entrenar.titulo} (${h.aciertos} de ${h.n} en gol u ocasión del rival); se cuentan las acciones que acaban en gol u ocasión · ${objetivo}.`,
+  ];
+})();
+
+const titularConclusiones = filtered.length
+  ? (() => {
+      const p = filtered.filter(LECTOR.peligro).length;
+      const g = filtered.filter(LECTOR.gol).length;
+      const base = `${filtered.length} ${filtered.length === 1 ? "acción defendida" : "acciones defendidas"}`;
+
+      if (p === 0) return `${base} y ninguna acaba en gol u ocasión del rival`;
+
+      return `${base}: ${p} ${p === 1 ? "acaba" : "acaban"} en gol u ocasión del rival${g ? ` (${g === 1 ? "1 gol" : `${g} goles`})` : ""}`;
+    })()
+  : undefined;
+
+/* Bajo cada tarjeta, la media de las jornadas anteriores (10/11/2026, jueces): 42,9 % no se leía sin contexto. */
+const mediaAnterior = (clave: string, formato?: (n: number) => string) => {
+  const m = jornada !== "ALL" && comparativa && comparativa.anteriores > 0 ? comparativa.metricas.find((x) => x.clave === clave) : undefined;
+
+  if (!m || m.media == null || !comparativa) return undefined;
+
+  return `Media de las ${comparativa.anteriores} jornadas anteriores: ${formato ? formato(m.media) : cifra(m.media, 1)}`;
+};
+const pctComa = (n: number) => `${n.toFixed(1).replace(".", ",")} %`;
 
 /*
 | El pie de lectura de cada sección.
@@ -2808,8 +2878,15 @@ const pie = (
   })}
 </div>
 </div>
-    {/* En el móvil, las conclusiones antes que las tarjetas (30/10/2026, expertos). */}
-    {vista === "resumen" && <Conclusiones items={conclusiones} className="mt-5 md:hidden" />}
+    {/* Las conclusiones antes que las tarjetas, también en el ordenador (10/11/2026, jueces). */}
+    {vista === "resumen" && (
+      <Conclusiones
+        items={conclusionesVista}
+        titular={titularConclusiones}
+        enlace={{ href: "/abp-microciclo", rotulo: "Ver la tarea en el microciclo de ABP" }}
+        className="mt-5"
+      />
+    )}
     {/*
     | CUATRO TARJETAS (30/10/2026, expertos). Acciones, remates, goles
     | esperados por remate y el golpeo que más concede ya estaban en la tabla
@@ -2818,7 +2895,8 @@ const pie = (
     */}
     <div className="mt-5 grid grid-cols-2 gap-3 sm:mt-6 xl:grid-cols-4 max-sm:pr-10">
   <Card
-  title="Remate concedido"
+  title="Remates concedidos"
+  referencia={mediaAnterior("conRemate", pctComa)}
   value={
     metrics.total
       ? `${(
@@ -2837,12 +2915,14 @@ const pie = (
   value={`${tasaPeligro.toFixed(1).replace(".", ",")} %`}
   hint="ABP que nos generan peligro real · menos es mejor"
   muestra={{ n: accionesPeligrosas, de: metrics.total, unidad: "acciones" }}
+  referencia={mediaAnterior("peligro", pctComa)}
   />
 
   <Card
     title="Goles esperados concedidos"
     value={dosDecimales(metrics.xg)}
   hint={`En ${metrics.total} acciones defendidas · menos es mejor`}
+  referencia={mediaAnterior("xg", dosDecimales)}
   />
 
   <Card
@@ -2851,6 +2931,7 @@ const pie = (
   hint="Encajados desde su ABP"
   activo={resultadoFilter === "Gol Rival"}
   onClick={() => pulsa("resultado", "Gol Rival")}
+  referencia={mediaAnterior("golesRival", (n) => cifra(n, 1))}
   />
 </div>
 
@@ -2953,7 +3034,7 @@ const pie = (
       className="mb-6"
     />
   )}
-            <Conclusiones items={conclusiones} className="mt-6 max-md:hidden" />
+
 
             {/* La lectura de cabecera: lo que dicen los KPI de arriba puestos
                 al lado del global y de las jornadas anteriores. */}
@@ -4386,6 +4467,7 @@ function Card({
   muestra,
   onClick,
   activo = false,
+  referencia,
 }: {
   title: string;
   value: React.ReactNode;
@@ -4395,8 +4477,12 @@ function Card({
   /** Las tarjetas que son un resultado concreto («Gol Rival») filtran por él. */
   onClick?: () => void;
   activo?: boolean;
+  /** La media de las jornadas anteriores, para leer la cifra (10/11/2026). */
+  referencia?: string;
 }) {
   const Caja = onClick ? "button" : "div";
+  /* Un solo umbral y una sola palabra (10/11/2026): «tendencia» por debajo de MUESTRA_FIRME, en gris y sin juicio. */
+  const corta = Boolean(muestra && muestra.de < MUESTRA_FIRME);
 
   return (
     <Caja
@@ -4437,7 +4523,7 @@ function Card({
           text-white
         "
       >
-        {muestra && muestra.de < 10 ? (
+        {corta ? (
           <span style={{ color: "rgb(var(--rmcf-ink-rgb) / .55)" }}>{value}</span>
         ) : (
           value
@@ -4445,13 +4531,12 @@ function Card({
       </h3>
 
       {muestra && (
-        <p className="mt-1.5 text-[11px] font-medium leading-snug text-white/55">
+        <p className="mt-1.5 text-[12px] font-medium leading-snug text-white/60">
           {muestra.n} de {muestra.de} {muestra.unidad}
-          {/* 29/10/2026: con menos de 5, «indicio» (la regla de toda la pantalla); hasta 10, «tendencia». */}
-          {/* 30/10/2026: un solo umbral y una sola palabra en toda la pantalla: «indicio» por debajo de 10. */}
-          {muestra.de < 10 ? " · indicio" : ""}
+          {corta ? " · tendencia" : ""}
         </p>
       )}
+      {referencia && <p className="mt-1 text-[12px] leading-snug text-white/55">{referencia}</p>}
       {/* El sentido («menos es mejor») en su propia línea, que en el móvil se lee. */}
       {hint && (
         <p className={`${muestra ? "mt-1" : "mt-1.5"} text-[11px] leading-snug text-white/35`}>

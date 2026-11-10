@@ -25,8 +25,8 @@ export type AccionDeLista = {
   fila: FilaAbpCorte;
 };
 
-/** Cuántas se ven antes de «Ver todas»: un partido entero cabe (la J10 tuvo 23). */
-const A_LA_VISTA = 25;
+/** Cuántas se ven antes de «Ver todas» (10/11/2026, jueces: plegada, las primeras 6 y el resto a un toque). */
+const A_LA_VISTA = 6;
 
 /**
  * «Bombeado · cae en punto de penalti», «Corto · 2v1»: lo que dice la hoja
@@ -73,10 +73,15 @@ export function AccionesDelPartido({ acciones, enlaces }: { acciones: AccionDeLi
           const enlace = a.clave ? enlaces.get(a.clave) : undefined;
           const final = desenlace(a.fila);
           const tono = final === "gol en contra" ? "text-rose-400" : final === "gol" || /marcamos$/.test(final) ? "text-emerald-400" : "text-white/60";
+          /* 10/11/2026 (jueces): el gol en contra, en una fila destacada y no sólo en rojo. */
+          const destacada = final === "gol en contra";
           const detalle = [envioDe(a.fila), quienes(a.fila)].filter(Boolean).join(" · ");
 
           return (
-            <li key={a.clave ?? `${a.jornada}-${i}`} className="flex min-w-0 flex-col gap-2 px-3 py-3 sm:flex-row sm:items-start sm:gap-4">
+            <li
+              key={a.clave ?? `${a.jornada}-${i}`}
+              className={`flex min-w-0 flex-col gap-2 px-3 py-3 sm:flex-row sm:items-start sm:gap-4 ${destacada ? "border-l-4 border-rose-500 bg-rose-500/10" : ""}`}
+            >
               <div className="flex shrink-0 items-baseline gap-2 sm:w-28">
                 {variosPartidos && <span className="rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[11px] font-medium text-white/60">{a.jornada}</span>}
                 <span className="tabular-nums text-sm font-semibold text-[#C8A96B]">{a.fila.minuto}&apos;</span>
@@ -88,7 +93,7 @@ export function AccionesDelPartido({ acciones, enlaces }: { acciones: AccionDeLi
                   {variosPartidos && a.rival ? <span className="font-normal text-white/45"> · {a.rival}</span> : null}
                   <span className={`font-normal ${tono}`}> · {final}</span>
                 </p>
-                {detalle && <p className="text-xs text-white/50">{detalle}</p>}
+                {detalle && <p className="text-[13px] text-white/60">{detalle}</p>}
                 {enlace && <VerAccion video={enlace.video} hudl={enlace.hudl} que="la acción" />}
               </div>
             </li>

@@ -1596,7 +1596,12 @@ export function TableroSlide({
     }
   });
 
-  const conPanel = panel && grupos.length > 0;
+  /*
+  | 10/11/2026 (jueces): en lo exportado, un panel «Asignaciones 0/10» sin
+  | nadie es una caja vacía con un contador a cero. Sin fichas, no sale y el
+  | campo crece.
+  */
+  const conPanel = panel && grupos.length > 0 && !(soloVer && slide.fichas.length === 0);
   const conNotas = lineas.length > 0;
   const franja = altoFranja(lineas.length);
 
@@ -2150,7 +2155,8 @@ export function TableroSlide({
   const dorsalDe = (ficha: FichaPizarra) => {
     const puesto = puestoDe(slide, ficha.puesto);
 
-    if (sinCasillasVacias && !(ficha.puesto && slide.marcas?.[ficha.puesto])) return false;
+    /* 10/11/2026 (jueces): en lo que se proyecta y se exporta, tampoco la casilla «Nº» en blanco: es un hueco a la vista. */
+    if ((sinCasillasVacias || soloVer) && !(ficha.puesto && slide.marcas?.[ficha.puesto])) return false;
 
     return puesto ? pideDorsal(slide, puesto) : false;
   };
@@ -2252,13 +2258,16 @@ export function TableroSlide({
           }}
         />
 
-        <div
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(118% 84% at 42% 36%, rgba(15,32,54,0) 40%, rgba(15,32,54,.32) 76%, rgba(15,32,54,.62) 100%)",
-          }}
-        />
+        {/* La viñeta oscura comía el tercio derecho del campo en lo exportado (10/11/2026, jueces): sólo en la pantalla. */}
+        {!soloVer && (
+          <div
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background:
+                "radial-gradient(118% 84% at 42% 36%, rgba(15,32,54,0) 40%, rgba(15,32,54,.32) 76%, rgba(15,32,54,.62) 100%)",
+            }}
+          />
+        )}
 
         {/* --------------- LO QUE DIBUJA LA PLANTILLA --------------- */}
 
@@ -2763,7 +2772,7 @@ export function TableroSlide({
                 Asignaciones
               </p>
 
-              {cubiertos < puestos.length && (
+              {!soloVer && cubiertos < puestos.length && (
                 <p className="text-[16px] font-semibold tabular-nums leading-none text-white/55">
                   {cubiertos}/{puestos.length}
                 </p>

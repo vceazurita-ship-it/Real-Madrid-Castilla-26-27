@@ -358,17 +358,46 @@ export function AnalisisSeccion<T>({
   | reparten las acciones. Sin reparto que contar, no sale.
   */
   if (referencia?.filas.length && muestra.jornadas <= 1 && !muestra.sinFiltro) {
-    if (!reparto?.texto) return null;
+    /*
+    | 10/11/2026 (jueces): la tarjeta salía con el título y nada debajo (la
+    | frase era sólo «Indicio: muestra corta.») o con una frase suelta. Ahora
+    | pinta el reparto entero en barras, con su cuenta; sin dos categorías
+    | que repartir y sin frase, no sale.
+    */
+    const frase = (reparto?.texto ?? "").replace(/\s*Indicio: muestra corta\.$/, "").trim();
+    const cats = reparto?.categorias ?? [];
+    const totalCats = cats.reduce((a, c) => a + c.acciones, 0);
+    const maximo = Math.max(1, ...cats.map((c) => c.acciones));
+
+    if (!reparto || (cats.length < 2 && !frase)) return null;
 
     return (
       <section
         className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.02] p-4 sm:p-5"
         aria-label="Cómo se reparten las acciones"
       >
-        <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-[#C8A96B]">
-          Cómo se reparten · {reparto.etiqueta}
+        <p className="text-[12px] font-medium uppercase tracking-[0.2em] text-[color:var(--rmcf-gold-ink)]">
+          Cómo se reparten · {reparto.etiqueta} · {totalCats} {totalCats === 1 ? "acción" : "acciones"}
         </p>
-        <p className="mt-2 text-[13px] leading-relaxed text-white/65">{reparto.texto.replace(/\s*Indicio: muestra corta\.$/, "")}</p>
+        {cats.length >= 2 ? (
+          <ul className="mt-3 space-y-1.5">
+            {cats.slice(0, 8).map((c) => (
+              <li key={c.nombre} className="grid grid-cols-[minmax(0,10rem)_minmax(0,1fr)_2.5rem] items-center gap-2 text-[13px]">
+                <span className="truncate text-white/75" title={c.nombre}>
+                  {c.nombre}
+                </span>
+                <span className="h-2.5 rounded-full bg-white/10" aria-hidden>
+                  <span
+                    className="block h-full rounded-full"
+                    style={{ width: `${(c.acciones / maximo) * 100}%`, background: "var(--rmcf-gold-ink)" }}
+                  />
+                </span>
+                <span className="text-right font-semibold tabular-nums text-white/85">{c.acciones}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {frase ? <p className="mt-2 text-[13px] leading-relaxed text-white/65">{frase}</p> : null}
       </section>
     );
   }

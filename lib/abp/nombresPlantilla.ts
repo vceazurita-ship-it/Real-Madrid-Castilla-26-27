@@ -70,7 +70,32 @@ export function ajustaNombres(texto: string, jugadores: Jugador[]): string {
     }
   }
 
-  return salida;
+  return conApodosCortos(salida, jugadores);
+}
+
+/*
+| 10/11/2026 (jueces): el apodo corto que se teclea («fortu» por Fortuny)
+| no casaba con nada y salía en minúscula. Una palabra de cinco letras o más
+| que sólo puede ser el arranque de UN jugador va con mayúscula; el resto del
+| texto no se toca.
+*/
+function conApodosCortos(texto: string, jugadores: Jugador[]) {
+  const nombres = new Set<string>();
+
+  for (const jugador of jugadores) {
+    for (const campo of [jugador.apodo, jugador.nombre]) {
+      for (const palabra of (campo ?? "").trim().split(/\s+/)) {
+        if (palabra.length >= 6) nombres.add(sinTildes(palabra));
+      }
+    }
+  }
+
+  return texto.replace(/(?<![\p{L}])([a-zñáéíóúü]{5,})(?![\p{L}])/gu, (palabra) => {
+    const clave = sinTildes(palabra);
+    const casan = [...nombres].filter((nombre) => nombre.startsWith(clave) && nombre !== clave);
+
+    return casan.length === 1 ? palabra.charAt(0).toLocaleUpperCase("es-ES") + palabra.slice(1) : palabra;
+  });
 }
 
 /**
