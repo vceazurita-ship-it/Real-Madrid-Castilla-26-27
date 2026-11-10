@@ -35,6 +35,9 @@ const MODELO = {
   "experto-marketing": "sonnet",
   "editor-video": "sonnet",
   "productor-video": "sonnet",
+  /* El pódcast (08/11/2026): escriben guion en texto, no pasan por el orquestador. */
+  "productor-podcast": "opus",
+  "guionista-podcast": "opus",
 };
 const LEER = new Set(["Read", "Grep", "Glob"]);
 const GIT_LECTURA = /^Bash\(git (diff|log|show):\*\)$/;

@@ -35,6 +35,8 @@ Montada el 19/10/2026. Prepara los **borradores** de la semana (informe post del
 | `lector-cortes` | haiku | 3 fotogramas por corte + datos de Hudl | qué pasa en cada corte, sin nombres | cuando hay cortes |
 | `revisor-cambios` | sonnet | git diff | fallos reales con escenario y arreglo | a mano o en GitHub |
 | `mantenedor` | sonnet | registros del vigía | diagnóstico con evidencia y arreglo propuesto | cada mañana (vigía) |
+| `productor-podcast` | opus | la app y su ayuda | plan de capítulos del pódcast (texto, sin esquema) | a mano |
+| `guionista-podcast` | opus | plan del productor | guion de cada píldora (texto, sin esquema) | a mano |
 
 Todos **sólo leen** (lo comprueba `scripts/agentes/valida.mjs` en GitHub). Las reglas comunes (`agentes/reglas.md`: sólo lo que está en el paquete, cada frase con fuente, lo que no tiene dato no se nombra, hora de Madrid…) se añaden a todos. La salida de cada uno es un JSON con esquema fijo (`agentes/esquemas/`), que Claude Code garantiza con `--json-schema`.
 

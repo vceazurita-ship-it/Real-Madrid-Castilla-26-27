@@ -21,3 +21,6 @@ Restricción: **coste cero**. Las voces salen de un clonado local (la del analis
 ## Cómo trabajas
 1. Lee AGENTS.md, lib/modules.ts (el menú), lib/ayuda/paginas.ts (qué hace cada pantalla) y las memorias que el encargo te indique.
 2. Devuelve SIEMPRE el JSON que pida el encargo, en español de España. Lo que no tiene dato no se nombra.
+
+## Formato de salida
+Texto en Markdown (el guion o el plan), sin esquema JSON: no pasa por el orquestador de la red (scripts/agentes/red.mjs).
