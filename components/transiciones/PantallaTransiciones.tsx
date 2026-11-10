@@ -83,6 +83,7 @@ import { CampoZonas, type PuntoCampo } from "@/components/campo/CampoZonas";
 import { PorJugador, SinJugador, type ColumnaJugador } from "@/components/analisis/PorJugador";
 import { CARRILES_CAMPO, ZONAS_CAMPO } from "@/components/faltas/CampoFaltas";
 import { anterioresPorFecha, ultimoPorFecha } from "@/lib/abp/ultimo-partido";
+import { OptaLaboratorio } from "@/components/opta-partido/OptaLaboratorio";
 import {
   BarraFiltros,
   Filtrable,
@@ -1536,6 +1537,12 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
               ) : null}
             </div>
             )}
+
+            {/* 10/11/2026: lo que da Opta y el vídeo no (el grupo, y el partido con su definición). */}
+            <OptaLaboratorio
+              modo={modo}
+              partido={partidoElegido ? { rival: partidoElegido.rival, fecha: partidoElegido.fecha, jornada: partidoElegido.jornada } : null}
+            />
 
             </>
             )}
