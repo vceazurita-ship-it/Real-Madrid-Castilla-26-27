@@ -21,10 +21,18 @@
  *
  * - **Fases**: el Castilla acción a acción (red de pases, pases progresivos,
  *   recuperaciones y pérdidas por altura).
- * - **Partidos**: cualquier partido de la categoría, con su momentum por
- *   tramos de 5′ y los remates de los dos.
+ * - **Partidos**: cualquier partido de la categoría, con el cara a cara de
+ *   las cifras de los dos (barras enfrentadas), su momentum por tramos de 5′
+ *   y los remates de los dos.
  * - **Remates**: el mapa de remates de cualquier equipo, a favor y en contra.
- * - **11 metros**: cada penalti, en la portería, con lanzadores y porteros.
+ * - **11 metros**: cada penalti, en la portería, con lanzadores y porteros, y
+ *   el ranking de equipos a favor y en contra.
+ *
+ * Jornada a jornada (10/11/2026):
+ *
+ * - **Evolución**: cualquier equipo métrica a métrica, contra sus rivales y la
+ *   media de la liga en cada jornada, por partido o acumulado; y su arranque
+ *   contra su proceso (las primeras N jornadas frente a las últimas N).
  * - **Estilos** (10/11/2026): quién aprieta y cuándo en toda la liga (mapa
  *   de calor por franjas de 15′), el Venn de dominio, peligro y solidez y la
  *   radiografía de 22 métricas de cualquier equipo (`_piezas/Estilos.tsx`).
@@ -45,6 +53,7 @@ import { Buscador } from "./_piezas/Buscador";
 import { Colectivo } from "./_piezas/Colectivo";
 import { Directo } from "./_piezas/Directo";
 import { Estilos } from "./_piezas/Estilos";
+import { Evolucion } from "./_piezas/Evolucion";
 import { Fases } from "./_piezas/Fases";
 import { Jugadores } from "./_piezas/Jugadores";
 import { Liga } from "./_piezas/Liga";
@@ -57,6 +66,7 @@ const PESTANAS = [
   { clave: "castilla", nombre: "Castilla" },
   { clave: "fases", nombre: "Fases" },
   { clave: "liga", nombre: "La liga" },
+  { clave: "evolucion", nombre: "Evolución" },
   { clave: "partidos", nombre: "Partidos" },
   { clave: "remates", nombre: "Remates" },
   { clave: "penaltis", nombre: "11 metros" },
@@ -169,6 +179,7 @@ export default function OptaPage() {
                 {pestana === "castilla" && <Colectivo datos={datos} />}
                 {pestana === "fases" && <Fases datos={datos} />}
                 {pestana === "liga" && <Liga datos={datos} />}
+                {pestana === "evolucion" && <Evolucion datos={datos} />}
                 {pestana === "partidos" && <PartidosCategoria datos={datos} />}
                 {pestana === "remates" && (
                   <div className="mt-6">

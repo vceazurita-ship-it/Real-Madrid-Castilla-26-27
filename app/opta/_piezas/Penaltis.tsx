@@ -8,6 +8,10 @@
  * paradas). Pensado para preparar el penalti del próximo rival: abre con él
  * si el calendario lo dice y Opta lo reconoce.
  *
+ * Debajo, los equipos a 11 metros (10/11/2026): lanzados, goles, fallados,
+ * parados, fuera o al palo, conversión y lanzadores distintos, a favor o en
+ * contra (`rankingPenaltis`, en `lib/opta-evolucion.ts`).
+ *
  * La portería se ve DESDE EL PUNTO DE PENALTI: la izquierda del dibujo es la
  * del lanzador (la derecha del portero).
  */
@@ -30,6 +34,7 @@ import {
   type Lado,
   type Penalti,
 } from "@/lib/opta-eventos";
+import { rankingPenaltis, type FilaPenaltisEquipo } from "@/lib/opta-evolucion";
 
 import { Botonera, Cifra, Elegir, Panel } from "./comun";
 import { equiposDe, nombreDe, pct, usePenaltis } from "./eventos";
@@ -368,7 +373,97 @@ export function Penaltis({ datos }: { datos: DatosOpta }) {
           )}
         </div>
       )}
+
+      <RankingEquipos
+        penaltis={penaltis}
+        marcado={equipo === "todos" ? "" : equipo}
+        alElegir={(id, lado) => {
+          setEquipo(id);
+          setPapel(lado === "favor" ? "lanzan" : "reciben");
+          limpia();
+        }}
+      />
     </div>
+  );
+}
+
+type LadoRanking = "favor" | "contra";
+type OrdenRanking = "n" | "goles" | "fallados" | "parados" | "fuera" | "conversion" | "distintos";
+
+/** Los equipos de la categoría por sus penaltis, a favor (los que lanzan) o en contra (los que les tiran). */
+function RankingEquipos({ penaltis, marcado, alElegir }: { penaltis: Penalti[]; marcado: string; alElegir: (teamId: string, lado: LadoRanking) => void }) {
+  const [lado, setLado] = useState<LadoRanking>("favor");
+  const [orden, setOrden] = useState<OrdenRanking>("n");
+  const filas = useMemo(() => {
+    const r = rankingPenaltis(penaltis, lado);
+    const v = (f: FilaPenaltisEquipo) => (orden === "fuera" ? f.fuera + f.palo : orden === "conversion" ? (f.conversion ?? -1) : f[orden]);
+    return orden === "n" ? r : [...r].sort((a, b) => v(b) - v(a) || b.n - a.n);
+  }, [penaltis, lado, orden]);
+  if (!filas.length) return null;
+
+  const favor = lado === "favor";
+  const cols: { clave: OrdenRanking; nombre: string; titulo?: string }[] = [
+    { clave: "n", nombre: favor ? "Lanz." : "Recib.", titulo: favor ? "Penaltis lanzados" : "Penaltis que le han tirado" },
+    { clave: "goles", nombre: favor ? "Goles" : "Encaj.", titulo: favor ? "Goles" : "Goles encajados" },
+    { clave: "fallados", nombre: "Fallados", titulo: "Los que no fueron gol" },
+    { clave: "parados", nombre: "Parados" },
+    { clave: "fuera", nombre: "Fuera/palo" },
+    { clave: "conversion", nombre: favor ? "Conversión" : "% encaj.", titulo: favor ? "Goles entre lanzados" : "Goles encajados entre penaltis en contra" },
+    { clave: "distintos", nombre: favor ? "Lanzadores" : "Porteros", titulo: favor ? "Lanzadores distintos" : "Porteros distintos que los afrontaron" },
+  ];
+  const celda = (f: FilaPenaltisEquipo, k: OrdenRanking) =>
+    k === "conversion" ? pct(f.conversion) : k === "fuera" ? `${f.fuera + f.palo}${f.palo ? ` (${f.palo} al palo)` : ""}` : String(f[k]);
+
+  return (
+    <Panel
+      titulo="Los equipos, a 11 metros"
+      subtitulo={`${favor ? "Los penaltis que ha lanzado cada equipo" : "Los penaltis que le han tirado a cada equipo"}. Pincha uno para verlo arriba; pincha una cabecera para ordenar.`}
+      derecha={
+        <Botonera
+          etiqueta="A favor o en contra"
+          valor={lado}
+          alCambiar={setLado}
+          opciones={[
+            { clave: "favor", nombre: "A favor" },
+            { clave: "contra", nombre: "En contra" },
+          ]}
+        />
+      }
+    >
+      <div className="max-h-[480px] max-w-full overflow-auto">
+        <table className="w-full min-w-[600px] text-left text-[12px] tabular-nums">
+          <thead>
+            <tr className="border-b border-white/10 text-[11px] text-white/55">
+              <th className="py-1.5 pr-2 font-semibold">Equipo</th>
+              {cols.map((c) => (
+                <th key={c.clave} className="py-1.5 pr-2 text-right font-semibold" title={c.titulo} aria-sort={orden === c.clave ? "descending" : undefined}>
+                  <button type="button" onClick={() => setOrden(c.clave)} className={`font-semibold ${orden === c.clave ? "text-white" : "hover:text-white"}`}>
+                    {c.nombre}
+                    {orden === c.clave ? " ↓" : ""}
+                  </button>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filas.map((f) => (
+              <tr
+                key={f.teamId}
+                onClick={() => alElegir(f.teamId, lado)}
+                className={`cursor-pointer border-b border-white/[0.06] hover:bg-white/[0.04] ${f.teamId === marcado ? "bg-white/[0.06]" : ""}`}
+              >
+                <td className="max-w-[200px] truncate py-1.5 pr-2 font-semibold text-white/85">{nombreDe(f.teamId, f.equipo)}</td>
+                {cols.map((c) => (
+                  <td key={c.clave} className="whitespace-nowrap py-1.5 pr-2 text-right text-white/75">
+                    {celda(f, c.clave)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Panel>
   );
 }
 
