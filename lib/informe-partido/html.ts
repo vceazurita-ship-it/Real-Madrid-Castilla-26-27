@@ -44,6 +44,7 @@ import {
   quienDuelo,
   sinSiglas,
 } from "./modelo";
+import { nombresOpta } from "@/lib/fuentes";
 
 /**
  * Los duelos con jugadores de su once probable (20/10/2026): como en las
@@ -55,6 +56,9 @@ const delOnce = (inf: InformePartido, lista: ReturnType<typeof duelosParaAtacar>
 
 const atacarDe = (inf: InformePartido, d: DuelosInforme | null = inf.duelosJugadores) => delOnce(inf, duelosParaAtacar(d));
 const vigilarDe = (inf: InformePartido, d: DuelosInforme | null = inf.duelosJugadores) => delOnce(inf, duelosParaVigilar(d));
+
+/** «xG, remates y PPDA»: lo del partido que sale de Opta (`lib/cifras-equipo.ts`), para decirlo una vez. */
+const optaDelPartido = (inf: InformePartido) => nombresOpta((inf.duelo?.partido?.metricas ?? []).filter((x) => x.fuente === "opta").map((x) => x.key));
 
 /** ✓ / ✗ / = de una clave del plan, para el correo. */
 const marcaCumplimiento = (v: "si" | "no" | "igual" | null) => (v === "si" ? "✓" : v === "no" ? "✗" : v === "igual" ? "=" : "");
@@ -1002,7 +1006,7 @@ ${pr ? barraPronostico(pr, esPost ? "LO QUE DABA EL PRONÓSTICO" : "EL PRONÓSTI
         [
           { id: "esencial", titulo: "Lo esencial", html: seccion("Lo esencial", "Lo mismo que el resumen en diapositivas, en texto.", esencial) },
           { id: "cronica", titulo: "El partido", html: seccion("El partido", "Goles, cambios y tarjetas (BeSoccer).", cronica) },
-          { id: "datos", titulo: "El partido en datos", html: seccion("El partido en datos", "Wyscout: lo nuestro, lo suyo y nuestra media de la temporada.", partidoDatos) },
+          { id: "datos", titulo: "El partido en datos", html: seccion("El partido en datos", `Wyscout${optaDelPartido(inf) ? ` (${optaDelPartido(inf)}, según Opta)` : ""}: lo nuestro, lo suyo y nuestra media de la temporada.`, partidoDatos) },
           { id: "pronostico", titulo: "El pronóstico, frente al resultado", html: seccion("El pronóstico, frente al resultado", "Lo que daban los números de los dos antes del partido.", veredicto) },
           {
             id: "once",

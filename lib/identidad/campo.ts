@@ -20,6 +20,7 @@ import type { RegistroTarea } from "@/lib/abp/registro";
 import type { FilaJugador, FilaPartido } from "@/lib/data-analisis/leer";
 import { METRICA_POR_KEY, percentil, valorEnGrupo, type Metrica } from "@/lib/data-analisis/metricas";
 import { competicionPrincipal } from "@/lib/data-analisis/equipo";
+import { partidoDeFecha, type PartidoCalendario } from "@/lib/data-analisis/alcance";
 import { esNuestro, puestoDe, universoDe, valorDe, type Puesto } from "@/lib/data-analisis/individual";
 
 export const NOSOTROS = "Real Madrid Castilla";
@@ -133,7 +134,25 @@ export type BloqueMedido = {
 
 export type ValorMedido = { key: string; valor: string; conducta: string; indice: number; indicadores: IndicadorMedido[]; tendencia: (number | null)[] };
 
-export type PartidoEje = { fecha: string; rival: string; jornada: number; marcador: string; entreno: Partial<Record<BloqueKey, number>>; minutos: number };
+export type PartidoEje = {
+  fecha: string;
+  rival: string;
+  /**
+   * La jornada de verdad, del calendario de BeSoccer (como la portada); null
+   * si el partido no casa con ninguna (10/11/2026: antes era el orden, y con
+   * un aplazado «J10» era la undécima).
+   */
+  jornada: number | null;
+  /** El orden del partido entre los nuestros (1 = el primero). */
+  orden: number;
+  marcador: string;
+  entreno: Partial<Record<BloqueKey, number>>;
+  minutos: number;
+};
+
+/** «J11» si se sabe la jornada; si no, «11.º partido» (o «11.º» en corto). */
+export const rotuloPartido = (p: Pick<PartidoEje, "jornada" | "orden">, corto = false) =>
+  p.jornada ? `J${p.jornada}` : corto ? `${p.orden}.º` : `${p.orden}.º partido`;
 
 export type JugadorEncaje = {
   nombre: string;
@@ -436,7 +455,14 @@ function encajes(jugadores: FilaJugador[]): JugadorEncaje[] {
 
 /* ---- El cálculo entero ---- */
 
-export function identidadEnElCampo(partidos: FilaPartido[], jugadores: FilaJugador[], tareas: RegistroTarea[], hoja: FilaHoja[] | null = null): IdentidadEnElCampo | null {
+export function identidadEnElCampo(
+  partidos: FilaPartido[],
+  jugadores: FilaJugador[],
+  tareas: RegistroTarea[],
+  hoja: FilaHoja[] | null = null,
+  /** El calendario de BeSoccer, para la jornada real de cada partido. */
+  calendario: PartidoCalendario[] = [],
+): IdentidadEnElCampo | null {
   const delAno = partidos.filter((f) => f.fecha >= DESDE);
   const nuestras = delAno.filter((f) => f.equipo === NOSOTROS);
 
@@ -506,7 +532,8 @@ export function identidadEnElCampo(partidos: FilaPartido[], jugadores: FilaJugad
     return {
       fecha: f.fecha,
       rival: f.rival,
-      jornada: i + 1,
+      jornada: partidoDeFecha(calendario, f.fecha)?.jornada ?? null,
+      orden: i + 1,
       marcador: `${f.golesFavor}-${f.golesContra}`,
       minutos: s?.minutos ?? 0,
       entreno: s ? Object.fromEntries(Object.entries(s.bloques).map(([k, v]) => [k, Math.round((100 * (v as number)) / s.minutos)])) : {},

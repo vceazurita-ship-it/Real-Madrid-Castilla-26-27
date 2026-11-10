@@ -32,6 +32,8 @@ import {
   type LineaBoceto,
 } from "@/lib/plan-partido/boceto";
 import { useTextosExplicativos } from "@/components/ui/textos-analisis";
+import type { TablasOpta } from "@/lib/cifras-equipo";
+import { DOCS_OPTA, traeOpta, type MetaOpta } from "@/lib/opta";
 
 type Rival = Record<string, string>;
 
@@ -40,6 +42,8 @@ type Datos = {
   jugadores: FilaJugador[];
   comparativa: ComparativaAbp | null;
   scout: RivalScoutStore | null;
+  /** xG, remates y PPDA de Opta (`lib/cifras-equipo.ts`); null si no hay. */
+  opta: TablasOpta | null;
 };
 
 const relleno = (valor: unknown) => String(valor ?? "").trim().length > 0;
@@ -78,7 +82,7 @@ export function BocetoPlanDialog({
 
     const traer = async () => {
       try {
-        const [informes, abp, scout] = await Promise.all([
+        const [informes, abp, scout, opta] = await Promise.all([
           fetch("/api/data-analisis", { cache: "no-store" })
             .then((r) => r.json() as Promise<{ partidos?: FilaPartido[]; jugadores?: FilaJugador[] }>)
             .catch(() => ({}) as { partidos?: FilaPartido[]; jugadores?: FilaJugador[] }),
@@ -90,6 +94,9 @@ export function BocetoPlanDialog({
             .then((r) => r.json() as Promise<{ data?: RivalScoutStore }>)
             .then((d) => d?.data ?? null)
             .catch(() => null),
+          Promise.all([traeOpta(DOCS_OPTA.equipos), traeOpta(DOCS_OPTA.partidos), traeOpta<MetaOpta>(DOCS_OPTA.meta)])
+            .then(([equipos, partidos, meta]) => (equipos && partidos ? { equipos, partidos, meta } : null))
+            .catch(() => null),
         ]);
 
         if (cancelado) return;
@@ -99,6 +106,7 @@ export function BocetoPlanDialog({
           jugadores: Array.isArray(informes.jugadores) ? informes.jugadores : [],
           comparativa: abp,
           scout,
+          opta,
         });
       } catch (e) {
         if (!cancelado) setError(e instanceof Error ? e.message : "No se han podido leer los datos.");

@@ -53,6 +53,8 @@ const { pintaPoster } = require("../../lib/video-informe/portada-video.ts");
 const { FRECUENCIA_AAC, pcm16aFlotante, remuestrea, reparteVoz } = require("../../lib/video-informe/voz.ts");
 const { bandaSonora, masteriza } = require("../../lib/video-informe/musica.ts");
 const { filasAbpDelPartido, momentosAbpDeHudl, casaConHudl, rotuloDeAccion, esGolDeLaAccion } = require("../../lib/abp/cortes-abp.ts");
+const { cifraEquipo } = require("../../lib/cifras-equipo.ts");
+const { CASTILLA_OPTA } = require("../../lib/opta.ts");
 import { subeAlmacen } from "../almacen.cjs";
 
 const ejecuta = promisify(execFile);
@@ -633,7 +635,7 @@ function guionDelPartido(partido, cortes, datos, transiciones, escudoRival = nul
       id: "datos",
       tipo: "versus",
       titulo: tituloDeVersus(filasDatos[0], true),
-      pie: `Castilla a la izquierda, ${rival} a la derecha · timeline de Hudl${robos.length ? " y análisis de robos y pérdidas" : ""}`,
+      pie: `Castilla a la izquierda, ${rival} a la derecha · ${datos.rematesOpta ? "remates según Opta; lo demás, " : ""}timeline de Hudl${robos.length ? " y análisis de robos y pérdidas" : ""}`,
       filas: filasDatos,
       locucion: filasDatos.map((x) => `${x.nombre}: ${x.textoNuestro} contra ${x.textoSuyo}`).join(". "),
     });
@@ -919,6 +921,27 @@ async function renderiza(guion, pistas, carpetaVideo, salida) {
 
 function supabaseDe(env) {
   return createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+}
+
+/**
+ * Nuestros remates y los suyos en el partido, de Opta (`opta:equipos` y
+ * `opta:partidos`, sólo lectura), con la misma lectura que el informe y la
+ * portada (`cifraEquipo`). `null` si Opta aún no tiene el partido.
+ */
+async function rematesDeOpta(lector, partido) {
+  if (!lector) return null;
+  try {
+    const lee = async (key) => (await lector.from("app_documents").select("data").eq("key", key).maybeSingle()).data?.data ?? null;
+    const [equipos, partidos] = await Promise.all([lee("opta:equipos"), lee("opta:partidos")]);
+    if (!equipos || !partidos) return null;
+    const opta = { equipos, partidos };
+    const cual = { fecha: String(partido.cuando ?? partido.fecha ?? "").slice(0, 10), rival: partido.rival };
+    const nuestros = cifraEquipo("remates", CASTILLA_OPTA, { opta, partido: cual });
+    const suyos = cifraEquipo("rematesContra", CASTILLA_OPTA, { opta, partido: cual });
+    return nuestros?.fuente === "opta" && suyos?.fuente === "opta" ? [nuestros.valor, suyos.valor] : null;
+  } catch {
+    return null;
+  }
 }
 
 async function sube(supabase, fichero, destino, tipo) {
@@ -1230,6 +1253,13 @@ async function principal() {
   const { PARTIDOS } = require("../../lib/transiciones/datos.ts");
   const transiciones = PARTIDOS.find((p) => p.id === partido.slug) ?? null;
   const escudo = supabase ? await escudoDelRival(supabase, partido.rival, carpetaVideo) : null;
+  /* Los remates del partido los manda Opta (10/11/2026, `lib/cifras-equipo.ts`): los de Hudl sólo si Opta aún no lo tiene. */
+  const rematesOpta = await rematesDeOpta(env ? supabaseDe(env) : null, partido);
+  if (rematesOpta) {
+    console.log(`  remates según Opta: ${rematesOpta.join("-")} (Hudl: ${datos.remates.join("-")})`);
+    datos.remates = rematesOpta;
+    datos.rematesOpta = true;
+  }
   let guion = guionDelPartido(partido, cortes, datos, transiciones, escudo);
 
   if (ai) {

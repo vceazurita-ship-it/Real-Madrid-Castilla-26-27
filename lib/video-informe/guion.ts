@@ -20,6 +20,7 @@
 import type { FilaCumplimiento, InformePartido, PinceladaAbp, VeredictoDuelo } from "@/lib/informe-partido/modelo";
 import type { InformeMicro } from "@/lib/abp/informe-micro";
 import { consignaPrincipal } from "../informe-partido/consigna";
+import { nombresOpta } from "../fuentes";
 
 export type Cifra = { rotulo: string; valor: string; pie?: string };
 
@@ -741,28 +742,34 @@ function escenaVersus(informe: InformePartido): Escena | null {
     | Primero la cifra en la que más se separaron los dos (20/10/2026): el
     | dibujo pone en oro la primera fila y el título la cuenta.
     */
-    const filas: FilaVersus[] = d.partido.metricas
+    const elegidas = d.partido.metricas
       .filter((m) => m.nuestro !== null && m.suyo !== null)
       .map((m) => ({ m, separa: Math.abs(m.nuestro! - m.suyo!) / Math.max(Math.abs(m.nuestro!), Math.abs(m.suyo!), 0.0001) }))
       .sort((a, b) => b.separa - a.separa)
-      .slice(0, 6)
-      .map(({ m }) => ({ nombre: sinSiglas(m.nombre), nuestro: m.nuestro!, suyo: m.suyo!, textoNuestro: numero(m.nuestro!, m.unidad), textoSuyo: numero(m.suyo!, m.unidad), media: m.media, mejorAlto: m.mejorAlto }));
+      .slice(0, 6);
+    const filas: FilaVersus[] = elegidas.map(({ m }) => ({ nombre: sinSiglas(m.nombre), nuestro: m.nuestro!, suyo: m.suyo!, textoNuestro: numero(m.nuestro!, m.unidad), textoSuyo: numero(m.suyo!, m.unidad), media: m.media, mejorAlto: m.mejorAlto }));
 
     if (filas.length < 3) return null;
 
-    return { id: "versus", tipo: "versus", titulo: tituloDeVersus(filas[0], true), pie: "La raya marca la media de la liga por partido", filas, locucion: filas.slice(0, 3).map((f) => `${f.nombre}: ${f.textoNuestro} contra ${f.textoSuyo}`).join(". ") };
+    return { id: "versus", tipo: "versus", titulo: tituloDeVersus(filas[0], true), pie: `La raya marca la media de la liga por partido${segunOpta(elegidas.map(({ m }) => m))}`, filas, locucion: filas.slice(0, 3).map((f) => `${f.nombre}: ${f.textoNuestro} contra ${f.textoSuyo}`).join(". ") };
   }
 
-  const filas: FilaVersus[] = d.metricas
+  const elegidas = d.metricas
     .filter((m) => m.nosotros && m.rival && m.nosotros.percentil !== null && m.rival.percentil !== null)
     .map((m) => ({ m, separa: Math.abs(m.nosotros!.percentil! - m.rival!.percentil!) }))
     .sort((a, b) => b.separa - a.separa)
-    .slice(0, 5)
-    .map(({ m }) => ({ nombre: sinSiglas(m.nombre), nuestro: m.nosotros!.valor, suyo: m.rival!.valor, textoNuestro: numero(m.nosotros!.valor, m.unidad), textoSuyo: numero(m.rival!.valor, m.unidad), media: m.media ?? m.mediana, mejorAlto: m.mejorAlto }));
+    .slice(0, 5);
+  const filas: FilaVersus[] = elegidas.map(({ m }) => ({ nombre: sinSiglas(m.nombre), nuestro: m.nosotros!.valor, suyo: m.rival!.valor, textoNuestro: numero(m.nosotros!.valor, m.unidad), textoSuyo: numero(m.rival!.valor, m.unidad), media: m.media ?? m.mediana, mejorAlto: m.mejorAlto }));
 
   if (filas.length < 3) return null;
 
-  return { id: "versus", tipo: "versus", titulo: tituloDeVersus(filas[0], false), pie: `Media por partido esta temporada · la raya, la mediana de los ${d.equipos} equipos`, filas, locucion: filas.slice(0, 3).map((f) => `${f.nombre}: ${f.textoNuestro} nosotros, ${f.textoSuyo} ellos`).join(". ") };
+  return { id: "versus", tipo: "versus", titulo: tituloDeVersus(filas[0], false), pie: `Media por partido esta temporada · la raya, la mediana de los ${d.equipos} equipos${segunOpta(elegidas.map(({ m }) => m))}`, filas, locucion: filas.slice(0, 3).map((f) => `${f.nombre}: ${f.textoNuestro} nosotros, ${f.textoSuyo} ellos`).join(". ") };
+}
+
+/** « · xG y PPDA, según Opta» si alguna de las filas sale de Opta (`lib/cifras-equipo.ts`); si no, nada. */
+function segunOpta(filas: { key: string; fuente?: string }[]) {
+  const nombres = nombresOpta(filas.filter((m) => m.fuente === "opta").map((m) => m.key));
+  return nombres ? ` · ${nombres}, según Opta` : "";
 }
 
 /** El título de la comparativa: quién manda en la cifra que más separa a los dos (20/10/2026). */

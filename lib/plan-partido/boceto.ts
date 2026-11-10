@@ -53,6 +53,7 @@ import { groupPatterns, type RivalScoutStore } from "@/lib/abp/rivalScout";
 import { ASPECTO_BY_KEY, claveAspecto, type AspectoKey } from "@/lib/abp/microciclo";
 import { mismoClub } from "@/lib/rivals/mismoClub";
 import { cuestionExperta, sugerenciasExpertas, type ContextoCriterio } from "./criterio";
+import { nombresOpta, perfilConOpta, type TablasOpta } from "@/lib/cifras-equipo";
 
 /* ------------------------------------------------------------------ */
 /*  QUÉ SE BOCETA                                                      */
@@ -130,6 +131,11 @@ export type EntradaBocetoPlan = {
   jugadores: FilaJugador[];
   comparativa: ComparativaAbp | null;
   scout: RivalScoutStore | null;
+  /**
+   * Las tablas de Opta (10/11/2026): xG, remates y PPDA salen de ahí, como en
+   * la portada (`lib/cifras-equipo.ts`). Sin ellas, todo de Wyscout.
+   */
+  opta?: TablasOpta | null;
 };
 
 /* ------------------------------------------------------------------ */
@@ -160,9 +166,11 @@ const cifra = (x: MetricaEquipo) => {
 const nivel = (x: MetricaEquipo) =>
   x.percentil ?? (x.de > 1 ? Math.round(100 * (1 - (x.puestoDeMas - 1) / (x.de - 1))) : 50);
 
-/** «P72 (4.º de 20)» o, en las de estilo, «4.º de 20 por volumen». */
+/** «P72 (4.º de 20)» o, en las de estilo, «4.º de 20 por volumen»; si la cifra es de Opta, lo dice en una palabra. */
 const sitio = (x: MetricaEquipo) =>
-  x.percentil === null ? `${ordinal(x.puestoDeMas)} de ${x.de} por volumen` : `P${Math.round(x.percentil)} (${ordinal(x.puesto)} de ${x.de})`;
+  x.percentil === null
+    ? `${ordinal(x.puestoDeMas)} de ${x.de} por volumen${x.fuente === "opta" ? ", según Opta" : ""}`
+    : `P${Math.round(x.percentil)} (${ordinal(x.puesto)} de ${x.de}${x.fuente === "opta" ? ", según Opta" : ""})`;
 
 /** Un rótulo del plan («ATAQUE CP», «ÁREA»): mayúsculas y pocas palabras. No se juzga. */
 const esRotulo = (linea: string) => {
@@ -508,7 +516,7 @@ function parecidas(a: string, b: string) {
 }
 
 export function construyeBocetoPlan(entrada: EntradaBocetoPlan): BocetoPlan {
-  const { anterior, actual, partidos, jugadores, comparativa, scout } = entrada;
+  const { anterior, actual, partidos, jugadores, comparativa, scout, opta } = entrada;
 
   const rival = String(actual.EQUIPO ?? "").trim();
   const rivalAnterior = String(anterior.EQUIPO ?? "").trim();
@@ -522,17 +530,19 @@ export function construyeBocetoPlan(entrada: EntradaBocetoPlan): BocetoPlan {
   const fuentes: string[] = [];
   const avisos: string[] = [];
 
-  const perfil = rivalW ? perfilDe(rivalW, deLiga) : null;
+  const perfil = rivalW ? perfilConOpta(perfilDe(rivalW, deLiga), rivalW, opta) : null;
   const resumen = rivalW ? resumenDe(rivalW, deLiga, deLiga) : null;
   const plantilla = rivalW ? plantillaDe(rivalW, jugadores) : [];
-  const perfilAnterior = anteriorW ? perfilDe(anteriorW, deLiga) : null;
+  const perfilAnterior = anteriorW ? perfilConOpta(perfilDe(anteriorW, deLiga), anteriorW, opta) : null;
   const plantillaAnterior = anteriorW ? plantillaDe(anteriorW, jugadores) : [];
   const nosotros = {
     resumen: nosotrosW ? resumenDe(nosotrosW, deLiga, deLiga) : null,
-    perfil: nosotrosW ? perfilDe(nosotrosW, deLiga) : null,
+    perfil: nosotrosW ? perfilConOpta(perfilDe(nosotrosW, deLiga), nosotrosW, opta) : null,
   };
 
   if (perfil && resumen) fuentes.push(`Wyscout: ${resumen.partidos} partidos del ${rivalW} esta temporada, contra los ${perfil.equipos} equipos del grupo`);
+  const deOpta = perfil?.metricas.filter((x) => x.fuente === "opta") ?? [];
+  if (deOpta.length) fuentes.push(`Opta: ${nombresOpta(deOpta.map((x) => x.metrica.key))}${deOpta[0].partidos ? `, ${deOpta[0].partidos} partidos del ${rivalW}` : ""}, contra los equipos de su grupo`);
   else avisos.push(`No hay informes de Wyscout del ${rival || "rival"}: sin ellos no se puede contrastar el juego ni proponer nada del juego.`);
   if (!anteriorW && rivalAnterior) avisos.push(`El ${rivalAnterior} no está en Wyscout: las líneas sobre el juego se comparan sólo con la liga.`);
 

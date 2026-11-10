@@ -127,6 +127,10 @@ export type MetricaEquipo = {
   puestoDeMas: number;
   de: number;
   mediana: number;
+  /** De dónde sale la cifra cuando no es Wyscout (Opta manda en xG, remates y PPDA). */
+  fuente?: "opta";
+  /** Partidos detrás de la cifra, si la fuente es otra. */
+  partidos?: number;
 };
 
 export type PerfilColectivo = {
@@ -179,6 +183,15 @@ export function perfilDe(equipo: string, liga: FilaPartido[]): PerfilColectivo |
     });
   }
 
+  return cierraPerfil(competicion, equipos.length, metricas);
+}
+
+/**
+ * Fases, fuertes, flojos y estilo a partir de las métricas ya calculadas. Va
+ * aparte para poder rehacerlo cuando alguna métrica cambia de fuente (Opta
+ * manda en xG, remates y PPDA: `lib/cifras-equipo.ts`).
+ */
+export function cierraPerfil(competicion: string, equipos: number, metricas: MetricaEquipo[]): PerfilColectivo {
   const conBueno = metricas.filter((x) => x.percentil !== null);
   const ordenadas = [...conBueno].sort((a, b) => (b.percentil ?? 0) - (a.percentil ?? 0));
 
@@ -194,7 +207,7 @@ export function perfilDe(equipo: string, liga: FilaPartido[]): PerfilColectivo |
 
   return {
     competicion,
-    equipos: equipos.length,
+    equipos,
     metricas,
     fases: FASES.map((f) => {
       const de = conBueno.filter((x) => x.metrica.fase === f.key).map((x) => x.percentil as number);

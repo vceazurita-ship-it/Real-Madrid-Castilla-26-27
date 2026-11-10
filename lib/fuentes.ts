@@ -541,3 +541,14 @@ export function selloTexto({ fuente, poblacion, hasta, partidos }: Sello): strin
     .filter(Boolean)
     .join(" · ");
 }
+
+/**
+ * «xG, remates y PPDA»: las claves de Wyscout de una lista que salen de Opta
+ * (`lib/cifras-equipo.ts`), en palabras y sin repetir, para decir la fuente
+ * una sola vez («…, según Opta»). Vacío si no hay ninguna.
+ */
+export function nombresOpta(claves: string[]): string {
+  const palabra: Record<string, string> = { xg: "xG", xgContra: "xG", tiros: "remates", tirosContra: "remates", ppda: "PPDA" };
+  const nombres = [...new Set(claves.map((k) => palabra[k] ?? "").filter(Boolean))];
+  return nombres.length > 1 ? `${nombres.slice(0, -1).join(", ")} y ${nombres[nombres.length - 1]}` : (nombres[0] ?? "");
+}
