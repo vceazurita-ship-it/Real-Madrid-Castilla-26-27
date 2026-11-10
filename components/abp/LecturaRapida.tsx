@@ -24,9 +24,25 @@ const pct = (x: number) => `${Math.round(x * 100)} %`;
 export const MUESTRA_FIRME = 15;
 /** Por debajo de esto un grupo no se enseña: 1 de 3 no es un hallazgo. */
 const MUESTRA_VISIBLE = 5;
+/*
+| 10/11/2026 (jueces): un indicio contra un resto minúsculo («1 de 9 · los
+| otros: 1 de 3») no compara nada. Si el grupo es indicio y el resto con dato
+| no llega a esto, la tarjeta no se pinta.
+*/
+const RESTO_MINIMO = 10;
 
 function capital(texto: string) {
   return texto ? texto[0].toUpperCase() + texto.slice(1) : texto;
+}
+
+/*
+| «Receptor: receptor «Primera línea»» repetía la palabra (10/11/2026): si el
+| valor ya empieza por el nombre de la dimensión, va solo.
+*/
+function titularDe(h: HallazgoLectura) {
+  const quita = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+  return quita(h.valor).startsWith(quita(h.dimension)) ? capital(h.valor) : `${capital(h.dimension)}: ${h.valor}`;
 }
 
 function Tarjeta({
@@ -102,15 +118,18 @@ export function LecturaRapida({
   if (!lectura) return null;
 
   const { base } = lectura;
-  const funciona = lectura.funciona && lectura.funciona.n >= MUESTRA_VISIBLE ? lectura.funciona : null;
-  const falla = lectura.falla && lectura.falla.n >= MUESTRA_VISIBLE ? lectura.falla : null;
+  const indicio = (h: HallazgoLectura) => h.n < MUESTRA_FIRME;
+  const visible = (h: HallazgoLectura | null) =>
+    h && h.n >= MUESTRA_VISIBLE && !(indicio(h) && h.resto < RESTO_MINIMO) ? h : null;
+  const funciona = visible(lectura.funciona);
+  const falla = visible(lectura.falla);
   const entrenar = lectura.entrenar && falla ? lectura.entrenar : null;
 
   const gris = "var(--rmcf-rate-none)";
-  const indicio = (h: HallazgoLectura) => h.n < MUESTRA_FIRME;
 
+  /* La misma cuenta en las dos mitades: «2 de 6 · los otros: 9 de 11 (82 %)». */
   const pieDe = (h: HallazgoLectura) =>
-    `${h.aciertos} de ${h.n} ${unidad} ${acierto} · los otros ${base.n - h.n}, ${pct(h.tasaResto)}`;
+    `${h.aciertos} de ${h.n} ${unidad} ${acierto} · los otros: ${h.aciertosResto} de ${h.resto} (${pct(h.tasaResto)})`;
 
   const hayIndicio = [funciona, falla].some((h) => h && indicio(h));
 
@@ -123,7 +142,7 @@ export function LecturaRapida({
           <Tarjeta
             rotulo={indicio(funciona) ? "Indicio a favor" : "Qué funciona"}
             color={indicio(funciona) ? gris : "var(--rmcf-rate-good)"}
-            titular={`${capital(funciona.dimension)}: ${funciona.valor}`}
+            titular={titularDe(funciona)}
             cifra={indicio(funciona) ? `${funciona.aciertos} de ${funciona.n} · tendencia` : pct(funciona.tasa)}
             pequena={indicio(funciona)}
             pie={pieDe(funciona)}
@@ -133,7 +152,7 @@ export function LecturaRapida({
           <Tarjeta
             rotulo={indicio(falla) ? "Indicio en contra" : "Qué falla"}
             color={indicio(falla) ? gris : "var(--rmcf-rate-low)"}
-            titular={`${capital(falla.dimension)}: ${falla.valor}`}
+            titular={titularDe(falla)}
             cifra={indicio(falla) ? `${falla.aciertos} de ${falla.n} · tendencia` : pct(falla.tasa)}
             pequena={indicio(falla)}
             pie={pieDe(falla)}
@@ -144,12 +163,14 @@ export function LecturaRapida({
             rotulo={indicio(entrenar.hallazgo) ? "Qué entrenar (si se confirma)" : "Qué entrenar"}
             color={indicio(entrenar.hallazgo) ? gris : "var(--rmcf-gold-ink)"}
             titular={entrenar.titulo}
-            cifra={`${objetivo ? pct(objetivo.tasa) : pct(entrenar.hallazgo.tasaResto)}${indicio(entrenar.hallazgo) ? ` · provisional, ${entrenar.hallazgo.n} ${unidad}` : ""}`}
-            pequena={indicio(entrenar.hallazgo)}
+            /* 10/11/2026 (jueces): en grande lo de hoy; el objetivo, al lado y con su fuente.
+               El 69 % grande parecía el dato del partido y era el objetivo. */
+            cifra={`${entrenar.hallazgo.aciertos} de ${entrenar.hallazgo.n} ${acierto}`}
+            pequena
             pie={
               objetivo
-                ? `Objetivo de partido: ${mejorAlto ? "" : "como mucho "}${pct(objetivo.tasa)} ${acierto} (${objetivo.fuente}). En la tarea se cuentan los ${unidad} ${acierto}; hoy, ${entrenar.hallazgo.aciertos} de ${entrenar.hallazgo.n}.`
-                : `Objetivo: ${mejorAlto ? "" : "no pasar de "}lo que rinden los otros ${base.n - entrenar.hallazgo.n} ${unidad} (${pct(entrenar.hallazgo.tasaResto)}). En la tarea se cuentan los ${unidad} ${acierto}; hoy, ${entrenar.hallazgo.aciertos} de ${entrenar.hallazgo.n}.`
+                ? `Objetivo de partido: ${mejorAlto ? "" : "como mucho "}${pct(objetivo.tasa)} ${acierto} (${objetivo.fuente}). En la tarea se cuentan los ${unidad} ${acierto}.${indicio(entrenar.hallazgo) ? ` Provisional: ${entrenar.hallazgo.n} ${unidad}.` : ""}`
+                : `Objetivo: ${mejorAlto ? "" : "no pasar de "}lo que rinden los otros (${entrenar.hallazgo.aciertosResto} de ${entrenar.hallazgo.resto}, ${pct(entrenar.hallazgo.tasaResto)}). En la tarea se cuentan los ${unidad} ${acierto}.${indicio(entrenar.hallazgo) ? ` Provisional: ${entrenar.hallazgo.n} ${unidad}.` : ""}`
             }
             enlace={tarea}
           />

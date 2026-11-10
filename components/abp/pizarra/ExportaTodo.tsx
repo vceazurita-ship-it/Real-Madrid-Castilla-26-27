@@ -198,10 +198,16 @@ export function ExportaTodo({
   jornada,
   escudoRival,
   trabajo,
+  rellena,
 }: {
   /** Montado por el trabajo de segundo plano del layout: arranca solo y no enseña botones. */
   trabajo?: { id: string; piezas: PiezasExportar };
   tablero: TableroPizarra;
+  /**
+   * Rellena los puestos vacíos con lo aprendido y el once (10/11/2026): con la
+   * pizarra sin empezar salían láminas «0/10» y un solo PDF de jugador.
+   */
+  rellena?: (tablero: TableroPizarra) => TableroPizarra;
   players: Map<string, Player>;
   temporada: string;
   rival: string;
@@ -215,7 +221,10 @@ export function ExportaTodo({
   | córner defensivo). En segundo plano el tablero ya llega con ellas.
   */
   const datosMarcas = useDatosMarcas(trabajo ? "" : rival, players);
-  const tablero = useMemo(() => (trabajo ? tableroGuardado : conMarcasPropuestas(tableroGuardado, datosMarcas)), [trabajo, tableroGuardado, datosMarcas]);
+  const tablero = useMemo(
+    () => (trabajo ? tableroGuardado : conMarcasPropuestas(rellena ? rellena(tableroGuardado) : tableroGuardado, datosMarcas)),
+    [trabajo, tableroGuardado, datosMarcas, rellena],
+  );
   const [montaje, setMontaje] = useState<Montaje>(null);
   const [tareas, setTareas] = useState<Tarea[] | null>(null);
   const [enMarcha, setEnMarcha] = useState(false);
@@ -359,7 +368,7 @@ export function ExportaTodo({
         try {
           const hojas = hojasDe(slides, false, contexto);
           const claves = hojas.map((hoja) => hoja.clave);
-          const cabecera = [rival || "RMCF Castilla", jornada, new Date().toLocaleDateString("es-ES")].filter(Boolean).join(" · ");
+          const cabecera = [rival || "RMCF Castilla", jornada, `versión del ${new Date().toLocaleDateString("es-ES")}`].filter(Boolean).join(" · ");
           const claveDocs = resumen(JSON.stringify([claves, titulos, cabecera, "indice-1"]));
           let docs = documentos.get(claveDocs);
 
@@ -764,7 +773,18 @@ export function ExportaTodo({
       setAbierto(false);
 
       /* Si la propuesta de marcas aún no ha llegado, se espera (unos segundos): sin ella el córner defensivo saldría en blanco. */
-      const conMarcas = datosMarcas || !rival ? tablero : conMarcasPropuestas(tableroGuardado, await cargaDatosMarcas(rival, [...players.values()]).catch(() => null));
+      const conMarcas =
+        datosMarcas || !rival
+          ? tablero
+          : conMarcasPropuestas(rellena ? rellena(tableroGuardado) : tableroGuardado, await cargaDatosMarcas(rival, [...players.values()]).catch(() => null));
+      const puestas =
+        conMarcas.slides.reduce((a, s) => a + s.fichas.length, 0) - tableroGuardado.slides.reduce((a, s) => a + s.fichas.length, 0);
+
+      if (puestas > 0) {
+        toast.info(`${puestas} puestos vacíos salen rellenos con lo aprendido y el once de la pizarra táctica`, {
+          description: "Sólo en lo exportado: la pizarra no cambia hasta que pulses «Colocar en todas».",
+        });
+      }
       const datos = { tablero: conMarcas, players, temporada, rival, jornada, escudoRival };
 
       if (opcion === "pptx" || opcion === "pdf") {

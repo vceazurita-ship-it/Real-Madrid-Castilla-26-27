@@ -35,7 +35,7 @@ import {
 import { hablado, type ClaveMetrica } from "@/lib/abp/analisis";
 import { lecturaRapida } from "@/lib/abp/lectura-rapida";
 import { patronEnvio } from "@/lib/abp/accionFrase";
-import { LecturaRapida } from "@/components/abp/LecturaRapida";
+import { LecturaRapida, MUESTRA_FIRME } from "@/components/abp/LecturaRapida";
 import ABPObjectiveFlow, {
   type ABPFlowCol,
 } from "@/components/abp/ABPObjectiveFlow";
@@ -2515,7 +2515,7 @@ const conclusiones = (() => {
   const frases: (string | null)[] = [
     `${plural(filtered.length, "ABP", "ABP")}${tipos ? ` (${tipos})` : ""}: ${
       peligroN === 0 ? "ninguna acaba en gol u ocasión" : `${peligroN} en gol u ocasión (${plural(goles, "gol", "goles")})`
-    }, ${plural(remates, "remate", "remates")} y ${cifra(xg, 2)} goles esperados (goles esperados: la calidad de los remates).`,
+    }, ${plural(remates, "remate", "remates")} y ${cifra(xg, 2)} goles esperados, la medida de la calidad de esos remates.`,
   ];
 
   /* El patrón de ejecución que domina, si lo hay, y qué dio antes. */
@@ -2651,7 +2651,7 @@ const conclusiones = (() => {
       : null;
   const tarea =
     dominante && remates === 0 && criterioRemate !== null
-      ? `${filtered.length < 15 ? "Tendencia que vigilar" : "Tarea del microciclo"}: ${dominante.nombre} ${/\bcort|\d+v\d+/i.test(dominante.nombre) ? "con salida a centro en dos toques" : "con desmarque y llegada al remate"}; se cuentan las acciones que acaban en remate · objetivo: ${criterioRemate} % con remate (media de las ${nAnterioresConclusion} jornadas anteriores).`
+      ? `Qué entrenamos${filtered.length < MUESTRA_FIRME ? " (tendencia que vigilar)" : ""}: ${dominante.nombre} ${/\bcort|\d+v\d+/i.test(dominante.nombre) ? "con salida a centro en dos toques" : "con desmarque y llegada al remate"}; se cuentan las acciones que acaban en remate · objetivo: ${criterioRemate} % con remate (media de las ${nAnterioresConclusion} jornadas anteriores).`
       : null;
 
   return [...frases.filter(Boolean).slice(0, 4), cierre, tarea].filter(Boolean);
@@ -2690,6 +2690,53 @@ const lectura = useMemo(
     }),
   [filtered],
 );
+
+/*
+| 10/11/2026 (jueces): las conclusiones abren con un titular con verbo y
+| dato, y cierran siempre en «Qué entrenamos» atado a la cifra: si la tarea
+| del patrón dominante no sale, la toma de lo que falla en las tarjetas.
+*/
+const titularConclusiones = filtered.length
+  ? (() => {
+      const conRemate = filtered.filter(LECTOR.remate).length;
+      const peligro = filtered.filter(LECTOR.peligro).length;
+      const base = `${filtered.length} ${filtered.length === 1 ? "acción" : "acciones"}`;
+
+      if (conRemate === 0) return `${base} y ninguna acaba en remate`;
+      if (peligro === 0) return `${base}: ${conRemate} con remate y ninguna en gol u ocasión`;
+
+      return `${base}: ${peligro} ${peligro === 1 ? "acaba" : "acaban"} en gol u ocasión y ${conRemate} en remate`;
+    })()
+  : undefined;
+
+const conclusionesVista = (() => {
+  if (conclusiones.some((c) => typeof c === "string" && c.startsWith("Qué entrenamos"))) return conclusiones;
+  if (!lectura?.entrenar) return conclusiones;
+
+  const h = lectura.entrenar.hallazgo;
+  const objetivo =
+    anterioresConclusion && anterioresConclusion.length
+      ? `objetivo: ${Math.round((anterioresConclusion.filter(LECTOR.peligro).length / anterioresConclusion.length) * 100)} % en gol u ocasión (media de las ${nAnterioresConclusion} jornadas anteriores)`
+      : `objetivo: lo que rinde el resto (${h.aciertosResto} de ${h.resto})`;
+
+  return [
+    ...conclusiones,
+    `Qué entrenamos${h.n < MUESTRA_FIRME ? " (tendencia que vigilar)" : ""}: ${lectura.entrenar.titulo} (${h.aciertos} de ${h.n} en gol u ocasión); se cuentan las acciones que acaban en gol u ocasión · ${objetivo}.`,
+  ];
+})();
+
+/* La temporada, debajo de cada tarjeta: sólo si lo de arriba es una parte de ella. */
+const temporada =
+  comparables.length > filtered.length && comparables.length > 0
+    ? {
+        n: comparables.length,
+        jornadas: new Set(comparables.map((r) => r.contexto.jornada.clave)).size,
+        xgAccion: comparables.reduce((a, r) => a + r.xg, 0) / comparables.length,
+        remates: comparables.filter(LECTOR.remate).length,
+        goles: comparables.filter((r) => normalizaResultado(r.resultadoFinal) === "Gol").length,
+        peligro: comparables.filter(LECTOR.peligro).length,
+      }
+    : null;
 
 /*
 | El pie de lectura de cada sección.
@@ -2915,8 +2962,16 @@ const pie = (
   </div>
 </div>
     {/* 29/10/2026: 40 px a la derecha en el móvil para el botón flotante, que tapaba la tarjeta de la esquina. */}
-    {/* En el móvil, las conclusiones antes que las tarjetas (30/10/2026, expertos). */}
-    {vista === "resumen" && <Conclusiones items={conclusiones} className="mt-5 md:hidden" />}
+    {/* Las conclusiones antes que las tarjetas, también en el ordenador y con
+        un titular con verbo y dato (10/11/2026, jueces). */}
+    {vista === "resumen" && (
+      <Conclusiones
+        items={conclusionesVista}
+        titular={titularConclusiones}
+        enlace={{ href: "/abp-microciclo", rotulo: "Ver la tarea en el microciclo de ABP" }}
+        className="mt-5"
+      />
+    )}
     {/* 30/10/2026 (expertos): cada fila de tarjetas se llena entera —la
         última no deja hueco a la derecha—: dos por fila en el móvil y las que
         quepan de 200 px en adelante, estiradas, en el ordenador. */}
@@ -2925,18 +2980,23 @@ const pie = (
         title="Acciones lanzadas"
         value={metrics.total}
         hint="Córners y faltas a favor"
+        referencia={temporada ? `Temporada: ${temporada.n} en ${temporada.jornadas} ${temporada.jornadas === 1 ? "jornada" : "jornadas"} (${cifra(temporada.n / Math.max(1, temporada.jornadas), 1)} por partido)` : undefined}
       />
 
       <Card
         title="Goles esperados"
         value={dosDecimales(metrics.xg)}
         hint="Acumulados en todas las acciones"
+        muestra={{ n: metrics.total, de: metrics.total, unidad: "acciones", soloBase: true }}
+        referencia={temporada ? `Temporada: ${cifra(temporada.xgAccion, 2)} por acción` : undefined}
       />
 
       <Card
         title="Remates"
         value={metrics.shots}
-        hint={`Remates sobre ${metrics.total} acciones`}
+        hint="Acciones que acaban en remate"
+        muestra={{ n: metrics.shots, de: metrics.total, unidad: "acciones" }}
+        referencia={temporada ? `Temporada: ${temporada.remates} de ${temporada.n} con remate (${Math.round((temporada.remates / Math.max(1, temporada.n)) * 100)} %)` : undefined}
       />
 
       <Card
@@ -2945,6 +3005,7 @@ const pie = (
         hint="Marcados a balón parado"
         activo={resultadoFilter === "Gol"}
         onClick={() => pulsa("resultado", "Gol")}
+        referencia={temporada ? `Temporada: ${temporada.goles}` : undefined}
       />
       {/* Con menos de 5 remates, «0,0 % · 0 de 2» no dice nada: la tarjeta no sale (30/10/2026). */}
       {metrics.shots >= 5 && (
@@ -2969,6 +3030,7 @@ const pie = (
   value={`${tasaPeligro === 0 ? "0" : tasaPeligro.toFixed(1).replace(".", ",")} %`}
   hint="Acciones que acaban en gol u ocasión"
   muestra={{ n: accionesPeligrosas, de: metrics.total, unidad: "acciones" }}
+  referencia={temporada ? `Temporada: ${temporada.peligro} de ${temporada.n} (${Math.round((temporada.peligro / Math.max(1, temporada.n)) * 100)} %)` : undefined}
 />
 
 {/* 29/10/2026: la tarjeta del sacador sólo sale si hay uno con dato o uno filtrado; sin él, la rejilla se queda en las demás sin hueco ni «-». */}
@@ -3110,7 +3172,7 @@ const pie = (
       className="mt-6"
     />
   )}
-            <Conclusiones items={conclusiones} className="mt-6 max-md:hidden" />
+
 
             {/* La lectura de cabecera: lo que dicen los KPI de arriba puestos
                 al lado del global y de las jornadas anteriores. */}
@@ -4836,17 +4898,22 @@ function Card({
   muestra,
   onClick,
   activo = false,
+  referencia,
 }: {
   title: string;
   value: React.ReactNode;
   hint?: string;
   /** De cuántas acciones sale la cifra: con menos de 10 va en gris, con «tendencia». */
-  muestra?: { n: number; de: number; unidad: string };
+  muestra?: { n: number; de: number; unidad: string; soloBase?: boolean };
   /** Las tarjetas que son un valor concreto («Goles») filtran por él. */
   onClick?: () => void;
   activo?: boolean;
+  /** 10/11/2026 (jueces): la cifra de la temporada, para que un «0» tenga contra qué leerse. */
+  referencia?: string;
 }) {
   const Caja = onClick ? "button" : "div";
+  /* Un solo umbral y una sola palabra en toda la pantalla (10/11/2026): «tendencia» por debajo de MUESTRA_FIRME. */
+  const corta = Boolean(muestra && muestra.de < MUESTRA_FIRME);
 
   return (
     <Caja
@@ -4868,24 +4935,23 @@ function Card({
     leading-tight
   "
 >
-        {muestra && muestra.de < 10 ? (
+        {corta ? (
           <span style={{ color: "rgb(var(--rmcf-ink-rgb) / .55)" }}>{value}</span>
         ) : (
           value
         )}
       </h3>
 
-      {muestra && (
-        <p className="mt-2 text-[11px] font-medium leading-snug text-white/55">
-          {muestra.n} de {muestra.de} {muestra.unidad}
-          {/* 29/10/2026: con menos de 5, «indicio» (la regla de toda la pantalla); hasta 10, «tendencia». */}
-          {/* 30/10/2026: un solo umbral y una sola palabra en toda la pantalla: «indicio» por debajo de 10. */}
-          {muestra.de < 10 ? " · indicio" : ""}
+      {muestra && (!muestra.soloBase || corta) && (
+        <p className="mt-2 text-[12px] font-medium leading-snug text-white/60">
+          {muestra.soloBase ? `${muestra.de} ${muestra.unidad}` : `${muestra.n} de ${muestra.de} ${muestra.unidad}`}
+          {corta ? " · tendencia" : ""}
         </p>
       )}
       {hint && (
-        <p className={`${muestra ? "mt-1" : "mt-2"} text-[12px] leading-snug text-white/50`}>{hint}</p>
+        <p className={`${muestra ? "mt-1" : "mt-2"} text-[12px] leading-snug text-white/55`}>{hint}</p>
       )}
+      {referencia && <p className="mt-1 text-[12px] leading-snug text-white/55">{referencia}</p>}
     </Caja>
   );
 }

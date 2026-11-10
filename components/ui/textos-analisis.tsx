@@ -18,6 +18,7 @@
  */
 
 import { useEffect, useState, type ReactNode } from "react";
+import Link from "next/link";
 import { Lightbulb } from "lucide-react";
 
 let enVuelo: Promise<boolean> | null = null;
@@ -79,15 +80,21 @@ export function Explicativo({ children }: { children: ReactNode }) {
 export function Conclusiones({
   items,
   titulo = "Conclusiones",
+  titular,
+  enlace,
   className = "",
 }: {
   items: (string | null | undefined | false)[];
   titulo?: string;
+  /** 10/11/2026 (jueces): una frase con verbo y dato, en grande, antes de la lista. */
+  titular?: string;
+  /** Adónde lleva «qué entrenamos» (la tarea en el microciclo). */
+  enlace?: { href: string; rotulo: string };
   className?: string;
 }) {
   const frases = items.filter((x): x is string => Boolean(x && x.trim()));
 
-  if (!frases.length) return null;
+  if (!frases.length && !titular) return null;
 
   return (
     <section
@@ -98,6 +105,7 @@ export function Conclusiones({
         <Lightbulb size={12} aria-hidden />
         {titulo}
       </p>
+      {titular ? <p className="mt-1.5 text-base font-semibold leading-snug text-white/90 md:text-lg">{titular}</p> : null}
       <ul className="mt-2 grid gap-x-6 gap-y-1.5 text-[13px] leading-snug text-white/80 md:grid-cols-2">
         {frases.map((frase) => (
           <li key={frase} className="flex min-w-0 gap-2">
@@ -106,6 +114,15 @@ export function Conclusiones({
           </li>
         ))}
       </ul>
+      {enlace ? (
+        <Link
+          href={enlace.href}
+          className="mt-2 inline-block text-[13px] font-semibold underline underline-offset-2"
+          style={{ color: "var(--rmcf-gold-ink)" }}
+        >
+          {enlace.rotulo}
+        </Link>
+      ) : null}
     </section>
   );
 }

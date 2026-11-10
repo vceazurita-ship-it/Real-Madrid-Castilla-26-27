@@ -52,7 +52,7 @@ import {
 } from "@/components/abp/AnalisisSeccion";
 import type { ClaveMetrica, Etiquetas } from "@/lib/abp/analisis";
 import { lecturaRapida } from "@/lib/abp/lectura-rapida";
-import { LecturaRapida } from "@/components/abp/LecturaRapida";
+import { LecturaRapida, MUESTRA_FIRME } from "@/components/abp/LecturaRapida";
 import { ThrowInField } from "@/components/throw-ins/ThrowInField";
 import ThrowInZoneMap from "@/components/throw-ins/ThrowInZoneMap";
 import ThrowInFlow from "@/components/throw-ins/ThrowInFlow";
@@ -312,7 +312,12 @@ const MIN_MUESTRA = 3;
 /* La consigna, sólo con muestra (30/10/2026, expertos): con 4-16 saques
    «repetirla» o «buscarlo más» es una orden sobre una anécdota. Por debajo
    de 20 se deja el dato con su base y sin imperativo. */
-const consigna = (n: number, texto: string) => (n >= 20 ? texto : "");
+/* 10/11/2026 (jueces): un solo umbral en toda la pantalla, el de las tarjetas
+   de arriba (MUESTRA_FIRME, 15): la nota decía 15 y las conclusiones, 20. */
+const consigna = (n: number, texto: string) => (n >= MUESTRA_FIRME ? texto : "");
+
+/* «Primera linea» de la hoja → «Primera línea» (10/11/2026). */
+const conTildes = (valor: string) => valor.replace(/\b([Ll])inea(s?)\b/g, "$1ínea$2");
 
 type Grupo = { key: string; valor: string; n: number; favorables: number; produccion: number };
 
@@ -322,7 +327,9 @@ const pctTexto = (parte: number, total: number) =>
 const mayuscula = (texto: string) => texto.charAt(0).toUpperCase() + texto.slice(1);
 
 /* Cómo se nombra un valor dentro de una frase. */
-function nombreDe(key: string, valor: string) {
+function nombreDe(key: string, crudo: string) {
+  const valor = conTildes(crudo);
+
   switch (key) {
     case "Tipo_Envio":
       return `envío ${valor.toLowerCase()}`;
@@ -397,7 +404,7 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
   */
   let menor = Infinity;
   const indicio = (n: number) => {
-    if (n < 20) menor = Math.min(menor, n);
+    if (n < MUESTRA_FIRME) menor = Math.min(menor, n);
 
     return "";
   };
@@ -525,7 +532,8 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
         );
       } else if (!mismo(peor, masRobos)) {
         frases.push(
-          `Su vía más peligrosa es ${nombre(peor.key, peor.valor)} (${peor.produccion} de ${peor.n} a último tercio).${consigna(peor.n, ` ${COMO_CERRAR}`)}${indicio(peor.n)}`,
+          /* 10/11/2026 (jueces): con muestra corta, «tendencia» en la misma frase. */
+          `${peor.n < MUESTRA_FIRME ? "Por ahora es tendencia: su" : "Su"} vía más peligrosa es ${nombre(peor.key, peor.valor)} (${peor.produccion} de ${peor.n} a último tercio).${consigna(peor.n, ` ${COMO_CERRAR}`)}${indicio(peor.n)}`,
         );
       }
     }
@@ -587,10 +595,30 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
     }
   }
 
+  /*
+  | 10/11/2026 (jueces): las conclusiones defensivas cierran con la orden de
+  | partido atada a su métrica, y a la tarea del microciclo.
+  */
+  if (!ofensivo) {
+    const zonasRobo = gruposDe(rows, "Zona_Saque", mode).filter((g) => g.favorables > 0);
+    const robo = zonasRobo.length ? extremo(zonasRobo, retencionDe, true) : null;
+    const receptoresRival = gruposDe(rows, "Receptor", mode).filter((g) => g.produccion > 0);
+    const vigila = receptoresRival.length ? extremo(receptoresRival, produccionTasa, true) : null;
+
+    if (robo) {
+      const vigilancia = vigila ? `, con vigilancia al ${nombreDe(vigila.key, vigila.valor).replace(/^saque a /, "").replace(/^receptor /, "receptor ")}` : "";
+
+      frases.splice(4);
+      frases.push(
+        `Orden de partido${robo.n < MUESTRA_FIRME ? " (si se confirma)" : ""}: presión al saque en ${nombreDe(robo.key, robo.valor)} (${robo.favorables} de ${robo.n} robados)${vigilancia}. Se trabaja en la tarea de saque de banda defensivo del microciclo.`,
+      );
+    }
+  }
+
   const lineas = frases.slice(0, 5);
 
   if (Number.isFinite(menor) && lineas.length > 1) {
-    lineas.push(`Tendencia, no dato: hay grupos de sólo ${menor} ${menor === 1 ? "saque" : "saques"} (menos de 20); hay que confirmarlo en las próximas jornadas.`);
+    lineas.push(`Tendencia, no dato: hay grupos de sólo ${menor} ${menor === 1 ? "saque" : "saques"} (menos de ${MUESTRA_FIRME}); hay que confirmarlo en las próximas jornadas.`);
   }
 
   return lineas;
@@ -1486,7 +1514,13 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
       categoria: (row: RecordRow) => read(row, key),
       /* La zona de caída se explica en la propia tarjeta (07/11/2026): la
          leyenda va plegada y «retroceso carril exterior» no se entendía. */
-      rotulo: (valor: string) => (key === "Zona_Caida" ? conGlosaCaida(nombreDe(key, valor)) : nombreDe(key, valor)),
+      rotulo: (valor: string) =>
+        key === "Zona_Caida"
+          ? conGlosaCaida(nombreDe(key, valor))
+          : /* «Receptor: «Primera línea»», sin repetir «receptor» (10/11/2026). */
+            key === "Receptor" && /^receptor «/.test(nombreDe(key, valor))
+            ? `«${conTildes(valor)}»`
+            : nombreDe(key, valor),
       entrenar,
     });
 
@@ -1947,8 +1981,8 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                           : `la media de las ${comparativa.anteriores.length} jornadas anteriores`,
                     }}
                     metricas={comparativa.metricas}
-                    /* Un partido da 10-20 saques: con menos de 20 es indicio. */
-                    muestraMinima={20}
+                    /* Un partido da 10-20 saques: el mismo umbral que las tarjetas de arriba. */
+                    muestraMinima={MUESTRA_FIRME}
                     nota={notaComparativa}
                   />
                 ) : null}

@@ -962,7 +962,8 @@ export function Dialog({
       <div className="flex max-h-full w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#11161C] shadow-2xl sm:rounded-2xl">
         <header className="flex items-start justify-between gap-3 border-b border-white/10 px-5 py-3.5">
           <div className="min-w-0">
-            <h2 className="truncate text-sm font-semibold text-white">{title}</h2>
+            {/* Sin cortar con «…» en el móvil (10/11/2026, jueces): el título se parte en dos líneas. */}
+            <h2 className="text-sm font-semibold leading-snug text-white [overflow-wrap:anywhere]">{title}</h2>
 
             {subtitle && (
               <p className="mt-0.5 text-[11px] text-white/40">{subtitle}</p>

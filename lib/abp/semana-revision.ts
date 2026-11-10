@@ -503,7 +503,8 @@ export function revisaSemana({
           ? `Sólo ${fila.stats.acciones === 1 ? "hay 1 en competición" : `hay ${fila.stats.acciones} en competición`}${fila.peligroAjustado >= 50 ? ", y acabó en peligro" : ""}: es poca muestra.`
           : fila.peligroAjustado < 15
             ? `Se repite mucho en competición (${fila.stats.acciones} acciones) pero casi nunca acaba en peligro (${Math.round(fila.peligroAjustado)} %): un repaso corto basta.`
-            : `Es de lo más urgente: ${fila.stats.acciones} acciones en competición y ${Math.round(fila.peligroAjustado)} % de peligro.`
+            : /* 10/11/2026 (jueces): con su base, «3 de 11 acciones acaban en peligro (27 %)», y no «28 % de peligro» suelto. */
+              `Es de lo más urgente: ${fila.stats.peligro} de ${fila.stats.acciones} acciones en competición acaban en peligro (${Math.round(fila.stats.peligroPct)} %)${fila.stats.acciones < 15 ? "; tendencia, con poca muestra" : ""}.`
       }${(() => {
         /* Si el mismo aspecto sí se trabaja del otro lado, se dice: si no, parece un olvido sin motivo. */
         const otro = fila.lado === "ofensivo" ? "defensivo" : "ofensivo";

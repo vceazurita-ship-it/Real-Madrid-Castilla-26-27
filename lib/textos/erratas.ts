@@ -26,6 +26,11 @@ const ERRATAS: Record<string, string> = {
   presion: "presión",
   segun: "según",
   tambien: "también",
+  /* 10/11/2026 (jueces): «2 lineas de 4», «Primera linea». */
+  linea: "línea",
+  lineas: "líneas",
+  area: "área",
+  rapidos: "rápidos",
 };
 
 export function corrigeErratas(texto: string): string {

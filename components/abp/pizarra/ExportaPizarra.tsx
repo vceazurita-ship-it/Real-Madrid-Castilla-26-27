@@ -125,7 +125,7 @@ export function ExportaPizarra({
 
         toast.success(`PowerPoint listo · ${imagenes.length} ${imagenes.length === 1 ? "diapositiva" : "diapositivas"}`, { id: aviso });
       } else {
-        const cabecera = [rival || "RMCF Castilla", jornada, new Date().toLocaleDateString("es-ES")].filter(Boolean).join(" · ");
+        const cabecera = [rival || "RMCF Castilla", jornada, `versión del ${new Date().toLocaleDateString("es-ES")}`].filter(Boolean).join(" · ");
 
         const doc = await pdfDeLienzos(imagenes, {
           ancho: TABLERO_W,

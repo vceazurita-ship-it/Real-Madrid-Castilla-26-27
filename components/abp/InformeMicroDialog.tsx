@@ -1634,39 +1634,42 @@ export function InformeMicroDialog({
           | si lo entrenado apareció. El asunto lleva la idea de cada uno (`asuntoAbp`).
           */}
           <div className="min-w-0 space-y-1">
-            <div className="flex w-fit items-center rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
-              {(
-                [
-                  { valor: "previa", rotulo: "Previa del partido" },
-                  { valor: "post", rotulo: "Post partido" },
-                ] as { valor: ModoInforme; rotulo: string }[]
-              ).map((opcion) => (
-                <button
-                  key={opcion.valor}
-                  type="button"
-                  onClick={() => setModoElegido(opcion.valor)}
-                  disabled={opcion.valor === "post" && sinPost}
-                  aria-describedby={opcion.valor === "post" && sinPost ? "abp-informe-sin-post" : undefined}
-                  aria-pressed={modo === opcion.valor}
-                  className={`rounded-lg px-3 py-1.5 text-[11px] transition disabled:cursor-not-allowed disabled:opacity-40 ${
-                    modo === opcion.valor
-                      ? "bg-[#C8A96B]/15 text-[#C8A96B]"
-                      : "text-white/50 hover:text-white"
-                  }`}
-                >
-                  {opcion.rotulo}
-                </button>
-              ))}
-            </div>
-
-            {/* El motivo de la pestaña apagada, una vez y junto a ella (06/11/2026). */}
+            {/*
+            | 10/11/2026 (jueces): sin partido jugado, la pestaña «Post» no se
+            | enseña apagada (el gris no llegaba al contraste mínimo en modo
+            | día y el texto fijo se metía entre el selector y el título): sólo
+            | sale cuando hay post que sacar.
+            */}
             {sinPost ? (
-              <p id="abp-informe-sin-post" className="max-w-[20rem] text-[11px] leading-snug text-white/45">
-                Post partido: se podrá sacar tras el partido, cuando haya acciones en las hojas de ABP.
+              <p className="w-fit rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 py-1.5 text-[12px] font-semibold text-[color:var(--rmcf-gold-ink)]">
+                Previa del partido
               </p>
-            ) : null}
+            ) : (
+              <div className="flex w-fit items-center rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
+                {(
+                  [
+                    { valor: "previa", rotulo: "Previa del partido" },
+                    { valor: "post", rotulo: "Post partido" },
+                  ] as { valor: ModoInforme; rotulo: string }[]
+                ).map((opcion) => (
+                  <button
+                    key={opcion.valor}
+                    type="button"
+                    onClick={() => setModoElegido(opcion.valor)}
+                    aria-pressed={modo === opcion.valor}
+                    className={`rounded-lg px-3 py-1.5 text-[12px] transition ${
+                      modo === opcion.valor
+                        ? "bg-[#C8A96B]/15 text-[color:var(--rmcf-gold-ink)]"
+                        : "text-white/60 hover:text-white"
+                    }`}
+                  >
+                    {opcion.rotulo}
+                  </button>
+                ))}
+              </div>
+            )}
 
-            <p className="max-w-[20rem] text-[11px] leading-snug text-white/35">
+            <p className="max-w-[20rem] text-[12px] leading-snug text-white/55">
               {modo === "post"
                 ? accionesPartido.length > 0
                   ? `Qué pasó: las ${accionesPartido.length} acciones de la ${accionesPartido[0].jornada.etiqueta.toLowerCase()} en nuestras hojas, cruzadas con lo trabajado.`
@@ -1699,6 +1702,43 @@ export function InformeMicroDialog({
         | cuatro goles a balón parado que no se habían hecho en competición.
         | Plegado: el resumen dice el efecto sin abrirlo.
         */}
+        {pizarraInforme.deck}
+
+        {/*
+          La vista previa es el correo de verdad, no una maqueta: se pinta el
+          mismo HTML que se manda, en un marco aislado para que sus estilos no
+          se mezclen con los de la app. 10/11/2026 (jueces): el documento va
+          antes que los plegables (pretemporada, asunto, lo del analista), y
+          «Ver en grande» sale fuera del marco: tapaba la fecha de la cabecera.
+        */}
+        <div className="overflow-hidden rounded-xl border border-white/10">
+          <iframe
+            title="Vista previa del informe"
+            srcDoc={html}
+            className="h-[58vh] w-full bg-white"
+            /* El correo mide 860 px y el marco menos: se encoge para que se lea entero, sin barra lateral ni titulares cortados (20/10/2026). */
+            onLoad={(e) => {
+              const raiz = e.currentTarget.contentDocument?.documentElement;
+
+              if (!raiz) return;
+
+              raiz.style.zoom = "";
+
+              if (raiz.scrollWidth > raiz.clientWidth + 1) raiz.style.zoom = String(raiz.clientWidth / raiz.scrollWidth);
+            }}
+          />
+        </div>
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={verEnGrandeAbp}
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[#C8A96B]/50 px-3 py-1.5 text-[12px] font-semibold text-[color:var(--rmcf-gold-ink)] hover:bg-[#C8A96B]/10"
+            title="Abrir el correo en una pestaña, para leerlo a pantalla completa"
+          >
+            <Maximize2 size={13} /> Ver en grande
+          </button>
+        </div>
+
         {cuantasDePretemporada > 0 && (
           <details className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
             <summary className="cursor-pointer text-[11px] text-white/50 hover:text-white">
@@ -1743,8 +1783,6 @@ export function InformeMicroDialog({
           </details>
         )}
 
-        {pizarraInforme.deck}
-
         {cargandoSeguimiento || cargandoComparativa || cargandoPropio || rivalInforme.cargando || pizarraInforme.cargando ? (
           <p className="flex items-center gap-2 text-xs text-white/45">
             <RefreshCw size={13} className="animate-spin" />
@@ -1778,38 +1816,6 @@ export function InformeMicroDialog({
           </details>
         )}
 
-        {/*
-          La vista previa es el correo de verdad, no una maqueta: se pinta el
-          mismo HTML que se manda, en un marco aislado para que sus estilos no
-          se mezclen con los de la app.
-        */}
-        <div className="relative overflow-hidden rounded-xl border border-white/10">
-          {/* Colores fijos: va sobre la cabecera azul del correo, igual en los dos modos. */}
-          <button
-            type="button"
-            onClick={verEnGrandeAbp}
-            className="absolute right-2 top-2 z-10 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold shadow-lg"
-            style={{ background: "rgba(8,17,31,0.78)", color: "#F4EBDD", border: "1px solid rgba(200,169,107,0.55)" }}
-            title="Abrir el correo en una pestaña, para leerlo a pantalla completa"
-          >
-            <Maximize2 size={12} /> Ver en grande
-          </button>
-          <iframe
-            title="Vista previa del informe"
-            srcDoc={html}
-            className="h-[58vh] w-full bg-white"
-            /* El correo mide 860 px y el marco menos: se encoge para que se lea entero, sin barra lateral ni titulares cortados (20/10/2026). */
-            onLoad={(e) => {
-              const raiz = e.currentTarget.contentDocument?.documentElement;
-
-              if (!raiz) return;
-
-              raiz.style.zoom = "";
-
-              if (raiz.scrollWidth > raiz.clientWidth + 1) raiz.style.zoom = String(raiz.clientWidth / raiz.scrollWidth);
-            }}
-          />
-        </div>
 
         {/*
         | Lo que el informe no sabe va debajo y plegado (21/10/2026): delante

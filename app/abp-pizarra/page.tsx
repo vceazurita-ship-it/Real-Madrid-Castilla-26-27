@@ -1651,6 +1651,33 @@ export default function PizarraAbpPage() {
   );
 
   /*
+  | LO QUE SE EXPORTA, CON LOS HUECOS RELLENOS (10/11/2026, jueces)
+  |
+  | Con la pizarra sin empezar, «Exportar» sacaba láminas con «Asignaciones
+  | 0/10» y un solo PDF de jugador (el portero, que entra por el once). El
+  | documento sale con los puestos vacíos rellenos como haría «Colocar en
+  | todas» —lo aprendido y el once de la pizarra táctica—, sin tocar lo
+  | guardado: lo que se ve en la pizarra no cambia hasta que se pulse.
+  */
+  const rellenaParaExportar = useCallback(
+    (actual: TableroPizarra): TableroPizarra => {
+      let puestas = 0;
+      const slides = actual.slides.map((item) => {
+        const nuevas = colocaAutomatico(item, memoriaAlDia, disponibles);
+
+        puestas += nuevas.length;
+
+        return nuevas.length ? { ...item, fichas: [...item.fichas, ...nuevas] } : item;
+      });
+
+      return puestas ? { ...actual, slides } : actual;
+    },
+    [memoriaAlDia, disponibles],
+  );
+
+  const tableroParaJugadores = useMemo(() => (tablero ? rellenaParaExportar(tablero) : null), [tablero, rellenaParaExportar]);
+
+  /*
   | Traer la jornada anterior **no borra lo de ésta**: antes de pisar las
   | diapositivas se congela lo que hubiera, y la copia queda anotada en el
   | histórico. Rehacer la semana desde la anterior era justo el momento en el
@@ -2545,17 +2572,6 @@ export default function PizarraAbpPage() {
               </div>
 
               <div className="flex flex-wrap items-end gap-2">
-                {/* Con la pizarra vacía, traer la del partido anterior es lo primero que se hace. */}
-                {anterior && !leyendo && (!tablero || !tieneFichas(tablero.slides)) && (
-                  <Button
-                    icon={Copy}
-                    tone="primary"
-                    onClick={copiaDelAnterior}
-                    title={`Traer las diapositivas de ${matchLabel(anterior)}`}
-                  >
-                    Copiar de {matchLabel(anterior)}
-                  </Button>
-                )}
 
                 {/*
                   Un único punto de exportación (01/11/2026): el menú «Exportar»
@@ -2568,6 +2584,7 @@ export default function PizarraAbpPage() {
                 {tablero && tablero.slides.length > 0 && (
                   <ExportaTodo
                     tablero={tablero}
+                    rellena={rellenaParaExportar}
                     players={porId}
                     temporada={temporadaCorta(RATINGS_SEASON)}
                     rival={tablero.rival || partido?.opponent || ""}
@@ -2577,9 +2594,9 @@ export default function PizarraAbpPage() {
                 )}
 
                 {/* Un PDF vertical por jugador, para el WhatsApp de antes del partido. */}
-                {tablero && tablero.slides.length > 0 && (
+                {tablero && tablero.slides.length > 0 && tableroParaJugadores && (
                   <PizarrasJugadores
-                    tablero={tablero}
+                    tablero={tableroParaJugadores}
                     players={porId}
                     temporada={temporadaCorta(RATINGS_SEASON)}
                     rival={tablero.rival || partido?.opponent || ""}
@@ -2592,21 +2609,9 @@ export default function PizarraAbpPage() {
                   />
                 )}
 
-                <Button
-                  tone={tablero && tieneFichas(tablero.slides) ? undefined : "primary"}
-                  icon={Wand2}
-                  onClick={() => coloca(true)}
-                  disabled={!tablero || aprendidos === 0}
-                  title={
-                    aprendidos === 0
-                      ? "Todavía no hay puestos aprendidos: coloca a alguien a mano y la app empieza a recordar"
-                      : "Rellenar los puestos vacíos de todas las diapositivas"
-                  }
-                >
-                  Colocar en todas
-                </Button>
-
-                {/* Lo menos usado, en un menú: una sola fila de botones a la vista. */}
+                {/* Lo menos usado, en un menú: una sola fila de botones a la vista.
+                    10/11/2026 (jueces): «Colocar en todas» también va aquí; con la
+                    pizarra sin empezar, la acción principal está en el aviso. */}
                 <details className="relative">
                   <summary className="inline-flex h-9 cursor-pointer list-none items-center gap-1.5 rounded-xl border border-white/12 px-3 text-sm text-white/70 transition hover:border-white/25 hover:text-white marker:hidden">
                     Más
@@ -2617,6 +2622,19 @@ export default function PizarraAbpPage() {
                     className="absolute left-0 z-30 mt-1 flex min-w-[220px] flex-col items-stretch gap-2 rounded-2xl border border-white/10 bg-[#0B0F14] p-2 shadow-xl"
                     onClick={(event) => event.currentTarget.closest("details")?.removeAttribute("open")}
                   >
+                    <Button
+                      icon={Wand2}
+                      onClick={() => coloca(true)}
+                      disabled={!tablero || aprendidos === 0}
+                      title={
+                        aprendidos === 0
+                          ? "Todavía no hay puestos aprendidos: coloca a alguien a mano y la app empieza a recordar"
+                          : "Rellenar los puestos vacíos de todas las diapositivas"
+                      }
+                    >
+                      Colocar en todas
+                    </Button>
+
                     {anterior && !leyendo && tablero && tieneFichas(tablero.slides) && (
                       <Button
                         icon={Copy}
@@ -2902,17 +2920,34 @@ export default function PizarraAbpPage() {
                   </div>
                 )}
 
+                {/*
+                | 10/11/2026 (jueces): una sola caja y una sola acción principal.
+                | Con partido anterior, copiarlo (trae jugadores, flechas y
+                | consignas) y después «Poner el once»; sin él, colocar con lo
+                | aprendido. Las consignas que trae la plantilla en blanco son
+                | las que se dejaron «para las siguientes»: se dice.
+                */}
                 {!guardado && !leyendo && (
-                  <div className="mt-4">
-                    <Notice tone="info" title="Pizarra sin empezar">
-                      {/* 01/11/2026: el botón de copiar ya está arriba, junto al
-                          partido; aquí sólo los tres caminos para empezar. */}
-                      Plantilla en blanco. Para empezar:{" "}
-                      {anterior ? <b className="font-semibold">copia {matchLabel(anterior)}</b> : null}
-                      {anterior ? ", " : ""}
-                      <b className="font-semibold">Colocar en todas</b> con lo aprendido, o pincha un
-                      hueco del campo. Se guarda sola en cuanto hay alguien.
-                    </Notice>
+                  <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-[#C8A96B]/30 bg-[#C8A96B]/[0.06] px-4 py-3.5 sm:flex-row sm:items-center">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-white/90">
+                        Pizarra sin empezar · {totales.total} puestos por colocar en {tablero?.slides.length ?? 0} diapositivas
+                      </p>
+                      <p className="mt-1 text-[13px] leading-snug text-white/60">
+                        {anterior
+                          ? `Copia ${matchLabel(anterior)} y después pon el once de la pizarra táctica. Las consignas de la plantilla son las que se dejaron guardadas de jornadas anteriores: revísalas.`
+                          : "Coloca con lo aprendido o pincha un hueco del campo. Las consignas de la plantilla son las que se dejaron guardadas de jornadas anteriores: revísalas."}
+                      </p>
+                    </div>
+                    {anterior ? (
+                      <Button icon={Copy} tone="primary" onClick={copiaDelAnterior} title={`Traer las diapositivas de ${matchLabel(anterior)}`}>
+                        Copiar de {matchLabel(anterior)}
+                      </Button>
+                    ) : (
+                      <Button icon={Wand2} tone="primary" onClick={() => coloca(true)} disabled={!tablero || aprendidos === 0}>
+                        Colocar en todas
+                      </Button>
+                    )}
                   </div>
                 )}
 
@@ -3056,7 +3091,8 @@ export default function PizarraAbpPage() {
                             })()}
 
                             {/* La cifra, sólo si falta alguien: completa no hace falta decir nada. */}
-                            {(!total || cubiertos < total) && (
+                            {/* Sin empezar, la cuenta ya está en el aviso de arriba (10/11/2026). */}
+                            {guardado && (!total || cubiertos < total) && (
                               <span className="block text-[11px] tabular-nums text-amber-300/70">
                                 {total ? `${cubiertos} de ${total} colocados` : "Libre"}
                               </span>

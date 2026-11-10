@@ -631,6 +631,23 @@ function analizaReparto(
 
     const de = (prueba: (c: string) => boolean) =>
       cats.filter((una) => prueba(una.nombre.toLowerCase().replace(/\s+/g, " "))).reduce((a, una) => a + una.acciones, 0);
+    const plana = (c: string) => c.toLowerCase().replace(/\s+/g, " ");
+    /*
+    | 10/11/2026 (jueces): «2 acaban de otra forma» no decía nada. Se nombra
+    | el desenlace que queda fuera de los grupos («2 acaban en falta»).
+    */
+    const otrosDicho = (n: number, quedan: EventoAnalisis[]) => {
+      const porNombre = new Map<string, number>();
+
+      quedan.forEach((uno) => porNombre.set(uno.categoria.trim(), (porNombre.get(uno.categoria.trim()) ?? 0) + 1));
+
+      const nombres = [...porNombre.entries()].sort((a, b) => b[1] - a[1]);
+      const verbo = n === 1 ? "acaba" : "acaban";
+
+      if (!nombres.length || nombres.reduce((a, [, k]) => a + k, 0) !== n) return `${n} ${verbo} sin desenlace anotado`;
+
+      return `${n} ${verbo} en ${nombres.map(([nombre, k]) => (nombres.length > 1 ? `${glosa(nombre)} (${k})` : glosa(nombre))).join(", ")}`;
+    };
 
     /*
     | 07/11/2026 (jueces): en la banda ofensiva decía «5 de 19 acaban en poder
@@ -646,7 +663,12 @@ function analizaReparto(
         llegan ? `${llegan} ${llegan === 1 ? "llega" : "llegan"} a último tercio, ocasión o gol` : "",
         conservan ? `${conservan} ${conservan === 1 ? "se conserva" : "se conservan"} sin llegar` : "",
         pierden ? `${pierden} ${pierden === 1 ? "acaba" : "acaban"} con el balón en poder del rival` : "",
-        otros ? `${otros} ${otros === 1 ? "acaba" : "acaban"} de otra forma` : "",
+        otros
+          ? otrosDicho(
+              otros,
+              utiles.filter((uno) => !uno.peligro && !uno.retencion && !/\brival\b/.test(plana(uno.categoria))),
+            )
+          : "",
       ].filter(Boolean);
 
       if (partes.length < 2) return null;
@@ -670,7 +692,16 @@ function analizaReparto(
       recuperamos ? `${recuperamos} los recuperamos` : "",
       conserva ? `${conserva} ${conserva === 1 ? "lo conserva" : "los conserva"} el rival` : "",
       llegan ? `${llegan} le ${llegan === 1 ? "llega" : "llegan"} a último tercio, ocasión o gol` : "",
-      otros ? `${otros} ${otros === 1 ? "acaba" : "acaban"} de otra forma` : "",
+      otros
+        ? otrosDicho(
+            otros,
+            utiles.filter((uno) => {
+              const c = plana(uno.categoria);
+
+              return !uno.retencion && c !== "posicional rival" && !(c.startsWith("conquista último tercio") || c.includes("ocasi") || /^gol\b/.test(c));
+            }),
+          )
+        : "",
     ].filter(Boolean);
 
     if (partes.length < 2) return null;
@@ -1027,5 +1058,9 @@ function redactaTitular({
  * todos conocen la clave de las zonas (26/10/2026).
  */
 export function hablado(texto: string): string {
-  return texto.replace(/\bz(\d+)\b/gi, "zona $1");
+  /* 10/11/2026 (jueces): «p.barrera» y «p.portero» se escriben enteros. */
+  return texto
+    .replace(/\bz(\d+)\b/gi, "zona $1")
+    .replace(/\bp\.\s*barrera\b/gi, "al palo de la barrera")
+    .replace(/\bp\.\s*portero\b/gi, "al palo del portero");
 }

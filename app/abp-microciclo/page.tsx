@@ -1706,15 +1706,18 @@ export default function AbpMicrocicloPage() {
             </div>
 
             <div className="flex min-w-0 flex-wrap gap-2 2xl:justify-end 2xl:pb-[18px]">
-              <Button
-                tone="primary"
-                icon={Sparkles}
-                onClick={() => setBocetoAbierto(true)}
-                disabled={!claveActiva}
-                title="Proponer la semana entera: días, aspectos y minutos, según el próximo partido, nuestro rendimiento y el del rival"
-              >
-                Proponer boceto
-              </Button>
+              {/* «Proponer boceto» sale una sola vez (10/11/2026, jueces): con la semana
+                  sin minutos ya lo lleva la tarjeta del partido; aquí, sólo si no. */}
+              {totales.minutos > 0 && (
+                <Button
+                  icon={Sparkles}
+                  onClick={() => setBocetoAbierto(true)}
+                  disabled={!claveActiva}
+                  title="Proponer la semana entera: días, aspectos y minutos, según el próximo partido, nuestro rendimiento y el del rival"
+                >
+                  Proponer boceto
+                </Button>
+              )}
 
               <Button
                 icon={Mail}

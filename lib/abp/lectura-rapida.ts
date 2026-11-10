@@ -34,6 +34,16 @@ export type HallazgoLectura = {
   tasa: number;
   /** La tasa del resto de acciones con dato en la misma dimensión. */
   tasaResto: number;
+  /*
+  | 10/11/2026 (jueces): el «resto» con el que se compara, con su cuenta. La
+  | etiqueta decía «los otros N» con N = total − grupo, pero la tasa sale de
+  | las acciones CON DATO en esa dimensión: «2 de 6 · los otros 11, 100 %» era
+  | imposible con 11 de 17 retenidos. Ahora se escribe «los otros: 9 de 11».
+  */
+  /** Acciones con dato en la misma dimensión que no son del grupo. */
+  resto: number;
+  /** Aciertos de ese resto. */
+  aciertosResto: number;
   /** Acciones que explica la diferencia con el resto (siempre positiva). */
   impacto: number;
 };
@@ -120,6 +130,8 @@ export function lecturaRapida<T>({
         aciertos: grupo.aciertos,
         tasa,
         tasaResto,
+        resto,
+        aciertosResto: aciertosConDato - grupo.aciertos,
         impacto: Math.abs(diferencia) * grupo.n,
         /* Positivo = mejor para nosotros; pesa por volumen para que un grupo
            grande que falla un poco cuente más que uno de tres que falla mucho. */
@@ -145,6 +157,8 @@ export function lecturaRapida<T>({
           aciertos: h.aciertos,
           tasa: h.tasa,
           tasaResto: h.tasaResto,
+          resto: h.resto,
+          aciertosResto: h.aciertosResto,
           impacto: h.impacto,
         }
       : null;

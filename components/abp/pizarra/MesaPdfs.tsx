@@ -18,6 +18,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { TableroSlide } from "@/components/abp/pizarra/TableroSlide";
 import { COLORES, TABLERO_H, TABLERO_W, tituloVisible } from "@/lib/abp/pizarra";
 import { aJornada, type FilaRival } from "@/lib/abp/jornada";
+import { cargaCalendario } from "@/hooks/useCalendario";
 import {
   cargaEscudos,
   cometidosDe,
@@ -54,8 +55,22 @@ const ESPERA_HOJA_MS = 6_000;
 const aTiempo = <T,>(promesa: Promise<T>, siNo: T) =>
   Promise.race([promesa.catch(() => siNo), new Promise<T>((listo) => setTimeout(() => listo(siNo), ESPERA_HOJA_MS))]);
 
-/** La fecha del partido del tablero, de la fila de la hoja RIVALES a la que está atado. */
+/**
+ * La fecha del partido del tablero. 10/11/2026 (jueces): manda el calendario
+ * de BeSoccer, como en el informe de la semana —la hoja RIVALES decía «15
+ * nov» de un partido del viernes 13 a las 21:15—; la hoja, sólo si el
+ * calendario no tiene esa jornada.
+ */
 async function fechaDelPartido(encargo: EncargoPdfs) {
+  const numero = Number(/(\d+)/.exec(encargo.jornada ?? "")?.[1] ?? NaN);
+
+  if (Number.isFinite(numero)) {
+    const calendario = await cargaCalendario().catch(() => []);
+    const suyo = calendario.find((p) => Number(p.jornada) === numero && p.cuando);
+
+    if (suyo?.cuando) return suyo.cuando;
+  }
+
   const id = encargo.tablero.rivalId || encargo.tablero.partidoId.replace(/^riv-/, "");
   const filas = await traeJson<FilaRival[]>("/api/rivals?action=rivales");
   const fila = (Array.isArray(filas) ? filas : []).find((f) => f && String(f.ID ?? "").trim() === id);

@@ -756,15 +756,29 @@ const PIE_H = 70;
 
 const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 
-/** «2026-10-31» → «31 oct». Lo que no se entiende, fuera. */
+const DIAS = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
+
+/**
+ * «2026-10-31» → «31 oct»; con hora («2026-11-13T21:15», la del calendario)
+ * → «vie 13 nov · 21:15», como el informe de la semana (10/11/2026). Lo que
+ * no se entiende, fuera.
+ */
 export function fechaCorta(iso: string | undefined) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso ?? "");
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/.exec(iso ?? "");
 
   if (!m) return "";
 
   const mes = MESES[Number(m[2]) - 1];
 
-  return mes ? `${Number(m[3])} ${mes}` : "";
+  if (!mes) return "";
+
+  const dia = `${Number(m[3])} ${mes}`;
+
+  if (!m[4] || (m[4] === "00" && m[5] === "00")) return dia;
+
+  const semana = DIAS[new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))).getUTCDay()];
+
+  return `${semana} ${dia} · ${m[4]}:${m[5]}`;
 }
 
 /** Una zona de la hoja que se puede pulsar en el PDF, en píxeles de la hoja. */

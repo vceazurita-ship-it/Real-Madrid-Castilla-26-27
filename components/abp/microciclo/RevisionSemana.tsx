@@ -113,7 +113,7 @@ export function RevisionSemana({
                         className="rounded-lg border border-white/12 px-2 py-0.5 text-[10.5px] font-medium text-white/65 transition hover:border-white/25 hover:text-white"
                       >
                         {/* 29/10/2026: el botón nombra la tarea y el día que abre; tres «Abrir el viernes» seguidos no se distinguían. */}
-                        {`Abrir «${punto.trabajo ? etiquetaTrabajo(punto.trabajo as Trabajo, true) : "la tarea"}»${
+                        {`Abrir «${punto.trabajo ? etiquetaTrabajo(punto.trabajo as Trabajo) : "la tarea"}»${
                           punto.dia ? ` del ${(DIAS.find((dia) => dia.key === punto.dia)?.label ?? "día").toLowerCase()}` : ""
                         }`}
                       </button>
