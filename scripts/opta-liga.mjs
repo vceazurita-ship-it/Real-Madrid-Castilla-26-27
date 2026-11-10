@@ -360,7 +360,14 @@ async function principal() {
   | izquierda; GoalmouthY/Z = por dónde cruza la línea (Y 45,2-54,8 = entre
   | palos; Z < 38 = bajo el larguero).
   */
-  if (HISTORICO) { cierra(); await subeDocs(docs); return; }
+  if (HISTORICO) {
+    cierra();
+    fs.mkdirSync(CACHE, { recursive: true });
+    for (const [k, v] of Object.entries(docs)) fs.writeFileSync(path.join(CACHE, `${k.replaceAll(":", "-")}.json`), JSON.stringify(v));
+    if (EN_SECO) { console.log("En seco: no se sube nada."); return; }
+    await subeDocs(docs);
+    return;
+  }
 
   const ev = (campos, donde, limite = 30000) =>
     consulta(
