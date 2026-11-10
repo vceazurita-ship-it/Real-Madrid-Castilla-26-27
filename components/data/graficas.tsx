@@ -107,7 +107,7 @@ export function LeyendaPercentil({ poblacion }: { poblacion?: string } = {}) {
       title="P80 es estar mejor que el 80 % de los equipos (o de los jugadores de su puesto) con los que se compara"
     >
       <span className="font-semibold uppercase tracking-[0.14em] text-white/40">
-        Percentil{poblacion ? ` frente a ${poblacion}` : ""}
+        Percentil{poblacion ? ` frente ${/^el /i.test(poblacion) ? `al ${poblacion.slice(3)}` : `a ${poblacion}`}` : ""}
       </span>
       <span>P60 = mejor que el 60 %{poblacion ? "" : " de con quien se compara"}</span>
       <span className="inline-flex items-center gap-1">{punto(MEJOR)}P{PERCENTIL_ALTO} o más</span>
