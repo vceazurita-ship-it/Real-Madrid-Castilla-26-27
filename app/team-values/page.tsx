@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/knowledge-kit";
 import { cn } from "@/lib/utils";
 import { DOCUMENTO_VALORES } from "@/lib/cultura/documentos/valores";
-import { conVotos } from "@/components/cultura/HojaCultura";
+import { ResumenValores, TOTAL_VOTOS_VALORES, votosDe } from "@/components/cultura/ResumenValores";
 import { confirmar } from "@/lib/avisos";
 
 /*
@@ -48,15 +48,12 @@ const VALORES_VOTADOS = (() => {
   return portada && portada.tipo === "portada" ? portada.indice : [];
 })();
 
-const MAX_VOTOS = Math.max(
-  0,
-  ...VALORES_VOTADOS.map((v) => Number(conVotos(v.votos).match(/^\d+/)?.[0] ?? 0)),
-);
+/** 10/11/2026: «Humildad, el más votado (9 de 32 votos)»: el titular con su base. */
+const MAS_VOTADO = (() => {
+  const primero = [...VALORES_VOTADOS].sort((a, b) => votosDe(b) - votosDe(a))[0];
 
-const TOTAL_VOTOS = VALORES_VOTADOS.reduce(
-  (t, v) => t + Number(conVotos(v.votos).match(/^\d+/)?.[0] ?? 0),
-  0,
-);
+  return primero ? `${primero.titulo}, el más votado (${votosDe(primero)} de ${TOTAL_VOTOS_VALORES} votos)` : "";
+})();
 
 type CulturaItem = {
   ID: number;
@@ -97,6 +94,16 @@ const DESCRIPCIONES: Record<string, string> = {
   "SEMANA 3": "Con el vestuario: los estándares y lo que no se negocia.",
   "SEMANA 4":
     "Con el vestuario: consolidar los hábitos y las herramientas de la cultura.",
+};
+
+/* 10/11/2026: el titular de cada etapa dice la idea; la etapa va encima. */
+const TITULARES: Record<string, string> = {
+  MARCO: "Los valores los vota la plantilla, no los impone el cuerpo técnico",
+  PLANIFICACION: "Quién hace qué y en qué semana",
+  "SEMANA 1": "Qué significa pertenecer a este grupo",
+  "SEMANA 2": "Los valores, en conductas que se pueden ver",
+  "SEMANA 3": "Los estándares y lo que no se negocia",
+  "SEMANA 4": "Consolidar los hábitos de la cultura",
 };
 
 const DESCRIPCION_POR_DEFECTO =
@@ -518,6 +525,34 @@ export default function TeamValuesPage() {
     />
   );
 
+  /* 10/11/2026: en el Marco va arriba (es lo que se usa en la charla); en las
+     demás etapas, al pie. Los votos, afines y antivalores salen del mismo
+     componente que /identidad-cultura. */
+  const votacion =
+    VALORES_VOTADOS.length > 0 && !editing ? (
+      <div className="mt-8 rounded-2xl border border-[#C8A96B]/40 bg-[#C8A96B]/[0.07] p-4 lg:p-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)]">
+                      Resultado de la votación: {MAS_VOTADO}
+                    </p>
+                  </div>
+                  <Link
+                    href="/identidad-cultura"
+                    className={cn(
+                      "inline-flex shrink-0 items-center justify-center rounded-xl bg-[#C8A96B] px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-[#d6ba80]",
+                      focusRing,
+                    )}
+                  >
+                    Ver el documento ({DOCUMENTO_VALORES.diapositivas.length} diapositivas) →
+                  </Link>
+                </div>
+                <div className="mt-4">
+                  <ResumenValores />
+                </div>
+              </div>
+    ) : null;
+
   return (
     <div className="flex min-h-screen bg-[#0B0F14]">
       <Sidebar />
@@ -617,8 +652,14 @@ export default function TeamValuesPage() {
             {/* Título + acciones */}
             <div className="flex flex-row items-start justify-between gap-4">
               <div className="min-w-0">
-                <h1 className="text-3xl font-bold leading-tight text-white sm:text-4xl lg:text-5xl">
-                  {seccion ? rotuloSeccion(seccion) : ""}
+                {/* 10/11/2026: la etapa como antetítulo y un titular con la idea. */}
+                {seccion && TITULARES[seccion] && (
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--rmcf-gold-ink,#C8A96B)]">
+                    {rotuloSeccion(seccion)}
+                  </p>
+                )}
+                <h1 className="mt-1 text-3xl font-bold leading-tight text-white sm:text-4xl lg:text-5xl">
+                  {seccion ? TITULARES[seccion] ?? rotuloSeccion(seccion) : ""}
                 </h1>
 
                 {fechaEtapa && (
@@ -635,6 +676,8 @@ export default function TeamValuesPage() {
 
               {!editing && !loading && !error && toolbar}
             </div>
+
+            {etapaIndex === 0 && votacion}
 
             {/* Filtros por tipo */}
             {!editing && tipos.length > 1 && (
@@ -857,60 +900,7 @@ export default function TeamValuesPage() {
               </div>
             )}
 
-            {/* 07/11/2026: el resultado de la votación va al pie, compacto:
-                arriba parecía la cabecera de la etapa y repetía el documento.
-                Todo en votos, como en el recuento (valores y antivalores se
-                cuentan por separado); el detalle está en el documento. */}
-            {VALORES_VOTADOS.length > 0 && !editing && (
-              /* 08/11/2026: la línea de texto se cortaba a 390 px («Comp…») y
-                 no se leía el orden de un vistazo: ahora es una barra por valor,
-                 a escala del más votado. */
-              <div className="mt-8 rounded-2xl border border-[#C8A96B]/40 bg-[#C8A96B]/[0.07] p-4 lg:p-5">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)]">
-                      Resultado de la votación
-                    </p>
-                    <p className="mt-0.5 text-xs text-gray-400">
-                      {TOTAL_VOTOS} votos de la plantilla a los cinco valores; los antivalores se cuentan aparte.
-                    </p>
-                  </div>
-                  <Link
-                    href="/identidad-cultura"
-                    className={cn(
-                      "inline-flex shrink-0 items-center justify-center rounded-xl bg-[#C8A96B] px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-[#d6ba80]",
-                      focusRing,
-                    )}
-                  >
-                    Ver el documento ({DOCUMENTO_VALORES.diapositivas.length} diapositivas) →
-                  </Link>
-                </div>
-                <ul className="mt-4 space-y-2">
-                  {VALORES_VOTADOS.map((v) => {
-                    const n = Number(conVotos(v.votos).match(/^\d+/)?.[0] ?? 0);
-                    return (
-                      <li
-                        key={v.numero}
-                        className="grid grid-cols-[minmax(0,9rem)_1fr_auto] items-center gap-3 text-sm sm:grid-cols-[minmax(0,12rem)_1fr_auto]"
-                      >
-                        <span className="min-w-0 break-words font-semibold text-white">
-                          {v.titulo}
-                        </span>
-                        <span className="h-2.5 overflow-hidden rounded-full bg-white/[0.08]">
-                          <span
-                            className="block h-full rounded-full bg-[#C8A96B]"
-                            style={{ width: `${MAX_VOTOS > 0 ? (n / MAX_VOTOS) * 100 : 0}%` }}
-                          />
-                        </span>
-                        <span className="tabular-nums text-gray-300">
-                          {n} {n === 1 ? "voto" : "votos"}
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            )}
+            {etapaIndex !== 0 && votacion}
           </main>
         </div>
       </div>

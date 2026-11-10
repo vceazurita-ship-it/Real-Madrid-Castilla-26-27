@@ -72,6 +72,7 @@ import {
   comparativa,
   indiceDe,
   mediana,
+  CORTE_SUB21_TEXTO,
   mejoresDe,
   nubeDe,
   percentilesDe,
@@ -340,7 +341,18 @@ export default function ComparativaCategoria() {
       .filter((x) => x.f.evolucion?.fiable && x.f.evolucion.salto < -ESTABLE)
       .sort((a, b) => (a.f.evolucion?.salto ?? 0) - (b.f.evolucion?.salto ?? 0))[0];
     if (baja?.f.evolucion)
-      frases.push({ titulo: `Baja respecto a 25/26: ${nombre(baja)}`, texto: `${baja.f.evolucion.salto} puntos de índice frente a la temporada pasada. Revisar con él qué ha cambiado: puesto, minutos o rol.`, tono: "mal" });
+      /* 10/11/2026: con la base de las dos temporadas, las métricas que más
+         caen y el qué entrenamos, como la tarjeta de los desajustes. */
+      frases.push({
+        titulo: `Baja respecto a 25/26: ${nombre(baja)}`,
+        texto: `${baja.f.evolucion.salto} puntos de índice frente a la temporada pasada (${baja.f.evolucion.minutosAhora.toLocaleString("es-ES")}′ este año, ${baja.f.evolucion.minutosAntes.toLocaleString("es-ES")}′ el pasado${baja.f.evolucion.minutosAhora < 450 ? "; este año, menos de 450′: tendencia" : ""}).${
+          baja.f.evolucion.peores.length
+            ? ` Lo que más cae: ${baja.f.evolucion.peores.map((m) => `${m.nombre.toLowerCase()} (percentil ${m.percentilAntes} → ${m.percentilAhora})`).join(" y ")}. Qué entrenamos: una tarea con ${baja.f.evolucion.peores[0].nombre.toLowerCase()} y el objetivo de volver al percentil ${baja.f.evolucion.peores[0].percentilAntes} del año pasado.`
+            : " Revisar con él qué ha cambiado: puesto, minutos o rol."
+        }`,
+        tono: "mal",
+        abre: [baja.f.jugador.jugador],
+      });
 
     /* 30/10/2026: todos los desajustes (antes sólo el primero) y qué hacer con cada uno. */
     const desajustes = propios.filter(
@@ -365,7 +377,10 @@ export default function ComparativaCategoria() {
         : `${base}. Su índice se sostiene en ${mejor ? `${mejor.metrica.nombre.toLowerCase()} (${p(mejor)})` : "sus números de Wyscout"}. Qué hacemos: contrastar en vídeo si eso es lo que le pedimos en su puesto; si no, fijar con él una acción sobre ${peor && peor !== mejor ? `${peor.metrica.nombre.toLowerCase()} (percentil ${Math.round(peor.percentil)}), su punto más bajo; objetivo: acercarlo al percentil 50, la mediana del puesto` : "lo que le pedimos"}.`;
       /* 08/11/2026 (jueces): con un grupo corto (8 porteros) no es alerta, es tendencia en gris. */
       frases.push({
-        titulo: corto ? `Tendencia, ${d.f.ranking?.de} ${puesto}: ${nombre(d)}` : `Nota y números no coinciden: ${nombre(d)}`,
+        /* 10/11/2026: el titular dice quién y qué pasa, con las dos cifras. */
+        titulo: corto
+          ? `${nombre(d)} · índice ${(d.f.indice ?? 0) < 50 ? "bajo" : "alto"} frente a ${d.f.ranking?.de} ${puesto} (tendencia)`
+          : `${nombre(d)}: ${d.nota.avg.toFixed(1).replace(".", ",")} de nota y ${d.f.indice} de índice no cuadran`,
         tono: corto ? "tendencia" : "ojo",
         texto,
         abre: [d.f.jugador.jugador],
@@ -450,7 +465,7 @@ export default function ComparativaCategoria() {
               <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Comparativa con la categoría</h1>
             </div>
             <p className="mt-3 max-w-3xl text-sm text-white/55">
-              Cada jugador del Castilla frente a los de su puesto en la categoría —los sub-21, los sub-23 o todos—: dónde
+              Cada jugador del Castilla frente a los de su puesto en la categoría —los sub-21 ({CORTE_SUB21_TEXTO}), los sub-23 o todos—: dónde
               queda, en qué destaca por fase del juego y cómo ha cambiado desde el año pasado, junto a nuestras valoraciones
               y seguimientos.
             </p>
@@ -539,14 +554,14 @@ export default function ComparativaCategoria() {
                       {Number.isFinite(kpis.grupoMin) && kpis.grupoMax > 0
                         ? `, ${kpis.grupoMin === kpis.grupoMax ? kpis.grupoMax : `${kpis.grupoMin} a ${kpis.grupoMax}`} jugadores por puesto`
                         : ""}
-                      {" · "}más índice es mejor (50 = la media del grupo)
+                      {" · "}índice = media de sus percentiles en las métricas de su puesto; más es mejor (50 = la media del grupo)
                     </p>
                     <div className="mt-2 grid grid-cols-2 gap-3 lg:grid-cols-4">
                       {[
                         { t: "Jugadores comparados", v: kpis.comparados, h: "con índice esta temporada" },
                         { t: "Top 3 de su puesto", v: kpis.top3, h: "en el ranking de su puesto" },
                         ...(kpis.media !== null ? [{ t: "Índice medio", v: kpis.media, h: `de los nuestros comparados · ${kpis.media >= 50 ? "+" : "−"}${Math.abs(Math.round(kpis.media - 50))} sobre 50, la media de su puesto en la categoría`.replace("+-", "−") }] : []),
-                        { t: "Mejoran respecto a 25/26", v: kpis.mejoran, h: `más de ${ESTABLE} pts, con muestra el año pasado` },
+                        { t: "Mejoran respecto a 25/26", v: kpis.mejoran, h: `más de ${ESTABLE} pts de índice, con 450′ o más el año pasado (cada uno, contra su categoría de ese año)` },
                       ].map((k) => (
                         <div key={k.t} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                           <p className="text-xs text-white/50">{k.t}</p>

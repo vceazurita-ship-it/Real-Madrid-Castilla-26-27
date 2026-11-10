@@ -174,7 +174,10 @@ export function CampoEmocional({
   teamAverage,
   grupos,
   onGruposDelOnce,
+  fechaValoracion = null,
 }: {
+  /** 10/11/2026: la fecha de la última valoración editada (ISO), si la hay. */
+  fechaValoracion?: string | null;
   rows: Player[];
   loading: boolean;
   teamAverage: Record<MetricKey, number> | null;
@@ -437,7 +440,7 @@ export function CampoEmocional({
             <Campo titulares={titulares} cargando={cargando} elegido={elegido} onElegir={elige} />
           )}
 
-          <Leyenda radares={vista === "radares"} plantilla={rows.length} />
+          <Leyenda radares={vista === "radares"} plantilla={rows.length} anterior={historia.length > 1 ? historia[historia.length - 2].dia : null} />
 
           {banquillo.length > 0 && (
             <Banquillo suplentes={banquillo} elegido={elegido} onElegir={elige} />
@@ -449,6 +452,7 @@ export function CampoEmocional({
             seleccionado={seleccionado}
             titulares={titulares}
             teamAverage={teamAverage}
+            fecha={fechaValoracion}
             onCerrar={() => setElegido(null)}
             onElegir={elige}
           />
@@ -777,7 +781,7 @@ function RadarLinea({
     >
       <div className={`min-w-0 ${tumbada ? "xl:w-[200px] xl:shrink-0" : ""}`}>
         <div className="flex items-baseline justify-between gap-2">
-          <p className="truncate text-[10px] font-semibold uppercase tracking-[.22em]" style={{ color: "#9FE9FF" }}>
+          <p className="truncate text-[11px] font-semibold uppercase tracking-[.22em]" style={{ color: "#9FE9FF" }}>
             {titulo}
           </p>
           {media !== null && (
@@ -791,7 +795,7 @@ function RadarLinea({
             ALTA…): es tendencia, y se dice así. */}
         {banda && (
           <p
-            className="mt-0.5 text-[10px] font-semibold uppercase tracking-[.18em]"
+            className="mt-0.5 text-[11px] font-semibold uppercase tracking-[.18em]"
             style={{ color: evaluados.length < 3 ? "rgba(226,246,255,.6)" : `${tono}CC` }}
           >
             {evaluados.length < 3 ? `tendencia · ${evaluados.length} ${evaluados.length === 1 ? "jugador" : "jugadores"}` : `${banda.label} · ${evaluados.length} jugadores`}
@@ -1018,7 +1022,7 @@ function FichaJugador({
 
         {c.dorsal && (
           <span
-            className="absolute -left-2 -top-1 grid h-5 min-w-5 place-items-center rounded-full px-1 text-[10px] font-bold"
+            className="absolute -left-2 -top-1 grid h-5 min-w-5 place-items-center rounded-full px-1 text-[11px] font-bold"
             style={{ background: "#F5F7FA", color: "#04101C", boxShadow: "0 2px 6px rgba(0,0,0,.35)" }}
           >
             {c.dorsal}
@@ -1028,7 +1032,7 @@ function FichaJugador({
 
       <span
         /* 07/11/2026: hasta dos renglones; «Álvaro Lez…» se cortaba en el móvil. */
-        className="line-clamp-2 max-w-[84px] break-words rounded-lg px-2 py-[2px] text-center text-[10px] font-semibold leading-tight sm:max-w-[100px] sm:text-[11px]"
+        className="line-clamp-2 max-w-[84px] break-words rounded-lg px-2 py-[2px] text-center text-[12px] font-semibold leading-tight sm:max-w-[100px] sm:text-[11px]"
         style={{ background: "rgba(3,8,17,.72)", color: "#F5F7FA" }}
       >
         {c.nombre}
@@ -1037,7 +1041,7 @@ function FichaJugador({
   );
 }
 
-function Leyenda({ radares = false, plantilla = 0 }: { radares?: boolean; plantilla?: number }) {
+function Leyenda({ radares = false, plantilla = 0, anterior = null }: { radares?: boolean; plantilla?: number; anterior?: string | null }) {
   return (
     <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-white/60">
       {/* 07/11/2026: la escala dicha en el propio gráfico. */}
@@ -1072,7 +1076,7 @@ function Leyenda({ radares = false, plantilla = 0 }: { radares?: boolean; planti
         <span aria-hidden className="grid h-4 w-4 place-items-center rounded-full" style={{ background: "#FF4D5E", color: "#04101C" }}>
           <ArrowDown size={10} strokeWidth={3} />
         </span>
-        cambio desde la evaluación anterior
+        cambio desde la evaluación anterior{anterior ? ` (la que vio este aparato el ${diaCorto(anterior)})` : ""}
       </span>
 
       <span className="inline-flex items-center gap-1.5">
@@ -1118,21 +1122,23 @@ function PanelLateral({
   seleccionado,
   titulares,
   teamAverage,
+  fecha,
   onCerrar,
   onElegir,
 }: {
   seleccionado: Colocado | null;
   titulares: Colocado[];
   teamAverage: Record<MetricKey, number> | null;
+  fecha: string | null;
   onCerrar: () => void;
   onElegir: (clave: string | null) => void;
 }) {
   if (seleccionado?.dato) return <PerfilJugador c={seleccionado} dato={seleccionado.dato} teamAverage={teamAverage} onCerrar={onCerrar} />;
 
-  return <LecturaDelOnce titulares={titulares} teamAverage={teamAverage} onElegir={onElegir} />;
+  return <LecturaDelOnce titulares={titulares} teamAverage={teamAverage} fecha={fecha} onElegir={onElegir} />;
 }
 
-function LecturaDelOnce({ titulares, teamAverage, onElegir }: { titulares: Colocado[]; teamAverage: Record<MetricKey, number> | null; onElegir: (clave: string | null) => void }) {
+function LecturaDelOnce({ titulares, teamAverage, fecha, onElegir }: { titulares: Colocado[]; teamAverage: Record<MetricKey, number> | null; fecha: string | null; onElegir: (clave: string | null) => void }) {
   const evaluados = titulares.filter((c): c is Colocado & { dato: Player } => Boolean(c.dato));
 
   if (evaluados.length === 0) {
@@ -1153,7 +1159,9 @@ function LecturaDelOnce({ titulares, teamAverage, onElegir }: { titulares: Coloc
 
   return (
     <aside className={TARJETA}>
-      <p className="text-[10px] uppercase tracking-[.25em] text-white/40">Lectura del once</p>
+      <p className="text-[10px] uppercase tracking-[.25em] text-white/40">
+        Lectura del once{fecha ? ` · última valoración ${diaCorto(fecha.slice(0, 10))}` : ""}
+      </p>
 
       <div className="mt-3 flex items-end gap-3">
         <span className="text-5xl font-semibold tabular-nums leading-none" style={{ color: chipInk(tono) }}>
@@ -1202,7 +1210,7 @@ function LecturaDelOnce({ titulares, teamAverage, onElegir }: { titulares: Coloc
               .slice(0, 3)
               .map((c) => (
                 <button key={c.clave} type="button" onClick={() => onElegir(c.clave)} className="rounded-full border border-white/10 px-2 py-0.5 text-xs text-white/80 hover:text-white">
-                  {c.nombre} {coma(c.dato[flojo.axis.key])}
+                  {c.nombre} · {flojo.axis.corto} {coma(c.dato[flojo.axis.key])}
                 </button>
               ))}
           </p>

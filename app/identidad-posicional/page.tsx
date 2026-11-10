@@ -45,6 +45,8 @@ import {
   nombreColumna,
 } from "@/lib/identidad/campo";
 import type { FilaJugador } from "@/lib/data-analisis/leer";
+import { mismaPersona, nombreCanonico } from "@/lib/data-analisis/nombres";
+import { esNuestro, universoDe } from "@/lib/data-analisis/individual";
 
 /*
 | 08/11/2026: los jugadores de Wyscout (los de la categoría) para poner la
@@ -86,6 +88,27 @@ const PLURAL_PUESTO: Record<string, string> = {
 
 const cifraTexto = (v: number, porcentaje: boolean) =>
   porcentaje ? `${v.toFixed(1).replace(".", ",")} %` : v.toFixed(2).replace(".", ",");
+
+/** Un jugador de la plantilla en el puesto: nombre corto (chip) y completo. */
+type Quien = { corto: string; nombre: string };
+
+/*
+| 10/11/2026: +1 del lado bueno de la mediana, −1 del malo y 0 si, con los
+| decimales que se enseñan, es la misma cifra (66,7 % contra 66,7 % no es ▲).
+*/
+const comparaConMediana = (
+  v: number,
+  c: { mediana: number; porcentaje: boolean; mejorAlto: boolean },
+) => {
+  if (cifraTexto(v, c.porcentaje) === cifraTexto(c.mediana, c.porcentaje)) return 0;
+
+  return (v > c.mediana) === c.mejorAlto ? 1 : -1;
+};
+
+/** El nombre de Wyscout («Oscar Naasei») con el de la plantilla («Óscar»). */
+const nombrePlantilla = (wyscout: string, quienes: Quien[]) =>
+  quienes.find((q) => mismaPersona(wyscout, q.nombre) || mismaPersona(wyscout, q.corto))?.corto ??
+  nombreCanonico(wyscout);
 
 type PosicionItem = {
   ID: number;
@@ -145,7 +168,7 @@ function jugadoresDelPuesto(posicionHoja: string, plantilla: Player[]) {
   return plantilla
     .filter((j) => j.esCastilla)
     .filter((j) => familia[1].test(sinTildes(nombrePuesto(j.posicion))))
-    .map((j) => ({ corto: j.apodo || j.nombre, nombre: j.nombre || j.apodo }));
+    .map((j) => ({ corto: j.apodo || j.nombre, nombre: j.nombre || j.apodo || "" }));
 }
 
 /*
@@ -425,6 +448,59 @@ export default function IdentidadPosicionalPage() {
     () => (posicion ? jugadoresDelPuesto(posicion, players) : []),
     [posicion, players],
   );
+
+  /*
+  | 10/11/2026: las cifras del puesto, para tres cosas de la cabecera: los
+  | minutos de liga de quien no llega a 450′ (sale en los chips pero no en
+  | ninguna cifra, y se dice por qué), el contenido en que más jugadores
+  | quedan por debajo de la mediana (por dónde empieza el entrenamiento) y el
+  | puesto de Identidad en el Campo, con un solo enlace.
+  */
+  const jugadoresWyscout = useJugadoresWyscout();
+
+  const minutosLiga = useMemo(() => {
+    if (!jugadoresWyscout) return null;
+
+    const nuestros = universoDe(jugadoresWyscout, "liga").filter(esNuestro);
+
+    return new Map(
+      quienes.flatMap((q) => {
+        const fila = nuestros.find((j) => mismaPersona(j.jugador, q.nombre) || mismaPersona(j.jugador, q.corto));
+
+        return fila ? [[q.nombre, fila.minutos] as const] : [];
+      }),
+    );
+  }, [jugadoresWyscout, quienes]);
+
+  const cifrasPuesto = useMemo(() => {
+    if (!jugadoresWyscout) return [];
+
+    return data
+      .filter((r) => r.POSICION === posicion)
+      .flatMap((r) => {
+        const c = cifraDelContenido(jugadoresWyscout, r.POSICION ?? "", r.CONTENIDO ?? "");
+
+        return c ? [{ item: r, cifra: c }] : [];
+      });
+  }, [jugadoresWyscout, data, posicion]);
+
+  const prioridad = useMemo(() => {
+    const conDebajo = cifrasPuesto
+      .map((x) => ({
+        ...x,
+        debajo: x.cifra.nuestros.filter((j) => comparaConMediana(j.valor, x.cifra) < 0),
+      }))
+      .filter((x) => x.debajo.length > 0)
+      .sort(
+        (a, b) =>
+          b.debajo.length / b.cifra.nuestros.length - a.debajo.length / a.cifra.nuestros.length ||
+          b.debajo.length - a.debajo.length,
+      );
+
+    return conDebajo[0] ?? null;
+  }, [cifrasPuesto]);
+
+  const puestoCampo = cifrasPuesto[0]?.cifra.puesto ?? null;
 
   const cambios = useMemo(
     () =>
@@ -780,7 +856,11 @@ export default function IdentidadPosicionalPage() {
   );
 
   const renderBloque = (bloque: string) => {
-    const items = contenidos.filter((c) => c.BLOQUE === bloque);
+    /* 10/11/2026: fuera de edición, lo que se mide va primero (el orden de la
+       hoja se respeta dentro de cada grupo); en edición, el de la hoja. */
+    const delBloque = contenidos.filter((c) => c.BLOQUE === bloque);
+    const medido = (c: PosicionItem) => (medidaDelContenido(c.POSICION ?? "", c.CONTENIDO ?? "") ? 0 : 1);
+    const items = editing ? delBloque : [...delBloque].sort((a, b) => medido(a) - medido(b));
     const total = data.filter(
       (c) => c.POSICION === posicion && c.BLOQUE === bloque,
     ).length;
@@ -826,7 +906,9 @@ export default function IdentidadPosicionalPage() {
             {items.map((item) => (
               <li
                 key={item.ID}
-                className="border-b border-white/[0.07] pb-4 last:border-0"
+                className={cn(
+                  editing || medido(item) === 0 ? "border-b border-white/[0.07] pb-4 last:border-0" : "pb-1",
+                )}
               >
                 {editing ? (
                   <div className="space-y-2">
@@ -865,10 +947,13 @@ export default function IdentidadPosicionalPage() {
                   <div className="flex gap-3">
                     <span
                       aria-hidden
-                      className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#C8A96B]"
+                      className={cn(
+                        "mt-2 h-1.5 w-1.5 shrink-0 rounded-full",
+                        medido(item) === 0 ? "bg-[#C8A96B]" : "bg-gray-500/60",
+                      )}
                     />
 
-                    <FichaContenido item={item} query={query} />
+                    <FichaContenido item={item} query={query} quienes={quienes} />
                   </div>
                 )}
               </li>
@@ -1001,19 +1086,62 @@ export default function IdentidadPosicionalPage() {
                        del contenido del puesto a su plan de trabajo. */
                     <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
                       <span className="text-gray-400">Sus jugadores · su área de mejora:</span>
-                      {quienes.map((uno) => (
+                      {quienes.map((uno) => {
+                        const min = minutosLiga?.get(uno.nombre);
+                        /* Sale en el chip pero no en las cifras: se dice por qué. */
+                        const fuera = min !== undefined && min < MINUTOS_CONTENIDO && cifrasPuesto.length > 0;
+
+                        return (
+                          <Link
+                            key={uno.nombre}
+                            href={`/individual?nombre=${encodeURIComponent(uno.nombre ?? "")}&pestana=mejora`}
+                            className={cn(
+                              "inline-flex items-center gap-1 rounded-full border border-[#C8A96B]/40 px-3 py-1 text-xs font-semibold text-gray-200 transition-colors hover:bg-[#C8A96B]/10 hover:text-white",
+                              focusRing,
+                            )}
+                          >
+                            {uno.corto}
+                            {fuera && (
+                              <span className="font-normal text-gray-400">
+                                · {min}′, menos de {MINUTOS_CONTENIDO}′: no entra en las cifras
+                              </span>
+                            )}
+                            <span aria-hidden className="text-[color:var(--rmcf-gold-ink,#C8A96B)]">→</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {cifrasPuesto.length > 0 && !editing && (
+                    <div className="mt-4 space-y-2 text-sm">
+                      {prioridad && (
+                        <p className="break-words border-l-2 border-amber-400/70 pl-3 text-gray-200">
+                          <span className="font-semibold text-white">Por dónde empezar a entrenar:</span>{" "}
+                          «{prioridad.item.CONTENIDO.replace(/\.$/, "")}»,{" "}
+                          {prioridad.debajo.length === prioridad.cifra.nuestros.length
+                            ? `los ${prioridad.debajo.length} por debajo de la mediana`
+                            : `${prioridad.debajo.length} de ${prioridad.cifra.nuestros.length} por debajo de la mediana`}{" "}
+                          (
+                          {(() => {
+                            const vs = prioridad.debajo.map((j) => j.valor).sort((a, b) => a - b);
+                            const t = (v: number) => cifraTexto(v, prioridad.cifra.porcentaje);
+
+                            return vs.length > 1 ? `${t(vs[0])}-${t(vs[vs.length - 1])}` : t(vs[0]);
+                          })()}{" "}
+                          frente a {cifraTexto(prioridad.cifra.mediana, prioridad.cifra.porcentaje)}).
+                        </p>
+                      )}
+                      <p className="break-words text-xs text-gray-400">
+                        Cifras de liga (Wyscout) de los que llevan {MINUTOS_CONTENIDO}′ o más: ▲ mejor que la
+                        mediana del puesto en la categoría · ▼ peor · = la misma cifra.{" "}
                         <Link
-                          key={uno.nombre}
-                          href={`/individual?nombre=${encodeURIComponent(uno.nombre ?? "")}&pestana=mejora`}
-                          className={cn(
-                            "inline-flex items-center gap-1 rounded-full border border-[#C8A96B]/40 px-3 py-1 text-xs font-semibold text-gray-200 transition-colors hover:bg-[#C8A96B]/10 hover:text-white",
-                            focusRing,
-                          )}
+                          href={`/identidad-campo${puestoCampo ? `#puesto-${puestoCampo}` : ""}`}
+                          className="font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)] hover:underline"
                         >
-                          {uno.corto}
-                          <span aria-hidden className="text-[color:var(--rmcf-gold-ink,#C8A96B)]">→</span>
+                          Ver el puesto en Identidad en el Campo →
                         </Link>
-                      ))}
+                      </p>
                     </div>
                   )}
                 </div>
@@ -1212,9 +1340,11 @@ export default function IdentidadPosicionalPage() {
 function FichaContenido({
   item,
   query,
+  quienes,
 }: {
   item: PosicionItem;
   query: string;
+  quienes: Quien[];
 }) {
   const jugadoresWyscout = useJugadoresWyscout();
   const texto = (
@@ -1236,48 +1366,77 @@ function FichaContenido({
     jugadoresWyscout && columna
       ? cifraDelContenido(jugadoresWyscout, item.POSICION ?? "", item.CONTENIDO ?? "")
       : null;
+  /*
+  | 10/11/2026: un jugador por fila (nombre y minutos a la izquierda, cifra
+  | con flecha a la derecha) y la mediana como última fila, separada. En una
+  | sola línea con `whitespace-nowrap` la cifra se salía de la tarjeta en
+  | escritorio y en el móvil se cortaba en «Joan Mart». El nombre es el de la
+  | plantilla (el de los chips), no el de Wyscout. Si alguien queda por
+  | debajo, la caja acaba en el objetivo para la tarea: la mediana.
+  */
+  const debajo = cifra ? cifra.nuestros.filter((j) => comparaConMediana(j.valor, cifra) < 0).length : 0;
   const medida = columna && (
-    <div className="mt-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[13px] leading-relaxed text-gray-300">
-      <p>
+    <div className="mt-2 min-w-0 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[13px] leading-relaxed text-gray-300">
+      <p className="break-words">
         <span className="font-semibold text-white">Se mide en el partido:</span>{" "}
         {nombreColumna(columna)}
       </p>
       {cifra && (
-        <p className="mt-0.5">
-          {cifra.nuestros.map((j, i) => {
-            const bien = cifra.mejorAlto ? j.valor >= cifra.mediana : j.valor <= cifra.mediana;
+        <>
+          <ul className="mt-1 space-y-0.5">
+            {cifra.nuestros.map((j) => {
+              const signo = comparaConMediana(j.valor, cifra);
 
-            return (
-              <span key={j.nombre} className="whitespace-nowrap">
-                {i > 0 && <span className="text-gray-500"> · </span>}
-                {j.nombre}{" "}
-                <span className={cn("font-bold tabular-nums", bien ? "text-emerald-400" : "text-amber-400")}>
-                  {bien ? "▲" : "▼"} {cifraTexto(j.valor, cifra.porcentaje)}
-                </span>
+              return (
+                <li key={j.nombre} className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3">
+                  <span className="min-w-0 break-words">
+                    {nombrePlantilla(j.nombre, quienes)}{" "}
+                    <span className="tabular-nums text-gray-500">· {j.minutos.toLocaleString("es-ES")}′</span>
+                  </span>
+                  <span
+                    className={cn(
+                      "font-bold tabular-nums",
+                      signo === 0 ? "text-gray-200" : signo > 0 ? "text-emerald-400" : "text-amber-400",
+                    )}
+                  >
+                    {signo === 0 ? "=" : signo > 0 ? "▲" : "▼"} {cifraTexto(j.valor, cifra.porcentaje)}
+                  </span>
+                </li>
+              );
+            })}
+            <li className="mt-1 grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3 border-t border-white/10 pt-1 text-gray-400">
+              <span className="min-w-0 break-words">
+                Mediana de {cifra.n} {(PLURAL_PUESTO[cifra.puesto] ?? "jugadores").toLowerCase()} de la categoría
+                con {MINUTOS_CONTENIDO}′ o más
               </span>
-            );
-          })}
-          <span className="text-gray-400">
-            {" "}
-            · mediana de {cifra.n} {(PLURAL_PUESTO[cifra.puesto] ?? "jugadores").toLowerCase()} de la
-            categoría con {MINUTOS_CONTENIDO}′:{" "}
-            <span className="tabular-nums">{cifraTexto(cifra.mediana, cifra.porcentaje)}</span>
-          </span>
-        </p>
+              <span className="tabular-nums">{cifraTexto(cifra.mediana, cifra.porcentaje)}</span>
+            </li>
+          </ul>
+          {debajo > 0 && (
+            <p className="mt-1 break-words text-gray-300">
+              <span className="font-semibold text-white">Qué entrenamos:</span>{" "}
+              {debajo === cifra.nuestros.length
+                ? `los ${debajo} están por debajo`
+                : `${debajo} de ${cifra.nuestros.length} por debajo`}
+              ; objetivo en la tarea, {cifra.mejorAlto ? "llegar a" : "bajar de"}{" "}
+              {cifraTexto(cifra.mediana, cifra.porcentaje)}.
+            </p>
+          )}
+        </>
       )}
-      <Link
-        href={`/identidad-campo${cifra ? `#puesto-${cifra.puesto}` : ""}`}
-        className="mt-1 inline-block font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)] hover:underline"
-      >
-        Ver el puesto en Identidad en el Campo →
-      </Link>
     </div>
   );
 
   if (!Object.values(d).some(Boolean)) {
     return (
       <div className="min-w-0 flex-1">
-        <p className="min-w-0 whitespace-pre-wrap break-words text-[14px] leading-relaxed text-gray-200 lg:text-[15px]">
+        {/* 10/11/2026: lo que no se mide pesa menos que lo medido. */}
+        <p
+          className={cn(
+            "min-w-0 whitespace-pre-wrap break-words leading-relaxed",
+            columna ? "text-[14px] text-gray-200 lg:text-[15px]" : "text-[13px] text-gray-400 lg:text-sm",
+          )}
+        >
           {texto}
         </p>
         {medida}

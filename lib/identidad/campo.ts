@@ -627,7 +627,12 @@ export type CifraDelPrincipio = {
   unidad: Metrica["unidad"];
   mejorAlto: boolean;
   /** Último partido de la competición principal. */
-  ultimo: { valor: number; rival: string; jornada: number; base: { de: number; total: number } | null };
+  /**
+   * 10/11/2026: `jornada` es la del calendario de BeSoccer (null si el
+   * partido no casa); antes era el número de partidos jugados, y con un
+   * aplazado decía «J10» a la undécima. `orden` es ese número de partido.
+   */
+  ultimo: { valor: number; rival: string; fecha: string; jornada: number | null; orden: number; base: { de: number; total: number } | null };
   /** Media de la temporada (mismo cálculo que /identidad-campo). */
   temporada: number;
   partidos: number;
@@ -642,7 +647,11 @@ export type CifraDelPrincipio = {
  * mismas reglas que `identidadEnElCampo` (lo que no tiene dato no sale).
  * La clave es el ancla de /identidad-campo.
  */
-export function cifrasDelModelo(partidos: FilaPartido[]): Map<string, CifraDelPrincipio[]> {
+export function cifrasDelModelo(
+  partidos: FilaPartido[],
+  /** El calendario de BeSoccer, para la jornada real del último partido. */
+  calendario: PartidoCalendario[] = [],
+): Map<string, CifraDelPrincipio[]> {
   const fuera = new Map<string, CifraDelPrincipio[]>();
   const delAno = partidos.filter((f) => f.fecha >= DESDE);
   const nuestras = delAno.filter((f) => f.equipo === NOSOTROS);
@@ -690,7 +699,9 @@ export function cifrasDelModelo(partidos: FilaPartido[]): Map<string, CifraDelPr
         ultimo: {
           valor: ultimo,
           rival: ultimaFila.rival,
-          jornada: mias.length,
+          fecha: ultimaFila.fecha,
+          jornada: partidoDeFecha(calendario, ultimaFila.fecha)?.jornada ?? null,
+          orden: mias.length,
           base: Number.isFinite(num) && Number.isFinite(den) && (den as number) > 0 ? { de: Math.round(num as number), total: Math.round(den as number) } : null,
         },
         temporada,

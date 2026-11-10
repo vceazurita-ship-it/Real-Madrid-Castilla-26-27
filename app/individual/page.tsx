@@ -153,6 +153,8 @@ type MergedPlayer = Player & {
   hasReport: boolean | null;
   score: number;
   lastSession: Date | null;
+  /** 10/11/2026: el primer seguimiento con fecha posterior a hoy (programado). */
+  programado: Date | null;
 
   /* 30/10/2026: el puesto de la hoja dicho con palabras (lib/posiciones,
      el mismo que /ratings) y la línea en la que se agrupa. */
@@ -1581,10 +1583,30 @@ function useVistaPlantilla() {
 /* La hora de abrir la pantalla, una vez (no en cada render: regla de pureza). */
 const ABIERTA_EN = Date.now();
 
-/** Días desde su último seguimiento (null si no tiene ninguno). */
+/** Medianoche de hoy y fin de hoy, al abrir la pantalla. */
+const HOY_INICIO = (() => {
+  const d = new Date(ABIERTA_EN);
+
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+})();
+const HOY_FIN = HOY_INICIO + 86_400_000 - 1;
+
+/*
+| Días desde su último seguimiento (null si no tiene ninguno). 10/11/2026:
+| por días de calendario, como /calendar, y nunca negativo: un registro
+| fechado mañana salía «hace -1 días». Lo futuro ya no es «último» (ver
+| `programado`).
+*/
 function diasDesdeSeguimiento(player: MergedPlayer) {
-  return player.lastSession ? Math.floor((ABIERTA_EN - player.lastSession.getTime()) / 86_400_000) : null;
+  if (!player.lastSession) return null;
+
+  const l = player.lastSession;
+  const dia = new Date(l.getFullYear(), l.getMonth(), l.getDate()).getTime();
+
+  return Math.max(0, Math.round((HOY_INICIO - dia) / 86_400_000));
 }
+
+const diaMes = (d: Date) => `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
 
 /** Del Castilla, de campo y más de 14 días sin registro (la regla del aviso de arriba). */
 function estaSinSeguir(player: MergedPlayer) {
@@ -1778,6 +1800,11 @@ function PieFicha({ player }: { player: MergedPlayer }) {
         >
           <ClipboardList size={11} className="shrink-0" />
           {`${player.sessions} seguim.${player.lastSession && diasSinSeguir !== null && !sinSeguir ? ` · ${diasSinSeguir === 0 ? "hoy" : diasSinSeguir === 1 ? "ayer" : `hace ${diasSinSeguir} días`}` : ""}`}
+        </span>
+      )}
+      {player.programado && (
+        <span className="whitespace-nowrap text-[11px] tabular-nums text-white/60" title="Seguimiento con fecha posterior a hoy">
+          programado {diaMes(player.programado)}
         </span>
       )}
 
@@ -2118,8 +2145,19 @@ export default function IndividualPage() {
       players.map((p) => [normalizePlayerName(p.name), p.idJugador]),
     );
 
+    /* 10/11/2026: el ID de la hoja (ya alineado) pasa al de la lista por el
+       NOMBRE que la hoja le da a ese ID, antes que por `idVigente`: la hoja
+       dio el JUG-52 a Hugo, e `idVigente` lo mandaba a Óscar (su ID viejo). */
+    const porIdHoja = new Map<string, string>(
+      plantilla.flatMap((fila) => {
+        const id = porNombreLista.get(normalizePlayerName(fila.nombre));
+
+        return id ? [[fila.id, id] as [string, string]] : [];
+      }),
+    );
+
     return alineaSeguimiento(trackingData, plantilla).map((fila) => {
-      const vigente = idVigente(fila.ID_JUGADOR);
+      const vigente = porIdHoja.get(fila.ID_JUGADOR) ?? idVigente(fila.ID_JUGADOR);
       const porNombre = fila.NOMBRE ? porNombreLista.get(normalizePlayerName(fila.NOMBRE)) : undefined;
       const id = porNombre ?? vigente;
 
@@ -2193,8 +2231,12 @@ export default function IndividualPage() {
           ? null
           : reportData.some((r) => idVigente(r.ID_JUGADOR) === p.idJugador),
         score: averageScore(base),
-        lastSession: dates.length
-          ? new Date(Math.max(...dates.map((d) => d.getTime())))
+        /* 10/11/2026: «último» es lo fechado hasta hoy; lo de después, programado. */
+        lastSession: dates.some((d) => d.getTime() <= HOY_FIN)
+          ? new Date(Math.max(...dates.filter((d) => d.getTime() <= HOY_FIN).map((d) => d.getTime())))
+          : null,
+        programado: dates.some((d) => d.getTime() > HOY_FIN)
+          ? new Date(Math.min(...dates.filter((d) => d.getTime() > HOY_FIN).map((d) => d.getTime())))
           : null,
       };
     });
@@ -3579,7 +3621,8 @@ export default function IndividualPage() {
                     icon={Gauge}
                     label="Media competencias"
                     value={stats.avg.toFixed(1).replace(".", ",")}
-                    hint={`nota del scout, no la de partido (ésa está en Valoraciones) · de ${stats.rated} con ficha${stats.todos ? ` (${stats.ratedCastilla} del Castilla)` : base.de} · sobre 10 · de ${coma(stats.minScore)} a ${coma(stats.maxScore)} · cada ficha media sus 5 competencias; si faltan, se dice`}
+                    /* 10/11/2026: tres datos en el pie; el método, en la ayuda de la pantalla. */
+                    hint={`nota del scout · ${stats.rated} fichas · de ${coma(stats.minScore)} a ${coma(stats.maxScore)}`}
                   >
                     {/* La leyenda del distintivo de las fichas, dentro de su tarjeta (07/11/2026). */}
                     <p className="mt-2 flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-white/55">
@@ -3688,7 +3731,7 @@ export default function IndividualPage() {
               {/* LÍNEAS */}
 
               {/* En el móvil, una sola fila que se desliza (07/11/2026): eran cuatro renglones. */}
-              <div className="-mx-4 mt-4 flex min-w-0 flex-nowrap items-center gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
+              <div className="-mx-4 mt-4 flex min-w-0 flex-nowrap items-center gap-2 overflow-x-auto px-4 pb-1 [mask-image:linear-gradient(to_right,black_85%,transparent)] sm:mx-0 sm:[mask-image:none] sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
                 <button
                   onClick={() => setLineFilter("todas")}
                   className={`flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs transition ${
@@ -3951,7 +3994,7 @@ export default function IndividualPage() {
               {/* PESTAÑAS */}
 
               <div className="shrink-0 border-b border-white/10 px-3 sm:px-5">
-                <div className="flex min-w-0 gap-1 overflow-x-auto">
+                <div className="flex min-w-0 gap-1 overflow-x-auto pr-6 [mask-image:linear-gradient(to_right,black_88%,transparent)] lg:pr-0 lg:[mask-image:none]">
                   {TABS.map((tab) => {
                     const count =
                       tab.key === "seguimiento"

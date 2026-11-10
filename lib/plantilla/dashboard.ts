@@ -318,7 +318,8 @@ export function avisosDe<F extends FichaPlantilla>(lista: JugadorDash<F>[], part
 
     if (deCampo && partidosEquipo >= 3 && j.pct !== null) {
       if (j.pct < 25) avisos.push({ tipo: "pocos", jugador: j, cifra: `${j.minutos}′ de ${posibles} (${j.pct} %)` });
-      if (j.pct >= 90) avisos.push({ tipo: "carga", jugador: j, cifra: `${j.minutos}′ de ${posibles} (${j.pct} %)` });
+      /* 10/11/2026: «999′ de 990 (100 %)» no se sostenía: el añadido se dice. */
+      if (j.pct >= 90) avisos.push({ tipo: "carga", jugador: j, cifra: j.minutos > posibles ? `${j.minutos}′ (con el añadido; ${posibles}′ a 90 por partido)` : `${j.minutos}′ de ${posibles} (${j.pct} %)` });
     }
 
     const ultimas = j.apariciones.slice(-3);

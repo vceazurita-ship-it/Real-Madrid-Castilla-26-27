@@ -21,6 +21,7 @@ import { normalizePlayerName } from "@/lib/playerImages";
 interface FilaSeguimiento {
   ID_JUGADOR: string;
   NOMBRE?: string;
+  FECHA?: string;
 }
 
 interface JugadorMinimo {
@@ -43,10 +44,33 @@ interface JugadorMinimo {
 | algún día la hoja da el JUG-52 a otro, sus registros llevarán su nombre y
 | se atan por él, que va antes.
 */
-const ESCRITOS_CON_ID_VIEJO: Record<string, string> = {
-  "JUG-52": "JUG-49",
-  "JUG-53": "JUG-50",
+/*
+| 10/11/2026: la hoja dio después el JUG-52 a Hugo de Llanos, así que la
+| regla «sólo si el ID viejo no es de nadie» dejó de valer: los siete de
+| Julián a Óscar (30/08-16/10) salían en /calendar y en el Dashboard como de
+| Hugo («25 días sin seguimiento») y /individual, que traducía por su
+| cuenta, se los daba a Óscar. Con `hasta`, lo escrito sin nombre antes del
+| alta de Hugo en la hoja (24/10, la misma fecha que lib/ratings/store.ts)
+| se traduce aunque el ID ya sea de otro. Y el JUG-55 es el ID con el que el puente dio de alta
+| a Hugo: lo que se escribió con él es suyo (comprobado en la hoja ese día).
+*/
+const ESCRITOS_CON_ID_VIEJO: Record<string, { a: string; hasta?: string }> = {
+  "JUG-52": { a: "JUG-49", hasta: "2026-10-23" },
+  "JUG-53": { a: "JUG-50", hasta: "2026-10-23" },
+  "JUG-55": { a: "JUG-52" },
 };
+
+/** «AAAA-MM-DD» de la FECHA de la hoja (ISO o dd/mm/aaaa); "" si no se entiende. */
+function diaDeFila(fecha?: string) {
+  const t = String(fecha ?? "").trim();
+  const iso = t.match(/^(\d{4})-(\d{2})-(\d{2})/);
+
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+
+  const es = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+
+  return es ? `${es[3]}-${es[2].padStart(2, "0")}-${es[1].padStart(2, "0")}` : "";
+}
 
 export function alineaSeguimiento<T extends FilaSeguimiento>(
   filas: T[],
@@ -65,12 +89,13 @@ export function alineaSeguimiento<T extends FilaSeguimiento>(
       ? porNombre.get(normalizePlayerName(fila.NOMBRE))
       : undefined;
 
-    if (!id && !vigentes.has(fila.ID_JUGADOR)) {
-      const traducido = ESCRITOS_CON_ID_VIEJO[fila.ID_JUGADOR];
+    const viejo = id ? undefined : ESCRITOS_CON_ID_VIEJO[fila.ID_JUGADOR];
 
-      if (traducido && vigentes.has(traducido)) {
-        return { ...fila, ID_JUGADOR: traducido };
-      }
+    if (viejo && vigentes.has(viejo.a)) {
+      const dia = diaDeFila(fila.FECHA);
+      const toca = (Boolean(viejo.hasta) && Boolean(dia) && dia <= (viejo.hasta as string)) || !vigentes.has(fila.ID_JUGADOR);
+
+      if (toca) return { ...fila, ID_JUGADOR: viejo.a };
     }
 
     /* Sin nombre, o con un nombre que ya no está en la plantilla, se queda
