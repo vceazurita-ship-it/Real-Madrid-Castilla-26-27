@@ -32,6 +32,7 @@ import { NOMBRE_CASTILLA, fechaCorta, nombreEquipo, partidosDe, type PartidoEqui
 import { UMBRAL_DOMINIO } from "@/lib/opta-estilos";
 import { curvaMomento, momentoDe } from "@/lib/opta-eventos";
 import { contextoGrupo, equipoOptaDe, hastaElPartido, type FilaLab, type MetricaLab } from "@/lib/opta-laboratorio";
+import { SelloFuente } from "@/components/ui/SelloFuente";
 
 /** Las cuatro de la tarjeta, todas por partido. */
 const CLAVE: MetricaLab[] = [
@@ -86,7 +87,11 @@ export function OptaPortada() {
           </span>
           <h2 className="fuente-club text-[20px] font-bold uppercase tracking-[0.08em] text-white/85">Opta de un vistazo</h2>
         </div>
-        <p className="text-[12px] text-white/50">{`Opta${hasta ? ` · hasta el partido del ${hasta}` : ""} · puesto en el grupo (${deCuantos} equipos)`}</p>
+        {/* 10/11/2026: el sello de la fuente (`lib/fuentes.ts`); la cifra de cada celda es por partido y el puesto, en su grupo. */}
+        <p className="flex flex-wrap items-center gap-2 text-[12px] text-white/50">
+          <SelloFuente fuente="opta" poblacion={`grupo (${deCuantos} equipos)`} hasta={hasta ? `hasta el ${hasta}` : undefined} />
+          <span>puesto en el grupo</span>
+        </p>
       </div>
 
       <div className="mt-5 grid min-w-0 gap-px overflow-hidden rounded-3xl border border-white/[0.08] bg-white/[0.06] lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">

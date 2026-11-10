@@ -34,6 +34,12 @@ import { alrededorDe } from "@/lib/castilla/calendario"
 import { diaEnMadrid } from "@/lib/portada/proximo-partido"
 import { mismoEquipo } from "@/lib/data-analisis/nombres"
 import { useEscudos } from "@/hooks/useEscudos"
+import { useOptaLigero } from "@/hooks/useOptaLigero"
+import { CASTILLA_OPTA } from "@/lib/opta"
+import { equipoOptaDe } from "@/lib/opta-laboratorio"
+import { cifrasOptaDe, hastaOpta } from "@/lib/portada/cifras-opta"
+import { discrepancia } from "@/lib/fuentes"
+import { NotaMetodo, SelloFuente } from "@/components/ui/SelloFuente"
 
 type Seguimiento = {
   ID_JUGADOR?: string
@@ -466,6 +472,105 @@ export default function Home() {
 
   const escudoRivalSemana = rivalSemana ? escudoDe(rivalSemana.nombre) : undefined
 
+  /*
+  | EL xG DE LA TARJETA LO MANDA OPTA (10/11/2026, fase 3: reglas de fuente)
+  |
+  | La tarjeta daba el xG de Wyscout («1,15 por partido») y, debajo, «Opta de
+  | un vistazo» otro para lo mismo (1,06). La regla de `lib/fuentes.ts`: xG a
+  | favor, en contra y posesión, Opta; Wyscout queda como segunda lectura
+  | pequeña y, si las dos difieren más del umbral, una nota de método. Sin
+  | Opta (no casa el nombre, o no ha llegado el documento) sale Wyscout con su
+  | sello. Mientras Opta carga, la cifra espera: que no salte de una a otra.
+  | Son los mismos documentos ligeros que pide `OptaPortada`: una sola
+  | petición por clave.
+  */
+  const { opta, cargando: cargandoOpta } = useOptaLigero()
+
+  const hastaDeOpta = useMemo(() => (opta ? hastaOpta(opta, calendario) : ""), [opta, calendario])
+
+  const optaRival = useMemo(
+    () => (opta && rivalSemana ? cifrasOptaDe(opta, equipoOptaDe(rivalSemana.nombre, opta.equipos)) : null),
+    [opta, rivalSemana],
+  )
+
+  const optaNuestro = useMemo(() => (opta ? cifrasOptaDe(opta, CASTILLA_OPTA) : null), [opta])
+
+  /* La cifra del Castilla en la tarjeta (del MD-5 al partido), de la fuente que manda. */
+  const nuestroXg = useMemo(() => {
+    if (optaNuestro?.xg != null && optaNuestro.goles != null && optaNuestro.esperados != null) {
+      const esperados = Math.round(optaNuestro.esperados * 10) / 10
+
+      return {
+        fuente: "opta" as const,
+        xg: optaNuestro.xg,
+        puesto: optaNuestro.puestoXg,
+        deCuantos: optaNuestro.deCuantos,
+        tope: optaNuestro.tope,
+        mediana: optaNuestro.mediana,
+        partidos: optaNuestro.partidos,
+        goles: optaNuestro.goles as number | null,
+        esperados,
+        diferencia: ((optaNuestro.goles - esperados) / optaNuestro.partidos) as number | null,
+        wyscoutXg: resumenData?.xg ?? null,
+      }
+    }
+
+    if (resumenData?.xg == null) return null
+
+    const t = golesFrenteXg(resumenData.xg, resumenData.golesMenosXg ?? 0, resumenData.partidos)
+
+    return {
+      fuente: "wyscout" as const,
+      xg: resumenData.xg,
+      puesto: resumenData.puesto,
+      deCuantos: resumenData.deCuantos,
+      tope: resumenData.tope,
+      mediana: resumenData.mediana ?? null,
+      partidos: resumenData.partidos,
+      goles: resumenData.golesMenosXg == null ? null : t.goles,
+      esperados: t.esperados,
+      diferencia: resumenData.golesMenosXg == null ? null : t.diferencia,
+      wyscoutXg: null,
+    }
+  }, [optaNuestro, resumenData])
+
+  /* Lo del rival, igual: Opta si casa, Wyscout si no. */
+  const rivalXg = useMemo(() => {
+    if (!rivalSemana) return null
+
+    const o = optaRival?.xg != null ? optaRival : null
+
+    return {
+      fuente: o ? ("opta" as const) : ("wyscout" as const),
+      xg: o?.xg ?? rivalSemana.xg,
+      puestoXg: o ? o.puestoXg : rivalSemana.puestoXg,
+      xgContra: o ? o.xgContra : rivalSemana.xgContra,
+      puestoXgContra: o ? o.puestoXgContra : rivalSemana.puestoXgContra,
+      posesion: o ? o.posesion : rivalSemana.posesion,
+      puestoPosesion: o ? o.puestoPosesion : rivalSemana.puestoPosesion,
+      deCuantos: o ? o.deCuantos : rivalSemana.deCuantos,
+      partidos: o ? o.partidos : rivalSemana.partidos,
+      /* La segunda lectura y las notas, sólo cuando la cifra es de Opta. */
+      wyscoutXg: o ? rivalSemana.xg : null,
+      notaXg: o ? discrepancia("xg", o.xg, rivalSemana.xg) : null,
+      notaXgContra: o ? discrepancia("xgContra", o.xgContra, rivalSemana.xgContra) : null,
+    }
+  }, [optaRival, rivalSemana])
+
+  /* Opta aún en camino: la cifra espera (no Wyscout primero y Opta después). Con el mismo tope de 8 s que Wyscout: pasado, sale lo que haya. */
+  const esperaOpta = cargandoOpta && !opta && !cifrasTarde
+
+  /* La tarjeta del Castilla, cargando: Opta en camino o Wyscout sin llegar y sin nada que enseñar. */
+  const cargandoTarjeta = esperaOpta || (cargandoData && !cifrasTarde && !nuestroXg)
+
+  /* El sello de cada cifra: fuente, población y hasta dónde llega. */
+  const selloDe = (fuente: "opta" | "wyscout", deCuantos: number, partidos: number) => ({
+    fuente,
+    poblacion: deCuantos ? `grupo (${deCuantos} equipos)` : undefined,
+    hasta: fuente === "opta" ? hastaDeOpta || undefined : undefined,
+    partidos,
+  })
+
   return (
     <main className="min-h-screen bg-[#02060D] text-white">
       <div className="flex">
@@ -597,7 +702,8 @@ export default function Home() {
                   {rivalSemana && (
                   <div className="absolute left-4 top-4 max-w-[calc(100%-32px)]">
                     <p className="inline-block truncate rounded-full px-3.5 py-1.5 text-[12px] font-semibold leading-relaxed" style={{ color: "#F7D98B", backgroundColor: "rgba(216,180,90,.14)", boxShadow: "inset 0 0 0 1px rgba(216,180,90,.35)", maxWidth: "100%" }}>
-                      {`${rivalSemana.nombre} · ${rivalSemana.partidos} ${rivalSemana.partidos === 1 ? "partido" : "partidos"} · Wyscout`}
+                      {/* 10/11/2026: sin «· Wyscout»; la fuente va en el sello de cada cifra. */}
+                      {rivalSemana.nombre}
                     </p>
                   </div>
                   )}
@@ -610,7 +716,7 @@ export default function Home() {
                     (`style`): el panel es siempre oscuro y en modo día el
                     blanco por clase se volvía tinta oscura sobre negro.
                   */}
-                  {rivalSemana ? (
+                  {rivalSemana && rivalXg ? (
                     <div
                       className="relative px-5 pb-5 pt-16 sm:px-6 sm:pb-6"
                     >
@@ -622,47 +728,68 @@ export default function Home() {
                         </span>
                       </p>
 
-                      <p className="mt-2 flex flex-wrap items-baseline gap-x-2 leading-none" style={{ color: "#fff" }}>
-                        <span className="text-3xl font-bold tabular-nums">{coma(rivalSemana.xg, 2)}</span>
-                        <span className="text-[13px]" style={{ color: "rgba(255,255,255,.9)" }}>
-                          goles esperados por partido · {rivalSemana.partidos} {rivalSemana.partidos === 1 ? "partido" : "partidos"} · Wyscout
-                        </span>
-                      </p>
+                      {esperaOpta ? (
+                        <span className="mt-2 block h-8 w-40 animate-pulse rounded bg-white/10" aria-label="Cargando las cifras del rival" />
+                      ) : (
+                        <>
+                          <p className="mt-2 flex flex-wrap items-baseline gap-x-2 leading-none" style={{ color: "#fff" }}>
+                            <span className="text-3xl font-bold tabular-nums">{coma(rivalXg.xg, 2)}</span>
+                            <span className="text-[13px]" style={{ color: "rgba(255,255,255,.9)" }}>
+                              goles esperados por partido
+                            </span>
+                          </p>
 
-                      <ul className="mt-3 space-y-1 text-[13px] leading-snug" style={{ color: "rgba(255,255,255,.9)" }}>
-                        {rivalSemana.puestoXg != null && (
-                          <li>{rivalSemana.puestoXg}º de {rivalSemana.deCuantos} equipos generando ocasiones</li>
-                        )}
-                        {rivalSemana.xgContra != null && (
-                          <li>
-                            Concede {coma(rivalSemana.xgContra, 2)} esperados por partido
-                            {rivalSemana.puestoXgContra != null && ` · ${rivalSemana.puestoXgContra}º de ${rivalSemana.deCuantos} (menos es mejor)`}
-                          </li>
-                        )}
-                        {rivalSemana.posesion != null && (
-                          <li>
-                            {coma(rivalSemana.posesion, 0)} % de posesión media en {rivalSemana.partidos} {rivalSemana.partidos === 1 ? "partido" : "partidos"}
-                            {rivalSemana.puestoPosesion != null && ` · ${rivalSemana.puestoPosesion}º de ${rivalSemana.deCuantos}`}
-                          </li>
-                        )}
-                      </ul>
+                          {/* 10/11/2026: sello de la cifra y, si manda Opta, Wyscout de segunda lectura. */}
+                          <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <SelloFuente oscuro {...selloDe(rivalXg.fuente, rivalXg.deCuantos, rivalXg.partidos)} />
+                            {rivalXg.wyscoutXg != null && (
+                              <span className="text-[11px]" style={{ color: "rgba(255,255,255,.62)" }}>
+                                Wyscout: {coma(rivalXg.wyscoutXg, 2)} en {rivalSemana.partidos} {rivalSemana.partidos === 1 ? "partido" : "partidos"}
+                              </span>
+                            )}
+                          </p>
 
-                      {resumenData?.xg != null && (
+                          <ul className="mt-3 space-y-1 text-[13px] leading-snug" style={{ color: "rgba(255,255,255,.9)" }}>
+                            {rivalXg.puestoXg != null && (
+                              <li>{rivalXg.puestoXg}º de {rivalXg.deCuantos} equipos generando ocasiones</li>
+                            )}
+                            {rivalXg.xgContra != null && (
+                              <li>
+                                Concede {coma(rivalXg.xgContra, 2)} esperados por partido
+                                {rivalXg.puestoXgContra != null && ` · ${rivalXg.puestoXgContra}º de ${rivalXg.deCuantos} (menos es mejor)`}
+                              </li>
+                            )}
+                            {rivalXg.posesion != null && (
+                              <li>
+                                {coma(rivalXg.posesion, 0)} % de posesión media
+                                {rivalXg.puestoPosesion != null && ` · ${rivalXg.puestoPosesion}º de ${rivalXg.deCuantos}`}
+                              </li>
+                            )}
+                          </ul>
+
+                          {/* Sólo si pasan el umbral de `lib/fuentes.ts`; por debajo, nada. */}
+                          <NotaMetodo oscuro className="mt-2" nota={rivalXg.notaXg} />
+                          <NotaMetodo oscuro className="mt-1" nota={rivalXg.notaXgContra ? `En contra, ${rivalXg.notaXgContra}` : null} />
+                        </>
+                      )}
+
+                      {!esperaOpta && nuestroXg && (
                         <p className="mt-3 border-t border-white/10 pt-2 text-[12px] leading-snug" style={{ color: "rgba(255,255,255,.75)" }}>
-                          Nosotros: {coma(resumenData.xg, 2)} goles esperados por partido
+                          Nosotros: {coma(nuestroXg.xg, 2)} goles esperados por partido
                           {/* En palabras (05/11/2026): «−0,72 frente a lo esperado» no se entendía. */}
-                          {resumenData.golesMenosXg != null &&
+                          {nuestroXg.diferencia != null &&
                             (() => {
-                              const d = golesFrenteXg(resumenData.xg, resumenData.golesMenosXg, resumenData.partidos).diferencia;
+                              const d = nuestroXg.diferencia;
 
                               if (Math.abs(d) < 0.005) return "; marcamos lo que generamos";
 
                               return `; marcamos ${coma(Math.abs(d), 2)} ${d >= 0 ? "más" : "menos"} por partido de lo que generamos`;
                             })()}
+                          {nuestroXg.fuente !== rivalXg.fuente && ` · ${nuestroXg.fuente === "opta" ? "Opta" : "Wyscout"}`}
                         </p>
                       )}
                     </div>
-                  ) : cargandoData && !cifrasTarde && resumenData?.xg == null ? (
+                  ) : cargandoTarjeta ? (
                     /* Mientras llegan las cifras: una línea que lo dice, no dos títulos sobre un fondo vacío (30/10/2026). */
                     <div
                       className="relative px-5 pb-5 pt-16 sm:px-6 sm:pb-6"
@@ -670,11 +797,12 @@ export default function Home() {
                     >
                       <p className="flex items-center gap-2 text-[13px]" style={{ color: "rgba(255,255,255,.85)" }}>
                         <span className="h-2 w-2 animate-pulse rounded-full" style={{ backgroundColor: "#F7D98B" }} />
-                        Cargando las cifras de Wyscout…
+                        Cargando las cifras…
                       </p>
                       <span className="mt-3 block h-7 w-24 animate-pulse rounded bg-white/10" />
                     </div>
-                  ) : resumenData?.xg != null && (
+                  ) : nuestroXg && (
+                  /* 10/11/2026: el xG del Castilla lo manda Opta (`lib/fuentes.ts`); sin Opta, Wyscout. Cada cifra con su sello. */
                   <div
                     className="relative flex flex-col gap-3 px-5 pb-5 pt-16 sm:grid sm:grid-cols-2 sm:items-end sm:gap-5 sm:px-6 sm:pb-6 xl:flex xl:flex-col xl:items-stretch xl:gap-3"
                   >
@@ -692,7 +820,7 @@ export default function Home() {
                       </p>
 
                       <p className="mt-2 flex flex-wrap items-baseline gap-x-2 leading-none" style={{ color: "#fff" }}>
-                        <span className="text-3xl font-bold">{coma(resumenData.xg, 2)}</span>
+                        <span className="text-3xl font-bold">{coma(nuestroXg.xg, 2)}</span>
                         {/* En el móvil el rótulo es corto: la unidad va junto a la cifra (07/11/2026). */}
                         <span className="text-[13px] sm:hidden" style={{ color: "rgba(255,255,255,.9)" }}>por partido · calidad de las ocasiones</span>
                       </p>
@@ -702,35 +830,36 @@ export default function Home() {
                           className="h-full rounded-full bg-gradient-to-r from-[#D8B45A] to-[#F7D98B] transition-[width] duration-1000 ease-out"
                           style={{
                             width: `${
-                              resumenData?.xg && resumenData.tope
-                                ? Math.min((resumenData.xg / resumenData.tope) * 100, 100)
+                              nuestroXg.xg && nuestroXg.tope
+                                ? Math.min((nuestroXg.xg / nuestroXg.tope) * 100, 100)
                                 : 0
                             }%`,
                           }}
                         />
                       </div>
 
-                      {/* Con su base, su fuente y su sentido (30/10/2026). */}
+                      {/* Con su base y su sentido (30/10/2026); la fuente, en el sello (10/11/2026). */}
                       <p className="mt-2 break-words text-[12px] leading-snug" style={{ color: "rgba(255,255,255,.9)" }}>
                         {[
-                          resumenData.puesto ? `${resumenData.puesto}º de ${resumenData.deCuantos} del grupo` : "",
+                          nuestroXg.puesto ? `${nuestroXg.puesto}º de ${nuestroXg.deCuantos} del grupo` : "",
+                          nuestroXg.mediana != null ? `mediana ${coma(nuestroXg.mediana, 2)}` : "",
                           "más es mejor",
                         ]
                           .filter(Boolean)
                           .join(" · ")}
                       </p>
-                      <p className="mt-0.5 break-words text-[12px] leading-snug" style={{ color: "rgba(255,255,255,.7)" }}>
-                        {[
-                          `${resumenData.partidos} ${resumenData.partidos === 1 ? "partido" : "partidos"}`,
-                          resumenData.mediana != null ? `frente a la mediana de los ${resumenData.equipos} equipos (${coma(resumenData.mediana, 2)})` : "",
-                          "Wyscout",
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")}
+                      <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <SelloFuente oscuro {...selloDe(nuestroXg.fuente, nuestroXg.deCuantos, nuestroXg.partidos)} />
+                        {nuestroXg.wyscoutXg != null && resumenData && (
+                          <span className="text-[11px]" style={{ color: "rgba(255,255,255,.62)" }}>
+                            Wyscout: {coma(nuestroXg.wyscoutXg, 2)} en {resumenData.partidos} {resumenData.partidos === 1 ? "partido" : "partidos"}
+                          </span>
+                        )}
                       </p>
+                      <NotaMetodo oscuro className="mt-1.5" nota={nuestroXg.fuente === "opta" ? discrepancia("xg", nuestroXg.xg, nuestroXg.wyscoutXg) : null} />
                     </div>
 
-                    {resumenData.golesMenosXg != null && (
+                    {nuestroXg.diferencia != null && nuestroXg.goles != null && (
                       <div className="min-w-0">
                         <p className="text-[12px] uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,.9)" }}>
                           Goles frente a lo esperado
@@ -739,54 +868,31 @@ export default function Home() {
                         {/* El naranja es «por debajo de lo esperado» y lo dice la frase de debajo. */}
                         <p
                           className="mt-2 flex flex-wrap items-baseline gap-x-1.5 leading-none"
-                          style={{
-                            color:
-                              resumenData?.golesMenosXg == null
-                                ? "rgb(255 255 255 / .4)"
-                                : resumenData.golesMenosXg >= 0
-                                  ? "#34D399"
-                                  : "#FB923C",
-                          }}
+                          style={{ color: nuestroXg.diferencia >= 0 ? "#34D399" : "#FB923C" }}
                         >
-                          {cargandoData || resumenData?.golesMenosXg == null ? (
-                            <span className="inline-block h-7 w-16 animate-pulse rounded bg-white/10 align-middle" />
-                          ) : (
-                            <>
-                              {/* 29/10/2026 (análisis): la cifra sale de los mismos totales
-                                  redondeados que se leen debajo (11 y 18,8 en 9 → −0,87). */}
-                              <span className="text-3xl font-bold">
-                                {(() => {
-                                  const d = golesFrenteXg(resumenData.xg, resumenData.golesMenosXg, resumenData.partidos).diferencia;
-
-                                  return `${d >= 0 ? "+" : "−"}${coma(Math.abs(d), 2)}`;
-                                })()}
-                              </span>
-                              <span className="text-[13px] font-medium">por partido</span>
-                            </>
-                          )}
+                          {/* 29/10/2026 (análisis): la cifra sale de los mismos totales
+                              redondeados que se leen debajo (11 y 18,8 en 9 → −0,87). */}
+                          <span className="text-3xl font-bold">
+                            {`${nuestroXg.diferencia >= 0 ? "+" : "−"}${coma(Math.abs(nuestroXg.diferencia), 2)}`}
+                          </span>
+                          <span className="text-[13px] font-medium">por partido</span>
                         </p>
 
                         {/* Sin «tendencia en 9 partidos» (30/10/2026): repetía la base y no decía nada. */}
-                        {resumenData?.golesMenosXg != null && (
-                          <p className="mt-1.5 break-words text-[12px] leading-snug" style={{ color: "rgba(255,255,255,.9)" }}>
-                            {resumenData.xg != null && (() => {
-                              const t = golesFrenteXg(resumenData.xg, resumenData.golesMenosXg, resumenData.partidos);
-
-                              return `${t.goles} goles frente a ${coma(t.esperados, 1)} esperados en ${resumenData.partidos} partidos · `;
-                            })()}
-                            {resumenData.golesMenosXg >= 0
-                              ? "marcamos más de lo esperado"
-                              : "marcamos menos de lo esperado"}
-                            {" · más es mejor"}
-                          </p>
-                        )}
+                        <p className="mt-1.5 break-words text-[12px] leading-snug" style={{ color: "rgba(255,255,255,.9)" }}>
+                          {`${nuestroXg.goles} goles frente a ${coma(nuestroXg.esperados, 1)} esperados en ${nuestroXg.partidos} partidos · `}
+                          {nuestroXg.diferencia >= 0
+                            ? "marcamos más de lo esperado"
+                            : "marcamos menos de lo esperado"}
+                          {" · más es mejor"}
+                        </p>
                       </div>
                     )}
                   </div>
                   )}
 
                   {/* Sin cifras (09/11/2026): no la foto sola, sino adónde lleva. */}
-                  {!rivalSemana && !(cargandoData && !cifrasTarde) && resumenData?.xg == null && (
+                  {!rivalSemana && !cargandoTarjeta && !nuestroXg && (
                     <span
                       className="relative m-4 inline-flex items-center gap-1.5 self-start rounded-full border border-white/15 px-3.5 py-1.5 text-[13px] font-semibold backdrop-blur-xl"
                       style={{ color: "#F7D98B", backgroundColor: "rgba(2,6,13,.85)" }}

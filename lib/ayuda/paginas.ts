@@ -19,6 +19,8 @@
  *   - **Cómo se calcula**, cuando hay cuenta de por medio.
  */
 
+import { MAGNITUDES, NOMBRE_FUENTE, type Fuente } from "@/lib/fuentes";
+
 export type FilaAyuda = {
   /** El nombre tal y como aparece en pantalla. */
   que: string;
@@ -57,6 +59,41 @@ const XG: FilaAyuda = {
   que: "xG",
   es: "Lo que valían las ocasiones, entraran o no",
   cuenta: "Suma de la probabilidad de gol de cada remate",
+};
+
+/*
+| DE DÓNDE SALE CADA DATO (10/11/2026, fase 3 de Wyscout + Opta). Se escribe
+| desde el diccionario de `lib/fuentes.ts`: si una magnitud cambia de fuente
+| principal allí, la ayuda cambia sola.
+*/
+const nombresDe = (fuente: Fuente, ambito: "equipo" | "jugador") =>
+  MAGNITUDES.filter((m) => m.principal === fuente && m.ambito === ambito)
+    .map((m) => m.nombre.charAt(0).toLowerCase() + m.nombre.slice(1))
+    .join(", ");
+
+const DE_DONDE_SALE: BloqueAyuda = {
+  titulo: "De dónde sale cada dato",
+  filas: [
+    { que: `Manda ${NOMBRE_FUENTE.opta}`, es: nombresDe("opta", "equipo"), cuenta: "Los 40 equipos de la categoría, evento a evento" },
+    {
+      que: `Manda ${NOMBRE_FUENTE.wyscout}`,
+      es: `${nombresDe("wyscout", "equipo")}; el perfil del jugador, el once y el sistema`,
+      cuenta: "78 métricas de jugador con percentil contra su puesto",
+    },
+    { que: "Segunda lectura", es: "La cifra de la otra fuente, en pequeño al lado. Nunca se promedian ni se mezclan en un percentil" },
+    { que: "El sello", es: "Debajo de cada cifra: fuente, con quién se compara y hasta dónde llega", cuenta: "«Opta · grupo (20 equipos) · J11 · 11 partidos»" },
+    {
+      que: "Nota de método",
+      es: "Sólo si las dos fuentes se separan más del umbral; por debajo es ruido de modelo y no se comenta",
+      cuenta: "xG: más de un 15 % o de 0,3 por partido; posesión y porcentajes: más de 5 puntos",
+    },
+    {
+      que: "Se llaman igual, no son lo mismo",
+      es: MAGNITUDES.filter((m) => !m.mismaCosa && m.ambito === "equipo")
+        .map((m) => `${m.nombre.toLowerCase()} (${m.porQueDifiere})`)
+        .join("; "),
+    },
+  ],
 };
 
 export const AYUDAS: AyudaDePagina[] = [
@@ -101,6 +138,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Nota de juego", es: "La media de los percentiles de la radiografía de un equipo, contra su grupo o la categoría; posesión, pases y secuencias largas son estilo y no cuentan" },
         ],
       },
+      DE_DONDE_SALE,
     ],
     ojo: [
       "Con pocos partidos jugados, un puesto en la tabla se mueve mucho por un solo resultado.",
@@ -263,6 +301,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "El log de eventos", es: "Sólo acciones sin balón: no hay ni un pase ni un remate" },
         ],
       },
+      DE_DONDE_SALE,
     ],
     ojo: [
       "Con 2 o 3 jornadas todo son indicios, no tendencias.",
@@ -1173,7 +1212,7 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           {
             que: "xG por partido",
-            es: "Goles esperados: lo que valían las ocasiones que generamos, por partido, y nuestro puesto en la categoría",
+            es: "Goles esperados: lo que valían las ocasiones que generamos, por partido, y nuestro puesto en el grupo. Manda Opta; la cifra de Wyscout va al lado, en pequeño",
           },
           {
             que: "Goles − xG",
@@ -1227,6 +1266,7 @@ export const AYUDAS: AyudaDePagina[] = [
           },
         ],
       },
+      DE_DONDE_SALE,
     ],
     ojo: [
       "Con dos o tres jornadas, una alerta es un indicio: dice dónde mirar, no qué hacer.",
