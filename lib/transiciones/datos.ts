@@ -5,7 +5,7 @@
  * scripts/transiciones-datos.mjs a partir de los CSV de
  * Downloads/RMCF CASTILLA/ANALISIS TRANSICIONES.
  *
- * Generado: 2026-11-09
+ * Generado: 2026-11-10
  */
 
 /** «PERDIDA» es de los robos (lo perdemos al momento); «RECUPERAMOS», de las pérdidas (lo recuperamos al momento). */
@@ -13676,7 +13676,8 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "confianza": "alta",
         "jugador": "Martínez",
         "hudl": 1390.3,
-        "bloque": "b01200"
+        "bloque": "b01200",
+        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-1390.mp4"
       },
       {
         "seg": 1537,
