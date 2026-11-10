@@ -46,7 +46,7 @@ export const METRICAS_LAB: Record<ModoLab, MetricaLab[]> = {
     { a: "PosWonM3rd", nombre: "Recuperaciones en el tercio medio", comoLeer: "Las recuperaciones del tercio del medio." },
     { a: "PosWonD3rd", nombre: "Recuperaciones en el propio tercio", comoLeer: "Las recuperaciones de nuestro tercio. Es estilo: quien defiende más abajo recupera más aquí." },
     { a: "Int", nombre: "Intercepciones", comoLeer: "Pases del rival cortados." },
-    { a: "PPDA", nombre: "PPDA", comoLeer: "Pases que se le dejan dar al rival por cada acción defensiva nuestra: cuanto más bajo, más se presiona." },
+    { a: "PPDA", nombre: "PPDA: pases que deja dar el rival antes de que presionemos", comoLeer: "Pases que se le dejan dar al rival por cada acción defensiva nuestra: cuanto más bajo, más se presiona." },
   ],
   perdidas: [
     {

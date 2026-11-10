@@ -75,6 +75,7 @@ import { nombreEquipo } from "@/lib/equipos";
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { Topbar } from "@/components/ui/topbar";
 import { IndiceBloques } from "@/components/data/IndiceBloques";
+import { recargaOpta } from "@/app/opta/_piezas/useOpta";
 import { BuscadorAreas, PanelResumen, SelectorArea, type ConclusionResumen } from "@/components/data/NavegacionData";
 import { mismoClub } from "@/lib/rivals/mismoClub";
 import { AbpHeader, Button, Notice, Panel } from "@/components/abp/ui";
@@ -1500,7 +1501,8 @@ export default function DataAnalisisPage() {
                   <div className="min-w-0 flex-1">
                     <Pestanas<Bloque>
                       etiqueta="Bloques de Análisis de datos"
-                      opciones={BLOQUES.map((g) => ({ clave: g.clave, label: g.label, icono: g.icono, cuenta: g.areas.length > 1 ? g.areas.length : undefined }))}
+                      /* 10/11/2026: sin el número de áreas al lado («Nuestro equipo 5»): no se entendía qué contaba. */
+                      opciones={BLOQUES.map((g) => ({ clave: g.clave, label: g.label, icono: g.icono }))}
                       valor={bloqueDe(area).clave}
                       onCambia={(g) => setArea(entradaDe((BLOQUES.find((x) => x.clave === g) ?? BLOQUES[0]).areas[0]))}
                     />
@@ -1550,11 +1552,21 @@ export default function DataAnalisisPage() {
                 */}
                 <div className="mt-5 flex min-w-0 flex-wrap items-end justify-between gap-x-6 gap-y-2">
                   <div className="min-w-0">
-                    <h2 className="text-xl font-semibold tracking-tight text-white sm:text-2xl">
-                      {AREAS.find((a) => a.key === cabezaDe(area))?.label}
-                    </h2>
+                    {/* 10/11/2026: con la barra de áreas a la vista, el nombre ya
+                        está en su botón encendido; el título es la pregunta y el
+                        nombre queda para el lector de pantalla. */}
+                    {bloqueDe(area).areas.length > 1 ? (
+                      <h2 className="text-lg font-semibold tracking-tight text-white sm:text-xl">
+                        <span className="sr-only">{AREAS.find((a) => a.key === cabezaDe(area))?.label}: </span>
+                        {AREAS.find((a) => a.key === area)?.pregunta}
+                      </h2>
+                    ) : (
+                      <h2 className="text-xl font-semibold tracking-tight text-white sm:text-2xl">
+                        {AREAS.find((a) => a.key === cabezaDe(area))?.label}
+                      </h2>
+                    )}
                     <p className="mt-0.5 text-[13px] text-white/65">
-                      {AREAS.find((a) => a.key === area)?.pregunta}
+                      {bloqueDe(area).areas.length > 1 ? null : AREAS.find((a) => a.key === area)?.pregunta}
                       {(cabezaDe(area) === "equipo" || area === "parecidos" || cabezaDe(area) === "liga") && (
                         <>
                           {" "}
@@ -1633,8 +1645,11 @@ export default function DataAnalisisPage() {
                   onClick={() => {
                     setCargando(true);
                     setIntento((n) => n + 1);
+                    /* 10/11/2026: también lo de Opta, no sólo la carpeta de Wyscout. */
+                    recargaOpta();
                   }}
                   disabled={cargando}
+                  title="Vuelve a leer Wyscout y Opta"
                 >
                   Actualizar datos
                 </Button>

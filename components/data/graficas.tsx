@@ -213,16 +213,18 @@ export function BarraPercentil({
           onClick={() => setAbierta(!abierta)}
           aria-expanded={abierta}
           title="Pulsa para ver qué mide y cómo se lee"
-          className="min-w-0 flex-1 truncate text-left text-[13px] text-white/80 underline decoration-dotted underline-offset-4 transition hover:text-white"
+          /* 10/11/2026: sin cortar, para que el sentido («menos es mejor»,
+             «estilo») se lea siempre, también en el móvil. */
+          className="line-clamp-2 min-w-0 flex-1 text-left text-[13px] leading-snug text-white/80 underline decoration-dotted underline-offset-4 transition hover:text-white"
         >
-          {fila.nombre}
+          {fila.nombre}{" "}
           {fila.mejorAlto === false && (
-            <span className="ml-1.5 text-[10px] font-normal text-white/40 inline-block" title="En esta métrica, menos es mejor">
+            <span className="ml-1 inline-block text-[10px] font-normal text-white/55" title="En esta métrica, menos es mejor">
               (menos es mejor)
             </span>
           )}
           {esEstilo && (
-            <span className="ml-1.5 text-[10px] font-normal text-white/40 inline-block" title="Estilo de juego: no hay mejor ni peor">
+            <span className="ml-1 inline-block text-[10px] font-normal text-white/55" title="Estilo de juego: no hay mejor ni peor">
               (estilo)
             </span>
           )}
@@ -312,7 +314,7 @@ export function BarraPercentil({
             {formatea(otra.valor, otra.unidad)}
           </span>
           <span className="w-16 shrink-0 text-right" style={{ color: COMPARADO }}>
-            {otra.puesto ? `${otra.puesto}º/${otra.deCuantos}` : "—"}
+            {otra.puesto ? `${otra.puesto}º/${otra.deCuantos}` : ""}
           </span>
           <span
             className="w-9 shrink-0 text-right text-[10px]"

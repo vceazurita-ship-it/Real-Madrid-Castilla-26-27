@@ -13,6 +13,8 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
+
+import { ponEquipoElegido, useEquipoElegido } from "@/lib/data-analisis/eleccion-compartida";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
 import { colorPercentil, MEJOR, ORO, PEOR, useEscudos } from "@/components/data/graficas";
@@ -245,7 +247,10 @@ export function PanelEquipo({
 
   const todos = useMemo(() => [...new Set(porCompeticion.flatMap((c) => c.equipos))], [porCompeticion]);
   const delProximo = proximo ? todos.find((e) => mismoClub(e, proximo)) ?? "" : "";
-  const equipo = fijo && todos.includes(fijo) ? fijo : (elegido && todos.includes(elegido) ? elegido : "") || delProximo || (todos.includes(NOSOTROS) ? NOSOTROS : todos[0] ?? "");
+  /* 10/11/2026: el equipo elegido en «Jornada a jornada» o «Sus remates» (Opta) abre aquí. */
+  const compartido = useEquipoElegido();
+  const delCompartido = compartido && !fijo ? todos.find((e) => e === compartido || mismoClub(e, compartido)) ?? "" : "";
+  const equipo = fijo && todos.includes(fijo) ? fijo : (elegido && todos.includes(elegido) ? elegido : "") || delCompartido || delProximo || (todos.includes(NOSOTROS) ? NOSOTROS : todos[0] ?? "");
   const esSegunda = (x: MetricaEquipo) => !!segundaLectura?.has(x.metrica.key);
   const rotuloSegunda = <span className="ml-1 rounded border border-white/15 px-1 text-[9px] uppercase tracking-wider text-white/40">2.ª lectura</span>;
 
@@ -309,7 +314,10 @@ export function PanelEquipo({
             ) : (
             <select
               value={equipo}
-              onChange={(e) => setElegido(e.target.value)}
+              onChange={(e) => {
+                setElegido(e.target.value);
+                ponEquipoElegido(e.target.value);
+              }}
               className="w-full max-w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-base font-semibold text-white sm:w-auto sm:text-lg"
               aria-label="Equipo"
             >
@@ -332,12 +340,18 @@ export function PanelEquipo({
             </p>
             <div className={`mt-2 flex-wrap gap-1.5 ${fijo ? "hidden" : "flex"}`}>
               {delProximo && equipo !== delProximo && (
-                <button type="button" onClick={() => setElegido(delProximo)} className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-white/60 hover:text-white">
+                <button type="button" onClick={() => {
+                  setElegido(delProximo);
+                  ponEquipoElegido(delProximo);
+                }} className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-white/60 hover:text-white">
                   Próximo rival: {delProximo}
                 </button>
               )}
               {equipo !== NOSOTROS && todos.includes(NOSOTROS) && (
-                <button type="button" onClick={() => setElegido(NOSOTROS)} className="rounded-full border border-[#C8A96B]/40 px-2.5 py-1 text-[11px] text-[#C8A96B]">
+                <button type="button" onClick={() => {
+                  setElegido(NOSOTROS);
+                  ponEquipoElegido(NOSOTROS);
+                }} className="rounded-full border border-[#C8A96B]/40 px-2.5 py-1 text-[11px] text-[#C8A96B]">
                   Ver el Castilla
                 </button>
               )}

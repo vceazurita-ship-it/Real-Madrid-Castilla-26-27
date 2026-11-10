@@ -83,7 +83,7 @@ import { CampoZonas, type PuntoCampo } from "@/components/campo/CampoZonas";
 import { PorJugador, SinJugador, type ColumnaJugador } from "@/components/analisis/PorJugador";
 import { CARRILES_CAMPO, ZONAS_CAMPO } from "@/components/faltas/CampoFaltas";
 import { anterioresPorFecha, ultimoPorFecha } from "@/lib/abp/ultimo-partido";
-import { OptaLaboratorio } from "@/components/opta-partido/OptaLaboratorio";
+import { ContrasteOpta, OptaLaboratorio } from "@/components/opta-partido/OptaLaboratorio";
 import { partidoEnlazado, usePartidoDeLaUrl } from "@/lib/partido-enlazado";
 import {
   BarraFiltros,
@@ -674,6 +674,8 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
 
   /* 30/10/2026: para el sello «Datos hasta la J·» y para decir dónde empieza. */
   const fechasConDato = useMemo(() => partidos.filter((p) => p.robos.length > 0).map((p) => p.fecha), [partidos]);
+  const partidosLiga = useMemo(() => partidos.filter((p) => !esPretemporada(p.jornada)).length, [partidos]);
+
   const primeraConDato = useMemo(
     () => [...partidos].filter((p) => !esPretemporada(p.jornada)).sort((a, b) => a.fecha.localeCompare(b.fecha))[0]?.jornada ?? "",
     [partidos],
@@ -754,6 +756,9 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
       })),
     ),
   ];
+
+  const chipsVisibles =
+    chips.length === 1 && chips[0].clave === "partido" && robos.length === base.length ? [] : chips;
 
   const quitaTodo = () => {
     limpia();
@@ -1043,6 +1048,8 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
 
     return {
       partido: `${comparado.jornada} · ${nombreEquipo(comparado.rival)}`,
+      /* 10/11/2026: las bases de cada porcentaje, dichas una vez. */
+      bases: { total: actuales.length, juegan: jugadas(actuales).length, conDesenlace: seguidas(actuales).length },
       anteriores: { n: anteriores.length },
       metricas: baseMedia
         ? metricas.map((m) => ({ ...m, pie: m.pie ? `${m.pie} · ${baseMedia}` : baseMedia }))
@@ -1104,10 +1111,13 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
 
     const conFiltro = Object.keys(filtros).length > 0 ? " con este filtro" : "";
 
+    /* 10/11/2026: con verbo («Robamos 37 balones»), no la cifra suelta. */
+    const verbo = modo === "robos" ? "Robamos" : "Perdimos";
+    const balones = total === 1 ? "balón" : "balones";
     frases.push(
       partidosVistos > 1
-        ? `${total} ${T.unidad} en ${partidosVistos} partidos${conFiltro}.`
-        : `${total} ${total === 1 ? T.unidadUna : T.unidad} en el partido${conFiltro}.`,
+        ? `${verbo} ${total} ${balones} en ${partidosVistos} partidos${conFiltro}.`
+        : `${verbo} ${total} ${balones} en el partido${conFiltro}.`,
     );
 
     const salen = robos.filter(
@@ -1170,24 +1180,28 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
   const queToca = useMemo(() => {
     if (!comparativa) return null;
 
-    const TAREA: Record<string, { tarea: string; filtro: [string, string][] }> =
+    /* 10/11/2026: cada tarea dice también qué se cuenta en ella, la misma
+       acción que mide la cifra (regla 14 de los expertos). */
+    const TAREA: Record<string, { tarea: string; cuenta: string; filtro: [string, string][] }> =
       modo === "robos"
         ? {
-            total: { tarea: "recuperación del balón", filtro: [] },
-            adelante: { tarea: "primera salida tras el robo", filtro: [["accion", "HORIZONTAL_ATRAS"]] },
-            llegan: { tarea: "acabar las transiciones en remate o área", filtro: [["accion", "ADELANTE"]] },
-            cortas: { tarea: "cuidar el balón recién robado", filtro: [["desenlace", "PERDIDA"]] },
-            campo: { tarea: "presión alta tras pérdida en campo rival", filtro: [["zona", "campo rival"]] },
+            total: { tarea: "recuperación del balón", cuenta: "los robos de cada serie", filtro: [] },
+            adelante: { tarea: "primera salida tras el robo", cuenta: "de cada robo, si el primer pase o la primera conducción va hacia delante", filtro: [["accion", "HORIZONTAL_ATRAS"]] },
+            llegan: { tarea: "acabar las transiciones en remate o área", cuenta: "los robos que acaban en remate o en el área en los 15 segundos siguientes", filtro: [["accion", "ADELANTE"]] },
+            cortas: { tarea: "cuidar el balón recién robado", cuenta: "los balones robados que volvemos a perder en la misma transición", filtro: [["desenlace", "PERDIDA"]] },
+            campo: { tarea: "presión alta tras pérdida en campo rival", cuenta: "los robos en campo rival", filtro: [["zona", "campo rival"]] },
           }
         : {
-            total: { tarea: "seguridad con balón", filtro: [] },
-            adelante: { tarea: "contrapresión tras la pérdida", filtro: [["accion", "ADELANTE"]] },
-            llegan: { tarea: "protección del área tras pérdida", filtro: [["desenlace", "REMATE"], ["desenlace", "AREA"]] },
-            cortas: { tarea: "recuperación inmediata", filtro: [["accion", "RECUPERAMOS"]] },
-            campo: { tarea: "salida de balón desde campo propio", filtro: [["zona", "campo propio"]] },
+            total: { tarea: "seguridad con balón", cuenta: "las pérdidas de cada serie", filtro: [] },
+            adelante: { tarea: "contrapresión tras la pérdida", cuenta: "de cada pérdida, si el rival consigue salir hacia delante", filtro: [["accion", "ADELANTE"]] },
+            llegan: { tarea: "protección del área tras pérdida", cuenta: "las pérdidas que acaban en remate o en nuestra área en los 15 segundos siguientes", filtro: [["desenlace", "REMATE"], ["desenlace", "AREA"]] },
+            cortas: { tarea: "recuperación inmediata", cuenta: "los balones perdidos que recuperamos en la misma transición", filtro: [["accion", "RECUPERAMOS"]] },
+            campo: { tarea: "salida de balón desde campo propio", cuenta: "las pérdidas en nuestro campo", filtro: [["zona", "campo propio"]] },
           };
 
     let peor: { m: MetricaComparada; peso: number } | null = null;
+    /* Si nada cae por debajo de la media, la que menos ventaja tiene: se cierra igual con una tarea. */
+    let justa: { m: MetricaComparada; holgura: number } | null = null;
 
     for (const m of comparativa.metricas) {
       if (m.mejorAlto !== true && m.mejorAlto !== false) continue;
@@ -1201,6 +1215,9 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
          desvía de verdad. */
       const margen = m.formato === formatoPorcentaje ? 5 : Math.max(0.5, Math.abs(m.media) * 0.1);
 
+      const holgura = (m.mejorAlto ? d : -d) / Math.max(Math.abs(m.media), 1);
+      if (!justa || holgura < justa.holgura) justa = { m, holgura };
+
       if (Math.abs(d) < margen || (d > 0) === m.mejorAlto) continue;
 
       const peso = Math.abs(d) / Math.max(Math.abs(m.media), 1);
@@ -1208,11 +1225,13 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
       if (!peor || peso > peor.peso) peor = { m, peso };
     }
 
-    if (!peor) return null;
+    const elegida = peor?.m ?? justa?.m;
+    if (!elegida) return null;
+    const mantener = !peor;
 
-    const m = peor.m;
+    const m = elegida;
     const formato = m.formato ?? numeroCorto;
-    const { tarea, filtro } = TAREA[m.clave];
+    const { tarea, cuenta, filtro } = TAREA[m.clave];
 
     /* La base de la cifra («11 de 66») y, con pocos partidos detrás, que es tendencia. */
     const base = m.pie?.match(/^\d+ de \d+/)?.[0];
@@ -1221,10 +1240,17 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
 
     const rango = m.rango && m.rango[0] !== m.rango[1] ? ` (en esos partidos, de ${formato(m.rango[0])} a ${formato(m.rango[1])})` : "";
 
+    const criterio = `criterio de éxito, ${m.nombre.toLowerCase()} ${m.mejorAlto ? "por encima de" : "por debajo de"} ${formato(m.media!)} en el próximo partido${rango}`;
+
     return {
-      texto: `${m.nombre}: ${formato(m.actual!)}${base ? ` (${base})` : ""} frente a ${formato(m.media!)}${aviso}. Conviene trabajar en la semana una tarea de ${tarea}; criterio de éxito, ${m.nombre.toLowerCase()} ${m.mejorAlto ? "por encima de" : "por debajo de"} ${formato(m.media!)} en el próximo partido${rango}.`,
+      texto: mantener
+        ? `Ninguna cifra cae por debajo de nuestra media. La que menos margen tiene: ${m.nombre.toLowerCase()}, ${formato(m.actual!)}${base ? ` (${base})` : ""} frente a ${formato(m.media!)}${aviso}. Tarea de ${tarea}, contando ${cuenta}; ${criterio}.`
+        : `${m.nombre}: ${formato(m.actual!)}${base ? ` (${base})` : ""} frente a ${formato(m.media!)}${aviso}. Tarea de ${tarea} en la semana, contando ${cuenta}; ${criterio}.`,
       /* 08/11/2026: el titular destacado encima de la tabla. */
-      titular: `${m.nombre}: ${formato(m.actual!)} frente a ${formato(m.media!)} de media`,
+      titular: mantener
+        ? `Mantener ${m.nombre.toLowerCase()}: ${formato(m.actual!)} frente a ${formato(m.media!)} de media`
+        : `${m.nombre}: ${formato(m.actual!)} frente a ${formato(m.media!)} de media`,
+      rotulo: mantener ? "Qué entrenamos para mantenerlo" : "Lo que pide trabajo esta semana",
       filtro,
     };
   }, [comparativa, modo]);
@@ -1335,20 +1361,16 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
               }
             />
 
-            {/* 08/11/2026: la diferencia con Wyscout, plegada (en el subtítulo era jerga en dos líneas). */}
-            {modo === "perdidas" ? (
-              <details className="mt-2 max-w-3xl text-sm text-white/55">
-                <summary className="cursor-pointer text-white/60 underline decoration-dotted underline-offset-2">¿Por qué no coincide con Data Análisis?</summary>
-                <p className="mt-1">Wyscout cuenta las pérdidas por partido con otro criterio; aquí cuenta sólo el balón que teníamos y pasa a ser del rival, con el balón en juego.</p>
-              </details>
-            ) : null}
+            {/* 10/11/2026: «¿Por qué no coincide con Data Análisis?» baja al
+                resumen, junto a las dos cifras (la nuestra y la de Opta). */}
 
             <SelloDeFechas fuente="Vídeo etiquetado" fechas={fechasConDato} queEs={T.unidad} />
 
-            {/* 30/10/2026: por qué el selector no empieza en la J1 (análisis y marketing). */}
+            {/* 30/10/2026: por qué el selector no empieza en la J1 (análisis y marketing).
+                10/11/2026: con el número de partidos, como subtítulo. */}
             {primeraConDato && !/^J0*1$/i.test(primeraConDato.trim()) ? (
               <p className="mt-2 text-[12px] text-white/60">
-                Empieza en la {primeraConDato}: es el primer partido con vídeo etiquetado.
+                {partidosLiga} {partidosLiga === 1 ? "partido etiquetado" : "partidos etiquetados"} en vídeo, desde la {primeraConDato}.
               </p>
             ) : null}
 
@@ -1423,8 +1445,12 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
               </Explicativo>
             </div>
 
+            {/* 10/11/2026: con sólo el partido elegido (que ya se ve encendido
+                arriba) y nada más, la barra decía «37 de 37» y «Quitar filtros»:
+                no sale. */}
+            {(chipsVisibles.length > 0 || HAY_PRETEMPORADA) && (
             <BarraFiltros
-              chips={chips}
+              chips={chipsVisibles}
               onLimpiar={quitaTodo}
               cuenta={{ vistas: robos.length, total: base.length, unidad: T.unidad }}
               pretemporada={
@@ -1434,6 +1460,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
               }
               className="mt-3"
             />
+            )}
 
             <div className="mt-4">
               <Pestanas
@@ -1460,7 +1487,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                 (antes era un renglón más de la tabla y la última conclusión). */}
             {queToca ? (
               <div className="mt-5 rounded-2xl border border-amber-400/40 bg-amber-400/[0.06] px-4 py-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-300">Lo que pide trabajo esta semana</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-300">{queToca.rotulo}</p>
                 <p className="mt-1 text-base font-semibold text-white sm:text-lg">{queToca.titular}</p>
                 <p className="mt-1 text-sm leading-relaxed text-white/75">{queToca.texto}</p>
                 <button
@@ -1492,6 +1519,19 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                 nota={explicativos ? comparativa.nota : undefined}
                 className="mt-5"
               />
+              {/* 10/11/2026: por qué «18 de 30» y «13 de 37» no tienen la misma base. */}
+              <p className="mt-2 text-[12px] leading-relaxed text-white/60">
+                <b className="text-white/80">Base de cada porcentaje.</b>{" "}
+                {modo === "robos" ? "«Salen hacia delante»" : "«El rival sale hacia delante»"} se cuenta sobre {comparativa.bases.juegan === comparativa.bases.total ? `los ${comparativa.bases.total}` : `los ${comparativa.bases.juegan} de ${comparativa.bases.total}`} que se juegan con pase o conducción
+                {comparativa.bases.total > comparativa.bases.juegan ? ` (los otros ${comparativa.bases.total - comparativa.bases.juegan} no siguen con un pase ni una conducción)` : ""}; el remate o el área y {modo === "robos" ? "«la perdemos al momento»" : "«la recuperamos al momento»"}, sobre {comparativa.bases.conDesenlace === comparativa.bases.total ? `los ${comparativa.bases.total}` : `los ${comparativa.bases.conDesenlace} de ${comparativa.bases.total}`} con el desenlace anotado.
+              </p>
+              {partidoElegido && (
+                <ContrasteOpta
+                  modo={modo}
+                  partido={{ rival: partidoElegido.rival, fecha: partidoElegido.fecha, jornada: partidoElegido.jornada }}
+                  aqui={comparativa.bases.total}
+                />
+              )}
               </div>
             )}
 

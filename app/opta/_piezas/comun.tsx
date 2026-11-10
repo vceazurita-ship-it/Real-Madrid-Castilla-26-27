@@ -26,14 +26,15 @@ export function Panel({
 }) {
   return (
     <section className={`min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5 ${className}`}>
+      {/* 10/11/2026: `header` y no `div`, para que el índice fijo de Análisis de datos (IndiceBloques) lo liste. */}
       {(titulo || derecha) && (
-        <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+        <header className="mb-3 flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             {titulo && <h2 className="text-base font-semibold text-white">{titulo}</h2>}
             {subtitulo && <p className="mt-0.5 text-xs text-white/55">{subtitulo}</p>}
           </div>
           {derecha && <div className="flex flex-wrap items-center gap-2">{derecha}</div>}
-        </div>
+        </header>
       )}
       {children}
     </section>

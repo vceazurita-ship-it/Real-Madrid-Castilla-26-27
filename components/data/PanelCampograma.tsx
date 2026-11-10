@@ -7,6 +7,14 @@ import { Notice, Panel } from "@/components/abp/ui";
 import { Lectura } from "@/components/data/formas";
 import { Campograma } from "@/components/data/Campograma";
 import { COMPARADO, MEJOR, ORO, PEOR } from "@/components/data/graficas";
+import { chipInk } from "@/lib/theme";
+
+/** «2026-11-08» → «8 nov». */
+const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sept", "oct", "nov", "dic"];
+const fechaLarga = (iso: string) => {
+  const [a, m, d] = iso.slice(0, 10).split("-").map(Number);
+  return a && m && d ? `${d} ${MESES[m - 1]}` : iso;
+};
 import {
   MOMENTOS_CAMPO,
   REFERENCIAS_CAMPO,
@@ -299,7 +307,7 @@ export function PanelCampograma({
         >
           {/* La leyenda del color, una vez y arriba. */}
           <div className="mb-3 flex flex-wrap items-center gap-4 text-[10px] uppercase tracking-[0.16em]">
-            <span className="flex items-center gap-1.5" style={{ color: MEJOR }}>
+            <span className="flex items-center gap-1.5" style={{ color: chipInk(MEJOR) }}>
               <span
                 className="inline-block h-2.5 w-2.5 rounded-[2px]"
                 style={{ background: MEJOR }}
@@ -311,7 +319,7 @@ export function PanelCampograma({
                   : "Mejor que nuestra media"}
             </span>
 
-            <span className="flex items-center gap-1.5" style={{ color: PEOR }}>
+            <span className="flex items-center gap-1.5" style={{ color: chipInk(PEOR) }}>
               <span
                 className="inline-block h-2.5 w-2.5 rounded-[2px]"
                 style={{ background: PEOR }}
@@ -354,7 +362,7 @@ export function PanelCampograma({
               }
               subtitulo={
                 partido
-                  ? partido.fecha
+                  ? fechaLarga(partido.fecha)
                   : `${nuestros.length} ${nuestros.length === 1 ? "partido" : "partidos"} de ${temporada}`
               }
             />
@@ -479,17 +487,18 @@ export function PanelCampograma({
 
                     <td
                       className="py-2 text-right tabular-nums"
+                      /* 10/11/2026: el gris de «estilo» medía 2,3 de contraste
+                         en modo día; ahora tinta al 70 % y los colores de
+                         mejor/peor oscurecidos en día con chipInk. */
                       style={{
                         color:
                           f.diferencia === null || f.mejorAlto === null
-                            ? "rgb(var(--rmcf-ink-rgb) / .35)"
-                            : f.diferencia >= 0
-                              ? MEJOR
-                              : PEOR,
+                            ? "rgb(var(--rmcf-ink-rgb) / .7)"
+                            : chipInk(f.diferencia >= 0 ? MEJOR : PEOR),
                       }}
                     >
                       {f.cambio === null
-                        ? "—"
+                        ? ""
                         : `${f.cambio >= 0 ? "+" : ""}${f.cambio.toFixed(0)} %`}
                     </td>
                   </tr>

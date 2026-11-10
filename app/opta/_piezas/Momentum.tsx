@@ -33,9 +33,9 @@ const MEDIDAS: { clave: MedidaMomento; nombre: string }[] = [
 ];
 
 const W = 900;
-const H = 252;
+const H = 300;
 /* Arriba y abajo, dos alturas de rótulo de gol: dos goles seguidos del mismo equipo no se pisan. */
-const M = { izq: 12, der: 12, arriba: 34, abajo: 46 };
+const M = { izq: 12, der: 12, arriba: 40, abajo: 58 };
 const SEPARA_ROTULOS = 90;
 
 export function Momentum({ datos, partido, teamId }: { datos: DatosOpta; partido: string; teamId: string }) {
@@ -95,12 +95,15 @@ export function Momentum({ datos, partido, teamId }: { datos: DatosOpta; partido
           <h3 className="text-sm font-semibold text-white">Quién manda en cada tramo</h3>
           <p className="text-[11px] text-white/55">
             Por tramos de 5′, suavizado con los de al lado. Arriba, <span style={{ color: ORO }}>{nombreA}</span>; abajo, <span style={{ color: COMPARADO }}>{nombreB}</span>. xG{" "}
-            {suma(ea, "xG").toFixed(2).replace(".", ",")} – {suma(eb, "xG").toFixed(2).replace(".", ",")} · toques en el área {suma(ea, "toquesArea")} – {suma(eb, "toquesArea")}.
+            {suma(ea, "xG").toFixed(1).replace(".", ",")} – {suma(eb, "xG").toFixed(1).replace(".", ",")} · toques en el área {suma(ea, "toquesArea")} – {suma(eb, "toquesArea")}.
           </p>
         </div>
         <Botonera etiqueta="Qué se mide" valor={medida} alCambiar={setMedida} opciones={MEDIDAS} />
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="block h-auto w-full" role="img" aria-label={`Momentum del partido ${nombreA} contra ${nombreB}`} onMouseLeave={() => setEncima(null)}>
+      {/* 10/11/2026: a 390 px la letra del dibujo bajaba de 5 px; con un ancho
+          mínimo se lee a 11 px y se desliza de lado dentro de su caja. */}
+      <div className="-mx-1 overflow-x-auto px-1">
+      <svg viewBox={`0 0 ${W} ${H}`} className="block h-auto w-full min-w-[720px]" role="img" aria-label={`Momentum del partido ${nombreA} contra ${nombreB}`} onMouseLeave={() => setEncima(null)}>
         <defs>
           <clipPath id={idA}>
             <rect x={0} y={0} width={W} height={cero} />
@@ -114,7 +117,7 @@ export function Momentum({ datos, partido, teamId }: { datos: DatosOpta; partido
           m / 5 <= n ? (
             <g key={m}>
               <line x1={xDe(m / 5)} y1={M.arriba} x2={xDe(m / 5)} y2={H - M.abajo} style={{ stroke: tinta(m === 45 ? 0.3 : 0.1), strokeWidth: m === 45 ? 1.5 : 1, strokeDasharray: m === 45 ? "4 4" : undefined }} />
-              <text x={xDe(m / 5)} y={H - 8} textAnchor="middle" style={{ fill: tinta(0.5), fontSize: 11 }}>
+              <text x={xDe(m / 5)} y={H - 8} textAnchor="middle" style={{ fill: tinta(0.5), fontSize: 14 }}>
                 {m === 45 ? "Descanso" : `${m}′`}
               </text>
             </g>
@@ -130,14 +133,14 @@ export function Momentum({ datos, partido, teamId }: { datos: DatosOpta; partido
           const x = xDe(Math.min(n, segundoEnEje(g.parte, g.segundo) / 300));
           const arriba = golDe(g) === "a";
           const nivel = niveles[i] ?? 0;
-          const y = arriba ? M.arriba - 12 - nivel * 12 : H - M.abajo + 12 + nivel * 12;
+          const y = arriba ? M.arriba - 14 - nivel * 15 : H - M.abajo + 16 + nivel * 15;
           return (
             <g key={i}>
               <line x1={x} y1={cero} x2={x} y2={arriba ? M.arriba - 4 : H - M.abajo + 4} style={{ stroke: arriba ? ORO : COMPARADO, strokeWidth: 1.5, strokeDasharray: "2 3" }} />
               <circle cx={x} cy={cero} r={6} style={{ fill: arriba ? ORO : COMPARADO, stroke: tinta(0.9), strokeWidth: 1.5 }}>
                 <title>{`Gol · ${g.minuto}′ · ${g.tirador}${g.tipo === "PenaltyGoal" ? " (penalti)" : ""}`}</title>
               </circle>
-              <text x={x} y={y} textAnchor="middle" style={{ fill: tinta(0.75), fontSize: 11, fontWeight: 600 }}>
+              <text x={x} y={y} textAnchor="middle" style={{ fill: tinta(0.75), fontSize: 14, fontWeight: 600 }}>
                 {`${g.minuto}′ ${g.tirador.split(" ").slice(-1)[0]}`}
               </text>
             </g>
@@ -149,9 +152,10 @@ export function Momentum({ datos, partido, teamId }: { datos: DatosOpta; partido
           <rect key={t.tramo} x={M.izq + t.tramo * paso} y={M.arriba} width={paso} height={alto} style={{ fill: encima === t.tramo ? tinta(0.06) : "transparent" }} onMouseEnter={() => setEncima(t.tramo)} />
         ))}
       </svg>
+      </div>
       {tramoEncima && (
         <p className="mt-1 text-[11px] text-white/65">
-          {`${tramoEncima.tramo * 5}′–${tramoEncima.tramo * 5 + 5}′ · ${nombreA}: xG ${(ta?.xG ?? 0).toFixed(2).replace(".", ",")}, ${ta?.remates ?? 0} remates, ${ta?.toquesArea ?? 0} toques en el área${ta?.posesion != null ? `, ${Math.round(ta.posesion * 100)} % de posesión` : ""} · ${nombreB}: xG ${(tb?.xG ?? 0).toFixed(2).replace(".", ",")}, ${tb?.remates ?? 0} remates, ${tb?.toquesArea ?? 0} toques en el área`}
+          {`${tramoEncima.tramo * 5}′–${tramoEncima.tramo * 5 + 5}′ · ${nombreA}: xG ${(ta?.xG ?? 0).toFixed(1).replace(".", ",")}, ${ta?.remates ?? 0} remates, ${ta?.toquesArea ?? 0} toques en el área${ta?.posesion != null ? `, ${Math.round(ta.posesion * 100)} % de posesión` : ""} · ${nombreB}: xG ${(tb?.xG ?? 0).toFixed(1).replace(".", ",")}, ${tb?.remates ?? 0} remates, ${tb?.toquesArea ?? 0} toques en el área`}
         </p>
       )}
     </div>

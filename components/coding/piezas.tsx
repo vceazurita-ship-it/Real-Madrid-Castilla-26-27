@@ -226,7 +226,10 @@ export function PanelJugadores({
                 </span>
 
                 {puesto && (
-                  <span className="block truncate text-[10px] uppercase tracking-[0.14em] text-white/30">
+                  /* 10/11/2026: el puesto entero, en dos renglones si hace falta
+                     («LATERAL DE…» no decía cuál). */
+                  <span className="block text-[10px] uppercase leading-tight tracking-[0.08em] text-white/45">
+
                     {puesto}
                   </span>
                 )}
@@ -503,6 +506,8 @@ export function MarcadorCoding({
         )}
       </div>
 
+      {/* 10/11/2026: sin cortes no hay resumen por etiqueta que enseñar. */}
+      {total > 0 ? (
       <div className="min-w-0">
         <div className="flex items-baseline justify-between gap-3">
           <span className="truncate text-[10px] uppercase tracking-[0.18em] text-white/45">
@@ -549,12 +554,13 @@ export function MarcadorCoding({
               ))}
             </div>
           </>
-        ) : (
-          <p className="mt-2 text-[11px] text-white/45">
-            Cada corte que marques suma aquí, por etiqueta.
-          </p>
-        )}
+        ) : null}
       </div>
+      ) : (
+        <span className="text-[10px] uppercase tracking-[0.18em] text-white/45 lg:text-right">
+          {detalle}
+        </span>
+      )}
     </div>
   );
 }

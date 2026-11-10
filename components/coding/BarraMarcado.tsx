@@ -276,6 +276,14 @@ export function BarraMarcado({
         )}
       </div>
 
+      {/* 10/11/2026: un botón apagado sin motivo parecía roto. */}
+      {!listo && !abierta && (
+        <p className="order-1 mt-1.5 text-center text-[11px] text-white/55 sm:order-none">
+          Abre un vídeo del partido para marcar
+          {sujeto ? "" : " y elige el jugador o el equipo"}.
+        </p>
+      )}
+
       {/* --------------------------- LOS TIEMPOS ----------------------- */}
 
       <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[12px] tabular-nums">

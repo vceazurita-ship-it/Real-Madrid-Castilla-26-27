@@ -46,6 +46,7 @@ import { SelloFuente } from "@/components/ui/SelloFuente";
 import { CASTILLA_OPTA } from "@/lib/opta";
 import { casaEquipo } from "@/lib/opta-eventos";
 import type { AreaOpta } from "@/lib/data-analisis/areas-opta";
+import { ponEquipoElegido, useEquipoElegido } from "@/lib/data-analisis/eleccion-compartida";
 
 export { AREAS_OPTA, AREA_DE_PESTANA, esAreaOpta, type AreaOpta } from "@/lib/data-analisis/areas-opta";
 
@@ -119,7 +120,12 @@ const MINIMO_INICIAL = 270;
 
 export function PanelAreaOpta({ area }: { area: AreaOpta }) {
   const { datos, cargando, recarga } = useOpta();
-  const rival = useProximoRivalOpta(datos);
+  const proximo = useProximoRivalOpta(datos);
+  /* 10/11/2026: el equipo elegido en otra lectura del mismo botón («Un
+     equipo de un vistazo») manda sobre el próximo rival. */
+  const compartido = useEquipoElegido();
+  const delCompartido = useMemo(() => (compartido && datos ? casaEquipo(compartido, equiposDe(datos)) : null), [compartido, datos]);
+  const rival = delCompartido ?? proximo;
   /* El mínimo de minutos es el mismo en la plantilla y en el buscador (como en las pestañas de antes). */
   const [minimo, setMinimo] = useState(MINIMO_INICIAL);
 
@@ -168,10 +174,10 @@ export function PanelAreaOpta({ area }: { area: AreaOpta }) {
       {area === "talento" && <Talento datos={datos} />}
       {area === "tablaLiga" && <Liga datos={datos} />}
       {area === "estilos" && <Estilos datos={datos} inicial={rival} />}
-      {area === "evolucionLiga" && <Evolucion datos={datos} inicial={rival} />}
+      {area === "evolucionLiga" && <Evolucion datos={datos} inicial={rival} alElegir={ponEquipoElegido} />}
       {area === "rematesLiga" && (
         <div className="mt-6">
-          <RematesEquipo datos={datos} inicial={rival} />
+          <RematesEquipo datos={datos} inicial={rival} alElegir={ponEquipoElegido} />
         </div>
       )}
       {area === "partidoCategoria" && <PartidosCategoria datos={datos} inicial={rival} />}

@@ -420,14 +420,25 @@ export default function FaltasPage() {
       /* Con las dos caras juntas, cada cifra lleva su base: a favor sobre las a favor y en contra sobre las en contra. */
       const aF = faltas.filter((f) => f.lado === "ofensivo");
       const eC = faltas.filter((f) => f.lado === "defensivo");
-      const parte = (lote: typeof faltas, texto: string) =>
-        lote.length
-          ? `${lote.filter((f) => f.zona === texto).length} de ${lote.length} ${texto === "campo rival" ? "en campo rival" : "en nuestro campo"}; ${lote.filter((f) => f.distancia === "frontal").length} de ${lote.length} frontales`
-          : "";
+      /* 10/11/2026: la zona en el campo de verdad (`sitioEnCampo`), la misma
+         que usa «Qué hacemos» («2 en nuestro campo»): antes iba por la zona
+         de quien saca y decía «0 de 14 en nuestro campo». Y lo que es 0 no
+         se escribe: va en «Casos escasos». */
+      const parte = (lote: typeof faltas, texto: string) => {
+        if (!lote.length) return "";
+        const enZona = lote.filter((f) => sitioEnCampo(f).zona === texto).length;
+        const frente = lote.filter((f) => f.distancia === "frontal").length;
+        return [
+          enZona ? `${enZona} de ${lote.length} en ${texto}` : "",
+          frente ? `${frente} de ${lote.length} ${frente === 1 ? "frontal" : "frontales"}` : "",
+        ]
+          .filter(Boolean)
+          .join("; ");
+      };
 
-      frases.push(
-        [aF.length ? `A favor, ${parte(aF, "campo rival")}` : "", eC.length ? `en contra, ${parte(eC, "nuestro campo")}` : ""].filter(Boolean).join("; ") + ".",
-      );
+      const pf = parte(aF, "campo rival");
+      const pc = parte(eC, "nuestro campo");
+      if (pf || pc) frases.push([pf ? `A favor, ${pf}` : "", pc ? `en contra, ${pc}` : ""].filter(Boolean).join("; ") + ".");
     } else if (ultimoTercio || frontales) {
       const donde =
         filtro === "ofensivo"
@@ -467,11 +478,19 @@ export default function FaltasPage() {
       }
     }
 
-    frases.push(
-      cortes.length
-        ? `${cortes.length} ${cortes.length === 1 ? "cortó" : "cortaron"} una transición con el campo abierto.`
-        : "Ninguna cortó una transición: siempre con bloque hecho.",
-    );
+    /* 10/11/2026: con sujeto y base («1 de las 14 faltas en contra…»). */
+    const enContraTodas = faltas.filter((f) => f.lado === "defensivo").length;
+    const cortesNuestros = cortes.filter((f) => f.lado === "defensivo").length;
+    const cortesSuyos = cortes.length - cortesNuestros;
+    if (cortesNuestros) {
+      frases.push(
+        `${cortesNuestros} de las ${enContraTodas} faltas en contra ${cortesNuestros === 1 ? "cortó" : "cortaron"} una transición del rival con el campo abierto (falta táctica).`,
+      );
+    }
+    if (cortesSuyos) {
+      frases.push(`${cortesSuyos} de las faltas a favor nos ${cortesSuyos === 1 ? "cortó" : "cortaron"} una transición con el campo abierto.`);
+    }
+    if (!cortes.length) frases.push("Ninguna falta cortó una transición: todas con el bloque hecho.");
 
     return frases;
   }, [faltas, filtro, filtros, porLado, defensores, cortes]);
@@ -763,35 +782,30 @@ export default function FaltasPage() {
                    a favor no se juzga. */
                 const n = comparativa.anteriores;
                 const deLos = n === 1 ? "el anterior" : `los ${n} anteriores`;
+                /* 10/11/2026: un solo titular con verbo; las dos tarjetas repetían
+                   la tabla de debajo. La diferencia sale de la media ya redondeada
+                   (14 − 11,3 = 2,7), la misma cifra que la tabla. */
+                const redondea = (x: number) => Math.round(x * 10) / 10;
                 const comoVa = (m: typeof f) => {
                   if (m.media === null || n < 1) return { texto: "", dif: 0 };
-                  const d = (m.actual as number) - m.media;
+                  const d = redondea((m.actual as number) - redondea(m.media));
 
                   return Math.abs(d) < 0.05
                     ? { texto: `igual que la media de ${deLos} (${decimal(m.media)})`, dif: 0 }
                     : { texto: `${decimal(Math.abs(d))} ${d < 0 ? "menos" : "más"} que la media de ${deLos} (${decimal(m.media)})`, dif: d };
                 };
                 const vc = comoVa(c);
-                const vf = comoVa(f);
 
                 return (
-                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                    <p
-                      className={cn(
-                        "rounded-xl border px-3 py-2 text-sm text-white/80",
-                        vc.dif > 0 ? "border-amber-400/40 bg-amber-400/[0.06]" : vc.dif < 0 ? "border-emerald-400/40 bg-emerald-400/[0.06]" : "border-white/10",
-                      )}
-                    >
-                      <span className="block text-[11px] font-semibold uppercase tracking-[0.14em] text-white/50">En contra · las que cometimos · menos es mejor</span>
-                      <span className="text-lg font-bold tabular-nums text-white">{c.actual}</span>
-                      {vc.texto ? <span>, {vc.texto}</span> : null}
-                    </p>
-                    <p className="rounded-xl border border-white/10 px-3 py-2 text-sm text-white/80">
-                      <span className="block text-[11px] font-semibold uppercase tracking-[0.14em] text-white/50">A favor · las que nos hicieron</span>
-                      <span className="text-lg font-bold tabular-nums text-white">{f.actual}</span>
-                      {vf.texto ? <span>, {vf.texto}</span> : null}
-                    </p>
-                  </div>
+                  <p
+                    className={cn(
+                      "mt-3 rounded-xl border px-3 py-2 text-base font-semibold leading-snug text-white",
+                      vc.dif > 0 ? "border-amber-400/40 bg-amber-400/[0.06]" : vc.dif < 0 ? "border-emerald-400/40 bg-emerald-400/[0.06]" : "border-white/10",
+                    )}
+                  >
+                    Cometimos {c.actual} {c.actual === 1 ? "falta" : "faltas"}
+                    {vc.texto ? `, ${vc.texto}` : ""}; nos hicieron {f.actual}.
+                  </p>
                 );
               })()}
               {/*
@@ -811,7 +825,7 @@ export default function FaltasPage() {
                 <details className="mt-2 rounded-xl border border-white/10 bg-white/[0.02] px-4 py-2 text-[12px] text-white/65">
                   <summary className="cursor-pointer select-none font-medium text-white/75">
                     {/* 08/11/2026: plegado, pero diciendo cuáles son. */}
-                    Pocos casos para leer una diferencia: {comparativa.metricas.filter(escasa).map((m) => m.nombre).join(", ")}
+                    Casos escasos: {comparativa.metricas.filter(escasa).map((m) => m.nombre).join(", ")}
                   </summary>
                   <ul className="mt-2 space-y-1">
                     {comparativa.metricas.filter(escasa).map((m) => (

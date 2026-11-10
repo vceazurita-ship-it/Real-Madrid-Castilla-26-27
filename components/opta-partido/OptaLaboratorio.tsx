@@ -159,6 +159,44 @@ export function OptaLaboratorio({
   );
 }
 
+/**
+ * LAS DOS CIFRAS, LADO A LADO (10/11/2026): bajo el resumen de robos o de
+ * pérdidas, la nuestra (vídeo) y la de Opta del mismo partido, con una línea
+ * de por qué no coinciden. Antes se explicaba plegado arriba y la misma
+ * cifra salía de dos formas sin decirlo.
+ */
+export function ContrasteOpta({ modo, partido, aqui }: { modo: "robos" | "perdidas"; partido: PartidoLab; aqui: number }) {
+  const { opta } = useOptaLigero();
+  const delPartido = useMemo(
+    () => (opta ? partidoOptaDe(opta.partidos, opta.equipos, partido.rival, partido.fecha) : null),
+    [opta, partido.rival, partido.fecha],
+  );
+  if (!delPartido) return null;
+  const f = delPartido.fila;
+
+  if (modo === "robos") {
+    const rec = cifra(f, "Recovery");
+    const int = cifra(f, "Int");
+    if (rec == null) return null;
+    return (
+      <p className="mt-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[12px] leading-relaxed text-white/70">
+        <b className="text-white/85">Aquí, {aqui} robos</b> vistos en el vídeo (entrada, intercepción o balón ganado apretando). <b className="text-white/85">Opta, {rec} recuperaciones</b>
+        {int != null ? ` y ${int} intercepciones aparte` : ""}: su recuperación es quedarse un balón suelto o uno que da el rival. No es la misma cuenta.
+      </p>
+    );
+  }
+
+  const total = cifra(f, "PossLost");
+  const propio = cifra(f, "PsLostD3");
+  if (total == null) return null;
+  return (
+    <p className="mt-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[12px] leading-relaxed text-white/70">
+      <b className="text-white/85">Aquí, {aqui} pérdidas</b>: todas las vistas en el vídeo, sólo el balón que teníamos y pasa al rival en juego. <b className="text-white/85">Opta, {total}</b>
+      {propio != null ? ` (${propio} en nuestro tercio)` : ""}: suma cada pase que no llega, aunque salga fuera. Por eso no coinciden con Análisis de datos.
+    </p>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /*  El partido elegido                                                 */
 /* ------------------------------------------------------------------ */
@@ -237,7 +275,7 @@ function ElPartido({
           {aMano
             ? cuadra
               ? "Las dos fuentes cuentan lo mismo, las faltas pitadas, y aquí cuadran."
-              : "Las dos fuentes cuentan lo mismo, las faltas pitadas. Donde no cuadran, manda la lista de esta pantalla: cada falta está vista y tiene su vídeo."
+              : `Las dos cuentan las faltas pitadas. Donde no cuadran (${filas.filter((x) => x.mano != null && x.mano !== x.opta).map((x) => `${x.nombre.split(" (")[0].toLowerCase()}: ${x.mano} a mano, ${x.opta} en Opta`).join("; ")}), manda la lista de esta pantalla, que tiene cada falta vista y con su vídeo; la diferencia es una revisión para el analista, no un dato para el cuerpo técnico.`
             : "Opta cuenta las faltas pitadas, lo mismo que se etiqueta aquí."}
         </p>
       </div>
@@ -287,8 +325,9 @@ function ElPartido({
         })}
       </div>
 
-      <div className="mt-3 rounded-xl border border-amber-400/30 bg-amber-400/[0.05] px-3 py-2 text-[12px] leading-relaxed text-white/75">
-        <p className="font-semibold text-white/85">No es la misma cuenta que la de esta pantalla</p>
+      {/* 10/11/2026: plegada; la diferencia de cifras ya va dicha arriba en una línea. */}
+      <details className="mt-3 rounded-xl border border-amber-400/30 bg-amber-400/[0.05] px-3 py-2 text-[12px] leading-relaxed text-white/75">
+        <summary className="cursor-pointer font-semibold text-white/85">¿Por qué Opta no cuenta lo mismo que esta pantalla?</summary>
         {robos ? (
           <p className="mt-0.5">
             Aquí se apunta cada robo activo del vídeo: entrada, intercepción o balón ganado apretando. La «recuperación» de Opta es otra cosa: quedarse un balón suelto o uno que
@@ -305,7 +344,7 @@ function ElPartido({
             Los tercios de Opta parten el campo en tres partes iguales hacia la portería rival, igual que la zona del etiquetado; lo que cambia es qué acción se cuenta.
           </p>
         </Explicativo>
-      </div>
+      </details>
 
       {verMapa ? (
         <MapaOpta modo={modo} partidoOpta={String(f.partido ?? "")} />

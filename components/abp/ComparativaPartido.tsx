@@ -368,6 +368,8 @@ export function ComparativaPartido({
                     {m.rango && anteriores.n > 1 && m.rango[0] !== m.rango[1] ? (
                       <span className="block text-[11px] text-white/45">
                         de {formato(m.rango[0])} a {formato(m.rango[1])}
+                        {/* 10/11/2026: el rango de pocos partidos tampoco es norma. */}
+                        {anteriores.n < UMBRAL_TENDENCIA_PARTIDOS ? " · tendencia" : ""}
                       </span>
                     ) : null}
                   </span>
@@ -385,6 +387,13 @@ export function ComparativaPartido({
                         : igual
                         ? "igual"
                         : diferencia(d, m.formatoDiferencia ?? formato, porcentaje)}
+                    {/* 10/11/2026: el juicio también en palabra (no sólo en color) y,
+                        con pocos partidos detrás, el sello de tendencia junto a la cifra. */}
+                    {d !== null && (mejor !== null || anteriores.n < UMBRAL_TENDENCIA_PARTIDOS) ? (
+                      <span className="block text-[10px] font-normal">
+                        {[mejor === true ? "mejor" : mejor === false ? "peor" : "", anteriores.n < UMBRAL_TENDENCIA_PARTIDOS ? "tendencia" : ""].filter(Boolean).join(" · ")}
+                      </span>
+                    ) : null}
                   </span>
                 </li>
               );

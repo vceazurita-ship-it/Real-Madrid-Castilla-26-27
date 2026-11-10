@@ -38,6 +38,7 @@ import {
   useRef,
   useState,
   type PointerEvent as PunteroReact,
+  type ReactNode,
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -224,6 +225,70 @@ type PlantillaRival = {
 /* 08/11/2026: la limpieza vive en lib/coding/nombres para que la tabla de
    cortes diga lo mismo que los chips. */
 const nombreLimpio = nombreVideo;
+
+/**
+ * 10/11/2026: los vídeos sacados del coding se llaman «2-O. Soldevila 1
+ * contra 1 y dribling Remates»: jugador y etiquetas pegados. Se parte en el
+ * nombre (lo que va antes de la primera etiqueta conocida) y las etiquetas,
+ * para enseñarlas en una segunda línea más pequeña.
+ */
+function parteNombreVideo(
+  nombre: string,
+  etiquetas: string[],
+): { titulo: string; chips: string[] } {
+  const bajo = nombre.toLocaleLowerCase("es");
+  let corte = -1;
+  const chips: { en: number; texto: string }[] = [];
+
+  for (const etiqueta of etiquetas) {
+    const limpia = etiqueta.trim();
+    if (limpia.length < 3) continue;
+    const en = bajo.indexOf(limpia.toLocaleLowerCase("es"));
+    if (en <= 0) continue;
+    chips.push({ en, texto: limpia });
+    if (corte < 0 || en < corte) corte = en;
+  }
+
+  if (corte <= 0) return { titulo: nombre, chips: [] };
+
+  return {
+    titulo: nombre.slice(0, corte).trim(),
+    chips: chips.sort((a, b) => a.en - b.en).map((uno) => uno.texto),
+  };
+}
+
+/**
+ * 10/11/2026: sin vídeo abierto, la pantalla empieza por un solo paso
+ * («Elige el vídeo») y lo que sólo sirve al marcar se pliega: en el móvil
+ * eran unos 2.500 px de paneles antes de poder trabajar.
+ */
+function PliegaSinVideo({
+  abierto,
+  resumen,
+  detalle,
+  children,
+}: {
+  abierto: boolean;
+  resumen: string;
+  detalle: string;
+  children: ReactNode;
+}) {
+  if (abierto) return <>{children}</>;
+
+  return (
+    <details className="group rounded-2xl border border-white/10 bg-white/[0.03]">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium text-white/80 [&::-webkit-details-marker]:hidden">
+        <span className="min-w-0">
+          <span className="block">{resumen}</span>
+          <span className="block text-[11px] font-normal text-white/45">{detalle}</span>
+        </span>
+        <span className="shrink-0 text-[11px] text-white/45 group-open:hidden">Mostrar</span>
+        <span className="hidden shrink-0 text-[11px] text-white/45 group-open:inline">Ocultar</span>
+      </summary>
+      <div className="space-y-4 px-1 pb-1">{children}</div>
+    </details>
+  );
+}
 
 /**
  * Las plantillas del scouting, con foto.
@@ -4229,16 +4294,21 @@ function Coding() {
               | abierto), y se leían como contradictorios. Ahora una línea dice
               | los dos, cada uno con lo que cuenta.
               */}
+              {(recuento.enPartido > 0 || recuento.deJugador > 0) && (
               <div className="flex items-end gap-2">
                 <span className="rounded-xl border border-white/10 px-3 py-2 text-[11px] text-white/60">
+                  {/* 10/11/2026: el total del partido ya lo dice el
+                      marcador; aquí sólo lo que añade (este vídeo y la
+                      duración). Sin cortes, la franja no sale. */}
                   {src && recuento.enVideo !== recuento.enPartido
-                    ? `${recuento.enVideo} ${recuento.enVideo === 1 ? "corte" : "cortes"} en este vídeo · ${recuento.enPartido} en el partido · ${formateaTotal(recuento.msPartido)}`
-                    : `${recuento.enPartido} ${recuento.enPartido === 1 ? "corte" : "cortes"} en el partido · ${formateaTotal(recuento.msPartido)}`}
+                    ? `${recuento.enVideo} ${recuento.enVideo === 1 ? "corte" : "cortes"} en este vídeo · ${formateaTotal(recuento.msPartido)} cortados`
+                    : `${formateaTotal(recuento.msPartido)} cortados`}
                   {recuento.deJugador > 0
                     ? ` · ${recuento.deJugador} ${recuento.deJugador === 1 ? "clip" : "clips"} de jugador aparte`
                     : ""}
                 </span>
               </div>
+              )}
             </div>
 
             {rivalEnConflicto && rival ? (
@@ -4646,25 +4716,49 @@ function Coding() {
                                 }
                               />
 
-                              <span
-                                className={`max-w-[168px] truncate text-[11.5px] ${
-                                  activo ? "text-white" : "text-white/70"
-                                } ${listo ? "" : "italic"}`}
-              >
-                                {nombreLimpio(video.nombre)}
-                              </span>
+                              {(() => {
+                                const partes = parteNombreVideo(
+                                  nombreLimpio(video.nombre),
+                                  [
+                                    ...config.categorias.map((una) => una.nombre),
+                                    ...config.comportamientos.map((uno) => uno.nombre),
+                                  ],
+                                );
+
+                                return (
+                                  <span className="flex min-w-0 max-w-[180px] flex-col text-left leading-tight">
+                                    <span
+                                      className={`truncate text-[11.5px] ${
+                                        activo ? "text-white" : "text-white/70"
+                                      } ${listo ? "" : "italic"}`}
+                                    >
+                                      {partes.titulo}
+                                    </span>
+                                    {partes.chips.length > 0 && (
+                                      <span className="truncate text-[9.5px] text-white/40">
+                                        {partes.chips.join(" · ")}
+                                      </span>
+                                    )}
+                                  </span>
+                                );
+                              })()}
 
                               {/* 07/11/2026: tachado se leía como descartado; es
-                                  un fichero que hay que volver a abrir. */}
-                              {!listo && (
+                                  un fichero que hay que volver a abrir.
+                                  10/11/2026: el rótulo sólo en el vídeo
+                                  abierto; los demás, en cursiva y con el
+                                  motivo en el título. */}
+                              {!listo && activo && (
                                 <span className="shrink-0 rounded bg-white/10 px-1 text-[9px] uppercase tracking-wide text-white/55">
                                   reabrir
                                 </span>
                               )}
 
-                              <span className="shrink-0 text-[10px] tabular-nums text-white/40">
-                                {cuantos}
-                              </span>
+                              {cuantos > 0 && (
+                                <span className="shrink-0 text-[10px] tabular-nums text-white/40">
+                                  {cuantos}
+                                </span>
+                              )}
                             </button>
 
                             <button
@@ -5413,7 +5507,13 @@ function Coding() {
                   | SportsCode o Nacsport (XML) y la tabla para Excel (CSV).
                   | Sale lo que se ve en la lista, con sus filtros.
                   */}
-                  <div className="mt-3 flex min-w-0 flex-wrap items-center gap-2 border-t border-white/10 pt-3">
+                  <div className="mt-3">
+                  <PliegaSinVideo
+                    abierto={Boolean(src) || clipsDeLaLista.length > 0}
+                    resumen="Intercambio con SportsCode y Excel"
+                    detalle="Importar XML o sacar XML y CSV, con el vídeo abierto"
+                  >
+                  <div className="flex min-w-0 flex-wrap items-center gap-2 border-t border-white/10 pt-3">
                     <span className="mr-1 text-[10px] uppercase tracking-[0.16em] text-white/35">
                       Intercambio
                     </span>
@@ -5486,6 +5586,8 @@ function Coding() {
                     >
                       CSV
                     </Button>
+                  </div>
+                  </PliegaSinVideo>
                   </div>
                 </Panel>
 
@@ -5641,6 +5743,11 @@ function Coding() {
                     </Notice>
                   )}
 
+                <PliegaSinVideo
+                  abierto={Boolean(src) || clips.length > 0}
+                  resumen="Jugadores, categorías, teclado y pizarras"
+                  detalle="Se despliegan solos al abrir el vídeo"
+                >
                 <Panel
                   title="Jugadores"
                   subtitle="La tecla que selecciona a cada uno"
@@ -5815,6 +5922,7 @@ function Coding() {
                     </div>
                   )}
                 </Panel>
+                </PliegaSinVideo>
 
                 {/* 29/10/2026: sin cortes estas tablas son sólo «se llena al marcar…»; no se enseñan hasta que haya algo. */}
                 {/* 29/10/2026: y tampoco si todos son «Vídeo completo»: la tabla sólo decía eso. */}
