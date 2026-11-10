@@ -9,7 +9,7 @@ import { useMemo, useState } from "react";
 
 import { colorPercentil } from "@/components/data/graficas";
 import { CASTILLA_OPTA, num, PUESTO_OPTA } from "@/lib/opta";
-import { CLAVES_JUGADOR, enAmbito, familiaDe, percentilesPorFamilia, valorJugador, type Ambito } from "@/lib/opta-analisis";
+import { CLAVES_JUGADOR, enAmbito, familiaDe, nombreEquipo, percentilesPorFamilia, valorJugador, type Ambito } from "@/lib/opta-analisis";
 import { defMetrica, FAMILIAS, METRICAS_OPTA, nombreMetrica } from "@/lib/opta-nombres";
 
 import { Elegir, ElegirAmbito, fmt, Panel } from "./comun";
@@ -143,7 +143,7 @@ export function Buscador({ datos, minimo, setMinimo }: { datos: DatosOpta; minim
                       <td className="py-1.5 pr-2 text-white/45">{i + 1}</td>
                       <td className="py-1.5 pr-3 font-semibold text-white/85">{String(f.jugador ?? "")}</td>
                       <td className="py-1.5 pr-3 text-white/65">
-                        {String(f.equipo ?? "")}
+                        {nombreEquipo(f)}
                         {grupos.size > 0 && ambito === "todos" && grupos.get(String(f.teamId)) === 1 && (
                           <span className="ml-1.5 text-[10px] text-white/40">nuestro grupo</span>
                         )}

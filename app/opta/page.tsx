@@ -4,7 +4,11 @@
  * ÁREA OPTA (09/11/2026).
  *
  * Lo que da de sí la descarga de Opta (TruMedia ProVision) de Primera RFEF,
- * en cinco pestañas:
+ * en doce pestañas (`PESTANAS`; `?pestana=<clave>` abre cualquiera). En el
+ * móvil la barra no se parte en filas —ocupaba media pantalla pegada arriba—:
+ * se desliza de lado y se centra sola en la pestaña abierta.
+ *
+ * Las de la primera descarga:
  *
  * - **Castilla**: el colectivo por fases, con puesto y percentil en el grupo,
  *   y su evolución partido a partido contra la media del grupo.
@@ -46,7 +50,7 @@
  * los nombres en castellano, en `lib/opta-nombres.ts`.
  */
 
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Activity, Database } from "lucide-react";
 
 import { EsqueletoPantalla, EstadoVacio } from "@/components/ui/estados";
@@ -102,6 +106,15 @@ export default function OptaPage() {
   const pestana: Pestana = elegida ?? (esPestana(enlazada) ? enlazada : "castilla");
   const [minimo, setMinimo] = useState(MINIMO_INICIAL);
 
+  /* En el móvil la barra se desliza: que la pestaña abierta (también la del enlace) quede a la vista. */
+  const barra = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const caja = barra.current;
+    const activa = caja?.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (!caja || !activa || caja.scrollWidth <= caja.clientWidth) return;
+    caja.scrollTo({ left: activa.offsetLeft - (caja.clientWidth - activa.offsetWidth) / 2, behavior: "smooth" });
+  }, [pestana]);
+
   const cambia = (p: Pestana) => {
     setElegida(p);
     const url = new URL(window.location.href);
@@ -144,9 +157,10 @@ export default function OptaPage() {
             )}
 
             <div
+              ref={barra}
               role="tablist"
               aria-label="Área Opta"
-              className="sticky top-[81px] z-20 mt-6 inline-flex max-w-full flex-wrap gap-1 rounded-2xl border border-white/10 bg-[#0B0F14]/95 p-1 backdrop-blur md:top-[97px]"
+              className="sticky top-[81px] z-20 mt-6 flex max-w-full gap-1 overflow-x-auto overscroll-x-contain rounded-2xl border border-white/10 bg-[#0B0F14]/95 p-1 backdrop-blur [scrollbar-width:none] md:top-[97px] md:inline-flex md:flex-wrap md:overflow-visible"
             >
               {PESTANAS.map((p) => (
                 <button
@@ -155,7 +169,7 @@ export default function OptaPage() {
                   role="tab"
                   aria-selected={pestana === p.clave}
                   onClick={() => cambia(p.clave)}
-                  className={`min-h-[40px] rounded-xl px-4 text-sm font-semibold transition ${
+                  className={`min-h-[40px] shrink-0 whitespace-nowrap rounded-xl px-4 text-sm font-semibold transition ${
                     pestana === p.clave ? "bg-[#C8A96B] text-black" : "text-white/65 hover:text-white"
                   }`}
                 >

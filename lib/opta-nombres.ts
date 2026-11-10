@@ -113,7 +113,11 @@ export const METRICAS_OPTA: Record<string, DefMetrica> = {
   Crosses: c("Centros", null, { corto: "Centros" }),
   CrossCmp: c("Centros completados", true, { corto: "Centros ok" }),
   ThrghBalls: c("Pases al hueco", true, { corto: "Al hueco" }),
+  ThrghBlCmp: c("Pases al hueco completados", true, { corto: "Al hueco ok" }),
+  CrossOpen: c("Centros en juego", null, { corto: "Centros juego" }),
   Touches: c("Toques", null, { corto: "Toques" }),
+  TchsM3: c("Toques en el tercio medio", null, { corto: "Toques medio" }),
+  TchsD3: c("Toques en el propio tercio", null, { corto: "Toques propio" }),
   PossLost: c("Pérdidas", false, { corto: "Pérdidas" }),
   PsLostD3: c("Pérdidas en campo propio", false, { corto: "Pérd. propio" }),
   PsLostM3: c("Pérdidas en el tercio medio", false, { corto: "Pérd. medio" }),
@@ -135,9 +139,13 @@ export const METRICAS_OPTA: Record<string, DefMetrica> = {
   PosWonD3rd: c("Recuperaciones en el propio tercio", null, { corto: "Recup. propio" }),
   Recovery: c("Recuperaciones", true, { corto: "Recup." }),
   Int: c("Intercepciones", true, { corto: "Intercep." }),
+  IntA3: c("Intercepciones en el último tercio", true, { corto: "Intercep. ú. tercio" }),
   Clrnce: c("Despejes", null, { corto: "Despejes" }),
+  CrossBlkd: c("Centros bloqueados", null, { corto: "Centros bloq." }),
   "Duel%": pct("Duelos ganados", true, { corto: "% duelos" }),
   "Aerial%": pct("Duelos aéreos ganados", true, { corto: "% aéreos" }),
+  "Arl%AH": pct("Aéreos ganados en campo rival", true, { corto: "% aéreos arriba" }),
+  "Arl%DH": pct("Aéreos ganados en campo propio", true, { corto: "% aéreos atrás" }),
   AerialWon: c("Duelos aéreos ganados (n.º)", true, { corto: "Aéreos ganados" }),
   "Tackle%": pct("Entradas ganadas", true, { corto: "% entradas" }),
   FoulCom: c("Faltas cometidas", false, { corto: "Faltas" }),
@@ -158,6 +166,12 @@ export const METRICAS_OPTA: Record<string, DefMetrica> = {
   GoalCrnrs: c("Goles de córner", true, { corto: "Goles córner" }),
   "GoalCrnrs|OPP": c("Goles de córner encajados", false, { corto: "Goles córner contra" }),
   "GoalDirFK|OPP": c("Goles de falta directa encajados", false, { corto: "Faltas dir. contra" }),
+  GoalDirFK: c("Goles de falta directa", true, { corto: "Goles falta dir." }),
+  ShotDirFK: c("Remates de falta directa", true, { corto: "Remates falta dir." }),
+  KeyPsCrn: c("Pases clave de córner", true, { corto: "P. clave córner" }),
+  KeyPsFK: c("Pases clave de falta", true, { corto: "P. clave falta" }),
+  AstCrnr: c("Asistencias de córner", true, { corto: "Asist. córner" }),
+  AstFK: c("Asistencias de falta", true, { corto: "Asist. falta" }),
   PensWon: c("Penaltis a favor", true, { corto: "Penaltis" }),
   PensConc: c("Penaltis cometidos", false, { corto: "Penaltis contra" }),
   CrnrsLeadingShot: c("Córners que acaban en remate", true, { corto: "Córner a remate" }),
@@ -184,18 +198,35 @@ export function cortoMetrica(a: string, catalogo?: Map<string, MetricaOpta>): st
   return m?.corto ?? m?.nombre ?? catalogo?.get(a)?.n ?? a;
 }
 
-/** Cómo se lee una métrica, aunque no esté en el diccionario (con el catálogo de Opta). */
+/**
+ * Cómo se lee una métrica, aunque no esté en el diccionario (con el catálogo de Opta).
+ *
+ * El formato del catálogo casi nunca es «PERCENT» a secas: lleva su máscara
+ * detrás («PERCENT|0.0'%'|-», «NUMBER|0.00|-»…), así que se mira la primera
+ * parte. Comparándolo entero, 167 porcentajes sin traducir (Cross%, Shoot%,
+ * Arl%AH…) se dividían por partido o por 90 y salían en tanto por uno.
+ */
 export function defMetrica(a: string, catalogo?: Map<string, MetricaOpta>): DefMetrica {
   const m = METRICAS_OPTA[a];
   if (m) return m;
-  const f = catalogo?.get(a)?.f;
+  const f = String(catalogo?.get(a)?.f ?? "").split("|")[0];
+  const nombre = catalogo?.get(a)?.n ?? a;
   return {
-    nombre: catalogo?.get(a)?.n ?? a,
+    nombre,
     unidad: f === "PERCENT" ? "porcentaje" : f === "INTEGER" ? "entero" : "decimal",
-    tasa: f === "PERCENT",
+    /* Las medias y los cocientes de Opta («Avg Pass Distance», «Points Per Game», «… (Per 90)») ya vienen divididos. */
+    tasa: f === "PERCENT" || (f === "NUMBER" && esMediaPorNombre(nombre)),
     mejor: null,
   };
 }
+
+/*
+ * «Distance» no basta (las distancias recorridas del físico son totales), «km/h» no es un cociente
+ * y «Above Average» (GAA, AAA) es un total: las medias llevan «Avg», «Average», «Per» o « / ».
+ */
+const MEDIA = /\bavg\b|\baverage\b|\bper\b| \/ |\bage\b/i;
+/* Sin «lookbehind» en la expresión: el Safari de algunos iPad no lo entiende y tumbaría el módulo entero. */
+const esMediaPorNombre = (nombre: string) => MEDIA.test(nombre.replace(/above average/gi, ""));
 
 /** El puesto de Opta en una familia, para comparar a cada uno con los suyos. */
 export const FAMILIA_PUESTO: Record<string, string> = {

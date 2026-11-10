@@ -49,25 +49,8 @@ export const COLOR_FAMILIA: Record<FamiliaAncha, string> = {
   Delanteros: "#D6457A",
 };
 
-/** Nombres que el diccionario común no traduce (columnas de `opta:jugadores`). Son nombres, no datos. */
-const EXTRA: Record<string, string> = {
-  TchsM3: "Toques en el tercio medio",
-  TchsD3: "Toques en el propio tercio",
-  CrossOpen: "Centros en juego",
-  ThrghBlCmp: "Pases al hueco completados",
-  IntA3: "Intercepciones en el último tercio",
-  CrossBlkd: "Centros bloqueados",
-  KeyPsCrn: "Pases clave de córner",
-  KeyPsFK: "Pases clave de falta",
-  AstCrnr: "Asistencias de córner",
-  AstFK: "Asistencias de falta",
-  GoalDirFK: "Goles de falta directa",
-  ShotDirFK: "Remates de falta directa",
-  "Arl%AH": "Aéreos ganados en campo rival",
-  "Arl%DH": "Aéreos ganados en campo propio",
-};
-
-export const nombreTalento = (a: string, catalogo?: DatosOpta["catalogo"]) => EXTRA[a] ?? nombreMetrica(a, catalogo);
+/* Las columnas de `opta:jugadores` que antes sólo traducía esta pestaña (TchsM3, IntA3, Arl%AH…) están ya en el diccionario común (`lib/opta-nombres.ts`): se leen igual en Jugadores, Buscador y Liga. */
+export const nombreTalento = (a: string, catalogo?: DatosOpta["catalogo"]) => nombreMetrica(a, catalogo);
 
 /* ------------------------------------------------------------------ */
 /*  Ancho del contenedor (para que el gráfico se dibuje a su tamaño)    */
@@ -177,7 +160,7 @@ function Nube({
           const izquierda = p.px > 78;
           return (
             <g key={p.id} onClick={() => alElegir(activo ? null : p.id)} onPointerEnter={(e) => e.pointerType === "mouse" && alElegir(p.id)} className="cursor-pointer">
-              <title>{`${p.jugador} · ${p.equipo} · P${p.px} / P${p.py}`}</title>
+              <title>{`${p.jugador} · ${nombreDe(p.teamId, p.equipo)} · P${p.px} / P${p.py}`}</title>
               {/* Zona de toque más grande que el punto. */}
               <circle cx={cx} cy={cy} r={r + 6} fill="transparent" />
               <circle
