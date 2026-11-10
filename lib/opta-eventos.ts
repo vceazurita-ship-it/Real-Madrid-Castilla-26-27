@@ -66,6 +66,16 @@ const idx = (t: TablaOpta) => {
 
 const str = (v: Celda | undefined) => (v == null ? "" : String(v));
 
+/**
+ * Erratas del nombre tal como lo escribe Opta (10/11/2026): sólo lo que es
+ * una falta de ortografía, no una equivalencia (ésas van en
+ * lib/data-analisis/nombres.ts).
+ */
+const ERRATAS_OPTA: Record<string, string> = {
+  "Ávaro Leiva": "Álvaro Leiva",
+};
+const corrigeNombre = (nombre: string) => ERRATAS_OPTA[nombre] ?? nombre;
+
 type Grupo = { filas: Celda[][]; equipos: string[] };
 
 /**
@@ -822,9 +832,9 @@ export function accionesCastilla(t: TablaOpta | null, nuestros: Set<string>): Ac
       secuencia: num(g(f, "secuencia")),
       posesion: num(g(f, "posesion")),
       nuestra,
-      jugador: str(g(f, "jugador")),
+      jugador: corrigeNombre(str(g(f, "jugador"))),
       jugadorId: id,
-      receptor: str(g(f, "receptor")),
+      receptor: corrigeNombre(str(g(f, "receptor"))),
       x: num(g(f, "EventX|EVENT")) ?? 0,
       y: num(g(f, "EventY|EVENT")) ?? 0,
       finX: fx,

@@ -97,6 +97,9 @@ export function comparativaFaltas(partido: PartidoFaltas, partidos: PartidoFalta
   const metrica = (clave: string, nombre: string, condicion: (f: Falta) => boolean, mejorAlto: boolean | null, pie?: string, base?: (f: Falta) => boolean): MetricaComparada => {
     const actual = cuenta(condicion)(partido.faltas);
     const media = mediaPorPartido(anteriores, cuenta(condicion));
+    /* 10/11/2026: el mínimo y el máximo de los anteriores, como en robos y pérdidas. */
+    const vistos = anteriores.map(cuenta(condicion));
+    const rango: [number, number] | null = vistos.length > 1 ? [Math.min(...vistos), Math.max(...vistos)] : null;
 
     /* Con 0–2 faltas una diferencia de una no es tendencia: no se juzga y se avisa. */
     const pocas = Math.max(actual, media ?? 0) <= 2;
@@ -110,6 +113,7 @@ export function comparativaFaltas(partido: PartidoFaltas, partidos: PartidoFalta
       media,
       tendencia,
       mejorAlto: pocas ? null : mejorAlto,
+      rango,
       n: actual,
       /* La base es el grupo propio (a favor o en contra), no el partido entero. */
       de: base ? partido.faltas.filter(base).length : partido.faltas.length,
@@ -137,7 +141,13 @@ export function comparativaFaltas(partido: PartidoFaltas, partidos: PartidoFalta
   };
 
   conDefensores("defensores", "Defensores por delante (a favor)", aFavor, false, "entre la falta y la portería, portero incluido");
-  conDefensores("defensores-contra", "Defensores por delante (en contra)", enContra, null, "los nuestros entre la falta y nuestra portería");
+  conDefensores(
+    "defensores-contra",
+    "Defensores por delante (en contra)",
+    enContra,
+    null,
+    "los nuestros entre la falta y nuestra portería: con pocos, la falta corta una transición (táctica); con muchos, se hizo con el bloque ya armado",
+  );
 
   return { partido: `${partido.jornada} · ${partido.rival}`, anteriores: anteriores.length, metricas };
 }

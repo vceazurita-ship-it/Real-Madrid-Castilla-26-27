@@ -65,7 +65,7 @@ export const nombreDeMetrica = (a: string, datos: DatosOpta) => defDe(a, datos.c
  * `fijo`: el equipo no se elige (en «Nuestro equipo», el Castilla). `inicial`:
  * con qué equipo se abre (en «Rival y categoría», el próximo rival).
  */
-export function Evolucion({ datos, fijo, inicial }: { datos: DatosOpta; fijo?: string; inicial?: string }) {
+export function Evolucion({ datos, fijo, inicial, alElegir }: { datos: DatosOpta; fijo?: string; inicial?: string; alElegir?: (nombre: string) => void }) {
   const { partidos, grupos, catalogo } = datos;
   const equipos = useMemo(() => equiposDe(datos), [datos]);
   const [elegido, setTeamId] = useState<string | null>(null);
@@ -101,7 +101,10 @@ export function Evolucion({ datos, fijo, inicial }: { datos: DatosOpta; fijo?: s
             <Elegir
               etiqueta="Equipo"
               valor={teamId}
-              alCambiar={setTeamId}
+              alCambiar={(v) => {
+                setTeamId(v);
+                alElegir?.(equipos.find((e) => e.teamId === v)?.equipo ?? "");
+              }}
               opciones={equipos.map((e) => ({ clave: e.teamId, nombre: e.equipo }))}
             />
           )

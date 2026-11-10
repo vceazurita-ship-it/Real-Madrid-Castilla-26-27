@@ -82,19 +82,21 @@ export function CaraACara({ datos, partido, teamId, conAbp = false }: { datos: D
         </span>
       </div>
       {METRICAS.map((k) =>
-        k in a || k.startsWith("·") ? <FilaCara key={k} def={defDe(k, catalogo)} va={valorDe(a, k, catalogo)} vb={valorDe(b, k, catalogo)} /> : null,
+        k in a || k.startsWith("·") ? <FilaCara key={k} def={defDe(k, catalogo)} va={valorDe(a, k, catalogo)} vb={valorDe(b, k, catalogo)} unDecimal={k === "ExpG" || k === "ExpGAg"} /> : null,
       )}
       {conAbp && <FilaCorners datos={datos} partido={partido} a={String(a.teamId)} b={String(b.teamId)} />}
       <p className="mt-2 text-[11px] text-white/45">
         En cada fila, la barra más larga es la mayor de las dos y el que sale mejor va en color pleno (↓ menos es mejor). En las de estilo (posesión, centros, pases por
-        secuencia) no hay mejor ni peor.
+        secuencia) no hay mejor ni peor.{"PPDA" in a ? " PPDA: pases que deja dar el rival antes de que presionemos; menos es más presión." : ""}
       </p>
     </div>
   );
 }
 
-function FilaCara({ def, va, vb }: { def: DefMetrica; va: number | null; vb: number | null }) {
+function FilaCara({ def, va, vb, unDecimal = false }: { def: DefMetrica; va: number | null; vb: number | null; unDecimal?: boolean }) {
   if (va == null && vb == null) return null;
+  /* 10/11/2026: los goles esperados con un decimal en toda la pantalla. */
+  const cifra = (v: number | null) => (unDecimal && v != null ? v.toFixed(1).replace(".", ",") : fmt(v, def.unidad));
   const tope = Math.max(Math.abs(va ?? 0), Math.abs(vb ?? 0));
   const ancho = (v: number | null) => (tope > 0 && v != null ? (Math.abs(v) / tope) * 100 : 0);
   const ganaA = def.mejor === null || va == null || vb == null || va === vb ? null : def.mejor ? va > vb : va < vb;
@@ -102,12 +104,12 @@ function FilaCara({ def, va, vb }: { def: DefMetrica; va: number | null; vb: num
   return (
     <div className="border-b border-white/[0.06] py-1.5 last:border-0">
       <div className="flex items-baseline gap-2 text-[13px] tabular-nums">
-        <span className={`w-16 shrink-0 ${ganaA === true ? "font-semibold text-white" : "text-white/70"}`}>{fmt(va, def.unidad)}</span>
-        <span className="min-w-0 flex-1 truncate text-center text-[12px] text-white/60">
+        <span className={`w-16 shrink-0 ${ganaA === true ? "font-semibold text-white" : "text-white/70"}`}>{cifra(va)}</span>
+        <span className="line-clamp-2 min-w-0 flex-1 text-center text-[12px] leading-tight text-white/60">
           {def.nombre}
           {def.mejor === false && <span className="ml-1 text-[10px] text-white/40">↓</span>}
         </span>
-        <span className={`w-16 shrink-0 text-right ${ganaA === false ? "font-semibold text-white" : "text-white/70"}`}>{fmt(vb, def.unidad)}</span>
+        <span className={`w-16 shrink-0 text-right ${ganaA === false ? "font-semibold text-white" : "text-white/70"}`}>{cifra(vb)}</span>
       </div>
       {tope > 0 && (
         <div className="mt-1 flex h-2 gap-0.5" aria-hidden>

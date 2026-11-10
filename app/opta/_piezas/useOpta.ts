@@ -17,6 +17,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { olvidaDocsOpta } from "@/hooks/useDocsOpta";
 import { aObjetos, DOCS_OPTA, traeOpta, type MetaOpta, type TablaOpta } from "@/lib/opta";
 import { catalogoDe, gruposDe, type Fila } from "@/lib/opta-analisis";
 
@@ -64,6 +65,20 @@ function trae(): Promise<Crudo> {
   return enVuelo;
 }
 
+const EVENTO_RECARGA = "rmcf:opta-recarga";
+
+/**
+ * «Actualizar datos» de Análisis de datos (10/11/2026): olvida lo de Opta
+ * —los seis documentos y los de evento a evento— y avisa a cada área montada
+ * para que lo vuelva a pedir.
+ */
+export function recargaOpta() {
+  enVuelo = null;
+  listo = null;
+  olvidaDocsOpta();
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(EVENTO_RECARGA));
+}
+
 export function useOpta() {
   const [crudo, setCrudo] = useState<Crudo | null>(() => listo);
   const [testigo, setTestigo] = useState(0);
@@ -83,6 +98,15 @@ export function useOpta() {
     listo = null;
     setCrudo(null);
     setTestigo((n) => n + 1);
+  }, []);
+
+  useEffect(() => {
+    const otraVez = () => {
+      setCrudo(null);
+      setTestigo((n) => n + 1);
+    };
+    window.addEventListener(EVENTO_RECARGA, otraVez);
+    return () => window.removeEventListener(EVENTO_RECARGA, otraVez);
   }, []);
 
   const datos = useMemo<DatosOpta | null>(() => {

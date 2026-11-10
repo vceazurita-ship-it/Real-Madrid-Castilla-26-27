@@ -33,6 +33,7 @@ import { Momentum } from "@/app/opta/_piezas/Momentum";
 import { MapaRemates } from "@/app/opta/_piezas/Remates";
 import { Elegir } from "@/app/opta/_piezas/comun";
 import { nombreDe, useAcciones, useRemates } from "@/app/opta/_piezas/eventos";
+import { alturaAccion, esPerdida, esProgresivo, esRecuperacion } from "@/lib/opta-eventos";
 import { useOpta, type DatosOpta } from "@/app/opta/_piezas/useOpta";
 import { Notice } from "@/components/abp/ui";
 import { PanelCampograma } from "@/components/data/PanelCampograma";
@@ -188,6 +189,13 @@ export function PanelPostPartido({ wyscout, wyscoutCaido = false }: { wyscout: F
           icono={LayoutGrid}
           sello={<SelloFuente fuente="wyscout" poblacion={equiposW ? `liga (${equiposW} equipos)` : "informe del partido"} hasta={hasta} className="shrink-0" />}
         >
+          {/* 10/11/2026: dos proveedores en la misma pantalla; sin esta línea,
+              2,0 de xG aquí y 1,6 arriba parecían una contradicción. */}
+          {visto.opta && (
+            <p className="mb-3 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-[12px] leading-snug text-white/70">
+              Cifras de Wyscout: cuenta distinto que Opta (el cara a cara de arriba), así que xG, posesión o pases no coinciden. Aquí se comparan sólo con nuestra media de Wyscout.
+            </p>
+          )}
           <PanelCampograma
             /* Con la clave del partido: cambiarlo arriba empieza el bloque de cero. */
             key={visto.clave}
@@ -254,7 +262,23 @@ function Enlace({ href, icono: Icono, titulo, texto }: { href: string; icono: ty
 /** Las fases de Opta del partido; si su documento aún no trae el partido, el bloque no sale. */
 function BloqueFases({ datos, partido, hasta }: { datos: DatosOpta; partido: string; hasta?: string }) {
   const { acciones, cargando } = useAcciones(datos);
-  const hay = useMemo(() => acciones.some((a) => a.nuestra && a.partido === partido), [acciones, partido]);
+  const delPartido = useMemo(() => acciones.filter((a) => a.nuestra && a.partido === partido), [acciones, partido]);
+  const hay = delPartido.length > 0;
+  /* 10/11/2026: tres ideas a la vista y el detalle plegado; la pantalla era muy larga. */
+  const ideas = useMemo(() => {
+    const pases = delPartido.filter((a) => a.tipo === "Pass").length;
+    const prog = delPartido.filter(esProgresivo).length;
+    const rec = delPartido.filter(esRecuperacion);
+    const recAlta = rec.filter((a) => alturaAccion(a.x) === "alta").length;
+    const per = delPartido.filter(esPerdida);
+    const perBaja = per.filter((a) => alturaAccion(a.x) === "baja").length;
+    const pc = (n: number, de: number) => (de ? `${Math.round((n / de) * 100)} %` : "");
+    return [
+      pases ? `${prog} pases progresivos de ${pases} (${pc(prog, pases)})` : "",
+      rec.length ? `${recAlta} de ${rec.length} recuperaciones en el último tercio (${pc(recAlta, rec.length)})` : "",
+      per.length ? `${perBaja} de ${per.length} pérdidas en nuestro primer tercio (${pc(perBaja, per.length)})` : "",
+    ].filter(Boolean);
+  }, [delPartido]);
   if (!cargando && !hay) return null;
   return (
     <Bloque
@@ -263,8 +287,71 @@ function BloqueFases({ datos, partido, hasta }: { datos: DatosOpta; partido: str
       icono={Footprints}
       sello={<SelloFuente fuente="opta" poblacion="evento a evento" hasta={hasta} className="shrink-0" />}
     >
-      <Fases datos={datos} partidoFijo={partido} />
+      {ideas.length > 0 && (
+        <ul className="mb-3 grid gap-2 sm:grid-cols-3">
+          {ideas.map((t) => (
+            <li key={t} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[13px] font-medium leading-snug text-white/85">
+              {t}
+            </li>
+          ))}
+        </ul>
+      )}
+      <details className="group">
+        <summary className="inline-flex min-h-[40px] cursor-pointer list-none items-center gap-1.5 rounded-xl border border-white/10 px-3 text-[13px] font-medium text-[#C8A96B] hover:border-[#C8A96B]/50 [&::-webkit-details-marker]:hidden">
+          <span className="group-open:hidden">Ver la red de pases, la progresión y dónde robamos y perdimos</span>
+          <span className="hidden group-open:inline">Ocultar el detalle</span>
+        </summary>
+        <div className="mt-3">
+          <Fases datos={datos} partidoFijo={partido} />
+        </div>
+      </details>
     </Bloque>
+  );
+}
+
+/**
+ * La lectura del cara a cara (10/11/2026): qué se creó, qué se marcó y qué
+ * nos deja. Sale de las mismas filas de `opta:partidos`; si falta un dato,
+ * no se escribe la frase.
+ */
+function LecturaCara({ datos, partido, rival }: { datos: DatosOpta; partido: string; rival: string }) {
+  const filas = datos.partidos.filter((f) => String(f.partido ?? "") === partido);
+  const nos = filas.find((f) => f.teamId === CASTILLA_OPTA);
+  const ellos = filas.find((f) => f.teamId !== CASTILLA_OPTA);
+  const num = (f: (typeof filas)[number] | undefined, k: string) => {
+    const v = f?.[k];
+    return typeof v === "number" && Number.isFinite(v) ? v : null;
+  };
+  const g1 = num(nos, "Goal");
+  const x1 = num(nos, "ExpG");
+  const r1 = num(nos, "ShtIncBl");
+  const g2 = num(ellos, "Goal");
+  const x2 = num(ellos, "ExpG");
+  const r2 = num(ellos, "ShtIncBl");
+  if (g1 == null || x1 == null || g2 == null || x2 == null) return null;
+
+  const d1 = (v: number) => v.toFixed(1).replace(".", ",");
+  const remates = (n: number | null) => (n == null ? "" : ` en ${n} ${n === 1 ? "remate" : "remates"}`);
+  const goles = (n: number) => `${n} ${n === 1 ? "gol" : "goles"}`;
+  const frase = `Creamos ${d1(x1)} de xG${remates(r1)} y marcamos ${goles(g1)}; ${rival}, ${d1(x2)}${remates(r2)}, y marcó ${goles(g2)}.`;
+
+  /* Qué nos deja: sólo cuando la distancia entre lo creado y lo marcado es clara (≥ 0,8). */
+  const nosFalta = x1 - g1 >= 0.8;
+  const nosSobra = g1 - x1 >= 0.8;
+  const aEllosSobra = g2 - x2 >= 0.8;
+  const aEllosFalta = x2 - g2 >= 0.8;
+  const deja = [
+    nosFalta ? "Nos sobró ocasión y faltó gol: la tarea es la finalización, no generar más." : "",
+    nosSobra ? "Marcamos por encima de lo que creamos: no contar con repetirlo sin más ocasiones." : "",
+    aEllosSobra ? `${rival} marcó muy por encima de lo que generó: revisar en el vídeo cómo llegaron sus goles, más que su volumen.` : "",
+    aEllosFalta ? `${rival} falló más de lo esperable: lo que concedimos pudo costar más.` : "",
+  ].filter(Boolean);
+
+  return (
+    <div className="mx-auto mb-4 max-w-3xl rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-[13px] leading-snug text-white/80">
+      <p className="font-semibold text-white">{frase}</p>
+      {deja.length > 0 && <p className="mt-1 text-white/70">{deja.join(" ")}</p>}
+    </div>
   );
 }
 
@@ -286,6 +373,7 @@ function BloqueOpta({ datos, partido, hasta }: { datos: DatosOpta; partido: Part
       icono={Swords}
       sello={<SelloFuente fuente="opta" poblacion="cifras del partido" hasta={hasta} className="shrink-0" />}
     >
+      <LecturaCara datos={datos} partido={id} rival={lados[1].n} />
       <CaraACara datos={datos} partido={id} teamId={CASTILLA_OPTA} />
       <Momentum datos={datos} partido={id} teamId={CASTILLA_OPTA} />
 

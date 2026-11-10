@@ -38,6 +38,13 @@ const corto = (n: string) => {
   return partes.length > 1 ? partes.slice(1).join(" ") : n;
 };
 
+/** 10/11/2026: si dos comparten apellido («Martínez»), con la inicial: «J. Martínez», «S. Martínez». */
+const cortoUnico = (n: string, todos: string[]) => {
+  const c = corto(n);
+  const repetido = todos.some((otro) => otro !== n && corto(otro) === c);
+  return repetido && c !== n ? `${n.charAt(0)}. ${c}` : c;
+};
+
 /**
  * `partidoFijo` (10/11/2026): el partido ya elegido fuera —el selector único
  * de «Post del partido»—; entonces no se pinta el selector propio y sólo se
@@ -151,7 +158,7 @@ function RedDePases({ acciones, jugador, partidos, alElegir }: { acciones: Accio
                     <title>{`${n.jugador}: ${n.pases} pases`}</title>
                   </circle>
                   <text x={cx} y={cy + 50} textAnchor="middle" style={{ fill: "rgba(255,255,255,0.9)", fontSize: 21, fontWeight: 600, pointerEvents: "none" }}>
-                    {corto(n.jugador)}
+                    {cortoUnico(n.jugador, nodos.map((otro) => otro.jugador))}
                   </text>
                 </g>
               );
@@ -352,15 +359,18 @@ function RecuperacionesPerdidas({ acciones, todas, partidos, jugador, alElegir }
             <TablaJugadores
               filas={conJugador.slice(0, 14).map((f) =>
                 modo === "recuperaciones"
-                  ? { nombre: f.nombre, celdas: [String(f.rec), String(f.recAlta)] }
-                  : { nombre: f.nombre, celdas: [String(f.per), String(f.perBaja)] },
+                  ? { nombre: f.nombre, celdas: [String(f.rec), `${f.recAlta} de ${f.rec}`] }
+                  : { nombre: f.nombre, celdas: [String(f.per), `${f.perBaja} de ${f.per}`] },
               )}
-              cabeceras={modo === "recuperaciones" ? ["Recup.", "Arriba"] : ["Pérdidas", "Atrás"]}
+              cabeceras={modo === "recuperaciones" ? ["Recup.", "Arriba, de sus recup."] : ["Pérdidas", "Atrás, de sus pérdidas"]}
               jugador={jugador}
               alElegir={alElegir}
             />
             {modo === "recuperaciones" && (
-              <p className="mt-2 text-[11px] text-white/50">Opta no pone nombre a las recuperaciones sueltas: la tabla cuenta las intercepciones y las entradas ganadas.</p>
+              <p className="mt-2 text-[11px] text-white/50">
+                Opta no pone nombre a las recuperaciones sueltas: la tabla cuenta las intercepciones y las entradas ganadas
+                {jugador ? "" : `, ${conJugador.reduce((s, f) => s + f.rec, 0)} de las ${lista.length} de arriba`}.
+              </p>
             )}
           </div>
         )}

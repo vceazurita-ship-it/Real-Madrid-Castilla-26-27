@@ -18,6 +18,19 @@ import { traeOpta } from "@/lib/opta";
 const enVuelo = new Map<string, Promise<unknown>>();
 const listos = new Map<string, unknown>();
 
+/** El aviso con el que «Actualizar datos» pide a todas las piezas montadas que vuelvan a pedir lo suyo. */
+const EVENTO_RECARGA = "rmcf:opta-docs-recarga";
+
+/**
+ * Olvida todo lo bajado (10/11/2026): el «Actualizar datos» de Análisis de
+ * datos sólo recargaba Wyscout; ahora también estos documentos.
+ */
+export function olvidaDocsOpta() {
+  enVuelo.clear();
+  listos.clear();
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(EVENTO_RECARGA));
+}
+
 function trae(clave: string): Promise<unknown> {
   let p = enVuelo.get(clave);
   if (!p) {
@@ -38,6 +51,13 @@ function trae(clave: string): Promise<unknown> {
 export function useDocsOpta<T extends unknown[]>(...claves: string[]): { docs: { [K in keyof T]: T[K] | null }; cargando: boolean } {
   const firma = claves.join("\n");
   const [llegados, setLlegados] = useState<{ firma: string; docs: unknown[] } | null>(null);
+  const [testigo, setTestigo] = useState(0);
+
+  useEffect(() => {
+    const otraVez = () => setTestigo((n) => n + 1);
+    window.addEventListener(EVENTO_RECARGA, otraVez);
+    return () => window.removeEventListener(EVENTO_RECARGA, otraVez);
+  }, []);
 
   useEffect(() => {
     let vivo = true;
@@ -49,7 +69,7 @@ export function useDocsOpta<T extends unknown[]>(...claves: string[]): { docs: {
     return () => {
       vivo = false;
     };
-  }, [firma]);
+  }, [firma, testigo]);
 
   const lista = firma.split("\n");
   const enCache = lista.every((c) => listos.has(c));

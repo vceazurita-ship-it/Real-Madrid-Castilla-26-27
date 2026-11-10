@@ -45,6 +45,10 @@ function frente(valor: number, liga: number) {
   return valor > liga * 1.1 ? 1 : valor < liga * 0.9 ? -1 : 0;
 }
 
+/** 10/11/2026: «45+'» no se lee igual en el vestuario: se dice qué añadido es. */
+export const tramoLargo = (nombre: string) =>
+  /^45+/.test(nombre) ? `${nombre} (añadido de la 1.ª parte)` : /^90+/.test(nombre) ? `${nombre} (añadido de la 2.ª parte)` : nombre;
+
 const veces = (n: number) => (n === 1 ? "1 gol" : `${n} goles`);
 
 /** El balance: cuánto marca y cuánto encaja frente a la liga. */
@@ -159,27 +163,35 @@ export function lecturaTipologia(favor: Map<string, number>, contra: Map<string,
   return frases;
 }
 
-/** Qué pasa cuando marca primero y cuando recibe primero. */
-export function lecturaPrimero(eq: ResumenPrimero, lg: ResumenPrimero) {
+/**
+ * Qué pasa cuando marca primero y cuando recibe primero. `nosotros`
+ * (10/11/2026): con el Castilla, en primera del plural, como el título de la
+ * tabla («cuando marcamos primero», «cuando nos marcan primero»).
+ */
+export function lecturaPrimero(eq: ResumenPrimero, lg: ResumenPrimero, nosotros = false) {
   const frases: string[] = [];
   const pts = (x: { n: number; G: number; E: number }) => media(x.G * 3 + x.E, x.n);
 
   if (eq.propio.n) {
     const f = frente(pts(eq.propio), pts(lg.propio));
-    const dice = f < 0 ? "se le escapan ventajas" : f > 0 ? "sabe cerrar los partidos" : "como el resto";
+    const dice = nosotros
+      ? f < 0 ? "se nos escapan ventajas" : f > 0 ? "sabemos cerrar los partidos" : "como el resto"
+      : f < 0 ? "se le escapan ventajas" : f > 0 ? "sabe cerrar los partidos" : "como el resto";
 
     const muestra = eq.propio.n < 5 ? ` (tendencia: ${eq.propio.n} ${eq.propio.n === 1 ? "partido" : "partidos"})` : "";
 
-    frases.push(`Cuando marca primero gana ${eq.propio.G} de ${eq.propio.n} (${n2(pts(eq.propio))} puntos por partido; la liga, ${n2(pts(lg.propio))}): ${dice}${muestra}.`);
+    frases.push(`${nosotros ? "Cuando marcamos primero ganamos" : "Cuando marca primero gana"} ${eq.propio.G} de ${eq.propio.n} (${n2(pts(eq.propio))} puntos por partido; la liga, ${n2(pts(lg.propio))}): ${dice}${muestra}.`);
   }
 
   if (eq.rival.n) {
     const f = frente(pts(eq.rival), pts(lg.rival));
-    const dice = f > 0 ? "remonta más que la media" : f < 0 ? "le cuesta reaccionar" : "reacciona como el resto";
+    const dice = nosotros
+      ? f > 0 ? "remontamos más que la media" : f < 0 ? "nos cuesta reaccionar" : "reaccionamos como el resto"
+      : f > 0 ? "remonta más que la media" : f < 0 ? "le cuesta reaccionar" : "reacciona como el resto";
     /* 08/11/2026: con menos de 5 partidos es tendencia, no rasgo. */
     const muestra = eq.rival.n < 5 ? ` (tendencia: ${eq.rival.n} ${eq.rival.n === 1 ? "partido" : "partidos"})` : "";
 
-    frases.push(`Cuando recibe primero saca ${n2(pts(eq.rival))} puntos por partido (la liga, ${n2(pts(lg.rival))}): ${dice}${muestra}.`);
+    frases.push(`${nosotros ? "Cuando nos marcan primero sacamos" : "Cuando recibe primero saca"} ${n2(pts(eq.rival))} puntos por partido (la liga, ${n2(pts(lg.rival))}): ${dice}${muestra}.`);
   }
 
   return frases;
@@ -219,6 +231,8 @@ type EntradaImportante = {
   conTipologia: boolean;
   /** Al equipo le falta algún partido jugado: los totales no son comparables con la liga. */
   incompleto: boolean;
+  /** El Castilla: las frases en primera del plural. */
+  nosotros?: boolean;
 };
 
 /**
@@ -247,7 +261,7 @@ export function loImportante(e: EntradaImportante): Importante[] {
     `A vigilar en los próximos partidos: con ${veces(n)} en el ${tramo} todavía no pide una tarea propia.`;
 
   if (flojo) {
-    const nombre = flojo.franja.nombre;
+    const nombre = tramoLargo(flojo.franja.nombre);
 
     filas.push({
       texto: `${e.corto} encaja más que la liga en el ${nombre}: ${veces(flojo.gc)} en contra${e.incompleto ? "" : `, ${n2(media(flojo.gc, e.partidos))} por partido frente a ${n2(flojo.ligaContraPP)} de la liga`}${flojo.gc <= 3 ? ` (tendencia, ${base(e.partidos)})` : ""}.`,
@@ -255,7 +269,7 @@ export function loImportante(e: EntradaImportante): Importante[] {
     });
   } else if (fuerte) {
     filas.push({
-      texto: `${e.corto} marca más que la liga en el ${fuerte.franja.nombre}: ${veces(fuerte.gf)}${e.incompleto ? "" : `, ${n2(media(fuerte.gf, e.partidos))} por partido frente a ${n2(fuerte.ligaPP)} de la liga`}${fuerte.gf <= 3 ? ` (tendencia, ${base(e.partidos)})` : ""}.`,
+      texto: `${e.corto} marca más que la liga en el ${tramoLargo(fuerte.franja.nombre)}: ${veces(fuerte.gf)}${e.incompleto ? "" : `, ${n2(media(fuerte.gf, e.partidos))} por partido frente a ${n2(fuerte.ligaPP)} de la liga`}${fuerte.gf <= 3 ? ` (tendencia, ${base(e.partidos)})` : ""}.`,
       accion: fuerte.gf <= 3 ? vigilar(fuerte.gf, fuerte.franja.nombre) : `Esta semana, repetir en el entrenamiento lo que ocurre en el tramo ${fuerte.franja.nombre} y llevarlo a otros momentos del partido.`,
     });
   }
@@ -279,7 +293,7 @@ export function loImportante(e: EntradaImportante): Importante[] {
   }
 
   if (!e.incompleto && e.primeroEq.propio.n && frente(media(e.primeroEq.propio.G * 3 + e.primeroEq.propio.E, e.primeroEq.propio.n), media(e.primeroLg.propio.G * 3 + e.primeroLg.propio.E, e.primeroLg.propio.n)) < 0) {
-    filas.push({ texto: lecturaPrimero(e.primeroEq, e.primeroLg)[0], accion: `Esta semana, ${TAREA_VENTAJA}` });
+    filas.push({ texto: lecturaPrimero(e.primeroEq, e.primeroLg, e.nosotros)[0], accion: `Esta semana, ${TAREA_VENTAJA}` });
   }
 
   if (e.conTipologia && e.totalContra > 0) {
@@ -293,5 +307,11 @@ export function loImportante(e: EntradaImportante): Importante[] {
     }
   }
 
-  return filas.slice(0, 3);
+  /* 10/11/2026: lo accionable arriba; lo que sólo es «a vigilar» (tendencia), debajo. */
+  const vigila = (f: Importante) => (f.accion.startsWith("A vigilar") ? 1 : 0);
+  return filas
+    .map((f, i) => ({ f, i }))
+    .sort((a, b) => vigila(a.f) - vigila(b.f) || a.i - b.i)
+    .map((x) => x.f)
+    .slice(0, 3);
 }

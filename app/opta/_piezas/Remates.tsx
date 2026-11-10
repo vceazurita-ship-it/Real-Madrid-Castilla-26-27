@@ -81,14 +81,19 @@ export function MapaRemates({
   return (
     <div className="min-w-0">
       <div className="grid gap-2 sm:grid-cols-4">
-        <Cifra rotulo="Remates" valor={String(r.remates)} detalle={r.partidos ? `${dec(r.remates / r.partidos, 1)} por partido` : undefined} />
+        {/* 10/11/2026: con un solo partido, «17,0 por partido» no decía nada. */}
+        <Cifra rotulo="Remates" valor={String(r.remates)} detalle={r.partidos && r.partidos > 1 ? `${dec(r.remates / r.partidos, 1)} por partido` : undefined} />
         <Cifra rotulo={enContra ? "Goles encajados" : "Goles"} valor={String(r.goles)} detalle={`xG ${dec(r.xG, 1)} · ${conSigno(r.golesMenosXG, 1)}`} />
         <Cifra rotulo="xG por remate" valor={dec(r.xGPorRemate)} detalle={r.pctPuerta != null ? `${pct(r.pctPuerta)} a puerta` : undefined} />
         {r.xGOTmenosXG != null && (
           <Cifra
-            rotulo="xGOT − xG"
-            valor={conSigno(r.xGOTmenosXG)}
-            detalle={enContra ? "de los suyos a puerta: + es que nos golpean bien" : "de los remates a puerta: + es buen golpeo"}
+            rotulo="Calidad del golpeo"
+            valor={conSigno(r.xGOTmenosXG, 1)}
+            detalle={
+              enContra
+                ? "xG del remate a puerta menos xG del remate, en los suyos: + es que nos golpean bien"
+                : "xG del remate a puerta menos xG del remate: + es buen golpeo"
+            }
           />
         )}
       </div>
@@ -151,7 +156,20 @@ type Lado = "favor" | "contra";
 /* Por id: en «en contra» rematan jugadores de veinte equipos y dos pueden llamarse igual. */
 const claveTirador = (r: Remate) => r.tiradorId || r.tirador;
 
-export function RematesEquipo({ datos, teamId: fijo, titulo, inicial }: { datos: DatosOpta; teamId?: string; titulo?: string; inicial?: string }) {
+export function RematesEquipo({
+  datos,
+  teamId: fijo,
+  titulo,
+  inicial,
+  alElegir,
+}: {
+  datos: DatosOpta;
+  teamId?: string;
+  titulo?: string;
+  inicial?: string;
+  /** 10/11/2026: el equipo elegido, para que la lectura de al lado abra con él. */
+  alElegir?: (nombre: string) => void;
+}) {
   const { remates, cargando, hay } = useRemates(datos);
   const equipos = useMemo(() => equiposDe(datos), [datos]);
   const [elegidoEquipo, setEquipo] = useState<string | null>(null);
@@ -209,6 +227,7 @@ export function RematesEquipo({ datos, teamId: fijo, titulo, inicial }: { datos:
             alCambiar={(v) => {
               setEquipo(v);
               setJugador("");
+              alElegir?.(equipos.find((e) => e.teamId === v)?.equipo ?? "");
             }}
             opciones={equipos.map((e) => ({ clave: e.teamId, nombre: e.equipo }))}
           />

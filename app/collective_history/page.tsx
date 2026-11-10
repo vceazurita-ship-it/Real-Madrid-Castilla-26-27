@@ -25,7 +25,8 @@ function GraficaPuntos({
   const W = 640;
   const H = 220;
   /* 30/10/2026: letra de los ejes a 14 en el lienzo de 640: a 390 px se quedaba en 6 px y no se leía. */
-  const M = { l: 40, r: 150, t: 16, b: 34 };
+  /* 10/11/2026: sin rótulos al final de las líneas (la leyenda de arriba los dice): margen derecho corto. */
+  const M = { l: 40, r: 24, t: 16, b: 34 };
   const maximo = Math.max(3, ...jugados.map((u) => u.acumulados), ...jugados.map((u) => liga.get(u.jornada) ?? 0));
   const tope = Math.ceil(maximo / 3) * 3;
   const x = (i: number) => M.l + (i * (W - M.l - M.r)) / (jugados.length - 1);
@@ -36,12 +37,40 @@ function GraficaPuntos({
   return (
     <div className="mt-4 min-w-0 rounded-[18px] border border-white/10 bg-white/[0.03] p-4">
       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#C8A96B]">Puntos acumulados</p>
-      <p className="mt-1 text-xs text-white/60">
-        Castilla (dorado) frente a los puntos que lleva de media un equipo de la liga tras cada jornada (discontinua). Más, mejor.
-      </p>
+      {(() => {
+        const ultimo = jugados[jugados.length - 1];
+        const media = liga.get(ultimo.jornada);
+        const f1 = (v: number) => v.toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 1 });
+        const d = media === undefined ? null : Math.round((ultimo.acumulados - media) * 10) / 10;
+        return (
+          <>
+            {/* 10/11/2026: una sola leyenda, con las dos cifras. */}
+            <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-white/80">
+              <span className="inline-flex items-center gap-1.5">
+                <span aria-hidden className="inline-block h-[3px] w-5 rounded-full bg-[#C8A96B]" />
+                Castilla <b className="tabular-nums">{f1(ultimo.acumulados)}</b>
+              </span>
+              {media !== undefined ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <span aria-hidden className="inline-block w-5 border-t-2 border-dashed border-white/55" />
+                  media de la liga <b className="tabular-nums">{f1(media)}</b>
+                </span>
+              ) : null}
+            </p>
+            {/* Lo que significa, en una frase. */}
+            {media !== undefined && d !== null ? (
+              <p className="mt-1 text-[13px] font-medium text-white/85">
+                {f1(ultimo.acumulados)} puntos frente a {f1(media)} de media tras {jugados.length} jornadas:{" "}
+                {Math.abs(d) < 0.05 ? "en la media" : `${f1(Math.abs(d))} ${d > 0 ? "por encima" : "por debajo"}`}.
+              </p>
+            ) : null}
+          </>
+        );
+      })()}
+      <div className="-mx-1 overflow-x-auto px-1">
       <svg
         viewBox={`0 0 ${W} ${H}`}
-        className="mt-3 h-auto w-full max-w-[720px]"
+        className="mt-3 h-auto w-full min-w-[520px] max-w-[720px]"
         role="img"
         aria-label="Puntos acumulados del Castilla frente a la media de la liga"
       >
@@ -72,44 +101,9 @@ function GraficaPuntos({
         {jugados.map((u, i) => (
           <circle key={u.jornada} cx={x(i)} cy={y(u.acumulados)} r={3.5} fill="#C8A96B" />
         ))}
-        {/* Rótulos directos en el último punto de cada línea. */}
-        {(() => {
-          const i = jugados.length - 1;
-          const ultimo = jugados[i];
-          const media = liga.get(ultimo.jornada);
-          /* 29/10/2026: los rótulos a la derecha del último punto y, si las líneas están juntas, separados en vertical. */
-          let yC = y(ultimo.acumulados);
-          let yM = media === undefined ? 0 : y(media);
-
-          if (media !== undefined && Math.abs(yC - yM) < 20) {
-            const medio = (yC + yM) / 2;
-            const signo = yM >= yC ? 1 : -1;
-
-            yC = medio - 10 * signo;
-            yM = medio + 10 * signo;
-          }
-
-          const fmt = (v: number) => v.toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 1 });
-
-          return (
-            <>
-              <text x={x(i) + 9} y={yC + 4} textAnchor="start" fontSize={15} fontWeight={600} fill="#C8A96B">
-                Castilla {fmt(ultimo.acumulados)}
-                {/* 08/11/2026: la diferencia con la media, en el propio rótulo. */}
-                {media !== undefined && Math.abs(ultimo.acumulados - media) >= 0.05
-                  ? ` (${ultimo.acumulados > media ? "+" : "−"}${fmt(Math.abs(ultimo.acumulados - media))})`
-                  : ""}
-              </text>
-              {media !== undefined ? (
-                <text x={x(i) + 9} y={yM + 4} textAnchor="start" fontSize={15} fill="currentColor" fillOpacity={0.7}>
-                  Media liga {fmt(media)}
-                </text>
-              ) : null}
-            </>
-          );
-        })()}
+        {/* 10/11/2026: los rótulos al final de cada línea salen; la leyenda de arriba ya los dice. */}
       </svg>
-      {/* 30/10/2026: sin leyenda aparte; los rótulos al final de cada línea ya la dicen (marketing: salía dos veces). */}
+      </div>
     </div>
   );
 }
@@ -396,7 +390,15 @@ useEffect(() => {
               {/* 07/11/2026: el titular con el dato, no sólo la etiqueta de la sección. */}
               {tabla && tabla.jugados > 0 ? (
                 <p className="mt-3 text-base font-medium text-white/85 sm:text-lg">
-                  {tabla.puesto}º de {tabla.deCuantos} con {tabla.puntos} puntos tras {tabla.jugados}{" "}
+                  {/* 10/11/2026: el movimiento de la última jornada, también en el titular. */}
+                  {(() => {
+                    if (jugados.length < 2) return `${tabla.puesto}º de ${tabla.deCuantos}`;
+                    const antes = liga.puestos.get(jugados[jugados.length - 2].jornada);
+                    return antes !== undefined && antes !== tabla.puesto
+                      ? `${antes > tabla.puesto ? "Subimos" : "Bajamos"} de ${antes}º a ${tabla.puesto}º de ${tabla.deCuantos}`
+                      : `${tabla.puesto}º de ${tabla.deCuantos}`;
+                  })()}{" "}
+                  con {tabla.puntos} puntos tras {tabla.jugados}{" "}
                   {tabla.jugados === 1 ? "jornada" : "jornadas"}
                   {liga.mediaPuntos !== null
                     ? `: ${(tabla.puntos / tabla.jugados).toLocaleString("es-ES", { maximumFractionDigits: 1 })} por partido frente a ${liga.mediaPuntos.toLocaleString("es-ES", { maximumFractionDigits: 1 })} de media en la liga.`
@@ -489,7 +491,7 @@ useEffect(() => {
                             Media liga
                             {liga.equipos > 0 ? (
                               <span className="block text-[10px] font-normal normal-case tracking-normal text-white/50">
-                                acumulados de los {liga.equipos} equipos
+                                puntos acumulados de media de los {liga.equipos} equipos tras cada jornada
                               </span>
                             ) : null}
                           </th>
@@ -577,8 +579,8 @@ useEffect(() => {
 
             <div className="mb-3 flex flex-wrap items-center gap-3 rounded-2xl border border-[#C8A96B]/40 bg-white/[0.04] px-4 py-3 text-sm text-white/80">
               <span className="min-w-0 flex-1 basis-full sm:basis-auto">
-                Informe completo de la competición en Power BI.{" "}
-                <span className="text-white/60">Sale de la plataforma: se abre en una pestaña nueva y puede pedir la cuenta de Microsoft.</span>
+                Informe completo de la competición en Power BI.
+                <span className="block text-[11px] text-white/55">Se abre en otra pestaña y puede pedir la cuenta de Microsoft.</span>
               </span>
               <a
                 href={src}
@@ -591,11 +593,11 @@ useEffect(() => {
               </a>
             </div>
 
-            {/* Vídeo */}
-            <div ref={videoRef} className="mt-10 sm:mt-14 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+            {/* Vídeo: 10/11/2026, pequeño y pegado a la franja, no un segundo botón. */}
+            <div ref={videoRef} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px]">
               <button
                 onClick={() => window.open(videoUrl, "_blank")}
-                className="inline-flex items-center gap-1.5 font-semibold text-[#C8A96B] underline-offset-4 hover:underline"
+                className="inline-flex items-center gap-1.5 text-white/60 underline-offset-4 hover:text-[#C8A96B] hover:underline"
               >
                 <ExternalLink className="h-3.5 w-3.5" aria-hidden />
                 Vídeo: cómo se lee el informe de Power BI

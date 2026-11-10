@@ -414,7 +414,8 @@ export default function Page() {
       {
         value: "ALL",
         label: `Todos (${matches.filter((m) => m.esLiga).length}${
-          matches.some((m) => !m.esLiga) ? ` + ${matches.filter((m) => !m.esLiga).length} de pretemporada` : ""
+          /* 10/11/2026: por qué aquí salen 12 y en las tarjetas 11. */
+          matches.some((m) => !m.esLiga) ? ` de liga + ${matches.filter((m) => !m.esLiga).length} de pretemporada, que no cuenta en las cifras` : ""
         })`,
       },
       ...list,
@@ -586,11 +587,20 @@ export default function Page() {
               {/* 07/11/2026: un titular con el dato, y el subtítulo sin nombrar
                   otra pantalla que aquí no se enlaza. */}
               {metrics.played > 0 ? (
-                <p className="mt-3 text-base font-medium text-white/85 sm:text-lg">
-                  {metrics.wins > 0 ? `Ganamos ${metrics.wins} de ${metrics.played}` : `${metrics.played} partidos de liga`}
-                  {matches.some((m) => !m.esLiga) ? " (liga, sin pretemporada)" : ""}:{" "}
-                  {metrics.goalsFor} {metrics.goalsFor === 1 ? "gol" : "goles"} a favor y {metrics.goalsAgainst} en contra.
-                </p>
+                /* 10/11/2026: el titular dice lo que no está en las tarjetas (el
+                   reparto) y la racha va aparte, rotulada como tendencia reciente. */
+                <>
+                  <p className="mt-3 text-base font-medium text-white/85 sm:text-lg">
+                    {metrics.wins > 0 ? `Ganamos ${metrics.wins}` : "No ganamos ninguno"}, empatamos {metrics.draws} y perdimos {metrics.losses} de {metrics.played} de liga
+                    {matches.some((m) => !m.esLiga) ? " (sin la pretemporada)" : ""}.
+                  </p>
+                  {metrics.lastFive.length >= 3 ? (
+                    <p className="mt-2 inline-flex flex-wrap items-center gap-x-2 rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/[0.07] px-3 py-1 text-[13px] text-white/80">
+                      <span className="text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ color: "var(--rmcf-gold-ink)" }}>Tendencia reciente</span>
+                      {metrics.lastFive.reduce((s, m) => s + (m.outcome === "W" ? 3 : m.outcome === "D" ? 1 : 0), 0)} de {metrics.lastFive.length * 3} puntos en los últimos {metrics.lastFive.length}
+                    </p>
+                  ) : null}
+                </>
               ) : null}
 
               <p className="mt-2 max-w-2xl text-sm text-white/55">
@@ -813,7 +823,8 @@ function MetricsPanel({
     const d = Math.round((goles / metrics.played - ligaPP) * 10) / 10;
     const juicio = Math.abs(d) < 0.05 ? "igual" : `${coma(Math.abs(d))} ${(d > 0) === mejorAlto ? "mejor" : "peor"}`;
 
-    return ` · liga ${coma(ligaPP)}: ${juicio}`;
+    /* 10/11/2026: la base en la propia cifra, como en /analisis-goles. */
+    return ` · media de los ${ligaBase ? `${ligaBase.equipos} equipos` : "equipos de la liga"}: ${coma(ligaPP)} (${juicio})`;
   };
 
   return (
@@ -834,34 +845,43 @@ function MetricsPanel({
         {/* 08/11/2026: «4 de 10» salía en el titular y otra vez en tres
             tarjetas: queda una barra con los partidos en orden y el reparto. */}
         <div className="col-span-2 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4 lg:col-span-3">
-          <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">
-            Resultados · {metrics.wins} V · {metrics.draws} E · {metrics.losses} D
-          </p>
-          <div className="mt-3 flex flex-wrap items-center gap-1">
-            {metrics.todos.map((m) => {
+          {/* 10/11/2026: una sola tira (antes había otra de «Últimos 5» en
+              el orden contrario): del más antiguo al más reciente, con la
+              jornada debajo y los cinco últimos marcados. */}
+          <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Partido a partido</p>
+          <div className="mt-3 flex flex-wrap items-start gap-1">
+            {metrics.todos.map((m, i) => {
               const token = OUTCOME[m.outcome as Outcome];
+              const reciente = i >= metrics.todos.length - metrics.lastFive.length;
+              const jornada = m.microciclo.match(/(d+)/)?.[1];
+              const texto = `${m.microciclo} · ${m.partido} · ${m.resultado} · ${formatDate(m)}`;
 
               return (
-                <span
-                  key={m.id}
-                  title={`${m.partido} · ${m.resultado} · ${formatDate(m)}`}
-                  className={cn(
-                    "flex h-7 min-w-7 items-center justify-center rounded-md border px-1 text-[11px] font-semibold",
-                    token.chip,
-                  )}
-                >
-                  {token.short}
+                <span key={m.id} className="flex flex-col items-center gap-0.5">
+                  <span
+                    title={texto}
+                    aria-label={texto}
+                    role="img"
+                    className={cn(
+                      "flex h-7 min-w-7 items-center justify-center rounded-md border px-1 text-[11px] font-semibold",
+                      token.chip,
+                      reciente && "ring-1 ring-[#C8A96B]/60",
+                    )}
+                  >
+                    {token.short}
+                  </span>
+                  {jornada ? <span className="text-[9.5px] tabular-nums text-white/45">J{jornada}</span> : null}
                 </span>
               );
             })}
           </div>
           <p className="mt-2 text-[11px] text-white/55">
-            {metrics.played} partidos de liga, del más antiguo al más reciente
+            Del más antiguo al más reciente; con borde dorado, los {metrics.lastFive.length} últimos.
           </p>
         </div>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-3">
         <Stat
           title="Goles a favor"
           value={metrics.goalsFor}
@@ -889,41 +909,8 @@ function MetricsPanel({
           }
         />
 
-        <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4">
-          <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">
-            {metrics.lastFive.length >= 5
-              ? "Últimos 5"
-              : `Últimos ${metrics.lastFive.length} (de ${metrics.played} jugados)`}
-          </p>
-
-          <div className="mt-3 flex flex-wrap items-center gap-1.5">
-
-            {metrics.lastFive.map((m) => {
-              const token = OUTCOME[m.outcome as Outcome];
-
-              return (
-                <span
-                  key={m.id}
-                  title={`${m.partido} · ${m.resultado} · ${formatDate(m)}`}
-                  className={cn(
-                    "flex h-8 w-8 items-center justify-center rounded-lg border text-xs font-semibold",
-                    token.chip
-                  )}
-                >
-                  {token.short}
-                </span>
-              );
-            })}
-          </div>
-
-          {/* 07/11/2026: la racha con su base en puntos. */}
-          {metrics.lastFive.length > 0 ? (
-            <p className="mt-2 text-[11px] text-white/55">
-              {metrics.lastFive.reduce((s, m) => s + (m.outcome === "W" ? 3 : m.outcome === "D" ? 1 : 0), 0)} de{" "}
-              {metrics.lastFive.length * 3} puntos en {metrics.lastFive.length} partidos · del más reciente al más antiguo
-            </p>
-          ) : null}
-        </div>
+        {/* 10/11/2026: la tarjeta «Últimos 5» se quita: la racha va en el titular
+            como tendencia reciente y los cinco, marcados en la tira de arriba. */}
       </div>
 
       {/* 30/10/2026: la barra «3 de 9 victorias · 3 V 3 E 3 D» repetía las tres
