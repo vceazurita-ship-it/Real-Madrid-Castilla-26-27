@@ -115,6 +115,15 @@ function fechaCorta(fecha: string) {
   return `${Number(dia)} ${meses[Number(mes) - 1] ?? ""}`;
 }
 
+/** "2026-11-15" → "domingo 15 de noviembre". */
+function fechaLarga(fecha: string) {
+  const dia = new Date(`${fecha}T12:00:00Z`);
+
+  if (Number.isNaN(dia.getTime())) return fechaCorta(fecha);
+
+  return dia.toLocaleDateString("es-ES", { timeZone: "UTC", weekday: "long", day: "numeric", month: "long" }).replace(",", "");
+}
+
 /** Dos listas de signos iguales, contando un hueco que falta como vacío. */
 function mismosSignos(a: (Signo | null)[], b: (Signo | null)[], largo: number) {
   for (let i = 0; i < largo; i += 1) {
@@ -196,6 +205,12 @@ export default function QuinielaPage() {
   const plazo = useMemo(
     () => estadoPara(doc.jornadas[String(jornada)], jornada, yo, ahora),
     [doc, jornada, yo, ahora],
+  );
+
+  /* El instante del cierre, para que la franja diga «faltan 2 días» (11/11/2026). */
+  const cierreEn = useMemo(
+    () => (plazo.viernes ? instanteDeCierre(plazo.viernes) : null),
+    [plazo.viernes],
   );
 
   /* «las 18:30 del viernes 3», para la prórroga. */
@@ -588,6 +603,49 @@ export default function QuinielaPage() {
           ? "error"
           : "saved";
 
+  /*
+  | LAS REGLAS, UNA SOLA VEZ (11/11/2026, marketing). La regla del acierto
+  | salía tres veces: en el subtítulo del ranking, en «Cómo se cuenta» y en
+  | «La comida». Ahora es un único texto al pie del ranking (o suelto, si aún
+  | no hay ranking que enseñar), con el detalle plegado en «Reglas».
+  */
+  const hayRanking = tabla.some((fila) => fila.total.jugados > 0);
+
+  const reglas = (
+    <div className="text-[13px] leading-relaxed text-white/70">
+      <p>
+        <strong className="font-semibold text-white/85">Cómo se cuenta.</strong>{" "}
+        Acierto = partidos acertados / partidos ya jugados desde tu primera apuesta;
+        desde ahí, el que no pones cuenta como fallo. «=» es puesto compartido:
+        mismo porcentaje y mismos aciertos.
+      </p>
+      <details className="mt-1 text-white/60">
+        <summary className="cursor-pointer select-none text-[#C8A96B]">
+          Reglas completas
+        </summary>
+        <p className="mt-1">
+          A igual porcentaje, manda quien más acierta; con los dos
+          iguales, el puesto se comparte y lleva «=» (=8: empatados
+          en el octavo). Jornadas ganadas: las que cada uno cerró con
+          más aciertos que nadie; si empatan dos en una jornada, la
+          ganan los dos.
+        </p>
+        <p className="mt-1">
+          Un partido sin resultado no cuenta para nadie, ni a favor
+          ni en contra. No pronosticar sólo es fallo cuando el
+          partido se ha jugado.
+        </p>
+        <p className="mt-1">
+          La comida: lo que no jugó antes de entrar no suma como
+          fallo. Si hay empate en el segundo puesto no paga ninguno
+          de los empatados, salvo que así no pagase nadie: entonces
+          sólo se invita a quien va por delante. Con cero aciertos
+          no se invita a nadie.
+        </p>
+      </details>
+    </div>
+  );
+
   /* El ranking es el mismo cerrada o abierta la jornada; cerrada sube justo
      detrás de «Quién juega» (21/10/2026). */
   const panelRanking = (
@@ -596,23 +654,20 @@ export default function QuinielaPage() {
 
             {/* Sin un solo resultado en la temporada no hay ranking que
                 enseñar: el panel no sale. */}
-            {tabla.some((fila) => fila.total.jugados > 0) && (
+            {hayRanking && (
             <div className="mt-5">
               <Panel
                 title="Ranking de acierto · toda la temporada"
-                /* La base, en el propio panel y sin abrir «Reglas» (08/11/2026, marketing). */
-                subtitle="Acierto = partidos acertados / partidos jugados desde tu primera apuesta."
+                /* La regla va una sola vez, al pie de la tabla (11/11/2026, marketing). */
+                subtitle="Ordenado por porcentaje de acierto. Cómo se cuenta, al pie."
                 icon={Trophy}
               >
-                {/* Una línea (10/11/2026, marketing): el desempate entero va en «Cómo se cuenta · Reglas», abajo. */}
-                <p className="-mt-1 mb-2 text-[12px] leading-relaxed text-white/60">
-                  «=» es puesto compartido: mismo porcentaje y mismos aciertos.
-                </p>
                 {(
                   <div className="min-w-0 overflow-x-auto sm:pr-14">
-                    <table className="w-full text-[12px] sm:min-w-[520px]">
+                    {/* 13-14 px (11/11/2026, marketing): a 12 px no se leía en escritorio. */}
+                    <table className="w-full text-[13px] sm:min-w-[520px] sm:text-[14px]">
                       <thead>
-                        <tr className="text-[11px] uppercase tracking-[0.12em] text-white/55">
+                        <tr className="text-[12px] uppercase tracking-[0.12em] text-white/55">
                           <th className="w-7 pb-2 pt-1.5 text-right font-medium">#</th>
                           <th className="pb-2 pl-2 pt-1.5 text-left font-medium">Quién</th>
                           <th className="w-20 pb-2 pt-1.5 text-right font-medium">Acierto</th>
@@ -646,7 +701,7 @@ export default function QuinielaPage() {
                             <Fragment key={fila.slug}>
                             {empiezanPocas && (
                               <tr className="border-t border-white/[0.12]">
-                                <td colSpan={6} className="pb-1 pt-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/50">
+                                <td colSpan={6} className="pb-1 pt-3 text-[12px] font-semibold uppercase tracking-[0.14em] text-white/55">
                                   Con pocas apuestas · fuera del orden por porcentaje
                                 </td>
                               </tr>
@@ -657,7 +712,7 @@ export default function QuinielaPage() {
                               }`}
                             >
                               {/* El «=» a 12 px y sin cifras tabulares (10/11/2026): a 11 px en el móvil se leía «≈». */}
-                              <td className="py-1.5 text-right text-[12px] font-semibold text-white/55">
+                              <td className="py-2 text-right text-[13px] font-semibold text-white/60">
                                 {pocasApuestas(fila) ? "" : compartido ? `=${puesto + 1}` : indice + 1}
                               </td>
 
@@ -684,19 +739,19 @@ export default function QuinielaPage() {
                                       cuenta desde ahí (36 partidos)».
                                     */}
                                     {fila.total.jugados < maxJugados && Number.isFinite(primeraDe.get(fila.slug) ?? Infinity) && (
-                                      <span className="block text-[12px] text-white/60">
+                                      <span className="block text-[13px] text-white/65">
                                         {`entró en la jornada ${primeraDe.get(fila.slug)} · cuenta desde ahí (${fila.total.jugados} ${fila.total.jugados === 1 ? "partido" : "partidos"})`}
                                       </span>
                                     )}
                                     {fila.apostados < fila.total.jugados && (
-                                      <span className="block text-[12px] text-white/60">
+                                      <span className="block text-[13px] text-white/65">
                                         {`apostó ${fila.apostados} de ${fila.total.jugados} · el resto cuenta como fallo`}
                                       </span>
                                     )}
 
                                     {/* En el móvil no caben las columnas de
                                         aciertos y jornadas: van aquí, pequeñas. */}
-                                    <span className="block truncate text-[12px] tabular-nums text-white/55 sm:hidden">
+                                    <span className="block truncate text-[13px] tabular-nums text-white/60 sm:hidden">
                                       {fila.total.aciertos}/{fila.total.jugados}
                                       {fila.jornadasGanadas > 0
                                         ? ` · ${fila.jornadasGanadas} ${
@@ -718,7 +773,7 @@ export default function QuinielaPage() {
 
                               <td className="hidden py-1.5 text-right tabular-nums text-white/55 sm:table-cell">
                                 {fila.total.aciertos}
-                                <span className="text-white/25">
+                                <span className="text-white/40">
                                   /{fila.total.jugados}
                                 </span>
                               </td>
@@ -740,6 +795,9 @@ export default function QuinielaPage() {
                     </table>
                   </div>
                 )}
+
+                {/* «Cómo se cuenta» y el pie del ranking, en un solo texto (11/11/2026, marketing). */}
+                <div className="mt-4 border-t border-white/10 pt-3">{reglas}</div>
               </Panel>
             </div>
             )}
@@ -1019,6 +1077,7 @@ export default function QuinielaPage() {
                 cerrada={plazo.cerrada}
                 ultimasHoras={plazo.ultimasHoras}
                 cuandoCierra={cuandoCierra(plazo.viernes)}
+                cierreEn={plazo.prorrogaHasta ? null : cierreEn}
                 ahora={ahora}
                 primerPartido={[...partidos]
                   .filter((uno) => uno.fecha)
@@ -1124,7 +1183,7 @@ export default function QuinielaPage() {
                 {/* El plazo, siempre a la vista: es lo que más se pregunta. */}
                 {plazo.viernes && (
                   <div
-                    className={`mb-3 flex items-start gap-2 rounded-xl border px-3 py-2 text-[12px] leading-snug ${
+                    className={`mb-3 flex items-start gap-2 rounded-xl border px-3 py-2 text-[13px] leading-snug ${
                       plazo.cerrada
                         ? "border-white/10 bg-white/[0.02] text-white/50"
                         : plazo.ultimasHoras
@@ -1153,9 +1212,11 @@ export default function QuinielaPage() {
                 {/* En el móvil cada partido es una tarjeta: equipos arriba y
                     los dos 1-X-2 debajo. La tabla de 720 px dejaba el 1-X-2
                     fuera de la pantalla, tras un desplazamiento que no se ve. */}
+                {/* El calendario no trae la hora: la fecha va una vez arriba, entera, y no en cada fila (11/11/2026, marketing). */}
                 {mismaFecha ? (
-                  <p className="mb-2 text-[12px] text-white/65">
-                    Los {partidos.length} partidos se juegan el {fechaCorta(mismaFecha)}.
+                  <p className="mb-2 inline-flex items-center gap-1.5 text-[13px] text-white/75">
+                    <CalendarDays size={14} aria-hidden className="shrink-0 text-[#C8A96B]" />
+                    Los {partidos.length} partidos se juegan el {fechaLarga(mismaFecha)}.
                   </p>
                 ) : null}
 
@@ -1181,7 +1242,7 @@ export default function QuinielaPage() {
                       >
                         {/* Local y visitante en una línea (10/11/2026, marketing): los nueve partidos caben en una pantalla. */}
                         <p className="text-[13px] leading-snug text-white/85">
-                          <span className="mr-1.5 text-[11px] tabular-nums text-white/40">
+                          <span className="mr-1.5 text-[12px] tabular-nums text-white/50">
                             {indice + 1}
                           </span>
                           {partido.local} <span className="text-white/40">–</span> {partido.visitante}
@@ -1236,9 +1297,10 @@ export default function QuinielaPage() {
                 </ul>
 
                 <div className="hidden min-w-0 overflow-x-auto sm:block">
-                  <table className="w-full min-w-[560px] text-[12px]">
+                  {/* 13-14 px (11/11/2026, marketing), como el ranking. */}
+                  <table className="w-full min-w-[560px] text-[13px] lg:text-[14px]">
                     <thead>
-                      <tr className="text-[11px] uppercase tracking-[0.12em] text-white/55">
+                      <tr className="text-[12px] uppercase tracking-[0.12em] text-white/55">
                         <th className="w-7 pb-2 pt-1.5 text-right font-medium">#</th>
                         <th className="pb-2 pl-2 pt-1.5 text-left font-medium">Partido</th>
                         {yo && (
@@ -1303,7 +1365,7 @@ export default function QuinielaPage() {
                                   : ""
                             }`}
                           >
-                            <td className="py-2 text-right text-[10px] tabular-nums text-white/25">
+                            <td className="py-2 text-right text-[12px] tabular-nums text-white/45">
                               {indice + 1}
                             </td>
 
@@ -1314,7 +1376,7 @@ export default function QuinielaPage() {
                                 {partido.local}
                               </span>
 
-                              <span className="block truncate text-[11px] text-white/40">
+                              <span className="block truncate text-[13px] text-white/55">
                                 {partido.visitante}
                               </span>
                                 </>
@@ -1328,7 +1390,7 @@ export default function QuinielaPage() {
                             {!yo && (
                               <>
                                 {!mismaFecha && (
-                                  <td className="py-2 text-right text-[12px] tabular-nums text-white/55">
+                                  <td className="py-2 text-right text-[13px] tabular-nums text-white/60">
                                     {fechaCorta(partido.fecha)}
                                   </td>
                                 )}
@@ -1379,7 +1441,7 @@ export default function QuinielaPage() {
                               />
                             </td>
 
-                            <td className="py-2 text-center text-[11px] tabular-nums text-white/45">
+                            <td className="py-2 text-center text-[13px] tabular-nums text-white/55">
                               {aciertan === null ? "" : `${aciertan}/${jugadores.length}`}
                             </td>
                             </>
@@ -1490,11 +1552,24 @@ export default function QuinielaPage() {
                     ? "Bloque cerrado: éstos son los dos que no pagan"
                     : tablaBloque.every((fila) => fila.jugados === 0)
                       ? undefined
-                      /* La base, dicha (10/11/2026, marketing): estos porcentajes no son los del ranking porque sólo cuentan este bloque. */
-                      : `Cuenta sólo las jornadas ${bloque.desde} a ${bloque.hasta}, por eso no coincide con el ranking. Los dos primeros comen invitados por el resto. Así va, tras ${Math.max(...tablaBloque.map((fila) => fila.jugados))} partidos jugados.`
+                      : "Los dos primeros comen invitados por el resto"
                 }
                 icon={UtensilsCrossed}
               >
+                {/*
+                | LA BASE, EN UNA LÍNEA A LA VISTA (11/11/2026, marketing): contra
+                | qué se mide cada porcentaje y por qué no es el del ranking, sin
+                | repetir la regla del acierto (va al pie del ranking).
+                */}
+                {tablaBloque.some((fila) => fila.jugados > 0) ? (
+                  <p className="mb-3 text-[13px] leading-relaxed text-white/75">
+                    {(() => {
+                      const base = Math.max(...tablaBloque.map((fila) => fila.jugados));
+
+                      return `Cada porcentaje es sobre los ${base} ${base === 1 ? "partido jugado" : "partidos jugados"} de las jornadas ${bloque.desde} a ${bloque.hasta}, no sobre toda la temporada: por eso no coincide con el ranking.`;
+                    })()}
+                  </p>
+                ) : null}
                 {/* Sin ningún partido jugado del bloque, el orden no significa nada
                     (07/11/2026, guionista y marketing): una sola frase, sin
                     subtítulo que la repita (08/11/2026). */}
@@ -1540,8 +1615,8 @@ export default function QuinielaPage() {
                           </span>
 
                           {fila.jugados > 0 ? (
-                            <span className="block text-[12px] tabular-nums text-white/60">
-                              {`${fila.aciertos} ${fila.aciertos === 1 ? "acierto" : "aciertos"} de ${fila.jugados} · ${fila.porcentaje.toFixed(0)} %`}
+                            <span className="block text-[13px] tabular-nums text-white/65">
+                              {`${fila.aciertos}/${fila.jugados} · ${fila.porcentaje.toFixed(0)} %`}
                             </span>
                           ) : null}
                         </span>
@@ -1568,36 +1643,12 @@ export default function QuinielaPage() {
               </Panel>
             </div>
 
-            <div className="mt-5">
-              <Notice tone="info" title="Cómo se cuenta">
-                Sólo cuentan los partidos ya jugados, desde tu primera apuesta;
-                después, la que no pones es fallo.
-                <details className="mt-1 text-white/60">
-                  <summary className="cursor-pointer select-none">
-                    Reglas
-                  </summary>
-                  <p className="mt-1">
-                    A igual porcentaje, manda quien más acierta; con los dos
-                    iguales, el puesto se comparte y lleva «=» (=8: empatados
-                    en el octavo). Jornadas ganadas: las que cada uno cerró con
-                    más aciertos que nadie.
-                  </p>
-                  <p className="mt-1">
-                    Un partido sin resultado no cuenta para nadie, ni a favor
-                    ni en contra. No pronosticar sólo es fallo cuando el
-                    partido se ha jugado. Si empatan dos en una jornada, la
-                    ganan los dos.
-                  </p>
-                  <p className="mt-1">
-                    La comida: lo que no jugó antes de entrar no suma como
-                    fallo. Si hay empate en el segundo puesto no paga ninguno
-                    de los empatados, salvo que así no pagase nadie: entonces
-                    sólo se invita a quien va por delante. Con cero aciertos
-                    no se invita a nadie.
-                  </p>
-                </details>
-              </Notice>
-            </div>
+            {/* Sin ranking todavía, las reglas salen sueltas; con ranking van a su pie (11/11/2026). */}
+            {!hayRanking && (
+              <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                {reglas}
+              </div>
+            )}
 
             {plazo.cerrada && !yo && (
               <div id="acceso-quiniela" className="mt-5 scroll-mt-24">

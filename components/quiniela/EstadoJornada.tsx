@@ -56,6 +56,35 @@ function diaDe(fecha: string) {
   };
 }
 
+/*
+| CUÁNTO QUEDA (11/11/2026, marketing): «se cierra el viernes 13» obliga a
+| echar la cuenta; «faltan 2 días» es lo primero que se lee. Se calcula con el
+| `ahora` que llega de `useAhora`, nunca con un reloj dentro del render.
+*/
+function cuantoFalta(hasta: Date | null | undefined, ahora: Date) {
+  if (!hasta) return "";
+
+  const ms = hasta.getTime() - ahora.getTime();
+
+  if (!Number.isFinite(ms) || ms <= 0) return "";
+
+  const minutos = Math.floor(ms / 60000);
+  const horas = Math.floor(minutos / 60);
+  const dias = Math.floor(horas / 24);
+
+  if (dias >= 2) return `faltan ${dias} días`;
+
+  if (dias === 1) {
+    const resto = horas - 24;
+
+    return resto > 0 ? `falta 1 día y ${resto} h` : "falta 1 día";
+  }
+
+  if (horas >= 1) return horas === 1 ? "falta 1 hora" : `faltan ${horas} horas`;
+
+  return minutos <= 1 ? "falta 1 minuto" : `faltan ${minutos} minutos`;
+}
+
 /** «A», «A y B», «A, B y C». */
 function enLista(nombres: string[]) {
   if (nombres.length <= 1) return nombres.join("");
@@ -72,10 +101,12 @@ function enLista(nombres: string[]) {
 function Dato({
   icono: Icono,
   tono = "normal",
+  className = "",
   children,
 }: {
   icono: typeof Clock;
   tono?: "normal" | "oro" | "aviso";
+  className?: string;
   children: React.ReactNode;
 }) {
   /* Con la tinta del tema (19/10/2026): el oro y el amarillo claros, sobre la
@@ -89,8 +120,8 @@ function Dato({
         : undefined;
 
   return (
-    <p className="flex min-w-0 items-start gap-1.5 text-[12.5px] leading-snug text-white/70">
-      <Icono size={13} aria-hidden className="mt-0.5 shrink-0" style={color ? { color } : undefined} />
+    <p className={`flex min-w-0 items-start gap-1.5 text-[13px] leading-snug text-white/70 ${className}`}>
+      <Icono size={14} aria-hidden className="mt-0.5 shrink-0" style={color ? { color } : undefined} />
       <span className="min-w-0">{children}</span>
     </p>
   );
@@ -104,6 +135,7 @@ export function EstadoJornada({
   cerrada,
   ultimasHoras,
   cuandoCierra: cierre,
+  cierreEn,
   ahora,
   primerPartido,
   faltan = [],
@@ -119,6 +151,8 @@ export function EstadoJornada({
   cerrada: boolean;
   ultimasHoras: boolean;
   cuandoCierra: string;
+  /** El instante del cierre (viernes 12:00 de Madrid), para decir cuánto falta. */
+  cierreEn?: Date | null;
   ahora: Date;
   /** El primero que se juega: con 0 jugados es lo que cuenta la cuarta ficha. */
   primerPartido?: { fecha: string; local: string; visitante: string };
@@ -163,6 +197,8 @@ export function EstadoJornada({
   /* Quién falta ya no se dice aquí (29/10/2026, marketing): sale una sola vez,
      en «Quién juega». La franja se queda con la cuenta y la barra. */
 
+  const falta = cerrada ? "" : cuantoFalta(cierreEn, ahora);
+
   const diaPrimero = primerPartido ? diaDe(primerPartido.fecha) : null;
 
   const cuando = jornada.resultadosEn ? hace(jornada.resultadosEn, ahora) : "";
@@ -192,13 +228,30 @@ export function EstadoJornada({
       }`}
     >
       {/* 1. El plazo: es lo que más se pregunta, va primero y entero. */}
-      <Dato icono={cerrada ? Lock : Clock} tono={cerrada ? "normal" : ultimasHoras ? "aviso" : "oro"}>
-        <strong className="font-semibold text-white">
-          {/* «Cerrada a las apuestas» (30/10/2026, marketing): «cerrada» junto a
-              «Empieza el domingo» parecía una contradicción. */}
-          Jornada {numero} {cerrada ? "cerrada a las apuestas" : ultimasHoras ? "· hoy cierra" : "abierta"}
-        </strong>
-        {!cerrada && cierre ? ` · se cierra el ${cierre}` : ""}
+      {/* Toda la fila y más grande (11/11/2026, marketing): «faltan 2 días» es lo primero que se lee. */}
+      <Dato
+        icono={cerrada ? Lock : Clock}
+        tono={cerrada ? "normal" : ultimasHoras ? "aviso" : "oro"}
+        className="sm:basis-full"
+      >
+        {falta ? (
+          <>
+            <strong className="text-[15px] font-semibold text-white">
+              {falta.charAt(0).toUpperCase() + falta.slice(1)} para apostar
+            </strong>
+            {` · jornada ${numero} ${ultimasHoras ? "· hoy cierra" : "abierta"}`}
+            {cierre ? ` hasta el ${cierre}` : ""}
+          </>
+        ) : (
+          <>
+            <strong className="font-semibold text-white">
+              {/* «Cerrada a las apuestas» (30/10/2026, marketing): «cerrada» junto a
+                  «Empieza el domingo» parecía una contradicción. */}
+              Jornada {numero} {cerrada ? "cerrada a las apuestas" : ultimasHoras ? "· hoy cierra" : "abierta"}
+            </strong>
+            {!cerrada && cierre ? ` · se cierra el ${cierre}` : ""}
+          </>
+        )}
       </Dato>
 
       {/* 2. Quién ha apostado: la cuenta y la barra, sin nombres. */}
@@ -211,11 +264,15 @@ export function EstadoJornada({
             </strong>{" "}
             {cerrada ? "apostaron" : "con la apuesta completa"}
           </span>
-          <span className="inline-flex h-2 w-24 overflow-hidden rounded-full bg-white/15" aria-hidden>
-            <span
-              className="h-full rounded-full bg-[#C8A96B]"
-              style={{ width: `${(completas / Math.max(1, jugadores.length)) * 100}%` }}
-            />
+          {/* Un tramo por persona (11/11/2026, marketing): con una barra lisa,
+              2 de 11 se veía casi vacía y sin escala; así se cuentan. */}
+          <span className="inline-flex items-center gap-[3px]" aria-hidden>
+            {jugadores.map((slug, indice) => (
+              <span
+                key={slug}
+                className={`h-2.5 w-3 rounded-[2px] ${indice < completas ? "bg-[#C8A96B]" : "bg-white/15"}`}
+              />
+            ))}
           </span>
           {faltan.length > 0 ? (
             <span className="text-white/70">
