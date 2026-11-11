@@ -121,8 +121,14 @@ export type CometidoAccion = {
   zona: { x: number; y: number }[];
   /** Los demás de la diapositiva: la chapa «TÚ» busca el hueco donde no tape a nadie. */
   otros: { x: number; y: number }[];
-  /** El portero no tiene ficha en las diapositivas: su hoja va sin aro y encuadrada en la portería. */
+  /** El portero no tiene ficha en las diapositivas: su hoja va encuadrada en la portería. */
   sinFicha?: boolean;
+  /**
+   * Dónde está la chapa «POR» (el centro de la portería), en el lienzo: ahí va
+   * su aro «TÚ» (11/11/2026, fútbol: Pol salía marcado y el portero no), sin
+   * penumbra, que al portero le importa toda el área.
+   */
+  portero?: { x: number; y: number };
 };
 
 /*
@@ -183,6 +189,7 @@ function accionDelPortero(tablero: TableroPizarra, indice: number): CometidoAcci
       zona: slide.fichas.filter((f) => f.x >= 0 && f.y >= 0).map((f) => ({ x: f.x, y: f.y })),
       otros: slide.fichas.filter((f) => f.x >= 0 && f.y >= 0).map((f) => ({ x: f.x, y: f.y })),
       sinFicha: true,
+      ...(porteria.length === 3 ? { portero: porteria[2] } : {}),
     },
   ];
 }
@@ -789,7 +796,12 @@ export type ZonaHoja = { x: number; y: number; w: number; h: number };
  * PDF deben tener enlaces para ir a cada diapositiva»): devuelve dónde ha
  * caído para que el PDF le ponga el salto a la primera hoja.
  */
-function pie(ctx: Ctx, cx: Contexto, pagina: number, total: number, volver = false): ZonaHoja | null {
+/*
+| Un solo contador (11/11/2026, expertos): la portada decía «4 ACCIONES» y el
+| pie «1 / 5»; la hoja, «ACCIÓN 1 DE 4» y «2 / 5». El pie ya no numera páginas:
+| manda la cabecera («ACCIÓN 1 DE 4») y el resumen remite a «ACCIÓN 1».
+*/
+function pie(ctx: Ctx, cx: Contexto, volver = false): ZonaHoja | null {
   const base = ctx.canvas.height - 12 - 24;
   const texto = [cx.rival, cx.jornada, fechaCorta(cx.fecha)].map((t) => t?.trim()).filter(Boolean).join(" · ");
 
@@ -798,8 +810,6 @@ function pie(ctx: Ctx, cx: Contexto, pagina: number, total: number, volver = fal
 
   ctx.fillStyle = "rgba(15,30,61,.62)";
   fuente(ctx, 30, 600);
-  const numero = `${pagina} / ${total}`;
-  const anchoNumero = ctx.measureText(numero).width;
 
   /* El botón de vuelta: píldora azul con la punta rosa, a la izquierda del número. */
   let boton: ZonaHoja | null = null;
@@ -810,7 +820,7 @@ function pie(ctx: Ctx, cx: Contexto, pagina: number, total: number, volver = fal
     const anchoRotulo = anchoEspaciado(ctx, rotulo, 2);
     const w = anchoRotulo + 74;
     const h = 46;
-    const x = HOJA_W - MARGEN - anchoNumero - 28 - w;
+    const x = HOJA_W - MARGEN - w;
     const y = base - 33;
 
     ctx.fillStyle = C.navy;
@@ -831,16 +841,11 @@ function pie(ctx: Ctx, cx: Contexto, pagina: number, total: number, volver = fal
   ctx.fillStyle = "rgba(15,30,61,.62)";
 
   if (texto) {
-    const libre = boton ? boton.x - MARGEN - 24 : HOJA_W - MARGEN * 2 - anchoNumero - 40;
+    const libre = boton ? boton.x - MARGEN - 24 : HOJA_W - MARGEN * 2;
 
     ajusta(ctx, texto, libre, 30, 600, 1);
     textoEspaciado(ctx, texto, MARGEN, base, 1);
   }
-
-  fuente(ctx, 30, 700);
-  ctx.textAlign = "right";
-  ctx.fillText(numero, HOJA_W - MARGEN, base);
-  ctx.textAlign = "left";
 
   filoRosa(ctx);
 
@@ -858,7 +863,7 @@ const RESUMEN_Y = CABEZA_H + 176;
 const RESUMEN_FILA = 150;
 const altoResumen = (acciones: number) => RESUMEN_Y + acciones * RESUMEN_FILA + 16 + PIE_H;
 
-function dibujaResumen(ctx: Ctx, cx: Contexto, acciones: CometidoAccion[], total: number): ZonaHoja[] {
+function dibujaResumen(ctx: Ctx, cx: Contexto, acciones: CometidoAccion[]): ZonaHoja[] {
   cabecera(ctx, cx, `${acciones.length} ACCIONES`);
 
   ctx.fillStyle = C.navy;
@@ -906,7 +911,8 @@ function dibujaResumen(ctx: Ctx, cx: Contexto, acciones: CometidoAccion[], total
     ctx.textAlign = "right";
     ctx.fillStyle = "rgba(15,30,61,.55)";
     fuente(ctx, 30, 600);
-    const hoja = `PÁG. ${orden + 2}`;
+    /* Remite a la cabecera de su hoja («ACCIÓN 1 DE 4»), no a un número de página (11/11/2026). */
+    const hoja = `ACCIÓN ${orden + 1}`;
     ctx.fillText(hoja, HOJA_W - MARGEN - 24, top + alto / 2 + 10);
     const anchoHoja = ctx.measureText(hoja).width;
     ctx.textAlign = "left";
@@ -927,7 +933,7 @@ function dibujaResumen(ctx: Ctx, cx: Contexto, acciones: CometidoAccion[], total
     }
   });
 
-  pie(ctx, cx, 1, total);
+  pie(ctx, cx);
 
   return zonas;
 }
@@ -1060,7 +1066,8 @@ function resalta(
   if (yo) luz(yo, 80 * s, 260 * s);
   if (suyo) luz(suyo, 50 * s, 150 * s);
 
-  if (yo || suyo) ctx.drawImage(capa, 0, top);
+  /* El portero, con su aro pero sin penumbra: le importa toda el área (11/11/2026). */
+  if ((yo && !accion.sinFicha) || suyo) ctx.drawImage(capa, 0, top);
 
   capa.width = 0;
 
@@ -1358,7 +1365,7 @@ function planAccion(
   suyos: Map<string, SuJugador> | undefined,
 ): PlanAccion {
   const enFoto = (p: { x: number; y: number }) => ({ x: marco.dx + p.x * marco.k, y: marco.dy + p.y * marco.k });
-  const yo = accion.sinFicha ? null : punto ?? (accion.foco[0] ? enFoto({ x: accion.foco[0].x, y: accion.foco[0].y - 50 }) : null);
+  const yo = accion.sinFicha ? (accion.portero ? enFoto(accion.portero) : null) : punto ?? (accion.foco[0] ? enFoto({ x: accion.foco[0].x, y: accion.foco[0].y - 50 }) : null);
   /* Cara y nombre de cada uno de los demás, en la foto. */
   const otros = accion.otros.flatMap((p) => [enFoto({ x: p.x, y: p.y - 50 }), enFoto({ x: p.x, y: p.y + 4 })]);
   const marca = accion.marcaPunto ? enFoto({ x: accion.marcaPunto.x, y: accion.marcaPunto.y - 30 }) : null;
@@ -1389,8 +1396,6 @@ function dibujaAccion(
   plan: PlanAccion,
   orden: number,
   acciones: number,
-  pagina: number,
-  paginas: number,
   volver = false,
 ): ZonaHoja | null {
   cabecera(ctx, cx, acciones > 1 ? `ACCIÓN ${orden} DE ${acciones}` : "BALÓN PARADO");
@@ -1414,7 +1419,7 @@ function dibujaAccion(
   }
 
   bloqueNotas(ctx, accion, yCampo + (enc ? enc.alto + 8 : 0), true);
-  return pie(ctx, cx, pagina, paginas, volver);
+  return pie(ctx, cx, volver);
 }
 
 /* ------------------------------------------------------------------ */
@@ -1510,7 +1515,6 @@ export async function pdfJugador(opciones: {
 
   const hojas: HTMLCanvasElement[] = [];
   const conResumen = acciones.length >= 2;
-  const paginas = acciones.length + (conResumen ? 1 : 0);
   /* Los saltos (01/11/2026): cada fila del resumen a su hoja y, en cada hoja, la vuelta al resumen. */
   let filasResumen: ZonaHoja[] = [];
   const vueltas: (ZonaHoja | null)[] = [];
@@ -1518,7 +1522,7 @@ export async function pdfJugador(opciones: {
   if (conResumen) {
     const resumen = lienzo(altoResumen(acciones.length));
 
-    filasResumen = dibujaResumen(resumen.ctx, cx, acciones, paginas);
+    filasResumen = dibujaResumen(resumen.ctx, cx, acciones);
     hojas.push(resumen.canvas);
   }
 
@@ -1528,7 +1532,7 @@ export async function pdfJugador(opciones: {
     const plan = planAccion(accion, opciones.puntos?.[orden] ?? null, Boolean(tablero), marco, opciones.suyos);
     const hoja = lienzo(plan.alto);
 
-    vueltas.push(dibujaAccion(hoja.ctx, cx, accion, tablero, plan, orden + 1, acciones.length, hojas.length + 1, paginas, conResumen));
+    vueltas.push(dibujaAccion(hoja.ctx, cx, accion, tablero, plan, orden + 1, acciones.length, conResumen));
     hojas.push(hoja.canvas);
   });
 

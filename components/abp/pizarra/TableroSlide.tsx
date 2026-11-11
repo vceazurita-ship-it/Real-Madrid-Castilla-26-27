@@ -1416,6 +1416,7 @@ export function TableroSlide({
   titulo,
   destacado = null,
   onCambiarTexto,
+  partido = "",
 }: {
   slide: SlidePizarra;
   players: Map<string, Player>;
@@ -1474,6 +1475,11 @@ export function TableroSlide({
    * exportaciones, vídeos, informe— los textos no se tocan.
    */
   onCambiarTexto?: (cambio: CambioTexto) => void;
+  /**
+   * Lo exportado (11/11/2026, marketing): la jornada y el contador de láminas
+   * bajo el rival («J12 · lámina 3 de 9»), que sólo decía «Temporada 26/27».
+   */
+  partido?: string;
 }) {
   const marcoRef = useRef<HTMLDivElement>(null);
 
@@ -2695,7 +2701,7 @@ export function TableroSlide({
               </p>
 
               <p className="mt-2 text-[10px] font-semibold uppercase leading-none tracking-[0.26em] text-white/45">
-                Temporada {temporada}
+                {partido ? `${partido} · ${temporada}` : `Temporada ${temporada}`}
               </p>
             </div>
           </div>
@@ -2781,7 +2787,13 @@ export function TableroSlide({
 
             <div className={panelDenso ? "space-y-2.5" : "space-y-3.5"}>
               {grupos.map((grupo) => {
-                const delGrupo = puestos.filter((puesto) => puesto.grupo === grupo.key);
+                /*
+                | En lo exportado, sólo los puestos con jugador (11/11/2026,
+                | expertos): «M5 MARCA 5 / M6 MARCA 6» vacías y un grupo sin
+                | nadie («Rechace y corta · finalizar») dejaban huecos. Lo que
+                | no tiene dato no se nombra; en la pizarra viva siguen todas.
+                */
+                const delGrupo = puestos.filter((puesto) => puesto.grupo === grupo.key && (!soloVer || ocupados.has(puesto.key)));
 
                 if (delGrupo.length === 0) return null;
 

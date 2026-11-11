@@ -189,6 +189,7 @@ export function ExportaPizarra({
               players={players}
               temporada={temporada}
               rival={rival}
+              partido={[jornada?.trim() ?? "", hojas.length > 1 ? `lámina ${hojas.indexOf(hoja) + 1} de ${hojas.length}` : ""].filter(Boolean).join(" · ")}
               seleccion={null}
               onMover={() => undefined}
               onQuitar={() => undefined}
