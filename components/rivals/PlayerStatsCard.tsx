@@ -118,7 +118,7 @@ export function PlayerStatsCard({
 
   const portero = Boolean(stats?.portero);
 
-  const cols = useMemo(() => columnasTemporada(portero), [portero]);
+  const cols = useMemo(() => columnasTemporada(portero, temporadas), [portero, temporadas]);
 
   /* La que manda: la que se resalta y la que se lee de un vistazo. Es la
      temporada en curso, la misma que se lleva a los exportables. */

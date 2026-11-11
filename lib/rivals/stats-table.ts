@@ -54,7 +54,7 @@ function per90(total: number, minutos: number) {
 }
 
 function ritmo(total: number | undefined, minutos: number) {
-  if (!total || total < MIN_PARA_RITMO) return undefined;
+  if (!total || total < MIN_PARA_RITMO || !minutos) return undefined;
 
   return `${per90(total, minutos)}/90'`;
 }
@@ -146,12 +146,22 @@ const DE_PORTERO: ColumnaTemporada[] = [
   },
 ];
 
-export function columnasTemporada(portero: boolean): ColumnaTemporada[] {
-  return [
+/**
+ * `temporadas`: si todas vienen de la plantilla del equipo (`sinMinutos`), no
+ * hay minutos ni rojas que enseñar y esas columnas se quitan.
+ */
+export function columnasTemporada(
+  portero: boolean,
+  temporadas?: { sinMinutos?: boolean }[],
+): ColumnaTemporada[] {
+  const sinMinutos = Boolean(temporadas?.length) && temporadas!.every((t) => t.sinMinutos);
+  const cols = [
     ...COMUNES_INICIO,
     ...(portero ? DE_PORTERO : DE_CAMPO),
     ...COMUNES_FIN,
   ];
+
+  return sinMinutos ? cols.filter((c) => c.key !== "minutos" && c.key !== "rojas") : cols;
 }
 
 /** Las últimas temporadas: más atrás ya no dice nada de cómo llega al partido. */

@@ -1898,7 +1898,7 @@ function dibujaTemporadas(
     return;
   }
 
-  const cols = columnasTemporada(jugador.portero);
+  const cols = columnasTemporada(jugador.portero, temporadas);
   /* La misma que resalta la ficha de pantalla: la temporada en curso. */
   const destacada =
     highlightSeason(temporadas, jugador.temporadaActual)?.temporada ?? null;

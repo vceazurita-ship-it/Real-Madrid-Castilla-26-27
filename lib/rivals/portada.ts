@@ -828,7 +828,7 @@ export function metricasDeTemporada(
   portero: boolean,
 ): PortadaMetrica[] {
   const cols = new Map<string, ColumnaTemporada>(
-    columnasTemporada(portero).map((col) => [col.key, col]),
+    columnasTemporada(portero, [season]).map((col) => [col.key, col]),
   );
 
   const metricas: PortadaMetrica[] = [];
@@ -843,7 +843,7 @@ export function metricasDeTemporada(
 
   metricas.push({
     label: "TARJETAS",
-    valor: `${season.amarillas} / ${season.rojas}`,
+    valor: season.sinMinutos ? `${season.amarillas} amarillas` : `${season.amarillas} / ${season.rojas}`,
   });
 
   return metricas.slice(0, 6);

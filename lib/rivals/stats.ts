@@ -36,6 +36,13 @@ export type RivalSeasonStats = {
   minutos: number;
   amarillas: number;
   rojas: number;
+  /**
+   * Sale de la página de plantilla del equipo (11/11/2026: BeSoccer pone una
+   * verificación anti-bots en las fichas de jugador). Trae partidos,
+   * titularidades, goles, asistencias y amarillas, pero no minutos ni rojas:
+   * esas casillas no se pintan.
+   */
+  sinMinutos?: boolean;
   /* Jugadores de campo. */
   goles?: number;
   asistencias?: number;

@@ -492,7 +492,7 @@ function fetchSquads() {
       jugadores[m[2]] = m[1];
     }
 
-    squads[id] = { slug, jugadores, escudo: escudoDelEquipo(html) };
+    squads[id] = { slug, jugadores, escudo: escudoDelEquipo(html), stats: statsDePlantilla(html) };
 
     console.log(
       `plantilla ${id} ${slug}: ${Object.keys(jugadores).length}` +
@@ -503,6 +503,38 @@ function fetchSquads() {
   }
 
   return squads;
+}
+
+/**
+ * Los números de esta temporada que trae la propia página de plantilla.
+ *
+ * Desde el 10/11/2026 BeSoccer contesta a las fichas de jugador con una
+ * verificación anti-bots («Client Challenge»): no se intenta saltar. La
+ * plantilla del equipo sigue abierta y trae, por jugador, partidos (PJ),
+ * titularidades (PT), goles —encajados en los porteros—, asistencias y
+ * amarillas. No trae minutos ni rojas.
+ */
+function statsDePlantilla(html) {
+  const stats = {};
+  let portero = false;
+
+  for (const trozo of html.split(/<tr class="row-(?=head|body)/).slice(1)) {
+    if (trozo.startsWith("head")) {
+      portero = />\s*Porteros\s*</.test(trozo);
+      continue;
+    }
+
+    const id = trozo.match(/besoccer\.com\/jugador\/[a-z0-9-]+?-(\d+)"/)?.[1];
+    const nums = [...trozo.matchAll(/data-content-tab="team_performance"[^>]*>\s*(\d+)\s*</g)].map((m) => Number(m[1]));
+
+    if (!id || nums.length < 5) continue;
+
+    const [partidos, titular, goles, asistencias, amarillas] = nums;
+
+    stats[id] = { portero, partidos, titular, goles, asistencias, amarillas };
+  }
+
+  return stats;
 }
 
 /**
@@ -706,7 +738,7 @@ function scrape(targets, cache) {
 |--------------------------------------------------------------------------
 */
 
-function buildDoc(targets, cache, squads) {
+function buildDoc(targets, cache, squads, previo = {}) {
   const porId = {};
   const porNombre = {};
 
@@ -733,13 +765,44 @@ function buildDoc(targets, cache, squads) {
   for (const row of targets) {
     const entry = row.id ? cache[row.id] : null;
 
-    if (!entry || entry.error) continue;
+    if (entry && !entry.error) {
+      porId[row.id] = {
+        portero: entry.portero,
+        url: entry.url,
+        temporadas: mergeSeasons(entry.temporadas),
+      };
+    } else {
+      /* Sin ficha descargada: la temporada en curso de la plantilla del
+         equipo y, detrás, las anteriores que ya estaban subidas. */
+      const team = squads?.[row.player.ID_EQUIPO];
+      const st = row.id ? team?.stats?.[row.id] : null;
+      const antes = row.id ? previo[row.id] : null;
 
-    porId[row.id] = {
-      portero: entry.portero,
-      url: entry.url,
-      temporadas: mergeSeasons(entry.temporadas),
-    };
+      if (!st && !antes) continue;
+
+      const viejas = (antes?.temporadas ?? []).filter((t) => t.temporada !== TEMPORADA);
+      const actual = st
+        ? [{
+            temporada: TEMPORADA,
+            equipos: [String(row.player.NOMBRE_EQUIPO || "").trim()],
+            escudos: team?.escudo ? [team.escudo] : [],
+            partidos: st.partidos,
+            titular: st.titular,
+            suplente: Math.max(0, st.partidos - st.titular),
+            minutos: 0,
+            amarillas: st.amarillas,
+            rojas: 0,
+            ...(st.portero ? { encajados: st.goles } : { goles: st.goles, asistencias: st.asistencias }),
+            sinMinutos: true,
+          }]
+        : (antes?.temporadas ?? []).filter((t) => t.temporada === TEMPORADA);
+
+      porId[row.id] = {
+        portero: st ? st.portero : Boolean(antes?.portero),
+        url: antes?.url || `https://es.besoccer.com/jugador/${row.slug || SLUGS[row.id] || row.id}`,
+        temporadas: [...actual, ...viejas],
+      };
+    }
 
     /* Índice de respaldo para las filas de la hoja que no traen foto. */
     const key = `${normalize(row.player.NOMBRE_EQUIPO)}|${normalize(
@@ -797,6 +860,15 @@ function readEnv() {
   }
 
   return env;
+}
+
+/** Lo que ya está subido, para no perderlo si una pasada sale coja. */
+async function leePrevio() {
+  const env = readEnv();
+  const supabase = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+  const { data } = await supabase.from("app_documents").select("data").eq("key", DOC_KEY).maybeSingle();
+
+  return data?.data?.porId ?? {};
 }
 
 async function upload(doc) {
@@ -859,7 +931,9 @@ const squadsFile = path.join(CACHE_DIR, "squads.json");
 
 let squads;
 
-if (!refrescar && fs.existsSync(squadsFile)) {
+const sinStats = (s) => Object.values(s).some((team) => !team.stats);
+
+if (!refrescar && fs.existsSync(squadsFile) && !sinStats(JSON.parse(fs.readFileSync(squadsFile, "utf8")))) {
   squads = JSON.parse(fs.readFileSync(squadsFile, "utf8"));
 
   /* Una caché de antes de los escudos de club: se completa sola. */
@@ -889,7 +963,17 @@ const cache = readCache();
 
 if (!soloSubir) scrape(targets, cache);
 
-const doc = buildDoc(targets, cache, squads);
+const previo = await leePrevio();
+const doc = buildDoc(targets, cache, squads, previo);
+
+/* Nunca se sube un documento que tire lo que ya hay: pasó el 10/11/2026, con
+   BeSoccer bloqueando las fichas, y las de los rivales se quedaron vacías. */
+if (Object.keys(doc.porId).length < Object.keys(previo).length * 0.8) {
+  console.log(
+    `No se sube: salen ${Object.keys(doc.porId).length} jugadores y en Supabase hay ${Object.keys(previo).length}.`
+  );
+  process.exit(1);
+}
 
 const conFicha = targets.filter((row) => row.id).length;
 
