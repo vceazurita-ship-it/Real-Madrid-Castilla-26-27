@@ -194,7 +194,8 @@ export function CalendarShell({
 
             {franja ? <div className="mt-5">{franja}</div> : null}
 
-            {stats && (
+            {/* Las cifras del mes, cuando el navegador ya sabe qué mes es (dicen su nombre). */}
+            {stats && listo && (
               <div
                 /* 30/10/2026: en el móvil, 2 por fila y la última impar a lo
                    ancho, con tarjetas bajas: el calendario aparece antes. */
@@ -301,7 +302,8 @@ export function CalendarShell({
                   </div>
 
                   {cargando ? (
-                    <CalendarSkeleton weeks={calendar.length} />
+                    /* Sin fecha aún, cinco filas fijas: el mes del servidor puede tener otro número de semanas. */
+                    <CalendarSkeleton weeks={listo ? calendar.length : 5} />
                   ) : (
                     <div className="space-y-1 md:space-y-2">
                       {calendar.map((week, weekIndex) => (
