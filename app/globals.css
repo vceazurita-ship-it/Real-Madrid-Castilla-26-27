@@ -2268,3 +2268,18 @@ html[data-pizarra-abierta] [data-menu-flotante] {
     max-height: calc(100dvh - var(--pz-sa-t) - var(--pz-barra) * 2 - 24px);
   }
 }
+
+/*
+| /desplazamiento: letra legible en el formulario (11/11/2026, revisión de los
+| expertos). Con Barlow Condensed, 10-11 px no se leían en el ordenador:
+| etiquetas y textos pequeños a 13 px como mínimo y campos a 15 px. Sólo
+| dentro de `.viaje-form`: la vista previa y los lienzos que se exportan no
+| van ahí y no cambian ni un píxel. Fuera de @layer, gana a las utilidades.
+*/
+.viaje-form :is(input, select, textarea) {
+  font-size: 15px;
+}
+
+.viaje-form :is(.text-\[10px\], .text-\[11px\], .text-\[12px\], .text-xs) {
+  font-size: 13px;
+}

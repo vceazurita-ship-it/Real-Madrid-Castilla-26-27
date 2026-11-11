@@ -71,6 +71,7 @@ import {
   GripVertical,
   Link2,
   MoreHorizontal,
+  Pencil,
   Plus,
   Trash2,
   Undo2,
@@ -95,6 +96,7 @@ import {
   clonaCitas,
   comoDesfase,
   conCitas,
+  cuentaDeCita,
   desfaseCita,
   diaCorto,
   diaVacio,
@@ -180,21 +182,22 @@ function FilaCita({
   const tono = TIPO_CITA[cita.tipo] ?? TIPO_CITA.otro;
 
   const desfase = desfaseCita(cita, dia, viaje);
+  const minutoPartido = aMinutos(viaje.hora);
+  const cuenta = desfase !== null && minutoPartido !== null ? cuentaDeCita(desfase, minutoPartido) : null;
 
   /*
-  | 07/11/2026: en el móvil cada cita repetía el tipo, el día, «Madrugada» y
-  | cinco botones. A la vista sólo hora, qué es y el desfase; lo demás, tras
-  | «Editar cita». Una recién creada abre ya desplegada. En escritorio, igual que antes.
+  | 11/11/2026 (revisión de los expertos): a la vista, en el móvil y en el
+  | ordenador, sólo la hora, qué es y la cuenta al partido. El detalle, el
+  | tipo, el día, los cinco minutos y lo demás, tras «⋯». Antes cada cita
+  | repetía tres desplegables y dos flechas: 18 citas eran 90 mandos.
+  | Una recién creada abre ya desplegada.
   */
   const [editar, setEditar] = useState(Boolean(enfoca));
-  const plegado = editar ? "" : "max-lg:hidden";
 
   return (
     <div
       ref={setNodeRef}
-      /* En el móvil, una tarjeta (30/10/2026): asa, hora y qué es en la primera
-         línea; detalle, tipo y botones debajo, a lo ancho. */
-      className={`grid min-w-0 grid-cols-[auto_84px_minmax(0,1fr)] items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-2 py-2 transition lg:grid-cols-[auto_92px_minmax(0,1.5fr)_minmax(0,1fr)_104px_auto] ${
+      className={`grid min-w-0 grid-cols-[auto_96px_minmax(0,1fr)_auto] items-start gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-2 py-2 transition ${
         isDragging || arrastrando ? "opacity-30" : ""
       }`}
     >
@@ -204,7 +207,7 @@ function FilaCita({
         {...listeners}
         {...attributes}
         title="Arrastrar a otro día"
-        className="flex h-8 w-6 shrink-0 cursor-grab touch-none items-center justify-center rounded-md text-white/25 transition hover:text-white/60 active:cursor-grabbing"
+        className="flex h-9 w-6 shrink-0 cursor-grab touch-none items-center justify-center rounded-md text-white/25 transition hover:text-white/60 active:cursor-grabbing"
         style={{ borderLeft: `3px solid ${tono.color}` }}
       >
         <GripVertical size={13} />
@@ -221,147 +224,127 @@ function FilaCita({
           className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5 text-center text-sm font-semibold tabular-nums text-white outline-none transition focus:border-[#C8A96B]/50"
         />
 
-        {desfase !== null && (
-          /* 10/11/2026: a 12 px y con más contraste; se leía «−1 d 4 h 15» con lupa. */
-          <p className="mt-1 text-center text-[12px] tabular-nums text-white/55">
-            {desfase === 0 ? "saque inicial" : comoDesfase(desfase)}
+        {cuenta && (
+          /* 11/11/2026: «MD-1 · faltan 29 h 15», como se cuenta en la caseta (antes «−1 d 5 h 15»). */
+          <p className="mt-1 text-center text-[12px] leading-tight tabular-nums text-white/60" title={cuenta.frase}>
+            <span className="block font-semibold text-[#C8A96B]">{cuenta.md}</span>
+            {cuenta.cuanto}
           </p>
         )}
       </div>
 
-      <input
-        value={cita.texto}
-        onChange={(evento) => onCambia({ texto: evento.target.value })}
-        autoFocus={enfoca}
-        placeholder="Qué es: salida bus, comida…"
-        className="min-w-0 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#C8A96B]/50"
-      />
-
-      <input
-        value={cita.nota ?? ""}
-        onChange={(evento) => onCambia({ nota: evento.target.value })}
-        placeholder="Detalle (opcional)"
-        className={`${plegado} col-span-full min-w-0 rounded-lg lg:col-span-1 border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-xs text-white/80 outline-none transition placeholder:text-white/25 focus:border-[#C8A96B]/50`}
-      />
-
-      {/* Plegada en el móvil: el detalle se lee, y un botón despliega el resto. */}
-      {!editar && (
-        <div className="col-span-full flex min-w-0 items-center gap-2 lg:hidden">
-          {cita.nota ? <p className="min-w-0 flex-1 truncate text-[11px] text-white/55">{cita.nota}</p> : <span className="flex-1" />}
-          <button
-            type="button"
-            onClick={() => setEditar(true)}
-            className="shrink-0 rounded-lg border border-white/10 px-2.5 py-1 text-[11px] font-semibold text-white/70 transition hover:text-white"
-          >
-            Editar cita
-          </button>
-        </div>
-      )}
-
-      <select
-        value={cita.tipo}
-        onChange={(evento) =>
-          onCambia({ tipo: evento.target.value as TipoCita })
-        }
-        className={`${plegado} col-span-full min-w-0 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5 text-xs text-white outline-none transition focus:border-[#C8A96B]/50 lg:col-span-1`}
-      >
-        {Object.entries(TIPO_CITA).map(([key, valor]) => (
-          <option key={key} value={key} className="bg-[#11161C]">
-            {valor.label}
-          </option>
-        ))}
-      </select>
-
-      <div className={`${plegado} col-span-full flex flex-wrap items-center gap-1 lg:col-span-1`}>
-        {/* Cambiar de día sin arrastrar: es como se edita desde el móvil. */}
-        {dias.length > 1 && (
-          <select
-            value={dia.id}
-            onChange={(evento) => onMueveA(evento.target.value)}
-            title="Pasar la cita a otro día"
-            className="rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5 text-[11px] text-white/70 outline-none transition focus:border-[#C8A96B]/50"
-          >
-            {dias.map((item, indice) => (
-              <option key={item.id} value={item.id} className="bg-[#11161C]">
-                {`D${indice + 1} · ${diaCorto(item.fecha).toLowerCase() || item.fecha}`}
-              </option>
-            ))}
-          </select>
-        )}
-
-        {/* La cita de madrugada lo dice a la vista; el cambio está en «⋯». */}
-        {esDiaSiguiente(cita.minuto) && (
-          <span className="rounded-lg border border-[#C8A96B]/50 bg-[#C8A96B]/10 px-2 py-1.5 text-[11px] text-[#C8A96B]" title="Es de madrugada, ya del día siguiente">
-            Madrugada del día siguiente
-          </span>
-        )}
-
-        <Button
-          icon={ArrowUp}
-          onClick={() => onCambia({ minuto: Math.max(0, cita.minuto - 5) })}
-          title="Cinco minutos antes"
+      <div className="min-w-0">
+        <input
+          value={cita.texto}
+          onChange={(evento) => onCambia({ texto: evento.target.value })}
+          autoFocus={enfoca}
+          placeholder="Qué es: salida bus, comida…"
+          className="w-full min-w-0 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#C8A96B]/50"
         />
 
-        <Button
-          icon={ArrowDown}
-          onClick={() => onCambia({ minuto: cita.minuto + 5 })}
-          title="Cinco minutos después"
-        />
-
-        {/*
-        | 10/11/2026: lo de menos uso, en «⋯» (eran ocho botones por cita). Se abre
-        | en línea, no flotando: el día lleva overflow-hidden y lo cortaría.
-        | La vuelta que llega a las 3:15 pertenece a la hoja del día que se
-        | jugó: «Pasar a la madrugada» la manda a la de después, y otra vez la trae.
-        */}
-        <details className="open:basis-full">
-          <summary
-            className="flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-lg border border-white/10 text-white/60 transition hover:text-white [&::-webkit-details-marker]:hidden"
-            aria-label="Más acciones de la cita"
-            title="Más acciones de la cita"
-          >
-            <MoreHorizontal size={14} />
-          </summary>
-          <div className="mt-1 flex flex-wrap gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1">
-            {[
-              {
-                texto: esDiaSiguiente(cita.minuto) ? "Volver a este día" : "Pasar a la madrugada del día siguiente",
-                hace: () => onCambia({ minuto: esDiaSiguiente(cita.minuto) ? cita.minuto - 1440 : cita.minuto + 1440 }),
-                peligro: false,
-              },
-              { texto: "Duplicar media hora después", hace: onDuplica, peligro: false },
-              { texto: "Quitar la cita", hace: onQuita, peligro: true },
-            ].map((op) => (
-              <button
-                key={op.texto}
-                type="button"
-                onClick={(evento) => {
-                  evento.currentTarget.closest("details")?.removeAttribute("open");
-                  op.hace();
-                }}
-                className={`rounded-lg px-2.5 py-2 text-left text-[12px] font-semibold transition ${
-                  op.peligro ? "text-red-300 hover:bg-red-500/10" : "text-white/80 hover:bg-white/[0.06] hover:text-white"
-                }`}
-              >
-                {op.texto}
-              </button>
-            ))}
-          </div>
-        </details>
-
-        <button
-          type="button"
-          onClick={() => setEditar(false)}
-          className="ml-auto rounded-lg border border-white/10 px-2.5 py-1 text-[11px] font-semibold text-white/60 transition hover:text-white lg:hidden"
-        >
-          Listo
-        </button>
+        {!editar && (cita.nota || esDiaSiguiente(cita.minuto)) && (
+          <p className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 text-[12px] text-white/55">
+            {esDiaSiguiente(cita.minuto) && (
+              <span className="shrink-0 font-semibold uppercase tracking-wide text-[#C8A96B]">
+                Ya es {diaSiguienteCorto(dia.fecha).toLowerCase()}
+              </span>
+            )}
+            {cita.nota ? <span className="min-w-0 truncate">{cita.nota}</span> : null}
+          </p>
+        )}
       </div>
 
-      {esDiaSiguiente(cita.minuto) && (
-        <p className="col-span-full text-[11px] uppercase tracking-wide text-[#C8A96B]/70">
-          Ya es {diaSiguienteCorto(dia.fecha).toLowerCase()}
-        </p>
+      <button
+        type="button"
+        onClick={() => setEditar((v) => !v)}
+        aria-expanded={editar}
+        aria-label="Más de la cita: detalle, tipo, día y quitar"
+        title="Detalle, tipo, día, mover cinco minutos, duplicar o quitar"
+        className={`flex h-9 w-9 items-center justify-center rounded-lg border transition ${
+          editar ? "border-[#C8A96B]/50 text-[#C8A96B]" : "border-white/10 text-white/60 hover:text-white"
+        }`}
+      >
+        <MoreHorizontal size={16} />
+      </button>
+
+      {/* Lo de menos uso, en línea y no flotando: el día lleva overflow-hidden y lo cortaría. */}
+      {editar && (
+        <div className="col-span-full grid min-w-0 gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-2 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)]">
+          <label className="block min-w-0">
+            <span className="mb-1 block text-[11px] uppercase tracking-[0.14em] text-white/45">Detalle</span>
+            <input
+              value={cita.nota ?? ""}
+              onChange={(evento) => onCambia({ nota: evento.target.value })}
+              placeholder="Opcional: sale en la hoja bajo la cita"
+              className="w-full min-w-0 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-sm text-white/85 outline-none transition placeholder:text-white/25 focus:border-[#C8A96B]/50"
+            />
+          </label>
+
+          <label className="block min-w-0">
+            <span className="mb-1 block text-[11px] uppercase tracking-[0.14em] text-white/45">Tipo</span>
+            <select
+              value={cita.tipo}
+              onChange={(evento) => onCambia({ tipo: evento.target.value as TipoCita })}
+              className="w-full min-w-0 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"
+            >
+              {Object.entries(TIPO_CITA).map(([key, valor]) => (
+                <option key={key} value={key} className="bg-[#11161C]">
+                  {valor.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {/* Cambiar de día sin arrastrar: es como se edita desde el móvil. */}
+          {dias.length > 1 && (
+            <label className="block min-w-0">
+              <span className="mb-1 block text-[11px] uppercase tracking-[0.14em] text-white/45">Día</span>
+              <select
+                value={dia.id}
+                onChange={(evento) => onMueveA(evento.target.value)}
+                title="Pasar la cita a otro día"
+                className="w-full min-w-0 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"
+              >
+                {dias.map((item, indice) => (
+                  <option key={item.id} value={item.id} className="bg-[#11161C]">
+                    {`Día ${indice + 1} · ${diaCorto(item.fecha).toLowerCase() || item.fecha}`}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+
+          <div className="col-span-full flex min-w-0 flex-wrap items-center gap-1.5">
+            <Button icon={ArrowUp} onClick={() => onCambia({ minuto: Math.max(0, cita.minuto - 5) })} title="Cinco minutos antes">
+              5 min antes
+            </Button>
+
+            <Button icon={ArrowDown} onClick={() => onCambia({ minuto: cita.minuto + 5 })} title="Cinco minutos después">
+              5 min después
+            </Button>
+
+            {/* La vuelta que llega a las 3:15 pertenece a la hoja del día que se jugó: esto la manda a la de después, y otra vez la trae. */}
+            <Button onClick={() => onCambia({ minuto: esDiaSiguiente(cita.minuto) ? cita.minuto - 1440 : cita.minuto + 1440 })}>
+              {esDiaSiguiente(cita.minuto) ? "Volver a este día" : "Pasar a la madrugada siguiente"}
+            </Button>
+
+            <Button icon={CopyPlus} onClick={onDuplica}>
+              Duplicar media hora después
+            </Button>
+
+            <Button tone="danger" icon={Trash2} onClick={onQuita}>
+              Quitar
+            </Button>
+
+            <button
+              type="button"
+              onClick={() => setEditar(false)}
+              className="ml-auto rounded-lg border border-white/10 px-3 py-1.5 text-[13px] font-semibold text-white/70 transition hover:text-white"
+            >
+              Listo
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -458,6 +441,9 @@ function TarjetaDia({
   });
 
   const minutoPartido = aMinutos(viaje.hora);
+
+  /* Las acciones del día, plegadas tras «Opciones del día». */
+  const [opciones, setOpciones] = useState(false);
 
   const esDelPartido = esDiaDelPartido(dia, viaje);
 
@@ -595,7 +581,36 @@ function TarjetaDia({
 
         {/* ------------------------ ACCIONES ------------------------ */}
 
+        {/*
+        | 11/11/2026 (revisión de los expertos): a la vista, «Editar» y el
+        | pegado; plantilla, mover el día, copiar, replicar, vaciar, subir,
+        | bajar y eliminar van tras «Opciones del día». Eran catorce botones
+        | repetidos en cada día.
+        */}
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          {plegado && citas.length > 0 && (
+            <Button icon={Pencil} tone="primary" onClick={onPliega} title="Abrir el día para cambiar sus citas">
+              Editar
+            </Button>
+          )}
+
+          {copiado && (
+            <Button
+              icon={ClipboardPaste}
+              onClick={onPega}
+              title={`Poner aquí las ${copiado.citas.length} citas de ${copiado.rotulo}, en lugar de las de este día`}
+            >
+              Pegar ({copiado.citas.length})
+            </Button>
+          )}
+
+          <Button icon={MoreHorizontal} onClick={() => setOpciones((v) => !v)} title="Plantilla, mover el día, copiar, replicar, vaciar o quitar el día">
+            {opciones ? "Cerrar opciones" : "Opciones del día"}
+          </Button>
+        </div>
+
+        {opciones && (
+        <div className="mt-2 flex flex-wrap items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.03] p-2">
           <select
             value=""
             onChange={(evento) => {
@@ -667,16 +682,6 @@ function TarjetaDia({
             Copiar
           </Button>
 
-          {copiado && (
-            <Button
-              icon={ClipboardPaste}
-              onClick={onPega}
-              title={`Poner aquí las ${copiado.citas.length} citas de ${copiado.rotulo}, en lugar de las de este día`}
-            >
-              Pegar ({copiado.citas.length})
-            </Button>
-          )}
-
           <Button
             icon={CopyPlus}
             onClick={onDuplica}
@@ -717,7 +722,31 @@ function TarjetaDia({
             Eliminar
           </Button>
         </div>
+        )}
       </header>
+
+      {/*
+      | El día plegado se LEE (11/11/2026): hora y qué es de cada cita, en
+      | columnas. Así el horario entero cabe en una pantalla y se abre sólo el
+      | día que se va a tocar.
+      */}
+      {plegado && citas.length > 0 && (
+        <ol className="grid gap-x-4 gap-y-1 px-3 py-2.5 sm:grid-cols-2 lg:grid-cols-3">
+          {[...citas]
+            .sort((a, b) => a.minuto - b.minuto)
+            .map((cita) => (
+              <li key={cita.id} className="flex min-w-0 items-baseline gap-2 text-[14px]">
+                <span
+                  className="w-12 shrink-0 font-semibold tabular-nums text-white"
+                  style={{ borderLeft: `3px solid ${(TIPO_CITA[cita.tipo] ?? TIPO_CITA.otro).color}`, paddingLeft: 6 }}
+                >
+                  {aHora(cita.minuto)}
+                </span>
+                <span className="min-w-0 truncate text-white/75">{cita.texto || "Sin nombre"}</span>
+              </li>
+            ))}
+        </ol>
+      )}
 
       {/* ------------------------- LAS CITAS ------------------------ */}
 
@@ -850,7 +879,14 @@ export function EditorHorario({
   const minutoPartido = aMinutos(viaje.hora);
 
   const [arrastre, setArrastre] = useState<Arrastre | null>(null);
-  const [plegados, setPlegados] = useState<string[]>([]);
+  /*
+  | 11/11/2026: los días abren PLEGADOS, en lectura (hora y qué es), y se
+  | abre el que se va a tocar con «Editar». Se apuntan los abiertos, no los
+  | plegados: así un día que llega después (la carga del guardado, uno
+  | replicado) también sale plegado. Un día sin citas se ve siempre abierto.
+  */
+  const [abiertos, setAbiertos] = useState<string[]>([]);
+  const estaPlegado = (dia: DiaViaje) => dia.citas.length > 0 && !abiertos.includes(dia.id);
 
   /* La cita recién añadida a mano, para abrirla con el cursor dentro. */
   const [recien, setRecien] = useState<string | null>(null);
@@ -913,8 +949,14 @@ export function EditorHorario({
   const cambiaDia = (id: string, parche: Partial<DiaViaje>) =>
     guarda(dias.map((dia) => (dia.id === id ? { ...dia, ...parche } : dia)));
 
-  const cambiaCitas = (id: string, citas: CitaHorario[]) =>
+  const cambiaCitas = (id: string, citas: CitaHorario[]) => {
+    /* El día vacío se ve abierto; al ponerle la primera cita se queda abierto (si no, se plegaría con el cursor dentro). */
+    if (!dias.find((dia) => dia.id === id)?.citas.length) {
+      setAbiertos((actual) => (actual.includes(id) ? actual : [...actual, id]));
+    }
+
     guarda(dias.map((dia) => (dia.id === id ? conCitas(dia, citas) : dia)));
+  };
 
   /** Pasa una cita de un día a otro conservando su hora. */
   const mueveCita = (citaId: string, origenId: string, destinoId: string) => {
@@ -1073,6 +1115,13 @@ export function EditorHorario({
         </Button>
       }
     >
+      {/*
+      | 11/11/2026: rehacer el viaje y añadir u ordenar días se usa una vez por
+      | viaje; con días montados va plegado. Sin días, a la vista.
+      */}
+      {(() => {
+        const herramientas = (
+          <>
       {/* -------------------- PLANTILLAS DE VIAJE ------------------- */}
 
       <div className="flex flex-wrap items-center gap-2">
@@ -1143,16 +1192,39 @@ export function EditorHorario({
           Encadenar fechas
         </Button>
 
-        {dias.length > 1 && (
+      </div>
+          </>
+        );
+
+        if (dias.length === 0) return herramientas;
+
+        return (
+          <details className="rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
+            <summary className="cursor-pointer select-none text-[13px] font-semibold text-white/70 hover:text-white">
+              Rehacer el viaje, añadir u ordenar días
+            </summary>
+            <div className="mt-2 pb-1">{herramientas}</div>
+          </details>
+        );
+      })()}
+
+      {dias.some((dia) => dia.citas.length > 0) && (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="text-[13px] text-white/55">
+            Cada día se lee plegado; «Editar» abre el que vas a cambiar.
+          </span>
+
           <Button
             onClick={() =>
-              setPlegados(plegados.length ? [] : dias.map((dia) => dia.id))
+              setAbiertos(
+                dias.every((dia) => !estaPlegado(dia)) ? [] : dias.map((dia) => dia.id),
+              )
             }
           >
-            {plegados.length ? "Abrir todos" : "Plegar todos"}
+            {dias.every((dia) => !estaPlegado(dia)) ? "Plegar todos" : "Abrir todos"}
           </Button>
-        )}
-      </div>
+        </div>
+      )}
 
       {sinDiaDePartido && (
         <div className="mt-3">
@@ -1231,16 +1303,16 @@ export function EditorHorario({
                 total={dias.length}
                 viaje={viaje}
                 dias={dias}
-                plegado={plegados.includes(dia.id)}
+                plegado={estaPlegado(dia)}
                 copiado={copiado}
                 recien={recien}
                 onRecien={setRecien}
                 arrastre={arrastre}
                 onPliega={() =>
-                  setPlegados(
-                    plegados.includes(dia.id)
-                      ? plegados.filter((item) => item !== dia.id)
-                      : [...plegados, dia.id],
+                  setAbiertos(
+                    abiertos.includes(dia.id)
+                      ? abiertos.filter((item) => item !== dia.id)
+                      : [...abiertos, dia.id],
                   )
                 }
                 onCambiaDia={(parche) => cambiaDia(dia.id, parche)}
@@ -1357,8 +1429,8 @@ export function EditorHorario({
       <p className="mt-3 text-[11px] leading-relaxed text-white/35">
         Cada día es una hoja A4 del horario y sale en el PDF por orden. Las
         citas se ordenan solas por hora, así que arrastrarlas sirve para pasarlas
-        de un día a otro —o el desplegable de la fila, que es lo cómodo desde el
-        móvil—; los días se arrastran por su asa. Del día del partido cuelgan las
+        de un día a otro —o «Día» dentro del «⋯» de la cita, que es lo cómodo desde
+        el móvil—; los días se arrastran por su asa. Del día del partido cuelgan las
         plantillas por desfase: si la federación cambia la hora, al escribirla
         arriba el día del partido se mueve solo y los desfases se conservan. Las
         horas se escriben enteras («1830» vale) y se guardan al salir del campo.

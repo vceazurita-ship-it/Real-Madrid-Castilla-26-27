@@ -133,6 +133,38 @@ export function comoDesfase(minutos: number) {
   return m ? `${signo}${h} h ${m}` : `${signo}${h} h`;
 }
 
+/** «29 h 15», «5 h», «30 min»: una duración sin signo, en horas y minutos. */
+function duracion(minutos: number) {
+  const total = Math.abs(minutos);
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+
+  if (!h) return `${m} min`;
+
+  return m ? `${h} h ${m}` : `${h} h`;
+}
+
+/**
+ * La cuenta de una cita como la dice un entrenador (11/11/2026): el día por
+ * su MD —«MD-1», «MD», «MD+1»— y la distancia al partido en palabras
+ * («faltan 29 h 15», «2 h 15 después»). Antes se leía «−1 d 5 h 15».
+ *
+ * `desfase` es lo que da `desfaseCita` (minutos al saque inicial) y
+ * `minutoPartido`, la hora del partido en minutos.
+ */
+export function cuentaDeCita(desfase: number, minutoPartido: number) {
+  const dia = Math.floor((desfase + minutoPartido) / 1440);
+  const md = dia === 0 ? "MD" : dia < 0 ? `MD-${-dia}` : `MD+${dia}`;
+  const cuanto =
+    desfase === 0
+      ? "saque inicial"
+      : desfase < 0
+        ? `faltan ${duracion(desfase)}`
+        : `${duracion(desfase)} después`;
+
+  return { md, cuanto, frase: `${md} · ${desfase === 0 ? "saque inicial" : desfase < 0 ? `${cuanto} para el partido` : `${cuanto} del partido`}` };
+}
+
 /* ------------------------------------------------------------------ */
 /*  EL DOCUMENTO                                                       */
 /* ------------------------------------------------------------------ */

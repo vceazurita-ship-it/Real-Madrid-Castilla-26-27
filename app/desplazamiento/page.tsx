@@ -173,7 +173,8 @@ function Escalado({
   }, [ancho]);
 
   return (
-    <div ref={marcoRef} className="w-full" style={{ height: alto * escala }}>
+    /* 11/11/2026: el alto se redondea hacia arriba; con el escalado fraccionario el borde de la última hoja se cortaba en el móvil. */
+    <div ref={marcoRef} className="w-full" style={{ height: Math.ceil(alto * escala) + 2 }}>
       <div
         style={{
           width: ancho,
@@ -247,6 +248,15 @@ const NOMBRE_SECCION: Record<(typeof SECCIONES_VIAJE)[number], string> = {
   "viaje-avisos": "Avisos",
 };
 
+/* Qué se hace en cada bloque que falta: el botón dice la tarea, no el campo. */
+const TAREA_SECCION: Record<(typeof SECCIONES_VIAJE)[number], string> = {
+  "viaje-partido": "Poner la hora del partido",
+  "viaje-estadio": "Completar el estadio",
+  "viaje-hotel": "Añadir el hotel",
+  "viaje-horario": "Montar el horario",
+  "viaje-avisos": "Escribir el «No olvidar»",
+};
+
 function ListaPendiente({ viaje, onIr = irA }: { viaje: Desplazamiento; onIr?: (id: string) => void }) {
   const lista = pendientesDe(viaje);
   const hechos = lista.filter((p) => p.hecho).length;
@@ -258,56 +268,77 @@ function ListaPendiente({ viaje, onIr = irA }: { viaje: Desplazamiento; onIr?: (
     return del.length > 0 && del.every((p) => p.hecho);
   });
 
+  /*
+  | 11/11/2026 (revisión de los expertos): lo que falta, como TAREAS, con un
+  | botón que lleva a su bloque: «Añadir el hotel · nombre, foto y ruta».
+  | Como mucho tres a la vista; el resto se cuenta.
+  */
+  const tareas = SECCIONES_VIAJE
+    .map((seccion) => ({ seccion, faltan: lista.filter((p) => !p.hecho && p.seccion === seccion) }))
+    .filter((g) => g.faltan.length > 0);
+  const aLaVista = tareas.slice(0, 3);
+  const resto = tareas.length - aLaVista.length;
+  const listaDe = (rotulos: string[]) =>
+    rotulos.length <= 1 ? rotulos.join("") : `${rotulos.slice(0, -1).join(", ")} y ${rotulos[rotulos.length - 1]}`;
+
   return (
     <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-3">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <p className="text-[11px] uppercase tracking-[0.16em] text-white/40">{viaje.condicion === "local" ? "Día de partido en casa" : "Cómo va el viaje"}</p>
+        <p className="text-[13px] font-semibold uppercase tracking-[0.14em] text-white/55">
+          {viaje.condicion === "local" ? "Día de partido en casa" : "Cómo va el viaje"}
+        </p>
 
         <div className="h-1.5 min-w-[80px] flex-1 overflow-hidden rounded-full bg-white/10 sm:max-w-[220px]" aria-hidden>
           <div className="h-full rounded-full bg-[#C8A96B] transition-all" style={{ width: `${(hechos / lista.length) * 100}%` }} />
         </div>
 
-        <p className="text-xs tabular-nums text-white/60">
-          {completo ? "Todo listo para exportar" : `${hechos} de ${lista.length} hechos`}
+        <p className="text-[13px] tabular-nums text-white/65">
+          {completo
+            ? "Todo listo para exportar"
+            : `Quedan ${tareas.length} ${tareas.length === 1 ? "cosa" : "cosas"} por hacer`}
         </p>
       </div>
 
-      {/*
-      | 07/11/2026: lo que falta, con su nombre y un enlace que baja a su campo
-      | (y lo abre en el móvil). Lo hecho queda en una línea, sin competir.
-      */}
       {!completo && (
         <>
-          <p className="mt-2 text-[11px] font-semibold text-white/70">Falta:</p>
-          <div className="mt-1 flex flex-col gap-1.5">
-            {/* Agrupado por bloque (09/11/2026): estadio, hotel, horario… cada grupo con su enlace al campo. */}
-            {SECCIONES_VIAJE
-              .map((seccion) => ({ seccion, faltan: lista.filter((p) => !p.hecho && p.seccion === seccion) }))
-              .filter((g) => g.faltan.length > 0)
-              .map((g) => (
-                <div key={g.seccion} className="flex flex-wrap items-center gap-1.5">
-                  <span className="w-16 shrink-0 text-[11px] font-semibold text-white/55">
-                    {NOMBRE_SECCION[g.seccion]}
+          <ul className="mt-2 flex flex-col gap-1.5">
+            {aLaVista.map((g) => (
+              <li key={g.seccion} className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+                <button
+                  type="button"
+                  onClick={() => onIr(g.seccion)}
+                  className="flex shrink-0 items-center gap-1.5 rounded-full border border-[#C8A96B]/50 px-3 py-1.5 text-[14px] font-semibold text-white/90 transition hover:bg-[#C8A96B]/10"
+                >
+                  <Circle size={13} className="text-[#C8A96B]" />
+                  {TAREA_SECCION[g.seccion]}
+                  <ChevronRight size={14} className="text-[#C8A96B]" />
+                </button>
+                {/* Lo que falta dentro del bloque, en minúscula y sin repetir el nombre de la tarea. */}
+                {g.faltan.length > 1 || g.seccion === "viaje-estadio" || g.seccion === "viaje-hotel" ? (
+                  <span className="min-w-0 text-[13px] text-white/55">
+                    falta {listaDe(g.faltan.map((p) => p.rotulo.toLowerCase()))}
                   </span>
-                  {g.faltan.map((p) => (
-                    <button
-                      key={p.clave}
-                      type="button"
-                      onClick={() => onIr(p.seccion)}
-                      title="Ir al campo"
-                      className="flex items-center gap-1 rounded-full border border-[#C8A96B]/40 px-2.5 py-1 text-[11px] text-white/80 transition hover:bg-[#C8A96B]/10"
-                    >
-                      <Circle size={12} className="text-[#C8A96B]" />
-                      {p.rotulo}
-                    </button>
-                  ))}
-                </div>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+          {resto > 0 && (
+            <p className="mt-1.5 text-[13px] text-white/50">
+              Y {resto} más:{" "}
+              {tareas.slice(3).map((g, i) => (
+                <span key={g.seccion}>
+                  {i > 0 ? " · " : ""}
+                  <button type="button" onClick={() => onIr(g.seccion)} className="text-[#C8A96B] hover:underline">
+                    {NOMBRE_SECCION[g.seccion].toLowerCase()}
+                  </button>
+                </span>
               ))}
-          </div>
+            </p>
+          )}
           {bloquesHechos.length > 0 && (
-            <p className="mt-2 flex flex-wrap items-center gap-1 text-[11px] text-white/40">
-              <CheckCircle2 size={12} className="text-emerald-400/70" />
-              Completo: {bloquesHechos.map((sec) => NOMBRE_SECCION[sec].toLowerCase()).join(", ")}
+            <p className="mt-2 flex flex-wrap items-center gap-1 text-[13px] text-white/45">
+              <CheckCircle2 size={13} className="text-emerald-400/70" />
+              Hecho: {bloquesHechos.map((sec) => NOMBRE_SECCION[sec].toLowerCase()).join(", ")}
             </p>
           )}
         </>
@@ -360,6 +391,38 @@ function Plegable({
       <summary className="cursor-pointer select-none text-xs font-semibold text-white/70 hover:text-white">
         {titulo}
         <span className="ml-2 font-normal text-white/40">{detalle}</span>
+      </summary>
+      <div className="pb-1">{children}</div>
+    </details>
+  );
+}
+
+/** Un bloque de «Datos que faltan»: se abre desde «Cómo va el viaje» o a mano. */
+function DetalleFalta({
+  id,
+  titulo,
+  detalle,
+  abierto,
+  onCambia,
+  children,
+}: {
+  id: string;
+  titulo: string;
+  detalle: string;
+  abierto: boolean;
+  onCambia: (abierto: boolean) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <details
+      id={id}
+      open={abierto}
+      onToggle={(evento) => onCambia(evento.currentTarget.open)}
+      className="scroll-mt-20 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2"
+    >
+      <summary className="cursor-pointer select-none text-[14px] font-semibold text-white/80 hover:text-white">
+        {titulo}
+        <span className="ml-2 font-normal text-white/50">{detalle}</span>
       </summary>
       <div className="pb-1">{children}</div>
     </details>
@@ -1009,6 +1072,207 @@ export default function DesplazamientoPage() {
     window.setTimeout(() => irA(id), 50);
   };
 
+  /*
+  | «DATOS QUE FALTAN» (11/11/2026, revisión de los expertos): lo vacío del
+  | estadio (dirección, distancia, planos) y el hotel sin nada escrito van
+  | juntos en un acordeón, en vez de ocupar dos tarjetas medio vacías. La
+  | decisión se toma al abrir el viaje y no cambia al escribir —si cambiara a
+  | la primera letra, el campo se montaría en otro sitio y perdería el foco—;
+  | se rehace al cambiar de partido o al llegar el guardado.
+  */
+  const estadioExtrasVacio = Boolean(
+    viaje &&
+      ![viaje.estadio.direccion, viaje.estadio.distancia, viaje.estadio.tiempo, viaje.estadio.enlace].some((x) => x.trim()) &&
+      !viaje.estadio.plano?.url &&
+      !viaje.estadio.ruta?.url,
+  );
+  const hotelVacio = Boolean(
+    viaje &&
+      ![viaje.hotel.nombre, viaje.hotel.direccion, viaje.hotel.telefono, viaje.hotel.entrada, viaje.hotel.distancia, viaje.hotel.tiempo, viaje.hotel.enlace].some((x) => x.trim()) &&
+      !viaje.hotel.foto?.url &&
+      !viaje.hotel.ruta?.url,
+  );
+  const claveFaltan = `${viaje?.partidoId ?? ""}|${status === "loading" ? "leyendo" : "listo"}`;
+  const [faltan, setFaltan] = useState<{ clave: string; estadio: boolean; hotel: boolean } | null>(null);
+
+  /* Estado ajustado durante el render, el patrón de React para «rehacer al cambiar la clave». */
+  if (faltan?.clave !== claveFaltan) {
+    setFaltan({ clave: claveFaltan, estadio: !enCasa && estadioExtrasVacio, hotel: !enCasa && hotelVacio });
+  }
+
+  const estadioEnFaltan = Boolean(faltan?.estadio);
+  const hotelEnFaltan = Boolean(faltan?.hotel && viaje?.conHotel && !enCasa);
+
+  /* Adónde lleva cada tarea de «Cómo va el viaje»: al campo que falta, esté donde esté. */
+  const irATarea = (seccion: string) => {
+    if (seccion === "viaje-estadio" && estadioEnFaltan && viaje?.estadio.nombre.trim()) return abreYVe("faltan-estadio");
+    if (seccion === "viaje-hotel" && hotelEnFaltan) return abreYVe("faltan-hotel");
+
+    abreYVe(seccion);
+  };
+
+  /* Se duerme fuera: el viaje abarca más de una fecha (víspera y partido). */
+  const duermeFuera = Boolean(viaje && !enCasa && new Set(viaje.dias.filter((d) => d.citas.length > 0).map((d) => d.fecha)).size > 1);
+
+  /* Los campos de más del estadio y los del hotel: se pintan en su tarjeta o en «Datos que faltan». */
+  const camposEstadioExtra = () => {
+    if (!viaje || !partido) return null;
+
+    return (
+                      <>
+                      <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                        <Field
+                          label="Dirección"
+                          value={viaje.estadio.direccion}
+                          onChange={(valor) => estadio({ direccion: valor })}
+                          placeholder="Calle, número y ciudad"
+                        />
+
+                        <Field
+                          label="Distancia"
+                          value={viaje.estadio.distancia}
+                          onChange={(valor) => estadio({ distancia: valor })}
+                          placeholder="Kilómetros"
+                        />
+
+                        <Field
+                          label="Tiempo de viaje"
+                          value={viaje.estadio.tiempo}
+                          onChange={(valor) => estadio({ tiempo: valor })}
+                          placeholder="Horas y minutos"
+                        />
+
+                        <Field
+                          label="Enlace del mapa"
+                          value={viaje.estadio.enlace}
+                          onChange={(valor) => estadio({ enlace: valor })}
+                          placeholder="https://maps.app.goo.gl/…"
+                        />
+                      </div>
+
+                      {/* La ruta abierta en Google Maps: de ahí salen la distancia, el tiempo y la captura (19/10/2026). */}
+                      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+                        <EnlaceRuta
+                          desde={viaje.origen || "Ciudad Real Madrid, Valdebebas"}
+                          hasta={viaje.estadio.direccion || [viaje.estadio.nombre, viaje.estadio.ciudad || equipoDelInforme(equiposInforme, viaje.rival || partido.opponent)?.nombre || viaje.rival || partido.opponent].filter(Boolean).join(", ")}
+                          rotulo={`Ruta ${viaje.origen || "Valdebebas"} · estadio en Google Maps`}
+                        />
+
+                        {viaje.estadio.enlace.trim() && /^https?:\/\//i.test(viaje.estadio.enlace.trim()) && (
+                          <a href={viaje.estadio.enlace.trim()} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-[#C8A96B] hover:underline">
+                            <Landmark size={12} /> Abrir el mapa del estadio
+                          </a>
+                        )}
+                      </div>
+
+                      <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2">
+                        <CampoImagen
+                          etiqueta="Plano del estadio"
+                          ayuda="Pie: «Nombre del estadio · acceso autobús»"
+                          carpeta={carpeta}
+                          imagen={viaje.estadio.plano}
+                          onCambio={(imagen) => estadio({ plano: imagen })}
+                        />
+
+                        <CampoImagen
+                          etiqueta="Ruta del autobús"
+                          ayuda="Pie: «Valdebebas · ciudad del estadio, kilómetros»"
+                          carpeta={carpeta}
+                          imagen={viaje.estadio.ruta}
+                          onCambio={(imagen) => estadio({ ruta: imagen })}
+                        />
+                      </div>
+                      </>
+    );
+  };
+
+  const camposHotel = () => {
+    if (!viaje) return null;
+
+    return (
+                        <>
+                        <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                          <Field
+                            label="Nombre"
+                            value={viaje.hotel.nombre}
+                            onChange={(valor) => hotel({ nombre: valor })}
+                            placeholder="Nombre del hotel"
+                          />
+
+                          <Field
+                            label="Dirección"
+                            value={viaje.hotel.direccion}
+                            onChange={(valor) => hotel({ direccion: valor })}
+                            placeholder="Calle, número y ciudad"
+                          />
+
+                          <Field
+                            label="Teléfono"
+                            value={viaje.hotel.telefono}
+                            onChange={(valor) => hotel({ telefono: valor })}
+                            placeholder="Teléfono de recepción"
+                          />
+
+                          <Field
+                            label="Entrada"
+                            value={viaje.hotel.entrada}
+                            onChange={(valor) => hotel({ entrada: valor })}
+                            placeholder="Día y hora de entrada"
+                          />
+                        </div>
+
+                        <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                          <Field
+                            label="Distancia al campo"
+                            value={viaje.hotel.distancia}
+                            onChange={(valor) => hotel({ distancia: valor })}
+                            placeholder="Kilómetros al estadio"
+                          />
+
+                          <Field
+                            label="Tiempo al campo"
+                            value={viaje.hotel.tiempo}
+                            onChange={(valor) => hotel({ tiempo: valor })}
+                            placeholder="Minutos al estadio"
+                          />
+
+                          <Field
+                            label="Enlace de la reserva"
+                            value={viaje.hotel.enlace}
+                            onChange={(valor) => hotel({ enlace: valor })}
+                            placeholder="https://…"
+                          />
+                        </div>
+
+                        <div className="mt-2">
+                          <EnlaceRuta
+                            desde={viaje.hotel.direccion || viaje.hotel.nombre}
+                            hasta={viaje.estadio.direccion || [viaje.estadio.nombre, viaje.estadio.ciudad].filter(Boolean).join(", ")}
+                            rotulo="Ruta hotel · estadio en Google Maps"
+                          />
+                        </div>
+
+                        <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2">
+                          <CampoImagen
+                            etiqueta="Foto del hotel"
+                            ayuda="Pie: «Nombre del hotel»"
+                            carpeta={carpeta}
+                            imagen={viaje.hotel.foto}
+                            onCambio={(imagen) => hotel({ foto: imagen })}
+                          />
+
+                          <CampoImagen
+                            etiqueta="Ruta hotel · estadio"
+                            ayuda="Pie: «Hotel · estadio, minutos»"
+                            carpeta={carpeta}
+                            imagen={viaje.hotel.ruta}
+                            onCambio={(imagen) => hotel({ ruta: imagen })}
+                          />
+                        </div>
+                        </>
+    );
+  };
+
   return (
     <main
       /* overflow-x-clip (30/10/2026): un hijo más ancho que el móvil ensanchaba la
@@ -1026,7 +1290,7 @@ export default function DesplazamientoPage() {
         <section className="flex min-w-0 flex-1 flex-col">
           <Topbar />
 
-          <div className="min-w-0 px-4 py-6 sm:px-6 lg:px-10">
+          <div className="min-w-0 px-4 pb-24 pt-6 sm:px-6 sm:pb-6 lg:px-10">
             <AbpHeader
               area="RMCF Castilla · Operativa · Desplazamiento"
               title={titular}
@@ -1058,7 +1322,7 @@ export default function DesplazamientoPage() {
 
             {/* ===================== PARTIDO ===================== */}
 
-            <div className="mt-6 grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+            <div className="viaje-form mt-6 grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
               <div className="block min-w-0">
                 <span id="etiqueta-partido" className="mb-1.5 block text-[11px] uppercase tracking-[0.16em] text-white/40">
                   Partido
@@ -1188,8 +1452,34 @@ export default function DesplazamientoPage() {
             ) : (
               viaje && (
                 <>
+                  {/* `viaje-form` (globals.css): la letra del formulario a 13 px las etiquetas y 15 px los campos; la vista previa queda fuera. */}
+                  <div className="viaje-form">
                   {/* Cómo va el viaje, arriba y pegado al selector de partido. */}
-                  <ListaPendiente viaje={viaje} onIr={abreYVe} />
+                  <ListaPendiente viaje={viaje} onIr={irATarea} />
+
+                  {/*
+                  | El hotel, arriba cuando se duerme fuera (11/11/2026): «El viaje
+                  | lleva hotel» salía marcado con el hotel en blanco y nada lo
+                  | decía hasta bajar tres pantallas.
+                  */}
+                  {duermeFuera && (!viaje.conHotel || !viaje.hotel.nombre.trim()) && (
+                    <div className="mt-3">
+                      <Notice tone="warn" title={viaje.conHotel ? "Se duerme fuera y el hotel está sin poner" : "Se duerme fuera y el viaje no lleva hotel"}>
+                        <span className="flex flex-wrap items-center gap-2">
+                          <span>El horario tiene {new Set(viaje.dias.filter((d) => d.citas.length > 0).map((d) => d.fecha)).size} días: el dossier necesita el nombre del hotel, su foto y la ruta al estadio.</span>
+                          <Button
+                            icon={Hotel}
+                            onClick={() => {
+                              if (!viaje.conHotel) campo("conHotel", true);
+                              abreYVe(faltan?.hotel ? "faltan-hotel" : "viaje-hotel");
+                            }}
+                          >
+                            Añadir el hotel
+                          </Button>
+                        </span>
+                      </Notice>
+                    </div>
+                  )}
 
                   {!guardado && (
                     <div className="mt-4">
@@ -1428,8 +1718,21 @@ export default function DesplazamientoPage() {
                             className="h-4 w-4 accent-[#C8A96B]"
                           />
 
-                          <span className="text-xs text-white/70">
+                          <span className="min-w-0 text-xs text-white/70">
                             El viaje lleva hotel
+                            {/* 11/11/2026: marcado y sin hotel ya no pasa callado. */}
+                            {viaje.conHotel && !viaje.hotel.nombre.trim() && (
+                              <button
+                                type="button"
+                                onClick={(evento) => {
+                                  evento.preventDefault();
+                                  irATarea("viaje-hotel");
+                                }}
+                                className="ml-2 font-semibold text-[#C8A96B] hover:underline"
+                              >
+                                · falta ponerlo
+                              </button>
+                            )}
                           </span>
                         </label>
                         )}
@@ -1501,6 +1804,7 @@ export default function DesplazamientoPage() {
                         />
                       </div>
 
+                      {!estadioEnFaltan && (
                       <Plegable
                         key={`estadio-${viaje.partidoId}-${status === "loading" ? "leyendo" : "listo"}`}
                         plegado={
@@ -1512,76 +1816,16 @@ export default function DesplazamientoPage() {
                         titulo={enCasa ? undefined : "Añadir los datos del estadio"}
                         detalle={enCasa ? undefined : "dirección, distancia, plano y ruta"}
                       >
-                      <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                        <Field
-                          label="Dirección"
-                          value={viaje.estadio.direccion}
-                          onChange={(valor) => estadio({ direccion: valor })}
-                          placeholder="Calle, número y ciudad"
-                        />
-
-                        <Field
-                          label="Distancia"
-                          value={viaje.estadio.distancia}
-                          onChange={(valor) => estadio({ distancia: valor })}
-                          placeholder="Kilómetros"
-                        />
-
-                        <Field
-                          label="Tiempo de viaje"
-                          value={viaje.estadio.tiempo}
-                          onChange={(valor) => estadio({ tiempo: valor })}
-                          placeholder="Horas y minutos"
-                        />
-
-                        <Field
-                          label="Enlace del mapa"
-                          value={viaje.estadio.enlace}
-                          onChange={(valor) => estadio({ enlace: valor })}
-                          placeholder="https://maps.app.goo.gl/…"
-                        />
-                      </div>
-
-                      {/* La ruta abierta en Google Maps: de ahí salen la distancia, el tiempo y la captura (19/10/2026). */}
-                      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
-                        <EnlaceRuta
-                          desde={viaje.origen || "Ciudad Real Madrid, Valdebebas"}
-                          hasta={viaje.estadio.direccion || [viaje.estadio.nombre, viaje.estadio.ciudad || equipoDelInforme(equiposInforme, viaje.rival || partido.opponent)?.nombre || viaje.rival || partido.opponent].filter(Boolean).join(", ")}
-                          rotulo={`Ruta ${viaje.origen || "Valdebebas"} · estadio en Google Maps`}
-                        />
-
-                        {viaje.estadio.enlace.trim() && /^https?:\/\//i.test(viaje.estadio.enlace.trim()) && (
-                          <a href={viaje.estadio.enlace.trim()} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-[#C8A96B] hover:underline">
-                            <Landmark size={12} /> Abrir el mapa del estadio
-                          </a>
-                        )}
-                      </div>
-
-                      <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2">
-                        <CampoImagen
-                          etiqueta="Plano del estadio"
-                          ayuda="Pie: «Nombre del estadio · acceso autobús»"
-                          carpeta={carpeta}
-                          imagen={viaje.estadio.plano}
-                          onCambio={(imagen) => estadio({ plano: imagen })}
-                        />
-
-                        <CampoImagen
-                          etiqueta="Ruta del autobús"
-                          ayuda="Pie: «Valdebebas · ciudad del estadio, kilómetros»"
-                          carpeta={carpeta}
-                          imagen={viaje.estadio.ruta}
-                          onCambio={(imagen) => estadio({ ruta: imagen })}
-                        />
-                      </div>
+                        {camposEstadioExtra()}
                       </Plegable>
+                      )}
                     </Panel>
                     </SeccionMovil>
                   </div>
 
                   {/* =================== EL HOTEL ================== */}
 
-                  {viaje.conHotel && !enCasa && (
+                  {viaje.conHotel && !enCasa && !hotelEnFaltan && (
                     <div className="mt-5 scroll-mt-20" id="viaje-hotel">
                       <Panel
                         title="El hotel"
@@ -1598,85 +1842,45 @@ export default function DesplazamientoPage() {
                           titulo="Añadir el hotel"
                           detalle="nombre, dirección, teléfono, entrada y fotos"
                         >
-                        <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                          <Field
-                            label="Nombre"
-                            value={viaje.hotel.nombre}
-                            onChange={(valor) => hotel({ nombre: valor })}
-                            placeholder="Nombre del hotel"
-                          />
-
-                          <Field
-                            label="Dirección"
-                            value={viaje.hotel.direccion}
-                            onChange={(valor) => hotel({ direccion: valor })}
-                            placeholder="Calle, número y ciudad"
-                          />
-
-                          <Field
-                            label="Teléfono"
-                            value={viaje.hotel.telefono}
-                            onChange={(valor) => hotel({ telefono: valor })}
-                            placeholder="Teléfono de recepción"
-                          />
-
-                          <Field
-                            label="Entrada"
-                            value={viaje.hotel.entrada}
-                            onChange={(valor) => hotel({ entrada: valor })}
-                            placeholder="Día y hora de entrada"
-                          />
-                        </div>
-
-                        <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                          <Field
-                            label="Distancia al campo"
-                            value={viaje.hotel.distancia}
-                            onChange={(valor) => hotel({ distancia: valor })}
-                            placeholder="Kilómetros al estadio"
-                          />
-
-                          <Field
-                            label="Tiempo al campo"
-                            value={viaje.hotel.tiempo}
-                            onChange={(valor) => hotel({ tiempo: valor })}
-                            placeholder="Minutos al estadio"
-                          />
-
-                          <Field
-                            label="Enlace de la reserva"
-                            value={viaje.hotel.enlace}
-                            onChange={(valor) => hotel({ enlace: valor })}
-                            placeholder="https://…"
-                          />
-                        </div>
-
-                        <div className="mt-2">
-                          <EnlaceRuta
-                            desde={viaje.hotel.direccion || viaje.hotel.nombre}
-                            hasta={viaje.estadio.direccion || [viaje.estadio.nombre, viaje.estadio.ciudad].filter(Boolean).join(", ")}
-                            rotulo="Ruta hotel · estadio en Google Maps"
-                          />
-                        </div>
-
-                        <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2">
-                          <CampoImagen
-                            etiqueta="Foto del hotel"
-                            ayuda="Pie: «Nombre del hotel»"
-                            carpeta={carpeta}
-                            imagen={viaje.hotel.foto}
-                            onCambio={(imagen) => hotel({ foto: imagen })}
-                          />
-
-                          <CampoImagen
-                            etiqueta="Ruta hotel · estadio"
-                            ayuda="Pie: «Hotel · estadio, minutos»"
-                            carpeta={carpeta}
-                            imagen={viaje.hotel.ruta}
-                            onCambio={(imagen) => hotel({ ruta: imagen })}
-                          />
-                        </div>
+                        {camposHotel()}
                         </Plegable>
+                      </Panel>
+                    </div>
+                  )}
+
+                  {/* ============== DATOS QUE FALTAN ============== */}
+
+                  {(estadioEnFaltan || hotelEnFaltan) && (
+                    <div className="mt-5 scroll-mt-20" id="viaje-faltan">
+                      <Panel
+                        title="Datos que faltan"
+                        subtitle={[estadioEnFaltan && "Cómo se llega al estadio", hotelEnFaltan && "el hotel"].filter(Boolean).join(" y ") + ": se rellenan cuando se sepan y salen en el dossier"}
+                        icon={Circle}
+                      >
+                        <div className="space-y-2">
+                          {estadioEnFaltan && (
+                            <DetalleFalta
+                              id="faltan-estadio"
+                              titulo="El estadio"
+                              detalle="dirección, distancia, plano y ruta del autobús"
+                              abierto={Boolean(abiertas["faltan-estadio"])}
+                              onCambia={(abierto) => setAbiertas((a) => (Boolean(a["faltan-estadio"]) === abierto ? a : { ...a, "faltan-estadio": abierto }))}
+                            >
+                              {camposEstadioExtra()}
+                            </DetalleFalta>
+                          )}
+                          {hotelEnFaltan && (
+                            <DetalleFalta
+                              id="faltan-hotel"
+                              titulo="El hotel"
+                              detalle="nombre, dirección, teléfono, entrada y fotos"
+                              abierto={Boolean(abiertas["faltan-hotel"])}
+                              onCambia={(abierto) => setAbiertas((a) => (Boolean(a["faltan-hotel"]) === abierto ? a : { ...a, "faltan-hotel": abierto }))}
+                            >
+                              {camposHotel()}
+                            </DetalleFalta>
+                          )}
+                        </div>
                       </Panel>
                     </div>
                   )}
@@ -1735,6 +1939,8 @@ export default function DesplazamientoPage() {
                     </SeccionMovil>
                   </div>
 
+                  </div>
+
                   {/* ================ VISTA PREVIA ================ */}
 
                   <div className="mt-5 scroll-mt-20" id="viaje-vista">
@@ -1790,6 +1996,19 @@ export default function DesplazamientoPage() {
 
                   <div className="mt-5">
                     <ExportaViaje viaje={viaje} />
+                  </div>
+
+                  {/*
+                  | En el móvil, «Vista previa y exportar» siempre a mano (11/11/2026):
+                  | el formulario es largo y el botón de la cabecera se quedaba arriba.
+                  | Abajo a la izquierda, lejos del botón flotante de herramientas.
+                  */}
+                  <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-start px-4 pb-[max(12px,env(safe-area-inset-bottom))] sm:hidden">
+                    <span className="pointer-events-auto rounded-xl shadow-lg shadow-black/30">
+                      <Button tone="primary" icon={Eye} onClick={() => irA("viaje-vista")}>
+                        Vista previa y exportar
+                      </Button>
+                    </span>
                   </div>
 
                 </>
