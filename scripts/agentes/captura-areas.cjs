@@ -39,6 +39,7 @@ const GRUPOS = {
   foco5: ["/desplazamiento"],
   /* Ronda dirigida (11/11/2026): rival y microciclo a +1. */
   foco6: ["/scout-rival-abp", "/scout-rival-area", "/rivals", "/laboratorio/microciclo", "/jugadores-sesion"],
+  foco7: ["/scout-rival-abp"],
   informes: ["exportables de /abp-pizarra (PDF general, PowerPoint y PDF de cada jugador, en pizarra/)", "informe de ABP de la semana (/abp-microciclo)", "informe del partido previa y post (/microcycles)"],
   nuevo: ["/comparative_ind", "/scout-rival-individual?vista=visionados", "/data-analisis?area=todos"],
   mejora: ["/individual (ficha → pestaña Área de mejora)", "/data-analisis?area=equipo (mapa «Progresar y pisar área»)"],

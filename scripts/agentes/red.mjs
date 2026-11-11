@@ -439,6 +439,7 @@ async function main() {
       foco4: ["experto-futbol", "experto-analisis"],
       foco5: ["experto-futbol", "experto-marketing"],
       foco6: ["experto-futbol", "experto-analisis", "experto-marketing"],
+      foco7: ["experto-futbol", "experto-analisis", "experto-marketing"],
       nuevo: ["experto-analisis", "experto-marketing"],
       informes: ["experto-futbol", "experto-analisis", "experto-marketing"],
       mejora: ["experto-futbol", "experto-analisis", "experto-marketing"],

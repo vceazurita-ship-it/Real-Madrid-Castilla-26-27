@@ -696,6 +696,19 @@ export function AbpWyscoutRival({
   const hayGoles = !!goles && (goles.aFavor.abp > 0 || goles.enContra.abp > 0);
 
   if (aspectos.length === 0 && !hayGoles && rematan.length === 0 && sacan.length === 0) {
+    /* Mientras llega Wyscout, un esqueleto: un hueco mudo parecía un fallo (11/11/2026). */
+    if (!wyscoutListo) {
+      return (
+        <div className="space-y-3" role="status" aria-busy="true" aria-label="Cargando el balón parado del rival">
+          <div className="h-5 w-64 animate-pulse rounded bg-white/10" />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="h-28 animate-pulse rounded-2xl bg-white/[0.06]" />
+            <div className="h-28 animate-pulse rounded-2xl bg-white/[0.06]" />
+          </div>
+        </div>
+      );
+    }
+
     return null;
   }
 
