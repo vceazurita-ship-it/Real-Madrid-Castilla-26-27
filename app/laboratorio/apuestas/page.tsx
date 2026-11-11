@@ -194,12 +194,6 @@ export default function ApuestasPage() {
                 <span className="font-semibold text-white/85">
                   {doc.apuestas.length === 1 ? "1 apuesta" : `${doc.apuestas.length} apuestas`}
                 </span>
-                {vivas.length > 0 && (
-                  <span className="font-semibold text-[#C8A96B]">
-                    {" · "}
-                    {vivas.length === 1 ? "1 abierta" : `${vivas.length} abiertas`}
-                  </span>
-                )}
                 {/* Qué significa la cifra (08/11/2026): quiénes pueden apostar. */}
                 {estadoQuiniela === "listo" && ` · pueden apostar los ${juegan} con cuenta en la quiniela`}
               </p>

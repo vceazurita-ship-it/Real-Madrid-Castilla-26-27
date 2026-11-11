@@ -148,6 +148,10 @@ export type EquipoPortada = {
   escudo: string;
   estadio: string;
   ciudad: string;
+  /** Su puesto en la tabla más reciente de BeSoccer. */
+  liga?: { puesto: number; deCuantos: number; puntos: number; jugados: number };
+  /** Sus cinco últimos de liga, del más antiguo al más reciente. */
+  ultimos?: { signo: "V" | "E" | "D"; marcador: string; rival: string; enCasa: boolean }[];
 };
 
 export type ClasificacionPortada = {

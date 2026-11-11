@@ -980,11 +980,6 @@ export default function Home() {
                       </p>
                       <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
                         <SelloFuente oscuro {...selloDe(nuestroXg.fuente, nuestroXg.deCuantos, nuestroXg.partidos)} />
-                        {nuestroXg.wyscoutXg != null && resumenData && (
-                          <span className="text-[11px]" style={{ color: "rgba(255,255,255,.62)" }}>
-                            Wyscout: {coma(nuestroXg.wyscoutXg, 2)} en {resumenData.partidos} {resumenData.partidos === 1 ? "partido" : "partidos"}
-                          </span>
-                        )}
                       </p>
                     </div>
                     )}
