@@ -45,6 +45,7 @@ import { useDuelosClave } from "@/hooks/useDuelosClave";
 import { dibujoDeLaTemporada } from "@/lib/rivals/posiciones-temporada";
 import { useEscudos } from "@/hooks/useEscudos";
 import { useLento } from "@/hooks/useLento";
+import { useAdmin } from "@/hooks/useAdmin";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -239,16 +240,46 @@ const CAMPOS_DANO: { campo: string; rotulo: string }[] = [
 | Lo que pregunta cada campo de «Dónde hacerles daño» cuando el analista sólo
 | escribe un nombre (08/11/2026): el porqué y su consecuencia en el campo.
 */
-const POR_QUE_DEL_CAMPO: Record<string, { porque: string; queHacemos: string }> = {
+const POR_QUE_DEL_CAMPO: Record<string, { porque: string; porqueVarios: string; queHacemos: string; queHacemosVarios: string }> = {
   DEF_REINICIO_JUGADORES_DEBILES: {
     porque: "el que peor presiona cuando reanudamos el juego (saque de puerta, de banda o falta en nuestro campo).",
+    porqueVarios: "los dos que peor presionan cuando reanudamos el juego (saque de puerta, de banda o falta en nuestro campo).",
     queHacemos: "iniciar nuestros reinicios por su zona y atraerle para salir por detrás de él.",
+    queHacemosVarios: "iniciar nuestros reinicios por su zona y atraerles para salir por detrás de ellos.",
   },
   OF_INICIO_JUGADOR_DEBIL_DENTRO: {
     porque: "el más débil cuando su salida de balón pasa por dentro.",
+    porqueVarios: "los dos más débiles cuando su salida de balón pasa por dentro.",
     queHacemos: "saltar a presionarle cuando reciba por dentro, de espaldas, y cerrarle el pase de cara.",
+    queHacemosVarios: "saltar a presionar al que reciba por dentro, de espaldas, y cerrarle el pase de cara.",
   },
 };
+
+/*
+| «Montalvo - Eugeni: el más débil» (11/11/2026, fútbol): dos nombres para un
+| singular. Si el campo trae dos nombres («A - B», «A / B», «A y B»), la frase
+| va en plural.
+*/
+const sonVarios = (texto: string) => /\s[-–]\s|\/|,|\sy\s/.test(texto.trim());
+
+/*
+| Lo que hacemos ante cada cosa de su ataque (11/11/2026, marketing): la
+| tarjeta de «Cómo nos hacen daño» sólo describía. La consecuencia es la del
+| campo, rotulada como deducida: el analista no la ha escrito.
+*/
+const RESPUESTA_AL_PELIGRO: Record<string, string> = {
+  OF_AREA_JUGADORES: "marcar de cerca a los que atacan el área y vigilar la llegada de segunda línea al punto de penalti.",
+  OF_AREA_CENTROS: "cerrar al que centra antes de que levante la cabeza y defender el primer palo.",
+  OF_CAMPO_CARRIL_EXTERIOR: "ayuda del extremo al lateral para no quedarnos en uno contra uno en banda.",
+  OF_INICIO_JUGAR_ESPACIO: "presión al pasador y un central siempre en cobertura para que el balón a la espalda no llegue limpio.",
+  OF_REINICIO_REFERENCIAS: "marcar de cerca a sus referencias en los reinicios y ganar el primer duelo.",
+};
+
+/*
+| Una sola notación del dibujo (11/11/2026, análisis): el analista escribe
+| «1-5-3-2» (con el portero) y BeSoccer «5-3-2». En lectura, sin el portero.
+*/
+const sinPortero = (texto: string) => texto.replace(/\b1-(\d(?:-\d){2,3})\b/g, "$1");
 
 /** Para comparar nombres sin tildes ni mayúsculas. */
 const sinTildesBajo = (t: string) => t.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
@@ -352,6 +383,8 @@ export default function ScoutRivalCollective() {
   })();
 
   const [modoEdicion, setModoEdicion] = useState(false);
+  /* Los avisos de cotejo (ficha contra texto) son tarea del analista: sólo con sesión (11/11/2026, jueces). */
+  const { admin } = useAdmin();
   const [guardando, setGuardando] = useState(false);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(false);
@@ -602,12 +635,21 @@ export default function ScoutRivalCollective() {
       <>
         {suyas.length > 0 && (
           <optgroup label={`Contra ${equipo}`}>
-            {suyas.map((r) => (
-              <option key={r.ID} value={r.ID}>
-                J{r.JORNADA} · {r.EQUIPO}
-                {esPorJugar(r) ? " · por jugar" : ""}
-              </option>
-            ))}
+            {/* 11/11/2026 (fútbol): la segunda fila contra el mismo rival se leía como repetida; se rotula ida y vuelta. */}
+            {suyas
+              .filter((r, i) => {
+                /* Una fila por jornada; si hay dos, se queda la abierta. */
+                const misma = suyas.filter((o) => String(o.JORNADA) === String(r.JORNADA));
+                const abierta = misma.find((o) => String(o.ID) === String(rivalActivo?.ID));
+                return abierta ? abierta === r : suyas.indexOf(misma[0]) === i;
+              })
+              .sort((a, b) => Number(a.JORNADA) - Number(b.JORNADA))
+              .map((r, i, todas) => (
+                <option key={r.ID} value={r.ID}>
+                  J{r.JORNADA} · {todas.length > 1 ? (i === 0 ? "Ida" : "Vuelta") : r.EQUIPO}
+                  {esPorJugar(r) ? " · por jugar" : ""}
+                </option>
+              ))}
           </optgroup>
         )}
         <optgroup label="Otro rival">
@@ -807,7 +849,16 @@ export default function ScoutRivalCollective() {
       const soloNombre = texto.split(/\s+/).length <= 5 && !/[.,;:]\s|\b(es|son|tiene|le|les|cuando|por)\b/i.test(texto);
       const porque = POR_QUE_DEL_CAMPO[campo];
 
-      if (soloNombre && porque) lista.push({ campo, rotulo, texto: `${texto}: ${porque.porque}`, queHacemos: porque.queHacemos, deducido: true });
+      const varios = sonVarios(texto);
+
+      if (soloNombre && porque)
+        lista.push({
+          campo,
+          rotulo,
+          texto: `${texto}: ${varios ? porque.porqueVarios : porque.porque}`,
+          queHacemos: varios ? porque.queHacemosVarios : porque.queHacemos,
+          deducido: true,
+        });
       else lista.push({ campo, rotulo, texto });
     }
 
@@ -841,6 +892,17 @@ export default function ScoutRivalCollective() {
         .filter((e) => e && !esEtiquetaDebil(e) && /bal[oó]n|salida|pase|jugad|pie|conduc|limpi/i.test(e));
       if (fuertes.length) lineas.push(`${nombre} lleva «${fuertes.join("», «")}» en su ficha de Plantillas rivales`);
     }
+
+    return lineas;
+  };
+
+  /*
+  | 11/11/2026 (jueces): el aviso salía una vez por tarjeta (dos veces el de
+  | Fran Gil) y lo leía el cuerpo técnico. Ahora una sola línea, sin repetir
+  | nombres, y sólo con la sesión del analista: es tarea suya cotejarlo.
+  */
+  const contrasteFichaUnico = (textos: string[]) => {
+    const lineas = [...new Set(textos.flatMap((t) => contrasteFicha(t)))];
 
     return lineas.length ? `Contraste con su ficha: ${lineas.join("; ")}. Conviene dejar una sola lectura.` : "";
   };
@@ -900,7 +962,7 @@ export default function ScoutRivalCollective() {
     { campo: "OF_INICIO_JUGAR_ESPACIO", rotulo: "Al espacio" },
     { campo: "OF_REINICIO_REFERENCIAS", rotulo: "Sus referencias" },
   ]
-    .map((c) => ({ ...c, texto: primeraLinea(c.campo) }))
+    .map((c) => ({ ...c, texto: primeraLinea(c.campo), queHacemos: RESPUESTA_AL_PELIGRO[c.campo] }))
     .filter((c) => c.texto)
     .slice(0, 3);
 
@@ -1521,21 +1583,25 @@ export default function ScoutRivalCollective() {
                     <a href={`#campo-${d.campo}`} className="text-[12px] font-semibold text-white/60 hover:text-emerald-300 hover:underline">
                       {d.rotulo} ↓
                     </a>
-                    <p className="mt-0.5 text-sm leading-6 text-white/85">{conSiglas(sinErratas(conPlantilla(d.texto, nombresRival, fichasRival)))}</p>
+                    <p className="mt-0.5 text-sm leading-6 text-white/85">{conSiglas(sinPortero(sinErratas(conPlantilla(d.texto, nombresRival, fichasRival))))}</p>
                     {d.queHacemos && (
                       <p className="mt-1 text-sm leading-6 text-white/85">
-                        <b className="font-semibold text-emerald-300">Qué hacemos{d.deducido ? " (se deduce del campo)" : ""}:</b> {conSiglas(sinErratas(conPlantilla(d.queHacemos, nombresRival, fichasRival)))}
+                        <b className="font-semibold text-emerald-300">Qué hacemos{d.deducido ? " (se deduce del campo)" : ""}:</b> {conSiglas(sinPortero(sinErratas(conPlantilla(d.queHacemos, nombresRival, fichasRival))))}
                       </p>
                     )}
                     {contrasteDuelos(conPlantilla(d.texto, nombresRival, fichasRival)) && (
                       <p className="mt-1 text-[12px] leading-5 text-[#C8A96B]">{contrasteDuelos(conPlantilla(d.texto, nombresRival, fichasRival))}</p>
                     )}
-                    {contrasteFicha(conPlantilla(d.texto, nombresRival, fichasRival)) && (
-                      <p className="mt-1 text-[12px] leading-5 text-[#C8A96B]">{contrasteFicha(conPlantilla(d.texto, nombresRival, fichasRival))}</p>
-                    )}
                   </li>
                 ))}
               </ul>
+              {/* Una sola vez y sólo para el analista (11/11/2026, jueces): el cuerpo técnico no tiene que arbitrar entre dos lecturas. */}
+              {admin && contrasteFichaUnico(dano.map((d) => conPlantilla(d.texto, nombresRival, fichasRival))) && (
+                <p className="mt-2 rounded-lg border border-[#C8A96B]/25 px-3 py-1.5 text-[12px] leading-5 text-[#C8A96B]" data-export-hide>
+                  <b className="font-semibold">Sólo lo ves tú, como analista · </b>
+                  {contrasteFichaUnico(dano.map((d) => conPlantilla(d.texto, nombresRival, fichasRival)))}
+                </p>
+              )}
               <p className="mt-2 text-xs text-white/50">
                 Es lectura de vídeo, sin métrica detrás: las cifras de Wyscout de cada jugador están en su ficha de Plantillas rivales y en Duelos.
               </p>
@@ -1546,7 +1612,7 @@ export default function ScoutRivalCollective() {
             <section aria-label="Cómo nos hacen daño" className="mb-6 rounded-2xl border border-rose-400/25 bg-rose-400/[0.05] px-5 py-4">
               <p className="flex flex-wrap items-baseline gap-x-2 text-base font-bold text-rose-300">
                 Cómo nos hacen daño
-                <span className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] font-semibold text-white/60">del analista</span>
+                <span className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] font-semibold text-white/60">del analista, tras ver sus partidos</span>
               </p>
               <ul className="mt-2 grid gap-3 md:grid-cols-3">
                 {peligro.map((d) => (
@@ -1554,20 +1620,35 @@ export default function ScoutRivalCollective() {
                     <a href={`#campo-${d.campo}`} className="text-[12px] font-semibold text-white/60 hover:text-rose-300 hover:underline">
                       {d.rotulo} ↓
                     </a>
-                    <p className="mt-0.5 text-sm leading-6 text-white/85">{conSiglas(sinErratas(conPlantilla(d.texto, nombresRival, fichasRival)))}</p>
+                    <p className="mt-0.5 text-sm leading-6 text-white/85">{conSiglas(sinPortero(sinErratas(conPlantilla(d.texto, nombresRival, fichasRival))))}</p>
+                    {/* 11/11/2026 (marketing): como en «Dónde hacerles daño», cada tarjeta acaba en lo nuestro. */}
+                    {d.queHacemos && (
+                      <p className="mt-1 text-sm leading-6 text-white/85">
+                        <b className="font-semibold text-rose-300">Qué hacemos (se deduce del campo):</b> {d.queHacemos}
+                      </p>
+                    )}
                   </li>
                 ))}
               </ul>
+              <p className="mt-2 text-xs text-white/50">Lectura de vídeo, sin métrica detrás.</p>
             </section>
           )}
 
+          {/*
+            «Dibujo de referencia» (11/11/2026, jueces): antes «Contraste con
+            los datos», que se leía como una incoherencia. Es una explicación:
+            salen en un dibujo (BeSoccer, con su base) y en cada fase se
+            transforman (lo que ve el analista). Sin portero, como BeSoccer.
+          */}
           {!modoEdicion && rivalActivo && dibujoMedido && dibujosEscritos.length > 0 && (
             <p className="mb-6 rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-2.5 text-[13px] leading-6 text-white/65">
-              <b className="text-white/80">Contraste con los datos</b>{" "}
+              <b className="text-white/80">Dibujo de referencia: {dibujoMedido.dibujo}</b>{" "}
               <span className="rounded-full border border-white/15 px-1.5 py-px text-[11px] font-semibold text-white/60">dato · BeSoccer</span>
-              {" · "}El analista los ve en {dibujosEscritos.map((d) => `${d.dibujo} ${d.fase}`).join(", ")}; en sus alineaciones (BeSoccer), el{" "}
-              {dibujoMedido.dibujo} sale en {dibujoMedido.veces} de sus {dibujoMedido.de} alineaciones, la misma cuenta que Plantillas rivales
-              {dibujosEscritos.some((d) => d.dibujo !== dibujoMedido.dibujo) ? ": el dibujo de partida y el de cada fase no tienen por qué coincidir." : ", lo mismo que escribe el analista."}
+              {" · "}Salen en {dibujoMedido.dibujo} en {dibujoMedido.veces} de sus {dibujoMedido.de} alineaciones (la misma cuenta que Plantillas rivales)
+              {dibujosEscritos.some((d) => d.dibujo !== dibujoMedido.dibujo)
+                ? `; según el analista, se transforman en ${dibujosEscritos.map((d) => `${d.dibujo} ${d.fase}`).join(", ")}. Es el mismo equipo cambiando de forma en cada fase.`
+                : ", lo mismo que ve el analista en cada fase."}{" "}
+              <span className="text-white/45">Los dibujos se escriben sin contar al portero.</span>
             </p>
           )}
 
