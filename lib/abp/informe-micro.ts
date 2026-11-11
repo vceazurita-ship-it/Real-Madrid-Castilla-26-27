@@ -4081,7 +4081,8 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
             */
             valor: primeraPrioridad.base,
             /* La misma base en la tarjeta, en «Para el …» y en la tabla (`baseUnica`, 11/11/2026). */
-            base: baseUnica(primeraPrioridad, datos.propio?.partidos),
+            /* «3 de 10» arriba; aquí de qué es el 3 (11/11/2026, fútbol y análisis). */
+            base: `con peligro, de ${primeraPrioridad.acciones} ${accionesEnFrase(primeraPrioridad)}${datos.propio?.partidos ? ` en ${plural(datos.propio.partidos, "partido", "partidos")}` : ""}${primeraPrioridad.goles ? ` · ${plural(primeraPrioridad.goles, "gol", "goles")}` : ""}`,
             /* «Aspecto: …» al principio: el gancho del vídeo saca el aspecto de antes de los dos puntos (`lib/video-informe/guion.ts`). */
             pie:
               [

@@ -1672,9 +1672,9 @@ function metaAbpEnContra(inf: InformePartido) {
 
   if (!cifraNo1?.pie) return null;
 
-  const [que, ...resto] = cifraNo1.pie.split(" · ");
-
-  const partidos = inf.duelo?.jugados.nosotros ?? 0;
+  /* La base ya viene entera («10 faltas directas en contra en 11 partidos · 3 con peligro · 1 gol», `baseUnica`). */
+  const [que] = cifraNo1.pie.split(" · ");
+  const limpio = que.replace(/^\d+\s+/, "").replace(/\s+en\s+\d+\s+partidos?$/, "");
 
   const entrenar = p.cifras.find((c) => /por entrenar/i.test(c.rotulo));
 
@@ -1682,8 +1682,8 @@ function metaAbpEnContra(inf: InformePartido) {
   const pide = p.claves.map((c) => /;\s*(la \p{L}+), con (.+?), pide su tarea el (MD-\d+)/u.exec(c)).find(Boolean);
 
   return {
-    meta: `cero ${que.charAt(0).toLowerCase()}${que.slice(1)}`,
-    base: `Hasta hoy, ${cifraNo1.valor}${resto.length ? ` · ${resto.join(" · ")}` : ""}${partidos ? ` en ${partidos} partidos` : ""}`,
+    meta: `ningún gol en ${limpio.charAt(0).toLowerCase()}${limpio.slice(1)}`,
+    base: `Hasta hoy, ${cifraNo1.pie}`,
     porEntrenar: entrenar ? [entrenar.valor, entrenar.pie].filter(Boolean).join(" · ") : pide ? `${pide[1]}, ${pide[3]} · ${pide[2]}` : "",
   };
 }
