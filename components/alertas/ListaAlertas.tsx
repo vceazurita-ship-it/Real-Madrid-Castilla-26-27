@@ -70,6 +70,26 @@ function fechaDeSalida(iso: string | null) {
   return iso ? fechaLegible(iso).replace(/,/g, "") : "";
 }
 
+/*
+| «hoy a las 06:15», «mañana a las 09:00» o «el vie 13 nov · 09:00»
+| (11/11/2026, fútbol): con la fecha a secas no se veía que el aviso era de
+| hoy mismo y a unas horas. `ahora` viene de un efecto, nunca del render.
+*/
+export function cuandoRelativo(fecha: Date, ahora: number) {
+  const clave = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+  const hoy = new Date(ahora);
+  const manana = new Date(ahora);
+
+  manana.setDate(manana.getDate() + 1);
+
+  const hora = fecha.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+
+  if (ahora > 0 && clave(fecha) === clave(hoy)) return `hoy a las ${hora}`;
+  if (ahora > 0 && clave(fecha) === clave(manana)) return `mañana a las ${hora}`;
+
+  return `el ${fechaDeSalida(fecha.toISOString())}`;
+}
+
 /** ¿Lleva una fecha de verdad? Vacía o ilegible, la alerta no suena. */
 function fechaValida(iso: string | null | undefined) {
   return Boolean(iso) && !Number.isNaN(new Date(String(iso)).getTime());
@@ -331,20 +351,7 @@ export default function ListaAlertas({
                 )}
               </div>
 
-              <button
-                type="button"
-                onClick={() => onAlternarActiva(alerta)}
-                disabled={bloqueada}
-                title={alerta.activa ? "Silenciar" : "Reactivar"}
-                aria-label={alerta.activa ? "Silenciar" : "Reactivar"}
-                className="shrink-0 rounded-full p-1.5 text-white/40 transition hover:bg-white/10 hover:text-white disabled:opacity-40"
-              >
-                {alerta.activa ? (
-                  <AlarmClock className="h-4 w-4" aria-hidden />
-                ) : (
-                  <BellOff className="h-4 w-4" aria-hidden />
-                )}
-              </button>
+              {/* 11/11/2026 (fútbol): fuera la campana de la esquina; repetía «Reactivar» (y «Silenciar», que está en «⋯»). */}
             </div>
 
             {/* ------------------- DATOS ------------------- */}
@@ -376,8 +383,8 @@ export default function ListaAlertas({
                 if (saldria) {
                   principal = (
                     <>
-                      Saldría el{" "}
-                      <b className="font-semibold text-white/90">{fechaDeSalida(saldria.cuando.toISOString())}</b>
+                      Si la reactivas, sale{" "}
+                      <b className="font-semibold text-white/90">{cuandoRelativo(saldria.cuando, ahora)}</b>
                     </>
                   );
 
@@ -386,12 +393,15 @@ export default function ListaAlertas({
                 } else if (futura) {
                   principal = (
                     <>
-                      Saldría el{" "}
-                      <b className="font-semibold text-white/90">{fechaDeSalida(alerta.proximoEnvio)}</b>
+                      Si la reactivas, sale{" "}
+                      <b className="font-semibold text-white/90">{cuandoRelativo(new Date(alerta.proximoEnvio), ahora)}</b>
                     </>
                   );
                 } else if (alerta.envios > 0 && fechaValida(alerta.ultimoEnvio)) {
-                  principal = `Silenciada · enviada por última vez el ${fechaDeSalida(alerta.ultimoEnvio)}`;
+                  /* 11/11/2026 (marketing): la caducada dice desde cuándo y por qué. */
+                  principal = caducada(alerta)
+                    ? `Caducada: salió por última vez el ${fechaDeSalida(alerta.ultimoEnvio)} y no tiene fecha nueva`
+                    : `Silenciada · enviada por última vez el ${fechaDeSalida(alerta.ultimoEnvio)}`;
                 } else {
                   principal =
                     alerta.repeticion === "partido"
@@ -408,8 +418,8 @@ export default function ListaAlertas({
                 } else {
                   principal = (
                     <>
-                      Sale el{" "}
-                      <b className="font-semibold text-white/90">{fechaDeSalida(alerta.proximoEnvio)}</b>
+                      Sale{" "}
+                      <b className="font-semibold text-white/90">{cuandoRelativo(new Date(alerta.proximoEnvio), ahora)}</b>
                     </>
                   );
 
@@ -459,8 +469,10 @@ export default function ListaAlertas({
                       <button
                         type="button"
                         onClick={() => setDestinosAbiertos(alerta.id)}
+                        /* Al pasar por encima ya dice quién falta (11/11/2026). */
+                        title={piezas.slice(visibles.length).join(", ")}
                         className="ml-1.5 rounded-full border border-white/15 px-1.5 text-[12px] font-semibold text-white/75 hover:text-white"
-                        aria-label={`Ver los ${resto} destinatarios que faltan`}
+                        aria-label={`Ver también a ${piezas.slice(visibles.length).join(", ")}`}
                       >
                         +{resto}
                       </button>
@@ -640,13 +652,13 @@ export default function ListaAlertas({
   };
 
   return (
-    <div className="space-y-2.5 @3xl:grid @3xl:grid-cols-2 @3xl:items-stretch @3xl:gap-2.5 @3xl:space-y-0">
+    <div className="space-y-2.5 @3xl:grid @3xl:grid-cols-2 @6xl:grid-cols-3 @3xl:items-stretch @3xl:gap-2.5 @3xl:space-y-0">
       {vivas.map((alerta) => pinta(alerta))}
 
       {/* Las silenciadas no suenan: se apartan para que la lista diga lo que
           sí va a salir. */}
       {silenciadas.length > 0 && (
-        <details className="group pt-1 @3xl:col-span-2" open={vivas.length === 0}>
+        <details className="group pt-1 @3xl:col-span-2 @6xl:col-span-3" open={vivas.length === 0}>
           <summary className="cursor-pointer select-none rounded-xl px-2 py-2 text-[13px] text-white/60 transition hover:text-white">
             Silenciadas ({silenciadas.length})
           </summary>
@@ -659,7 +671,7 @@ export default function ListaAlertas({
                   {g.partido ? `Partido ${g.partido}` : "Sin partido"}
                 </p>
               ) : null}
-              <div className="space-y-2.5 @3xl:grid @3xl:grid-cols-2 @3xl:items-stretch @3xl:gap-2.5 @3xl:space-y-0">
+              <div className="space-y-2.5 @3xl:grid @3xl:grid-cols-2 @6xl:grid-cols-3 @3xl:items-stretch @3xl:gap-2.5 @3xl:space-y-0">
                 {g.alertas.map((alerta) => pinta(alerta))}
               </div>
             </div>
@@ -669,7 +681,7 @@ export default function ListaAlertas({
 
       {caducadas.length > 0 && (
         /* Abierta (07/11/2026, marketing y análisis): plegada en una línea larga parecía un error. */
-        <details className="group pt-1 @3xl:col-span-2" open>
+        <details className="group pt-1 @3xl:col-span-2 @6xl:col-span-3" open>
           {/* 30/10/2026: el porqué y cuáles, en el propio título plegado; sin
               abrirlo, «Caducadas (1)» parecía un error. */}
           {/* 10/11/2026: «Caducadas (1)» y, en cada tarjeta, su fecha y «Editar y ponerle fecha»; la explicación larga sobraba. */}
@@ -677,7 +689,7 @@ export default function ListaAlertas({
             Caducadas ({caducadas.length}) · {caducadas.length === 1 ? "no volvería a salir aunque se reactive" : "no volverían a salir aunque se reactiven"}
           </summary>
 
-          <div className="mt-2 space-y-2.5 @3xl:grid @3xl:grid-cols-2 @3xl:items-stretch @3xl:gap-2.5 @3xl:space-y-0">
+          <div className="mt-2 space-y-2.5 @3xl:grid @3xl:grid-cols-2 @6xl:grid-cols-3 @3xl:items-stretch @3xl:gap-2.5 @3xl:space-y-0">
             {caducadas.map((alerta) => pinta(alerta))}
           </div>
 
