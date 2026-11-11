@@ -1871,9 +1871,10 @@ export default function DataAnalisisPage() {
                     elegido va en azul en todos los gráficos.
                   */}
                   {AREAS_CON_EQUIPO.includes(area) && equiposLiga.length > 1 && (
-                    <label className={`${otroEquipo ? "flex" : plegable} items-center gap-2`}>
+                    /* 11/11/2026 (marketing): a 390 px cabe como el de «Partido» (a lo ancho, sin salirse). */
+                    <label className={`${otroEquipo ? "flex" : plegable} min-w-0 max-w-full items-center gap-2 max-sm:w-full`}>
                       <span
-                        className={`text-[11px] uppercase tracking-[0.16em] ${otroEquipo ? "" : "text-white/40"}`}
+                        className={`shrink-0 text-[11px] uppercase tracking-[0.16em] ${otroEquipo ? "" : "text-white/40"}`}
                         style={otroEquipo ? { color: COMPARADO } : undefined}
                       >
                         Comparar con
@@ -1883,7 +1884,7 @@ export default function DataAnalisisPage() {
                         value={otroEquipo}
                         onChange={(e) => setComparado(e.target.value)}
                         title="Otro equipo de la categoría para ponerlo al lado del Castilla en todos los gráficos"
-                        className="max-w-[220px] rounded-xl border bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"
+                        className="min-w-0 w-full max-w-full truncate sm:w-auto sm:max-w-[220px] rounded-xl border bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"
                         style={{ borderColor: otroEquipo ? COMPARADO : "rgb(var(--rmcf-ink-rgb) / .1)" }}
                       >
                         <option value="" className="bg-[#11161C]">

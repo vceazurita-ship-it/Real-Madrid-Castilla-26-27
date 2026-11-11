@@ -265,27 +265,53 @@ function BloqueFases({ datos, partido, hasta }: { datos: DatosOpta; partido: str
   const delPartido = useMemo(() => acciones.filter((a) => a.nuestra && a.partido === partido), [acciones, partido]);
   const hay = delPartido.length > 0;
   /* 10/11/2026: tres ideas a la vista y el detalle plegado; la pantalla era muy larga. */
+  /*
+  | 11/11/2026 (experto de fútbol): las recuperaciones y las pérdidas, con los
+  | MISMOS totales agregados de Opta que el cara a cara y los laboratorios de
+  | robos y pérdidas (Recovery / PosWonA3rd, PossLost / PsLostD3). La cuenta
+  | evento a evento daba 60 y 89 en el partido en que el resto de la app decía
+  | 43 y 108. Sólo si la fila agregada falta se cae a los eventos, diciendo qué
+  | cuentan.
+  */
+  const fila = useMemo(
+    () => datos.partidos.find((f) => String(f.partido ?? "") === partido && f.teamId === CASTILLA_OPTA),
+    [datos.partidos, partido],
+  );
   const ideas = useMemo(() => {
+    const num = (k: string) => {
+      const v = fila?.[k];
+      return typeof v === "number" && Number.isFinite(v) ? v : null;
+    };
     const pases = delPartido.filter((a) => a.tipo === "Pass").length;
     const prog = delPartido.filter(esProgresivo).length;
-    const rec = delPartido.filter(esRecuperacion);
-    const recAlta = rec.filter((a) => alturaAccion(a.x) === "alta").length;
-    const per = delPartido.filter(esPerdida);
-    const perBaja = per.filter((a) => alturaAccion(a.x) === "baja").length;
     const pc = (n: number, de: number) => (de ? `${Math.round((n / de) * 100)} %` : "");
-    return [
-      pases ? `${prog} pases progresivos de ${pases} (${pc(prog, pases)})` : "",
-      rec.length ? `${recAlta} de ${rec.length} recuperaciones en el último tercio (${pc(recAlta, rec.length)})` : "",
-      per.length ? `${perBaja} de ${per.length} pérdidas en nuestro primer tercio (${pc(perBaja, per.length)})` : "",
-    ].filter(Boolean);
-  }, [delPartido]);
+    const recT = num("Recovery");
+    const recA = num("PosWonA3rd");
+    const perT = num("PossLost");
+    const perD = num("PsLostD3");
+    const rec = delPartido.filter(esRecuperacion);
+    const per = delPartido.filter(esPerdida);
+    const recuperaciones =
+      recT !== null && recA !== null
+        ? `${recA} de ${recT} recuperaciones en el último tercio (${pc(recA, recT)})`
+        : rec.length
+          ? `${rec.filter((a) => alturaAccion(a.x) === "alta").length} de ${rec.length} recuperaciones en el último tercio (recuperaciones + intercepciones + entradas ganadas)`
+          : "";
+    const perdidas =
+      perT !== null && perD !== null
+        ? `${perD} de ${perT} pérdidas en nuestro primer tercio (${pc(perD, perT)})`
+        : per.length
+          ? `${per.filter((a) => alturaAccion(a.x) === "baja").length} de ${per.length} pérdidas en nuestro primer tercio (pases fallados + regates perdidos + robos en conducción)`
+          : "";
+    return [pases ? `${prog} pases progresivos de ${pases} (${pc(prog, pases)})` : "", recuperaciones, perdidas].filter(Boolean);
+  }, [delPartido, fila]);
   if (!cargando && !hay) return null;
   return (
     <Bloque
       titulo="Acción a acción"
       pregunta="¿Cómo nos asociamos, cuánto progresamos y dónde robamos y perdimos?"
       icono={Footprints}
-      sello={<SelloFuente fuente="opta" poblacion="evento a evento" hasta={hasta} className="shrink-0" />}
+      sello={<SelloFuente fuente="opta" poblacion="evento a evento" hasta={hasta} partidos={1} className="shrink-0" />}
     >
       {ideas.length > 0 && (
         <ul className="mb-3 grid gap-2 sm:grid-cols-3">
@@ -371,7 +397,7 @@ function BloqueOpta({ datos, partido, hasta }: { datos: DatosOpta; partido: Part
       titulo="El partido, cara a cara"
       pregunta="¿Quién hizo más, cuándo mandó cada uno y desde dónde se remató?"
       icono={Swords}
-      sello={<SelloFuente fuente="opta" poblacion="cifras del partido" hasta={hasta} className="shrink-0" />}
+      sello={<SelloFuente fuente="opta" poblacion="cifras del partido" hasta={hasta} partidos={1} className="shrink-0" />}
     >
       <LecturaCara datos={datos} partido={id} rival={lados[1].n} />
       <CaraACara datos={datos} partido={id} teamId={CASTILLA_OPTA} />
