@@ -608,7 +608,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 156.6,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/aguilas-157.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/aguilas-157.mp4"
       },
       {
         "seg": 408,
@@ -623,7 +623,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 408,
         "bloque": "b00300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/aguilas-408.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/aguilas-408.mp4"
       },
       {
         "seg": 1043,
@@ -638,7 +638,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 1042.9,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/aguilas-1043.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/aguilas-1043.mp4"
       },
       {
         "seg": 1140,
@@ -653,7 +653,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 1140.2,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/aguilas-1140.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/aguilas-1140.mp4"
       },
       {
         "seg": 1205,
@@ -682,7 +682,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 1491.2,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/aguilas-1491.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/aguilas-1491.mp4"
       },
       {
         "seg": 1642,
@@ -697,7 +697,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 1641.9,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/aguilas-1642.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/aguilas-1642.mp4"
       },
       {
         "seg": 2077,
@@ -712,7 +712,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Rachad Fettal",
         "hudl": 2077.5,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/aguilas-2078.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/aguilas-2078.mp4"
       },
       {
         "seg": 2171,
@@ -727,7 +727,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 2171.1,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/aguilas-2171.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/aguilas-2171.mp4"
       },
       {
         "seg": 2258,
@@ -742,7 +742,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 2257.7,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/aguilas-2258.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/aguilas-2258.mp4"
       },
       {
         "seg": 2269,
@@ -757,7 +757,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 2269.1,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/aguilas-2269.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/aguilas-2269.mp4"
       },
       {
         "seg": 2479,
@@ -772,7 +772,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 2479.2,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/aguilas-2479.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/aguilas-2479.mp4"
       },
       {
         "seg": 2486,
@@ -787,7 +787,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 2485.7,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/aguilas-2486.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/aguilas-2486.mp4"
       },
       {
         "seg": 2519,
@@ -802,7 +802,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 2519.1,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/aguilas-2519.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/aguilas-2519.mp4"
       },
       {
         "seg": 3546,
@@ -817,7 +817,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 3546.4,
         "bloque": "b03300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/aguilas-3546.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/aguilas-3546.mp4"
       },
       {
         "seg": 3612,
@@ -832,7 +832,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 3612.2,
         "bloque": "b03600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/aguilas-3612.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/aguilas-3612.mp4"
       },
       {
         "seg": 3709,
@@ -847,7 +847,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Cestero",
         "hudl": 3709.2,
         "bloque": "b03600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/aguilas-3709.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/aguilas-3709.mp4"
       },
       {
         "seg": 3758,
@@ -862,7 +862,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 3758.4,
         "bloque": "b03600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/aguilas-3758.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/aguilas-3758.mp4"
       },
       {
         "seg": 3837,
@@ -877,7 +877,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 3837.3,
         "bloque": "b03600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/aguilas-3837.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/aguilas-3837.mp4"
       },
       {
         "seg": 4675,
@@ -892,7 +892,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Cestero",
         "hudl": 4675.1,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/aguilas-4675.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/aguilas-4675.mp4"
       },
       {
         "seg": 4802,
@@ -907,7 +907,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 4802,
         "bloque": "b04800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/aguilas-4802.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/aguilas-4802.mp4"
       },
       {
         "seg": 5211,
@@ -922,7 +922,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 5210.8,
         "bloque": "b05100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/aguilas-5211.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/aguilas-5211.mp4"
       },
       {
         "seg": 5254,
@@ -937,7 +937,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 5253.7,
         "bloque": "b05100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/aguilas-5254.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/aguilas-5254.mp4"
       },
       {
         "seg": 5259,
@@ -952,7 +952,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Cestero",
         "hudl": 5258.8,
         "bloque": "b05100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/aguilas-5259.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/aguilas-5259.mp4"
       },
       {
         "seg": 5642,
@@ -967,7 +967,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 5641.9,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/aguilas-5642.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/aguilas-5642.mp4"
       },
       {
         "seg": 5687,
@@ -982,7 +982,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 5686.6,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/aguilas-5687.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/aguilas-5687.mp4"
       },
       {
         "seg": 5904,
@@ -997,7 +997,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 5903.8,
         "bloque": "b05700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/aguilas-5904.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/aguilas-5904.mp4"
       }
     ],
     "perdidas": [
@@ -1014,7 +1014,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 152.2,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-152.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-152.mp4"
       },
       {
         "seg": 219,
@@ -1029,7 +1029,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 218.8,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-219.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-219.mp4"
       },
       {
         "seg": 315,
@@ -1044,7 +1044,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 315.4,
         "bloque": "b00300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-315.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-315.mp4"
       },
       {
         "seg": 375,
@@ -1059,7 +1059,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 374.7,
         "bloque": "b00300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-375.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-375.mp4"
       },
       {
         "seg": 766,
@@ -1074,7 +1074,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 766.2,
         "bloque": "b00600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-766.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-766.mp4"
       },
       {
         "seg": 795,
@@ -1089,7 +1089,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 795.1,
         "bloque": "b00600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-795.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-795.mp4"
       },
       {
         "seg": 1060,
@@ -1104,7 +1104,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 1059.7,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-1060.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-1060.mp4"
       },
       {
         "seg": 1194,
@@ -1119,7 +1119,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Rachad Fettal",
         "hudl": 1193.6,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-1194.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-1194.mp4"
       },
       {
         "seg": 1214,
@@ -1134,7 +1134,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 1213.9,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-1214.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-1214.mp4"
       },
       {
         "seg": 1390,
@@ -1149,7 +1149,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Roberto Martín",
         "hudl": 1390.3,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-1390.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-1390.mp4"
       },
       {
         "seg": 1456,
@@ -1164,7 +1164,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 1456,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-1456.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-1456.mp4"
       },
       {
         "seg": 1644,
@@ -1179,7 +1179,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Rachad Fettal",
         "hudl": 1643.8,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-1644.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-1644.mp4"
       },
       {
         "seg": 1659,
@@ -1194,7 +1194,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 1658.9,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-1659.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-1659.mp4"
       },
       {
         "seg": 1673,
@@ -1209,7 +1209,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 1672.7,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-1673.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-1673.mp4"
       },
       {
         "seg": 1967,
@@ -1224,7 +1224,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 1966.8,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-1967.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-1967.mp4"
       },
       {
         "seg": 1993,
@@ -1239,7 +1239,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 1992.9,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-1993.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-1993.mp4"
       },
       {
         "seg": 2074,
@@ -1254,7 +1254,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Roberto Martín",
         "hudl": 2074.3,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-2074.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-2074.mp4"
       },
       {
         "seg": 2107,
@@ -1269,7 +1269,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 2106.7,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-2107.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-2107.mp4"
       },
       {
         "seg": 2163,
@@ -1284,7 +1284,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 2162.9,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-2163.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-2163.mp4"
       },
       {
         "seg": 2213,
@@ -1299,7 +1299,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 2213.3,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-2213.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-2213.mp4"
       },
       {
         "seg": 2239,
@@ -1314,7 +1314,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 2239.3,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-2239.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-2239.mp4"
       },
       {
         "seg": 2255,
@@ -1329,7 +1329,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 2254.6,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-2255.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-2255.mp4"
       },
       {
         "seg": 2264,
@@ -1344,7 +1344,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 2263.5,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-2264.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-2264.mp4"
       },
       {
         "seg": 2288,
@@ -1359,7 +1359,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 2288.4,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-2288.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-2288.mp4"
       },
       {
         "seg": 2471,
@@ -1374,7 +1374,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Roberto Martín",
         "hudl": 2471.4,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-2471.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-2471.mp4"
       },
       {
         "seg": 2480,
@@ -1389,7 +1389,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Cestero",
         "hudl": 2480.2,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-2480.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-2480.mp4"
       },
       {
         "seg": 2568,
@@ -1404,7 +1404,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Cestero",
         "hudl": 2568.1,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-2568.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-2568.mp4"
       },
       {
         "seg": 2940,
@@ -1419,7 +1419,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Navarro",
         "hudl": 2940.4,
         "bloque": "b02700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-2940.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-2940.mp4"
       },
       {
         "seg": 3173,
@@ -1434,7 +1434,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 3172.7,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-3173.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-3173.mp4"
       },
       {
         "seg": 3341,
@@ -1449,7 +1449,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Rachad Fettal",
         "hudl": 3341.1,
         "bloque": "b03300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-3341.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-3341.mp4"
       },
       {
         "seg": 3347,
@@ -1464,7 +1464,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Roberto Martín",
         "hudl": 3346.9,
         "bloque": "b03300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-3347.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-3347.mp4"
       },
       {
         "seg": 3476,
@@ -1479,7 +1479,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Navarro",
         "hudl": 3475.9,
         "bloque": "b03300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-3476.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-3476.mp4"
       },
       {
         "seg": 3533,
@@ -1494,7 +1494,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Cestero",
         "hudl": 3533.3,
         "bloque": "b03300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-3533.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-3533.mp4"
       },
       {
         "seg": 3552,
@@ -1509,7 +1509,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 3552.1,
         "bloque": "b03300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-3552.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-3552.mp4"
       },
       {
         "seg": 3639,
@@ -1524,7 +1524,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 3639.2,
         "bloque": "b03600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-3639.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-3639.mp4"
       },
       {
         "seg": 3752,
@@ -1539,7 +1539,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 3751.5,
         "bloque": "b03600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-3752.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-3752.mp4"
       },
       {
         "seg": 3813,
@@ -1554,7 +1554,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 3813,
         "bloque": "b03600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-3813.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-3813.mp4"
       },
       {
         "seg": 3844,
@@ -1569,7 +1569,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Rachad Fettal",
         "hudl": 3844,
         "bloque": "b03600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-3844.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-3844.mp4"
       },
       {
         "seg": 4565,
@@ -1584,7 +1584,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 4564.6,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-4565.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-4565.mp4"
       },
       {
         "seg": 4671,
@@ -1599,7 +1599,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 4671.5,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-4672.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-4672.mp4"
       },
       {
         "seg": 4722,
@@ -1614,7 +1614,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Daniel Yáñez",
         "hudl": 4721.8,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-4722.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-4722.mp4"
       },
       {
         "seg": 5159,
@@ -1629,7 +1629,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Roberto Martín",
         "hudl": 5158.9,
         "bloque": "b05100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-5159.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-5159.mp4"
       },
       {
         "seg": 5257,
@@ -1644,7 +1644,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 5257.1,
         "bloque": "b05100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-5257.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-5257.mp4"
       },
       {
         "seg": 5531,
@@ -1659,7 +1659,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 5531.4,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-5531.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-5531.mp4"
       },
       {
         "seg": 5645,
@@ -1674,7 +1674,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Rachad Fettal",
         "hudl": 5645.4,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-5645.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-5645.mp4"
       },
       {
         "seg": 5672,
@@ -1689,7 +1689,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 5671.7,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-5672.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-5672.mp4"
       },
       {
         "seg": 5796,
@@ -1704,7 +1704,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Rachad Fettal",
         "hudl": 5796.5,
         "bloque": "b05700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-5797.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-5797.mp4"
       },
       {
         "seg": 5878,
@@ -1719,7 +1719,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 5878.1,
         "bloque": "b05700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-5878.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-5878.mp4"
       },
       {
         "seg": 5935,
@@ -1734,7 +1734,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 5935.2,
         "bloque": "b05700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-5935.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-5935.mp4"
       },
       {
         "seg": 6087,
@@ -1749,7 +1749,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 6087.4,
         "bloque": "b06000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/aguilas-6087.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/aguilas-6087.mp4"
       }
     ],
     "hudlUrl": "https://www.hudl.com/watch/video/VmlkZW82YWE3N2JmMDEyNDI5NTJlYzIwOWI5YmE="
@@ -1797,7 +1797,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Thiago Pitarch",
         "hudl": 56.8,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-57.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-57.mp4"
       },
       {
         "seg": 227,
@@ -1812,7 +1812,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 193.6,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-194.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-194.mp4"
       },
       {
         "seg": 314,
@@ -1827,7 +1827,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 281.5,
         "bloque": "b00300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-282.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-282.mp4"
       },
       {
         "seg": 524,
@@ -1842,7 +1842,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 491.1,
         "bloque": "b00300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-491.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-491.mp4"
       },
       {
         "seg": 621,
@@ -1857,7 +1857,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 587.7,
         "bloque": "b00600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-588.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-588.mp4"
       },
       {
         "seg": 663,
@@ -1872,7 +1872,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 629.9,
         "bloque": "b00600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-630.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-630.mp4"
       },
       {
         "seg": 750,
@@ -1887,7 +1887,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Daniel Yáñez",
         "hudl": 716.5,
         "bloque": "b00600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-717.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-717.mp4"
       },
       {
         "seg": 900,
@@ -1902,7 +1902,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Thiago Pitarch",
         "hudl": 867.1,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-867.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-867.mp4"
       },
       {
         "seg": 966,
@@ -1917,7 +1917,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 933.4,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-933.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-933.mp4"
       },
       {
         "seg": 1073,
@@ -1932,7 +1932,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 1039.8,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-1040.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-1040.mp4"
       },
       {
         "seg": 1113,
@@ -1947,7 +1947,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 1080.1,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-1080.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-1080.mp4"
       },
       {
         "seg": 1388,
@@ -1962,7 +1962,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 1355.5,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-1356.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-1356.mp4"
       },
       {
         "seg": 1495,
@@ -1977,7 +1977,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 1461.9,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-1462.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-1462.mp4"
       },
       {
         "seg": 1541,
@@ -1992,7 +1992,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 1507.7,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-1508.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-1508.mp4"
       },
       {
         "seg": 1588,
@@ -2007,7 +2007,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 1555,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-1555.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-1555.mp4"
       },
       {
         "seg": 1736,
@@ -2022,7 +2022,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Thiago Pitarch",
         "hudl": 1702.8,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-1703.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-1703.mp4"
       },
       {
         "seg": 1775,
@@ -2037,7 +2037,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 1742,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-1742.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-1742.mp4"
       },
       {
         "seg": 1801,
@@ -2052,7 +2052,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 1768.2,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-1768.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-1768.mp4"
       },
       {
         "seg": 1864,
@@ -2067,7 +2067,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 1830.7,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-1831.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-1831.mp4"
       },
       {
         "seg": 2108,
@@ -2082,7 +2082,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 2134.1,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-2134.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-2134.mp4"
       },
       {
         "seg": 2246,
@@ -2097,7 +2097,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 2271.8,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-2272.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-2272.mp4"
       },
       {
         "seg": 2398,
@@ -2112,7 +2112,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 2424.4,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-2424.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-2424.mp4"
       },
       {
         "seg": 2545,
@@ -2127,7 +2127,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Thiago Pitarch",
         "hudl": 2571.1,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-2571.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-2571.mp4"
       },
       {
         "seg": 2755,
@@ -2142,7 +2142,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 2781.3,
         "bloque": "b02700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-2781.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-2781.mp4"
       },
       {
         "seg": 2902,
@@ -2157,7 +2157,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 2896.4,
         "bloque": "b02700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-2896.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-2896.mp4"
       },
       {
         "seg": 3039,
@@ -2172,7 +2172,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 3032.6,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-3033.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-3033.mp4"
       },
       {
         "seg": 3073,
@@ -2187,7 +2187,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 3067.2,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-3067.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-3067.mp4"
       },
       {
         "seg": 3134,
@@ -2202,7 +2202,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 3127.9,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-3128.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-3128.mp4"
       },
       {
         "seg": 3203,
@@ -2217,7 +2217,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 3197.5,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-3198.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-3198.mp4"
       },
       {
         "seg": 3386,
@@ -2232,7 +2232,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 3379.7,
         "bloque": "b03300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-3380.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-3380.mp4"
       },
       {
         "seg": 3996,
@@ -2247,7 +2247,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Daniel Yáñez",
         "hudl": 3989.7,
         "bloque": "b03900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-3990.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-3990.mp4"
       },
       {
         "seg": 4196,
@@ -2262,7 +2262,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 4189.6,
         "bloque": "b03900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-4190.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-4190.mp4"
       },
       {
         "seg": 4231,
@@ -2277,7 +2277,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 4225.2,
         "bloque": "b04200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-4225.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-4225.mp4"
       },
       {
         "seg": 4347,
@@ -2292,7 +2292,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 4341.1,
         "bloque": "b04200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-4341.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-4341.mp4"
       },
       {
         "seg": 4416,
@@ -2307,7 +2307,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 4410.1,
         "bloque": "b04200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-4410.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-4410.mp4"
       },
       {
         "seg": 4420,
@@ -2322,7 +2322,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 4414.1,
         "bloque": "b04200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-4414.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-4414.mp4"
       },
       {
         "seg": 4585,
@@ -2337,7 +2337,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Dani Meso",
         "hudl": 4578.8,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-4579.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-4579.mp4"
       },
       {
         "seg": 4846,
@@ -2352,7 +2352,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 4840.3,
         "bloque": "b04800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-4840.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-4840.mp4"
       },
       {
         "seg": 5469,
@@ -2367,7 +2367,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 5508.4,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-5508.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-5508.mp4"
       },
       {
         "seg": 5477,
@@ -2382,7 +2382,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 5516.1,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-5516.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-5516.mp4"
       },
       {
         "seg": 5499,
@@ -2397,7 +2397,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 5537.9,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-5538.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-5538.mp4"
       },
       {
         "seg": 5559,
@@ -2412,7 +2412,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 5597.8,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-5598.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-5598.mp4"
       },
       {
         "seg": 5572,
@@ -2427,7 +2427,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Dani Meso",
         "hudl": 5610.9,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-5611.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-5611.mp4"
       },
       {
         "seg": 5699,
@@ -2442,7 +2442,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 5738.2,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-5738.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-5738.mp4"
       },
       {
         "seg": 5782,
@@ -2457,7 +2457,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 5821.2,
         "bloque": "b05700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/sant-andreu-5821.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/sant-andreu-5821.mp4"
       }
     ],
     "perdidas": [
@@ -2474,7 +2474,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 72.8,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-73.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-73.mp4"
       },
       {
         "seg": 157,
@@ -2489,7 +2489,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Rachad Fettal",
         "hudl": 123.8,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-124.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-124.mp4"
       },
       {
         "seg": 221,
@@ -2504,7 +2504,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 188,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-188.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-188.mp4"
       },
       {
         "seg": 425,
@@ -2519,7 +2519,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 392,
         "bloque": "b00300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-392.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-392.mp4"
       },
       {
         "seg": 556,
@@ -2534,7 +2534,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Sergio Mestre",
         "hudl": 522.9,
         "bloque": "b00300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-523.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-523.mp4"
       },
       {
         "seg": 586,
@@ -2549,7 +2549,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Sergio Mestre",
         "hudl": 553.1,
         "bloque": "b00300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-553.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-553.mp4"
       },
       {
         "seg": 625,
@@ -2564,7 +2564,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Rachad Fettal",
         "hudl": 592.4,
         "bloque": "b00600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-592.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-592.mp4"
       },
       {
         "seg": 754,
@@ -2579,7 +2579,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 720.6,
         "bloque": "b00600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-721.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-721.mp4"
       },
       {
         "seg": 896,
@@ -2594,7 +2594,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Thiago Pitarch",
         "hudl": 863,
         "bloque": "b00600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-863.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-863.mp4"
       },
       {
         "seg": 963,
@@ -2609,7 +2609,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 929.8,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-930.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-930.mp4"
       },
       {
         "seg": 1085,
@@ -2624,7 +2624,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 1051.7,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-1052.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-1052.mp4"
       },
       {
         "seg": 1240,
@@ -2639,7 +2639,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 1206.9,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-1207.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-1207.mp4"
       },
       {
         "seg": 1295,
@@ -2654,7 +2654,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Sergio Mestre",
         "hudl": 1262.1,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-1262.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-1262.mp4"
       },
       {
         "seg": 1393,
@@ -2669,7 +2669,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Thiago Pitarch",
         "hudl": 1359.5,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-1360.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-1360.mp4"
       },
       {
         "seg": 1482,
@@ -2684,7 +2684,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 1449.1,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-1449.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-1449.mp4"
       },
       {
         "seg": 1499,
@@ -2699,7 +2699,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Rachad Fettal",
         "hudl": 1465.9,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-1466.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-1466.mp4"
       },
       {
         "seg": 1573,
@@ -2714,7 +2714,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 1540.4,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-1540.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-1540.mp4"
       },
       {
         "seg": 1613,
@@ -2729,7 +2729,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 1580.1,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-1580.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-1580.mp4"
       },
       {
         "seg": 1737,
@@ -2744,7 +2744,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 1704,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-1704.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-1704.mp4"
       },
       {
         "seg": 1760,
@@ -2759,7 +2759,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 1726.7,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-1727.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-1727.mp4"
       },
       {
         "seg": 1771,
@@ -2774,7 +2774,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Daniel Yáñez",
         "hudl": 1737.9,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-1738.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-1738.mp4"
       },
       {
         "seg": 1778,
@@ -2789,7 +2789,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 1744.7,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-1745.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-1745.mp4"
       },
       {
         "seg": 1791,
@@ -2804,7 +2804,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Sergio Mestre",
         "hudl": 1758.5,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-1759.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-1759.mp4"
       },
       {
         "seg": 1866,
@@ -2819,7 +2819,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 1833.1,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-1833.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-1833.mp4"
       },
       {
         "seg": 1911,
@@ -2834,7 +2834,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Rachad Fettal",
         "hudl": 1937.2,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-1937.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-1937.mp4"
       },
       {
         "seg": 2103,
@@ -2849,7 +2849,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 2129.4,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-2129.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-2129.mp4"
       },
       {
         "seg": 2158,
@@ -2864,7 +2864,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 2184.2,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-2184.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-2184.mp4"
       },
       {
         "seg": 2202,
@@ -2879,7 +2879,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 2227.7,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-2228.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-2228.mp4"
       },
       {
         "seg": 2396,
@@ -2894,7 +2894,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 2421.6,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-2422.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-2422.mp4"
       },
       {
         "seg": 2405,
@@ -2909,7 +2909,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 2430.8,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-2431.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-2431.mp4"
       },
       {
         "seg": 2543,
@@ -2924,7 +2924,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Rachad Fettal",
         "hudl": 2569.4,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-2569.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-2569.mp4"
       },
       {
         "seg": 2581,
@@ -2939,7 +2939,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 2607.1,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-2607.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-2607.mp4"
       },
       {
         "seg": 2632,
@@ -2954,7 +2954,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 2658.3,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-2658.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-2658.mp4"
       },
       {
         "seg": 2660,
@@ -2969,7 +2969,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 2686.3,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-2686.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-2686.mp4"
       },
       {
         "seg": 2751,
@@ -2984,7 +2984,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 2777.2,
         "bloque": "b02700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-2777.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-2777.mp4"
       },
       {
         "seg": 2797,
@@ -2999,7 +2999,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 2822.7,
         "bloque": "b02700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-2823.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-2823.mp4"
       },
       {
         "seg": 2831,
@@ -3014,7 +3014,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Rachad Fettal",
         "hudl": 2857.3,
         "bloque": "b02700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-2857.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-2857.mp4"
       },
       {
         "seg": 2893,
@@ -3043,7 +3043,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Thiago Pitarch",
         "hudl": 2932.2,
         "bloque": "b02700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-2932.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-2932.mp4"
       },
       {
         "seg": 2967,
@@ -3058,7 +3058,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 2960.7,
         "bloque": "b02700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-2961.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-2961.mp4"
       },
       {
         "seg": 3008,
@@ -3073,7 +3073,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 3002.4,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-3002.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-3002.mp4"
       },
       {
         "seg": 3073,
@@ -3088,7 +3088,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 3067,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-3067.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-3067.mp4"
       },
       {
         "seg": 3188,
@@ -3117,7 +3117,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Thiago Pitarch",
         "hudl": 3191.8,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-3192.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-3192.mp4"
       },
       {
         "seg": 3309,
@@ -3132,7 +3132,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 3302.6,
         "bloque": "b03300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-3303.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-3303.mp4"
       },
       {
         "seg": 3352,
@@ -3147,7 +3147,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 3346.1,
         "bloque": "b03300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-3346.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-3346.mp4"
       },
       {
         "seg": 3378,
@@ -3162,7 +3162,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Daniel Yáñez",
         "hudl": 3372.2,
         "bloque": "b03300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-3372.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-3372.mp4"
       },
       {
         "seg": 3417,
@@ -3177,7 +3177,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 3411.3,
         "bloque": "b03300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-3411.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-3411.mp4"
       },
       {
         "seg": 3424,
@@ -3192,7 +3192,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 3417.9,
         "bloque": "b03300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-3418.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-3418.mp4"
       },
       {
         "seg": 3453,
@@ -3207,7 +3207,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Thiago Pitarch",
         "hudl": 3447.2,
         "bloque": "b03300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-3447.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-3447.mp4"
       },
       {
         "seg": 3589,
@@ -3222,7 +3222,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 3582.5,
         "bloque": "b03300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-3583.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-3583.mp4"
       },
       {
         "seg": 3644,
@@ -3237,7 +3237,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Daniel Yáñez",
         "hudl": 3638.1,
         "bloque": "b03600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-3638.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-3638.mp4"
       },
       {
         "seg": 3792,
@@ -3266,7 +3266,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 3981.3,
         "bloque": "b03900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-3981.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-3981.mp4"
       },
       {
         "seg": 4058,
@@ -3281,7 +3281,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 4052.1,
         "bloque": "b03900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-4052.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-4052.mp4"
       },
       {
         "seg": 4186,
@@ -3296,7 +3296,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 4179.6,
         "bloque": "b03900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-4180.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-4180.mp4"
       },
       {
         "seg": 4246,
@@ -3311,7 +3311,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 4239.7,
         "bloque": "b04200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-4240.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-4240.mp4"
       },
       {
         "seg": 4387,
@@ -3340,7 +3340,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Sergio Mestre",
         "hudl": 4418.3,
         "bloque": "b04200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-4418.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-4418.mp4"
       },
       {
         "seg": 4635,
@@ -3355,7 +3355,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Dani Meso",
         "hudl": 4629,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-4629.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-4629.mp4"
       },
       {
         "seg": 4740,
@@ -3370,7 +3370,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 4734,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-4734.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-4734.mp4"
       },
       {
         "seg": 5097,
@@ -3385,7 +3385,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 5136.4,
         "bloque": "b04800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-5136.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-5136.mp4"
       },
       {
         "seg": 5471,
@@ -3400,7 +3400,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Rajado",
         "hudl": 5509.7,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-5510.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-5510.mp4"
       },
       {
         "seg": 5479,
@@ -3415,7 +3415,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Dani Meso",
         "hudl": 5517.9,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-5518.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-5518.mp4"
       },
       {
         "seg": 5507,
@@ -3430,7 +3430,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Rajado",
         "hudl": 5546.4,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-5546.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-5546.mp4"
       },
       {
         "seg": 5561,
@@ -3445,7 +3445,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Ángel Carvajal",
         "hudl": 5599.9,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-5600.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-5600.mp4"
       },
       {
         "seg": 5575,
@@ -3460,7 +3460,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 5613.8,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-5614.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-5614.mp4"
       },
       {
         "seg": 5597,
@@ -3475,7 +3475,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 5635.6,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-5636.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-5636.mp4"
       },
       {
         "seg": 5642,
@@ -3490,7 +3490,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 5680.9,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-5681.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-5681.mp4"
       },
       {
         "seg": 5776,
@@ -3505,7 +3505,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 5815.4,
         "bloque": "b05700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-5815.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-5815.mp4"
       },
       {
         "seg": 5821,
@@ -3520,7 +3520,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 5859.7,
         "bloque": "b05700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-5860.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-5860.mp4"
       },
       {
         "seg": 5844,
@@ -3535,7 +3535,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 5882.7,
         "bloque": "b05700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-5883.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-5883.mp4"
       },
       {
         "seg": 5899,
@@ -3550,7 +3550,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Roberto Martín",
         "hudl": 5938.1,
         "bloque": "b05700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/sant-andreu-5938.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/sant-andreu-5938.mp4"
       }
     ],
     "hudlUrl": "https://www.hudl.com/watch/video/VmlkZW82YWJjMTJkYWZjMTkzYTQzY2E2MDI4MTY="
@@ -3603,7 +3603,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 27.4,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/alcorcon-27.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/alcorcon-27.mp4"
       },
       {
         "seg": 67,
@@ -3618,7 +3618,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 61,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/alcorcon-61.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/alcorcon-61.mp4"
       },
       {
         "seg": 190,
@@ -3633,7 +3633,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 184.3,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/alcorcon-184.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/alcorcon-184.mp4"
       },
       {
         "seg": 325,
@@ -3648,7 +3648,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 319.1,
         "bloque": "b00300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/alcorcon-319.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/alcorcon-319.mp4"
       },
       {
         "seg": 772,
@@ -3663,7 +3663,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 766.5,
         "bloque": "b00600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/alcorcon-767.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/alcorcon-767.mp4"
       },
       {
         "seg": 1014,
@@ -3678,7 +3678,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 1008.6,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/alcorcon-1009.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/alcorcon-1009.mp4"
       },
       {
         "seg": 1034,
@@ -3693,7 +3693,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 1028.8,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/alcorcon-1029.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/alcorcon-1029.mp4"
       },
       {
         "seg": 1153,
@@ -3708,7 +3708,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 1147.3,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/alcorcon-1147.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/alcorcon-1147.mp4"
       },
       {
         "seg": 1184,
@@ -3723,7 +3723,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Ángel Carvajal",
         "hudl": 1178.7,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/alcorcon-1179.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/alcorcon-1179.mp4"
       },
       {
         "seg": 1189,
@@ -3738,7 +3738,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 1183.9,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/alcorcon-1184.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/alcorcon-1184.mp4"
       },
       {
         "seg": 1242,
@@ -3753,7 +3753,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 1237,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/alcorcon-1237.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/alcorcon-1237.mp4"
       },
       {
         "seg": 1305,
@@ -3768,7 +3768,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Thiago Pitarch",
         "hudl": 1299.1,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/alcorcon-1299.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/alcorcon-1299.mp4"
       },
       {
         "seg": 1358,
@@ -3783,7 +3783,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 1352.3,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/alcorcon-1352.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/alcorcon-1352.mp4"
       },
       {
         "seg": 1634,
@@ -3798,7 +3798,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 1629,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/alcorcon-1629.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/alcorcon-1629.mp4"
       },
       {
         "seg": 1693,
@@ -3813,7 +3813,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Daniel Yáñez",
         "hudl": 1687.2,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/alcorcon-1687.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/alcorcon-1687.mp4"
       },
       {
         "seg": 1766,
@@ -3828,7 +3828,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 1760.2,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/alcorcon-1760.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/alcorcon-1760.mp4"
       },
       {
         "seg": 1971,
@@ -3843,7 +3843,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 1995.6,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/alcorcon-1996.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/alcorcon-1996.mp4"
       },
       {
         "seg": 2127,
@@ -3858,7 +3858,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 2152.3,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/alcorcon-2152.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/alcorcon-2152.mp4"
       },
       {
         "seg": 2143,
@@ -3873,7 +3873,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 2167.6,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/alcorcon-2168.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/alcorcon-2168.mp4"
       },
       {
         "seg": 2424,
@@ -3888,7 +3888,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 2448.9,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/alcorcon-2449.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/alcorcon-2449.mp4"
       },
       {
         "seg": 2811,
@@ -3903,7 +3903,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 2835.8,
         "bloque": "b02700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/alcorcon-2836.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/alcorcon-2836.mp4"
       },
       {
         "seg": 3112,
@@ -3918,7 +3918,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Daniel Yáñez",
         "hudl": 3038.6,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/alcorcon-3039.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/alcorcon-3039.mp4"
       },
       {
         "seg": 3210,
@@ -3933,7 +3933,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 3137.2,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/alcorcon-3137.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/alcorcon-3137.mp4"
       },
       {
         "seg": 3236,
@@ -3948,7 +3948,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 3162.9,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/alcorcon-3163.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/alcorcon-3163.mp4"
       },
       {
         "seg": 3421,
@@ -3963,7 +3963,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Daniel Yáñez",
         "hudl": 3348.1,
         "bloque": "b03300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/alcorcon-3348.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/alcorcon-3348.mp4"
       },
       {
         "seg": 3645,
@@ -3978,7 +3978,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 3572.4,
         "bloque": "b03600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/alcorcon-3572.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/alcorcon-3572.mp4"
       },
       {
         "seg": 3739,
@@ -3993,7 +3993,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Thiago Pitarch",
         "hudl": 3666.5,
         "bloque": "b03600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/alcorcon-3667.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/alcorcon-3667.mp4"
       },
       {
         "seg": 3879,
@@ -4008,7 +4008,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Thiago Pitarch",
         "hudl": 3805.6,
         "bloque": "b03600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/alcorcon-3806.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/alcorcon-3806.mp4"
       },
       {
         "seg": 4031,
@@ -4023,7 +4023,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 3958,
         "bloque": "b03900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/alcorcon-3958.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/alcorcon-3958.mp4"
       },
       {
         "seg": 4098,
@@ -4038,7 +4038,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 4024.7,
         "bloque": "b03900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/alcorcon-4025.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/alcorcon-4025.mp4"
       },
       {
         "seg": 4222,
@@ -4053,7 +4053,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Dani Meso",
         "hudl": 4148.9,
         "bloque": "b04200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/alcorcon-4149.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/alcorcon-4149.mp4"
       },
       {
         "seg": 4253,
@@ -4068,7 +4068,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Dani Meso",
         "hudl": 4179.6,
         "bloque": "b04200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/alcorcon-4180.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/alcorcon-4180.mp4"
       },
       {
         "seg": 4596,
@@ -4083,7 +4083,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 4523.5,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/alcorcon-4524.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/alcorcon-4524.mp4"
       },
       {
         "seg": 4635,
@@ -4098,7 +4098,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 4562.2,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/alcorcon-4562.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/alcorcon-4562.mp4"
       },
       {
         "seg": 5177,
@@ -4113,7 +4113,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Dani Meso",
         "hudl": 5141.3,
         "bloque": "b05100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/alcorcon-5141.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/alcorcon-5141.mp4"
       },
       {
         "seg": 5197,
@@ -4128,7 +4128,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 5161,
         "bloque": "b05100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/alcorcon-5161.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/alcorcon-5161.mp4"
       },
       {
         "seg": 5232,
@@ -4143,7 +4143,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 5196.1,
         "bloque": "b05100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/alcorcon-5196.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/alcorcon-5196.mp4"
       },
       {
         "seg": 5483,
@@ -4158,7 +4158,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Dani Meso",
         "hudl": 5447.1,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/alcorcon-5447.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/alcorcon-5447.mp4"
       },
       {
         "seg": 5666,
@@ -4173,7 +4173,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Roberto Martín",
         "hudl": 5630.3,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/alcorcon-5630.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/alcorcon-5630.mp4"
       },
       {
         "seg": 5752,
@@ -4188,7 +4188,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 5716.2,
         "bloque": "b05700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/alcorcon-5716.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/alcorcon-5716.mp4"
       },
       {
         "seg": 5788,
@@ -4203,7 +4203,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 5751.9,
         "bloque": "b05700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/alcorcon-5752.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/alcorcon-5752.mp4"
       },
       {
         "seg": 5807,
@@ -4218,7 +4218,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 5771.2,
         "bloque": "b05700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/alcorcon-5771.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/alcorcon-5771.mp4"
       }
     ],
     "perdidas": [
@@ -4235,7 +4235,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 16.4,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-16.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-16.mp4"
       },
       {
         "seg": 59,
@@ -4250,7 +4250,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Sergio Mestre",
         "hudl": 54,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-54.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-54.mp4"
       },
       {
         "seg": 118,
@@ -4265,7 +4265,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Thiago Pitarch",
         "hudl": 112.5,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-113.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-113.mp4"
       },
       {
         "seg": 184,
@@ -4280,7 +4280,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 178.6,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-179.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-179.mp4"
       },
       {
         "seg": 236,
@@ -4295,7 +4295,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 230.6,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-231.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-231.mp4"
       },
       {
         "seg": 288,
@@ -4310,7 +4310,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Ángel Carvajal",
         "hudl": 282.6,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-283.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-283.mp4"
       },
       {
         "seg": 326,
@@ -4325,7 +4325,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 320.9,
         "bloque": "b00300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-321.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-321.mp4"
       },
       {
         "seg": 788,
@@ -4340,7 +4340,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 782.2,
         "bloque": "b00600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-782.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-782.mp4"
       },
       {
         "seg": 864,
@@ -4355,7 +4355,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 859,
         "bloque": "b00600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-859.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-859.mp4"
       },
       {
         "seg": 973,
@@ -4370,7 +4370,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 967.8,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-968.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-968.mp4"
       },
       {
         "seg": 1026,
@@ -4385,7 +4385,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 1020.8,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-1021.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-1021.mp4"
       },
       {
         "seg": 1188,
@@ -4400,7 +4400,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 1182.4,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-1182.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-1182.mp4"
       },
       {
         "seg": 1237,
@@ -4415,7 +4415,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 1231.6,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-1232.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-1232.mp4"
       },
       {
         "seg": 1302,
@@ -4430,7 +4430,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 1296.9,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-1297.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-1297.mp4"
       },
       {
         "seg": 1405,
@@ -4445,7 +4445,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Thiago Pitarch",
         "hudl": 1399.7,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-1400.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-1400.mp4"
       },
       {
         "seg": 1449,
@@ -4460,7 +4460,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 1443.6,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-1444.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-1444.mp4"
       },
       {
         "seg": 1524,
@@ -4475,7 +4475,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Ángel Carvajal",
         "hudl": 1518.3,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-1518.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-1518.mp4"
       },
       {
         "seg": 1640,
@@ -4490,7 +4490,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 1634.9,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-1635.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-1635.mp4"
       },
       {
         "seg": 1666,
@@ -4505,7 +4505,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 1660.7,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-1661.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-1661.mp4"
       },
       {
         "seg": 1793,
@@ -4520,7 +4520,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Sergio Mestre",
         "hudl": 1787.2,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-1787.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-1787.mp4"
       },
       {
         "seg": 2123,
@@ -4535,7 +4535,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Sergio Mestre",
         "hudl": 2148.5,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-2149.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-2149.mp4"
       },
       {
         "seg": 2138,
@@ -4550,7 +4550,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Daniel Yáñez",
         "hudl": 2163.2,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-2163.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-2163.mp4"
       },
       {
         "seg": 2145,
@@ -4565,7 +4565,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 2170,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-2170.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-2170.mp4"
       },
       {
         "seg": 2225,
@@ -4580,7 +4580,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 2250,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-2250.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-2250.mp4"
       },
       {
         "seg": 2377,
@@ -4609,7 +4609,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 2501.8,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-2502.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-2502.mp4"
       },
       {
         "seg": 2600,
@@ -4624,7 +4624,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 2624.7,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-2625.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-2625.mp4"
       },
       {
         "seg": 2656,
@@ -4639,7 +4639,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Ángel Carvajal",
         "hudl": 2681.2,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-2681.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-2681.mp4"
       },
       {
         "seg": 2677,
@@ -4668,7 +4668,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 2827.5,
         "bloque": "b02700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-2828.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-2828.mp4"
       },
       {
         "seg": 2818,
@@ -4683,7 +4683,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 2842.8,
         "bloque": "b02700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-2843.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-2843.mp4"
       },
       {
         "seg": 2890,
@@ -4698,7 +4698,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Thiago Pitarch",
         "hudl": 2914.7,
         "bloque": "b02700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-2915.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-2915.mp4"
       },
       {
         "seg": 2927,
@@ -4713,7 +4713,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 2951.5,
         "bloque": "b02700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-2952.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-2952.mp4"
       },
       {
         "seg": 2949,
@@ -4728,7 +4728,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 2973.8,
         "bloque": "b02700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-2974.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-2974.mp4"
       },
       {
         "seg": 3091,
@@ -4743,7 +4743,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 3018.2,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-3018.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-3018.mp4"
       },
       {
         "seg": 3116,
@@ -4758,7 +4758,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 3042.6,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-3043.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-3043.mp4"
       },
       {
         "seg": 3202,
@@ -4773,7 +4773,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 3129.2,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-3129.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-3129.mp4"
       },
       {
         "seg": 3228,
@@ -4788,7 +4788,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 3155,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-3155.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-3155.mp4"
       },
       {
         "seg": 3241,
@@ -4803,7 +4803,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 3167.7,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-3168.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-3168.mp4"
       },
       {
         "seg": 3277,
@@ -4818,7 +4818,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 3204.3,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-3204.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-3204.mp4"
       },
       {
         "seg": 3342,
@@ -4833,7 +4833,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 3269.3,
         "bloque": "b03300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-3269.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-3269.mp4"
       },
       {
         "seg": 3418,
@@ -4848,7 +4848,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Daniel Yáñez",
         "hudl": 3344.8,
         "bloque": "b03300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-3345.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-3345.mp4"
       },
       {
         "seg": 3523,
@@ -4863,7 +4863,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 3449.6,
         "bloque": "b03300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-3450.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-3450.mp4"
       },
       {
         "seg": 3621,
@@ -4878,7 +4878,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Sergio Mestre",
         "hudl": 3548,
         "bloque": "b03600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-3548.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-3548.mp4"
       },
       {
         "seg": 3648,
@@ -4893,7 +4893,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Daniel Yáñez",
         "hudl": 3574.9,
         "bloque": "b03600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-3575.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-3575.mp4"
       },
       {
         "seg": 3693,
@@ -4908,7 +4908,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 3620.3,
         "bloque": "b03600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-3620.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-3620.mp4"
       },
       {
         "seg": 3731,
@@ -4923,7 +4923,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 3658.2,
         "bloque": "b03600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-3658.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-3658.mp4"
       },
       {
         "seg": 3745,
@@ -4938,7 +4938,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Thiago Pitarch",
         "hudl": 3672.2,
         "bloque": "b03600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-3672.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-3672.mp4"
       },
       {
         "seg": 3790,
@@ -4953,7 +4953,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Ángel Carvajal",
         "hudl": 3717.3,
         "bloque": "b03600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-3717.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-3717.mp4"
       },
       {
         "seg": 3810,
@@ -4968,7 +4968,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Sergio Mestre",
         "hudl": 3736.9,
         "bloque": "b03600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-3737.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-3737.mp4"
       },
       {
         "seg": 3883,
@@ -4983,7 +4983,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 3810,
         "bloque": "b03600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-3810.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-3810.mp4"
       },
       {
         "seg": 4034,
@@ -4998,7 +4998,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 3960.6,
         "bloque": "b03900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-3961.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-3961.mp4"
       },
       {
         "seg": 4064,
@@ -5013,7 +5013,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 3990.5,
         "bloque": "b03900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-3991.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-3991.mp4"
       },
       {
         "seg": 4132,
@@ -5028,7 +5028,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 4059.2,
         "bloque": "b03900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-4059.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-4059.mp4"
       },
       {
         "seg": 4163,
@@ -5043,7 +5043,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 4090.4,
         "bloque": "b03900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-4090.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-4090.mp4"
       },
       {
         "seg": 4214,
@@ -5058,7 +5058,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 4141.5,
         "bloque": "b04200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-4142.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-4142.mp4"
       },
       {
         "seg": 4231,
@@ -5073,7 +5073,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Rachad Fettal",
         "hudl": 4158.1,
         "bloque": "b04200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-4158.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-4158.mp4"
       },
       {
         "seg": 4255,
@@ -5088,7 +5088,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Rachad Fettal",
         "hudl": 4181.7,
         "bloque": "b04200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-4182.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-4182.mp4"
       },
       {
         "seg": 4359,
@@ -5103,7 +5103,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 4286.2,
         "bloque": "b04200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-4286.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-4286.mp4"
       },
       {
         "seg": 4396,
@@ -5118,7 +5118,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Dani Meso",
         "hudl": 4323.1,
         "bloque": "b04200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-4323.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-4323.mp4"
       },
       {
         "seg": 4426,
@@ -5133,7 +5133,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Dani Meso",
         "hudl": 4353.2,
         "bloque": "b04200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-4353.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-4353.mp4"
       },
       {
         "seg": 4516,
@@ -5148,7 +5148,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 4442.8,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-4443.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-4443.mp4"
       },
       {
         "seg": 4524,
@@ -5163,7 +5163,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 4451.2,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-4451.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-4451.mp4"
       },
       {
         "seg": 4599,
@@ -5178,7 +5178,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 4525.8,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-4526.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-4526.mp4"
       },
       {
         "seg": 4631,
@@ -5193,7 +5193,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 4557.6,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-4558.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-4558.mp4"
       },
       {
         "seg": 4636,
@@ -5208,7 +5208,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Thiago Pitarch",
         "hudl": 4563.4,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-4563.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-4563.mp4"
       },
       {
         "seg": 4674,
@@ -5223,7 +5223,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 4600.8,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-4601.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-4601.mp4"
       },
       {
         "seg": 4758,
@@ -5238,7 +5238,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Thiago Pitarch",
         "hudl": 4685.5,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-4686.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-4686.mp4"
       },
       {
         "seg": 4823,
@@ -5253,7 +5253,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 4750.4,
         "bloque": "b04800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-4750.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-4750.mp4"
       },
       {
         "seg": 4881,
@@ -5268,7 +5268,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 4845.1,
         "bloque": "b04800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-4845.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-4845.mp4"
       },
       {
         "seg": 5034,
@@ -5283,7 +5283,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 4997.9,
         "bloque": "b04800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-4998.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-4998.mp4"
       },
       {
         "seg": 5121,
@@ -5298,7 +5298,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 5084.8,
         "bloque": "b05100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-5085.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-5085.mp4"
       },
       {
         "seg": 5144,
@@ -5327,7 +5327,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 5145.5,
         "bloque": "b05100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-5146.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-5146.mp4"
       },
       {
         "seg": 5220,
@@ -5342,7 +5342,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 5184,
         "bloque": "b05100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-5184.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-5184.mp4"
       },
       {
         "seg": 5237,
@@ -5357,7 +5357,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Dani Meso",
         "hudl": 5200.5,
         "bloque": "b05100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-5201.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-5201.mp4"
       },
       {
         "seg": 5437,
@@ -5372,7 +5372,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Roberto Martín",
         "hudl": 5401,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-5401.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-5401.mp4"
       },
       {
         "seg": 5521,
@@ -5387,7 +5387,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Dani Meso",
         "hudl": 5484.7,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-5485.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-5485.mp4"
       },
       {
         "seg": 5658,
@@ -5402,7 +5402,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Sergio Mestre",
         "hudl": 5622.1,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-5622.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-5622.mp4"
       },
       {
         "seg": 5689,
@@ -5417,7 +5417,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Dani Meso",
         "hudl": 5652.8,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-5653.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-5653.mp4"
       },
       {
         "seg": 5745,
@@ -5446,7 +5446,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Sergio Mestre",
         "hudl": 5718.7,
         "bloque": "b05700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-5719.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-5719.mp4"
       },
       {
         "seg": 5924,
@@ -5461,7 +5461,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 5887.8,
         "bloque": "b05700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-5888.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-5888.mp4"
       },
       {
         "seg": 5942,
@@ -5476,7 +5476,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Sergio Mestre",
         "hudl": 5905.7,
         "bloque": "b05700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-5906.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-5906.mp4"
       },
       {
         "seg": 5966,
@@ -5491,7 +5491,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 5929.9,
         "bloque": "b05700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/alcorcon-5930.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/alcorcon-5930.mp4"
       }
     ],
     "hudlUrl": "https://www.hudl.com/watch/video/VmlkZW82YWJhODQxZGUwNTMyZTRkMThlNWQ2Y2Y="
@@ -5560,7 +5560,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 11.4,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j06-atletico-madrileno-11.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j06-atletico-madrileno-11.mp4"
       },
       {
         "seg": 188,
@@ -5575,7 +5575,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Daniel Yáñez",
         "hudl": 139,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j06-atletico-madrileno-139.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j06-atletico-madrileno-139.mp4"
       },
       {
         "seg": 402,
@@ -5590,7 +5590,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 353.3,
         "bloque": "b00300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j06-atletico-madrileno-353.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j06-atletico-madrileno-353.mp4"
       },
       {
         "seg": 771,
@@ -5605,7 +5605,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 721.8,
         "bloque": "b00600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j06-atletico-madrileno-722.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j06-atletico-madrileno-722.mp4"
       },
       {
         "seg": 1473,
@@ -5620,7 +5620,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 1422.2,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j06-atletico-madrileno-1422.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j06-atletico-madrileno-1422.mp4"
       },
       {
         "seg": 1552,
@@ -5649,7 +5649,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 1699.6,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j06-atletico-madrileno-1700.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j06-atletico-madrileno-1700.mp4"
       },
       {
         "seg": 1890,
@@ -5664,7 +5664,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 1838.6,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j06-atletico-madrileno-1839.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j06-atletico-madrileno-1839.mp4"
       },
       {
         "seg": 1949,
@@ -5679,7 +5679,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 1897.7,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j06-atletico-madrileno-1898.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j06-atletico-madrileno-1898.mp4"
       },
       {
         "seg": 1994,
@@ -5694,7 +5694,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 1943,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j06-atletico-madrileno-1943.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j06-atletico-madrileno-1943.mp4"
       },
       {
         "seg": 2307,
@@ -5709,7 +5709,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Daniel Yáñez",
         "hudl": 2255.8,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j06-atletico-madrileno-2256.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j06-atletico-madrileno-2256.mp4"
       },
       {
         "seg": 2585,
@@ -5724,7 +5724,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 2534.1,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j06-atletico-madrileno-2534.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j06-atletico-madrileno-2534.mp4"
       },
       {
         "seg": 2656,
@@ -5739,7 +5739,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Ángel Carvajal",
         "hudl": 2604.9,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j06-atletico-madrileno-2605.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j06-atletico-madrileno-2605.mp4"
       },
       {
         "seg": 2908,
@@ -5754,7 +5754,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 2857.1,
         "bloque": "b02700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j06-atletico-madrileno-2857.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j06-atletico-madrileno-2857.mp4"
       },
       {
         "seg": 3174,
@@ -5769,7 +5769,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 3046.3,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j06-atletico-madrileno-3046.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j06-atletico-madrileno-3046.mp4"
       },
       {
         "seg": 3328,
@@ -5784,7 +5784,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 3199.5,
         "bloque": "b03300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j06-atletico-madrileno-3200.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j06-atletico-madrileno-3200.mp4"
       },
       {
         "seg": 3443,
@@ -5813,7 +5813,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 3453.3,
         "bloque": "b03300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j06-atletico-madrileno-3453.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j06-atletico-madrileno-3453.mp4"
       },
       {
         "seg": 4530,
@@ -5828,7 +5828,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 4454.4,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j06-atletico-madrileno-4454.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j06-atletico-madrileno-4454.mp4"
       },
       {
         "seg": 5329,
@@ -5843,7 +5843,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 5250.8,
         "bloque": "b05100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j06-atletico-madrileno-5251.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j06-atletico-madrileno-5251.mp4"
       },
       {
         "seg": 5432,
@@ -5858,7 +5858,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 5353.6,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j06-atletico-madrileno-5354.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j06-atletico-madrileno-5354.mp4"
       },
       {
         "seg": 5451,
@@ -5873,7 +5873,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Lezcano",
         "hudl": 5372.8,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j06-atletico-madrileno-5373.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j06-atletico-madrileno-5373.mp4"
       },
       {
         "seg": 5693,
@@ -5888,7 +5888,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Lezcano",
         "hudl": 5614.9,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j06-atletico-madrileno-5615.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j06-atletico-madrileno-5615.mp4"
       },
       {
         "seg": 5794,
@@ -5917,7 +5917,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Lezcano",
         "hudl": 5992.8,
         "bloque": "b06000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j06-atletico-madrileno-5993.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j06-atletico-madrileno-5993.mp4"
       },
       {
         "seg": 6253,
@@ -5932,7 +5932,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Roberto Martín",
         "hudl": 6218.2,
         "bloque": "b06000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j06-atletico-madrileno-6218.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j06-atletico-madrileno-6218.mp4"
       }
     ],
     "perdidas": [
@@ -5949,7 +5949,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 81.6,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j06-atletico-madrileno-82.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j06-atletico-madrileno-82.mp4"
       },
       {
         "seg": 207,
@@ -5964,7 +5964,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 157.7,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j06-atletico-madrileno-158.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j06-atletico-madrileno-158.mp4"
       },
       {
         "seg": 316,
@@ -5979,7 +5979,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 266.9,
         "bloque": "b00300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j06-atletico-madrileno-267.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j06-atletico-madrileno-267.mp4"
       },
       {
         "seg": 404,
@@ -5994,7 +5994,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 354.8,
         "bloque": "b00300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j06-atletico-madrileno-355.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j06-atletico-madrileno-355.mp4"
       },
       {
         "seg": 660,
@@ -6009,7 +6009,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 610.7,
         "bloque": "b00600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j06-atletico-madrileno-611.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j06-atletico-madrileno-611.mp4"
       },
       {
         "seg": 838,
@@ -6024,7 +6024,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Thiago Pitarch",
         "hudl": 788.6,
         "bloque": "b00600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j06-atletico-madrileno-789.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j06-atletico-madrileno-789.mp4"
       },
       {
         "seg": 859,
@@ -6039,7 +6039,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 810.1,
         "bloque": "b00600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j06-atletico-madrileno-810.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j06-atletico-madrileno-810.mp4"
       },
       {
         "seg": 1303,
@@ -6054,7 +6054,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Sergio Mestre",
         "hudl": 1252.4,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j06-atletico-madrileno-1252.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j06-atletico-madrileno-1252.mp4"
       },
       {
         "seg": 1401,
@@ -6069,7 +6069,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 1349.5,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j06-atletico-madrileno-1350.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j06-atletico-madrileno-1350.mp4"
       },
       {
         "seg": 1460,
@@ -6084,7 +6084,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Ángel Carvajal",
         "hudl": 1409.1,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j06-atletico-madrileno-1409.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j06-atletico-madrileno-1409.mp4"
       },
       {
         "seg": 1544,
@@ -6099,7 +6099,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Ángel Carvajal",
         "hudl": 1493.4,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j06-atletico-madrileno-1493.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j06-atletico-madrileno-1493.mp4"
       },
       {
         "seg": 1622,
@@ -6114,7 +6114,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Daniel Yáñez",
         "hudl": 1571.4,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j06-atletico-madrileno-1571.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j06-atletico-madrileno-1571.mp4"
       },
       {
         "seg": 1745,
@@ -6129,7 +6129,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 1693.7,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j06-atletico-madrileno-1694.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j06-atletico-madrileno-1694.mp4"
       },
       {
         "seg": 1953,
@@ -6144,7 +6144,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 1902.1,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j06-atletico-madrileno-1902.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j06-atletico-madrileno-1902.mp4"
       },
       {
         "seg": 2102,
@@ -6159,7 +6159,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 2051.5,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j06-atletico-madrileno-2052.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j06-atletico-madrileno-2052.mp4"
       },
       {
         "seg": 2114,
@@ -6174,7 +6174,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Daniel Yáñez",
         "hudl": 2063.2,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j06-atletico-madrileno-2063.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j06-atletico-madrileno-2063.mp4"
       },
       {
         "seg": 2260,
@@ -6189,7 +6189,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Ángel Carvajal",
         "hudl": 2209.4,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j06-atletico-madrileno-2209.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j06-atletico-madrileno-2209.mp4"
       },
       {
         "seg": 2312,
@@ -6204,7 +6204,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Thiago Pitarch",
         "hudl": 2261.1,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j06-atletico-madrileno-2261.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j06-atletico-madrileno-2261.mp4"
       },
       {
         "seg": 2380,
@@ -6219,7 +6219,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Daniel Yáñez",
         "hudl": 2328.6,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j06-atletico-madrileno-2329.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j06-atletico-madrileno-2329.mp4"
       },
       {
         "seg": 2468,
@@ -6234,7 +6234,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 2417.4,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j06-atletico-madrileno-2417.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j06-atletico-madrileno-2417.mp4"
       },
       {
         "seg": 2856,
@@ -6249,7 +6249,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 2804.5,
         "bloque": "b02700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j06-atletico-madrileno-2805.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j06-atletico-madrileno-2805.mp4"
       },
       {
         "seg": 2933,
@@ -6264,7 +6264,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Ángel Carvajal",
         "hudl": 2882.1,
         "bloque": "b02700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j06-atletico-madrileno-2882.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j06-atletico-madrileno-2882.mp4"
       },
       {
         "seg": 2938,
@@ -6279,7 +6279,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Daniel Yáñez",
         "hudl": 2887.2,
         "bloque": "b02700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j06-atletico-madrileno-2887.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j06-atletico-madrileno-2887.mp4"
       },
       {
         "seg": 3005,
@@ -6294,7 +6294,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 2954.1,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j06-atletico-madrileno-2954.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j06-atletico-madrileno-2954.mp4"
       },
       {
         "seg": 3198,
@@ -6309,7 +6309,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 3069.7,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j06-atletico-madrileno-3070.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j06-atletico-madrileno-3070.mp4"
       },
       {
         "seg": 3398,
@@ -6324,7 +6324,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 3266.6,
         "bloque": "b03300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j06-atletico-madrileno-3267.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j06-atletico-madrileno-3267.mp4"
       },
       {
         "seg": 3465,
@@ -6339,7 +6339,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 3334.4,
         "bloque": "b03300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j06-atletico-madrileno-3334.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j06-atletico-madrileno-3334.mp4"
       },
       {
         "seg": 4417,
@@ -6354,7 +6354,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 4341.4,
         "bloque": "b04200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j06-atletico-madrileno-4341.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j06-atletico-madrileno-4341.mp4"
       },
       {
         "seg": 4465,
@@ -6369,7 +6369,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 4389.3,
         "bloque": "b04200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j06-atletico-madrileno-4389.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j06-atletico-madrileno-4389.mp4"
       },
       {
         "seg": 4525,
@@ -6384,7 +6384,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 4449.4,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j06-atletico-madrileno-4449.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j06-atletico-madrileno-4449.mp4"
       },
       {
         "seg": 4532,
@@ -6399,7 +6399,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 4455.6,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j06-atletico-madrileno-4456.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j06-atletico-madrileno-4456.mp4"
       },
       {
         "seg": 4585,
@@ -6414,7 +6414,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 4509.1,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j06-atletico-madrileno-4509.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j06-atletico-madrileno-4509.mp4"
       },
       {
         "seg": 4906,
@@ -6429,7 +6429,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Sergio Mestre",
         "hudl": 4830.4,
         "bloque": "b04800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j06-atletico-madrileno-4830.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j06-atletico-madrileno-4830.mp4"
       },
       {
         "seg": 5248,
@@ -6444,7 +6444,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 5170.1,
         "bloque": "b05100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j06-atletico-madrileno-5170.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j06-atletico-madrileno-5170.mp4"
       },
       {
         "seg": 5689,
@@ -6459,7 +6459,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 5611.1,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j06-atletico-madrileno-5611.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j06-atletico-madrileno-5611.mp4"
       },
       {
         "seg": 5936,
@@ -6474,7 +6474,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Thiago Pitarch",
         "hudl": 5858,
         "bloque": "b05700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j06-atletico-madrileno-5858.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j06-atletico-madrileno-5858.mp4"
       },
       {
         "seg": 6016,
@@ -6489,7 +6489,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Sergio Mestre",
         "hudl": 5938.3,
         "bloque": "b06000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j06-atletico-madrileno-5938.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j06-atletico-madrileno-5938.mp4"
       },
       {
         "seg": 6059,
@@ -6504,7 +6504,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Roberto Martín",
         "hudl": 5980.5,
         "bloque": "b06000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j06-atletico-madrileno-5981.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j06-atletico-madrileno-5981.mp4"
       },
       {
         "seg": 6105,
@@ -6519,7 +6519,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 6026.7,
         "bloque": "b06000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j06-atletico-madrileno-6027.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j06-atletico-madrileno-6027.mp4"
       }
     ],
     "hudlUrl": "https://www.hudl.com/watch/video/VmlkZW82YWMxZmVkODczMmIxNzA1OTI4NDU1NzA="
@@ -6571,7 +6571,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 12.7,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-13.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-13.mp4"
       },
       {
         "seg": 19,
@@ -6586,7 +6586,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 17.4,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-17.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-17.mp4"
       },
       {
         "seg": 28,
@@ -6601,7 +6601,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Cestero",
         "hudl": 26.2,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-26.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-26.mp4"
       },
       {
         "seg": 200,
@@ -6616,7 +6616,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 198.2,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-198.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-198.mp4"
       },
       {
         "seg": 392,
@@ -6631,7 +6631,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 389.9,
         "bloque": "b00300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-390.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-390.mp4"
       },
       {
         "seg": 442,
@@ -6646,7 +6646,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 440.3,
         "bloque": "b00300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-440.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-440.mp4"
       },
       {
         "seg": 563,
@@ -6661,7 +6661,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Ángel Carvajal",
         "hudl": 560.7,
         "bloque": "b00300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-561.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-561.mp4"
       },
       {
         "seg": 610,
@@ -6676,7 +6676,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 608.2,
         "bloque": "b00600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-608.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-608.mp4"
       },
       {
         "seg": 678,
@@ -6691,7 +6691,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 675.8,
         "bloque": "b00600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-676.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-676.mp4"
       },
       {
         "seg": 941,
@@ -6706,7 +6706,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 939.2,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-939.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-939.mp4"
       },
       {
         "seg": 952,
@@ -6721,7 +6721,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Cestero",
         "hudl": 949.8,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-950.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-950.mp4"
       },
       {
         "seg": 990,
@@ -6736,7 +6736,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 988,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-988.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-988.mp4"
       },
       {
         "seg": 1082,
@@ -6751,7 +6751,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 1080,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-1080.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-1080.mp4"
       },
       {
         "seg": 1352,
@@ -6766,7 +6766,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 1349.5,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-1350.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-1350.mp4"
       },
       {
         "seg": 1367,
@@ -6781,7 +6781,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Ángel Carvajal",
         "hudl": 1364.6,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-1365.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-1365.mp4"
       },
       {
         "seg": 1477,
@@ -6796,7 +6796,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 1475.3,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-1475.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-1475.mp4"
       },
       {
         "seg": 1487,
@@ -6811,7 +6811,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 1484.8,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-1485.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-1485.mp4"
       },
       {
         "seg": 1707,
@@ -6826,7 +6826,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 1705.1,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-1705.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-1705.mp4"
       },
       {
         "seg": 1721,
@@ -6841,7 +6841,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 1718.6,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-1719.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-1719.mp4"
       },
       {
         "seg": 1985,
@@ -6856,7 +6856,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 1982.6,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-1983.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-1983.mp4"
       },
       {
         "seg": 2064,
@@ -6871,7 +6871,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Cestero",
         "hudl": 2062.1,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-2062.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-2062.mp4"
       },
       {
         "seg": 2093,
@@ -6886,7 +6886,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 2091.4,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-2091.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-2091.mp4"
       },
       {
         "seg": 2223,
@@ -6901,7 +6901,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 2220.7,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-2221.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-2221.mp4"
       },
       {
         "seg": 2336,
@@ -6916,7 +6916,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 2334.1,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-2334.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-2334.mp4"
       },
       {
         "seg": 2400,
@@ -6945,7 +6945,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 2430.3,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-2430.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-2430.mp4"
       },
       {
         "seg": 2460,
@@ -6960,7 +6960,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 2458.1,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-2458.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-2458.mp4"
       },
       {
         "seg": 2674,
@@ -6975,7 +6975,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 2672.3,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-2672.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-2672.mp4"
       },
       {
         "seg": 2790,
@@ -6990,7 +6990,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 2788,
         "bloque": "b02700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-2788.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-2788.mp4"
       },
       {
         "seg": 2984,
@@ -7005,7 +7005,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 2982.5,
         "bloque": "b02700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-2983.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-2983.mp4"
       },
       {
         "seg": 3101,
@@ -7020,7 +7020,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Cestero",
         "hudl": 3098.8,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-3099.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-3099.mp4"
       },
       {
         "seg": 3147,
@@ -7035,7 +7035,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Cestero",
         "hudl": 3145.2,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-3145.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-3145.mp4"
       },
       {
         "seg": 3177,
@@ -7050,7 +7050,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 3175,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-3175.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-3175.mp4"
       },
       {
         "seg": 3539,
@@ -7065,7 +7065,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 3537.4,
         "bloque": "b03300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-3537.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-3537.mp4"
       },
       {
         "seg": 3704,
@@ -7080,7 +7080,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Roberto Martín",
         "hudl": 3701.9,
         "bloque": "b03600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-3702.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-3702.mp4"
       },
       {
         "seg": 3792,
@@ -7095,7 +7095,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Cestero",
         "hudl": 3790.1,
         "bloque": "b03600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-3790.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-3790.mp4"
       },
       {
         "seg": 3959,
@@ -7110,7 +7110,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 3957.4,
         "bloque": "b03900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-3957.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-3957.mp4"
       },
       {
         "seg": 4000,
@@ -7125,7 +7125,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 3998.1,
         "bloque": "b03900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-3998.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-3998.mp4"
       },
       {
         "seg": 4079,
@@ -7140,7 +7140,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 4077.3,
         "bloque": "b03900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-4077.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-4077.mp4"
       },
       {
         "seg": 4172,
@@ -7155,7 +7155,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Daniel Yáñez",
         "hudl": 4170,
         "bloque": "b03900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-4170.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-4170.mp4"
       },
       {
         "seg": 4183,
@@ -7170,7 +7170,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Cestero",
         "hudl": 4180.6,
         "bloque": "b03900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-4181.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-4181.mp4"
       },
       {
         "seg": 4283,
@@ -7185,7 +7185,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 4281.4,
         "bloque": "b04200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-4281.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-4281.mp4"
       },
       {
         "seg": 5313,
@@ -7200,7 +7200,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 5311.4,
         "bloque": "b05100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-5311.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-5311.mp4"
       },
       {
         "seg": 5405,
@@ -7215,7 +7215,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 5403.2,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-5403.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-5403.mp4"
       },
       {
         "seg": 5485,
@@ -7230,7 +7230,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Ángel Carvajal",
         "hudl": 5483,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-5483.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-5483.mp4"
       },
       {
         "seg": 5647,
@@ -7245,7 +7245,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 5644.7,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-5645.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-5645.mp4"
       },
       {
         "seg": 5703,
@@ -7260,7 +7260,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 5700.6,
         "bloque": "b05700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j07-ibiza-5701.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j07-ibiza-5701.mp4"
       }
     ],
     "perdidas": [
@@ -7277,7 +7277,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Daniel Yáñez",
         "hudl": 10.2,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-10.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-10.mp4"
       },
       {
         "seg": 17,
@@ -7292,7 +7292,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Daniel Yáñez",
         "hudl": 14.6,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-15.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-15.mp4"
       },
       {
         "seg": 114,
@@ -7307,7 +7307,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 112,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-112.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-112.mp4"
       },
       {
         "seg": 160,
@@ -7322,7 +7322,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 158.4,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-158.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-158.mp4"
       },
       {
         "seg": 226,
@@ -7337,7 +7337,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 223.6,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-224.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-224.mp4"
       },
       {
         "seg": 265,
@@ -7352,7 +7352,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 263.4,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-263.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-263.mp4"
       },
       {
         "seg": 364,
@@ -7367,7 +7367,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 361.6,
         "bloque": "b00300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-362.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-362.mp4"
       },
       {
         "seg": 397,
@@ -7382,7 +7382,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Sergio Mestre",
         "hudl": 395,
         "bloque": "b00300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-395.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-395.mp4"
       },
       {
         "seg": 445,
@@ -7397,7 +7397,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 443,
         "bloque": "b00300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-443.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-443.mp4"
       },
       {
         "seg": 551,
@@ -7412,7 +7412,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 549.3,
         "bloque": "b00300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-549.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-549.mp4"
       },
       {
         "seg": 606,
@@ -7441,7 +7441,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Ángel Carvajal",
         "hudl": 619.4,
         "bloque": "b00600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-619.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-619.mp4"
       },
       {
         "seg": 683,
@@ -7456,7 +7456,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Ángel Carvajal",
         "hudl": 680.6,
         "bloque": "b00600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-681.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-681.mp4"
       },
       {
         "seg": 924,
@@ -7471,7 +7471,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 921.9,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-922.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-922.mp4"
       },
       {
         "seg": 1052,
@@ -7486,7 +7486,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 1049.9,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-1050.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-1050.mp4"
       },
       {
         "seg": 1090,
@@ -7501,7 +7501,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Ángel Carvajal",
         "hudl": 1087.8,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-1088.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-1088.mp4"
       },
       {
         "seg": 1305,
@@ -7516,7 +7516,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 1302.7,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-1303.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-1303.mp4"
       },
       {
         "seg": 1361,
@@ -7531,7 +7531,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 1358.5,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-1359.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-1359.mp4"
       },
       {
         "seg": 1481,
@@ -7546,7 +7546,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 1478.6,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-1479.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-1479.mp4"
       },
       {
         "seg": 1552,
@@ -7561,7 +7561,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 1549.8,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-1550.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-1550.mp4"
       },
       {
         "seg": 1670,
@@ -7576,7 +7576,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 1668.4,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-1668.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-1668.mp4"
       },
       {
         "seg": 1712,
@@ -7591,7 +7591,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 1710.1,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-1710.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-1710.mp4"
       },
       {
         "seg": 1970,
@@ -7606,7 +7606,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 1967.9,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-1968.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-1968.mp4"
       },
       {
         "seg": 2039,
@@ -7621,7 +7621,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 2036.7,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-2037.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-2037.mp4"
       },
       {
         "seg": 2127,
@@ -7636,7 +7636,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 2125.3,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-2125.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-2125.mp4"
       },
       {
         "seg": 2305,
@@ -7651,7 +7651,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 2302.7,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-2303.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-2303.mp4"
       },
       {
         "seg": 2341,
@@ -7666,7 +7666,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Ángel Carvajal",
         "hudl": 2339.1,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-2339.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-2339.mp4"
       },
       {
         "seg": 2401,
@@ -7695,7 +7695,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 2424.4,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-2424.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-2424.mp4"
       },
       {
         "seg": 2454,
@@ -7710,7 +7710,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 2452.4,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-2452.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-2452.mp4"
       },
       {
         "seg": 2479,
@@ -7725,7 +7725,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 2477.3,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-2477.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-2477.mp4"
       },
       {
         "seg": 2522,
@@ -7740,7 +7740,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 2519.8,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-2520.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-2520.mp4"
       },
       {
         "seg": 2652,
@@ -7755,7 +7755,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 2650.2,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-2650.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-2650.mp4"
       },
       {
         "seg": 2667,
@@ -7770,7 +7770,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 2664.8,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-2665.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-2665.mp4"
       },
       {
         "seg": 2682,
@@ -7785,7 +7785,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 2680.1,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-2680.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-2680.mp4"
       },
       {
         "seg": 2731,
@@ -7800,7 +7800,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 2729.5,
         "bloque": "b02700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-2730.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-2730.mp4"
       },
       {
         "seg": 2738,
@@ -7815,7 +7815,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Ángel Carvajal",
         "hudl": 2736.5,
         "bloque": "b02700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-2737.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-2737.mp4"
       },
       {
         "seg": 2885,
@@ -7830,7 +7830,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 2883.1,
         "bloque": "b02700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-2883.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-2883.mp4"
       },
       {
         "seg": 2939,
@@ -7845,7 +7845,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 2936.6,
         "bloque": "b02700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-2937.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-2937.mp4"
       },
       {
         "seg": 2949,
@@ -7860,7 +7860,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 2947.5,
         "bloque": "b02700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-2948.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-2948.mp4"
       },
       {
         "seg": 3078,
@@ -7875,7 +7875,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 3076.5,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-3077.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-3077.mp4"
       },
       {
         "seg": 3095,
@@ -7890,7 +7890,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Daniel Yáñez",
         "hudl": 3093,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-3093.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-3093.mp4"
       },
       {
         "seg": 3174,
@@ -7905,7 +7905,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 3172,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-3172.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-3172.mp4"
       },
       {
         "seg": 3207,
@@ -7920,7 +7920,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 3205,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-3205.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-3205.mp4"
       },
       {
         "seg": 3532,
@@ -7935,7 +7935,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Roberto Martín",
         "hudl": 3530.1,
         "bloque": "b03300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-3530.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-3530.mp4"
       },
       {
         "seg": 3579,
@@ -7950,7 +7950,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Roberto Martín",
         "hudl": 3577.1,
         "bloque": "b03300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-3577.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-3577.mp4"
       },
       {
         "seg": 3623,
@@ -7965,7 +7965,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Cestero",
         "hudl": 3621,
         "bloque": "b03600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-3621.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-3621.mp4"
       },
       {
         "seg": 3694,
@@ -7980,7 +7980,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 3691.9,
         "bloque": "b03600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-3692.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-3692.mp4"
       },
       {
         "seg": 3790,
@@ -7995,7 +7995,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 3787.9,
         "bloque": "b03600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-3788.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-3788.mp4"
       },
       {
         "seg": 3911,
@@ -8010,7 +8010,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 3909.1,
         "bloque": "b03900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-3909.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-3909.mp4"
       },
       {
         "seg": 4185,
@@ -8025,7 +8025,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Daniel Yáñez",
         "hudl": 4182.8,
         "bloque": "b03900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-4183.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-4183.mp4"
       },
       {
         "seg": 4264,
@@ -8040,7 +8040,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Roberto Martín",
         "hudl": 4262.1,
         "bloque": "b04200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-4262.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-4262.mp4"
       },
       {
         "seg": 4387,
@@ -8055,7 +8055,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Daniel Yáñez",
         "hudl": 4385.5,
         "bloque": "b04200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-4386.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-4386.mp4"
       },
       {
         "seg": 4485,
@@ -8070,7 +8070,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 4483.5,
         "bloque": "b04200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-4484.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-4484.mp4"
       },
       {
         "seg": 4554,
@@ -8085,7 +8085,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 4551.9,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-4552.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-4552.mp4"
       },
       {
         "seg": 4700,
@@ -8100,7 +8100,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 4697.6,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-4698.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-4698.mp4"
       },
       {
         "seg": 5083,
@@ -8115,7 +8115,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 5080.7,
         "bloque": "b04800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-5081.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-5081.mp4"
       },
       {
         "seg": 5189,
@@ -8130,7 +8130,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Roberto Martín",
         "hudl": 5186.6,
         "bloque": "b05100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-5187.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-5187.mp4"
       },
       {
         "seg": 5407,
@@ -8145,7 +8145,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Sergio Mestre",
         "hudl": 5405.3,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-5405.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-5405.mp4"
       },
       {
         "seg": 5424,
@@ -8160,7 +8160,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 5422,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-5422.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-5422.mp4"
       },
       {
         "seg": 5565,
@@ -8175,7 +8175,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 5563.5,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-5564.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-5564.mp4"
       },
       {
         "seg": 5638,
@@ -8190,7 +8190,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 5636.1,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-5636.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-5636.mp4"
       },
       {
         "seg": 5654,
@@ -8205,7 +8205,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 5652.1,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-5652.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-5652.mp4"
       },
       {
         "seg": 5684,
@@ -8220,7 +8220,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 5681.6,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j07-ibiza-5682.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j07-ibiza-5682.mp4"
       }
     ],
     "hudlUrl": "https://www.hudl.com/watch/video/VmlkZW82YWNhNWY0ZWFhNDhiMDRlNTZmNjcyMzE="
@@ -8287,7 +8287,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 62.4,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j08-antequera-62.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j08-antequera-62.mp4"
       },
       {
         "seg": 155,
@@ -8302,7 +8302,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Cestero",
         "hudl": 125.2,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j08-antequera-125.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j08-antequera-125.mp4"
       },
       {
         "seg": 421,
@@ -8317,7 +8317,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Ángel Carvajal",
         "hudl": 391.3,
         "bloque": "b00300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j08-antequera-391.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j08-antequera-391.mp4"
       },
       {
         "seg": 480,
@@ -8332,7 +8332,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 450,
         "bloque": "b00300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j08-antequera-450.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j08-antequera-450.mp4"
       },
       {
         "seg": 791,
@@ -8347,7 +8347,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Roberto Martín",
         "hudl": 760.9,
         "bloque": "b00600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j08-antequera-761.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j08-antequera-761.mp4"
       },
       {
         "seg": 1016,
@@ -8362,7 +8362,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Cestero",
         "hudl": 986.1,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j08-antequera-986.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j08-antequera-986.mp4"
       },
       {
         "seg": 1080,
@@ -8377,7 +8377,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Cestero",
         "hudl": 1050.3,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j08-antequera-1050.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j08-antequera-1050.mp4"
       },
       {
         "seg": 1214,
@@ -8392,7 +8392,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 1184.4,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j08-antequera-1184.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j08-antequera-1184.mp4"
       },
       {
         "seg": 1308,
@@ -8407,7 +8407,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 1278.1,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j08-antequera-1278.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j08-antequera-1278.mp4"
       },
       {
         "seg": 1349,
@@ -8422,7 +8422,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 1318.7,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j08-antequera-1319.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j08-antequera-1319.mp4"
       },
       {
         "seg": 1507,
@@ -8437,7 +8437,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 1476.6,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j08-antequera-1477.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j08-antequera-1477.mp4"
       },
       {
         "seg": 1534,
@@ -8466,7 +8466,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 1545.4,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j08-antequera-1545.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j08-antequera-1545.mp4"
       },
       {
         "seg": 1624,
@@ -8481,7 +8481,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 1594.1,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j08-antequera-1594.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j08-antequera-1594.mp4"
       },
       {
         "seg": 1660,
@@ -8496,7 +8496,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Roberto Martín",
         "hudl": 1630.1,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j08-antequera-1630.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j08-antequera-1630.mp4"
       },
       {
         "seg": 1866,
@@ -8511,7 +8511,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 1836.3,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j08-antequera-1836.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j08-antequera-1836.mp4"
       },
       {
         "seg": 1891,
@@ -8526,7 +8526,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Daniel Yáñez",
         "hudl": 1860.7,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j08-antequera-1861.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j08-antequera-1861.mp4"
       },
       {
         "seg": 1935,
@@ -8541,7 +8541,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 1948.9,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j08-antequera-1949.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j08-antequera-1949.mp4"
       },
       {
         "seg": 1997,
@@ -8556,7 +8556,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 2011.3,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j08-antequera-2011.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j08-antequera-2011.mp4"
       },
       {
         "seg": 2033,
@@ -8571,7 +8571,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 2047.3,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j08-antequera-2047.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j08-antequera-2047.mp4"
       },
       {
         "seg": 2166,
@@ -8586,7 +8586,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 2180,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j08-antequera-2180.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j08-antequera-2180.mp4"
       },
       {
         "seg": 2641,
@@ -8601,7 +8601,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 2654.8,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j08-antequera-2655.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j08-antequera-2655.mp4"
       },
       {
         "seg": 2772,
@@ -8616,7 +8616,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Ángel Carvajal",
         "hudl": 2786.5,
         "bloque": "b02700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j08-antequera-2787.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j08-antequera-2787.mp4"
       },
       {
         "seg": 3027,
@@ -8631,7 +8631,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Cestero",
         "hudl": 2986.5,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j08-antequera-2987.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j08-antequera-2987.mp4"
       },
       {
         "seg": 3218,
@@ -8660,7 +8660,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Cestero",
         "hudl": 3190.4,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j08-antequera-3190.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j08-antequera-3190.mp4"
       },
       {
         "seg": 3237,
@@ -8675,7 +8675,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Cestero",
         "hudl": 3196.7,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j08-antequera-3197.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j08-antequera-3197.mp4"
       },
       {
         "seg": 3448,
@@ -8690,7 +8690,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Ángel Carvajal",
         "hudl": 3408,
         "bloque": "b03300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j08-antequera-3408.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j08-antequera-3408.mp4"
       },
       {
         "seg": 3511,
@@ -8719,7 +8719,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 3544.7,
         "bloque": "b03300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j08-antequera-3545.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j08-antequera-3545.mp4"
       },
       {
         "seg": 3590,
@@ -8734,7 +8734,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Cestero",
         "hudl": 3550.4,
         "bloque": "b03300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j08-antequera-3550.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j08-antequera-3550.mp4"
       },
       {
         "seg": 3605,
@@ -8749,7 +8749,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 3564.5,
         "bloque": "b03600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j08-antequera-3565.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j08-antequera-3565.mp4"
       },
       {
         "seg": 3615,
@@ -8764,7 +8764,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 3575.4,
         "bloque": "b03600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j08-antequera-3575.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j08-antequera-3575.mp4"
       },
       {
         "seg": 3913,
@@ -8779,7 +8779,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Cestero",
         "hudl": 3873.4,
         "bloque": "b03900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j08-antequera-3873.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j08-antequera-3873.mp4"
       },
       {
         "seg": 4206,
@@ -8794,7 +8794,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 4165.9,
         "bloque": "b04200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j08-antequera-4166.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j08-antequera-4166.mp4"
       },
       {
         "seg": 4227,
@@ -8809,7 +8809,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 4187.4,
         "bloque": "b04200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j08-antequera-4187.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j08-antequera-4187.mp4"
       },
       {
         "seg": 4466,
@@ -8824,7 +8824,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 4473,
         "bloque": "b04200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j08-antequera-4473.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j08-antequera-4473.mp4"
       },
       {
         "seg": 4874,
@@ -8839,7 +8839,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Cestero",
         "hudl": 4881.2,
         "bloque": "b04800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j08-antequera-4881.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j08-antequera-4881.mp4"
       },
       {
         "seg": 5159,
@@ -8854,7 +8854,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 5166.2,
         "bloque": "b05100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j08-antequera-5166.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j08-antequera-5166.mp4"
       },
       {
         "seg": 5446,
@@ -8869,7 +8869,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 5453.4,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j08-antequera-5453.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j08-antequera-5453.mp4"
       },
       {
         "seg": 5497,
@@ -8884,7 +8884,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 5504.3,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j08-antequera-5504.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j08-antequera-5504.mp4"
       },
       {
         "seg": 5519,
@@ -8899,7 +8899,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 5525.9,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j08-antequera-5526.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j08-antequera-5526.mp4"
       },
       {
         "seg": 5598,
@@ -8914,7 +8914,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 5604.6,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j08-antequera-5605.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j08-antequera-5605.mp4"
       }
     ],
     "perdidas": [
@@ -8931,7 +8931,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Cestero",
         "hudl": 72.8,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-73.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-73.mp4"
       },
       {
         "seg": 146,
@@ -8946,7 +8946,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 115.7,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-116.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-116.mp4"
       },
       {
         "seg": 377,
@@ -8961,7 +8961,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 346.9,
         "bloque": "b00300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-347.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-347.mp4"
       },
       {
         "seg": 425,
@@ -8976,7 +8976,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 395.4,
         "bloque": "b00300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-395.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-395.mp4"
       },
       {
         "seg": 471,
@@ -8991,7 +8991,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Roberto Martín",
         "hudl": 441.3,
         "bloque": "b00300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-441.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-441.mp4"
       },
       {
         "seg": 629,
@@ -9020,7 +9020,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 747.5,
         "bloque": "b00600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-748.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-748.mp4"
       },
       {
         "seg": 814,
@@ -9035,7 +9035,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 783.7,
         "bloque": "b00600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-784.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-784.mp4"
       },
       {
         "seg": 908,
@@ -9050,7 +9050,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 878.2,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-878.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-878.mp4"
       },
       {
         "seg": 968,
@@ -9065,7 +9065,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 937.7,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-938.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-938.mp4"
       },
       {
         "seg": 1070,
@@ -9080,7 +9080,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Daniel Yáñez",
         "hudl": 1040,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-1040.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-1040.mp4"
       },
       {
         "seg": 1093,
@@ -9095,7 +9095,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Daniel Yáñez",
         "hudl": 1062.9,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-1063.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-1063.mp4"
       },
       {
         "seg": 1150,
@@ -9110,7 +9110,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Cestero",
         "hudl": 1119.9,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-1120.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-1120.mp4"
       },
       {
         "seg": 1259,
@@ -9125,7 +9125,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 1228.5,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-1229.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-1229.mp4"
       },
       {
         "seg": 1333,
@@ -9140,7 +9140,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Ángel Carvajal",
         "hudl": 1302.8,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-1303.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-1303.mp4"
       },
       {
         "seg": 1512,
@@ -9155,7 +9155,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 1481.5,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-1482.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-1482.mp4"
       },
       {
         "seg": 1544,
@@ -9170,7 +9170,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 1514.5,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-1515.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-1515.mp4"
       },
       {
         "seg": 1561,
@@ -9185,7 +9185,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 1530.9,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-1531.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-1531.mp4"
       },
       {
         "seg": 1616,
@@ -9200,7 +9200,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Sergio Mestre",
         "hudl": 1586.4,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-1586.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-1586.mp4"
       },
       {
         "seg": 1628,
@@ -9215,7 +9215,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 1597.8,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-1598.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-1598.mp4"
       },
       {
         "seg": 1671,
@@ -9230,7 +9230,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Roberto Martín",
         "hudl": 1640.8,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-1641.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-1641.mp4"
       },
       {
         "seg": 1805,
@@ -9245,7 +9245,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 1774.9,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-1775.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-1775.mp4"
       },
       {
         "seg": 1810,
@@ -9260,7 +9260,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 1779.9,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-1780.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-1780.mp4"
       },
       {
         "seg": 1867,
@@ -9275,7 +9275,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 1837.4,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-1837.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-1837.mp4"
       },
       {
         "seg": 1881,
@@ -9290,7 +9290,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Daniel Yáñez",
         "hudl": 1850.7,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-1851.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-1851.mp4"
       },
       {
         "seg": 1893,
@@ -9305,7 +9305,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 1907,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-1907.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-1907.mp4"
       },
       {
         "seg": 1933,
@@ -9320,7 +9320,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Daniel Yáñez",
         "hudl": 1946.8,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-1947.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-1947.mp4"
       },
       {
         "seg": 1941,
@@ -9335,7 +9335,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 1954.8,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-1955.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-1955.mp4"
       },
       {
         "seg": 1985,
@@ -9350,7 +9350,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 1998.6,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-1999.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-1999.mp4"
       },
       {
         "seg": 2030,
@@ -9365,7 +9365,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 2044,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-2044.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-2044.mp4"
       },
       {
         "seg": 2101,
@@ -9380,7 +9380,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Daniel Yáñez",
         "hudl": 2115.3,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-2115.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-2115.mp4"
       },
       {
         "seg": 2223,
@@ -9395,7 +9395,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 2237.4,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-2237.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-2237.mp4"
       },
       {
         "seg": 2259,
@@ -9410,7 +9410,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 2272.7,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-2273.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-2273.mp4"
       },
       {
         "seg": 2313,
@@ -9425,7 +9425,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Ángel Carvajal",
         "hudl": 2327,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-2327.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-2327.mp4"
       },
       {
         "seg": 2412,
@@ -9440,7 +9440,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 2426.5,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-2427.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-2427.mp4"
       },
       {
         "seg": 2561,
@@ -9455,7 +9455,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 2574.9,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-2575.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-2575.mp4"
       },
       {
         "seg": 2613,
@@ -9470,7 +9470,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 2627,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-2627.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-2627.mp4"
       },
       {
         "seg": 2970,
@@ -9485,7 +9485,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 2929.7,
         "bloque": "b02700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-2930.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-2930.mp4"
       },
       {
         "seg": 3226,
@@ -9500,7 +9500,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 3185.8,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-3186.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-3186.mp4"
       },
       {
         "seg": 3239,
@@ -9515,7 +9515,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 3199.3,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-3199.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-3199.mp4"
       },
       {
         "seg": 3273,
@@ -9530,7 +9530,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 3233.1,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-3233.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-3233.mp4"
       },
       {
         "seg": 3486,
@@ -9545,7 +9545,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 3446.4,
         "bloque": "b03300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-3446.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-3446.mp4"
       },
       {
         "seg": 3587,
@@ -9560,7 +9560,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Roberto Martín",
         "hudl": 3546.7,
         "bloque": "b03300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-3547.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-3547.mp4"
       },
       {
         "seg": 3597,
@@ -9575,7 +9575,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Cestero",
         "hudl": 3557.3,
         "bloque": "b03300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-3557.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-3557.mp4"
       },
       {
         "seg": 3606,
@@ -9590,7 +9590,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 3565.6,
         "bloque": "b03600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-3566.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-3566.mp4"
       },
       {
         "seg": 3873,
@@ -9605,7 +9605,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Cestero",
         "hudl": 3832.8,
         "bloque": "b03600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-3833.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-3833.mp4"
       },
       {
         "seg": 3908,
@@ -9620,7 +9620,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Roberto Martín",
         "hudl": 3867.6,
         "bloque": "b03900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-3868.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-3868.mp4"
       },
       {
         "seg": 4226,
@@ -9635,7 +9635,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 4186.3,
         "bloque": "b04200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-4186.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-4186.mp4"
       },
       {
         "seg": 4303,
@@ -9650,7 +9650,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 4310.1,
         "bloque": "b04200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-4310.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-4310.mp4"
       },
       {
         "seg": 4633,
@@ -9665,7 +9665,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Fati Joao",
         "hudl": 4639.8,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-4640.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-4640.mp4"
       },
       {
         "seg": 4755,
@@ -9680,7 +9680,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Cestero",
         "hudl": 4761.7,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-4762.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-4762.mp4"
       },
       {
         "seg": 5060,
@@ -9695,7 +9695,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 5067,
         "bloque": "b04800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-5067.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-5067.mp4"
       },
       {
         "seg": 5160,
@@ -9710,7 +9710,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 5167.5,
         "bloque": "b05100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-5168.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-5168.mp4"
       },
       {
         "seg": 5247,
@@ -9725,7 +9725,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Fati Joao",
         "hudl": 5253.6,
         "bloque": "b05100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-5254.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-5254.mp4"
       },
       {
         "seg": 5442,
@@ -9740,7 +9740,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 5449.1,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-5449.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-5449.mp4"
       },
       {
         "seg": 5518,
@@ -9755,7 +9755,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 5524.7,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-5525.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-5525.mp4"
       },
       {
         "seg": 5538,
@@ -9770,7 +9770,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Adrián Pérez",
         "hudl": 5544.5,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-5545.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-5545.mp4"
       },
       {
         "seg": 5670,
@@ -9785,7 +9785,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Sergio Mestre",
         "hudl": 5671.8,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-5672.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-5672.mp4"
       },
       {
         "seg": 5726,
@@ -9800,7 +9800,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 5727.7,
         "bloque": "b05700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j08-antequera-5728.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j08-antequera-5728.mp4"
       }
     ],
     "hudlUrl": "https://www.hudl.com/watch/video/VmlkZW82YWQ2MGMxM2M2M2IxNWM5Y2EzN2MyOWI="
@@ -9852,7 +9852,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Fati Joao",
         "hudl": 7.5,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j09-algeciras-8.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j09-algeciras-8.mp4"
       },
       {
         "seg": 17,
@@ -9867,7 +9867,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 14.9,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j09-algeciras-15.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j09-algeciras-15.mp4"
       },
       {
         "seg": 168,
@@ -9882,7 +9882,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 165.5,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j09-algeciras-166.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j09-algeciras-166.mp4"
       },
       {
         "seg": 645,
@@ -9897,7 +9897,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 642.9,
         "bloque": "b00600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j09-algeciras-643.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j09-algeciras-643.mp4"
       },
       {
         "seg": 710,
@@ -9912,7 +9912,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 707.8,
         "bloque": "b00600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j09-algeciras-708.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j09-algeciras-708.mp4"
       },
       {
         "seg": 858,
@@ -9927,7 +9927,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 856.1,
         "bloque": "b00600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j09-algeciras-856.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j09-algeciras-856.mp4"
       },
       {
         "seg": 1071,
@@ -9942,7 +9942,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Fati Joao",
         "hudl": 1068.8,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j09-algeciras-1069.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j09-algeciras-1069.mp4"
       },
       {
         "seg": 1313,
@@ -9957,7 +9957,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 1310.6,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j09-algeciras-1311.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j09-algeciras-1311.mp4"
       },
       {
         "seg": 1342,
@@ -9972,7 +9972,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 1340.1,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j09-algeciras-1340.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j09-algeciras-1340.mp4"
       },
       {
         "seg": 1462,
@@ -9987,7 +9987,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 1459.5,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j09-algeciras-1460.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j09-algeciras-1460.mp4"
       },
       {
         "seg": 1492,
@@ -10002,7 +10002,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 1490.1,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j09-algeciras-1490.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j09-algeciras-1490.mp4"
       },
       {
         "seg": 1674,
@@ -10017,7 +10017,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 1672.3,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j09-algeciras-1672.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j09-algeciras-1672.mp4"
       },
       {
         "seg": 1833,
@@ -10032,7 +10032,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 1831.1,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j09-algeciras-1831.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j09-algeciras-1831.mp4"
       },
       {
         "seg": 1849,
@@ -10047,7 +10047,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 1847.4,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j09-algeciras-1847.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j09-algeciras-1847.mp4"
       },
       {
         "seg": 1879,
@@ -10062,7 +10062,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 1876.8,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j09-algeciras-1877.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j09-algeciras-1877.mp4"
       },
       {
         "seg": 1959,
@@ -10077,7 +10077,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Cestero",
         "hudl": 1994.1,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j09-algeciras-1994.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j09-algeciras-1994.mp4"
       },
       {
         "seg": 2043,
@@ -10092,7 +10092,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 2077.8,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j09-algeciras-2078.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j09-algeciras-2078.mp4"
       },
       {
         "seg": 2286,
@@ -10107,7 +10107,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Fati Joao",
         "hudl": 2321.3,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j09-algeciras-2321.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j09-algeciras-2321.mp4"
       },
       {
         "seg": 2409,
@@ -10122,7 +10122,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 2443.8,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j09-algeciras-2444.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j09-algeciras-2444.mp4"
       },
       {
         "seg": 2511,
@@ -10137,7 +10137,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Cestero",
         "hudl": 2545.5,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j09-algeciras-2546.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j09-algeciras-2546.mp4"
       },
       {
         "seg": 2580,
@@ -10152,7 +10152,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 2615,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j09-algeciras-2615.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j09-algeciras-2615.mp4"
       },
       {
         "seg": 2715,
@@ -10167,7 +10167,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Fati Joao",
         "hudl": 2749.9,
         "bloque": "b02700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j09-algeciras-2750.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j09-algeciras-2750.mp4"
       },
       {
         "seg": 2968,
@@ -10182,7 +10182,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Daniel Yáñez",
         "hudl": 2818.3,
         "bloque": "b02700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j09-algeciras-2818.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j09-algeciras-2818.mp4"
       },
       {
         "seg": 3017,
@@ -10197,7 +10197,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 2867.2,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j09-algeciras-2867.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j09-algeciras-2867.mp4"
       },
       {
         "seg": 3180,
@@ -10212,7 +10212,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Cestero",
         "hudl": 3030.3,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j09-algeciras-3030.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j09-algeciras-3030.mp4"
       },
       {
         "seg": 3525,
@@ -10227,7 +10227,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Daniel Yáñez",
         "hudl": 3374.9,
         "bloque": "b03300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j09-algeciras-3375.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j09-algeciras-3375.mp4"
       },
       {
         "seg": 3869,
@@ -10242,7 +10242,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Daniel Yáñez",
         "hudl": 3719.4,
         "bloque": "b03600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j09-algeciras-3719.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j09-algeciras-3719.mp4"
       },
       {
         "seg": 3949,
@@ -10257,7 +10257,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 3798.9,
         "bloque": "b03900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j09-algeciras-3799.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j09-algeciras-3799.mp4"
       },
       {
         "seg": 4103,
@@ -10272,7 +10272,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 3952.9,
         "bloque": "b03900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j09-algeciras-3953.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j09-algeciras-3953.mp4"
       },
       {
         "seg": 4481,
@@ -10287,7 +10287,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 4390.8,
         "bloque": "b04200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j09-algeciras-4391.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j09-algeciras-4391.mp4"
       },
       {
         "seg": 4514,
@@ -10302,7 +10302,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 4423.6,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j09-algeciras-4424.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j09-algeciras-4424.mp4"
       },
       {
         "seg": 4549,
@@ -10317,7 +10317,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 4459.3,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j09-algeciras-4459.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j09-algeciras-4459.mp4"
       },
       {
         "seg": 4612,
@@ -10332,7 +10332,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 4521.6,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j09-algeciras-4522.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j09-algeciras-4522.mp4"
       },
       {
         "seg": 4648,
@@ -10347,7 +10347,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Fati Joao",
         "hudl": 4557.9,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j09-algeciras-4558.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j09-algeciras-4558.mp4"
       },
       {
         "seg": 4961,
@@ -10376,7 +10376,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Cestero",
         "hudl": 4989.9,
         "bloque": "b04800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j09-algeciras-4990.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j09-algeciras-4990.mp4"
       },
       {
         "seg": 5286,
@@ -10391,7 +10391,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Fati Joao",
         "hudl": 5196.3,
         "bloque": "b05100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j09-algeciras-5196.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j09-algeciras-5196.mp4"
       }
     ],
     "perdidas": [
@@ -10408,7 +10408,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 2.9,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-3.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-3.mp4"
       },
       {
         "seg": 11,
@@ -10423,7 +10423,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Cestero",
         "hudl": 9.4,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-9.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-9.mp4"
       },
       {
         "seg": 147,
@@ -10438,7 +10438,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 145.2,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-145.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-145.mp4"
       },
       {
         "seg": 317,
@@ -10453,7 +10453,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 315.4,
         "bloque": "b00300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-315.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-315.mp4"
       },
       {
         "seg": 343,
@@ -10468,7 +10468,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 341.3,
         "bloque": "b00300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-341.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-341.mp4"
       },
       {
         "seg": 396,
@@ -10483,7 +10483,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Cestero",
         "hudl": 394.1,
         "bloque": "b00300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-394.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-394.mp4"
       },
       {
         "seg": 524,
@@ -10498,7 +10498,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Daniel Yáñez",
         "hudl": 522,
         "bloque": "b00300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-522.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-522.mp4"
       },
       {
         "seg": 686,
@@ -10513,7 +10513,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Daniel Yáñez",
         "hudl": 683.9,
         "bloque": "b00600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-684.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-684.mp4"
       },
       {
         "seg": 733,
@@ -10528,7 +10528,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 731,
         "bloque": "b00600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-731.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-731.mp4"
       },
       {
         "seg": 743,
@@ -10543,7 +10543,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 740.7,
         "bloque": "b00600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-741.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-741.mp4"
       },
       {
         "seg": 765,
@@ -10558,7 +10558,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 763.2,
         "bloque": "b00600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-763.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-763.mp4"
       },
       {
         "seg": 819,
@@ -10573,7 +10573,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Daniel Yáñez",
         "hudl": 816.9,
         "bloque": "b00600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-817.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-817.mp4"
       },
       {
         "seg": 847,
@@ -10588,7 +10588,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 845.5,
         "bloque": "b00600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-846.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-846.mp4"
       },
       {
         "seg": 942,
@@ -10603,7 +10603,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 940.1,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-940.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-940.mp4"
       },
       {
         "seg": 1180,
@@ -10618,7 +10618,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 1178.2,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-1178.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-1178.mp4"
       },
       {
         "seg": 1192,
@@ -10633,7 +10633,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Fati Joao",
         "hudl": 1189.9,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-1190.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-1190.mp4"
       },
       {
         "seg": 1303,
@@ -10648,7 +10648,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 1301.3,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-1301.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-1301.mp4"
       },
       {
         "seg": 1316,
@@ -10663,7 +10663,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 1313.9,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-1314.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-1314.mp4"
       },
       {
         "seg": 1342,
@@ -10678,7 +10678,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 1340.3,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-1340.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-1340.mp4"
       },
       {
         "seg": 1426,
@@ -10693,7 +10693,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Ángel Carvajal",
         "hudl": 1424.5,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-1425.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-1425.mp4"
       },
       {
         "seg": 1453,
@@ -10708,7 +10708,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 1451.1,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-1451.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-1451.mp4"
       },
       {
         "seg": 1514,
@@ -10723,7 +10723,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Ángel Carvajal",
         "hudl": 1511.8,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-1512.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-1512.mp4"
       },
       {
         "seg": 1533,
@@ -10738,7 +10738,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 1530.5,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-1531.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-1531.mp4"
       },
       {
         "seg": 1717,
@@ -10753,7 +10753,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 1714.5,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-1715.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-1715.mp4"
       },
       {
         "seg": 1830,
@@ -10768,7 +10768,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 1827.6,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-1828.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-1828.mp4"
       },
       {
         "seg": 1837,
@@ -10783,7 +10783,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 1834.8,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-1835.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-1835.mp4"
       },
       {
         "seg": 1852,
@@ -10798,7 +10798,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 1849.9,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-1850.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-1850.mp4"
       },
       {
         "seg": 1933,
@@ -10813,7 +10813,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 1968,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-1968.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-1968.mp4"
       },
       {
         "seg": 2074,
@@ -10828,7 +10828,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 2109.1,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-2109.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-2109.mp4"
       },
       {
         "seg": 2116,
@@ -10843,7 +10843,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 2150.8,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-2151.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-2151.mp4"
       },
       {
         "seg": 2198,
@@ -10858,7 +10858,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 2232.6,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-2233.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-2233.mp4"
       },
       {
         "seg": 2453,
@@ -10873,7 +10873,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Daniel Yáñez",
         "hudl": 2488.1,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-2488.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-2488.mp4"
       },
       {
         "seg": 2469,
@@ -10888,7 +10888,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Ángel Carvajal",
         "hudl": 2504.2,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-2504.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-2504.mp4"
       },
       {
         "seg": 2503,
@@ -10903,7 +10903,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Navarro",
         "hudl": 2537.9,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-2538.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-2538.mp4"
       },
       {
         "seg": 2567,
@@ -10918,7 +10918,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 2601.7,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-2602.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-2602.mp4"
       },
       {
         "seg": 2657,
@@ -10933,7 +10933,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 2692.2,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-2692.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-2692.mp4"
       },
       {
         "seg": 2705,
@@ -10948,7 +10948,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Daniel Yáñez",
         "hudl": 2740.3,
         "bloque": "b02700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-2740.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-2740.mp4"
       },
       {
         "seg": 2726,
@@ -10963,7 +10963,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 2761.1,
         "bloque": "b02700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-2761.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-2761.mp4"
       },
       {
         "seg": 3170,
@@ -10978,7 +10978,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 3019.6,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-3020.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-3020.mp4"
       },
       {
         "seg": 3181,
@@ -10993,7 +10993,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Navarro",
         "hudl": 3031.3,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-3031.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-3031.mp4"
       },
       {
         "seg": 3228,
@@ -11008,7 +11008,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 3077.7,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-3078.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-3078.mp4"
       },
       {
         "seg": 3426,
@@ -11023,7 +11023,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Ángel Carvajal",
         "hudl": 3276,
         "bloque": "b03300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-3276.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-3276.mp4"
       },
       {
         "seg": 3515,
@@ -11052,7 +11052,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 3403,
         "bloque": "b03300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-3403.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-3403.mp4"
       },
       {
         "seg": 3807,
@@ -11067,7 +11067,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 3656.9,
         "bloque": "b03600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-3657.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-3657.mp4"
       },
       {
         "seg": 3866,
@@ -11082,7 +11082,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 3716.2,
         "bloque": "b03600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-3716.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-3716.mp4"
       },
       {
         "seg": 4096,
@@ -11097,7 +11097,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Fati Joao",
         "hudl": 3946.2,
         "bloque": "b03900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-3946.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-3946.mp4"
       },
       {
         "seg": 4131,
@@ -11112,7 +11112,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 3981.1,
         "bloque": "b03900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-3981.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-3981.mp4"
       },
       {
         "seg": 4158,
@@ -11127,7 +11127,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 4007.7,
         "bloque": "b03900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-4008.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-4008.mp4"
       },
       {
         "seg": 4163,
@@ -11142,7 +11142,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 4012.6,
         "bloque": "b03900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-4013.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-4013.mp4"
       },
       {
         "seg": 4291,
@@ -11157,7 +11157,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Fati Joao",
         "hudl": 4140.8,
         "bloque": "b04200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-4141.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-4141.mp4"
       },
       {
         "seg": 4488,
@@ -11172,7 +11172,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Roberto Martín",
         "hudl": 4398.1,
         "bloque": "b04200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-4398.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-4398.mp4"
       },
       {
         "seg": 4508,
@@ -11187,7 +11187,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Fati Joao",
         "hudl": 4417.9,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-4418.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-4418.mp4"
       },
       {
         "seg": 4529,
@@ -11202,7 +11202,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 4438.8,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-4439.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-4439.mp4"
       },
       {
         "seg": 4539,
@@ -11217,7 +11217,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 4449.1,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-4449.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-4449.mp4"
       },
       {
         "seg": 4547,
@@ -11232,7 +11232,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 4457.2,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-4457.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-4457.mp4"
       },
       {
         "seg": 4672,
@@ -11247,7 +11247,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 4581.7,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-4582.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-4582.mp4"
       },
       {
         "seg": 4810,
@@ -11262,7 +11262,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Roberto Martín",
         "hudl": 4719.5,
         "bloque": "b04800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-4720.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-4720.mp4"
       },
       {
         "seg": 5030,
@@ -11277,7 +11277,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Fati Joao",
         "hudl": 4939.9,
         "bloque": "b04800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-4940.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-4940.mp4"
       },
       {
         "seg": 5088,
@@ -11292,7 +11292,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 4997.6,
         "bloque": "b04800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-4998.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-4998.mp4"
       },
       {
         "seg": 5134,
@@ -11307,7 +11307,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Roberto Martín",
         "hudl": 5043.5,
         "bloque": "b05100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-5044.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-5044.mp4"
       },
       {
         "seg": 5200,
@@ -11322,7 +11322,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 5110,
         "bloque": "b05100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-5110.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-5110.mp4"
       },
       {
         "seg": 5226,
@@ -11337,7 +11337,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 5135.6,
         "bloque": "b05100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-5136.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-5136.mp4"
       },
       {
         "seg": 5282,
@@ -11352,7 +11352,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Roberto Martín",
         "hudl": 5191.8,
         "bloque": "b05100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-5192.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-5192.mp4"
       },
       {
         "seg": 5301,
@@ -11367,7 +11367,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Roberto Martín",
         "hudl": 5211.4,
         "bloque": "b05100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-5211.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-5211.mp4"
       },
       {
         "seg": 5334,
@@ -11382,7 +11382,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Roberto Martín",
         "hudl": 5244,
         "bloque": "b05100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-5244.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-5244.mp4"
       },
       {
         "seg": 5384,
@@ -11397,7 +11397,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 5293.6,
         "bloque": "b05100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-5294.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-5294.mp4"
       },
       {
         "seg": 5405,
@@ -11412,7 +11412,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 5314.8,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-5315.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-5315.mp4"
       },
       {
         "seg": 5524,
@@ -11427,7 +11427,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 5433.6,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-5434.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-5434.mp4"
       },
       {
         "seg": 5570,
@@ -11442,7 +11442,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 5480.2,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-5480.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-5480.mp4"
       },
       {
         "seg": 5579,
@@ -11457,7 +11457,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 5488.9,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-5489.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-5489.mp4"
       },
       {
         "seg": 5628,
@@ -11472,7 +11472,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Roberto Martín",
         "hudl": 5537.9,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j09-algeciras-5538.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j09-algeciras-5538.mp4"
       }
     ],
     "hudlUrl": "https://www.hudl.com/watch/video/VmlkZW82YWRmYWZjMmMzNTUxMDQ1MTVkZGE5NjM="
@@ -11526,7 +11526,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 56.4,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j10-cartagena-56.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j10-cartagena-56.mp4"
       },
       {
         "seg": 178,
@@ -11541,7 +11541,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Roberto Martín",
         "hudl": 172,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j10-cartagena-172.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j10-cartagena-172.mp4"
       },
       {
         "seg": 383,
@@ -11556,7 +11556,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Cestero",
         "hudl": 376.7,
         "bloque": "b00300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j10-cartagena-377.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j10-cartagena-377.mp4"
       },
       {
         "seg": 526,
@@ -11571,7 +11571,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 520.3,
         "bloque": "b00300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j10-cartagena-520.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j10-cartagena-520.mp4"
       },
       {
         "seg": 886,
@@ -11586,7 +11586,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Cestero",
         "hudl": 880.2,
         "bloque": "b00600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j10-cartagena-880.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j10-cartagena-880.mp4"
       },
       {
         "seg": 918,
@@ -11601,7 +11601,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Roberto Martín",
         "hudl": 912.1,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j10-cartagena-912.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j10-cartagena-912.mp4"
       },
       {
         "seg": 1005,
@@ -11616,7 +11616,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Cestero",
         "hudl": 998.7,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j10-cartagena-999.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j10-cartagena-999.mp4"
       },
       {
         "seg": 1318,
@@ -11631,7 +11631,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 1312.3,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j10-cartagena-1312.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j10-cartagena-1312.mp4"
       },
       {
         "seg": 1383,
@@ -11646,7 +11646,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Ángel Carvajal",
         "hudl": 1377,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j10-cartagena-1377.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j10-cartagena-1377.mp4"
       },
       {
         "seg": 1439,
@@ -11661,7 +11661,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 1433.3,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j10-cartagena-1433.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j10-cartagena-1433.mp4"
       },
       {
         "seg": 1447,
@@ -11676,7 +11676,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Roberto Martín",
         "hudl": 1440.9,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j10-cartagena-1441.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j10-cartagena-1441.mp4"
       },
       {
         "seg": 1469,
@@ -11691,7 +11691,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 1463.1,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j10-cartagena-1463.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j10-cartagena-1463.mp4"
       },
       {
         "seg": 1977,
@@ -11706,7 +11706,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 2018.2,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j10-cartagena-2018.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j10-cartagena-2018.mp4"
       },
       {
         "seg": 2099,
@@ -11721,7 +11721,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Ángel Carvajal",
         "hudl": 2140.4,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j10-cartagena-2140.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j10-cartagena-2140.mp4"
       },
       {
         "seg": 2372,
@@ -11736,7 +11736,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 2413,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j10-cartagena-2413.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j10-cartagena-2413.mp4"
       },
       {
         "seg": 2487,
@@ -11751,7 +11751,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 2528.1,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j10-cartagena-2528.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j10-cartagena-2528.mp4"
       },
       {
         "seg": 2494,
@@ -11766,7 +11766,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 2535,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j10-cartagena-2535.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j10-cartagena-2535.mp4"
       },
       {
         "seg": 2634,
@@ -11781,7 +11781,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Roberto Martín",
         "hudl": 2674.5,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j10-cartagena-2675.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j10-cartagena-2675.mp4"
       },
       {
         "seg": 2874,
@@ -11796,7 +11796,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Roberto Martín",
         "hudl": 2914.6,
         "bloque": "b02700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j10-cartagena-2915.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j10-cartagena-2915.mp4"
       },
       {
         "seg": 3164,
@@ -11811,7 +11811,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 3162.5,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j10-cartagena-3163.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j10-cartagena-3163.mp4"
       },
       {
         "seg": 3229,
@@ -11826,7 +11826,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 3227.5,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j10-cartagena-3228.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j10-cartagena-3228.mp4"
       },
       {
         "seg": 3247,
@@ -11841,7 +11841,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 3245.1,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j10-cartagena-3245.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j10-cartagena-3245.mp4"
       },
       {
         "seg": 3387,
@@ -11856,7 +11856,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 3384.6,
         "bloque": "b03300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j10-cartagena-3385.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j10-cartagena-3385.mp4"
       },
       {
         "seg": 3717,
@@ -11871,7 +11871,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 3715.4,
         "bloque": "b03600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j10-cartagena-3715.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j10-cartagena-3715.mp4"
       },
       {
         "seg": 3883,
@@ -11886,7 +11886,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Ángel Carvajal",
         "hudl": 3881.4,
         "bloque": "b03600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j10-cartagena-3881.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j10-cartagena-3881.mp4"
       },
       {
         "seg": 4000,
@@ -11901,7 +11901,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 3998.2,
         "bloque": "b03900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j10-cartagena-3998.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j10-cartagena-3998.mp4"
       },
       {
         "seg": 4435,
@@ -11916,7 +11916,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 4432.6,
         "bloque": "b04200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j10-cartagena-4433.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j10-cartagena-4433.mp4"
       },
       {
         "seg": 4521,
@@ -11931,7 +11931,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 4519,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j10-cartagena-4519.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j10-cartagena-4519.mp4"
       },
       {
         "seg": 4718,
@@ -11946,7 +11946,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 4779.7,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j10-cartagena-4780.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j10-cartagena-4780.mp4"
       },
       {
         "seg": 4730,
@@ -11961,7 +11961,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 4792,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j10-cartagena-4792.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j10-cartagena-4792.mp4"
       },
       {
         "seg": 4815,
@@ -11976,7 +11976,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 4877.1,
         "bloque": "b04800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j10-cartagena-4877.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j10-cartagena-4877.mp4"
       },
       {
         "seg": 4833,
@@ -11991,7 +11991,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 4895.4,
         "bloque": "b04800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j10-cartagena-4895.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j10-cartagena-4895.mp4"
       },
       {
         "seg": 4964,
@@ -12006,7 +12006,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 5025.5,
         "bloque": "b04800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j10-cartagena-5026.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j10-cartagena-5026.mp4"
       },
       {
         "seg": 5150,
@@ -12021,7 +12021,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 5212,
         "bloque": "b05100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j10-cartagena-5212.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j10-cartagena-5212.mp4"
       },
       {
         "seg": 5210,
@@ -12036,7 +12036,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 5272.1,
         "bloque": "b05100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j10-cartagena-5272.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j10-cartagena-5272.mp4"
       },
       {
         "seg": 5373,
@@ -12051,7 +12051,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 5435.2,
         "bloque": "b05100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j10-cartagena-5435.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j10-cartagena-5435.mp4"
       },
       {
         "seg": 5379,
@@ -12066,7 +12066,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 5441.3,
         "bloque": "b05100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j10-cartagena-5441.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j10-cartagena-5441.mp4"
       },
       {
         "seg": 5626,
@@ -12081,7 +12081,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 5688.4,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j10-cartagena-5688.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j10-cartagena-5688.mp4"
       },
       {
         "seg": 5667,
@@ -12096,7 +12096,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Mario Rivas",
         "hudl": 5729.2,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j10-cartagena-5729.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j10-cartagena-5729.mp4"
       },
       {
         "seg": 5891,
@@ -12111,7 +12111,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 5952.8,
         "bloque": "b05700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j10-cartagena-5953.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j10-cartagena-5953.mp4"
       }
     ],
     "perdidas": [
@@ -12128,7 +12128,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 6.9,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-7.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-7.mp4"
       },
       {
         "seg": 57,
@@ -12143,7 +12143,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 51.4,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-51.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-51.mp4"
       },
       {
         "seg": 119,
@@ -12158,7 +12158,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 112.7,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-113.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-113.mp4"
       },
       {
         "seg": 240,
@@ -12173,7 +12173,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 233.8,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-234.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-234.mp4"
       },
       {
         "seg": 304,
@@ -12202,7 +12202,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 372,
         "bloque": "b00300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-372.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-372.mp4"
       },
       {
         "seg": 388,
@@ -12217,7 +12217,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 382,
         "bloque": "b00300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-382.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-382.mp4"
       },
       {
         "seg": 416,
@@ -12232,7 +12232,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 410.5,
         "bloque": "b00300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-411.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-411.mp4"
       },
       {
         "seg": 518,
@@ -12247,7 +12247,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 512.1,
         "bloque": "b00300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-512.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-512.mp4"
       },
       {
         "seg": 688,
@@ -12262,7 +12262,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 682.1,
         "bloque": "b00600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-682.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-682.mp4"
       },
       {
         "seg": 878,
@@ -12277,7 +12277,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 872,
         "bloque": "b00600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-872.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-872.mp4"
       },
       {
         "seg": 929,
@@ -12292,7 +12292,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Navarro",
         "hudl": 922.9,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-923.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-923.mp4"
       },
       {
         "seg": 934,
@@ -12307,7 +12307,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 928.4,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-928.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-928.mp4"
       },
       {
         "seg": 1340,
@@ -12322,7 +12322,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 1334.3,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-1334.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-1334.mp4"
       },
       {
         "seg": 1433,
@@ -12337,7 +12337,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 1426.9,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-1427.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-1427.mp4"
       },
       {
         "seg": 1443,
@@ -12352,7 +12352,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 1437,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-1437.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-1437.mp4"
       },
       {
         "seg": 1451,
@@ -12367,7 +12367,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 1444.6,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-1445.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-1445.mp4"
       },
       {
         "seg": 1466,
@@ -12382,7 +12382,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 1459.8,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-1460.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-1460.mp4"
       },
       {
         "seg": 1495,
@@ -12397,7 +12397,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 1489.2,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-1489.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-1489.mp4"
       },
       {
         "seg": 1695,
@@ -12412,7 +12412,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 1688.8,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-1689.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-1689.mp4"
       },
       {
         "seg": 1718,
@@ -12427,7 +12427,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 1707.2,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-1707.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-1707.mp4"
       },
       {
         "seg": 1951,
@@ -12442,7 +12442,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 1991.8,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-1992.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-1992.mp4"
       },
       {
         "seg": 2095,
@@ -12457,7 +12457,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 2135.8,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-2136.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-2136.mp4"
       },
       {
         "seg": 2333,
@@ -12472,7 +12472,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 2374,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-2374.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-2374.mp4"
       },
       {
         "seg": 2429,
@@ -12487,7 +12487,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 2470.2,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-2470.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-2470.mp4"
       },
       {
         "seg": 2627,
@@ -12502,7 +12502,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Navarro",
         "hudl": 2667.9,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-2668.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-2668.mp4"
       },
       {
         "seg": 2683,
@@ -12517,7 +12517,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 2724,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-2724.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-2724.mp4"
       },
       {
         "seg": 2867,
@@ -12532,7 +12532,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Ángel Carvajal",
         "hudl": 2907.5,
         "bloque": "b02700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-2908.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-2908.mp4"
       },
       {
         "seg": 2954,
@@ -12547,7 +12547,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 2951.6,
         "bloque": "b02700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-2952.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-2952.mp4"
       },
       {
         "seg": 2995,
@@ -12562,7 +12562,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 2993,
         "bloque": "b02700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-2993.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-2993.mp4"
       },
       {
         "seg": 3026,
@@ -12577,7 +12577,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 3024.3,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-3024.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-3024.mp4"
       },
       {
         "seg": 3168,
@@ -12592,7 +12592,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Navarro",
         "hudl": 3165.6,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-3166.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-3166.mp4"
       },
       {
         "seg": 3225,
@@ -12607,7 +12607,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Ángel Carvajal",
         "hudl": 3222.8,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-3223.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-3223.mp4"
       },
       {
         "seg": 3242,
@@ -12622,7 +12622,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 3239.6,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-3240.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-3240.mp4"
       },
       {
         "seg": 3246,
@@ -12637,7 +12637,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 3244.3,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-3244.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-3244.mp4"
       },
       {
         "seg": 3296,
@@ -12652,7 +12652,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 3294.2,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-3294.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-3294.mp4"
       },
       {
         "seg": 3419,
@@ -12667,7 +12667,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 3416.7,
         "bloque": "b03300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-3417.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-3417.mp4"
       },
       {
         "seg": 3576,
@@ -12682,7 +12682,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 3574.5,
         "bloque": "b03300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-3575.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-3575.mp4"
       },
       {
         "seg": 3803,
@@ -12697,7 +12697,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 3801.1,
         "bloque": "b03600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-3801.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-3801.mp4"
       },
       {
         "seg": 3824,
@@ -12712,7 +12712,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 3821.5,
         "bloque": "b03600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-3822.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-3822.mp4"
       },
       {
         "seg": 3972,
@@ -12727,7 +12727,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Roberto Martín",
         "hudl": 3969.6,
         "bloque": "b03900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-3970.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-3970.mp4"
       },
       {
         "seg": 4156,
@@ -12742,7 +12742,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Cestero",
         "hudl": 4154.1,
         "bloque": "b03900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-4154.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-4154.mp4"
       },
       {
         "seg": 4241,
@@ -12757,7 +12757,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 4238.9,
         "bloque": "b04200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-4239.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-4239.mp4"
       },
       {
         "seg": 4523,
@@ -12772,7 +12772,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 4521.2,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-4521.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-4521.mp4"
       },
       {
         "seg": 4666,
@@ -12787,7 +12787,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 4728,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-4728.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-4728.mp4"
       },
       {
         "seg": 4709,
@@ -12802,7 +12802,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 4771.2,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-4771.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-4771.mp4"
       },
       {
         "seg": 4798,
@@ -12817,7 +12817,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 4859.8,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-4860.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-4860.mp4"
       },
       {
         "seg": 5186,
@@ -12832,7 +12832,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 5247.8,
         "bloque": "b05100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-5248.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-5248.mp4"
       },
       {
         "seg": 5236,
@@ -12847,7 +12847,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 5297.8,
         "bloque": "b05100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-5298.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-5298.mp4"
       },
       {
         "seg": 5477,
@@ -12862,7 +12862,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 5538.8,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-5539.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-5539.mp4"
       },
       {
         "seg": 5658,
@@ -12877,7 +12877,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Cestero",
         "hudl": 5719.8,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-5720.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-5720.mp4"
       },
       {
         "seg": 5829,
@@ -12892,7 +12892,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 5890.7,
         "bloque": "b05700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-5891.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-5891.mp4"
       },
       {
         "seg": 5937,
@@ -12907,7 +12907,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 5998.9,
         "bloque": "b05700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j10-cartagena-5999.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j10-cartagena-5999.mp4"
       }
     ],
     "hudlUrl": "https://www.hudl.com/watch/video/VmlkZW82YWU3NjZkMzIxMTJiZjUwOTE1YWU5MDI="
@@ -12971,7 +12971,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Cestero",
         "hudl": 231.7,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j11-hercules-232.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j11-hercules-232.mp4"
       },
       {
         "seg": 692,
@@ -12986,7 +12986,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 682.8,
         "bloque": "b00600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j11-hercules-683.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j11-hercules-683.mp4"
       },
       {
         "seg": 719,
@@ -13001,7 +13001,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Cestero",
         "hudl": 710,
         "bloque": "b00600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j11-hercules-710.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j11-hercules-710.mp4"
       },
       {
         "seg": 724,
@@ -13016,7 +13016,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 714.6,
         "bloque": "b00600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j11-hercules-715.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j11-hercules-715.mp4"
       },
       {
         "seg": 890,
@@ -13031,7 +13031,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 880.5,
         "bloque": "b00600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j11-hercules-881.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j11-hercules-881.mp4"
       },
       {
         "seg": 920,
@@ -13046,7 +13046,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 911.3,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j11-hercules-911.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j11-hercules-911.mp4"
       },
       {
         "seg": 962,
@@ -13061,7 +13061,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 953.3,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j11-hercules-953.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j11-hercules-953.mp4"
       },
       {
         "seg": 1149,
@@ -13076,7 +13076,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 1140.2,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j11-hercules-1140.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j11-hercules-1140.mp4"
       },
       {
         "seg": 1181,
@@ -13091,7 +13091,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 1171.6,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j11-hercules-1172.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j11-hercules-1172.mp4"
       },
       {
         "seg": 1688,
@@ -13106,7 +13106,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 1678.8,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j11-hercules-1679.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j11-hercules-1679.mp4"
       },
       {
         "seg": 1815,
@@ -13121,7 +13121,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Ángel Carvajal",
         "hudl": 1806.1,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j11-hercules-1806.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j11-hercules-1806.mp4"
       },
       {
         "seg": 1904,
@@ -13136,7 +13136,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 2031.6,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j11-hercules-2032.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j11-hercules-2032.mp4"
       },
       {
         "seg": 1914,
@@ -13151,7 +13151,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 2042.3,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j11-hercules-2042.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j11-hercules-2042.mp4"
       },
       {
         "seg": 2356,
@@ -13166,7 +13166,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 2483.8,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j11-hercules-2484.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j11-hercules-2484.mp4"
       },
       {
         "seg": 2406,
@@ -13181,7 +13181,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 2533.8,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j11-hercules-2534.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j11-hercules-2534.mp4"
       },
       {
         "seg": 2507,
@@ -13196,7 +13196,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 2634.7,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j11-hercules-2635.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j11-hercules-2635.mp4"
       },
       {
         "seg": 2527,
@@ -13211,7 +13211,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 2654.6,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j11-hercules-2655.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j11-hercules-2655.mp4"
       },
       {
         "seg": 2572,
@@ -13240,7 +13240,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 2992.4,
         "bloque": "b02700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j11-hercules-2992.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j11-hercules-2992.mp4"
       },
       {
         "seg": 2949,
@@ -13255,7 +13255,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 3061.5,
         "bloque": "b02700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j11-hercules-3062.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j11-hercules-3062.mp4"
       },
       {
         "seg": 3044,
@@ -13270,7 +13270,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 3121,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j11-hercules-3121.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j11-hercules-3121.mp4"
       },
       {
         "seg": 3275,
@@ -13285,7 +13285,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 3351.9,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j11-hercules-3352.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j11-hercules-3352.mp4"
       },
       {
         "seg": 3714,
@@ -13300,7 +13300,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 3791.1,
         "bloque": "b03600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j11-hercules-3791.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j11-hercules-3791.mp4"
       },
       {
         "seg": 3822,
@@ -13315,7 +13315,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Cestero",
         "hudl": 3899.2,
         "bloque": "b03600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j11-hercules-3899.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j11-hercules-3899.mp4"
       },
       {
         "seg": 3862,
@@ -13330,7 +13330,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 3938.7,
         "bloque": "b03600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j11-hercules-3939.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j11-hercules-3939.mp4"
       },
       {
         "seg": 3904,
@@ -13345,7 +13345,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 3980.9,
         "bloque": "b03900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j11-hercules-3981.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j11-hercules-3981.mp4"
       },
       {
         "seg": 4010,
@@ -13360,7 +13360,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 4086.6,
         "bloque": "b03900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j11-hercules-4087.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j11-hercules-4087.mp4"
       },
       {
         "seg": 4515,
@@ -13375,7 +13375,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 4592.2,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j11-hercules-4592.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j11-hercules-4592.mp4"
       },
       {
         "seg": 4658,
@@ -13390,7 +13390,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 4735.2,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j11-hercules-4735.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j11-hercules-4735.mp4"
       },
       {
         "seg": 4714,
@@ -13405,7 +13405,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 4790.5,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j11-hercules-4791.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j11-hercules-4791.mp4"
       },
       {
         "seg": 4934,
@@ -13420,7 +13420,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 5011.3,
         "bloque": "b04800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j11-hercules-5011.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j11-hercules-5011.mp4"
       },
       {
         "seg": 4945,
@@ -13435,7 +13435,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 5022.3,
         "bloque": "b04800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j11-hercules-5022.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j11-hercules-5022.mp4"
       },
       {
         "seg": 5066,
@@ -13450,7 +13450,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 5178.1,
         "bloque": "b04800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j11-hercules-5178.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j11-hercules-5178.mp4"
       },
       {
         "seg": 5224,
@@ -13465,7 +13465,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 5335.9,
         "bloque": "b05100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j11-hercules-5336.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j11-hercules-5336.mp4"
       },
       {
         "seg": 5521,
@@ -13480,7 +13480,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 5633.4,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j11-hercules-5633.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j11-hercules-5633.mp4"
       },
       {
         "seg": 5614,
@@ -13495,7 +13495,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Oscar Naasei",
         "hudl": 5726.2,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j11-hercules-5726.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j11-hercules-5726.mp4"
       },
       {
         "seg": 5620,
@@ -13510,7 +13510,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jorge Cestero",
         "hudl": 5732.4,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/robos/clips/j11-hercules-5732.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/robos/clips/j11-hercules-5732.mp4"
       }
     ],
     "perdidas": [
@@ -13527,7 +13527,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Ángel Carvajal",
         "hudl": 65.9,
         "bloque": "b00000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-66.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-66.mp4"
       },
       {
         "seg": 367,
@@ -13542,7 +13542,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Sergio Mestre",
         "hudl": 358.1,
         "bloque": "b00300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-358.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-358.mp4"
       },
       {
         "seg": 574,
@@ -13557,7 +13557,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 565.2,
         "bloque": "b00300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-565.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-565.mp4"
       },
       {
         "seg": 692,
@@ -13572,7 +13572,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 682.6,
         "bloque": "b00600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-683.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-683.mp4"
       },
       {
         "seg": 722,
@@ -13587,7 +13587,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 713.4,
         "bloque": "b00600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-713.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-713.mp4"
       },
       {
         "seg": 753,
@@ -13602,7 +13602,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 744.4,
         "bloque": "b00600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-744.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-744.mp4"
       },
       {
         "seg": 914,
@@ -13617,7 +13617,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 905.2,
         "bloque": "b00900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-905.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-905.mp4"
       },
       {
         "seg": 1215,
@@ -13632,7 +13632,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 1206.5,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-1207.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-1207.mp4"
       },
       {
         "seg": 1289,
@@ -13647,7 +13647,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 1279.5,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-1280.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-1280.mp4"
       },
       {
         "seg": 1332,
@@ -13662,7 +13662,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 1323.2,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-1323.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-1323.mp4"
       },
       {
         "seg": 1399,
@@ -13677,7 +13677,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 1390.3,
         "bloque": "b01200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-1390.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-1390.mp4"
       },
       {
         "seg": 1537,
@@ -13692,7 +13692,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 1527.6,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-1528.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-1528.mp4"
       },
       {
         "seg": 1677,
@@ -13707,7 +13707,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Sergio Mestre",
         "hudl": 1667.5,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-1668.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-1668.mp4"
       },
       {
         "seg": 1686,
@@ -13722,7 +13722,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 1677.3,
         "bloque": "b01500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-1677.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-1677.mp4"
       },
       {
         "seg": 1808,
@@ -13751,7 +13751,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 1948.6,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-1949.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-1949.mp4"
       },
       {
         "seg": 1848,
@@ -13766,7 +13766,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 1839.4,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-1839.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-1839.mp4"
       },
       {
         "seg": 1930,
@@ -13781,7 +13781,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 2057.7,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-2058.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-2058.mp4"
       },
       {
         "seg": 1994,
@@ -13796,7 +13796,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 2121.7,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-2122.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-2122.mp4"
       },
       {
         "seg": 2018,
@@ -13811,7 +13811,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 2146.5,
         "bloque": "b01800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-2147.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-2147.mp4"
       },
       {
         "seg": 2290,
@@ -13826,7 +13826,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Roberto Martín",
         "hudl": 2418.2,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-2418.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-2418.mp4"
       },
       {
         "seg": 2398,
@@ -13841,7 +13841,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 2525.9,
         "bloque": "b02100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-2526.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-2526.mp4"
       },
       {
         "seg": 2494,
@@ -13856,7 +13856,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Roberto Martín",
         "hudl": 2622,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-2622.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-2622.mp4"
       },
       {
         "seg": 2519,
@@ -13871,7 +13871,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 2646.8,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-2647.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-2647.mp4"
       },
       {
         "seg": 2576,
@@ -13900,7 +13900,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 2727.3,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-2727.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-2727.mp4"
       },
       {
         "seg": 2628,
@@ -13915,7 +13915,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Roberto Martín",
         "hudl": 2755.6,
         "bloque": "b02400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-2756.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-2756.mp4"
       },
       {
         "seg": 2860,
@@ -13930,7 +13930,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Roberto Martín",
         "hudl": 2988,
         "bloque": "b02700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-2988.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-2988.mp4"
       },
       {
         "seg": 3210,
@@ -13945,7 +13945,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 3286.8,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-3287.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-3287.mp4"
       },
       {
         "seg": 3256,
@@ -13960,7 +13960,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 3332.7,
         "bloque": "b03000",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-3333.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-3333.mp4"
       },
       {
         "seg": 3452,
@@ -13975,7 +13975,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 3529.3,
         "bloque": "b03300",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-3529.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-3529.mp4"
       },
       {
         "seg": 3701,
@@ -13990,7 +13990,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Diego Aguado",
         "hudl": 3778.1,
         "bloque": "b03600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-3778.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-3778.mp4"
       },
       {
         "seg": 3814,
@@ -14005,7 +14005,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 3891,
         "bloque": "b03600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-3891.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-3891.mp4"
       },
       {
         "seg": 3899,
@@ -14020,7 +14020,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Pol Fortuny",
         "hudl": 3975.6,
         "bloque": "b03600",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-3976.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-3976.mp4"
       },
       {
         "seg": 4014,
@@ -14035,7 +14035,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 4090.7,
         "bloque": "b03900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-4091.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-4091.mp4"
       },
       {
         "seg": 4185,
@@ -14050,7 +14050,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 4262.3,
         "bloque": "b03900",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-4262.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-4262.mp4"
       },
       {
         "seg": 4325,
@@ -14065,7 +14065,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Daniel Yáñez",
         "hudl": 4402.4,
         "bloque": "b04200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-4402.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-4402.mp4"
       },
       {
         "seg": 4469,
@@ -14080,7 +14080,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Daniel Yáñez",
         "hudl": 4546,
         "bloque": "b04200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-4546.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-4546.mp4"
       },
       {
         "seg": 4495,
@@ -14095,7 +14095,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 4571.5,
         "bloque": "b04200",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-4572.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-4572.mp4"
       },
       {
         "seg": 4517,
@@ -14110,7 +14110,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Ángel Carvajal",
         "hudl": 4594.3,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-4594.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-4594.mp4"
       },
       {
         "seg": 4566,
@@ -14125,7 +14125,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Ángel Carvajal",
         "hudl": 4642.8,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-4643.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-4643.mp4"
       },
       {
         "seg": 4776,
@@ -14140,7 +14140,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Joan Martínez",
         "hudl": 4852.5,
         "bloque": "b04500",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-4853.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-4853.mp4"
       },
       {
         "seg": 4845,
@@ -14155,7 +14155,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Alexis Ciria",
         "hudl": 4922.4,
         "bloque": "b04800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-4922.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-4922.mp4"
       },
       {
         "seg": 4939,
@@ -14170,7 +14170,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 5016.4,
         "bloque": "b04800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-5016.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-5016.mp4"
       },
       {
         "seg": 5019,
@@ -14185,7 +14185,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 5131.2,
         "bloque": "b04800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-5131.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-5131.mp4"
       },
       {
         "seg": 5055,
@@ -14200,7 +14200,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Daniel Yáñez",
         "hudl": 5167.3,
         "bloque": "b04800",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-5167.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-5167.mp4"
       },
       {
         "seg": 5142,
@@ -14215,7 +14215,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 5253.5,
         "bloque": "b05100",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-5254.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-5254.mp4"
       },
       {
         "seg": 5514,
@@ -14230,7 +14230,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Martínez",
         "hudl": 5625.8,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-5626.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-5626.mp4"
       },
       {
         "seg": 5625,
@@ -14245,7 +14245,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Álvaro Leiva",
         "hudl": 5736.9,
         "bloque": "b05400",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-5737.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-5737.mp4"
       },
       {
         "seg": 5998,
@@ -14260,7 +14260,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "jugador": "Jesús Fortea",
         "hudl": 6110.5,
         "bloque": "b05700",
-        "video": "https://elqaoxhxoybhoavkrpob.supabase.co/storage/v1/object/public/performance/2026/perdidas/clips/j11-hercules-6111.mp4"
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/perdidas/clips/j11-hercules-6111.mp4"
       }
     ],
     "hudlUrl": "https://www.hudl.com/watch/video/VmlkZW82YWYxZWNhYzJlMTM3ODdjNTQ0NGRkYWY="
