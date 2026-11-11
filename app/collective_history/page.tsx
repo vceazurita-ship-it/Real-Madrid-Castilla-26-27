@@ -16,9 +16,12 @@ import { nombreEquipo } from "@/lib/equipos";
 function GraficaPuntos({
   jugados,
   liga,
+  equipos,
 }: {
   jugados: { jornada: number; acumulados: number }[];
   liga: Map<number, number>;
+  /** Cuántos equipos entran en la media: su base, en la leyenda (11/11/2026). */
+  equipos: number;
 }) {
   if (jugados.length < 2) return null;
 
@@ -26,7 +29,9 @@ function GraficaPuntos({
   const H = 220;
   /* 30/10/2026: letra de los ejes a 14 en el lienzo de 640: a 390 px se quedaba en 6 px y no se leía. */
   /* 10/11/2026: sin rótulos al final de las líneas (la leyenda de arriba los dice): margen derecho corto. */
-  const M = { l: 40, r: 24, t: 16, b: 34 };
+  /* 11/11/2026: sin ancho mínimo (a 390 px se cortaba en la J7) y con letra de
+     20 en el lienzo de 640, que a 390 px queda en unos 11 px. */
+  const M = { l: 46, r: 24, t: 16, b: 40 };
   const maximo = Math.max(3, ...jugados.map((u) => u.acumulados), ...jugados.map((u) => liga.get(u.jornada) ?? 0));
   const tope = Math.ceil(maximo / 3) * 3;
   const x = (i: number) => M.l + (i * (W - M.l - M.r)) / (jugados.length - 1);
@@ -53,7 +58,7 @@ function GraficaPuntos({
               {media !== undefined ? (
                 <span className="inline-flex items-center gap-1.5">
                   <span aria-hidden className="inline-block w-5 border-t-2 border-dashed border-white/55" />
-                  media de la liga <b className="tabular-nums">{f1(media)}</b>
+                  media de {equipos > 0 ? `los ${equipos} equipos` : "la liga"}, tras cada jornada <b className="tabular-nums">{f1(media)}</b>
                 </span>
               ) : null}
             </p>
@@ -67,26 +72,27 @@ function GraficaPuntos({
           </>
         );
       })()}
-      <div className="-mx-1 overflow-x-auto px-1">
+      <div className="min-w-0">
       <svg
         viewBox={`0 0 ${W} ${H}`}
-        className="mt-3 h-auto w-full min-w-[520px] max-w-[720px]"
+        className="mt-3 h-auto w-full max-w-[720px]"
         role="img"
         aria-label="Puntos acumulados del Castilla frente a la media de la liga"
       >
         {Array.from({ length: tope / 3 + 1 }, (_, k) => k * 3).map((v) => (
           <g key={v}>
             <line x1={M.l} x2={W - M.r} y1={y(v)} y2={y(v)} stroke="currentColor" strokeOpacity={0.12} />
-            <text x={M.l - 6} y={y(v) + 3} textAnchor="end" fontSize={14} fill="currentColor" fillOpacity={0.6}>
+            <text x={M.l - 8} y={y(v) + 6} textAnchor="end" fontSize={20} fill="currentColor" fillOpacity={0.65}>
               {v}
             </text>
           </g>
         ))}
-        {jugados.map((u, i) => (
-          <text key={u.jornada} x={x(i)} y={H - 10} textAnchor="middle" fontSize={14} fill="currentColor" fillOpacity={0.6}>
+        {/* Con muchas jornadas, una de cada dos (y siempre la última) para que no se monten. */}
+        {jugados.map((u, i) => (jugados.length > 14 && i % 2 === 1 && i !== jugados.length - 1 ? null : (
+          <text key={u.jornada} x={x(i)} y={H - 10} textAnchor="middle" fontSize={jugados.length > 14 ? 16 : 20} fill="currentColor" fillOpacity={0.65}>
             J{u.jornada}
           </text>
-        ))}
+        )))}
         {puntosLiga.length > 1 ? (
           <polyline
             points={puntosLiga.join(" ")}
@@ -350,26 +356,9 @@ useEffect(() => {
             Ver explicación
           </button>
 
-          {/* Botón móvil */}
-          <button
-            onClick={scrollToVideo}
-            aria-hidden={tablaEnPantalla || undefined}
-            tabIndex={tablaEnPantalla ? -1 : undefined}
-            className={`${tablaEnPantalla ? "pointer-events-none opacity-0" : ""}
-              lg:hidden
-              fixed bottom-5 right-5 z-50
-              rounded-full
-              bg-[#C8A96B]
-              text-black
-              px-4 py-3
-              text-sm font-semibold
-              shadow-xl
-              hover:opacity-90
-              transition
-            `}
-          >
-            Ver vídeo
-          </button>
+          {/* 11/11/2026 (marketing): fuera el botón flotante «Ver vídeo» del
+              móvil; tapaba el resultado y los puntos de la J1. El vídeo queda
+              como enlace bajo el botón de Power BI. */}
 
           {/* 30/10/2026: pb-24 para que los botones flotantes no tapen la última fila. */}
           <div className="px-4 sm:px-8 pb-24 pt-6 sm:pt-10">
@@ -420,7 +409,7 @@ useEffect(() => {
                       "Puntos",
                       String(tabla.puntos),
                       tabla.jugados > 0
-                        ? `en ${tabla.jugados} partidos · ${dec(tabla.puntos / tabla.jugados)} por partido${liga.mediaPuntos !== null ? ` · liga ${dec(liga.mediaPuntos)}` : ""}`
+                        ? `en ${tabla.jugados} partidos · ${dec(tabla.puntos / tabla.jugados)} por partido`
                         : "",
                     ],
                     /* 07/11/2026: «4-3-3» se leía como un sistema de juego. */
@@ -429,9 +418,11 @@ useEffect(() => {
                       "Goles",
                       `${tabla.favor}-${tabla.contra}`,
                       /* 29/10/2026: en dos renglones; en uno solo no se leía. */
-                      `${tabla.favor} a favor · ${tabla.contra} en contra\ndiferencia ${dif > 0 ? "+" : dif < 0 ? "−" : ""}${Math.abs(dif)}${liga.mediaGoles !== null ? ` · liga ${dec(liga.mediaGoles)} por partido` : ""}`,
+                      `${tabla.favor} a favor · ${tabla.contra} en contra\ndiferencia ${dif > 0 ? "+" : dif < 0 ? "−" : ""}${Math.abs(dif)}${tabla.jugados > 0 ? ` · ${dec(tabla.favor / tabla.jugados)} a favor por partido` : ""}`,
                     ],
                   ];
+                  /* 11/11/2026 (expertos, ronda 2): la referencia de la liga,
+                     una sola vez y con su base, bajo las cuatro tarjetas. */
                 })().map(([etiqueta, valor, referencia]) => (
                   <div
                     key={etiqueta}
@@ -444,6 +435,19 @@ useEffect(() => {
                     {referencia ? <p className="mt-1.5 whitespace-pre-line text-[12px] leading-snug text-white/60">{referencia}</p> : null}
                   </div>
                 ))}
+                {liga.mediaPuntos !== null || liga.mediaGoles !== null ? (
+                  <p className="col-span-2 text-[12px] text-white/60 sm:col-span-4">
+                    Referencia: media de {liga.equipos > 0 ? `los ${liga.equipos} equipos` : "la liga"} tras {tabla.jugados} {tabla.jugados === 1 ? "jornada" : "jornadas"}
+                    {[
+                      liga.mediaPuntos !== null ? `${liga.mediaPuntos.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} puntos por partido` : "",
+                      liga.mediaGoles !== null ? `${liga.mediaGoles.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} goles a favor por partido` : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" y ")
+                      .replace(/^/, ": ")}
+                    .
+                  </p>
+                ) : null}
               </div>
             ) : null}
 
@@ -465,6 +469,12 @@ useEffect(() => {
                 | una línea bajo el rival y la tabla cabe sin desplazarse. En
                 | escritorio, casa/fuera va en su propia columna (análisis).
                 */}
+                {/* 11/11/2026 (análisis): primero la curva de puntos frente a la
+                    media, que se lee de un vistazo; debajo, la tabla. */}
+                <div className="mb-4">
+                  <GraficaPuntos jugados={jugados} liga={liga.acumuladaLiga} equipos={liga.equipos} />
+                </div>
+
                 <div ref={tablaRef} className="overflow-x-auto rounded-[18px] border border-white/10">
                   <table className="w-full text-sm">
                     <thead>
@@ -573,7 +583,6 @@ useEffect(() => {
                   </p>
                 ) : null}
 
-                <GraficaPuntos jugados={jugados} liga={liga.acumuladaLiga} />
               </div>
             ) : null}
 
