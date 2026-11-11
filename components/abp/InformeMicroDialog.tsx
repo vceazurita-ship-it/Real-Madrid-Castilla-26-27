@@ -1038,6 +1038,17 @@ export function InformeMicroDialog({
   const [verDestinatarios, setVerDestinatarios] = useState(false);
   const [verAnalista, setVerAnalista] = useState(false);
 
+  /*
+  | EL ÍNDICE Y LOS ANEXOS PLEGADOS (11/11/2026, fútbol y marketing): en el
+  | escritorio el informe pasaba de tres pantallas. Arriba, un índice con
+  | anclas (Prioridad · Rival · Plan · Temporada) y, en la vista previa, lo que
+  | va después del «Anexo» plegado con su botón. Sólo en la vista previa: el
+  | correo, el PDF y «Ver en grande» salen enteros.
+  */
+  const marcoRef = useRef<HTMLIFrameElement | null>(null);
+  const abreCapitulo = useRef(new Map<string, () => void>());
+  const [capitulos, setCapitulos] = useState<string[]>([]);
+
   /* Por WhatsApp (15/10/2026): se prepara igual y, en vez del correo, sale el mensaje con los enlaces. */
   const canal: CanalEnvio = ajustes.canal ?? "correo";
   const telefonosWa = telefonosDe(ajustes.telefonos ?? "");
@@ -1550,21 +1561,31 @@ export function InformeMicroDialog({
   return (
     <Dialog
       /* Jornada, rival y semana como el informe del partido (11/11/2026, análisis): «Balón parado · Previa · J12 · Gimnàstic Tarragona · fuera». */
-      title={informe.cabecera?.titulo || `${informe.titulo} · ${informe.modoRotulo}`}
-      subtitle={informe.cabecera?.subtitulo || [informe.subtitulo, informe.rango].filter(Boolean).join(" · ")}
+      /*
+      | Rival, fecha y micro, una vez (11/11/2026, marketing): la cabecera del
+      | modal y la franja azul del correo repetían las tres cosas y en el
+      | móvil eran tres líneas. Aquí sólo «Balón parado · Previa · J12»; el
+      | resto lo dice el correo, justo debajo.
+      */
+      title={(() => {
+        const partes = (informe.cabecera?.titulo || `${informe.titulo} · ${informe.modoRotulo}`).split(" · ");
+        const j = partes.findIndex((p) => /^J\d+$/.test(p));
+
+        return (j >= 0 ? partes.slice(0, j + 1) : partes.slice(0, 2)).join(" · ");
+      })()}
       onClose={onClose}
       /* Ancho en escritorio para que el correo de 860 px se lea sin encoger; sin botón flotante en el móvil (11/11/2026, expertos). */
       ancho
       sinBotonFlotante
       footer={
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex w-full flex-wrap items-center justify-between gap-2 sm:gap-3">
           {fallo ? (
             <p className="min-w-0 basis-full text-[11px] leading-relaxed text-rose-300">
               {conEnlace(fallo)}
             </p>
           ) : null}
 
-          <div className="min-w-0 space-y-1">
+          <div className={`min-w-0 space-y-1 ${esPost || videoJugadores || ocupado ? "basis-full sm:basis-auto" : "hidden"}`}>
             {esPost ? (
               /* Post (02/11/2026): el vídeo sale siempre; aquí sólo se dice qué lleva y por dónde va. */
               <p className="text-[11px] text-white/70">
@@ -1619,22 +1640,34 @@ export function InformeMicroDialog({
             type="button"
             onClick={() => setVerDestinatarios((v) => !v)}
             aria-expanded={verDestinatarios}
-            className="min-h-9 min-w-0 basis-full truncate text-left text-[12px] text-white/70 underline-offset-2 hover:underline sm:basis-auto sm:flex-1"
+            /* En el móvil, en la misma fila que los botones (11/11/2026, expertos): el pie en dos filas tapaba la tarjeta de la prioridad. */
+            className="min-h-9 min-w-0 flex-1 basis-0 truncate text-left text-[12px] text-white/70 underline-offset-2 hover:underline"
           >
             {(() => {
-              if (canal === "whatsapp") {
-                const n = telefonosDe(ajustes.telefonos ?? "").buenos.length;
+              const whatsapp = canal === "whatsapp";
 
-                return `Por WhatsApp · ${n ? `${n} ${n === 1 ? "teléfono" : "teléfonos"}` : "eliges el chat al enviar"} · ${verDestinatarios ? "ocultar" : "cambiar"}`;
-              }
+              const n = whatsapp ? telefonosDe(ajustes.telefonos ?? "").buenos.length : ajustes.destinatarios.split(/[,;\s]+/).filter((x) => x.includes("@")).length;
 
-              const n = ajustes.destinatarios.split(/[,;\s]+/).filter((x) => x.includes("@")).length;
+              const cuantos = whatsapp
+                ? n
+                  ? `${n} ${n === 1 ? "teléfono" : "teléfonos"}`
+                  : "eliges el chat al enviar"
+                : n
+                  ? `${n} ${n === 1 ? "destinatario" : "destinatarios"}`
+                  : "elige a quién";
 
-              return `Por correo · ${n ? `${n} ${n === 1 ? "destinatario" : "destinatarios"}` : "elige a quién"} · ${verDestinatarios ? "ocultar" : "cambiar"}`;
+              return (
+                <>
+                  <span className="sm:hidden">
+                    {n ? cuantos : whatsapp ? "WhatsApp" : "¿A quién?"} {verDestinatarios ? "▴" : "▾"}
+                  </span>
+                  <span className="hidden sm:inline">{`${whatsapp ? "Por WhatsApp" : "Por correo"} · ${cuantos} · ${verDestinatarios ? "ocultar" : "cambiar"}`}</span>
+                </>
+              );
             })()}
           </button>
 
-          <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+          <div className="flex min-w-0 shrink-0 items-center justify-end gap-2">
             {/* En el móvil sobra «Cerrar» (la X de arriba cierra): así caben «Descargar» y «Enviar» en una fila (07/11/2026). */}
             <span className="hidden sm:contents">
               <Button onClick={onClose}>Cerrar</Button>
@@ -1665,7 +1698,14 @@ export function InformeMicroDialog({
                 pizarraInforme.cargando
               }
             >
-              {ocupado ? (pasoVideo ? `Enviando · ${pasoVideo}` : "Enviando…") : canal === "whatsapp" ? "Preparar WhatsApp" : "Enviar por correo"}
+              {ocupado ? (
+                pasoVideo ? `Enviando · ${pasoVideo}` : "Enviando…"
+              ) : (
+                <>
+                  <span className="sm:hidden">{canal === "whatsapp" ? "WhatsApp" : "Enviar"}</span>
+                  <span className="hidden sm:inline">{canal === "whatsapp" ? "Preparar WhatsApp" : "Enviar por correo"}</span>
+                </>
+              )}
             </Button>
           </div>
         </div>
@@ -1685,7 +1725,8 @@ export function InformeMicroDialog({
       */}
       {/* `data-informe-partido`: en el móvil esconde el botón de herramientas, que se pegaba a «Enviar» (la regla está en globals.css). */}
       <div data-informe-partido className="space-y-3 pb-4">
-        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+        {/* En el móvil (11/11/2026, expertos): sin post que elegir, la fila sobra (el correo ya dice «Previa del partido»); con post, sólo el selector. */}
+        <div className={`${sinPost ? "hidden sm:flex" : "flex"} min-w-0 flex-wrap items-center gap-x-3 gap-y-1`}>
           {/*
           | PREVIA O POST. Dos informes distintos de la misma semana: la previa
           | cuenta qué se va a hacer y por qué; el post, qué pasó en el partido y
@@ -1727,7 +1768,7 @@ export function InformeMicroDialog({
               </div>
             )}
 
-            <p className="min-w-0 flex-1 text-[12px] leading-snug text-white/55">
+            <p className="hidden min-w-0 flex-1 text-[12px] leading-snug text-white/55 sm:block">
               {modo === "post"
                 ? accionesPartido.length > 0
                   ? `Qué pasó: las ${accionesPartido.length} acciones de la ${accionesPartido[0].jornada.etiqueta.toLowerCase()} en nuestras hojas, cruzadas con lo trabajado.`
@@ -1758,8 +1799,53 @@ export function InformeMicroDialog({
           antes que los plegables (pretemporada, asunto, lo del analista), y
           «Ver en grande» sale fuera del marco: tapaba la fecha de la cabecera.
         */}
+        {(() => {
+          /* Las anclas que haya de verdad: lo que no está en el informe no sale en el índice. */
+          const indice = [
+            { rotulo: "Prioridad", capitulo: "" },
+            { rotulo: "Partido", capitulo: capitulos.find((c) => /^Qué pasó/i.test(c)) ?? "" },
+            { rotulo: "Rival", capitulo: capitulos.find((c) => /^(?:El|La|Los) .+ a balón parado$/i.test(c)) ?? "" },
+            { rotulo: "Plan", capitulo: capitulos.find((c) => /^(?:Qué hacemos y qué entrenamos|Lo planificado|La semana, tarea|Lo trabajado)/i.test(c)) ?? "" },
+            { rotulo: "Temporada", capitulo: capitulos.find((c) => /^Anexo/i.test(c)) ?? capitulos.find((c) => /temporada/i.test(c)) ?? "" },
+          ].filter((una, i) => i === 0 || una.capitulo);
+
+          if (indice.length < 3) return null;
+
+          const ve = (capitulo: string) => {
+            const marco = marcoRef.current;
+
+            if (!marco) return;
+
+            abreCapitulo.current.get(capitulo)?.();
+
+            const destino = capitulo ? marco.contentDocument?.querySelector<HTMLElement>(`h2[data-capitulo="${CSS.escape(capitulo)}"]`) : null;
+
+            (destino ?? marco).scrollIntoView({ block: "start" });
+
+            /* Que el índice fijo no tape el título. */
+            marco.closest<HTMLElement>(".overflow-y-auto")?.scrollBy(0, -52);
+          };
+
+          return (
+            <nav aria-label="Índice del informe" className="sticky top-0 z-10 -mx-1 hidden items-center gap-1.5 bg-[#11161C] px-1 py-1.5 sm:flex">
+              <span className="mr-1 text-[11px] font-semibold uppercase tracking-wider text-white/45">Ir a</span>
+              {indice.map((una) => (
+                <button
+                  key={una.rotulo}
+                  type="button"
+                  onClick={() => ve(una.capitulo)}
+                  className="rounded-full border border-[#C8A96B]/40 px-3 py-1 text-[12px] font-semibold text-[color:var(--rmcf-gold-ink)] transition hover:bg-[#C8A96B]/10"
+                >
+                  {una.rotulo}
+                </button>
+              ))}
+            </nav>
+          );
+        })()}
+
         <div className="overflow-hidden rounded-xl border border-white/10">
           <iframe
+            ref={marcoRef}
             title="Vista previa del informe"
             srcDoc={html}
             className="block h-[75vh] w-full bg-white"
@@ -1774,11 +1860,22 @@ export function InformeMicroDialog({
 
                 raiz.style.zoom = "";
 
-                const zoom = raiz.scrollWidth > raiz.clientWidth + 1 ? raiz.clientWidth / raiz.scrollWidth : 1;
+                /*
+                | Y se agranda si sobra sitio (11/11/2026, fútbol y marketing): a
+                | 1440 px la letra de tablas y gráficos quedaba diminuta en medio
+                | de un hueco. Hasta ×1,3; por encima de 900 px de ancho la
+                | maqueta de 860 no cambia, así que el alto medido vale igual.
+                */
+                const zoom =
+                  raiz.scrollWidth > raiz.clientWidth + 1
+                    ? raiz.clientWidth / raiz.scrollWidth
+                    : raiz.clientWidth > 900
+                      ? Math.min(1.3, raiz.clientWidth / 900)
+                      : 1;
                 /* El alto sin encoger: se mide antes de poner el zoom y se multiplica. */
                 const alto = raiz.scrollHeight;
 
-                if (zoom < 1) raiz.style.zoom = String(zoom);
+                if (zoom !== 1) raiz.style.zoom = String(zoom);
 
                 /*
                 | En el móvil y en el escritorio (11/11/2026, expertos), el marco
@@ -1788,6 +1885,62 @@ export function InformeMicroDialog({
                 */
                 marco.style.height = `${Math.ceil(alto * zoom) + 8}px`;
               };
+
+              /* Lo que va detrás del «Anexo», plegado con su botón (sólo en esta vista previa). */
+              const doc = marco.contentDocument;
+
+              abreCapitulo.current = new Map();
+
+              if (doc) {
+                const titulos = Array.from(doc.querySelectorAll<HTMLElement>("h2[data-capitulo]"));
+
+                const desde = titulos.findIndex((h) => /^anexo/i.test(h.dataset.capitulo ?? ""));
+
+                /* Abiertas siguen la tabla de prioridades y la comparación con la categoría: son la base de la nº 1. */
+                const siempreAbierta = /^Nuestras prioridades de la temporada|contra la categoría/i;
+
+                titulos.slice(desde >= 0 ? desde + 1 : titulos.length).forEach((h) => {
+                  const celda = h.parentElement;
+
+                  if (!celda || siempreAbierta.test(h.dataset.capitulo ?? "")) return;
+
+                  /* El pie de la sección (qué es) se queda a la vista; lo demás se pliega. */
+                  const hermanos = Array.from(celda.children).filter((n) => n !== h) as HTMLElement[];
+
+                  const ocultos = hermanos.slice(hermanos[0]?.tagName === "P" ? 1 : 0);
+
+                  if (!ocultos.length) return;
+
+                  const boton = doc.createElement("button");
+
+                  boton.type = "button";
+                  boton.setAttribute("style", "margin:2px 0 6px;padding:5px 12px;border:1px solid #C8A96B;border-radius:999px;background:#FFFFFF;font:600 12px/1.3 Arial,sans-serif;color:#0F1E3D;cursor:pointer");
+
+                  const pon = (abierto: boolean) => {
+                    ocultos.forEach((n) => {
+                      n.style.display = abierto ? "" : "none";
+                    });
+                    boton.textContent = abierto ? "Plegar esta sección ▴" : "Ver esta sección ▾";
+                    boton.setAttribute("aria-expanded", String(abierto));
+                  };
+
+                  pon(false);
+
+                  boton.addEventListener("click", () => {
+                    pon(boton.getAttribute("aria-expanded") !== "true");
+                    ajusta();
+                  });
+
+                  (hermanos[0]?.tagName === "P" ? hermanos[0] : h).after(boton);
+
+                  abreCapitulo.current.set(h.dataset.capitulo ?? "", () => {
+                    pon(true);
+                    ajusta();
+                  });
+                });
+
+                setCapitulos(titulos.map((h) => h.dataset.capitulo ?? "").filter(Boolean));
+              }
 
               ajusta();
 
@@ -1834,41 +1987,32 @@ export function InformeMicroDialog({
 
           const n = listo ? informe.avisos.length : 0;
 
-          const rotuloAvisos = n === 1 ? "1 aviso para el analista" : `${n} avisos para el analista`;
-
-          const resumen = [
-            n ? rotuloAvisos : "",
-            "así llega a la bandeja",
-            cuantasDePretemporada > 0 ? (conPretemporada ? "con pretemporada" : "sólo competición") : "",
-            "no va en el correo",
-          ]
-            .filter(Boolean)
-            .join(" · ");
+          /*
+          | UNA LÍNEA (11/11/2026, análisis y marketing): «Antes de enviar», «5
+          | avisos para el analista» y «5 avisos… · así llega a la bandeja ·
+          | sólo competición · no va en el correo» eran tres líneas que decían
+          | lo mismo. Ahora el título con el número y lo demás, dentro.
+          */
+          const rotulo = n ? `Antes de enviar: ${n === 1 ? "1 aviso" : `${n} avisos`} para el analista` : "Antes de enviar: repaso para el analista";
 
           return (
-            <section className="space-y-2" aria-label="Antes de enviar">
-              <span className="block text-[10px] font-semibold uppercase tracking-wider text-white/40">Antes de enviar</span>
-
+            <section aria-label="Antes de enviar">
               <div className={`min-w-0 rounded-xl border text-[12px] ${n ? "border-amber-400/30 bg-amber-400/[0.04]" : "border-white/10 bg-white/[0.02]"}`}>
                 <button
                   type="button"
                   onClick={() => setVerAnalista((v) => !v)}
                   aria-expanded={verAnalista}
-                  className="flex w-full min-w-0 items-start gap-2 px-3 py-2.5 text-left"
+                  className="flex min-h-10 w-full min-w-0 items-center gap-2 px-3 py-2 text-left"
                 >
-                  <span className="min-w-0 flex-1">
-                    <span className={`block text-[13px] font-semibold ${n ? "text-amber-200" : "text-white/90"}`}>{n ? rotuloAvisos : "Repaso antes de enviar"}</span>
-                    <span className="block truncate text-[11px] text-white/45" title={resumen}>
-                      {resumen}
-                    </span>
-                  </span>
-                  <ChevronDown size={15} className={`mt-0.5 shrink-0 text-white/40 transition-transform ${verAnalista ? "rotate-180" : ""}`} />
+                  <span className={`min-w-0 flex-1 truncate text-[13px] font-semibold ${n ? "text-amber-200" : "text-white/90"}`}>{rotulo}</span>
+                  <ChevronDown size={15} className={`shrink-0 text-white/40 transition-transform ${verAnalista ? "rotate-180" : ""}`} />
                 </button>
 
                 <div hidden={!verAnalista} className="space-y-4 border-t border-white/10 px-3 py-3">
+                  <p className="text-[11px] text-white/50">Nada de este bloque va en el correo.</p>
                   {n ? (
                     <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-white/40">{rotuloAvisos}</p>
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-white/40">Avisos</p>
                       <ul className="mt-1 ml-4 list-disc space-y-1 text-[12px] text-white/70">
                         {informe.avisos.map((aviso) => (
                           <li key={aviso}>{aviso}</li>

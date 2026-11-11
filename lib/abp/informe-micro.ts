@@ -86,7 +86,7 @@ import { faltasDeJornada, lecturaFaltas, type LecturaFaltas } from "@/lib/faltas
 import { nombreBonito, resumenCorners, type LecturaLamina } from "./laminas-lectura";
 import { mismoClub } from "@/lib/rivals/mismoClub";
 import { delOnce, type PizarraParaInforme } from "./pizarra-para-informe";
-import { familiaDeAspecto, tareaEnFrase, tareasQueTocan, type TareaQueToca, type TareaSemana } from "./tareas-semana";
+import { familiaDeAspecto, mdDeTarea, tareaEnFrase, tareasQueTocan, type TareaQueToca, type TareaSemana } from "./tareas-semana";
 
 /* ------------------------------------------------------------------ */
 /*  LO QUE RECIBE                                                      */
@@ -1098,15 +1098,50 @@ export function accionesEnFrase(una: { familia?: string; aspecto: string; lado: 
  * frase en la tarjeta, en «Para el …» y en la tabla de prioridades: «10 faltas
  * directas en contra en 11 partidos · 3 con peligro · 1 gol». Antes cada sitio
  * la decía a su manera («3 de 10», «1 gol en 10», «de 4 a balón parado»).
+ * Desde la tarde del 11/11 dice primero de qué es el 3 (`baseConPeligro`).
  */
 export function baseUnica(una: { familia?: string; aspecto: string; lado: AbpLado; acciones: number; peligros: number; goles: number }, partidos?: number | null) {
+  return baseConPeligro(una, partidos);
+}
+
+/**
+ * DE QUÉ ES EL «3 DE 10» (11/11/2026, análisis y fútbol): «3 de 10 · 10 faltas
+ * directas en contra en 11 partidos · 3 con peligro · 1 gol» parecían cifras
+ * distintas. Ahora el pie dice primero de qué es el 3 y después el total:
+ * «3 con peligro de 10 faltas directas en contra · 11 partidos · 1 gol».
+ */
+export function baseConPeligro(una: { familia?: string; aspecto: string; lado: AbpLado; acciones: number; peligros: number; goles: number }, partidos?: number | null) {
   return [
-    `${una.acciones} ${accionesEnFrase(una)}${partidos ? ` en ${plural(partidos, "partido", "partidos")}` : ""}`,
-    `${una.peligros} con peligro`,
+    `${una.peligros} con peligro de ${una.acciones} ${accionesEnFrase(una)}`,
+    partidos ? plural(partidos, "partido", "partidos") : "",
     una.goles ? plural(una.goles, "gol", "goles") : "",
   ]
     .filter(Boolean)
     .join(" · ");
+}
+
+/** Debajo de un «3 de 10» grande: «faltas directas en contra acabaron con peligro · 11 partidos · 1 gol». */
+function debajoDelTresDeDiez(una: { familia?: string; aspecto: string; lado: AbpLado; acciones: number; peligros: number; goles: number }, partidos?: number | null) {
+  return [
+    `${accionesEnFrase(una)} ${una.peligros === 1 ? "acabó" : "acabaron"} con peligro`,
+    partidos ? plural(partidos, "partido", "partidos") : "",
+    una.goles ? plural(una.goles, "gol", "goles") : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+/**
+ * LA META DE LA Nº 1 EN CONTRA (11/11/2026, análisis): «META EN CONTRA Cero
+ * 10 faltas directas en contra en 11 partidos» no se leía. Ahora «ningún gol
+ * de falta directa a portería (hoy 1 en 10)», la misma en el informe de ABP y
+ * en el del partido (que la lee de `pincelada.cifras[].meta`). Sólo en contra
+ * y con algún gol encajado: si no, no hay meta que poner.
+ */
+export function metaEnContra(una: { aspecto: string; lado: AbpLado; acciones: number; goles: number }) {
+  if (una.lado !== "defensivo" || una.goles <= 0) return "";
+
+  return `ningún gol de ${enMinuscula(una.aspecto)} (hoy ${una.goles} en ${una.acciones})`;
 }
 
 /**
@@ -1185,6 +1220,7 @@ function tareasDeLaHoja(tareas: RegistroTarea[]): TareaSemana[] {
       tarea: t.tarea,
       que: t.contenidoSecundario || t.contenidoPrincipal,
       texto: [t.fase, t.contenidoPrincipal, t.contenidoSecundario, t.tipoTarea].filter(Boolean).join(" · "),
+      md: t.md || "",
     }))
     .filter((t) => t.dia);
 }
@@ -1204,7 +1240,7 @@ function tocanDe(informe: Pick<InformeMicro, "tocanEnLaHoja">, una: { aspecto: s
  * tarea nombra la familia sin decir cuál («faltas»), se dice eso y se
  * propone lo que le falta. `null` si ninguna tarea la toca.
  */
-function enLaHoja(una: { familia?: string; aspecto: string; lado: AbpLado }, tocan: TareaQueToca[]) {
+function enLaHoja(una: { familia?: string; aspecto: string; lado: AbpLado }, tocan: TareaQueToca[], diaPartido = "") {
   if (!tocan.length) return null;
 
   const exactas = tocan.filter((t) => t.cobertura === "exacta");
@@ -1232,6 +1268,31 @@ function enLaHoja(una: { familia?: string; aspecto: string; lado: AbpLado }, toc
   const general = familia === "falta-directa" || familia === "falta-lateral" ? "las faltas" : "el balón parado";
 
   const cual = familia === "falta-directa" ? "la directa" : familia === "falta-lateral" ? "la lateral" : conArticulo(una.aspecto);
+
+  /*
+  | EL MD REAL (11/11/2026, experto de fútbol): con partido el viernes, la
+  | tarea 2 del miércoles ES el MD-2. Decía «las faltas entran en la tarea 2
+  | del miércoles; la directa… pide su tarea el MD-2», como si fuera otro día.
+  | Si la tarea genérica cae en el día que se propone, la directa va en ella.
+  | El informe del partido lee las dos formas (`metaAbpEnContra`, en
+  | components/informe-partido/Diapositivas.tsx).
+  */
+  const ese = tocan.find((t) => mdDeTarea(t, diaPartido) === propuesta.dia);
+
+  if (ese) {
+    const numeroEse = /T\s*(\d+)\s*$/i.exec(ese.tarea)?.[1];
+
+    return {
+      exacta: false,
+      frase: `${mayuscula(general)} ${general === "las faltas" ? "entran" : "entra"} en ${tareaEnFrase(ese)}, que es el ${propuesta.dia}: meter ahí ${cual}, con ${propuesta.contenido}`,
+      tarjeta: {
+        rotulo: general === "las faltas" ? "Faltas en el plan" : "Balón parado en el plan",
+        valor: `${ese.dia}${numeroEse ? ` · tarea ${numeroEse}` : ""}`,
+        base: tareaEnFrase(ese).match(/\((.+)\)$/)?.[1] ?? "",
+        pie: `Es el ${propuesta.dia}: meter ahí ${cual} (${propuesta.contenido})`,
+      },
+    };
+  }
 
   return {
     exacta: false,
@@ -2277,7 +2338,7 @@ function clavesPrevia(
     /* Lo que dice la hoja de registro, igual que el informe del partido (11/11/2026). */
     const familia = familiaDeAspecto(primera.familia || primera.aspecto);
 
-    const enHoja = sinMinutos && !primera.planificado && familia ? enLaHoja(primera, tareasQueTocan(familia, primera.lado, tareasDeLaHoja(datos.tareas))) : null;
+    const enHoja = sinMinutos && !primera.planificado && familia ? enLaHoja(primera, tareasQueTocan(familia, primera.lado, tareasDeLaHoja(datos.tareas)), fechaDelPartido(datos)?.fecha.toLocaleDateString("es-ES", { weekday: "long" }) ?? "") : null;
 
     const estado = sinMinutos
       ? primera.planificado
@@ -4055,7 +4116,7 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
       .filter(([, tocan]) => tocan.length),
   ) as Record<string, TareaQueToca[]>;
 
-  const laPrimeraEnLaHoja = primeraPrioridad && !primeraPrioridad.planificado ? enLaHoja(primeraPrioridad, tocanEnLaHoja[claveTocan(primeraPrioridad)] ?? []) : null;
+  const laPrimeraEnLaHoja = primeraPrioridad && !primeraPrioridad.planificado ? enLaHoja(primeraPrioridad, tocanEnLaHoja[claveTocan(primeraPrioridad)] ?? [], cuandoPartido ? cuandoPartido.fecha.toLocaleDateString("es-ES", { weekday: "long" }) : "") : null;
 
   /* Los goles de su lado, sin saques de banda: «1 gol encajado · de 4 a balón parado» (11/11/2026, marketing). */
   const golesDeSuLado = primeraPrioridad ? equipo.filter((una) => una.lado === primeraPrioridad.lado && !una.esBanda).reduce((t, una) => t + una.goles, 0) : 0;
@@ -4081,8 +4142,10 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
             */
             valor: primeraPrioridad.base,
             /* La misma base en la tarjeta, en «Para el …» y en la tabla (`baseUnica`, 11/11/2026). */
-            /* «3 de 10» arriba; aquí de qué es el 3 (11/11/2026, fútbol y análisis). */
-            base: `con peligro, de ${primeraPrioridad.acciones} ${accionesEnFrase(primeraPrioridad)}${datos.propio?.partidos ? ` en ${plural(datos.propio.partidos, "partido", "partidos")}` : ""}${primeraPrioridad.goles ? ` · ${plural(primeraPrioridad.goles, "gol", "goles")}` : ""}`,
+            /* «3 de 10» arriba; debajo, de qué es el 3 y luego el total (11/11/2026, fútbol y análisis): «faltas directas en contra acabaron con peligro · 11 partidos · 1 gol». */
+            base: debajoDelTresDeDiez(primeraPrioridad, datos.propio?.partidos),
+            /* La meta, la misma que el informe del partido (11/11/2026, análisis): «ningún gol de falta directa a portería (hoy 1 en 10)». */
+            ...(metaEnContra(primeraPrioridad) ? { accion: `Meta: ${metaEnContra(primeraPrioridad)}` } : {}),
             /* «Aspecto: …» al principio: el gancho del vídeo saca el aspecto de antes de los dos puntos (`lib/video-informe/guion.ts`). */
             pie:
               [
@@ -4722,7 +4785,7 @@ function tabla(cabecerasTodas: string[], filasTodas: string[][]) {
   const th = cabeceras
     .map(
       (una) =>
-        `<th align="left" style="padding:8px 10px;border-bottom:2px solid ${ORO};font:600 11px/1.3 Arial,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:${NAVY}">${esc(una)}</th>`,
+        `<th align="left" style="padding:8px 10px;border-bottom:2px solid ${ORO};font:600 12px/1.3 Arial,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:${NAVY}">${esc(una)}</th>`,
     )
     .join("");
 
@@ -5141,7 +5204,7 @@ function seccionesDe(informe: InformeMicro, modoImagenes: ModoImagenes): Seccion
 
   /* «Miércoles · tarea 2 (faltas)»: la tarea de la hoja que la toca, si no está en el plan (11/11/2026). */
   const enLaHojaCorto = (linea: LineaEquipo) => {
-    const una = enLaHoja(linea, tocanDe(informe, linea));
+    const una = enLaHoja(linea, tocanDe(informe, linea), informe.diaSemanaPartido);
 
     if (!una) return "";
 
@@ -5704,7 +5767,7 @@ function seccionesDe(informe: InformeMicro, modoImagenes: ModoImagenes): Seccion
     /* La tarea: la del plan, la de la hoja de registro o la que se propone (el mismo orden que la tabla de prioridades). */
     const linea = informe.equipo.find((una) => una.familia === "corner" && una.lado === "defensivo" && !una.esBanda);
     const dias = linea ? diasDelAspecto(informe, linea.aspecto, linea.lado) : [];
-    const hoja = linea && !dias.length ? enLaHoja(linea, tocanDe(informe, linea)) : null;
+    const hoja = linea && !dias.length ? enLaHoja(linea, tocanDe(informe, linea), informe.diaSemanaPartido) : null;
     const propuesta = tareaPropuesta({ familia: "corner", aspecto: "Córner", lado: "defensivo" });
     const entrenamos = dias.length
       ? `Qué entrenamos: se trabaja ${fraseLista(dias)} (${propuesta.contenido})`
@@ -5863,7 +5926,7 @@ function seccionesDe(informe: InformeMicro, modoImagenes: ModoImagenes): Seccion
         .map((una) => {
           const dias = diasDelAspecto(informe, una.aspecto, una.lado);
 
-          const hoja = una.planificado || dias.length ? null : enLaHoja(una, tocanDe(informe, una));
+          const hoja = una.planificado || dias.length ? null : enLaHoja(una, tocanDe(informe, una), informe.diaSemanaPartido);
 
           const propuesta = tareaPropuesta(una);
 
@@ -5952,7 +6015,7 @@ export function informeCuerpoHtml(
         `<td class="tarjeta" style="padding:12px 14px;background:${CREMA};border:1px solid #E5E1D6;border-top:3px solid #C8A96B;border-radius:8px;width:31%"><p style="margin:0;font:600 11px/1.3 Arial,sans-serif;color:${SUAVE};text-transform:uppercase;letter-spacing:.08em">${esc(dato.rotulo)}</p><p style="margin:4px 0 0;font:700 26px/1.1 ${TITULAR};color:${NAVY}">${esc(dato.valor)}</p>${
           /* La base pegada al número, a 12 px (11/11/2026, marketing): «de 4 a balón parado en 11 partidos». */
           dato.base ? `<p style="margin:3px 0 0;font:600 12px/1.4 Arial,sans-serif;color:${TINTA}">${esc(dato.base)}</p>` : ""
-        }${dato.pie ? `<p style="margin:3px 0 0;font:400 11px/1.4 Arial,sans-serif;color:${SUAVE}">${esc(dato.pie)}</p>` : ""}${
+        }${dato.pie ? `<p style="margin:3px 0 0;font:400 12px/1.4 Arial,sans-serif;color:${SUAVE}">${esc(dato.pie)}</p>` : ""}${
           /* Qué hacemos con el dato (11/11/2026, fútbol). */
           dato.accion ? `<p style="margin:6px 0 0;padding-top:6px;border-top:1px solid #E5E1D6;font:600 12px/1.4 Arial,sans-serif;color:${NAVY}">→ ${esc(dato.accion)}</p>` : ""
         }</td>`,
@@ -6051,8 +6114,21 @@ export function informeHtml(
   const barraObjetivo = obj.maximo && !informe.sinMinutos && informe.modo === "post"
     ?`<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px"><tr><td style="font:700 10px/1.3 Arial,sans-serif;color:${ORO};letter-spacing:.2em;text-transform:uppercase">Tiempo dedicado</td><td align="right" style="font:700 15px/1.3 Arial,sans-serif;color:#FFFFFF">${esc(fmtLargo(obj.hechos))} <span style="font:400 12px Arial,sans-serif;color:#9FB0C6">· ${esc(veredictoObjetivo(obj))} (${esc(fmtLargo(obj.minimo))} – ${esc(fmtLargo(obj.maximo))})</span></td></tr><tr><td colspan="2" style="padding-top:6px"><div style="height:10px;background:rgba(255,255,255,0.12);border-radius:5px"><div style="height:10px;width:${relleno}%;background:${colorObjetivo};border-radius:5px"></div></div></td></tr></table>`
     : "";
+  /*
+  | LA TENDENCIA, SELLO Y NO TITULAR (11/11/2026, experto de fútbol): «…: 1 gol
+  | en 10 faltas directas (tendencia: menos de 15 acciones)» metía la
+  | salvedad en el titular. Aquí el titular va limpio y, pegado a la cifra, un
+  | sello pequeño que dice que es tendencia y por qué. El asunto y el informe
+  | del partido siguen con su «(tendencia)»: allí no hay sello.
+  */
+  const conTendencia = /\s*\(tendencia\)\s*$|,\s*tendencia\s*$/i;
+  const titularEsencial = esencia.titular.replace(conTendencia, "");
+  const selloTendencia =
+    titularEsencial !== esencia.titular
+      ? ` <span style="display:inline-block;vertical-align:middle;margin-left:4px;padding:3px 9px;border:1px solid rgba(200,169,107,0.7);border-radius:999px;font:700 11px/1.3 Arial,sans-serif;color:${ORO};letter-spacing:.06em;white-space:nowrap">Tendencia: menos de 15 acciones</span>`
+      : "";
   const bloqueEsencial = esencia.titular
-    ? `<tr><td class="esencial" style="padding:0 24px 22px;background:${NAVY}"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid rgba(200,169,107,0.35)"><tr><td style="padding-top:16px"><p style="margin:0;font:700 10px/1.3 Arial,sans-serif;color:${ORO};letter-spacing:.24em;text-transform:uppercase">Lo esencial</p><p class="tit-esencial" style="margin:6px 0 0;font:700 23px/1.25 ${TITULAR};color:#F2E6C9">${esc(esencia.titular)}</p>${
+    ? `<tr><td class="esencial" style="padding:0 24px 22px;background:${NAVY}"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid rgba(200,169,107,0.35)"><tr><td style="padding-top:16px"><p style="margin:0;font:700 10px/1.3 Arial,sans-serif;color:${ORO};letter-spacing:.24em;text-transform:uppercase">Lo esencial</p><p class="tit-esencial" style="margin:6px 0 0;font:700 23px/1.25 ${TITULAR};color:#F2E6C9">${esc(titularEsencial)}${selloTendencia}</p>${
         vieneBajoTitular ? `<p style="margin:6px 0 0;font:400 13px/1.5 Arial,sans-serif;color:#9FB0C6">${esc(vieneBajoTitular)}</p>` : ""
       }${
         esencia.claves.length
@@ -6063,7 +6139,7 @@ export function informeHtml(
       }${barraObjetivo}</td></tr></table></td></tr>`
     : "";
 
-  return explicaPrimeraVez(`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet"><style>@media only screen and (max-width:620px){.tarjeta{display:block!important;width:auto!important;margin:0 0 8px!important}.hueco{display:none!important}table.tabla{table-layout:fixed!important}table.tabla td,table.tabla th{padding:6px 4px!important;font-size:11px!important;word-break:break-word!important}h1{font-size:22px!important}.cab{padding:14px 16px!important}.cab-que{font-size:14px!important}.esencial{padding:0 16px 14px!important}.tit-esencial{font-size:19px!important}.clave{font-size:13px!important;line-height:1.4!important}}</style><title>${esc(`${cabecera} · ${informe.portada.que}`)}</title></head><body style="margin:0;padding:0;background:#EEEAE0">${
+  return explicaPrimeraVez(`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet"><style>@media only screen and (max-width:620px){.tarjeta{display:block!important;width:auto!important;margin:0 0 8px!important}.hueco{display:none!important}table.tabla{table-layout:fixed!important}table.tabla td,table.tabla th{padding:6px 4px!important;font-size:12px!important;word-break:break-word!important}h1{font-size:22px!important}.cab{padding:14px 16px!important}.cab-que{font-size:14px!important}.esencial{padding:0 16px 14px!important}.tit-esencial{font-size:19px!important}.clave{font-size:13px!important;line-height:1.4!important}}</style><title>${esc(`${cabecera} · ${informe.portada.que}`)}</title></head><body style="margin:0;padding:0;background:#EEEAE0">${
     informe.preencabezado ? `<div style="display:none;max-height:0;overflow:hidden;mso-hide:all">${esc(informe.preencabezado)}</div>` : ""
   }
 <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="width:100%;background:#EEEAE0;padding:18px 0"><tr><td align="center">
@@ -6102,7 +6178,8 @@ export type PinceladaAbp = {
   modo: "previa" | "post";
   titular: string;
   claves: string[];
-  cifras: { rotulo: string; valor: string; pie?: string }[];
+  /** `meta` (11/11/2026): la de la nº 1 en contra, «ningún gol de falta directa a portería (hoy 1 en 10)», para el informe del partido. */
+  cifras: { rotulo: string; valor: string; pie?: string; meta?: string }[];
   rival: string[];
   /**
    * Los minutos de ABP de la semana, los MISMOS del informe (`minutosAbp`,
@@ -6679,7 +6756,7 @@ export function pinceladaAbp(informe: InformeMicro): PinceladaAbp {
   const diasDeLaPrimera = primera ? diasDelAspecto(informe, primera.aspecto, primera.lado) : [];
 
   /* Lo que dice la hoja de registro de la nº 1: la misma lectura que el informe del partido (11/11/2026). */
-  const laHoja = primera && !primera.planificado && !diasDeLaPrimera.length ? enLaHoja(primera, tocanDe(informe, primera)) : null;
+  const laHoja = primera && !primera.planificado && !diasDeLaPrimera.length ? enLaHoja(primera, tocanDe(informe, primera), informe.diaSemanaPartido) : null;
 
   const trabajada = primera
     ? diasDeLaPrimera.length
@@ -6772,8 +6849,8 @@ export function pinceladaAbp(informe: InformeMicro): PinceladaAbp {
     prioridad: laPrioridad,
     cifras: [
       /* 11/11/2026 (fútbol): «3 de 10» con lo que cuenta: «faltas directas en contra con peligro · 1 gol». */
-      /* 11/11/2026 (análisis): la misma base que la tarjeta del informe (`baseUnica`). */
-      ...(primera ? [{ rotulo: rotuloDeLaPrimera(primera, Boolean(informe.sinSenal)).rotulo, valor: primera.base, pie: `${mayuscula(baseUnica(primera, informe.propio?.partidos))}${primera.acciones < 15 ? " · tendencia" : ""}${rotuloDeLaPrimera(primera, Boolean(informe.sinSenal)).sufijo}` }] : []),
+      /* 11/11/2026 (análisis y fútbol): primero de qué es el 3, después el total (`baseConPeligro`). */
+      ...(primera ? [{ rotulo: rotuloDeLaPrimera(primera, Boolean(informe.sinSenal)).rotulo, valor: primera.base, pie: `${mayuscula(baseConPeligro(primera, informe.propio?.partidos))}${primera.acciones < 15 ? " · tendencia" : ""}${rotuloDeLaPrimera(primera, Boolean(informe.sinSenal)).sufijo}`, ...(metaEnContra(primera) ? { meta: metaEnContra(primera) } : {}) }] : []),
       ...(informe.sinMinutos
         ? laHoja
           ? /* La tarea de la hoja que la nombra (11/11/2026): la misma que cita el informe del partido. */

@@ -965,8 +965,9 @@ export function Dialog({
       aria-label={title}
       className="modal-veil fixed inset-0 z-50 flex items-end justify-center p-0 backdrop-blur-sm sm:items-center sm:p-6"
     >
-      <div className={`flex max-h-full w-full ${ancho ? "max-w-[960px]" : "max-w-3xl"} flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#11161C] shadow-2xl sm:rounded-2xl`}>
-        <header className="flex items-start justify-between gap-3 border-b border-white/10 px-5 py-3.5">
+      {/* 11/11/2026 (expertos): a 1440 px el informe de ABP iba a media pantalla; con `ancho`, hasta 1240 px. */}
+      <div className={`flex max-h-full w-full ${ancho ? "max-w-[1240px]" : "max-w-3xl"} flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#11161C] shadow-2xl sm:rounded-2xl`}>
+        <header className={`flex items-start justify-between gap-3 border-b border-white/10 px-5 ${ancho ? "py-2.5 sm:py-3.5" : "py-3.5"}`}>
           <div className="min-w-0">
             {/* Sin cortar con «…» en el móvil (10/11/2026, jueces): el título se parte en dos líneas. */}
             <h2 className="text-sm font-semibold leading-snug text-white [overflow-wrap:anywhere]">{title}</h2>
@@ -986,10 +987,10 @@ export function Dialog({
           </button>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
+        <div className={`min-h-0 flex-1 overflow-y-auto ${ancho ? "px-3 py-3 sm:px-5 sm:py-4" : "px-5 py-4"}`}>{children}</div>
 
         {footer && (
-          <footer className={`flex flex-wrap items-center justify-end gap-2 border-t border-white/10 py-3 pl-5 sm:px-5 ${sinBotonFlotante ? "pr-5" : "pr-16"}`}>
+          <footer className={`flex flex-wrap items-center justify-end gap-2 border-t border-white/10 pl-5 sm:px-5 ${ancho ? "py-2 sm:py-3" : "py-3"} ${sinBotonFlotante ? "pr-5" : "pr-16"}`}>
             {footer}
           </footer>
         )}

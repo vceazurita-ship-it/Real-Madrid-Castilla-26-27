@@ -1661,7 +1661,8 @@ function MetaYBase({ texto, rotulo = "" }: { texto: string; rotulo?: string }) {
 /**
  * La meta de la prioridad nº 1 de balón parado cuando es EN CONTRA, con las
  * cifras del informe de ABP (las mismas de su bloque, `pincelada.cifras`):
- * «Cero faltas directas en contra con peligro» sobre «hasta hoy, 3 de 10 · 1 gol».
+ * «Ningún gol de falta directa a portería (hoy 1 en 10)» sobre «Hasta hoy, 3
+ * con peligro de 10 faltas directas en contra · 11 partidos».
  */
 function metaAbpEnContra(inf: InformePartido) {
   const p = inf.abp?.pincelada;
@@ -1672,19 +1673,50 @@ function metaAbpEnContra(inf: InformePartido) {
 
   if (!cifraNo1?.pie) return null;
 
-  /* La base ya viene entera («10 faltas directas en contra en 11 partidos · 3 con peligro · 1 gol», `baseUnica`). */
+  /*
+  | La meta la trae el informe de ABP hecha (11/11/2026, análisis): «ningún gol
+  | de falta directa a portería (hoy 1 en 10)», la misma de su tarjeta. Los
+  | informes guardados antes no la llevan: se arma con el pie, que era
+  | «10 faltas directas en contra en 11 partidos · …» y ahora es «3 con
+  | peligro de 10 faltas directas en contra · 11 partidos · 1 gol».
+  */
   const [que] = cifraNo1.pie.split(" · ");
-  const limpio = que.replace(/^\d+\s+/, "").replace(/\s+en\s+\d+\s+partidos?$/, "");
+  const limpio = que.replace(/^\d+ con peligro de /, "").replace(/^\d+\s+/, "").replace(/\s+en\s+\d+\s+partidos?$/, "");
+  const goles = /(?:^|·\s*)(\d+) gol(?:es)?\b/.exec(cifraNo1.pie)?.[1];
+  const total = /(\d+)\s*$/.exec(cifraNo1.valor)?.[1];
+
+  const meta = cifraNo1.meta || `ningún gol en ${limpio.charAt(0).toLowerCase()}${limpio.slice(1)}${goles && total ? ` (hoy ${goles} en ${total})` : ""}`;
+
+  /* Lo que ya dice la meta («hoy 1 en 10») no se repite debajo. */
+  const base = cifraNo1.pie
+    .split(" · ")
+    .filter((t) => !/^\d+ gol(?:es)?$/.test(t))
+    .join(" · ");
 
   const entrenar = p.cifras.find((c) => /por entrenar/i.test(c.rotulo));
 
-  /* La misma propuesta que el informe de ABP cuando la hoja sólo dice «faltas» (lib/abp/tareas-semana.ts): «…; la directa, con X, pide su tarea el MD-2». */
-  const pide = p.claves.map((c) => /;\s*(la \p{L}+), con (.+?), pide su tarea el (MD-\d+)/u.exec(c)).find(Boolean);
+  /*
+  | La misma propuesta que el informe de ABP cuando la hoja sólo dice «faltas»
+  | (lib/abp/informe-micro.ts, `enLaHoja`), en sus dos formas:
+  | «…; la directa, con X, pide su tarea el MD-2» y, si la tarea ya cae en ese
+  | día (11/11/2026), «…, que es el MD-2: meter ahí la directa, con X».
+  */
+  const pide = p.claves
+    .map((c) => {
+      const otroDia = /;\s*(la \p{L}+), con (.+?), pide su tarea el (MD-\d+)/u.exec(c);
+
+      if (otroDia) return `${otroDia[1]}, ${otroDia[3]} · ${otroDia[2]}`;
+
+      const mismoDia = /que es el (MD-\d+): meter ahí (la \p{L}+), con (.+?)\.?$/u.exec(c);
+
+      return mismoDia ? `${mismoDia[2]}, en la tarea del ${mismoDia[1]} · ${mismoDia[3].replace(/…$/, "")}` : "";
+    })
+    .find(Boolean);
 
   return {
-    meta: `ningún gol en ${limpio.charAt(0).toLowerCase()}${limpio.slice(1)}`,
-    base: `Hasta hoy, ${cifraNo1.pie}`,
-    porEntrenar: entrenar ? [entrenar.valor, entrenar.pie].filter(Boolean).join(" · ") : pide ? `${pide[1]}, ${pide[3]} · ${pide[2]}` : "",
+    meta,
+    base: `Hasta hoy, ${base}`,
+    porEntrenar: entrenar ? [entrenar.valor, entrenar.pie].filter(Boolean).join(" · ") : pide ?? "",
   };
 }
 

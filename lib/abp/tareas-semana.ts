@@ -33,6 +33,8 @@ export type TareaSemana = {
   que: string;
   /** Todo el texto que describe la tarea (fase, contenidos, tipo). */
   texto: string;
+  /** «MD-2», si la hoja lo dice (columna MD de la hoja de registro). Opcional. */
+  md?: string;
 };
 
 export type TareaQueToca = TareaSemana & {
@@ -45,6 +47,37 @@ const sinTildes = (texto: string) =>
     .toLowerCase()
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "");
+
+const DIAS_SEMANA = ["domingo", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado"];
+
+/** «Miércoles», «Mié 11», «X» → 3 (domingo = 0); -1 si no se reconoce. */
+export function diaDeLaSemana(dia: string) {
+  const t = sinTildes(String(dia ?? "")).trim();
+
+  if (/^x\b/.test(t)) return 3;
+
+  return t.length >= 3 ? DIAS_SEMANA.findIndex((nombre) => t.startsWith(nombre.slice(0, 3))) : -1;
+}
+
+/**
+ * EL MD DE UNA TAREA (11/11/2026, experto de fútbol): con partido el viernes,
+ * la tarea del miércoles ES el MD-2. Primero lo que dice la hoja; si no, la
+ * cuenta con el día del partido («viernes»). Vacío si no se puede saber.
+ */
+export function mdDeTarea(t: Pick<TareaSemana, "dia" | "md">, diaPartido?: string) {
+  const hoja = /MD\s*-\s*(\d)/i.exec(t.md ?? "")?.[1];
+
+  if (hoja) return `MD-${hoja}`;
+
+  const partido = diaDeLaSemana(diaPartido ?? "");
+  const tarea = diaDeLaSemana(t.dia);
+
+  if (partido < 0 || tarea < 0) return "";
+
+  const antes = (partido - tarea + 7) % 7;
+
+  return antes > 0 ? `MD-${antes}` : "";
+}
 
 const EXACTA: Record<FamiliaAbp, RegExp> = {
   corner: /\bcorner(?:s|es)?\b|saque de esquina/,

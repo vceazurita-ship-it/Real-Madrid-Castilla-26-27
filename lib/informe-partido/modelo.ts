@@ -737,7 +737,8 @@ export type PinceladaAbp = {
   modo: "previa" | "post";
   titular: string;
   claves: string[];
-  cifras: { rotulo: string; valor: string; pie?: string }[];
+  /** `meta` (11/11/2026): la de la nº 1 en contra, hecha en el informe de ABP. */
+  cifras: { rotulo: string; valor: string; pie?: string; meta?: string }[];
   rival: string[];
   /** Los minutos de ABP de la semana, los mismos del informe de ABP (`minutosAbp`, lib/abp/minutos.ts). */
   minutos?: { confirmados: number; propuestos: number; texto: string };

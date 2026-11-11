@@ -353,10 +353,11 @@ export function dispersion(
 
   const caja = marco(ctx, ancho, alto, titulo, pie);
 
-  const x0 = 46;
+  /* Más margen para los rótulos de eje, ahora a 12 px (11/11/2026, análisis): a 10 px y en gris no se leían. */
+  const x0 = 56;
   const x1 = ancho - 16;
-  const y0 = caja.arriba + 26;
-  const y1 = caja.abajo - 30;
+  const y0 = caja.arriba + 34;
+  const y1 = caja.abajo - 34;
 
   const filas = comparativa.liga.filter(
     (fila) =>
@@ -404,7 +405,7 @@ export function dispersion(
       : maxY - (maxY * i) / 4;
 
     escribe(ctx, fmt(valor, maxY >= 10 ? 0 : 1), x0 - 6, y + 4, {
-      px: 10,
+      px: 11,
       peso: 400,
       tinta: SUAVE,
       alinea: "right",
@@ -420,30 +421,30 @@ export function dispersion(
     ctx.stroke();
 
     escribe(ctx, fmt((maxX * i) / 4, maxX >= 10 ? 0 : 1), x, y1 + 14, {
-      px: 10,
+      px: 11,
       peso: 400,
       tinta: SUAVE,
       alinea: "center",
     });
   }
 
-  escribe(ctx, `${ejeX.rotulo} →`, x1, y1 + 26, {
-    px: 10,
-    peso: 600,
-    tinta: SUAVE,
+  escribe(ctx, `Eje horizontal: ${ejeX.rotulo} →`, x1, y1 + 30, {
+    px: 12,
+    peso: 700,
+    tinta: TINTA,
     alinea: "right",
   });
 
   /* Girado en el margen: en la esquina se cruza con la etiqueta del equipo que
      ocupe el extremo, que es justo donde se quiere estar. */
   ctx.save();
-  ctx.translate(13, (y0 + y1) / 2);
+  ctx.translate(14, (y0 + y1) / 2);
   ctx.rotate(-Math.PI / 2);
 
-  escribe(ctx, `${ejeY.rotulo} →`, 0, 0, {
-    px: 10,
-    peso: 600,
-    tinta: SUAVE,
+  escribe(ctx, `Eje vertical: ${ejeY.rotulo}${ejeY.menosEsMejor ? " (menos, arriba)" : ""} →`, 0, 0, {
+    px: 12,
+    peso: 700,
+    tinta: TINTA,
     alinea: "center",
   });
 
@@ -469,6 +470,57 @@ export function dispersion(
   ctx.restore();
 
   const nuestro = comparativa.nosotros;
+
+  /*
+  | QUÉ PUNTO ES QUIÉN (11/11/2026, análisis): sin leyenda había que buscar el
+  | nombre en la nube para saber cuál éramos. Arriba, en una línea: nosotros
+  | (oro), el rival de la semana (rosa), el resto y las medianas.
+  */
+  {
+    let lx = x0;
+    const ly = caja.arriba + 12;
+
+    const pieza = (dibuja: (cx: number) => number, texto: string, tinta: string) => {
+      const ocupa = dibuja(lx);
+
+      escribe(ctx, texto, lx + ocupa + 5, ly + 4, { px: 12, peso: 700, tinta });
+
+      fuente(ctx, 12, 700);
+      lx += ocupa + 5 + ctx.measureText(texto).width + 16;
+    };
+
+    const disco = (color: string, radio: number, borde = false) => (cx: number) => {
+      ctx.beginPath();
+      ctx.arc(cx + radio, ly, radio, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+
+      if (borde) {
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = NAVY;
+        ctx.stroke();
+      }
+
+      return radio * 2;
+    };
+
+    if (nuestro && filas.some((una) => una.equipo === nuestro.equipo)) pieza(disco(ORO, 6, true), `${nombreCorto(nuestro.equipo)} (nosotros)`, NAVY);
+    if (rivalDestacado && filas.some((una) => esRival(una.equipo))) pieza(disco(ROSA, 6), `${nombreCorto(rivalDestacado)} (rival)`, ROSA);
+    pieza(disco("rgba(15,30,61,0.28)", 4.5), "Resto de la categoría", TINTA);
+    pieza((cx) => {
+      ctx.save();
+      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = "#C9C2B2";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(cx, ly);
+      ctx.lineTo(cx + 18, ly);
+      ctx.stroke();
+      ctx.restore();
+
+      return 18;
+    }, "Mediana de la categoría", SUAVE);
+  }
 
   /*
   | Se agrupa por CERCANÍA en el dibujo, no por valor idéntico.
@@ -1915,11 +1967,11 @@ function dibujaGraficos(datos: DatosGraficos): GraficoInforme[] {
       "Cada punto es un equipo de la categoría, por partido. Arriba y a la derecha es lo bueno: muchos a favor y pocos en contra. Las rayas son las medianas de la liga.",
       dispersion(
         comparativa!,
-        { key: "corners", lado: "favor", rotulo: "CÓRNERS A FAVOR" },
+        { key: "corners", lado: "favor", rotulo: "córners a favor por partido" },
         {
           key: "corners",
           lado: "contra",
-          rotulo: "CÓRNERS CONCEDIDOS",
+          rotulo: "córners concedidos por partido",
           menosEsMejor: true,
         },
         `Córners en la categoría · ${comparativa!.temporada}`,
@@ -1934,8 +1986,8 @@ function dibujaGraficos(datos: DatosGraficos): GraficoInforme[] {
       "El volumen lo pone el partido; el porcentaje que acaba en remate lo pone el entrenamiento. Estar a la derecha y abajo es sacar muchos sin rematarlos.",
       dispersion(
         comparativa!,
-        { key: "corners", lado: "favor", rotulo: "CÓRNERS POR PARTIDO" },
-        { key: "cornersRemate", lado: "favor", rotulo: "% QUE ACABA EN REMATE" },
+        { key: "corners", lado: "favor", rotulo: "córners a favor por partido" },
+        { key: "cornersRemate", lado: "favor", rotulo: "% de córners que acaban en remate" },
         "Cuántos córners se sacan y cuántos se rematan",
         "Cada punto, un equipo. Fuente Wyscout.",
       ),
