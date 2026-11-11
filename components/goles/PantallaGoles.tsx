@@ -159,7 +159,7 @@ function GraficaFranjas({ filas }: { filas: { franja: Franja; gf: number; gc: nu
           <span className="w-4 border-t-2 border-dashed" style={{ borderColor: tinta(0.5) }} /> Lo que marca (o encaja) un equipo medio de la liga
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <span className="h-3 border-l border-dashed border-white/40" /> Descanso
+          <span className="h-3 border-l border-dashed border-white/40" /> Raya del descanso: a la izquierda la 1.ª parte, a la derecha la 2.ª
         </span>
       </div>
     </div>
@@ -249,7 +249,35 @@ function franjasTop(filas: { franja: Franja; gf: number; gc: number }[], k: "gf"
 
   const top = filas.filter((f) => f[k] === max).map((f) => f.franja.nombre);
 
-  return { nombre: top.length > 2 ? `${top.length} franjas` : top.join(" y "), goles: max, empate: top.length > 1 };
+  return { nombre: top.length > 2 ? `${top.length} franjas` : top.join(" y "), goles: max, empate: top.length > 1, tramos: top };
+}
+
+/**
+ * 11/11/2026 (expertos, ronda 2): la tarjeta de tramo con pocos goles. Antes
+ * decía «Sin tramo claro» a cuerpo grande y llamaba «el que más» al tramo más
+ * por encima de la liga (45+' con 2 goles cuando otros tenían 3). Ahora: el
+ * tramo con más goles, con su base y «tendencia», y aparte el que más se
+ * separa de la liga si es otro.
+ */
+function tarjetaTramoCorto(
+  top: { nombre: string; goles: number; tramos: string[] },
+  total: number,
+  partidos: number,
+  sobreLiga: { nombre: string; goles: number; pp: number; liga: number } | undefined,
+  lado: "a favor" | "en contra",
+  conLiga: boolean,
+) {
+  const value = top.tramos.length > 2 ? `${top.tramos.length} tramos con ${top.goles}` : top.tramos.join(" y ");
+  const nombres = top.tramos.length > 2 ? `${top.tramos.join(", ")}: ` : "";
+  const otro =
+    conLiga && sobreLiga && !top.tramos.includes(sobreLiga.nombre)
+      ? ` · el más por encima de la liga, ${tramoLargo(sobreLiga.nombre)}: ${sobreLiga.goles} (${fmt(sobreLiga.pp)} por partido; liga ${fmt(sobreLiga.liga)})`
+      : "";
+
+  return {
+    value,
+    hint: `${nombres}${top.goles} de ${total} ${lado}${top.tramos.length > 1 ? " cada uno" : ""} · tendencia, ${partidos} ${partidos === 1 ? "partido" : "partidos"}${otro}`,
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -929,22 +957,54 @@ export function PantallaGoles() {
             {/* 30/10/2026: «liga 1,4» con su base: la media de los equipos de la liga (marketing). */}
             <StatCard label="Goles a favor" value={gf} hint={`${fmt(media(gf, delEquipo.length))} por partido${incompleto ? "" : ` · media de los ${equipos.length} equipos: ${fmt(ligaGolesPP)}`}`} accent={ORO} />
             <StatCard label="Goles en contra" value={gc} hint={`${fmt(media(gc, delEquipo.length))} por partido${incompleto ? "" : ` · media de los ${equipos.length} equipos: ${fmt(ligaContraPP)}`}`} accent={PEOR} />
-            <StatCard
-              /* 08/11/2026: con 3 goles o menos no es una fortaleza, es el
-                 tramo con más goles: se rotula así y lleva su base («3 de 13»). */
-              /* 10/11/2026: con 3 goles o menos no hay tramo claro: el valor lo
-                 dice, y el tramo que más va en la pista, sin color de fortaleza. */
-              label={tramos.fuerte && tramos.fuerte.gf <= 3 ? "Tramos a favor" : nos("Nuestro mejor tramo", "Su mejor tramo")}
-              value={tramos.fuerte ? (tramos.fuerte.gf <= 3 ? "Sin tramo claro" : tramoLargo(tramos.fuerte.franja.nombre)) : "Ninguno"}
-              hint={tramos.fuerte ? `${tramos.fuerte.gf <= 3 ? `el que más, ${tramoLargo(tramos.fuerte.franja.nombre)}: ` : ""}${tramos.fuerte.gf} de ${totalFranjasGf} goles a favor${incompleto ? "" : ` · ${fmt(media(tramos.fuerte.gf, delEquipo.length))}/partido (liga ${fmt(tramos.fuerte.ligaPP)})`}${aviso || tramos.fuerte.gf <= 3 ? ` · tendencia (${delEquipo.length} partidos)` : ""}` : masGoleadora ? `ninguno por encima de la liga` : "sin goles a favor"}
-              accent={tramos.fuerte && tramos.fuerte.gf > 3 ? MEJOR : undefined}
-            />
-            <StatCard
-              label={tramos.flojo && tramos.flojo.gc <= 3 ? "Tramos en contra" : nos("Nuestro tramo más débil", "Su tramo más débil")}
-              value={tramos.flojo ? (tramos.flojo.gc <= 3 ? "Sin tramo claro" : tramoLargo(tramos.flojo.franja.nombre)) : "Ninguno"}
-              hint={tramos.flojo ? `${tramos.flojo.gc <= 3 ? `el que más, ${tramoLargo(tramos.flojo.franja.nombre)}: ` : ""}${tramos.flojo.gc} de ${totalFranjasGc} goles en contra${incompleto ? "" : ` · ${fmt(media(tramos.flojo.gc, delEquipo.length))}/partido (liga ${fmt(tramos.flojo.ligaContraPP)})`}${aviso || tramos.flojo.gc <= 3 ? ` · tendencia (${delEquipo.length} partidos)` : ""}` : masEncajada ? "ninguno por encima de la liga" : "sin goles en contra"}
-              accent={tramos.flojo && tramos.flojo.gc > 3 ? PEOR : undefined}
-            />
+            {/* 08/11/2026: con 3 goles o menos no es una fortaleza.
+                11/11/2026 (expertos, ronda 2): en vez de «Sin tramo claro», el
+                tramo con más goles con su base y «tendencia»; y, si es otro,
+                el más por encima de la liga, dicho como tal. */}
+            {tramos.fuerte && tramos.fuerte.gf > 3 ? (
+              <StatCard
+                label={nos("Nuestro mejor tramo", "Su mejor tramo")}
+                value={tramoLargo(tramos.fuerte.franja.nombre)}
+                hint={`${tramos.fuerte.gf} de ${totalFranjasGf} goles a favor${incompleto ? "" : ` · ${fmt(media(tramos.fuerte.gf, delEquipo.length))}/partido (liga ${fmt(tramos.fuerte.ligaPP)})`}${aviso ? ` · tendencia (${delEquipo.length} partidos)` : ""}`}
+                accent={MEJOR}
+              />
+            ) : masGoleadora ? (
+              <StatCard
+                label="Tramo con más goles a favor"
+                {...tarjetaTramoCorto(
+                  masGoleadora,
+                  totalFranjasGf,
+                  delEquipo.length,
+                  tramos.fuerte ? { nombre: tramos.fuerte.franja.nombre, goles: tramos.fuerte.gf, pp: media(tramos.fuerte.gf, delEquipo.length), liga: tramos.fuerte.ligaPP } : undefined,
+                  "a favor",
+                  !incompleto,
+                )}
+              />
+            ) : (
+              <StatCard label="Tramo con más goles a favor" value={0} hint="ningún gol a favor todavía" />
+            )}
+            {tramos.flojo && tramos.flojo.gc > 3 ? (
+              <StatCard
+                label={nos("Nuestro tramo más débil", "Su tramo más débil")}
+                value={tramoLargo(tramos.flojo.franja.nombre)}
+                hint={`${tramos.flojo.gc} de ${totalFranjasGc} goles en contra${incompleto ? "" : ` · ${fmt(media(tramos.flojo.gc, delEquipo.length))}/partido (liga ${fmt(tramos.flojo.ligaContraPP)})`}${aviso ? ` · tendencia (${delEquipo.length} partidos)` : ""}`}
+                accent={PEOR}
+              />
+            ) : masEncajada ? (
+              <StatCard
+                label="Tramo con más goles en contra"
+                {...tarjetaTramoCorto(
+                  masEncajada,
+                  totalFranjasGc,
+                  delEquipo.length,
+                  tramos.flojo ? { nombre: tramos.flojo.franja.nombre, goles: tramos.flojo.gc, pp: media(tramos.flojo.gc, delEquipo.length), liga: tramos.flojo.ligaContraPP } : undefined,
+                  "en contra",
+                  !incompleto,
+                )}
+              />
+            ) : (
+              <StatCard label="Tramo con más goles en contra" value={0} hint="ningún gol en contra todavía" />
+            )}
           </StatRow>
           ) : null}
 
@@ -989,36 +1049,39 @@ export function PantallaGoles() {
             icon={Trophy}
             analisis={primeroSinRepetir.length ? <div className="px-4 pb-4 sm:px-5"><Lectura>{primeroSinRepetir.join(" ")}</Lectura></div> : undefined}
           >
+            {/* 11/11/2026 (expertos, ronda 2): cabeceras cortas con su leyenda
+                (a 390 px se partían en tres líneas), «tendencia» sólo en la
+                columna Partidos y, con un solo partido, sin comparar con la liga. */}
             <Tabla
-              cabeza={["", "Partidos", "Ganados", "Empatados", "Perdidos", "Puntos / partido", "Liga: puntos / partido"]}
+              cabeza={["", "PJ", "G", "E", "P", "Pts/PJ", "Liga"]}
               ocultaMovil={[2, 3, 4]}
               filas={(["propio", "rival", "nadie"] as const).filter((k) => primero.eq[k].n > 0).map((k) => {
                 const e = primero.eq[k];
                 const l = primero.lg[k];
 
                 return [
-                  /* 08/11/2026: con menos de 5 partidos la fila es tendencia. */
                   <span key={`f-${k}`}>
                     {/* 10/11/2026: en el móvil, la primera columna corta («Marcamos 1.º»). */}
                     <span className="sm:hidden">{k === "propio" ? nos("Marcamos 1.º", "Marca 1.º") : k === "rival" ? nos("Nos marcan 1.º", "Recibe 1.º") : "0-0"}</span>
                     <span className="hidden sm:inline">{k === "propio" ? nos("Marcamos primero", "Marca primero") : k === "rival" ? nos("Nos marcan primero", "Recibe primero") : "Nadie marca (0-0)"}</span>
-                    {e.n < 5 ? (
-                      <>
-                        {" "}
-                        <span className="ml-1 inline-block whitespace-nowrap rounded-full border border-white/15 px-1.5 text-[10px] font-normal text-white/55">tendencia</span>
-                      </>
-                    ) : null}
                   </span>,
-                  e.n,
+                  /* 08/11/2026: con menos de 5 partidos la fila es tendencia. */
+                  <span key={`n-${k}`}>
+                    {e.n}
+                    {e.n < 5 ? <span className="block text-[10px] font-normal text-white/55">tendencia</span> : null}
+                  </span>,
                   e.G,
                   e.E,
                   e.P,
                   /* 30/10/2026: la base va en la columna Partidos, no repetida en cada celda (marketing). */
-                  <Contra key={k} valor={media(e.G * 3 + e.E, e.n)} liga={media(l.G * 3 + l.E, l.n)} mejorAlto n={e.n} sinBase />,
-                  fmt(media(l.G * 3 + l.E, l.n)),
+                  e.n === 1 ? fmt(media(e.G * 3 + e.E, e.n)) : <Contra key={k} valor={media(e.G * 3 + e.E, e.n)} liga={media(l.G * 3 + l.E, l.n)} mejorAlto n={e.n} sinBase />,
+                  e.n === 1 ? "" : fmt(media(l.G * 3 + l.E, l.n)),
                 ];
               })}
             />
+            <p className="mt-2 text-[11px] text-white/50">
+              PJ: partidos · G, E, P: ganados, empatados, perdidos · Pts/PJ: puntos por partido · Liga: puntos por partido de los equipos de la liga en la misma situación{condicion === "todos" ? "" : ` (${rotuloLugar(condicion)})`}.
+            </p>
           </Panel>
           )}
             </>

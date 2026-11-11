@@ -258,7 +258,8 @@ export function loImportante(e: EntradaImportante): Importante[] {
   /* 07/11/2026 (regla 11): un tramo con 3 goles o menos es tendencia: se
      vigila, no se manda tarea de entrenamiento por él. */
   const vigilar = (n: number, tramo: string) =>
-    `A vigilar en los próximos partidos: con ${veces(n)} en el ${tramo} todavía no pide una tarea propia.`;
+    /* 11/11/2026: sin «todavía no pide una tarea» (lo que no hay no se nombra). */
+    `A vigilar en los próximos partidos el ${tramo}: ${veces(n)} hasta ahora; desde 4 goles en ese tramo, tarea propia en el microciclo.`;
 
   if (flojo) {
     const nombre = tramoLargo(flojo.franja.nombre);
