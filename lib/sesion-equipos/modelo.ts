@@ -64,6 +64,31 @@ export const PUESTOS: { clave: Puesto; nombre: string }[] = [
   { clave: "DEL", nombre: "Delantero" },
 ];
 
+/*
+| QUÉ QUIERE DECIR CADA ETIQUETA (11/11/2026). «JA» o «RMC» al lado del nombre
+| no se entendía fuera del cuerpo técnico: se explica en el título de la
+| etiqueta y en la leyenda de la tarea.
+*/
+const EQUIPOS_DE_FUERA: Record<string, string> = {
+  JA: "Juvenil A",
+  JB: "Juvenil B",
+  JC: "Juvenil C",
+  RMC: "Real Madrid C",
+  CAD: "Cadete",
+};
+
+/** «Juvenil A» para «JA»; la etiqueta tal cual si no se conoce. */
+export function significadoEtiqueta(etiqueta: string) {
+  const clave = (etiqueta ?? "").trim().toUpperCase();
+
+  return EQUIPOS_DE_FUERA[clave] ?? clave;
+}
+
+/** «Portero» para «POR». */
+export function nombreDePuesto(puesto: Puesto) {
+  return PUESTOS.find((p) => p.clave === puesto)?.nombre ?? puesto;
+}
+
 /** La columna POSICION de la plantilla: «PORTERO», «LATERAL D.», «CENTRAL», «6», «11»… */
 export function puestoDePosicion(posicion: string): Puesto | undefined {
   const p = posicion.trim().toUpperCase();

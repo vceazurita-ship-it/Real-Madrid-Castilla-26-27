@@ -130,6 +130,8 @@ import {
   companerosEn,
   conCompaneros,
   quitaDePares,
+  nombreDePuesto,
+  significadoEtiqueta,
   yNombres,
   type AlmacenEquipos,
   type Aviso,
@@ -286,6 +288,7 @@ function Chip({
       <span className="min-w-0 truncate">{jugador.nombre}</span>
       {puesto && (
         <span
+          title={nombreDePuesto(puesto)}
           className={`shrink-0 rounded px-1 text-[9px] font-bold ${
             puesto === "POR" ? "bg-[#C8A96B] text-black" : "bg-white/[0.07] text-white/45"
           }`}
@@ -299,7 +302,7 @@ function Chip({
         </span>
       )}
       {jugador.etiqueta && (
-        <span className="shrink-0 rounded border border-[#C8A96B]/40 px-1 text-[9px] font-bold text-[#C8A96B]">
+        <span className="shrink-0 rounded border border-[#C8A96B]/40 px-1 text-[9px] font-bold text-[#C8A96B]" title={`Viene del ${significadoEtiqueta(jugador.etiqueta)}`}>
           {jugador.etiqueta}
         </span>
       )}
@@ -2779,12 +2782,12 @@ export default function JugadoresSesionPage() {
           hay > esperados
             ? `La hoja dice ${formato.trim()} (${esperados}) y hay ${hay} colocados: ¿${dif} ${dif === 1 ? "sobra o es comodín" : "sobran o son comodines"}?`
             : `La hoja dice ${formato.trim()} (${esperados}) y hay ${hay} colocados: ${dif === 1 ? "falta 1" : `faltan ${dif}`}.`,
+        /* 11/11/2026: el titular lleva la base. «Faltan 3 jugadores» a secas
+           parecía que había tres sin colocar con los 11 ya dentro. */
         titular:
           hay > esperados
-            ? `${dif === 1 ? "Sobra 1 jugador" : `Sobran ${dif} jugadores`} (o ${dif === 1 ? "es comodín" : "son comodines"})`
-            : dif === 1
-              ? "Falta 1 jugador"
-              : `Faltan ${dif} jugadores`,
+            ? `La tarea pide ${esperados} (${formato.trim()}) y hay ${hay} colocados: ${dif === 1 ? "sobra 1 o es comodín" : `sobran ${dif} o son comodines`}`
+            : `La tarea pide ${esperados} (${formato.trim()}) y hay ${hay} colocados`,
       },
     ];
   })();
@@ -3329,7 +3332,12 @@ export default function JugadoresSesionPage() {
           <div className="min-w-0 px-4 pb-24 pt-6 sm:px-6 md:pr-20 lg:pl-10">
             <AbpHeader
               area="RMCF Castilla · Entrenamiento"
-              title="Jugadores sesión"
+              /* 11/11/2026: el titular con el dato del día; sin sesión, el nombre de la pantalla. */
+              title={
+                sesion && tarea
+                  ? `${sesion.jugadores.filter((j) => !j.baja).length} jugadores · ${tarea.equipos.length} ${tarea.equipos.length === 1 ? "equipo" : "equipos"} en la tarea ${activa + 1}`
+                  : "Jugadores sesión"
+              }
               lead="Pega la lista del día y haz los equipos de cada tarea. Una diapositiva por tarea, lista para proyectar o mandar en imagen."
               aside={<SaveState status={status} localOnly={localOnly} savedAt={lastSavedAt} sinGuardar={sinGuardar} onGuardar={() => void guardaYa()} />}
             />
@@ -4490,6 +4498,28 @@ export default function JugadoresSesionPage() {
                           atajo="C"
                           onSoltar={() => suelta(COMODIN)}
                           vacio="Suelta aquí los comodines"
+                          /* 11/11/2026: si no cuadran, se dice en la misma caja y con el arreglo a mano. */
+                          resumen={
+                            reparto.comodines.length !== tarea.comodines && reparto.comodines.length > 0 ? (
+                              <div className="flex flex-wrap items-center gap-2 border-b border-white/10 px-3 py-1.5 text-[11px] text-amber-100">
+                                <span>
+                                  La tarea lleva {tarea.comodines} · hay {reparto.comodines.length}
+                                </span>
+                                {avisos.some((a) => a.ajustaComodines) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      cambiaTarea((t) => ajustaComodines(t, sesion.jugadores, opcionesReparto));
+                                      toast.success("Comodines ajustados", { action: { label: "Deshacer", onClick: deshaz } });
+                                    }}
+                                    className="rounded-md border border-current px-1.5 py-0.5 font-semibold"
+                                  >
+                                    {avisos.find((a) => a.ajustaComodines)?.ajustaComodines}
+                                  </button>
+                                )}
+                              </div>
+                            ) : undefined
+                          }
                         >
                           {ordenPorPuesto(reparto.comodines, puestoDe).map(chip)}
                         </Caja>
@@ -4837,7 +4867,7 @@ export default function JugadoresSesionPage() {
                                     ) : (
                                       <span className="block font-semibold uppercase leading-tight text-white/80">
                                         {j.nombre}
-                                        {j.etiqueta && <span className="ml-1.5 text-[10px] text-[#C8A96B]">{j.etiqueta}</span>}
+                                        {j.etiqueta && <span className="ml-1.5 text-[10px] text-[#C8A96B]" title={`Viene del ${significadoEtiqueta(j.etiqueta)}`}>{j.etiqueta}</span>}
                                         {(() => {
                                           /* El puesto aprendido o fijado de los que suben, también aquí (02/11/2026): se corrige igual. */
                                           const ap = puestoAprendidoDe(j);
