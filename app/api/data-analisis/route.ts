@@ -18,7 +18,7 @@ import { perfilesDeEquipo } from "@/lib/rivals/perfil-wyscout";
 import { puestoEnPalabras } from "@/lib/informe-partido/rival-datos";
 import { readDoc } from "@/lib/docStore";
 import { alertasDeFichajes, type CotejoRival } from "@/lib/portada/alertas-fichajes";
-import { INFORME_KEY, type InformeDoc } from "@/lib/rivals/informe";
+import { INFORME_KEY, type FilaClasificacion, type InformeDoc } from "@/lib/rivals/informe";
 import type { ClasificacionPortada, EquipoPortada } from "@/lib/portada/proximo-partido";
 import {
   ASPECTOS,
@@ -216,15 +216,56 @@ async function leePortada(): Promise<Portada> {
 
   let clasificacion: ClasificacionPortada | null = null;
 
+  /* La tabla más reciente entera, para la fila de cada rival (11/11/2026). */
+  let tablaNueva: FilaClasificacion[] = [];
+
+  /* Por slug, para colocar a cada equipo en esa tabla al acabar. */
+  const slugDe = new Map<EquipoPortada, string>();
+
   for (const informe of Object.values(doc?.porId ?? {})) {
     if (informe.nombre || informe.nombreLargo) {
-      equipos.push({
+      /* Sus cinco últimos de liga (sin amistosos), del más antiguo al más reciente. */
+      const jugados = (informe.partidos ?? []).filter(
+        (p) => p.jugado && (p.resultado === "G" || p.resultado === "E" || p.resultado === "P"),
+      );
+
+      /* La liga es la competición en la que más ha jugado (los nombres de BeSoccer no casan siempre con el del documento). */
+      const cuantas = new Map<string, number>();
+
+      for (const p of jugados) {
+        if (!/amistos/i.test(p.competicion ?? "")) cuantas.set(p.competicion ?? "", (cuantas.get(p.competicion ?? "") ?? 0) + 1);
+      }
+
+      const liga = [...cuantas.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+
+      const ultimos = jugados
+        .filter((p) => liga !== undefined && (p.competicion ?? "") === liga)
+        .sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)))
+        .slice(-5)
+        .map((p) => {
+          const suyo = p.enCasa ? p.local : p.visitante;
+          const otro = p.enCasa ? p.visitante : p.local;
+
+          return {
+            signo: (p.resultado === "G" ? "V" : p.resultado === "E" ? "E" : "D") as "V" | "E" | "D",
+            marcador: suyo.goles != null && otro.goles != null ? `${suyo.goles}-${otro.goles}` : "",
+            rival: otro.nombre ?? "",
+            enCasa: Boolean(p.enCasa),
+          };
+        });
+
+      const equipo: EquipoPortada = {
         nombre: informe.nombre ?? "",
         nombreLargo: informe.nombreLargo ?? "",
         escudo: informe.escudo ?? "",
         estadio: informe.estadio?.nombre ?? "",
         ciudad: informe.estadio?.ciudad ?? "",
-      });
+        ...(ultimos.length ? { ultimos } : {}),
+      };
+
+      equipos.push(equipo);
+
+      if (informe.slug) slugDe.set(equipo, informe.slug);
     }
 
     const filas = informe.clasificacion?.total ?? [];
@@ -239,6 +280,8 @@ async function leePortada(): Promise<Portada> {
       (nuestra.jugados === clasificacion.jugados && nuestra.puntos > clasificacion.puntos);
 
     if (masNueva) {
+      tablaNueva = filas;
+
       clasificacion = {
         puesto: nuestra.puesto,
         deCuantos: filas.length,
@@ -250,6 +293,15 @@ async function leePortada(): Promise<Portada> {
         favor: nuestra.favor,
         contra: nuestra.contra,
       };
+    }
+  }
+
+  /* Cada rival en la tabla más reciente, por su slug de BeSoccer. */
+  for (const [equipo, slug] of slugDe) {
+    const fila = tablaNueva.find((f) => f.slug === slug);
+
+    if (fila) {
+      equipo.liga = { puesto: fila.puesto, deCuantos: tablaNueva.length, puntos: fila.puntos, jugados: fila.jugados };
     }
   }
 
