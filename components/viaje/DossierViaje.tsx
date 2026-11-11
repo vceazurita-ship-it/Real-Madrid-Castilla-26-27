@@ -5,8 +5,9 @@
  *
  * Es la versión viva de `public/AWAY_TERUEL.pptx`, que llevaba dos hojas —el
  * campo y el hotel— con una tabla de cabecera repetida y dos capturas de
- * Google Maps pegadas a mano. Aquí son tres: una portada que el original no
- * tenía, la del campo y la del hotel.
+ * Google Maps pegadas a mano. Aquí son como mucho tres y sin portada
+ * (11/11/2026): la del campo, la del hotel si lo hay y la del viaje —los
+ * trayectos del horario con su duración y la foto del destino— si los hay.
  *
  * Qué cambia respecto al original, y por qué:
  *
@@ -16,9 +17,8 @@
  *   grande y el rótulo pequeño encima, separados por filetes finos.
  * - **Los planos tienen pie.** Una captura de Google Maps sin rótulo no dice
  *   si es la ruta o el aparcamiento; ahora cada imagen lleva escrito lo que es.
- * - **Los huecos se ven.** Un dato sin rellenar sale como un guion sobre fondo
- *   crema en lugar de dejar la casilla en blanco, que es como se colaban los
- *   olvidos en el documento montado a mano.
+ * - **Lo vacío no sale.** Un dato sin rellenar no deja ni rótulo ni hueco: el
+ *   aviso de lo que falta va en la pantalla de edición, no en el documento.
  *
  * Todo el color va en estilos en línea: la captura (`html-to-image`)
  * serializa el estilo calculado y los colores `oklch` de Tailwind no
@@ -33,10 +33,26 @@ import {
   DOSSIER_H,
   DOSSIER_W,
   MARGEN_DOSSIER as MARGEN,
+  aHora,
+  citasDelViaje,
+  comoDuracion,
+  diaCorto,
   diaLargo,
+  emojiDeCita,
+  esSalida,
   type Desplazamiento,
   type ImagenViaje,
 } from "@/lib/viaje/modelo";
+import { resuelveLugar } from "@/lib/viaje/rutas";
+
+/**
+ * Las fotos de BeSoccer (`cdn.resfu.com`) no mandan CORS y la captura del
+ * documento no podría leerlas: pasan por el proxy de la casa, como las de
+ * las fichas de los rivales.
+ */
+export function srcImagen(url: string) {
+  return /^https:\/\/([a-z0-9-]+\.)*(resfu\.com|besoccer\.com)\//i.test(url) ? `/api/rivals/foto?url=${encodeURIComponent(url)}` : url;
+}
 
 /**
  * Lo que no tiene dato no se pinta (22/10/2026): ni guion, ni «Sin plano», ni
@@ -103,19 +119,28 @@ function Casilla({
   dato,
   ancho,
   destacado = false,
+  escudo,
 }: {
   rotulo: string;
   dato: string;
   ancho?: number;
   destacado?: boolean;
+  /** El escudo del rival delante del nombre (11/11/2026). */
+  escudo?: string;
 }) {
   return (
     <div style={{ minWidth: 0, width: ancho, flex: ancho ? "0 0 auto" : 1 }}>
       <Rotulo tamano={13}>{rotulo}</Rotulo>
 
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: escudo ? 4 : 0 }}>
+      {escudo && (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img src={srcImagen(escudo)} alt="" draggable={false} style={{ height: 42, width: 42, objectFit: "contain", flex: "0 0 auto" }} />
+      )}
       <p
         style={{
-          margin: "10px 0 0",
+          minWidth: 0,
+          margin: escudo ? 0 : "10px 0 0",
           color: destacado ? C.rosaTexto : C.navy,
           fontSize: destacado ? 40 : 34,
           fontWeight: 700,
@@ -129,6 +154,7 @@ function Casilla({
       >
         {dato}
       </p>
+      </div>
     </div>
   );
 }
@@ -145,7 +171,7 @@ function BandaPartido({ viaje }: { viaje: Desplazamiento }) {
 
   const todas = [
     { rotulo: "Equipo", dato: "RMCF Castilla" },
-    { rotulo: "Rival", dato: valor(viaje.rival), destacado: true },
+    { rotulo: "Rival", dato: valor(viaje.rival), destacado: true, escudo: viaje.escudo?.trim() || undefined },
     { rotulo: "Jornada", dato: valor(viaje.jornada) },
     { rotulo: "Fecha", dato: valor(diaLargo(viaje.fecha) || viaje.fecha) },
     { rotulo: "Hora", dato: valor(viaje.hora) },
@@ -184,6 +210,7 @@ function BandaPartido({ viaje }: { viaje: Desplazamiento }) {
             rotulo={casilla.rotulo}
             dato={casilla.dato}
             destacado={casilla.destacado}
+            escudo={"escudo" in casilla ? casilla.escudo : undefined}
           />
         </div>
       ))}
@@ -301,7 +328,7 @@ function Plano({
         {imagen?.url ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
-            src={imagen.url}
+            src={srcImagen(imagen.url)}
             alt=""
             draggable={false}
             style={{
@@ -553,95 +580,30 @@ function Marco({
 /*  LAS DIAPOSITIVAS                                                   */
 /* ------------------------------------------------------------------ */
 
-function Portada({ viaje }: { viaje: Desplazamiento }) {
-  const fuera = viaje.condicion === "visitante";
+/**
+ * Lo que tarda el autobús hasta el destino, si el analista no lo escribió: la
+ * duración del primer trayecto de ida del horario (11/11/2026).
+ */
+function tiempoDeIda(viaje: Desplazamiento) {
+  for (const { cita } of citasDelViaje(viaje)) {
+    if (cita.duracion && esSalida(cita) && cita.desde && cita.desde !== "hotel" && cita.desde !== "estadio") {
+      return comoDuracion(cita.duracion);
+    }
+  }
 
-  return (
-    <Marco titulo="Portada" viaje={viaje}>
-      <div style={{ display: "flex", gap: 44, height: "100%" }}>
-        <div
-          style={{
-            width: 920,
-            flex: "0 0 auto",
-            display: "flex",
-            flexDirection: "column",
-          }}
-        >
-          <Rotulo tamano={19}>
-            {fuera ? "Desplazamiento" : "Partido en casa"}
-          </Rotulo>
-
-          <p
-            style={{
-              margin: "22px 0 0",
-              color: C.navy,
-              fontWeight: 700,
-              lineHeight: 0.92,
-              letterSpacing: "0.005em",
-              textTransform: "uppercase",
-              ...enUnaLinea(valor(viaje.rival), 96, 920),
-            }}
-          >
-            {valor(viaje.rival)}
-          </p>
-
-          <p
-            style={{
-              margin: "18px 0 0",
-              color: C.rosaTexto,
-              fontWeight: 700,
-              lineHeight: 1,
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-              ...enUnaLinea(`${valor(viaje.estadio.nombre)}${viaje.estadio.ciudad.trim() ? ` · ${viaje.estadio.ciudad}` : ""}`, 40, 920, 0.6),
-            }}
-          >
-            {valor(viaje.estadio.nombre)}
-            {viaje.estadio.ciudad.trim() ? ` · ${viaje.estadio.ciudad}` : ""}
-          </p>
-
-          <div style={{ marginTop: 34 }}>
-            <Renglon rotulo="Jornada" dato={valor(viaje.jornada)} />
-            <Renglon
-              rotulo="Fecha"
-              dato={valor(diaLargo(viaje.fecha) || viaje.fecha)}
-            />
-            <Renglon rotulo="Hora" dato={valor(viaje.hora)} />
-            {fuera ? (
-              <Renglon rotulo="Sale de" dato={valor(viaje.origen)} />
-            ) : (
-              <Renglon
-                rotulo="Ciudad"
-                dato={valor(viaje.estadio.ciudad.trim() || "Madrid")}
-              />
-            )}
-          </div>
-
-          <div style={{ marginTop: "auto", display: "flex", gap: 20 }}>
-            <Cifra rotulo="Distancia" dato={valor(viaje.estadio.distancia)} />
-            <Cifra rotulo="Tiempo de viaje" dato={valor(viaje.estadio.tiempo)} />
-          </div>
-        </div>
-
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <Plano
-            imagen={viaje.estadio.ruta}
-            alto={725}
-            respaldo="Ruta hasta el estadio"
-          />
-        </div>
-      </div>
-    </Marco>
-  );
+  return "";
 }
 
 function SlideEstadio({ viaje }: { viaje: Desplazamiento }) {
+  const tiempo = valor(viaje.estadio.tiempo) || (viaje.condicion === "visitante" ? tiempoDeIda(viaje) : "");
+
   return (
     <Marco titulo="El estadio" viaje={viaje}>
       <BandaPartido viaje={viaje} />
 
       <div style={{ display: "flex", gap: 44, marginTop: 34 }}>
         <div style={{ width: 800, flex: "0 0 auto" }}>
+          {hay(viaje.estadio.nombre) && (
           <p
             style={{
               margin: 0,
@@ -654,19 +616,21 @@ function SlideEstadio({ viaje }: { viaje: Desplazamiento }) {
           >
             {valor(viaje.estadio.nombre)}
           </p>
+          )}
 
-          <div style={{ marginTop: 22 }}>
+          <div style={{ marginTop: hay(viaje.estadio.nombre) ? 22 : 0 }}>
             <Renglon rotulo="Superficie" dato={valor(viaje.estadio.superficie)} />
             <Renglon rotulo="Dimensiones" dato={valor(viaje.estadio.dimensiones)} />
+            <Renglon rotulo="Capacidad" dato={valor(viaje.estadio.capacidad)} />
             <Renglon rotulo="Ciudad" dato={valor(viaje.estadio.ciudad)} />
             <Renglon rotulo="Dirección" dato={valor(viaje.estadio.direccion)} />
           </div>
 
           <div style={{ marginTop: 26 }}>
             <Plano
-              imagen={viaje.estadio.plano}
+              imagen={viaje.estadio.plano?.url ? viaje.estadio.plano : viaje.estadio.foto}
               alto={250}
-              respaldo="Plano del estadio"
+              respaldo={viaje.estadio.plano?.url ? "Plano del estadio" : valor(viaje.estadio.nombre) || "El estadio"}
             />
           </div>
         </div>
@@ -674,10 +638,10 @@ function SlideEstadio({ viaje }: { viaje: Desplazamiento }) {
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", gap: 20 }}>
             <Cifra rotulo="Distancia" dato={valor(viaje.estadio.distancia)} />
-            <Cifra rotulo="Tiempo" dato={valor(viaje.estadio.tiempo)} />
+            <Cifra rotulo="Tiempo" dato={tiempo} />
           </div>
 
-          {hay(viaje.origen) && hay(viaje.estadio.nombre) && (hay(viaje.estadio.distancia) || hay(viaje.estadio.tiempo) || Boolean(viaje.estadio.ruta)) && (
+          {hay(viaje.origen) && hay(viaje.estadio.nombre) && (hay(viaje.estadio.distancia) || hay(tiempo) || Boolean(viaje.estadio.ruta?.url)) && (
             <p
               style={{
                 margin: "18px 0 0",
@@ -712,6 +676,7 @@ function SlideHotel({ viaje }: { viaje: Desplazamiento }) {
 
       <div style={{ display: "flex", gap: 44, marginTop: 34 }}>
         <div style={{ width: 800, flex: "0 0 auto" }}>
+          {hay(viaje.hotel.nombre) && (
           <p
             style={{
               margin: 0,
@@ -724,8 +689,9 @@ function SlideHotel({ viaje }: { viaje: Desplazamiento }) {
           >
             {valor(viaje.hotel.nombre)}
           </p>
+          )}
 
-          <div style={{ marginTop: 22 }}>
+          <div style={{ marginTop: hay(viaje.hotel.nombre) ? 22 : 0 }}>
             <Renglon rotulo="Dirección" dato={valor(viaje.hotel.direccion)} />
             <Renglon rotulo="Teléfono" dato={valor(viaje.hotel.telefono)} />
             <Renglon rotulo="Entrada" dato={valor(viaje.hotel.entrada)} />
@@ -772,6 +738,129 @@ function SlideHotel({ viaje }: { viaje: Desplazamiento }) {
 }
 
 /* ------------------------------------------------------------------ */
+/*  EL VIAJE: LOS TRAYECTOS (11/11/2026)                               */
+/* ------------------------------------------------------------------ */
+
+type Tramo = {
+  id: string;
+  emoji: string;
+  cuando: string;
+  llegada: string;
+  desde: string;
+  hasta: string;
+  duracion: string;
+  foto?: ImagenViaje;
+  claveHasta: string;
+};
+
+/** Cada salida del horario con su destino: de dónde, adónde, cuándo y cuánto. */
+export function tramosDelViaje(viaje: Desplazamiento, lugares?: Record<string, ImagenViaje>): Tramo[] {
+  const varios = viaje.dias.length > 1;
+
+  return citasDelViaje(viaje)
+    .filter(({ cita }) => esSalida(cita) && (cita.hasta || cita.desde))
+    .map(({ dia, cita }) => {
+      const desde = resuelveLugar(cita.desde, viaje, lugares);
+      const hasta = resuelveLugar(cita.hasta, viaje, lugares);
+      const dia1 = varios && dia.fecha ? `${diaCorto(dia.fecha)} · ` : "";
+
+      return {
+        id: cita.id,
+        emoji: emojiDeCita(cita),
+        cuando: `${dia1}${aHora(cita.minuto)}`,
+        llegada: cita.duracion ? aHora(cita.minuto + cita.duracion) : "",
+        desde: desde?.nombre ?? "",
+        hasta: hasta?.nombre ?? "",
+        duracion: comoDuracion(cita.duracion),
+        ...(hasta?.foto?.url ? { foto: hasta.foto } : {}),
+        claveHasta: cita.hasta ?? "",
+      };
+    })
+    .slice(0, 6);
+}
+
+function SlideViaje({ viaje, tramos }: { viaje: Desplazamiento; tramos: Tramo[] }) {
+  /* Una foto por destino distinto, como mucho dos: el hotel y el estadio. */
+  const fotos = tramos
+    .filter((tramo, i, todos) => tramo.foto?.url && todos.findIndex((otro) => otro.claveHasta === tramo.claveHasta) === i)
+    .slice(0, 2);
+
+  const alto = fotos.length > 1 ? 340 : 700;
+
+  return (
+    <Marco titulo="El viaje" viaje={viaje}>
+      <BandaPartido viaje={viaje} />
+
+      <div style={{ display: "flex", gap: 44, marginTop: 34 }}>
+        <div style={{ width: fotos.length ? 900 : DOSSIER_W - MARGEN * 2, flex: "0 0 auto" }}>
+          {tramos.map((tramo) => (
+            <div
+              key={tramo.id}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 22,
+                padding: "16px 0",
+                borderBottom: "1px solid rgba(15,30,61,.10)",
+              }}
+            >
+              {tramo.emoji && (
+                <span style={{ fontSize: 44, lineHeight: 1, width: 56, flex: "0 0 auto", textAlign: "center" }}>{tramo.emoji}</span>
+              )}
+
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <p
+                  style={{
+                    margin: 0,
+                    color: C.navy,
+                    fontSize: 30,
+                    fontWeight: 700,
+                    lineHeight: 1.05,
+                    textTransform: "uppercase",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
+                  {[tramo.desde, tramo.hasta].filter(Boolean).join(" → ")}
+                </p>
+
+                <p
+                  style={{
+                    margin: "8px 0 0",
+                    color: C.verde,
+                    fontSize: 20,
+                    fontWeight: 600,
+                    letterSpacing: "0.14em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {[tramo.cuando, tramo.llegada ? `llegada ${tramo.llegada}` : ""].filter(Boolean).join(" · ")}
+                </p>
+              </div>
+
+              {tramo.duracion && (
+                <div style={{ flex: "0 0 auto", backgroundColor: C.navy, borderRadius: 14, padding: "12px 20px" }}>
+                  <p style={{ margin: 0, color: "#FFFFFF", fontSize: 30, fontWeight: 700, lineHeight: 1, textTransform: "uppercase" }}>{tramo.duracion}</p>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {fotos.length > 0 && (
+          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 24 }}>
+            {fotos.map((tramo) => (
+              <Plano key={tramo.id} imagen={tramo.foto} alto={alto} respaldo={tramo.hasta} />
+            ))}
+          </div>
+        )}
+      </div>
+    </Marco>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  EL DOSSIER                                                         */
 /* ------------------------------------------------------------------ */
 
@@ -789,20 +878,29 @@ export function llevaHotel(viaje: Desplazamiento) {
   );
 }
 
+/*
+| 11/11/2026 (petición del analista): como mucho tres diapositivas y SIN
+| portada —el estadio, el hotel si lo hay y el viaje si hay trayectos—. La
+| portada repetía la cabecera que ya lleva cada diapositiva.
+*/
 export function titulosDossier(viaje: Desplazamiento) {
-  const titulos = ["Portada", "El estadio"];
+  const titulos = ["El estadio"];
 
   if (llevaHotel(viaje)) titulos.push("El hotel");
+
+  if (tramosDelViaje(viaje).length) titulos.push("El viaje");
 
   return titulos;
 }
 
-export function DossierViaje({ viaje }: { viaje: Desplazamiento }) {
+export function DossierViaje({ viaje, lugares }: { viaje: Desplazamiento; lugares?: Record<string, ImagenViaje> }) {
+  const tramos = tramosDelViaje(viaje, lugares);
+
   return (
     <>
-      <Portada viaje={viaje} />
       <SlideEstadio viaje={viaje} />
       {llevaHotel(viaje) && <SlideHotel viaje={viaje} />}
+      {tramos.length > 0 && <SlideViaje viaje={viaje} tramos={tramos} />}
     </>
   );
 }

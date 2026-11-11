@@ -43,6 +43,7 @@ import {
   HOJA_W,
   diaLargo,
   type Desplazamiento,
+  type ImagenViaje,
 } from "@/lib/viaje/modelo";
 
 type Formato = "pptx" | "dossier" | "horario" | "todo";
@@ -66,7 +67,7 @@ function useEnMarcha(titulo: string) {
   );
 }
 
-function encargaViaje(viaje: Desplazamiento, formato: Formato) {
+function encargaViaje(viaje: Desplazamiento, formato: Formato, lugares?: Record<string, ImagenViaje>) {
   const titulo = tituloDescarga(formato, viaje);
 
   if (descargaEnMarcha(titulo)) return;
@@ -81,7 +82,7 @@ function encargaViaje(viaje: Desplazamiento, formato: Formato) {
     /* Los lienzos de repuesto: el dossier y el horario a tamaño real. */
     mesa: (
       <div>
-        {quiereDossier && <DossierViaje viaje={viaje} />}
+        {quiereDossier && <DossierViaje viaje={viaje} lugares={lugares} />}
         {quiereHorario && <HojasHorario viaje={viaje} />}
       </div>
     ),
@@ -185,7 +186,7 @@ function encargaViaje(viaje: Desplazamiento, formato: Formato) {
   });
 }
 
-export function ExportaViaje({ viaje }: { viaje: Desplazamiento }) {
+export function ExportaViaje({ viaje, lugares }: { viaje: Desplazamiento; lugares?: Record<string, ImagenViaje> }) {
   const enTodo = useEnMarcha(tituloDescarga("todo", viaje));
   const enPptx = useEnMarcha(tituloDescarga("pptx", viaje));
   const enDossier = useEnMarcha(tituloDescarga("dossier", viaje));
@@ -203,7 +204,7 @@ export function ExportaViaje({ viaje }: { viaje: Desplazamiento }) {
         <Button
           tone="primary"
           icon={Files}
-          onClick={() => encargaViaje(viaje, "todo")}
+          onClick={() => encargaViaje(viaje, "todo", lugares)}
           disabled={enTodo}
           title="Dossier apaisado y horario vertical en un solo PDF"
         >
@@ -212,7 +213,7 @@ export function ExportaViaje({ viaje }: { viaje: Desplazamiento }) {
 
         <Button
           icon={MonitorPlay}
-          onClick={() => encargaViaje(viaje, "pptx")}
+          onClick={() => encargaViaje(viaje, "pptx", lugares)}
           disabled={enPptx}
           title="El dossier como .pptx, una diapositiva por hoja a 1920×1080"
         >
@@ -221,7 +222,7 @@ export function ExportaViaje({ viaje }: { viaje: Desplazamiento }) {
 
         <Button
           icon={FileText}
-          onClick={() => encargaViaje(viaje, "dossier")}
+          onClick={() => encargaViaje(viaje, "dossier", lugares)}
           disabled={enDossier}
           title="El dossier en PDF, A4 apaisado"
         >
@@ -230,7 +231,7 @@ export function ExportaViaje({ viaje }: { viaje: Desplazamiento }) {
 
         <Button
           icon={Printer}
-          onClick={() => encargaViaje(viaje, "horario")}
+          onClick={() => encargaViaje(viaje, "horario", lugares)}
           disabled={enHorario || viaje.dias.length === 0}
           title={viaje.dias.length === 0 ? "El viaje no tiene ningún día: añade uno en el horario" : `${viaje.dias.length} ${
             viaje.dias.length === 1 ? "hoja" : "hojas"
