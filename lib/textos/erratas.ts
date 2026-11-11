@@ -31,6 +31,9 @@ const ERRATAS: Record<string, string> = {
   lineas: "líneas",
   area: "área",
   rapidos: "rápidos",
+  /* 11/11/2026 (marketing): «tarea 2 (corner, faltas y transición)». */
+  corner: "córner",
+  corners: "córners",
 };
 
 export function corrigeErratas(texto: string): string {

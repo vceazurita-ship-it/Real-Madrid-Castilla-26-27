@@ -38,6 +38,12 @@ export function VerEnGrande({
 }) {
   const [vista, setVista] = useState<{ w: number; h: number } | null>(null);
 
+  const cierra = () => {
+    setVista(null);
+
+    if (typeof document !== "undefined" && document.fullscreenElement) document.exitFullscreen?.().catch(() => undefined);
+  };
+
   const abierto = vista !== null;
 
   useEffect(() => {
@@ -52,6 +58,8 @@ export function VerEnGrande({
       e.preventDefault();
       e.stopImmediatePropagation();
       setVista(null);
+
+      if (document.fullscreenElement) document.exitFullscreen?.().catch(() => undefined);
     };
 
     window.addEventListener("resize", mide);
@@ -84,13 +92,13 @@ export function VerEnGrande({
         aria-label={`${titulo}, en grande`}
         className="fixed inset-0 z-[80] flex flex-col overflow-hidden"
         style={{ background: "rgba(4,9,16,0.96)" }}
-        onClick={() => setVista(null)}
+        onClick={() => cierra()}
       >
         <div className="flex h-14 shrink-0 items-center justify-between gap-3 px-3">
           <span className="min-w-0 truncate text-[13px] font-semibold" style={{ color: "#F4EBDD" }}>
             {titulo}
           </span>
-          <button type="button" autoFocus onClick={() => setVista(null)} className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-semibold" style={BOTON}>
+          <button type="button" autoFocus onClick={() => cierra()} className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-semibold" style={BOTON}>
             <X size={15} /> Cerrar
           </button>
         </div>
@@ -120,7 +128,18 @@ export function VerEnGrande({
     );
   })();
 
-  const abre = () => setVista({ w: window.innerWidth, h: window.innerHeight });
+  const abre = () => {
+    setVista({ w: window.innerWidth, h: window.innerHeight });
+
+    /*
+    | En el móvil, a pantalla completa de verdad (11/11/2026, marketing): sin la
+    | barra del navegador la lámina gana casi un tercio. Si el navegador no
+    | deja (iPhone), se queda como hasta ahora.
+    */
+    if (window.matchMedia("(max-width: 767px)").matches && !document.fullscreenElement) {
+      document.documentElement.requestFullscreen?.().catch(() => undefined);
+    }
+  };
 
   /*
   | El botón, debajo de la lámina (10/11/2026, fútbol y marketing): encima tapaba
