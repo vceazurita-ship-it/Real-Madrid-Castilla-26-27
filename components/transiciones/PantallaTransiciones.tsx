@@ -28,6 +28,7 @@
  */
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { ResponsiveConVistas } from "@/components/data/visual/ResponsiveConVistas";
 import {
   Bar,
@@ -1051,9 +1052,10 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
       /* 10/11/2026: las bases de cada porcentaje, dichas una vez. */
       bases: { total: actuales.length, juegan: jugadas(actuales).length, conDesenlace: seguidas(actuales).length },
       anteriores: { n: anteriores.length },
-      metricas: baseMedia
-        ? metricas.map((m) => ({ ...m, pie: m.pie ? `${m.pie} · ${baseMedia}` : baseMedia }))
-        : metricas,
+      /* 11/11/2026 (expertos, ronda 2): la base de la media ya no se repite
+         en cada fila; la dice una vez el aviso de muestra de la tabla. */
+      baseMedia,
+      metricas,
       nota:
         quien === "todos"
           ? `Se compara el último partido (${comparado.jornada}) aunque abajo se vean todos. La media es por partido, con los mismos filtros. Verde: mejor que la media; naranja: peor.`
@@ -1182,21 +1184,23 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
 
     /* 10/11/2026: cada tarea dice también qué se cuenta en ella, la misma
        acción que mide la cifra (regla 14 de los expertos). */
-    const TAREA: Record<string, { tarea: string; cuenta: string; filtro: [string, string][] }> =
+    /* 11/11/2026 (expertos, ronda 2): cada métrica trae su `objetivo` como
+       frase entera; «Mantener el rival sale hacia delante» no se leía. */
+    const TAREA: Record<string, { tarea: string; cuenta: string; objetivo: (u: string) => string; filtro: [string, string][] }> =
       modo === "robos"
         ? {
-            total: { tarea: "recuperación del balón", cuenta: "los robos de cada serie", filtro: [] },
-            adelante: { tarea: "primera salida tras el robo", cuenta: "de cada robo, si el primer pase o la primera conducción va hacia delante", filtro: [["accion", "HORIZONTAL_ATRAS"]] },
-            llegan: { tarea: "acabar las transiciones en remate o área", cuenta: "los robos que acaban en remate o en el área en los 15 segundos siguientes", filtro: [["accion", "ADELANTE"]] },
-            cortas: { tarea: "cuidar el balón recién robado", cuenta: "los balones robados que volvemos a perder en la misma transición", filtro: [["desenlace", "PERDIDA"]] },
-            campo: { tarea: "presión alta tras pérdida en campo rival", cuenta: "los robos en campo rival", filtro: [["zona", "campo rival"]] },
+            total: { tarea: "recuperación del balón", cuenta: "los robos de cada serie", objetivo: (u) => `Robar más de ${u} balones por partido`, filtro: [] },
+            adelante: { tarea: "primera salida tras el robo", cuenta: "de cada robo, si el primer pase o la primera conducción va hacia delante", objetivo: (u) => `Que más del ${u} de los robos salga hacia delante`, filtro: [["accion", "HORIZONTAL_ATRAS"]] },
+            llegan: { tarea: "acabar las transiciones en remate o área", cuenta: "los robos que acaban en remate o en el área en los 15 segundos siguientes", objetivo: (u) => `Que más del ${u} de los robos acabe en remate o en el área`, filtro: [["accion", "ADELANTE"]] },
+            cortas: { tarea: "cuidar el balón recién robado", cuenta: "los balones robados que volvemos a perder en la misma transición", objetivo: (u) => `Que menos del ${u} de los balones robados se pierda al momento`, filtro: [["desenlace", "PERDIDA"]] },
+            campo: { tarea: "presión alta tras pérdida en campo rival", cuenta: "los robos en campo rival", objetivo: (u) => `Robar más de ${u} balones en campo rival`, filtro: [["zona", "campo rival"]] },
           }
         : {
-            total: { tarea: "seguridad con balón", cuenta: "las pérdidas de cada serie", filtro: [] },
-            adelante: { tarea: "contrapresión tras la pérdida", cuenta: "de cada pérdida, si el rival consigue salir hacia delante", filtro: [["accion", "ADELANTE"]] },
-            llegan: { tarea: "protección del área tras pérdida", cuenta: "las pérdidas que acaban en remate o en nuestra área en los 15 segundos siguientes", filtro: [["desenlace", "REMATE"], ["desenlace", "AREA"]] },
-            cortas: { tarea: "recuperación inmediata", cuenta: "los balones perdidos que recuperamos en la misma transición", filtro: [["accion", "RECUPERAMOS"]] },
-            campo: { tarea: "salida de balón desde campo propio", cuenta: "las pérdidas en nuestro campo", filtro: [["zona", "campo propio"]] },
+            total: { tarea: "seguridad con balón", cuenta: "las pérdidas de cada serie", objetivo: (u) => `Perder menos de ${u} balones por partido`, filtro: [] },
+            adelante: { tarea: "contrapresión tras la pérdida", cuenta: "de cada pérdida, si el rival consigue salir hacia delante", objetivo: (u) => `Que el rival salga hacia delante en menos del ${u} de nuestras pérdidas`, filtro: [["accion", "ADELANTE"]] },
+            llegan: { tarea: "protección del área tras pérdida", cuenta: "las pérdidas que acaban en remate o en nuestra área en los 15 segundos siguientes", objetivo: (u) => `Que menos del ${u} de nuestras pérdidas acabe en remate o en nuestra área`, filtro: [["desenlace", "REMATE"], ["desenlace", "AREA"]] },
+            cortas: { tarea: "recuperación inmediata", cuenta: "los balones perdidos que recuperamos en la misma transición", objetivo: (u) => `Recuperar al momento más del ${u} de los balones perdidos`, filtro: [["accion", "RECUPERAMOS"]] },
+            campo: { tarea: "salida de balón desde campo propio", cuenta: "las pérdidas en nuestro campo", objetivo: (u) => `Perder menos de ${u} balones en campo propio`, filtro: [["zona", "campo propio"]] },
           };
 
     let peor: { m: MetricaComparada; peso: number } | null = null;
@@ -1231,7 +1235,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
 
     const m = elegida;
     const formato = m.formato ?? numeroCorto;
-    const { tarea, cuenta, filtro } = TAREA[m.clave];
+    const { tarea, cuenta, objetivo, filtro } = TAREA[m.clave];
 
     /* La base de la cifra («11 de 66») y, con pocos partidos detrás, que es tendencia. */
     const base = m.pie?.match(/^\d+ de \d+/)?.[0];
@@ -1242,14 +1246,19 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
 
     const criterio = `criterio de éxito, ${m.nombre.toLowerCase()} ${m.mejorAlto ? "por encima de" : "por debajo de"} ${formato(m.media!)} en el próximo partido${rango}`;
 
+    /* 11/11/2026 (experto de fútbol): la más justa puede quedar por debajo de
+       la media aunque dentro de la franja «igual» (37 frente a 38,4): decir
+       «ninguna cae por debajo» era falso. */
+    const porDebajo = (m.mejorAlto ? m.actual! < m.media! : m.actual! > m.media!);
+    const cifra = `${formato(m.actual!)}${base ? ` (${base})` : ""}`;
+
     return {
       texto: mantener
-        ? `Ninguna cifra cae por debajo de nuestra media. La que menos margen tiene: ${m.nombre.toLowerCase()}, ${formato(m.actual!)}${base ? ` (${base})` : ""} frente a ${formato(m.media!)}${aviso}. Tarea de ${tarea}, contando ${cuenta}; ${criterio}.`
-        : `${m.nombre}: ${formato(m.actual!)}${base ? ` (${base})` : ""} frente a ${formato(m.media!)}${aviso}. Tarea de ${tarea} en la semana, contando ${cuenta}; ${criterio}.`,
-      /* 08/11/2026: el titular destacado encima de la tabla. */
-      titular: mantener
-        ? `Mantener ${m.nombre.toLowerCase()}: ${formato(m.actual!)} frente a ${formato(m.media!)} de media`
-        : `${m.nombre}: ${formato(m.actual!)} frente a ${formato(m.media!)} de media`,
+        ? `${porDebajo ? `Todas las cifras están en nuestra media o mejor; la más justa: ${m.nombre.toLowerCase()}, ${cifra} frente a ${formato(m.media!)}, dentro de lo normal${aviso}.` : `Todas las cifras mejoran nuestra media; la que menos margen tiene: ${m.nombre.toLowerCase()}, ${cifra} frente a ${formato(m.media!)}${aviso}.`} En el campo: tarea de ${tarea}, contando ${cuenta}. ${criterio.charAt(0).toUpperCase()}${criterio.slice(1)}.`
+        : `${m.nombre}: ${cifra} frente a ${formato(m.media!)}${aviso}. En el campo: tarea de ${tarea} en la semana, contando ${cuenta}. ${criterio.charAt(0).toUpperCase()}${criterio.slice(1)}.`,
+      /* 08/11/2026: el titular destacado encima de la tabla. 11/11/2026: el
+         objetivo en una frase, con lo de hoy detrás. */
+      titular: `${objetivo(formato(m.media!))}: hoy ${cifra}`,
       rotulo: mantener ? "Qué entrenamos para mantenerlo" : "Lo que pide trabajo esta semana",
       filtro,
     };
@@ -1354,10 +1363,11 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
             <AbpHeader
               area="RMCF Castilla · Análisis del partido"
               title={T.titulo}
+              /* 11/11/2026 (marketing): la misma cabecera en robos y en pérdidas. */
               lead={
                 modo === "perdidas"
                   ? "Cada pérdida, vista y etiquetada en el vídeo."
-                  : undefined
+                  : "Cada robo, visto y etiquetado en el vídeo."
               }
             />
 
@@ -1370,7 +1380,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                 10/11/2026: con el número de partidos, como subtítulo. */}
             {primeraConDato && !/^J0*1$/i.test(primeraConDato.trim()) ? (
               <p className="mt-2 text-[12px] text-white/60">
-                {partidosLiga} {partidosLiga === 1 ? "partido etiquetado" : "partidos etiquetados"} en vídeo, desde la {primeraConDato}.
+                {partidosLiga} {partidosLiga === 1 ? "partido etiquetado" : "partidos etiquetados"} en vídeo, desde la {primeraConDato}: es el primer partido etiquetado {modo === "robos" ? "robo a robo" : "pérdida a pérdida"}, y las medias sólo comparan partidos etiquetados igual.
               </p>
             ) : null}
 
@@ -1501,6 +1511,13 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                 >
                   {modo === "robos" ? "Ver esos robos, uno a uno" : "Ver esas pérdidas, una a una"}
                 </button>
+                {/* 11/11/2026 (expertos, ronda 2): de la tarea al microciclo, donde se programa. */}
+                <Link
+                  href="/microcycles"
+                  className="ml-2 mt-2 inline-block rounded-xl border border-white/15 bg-white/[0.04] px-3 py-1.5 text-sm text-white/80 transition hover:border-[#C8A96B]/40"
+                >
+                  Llevarla al microciclo
+                </Link>
               </div>
             ) : null}
 

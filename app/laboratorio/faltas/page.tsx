@@ -876,11 +876,12 @@ export default function FaltasPage() {
             <div className="mt-5">
               <Panel
                 title="Dónde se cometen"
-                subtitle={
+                /* 11/11/2026 (expertos, ronda 2): la base del mapa, siempre a la vista. */
+                subtitle={`${partido ? `${jornadaCorta(partido.jornada)} · ${partido.rival} · ` : ""}${paraCampo.length} ${paraCampo.length === 1 ? "falta" : "faltas"}: ${paraCampo.filter((f) => f.lado === "ofensivo").length} a favor y ${paraCampo.filter((f) => f.lado !== "ofensivo").length} en contra · el Castilla ataca hacia la derecha${
                   explicativos
-                    ? "Cada punto es una falta, en su tercio y su carril del campo de verdad: el Castilla ataca hacia la derecha, también en las faltas que saca el rival. El etiquetado guarda zonas, no metros: dentro de cada zona los puntos se reparten para no taparse"
-                    : undefined
-                }
+                    ? ". Cada punto es una falta, en su tercio y su carril del campo de verdad, también en las faltas que saca el rival. El etiquetado guarda zonas, no metros: dentro de cada zona los puntos se reparten para no taparse"
+                    : ""
+                }`}
                 icon={Crosshair}
               >
                 <CampoFaltas

@@ -600,6 +600,15 @@ export default function Page() {
                       {metrics.lastFive.reduce((s, m) => s + (m.outcome === "W" ? 3 : m.outcome === "D" ? 1 : 0), 0)} de {metrics.lastFive.length * 3} puntos en los últimos {metrics.lastFive.length}
                     </p>
                   ) : null}
+                  {/* 11/11/2026 (análisis): los cinco partidos de la racha, para comprobarla. */}
+                  {metrics.lastFive.length >= 3 ? (
+                    <p className="mt-1.5 text-[12px] leading-relaxed text-white/60">
+                      {[...metrics.lastFive]
+                        .reverse()
+                        .map((m) => `${m.microciclo.match(/(\d+)/)?.[1] ? `J${m.microciclo.match(/(\d+)/)![1]} ` : ""}${m.opponent} ${m.resultado} (${m.isHome ? "casa" : "fuera"})`)
+                        .join(" · ")}
+                    </p>
+                  ) : null}
                 </>
               ) : null}
 
@@ -817,34 +826,33 @@ function MetricsPanel({
 }) {
   /* 08/11/2026: frente a la liga con el sentido en palabras («igual»,
      «0,2 mejor»), para no comparar cifras a ojo. */
-  const frenteLiga = (goles: number, mejorAlto: boolean) => {
-    if (ligaPP === null || metrics.played === 0) return "";
+  /* 11/11/2026 (expertos, ronda 2): el juicio frente a la liga, con flecha y
+     color (verde mejor, naranja peor), y la misma base en las dos tarjetas. */
+  const frenteLiga = (goles: number, mejorAlto: boolean): Juicio | undefined => {
+    if (ligaPP === null || metrics.played === 0) return undefined;
     const coma = (n: number) => n.toFixed(1).replace(".", ",");
     const d = Math.round((goles / metrics.played - ligaPP) * 10) / 10;
-    const juicio = Math.abs(d) < 0.05 ? "igual" : `${coma(Math.abs(d))} ${(d > 0) === mejorAlto ? "mejor" : "peor"}`;
+    const base = `liga ${coma(ligaPP)}`;
 
-    /* 10/11/2026: la base en la propia cifra, como en /analisis-goles. */
-    return ` · media de los ${ligaBase ? `${ligaBase.equipos} equipos` : "equipos de la liga"}: ${coma(ligaPP)} (${juicio})`;
+    if (Math.abs(d) < 0.05) return { texto: `igual que la ${base}`, mejor: null };
+
+    const mejor = (d > 0) === mejorAlto;
+
+    return { texto: `${d > 0 ? "▲" : "▼"} ${coma(Math.abs(d))} ${mejor ? "mejor" : "peor"} que la ${base}`, mejor };
   };
+  const baseLiga = ligaBase
+    ? ` · media de los ${ligaBase.equipos} equipos, J1–J${ligaBase.jornadas}`
+    : "";
 
   return (
     <section className="rounded-[28px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-4 sm:p-6">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat
-          title="Partidos"
-          value={metrics.total}
-          hint={
-            /* 07/11/2026: «10 · 10 disputados» repetía la cifra. */
-            metrics.total === metrics.played
-              ? "de liga, todos con resultado"
-              : `${metrics.played} de liga con resultado`
-          }
-          icon={<Video className="h-4 w-4" />}
-        />
+      {/* 11/11/2026 (marketing): fuera la tarjeta «11 partidos», que repetía
+          el titular; la tira ocupa la fila entera. */}
+      <div className="grid grid-cols-1 gap-3">
 
         {/* 08/11/2026: «4 de 10» salía en el titular y otra vez en tres
             tarjetas: queda una barra con los partidos en orden y el reparto. */}
-        <div className="col-span-2 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4 lg:col-span-3">
+        <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4">
           {/* 10/11/2026: una sola tira (antes había otra de «Últimos 5» en
               el orden contrario): del más antiguo al más reciente, con la
               jornada debajo y los cinco últimos marcados. */}
@@ -853,7 +861,8 @@ function MetricsPanel({
             {metrics.todos.map((m, i) => {
               const token = OUTCOME[m.outcome as Outcome];
               const reciente = i >= metrics.todos.length - metrics.lastFive.length;
-              const jornada = m.microciclo.match(/(d+)/)?.[1];
+              /* 11/11/2026: era /(d+)/ (la barra se perdió) y salía «Jd». */
+              const jornada = m.microciclo.match(/(\d+)/)?.[1];
               const texto = `${m.microciclo} · ${m.partido} · ${m.resultado} · ${formatDate(m)}`;
 
               return (
@@ -868,15 +877,21 @@ function MetricsPanel({
                       reciente && "ring-1 ring-[#C8A96B]/60",
                     )}
                   >
-                    {token.short}
+                    {/* 11/11/2026 (análisis): el marcador en la ficha, no sólo la letra. */}
+                    {m.resultado && m.resultado.length <= 5 ? m.resultado : token.short}
                   </span>
-                  {jornada ? <span className="text-[9.5px] tabular-nums text-white/45">J{jornada}</span> : null}
+                  {jornada ? (
+                    <span className="text-[10px] tabular-nums text-white/55">
+                      J{jornada}
+                      <span className="text-white/40"> {m.isHome ? "C" : "F"}</span>
+                    </span>
+                  ) : null}
                 </span>
               );
             })}
           </div>
           <p className="mt-2 text-[11px] text-white/55">
-            Del más antiguo al más reciente; con borde dorado, los {metrics.lastFive.length} últimos.
+            Del más antiguo al más reciente; con borde dorado, los {metrics.lastFive.length} últimos. Verde, victoria; ámbar, empate; rojo, derrota · C, en casa; F, fuera · el marcador, local primero.
           </p>
         </div>
       </div>
@@ -885,14 +900,16 @@ function MetricsPanel({
         <Stat
           title="Goles a favor"
           value={metrics.goalsFor}
-          hint={`${metrics.avgFor} por partido · ${metrics.played} partidos · ▲ más es mejor${frenteLiga(metrics.goalsFor, true)}`}
+          hint={`${metrics.avgFor} por partido · ${metrics.played} partidos${baseLiga} · más es mejor`}
+          juicio={frenteLiga(metrics.goalsFor, true)}
           icon={<Goal className="h-4 w-4" />}
         />
 
         <Stat
           title="Goles en contra"
           value={metrics.goalsAgainst}
-          hint={`${metrics.avgAgainst} por partido · ${metrics.played} partidos · ▼ menos es mejor${frenteLiga(metrics.goalsAgainst, false)}`}
+          hint={`${metrics.avgAgainst} por partido · ${metrics.played} partidos${baseLiga} · menos es mejor`}
+          juicio={frenteLiga(metrics.goalsAgainst, false)}
           icon={<Target className="h-4 w-4" />}
         />
 
@@ -926,18 +943,23 @@ function MetricsPanel({
   );
 }
 
+/** Frente a la liga: el texto («▲ 0,2 mejor que la liga 1,4») y si es mejor (`null`: igual). */
+type Juicio = { texto: string; mejor: boolean | null };
+
 function Stat({
   title,
   value,
   hint,
   icon,
   accent,
+  juicio,
 }: {
   title: string;
   value: ReactNode;
   hint?: string;
   icon?: ReactNode;
   accent?: string;
+  juicio?: Juicio;
 }) {
   return (
     <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4 transition hover:border-white/20">
@@ -962,7 +984,15 @@ function Stat({
         {value}
       </p>
 
-      {hint && <p className="mt-1 text-[11px] text-white/35">{hint}</p>}
+      {juicio ? (
+        <p
+          className="mt-1 text-[12px] font-semibold"
+          style={{ color: juicio.mejor === null ? "rgb(var(--rmcf-ink-rgb) / .6)" : juicio.mejor ? "var(--rmcf-dif-mejor)" : "var(--rmcf-dif-peor)" }}
+        >
+          {juicio.texto}
+        </p>
+      ) : null}
+      {hint && <p className="mt-1 text-[11px] text-white/55">{hint}</p>}
     </div>
   );
 }
