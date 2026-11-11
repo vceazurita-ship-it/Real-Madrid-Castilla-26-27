@@ -18,6 +18,7 @@ import { RefreshCw } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { toast } from "sonner";
 
+import { useAdmin } from "@/hooks/useAdmin";
 import { descartaNuevas, estadoHojas, olvidaTodoElCsv, suscribeHojas } from "@/lib/hojaCsv";
 
 const VACIO = { bajando: 0, deCopia: 0, masVieja: null, hayNuevas: false };
@@ -37,6 +38,7 @@ function haceCuanto(ms: number, ahora: number): string {
 
 export function DatosEstado() {
   const estado = useSyncExternalStore(suscribeHojas, estadoHojas, () => VACIO);
+  const { admin } = useAdmin();
 
   /* El reloj se apunta en un efecto, nunca en el render (regla de pureza). */
   const [ahora, setAhora] = useState(0);
@@ -185,6 +187,26 @@ export function DatosEstado() {
     descartaNuevas();
     window.location.reload();
   };
+
+  /*
+  | 11/11/2026 (jueces, análisis): «La hoja trae cambios · Recargar para verlos»
+  | en la cabecera era ruido para el entrenador. El rótulo entero lo ve sólo el
+  | analista (sesión de administrador); los demás, un botón discreto con el
+  | icono y la explicación al pasar el ratón. Hace lo mismo.
+  */
+  if (estado.hayNuevas && admin !== true) {
+    return (
+      <button
+        type="button"
+        onClick={recarga}
+        aria-label="Hay datos nuevos: recargar la pantalla"
+        className="inline-flex items-center rounded-xl border border-white/10 bg-white/[0.03] p-1.5 text-white/45 transition hover:border-white/20 hover:text-white/80"
+        title="Hay datos nuevos de la hoja: pulsa para verlos (es instantáneo)"
+      >
+        <RefreshCw size={12} />
+      </button>
+    );
+  }
 
   if (estado.hayNuevas) {
     return (

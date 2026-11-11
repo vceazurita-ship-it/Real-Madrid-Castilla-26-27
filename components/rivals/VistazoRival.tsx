@@ -7,7 +7,7 @@ import { ArrowUpRight, Goal, LayoutGrid, Trophy, UserX } from "lucide-react";
 import { chipInk } from "@/lib/theme";
 import type { AspectoDestacado } from "@/lib/rivals/destacados-rival";
 import type { JornadaDeEquipo } from "@/lib/rivals/orden-calendario";
-import { balanceDe, fraseDelVistazo, type ResultadoForma, type Vistazo } from "@/lib/rivals/vistazo";
+import { balanceDe, fraseDelVistazo, MUESTRA_TENDENCIA, type ResultadoForma, type Vistazo } from "@/lib/rivals/vistazo";
 
 /*
 |--------------------------------------------------------------------------
@@ -53,14 +53,14 @@ function Casilla({
 }) {
   return (
     <div className={`min-w-0 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 ${ancha ? "col-span-2 md:col-span-1" : ""}`}>
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/50">
+      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-white/55">
         {titulo}
       </p>
 
       <div className="mt-1 min-w-0">{children}</div>
 
-      {/* Dos renglones antes que «El último: 2-0 en casa co…» en el móvil. */}
-      {pie && <p className="mt-1 text-xs text-white/50">{pie}</p>}
+      {/* Dos renglones antes que «El último: 2-0 en casa co…» en el móvil. A 13 px desde el 11/11/2026 (jueces, marketing): a 12 se perdía. */}
+      {pie && <p className="mt-1 text-[13px] leading-snug text-white/60">{pie}</p>}
     </div>
   );
 }
@@ -71,6 +71,41 @@ function cifraAspecto(valor: number, unidad: string) {
   const texto = valor.toLocaleString("es-ES", { maximumFractionDigits: unidad === "entero" ? 0 : 1 });
 
   return unidad === "porcentaje" ? `${texto} %` : unidad === "minutos" ? `${texto}′` : texto;
+}
+
+/*
+| 11/11/2026 (jueces, fútbol): «Pérdidas: 123,5» y «Córners: 7,1» no decían de
+| qué. Las cifras que son un recuento van «por partido»; las que ya son un
+| cociente (PPDA, xG por remate, pases por ocasión, distancia de pase, goles
+| menos xG) o un tanto por ciento, no.
+*/
+const NO_ES_RECUENTO = /ppda|por remate|por ocasi[oó]n|distancia|−|-\s*xg/i;
+
+function porPartido(nombre: string, unidad: string) {
+  return unidad !== "porcentaje" && unidad !== "minutos" && !NO_ES_RECUENTO.test(nombre) ? " por partido" : "";
+}
+
+/*
+| Cómo se llama cada cifra en «balón parado en contra» (11/11/2026, jueces):
+| son las de sus rivales, así que «Córners» es lo que concede y «Córners con
+| remate %» lo que le rematan. Con su nombre de Wyscout se leía como suyo.
+*/
+function nombreDeFila(aspecto: string, nombre: string) {
+  if (!/en contra/i.test(aspecto)) return nombre;
+  if (/^córners con remate/i.test(nombre)) return "Córners rematados";
+  if (/^córners$/i.test(nombre)) return "Córners concedidos";
+
+  return `${nombre} (de sus rivales)`;
+}
+
+/*
+| El puesto de UNA cifra entre los N equipos, con el sentido ya puesto en el
+| percentil (1.º, el mejor). El aspecto entero es la media de sus cifras, y
+| enseñar el puesto de la media junto a la primera cifra hacía decir «17.º» a
+| un 7,1 que, solo, es el peor de los 20 (11/11/2026, jueces de fútbol).
+*/
+function puestoDeFila(percentil: number, equipos: number) {
+  return Math.min(equipos, Math.max(1, equipos - Math.round((percentil / 100) * equipos) + 1));
 }
 
 /** «Destaca en dominio con balón y eficacia, pero se queda corto en producción de remate.» */
@@ -100,6 +135,7 @@ export function VistazoRival({
   jornada,
   aspectos = [],
   equipos = 0,
+  partidosWyscout = 0,
   avisos = null,
   dano = [],
   enlaces,
@@ -115,6 +151,8 @@ export function VistazoRival({
   aspectos?: AspectoDestacado[];
   /** De cuántos equipos es la categoría con la que se compara. */
   equipos?: number;
+  /** Cuántos partidos suyos tiene Wyscout (la base de lo «por partido»); 0 si no se sabe. */
+  partidosWyscout?: number;
   /** A otras pantallas de este mismo rival. */
   enlaces: { href: string; label: string }[];
 }) {
@@ -144,7 +182,8 @@ export function VistazoRival({
       {(() => {
         const flojos = aspectos.filter((a) => a.desviacion < 0).map((a) => a.aspecto.toLowerCase());
         const lista = flojos.length > 1 ? `${flojos.slice(0, -1).join(", ")} y ${flojos[flojos.length - 1]}` : flojos[0];
-        const titular = [fraseDelVistazo(vistazo), flojos.length ? `Flojo en ${lista} (Wyscout).` : ""].filter(Boolean).join(" ");
+        const fuente = partidosWyscout > 0 ? `Wyscout, ${partidosWyscout} ${partidosWyscout === 1 ? "partido" : "partidos"}` : "Wyscout";
+        const titular = [fraseDelVistazo(vistazo), flojos.length ? `Flojo en ${lista} (${fuente}).` : ""].filter(Boolean).join(" ");
 
         return titular ? <p className="mb-3 text-sm font-medium text-white/85 sm:text-[15px]">{titular}</p> : null;
       })()}
@@ -164,7 +203,7 @@ export function VistazoRival({
             <p className="flex items-baseline gap-1.5">
               <Trophy size={13} className="shrink-0 self-center text-[#C8A96B]" aria-hidden />
               <span className="text-lg font-semibold tabular-nums">{tabla.puesto}.º</span>
-              <span className="text-xs text-white/45">
+              <span className="text-[13px] text-white/55">
                 de {tabla.equipos} · {tabla.puntos} pts
               </span>
             </p>
@@ -174,11 +213,13 @@ export function VistazoRival({
         {enEseCampo && (
           <Casilla
             titulo={enEseCampo.donde === "fuera" ? "Lejos de casa" : "En su campo"}
-            pie={`${enEseCampo.fila.favor}-${enEseCampo.fila.contra} en goles · ${enEseCampo.fila.jugados} ${enEseCampo.fila.jugados === 1 ? "partido" : "partidos"}`}
+            pie={`${enEseCampo.fila.favor}-${enEseCampo.fila.contra} en goles · ${enEseCampo.fila.jugados} ${enEseCampo.fila.jugados === 1 ? "partido" : "partidos"}${
+              enEseCampo.fila.jugados < MUESTRA_TENDENCIA ? " · tendencia" : ""
+            }`}
           >
             {/* El balance en una sola línea y los puntos debajo: en el móvil «2V 0E 2D» se partía (07/11/2026). */}
             <p className="whitespace-nowrap text-lg font-semibold tabular-nums">{balanceDe(enEseCampo.fila)}</p>
-            <p className="text-xs text-white/45">
+            <p className="text-[13px] text-white/55">
               {enEseCampo.fila.puntos} de {enEseCampo.fila.jugados * 3} pts posibles
             </p>
           </Casilla>
@@ -261,7 +302,7 @@ export function VistazoRival({
             <span key={`f-${uno.nombre}`} className="flex items-center gap-1.5">
               <UserX size={12} className="shrink-0 text-[#F87171]" aria-hidden />
               {uno.nombre}
-              <span className="text-xs text-white/50">{uno.estado}</span>
+              <span className="text-[13px] text-white/55">{uno.estado}</span>
             </span>
           ))}
           {/* Con tres o más a una amarilla, una sola línea: repetir «a una amarilla del ciclo» cuatro veces era ruido (09/11/2026). */}
@@ -269,7 +310,7 @@ export function VistazoRival({
             <span className="flex flex-wrap items-center gap-1.5">
               <span className="h-3 w-2 shrink-0 rounded-[2px] bg-[#FACC15]" aria-hidden />
               {avisos.apercibidos.length} jugadores a una amarilla del ciclo
-              <span className="text-xs text-white/60">
+              <span className="text-[13px] text-white/60">
                 {avisos.apercibidos.map((uno) => `${uno.nombre} (${uno.amarillas})`).join(", ")}
               </span>
             </span>
@@ -278,7 +319,7 @@ export function VistazoRival({
               <span key={`a-${uno.nombre}`} className="flex items-center gap-1.5">
                 <span className="h-3 w-2 shrink-0 rounded-[2px] bg-[#FACC15]" aria-hidden />
                 {uno.nombre}
-                <span className="text-xs text-white/50">a una amarilla del ciclo ({uno.amarillas})</span>
+                <span className="text-[13px] text-white/55">a una amarilla del ciclo ({uno.amarillas})</span>
               </span>
             ))
           )}
@@ -286,7 +327,7 @@ export function VistazoRival({
             <span key={`r-${uno.nombre}`} className="flex items-center gap-1.5">
               <span className="h-3 w-2 shrink-0 rounded-[2px] bg-[#EF4444]" aria-hidden />
               {uno.nombre}
-              <span className="text-xs text-white/50">
+              <span className="text-[13px] text-white/55">
                 {uno.rojas === 1 ? "una roja esta temporada" : `${uno.rojas} rojas esta temporada`}
               </span>
             </span>
@@ -302,8 +343,17 @@ export function VistazoRival({
 
           {/* Primero la frase, luego los dos grupos: una lista de «p15 · p80» no se leía (guion, 21/10). */}
           {fraseDeAspectos(aspectos) && <p className="mb-2 pr-10 text-sm text-white/75 md:pr-0">{fraseDeAspectos(aspectos)}</p>}
-          {/* El puesto se lee solo (08/11/2026, análisis): no hay que fiarse de «Fuerte/Flojo». */}
-          {equipos > 0 && <p className="mb-2 text-xs text-white/50">Puesto entre los {equipos}: el 1.º es el mejor de la categoría en ese aspecto; el {equipos}.º, el peor.</p>}
+          {/*
+            El puesto se lee solo (08/11/2026, análisis): no hay que fiarse de «Fuerte/Flojo».
+            11/11/2026 (jueces, marketing): una sola leyenda, en vez de «peor que 18 de los 20» en cada fila,
+            y con la base de las cifras («por partido» en cuántos partidos de Wyscout).
+          */}
+          {equipos > 0 && (
+            <p className="mb-2 text-[13px] text-white/60">
+              Junto a cada cifra, su puesto entre los {equipos}: el 1.º es el mejor de la categoría; el {equipos}.º, el peor.
+              {partidosWyscout > 0 ? ` Medias por partido en sus ${partidosWyscout} ${partidosWyscout === 1 ? "partido" : "partidos"} de Wyscout.` : ""}
+            </p>
+          )}
 
           <div className="grid min-w-0 gap-2 sm:grid-cols-2">
             {[
@@ -316,31 +366,28 @@ export function VistazoRival({
                   <p className="mb-1 text-xs font-semibold uppercase tracking-[0.14em]" style={{ color: chipInk(grupo.color) }}>
                     {grupo.titulo}
                   </p>
-                  <ul className="flex min-w-0 flex-wrap gap-1.5">
+                  <ul className="grid min-w-0 gap-1.5">
                     {grupo.lista.map((a) => (
                       <li
                         key={a.aspecto}
                         title={`${a.explica}. ${a.filas.map((f) => `${f.nombre}: p${f.percentil}`).join(" · ")}`}
-                        className="flex min-w-0 flex-wrap items-center gap-x-1.5 rounded-2xl border px-2.5 py-1 text-xs"
+                        className="flex min-w-0 flex-col gap-0.5 rounded-2xl border px-3 py-1.5 text-sm"
                         style={{ borderColor: `${grupo.color}55`, background: `${grupo.color}14` }}
                       >
                         <span className="min-w-0 break-words font-medium">{a.aspecto}</span>
-                        {/* El valor y su referencia (10/11/2026, jueces): el puesto solo no decía cuánto. */}
-                        {a.filas[0] && (
-                          <span className="basis-full text-[11px] tabular-nums text-white/60">
-                            {a.filas[0].nombre}: {cifraAspecto(a.filas[0].valor, a.filas[0].unidad)} · mediana de la categoría {cifraAspecto(a.filas[0].mediana, a.filas[0].unidad)}
-                            {/ppda/i.test(a.filas[0].nombre) ? " (pases que deja dar antes de presionar: menos es más presión)" : ""}
+                        {/*
+                          Todas las cifras del aspecto, cada una con SU puesto (11/11/2026, jueces de fútbol):
+                          el puesto del aspecto es la media de dos o tres cifras y, junto a la primera sola,
+                          decía «17.º» de un 7,1 que en Su balón parado sale el peor de los 20.
+                        */}
+                        {a.filas.map((f) => (
+                          <span key={f.nombre} className="text-[13px] leading-snug tabular-nums text-white/70">
+                            {nombreDeFila(a.aspecto, f.nombre)}: <b className="font-semibold text-white/85">{cifraAspecto(f.valor, f.unidad)}</b>
+                            {porPartido(f.nombre, f.unidad)} · mediana {cifraAspecto(f.mediana, f.unidad)}
+                            {equipos > 0 ? ` · ${puestoDeFila(f.percentil, equipos)}.º de ${equipos}` : ""}
+                            {/ppda/i.test(f.nombre) ? " (pases que deja dar antes de presionar: menos es más presión)" : ""}
                           </span>
-                        )}
-                        <span className="shrink-0 tabular-nums text-white/50">
-                          {a.desviacion >= 0
-                            ? equipos > 0
-                              ? `mejor que ${Math.round((a.percentil / 100) * equipos)} de los ${equipos} equipos (puesto ${Math.max(1, equipos - Math.round((a.percentil / 100) * equipos))}.º)`
-                              : `mejor que ${Math.round(a.percentil / 10)} de cada 10`
-                            : equipos > 0
-                              ? `peor que ${equipos - Math.round((a.percentil / 100) * equipos)} de los ${equipos} equipos (puesto ${Math.min(equipos, equipos - Math.round((a.percentil / 100) * equipos) + 1)}.º, abajo)`
-                              : `peor que ${10 - Math.round(a.percentil / 10)} de cada 10`}
-                        </span>
+                        ))}
                       </li>
                     ))}
                   </ul>
@@ -364,16 +411,24 @@ export function VistazoRival({
               <li key={uno.nombre} className="min-w-0">
                 <p>
                   <b className="font-semibold text-white">{uno.nombre}</b>
-                  {uno.puesto ? <span className="text-white/55"> ({uno.puesto})</span> : null}: {uno.rasgos.join(" y ")}
-                  {uno.accion ? <span className="text-white/80"> → {uno.accion}</span> : null}
+                  {uno.puesto ? <span className="text-white/55"> ({uno.puesto})</span> : null}: {uno.rasgos.join(" y ")}.
                 </p>
+                {/* La consigna nuestra, en su renglón y con su nombre (11/11/2026, jueces de marketing): «→ presionar» se perdía al final de la frase. */}
+                {uno.accion ? (
+                  <p className="mt-0.5">
+                    <span className="text-xs font-semibold uppercase tracking-[0.12em]" style={{ color: chipInk("#C8A96B") }}>
+                      Qué hacemos
+                    </span>{" "}
+                    <span className="text-white/85">{uno.accion.charAt(0).toUpperCase() + uno.accion.slice(1)}.</span>
+                  </p>
+                ) : null}
                 {uno.base ? (
-                  <p className="mt-0.5 text-[12px] tabular-nums text-white/55">
+                  <p className="mt-0.5 text-[13px] tabular-nums text-white/55">
                     {uno.base}
                     {(uno.minutos ?? 0) > 0 && (uno.minutos ?? 0) < MUESTRA_CORTA ? ` · muestra corta: menos de ${MUESTRA_CORTA}′` : ""}
                   </p>
                 ) : null}
-                {uno.contraste ? <p className="mt-0.5 text-[12px] text-[#C8A96B]">{uno.contraste}</p> : null}
+                {uno.contraste ? <p className="mt-0.5 text-[13px] text-[#C8A96B]">{uno.contraste}</p> : null}
               </li>
             ))}
           </ul>

@@ -424,6 +424,8 @@ function perfilesDe(datos: Dataset, equipo: string) {
     temporada: destacados.temporada,
     equipos: destacados.equipos,
     aspectos: destacados.equipo,
+    /* La base de las cifras de /rivals: «7,1 por partido · 10 partidos de Wyscout» (11/11/2026). */
+    partidos: destacados.partidos,
   };
 }
 
@@ -598,6 +600,8 @@ function destacadosDe(datos: Dataset, equipo: string, aspectos: string[]) {
   return {
     temporada: actual,
     equipos: equipos.length,
+    /* Sus partidos de esta temporada en Wyscout: la base de cada cifra «por partido». */
+    partidos: liga.filter((p) => mismoEquipo(p.equipo, equipo)).length,
     /* Sólo lo que cabe en una diapositiva, ya ordenado y sin el ruido. */
     equipo: deEquipo
       .filter((d) => Math.abs(d.desviacion) >= UMBRAL_EQUIPO)
