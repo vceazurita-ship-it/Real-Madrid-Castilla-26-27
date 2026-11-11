@@ -670,8 +670,15 @@ function scrape(targets, cache) {
   const failures = [];
 
   let done = 0;
+  let bloqueadas = 0;
 
   for (const row of pending) {
+    /* BeSoccer con su verificación anti-bots: no se insiste (ni se salta). */
+    if (bloqueadas >= 5 && done === bloqueadas) {
+      console.log("BeSoccer bloquea las fichas de jugador: se usan los números de la plantilla del equipo.");
+      break;
+    }
+
     done += 1;
 
     const url = `https://es.besoccer.com/jugador/${row.slug || SLUGS[row.id] || `x-${row.id}`}`;
@@ -709,6 +716,8 @@ function scrape(targets, cache) {
     if (parsed) {
       cache[row.id] = { url, portero: parsed.portero, temporadas: parsed.temporadas };
     } else {
+      if (/respuesta corta/.test(error ?? "")) bloqueadas += 1;
+
       failures.push(`${row.player.NOMBRE_EQUIPO} · ${row.player.JUGADOR}: ${error ?? "desconocido"}`);
     }
 
