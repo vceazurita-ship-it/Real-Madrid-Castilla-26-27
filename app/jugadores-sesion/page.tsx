@@ -3424,7 +3424,7 @@ export default function JugadoresSesionPage() {
                   )}
                   {sesion.tareas.length > 0 &&
                     (() => {
-                      const listas = estadoTareas.filter((a) => tareaLista(a)).length;
+                      const listas = estadoTareas.filter((a) => tareaLista(a) && a.length === 0).length;
                       const pct = Math.round((listas / sesion.tareas.length) * 100);
 
                       return (

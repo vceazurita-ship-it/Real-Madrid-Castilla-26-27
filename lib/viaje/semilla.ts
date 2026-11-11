@@ -96,7 +96,7 @@ const TERUEL: Semilla = {
 
   monta: (base) => {
     const citas = [
-      cita("10:30", "Salida bus", "viaje", { nota: "Lavandería" }),
+      cita("10:30", "Salida bus", "viaje", {}),
       cita("14:00", "Llegada hotel", "viaje"),
       cita("14:15", "Comida", "comida"),
       cita("14:45", "Descanso habitaciones", "descanso"),

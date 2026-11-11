@@ -1623,13 +1623,13 @@ export default function Page() {
           icon: Activity,
           tone: "text-amber-400",
           peso: 70,
-          text: `Respecto al M${etiquetaMicro(microDelta.prev.micro)}, ${evalTxt}, en ${metrics.evaluadas} tareas valoradas; el tiempo y la intensidad aún no están medidos.`,
+          text: `Respecto al M${etiquetaMicro(microDelta.prev.micro)}, ${evalTxt}, en ${metrics.evaluadas} tareas valoradas.`,
         });
       } else out.push({
         icon: Activity,
         tone: "text-amber-400",
         peso: 70,
-        text: `Respecto a${microDelta.mismosDias ? "" : "l"} ${prevM}, ${evalTxt ? `${evalTxt} y ` : ""}${cargaTxt}${aMedias ? `; ${listaDias(microDelta.faltan)}, sin medir todavía.` : microDelta.load < 0 ? ": confirmar que es la descarga buscada." : microDelta.load > 0 ? ": vigilar la recuperación." : "."}`,
+        text: `Respecto a${microDelta.mismosDias ? "" : "l"} ${prevM}, ${evalTxt ? `${evalTxt} y ` : ""}${cargaTxt}${aMedias ? `; la comparación llega hasta el último día jugado.` : microDelta.load < 0 ? ": confirmar que es la descarga buscada." : microDelta.load > 0 ? ": vigilar la recuperación." : "."}`,
       });
     }
 
