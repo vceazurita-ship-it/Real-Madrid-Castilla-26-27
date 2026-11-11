@@ -270,7 +270,7 @@ export default function GestorAlertas() {
             aria-hidden
           />
 
-          <div className="min-w-0 text-xs leading-relaxed text-amber-200">
+          <div className="min-w-0 text-[13px] leading-relaxed text-amber-200">
             <p className="font-semibold">El motor de envío no responde.</p>
 
             <p className="mt-1 text-amber-200/80">
@@ -302,7 +302,7 @@ export default function GestorAlertas() {
             aria-hidden
           />
 
-          <div className="min-w-0 text-xs leading-relaxed text-amber-200">
+          <div className="min-w-0 text-[13px] leading-relaxed text-amber-200">
             <p className="font-semibold">
               Nadie está repasando el calendario.
             </p>
@@ -335,8 +335,8 @@ export default function GestorAlertas() {
               {/* 11/11/2026 (fútbol y marketing): qué pasa y qué pasaría, en una frase. */}
               {primeraAlReactivar && nSilenciadas > 0
                 ? nSilenciadas === 1
-                  ? `La tarea está silenciada: si la reactivas, sale ${cuandoRelativo(primeraAlReactivar.cuando, ahora)}.`
-                  : `Las ${nSilenciadas} están silenciadas: al reactivarlas, la primera («${tituloLegible(primeraAlReactivar.titulo.replace(/^RMCF\s*[-–—·:]\s*/i, ""))}») sale ${cuandoRelativo(primeraAlReactivar.cuando, ahora)}.`
+                  ? `Alerta silenciada: ahora no sale ningún correo. Si la reactivas, sale ${cuandoRelativo(primeraAlReactivar.cuando, ahora)}.`
+                  : `${nSilenciadas} alertas silenciadas: ahora no sale ningún correo. Si las reactivas, la primera («${tituloLegible(primeraAlReactivar.titulo.replace(/^RMCF\s*[-–—·:]\s*/i, ""))}») sale ${cuandoRelativo(primeraAlReactivar.cuando, ahora)}.`
                 : nSilenciadas > 0
                   ? `${nSilenciadas === 1 ? "La tarea está silenciada" : `Las ${nSilenciadas} están silenciadas`}: no sale ningún correo hasta reactivarlas.`
                   : "Ninguna alerta va a salir: hay que ponerles fecha nueva."}

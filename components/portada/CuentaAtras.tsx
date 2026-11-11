@@ -113,7 +113,7 @@ export function CuentaAtras({ cuando }: { cuando: string }) {
             <span className="fuente-club text-[30px] font-bold leading-none tabular-nums sm:text-[36px]" style={{ color: "var(--rmcf-gold-ink)" }}>
               {casilla.valor}
             </span>
-            <span className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/55">
+            <span className="mt-0.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/55">
               {casilla.rotulo}
             </span>
           </span>

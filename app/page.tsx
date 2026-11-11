@@ -19,7 +19,7 @@ import { AvisoConexionGoogle } from "@/components/portada/AvisoConexionGoogle"
 import { Cifras } from "@/components/portada/Cifras"
 import { ProximoPartido } from "@/components/portada/ProximoPartido"
 import { MisTareas } from "@/components/portada/MisTareas"
-import { PanelHoy } from "@/components/portada/PanelHoy"
+import { HREFS_MESA, PanelHoy } from "@/components/portada/PanelHoy"
 import { OptaPortada } from "@/components/portada/OptaPortada"
 import { EVENTO_ABRIR as EVENTO_ABRIR_TAREAS } from "@/lib/portada/mis-tareas"
 import { useAdmin } from "@/hooks/useAdmin"
@@ -784,7 +784,7 @@ export default function Home() {
                   /* min-h (07/11/2026): sin cifras queda la foto sola, no una caja de alto cero. */
                   /* 09/11/2026: a toda la altura de la columna (antes quedaba media tarjeta vacía bajo la foto) y las cifras abajo. */
                   /* 09/11/2026 («la foto de la derecha no me gusta»): sin foto —era nuestra ciudad deportiva desde el aire, tapada por la tarjeta y sin nada que ver con el rival—. Panel propio en azul del club, siempre oscuro (colores en línea: igual en modo día), con el escudo del rival de marca de agua y las cifras directamente encima. */
-                  className="group relative flex min-h-[220px] flex-col justify-end overflow-hidden rounded-[28px] xl:min-h-[320px] xl:self-stretch"
+                  className="group relative flex min-h-[220px] flex-col justify-end overflow-hidden rounded-[28px] xl:min-h-[240px] xl:self-start"
                   style={{
                     background:
                       "radial-gradient(120% 80% at 100% 0%, rgba(216,180,90,.18), transparent 55%), radial-gradient(90% 70% at 0% 100%, rgba(37,99,235,.22), transparent 60%), linear-gradient(160deg, #13284F 0%, #0B1833 55%, #060D1C 100%)",
@@ -1159,13 +1159,13 @@ export default function Home() {
               <SectionHeader
                 icon={LayoutGrid}
                 title="Áreas de trabajo"
-                caption="Las seis que más se usan; el resto, en «Ver todas las áreas»"
+                caption="Otras seis de uso frecuente; el resto, en «Ver todas las áreas»"
               />
 
               {/* Las 46 repetían el menú lateral (30/10/2026): el buscador y las
                   seis que más se usan; el resto detrás de «Ver todas las áreas».
                   Al buscar o filtrar salen todas las que casan. */}
-              <ModulesExplorer limite={verAreas ? undefined : 6} />
+              <ModulesExplorer limite={verAreas ? undefined : 6} excluir={HREFS_MESA} />
 
               {!verAreas && (
                 <button

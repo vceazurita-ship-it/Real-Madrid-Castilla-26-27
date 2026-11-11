@@ -283,19 +283,14 @@ export default function SeasonWorkspace({ area }: Props) {
                   aria-expanded={navOpen}
                   className="mb-4 flex w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-[#11161D] px-4 py-3 text-left xl:max-w-[380px]"
                 >
-                  <span className="min-w-0">
-                    <span className="block text-xs uppercase tracking-wider text-white/40">
-                      Semana
-                    </span>
-
-                    <span className="block truncate font-medium">
-                      {selectedWeek?.week ?? "Selecciona una semana"}
-                    </span>
+                  {/* 11/11/2026: sin repetir «Semana N» (ya está en la tarjeta de la semana). */}
+                  <span className="min-w-0 text-sm text-white/65">
+                    Otras semanas
                   </span>
 
                   <span className="inline-flex shrink-0 items-center gap-2 text-sm text-[#C8A96B]">
                     <ListFilter size={16} />
-                    {navOpen ? "Ocultar la lista" : "Buscar otra semana"}
+                    {navOpen ? "Ocultar la lista" : "Buscar una semana"}
                   </span>
                 </button>
 

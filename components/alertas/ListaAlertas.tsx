@@ -400,7 +400,7 @@ export default function ListaAlertas({
                 } else if (alerta.envios > 0 && fechaValida(alerta.ultimoEnvio)) {
                   /* 11/11/2026 (marketing): la caducada dice desde cuándo y por qué. */
                   principal = caducada(alerta)
-                    ? `Caducada: salió por última vez el ${fechaDeSalida(alerta.ultimoEnvio)} y no tiene fecha nueva`
+                    ? `Caducada · se envió por última vez el ${fechaDeSalida(alerta.ultimoEnvio)}`
                     : `Silenciada · enviada por última vez el ${fechaDeSalida(alerta.ultimoEnvio)}`;
                 } else {
                   principal =
@@ -569,7 +569,7 @@ export default function ListaAlertas({
                     }`}
                   >
                     <Pencil className="h-3.5 w-3.5" aria-hidden />
-                    {caducada(alerta) ? "Editar y ponerle fecha" : "Editar"}
+                    {caducada(alerta) ? "Ponerle fecha nueva" : "Editar"}
                   </button>
                 )}
 
@@ -596,7 +596,7 @@ export default function ListaAlertas({
                         onEditar(alerta);
                       }}
                       disabled={bloqueada}
-                      className="inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-[12.5px] text-white/70 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-40"
+                      className="inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-[13px] text-white/70 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-40"
                     >
                       <Pencil className="h-3.5 w-3.5" aria-hidden />
                       Editar
@@ -610,7 +610,7 @@ export default function ListaAlertas({
                       onEnviarAhora(alerta);
                     }}
                     disabled={bloqueada}
-                    className="inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-[12.5px] text-white/70 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-40"
+                    className="inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-[13px] text-white/70 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-40"
                   >
                     <Send className="h-3.5 w-3.5" aria-hidden />
                     Enviar ahora
@@ -624,7 +624,7 @@ export default function ListaAlertas({
                         onAlternarActiva(alerta);
                       }}
                       disabled={bloqueada}
-                      className="inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-[12.5px] text-white/70 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-40"
+                      className="inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-[13px] text-white/70 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-40"
                     >
                       <BellOff className="h-3.5 w-3.5" aria-hidden />
                       Silenciar
@@ -638,7 +638,7 @@ export default function ListaAlertas({
                       setBorrando(alerta.id);
                     }}
                     disabled={bloqueada}
-                    className="ml-auto inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-[12.5px] text-red-300/80 transition hover:bg-red-500/10 hover:text-red-300 disabled:opacity-40"
+                    className="ml-auto inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-[13px] text-red-300/80 transition hover:bg-red-500/10 hover:text-red-300 disabled:opacity-40"
                   >
                     <Trash2 className="h-3.5 w-3.5" aria-hidden />
                     Borrar…
@@ -686,7 +686,7 @@ export default function ListaAlertas({
               abrirlo, «Caducadas (1)» parecía un error. */}
           {/* 10/11/2026: «Caducadas (1)» y, en cada tarjeta, su fecha y «Editar y ponerle fecha»; la explicación larga sobraba. */}
           <summary className="cursor-pointer select-none rounded-xl px-2 py-2 text-[13px] leading-relaxed text-white/60 transition hover:text-white">
-            Caducadas ({caducadas.length}) · {caducadas.length === 1 ? "no volvería a salir aunque se reactive" : "no volverían a salir aunque se reactiven"}
+            Caducadas ({caducadas.length}) · necesitan fecha nueva para volver a salir
           </summary>
 
           <div className="mt-2 space-y-2.5 @3xl:grid @3xl:grid-cols-2 @6xl:grid-cols-3 @3xl:items-stretch @3xl:gap-2.5 @3xl:space-y-0">

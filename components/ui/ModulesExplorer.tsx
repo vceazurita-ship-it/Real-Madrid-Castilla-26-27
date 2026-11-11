@@ -46,7 +46,7 @@ function ModuleCard({ module }: { module: AppModule }) {
       </span>
 
       <span className="min-w-0 flex-1">
-        <span className="block text-[9px] font-semibold uppercase tracking-[0.24em] text-[color:var(--accent)]">
+        <span className="block text-[11px] font-semibold uppercase tracking-[0.24em] text-[color:var(--accent)]">
           {area.label}
         </span>
 
@@ -69,7 +69,7 @@ function ModuleCard({ module }: { module: AppModule }) {
  * usadas; las 46 repetían el menú lateral. Al buscar o filtrar salen todas
  * las que casan.
  */
-export default function ModulesExplorer({ limite }: { limite?: number } = {}) {
+export default function ModulesExplorer({ limite, excluir }: { limite?: number; excluir?: string[] } = {}) {
   const [query, setQuery] = useState("");
   const [area, setArea] = useState<AreaKey | null>(null);
 
@@ -90,7 +90,10 @@ export default function ModulesExplorer({ limite }: { limite?: number } = {}) {
   }, [area, deferredQuery, usage]);
 
   const recortado = Boolean(limite) && !area && !deferredQuery.trim();
-  const vistas = recortado ? results.slice(0, limite) : results;
+  /* Los accesos de la «Mesa de trabajo» no se repiten en la vista recortada (11/11/2026). */
+  const vistas = recortado
+    ? results.filter((module) => !excluir?.includes(module.href)).slice(0, limite)
+    : results;
 
   /* Recuento por área, para no ofrecer filtros que dejarían la rejilla vacía. */
   const countByArea = useMemo(() => {

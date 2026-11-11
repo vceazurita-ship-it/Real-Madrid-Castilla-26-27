@@ -408,7 +408,7 @@ function Cajon({ alertas, alCerrar }: { alertas: Alerta[]; alCerrar: () => void 
       >
         <div className="flex items-start justify-between gap-3 border-b border-white/[0.08] px-5 py-4 sm:px-6">
           <div className="min-w-0">
-            <p className="text-[10px] uppercase tracking-[0.32em] text-[#C8A96B]">
+            <p className="text-[11px] uppercase tracking-[0.32em] text-[#C8A96B]">
               Real Madrid Castilla
             </p>
 
@@ -457,7 +457,7 @@ function Columna({
   return (
     <section className="min-w-0">
       <p
-        className="mb-2.5 flex items-center gap-2 text-[10px] uppercase tracking-[0.2em]"
+        className="mb-2.5 flex items-center gap-2 text-[11px] uppercase tracking-[0.2em]"
         style={{ color: chipInk(color) }}
       >
         <Icono className="h-3.5 w-3.5" />
