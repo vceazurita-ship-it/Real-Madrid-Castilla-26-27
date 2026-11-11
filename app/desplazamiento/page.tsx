@@ -213,16 +213,16 @@ function pendientesDe(viaje: Desplazamiento): Pendiente[] {
 
   const lista: Pendiente[] = [
     { clave: "hora", rotulo: "Hora del partido", hecho: Boolean(viaje.hora), seccion: "viaje-partido" },
-    { clave: "estadio", rotulo: "Estadio", hecho: Boolean(viaje.estadio.nombre.trim()), seccion: "viaje-estadio" },
-    { clave: "direccion", rotulo: "Dirección del estadio", hecho: Boolean(viaje.estadio.direccion.trim()), seccion: "viaje-estadio" },
-    { clave: "plano", rotulo: "Plano del estadio", hecho: Boolean(viaje.estadio.plano?.url), seccion: "viaje-estadio" },
+    { clave: "estadio", rotulo: "Nombre", hecho: Boolean(viaje.estadio.nombre.trim()), seccion: "viaje-estadio" },
+    { clave: "direccion", rotulo: "Dirección", hecho: Boolean(viaje.estadio.direccion.trim()), seccion: "viaje-estadio" },
+    { clave: "plano", rotulo: "Plano", hecho: Boolean(viaje.estadio.plano?.url), seccion: "viaje-estadio" },
     { clave: "ruta", rotulo: "Ruta del autobús", hecho: Boolean(viaje.estadio.ruta?.url), seccion: "viaje-estadio" },
   ];
 
   if (viaje.conHotel) {
     lista.push(
-      { clave: "hotel", rotulo: "Hotel", hecho: Boolean(viaje.hotel.nombre.trim()), seccion: "viaje-hotel" },
-      { clave: "foto", rotulo: "Foto del hotel", hecho: Boolean(viaje.hotel.foto?.url), seccion: "viaje-hotel" },
+      { clave: "hotel", rotulo: "Nombre", hecho: Boolean(viaje.hotel.nombre.trim()), seccion: "viaje-hotel" },
+      { clave: "foto", rotulo: "Foto", hecho: Boolean(viaje.hotel.foto?.url), seccion: "viaje-hotel" },
       { clave: "ruta-hotel", rotulo: "Ruta hotel · estadio", hecho: Boolean(viaje.hotel.ruta?.url), seccion: "viaje-hotel" },
     );
   }
@@ -237,10 +237,26 @@ function pendientesDe(viaje: Desplazamiento): Pendiente[] {
 
 const irA = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
 
+const SECCIONES_VIAJE = ["viaje-partido", "viaje-estadio", "viaje-hotel", "viaje-horario", "viaje-avisos"] as const;
+
+const NOMBRE_SECCION: Record<(typeof SECCIONES_VIAJE)[number], string> = {
+  "viaje-partido": "Partido",
+  "viaje-estadio": "Estadio",
+  "viaje-hotel": "Hotel",
+  "viaje-horario": "Horario",
+  "viaje-avisos": "Avisos",
+};
+
 function ListaPendiente({ viaje, onIr = irA }: { viaje: Desplazamiento; onIr?: (id: string) => void }) {
   const lista = pendientesDe(viaje);
   const hechos = lista.filter((p) => p.hecho).length;
   const completo = hechos === lista.length;
+  /* 11/11/2026: «Hecho» sólo nombra los bloques completos; antes salía «estadio»
+     hecho al lado de «Falta: Estadio · dirección, plano…». */
+  const bloquesHechos = SECCIONES_VIAJE.filter((sec) => {
+    const del = lista.filter((p) => p.seccion === sec);
+    return del.length > 0 && del.every((p) => p.hecho);
+  });
 
   return (
     <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-3">
@@ -265,13 +281,13 @@ function ListaPendiente({ viaje, onIr = irA }: { viaje: Desplazamiento; onIr?: (
           <p className="mt-2 text-[11px] font-semibold text-white/70">Falta:</p>
           <div className="mt-1 flex flex-col gap-1.5">
             {/* Agrupado por bloque (09/11/2026): estadio, hotel, horario… cada grupo con su enlace al campo. */}
-            {(["viaje-partido", "viaje-estadio", "viaje-hotel", "viaje-horario", "viaje-avisos"] as const)
+            {SECCIONES_VIAJE
               .map((seccion) => ({ seccion, faltan: lista.filter((p) => !p.hecho && p.seccion === seccion) }))
               .filter((g) => g.faltan.length > 0)
               .map((g) => (
                 <div key={g.seccion} className="flex flex-wrap items-center gap-1.5">
                   <span className="w-16 shrink-0 text-[11px] font-semibold text-white/55">
-                    {{ "viaje-partido": "Partido", "viaje-estadio": "Estadio", "viaje-hotel": "Hotel", "viaje-horario": "Horario", "viaje-avisos": "Avisos" }[g.seccion]}
+                    {NOMBRE_SECCION[g.seccion]}
                   </span>
                   {g.faltan.map((p) => (
                     <button
@@ -288,10 +304,10 @@ function ListaPendiente({ viaje, onIr = irA }: { viaje: Desplazamiento; onIr?: (
                 </div>
               ))}
           </div>
-          {hechos > 0 && (
+          {bloquesHechos.length > 0 && (
             <p className="mt-2 flex flex-wrap items-center gap-1 text-[11px] text-white/40">
               <CheckCircle2 size={12} className="text-emerald-400/70" />
-              Hecho: {lista.filter((p) => p.hecho).map((p) => p.rotulo.toLowerCase()).join(", ")}
+              Completo: {bloquesHechos.map((sec) => NOMBRE_SECCION[sec].toLowerCase()).join(", ")}
             </p>
           )}
         </>
@@ -1018,11 +1034,19 @@ export default function DesplazamientoPage() {
                  delante, el titular y el botón de vista previa y exportar. */
               aside={
                 <div className="flex flex-wrap items-center gap-2">
-                  <SaveState
-                    status={status}
-                    localOnly={localOnly}
-                    savedAt={lastSavedAt}
-                  />
+                  {/* 11/11/2026: un solo estado. Con el viaje aún propuesto, la cabecera no
+                      dice «Guardado 19:25» (era la hora de otro viaje del almacén). */}
+                  {viaje && !guardado && status === "saved" && !localOnly ? (
+                    <span className="rounded-md px-1.5 py-0.5 text-[11px] text-white/55" title="El horario propuesto se guarda en cuanto cambies algo">
+                      Propuesto · se guarda con el primer cambio
+                    </span>
+                  ) : (
+                    <SaveState
+                      status={status}
+                      localOnly={localOnly}
+                      savedAt={lastSavedAt}
+                    />
+                  )}
                   {viaje && (
                     <Button tone="primary" icon={Eye} onClick={() => irA("viaje-vista")}>
                       Vista previa y exportar
@@ -1236,8 +1260,21 @@ export default function DesplazamientoPage() {
                       !enCasa && viaje.conHotel && viaje.hotel.nombre.trim()
                         ? ["Hotel", [viaje.hotel.nombre, viaje.hotel.entrada].filter((x) => x.trim()).join(" · ")]
                         : null,
+                      /* 11/11/2026: las horas de cada día (de la primera a la última cita), para leerlo sin bajar. */
                       citas > 0
-                        ? ["Horario", `${dias.length} ${dias.length === 1 ? "día" : "días"} · ${citas} ${citas === 1 ? "cita" : "citas"}${guardado ? "" : " · propuesto, sin guardar"}`]
+                        ? [
+                            guardado ? "Horario" : "Horario propuesto",
+                            dias
+                              .filter((d) => d.citas.length > 0)
+                              .map((d) => {
+                                const orden = [...d.citas].sort((a, b) => a.minuto - b.minuto);
+                                const dia = diaLargo(d.fecha).split(" ")[0].toLowerCase();
+                                const desde = aHora(orden[0].minuto);
+                                const hasta = aHora(orden[orden.length - 1].minuto);
+                                return `${dia} ${desde}${hasta !== desde ? `–${hasta}` : ""}`;
+                              })
+                              .join(" · ") + ` · ${citas} ${citas === 1 ? "cita" : "citas"}`,
+                          ]
                         : null,
                     ].filter((f): f is string[] => f !== null);
 
@@ -1266,7 +1303,7 @@ export default function DesplazamientoPage() {
                     >
                     <Panel
                       title="El partido"
-                      subtitle="La cabecera que llevan las tres diapositivas y la hoja del horario"
+                      subtitle={`La cabecera que llevan ${titulosDossier(viaje).length === 1 ? "la diapositiva" : `las ${titulosDossier(viaje).length} diapositivas`} del dossier y la hoja del horario`}
                       icon={Shield}
                       action={
                         /* A quién se viaja, con su escudo: el desplegable de
@@ -1472,7 +1509,8 @@ export default function DesplazamientoPage() {
                             !viaje.estadio.plano?.url &&
                             !viaje.estadio.ruta?.url)
                         }
-                        detalle={enCasa ? undefined : "vacío: dirección, distancia, plano y ruta"}
+                        titulo={enCasa ? undefined : "Añadir los datos del estadio"}
+                        detalle={enCasa ? undefined : "dirección, distancia, plano y ruta"}
                       >
                       <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                         <Field
@@ -1558,7 +1596,7 @@ export default function DesplazamientoPage() {
                             !viaje.hotel.ruta?.url
                           }
                           titulo="Añadir el hotel"
-                          detalle="aún vacío: nombre, dirección, teléfono, entrada y fotos"
+                          detalle="nombre, dirección, teléfono, entrada y fotos"
                         >
                         <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                           <Field
