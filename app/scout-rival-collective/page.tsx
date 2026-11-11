@@ -374,7 +374,7 @@ export default function ScoutRivalCollective() {
     const lado = String(rivalActivo?.LOCAL_VISITANTE ?? "").trim().toLowerCase();
 
     return [
-      jornada ? (/^\d+$/.test(jornada) ? `J${jornada}` : jornada) : "",
+      jornada ? (/^\d+$/.test(jornada) ? `Nuestra J${jornada}` : jornada) : "",
       fechaConDia(fechaVista),
       lado.startsWith("l") ? "en casa" : lado.startsWith("v") ? "fuera" : "",
     ]
@@ -731,9 +731,38 @@ export default function ScoutRivalCollective() {
     return ALL_FIELDS.filter((f) => !esVacio(valorDe(f.campo))).length;
   }, [rivalActivo, valorDe]);
 
+  /*
+  | 11/11/2026 (marketing): un campo a medias («Tratan de ofrecer fuera», una
+  | frase que acaba en dos puntos) o que repite palabra por palabra el de una
+  | tarjeta anterior no se pinta para el cuerpo técnico; el analista lo ve todo.
+  */
+  const repetidos = useMemo(() => {
+    const vistos = new Set<string>();
+    const fuera = new Set<string>();
+
+    for (const f of ALL_FIELDS) {
+      const clave = sinTildesBajo(valorDe(f.campo)).replace(/\s+/g, " ").trim();
+
+      if (clave.length < 25) continue;
+      if (vistos.has(clave)) fuera.add(f.campo);
+      else vistos.add(clave);
+    }
+
+    return fuera;
+  }, [valorDe]);
+
   const tiene = useCallback(
-    (f: FieldDef) => !esVacio(valorDe(f.campo)),
-    [valorDe]
+    (f: FieldDef) => {
+      const v = valorDe(f.campo);
+
+      if (esVacio(v)) return false;
+      if (modoEdicion || admin === true) return true;
+
+      const medias = v.trim().split(/\s+/).length < 3 || /:\s*$/.test(v.trim());
+
+      return !medias && !repetidos.has(f.campo);
+    },
+    [valorDe, modoEdicion, admin, repetidos],
   );
 
   /* Una línea de conclusión sin la viñeta del principio. */
@@ -850,6 +879,9 @@ export default function ScoutRivalCollective() {
       const porque = POR_QUE_DEL_CAMPO[campo];
 
       const varios = sonVarios(texto);
+
+      /* Sólo un nombre y sin comportamiento: para el cuerpo técnico, no sale (11/11/2026, fútbol). */
+      if (soloNombre && admin !== true) continue;
 
       if (soloNombre && porque)
         lista.push({
@@ -1409,7 +1441,6 @@ export default function ScoutRivalCollective() {
                   <label className="relative inline-flex max-w-full cursor-pointer items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1 font-semibold text-white/80 transition hover:border-[#C8A96B]/50">
                     <CalendarDays size={14} className="shrink-0 text-white/45" />
                     {/* «Nuestra jornada» (07/11/2026): la tira de abajo cuenta las suyas y la misma J no era el mismo partido. */}
-                    <span className="shrink-0 text-xs font-medium uppercase tracking-wider text-white/45">Nuestra jornada</span>
                     <span className="min-w-0 truncate">{lineaPartido}</span>
                     <ChevronDown size={14} className="shrink-0 text-white/45" data-export-hide />
                     <select
@@ -1589,7 +1620,7 @@ export default function ScoutRivalCollective() {
                         <b className="font-semibold text-emerald-300">Qué hacemos{d.deducido ? " (se deduce del campo)" : ""}:</b> {conSiglas(sinPortero(sinErratas(conPlantilla(d.queHacemos, nombresRival, fichasRival))))}
                       </p>
                     )}
-                    {contrasteDuelos(conPlantilla(d.texto, nombresRival, fichasRival)) && (
+                    {admin === true && contrasteDuelos(conPlantilla(d.texto, nombresRival, fichasRival)) && (
                       <p className="mt-1 text-[12px] leading-5 text-[#C8A96B]">{contrasteDuelos(conPlantilla(d.texto, nombresRival, fichasRival))}</p>
                     )}
                   </li>

@@ -124,7 +124,8 @@ export default function SeasonHeader({
             /* 10/11/2026 (marketing): fuera «sin subidas desde la semana 9»; lo último
                subido va como texto secundario en la semana vacía, con su enlace. */
             const partes = [
-              stats.seasonWeek !== null ? `Semana ${stats.seasonWeek} de ${stats.seasonTotal}` : currentWeek?.week ?? "",
+              /* La semana en curso ya la dice la tarjeta de la semana: aquí sólo la temporada. */
+              stats.seasonWeek !== null ? `Temporada: ${stats.seasonTotal} semanas` : "",
               material ? `${material} en ${stats.completed} de ${stats.totalWeeks} semanas` : "",
               currentWeek && weekHasFiles(currentWeek) ? "esta semana ya tiene material" : "",
             ].filter(Boolean);
@@ -201,8 +202,8 @@ export default function SeasonHeader({
                 const seguidas = fin - desde;
                 if (seguidas < 2 || desde < 0) return null;
                 return (
-                  <span className="basis-full font-medium text-white/80 sm:basis-auto">
-                    {seguidas} semanas seguidas sin material (de la {desde + 2} a la {fin + 1})
+                  <span className="basis-full rounded-lg border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2.5 py-1 text-[12px] font-medium text-white/85 sm:basis-auto">
+                    {seguidas} semanas sin subir material: de la {desde + 2} a la {fin + 1}
                   </span>
                 );
               })()}

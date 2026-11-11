@@ -187,7 +187,7 @@ function Ventana({
               <AlertTriangle className="h-4 w-4 text-red-300" />
             </span>
             <div className="min-w-0">
-              <p className="text-[10px] uppercase tracking-[0.32em] text-[#C8A96B]">Mis tareas</p>
+              <p className="text-[11px] uppercase tracking-[0.32em] text-[#C8A96B]">Mis tareas</p>
               <h2 className="mt-1 text-lg font-semibold text-white">
                 {vacio ? "Todo al día" : pendientes.length === 1 ? "Te queda una tarea de días anteriores" : `Te quedan ${pendientes.length} tareas de días anteriores`}
               </h2>

@@ -64,6 +64,9 @@ const MESA: Herramienta[] = [
   { href: "/individual", titulo: "Individual", desc: "Fichas y seguimiento", icono: User },
 ];
 
+/** Los accesos fijos de la mesa: la portada no los repite en «Áreas de trabajo». */
+export const HREFS_MESA = MESA.map((h) => h.href);
+
 const TITULOS = new Map(MODULES.map((m) => [m.href, { titulo: m.title, icono: m.icon }]));
 
 /** «hace 5 min», «hace 3 h», «ayer», «hace 4 días». */
@@ -206,7 +209,7 @@ function TuDia() {
               </div>
 
               {t.prioridad === "alta" && !t.hecha && (
-                <span className="shrink-0 rounded-full bg-red-500/15 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-red-300">Alta</span>
+                <span className="shrink-0 rounded-full bg-red-500/15 px-1.5 py-px text-[11px] font-semibold uppercase tracking-wide text-red-300">Alta</span>
               )}
             </li>
           ))}

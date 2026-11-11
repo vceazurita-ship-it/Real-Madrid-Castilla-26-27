@@ -232,7 +232,7 @@ export function DatosEstado() {
             avisa de que se renueva); «Actualizando…» solo si no hay fecha. */}
         {estado.masVieja !== null && ahora > 0
           ? `Datos ${haceCuanto(estado.masVieja, ahora)}`
-          : hayBajada
+          : hayBajada && !cansado
             ? "Actualizando…"
             : acabadoEn !== null && ahora > 0
               ? actualizado(Math.min(acabadoEn, ahora))

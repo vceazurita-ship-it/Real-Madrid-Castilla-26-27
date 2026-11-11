@@ -663,9 +663,12 @@ function ReadText({
   separarPorPuntoYComa = false,
   vacio = "Sin escribir todavía. Se rellena con «Editar informe».",
   apartados = false,
+  titulo,
 }: {
   value: unknown;
   separarPorPuntoYComa?: boolean;
+  /* El título de la sección: el botón de plegar lo nombra («Desplegar Con balón»). */
+  titulo?: string;
   vacio?: string;
   /* Las líneas en mayúsculas son títulos de apartado y las siglas llevan su significado. */
   apartados?: boolean;
@@ -719,7 +722,7 @@ function ReadText({
         onClick={() => setTodo(true)}
         className="mp-no-print mt-2 text-[13px] font-semibold text-[#C8A96B] hover:underline print:hidden"
       >
-        Ver {plegadas} líneas más
+        {titulo ? `Desplegar «${titulo}» (${plegadas} más)` : `Ver ${plegadas} líneas más`}
       </button>
     ) : null;
 
@@ -872,6 +875,7 @@ function Bloque({
           separarPorPuntoYComa={separarPorPuntoYComa}
           vacio={vacio}
           apartados={apartados}
+          titulo={titulo}
         />
       )}
     </div>

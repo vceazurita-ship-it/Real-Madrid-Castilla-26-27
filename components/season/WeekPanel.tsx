@@ -425,7 +425,7 @@ export default function WeekPanel({
           <div className="space-y-3">
           {/* 11/11/2026 (marketing): primero qué pasa, en una línea de titular; debajo la única acción y lo último subido. */}
           <h3 className="text-lg font-semibold text-white/90">
-            {isCurrentWeek ? "Esta semana aún no tiene material" : `La ${week.week.toLowerCase()} aún no tiene material`}
+            {isCurrentWeek ? "Esta semana no hay material" : `La ${week.week.toLowerCase()} aún no tiene material`}
           </h3>
           {/*
           | 30/10/2026: una fila —qué pasa y el único «Subir»— en vez del bloque
@@ -439,7 +439,7 @@ export default function WeekPanel({
             id="zona-subida"
             compacta
             /* 07/11/2026 (los tres jueces): sin frase negativa; sólo la invitación a subir. */
-            estado={`Sube aquí el material de la ${week.week.toLowerCase()}`}
+            estado="Elige los archivos"
             boton={isCurrentWeek ? "Subir el material de esta semana" : "Subir"}
             type="todo"
             maxFiles={20}
@@ -455,7 +455,7 @@ export default function WeekPanel({
             }}
           />
           {hayUltimo && ultimaConArchivos && onSelectWeek ? (
-            <p className="px-1 text-[13px] text-white/70">
+            <p className="px-1 text-[13px] text-white/60">
               Lo último subido:{" "}
               <button
                 type="button"

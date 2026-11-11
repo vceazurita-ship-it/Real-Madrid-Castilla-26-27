@@ -526,8 +526,8 @@ export function ProximoPartido() {
                     «y 2 más»); en el móvil, el primero y cuántos quedan, en un renglón. */}
                 {/* 11/11/2026 (fútbol): el contenido entero también en el móvil, sin «+2»; si no cabe, baja de renglón. */}
                 <span className="min-w-0 break-words leading-snug">
-                  Hoy {diaDeHoy.rotulo}
-                  <span className="font-medium"> · {sesionDeHoy.join(" · ")}</span>
+                  {/* El día (MD-n) ya está en la etiqueta de la cabecera: aquí sólo la sesión. */}
+                  {sesionDeHoy.join(" · ")}
                 </span>
                 <ChevronRight className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
               </button>
@@ -701,7 +701,7 @@ export function ProximoPartido() {
           */
           return (
             <div className="mt-4 space-y-2">
-              {hoyToca && deHoy.length > 0 && fila(`Hoy ${hoyToca.rotulo} · lo que toca`, deHoy)}
+              {hoyToca && deHoy.length > 0 && fila("Lo que toca hoy", deHoy)}
 
               {delRival.length > 0 && fila(hoyToca && deHoy.length > 0 ? "Más del rival" : "Del rival", delRival)}
             </div>
