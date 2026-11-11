@@ -113,22 +113,25 @@ export default function ApuestasPage() {
      primera. Sin apuestas, la descripción de siempre. */
   /* 11/11/2026 (marketing): una sola línea con cifra y base; antes la cabecera,
      la línea de contexto y el panel decían tres veces «una apuesta abierta». */
+  /* 11/11/2026 (marketing, 2.ª vuelta): la cifra de contexto sale UNA vez,
+     aquí. La fecha y la cuenta atrás van en la tarjeta, que es donde se decide. */
   const titular =
     vivas.length > 0
       ? [
           vivas.length === 1 ? "1 apuesta abierta" : `${vivas.length} apuestas abiertas`,
-          estadoQuiniela === "listo" ? `${juegan} pueden apostar` : "",
-          `${vivas.length === 1 ? "se comprueba" : "la primera se comprueba"} el ${fechaLarga(vivas[0].comprobar)}`,
+          estadoQuiniela === "listo" ? `pueden mojarse los ${juegan} de la quiniela` : "",
         ]
           .filter(Boolean)
           .join(" · ")
       : "Uno tira una predicción y dice qué se juega. Los demás se ponen a favor o en contra, y el día señalado se comprueba quién tenía razón.";
 
+  /* Lista de quienes pueden apostar: la de la quiniela o, si no ha llegado, la de siempre. */
+  const quienesJuegan = quiniela.jugadores.length > 0 ? quiniela.jugadores : JUEGAN_POR_DEFECTO;
 
-  /* Con apuestas abiertas, el acceso lo dice con el dato y el verbo. */
+  /* Con apuestas abiertas, el acceso sólo dice el verbo: la cifra ya está en la cabecera. */
   const tituloAcceso =
     vivas.length > 0
-      ? `${vivas.length === 1 ? "Una apuesta abierta" : `${vivas.length} apuestas abiertas`}: entra y ponte a favor o en contra`
+      ? "Entra y ponte a favor o en contra"
       : estado === "listo" && doc.apuestas.length === 0
         ? "Aún no hay apuestas: entra y lanza la primera"
         : "Entra para apostar";
@@ -199,20 +202,8 @@ export default function ApuestasPage() {
               </p>
             )}
 
-            {/* ------------------------ CÓMO FUNCIONA ------------------ */}
-
-            <div className="mt-5">
-              {estado === "listo" && doc.apuestas.length > 0 ? (
-                /* Con una sola apuesta, abierto (10/11/2026): son tres líneas y explican la tarjeta. */
-                /* Plegado (11/11/2026, marketing): abierto empujaba la apuesta, que es lo que se viene a ver. */
-                <details className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/70">
-                  <summary className="cursor-pointer text-[12px] font-semibold uppercase tracking-[0.14em] text-white/65">
-                    Cómo funciona
-                  </summary>
-                  <div className="mt-2">{pasos}</div>
-                </details>
-              ) : null}
-            </div>
+            {/* «Cómo funciona» baja al pie y en una línea (11/11/2026, marketing, 2.ª vuelta):
+                arriba, aun plegado, dejaba la apuesta bajo el pliegue del móvil. */}
 
             {/* El acceso en la mitad de arriba, también sin apuestas: es la
                 única acción; el ejemplo va plegado debajo (08/11/2026, marketing). */}
@@ -318,7 +309,7 @@ export default function ApuestasPage() {
                       <Tarjeta
                         key={apuesta.id}
                         apuesta={apuesta}
-                        juegan={estadoQuiniela === "listo" ? juegan : 0}
+                        juegan={estadoQuiniela === "listo" ? quienesJuegan : []}
                         yo={yo}
                         hoy={hoy}
                         ocupado={estado === "guardando"}
@@ -345,7 +336,7 @@ export default function ApuestasPage() {
                       <Tarjeta
                         key={apuesta.id}
                         apuesta={apuesta}
-                        juegan={estadoQuiniela === "listo" ? juegan : 0}
+                        juegan={estadoQuiniela === "listo" ? quienesJuegan : []}
                         yo={yo}
                         hoy={hoy}
                         ocupado={estado === "guardando"}
@@ -408,6 +399,18 @@ export default function ApuestasPage() {
                 )}
               </Panel>
             </div>
+            )}
+
+            {/* ------------------------ CÓMO FUNCIONA ------------------ */}
+
+            {estado === "listo" && doc.apuestas.length > 0 && (
+              <details className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2 text-sm text-white/70">
+                <summary className="flex min-h-11 cursor-pointer items-center gap-2 text-[13px] text-white/70">
+                  <span className="font-semibold uppercase tracking-[0.14em] text-white/80">Cómo funciona</span>
+                  <span className="max-sm:hidden">· lanzas, los demás se mojan y el día señalado se da el veredicto</span>
+                </summary>
+                <div className="mb-2 mt-1">{pasos}</div>
+              </details>
             )}
 
           </div>
@@ -535,10 +538,13 @@ function Lanzar({ guarda, hoy, ocupado, onCierra }: { guarda: Guarda; hoy: strin
 
 const CHIP: Record<EstadoApuesta, { texto: (a: Apuesta, hoy: string) => string; clase: string }> = {
   abierta: {
+    /* Con la cuenta atrás (11/11/2026, marketing): la fecha sola no metía prisa. */
     texto: (a, hoy) => {
       const dias = diasHasta(a.comprobar, hoy);
 
-      return dias === 1 ? "Se comprueba mañana" : `Se comprueba el ${fechaLarga(a.comprobar)}`;
+      return dias === 1
+        ? "Se comprueba mañana"
+        : `Se comprueba el ${fechaLarga(a.comprobar)} · faltan ${dias} días`;
     },
     clase: "border-[#C8A96B]/30 bg-[#C8A96B]/10 text-[#C8A96B]",
   },
@@ -558,15 +564,15 @@ const CHIP: Record<EstadoApuesta, { texto: (a: Apuesta, hoy: string) => string; 
 
 function Tarjeta({
   apuesta,
-  juegan = 0,
+  juegan = [],
   yo,
   hoy,
   ocupado,
   pide,
 }: {
   apuesta: Apuesta;
-  /** Cuántos pueden apostar (los de la quiniela): la base del «1 de 11». 0 si no se sabe. */
-  juegan?: number;
+  /** Quiénes pueden apostar (los de la quiniela): la base del «faltan 9 de 11». Vacío si no se sabe. */
+  juegan?: string[];
   yo: string | null;
   hoy: string;
   ocupado: boolean;
@@ -635,7 +641,7 @@ function Tarjeta({
         </div>
 
         <span
-          className={`inline-flex shrink-0 items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${chip.clase}`}
+          className={`inline-flex max-w-full items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] tabular-nums ${chip.clase}`}
         >
           {chip.texto(apuesta, hoy)}
         </span>
@@ -654,6 +660,55 @@ function Tarjeta({
 
       {/* ---------------------- los bandos ---------------------- */}
 
+      {/* Los dos botones, grandes y a la vista (11/11/2026, marketing, 2.ª vuelta):
+          antes eran un «Me apunto» / «Lo dudo» de 11 px escondido en cada bando. */}
+      {puedoPosicionarme && (
+        <div className="grid grid-cols-2 gap-2">
+          {(["favor", "contra"] as const).map((lado) => {
+            const activo = miPostura === lado;
+            const Icono = lado === "favor" ? ThumbsUp : ThumbsDown;
+            const tono =
+              lado === "favor"
+                ? activo
+                  ? "border-emerald-400/60 bg-emerald-400/20 text-emerald-300"
+                  : "border-emerald-400/30 bg-emerald-400/10 text-emerald-300 hover:bg-emerald-400/15"
+                : activo
+                  ? "border-rose-400/60 bg-rose-400/20 text-rose-300"
+                  : "border-rose-400/30 bg-rose-400/10 text-rose-300 hover:bg-rose-400/15";
+
+            return (
+              <button
+                key={lado}
+                type="button"
+                disabled={ocupado}
+                aria-pressed={activo}
+                onClick={() => postura(lado)}
+                className={`inline-flex min-h-12 flex-col items-center justify-center rounded-xl border px-3 py-1.5 text-[15px] font-semibold transition disabled:cursor-wait disabled:opacity-60 ${tono}`}
+              >
+                <span className="inline-flex items-center gap-1.5">
+                  <Icono size={16} aria-hidden /> {lado === "favor" ? "A favor" : "En contra"}
+                </span>
+                {activo && <span className="text-[11px] font-medium opacity-80">Vas aquí · pulsa para quitarte</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Sin sesión, el camino a los botones en la propia tarjeta. */}
+      {!yo && estado === "abierta" && (
+        <a
+          href="#acceso-apuestas"
+          className="inline-flex min-h-11 items-center justify-center rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 text-[14px] font-semibold text-[#C8A96B] hover:bg-[#C8A96B]/15"
+        >
+          Entra para ponerte a favor o en contra
+        </a>
+      )}
+
+      {soyAutor && estado === "abierta" && (
+        <p className="text-[13px] text-white/70">La lanzaste tú: cuentas a favor.</p>
+      )}
+
       <div className="grid gap-2 sm:grid-cols-2">
         <Bando
           titulo="A favor"
@@ -661,9 +716,8 @@ function Tarjeta({
           gente={favor}
           autor={apuesta.autor}
           tono="emerald"
-          activo={miPostura === "favor"}
-          puedo={puedoPosicionarme && !ocupado}
-          onPulsa={() => postura("favor")}
+          activo={miPostura === "favor" || soyAutor}
+          yo={yo}
         />
 
         <Bando
@@ -672,21 +726,53 @@ function Tarjeta({
           gente={contra}
           tono="rose"
           activo={miPostura === "contra"}
-          puedo={puedoPosicionarme && !ocupado}
-          onPulsa={() => postura("contra")}
+          yo={yo}
         />
       </div>
 
-      {/* El recuento frente a quienes pueden apostar (11/11/2026, marketing): el autor cuenta a favor. */}
-      {juegan > 0 && (
-        <p className="text-[12px] tabular-nums text-white/65">
-          {(() => {
-            const posicionados = new Set([apuesta.autor, ...favor, ...contra]).size;
+      {/* Quién falta por mojarse (11/11/2026, marketing): el «faltan 9 de 11» invita
+          a actuar más que el «2 de 11». El autor cuenta a favor. */}
+      {juegan.length > 0 && (() => {
+        const mojados = new Set([apuesta.autor, ...favor, ...contra]);
+        const faltan = juegan.filter((slug) => !mojados.has(slug));
+        const yoFalto = Boolean(yo) && faltan.includes(yo as string);
 
-            return `${posicionados} de ${juegan} ${posicionados === 1 ? "se ha posicionado" : "se han posicionado"}`;
-          })()}
-        </p>
-      )}
+        if (estado !== "abierta") {
+          const fueron = juegan.length - faltan.length;
+
+          return (
+            <p className="text-[12px] tabular-nums text-white/65">
+              {fueron} de {juegan.length} se mojaron
+            </p>
+          );
+        }
+
+        if (faltan.length === 0) {
+          return (
+            <p className="text-[13px] font-semibold tabular-nums text-white/85">
+              Se han mojado los {juegan.length}
+            </p>
+          );
+        }
+
+        return (
+          <div className="rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
+            <p className="text-[13px] tabular-nums text-white/80">
+              <span className="font-semibold text-white">
+                Faltan {faltan.length} de {juegan.length}
+              </span>{" "}
+              por mojarse{yoFalto ? ", tú entre ellos" : ""}
+            </p>
+            <div className="mt-1.5 flex flex-wrap gap-1">
+              {faltan.map((slug) => (
+                <span key={slug} title={nombreDe(slug)} className="opacity-80">
+                  <Avatar slug={slug} lado={22} />
+                </span>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ---------------------- el veredicto -------------------- */}
 
@@ -744,8 +830,7 @@ function Bando({
   autor,
   tono,
   activo,
-  puedo,
-  onPulsa,
+  yo,
 }: {
   titulo: string;
   icono: typeof ThumbsUp;
@@ -754,8 +839,8 @@ function Bando({
   autor?: string;
   tono: "emerald" | "rose";
   activo: boolean;
-  puedo: boolean;
-  onPulsa: () => void;
+  /** Quien ha entrado: su nombre lleva «tú». */
+  yo: string | null;
 }) {
   const total = gente.length + (autor ? 1 : 0);
 
@@ -778,39 +863,29 @@ function Bando({
           {titulo}
           <span className="text-white/65">· {total}</span>
         </span>
-
-        {puedo && (
-          <button
-            type="button"
-            onClick={onPulsa}
-            className={`rounded-lg border px-2 py-1 text-[11px] font-semibold transition ${
-              activo
-                ? `${colores.texto} border-current`
-                : "border-white/15 text-white/70 hover:border-white/30 hover:text-white"
-            }`}
-          >
-            {activo ? "Quitarme" : titulo === "A favor" ? "Me apunto" : "Lo dudo"}
-          </button>
-        )}
-
       </div>
 
-      <div className="mt-2 flex min-h-[28px] flex-wrap items-center gap-1.5">
+      {/* Nombres a 14 px y en blanco pleno (11/11/2026, marketing, 2.ª vuelta): a 12 px y
+          al 80 % se leían flojos. El nombre entero; si no cabe, se corta con «…». */}
+      <div className="mt-2 flex min-h-[32px] flex-wrap items-center gap-x-3 gap-y-1.5">
         {/* Con su nombre al lado (10/11/2026, marketing): la foto sola no se identificaba. */}
         {autor && (
-          <span title={`${nombreDe(autor)} · lanzó la apuesta`} className="inline-flex items-center gap-1.5 text-[12px] text-white/80">
-            <span className="rounded-full ring-2 ring-[#C8A96B]/70">
-              <Avatar slug={autor} lado={26} />
+          <span title={`${nombreDe(autor)} · lanzó la apuesta`} className="inline-flex min-w-0 max-w-full items-center gap-2 text-[14px] font-medium text-white">
+            <span className="shrink-0 rounded-full ring-2 ring-[#C8A96B]/70">
+              <Avatar slug={autor} lado={28} />
             </span>
-            {/* El nombre entero (11/11/2026, marketing): «A. Isla» obligaba a adivinar. */}
-            {nombreDe(autor)}
+            <span className="truncate">{nombreDe(autor)}</span>
+            {autor === yo && <span className="shrink-0 text-[11px] uppercase tracking-[0.14em] text-[#C8A96B]">tú</span>}
           </span>
         )}
 
         {gente.map((slug) => (
-          <span key={slug} title={nombreDe(slug)} className="inline-flex items-center gap-1.5 text-[12px] text-white/80">
-            <Avatar slug={slug} lado={26} />
-            {nombreDe(slug)}
+          <span key={slug} title={nombreDe(slug)} className="inline-flex min-w-0 max-w-full items-center gap-2 text-[14px] font-medium text-white">
+            <span className="shrink-0">
+              <Avatar slug={slug} lado={28} />
+            </span>
+            <span className="truncate">{nombreDe(slug)}</span>
+            {slug === yo && <span className="shrink-0 text-[11px] uppercase tracking-[0.14em] text-[#C8A96B]">tú</span>}
           </span>
         ))}
       </div>
