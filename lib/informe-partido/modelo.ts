@@ -3138,7 +3138,16 @@ export function metaDeClave(inf: Pick<InformePartido, "duelo" | "pronostico"> & 
     /* La de balón parado guarda su cifra («+0,12 goles esperados a balón parado»): sin ella la meta no tenía número. */
     if (/goles esperados a balón parado\)\s*$/.test(t)) return t;
     const pron = /el pronóstico (?:nos|les) da (\d+(?:,\d+)?)\)\s*$/.exec(t)?.[1];
-    return t.replace(/\s*\([^)]*\)\s*$/, "") + (pron ? ` (hoy se esperan ${pron})` : "");
+    /*
+    | De dónde sale la meta (11/11/2026, análisis): «≥1,60» sin referencia no se
+    | entendía. La referencia es el pronóstico de hoy y la meta, cuánto por
+    | encima o por debajo: «hoy se esperan 1,39; la meta, un 15 % más».
+    */
+    const valorMeta = /(\d+,\d+) goles esperados/.exec(t)?.[1];
+    const num = (x?: string) => (x ? Number(x.replace(",", ".")) : NaN);
+    const dif = pron && valorMeta && num(pron) > 0 ? Math.round((num(valorMeta) / num(pron) - 1) * 100) : 0;
+    const referencia = dif ? `; la meta, un ${Math.abs(dif)} % ${dif > 0 ? "más" : "menos"}` : "";
+    return t.replace(/\s*\([^)]*\)\s*$/, "") + (pron ? ` (hoy se esperan ${pron}${referencia})` : "");
   };
   const textoMeta = meta ? minusculaInicial(opciones.corta ? corta(meta.texto) : meta.texto) : "";
 
@@ -4073,6 +4082,21 @@ export function sintetiza(inf: Omit<InformePartido, "sintesis">): Sintesis {
   /* Y si nombra a un defensor suyo, con su duelo medido y a la vista (25/10/2026): si no, va al aviso y manda la siguiente. */
   const sostenida = (c: string) => !nombraDefensor(c) || Boolean(dueloVisibleDeLaIdea(inf, c));
 
+  /*
+  | LA IDEA sólo con duelos de 450′ o más (11/11/2026, análisis): «Cestero y
+  | Rezola sobre Montalvo» salía de idea con Rezola en 87′, un duelo marcado
+  | como tendencia. Si la consigna nombra a alguien con pocos minutos en un
+  | duelo, queda en el plan (a vigilar) y la idea es la siguiente.
+  */
+  const deTendencia = (c: string) => {
+    /* La consigna es lo de antes de los dos puntos: los nombres van en la línea entera del plan. */
+    const entera = [c, ...planBase.filter((l) => consignaDe(l.texto) === c).map((l) => l.texto)].join(" ");
+
+    return (inf.duelosJugadores?.lista ?? []).some((x) =>
+      (x.cortos ?? []).some((k) => esTendenciaMinutos(k.minutos) && Boolean(apellido(k.nombre)) && entera.includes(apellido(k.nombre))),
+    );
+  };
+
   /* El balón parado tiene su bloque y su consigna (la del informe de ABP): no es LA IDEA salvo que no haya otra (25/10/2026). */
   const deJuego = (c: string) => !/bal[oó]n parado|\babp\b|c[oó]rner|faltas? lateral/i.test(c);
 
@@ -4082,11 +4106,20 @@ export function sintetiza(inf: Omit<InformePartido, "sintesis">): Sintesis {
   | es la que la 2/3 enseña con su cifra («Atacamos por la derecha con
   | Fortuny»), antes que el balón parado.
   */
-  const mejorDuelo = esPost ? undefined : duelosDeLaLamina(inf).atacar.find((x) => (ventajaVisible(x, "con") ?? 0) > 0);
+  const mejorDuelo = esPost ? undefined : duelosDeLaLamina(inf).atacar.find((x) => (ventajaVisible(x, "con") ?? 0) > 0 && !tendenciaDuelo(x));
 
   const delDuelo = mejorDuelo ? `Atacamos ${LUGAR_ATAQUE[mejorDuelo.clave] ?? ""} con ${apellidos(mejorDuelo.nuestros)}`.replace(/\s+/g, " ").trim() : "";
 
-  const validas = [...new Set([...candidatas.filter((c) => sostenida(c) && deJuego(c)), delDuelo, ...candidatas.filter((c) => sostenida(c) && !deJuego(c))].filter(Boolean))];
+  const validas = [
+    ...new Set(
+      [
+        ...candidatas.filter((c) => sostenida(c) && deJuego(c) && !deTendencia(c)),
+        delDuelo,
+        ...candidatas.filter((c) => sostenida(c) && deJuego(c) && deTendencia(c)),
+        ...candidatas.filter((c) => sostenida(c) && !deJuego(c)),
+      ].filter(Boolean),
+    ),
+  ];
 
   const elegibles = validas.length ? validas : candidatas;
 

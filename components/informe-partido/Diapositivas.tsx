@@ -1541,6 +1541,12 @@ function PronosticoCorto({ inf }: { inf: InformePartido }) {
           Qué hacer con ello: cumplir las tres metas del plan (con balón, sin balón y balón parado) sube la victoria del {pct(pr.victoria)} al <span style={{ color: C.oro }}>{pct(pr.conPlan.victoria)}</span>
         </div>
       ) : null}
+      {/* El supuesto del modelo a la vista (11/11/2026, análisis): qué cifras se cambian para el «con el plan». */}
+      {pr.conPlan.victoria > pr.victoria ? (
+        <div style={{ marginTop: 4, fontSize: 15, color: C.tenue }}>
+          Con el plan: nuestros goles esperados +15 %, los suyos −20 % y +0,12 a balón parado
+        </div>
+      ) : null}
       <div style={{ marginTop: 6, fontSize: 15, color: C.tenue }}>{pr.base}</div>
     </Panel>
   );
@@ -1614,7 +1620,8 @@ function MetaYBase({ texto, rotulo = "" }: { texto: string; rotulo?: string }) {
   return (
     <div style={{ marginTop: 6 }}>
       <div style={{ fontSize: 26, fontWeight: 700, lineHeight: 1.1, color: C.oro }}>
-        <span style={{ fontSize: 16, letterSpacing: "0.16em", color: C.tenue, marginRight: 8 }}>{rotulo ? `META ${rotulo.toUpperCase()}` : "META"}</span>
+        {/* Con su separador de texto (11/11/2026): al copiar o leer en voz alta salía «METALlegar a…». */}
+        <span style={{ fontSize: 16, letterSpacing: "0.16em", color: C.tenue, marginRight: 8 }}>{rotulo ? `META ${rotulo.toUpperCase()}` : "META"}</span>{" "}
         {meta.charAt(0).toUpperCase() + meta.slice(1)}
       </div>
       {lineaBase ? <div style={{ fontSize: 18, fontWeight: 600, lineHeight: 1.2, marginTop: 3, color: C.suave }}>{lineaBase}</div> : null}
