@@ -11,10 +11,11 @@ import {
   fechaLegible,
   proximoDesdeElPartido,
   saldriaSiSeReactiva,
+  tituloLegible,
   type PartidoParaAlerta,
 } from "@/lib/alertas/modelo";
 import { CLAVE_CALENDARIO } from "@/lib/castilla/calendario";
-import ListaAlertas, { nombresDestino } from "./ListaAlertas";
+import ListaAlertas, { cuandoRelativo, nombresDestino } from "./ListaAlertas";
 
 /**
  * Todo el manejo de tareas con alerta, sin decidir dónde se pinta.
@@ -331,10 +332,13 @@ export default function GestorAlertas() {
         <div className="rounded-2xl bg-amber-500/10 px-4 py-3 text-[13px] leading-relaxed text-amber-200">
           <p>
             <b className="font-semibold">
+              {/* 11/11/2026 (fútbol y marketing): qué pasa y qué pasaría, en una frase. */}
               {primeraAlReactivar && nSilenciadas > 0
-                ? `Ninguna alerta saldrá hasta el ${fechaLegible(primeraAlReactivar.cuando.toISOString()).replace(/,/g, "")} si las reactivas.`
+                ? nSilenciadas === 1
+                  ? `La tarea está silenciada: si la reactivas, sale ${cuandoRelativo(primeraAlReactivar.cuando, ahora)}.`
+                  : `Las ${nSilenciadas} están silenciadas: al reactivarlas, la primera («${tituloLegible(primeraAlReactivar.titulo.replace(/^RMCF\s*[-–—·:]\s*/i, ""))}») sale ${cuandoRelativo(primeraAlReactivar.cuando, ahora)}.`
                 : nSilenciadas > 0
-                  ? "Ninguna alerta saldrá hasta que las reactives."
+                  ? `${nSilenciadas === 1 ? "La tarea está silenciada" : `Las ${nSilenciadas} están silenciadas`}: no sale ningún correo hasta reactivarlas.`
                   : "Ninguna alerta va a salir: hay que ponerles fecha nueva."}
             </b>
           </p>

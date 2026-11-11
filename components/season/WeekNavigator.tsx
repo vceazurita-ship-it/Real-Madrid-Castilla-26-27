@@ -306,7 +306,7 @@ function WeekRow({
     >
       <span
         className={`h-2.5 w-2.5 shrink-0 rounded-full ${
-          hasFiles ? "bg-emerald-400" : "bg-white/15"
+          hasFiles ? "bg-[#C8A96B]" : "bg-white/15"
         }`}
         aria-hidden
       />

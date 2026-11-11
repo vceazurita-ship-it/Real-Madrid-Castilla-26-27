@@ -35,7 +35,7 @@ import { useDocsOpta } from "@/hooks/useDocsOpta";
 import { useOptaLigero } from "@/hooks/useOptaLigero";
 import { trackModuleVisit } from "@/lib/module-usage";
 import { CASTILLA_OPTA, DOCS_OPTA, type TablaOpta } from "@/lib/opta";
-import { NOMBRE_CASTILLA, fechaCorta, nombreEquipo, partidosDe, valorPartido, type PartidoEquipo } from "@/lib/opta-analisis";
+import { NOMBRE_CASTILLA, fechaCorta, nombreEquipo, partidosDe, valorEquipo, valorPartido, type Fila, type PartidoEquipo } from "@/lib/opta-analisis";
 import { UMBRAL_DOMINIO } from "@/lib/opta-estilos";
 import { curvaMomento, momentoDe } from "@/lib/opta-eventos";
 import { contextoGrupo, equipoOptaDe, hastaElPartido, type FilaLab, type MetricaLab } from "@/lib/opta-laboratorio";
@@ -46,8 +46,25 @@ const AYUDA: Record<string, string> = {
   ExpG: "goles esperados · más es mejor",
   ExpGAg: "goles esperados que concede · menos es mejor",
   PPDA: "pases que deja dar antes de presionar · menos es más presión",
-  xGSetPly: "tendencia: pocos remates por partido",
+  xGSetPly: "córner y falta, sin penaltis · tendencia: pocos remates por partido",
 };
+
+/**
+ * La base del balón parado (11/11/2026, análisis y fútbol): cuántas ocasiones
+ * a balón parado y cuántos córners lleva cada uno en la temporada, de la misma
+ * fila de Opta del equipo. Sin las dos columnas, no sale nada.
+ */
+function baseAbp(fila: Fila | undefined): string {
+  if (!fila) return "";
+  const ocasiones = valorEquipo(fila, "ChncSetPl", "total");
+  const corners = valorEquipo(fila, "Corners", "total");
+  return [
+    ocasiones != null ? `${Math.round(ocasiones)} ocasiones` : "",
+    corners != null ? `${Math.round(corners)} córners` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
 
 /** Las cuatro de la tarjeta, todas por partido. */
 const CLAVE: MetricaLab[] = [
@@ -78,6 +95,8 @@ export function OptaPortada() {
     return f && suyo.length ? nombreEquipo(f) : "";
   }, [opta, idRival, suyo]);
   const ultimo = useMemo(() => (opta ? partidosDe(opta.partidos, CASTILLA_OPTA).at(-1) ?? null : null), [opta]);
+  const filaNuestra = opta?.equipos.find((e) => e.teamId === CASTILLA_OPTA);
+  const filaSuya = rival ? opta?.equipos.find((e) => e.teamId === idRival) : undefined;
 
   if (cargando) {
     /* El alto de la tarjeta de verdad (cabecera y cuerpo): que la portada no salte al llegar. */
@@ -125,12 +144,13 @@ export function OptaPortada() {
             <thead>
               <tr className="text-[11px] text-white/55">
                 <th className="w-[38%] pb-1.5 pr-2 align-bottom text-[11px] font-medium leading-tight text-white/55">por partido · puesto en el grupo</th>
-                <th className="pb-1.5 pr-2 text-right font-semibold">
+                <th className="pb-1.5 pr-2 text-right align-bottom font-semibold">
                   <span className="block truncate" style={{ color: ORO }}>Castilla</span>
                 </th>
                 {rival ? (
-                  <th className="pb-1.5 text-right font-semibold">
-                    <span className="block truncate" style={{ color: COMPARADO }} title={rival}>
+                  <th className="pb-1.5 text-right align-bottom font-semibold">
+                    {/* 11/11/2026: el nombre entero, en dos renglones si hace falta (en el móvil se cortaba en «Gimnàstic Tarrag…»). */}
+                    <span className="block break-words leading-tight" style={{ color: COMPARADO }} title={rival}>
                       {rival}
                     </span>
                   </th>
@@ -150,8 +170,8 @@ export function OptaPortada() {
                         <span className="block text-[11px] text-white/55">menos es mejor</span>
                       ) : null}
                     </td>
-                    <Celda x={x} />
-                    {rival ? r ? <Celda x={r} /> : <td /> : null}
+                    <Celda x={x} base={x.a === "xGSetPly" ? baseAbp(filaNuestra) : ""} />
+                    {rival ? r ? <Celda x={r} base={r.a === "xGSetPly" ? baseAbp(filaSuya) : ""} /> : <td /> : null}
                   </tr>
                 );
               })}
@@ -170,16 +190,18 @@ export function OptaPortada() {
   );
 }
 
-function Celda({ x }: { x: FilaLab }) {
+function Celda({ x, base = "" }: { x: FilaLab; base?: string }) {
   const color = x.mejor === null ? tinta(0.55) : colorPercentil(x.pos.percentil);
   return (
     <td className="py-2 pr-2 text-right align-top last:pr-0">
       <span className="block text-[17px] font-semibold leading-none text-white">{valorTexto(x)}</span>
       {x.pos.puesto ? (
+        /* «5º de 20», como el sello «grupo (20 equipos)»: un solo término (11/11/2026). */
         <span className="mt-1 block text-[11px] font-semibold" style={{ color }} title={`Puesto ${x.pos.puesto} de ${x.pos.deCuantos} del grupo, del mejor al peor`}>
-          {x.pos.puesto}º/{x.pos.deCuantos}
+          {x.pos.puesto}º de {x.pos.deCuantos}
         </span>
       ) : null}
+      {base ? <span className="mt-0.5 block text-[11px] leading-tight text-white/60">{base}</span> : null}
     </td>
   );
 }
@@ -220,6 +242,9 @@ function UltimoPartido({ ultimo }: { ultimo: PartidoEquipo }) {
   const filas = (
     [
       ["Remates", "ShtIncBl", 0, "bloqueados incluidos"],
+      /* 11/11/2026 (fútbol y marketing): el balón parado de ese partido, que llenaba media tarjeta vacía. */
+      ["xG a balón parado", "xGSetPly", 2, "sin penaltis"],
+      ["Córners", "Corners", 0, "a favor"],
       ["PPDA", "PPDA", 1, "menos es más presión"],
     ] as const
   )
@@ -247,12 +272,14 @@ function UltimoPartido({ ultimo }: { ultimo: PartidoEquipo }) {
           xG {coma(xgA, 2)} – {coma(xgB, 2)}
         </p>
       ) : null}
+      {/* La base: es un solo partido, no la media de la temporada. */}
+      <p className="mt-1 text-[11px] text-white/55">Opta · un solo partido, no la media</p>
 
       {filas.length ? (
         <dl className="mt-3 grid grid-cols-[minmax(0,1fr)_auto_auto] gap-x-3 gap-y-1.5 text-[12.5px] tabular-nums">
           <span />
           <span className="text-right text-[11px] font-semibold" style={{ color: ORO }}>Castilla</span>
-          <span className="max-w-[7rem] truncate text-right text-[11px] font-semibold" style={{ color: COMPARADO }} title={ultimo.rival}>
+          <span className="max-w-[8rem] break-words text-right text-[11px] font-semibold leading-tight" style={{ color: COMPARADO }} title={ultimo.rival}>
             {ultimo.rival}
           </span>
           {filas.map((x) => (

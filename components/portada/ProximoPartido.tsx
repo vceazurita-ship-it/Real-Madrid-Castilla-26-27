@@ -524,14 +524,10 @@ export function ProximoPartido() {
               >
                 {/* 07/11/2026 (fútbol): en escritorio, todos los contenidos del día (sin
                     «y 2 más»); en el móvil, el primero y cuántos quedan, en un renglón. */}
-                <span className="min-w-0">
-                  <span className="sm:hidden">
-                    Hoy {diaDeHoy.rotulo} · {sesionDeHoy[0]}
-                    {sesionDeHoy.length > 1 && <span className="font-medium opacity-80"> · +{sesionDeHoy.length - 1}</span>}
-                  </span>
-                  <span className="hidden sm:inline">
-                    Hoy {diaDeHoy.rotulo} · {sesionDeHoy.join(" · ")}
-                  </span>
+                {/* 11/11/2026 (fútbol): el contenido entero también en el móvil, sin «+2»; si no cabe, baja de renglón. */}
+                <span className="min-w-0 break-words leading-snug">
+                  Hoy {diaDeHoy.rotulo}
+                  <span className="font-medium"> · {sesionDeHoy.join(" · ")}</span>
                 </span>
                 <ChevronRight className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
               </button>
@@ -697,29 +693,18 @@ export function ProximoPartido() {
           | no tenerlo). Ahorra dos o tres renglones del héroe. En tableta y
           | escritorio, las dos filas de siempre.
           */
-          const rotuloEnFila = (texto: string) => (
-            <span key={`r-${texto}`} className="shrink-0 self-center pl-1 pr-0.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/65 first:pl-0">
-              {texto}
-            </span>
-          );
-
+          /*
+          | 11/11/2026 (fútbol y marketing): fuera la fila que se deslizaba en
+          | el móvil —a 390 px cortaba «Del rival» en el borde—. Dos filas que
+          | bajan de renglón en todos los tamaños, cada una con un rótulo que
+          | dice para qué es.
+          */
           return (
-            <>
-              <div className="relative mt-4 sm:hidden">
-                <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 pr-8 [mask-image:linear-gradient(to_right,black_85%,transparent)] [scrollbar-width:none] [&>a]:shrink-0 [&>a]:whitespace-nowrap">
-                  {hoyToca && deHoy.length > 0 && rotuloEnFila("Hoy")}
-                  {hoyToca && deHoy.map((atajo) => <Atajo key={`h-${atajo.texto}`} href={atajo.href} texto={atajo.texto} title={atajo.title} />)}
-                  {delRival.length > 0 && rotuloEnFila("Del rival")}
-                  {delRival.map((atajo) => <Atajo key={`r-${atajo.texto}`} href={atajo.href} texto={atajo.texto} title={atajo.title} />)}
-                </div>
-              </div>
+            <div className="mt-4 space-y-2">
+              {hoyToca && deHoy.length > 0 && fila(`Hoy ${hoyToca.rotulo} · lo que toca`, deHoy)}
 
-              <div className="mt-4 hidden space-y-2 sm:block">
-                {hoyToca && deHoy.length > 0 && fila("Hoy", deHoy)}
-
-                {delRival.length > 0 && fila("Del rival", delRival)}
-              </div>
-            </>
+              {delRival.length > 0 && fila(hoyToca && deHoy.length > 0 ? "Más del rival" : "Del rival", delRival)}
+            </div>
           );
         })()}
       </div>
@@ -853,16 +838,26 @@ function Racha({ ultimos, cargando, ultimo }: { ultimos: PartidoNuestro[]; carga
 
                 const color = signo === "V" ? VERDE : signo === "D" ? NARANJA : "#94A3B8";
 
+                /* 11/11/2026 (análisis): el marcador bajo cada letra; E/V/D ya no pide memoria. */
                 return (
                   <span
                     key={`${partido.jornada}-${partido.cuando}`}
-                    title={`J${partido.jornada} · ${partido.lado === "casa" ? "" : "en "}${partido.rival} · ${partido.golesFavor}-${partido.golesContra}`}
-                    className="fuente-club flex h-8 w-8 items-center justify-center rounded-lg text-[16px] font-bold"
-                    /* La letra con `chipInk`: el gris del empate y el verde
-                       sobre el blanco del modo día no llegaban a 3:1. */
-                    style={{ background: `${color}22`, color: chipInk(color), border: `1px solid ${color}55` }}
+                    title={`J${partido.jornada} · ${partido.lado === "casa" ? "en casa con " : "en "}${partido.rival} · ${partido.golesFavor}-${partido.golesContra}`}
+                    className="flex w-9 flex-col items-center"
                   >
-                    {signo}
+                    <span
+                      className="fuente-club flex h-8 w-8 items-center justify-center rounded-lg text-[16px] font-bold"
+                      /* La letra con `chipInk`: el gris del empate y el verde
+                         sobre el blanco del modo día no llegaban a 3:1. */
+                      style={{ background: `${color}22`, color: chipInk(color), border: `1px solid ${color}55` }}
+                    >
+                      {signo}
+                    </span>
+                    {partido.golesFavor !== null && partido.golesContra !== null && (
+                      <span className="mt-0.5 text-[11px] tabular-nums text-white/70">
+                        {partido.golesFavor}-{partido.golesContra}
+                      </span>
+                    )}
                   </span>
                 );
               })}
@@ -921,7 +916,7 @@ function Clasificacion({ informe }: { informe: RespuestaPortada | null }) {
           <span className="fuente-club text-[26px] font-bold leading-none tabular-nums text-white">
             {fila.puesto}º
           </span>
-          <span className="text-white/40">de {fila.deCuantos}</span>
+          <span className="text-white/60">de {fila.deCuantos}</span>
           {/* La base pegada al puesto (30/10/2026): «12º de 20 · 12 pts en 9 partidos». */}
           <span className="tabular-nums">
             <span className="font-semibold text-white/85">{fila.puntos}</span> pts en {fila.ganados + fila.empatados + fila.perdidos} partidos

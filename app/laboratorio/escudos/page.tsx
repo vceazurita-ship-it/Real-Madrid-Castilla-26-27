@@ -398,8 +398,8 @@ export default function EscudosPage() {
             {estado === "listo" && escudos.length > 0 ? (
               <p className="mt-2 text-[13px] text-white/70">
                 <strong className="font-semibold text-white">{escudos.length - faltan.length} escudos</strong> de BeSoccer
-                {fechaLarga(alDia) ? ` · actualizados el ${fechaLarga(alDia)}` : ""} · {hojas}{" "}
-                {hojas === 1 ? "diapositiva" : "diapositivas"} de hasta 20
+                {fechaLarga(alDia) ? ` · actualizados el ${fechaLarga(alDia)}` : ""}
+                {/* 11/11/2026 (marketing): las diapositivas se cuentan una vez, en su propia cabecera. */}
               </p>
             ) : null}
 
@@ -413,7 +413,8 @@ export default function EscudosPage() {
                 type="button"
                 onClick={descargaPpt}
                 disabled={estado !== "listo" || haciendo !== null || pendientes > 0}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/15 px-4 py-2.5 text-sm font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/25 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
+                /* 11/11/2026 (marketing): relleno oro sólido y tinta oscura; el pálido parecía desactivado. */
+                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#C8A96B] px-4 py-2.5 text-sm font-semibold text-[#0B0F14] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
               >
                 <Download size={16} />
                 {haciendo !== null
@@ -494,13 +495,14 @@ export default function EscudosPage() {
                 {estado === "listo" ? (
                   <div className="space-y-5">
                     <div className="relative max-w-sm">
-                      <Search size={15} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
+                      <Search size={15} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/65" />
                       <input
                         value={busca}
                         onChange={(e) => setBusca(e.target.value)}
                         placeholder="Buscar un equipo…"
                         aria-label="Buscar un escudo por equipo"
-                        className="min-h-11 w-full rounded-xl border border-white/10 bg-[#0B0F14] py-2 pl-9 pr-9 text-sm text-white placeholder:text-white/40 focus:border-[#C8A96B]/50 focus:outline-none"
+                        /* Borde y texto de ayuda que se leen también en modo día (11/11/2026). */
+                        className="min-h-11 w-full rounded-xl border border-white/30 bg-[#0B0F14] py-2 pl-9 pr-9 text-sm text-white placeholder:text-white/65 focus:border-[#C8A96B] focus:outline-none"
                       />
                       {busca ? (
                         <button
@@ -523,8 +525,16 @@ export default function EscudosPage() {
 
                       return (
                         <div key={h}>
-                          <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/50">
-                            {consulta ? `${tanda.length} ${tanda.length === 1 ? "escudo" : "escudos"}` : `Diapositiva ${h + 1} · ${tanda.length}`}
+                          {/* Cada diapositiva con lo que lleva: «de AD Alcorcón a Gimnàstic de Tarragona» (11/11/2026). */}
+                          <h3 className="mb-2 text-[12px] font-semibold text-white/70">
+                            {consulta ? (
+                              `${tanda.length} ${tanda.length === 1 ? "escudo" : "escudos"}`
+                            ) : (
+                              <>
+                                <span className="uppercase tracking-[0.16em]">Diapositiva {h + 1}</span>
+                                {tanda.length > 1 ? ` · de ${tanda[0].equipo} a ${tanda[tanda.length - 1].equipo}` : ""}
+                              </>
+                            )}
                           </h3>
                           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
                             {tanda.map((uno) => (
