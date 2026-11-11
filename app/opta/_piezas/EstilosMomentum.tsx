@@ -75,6 +75,15 @@ export function MomentumLiga({ datos }: { datos: DatosOpta }) {
   const escudoDe = useEscudos();
   const [ambito, setAmbito] = useState<Ambito>("todos");
   const [orden, setOrden] = useState<{ col: string; desc: boolean }>({ col: "dominio", desc: true });
+  /* Los equipos resaltados: por defecto el Castilla; pinchando un nombre se marca o se quita (11/11/2026). */
+  const [marcados, setMarcados] = useState<Set<string>>(() => new Set([CASTILLA_OPTA]));
+  const alterna = (id: string) =>
+    setMarcados((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
 
   const todas = useMemo(() => momentumLiga(momento, remates), [momento, remates]);
   const filas = useMemo(() => todas.filter((f) => enAmbito(f.teamId, datos.grupos, ambito)), [todas, datos.grupos, ambito]);
@@ -127,8 +136,16 @@ export function MomentumLiga({ datos }: { datos: DatosOpta }) {
         <div className="h-64 animate-pulse rounded-2xl bg-white/[0.05]" role="status" aria-label="Cargando el momentum de la liga" />
       ) : filas.length === 0 ? null : (
         <>
-          <div className="mb-3">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <LeyendaCalor />
+            <span className="flex flex-wrap items-center gap-2 text-[12px] text-white/60">
+              Pincha un equipo para resaltarlo · {marcados.size} {marcados.size === 1 ? "resaltado" : "resaltados"}
+              {(marcados.size !== 1 || !marcados.has(CASTILLA_OPTA)) && (
+                <button type="button" onClick={() => setMarcados(new Set([CASTILLA_OPTA]))} className="font-semibold text-[#C8A96B] hover:underline">
+                  Sólo el Castilla
+                </button>
+              )}
+            </span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[980px] text-left text-[12px] tabular-nums">
@@ -146,7 +163,7 @@ export function MomentumLiga({ datos }: { datos: DatosOpta }) {
               </thead>
               <tbody>
                 {ordenadas.map((f, i) => {
-                  const nuestro = f.teamId === CASTILLA_OPTA;
+                  const nuestro = marcados.has(f.teamId);
                   const escudo = escudoDe(f.equipo);
                   const celda = (c: Col) => {
                     const v = c.valor(f);
@@ -171,9 +188,16 @@ export function MomentumLiga({ datos }: { datos: DatosOpta }) {
                           ) : (
                             <span className="h-4 w-4 shrink-0" aria-hidden />
                           )}
-                          <span className={nuestro ? "font-semibold" : "text-white/80"} style={nuestro ? { color: ORO } : undefined}>
+                          <button
+                            type="button"
+                            onClick={() => alterna(f.teamId)}
+                            aria-pressed={nuestro}
+                            title={nuestro ? "Quitar el resaltado" : "Resaltar este equipo"}
+                            className={`text-left hover:underline ${nuestro ? "font-semibold" : "text-white/80"}`}
+                            style={nuestro ? { color: ORO } : undefined}
+                          >
                             {f.equipo}
-                          </span>
+                          </button>
                         </span>
                       </td>
                       <td className="py-1.5 pr-2 text-right text-white/55">{f.partidos}</td>
