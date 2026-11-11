@@ -7,6 +7,8 @@
  *    liga en un mapa de calor por franjas de 15′.
  * 2. `VennEstilos` (aquí): los equipos en el top N de dominio, peligro y
  *    solidez, colocados en su intersección de tres círculos.
+ * 2b. `EstilosJugadores` (EstilosJugadores.tsx, 11/11/2026): el mismo Venn
+ *    jugador a jugador, por puesto y con métricas propias de cada puesto.
  * 3. `Radiografia` (EstilosRadiografia.tsx): la «pizza» de 22 métricas de un
  *    equipo con su nota de juego. Pinchar un equipo del Venn la abre.
  *
@@ -18,84 +20,17 @@ import { useMemo, useRef, useState } from "react";
 import { ORO, tinta, useEscudos } from "@/components/data/graficas";
 import { CASTILLA_OPTA } from "@/lib/opta";
 import { enAmbito, type Ambito } from "@/lib/opta-analisis";
-import { INDICES, indicesEstilo, nombreCorto, topDe, type Indice, type IndicesEquipo } from "@/lib/opta-estilos";
+import { INDICES, indicesEstilo, nombreCorto, topDe, type IndicesEquipo } from "@/lib/opta-estilos";
 import { nombreMetrica } from "@/lib/opta-nombres";
 
 import { Cifra, Elegir, ElegirAmbito, Panel } from "./comun";
+import { EstilosJugadores } from "./EstilosJugadores";
 import { MomentumLiga } from "./EstilosMomentum";
 import { Radiografia } from "./EstilosRadiografia";
 import type { DatosOpta } from "./useOpta";
+import { ALTO, ANCHO, CIRCULOS, coloca, RADIO, REGIONES } from "./venn";
 
-/* ------------------------------------------------------------------ */
-/*  La geometría del Venn (fija: se calcula una vez al cargar)         */
-/* ------------------------------------------------------------------ */
-
-const ANCHO = 600;
-const ALTO = 540;
-const RADIO = 168;
-const CIRCULOS: { clave: Indice; cx: number; cy: number; color: string }[] = [
-  { clave: "dominio", cx: 222, cy: 200, color: "#4F8FE8" },
-  { clave: "peligro", cx: 378, cy: 200, color: "#E0614B" },
-  { clave: "solidez", cx: 300, cy: 335, color: "#2BA88E" },
-];
 const FICHA = 24;
-
-/** Máscara de pertenencia: bit 0 dominio, 1 peligro, 2 solidez. */
-const mascaraDe = (x: number, y: number, margen: number): number | null => {
-  let m = 0;
-  for (let i = 0; i < CIRCULOS.length; i++) {
-    const c = CIRCULOS[i];
-    const d = Math.hypot(x - c.cx, y - c.cy);
-    if (Math.abs(d - RADIO) < margen) return null;
-    if (d < RADIO) m |= 1 << i;
-  }
-  return m;
-};
-
-/** Los puntos de cada región (con margen al borde), ordenados del centro hacia fuera. */
-const PUNTOS: Map<number, [number, number][]> = (() => {
-  const porRegion = new Map<number, [number, number][]>();
-  for (let x = 6; x < ANCHO; x += 3)
-    for (let y = 6; y < ALTO; y += 3) {
-      const m = mascaraDe(x, y, FICHA / 2 + 1);
-      if (m == null || m === 0) continue;
-      const lista = porRegion.get(m);
-      if (lista) lista.push([x, y]);
-      else porRegion.set(m, [[x, y]]);
-    }
-  for (const [m, ps] of porRegion) {
-    const cx = ps.reduce((s, p) => s + p[0], 0) / ps.length;
-    const cy = ps.reduce((s, p) => s + p[1], 0) / ps.length;
-    ps.sort((a, b) => Math.hypot(a[0] - cx, a[1] - cy) - Math.hypot(b[0] - cx, b[1] - cy));
-    porRegion.set(m, ps);
-  }
-  return porRegion;
-})();
-
-/** Coloca `n` fichas en la región sin que se pisen (cada vez más juntas si no caben). */
-function coloca(m: number, n: number): [number, number][] {
-  const ps = PUNTOS.get(m) ?? [];
-  for (const sep of [FICHA + 4, FICHA + 1, FICHA - 4, FICHA - 8]) {
-    const elegidos: [number, number][] = [];
-    for (const p of ps) {
-      if (elegidos.every((q) => Math.hypot(p[0] - q[0], p[1] - q[1]) >= sep)) elegidos.push(p);
-      if (elegidos.length === n) return elegidos;
-    }
-  }
-  /* No caben: en fila desde el centro (no pasa con 40 equipos). */
-  const [x0, y0] = ps[0] ?? [ANCHO / 2, ALTO / 2];
-  return Array.from({ length: n }, (_, i) => [x0 + ((i % 5) - 2) * (FICHA - 6), y0 + Math.floor(i / 5) * (FICHA - 6)] as [number, number]);
-}
-
-const REGIONES: { m: number; nombre: string }[] = [
-  { m: 7, nombre: "Los tres" },
-  { m: 3, nombre: "Dominio y peligro" },
-  { m: 5, nombre: "Dominio y solidez" },
-  { m: 6, nombre: "Peligro y solidez" },
-  { m: 1, nombre: "Sólo dominio" },
-  { m: 2, nombre: "Sólo peligro" },
-  { m: 4, nombre: "Sólo solidez" },
-];
 
 const resumen = (x: IndicesEquipo) =>
   INDICES.map((i) => `${i.nombre} ${x[i.clave] != null ? Math.round(x[i.clave]!) : ""}`).join(" · ");
@@ -125,7 +60,7 @@ function VennEstilos({ datos, alElegir }: { datos: DatosOpta; alElegir: (teamId:
     () =>
       REGIONES.flatMap(({ m }) => {
         const lista = porRegion.get(m) ?? [];
-        const sitios = coloca(m, lista.length);
+        const sitios = coloca(m, lista.length, FICHA);
         return lista.map((x, i) => ({ x, pos: sitios[i] }));
       }),
     [porRegion],
@@ -283,6 +218,7 @@ export function Estilos({ datos, inicial }: { datos: DatosOpta; inicial?: string
     <div className="mt-6 space-y-6">
       <MomentumLiga datos={datos} />
       <VennEstilos datos={datos} alElegir={abre} />
+      <EstilosJugadores datos={datos} />
       <Radiografia ref={caja} datos={datos} teamId={equipo} alCambiar={setEquipo} />
     </div>
   );
