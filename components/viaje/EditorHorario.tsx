@@ -240,7 +240,7 @@ function FilaCita({
       <input
         value={cita.nota ?? ""}
         onChange={(evento) => onCambia({ nota: evento.target.value })}
-        placeholder="Detalle: Lavandería, ENTREGA…"
+        placeholder="Detalle (opcional)"
         className={`${plegado} col-span-full min-w-0 rounded-lg lg:col-span-1 border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-xs text-white/80 outline-none transition placeholder:text-white/25 focus:border-[#C8A96B]/50`}
       />
 
@@ -359,7 +359,7 @@ function FilaCita({
       </div>
 
       {esDiaSiguiente(cita.minuto) && (
-        <p className="col-span-full text-[10px] uppercase tracking-wide text-[#C8A96B]/70">
+        <p className="col-span-full text-[11px] uppercase tracking-wide text-[#C8A96B]/70">
           Ya es {diaSiguienteCorto(dia.fecha).toLowerCase()}
         </p>
       )}
@@ -587,7 +587,7 @@ function TarjetaDia({
           </span>
 
           {esDelPartido && (
-            <span className="shrink-0 rounded-full bg-[#C8A96B]/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">
+            <span className="shrink-0 rounded-full bg-[#C8A96B]/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">
               Partido
             </span>
           )}
@@ -639,7 +639,7 @@ function TarjetaDia({
 
           {/* «Mover el día» en una tira que se desliza en el móvil (30/10/2026): partida en dos líneas se leía cortada. */}
           <span className="flex min-w-0 max-w-full items-center gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
-            <span className="ml-1 shrink-0 text-[10px] uppercase tracking-[0.16em] text-white/30">
+            <span className="ml-1 shrink-0 text-[11px] uppercase tracking-[0.16em] text-white/30">
               Mover el día
             </span>
 
@@ -766,7 +766,7 @@ function TarjetaDia({
               Añadir cita
             </Button>
 
-            <span className="ml-1 text-[10px] uppercase tracking-[0.16em] text-white/30">
+            <span className="ml-1 text-[11px] uppercase tracking-[0.16em] text-white/30">
               Rápidas
             </span>
 
@@ -1076,7 +1076,7 @@ export function EditorHorario({
       {/* -------------------- PLANTILLAS DE VIAJE ------------------- */}
 
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[10px] uppercase tracking-[0.18em] text-white/40">
+        <span className="text-[11px] uppercase tracking-[0.18em] text-white/40">
           Montar el viaje
         </span>
 
@@ -1108,7 +1108,7 @@ export function EditorHorario({
       {/* ------------------------ LOS DÍAS -------------------------- */}
 
       <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-white/8 pt-3">
-        <span className="text-[10px] uppercase tracking-[0.18em] text-white/40">
+        <span className="text-[11px] uppercase tracking-[0.18em] text-white/40">
           Los días
         </span>
 

@@ -313,7 +313,7 @@ export const PLANTILLAS_HORARIO: PlantillaHorario[] = [
     pista: "Más de 250 km: se sale por la mañana, se come y se descansa en hotel",
     condicion: "visitante",
     pasos: [
-      { desfase: -645, texto: "Salida bus", tipo: "viaje", nota: "Lavandería" },
+      { desfase: -645, texto: "Salida bus", tipo: "viaje" },
       { desfase: -435, texto: "Llegada hotel", tipo: "viaje" },
       { desfase: -420, texto: "Comida", tipo: "comida" },
       { desfase: -390, texto: "Descanso habitaciones", tipo: "descanso" },
@@ -398,7 +398,7 @@ export const PLANTILLAS_DIA: PlantillaDia[] = [
     label: "Víspera · viaje y hotel",
     pista: "Se sale por la tarde, se cena en el hotel y se duerme allí",
     horas: [
-      { hora: "16:00", texto: "Salida bus", tipo: "viaje", nota: "Lavandería" },
+      { hora: "16:00", texto: "Salida bus", tipo: "viaje" },
       { hora: "19:30", texto: "Llegada hotel", tipo: "viaje" },
       { hora: "20:00", texto: "Activación", tipo: "trabajo" },
       { hora: "21:00", texto: "Cena", tipo: "comida" },
@@ -1340,7 +1340,7 @@ export const CITAS_RAPIDAS: CitaRapida[] = [
   { texto: "Descanso habitaciones", tipo: "descanso", desfase: -240, hora: "15:30" },
   { texto: "Merienda", tipo: "comida", desfase: -165, hora: "18:00" },
   { texto: "Charla de partido", tipo: "trabajo", desfase: -135, hora: "19:00" },
-  { texto: "Salida bus", tipo: "viaje", hora: "16:00", nota: "Lavandería" },
+  { texto: "Salida bus", tipo: "viaje", hora: "16:00" },
   { texto: "Llegada hotel", tipo: "viaje", hora: "19:30" },
   { texto: "Salida hacia el estadio", tipo: "viaje", desfase: -105, hora: "19:00" },
   { texto: "Llegada estadio", tipo: "viaje", desfase: -90, hora: "19:30" },

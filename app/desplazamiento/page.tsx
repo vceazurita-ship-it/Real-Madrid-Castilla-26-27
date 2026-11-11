@@ -261,7 +261,7 @@ function ListaPendiente({ viaje, onIr = irA }: { viaje: Desplazamiento; onIr?: (
   return (
     <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-3">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <p className="text-[10px] uppercase tracking-[0.16em] text-white/40">{viaje.condicion === "local" ? "Día de partido en casa" : "Cómo va el viaje"}</p>
+        <p className="text-[11px] uppercase tracking-[0.16em] text-white/40">{viaje.condicion === "local" ? "Día de partido en casa" : "Cómo va el viaje"}</p>
 
         <div className="h-1.5 min-w-[80px] flex-1 overflow-hidden rounded-full bg-white/10 sm:max-w-[220px]" aria-hidden>
           <div className="h-full rounded-full bg-[#C8A96B] transition-all" style={{ width: `${(hechos / lista.length) * 100}%` }} />
@@ -1060,7 +1060,7 @@ export default function DesplazamientoPage() {
 
             <div className="mt-6 grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
               <div className="block min-w-0">
-                <span id="etiqueta-partido" className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">
+                <span id="etiqueta-partido" className="mb-1.5 block text-[11px] uppercase tracking-[0.16em] text-white/40">
                   Partido
                 </span>
 
@@ -1338,7 +1338,7 @@ export default function DesplazamientoPage() {
                         />
 
                         <label className="block min-w-0">
-                          <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">
+                          <span className="mb-1.5 block text-[11px] uppercase tracking-[0.16em] text-white/40">
                             Fecha
                           </span>
 
@@ -1355,7 +1355,7 @@ export default function DesplazamientoPage() {
                         </label>
 
                         <label className="block min-w-0">
-                          <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">
+                          <span className="mb-1.5 block text-[11px] uppercase tracking-[0.16em] text-white/40">
                             Hora del partido
                           </span>
 
@@ -1378,7 +1378,7 @@ export default function DesplazamientoPage() {
 
                       <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                         <label className="block min-w-0">
-                          <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">
+                          <span className="mb-1.5 block text-[11px] uppercase tracking-[0.16em] text-white/40">
                             Dónde se juega
                           </span>
 
@@ -1841,7 +1841,7 @@ export default function DesplazamientoPage() {
                   </div>
                 }
               >
-                <p className="mb-2 text-[10px] uppercase tracking-[0.16em] text-white/40">
+                <p className="mb-2 text-[11px] uppercase tracking-[0.16em] text-white/40">
                   De qué viaje
                 </p>
 
@@ -1875,7 +1875,7 @@ export default function DesplazamientoPage() {
                       </span>
 
                       {uno.mismoRival && (
-                        <span className="shrink-0 rounded-full bg-[#C8A96B]/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#C8A96B]">
+                        <span className="shrink-0 rounded-full bg-[#C8A96B]/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#C8A96B]">
                           Mismo rival
                         </span>
                       )}
@@ -1883,7 +1883,7 @@ export default function DesplazamientoPage() {
                   ))}
                 </div>
 
-                <p className="mb-2 mt-4 text-[10px] uppercase tracking-[0.16em] text-white/40">
+                <p className="mb-2 mt-4 text-[11px] uppercase tracking-[0.16em] text-white/40">
                   Qué te traes
                 </p>
 

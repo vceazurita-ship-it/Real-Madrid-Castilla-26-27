@@ -1623,13 +1623,13 @@ export default function Page() {
           icon: Activity,
           tone: "text-amber-400",
           peso: 70,
-          text: `Respecto al M${etiquetaMicro(microDelta.prev.micro)}, ${evalTxt}, en ${metrics.evaluadas} tareas valoradas; el tiempo y la intensidad aún no están medidos.`,
+          text: `Respecto al M${etiquetaMicro(microDelta.prev.micro)}, ${evalTxt}, en ${metrics.evaluadas} tareas valoradas.`,
         });
       } else out.push({
         icon: Activity,
         tone: "text-amber-400",
         peso: 70,
-        text: `Respecto a${microDelta.mismosDias ? "" : "l"} ${prevM}, ${evalTxt ? `${evalTxt} y ` : ""}${cargaTxt}${aMedias ? `; ${listaDias(microDelta.faltan)}, sin medir todavía.` : microDelta.load < 0 ? ": confirmar que es la descarga buscada." : microDelta.load > 0 ? ": vigilar la recuperación." : "."}`,
+        text: `Respecto a${microDelta.mismosDias ? "" : "l"} ${prevM}, ${evalTxt ? `${evalTxt} y ` : ""}${cargaTxt}${aMedias ? `; la comparación llega hasta el último día jugado.` : microDelta.load < 0 ? ": confirmar que es la descarga buscada." : microDelta.load > 0 ? ": vigilar la recuperación." : "."}`,
       });
     }
 
@@ -1816,7 +1816,7 @@ export default function Page() {
                   <span className="rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 py-1 text-xs sm:text-sm text-[#C8A96B]">
                     M{etiquetaMicro(selectedMicroStat.micro)}
                     {selectedMicroStat.rival
-                      ? ` · ${selectedMicroStat.rival}`
+                      ? ` · ${rivalDelMicro(selectedMicroStat.rival) === selectedMicroStat.rival ? nombreCortoEquipo(selectedMicroStat.rival) : rivalDelMicro(selectedMicroStat.rival)}`
                       : ""}
                   </span>
                 )}
@@ -1885,7 +1885,7 @@ export default function Page() {
 
             {!loading && microStats.length > 0 && (
               <div className="mb-6 -mx-4 sm:mx-0 px-4 sm:px-0">
-                <div className="flex gap-3 overflow-x-auto pb-3 scrollbar-thin">
+                <div className="flex gap-3 overflow-x-auto pb-3 pr-14 sm:pr-0 scrollbar-thin">
                   <button
                     onClick={() => setMicro("ALL")}
                     className={`shrink-0 w-[150px] rounded-2xl border p-4 text-left transition ${

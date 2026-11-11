@@ -791,7 +791,7 @@ export function valida(tarea: TareaEquipos, sesion: SesionEquipos, puestoDe: Pue
       /* Con lo que hay que hacer (05/11/2026): «Comodines: 3 de 2» no lo decía. */
       texto:
         r.comodines.length > tarea.comodines
-          ? `Hay ${r.comodines.length} comodines (${r.comodines.map((j) => j.nombre).join(", ")}) y la tarea lleva ${tarea.comodines}`
+          ? `La tarea lleva ${tarea.comodines} · hay ${r.comodines.length} (${r.comodines.map((j) => j.nombre).join(", ")}): uno de más`
           : `${tarea.comodines - r.comodines.length === 1 ? "Falta un comodín" : `Faltan ${tarea.comodines - r.comodines.length} comodines`}: la tarea lleva ${tarea.comodines}`,
       /* El botón dice a quién mueve (06/11/2026). */
       ajustaComodines: (() => {
