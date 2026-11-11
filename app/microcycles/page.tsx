@@ -22,7 +22,7 @@ import { useDiasConectados } from "@/hooks/useDiasConectados";
 import { planDeRegistro, propuestasDeLaSesion, sesionDeFecha, type FilaPlan } from "@/lib/sesion-dia/conexion";
 import type { LucideIcon } from "lucide-react";
 import { nombreCorto as nombreCortoEquipo } from "@/lib/abp/informe-graficos";
-import { esFilaDePartido, etiquetaMicro, fechaIsoDeHoja, rivalDelMicro, separaSemanas } from "@/lib/microciclo/cuenta";
+import { esFilaDePartido, etiquetaMicro, fechaIsoDeHoja, rivalDelMicro, separaSemanas, tipoDeTareaUnificado } from "@/lib/microciclo/cuenta";
 import {
   Activity,
   ArrowDown,
@@ -528,7 +528,7 @@ function parseCSV(text: string): Row[] {
       md: normalizeMD(r[4]),
       fecha: r[5] || "",
       tarea: r[6] || "",
-      tipo: r[7] || "",
+      tipo: tipoDeTareaUnificado(r[7] || ""),
       evaluacion: num(r[8]),
       analisisPost: r[9] || "",
       formato: r[10] || "",
@@ -953,6 +953,8 @@ export default function Page() {
      salía con «0'», «0», «0,00» y «−100 % frente al M20»: lo que no tiene minutos no
      se pinta ni se compara. */
   const hayCarga = metrics.load > 0 && metrics.tiempo > 0;
+  /* Menos de la mitad de las tareas de entreno valoradas: la media es provisional (11/11/2026). */
+  const evalParcial = metrics.tareasEntreno > 0 && metrics.evaluadas * 2 < metrics.tareasEntreno;
 
   /** Per-microcycle aggregates over the FULL dataset (for trends & rail) */
   const microStats = useMemo(() => {
@@ -1255,6 +1257,20 @@ export default function Page() {
     microStats,
   ]);
 
+  /* 11/11/2026: el subtítulo del perfil nombra los ejes que se dibujan, cada uno con su base. */
+  const perfilSubtitulo = useMemo(() => {
+    const base: Record<string, string> = {
+      "Evaluación": `Evaluación: media de ${metrics.evaluadas} tarea${metrics.evaluadas === 1 ? "" : "s"} valorada${metrics.evaluadas === 1 ? "" : "s"}`,
+      "Intensidad": `Intensidad: media (1-10) de las ${metrics.tareasEntreno} tareas de entreno`,
+      "Exig. cog.": `Exig. cog.: demanda cognitiva media (1-10) de las ${metrics.tareasEntreno} tareas de entreno`,
+      "Fís./tarea": "Fís./tarea: 10 = el micro con más carga física por tarea",
+      "Cog./tarea": "Cog./tarea: 10 = el micro con más carga cognitiva por tarea",
+      "Diversidad": "Diversidad: 10 = el micro con más tipos de tarea",
+    };
+
+    return `Cada eje de 0 a 10. ${radarData.map((d) => base[d.metric]).filter(Boolean).join(" · ")}`;
+  }, [radarData, metrics.evaluadas, metrics.tareasEntreno]);
+
   /* ---------------- grouped aggregations ---------------- */
 
   const contenidoPrincipalMetrics = useMemo(
@@ -1267,7 +1283,8 @@ export default function Page() {
     [work]
   );
 
-  const faseMetrics = useMemo(() => groupBy("fase", filtered), [filtered]);
+  /* 11/11/2026: el reparto por fase sigue al botón «Competición excluida»: sin el partido, sólo las de entreno. */
+  const faseMetrics = useMemo(() => groupBy("fase", work), [work]);
 
   const tipoMetrics = useMemo(() => groupBy("tipo", work), [work]);
 
@@ -1672,7 +1689,9 @@ export default function Page() {
   /* El titular del micro elegido: «Micro 18: 19 tareas y 3h 14'; carga física 1.165 (−37,7 % sobre el M17)». */
   const titular =
     selectedMicroStat && metrics.tasks > 0
-      ? `Micro ${etiquetaMicro(selectedMicroStat.micro)}: ${metrics.tasks} tareas${metrics.tareasEntreno !== metrics.tasks ? ` (${metrics.tareasEntreno} de entreno)` : ""}${metrics.tiempo > 0 ? ` y ${fmtMin(metrics.tiempo)}` : ""}${
+      ? /* 11/11/2026: lo que importa primero —las tareas de entreno y cuántas
+           están valoradas—; el partido no se cuenta como tarea. */
+        `Micro ${etiquetaMicro(selectedMicroStat.micro)}: ${metrics.tareasEntreno} ${metrics.tareasEntreno === 1 ? "tarea" : "tareas"} de entreno${metrics.tiempo > 0 ? ` y ${fmtMin(metrics.tiempo)}` : ""}${metrics.evaluadas > 0 ? `, ${metrics.evaluadas === metrics.tareasEntreno ? (metrics.evaluadas === 1 ? "valorada" : "todas valoradas") : `${metrics.evaluadas} valorada${metrics.evaluadas === 1 ? "" : "s"}`}` : ""}${
           metrics.load > 0
             ? microDelta?.mismosDias
               ? `; carga física ${listaDias(microDelta.mismosDias)}: ${fmtInt(microDelta.loadDias)}${microDelta.load !== 0 ? `, ${microDelta.load < 0 ? "−" : "+"}${fmtDec(Math.abs(microDelta.loadPct))} % frente a los mismos días del M${etiquetaMicro(microDelta.prev.micro)}` : ""} (${listaDias(microDelta.faltan)}, sin medir todavía)`
@@ -1893,6 +1912,9 @@ export default function Page() {
 
                   {[...microStats].reverse().map((m) => {
                     const active = String(m.micro) === micro;
+                    /* 11/11/2026: con menos de la mitad de las tareas valoradas, la
+                       media es provisional: se dice su base y no lleva color de nota. */
+                    const valParcial = m.entreno > 0 && m.valoradas * 2 < m.entreno;
 
                     return (
                       <button
@@ -1914,14 +1936,19 @@ export default function Page() {
                           {/* 30/10/2026: la insignia dice qué es («Val. 6,8») y sobre cuántas tareas. */}
                           {m.eval > 0 && (
                             <span
-                              className="rounded-md px-1.5 py-0.5 text-[11px] font-bold"
-                              style={{
-                                background: `${getEvalColor(m.eval)}22`,
-                                color: chipInk(getEvalColor(m.eval)),
-                              }}
-                              title={`Valoración media ${fmtDec(m.eval)} · ${m.valoradas} tarea${m.valoradas === 1 ? "" : "s"} valorada${m.valoradas === 1 ? "" : "s"}`}
+                              className={`rounded-md px-1.5 py-0.5 text-[11px] font-bold ${valParcial ? "bg-white/10 text-white/70" : ""}`}
+                              style={
+                                valParcial
+                                  ? undefined
+                                  : {
+                                      background: `${getEvalColor(m.eval)}22`,
+                                      color: chipInk(getEvalColor(m.eval)),
+                                    }
+                              }
+                              title={`Valoración media ${fmtDec(m.eval)} · ${m.valoradas}${m.entreno > 0 ? ` de ${m.entreno}` : ""} tarea${m.valoradas === 1 && m.entreno <= 1 ? "" : "s"} valorada${m.valoradas === 1 && m.entreno <= 1 ? "" : "s"}${valParcial ? " · provisional" : ""}`}
                             >
                               Val. {fmtDec(m.eval)}
+                              {valParcial ? ` · ${m.valoradas} de ${m.entreno}` : ""}
                             </span>
                           )}
                         </div>
@@ -1938,7 +1965,9 @@ export default function Page() {
 
                         {m.eval > 0 && (
                           <p className="mt-1 text-[11px] text-white/45">
-                            Valoración media · {m.valoradas} tarea{m.valoradas === 1 ? "" : "s"} valorada{m.valoradas === 1 ? "" : "s"}
+                            {m.entreno > 0
+                              ? `Valoración${valParcial ? " provisional" : " media"} · ${m.valoradas} de ${m.entreno} tareas valoradas`
+                              : `Valoración media · ${m.valoradas} tarea${m.valoradas === 1 ? "" : "s"} valorada${m.valoradas === 1 ? "" : "s"}`}
                           </p>
                         )}
 
@@ -2166,16 +2195,8 @@ export default function Page() {
                   deltaFrente={frenteA}
                 />
 
-                {/* Sin minutos medidos, una sola tarjeta que lo dice en vez de cuatro ceros (10/11/2026). */}
-                {!hayCarga && (
-                  <div className="col-span-2 rounded-2xl border border-white/10 bg-white/[0.03] p-4 md:col-span-2 xl:col-span-4">
-                    <p className="text-xs text-white/50">Tiempo y carga</p>
-                    <p className="mt-1 text-sm font-semibold text-white/85">
-                      Tiempo e intensidad aún sin medir en {metrics.tareasEntreno === 1 ? "la tarea" : `las ${metrics.tareasEntreno} tareas`} de entreno
-                    </p>
-                    <p className="mt-1 text-[12px] text-white/50">La carga física, la cognitiva y su comparación salen cuando se apunten los minutos.</p>
-                  </div>
-                )}
+                {/* Sin minutos medidos no se pinta nada del tiempo ni de la carga
+                    (11/11/2026): la rejilla se queda en Tareas y Valoración. */}
 
                 {hayCarga && (<>
                 <StatCard
@@ -2192,15 +2213,18 @@ export default function Page() {
                 </>)}
 
                 {/* 30/10/2026: sin valoraciones la tarjeta no se pinta (nada de «—»). */}
+                {/* 11/11/2026: con menos de la mitad de las tareas valoradas la media es
+                    provisional: la comparación sale en gris como tendencia, no en rojo o verde. */}
                 {metrics.eval > 0 && (
                   <StatCard
                     icon={Star}
-                    title="Valoración media"
+                    title={evalParcial ? "Valoración provisional" : "Valoración media"}
                     value={fmtDec(metrics.eval)}
-                    hint={`${metrics.evaluadas} de ${metrics.tareasEntreno} tarea${metrics.tareasEntreno === 1 ? "" : "s"} de entreno valorada${metrics.evaluadas === 1 ? "" : "s"}`}
-                    accent={getEvalColor(metrics.eval)}
+                    hint={`${metrics.evaluadas} de ${metrics.tareasEntreno} tarea${metrics.tareasEntreno === 1 ? "" : "s"} de entreno valorada${metrics.evaluadas === 1 ? "" : "s"}${evalParcial ? " · tendencia" : ""}`}
+                    accent={evalParcial ? "#9CA3AF" : getEvalColor(metrics.eval)}
                     delta={microDelta?.eval}
                     decimals={1}
+                    deltaTono={evalParcial ? "neutro" : "valor"}
                     deltaFrente={frenteA}
                     deltaBase={microDelta && microDelta.evalAntes > 0 && microDelta.evalAhora > 0 ? `${fmtDec(microDelta.evalAntes)} → ${fmtDec(microDelta.evalAhora)}` : undefined}
                   />
@@ -2383,6 +2407,8 @@ export default function Page() {
                 )}
 
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 sm:gap-6">
+                  {/* 11/11/2026: sin minutos medidos el bloque no se pinta (nada de «aún sin medir»). */}
+                  {hayCarga && (
                   <Panel
                     title="Distribución de carga en el microciclo"
                     subtitle="Carga física y cognitiva por día, con intensidad media"
@@ -2473,12 +2499,14 @@ export default function Page() {
                     </Chart>
                     </>)}
                   </Panel>
+                  )}
 
                   <Panel
                     title="Perfil del microciclo"
-                    subtitle="Cada eje de 0 a 10. Carga por tarea de entreno: 10 = el micro de la temporada que más carga por tarea tuvo. Diversidad: 10 = el micro con más tipos de tarea"
+                    subtitle={perfilSubtitulo}
                   >
-                    {radarData.length >= 3 ? (
+                    {/* Con 3 ejes o menos un triángulo no se lee: van como barras de 0 a 10 (11/11/2026). */}
+                    {radarData.length >= 4 ? (
                     <Chart>
                       <RadarChart
                         cx="50%"
@@ -2516,12 +2544,26 @@ export default function Page() {
                       </RadarChart>
                     </Chart>
                     ) : (
-                      <p className="rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-4 text-sm text-white/60">
-                        El perfil se dibuja con tiempo e intensidad medidos; hasta entonces, sólo lo que ya tiene dato.
-                      </p>
+                      <div className="space-y-3">
+                        {radarData.map((d) => (
+                          <div key={d.metric}>
+                            <div className="flex items-baseline justify-between gap-2 text-xs">
+                              <span className="text-white/60">{d.metric}</span>
+                              <span className="font-semibold text-[#C8A96B]">{fmt1(d.value)}</span>
+                            </div>
+                            <div className="relative mt-1 h-2 rounded-full bg-white/10">
+                              <div className="h-full rounded-full bg-[#C8A96B]" style={{ width: `${Math.min(d.value, 10) * 10}%` }} />
+                              {/* Marcas en 2, 4, 6 y 8. */}
+                              {[2, 4, 6, 8].map((t) => (
+                                <span key={t} aria-hidden className="absolute top-0 h-full w-px bg-white/20" style={{ left: `${t * 10}%` }} />
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     )}
 
-                    <div className="mt-4 grid grid-cols-3 gap-2">
+                    <div className={`mt-4 grid grid-cols-3 gap-2 ${radarData.length < 4 ? "hidden" : ""}`}>
                       {radarData.map((d) => (
                         <div
                           key={d.metric}
@@ -2613,7 +2655,7 @@ export default function Page() {
 
                   <Panel
                     title="Reparto por fase de juego"
-                    subtitle="Peso de cada fase sobre el total de tareas"
+                    subtitle={`Peso de cada fase sobre ${work.length} tarea${work.length === 1 ? "" : "s"}${excludeComp ? " de entreno" : ""}`}
                   >
                     <div className="flex flex-col lg:flex-row items-center gap-4">
                       <div className="h-[260px] w-full lg:w-1/2">

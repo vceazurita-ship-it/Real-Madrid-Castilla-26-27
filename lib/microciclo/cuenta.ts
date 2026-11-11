@@ -228,3 +228,24 @@ export function mdDeLaFecha(dia: string, fechasDePartido: Iterable<string>) {
 
   return mejor ? `MD-${mejor}` : "";
 }
+
+/*
+| UN MISMO TIPO DE TAREA, UN SOLO NOMBRE (11/11/2026). La hoja trae «Juego
+| Posicional» y «Juego de Posición» para lo mismo, y los agrupados y el
+| desplegable de /microcycles los separaban. Sólo para leer: la hoja no se toca.
+*/
+const SINONIMOS_TIPO: Record<string, string> = {
+  "juego de posicion": "Juego Posicional",
+  "juego posicional": "Juego Posicional",
+};
+
+export function tipoDeTareaUnificado(nombre: string) {
+  const limpio = (nombre ?? "").trim();
+  const clave = limpio
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+
+  return SINONIMOS_TIPO[clave] ?? limpio;
+}
