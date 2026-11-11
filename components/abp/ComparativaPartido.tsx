@@ -235,7 +235,7 @@ export function ComparativaPartido({
                 </>
               ) : null}
               {[
-                anteriores.n > 0 && anteriores.n < UMBRAL_TENDENCIA_PARTIDOS ? `media de ${anteriores.n === 1 ? "un solo partido" : `${anteriores.n} partidos`} (tendencia)` : "",
+                anteriores.n > 0 && anteriores.n < UMBRAL_TENDENCIA_PARTIDOS ? `muestra de ${anteriores.n === 1 ? "un solo partido" : `${anteriores.n} partidos`}: la media y su rango son tendencia, no norma` : "",
                 hayIndicios ? `«indicio»: fila de pocas ${unidadPartido}${notaCortas ? ` (${notaCortas})` : ""}` : "",
                 hayIgual ? "«igual»: a menos de 2 puntos o del 5 % de la media" : "",
               ]
@@ -369,8 +369,9 @@ export function ComparativaPartido({
                     {m.rango && anteriores.n > 1 && m.rango[0] !== m.rango[1] ? (
                       <span className="block text-[12px] text-white/55">
                         de {formato(m.rango[0])} a {formato(m.rango[1])}
-                        {/* 10/11/2026: el rango de pocos partidos tampoco es norma. */}
-                        {anteriores.n < UMBRAL_TENDENCIA_PARTIDOS ? " · tendencia" : ""}
+                        {/* 11/11/2026 (expertos, ronda 2): «tendencia» se dice una
+                            sola vez, en el aviso de muestra de arriba; repetida en
+                            el rango y en la diferencia llenaba cada fila. */}
                       </span>
                     ) : null}
                   </span>
@@ -379,6 +380,12 @@ export function ComparativaPartido({
                     className={`text-right text-sm tabular-nums ${destaca ? "font-semibold" : "font-normal"}`}
                     style={{ color: colorDiferencia }}
                   >
+                    {/* 11/11/2026: el sentido del cambio con flecha, en el color
+                        del juicio (verde mejor, naranja peor): en «menos es
+                        mejor» un ▼ verde se lee sin pensar. */}
+                    {d !== null && juzga && !igual && Math.abs(d) >= 0.05 ? (
+                      <span aria-hidden className="mr-0.5 text-[11px]">{d > 0 ? "▲" : "▼"}</span>
+                    ) : null}
                     {m.tendencia && d !== null
                       ? diferencia(d, m.formatoDiferencia ?? formato, porcentaje)
                       : d === null
@@ -390,10 +397,8 @@ export function ComparativaPartido({
                         : diferencia(d, m.formatoDiferencia ?? formato, porcentaje)}
                     {/* 10/11/2026: el juicio también en palabra (no sólo en color) y,
                         con pocos partidos detrás, el sello de tendencia junto a la cifra. */}
-                    {d !== null && (mejor !== null || anteriores.n < UMBRAL_TENDENCIA_PARTIDOS) ? (
-                      <span className="block text-[10px] font-normal">
-                        {[mejor === true ? "mejor" : mejor === false ? "peor" : "", anteriores.n < UMBRAL_TENDENCIA_PARTIDOS ? "tendencia" : ""].filter(Boolean).join(" · ")}
-                      </span>
+                    {d !== null && mejor !== null ? (
+                      <span className="block text-[11px] font-medium">{mejor ? "mejor" : "peor"}</span>
                     ) : null}
                   </span>
                 </li>
