@@ -19,7 +19,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { BookOpen, Image as ImageIcon, Loader2, Mail, Maximize2, RefreshCw, Send } from "lucide-react";
+import { BookOpen, ChevronDown, Image as ImageIcon, Loader2, Mail, Maximize2, RefreshCw, Send } from "lucide-react";
 import { MenuDescargar } from "@/components/informe-partido/MenuDescargar";
 import { descargaEnMarcha, encargaDescarga } from "@/lib/trabajos/descargas";
 import { toast } from "sonner";
@@ -1553,6 +1553,9 @@ export function InformeMicroDialog({
       title={informe.cabecera?.titulo || `${informe.titulo} · ${informe.modoRotulo}`}
       subtitle={informe.cabecera?.subtitulo || [informe.subtitulo, informe.rango].filter(Boolean).join(" · ")}
       onClose={onClose}
+      /* Ancho en escritorio para que el correo de 860 px se lea sin encoger; sin botón flotante en el móvil (11/11/2026, expertos). */
+      ancho
+      sinBotonFlotante
       footer={
         <div className="flex flex-wrap items-center justify-between gap-3">
           {fallo ? (
@@ -1680,7 +1683,8 @@ export function InformeMicroDialog({
       | línea (previa o post); el envío va en la barra fija de abajo y lo del
       | analista, al final junto a «Así llega».
       */}
-      <div className="space-y-3 pb-24 sm:pb-4">
+      {/* `data-informe-partido`: en el móvil esconde el botón de herramientas, que se pegaba a «Enviar» (la regla está en globals.css). */}
+      <div data-informe-partido className="space-y-3 pb-4">
         <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
           {/*
           | PREVIA O POST. Dos informes distintos de la misma semana: la previa
@@ -1758,7 +1762,7 @@ export function InformeMicroDialog({
           <iframe
             title="Vista previa del informe"
             srcDoc={html}
-            className="h-[75vh] w-full bg-white sm:h-[58vh]"
+            className="block h-[75vh] w-full bg-white"
             /* El correo mide 860 px y el marco menos: se encoge para que se lea entero, sin barra lateral ni titulares cortados (20/10/2026). */
             onLoad={(e) => {
               const marco = e.currentTarget;
@@ -1777,18 +1781,20 @@ export function InformeMicroDialog({
                 if (zoom < 1) raiz.style.zoom = String(zoom);
 
                 /*
-                | En el móvil (11/11/2026, expertos), el marco crece hasta el alto
-                | del correo: era una ventana con su scroll dentro de otro scroll.
-                | Así el informe se lee con el scroll de la página.
+                | En el móvil y en el escritorio (11/11/2026, expertos), el marco
+                | crece hasta el alto del correo: a 1440 px era un recuadro con
+                | su scroll dentro del scroll del diálogo y sólo se veía un
+                | tercio. Así el informe se lee con un solo scroll, el del diálogo.
                 */
-                if (window.matchMedia("(max-width: 639px)").matches) {
-                  marco.style.height = `${Math.ceil(alto * zoom) + 8}px`;
-                } else {
-                  marco.style.height = "";
-                }
+                marco.style.height = `${Math.ceil(alto * zoom) + 8}px`;
               };
 
               ajusta();
+
+              /* Cada imagen que termina de cargar alarga el correo: se vuelve a medir. */
+              Array.from(marco.contentDocument?.images ?? []).forEach((imagen) => {
+                if (!imagen.complete) imagen.addEventListener("load", ajusta, { once: true });
+              });
 
               /*
               | Otra vez cuando acaban de pintarse la letra y los gráficos
@@ -1800,61 +1806,6 @@ export function InformeMicroDialog({
             }}
           />
         </div>
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={verEnGrandeAbp}
-            className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[#C8A96B]/50 px-3 py-1.5 text-[12px] font-semibold text-[color:var(--rmcf-gold-ink)] hover:bg-[#C8A96B]/10"
-            title="Abrir el correo en una pestaña, para leerlo a pantalla completa"
-          >
-            <Maximize2 size={13} /> Ver en grande
-          </button>
-        </div>
-
-        {cuantasDePretemporada > 0 && (
-          <details className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
-            <summary className="cursor-pointer text-[11px] text-white/50 hover:text-white">
-              {(() => {
-                const n = propio?.partidos;
-                const cuantos = n ? ` (${n === 1 ? "un partido" : `${n} partidos`})` : "";
-
-                return conPretemporada
-                  ? `Con pretemporada${cuantos}: las cifras de abajo cuentan también los amistosos de verano`
-                  : `Sólo competición${cuantos}: las cifras de abajo no cuentan la pretemporada`;
-              })()}
-            </summary>
-
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <div className="flex items-center rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
-                {[
-                  { valor: false, rotulo: "Sólo competición" },
-                  { valor: true, rotulo: "Con pretemporada" },
-                ].map((opcion) => (
-                  <button
-                    key={opcion.rotulo}
-                    type="button"
-                    onClick={() => setConPretemporada(opcion.valor)}
-                    aria-pressed={conPretemporada === opcion.valor}
-                    className={`rounded-lg px-3 py-1.5 text-[11px] transition ${
-                      conPretemporada === opcion.valor
-                        ? "bg-[#C8A96B]/15 text-[#C8A96B]"
-                        : "text-white/50 hover:text-white"
-                    }`}
-                  >
-                    {opcion.rotulo}
-                  </button>
-                ))}
-              </div>
-
-              <span className="text-[11px] text-white/35">
-                {conPretemporada
-                  ? `Dentro van también las ${cuantasDePretemporada} acciones de los amistosos de verano.`
-                  : `Fuera quedan ${cuantasDePretemporada} acciones de pretemporada: el informe habla de competición.`}
-              </span>
-            </div>
-          </details>
-        )}
-
         {cargandoSeguimiento || cargandoComparativa || cargandoPropio || rivalInforme.cargando || pizarraInforme.cargando ? (
           <p className="flex items-center gap-2 text-xs text-white/45">
             <RefreshCw size={13} className="animate-spin" />
@@ -1868,71 +1819,133 @@ export function InformeMicroDialog({
                     ? "Fotografiando la pizarra del partido…"
                     : "Cargando la comparación con la categoría…"}
           </p>
-        ) : (
-          /*
-          | Cómo llega a la bandeja (21/10/2026): el asunto y la línea gris que
-          | Gmail enseña debajo, antes del correo entero. Es lo primero que lee
-          | quien lo recibe. Plegado desde el 06/11/2026, pero el asunto va en
-          | el resumen: se ve siempre.
-          */
-          <details className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
-            <summary className="cursor-pointer text-[12px] text-white/55">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-white/40">Así llega · asunto</span>{" "}
-              <span className="font-semibold text-white">{informe.asunto}</span>
-            </summary>
-            {informe.preencabezado ? (
-              <p className="mt-1 text-[12px] text-white/55">{informe.preencabezado}</p>
-            ) : (
-              <p className="mt-1 text-[11px] text-white/35">Sin entradilla: Gmail enseña debajo el principio del correo.</p>
-            )}
-          </details>
-        )}
+        ) : null}
 
         {/*
-        | LO DEL ANALISTA, UN INDICADOR, AL FINAL (11/11/2026, expertos): una
-        | pastilla con su contador junto a «Así llega», debajo del documento,
-        | para que no compita con la vista previa. Antes de mandar se vuelve a
-        | enseñar entera (`AvisoAntesDeMandar`). Sigue siendo el único sitio con
-        | lo del analista: los avisos, cómo poner nuestro vídeo y de dónde sale el correo.
+        | ANTES DE ENVIAR, UN SOLO DESPLEGABLE (11/11/2026, expertos): «Ver en
+        | grande» y tres líneas plegadas (pretemporada, así llega, para el
+        | analista) iban sueltas y sin jerarquía. Ahora un bloque con su rótulo,
+        | como el del informe del partido: los avisos primero, con su número
+        | dicho («4 avisos para el analista»), luego cómo llega a la bandeja, el
+        | filtro de pretemporada y «Ver en grande». Nada de esto va en el correo.
         */}
         {(() => {
-          const conAvisos =
-            !(cargandoSeguimiento || cargandoComparativa || cargandoPropio || rivalInforme.cargando) && informe.avisos.length > 0;
+          const listo = !(cargandoSeguimiento || cargandoComparativa || cargandoPropio || rivalInforme.cargando);
+
+          const n = listo ? informe.avisos.length : 0;
+
+          const rotuloAvisos = n === 1 ? "1 aviso para el analista" : `${n} avisos para el analista`;
+
+          const resumen = [
+            n ? rotuloAvisos : "",
+            "así llega a la bandeja",
+            cuantasDePretemporada > 0 ? (conPretemporada ? "con pretemporada" : "sólo competición") : "",
+            "no va en el correo",
+          ]
+            .filter(Boolean)
+            .join(" · ");
 
           return (
-            <div>
-              <button
-                type="button"
-                onClick={() => setVerAnalista((v) => !v)}
-                aria-expanded={verAnalista}
-                className={`inline-flex min-h-8 items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold ${
-                  conAvisos ? "border-amber-400/40 bg-amber-400/[0.08] text-amber-200" : "border-white/10 bg-white/[0.03] text-white/55"
-                }`}
-              >
-                {conAvisos ? (
-                  <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-400/80 px-1 text-[10px] font-bold text-black">
-                    {informe.avisos.length}
+            <section className="space-y-2" aria-label="Antes de enviar">
+              <span className="block text-[10px] font-semibold uppercase tracking-wider text-white/40">Antes de enviar</span>
+
+              <div className={`min-w-0 rounded-xl border text-[12px] ${n ? "border-amber-400/30 bg-amber-400/[0.04]" : "border-white/10 bg-white/[0.02]"}`}>
+                <button
+                  type="button"
+                  onClick={() => setVerAnalista((v) => !v)}
+                  aria-expanded={verAnalista}
+                  className="flex w-full min-w-0 items-start gap-2 px-3 py-2.5 text-left"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className={`block text-[13px] font-semibold ${n ? "text-amber-200" : "text-white/90"}`}>{n ? rotuloAvisos : "Repaso antes de enviar"}</span>
+                    <span className="block truncate text-[11px] text-white/45" title={resumen}>
+                      {resumen}
+                    </span>
                   </span>
-                ) : null}
-                Para el analista · no va en el correo
-              </button>
-              {verAnalista ? (
-                <ul className="mt-2 ml-4 list-disc space-y-1 text-[12px] text-white/70">
-                  {conAvisos ? informe.avisos.map((aviso) => <li key={aviso}>{aviso}</li>) : null}
-                  {!esPost && !videoJugadores ? (
-                    <li>
-                      Para que lleve nuestro vídeo, déjalo en ABP\VIDEO - JUGADORES con la jornada en el nombre ({jornadaPartido ? `«J${jornadaPartido}»` : "«J8»"}): el ordenador del club lo sube solo en un par de minutos.
-                    </li>
+                  <ChevronDown size={15} className={`mt-0.5 shrink-0 text-white/40 transition-transform ${verAnalista ? "rotate-180" : ""}`} />
+                </button>
+
+                <div hidden={!verAnalista} className="space-y-4 border-t border-white/10 px-3 py-3">
+                  {n ? (
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-white/40">{rotuloAvisos}</p>
+                      <ul className="mt-1 ml-4 list-disc space-y-1 text-[12px] text-white/70">
+                        {informe.avisos.map((aviso) => (
+                          <li key={aviso}>{aviso}</li>
+                        ))}
+                      </ul>
+                    </div>
                   ) : null}
-                  <li>Los destinatarios se guardan solos y valen para todos los microciclos; se cambian en la barra de abajo, junto a «Enviar».</li>
-                  {canal === "correo" ? <li>Sale de la cuenta de Google del club, la misma que sube los vídeos al canal.</li> : null}
-                </ul>
-              ) : null}
-            </div>
+
+                  {listo ? (
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-white/40">Así llega a la bandeja</p>
+                      <p className="mt-1 text-[12px] font-semibold text-white">{informe.asunto}</p>
+                      {informe.preencabezado ? (
+                        <p className="mt-0.5 text-[12px] text-white/55">{informe.preencabezado}</p>
+                      ) : (
+                        <p className="mt-0.5 text-[11px] text-white/45">Gmail enseña debajo el principio del correo.</p>
+                      )}
+                    </div>
+                  ) : null}
+
+                  {cuantasDePretemporada > 0 ? (
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-white/40">Qué partidos cuentan</p>
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        <div className="flex items-center rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
+                          {[
+                            { valor: false, rotulo: "Sólo competición" },
+                            { valor: true, rotulo: "Con pretemporada" },
+                          ].map((opcion) => (
+                            <button
+                              key={opcion.rotulo}
+                              type="button"
+                              onClick={() => setConPretemporada(opcion.valor)}
+                              aria-pressed={conPretemporada === opcion.valor}
+                              className={`rounded-lg px-3 py-1.5 text-[12px] transition ${
+                                conPretemporada === opcion.valor ? "bg-[#C8A96B]/15 text-[color:var(--rmcf-gold-ink)]" : "text-white/60 hover:text-white"
+                              }`}
+                            >
+                              {opcion.rotulo}
+                            </button>
+                          ))}
+                        </div>
+
+                        <span className="text-[11px] text-white/50">
+                          {conPretemporada
+                            ? `Dentro van también las ${cuantasDePretemporada} acciones de los amistosos de verano.`
+                            : `Fuera quedan ${cuantasDePretemporada} acciones de pretemporada${propio?.partidos ? `: las cifras cuentan ${propio.partidos === 1 ? "un partido" : `${propio.partidos} partidos`} de competición` : ""}.`}
+                        </span>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-white/40">Más</p>
+                    <ul className="mt-1 ml-4 list-disc space-y-1 text-[12px] text-white/70">
+                      {!esPost && !videoJugadores ? (
+                        <li>
+                          Para que lleve nuestro vídeo, déjalo en ABP\VIDEO - JUGADORES con la jornada en el nombre ({jornadaPartido ? `«J${jornadaPartido}»` : "«J8»"}): el ordenador del club lo sube solo en un par de minutos.
+                        </li>
+                      ) : null}
+                      <li>Los destinatarios se guardan solos y valen para todos los microciclos; se cambian en la barra de abajo, junto a «Enviar».</li>
+                      {canal === "correo" ? <li>Sale de la cuenta de Google del club, la misma que sube los vídeos al canal.</li> : null}
+                    </ul>
+                    <button
+                      type="button"
+                      onClick={verEnGrandeAbp}
+                      className="mt-2 inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[#C8A96B]/50 px-3 py-1.5 text-[12px] font-semibold text-[color:var(--rmcf-gold-ink)] hover:bg-[#C8A96B]/10"
+                      title="Abrir el correo en una pestaña, para leerlo a pantalla completa"
+                    >
+                      <Maximize2 size={13} /> Ver en grande
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </section>
           );
         })()}
-
-
       </div>
       {avisando && informe && (
         <AvisoAntesDeMandar

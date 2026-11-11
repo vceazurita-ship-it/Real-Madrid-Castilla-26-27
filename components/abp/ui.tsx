@@ -907,6 +907,7 @@ export function Dialog({
   children,
   sinGuardar = false,
   sinBotonFlotante = false,
+  ancho = false,
 }: {
   title: string;
   subtitle?: string;
@@ -917,6 +918,8 @@ export function Dialog({
   sinGuardar?: boolean;
   /** El diálogo esconde el botón de herramientas en el móvil: el pie no le guarda hueco a la derecha. */
   sinBotonFlotante?: boolean;
+  /** Más ancho en escritorio (11/11/2026): para enseñar un correo de 860 px sin encogerlo. */
+  ancho?: boolean;
 }) {
   /* El aviso lo lee un manejador que vive fuera del render; la referencia lo
      mantiene al día sin volver a enganchar el oyente en cada tecla. */
@@ -962,7 +965,7 @@ export function Dialog({
       aria-label={title}
       className="modal-veil fixed inset-0 z-50 flex items-end justify-center p-0 backdrop-blur-sm sm:items-center sm:p-6"
     >
-      <div className="flex max-h-full w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#11161C] shadow-2xl sm:rounded-2xl">
+      <div className={`flex max-h-full w-full ${ancho ? "max-w-[960px]" : "max-w-3xl"} flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#11161C] shadow-2xl sm:rounded-2xl`}>
         <header className="flex items-start justify-between gap-3 border-b border-white/10 px-5 py-3.5">
           <div className="min-w-0">
             {/* Sin cortar con «…» en el móvil (10/11/2026, jueces): el título se parte en dos líneas. */}

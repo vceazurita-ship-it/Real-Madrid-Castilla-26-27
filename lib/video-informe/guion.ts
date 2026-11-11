@@ -1603,7 +1603,7 @@ export function guionDeAbp(informe: InformeMicro, pincelada: PinceladaAbp, extra
   /* Un cero no engancha (20/10/2026: «0′ de trabajo» el lunes sonaba a reproche): sin gancho, se abre con la portada. */
   if (primera && primera.valor.length <= 8 && !/^0(?![,.]\d)(\D|$)/.test(primera.valor.trim())) {
     /* «4 de 27 / PRIORIDAD Nº 1» no decía de qué (21/10/2026, crítica del guionista): el aspecto y el peligro. */
-    const aspecto = /^prioridad/i.test(primera.rotulo) && primera.pie ? primera.pie.split(":")[0].trim() : "";
+    const aspecto = /prioridad/i.test(primera.rotulo) && primera.pie ? primera.pie.split(":")[0].trim() : "";
     const rotulo = aspecto ? `${aspecto} · ${/en contra/i.test(primera.pie ?? "") ? "peligro en contra" : "con peligro"}` : primera.rotulo;
 
     escenas.push({ id: "gancho", tipo: "gancho", dato: primera.valor, rotulo: rotulo.toUpperCase(), contexto: primera.pie ? limpia(primera.pie) : corta(limpia(pincelada.titular), 80), locucion: `${primera.rotulo}: ${primera.valor}.` });
