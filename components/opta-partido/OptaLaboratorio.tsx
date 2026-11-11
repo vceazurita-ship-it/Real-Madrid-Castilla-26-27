@@ -275,9 +275,18 @@ function ElPartido({
           {aMano
             ? cuadra
               ? "Las dos fuentes cuentan lo mismo, las faltas pitadas, y aquí cuadran."
-              : `Las dos cuentan las faltas pitadas. Donde no cuadran (${filas.filter((x) => x.mano != null && x.mano !== x.opta).map((x) => `${x.nombre.split(" (")[0].toLowerCase()}: ${x.mano} a mano, ${x.opta} en Opta`).join("; ")}), manda la lista de esta pantalla, que tiene cada falta vista y con su vídeo; la diferencia es una revisión para el analista, no un dato para el cuerpo técnico.`
+              : "Manda la lista de esta pantalla: cada falta vista y con su vídeo."
             : "Opta cuenta las faltas pitadas, lo mismo que se etiqueta aquí."}
         </p>
+        {/* 11/11/2026 (experto de fútbol): el descuadre es trabajo del analista;
+            sólo sale con los textos explicativos encendidos. */}
+        {aMano && !cuadra ? (
+          <Explicativo>
+            <p className="mt-1 text-[11px] leading-relaxed text-white/45">
+              Para revisar: {filas.filter((x) => x.mano != null && x.mano !== x.opta).map((x) => `${x.nombre.split(" (")[0].toLowerCase()}, ${x.mano} a mano y ${x.opta} en Opta`).join("; ")}.
+            </p>
+          </Explicativo>
+        ) : null}
       </div>
     );
   }
