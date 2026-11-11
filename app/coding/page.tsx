@@ -2848,11 +2848,18 @@ function Coding() {
       const control = new AbortController();
 
       try {
+        /* Si YouTube no tiene cuota y se aplaza, el servidor pondrá el enlace en esta ficha al subirlo. */
+        const jugadorFicha =
+          ambito === "rival" && sujetoAlEmpezar && !sujetoAlEmpezar.startsWith("dorsal-")
+            ? jugadorDe(sujetoAlEmpezar)
+            : null;
+
         const resultado = await subeAYoutube({
           blob,
           titulo: elegido.titulo,
           descripcion: elegido.descripcion,
           senal: control.signal,
+          ficha: jugadorFicha ? { jugadorId: jugadorFicha.id, nombre: jugadorFicha.nombre } : undefined,
           onProgreso: (fraccion) => {
             toast.loading(`Subiendo a YouTube… ${Math.round(fraccion * 100)} %`, {
               id: aviso,
@@ -2860,6 +2867,16 @@ function Coding() {
             });
           },
         });
+
+        if (resultado.aplazado) {
+          toast.success("Guardado para subirlo a YouTube", {
+            id: aviso,
+            duration: 20000,
+            description: resultado.aviso,
+          });
+
+          return;
+        }
 
         toast.success(`Subido en ${NOMBRE_PRIVACIDAD[resultado.privacidad]}`, {
           id: aviso,
@@ -2921,6 +2938,8 @@ function Coding() {
       filtroSujeto,
       clipsExportables,
       ponVideoEnFichaRival,
+      ambito,
+      jugadorDe,
       /* El compilador lo cuenta como dependencia aunque `useState` lo dé estable. */
       setPideNombre,
       subeSiempre,

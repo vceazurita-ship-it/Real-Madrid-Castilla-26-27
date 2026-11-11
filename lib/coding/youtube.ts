@@ -527,6 +527,76 @@ export async function meteEnLista(acceso: string, listaId: string, videoId: stri
   });
 }
 
+/*
+| VÍDEOS QUE ESPERAN SU LISTA (11/11/2026)
+|
+| La cuota diaria de la API es del proyecto de Google y la gastan sobre todo
+| las subidas (unificado + cortes sueltos). Cuando se acaba, el vídeo YA está
+| subido (oculto, con su enlace) pero `playlistItems.insert` falla con
+| «exceeded your quota». No se pierde: queda apuntado aquí y se mete en su
+| lista en cuanto vuelve a haber cuota (Google la renueva a medianoche del
+| Pacífico, las 9:00 en Madrid). Lo intentan el panel del coding al abrirse y
+| los visionados (cada 10 min desde la web despierta), como mucho cada 30 min.
+*/
+export const CLAVE_PENDIENTES_LISTA = "secreto:youtube-pendientes-lista";
+
+type PendienteLista = { videoId: string; listaId: string; listaNombre: string; en: string };
+type DocPendientes = { pendientes: PendienteLista[]; ultimoIntento?: string };
+
+export const esCuotaAgotada = (mensaje: string) => /quota/i.test(mensaje);
+
+/** Apunta un vídeo ya subido que no ha podido entrar en su lista. */
+export async function apuntaPendienteLista(p: Omit<PendienteLista, "en">) {
+  const { data } = await readDoc<DocPendientes>(CLAVE_PENDIENTES_LISTA);
+  const pendientes = (data?.pendientes ?? []).filter((x) => x.videoId !== p.videoId || x.listaId !== p.listaId);
+
+  pendientes.push({ ...p, en: new Date().toISOString() });
+  await writeDoc(CLAVE_PENDIENTES_LISTA, "coding", { ...(data ?? {}), pendientes });
+}
+
+/** Mete en su lista los que esperan; para en cuanto la cuota vuelve a faltar. Devuelve cuántos entraron. */
+export async function vaciaPendientesLista(ajustes: AjustesYoutube) {
+  const { data } = await readDoc<DocPendientes>(CLAVE_PENDIENTES_LISTA);
+  const pendientes = data?.pendientes ?? [];
+
+  if (!pendientes.length || !ajustes.refreshToken) return 0;
+
+  const ahora = Date.now();
+
+  if (data?.ultimoIntento && ahora - Date.parse(data.ultimoIntento) < 30 * 60 * 1000) return 0;
+
+  const acceso = await dameAcceso(ajustes);
+  const quedan: PendienteLista[] = [];
+  let metidos = 0;
+  let sinCuota = false;
+
+  for (const p of pendientes) {
+    if (sinCuota) {
+      quedan.push(p);
+      continue;
+    }
+
+    try {
+      await meteEnLista(acceso, p.listaId, p.videoId);
+      metidos += 1;
+    } catch (error) {
+      const mensaje = error instanceof Error ? error.message : "";
+
+      if (esCuotaAgotada(mensaje)) {
+        sinCuota = true;
+        quedan.push(p);
+      } else if (!/not.?found|no encontrado|duplicate/i.test(mensaje)) {
+        /* Otro fallo: se reintenta la próxima vez; un vídeo o una lista borrados se olvidan. */
+        quedan.push(p);
+      }
+    }
+  }
+
+  await writeDoc(CLAVE_PENDIENTES_LISTA, "coding", { pendientes: quedan, ultimoIntento: new Date(ahora).toISOString() });
+
+  return metidos;
+}
+
 /**
  * Quita lo que YouTube no admite en un título ni en una descripción.
  *

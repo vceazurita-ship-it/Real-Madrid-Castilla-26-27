@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 
 import {
   abreSubida,
+  apuntaPendienteLista,
   credenciales,
+  esCuotaAgotada,
+  vaciaPendientesLista,
   dameAcceso,
   dameListas,
   esPrivacidad,
@@ -12,6 +15,7 @@ import {
   urlDeVuelta,
   type EstadoYoutube,
 } from "@/lib/coding/youtube";
+import { resumenAplazadas } from "@/lib/coding/youtube-aplazadas";
 
 /**
  * CODING · la cuenta de YouTube y las dos mitades de una subida.
@@ -66,6 +70,16 @@ export async function GET(request: NextRequest) {
   | permiso retirado desde Google no avisa a nadie, y enterarse al terminar un
   | montaje de veinte minutos es enterarse tarde.
   */
+  /* Los vídeos que esperan su lista desde un día sin cuota (no frena el panel si falla). */
+  await vaciaPendientesLista(ajustes).catch(() => 0);
+
+  /* Los que esperan cuota para subirse: se dice en el panel. */
+  const aplazadas = await resumenAplazadas().catch(() => ({ esperando: 0 }));
+
+  if (aplazadas.esperando) {
+    base.aviso = `${aplazadas.esperando === 1 ? "1 vídeo guardado espera" : `${aplazadas.esperando} vídeos guardados esperan`} a que YouTube renueve la cuota: se suben solos (a partir de las 9:00).`;
+  }
+
   try {
     const acceso = await dameAcceso(ajustes);
 
@@ -75,12 +89,27 @@ export async function GET(request: NextRequest) {
       vuelta,
     });
   } catch (error) {
+    const mensaje = error instanceof Error ? error.message : "";
+
+    /* Sin cuota la cuenta sigue conectada: sólo no se pueden leer las listas hasta las 9:00. */
+    if (esCuotaAgotada(mensaje)) {
+      return NextResponse.json({
+        ok: true,
+        estado: {
+          ...base,
+          listas: ajustes.listaId ? [{ id: ajustes.listaId, nombre: ajustes.listaNombre, cuenta: 0 }] : [],
+          aviso: "YouTube ha agotado la cuota de hoy: se sigue subiendo, pero las listas no se pueden leer ni llenar hasta las 9:00.",
+        },
+        vuelta,
+      });
+    }
+
     return NextResponse.json({
       ok: true,
       estado: {
         ...base,
         conectado: false,
-        aviso: error instanceof Error ? error.message : "La cuenta ya no responde.",
+        aviso: mensaje || "La cuenta ya no responde.",
       },
       vuelta,
     });
@@ -206,10 +235,15 @@ export async function POST(request: NextRequest) {
 
           enLista = true;
         } catch (error) {
-          aviso =
-            error instanceof Error
-              ? error.message
-              : "No se ha podido meter en la lista de reproducción.";
+          const mensaje = error instanceof Error ? error.message : "";
+
+          if (esCuotaAgotada(mensaje)) {
+            /* Sin cuota hoy: el vídeo ya está subido; entra en la lista solo cuando Google la renueve. */
+            await apuntaPendienteLista({ videoId, listaId: ajustes.listaId, listaNombre: ajustes.listaNombre });
+            aviso = `Subido y con su enlace. YouTube ha agotado la cuota de hoy y no deja meterlo en la lista «${ajustes.listaNombre}»: entrará solo a partir de las 9:00 (cuando Google renueva la cuota).`;
+          } else {
+            aviso = mensaje || "No se ha podido meter en la lista de reproducción.";
+          }
         }
       }
 

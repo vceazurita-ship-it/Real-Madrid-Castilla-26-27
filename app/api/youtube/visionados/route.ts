@@ -1,7 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 
-import { dameAcceso, dameEstadisticas, dameListas, dameVideosDeLista, leeAjustes } from "@/lib/coding/youtube";
+import { dameAcceso, dameEstadisticas, dameListas, dameVideosDeLista, leeAjustes, vaciaPendientesLista } from "@/lib/coding/youtube";
+import { procesaAplazadas } from "@/lib/coding/youtube-aplazadas";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -119,6 +120,15 @@ async function porPaginas(listas: Lista[], previos: Clip[]): Promise<Clip[]> {
 
 export async function GET(peticion: Request) {
   const forzar = new URL(peticion.url).searchParams.has("forzar");
+
+  /* Cada 10 min desde la web despierta: las subidas que esperaban cuota, después de responder (11/11/2026). */
+  after(() => procesaAplazadas().catch((error) => console.error("[youtube] aplazadas", error)));
+
+  /* Y los vídeos que esperan su lista por un día sin cuota. */
+  await leeAjustes()
+    .then((ajustes) => vaciaPendientesLista(ajustes))
+    .catch(() => 0);
+
   const previo = await leeDoc();
 
   /* 1. La foto de hoy ya está: sin tocar YouTube. */

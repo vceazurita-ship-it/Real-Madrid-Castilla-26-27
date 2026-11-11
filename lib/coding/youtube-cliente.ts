@@ -32,6 +32,8 @@ export type ResultadoYoutube = {
   privacidad: "unlisted" | "private" | "public";
   /** Lo que ha ido regular sin impedir la subida (la lista, casi siempre). */
   aviso?: string;
+  /** YouTube no tenía cuota: el vídeo se ha guardado y se subirá solo (11/11/2026). */
+  aplazado?: boolean;
 };
 
 /** Cómo se llama cada privacidad en la pantalla. */
@@ -42,6 +44,9 @@ export const NOMBRE_PRIVACIDAD = {
 } as const;
 
 export const SUBIDA_CANCELADA = "subida-cancelada";
+
+/** El principio del aviso de cuota agotada al mandar los bytes: con él se aplaza la subida. */
+const CUOTA_AGOTADA = "YouTube no admite más subidas hoy con esta cuenta.";
 
 /** Cuántas veces se vuelve a intentar tras un corte antes de rendirse. */
 const REINTENTOS = 4;
@@ -93,6 +98,91 @@ export async function subeAYoutube(opciones: {
   descripcion: string;
   onProgreso?: (fraccion: number) => void;
   /** Para poder cancelar desde el aviso. */
+  senal?: AbortSignal;
+  /** A qué ficha del rival va el enlace si la subida se aplaza (el servidor lo pone al subir). */
+  ficha?: { jugadorId: string; nombre: string };
+}): Promise<ResultadoYoutube> {
+  try {
+    return await subeAhora(opciones);
+  } catch (error) {
+    const mensaje = error instanceof Error ? error.message : "";
+
+    /*
+    | SIN CUOTA, SE GUARDA (11/11/2026).
+    |
+    | La cuota de la API es del proyecto de Google y se va en unas pocas
+    | subidas. En vez de perder la subida, el vídeo se guarda en Backblaze y el
+    | servidor lo sube solo cuando Google renueva la cuota (las 9:00 en
+    | Madrid), lo mete en su lista y pone el enlace en la ficha.
+    */
+    if (/quota/i.test(mensaje) || mensaje.startsWith(CUOTA_AGOTADA)) {
+      return guardaParaLuego(opciones);
+    }
+
+    throw error;
+  }
+}
+
+/** Manda el vídeo por trozos a guardar hasta que haya cuota. */
+async function guardaParaLuego(opciones: {
+  blob: Blob;
+  titulo: string;
+  descripcion: string;
+  onProgreso?: (fraccion: number) => void;
+  senal?: AbortSignal;
+  ficha?: { jugadorId: string; nombre: string };
+}): Promise<ResultadoYoutube> {
+  const { blob, titulo, descripcion, onProgreso, senal, ficha } = opciones;
+  const tipo = blob.type || "video/mp4";
+  const llama = async <T,>(accion: string, cuerpo: BodyInit, extra = "", json = true): Promise<T> => {
+    for (let intento = 0; ; intento++) {
+      if (senal?.aborted) throw new Error(SUBIDA_CANCELADA);
+
+      try {
+        const respuesta = await fetch(`/api/youtube/aplazada?accion=${accion}${extra}`, {
+          method: "POST",
+          headers: json ? { "Content-Type": "application/json" } : { "Content-Type": "application/octet-stream" },
+          body: cuerpo,
+          signal: senal,
+        });
+        const datos = (await respuesta.json().catch(() => null)) as ({ ok?: boolean; error?: string } & T) | null;
+
+        if (respuesta.ok && datos?.ok) return datos;
+        if (respuesta.status < 500 || intento >= 3) throw new Error(datos?.error ?? `El servidor respondió ${respuesta.status}`);
+      } catch (error) {
+        if (senal?.aborted) throw new Error(SUBIDA_CANCELADA);
+        if (intento >= 3) throw error;
+      }
+
+      await esperaUnPoco(intento, senal);
+    }
+  };
+
+  const { id, trozo } = await llama<{ id: string; trozo: number }>("empieza", JSON.stringify({ bytes: blob.size, tipo, titulo, descripcion }));
+  const partes = Math.max(1, Math.ceil(blob.size / trozo));
+
+  for (let n = 1; n <= partes; n++) {
+    await llama("trozo", blob.slice((n - 1) * trozo, n * trozo), `&id=${encodeURIComponent(id)}&n=${n}`, false);
+    onProgreso?.(n / partes);
+  }
+
+  await llama("acaba", JSON.stringify({ id, ficha }));
+
+  return {
+    url: "",
+    enLista: false,
+    listaNombre: "",
+    privacidad: "unlisted",
+    aplazado: true,
+    aviso: "YouTube ha agotado la cuota de hoy. El vídeo está guardado y se subirá solo a partir de las 9:00, con su lista y, si es de un jugador del rival, el enlace en su ficha.",
+  };
+}
+
+async function subeAhora(opciones: {
+  blob: Blob;
+  titulo: string;
+  descripcion: string;
+  onProgreso?: (fraccion: number) => void;
   senal?: AbortSignal;
 }): Promise<ResultadoYoutube> {
   const { blob, titulo, descripcion, onProgreso, senal } = opciones;
@@ -408,10 +498,7 @@ function explica(estado: number, texto: string) {
   const razon = /"reason":\s*"([^"]+)"/.exec(texto)?.[1] ?? "";
 
   if (razon === "quotaExceeded" || razon === "uploadLimitExceeded") {
-    return (
-      "YouTube no admite más subidas hoy con esta cuenta. Se puede pedir " +
-      "más cuota en la consola de Google, o subir mañana."
-    );
+    return `${CUOTA_AGOTADA} Se puede pedir más cuota en la consola de Google.`;
   }
 
   if (estado === 401 || estado === 403) {
