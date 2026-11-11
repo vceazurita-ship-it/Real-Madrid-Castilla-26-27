@@ -67,8 +67,6 @@ export default function SeasonHeader({
     tira.scrollLeft = casilla.offsetLeft - tira.clientWidth / 2 + casilla.clientWidth / 2;
   }, [actualId]);
 
-  const semanaVacia = !!currentWeek && !weekHasFiles(currentWeek);
-
   return (
     <header className="mb-8">
       <div className="flex flex-wrap items-center gap-3">
@@ -157,10 +155,11 @@ export default function SeasonHeader({
                   aria-label={`${semana.nombre}${semana.fechas ? ", " + semana.fechas : ""}${semana.conMaterial ? ", con material" : ", sin material"}`}
                   /* 32 px de toque también en escritorio (30/10/2026). */
                   className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-[6px] text-[13px] font-semibold tabular-nums transition hover:scale-110 sm:h-8 sm:w-8 sm:text-[12px] ${
+                    /* 11/11/2026 (fútbol): el dorado del club, no un verde fuera de la paleta. */
                     semana.conMaterial
-                      ? "bg-emerald-400 text-[#0B0F14]"
+                      ? "bg-[#C8A96B] text-[#0B0F14]"
                       : "border border-white/20 bg-white/[0.04] text-white/55"
-                  } ${semana.actual ? "ring-2 ring-[#C8A96B] ring-offset-1 ring-offset-[#0B0F14]" : ""}`}
+                  } ${semana.actual ? "ring-2 ring-white/70 ring-offset-1 ring-offset-[#0B0F14]" : ""}`}
                 >
                   {i + 1}
                   {/* La semana en curso, dicha y no sólo con el aro (07/11/2026). */}
@@ -176,7 +175,7 @@ export default function SeasonHeader({
                     <span
                       aria-hidden
                       className="siempre-oscuro absolute -right-1 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full"
-                      style={{ background: "#0B0F14", color: "#34D399", border: "1px solid #34D399" }}
+                      style={{ background: "#0B0F14", color: "#C8A96B", border: "1px solid #C8A96B" }}
                     >
                       <Check size={9} strokeWidth={3} />
                     </span>
@@ -186,12 +185,27 @@ export default function SeasonHeader({
             </div>
             <p className="mt-1 flex flex-wrap sm:mt-5 items-center gap-x-3 gap-y-1 text-[12px] text-white/65">
               <span className="inline-flex items-center gap-1.5">
-                <span className="inline-block h-3 w-3 rounded-[3px] bg-emerald-400" />
-                <Check size={11} strokeWidth={3} className="-ml-1 text-emerald-400" aria-hidden /> con material
+                <span className="inline-block h-3 w-3 rounded-[3px] bg-[#C8A96B]" />
+                <Check size={11} strokeWidth={3} className="-ml-1 text-[#C8A96B]" aria-hidden /> con material
               </span>
               <span className="inline-flex items-center gap-1.5">
                 <span className="inline-block h-3 w-3 rounded-[3px] border border-white/30" /> sin material
               </span>
+              {/* 11/11/2026 (fútbol): en el móvil la tira abre en las últimas, todas en blanco; la racha dicha
+                  explica por qué y sale de las mismas casillas. */}
+              {(() => {
+                const hasta = tiraSemanas.findIndex((s) => s.actual);
+                const fin = hasta >= 0 ? hasta : tiraSemanas.length - 1;
+                let desde = fin;
+                while (desde >= 0 && !tiraSemanas[desde].conMaterial) desde--;
+                const seguidas = fin - desde;
+                if (seguidas < 2 || desde < 0) return null;
+                return (
+                  <span className="basis-full font-medium text-white/80 sm:basis-auto">
+                    {seguidas} semanas seguidas sin material (de la {desde + 2} a la {fin + 1})
+                  </span>
+                );
+              })()}
             </p>
             </>
           )}
@@ -207,16 +221,8 @@ export default function SeasonHeader({
           */}
           {/* Con la semana vacía el único «Subir» es el de la tarjeta de la semana (30/10/2026). */}
           {/* La acción principal arriba también en el móvil (10/11/2026): allí la zona de subida quedaba a dos pantallas. En escritorio ya está a la vista, al lado. */}
-          {semanaVacia && currentWeek && (
-            <button
-              type="button"
-              onClick={onGoToCurrentWeek}
-              className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#C8A96B] px-4 text-sm font-semibold text-[#0B0F14] transition hover:brightness-110 sm:w-auto xl:hidden"
-            >
-              <CalendarCheck size={17} />
-              {`Subir el material de la ${currentWeek.week.toLowerCase()}`}
-            </button>
-          )}
+          {/* 11/11/2026 (fútbol y análisis): fuera el «Subir el material de la semana N» de aquí arriba en el móvil;
+              repetía el botón de la tarjeta de la semana. Queda uno solo. */}
 
           {currentWeek && weekHasFiles(currentWeek) && (
             <button
@@ -243,14 +249,15 @@ export default function SeasonHeader({
             <button type="button" onClick={onOpenImages} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/15 px-4 text-sm font-medium text-white/75 transition hover:bg-white/[0.06] hover:text-white">
               <ImageIcon size={16} className="text-[#C8A96B]" />
               {/* Con su recuento (10/11/2026): dice qué hay antes de abrirlo. */}
-              {`${stats.images} ${stats.images === 1 ? "imagen" : "imágenes"}`}
+              {/* 11/11/2026 (fútbol): dice qué hace el botón, no sólo cuántas hay. */}
+              {stats.images === 1 ? "Ver la imagen de la temporada" : `Ver las ${stats.images} imágenes de la temporada`}
             </button>
           )}
 
           {stats.pdfs > 0 && (
             <button type="button" onClick={onOpenPdfs} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/15 px-4 text-sm font-medium text-white/75 transition hover:bg-white/[0.06] hover:text-white">
               <FileText size={16} className="text-[#C8A96B]" />
-              {`${stats.pdfs} PDF`}
+              {stats.pdfs === 1 ? "Ver el PDF de la temporada" : `Ver los ${stats.pdfs} PDF`}
             </button>
           )}
         </div>

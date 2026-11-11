@@ -422,7 +422,11 @@ export default function WeekPanel({
             zonas iguales más el botón de la cabecera eran tres «subir». Los
             archivos se reparten por tipo al soltarlos. */}
         {tab === "upload" && vacia && (
-          <div className="space-y-2">
+          <div className="space-y-3">
+          {/* 11/11/2026 (marketing): primero qué pasa, en una línea de titular; debajo la única acción y lo último subido. */}
+          <h3 className="text-lg font-semibold text-white/90">
+            {isCurrentWeek ? "Esta semana aún no tiene material" : `La ${week.week.toLowerCase()} aún no tiene material`}
+          </h3>
           {/*
           | 30/10/2026: una fila —qué pasa y el único «Subir»— en vez del bloque
           | enorme de arrastre. «Lo último subido… · abrir la semana 9» se
@@ -451,7 +455,7 @@ export default function WeekPanel({
             }}
           />
           {hayUltimo && ultimaConArchivos && onSelectWeek ? (
-            <p className="px-1 text-[12px] text-white/60">
+            <p className="px-1 text-[13px] text-white/70">
               Lo último subido:{" "}
               <button
                 type="button"
