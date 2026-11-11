@@ -65,6 +65,9 @@ const ARREGLO: Record<string, string> = {
   /* 10/11/2026 (jueces): las que salieron en la charla del Nàstic. */
   recurrido: "recorrido",
   disminuyo: "disminuyó",
+  /* 11/11/2026 (jueces): la del plan del Nàstic. */
+  sentimento: "sentimiento",
+  sentimentos: "sentimientos",
 };
 
 /* Una palabra suelta: letras (con tildes) y nada pegado. */
