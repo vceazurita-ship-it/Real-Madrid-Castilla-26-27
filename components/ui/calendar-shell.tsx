@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect, useState, useSyncExternalStore } from "react";
 import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
@@ -13,9 +13,29 @@ import {
   buildCalendar,
   dateKey,
   isOutOfSeason,
-  isToday as isTodayFn,
 } from "@/lib/calendar";
 import { cn } from "@/lib/utils";
+
+/*
+| «HOY» FUERA DEL RENDER (11/11/2026). La página se genera en el servidor (y
+| al compilar), con su reloj; el navegador hidrata con el suyo. Si «hoy», el
+| mes y el día resaltado salen de `new Date()` en el render, el HTML no casa
+| y React tira el error #418 (lo vio la revisión de /calendar_general). Ahora
+| «hoy» llega de un reloj externo: en el servidor es "" y la rejilla sale como
+| esqueleto; el navegador pinta el mes ya con su fecha y la cambia a medianoche.
+*/
+const cadaMinuto = (aviso: () => void) => {
+  const reloj = window.setInterval(aviso, 60_000);
+
+  return () => window.clearInterval(reloj);
+};
+
+const hoyDelAparato = () => dateKey(new Date());
+
+/** "YYYY-MM-DD" de hoy en el navegador; "" en el servidor y durante la hidratación. */
+export function useHoyClave() {
+  return useSyncExternalStore(cadaMinuto, hoyDelAparato, () => "");
+}
 
 export type CalendarDayContext = {
   date: Date;
@@ -115,10 +135,14 @@ export function CalendarShell({
   const active = months[monthIndex] ?? months[0];
   const calendar = buildCalendar(active.month, active.year);
 
-  const today = new Date();
-  const todayIndex = months.findIndex(
-    (m) => m.month === today.getMonth() && m.year === today.getFullYear()
-  );
+  const hoyClave = useHoyClave();
+  /* Hasta que el navegador sabe qué día es, nada que dependa de la fecha: ni el mes ni la rejilla. */
+  const listo = hoyClave !== "";
+  const cargando = loading || !listo;
+  const [hoyAnio, hoyMes] = hoyClave.split("-").map(Number);
+  const todayIndex = listo
+    ? months.findIndex((m) => m.month === hoyMes - 1 && m.year === hoyAnio)
+    : -1;
   const canGoToday = todayIndex !== -1 && todayIndex !== monthIndex;
 
   // Navegación de mes con el teclado (ignorada mientras se escribe).
@@ -188,7 +212,7 @@ export function CalendarShell({
                 <button
                   type="button"
                   aria-label="Mes anterior"
-                  disabled={monthIndex === 0}
+                  disabled={!listo || monthIndex === 0}
                   onClick={() => onMonthChange(monthIndex - 1)}
                   className="rounded-xl border border-white/10 bg-[#11161D] p-2 transition hover:border-[#C8A96B] disabled:opacity-30 md:p-3"
                 >
@@ -197,7 +221,7 @@ export function CalendarShell({
 
                 <div className="min-w-0 text-center">
                   <h2 className="truncate text-xl font-semibold md:text-3xl">
-                    {MONTHS[active.month]} {active.year}
+                    {listo ? `${MONTHS[active.month]} ${active.year}` : " "}
                   </h2>
 
                   <p className="mt-1 text-xs text-white/50 md:text-base">
@@ -225,7 +249,7 @@ export function CalendarShell({
                   <button
                     type="button"
                     aria-label="Mes siguiente"
-                    disabled={monthIndex === months.length - 1}
+                    disabled={!listo || monthIndex === months.length - 1}
                     onClick={() => onMonthChange(monthIndex + 1)}
                     className="rounded-xl border border-white/10 bg-[#11161D] p-2 transition hover:border-[#C8A96B] disabled:opacity-30 md:p-3"
                   >
@@ -243,7 +267,8 @@ export function CalendarShell({
                   y la rejilla queda a un toque por si hay que abrir un día vacío. */}
               <MobileDayList
                 date={active}
-                loading={loading}
+                loading={cargando}
+                hoyClave={hoyClave}
                 renderDay={renderDay}
                 rejilla={rejilla}
                 onToggle={() => setRejilla((v) => !v)}
@@ -275,7 +300,7 @@ export function CalendarShell({
                     ))}
                   </div>
 
-                  {loading ? (
+                  {cargando ? (
                     <CalendarSkeleton weeks={calendar.length} />
                   ) : (
                     <div className="space-y-1 md:space-y-2">
@@ -289,6 +314,7 @@ export function CalendarShell({
                               key={date.getTime()}
                               date={date}
                               activeMonth={active.month}
+                              hoyClave={hoyClave}
                               renderDay={renderDay}
                             />
                           ))}
@@ -299,7 +325,7 @@ export function CalendarShell({
                 </div>
               </div>
 
-              {legend && legend.length > 0 && (
+              {listo && legend && legend.length > 0 && (
                 <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-white/10 pt-4">
                   {legend.map((item) => (
                     <div key={item.label} className="flex items-center gap-2">
@@ -325,12 +351,14 @@ export function CalendarShell({
 function MobileDayList({
   date,
   loading,
+  hoyClave,
   renderDay,
   rejilla,
   onToggle,
 }: {
   date: CalendarMonth;
   loading: boolean;
+  hoyClave: string;
   renderDay: (ctx: CalendarDayContext) => CalendarDayCell;
   rejilla: boolean;
   onToggle: () => void;
@@ -346,7 +374,7 @@ function MobileDayList({
             date: d,
             key: dateKey(d),
             isCurrentMonth: true,
-            isToday: isTodayFn(d),
+            isToday: dateKey(d) === hoyClave,
             outOfSeason: isOutOfSeason(d),
           }),
         }))
@@ -392,7 +420,7 @@ function MobileDayList({
                 <p className="text-[11px] uppercase text-[#C8A96B]">
                   {WEEK[(d.getDay() + 6) % 7].slice(0, 3)}
                 </p>
-                <p className={cn("text-xl font-semibold", isTodayFn(d) && "text-[#C8A96B]")}>
+                <p className={cn("text-xl font-semibold", dateKey(d) === hoyClave && "text-[#C8A96B]")}>
                   {d.getDate()}
                 </p>
               </div>
@@ -420,14 +448,16 @@ function MobileDayList({
 function DayCell({
   date,
   activeMonth,
+  hoyClave,
   renderDay,
 }: {
   date: Date;
   activeMonth: number;
+  hoyClave: string;
   renderDay: (ctx: CalendarDayContext) => CalendarDayCell;
 }) {
   const isCurrentMonth = date.getMonth() === activeMonth;
-  const today = isTodayFn(date);
+  const today = dateKey(date) === hoyClave;
   const outOfSeason = isOutOfSeason(date);
 
   const cell = renderDay({

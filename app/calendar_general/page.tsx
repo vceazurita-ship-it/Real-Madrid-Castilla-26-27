@@ -604,6 +604,7 @@ export default function CalendarGeneralPage() {
     */
     let eventos = 0;
     let partidos = 0;
+    let jugados = 0;
     const viajes = new Set<string>();
     let sesiones = 0;
 
@@ -618,7 +619,10 @@ export default function CalendarGeneralPage() {
     autoByDay.forEach((list, key) => {
       if (!inMonth(key)) return;
       list.forEach((e) => {
-        if (e.clase === "PARTIDO") partidos += 1;
+        if (e.clase === "PARTIDO") {
+          partidos += 1;
+          if (e.marcador) jugados += 1;
+        }
         else if (!e.titulo.startsWith("Regreso de")) viajes.add(e.titulo);
       });
     });
@@ -636,7 +640,7 @@ export default function CalendarGeneralPage() {
       pdfs += files.pdfs.length;
     });
 
-    return { eventos, partidos, viajes: viajes.size, sesiones, imagenes, pdfs };
+    return { eventos, partidos, jugados, viajes: viajes.size, sesiones, imagenes, pdfs };
   }, [eventsByDay, autoByDay, filesByDay, sesionesDia, active]);
 
   /* Mes en blanco con todo ya leído: se dice con una frase y se ofrece el mes del próximo partido. */
@@ -767,17 +771,23 @@ export default function CalendarGeneralPage() {
       events: (current?.events ?? []).filter((item) => item.id !== id),
     }));
 
-  /* «4 partidos · 2 viajes · 8 entrenos»: lo que antes eran las tarjetas del mes. */
+  /* «4 partidos · 2 viajes · 8 entrenos»: lo que antes eran las tarjetas del mes.
+     11/11/2026: cada cifra con su base: cuántos partidos se han jugado ya y que
+     los entrenos son los apuntados en la hoja de microciclos. */
+  const basePartidos =
+    monthStats.partidos > 0 && monthStats.jugados > 0 && monthStats.jugados < monthStats.partidos
+      ? ` (${monthStats.jugados} ${monthStats.jugados === 1 ? "jugado" : "jugados"})`
+      : "";
   const resumenMes = [
-    [monthStats.partidos, "partido", "partidos"],
+    [monthStats.partidos, "partido", "partidos", basePartidos],
     [monthStats.viajes, "viaje", "viajes"],
-    [monthStats.sesiones, "entreno", "entrenos"],
+    [monthStats.sesiones, "entreno en la hoja", "entrenos en la hoja"],
     [monthStats.eventos, "evento del staff", "eventos del staff"],
     [monthStats.imagenes, "imagen", "imágenes"],
     [monthStats.pdfs, "PDF", "PDF"],
   ]
     .filter(([n]) => Number(n) > 0)
-    .map(([n, uno, varios]) => `${n} ${Number(n) === 1 ? uno : varios}`)
+    .map(([n, uno, varios, base]) => `${n} ${Number(n) === 1 ? uno : varios}${base ?? ""}`)
     .join(" · ");
 
   return (
@@ -899,12 +909,22 @@ export default function CalendarGeneralPage() {
 
         const sesionDia = sesionesDia.get(key);
         const hayPartido = dayAuto.some((a) => a.clase === "PARTIDO");
+        const hayViaje = dayAuto.some((a) => a.clase === "VIAJE");
+        /* Más allá de la última sesión apuntada: lo que toca por el calendario. */
+        const porVenir = !sesionDia && !hayPartido && tramoSesiones !== null && key > tramoSesiones.hasta;
+        /* 11/11/2026: el día después del partido es libre, como propone
+           /laboratorio/microciclo («Libre sólo el día después del partido»);
+           antes salía MD-6 del partido siguiente y había dos criterios. */
+        const vispera = parseDateKey(key);
+        vispera.setDate(vispera.getDate() - 1);
+        const trasPartido = porVenir && diasDePartido.includes(dateKey(vispera));
         const libre =
-          !sesionDia &&
-          !hayPartido &&
-          tramoSesiones !== null &&
-          key > tramoSesiones.desde &&
-          key < tramoSesiones.hasta;
+          (!sesionDia &&
+            !hayPartido &&
+            tramoSesiones !== null &&
+            key > tramoSesiones.desde &&
+            key < tramoSesiones.hasta) ||
+          trasPartido;
 
         return {
           hasContent:
@@ -947,8 +967,10 @@ export default function CalendarGeneralPage() {
               )}
               {/* 10/11/2026: más allá de la última sesión apuntada, el MD que
                   toca por el calendario de partidos, en trazo discontinuo
-                  (es previsto: la hoja aún no tiene la sesión). */}
-              {!sesionDia && !hayPartido && tramoSesiones !== null && key > tramoSesiones.hasta && (() => {
+                  (es previsto: la hoja aún no tiene la sesión). El día de
+                  viaje se queda con el viaje (11/11/2026): un MD-1 sin sesión
+                  al lado del autobús no decía nada. */}
+              {porVenir && !trasPartido && !hayViaje && (() => {
                 const previsto = mdDeLaFecha(key, diasDePartido);
 
                 return previsto ? (
