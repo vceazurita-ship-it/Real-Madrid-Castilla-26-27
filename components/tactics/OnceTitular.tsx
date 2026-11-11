@@ -33,6 +33,7 @@ import type { Elegido } from "@/lib/tactics/propuestaOnce";
 import type { TacticsDoc } from "@/lib/tactics/types";
 import { cn } from "@/lib/utils";
 import { nombrePuesto } from "@/lib/posiciones";
+import { mismoJugador } from "@/lib/fichajes";
 import type { Player } from "@/types/player";
 
 import BajasPartido from "./BajasPartido";
@@ -82,12 +83,28 @@ export default function OnceTitular({
 
   /* Quién está ya en el campo: cualquier ficha nuestra con nombre, no sólo las de los huecos. */
   const enCampo = useMemo(() => new Set((escena?.tokens ?? []).filter((t) => t.kind === "home" && t.nombre?.trim()).map((t) => clave(t.nombre))), [escena]);
-  const estaEnCampo = useCallback((p: Player) => enCampo.has(clave(nombreDeFicha(p))) || enCampo.has(clave(p.nombre)), [enCampo]);
+  /*
+  | 11/11/2026 (jueces): «Para entrar» repetía a Mestre, Fortea, Leiva y
+  | Cestero, que ya estaban en el once: la ficha decía el apodo y la plantilla
+  | el nombre entero. Ahora también cuenta el jugador ya casado en su hueco y,
+  | si no, el mismo apellido (`mismoJugador`).
+  */
+  const idsEnCampo = useMemo(() => new Set(huecos.flatMap((h) => (h.jugador ? [h.jugador.id] : []))), [huecos]);
+  const nombresEnCampo = useMemo(() => (escena?.tokens ?? []).filter((t) => t.kind === "home" && t.nombre?.trim()).map((t) => t.nombre!.trim()), [escena]);
+  const estaEnCampo = useCallback(
+    (p: Player) =>
+      idsEnCampo.has(p.id) ||
+      enCampo.has(clave(nombreDeFicha(p))) ||
+      enCampo.has(clave(p.nombre)) ||
+      nombresEnCampo.some((n) => mismoJugador(n, p.nombre) || (!!p.apodo && mismoJugador(n, p.apodo))),
+    [idsEnCampo, enCampo, nombresEnCampo],
+  );
 
   const banquillo = useMemo(
     () =>
       roster
-        .filter((p) => p.activo !== false && !estaEnCampo(p))
+        /* Los que no están (selección, lesión…) salen en «No disponibles», no aquí (11/11/2026, jueces). */
+        .filter((p) => disponible(p) && !estaEnCampo(p))
         .sort((a, b) => {
           const libreA = disponible(a) ? 0 : 1;
           const libreB = disponible(b) ? 0 : 1;
@@ -302,7 +319,7 @@ export default function OnceTitular({
     setPropuestaAbierta(false);
 
     toast.success("Propuesta aplicada al once", {
-      description: "La pantalla Emocional y la pizarra de balón parado ya la usan.",
+      description: "Emocional, Duelos, Plan de partido, Data análisis y el balón parado ya la usan.",
       duration: 9000,
       action: {
         label: "Deshacer",
@@ -395,7 +412,7 @@ export default function OnceTitular({
                   {/* Más pequeña en el móvil: con la foto de 32 px, la línea de cuatro se quedaba en «A…» (07/11/2026). */}
                   <span className="relative h-6 w-6 shrink-0 overflow-hidden rounded-full bg-white/10 sm:h-8 sm:w-8">
                     {token?.foto ? <Image src={token.foto} alt="" fill sizes="32px" className="pointer-events-none object-cover" unoptimized draggable={false} /> : null}
-                    <span className="absolute -bottom-0.5 -right-0.5 rounded-full bg-[#11161C] px-1 text-[9px] font-bold tabular-nums leading-tight text-[#C8A96B]">{token?.label ?? ""}</span>
+                    <span className="absolute -bottom-0.5 -right-0.5 rounded-full bg-[#11161C] px-1 text-[9px] font-bold tabular-nums leading-tight text-[#C8A96B]">{/* El dorsal de la ficha del jugador, como en la lista de abajo (11/11/2026: Carvajal salía con el 9 aquí y el 19 abajo). */}{jugador?.dorsal ? String(jugador.dorsal) : (token?.label ?? "")}</span>
                   </span>
                   <span className="min-w-0">
                     <span className="block truncate text-[12px] font-semibold text-white/90">{nombre || "Toca para poner"}</span>

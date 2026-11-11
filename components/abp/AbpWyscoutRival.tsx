@@ -10,6 +10,10 @@ import type { GolesAbp } from "@/lib/data-analisis/goles-abp";
 import type { RivalPlayerAerial } from "@/lib/abp/rival";
 import { casaNombre } from "@/lib/data-analisis/once";
 import { normalizarOnce, playerKey, rivalOnceKey } from "@/lib/rivals/once";
+import { cargaDatosMarcas } from "@/lib/abp/marcas-datos";
+import { motivoAtacante, ordenaAtacantes, ordenaMarcadores, type Atacante } from "@/lib/abp/marcas-corner";
+import { usePlayers } from "@/hooks/usePlayers";
+import Link from "next/link";
 
 /*
 |--------------------------------------------------------------------------
@@ -120,27 +124,34 @@ const rotuloDe = (fila: Fila) => (fila.unidad === "porcentaje" ? fila.nombre.rep
 | (29/10/2026): la consigna ofensiva va debajo de «Balón parado en contra».
 | Sólo en el peor tramo (peor que 8 de cada 10).
 */
-function consignaOfensiva(aspecto: Aspecto, equipos: number) {
-  if (aspecto.clave !== "abpDef") return "";
+/*
+| 11/11/2026 (análisis): el dato y la decisión van separados. «Llegar a línea
+| de fondo» o «preparar dos rutinas» no salen de la cifra: son criterio de
+| juego a partir de ella, y se rotulan así.
+*/
+function consignaOfensiva(aspecto: Aspecto | undefined, equipos: number): { dato: string; decision: string }[] {
+  if (!aspecto || aspecto.clave !== "abpDef") return [];
 
   const peor = (fila: Fila | undefined) => (fila && fila.mejorAlto === false && fila.percentil <= 20 ? fila : null);
   const corners = peor(aspecto.filas.find((f) => f.nombre === "Córners"));
   const conRemate = peor(aspecto.filas.find((f) => f.nombre === "Córners con remate %"));
-  const partes: string[] = [];
+  const partes: { dato: string; decision: string }[] = [];
 
   if (corners) {
-    partes.push(
-      `Concede ${cifra1(corners.valor, corners.unidad)} córners por partido (mediana ${cifra1(corners.mediana, corners.unidad)}; ${lecturaSinPuesto(corners.percentil, equipos, false).texto}): llegar a línea de fondo y forzar córner; preparar dos rutinas de córner ofensivo.`,
-    );
+    partes.push({
+      dato: `concede ${cifra1(corners.valor, corners.unidad)} córners por partido (mediana ${cifra1(corners.mediana, corners.unidad)}; ${lectura(corners.percentil, equipos, false).texto})`,
+      decision: "llegar a línea de fondo y forzar córner; preparar dos rutinas de córner ofensivo.",
+    });
   }
 
   if (conRemate) {
-    partes.push(
-      `Le rematan el ${cifra1(conRemate.valor, conRemate.unidad)} de los córners (mediana ${cifra1(conRemate.mediana, conRemate.unidad)}; ${lecturaSinPuesto(conRemate.percentil, equipos, false).texto}): cargar el área con nuestros mejores rematadores en cada córner.`,
-    );
+    partes.push({
+      dato: `le rematan el ${cifra1(conRemate.valor, conRemate.unidad)} de los córners${conRemate.base ? ` (${Math.round(conRemate.base.arriba)} de ${Math.round(conRemate.base.abajo)})` : ""}; mediana ${cifra1(conRemate.mediana, conRemate.unidad)}, ${lectura(conRemate.percentil, equipos, false).texto}`,
+      decision: "cargar el área con nuestros mejores rematadores en cada córner.",
+    });
   }
 
-  return partes.join(" ");
+  return partes;
 }
 
 /** La lectura de los centros: qué hacemos según cuánto centra y con qué acierto. */
@@ -155,6 +166,17 @@ function consignaOfensiva(aspecto: Aspecto, equipos: number) {
 | acierto como el de la liga (33,8 % frente a 33,9 %) → cerrar el carril y
 | ganar el área»), y un titular con verbo y cifra para la cabecera.
 */
+/*
+| 11/11/2026 (análisis): cada frase en dos trozos, el dato y la decisión. La
+| decisión («tres hombres en el área», «extremo y lateral doblando») no sale de
+| la cifra: es criterio de juego y se pinta rotulada aparte.
+*/
+const partePorFlecha = (frase: string) => {
+  const [dato, ...resto] = frase.split(" → ");
+
+  return { dato: dato.replace(/[:.]\s*$/, ""), decision: resto.join(" → ") };
+};
+
 function queHacemosConCentros(
   aspectos: Aspecto[],
   equipo: string,
@@ -177,8 +199,8 @@ function queHacemosConCentros(
     : recibe.valor > recibe.mediana
       ? `${equipo} recibe ${cifra1(recibe.valor, recibe.unidad)} centros por partido (mediana ${cifra1(recibe.mediana, recibe.unidad)}) → atacarles por fuera, con extremo y lateral doblando y tres hombres en el área.`
       : cercaDeLaMediana
-        ? `${equipo} recibe ${cifra1(recibe.valor, recibe.unidad)} centros por partido (mediana ${cifra1(recibe.mediana, recibe.unidad)}), cerca de lo normal en la liga: como tendencia, probar primero por dentro y centrar con el área cargada.`
-        : `${equipo} recibe ${cifra1(recibe.valor, recibe.unidad)} centros por partido (mediana ${cifra1(recibe.mediana, recibe.unidad)}): no dejan centrar → el centro no es la primera vía; llegar por dentro y centrar sólo con el área cargada.`;
+        ? `${equipo} recibe ${cifra1(recibe.valor, recibe.unidad)} centros por partido (mediana ${cifra1(recibe.mediana, recibe.unidad)}), cerca de lo normal en la liga → como tendencia, probar primero por dentro y centrar con el área cargada.`
+        : `${equipo} recibe ${cifra1(recibe.valor, recibe.unidad)} centros por partido (mediana ${cifra1(recibe.mediana, recibe.unidad)}), no deja centrar → el centro no es la primera vía; llegar por dentro y centrar sólo con el área cargada.`;
 
   if (!volumen || !acierto) return { titular: "", nosCentran: "", lesCentramos };
 
@@ -206,7 +228,8 @@ function queHacemosConCentros(
             : "cerrar el pase interior antes que el centro";
 
   return {
-    titular: `${equipo} centra ${muchos ? "mucho" : "poco"}, ${cifra1(volumen.valor, volumen.unidad)} por partido: ${accion.split(",")[0]}`,
+    /* Sólo el dato (11/11/2026, análisis): la acción va debajo, una vez, y no se repite arriba. */
+    titular: `${equipo} centra ${muchos ? "mucho" : "poco"}: ${cifra1(volumen.valor, volumen.unidad)} por partido (mediana ${cifra1(volumen.mediana, volumen.unidad)})`,
     nosCentran: `${equipo} centra ${cuanto} ${comoAcierta} → ${accion}.`,
     lesCentramos,
   };
@@ -286,6 +309,40 @@ export function AbpWyscoutRival({
   const titulares = titularesDe.equipo === equipo ? titularesDe.claves : null;
 
   /*
+  | Quién marca a quién, con nombre (11/11/2026, fútbol y marketing): «nuestro
+  | jugador más alto con…» no decía quién. Es la misma propuesta que
+  | /abp-pizarra («Quién marca a quién»): su once por remates, altura y
+  | aéreos contra nuestro once de la pizarra táctica por su valor por arriba.
+  | Sólo cuenta; no escribe nada en la pizarra.
+  */
+  const { players } = usePlayers();
+  const [marcasDe, setMarcasDe] = useState<{ equipo: string; filas: { nuestro: string; suyo: Atacante }[]; fuente: string } | null>(null);
+
+  useEffect(() => {
+    if (ambito !== "abp" || !equipo || players.length === 0) return;
+
+    let vivo = true;
+
+    cargaDatosMarcas(equipo, players)
+      .then((d) => {
+        if (!vivo || !d) return;
+
+        const nuestros = ordenaMarcadores(d.plantel.filter((m) => m.titular));
+        const suyos = ordenaAtacantes(d.atacantes).filter((a) => a.remates > 0 || a.remataAbp || (a.altura ?? 0) >= 183);
+        const filas = suyos.slice(0, 3).flatMap((suyo, i) => (nuestros[i] ? [{ nuestro: nuestros[i].nombre, suyo }] : []));
+
+        setMarcasDe({ equipo, filas, fuente: d.fuente });
+      })
+      .catch((error) => console.error("[abp-rival] marcas", error));
+
+    return () => {
+      vivo = false;
+    };
+  }, [equipo, ambito, players]);
+
+  const marcas = marcasDe?.equipo === equipo && marcasDe.filas.length > 0 ? marcasDe : null;
+
+  /*
   | «Quién remata» sólo cuando ha llegado todo (30/10/2026): Wyscout, el once
   | probable y las etiquetas de la plantilla. Con una carga a medias la
   | consigna emparejaba al central con un suplente y, al completarse, con otro.
@@ -309,12 +366,6 @@ export function AbpWyscoutRival({
   const lanzadoresWyscout = datos?.lanzadores ?? [];
   const nombreDeLanzador = (nombre: string) =>
     casaNombre(nombre, plantilla, (uno) => uno.nombre)?.nombre ?? nombre;
-  const lanzanDeTipo = (tipo: Lanzador["tipo"]) =>
-    lanzadoresWyscout.filter((uno) => uno.tipo === tipo);
-  const textoLanzadores = (tipo: Lanzador["tipo"]) =>
-    lanzanDeTipo(tipo)
-      .map((uno) => `${nombreDeLanzador(uno.nombre)} (${uno.total} en ${uno.partidos} partidos)`)
-      .join(", ");
 
   const sacan: { nombre: string }[] =
     sacanEtiquetados.length > 0
@@ -356,7 +407,11 @@ export function AbpWyscoutRival({
   const principales = (titulares ? titularesQueRematan : porAltura(rematan)).slice(0, 2);
   const ORDINAL = ["nuestro jugador más alto", "nuestro segundo más alto"];
   const consigna = [
-    principales.length ? `en el córner, ${principales.map((uno, i) => `${ORDINAL[i]} con ${conCm(uno)}`).join(" y ")}` : "",
+    marcas
+      ? `en el córner, ${marcas.filas.map((f) => `${f.nuestro} con ${f.suyo.nombre}${motivoAtacante(f.suyo) ? ` (${motivoAtacante(f.suyo)})` : ""}`).join("; ")}`
+      : principales.length
+        ? `en el córner, ${principales.map((uno, i) => `${ORDINAL[i]} con ${conCm(uno)}`).join(" y ")}`
+        : "",
     ...rematanFuera.slice(0, 2).map((uno) => `si entra ${conCm(uno)}, lo coge quien marcaba al que sale`),
     sacan.length > 0 ? `vigilar la trayectoria de ${sacan.map((uno) => uno.nombre).join(" y ")} en el saque` : "",
   ]
@@ -369,39 +424,77 @@ export function AbpWyscoutRival({
     return null;
   }
 
+  const nEquipos = datos?.equipos ?? 20;
+  const partidosWy = aspectos[0]?.filas[0]?.partidos ?? null;
+  const ofensiva = ambito === "abp" ? consignaOfensiva(aspectos.find((a) => a.clave === "abpDef"), nEquipos) : [];
+  const conTendencia = hayGoles && !!goles && [goles.aFavor, goles.enContra].some((g) => g.abp > 0 && (g.abp < 10 || g.partidos < 10));
+
   return (
     <div className="space-y-5">
       {aspectos.length > 0 && (
         <Panel
           title={ambito === "area" ? "Sus centros laterales, los que hace y los que recibe, según Wyscout" : "Su balón parado según Wyscout"}
-          subtitle={`${equipo}${ambito === "area" && aspectos[0]?.filas[0]?.partidos != null ? ` en ${aspectos[0].filas[0].partidos} partidos` : ""} frente a los ${datos?.equipos ?? 20} equipos de la liga${(datos?.equipos ?? 20) === 20 ? ", el Castilla incluido" : ""}. «Mejor» y «peor» ya tienen en cuenta el sentido de cada cifra; «de cada 10» compara siempre con esos equipos, y «x de y» es la cantidad real que hay detrás de cada porcentaje.`}
+          subtitle={`${equipo}${partidosWy != null ? ` en ${partidosWy} partidos de Wyscout (la descarga puede ir una jornada por detrás del calendario)` : ""} frente a los ${nEquipos} equipos de la liga${nEquipos === 20 ? ", el Castilla incluido" : ""}. ▲ mejor y ▼ peor ya tienen en cuenta si conviene más o menos; sin flecha, es una cifra de estilo.${ambito === "area" ? " «x de y» es la base real: en «sus centros», los que hace; en «los que recibe», los que le hacen." : ""}`}
           icon={BarChart3}
         >
+          {/* Lo que hacemos, en el primer pliegue (11/11/2026, marketing): encima de la tabla y de los goles. */}
+          {ofensiva.length > 0 && (
+            <div className="mb-4 space-y-2 border-b border-white/10 pb-3 text-sm text-white/85">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/50">Nuestro balón parado · qué hacemos</p>
+              {ofensiva.map((o) => (
+                <div key={o.dato}>
+                  <p>
+                    <b className="text-white">El dato (Wyscout): </b>
+                    {equipo} {o.dato}.
+                  </p>
+                  <p>
+                    <b className="text-white">La decisión </b>
+                    <span className="text-[12px] text-white/55">(criterio de juego, no lo dicta la cifra)</span>
+                    <b className="text-white">: </b>
+                    {o.decision}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+
           {ambito === "area" && (() => {
             const { titular, nosCentran, lesCentramos } = queHacemosConCentros(aspectos, equipo);
 
             if (!nosCentran && !lesCentramos) return null;
 
-            /* Arriba del todo (30/10/2026): la acción antes que la tabla. */
+            /*
+            | Arriba del todo (30/10/2026): la acción antes que la tabla.
+            | 11/11/2026 (análisis): rótulos propios, «Su ataque» y «Nuestro
+            | ataque», y en cada uno el dato y la decisión por separado.
+            */
+            const bloques = [
+              { rotulo: "Su ataque · cuando ellos centran", frase: nosCentran },
+              { rotulo: "Nuestro ataque · cuando les centramos", frase: lesCentramos },
+            ].filter((b) => b.frase);
+
             return (
-              <div className="mb-4 space-y-1.5 border-b border-white/10 pb-3 text-sm text-white/85">
+              <div className="mb-4 space-y-2 border-b border-white/10 pb-3 text-sm text-white/85">
                 {titular && <p className="text-base font-semibold text-white md:text-lg">{titular}</p>}
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/50">Qué hacemos</p>
-                <p className="text-xs text-white/55">
-                  Centro lateral: pase al área desde las bandas. Wyscout lo da por preciso cuando le llega a un compañero.
-                </p>
-                {nosCentran && (
-                  <p>
-                    <b className="text-white">Cuando ellos centran: </b>
-                    {nosCentran}
-                  </p>
-                )}
-                {lesCentramos && (
-                  <p>
-                    <b className="text-white">Cuando nosotros les centramos: </b>
-                    {lesCentramos}
-                  </p>
-                )}
+                <p className="text-[12px] text-white/55">Centro lateral: pase al área desde la banda; preciso, si llega a un compañero.</p>
+                {bloques.map((b) => {
+                  const { dato, decision } = partePorFlecha(b.frase);
+
+                  return (
+                    <div key={b.rotulo}>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">{b.rotulo}</p>
+                      <p>{dato}.</p>
+                      {decision && (
+                        <p>
+                          <b className="text-white">Qué hacemos </b>
+                          <span className="text-[12px] text-white/55">(criterio de juego, no lo dicta la cifra)</span>
+                          <b className="text-white">: </b>
+                          {decision}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             );
           })()}
@@ -410,33 +503,25 @@ export function AbpWyscoutRival({
               <div key={aspecto.clave} className="min-w-0">
                 <h3 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">
                   {aspecto.aspecto}
-                  {aspecto.filas[0]?.partidos != null && (ambito !== "area" || aspecto.filas[0].partidos < 10) && (
+                  {aspecto.filas[0]?.partidos != null && aspecto.filas[0].partidos < 10 && (
                     <span className="ml-2 font-normal normal-case tracking-normal italic text-white/45">
-                      {ambito === "area"
-                        ? "tendencia"
-                        : aspecto.filas[0].partidos < 10
-                        ? `tendencia, ${aspecto.filas[0].partidos} partidos`
-                        : `en ${aspecto.filas[0].partidos} partidos`}
+                      tendencia, {aspecto.filas[0].partidos} partidos
                     </span>
                   )}
                 </h3>
 
                 <ul className="mt-2 space-y-2">
                   {aspecto.filas.map(orientada).map((fila) => {
-                    const lee = lectura(fila.percentil, datos?.equipos ?? 20, fila.mejorAlto);
+                    const lee = lectura(fila.percentil, nEquipos, fila.mejorAlto);
+                    /* Con menos de 25 casos detrás de un porcentaje, tendencia (11/11/2026, análisis). */
+                    const pocaBase = fila.unidad === "porcentaje" && !!fila.base && fila.base.abajo < 25;
 
                     return (
                       <li
                         key={fila.nombre}
                         className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2"
                       >
-                        <span className="min-w-0 text-sm text-white/80">
-                          {rotuloDe(fila)}
-                          {/* También las que no son ni mejores ni peores (30/10/2026): sin etiqueta parecía un olvido. */}
-                          <span className="ml-2 text-xs font-normal text-white/40">
-                            {fila.mejorAlto == null ? "ni mejor ni peor: dice cuánto pesa" : fila.mejorAlto ? "más es mejor" : "menos es mejor"}
-                          </span>
-                        </span>
+                        <span className="min-w-0 text-sm text-white/80">{rotuloDe(fila)}</span>
 
                         <span className="text-sm font-semibold tabular-nums text-white">
                           {cifra1(fila.valor, fila.unidad)}
@@ -445,7 +530,7 @@ export function AbpWyscoutRival({
                             <span className="ml-1 text-xs font-normal text-white/55">por partido</span>
                           )}
                           {/* La base (partidos) va una vez, en el subtítulo (30/10/2026); aquí sólo si esta fila tiene otra. */}
-                          {ambito === "area" && fila.partidos != null && fila.partidos !== aspecto.filas[0]?.partidos && (
+                          {fila.partidos != null && fila.partidos !== aspecto.filas[0]?.partidos && (
                             <span className="ml-2 text-xs font-normal text-white/55">
                               en {fila.partidos} {fila.partidos === 1 ? "partido" : "partidos"}
                             </span>
@@ -455,7 +540,7 @@ export function AbpWyscoutRival({
                               {Math.round(fila.base.arriba)} de {Math.round(fila.base.abajo)}
                             </span>
                           )}
-                          <span className="ml-2 text-xs font-normal text-white/40">
+                          <span className="ml-2 text-xs font-normal text-white/45">
                             mediana {cifra1(fila.mediana, fila.unidad)}
                           </span>
                         </span>
@@ -473,18 +558,13 @@ export function AbpWyscoutRival({
                         >
                           {lee.bueno === true ? "▲ " : lee.bueno === false ? "▼ " : ""}
                           {lee.texto}
+                          {fila.mejorAlto == null ? " · cifra de estilo" : ""}
+                          {pocaBase ? " · tendencia, pocos casos" : ""}
                         </span>
                       </li>
                     );
                   })}
                 </ul>
-
-                {consignaOfensiva(aspecto, datos?.equipos ?? 20) && (
-                  <p className="mt-2 text-sm text-white/85">
-                    <b className="text-white">Qué hacemos: </b>
-                    {consignaOfensiva(aspecto, datos?.equipos ?? 20)}
-                  </p>
-                )}
               </div>
             ))}
           </div>
@@ -495,18 +575,55 @@ export function AbpWyscoutRival({
       {onceListo && wyscoutListo && plantilla.length > 0 && (rematan.length > 0 || sacan.length > 0) && (
         <Panel
           title={sacan.length > 0 && rematan.length > 0 ? "Quién lo lanza y quién remata" : sacan.length > 0 ? "Quién lo lanza" : "Quién remata"}
-          subtitle={`${lanzaDeWyscout ? "Lanzamientos de la temporada según Wyscout; rematan, según las etiquetas de la plantilla" : "Según las etiquetas de la plantilla"}${titulares ? ", cruzadas con el once probable marcado en Plantillas rivales" : ""}`}
+          subtitle={`${lanzaDeWyscout ? "Lanzamientos de la temporada según Wyscout (aproximados: por 90 × minutos)" : "Lanzan, según las etiquetas de la plantilla"}. Rematan: etiquetas de Plantillas rivales y remates contados en nuestras hojas de ABP${titulares ? ", cruzados con el once probable de Plantillas rivales" : ""}.`}
           icon={BarChart3}
         >
+          {/* Qué hacemos primero (11/11/2026, marketing): la consigna antes que las listas. */}
+          {consigna && (
+            <p className="mb-3 border-b border-white/10 pb-3 text-sm text-white/85">
+              <b className="text-white">Qué hacemos: </b>
+              {consigna}.
+              {marcas && (
+                <span className="mt-1 block text-[12px] text-white/55">
+                  Propuesta de marcas con nuestro once de la pizarra táctica, la misma de «Quién marca a quién» en la{" "}
+                  <Link href="/abp-pizarra" className="underline decoration-dotted underline-offset-2 hover:text-white">
+                    pizarra de balón parado
+                  </Link>
+                  : su más peligroso por arriba, para nuestro mejor.
+                </span>
+              )}
+            </p>
+          )}
+
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {sacan.length > 0 && (
-              <div>
+              <div className="min-w-0">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">Lanzan</p>
                 {lanzaDeWyscout ? (
-                  <div className="mt-1 space-y-0.5 text-sm text-white/85">
-                    {textoLanzadores("corner") && <p>Córner: {textoLanzadores("corner")}</p>}
-                    {textoLanzadores("falta") && <p>Falta: {textoLanzadores("falta")}</p>}
-                  </div>
+                  <>
+                    {/* Tabla corta (11/11/2026, marketing): lanzador, acciones y partidos. */}
+                    <table className="mt-1 w-full text-sm text-white/85">
+                      <thead>
+                        <tr className="text-left text-[11px] text-white/50">
+                          <th className="py-0.5 pr-2 font-semibold">Jugador</th>
+                          <th className="py-0.5 pr-2 font-semibold">Saca</th>
+                          <th className="py-0.5 pr-2 text-right font-semibold">Acciones</th>
+                          <th className="py-0.5 text-right font-semibold">Partidos suyos</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {lanzadoresWyscout.map((uno) => (
+                          <tr key={`${uno.tipo}-${uno.nombre}`} className="border-t border-white/[0.06]">
+                            <td className="py-1 pr-2">{nombreDeLanzador(uno.nombre)}</td>
+                            <td className="py-1 pr-2 text-white/60">{uno.tipo === "corner" ? "córner" : "falta"}</td>
+                            <td className="py-1 pr-2 text-right tabular-nums">{uno.total}</td>
+                            <td className="py-1 text-right tabular-nums">{uno.partidos}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <p className="mt-1 text-[11px] text-white/50">«Partidos suyos» son los que ha jugado cada uno; por eso no coinciden entre lanzadores.</p>
+                  </>
                 ) : (
                   <p className="mt-1 text-sm text-white/85">{sacan.map((uno) => uno.nombre).join(", ")}</p>
                 )}
@@ -514,40 +631,47 @@ export function AbpWyscoutRival({
             )}
 
             {rematanVisibles.length > 0 && (
-              <div>
+              <div className="min-w-0">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">Rematan</p>
-                <p className="mt-1 text-sm text-white/85">
-                  {titulares
-                    ? [
-                        titularesQueRematan.length ? `Titulares: ${titularesQueRematan.map(conCm).join(", ")}` : "",
-                        rematanFuera.length ? `Fuera del once probable: ${rematanFuera.map(conCm).join(", ")}` : "",
-                      ]
-                        .filter(Boolean)
-                        .join(". ")
-                    : rematan.map(conCm).join(", ")}
-                </p>
+                <table className="mt-1 w-full text-sm text-white/85">
+                  <thead>
+                    <tr className="text-left text-[11px] text-white/50">
+                      <th className="py-0.5 pr-2 font-semibold">Jugador</th>
+                      <th className="py-0.5 pr-2 text-right font-semibold">Altura</th>
+                      <th className="py-0.5 text-right font-semibold">Remates ABP</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rematanVisibles.map((uno) => (
+                      <tr key={uno.nombre} className="border-t border-white/[0.06]">
+                        <td className="py-1 pr-2">
+                          {uno.nombre}
+                          {titulares && esTitular(uno) === false && <span className="ml-1 text-[11px] text-white/50">fuera del once</span>}
+                        </td>
+                        <td className="py-1 pr-2 text-right tabular-nums">{alturaDe(uno) ? `${alturaDe(uno)} cm` : ""}</td>
+                        <td className="py-1 text-right tabular-nums">{uno.remates > 0 ? uno.remates : ""}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {rematanVisibles.every((uno) => !(uno.remates > 0)) && (
+                  <p className="mt-1 text-[11px] text-white/50">Ordenados por altura y etiqueta: no hay remates suyos contados en nuestras hojas.</p>
+                )}
               </div>
             )}
           </div>
-
-          {consigna && (
-            <p className="mt-3 border-t border-white/10 pt-3 text-sm text-white/85">
-              <b className="text-white">Qué hacemos: </b>
-              {consigna}
-            </p>
-          )}
         </Panel>
       )}
 
       {hayGoles && goles && (
         <Panel
           title="Goles a balón parado esta temporada"
-          subtitle="Penaltis y goles, del marcador; el reparto entre córner y falta es una ESTIMACIÓN calibrada con Opta, no un dato contado"
+          subtitle="Los goles y los penaltis son dato del marcador; el reparto entre córner y falta es una estimación calibrada con Opta"
         >
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {([
-              ["Los que marca · más es mejor", goles.aFavor],
-              ["Los que encaja · menos es mejor", goles.enContra],
+              ["Los que marca", goles.aFavor],
+              ["Los que encaja", goles.enContra],
             ] as const).map(([titulo, g]) => (
               <div key={titulo} className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">{titulo}</p>
@@ -559,27 +683,23 @@ export function AbpWyscoutRival({
                   </span>
                 </p>
 
-                {/* 07/11/2026 (análisis): la muestra son los goles a balón parado, no los totales. */}
-                {(g.abp < 10 || g.partidos < 10) && (
-                  <p className="mt-0.5 text-[11px] italic text-white/55">
-                    Tendencia ({g.abp} {g.abp === 1 ? "gol" : "goles"} a balón parado): ni fortaleza ni carencia todavía.
-                  </p>
-                )}
-
+                {/* 11/11/2026 (análisis): penalti (dato) y córner o falta (estimado), en líneas separadas. */}
                 {g.hayOrigen && g.abp > 0 && (
-                  <p className="mt-1 text-[12px] text-white/55">
-                    {[
-                      g.penalti > 0 ? `${g.penalti} de penalti` : "",
-                      g.corner > 0 ? `${g.corner} de córner (estimado)` : "",
-                      g.falta > 0 ? `${g.falta} de falta (estimado)` : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </p>
+                  <ul className="mt-1 space-y-0.5 text-[12px] text-white/60">
+                    {g.penalti > 0 && <li>De penalti: {g.penalti} · dato</li>}
+                    {g.corner > 0 && <li>De córner: {g.corner} · estimado</li>}
+                    {g.falta > 0 && <li>De falta: {g.falta} · estimado</li>}
+                  </ul>
                 )}
               </div>
             ))}
           </div>
+          {/* Una sola vez, debajo de los dos (11/11/2026, análisis y marketing). */}
+          {conTendencia && (
+            <p className="mt-2 text-[12px] italic text-white/55">
+              Con menos de 10 goles a balón parado, es una tendencia: no se lee como fortaleza ni como carencia.
+            </p>
+          )}
         </Panel>
       )}
     </div>

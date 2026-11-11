@@ -65,6 +65,9 @@ const ARREGLO: Record<string, string> = {
   /* 10/11/2026 (jueces): las que salieron en la charla del Nàstic. */
   recurrido: "recorrido",
   disminuyo: "disminuyó",
+  /* 11/11/2026 (jueces): la del plan del Nàstic. */
+  sentimento: "sentimiento",
+  sentimentos: "sentimientos",
 };
 
 /* Una palabra suelta: letras (con tildes) y nada pegado. */
@@ -79,7 +82,9 @@ export function sinErratas(texto: string): string {
   | (un punto tras una preposición, antes de minúscula) y «Si, se encuentran»
   | (el «sí» afirmativo al empezar la frase).
   */
+  /* 11/11/2026 (marketing): «especialmente por dentro .» — el espacio antes del signo. */
   const arreglado = texto
+    .replace(/[ \t]+([.,;:])(?=\s|$)/g, "$1")
     .replace(/\b(en|de|del|al|a|con|por|y)\.\s+(?=\p{Ll})/gu, "$1 ")
     .replace(/(^|[.!?]\s+|\n)Si,\s/g, "$1Sí, ");
 

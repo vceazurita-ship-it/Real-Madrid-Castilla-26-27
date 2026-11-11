@@ -35,6 +35,8 @@ import { desnuda } from "@/lib/rivals/youtube-listas";
 import { conTildes } from "@/lib/rivals/tildes";
 import { comoNombre } from "@/lib/duelos-onces";
 import { mismoClub } from "@/lib/rivals/mismoClub";
+import { sinErratas } from "@/lib/rivals/erratas";
+import { useAdmin } from "@/hooks/useAdmin";
 import { DUELOS, fraseRecuentoPartes } from "@/lib/duelos";
 import { cargaOrdenRivales } from "@/lib/rivals/orden-calendario";
 
@@ -585,6 +587,13 @@ function enlaceAnalisisRival(rival: Rival | null) {
  * está escribiendo y las diapositivas que se van a proyectar dejen de estar en
  * dos sitios sin puente.
  */
+/** El balón parado de este rival (/scout-rival-abp?equipo=NOMBRE). */
+function enlaceAbpRival(rival: Rival | null) {
+  const equipo = String(rival?.EQUIPO ?? "").trim();
+
+  return equipo ? `/scout-rival-abp?equipo=${encodeURIComponent(equipo)}` : "/scout-rival-abp";
+}
+
 function enlacePizarraAbp(rival: Rival | null) {
   const id = String(rival?.ID ?? "").trim();
 
@@ -661,10 +670,38 @@ function ReadText({
   /* Las líneas en mayúsculas son títulos de apartado y las siglas llevan su significado. */
   apartados?: boolean;
 }) {
-  const items = useMemo(
-    () => aVinetas(value, separarPorPuntoYComa),
-    [value, separarPorPuntoYComa]
-  );
+  /*
+  | Las erratas y las frases a medias (11/11/2026, marketing): «sentimento»,
+  | o «Continuidad en la evolución de:» sin nada detrás. Una línea que acaba
+  | en dos puntos se junta con la siguiente; si es la última, no sale. Sólo
+  | pinta: lo guardado no se toca.
+  */
+  const items = useMemo(() => {
+    const crudas = aVinetas(value, separarPorPuntoYComa).map((t) => sinErratas(t));
+    const limpias: string[] = [];
+
+    for (let i = 0; i < crudas.length; i++) {
+      const item = crudas[i];
+
+      if (!/:\s*$/.test(item) || (apartados && esTituloDeApartado(item))) {
+        limpias.push(item);
+        continue;
+      }
+
+      const siguiente = crudas[i + 1];
+
+      if (siguiente === undefined) continue;
+      if (apartados) {
+        limpias.push(item);
+        continue;
+      }
+
+      limpias.push(`${item.trim()} ${siguiente}`);
+      i++;
+    }
+
+    return limpias;
+  }, [value, separarPorPuntoYComa, apartados]);
 
   /*
   | Cinco líneas y «ver más» (10/11/2026, jueces): las columnas del plan
@@ -742,7 +779,9 @@ function ReadText({
             className="mt-[9px] h-1.5 w-1.5 shrink-0 rounded-full bg-[#C8A96B]/70"
           />
 
-          <span>{item}</span>
+          <span>
+            <ConSiglas texto={item} />
+          </span>
         </li>
       ))}
     </ul>
@@ -1597,28 +1636,7 @@ export default function MatchPreparation() {
   const enlaceDuelos = rivalActivo?.EQUIPO ? `/duelos?equipo=${encodeURIComponent(rivalActivo.EQUIPO)}` : "/duelos";
   const contraste = useContrasteRival(rivalActivo?.EQUIPO ?? "");
 
-  /*
-  | El modelo de juego, el plan frente a Scout Colectivo (08/11/2026, jueces):
-  | «Lo esencial» decía «control por la posesión» y el colectivo, «juegan
-  | directo, modelo no asociativo». Los dos textos están en la misma fila de la
-  | hoja; si uno habla de posesión y el otro de juego directo, se dice.
-  */
-  const contrasteModelo = useMemo(() => {
-    if (!rivalActivo) return null;
-    const plan = ["FORTALEZAS", "ATAQUE", "CLAVES_PARTIDO", "ESTRUCTURA_OF", "ESTADO_EQUIPO"].map((k) => String(rivalActivo[k] ?? "")).join("\n");
-    const colectivo = Object.entries(rivalActivo)
-      .filter(([k]) => /^(OF_|TRANSICION_|CONCLUSION)/.test(k))
-      .map(([, v]) => String(v ?? ""))
-      .join("\n");
-    const frase = colectivo
-      .split(/(?<=\.)\s+|\n/)
-      .map((t) => t.trim())
-      .find((t) => /\bdirect[oa]s?\b|no asociativ/i.test(t));
-
-    if (!frase || !/posesi[oó]n/i.test(plan) || /posesi[oó]n/i.test(colectivo)) return null;
-
-    return frase.replace(/\.$/, "");
-  }, [rivalActivo]);
+  /* «Contraste con Scout Colectivo» por la posesión: quitado (11/11/2026, fútbol). La posesión es nuestro plan y el juego directo el suyo; no se contradicen. */
 
   /*
   | Las estructuras, el plan frente a Scout Colectivo (10/11/2026, jueces): el
@@ -1638,10 +1656,11 @@ export default function MatchPreparation() {
       .map((c) => ({ ...c, dibujo: dibujos(rivalActivo[c.campo])[0] ?? "" }))
       .filter((c) => c.dibujo);
 
-    if (!delPlan.length || !delColectivo.length) return null;
+    if (!delColectivo.length) return null;
+    /* 11/11/2026: lo del colectivo sale siempre en el «Dibujo de referencia»; el cotejo, sólo si no casan. */
     const enAmbos = delColectivo.every((c) => delPlan.includes(c.dibujo)) && delPlan.every((d) => delColectivo.some((c) => c.dibujo === d));
 
-    return enAmbos ? null : { delPlan, delColectivo };
+    return { delPlan, delColectivo, chocan: delPlan.length > 0 && !enAmbos };
   }, [rivalActivo]);
 
   /*
@@ -1650,6 +1669,8 @@ export default function MatchPreparation() {
   | letras o más) que no son de la plantilla de este rival.
   */
   const { squads } = useRivalSquads();
+  /* Los avisos de cotejo (nombres de otro rival, dibujos que no casan) son del analista: sólo con sesión (11/11/2026, jueces). */
+  const { admin } = useAdmin();
   const nombresDeOtroRival = useMemo(() => {
     const equipo = String(rivalActivo?.EQUIPO ?? "");
 
@@ -2941,9 +2962,9 @@ export default function MatchPreparation() {
                   otra jornada se quedó «Ojo a salidas de 3 con De Blasis», que es
                   del Cartagena. Se avisa en lectura y en edición; no se toca el texto.
                 */}
-                {nombresDeOtroRival.length > 0 && (
+                {admin === true && nombresDeOtroRival.length > 0 && (
                   <p className="mp-no-print mb-5 rounded-xl border border-rose-400/30 bg-rose-400/[0.07] px-4 py-2.5 text-[13px] leading-6 text-rose-200">
-                    <b className="font-semibold">Revisa el plan:</b>{" "}
+                    <b className="font-semibold">Sólo lo ves tú, como analista · Revisa el plan:</b>{" "}
                     {nombresDeOtroRival.map((n) => `«${n.nombre}» no está en la plantilla de ${rivalActivo.EQUIPO} (es de ${n.equipo})`).join("; ")}. Puede venir de replicar otra jornada.
                   </p>
                 )}
@@ -2995,6 +3016,13 @@ export default function MatchPreparation() {
                       placeholder="Marcajes, zonas, rechaces..."
                       minHeight={150}
                     />
+
+                    {/* El dato que justifica el ABP del plan, a un toque (11/11/2026, marketing). */}
+                    {!editando && (relleno(rivalActivo.ABP_OF) || relleno(rivalActivo.ABP_DEF)) && (
+                      <Link href={enlaceAbpRival(rivalActivo)} className="mp-no-print text-[13px] font-semibold text-[#C8A96B] hover:underline">
+                        Su balón parado con cifras (Wyscout y goles) →
+                      </Link>
+                    )}
 
                   </div>
                 </div>
@@ -3405,37 +3433,35 @@ export default function MatchPreparation() {
                   />
                 </div>
 
-                {/* Sólo para el analista (no sale en el PDF ni en el PPT): lo medido, al lado de lo escrito. */}
-                {contrasteModelo && !editando && (
-                  <p className="mp-no-print mt-4 rounded-xl border border-amber-400/30 bg-amber-400/[0.06] px-4 py-2.5 text-[12.5px] leading-6 text-white/70">
-                    <b className="text-amber-300">Contraste con Scout Colectivo</b>
-                    {" · "}Este plan habla de posesión y el analista, en Scout Colectivo, escribe «{contrasteModelo}». Conviene dejar un solo
-                    modelo antes de la charla.
-                  </p>
-                )}
-
-                {contrasteEstructuras && !editando && (
-                  <p className="mp-no-print mt-4 rounded-xl border border-amber-400/30 bg-amber-400/[0.06] px-4 py-2.5 text-[12.5px] leading-6 text-white/70">
-                    <b className="text-amber-300">Contraste de estructuras</b>
-                    {" · "}Aquí: {contrasteEstructuras.delPlan.join(", ")}. En Scout Colectivo:{" "}
-                    {contrasteEstructuras.delColectivo.map((c) => `${c.dibujo} ${c.fase}`).join(", ")}.
-                    {contraste?.dibujo ? ` En sus alineaciones de BeSoccer: ${contraste.dibujo.estructura.replace(/^1-/, "")} (${contraste.dibujo.veces} de ${contraste.dibujo.de}).` : ""} Conviene dejar
-                    un solo dibujo de referencia antes de la charla.
-                  </p>
-                )}
-
+                {/*
+                  UN SOLO DIBUJO DE REFERENCIA (11/11/2026, jueces). Antes eran
+                  tres avisos («Contraste con Scout Colectivo», «Contraste de
+                  estructuras» y «Contraste con los datos»), y el de la posesión
+                  leía mal: la posesión es nuestro plan y el juego directo, el
+                  suyo; no se contradicen, y se quitó. Ahora una sola caja: el
+                  dibujo de partida (BeSoccer, con su base), cómo se transforma en
+                  cada fase (Scout Colectivo) y su balón parado (Wyscout), con la
+                  fortaleza o debilidad escrita arriba que respalda o contradice.
+                  Lo que el analista tiene que cotejar, sólo con su sesión.
+                */}
                 {contraste && !editando && (
-                  <p className="mp-no-print mt-4 rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-2.5 text-[12.5px] leading-6 text-white/60">
-                    <b className="text-white/75">Contraste con los datos</b>
+                  <div className="mp-no-print mt-4 rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-2.5 text-[13px] leading-6 text-white/70">
                     {contraste.dibujo && (
-                      <>
-                        {/* La misma frase y cuenta que el campograma de /rivals (29/10/2026). */}
-                        {" · "}En sus alineaciones: {contraste.dibujo.estructura.replace(/^1-/, "")}, el más repetido ({contraste.dibujo.veces} de sus {contraste.dibujo.de} alineaciones).
-                      </>
+                      <p>
+                        {/* La misma cuenta que el campograma de /rivals (29/10/2026). */}
+                        <b className="text-white/85">Dibujo de referencia: {contraste.dibujo.estructura.replace(/^1-/, "")}</b>
+                        {" · "}sale en {contraste.dibujo.veces} de sus {contraste.dibujo.de} alineaciones (BeSoccer)
+                        {contrasteEstructuras?.delColectivo.length
+                          ? `; según Scout Colectivo, se transforma en ${contrasteEstructuras.delColectivo.map((c) => `${c.dibujo.replace(/^1-/, "")} ${c.fase}`).join(", ")}`
+                          : ""}
+                        . <span className="text-white/45">Dibujos sin contar al portero.</span>
+                      </p>
                     )}
                     {contraste.abp && (
-                      <>
-                        {" · "}Su balón parado según Wyscout: {contraste.abp.valor.toFixed(1).replace(".", ",")} % de sus remates
+                      <p className={contraste.dibujo ? "mt-1" : ""}>
+                        <b className="text-white/85">Su balón parado (Wyscout)</b>
+                        {" · "}
+                        {contraste.abp.valor.toFixed(1).replace(".", ",")} % de sus remates
                         {contraste.abp.arriba != null && contraste.abp.abajo != null ? ` (${contraste.abp.arriba} de ${contraste.abp.abajo})` : ""}
                         {contraste.abp.percentil <= 3
                           ? `, el que menos de los ${contraste.abp.equipos}`
@@ -3446,10 +3472,25 @@ export default function MatchPreparation() {
                               : contraste.abp.percentil <= 40
                                 ? `, menos que ${Math.max(1, Math.round((100 - contraste.abp.percentil) / 10))} de cada 10 equipos`
                                 : ", en la media de la liga"}
-                        .
-                      </>
+                        {/* Contra lo escrito arriba (11/11/2026, fútbol y marketing): «ABP ofensivo» como fortaleza con la cifra en la media. */}
+                        {/\bABP\b|bal[oó]n parado/i.test(String(rivalActivo.FORTALEZAS ?? ""))
+                          ? contraste.abp.percentil >= 60
+                            ? ": respalda el balón parado que figura en sus fortalezas"
+                            : ": no respalda el balón parado que figura en sus fortalezas, que se lee como lectura de vídeo"
+                          : ""}
+                        .{" "}
+                        <Link href={enlaceAbpRival(rivalActivo)} className="text-[#C8A96B] hover:underline">
+                          Su balón parado entero →
+                        </Link>
+                      </p>
                     )}
-                  </p>
+                    {admin === true && contrasteEstructuras?.chocan && (
+                      <p className="mt-1 text-[12px] text-amber-300/90">
+                        Sólo lo ves tú, como analista · Este plan escribe {contrasteEstructuras.delPlan.map((d) => d.replace(/^1-/, "")).join(", ")} y Scout Colectivo{" "}
+                        {contrasteEstructuras.delColectivo.map((c) => `${c.dibujo.replace(/^1-/, "")} ${c.fase}`).join(", ")}: conviene dejar un solo dibujo antes de la charla.
+                      </p>
+                    )}
+                  </div>
                 )}
               </section>
               )}

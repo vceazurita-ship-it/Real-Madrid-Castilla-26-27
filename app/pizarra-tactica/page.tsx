@@ -1017,7 +1017,15 @@ function BoardEditor({
       )}
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold">{nombre}</h2>
+        {/* El partido en la cabecera (11/11/2026, marketing): no sólo «Once 4-2-3-1». */}
+        <h2 className="min-w-0 text-lg font-semibold">
+          {nombre}
+          {deLaSemana && partido?.rival && partido.fecha && (
+            <span className="ml-2 text-sm font-normal text-white/55">
+              · {diaYLugar(partido.fecha, rivalSquads.find((s) => mismoClub(s.equipo, partido.rival))?.equipo ?? partido.rival, partido)}
+            </span>
+          )}
+        </h2>
 
         <div className="flex flex-wrap items-center gap-2">
         {disponible && (
@@ -1132,7 +1140,7 @@ function BoardEditor({
                 onClick={() => {
                   setValue(prueba);
                   setPrueba(null);
-                  toast.success("Once guardado: la pantalla Emocional y la pizarra de balón parado ya lo usan");
+                  toast.success("Once guardado: Emocional, Duelos, Plan de partido, Data análisis y el balón parado ya lo usan");
                 }}
                 className="inline-flex items-center gap-1.5 rounded-full bg-[#C8A96B] px-3.5 py-1.5 text-[11px] font-bold text-[#0B0F14] transition hover:brightness-110"
               >
@@ -1156,7 +1164,7 @@ function BoardEditor({
           /* Menos peso (30/10/2026): un pie, no un aviso; y los nombres que usa el cuerpo técnico. */
           <div className="flex flex-col gap-2 px-1 text-[12px] sm:flex-row sm:items-center">
             <span className="min-w-0 flex-1 text-white/55">
-              Este once lo usan también la pantalla Emocional y la pizarra de balón parado: lo que cambies aquí se guarda y les llega.
+              Este once lo leen también Emocional, Duelos, Plan de partido, el once de Data análisis y el balón parado (pizarra y marcas del córner): lo que cambies aquí se guarda y les llega.
             </span>
             <button
               type="button"
