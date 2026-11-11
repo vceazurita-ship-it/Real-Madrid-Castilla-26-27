@@ -20,6 +20,8 @@ export type PerfilesRival = PerfilesDeEquipo & {
   temporada: string;
   equipos: number;
   aspectos: AspectoDestacado[];
+  /** Cuántos partidos suyos tiene Wyscout: la base de las cifras «por partido». Falta en respuestas viejas de la copia. */
+  partidos?: number;
 };
 
 export function useRivalPerfiles(equipo: string) {

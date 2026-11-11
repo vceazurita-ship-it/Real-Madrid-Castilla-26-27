@@ -2977,6 +2977,12 @@ export default function RivalPlayersPage() {
   | misma caché de la hoja que usa el colectivo; si no hay texto, nada.
   */
   const [centralesAnalista, setCentralesAnalista] = useState<({ equipo: string } & CentralesDelAnalista) | null>(null);
+  /*
+  | 11/11/2026 (jueces, fútbol): la lista se pintaba ANTES de que llegara el
+  | texto del analista y mandaba presionar a Van Rijn, al que él da por el más
+  | solvente. Hasta saber qué dice el analista de este equipo, el bloque espera.
+  */
+  const [analistaLeidoDe, setAnalistaLeidoDe] = useState("");
 
   useEffect(() => {
     if (!selectedTeam) return;
@@ -2985,7 +2991,12 @@ export default function RivalPlayersPage() {
 
     traeJson<unknown>("/api/rivals?action=rivales")
       .then((filas) => {
-        if (!vivo || !Array.isArray(filas)) return;
+        if (!vivo) return;
+
+        if (!Array.isArray(filas)) {
+          setAnalistaLeidoDe(selectedTeam);
+          return;
+        }
 
         const texto = (filas as Record<string, unknown>[])
           .filter((f) => mismoClub(String(f.EQUIPO ?? ""), selectedTeam))
@@ -2996,8 +3007,12 @@ export default function RivalPlayersPage() {
         const leidos = centralesDelAnalista(texto ?? "");
 
         setCentralesAnalista(leidos ? { equipo: selectedTeam, ...leidos } : null);
+        setAnalistaLeidoDe(selectedTeam);
       })
-      .catch(() => undefined);
+      /* Si la hoja no contesta, «Dónde hacerles daño» sale con lo de Wyscout, como antes. */
+      .catch(() => {
+        if (vivo) setAnalistaLeidoDe(selectedTeam);
+      });
 
     return () => {
       vivo = false;
@@ -3005,9 +3020,9 @@ export default function RivalPlayersPage() {
   }, [selectedTeam]);
 
   const danoDelRival = useMemo(() => {
-    if (!perfilesRival) return [];
+    if (!perfilesRival || analistaLeidoDe !== selectedTeam) return [];
 
-    return players
+    const todos = players
       .filter((p) => p.NOMBRE_EQUIPO === selectedTeam)
       .map((p) => {
         const perfil = perfilesPorFicha.get(idDeJugador(p));
@@ -3042,31 +3057,46 @@ export default function RivalPlayersPage() {
           base: base ? `${base.minutos}′${base.fuente} · ${base.partidos} ${base.partidos === 1 ? "partido" : "partidos"}` : "",
           minutos: base?.minutos ?? 0,
         };
-      })
-      /*
-      | 07/11/2026 (jueces, ronda 14): en escritorio y en el móvil salían
-      | jugadores distintos (el empate a rasgos lo decidía el orden de la
-      | hoja). Orden fijo: rasgos, después minutos y, por último, el nombre; y
-      | fuera los de muestra corta (menos de 450′), que no sostienen un plan.
-      */
-      .filter((uno) => uno.nombre && uno.cruzan && uno.accion && uno.minutos >= MINUTOS_MINIMOS_DANO)
-      .sort((a, b) => b.rasgos.length - a.rasgos.length || b.minutos - a.minutos || a.nombre.localeCompare(b.nombre, "es"))
-      .slice(0, 3)
-      .map(({ nombre, puesto, rasgos, accion, base, minutos }) => {
-        /*
-        | Si Wyscout señala al central que el analista da por el de MÁS
-        | capacidad, se dice en una línea y la orden es una sola: la del analista.
-        */
-        const analista = centralesAnalista && centralesAnalista.equipo === selectedTeam ? centralesAnalista : null;
-        const choca = Boolean(analista && estaEn(nombre, analista.mas));
-        const contraste =
-          choca && analista
-            ? `Orden: presionar a ${analista.menos.map((n) => conTildes(n)).join(" y ")}, ${analista.menos.length > 1 ? "los centrales" : "el central"} de menor capacidad con balón según el analista (Scout Colectivo). Contraste: en Wyscout el que pierde balones es ${nombre} (${base}), al que el analista da por uno de los de más capacidad.`
-            : "";
-
-        return { nombre, puesto, rasgos, accion: choca ? "" : accion, base, minutos, contraste };
       });
-  }, [players, perfilesRival, perfilesPorFicha, selectedTeam, statsDoc, centralesAnalista]);
+
+    /*
+    | 07/11/2026 (jueces, ronda 14): en escritorio y en el móvil salían
+    | jugadores distintos (el empate a rasgos lo decidía el orden de la
+    | hoja). Orden fijo: rasgos, después minutos y, por último, el nombre; y
+    | fuera los de muestra corta (menos de 450′), que no sostienen un plan.
+    */
+    const candidatos = todos.filter((uno) => uno.nombre && uno.cruzan && uno.accion && uno.minutos >= MINUTOS_MINIMOS_DANO);
+
+    /*
+    | 11/11/2026 (jueces, fútbol): MANDA EL ANALISTA. Antes, si Wyscout
+    | señalaba a un central que el analista da por uno de los de más capacidad,
+    | salía su línea con un contraste debajo: dos órdenes en la misma pantalla.
+    | Ahora ese jugador no sale, y el central que el analista da por el de
+    | menor capacidad con balón va el primero, con la orden de Scout Colectivo.
+    */
+    const analista = centralesAnalista && centralesAnalista.equipo === selectedTeam ? centralesAnalista : null;
+    const deAnalista = (analista?.menos ?? []).map((menos) => {
+      /* Su ficha de la plantilla, para el puesto y los minutos; si no está, el nombre tal cual lo escribe el analista. */
+      const ficha = todos.find((uno) => uno.nombre && estaEn(uno.nombre, [menos]));
+
+      return {
+        nombre: ficha?.nombre ?? conTildes(menos),
+        puesto: ficha?.puesto ?? "",
+        rasgos: ["el central de menor capacidad con balón según el analista (Scout Colectivo)"],
+        accion: "presión alta orientada para que su salida pase por él",
+        base: ficha?.base ?? "",
+        minutos: ficha?.minutos ?? 0,
+        contraste: "",
+      };
+    });
+
+    const deWyscout = candidatos
+      .filter((uno) => !(analista && (estaEn(uno.nombre, analista.mas) || estaEn(uno.nombre, analista.menos))))
+      .sort((a, b) => b.rasgos.length - a.rasgos.length || b.minutos - a.minutos || a.nombre.localeCompare(b.nombre, "es"))
+      .map(({ nombre, puesto, rasgos, accion, base, minutos }) => ({ nombre, puesto, rasgos, accion, base, minutos, contraste: "" }));
+
+    return [...deAnalista, ...deWyscout].slice(0, 3);
+  }, [players, perfilesRival, perfilesPorFicha, selectedTeam, statsDoc, centralesAnalista, analistaLeidoDe]);
 
   /* La temporada en curso de cada uno, para el listado. */
   const temporadaDe = (player: RivalPlayer) =>
@@ -3891,9 +3921,14 @@ export default function RivalPlayersPage() {
             )}
 
             <div className={`mt-8 max-w-full items-center gap-2 ${selectedTeam && !cambiandoEquipo ? "hidden sm:flex" : "flex"}`}>
-              {/* Una fila de chips bajos que se desliza (10/11/2026, jueces): antes empujaba «Cómo llega» hacia abajo. */}
-              <div className="scrollbar-none flex min-w-0 flex-1 gap-1.5 overflow-x-auto pb-1 pr-6 [mask-image:linear-gradient(to_right,#000_calc(100%-32px),transparent)]">
-                {teams.map((team) => (
+              {/*
+                Una fila de chips bajos que se desliza (10/11/2026, jueces): antes empujaba «Cómo llega» hacia abajo.
+                11/11/2026 (jueces, análisis): el próximo va FIJO a la izquierda, fuera de lo que se desliza,
+                y los demás más compactos: al deslizar la fila no se pierde de vista contra quién se juega.
+              */}
+              {(() => {
+                const proximo = teams.find((team) => esElProximo(ordenRivales, team.name));
+                const chip = (team: (typeof teams)[number], fijo: boolean) => (
                   <button
                     key={team.name}
                     aria-pressed={selectedTeam === team.name}
@@ -3908,7 +3943,9 @@ export default function RivalPlayersPage() {
                       setPositionSearch("");
                       setSearch("");
                     }}
-                    className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-[13px] transition ${
+                    className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border transition ${
+                      fijo ? "px-3 py-1.5 text-[13px]" : "px-2.5 py-1 text-[12px]"
+                    } ${
                       selectedTeam === team.name
                         ? "border-[#C8A96B] bg-[#C8A96B]/10 text-[#C8A96B]"
                         : "border-white/10 bg-white/[0.03] text-white/60 hover:border-white/30"
@@ -3918,7 +3955,7 @@ export default function RivalPlayersPage() {
                     <EscudoEquipo
                       nombre={team.name}
                       escudo={escudoDe(team.name)}
-                      lado={22}
+                      lado={fijo ? 22 : 18}
                     />
 
                     {team.name}
@@ -3934,14 +3971,23 @@ export default function RivalPlayersPage() {
                     | jornada, así que conviene que se vea por qué éste está
                     | el primero y no es una casualidad del alfabeto.
                     */}
-                    {esElProximo(ordenRivales, team.name) && (
+                    {fijo && (
                       <span className="rounded-full bg-[#C8A96B] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-black">
                         Próximo
                       </span>
                     )}
                   </button>
-                ))}
-              </div>
+                );
+
+                return (
+                  <>
+                    {proximo && chip(proximo, true)}
+                    <div className="scrollbar-none flex min-w-0 flex-1 gap-1.5 overflow-x-auto pb-1 pr-6 [mask-image:linear-gradient(to_right,#000_calc(100%-32px),transparent)]">
+                      {teams.filter((team) => team !== proximo).map((team) => chip(team, false))}
+                    </div>
+                  </>
+                );
+              })()}
 
               <button
                 aria-label="Añadir jugador"
@@ -3970,6 +4016,7 @@ export default function RivalPlayersPage() {
                   jornada={jornadaDeEquipo(ordenRivales, selectedTeam)}
                   aspectos={perfilesRival?.aspectos ?? []}
                   equipos={perfilesRival?.equipos ?? 0}
+                  partidosWyscout={perfilesRival?.partidos ?? 0}
                   avisos={avisosRival}
                   dano={danoDelRival}
                   enlaces={[
@@ -4417,7 +4464,15 @@ export default function RivalPlayersPage() {
                         ellos. Con `flex-wrap` bajan solos a su renglón y en
                         el ordenador se ve igual que antes, porque ahí caben.
                       */}
-                      <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-white/10 bg-white/[0.025] px-4 py-3">
+                      {/*
+                        11/11/2026 (jueces, marketing): dos niveles. Arriba,
+                        qué se ve —el once probable y en qué dibujo, frente al
+                        que más repite el rival—, dicho en una línea; debajo,
+                        los mandos. Antes iba todo en una tira y el campo en
+                        3-5-2 al lado de «Suele jugar 4-4-2» parecía un error.
+                      */}
+                      <div className="flex min-w-0 flex-col gap-2 border-b border-white/10 bg-white/[0.025] px-4 py-3">
+                        <div className="min-w-0">
                         <h2 className="min-w-0 truncate text-xs font-semibold uppercase tracking-[0.25em] text-[#C8A96B]">
                           CAMPOGRAMA
                           {pitchTeam && teamsInResults.length > 1 && (
@@ -4427,7 +4482,26 @@ export default function RivalPlayersPage() {
                           )}
                         </h2>
 
-                        <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5 text-[13px] text-white/40 sm:gap-2">
+                        {pitchPlayers.length > 0 && (
+                          <p className="mt-1 text-[13px] text-white/70">
+                            {(() => {
+                              const lectura = lecturaTemporada.dibujo
+                                ? `${lecturaTemporada.veces} de sus ${lecturaTemporada.alineaciones} ${lecturaTemporada.alineaciones === 1 ? "alineación" : "alineaciones"}${lecturaTemporada.alineaciones < 15 ? ", tendencia" : ""}`
+                                : "";
+
+                              if (!lecturaTemporada.dibujo) return `Once probable en ${dibujoDelEquipo}.`;
+
+                              if (once.doc.dibujo && once.doc.dibujo !== lecturaTemporada.dibujo) {
+                                return `Once probable en ${dibujoDelEquipo}, elegido a mano. El dibujo que más repite es el ${lecturaTemporada.dibujo} (${lectura}).`;
+                              }
+
+                              return `Once probable en ${dibujoDelEquipo}, el dibujo que más repite (${lectura}).`;
+                            })()}
+                          </p>
+                        )}
+                        </div>
+
+                        <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-[13px] text-white/40 sm:gap-2">
                           {activeTags.length > 0 && (
                             <span className="text-[#C8A96B]">
                               {listPlayers.length} destacados
@@ -4499,10 +4573,8 @@ export default function RivalPlayersPage() {
                                 ))}
                               </select>
 
-                              {/* De dónde sale el dibujo, dicho con palabras (23/10/2026). */}
-                              <span className="pr-3 text-[10px] font-normal opacity-70">
-                                {once.doc.dibujo ? "a mano" : lecturaTemporada.estructura ? `el más repetido: ${lecturaTemporada.veces} de sus ${lecturaTemporada.alineaciones} alineaciones` : ""}
-                              </span>
+                              {/* De dónde sale el dibujo ya lo dice la línea de arriba (11/11/2026); aquí sólo el sitio de la flecha. */}
+                              <span className="pr-2" aria-hidden />
 
                               <ChevronDown
                                 size={11}
@@ -4534,7 +4606,7 @@ export default function RivalPlayersPage() {
                                 className="hidden items-center gap-1 rounded-full border border-white/15 bg-white/[0.04] px-2.5 py-1 text-white/70 transition hover:border-[#C8A96B] hover:text-white sm:flex"
                               >
                                 <RotateCcw size={11} aria-hidden />
-                                Suele jugar {lecturaTemporada.dibujo} ({lecturaTemporada.veces} de {lecturaTemporada.alineaciones})
+                                Volver al {lecturaTemporada.dibujo}
                               </button>
                             )}
 
@@ -4676,7 +4748,7 @@ export default function RivalPlayersPage() {
                               onClick={() => void abrirInforme()}
                               disabled={exportando}
                               title={`Informe de rival de ${equipoDelOnce} — clasificación, resultados, entrenador, estadio y los partidos que se marquen. Se eligen antes, y el documento se retoca antes de exportar`}
-                              className="flex items-center gap-1.5 rounded-full border border-[#C8A96B] bg-[#C8A96B] px-3 py-1 font-semibold text-black transition hover:bg-[#d8ba7c] disabled:opacity-50"
+                              className="ml-auto flex items-center gap-1.5 rounded-full border border-[#C8A96B] bg-[#C8A96B] px-3 py-1 font-semibold text-black transition hover:bg-[#d8ba7c] disabled:opacity-50"
                             >
                               {exportando ? (
                                 <Loader2 size={11} className="animate-spin" />

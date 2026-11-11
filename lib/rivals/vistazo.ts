@@ -143,6 +143,9 @@ export const balanceDe = (fila: FilaClasificacion) => `${fila.ganados}V ${fila.e
  * hay frase. Las rachas se nombran cuando dicen algo (tres o más sin perder,
  * dos o más derrotas seguidas).
  */
+/** Por debajo de estos partidos, una cifra es tendencia y se dice. */
+export const MUESTRA_TENDENCIA = 6;
+
 export function fraseDelVistazo(vistazo: Vistazo | null): string {
   if (!vistazo) return "";
 
@@ -180,10 +183,13 @@ export function fraseDelVistazo(vistazo: Vistazo | null): string {
     const { ganados, jugados } = vistazo.enEseCampo.fila;
     const donde = vistazo.enEseCampo.donde === "fuera" ? "lejos de casa" : "en su campo";
 
+    /* Con menos de 6 partidos es tendencia, no costumbre (11/11/2026, jueces de análisis). */
+    const tendencia = jugados < MUESTRA_TENDENCIA ? ` (tendencia: ${jugados === 1 ? "un partido" : `${jugados} partidos`})` : "";
+
     partes.push(
       ganados === 0
-        ? `${donde} no ha ganado ${jugados === 1 ? "su partido" : `ninguno de ${jugados}`}`
-        : `${donde} ha ganado ${ganados} de ${jugados}`,
+        ? `${donde} no ha ganado ${jugados === 1 ? "su partido" : `ninguno de ${jugados}`}${tendencia}`
+        : `${donde} ha ganado ${ganados} de ${jugados}${tendencia}`,
     );
   }
 
