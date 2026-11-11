@@ -289,7 +289,7 @@ function Chip({
       {puesto && (
         <span
           title={nombreDePuesto(puesto)}
-          className={`shrink-0 rounded px-1 text-[9px] font-bold ${
+          className={`shrink-0 rounded px-1 text-[11px] font-bold ${
             puesto === "POR" ? "bg-[#C8A96B] text-black" : "bg-white/[0.07] text-white/45"
           }`}
         >
@@ -297,12 +297,12 @@ function Chip({
         </span>
       )}
       {conQuien && (
-        <span className="min-w-0 max-w-[50%] truncate rounded bg-[#C8A96B]/15 px-1 text-[9px] font-bold text-[#E9D5A8]" title={`Comparte puesto con ${conQuien}`}>
+        <span className="min-w-0 max-w-[50%] truncate rounded bg-[#C8A96B]/15 px-1 text-[11px] font-bold text-[#E9D5A8]" title={`Comparte puesto con ${conQuien}`}>
           = {conQuien}
         </span>
       )}
       {jugador.etiqueta && (
-        <span className="shrink-0 rounded border border-[#C8A96B]/40 px-1 text-[9px] font-bold text-[#C8A96B]" title={`Viene del ${significadoEtiqueta(jugador.etiqueta)}`}>
+        <span className="shrink-0 rounded border border-[#C8A96B]/40 px-1 text-[11px] font-bold text-[#C8A96B]" title={`Viene del ${significadoEtiqueta(jugador.etiqueta)}`}>
           {jugador.etiqueta}
         </span>
       )}
@@ -325,7 +325,7 @@ function Chip({
             const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
             onCorrige({ x: r.left, y: r.bottom });
           }}
-          className={`js-aprendido shrink-0 rounded px-1 text-[9px] font-bold normal-case transition hover:bg-[#C8A96B]/25 ${
+          className={`js-aprendido shrink-0 rounded px-1 text-[11px] font-bold normal-case transition hover:bg-[#C8A96B]/25 ${
             aprendido.fijo ? "border border-[#C8A96B]/70 bg-[#C8A96B]/15 text-[#E9D5A8]" : "border border-dashed border-[#C8A96B]/60 text-[#C8A96B]"
           }`}
         >
@@ -333,7 +333,7 @@ function Chip({
         </span>
       )}
       {jugador.baja && (
-        <span className="shrink-0 rounded border border-red-300/40 px-1 text-[9px] font-bold text-red-300">
+        <span className="shrink-0 rounded border border-red-300/40 px-1 text-[11px] font-bold text-red-300">
           {jugador.baja.replace(/s$/i, "").toUpperCase()}
         </span>
       )}
@@ -4881,7 +4881,7 @@ export default function JugadoresSesionPage() {
                                               }}
                                               title={`${ap.texto}. Toca para corregirlo`}
                                               aria-label={`${ap.texto}. Corregir el puesto de ${j.nombre}`}
-                                              className={`js-aprendido ml-1.5 rounded px-1 align-middle text-[9px] font-bold normal-case transition hover:bg-[#C8A96B]/25 ${
+                                              className={`js-aprendido ml-1.5 rounded px-1 align-middle text-[11px] font-bold normal-case transition hover:bg-[#C8A96B]/25 ${
                                                 ap.fijo ? "border border-[#C8A96B]/70 bg-[#C8A96B]/15 text-[#E9D5A8]" : "border border-dashed border-[#C8A96B]/60 text-[#C8A96B]"
                                               }`}
                                             >
@@ -5037,7 +5037,7 @@ export default function JugadoresSesionPage() {
                         rCorrige.demarcacion === d.clave ? "border-[#C8A96B] bg-[#C8A96B]/15 text-white" : "border-white/10 text-white/75 hover:border-[#C8A96B]/60 hover:text-white"
                       }`}
                     >
-                      <span className="mr-1 text-[9px] font-bold text-[#C8A96B]">{d.corto}</span>
+                      <span className="mr-1 text-[11px] font-bold text-[#C8A96B]">{d.corto}</span>
                       {d.nombre.replace(/\s*\(\d+\)$/, "")}
                     </button>
                   ))}

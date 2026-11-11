@@ -1816,7 +1816,7 @@ export default function Page() {
                   <span className="rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 py-1 text-xs sm:text-sm text-[#C8A96B]">
                     M{etiquetaMicro(selectedMicroStat.micro)}
                     {selectedMicroStat.rival
-                      ? ` · ${selectedMicroStat.rival}`
+                      ? ` · ${rivalDelMicro(selectedMicroStat.rival) === selectedMicroStat.rival ? nombreCortoEquipo(selectedMicroStat.rival) : rivalDelMicro(selectedMicroStat.rival)}`
                       : ""}
                   </span>
                 )}
@@ -1885,7 +1885,7 @@ export default function Page() {
 
             {!loading && microStats.length > 0 && (
               <div className="mb-6 -mx-4 sm:mx-0 px-4 sm:px-0">
-                <div className="flex gap-3 overflow-x-auto pb-3 scrollbar-thin">
+                <div className="flex gap-3 overflow-x-auto pb-3 pr-14 sm:pr-0 scrollbar-thin">
                   <button
                     onClick={() => setMicro("ALL")}
                     className={`shrink-0 w-[150px] rounded-2xl border p-4 text-left transition ${

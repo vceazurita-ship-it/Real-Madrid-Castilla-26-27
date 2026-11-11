@@ -742,7 +742,8 @@ export default function MicroCalendar() {
         });
 
         const orderedBlocks = [...blocks.entries()]
-          .filter(([name]) => name)
+          /* 11/11/2026: el día de partido no repite «Competición 90'»: la duración ya va en la cabecera del día. */
+          .filter(([name]) => name && !(esDiaDePartido(dayTasks) && /^competici/i.test(name)))
           .sort((a, b) => b[1] - a[1]);
 
         // Fase dominante sin contar Global; sin ninguna, el fondo normal.
