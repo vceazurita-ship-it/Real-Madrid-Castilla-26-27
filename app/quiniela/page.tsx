@@ -115,15 +115,6 @@ function fechaCorta(fecha: string) {
   return `${Number(dia)} ${meses[Number(mes) - 1] ?? ""}`;
 }
 
-/** "2026-11-15" → "domingo 15 de noviembre". */
-function fechaLarga(fecha: string) {
-  const dia = new Date(`${fecha}T12:00:00Z`);
-
-  if (Number.isNaN(dia.getTime())) return fechaCorta(fecha);
-
-  return dia.toLocaleDateString("es-ES", { timeZone: "UTC", weekday: "long", day: "numeric", month: "long" }).replace(",", "");
-}
-
 /** Dos listas de signos iguales, contando un hueco que falta como vacío. */
 function mismosSignos(a: (Signo | null)[], b: (Signo | null)[], largo: number) {
   for (let i = 0; i < largo; i += 1) {
@@ -1213,12 +1204,7 @@ export default function QuinielaPage() {
                     los dos 1-X-2 debajo. La tabla de 720 px dejaba el 1-X-2
                     fuera de la pantalla, tras un desplazamiento que no se ve. */}
                 {/* El calendario no trae la hora: la fecha va una vez arriba, entera, y no en cada fila (11/11/2026, marketing). */}
-                {mismaFecha ? (
-                  <p className="mb-2 inline-flex items-center gap-1.5 text-[13px] text-white/75">
-                    <CalendarDays size={14} aria-hidden className="shrink-0 text-[#C8A96B]" />
-                    Los {partidos.length} partidos se juegan el {fechaLarga(mismaFecha)}.
-                  </p>
-                ) : null}
+                {/* La fecha ya la dice la franja de estado («Se juega desde el…»): aquí no se repite. */}
 
                 <ul className="space-y-2.5 sm:hidden">
                   {partidos.map((partido, indice) => {

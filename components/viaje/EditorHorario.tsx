@@ -742,6 +742,9 @@ function TarjetaDia({
                 >
                   {aHora(cita.minuto)}
                 </span>
+                {esDiaSiguiente(cita.minuto) && (
+                  <span className="shrink-0 text-[12px] font-semibold uppercase tracking-wide text-[#C8A96B]">{diaSiguienteCorto(dia.fecha).toLowerCase()}</span>
+                )}
                 <span className="min-w-0 truncate text-white/75">{cita.texto || "Sin nombre"}</span>
               </li>
             ))}
@@ -1427,13 +1430,7 @@ export function EditorHorario({
       </DndContext>
 
       <p className="mt-3 text-[11px] leading-relaxed text-white/35">
-        Cada día es una hoja A4 del horario y sale en el PDF por orden. Las
-        citas se ordenan solas por hora, así que arrastrarlas sirve para pasarlas
-        de un día a otro —o «Día» dentro del «⋯» de la cita, que es lo cómodo desde
-        el móvil—; los días se arrastran por su asa. Del día del partido cuelgan las
-        plantillas por desfase: si la federación cambia la hora, al escribirla
-        arriba el día del partido se mueve solo y los desfases se conservan. Las
-        horas se escriben enteras («1830» vale) y se guardan al salir del campo.
+        Las horas se escriben enteras: «1830» vale.
         {abarca > dias.length
           ? ` Ojo: los ${dias.length} días abarcan ${abarca} de calendario, así que hay alguno suelto en medio.`
           : ""}

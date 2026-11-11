@@ -240,13 +240,6 @@ export function ExportaViaje({ viaje }: { viaje: Desplazamiento }) {
         </Button>
       </div>
 
-      <p className="mt-3 text-xs leading-relaxed text-white/40">
-        El horario sale a sangre en A4 vertical —la hoja ya trae sus márgenes—
-        y con una hoja por cada día del viaje, en su orden; el dossier, a una
-        diapositiva por hoja apaisada. El PowerPoint lleva
-        cada diapositiva como imagen a tamaño de proyección, así que se abre en
-        cualquier portátil aunque no tenga la app ni las tipografías.
-      </p>
     </Panel>
   );
 }

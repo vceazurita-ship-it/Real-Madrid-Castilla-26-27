@@ -677,7 +677,7 @@ function SlideEstadio({ viaje }: { viaje: Desplazamiento }) {
             <Cifra rotulo="Tiempo" dato={valor(viaje.estadio.tiempo)} />
           </div>
 
-          {hay(viaje.origen) && hay(viaje.estadio.nombre) && (
+          {hay(viaje.origen) && hay(viaje.estadio.nombre) && (hay(viaje.estadio.distancia) || hay(viaje.estadio.tiempo) || Boolean(viaje.estadio.ruta)) && (
             <p
               style={{
                 margin: "18px 0 0",

@@ -105,6 +105,8 @@ import {
   copiaViaje,
   diaCorto,
   diaLargo,
+  diaSiguienteCorto,
+  esDiaSiguiente,
   diasEntre,
   mueveDiaPartido,
   mueveFechas,
@@ -1111,8 +1113,6 @@ export default function DesplazamientoPage() {
     abreYVe(seccion);
   };
 
-  /* Se duerme fuera: el viaje abarca más de una fecha (víspera y partido). */
-  const duermeFuera = Boolean(viaje && !enCasa && new Set(viaje.dias.filter((d) => d.citas.length > 0).map((d) => d.fecha)).size > 1);
 
   /* Los campos de más del estadio y los del hotel: se pintan en su tarjeta o en «Datos que faltan». */
   const camposEstadioExtra = () => {
@@ -1462,26 +1462,7 @@ export default function DesplazamientoPage() {
                   | lleva hotel» salía marcado con el hotel en blanco y nada lo
                   | decía hasta bajar tres pantallas.
                   */}
-                  {duermeFuera && (!viaje.conHotel || !viaje.hotel.nombre.trim()) && (
-                    <div className="mt-3">
-                      <Notice tone="warn" title={viaje.conHotel ? "Se duerme fuera y el hotel está sin poner" : "Se duerme fuera y el viaje no lleva hotel"}>
-                        <span className="flex flex-wrap items-center gap-2">
-                          <span>El horario tiene {new Set(viaje.dias.filter((d) => d.citas.length > 0).map((d) => d.fecha)).size} días: el dossier necesita el nombre del hotel, su foto y la ruta al estadio.</span>
-                          <Button
-                            icon={Hotel}
-                            onClick={() => {
-                              if (!viaje.conHotel) campo("conHotel", true);
-                              abreYVe(faltan?.hotel ? "faltan-hotel" : "viaje-hotel");
-                            }}
-                          >
-                            Añadir el hotel
-                          </Button>
-                        </span>
-                      </Notice>
-                    </div>
-                  )}
-
-                  {!guardado && (
+                  {!guardado && tieneSemilla(viaje) && (
                     <div className="mt-4">
                       {tieneSemilla(viaje) ? (
                         <Notice title="Viene relleno de fábrica">
@@ -1491,11 +1472,7 @@ export default function DesplazamientoPage() {
                           gusto: en cuanto escribas algo se guarda solo y manda
                           lo escrito.
                         </Notice>
-                      ) : (
-                        <Notice title="Cambia los días; se guarda solo">
-                          Viaje propuesto de {viaje.condicion === "visitante" ? "dos días (víspera y partido)" : "un día"}: en cuanto escribas algo, se guarda.
-                        </Notice>
-                      )}
+                      ) : null}
                     </div>
                   )}
 
@@ -1560,7 +1537,10 @@ export default function DesplazamientoPage() {
                                 const orden = [...d.citas].sort((a, b) => a.minuto - b.minuto);
                                 const dia = diaLargo(d.fecha).split(" ")[0].toLowerCase();
                                 const desde = aHora(orden[0].minuto);
-                                const hasta = aHora(orden[orden.length - 1].minuto);
+                                const ultimo = orden[orden.length - 1].minuto;
+                                const hasta = aHora(ultimo);
+                                /* Pasada la medianoche se dice el día real: «viernes 09:30 – sáb 14 03:15». */
+                                if (esDiaSiguiente(ultimo)) return `${dia} ${desde} – ${diaSiguienteCorto(d.fecha).toLowerCase()} ${hasta}`;
                                 return `${dia} ${desde}${hasta !== desde ? `–${hasta}` : ""}`;
                               })
                               .join(" · ") + ` · ${citas} ${citas === 1 ? "cita" : "citas"}`,
@@ -1720,19 +1700,6 @@ export default function DesplazamientoPage() {
 
                           <span className="min-w-0 text-xs text-white/70">
                             El viaje lleva hotel
-                            {/* 11/11/2026: marcado y sin hotel ya no pasa callado. */}
-                            {viaje.conHotel && !viaje.hotel.nombre.trim() && (
-                              <button
-                                type="button"
-                                onClick={(evento) => {
-                                  evento.preventDefault();
-                                  irATarea("viaje-hotel");
-                                }}
-                                className="ml-2 font-semibold text-[#C8A96B] hover:underline"
-                              >
-                                · falta ponerlo
-                              </button>
-                            )}
                           </span>
                         </label>
                         )}

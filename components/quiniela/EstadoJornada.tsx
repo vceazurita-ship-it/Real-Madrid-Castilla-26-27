@@ -276,7 +276,7 @@ export function EstadoJornada({
           </span>
           {faltan.length > 0 ? (
             <span className="text-white/70">
-              · {cerrada ? (faltan.length === 1 ? "no la completó" : "no la completaron") : faltan.length === 1 ? "falta" : "faltan"} {enLista(faltan)}
+              · {cerrada ? (faltan.length === 1 ? "no la completó" : "no la completaron") : faltan.length === 1 ? "falta" : "faltan"} {faltan.length > 4 ? `${faltan.slice(0, 3).join(", ")} y ${faltan.length - 3} más` : enLista(faltan)}
             </span>
           ) : null}
         </span>

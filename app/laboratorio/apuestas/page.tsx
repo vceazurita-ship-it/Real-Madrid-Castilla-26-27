@@ -407,7 +407,7 @@ export default function ApuestasPage() {
               <details className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2 text-sm text-white/70">
                 <summary className="flex min-h-11 cursor-pointer items-center gap-2 text-[13px] text-white/70">
                   <span className="font-semibold uppercase tracking-[0.14em] text-white/80">Cómo funciona</span>
-                  <span className="max-sm:hidden">· lanzas, los demás se mojan y el día señalado se da el veredicto</span>
+                  <span>· lanzas, los demás se mojan y el día señalado se da el veredicto</span>
                 </summary>
                 <div className="mb-2 mt-1">{pasos}</div>
               </details>
@@ -543,8 +543,8 @@ const CHIP: Record<EstadoApuesta, { texto: (a: Apuesta, hoy: string) => string; 
       const dias = diasHasta(a.comprobar, hoy);
 
       return dias === 1
-        ? "Se comprueba mañana"
-        : `Se comprueba el ${fechaLarga(a.comprobar)} · faltan ${dias} días`;
+        ? "Veredicto mañana"
+        : `Veredicto el ${fechaLarga(a.comprobar)} · faltan ${dias} días`;
     },
     clase: "border-[#C8A96B]/30 bg-[#C8A96B]/10 text-[#C8A96B]",
   },
@@ -695,15 +695,6 @@ function Tarjeta({
         </div>
       )}
 
-      {/* Sin sesión, el camino a los botones en la propia tarjeta. */}
-      {!yo && estado === "abierta" && (
-        <a
-          href="#acceso-apuestas"
-          className="inline-flex min-h-11 items-center justify-center rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 text-[14px] font-semibold text-[#C8A96B] hover:bg-[#C8A96B]/15"
-        >
-          Entra para ponerte a favor o en contra
-        </a>
-      )}
 
       {soyAutor && estado === "abierta" && (
         <p className="text-[13px] text-white/70">La lanzaste tú: cuentas a favor.</p>
