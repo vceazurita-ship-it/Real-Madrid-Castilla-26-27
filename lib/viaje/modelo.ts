@@ -1691,6 +1691,8 @@ export function emojiDeCita(cita: Pick<CitaHorario, "emoji" | "clase" | "texto" 
 
   if (cita.tipo === "partido" || /\bpartido\b/.test(t)) return "⚽";
   if (/avi[oó]n|vuelo|aeropuerto/.test(t)) return "✈️";
+  /* «Salida bus estación» es un autobús que va a la estación, no un tren (11/11/2026). */
+  if (/\bbus\b|autob[uú]s/.test(t)) return "🚌";
   if (/tren|\bave\b|estaci[oó]n/.test(t)) return "🚆";
   if (/desayuno/.test(t)) return "☕";
   if (/picnic/.test(t)) return "🧺";

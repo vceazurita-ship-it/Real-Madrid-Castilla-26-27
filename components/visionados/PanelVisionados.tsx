@@ -152,39 +152,24 @@ export function PanelVisionados() {
 
   /* Resumen de arriba: YouTube (acumulado) y la app (todo, desde el 06/11). */
   const app = useMemo(() => todos ?? [], [todos]);
-  /* Clips del canal que nadie ha abierto ni en YouTube ni en la app. */
-  const sinAbrir = useMemo(() => {
-    const filas = yt.datos?.filas ?? [];
-    if (!filas.length) return null;
-    const enApp = new Set(app.map((v) => v.video));
-    const n = filas.filter((f) => f.vistas === 0 && !enApp.has(f.id)).length;
-    return n > 0 ? { n, de: filas.length } : null;
-  }, [yt.datos, app]);
 
+  /*
+  | El resumen sólo con YouTube (11/11/2026, el analista): los jugadores ven
+  | los clips en el canal, no en la app. Las aperturas de la app van aparte.
+  */
   const resumen = useMemo(() => {
     const d = yt.datos;
-    const vistasYt = d?.total ?? 0;
-    if (!vistasYt && !app.length) return null;
-    const vistos = new Set<string>([...(d?.filas ?? []).filter((f) => f.vistas > 0).map((f) => f.id), ...app.map((v) => v.video)]);
-    const totalClips = d?.filas.length ?? 0;
-    const personas = new Set(app.map((v) => v.quien).filter(conNombre)).size;
-    const porClipApp = new Map<string, { n: number; v: Visionado }>();
-    for (const v of app) porClipApp.set(v.video, { n: (porClipApp.get(v.video)?.n ?? 0) + 1, v });
-    /* Si todos van a una vez es un empate, no un «más visto» (09/11/2026). */
-    const topApp = [...porClipApp.values()].sort((a, b) => b.n - a.n).find((x) => x.n > 1);
-    const topYt = d?.top && d.top.vistas > 0 ? d.top : null;
-    const top = topYt
-      ? { nombre: topYt.jugador || topYt.titulo, base: `${topYt.vistas} vistas en YouTube${topYt.equipo ? ` · ${topYt.equipo}` : ""}` }
-      : topApp
-        ? { nombre: topApp.v.jugador || topApp.v.titulo, base: `${topApp.n} ${topApp.n === 1 ? "vez" : "veces"} en la app${topApp.v.equipo ? ` · ${topApp.v.equipo}` : ""}` }
-        : null;
+    if (!d || !d.total) return null;
+    const vistos = d.filas.filter((f) => f.vistas > 0).length;
+    const sinVer = d.filas.length - vistos;
+    const top = d.top && d.top.vistas > 0 ? d.top : null;
     return [
-      { t: "Clips vistos", v: String(vistos.size), base: [totalClips ? `de ${totalClips} en el canal` : "", vistasYt ? `${vistasYt} vistas en YouTube` : "", app.length ? `${app.length} aperturas en la app` : ""].filter(Boolean).join(" · ") },
-      ...(personas ? [{ t: "Personas en la app", v: String(personas), base: `con nombre, desde el ${DESDE}` }] : []),
-      ...(sinAbrir ? [{ t: "Sin abrir", v: `${sinAbrir.n} de ${sinAbrir.de}`, base: "clips del canal que nadie ha visto: reenvíalos por WhatsApp" }] : []),
-      ...(top ? [{ t: "El más visto", v: top.nombre, base: top.base, texto: true }] : []),
+      { t: "Vistas en YouTube", v: String(d.total), base: `${d.filas.length} clips en el canal${d.nuevas ? ` · +${d.nuevas} desde la foto anterior` : ""}` },
+      { t: "Clips vistos", v: String(vistos), base: `de ${d.filas.length} · mediana ${d.mediana} vistas por clip` },
+      ...(sinVer ? [{ t: "Sin ver", v: `${sinVer} de ${d.filas.length}`, base: "clips del canal con 0 vistas: reenvíalos por WhatsApp" }] : []),
+      ...(top ? [{ t: "El más visto", v: top.jugador || top.titulo, base: `${top.vistas} vistas${top.equipo ? ` · ${top.equipo}` : ""}`, texto: true }] : []),
     ].slice(0, 4);
-  }, [yt.datos, app, sinAbrir]);
+  }, [yt.datos]);
 
   const cargando = todos === null || yt.resp === null;
   const nada = !cargando && !resumen;
@@ -246,7 +231,11 @@ export function PanelVisionados() {
       <BloqueYoutube {...yt} />
 
       {!cargando && app.length > 0 && (
-        <>
+        <details className="rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3">
+          <summary className="cursor-pointer select-none text-[14px] font-semibold text-white/75 hover:text-white">
+            Aperturas desde la app <span className="font-normal text-white/50">· aparte: no cuentan en las cifras de YouTube</span>
+          </summary>
+          <div className="mt-3 space-y-5">
           <div className="flex flex-wrap items-baseline justify-between gap-2 pt-2">
             <h2 className="text-xl font-bold">Dentro de la app</h2>
             <p className="text-[12px] text-white/55">Cada vez que alguien abre un clip en Clips, desde el {DESDE}.</p>
@@ -299,7 +288,8 @@ export function PanelVisionados() {
               </section>
             </>
           )}
-        </>
+          </div>
+        </details>
       )}
 
       {/* Hay YouTube pero nadie ha abierto un clip en la app: una línea, con el botón. */}

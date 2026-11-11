@@ -1164,7 +1164,7 @@ export function VideosDelCanal({
                   {(() => {
                     const vistos = grupo.videos.reduce((suma, pieza) => suma + (visionados[pieza.video.id] ?? 0), 0);
 
-                    return vistos > 0 ? <span className="text-[11px] tabular-nums text-white/45">· {vistos} {vistos === 1 ? "visionado" : "visionados"} en la app</span> : null;
+                    return vistos > 0 ? <span className="text-[11px] tabular-nums text-white/45">· {vistos} {vistos === 1 ? "vista" : "vistas"} en YouTube</span> : null;
                   })()}
                 </div>
 
@@ -1508,7 +1508,7 @@ function Rejilla({
                 El minuto del partido no viaja en el canal, así que no se pone. */}
             <div className="mt-1.5 flex items-center gap-2">
               <span className="min-w-0 flex-1 truncate text-[11px] tabular-nums text-white/40">
-                {[etiqueta, `corte ${video.posicion + 1}`, visionados[video.id] ? `${visionados[video.id]} ${visionados[video.id] === 1 ? "visionado" : "visionados"}` : ""].filter(Boolean).join(" · ")}
+                {[etiqueta, `corte ${video.posicion + 1}`, visionados[video.id] ? `${visionados[video.id]} ${visionados[video.id] === 1 ? "vista" : "vistas"} en YouTube` : ""].filter(Boolean).join(" · ")}
               </span>
 
               <button

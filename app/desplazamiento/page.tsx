@@ -104,6 +104,7 @@ import {
   comoDesfase,
   copiaViaje,
   diaCorto,
+  esLlegada,
   diaLargo,
   diaSiguienteCorto,
   esDiaSiguiente,
@@ -123,6 +124,7 @@ import {
 import { LUGARES_FIJOS, comoMedidas, leeMedidas } from "@/lib/viaje/rutas";
 import { pideMedidasCampo } from "@/lib/viaje/trayectos-cliente";
 import { ValoracionViajePanel } from "@/components/viaje/ValoracionViaje";
+import { useAhora } from "@/hooks/useQuinielaDoc";
 import { mismoEquipo } from "@/lib/data-analisis/nombres";
 import { conSemilla, tieneSemilla } from "@/lib/viaje/semilla";
 import { CALENDARIO_CASTILLA_KEY, enlaceRuta, horaDelCalendario, type PartidoBesoccer } from "@/lib/viaje/calendario";
@@ -215,6 +217,51 @@ type Pendiente = { clave: string; rotulo: string; hecho: boolean; seccion: strin
  * (19/10/2026): el formulario es largo y no se veía de un golpe qué quedaba.
  * Cada chapa lleva a su sección.
  */
+/**
+ * Lo que no cuadra en el horario (11/11/2026, revisión de los expertos):
+ * dos partidos, el partido fuera de su día, la vuelta a Valdebebas antes del
+ * partido o una llegada que no da tiempo al trayecto. Mientras haya alguno, el
+ * horario no cuenta como hecho.
+ */
+function avisosHorario(viaje: Desplazamiento): string[] {
+  const avisos: string[] = [];
+  const esPartido = (c: { tipo: string; texto: string }) => c.tipo === "partido" || /^\s*partido\b/i.test(c.texto);
+  const partidos = viaje.dias.flatMap((d) => d.citas.filter(esPartido).map((c) => ({ dia: d, cita: c })));
+
+  if (partidos.length > 1) {
+    avisos.push(`Hay ${partidos.length} partidos en el horario (${partidos.map((p) => diaCorto(p.dia.fecha).toLowerCase()).join(" y ")}): deja sólo el del ${viaje.fecha ? diaCorto(viaje.fecha).toLowerCase() : "día del partido"}.`);
+  }
+
+  if (viaje.fecha && partidos.length > 0 && !partidos.some((p) => p.dia.fecha === viaje.fecha)) {
+    avisos.push(`El partido no está en su día (${diaCorto(viaje.fecha).toLowerCase()}).`);
+  }
+
+  const diaPartido = viaje.dias.find((d) => d.fecha === viaje.fecha);
+  const minutoPartido = viaje.hora ? aMinutos(viaje.hora) : null;
+
+  if (diaPartido && minutoPartido != null) {
+    const vueltaAntes = diaPartido.citas.find((c) => /llegada.*valdebebas/i.test(c.texto) && c.minuto < minutoPartido);
+
+    if (vueltaAntes) avisos.push(`«${vueltaAntes.texto}» está a las ${aHora(vueltaAntes.minuto)}, antes del partido de las ${viaje.hora}.`);
+  }
+
+  for (const dia of viaje.dias) {
+    const orden = [...dia.citas].sort((a, b) => a.minuto - b.minuto);
+
+    orden.forEach((cita, i) => {
+      if (!esLlegada(cita) || i === 0) return;
+
+      const salida = [...orden.slice(0, i)].reverse().find((c) => /^salida\b/i.test(c.texto.trim()) || c.clase?.startsWith("salida"));
+
+      if (salida && cita.minuto - salida.minuto < 30 && !(cita.duracion && cita.duracion < 30) && !(salida.duracion && salida.duracion < 30)) {
+        avisos.push(`${diaCorto(dia.fecha).toLowerCase()}: «${salida.texto}» ${aHora(salida.minuto)} y «${cita.texto}» ${aHora(cita.minuto)}: ¿el trayecto dura ${cita.minuto - salida.minuto} min?`);
+      }
+    });
+  }
+
+  return avisos;
+}
+
 function pendientesDe(viaje: Desplazamiento): Pendiente[] {
   /*
   | En casa no hay viaje (30/10/2026): ni ruta, ni hotel, ni plano. Lo que
@@ -245,7 +292,7 @@ function pendientesDe(viaje: Desplazamiento): Pendiente[] {
   }
 
   lista.push(
-    { clave: "horario", rotulo: "Horario", hecho: viaje.dias.some((dia) => dia.citas.length > 0), seccion: "viaje-horario" },
+    { clave: "horario", rotulo: "Horario", hecho: viaje.dias.some((dia) => dia.citas.length > 0) && avisosHorario(viaje).length === 0, seccion: "viaje-horario" },
     { clave: "avisos", rotulo: "No olvidar", hecho: viaje.avisos.some((a) => a.trim()), seccion: "viaje-avisos" },
   );
 
@@ -296,6 +343,8 @@ function ListaPendiente({ viaje, onIr = irA }: { viaje: Desplazamiento; onIr?: (
   const resto = tareas.length - aLaVista.length;
   const listaDe = (rotulos: string[]) =>
     rotulos.length <= 1 ? rotulos.join("") : `${rotulos.slice(0, -1).join(", ")} y ${rotulos[rotulos.length - 1]}`;
+
+  const noCuadra = viaje.condicion === "local" ? [] : avisosHorario(viaje);
 
   return (
     <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-3">
@@ -350,6 +399,21 @@ function ListaPendiente({ viaje, onIr = irA }: { viaje: Desplazamiento; onIr?: (
                 </span>
               ))}
             </p>
+          )}
+          {noCuadra.length > 0 && (
+            <div className="mt-2 rounded-xl border border-amber-400/30 bg-amber-400/[0.06] px-3 py-2">
+              <p className="flex items-center gap-2 text-[13px] font-semibold text-amber-300">
+                Revisa el horario
+                <button type="button" onClick={() => onIr("viaje-horario")} className="font-semibold text-[#C8A96B] hover:underline">
+                  Ir al horario
+                </button>
+              </p>
+              <ul className="mt-1 list-disc space-y-0.5 pl-5 text-[13px] text-white/75">
+                {noCuadra.map((a) => (
+                  <li key={a}>{a}</li>
+                ))}
+              </ul>
+            </div>
           )}
           {bloquesHechos.length > 0 && (
             <p className="mt-2 flex flex-wrap items-center gap-1 text-[13px] text-white/45">
@@ -478,6 +542,25 @@ function SeccionMovil({ titulo, resumen, abierta, onCambia, children }: { titulo
 export default function DesplazamientoPage() {
   /* El escudo del club, que la hoja no trae: ver `hooks/useEscudos`. */
   const escudoDe = useEscudos();
+
+  /* El día de hoy, para saber si el partido ya se jugó (la valoración se pliega antes). */
+  const ahora = useAhora(60 * 60 * 1000);
+  const hoyIso = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, "0")}-${String(ahora.getDate()).padStart(2, "0")}`;
+
+  /*
+  | El botón fijo del móvil sólo cuando ya no se ve el de la cabecera
+  | (11/11/2026, expertos): arriba tapaba la tarjeta de resumen.
+  */
+  const [bajado, setBajado] = useState(false);
+
+  useEffect(() => {
+    const mira = () => setBajado(window.scrollY > 700);
+
+    mira();
+    window.addEventListener("scroll", mira, { passive: true });
+
+    return () => window.removeEventListener("scroll", mira);
+  }, []);
 
   const {
     value: store,
@@ -2150,7 +2233,7 @@ export default function DesplazamientoPage() {
                         <summary className="cursor-pointer select-none text-[13px] font-semibold text-white/70 hover:text-white">
                           Fotos de los lugares de salida
                           <span className="ml-2 font-normal text-white/45">
-                            {Object.keys(LUGARES_FIJOS).filter((clave) => store.lugares?.[clave]?.url).length} de {Object.keys(LUGARES_FIJOS).length} puestas · se guardan una vez para todos los viajes
+                            · {Object.keys(LUGARES_FIJOS).filter((clave) => store.lugares?.[clave]?.url).length} de {Object.keys(LUGARES_FIJOS).length} puestas · se guardan una vez para todos los viajes
                           </span>
                         </summary>
                         <div className="mt-2 grid min-w-0 gap-3 pb-1 sm:grid-cols-2 lg:grid-cols-4">
@@ -2211,12 +2294,26 @@ export default function DesplazamientoPage() {
                       abierta={Boolean(abiertas["viaje-valoracion"])}
                       onCambia={() => conmuta("viaje-valoracion")}
                     >
-                      <ValoracionViajePanel
-                        viaje={viaje}
-                        onCambia={(valoracion) => campo("valoracion", valoracion)}
-                        plan={plan}
-                        onGuardaPlan={guardaPlan}
-                      />
+                      {/* Antes del partido, plegada: sus notas son para después del viaje (11/11/2026). */}
+                      <details
+                        open={Boolean(viaje.fecha && viaje.fecha < hoyIso) || undefined}
+                        className="rounded-2xl border border-white/10 bg-white/[0.02] px-3 py-2"
+                      >
+                        <summary className="cursor-pointer select-none text-[13px] font-semibold text-white/70 hover:text-white">
+                          Cómo salió el viaje y guardar el plan
+                          <span className="ml-2 font-normal text-white/45">
+                            · {viaje.fecha && viaje.fecha < hoyIso ? "valóralo ahora que ya se jugó" : "se valora después del partido"}
+                          </span>
+                        </summary>
+                        <div className="mt-2">
+                          <ValoracionViajePanel
+                            viaje={viaje}
+                            onCambia={(valoracion) => campo("valoracion", valoracion)}
+                            plan={plan}
+                            onGuardaPlan={guardaPlan}
+                          />
+                        </div>
+                      </details>
                     </SeccionMovil>
                   </div>
 
@@ -2282,7 +2379,7 @@ export default function DesplazamientoPage() {
                   | el formulario es largo y el botón de la cabecera se quedaba arriba.
                   | Abajo a la izquierda, lejos del botón flotante de herramientas.
                   */}
-                  <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-start px-4 pb-[max(12px,env(safe-area-inset-bottom))] sm:hidden">
+                  <div className={`pointer-events-none fixed inset-x-0 bottom-0 z-40 justify-start px-4 pb-[max(12px,env(safe-area-inset-bottom))] sm:hidden ${bajado ? "flex" : "hidden"}`}>
                     <span className="pointer-events-auto rounded-xl shadow-lg shadow-black/30">
                       <Button tone="primary" icon={Eye} onClick={() => irA("viaje-vista")}>
                         Vista previa y exportar

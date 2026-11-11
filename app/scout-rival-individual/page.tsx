@@ -161,18 +161,21 @@ export default function ScoutRivalIndividual() {
   const { doc: statsDoc } = useRivalStats();
 
   /*
-  | Los visionados apuntados en la app (10/11/2026, jueces): la cifra va en la
-  | pestaña y cada ficha dice cuántas veces se ha abierto. Sólo se lee.
+  | Las vistas de YouTube (11/11/2026, el analista): los jugadores ven los
+  | clips en el canal, no en la app, así que la cifra de cada ficha y la de la
+  | pestaña son las vistas de YouTube. Sólo se lee.
   */
-  const [visionados, setVisionados] = useState<{ video: string }[]>([]);
+  const [vistasPorVideo, setVistasPorVideo] = useState<Record<string, number>>({});
 
   useEffect(() => {
     let vivo = true;
 
-    fetch("/api/visionados", { cache: "no-store" })
-      .then((r) => r.json() as Promise<{ visionados?: { video: string }[] }>)
+    fetch("/api/youtube/visionados", { cache: "no-store" })
+      .then((r) => r.json() as Promise<{ clips?: { id: string; vistas: number }[] }>)
       .then((j) => {
-        if (vivo && Array.isArray(j?.visionados)) setVisionados(j.visionados);
+        if (!vivo || !Array.isArray(j?.clips)) return;
+
+        setVistasPorVideo(Object.fromEntries(j.clips.filter((c) => c?.id).map((c) => [c.id, Number(c.vistas) || 0])));
       })
       .catch(() => undefined);
 
@@ -181,13 +184,7 @@ export default function ScoutRivalIndividual() {
     };
   }, []);
 
-  const vistasPorVideo = useMemo(() => {
-    const mapa: Record<string, number> = {};
-
-    for (const v of visionados) if (v?.video) mapa[v.video] = (mapa[v.video] ?? 0) + 1;
-
-    return mapa;
-  }, [visionados]);
+  const vistasTotales = useMemo(() => Object.values(vistasPorVideo).reduce((suma, n) => suma + n, 0), [vistasPorVideo]);
 
   /* Los titulares del once probable marcado en Plantillas rivales (sólo se lee). */
   const [titularesDe, setTitularesDe] = useState<{ equipo: string; claves: string[] }>({ equipo: "", claves: [] });
@@ -324,7 +321,7 @@ export default function ScoutRivalIndividual() {
             </p>
             </Explicativo>}
             <p className="mt-3 max-w-2xl text-white/60">
-              {vista === "visionados" ? "Cuántas veces se ven los clips: en YouTube, donde los ven los jugadores, y en la app." : "Los cortes de cada rival, jugador a jugador."}
+              {vista === "visionados" ? "Cuántas veces se ven los clips en YouTube, donde los ven los jugadores." : "Los cortes de cada rival, jugador a jugador."}
             </p>
           </header>
 
@@ -335,7 +332,7 @@ export default function ScoutRivalIndividual() {
               onCambia={setVista}
               opciones={[
                 { clave: "clips", label: "Clips", icono: IconoVideo },
-                { clave: "visionados", label: "Visionados", icono: Eye, cuenta: visionados.length || undefined },
+                { clave: "visionados", label: "Visionados", icono: Eye, cuenta: vistasTotales || undefined },
               ]}
             />
           </div>
