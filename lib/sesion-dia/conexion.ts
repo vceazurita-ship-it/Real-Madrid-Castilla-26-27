@@ -240,10 +240,35 @@ export function enlaza(tareas: TareaQueSeCasa[], plan: TareaPlan[]): (number | n
     }
   });
 
+  /*
+  | 11/11/2026: antes del código solo, el NOMBRE. Si la hoja metió una tarea
+  | delante («Juego de posesión» pasa a V-T1 y «Ataque - Defensa» a V-T2), el
+  | código viejo de la sesión apunta a otra tarea: «ATAQUE - DEFENSA» enseñaba
+  | las reglas y la valoración del juego de posesión, y la franja daba por
+  | «renombradas» las tres. Una tarea del plan que se llama igual (con el
+  | nombre de ahora o con el que se trajo) gana al código; entre varias que se
+  | llaman igual, la del mismo código y, si no, la primera en el orden.
+  */
+  const clave = (s: string) => claveNombre(s);
+
   tareas.forEach((t, i) => {
     if (!t.plan || salida[i] !== null) return;
 
-    const k = plan.findIndex((p, j) => !usadas.has(j) && mismoCodigo(p, t));
+    const nombres = new Set([clave(t.nombre), clave(t.plan.nombre)].filter(Boolean));
+    const libres = plan.map((p, j) => ({ p, j })).filter(({ p, j }) => !usadas.has(j) && nombres.has(clave(nombreEnSesion(p))));
+    const k = (libres.find(({ p }) => mismoCodigo(p, t)) ?? libres[0])?.j ?? -1;
+
+    if (k >= 0) {
+      salida[i] = k;
+      usadas.add(k);
+    }
+  });
+
+  tareas.forEach((t, i) => {
+    if (!t.plan || salida[i] !== null) return;
+
+    /* El código solo, si no es una tarea que ya tiene en la sesión otra con su nombre (11/11/2026). */
+    const k = plan.findIndex((p, j) => !usadas.has(j) && mismoCodigo(p, t) && !tareas.some((o, n) => n !== i && clave(o.nombre) === clave(nombreEnSesion(p))));
 
     if (k >= 0) {
       salida[i] = k;

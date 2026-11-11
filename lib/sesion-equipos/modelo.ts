@@ -711,6 +711,12 @@ export type Aviso = {
   ajustaComodines?: string;
   /** Lo que dice el aviso en una línea («Faltan 3 jugadores»), si el texto es largo (10/11/2026). */
   titular?: string;
+  /**
+   * Es trabajo por hacer, no un fallo (11/11/2026): «faltan por colocar» y
+   * «equipo sin jugadores». La franja lo pinta neutro con la tarea vacía y
+   * ámbar tras el primer reparto; el rojo queda para los avisos de verdad.
+   */
+  pendiente?: boolean;
 };
 
 /** El puesto de un jugador: el puesto a mano, si no el de la plantilla. */
@@ -737,6 +743,9 @@ export function valida(tarea: TareaEquipos, sesion: SesionEquipos, puestoDe: Pue
     avisos.push({
       nivel: "error",
       texto: `${r.sinSitio.length === 1 ? "Falta por colocar" : `Faltan ${r.sinSitio.length} por colocar`}: ${r.sinSitio.map((j) => j.nombre).join(", ")}`,
+      /* Los nombres ya están en la caja «Sin colocar»: el titular sólo cuenta (11/11/2026). */
+      titular: r.sinSitio.length === 1 ? "Falta 1 por colocar" : `Faltan ${r.sinSitio.length} por colocar`,
+      pendiente: true,
     });
   } else {
     avisos.push({ nivel: "ok", texto: "Nadie olvidado: todos tienen sitio" });
@@ -768,7 +777,7 @@ export function valida(tarea: TareaEquipos, sesion: SesionEquipos, puestoDe: Pue
   const vacios = tarea.equipos.filter((e) => !(r.porEquipo[e.id]?.length));
 
   if (vacios.length) {
-    avisos.push({ nivel: "error", texto: `Sin jugadores: ${vacios.map((e) => e.nombre).join(", ")}` });
+    avisos.push({ nivel: "error", texto: `Sin jugadores: ${vacios.map((e) => e.nombre).join(", ")}`, pendiente: true });
   } else if (Math.max(...tamanos) - Math.min(...tamanos) > 1 && /anal[ií]tic|espec[ií]fic/i.test(tarea.nombre)) {
     /* En una analítica o un trabajo específico el reparto desigual es buscado (09/11/2026): no se avisa. */
     avisos.push({
@@ -800,6 +809,8 @@ export function valida(tarea: TareaEquipos, sesion: SesionEquipos, puestoDe: Pue
         if (!movidos.length) return r.comodines.length > tarea.comodines ? "Pasar a los equipos los que sobran" : "Sacar comodines de los equipos más largos";
         return r.comodines.length > tarea.comodines ? `Pasar a ${movidos.join(" y ")} a un equipo` : `Pasar a ${movidos.join(" y ")} a comodín`;
       })(),
+      /* Faltar un comodín es trabajo por hacer; uno de más, no (11/11/2026). */
+      pendiente: r.comodines.length < tarea.comodines,
     });
   } else if (tarea.comodines === 0 && r.comodines.length > 0) {
     avisos.push({ nivel: "aviso", texto: `Hay ${r.comodines.length} comodín(es) en una tarea sin comodines` });
