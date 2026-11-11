@@ -189,6 +189,9 @@ export type DesviacionMetrica = {
   mediana: number;
   /** Dónde queda entre los veinte equipos, con el sentido ya puesto. */
   percentil: number;
+  /** El menor y el mayor de la liga (11/11/2026): los extremos de la barra de ABP y Área del rival. */
+  minimo?: number;
+  maximo?: number;
 };
 
 export type DestacadoEquipo = {
@@ -251,6 +254,8 @@ function percentilEnLiga(
   return {
     percentil: Math.round(((peores + iguales / 2) / valores.length) * 100),
     mediana,
+    minimo: Math.min(...valores),
+    maximo: Math.max(...valores),
   };
 }
 
@@ -316,6 +321,8 @@ export function destacadosDeEquipo(
           valor,
           mediana: enLaLiga.mediana,
           percentil: enLaLiga.percentil,
+          minimo: enLaLiga.minimo,
+          maximo: enLaLiga.maximo,
         });
       }
 
