@@ -906,6 +906,7 @@ export function Dialog({
   footer,
   children,
   sinGuardar = false,
+  sinBotonFlotante = false,
 }: {
   title: string;
   subtitle?: string;
@@ -914,6 +915,8 @@ export function Dialog({
   children: ReactNode;
   /** Hay algo escrito que cerrar se llevaría por delante. */
   sinGuardar?: boolean;
+  /** El diálogo esconde el botón de herramientas en el móvil: el pie no le guarda hueco a la derecha. */
+  sinBotonFlotante?: boolean;
 }) {
   /* El aviso lo lee un manejador que vive fuera del render; la referencia lo
      mantiene al día sin volver a enganchar el oyente en cada tecla. */
@@ -983,7 +986,7 @@ export function Dialog({
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
 
         {footer && (
-          <footer className="flex flex-wrap items-center justify-end gap-2 border-t border-white/10 py-3 pl-5 pr-16 sm:px-5">
+          <footer className={`flex flex-wrap items-center justify-end gap-2 border-t border-white/10 py-3 pl-5 sm:px-5 ${sinBotonFlotante ? "pr-5" : "pr-16"}`}>
             {footer}
           </footer>
         )}

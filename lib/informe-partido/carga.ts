@@ -562,22 +562,36 @@ function colectivoDe(fila: Fila | null, extra: Record<string, string>): Colectiv
   | perfil de Ángel» no decía que era a la espalda de su presión. Los nombres
   | se completan con la plantilla en `cargaInforme` (`explicaDano`).
   */
+  /*
+  | El defensor que el analista señala como flojo va PRIMERO (11/11/2026,
+  | análisis, fútbol y marketing): en la previa del Gimnàstic el campo «a quien
+  | atacar» decía «4. Fran» y se perdía (cuatro letras no pasaban `fraseUtil`),
+  | así que el titular salía del campo de la espalda, que nombraba a Nico van
+  | Rijn… como «el más solvente». El texto del analista manda.
+  */
   const DONDE_DANO: [string, string][] = [
+    ["DEF_REINICIO_JUGADORES_DEBILES", "Atrás, a quien atacar"],
+    ["DEF_AREA_JUGADOR_DEBIL", "En su área, a quien atacar"],
     ["TRANSICION_DEF_DIFICULTADES_ESPALDA", "Tras pérdida, a su espalda"],
     ["DEF_BLOQUE_ALTO_ESPALDA", "A la espalda de su presión"],
     ["DEF_BLOQUE_MEDIO_ESPALDA", "A la espalda de su bloque"],
     /* «A quien presionar», no «el más flojo» (10/11/2026, marketing): es la lectura del
        scouting, sin una cifra que lo mida; no se vende como un dato. */
     ["OF_INICIO_JUGADOR_DEBIL_DENTRO", "En su salida, a quien presionar"],
-    ["DEF_REINICIO_JUGADORES_DEBILES", "Atrás, a quien atacar"],
-    ["DEF_AREA_JUGADOR_DEBIL", "En su área, a quien atacar"],
     ["DEBILIDADES_INDIVIDUALES", ""],
   ];
+
+  /* «4. Fran», «5 - Nico», «Fran»: un nombre suelto (con dorsal o sin él) es la respuesta entera del campo. */
+  const nombreSuelto = (t: string) => {
+    const limpio = t.replace(/^\s*\d{1,2}\s*[.)\-–]?\s*/, "").replace(/[.\s]+$/, "").trim();
+
+    return /^\p{Lu}[\p{L}'-]+(?:\s+\p{Lu}[\p{L}'-]+){0,2}$/u.test(limpio) ? limpio : "";
+  };
 
   const vistos = new Set<string>();
 
   const dano = DONDE_DANO.flatMap(([k, donde]) => {
-    const t = fraseUtil(valor(k), 400).replace(/[.\s]+$/, "");
+    const t = (fraseUtil(valor(k), 400) || (/JUGADOR/.test(k) ? nombreSuelto(valor(k)) : "")).replace(/[.\s]+$/, "");
 
     if (!t || vistos.has(t)) return [];
 
@@ -585,7 +599,10 @@ function colectivoDe(fila: Fila | null, extra: Record<string, string>): Colectiv
 
     const limpio = pulirScouting(t);
 
-    return [donde ? `${donde}: ${limpio.charAt(0).toLowerCase()}${limpio.slice(1)}` : limpio];
+    /* Un nombre propio se queda con su mayúscula («Fran», «Montalvo y Eugeni»): en minúscula no lo reconoce `explicaDano`. */
+    const esNombre = Boolean(nombreSuelto(limpio)) || /^\p{Lu}\p{Ll}+\s+y\s+\p{Lu}/u.test(limpio);
+
+    return [donde ? `${donde}: ${esNombre ? limpio : `${limpio.charAt(0).toLowerCase()}${limpio.slice(1)}`}` : limpio];
   }).slice(0, 3);
 
   return bloques.length || conclusiones.length ? { bloques, conclusiones, resumen: { fases, dano } } : null;

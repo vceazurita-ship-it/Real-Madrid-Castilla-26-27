@@ -517,6 +517,14 @@ function metricasPorBloque(inf: InformePartido) {
   return BLOQUES.map((b) => ({ bloque: b, metricas: todas.filter((m) => m.bloque === b) })).filter((x) => x.metricas.length);
 }
 
+/*
+| «Duelos ganados» a secas (11/11/2026, análisis): en la 1/3 sale «duelos
+| defensivos ganados 48,1 %» y en la 2/3 «duelos ganados 46,6 %», del mismo
+| rival y los mismos 10 partidos, y parecían la misma cifra con dos valores.
+| Son dos métricas: ésta cuenta todos los duelos.
+*/
+const nombreSinConfusion = (nombre: string) => (/^duelos ganados\b/i.test(nombre.trim()) ? nombre.replace(/^(\s*duelos ganados)/i, "$1 (todos)") : nombre);
+
 /** Los dos en datos, por bloques: nosotros a la izquierda, ellos a la derecha. */
 function DatosPorBloques({ inf }: { inf: InformePartido }) {
   const grupos = metricasPorBloque(inf);
@@ -536,7 +544,7 @@ function DatosPorBloques({ inf }: { inf: InformePartido }) {
           <div key={g.bloque}>
             <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: "0.22em", color: C.tenue, textAlign: "center", margin: "2px 0 2px" }}>{g.bloque.toUpperCase()}</div>
             {g.metricas.map((m) => (
-              <FilaDuelo key={m.key} m={m} equipos={inf.duelo?.equipos ?? 0} compacta />
+              <FilaDuelo key={m.key} m={{ ...m, nombre: nombreSinConfusion(m.nombre) }} equipos={inf.duelo?.equipos ?? 0} compacta />
             ))}
           </div>
         ))}
@@ -626,13 +634,15 @@ function PanelSuJuego({ inf, sinVigilar = false }: { inf: InformePartido; sinVig
   if (!r?.fases.length && !r?.dano.length && !vigilar.length) return null;
 
   return (
-    <Panel titulo="CÓMO JUEGAN" acento={C.rival}>
+    /* «Según nuestro scouting» (11/11/2026, fútbol): los dibujos de aquí son la lectura del vídeo; los de Wyscout, con su reparto, van bajo su once. */
+    <Panel titulo={r?.fases.length ? "CÓMO JUEGAN · NUESTRO SCOUTING" : "CÓMO JUEGAN"} acento={C.rival}>
       {r?.fases.length ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {r.fases.map((f) => (
             <div key={f.titulo}>
               <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: "0.18em", color: C.rival }}>{f.titulo.toUpperCase()}</div>
-              <div style={{ fontSize: 21, fontWeight: 600, lineHeight: 1.15, color: C.crema }}>{recorta(f.texto, 120)}</div>
+              {/* Al mismo largo que `fraseDeFase` (140): a 120 se cortaba «centros desde todas [las alturas]» (11/11/2026, marketing). */}
+              <div style={{ fontSize: 21, fontWeight: 600, lineHeight: 1.15, color: C.crema }}>{recorta(f.texto, 150)}</div>
             </div>
           ))}
         </div>
@@ -641,7 +651,8 @@ function PanelSuJuego({ inf, sinVigilar = false }: { inf: InformePartido; sinVig
       {r?.dano.length ? (
         <div style={{ marginTop: 14 }}>
           <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: "0.18em", color: C.bien }}>DÓNDE HACERLES DAÑO</div>
-          {r.dano.slice(0, 2).map((t) => (
+          {/* Las tres (11/11/2026): el defensor que señala el analista va primero y el resto no se pierde. */}
+          {r.dano.slice(0, sinVigilar ? 3 : 2).map((t) => (
             <div key={t} style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.15, color: C.crema, marginTop: 4 }}>
               <span style={{ color: C.bien }}>▸ </span>
               {recorta(t, 130)}
@@ -1067,7 +1078,7 @@ function PostLecciones({ inf }: { inf: InformePartido }) {
             </div>
           ) : null}
           {/* Una sola regla, la misma en el completo y en el vídeo (25/10/2026). */}
-          {inf.sintesis.cumplimiento.some((f) => f.veredicto) ? <div style={{ marginTop: 8, fontSize: 15, lineHeight: 1.25, color: C.tenue }}>{REGLA_VEREDICTO}</div> : null}
+          {inf.sintesis.cumplimiento.some((f) => f.veredicto) ? <div style={{ marginTop: 8, fontSize: 17, lineHeight: 1.25, color: C.tenue }}>{REGLA_VEREDICTO}</div> : null}
           {/* La roja pesa en estas cifras (24/10/2026): en la fila si la toca; si no, al pie. */}
           {inf.sintesis.notaRoja && !inf.sintesis.cumplimiento.some((f) => f.matiz) ? <div style={{ marginTop: 8, fontSize: 16, fontWeight: 600, lineHeight: 1.25, color: C.oroClaro }}>{inf.sintesis.notaRoja}.</div> : null}
           {inf.sintesis.frenados.length > 0 ? (
@@ -1217,7 +1228,7 @@ function PanelDuelos({ inf, post }: { inf: InformePartido; post: boolean }) {
   return (
     <Panel titulo={post ? "LOS DUELOS QUE PLANTEAMOS" : "LOS DUELOS"}>
       {/* Cómo se lee, bajo el título (segunda ronda de jueces): antes sólo en el pie. */}
-      <div style={{ marginTop: -4, marginBottom: 10, fontSize: 15, color: C.tenue }}>Cada cruce: nuestro percentil – el suyo (de 0 a 100) · la cifra grande, la ventaja media: por encima de 0, nuestra</div>
+      <div style={{ marginTop: -4, marginBottom: 10, fontSize: 17, color: C.tenue }}>Cada cruce: nuestro percentil – el suyo (de 0 a 100) · la cifra grande, la ventaja media: por encima de 0, nuestra</div>
       {atacar.length ? (
         <>
           <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: "0.18em", color: C.bien, marginBottom: 8 }}>
@@ -1242,7 +1253,7 @@ function PanelDuelos({ inf, post }: { inf: InformePartido; post: boolean }) {
           </div>
         </>
       ) : null}
-      <div style={{ marginTop: "auto", paddingTop: 12, fontSize: 15, color: C.tenue }}>
+      <div style={{ marginTop: "auto", paddingTop: 12, fontSize: 17, color: C.tenue }}>
         {/* Sólo cómo se lee (10/11/2026, análisis): el método largo va al pie del correo. */}
         {cuentaDuelos(atacar, vigilar, medidos)} · cifra pequeña: percentil contra su puesto (97 = mejor que 97 de cada 100) · ◐ tendencia: menos de 450′
       </div>
@@ -1307,7 +1318,7 @@ function PanelVistazo({ inf }: { inf: InformePartido }) {
             ))}
           </div>
           {/* La lectura de las barras (segunda ronda de jueces): «56 de 100» no decía qué era. */}
-          <div style={{ marginTop: 6, fontSize: 14, color: C.tenue }}>Índice de 0 a 100 contra la categoría: 50 es la mitad; más alto, mejor</div>
+          <div style={{ marginTop: 6, fontSize: 16, color: C.tenue }}>Índice de 0 a 100 contra la categoría: 50 es la mitad; más alto, mejor</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 14 }}>
             {[
               { t: "DESTACA EN", l: v.fuertes, c: C.bien },
@@ -1323,7 +1334,7 @@ function PanelVistazo({ inf }: { inf: InformePartido }) {
               </div>
             ))}
           </div>
-          <div style={{ marginTop: 6, fontSize: 14, color: C.tenue }}>Por partido, media de sus {v.partidos} partidos · mediana de la categoría</div>
+          <div style={{ marginTop: 6, fontSize: 16, color: C.tenue }}>Por partido, media de sus {v.partidos} partidos · mediana de la categoría</div>
           {v.figuras.length ? (
             <div style={{ marginTop: "auto", paddingTop: 12 }}>
               <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: "0.16em", color: C.rival, marginBottom: 6 }}>LOS QUE MÁS RINDEN PARA SU PUESTO · ÍNDICE DE 0 A 100</div>
@@ -1336,7 +1347,7 @@ function PanelVistazo({ inf }: { inf: InformePartido }) {
               ))}
             </div>
           ) : null}
-          {v.alcance ? <div style={{ marginTop: 8, fontSize: 14, color: C.tenue }}>{v.alcance} · de 0 a 100 contra los de su competición (50, la mitad)</div> : null}
+          {v.alcance ? <div style={{ marginTop: 8, fontSize: 16, color: C.tenue }}>{v.alcance} · de 0 a 100 contra los de su competición (50, la mitad)</div> : null}
         </>
       )}
     </Panel>
@@ -1477,6 +1488,19 @@ function Siguiente({ texto }: { texto: string }) {
  * 10 partidos (Wyscout)». Antes salían a la vez «3-4-2-1 · 3-5-2» y el del once.
  */
 function dibujoConBase(inf: InformePartido) {
+  /*
+  | Con su reparto (11/11/2026, fútbol): «3-4-2-1 en 3 de 10» al lado de «Atacan
+  | en 5-3-2» parecían dos rivales. Wyscout dice cuántas veces salió cada
+  | dibujo; el «Cómo juegan» es la lectura de nuestro scouting, y lo dice.
+  */
+  const sistemas = (inf.vistazo?.sistemas ?? []).filter((x) => x.partidos > 0).slice(0, 3);
+
+  if (sistemas.length && inf.vistazo?.partidos) {
+    const reparto = sistemas.map((x) => `${x.sistema} en ${x.partidos}`);
+
+    return `Dibujos según Wyscout: ${reparto.length > 1 ? `${reparto.slice(0, -1).join(", ")} y ${reparto[reparto.length - 1]}` : reparto[0]} de ${inf.vistazo.partidos} partidos`;
+  }
+
   const s = inf.vistazo?.sistemas[0];
 
   if (s && s.partidos > 0 && inf.vistazo?.partidos) return `Dibujo más usado: ${s.sistema} en ${s.partidos} de ${inf.vistazo.partidos} partidos (Wyscout)`;
@@ -1536,18 +1560,23 @@ function PronosticoCorto({ inf }: { inf: InformePartido }) {
         Marcador más probable <b style={{ color: C.crema }}>{pr.marcador}</b>
       </div>
       {/* Qué hacer con el pronóstico (10/11/2026, marketing): la orden, con las dos cifras. */}
+      {/*
+      | «Orientativo», con su horquilla (11/11/2026, análisis): el 42 % → 56 % se
+      | leía como una promesa, y el modelo no está contrastado con 11 partidos.
+      */}
       {pr.conPlan.victoria > pr.victoria ? (
         <div style={{ marginTop: 6, fontSize: 21, fontWeight: 700, lineHeight: 1.25, color: C.crema }}>
-          Qué hacer con ello: cumplir las tres metas del plan (con balón, sin balón y balón parado) sube la victoria del {pct(pr.victoria)} al <span style={{ color: C.oro }}>{pct(pr.conPlan.victoria)}</span>
+          Orientativo: si cumplimos las tres metas del plan (con balón, sin balón y balón parado), la victoria pasaría del {pct(pr.victoria)} a cerca del <span style={{ color: C.oro }}>{pct(pr.conPlan.victoria)}</span>
+          {pr.rango ? <span style={{ fontSize: 17, fontWeight: 600, color: C.suave }}> (entre {pct(pr.rango.conPlan[0])} y {pct(pr.rango.conPlan[1])})</span> : null}
         </div>
       ) : null}
       {/* El supuesto del modelo a la vista (11/11/2026, análisis): qué cifras se cambian para el «con el plan». */}
       {pr.conPlan.victoria > pr.victoria ? (
-        <div style={{ marginTop: 4, fontSize: 15, color: C.tenue }}>
-          Con el plan: nuestros goles esperados +15 %, los suyos −20 % y +0,12 a balón parado
+        <div style={{ marginTop: 4, fontSize: 17, color: C.tenue }}>
+          Supuesto, no medido: nuestros goles esperados +15 %, los suyos −20 % y +0,12 a balón parado
         </div>
       ) : null}
-      <div style={{ marginTop: 6, fontSize: 15, color: C.tenue }}>{pr.base}</div>
+      <div style={{ marginTop: 6, fontSize: 17, color: C.tenue }}>{pr.base}</div>
     </Panel>
   );
 }
@@ -1565,7 +1594,7 @@ function PreviaDondeEsta({ inf }: { inf: InformePartido }) {
             <Panel titulo="DÓNDE MÁS NOS SEPARAMOS" style={{ flex: 1 }}>
               <DatosPorBloques inf={inf} />
               {inf.duelo && (
-                <div style={{ marginTop: 6, fontSize: 15, color: C.tenue }}>
+                <div style={{ marginTop: 6, fontSize: 17, color: C.tenue }}>
                   {[selloDatos(inf), `media por partido y puesto entre ${inf.duelo.equipos}`, "barra = percentil (larga = mejor)", glosario(separan.map((m) => m.nombre))].filter(Boolean).join(" · ")}
                 </div>
               )}
@@ -1629,6 +1658,53 @@ function MetaYBase({ texto, rotulo = "" }: { texto: string; rotulo?: string }) {
   );
 }
 
+/**
+ * La meta de la prioridad nº 1 de balón parado cuando es EN CONTRA, con las
+ * cifras del informe de ABP (las mismas de su bloque, `pincelada.cifras`):
+ * «Cero faltas directas en contra con peligro» sobre «hasta hoy, 3 de 10 · 1 gol».
+ */
+function metaAbpEnContra(inf: InformePartido) {
+  const p = inf.abp?.pincelada;
+
+  if (!p?.prioridad || inf.momento === "post") return null;
+
+  const cifraNo1 = p.cifras.find((c) => /en contra/i.test(c.pie ?? "") && /\d+\s+de\s+\d+/.test(c.valor));
+
+  if (!cifraNo1?.pie) return null;
+
+  const [que, ...resto] = cifraNo1.pie.split(" · ");
+
+  const partidos = inf.duelo?.jugados.nosotros ?? 0;
+
+  const entrenar = p.cifras.find((c) => /por entrenar/i.test(c.rotulo));
+
+  /* La misma propuesta que el informe de ABP cuando la hoja sólo dice «faltas» (lib/abp/tareas-semana.ts): «…; la directa, con X, pide su tarea el MD-2». */
+  const pide = p.claves.map((c) => /;\s*(la \p{L}+), con (.+?), pide su tarea el (MD-\d+)/u.exec(c)).find(Boolean);
+
+  return {
+    meta: `cero ${que.charAt(0).toLowerCase()}${que.slice(1)}`,
+    base: `Hasta hoy, ${cifraNo1.valor}${resto.length ? ` · ${resto.join(" · ")}` : ""}${partidos ? ` en ${partidos} partidos` : ""}`,
+    porEntrenar: entrenar ? [entrenar.valor, entrenar.pie].filter(Boolean).join(" · ") : pide ? `${pide[1]}, ${pide[3]} · ${pide[2]}` : "",
+  };
+}
+
+/** La meta a favor de balón parado, en una línea pequeña debajo de la de en contra. */
+function MetaAFavorPequena({ texto }: { texto: string }) {
+  const [base, meta = ""] = texto.split(/\s·\smeta:\s/);
+
+  if (!meta) return null;
+
+  const nuestra = base.split(" · ").find((t) => /^Esta temporada/.test(t)) ?? "";
+
+  return (
+    <div style={{ fontSize: 19, fontWeight: 600, lineHeight: 1.2, marginTop: 4, color: C.suave }}>
+      <span style={{ color: C.oro, fontWeight: 700 }}>Y a favor: </span>
+      {meta.replace(/\s*\(hoy se esperan [^)]*\)\s*$/, "")}
+      {nuestra ? ` · ${nuestra}` : ""}
+    </div>
+  );
+}
+
 function ClavesConTareas({ inf }: { inf: InformePartido }) {
   /* Una clave por fase (06/11/2026, expertos): dos claves de «Con balón» pintaban
      el mismo bloque dos veces, con las mismas cifras y tareas. */
@@ -1667,13 +1743,24 @@ function ClavesConTareas({ inf }: { inf: InformePartido }) {
            nuestro balón parado» llevaba debajo «Marcamos a Gil y Rijn», que es defensa. */
         const enContra = fase === "Balón parado" && /^(?:marcamos|defendemos|vigilamos|emparejamos|tapamos)\b/i.test(dato);
 
+        /*
+        | La meta de balón parado, atada a la prioridad nº 1 (11/11/2026, análisis):
+        | la prioridad era defender la falta directa y la única meta era «un córner
+        | con remate más». Si la nº 1 es en contra, su meta va primero y la de a
+        | favor queda debajo, pequeña.
+        */
+        const deAbp = fase === "Balón parado" && enContra ? metaAbpEnContra(inf) : null;
+
+        /* Sin tarea que la nombre (ninguna, o sólo «faltas» sin decir cuál), lo que le falta, como en el informe de ABP. */
+        const porEntrenar = deAbp && tareas.every((t) => /sin decir cuál/.test(t)) ? deAbp.porEntrenar : "";
+
         return (
           <div key={clave}>
             <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: "0.2em", color: C.oro }}>
               {i + 1}
               {fase ? ` · ${fase.toUpperCase()}` : ""}
             </div>
-            <div style={{ fontSize: 31, fontWeight: 700, lineHeight: 1.12, color: C.crema, marginTop: 2 }}>{claveEnCorto(clave)}</div>
+            <div style={{ fontSize: 31, fontWeight: 700, lineHeight: 1.12, color: C.crema, marginTop: 2 }}>{deAbp ? "Defendemos su balón parado y sacamos más del nuestro" : claveEnCorto(clave)}</div>
             {idea ? (
               <div style={{ fontSize: 22, fontWeight: 700, marginTop: 5, color: C.oro }}>
                 ★ Por aquí, LA IDEA{dato ? <span style={{ fontWeight: 600, color: C.suave }}> · {enContra ? "En contra: " : ""}{dato}</span> : null}
@@ -1684,8 +1771,16 @@ function ClavesConTareas({ inf }: { inf: InformePartido }) {
                 {dato}
               </div>
             ) : null}
-            <MetaYBase texto={metaDeClave(inf, clave, { corta: true })} rotulo={enContra ? "A favor" : ""} />
+            {deAbp ? (
+              <>
+                <MetaYBase texto={`${deAbp.base} · meta: ${deAbp.meta}`} rotulo="En contra" />
+                <MetaAFavorPequena texto={metaDeClave(inf, clave, { corta: true })} />
+              </>
+            ) : (
+              <MetaYBase texto={metaDeClave(inf, clave, { corta: true })} rotulo={enContra ? "A favor" : ""} />
+            )}
             {tareas.length ? <div style={{ fontSize: 20, fontWeight: 600, marginTop: 4, color: C.tenue }}>→ {tareas.join(" · ")}</div> : null}
+            {porEntrenar ? <div style={{ fontSize: 20, fontWeight: 600, marginTop: 4, color: C.tenue }}>→ Por entrenar: {porEntrenar}</div> : null}
           </div>
         );
       })}
@@ -1803,7 +1898,7 @@ function PreviaComoGanamos({ inf }: { inf: InformePartido }) {
       <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "1.25fr 0.95fr 0.95fr", gap: 22 }}>
         <Panel titulo="CÓMO LO GANAMOS">
           <PlanConTareas inf={inf} />
-          {glosario(inf.sintesis.plan.map((l) => l.texto)) ? <div style={{ paddingTop: 12, fontSize: 15, color: C.tenue }}>{glosario(inf.sintesis.plan.map((l) => l.texto))}</div> : null}
+          {glosario(inf.sintesis.plan.map((l) => l.texto)) ? <div style={{ paddingTop: 12, fontSize: 17, color: C.tenue }}>{glosario(inf.sintesis.plan.map((l) => l.texto))}</div> : null}
         </Panel>
 
         {semana ? (
@@ -1827,6 +1922,56 @@ function PreviaComoGanamos({ inf }: { inf: InformePartido }) {
       {cierre ? <div style={{ marginTop: 16, fontSize: 26, fontWeight: 700, lineHeight: 1.15, color: C.oroClaro, textAlign: "center" }}>{cierre}</div> : null}
     </Marco>
   );
+}
+
+/**
+ * Lo que dice cada diapositiva, en texto (11/11/2026, fútbol y marketing): en el
+ * móvil, a 390 px, la miniatura no se lee. Debajo de cada una van sus mismas
+ * frases, sacadas de los mismos datos; lo vacío no sale.
+ */
+const marcaCumplimiento = (v: "si" | "no" | "igual" | null | undefined) => (v === "si" ? "✓" : v === "no" ? "✗" : v === "igual" ? "=" : "");
+
+export function textoDeDiapo(inf: InformePartido, i: number): string[] {
+  const s = inf.sintesis;
+  const r = inf.colectivo?.resumen;
+  const pr = inf.pronostico;
+  const limpio = (l: (string | false | null | undefined)[]) => l.filter((x): x is string => Boolean(x && x.trim()));
+
+  if (inf.momento === "post") {
+    if (i === 0) return limpio([s.titular, s.subtitular, s.veredicto, ...s.claves.slice(0, 3)]);
+
+    if (i === 1) return limpio([s.titularPlan, ...s.cumplimiento.map((f) => [marcaCumplimiento(f.veredicto), f.lectura || f.clave, f.dato ? `(${f.dato})` : ""].filter(Boolean).join(" "))]);
+
+    return limpio([s.titularDuelos, ...s.golesEnContra.map((g) => `Gol en contra: ${g}`), ...s.microciclo.map((t, k) => `Esta semana ${k + 1}: ${t}`)]);
+  }
+
+  if (i === 0) {
+    return limpio([
+      s.titular,
+      ...(r?.fases ?? []).map((f) => `${f.titulo} (nuestro scouting): ${f.texto}`),
+      ...(r?.dano ?? []).slice(0, 3).map((t) => `Dónde hacerles daño · ${t}`),
+      dibujoConBase(inf),
+    ]);
+  }
+
+  if (i === 1) {
+    const separan = metricasPorBloque(inf).flatMap((g) => g.metricas);
+
+    return limpio([
+      s.titularDuelos,
+      ...separan.map((m) => `${nombreSinConfusion(sinSiglas(m.nombre))}: nosotros ${m.nosotros ? `${cifra(m.nosotros.valor, m.unidad)} (${m.nosotros.puesto}.º)` : ""} · ellos ${m.rival ? `${cifra(m.rival.valor, m.unidad)} (${m.rival.puesto}.º)` : ""}`),
+      pr ? `Pronóstico: ${pct(pr.victoria)} victoria · ${pct(pr.empate)} empate · ${pct(pr.derrota)} derrota; orientativo` : "",
+    ]);
+  }
+
+  const tareas = (texto: string) => tareasDeLinea(inf, texto);
+
+  return limpio([
+    s.ideaPrevia ? `La idea: ${s.ideaPrevia}` : "",
+    ...s.plan.map((l) => `${l.fase}: ${l.texto}${tareas(l.texto).length ? ` → ${tareas(l.texto).join(" · ")}` : ""}`),
+    inf.abp?.pincelada?.prioridad ? `Balón parado, prioridad nº 1: ${inf.abp.pincelada.prioridad.texto || inf.abp.pincelada.prioridad.consigna}` : "",
+    cierrePrevia(inf),
+  ]);
 }
 
 export function Diapositivas({ inf }: { inf: InformePartido }) {

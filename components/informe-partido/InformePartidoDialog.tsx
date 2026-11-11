@@ -32,7 +32,7 @@ import { BookOpen, Check, ChevronDown, Clapperboard, Download, ExternalLink, Fil
 import { toast } from "sonner";
 
 import { Button, Dialog, Notice, Segmented } from "@/components/abp/ui";
-import { DIAPO_H, DIAPO_W, DIAPOSITIVAS, Escalada } from "@/components/informe-partido/Diapositivas";
+import { DIAPO_H, DIAPO_W, DIAPOSITIVAS, Escalada, textoDeDiapo } from "@/components/informe-partido/Diapositivas";
 import { VideosDeLaSemana, type PiezaDeVideo } from "@/components/informe-partido/VideosDeLaSemana";
 import { VerEnGrande } from "@/components/informe-partido/VerEnGrande";
 import { MenuDescargar } from "@/components/informe-partido/MenuDescargar";
@@ -57,7 +57,7 @@ import { completoEnHojas, type HojasCompleto } from "@/lib/informe-partido/pdf-c
 import { informeUnicoPdf, paginaDeEnlaces, paginaDelVideo, type EnlaceInforme } from "@/lib/informe-partido/pdf-unico";
 import { ROTULO_DOCUMENTO, type TipoDocumentoRival } from "@/lib/rivals/documentos";
 import { capitulosDe, informeHtml, informeTexto, resumenHtml, type Descarga, type ExtrasInforme } from "@/lib/informe-partido/html";
-import { asuntoInforme, queTocaEnElMicro, titularDelPlan, titularEstaSemana, whatsappInforme, type InformePartido, type Momento, type PinceladaAbp } from "@/lib/informe-partido/modelo";
+import { asuntoInforme, queTocaEnElMicro, sintetiza, titularDelPlan, titularEstaSemana, whatsappInforme, type InformePartido, type Momento, type PinceladaAbp } from "@/lib/informe-partido/modelo";
 import { corteDeRed, fuentesIncrustadas, fuentesListas } from "@/lib/export/captura";
 import { capturaLienzos, esperaFotos, pintado, pdfDeLienzos } from "@/lib/export/lienzos";
 import { descargaEnMarcha, encargaDescarga } from "@/lib/trabajos/descargas";
@@ -293,6 +293,9 @@ export function InformePartidoDialog({
 }) {
   const [micros, setMicros] = useState<MicroDisponible[] | null>(null);
 
+  /* Las semanas sin competición, para decir por qué la lista salta del 13 al 11 (11/11/2026, marketing). */
+  const [sinCompeticion, setSinCompeticion] = useState<MicroDisponible[]>([]);
+
   const [elegido, setElegido] = useState<{ temporada: string; micro: number } | null>(temporada && micro ? { temporada, micro } : null);
 
   /* `null` = lo que diga el calendario. */
@@ -361,6 +364,7 @@ export function InformePartidoDialog({
 
         /* Las semanas sin partido («No competición») no tienen informe de partido. */
         setMicros(lista.filter((m) => !/no\s+competici/i.test(m.rival)));
+        setSinCompeticion(lista.filter((m) => /no\s+competici/i.test(m.rival)));
 
         const hoy = new Date().toISOString().slice(0, 10);
         const sig = [...(calendario ?? [])].sort((a, b) => a.cuando.localeCompare(b.cuando)).find((p) => p.cuando && p.cuando.slice(0, 10) >= hoy);
@@ -550,8 +554,15 @@ export function InformePartidoDialog({
       avisos: [...informe.avisos, ...abpActual.avisos.map((a) => `ABP: ${a}`)],
     };
 
+    /*
+    | La previa se rehace con la pincelada (11/11/2026, análisis y fútbol): la
+    | línea de balón parado del plan es la prioridad nº 1 del informe de ABP
+    | («Defendemos la falta directa»), pero la síntesis se calculaba antes de
+    | que llegara y salía «Marcamos a Gil y Rijn», otra historia.
+    */
+    if (informe.momento !== "post") return { ...conAbp, sintesis: sintetiza(conAbp) };
+
     /* «Qué toca» se rehace con el balón parado que nos dio peligro (22/10/2026): llega con la pincelada. */
-    if (informe.momento !== "post") return conAbp;
 
     const microciclo = queTocaEnElMicro(conAbp, informe.sintesis.cumplimiento);
 
@@ -2035,7 +2046,20 @@ export function InformePartidoDialog({
   | Descargar y Enviar esperan, con su porcentaje (10/11/2026, análisis): así no
   | sale un documento a medias. El vídeo, que tarda minutos, no bloquea.
   */
-  const fraccionDoc = preparando && /^Preparando (?:las diapositivas|el PDF del completo)/.test(preparando) ? (fraccionDe(preparando) ?? 0) : null;
+  /*
+  | UN solo progreso (11/11/2026, análisis y fútbol): en el móvil salían a la vez
+  | «Preparando las diapositivas…» a la izquierda y «Preparando el PDF · 0 %» en
+  | el botón. Ahora la cuenta es una (las diapositivas, el primer 20 %; las hojas
+  | del completo, el resto) y sólo la lleva el botón. Descargar no espera: el
+  | encargo usa lo ya dibujado o lo dibuja aparte (`encargaDescarga`).
+  */
+  const fraccionDoc = !preparando
+    ? null
+    : /^Preparando las diapositivas/.test(preparando)
+      ? 0.1
+      : /^Preparando el PDF del completo/.test(preparando)
+        ? 0.2 + 0.8 * (fraccionDe(preparando) ?? 0)
+        : null;
   const preparandoDoc = fraccionDoc !== null;
 
   const bloqueDestinatarios = (
@@ -2053,7 +2077,7 @@ export function InformePartidoDialog({
   const botonEnviar = trabajando
     ? trabajando
     : preparandoDoc
-      ? `Preparando el PDF · ${Math.round(fraccionDoc * 100)} %`
+      ? `Preparando el envío · ${Math.round(fraccionDoc * 100)} %`
     : enviandoFuera
       ? "Enviando…"
       : esperaAbp
@@ -2101,6 +2125,7 @@ export function InformePartidoDialog({
       title="Informe del partido"
       subtitle="Resumen en tres diapositivas e informe completo, para el cuerpo técnico"
       onClose={cierra}
+      sinBotonFlotante
       footer={
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="flex items-center gap-1.5 text-[11px] text-white/45">
@@ -2111,7 +2136,7 @@ export function InformePartidoDialog({
             ) : enviandoFuera ? (
               /* 02/11/2026: el envío ya no depende de esta ventana. */
               <span className="text-[#C8A96B]">Puedes cerrar y seguir con otra cosa: se sigue enviando y te avisa al terminar.</span>
-            ) : preparando ? (
+            ) : preparando && !preparandoDoc ? (
               /* Una barra fina mientras corre (06/11/2026); al terminar, desaparece. */
               <span className="flex min-w-0 items-center gap-2" role="status" aria-live="polite">
                 {fraccionPreparando !== null ? (
@@ -2127,14 +2152,14 @@ export function InformePartidoDialog({
               <>
                 <Check size={12} className="text-emerald-300" /> Diapositivas y PDF preparados: enviar es inmediato
               </>
-            ) : informe && !cargando ? (
+            ) : informe && !cargando && !preparandoDoc ? (
               "Las diapositivas y el PDF se preparan solos mientras lo revisas"
             ) : null}
           </p>
           <div className="flex flex-wrap items-center justify-end gap-2">
             {/* Un solo «Descargar» (07/11/2026, ronda 14): seis botones sueltos ocupaban tres filas en el móvil. */}
             <MenuDescargar
-              disabled={!informe || Boolean(trabajando) || cargando || preparandoDoc}
+              disabled={!informe || Boolean(trabajando) || cargando}
               opciones={[
                 { id: "pdf", rotulo: "Resumen en PDF", detalle: "Las diapositivas elegidas, una por página", icon: FileText, onSelect: () => void bajaPdf() },
                 { id: "img", rotulo: "Resumen en imágenes", detalle: "Una imagen por diapositiva, para WhatsApp", icon: ImageIcon, onSelect: () => void bajaImagenes() },
@@ -2168,7 +2193,8 @@ export function InformePartidoDialog({
         </div>
       }
     >
-      <div className={`space-y-4 ${barlowCondensed.className}`} style={{ ["--fuente-informe" as string]: barlowCondensed.style.fontFamily, fontFamily: "inherit" }}>
+      {/* `data-informe-partido`: en el móvil esconde el botón de herramientas, que tapaba «Enviar» (globals.css, 11/11/2026). */}
+      <div data-informe-partido className={`space-y-4 ${barlowCondensed.className}`} style={{ ["--fuente-informe" as string]: barlowCondensed.style.fontFamily, fontFamily: "inherit" }}>
         {/*
           ORDEN (06/11/2026, jueces): arriba, en una fila, el microciclo, el
           momento y a quién; justo debajo, el documento. Todo lo demás (los dos
@@ -2202,6 +2228,16 @@ export function InformePartidoDialog({
                 </option>
               ))}
             </select>
+            {(() => {
+              /* Sin hueco en la lista que no se explique: «Micro 12: semana sin competición». */
+              const deEsta = sinCompeticion.filter((m) => !elegido || m.temporada === elegido.temporada).map((m) => m.micro).sort((a, b) => b - a);
+
+              return deEsta.length ? (
+                <span className="mt-1 block text-[11px] text-white/45">
+                  {deEsta.length === 1 ? `Micro ${deEsta[0]}: semana sin competición, sin informe` : `Micros ${deEsta.slice(0, -1).join(", ")} y ${deEsta[deEsta.length - 1]}: semanas sin competición, sin informe`}
+                </span>
+              ) : null;
+            })()}
           </label>
 
           <div className="min-w-0 max-w-full">
@@ -2305,8 +2341,8 @@ export function InformePartidoDialog({
                 {/* Cada lámina con «Ver en grande» (07/11/2026, ronda 14): en el móvil no se leía a 390 px. */}
                 {[Uno, Dos, Tres].map((Diapo, i) =>
                   diapoMarcada(i) ? (
+                    <div key={i} className="space-y-2">
                     <VerEnGrande
-                      key={i}
                       ancho={DIAPO_W}
                       alto={DIAPO_H}
                       titulo={`${i + 1}/3 · ${rotuloDiapo(i)}`}
@@ -2320,6 +2356,17 @@ export function InformePartidoDialog({
                     >
                       <Diapo inf={informeVisto} />
                     </VerEnGrande>
+                    {/* En el móvil, lo que dice la lámina en texto (11/11/2026, fútbol y marketing): la miniatura no se lee a 390 px. */}
+                    {esMovil ? (
+                      <ul className="space-y-1 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 font-sans text-[13px] leading-snug text-white/80">
+                        {textoDeDiapo(informeVisto, i).map((linea, k) => (
+                          <li key={`${k}${linea}`} className={k === 0 ? "font-semibold text-white" : ""}>
+                            {linea}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    </div>
                   ) : null,
                 )}
               </div>
@@ -2570,47 +2617,55 @@ export function InformePartidoDialog({
           </div>
         )}
 
-        {/* LA FIRMA */}
-        <Plegable titulo="Firma" resumen={(ajustes.firma ?? "").trim() ? `«${(ajustes.firma ?? "").trim()}» · va bajo el mensaje, si escribes uno` : "Sin firma · va bajo el mensaje, si escribes uno"}>
-          <label className="block max-w-sm">
-            <span className={rotuloCaja}>Firma</span>
-            <input className={campo} value={ajustes.firma ?? ""} onChange={(e) => setAjustes((a) => ({ ...a, firma: e.target.value }))} placeholder="Cuerpo técnico" />
-            <span className="mt-1 block text-[10px] text-white/30">Va bajo el mensaje, si escribes uno.</span>
-          </label>
-        </Plegable>
-
-        {/* Si no hay ni piezas ni vídeo de balón parado, VideosDeLaSemana no pinta nada: tampoco su plegable. */}
-        {informeVisto && !cargando && (cuantasPiezas > 0 || videoAbp) ? (
-          <Plegable
-            titulo="Vídeos de la semana"
-            resumen={[
-              cuantasPiezas ? (cuantasPiezas === 1 ? "1 pieza para montar" : `${cuantasPiezas} piezas para montar`) : "",
-              videoAbp ? "con el vídeo de balón parado de la jornada" : "",
-              "se descargan, no se envían",
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-          >
-            <VideosDeLaSemana abp={videoAbp} piezas={piezasDeVideo} momento={informeVisto.momento} ocupado={Boolean(trabajando) || Boolean(preparando)} />
+        {/*
+        | ANTES DE ENVIAR (11/11/2026, marketing): la firma, los vídeos y los avisos
+        | eran tres plegables sueltos al final; ahora un bloque con su rótulo, lo
+        | último que se repasa antes de pulsar «Enviar».
+        */}
+        <section className="space-y-2" aria-label="Antes de enviar">
+          <span className={rotuloCaja}>Antes de enviar</span>
+          {/* LA FIRMA */}
+          <Plegable titulo="Firma" resumen={(ajustes.firma ?? "").trim() ? `«${(ajustes.firma ?? "").trim()}» · va bajo el mensaje, si escribes uno` : "Sin firma · va bajo el mensaje, si escribes uno"}>
+            <label className="block max-w-sm">
+              <span className={rotuloCaja}>Firma</span>
+              <input className={campo} value={ajustes.firma ?? ""} onChange={(e) => setAjustes((a) => ({ ...a, firma: e.target.value }))} placeholder="Cuerpo técnico" />
+              <span className="mt-1 block text-[10px] text-white/30">Va bajo el mensaje, si escribes uno.</span>
+            </label>
           </Plegable>
-        ) : null}
 
-        {informeVisto && informeVisto.avisos.length > 0 && (
-          /* Plegado y al final (20/10/2026 y 06/11/2026): no se mezcla con lo que se lee. */
-          <Plegable
-            aviso
-            titulo={informeVisto.avisos.length === 1 ? "1 aviso para el analista" : `${informeVisto.avisos.length} avisos para el analista`}
-            resumen="No van en el correo; se recuerdan al enviar"
-          >
-            <Notice tone="warn" title="Lo que este informe no sabe">
-              <ul className="ml-4 list-disc space-y-1">
-                {informeVisto.avisos.map((a) => (
-                  <li key={a}>{a}</li>
-                ))}
-              </ul>
-            </Notice>
-          </Plegable>
-        )}
+          {/* Si no hay ni piezas ni vídeo de balón parado, VideosDeLaSemana no pinta nada: tampoco su plegable. */}
+          {informeVisto && !cargando && (cuantasPiezas > 0 || videoAbp) ? (
+            <Plegable
+              titulo="Vídeos de la semana"
+              resumen={[
+                cuantasPiezas ? (cuantasPiezas === 1 ? "1 pieza para montar" : `${cuantasPiezas} piezas para montar`) : "",
+                videoAbp ? "con el vídeo de balón parado de la jornada" : "",
+                "se descargan, no se envían",
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            >
+              <VideosDeLaSemana abp={videoAbp} piezas={piezasDeVideo} momento={informeVisto.momento} ocupado={Boolean(trabajando) || Boolean(preparando)} />
+            </Plegable>
+          ) : null}
+
+          {informeVisto && informeVisto.avisos.length > 0 && (
+            /* Plegado y al final (20/10/2026 y 06/11/2026): no se mezcla con lo que se lee. */
+            <Plegable
+              aviso
+              titulo={informeVisto.avisos.length === 1 ? "1 aviso para el analista" : `${informeVisto.avisos.length} avisos para el analista`}
+              resumen="No van en el correo; se recuerdan al enviar"
+            >
+              <Notice tone="warn" title="Lo que este informe no sabe">
+                <ul className="ml-4 list-disc space-y-1">
+                  {informeVisto.avisos.map((a) => (
+                    <li key={a}>{a}</li>
+                  ))}
+                </ul>
+              </Notice>
+            </Plegable>
+          )}
+        </section>
       </div>
 
       {avisando && informeVisto && (

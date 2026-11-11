@@ -27,6 +27,7 @@ import { consignaPrincipal } from "./consigna";
 import { nombreCanonico } from "@/lib/data-analisis/nombres";
 import type { CortePartido } from "@/lib/video-informe/guion";
 import type { GolesTemporada } from "./goles-temporada";
+import { familiaDeAspecto, familiasDeTexto, numeroDeTarea, queLegible, tareasQueTocan } from "@/lib/abp/tareas-semana";
 
 export type Momento = "previa" | "post";
 
@@ -1603,7 +1604,7 @@ export function pronostica(inf: { duelo: Duelo | null; partido: { lado: "casa" |
   const tipo =
     dif > 0.2 ? "Partido para ganarlo" : dif > 0.07 ? "Partido de ligera ventaja" : dif > -0.07 ? "Partido igualado" : dif > -0.2 ? "Partido cuesta arriba" : "Partido de mucha exigencia";
 
-  const lectura = `${tipo}: ${pct(base.victoria)} de victoria, ${pct(base.empate)} de empate y ${pct(base.derrota)} de derrota. Con el plan bien hecho, la victoria sube al ${pct(conPlan.victoria)}.`;
+  const lectura = `${tipo}: ${pct(base.victoria)} de victoria, ${pct(base.empate)} de empate y ${pct(base.derrota)} de derrota. Orientativo: con las tres metas del plan cumplidas, la victoria pasaría a cerca del ${pct(conPlan.victoria)}.`;
 
   const arma = (x: MetricaDuelo | undefined): ArmaMetrica | null =>
     x?.rival ? { key: x.key, nombre: x.nombre, valor: cifra(x.rival.valor, x.unidad), puesto: x.rival.puesto, de: d.equipos } : null;
@@ -2357,12 +2358,29 @@ export function defensorDebil(inf: Pick<InformePartido, "colectivo" | "once">) {
   */
   const lineasDano = inf.colectivo?.resumen?.dano ?? [];
   const tokensDano = new Set(plano(lineasDano.join(" ")));
-  const delDano = lineasDano
-    .map((l) => new Set(plano(l)))
-    .map((tk) => defensas.find((j) => plano(j.nombre).some((t) => t.length >= 4 && tk.has(t))))
-    .find(Boolean);
 
-  const nombrado = delDano ?? defensas.find((j) => plano(j.nombre).some((t) => t.length >= 4 && tokens.has(t)));
+  /*
+  | Nombrado como flojo, no como el bueno (11/11/2026, análisis y fútbol): «A
+  | la espalda de su presión: con dificultades, siendo Nico Rijn el más
+  | solvente» hacía de Rijn el titular «Les hacemos daño por Rijn». El trozo
+  | de la frase que lo nombra no puede elogiarle.
+  */
+  const nombraComoFlojo = (linea: string, j: JugadorRival) =>
+    linea
+      .split(/,\s|;\s|\s\(|\.\s|\s(?:ya que|aunque|pero|mientras)\s/)
+      .some((trozo) => {
+        const tk = new Set(plano(trozo));
+
+        return plano(j.nombre).some((t) => t.length >= 4 && tk.has(t)) && !ELOGIO.test(trozo);
+      });
+
+  const conLinea = lineasDano
+    .map((linea) => ({ linea, jugador: defensas.find((j) => nombraComoFlojo(linea, j)) }))
+    .find((x) => x.jugador);
+
+  const delDano = conLinea?.jugador;
+
+  const nombrado = delDano ?? defensas.find((j) => plano(j.nombre).some((t) => t.length >= 4 && tokens.has(t)) && !campos.some((c) => !nombraComoFlojo(c.texto, j) && plano(c.texto).some((t) => plano(j.nombre).includes(t) && t.length >= 4)));
 
   /* Si «Dónde hacerles daño» señala a otros (no a un defensor), no se elige aquí un tercero: el titular y la idea saldrían con otro nombre. */
   if (tokensDano.size > 0 && !delDano) return null;
@@ -2378,8 +2396,19 @@ export function defensorDebil(inf: Pick<InformePartido, "colectivo" | "once">) {
 
   if (!rasgos.length && !nombrado) return null;
 
-  return { jugador, rasgos, espalda: campos.some((c) => /espalda/i.test(`${c.titulo} ${c.texto}`)) };
+  /*
+  | «La espalda de Gil» sólo si la línea que le nombra habla de la espalda
+  | (11/11/2026): el scouting le señala «atrás» y en su área, no a la espalda.
+  */
+  const lugar = conLinea ? conLinea.linea.split(/:\s/)[0] : "";
+
+  const espalda = conLinea ? /espalda/i.test(lugar) : campos.some((c) => /espalda/i.test(`${c.titulo} ${c.texto}`));
+
+  return { jugador, rasgos, espalda, lugar: conLinea && /:\s/.test(conLinea.linea) ? lugarDeDano(lugar) : "" };
 }
+
+/** «el más solvente», «corrige bien», «el mejor»: el scouting elogia, no señala. */
+const ELOGIO = /\bm[aá]s\s+(?:solvente|fiable|r[aá]pido|seguro|fuerte|completo|regular)\b|\bel\s+mejor\b|\bcorrige\s+bien\b|\bbuen[oa]?\s+(?:nivel|central|defensor)\b|\bsin\s+problemas\b/i;
 
 const yFinal = (l: string[]) => (l.length > 1 ? `${l.slice(0, -1).join(", ")} y ${l[l.length - 1]}` : l[0] ?? "");
 
@@ -2441,15 +2470,55 @@ const TAREAS_DE_CONSIGNA: { consigna: RegExp; tarea: RegExp }[] = [
  * cuerpo técnico, y se dice.
  */
 export function tareasDeConsigna(consigna: string, micro: Microciclo | null, opciones: { minutos?: boolean } = {}) {
+  if (!micro) return [];
+
+  const semana = micro.tareas.filter((t) => t.md !== "MD" && !/competici/i.test(`${t.tipo} ${t.fase}`));
+
+  /*
+  | El balón parado, con la MISMA lectura que el informe de ABP (11/11/2026,
+  | `lib/abp/tareas-semana.ts`): «Defendemos la falta directa» llevaba al lado
+  | cualquier tarea de ABP («Mié 11 · tarea 2 (córner, faltas y transición)»)
+  | y el de ABP decía que ninguna la tocaba. Ahora primero las que la nombran
+  | y después las que dicen «faltas» sin decir cuál, y se dice así.
+  */
+  const familia = /faltas?\b|c[oó]rner|penalti|saque de banda/i.test(consigna) ? familiaDeAspecto(consigna) : null;
+
+  if (familia) {
+    const lado = /^(?:defendemos|marcamos|vigilamos|tapamos|emparejamos)\b|en contra/i.test(consigna) ? "defensivo" : /^(?:sacamos|buscamos|atacamos|aprovechamos)\b|a favor/i.test(consigna) ? "ofensivo" : null;
+
+    const tocan = tareasQueTocan(
+      familia,
+      lado,
+      semana.map((t) => ({ dia: t.dia, tarea: String(t.tarea ?? ""), que: t.secundario || t.contenido || "", texto: [t.fase, t.contenido, t.secundario, t.tipo].join(" ") })),
+    );
+
+    return tocan.map((t) => {
+      const que = queLegible(t.que);
+      const generica = t.cobertura === "generica" && (familia === "falta-directa" || familia === "falta-lateral") ? "faltas, sin decir cuál" : "";
+      const entre = [que, generica].filter(Boolean).join("; ");
+
+      return `${t.dia} · ${numeroDeTarea(t.tarea)}${entre ? ` (${entre})` : ""}`;
+    });
+  }
+
   const tema = TAREAS_DE_CONSIGNA.find((t) => t.consigna.test(consigna));
 
-  if (!tema || !micro) return [];
+  if (!tema) return [];
 
-  return micro.tareas
-    .filter((t) => t.md !== "MD" && !/competici/i.test(`${t.tipo} ${t.fase}`))
+  /* Una consigna de juego no se entrena en una tarea de balón parado: «Atacamos a Gil» casaba con «ABP Ofensivo · Penaltis» por «ofensivo». */
+  const esDeAbp = (t: TareaMicro) => {
+    const f = familiasDeTexto([t.fase, t.contenido, t.secundario].join(" "));
+
+    return f.abp || f.exactas.length > 0;
+  };
+
+  const consignaDeAbp = /marcamos|bal[oó]n parado|\babp\b/i.test(consigna);
+
+  return semana
+    .filter((t) => consignaDeAbp || !esDeAbp(t))
     .filter((t) => tema.tarea.test([t.fase, t.contenido, t.secundario, t.tipo].join(" ")))
     .map((t) => {
-      const que = minusculaInicial(t.secundario || t.contenido || "");
+      const que = queLegible(t.secundario || t.contenido || "");
 
       /* Con sus minutos cuando se pide y los hay (26/10/2026, fútbol): «L-T2 (transición, 11′)». */
       const min = opciones.minutos && t.minutos > 0 ? `${t.minutos}′` : "";
@@ -2542,6 +2611,9 @@ export function planPorFases(inf: Omit<InformePartido, "sintesis">): { fase: str
         con && debil.rasgos.length ? `Atacamos ${donde}${con}: ${yFinal(debil.rasgos)}` : "",
         debil.rasgos.length && refuerzo ? `Atacamos ${donde}: ${yFinal(debil.rasgos)}, y ${refuerzo}` : "",
         debil.rasgos.length ? `Atacamos ${donde}: ${yFinal(debil.rasgos)}` : "",
+        /* Sin rasgos en su ficha, el porqué es el del analista (11/11/2026): «el punto débil atrás según el scouting». */
+        con && debil.lugar ? `Atacamos ${donde}${con}: su punto débil ${debil.lugar} según el scouting` : "",
+        debil.lugar ? `Atacamos ${donde}: su punto débil ${debil.lugar} según el scouting` : "",
         `Atacamos ${donde}`,
       ),
     });
@@ -3081,7 +3153,26 @@ export function metaDeClave(inf: Pick<InformePartido, "duelo" | "pronostico"> & 
 
   const puesto = (p: number) => (de ? ` (${ordinal(p)} de ${de})` : "");
 
-  const hoy = nuestra?.nosotros ? `Esta temporada, ${nombreEnFrase(sinSiglas(nuestra.nombre))} ${cifra(nuestra.nosotros.valor, nuestra.unidad)}${puesto(nuestra.nosotros.puesto)}` : "";
+  /*
+  | Un porcentaje de córners con su base (11/11/2026, fútbol y análisis):
+  | «córners con remate 23,6 % (18.º de 20)» no decía de cuántos. Con los
+  | córners por partido y los partidos jugados: «≈13 de 55 en 11 partidos».
+  */
+  const conBase = (m: MetricaDuelo | undefined, lado: "nosotros" | "rival") => {
+    const v = m?.[lado];
+
+    if (!m || !v) return "";
+
+    const corners = m.key === "cornersRemate" ? ms.find((x) => x.key === "corners")?.[lado] : null;
+    const jugados = inf.duelo?.jugados?.[lado] ?? 0;
+    const total = corners && jugados ? Math.round(corners.valor * jugados) : 0;
+
+    const base = total > 0 ? `≈${Math.round((total * v.valor) / 100)} de ${total} en ${jugados} partidos; ` : "";
+
+    return `${nombreEnFrase(sinSiglas(m.nombre))} ${cifra(v.valor, m.unidad)}${base || de ? ` (${base}${de ? `${ordinal(v.puesto)} de ${de}` : ""})`.replace("; )", ")") : ""}`;
+  };
+
+  const hoy = nuestra?.nosotros ? `Esta temporada, ${conBase(nuestra, "nosotros")}` : "";
 
   /*
   | El dato del rival es el que se enfrenta a la clave (26/10/2026, fútbol y
@@ -3130,7 +3221,7 @@ export function metaDeClave(inf: Pick<InformePartido, "duelo" | "pronostico"> & 
     /* Un rival en la mediana no sostiene nada: no se imprime. */
     const extremo = tercio ? suya.rival.puesto <= tercio || suya.rival.puesto > de - tercio : true;
 
-    ellos = extremo ? `ellos, ${nombreEnFrase(sinSiglas(suya.nombre))} ${cifra(suya.rival.valor, suya.unidad)}${puesto(suya.rival.puesto)}` : "";
+    ellos = extremo ? `ellos, ${conBase(suya, "rival")}` : "";
   }
 
   /* En la diapositiva, la meta sin el pronóstico entre paréntesis: tres cifras en la línea (guion). */
@@ -3793,7 +3884,10 @@ function titularDePrevia(inf: Omit<InformePartido, "sintesis">, principal: strin
     | chocaba con «Dónde hacerles daño». Ahora el titular dice dónde les
     | hacemos daño, con el mismo nombre que esa lista.
     */
-    return debil.rasgos.length ? `Les hacemos daño por ${ap}: ${yFinal(debil.rasgos)}` : `Les hacemos daño por ${ap}`;
+    if (debil.rasgos.length) return `Les hacemos daño por ${ap}: ${yFinal(debil.rasgos)}`;
+
+    /* Con el lugar de la lista, en sus mismas palabras: «Atrás, a quien atacar: Fran Gil» → «Les hacemos daño atrás: Fran Gil». */
+    return debil.lugar && !/espalda/i.test(debil.lugar) ? `Les hacemos daño ${debil.lugar}: ${debil.jugador.nombre}` : `Les hacemos daño por ${ap}`;
   }
 
   /* Sin defensor señalado, el primero de «Dónde hacerles daño»: el titular y esa lista dicen lo mismo (segunda ronda de jueces). */
@@ -4098,7 +4192,15 @@ export function sintetiza(inf: Omit<InformePartido, "sintesis">): Sintesis {
   };
 
   /* El balón parado tiene su bloque y su consigna (la del informe de ABP): no es LA IDEA salvo que no haya otra (25/10/2026). */
-  const deJuego = (c: string) => !/bal[oó]n parado|\babp\b|c[oó]rner|faltas? lateral/i.test(c);
+  /*
+  | Por la fase de su línea, no sólo por las palabras (11/11/2026, fútbol y
+  | análisis): «Marcamos a Gil y Rijn» es la línea de BALÓN PARADO y salía de
+  | LA IDEA porque no dice «córner». La idea de juego sale de las fases con y
+  | sin balón; el balón parado va a su bloque.
+  */
+  const deBalonParado = new Set(planBase.filter((l) => l.fase === "Balón parado").map((l) => consignaDe(l.texto)));
+
+  const deJuego = (c: string) => !deBalonParado.has(c) && !/bal[oó]n parado|\babp\b|c[oó]rner|faltas? (?:lateral|directa)|^marcamos a\b/i.test(c);
 
   /*
   | La idea que da el mejor duelo medido de la lámina (25/10/2026, fútbol y
@@ -4123,7 +4225,10 @@ export function sintetiza(inf: Omit<InformePartido, "sintesis">): Sintesis {
 
   const elegibles = validas.length ? validas : candidatas;
 
-  const principal = hayTareas ? elegibles.find(conTarea) ?? elegibles[0] ?? "" : elegibles[0] ?? "";
+  /* Primero una de juego entrenada; después una de juego; el balón parado, sólo si no hay otra (11/11/2026). */
+  const deJuegoElegibles = elegibles.filter(deJuego);
+
+  const principal = (hayTareas ? deJuegoElegibles.find(conTarea) ?? deJuegoElegibles[0] ?? elegibles.find(conTarea) : deJuegoElegibles[0]) ?? elegibles[0] ?? "";
 
   const ideaSinDuelo = esPost ? "" : candidatas.find((c) => !sostenida(c) && (!hayTareas || conTarea(c))) ?? "";
 
@@ -4140,7 +4245,7 @@ export function sintetiza(inf: Omit<InformePartido, "sintesis">): Sintesis {
 
   const nombrados = nombresDe(principal);
 
-  const acompana = consigna.slice(1).find((c) => (!hayTareas || conTarea(c)) && !/bal[oó]n parado/i.test(c) && ![...nombresDe(c)].some((n) => nombrados.has(n)));
+  const acompana = consigna.slice(1).find((c) => (!hayTareas || conTarea(c)) && deJuego(c) && ![...nombresDe(c)].some((n) => nombrados.has(n)));
 
   const ideaPrevia = principal ? (acompana ? `${principal} y ${minusculaInicial(acompana)}` : principal) : "";
 

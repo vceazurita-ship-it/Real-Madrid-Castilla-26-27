@@ -1962,6 +1962,16 @@ scrollbar-width:none;
   }
 }
 /*
+| El informe del partido en el móvil (11/11/2026, análisis): el botón de
+| herramientas se plantaba sobre «Enviar» y su progreso. El diálogo ya trae su
+| propio «Descargar», así que mientras está abierto el botón no hace falta.
+*/
+@media (max-width: 767px) {
+  body:has([data-informe-partido]) [data-menu-flotante] {
+    display: none !important;
+  }
+}
+/*
 | El botón de herramientas en el móvil, en todas las pantallas (29/10/2026,
 | expertos: tapaba texto en identidad, calendario, laboratorio…). Más pequeño,
 | en la esquina y algo transparente mientras está cerrado; y la página deja
