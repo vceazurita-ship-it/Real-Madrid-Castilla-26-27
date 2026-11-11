@@ -24,7 +24,7 @@ import {
 import { cn } from "@/lib/utils";
 import { EstadoError } from "@/components/ui/estados";
 import { buscadorDeEscudos, traeEscudos, type Escudos } from "@/lib/data-analisis/escudos";
-import { cuentaDias, esFilaDePartido, mdDeLaFecha, textoEntrenosYPartidos } from "@/lib/microciclo/cuenta";
+import { cuentaDias, esFilaDePartido, mdDeLaFecha } from "@/lib/microciclo/cuenta";
 import { useCalendario } from "@/hooks/useCalendario";
 import { comoNuestro, horaDelCalendarioLocal, soloDia } from "@/lib/castilla/calendario";
 
@@ -187,10 +187,24 @@ const NEUTRAL_THEME: PhaseTheme = {
   bar: "bg-white/30",
 };
 
-const LEGEND: CalendarLegendItem[] = Object.values(PHASE_THEMES).map((t) => ({
-  label: t.label,
-  color: t.dot,
-}));
+/*
+| EL FONDO DEL DÍA (11/11/2026). Casi todas las sesiones tienen más minutos
+| de «Global» que de nada, y el fondo salía amarillo todos los días: no
+| distinguía nada. Ahora es la fase con más minutos SIN contar Global; el día
+| que sólo tiene Global (o nada) se queda con el fondo normal. La leyenda,
+| sólo con las fases que colorean algún día del mes.
+*/
+function faseDelDia(tareas: { Fase?: string; Tiempo?: number | string }[]): PhaseTheme | null {
+  const minutos = new Map<PhaseTheme, number>();
+
+  tareas.forEach((t) => {
+    const tema = phaseTheme(t.Fase ?? "");
+    if (tema === NEUTRAL_THEME || tema === PHASE_THEMES.GLOBAL) return;
+    minutos.set(tema, (minutos.get(tema) ?? 0) + (Number(t.Tiempo) || 0));
+  });
+
+  return [...minutos.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+}
 
 /**
  * Resuelve el tema de una fase. Las transiciones se comprueban antes que
@@ -483,6 +497,22 @@ export default function MicroCalendar() {
     [statsDelMes, active]
   );
 
+  /* Las fases que colorean algún día del mes que se mira (sin Global). */
+  const leyendaMes = useMemo<CalendarLegendItem[]>(() => {
+    const vistas = new Set<PhaseTheme>();
+
+    sessionDays.forEach((key) => {
+      const date = parseDateKey(key);
+      if (date.getMonth() !== active.month || date.getFullYear() !== active.year) return;
+      const tema = faseDelDia(tasksByDay.get(key) ?? []);
+      if (tema) vistas.add(tema);
+    });
+
+    return Object.values(PHASE_THEMES)
+      .filter((t) => vistas.has(t))
+      .map((t) => ({ label: t.label, color: t.dot }));
+  }, [sessionDays, tasksByDay, active]);
+
   /* El mes anterior, en los mismos días (del 1 al último con registros de este mes). */
   const mesPrevio = useMemo(() => {
     const month = active.month === 0 ? 11 : active.month - 1;
@@ -499,24 +529,25 @@ export default function MicroCalendar() {
     ? MONTHS[mesPrevio.month].toLowerCase()
     : `los mismos días de ${MONTHS[mesPrevio.month].toLowerCase()} (del 1 al ${mesPrevio.hasta})`;
 
-  /** «+12 % sobre septiembre»; vacío si el mes anterior no tuvo sesiones. */
+  /*
+  | 11/11/2026: con menos de 3 entrenos hechos en uno de los dos lados no se
+  | compara (una sesión contra otra no es una tendencia). Y la comparación
+  | dice su base: «del 1 al 7 de octubre, 5 entrenos».
+  */
+  const MINIMO_PARA_COMPARAR = 3;
+  const comparable = monthStats.hechos >= MINIMO_PARA_COMPARAR && mesPrevio.stats.hechos >= MINIMO_PARA_COMPARAR;
+  const basePrevio = `${nombrePrevio}, ${mesPrevio.stats.hechos} ${mesPrevio.stats.hechos === 1 ? "entreno" : "entrenos"}`;
+
+  /** «+12 % sobre septiembre»; vacío si no hay base para comparar. */
   const frente = (actual: number, previo: number) => {
-    if (mesPrevio.stats.sesiones === 0 || previo <= 0) return "";
+    if (!comparable || previo <= 0) return "";
     const pct = Math.round(((actual - previo) / previo) * 100);
-    if (pct === 0) return ` · igual que en ${nombrePrevio}`;
-    return ` · ${pct > 0 ? "+" : "−"}${Math.abs(pct)} % sobre ${nombrePrevio}`;
+    if (pct === 0) return ` · igual que en ${basePrevio}`;
+    return ` · ${pct > 0 ? "+" : "−"}${Math.abs(pct)} % sobre ${basePrevio}`;
   };
 
   /** «5 entrenos hechos»: la base de las medias de carga (sólo los días con carga). */
   const baseDelMes = `${monthStats.hechos} ${monthStats.hechos === 1 ? "entreno hecho" : "entrenos hechos"}`;
-  /** «5 entrenos hechos + 3 planificados + 2 partidos»: lo que hay en el mes. */
-  const cuentaDelMes = [
-    monthStats.planificados > 0 ? baseDelMes : textoEntrenosYPartidos(monthStats.sesiones, 0),
-    monthStats.planificados > 0 ? `${monthStats.planificados} ${monthStats.planificados === 1 ? "planificado" : "planificados"}` : "",
-    monthStats.partidos ? textoEntrenosYPartidos(0, monthStats.partidos) : "",
-  ]
-    .filter(Boolean)
-    .join(" + ");
 
   /*
   | «Más carga no es mejor» (30/10/2026): si cambia mucho contra el mes
@@ -526,10 +557,10 @@ export default function MicroCalendar() {
   */
   const lecturaCarga = (() => {
     const previo = mesPrevio.stats;
-    if (previo.hechos === 0 || previo.cargaMedia <= 0 || monthStats.hechos === 0) return "";
+    if (!comparable || previo.cargaMedia <= 0) return "";
     const pct = Math.round(((monthStats.cargaMedia - previo.cargaMedia) / previo.cargaMedia) * 100);
     if (Math.abs(pct) < 5) return "";
-    const base = `${monthStats.cargaMedia} por entreno frente a ${previo.cargaMedia} en ${nombrePrevio}`;
+    const base = `${monthStats.cargaMedia} UA por entreno frente a ${previo.cargaMedia} en ${basePrevio}`;
 
     /* El MD que más se mueve, con su media por día. */
     const cambios = [...monthStats.porMd.entries()]
@@ -553,11 +584,10 @@ export default function MicroCalendar() {
       ? `${Math.round(mueve.mediaA)}${monthStats.porMd.get(mueve.md)!.dias > 1 ? " de media" : ""} en ${enDias(monthStats.porMd.get(mueve.md)!.dias, mueve.md, mesActual)} frente a ${Math.round(mueve.mediaB)}${previo.porMd.get(mueve.md)!.dias > 1 ? " de media" : ""} en ${enDias(previo.porMd.get(mueve.md)!.dias, mueve.md, mesAntes)} (${mueve.pct > 0 ? "+" : "−"}${Math.abs(mueve.pct)} %)`
       : "";
     const pocas = mueve ? Math.min(monthStats.porMd.get(mueve.md)!.dias, previo.porMd.get(mueve.md)!.dias) < 3 : false;
-    const orden = !mueve
+    /* 11/11/2026: con menos de 3 sesiones de ese MD en cada mes no se dice nada del MD. */
+    const orden = !mueve || pocas
       ? ""
-      : pocas
-        ? ` Tendencia en el ${mueve.md}, con pocas sesiones para mover nada: ${cifras}.`
-        : ` La semana que viene, ${mueve.pct < 0 ? "subir" : "bajar"} el ${mueve.md} si no se busca ese cambio: ${cifras}.`;
+      : ` La semana que viene, ${mueve.pct < 0 ? "subir" : "bajar"} el ${mueve.md} si no se busca ese cambio: ${cifras}.`;
 
     if (pct < 0 && monthStats.partidos > previo.partidos) {
       return `La carga media baja un ${Math.abs(pct)} % (${base}) con más partidos (${monthStats.partidos} frente a ${previo.partidos}): es la descarga de las semanas de competición.${orden}`;
@@ -568,6 +598,31 @@ export default function MicroCalendar() {
     return pct < 0
       ? `La carga media baja un ${Math.abs(pct)} % (${base}) con los mismos partidos.${orden || " Si no es una descarga buscada, subir la carga del día más cargado de la semana que viene."}`
       : `La carga media sube un ${pct} % (${base}).${orden || " Vigilar la recuperación en los MD-1 y MD+1 de la semana que viene."}`;
+  })();
+
+  /*
+  | EL TITULAR CON EL DATO (11/11/2026). Antes repetía la tarjeta ENTRENOS
+  | («5 entrenos hechos + 3 planificados + 2 partidos y 3h 47'…»). Ahora:
+  | «Noviembre: 8 entrenos (5 hechos) · 3h 47' · carga +17 % frente a octubre».
+  | La carga sólo sale si hay base para comparar (3 entrenos hechos por lado).
+  */
+  const titular = (() => {
+    if (monthStats.sesiones === 0) return "Calendario de Microciclo";
+    const pctCarga =
+      comparable && mesPrevio.stats.cargaMedia > 0 && monthStats.cargaMedia > 0
+        ? Math.round(((monthStats.cargaMedia - mesPrevio.stats.cargaMedia) / mesPrevio.stats.cargaMedia) * 100)
+        : null;
+    return [
+      `${MONTHS[active.month]}: ${monthStats.sesiones} ${monthStats.sesiones === 1 ? "entreno" : "entrenos"}${monthStats.planificados > 0 ? ` (${monthStats.hechos} ${monthStats.hechos === 1 ? "hecho" : "hechos"})` : ""}`,
+      monthStats.minutos > 0 ? formatMinutes(monthStats.minutos) : "",
+      pctCarga === null
+        ? ""
+        : pctCarga === 0
+          ? `carga igual que en ${MONTHS[mesPrevio.month].toLowerCase()}`
+          : `carga ${pctCarga > 0 ? "+" : "−"}${Math.abs(pctCarga)} % frente a ${MONTHS[mesPrevio.month].toLowerCase()}`,
+    ]
+      .filter(Boolean)
+      .join(" · ");
   })();
 
   const selectedDate = selectedKey ? parseDateKey(selectedKey) : null;
@@ -630,17 +685,13 @@ export default function MicroCalendar() {
   return (
     <CalendarShell
       eyebrow="RMCF CASTILLA · ENTRENAMIENTO"
-      title={
-        monthStats.sesiones > 0
-          ? `${cuentaDelMes}${monthStats.minutos > 0 ? ` y ${formatMinutes(monthStats.minutos)} de entreno` : ""} en ${MONTHS[active.month].toLowerCase()}`
-          : "Calendario de Microciclo"
-      }
+      title={titular}
       months={months}
       monthIndex={currentMonth}
       onMonthChange={setCurrentMonth}
       loading={loading}
       keyboardEnabled={!selectedKey}
-      legend={LEGEND}
+      legend={leyendaMes}
       stats={
         <>
           <CalendarStat
@@ -659,19 +710,26 @@ export default function MicroCalendar() {
               partidos baja la media a propósito (bajar no es peor). */}
           <CalendarStat
             label="Carga física media / entreno"
-            value={monthStats.cargaMedia}
-            hint={`Minutos × intensidad por día de entreno, sobre ${baseDelMes}${frente(monthStats.cargaMedia, mesPrevio.stats.cargaMedia)}`}
+            value={<>{monthStats.cargaMedia} <span className="text-sm font-medium text-white/55">UA</span></>}
+            hint={`UA = minutos × intensidad (1-10) · media de ${baseDelMes}${frente(monthStats.cargaMedia, mesPrevio.stats.cargaMedia)}`}
           />
           <CalendarStat
             label="Carga cognitiva media / entreno"
-            value={monthStats.cognitivaMedia}
-            hint={`Minutos × demanda cognitiva por día de entreno, sobre ${baseDelMes}${frente(monthStats.cognitivaMedia, mesPrevio.stats.cognitivaMedia)}`}
+            value={<>{monthStats.cognitivaMedia} <span className="text-sm font-medium text-white/55">UA</span></>}
+            hint={`UA = minutos × demanda cognitiva (1-10) · media de ${baseDelMes}${frente(monthStats.cognitivaMedia, mesPrevio.stats.cognitivaMedia)}`}
           />
         </>
       }
       renderDay={({ key }) => {
         const dayTasks = tasksByDay.get(key) ?? [];
-        if (dayTasks.length === 0) return {};
+        /* 11/11/2026: entre la primera y la última sesión apuntada, el día sin
+           nada es libre y se dice con una palabra, como en /calendar_general. */
+        if (dayTasks.length === 0) {
+          const libre = sessionDays.length > 1 && key > sessionDays[0] && key < sessionDays[sessionDays.length - 1];
+          return libre
+            ? { badges: <span className="text-[10px] font-semibold uppercase tracking-wide text-white/45">Libre</span> }
+            : {};
+        }
 
         const totalMinutes = dayTasks.reduce((s, t) => s + minutesOf(t), 0);
 
@@ -687,17 +745,8 @@ export default function MicroCalendar() {
           .filter(([name]) => name)
           .sort((a, b) => b[1] - a[1]);
 
-        // Fase dominante = la que más minutos acumula.
-        const phases = new Map<string, number>();
-        dayTasks.forEach((t) => {
-          const name = t.Fase || "Global";
-          phases.set(name, (phases.get(name) ?? 0) + minutesOf(t));
-        });
-
-        const dominantPhase =
-          [...phases.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "";
-
-        const theme = phaseTheme(dominantPhase);
+        // Fase dominante sin contar Global; sin ninguna, el fondo normal.
+        const theme = faseDelDia(dayTasks) ?? NEUTRAL_THEME;
         /* 07/11/2026: el MD de cualquier tarea del día; sin ninguno, «fuera de micro» (nada de casilla sin etiqueta). */
         const mdHoja = dayTasks.map((t) => String(t.MD ?? "").trim()).find(Boolean) ?? "";
         /* Sin MD en la hoja, el del próximo partido del calendario (misma regla que /calendar_general). */
@@ -708,7 +757,7 @@ export default function MicroCalendar() {
 
         return {
           hasContent: true,
-          accentClass: theme.cell,
+          accentClass: theme === NEUTRAL_THEME ? undefined : theme.cell,
           onClick: () => setSelectedKey(key),
           badges: (
             <div className="flex items-center gap-1">
@@ -822,7 +871,7 @@ export default function MicroCalendar() {
       {!loading && monthStats.sesiones > 0 && (
         <div className="min-w-0 space-y-2 px-4 pb-6 text-[12px] text-white/60 md:px-8">
           <p>
-            Fondo del día = fase con más minutos · barra = minutos de ese contenido sobre los de la sesión.
+            {leyendaMes.length > 0 ? "Fondo del día = fase con más minutos, sin contar Global · " : ""}Barra = minutos de ese contenido sobre los de la sesión.
           </p>
           {lecturaCarga && <p>{lecturaCarga}</p>}
           {monthStats.siglas.size > 0 && (
