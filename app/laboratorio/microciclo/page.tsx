@@ -690,7 +690,19 @@ const minutosLegibles = (n: number) => {
 | total frente a la media de la temporada (sin el partido, en los micros con
 | tareas). Lo que no tiene minutos no enseña minutos.
 */
-function ResumenOrigen({ micro, todas }: { micro: number | null; todas: RegistroTarea[] }) {
+function ResumenOrigen({
+  micro,
+  todas,
+  mdSemana = [],
+  onElige,
+}: {
+  micro: number | null;
+  todas: RegistroTarea[];
+  /** Los MD de entreno de la semana nueva («MD-5»…«MD-1»): para avisar de los que quedan en blanco. */
+  mdSemana?: string[];
+  /** Cambia el micro de origen (la propuesta de uno que sí tiene esos MD). */
+  onElige?: (micro: number) => void;
+}) {
   const datos = useMemo(() => {
     if (!micro) return null;
 
@@ -719,19 +731,47 @@ function ResumenOrigen({ micro, todas }: { micro: number | null; todas: Registro
       return m ? (m[1] === "-" ? -Number(m[2]) : 10 + Number(m[2])) : 0;
     };
 
-    const conMinutos = cuentas.filter((c) => c.minutosEntreno > 0);
+    /*
+    | 11/11/2026: la media sólo con los micros que tienen tareas de entreno y
+    | tiempo (el que sólo tiene el partido o está sin minutos la bajaba), y con
+    | su base dicha: «19 micros con tiempo».
+    */
+    const conMinutos = cuentas.filter((c) => c.tareasEntreno > 0 && c.minutosEntreno > 0);
+    const conTareas = cuentas.filter((c) => c.tareasEntreno > 0);
+    const baseMedia = conMinutos.length >= 3 ? conMinutos : conTareas;
     const media = conMinutos.length >= 3 ? conMinutos.reduce((s, c) => s + c.minutosEntreno, 0) / conMinutos.length : 0;
-    const mediaTareas = cuentas.length >= 3 ? cuentas.reduce((s, c) => s + c.tareasEntreno, 0) / cuentas.length : 0;
+    const mediaTareas = baseMedia.length >= 3 ? baseMedia.reduce((s, c) => s + c.tareasEntreno, 0) / baseMedia.length : 0;
+
+    /* Los MD de la semana que el micro de origen no tiene: quedan en blanco. */
+    const normaliza = (md: string) => md.trim().toUpperCase().replace(/\s+/g, "");
+    const faltan = [...new Set(mdSemana.map(normaliza))].filter((md) => md && !porMd.has(md));
+
+    /* El último micro que sí los tiene todos, para proponerlo. */
+    const mdsDe = new Map<number, Set<string>>();
+    for (const t of todas) {
+      if (!t.md.trim() || !t.tarea.trim() || esFilaDePartido({ md: t.md, fase: t.fase, tipo: t.tipoTarea, contenidoPrincipal: t.contenidoPrincipal })) continue;
+      const set = mdsDe.get(t.micro) ?? new Set<string>();
+      set.add(normaliza(t.md));
+      mdsDe.set(t.micro, set);
+    }
+    const propuesto = faltan.length
+      ? [...mdsDe.entries()]
+          .filter(([m, mds]) => m !== micro && mdSemana.every((md) => mds.has(normaliza(md))))
+          .sort((a, b) => b[0] - a[0])[0]?.[0] ?? null
+      : null;
 
     return {
+      faltan,
+      propuesto,
+      baseMicros: baseMedia.length,
+      baseConTiempo: conMinutos.length >= 3,
       dias: [...porMd.entries()].sort((a, b) => orden(a[0]) - orden(b[0])),
       tareas: suyas.length,
       minutos: suyas.reduce((s, t) => s + (t.tiempo || 0), 0),
       media,
       mediaTareas,
-      micros: cuentas.length,
     };
-  }, [micro, todas]);
+  }, [micro, todas, mdSemana]);
 
   if (!datos) return null;
 
@@ -743,10 +783,28 @@ function ResumenOrigen({ micro, todas }: { micro: number | null; todas: Registro
       </p>
       {datos.media > 0 || datos.mediaTareas > 0 ? (
         <p className="mt-0.5 text-[11px] text-white/50">
-          Media de la temporada ({datos.micros} micros): {comaDecimal(datos.mediaTareas)} tareas
+          Media de la temporada ({datos.baseMicros} micros {datos.baseConTiempo ? "con tiempo" : "con tareas de entreno"}): {comaDecimal(datos.mediaTareas)} tareas
           {datos.media > 0 ? ` y ${minutosLegibles(datos.media)} por semana` : " por semana"}
         </p>
       ) : null}
+      {datos.faltan.length > 0 && (
+        <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-amber-200/90">
+          <span>
+            {datos.faltan.length === 1
+              ? `${datos.faltan[0]} queda en blanco: el micro ${micro} no lo tiene.`
+              : `${datos.faltan.slice(0, -1).join(", ")} y ${datos.faltan[datos.faltan.length - 1]} quedan en blanco: el micro ${micro} no los tiene.`}
+          </span>
+          {datos.propuesto !== null && onElige && (
+            <button
+              type="button"
+              onClick={() => onElige(datos.propuesto as number)}
+              className="rounded-md border border-current px-1.5 py-0.5 font-semibold"
+            >
+              Partir del micro {datos.propuesto}, que los tiene
+            </button>
+          )}
+        </p>
+      )}
       <ul className="mt-2 flex flex-wrap gap-1.5">
         {datos.dias.map(([md, d]) => (
           <li key={md} className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[11px] text-white/70">
@@ -1072,6 +1130,15 @@ export default function EditorMicrocicloPage() {
   /** El último con tareas: del que se parte por defecto al crear. */
   const ultimoConTareas = microsDeLaHoja.find((uno) => uno.tareas > 0)?.micro ?? null;
 
+  /* El micro del que se parte al crear, y si tiene minutos que copiar (11/11/2026). */
+  const microOrigen = partirDe === "ultimo" ? ultimoConTareas : partirDe ? Number(partirDe) : null;
+  const origenConMinutos = (registro?.tareas ?? []).some(
+    (t) =>
+      t.micro === microOrigen &&
+      (t.tiempo || 0) > 0 &&
+      !esFilaDePartido({ md: t.md, fase: t.fase, tipo: t.tipoTarea, contenidoPrincipal: t.contenidoPrincipal }),
+  );
+
   /** Vuelve a montar los días con el calendario, respetando los libres. */
   const arma = useCallback(async () => {
     if (!proximo) return;
@@ -1111,6 +1178,12 @@ export default function EditorMicrocicloPage() {
   const libresMarcados = useMemo(
     () => new Set(libresPlan ?? libresPorDefecto(diasPlan)),
     [libresPlan, diasPlan],
+  );
+
+  /* Los MD de entreno de la semana nueva (sin el partido ni los libres): para avisar de los que el origen no tiene. */
+  const mdSemana = useMemo(
+    () => diasPlan.filter((d) => !d.esPartido && !libresMarcados.has(d.fecha) && d.md).map((d) => d.md),
+    [diasPlan, libresMarcados],
   );
 
   /** La semana del próximo partido, sin tareas: los días del calendario, los libres marcados y la fila del partido con su rival. */
@@ -2261,10 +2334,14 @@ export default function EditorMicrocicloPage() {
                   </p>
 
                   <ResumenOrigen
-                    micro={partirDe === "ultimo" ? ultimoConTareas : partirDe ? Number(partirDe) : null}
+                    micro={microOrigen}
                     todas={registro?.tareas ?? []}
+                    mdSemana={mdSemana}
+                    onElige={(m) => setPartirDe(m === ultimoConTareas ? "ultimo" : String(m))}
                   />
 
+                  {/* 11/11/2026: si el micro de origen no tiene minutos, no hay tiempo que copiar: la casilla no sale. */}
+                  {(microOrigen === null || origenConMinutos) && (
                   <label className="mt-2 flex items-center gap-2 text-[11px] text-white/55">
                     <input
                       type="checkbox"
@@ -2274,6 +2351,7 @@ export default function EditorMicrocicloPage() {
                     />
                     Copiar también el tiempo y la intensidad de cada tarea
                   </label>
+                  )}
                 </div>
 
                 {/*
