@@ -8,7 +8,6 @@
  */
 
 import { useEffect } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { AbpHeader, Notice } from "@/components/abp/ui";
@@ -34,7 +33,7 @@ function MuestraFicha() {
       <p className="text-sm font-semibold text-white">
         <span className="text-[#C8A96B]">MD-3 · T2</span> Rondo 7v3
       </p>
-      <p className="mt-1 text-[12px] text-white/65">Objetivo: perfilarse antes de recibir · meta 60 %</p>
+      <p className="mt-1 text-[12px] text-white/65">Objetivo: perfilarse antes de recibir · meta 60 %, la que fija el cuerpo técnico para la tarea</p>
       <ul className="mt-3 space-y-1.5">
         {filas.map((f) => (
           <li key={f.jugador} className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] text-white/75">
@@ -104,7 +103,8 @@ export function AccesoEntreno() {
             <MuestraFicha />
             </div>
 
-            <div className="min-w-0 space-y-4">
+            {/* 11/11/2026: en el móvil la entrada va primero; la muestra, debajo. */}
+            <div className="order-first min-w-0 space-y-4 lg:order-none">
 
             {/* Título corto: en el móvil «Entra para ver qué objetivo cumplió…» se cortaba y repetía la entrada. */}
             <Acceso sinPista yo={yo} cargando={sesion.cargando} manda={sesion.manda} titulo="Entra con tu cuenta del staff" botonEntrar="Ver el análisis" subtitulo="La misma cuenta que la quiniela y las apuestas del staff" />
@@ -115,16 +115,15 @@ export function AccesoEntreno() {
               </Notice>
             ) : null}
 
-            {delCuerpoTecnico ? <p className="text-sm text-white/60">Abriendo el análisis…</p> : null}
+            {delCuerpoTecnico ? (
+              <p role="status" className="flex items-center gap-2 text-sm text-white/60">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#C8A96B]" aria-hidden />
+                Abriendo el análisis…
+              </p>
+            ) : null}
 
-            {/* El acceso del administrador, un enlace pequeño al pie (10/11/2026): al cuerpo técnico no le toca. */}
-            <p className="text-xs text-white/50">
-              Administrador:{" "}
-              <Link href="/ajustes" className="rounded text-white/70 underline underline-offset-4 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#C8A96B]">
-                entra en Ajustes
-              </Link>{" "}
-              y vuelve aquí.
-            </p>
+            {/* 11/11/2026: fuera el «Administrador: entra en Ajustes»; era ruido para el
+                cuerpo técnico y el administrador llega a Ajustes desde el menú. */}
             </div>
             </div>
           </div>
