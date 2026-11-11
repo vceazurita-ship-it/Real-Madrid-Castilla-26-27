@@ -224,6 +224,16 @@ function diaDeAqui(iso: string) {
 
 const mb = (bytes: number | null) => (bytes === null ? "" : bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toLocaleString("es-ES", { maximumFractionDigits: 1 })} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`);
 
+/* Pantalla estrecha (< 640 px), para colocar «A quién se le manda» debajo de la vista previa en el móvil. */
+const MOVIL = "(max-width: 639px)";
+const suscribeMovil = (avisa: () => void) => {
+  const mq = window.matchMedia(MOVIL);
+  mq.addEventListener("change", avisa);
+  return () => mq.removeEventListener("change", avisa);
+};
+const esMovilAhora = () => window.matchMedia(MOVIL).matches;
+const esMovilServidor = () => false;
+
 /** Lo que va hecho de un «… · 2 de 26…» o un «… 40 %», para pintarlo en una barra; null si el texto no lo dice. */
 function fraccionDe(texto: string | null): number | null {
   if (!texto) return null;
@@ -293,6 +303,13 @@ export function InformePartidoDialog({
   const [testigo, setTestigo] = useState(0);
 
   const [vista, setVista] = useState<"resumen" | "completo">("resumen");
+
+  /*
+  | En el móvil, «A quién se le manda» va debajo de la vista previa
+  | (11/11/2026, fútbol): arriba ocupaba la primera pantalla y el informe
+  | empezaba debajo. Un solo `Destinatarios` montado, en un sitio u otro.
+  */
+  const esMovil = useSyncExternalStore(suscribeMovil, esMovilAhora, esMovilServidor);
 
   const [trabajando, setTrabajando] = useState<null | string>(null);
 
@@ -2021,6 +2038,18 @@ export function InformePartidoDialog({
   const fraccionDoc = preparando && /^Preparando (?:las diapositivas|el PDF del completo)/.test(preparando) ? (fraccionDe(preparando) ?? 0) : null;
   const preparandoDoc = fraccionDoc !== null;
 
+  const bloqueDestinatarios = (
+    <Destinatarios
+      label="A quién se le manda (los dos)"
+      canal={canal}
+      onCanal={(c) => setAjustes((a) => ({ ...a, canal: c }))}
+      correos={ajustes.destinatarios}
+      onCorreos={(destinatarios) => setAjustes((a) => ({ ...a, destinatarios }))}
+      telefonos={ajustes.telefonos ?? ""}
+      onTelefonos={(telefonos) => setAjustes((a) => ({ ...a, telefonos }))}
+    />
+  );
+
   const botonEnviar = trabajando
     ? trabajando
     : preparandoDoc
@@ -2162,25 +2191,16 @@ export function InformePartidoDialog({
               }}
               className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none focus:border-[#C8A96B]/50"
             >
-              {/* El hueco de la lista se rotula (10/11/2026, análisis): saltaba del 13 al 11 sin decir que el 12 fue una semana sin partido. */}
-              {(micros ?? []).flatMap((m, i, todos) => {
-                const siguiente = todos[i + 1];
-                const huecos =
-                  siguiente && siguiente.temporada === m.temporada && Number.isInteger(m.micro) && Number.isInteger(siguiente.micro) && m.micro - siguiente.micro > 1 && m.micro - siguiente.micro <= 4
-                    ? Array.from({ length: m.micro - siguiente.micro - 1 }, (_, k) => m.micro - k - 1)
-                    : [];
-
-                return [
-                  <option key={`${m.temporada}|${m.micro}`} value={`${m.temporada}|${m.micro}`} className="bg-[#11161C]">
-                    Micro {m.micro} · {m.rival || "sin rival"}
-                  </option>,
-                  ...huecos.map((n) => (
-                    <option key={`${m.temporada}|hueco-${n}`} value="" disabled className="bg-[#11161C]">
-                      Micro {n} · semana sin partido, sin informe
-                    </option>
-                  )),
-                ];
-              })}
+              {/*
+              | Sólo las semanas con informe (11/11/2026, marketing): «Micro 12 ·
+              | semana sin partido, sin informe» salía como una opción más. El
+              | salto de número ya dice que esa semana no hubo partido.
+              */}
+              {(micros ?? []).map((m) => (
+                <option key={`${m.temporada}|${m.micro}`} value={`${m.temporada}|${m.micro}`} className="bg-[#11161C]">
+                  Micro {m.micro} · {m.rival || "sin rival"}
+                </option>
+              ))}
             </select>
           </label>
 
@@ -2214,17 +2234,7 @@ export function InformePartidoDialog({
           </div>
 
           {/* Los correos en minúscula al pintarlos (como en el de ABP): el valor no cambia. */}
-          <div className="min-w-0 flex-1 basis-[280px] [&_span.rounded-md]:lowercase">
-            <Destinatarios
-              label="A quién se le manda (los dos)"
-              canal={canal}
-              onCanal={(c) => setAjustes((a) => ({ ...a, canal: c }))}
-              correos={ajustes.destinatarios}
-              onCorreos={(destinatarios) => setAjustes((a) => ({ ...a, destinatarios }))}
-              telefonos={ajustes.telefonos ?? ""}
-              onTelefonos={(telefonos) => setAjustes((a) => ({ ...a, telefonos }))}
-            />
-          </div>
+          {!esMovil ? <div className="min-w-0 flex-1 basis-[280px] [&_span.rounded-md]:lowercase">{bloqueDestinatarios}</div> : null}
         </div>
 
         {/* ---------------- LA VISTA PREVIA ---------------- */}
@@ -2343,6 +2353,8 @@ export function InformePartidoDialog({
             La vista es tal y como llega cada correo: el resumen con las diapositivas marcadas y el completo con los capítulos elegidos y el mensaje.
           </p>
         )}
+
+        {esMovil ? <div className="min-w-0 [&_span.rounded-md]:lowercase">{bloqueDestinatarios}</div> : null}
 
         {/* ---------------- QUÉ SE MANDA (plegado) ---------------- */}
 
