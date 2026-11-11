@@ -27,7 +27,7 @@ require(path.join(RAIZ, "scripts/cargador-ts.cjs"));
 const { createClient } = require(path.join(RAIZ, "node_modules/@supabase/supabase-js"));
 const { entorno } = require(path.join(RAIZ, "scripts/supabase-local.cjs"));
 const { VIDEO_JUGADORES_KEY, VIDEO_JUGADORES_KIND, jornadaDeNombre, normalizaVideosJugadores } = require(path.join(RAIZ, "lib/abp/video-jugadores.ts"));
-const { subeAlmacen } = require("../almacen.cjs");
+const { subeAlmacen, urlAlmacen, borraAlmacen } = require("../almacen.cjs");
 
 const CARPETA = process.env.VIDEO_JUGADORES_DIR || "C:\\Users\\Usuario\\Downloads\\RMCF CASTILLA\\ABP\\VIDEO - JUGADORES";
 const FFMPEG = path.join(RAIZ, "node_modules", "ffmpeg-static", "ffmpeg.exe");
@@ -176,7 +176,7 @@ async function principal() {
 
         if (error) throw new Error(error.message);
 
-        return supabase.storage.from(BUCKET).getPublicUrl(destino).data.publicUrl;
+        return urlAlmacen(supabase, destino);
       };
       const url = await subeUno(salida, `${base}.mp4`, "video/mp4");
       const posterUrl = fs.existsSync(poster) ? await subeUno(poster, `${base}.jpg`, "image/jpeg").catch(() => null) : null;
@@ -185,7 +185,7 @@ async function principal() {
       const actual = await lee();
       const viejo = actual.videos[f.nombre];
 
-      if (viejo) await supabase.storage.from(BUCKET).remove([viejo.ruta, viejo.posterRuta].filter(Boolean));
+      if (viejo) await borraAlmacen(supabase, [viejo.ruta, viejo.posterRuta].filter(Boolean));
 
       actual.videos[f.nombre] = {
         nombre: f.nombre,
@@ -206,7 +206,7 @@ async function principal() {
         .slice(SE_GUARDAN);
 
       for (const v of sobran) {
-        await supabase.storage.from(BUCKET).remove([v.ruta, v.posterRuta].filter(Boolean));
+        await borraAlmacen(supabase, [v.ruta, v.posterRuta].filter(Boolean));
         delete actual.videos[v.nombre];
       }
 

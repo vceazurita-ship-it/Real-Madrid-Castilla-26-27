@@ -19,12 +19,18 @@
 |      del usuario (07/11/2026: los cortes se quedan aunque se pase): sólo avisa.
 |      Se enciende con `ALMACEN_FRENO=1`.
 | La medida se guarda en el documento `almacen:ocupacion` (Ajustes y portada).
+|
+| 11/11/2026: con B2 configurado (scripts/b2.cjs) los VÍDEOS van a Backblaze,
+| no a Supabase. Por eso los scripts piden el enlace con `urlAlmacen`, miran
+| lo ya subido con `listaAlmacen` y borran con `borraAlmacen`: los tres
+| miran los dos sitios.
 */
 
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { execFile } = require("node:child_process");
+const b2 = require("./b2.cjs");
 
 const BUCKET = "performance";
 const TOPE_MB = 1024;
@@ -153,6 +159,19 @@ async function subeAlmacen(sb, ruta, fichero, opciones = {}, { recomprime = /\/c
     return { data: null, error: { message: `almacén lleno (${Math.round(ocupadoMb)} de ${TOPE_MB} MB): libera espacio con node scripts/limpia-supabase.mjs` } };
   }
 
+  /* Los vídeos, a Backblaze: no cuentan para el GB de Supabase. */
+  if (b2.configurado() && b2.esVideo(ruta)) {
+    try {
+      const url = await b2.sube(ruta, fs.readFileSync(usar), opciones.contentType ?? "video/mp4");
+
+      return { data: { path: ruta }, error: null, url, ligero: usar !== fichero ? bytes : 0 };
+    } catch (error) {
+      return { data: null, error: { message: `Backblaze: ${error.message}` } };
+    } finally {
+      if (usar !== fichero) fs.rmSync(usar, { force: true });
+    }
+  }
+
   const respuesta = await sb.storage.from(BUCKET).upload(ruta, fs.readFileSync(usar), opciones);
 
   if (!respuesta.error) ocupadoMb += mb;
@@ -161,4 +180,47 @@ async function subeAlmacen(sb, ruta, fichero, opciones = {}, { recomprime = /\/c
   return { ...respuesta, ligero: usar !== fichero ? bytes : 0 };
 }
 
-module.exports = { subeAlmacen, mideOcupacion, aligera, TOPE_MB, FRENO };
+/** El enlace público de una ruta: Backblaze para los vídeos (si está configurado), Supabase para lo demás. */
+function urlAlmacen(sb, ruta) {
+  if (b2.configurado() && b2.esVideo(ruta)) return b2.urlPublicaYa(ruta);
+
+  return sb.storage.from(BUCKET).getPublicUrl(ruta).data.publicUrl;
+}
+
+/** Lo que hay en una carpeta, en los dos sitios, con la forma de `storage.list` ({ name, id, metadata.size }). */
+async function listaAlmacen(sb, carpeta) {
+  const vistos = new Map();
+
+  for (let desde = 0; ; desde += 1000) {
+    const { data, error } = await sb.storage.from(BUCKET).list(carpeta, { limit: 1000, offset: desde });
+
+    if (error) throw new Error(error.message);
+    for (const f of data ?? []) if (f.id) vistos.set(f.name, f);
+    if ((data ?? []).length < 1000) break;
+  }
+
+  if (b2.configurado()) {
+    const prefijo = carpeta ? `${carpeta.replace(/\/$/, "")}/` : "";
+
+    for (const [ruta, bytes] of await b2.lista(prefijo)) {
+      const nombre = ruta.slice(prefijo.length);
+
+      if (nombre && !nombre.includes("/") && !vistos.has(nombre)) vistos.set(nombre, { name: nombre, id: `b2:${ruta}`, metadata: { size: bytes } });
+    }
+  }
+
+  return [...vistos.values()];
+}
+
+/** Borra las rutas de los dos sitios. */
+async function borraAlmacen(sb, rutas) {
+  const todas = rutas.filter(Boolean);
+
+  if (!todas.length) return;
+
+  await sb.storage.from(BUCKET).remove(todas);
+
+  if (b2.configurado()) for (const ruta of todas.filter(b2.esVideo)) await b2.oculta(ruta);
+}
+
+module.exports = { subeAlmacen, mideOcupacion, aligera, urlAlmacen, listaAlmacen, borraAlmacen, TOPE_MB, FRENO };

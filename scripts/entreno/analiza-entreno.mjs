@@ -28,7 +28,7 @@ const require = createRequire(import.meta.url);
 const { entorno } = require("../supabase-local.cjs");
 const { createClient } = require("@supabase/supabase-js");
 const { GoogleGenAI, MediaResolution, createPartFromUri } = require("@google/genai");
-import { subeAlmacen } from "../almacen.cjs";
+import { subeAlmacen, urlAlmacen, listaAlmacen, borraAlmacen } from "../almacen.cjs";
 
 const ejecuta = promisify(execFile);
 const REPO = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -716,9 +716,9 @@ async function analiza(supabase, env, objetivos, fuente, destino) {
   paso(5, "un clip de cada: correcto y mejorable");
 
   const carpeta = `2026/entrenos/${FECHA}`;
-  const { data: viejos } = await supabase.storage.from(BUCKET).list(carpeta, { limit: 1000 });
+  const viejos = await listaAlmacen(supabase, carpeta);
 
-  if (viejos?.length) await supabase.storage.from(BUCKET).remove(viejos.map((f) => `${carpeta}/${f.name}`));
+  if (viejos?.length) await borraAlmacen(supabase, viejos.map((f) => `${carpeta}/${f.name}`));
 
   const aCortar = objetivos.flatMap((o) =>
     ["correcta", "mejorable"]
@@ -745,7 +745,7 @@ async function analiza(supabase, env, objetivos, fuente, destino) {
 
       if (error) throw new Error(error.message);
 
-      a.clip = supabase.storage.from(BUCKET).getPublicUrl(destinoBucket).data.publicUrl;
+      a.clip = urlAlmacen(supabase, destinoBucket);
       console.log(`  clip ${i + 1}/${aCortar.length}`);
     } catch (error) {
       avisos.push(`un clip (${Math.round(a.inicio / 60)}') no se ha podido cortar: ${String(error?.message ?? error).slice(0, 80)}`);

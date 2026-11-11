@@ -33,7 +33,7 @@ const require = createRequire(import.meta.url);
 const { entorno, salir } = require("../supabase-local.cjs");
 const { createClient } = require("@supabase/supabase-js");
 const { AQUI } = require("./transiciones-comun.cjs");
-import { subeAlmacen } from "../almacen.cjs";
+import { subeAlmacen, urlAlmacen, listaAlmacen } from "../almacen.cjs";
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const CASA = path.dirname(AQUI);
@@ -97,19 +97,12 @@ function acciones(slug, area) {
 }
 
 async function listaBucket(supabase, carpeta) {
-  const nombres = new Set();
-
-  for (let desde = 0; ; desde += 1000) {
-    const { data, error } = await supabase.storage.from(BUCKET).list(carpeta, { limit: 1000, offset: desde });
-
-    if (error) throw new Error(`no se lee el bucket (${error.message})`);
-
-    for (const f of data ?? []) if (f.id) nombres.add(f.name);
-
-    if (!data || data.length < 1000) break;
+  /* Supabase y Backblaze (los vídeos van allí desde el 11/11/2026). */
+  try {
+    return new Set((await listaAlmacen(supabase, carpeta)).map((f) => f.name));
+  } catch (error) {
+    throw new Error(`no se lee el bucket (${error.message})`);
   }
-
-  return nombres;
 }
 
 async function principal() {
@@ -121,7 +114,7 @@ async function principal() {
   }
 
   const supabase = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
-  const url = (area, nombre) => supabase.storage.from(BUCKET).getPublicUrl(`${CARPETAS[area]}/${nombre}`).data.publicUrl;
+  const url = (area, nombre) => urlAlmacen(supabase, `${CARPETAS[area]}/${nombre}`);
   const enBucket = { robos: await listaBucket(supabase, CARPETAS.robos), perdidas: await listaBucket(supabase, CARPETAS.perdidas) };
 
   let nav = null;

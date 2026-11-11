@@ -40,7 +40,7 @@ const SOLO_VER = process.argv.includes("--ver");
 const CORTAR = process.argv.includes("--cortes");
 
 const { DOC_BANDA, claveBanda } = require("../lib/banda/cortes.ts");
-import { subeAlmacen } from "./almacen.cjs";
+import { subeAlmacen, urlAlmacen } from "./almacen.cjs";
 const BUCKET = "performance";
 const CARPETA_CORTES = "2026/banda/clips";
 const ANTES = 3;
@@ -64,7 +64,7 @@ async function principal(supabase) {
   const hojas = { of: await publicada("bandaOf"), def: await publicada("bandaDef") };
 
   const yaCortados = await nombresEnBucket(supabase, BUCKET, CARPETA_CORTES);
-  const urlCorte = (nombre) => supabase.storage.from(BUCKET).getPublicUrl(`${CARPETA_CORTES}/${nombre}`).data.publicUrl;
+  const urlCorte = (nombre) => urlAlmacen(supabase, `${CARPETA_CORTES}/${nombre}`);
 
   const acciones = {};
   const porCortar = [];

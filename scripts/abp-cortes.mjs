@@ -35,7 +35,7 @@ const { publicada } = require("./partido/comun.cjs");
 const { entorno, salir } = require("./supabase-local.cjs");
 const { createClient } = require("@supabase/supabase-js");
 const { filasAbpDelPartido, momentosAbpDeHudl, casaConHudl, minutoDeJuego, clavesEnOrden, esGolDeLaAccion, DOC_CORTES_ABP } = require("../lib/abp/cortes-abp.ts");
-import { subeAlmacen } from "./almacen.cjs";
+import { subeAlmacen, urlAlmacen, listaAlmacen } from "./almacen.cjs";
 
 const args = process.argv.slice(2);
 const bandera = (n) => args.includes(n);
@@ -229,9 +229,9 @@ async function main() {
 
     /* Los cortes del informe del partido, si ya están: por lado, minuto y acción, una vez cada uno. */
     const delInforme = [...(clipsDe.get(j) ?? [])];
-    const { data: enBucket } = await supabase.storage.from(BUCKET).list(`${CARPETA_BUCKET}/${clave}`, { limit: 1000 });
+    const enBucket = await listaAlmacen(supabase, `${CARPETA_BUCKET}/${clave}`);
     const yaSubidos = new Set((enBucket ?? []).map((f) => f.name));
-    const urlDe = (nombre) => supabase.storage.from(BUCKET).getPublicUrl(`${CARPETA_BUCKET}/${clave}/${nombre}`).data.publicUrl;
+    const urlDe = (nombre) => urlAlmacen(supabase, `${CARPETA_BUCKET}/${clave}/${nombre}`);
 
     const acciones = cortadas.map((f) => {
       const a = { clave: claves.get(filas.find((x) => x.lado === f.lado && x.orden === f.orden)), lado: f.lado, parte: f.parte, minuto: f.minuto, accion: f.accion, seg: Math.max(0, Math.round(f.ini - 1)) };
@@ -291,7 +291,7 @@ async function main() {
             continue;
           }
 
-          x.a.video = supabase.storage.from(BUCKET).getPublicUrl(`${CARPETA_BUCKET}/${x.clave}/${x.nombre}`).data.publicUrl;
+          x.a.video = urlAlmacen(supabase, `${CARPETA_BUCKET}/${x.clave}/${x.nombre}`);
           console.log(`  ${x.clave}/${x.nombre}: cortado y subido`);
         }
       } finally {

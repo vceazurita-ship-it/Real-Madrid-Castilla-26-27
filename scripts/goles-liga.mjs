@@ -50,7 +50,7 @@ const mismoEquipo = (a, b) => mismoNombre(a, b) || mismoClub(a, b);
 const { DOC_GOLES, CASTILLA, leeMinuto } = require("../lib/goles/analisis.ts");
 const { ejeDeTipologia, rotuloSegundo } = require("../lib/goles/tecnico.ts");
 const { VISTO_EN_VIDEO } = require("../lib/goles/visto-en-video.ts");
-import { subeAlmacen } from "./almacen.cjs";
+import { subeAlmacen, urlAlmacen, listaAlmacen } from "./almacen.cjs";
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 /* La carpeta de los partidos está dos niveles por encima del repo; desde una copia de trabajo (`.claude/worktrees/x`), cinco. */
@@ -216,9 +216,9 @@ async function principal() {
   const cortesDe = new Map((filasClips ?? []).map((f) => [Number(String(f.key).match(/j(\d+)$/)?.[1]), f.data?.cortes ?? []]));
 
   /* Los cortes de los goles que ya están en el bucket. */
-  const { data: enBucket } = await supabase.storage.from(BUCKET).list(CARPETA_CORTES, { limit: 1000 });
+  const enBucket = await listaAlmacen(supabase, CARPETA_CORTES);
   const yaCortados = new Set((enBucket ?? []).map((f) => f.name));
-  const urlCorte = (nombre) => supabase.storage.from(BUCKET).getPublicUrl(`${CARPETA_CORTES}/${nombre}`).data.publicUrl;
+  const urlCorte = (nombre) => urlAlmacen(supabase, `${CARPETA_CORTES}/${nombre}`);
 
   for (const p of nuestros) {
     const ladoNuestro = mismoEquipo(p.local, CASTILLA) ? "local" : "visitante";

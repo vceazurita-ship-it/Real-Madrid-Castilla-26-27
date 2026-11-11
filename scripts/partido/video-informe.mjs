@@ -55,7 +55,7 @@ const { bandaSonora, masteriza } = require("../../lib/video-informe/musica.ts");
 const { filasAbpDelPartido, momentosAbpDeHudl, casaConHudl, rotuloDeAccion, esGolDeLaAccion } = require("../../lib/abp/cortes-abp.ts");
 const { cifraEquipo } = require("../../lib/cifras-equipo.ts");
 const { CASTILLA_OPTA } = require("../../lib/opta.ts");
-import { subeAlmacen } from "../almacen.cjs";
+import { subeAlmacen, urlAlmacen } from "../almacen.cjs";
 
 const ejecuta = promisify(execFile);
 
@@ -949,7 +949,7 @@ async function sube(supabase, fichero, destino, tipo) {
 
   if (error) throw new Error(error.message);
 
-  return supabase.storage.from(BUCKET).getPublicUrl(destino).data.publicUrl;
+  return urlAlmacen(supabase, destino);
 }
 
 async function guardaDoc(supabase, key, kind, data) {

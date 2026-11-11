@@ -28,7 +28,7 @@ import { fileURLToPath } from "node:url";
 const require = createRequire(import.meta.url);
 const { partidosHudl, faltasHudl, nombresEnBucket } = require("./partido/faltas-banda.cjs");
 const { uno } = require("./partido/comun.cjs");
-import { subeAlmacen } from "./almacen.cjs";
+import { subeAlmacen, urlAlmacen } from "./almacen.cjs";
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
 const RAIZ = join(AQUI, "..");
@@ -676,7 +676,7 @@ async function ponCortes(lista) {
     console.log(`Cortes: ${error.message}`);
     return new Set();
   });
-  const url = (nombre) => supabase.storage.from(BUCKET).getPublicUrl(`${CARPETA_CORTES}/${nombre}`).data.publicUrl;
+  const url = (nombre) => urlAlmacen(supabase, `${CARPETA_CORTES}/${nombre}`);
 
   for (const c of lista) if (ya.has(c.nombre)) c.falta.video = url(c.nombre);
 
