@@ -1371,12 +1371,14 @@ export default function JugadoresSesionPage() {
 
   /* El menú «Más» de la cabecera: se cierra al tocar fuera. */
   const menuMas = useRef<HTMLDetailsElement>(null);
+  /* El «Más» de las acciones de la tarea (11/11/2026): igual, se cierra al tocar fuera. */
+  const menuTarea = useRef<HTMLDetailsElement>(null);
 
   useEffect(() => {
     const fuera = (e: PointerEvent) => {
-      const menu = menuMas.current;
-
-      if (menu?.open && !menu.contains(e.target as Node)) menu.removeAttribute("open");
+      for (const menu of [menuMas.current, menuTarea.current]) {
+        if (menu?.open && !menu.contains(e.target as Node)) menu.removeAttribute("open");
+      }
     };
 
     document.addEventListener("pointerdown", fuera);
@@ -3335,7 +3337,10 @@ export default function JugadoresSesionPage() {
               /* 11/11/2026: el titular con el dato del día; sin sesión, el nombre de la pantalla. */
               title={
                 sesion && tarea
-                  ? `${sesion.jugadores.filter((j) => !j.baja).length} jugadores · ${tarea.equipos.length} ${tarea.equipos.length === 1 ? "equipo" : "equipos"} en la tarea ${activa + 1}`
+                  ? /* 11/11/2026: «2 equipos en la tarea 1» con nadie colocado prometía lo que no había. */
+                    `${sesion.jugadores.filter((j) => !j.baja).length} disponibles · ${
+                      enTarea === 0 ? `tarea ${activa + 1} sin equipos` : `${tarea.equipos.length} ${tarea.equipos.length === 1 ? "equipo" : "equipos"} en la tarea ${activa + 1}`
+                    }`
                   : "Jugadores sesión"
               }
               lead="Pega la lista del día y haz los equipos de cada tarea. Una diapositiva por tarea, lista para proyectar o mandar en imagen."
@@ -3538,38 +3543,46 @@ export default function JugadoresSesionPage() {
             {/* ---------------- EL MICROCICLO DEL DÍA ---------------- */}
 
             {sesion?.fecha && (
-              <div className="mt-3 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2">
+              /* 11/11/2026 (revisión de los expertos): dos líneas a 12-13 px. Arriba el día (micro, MD, rival) y los enlaces; debajo, sólo si hay, lo que el plan tiene distinto con «Traer» al lado. */
+              <div className="mt-3 flex min-w-0 flex-col gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
+                <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
                 {contexto ? (
-                  <p className="min-w-0 text-[12px] text-white/70">
+                  <p className="min-w-0 text-[13px] text-white/75">
                     <span className="font-semibold text-[#C8A96B]">Micro {contexto.micro}</span>
                     {contexto.md ? ` · ${contexto.md}` : ""}
                     {contexto.rival ? ` · ${contexto.rival}` : ""}
-                    {` · ${planSesion.length} ${planSesion.length === 1 ? "tarea planificada" : "tareas planificadas"}`}
+                    <span className="text-white/55">{` · ${planSesion.length} ${planSesion.length === 1 ? "tarea planificada" : "tareas planificadas"}`}</span>
                   </p>
                 ) : null}
-                {cambiosPlan && planSesion.length > 0 && hayCambiosDelPlan(cambiosPlan) ? (
-                  <p className="min-w-0 text-[12px] text-amber-300">
+                <span className="flex-1" />
+                <EnlacesDia fecha={sesion.fecha} micro={contexto?.micro} actual="sesion" />
+                </div>
+                {cambiosPlan && planSesion.length > 0 && (hayCambiosDelPlan(cambiosPlan) || cambiosPlan.sinVinculo > 0) ? (
+                <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 border-t border-white/[0.06] pt-2">
+                {hayCambiosDelPlan(cambiosPlan) ? (
+                  <p className="min-w-0 flex-1 text-[12px] leading-snug text-amber-300">
                     {/* 07/11/2026: dice cuáles, con su código y nombre, y el botón «Traer» va al lado. */}
                     {[
                       cambiosPlan.nuevas.length
                         ? `${cambiosPlan.nuevas.length === 1 ? "Falta esta tarea" : "Faltan estas tareas"} en la sesión: ${cambiosPlan.nuevas.map((p) => `${p.codigo} ${nombreEnSesion(p).toLowerCase()}`).join(", ")}. Añádela con «Traer» o ignórala`
                         : "",
+                      /* 11/11/2026: las tareas ya casan por el nombre antes que por el código; aquí sólo llega un cambio de nombre de verdad. */
                       cambiosPlan.renombradas.length
-                        ? `renombrada${cambiosPlan.renombradas.length === 1 ? "" : "s"} en el plan: ${cambiosPlan.renombradas.map((r) => `${r.de.toLowerCase()} → ${r.a.toLowerCase()}`).join(", ")}`
+                        ? `El plan ${cambiosPlan.renombradas.length === 1 ? "la llama" : "las llama"} de otra forma: ${cambiosPlan.renombradas.map((r) => `${r.de.toLowerCase()} → ${r.a.toLowerCase()}`).join(", ")}`
                         : "",
-                      cambiosPlan.orden ? "el plan tiene las tareas en otro orden" : "",
+                      cambiosPlan.orden ? "El plan tiene las tareas en otro orden" : "",
                     ]
                       .filter(Boolean)
-                      .join(" · ")}
+                      .join(". ")}
                   </p>
-                ) : null}
-                {cambiosPlan && planSesion.length > 0 && (hayCambiosDelPlan(cambiosPlan) || cambiosPlan.sinVinculo > 0) ? (
+                ) : (
+                  <p className="min-w-0 flex-1 text-[12px] text-white/55">Hay tareas sin atar a las del plan.</p>
+                )}
                   <Button icon={Repeat2} onClick={traeDelMicrociclo} title="Añade las tareas del plan que faltan, pone sus nombres y su orden y ata cada tarea a la suya. Nadie pierde su sitio; se puede deshacer.">
                     Traer
                   </Button>
+                </div>
                 ) : null}
-                <span className="flex-1" />
-                <EnlacesDia fecha={sesion.fecha} micro={contexto?.micro} actual="sesion" />
               </div>
             )}
 
@@ -3678,8 +3691,8 @@ export default function JugadoresSesionPage() {
                         }`}
                       >
                         <GripVertical size={12} className="shrink-0 text-white/25" />
-                        <span className={`h-2 w-2 shrink-0 rounded-full ${punto}`} />
-                        <span className="max-w-[170px] truncate text-[12px] font-semibold uppercase tracking-wide">
+                        <span className={`mr-0.5 h-2.5 w-2.5 shrink-0 rounded-full ${punto}`} />
+                        <span className="max-w-[190px] truncate text-[13px] font-semibold uppercase tracking-wide">
                           {i + 1}. {t.nombre}
                         </span>
                         {/* Si el análisis la midió, su resultado (24/10/2026). */}
@@ -3712,10 +3725,10 @@ export default function JugadoresSesionPage() {
                 </div>
 
                 {/* Qué dice el punto de cada tarea, a la vista (07/11/2026): antes sólo en el title. */}
-                <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-white/55">
-                  <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-400" /> lista</span>
-                  <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-amber-300" /> con avisos</span>
-                  <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-red-400" /> falta algo</span>
+                <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-white/55">
+                  <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-emerald-400" /> lista</span>
+                  <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-amber-300" /> con avisos</span>
+                  <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-red-400" /> falta algo</span>
                 </p>
 
                 <div className="mt-4">
@@ -3883,7 +3896,7 @@ export default function JugadoresSesionPage() {
                           placeholder="Máx. 3 toques; gol = 8 pases seguidos"
                           className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[13px] text-white outline-none placeholder:text-white/30 focus:border-[#C8A96B]/50"
                         />
-                        {detalleDe(activa) && <span className="mt-1 block truncate text-[11px] text-white/45" title="Lo que trae la hoja de registro para esta tarea">De la hoja: {detalleDe(activa)}</span>}
+                        {detalleDe(activa) && <span className="mt-1 block truncate text-[12px] text-white/50" title="Lo que trae la hoja de registro para esta tarea">De la hoja: {detalleDe(activa)}</span>}
                       </label>
 
                       {/* Lo que concluyó el análisis de entrenamiento en esta tarea (24/10/2026), y su valoración en la hoja. */}
@@ -4089,47 +4102,84 @@ export default function JugadoresSesionPage() {
                         </div>
                       </div>
 
-                      <div className="js-acciones flex flex-wrap gap-2">
+                      {/*
+                      | 11/11/2026 (revisión de los expertos): una sola acción principal,
+                      | «Proponer equipos», en dorado. «Completar» sólo cuando sirve (hay
+                      | alguien colocado y alguien pendiente) y lo demás —vaciar, copiar,
+                      | duplicar, mover y quitar la tarea— plegado en «Más».
+                      */}
+                      <div className="js-acciones flex flex-wrap items-center gap-2">
                         <Button
-                          icon={Wand2}
-                          disabled={!reparto.sinSitio.length}
-                          onClick={() => cambiaTarea((t) => completaReparto(t, sesion.jugadores, opcionesReparto))}
-                          title="Coloca a los que faltan en el equipo más corto, sin mover a los demás"
-                        >
-                          Completar
-                        </Button>
-                        <Button
+                          tone="primary"
                           icon={Shuffle}
                           onClick={propon}
                           title={`${rotuloCriterio(criterio)}: con todos los que hacen la tarea; cada vez, una propuesta distinta (P). El criterio se elige en «En un toque».`}
                         >
                           {enTarea > 0 ? "Otra propuesta" : "Proponer equipos"}
                         </Button>
-                        <Button
-                          icon={Eraser}
-                          disabled={enTarea === 0}
-                          onClick={() => {
-                            cambiaTarea((t) => ({
-                              ...t,
-                              sitio: Object.fromEntries(Object.entries(t.sitio).filter(([, d]) => d === FUERA)),
-                              equipos: t.equipos.map((e) => ({ ...e, orden: undefined, posiciones: undefined, pares: undefined, autoOrden: undefined })),
-                            }));
-                            toast.success("Tarea vaciada", { action: { label: "Deshacer", onClick: deshaz } });
-                          }}
-                          title="Saca a todos de los equipos y los comodines de esta tarea (se puede deshacer)"
-                        >
-                          Vaciar
-                        </Button>
-                        <Button icon={Copy} disabled={activa === 0 || fase === "cambio"} onClick={copiaAnterior} title="Mismos equipos, colores y comodines que la tarea anterior">
-                          Como la anterior
-                        </Button>
-                        <Button icon={Plus} onClick={duplica} title="Duplicar esta tarea con sus equipos">
-                          Duplicar
-                        </Button>
-                        {/* Reordenar sin arrastrar (21/10/2026): la tira sólo se arrastra con ratón; en la tableta y con teclado, así. */}
-                        <Button icon={ChevronLeft} disabled={activa === 0} onClick={() => mueveTarea(activa, activa - 1)} title="Mover esta tarea un puesto antes" aria-label="Mover la tarea antes" />
-                        <Button icon={ChevronRight} disabled={activa >= sesion.tareas.length - 1} onClick={() => mueveTarea(activa, activa + 1)} title="Mover esta tarea un puesto después" aria-label="Mover la tarea después" />
-                        <Button tone="danger" icon={Trash2} disabled={sesion.tareas.length <= 1} onClick={quitaTarea} title="Quitar esta tarea" aria-label="Quitar esta tarea" />
+                        {enTarea > 0 && reparto.sinSitio.length > 0 && (
+                          <Button
+                            icon={Wand2}
+                            onClick={() => cambiaTarea((t) => completaReparto(t, sesion.jugadores, opcionesReparto))}
+                            title="Coloca a los que faltan en el equipo más corto, sin mover a los demás"
+                          >
+                            Completar
+                          </Button>
+                        )}
+                        <details ref={menuTarea} className="relative">
+                          <summary
+                            className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-xl border border-white/12 px-3 py-1.5 text-xs font-medium text-white/70 transition hover:border-white/25 hover:text-white [&::-webkit-details-marker]:hidden"
+                            aria-label="Más acciones de esta tarea"
+                          >
+                            <MoreHorizontal size={13} /> Más
+                          </summary>
+                          <div className="absolute left-0 top-full z-30 mt-1 flex w-60 flex-col gap-1 rounded-xl border border-white/15 bg-[#11161C] p-1.5 shadow-2xl">
+                            {(
+                              [
+                                { clave: "vaciar", icono: Eraser, texto: "Vaciar la tarea", titulo: "Saca a todos de los equipos y los comodines de esta tarea (se puede deshacer)", apagado: enTarea === 0 },
+                                { clave: "anterior", icono: Copy, texto: "Como la anterior", titulo: "Mismos equipos, colores y comodines que la tarea anterior", apagado: activa === 0 || fase === "cambio" },
+                                { clave: "duplicar", icono: Plus, texto: "Duplicar la tarea", titulo: "Duplicar esta tarea con sus equipos", apagado: false },
+                                /* Reordenar sin arrastrar (21/10/2026): la tira sólo se arrastra con ratón; en la tableta y con teclado, así. */
+                                { clave: "antes", icono: ChevronLeft, texto: "Mover antes", titulo: "Mover esta tarea un puesto antes", apagado: activa === 0 },
+                                { clave: "despues", icono: ChevronRight, texto: "Mover después", titulo: "Mover esta tarea un puesto después", apagado: activa >= sesion.tareas.length - 1 },
+                              ] as const
+                            ).map(({ clave, icono: Icono, texto: rotulo, titulo, apagado }) => (
+                              <button
+                                key={clave}
+                                type="button"
+                                title={titulo}
+                                disabled={apagado}
+                                onClick={(e) => {
+                                  e.currentTarget.closest("details")?.removeAttribute("open");
+                                  if (clave === "vaciar") {
+                                    cambiaTarea((t) => ({
+                                      ...t,
+                                      sitio: Object.fromEntries(Object.entries(t.sitio).filter(([, d]) => d === FUERA)),
+                                      equipos: t.equipos.map((eq) => ({ ...eq, orden: undefined, posiciones: undefined, pares: undefined, autoOrden: undefined })),
+                                    }));
+                                    toast.success("Tarea vaciada", { action: { label: "Deshacer", onClick: deshaz } });
+                                  } else if (clave === "anterior") copiaAnterior();
+                                  else if (clave === "duplicar") duplica();
+                                  else mueveTarea(activa, clave === "antes" ? activa - 1 : activa + 1);
+                                }}
+                                className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[12px] font-semibold text-white/80 hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                <Icono size={14} className="shrink-0" /> {rotulo}
+                              </button>
+                            ))}
+                            <button
+                              type="button"
+                              disabled={sesion.tareas.length <= 1}
+                              onClick={(e) => {
+                                e.currentTarget.closest("details")?.removeAttribute("open");
+                                quitaTarea();
+                              }}
+                              className="flex items-center gap-2 rounded-lg border-t border-white/[0.06] px-2.5 py-2 text-left text-[12px] font-semibold text-red-300 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              <Trash2 size={14} className="shrink-0" /> Quitar esta tarea
+                            </button>
+                          </div>
+                        </details>
                       </div>
 
                       {/* Tras el cambio a mitad no se ve «En un toque»: el criterio, aquí. */}
@@ -4190,24 +4240,58 @@ export default function JugadoresSesionPage() {
                       | va aparte y el validador de abajo va plegado: antes decían tres
                       | cosas distintas a la vez.
                       */
-                      const peso = (a: (typeof avisos)[number]) => (a.nivel === "error" ? 0 : /^La hoja dice/.test(a.texto) ? 1 : 2);
-                      const problemas = avisos.filter((a) => a.nivel === "error" || a.nivel === "aviso").sort((a, b) => peso(a) - peso(b));
-                      const grave = problemas.some((a) => a.nivel === "error");
+                      const peso = (a: (typeof avisos)[number]) => (a.nivel === "error" && !a.pendiente ? 0 : a.nivel === "error" ? 1 : /^La hoja dice/.test(a.texto) ? 2 : 3);
+                      const problemas0 = avisos.filter((a) => a.nivel === "error" || a.nivel === "aviso").sort((a, b) => peso(a) - peso(b));
+                      /*
+                      | 11/11/2026 (revisión de los expertos): con la tarea vacía, «faltan
+                      | 10 por colocar» no es un fallo, es lo que hay que hacer. Estado
+                      | neutro en una línea y sin nombres (están en «Sin colocar»); tras el
+                      | primer reparto, ámbar. El rojo, sólo para los avisos de verdad: la
+                      | lista con repetidos, un comodín de más o quien no tiene demarcación.
+                      */
+                      const pendientes = problemas0.filter((a) => a.pendiente);
+                      const reales = problemas0.filter((a) => !a.pendiente);
+                      const vacia = enTarea === 0;
+                      const problemas = vacia ? reales : problemas0;
+                      const comodinDeMas = reparto.comodines.length > tarea.comodines && tarea.comodines > 0;
+                      /* Quien no tiene demarcación, en rojo cuando ya hay reparto (el reparto por puesto lo ha colocado a ciegas); antes, ámbar. */
+                      const grave = reales.some((a) => a.nivel === "error") || comodinDeMas || (!vacia && sinDemarcacion.length > 0);
+                      const aColocar = reparto.sinSitio.length;
+
+                      if (vacia && !problemas.length && !sinDemarcacion.length) {
+                        return (
+                          <p role="status" className="flex min-w-0 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[13px] text-white/70 max-md:order-last">
+                            <Info size={14} className="shrink-0 text-white/50" />
+                            <span className="min-w-0">
+                              {aColocar > 0 ? `Coloca a ${aColocar === 1 ? "1 jugador" : `los ${aColocar}`} o pulsa «Proponer equipos».` : "Nadie hace esta tarea: pasa a alguien de «No hacen esta tarea» a un equipo."}
+                            </span>
+                          </p>
+                        );
+                      }
 
                       return (
                         <div
                           role="status"
                           /* En el móvil el aviso va DEBAJO de los campos (order-last): encima ocupaba media pantalla antes de ver los equipos. */
                           className={`flex min-w-0 items-start gap-2 rounded-xl border px-3 py-2 text-[12px] leading-snug max-md:order-last ${
-                            grave ? "border-red-400/30 bg-red-500/[0.06] text-red-200" : problemas.length ? "border-amber-400/40 bg-amber-400/[0.05] text-amber-100" : "border-emerald-400/30 bg-emerald-400/[0.05] text-emerald-200"
+                            grave
+                              ? "border-red-400/30 bg-red-500/[0.06] text-red-200"
+                              : problemas.length || pendientes.length
+                                ? "border-amber-400/40 bg-amber-400/[0.05] text-amber-100"
+                                : "border-emerald-400/30 bg-emerald-400/[0.05] text-emerald-200"
                           }`}
                         >
-                          {grave ? ICONO_AVISO.error : problemas.length ? ICONO_AVISO.aviso : ICONO_AVISO.ok}
+                          {grave ? ICONO_AVISO.error : problemas.length || pendientes.length ? ICONO_AVISO.aviso : ICONO_AVISO.ok}
                           <span className="min-w-0">
+                            {vacia && aColocar > 0 && <span className="mb-0.5 block text-white/70">Coloca a los {aColocar} o pulsa «Proponer equipos».</span>}
                             {/* 10/11/2026: una línea de titular («Faltan 3 jugadores») y el
                                 detalle plegado; las acciones siguen a la vista debajo. */}
                             {problemas.length === 0 ? (
-                              "Lista para presentar: nadie olvidado, nadie repetido y equipos parejos por puesto."
+                              vacia ? null : sinDemarcacion.length ? (
+                                "Todos colocados y equipos parejos."
+                              ) : (
+                                "Lista para presentar: nadie olvidado, nadie repetido y equipos parejos por puesto."
+                              )
                             ) : problemas.length === 1 && !problemas[0].titular ? (
                               <span className="block">{problemas[0].texto}</span>
                             ) : (
@@ -4526,18 +4610,23 @@ export default function JugadoresSesionPage() {
                       )}
                     </div>
 
-                    <BarraReparto
-                      total={enTarea + reparto.sinSitio.length}
-                      tramos={[
-                        ...tarea.equipos.map((e) => ({ clave: e.id, nombre: e.nombre, color: e.color, n: reparto.porEquipo[e.id]?.length ?? 0 })),
-                        { clave: "comodin", nombre: reparto.comodines.length === 1 ? "Comodín" : "Comodines", color: tarea.colorComodin, n: reparto.comodines.length },
-                        { clave: "sin", nombre: "Sin colocar", color: "#F59E0B", n: reparto.sinSitio.length, rayado: true },
-                      ]}
-                    />
-                    <p className="-mt-2 text-[11px] text-white/40">
-                      {enTarea} en la tarea
-                      {reparto.fuera.length ? ` · ${reparto.fuera.length} no la hacen` : ""}
-                    </p>
+                    {/* 11/11/2026: con la tarea vacía la barra sólo repetía «Sin colocar» (la tercera vez en la pantalla); sale con el primer reparto. */}
+                    {enTarea > 0 && (
+                      <>
+                        <BarraReparto
+                          total={enTarea + reparto.sinSitio.length}
+                          tramos={[
+                            ...tarea.equipos.map((e) => ({ clave: e.id, nombre: e.nombre, color: e.color, n: reparto.porEquipo[e.id]?.length ?? 0 })),
+                            { clave: "comodin", nombre: reparto.comodines.length === 1 ? "Comodín" : "Comodines", color: tarea.colorComodin, n: reparto.comodines.length },
+                            { clave: "sin", nombre: "Sin colocar", color: "#F59E0B", n: reparto.sinSitio.length, rayado: true },
+                          ]}
+                        />
+                        <p className="-mt-2 text-[11px] text-white/40">
+                          {enTarea} en la tarea
+                          {reparto.fuera.length ? ` · ${reparto.fuera.length} no la hacen` : ""}
+                        </p>
+                      </>
+                    )}
 
                     {/* --- fuera --- (vacía no se pinta, salvo con alguien en la mano o arrastrándose: va al final y no mueve los campos) */}
                     {(reparto.fuera.length > 0 || Boolean(elegido) || Boolean(arrastre)) && (
