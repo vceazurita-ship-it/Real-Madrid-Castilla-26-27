@@ -111,9 +111,17 @@ export default function ApuestasPage() {
 
   /* El titular es el dato: cuántas hay abiertas y cuándo se comprueba la
      primera. Sin apuestas, la descripción de siempre. */
+  /* 11/11/2026 (marketing): una sola línea con cifra y base; antes la cabecera,
+     la línea de contexto y el panel decían tres veces «una apuesta abierta». */
   const titular =
     vivas.length > 0
-      ? `${vivas.length === 1 ? "Una apuesta abierta" : `${vivas.length} apuestas abiertas`} · próxima comprobación el ${fechaLarga(vivas[0].comprobar)}`
+      ? [
+          vivas.length === 1 ? "1 apuesta abierta" : `${vivas.length} apuestas abiertas`,
+          estadoQuiniela === "listo" ? `${juegan} pueden apostar` : "",
+          `${vivas.length === 1 ? "se comprueba" : "la primera se comprueba"} el ${fechaLarga(vivas[0].comprobar)}`,
+        ]
+          .filter(Boolean)
+          .join(" · ")
       : "Uno tira una predicción y dice qué se juega. Los demás se ponen a favor o en contra, y el día señalado se comprueba quién tenía razón.";
 
 
@@ -171,7 +179,7 @@ export default function ApuestasPage() {
         <section className="flex min-w-0 flex-1 flex-col">
           <Topbar />
 
-          <div className="min-w-0 px-4 py-6 sm:px-6 lg:px-10">
+          <div className="min-w-0 px-4 pb-24 pt-6 sm:px-6 lg:px-10">
             <AbpHeader
               area="RMCF Castilla · Laboratorio"
               title="Apuestas del staff"
@@ -179,8 +187,9 @@ export default function ApuestasPage() {
             />
 
             {/* La cifra de contexto arriba, con los chips de la quiniela (30/10/2026). */}
-            {estado === "listo" && (
-              /* Una sola línea de contexto (07/11/2026, marketing): antes eran dos píldoras. */
+            {estado === "listo" && vivas.length === 0 && doc.apuestas.length > 0 && (
+              /* Una sola línea de contexto (07/11/2026, marketing): antes eran dos píldoras.
+                 Con apuestas abiertas ya lo dice la cabecera (11/11/2026). */
               <p className="mt-4 text-[13px] tabular-nums text-white/70">
                 <span className="font-semibold text-white/85">
                   {doc.apuestas.length === 1 ? "1 apuesta" : `${doc.apuestas.length} apuestas`}
@@ -201,8 +210,9 @@ export default function ApuestasPage() {
             <div className="mt-5">
               {estado === "listo" && doc.apuestas.length > 0 ? (
                 /* Con una sola apuesta, abierto (10/11/2026): son tres líneas y explican la tarjeta. */
-                <details open={doc.apuestas.length === 1} className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/70">
-                  <summary className="cursor-pointer text-[12px] font-semibold uppercase tracking-[0.14em] text-white/60">
+                /* Plegado (11/11/2026, marketing): abierto empujaba la apuesta, que es lo que se viene a ver. */
+                <details className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/70">
+                  <summary className="cursor-pointer text-[12px] font-semibold uppercase tracking-[0.14em] text-white/65">
                     Cómo funciona
                   </summary>
                   <div className="mt-2">{pasos}</div>
@@ -292,9 +302,9 @@ export default function ApuestasPage() {
                 icon={Dices}
               >
                 {/* El texto de apoyo a 12 px (10/11/2026): el subtítulo del panel se leía pequeño. */}
-                {vivas.length > 0 && (
+                {vivas.length > 1 && (
                   <p className="-mt-1 mb-3 text-[12px] text-white/60">
-                    {vivas.length === 1 ? "Una apuesta sin resolver" : `${vivas.length} apuestas sin resolver, la que antes se comprueba primero`}
+                    La que antes se comprueba, primero.
                   </p>
                 )}
                 {estado === "cargando" && (
@@ -314,6 +324,7 @@ export default function ApuestasPage() {
                       <Tarjeta
                         key={apuesta.id}
                         apuesta={apuesta}
+                        juegan={estadoQuiniela === "listo" ? juegan : 0}
                         yo={yo}
                         hoy={hoy}
                         ocupado={estado === "guardando"}
@@ -340,6 +351,7 @@ export default function ApuestasPage() {
                       <Tarjeta
                         key={apuesta.id}
                         apuesta={apuesta}
+                        juegan={estadoQuiniela === "listo" ? juegan : 0}
                         yo={yo}
                         hoy={hoy}
                         ocupado={estado === "guardando"}
@@ -364,7 +376,7 @@ export default function ApuestasPage() {
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[480px] text-sm">
                       <thead>
-                        <tr className="text-left text-[10px] uppercase tracking-[0.16em] text-white/40">
+                        <tr className="text-left text-[11px] uppercase tracking-[0.16em] text-white/55">
                           <th className="pb-2 pr-3 font-semibold">#</th>
                           <th className="pb-2 pr-3 font-semibold">Quién</th>
                           <th className="pb-2 pr-3 text-right font-semibold">Lanzadas</th>
@@ -552,12 +564,15 @@ const CHIP: Record<EstadoApuesta, { texto: (a: Apuesta, hoy: string) => string; 
 
 function Tarjeta({
   apuesta,
+  juegan = 0,
   yo,
   hoy,
   ocupado,
   pide,
 }: {
   apuesta: Apuesta;
+  /** Cuántos pueden apostar (los de la quiniela): la base del «1 de 11». 0 si no se sabe. */
+  juegan?: number;
   yo: string | null;
   hoy: string;
   ocupado: boolean;
@@ -619,27 +634,29 @@ function Tarjeta({
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold">
               {nombreDe(apuesta.autor)}
-              {soyAutor && <span className="ml-1.5 text-[10px] uppercase tracking-[0.14em] text-[#C8A96B]">tú</span>}
+              {soyAutor && <span className="ml-1.5 text-[11px] uppercase tracking-[0.14em] text-[#C8A96B]">tú</span>}
             </p>
             <p className="text-[12px] text-white/55">Lanzada el {diaDe(apuesta.creadaEn)}</p>
           </div>
         </div>
 
         <span
-          className={`inline-flex shrink-0 items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${chip.clase}`}
+          className={`inline-flex shrink-0 items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${chip.clase}`}
         >
           {chip.texto(apuesta, hoy)}
         </span>
       </header>
 
-      <p className="text-[15px] font-medium leading-snug text-white/90">
+      {/* 11/11/2026 (marketing): la predicción es el titular, lo primero que se lee. */}
+      <p className="fuente-club text-[24px] font-bold leading-tight text-white sm:text-[28px]">
         «{apuesta.prediccion}»
       </p>
 
-      <p className="text-[13px] text-white/65">
-        <span className="font-semibold text-white/70">Se juega:</span>{" "}
-        <span className="text-[#E4CE9B]">{apuesta.enJuego}</span>
-      </p>
+      {/* «Se juega», en su propio bloque y entero. */}
+      <div className="rounded-xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.06] px-3 py-2">
+        <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-[#C8A96B]">Se juega</p>
+        <p className="mt-0.5 text-[14px] leading-snug text-[#E4CE9B]">{apuesta.enJuego}</p>
+      </div>
 
       {/* ---------------------- los bandos ---------------------- */}
 
@@ -665,6 +682,17 @@ function Tarjeta({
           onPulsa={() => postura("contra")}
         />
       </div>
+
+      {/* El recuento frente a quienes pueden apostar (11/11/2026, marketing): el autor cuenta a favor. */}
+      {juegan > 0 && (
+        <p className="text-[12px] tabular-nums text-white/65">
+          {(() => {
+            const posicionados = new Set([apuesta.autor, ...favor, ...contra]).size;
+
+            return `${posicionados} de ${juegan} ${posicionados === 1 ? "se ha posicionado" : "se han posicionado"}`;
+          })()}
+        </p>
+      )}
 
       {/* ---------------------- el veredicto -------------------- */}
 
@@ -754,7 +782,7 @@ function Bando({
         <span className={`inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] ${colores.texto}`}>
           <Icono size={13} />
           {titulo}
-          <span className="text-white/40">· {total}</span>
+          <span className="text-white/65">· {total}</span>
         </span>
 
         {puedo && (
@@ -780,14 +808,15 @@ function Bando({
             <span className="rounded-full ring-2 ring-[#C8A96B]/70">
               <Avatar slug={autor} lado={26} />
             </span>
-            {cortoDe(autor)}
+            {/* El nombre entero (11/11/2026, marketing): «A. Isla» obligaba a adivinar. */}
+            {nombreDe(autor)}
           </span>
         )}
 
         {gente.map((slug) => (
           <span key={slug} title={nombreDe(slug)} className="inline-flex items-center gap-1.5 text-[12px] text-white/80">
             <Avatar slug={slug} lado={26} />
-            {cortoDe(slug)}
+            {nombreDe(slug)}
           </span>
         ))}
       </div>
