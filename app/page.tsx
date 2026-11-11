@@ -44,7 +44,7 @@ import { CASTILLA_OPTA } from "@/lib/opta"
 import { equipoOptaDe } from "@/lib/opta-laboratorio"
 import { cifrasOptaDe, hastaOpta } from "@/lib/portada/cifras-opta"
 import { discrepancia } from "@/lib/fuentes"
-import { NotaMetodo, SelloFuente } from "@/components/ui/SelloFuente"
+import { SelloFuente } from "@/components/ui/SelloFuente"
 
 type Seguimiento = {
   ID_JUGADOR?: string
@@ -986,7 +986,6 @@ export default function Home() {
                           </span>
                         )}
                       </p>
-                      <NotaMetodo oscuro className="mt-1.5" nota={nuestroXg.fuente === "opta" ? discrepancia("xg", nuestroXg.xg, nuestroXg.wyscoutXg) : null} />
                     </div>
                     )}
 
