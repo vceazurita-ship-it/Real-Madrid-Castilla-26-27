@@ -534,6 +534,9 @@ function abpRivalDe(datos: Dataset, equipo: string, ambito: "abp" | "area" | "es
       mediana: f.mediana,
       unidad: f.metrica.unidad,
       percentil: f.percentil,
+      /* Los extremos de la liga, para la barra (11/11/2026, análisis). */
+      minimo: f.minimo ?? null,
+      maximo: f.maximo ?? null,
       /* En lo que RECIBE el sentido se gira: más córners concedidos no es mejor. */
       mejorAlto:
         (d.aspecto.key === "abpDef" || d.aspecto.key === "centrosDef") && f.metrica.mejorAlto != null

@@ -974,7 +974,7 @@ export default function ScoutRivalAbpPage() {
                 /* Sin acciones registradas: lo que ya se sabe de él (Wyscout,
                    goles y etiquetas), en la vista de resumen. */
                 vista === "resumen" && equipo ? (
-                  <AbpWyscoutRival equipo={equipo} plantilla={aereos} />
+                  <AbpWyscoutRival equipo={equipo} plantilla={aereos} acciones={acciones} />
                 ) : null
               ) : (
                 <>
