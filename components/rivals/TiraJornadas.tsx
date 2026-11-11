@@ -80,7 +80,7 @@ export function TiraJornadas({ equipo }: { equipo: string }) {
         {jornadas.map((j) => (
           <li
             key={j.n}
-            title={`J${j.n} · ${PALABRA[j.resultado]} ${j.marcador} ${j.enCasa ? "en casa" : "fuera"} contra ${j.rival}`}
+            title={`Su J${j.n} · ${PALABRA[j.resultado]} ${j.marcador} ${j.enCasa ? "en casa" : "fuera"} contra ${j.rival}`}
             aria-label={`Jornada ${j.n}: ${PALABRA[j.resultado]} ${j.marcador} contra ${j.rival}`}
             /* Casa con borde continuo y una casita; fuera, borde discontinuo y un
                avión (30/10/2026, análisis): no sólo la palabra. */
@@ -94,7 +94,7 @@ export function TiraJornadas({ equipo }: { equipo: string }) {
           >
             <span className="inline-flex items-center gap-1 text-xs font-medium opacity-80">
               {j.enCasa ? <House size={11} aria-hidden /> : <Plane size={11} aria-hidden />}
-              J{j.n} · {j.enCasa ? "casa" : "fuera"}
+              Su J{j.n} · {j.enCasa ? "casa" : "fuera"}
             </span>
             {/* El nombre corto del club (07/11/2026): «Juventud Torr…» se cortaba; el entero, en el `title`. */}
             <span className="w-full truncate text-center text-[12px] font-semibold" title={j.rival}>{nombreCorto(j.rival)}</span>
