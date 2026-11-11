@@ -203,24 +203,25 @@ export function EstadoJornada({
 
       {/* 2. Quién ha apostado: la cuenta y la barra, sin nombres. */}
       <Dato icono={CheckCircle2}>
-        <span className="inline-flex items-center gap-2">
+        {/* 11/11/2026 (marketing): una línea con la cuenta, una barra que se ve y los nombres de quien falta. */}
+        <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
           <span>
             <strong className="font-semibold tabular-nums text-white">
-              {completas}/{jugadores.length}
+              {completas} de {jugadores.length}
             </strong>{" "}
             {cerrada ? "apostaron" : "con la apuesta completa"}
           </span>
-          {faltan.length > 0 && faltan.length <= 4 ? (
-            <span className="text-white/60">
-              · {cerrada ? "no la completó" : "falta"} {enLista(faltan)}
-            </span>
-          ) : null}
-          <span className="inline-flex h-1.5 w-16 overflow-hidden rounded-full bg-white/[0.07]" aria-hidden>
+          <span className="inline-flex h-2 w-24 overflow-hidden rounded-full bg-white/15" aria-hidden>
             <span
-              className="h-full rounded-full bg-[#C8A96B]/80"
+              className="h-full rounded-full bg-[#C8A96B]"
               style={{ width: `${(completas / Math.max(1, jugadores.length)) * 100}%` }}
             />
           </span>
+          {faltan.length > 0 ? (
+            <span className="text-white/70">
+              · {cerrada ? (faltan.length === 1 ? "no la completó" : "no la completaron") : faltan.length === 1 ? "falta" : "faltan"} {enLista(faltan)}
+            </span>
+          ) : null}
         </span>
         {onVerCaritas ? (
           <button
@@ -230,7 +231,7 @@ export function EstadoJornada({
             className="ml-2 inline-flex min-h-[32px] items-center gap-1 text-[12px] text-[#C8A96B] underline-offset-2 transition hover:underline"
           >
             <Smile size={13} aria-hidden />
-            {verCaritas ? "Ocultar quién ha apostado" : "Ver quién ha apostado"}
+            {verCaritas ? "Ocultar las caras" : "Ver las caras"}
           </button>
         ) : null}
       </Dato>

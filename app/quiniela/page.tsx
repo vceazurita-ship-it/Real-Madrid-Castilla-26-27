@@ -568,6 +568,10 @@ export default function QuinielaPage() {
     ? partidos.filter((_, indice) => !mios[indice]).length
     : 0;
 
+  /* Si los nueve se juegan el mismo día, la fecha va una vez arriba y no en cada fila (11/11/2026, marketing). */
+  const mismaFecha =
+    partidos.length > 1 && partidos.every((p) => p.fecha && p.fecha === partidos[0].fecha) ? partidos[0].fecha : "";
+
   const jugados = laJornada.resultados.filter(Boolean).length;
 
   /* Con la jornada cerrada el acceso baja al final: el botón «Entrar» de
@@ -608,7 +612,7 @@ export default function QuinielaPage() {
                   <div className="min-w-0 overflow-x-auto sm:pr-14">
                     <table className="w-full text-[12px] sm:min-w-[520px]">
                       <thead>
-                        <tr className="text-[10px] uppercase tracking-[0.12em] text-white/40">
+                        <tr className="text-[11px] uppercase tracking-[0.12em] text-white/55">
                           <th className="w-7 pb-2 pt-1.5 text-right font-medium">#</th>
                           <th className="pb-2 pl-2 pt-1.5 text-left font-medium">Quién</th>
                           <th className="w-20 pb-2 pt-1.5 text-right font-medium">Acierto</th>
@@ -680,19 +684,19 @@ export default function QuinielaPage() {
                                       cuenta desde ahí (36 partidos)».
                                     */}
                                     {fila.total.jugados < maxJugados && Number.isFinite(primeraDe.get(fila.slug) ?? Infinity) && (
-                                      <span className="block text-[11px] text-white/55">
+                                      <span className="block text-[12px] text-white/60">
                                         {`entró en la jornada ${primeraDe.get(fila.slug)} · cuenta desde ahí (${fila.total.jugados} ${fila.total.jugados === 1 ? "partido" : "partidos"})`}
                                       </span>
                                     )}
                                     {fila.apostados < fila.total.jugados && (
-                                      <span className="block text-[11px] text-white/55">
+                                      <span className="block text-[12px] text-white/60">
                                         {`apostó ${fila.apostados} de ${fila.total.jugados} · el resto cuenta como fallo`}
                                       </span>
                                     )}
 
                                     {/* En el móvil no caben las columnas de
                                         aciertos y jornadas: van aquí, pequeñas. */}
-                                    <span className="block truncate text-[10px] tabular-nums text-white/40 sm:hidden">
+                                    <span className="block truncate text-[12px] tabular-nums text-white/55 sm:hidden">
                                       {fila.total.aciertos}/{fila.total.jugados}
                                       {fila.jornadasGanadas > 0
                                         ? ` · ${fila.jornadasGanadas} ${
@@ -900,7 +904,7 @@ export default function QuinielaPage() {
         <section className="flex min-w-0 flex-1 flex-col">
           <Topbar />
 
-          <div className="min-w-0 px-4 py-6 sm:px-6 lg:px-10">
+          <div className="min-w-0 px-4 pb-24 pt-6 sm:px-6 sm:pb-24 lg:px-10">
             <AbpHeader
               area="RMCF Castilla · Entre nosotros"
               title="La Quiniela de la Semana"
@@ -1149,6 +1153,12 @@ export default function QuinielaPage() {
                 {/* En el móvil cada partido es una tarjeta: equipos arriba y
                     los dos 1-X-2 debajo. La tabla de 720 px dejaba el 1-X-2
                     fuera de la pantalla, tras un desplazamiento que no se ve. */}
+                {mismaFecha ? (
+                  <p className="mb-2 text-[12px] text-white/65">
+                    Los {partidos.length} partidos se juegan el {fechaCorta(mismaFecha)}.
+                  </p>
+                ) : null}
+
                 <ul className="space-y-2.5 sm:hidden">
                   {partidos.map((partido, indice) => {
                     const resultado = laJornada.resultados[indice] ?? null;
@@ -1175,7 +1185,7 @@ export default function QuinielaPage() {
                             {indice + 1}
                           </span>
                           {partido.local} <span className="text-white/40">–</span> {partido.visitante}
-                          {partido.fecha ? (
+                          {partido.fecha && !mismaFecha ? (
                             <span className="whitespace-nowrap text-[12px] text-white/50">{` · ${fechaCorta(partido.fecha)}`}</span>
                           ) : null}
                         </p>
@@ -1228,7 +1238,7 @@ export default function QuinielaPage() {
                 <div className="hidden min-w-0 overflow-x-auto sm:block">
                   <table className="w-full min-w-[560px] text-[12px]">
                     <thead>
-                      <tr className="text-[10px] uppercase tracking-[0.12em] text-white/40">
+                      <tr className="text-[11px] uppercase tracking-[0.12em] text-white/55">
                         <th className="w-7 pb-2 pt-1.5 text-right font-medium">#</th>
                         <th className="pb-2 pl-2 pt-1.5 text-left font-medium">Partido</th>
                         {yo && (
@@ -1248,7 +1258,7 @@ export default function QuinielaPage() {
                           </>
                         ) : (
                           <>
-                            <th className="w-24 pb-2 pt-1.5 text-right font-medium">Fecha</th>
+                            {!mismaFecha && <th className="w-24 pb-2 pt-1.5 text-right font-medium">Fecha</th>}
                             {laJornada.resultados.some(Boolean) && (
                               <th className="w-20 pb-2 pt-1.5 text-center font-medium">Resultado</th>
                             )}
@@ -1317,9 +1327,11 @@ export default function QuinielaPage() {
 
                             {!yo && (
                               <>
-                                <td className="py-2 text-right text-[12px] tabular-nums text-white/55">
-                                  {fechaCorta(partido.fecha)}
-                                </td>
+                                {!mismaFecha && (
+                                  <td className="py-2 text-right text-[12px] tabular-nums text-white/55">
+                                    {fechaCorta(partido.fecha)}
+                                  </td>
+                                )}
                                 {laJornada.resultados.some(Boolean) && (
                                   <td className="py-2 text-center text-[13px] font-semibold tabular-nums text-white/80">
                                     {resultado ?? ""}
@@ -1492,16 +1504,11 @@ export default function QuinielaPage() {
                   </p>
                 ) : null}
 
-                {/* Con el bloque en marcha sólo importan los dos que van
-                    comiendo gratis; el resto, plegado. */}
-                {(!cerrado && tablaBloque.every((fila) => fila.jugados === 0) ? [] : [cerrado ? tablaBloque : tablaBloque.slice(0, 2), cerrado ? [] : tablaBloque.slice(2)]).map((grupo, parte) => grupo.length === 0 ? null : (
-                <details key={parte} open={parte === 0} className={parte === 1 ? "mt-2" : undefined}>
-                <summary className={parte === 0 ? "hidden" : "cursor-pointer select-none text-[11px] text-white/50 hover:text-white"}>
-                  {`Ver los otros ${grupo.length}`}
-                </summary>
-                <div className="flex flex-wrap gap-2">
-                  {grupo.map((fila, i) => {
-                    const indice = i + parte * 2;
+                {/* 11/11/2026 (marketing): todos a la vista y en rejilla a todo el ancho, con la base
+                    en palabras («5 aciertos de 9»); antes los otros nueve iban plegados. */}
+                {!cerrado && tablaBloque.every((fila) => fila.jugados === 0) ? null : (
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {tablaBloque.map((fila, indice) => {
                     const persona = PERSONA_POR_SLUG.get(fila.slug);
 
                     if (!persona) return null;
@@ -1515,28 +1522,28 @@ export default function QuinielaPage() {
                             : "border-white/10 bg-white/[0.02]"
                         }`}
                       >
-                        <span className="text-[10px] tabular-nums text-white/25">
+                        <span className="w-5 text-right text-[12px] font-semibold tabular-nums text-white/55">
                           {indice + 1}
                         </span>
 
                         <Avatar slug={fila.slug} lado={26} />
 
-                        <span className="min-w-0">
+                        <span className="min-w-0 flex-1">
                           <span
-                            className={`block truncate text-[12px] ${
+                            className={`block truncate text-[13px] ${
                               fila.invitado
                                 ? "font-semibold text-[#C8A96B]"
-                                : "text-white/75"
+                                : "text-white/80"
                             }`}
                           >
                             {nombreCorto(persona)}
                           </span>
 
-                          <span className="block text-[10px] tabular-nums text-white/40">
-                            {fila.jugados > 0
-                              ? `${fila.aciertos}/${fila.jugados} · ${fila.porcentaje.toFixed(0)} %`
-                              : "sin jugar"}
-                          </span>
+                          {fila.jugados > 0 ? (
+                            <span className="block text-[12px] tabular-nums text-white/60">
+                              {`${fila.aciertos} ${fila.aciertos === 1 ? "acierto" : "aciertos"} de ${fila.jugados} · ${fila.porcentaje.toFixed(0)} %`}
+                            </span>
+                          ) : null}
                         </span>
 
                         {fila.invitado && (
@@ -1550,8 +1557,7 @@ export default function QuinielaPage() {
                     );
                   })}
                 </div>
-                </details>
-                ))}
+                )}
 
                 {cerrado ? (
                   <p className="mt-3 text-[11px] leading-relaxed text-white/50">
