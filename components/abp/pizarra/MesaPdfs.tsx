@@ -28,7 +28,7 @@ import {
   type MarcoCaptura,
   type SuJugador,
 } from "@/lib/abp/pizarra-jugador";
-import { buildAerialThreats } from "@/lib/abp/rival";
+import { buildAerialThreats, cargaAlturasBesoccer } from "@/lib/abp/rival";
 import { trabajoPdfs, type EncargoPdfs } from "@/lib/abp/trabajo-pdfs";
 import { subeAdjunto } from "@/lib/correo/subeAdjunto";
 import { capturaLienzos, esperaFotos, pintado, respira } from "@/lib/export/lienzos";
@@ -80,7 +80,7 @@ async function fechaDelPartido(encargo: EncargoPdfs) {
 
 /** Nombre y altura de cada dorsal de su plantilla (para «Marcas al 4 Pérez (1,86 m)»). */
 async function suPlantilla(rival: string) {
-  const filas = await traeJson<unknown>("/api/rivals?action=rivalesPlantillas");
+  const [filas] = await Promise.all([traeJson<unknown>("/api/rivals?action=rivalesPlantillas"), cargaAlturasBesoccer()]);
 
   return new Map<string, SuJugador>(
     buildAerialThreats(filas, [], rival)

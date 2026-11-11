@@ -195,7 +195,7 @@ import {
   susCabeceadores,
 } from "@/lib/abp/defensa-rival";
 import { SCOUT_DOC_KEY, actionsOf } from "@/lib/abp/rivalScout";
-import { buildAerialThreats } from "@/lib/abp/rival";
+import { buildAerialThreats, cargaAlturasBesoccer } from "@/lib/abp/rival";
 import { enElCampo } from "@/lib/abp/pizarra";
 import { siglasQueChocan, siglasSinChoque } from "@/lib/abp/siglas";
 import { traeJson } from "@/lib/hojaCsv";
@@ -1027,6 +1027,7 @@ export default function PizarraAbpPage() {
           .then((respuesta) => (respuesta.ok ? respuesta.json() : null))
           .catch(() => null),
         traeJson<unknown>("/api/rivals?action=rivalesPlantillas").catch(() => []),
+        cargaAlturasBesoccer(),
       ]);
 
       const estructura = estructuraDefensiva(actionsOf(scout?.data ?? null, equipo), familia);

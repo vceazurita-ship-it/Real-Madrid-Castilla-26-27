@@ -11,7 +11,7 @@
 
 import { proponMarcas, type Atacante, type Marcador } from "@/lib/abp/marcas-corner";
 import { puestosDeGrupo, type SlidePizarra, type TableroPizarra } from "@/lib/abp/pizarra";
-import { buildAerialThreats, loadRivalAbp } from "@/lib/abp/rival";
+import { buildAerialThreats, cargaAlturasBesoccer, loadRivalAbp } from "@/lib/abp/rival";
 import { SCOUT_DOC_KEY, actionsOf } from "@/lib/abp/rivalScout";
 import { casaNombre, sitioDe } from "@/lib/data-analisis/once";
 import type { FilaJugador } from "@/lib/data-analisis/leer";
@@ -68,6 +68,9 @@ export async function cargaDatosMarcas(rival: string, players: Player[]): Promis
   /* ---------- Ellos: su once con todo lo que se sabe por arriba ---------- */
 
   const eventos = abp.events.filter((e) => mismoClub(e.equipo, equipo) || mismoClub(e.equipo, rival));
+  /* Las estaturas de BeSoccer mandan sobre la hoja (11/11/2026). */
+  if (typeof window !== "undefined") await cargaAlturasBesoccer();
+
   const plantilla = buildAerialThreats(plantillas, eventos, equipo);
 
   /* Su scouting de ABP también apunta quién remata. */
@@ -92,6 +95,7 @@ export async function cargaDatosMarcas(rival: string, players: Player[]): Promis
         dorsal: String(hoja?.dorsal || t.label || "").trim(),
         posicion: t.posicion ?? hoja?.posicion ?? "",
         altura: hoja?.altura ?? numero(wy?.altura),
+        alturaHoja: hoja?.alturaHoja ?? null,
         aereoPct: numero(wy?.datos["Duelos aéreos ganados, %"]),
         aereos90: numero(wy?.datos["Duelos aéreos en los 90"]),
         duelos: duelosDe(wy),

@@ -649,7 +649,7 @@ export function AbpWyscoutRival({
   | contados y, a igualdad, por altura.
   */
   const conCm = (uno: RivalPlayerAerial) => {
-    const partes = [alturaDe(uno) ? `${alturaDe(uno)} cm` : "", uno.remates > 0 ? `${uno.remates} ${uno.remates === 1 ? "remate" : "remates"}` : ""].filter(Boolean);
+    const partes = [alturaDe(uno) ? `${alturaDe(uno)} cm${uno.alturaHoja ? `, hoja ${uno.alturaHoja}` : ""}` : "", uno.remates > 0 ? `${uno.remates} ${uno.remates === 1 ? "remate" : "remates"}` : ""].filter(Boolean);
 
     return `${uno.nombre}${partes.length ? ` (${partes.join(", ")})` : ""}`;
   };
@@ -1009,7 +1009,7 @@ export function AbpWyscoutRival({
                           {uno.nombre}
                           {titulares && esTitular(uno) === false && <span className="ml-1 text-[11px] text-white/50">fuera del once</span>}
                         </td>
-                        <td className={`py-1 text-right tabular-nums ${conRemates ? "pr-2" : ""}`}>{alturaDe(uno) ? `${alturaDe(uno)} cm` : ""}</td>
+                        <td className={`py-1 text-right tabular-nums ${conRemates ? "pr-2" : ""}`}>{alturaDe(uno) ? `${alturaDe(uno)} cm${uno.alturaHoja ? ` · hoja ${uno.alturaHoja}` : ""}` : ""}</td>
                         {conRemates && <td className="py-1 text-right tabular-nums">{uno.remates > 0 ? uno.remates : ""}</td>}
                       </tr>
                     ))}

@@ -24,6 +24,8 @@ export type Atacante = {
   dorsal: string;
   posicion: string;
   altura: number | null;
+  /** La de la hoja RIVALES cuando BeSoccer (la que manda) dice otra. */
+  alturaHoja?: number | null;
   aereoPct: number | null;
   aereos90: number | null;
   /** Duelos aéreos que hay detrás del %. */
@@ -96,7 +98,7 @@ const aereos = (pct: number | null, duelos: number | null) =>
 
 export function motivoAtacante(a: Atacante) {
   return [
-    metros(a.altura),
+    a.alturaHoja && a.altura ? `${metros(a.altura)} (hoja ${metros(a.alturaHoja)})` : metros(a.altura),
     a.remates ? `${a.remates} ${a.remates === 1 ? "remate" : "remates"} ABP` : a.remataAbp ? "rematador de ABP" : "",
     aereos(a.aereoPct, a.duelos),
   ]

@@ -58,6 +58,7 @@ import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { Explicativo } from "@/components/ui/textos-analisis";
 import type { PatternCatalog } from "@/components/abp/PatternCombo";
 import { AbpWyscoutRival } from "@/components/abp/AbpWyscoutRival";
+import { useAlturasBesoccer } from "@/hooks/useAlturasBesoccer";
 import { RivalScoutEditor } from "@/components/abp/RivalScoutEditor";
 import { AnalisisRival } from "@/components/rivals/analisis/AnalisisRival";
 import { ApuntesAbp } from "@/components/abp/apuntes/ApuntesAbp";
@@ -602,9 +603,13 @@ export default function ScoutRivalAbpPage() {
     [filtered],
   );
 
+  /* Las estaturas de BeSoccer mandan sobre la hoja; si difieren se ven las dos (11/11/2026). */
+  const alturasListas = useAlturasBesoccer();
+
   const aereos: RivalPlayerAerial[] = useMemo(
     () => buildAerialThreats(squad, delEquipo, equipo),
-    [squad, delEquipo, equipo],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- alturasListas: recalcular cuando llegan las de BeSoccer
+    [squad, delEquipo, equipo, alturasListas],
   );
 
   const nombresPlantilla = useMemo(
@@ -1362,7 +1367,9 @@ function TaggedList({
             )}
             <span className="text-white/85">{player.nombre}</span>
             {player.altura && (
-              <span className="tabular-nums text-white/45">{player.altura} cm</span>
+              <span className="tabular-nums text-white/45">
+                {player.altura} cm{player.alturaHoja ? ` (hoja ${player.alturaHoja})` : ""}
+              </span>
             )}
           </li>
         ))}
@@ -1410,7 +1417,7 @@ function AerialList({ players }: { players: RivalPlayerAerial[] }) {
             </span>
 
             <span className="w-14 shrink-0 text-right text-[11px] tabular-nums text-white/55">
-              {altura != null ? `${altura} cm` : "—"}
+              {altura != null ? `${altura} cm${player.alturaHoja ? ` · hoja ${player.alturaHoja}` : ""}` : "—"}
             </span>
 
             {player.remataAbp && (

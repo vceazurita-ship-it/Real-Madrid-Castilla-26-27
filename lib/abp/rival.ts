@@ -392,6 +392,8 @@ export interface RivalPlayerAerial {
   dorsal: string;
   posicion: string;
   altura: number | null;
+  /** La de la hoja RIVALES cuando BeSoccer dice otra (11/11/2026): se enseñan las dos. */
+  alturaHoja?: number | null;
   foto: string;
   /** Etiquetado como rematador de ABP en el scouting. */
   remataAbp: boolean;
@@ -402,6 +404,35 @@ export interface RivalPlayerAerial {
 }
 
 const clean = (value: unknown) => String(value ?? "").trim();
+
+/*
+| ESTATURAS DE BESOCCER (11/11/2026, el analista): mandan sobre la hoja
+| RIVALES. Las baja scripts/rivals-alturas.mjs de la página de plantilla de
+| cada equipo a `rivals:alturas` (id de BeSoccer → cm); el id sale de la foto.
+| Se cargan una vez con `cargaAlturasBesoccer()` y valen para todo lo que use
+| `buildAerialThreats` (ABP del rival, pizarra, PDF, marcas del córner).
+*/
+let alturasBesoccer: Record<string, number> = {};
+let cargaAlturas: Promise<Record<string, number>> | null = null;
+
+export function cargaAlturasBesoccer(): Promise<Record<string, number>> {
+  cargaAlturas ??= fetch("/api/docs?key=rivals%3Aalturas", { cache: "no-store" })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((j: { data?: { porId?: Record<string, number> } } | null) => {
+      alturasBesoccer = j?.data?.porId ?? {};
+      return alturasBesoccer;
+    })
+    .catch(() => alturasBesoccer);
+
+  return cargaAlturas;
+}
+
+/** Para Node y pruebas: pon el mapa a mano. */
+export function ponAlturasBesoccer(mapa: Record<string, number>) {
+  alturasBesoccer = mapa;
+}
+
+const idDeFoto = (foto: string) => foto.match(/\/players\/(?:[a-z]+\/)?(\d+)\./)?.[1] ?? "";
 
 /** «RAUL RUBIO» -> «Raúl Rubio»: como se lee en Plantillas rivales. */
 const comoNombre = (t: string) =>
@@ -449,7 +480,14 @@ export function buildAerialThreats(
         nombre,
         dorsal: clean(row.DORSAL),
         posicion: clean(row["POSICIÓN"]),
-        altura: alturaCm(clean(row.ALTURA)),
+        ...(() => {
+          const deHoja = alturaCm(clean(row.ALTURA));
+          const deBesoccer = alturasBesoccer[idDeFoto(clean(row.FOTO))] ?? null;
+
+          if (!deBesoccer) return { altura: deHoja };
+
+          return { altura: deBesoccer, ...(deHoja && deHoja !== deBesoccer ? { alturaHoja: deHoja } : {}) };
+        })(),
         foto: clean(row.FOTO),
         remataAbp: impacto.includes("rematador de abp"),
         sacaAbp: impacto.includes("sacador de abp") || impacto.includes("saca abp"),
