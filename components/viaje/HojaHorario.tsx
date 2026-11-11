@@ -40,16 +40,20 @@ import {
   MARGEN_HOJA as MARGEN,
   TIPO_CITA,
   aHora,
+  comoDuracion,
   diaCorto,
   diaLargo,
   diaSiguienteCorto,
   ejeHorario,
+  emojiDeCita,
   esDiaDelPartido,
   esDiaSiguiente,
+  esSalida,
   rotuloDia,
   type Desplazamiento,
   type DiaViaje,
 } from "@/lib/viaje/modelo";
+import { nombreLugar } from "@/lib/viaje/rutas";
 
 /** Dónde arranca y acaba la columna de horas dentro de la hoja. */
 const COLUMNA_Y = 470;
@@ -392,6 +396,13 @@ export function HojaHorario({
 
           const partido = cita.tipo === "partido";
 
+          /* 11/11/2026: el emoticono delante, y en un trayecto adónde va y cuánto dura (lo vacío no sale). */
+          const emoji = emojiDeCita(cita);
+          const destino = esSalida(cita) ? nombreLugar(cita.hasta, viaje) : "";
+          const detalle = [cita.nota?.trim(), destino && `→ ${destino}`, esSalida(cita) ? comoDuracion(cita.duracion) : ""]
+            .filter(Boolean)
+            .join(" · ");
+
           return (
             <div key={cita.id}>
               {/* Filete hasta la columna de horas: ata la etiqueta a su eje. */}
@@ -440,6 +451,10 @@ export function HojaHorario({
                   {aHora(cita.minuto)}
                 </p>
 
+                {emoji && (
+                  <span style={{ flex: "0 0 auto", width: 40, textAlign: "center", fontSize: 30, lineHeight: 1 }}>{emoji}</span>
+                )}
+
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <p
                     style={{
@@ -458,7 +473,7 @@ export function HojaHorario({
                     {cita.texto}
                   </p>
 
-                  {cita.nota?.trim() && (
+                  {detalle && (
                     <p
                       style={{
                         margin: "5px 0 0",
@@ -473,7 +488,7 @@ export function HojaHorario({
                         whiteSpace: "nowrap",
                       }}
                     >
-                      {cita.nota}
+                      {detalle}
                     </p>
                   )}
                 </div>

@@ -42,7 +42,7 @@
  * desplazar la página en tablet.
  */
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -72,7 +72,9 @@ import {
   Link2,
   MoreHorizontal,
   Pencil,
+  Pin,
   Plus,
+  Route,
   Trash2,
   Undo2,
   Wand2,
@@ -81,8 +83,21 @@ import { toast } from "sonner";
 
 import { Button, Notice, Panel } from "@/components/abp/ui";
 import { EntradaHora } from "@/components/viaje/EntradaHora";
+import { srcImagen } from "@/components/viaje/DossierViaje";
+import { CLAVES_LUGAR, nombreLugar, resuelveLugar } from "@/lib/viaje/rutas";
+import { pideTrayecto, recuerdaDuracion } from "@/lib/viaje/trayectos-cliente";
 import {
-  CITAS_RAPIDAS,
+  EVENTOS_PALETA,
+  EVENTO_POR_CLAVE,
+  citasDeEvento,
+  comoDuracion,
+  emojiDeCita,
+  encadenaCitas,
+  esSalida,
+  leeDuracion,
+  medioDeCita,
+  type EventoPaleta,
+  type ImagenViaje,
   PLANTILLAS_DIA,
   PLANTILLAS_HORARIO,
   PLANTILLAS_VIAJE,
@@ -91,8 +106,6 @@ import {
   aMinutos,
   anclaDelHorario,
   citaDeHora,
-  citaRapida,
-  minutoDeRapida,
   clonaCitas,
   comoDesfase,
   conCitas,
@@ -141,7 +154,47 @@ const idHueco = (indice: number) => `hueco:${indice}`;
 
 type ArrastreCita = { tipo: "cita"; diaId: string; citaId: string };
 type ArrastreDia = { tipo: "dia"; diaId: string };
-type Arrastre = ArrastreCita | ArrastreDia;
+/** Un evento de la paleta, camino de un día (11/11/2026). */
+type ArrastrePaleta = { tipo: "paleta"; clave: string };
+type Arrastre = ArrastreCita | ArrastreDia | ArrastrePaleta;
+
+const idPaleta = (clave: string) => `paleta:${clave}`;
+
+/** Lo que dice el chip: el texto del evento o, el personalizable, «Otra». */
+const rotuloEvento = (evento: EventoPaleta) => evento.texto || "Otra cita";
+
+/* ------------------------------------------------------------------ */
+/*  LA PALETA                                                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Un evento que se arrastra a un día, como un emoticono a un chat. Con un
+ * toque, sin arrastrar, va al día que se diga (`onToca`).
+ */
+function ChipPaleta({ evento, onToca, titulo }: { evento: EventoPaleta; onToca: () => void; titulo: string }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: idPaleta(evento.clave),
+    data: { tipo: "paleta", clave: evento.clave } satisfies ArrastrePaleta,
+  });
+
+  return (
+    <button
+      type="button"
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      onClick={onToca}
+      title={titulo}
+      className={`flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[12px] text-white/75 transition hover:border-[#C8A96B]/50 hover:text-white ${
+        isDragging ? "opacity-30" : ""
+      }`}
+      style={{ borderLeft: `3px solid ${TIPO_CITA[evento.tipo].color}` }}
+    >
+      <span aria-hidden className="text-[15px] leading-none">{evento.emoji}</span>
+      {rotuloEvento(evento)}
+    </button>
+  );
+}
 
 type DestinoZona = { tipo: "zona"; diaId: string };
 type DestinoHueco = { tipo: "hueco"; indice: number };
@@ -161,6 +214,10 @@ function FilaCita({
   onQuita,
   onDuplica,
   onMueveA,
+  lugares,
+  estadoTrayecto,
+  onCalcula,
+  onDuracionManual,
 }: {
   cita: CitaHorario;
   dia: DiaViaje;
@@ -169,10 +226,17 @@ function FilaCita({
   arrastrando: boolean;
   /** Recién creada: el cursor va directo a escribir qué es. */
   enfoca?: boolean;
-  onCambia: (parche: Partial<CitaHorario>) => void;
+  /** `sinCadena`: el cambio no corre las de detrás (pasar a la madrugada siguiente). */
+  onCambia: (parche: Partial<CitaHorario>, sinCadena?: boolean) => void;
   onQuita: () => void;
   onDuplica: () => void;
   onMueveA: (diaId: string) => void;
+  lugares?: Record<string, ImagenViaje>;
+  /** «calculando» mientras se pide; si falló, por qué. */
+  estadoTrayecto?: string;
+  /** Pide lo que dura el trayecto (con los lugares que se le pasen, si acaban de cambiar). */
+  onCalcula: (parche?: Partial<CitaHorario>) => void;
+  onDuracionManual: (minutos: number | null) => void;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: idCita(dia.id, cita.id),
@@ -193,6 +257,29 @@ function FilaCita({
   | Una recién creada abre ya desplegada.
   */
   const [editar, setEditar] = useState(Boolean(enfoca));
+
+  /* La duración se escribe en borrador y se guarda al salir: «4 h 15», «255». */
+  const [borradorDuracion, setBorradorDuracion] = useState<string | null>(null);
+
+  const emoji = emojiDeCita(cita);
+  const conTrayecto = esSalida(cita) || cita.tipo === "viaje";
+  const hasta = resuelveLugar(cita.hasta, viaje, lugares);
+
+  const confirmaDuracion = () => {
+    if (borradorDuracion === null) return;
+
+    const minutos = leeDuracion(borradorDuracion);
+
+    setBorradorDuracion(null);
+
+    if (borradorDuracion.trim() === "") {
+      onDuracionManual(null);
+
+      return;
+    }
+
+    if (minutos !== null && minutos > 0 && minutos !== cita.duracion) onDuracionManual(minutos);
+  };
 
   return (
     <div
@@ -234,21 +321,44 @@ function FilaCita({
       </div>
 
       <div className="min-w-0">
-        <input
-          value={cita.texto}
-          onChange={(evento) => onCambia({ texto: evento.target.value })}
-          autoFocus={enfoca}
-          placeholder="Qué es: salida bus, comida…"
-          className="w-full min-w-0 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#C8A96B]/50"
-        />
+        <span className="flex min-w-0 items-center gap-1.5">
+          {emoji && (
+            <span aria-hidden className="w-6 shrink-0 text-center text-[17px] leading-none">
+              {emoji}
+            </span>
+          )}
+          <input
+            value={cita.texto}
+            onChange={(evento) => onCambia({ texto: evento.target.value })}
+            autoFocus={enfoca}
+            placeholder="Qué es: salida bus, comida…"
+            className="w-full min-w-0 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#C8A96B]/50"
+          />
+        </span>
 
-        {!editar && (cita.nota || esDiaSiguiente(cita.minuto)) && (
+        {!editar && (cita.nota || esDiaSiguiente(cita.minuto) || cita.fijada || (conTrayecto && (cita.hasta || cita.duracion)) || estadoTrayecto) && (
           <p className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 text-[12px] text-white/55">
+            {cita.fijada && (
+              <span className="flex shrink-0 items-center gap-0.5 font-semibold text-[#C8A96B]" title="Fijada: el encadenado no la mueve">
+                <Pin size={11} /> fijada
+              </span>
+            )}
             {esDiaSiguiente(cita.minuto) && (
               <span className="shrink-0 font-semibold uppercase tracking-wide text-[#C8A96B]">
                 Ya es {diaSiguienteCorto(dia.fecha).toLowerCase()}
               </span>
             )}
+            {conTrayecto && (cita.desde || cita.hasta) && (
+              <span className="min-w-0 truncate">
+                {[nombreLugar(cita.desde, viaje), nombreLugar(cita.hasta, viaje)].filter(Boolean).join(" → ")}
+              </span>
+            )}
+            {conTrayecto && cita.duracion ? (
+              <span className="shrink-0 font-semibold text-white/75">
+                {comoDuracion(cita.duracion)} · llega {aHora(cita.minuto + cita.duracion)}
+              </span>
+            ) : null}
+            {estadoTrayecto && <span className="shrink-0 text-white/45">{estadoTrayecto === "calculando" ? "calculando el trayecto…" : estadoTrayecto}</span>}
             {cita.nota ? <span className="min-w-0 truncate">{cita.nota}</span> : null}
           </p>
         )}
@@ -314,6 +424,128 @@ function FilaCita({
             </label>
           )}
 
+          {/* 11/11/2026: el emoticono y la marca de fijada. */}
+          <div className="col-span-full flex min-w-0 flex-wrap items-end gap-3">
+            <label className="block w-24 min-w-0">
+              <span className="mb-1 block text-[11px] uppercase tracking-[0.14em] text-white/45">Emoticono</span>
+              <input
+                value={cita.emoji ?? ""}
+                onChange={(evento) => onCambia({ emoji: evento.target.value.slice(0, 8) })}
+                placeholder={emoji || "🙂"}
+                aria-label="Emoticono de la cita"
+                className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5 text-center text-[17px] text-white outline-none transition placeholder:text-white/40 focus:border-[#C8A96B]/50"
+              />
+            </label>
+
+            <label className="flex items-center gap-2 rounded-lg border border-white/10 px-2.5 py-1.5 text-[13px] text-white/75">
+              <input
+                type="checkbox"
+                checked={Boolean(cita.fijada)}
+                onChange={(evento) => onCambia({ fijada: evento.target.checked || undefined })}
+                className="h-4 w-4 accent-[#C8A96B]"
+              />
+              <Pin size={13} className="text-[#C8A96B]" />
+              Fijada: al cambiar otra cita, ésta no se mueve
+            </label>
+          </div>
+
+          {/* El trayecto: de dónde a dónde y cuánto se tarda (11/11/2026). */}
+          {conTrayecto && (
+            <div className="col-span-full grid min-w-0 gap-2 rounded-lg border border-white/10 p-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
+              {(["desde", "hasta"] as const).map((campo) => (
+                <label key={campo} className="block min-w-0">
+                  <span className="mb-1 block text-[11px] uppercase tracking-[0.14em] text-white/45">{campo === "desde" ? "Sale de" : "Va a"}</span>
+                  <select
+                    value={cita[campo] ?? ""}
+                    onChange={(evento) => {
+                      const parche = { [campo]: evento.target.value || undefined } as Partial<CitaHorario>;
+
+                      onCambia(parche);
+
+                      /* Con los dos lugares puestos, el autobús se calcula solo. */
+                      if (medioDeCita(cita) === "bus" || cita.duracion === undefined) onCalcula(parche);
+                    }}
+                    className="w-full min-w-0 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"
+                  >
+                    <option value="" className="bg-[#11161C]">—</option>
+                    {CLAVES_LUGAR.map((clave) => (
+                      <option key={clave} value={clave} className="bg-[#11161C]">
+                        {nombreLugar(clave, viaje)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ))}
+
+              <label className="block min-w-0">
+                <span className="mb-1 block text-[11px] uppercase tracking-[0.14em] text-white/45">
+                  Duración{" "}
+                  {cita.duracionFuente ? (
+                    <span className="normal-case tracking-normal text-white/40">
+                      · {cita.duracionFuente === "osrm" ? "calculada (OpenStreetMap)" : cita.duracionFuente === "memoria" ? "la que pusiste la otra vez" : "escrita a mano"}
+                    </span>
+                  ) : null}
+                </span>
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <input
+                    value={borradorDuracion ?? comoDuracion(cita.duracion)}
+                    onChange={(evento) => setBorradorDuracion(evento.target.value)}
+                    onBlur={confirmaDuracion}
+                    onKeyDown={(evento) => {
+                      if (evento.key === "Enter") (evento.target as HTMLInputElement).blur();
+                    }}
+                    placeholder="4 h 15"
+                    title="Se recuerda para este trayecto en los próximos viajes"
+                    className="w-full min-w-0 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5 text-sm tabular-nums text-white outline-none transition placeholder:text-white/25 focus:border-[#C8A96B]/50"
+                  />
+                  <Button icon={Route} onClick={() => onCalcula()} disabled={estadoTrayecto === "calculando"} title="Calcular con OpenStreetMap (autobús) o traer la que se guardó">
+                    Calcular
+                  </Button>
+                </span>
+              </label>
+
+              {hasta?.foto?.url && (
+                <div className="col-span-full flex min-w-0 items-center gap-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={srcImagen(hasta.foto.url)} alt="" className="h-14 w-24 shrink-0 rounded-md object-cover" />
+                  <span className="min-w-0 text-[12px] text-white/55">La foto de {hasta.nombre}: sale en la diapositiva «El viaje».</span>
+                </div>
+              )}
+
+              {estadoTrayecto && estadoTrayecto !== "calculando" && (
+                <p className="col-span-full text-[12px] text-amber-300/80">{estadoTrayecto}</p>
+              )}
+            </div>
+          )}
+
+          {/* La valoración de la cita: para la próxima vez, no sale en ningún PDF. */}
+          <div className="col-span-full grid min-w-0 gap-2 sm:grid-cols-[110px_minmax(0,1fr)]">
+            <label className="block min-w-0">
+              <span className="mb-1 block text-[11px] uppercase tracking-[0.14em] text-white/45">Nota</span>
+              <select
+                value={cita.valoracion?.nota ?? ""}
+                onChange={(evento) =>
+                  onCambia({ valoracion: { ...cita.valoracion, nota: evento.target.value ? Number(evento.target.value) : undefined } })
+                }
+                className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"
+              >
+                <option value="" className="bg-[#11161C]">—</option>
+                {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                  <option key={n} value={n} className="bg-[#11161C]">{n}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block min-w-0">
+              <span className="mb-1 block text-[11px] uppercase tracking-[0.14em] text-white/45">Cómo salió · no va en el PDF</span>
+              <input
+                value={cita.valoracion?.texto ?? ""}
+                onChange={(evento) => onCambia({ valoracion: { ...cita.valoracion, texto: evento.target.value } })}
+                placeholder="«Llegó 20 min tarde», «la sala, pequeña»"
+                className="w-full min-w-0 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-sm text-white/85 outline-none transition placeholder:text-white/25 focus:border-[#C8A96B]/50"
+              />
+            </label>
+          </div>
+
           <div className="col-span-full flex min-w-0 flex-wrap items-center gap-1.5">
             <Button icon={ArrowUp} onClick={() => onCambia({ minuto: Math.max(0, cita.minuto - 5) })} title="Cinco minutos antes">
               5 min antes
@@ -324,7 +556,7 @@ function FilaCita({
             </Button>
 
             {/* La vuelta que llega a las 3:15 pertenece a la hoja del día que se jugó: esto la manda a la de después, y otra vez la trae. */}
-            <Button onClick={() => onCambia({ minuto: esDiaSiguiente(cita.minuto) ? cita.minuto - 1440 : cita.minuto + 1440 })}>
+            <Button onClick={() => onCambia({ minuto: esDiaSiguiente(cita.minuto) ? cita.minuto - 1440 : cita.minuto + 1440 }, true)}>
               {esDiaSiguiente(cita.minuto) ? "Volver a este día" : "Pasar a la madrugada siguiente"}
             </Button>
 
@@ -400,7 +632,21 @@ function TarjetaDia({
   onMueveCita,
   recien,
   onRecien,
+  encadenar,
+  lugares,
+  estados,
+  onCalcula,
+  onDuracionManual,
+  onEvento,
 }: {
+  /** Si cambiar una hora mueve las de detrás (11/11/2026). */
+  encadenar: boolean;
+  lugares?: Record<string, ImagenViaje>;
+  /** Por cita: «calculando» o por qué no se pudo calcular el trayecto. */
+  estados: Record<string, string>;
+  onCalcula: (cita: CitaHorario) => void;
+  onDuracionManual: (citaId: string, minutos: number | null) => void;
+  onEvento: (evento: EventoPaleta) => void;
   dia: DiaViaje;
   indice: number;
   total: number;
@@ -437,7 +683,7 @@ function TarjetaDia({
   const { setNodeRef: refZona, isOver: sobreZona } = useDroppable({
     id: idZona(dia.id),
     data: { tipo: "zona", diaId: dia.id } satisfies DestinoZona,
-    disabled: arrastre?.tipo !== "cita",
+    disabled: arrastre?.tipo !== "cita" && arrastre?.tipo !== "paleta",
   });
 
   const minutoPartido = aMinutos(viaje.hora);
@@ -449,10 +695,27 @@ function TarjetaDia({
 
   const citas = dia.citas;
 
-  const cambia = (id: string, parche: Partial<CitaHorario>) =>
-    onCambiaCitas(
-      citas.map((cita) => (cita.id === id ? { ...cita, ...parche } : cita)),
-    );
+  /*
+  | Encadenado (11/11/2026): cambiar la hora de una cita corre las de detrás lo
+  | mismo, hasta la primera fijada o el partido. Ver `encadenaCitas`.
+  */
+  const cambia = (id: string, parche: Partial<CitaHorario>, sinCadena = false) => {
+    if (!encadenar || sinCadena) {
+      onCambiaCitas(citas.map((cita) => (cita.id === id ? { ...cita, ...parche } : cita)));
+
+      return;
+    }
+
+    const { citas: nuevas, movidas } = encadenaCitas(citas, id, parche);
+
+    onCambiaCitas(nuevas);
+
+    if (movidas > 0) {
+      toast.message(`${movidas === 1 ? "Se mueve 1 cita" : `Se mueven ${movidas} citas`} detrás`, {
+        description: "Encadenado: lo fijado y el partido no se tocan. Se puede deshacer.",
+      });
+    }
+  };
 
   /** Mueve el día entero. Se usa cuando cambia la hora del partido. */
   const desplaza = (minutos: number) =>
@@ -503,10 +766,6 @@ function TarjetaDia({
 
     onRecien(nueva.id);
   };
-
-  /** Una de las de siempre, ya con su hora: ver `CITAS_RAPIDAS`. */
-  const anadeRapida = (rapida: (typeof CITAS_RAPIDAS)[number]) =>
-    onCambiaCitas([...citas, citaRapida(rapida, dia, viaje)]);
 
   const fantasma = arrastre?.tipo === "dia" && arrastre.diaId === dia.id;
 
@@ -745,7 +1004,9 @@ function TarjetaDia({
                 {esDiaSiguiente(cita.minuto) && (
                   <span className="shrink-0 text-[12px] font-semibold uppercase tracking-wide text-[#C8A96B]">{diaSiguienteCorto(dia.fecha).toLowerCase()}</span>
                 )}
+                {emojiDeCita(cita) && <span aria-hidden className="shrink-0 text-[14px] leading-none">{emojiDeCita(cita)}</span>}
                 <span className="min-w-0 truncate text-white/75">{cita.texto || "Sin nombre"}</span>
+                {cita.fijada && <Pin size={11} className="shrink-0 text-[#C8A96B]" aria-label="fijada" />}
               </li>
             ))}
         </ol>
@@ -773,17 +1034,21 @@ function TarjetaDia({
                 arrastre?.tipo === "cita" && arrastre.citaId === cita.id
               }
               enfoca={recien === cita.id}
-              onCambia={(parche) => cambia(cita.id, parche)}
+              onCambia={(parche, sinCadena) => cambia(cita.id, parche, sinCadena)}
               onQuita={() =>
                 onCambiaCitas(citas.filter((item) => item.id !== cita.id))
               }
               onDuplica={() =>
                 onCambiaCitas([
                   ...citas,
-                  { ...cita, id: nuevoId("CI"), minuto: cita.minuto + 30 },
+                  { ...cita, id: nuevoId("CI"), minuto: cita.minuto + 30, valoracion: undefined },
                 ])
               }
               onMueveA={(destino) => onMueveCita(cita.id, destino)}
+              lugares={lugares}
+              estadoTrayecto={estados[cita.id]}
+              onCalcula={(parche) => onCalcula({ ...cita, ...parche })}
+              onDuracionManual={(minutos) => onDuracionManual(cita.id, minutos)}
             />
           ))}
 
@@ -791,7 +1056,8 @@ function TarjetaDia({
           | Las de siempre, de un toque y ya a su hora: el día del partido, a
           | su distancia del saque inicial; cualquier otro, a la hora de
           | siempre. Es lo que evita escribir «Merienda» y calcular 18:30 cada
-          | semana.
+          | semana. Desde el 11/11/2026 son los eventos de la paleta, con su
+          | emoticono (y también se arrastran desde la paleta de arriba).
           */}
           <div className="flex flex-wrap items-center gap-1.5 pt-1">
             <Button icon={Plus} onClick={anade}>
@@ -802,16 +1068,17 @@ function TarjetaDia({
               Rápidas
             </span>
 
-            {CITAS_RAPIDAS.map((rapida) => (
+            {EVENTOS_PALETA.map((evento) => (
               <button
-                key={rapida.texto}
+                key={evento.clave}
                 type="button"
-                onClick={() => anadeRapida(rapida)}
-                title={`Añadir «${rapida.texto}» a las ${aHora(minutoDeRapida(rapida, dia, viaje))}`}
-                className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-white/55 transition hover:border-[#C8A96B]/50 hover:text-white"
-                style={{ borderLeft: `3px solid ${TIPO_CITA[rapida.tipo].color}` }}
+                onClick={() => onEvento(evento)}
+                title={`Añadir «${rotuloEvento(evento)}» a este día`}
+                className="flex items-center gap-1 rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-white/60 transition hover:border-[#C8A96B]/50 hover:text-white"
+                style={{ borderLeft: `3px solid ${TIPO_CITA[evento.tipo].color}` }}
               >
-                {rapida.texto}
+                <span aria-hidden>{evento.emoji}</span>
+                {rotuloEvento(evento)}
               </button>
             ))}
           </div>
@@ -866,6 +1133,7 @@ export function EditorHorario({
   onCambio,
   copiado,
   onCopiado,
+  lugares,
 }: {
   viaje: Desplazamiento;
   onCambio: (dias: DiaViaje[]) => void;
@@ -876,12 +1144,33 @@ export function EditorHorario({
    */
   copiado: DiaCopiado | null;
   onCopiado: (copiado: DiaCopiado | null) => void;
+  /** Las fotos de los lugares fijos de Madrid (Valdebebas, Atocha…). */
+  lugares?: Record<string, ImagenViaje>;
 }) {
   const dias = viaje.dias;
+
+  /*
+  | Lo último que se ha visto, para lo que llega tarde (11/11/2026): la
+  | duración de un trayecto vuelve del servidor un segundo después, y para
+  | entonces el horario puede haber cambiado. Se aplica sobre lo de AHORA.
+  */
+  const diasRef = useRef(dias);
+  const viajeRef = useRef(viaje);
+
+  useEffect(() => {
+    diasRef.current = dias;
+    viajeRef.current = viaje;
+  }, [dias, viaje]);
 
   const minutoPartido = aMinutos(viaje.hora);
 
   const [arrastre, setArrastre] = useState<Arrastre | null>(null);
+
+  /* Cambiar una hora corre las de detrás (11/11/2026); se puede apagar. */
+  const [encadenar, setEncadenar] = useState(true);
+
+  /* Por cita: «calculando» o por qué no se pudo calcular su trayecto. */
+  const [estados, setEstados] = useState<Record<string, string>>({});
   /*
   | 11/11/2026: los días abren PLEGADOS, en lectura (hora y qué es), y se
   | abre el que se va a tocar con «Editar». Se apuntan los abiertos, no los
@@ -916,17 +1205,118 @@ export function EditorHorario({
     | Escribir en una cita es UN paso, no uno por letra (19/10/2026): antes
     | veinte letras llenaban la pila y un día borrado ya no se recuperaba.
     */
-    const texto = soloTextoDe(dias, siguientes);
+    const actuales = diasRef.current;
+    const texto = soloTextoDe(actuales, siguientes);
     const ultimo = pila.current[pila.current.length - 1];
 
     if (!(texto && ultimo?.texto === texto && ultimo.ancla === anclaPila)) {
-      pila.current = [...pila.current.slice(-19), { dias, ancla: anclaPila, texto }];
+      pila.current = [...pila.current.slice(-19), { dias: actuales, ancla: anclaPila, texto }];
       setPasos(pila.current.length);
     }
+
+    /* Dos cambios seguidos en el mismo clic (soltar y calcular) ven el primero. */
+    diasRef.current = siguientes;
 
     onCambio(siguientes);
 
     if (aviso) toast.success(aviso);
+  };
+
+  /* ------------------------ TRAYECTOS (11/11/2026) ------------------------ */
+
+  /** Aplica un cambio a una cita del horario de ahora, con encadenado si toca. */
+  const parcheaCita = (citaId: string, parche: Partial<CitaHorario>, aviso?: string) => {
+    const actuales = diasRef.current;
+    const dia = actuales.find((uno) => uno.citas.some((cita) => cita.id === citaId));
+
+    if (!dia) return;
+
+    const citas = encadenar
+      ? encadenaCitas(dia.citas, citaId, parche).citas
+      : dia.citas.map((cita) => (cita.id === citaId ? { ...cita, ...parche } : cita));
+
+    guarda(
+      actuales.map((uno) => (uno.id === dia.id ? conCitas(uno, citas) : uno)),
+      aviso,
+    );
+  };
+
+  /**
+   * Lo que dura el trayecto de una cita: la memoria del analista o, en
+   * autobús, OSRM. Al llegar, la duración se pone y la llegada (y lo que
+   * cuelga de ella) se recoloca. Una duración escrita a mano no se pisa.
+   */
+  const calcula = async (cita: CitaHorario, forzar = false) => {
+    if (!cita.desde || !cita.hasta) return;
+
+    setEstados((actual) => ({ ...actual, [cita.id]: "calculando" }));
+
+    const respuesta = await pideTrayecto(cita, viajeRef.current, lugares);
+
+    if ("error" in respuesta) {
+      setEstados((actual) => ({ ...actual, [cita.id]: respuesta.error }));
+
+      return;
+    }
+
+    setEstados((actual) => {
+      const resto = { ...actual };
+
+      delete resto[cita.id];
+
+      return resto;
+    });
+
+    const ahora = diasRef.current.flatMap((dia) => dia.citas).find((uno) => uno.id === cita.id);
+
+    /* Una duración escrita a mano no se pisa sola; con «Calcular» o al cambiar los lugares, sí. */
+    if (!ahora || (!forzar && ahora.duracionFuente === "manual" && ahora.duracion)) return;
+
+    if (ahora.duracion === respuesta.minutos && ahora.duracionFuente === respuesta.fuente) return;
+
+    parcheaCita(
+      cita.id,
+      { duracion: respuesta.minutos, duracionFuente: respuesta.fuente },
+      `${emojiDeCita(ahora) || "🚌"} ${nombreLugar(ahora.desde, viajeRef.current)} → ${nombreLugar(ahora.hasta, viajeRef.current)}: ${comoDuracion(respuesta.minutos)}${
+        respuesta.km ? ` · ${respuesta.km} km` : ""
+      }${respuesta.fuente === "memoria" ? " (la que pusiste la otra vez)" : ""}`,
+    );
+  };
+
+  /** La duración escrita a mano: se pone, se encadena y se recuerda para ese par. */
+  const duracionManual = (citaId: string, minutos: number | null) => {
+    const cita = diasRef.current.flatMap((dia) => dia.citas).find((uno) => uno.id === citaId);
+
+    if (!cita) return;
+
+    parcheaCita(citaId, minutos === null ? { duracion: undefined, duracionFuente: undefined } : { duracion: minutos, duracionFuente: "manual" });
+
+    void recuerdaDuracion(cita, viajeRef.current, minutos, lugares).then((hecho) => {
+      if (hecho && minutos !== null) {
+        toast.success(`Recordado: ${nombreLugar(cita.desde, viajeRef.current)} → ${nombreLugar(cita.hasta, viajeRef.current)} en ${comoDuracion(minutos)}`, {
+          description: "Los próximos viajes con este trayecto la traerán así.",
+        });
+      }
+    });
+  };
+
+  /** Un evento de la paleta en un día: con su hora, y si es una salida en bus, con su trayecto calculado. */
+  const anadeEvento = (diaId: string, evento: EventoPaleta) => {
+    const dia = diasRef.current.find((uno) => uno.id === diaId);
+
+    if (!dia) return;
+
+    const nuevas = citasDeEvento(evento, dia, viajeRef.current);
+
+    setAbiertos((actual) => (actual.includes(diaId) ? actual : [...actual, diaId]));
+
+    guarda(diasRef.current.map((uno) => (uno.id === diaId ? conCitas(uno, [...uno.citas, ...nuevas]) : uno)));
+
+    if (evento.clave === "personal") setRecien(nuevas[0].id);
+
+    const salida = nuevas.find((cita) => esSalida(cita) && cita.desde && cita.hasta);
+
+    if (salida) void calcula(salida);
   };
 
   const deshace = () => {
@@ -1044,6 +1434,14 @@ export function EditorHorario({
 
     if (!activo || !destino) return;
 
+    if (activo.tipo === "paleta" && destino.tipo === "zona") {
+      const evento = EVENTO_POR_CLAVE.get(activo.clave);
+
+      if (evento) anadeEvento(destino.diaId, evento);
+
+      return;
+    }
+
     if (activo.tipo === "cita" && destino.tipo === "zona") {
       mueveCita(activo.citaId, activo.diaId, destino.diaId);
 
@@ -1078,6 +1476,8 @@ export function EditorHorario({
 
     return dias.find((dia) => dia.id === arrastre.diaId) ?? null;
   }, [arrastre, dias]);
+
+  const eventoArrastrado = arrastre?.tipo === "paleta" ? (EVENTO_POR_CLAVE.get(arrastre.clave) ?? null) : null;
 
   /* ---------------------------- LA VISTA --------------------------- */
 
@@ -1295,6 +1695,45 @@ export function EditorHorario({
         onDragEnd={termina}
         onDragCancel={() => setArrastre(null)}
       >
+        {/*
+        | LA PALETA (11/11/2026): los eventos de siempre con su emoticono, para
+        | arrastrarlos al día como en un chat. Con un toque van al día del
+        | partido (o al primero); cada uno trae su hora y, las salidas en bus,
+        | lo que dura el trayecto. Encima, el interruptor del encadenado.
+        */}
+        {dias.length > 0 && (
+          <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.02] p-2.5">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span className="text-[11px] uppercase tracking-[0.16em] text-white/45">Arrastra al día</span>
+
+              <label className="ml-auto flex items-center gap-2 text-[12px] text-white/65" title="Al cambiar la hora o la duración de una cita, las de detrás se corren lo mismo hasta la primera fijada o el partido">
+                <input
+                  type="checkbox"
+                  checked={encadenar}
+                  onChange={(evento) => setEncadenar(evento.target.checked)}
+                  className="h-4 w-4 accent-[#C8A96B]"
+                />
+                Encadenar: mover las de detrás
+              </label>
+            </div>
+
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {EVENTOS_PALETA.map((evento) => {
+                const destino = dias[Math.max(0, indiceDiaPartido(viaje))] ?? dias[0];
+
+                return (
+                  <ChipPaleta
+                    key={evento.clave}
+                    evento={evento}
+                    titulo={`Arrástralo a un día, o tócalo para ponerlo en el ${diaCorto(destino.fecha).toLowerCase() || "día del partido"}`}
+                    onToca={() => anadeEvento(destino.id, evento)}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <div className="mt-3 space-y-2">
           {dias.map((dia, indice) => (
             <div key={dia.id}>
@@ -1310,6 +1749,12 @@ export function EditorHorario({
                 copiado={copiado}
                 recien={recien}
                 onRecien={setRecien}
+                encadenar={encadenar}
+                lugares={lugares}
+                estados={estados}
+                onCalcula={(cita) => void calcula(cita, true)}
+                onDuracionManual={duracionManual}
+                onEvento={(evento) => anadeEvento(dia.id, evento)}
                 arrastre={arrastre}
                 onPliega={() =>
                   setAbiertos(
@@ -1395,6 +1840,13 @@ export function EditorHorario({
         </div>
 
         <DragOverlay dropAnimation={null}>
+          {eventoArrastrado && (
+            <div className="flex items-center gap-1.5 rounded-full border border-white/25 bg-[#11161C] px-3 py-1.5 text-[13px] text-white shadow-2xl">
+              <span aria-hidden className="text-[16px] leading-none">{eventoArrastrado.emoji}</span>
+              {rotuloEvento(eventoArrastrado)}
+            </div>
+          )}
+
           {citaArrastrada && (
             <div
               className="flex items-center gap-2 rounded-xl border border-white/25 bg-[#11161C] px-3 py-2 shadow-2xl"

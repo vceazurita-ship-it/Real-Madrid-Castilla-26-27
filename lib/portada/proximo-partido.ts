@@ -148,6 +148,12 @@ export type EquipoPortada = {
   escudo: string;
   estadio: string;
   ciudad: string;
+  /** Lo demás del estadio en BeSoccer, para el desplazamiento (11/11/2026). Opcional. */
+  direccion?: string;
+  capacidad?: string;
+  /** «103 x 65», tal cual lo escribe BeSoccer. */
+  tamano?: string;
+  fotoEstadio?: string;
   /** Su puesto en la tabla más reciente de BeSoccer. */
   liga?: { puesto: number; deCuantos: number; puntos: number; jugados: number };
   /** Sus cinco últimos de liga, del más antiguo al más reciente. */

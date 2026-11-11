@@ -112,10 +112,17 @@ import {
   mueveFechas,
   normalizaViaje,
   viajeVacio,
+  clavePlan,
+  planPara,
+  resumenValoracion,
   type Desplazamiento,
+  type ImagenViaje,
   type QueCopiar,
   type ViajeStore,
 } from "@/lib/viaje/modelo";
+import { LUGARES_FIJOS, comoMedidas, leeMedidas } from "@/lib/viaje/rutas";
+import { pideMedidasCampo } from "@/lib/viaje/trayectos-cliente";
+import { ValoracionViajePanel } from "@/components/viaje/ValoracionViaje";
 import { mismoEquipo } from "@/lib/data-analisis/nombres";
 import { conSemilla, tieneSemilla } from "@/lib/viaje/semilla";
 import { CALENDARIO_CASTILLA_KEY, enlaceRuta, horaDelCalendario, type PartidoBesoccer } from "@/lib/viaje/calendario";
@@ -132,6 +139,13 @@ function etiquetaPartido(partido: MatchMeta, fechaReal?: string) {
   const dia = formatMatchDate(fechaReal ? { ...partido, date: fechaReal } : partido);
 
   return `${jornada}${dia} · ${matchLabel(partido)}`;
+}
+
+/** Lo que se busca en OpenStreetMap para dar con el campo: la dirección o el nombre y la ciudad. */
+function consultaDeEstadio(estadio: Desplazamiento["estadio"]) {
+  if (estadio.direccion.trim()) return estadio.direccion.trim();
+
+  return estadio.nombre.trim() ? [estadio.nombre, estadio.ciudad].filter((x) => x.trim()).join(", ") : "";
 }
 
 /* ------------------------------------------------------------------ */
@@ -725,6 +739,12 @@ export default function DesplazamientoPage() {
 
   /* ---------------------------- EL VIAJE --------------------------- */
 
+  /*
+  | Las medidas del campo según OpenStreetMap (11/11/2026), con la consulta
+  | con la que se pidieron: así una respuesta de otro estadio no se cuela.
+  */
+  const [osm, setOsm] = useState<{ consulta: string; medidas: { largo: number; ancho: number } | null } | null>(null);
+
   /**
    * El desplazamiento del partido elegido.
    *
@@ -760,26 +780,81 @@ export default function DesplazamientoPage() {
         ? equipoDelInforme(equiposInforme, partido.opponent) ?? equipoDelInforme(equiposInforme, jornada?.equipo ?? "")
         : null;
 
-    /* 29/10/2026: en casa la ficha «El estadio» salía con el nombre vacío (y la
-       ciudad del rival de ejemplo). Se rellena con el campo propio del club. */
-    const conCampo = delRival?.estadio
-      ? { ...base, estadio: { ...base.estadio, nombre: delRival.estadio, ciudad: delRival.ciudad || base.estadio.ciudad } }
-      : base.condicion === "local" && !base.estadio.nombre.trim()
-        ? { ...base, estadio: { ...base.estadio, nombre: "Estadio Alfredo Di Stéfano", ciudad: base.estadio.ciudad.trim() || "Madrid" } }
-        : base;
+    /*
+    | 11/11/2026: todo lo que BeSoccer sabe del campo viene relleno —nombre,
+    | ciudad, dirección, aforo, medidas y foto— y el escudo del rival. Es una
+    | propuesta: se cambia escribiendo encima.
+    */
+    const escudo = escudoDe(partido.opponent) || delRival?.escudo || "";
 
-    const conDimensiones = jornada?.fila?.DIMENSIONES
+    const conCampo = delRival?.estadio
+      ? {
+          ...base,
+          ...(escudo ? { escudo } : {}),
+          estadio: {
+            ...base.estadio,
+            nombre: delRival.estadio,
+            ciudad: delRival.ciudad || base.estadio.ciudad,
+            direccion: delRival.direccion || base.estadio.direccion,
+            ...(delRival.capacidad ? { capacidad: delRival.capacidad } : {}),
+            ...(delRival.fotoEstadio ? { foto: { url: delRival.fotoEstadio, pie: delRival.estadio } } : {}),
+          },
+        }
+      : base.condicion === "local" && !base.estadio.nombre.trim()
+        ? { ...base, ...(escudo ? { escudo } : {}), estadio: { ...base.estadio, nombre: "Estadio Alfredo Di Stéfano", ciudad: base.estadio.ciudad.trim() || "Madrid" } }
+        : { ...base, ...(escudo ? { escudo } : {}) };
+
+    /* Las medidas: la hoja RIVALES manda; si no, BeSoccer; si no, OpenStreetMap. */
+    const deBesoccer = leeMedidas(delRival?.tamano);
+    const campoOsm = osm && osm.consulta === consultaDeEstadio(conCampo.estadio) ? osm.medidas : null;
+
+    const medidas =
+      jornada?.fila?.DIMENSIONES ||
+      (deBesoccer ? comoMedidas(deBesoccer) : "") ||
+      (campoOsm && base.condicion === "visitante" ? comoMedidas(campoOsm) : "");
+
+    const conDimensiones = medidas
       ? {
           ...conCampo,
-          estadio: { ...conCampo.estadio, dimensiones: jornada.fila.DIMENSIONES },
+          estadio: { ...conCampo.estadio, dimensiones: medidas },
         }
       : conCampo;
 
     /* Y la jornada 1 viene montada entera desde los documentos originales. */
     return conSemilla(conDimensiones);
-  }, [partido, store.viajes, jornada, delCalendario, equiposInforme]);
+  }, [partido, store.viajes, jornada, delCalendario, equiposInforme, escudoDe, osm]);
 
   const guardado = Boolean(partido && store.viajes?.[partido.id]);
+
+  /* El campo en OpenStreetMap: se pide una vez por estadio (el servidor lo cachea). */
+  const consultaCampo = viaje && viaje.condicion === "visitante" ? consultaDeEstadio(viaje.estadio) : "";
+
+  useEffect(() => {
+    if (!consultaCampo) return;
+
+    const corte = new AbortController();
+
+    /* Con espera: mientras se escribe el nombre del estadio no se pregunta letra a letra. */
+    const reloj = window.setTimeout(() => {
+      void pideMedidasCampo(consultaCampo, corte.signal).then((medidas) => {
+        if (!corte.signal.aborted) setOsm({ consulta: consultaCampo, medidas });
+      });
+    }, 1500);
+
+    return () => {
+      window.clearTimeout(reloj);
+      corte.abort();
+    };
+  }, [consultaCampo]);
+
+  const medidasOsm = osm && osm.consulta === consultaCampo ? osm.medidas : null;
+
+  /* Lo que BeSoccer sabe del estadio del rival, para cotejar y rellenar huecos. */
+  const besoccerEstadio = useMemo(() => {
+    if (!partido || partido.isHome) return null;
+
+    return equipoDelInforme(equiposInforme, partido.opponent) ?? equipoDelInforme(equiposInforme, jornada?.equipo ?? "");
+  }, [partido, equiposInforme, jornada]);
 
   const muta = useCallback(
     (fn: (actual: Desplazamiento) => Desplazamiento) => {
@@ -956,6 +1031,87 @@ export default function DesplazamientoPage() {
       },
     });
   };
+
+  /* ------------------ PLAN DE VIAJE POR RIVAL (11/11/2026) ------------------ */
+
+  /*
+  | El viaje se guarda como «plan de viaje ante <rival>» y, al volver a jugar
+  | contra él —o en su campo—, se propone como punto de partida con lo que
+  | pasó la última vez. Vive en el mismo documento (`planes`), así que se
+  | guarda con el autoguardado de siempre.
+  */
+  const plan = useMemo(() => (viaje ? planPara(store.planes, viaje, mismoEquipo) : null), [store.planes, viaje]);
+  const planAjeno = plan && partido && plan.partidoId !== partido.id ? plan : null;
+
+  const guardaPlan = () => {
+    if (!viaje || !partido) return;
+
+    const clave = clavePlan(viaje);
+
+    if (!clave) {
+      toast.error("Pon el nombre del rival para guardar el plan");
+
+      return;
+    }
+
+    const id = partido.id;
+
+    setStore((actual) => ({
+      ...actual,
+      planes: {
+        ...(actual.planes ?? {}),
+        [clave]: {
+          rival: viaje.rival,
+          ...(viaje.rivalId ? { rivalId: viaje.rivalId } : {}),
+          estadio: viaje.estadio.nombre,
+          guardado: new Date().toISOString(),
+          partidoId: id,
+          viaje: actual.viajes?.[id] ? normalizaViaje(actual.viajes[id]) : viaje,
+        },
+      },
+    }));
+
+    toast.success(`Guardado el plan de viaje ante ${viaje.rival}`, {
+      description: "Se propondrá al volver a jugar contra él o en su campo.",
+    });
+  };
+
+  const usaPlan = () => {
+    if (!planAjeno || !partido) return;
+
+    const previo = store.viajes?.[partido.id];
+    const id = partido.id;
+
+    muta((actual) => copiaViaje(planAjeno.viaje, actual, { horario: true, rutina: true, estadio: true, hotel: true }));
+
+    toast.success(`Montado desde el plan ante ${planAjeno.rival}`, {
+      description: "Horario reanclado a la hora de este partido, con su estadio y su hotel. Revisa lo que haya cambiado.",
+      duration: 10000,
+      action: {
+        label: "Deshacer",
+        onClick: () =>
+          setStore((actual) => {
+            const viajes = { ...actual.viajes };
+
+            if (previo) viajes[id] = previo;
+            else delete viajes[id];
+
+            return { ...actual, viajes };
+          }),
+      },
+    });
+  };
+
+  /* La foto de un lugar fijo de Madrid, puesta una vez y para todos los viajes. */
+  const fotoLugar = (clave: string, imagen: ImagenViaje | undefined) =>
+    setStore((actual) => {
+      const lugares = { ...(actual.lugares ?? {}) };
+
+      if (imagen) lugares[clave] = imagen;
+      else delete lugares[clave];
+
+      return { ...actual, lugares };
+    });
 
   /* ---------------------- HORA Y FECHA DEL PARTIDO ------------------ */
 
@@ -1165,7 +1321,16 @@ export default function DesplazamientoPage() {
                         )}
                       </div>
 
-                      <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2">
+                      <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        {/* La foto del estadio (11/11/2026): la de BeSoccer por defecto; es la del destino del bus. */}
+                        <CampoImagen
+                          etiqueta="Foto del estadio"
+                          ayuda="Sale en «El viaje» y, sin plano, en «El estadio»"
+                          carpeta={carpeta}
+                          imagen={viaje.estadio.foto}
+                          onCambio={(imagen) => estadio({ foto: imagen })}
+                        />
+
                         <CampoImagen
                           etiqueta="Plano del estadio"
                           ayuda="Pie: «Nombre del estadio · acceso autobús»"
@@ -1456,6 +1621,26 @@ export default function DesplazamientoPage() {
                   <div className="viaje-form">
                   {/* Cómo va el viaje, arriba y pegado al selector de partido. */}
                   <ListaPendiente viaje={viaje} onIr={irATarea} />
+
+                  {/* El plan de viaje ante este rival (o en este campo), de otra vez (11/11/2026). */}
+                  {planAjeno && (() => {
+                    const resumen = resumenValoracion(planAjeno.viaje);
+                    const cuando = planAjeno.viaje.fecha ? diaLargo(planAjeno.viaje.fecha).toLowerCase() : "";
+
+                    return (
+                      <div className="mt-3">
+                        <Notice title={`Hay un plan de viaje ante ${planAjeno.rival || "este rival"}${cuando ? ` (${cuando})` : ""}`}>
+                          {resumen.length > 0 && <p>La última vez: {resumen.join(", ")}.</p>}
+                          <span className="mt-2 flex flex-wrap items-center gap-2">
+                            <Button icon={Copy} onClick={usaPlan} title="Trae el horario (reanclado a esta hora), la salida, los avisos, el estadio y el hotel de aquel viaje">
+                              Usarlo como punto de partida
+                            </Button>
+                            {guardado && <span className="text-[12px] text-white/50">Sustituye lo que hay montado; se puede deshacer.</span>}
+                          </span>
+                        </Notice>
+                      </div>
+                    );
+                  })()}
 
                   {/*
                   | El hotel, arriba cuando se duerme fuera (11/11/2026): «El viaje
@@ -1771,6 +1956,85 @@ export default function DesplazamientoPage() {
                         />
                       </div>
 
+                      {/*
+                      | 11/11/2026: de dónde salen las medidas, a la vista y cotejadas
+                      | —OpenStreetMap (el polígono del campo) y BeSoccer—, con un
+                      | botón para quedarse con una. Y lo que BeSoccer sabe del campo
+                      | que aquí sigue en blanco.
+                      */}
+                      {(() => {
+                        const deBesoccer = leeMedidas(besoccerEstadio?.tamano);
+                        const fuentes = [
+                          medidasOsm ? { de: "OSM", texto: comoMedidas(medidasOsm) } : null,
+                          deBesoccer ? { de: "BeSoccer", texto: comoMedidas(deBesoccer) } : null,
+                          jornada?.fila?.DIMENSIONES ? { de: "Hoja RIVALES", texto: jornada.fila.DIMENSIONES } : null,
+                        ].filter((f): f is { de: string; texto: string } => f !== null);
+
+                        const huecos = besoccerEstadio
+                          ? ([
+                              ["nombre", "nombre", besoccerEstadio.estadio],
+                              ["ciudad", "ciudad", besoccerEstadio.ciudad],
+                              ["direccion", "dirección", besoccerEstadio.direccion ?? ""],
+                              ["capacidad", "aforo", besoccerEstadio.capacidad ?? ""],
+                            ] as const).filter(([clave, , dato]) => dato.trim() && !(viaje.estadio[clave] ?? "").trim())
+                          : [];
+                        const sinFoto = Boolean(besoccerEstadio?.fotoEstadio && !viaje.estadio.foto?.url);
+                        const sinEscudo = Boolean(!viaje.escudo && (escudoDe(partido.opponent) || besoccerEstadio?.escudo));
+
+                        if (!fuentes.length && !huecos.length && !sinFoto && !sinEscudo) return null;
+
+                        return (
+                          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12px] text-white/60">
+                            {fuentes.length > 0 && (
+                              <span className="tabular-nums" title="OSM: el polígono del campo en OpenStreetMap, medido con su rectángulo mínimo">
+                                Medidas: {fuentes.map((f) => `${f.de} ${f.texto}`).join(" · ")}
+                              </span>
+                            )}
+                            {fuentes
+                              .filter((f) => f.texto.replace(/\s/g, "") !== viaje.estadio.dimensiones.replace(/\s/g, ""))
+                              .map((f) => (
+                                <button
+                                  key={f.de}
+                                  type="button"
+                                  onClick={() => estadio({ dimensiones: f.texto })}
+                                  className="rounded-full border border-[#C8A96B]/40 px-2 py-0.5 text-[#C8A96B] transition hover:bg-[#C8A96B]/10"
+                                >
+                                  Usar {f.de} {f.texto}
+                                </button>
+                              ))}
+                            {(huecos.length > 0 || sinFoto || sinEscudo) && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  muta((actual) => ({
+                                    ...actual,
+                                    ...(sinEscudo ? { escudo: escudoDe(partido.opponent) || besoccerEstadio?.escudo || "" } : {}),
+                                    estadio: {
+                                      ...actual.estadio,
+                                      ...Object.fromEntries(huecos.map(([clave, , dato]) => [clave, dato])),
+                                      ...(sinFoto && besoccerEstadio?.fotoEstadio ? { foto: { url: besoccerEstadio.fotoEstadio, pie: besoccerEstadio.estadio } } : {}),
+                                    },
+                                  }))
+                                }
+                                className="rounded-full border border-[#C8A96B]/40 px-2 py-0.5 text-[#C8A96B] transition hover:bg-[#C8A96B]/10"
+                              >
+                                Rellenar con BeSoccer: {[...huecos.map(([, rotulo]) => rotulo), sinFoto ? "foto" : "", sinEscudo ? "escudo" : ""].filter(Boolean).join(", ")}
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })()}
+
+                      <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                        <Field
+                          label="Aforo"
+                          value={viaje.estadio.capacidad ?? ""}
+                          onChange={(valor) => estadio({ capacidad: valor })}
+                          placeholder="Espectadores"
+                          hint={besoccerEstadio?.capacidad && besoccerEstadio.capacidad === viaje.estadio.capacidad ? "Viene de BeSoccer." : undefined}
+                        />
+                      </div>
+
                       {!estadioEnFaltan && (
                       <Plegable
                         key={`estadio-${viaje.partidoId}-${status === "loading" ? "leyendo" : "listo"}`}
@@ -1872,7 +2136,37 @@ export default function DesplazamientoPage() {
                       onCambio={(dias) => campo("dias", dias)}
                       copiado={diaCopiado}
                       onCopiado={setDiaCopiado}
+                      lugares={store.lugares}
                     />
+
+                    {/*
+                    | Las fotos de los cuatro lugares fijos de Madrid (11/11/2026): se
+                    | ponen una vez y valen para todos los viajes. Las del hotel y el
+                    | estadio son las de su ficha. Sin imágenes en el repositorio: cada
+                    | una la sube el club a Supabase.
+                    */}
+                    {!enCasa && (
+                      <details className="mt-3 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
+                        <summary className="cursor-pointer select-none text-[13px] font-semibold text-white/70 hover:text-white">
+                          Fotos de los lugares de salida
+                          <span className="ml-2 font-normal text-white/45">
+                            {Object.keys(LUGARES_FIJOS).filter((clave) => store.lugares?.[clave]?.url).length} de {Object.keys(LUGARES_FIJOS).length} puestas · se guardan una vez para todos los viajes
+                          </span>
+                        </summary>
+                        <div className="mt-2 grid min-w-0 gap-3 pb-1 sm:grid-cols-2 lg:grid-cols-4">
+                          {Object.entries(LUGARES_FIJOS).map(([clave, lugar]) => (
+                            <CampoImagen
+                              key={clave}
+                              etiqueta={lugar.nombre}
+                              ayuda="Sale en «El viaje» cuando es el destino"
+                              carpeta="desplazamientos/lugares"
+                              imagen={store.lugares?.[clave]}
+                              onCambio={(imagen) => fotoLugar(clave, imagen)}
+                            />
+                          ))}
+                        </div>
+                      </details>
+                    )}
                     </SeccionMovil>
                   </div>
 
@@ -1908,6 +2202,24 @@ export default function DesplazamientoPage() {
 
                   </div>
 
+                  {/* ============ VALORACIÓN Y PLAN (11/11/2026) ============ */}
+
+                  <div className="viaje-form mt-5 scroll-mt-20" id="viaje-valoracion">
+                    <SeccionMovil
+                      titulo="Cómo salió el viaje"
+                      resumen={resumenValoracion(viaje).slice(0, 3).join(" · ")}
+                      abierta={Boolean(abiertas["viaje-valoracion"])}
+                      onCambia={() => conmuta("viaje-valoracion")}
+                    >
+                      <ValoracionViajePanel
+                        viaje={viaje}
+                        onCambia={(valoracion) => campo("valoracion", valoracion)}
+                        plan={plan}
+                        onGuardaPlan={guardaPlan}
+                      />
+                    </SeccionMovil>
+                  </div>
+
                   {/* ================ VISTA PREVIA ================ */}
 
                   <div className="mt-5 scroll-mt-20" id="viaje-vista">
@@ -1941,7 +2253,7 @@ export default function DesplazamientoPage() {
                               (DOSSIER_H + 26) * titulosDossier(viaje).length
                             }
                           >
-                            <DossierViaje viaje={viaje} />
+                            <DossierViaje viaje={viaje} lugares={store.lugares} />
                           </Escalado>
                         ) : (
                           <div className="mx-auto max-w-[720px]">
@@ -1962,7 +2274,7 @@ export default function DesplazamientoPage() {
                   {/* ================== EXPORTAR ================== */}
 
                   <div className="mt-5">
-                    <ExportaViaje viaje={viaje} />
+                    <ExportaViaje viaje={viaje} lugares={store.lugares} />
                   </div>
 
                   {/*

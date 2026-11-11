@@ -260,6 +260,11 @@ async function leePortada(): Promise<Portada> {
         escudo: informe.escudo ?? "",
         estadio: informe.estadio?.nombre ?? "",
         ciudad: informe.estadio?.ciudad ?? "",
+        /* Para el desplazamiento (11/11/2026): lo que BeSoccer dice del campo. */
+        ...(informe.estadio?.direccion ? { direccion: informe.estadio.direccion } : {}),
+        ...(informe.estadio?.capacidad ? { capacidad: informe.estadio.capacidad } : {}),
+        ...(informe.estadio?.tamano ? { tamano: informe.estadio.tamano } : {}),
+        ...(informe.estadio?.foto ? { fotoEstadio: informe.estadio.foto } : {}),
         ...(ultimos.length ? { ultimos } : {}),
       };
 
