@@ -1549,8 +1549,9 @@ export function InformeMicroDialog({
 
   return (
     <Dialog
-      title={`${informe.titulo} · ${informe.modoRotulo}`}
-      subtitle={[informe.subtitulo, informe.rango].filter(Boolean).join(" · ")}
+      /* Jornada, rival y semana como el informe del partido (11/11/2026, análisis): «Balón parado · Previa · J12 · Gimnàstic Tarragona · fuera». */
+      title={informe.cabecera?.titulo || `${informe.titulo} · ${informe.modoRotulo}`}
+      subtitle={informe.cabecera?.subtitulo || [informe.subtitulo, informe.rango].filter(Boolean).join(" · ")}
       onClose={onClose}
       footer={
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1591,12 +1592,31 @@ export function InformeMicroDialog({
             ) : null}
           </div>
 
-          {/* A quién, en una línea pegada a «Enviar» (sólo móvil, 11/11/2026): al tocarla se abre la lista. */}
+          {/*
+          | EL ENVÍO, TODO EN LA BARRA FIJA DE ABAJO (11/11/2026, expertos): el
+          | canal, el teléfono o los correos y «Enviar» van juntos aquí, y la
+          | vista previa queda arriba, lo primero. Plegado en una línea («Por
+          | WhatsApp · 1 teléfono · cambiar»); al tocarla se abre la lista.
+          */}
+          {verDestinatarios ? (
+            <div className="max-h-[40vh] min-w-0 basis-full overflow-y-auto [&_span.rounded-md]:lowercase">
+              <Destinatarios
+                label="A quién se le manda"
+                canal={canal}
+                onCanal={(c) => setAjustes((a) => ({ ...a, canal: c }))}
+                correos={ajustes.destinatarios}
+                onCorreos={(destinatarios) => setAjustes((a) => ({ ...a, destinatarios }))}
+                telefonos={ajustes.telefonos ?? ""}
+                onTelefonos={(telefonos) => setAjustes((a) => ({ ...a, telefonos }))}
+              />
+            </div>
+          ) : null}
+
           <button
             type="button"
             onClick={() => setVerDestinatarios((v) => !v)}
             aria-expanded={verDestinatarios}
-            className="min-w-0 basis-full truncate text-left text-[11px] text-white/60 underline-offset-2 hover:underline sm:hidden"
+            className="min-h-9 min-w-0 basis-full truncate text-left text-[12px] text-white/70 underline-offset-2 hover:underline sm:basis-auto sm:flex-1"
           >
             {(() => {
               if (canal === "whatsapp") {
@@ -1655,14 +1675,19 @@ export function InformeMicroDialog({
       | lo del analista, en un único plegable al final. El `pb-24` en móvil deja
       | que el final del informe asome por encima de los botones flotantes.
       */}
+      {/*
+      | 11/11/2026 (expertos): la vista previa, lo primero. Arriba sólo una
+      | línea (previa o post); el envío va en la barra fija de abajo y lo del
+      | analista, al final junto a «Así llega».
+      */}
       <div className="space-y-3 pb-24 sm:pb-4">
-        <div className="grid gap-3 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-start">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
           {/*
           | PREVIA O POST. Dos informes distintos de la misma semana: la previa
           | cuenta qué se va a hacer y por qué; el post, qué pasó en el partido y
           | si lo entrenado apareció. El asunto lleva la idea de cada uno (`asuntoAbp`).
           */}
-          <div className="min-w-0 space-y-1">
+          <div className="contents">
             {/*
             | 10/11/2026 (jueces): sin partido jugado, la pestaña «Post» no se
             | enseña apagada (el gris no llegaba al contraste mínimo en modo
@@ -1698,7 +1723,7 @@ export function InformeMicroDialog({
               </div>
             )}
 
-            <p className="max-w-[20rem] text-[12px] leading-snug text-white/55">
+            <p className="min-w-0 flex-1 text-[12px] leading-snug text-white/55">
               {modo === "post"
                 ? accionesPartido.length > 0
                   ? `Qué pasó: las ${accionesPartido.length} acciones de la ${accionesPartido[0].jornada.etiqueta.toLowerCase()} en nuestras hojas, cruzadas con lo trabajado.`
@@ -1709,18 +1734,7 @@ export function InformeMicroDialog({
             </p>
           </div>
 
-          {/* Las fichas, en minúsculas: venían en mayúsculas y el correo es el mismo (sólo se ve distinto). */}
-          <div className={`min-w-0 [&_span.rounded-md]:lowercase ${verDestinatarios ? "" : "hidden"} sm:block`}>
-            <Destinatarios
-              label="A quién se le manda"
-              canal={canal}
-              onCanal={(c) => setAjustes((a) => ({ ...a, canal: c }))}
-              correos={ajustes.destinatarios}
-              onCorreos={(destinatarios) => setAjustes((a) => ({ ...a, destinatarios }))}
-              telefonos={ajustes.telefonos ?? ""}
-              onTelefonos={(telefonos) => setAjustes((a) => ({ ...a, telefonos }))}
-            />
-          </div>
+          {/* A quién se manda: en la barra fija de abajo, junto a «Enviar» (11/11/2026). */}
         </div>
 
         {/*
@@ -1734,51 +1748,6 @@ export function InformeMicroDialog({
         {pizarraInforme.deck}
 
         {/*
-        | LO DEL ANALISTA, UN INDICADOR (11/11/2026, expertos). Antes era un
-        | plegable más al pie, pegado a «Enviar» y mezclado con los del correo.
-        | Ahora una sola pastilla con su contador encima del documento; al
-        | tocarla se abre la lista. Antes de mandar se vuelve a enseñar entera
-        | (`AvisoAntesDeMandar`). Sigue siendo el único sitio con lo del
-        | analista: los avisos, cómo poner nuestro vídeo y de dónde sale el correo.
-        */}
-        {(() => {
-          const conAvisos =
-            !(cargandoSeguimiento || cargandoComparativa || cargandoPropio || rivalInforme.cargando) && informe.avisos.length > 0;
-
-          return (
-            <div>
-              <button
-                type="button"
-                onClick={() => setVerAnalista((v) => !v)}
-                aria-expanded={verAnalista}
-                className={`inline-flex min-h-8 items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold ${
-                  conAvisos ? "border-amber-400/40 bg-amber-400/[0.08] text-amber-200" : "border-white/10 bg-white/[0.03] text-white/55"
-                }`}
-              >
-                {conAvisos ? (
-                  <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-400/80 px-1 text-[10px] font-bold text-black">
-                    {informe.avisos.length}
-                  </span>
-                ) : null}
-                Para el analista · no va en el correo
-              </button>
-              {verAnalista ? (
-                <ul className="mt-2 ml-4 list-disc space-y-1 text-[12px] text-white/70">
-                  {conAvisos ? informe.avisos.map((aviso) => <li key={aviso}>{aviso}</li>) : null}
-                  {!esPost && !videoJugadores ? (
-                    <li>
-                      Para que lleve nuestro vídeo, déjalo en ABP\VIDEO - JUGADORES con la jornada en el nombre ({jornadaPartido ? `«J${jornadaPartido}»` : "«J8»"}): el ordenador del club lo sube solo en un par de minutos.
-                    </li>
-                  ) : null}
-                  <li>Los destinatarios se guardan solos y valen para todos los microciclos; los de otras veces se proponen debajo.</li>
-                  {canal === "correo" ? <li>Sale de la cuenta de Google del club, la misma que sube los vídeos al canal.</li> : null}
-                </ul>
-              ) : null}
-            </div>
-          );
-        })()}
-
-        {/*
           La vista previa es el correo de verdad, no una maqueta: se pinta el
           mismo HTML que se manda, en un marco aislado para que sus estilos no
           se mezclen con los de la app. 10/11/2026 (jueces): el documento va
@@ -1789,31 +1758,45 @@ export function InformeMicroDialog({
           <iframe
             title="Vista previa del informe"
             srcDoc={html}
-            className="h-[58vh] w-full bg-white"
+            className="h-[75vh] w-full bg-white sm:h-[58vh]"
             /* El correo mide 860 px y el marco menos: se encoge para que se lea entero, sin barra lateral ni titulares cortados (20/10/2026). */
             onLoad={(e) => {
-              const raiz = e.currentTarget.contentDocument?.documentElement;
+              const marco = e.currentTarget;
 
-              if (!raiz) return;
+              const ajusta = () => {
+                const raiz = marco.contentDocument?.documentElement;
 
-              raiz.style.zoom = "";
+                if (!raiz) return;
 
-              const zoom = raiz.scrollWidth > raiz.clientWidth + 1 ? raiz.clientWidth / raiz.scrollWidth : 1;
-              /* El alto sin encoger: se mide antes de poner el zoom y se multiplica. */
-              const alto = raiz.scrollHeight;
+                raiz.style.zoom = "";
 
-              if (zoom < 1) raiz.style.zoom = String(zoom);
+                const zoom = raiz.scrollWidth > raiz.clientWidth + 1 ? raiz.clientWidth / raiz.scrollWidth : 1;
+                /* El alto sin encoger: se mide antes de poner el zoom y se multiplica. */
+                const alto = raiz.scrollHeight;
+
+                if (zoom < 1) raiz.style.zoom = String(zoom);
+
+                /*
+                | En el móvil (11/11/2026, expertos), el marco crece hasta el alto
+                | del correo: era una ventana con su scroll dentro de otro scroll.
+                | Así el informe se lee con el scroll de la página.
+                */
+                if (window.matchMedia("(max-width: 639px)").matches) {
+                  marco.style.height = `${Math.ceil(alto * zoom) + 8}px`;
+                } else {
+                  marco.style.height = "";
+                }
+              };
+
+              ajusta();
 
               /*
-              | En el móvil (11/11/2026, expertos), el marco crece hasta el alto
-              | del correo: era una ventana con su scroll dentro de otro scroll.
-              | Así el informe se lee con el scroll de la página.
+              | Otra vez cuando acaban de pintarse la letra y los gráficos
+              | (11/11/2026, fútbol): medido sólo al cargar, el alto se quedaba
+              | corto y volvía la caja con su propio scroll en el móvil.
               */
-              if (window.matchMedia("(max-width: 639px)").matches) {
-                e.currentTarget.style.height = `${Math.ceil(alto * zoom) + 8}px`;
-              } else {
-                e.currentTarget.style.height = "";
-              }
+              [400, 1500, 4000].forEach((ms) => window.setTimeout(ajusta, ms));
+              marco.contentDocument?.fonts?.ready.then(ajusta).catch(() => undefined);
             }}
           />
         </div>
@@ -1904,6 +1887,50 @@ export function InformeMicroDialog({
             )}
           </details>
         )}
+
+        {/*
+        | LO DEL ANALISTA, UN INDICADOR, AL FINAL (11/11/2026, expertos): una
+        | pastilla con su contador junto a «Así llega», debajo del documento,
+        | para que no compita con la vista previa. Antes de mandar se vuelve a
+        | enseñar entera (`AvisoAntesDeMandar`). Sigue siendo el único sitio con
+        | lo del analista: los avisos, cómo poner nuestro vídeo y de dónde sale el correo.
+        */}
+        {(() => {
+          const conAvisos =
+            !(cargandoSeguimiento || cargandoComparativa || cargandoPropio || rivalInforme.cargando) && informe.avisos.length > 0;
+
+          return (
+            <div>
+              <button
+                type="button"
+                onClick={() => setVerAnalista((v) => !v)}
+                aria-expanded={verAnalista}
+                className={`inline-flex min-h-8 items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold ${
+                  conAvisos ? "border-amber-400/40 bg-amber-400/[0.08] text-amber-200" : "border-white/10 bg-white/[0.03] text-white/55"
+                }`}
+              >
+                {conAvisos ? (
+                  <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-400/80 px-1 text-[10px] font-bold text-black">
+                    {informe.avisos.length}
+                  </span>
+                ) : null}
+                Para el analista · no va en el correo
+              </button>
+              {verAnalista ? (
+                <ul className="mt-2 ml-4 list-disc space-y-1 text-[12px] text-white/70">
+                  {conAvisos ? informe.avisos.map((aviso) => <li key={aviso}>{aviso}</li>) : null}
+                  {!esPost && !videoJugadores ? (
+                    <li>
+                      Para que lleve nuestro vídeo, déjalo en ABP\VIDEO - JUGADORES con la jornada en el nombre ({jornadaPartido ? `«J${jornadaPartido}»` : "«J8»"}): el ordenador del club lo sube solo en un par de minutos.
+                    </li>
+                  ) : null}
+                  <li>Los destinatarios se guardan solos y valen para todos los microciclos; se cambian en la barra de abajo, junto a «Enviar».</li>
+                  {canal === "correo" ? <li>Sale de la cuenta de Google del club, la misma que sube los vídeos al canal.</li> : null}
+                </ul>
+              ) : null}
+            </div>
+          );
+        })()}
 
 
       </div>
