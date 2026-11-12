@@ -4,9 +4,13 @@
  * En el córner los rematadores van hombro con hombro y, a tamaño de sala,
  * cuatro caras apiladas no dejan leer ni el puesto ni el nombre. Sólo al
  * enseñar —al editar, cada cara está donde se ha puesto—: las que se pisan se
- * abren hacia los lados y, si aun así no caben, se pintan algo más pequeñas y
- * se abren algo más. Nunca sin foto: el 25/10/2026 el cuerpo técnico echó en
- * falta caras en la exportación y en los informes.
+ * abren hacia los lados y, si aun así no caben, se abren algo más. Nunca sin
+ * foto: el 25/10/2026 el cuerpo técnico echó en falta caras en la exportación
+ * y en los informes.
+ *
+ * 12/11/2026, el analista: «que las fotos de todos los jugadores que salen en
+ * las slides sean del mismo tamaño». Ya no hay caras «apretadas» (se
+ * encogían al 80 %): todas van a su tamaño y lo que no cabe se aparta más.
  *
  * 12/11/2026, tercera ronda de jueces (fútbol 7,5): en el córner defensivo los
  * rivales 4, 5 y 9 quedaban DEBAJO de M1–M3 con el nombre cortado, en la falta
@@ -34,9 +38,6 @@ type Punto = {
 
 export type Caja = { x0: number; x1: number; y0: number; y1: number };
 
-/** Cuánto se encoge una cara que, ya abierta, sigue pisando a otra. */
-export const ESCALA_APRETADA = 0.8;
-
 /*
 | Lo que ocupa cada cosa respecto a su punto (los pies), tal y como la pinta
 | `TableroSlide`: la foto de 96 × 120 encima de los pies (lo opaco, el jugador
@@ -53,11 +54,14 @@ const PLACA_ALTO = 20;
 /** El aire mínimo entre dos nombres, para que no se lean pegados. */
 const AIRE_NOMBRES = 4;
 
-/** Hasta dónde se abre una cara a cada lado (a su tamaño y apretada). */
-const ABRE_MAX = 64;
-const ABRE_MAX_APRETADA = 110;
+/**
+ * Hasta dónde se abre una cara a cada lado, por rondas: primero poco (64 px)
+ * y, las que siguen pisando un nombre, cada vez más. Antes, en la segunda
+ * ronda se encogían; ahora se apartan (12/11/2026).
+ */
+const ABRE_POR_RONDA = [64, 110, 160, 220];
 
-export type Separadas = Map<string, { x: number; compacta: boolean }>;
+export type Separadas = Map<string, { x: number }>;
 
 function caja(x: number, y: number, forma: { w: number; arriba: number; abajo: number }, k = 1): Caja {
   return { x0: x - (forma.w * k) / 2, x1: x + (forma.w * k) / 2, y0: y - forma.arriba * k, y1: y + forma.abajo * k };
@@ -112,7 +116,7 @@ export function cajasRival(x: number, y: number, placa = 0, arriba = false): Caj
 /*  NUESTRAS CARAS                                                     */
 /* ------------------------------------------------------------------ */
 
-type Pos = { id: string; x: number; y: number; x0: number; chapa: number; k: number };
+type Pos = { id: string; x: number; y: number; x0: number; chapa: number; k: number; abre: number };
 
 /**
  * Lo que tienen que separarse en horizontal dos fichas para que ningún nombre
@@ -204,9 +208,7 @@ function relaja(pos: Pos[], fijos: Caja[]) {
 }
 
 function tope(p: Pos, x: number) {
-  const max = p.k < 1 ? ABRE_MAX_APRETADA : ABRE_MAX;
-
-  return Math.max(p.x0 - max, Math.min(p.x0 + max, x));
+  return Math.max(p.x0 - p.abre, Math.min(p.x0 + p.abre, x));
 }
 
 function pisadas(pos: Pos[], fijos: Caja[]) {
@@ -229,44 +231,43 @@ function pisadas(pos: Pos[], fijos: Caja[]) {
 }
 
 /**
- * Dónde se pinta cada una de las nuestras. Primero se abren a su tamaño (hasta
- * 64 px a cada lado); las que siguen pisando un nombre se pintan apretadas y
- * se abren más (hasta 110 px). `fijos`: lo que no se mueve y no se puede tapar
- * (nuestro portero bajo palos, con su nombre).
+ * Dónde se pinta cada una de las nuestras, todas a su tamaño. Primero se
+ * abren hasta 64 px a cada lado; las que siguen pisando un nombre se abren
+ * más en cada ronda (110, 160, 220). `fijos`: lo que no se mueve y no se
+ * puede tapar (nuestro portero bajo palos, con su nombre).
  */
 export function separaFichas(fichas: Punto[], fijos: Caja[] = []): Separadas {
-  const apretadas = new Set<string>();
+  const ronda = new Map<string, number>();
   let pos: Pos[] = [];
 
-  for (let ronda = 0; ronda < 4; ronda += 1) {
+  for (let vuelta = 0; vuelta < ABRE_POR_RONDA.length; vuelta += 1) {
     pos = fichas.map((ficha) => ({
       id: ficha.id,
       x: ficha.x,
       y: ficha.y,
       x0: ficha.x,
       chapa: ficha.chapa ?? 0,
-      k: apretadas.has(ficha.id) ? ESCALA_APRETADA : 1,
+      k: 1,
+      abre: ABRE_POR_RONDA[ronda.get(ficha.id) ?? 0],
     }));
 
     relaja(pos, fijos);
 
-    const mal = pisadas(pos, fijos);
-    const nuevas = [...mal].filter((id) => !apretadas.has(id));
+    const mal = [...pisadas(pos, fijos)].filter((id) => (ronda.get(id) ?? 0) < ABRE_POR_RONDA.length - 1);
 
-    if (nuevas.length === 0) break;
+    if (mal.length === 0) break;
 
-    nuevas.forEach((id) => apretadas.add(id));
+    mal.forEach((id) => ronda.set(id, (ronda.get(id) ?? 0) + 1));
   }
 
-  return new Map(pos.map((p) => [p.id, { x: Math.round(p.x), compacta: p.k < 1 }]));
+  return new Map(pos.map((p) => [p.id, { x: Math.round(p.x) }]));
 }
 
 /** Las cajas que ocupan las nuestras ya colocadas: la cara y la chapa de cada una. */
 function cajasFichas(fichas: Punto[], separadas: Separadas | null) {
   return fichas.map((ficha) => {
-    const sep = separadas?.get(ficha.id);
-    const x = sep?.x ?? ficha.x;
-    const k = sep?.compacta ? ESCALA_APRETADA : 1;
+    const x = separadas?.get(ficha.id)?.x ?? ficha.x;
+    const k = 1;
 
     return {
       id: ficha.id,
@@ -305,6 +306,15 @@ export function cajasPortero(x: number, y: number, nombre: number, lado: LadoNom
 }
 
 /**
+ * Nuestro portero con su foto (12/11/2026, «las fotos de todos del mismo
+ * tamaño»): se pinta como una ficha más —la foto entera y la chapa «POR» con
+ * su nombre debajo—, así que ocupa lo que una cara y una chapa.
+ */
+export function cajasPorteroFigura(x: number, y: number, chapa: number): Caja[] {
+  return [cajaCara(x, y), cajaChapa(x, y, chapa)];
+}
+
+/**
  * Hacia dónde va el nombre de nuestro portero (12/11/2026, falta directa: la
  * cara de Pol, justo debajo, lo dejaba en «TRE»). Debajo si cabe; si no, al
  * lado libre o encima. Se decide con las caras donde las puso el analista,
@@ -333,7 +343,12 @@ export type Apartados = Map<string, { x: number; y: number; debajo: boolean; nom
 /** Por dónde puede ir algo pintado sin salirse del campo de la foto. */
 const LIENZO = { x0: 30, x1: 1890, y0: 100, y1: 1066 };
 
-const dentro = (c: Caja) => c.x0 >= LIENZO.x0 && c.x1 <= LIENZO.x1 && c.y0 >= LIENZO.y0 && c.y1 <= LIENZO.y1;
+export type Lienzo = typeof LIENZO;
+
+const dentro = (c: Caja, l: Lienzo = LIENZO) => c.x0 >= l.x0 && c.x1 <= l.x1 && c.y0 >= l.y0 && c.y1 <= l.y1;
+
+/** El lienzo visto en otra escala (ver `colocaLamina`, que coloca a escala de las caras). */
+export const lienzoA = (escala: number): Lienzo => ({ x0: LIENZO.x0 / escala, x1: LIENZO.x1 / escala, y0: LIENZO.y0 / escala, y1: LIENZO.y1 / escala });
 
 /** Los sitios alrededor de un punto, de cerca a lejos (los de los lados y por delante primero). */
 function alrededor(x: number, y: number, hasta: number, paso = 12) {
@@ -369,7 +384,7 @@ function alrededor(x: number, y: number, hasta: number, paso = 12) {
  * chapa de su marca ya lleva su dorsal («M1 →4»): aunque se aparte, se sabe
  * quién es de quién. Si nada queda limpio, el sitio que menos tapa.
  */
-export function apartaRivales(rivales: Punto[], fichas: Punto[], separadas: Separadas | null, otras: Caja[] = []): Apartados {
+export function apartaRivales(rivales: Punto[], fichas: Punto[], separadas: Separadas | null, otras: Caja[] = [], lienzo: Lienzo = LIENZO): Apartados {
   const nuestras = cajasFichas(fichas, separadas);
   const chapas = nuestras.flatMap((f) => (f.chapa ? [{ ...f.chapa, x0: f.chapa.x0 - 4, x1: f.chapa.x1 + 4 }] : []));
   const caras = nuestras.map((f) => f.cara);
@@ -384,7 +399,7 @@ export function apartaRivales(rivales: Punto[], fichas: Punto[], separadas: Sepa
         caras.reduce((s, o) => s + solape(o, c) * 2, 0) +
         puestos.reduce((s, o) => s + solape(o, c) * 6, 0) +
         otras.reduce((s, o) => s + solape(o, c) * 6, 0) +
-        (dentro(c) ? 0 : 5000),
+        (dentro(c, lienzo) ? 0 : 5000),
       0,
     );
 
@@ -445,6 +460,7 @@ export function colocaInsignias(
   separadas: Separadas | null,
   rivales: RivalColocado[] = [],
   otras: Caja[] = [],
+  lienzo: Lienzo = LIENZO,
 ): Colocadas {
   const delante = cajasFichas(fichas, separadas);
   const fijas: Caja[] = [...rivales.flatMap((rival) => cajasRival(rival.x, rival.y, rival.chapa ?? 0, rival.nombreArriba)), ...otras];
@@ -483,7 +499,7 @@ export function colocaInsignias(
         delante.reduce((suma, d) => suma + (d.chapa ? solape(d.chapa, box) * 4 : 0) + solape(d.cara, box), 0) +
         fijas.reduce((suma, otra) => suma + solape(otra, box) * 3, 0) +
         puestas.reduce((suma, otra) => suma + solape(otra, box) * 4, 0) +
-        (dentro(box) ? 0 : 5000)
+        (dentro(box, lienzo) ? 0 : 5000)
       );
     };
 

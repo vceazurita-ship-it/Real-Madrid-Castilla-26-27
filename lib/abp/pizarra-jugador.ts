@@ -1202,7 +1202,18 @@ const CAMPO_ABAJO = TABLERO_H - 206 - 14;
  * cual (el arnés de Node) y el césped, lo que queda entre la cabecera, el
  * panel y las consignas.
  */
-export type MarcoCaptura = { k: number; dx: number; dy: number; campo: { x: number; y: number; w: number; h: number } };
+export type MarcoCaptura = {
+  k: number;
+  dx: number;
+  dy: number;
+  campo: { x: number; y: number; w: number; h: number };
+  /**
+   * A qué escala sale una cara en la foto (12/11/2026): desde que todas las
+   * láminas pintan las caras al mismo tamaño, ya no crecen con el campo
+   * acercado (`k`). Medida en el DOM; sin ella, la del campo.
+   */
+  cara?: number;
+};
 
 const MARCO_PLANO: MarcoCaptura = {
   k: 1,
@@ -1226,9 +1237,11 @@ const CAMPO_MAX_HOJA = 1180;
  */
 function encuadre(accion: CometidoAccion, yo: { x: number; y: number } | null, marco: MarcoCaptura, pintado: CajaFoto[] = []): Encuadre {
   const { k, dx, dy, campo } = marco;
+  /* Lo que mide una cara en la foto: las posiciones van con el campo (`k`); los tamaños, con la cara. */
+  const kc = marco.cara ?? k;
   const cajas: { x0: number; y0: number; x1: number; y1: number }[] = [];
   const caja = (p: { x: number; y: number }, m: typeof FICHA) =>
-    cajas.push({ x0: dx + (p.x - m.izq) * k, y0: dy + (p.y - m.arriba) * k, x1: dx + (p.x + m.der) * k, y1: dy + (p.y + m.abajo) * k });
+    cajas.push({ x0: dx + p.x * k - m.izq * kc, y0: dy + p.y * k - m.arriba * kc, x1: dx + p.x * k + m.der * kc, y1: dy + p.y * k + m.abajo * kc });
 
   accion.zona.forEach((p) => caja(p, FICHA));
   accion.foco.forEach((p) => caja(p, { izq: 50, der: 50, arriba: 110, abajo: 50 }));
@@ -1238,13 +1251,13 @@ function encuadre(accion: CometidoAccion, yo: { x: number; y: number } | null, m
   if (accion.marcaPunto) caja(accion.marcaPunto, { izq: 50, der: 50, arriba: 90, abajo: 30 });
 
   /* Su cara, medida en la foto: ya viene en píxeles de la foto. */
-  if (yo) cajas.push({ x0: yo.x - 80 * k, y0: yo.y - 120 * k, x1: yo.x + 80 * k, y1: yo.y + 130 * k });
+  if (yo) cajas.push({ x0: yo.x - 80 * kc, y0: yo.y - 120 * kc, x1: yo.x + 80 * kc, y1: yo.y + 130 * kc });
 
   if (cajas.length === 0) {
-    return { sx: campo.x, sy: campo.y, sw: campo.w, sh: campo.h, alto: Math.round((HOJA_W * campo.h) / campo.w), k };
+    return { sx: campo.x, sy: campo.y, sw: campo.w, sh: campo.h, alto: Math.round((HOJA_W * campo.h) / campo.w), k: kc };
   }
 
-  const aire = 24 * k;
+  const aire = 24 * kc;
 
   /* Lo que se sale del césped no se puede enseñar: se recorta a él. */
   const recorte = () => {
@@ -1281,7 +1294,7 @@ function encuadre(accion: CometidoAccion, yo: { x: number; y: number } | null, m
 
   for (let pasada = 0; pasada < 3; pasada += 1) {
     const cortados = [
-      ...accion.otros.map((p) => ({ x0: dx + (p.x - FICHA.izq) * k, y0: dy + (p.y - FICHA.arriba) * k, x1: dx + (p.x + FICHA.der) * k, y1: dy + (p.y + FICHA.abajo) * k })),
+      ...accion.otros.map((p) => ({ x0: dx + p.x * k - FICHA.izq * kc, y0: dy + p.y * k - FICHA.arriba * kc, x1: dx + p.x * k + FICHA.der * kc, y1: dy + p.y * k + FICHA.abajo * kc })),
       ...(accion.flechas ?? []).map((f) => ({ x0: dx + f.x0 * k, y0: dy + f.y0 * k, x1: dx + f.x1 * k, y1: dy + f.y1 * k })),
       /* Lo pintado (rivales con su apellido, letras, chapas): el que asoma, entero (ya en píxeles de la foto). */
       ...pintado,
@@ -1299,7 +1312,7 @@ function encuadre(accion: CometidoAccion, yo: { x: number; y: number } | null, m
     r = recorte();
   }
 
-  return { ...r, alto: Math.round((HOJA_W * r.sh) / r.sw), k };
+  return { ...r, alto: Math.round((HOJA_W * r.sh) / r.sw), k: kc };
 }
 
 /**
@@ -1775,14 +1788,16 @@ function planAccion(
   suyos: Map<string, SuJugador> | undefined,
   pintado: CajaFoto[] = [],
 ): PlanAccion {
-  const enFoto = (p: { x: number; y: number }) => ({ x: marco.dx + p.x * marco.k, y: marco.dy + p.y * marco.k });
-  /* El portero: su chapa «POR» medida en el DOM (`punto`) o, si no, su disco (30 px por encima de los pies). */
+  /* `arriba`: lo que se sube desde los pies, a tamaño de cara (las caras ya no crecen con el campo acercado). */
+  const kc = marco.cara ?? marco.k;
+  const enFoto = (p: { x: number; y: number }, arriba = 0) => ({ x: marco.dx + p.x * marco.k, y: marco.dy + p.y * marco.k - arriba * kc });
+  /* El portero: su foto medida en el DOM (`punto`) o, si no, su cara (50 px por encima de los pies, como la de todos). */
   const yo = accion.sinFicha
-    ? punto ?? (accion.portero ? enFoto({ x: accion.portero.x, y: accion.portero.y - 30 }) : null)
-    : punto ?? (accion.foco[0] ? enFoto({ x: accion.foco[0].x, y: accion.foco[0].y - 50 }) : null);
+    ? punto ?? (accion.portero ? enFoto(accion.portero, 50) : null)
+    : punto ?? (accion.foco[0] ? enFoto(accion.foco[0], 50) : null);
   /* Cara y nombre de cada uno de los demás, en la foto. */
-  const otros = accion.otros.flatMap((p) => [enFoto({ x: p.x, y: p.y - 50 }), enFoto({ x: p.x, y: p.y + 4 })]);
-  const marca = accion.marcaPunto ? enFoto({ x: accion.marcaPunto.x, y: accion.marcaPunto.y - 30 }) : null;
+  const otros = accion.otros.flatMap((p) => [enFoto(p, 50), enFoto(p, -4)]);
+  const marca = accion.marcaPunto ? enFoto(accion.marcaPunto, 30) : null;
   const enc = conTablero ? encuadre(accion, yo, marco, pintado) : null;
 
   const medida = midiendo();
@@ -1943,8 +1958,12 @@ export async function pdfJugador(opciones: {
   const rival = nombreRivalPieza(opciones.rival) || opciones.rival;
   const cx: Contexto = { player, rival, jornada: opciones.jornada, fecha: opciones.fecha, escudos: opciones.escudos };
 
-  /* El portero no tiene ficha: su cara va sobre la chapa «POR» de su hoja. */
-  const foto = acciones.some((accion) => accion.sinFicha) ? player?.foto || player?.fotoLejos : "";
+  /*
+  | El portero no tiene ficha: si la lámina sólo lleva el disco «POR», su cara
+  | va encima en su hoja. Con su foto, la lámina ya lo pinta entero y del
+  | tamaño de los demás (12/11/2026): no se le pone otra cara encima.
+  */
+  const foto = acciones.some((accion) => accion.sinFicha) && !player?.foto ? player?.fotoLejos : "";
   const retrato = foto ? await cargaImagen(foto).catch(() => null) : null;
 
   const hojas: HTMLCanvasElement[] = [];

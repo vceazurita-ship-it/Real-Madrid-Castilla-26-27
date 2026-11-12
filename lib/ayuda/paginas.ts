@@ -664,13 +664,19 @@ export const AYUDAS: AyudaDePagina[] = [
           },
           {
             que: "Portero",
-            es: "En las defensivas, el del once de la pizarra táctica bajo palos (su cara y su nombre); el nombre va debajo, a un lado o encima, donde no lo tape nadie",
+            es: "En las defensivas, el del once de la pizarra táctica bajo palos: con su foto entera, del tamaño de las demás, y su chapa «POR» con el nombre (sin foto, el disco «POR»)",
+          },
+          {
+            que: "Todas las caras del mismo tamaño",
+            es: "En la pizarra, el proyector, el PDF, el PowerPoint y el PDF de cada jugador, todas las fotos —las nuestras y la del portero— miden lo mismo, en todas las láminas",
+            cuenta:
+              "Al enseñar, cada lámina acerca el campo a su jugada; lo que crece es el campo, no las caras: caras, chapas, rivales y letras se pintan siempre al 78 % del lienzo de 1920 (lo que mide el campo entero al editar). Ninguna cara se encoge para caber ni crece por sí sola (tampoco la del jugador resaltado en su PDF, que se distingue por el rosa)",
           },
           {
             que: "Ningún nombre tapado",
             es: "Al enseñar y exportar, ninguna chapa, apellido de rival, nombre del portero ni letra queda debajo de otra cosa",
             cuenta:
-              "Nuestras caras se abren hasta 64 px a cada lado y, si no basta, se pintan algo más pequeñas (la chapa con el nombre no encoge) y se abren hasta 110 px. Cada rival busca el sitio libre más cercano (hasta 260 px, primero a los lados y por delante) con su apellido debajo o, si no cabe, encima: la chapa de su marca ya dice su dorsal («M2 →5»). Motor común en lib/abp/coloca-lamina.ts",
+              "Nuestras caras se abren hacia los lados, todas a su tamaño: hasta 64 px y, las que siguen pisando un nombre, hasta 110, 160 y 220 px. Cada rival busca el sitio libre más cercano (hasta 260 px, primero a los lados y por delante) con su apellido debajo o, si no cabe, encima: la chapa de su marca ya dice su dorsal («M2 →5»). Motor común en lib/abp/coloca-lamina.ts",
           },
           {
             que: "Letras A, B, C… en el campo",
@@ -686,6 +692,30 @@ export const AYUDAS: AyudaDePagina[] = [
           },
           { que: "J12 · vie 13 nov · 21:15", es: "Bajo el rival de la cabecera y en el pie del PDF: la jornada y el día y hora del calendario de BeSoccer, con «lámina n de N»" },
           { que: "Leyenda de flechas", es: "Dos filas fijas (flechas arriba; rival y fases abajo), del ancho justo de lo que la lámina dibuja" },
+        ],
+      },
+      {
+        titulo: "Nombres en las consignas",
+        filas: [
+          {
+            que: "Subrayado en oro",
+            es: "Al editar, el nombre de alguien que está en la lámina va atado a su ficha: si pones a otro jugador en ella (el selector, soltar una cara sobre otra, «Quién marca a quién», el grupo entero), la consigna pasa a decir el nombre del que entra",
+            cuenta:
+              "Se reconoce por el apodo, el nombre completo o el apellido, sin tildes ni mayúsculas (en mayúsculas sostenidas, el nuevo también). Va en el mismo paso que el cambio: Ctrl+Z lo deshace todo. Debajo de «Consignas» se lista quién va atado",
+          },
+          {
+            que: "Ondas rojas",
+            es: "Un jugador de la plantilla que la consigna nombra y ya no está en la lámina: el texto se queda tal cual, para que lo cambies o lo pongas en el campo",
+          },
+          {
+            que: "Sin atar",
+            es: "Si dos de la lámina comparten la palabra (dos con el mismo apellido) o el que sale sigue en otro sitio de la misma lámina, no se sabe de quién habla: no se cambia",
+          },
+          {
+            que: "Lo guardado",
+            es: "Las pizarras de antes abren igual: las consignas siguen siendo texto y lo atado se calcula al verlas. Sólo cambian cuando tú cambias a alguien de ficha",
+            cuenta: "Cambiar a uno en todas las diapositivas (cambiar jugador, «Poner el once») ya cambiaba los nombres en todos los textos",
+          },
         ],
       },
       {

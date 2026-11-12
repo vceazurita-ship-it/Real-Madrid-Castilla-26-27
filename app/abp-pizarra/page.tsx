@@ -33,6 +33,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cargaCalendario } from "@/hooks/useCalendario";
 import { cambiaEnTextosDelTablero, mencionesFuera } from "@/lib/abp/textos-jugadores";
+import { enLaLamina, enlazaNombres, mencionesDe } from "@/lib/abp/menciones";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -1037,18 +1038,26 @@ export default function PizarraAbpPage() {
 
   const slide: SlidePizarra | null = tablero?.slides[activa] ?? null;
 
+  /*
+  | 12/11/2026 (el analista: «que los nombres de las consignas cambien según
+  | se seleccionen unos jugadores u otros»): si el cambio pone a otro jugador
+  | en una ficha de la diapositiva —el selector, soltar una cara sobre otra,
+  | la propuesta de marcas, el grupo entero— y no ha tocado los textos, sus
+  | menciones en las consignas pasan a decir el nombre del que entra. Va en
+  | el mismo paso: Ctrl+Z lo deshace todo. Ver `lib/abp/menciones.ts`.
+  */
   const mutaSlide = useCallback(
     (fn: (actual: SlidePizarra) => SlidePizarra, clave?: string) =>
       mutaTablero(
         (actual) => ({
           ...actual,
           slides: actual.slides.map((item, indice) =>
-            indice === activa ? fn(item) : item,
+            indice === activa ? enlazaNombres(item, fn(item), players) : item,
           ),
         }),
         clave,
       ),
-    [mutaTablero, activa],
+    [mutaTablero, activa, players],
   );
 
   /*
@@ -4525,6 +4534,36 @@ function TextosDeLaSlide({
               <p className="mt-1.5 flex items-start gap-1.5 text-xs leading-relaxed text-amber-300/80">
                 <AlertTriangle size={13} className="mt-0.5 shrink-0" />
                 {sinFicha.join(", ")} {sinFicha.length === 1 ? "sale" : "salen"} en las consignas y no {sinFicha.length === 1 ? "tiene" : "tienen"} puesto en esta diapositiva.
+              </p>
+            ) : null;
+          })()}
+
+          {/*
+          | 12/11/2026: los nombres de las consignas que van atados a su
+          | ficha. Si se pone a otro jugador en ella, cambian solos (y en lo
+          | exportado). En la lámina se ven subrayados en oro.
+          */}
+          {(() => {
+            const presentes = enLaLamina(slide);
+            const enlazados = [
+              ...new Set(
+                [...slide.notas, ...Object.values(slide.guion ?? {}).map(String)]
+                  .flatMap((texto) => mencionesDe(texto, presentes, jugadores))
+                  .filter((m) => m.estado === "enlazada")
+                  .map((m) => {
+                    const quien = jugadores.find((j) => j.id === m.playerId);
+
+                    return quien?.apodo || quien?.nombre || m.texto;
+                  }),
+              ),
+            ];
+
+            return enlazados.length > 0 ? (
+              <p data-nombres-enlazados className="mt-1.5 flex items-start gap-1.5 text-xs leading-relaxed text-[#D8B45A]/85">
+                <Link2 size={13} className="mt-0.5 shrink-0" />
+                <span>
+                  Atados a su ficha: {enlazados.join(", ")}. Si pones a otro jugador en esa ficha, su nombre cambia solo aquí, en la lámina y en lo que se exporta.
+                </span>
               </p>
             ) : null;
           })()}
