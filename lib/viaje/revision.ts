@@ -44,6 +44,8 @@ export type LineaAviso = {
   corregido?: string;
   /** La regla que la dispara, con su dato (12/11/2026, expertos): «según la ruta calculada, dura 35 min». */
   regla?: string;
+  /** La cuenta con sus cifras, para el «¿por qué?» (12/11/2026, quinta vuelta): «salida 12:30, llegada 12:39 = 9 min». */
+  calculo?: string;
 };
 
 export type AvisoHorario = {
@@ -60,6 +62,13 @@ export type AvisoHorario = {
    * basta con decir que algo está mal, hay que decir por qué y con qué cifra.
    */
   regla?: string;
+  /**
+   * De dónde sale cada dato (12/11/2026, quinta vuelta): «hoja del horario
+   * (jueves 12) · hora del partido de la ficha». Va plegado en «¿por qué?».
+   */
+  fuente?: string;
+  /** La cuenta con sus cifras: «llegada 13:15, partido 21:15 = 8 h antes». */
+  calculo?: string;
   /** El arreglo de un clic: lo que dice el botón y los días como quedarían. */
   arreglo?: ArregloHorario;
   /** Otra salida, menor (va como enlace al lado del botón): «o convertirlo en víspera». */
@@ -377,6 +386,15 @@ function duracionEsperada(salida: CitaHorario, llegada: CitaHorario, viaje: Desp
 /*  LOS AVISOS                                                         */
 /* ------------------------------------------------------------------ */
 
+/** «8 h», «8 h 30 min», «45 min». */
+function cuantoTiempo(minutos: number) {
+  const m = Math.abs(minutos);
+  const h = Math.floor(m / 60);
+  const r = m % 60;
+
+  return h === 0 ? `${r} min` : r === 0 ? `${h} h` : `${h} h ${r} min`;
+}
+
 const esPartido = (cita: Pick<CitaHorario, "tipo" | "texto">) => cita.tipo === "partido" || /^\s*partido\b/i.test(cita.texto);
 
 /**
@@ -413,8 +431,11 @@ export function avisosHorario(viaje: Desplazamiento, nombres: string[] = []): Av
     avisos.push({
       clave: `dia-copiado-${copiado.id}`,
       grave: true,
-      texto: `El ${nombreDia} es un día de partido copiado: lleva ${n} citas del día del partido.`,
-      regla: `La charla, la salida al estadio, la llegada, el calentamiento y el partido van sólo el día del partido (${dia(viaje.fecha)}); el ${nombreDia} lleva ${n}.`,
+      /* 12/11/2026 (quinta vuelta): titular con verbo y corto; la regla y la cuenta, plegadas en «¿por qué?». */
+      texto: `El ${nombreDia} repite ${n} citas del día de partido`,
+      fuente: `hoja del horario (${nombreDia}) · fecha del partido de la ficha (${dia(viaje.fecha)})`,
+      regla: "La charla, la salida al estadio, la llegada, el calentamiento y el partido van sólo el día del partido.",
+      calculo: `partido el ${dia(viaje.fecha)}; el ${nombreDia} lleva ${n} de esas citas`,
       lineas: [...citas]
         .sort((a, b) => a.minuto - b.minuto)
         .map((c) => ({ texto: `${aHora(c.minuto)} · ${frase(c.texto)}`, diaId: copiado.id, citaId: c.id })),
@@ -465,10 +486,10 @@ export function avisosHorario(viaje: Desplazamiento, nombres: string[] = []): Av
     avisos.push({
       clave: "dos-partidos",
       grave: true,
-      texto: `Hay ${partidos.length} partidos en el horario (${[...new Set(partidos.map((p) => dia(p.dia.fecha)))].join(" y ")})${
-        viaje.fecha ? `: el partido es el ${dia(viaje.fecha)}` : ""
-      }.`,
-      regla: `Un viaje lleva un solo partido${viaje.fecha ? `, el del ${dia(viaje.fecha)}${viaje.hora ? ` a las ${viaje.hora}` : ""}` : ""}; aquí hay ${partidos.length}.`,
+      texto: `Sobra${partidos.length === 2 ? " un partido" : `n ${partidos.length - 1} partidos`}: el horario lleva ${partidos.length}`,
+      fuente: `hoja del horario${viaje.fecha ? ` · fecha del partido de la ficha (${dia(viaje.fecha)})` : ""}`,
+      regla: "Un viaje lleva un solo partido.",
+      calculo: `partidos el ${[...new Set(partidos.map((p) => dia(p.dia.fecha)))].join(" y el ")}${viaje.fecha ? `; el bueno es el del ${dia(viaje.fecha)}` : ""}`,
       lineas: partidos.map((p) => ({ texto: `${dia(p.dia.fecha)} ${aHora(p.cita.minuto)} · ${frase(p.cita.texto)}`, diaId: p.dia.id, citaId: p.cita.id })),
       ...(sobran.length > 0 && sobran.length < partidos.length
         ? {
@@ -488,8 +509,10 @@ export function avisosHorario(viaje: Desplazamiento, nombres: string[] = []): Av
     avisos.push({
       clave: "partido-fuera-de-dia",
       grave: true,
-      texto: `El partido no está en su día (${dia(viaje.fecha)}).`,
-      regla: `La ficha dice ${dia(viaje.fecha)}${viaje.hora ? ` a las ${viaje.hora}` : ""}; en el horario está el ${dia(partidos[0].dia.fecha)} a las ${aHora(partidos[0].cita.minuto)}.`,
+      texto: `Lleva el partido a su día, el ${dia(viaje.fecha)}`,
+      fuente: "hoja del horario · fecha del partido de la ficha",
+      regla: "El partido del horario va el día que dice la ficha.",
+      calculo: `ficha: ${dia(viaje.fecha)}${viaje.hora ? ` ${viaje.hora}` : ""}; horario: ${dia(partidos[0].dia.fecha)} ${aHora(partidos[0].cita.minuto)}`,
       diaId: partidos[0].dia.id,
       citaId: partidos[0].cita.id,
     });
@@ -507,8 +530,10 @@ export function avisosHorario(viaje: Desplazamiento, nombres: string[] = []): Av
       avisos.push({
         clave: "vuelta-antes",
         grave: true,
-        texto: `«${frase(vueltaAntes.texto)}» está a las ${aHora(vueltaAntes.minuto)} del ${dia(diaPartido.fecha)}, antes del partido de las ${viaje.hora}.`,
-        regla: `Fuera de casa, la vuelta a Valdebebas va después del partido: llegada ${aHora(vueltaAntes.minuto)}, partido ${viaje.hora}.`,
+        texto: `Mueve «${frase(vueltaAntes.texto)}»: va antes del partido`,
+        fuente: `hoja del horario (${dia(diaPartido.fecha)}) · hora del partido de la ficha`,
+        regla: "Fuera de casa, la vuelta a Valdebebas va después del partido.",
+        calculo: `llegada ${aHora(vueltaAntes.minuto)}, partido ${viaje.hora} = ${cuantoTiempo(minutoPartido - vueltaAntes.minuto)} antes`,
         diaId: diaPartido.id,
         citaId: vueltaAntes.id,
       });
@@ -517,6 +542,9 @@ export function avisosHorario(viaje: Desplazamiento, nombres: string[] = []): Av
 
   /* 4. Trayectos que no dan tiempo, cotejados con lo que dura cada uno. */
   const cortos: LineaAviso[] = [];
+  /* El titular de cada trayecto, para cuando es uno solo (12/11/2026, quinta vuelta). */
+  const titulares: string[] = [];
+  const fuentes: string[] = [];
 
   for (const d of viaje.dias) {
     const orden = [...d.citas].sort((a, b) => a.minuto - b.minuto);
@@ -538,11 +566,14 @@ export function avisosHorario(viaje: Desplazamiento, nombres: string[] = []): Av
         if (hay < esperada.minutos - margen) {
           cortos.push({
             /* 12/11/2026 (expertos): primero la cifra, luego las dos horas: «trayecto de 15 min: salida 12:30, llegada 12:45». */
-            texto: `${dia(d.fecha)}: trayecto de ${hay} min: salida ${aHora(salida.minuto)} («${frase(salida.texto)}»), llegada ${aHora(cita.minuto)} («${frase(cita.texto)}»).`,
+            texto: `${dia(d.fecha)}: «${frase(salida.texto)}» ${aHora(salida.minuto)} → «${frase(cita.texto)}» ${aHora(cita.minuto)}`,
             regla: `Según ${esperada.fuente}, el trayecto dura ${esperada.minutos} min; se avisa por debajo de ${esperada.minutos - margen} min (margen de ${margen}).`,
+            calculo: `salida ${aHora(salida.minuto)}, llegada ${aHora(cita.minuto)} = ${cuantoTiempo(hay)}; hacen falta unos ${cuantoTiempo(esperada.minutos)}`,
             diaId: d.id,
             citaId: cita.id,
           });
+          titulares.push(`Revisa las horas del ${dia(d.fecha)}: el trayecto dura ${cuantoTiempo(hay)}`);
+          fuentes.push(`hoja del horario (${dia(d.fecha)}): «${frase(salida.texto)}» y «${frase(cita.texto)}» · ${esperada.fuente}`);
         }
 
         return;
@@ -553,19 +584,39 @@ export function avisosHorario(viaje: Desplazamiento, nombres: string[] = []): Av
         const que = medio === "tren" ? "tren" : "vuelo";
 
         cortos.push({
-          texto: `${dia(d.fecha)}: ¿${que} de ${hay} min? Salida ${aHora(salida.minuto)} («${frase(salida.texto)}»), llegada ${aHora(cita.minuto)} («${frase(cita.texto)}»).`,
-          regla: `Sin la duración del trayecto, se avisa de un ${que} de menos de 20 min: éste dura ${hay}.`,
+          /*
+          | 12/11/2026 (quinta vuelta): «¿tren de 9 min?» no decía de dónde
+          | salía la cifra. Ahora dice las dos citas con su hora tal como están
+          | en la hoja, y que ningún tren ni vuelo dura menos de 20 min: lo
+          | normal es que una de las dos horas esté mal tecleada.
+          */
+          texto: `${dia(d.fecha)}: «${frase(salida.texto)}» ${aHora(salida.minuto)} → «${frase(cita.texto)}» ${aHora(cita.minuto)}`,
+          regla: `Ningún ${que} dura menos de 20 min: lo normal es que una de las dos horas esté mal tecleada. Esta salida no tiene duración calculada con la que comparar.`,
+          calculo: `salida ${aHora(salida.minuto)}, llegada ${aHora(cita.minuto)} = ${cuantoTiempo(hay)}`,
           diaId: d.id,
           citaId: cita.id,
         });
+        titulares.push(`Revisa la hora del ${que} del ${dia(d.fecha)}: llega a los ${cuantoTiempo(hay)}`);
+        fuentes.push(`hoja del horario (${dia(d.fecha)}): «${frase(salida.texto)}» y «${frase(cita.texto)}»`);
       }
     });
   }
 
   if (cortos.length === 1) {
-    avisos.push({ clave: "trayecto", grave: false, texto: cortos[0].texto, regla: cortos[0].regla, diaId: cortos[0].diaId, citaId: cortos[0].citaId });
+    const [uno] = cortos;
+    /* El titular dice qué hacer y la cifra; las dos citas y la cuenta van en el «¿por qué?». */
+    avisos.push({
+      clave: "trayecto",
+      grave: false,
+      texto: titulares[0],
+      fuente: fuentes[0],
+      regla: uno.regla,
+      calculo: uno.calculo,
+      diaId: uno.diaId,
+      citaId: uno.citaId,
+    });
   } else if (cortos.length > 1) {
-    avisos.push({ clave: "trayectos", grave: false, texto: `${cortos.length} trayectos no dan tiempo:`, lineas: cortos });
+    avisos.push({ clave: "trayectos", grave: false, texto: `Revisa ${cortos.length} trayectos que no dan tiempo`, fuente: "hoja del horario", lineas: cortos });
   }
 
   /* 5. Erratas en las citas, con la propuesta. */
@@ -586,8 +637,9 @@ export function avisosHorario(viaje: Desplazamiento, nombres: string[] = []): Av
     avisos.push({
       clave: "erratas",
       grave: false,
-      texto: erratas.length === 1 ? "Una cita parece mal escrita:" : `${erratas.length} citas parecen mal escritas:`,
-      regla: "Cada palabra se compara con las del horario y con el nombre del rival en BeSoccer; se propone la que queda a una o dos letras.",
+      texto: erratas.length === 1 ? "Corrige 1 cita mal escrita" : `Corrige ${erratas.length} citas mal escritas`,
+      fuente: "hoja del horario · nombre del rival en BeSoccer",
+      regla: "Cada palabra se compara con las del horario y con el nombre del rival; se propone la que queda a una o dos letras.",
       lineas: erratas,
     });
   }

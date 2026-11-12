@@ -246,7 +246,13 @@ function Escalado({
 /*  LO QUE FALTA                                                       */
 /* ------------------------------------------------------------------ */
 
-type Pendiente = { clave: string; rotulo: string; hecho: boolean; seccion: string };
+/**
+ * Un dato que el documento necesita. `nombre`: cómo se dice fuera de su
+ * bloque («foto del hotel»); `etiqueta`: el rótulo del campo en el
+ * formulario, para que «Poner» lleve a ESE campo y no a la sección
+ * (12/11/2026, quinta vuelta de los expertos).
+ */
+type Pendiente = { clave: string; rotulo: string; hecho: boolean; seccion: string; nombre: string; etiqueta?: string };
 
 /**
  * Lo que necesita el viaje para salir completo, en el orden del formulario
@@ -254,43 +260,45 @@ type Pendiente = { clave: string; rotulo: string; hecho: boolean; seccion: strin
  * Cada chapa lleva a su sección.
  */
 function pendientesDe(viaje: Desplazamiento, avisos: AvisoHorario[] = avisosHorario(viaje)): Pendiente[] {
+  const horarioHecho = viaje.dias.some((dia) => dia.citas.length > 0);
+
   /*
   | En casa no hay viaje (30/10/2026): ni ruta, ni hotel, ni plano. Lo que
   | hace falta es el horario del día de partido y los recordatorios.
   */
   if (viaje.condicion === "local") {
     return [
-      { clave: "hora", rotulo: "Hora del partido", hecho: Boolean(viaje.hora), seccion: "viaje-partido" },
-      { clave: "horario", rotulo: "Horario del día", hecho: viaje.dias.some((dia) => dia.citas.length > 0), seccion: "viaje-horario" },
-      { clave: "avisos", rotulo: "No olvidar", hecho: viaje.avisos.some((a) => a.trim()), seccion: "viaje-avisos" },
+      { clave: "hora", rotulo: "Hora del partido", nombre: "hora del partido", etiqueta: "Hora del partido", hecho: Boolean(viaje.hora), seccion: "viaje-partido" },
+      { clave: "horario", rotulo: "Horario del día", nombre: "horario del día", hecho: horarioHecho, seccion: "viaje-horario" },
+      { clave: "avisos", rotulo: "No olvidar", nombre: "lista «No olvidar»", hecho: viaje.avisos.some((a) => a.trim()), seccion: "viaje-avisos" },
     ];
   }
 
   const lista: Pendiente[] = [
-    { clave: "hora", rotulo: "Hora del partido", hecho: Boolean(viaje.hora), seccion: "viaje-partido" },
-    { clave: "estadio", rotulo: "Nombre", hecho: Boolean(viaje.estadio.nombre.trim()), seccion: "viaje-estadio" },
-    { clave: "direccion", rotulo: "Dirección", hecho: Boolean(viaje.estadio.direccion.trim()), seccion: "viaje-estadio" },
+    { clave: "hora", rotulo: "Hora del partido", nombre: "hora del partido", etiqueta: "Hora del partido", hecho: Boolean(viaje.hora), seccion: "viaje-partido" },
+    { clave: "estadio", rotulo: "Nombre", nombre: "nombre del estadio", etiqueta: "Nombre", hecho: Boolean(viaje.estadio.nombre.trim()), seccion: "viaje-estadio" },
+    { clave: "direccion", rotulo: "Dirección", nombre: "dirección del estadio", etiqueta: "Dirección", hecho: Boolean(viaje.estadio.direccion.trim()), seccion: "viaje-estadio" },
     /* 12/11/2026 (expertos): todo lo que el dossier no llevará, no sólo la ruta: así lo pendiente se ve entero sin abrir la sección. */
-    { clave: "distancia", rotulo: "Distancia", hecho: Boolean(viaje.estadio.distancia.trim()), seccion: "viaje-estadio" },
-    { clave: "tiempo", rotulo: "Tiempo de viaje", hecho: Boolean(viaje.estadio.tiempo.trim()), seccion: "viaje-estadio" },
-    { clave: "foto-estadio", rotulo: "Foto del estadio", hecho: Boolean(viaje.estadio.foto?.url), seccion: "viaje-estadio" },
-    { clave: "plano", rotulo: "Plano", hecho: Boolean(viaje.estadio.plano?.url), seccion: "viaje-estadio" },
-    { clave: "ruta", rotulo: "Ruta del autobús", hecho: Boolean(viaje.estadio.ruta?.url), seccion: "viaje-estadio" },
+    { clave: "distancia", rotulo: "Distancia", nombre: "distancia al estadio", etiqueta: "Distancia", hecho: Boolean(viaje.estadio.distancia.trim()), seccion: "viaje-estadio" },
+    { clave: "tiempo", rotulo: "Tiempo de viaje", nombre: "tiempo de viaje al estadio", etiqueta: "Tiempo de viaje", hecho: Boolean(viaje.estadio.tiempo.trim()), seccion: "viaje-estadio" },
+    { clave: "foto-estadio", rotulo: "Foto del estadio", nombre: "foto del estadio", etiqueta: "Foto del estadio", hecho: Boolean(viaje.estadio.foto?.url), seccion: "viaje-estadio" },
+    { clave: "plano", rotulo: "Plano", nombre: "plano del estadio", etiqueta: "Plano del estadio", hecho: Boolean(viaje.estadio.plano?.url), seccion: "viaje-estadio" },
+    { clave: "ruta", rotulo: "Ruta del autobús", nombre: "captura de la ruta del autobús", etiqueta: "Ruta del autobús", hecho: Boolean(viaje.estadio.ruta?.url), seccion: "viaje-estadio" },
   ];
 
   if (viaje.conHotel) {
     lista.push(
-      { clave: "hotel", rotulo: "Nombre", hecho: Boolean(viaje.hotel.nombre.trim()), seccion: "viaje-hotel" },
-      { clave: "telefono", rotulo: "Teléfono de recepción", hecho: Boolean(viaje.hotel.telefono.trim()), seccion: "viaje-hotel" },
-      { clave: "entrada", rotulo: "Entrada", hecho: Boolean(viaje.hotel.entrada.trim()), seccion: "viaje-hotel" },
-      { clave: "foto", rotulo: "Foto", hecho: Boolean(viaje.hotel.foto?.url), seccion: "viaje-hotel" },
-      { clave: "ruta-hotel", rotulo: "Ruta hotel · estadio", hecho: Boolean(viaje.hotel.ruta?.url), seccion: "viaje-hotel" },
+      { clave: "hotel", rotulo: "Nombre", nombre: "nombre del hotel", etiqueta: "Nombre", hecho: Boolean(viaje.hotel.nombre.trim()), seccion: "viaje-hotel" },
+      { clave: "telefono", rotulo: "Teléfono de recepción", nombre: "teléfono del hotel", etiqueta: "Teléfono", hecho: Boolean(viaje.hotel.telefono.trim()), seccion: "viaje-hotel" },
+      { clave: "entrada", rotulo: "Entrada", nombre: "hora de entrada al hotel", etiqueta: "Entrada", hecho: Boolean(viaje.hotel.entrada.trim()), seccion: "viaje-hotel" },
+      { clave: "foto", rotulo: "Foto", nombre: "foto del hotel", etiqueta: "Foto del hotel", hecho: Boolean(viaje.hotel.foto?.url), seccion: "viaje-hotel" },
+      { clave: "ruta-hotel", rotulo: "Ruta hotel · estadio", nombre: "captura de la ruta hotel · estadio", etiqueta: "Ruta hotel · estadio", hecho: Boolean(viaje.hotel.ruta?.url), seccion: "viaje-hotel" },
     );
   }
 
   lista.push(
-    { clave: "horario", rotulo: "Horario", hecho: viaje.dias.some((dia) => dia.citas.length > 0) && !avisos.some((a) => a.clave !== "erratas"), seccion: "viaje-horario" },
-    { clave: "avisos", rotulo: "No olvidar", hecho: viaje.avisos.some((a) => a.trim()), seccion: "viaje-avisos" },
+    { clave: "horario", rotulo: "Horario", nombre: "horario", hecho: horarioHecho && !avisos.some((a) => a.clave !== "erratas"), seccion: "viaje-horario" },
+    { clave: "avisos", rotulo: "No olvidar", nombre: "lista «No olvidar»", hecho: viaje.avisos.some((a) => a.trim()), seccion: "viaje-avisos" },
   );
 
   return lista;
@@ -309,15 +317,6 @@ const NOMBRE_SECCION: Record<(typeof SECCIONES_VIAJE)[number], string> = {
   "viaje-avisos": "No olvidar",
 };
 
-/* Qué se hace en cada bloque que falta: el botón dice la tarea, no el campo. */
-const TAREA_SECCION: Record<(typeof SECCIONES_VIAJE)[number], string> = {
-  "viaje-partido": "Poner la hora del partido",
-  "viaje-estadio": "Completar el estadio",
-  "viaje-hotel": "Añadir el hotel",
-  "viaje-horario": "Montar el horario",
-  "viaje-avisos": "Escribir el «No olvidar»",
-};
-
 /** Lo que hacen los botones de los avisos del horario: los pulsa el analista, nada se cambia solo. */
 type AccionesAviso = {
   onVer: (diaId: string, citaId: string) => void;
@@ -328,8 +327,12 @@ type AccionesAviso = {
 /** Una tarea de «Cómo va el viaje» que no es un campo vacío, con su botón (12/11/2026). */
 type TareaExtra = { clave: string; texto: string; detalle?: string; boton: string; seccion: string; /** Cómo se nombra en el recuento plegado: «medidas». */ corto?: string };
 
-/** Un dato de la tarjeta del viaje: «Salida · jueves 08:40 · desde Valdebebas». `alerta`: se pinta en rojo con «revisar». */
-type DatoViaje = { que: string; valor: string; alerta?: boolean };
+/**
+ * Un dato de la tarjeta del viaje: «Salida · jueves 08:40 · desde Valdebebas».
+ * `motivo` (12/11/2026, quinta vuelta): por qué hay que revisarlo, en una
+ * línea; sin motivo no hay chapa «revisar».
+ */
+type DatoViaje = { que: string; valor: string; motivo?: string };
 
 const BOTON_FILA = "shrink-0 rounded-full border border-[#C8A96B]/45 px-2.5 py-0.5 text-[12px] font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/10";
 const BOTON_FILA_PRIMARIO = "shrink-0 rounded-full bg-[#C8A96B] px-2.5 py-0.5 text-[12px] font-semibold text-[#0B0F14] transition hover:brightness-110";
@@ -339,11 +342,43 @@ const BOTON_FILA_PRIMARIO = "shrink-0 rounded-full bg-[#C8A96B] px-2.5 py-0.5 te
  * rojo, ámbar y tareas en la misma lista, ordenada por gravedad, con UN solo
  * botón por fila (Quitar / Corregir / Ver / Rellenar). Las citas que nombra
  * un aviso se abren pinchando su texto, sin un «Ver» en cada una.
+ *
+ * 12/11/2026 (quinta vuelta): los avisos se habían hecho largos. Ahora cada
+ * uno es un titular con verbo y su botón; la regla, de dónde sale cada dato
+ * y la cuenta con sus cifras van plegadas en «¿por qué?». A la vista sólo
+ * quedan las líneas que llevan su propio arreglo («Corregir»).
  */
 function FilaAviso({ aviso, acciones }: { aviso: AvisoHorario; acciones?: AccionesAviso }) {
   const grave = aviso.grave;
   const punto = grave ? "bg-red-400" : "bg-amber-400";
-  const unaCita = aviso.diaId && aviso.citaId ? { diaId: aviso.diaId, citaId: aviso.citaId } : null;
+  const lineas = aviso.lineas ?? [];
+  const conArreglo = lineas.filter((l) => l.corregido);
+  const sinArreglo = lineas.filter((l) => !l.corregido);
+  const primera = sinArreglo[0];
+  const unaCita = aviso.diaId && aviso.citaId
+    ? { diaId: aviso.diaId, citaId: aviso.citaId }
+    : primera && !aviso.arreglo && conArreglo.length === 0
+      ? { diaId: primera.diaId, citaId: primera.citaId }
+      : null;
+  const porque = [
+    aviso.fuente ? { que: "De dónde sale", valor: aviso.fuente } : null,
+    aviso.calculo ? { que: "La cuenta", valor: aviso.calculo } : null,
+    aviso.regla ? { que: "La regla", valor: aviso.regla } : null,
+  ].filter((x): x is { que: string; valor: string } => x !== null);
+
+  const verLinea = (linea: LineaAviso) =>
+    acciones ? (
+      <button
+        type="button"
+        title="Ver la cita en el horario"
+        onClick={() => acciones.onVer(linea.diaId, linea.citaId)}
+        className="min-w-0 text-left underline decoration-white/25 decoration-dotted underline-offset-2 transition hover:text-white hover:decoration-[#C8A96B]"
+      >
+        {linea.texto}
+      </button>
+    ) : (
+      <span className="min-w-0">{linea.texto}</span>
+    );
 
   return (
     <li className="flex min-w-0 items-start gap-2.5 py-1.5">
@@ -351,7 +386,7 @@ function FilaAviso({ aviso, acciones }: { aviso: AvisoHorario; acciones?: Accion
 
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-          <span className={`min-w-0 text-[14px] ${grave ? "font-semibold text-red-300" : "text-white/80"}`}>{aviso.texto}</span>
+          <span className={`min-w-0 text-[14px] ${grave ? "font-semibold text-red-300" : "text-white/85"}`}>{aviso.texto}</span>
 
           {acciones && aviso.arreglo ? (
             <button type="button" onClick={() => acciones.onArregla(aviso)} className={BOTON_FILA_PRIMARIO}>
@@ -373,34 +408,47 @@ function FilaAviso({ aviso, acciones }: { aviso: AvisoHorario; acciones?: Accion
           )}
         </div>
 
-        {/* 12/11/2026 (expertos): la regla que lo dispara, con su dato; así se ve por qué y si es verdad. */}
-        {aviso.regla && <p className="mt-0.5 text-[12px] leading-snug text-white/50">{aviso.regla}</p>}
-
-        {aviso.lineas && aviso.lineas.length > 0 && (
+        {/* Lo que tiene su propio arreglo, a la vista: «Corregir» cada errata. */}
+        {conArreglo.length > 0 && (
           <ul className="mt-1 space-y-1 border-l border-white/10 pl-3">
-            {aviso.lineas.map((linea) => (
+            {conArreglo.map((linea) => (
               <li key={`${linea.diaId}-${linea.citaId}`} className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[14px] text-white/70">
-                {acciones ? (
-                  <button
-                    type="button"
-                    title="Ver la cita en el horario"
-                    onClick={() => acciones.onVer(linea.diaId, linea.citaId)}
-                    className="min-w-0 text-left underline decoration-white/25 decoration-dotted underline-offset-2 transition hover:text-white hover:decoration-[#C8A96B]"
-                  >
-                    {linea.texto}
-                  </button>
-                ) : (
-                  <span className="min-w-0">{linea.texto}</span>
-                )}
-                {linea.corregido && acciones && (
+                {verLinea(linea)}
+                {acciones && (
                   <button type="button" className={BOTON_FILA} onClick={() => acciones.onCorrige(linea)}>
                     Corregir
                   </button>
                 )}
-                {linea.regla && <span className="basis-full text-[12px] leading-snug text-white/45">{linea.regla}</span>}
               </li>
             ))}
           </ul>
+        )}
+
+        {(porque.length > 0 || sinArreglo.length > 0) && (
+          <details className="group/porque mt-0.5 min-w-0">
+            <summary className="inline-flex cursor-pointer select-none list-none items-center gap-1 text-[12px] text-white/45 hover:text-white/75 [&::-webkit-details-marker]:hidden">
+              <ChevronRight size={12} className="shrink-0 transition group-open/porque:rotate-90" aria-hidden />
+              ¿por qué?
+            </summary>
+            <div className="mt-1 space-y-1 border-l border-white/10 pl-3 text-[12px] leading-snug text-white/60">
+              {porque.map((p) => (
+                <p key={p.que} className="min-w-0">
+                  <span className="font-semibold text-white/75">{p.que}:</span> {p.valor}
+                </p>
+              ))}
+              {sinArreglo.length > 0 && (
+                <ul className="space-y-1 pt-0.5">
+                  {sinArreglo.map((linea) => (
+                    <li key={`${linea.diaId}-${linea.citaId}`} className="min-w-0 text-[13px] text-white/70">
+                      {verLinea(linea)}
+                      {linea.calculo && <span className="block text-[12px] text-white/50">{linea.calculo}</span>}
+                      {linea.regla && <span className="block text-[12px] text-white/45">{linea.regla}</span>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </details>
         )}
       </div>
     </li>
@@ -408,30 +456,29 @@ function FilaAviso({ aviso, acciones }: { aviso: AvisoHorario; acciones?: Accion
 }
 
 /**
- * CÓMO VA EL VIAJE (12/11/2026, expertos): lo primero de la página es una
- * sola tarjeta con los cuatro datos del viaje (salida, partido, hotel,
- * horario) y su estado al lado; debajo, una sola lista de lo que queda,
- * ordenada por gravedad. Antes eran un panel de avisos y, debajo, una franja
- * gris que repetía los datos.
+ * Lo que falta, campo a campo (12/11/2026, quinta vuelta): «4 por completar ·
+ * estadio, hotel» decía el bloque con el estadio y el hotel ya rellenos (lo
+ * que faltaba era la foto o el teléfono). Ahora cada dato que falta es su
+ * propia tarea con su botón. El horario ya montado no es tarea: lo que tenga
+ * mal lo dicen sus avisos.
  */
-/** Lo que falta, como TAREAS por bloque. El horario ya montado no es tarea: lo que tenga mal lo dicen sus avisos. */
 function tareasDe(viaje: Desplazamiento, lista: Pendiente[]) {
   const conCitas = viaje.dias.some((dia) => dia.citas.length > 0);
 
-  return SECCIONES_VIAJE
-    .map((seccion) => ({ seccion, faltan: lista.filter((p) => !p.hecho && p.seccion === seccion) }))
-    .filter((g) => g.faltan.length > 0 && !(g.seccion === "viaje-horario" && conCitas));
+  return lista.filter((p) => !p.hecho && !(p.seccion === "viaje-horario" && conCitas));
 }
 
 /** Cuántos avisos se ven en el semáforo; el resto, plegado (12/11/2026, expertos). */
 const AVISOS_A_LA_VISTA = 4;
 
+const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
+
 /**
  * El estado del viaje en una chapa, junto al titular (12/11/2026, expertos):
- * el h1 dice el viaje y la chapa, cómo va. Lleva a «Cómo va el viaje».
+ * el h1 dice el viaje y la chapa, cómo va. Es el ÚNICO sitio que dice el
+ * estado con palabras (quinta vuelta); «Cómo va el viaje» sólo cuenta.
  */
-function ChapaEstado({ errores, avisos, porCompletar }: { errores: number; avisos: number; porCompletar: number }) {
-  const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
+function ChapaEstado({ errores, avisos, porCompletar, onPulsa }: { errores: number; avisos: number; porCompletar: number; onPulsa: () => void }) {
   const tono = errores
     ? "border-red-400/50 bg-red-400/10 text-red-300"
     : avisos
@@ -450,8 +497,8 @@ function ChapaEstado({ errores, avisos, porCompletar }: { errores: number; aviso
   return (
     <button
       type="button"
-      onClick={() => irA("viaje-estado")}
-      title="Ir a «Cómo va el viaje»"
+      onClick={onPulsa}
+      title="Abrir «Cómo va el viaje»"
       className={`inline-flex max-w-full items-center gap-1.5 rounded-full border px-3 py-1 text-[13px] font-semibold tabular-nums transition hover:brightness-125 ${tono}`}
     >
       <span className={`h-2 w-2 shrink-0 rounded-full ${errores ? "bg-red-400" : avisos ? "bg-amber-400" : porCompletar ? "bg-[#C8A96B]" : "bg-emerald-400"}`} aria-hidden />
@@ -464,24 +511,31 @@ function ListaPendiente({
   viaje,
   avisos,
   onIr = irA,
+  onCampo,
   acciones,
   extras = [],
   seguros,
   onSeguros,
+  abierta,
+  onAbierta,
 }: {
   viaje: Desplazamiento;
   avisos: AvisoHorario[];
   onIr?: (id: string) => void;
+  /** Lleva a un campo concreto: abre su sección y lo enfoca. */
+  onCampo?: (p: Pendiente) => void;
   acciones?: AccionesAviso;
   /** Tareas que no son un campo vacío (12/11/2026): «Elegir las medidas del campo». */
   extras?: TareaExtra[];
   /** Los arreglos de un clic, juntos (`arreglosSeguros`). */
   seguros?: { n: number; que: string[] };
   onSeguros?: () => void;
+  /** Plegado bajo un solo titular con el contador (quinta vuelta). */
+  abierta: boolean;
+  onAbierta: (abierta: boolean) => void;
 }) {
   const lista = pendientesDe(viaje, avisos);
   const hechos = lista.filter((p) => p.hecho).length;
-  const completo = hechos === lista.length;
 
   const tareas = tareasDe(viaje, lista);
   const listaDe = (rotulos: string[]) =>
@@ -489,57 +543,136 @@ function ListaPendiente({
 
   const graves = avisos.filter((a) => a.grave);
   const leves = avisos.filter((a) => !a.grave);
-  const pendientes = graves.length + leves.length + tareas.length + extras.length;
-
-  /*
-  | 12/11/2026 (expertos): la barra lleva su recuento al lado y el color de lo
-  | más grave que queda —el mismo punto rojo, ámbar o dorado de las filas—.
-  | Lo terminado ya no es una línea suelta al final: va plegado en el recuento.
-  */
-  const colorBarra = graves.length ? "bg-red-400" : leves.length ? "bg-amber-400" : pendientes === 0 ? "bg-emerald-400" : "bg-[#C8A96B]";
-  const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
   const porCompletar = tareas.length + extras.length;
+  const pendientes = graves.length + leves.length + porCompletar;
+
+  const colorBarra = graves.length ? "bg-red-400" : leves.length ? "bg-amber-400" : pendientes === 0 ? "bg-emerald-400" : "bg-[#C8A96B]";
   const hechosPorBloque = SECCIONES_VIAJE
     .map((seccion) => ({ seccion, hechos: lista.filter((p) => p.seccion === seccion && p.hecho) }))
     .filter((g) => g.hechos.length > 0);
-
-  const estado = graves.length
-    ? { texto: "El horario no cuadra", clase: "font-semibold text-red-300" }
-    : pendientes === 0
-      ? { texto: "Todo listo para exportar", clase: "font-semibold text-emerald-300" }
-      : completo && porCompletar === 0
-        ? { texto: "Listo, con algo que revisar", clase: "text-white/70" }
-        : { texto: `Quedan ${pendientes} ${pendientes === 1 ? "cosa" : "cosas"} por hacer`, clase: "text-white/70" };
+  const ordenados = [...graves, ...leves];
 
   return (
     /*
     | pr-12: el botón flotante de herramientas (⋮, components/ui/MenuFlotante)
     | va pegado al borde derecho a media altura y tapaba el final de los datos
     | en escritorio y la fila «Completar el estadio» en el móvil.
+    |
+    | 12/11/2026 (quinta vuelta): plegado bajo UN titular con el contador. El
+    | estado con palabras («El horario no cuadra») lo dice sólo la chapa de la
+    | cabecera; aquí no se repite.
     */
-    <div id="viaje-estado" className="mt-4 scroll-mt-20 rounded-2xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.05] py-3 pl-4 pr-12">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <p className="text-[13px] font-semibold uppercase tracking-[0.14em] text-white/55">
+    <details
+      id="viaje-estado"
+      open={abierta}
+      onToggle={(evento) => {
+        const abiertaAhora = evento.currentTarget.open;
+        if (abiertaAhora !== abierta) onAbierta(abiertaAhora);
+      }}
+      className="group/estado mt-3 scroll-mt-20 rounded-2xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.05] py-3 pl-4 pr-12"
+    >
+      <summary className="flex cursor-pointer select-none list-none flex-wrap items-center gap-x-3 gap-y-1 [&::-webkit-details-marker]:hidden">
+        <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-[0.14em] text-white/70">
+          <ChevronRight size={14} className="shrink-0 transition group-open/estado:rotate-90" aria-hidden />
           {viaje.condicion === "local" ? "Día de partido en casa" : "Cómo va el viaje"}
-        </p>
+        </span>
 
-        <div className="h-1.5 min-w-[80px] flex-1 overflow-hidden rounded-full bg-white/10 sm:max-w-[220px]" aria-hidden>
-          <div className={`h-full rounded-full transition-all ${colorBarra}`} style={{ width: `${(hechos / lista.length) * 100}%` }} />
+        <span className="h-1.5 min-w-[60px] flex-1 overflow-hidden rounded-full bg-white/10 sm:max-w-[180px]" aria-hidden>
+          <span className={`block h-full rounded-full transition-all ${colorBarra}`} style={{ width: `${(hechos / lista.length) * 100}%` }} />
+        </span>
+
+        <span className="flex flex-wrap items-center gap-x-1.5 text-[14px] tabular-nums">
+          {graves.length > 0 && <span className="font-semibold text-red-300">{plural(graves.length, "error", "errores")}</span>}
+          {leves.length > 0 && <span className="text-amber-300">{graves.length ? "· " : ""}{plural(leves.length, "aviso", "avisos")}</span>}
+          {porCompletar > 0 && <span className="text-[#C8A96B]">{graves.length || leves.length ? "· " : ""}{porCompletar} por completar</span>}
+          {pendientes === 0 && <span className="font-semibold text-emerald-300">todo listo</span>}
+        </span>
+      </summary>
+
+      {/* Los arreglos que no piden decidir nada, juntos; cada uno sigue en su aviso. */}
+      {acciones && onSeguros && seguros && seguros.n > 1 && (
+        <div className="mt-3">
+          <button type="button" onClick={onSeguros} className={BOTON_FILA_PRIMARIO} title={`${seguros.que.join(" · ")}. Se puede deshacer.`}>
+            Aplicar los {seguros.n} arreglos seguros
+          </button>
         </div>
+      )}
 
-        <p className={`text-[14px] tabular-nums ${estado.clase}`} role={graves.length ? "alert" : undefined}>{estado.texto}</p>
-      </div>
+      {avisos.length > 0 && (
+        <ul className="mt-3 divide-y divide-white/[0.06] border-t border-white/10 pt-1">
+          {ordenados.slice(0, AVISOS_A_LA_VISTA).map((aviso) => (
+            <FilaAviso key={aviso.clave} aviso={aviso} acciones={acciones} />
+          ))}
+        </ul>
+      )}
 
-      {/* El recuento de la barra; pinchándolo, lo que ya está hecho. */}
-      <details className="group mt-1.5 min-w-0">
-        <summary className="flex cursor-pointer select-none list-none flex-wrap items-center gap-x-1.5 text-[14px] tabular-nums text-white/60 hover:text-white/85 [&::-webkit-details-marker]:hidden">
-          <ChevronRight size={14} className="shrink-0 transition group-open:rotate-90" aria-hidden />
-          <span>{hechos} de {lista.length} datos listos</span>
-          {graves.length > 0 && <span className="text-red-300">· {plural(graves.length, "error", "errores")}</span>}
-          {leves.length > 0 && <span className="text-amber-300">· {plural(leves.length, "aviso", "avisos")}</span>}
-          {porCompletar > 0 && <span className="text-[#C8A96B]">· {porCompletar} por completar</span>}
-        </summary>
-        {hechosPorBloque.length > 0 && (
+      {avisos.length > AVISOS_A_LA_VISTA && (
+        <details className="group mt-1 min-w-0">
+          <summary className="flex cursor-pointer select-none list-none items-center gap-1.5 text-[13px] font-semibold text-amber-300/90 hover:text-amber-200 [&::-webkit-details-marker]:hidden">
+            <ChevronRight size={14} className="shrink-0 transition group-open:rotate-90" aria-hidden />
+            {plural(avisos.length - AVISOS_A_LA_VISTA, "aviso más", "avisos más")}
+          </summary>
+          <ul className="mt-1 divide-y divide-white/[0.06]">
+            {ordenados.slice(AVISOS_A_LA_VISTA).map((aviso) => (
+              <FilaAviso key={aviso.clave} aviso={aviso} acciones={acciones} />
+            ))}
+          </ul>
+        </details>
+      )}
+
+      {/*
+      | Lo «por completar», campo a campo y con el botón que lo abre (quinta
+      | vuelta): «foto del hotel · Poner», no «hotel». Abierto sólo si no hay
+      | ningún aviso: entonces es lo único que queda.
+      */}
+      {porCompletar > 0 && (
+        <details className="group mt-2 min-w-0 border-t border-white/10 pt-2" open={avisos.length === 0 || undefined}>
+          <summary className="flex cursor-pointer select-none list-none items-start gap-1.5 text-[13px] font-semibold text-[#C8A96B] hover:underline [&::-webkit-details-marker]:hidden">
+            <ChevronRight size={14} className="mt-[2px] shrink-0 transition group-open:rotate-90" aria-hidden />
+            <span className="min-w-0">
+              {porCompletar} por completar
+              <span className="font-normal text-white/50">
+                {" "}· {[...tareas.map((p) => p.nombre), ...extras.map((e) => e.corto ?? e.texto.toLowerCase())].join(", ")}
+              </span>
+            </span>
+          </summary>
+          <ul className="mt-1 divide-y divide-white/[0.06]">
+            {tareas.map((p) => (
+              <li key={p.clave} className="flex min-w-0 items-center gap-2.5 py-1.5">
+                <Circle size={12} className="shrink-0 text-[#C8A96B]" aria-hidden />
+                <span className="min-w-0 flex-1 text-[14px] text-white/85">
+                  {p.nombre.charAt(0).toUpperCase() + p.nombre.slice(1)}
+                </span>
+                <button type="button" onClick={() => (onCampo ? onCampo(p) : onIr(p.seccion))} className={BOTON_FILA}>
+                  {p.seccion === "viaje-horario" ? "Montar" : "Poner"}
+                </button>
+              </li>
+            ))}
+            {extras.map((extra) => (
+              <li key={extra.clave} className="flex min-w-0 items-start gap-2.5 py-1.5">
+                <Circle size={12} className="mt-[4px] shrink-0 text-[#C8A96B]" aria-hidden />
+                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
+                  <span className="min-w-0 text-[14px] text-white/85">
+                    <span className="font-semibold">{extra.texto}</span>
+                    {extra.detalle ? <span className="text-white/55"> · {extra.detalle}</span> : null}
+                  </span>
+                  <button type="button" onClick={() => onIr(extra.seccion)} className={BOTON_FILA}>
+                    {extra.boton}
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+
+      {/* Lo ya hecho, plegado al final: «7 de 15 datos listos». */}
+      {hechosPorBloque.length > 0 && (
+        <details className="group mt-2 min-w-0 border-t border-white/10 pt-2">
+          <summary className="flex cursor-pointer select-none list-none items-center gap-1.5 text-[13px] tabular-nums text-white/55 hover:text-white/85 [&::-webkit-details-marker]:hidden">
+            <ChevronRight size={14} className="shrink-0 transition group-open:rotate-90" aria-hidden />
+            Hecho: {hechos} de {lista.length} datos
+          </summary>
           <ul className="mt-1.5 space-y-0.5 pl-5 text-[14px] text-white/65">
             {hechosPorBloque.map((g) => (
               <li key={g.seccion} className="flex min-w-0 items-start gap-1.5">
@@ -554,92 +687,9 @@ function ListaPendiente({
               </li>
             ))}
           </ul>
-        )}
-      </details>
-
-      {/*
-      | 12/11/2026 (expertos, tercera vuelta): el semáforo enseña los cuatro
-      | avisos más graves; el resto, plegado. Los arreglos que no piden
-      | decidir nada van juntos en un botón (cada uno sigue en su aviso), y lo
-      | «por completar» va plegado aparte: no está al nivel de un error.
-      */}
-      {acciones && onSeguros && seguros && seguros.n > 1 && (
-        <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1">
-          <button type="button" onClick={onSeguros} className={BOTON_FILA_PRIMARIO} title={seguros.que.join(" · ")}>
-            Aplicar los {seguros.n} arreglos seguros
-          </button>
-          <span className="text-[12px] text-white/50">se puede deshacer; cada uno sigue en su aviso</span>
-        </div>
-      )}
-
-      {avisos.length > 0 && (
-        <ul className="mt-3 divide-y divide-white/[0.06] border-t border-white/10 pt-1">
-          {[...graves, ...leves].slice(0, AVISOS_A_LA_VISTA).map((aviso) => (
-            <FilaAviso key={aviso.clave} aviso={aviso} acciones={acciones} />
-          ))}
-        </ul>
-      )}
-
-      {avisos.length > AVISOS_A_LA_VISTA && (
-        <details className="group mt-1 min-w-0">
-          <summary className="flex cursor-pointer select-none list-none items-center gap-1.5 text-[13px] font-semibold text-amber-300/90 hover:text-amber-200 [&::-webkit-details-marker]:hidden">
-            <ChevronRight size={14} className="shrink-0 transition group-open:rotate-90" aria-hidden />
-            {plural(avisos.length - AVISOS_A_LA_VISTA, "aviso más", "avisos más")}
-          </summary>
-          <ul className="mt-1 divide-y divide-white/[0.06]">
-            {[...graves, ...leves].slice(AVISOS_A_LA_VISTA).map((aviso) => (
-              <FilaAviso key={aviso.clave} aviso={aviso} acciones={acciones} />
-            ))}
-          </ul>
         </details>
       )}
-
-      {porCompletar > 0 && (
-        /* Abierto sólo si no hay ningún aviso: entonces es lo único que queda. */
-        <details className="group mt-2 min-w-0 border-t border-white/10 pt-2" open={avisos.length === 0 || undefined}>
-          <summary className="flex cursor-pointer select-none list-none items-center gap-1.5 text-[13px] font-semibold text-[#C8A96B] hover:underline [&::-webkit-details-marker]:hidden">
-            <ChevronRight size={14} className="shrink-0 transition group-open:rotate-90" aria-hidden />
-            {porCompletar} por completar
-            <span className="font-normal text-white/45">
-              · {[...tareas.map((g) => NOMBRE_SECCION[g.seccion].toLowerCase()), ...extras.map((e) => e.corto ?? e.texto.toLowerCase())].join(", ")}
-            </span>
-          </summary>
-        <ul className="mt-1 divide-y divide-white/[0.06]">
-          {tareas.map((g) => (
-            <li key={g.seccion} className="flex min-w-0 items-start gap-2.5 py-1.5">
-              <Circle size={12} className="mt-[4px] shrink-0 text-[#C8A96B]" aria-hidden />
-              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
-                <span className="min-w-0 text-[14px] text-white/85">
-                  <span className="font-semibold">{TAREA_SECCION[g.seccion]}</span>
-                  {/* Lo que falta dentro del bloque, en minúscula: todo lo que el documento no va a llevar. */}
-                  {g.faltan.length > 1 || g.seccion === "viaje-estadio" || g.seccion === "viaje-hotel" ? (
-                    <span className="text-white/55"> · falta {listaDe(g.faltan.map((p) => p.rotulo.toLowerCase()))}</span>
-                  ) : null}
-                </span>
-                <button type="button" onClick={() => onIr(g.seccion)} className={BOTON_FILA}>
-                  Rellenar
-                </button>
-              </div>
-            </li>
-          ))}
-          {extras.map((extra) => (
-            <li key={extra.clave} className="flex min-w-0 items-start gap-2.5 py-1.5">
-              <Circle size={12} className="mt-[4px] shrink-0 text-[#C8A96B]" aria-hidden />
-              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
-                <span className="min-w-0 text-[14px] text-white/85">
-                  <span className="font-semibold">{extra.texto}</span>
-                  {extra.detalle ? <span className="text-white/55"> · {extra.detalle}</span> : null}
-                </span>
-                <button type="button" onClick={() => onIr(extra.seccion)} className={BOTON_FILA}>
-                  {extra.boton}
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
-        </details>
-      )}
-    </div>
+    </details>
   );
 }
 
@@ -1738,6 +1788,12 @@ export default function DesplazamientoPage() {
     };
   }, [viaje, avisosViaje, tareasExtra.length]);
 
+  /* El botón de sacar: con errores, «Sacar igualmente» y el porqué (quinta vuelta). */
+  const rotuloSacar = horarioNoCuadra ? "Sacar igualmente" : "Sacar los documentos";
+  const motivoSacar = horarioNoCuadra && recuento
+    ? `El horario tiene ${plural(recuento.errores, "error", "errores")}; se puede sacar igual, pero saldrá así.`
+    : "";
+
   /* Los arreglos que no piden decidir nada, juntos (12/11/2026, expertos). */
   const seguros = useMemo(() => (viaje ? arreglosSeguros(viaje, avisosViaje) : { n: 0, que: [], dias: [] }), [viaje, avisosViaje]);
 
@@ -1862,6 +1918,44 @@ export default function DesplazamientoPage() {
     if (seccion === "viaje-hotel" && hotelEnFaltan) return abreYVe("faltan-hotel");
 
     abreYVe(seccion);
+  };
+
+  /*
+  | «Poner» lleva al CAMPO que falta, no a la sección (12/11/2026, quinta
+  | vuelta): abre su bloque (o «Datos que faltan»), busca el rótulo del campo
+  | y lo enfoca. Si no lo encuentra, se queda en la sección.
+  */
+  const irACampo = (p: Pendiente) => {
+    irATarea(p.seccion);
+
+    const etiqueta = p.etiqueta;
+    if (!etiqueta) return;
+
+    window.setTimeout(() => {
+      const zonas = [p.seccion, p.seccion === "viaje-estadio" ? "faltan-estadio" : p.seccion === "viaje-hotel" ? "faltan-hotel" : ""]
+        .map((id) => (id ? document.getElementById(id) : null))
+        .filter((z): z is HTMLElement => z !== null);
+
+      for (const zona of zonas) {
+        const rotulo = [...zona.querySelectorAll<HTMLElement>("span, p, label, div")].find(
+          (el) => el.childElementCount === 0 && el.textContent?.trim().toLowerCase() === etiqueta.toLowerCase(),
+        );
+
+        if (!rotulo) continue;
+
+        const caja = rotulo.closest("label") ?? rotulo.parentElement ?? rotulo;
+        caja.scrollIntoView({ behavior: "smooth", block: "center" });
+        caja.querySelector<HTMLElement>("input, textarea, select, button")?.focus({ preventScroll: true });
+        return;
+      }
+    }, 140);
+  };
+
+  /* «Cómo va el viaje», plegado bajo su titular; la chapa de la cabecera lo abre (quinta vuelta). */
+  const [estadoAbierto, setEstadoAbierto] = useState(false);
+  const abreEstado = () => {
+    setEstadoAbierto(true);
+    window.setTimeout(() => irA("viaje-estado"), 30);
   };
 
 
@@ -2069,12 +2163,24 @@ export default function DesplazamientoPage() {
         [...primero.citas].sort((a, b) => a.minuto - b.minuto)[0]
       : undefined;
     const citas = dias.reduce((n, d) => n + d.citas.length, 0);
+    /*
+    | 12/11/2026 (quinta vuelta): «revisar» junto a SALIDA salía con cualquier
+    | error del horario y sin decir por qué. Ahora sólo sale cuando la salida
+    | misma no cuadra —la primera cita no nombra el sitio de «Sale de»— y lo
+    | dice en una línea. Los errores del horario ya los dice la chapa.
+    */
+    const llano = (texto: string) => texto.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+    const origenCorto = (viaje.origen ?? "").split(",")[0].trim();
+    const salidaMotivo =
+      salidaCita && origenCorto && !llano(salidaCita.texto).includes(llano(origenCorto))
+        ? `la primera cita es «${salidaCita.texto.trim()}», no nombra ${origenCorto}`
+        : undefined;
     const datos: (DatoViaje | null)[] = [
       !enCasa && primero && salidaCita
         ? {
             que: "Salida",
             valor: `${diaLargo(primero.fecha).split(" ")[0].toLowerCase()} ${aHora(salidaCita.minuto)}${viaje.origen ? ` · desde ${viaje.origen}` : ""}`,
-            alerta: horarioNoCuadra,
+            motivo: salidaMotivo,
           }
         : null,
       viaje.fecha
@@ -2171,7 +2277,7 @@ export default function DesplazamientoPage() {
               area="RMCF Castilla · Operativa · Desplazamiento"
               title={titular}
               /* 12/11/2026 (expertos): el estado, en una chapa bajo el titular; lleva a «Cómo va el viaje». */
-              lead={partido && viaje && recuento ? <ChapaEstado {...recuento} /> : undefined}
+              lead={partido && viaje && recuento ? <ChapaEstado {...recuento} onPulsa={abreEstado} /> : undefined}
               /* 30/10/2026: el párrafo de entrada pasa a la ayuda («?», lib/ayuda/paginas.ts);
                  delante, el titular y el botón de vista previa y exportar. */
               aside={
@@ -2194,10 +2300,16 @@ export default function DesplazamientoPage() {
                   | también en el móvil, y está UNA vez: abre el panel de exportar en
                   | un diálogo (antes había además una tarjeta bajo la vista previa).
                   */}
+                  {/*
+                  | 12/11/2026 (quinta vuelta): con errores en el horario, el botón
+                  | no dice lo mismo que sin ellos: «Sacar igualmente», con el
+                  | motivo en el propio botón; se puede sacar, y el diálogo lista
+                  | lo que queda.
+                  */}
                   {viaje && (
                     <>
-                      <Button tone="primary" icon={Download} onClick={() => setExportando(true)}>
-                        Sacar los documentos
+                      <Button tone="primary" icon={Download} onClick={() => setExportando(true)} title={motivoSacar || undefined}>
+                        {rotuloSacar}
                       </Button>
                       {/* Desde xl la vista previa ya está a la vista, a la derecha: el botón sobra. */}
                       <span className="contents xl:hidden">
@@ -2282,7 +2394,8 @@ export default function DesplazamientoPage() {
                 </span>
               </div>
 
-              <div className="flex flex-wrap items-end gap-2">
+              {/* 12/11/2026 (quinta vuelta): en el móvil, los tres en una sola fila que se desliza de lado; ninguno suelto en otra línea. */}
+              <div className="-mx-4 flex min-w-0 flex-nowrap items-end gap-2 overflow-x-auto whitespace-nowrap px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0 [&>*]:shrink-0">
                 {viaje && otrosViajes.length > 0 && (
                   <Button
                     icon={Copy}
@@ -2357,15 +2470,89 @@ export default function DesplazamientoPage() {
                   */}
                   {/* `viaje-form` (globals.css): la letra del formulario a 13 px las etiquetas y 15 px los campos; la vista previa queda fuera. */}
                   <div className="viaje-form">
-                  {/* Cómo va el viaje, arriba y pegado al selector de partido. */}
+                  {/*
+                  | ============ PARTIDO · ESTADIO · HOTEL ============
+                  | 12/11/2026 (expertos): eran tres tarjetas plegadas que repetían
+                  | lo que ya dice «Cómo va el viaje». Ahora es una sola fila con un
+                  | único «Editar», que abre las tres; las tareas de arriba siguen
+                  | abriendo sólo la suya. El resumen dice lo que la tarjeta no.
+                  | 12/11/2026 (tercera vuelta): es EL resumen del viaje —salida,
+                  | partido, hotel, horario— y sale una sola vez; el semáforo de
+                  | arriba ya no lo repite.
+                  | 12/11/2026 (quinta vuelta): lo PRIMERO tras la cabecera, en el
+                  | móvil y en el escritorio; detrás, «Cómo va el viaje» plegado y
+                  | la vista previa.
+                  */}
+                  <div className="mt-4">
+                  {(() => {
+                    const claves = ["viaje-partido", "viaje-estadio", ...(viaje.conHotel && !enCasa && !hotelEnFaltan ? ["viaje-hotel"] : [])];
+                    const alguna = claves.some((clave) => abiertas[clave]);
+                    /* La medida con su fuente: la misma regla que el aviso y la diapositiva («102 × 67 (BeSoccer)»). */
+                    const medidas = viaje.estadio.dimensiones.trim();
+                    const resumen = [
+                      viaje.jornada.trim() ? `J${viaje.jornada.trim()}` : "",
+                      comoCompeticion(viaje.competicion),
+                      enCasa ? "en casa" : "fuera",
+                      !enCasa && viaje.conHotel ? "con hotel" : "",
+                      viaje.estadio.superficie,
+                      medidas ? `${medidas}${fuenteMedidas ? ` (${fuenteMedidas})` : ""}` : "",
+                    ].filter((x) => x?.trim()).join(" · ");
+
+                    return (
+                      <div className="scroll-mt-20 rounded-2xl border border-white/10 bg-white/[0.03] py-3 pl-4 pr-12 sm:pr-14" id="viaje-datos">
+                        <div className="flex min-w-0 items-start gap-2">
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-[15px] font-semibold text-white">
+                              {claves.length === 3 ? "Partido · estadio · hotel" : "Partido · estadio"}
+                            </span>
+                            {resumen ? <span className="block break-words text-[13px] text-white/55 sm:text-[14px]">{resumen}</span> : null}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setAbiertas((a) => ({ ...a, ...Object.fromEntries(claves.map((clave) => [clave, !alguna])) }))
+                            }
+                            aria-expanded={alguna}
+                            className="shrink-0 rounded-full border border-[#C8A96B]/45 px-3 py-1 text-[13px] font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/10"
+                          >
+                            {alguna ? "Plegar" : "Editar"}
+                          </button>
+                        </div>
+
+                        {/* Los cuatro datos del viaje: lo que no está escrito no se nombra. */}
+                        {datosViaje.length > 0 && (
+                          <dl className="mt-3 grid min-w-0 gap-x-6 gap-y-2 sm:grid-cols-2">
+                            {datosViaje.map((dato) => (
+                              <div key={dato.que} className="min-w-0">
+                                <dt className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">
+                                  {dato.que}
+                                  {dato.motivo && (
+                                    <span className="ml-2 rounded-full border border-amber-400/50 px-1.5 py-px text-[10px] tracking-[0.12em] text-amber-300">revisar</span>
+                                  )}
+                                </dt>
+                                <dd className="mt-0.5 break-words text-sm font-semibold text-white">{dato.valor}</dd>
+                                {/* El porqué del «revisar», en una línea (quinta vuelta). */}
+                                {dato.motivo && <dd className="mt-0.5 break-words text-[12px] text-amber-200/80">Revisar: {dato.motivo}.</dd>}
+                              </div>
+                            ))}
+                          </dl>
+                        )}
+                      </div>
+                    );
+                  })()}
+                  </div>
+                  {/* Cómo va el viaje, plegado bajo su titular con el contador (quinta vuelta). */}
                   <ListaPendiente
                     viaje={viaje}
                     avisos={avisosViaje}
                     onIr={irATarea}
+                    onCampo={irACampo}
                     acciones={{ onVer: verCita, onArregla: arreglaAviso, onCorrige: corrigeTexto }}
                     extras={tareasExtra}
                     seguros={seguros}
                     onSeguros={aplicaSeguros}
+                    abierta={estadoAbierto}
+                    onAbierta={setEstadoAbierto}
                   />
 
                   {/* El plan de viaje ante este rival (o en este campo), de otra vez (11/11/2026). */}
@@ -2435,75 +2622,11 @@ export default function DesplazamientoPage() {
                     );
                   })()}
 
-                  {/*
-                  | ============ PARTIDO · ESTADIO · HOTEL ============
-                  | 12/11/2026 (expertos): eran tres tarjetas plegadas que repetían
-                  | lo que ya dice «Cómo va el viaje». Ahora es una sola fila con un
-                  | único «Editar», que abre las tres; las tareas de arriba siguen
-                  | abriendo sólo la suya. El resumen dice lo que la tarjeta no.
-                  | 12/11/2026 (tercera vuelta): es EL resumen del viaje —salida,
-                  | partido, hotel, horario— y sale una sola vez; el semáforo de
-                  | arriba ya no lo repite.
-                  */}
                   </div>
 
                   <div className="mt-5 flex min-w-0 flex-col xl:grid xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] xl:items-start xl:gap-6">
                   <div className="mt-5 min-w-0 xl:mt-0">
                   <div className="viaje-form">
-                  {(() => {
-                    const claves = ["viaje-partido", "viaje-estadio", ...(viaje.conHotel && !enCasa && !hotelEnFaltan ? ["viaje-hotel"] : [])];
-                    const alguna = claves.some((clave) => abiertas[clave]);
-                    /* La medida con su fuente: la misma regla que el aviso y la diapositiva («102 × 67 (BeSoccer)»). */
-                    const medidas = viaje.estadio.dimensiones.trim();
-                    const resumen = [
-                      viaje.jornada.trim() ? `J${viaje.jornada.trim()}` : "",
-                      comoCompeticion(viaje.competicion),
-                      enCasa ? "en casa" : "fuera",
-                      !enCasa && viaje.conHotel ? "con hotel" : "",
-                      viaje.estadio.superficie,
-                      medidas ? `${medidas}${fuenteMedidas ? ` (${fuenteMedidas})` : ""}` : "",
-                    ].filter((x) => x?.trim()).join(" · ");
-
-                    return (
-                      <div className="scroll-mt-20 rounded-2xl border border-white/10 bg-white/[0.03] py-3 pl-4 pr-12 sm:pr-14" id="viaje-datos">
-                        <div className="flex min-w-0 items-start gap-2">
-                          <span className="min-w-0 flex-1">
-                            <span className="block text-[15px] font-semibold text-white">
-                              {claves.length === 3 ? "Partido · estadio · hotel" : "Partido · estadio"}
-                            </span>
-                            {resumen ? <span className="block break-words text-[13px] text-white/55 sm:text-[14px]">{resumen}</span> : null}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setAbiertas((a) => ({ ...a, ...Object.fromEntries(claves.map((clave) => [clave, !alguna])) }))
-                            }
-                            aria-expanded={alguna}
-                            className="shrink-0 rounded-full border border-[#C8A96B]/45 px-3 py-1 text-[13px] font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/10"
-                          >
-                            {alguna ? "Plegar" : "Editar"}
-                          </button>
-                        </div>
-
-                        {/* Los cuatro datos del viaje: lo que no está escrito no se nombra. */}
-                        {datosViaje.length > 0 && (
-                          <dl className="mt-3 grid min-w-0 gap-x-6 gap-y-2 sm:grid-cols-2">
-                            {datosViaje.map((dato) => (
-                              <div key={dato.que} className="min-w-0">
-                                <dt className={`text-[11px] font-semibold uppercase tracking-[0.16em] ${dato.alerta ? "text-red-300" : "text-[#C8A96B]"}`}>
-                                  {dato.que}
-                                  {dato.alerta && (
-                                    <span className="ml-2 rounded-full border border-red-400/50 px-1.5 py-px text-[10px] tracking-[0.12em]">revisar</span>
-                                  )}
-                                </dt>
-                                <dd className={`mt-0.5 break-words text-sm font-semibold ${dato.alerta ? "text-red-300" : "text-white"}`}>{dato.valor}</dd>
-                              </div>
-                            ))}
-                          </dl>
-                        )}
-                      </div>
-                    );
-                  })()}
 
                   {/* ================== EL PARTIDO ================== */}
 
@@ -2992,11 +3115,17 @@ export default function DesplazamientoPage() {
                     >
                     <Panel
                       title="No olvidar"
-                      subtitle="La línea del pie de la hoja del horario. Uno por línea."
+                      subtitle="La línea del pie de la hoja del horario."
                       icon={Bus}
                     >
+                      {/*
+                      | 12/11/2026 (quinta vuelta): sin el rótulo «AVISOS» dentro de
+                      | la tarjeta (el panel ya se llama «No olvidar») y el ejemplo
+                      | FUERA del cuadro: escrito dentro parecía contenido.
+                      */}
                       <TextArea
-                        label="Avisos"
+                        label="No olvidar"
+                        ocultaRotulo
                         value={viaje.avisos.join("\n")}
                         onChange={(valor) =>
                           campo(
@@ -3004,9 +3133,12 @@ export default function DesplazamientoPage() {
                             valor.split("\n").map((linea) => linea.trimStart()),
                           )
                         }
-                        placeholder={"Traje de paseo\nDNI\nBotas de recambio"}
+                        placeholder="Una cosa por línea"
                         rows={4}
                       />
+                      {!viaje.avisos.some((a) => a.trim()) && (
+                        <p className="mt-1.5 text-[12px] text-white/45">Por ejemplo: traje de paseo, DNI, botas de recambio.</p>
+                      )}
                     </Panel>
                     </SeccionMovil>
                   </div>
@@ -3064,6 +3196,26 @@ export default function DesplazamientoPage() {
                       subtitle="Es el documento de verdad, a escala: lo que se ve aquí es exactamente lo que se exporta"
                       icon={Eye}
                     >
+                      {/*
+                      | 12/11/2026 (quinta vuelta): en el móvil la miniatura a escala
+                      | no se lee, así que no se pinta: la acción principal es «Ver a
+                      | pantalla completa», a todo el ancho y con zoom. Desde sm, la
+                      | miniatura y el botón de siempre.
+                      */}
+                      <div className="mb-3 sm:hidden">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setZoom(100);
+                            setPantallaCompleta(true);
+                          }}
+                          className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#C8A96B] px-4 py-3 text-[15px] font-semibold text-[#0B0F14] transition hover:brightness-110"
+                        >
+                          <Maximize2 size={16} aria-hidden />
+                          Ver {vista === "dossier" ? "el dossier" : "el horario"} a pantalla completa
+                        </button>
+                      </div>
+
                       <div className="flex flex-wrap items-center gap-2">
                         <Button
                           tone={vista === "dossier" ? "primary" : "ghost"}
@@ -3079,19 +3231,20 @@ export default function DesplazamientoPage() {
                           {rotuloHorario}
                         </Button>
 
-                        {/* 12/11/2026 (expertos): en el móvil la miniatura no se lee; a pantalla completa y con zoom sí. */}
-                        <Button
-                          icon={Maximize2}
-                          onClick={() => {
-                            setZoom(estrecho ? 250 : 100);
-                            setPantallaCompleta(true);
-                          }}
-                        >
-                          Ver a pantalla completa
-                        </Button>
+                        <span className="hidden sm:contents">
+                          <Button
+                            icon={Maximize2}
+                            onClick={() => {
+                              setZoom(estrecho ? 250 : 100);
+                              setPantallaCompleta(true);
+                            }}
+                          >
+                            Ver a pantalla completa
+                          </Button>
+                        </span>
                       </div>
 
-                      <div className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-[#11161C] p-3">
+                      <div className="mt-4 hidden overflow-hidden rounded-2xl border border-white/10 bg-[#11161C] p-3 sm:block">
                         {vista === "dossier" ? documentoVista : <div className="mx-auto max-w-[720px]">{documentoVista}</div>}
                       </div>
                     </Panel>
@@ -3165,8 +3318,8 @@ export default function DesplazamientoPage() {
                   */}
                   {exportando && (
                     <Dialog
-                      title="Sacar los documentos"
-                      subtitle={`${rotuloDossier} y ${rotuloHorario.toLowerCase()}, tal y como se ven en la vista previa`}
+                      title={rotuloSacar}
+                      subtitle={`${motivoSacar ? `${motivoSacar} ` : ""}${rotuloDossier} y ${rotuloHorario.toLowerCase()}, tal y como se ven en la vista previa`}
                       onClose={() => setExportando(false)}
                     >
                       <ExportaViaje viaje={viajeVista ?? viaje} lugares={store.lugares} porRevisar={porRevisar} sinMarco />
@@ -3180,8 +3333,8 @@ export default function DesplazamientoPage() {
                   */}
                   <div className={`pointer-events-none fixed inset-x-0 bottom-0 z-40 justify-start px-4 pb-[max(12px,env(safe-area-inset-bottom))] sm:hidden ${bajado ? "flex" : "hidden"}`}>
                     <span className="pointer-events-auto rounded-xl shadow-lg shadow-black/30">
-                      <Button tone="primary" icon={Download} onClick={() => setExportando(true)}>
-                        Sacar los documentos
+                      <Button tone="primary" icon={Download} onClick={() => setExportando(true)} title={motivoSacar || undefined}>
+                        {rotuloSacar}
                       </Button>
                     </span>
                   </div>
