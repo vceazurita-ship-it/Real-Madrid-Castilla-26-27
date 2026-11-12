@@ -1470,10 +1470,12 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Lo primero de la pantalla",
         filas: [
           { que: "Al entrar", es: "Abre el próximo partido; los demás siguen en el selector (✓ = viaje ya guardado)" },
-          { que: "Cómo va el viaje", es: "Salida, partido, hotel y horario de un vistazo, y una sola lista de lo que queda, ordenada por gravedad, con un botón por fila" },
+          { que: "Titular y chapa", es: "El titular dice sólo el viaje («Viaje a Gimnàstic de Tarragona · viernes 13, 21:15»); al lado, una chapa de color con cómo va («El horario no cuadra · 2 errores · 1 aviso») que lleva a «Cómo va el viaje»", cuenta: "Rojo si hay errores, ámbar si sólo avisos, dorado si queda algo por completar y verde si está todo; los mismos recuentos que el semáforo" },
+          { que: "Cómo va el viaje", es: "El semáforo: los cuatro avisos más graves a la vista (rojos primero), el resto plegado en «N avisos más», y lo «por completar» plegado aparte", cuenta: "Cada aviso dice la regla que lo dispara con su dato («¿tren de 9 min? Salida 12:30, llegada 12:39»; «sin la duración del trayecto, se avisa de un tren de menos de 20 min»)" },
+          { que: "Aplicar los N arreglos seguros", es: "Con dos o más, un botón aplica de una vez los arreglos que no piden decidir nada (quitar las citas de partido de un día copiado, corregir erratas), con un solo «Deshacer»; cada uno sigue también en su aviso", cuenta: "Se aplican en orden: la errata de una cita que otro arreglo ya quita no se cuenta. «Convertirlo en víspera» no entra: es una decisión" },
           { que: "N de M datos listos", es: "Lo que ya tiene el documento; pinchándolo, lo hecho por bloque", cuenta: "La barra va en rojo si hay errores, ámbar si hay avisos y verde si está todo" },
-          { que: "Partido · estadio · hotel", es: "Una sola fila con un «Editar» que abre los tres bloques" },
-          { que: "Escritorio ancho", es: "El formulario a la izquierda y el documento a la derecha, siempre a la vista mientras se edita" },
+          { que: "Partido · estadio · hotel", es: "El resumen del viaje, una sola vez: salida, partido, hotel y horario, con la jornada, la competición, el césped y las medidas con su fuente; «Editar» abre los tres bloques" },
+          { que: "Orden", es: "El mismo en el móvil y en el escritorio: semáforo, documento («Cómo va a quedar») y formulario. En escritorio ancho, el formulario a la izquierda y el documento a la derecha, siempre a la vista; en el móvil, «Vista previa» salta al documento" },
         ],
       },
       {
@@ -1487,7 +1489,8 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Duraciones recordadas", es: "Si corriges una duración, ese trayecto vale así en los viajes que vengan" },
           { que: "Encadenar", es: "Cambiar una hora o una duración corre las citas de detrás, hasta la primera fijada (📌) o el partido" },
           { que: "Avisos del horario", es: "Día de partido copiado, vuelta antes del partido, trayectos imposibles (un tren de 9 min)…: cada uno con su arreglo; nada se cambia solo" },
-          { que: "Erratas", es: "Marcadas en su fila con la corrección propuesta («Llehagda» → «Llegada»); la aplica el analista con «Corregir»" },
+          { que: "Erratas", es: "Marcadas en su fila, en una línea aparte bajo el nombre, con la corrección propuesta («Llehagda» → «Llegada»); la aplica el analista con «Corregir»" },
+          { que: "Día plegado", es: "Las citas en columnas que se leen de arriba abajo, como la hoja A4: primero la columna de la izquierda, luego la siguiente; el nombre de la cita va entero" },
           { que: "Copiar de otro viaje", es: "Cualquier viaje montado: el horario, los avisos, y el estadio y el hotel si es el mismo rival. Un día suelto también se copia y se pega" },
         ],
       },
@@ -1495,7 +1498,7 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Estadio y hotel",
         filas: [
           { que: "BeSoccer y OpenStreetMap", es: "Estadio, dirección, aforo, foto y escudo vienen rellenos" },
-          { que: "Medidas con fuente", es: "Se cotejan OSM, BeSoccer y la hoja RIVALES; si no coinciden se elige una con su botón y el dossier dice de dónde sale («102 × 67 · BeSoccer»)" },
+          { que: "Medidas con fuente", es: "Se cotejan OSM, BeSoccer y la hoja RIVALES. Si ya hay medidas, el aviso dice cuál se usa y cuáles hay («se usa 102 × 67 (BeSoccer) · también 105 × 68 (hoja RIVALES)») con «Cambiar»; sólo sin medidas pide «Elegir»", cuenta: "Una sola regla en el aviso, el resumen y la diapositiva: la medida escrita y su fuente («102 × 67 · BeSoccer»)" },
           { que: "Fotos de los lugares de salida", es: "Valdebebas, estaciones…: se ponen una vez y valen para todos los viajes" },
         ],
       },
@@ -1503,6 +1506,7 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Lo que sale",
         filas: [
           { que: "Dossier", es: "Como mucho tres diapositivas, sin portada: el estadio, el hotel (si lo hay) y el viaje (si hay trayectos). Lo vacío no sale y las fotos llenan la hoja" },
+          { que: "Sacar los documentos", es: "Un solo botón, el de la cabecera (en el móvil, también fijo abajo al bajar): abre el panel con todos los formatos" },
           { que: "Para el cuerpo técnico", es: "«Todo en un PDF» (dossier y horario), el dossier en PowerPoint o en PDF" },
           { que: "Para los jugadores", es: "«Horario en imagen»: un JPEG por día que se ve en el propio chat de WhatsApp; «Horario para imprimir», el A4 para el vestuario y el autobús" },
           { que: "Antes de sacarlo", es: "Si algo no cuadra, se pregunta con la lista de lo pendiente; el documento sale como esté" },

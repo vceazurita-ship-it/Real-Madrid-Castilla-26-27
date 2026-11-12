@@ -221,7 +221,13 @@ export function ExportaViaje({
   viaje,
   lugares,
   porRevisar = [],
+  sinMarco = false,
 }: {
+  /**
+   * Sin su tarjeta (12/11/2026, expertos): dentro del diálogo de «Sacar los
+   * documentos», que ya lleva el título y el subtítulo.
+   */
+  sinMarco?: boolean;
   viaje: Desplazamiento;
   lugares?: Record<string, ImagenViaje>;
   /**
@@ -260,12 +266,8 @@ export function ExportaViaje({
   | recibe el dossier entero; los jugadores, el horario, que es lo único que
   | miran.
   */
-  return (
-    <Panel
-      title="Sacar los documentos"
-      subtitle={`${plural(diapositivas, "diapositiva", "diapositivas")} de dossier y ${plural(dias, "hoja", "hojas")} de horario, tal y como se ven aquí`}
-      icon={FileDown}
-    >
+  const botones = (
+    <>
       <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.14em] text-white/50">Para el cuerpo técnico</p>
       <div className="flex flex-wrap items-center gap-2">
         <Button
@@ -321,6 +323,18 @@ export function ExportaViaje({
         </Button>
       </div>
       <p className="mt-2 text-[12px] text-white/45">La imagen se ve en el propio chat de WhatsApp; el PDF, para colgarlo en el vestuario y en el autobús.</p>
+    </>
+  );
+
+  if (sinMarco) return botones;
+
+  return (
+    <Panel
+      title="Sacar los documentos"
+      subtitle={`${plural(diapositivas, "diapositiva", "diapositivas")} de dossier y ${plural(dias, "hoja", "hojas")} de horario, tal y como se ven aquí`}
+      icon={FileDown}
+    >
+      {botones}
     </Panel>
   );
 }
