@@ -67,7 +67,6 @@ import { ApuntesAbp } from "@/components/abp/apuntes/ApuntesAbp";
 import { CodingAbpRival } from "@/components/abp/coding/CodingAbpRival";
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { useEscudos } from "@/hooks/useEscudos";
-import { useAdmin } from "@/hooks/useAdmin";
 import { useOrdenRivales } from "@/hooks/useOrdenRivales";
 import { useLento } from "@/hooks/useLento";
 import { AvisoLento } from "@/components/rivals/AvisoLento";
@@ -176,12 +175,12 @@ export default function ScoutRivalAbpPage() {
 
   const [grupo, setGrupo] = useState<Grupo>("liga");
   const [vistaElegida, setVista] = usePestanaUrl<Vista>("vista", VISTAS, "resumen");
-  const { admin } = useAdmin();
+  /* La sesión ya no esconde pestañas aquí (12/11/2026). */
 
   /* Las láminas sólo existen en Liga: en Pretemporada se vuelve al resumen en vez de enseñar una pestaña vacía. */
-  /* Y las del analista, sólo con sesión de administrador (07/11/2026): sin ella, al resumen. */
+  /* 12/11/2026 (el analista): coding, láminas y registrar, a la vista de todos (antes sólo con sesión de administrador). */
   const vistaPrevia: Vista =
-    ((vistaElegida === "laminas" || vistaElegida === "proyeccion") && grupo !== "liga") || (!admin && ["coding", "laminas", "registrar"].includes(vistaElegida))
+    (vistaElegida === "laminas" || vistaElegida === "proyeccion") && grupo !== "liga"
       ? "resumen"
       : vistaElegida;
   const [side, setSide] = useState<AbpSide>("ofensivo");
@@ -878,13 +877,9 @@ export default function ScoutRivalAbpPage() {
                       ]
                     : []),
                   { clave: "apuntes", label: "Apuntes y vídeo", icono: NotebookPen },
-                  ...(admin
-                    ? [
-                        { clave: "coding" as const, label: "Coding de clips", icono: Clapperboard },
-                        ...(grupo === "liga" ? [{ clave: "laminas" as const, label: "Recoger y láminas", icono: Images }] : []),
-                        { clave: "registrar" as const, label: "Registrar", icono: PenLine },
-                      ]
-                    : []),
+                  { clave: "coding" as const, label: "Coding de clips", icono: Clapperboard },
+                  ...(grupo === "liga" ? [{ clave: "laminas" as const, label: "Recoger y láminas", icono: Images }] : []),
+                  { clave: "registrar" as const, label: "Registrar", icono: PenLine },
                 ]}
               />
 
@@ -894,7 +889,7 @@ export default function ScoutRivalAbpPage() {
               | vista. Desde cualquier otra vista de Liga, un botón lleva a él.
               | 07/11/2026: sólo para el administrador; es tarea del analista.
               */}
-              {admin && equipo && grupo === "liga" && vista !== "laminas" && vista !== "coding" && (
+              {equipo && grupo === "liga" && vista !== "laminas" && vista !== "coding" && (
                 <button
                   type="button"
                   onClick={() => setVista("laminas")}
