@@ -25,14 +25,13 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Pencil, User, X } from "lucide-react";
 
-import { ESCALA_APRETADA, type LadoNombre } from "@/lib/abp/separa";
 import {
   anchoChapa,
-  anchoNombrePortero,
   anchoNombreRival,
   anclasDeConsignas,
   CHAPA_MAX_W,
   colocaLamina,
+  escalaDeCaras,
   NOMBRE_CHAPA,
   nombreDeRival as nombreDeRivalEn,
   rivalesConDorsal,
@@ -91,7 +90,7 @@ import {
 import { leyendaSiglas } from "@/lib/abp/siglas";
 import { esImplicito, porteroPropioDeLaLamina, rivalesDeLaLamina, saqueDeLaLamina } from "@/lib/abp/rivales-implicitos";
 import { esPortero } from "@/lib/abp/pizarra-jugador";
-import { useEscalaCara } from "@/lib/abp/escala-cara";
+import { enLaLamina, mencionesDe, type Mencion } from "@/lib/abp/menciones";
 
 /* ------------------------------------------------------------------ */
 /*  TEXTOS QUE SE ESCRIBEN EN SU SITIO                                 */
@@ -524,9 +523,15 @@ function cajaDeJugada(slide: SlidePizarra, rivalesMovidos: { x: number; y: numbe
   /* Con los que se dibujan solos al enseñar (atacantes y porteros). */
   const porteroPropio = porteroPropioDeLaLamina(slide);
 
-  for (const rival of [...rivalesDeLaLamina(slide), ...rivalesMovidos, ...(porteroPropio ? [porteroPropio] : [])]) {
+  for (const rival of [...rivalesDeLaLamina(slide), ...rivalesMovidos]) {
     xs.push(rival.x - 30, rival.x + 30);
     ys.push(rival.y - 60, rival.y + 8);
+  }
+
+  /* Nuestro portero, ya con su foto entera y su chapa (12/11/2026). */
+  if (porteroPropio) {
+    xs.push(porteroPropio.x - FOTO_W / 2, porteroPropio.x + FOTO_W / 2);
+    ys.push(porteroPropio.y - FOTO_H, porteroPropio.y + 34);
   }
 
   /* Al final de una carrera hay una cara: se cuenta su foto entera. */
@@ -617,7 +622,7 @@ function Ficha({
   dorsal,
   seleccionada,
   soloVer,
-  compacta = false,
+  escala = 1,
   foco,
   marca,
   onPointerDown,
@@ -637,8 +642,11 @@ function Ficha({
   code: string;
   /** La sigla ya envuelta para escribirla en su sitio (pizarra en edición). */
   codigo?: ReactNode;
-  /** Proyector y exportación: se pisa con otra cara y se pinta más pequeña (con foto). */
-  compacta?: boolean;
+  /**
+   * La misma para todas las caras de la lámina (`escalaDeCaras`): con el campo
+   * acercado, la cara no crece con él (12/11/2026, «todas del mismo tamaño»).
+   */
+  escala?: number;
   /** La diapositiva pide escribir a mano el dorsal del rival al que marca. */
   dorsal: boolean;
   /** El dorsal ya decidido («Quién marca a quién»). */
@@ -650,9 +658,14 @@ function Ficha({
   onQuitar: () => void;
 }) {
   const nombre = player?.apodo ?? player?.nombre ?? "";
-  /* Cada recorte está encuadrado a su manera: se iguala el tamaño de la cara (08/11/2026). */
-  const escalaCara = useEscalaCara(player?.foto);
 
+  /*
+  | 12/11/2026 (el analista: «que las fotos de todos los jugadores que salen
+  | en las slides sean del mismo tamaño»): ninguna cara crece ni encoge por
+  | sí sola. Ni la apretada (al 80 %), ni la medida foto a foto (del 85 % al
+  | 120 %), ni la resaltada del PDF de cada jugador (al 122 %): ésa se
+  | distingue por el rosa y porque el resto va apagado.
+  */
   return (
     <div
       data-ficha
@@ -663,13 +676,8 @@ function Ficha({
         left: ficha.x - FOTO_W / 2,
         top: ficha.y - FOTO_H,
         width: FOTO_W,
-        /* Encoge desde los pies, que es donde está el punto del jugador. */
-        transform:
-          foco === "si"
-            ? "scale(1.22)"
-            : compacta
-              ? `scale(${ESCALA_APRETADA})`
-              : undefined,
+        /* Desde los pies, que es donde está el punto del jugador. */
+        transform: Math.abs(escala - 1) > 0.001 ? `scale(${escala.toFixed(4)})` : undefined,
         transformOrigin: `50% ${FOTO_H}px`,
         touchAction: soloVer ? undefined : "none",
         cursor: soloVer ? "default" : "grab",
@@ -714,8 +722,6 @@ function Ficha({
         draggable={false}
         className="relative block h-[120px] w-[96px] object-contain object-bottom"
         style={{
-          transform: escalaCara !== 1 ? `scale(${escalaCara.toFixed(3)})` : undefined,
-          transformOrigin: "50% 100%",
           filter:
             foco === "si"
               ? `drop-shadow(0 0 10px ${COLORES.rosa}) drop-shadow(0 0 4px ${COLORES.rosa}) drop-shadow(0 8px 12px rgba(0,0,0,.6))`
@@ -748,12 +754,6 @@ function Ficha({
                 : "0 0 0 1px rgba(200,169,107,.42), 0 6px 12px rgba(0,0,0,.5)",
           minWidth: 54,
           height: CHAPA_H,
-          /*
-          | Apretada, encoge la cara pero no el nombre (12/11/2026, marketing:
-          | «Carvajal, Mario y Dani muy pequeños»): la chapa deshace la escala,
-          | colgada de su borde de arriba (`cajaChapa` cuenta con ello).
-          */
-          ...(compacta && foco !== "si" ? { scale: String(1 / ESCALA_APRETADA), transformOrigin: "50% 0" } : null),
         }}
       >
         <span className="whitespace-nowrap text-[15px] font-bold leading-[15px] tracking-[0.04em] text-white" style={foco === "si" ? { color: COLORES.navy } : undefined}>
@@ -1223,9 +1223,12 @@ function ChapaRival({
   debajo = false,
   nombre = "",
   nombreArriba = false,
+  escala = 1,
   onPointerDown,
 }: {
   rival: RivalPizarra;
+  /** La de las caras de la lámina (`escalaDeCaras`). */
+  escala?: number;
   /** Su apellido, del once probable (12/11/2026, jueces): debajo del disco. */
   nombre?: string;
   /** Debajo no cabe sin tapar a nadie: el apellido va encima del disco (`apartaRivales`). */
@@ -1247,6 +1250,8 @@ function ChapaRival({
         top: rival.y - lado - 4,
         width: lado,
         height: lado + 10,
+        transform: Math.abs(escala - 1) > 0.001 ? `scale(${escala.toFixed(4)})` : undefined,
+        transformOrigin: `50% ${lado + 4}px`,
         zIndex: debajo ? 1 : profundidad(rival.x, rival.y),
         cursor: editable ? "grab" : "default",
         touchAction: editable ? "none" : undefined,
@@ -1303,48 +1308,63 @@ function ChapaRival({
  * que la portería no salga vacía en el PDF.
  *
  * 12/11/2026 (jueces): con el portero del once, su cara en la chapa y su
- * nombre debajo. Sigue siendo pequeña: es la referencia, no la jugada.
+ * nombre debajo.
+ *
+ * 12/11/2026, el analista («las fotos de todos los jugadores del mismo
+ * tamaño»): con foto ya no es un disco pequeño. Va como una ficha más —la
+ * foto entera, del tamaño de las demás, y su chapa «POR» con el nombre—;
+ * `cajasPorteroFigura` cuenta con lo que ocupa. Sin foto, el disco «POR».
  */
-function ChapaPorteroPropio({ x, y, player, ladoNombre = "abajo" }: { x: number; y: number; player?: Player; ladoNombre?: LadoNombre }) {
+function ChapaPorteroPropio({
+  x,
+  y,
+  player,
+  escala = 1,
+}: {
+  x: number;
+  y: number;
+  player?: Player;
+  escala?: number;
+}) {
   const lado = 52;
   const nombre = (player?.apodo || player?.nombre || "").trim();
-  /*
-  | 12/11/2026 (jueces, falta directa defensiva): con Pol justo debajo, su
-  | cara tapaba el nombre («TRE»). El nombre va donde no lo tapa nadie
-  | (`ladoNombrePortero`): debajo, a un lado o encima.
-  */
-  const sitioNombre: React.CSSProperties | undefined =
-    ladoNombre === "derecha"
-      ? { position: "absolute", left: 60 + 30, top: 16 }
-      : ladoNombre === "izquierda"
-        ? { position: "absolute", right: 60 + 30, top: 16 }
-        : ladoNombre === "arriba"
-          ? { position: "absolute", left: "50%", transform: "translateX(-50%)", top: -26 }
-          : undefined;
+  const escalado: React.CSSProperties = Math.abs(escala - 1) > 0.001 ? { transform: `scale(${escala.toFixed(4)})` } : {};
 
   if (player?.foto) {
     return (
       <div
         data-portero
-        className="pointer-events-none absolute flex select-none flex-col items-center"
-        style={{ left: x - 60, top: y - lado - 4, width: 120, zIndex: profundidad(x, y) }}
+        className="pointer-events-none absolute select-none"
+        style={{ left: x - FOTO_W / 2, top: y - FOTO_H, width: FOTO_W, zIndex: profundidad(x, y), ...escalado, transformOrigin: `50% ${FOTO_H}px` }}
         aria-label={`Nuestro portero: ${nombre}`}
       >
+        {/* La foto primero: el PDF de cada jugador mide su centro, como el de cualquier cara. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={player.foto}
+          alt={nombre}
+          draggable={false}
+          className="relative block h-[120px] w-[96px] object-contain object-bottom"
+          style={{ filter: "drop-shadow(0 8px 12px rgba(0,0,0,.5))" }}
+        />
+
         <div
-          className="overflow-hidden rounded-full"
-          style={{ width: lado, height: lado, background: "#DCE3EC", boxShadow: `0 0 0 3px ${COLORES.oro}, 0 8px 14px rgba(0,0,0,.5)` }}
+          data-chapa
+          className="relative left-1/2 -mt-2 flex w-max -translate-x-1/2 flex-col items-center rounded-md px-1.5 py-0.5 text-center"
+          style={{
+            backgroundImage: `linear-gradient(180deg, ${COLORES.nocheAlto} 0%, ${COLORES.noche} 100%)`,
+            boxShadow: "0 0 0 1px rgba(200,169,107,.42), 0 6px 12px rgba(0,0,0,.5)",
+            minWidth: 54,
+            height: CHAPA_H,
+          }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={player.foto} alt="" className="h-full w-full object-cover object-top" draggable={false} />
+          <span className="whitespace-nowrap text-[15px] font-bold leading-[15px] tracking-[0.04em] text-white">POR</span>
+          {nombre && (
+            <span className="whitespace-nowrap font-semibold uppercase tracking-wide" style={{ color: "rgba(228,206,155,.95)", fontSize: NOMBRE_CHAPA, lineHeight: "20px" }}>
+              {nombrePorteroEnChapa(nombre)}
+            </span>
+          )}
         </div>
-        {nombre && (
-          <span
-            className={`${sitioNombre ? "" : "mt-1 "}whitespace-nowrap rounded-md px-1.5 text-[15px] font-bold uppercase leading-[20px]`}
-            style={{ ...sitioNombre, background: COLORES.noche, color: "#FFFFFF", fontFamily: "var(--fuente-pizarra, inherit)", boxShadow: `inset 0 0 0 1px ${COLORES.oro}` }}
-          >
-            {nombre.split(/\s+/)[0]}
-          </span>
-        )}
       </div>
     );
   }
@@ -1353,7 +1373,7 @@ function ChapaPorteroPropio({ x, y, player, ladoNombre = "abajo" }: { x: number;
     <div
       data-portero
       className="pointer-events-none absolute select-none"
-      style={{ left: x - lado / 2, top: y - lado - 4, width: lado, height: lado + 10, zIndex: profundidad(x, y) }}
+      style={{ left: x - lado / 2, top: y - lado - 4, width: lado, height: lado + 10, zIndex: profundidad(x, y), ...escalado, transformOrigin: `50% ${lado + 4}px` }}
       aria-label="Nuestro portero"
     >
       <div
@@ -1372,6 +1392,9 @@ function ChapaPorteroPropio({ x, y, player, ladoNombre = "abajo" }: { x: number;
     </div>
   );
 }
+
+/** Lo que pone la chapa de nuestro portero: su primer nombre («MESTRE»). */
+const nombrePorteroEnChapa = (nombre: string) => nombre.trim().split(/\s+/)[0] ?? "";
 
 /* ------------------------------------------------------------------ */
 /*  LEYENDA DE LAS FLECHAS                                             */
@@ -1793,6 +1816,56 @@ export function TableroSlide({
   const conNotas = lineas.length > 0 || Boolean(datoPie);
   /* La línea de dato cuenta como una más; sola, una franja baja. */
   const franja = lineas.length ? altoFranja(lineas.length + (datoPie ? 1 : 0)) : datoPie ? FRANJA_DATO : 0;
+
+  /*
+  | Los nombres de las consignas, atados a su ficha (12/11/2026, el analista:
+  | «que detecten automáticamente los nombres y, según se seleccionen unos
+  | jugadores u otros, esos nombres cambien»). Al editar se ven subrayados en
+  | oro los que están en la lámina —cambian solos si se cambia al jugador de
+  | esa ficha, `enlazaNombres`— y en ondas rojas los de la plantilla que ya
+  | no están en ella (el texto se queda; se avisa). Ver `lib/abp/menciones.ts`.
+  */
+  const enLamina = enLaLamina(slide, portero && porteroPropioDeLaLamina(slide) ? portero : null);
+  const resalta = (texto: string): ReactNode => {
+    if (!editaTextos) return texto;
+
+    const menciones = mencionesDe(texto, enLamina, players);
+
+    if (menciones.length === 0) return texto;
+
+    const partes: ReactNode[] = [];
+    let desde = 0;
+
+    menciones.forEach((m: Mencion, i) => {
+      const quien = players.get(m.playerId);
+      const nombre = quien?.apodo || quien?.nombre || m.texto;
+
+      partes.push(texto.slice(desde, m.desde));
+      partes.push(
+        <span
+          key={`m${i}`}
+          data-mencion={m.estado}
+          title={
+            m.estado === "enlazada"
+              ? `${nombre}: enlazado a su ficha. Si pones a otro jugador en ella, aquí cambia el nombre.`
+              : `${nombre} no está en esta lámina: el texto se queda como está. Ponlo en el campo o cambia el nombre.`
+          }
+          style={
+            m.estado === "enlazada"
+              ? { boxShadow: "inset 0 -0.18em 0 rgba(200,169,107,.6)", borderRadius: 2 }
+              : { textDecorationLine: "underline", textDecorationStyle: "wavy", textDecorationColor: "rgba(190,18,60,.8)", textDecorationThickness: 2, textUnderlineOffset: 5 }
+          }
+        >
+          {texto.slice(m.desde, m.hasta)}
+        </span>,
+      );
+      desde = m.hasta;
+    });
+
+    partes.push(texto.slice(desde));
+
+    return partes;
+  };
 
   /** La línea de la franja, envuelta para escribirla en su sitio. */
   const lineaEnSitio = (posicion: number, mostrado: ReactNode) => {
@@ -2236,7 +2309,7 @@ export function TableroSlide({
   /* El punto de saque del saque de banda, al enseñar y sin balón dibujado. */
   const saque = soloVer ? saqueDeLaLamina(slide) : null;
 
-  /* Al enseñar, las caras que se pisan se abren o se pintan compactas. */
+  /* Al enseñar, las caras que se pisan se abren hacia los lados (todas a su tamaño). */
   const conChapas = soloVer
     ? enCampo.map((ficha) => {
         const player = players.get(ficha.playerId);
@@ -2275,7 +2348,7 @@ export function TableroSlide({
   const porteroPropio =
     soloVer && !slide.fichas.some((ficha) => esPortero(players.get(ficha.playerId))) ? porteroPropioDeLaLamina(slide) : null;
   const elPortero = portero ? players.get(portero) : undefined;
-  const nombrePortero = elPortero?.foto ? ((elPortero.apodo || elPortero.nombre || "").trim().split(/\s+/)[0] ?? "") : "";
+  const nombrePortero = elPortero?.foto ? nombrePorteroEnChapa(elPortero.apodo || elPortero.nombre || "") : "";
 
   /*
   | Todo lo que se coloca al enseñar, de una vez y sin tapar ningún nombre
@@ -2283,21 +2356,43 @@ export function TableroSlide({
   | nombre de nuestro portero, los rivales con su apellido donde no tapen ni
   | les tapen, y la letra de cada consigna junto a quien nombra. Ver
   | `lib/abp/coloca-lamina.ts`; el arnés de los exportables usa lo mismo.
+  |
+  | Las caras van al mismo tamaño en todas las láminas (12/11/2026): lo que se
+  | acerca es el campo, no ellas (`escalaDeCaras`). La escala depende del
+  | encuadre y el encuadre de dónde acaban los rivales apartados: se coloca
+  | con el encuadre de la jugada y, si al apartarlos cambia, otra vez.
   */
-  const colocada =
+  const coloca = (escala: number) =>
     soloVer && conChapas
       ? colocaLamina({
           fichas: conChapas,
           rivales: rivalesVistos.map((uno) => ({ ...uno, chapa: anchoNombreRival(nombreDeRival(uno)) })),
-          portero: porteroPropio ? { ...porteroPropio, nombre: anchoNombrePortero(nombrePortero) } : null,
+          portero: porteroPropio
+            ? { ...porteroPropio, nombre: 0, ...(elPortero?.foto ? { chapa: anchoChapa(nombrePortero, "POR") } : {}) }
+            : null,
           letras: letrasEnCampo,
+          escala,
         })
       : null;
+  const encuadra = (apartadosAhora: ReturnType<typeof coloca>) =>
+    maquetaDe(conPanel, franja, soloVer ? cajaDeJugada(slide, apartadosAhora ? [...apartadosAhora.apartados.values()] : []) : null);
+
+  let escalaCaras = escalaDeCaras(encuadra(null).k);
+  let colocada = coloca(escalaCaras);
+  /* El encuadre cuenta también a los rivales que se han apartado un paso por delante de la fila. */
+  let maqueta = encuadra(colocada);
+
+  if (colocada && Math.abs(escalaDeCaras(maqueta.k) - escalaCaras) > 0.005 * escalaCaras) {
+    escalaCaras = escalaDeCaras(maqueta.k);
+    colocada = coloca(escalaCaras);
+    maqueta = encuadra(colocada);
+  }
+
+  /* Lo que se pinta va exactamente a `CARA_EN_LAMINA` (lo colocado, con la escala de la última pasada: difiere menos de un 0,5 %). */
+  const escalaPintada = escalaDeCaras(maqueta.k);
+
   const separadas = colocada?.separadas ?? null;
   const apartados = colocada?.apartados ?? null;
-
-  /* El encuadre cuenta también a los rivales que se han apartado un paso por delante de la fila. */
-  const maqueta = maquetaDe(conPanel, franja, soloVer ? cajaDeJugada(slide, apartados ? [...apartados.values()] : []) : null);
 
   /*
   | En qué momento de la jugada se está, fijo en la cabecera: en el proyector
@@ -2640,7 +2735,7 @@ export function TableroSlide({
             }
             dorsal={dorsalDe(ficha)}
             marca={ficha.puesto ? slide.marcas?.[ficha.puesto] : undefined}
-            compacta={separada?.compacta ?? false}
+            escala={escalaPintada}
             seleccionada={!soloVer && seleccion === ficha.id}
             foco={destacado ? (ficha.playerId === destacado ? "si" : "no") : undefined}
             soloVer={soloVer || tiempo != null}
@@ -2698,6 +2793,7 @@ export function TableroSlide({
             debajo={apartados?.get(rival.id)?.debajo ?? false}
             nombre={nombreDeRival(rival)}
             nombreArriba={apartados?.get(rival.id)?.nombreArriba ?? false}
+            escala={escalaPintada}
             elegido={!soloVer && rivalElegido === rival.id}
             editable={!esImplicito(rival) && editaTrazos && herramienta === "mover"}
             onPointerDown={(event) => empiezaRival(event, rival)}
@@ -2705,7 +2801,7 @@ export function TableroSlide({
         ))}
 
         {porteroPropio && (
-          <ChapaPorteroPropio x={porteroPropio.x} y={porteroPropio.y} player={elPortero} ladoNombre={colocada?.ladoPortero} />
+          <ChapaPorteroPropio x={porteroPropio.x} y={porteroPropio.y} player={elPortero} escala={escalaPintada} />
         )}
 
         {/* La letra de cada consigna junto a quien nombra —una figura o su grupo— (sólo al enseñar). */}
@@ -2717,9 +2813,12 @@ export function TableroSlide({
                 style={{
                   left: una.left,
                   top: una.top,
-                  width: una.w,
+                  /* Mide `w × h` ya a escala de las caras: se pinta a su tamaño y se escala desde la esquina. */
+                  width: una.w / escalaCaras,
                   whiteSpace: "nowrap",
-                  height: una.h,
+                  height: una.h / escalaCaras,
+                  transform: Math.abs(escalaPintada - 1) > 0.001 ? `scale(${escalaPintada.toFixed(4)})` : undefined,
+                  transformOrigin: "0 0",
                   padding: "0 4px",
                   fontSize: 22,
                   backgroundColor: COLORES.navy,
@@ -3317,7 +3416,7 @@ export function TableroSlide({
                         {linea.rotulo}
                       </span>
 
-                      {lineaEnSitio(indice, linea.texto)}
+                      {lineaEnSitio(indice, resalta(linea.texto))}
                     </p>
                   ) : linea.tipo === "subtitulo" ? (
                     <p
@@ -3358,7 +3457,7 @@ export function TableroSlide({
                       )}
 
                       <span className={editaTextos ? "min-w-0 flex-1" : "min-w-0"}>
-                        {lineaEnSitio(indice, sinNumeroDeOrden(linea.texto))}
+                        {lineaEnSitio(indice, resalta(sinNumeroDeOrden(linea.texto)))}
                       </span>
                     </p>
                   ),

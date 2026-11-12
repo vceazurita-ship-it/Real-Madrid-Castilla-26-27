@@ -179,7 +179,11 @@ function marcoDe(nodo: HTMLElement): MarcoCaptura | null {
 
   if (!r.width || !recorte.width) return null;
 
+  /* Lo que mide una cara en la foto (12/11/2026: todas igual, no crecen con el campo acercado). */
+  const foto = nodo.querySelector<HTMLElement>("[data-ficha] img, [data-portero] img")?.getBoundingClientRect();
+
   return {
+    ...(foto?.width ? { cara: (foto.width * escala) / 96 } : {}),
     k: (r.width * escala) / TABLERO_W,
     dx: (r.left - caja.left) * escala,
     dy: (r.top - caja.top) * escala,

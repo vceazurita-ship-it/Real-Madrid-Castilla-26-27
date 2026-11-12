@@ -24,12 +24,12 @@ import type { SlidePizarra, TableroPizarra } from "@/lib/abp/pizarra";
 
 const VOCALES: Record<string, string> = { a: "aáàäâ", e: "eéèëê", i: "iíìïî", o: "oóòöô", u: "uúùüû", n: "nñ" };
 
-const sinTildes = (texto: string) => texto.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+export const sinTildes = (texto: string) => texto.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
 const escapa = (texto: string) => texto.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /** Patrón que casa la palabra con o sin tildes y en cualquier caja. */
-function patron(palabra: string) {
+export function patron(palabra: string) {
   const cuerpo = [...sinTildes(palabra)].map((c) => (VOCALES[c] ? `[${VOCALES[c]}]` : escapa(c))).join("");
 
   return `(?<![\\p{L}\\p{N}])${cuerpo}(?![\\p{L}\\p{N}])`;
@@ -71,7 +71,7 @@ const expresion = (player: Pick<Player, "nombre" | "apodo">) => {
   return formas.length ? new RegExp(formas.map(patron).join("|"), "giu") : null;
 };
 
-const enCaja = (encontrado: string, nuevo: string) =>
+export const enCaja = (encontrado: string, nuevo: string) =>
   encontrado === encontrado.toUpperCase() && encontrado !== encontrado.toLowerCase() ? nuevo.toUpperCase() : nuevo;
 
 /** Cambia en un texto al que sale por el que entra (y al revés si se intercambian). */
