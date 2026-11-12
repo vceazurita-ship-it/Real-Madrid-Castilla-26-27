@@ -1661,8 +1661,8 @@ function MetaYBase({ texto, rotulo = "" }: { texto: string; rotulo?: string }) {
 /**
  * La meta de la prioridad nº 1 de balón parado cuando es EN CONTRA, con las
  * cifras del informe de ABP (las mismas de su bloque, `pincelada.cifras`):
- * «Ningún gol de falta directa a portería (hoy 1 en 10)» sobre «Hasta hoy, 3
- * con peligro de 10 faltas directas en contra · 11 partidos».
+ * «Ningún gol de falta directa a portería» sobre «Hasta hoy: 1 gol en 10
+ * faltas directas en contra · 11 partidos · 3 con peligro».
  */
 function metaAbpEnContra(inf: InformePartido) {
   const p = inf.abp?.pincelada;
@@ -1685,13 +1685,29 @@ function metaAbpEnContra(inf: InformePartido) {
   const goles = /(?:^|·\s*)(\d+) gol(?:es)?\b/.exec(cifraNo1.pie)?.[1];
   const total = /(\d+)\s*$/.exec(cifraNo1.valor)?.[1];
 
-  const meta = cifraNo1.meta || `ningún gol en ${limpio.charAt(0).toLowerCase()}${limpio.slice(1)}${goles && total ? ` (hoy ${goles} en ${total})` : ""}`;
+  /*
+  | «HASTA HOY» (12/11/2026, fútbol): «(hoy 1 en 10)» se leía como del partido
+  | de hoy. La meta llega como «ningún gol de falta directa a portería · hasta
+  | hoy: 1 gol en 10 faltas directas en contra · 11 partidos»: la meta, grande,
+  | y debajo «Hasta hoy: 1 gol en 10 faltas directas en contra · 11 partidos ·
+  | 3 con peligro», igual que la tarjeta del informe de ABP. Las guardadas con
+  | «(hoy 1 en 10)» se pasan a la forma nueva.
+  */
+  const partidos = /(?:^|·\s*)(\d+ partidos?)\b/.exec(cifraNo1.pie)?.[1] ?? "";
+  const plurales = (n: string) => `${n} ${n === "1" ? "gol" : "goles"}`;
+  const cruda =
+    cifraNo1.meta?.replace(/\s*\(hoy (\d+) en (\d+)\)\s*$/, (_, g: string, t: string) => ` · hasta hoy: ${plurales(g)} en ${t} ${limpio}${partidos ? ` · ${partidos}` : ""}`) ||
+    `ningún gol en ${limpio.charAt(0).toLowerCase()}${limpio.slice(1)}${goles && total ? ` · hasta hoy: ${plurales(goles)} en ${total} ${limpio}${partidos ? ` · ${partidos}` : ""}` : ""}`;
+  const [meta, hastaHoy = ""] = cruda.split(/\s·\shasta hoy:\s/);
 
-  /* Lo que ya dice la meta («hoy 1 en 10») no se repite debajo. */
-  const base = cifraNo1.pie
-    .split(" · ")
-    .filter((t) => !/^\d+ gol(?:es)?$/.test(t))
-    .join(" · ");
+  /* Lo que ya dice «hasta hoy» (los goles, el total y los partidos) no se repite debajo: queda «3 con peligro». */
+  const conPeligro = /^(\d+) con peligro\b/.exec(cifraNo1.pie)?.[1];
+  const base = hastaHoy
+    ? [hastaHoy, conPeligro ? `${conPeligro} con peligro` : ""].filter(Boolean).join(" · ")
+    : cifraNo1.pie
+        .split(" · ")
+        .filter((t) => !/^\d+ gol(?:es)?$/.test(t))
+        .join(" · ");
 
   const entrenar = p.cifras.find((c) => /por entrenar/i.test(c.rotulo));
 
@@ -1715,7 +1731,7 @@ function metaAbpEnContra(inf: InformePartido) {
 
   return {
     meta,
-    base: `Hasta hoy, ${base}`,
+    base: `Hasta hoy: ${base}`,
     porEntrenar: entrenar ? [entrenar.valor, entrenar.pie].filter(Boolean).join(" · ") : pide ?? "",
   };
 }

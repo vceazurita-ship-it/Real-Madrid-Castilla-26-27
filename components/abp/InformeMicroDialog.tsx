@@ -1827,14 +1827,18 @@ export function InformeMicroDialog({
           };
 
           return (
-            <nav aria-label="Índice del informe" className="sticky top-0 z-10 -mx-1 hidden items-center gap-1.5 bg-[#11161C] px-1 py-1.5 sm:flex">
-              <span className="mr-1 text-[11px] font-semibold uppercase tracking-wider text-white/45">Ir a</span>
+            /* Siempre a la vista, también en el móvil (12/11/2026, marketing): fijo arriba y, si no cabe, se desliza de lado. */
+            <nav
+              aria-label="Índice del informe"
+              className="sticky top-0 z-10 -mx-1 flex min-w-0 items-center gap-1.5 overflow-x-auto bg-[#11161C] px-1 py-1.5 [scrollbar-width:none]"
+            >
+              <span className="mr-1 shrink-0 text-[11px] font-semibold uppercase tracking-wider text-white/45">Ir a</span>
               {indice.map((una) => (
                 <button
                   key={una.rotulo}
                   type="button"
                   onClick={() => ve(una.capitulo)}
-                  className="rounded-full border border-[#C8A96B]/40 px-3 py-1 text-[12px] font-semibold text-[color:var(--rmcf-gold-ink)] transition hover:bg-[#C8A96B]/10"
+                  className="min-h-8 shrink-0 whitespace-nowrap rounded-full border border-[#C8A96B]/40 px-3 py-1 text-[12px] font-semibold text-[color:var(--rmcf-gold-ink)] transition hover:bg-[#C8A96B]/10"
                 >
                   {una.rotulo}
                 </button>
@@ -1892,6 +1896,19 @@ export function InformeMicroDialog({
               abreCapitulo.current = new Map();
 
               if (doc) {
+                /*
+                | AL IMPRIMIR, ABIERTO (12/11/2026, fútbol): el PDF de «Descargar» sale del
+                | HTML del correo, sin plegables; pero si se imprime esta vista previa, los
+                | bloques plegados salen abiertos y los botones no salen.
+                */
+                if (!doc.querySelector("style[data-plegables]")) {
+                  const estilo = doc.createElement("style");
+
+                  estilo.setAttribute("data-plegables", "");
+                  estilo.textContent = "@media print{[data-plegador]{display:none!important}[data-plegado]{display:revert!important}}";
+                  doc.head?.appendChild(estilo);
+                }
+
                 const titulos = Array.from(doc.querySelectorAll<HTMLElement>("h2[data-capitulo]"));
 
                 const desde = titulos.findIndex((h) => /^anexo/i.test(h.dataset.capitulo ?? ""));
@@ -1914,6 +1931,8 @@ export function InformeMicroDialog({
                   const boton = doc.createElement("button");
 
                   boton.type = "button";
+                  boton.setAttribute("data-plegador", "");
+                  ocultos.forEach((n) => n.setAttribute("data-plegado", ""));
                   boton.setAttribute("style", "margin:2px 0 6px;padding:5px 12px;border:1px solid #C8A96B;border-radius:999px;background:#FFFFFF;font:600 12px/1.3 Arial,sans-serif;color:#0F1E3D;cursor:pointer");
 
                   const pon = (abierto: boolean) => {
@@ -1993,10 +2012,15 @@ export function InformeMicroDialog({
           | sólo competición · no va en el correo» eran tres líneas que decían
           | lo mismo. Ahora el título con el número y lo demás, dentro.
           */
-          const rotulo = n ? `Antes de enviar: ${n === 1 ? "1 aviso" : `${n} avisos`} para el analista` : "Antes de enviar: repaso para el analista";
+          const rotulo = n ? `Sólo para el analista: ${n === 1 ? "1 aviso" : `${n} avisos`} antes de enviar` : "Sólo para el analista: repaso antes de enviar";
 
+          /*
+          | APARTE DEL INFORME (12/11/2026, análisis): los avisos no son del cuerpo
+          | técnico. Van separados de la vista previa por una raya y con su
+          | rótulo; ni el correo, ni el PDF, ni «Ver en grande» los llevan.
+          */
           return (
-            <section aria-label="Antes de enviar">
+            <section aria-label="Sólo para el analista" className="mt-2 border-t border-dashed border-white/15 pt-4">
               <div className={`min-w-0 rounded-xl border text-[12px] ${n ? "border-amber-400/30 bg-amber-400/[0.04]" : "border-white/10 bg-white/[0.02]"}`}>
                 <button
                   type="button"
@@ -2009,7 +2033,7 @@ export function InformeMicroDialog({
                 </button>
 
                 <div hidden={!verAnalista} className="space-y-4 border-t border-white/10 px-3 py-3">
-                  <p className="text-[11px] text-white/50">Nada de este bloque va en el correo.</p>
+                  <p className="text-[11px] text-white/50">Nada de este bloque va en el correo, en el PDF ni en WhatsApp.</p>
                   {n ? (
                     <div>
                       <p className="text-[10px] font-semibold uppercase tracking-wider text-white/40">Avisos</p>

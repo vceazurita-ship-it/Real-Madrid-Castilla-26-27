@@ -570,6 +570,28 @@ export function dispersion(
   */
   fuente(ctx, 10, 400);
 
+  /*
+  | SÓLO TRES NOMBRES (12/11/2026, fútbol): con los 20 rotulados, en el
+  | escritorio los nombres se pisaban y no se leía ninguno. Ahora llevan
+  | nombre nosotros, el rival y los extremos (el que más y el que menos en
+  | cada eje); el resto es un punto. Quién es cada uno, en la tabla de la
+  | categoría y en las barras de abajo.
+  */
+  const extremos = new Set<string>();
+
+  [
+    (f: FilaEquipoAbp) => valorDe(f, ejeX.key, ejeX.lado) as number,
+    (f: FilaEquipoAbp) => valorDe(f, ejeY.key, ejeY.lado) as number,
+  ].forEach((valor) => {
+    const orden = [...filas].sort((a, b) => valor(a) - valor(b));
+
+    extremos.add(orden[0].equipo);
+    extremos.add(orden[orden.length - 1].equipo);
+  });
+
+  const conNombre = (lista: FilaEquipoAbp[]) =>
+    lista.some((una) => (nuestro !== null && una.equipo === nuestro.equipo) || esRival(una.equipo) || extremos.has(una.equipo));
+
   const anchoEtiqueta = (lista: FilaEquipoAbp[]) =>
     ctx.measureText(
       lista.length === 1 ? nombreCorto(lista[0].equipo) : `${lista.length} equipos`,
@@ -578,10 +600,10 @@ export function dispersion(
   const debajo = new Set<number>();
 
   grupos.forEach((grupo, indice) => {
-    if (debajo.has(indice)) return;
+    if (debajo.has(indice) || !conNombre(grupo.lista)) return;
 
     grupos.forEach((otro, otroIndice) => {
-      if (otroIndice <= indice || debajo.has(otroIndice)) return;
+      if (otroIndice <= indice || debajo.has(otroIndice) || !conNombre(otro.lista)) return;
 
       const separacion = Math.abs(grupo.cx - otro.cx);
 
@@ -625,6 +647,11 @@ export function dispersion(
       }
     });
 
+    /* Sin nosotros, sin el rival y sin extremo, el grupo es sólo su punto. */
+    if (!conNombre(delGrupo)) return;
+
+    const extremo = delGrupo.find((una) => extremos.has(una.equipo));
+
     const etiqueta =
       delGrupo.length === 1
         ? nombreCorto(delGrupo[0].equipo)
@@ -632,8 +659,8 @@ export function dispersion(
           ? `${nombreCorto(nuestro.equipo)} y ${delGrupo.length - 1} más`
           : conRival
             ? `${nombreCorto(delGrupo.find((una) => esRival(una.equipo))!.equipo)} y ${delGrupo.length - 1} más`
-          : delGrupo.length === 2
-            ? delGrupo.map((una) => nombreCorto(una.equipo)).join(" · ")
+          : extremo
+            ? `${nombreCorto(extremo.equipo)} y ${delGrupo.length - 1} más`
             : `${delGrupo.length} equipos`;
 
     escribe(
@@ -1900,6 +1927,58 @@ export type DatosGraficos = {
  * nuestras hojas salía arriba y abajo con dos títulos, y las barras de
  * Wyscout de córner y falta repetían dos filas de la tabla de la categoría.
  */
+/**
+ * LA LECTURA DE LAS DISPERSIONES (12/11/2026, marketing): el gráfico dependía
+ * de un texto de apoyo pequeño. Delante de la leyenda, una frase con dónde
+ * estamos frente a la mediana de los equipos y qué hacemos con eso. Vacía si
+ * no estamos en la liga o falta el dato.
+ */
+export function lecturaDispersiones(comparativa: ComparativaAbp): { corners: string; remate: string } {
+  const nuestro = comparativa.nosotros;
+
+  if (!nuestro) return { corners: "", remate: "" };
+
+  const delLado = (key: string, l: "favor" | "contra") =>
+    comparativa.liga.map((f) => valorDe(f, key, l)).filter((v): v is number => v !== null && Number.isFinite(v));
+
+  const corners = (() => {
+    const favor = valorDe(nuestro, "corners", "favor");
+    const contra = valorDe(nuestro, "corners", "contra");
+    const n = delLado("corners", "favor").length;
+
+    if (favor === null || contra === null || n < 3) return "";
+
+    const mf = mediana(delLado("corners", "favor"));
+    const mc = mediana(delLado("corners", "contra"));
+
+    const aFavor = favor >= mf ? "generamos más que la mediana" : "generamos menos que la mediana";
+    const enContra = contra <= mc ? "concedemos menos" : "concedemos más";
+    const toca =
+      favor < mf
+        ? "la mejora está en provocar más córners y en rematar los que llegan"
+        : contra > mc
+          ? "lo que toca es conceder menos y defender bien cada uno"
+          : "toca sostenerlo";
+
+    return `Nosotros: ${fmt(favor, 1)} a favor y ${fmt(contra, 1)} en contra por partido (medianas de los ${n}: ${fmt(mf, 1)} y ${fmt(mc, 1)}): ${aFavor} y ${enContra}; ${toca}.`;
+  })();
+
+  const remate = (() => {
+    const pct = valorDe(nuestro, "cornersRemate", "favor");
+    const n = delLado("cornersRemate", "favor").length;
+
+    if (pct === null || n < 3) return "";
+
+    const m = mediana(delLado("cornersRemate", "favor"));
+
+    return `Nosotros: rematamos el ${fmt(pct, 1)} % de nuestros córners (mediana de los ${n}: ${fmt(m, 1)} %): ${
+      pct >= m ? "por encima de la liga; la rutina ensayada se mantiene" : "por debajo de la liga; la mejora está en el ensayo del remate, no en el volumen"
+    }.`;
+  })();
+
+  return { corners, remate };
+}
+
 export function graficosDelInforme(datos: DatosGraficos): GraficoInforme[] {
   rivalDestacado = datos.rival ?? "";
 
@@ -1960,11 +2039,13 @@ function dibujaGraficos(datos: DatosGraficos): GraficoInforme[] {
   /* ================= 2 · LA CATEGORÍA (WYSCOUT) ================= */
 
   if (hayLiga) {
+    const lecturas = lecturaDispersiones(comparativa!);
+
     mete(
       "d-corners",
       "¿Cuántos córners generamos y cuántos concedemos?",
       "wyscout",
-      "Cada punto es un equipo de la categoría, por partido. Arriba y a la derecha es lo bueno: muchos a favor y pocos en contra. Las rayas son las medianas de la liga.",
+      `${lecturas.corners ? `${lecturas.corners} ` : ""}Cada punto es un equipo de la categoría, por partido; con nombre, nosotros, el rival y los extremos. Arriba y a la derecha es lo bueno: muchos a favor y pocos en contra. Las rayas son las medianas de la liga.`,
       dispersion(
         comparativa!,
         { key: "corners", lado: "favor", rotulo: "córners a favor por partido" },
@@ -1983,7 +2064,7 @@ function dibujaGraficos(datos: DatosGraficos): GraficoInforme[] {
       "d-acierto",
       "¿Y los rematamos?",
       "wyscout",
-      "El volumen lo pone el partido; el porcentaje que acaba en remate lo pone el entrenamiento. Estar a la derecha y abajo es sacar muchos sin rematarlos.",
+      `${lecturas.remate ? `${lecturas.remate} ` : ""}El volumen lo pone el partido; el porcentaje que acaba en remate lo pone el entrenamiento. Estar a la derecha y abajo es sacar muchos sin rematarlos. Con nombre, nosotros, el rival y los extremos.`,
       dispersion(
         comparativa!,
         { key: "corners", lado: "favor", rotulo: "córners a favor por partido" },
