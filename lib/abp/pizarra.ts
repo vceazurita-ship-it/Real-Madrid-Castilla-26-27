@@ -1025,6 +1025,7 @@ export function slideDePlantilla(
     notas: heredado?.notas ? [...heredado.notas] : [...plantilla.notas],
     ...(textos ? { textos } : {}),
     rev: plantilla.rev,
+    ataduras: ATADURAS,
   };
 }
 
@@ -1126,8 +1127,12 @@ export function sinTextosPropios(slide: SlidePizarra): SlidePizarra {
  * Devuelve **el mismo objeto** si no hay nada que cambiar: la pizarra se lee en
  * cada render y crear un tablero nuevo cada vez dispararía el autoguardado.
  */
-/** La versión de `ataHuerfanas` que ya han pasado las diapositivas. */
-const ATADURAS = 1;
+/**
+ * La versión de `ataHuerfanas` que ya han pasado las diapositivas. Las que
+ * nacen después (plantilla, base, laboratorio, primer trazo) la llevan ya
+ * puesta: su arranque en el césped es a propósito y no se ata a nadie.
+ */
+export const ATADURAS = 1;
 
 export function normalizaTablero(entrada: TableroPizarra): TableroPizarra {
   let tocado = false;
@@ -1938,6 +1943,7 @@ export function conBase(slide: SlidePizarra, variante: number): SlidePizarra {
     fichas: slide.fichas.map((ficha) => (ficha.puesto && sitios[ficha.puesto] ? { ...ficha, ...sitios[ficha.puesto] } : ficha)),
     trazos: trazosDeBase(base, slide.id),
     ...(rivales ? { rivales } : {}),
+    ataduras: ATADURAS,
   };
 }
 

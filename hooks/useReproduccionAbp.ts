@@ -37,13 +37,18 @@ export function useReproduccionAbp(
 
   const cuadro = useRef<number | null>(null);
 
+  /* Sin movimiento, el salto de una fase a la siguiente (12/11/2026). */
+  const espera = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   /* El instante de verdad, para encadenar pasos sin esperar a un render. */
   const ahora = useRef<number | null>(inicio);
 
   const corta = useCallback(() => {
     if (cuadro.current != null) cancelAnimationFrame(cuadro.current);
+    if (espera.current != null) clearTimeout(espera.current);
 
     cuadro.current = null;
+    espera.current = null;
   }, []);
 
   const pon = useCallback((valor: number | null) => {
@@ -56,8 +61,33 @@ export function useReproduccionAbp(
     (desde: number, hasta: number) => {
       corta();
 
-      if (sinMovimiento() || hasta <= desde) {
+      if (hasta <= desde) {
         pon(hasta);
+
+        return;
+      }
+
+      /*
+      | «Reducir movimiento»: cada fase entera de golpe, una tras otra. Antes
+      | saltaba directo al final y «Reproducir» enseñaba sólo la foto última.
+      */
+      if (sinMovimiento()) {
+        let fase = Math.floor(desde + 1e-6);
+
+        const salta = () => {
+          fase = Math.min(hasta, fase + 1);
+          pon(fase);
+          espera.current = fase < hasta ? setTimeout(salta, MS_POR_FASE) : null;
+        };
+
+        if (hasta - desde <= 1) {
+          pon(hasta);
+
+          return;
+        }
+
+        pon(desde);
+        espera.current = setTimeout(salta, MS_POR_FASE);
 
         return;
       }

@@ -46,7 +46,7 @@ import {
   textosDelVideo,
   videoDeLaJugada,
 } from "@/components/abp/pizarra/VideoJugada";
-import { TABLERO_H, TABLERO_W, jugadoresDelTablero, tituloVisible, type TableroPizarra } from "@/lib/abp/pizarra";
+import { TABLERO_H, TABLERO_W, jugadoresDelTablero, laminaVacia, tituloVisible, type TableroPizarra } from "@/lib/abp/pizarra";
 import { fasesDe } from "@/lib/abp/trazos";
 import { trabajoPdfs, type EstadoPdfs } from "@/lib/abp/trabajo-pdfs";
 import { arrancados, enMarcha as encargoEnMarcha, trabajoExportar, type PiezasExportar } from "@/lib/abp/trabajo-exportar";
@@ -864,7 +864,7 @@ export function ExportaTodo({
         clave: "pptx",
         icono: MonitorPlay,
         titulo: "PowerPoint para proyectar",
-        lleva: `${plural(slides.length, "diapositiva", "diapositivas")} a 1920 × 1080, se abre sin la app`,
+        lleva: `${plural(slides.filter((s) => !laminaVacia(s)).length, "diapositiva", "diapositivas")} a 1920 × 1080, se abre sin la app`,
         puede: true,
       },
       {
