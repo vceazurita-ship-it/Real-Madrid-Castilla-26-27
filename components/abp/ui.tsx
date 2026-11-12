@@ -769,19 +769,22 @@ export function TextArea({
   onChange,
   placeholder,
   rows = 3,
+  ocultaRotulo = false,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   rows?: number;
+  /** El rótulo sólo para el lector de pantalla, cuando el panel ya lo dice (12/11/2026). */
+  ocultaRotulo?: boolean;
 }) {
   const id = useId();
   const corregido = corrigeErratas(value);
 
   return (
     <label htmlFor={id} className="block min-w-0">
-      <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">
+      <span className={ocultaRotulo ? "sr-only" : "mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40"}>
         {label}
       </span>
 
