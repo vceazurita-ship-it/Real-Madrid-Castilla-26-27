@@ -19,7 +19,8 @@
  */
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { BookOpen, ChevronDown, Image as ImageIcon, Loader2, Mail, Maximize2, RefreshCw, Send } from "lucide-react";
+import { BookOpen, Image as ImageIcon, Loader2, Mail, Maximize2, RefreshCw, Send, TriangleAlert } from "lucide-react";
+import { LaminasEnGrande, type LaminaGrande } from "@/components/abp/LaminasEnGrande";
 import { MenuDescargar } from "@/components/informe-partido/MenuDescargar";
 import { descargaEnMarcha, encargaDescarga } from "@/lib/trabajos/descargas";
 import { toast } from "sonner";
@@ -301,11 +302,7 @@ async function imagenesQueCaben(informe: InformeMicro, tope: number) {
   return { informe: { ...informe, graficos }, avisos };
 }
 
-export function InformeMicroDialog({
-  datos,
-  onClose,
-  incrustado,
-}: {
+type PropsInforme = {
   datos: DatosDelMicro;
   onClose: () => void;
   /**
@@ -313,7 +310,28 @@ export function InformeMicroDialog({
    * se lo da a `alListo` una sola vez. Lo usa `/abp-microciclo?incrustado=…`.
    */
   incrustado?: { modo: ModoInforme; alListo: (resultado: ResultadoIncrustado) => void };
-}) {
+};
+
+/*
+| «REINTENTAR» DE VERDAD (12/11/2026, análisis y marketing): si una pieza no
+| llega (la pizarra, el rival), el diálogo se vuelve a montar entero y cada
+| pieza se pide otra vez. Sin esto, la única salida era cerrar y abrir.
+*/
+export function InformeMicroDialog(props: PropsInforme) {
+  const [intento, setIntento] = useState(0);
+
+  return <InformeMicroDialogInterno key={intento} {...props} reintenta={() => setIntento((n) => n + 1)} />;
+}
+
+/** Cuánto se espera a que lleguen todas las piezas antes de ofrecer «Reintentar». */
+const ESPERA_PIEZAS = 45_000;
+
+function InformeMicroDialogInterno({
+  datos,
+  onClose,
+  incrustado,
+  reintenta,
+}: PropsInforme & { reintenta: () => void }) {
   const { value: ajustes, setValue: setAjustes } = useRemoteDoc<AjustesCorreo>({
     key: "abp:informe-correo",
     kind: "abp",
@@ -1556,7 +1574,131 @@ export function InformeMicroDialog({
     window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
   };
 
+  /*
+  | LO QUE FALTA, CON SU CUENTA (12/11/2026, marketing y análisis): «Descargar»
+  | y «Enviar» se quedaban apagados sin decir por qué. Abajo, «Preparando el
+  | informe · 3 de 5 (60 %) · falta la pizarra del partido» y, si pasa del
+  | tope, «Tarda más de lo normal» con «Reintentar».
+  */
+  const piezas = [
+    { rotulo: "el seguimiento individual", cargando: cargandoSeguimiento },
+    { rotulo: "la comparación con la categoría", cargando: cargandoComparativa },
+    { rotulo: "nuestras hojas de ABP", cargando: cargandoPropio },
+    { rotulo: "el análisis del rival", cargando: rivalInforme.cargando },
+    { rotulo: "la pizarra del partido", cargando: pizarraInforme.cargando },
+  ];
+
+  const pendientes = piezas.filter((una) => una.cargando);
+
+  const preparando = pendientes.length > 0;
+
+  const [tarda, setTarda] = useState(false);
+
+  useEffect(() => {
+    if (!preparando || incrustado) return;
+
+    const reloj = window.setTimeout(() => setTarda(true), ESPERA_PIEZAS);
+
+    return () => window.clearTimeout(reloj);
+  }, [preparando, incrustado]);
+
+  /* Las láminas de la pizarra, en grande (12/11/2026): se abren desde sus miniaturas de la vista previa. */
+  const [laminas, setLaminas] = useState<LaminaGrande[]>([]);
+  const [laminaAbierta, setLaminaAbierta] = useState<number | null>(null);
+
   if (incrustado) return <>{pizarraInforme.deck}</>;
+
+  const avisosAnalista = !(cargandoSeguimiento || cargandoComparativa || cargandoPropio || rivalInforme.cargando) ? informe.avisos.length : 0;
+
+  /*
+  | LO DEL ANALISTA, FUERA DEL INFORME (12/11/2026, marketing y análisis): el
+  | bloque «Sólo para el analista: 5 avisos» iba debajo de la vista previa y
+  | se leía como parte del informe. Ahora es un panel de la barra de abajo,
+  | junto a «Enviar», que se abre con su botón: ni el correo, ni el PDF, ni
+  | «Ver en grande» lo llevan, y la vista previa acaba donde acaba el informe.
+  */
+  const panelAnalista = (
+    <div className="space-y-4 text-[12px]">
+      <p className="text-[11px] text-white/50">Nada de esto va en el correo, en el PDF ni en WhatsApp.</p>
+      {avisosAnalista ? (
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-white/40">Avisos</p>
+          <ul className="mt-1 ml-4 list-disc space-y-1 text-[12px] text-white/70">
+            {informe.avisos.map((aviso) => (
+              <li key={aviso}>{aviso}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {!preparando ? (
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-white/40">Así llega a la bandeja</p>
+          <p className="mt-1 text-[12px] font-semibold text-white">{informe.asunto}</p>
+          {informe.preencabezado ? (
+            <p className="mt-0.5 text-[12px] text-white/55">{informe.preencabezado}</p>
+          ) : (
+            <p className="mt-0.5 text-[11px] text-white/45">Gmail enseña debajo el principio del correo.</p>
+          )}
+        </div>
+      ) : null}
+
+      {cuantasDePretemporada > 0 ? (
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-white/40">Qué partidos cuentan</p>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <div className="flex items-center rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
+              {[
+                { valor: false, rotulo: "Sólo competición" },
+                { valor: true, rotulo: "Con pretemporada" },
+              ].map((opcion) => (
+                <button
+                  key={opcion.rotulo}
+                  type="button"
+                  onClick={() => setConPretemporada(opcion.valor)}
+                  aria-pressed={conPretemporada === opcion.valor}
+                  className={`rounded-lg px-3 py-1.5 text-[12px] transition ${
+                    conPretemporada === opcion.valor ? "bg-[#C8A96B]/15 text-[color:var(--rmcf-gold-ink)]" : "text-white/60 hover:text-white"
+                  }`}
+                >
+                  {opcion.rotulo}
+                </button>
+              ))}
+            </div>
+
+            <span className="text-[11px] text-white/50">
+              {conPretemporada
+                ? `Dentro van también las ${cuantasDePretemporada} acciones de los amistosos de verano.`
+                : `Fuera quedan ${cuantasDePretemporada} acciones de pretemporada${propio?.partidos ? `: las cifras cuentan ${propio.partidos === 1 ? "un partido" : `${propio.partidos} partidos`} de competición` : ""}.`}
+            </span>
+          </div>
+        </div>
+      ) : null}
+
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-white/40">Más</p>
+        <ul className="mt-1 ml-4 list-disc space-y-1 text-[12px] text-white/70">
+          {!esPost && !videoJugadores ? (
+            <li>
+              Para que lleve nuestro vídeo, déjalo en ABP\VIDEO - JUGADORES con la jornada en el nombre ({jornadaPartido ? `«J${jornadaPartido}»` : "«J8»"}): el ordenador del club lo sube solo en un par de minutos.
+            </li>
+          ) : null}
+          <li>Los destinatarios se guardan solos y valen para todos los microciclos; se cambian en esta barra, junto a «Enviar».</li>
+          {canal === "correo" ? <li>Sale de la cuenta de Google del club, la misma que sube los vídeos al canal.</li> : null}
+        </ul>
+        <button
+          type="button"
+          onClick={verEnGrandeAbp}
+          className="mt-2 inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[#C8A96B]/50 px-3 py-1.5 text-[12px] font-semibold text-[color:var(--rmcf-gold-ink)] hover:bg-[#C8A96B]/10"
+          title="Abrir el correo en una pestaña, para leerlo a pantalla completa"
+        >
+          <Maximize2 size={13} /> Ver en grande
+        </button>
+      </div>
+    </div>
+  );
+
+  const hechas = piezas.length - pendientes.length;
 
   return (
     <Dialog
@@ -1583,6 +1725,27 @@ export function InformeMicroDialog({
             <p className="min-w-0 basis-full text-[11px] leading-relaxed text-rose-300">
               {conEnlace(fallo)}
             </p>
+          ) : null}
+
+          {preparando ? (
+            <div role="status" className="flex min-w-0 basis-full flex-wrap items-center gap-x-3 gap-y-1 text-[12px]">
+              <span className="flex min-w-0 items-center gap-2 text-white/70">
+                <RefreshCw size={13} className="shrink-0 animate-spin" />
+                <span className="min-w-0">
+                  Preparando el informe · {hechas} de {piezas.length} ({Math.round((hechas / piezas.length) * 100)} %) · falta {pendientes.map((una) => una.rotulo).join(", ")}
+                  {tarda ? " · tarda más de lo normal" : ""}
+                </span>
+              </span>
+              {tarda ? (
+                <button
+                  type="button"
+                  onClick={reintenta}
+                  className="inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-full border border-[#C8A96B]/50 px-3 py-1 text-[12px] font-semibold text-[color:var(--rmcf-gold-ink)] hover:bg-[#C8A96B]/10"
+                >
+                  <RefreshCw size={12} /> Reintentar
+                </button>
+              ) : null}
+            </div>
           ) : null}
 
           <div className={`min-w-0 space-y-1 ${esPost || videoJugadores || ocupado ? "basis-full sm:basis-auto" : "hidden"}`}>
@@ -1636,9 +1799,18 @@ export function InformeMicroDialog({
             </div>
           ) : null}
 
+          {verAnalista ? (
+            <section aria-label="Antes de enviar" className="max-h-[40vh] min-w-0 basis-full overflow-y-auto rounded-xl border border-white/10 bg-white/[0.02] px-3 py-3">
+              {panelAnalista}
+            </section>
+          ) : null}
+
           <button
             type="button"
-            onClick={() => setVerDestinatarios((v) => !v)}
+            onClick={() => {
+              setVerDestinatarios((v) => !v);
+              setVerAnalista(false);
+            }}
             aria-expanded={verDestinatarios}
             /* En el móvil, en la misma fila que los botones (11/11/2026, expertos): el pie en dos filas tapaba la tarjeta de la prioridad. */
             className="min-h-9 min-w-0 flex-1 basis-0 truncate text-left text-[12px] text-white/70 underline-offset-2 hover:underline"
@@ -1668,6 +1840,30 @@ export function InformeMicroDialog({
           </button>
 
           <div className="flex min-w-0 shrink-0 items-center justify-end gap-2">
+            {/* Lo del analista, un botón con su número (12/11/2026): en el móvil, sólo el número. */}
+            <button
+              type="button"
+              onClick={() => {
+                setVerAnalista((v) => !v);
+                setVerDestinatarios(false);
+              }}
+              aria-expanded={verAnalista}
+              title={avisosAnalista ? `${avisosAnalista === 1 ? "1 aviso" : `${avisosAnalista} avisos`} antes de enviar: no van en el informe` : "Repaso antes de enviar: no va en el informe"}
+              className={`inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-semibold transition ${
+                avisosAnalista ? "border-amber-400/40 text-amber-200 hover:bg-amber-400/10" : "border-white/15 text-white/70 hover:bg-white/5"
+              }`}
+            >
+              <TriangleAlert size={13} className="shrink-0" />
+              {avisosAnalista ? (
+                <>
+                  <span>{avisosAnalista}</span>
+                  <span className="hidden sm:inline">{avisosAnalista === 1 ? "aviso" : "avisos"}</span>
+                </>
+              ) : (
+                <span className="hidden sm:inline">Antes de enviar</span>
+              )}
+            </button>
+
             {/* En el móvil sobra «Cerrar» (la X de arriba cierra): así caben «Descargar» y «Enviar» en una fila (07/11/2026). */}
             <span className="hidden sm:contents">
               <Button onClick={onClose}>Cerrar</Button>
@@ -1806,8 +2002,12 @@ export function InformeMicroDialog({
             { rotulo: "Partido", capitulo: capitulos.find((c) => /^Qué pasó/i.test(c)) ?? "" },
             { rotulo: "Rival", capitulo: capitulos.find((c) => /^(?:El|La|Los) .+ a balón parado$/i.test(c)) ?? "" },
             { rotulo: "Plan", capitulo: capitulos.find((c) => /^(?:Qué hacemos y qué entrenamos|Lo planificado|La semana, tarea|Lo trabajado)/i.test(c)) ?? "" },
+            { rotulo: "Pizarra", capitulo: capitulos.find((c) => /^La pizarra/i.test(c)) ?? "" },
             { rotulo: "Temporada", capitulo: capitulos.find((c) => /^Anexo/i.test(c)) ?? capitulos.find((c) => /temporada/i.test(c)) ?? "" },
-          ].filter((una, i) => i === 0 || una.capitulo);
+          ]
+            .filter((una, i) => i === 0 || una.capitulo)
+            /* En el orden del informe (12/11/2026): en la previa, «Plan» va antes que «Rival». */
+            .sort((a, b) => (a.capitulo ? capitulos.indexOf(a.capitulo) : -1) - (b.capitulo ? capitulos.indexOf(b.capitulo) : -1));
 
           if (indice.length < 3) return null;
 
@@ -1905,11 +2105,79 @@ export function InformeMicroDialog({
                   const estilo = doc.createElement("style");
 
                   estilo.setAttribute("data-plegables", "");
-                  estilo.textContent = "@media print{[data-plegador]{display:none!important}[data-plegado]{display:revert!important}}";
+                  estilo.textContent =
+                    "@media print{[data-plegador],[data-miniaturas]{display:none!important}[data-plegado]{display:revert!important}}" +
+                    "[data-miniaturas]{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;margin:0 0 16px}" +
+                    "[data-miniatura]{display:block;width:100%;padding:0;border:1px solid #E5E1D6;border-radius:8px;background:#FFFFFF;cursor:zoom-in;text-align:left;overflow:hidden}" +
+                    "[data-miniatura]:hover,[data-miniatura]:focus-visible{border-color:#C8A96B;outline:2px solid #C8A96B;outline-offset:1px}" +
+                    "[data-miniatura] img{display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover}" +
+                    "[data-miniatura] span{display:block;padding:6px 8px 8px;font:600 12px/1.35 Arial,sans-serif;color:#0F1E3D}" +
+                    "@media (max-width:620px){[data-miniaturas]{grid-template-columns:1fr 1fr;gap:8px}}";
                   doc.head?.appendChild(estilo);
                 }
 
                 const titulos = Array.from(doc.querySelectorAll<HTMLElement>("h2[data-capitulo]"));
+
+                /*
+                | LAS LÁMINAS, EN MINIATURAS (12/11/2026, fútbol, análisis y
+                | marketing): las nueve diapositivas de la pizarra, una detrás de
+                | otra a tamaño completo, eran media vista previa y en el móvil no
+                | se leían. Aquí, una rejilla de miniaturas con su título; al
+                | tocarla, se abre en grande (con «anterior/siguiente»). El correo
+                | y el PDF las siguen llevando enteras.
+                */
+                const tituloPizarra = titulos.find((h) => /^La pizarra/i.test(h.dataset.capitulo ?? ""));
+                const celdaPizarra = tituloPizarra?.parentElement;
+
+                if (celdaPizarra && !celdaPizarra.querySelector("[data-miniaturas]")) {
+                  const figuras = (Array.from(celdaPizarra.children) as HTMLElement[]).filter((n) => n.tagName === "TABLE" && n.querySelector("img"));
+
+                  if (figuras.length > 1) {
+                    const rejilla = doc.createElement("div");
+
+                    rejilla.setAttribute("data-miniaturas", "");
+                    figuras[0].before(rejilla);
+
+                    const lista: LaminaGrande[] = figuras.map((figura) => {
+                      const img = figura.querySelector("img") as HTMLImageElement;
+                      const textos = Array.from(figura.querySelectorAll("p"));
+
+                      return { imagen: img.src, titulo: textos[0]?.textContent ?? "", leyenda: textos.length > 1 ? (textos[textos.length - 1].textContent ?? "") : "" };
+                    });
+
+                    figuras.forEach((figura, i) => {
+                      const boton = doc.createElement("button");
+
+                      boton.type = "button";
+                      boton.setAttribute("data-miniatura", "");
+                      boton.setAttribute("aria-label", `${lista[i].titulo}: abrir en grande`);
+
+                      const img = doc.createElement("img");
+
+                      img.src = lista[i].imagen;
+                      img.alt = "";
+
+                      const rotulo = doc.createElement("span");
+
+                      rotulo.textContent = lista[i].titulo;
+                      boton.append(img, rotulo);
+                      boton.addEventListener("click", () => setLaminaAbierta(i));
+                      rejilla.appendChild(boton);
+
+                      figura.setAttribute("data-plegado", "");
+                      figura.style.display = "none";
+                    });
+
+                    const pista = doc.createElement("p");
+
+                    pista.setAttribute("data-plegador", "");
+                    pista.setAttribute("style", "margin:-6px 0 14px;font:400 13px/1.5 Arial,sans-serif;color:#5B6472");
+                    pista.textContent = `${figuras.length} láminas: toca una para verla en grande. En el correo y en el PDF van enteras.`;
+                    rejilla.after(pista);
+
+                    setLaminas(lista);
+                  }
+                }
 
                 const desde = titulos.findIndex((h) => /^anexo/i.test(h.dataset.capitulo ?? ""));
 
@@ -1978,143 +2246,9 @@ export function InformeMicroDialog({
             }}
           />
         </div>
-        {cargandoSeguimiento || cargandoComparativa || cargandoPropio || rivalInforme.cargando || pizarraInforme.cargando ? (
-          <p className="flex items-center gap-2 text-xs text-white/45">
-            <RefreshCw size={13} className="animate-spin" />
-            {cargandoSeguimiento
-              ? "Cargando el seguimiento individual…"
-              : cargandoPropio
-                ? "Cargando nuestras hojas de balón parado…"
-                : rivalInforme.cargando
-                  ? "Preparando el análisis del rival…"
-                  : pizarraInforme.cargando && !cargandoComparativa
-                    ? "Fotografiando la pizarra del partido…"
-                    : "Cargando la comparación con la categoría…"}
-          </p>
-        ) : null}
-
-        {/*
-        | ANTES DE ENVIAR, UN SOLO DESPLEGABLE (11/11/2026, expertos): «Ver en
-        | grande» y tres líneas plegadas (pretemporada, así llega, para el
-        | analista) iban sueltas y sin jerarquía. Ahora un bloque con su rótulo,
-        | como el del informe del partido: los avisos primero, con su número
-        | dicho («4 avisos para el analista»), luego cómo llega a la bandeja, el
-        | filtro de pretemporada y «Ver en grande». Nada de esto va en el correo.
-        */}
-        {(() => {
-          const listo = !(cargandoSeguimiento || cargandoComparativa || cargandoPropio || rivalInforme.cargando);
-
-          const n = listo ? informe.avisos.length : 0;
-
-          /*
-          | UNA LÍNEA (11/11/2026, análisis y marketing): «Antes de enviar», «5
-          | avisos para el analista» y «5 avisos… · así llega a la bandeja ·
-          | sólo competición · no va en el correo» eran tres líneas que decían
-          | lo mismo. Ahora el título con el número y lo demás, dentro.
-          */
-          const rotulo = n ? `Sólo para el analista: ${n === 1 ? "1 aviso" : `${n} avisos`} antes de enviar` : "Sólo para el analista: repaso antes de enviar";
-
-          /*
-          | APARTE DEL INFORME (12/11/2026, análisis): los avisos no son del cuerpo
-          | técnico. Van separados de la vista previa por una raya y con su
-          | rótulo; ni el correo, ni el PDF, ni «Ver en grande» los llevan.
-          */
-          return (
-            <section aria-label="Sólo para el analista" className="mt-2 border-t border-dashed border-white/15 pt-4">
-              <div className={`min-w-0 rounded-xl border text-[12px] ${n ? "border-amber-400/30 bg-amber-400/[0.04]" : "border-white/10 bg-white/[0.02]"}`}>
-                <button
-                  type="button"
-                  onClick={() => setVerAnalista((v) => !v)}
-                  aria-expanded={verAnalista}
-                  className="flex min-h-10 w-full min-w-0 items-center gap-2 px-3 py-2 text-left"
-                >
-                  <span className={`min-w-0 flex-1 truncate text-[13px] font-semibold ${n ? "text-amber-200" : "text-white/90"}`}>{rotulo}</span>
-                  <ChevronDown size={15} className={`shrink-0 text-white/40 transition-transform ${verAnalista ? "rotate-180" : ""}`} />
-                </button>
-
-                <div hidden={!verAnalista} className="space-y-4 border-t border-white/10 px-3 py-3">
-                  <p className="text-[11px] text-white/50">Nada de este bloque va en el correo, en el PDF ni en WhatsApp.</p>
-                  {n ? (
-                    <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-white/40">Avisos</p>
-                      <ul className="mt-1 ml-4 list-disc space-y-1 text-[12px] text-white/70">
-                        {informe.avisos.map((aviso) => (
-                          <li key={aviso}>{aviso}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
-
-                  {listo ? (
-                    <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-white/40">Así llega a la bandeja</p>
-                      <p className="mt-1 text-[12px] font-semibold text-white">{informe.asunto}</p>
-                      {informe.preencabezado ? (
-                        <p className="mt-0.5 text-[12px] text-white/55">{informe.preencabezado}</p>
-                      ) : (
-                        <p className="mt-0.5 text-[11px] text-white/45">Gmail enseña debajo el principio del correo.</p>
-                      )}
-                    </div>
-                  ) : null}
-
-                  {cuantasDePretemporada > 0 ? (
-                    <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-white/40">Qué partidos cuentan</p>
-                      <div className="mt-1 flex flex-wrap items-center gap-2">
-                        <div className="flex items-center rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
-                          {[
-                            { valor: false, rotulo: "Sólo competición" },
-                            { valor: true, rotulo: "Con pretemporada" },
-                          ].map((opcion) => (
-                            <button
-                              key={opcion.rotulo}
-                              type="button"
-                              onClick={() => setConPretemporada(opcion.valor)}
-                              aria-pressed={conPretemporada === opcion.valor}
-                              className={`rounded-lg px-3 py-1.5 text-[12px] transition ${
-                                conPretemporada === opcion.valor ? "bg-[#C8A96B]/15 text-[color:var(--rmcf-gold-ink)]" : "text-white/60 hover:text-white"
-                              }`}
-                            >
-                              {opcion.rotulo}
-                            </button>
-                          ))}
-                        </div>
-
-                        <span className="text-[11px] text-white/50">
-                          {conPretemporada
-                            ? `Dentro van también las ${cuantasDePretemporada} acciones de los amistosos de verano.`
-                            : `Fuera quedan ${cuantasDePretemporada} acciones de pretemporada${propio?.partidos ? `: las cifras cuentan ${propio.partidos === 1 ? "un partido" : `${propio.partidos} partidos`} de competición` : ""}.`}
-                        </span>
-                      </div>
-                    </div>
-                  ) : null}
-
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-white/40">Más</p>
-                    <ul className="mt-1 ml-4 list-disc space-y-1 text-[12px] text-white/70">
-                      {!esPost && !videoJugadores ? (
-                        <li>
-                          Para que lleve nuestro vídeo, déjalo en ABP\VIDEO - JUGADORES con la jornada en el nombre ({jornadaPartido ? `«J${jornadaPartido}»` : "«J8»"}): el ordenador del club lo sube solo en un par de minutos.
-                        </li>
-                      ) : null}
-                      <li>Los destinatarios se guardan solos y valen para todos los microciclos; se cambian en la barra de abajo, junto a «Enviar».</li>
-                      {canal === "correo" ? <li>Sale de la cuenta de Google del club, la misma que sube los vídeos al canal.</li> : null}
-                    </ul>
-                    <button
-                      type="button"
-                      onClick={verEnGrandeAbp}
-                      className="mt-2 inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[#C8A96B]/50 px-3 py-1.5 text-[12px] font-semibold text-[color:var(--rmcf-gold-ink)] hover:bg-[#C8A96B]/10"
-                      title="Abrir el correo en una pestaña, para leerlo a pantalla completa"
-                    >
-                      <Maximize2 size={13} /> Ver en grande
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </section>
-          );
-        })()}
+        {/* Lo que falta por llegar ya lo dice la barra de abajo, con su cuenta y «Reintentar» (12/11/2026). */}
       </div>
+      <LaminasEnGrande laminas={laminas} abierta={laminaAbierta} onCambia={setLaminaAbierta} />
       {avisando && informe && (
         <AvisoAntesDeMandar
           avisos={informe.avisos}

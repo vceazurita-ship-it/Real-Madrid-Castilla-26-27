@@ -4426,12 +4426,33 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
 
   const horaCorta = cuandoPartido?.conHora ? cuandoPartido.fecha.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }) : "";
 
+  /*
+  | DE QUÉ VA LA SEMANA, EN LA CABECERA (12/11/2026, marketing): «Balón
+  | parado: lo que toca esta semana» no decía nada. Ahora las tres primeras
+  | prioridades, por lado: «Esta semana: defender la falta directa a portería
+  | y el córner directo, y atacar el córner directo». Sin prioridades, la de antes.
+  */
+  const queDeLaSemana = (() => {
+    const tres = prioridades.filter((una) => !una.esBanda).slice(0, 3);
+
+    if (!tres.length) return "";
+
+    const nombres = (lado: AbpLado) => [...new Set(tres.filter((una) => una.lado === lado).map((una) => conArticulo(una.aspecto)))];
+
+    const defender = nombres("defensivo");
+    const atacar = nombres("ofensivo");
+
+    const partes = [defender.length ? `defender ${fraseLista(defender)}` : "", atacar.length ? `atacar ${fraseLista(atacar)}` : ""].filter(Boolean);
+
+    return `${diaPartido === "hoy" ? "Hoy" : "Esta semana"}: ${partes.join(defender.length > 1 ? ", y " : " y ")}`;
+  })();
+
   const portada = {
     partido: [rivalNombre, esPost ? marcador : "", diaCorto, esPost ? "" : horaCorta, calendario ? (calendario.lado === "casa" ? "en casa" : "fuera") : ""]
       .filter(Boolean)
       .join(" · ")
       .toUpperCase(),
-    que: esPost ? "Balón parado: lo que nos deja el partido" : diaPartido === "hoy" ? "Balón parado: lo que hacemos hoy" : "Balón parado: lo que toca esta semana",
+    que: esPost ? "Balón parado: lo que nos deja el partido" : queDeLaSemana || (diaPartido === "hoy" ? "Balón parado: lo que hacemos hoy" : "Balón parado: lo que toca esta semana"),
     /* «Jornada 12 · Micro 21 · semana 10–13 nov» (11/11/2026, análisis): igual que el informe del partido. */
     pie: [jornadaTexto, `Micro ${datos.micro}`, rango ? `semana ${rango}` : ""].filter(Boolean).join(" · "),
   };
@@ -4846,7 +4867,7 @@ function tabla(cabecerasTodas: string[], filasTodas: string[][]) {
           .map(
             /* `data-th` (12/11/2026, análisis y marketing): en el móvil cada fila es una tarjeta y cada dato lleva su cabecera delante. */
             (celda, columna) =>
-              `<td data-th="${esc(cabeceras[columna] ?? "")}" style="padding:8px 10px;border-bottom:1px solid #E5E1D6;font:400 13px/1.45 Arial,sans-serif;color:${TINTA};vertical-align:top">${celda}</td>`,
+              `<td data-th="${esc(cabeceras[columna] ?? "")}" style="padding:8px 10px;border-bottom:1px solid #E5E1D6;font:400 14px/1.45 Arial,sans-serif;color:${TINTA};vertical-align:top">${celda}</td>`,
           )
           .join("")}</tr>`,
     )
@@ -5849,6 +5870,157 @@ function seccionesDe(informe: InformeMicro, modoImagenes: ModoImagenes): Seccion
   /* El título dice lo que hay debajo: sin la línea de rematadores (van en «A quién marcamos»), sólo «qué entrenamos». */
   const tituloSuCorner = suCornerOf.some((linea) => linea.startsWith("Rematan ")) ? "Su córner: quién remata y qué entrenamos" : "Su córner: qué entrenamos";
 
+  /*
+  | SU BALÓN PARADO EN WYSCOUT, EN TRES FILAS (12/11/2026, fútbol, análisis y
+  | marketing): la tabla de 9 filas y 7 columnas no se leía en el móvil, los
+  | puestos («18.º de 20») parecían notas al pie y la base iba aparte. En el
+  | cuerpo, sólo lo que más se aleja de la mediana —medido contra el ruido:
+  | Poisson para los recuentos, binomial para los porcentajes—, cada cifra con
+  | su base en la misma celda, el puesto en palabras y qué significa para
+  | nosotros. La tabla entera pasa al anexo.
+  */
+  const partidosRival = ra?.partidos ?? c?.jugados ?? 0;
+
+  const QUE_RIVAL: Record<string, { favor: string; contra: string; base?: string }> = {
+    corners: { favor: "Córners que sacan", contra: "Córners que conceden" },
+    cornersRemate: { favor: "Sus córners que acaban en remate", contra: "Córners en contra que les rematan", base: "córners" },
+    faltasTiro: { favor: "Faltas que lanzan", contra: "Faltas que les lanzan" },
+    faltasRemate: { favor: "Sus faltas que acaban en remate", contra: "Faltas en contra que les rematan", base: "faltas" },
+    abp: { favor: "Jugadas de balón parado a favor", contra: "Jugadas de balón parado en contra" },
+    abpRemate: { favor: "Su balón parado que acaba en remate", contra: "Balón parado en contra que les rematan", base: "jugadas" },
+    penaltis: { favor: "Penaltis a favor", contra: "Penaltis en contra" },
+  };
+
+  /** La cifra con su base debajo, en la misma celda: «3,7 por partido · 41 en 11 partidos», «26,8 % · 11 de 41 córners». */
+  const cifraRival = (key: string, lado: "favor" | "contra", valor: number) => {
+    const esPct = /Remate$/.test(key);
+
+    const cifra = esPct ? fmtMedida(valor, key) : `${fmtMedida(valor, key)} por partido`;
+
+    let base = "";
+
+    if (partidosRival > 0) {
+      if (esPct) {
+        const porPartido = ra?.filas.find((una) => una.key === BASE_MEDIDA[key])?.[lado];
+        const total = porPartido == null ? 0 : Math.round(porPartido * partidosRival);
+
+        if (total > 0) base = `${Math.round((valor / 100) * total)} de ${total} ${QUE_RIVAL[key]?.base ?? "acciones"}`;
+      } else {
+        base = `${Math.round(valor * partidosRival)} en ${plural(partidosRival, "partido", "partidos")}`;
+      }
+    }
+
+    return { cifra, base };
+  };
+
+  /** El puesto en palabras: «el que más de los 20», «3.º que menos de 20». En contra, el 1 de la hoja es el que menos concede. */
+  const dondeQuedan = (puesto: number | null, n: number, lado: "favor" | "contra") => {
+    if (!puesto) return "";
+
+    const desdeArriba = lado === "contra" ? n - puesto + 1 : puesto;
+
+    if (desdeArriba === 1) return `El que más de los ${n}`;
+    if (desdeArriba === n) return `El que menos de los ${n}`;
+
+    return desdeArriba > n / 2 ? `${n - desdeArriba + 1}.º que menos de ${n}` : `${desdeArriba}.º que más de ${n}`;
+  };
+
+  const destacadasRival = (() => {
+    if (esPost || !ra || !partidosRival) return [];
+
+    const candidatas = ra.filas
+      .filter((fila) => QUE_RIVAL[fila.key])
+      .flatMap((fila) =>
+        (["favor", "contra"] as const).flatMap((lado) => {
+          const valor = fila[lado];
+          const mediana = lado === "favor" ? fila.medianaFavor : fila.medianaContra;
+
+          if (valor === null || !Number.isFinite(valor) || !(mediana > 0)) return [];
+
+          const { cifra, base } = cifraRival(fila.key, lado, valor);
+
+          /* Lo lejos que queda de la mediana, en desviaciones: un 0,18 contra un 0,09 en penaltis no es lo mismo que en córners. */
+          let z = 0;
+
+          if (/Remate$/.test(fila.key)) {
+            const porPartido = ra.filas.find((una) => una.key === BASE_MEDIDA[fila.key])?.[lado];
+            const n = porPartido == null ? 0 : porPartido * partidosRival;
+            const p0 = mediana / 100;
+
+            z = n >= 10 && p0 > 0 && p0 < 1 ? (valor / 100 - p0) / Math.sqrt((p0 * (1 - p0)) / n) : 0;
+          } else {
+            z = ((valor - mediana) * partidosRival) / Math.sqrt(mediana * partidosRival);
+          }
+
+          const arriba = valor > mediana;
+
+          const lectura =
+            lado === "favor"
+              ? arriba
+                ? "Más que la mayoría: cuidado"
+                : "Menos que la mayoría"
+              : arriba
+                ? "Conceden más que la mayoría: ocasión para nosotros"
+                : "Conceden poco: aquí cuesta";
+
+          return [
+            {
+              que: QUE_RIVAL[fila.key][lado],
+              ellos: `<b>${esc(cifra)}</b>${base ? `<br><span style="color:${SUAVE};font-size:12px">${esc(base)}</span>` : ""}`,
+              ellosTexto: base ? `${cifra}, ${base}` : cifra,
+              mediana: /Remate$/.test(fila.key) ? fmtMedida(mediana, fila.key) : `${fmtMedida(mediana, fila.key)} por partido`,
+              donde: dondeQuedan(lado === "favor" ? fila.puestoFavor : fila.puestoContra, ra.equipos, lado),
+              lectura,
+              z: Math.abs(z),
+            },
+          ];
+        }),
+      )
+      .sort((a, b) => b.z - a.z);
+
+    /* Lo que no se aleja de verdad (menos de una desviación) no se cuenta como rasgo. */
+    return candidatas.filter((una) => una.z >= 1).slice(0, 3);
+  })();
+
+  /* La tabla entera, para el anexo: cada cifra con su base y el puesto en palabras. */
+  const rivalWyscout: Seccion | null =
+    !esPost && ra && ra.filas.length
+      ? {
+          titulo: `${rivalNombreSeccion ? `El ${rivalNombreSeccion}` : "El rival"} en Wyscout, métrica a métrica`,
+          pie: `Wyscout: ${plural(partidosRival, "partido", "partidos")}, por partido, contra los ${ra.equipos} equipos de la categoría (la mediana es la de esos ${ra.equipos}).`,
+          html: tabla(
+            ["Métrica", "Ellos", `Mediana de los ${ra.equipos}`, "Dónde quedan", "Conceden", `Mediana de los ${ra.equipos}`, "Dónde quedan"],
+            ra.filas.map((fila) => {
+              const celda = (lado: "favor" | "contra") => {
+                const valor = fila[lado];
+
+                if (valor === null) return "";
+
+                if (!QUE_RIVAL[fila.key]) return esc(fmtMedida(valor, fila.key));
+
+                const { cifra, base } = cifraRival(fila.key, lado, valor);
+
+                return `<b>${esc(cifra)}</b>${base ? `<br><span style="color:${SUAVE};font-size:12px">${esc(base)}</span>` : ""}`;
+              };
+
+              const puesto = (lado: "favor" | "contra") =>
+                fila.key === "cuotaRematesAbp" ? NO_ORDENA : esc(dondeQuedan(lado === "favor" ? fila.puestoFavor : fila.puestoContra, ra.equipos, lado));
+
+              return [
+                `<b>${esc(fila.key === "penaltis" ? "Penaltis" : fila.rotulo.replace(/ %$/, ""))}</b>`,
+                celda("favor"),
+                fila.favor === null ? "" : esc(fmtMedida(fila.medianaFavor, fila.key)),
+                fila.favor === null ? "" : puesto("favor"),
+                celda("contra"),
+                fila.contra === null ? "" : esc(fmtMedida(fila.medianaContra, fila.key)),
+                fila.contra === null ? "" : puesto("contra"),
+              ];
+            }),
+          ),
+          texto: [],
+        }
+      : null;
+
   const rivalPrevia: Seccion | null =
     !esPost && (comoAtacan.length || suCornerOf.length || em || r)
       ? {
@@ -5869,19 +6041,11 @@ function seccionesDe(informe: InformeMicro, modoImagenes: ModoImagenes): Seccion
               ? parrafo(`Informes del analista: ${docs.map((d) => `<a href="${esc(d.url)}" style="color:#8A6A2C;font-weight:600">${esc(d.nombre)}</a>`).join(" · ")}`)
               : "",
             graficos("rival"),
-            ra
-              ? `${subtitulo("Su balón parado en Wyscout")}${tabla(
-                  ["Métrica", "Ellos", `Mediana de los ${ra.equipos}`, "Puesto (1.º, el que más)", "Concede", `Mediana de los ${ra.equipos}`, "Puesto (1.º, el que menos)"],
-                  ra.filas.map((fila) => [
-                    `<b>${esc(fila.key === "penaltis" ? "Penaltis" : fila.rotulo)}</b>`,
-                    fila.favor === null ? "" : fmtMedida(fila.favor, fila.key),
-                    fila.favor === null ? "" : fmtMedida(fila.medianaFavor, fila.key),
-                    fila.puestoFavor === null ? "" : fila.key === "cuotaRematesAbp" ? NO_ORDENA : `<b>${fila.puestoFavor}.º</b> de ${ra.equipos}`,
-                    fila.contra === null ? "" : fmtMedida(fila.contra, fila.key),
-                    fila.contra === null ? "" : fmtMedida(fila.medianaContra, fila.key),
-                    fila.puestoContra === null ? "" : fila.key === "cuotaRematesAbp" ? NO_ORDENA : `<b>${fila.puestoContra}.º</b> de ${ra.equipos}`,
-                  ]),
-                )}${parrafo(`<span style="color:${SUAVE};font-size:12px">Atacando, el 1.º es el que más hace; en lo que concede, el 1.º es el que menos.</span>`)}`
+            destacadasRival.length
+              ? `${subtitulo(`Lo que más se sale de lo normal · Wyscout, ${plural(partidosRival, "partido", "partidos")}`)}${tabla(
+                  ["Qué", "Ellos", `Mediana de los ${ra?.equipos ?? ""}`, "Dónde quedan", "Para nosotros"],
+                  destacadasRival.map((una) => [`<b>${esc(una.que)}</b>`, una.ellos, esc(una.mediana), esc(una.donde), esc(una.lectura)]),
+                )}${parrafo(`<span style="color:${TINTA};font-size:13px">Mediana: la del equipo del medio de los ${ra?.equipos ?? ""} de la categoría. ${rivalWyscout ? "El resto de su balón parado, métrica a métrica, en el anexo." : ""}</span>`)}`
               : "",
           ].join(""),
           texto: [
@@ -5889,6 +6053,9 @@ function seccionesDe(informe: InformeMicro, modoImagenes: ModoImagenes): Seccion
             ...(suCornerOf.length ? [`${tituloSuCorner}:`, ...suCornerOf.map((uno) => `- ${uno}`)] : []),
             ...(em?.marcamos.length ? ["A quién marcamos:", ...em.marcamos.map((uno) => `- ${uno}`)] : []),
             ...(em?.atacamos.length ? ["Dónde les hacemos daño:", ...em.atacamos.map((uno) => `- ${uno}`)] : []),
+            ...(destacadasRival.length
+              ? ["Lo que más se sale de lo normal (Wyscout):", ...destacadasRival.map((una) => `- ${una.que}: ${una.ellosTexto} (mediana ${una.mediana}${una.donde ? `; ${enMinuscula(una.donde)}` : ""}). ${una.lectura}.`)]
+              : []),
             ...(docs.length ? ["Informes del analista:", ...docs.map((d) => `- ${d.nombre}: ${d.url}`)] : []),
           ],
         }
@@ -6037,7 +6204,12 @@ function seccionesDe(informe: InformeMicro, modoImagenes: ModoImagenes): Seccion
 
   const orden: (Seccion | null)[] = esPost
     ? [claves, partido, faltas, pizarra, rival, cruce, valoracion, tiempo, semana, apuntes, acumulado, equipo, categoria, seguimiento, cierre]
-    : [cierre, rivalPrevia, pizarra, planPorPrioridad, consignaFinal, anexo, prioridades, tiempo, semana, valoracion, categoria, acumulado, apuntes, seguimiento];
+    : /*
+      | Lo que va al campo, antes (12/11/2026, fútbol): lo esencial → «Para el
+      | …» → qué entrenamos con las demás prioridades → el rival → las láminas
+      | (en la vista previa, en miniaturas que se abren en grande).
+      */
+      [cierre, planPorPrioridad, rivalPrevia, pizarra, consignaFinal, anexo, prioridades, tiempo, semana, valoracion, categoria, rivalWyscout, acumulado, apuntes, seguimiento];
 
   orden.forEach((una) => {
     if (una) mete(una);
@@ -6049,7 +6221,7 @@ function seccionesDe(informe: InformeMicro, modoImagenes: ModoImagenes): Seccion
 function seccionHtml(seccion: Seccion) {
   return `<tr><td style="padding:22px 24px 4px"><h2 data-capitulo="${esc(seccion.titulo)}" style="margin:0;font:700 18px/1.25 ${TITULAR};color:${NAVY};text-transform:uppercase;letter-spacing:.06em">${esc(seccion.titulo)}</h2>${
     seccion.pie
-      ? `<p style="margin:4px 0 12px;font:400 12px/1.5 Arial,sans-serif;color:${SUAVE}">${esc(seccion.pie)}</p>`
+      ? `<p style="margin:4px 0 12px;font:400 13px/1.5 Arial,sans-serif;color:${SUAVE}">${esc(seccion.pie)}</p>`
       : `<div style="height:12px"></div>`
   }${seccion.html}</td></tr>`;
 }
@@ -6207,7 +6379,7 @@ export function informeHtml(
       }${barraObjetivo}</td></tr></table></td></tr>`
     : "";
 
-  return explicaPrimeraVez(`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet"><style>@media only screen and (max-width:620px){.tarjeta{display:block!important;width:auto!important;margin:0 0 8px!important}.hueco{display:none!important}table.tabla,table.tabla tbody,table.tabla tr,table.tabla td{display:block!important;width:auto!important}table.tabla thead{display:none!important}table.tabla tr{margin:0 0 8px!important;border:1px solid #E5E1D6!important;border-radius:8px!important;padding:4px 0!important}table.tabla td{border-bottom:0!important;padding:3px 10px!important;font-size:13px!important;word-break:break-word!important}table.tabla td:empty{display:none!important}table.tabla td[data-th]:not([data-th=""])::before{content:attr(data-th);display:block;font:700 10px/1.3 Arial,sans-serif;color:#6B7280;text-transform:uppercase;letter-spacing:.06em}h1{font-size:22px!important}.cab{padding:14px 16px!important}.cab-que{font-size:14px!important}.esencial{padding:0 16px 14px!important}.tit-esencial{font-size:19px!important}.clave{font-size:13px!important;line-height:1.4!important}}</style><title>${esc(`${cabecera} · ${informe.portada.que}`)}</title></head><body style="margin:0;padding:0;background:#EEEAE0">${
+  return explicaPrimeraVez(`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet"><style>@media only screen and (max-width:620px){.tarjeta{display:block!important;width:auto!important;margin:0 0 8px!important}.hueco{display:none!important}table.tabla,table.tabla tbody,table.tabla tr,table.tabla td{display:block!important;width:auto!important}table.tabla thead{display:none!important}table.tabla tr{margin:0 0 8px!important;border:1px solid #E5E1D6!important;border-radius:8px!important;padding:4px 0!important}table.tabla td{border-bottom:0!important;padding:3px 10px!important;font-size:14px!important;word-break:break-word!important}table.tabla td:empty{display:none!important}table.tabla td[data-th]:not([data-th=""])::before{content:attr(data-th);display:block;font:700 10px/1.3 Arial,sans-serif;color:#6B7280;text-transform:uppercase;letter-spacing:.06em}h1{font-size:22px!important}.cab{padding:14px 16px!important}.cab-que{font-size:14px!important}.esencial{padding:0 16px 14px!important}.tit-esencial{font-size:19px!important}.clave{font-size:13px!important;line-height:1.4!important}}</style><title>${esc(`${cabecera} · ${informe.portada.que}`)}</title></head><body style="margin:0;padding:0;background:#EEEAE0">${
     informe.preencabezado ? `<div style="display:none;max-height:0;overflow:hidden;mso-hide:all">${esc(informe.preencabezado)}</div>` : ""
   }
 <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="width:100%;background:#EEEAE0;padding:18px 0"><tr><td align="center">
