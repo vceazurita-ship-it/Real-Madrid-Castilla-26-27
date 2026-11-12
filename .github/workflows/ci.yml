@@ -35,6 +35,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+        with:
+          # La comprobación de la ayuda mira la fecha del último cambio de cada pantalla.
+          fetch-depth: 0
 
       - uses: actions/setup-node@v7
         with:
@@ -60,3 +63,7 @@ jobs:
       # La hoja «Plantilla» del informe del rival saca a todos (28/10/2026).
       - name: Plantilla entera en el informe del rival
         run: node scripts/comprueba-plantilla-informe.cjs
+
+      # La ayuda de cada pantalla al día (12/11/2026): sólo avisa, no tumba la comprobación.
+      - name: Ayuda de cada pantalla al día
+        run: node scripts/ayuda-al-dia.mjs

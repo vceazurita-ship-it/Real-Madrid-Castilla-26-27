@@ -46,6 +46,13 @@ export type AyudaDePagina = {
   bloques: BloqueAyuda[];
   /** Lo que conviene no olvidar al leerla. */
   ojo?: string[];
+  /**
+   * Cuándo se repasó esta ayuda contra la pantalla («2026-11-12»). La mira
+   * `scripts/ayuda-al-dia.mjs`: si la pantalla cambió después, avisa.
+   * Regla (12/11/2026, el analista): todo cambio de una pantalla actualiza su
+   * ayuda y esta fecha en el mismo commit.
+   */
+  revisada?: string;
 };
 
 /* Lo que se repite en varias pantallas, escrito una vez. */
