@@ -197,7 +197,8 @@ export function NotasVestuario({
          servidor. Es el mismo indicador que la cabecera del desplazamiento,
          pero de este documento, que se guarda por su cuenta. */
       action={
-        <SaveState status={status} localOnly={localOnly} savedAt={lastSavedAt} />
+        /* 12/11/2026 (expertos): «Nota guardada», para no confundirlo con el «Guardado» del viaje de la cabecera. */
+        <SaveState status={status} localOnly={localOnly} savedAt={lastSavedAt} rotulo="Nota guardada" />
       }
     >
       {/* ===================== QUÉ NOTA ===================== */}

@@ -86,7 +86,7 @@ import { EntradaHora } from "@/components/viaje/EntradaHora";
 import { srcImagen } from "@/components/viaje/DossierViaje";
 import { CLAVES_LUGAR, nombreLugar, resuelveLugar } from "@/lib/viaje/rutas";
 import { pideTrayecto, recuerdaDuracion } from "@/lib/viaje/trayectos-cliente";
-import { comoFrase, propiosDelViaje } from "@/lib/viaje/revision";
+import { comoFrase, propiosDelViaje, type LineaAviso } from "@/lib/viaje/revision";
 import {
   EVENTOS_PALETA,
   EVENTO_POR_CLAVE,
@@ -641,7 +641,12 @@ function TarjetaDia({
   onCalcula,
   onDuracionManual,
   onEvento,
+  erratas,
+  onCorrige,
 }: {
+  /** Las citas de este día que parecen mal escritas, con su corrección (12/11/2026). */
+  erratas?: LineaAviso[];
+  onCorrige?: (linea: LineaAviso) => void;
   /** Si cambiar una hora mueve las de detrás (11/11/2026). */
   encadenar: boolean;
   lugares?: Record<string, ImagenViaje>;
@@ -996,7 +1001,8 @@ function TarjetaDia({
       | día que se va a tocar.
       */}
       {plegado && citas.length > 0 && (
-        <ol className="grid gap-x-4 gap-y-1 px-3 py-2.5 sm:grid-cols-2 lg:grid-cols-3">
+        /* xl:grid-cols-2: en escritorio ancho el formulario comparte la fila con la vista previa. */
+        <ol className="grid gap-x-4 gap-y-1 px-3 py-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-2 2xl:grid-cols-3">
           {[...citas]
             .sort((a, b) => a.minuto - b.minuto)
             .map((cita) => (
@@ -1014,6 +1020,27 @@ function TarjetaDia({
                 {/* 12/11/2026: con mayúscula sólo al principio, para leerlo igual («SALIDA BUS» y «Salida hacia…»); lo guardado no cambia. */}
                 <span className="min-w-0 truncate text-white/75" title={cita.texto}>{cita.texto ? comoFrase(cita.texto, propios) : "Sin nombre"}</span>
                 {cita.fijada && <Pin size={11} className="shrink-0 text-[#C8A96B]" aria-label="fijada" />}
+                {/*
+                | 12/11/2026 (expertos): la errata, pegada a su fila. El aviso de
+                | «Cómo va el viaje» la nombra, pero la cita mal escrita se veía
+                | aquí sin marca. Se corrige al pulsar, nunca sola.
+                */}
+                {(() => {
+                  const errata = erratas?.find((linea) => linea.citaId === cita.id && linea.corregido);
+
+                  if (!errata || !onCorrige) return null;
+
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => onCorrige(errata)}
+                      title={`Corregir a «${errata.corregido}»`}
+                      className="shrink-0 rounded-full border border-amber-400/50 px-2 py-px text-[12px] font-semibold text-amber-300 transition hover:bg-amber-400/10"
+                    >
+                      ¿{errata.corregido}?
+                    </button>
+                  );
+                })()}
               </li>
             ))}
         </ol>
@@ -1142,9 +1169,17 @@ export function EditorHorario({
   onCopiado,
   lugares,
   enfoque,
+  erratas,
+  onCorrige,
 }: {
   viaje: Desplazamiento;
   onCambio: (dias: DiaViaje[]) => void;
+  /**
+   * Las citas que parecen mal escritas (`avisosHorario`, clave «erratas»): se
+   * marcan en su fila con la corrección, que pulsa el analista (12/11/2026).
+   */
+  erratas?: LineaAviso[];
+  onCorrige?: (linea: LineaAviso) => void;
   /**
    * Lo copiado de un día. Vive en la página y no aquí para poder pegarlo en
    * OTRO viaje: se copia el día de la víspera de Teruel, se cambia de partido
@@ -1182,6 +1217,8 @@ export function EditorHorario({
 
   /* Cambiar una hora corre las de detrás (11/11/2026); se puede apagar. */
   const [encadenar, setEncadenar] = useState(true);
+  /* 12/11/2026 (expertos): las 21 citas de la paleta, plegadas tras «Añadir cita», también en escritorio. */
+  const [paleta, setPaleta] = useState(false);
 
   /* Por cita: «calculando» o por qué no se pudo calcular su trayecto. */
   const [estados, setEstados] = useState<Record<string, string>>({});
@@ -1754,7 +1791,19 @@ export function EditorHorario({
         {dias.length > 0 && (
           <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.02] p-2.5">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <span className="text-[11px] uppercase tracking-[0.16em] text-white/45">Arrastra al día</span>
+              <button
+                type="button"
+                onClick={() => setPaleta((abierta) => !abierta)}
+                aria-expanded={paleta}
+                className="flex items-center gap-1.5 rounded-full border border-[#C8A96B]/45 px-3 py-1 text-[13px] font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/10"
+              >
+                <Plus size={14} />
+                Añadir cita
+                <ChevronRight size={14} className={`transition ${paleta ? "rotate-90" : ""}`} />
+              </button>
+              {paleta && (
+                <span className="text-[13px] text-white/50">Arrástrala al día, o tócala para ponerla en el día del partido</span>
+              )}
 
               <label className="ml-auto flex items-center gap-2 text-[12px] text-white/65" title="Al cambiar la hora o la duración de una cita, las de detrás se corren lo mismo hasta la primera fijada o el partido">
                 <input
@@ -1767,6 +1816,7 @@ export function EditorHorario({
               </label>
             </div>
 
+            {paleta && (
             <div className="mt-2 flex flex-wrap gap-1.5">
               {EVENTOS_PALETA.map((evento) => {
                 const destino = dias[Math.max(0, indiceDiaPartido(viaje))] ?? dias[0];
@@ -1781,6 +1831,7 @@ export function EditorHorario({
                 );
               })}
             </div>
+            )}
           </div>
         )}
 
@@ -1805,6 +1856,8 @@ export function EditorHorario({
                 onCalcula={(cita) => void calcula(cita, true)}
                 onDuracionManual={duracionManual}
                 onEvento={(evento) => anadeEvento(dia.id, evento)}
+                erratas={erratas?.filter((linea) => linea.diaId === dia.id)}
+                onCorrige={onCorrige}
                 arrastre={arrastre}
                 onPliega={() =>
                   setAbiertos(

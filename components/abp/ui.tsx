@@ -1018,6 +1018,7 @@ export function SaveState({
   onGuardar,
   errorDe = "guardado",
   onReleer,
+  rotulo = "Guardado",
 }: {
   status: "loading" | "saved" | "saving" | "offline" | "error";
   localOnly?: boolean;
@@ -1035,6 +1036,8 @@ export function SaveState({
   errorDe?: "guardado" | "lectura";
   /** Vuelve a leer el documento. Hace pulsable el error de lectura. */
   onReleer?: () => void;
+  /** Lo que dice al estar guardado (12/11/2026): «Nota guardada» cuando hay dos sellos en la misma pantalla. */
+  rotulo?: string;
 }) {
   const pulsable = (
     contenido: ReactNode,
@@ -1135,7 +1138,7 @@ export function SaveState({
   return (
     <span className="inline-flex items-center gap-1.5 text-[11px] text-white/40">
       <Check size={12} className="text-emerald-400" />
-      {hora ? `Guardado ${hora}` : "Guardado"}
+      {hora ? `${rotulo} ${hora}` : rotulo}
     </span>
   );
 }

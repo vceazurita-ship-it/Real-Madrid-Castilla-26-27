@@ -324,6 +324,9 @@ type AccionesAviso = {
   onCorrige: (linea: LineaAviso) => void;
 };
 
+/** Una tarea de «Cómo va el viaje» que no es un campo vacío, con su botón (12/11/2026). */
+type TareaExtra = { clave: string; texto: string; detalle?: string; boton: string; seccion: string };
+
 /** Un dato de la tarjeta del viaje: «Salida · jueves 08:40 · desde Valdebebas». `alerta`: se pinta en rojo con «revisar». */
 type DatoViaje = { que: string; valor: string; alerta?: boolean };
 
@@ -347,7 +350,7 @@ function FilaAviso({ aviso, acciones }: { aviso: AvisoHorario; acciones?: Accion
 
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-          <span className={`min-w-0 text-[13px] ${grave ? "font-semibold text-red-300" : "text-white/80"}`}>{aviso.texto}</span>
+          <span className={`min-w-0 text-[14px] ${grave ? "font-semibold text-red-300" : "text-white/80"}`}>{aviso.texto}</span>
 
           {acciones && aviso.arreglo ? (
             <button type="button" onClick={() => acciones.onArregla(aviso)} className={BOTON_FILA_PRIMARIO}>
@@ -372,7 +375,7 @@ function FilaAviso({ aviso, acciones }: { aviso: AvisoHorario; acciones?: Accion
         {aviso.lineas && aviso.lineas.length > 0 && (
           <ul className="mt-1 space-y-1 border-l border-white/10 pl-3">
             {aviso.lineas.map((linea) => (
-              <li key={`${linea.diaId}-${linea.citaId}`} className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-white/70">
+              <li key={`${linea.diaId}-${linea.citaId}`} className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[14px] text-white/70">
                 {acciones ? (
                   <button
                     type="button"
@@ -412,21 +415,19 @@ function ListaPendiente({
   datos,
   onIr = irA,
   acciones,
+  extras = [],
 }: {
   viaje: Desplazamiento;
   avisos: AvisoHorario[];
   datos: DatoViaje[];
   onIr?: (id: string) => void;
   acciones?: AccionesAviso;
+  /** Tareas que no son un campo vacío (12/11/2026): «Elegir las medidas del campo». */
+  extras?: TareaExtra[];
 }) {
   const lista = pendientesDe(viaje, avisos);
   const hechos = lista.filter((p) => p.hecho).length;
   const completo = hechos === lista.length;
-  /* 11/11/2026: «Hecho» sólo nombra los bloques completos. */
-  const bloquesHechos = SECCIONES_VIAJE.filter((sec) => {
-    const del = lista.filter((p) => p.seccion === sec);
-    return del.length > 0 && del.every((p) => p.hecho);
-  });
 
   /* Lo que falta, como TAREAS. El horario ya montado no es tarea: lo que tenga mal lo dicen sus avisos. */
   const conCitas = viaje.dias.some((dia) => dia.citas.length > 0);
@@ -438,13 +439,25 @@ function ListaPendiente({
 
   const graves = avisos.filter((a) => a.grave);
   const leves = avisos.filter((a) => !a.grave);
-  const pendientes = graves.length + leves.length + tareas.length;
+  const pendientes = graves.length + leves.length + tareas.length + extras.length;
+
+  /*
+  | 12/11/2026 (expertos): la barra lleva su recuento al lado y el color de lo
+  | más grave que queda —el mismo punto rojo, ámbar o dorado de las filas—.
+  | Lo terminado ya no es una línea suelta al final: va plegado en el recuento.
+  */
+  const colorBarra = graves.length ? "bg-red-400" : leves.length ? "bg-amber-400" : pendientes === 0 ? "bg-emerald-400" : "bg-[#C8A96B]";
+  const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
+  const porCompletar = tareas.length + extras.length;
+  const hechosPorBloque = SECCIONES_VIAJE
+    .map((seccion) => ({ seccion, hechos: lista.filter((p) => p.seccion === seccion && p.hecho) }))
+    .filter((g) => g.hechos.length > 0);
 
   const estado = graves.length
     ? { texto: "El horario no cuadra", clase: "font-semibold text-red-300" }
     : pendientes === 0
       ? { texto: "Todo listo para exportar", clase: "font-semibold text-emerald-300" }
-      : completo && tareas.length === 0
+      : completo && porCompletar === 0
         ? { texto: "Listo, con algo que revisar", clase: "text-white/70" }
         : { texto: `Quedan ${pendientes} ${pendientes === 1 ? "cosa" : "cosas"} por hacer`, clase: "text-white/70" };
 
@@ -461,15 +474,39 @@ function ListaPendiente({
         </p>
 
         <div className="h-1.5 min-w-[80px] flex-1 overflow-hidden rounded-full bg-white/10 sm:max-w-[220px]" aria-hidden>
-          <div className="h-full rounded-full bg-[#C8A96B] transition-all" style={{ width: `${(hechos / lista.length) * 100}%` }} />
+          <div className={`h-full rounded-full transition-all ${colorBarra}`} style={{ width: `${(hechos / lista.length) * 100}%` }} />
         </div>
 
-        <p className={`text-[13px] tabular-nums ${estado.clase}`} role={graves.length ? "alert" : undefined}>{estado.texto}</p>
+        <p className={`text-[14px] tabular-nums ${estado.clase}`} role={graves.length ? "alert" : undefined}>{estado.texto}</p>
       </div>
+
+      {/* El recuento de la barra; pinchándolo, lo que ya está hecho. */}
+      <details className="group mt-1.5 min-w-0">
+        <summary className="flex cursor-pointer select-none list-none flex-wrap items-center gap-x-1.5 text-[14px] tabular-nums text-white/60 hover:text-white/85 [&::-webkit-details-marker]:hidden">
+          <ChevronRight size={14} className="shrink-0 transition group-open:rotate-90" aria-hidden />
+          <span>{hechos} de {lista.length} datos listos</span>
+          {graves.length > 0 && <span className="text-red-300">· {plural(graves.length, "error", "errores")}</span>}
+          {leves.length > 0 && <span className="text-amber-300">· {plural(leves.length, "aviso", "avisos")}</span>}
+          {porCompletar > 0 && <span className="text-[#C8A96B]">· {porCompletar} por completar</span>}
+        </summary>
+        {hechosPorBloque.length > 0 && (
+          <ul className="mt-1.5 space-y-0.5 pl-5 text-[14px] text-white/65">
+            {hechosPorBloque.map((g) => (
+              <li key={g.seccion} className="flex min-w-0 items-start gap-1.5">
+                <CheckCircle2 size={14} className="mt-[3px] shrink-0 text-emerald-400/80" aria-hidden />
+                <span className="min-w-0">
+                  <span className="font-semibold text-white/80">{NOMBRE_SECCION[g.seccion]}</span>
+                  <span>: {listaDe(g.hechos.map((p) => p.rotulo.toLowerCase()))}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </details>
 
       {/* Los cuatro datos del viaje: lo que no está escrito no se nombra. */}
       {datos.length > 0 && (
-        <dl className="mt-3 grid min-w-0 gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-4">
+        <dl className="mt-3 grid min-w-0 gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-2 2xl:grid-cols-4">
           {datos.map((dato) => (
             <div key={dato.que} className="min-w-0">
               <dt className={`text-[11px] font-semibold uppercase tracking-[0.16em] ${dato.alerta ? "text-red-300" : "text-[#C8A96B]"}`}>
@@ -496,7 +533,7 @@ function ListaPendiente({
             <li key={g.seccion} className="flex min-w-0 items-start gap-2.5 py-1.5">
               <Circle size={12} className="mt-[4px] shrink-0 text-[#C8A96B]" aria-hidden />
               <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
-                <span className="min-w-0 text-[13px] text-white/85">
+                <span className="min-w-0 text-[14px] text-white/85">
                   <span className="font-semibold">{TAREA_SECCION[g.seccion]}</span>
                   {/* Lo que falta dentro del bloque, en minúscula: todo lo que el documento no va a llevar. */}
                   {g.faltan.length > 1 || g.seccion === "viaje-estadio" || g.seccion === "viaje-hotel" ? (
@@ -509,14 +546,21 @@ function ListaPendiente({
               </div>
             </li>
           ))}
+          {extras.map((extra) => (
+            <li key={extra.clave} className="flex min-w-0 items-start gap-2.5 py-1.5">
+              <Circle size={12} className="mt-[4px] shrink-0 text-[#C8A96B]" aria-hidden />
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
+                <span className="min-w-0 text-[14px] text-white/85">
+                  <span className="font-semibold">{extra.texto}</span>
+                  {extra.detalle ? <span className="text-white/55"> · {extra.detalle}</span> : null}
+                </span>
+                <button type="button" onClick={() => onIr(extra.seccion)} className={BOTON_FILA}>
+                  {extra.boton}
+                </button>
+              </div>
+            </li>
+          ))}
         </ul>
-      )}
-
-      {pendientes > 0 && bloquesHechos.length > 0 && (
-        <p className="mt-2 flex flex-wrap items-center gap-1 text-[13px] text-white/45">
-          <CheckCircle2 size={13} className="text-emerald-400/70" />
-          Hecho: {bloquesHechos.map((sec) => NOMBRE_SECCION[sec].toLowerCase()).join(", ")}
-        </p>
       )}
     </div>
   );
@@ -687,6 +731,7 @@ function SeccionMovil({
   abierta,
   onCambia,
   escritorio = false,
+  sinCabecera = false,
   children,
 }: {
   titulo: string;
@@ -695,8 +740,15 @@ function SeccionMovil({
   onCambia: () => void;
   /** 12/11/2026: plegada también en escritorio, con «Editar» / «Plegar». */
   escritorio?: boolean;
+  /**
+   * Sin botón propio (12/11/2026, expertos): partido, estadio y hotel se
+   * abren desde una sola fila, «Partido · estadio · hotel» (`FilaDatos`).
+   */
+  sinCabecera?: boolean;
   children: React.ReactNode;
 }) {
+  if (sinCabecera) return <div className={abierta ? "min-w-0" : "hidden"}>{children}</div>;
+
   return (
     <div className="min-w-0">
       <button
@@ -1155,6 +1207,28 @@ export default function DesplazamientoPage() {
   const fuenteMedidas = viaje?.estadio.dimensiones.trim()
     ? viaje.estadio.dimensionesFuente?.trim() || fuentesMedidas.find((f) => mismaMedida(f.texto, viaje.estadio.dimensiones))?.de || ""
     : "";
+
+  /*
+  | Las medidas por elegir (12/11/2026, expertos): es una tarea, así que va en
+  | «Cómo va el viaje» con su botón y no como coletilla del resumen plegado.
+  */
+  const medidasPorElegir = Boolean(
+    viaje &&
+      viaje.condicion !== "local" &&
+      !viaje.estadio.dimensionesFuente?.trim() &&
+      fuentesMedidas.some((f) => !mismaMedida(f.texto, viaje.estadio.dimensiones)),
+  );
+  const tareasExtra: TareaExtra[] = medidasPorElegir
+    ? [
+        {
+          clave: "medidas",
+          texto: "Elegir las medidas del campo",
+          detalle: fuentesMedidas.map((f) => `${f.de} ${f.texto}`).join(" · "),
+          boton: "Elegir",
+          seccion: "medidas",
+        },
+      ]
+    : [];
 
   /* Lo que se ve y se exporta: el viaje con la fuente de la medida («102 × 67 · BeSoccer»). */
   const viajeVista =
@@ -1661,6 +1735,7 @@ export default function DesplazamientoPage() {
 
   /* Adónde lleva cada tarea de «Cómo va el viaje»: al campo que falta, esté donde esté. */
   const irATarea = (seccion: string) => {
+    if (seccion === "medidas") return abreYVe("viaje-estadio");
     if (seccion === "viaje-estadio" && estadioEnFaltan && viaje?.estadio.nombre.trim()) return abreYVe("faltan-estadio");
     if (seccion === "viaje-hotel" && hotelEnFaltan) return abreYVe("faltan-hotel");
 
@@ -2125,6 +2200,14 @@ export default function DesplazamientoPage() {
             ) : (
               viaje && (
                 <>
+                  {/*
+                  | DOS COLUMNAS EN ESCRITORIO ANCHO (12/11/2026, expertos): a 1440 px la
+                  | página eran más de tres pantallas de una columna. Desde xl, el
+                  | formulario con «Cómo va el viaje» a la izquierda y el documento
+                  | (vista previa y «Sacar los documentos») a la derecha.
+                  */}
+                  <div className="min-w-0 xl:grid xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] xl:items-start xl:gap-6">
+                  <div className="min-w-0">
                   {/* `viaje-form` (globals.css): la letra del formulario a 13 px las etiquetas y 15 px los campos; la vista previa queda fuera. */}
                   <div className="viaje-form">
                   {/* Cómo va el viaje, arriba y pegado al selector de partido. */}
@@ -2134,6 +2217,7 @@ export default function DesplazamientoPage() {
                     datos={datosViaje}
                     onIr={irATarea}
                     acciones={{ onVer: verCita, onArregla: arreglaAviso, onCorrige: corrigeTexto }}
+                    extras={tareasExtra}
                   />
 
                   {/* El plan de viaje ante este rival (o en este campo), de otra vez (11/11/2026). */}
@@ -2203,22 +2287,58 @@ export default function DesplazamientoPage() {
                     );
                   })()}
 
+                  {/*
+                  | ============ PARTIDO · ESTADIO · HOTEL ============
+                  | 12/11/2026 (expertos): eran tres tarjetas plegadas que repetían
+                  | lo que ya dice «Cómo va el viaje». Ahora es una sola fila con un
+                  | único «Editar», que abre las tres; las tareas de arriba siguen
+                  | abriendo sólo la suya. El resumen dice lo que la tarjeta no.
+                  */}
+                  {(() => {
+                    const claves = ["viaje-partido", "viaje-estadio", ...(viaje.conHotel && !enCasa && !hotelEnFaltan ? ["viaje-hotel"] : [])];
+                    const alguna = claves.some((clave) => abiertas[clave]);
+                    const resumen = [
+                      viaje.jornada.trim() ? `J${viaje.jornada.trim()}` : "",
+                      comoCompeticion(viaje.competicion),
+                      enCasa ? "en casa" : "fuera",
+                      !enCasa && viaje.conHotel ? "con hotel" : "",
+                      viaje.estadio.superficie,
+                      viaje.estadio.dimensiones.trim(),
+                    ].filter((x) => x?.trim()).join(" · ");
+
+                    return (
+                      <div className="mt-5 scroll-mt-20" id="viaje-datos">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setAbiertas((a) => ({ ...a, ...Object.fromEntries(claves.map((clave) => [clave, !alguna])) }))
+                          }
+                          aria-expanded={alguna}
+                          /* pr-12: el botón flotante ⋮ va pegado a la derecha. */
+                          className="flex w-full min-w-0 items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] py-3 pl-4 pr-12 text-left transition hover:border-white/20 sm:pr-14"
+                        >
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-[15px] font-semibold text-white">
+                              {claves.length === 3 ? "Partido · estadio · hotel" : "Partido · estadio"}
+                            </span>
+                            {resumen ? <span className="block truncate text-[13px] text-white/55 sm:text-[14px]">{resumen}</span> : null}
+                          </span>
+                          <span className="shrink-0 rounded-full border border-[#C8A96B]/45 px-3 py-1 text-[13px] font-semibold text-[#C8A96B]">
+                            {alguna ? "Plegar" : "Editar"}
+                          </span>
+                        </button>
+                      </div>
+                    );
+                  })()}
+
                   {/* ================== EL PARTIDO ================== */}
 
-                  <div className="mt-5 scroll-mt-20" id="viaje-partido">
+                  <div className={`scroll-mt-20 ${abiertas["viaje-partido"] ? "mt-3" : ""}`} id="viaje-partido">
                     <SeccionMovil
                       titulo="El partido"
-                      resumen={[
-                        viaje.rival || partido.opponent,
-                        viaje.jornada.trim() ? `J${viaje.jornada.trim()}` : "",
-                        viaje.fecha ? diaCorto(viaje.fecha).toLowerCase() : "",
-                        viaje.hora,
-                        enCasa ? "en casa" : "fuera",
-                        !enCasa && viaje.conHotel ? "con hotel" : "",
-                      ].filter(Boolean).join(" · ")}
                       abierta={Boolean(abiertas["viaje-partido"])}
                       onCambia={() => conmuta("viaje-partido")}
-                      escritorio
+                      sinCabecera
                     >
                     <Panel
                       title="El partido"
@@ -2398,19 +2518,12 @@ export default function DesplazamientoPage() {
                     const usa = (f: { de: string; texto: string }) => estadio({ dimensiones: f.texto, dimensionesFuente: f.de });
 
                     return (
-                  <div className="mt-5 scroll-mt-20" id="viaje-estadio">
+                  <div className={`scroll-mt-20 ${abiertas["viaje-estadio"] ? "mt-3" : ""}`} id="viaje-estadio">
                     <SeccionMovil
                       titulo="El estadio"
-                      resumen={[
-                        viaje.estadio.nombre,
-                        viaje.estadio.ciudad,
-                        viaje.estadio.superficie,
-                        medidas,
-                        porElegir ? "medidas por elegir" : "",
-                      ].filter((x) => x.trim()).join(" · ")}
                       abierta={Boolean(abiertas["viaje-estadio"])}
                       onCambia={() => conmuta("viaje-estadio")}
-                      escritorio
+                      sinCabecera
                     >
                     <Panel
                       title="El estadio"
@@ -2573,19 +2686,13 @@ export default function DesplazamientoPage() {
                   {/* =================== EL HOTEL ================== */}
 
                   {viaje.conHotel && !enCasa && !hotelEnFaltan && (
-                    <div className="mt-5 scroll-mt-20" id="viaje-hotel">
-                      {/* 12/11/2026: plegado, en el móvil y en escritorio, con su resumen de una línea. */}
+                    <div className={`scroll-mt-20 ${abiertas["viaje-hotel"] ? "mt-3" : ""}`} id="viaje-hotel">
+                      {/* 12/11/2026: se abre desde la fila «Partido · estadio · hotel». */}
                       <SeccionMovil
                         titulo="El hotel"
-                        resumen={[
-                          viaje.hotel.nombre,
-                          viaje.hotel.entrada.trim() ? `entrada ${viaje.hotel.entrada.trim()}` : "",
-                          viaje.hotel.tiempo.trim() ? `${viaje.hotel.tiempo.trim()} al campo` : "",
-                          viaje.hotel.foto?.url ? "" : "sin foto",
-                        ].filter((x) => x.trim()).join(" · ")}
                         abierta={Boolean(abiertas["viaje-hotel"])}
                         onCambia={() => conmuta("viaje-hotel")}
-                        escritorio
+                        sinCabecera
                       >
                       <Panel
                         title="El hotel"
@@ -2657,6 +2764,8 @@ export default function DesplazamientoPage() {
                       onCopiado={setDiaCopiado}
                       lugares={store.lugares}
                       enfoque={enfoque && viaje.dias.some((d) => d.id === enfoque.diaId) ? enfoque : null}
+                      erratas={avisosViaje.find((a) => a.clave === "erratas")?.lineas}
+                      onCorrige={corrigeTexto}
                     />
 
                     {/*
@@ -2669,8 +2778,9 @@ export default function DesplazamientoPage() {
                       <details className="mt-3 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
                         <summary className="cursor-pointer select-none text-[13px] font-semibold text-white/70 hover:text-white">
                           Fotos de los lugares de salida
-                          <span className="ml-2 font-normal text-white/45">
-                            · {Object.keys(LUGARES_FIJOS).filter((clave) => store.lugares?.[clave]?.url).length} de {Object.keys(LUGARES_FIJOS).length} puestas · se guardan una vez para todos los viajes
+                          {/* 12/11/2026 (expertos): sin «0 de 4 puestas»; lo que falta no se cuenta en el título. */}
+                          <span className="ml-2 font-normal text-white/50">
+                            · se ponen una vez y valen para todos los viajes
                           </span>
                         </summary>
                         <div className="mt-2 grid min-w-0 gap-3 pb-1 sm:grid-cols-2 lg:grid-cols-4">
@@ -2754,9 +2864,12 @@ export default function DesplazamientoPage() {
                     </SeccionMovil>
                   </div>
 
+                  </div>
+
                   {/* ================ VISTA PREVIA ================ */}
 
-                  <div className="mt-5 scroll-mt-20" id="viaje-vista">
+                  <div className="min-w-0">
+                  <div className="mt-5 scroll-mt-20 xl:mt-4" id="viaje-vista">
                     <Panel
                       title="Cómo va a quedar"
                       subtitle="Es el documento de verdad, a escala: lo que se ve aquí es exactamente lo que se exporta"
@@ -2856,6 +2969,8 @@ export default function DesplazamientoPage() {
                   <div className="mt-5 scroll-mt-20" id="viaje-exporta">
                     <ExportaViaje viaje={viajeVista ?? viaje} lugares={store.lugares} porRevisar={porRevisar} />
                   </div>
+                  </div>
+                  </div>
 
                   {/*
                   | En el móvil, «Sacar los documentos» siempre a mano (11/11/2026):
@@ -2881,12 +2996,29 @@ export default function DesplazamientoPage() {
             | ningún partido montado. Lo único que mira del partido es si se
             | juega en casa o fuera, para abrir de entrada la que toca.
             */}
+            {/*
+            | 12/11/2026 (expertos): plegada como el resto de bloques, para que no
+            | alargue la página después de «Sacar los documentos». Se monta igual
+            | (sólo se esconde): su autoguardado y su vista previa no cambian.
+            */}
             <div className="mt-8 border-t border-white/10 pt-8">
-              <NotasVestuario
-                condicion={
-                  partido ? (partido.isHome ? "local" : "visitante") : undefined
+              <SeccionMovil
+                titulo="Nota para el vestuario del rival"
+                resumen={
+                  (partido ? !partido.isHome : true)
+                    ? "Agradecimiento por recibirnos · PDF para imprimir o diapositiva"
+                    : "Bienvenida al visitante · PDF para imprimir o diapositiva"
                 }
-              />
+                abierta={Boolean(abiertas["viaje-nota"])}
+                onCambia={() => conmuta("viaje-nota")}
+                escritorio
+              >
+                <NotasVestuario
+                  condicion={
+                    partido ? (partido.isHome ? "local" : "visitante") : undefined
+                  }
+                />
+              </SeccionMovil>
             </div>
 
             {/* ============== COPIAR DE OTRO VIAJE ============== */}

@@ -1604,6 +1604,17 @@ export function diaCorto(iso: string) {
   return `${DIAS[fecha.getDay()]} ${fecha.getDate()}`.toUpperCase();
 }
 
+/** "VIE 13/11/2026": la fecha de la banda del dossier, que tiene que caber entera (12/11/2026). */
+export function fechaCorta(iso: string) {
+  const fecha = leeFecha(iso);
+
+  if (!fecha) return "";
+
+  const dos = (n: number) => String(n).padStart(2, "0");
+
+  return `${DIAS[fecha.getDay()].slice(0, 3)} ${dos(fecha.getDate())}/${dos(fecha.getMonth() + 1)}/${fecha.getFullYear()}`.toUpperCase();
+}
+
 /** "Lunes 31 de agosto de 2026". */
 export function diaLargo(iso: string) {
   const fecha = leeFecha(iso);
@@ -1694,23 +1705,34 @@ export function emojiDeCita(cita: Pick<CitaHorario, "emoji" | "clase" | "texto" 
 
   const delEvento = cita.clase ? EVENTO_POR_CLAVE.get(cita.clase)?.emoji : undefined;
 
-  if (delEvento && cita.clase !== "personal") return delEvento;
-
   const t = cita.texto.toLowerCase();
 
-  if (cita.tipo === "partido" || /\bpartido\b/.test(t)) return "⚽";
+  /* Una cita «Partido» renombrada a «Charla de partido» ya no es el partido: manda su texto. */
+  const renombrada = cita.clase === "partido" && t.trim() !== "" && !/^partido\b/.test(t.trim());
+
+  if (delEvento && cita.clase !== "personal" && !renombrada) return delEvento;
+
+  /*
+  | 12/11/2026 (expertos): lo que se HACE manda sobre de qué va, y el
+  | emoticono es el de la paleta. «Charla de partido» es una charla (📋) y no
+  | el partido; «Cena picnic», una cena. Por eso la charla y las comidas se
+  | miran antes que la palabra «partido», y la cena antes que el picnic.
+  */
+  const dePaleta = (clave: string, otro: string) => EVENTO_POR_CLAVE.get(clave)?.emoji ?? otro;
+
+  if (/charla|reuni[oó]n|v[ií]deo/.test(t)) return dePaleta("charla", "📋");
+  if (/desayuno/.test(t)) return dePaleta("desayuno", "☕");
+  if (/cena/.test(t)) return dePaleta("cena", "🍽️");
+  if (/merienda/.test(t)) return dePaleta("merienda", "🥪");
+  if (/comida|almuerzo/.test(t)) return dePaleta("comida", "🍝");
+  if (/picnic/.test(t)) return dePaleta("picnic", "🧺");
+  if (/descanso|habitaci|siesta/.test(t)) return dePaleta("descanso", "🛏️");
+  if (/calentamiento/.test(t)) return dePaleta("calentamiento", "🏃");
+  if (cita.tipo === "partido" || /\bpartido\b/.test(t)) return dePaleta("partido", "⚽");
   if (/avi[oó]n|vuelo|aeropuerto/.test(t)) return "✈️";
   /* «Salida bus estación» es un autobús que va a la estación, no un tren (11/11/2026). */
   if (/\bbus\b|autob[uú]s/.test(t)) return "🚌";
   if (/tren|\bave\b|estaci[oó]n/.test(t)) return "🚆";
-  if (/desayuno/.test(t)) return "☕";
-  if (/picnic/.test(t)) return "🧺";
-  if (/merienda/.test(t)) return "🥪";
-  if (/cena/.test(t)) return "🍽️";
-  if (/comida|almuerzo/.test(t)) return "🍝";
-  if (/descanso|habitaci|siesta/.test(t)) return "🛏️";
-  if (/charla|reuni[oó]n|v[ií]deo/.test(t)) return "📋";
-  if (/calentamiento/.test(t)) return "🏃";
   if (/activaci|paseo|recuperaci/.test(t)) return "🚶";
   if (/llegada (al )?(estadio|campo|vestuario)/.test(t)) return "🏟️";
   if (/hotel/.test(t)) return "🏨";

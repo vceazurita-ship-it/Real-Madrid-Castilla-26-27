@@ -39,6 +39,7 @@ import {
   diaCorto,
   diaLargo,
   emojiDeCita,
+  fechaCorta,
   esSalida,
   type Desplazamiento,
   type ImagenViaje,
@@ -115,22 +116,28 @@ function Rotulo({
 }
 
 /** Un dato de la banda: rótulo arriba, valor grande debajo. */
+/*
+| 12/11/2026 (expertos): ningún dato de la banda sale con «…». La letra la
+| fija `BandaPartido`, que reparte el ancho según lo que mide cada dato; el
+| «…» queda sólo de red, por si la estimación se queda corta.
+*/
 function Casilla({
   rotulo,
   dato,
-  ancho,
+  tamano,
   destacado = false,
   escudo,
 }: {
   rotulo: string;
   dato: string;
-  ancho?: number;
+  /** El cuerpo del dato, ya ajustado para que quepa entero. */
+  tamano: number;
   destacado?: boolean;
   /** El escudo del rival delante del nombre (11/11/2026). */
   escudo?: string;
 }) {
   return (
-    <div style={{ minWidth: 0, width: ancho, flex: ancho ? "0 0 auto" : 1 }}>
+    <div style={{ minWidth: 0 }}>
       <Rotulo tamano={13}>{rotulo}</Rotulo>
 
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: escudo ? 4 : 0 }}>
@@ -143,7 +150,7 @@ function Casilla({
           minWidth: 0,
           margin: escudo ? 0 : "10px 0 0",
           color: destacado ? C.rosaTexto : C.navy,
-          fontSize: destacado ? 40 : 34,
+          fontSize: tamano,
           fontWeight: 700,
           lineHeight: 1,
           letterSpacing: "0.01em",
@@ -160,6 +167,17 @@ function Casilla({
   );
 }
 
+/*
+| Lo que mide cada casilla, en píxeles de la diapositiva (12/11/2026). Barlow
+| Condensed en negrita y mayúscula va a ~0,55 em por letra (algo más que en
+| `enUnaLinea`, para no quedarse corto); el rótulo, a 13 px con 0,3 em de
+| espaciado, ~10,5 px por letra.
+*/
+const EM_BANDA = 0.55;
+const PAD_BANDA = 28;
+const midaCasilla = (dato: string, base: number, rotulo: string, escudo: boolean) =>
+  Math.max(rotulo.length * 10.5, dato.trim().length * base * EM_BANDA + (escudo ? 54 : 0));
+
 /**
  * La cabecera del partido, repetida en las tres diapositivas.
  *
@@ -170,6 +188,11 @@ function Casilla({
 /*
 | `sinCampo` (12/11/2026, expertos): en la diapositiva del estadio el nombre
 | ya va en grande debajo; repetido en la banda se leía dos veces seguidas.
+|
+| Mismo día (expertos): «GIMNÀSTIC DE TAR…» y «VIERNES 13 DE …» salían
+| cortados. La fecha va corta («VIE 13/11/2026», la larga sigue en el pie) y
+| el ancho se reparte por lo que mide cada dato: si no cabe todo, baja la
+| letra de la banda entera, igual en todas las casillas, hasta que cabe.
 */
 function BandaPartido({ viaje, sinCampo = false }: { viaje: Desplazamiento; sinCampo?: boolean }) {
   const casa = viaje.condicion === "local";
@@ -178,7 +201,7 @@ function BandaPartido({ viaje, sinCampo = false }: { viaje: Desplazamiento; sinC
     { rotulo: "Equipo", dato: "RMCF Castilla" },
     { rotulo: "Rival", dato: valor(viaje.rival), destacado: true, escudo: viaje.escudo?.trim() || undefined },
     { rotulo: "Jornada", dato: valor(viaje.jornada) },
-    { rotulo: "Fecha", dato: valor(diaLargo(viaje.fecha) || viaje.fecha) },
+    { rotulo: "Fecha", dato: valor(fechaCorta(viaje.fecha) || viaje.fecha) },
     { rotulo: "Hora", dato: valor(viaje.hora) },
     sinCampo
       ? { rotulo: "Se juega", dato: casa ? "En casa" : "Fuera" }
@@ -186,6 +209,16 @@ function BandaPartido({ viaje, sinCampo = false }: { viaje: Desplazamiento; sinC
   ];
 
   const casillas = todas.filter((casilla) => hay(casilla.dato));
+
+  /* El hueco de dentro de la banda: el ancho del contenido menos su relleno y el de cada casilla. */
+  const rellenos = casillas.reduce((n, _c, i) => n + (i === 0 ? 0 : PAD_BANDA) + PAD_BANDA, 0);
+  const hueco = DOSSIER_W - MARGEN * 2 - 64 - rellenos;
+  const medidas = casillas.map((c) =>
+    midaCasilla(c.dato, c.destacado ? 40 : 34, c.rotulo, Boolean("escudo" in c && c.escudo)),
+  );
+  const total = medidas.reduce((n, m) => n + m, 0) || 1;
+  /* Si sobra sitio, la letra se queda en su cuerpo; si falta, baja toda la banda por igual (nunca por debajo del 55 %). */
+  const escala = Math.max(0.55, Math.min(1, hueco / total));
 
   return (
     <div
@@ -204,9 +237,10 @@ function BandaPartido({ viaje, sinCampo = false }: { viaje: Desplazamiento; sinC
           key={casilla.rotulo}
           style={{
             minWidth: 0,
-            flex: casilla.destacado ? 1.4 : 1,
-            paddingLeft: indice === 0 ? 0 : 28,
-            paddingRight: 28,
+            /* Cada casilla crece en proporción a lo que mide su dato. */
+            flex: `${medidas[indice]} 1 0px`,
+            paddingLeft: indice === 0 ? 0 : PAD_BANDA,
+            paddingRight: PAD_BANDA,
             borderRight:
               indice === casillas.length - 1
                 ? "none"
@@ -216,6 +250,7 @@ function BandaPartido({ viaje, sinCampo = false }: { viaje: Desplazamiento; sinC
           <Casilla
             rotulo={casilla.rotulo}
             dato={casilla.dato}
+            tamano={Math.floor((casilla.destacado ? 40 : 34) * escala)}
             destacado={casilla.destacado}
             escudo={"escudo" in casilla ? casilla.escudo : undefined}
           />
