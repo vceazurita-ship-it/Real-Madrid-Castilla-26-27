@@ -138,7 +138,7 @@ function Casilla({
 }) {
   return (
     <div style={{ minWidth: 0 }}>
-      <Rotulo tamano={13}>{rotulo}</Rotulo>
+      <Rotulo tamano={ROTULO_BANDA}>{rotulo}</Rotulo>
 
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: escudo ? 4 : 0 }}>
       {escudo && (
@@ -170,13 +170,19 @@ function Casilla({
 /*
 | Lo que mide cada casilla, en píxeles de la diapositiva (12/11/2026). Barlow
 | Condensed en negrita y mayúscula va a ~0,55 em por letra (algo más que en
-| `enUnaLinea`, para no quedarse corto); el rótulo, a 13 px con 0,3 em de
-| espaciado, ~10,5 px por letra.
+| `enUnaLinea`, para no quedarse corto); el rótulo, con 0,3 em de espaciado,
+| ~0,8 de su cuerpo por letra.
+|
+| 12/11/2026 (expertos, segunda vuelta): el dossier se reenvía por WhatsApp y
+| se mira en el móvil, donde la diapositiva entera mide 390 px. Los rótulos a
+| 13 px se quedaban en dos píxeles y medio: suben a 16 en la banda y a 17 en
+| las fichas, lo mínimo que se distingue con el zoom del teléfono.
 */
+const ROTULO_BANDA = 16;
 const EM_BANDA = 0.55;
 const PAD_BANDA = 28;
 const midaCasilla = (dato: string, base: number, rotulo: string, escudo: boolean) =>
-  Math.max(rotulo.length * 10.5, dato.trim().length * base * EM_BANDA + (escudo ? 54 : 0));
+  Math.max(rotulo.length * ROTULO_BANDA * 0.8, dato.trim().length * base * EM_BANDA + (escudo ? 54 : 0));
 
 /**
  * La cabecera del partido, repetida en las tres diapositivas.
@@ -275,7 +281,7 @@ function Renglon({ rotulo, dato }: { rotulo: string; dato: string }) {
       }}
     >
       <div style={{ width: 220, flex: "0 0 auto" }}>
-        <Rotulo tamano={14}>{rotulo}</Rotulo>
+        <Rotulo tamano={17}>{rotulo}</Rotulo>
       </div>
 
       <p
@@ -312,7 +318,7 @@ function Cifra({ dato, rotulo }: { dato: string; rotulo: string }) {
         padding: "18px 24px",
       }}
     >
-      <Rotulo tamano={13} color={C.rosa}>
+      <Rotulo tamano={16} color={C.rosa}>
         {rotulo}
       </Rotulo>
 
@@ -400,7 +406,7 @@ function Plano({
         style={{
           margin: "12px 0 0",
           color: C.verde,
-          fontSize: 17,
+          fontSize: 19,
           fontWeight: 600,
           letterSpacing: "0.16em",
           textTransform: "uppercase",
@@ -637,8 +643,35 @@ function tiempoDeIda(viaje: Desplazamiento) {
   return "";
 }
 
+/*
+| Las fotos llenan la diapositiva (12/11/2026, expertos, segunda vuelta): con
+| alturas fijas, la del hotel —una sola fila de ficha— dejaba un tercio de la
+| hoja en blanco debajo de la foto, y en el móvil se veía media diapositiva
+| vacía. Se calcula lo que queda dentro de los 770 px del contenido con lo que
+| mide cada pieza (banda ~110, ficha 58 por fila, título 74, pie de foto 36) y
+| la foto se queda con eso, entre un mínimo y un máximo.
+*/
+const ALTO_CONTENIDO = 770;
+const ALTO_BANDA = 110;
+const HUECO_BANDA = 34;
+const acota = (n: number, min: number, max: number) => Math.round(Math.max(min, Math.min(max, n)));
+
+/** La foto de la columna izquierda, debajo del nombre y la ficha. */
+const altoFotoFicha = (conTitulo: boolean, filas: number) =>
+  acota(ALTO_CONTENIDO - ALTO_BANDA - HUECO_BANDA - (conTitulo ? 74 : 0) - filas * 58 - 26 - 36 - 12, 220, 520);
+
+/** La ruta de la columna derecha, debajo de las cifras y del «desde → hasta». */
+const altoFotoRuta = (conCifras: boolean, conLinea: boolean) =>
+  acota(ALTO_CONTENIDO - ALTO_BANDA - HUECO_BANDA - (conCifras ? 110 : 0) - (conLinea ? 40 : 0) - 20 - 36 - 12, 300, 560);
+
+const cuantas = (...textos: (string | undefined)[]) => textos.filter((t) => hay(t)).length;
+
 function SlideEstadio({ viaje }: { viaje: Desplazamiento }) {
   const tiempo = valor(viaje.estadio.tiempo) || (viaje.condicion === "visitante" ? tiempoDeIda(viaje) : "");
+  const e = viaje.estadio;
+  const conLinea = hay(viaje.origen) && hay(e.nombre) && (hay(e.distancia) || hay(tiempo) || Boolean(e.ruta?.url));
+  const altoFicha = altoFotoFicha(hay(e.nombre), cuantas(e.superficie, e.dimensiones, e.capacidad, e.ciudad, e.direccion));
+  const altoRuta = altoFotoRuta(hay(e.distancia) || hay(tiempo), conLinea);
 
   return (
     <Marco titulo="El estadio" viaje={viaje}>
@@ -676,7 +709,7 @@ function SlideEstadio({ viaje }: { viaje: Desplazamiento }) {
           <div style={{ marginTop: 26 }}>
             <Plano
               imagen={viaje.estadio.plano?.url ? viaje.estadio.plano : viaje.estadio.foto}
-              alto={250}
+              alto={altoFicha}
               respaldo={viaje.estadio.plano?.url ? "Plano del estadio" : valor(viaje.estadio.nombre) || "El estadio"}
             />
           </div>
@@ -688,7 +721,7 @@ function SlideEstadio({ viaje }: { viaje: Desplazamiento }) {
             <Cifra rotulo="Tiempo" dato={tiempo} />
           </div>
 
-          {hay(viaje.origen) && hay(viaje.estadio.nombre) && (hay(viaje.estadio.distancia) || hay(tiempo) || Boolean(viaje.estadio.ruta?.url)) && (
+          {conLinea && (
             <p
               style={{
                 margin: "18px 0 0",
@@ -706,7 +739,7 @@ function SlideEstadio({ viaje }: { viaje: Desplazamiento }) {
           <div style={{ marginTop: 20 }}>
             <Plano
               imagen={viaje.estadio.ruta}
-              alto={408}
+              alto={altoRuta}
               respaldo="Ruta del autobús"
             />
           </div>
@@ -717,6 +750,11 @@ function SlideEstadio({ viaje }: { viaje: Desplazamiento }) {
 }
 
 function SlideHotel({ viaje }: { viaje: Desplazamiento }) {
+  const h = viaje.hotel;
+  const conLinea = hay(h.nombre) && hay(viaje.estadio.nombre);
+  const altoFicha = altoFotoFicha(hay(h.nombre), cuantas(h.direccion, h.telefono, h.entrada, h.enlace));
+  const altoRuta = altoFotoRuta(hay(h.distancia) || hay(h.tiempo), conLinea);
+
   return (
     <Marco titulo="El hotel" viaje={viaje}>
       <BandaPartido viaje={viaje} />
@@ -746,7 +784,7 @@ function SlideHotel({ viaje }: { viaje: Desplazamiento }) {
           </div>
 
           <div style={{ marginTop: 26 }}>
-            <Plano imagen={viaje.hotel.foto} alto={250} respaldo="Foto del hotel" />
+            <Plano imagen={viaje.hotel.foto} alto={altoFicha} respaldo="Foto del hotel" />
           </div>
         </div>
 
@@ -756,7 +794,7 @@ function SlideHotel({ viaje }: { viaje: Desplazamiento }) {
             <Cifra rotulo="Tiempo" dato={valor(viaje.hotel.tiempo)} />
           </div>
 
-          {hay(viaje.hotel.nombre) && hay(viaje.estadio.nombre) && (
+          {conLinea && (
             <p
               style={{
                 margin: "18px 0 0",
@@ -774,7 +812,7 @@ function SlideHotel({ viaje }: { viaje: Desplazamiento }) {
           <div style={{ marginTop: 20 }}>
             <Plano
               imagen={viaje.hotel.ruta}
-              alto={408}
+              alto={altoRuta}
               respaldo="Ruta hotel · estadio"
             />
           </div>

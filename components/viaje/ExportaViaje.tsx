@@ -26,7 +26,7 @@
  */
 
 import { useSyncExternalStore } from "react";
-import { FileDown, FileText, MonitorPlay, Printer, Files } from "lucide-react";
+import { FileDown, FileText, ImageDown, MonitorPlay, Printer, Files } from "lucide-react";
 
 import { Button, Panel } from "@/components/abp/ui";
 import { confirmar } from "@/lib/avisos";
@@ -42,19 +42,30 @@ import {
   DOSSIER_W,
   HOJA_H,
   HOJA_W,
+  diaCorto,
   diaLargo,
   type Desplazamiento,
   type ImagenViaje,
 } from "@/lib/viaje/modelo";
 
-type Formato = "pptx" | "dossier" | "horario" | "todo";
+/*
+| `imagen` (12/11/2026, expertos, segunda vuelta): el horario se manda al
+| grupo de los jugadores por WhatsApp, y un PDF ahí se abre aparte y con
+| zoom. Una imagen por día —la hoja A4 tal cual, en JPEG— se ve en el propio
+| chat y se guarda en la galería.
+*/
+type Formato = "pptx" | "dossier" | "horario" | "todo" | "imagen";
 
+/* El mismo nombre en el botón, en la píldora de la descarga y en el aviso. */
 const QUE: Record<Formato, string> = {
   pptx: "Dossier en PowerPoint",
   dossier: "Dossier en PDF",
   horario: "Horario para imprimir",
-  todo: "Desplazamiento en PDF",
+  todo: "Todo en un PDF",
+  imagen: "Horario en imagen",
 };
+
+const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
 
 const tituloDescarga = (formato: Formato, viaje: Desplazamiento) =>
   `${QUE[formato]} · ${viaje.rival || "RMCF Castilla"}${viaje.jornada ? ` · J${viaje.jornada}` : ""}`;
@@ -73,8 +84,8 @@ function encargaViaje(viaje: Desplazamiento, formato: Formato, lugares?: Record<
 
   if (descargaEnMarcha(titulo)) return;
 
-  const quiereDossier = formato !== "horario";
-  const quiereHorario = formato === "horario" || formato === "todo";
+  const quiereDossier = formato !== "horario" && formato !== "imagen";
+  const quiereHorario = formato === "horario" || formato === "todo" || formato === "imagen";
 
   encargaDescarga({
     titulo,
@@ -126,6 +137,25 @@ function encargaViaje(viaje: Desplazamiento, formato: Formato, lugares?: Record<
               avanza(`Horario ${hechas}/${total}`, ((diapositivas.length + hechas) / totalNodos) * 0.9),
           })
         : [];
+
+      /* Una imagen por día, con el día en el nombre: «…-horario-1-jueves-12.jpg». */
+      if (formato === "imagen") {
+        if (hojas.length === 0) throw new Error("El viaje no tiene ningún día");
+
+        avanza("Preparando las imágenes…", 0.95);
+
+        return Promise.all(
+          hojas.map(async (dataUrl, indice) => {
+            const dia = viaje.dias[indice];
+            const cuando = dia?.fecha ? `-${apodo(diaCorto(dia.fecha), "dia")}` : "";
+
+            return {
+              blob: await (await fetch(dataUrl)).blob(),
+              nombre: `${nombre}-horario${hojas.length > 1 ? `-${indice + 1}` : ""}${cuando}.jpg`,
+            };
+          }),
+        );
+      }
 
       if (formato === "pptx") {
         if (diapositivas.length === 0) throw new Error("Sin diapositivas");
@@ -220,14 +250,23 @@ export function ExportaViaje({
     encargaViaje(viaje, formato, lugares);
   };
 
+  const enImagen = useEnMarcha(tituloDescarga("imagen", viaje));
+  const diapositivas = titulosDossier(viaje).length;
+  const dias = viaje.dias.length;
+
+  /*
+  | Por destinatario (12/11/2026, expertos, segunda vuelta): eran cuatro
+  | botones iguales y había que saber cuál se manda a quién. El cuerpo técnico
+  | recibe el dossier entero; los jugadores, el horario, que es lo único que
+  | miran.
+  */
   return (
     <Panel
       title="Sacar los documentos"
-      subtitle={`${titulosDossier(viaje).length} diapositivas de dossier y ${
-        viaje.dias.length
-      } ${viaje.dias.length === 1 ? "hoja" : "hojas"} de horario, tal y como se ven aquí`}
+      subtitle={`${plural(diapositivas, "diapositiva", "diapositivas")} de dossier y ${plural(dias, "hoja", "hojas")} de horario, tal y como se ven aquí`}
       icon={FileDown}
     >
+      <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.14em] text-white/50">Para el cuerpo técnico</p>
       <div className="flex flex-wrap items-center gap-2">
         <Button
           tone="primary"
@@ -256,6 +295,19 @@ export function ExportaViaje({
         >
           {enDossier ? "Preparando…" : "Dossier en PDF"}
         </Button>
+      </div>
+
+      <p className="mb-2 mt-4 text-[12px] font-semibold uppercase tracking-[0.14em] text-white/50">Para los jugadores</p>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          tone="primary"
+          icon={ImageDown}
+          onClick={() => void saca("imagen")}
+          disabled={enImagen || dias === 0}
+          title={dias === 0 ? "El viaje no tiene ningún día: añade uno en el horario" : `${plural(dias, "imagen", "imágenes")} del horario, una por día, para mandar por WhatsApp`}
+        >
+          {enImagen ? "Preparando…" : dias > 1 ? `Horario en imagen · ${dias} días` : "Horario en imagen"}
+        </Button>
 
         <Button
           icon={Printer}
@@ -268,7 +320,7 @@ export function ExportaViaje({
           {enHorario ? "Preparando…" : "Horario para imprimir"}
         </Button>
       </div>
-
+      <p className="mt-2 text-[12px] text-white/45">La imagen se ve en el propio chat de WhatsApp; el PDF, para colgarlo en el vestuario y en el autobús.</p>
     </Panel>
   );
 }
