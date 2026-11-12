@@ -230,16 +230,18 @@ async function leePortada(): Promise<Portada> {
       );
 
       /* La liga es la competición en la que más ha jugado (los nombres de BeSoccer no casan siempre con el del documento). */
+      /* BeSoccer escribe la jornada en la competición («Primera Federación. Jornada 11»): sin quitarla, cada partido era su propia liga y sólo salía uno (12/11/2026). */
+      const competicionDe = (c?: string | null) => (c ?? "").replace(/[.,\s-]*jornada\s*\d+.*$/i, "").trim();
       const cuantas = new Map<string, number>();
 
       for (const p of jugados) {
-        if (!/amistos/i.test(p.competicion ?? "")) cuantas.set(p.competicion ?? "", (cuantas.get(p.competicion ?? "") ?? 0) + 1);
+        if (!/amistos/i.test(p.competicion ?? "")) cuantas.set(competicionDe(p.competicion), (cuantas.get(competicionDe(p.competicion)) ?? 0) + 1);
       }
 
       const liga = [...cuantas.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
 
       const ultimos = jugados
-        .filter((p) => liga !== undefined && (p.competicion ?? "") === liga)
+        .filter((p) => liga !== undefined && competicionDe(p.competicion) === liga)
         .sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)))
         .slice(-5)
         .map((p) => {
