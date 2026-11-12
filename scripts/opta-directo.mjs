@@ -41,7 +41,7 @@ const SOLO = (process.env.PARTIDO || "").trim();
 const METRICAS = [
   "Goal", "ExpG", "ShtIncBl", "SOG", "Poss%", "PPDA", "PsAtt", "Pass%", "Ps%InA3rd", "TouchOpBox",
   "Chance", "Crosses", "Corners", "Recovery", "PosWonA3rd", "Duel%", "Aerial%", "FoulCom", "Yellow",
-  "PossLost", "Sequences", "SeqEndInA3", "Saves",
+  "PossLost", "Sequences", "SeqEndInA3", "Saves", "PosWonM3rd", "LgBall", "AerialWon",
 ];
 
 const espera = (ms) => new Promise((ok) => setTimeout(ok, ms));
@@ -139,12 +139,28 @@ async function vuelta(S) {
       S, "team t");
   }
 
+  /* Los tramos de 5 minutos (para el «momento» y el minuto): la misma
+     consulta que el momentum de opta-liga.mjs, sólo con los partidos de hoy.
+     Si Opta no la acepta con el filtro, el directo sigue sin tramos. */
+  let tramos = { cols: [], filas: [] };
+  if (ids.length) {
+    try {
+      tramos = await consulta(
+        `SELECT game.gameId as partido, teamId, newest(team.game.fullName) AS equipo, event.period as parte, floor(event.gameClock / 300) as tramo, [ExpG],[ShtIncBl],[TouchOpBox],[TchsA3],[PsAtt],[Poss%],[Recovery],[PosWonA3rd],[PossLost] FROM team BY event WHERE game.gameId IN (${ids.map((i) => `'${String(i).replace(/[^a-z0-9]/gi, "")}'`).join(",")}) GROUP BY game.gameId, teamId, event.period, floor(event.gameClock / 300) LIMIT 2000`,
+        S, "team t");
+    } catch (e) {
+      if (e.sesion) throw e;
+      console.log("Sin tramos de 5 minutos en esta vuelta.");
+    }
+  }
+
   const ahora = new Date().toISOString();
   const indice = [];
   for (const [partido, fecha, estado] of delDia) {
     const filas = cifras.filas.filter((f) => f[0] === partido);
     indice.push({ partido, fecha, estado, conDatos: filas.length > 0, equipos: filas.map((f) => f[2]) });
-    if (filas.length) await guarda(`opta:directo:${partido}`, { partido, fecha, estado, actualizado: ahora, equipos: { cols: cifras.cols, filas } });
+    const suyos = tramos.filas.filter((f) => f[0] === partido);
+    if (filas.length) await guarda(`opta:directo:${partido}`, { partido, fecha, estado, actualizado: ahora, equipos: { cols: cifras.cols, filas }, tramos: { cols: tramos.cols, filas: suyos } });
   }
   await guarda("opta:directo", { dia, actualizado: ahora, hasta: new Date(fin).toISOString(), partidos: indice });
 

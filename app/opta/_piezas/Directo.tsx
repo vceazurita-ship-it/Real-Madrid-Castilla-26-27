@@ -18,7 +18,10 @@ import { CASTILLA_OPTA, DOCS_OPTA, aObjetos, num, traeOpta, type TablaOpta } fro
 import { NOMBRE_CASTILLA, valorPartido, type Fila } from "@/lib/opta-analisis";
 import { defMetrica, nombreMetrica } from "@/lib/opta-nombres";
 
+import { minutoDe, tramosDe } from "@/lib/opta-directo-plan";
+
 import { Elegir, fmt, Panel } from "./comun";
+import { DirectoPlan } from "./DirectoPlan";
 import type { DatosOpta } from "./useOpta";
 
 type PartidoIndice = { partido: string; fecha?: string; estado?: string; conDatos?: boolean; equipos?: string[] };
@@ -32,6 +35,8 @@ type DocDirecto = {
   estado?: string;
   actualizado?: string;
   equipos?: TablaOpta;
+  /** Tramos de 5' por equipo (desde el 12/11/2026). */
+  tramos?: TablaOpta;
 };
 
 const CADA_MS = 60_000;
@@ -56,7 +61,7 @@ const estadoEnPalabras = (e?: string) => (e ? (ESTADO[e.toLowerCase()] ?? e) : "
 const nombre = (f: Fila) => (f.teamId === CASTILLA_OPTA ? NOMBRE_CASTILLA : String(f.equipo ?? ""));
 
 export function Directo({ datos }: { datos: DatosOpta }) {
-  const { catalogo } = datos;
+  const { catalogo, partidos: filasTemporada } = datos;
   const [vuelta, setVuelta] = useState(0);
   const [indice, setIndice] = useState<Indice | null | undefined>(undefined);
   const [elegido, setElegido] = useState("");
@@ -107,6 +112,8 @@ export function Directo({ datos }: { datos: DatosOpta }) {
     return [ordenadas[0] ?? null, ordenadas[1] ?? null];
   }, [filas, doc]);
   const metricas = doc?.equipos?.cols?.filter((c) => !NO_METRICA.has(c)) ?? [];
+  const tramos = useMemo(() => (a ? tramosDe(doc?.tramos, String(a.teamId ?? "")) : []), [doc, a]);
+  const minuto = num(doc?.minuto) ?? minutoDe(tramos);
 
   const explicacion = (
     <div className="space-y-2 text-sm text-white/65">
@@ -187,7 +194,7 @@ export function Directo({ datos }: { datos: DatosOpta }) {
                   {num(a.Goal) ?? 0} - {num(b.Goal) ?? 0}
                 </p>
                 <p className="text-[11px] text-white/55">
-                  {[doc.minuto != null && doc.minuto !== "" ? `${doc.minuto}′` : "", estadoEnPalabras(doc.estado), doc.actualizado ? `cifras de las ${hora(doc.actualizado)}` : ""]
+                  {[minuto != null ? `${num(doc.minuto) != null ? "" : "≈"}${minuto}′` : "", estadoEnPalabras(doc.estado), doc.actualizado ? `cifras de las ${hora(doc.actualizado)}` : ""]
                     .filter(Boolean)
                     .join(" · ")}
                 </p>
@@ -199,6 +206,20 @@ export function Directo({ datos }: { datos: DatosOpta }) {
               </div>
             </div>
 
+            <div className="mb-6">
+              <DirectoPlan
+                nos={a}
+                ellos={b}
+                nombreNos={nombre(a)}
+                nombreEllos={nombre(b)}
+                esCastilla={a.teamId === CASTILLA_OPTA}
+                minuto={minuto}
+                tramos={tramos}
+                partidos={filasTemporada}
+              />
+            </div>
+
+            <p className="mb-2 text-center text-[11px] font-semibold uppercase tracking-[0.2em] text-white/45">Todas las cifras</p>
             <div className="mx-auto max-w-3xl">
               {metricas
                 .filter((k) => k !== "Goal")
