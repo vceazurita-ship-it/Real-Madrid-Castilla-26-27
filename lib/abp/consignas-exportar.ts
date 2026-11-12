@@ -18,6 +18,10 @@
  * genérica, sale con las que se leen de SU lámina: quién hace qué y dónde, de
  * sus puestos, sus flechas y sus marcas. Si la lámina no da para una consigna
  * concreta, la genérica no sale y no se pone otra (regla «informes sin huecos»).
+ *
+ * Tercera ronda (12/11/2026): tampoco sale una consigna que contradice la
+ * lámina («parejas de bloqueo Joan-Mario» con Joan de rematador): se cambia,
+ * en su sitio, por las que se leen de la lámina (`contradiceLaLamina`).
  */
 
 import {
@@ -164,6 +168,7 @@ function claveConsignas(slide: SlidePizarra) {
  */
 export function consignasParaExportar(tablero: TableroPizarra, players: Map<string, Player>): TableroPizarra {
   const vistas = new Set<string>();
+  const todos = [...players.values()];
   let cambio = false;
 
   const slides = tablero.slides.map((slide) => {
@@ -173,13 +178,43 @@ export function consignasParaExportar(tablero: TableroPizarra, players: Map<stri
     if (clave) vistas.add(clave);
 
     const genericas = slide.notas.filter((nota) => nota.trim() && esGenerica(nota));
+    /*
+    | 12/11/2026, tercera ronda de jueces: «Rematadores: parejas de bloqueo
+    | Joan-Mario + Dani-Cestero» con Joan de rematador y Dani de zaguero, y
+    | «Cestero saca a corta» con Cestero de rechace largo. Lo exportado no
+    | puede contradecir la lámina: esas consignas salen cambiadas por las que
+    | se leen de la lámina, en su mismo sitio. Lo guardado sigue igual (y el
+    | menú «Exportar» se lo avisa al analista).
+    */
+    const contradichas = new Set(slide.notas.filter((nota) => contradiceLaLamina(nota, slide, todos)));
 
-    if (!copiada && genericas.length === 0) return slide;
+    if (!copiada && genericas.length === 0 && contradichas.size === 0) return slide;
 
     const propias = consignasDeLaLamina(slide, players);
+    const nuevas = propias.filter((una) => !slide.notas.some((nota) => plano(nota) === plano(una)));
     const notas = copiada
       ? propias
-      : slide.notas.flatMap((nota) => (esGenerica(nota) ? [] : [nota])).concat(propias.filter((una) => !slide.notas.some((nota) => plano(nota) === plano(una))));
+      : contradichas.size === 0
+        ? slide.notas.flatMap((nota) => (esGenerica(nota) ? [] : [nota])).concat(nuevas)
+        : (() => {
+            const salen: string[] = [];
+            const cuantas = Math.min(nuevas.length, contradichas.size + 1);
+            let puestas = false;
+
+            for (const nota of slide.notas) {
+              if (esGenerica(nota)) continue;
+
+              if (contradichas.has(nota)) {
+                if (!puestas) salen.push(...nuevas.slice(0, cuantas));
+                puestas = true;
+                continue;
+              }
+
+              salen.push(nota);
+            }
+
+            return salen;
+          })();
 
     cambio = true;
 
@@ -221,8 +256,10 @@ const PAPELES: { dice: RegExp; puesto: RegExp; nombre: string }[] = [
  * Sólo cuando la frase lo dice de UNO solo: con dos nombres no se sabe a quién
  * va cada verbo y mejor no avisar en falso.
  */
-export function consignasConOtroPapel(slide: SlidePizarra, players: { id: string; nombre?: string; apodo?: string }[]): string[] {
-  const enLamina = slide.fichas.flatMap((ficha) => {
+type EnLamina = { nombres: string[]; papel: string; visible: string; label: string };
+
+function enLaLamina(slide: SlidePizarra, players: { id: string; nombre?: string; apodo?: string }[]): EnLamina[] {
+  return slide.fichas.flatMap((ficha) => {
     const player = players.find((p) => p.id === ficha.playerId);
     const puesto = puestoDe(slide, ficha.puesto);
     const grupo = puesto ? gruposDe(slide).find((g) => g.key === puesto.grupo)?.label ?? "" : "";
@@ -230,26 +267,62 @@ export function consignasConOtroPapel(slide: SlidePizarra, players: { id: string
 
     return puesto && nombres.length ? [{ nombres, papel: plano(`${puesto.label} ${grupo}`), visible: (player?.apodo || player?.nombre || "").trim(), label: puesto.label }] : [];
   });
+}
 
+const escapa = (texto: string) => texto.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * Lo que una consigna dice de alguien que contradice su papel en la lámina.
+ *
+ * Por frases («+», «;» o punto). En cada una, el verbo del papel («saca»,
+ * «bloqueo», «rechace») va con el nombre que tiene más cerca: «parejas de
+ * bloqueo Joan-Mario» le da el bloqueo a Joan (rematador 1 en la lámina) y
+ * «Cestero saca a corta», el saque a Cestero (rechace largo). 12/11/2026,
+ * tercera ronda: con dos nombres en la frase antes no se avisaba.
+ */
+function contradicciones(texto: string, enLamina: EnLamina[]): string[] {
   const avisos: string[] = [];
 
-  for (const linea of lineasConsignas(slide.notas)) {
-    if (linea.tipo !== "consigna") continue;
+  for (const frase of texto.split(/\s*(?:\+|;|\.\s)\s*/)) {
+    const llano = plano(frase);
+    const papel = PAPELES.find((p) => p.dice.test(llano));
 
-    for (const frase of linea.texto.split(/\s*(?:\+|;|\.\s)\s*/)) {
-      const texto = plano(frase);
-      const nombrados = enLamina.filter((uno) => uno.nombres.some((n) => new RegExp(`(^|[^a-z0-9ñ])${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z0-9ñ]|$)`).test(texto)));
+    if (!papel) continue;
 
-      if (nombrados.length !== 1) continue;
+    const donde = llano.search(papel.dice);
+    const nombrados = enLamina.flatMap((uno) =>
+      uno.nombres.flatMap((n) => {
+        const m = new RegExp(`(^|[^a-z0-9ñ])${escapa(n)}([^a-z0-9ñ]|$)`).exec(llano);
 
-      const [uno] = nombrados;
-      const papel = PAPELES.find((p) => p.dice.test(texto));
+        return m ? [{ uno, d: Math.abs(m.index + m[1].length - donde) }] : [];
+      }),
+    );
 
-      if (papel && !papel.puesto.test(uno.papel)) {
-        avisos.push(`«${frase.trim()}»: ${uno.visible} es «${uno.label}» en esta lámina`);
-      }
-    }
+    if (nombrados.length === 0) continue;
+
+    const { uno } = nombrados.sort((a, b) => a.d - b.d)[0];
+
+    if (!papel.puesto.test(uno.papel)) avisos.push(`«${frase.trim()}»: ${uno.visible} es «${uno.label}» en esta lámina`);
   }
 
-  return [...new Set(avisos)];
+  return avisos;
+}
+
+export function consignasConOtroPapel(slide: SlidePizarra, players: { id: string; nombre?: string; apodo?: string }[]): string[] {
+  const enLamina = enLaLamina(slide, players);
+
+  return [
+    ...new Set(
+      lineasConsignas(slide.notas)
+        .filter((linea) => linea.tipo === "consigna")
+        .flatMap((linea) => contradicciones(linea.texto, enLamina)),
+    ),
+  ];
+}
+
+/** ¿Esta consigna da a alguien un papel que no tiene en la lámina? */
+export function contradiceLaLamina(nota: string, slide: SlidePizarra, players: { id: string; nombre?: string; apodo?: string }[]) {
+  const texto = nota.trim();
+
+  return Boolean(texto) && !texto.endsWith(":") && contradicciones(texto, enLaLamina(slide, players)).length > 0;
 }

@@ -33,7 +33,8 @@ import type { Player } from "@/types/player";
  * versión anterior deja de valer sin tener que recargar.
  */
 /* 12/11/2026 (jueces): letras que no tapan nombres, rivales con dorsal y apellido, dato del rival y fecha en el pie. */
-const VERSION = "2026-11-12-dato-y-letras";
+/* 12/11/2026, tercera ronda: nada tapa ningún nombre (`lib/abp/coloca-lamina.ts`), chapas a su ancho, letra de la pizarra en segundo plano. */
+const VERSION = "2026-11-12-r3-nombres-libres";
 
 /* ------------------------------------------------------------------ */
 /*  HUELLAS                                                            */

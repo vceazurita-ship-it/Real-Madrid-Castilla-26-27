@@ -31,6 +31,7 @@ import { fasesDe } from "@/lib/abp/trazos";
 import { trabajoExportar } from "@/lib/abp/trabajo-exportar";
 import { claveFoto, huellaSlide } from "@/lib/abp/cache-exportar";
 import { faltanFotos, fotosDeHojas } from "@/lib/abp/fotos-tablero";
+import { barlowCondensed } from "@/lib/rivals/portada-font";
 import type { AtacantePanel } from "@/lib/abp/marcas-corner";
 import { fechaCorta } from "@/lib/abp/pizarra-jugador";
 
@@ -202,8 +203,18 @@ export function ExportaPizarra({
       ref={deckRef}
       aria-hidden
       data-export-hide
-      className="pointer-events-none"
-      style={{ position: "fixed", top: 0, left: -(TABLERO_W + 200), width: TABLERO_W, zIndex: -1 }}
+      /* Con la letra de la pizarra: en segundo plano vive en el layout y heredaba la de la app (12/11/2026). */
+      className={`pointer-events-none ${barlowCondensed.className}`}
+      style={
+        {
+          position: "fixed",
+          top: 0,
+          left: -(TABLERO_W + 200),
+          width: TABLERO_W,
+          zIndex: -1,
+          "--fuente-pizarra": barlowCondensed.style.fontFamily,
+        } as React.CSSProperties
+      }
     >
       {montadas.map((clave) => {
         const hoja = hojas.find((h) => h.clave === clave);

@@ -72,6 +72,7 @@ import { useDatosMarcas } from "@/components/abp/pizarra/useDatosMarcas";
 import { cargaDatosMarcas, conMarcasPropuestas } from "@/lib/abp/marcas-datos";
 import { atacantesDelPanel, type AtacantePanel } from "@/lib/abp/marcas-corner";
 import { faltanFotos, fotosDeHojas } from "@/lib/abp/fotos-tablero";
+import { barlowCondensed } from "@/lib/rivals/portada-font";
 import { creaPptx } from "@/lib/export/pptx";
 import { apodo, descarga, pdfDeLienzos, pintado } from "@/lib/export/lienzos";
 import { creaZip, type Bytes, type EntradaZip } from "@/lib/export/zip";
@@ -505,6 +506,9 @@ export function ExportaTodo({
             escudoRival,
             ids,
             vuelta: `${window.location.pathname}${window.location.search}`,
+            /* Con su once y nuestro portero: las fotos de cada jugador, como las de la lámina general. */
+            ...(atacantes?.length ? { atacantes } : {}),
+            ...(elPortero ? { portero: elPortero } : {}),
           });
         /*
           Si ya hay otra cola en marcha (p. ej. «PDF por jugador» de otra versión
@@ -1107,8 +1111,18 @@ export function ExportaTodo({
           ref={raizRef}
           aria-hidden
           data-export-hide
-          className="pointer-events-none"
-          style={{ position: "fixed", top: 0, left: -(TABLERO_W + 200), width: TABLERO_W, zIndex: -1 }}
+          /* Con la letra de la pizarra también en segundo plano (montado en el layout, heredaba la de la app). */
+          className={`pointer-events-none ${barlowCondensed.className}`}
+          style={
+            {
+              position: "fixed",
+              top: 0,
+              left: -(TABLERO_W + 200),
+              width: TABLERO_W,
+              zIndex: -1,
+              "--fuente-pizarra": barlowCondensed.style.fontFamily,
+            } as React.CSSProperties
+          }
         >
           {montaje.que === "general" ? (
             montaje.indices.map((i, k) => (

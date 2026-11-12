@@ -13,7 +13,7 @@
  * Vive en el layout (vía `TrabajoPdfs`): sigue aunque se cambie de pantalla.
  */
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { TableroSlide } from "@/components/abp/pizarra/TableroSlide";
 import { COLORES, TABLERO_H, TABLERO_W, tituloVisible } from "@/lib/abp/pizarra";
@@ -38,7 +38,10 @@ import { capturaLienzos, esperaFotos, pintado, respira } from "@/lib/export/lien
 import { traeJson } from "@/lib/hojaCsv";
 import { comparativaATiempo, datoDeLamina } from "@/lib/abp/dato-lamina";
 import { nombreRivalPieza } from "@/lib/abp/nombre-rival";
-import { esperaFuentePortada } from "@/lib/rivals/portada-font";
+import { barlowCondensed, esperaFuentePortada } from "@/lib/rivals/portada-font";
+import { porteroDelOnce } from "@/components/abp/pizarra/usePorteroDelOnce";
+import { atacantesDelPanel, type AtacantePanel } from "@/lib/abp/marcas-corner";
+import type { CajaFoto } from "@/lib/abp/pizarra-jugador";
 
 /*
 | La hoja enseña sólo SU trozo de campo (unos 1150 px de los 1920 de la
@@ -189,6 +192,60 @@ function marcoDe(nodo: HTMLElement): MarcoCaptura | null {
   };
 }
 
+/**
+ * Su once (dorsal y apellido de cada rival) y nuestro portero antes de montar
+ * nada (12/11/2026, tercera ronda de jueces: en el PDF de Joan los rivales
+ * salían con «P» y un icono genérico, porque las láminas se fotografiaban antes
+ * de que llegara el once; en la lámina general ya iban con «4 GIL»). Si quien
+ * encarga ya los trae, se usan; si no, se piden y se espera, con tope.
+ */
+const ESPERA_ONCE_MS = 25_000;
+
+function useSuOnce(encargo: EncargoPdfs) {
+  const [listo, setListo] = useState<{ de: EncargoPdfs; atacantes: AtacantePanel[]; portero?: string } | null>(null);
+  const trae = Boolean(encargo.atacantes?.length) && Boolean(encargo.portero);
+
+  useEffect(() => {
+    if (trae) return;
+
+    let vivo = true;
+    const tope = <T,>(promesa: Promise<T>, siNo: T) =>
+      Promise.race([promesa.catch(() => siNo), new Promise<T>((ok) => setTimeout(() => ok(siNo), ESPERA_ONCE_MS))]);
+
+    void Promise.all([
+      encargo.atacantes?.length ? Promise.resolve(null) : tope(cargaDatosMarcas(encargo.rival, [...encargo.players.values()]), null),
+      encargo.portero ? Promise.resolve(encargo.portero) : tope(porteroDelOnce(encargo.players), undefined),
+    ]).then(([marcas, portero]) => {
+      if (vivo) setListo({ de: encargo, atacantes: encargo.atacantes?.length ? encargo.atacantes : atacantesDelPanel(marcas?.atacantes), portero });
+    });
+
+    return () => {
+      vivo = false;
+    };
+  }, [encargo, trae]);
+
+  const deEncargo = useMemo(() => (trae ? { atacantes: encargo.atacantes ?? [], portero: encargo.portero } : null), [encargo, trae]);
+
+  return deEncargo ?? (listo?.de === encargo ? listo : null);
+}
+
+/** Lo pintado en la foto de una lámina —letras, chapas, rivales y su apellido, nuestro portero—, en píxeles de la foto. */
+function obstaculosDe(nodo: HTMLElement): CajaFoto[] {
+  const caja = nodo.getBoundingClientRect();
+  const escala = TABLERO_W / Math.max(1, caja.width);
+  const elementos = [
+    ...nodo.querySelectorAll<HTMLElement>("[data-letra-consigna], [data-chapa], [data-rival] > *, [data-portero] > *"),
+  ];
+
+  return elementos.flatMap((el) => {
+    const r = el.getBoundingClientRect();
+
+    return r.width && r.height
+      ? [{ x0: (r.left - caja.left) * escala, y0: (r.top - caja.top) * escala, x1: (r.right - caja.left) * escala, y1: (r.bottom - caja.top) * escala }]
+      : [];
+  });
+}
+
 export function MesaPdfs({
   encargo,
   alTerminar,
@@ -197,6 +254,7 @@ export function MesaPdfs({
   alTerminar: (resumen: { listos: number; fallos: number }) => void;
 }) {
   const raizRef = useRef<HTMLDivElement>(null);
+  const suOnce = useSuOnce(encargo);
 
   const porJugador = useMemo(
     () => new Map(encargo.ids.map((id) => [id, cometidosDe(encargo.tablero, id, encargo.players)])),
@@ -210,6 +268,9 @@ export function MesaPdfs({
   );
 
   useEffect(() => {
+    /* Sin su once todavía, no se monta ni se fotografía nada. */
+    if (!suOnce) return;
+
     let vivo = true;
 
     void (async () => {
@@ -237,9 +298,11 @@ export function MesaPdfs({
         /* Dónde cae la cara de cada uno en cada diapositiva (1920×1080), y cómo cae la plantilla. */
         const puntos = new Map<string, { x: number; y: number }>();
         const marcos = new Map<number, MarcoCaptura | null>();
+        const obstaculos = new Map<number, CajaFoto[]>();
 
         Array.from(raiz.querySelectorAll<HTMLElement>("[data-abp-tablero]")).forEach((nodo, k) => {
           marcos.set(indices[k], marcoDe(nodo));
+          obstaculos.set(indices[k], obstaculosDe(nodo));
 
           const caja = nodo.getBoundingClientRect();
           const escala = TABLERO_W / Math.max(1, caja.width);
@@ -314,6 +377,7 @@ export function MesaPdfs({
                   null,
               ),
               marcos: acciones.map((accion) => marcos.get(accion.indice) ?? null),
+              obstaculos: acciones.map((accion) => obstaculos.get(accion.indice) ?? null),
               suyos,
               rival: encargo.rival,
               jornada: encargo.jornada,
@@ -358,17 +422,32 @@ export function MesaPdfs({
     };
     /* Una pasada por encargo: `alTerminar` cambia en cada render del anfitrión. */
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [encargo, indices, porJugador]);
+  }, [encargo, indices, porJugador, suOnce]);
 
   return (
     <div
       ref={raizRef}
       aria-hidden
       data-export-hide
-      className="pointer-events-none"
-      style={{ position: "fixed", top: 0, left: -(TABLERO_W + 200), width: TABLERO_W, zIndex: -1 }}
+      className={`pointer-events-none ${barlowCondensed.className}`}
+      /*
+      | La mesa vive en el layout, fuera de la pantalla de la pizarra: sin
+      | esto las láminas de cada jugador salían con la letra de la app (más
+      | ancha que la Barlow Condensed de la lámina general) y los nombres no
+      | cabían donde los colocaba `separaFichas` (12/11/2026, «MARIO» cortado).
+      */
+      style={
+        {
+          position: "fixed",
+          top: 0,
+          left: -(TABLERO_W + 200),
+          width: TABLERO_W,
+          zIndex: -1,
+          "--fuente-pizarra": barlowCondensed.style.fontFamily,
+        } as React.CSSProperties
+      }
     >
-      {indices.map((indice) => (
+      {suOnce && indices.map((indice) => (
         <div key={indice} style={{ width: TABLERO_W }}>
           <TableroSlide
             slide={encargo.tablero.slides[indice]}
@@ -378,6 +457,8 @@ export function MesaPdfs({
             players={encargo.players}
             temporada={encargo.temporada}
             rival={encargo.rival}
+            atacantes={suOnce.atacantes}
+            portero={suOnce.portero ?? null}
             seleccion={null}
             onMover={() => undefined}
             onQuitar={() => undefined}

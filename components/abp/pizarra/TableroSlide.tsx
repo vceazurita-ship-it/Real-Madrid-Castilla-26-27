@@ -25,7 +25,18 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Pencil, User, X } from "lucide-react";
 
-import { apartaRivales, colocaInsignias, ESCALA_APRETADA, separaFichas } from "@/lib/abp/separa";
+import { ESCALA_APRETADA, type LadoNombre } from "@/lib/abp/separa";
+import {
+  anchoChapa,
+  anchoNombrePortero,
+  anchoNombreRival,
+  anclasDeConsignas,
+  CHAPA_MAX_W,
+  colocaLamina,
+  NOMBRE_CHAPA,
+  nombreDeRival as nombreDeRivalEn,
+  rivalesConDorsal,
+} from "@/lib/abp/coloca-lamina";
 import type { AtacantePanel } from "@/lib/abp/marcas-corner";
 
 import type { Player } from "@/types/player";
@@ -63,7 +74,6 @@ import {
   TABLERO_W,
   VISTAS,
   adornosDe,
-  admiteRepetidos,
   limpiaSigla,
   type CambioTexto,
   enElCampo,
@@ -338,25 +348,10 @@ function sinNumeroDeOrden(texto: string) {
 const FOTO_W = 96;
 const FOTO_H = 120;
 
-/** «Óscar» → «oscar»: para buscar un nombre dentro de una consigna. */
-const sinTildesBajo = (texto: string) => texto.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 /* 01/11/2026: 40 y no 36, con el nombre a 18 px (era 14 y no se leía en la sala). */
 const CHAPA_H = 40;
 
-/** Letra del nombre en la chapa, y el ancho que no se pasa (el resto se encoge). */
-const NOMBRE_CHAPA = 18;
-const CHAPA_MAX_W = 156;
-
-/**
- * Lo que mide de ancho la chapa de una ficha, para que `separaFichas` abra las
- * que se pisan el nombre. Es una estimación por letras (mayúsculas
- * seminegras con algo de espaciado): medir el DOM obligaría a pintar dos veces.
- */
-function anchoChapa(nombre: string, sigla: string) {
-  const texto = Math.max(nombre.length * NOMBRE_CHAPA * 0.62, sigla.length * 10);
-
-  return Math.round(Math.min(CHAPA_MAX_W, Math.max(54, texto + 14)));
-}
+/* La letra del nombre en la chapa y el ancho de cada chapa viven en `lib/abp/coloca-lamina.ts`. */
 
 /*
 | La maqueta de la sala (21/10/2026).
@@ -732,9 +727,16 @@ function Ficha({
         }}
       />
 
-      {/* Chapa: el código del puesto y, debajo, el nombre. */}
+      {/*
+      | Chapa: el código del puesto y, debajo, el nombre. 12/11/2026 (tercera
+      | ronda): era un bloque del ancho de la foto (96) y los nombres largos se
+      | salían por los lados, encima de la chapa del vecino («CARVAJAL»), por
+      | mucho que `separaFichas` contara con su ancho. Ahora mide lo que su
+      | texto (`anchoChapa`), centrada bajo la cara.
+      */}
       <div
-        className="relative mx-auto -mt-2 flex flex-col items-center rounded-md px-1.5 py-0.5 text-center"
+        data-chapa
+        className="relative left-1/2 -mt-2 flex w-max -translate-x-1/2 flex-col items-center rounded-md px-1.5 py-0.5 text-center"
         style={{
           backgroundImage: `linear-gradient(180deg, ${COLORES.nocheAlto} 0%, ${COLORES.noche} 100%)`,
           ...(foco === "si" ? { backgroundImage: `linear-gradient(180deg, ${COLORES.rosa} 0%, ${COLORES.rosaHondo} 100%)` } : null),
@@ -746,6 +748,12 @@ function Ficha({
                 : "0 0 0 1px rgba(200,169,107,.42), 0 6px 12px rgba(0,0,0,.5)",
           minWidth: 54,
           height: CHAPA_H,
+          /*
+          | Apretada, encoge la cara pero no el nombre (12/11/2026, marketing:
+          | «Carvajal, Mario y Dani muy pequeños»): la chapa deshace la escala,
+          | colgada de su borde de arriba (`cajaChapa` cuenta con ello).
+          */
+          ...(compacta && foco !== "si" ? { scale: String(1 / ESCALA_APRETADA), transformOrigin: "50% 0" } : null),
         }}
       >
         <span className="whitespace-nowrap text-[15px] font-bold leading-[15px] tracking-[0.04em] text-white" style={foco === "si" ? { color: COLORES.navy } : undefined}>
@@ -1214,11 +1222,14 @@ function ChapaRival({
   editable,
   debajo = false,
   nombre = "",
+  nombreArriba = false,
   onPointerDown,
 }: {
   rival: RivalPizarra;
   /** Su apellido, del once probable (12/11/2026, jueces): debajo del disco. */
   nombre?: string;
+  /** Debajo no cabe sin tapar a nadie: el apellido va encima del disco (`apartaRivales`). */
+  nombreArriba?: boolean;
   /** Al enseñar, no cabe al lado de los nuestros: va por debajo de las caras. */
   debajo?: boolean;
   elegido: boolean;
@@ -1276,7 +1287,7 @@ function ChapaRival({
       {nombre && (
         <span
           className="pointer-events-none absolute left-1/2 -translate-x-1/2 whitespace-nowrap rounded-[4px] px-1.5 text-[13px] font-bold uppercase leading-[18px] tracking-[0.04em]"
-          style={{ top: lado + 2, backgroundColor: "#6E1622", color: "#FFFFFF", boxShadow: "0 0 0 1px rgba(255,255,255,.85)" }}
+          style={{ top: nombreArriba ? -24 : lado + 2, backgroundColor: "#6E1622", color: "#FFFFFF", boxShadow: "0 0 0 1px rgba(255,255,255,.85)" }}
         >
           {nombre}
         </span>
@@ -1285,8 +1296,6 @@ function ChapaRival({
   );
 }
 
-/** Lo que mide de ancho la placa con el apellido del rival (13 px, mayúsculas). */
-const anchoNombreRival = (nombre: string) => (nombre ? Math.round(nombre.length * 8.6 + 14) : 0);
 
 /**
  * Nuestro portero bajo palos en las láminas defensivas (07/11/2026): una
@@ -1296,9 +1305,22 @@ const anchoNombreRival = (nombre: string) => (nombre ? Math.round(nombre.length 
  * 12/11/2026 (jueces): con el portero del once, su cara en la chapa y su
  * nombre debajo. Sigue siendo pequeña: es la referencia, no la jugada.
  */
-function ChapaPorteroPropio({ x, y, player }: { x: number; y: number; player?: Player }) {
+function ChapaPorteroPropio({ x, y, player, ladoNombre = "abajo" }: { x: number; y: number; player?: Player; ladoNombre?: LadoNombre }) {
   const lado = 52;
   const nombre = (player?.apodo || player?.nombre || "").trim();
+  /*
+  | 12/11/2026 (jueces, falta directa defensiva): con Pol justo debajo, su
+  | cara tapaba el nombre («TRE»). El nombre va donde no lo tapa nadie
+  | (`ladoNombrePortero`): debajo, a un lado o encima.
+  */
+  const sitioNombre: React.CSSProperties | undefined =
+    ladoNombre === "derecha"
+      ? { position: "absolute", left: 60 + 30, top: 16 }
+      : ladoNombre === "izquierda"
+        ? { position: "absolute", right: 60 + 30, top: 16 }
+        : ladoNombre === "arriba"
+          ? { position: "absolute", left: "50%", transform: "translateX(-50%)", top: -26 }
+          : undefined;
 
   if (player?.foto) {
     return (
@@ -1317,8 +1339,8 @@ function ChapaPorteroPropio({ x, y, player }: { x: number; y: number; player?: P
         </div>
         {nombre && (
           <span
-            className="mt-1 rounded-md px-1.5 text-[15px] font-bold uppercase leading-[20px]"
-            style={{ background: COLORES.noche, color: "#FFFFFF", fontFamily: "var(--fuente-pizarra, inherit)", boxShadow: `inset 0 0 0 1px ${COLORES.oro}` }}
+            className={`${sitioNombre ? "" : "mt-1 "}whitespace-nowrap rounded-md px-1.5 text-[15px] font-bold uppercase leading-[20px]`}
+            style={{ ...sitioNombre, background: COLORES.noche, color: "#FFFFFF", fontFamily: "var(--fuente-pizarra, inherit)", boxShadow: `inset 0 0 0 1px ${COLORES.oro}` }}
           >
             {nombre.split(/\s+/)[0]}
           </span>
@@ -1727,11 +1749,21 @@ export function TableroSlide({
   const lineas = visibles.map((una) => una.linea);
   const origenLineas = visibles.map((una) => una.origen);
 
-  /* El número de cada consigna (los rótulos y la rutina no cuentan). */
-  const numeroConsigna = lineas.reduce<number[]>((numeros, linea) => {
-    const anterior = Math.max(0, ...numeros);
+  /*
+  | 12/11/2026 (tercera ronda de jueces): al enseñar, la letra es la promesa de
+  | encontrarla en el campo. Una consigna que no habla de nadie de la lámina
+  | («Reorganización a dos líneas de 4 tras despeje») sale con un punto, sin
+  | letra; las demás se pegan a quien nombran, a su papel o a su grupo (ver
+  | `anclasDeConsignas`). Al editar, todas llevan letra, como siempre.
+  */
+  const anclas = soloVer ? anclasDeConsignas(lineas, slide, slide.fichas.filter(enElCampo), players) : null;
 
-    return [...numeros, linea.tipo === "consigna" ? anterior + 1 : 0];
+  /* El número de cada consigna (los rótulos y la rutina no cuentan; al enseñar, tampoco las que no tienen ancla). */
+  const numeroConsigna = lineas.reduce<number[]>((numeros, linea, indice) => {
+    const anterior = Math.max(0, ...numeros);
+    const cuenta = linea.tipo === "consigna" && (!anclas || anclas[indice] != null);
+
+    return [...numeros, cuenta ? anterior + 1 : 0];
   }, []);
 
   /*
@@ -1741,30 +1773,15 @@ export function TableroSlide({
   | consigna, para leer «B» en el panel y encontrarla en el campo.
   */
   const letraConsigna = (n: number) => (n > 0 ? String.fromCharCode(64 + Math.min(26, n)) : "");
-  const letrasPorFicha = new Map<string, string[]>();
 
-  /*
-  | En las directas la misma cara sale en varias zonas y cada consigna es el
-  | orden de una zona («Penalti: 1.º Pol, 2.º Leiva…»): con letras, cada cara
-  | acababa con «A·B·C·D» encima (12/11/2026). Ahí no se ponen.
-  */
-  lineas.forEach((linea, indice) => {
-    if (linea.tipo !== "consigna" || admiteRepetidos(slide)) return;
+  /* La letra de cada consigna con su ancla, para pintarla en el campo (sólo al enseñar). */
+  const letrasEnCampo = anclas
+    ? lineas.flatMap((_, indice) => {
+        const ancla = anclas[indice];
 
-    const texto = sinTildesBajo(linea.texto);
-
-    for (const ficha of slide.fichas.filter(enElCampo)) {
-      const player = players.get(ficha.playerId);
-      const nombres = [player?.apodo, player?.nombre?.split(/\s+/)[0]].filter((n): n is string => !!n && n.trim().length >= 3);
-
-      if (!nombres.some((nombre) => new RegExp(`(^|[^a-z0-9ñ])${sinTildesBajo(nombre).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z0-9ñ]|$)`).test(texto))) continue;
-
-      const letras = letrasPorFicha.get(ficha.id) ?? [];
-
-      letras.push(letraConsigna(numeroConsigna[indice]));
-      letrasPorFicha.set(ficha.id, letras);
-    }
-  });
+        return ancla ? [{ letra: letraConsigna(numeroConsigna[indice]), ancla }] : [];
+      })
+    : [];
 
   /*
   | 10/11/2026 (jueces): en lo exportado, un panel «Asignaciones 0/10» sin
@@ -2236,7 +2253,6 @@ export function TableroSlide({
       })
     : null;
 
-  const separadas = conChapas ? separaFichas(conChapas) : null;
 
   /*
   | 07/11/2026 (jueces, exportables): al enseñar, la lámina lleva también al
@@ -2254,56 +2270,31 @@ export function TableroSlide({
   | Sin once del rival, nada cambia.
   */
   const suOnce = soloVer ? (atacantes ?? []) : [];
-  const rivalesVistos = (() => {
-    const todosRivales = soloVer ? rivalesDeLaLamina(slide) : (slide.rivales ?? []);
-
-    if (!suOnce.length) return todosRivales;
-
-    const usados = new Set(todosRivales.map((uno) => String(uno.dorsal ?? "").trim()).filter(Boolean));
-    const libres = suOnce.filter((uno) => !uno.portero && !usados.has(uno.dorsal));
-
-    return todosRivales.map((uno) => {
-      if (String(uno.dorsal ?? "").trim() || uno.id.endsWith("sacador")) return uno;
-
-      const suyo = libres.shift();
-
-      return suyo ? { ...uno, dorsal: suyo.dorsal } : uno;
-    });
-  })();
-  const nombreDeRival = (uno: RivalPizarra) => {
-    const dorsal = String(uno.dorsal ?? "").trim();
-
-    if (!suOnce.length || !dorsal) return "";
-    if (/^p$/i.test(dorsal)) return suOnce.find((otro) => otro.portero)?.nombre ?? "";
-
-    return suOnce.find((otro) => otro.dorsal === dorsal)?.nombre ?? "";
-  };
-  const rivalesConNombre = rivalesVistos.map((uno) => ({ ...uno, chapa: anchoNombreRival(nombreDeRival(uno)) }));
+  const rivalesVistos = rivalesConDorsal(soloVer ? rivalesDeLaLamina(slide) : (slide.rivales ?? []), suOnce);
+  const nombreDeRival = (uno: RivalPizarra) => nombreDeRivalEn(uno, suOnce);
   const porteroPropio =
     soloVer && !slide.fichas.some((ficha) => esPortero(players.get(ficha.playerId))) ? porteroPropioDeLaLamina(slide) : null;
+  const elPortero = portero ? players.get(portero) : undefined;
+  const nombrePortero = elPortero?.foto ? ((elPortero.apodo || elPortero.nombre || "").trim().split(/\s+/)[0] ?? "") : "";
 
-  /* Y los rivales, que no tapen a los nuestros: se apartan o van por debajo. */
-  const apartados = soloVer ? apartaRivales(rivalesConNombre, conChapas ?? enCampo, separadas) : null;
-
-  /* La letra de cada consigna, donde no tape ningún nombre (ver `colocaInsignias`). */
-  const insignias = soloVer
-    ? colocaInsignias(
-        enCampo.flatMap((ficha) => {
-          const letras = letrasPorFicha.get(ficha.id);
-
-          if (!letras?.length) return [];
-
-          const separada = separadas?.get(ficha.id);
-          const texto = letras.join("·");
-
-          return [{ id: ficha.id, x: separada?.x ?? ficha.x, y: ficha.y, k: separada?.compacta ? ESCALA_APRETADA : 1, w: Math.max(34, texto.length * 13 + 12), h: 34 }];
-        }),
-        conChapas ?? enCampo,
-        separadas,
-        rivalesConNombre.map((uno) => ({ ...uno, ...(apartados?.get(uno.id) ?? {}) })),
-        porteroPropio ? [{ x0: porteroPropio.x - 60, x1: porteroPropio.x + 60, y0: porteroPropio.y - 60, y1: porteroPropio.y + 26 }] : [],
-      )
-    : null;
+  /*
+  | Todo lo que se coloca al enseñar, de una vez y sin tapar ningún nombre
+  | (12/11/2026, tercera ronda): nuestras caras sin pisarse ni pisar el
+  | nombre de nuestro portero, los rivales con su apellido donde no tapen ni
+  | les tapen, y la letra de cada consigna junto a quien nombra. Ver
+  | `lib/abp/coloca-lamina.ts`; el arnés de los exportables usa lo mismo.
+  */
+  const colocada =
+    soloVer && conChapas
+      ? colocaLamina({
+          fichas: conChapas,
+          rivales: rivalesVistos.map((uno) => ({ ...uno, chapa: anchoNombreRival(nombreDeRival(uno)) })),
+          portero: porteroPropio ? { ...porteroPropio, nombre: anchoNombrePortero(nombrePortero) } : null,
+          letras: letrasEnCampo,
+        })
+      : null;
+  const separadas = colocada?.separadas ?? null;
+  const apartados = colocada?.apartados ?? null;
 
   /* El encuadre cuenta también a los rivales que se han apartado un paso por delante de la fila. */
   const maqueta = maquetaDe(conPanel, franja, soloVer ? cajaDeJugada(slide, apartados ? [...apartados.values()] : []) : null);
@@ -2706,36 +2697,30 @@ export function TableroSlide({
             rival={apartados?.has(rival.id) ? { ...rival, x: apartados.get(rival.id)!.x, y: apartados.get(rival.id)!.y } : rival}
             debajo={apartados?.get(rival.id)?.debajo ?? false}
             nombre={nombreDeRival(rival)}
+            nombreArriba={apartados?.get(rival.id)?.nombreArriba ?? false}
             elegido={!soloVer && rivalElegido === rival.id}
             editable={!esImplicito(rival) && editaTrazos && herramienta === "mover"}
             onPointerDown={(event) => empiezaRival(event, rival)}
           />
         ))}
 
-        {porteroPropio && <ChapaPorteroPropio x={porteroPropio.x} y={porteroPropio.y} player={portero ? players.get(portero) : undefined} />}
+        {porteroPropio && (
+          <ChapaPorteroPropio x={porteroPropio.x} y={porteroPropio.y} player={elPortero} ladoNombre={colocada?.ladoPortero} />
+        )}
 
-        {/* La letra de cada consigna junto a la figura que nombra (sólo al enseñar). */}
-        {soloVer &&
-          enCampo.map((ficha) => {
-            const letras = letrasPorFicha.get(ficha.id);
-
-            if (!letras?.length) return null;
-
-            const x = separadas?.get(ficha.id)?.x ?? ficha.x;
-            const sitio = insignias?.get(ficha.id);
-
-            return (
+        {/* La letra de cada consigna junto a quien nombra —una figura o su grupo— (sólo al enseñar). */}
+        {colocada?.letras.map((una) => (
               <span
-                key={`letra-${ficha.id}`}
+                key={`letra-${una.id}`}
                 data-letra-consigna
                 className="pointer-events-none absolute flex items-center justify-center rounded-md font-bold"
                 style={{
-                  left: sitio?.left ?? x + FOTO_W / 2 - 14,
-                  top: sitio?.top ?? ficha.y - FOTO_H - 18,
-                  minWidth: 34,
+                  left: una.left,
+                  top: una.top,
+                  width: una.w,
                   whiteSpace: "nowrap",
-                  height: 34,
-                  padding: "0 6px",
+                  height: una.h,
+                  padding: "0 4px",
                   fontSize: 22,
                   backgroundColor: COLORES.navy,
                   color: COLORES.oroClaro,
@@ -2744,10 +2729,9 @@ export function TableroSlide({
                   fontFamily: "var(--fuente-pizarra, inherit)",
                 }}
               >
-                {letras.join("·")}
+                {una.texto}
               </span>
-            );
-          })}
+        ))}
 
         {balon && <BalonEnJuego x={balon.x} y={balon.y} />}
         {!balon && saque && <BalonEnJuego x={saque.balon.x} y={saque.balon.y} />}
@@ -3157,8 +3141,16 @@ export function TableroSlide({
                               </TextoEnSitio>
                             </span>
 
+                            {/*
+                            | 12/11/2026 (jueces): «AGUAD…» y «FOR…» al lado de «Al 9
+                            | MARCO · 1,83». Al enseñar, el nombre entero y lo que
+                            | quiere decir la sigla pasa a dos renglones antes de
+                            | cortarle a nadie el apellido.
+                            */}
                             <span
-                              className={`min-w-0 flex-1 truncate font-semibold uppercase tracking-[0.02em] ${
+                              className={`font-semibold uppercase tracking-[0.02em] ${
+                                soloVer ? "shrink-0 whitespace-nowrap" : "min-w-0 flex-1 truncate"
+                              } ${
                                 panelDenso ? "text-[21px]" : "text-[24px]"
                               } ${player ? "text-white" : "text-white/60"}`}
                             >
@@ -3172,7 +3164,7 @@ export function TableroSlide({
                             */}
                             {/* 12/11/2026 (jueces): a 14 px y al 60 % quedaba en unos 8 px grises en el PDF; ahora 17 px casi blanco. */}
                             {soloVer && player && significadoPuesto(puesto, grupo.label) && (
-                              <span className="max-w-[48%] shrink-0 text-right text-[17px] font-medium normal-case leading-tight text-white/85">
+                              <span className="min-w-0 flex-1 text-right text-[17px] font-medium normal-case leading-tight text-white/85">
                                 {significadoPuesto(puesto, grupo.label)}
                               </span>
                             )}
@@ -3185,7 +3177,7 @@ export function TableroSlide({
                             */}
                             {pideDorsal(slide, puesto) && (
                               <span
-                                className="flex shrink-0 items-center justify-center rounded-[4px] text-[18px] font-black tabular-nums"
+                                className="ml-auto flex shrink-0 items-center justify-center rounded-[4px] text-[18px] font-black tabular-nums"
                                 style={{
                                   width: 44,
                                   height: 24,
@@ -3341,18 +3333,29 @@ export function TableroSlide({
                       className="mb-2 flex items-start gap-3 font-semibold leading-[1.25]"
                       style={{ color: COLORES.navy, breakInside: "avoid", fontSize: letra.texto }}
                     >
-                      <span
-                        className="flex shrink-0 items-center justify-center rounded-md font-bold tabular-nums"
-                        style={{
-                          minWidth: letra.texto * 1.25,
-                          height: letra.texto * 1.25,
-                          fontSize: letra.texto * 0.8,
-                          backgroundColor: COLORES.navy,
-                          color: COLORES.oroClaro,
-                        }}
-                      >
-                        {letraConsigna(numeroConsigna[indice])}
-                      </span>
+                      {numeroConsigna[indice] > 0 ? (
+                        <span
+                          className="flex shrink-0 items-center justify-center rounded-md font-bold tabular-nums"
+                          style={{
+                            minWidth: letra.texto * 1.25,
+                            height: letra.texto * 1.25,
+                            fontSize: letra.texto * 0.8,
+                            backgroundColor: COLORES.navy,
+                            color: COLORES.oroClaro,
+                          }}
+                        >
+                          {letraConsigna(numeroConsigna[indice])}
+                        </span>
+                      ) : (
+                        /* Sin nadie de la lámina a quien pegarla: un punto, no una letra que el campo no tiene. */
+                        <span
+                          aria-hidden
+                          className="flex shrink-0 items-center justify-center"
+                          style={{ minWidth: letra.texto * 1.25, height: letra.texto * 1.25 }}
+                        >
+                          <span className="rounded-full" style={{ width: letra.texto * 0.34, height: letra.texto * 0.34, backgroundColor: COLORES.navy }} />
+                        </span>
+                      )}
 
                       <span className={editaTextos ? "min-w-0 flex-1" : "min-w-0"}>
                         {lineaEnSitio(indice, sinNumeroDeOrden(linea.texto))}

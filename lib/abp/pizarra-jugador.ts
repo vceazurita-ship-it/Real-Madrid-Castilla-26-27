@@ -149,7 +149,16 @@ export type CometidoAccion = {
    * flechas de sus compañeros de zona (12/11/2026: salían fuera del encuadre).
    */
   marco?: { x: number; y: number }[];
+  /**
+   * Todas las flechas de la lámina, de punta a punta (12/11/2026, análisis: en
+   * la hoja de Pol el recorte cortaba la flecha del balón y la del rechace por
+   * el borde). La que asoma en el recorte entra entera.
+   */
+  flechas?: { x0: number; y0: number; x1: number; y1: number }[];
 };
+
+/** Lo que ocupa algo en la foto de la lámina (píxeles de la foto): el «TÚ» no lo tapa. */
+export type CajaFoto = { x0: number; y0: number; x1: number; y1: number };
 
 /* ------------------------- base y orden ------------------------- */
 
@@ -724,6 +733,12 @@ function cometidosCrudos(
           .map((ficha) => ({ x: ficha.x, y: ficha.y })),
         base: baseDe(tablero, indice, marcado ? "propuesta" : marcaDorsal ? "dibujo" : ""),
         marco,
+        flechas: (slide.trazos ?? []).map((t) => {
+          const xs = [t.x1, t.x2, ...(t.cx != null ? [t.cx] : [])];
+          const ys = [t.y1, t.y2, ...(t.cy != null ? [t.cy] : [])];
+
+          return { x0: Math.min(...xs) - 20, y0: Math.min(...ys) - 20, x1: Math.max(...xs) + 20, y1: Math.max(...ys) + 20 };
+        }),
       },
     ];
   });
@@ -1119,16 +1134,49 @@ function dibujaResumen(ctx: Ctx, cx: Contexto, acciones: CometidoAccion[], suyos
     /* Lo que hace, no sólo el puesto (segunda ronda de jueces): «Arrancas en la fase 2 · atacas el 2.º palo». */
     const detalle = (titulares(accion, suyos).grande || [accion.puestos.map((p) => p.label).join(" · "), accion.rival].filter(Boolean).join(" · ")).toUpperCase();
 
-    ctx.fillStyle = C.navy;
-    ajusta(ctx, accion.titulo.toUpperCase(), maxW, Math.min(46, alto * 0.36), 700, 1);
-    textoEspaciado(ctx, accion.titulo.toUpperCase(), tx, top + (detalle ? alto * 0.47 : alto / 2 + 14), 1);
+    /*
+    | 12/11/2026 (tercera ronda, fútbol: en la portada de Pol «×4 TIRAS: falta
+    | frontal (2.º), penalti (2.º)…» salía a unos 8 pt). El detalle va siempre
+    | al cuerpo de los demás subtítulos; si no cabe en un renglón, en dos (y
+    | el título sube para dejarle sitio). Sólo si ni en dos cabe, se corta.
+    */
+    const pxDetalle = Math.min(34, alto * 0.27);
+    const lineasDetalle = (() => {
+      if (!detalle) return [];
 
-    if (detalle) {
+      fuente(ctx, pxDetalle, 600);
+
+      if (anchoEspaciado(ctx, detalle, 1) <= maxW) return [detalle];
+
+      /* En dos renglones, las zonas de las directas en corto: «LATERAL IZQ. (3.º)» y no «FALTA LATERAL IZQUIERDA (3.º)». */
+      const corto = detalle
+        .replace(/FALTA LATERAL IZQUIERDA/g, "LATERAL IZQ.")
+        .replace(/FALTA LATERAL DERECHA/g, "LATERAL DCHA.")
+        .replace(/FALTA FRONTAL/g, "FRONTAL");
+
+      /* El primer renglón, tantas palabras como quepan (medidas con su espaciado); el resto, al segundo. */
+      const palabras = corto.split(" ");
+      let corte = 1;
+
+      while (corte < palabras.length && anchoEspaciado(ctx, palabras.slice(0, corte + 1).join(" "), 1) <= maxW) corte += 1;
+
+      const resto = palabras.slice(corte).join(" ");
+
+      return resto ? [palabras.slice(0, corte).join(" "), recorta(ctx, resto, maxW)] : [corto];
+    })();
+    const dosRenglones = lineasDetalle.length > 1;
+
+    ctx.fillStyle = C.navy;
+    ajusta(ctx, accion.titulo.toUpperCase(), maxW, Math.min(dosRenglones ? 40 : 46, alto * 0.36), 700, 1);
+    textoEspaciado(ctx, accion.titulo.toUpperCase(), tx, top + (dosRenglones ? alto * 0.33 : detalle ? alto * 0.47 : alto / 2 + 14), 1);
+
+    if (lineasDetalle.length) {
       /* Tinta de la paleta: el verde oscuro sobre crema no se leía (12/11/2026, marketing). */
       ctx.fillStyle = accion.lado === "ofensivo" ? TINTA_SUAVE : "#7A1F2B";
-      ajusta(ctx, detalle, maxW, Math.min(34, alto * 0.27), 600, 1);
-      /* Ni a la letra más pequeña cabe (las directas): se corta por palabras, sin montarse en el tipo de la derecha. */
-      textoEspaciado(ctx, recorta(ctx, detalle, maxW), tx, top + alto * 0.8, 1);
+      fuente(ctx, pxDetalle, 600);
+      lineasDetalle.forEach((linea, i) =>
+        textoEspaciado(ctx, recorta(ctx, linea, maxW), tx, top + (dosRenglones ? alto * 0.6 + i * (pxDetalle + 4) : alto * 0.8), 1),
+      );
     }
   });
 
@@ -1176,7 +1224,7 @@ const CAMPO_MAX_HOJA = 1180;
  * abajo), sus flechas, el rival que marca y el balón, con aire alrededor.
  * Nunca sale del césped: ni la cabecera, ni el panel, ni las consignas.
  */
-function encuadre(accion: CometidoAccion, yo: { x: number; y: number } | null, marco: MarcoCaptura): Encuadre {
+function encuadre(accion: CometidoAccion, yo: { x: number; y: number } | null, marco: MarcoCaptura, pintado: CajaFoto[] = []): Encuadre {
   const { k, dx, dy, campo } = marco;
   const cajas: { x0: number; y0: number; x1: number; y1: number }[] = [];
   const caja = (p: { x: number; y: number }, m: typeof FICHA) =>
@@ -1232,8 +1280,12 @@ function encuadre(accion: CometidoAccion, yo: { x: number; y: number } | null, m
   let r = recorte();
 
   for (let pasada = 0; pasada < 3; pasada += 1) {
-    const cortados = accion.otros
-      .map((p) => ({ x0: dx + (p.x - FICHA.izq) * k, y0: dy + (p.y - FICHA.arriba) * k, x1: dx + (p.x + FICHA.der) * k, y1: dy + (p.y + FICHA.abajo) * k }))
+    const cortados = [
+      ...accion.otros.map((p) => ({ x0: dx + (p.x - FICHA.izq) * k, y0: dy + (p.y - FICHA.arriba) * k, x1: dx + (p.x + FICHA.der) * k, y1: dy + (p.y + FICHA.abajo) * k })),
+      ...(accion.flechas ?? []).map((f) => ({ x0: dx + f.x0 * k, y0: dy + f.y0 * k, x1: dx + f.x1 * k, y1: dy + f.y1 * k })),
+      /* Lo pintado (rivales con su apellido, letras, chapas): el que asoma, entero (ya en píxeles de la foto). */
+      ...pintado,
+    ]
       .filter((c) => {
         const asoma = c.x1 > r.sx && c.x0 < r.sx + r.sw && c.y1 > r.sy && c.y0 < r.sy + r.sh;
         const entero = c.x0 >= r.sx && c.x1 <= r.sx + r.sw && c.y0 >= r.sy && c.y1 <= r.sy + r.sh;
@@ -1265,6 +1317,8 @@ function resalta(
   /** Su cara y su nombre, para la hoja del portero (que no tiene ficha). */
   retrato: HTMLImageElement | null = null,
   nombre = "",
+  /** Lo que hay pintado en la foto (letras, chapas, rivales, portero), medido en el DOM. */
+  obstaculos: CajaFoto[] = [],
 ) {
   const z = HOJA_W / enc.sw;
   /* Los tamaños, de la ficha en la foto: si la pizarra acercó el campo, el aro crece con ella. */
@@ -1328,12 +1382,40 @@ function resalta(
       { x: yo.x, y: yo.y - radioYo - 10 },
       { x: yo.x + radioYo + 38, y: yo.y - radioYo * 0.35 },
       { x: yo.x - radioYo - 38, y: yo.y - radioYo * 0.35 },
+      { x: yo.x + radioYo * 0.8 + 30, y: yo.y - radioYo - 6 },
+      { x: yo.x - radioYo * 0.8 - 30, y: yo.y - radioYo - 6 },
+      { x: yo.x + radioYo + 38, y: yo.y + radioYo * 0.5 },
+      { x: yo.x - radioYo - 38, y: yo.y + radioYo * 0.5 },
       { x: yo.x, y: yo.y + radioYo + 12 },
+      /* Si pegado al aro todo tapa algún nombre (una melé de córner), un paso más lejos. */
+      ...[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((g) => {
+        const a = (g / 12) * Math.PI * 2 - Math.PI / 2;
+
+        return { x: yo.x + Math.cos(a) * (radioYo + 80), y: yo.y + Math.sin(a) * (radioYo + 50) };
+      }),
     ].filter((p) => p.y - 23 > 4 && p.y + 23 < enc.alto - 4 && p.x - 48 > 0 && p.x + 48 < HOJA_W);
     const aire = (p: { x: number; y: number }) =>
       Math.min(9999, ...ocupados.map((o) => Math.hypot((o.x - p.x) / 1.5, o.y - p.y)), ...(suyo ? [Math.hypot((suyo.x - p.x) / 1.5, suyo.y - p.y)] : []));
+    /*
+    | 12/11/2026 (tercera ronda: en la hoja de Pol el «TÚ» tapaba la letra
+    | «C» de la consigna). Además de las caras, lo que hay pintado en la foto
+    | —letras, chapas con nombre, rivales con su apellido, nuestro portero—:
+    | el «TÚ» va donde no pisa nada de eso.
+    */
+    const cajas = obstaculos.map((o) => ({ x0: (o.x0 - enc.sx) * z, x1: (o.x1 - enc.sx) * z, y0: (o.y0 - enc.sy) * z, y1: (o.y1 - enc.sy) * z }));
+    const pisa = (p: { x: number; y: number }) =>
+      cajas.reduce((suma, o) => {
+        const w = Math.min(p.x + 44, o.x1) - Math.max(p.x - 44, o.x0);
+        const h = Math.min(p.y + 23, o.y1) - Math.max(p.y - 23, o.y0);
 
-    return candidatos.find((p) => aire(p) > 52 * s) ?? [...candidatos].sort((a, b) => aire(b) - aire(a))[0] ?? { x: yo.x, y: yo.y - radioYo - 10 };
+        return suma + (w > 0 && h > 0 ? w * h : 0);
+      }, 0);
+
+    return (
+      candidatos.find((p) => pisa(p) === 0 && aire(p) > 52 * s) ??
+      candidatos.find((p) => pisa(p) === 0) ??
+      [...candidatos].sort((a, b) => pisa(a) - pisa(b) || aire(b) - aire(a))[0] ?? { x: yo.x, y: yo.y - radioYo - 10 }
+    );
   })();
 
   if (suyo) {
@@ -1414,6 +1496,21 @@ function resalta(
     ctx.strokeStyle = C.rosa;
     ctx.lineWidth = 7;
     ctx.stroke();
+
+    /* Apartado del aro para no tapar un nombre: un trazo rosa lo ata a él. */
+    const lejos = Math.hypot(sitioChapa.x - yo.x, sitioChapa.y - yo.y);
+
+    if (lejos > radio + 60) {
+      const ux = (sitioChapa.x - yo.x) / lejos;
+      const uy = (sitioChapa.y - yo.y) / lejos;
+
+      ctx.strokeStyle = C.rosa;
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(yo.x + ux * radio, top + yo.y + uy * radio);
+      ctx.lineTo(sitioChapa.x - ux * 30, top + sitioChapa.y - uy * 18);
+      ctx.stroke();
+    }
 
     chapa(ctx, "TÚ", {
       x: sitioChapa.x,
@@ -1676,6 +1773,7 @@ function planAccion(
   conTablero: boolean,
   marco: MarcoCaptura,
   suyos: Map<string, SuJugador> | undefined,
+  pintado: CajaFoto[] = [],
 ): PlanAccion {
   const enFoto = (p: { x: number; y: number }) => ({ x: marco.dx + p.x * marco.k, y: marco.dy + p.y * marco.k });
   /* El portero: su chapa «POR» medida en el DOM (`punto`) o, si no, su disco (30 px por encima de los pies). */
@@ -1685,7 +1783,7 @@ function planAccion(
   /* Cara y nombre de cada uno de los demás, en la foto. */
   const otros = accion.otros.flatMap((p) => [enFoto({ x: p.x, y: p.y - 50 }), enFoto({ x: p.x, y: p.y + 4 })]);
   const marca = accion.marcaPunto ? enFoto({ x: accion.marcaPunto.x, y: accion.marcaPunto.y - 30 }) : null;
-  const enc = conTablero ? encuadre(accion, yo, marco) : null;
+  const enc = conTablero ? encuadre(accion, yo, marco, pintado) : null;
 
   const medida = midiendo();
   const { grande, debajo } = titulares(accion, suyos);
@@ -1724,6 +1822,7 @@ function dibujaAccion(
   acciones: number,
   volver = false,
   retrato: HTMLImageElement | null = null,
+  obstaculos: CajaFoto[] = [],
 ): ZonaHoja | null {
   cabecera(ctx, cx, acciones > 1 ? `ACCIÓN ${orden} DE ${acciones}` : "BALÓN PARADO");
 
@@ -1739,7 +1838,7 @@ function dibujaAccion(
     ctx.fillRect(0, yCampo - 8, HOJA_W, 8);
     ctx.imageSmoothingQuality = "high";
     ctx.drawImage(tablero, enc.sx * k, enc.sy * k, enc.sw * k, enc.sh * k, 0, yCampo, HOJA_W, enc.alto);
-    resalta(ctx, enc, yCampo, yo, marca, accion, otros, accion.sinFicha ? retrato : null, nombreCorto(cx.player));
+    resalta(ctx, enc, yCampo, yo, marca, accion, otros, accion.sinFicha ? retrato : null, nombreCorto(cx.player), obstaculos);
 
     ctx.fillStyle = C.rosa;
     ctx.fillRect(0, yCampo + enc.alto, HOJA_W, 8);
@@ -1828,6 +1927,8 @@ export async function pdfJugador(opciones: {
   tableros: (CanvasImageSource | null)[];
   puntos?: ({ x: number; y: number } | null)[];
   marcos?: (MarcoCaptura | null)[];
+  /** Lo pintado en cada foto (letras, chapas, rivales, portero): el «TÚ» no lo tapa. */
+  obstaculos?: (CajaFoto[] | null)[];
   suyos?: Map<string, SuJugador>;
   rival: string;
   jornada?: string;
@@ -1862,10 +1963,10 @@ export async function pdfJugador(opciones: {
   acciones.forEach((accion, orden) => {
     const tablero = opciones.tableros[orden] ?? null;
     const marco = opciones.marcos?.[orden] ?? MARCO_PLANO;
-    const plan = planAccion(accion, opciones.puntos?.[orden] ?? null, Boolean(tablero), marco, opciones.suyos);
+    const plan = planAccion(accion, opciones.puntos?.[orden] ?? null, Boolean(tablero), marco, opciones.suyos, opciones.obstaculos?.[orden] ?? []);
     const hoja = lienzo(plan.alto);
 
-    vueltas.push(dibujaAccion(hoja.ctx, cx, accion, tablero, plan, orden + 1, acciones.length, conResumen, retrato));
+    vueltas.push(dibujaAccion(hoja.ctx, cx, accion, tablero, plan, orden + 1, acciones.length, conResumen, retrato, opciones.obstaculos?.[orden] ?? []));
     hojas.push(hoja.canvas);
   });
 

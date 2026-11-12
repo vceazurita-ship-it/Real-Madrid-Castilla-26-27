@@ -648,6 +648,8 @@ export const AYUDAS: AyudaDePagina[] = [
           {
             que: "PDF por jugador",
             es: "Uno vertical por jugador para WhatsApp: portada con rival · jornada · día y hora y la lista de sus acciones (ofensiva con flecha, defensiva con escudo); en cada hoja «Acción n de N», su cara con «TÚ» pegado al aro y «Volver al resumen»",
+            cuenta:
+              "Las láminas se fotografían con el once del rival ya cargado (dorsal y apellido, como en el PDF general; si tarda, se espera hasta 25 s) y con la letra de la pizarra. El «TÚ» va donde no tapa ninguna letra, chapa ni rival (si pegado al aro no cabe, un paso más lejos con un trazo rosa); el recorte deja entera toda flecha, rival o chapa que asome. En la portada, lo que hace en cada acción va a la letra de los demás subtítulos, en dos renglones si hace falta",
           },
           { que: "Rival implícito", es: "En las defensivas sin rivales dibujados se pinta un atacante por marca, con el dorsal de «Quién marca a quién»" },
           {
@@ -656,17 +658,31 @@ export const AYUDAS: AyudaDePagina[] = [
             cuenta: "Sin once del rival se queda como estaba; el sacador del saque de banda no se adivina",
           },
           { que: "M3 →9", es: "El dorsal decidido va dentro de la chapa de quien marca, no en una casilla suelta encima de la cabeza" },
-          { que: "Al 8 Montalvo · 1,80", es: "En el panel exportado: a quién marca cada uno, con su altura si se sabe" },
-          { que: "Portero", es: "En las defensivas, el del once de la pizarra táctica bajo palos (su cara y su nombre)" },
+          {
+            que: "Al 8 Montalvo · 1,80",
+            es: "En el panel exportado: a quién marca cada uno, con su altura si se sabe; si no cabe al lado del nombre, pasa a dos renglones (el nombre no se corta)",
+          },
+          {
+            que: "Portero",
+            es: "En las defensivas, el del once de la pizarra táctica bajo palos (su cara y su nombre); el nombre va debajo, a un lado o encima, donde no lo tape nadie",
+          },
+          {
+            que: "Ningún nombre tapado",
+            es: "Al enseñar y exportar, ninguna chapa, apellido de rival, nombre del portero ni letra queda debajo de otra cosa",
+            cuenta:
+              "Nuestras caras se abren hasta 64 px a cada lado y, si no basta, se pintan algo más pequeñas (la chapa con el nombre no encoge) y se abren hasta 110 px. Cada rival busca el sitio libre más cercano (hasta 260 px, primero a los lados y por delante) con su apellido debajo o, si no cabe, encima: la chapa de su marca ya dice su dorsal («M2 →5»). Motor común en lib/abp/coloca-lamina.ts",
+          },
           {
             que: "Letras A, B, C… en el campo",
-            es: "Junto a quien nombra cada consigna, en el primer sitio alrededor de su figura que no tapa ningún nombre, rival ni otra letra",
-            cuenta: "Mismo motor (lib/abp/separa.ts) para el PDF general, el PowerPoint y el PDF de cada jugador; en las directas no se ponen",
+            es: "Junto a quien nombra cada consigna; si no nombra a nadie, junto a su papel («Centrales…», «Cortas…») o a su grupo («Marcas: …», «En barreras…»), con una sola letra para un grupo o para dos o tres que están juntos",
+            cuenta:
+              "La consigna que no habla de nadie de la lámina sale con un punto en vez de letra, para no prometer una letra que el campo no tiene. En las directas no se ponen",
           },
           {
             que: "Línea DATO",
             es: "Al pie de cada lámina y de cada acción del PDF por jugador: la cifra del rival que la sostiene, con su base y su puesto entre los 20",
-            cuenta: "Sale de la misma comparativa de Wyscout que el informe de ABP (córners o faltas que saca o concede y su % de remate; en faltas directas, los penaltis). El saque de banda no lo mide Wyscout: sin línea",
+            cuenta:
+              "Sale de la misma comparativa de Wyscout que el informe de ABP (córners o faltas que saca o concede y su % de remate; en faltas directas, los penaltis). Lo que concede se cuenta desde el que menos («8.º de 20 (menos es mejor para ellos)»); un % con menos de 25 acciones detrás lleva «tendencia». El saque de banda no lo mide Wyscout: sin línea",
           },
           { que: "J12 · vie 13 nov · 21:15", es: "Bajo el rival de la cabecera y en el pie del PDF: la jornada y el día y hora del calendario de BeSoccer, con «lámina n de N»" },
           { que: "Leyenda de flechas", es: "Dos filas fijas (flechas arriba; rival y fases abajo), del ancho justo de lo que la lámina dibuja" },
@@ -683,6 +699,11 @@ export const AYUDAS: AyudaDePagina[] = [
           {
             que: "Consignas genéricas",
             es: "«Orden de lanzamiento cerrado antes del partido» y «Despeje expeditivo con la pierna corta» no salen: en su lugar, el orden de lanzadores de cada zona o los papeles de la lámina",
+          },
+          {
+            que: "Consignas que contradicen la lámina",
+            es: "La que da a alguien un papel que no tiene en la lámina («parejas de bloqueo Joan-Mario» con Joan de rematador, «Cestero saca a corta» con Cestero de rechace largo) sale cambiada, en su sitio, por las de la lámina",
+            cuenta: "El verbo del papel (saca, bloqueo, rechace) se ata al nombre que tiene más cerca en la frase",
           },
           { que: "Lo guardado", es: "No se toca: lo que escribes sigue en la pizarra; sólo cambia lo que sale en el PDF, el PowerPoint y el PDF de cada jugador" },
         ],

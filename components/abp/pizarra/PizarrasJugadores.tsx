@@ -29,6 +29,7 @@ import { filasParaPdf } from "@/lib/abp/pizarra-jugador";
 import { porteroDelOnce, usePorteroDelOnce } from "@/components/abp/pizarra/usePorteroDelOnce";
 import { useDatosMarcas } from "@/components/abp/pizarra/useDatosMarcas";
 import { conMarcasPropuestas } from "@/lib/abp/marcas-datos";
+import { atacantesDelPanel } from "@/lib/abp/marcas-corner";
 import { consignasParaExportar } from "@/lib/abp/consignas-exportar";
 import { nombreRivalPieza } from "@/lib/abp/nombre-rival";
 import { nombreCorto } from "@/lib/abp/pizarra-jugador";
@@ -126,6 +127,9 @@ export function PizarrasJugadores({
       escudoRival,
       ids,
       vuelta: `${window.location.pathname}${window.location.search.replace(/[?&]pdfs=1/, "")}`,
+      /* Su once y nuestro portero, si ya han llegado; si no, la mesa los espera (12/11/2026). */
+      ...(datosMarcas ? { atacantes: atacantesDelPanel(datosMarcas.atacantes) } : {}),
+      ...(portero ? { portero } : {}),
     };
 
     const aceptado = que === "pdf" ? trabajoPdfs.encarga(pedido) : trabajoPdfs.encargaVideos(pedido);

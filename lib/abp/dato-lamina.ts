@@ -24,21 +24,32 @@ import { mismoClub } from "@/lib/rivals/mismoClub";
 const coma = (valor: number, decimales: number) => valor.toFixed(decimales).replace(".", ",");
 
 /** El puesto en palabras, contado desde el que más: «el que más de los 20», «3.º que más de 20», «2.º que menos de 20». */
-function puestoEnPalabras(valor: number, todos: number[]) {
+function puestoEnPalabras(valor: number, todos: number[], menosEsMejor = false) {
   const n = todos.length;
 
   if (n < 3) return "";
 
   const desdeArriba = todos.filter((otro) => otro > valor + 1e-9).length + 1;
+  const desdeAbajo = todos.filter((otro) => otro < valor - 1e-9).length + 1;
 
   /* Empatado con otros, «el que más» no es verdad: el puesto a secas. */
-  if (todos.filter((otro) => Math.abs(otro - valor) <= 1e-9).length > 1) return `${desdeArriba}.º de ${n}, empatado`;
+  if (todos.filter((otro) => Math.abs(otro - valor) <= 1e-9).length > 1) return `${menosEsMejor ? desdeAbajo : desdeArriba}.º de ${n}, empatado`;
 
   if (desdeArriba === 1) return `el que más de los ${n}`;
   if (desdeArriba === n) return `el que menos de los ${n}`;
 
+  /*
+  | Lo que concede (12/11/2026, tercera ronda, fútbol): «8.º que menos de 20»
+  | no se leía; el puesto se cuenta desde el que menos y se dice qué es lo
+  | bueno para ellos.
+  */
+  if (menosEsMejor) return `${desdeAbajo}.º de ${n} (menos es mejor para ellos)`;
+
   return desdeArriba > n / 2 ? `${n - desdeArriba + 1}.º que menos de ${n}` : `${desdeArriba}.º que más de ${n}`;
 }
+
+/** Con menos de 25 acciones detrás, un porcentaje es una tendencia, no un dato firme (como en el informe del partido). */
+const BASE_FIRME = 25;
 
 /** Su fila en la comparativa, sólo si hay UNA: con dos candidatos, mejor callar que hablar de otro equipo. */
 export function filaDelRival(comparativa: ComparativaAbp | null | undefined, rival: string): FilaEquipoAbp | null {
@@ -87,14 +98,14 @@ export function datoDeLamina(plantilla: string, comparativa: ComparativaAbp | nu
   const partes: string[] = [];
 
   if (volumen != null) {
-    const puesto = puestoEnPalabras(volumen, columna(mira.volumen, mira.lado));
+    const puesto = puestoEnPalabras(volumen, columna(mira.volumen, mira.lado), mira.lado === "contra");
 
     partes.push(`${mira.verbo} ${coma(volumen, 1)} ${mira.nombre} por partido${puesto ? ` (${puesto})` : ""}`);
   }
 
   if (pct != null) {
     const total = volumen != null && partidos ? Math.round(volumen * partidos) : 0;
-    const base = total > 0 ? ` (${Math.round((total * pct) / 100)} de ${total})` : "";
+    const base = total > 0 ? ` (${Math.round((total * pct) / 100)} de ${total}${total < BASE_FIRME ? ", tendencia" : ""})` : "";
 
     partes.push(`${mira.remata} ${coma(pct, 0)} %${base}`);
   }

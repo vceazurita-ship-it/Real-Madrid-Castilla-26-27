@@ -10,6 +10,7 @@
  * nuevo (las suscripciones comparan por referencia).
  */
 
+import type { AtacantePanel } from "@/lib/abp/marcas-corner";
 import type { PdfJugador } from "@/lib/abp/pizarra-jugador";
 import type { TableroPizarra } from "@/lib/abp/pizarra";
 import type { Player } from "@/types/player";
@@ -31,6 +32,14 @@ export type EncargoPdfs = {
   ids: string[];
   /** La pantalla a la que vuelve el aviso. */
   vuelta: string;
+  /**
+   * Su once (dorsal y apellido de cada rival) y nuestro portero, si quien
+   * encarga ya los tiene (12/11/2026, tercera ronda: los PDF de cada jugador
+   * salían con «P» y un icono genérico porque se fotografiaban antes de que
+   * llegara el once). Sin ellos, la mesa los pide y espera.
+   */
+  atacantes?: AtacantePanel[];
+  portero?: string;
 };
 
 export type EstadoPdfs = {
