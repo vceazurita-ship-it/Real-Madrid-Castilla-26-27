@@ -113,6 +113,8 @@ const NOMBRE: Record<Tarea, string> = {
   partido: "Análisis del partido",
   entreno: "Análisis de entrenamiento",
   opta: "Datos de Opta",
+  x: "Ideas desde X",
+  "x-idea": "Idea de X en la app",
 };
 
 const TARDA: Record<Tarea, string> = {
@@ -123,6 +125,8 @@ const TARDA: Record<Tarea, string> = {
   partido: "unas horas: mira en vídeo cada jugada a balón parado",
   entreno: "entre veinte minutos y una hora",
   opta: "unos cinco minutos",
+  x: "unos minutos",
+  "x-idea": "entre diez minutos y una hora: programar, comprobar y publicar",
 };
 
 /** Lo que dice el pie de cada panel. */
@@ -432,7 +436,7 @@ export default function AjustesPage() {
      avisar con un toast cuando acabe. */
   const esperando = useRef<Partial<Record<Tarea, string>>>({});
 
-  const activo = (["quiniela", "rivales", "wyscout", "partido", "opta"] as Tarea[]).some((tarea) => {
+  const activo = (["quiniela", "rivales", "wyscout", "partido", "opta", "x", "x-idea"] as Tarea[]).some((tarea) => {
     const suyo = estadoEncargo(tarea, estado[tarea], ahora);
 
     return suyo === "pedido" || suyo === "en-marcha";
@@ -664,6 +668,8 @@ export default function AjustesPage() {
     partido: deTarea("partido"),
     entreno: deTarea("entreno"),
     opta: deTarea("opta"),
+    x: deTarea("x"),
+    "x-idea": deTarea("x-idea"),
   } satisfies Record<Tarea, EstadoEncargo>;
 
   const ocupada = (tarea: Tarea) =>
@@ -744,6 +750,7 @@ export default function AjustesPage() {
             {yo && pestana === "actualizaciones" && (
               <Actualizaciones
                 estado={estado}
+                vigia={vigia}
                 ahora={ahora}
                 pide={(tarea) => void (tarea === "quiniela" ? actualizaQuiniela() : pide(tarea))}
               />

@@ -2214,8 +2214,20 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "El botón de cada uno", es: "Los que se pueden pedir a mano lanzan el mismo encargo de «Poner al día»" },
         ],
       },
+      {
+        titulo: "Actualizaciones automáticas desde X",
+        filas: [
+          { que: "Leído / Falta iniciar sesión en X", es: "Cuándo se leyó @fernandosb9 por última vez (cada mañana a las 7:45 o con «Leer ahora»), cuántas publicaciones nuevas y cuántas ideas salieron; si falta la sesión o X pide comprobación, lo dice y no se insiste" },
+          { que: "Cada idea", es: "Qué cambiar, en qué pantalla y por qué, con un trozo de la publicación y su enlace a X; la más nueva primero", cuenta: "Las saca Claude de las publicaciones nuevas con la lista de pantallas de esta ayuda; se tiran las que no encajan en ninguna pantalla" },
+          { que: "Añadir", es: "El ordenador del club la programa en una copia aparte, pasa tsc, eslint, la ayuda de la pantalla y el build y, sólo si todo sale, la publica (la web se redespliega). Si algo falla: «No salió», con el motivo, y no se publica nada" },
+          { que: "Deshacer", es: "En una idea añadida: revierte exactamente sus cambios, con las mismas comprobaciones, y la publica. Si algo posterior depende de ella, lo dice y no fuerza nada: la idea sigue añadida" },
+          { que: "Descartar · Recuperar", es: "La aparta (queda en «Descartadas») o la devuelve a la lista" },
+          { que: "Historial", es: "Quién pidió qué y cuándo, cómo acabó y los commits de la idea" },
+        ],
+      },
     ],
     ojo: [
+      "Las ideas de X vienen de internet: a quien las programa sólo le llega la idea resumida, como dato, y no puede tocar secretos, credenciales, workflows, dependencias ni borrar datos.",
       "Mientras trabaja Wyscout o el análisis del partido, en el ordenador del club se mueve solo un Chrome: que nadie lo toque.",
       "Con el ordenador del club apagado no se pierde nada: el encargo queda apuntado y empieza al encenderlo.",
       "La lista de «Actualizaciones» sale de un catálogo: un proceso nuevo que no se añada allí no aparece.",

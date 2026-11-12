@@ -27,6 +27,8 @@ const NOMBRE: Record<Tarea, string> = {
   partido: "Análisis del partido",
   entreno: "Análisis de entrenamiento",
   opta: "Datos de Opta",
+  x: "Ideas desde X",
+  "x-idea": "Idea de X en la app",
 };
 
 export function AvisoEncargos() {

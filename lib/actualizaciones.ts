@@ -242,6 +242,19 @@ export const ACTUALIZACIONES: Actualizacion[] = [
     enlace: "/analisis-entrenamiento",
   },
   {
+    /* 12/11/2026: tarea «RMCF Castilla - Ideas desde X» (scripts/x-ideas-diario.cmd → encargo `x`). */
+    clave: "x-ideas",
+    nombre: "Ideas para la app desde X",
+    alimenta: "«Actualizaciones automáticas desde X» de esta pestaña: ideas para mejorar la app sacadas de las publicaciones de @fernandosb9",
+    fuente: "X, con la sesión del Chrome de X del ordenador del club",
+    cuando: "Cada mañana a las 7:45",
+    grupo: "diario",
+    cadaHoras: 24,
+    docs: ["x:fernandosb9"],
+    encargo: "x",
+    enlace: "/ajustes?pestana=actualizaciones",
+  },
+  {
     clave: "abp-ligas",
     nombre: "Goles a balón parado de las ligas",
     alimenta: "«Goles a balón parado» de Análisis de datos: la categoría frente a otras ligas",

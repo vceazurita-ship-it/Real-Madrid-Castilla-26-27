@@ -12,9 +12,10 @@ import { useEffect, useState } from "react";
 import { AlertTriangle, ArrowUpRight, CheckCircle2, CircleDashed, Loader2, RefreshCw } from "lucide-react";
 
 import { ACTUALIZACIONES, GRUPOS, frescura, type EstadoFrescura, type FechaActualizacion } from "@/lib/actualizaciones";
-import { estadoEncargo, type Mantenimiento, type Tarea } from "@/lib/mantenimiento";
+import { IdeasDeX } from "@/components/ajustes/IdeasDeX";
+import { estadoEncargo, type Mantenimiento, type Tarea, type Vigia } from "@/lib/mantenimiento";
 
-const SE_PIDE_AQUI: Tarea[] = ["quiniela", "rivales", "wyscout", "opta"];
+const SE_PIDE_AQUI: Tarea[] = ["quiniela", "rivales", "wyscout", "opta", "x"];
 
 function hace(iso: string, ahora: number) {
   const min = Math.max(0, Math.round((ahora - Date.parse(iso)) / 60_000));
@@ -42,11 +43,14 @@ const MARCA: Record<EstadoFrescura, { texto: string; clase: string; Icono: typeo
 
 export function Actualizaciones({
   estado,
+  vigia = null,
   ahora,
   pide,
 }: {
   /** Los encargos de siempre (para «en marcha» y el botón). */
   estado: Mantenimiento;
+  /** El latido del vigía: el progreso de lo que está en marcha. */
+  vigia?: Vigia | null;
   ahora: number;
   pide: (tarea: Tarea) => void;
 }) {
@@ -119,6 +123,9 @@ export function Actualizaciones({
           No se han podido leer las fechas. Vuelve a intentarlo en un momento.
         </p>
       )}
+
+      {/* Las ideas para la app sacadas de X (12/11/2026): lo único de esta pestaña que pide decidir algo. */}
+      <IdeasDeX estado={estado} vigia={vigia} ahora={ahora} pide={pide} />
 
       {GRUPOS.map(({ grupo, titulo, texto }) => {
         const lista = ACTUALIZACIONES.filter((a) => a.grupo === grupo);

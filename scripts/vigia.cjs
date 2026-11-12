@@ -829,7 +829,7 @@ function limpiaRegistros() {
   try {
     const viejos = fs
       .readdirSync(REGISTRO)
-      .filter((f) => /^(quiniela|wyscout|calendario|rivales|carpeta|partido|pendientes|entreno|videojug|agentes|opta)-\d+\.log$/.test(f))
+      .filter((f) => /^(quiniela|wyscout|calendario|rivales|carpeta|partido|pendientes|entreno|videojug|agentes|opta|x|x-idea)-\d+\.log$/.test(f))
       .sort()
       .reverse()
       .slice(40);
@@ -1073,6 +1073,87 @@ async function haceEntreno() {
   await acaba("entreno", codigo === 0, dice);
 
   apunta(`Entreno: ${dice}.`);
+}
+
+/*
+| IDEAS DESDE X (12/11/2026). `x`: leer las publicaciones nuevas de
+| @fernandosb9 con el Chrome de X (perfil rmcf-x, puerto 9336, no lo comparte
+| con nadie) y sacar ideas para la app. Lo pide cada mañana la tarea «RMCF
+| Castilla - Ideas desde X» o «Leer ahora» en Ajustes. Códigos de
+| x-ideas.mjs: 0 bien, 3 falta la sesión de X, 4 X pide comprobación.
+*/
+async function haceX() {
+  await empieza("x");
+
+  apunta("X: leyendo @fernandosb9…");
+  const { codigo, texto } = await ejecuta("x", process.execPath, [path.join(RAIZ, "scripts/x-ideas.mjs")], sigue("x"));
+  const dice =
+    resumen(texto) ||
+    (codigo === 3 ? "falta iniciar sesión en X (scripts\\x-sesion.cmd)" : codigo === 4 ? "X pide comprobación: no se insiste" : codigo === 0 ? "hecho" : `ha fallado (código ${codigo})`);
+
+  await acaba("x", codigo === 0, dice);
+  apunta(`X: ${dice}.`);
+}
+
+/*
+| «Añadir» o «Deshacer» una idea de X (12/11/2026): x-idea-aplica.mjs atiende
+| la primera de la cola de `x:ideas` en una copia aparte del repo, la comprueba
+| (tsc, eslint, next build) y sólo entonces la publica. Una por pasada: si
+| quedan más («QUEDAN: n»), se vuelve a pedir al acabar. Código 2 = la idea no
+| salió (apuntado en ella, no se publicó nada).
+*/
+/** Cuándo se miró por última vez si hay ideas en cola sin encargo. */
+let colaXMirada = 0;
+
+async function sueltaIdeaX(motivo) {
+  const X = require(path.join(RAIZ, "lib/x-ideas.ts"));
+
+  for (let intento = 0; intento < 6; intento++) {
+    const { data: fila, error } = await supabase.from("app_documents").select("data, updated_at").eq("key", X.CLAVE_X_IDEAS).maybeSingle();
+
+    if (error) throw new Error(claro(error.message));
+
+    const doc = X.normalizaIdeas(fila?.data);
+    const idea = X.siguienteEnCola(doc);
+
+    if (!fila || !idea) return;
+
+    const en = new Date().toISOString();
+    const deshacer = idea.estado === "deshaciendo";
+    const suelta = X.anota({ ...idea, estado: deshacer ? "añadida" : "fallida", pedido: undefined, fallo: `${motivo}; no se ha publicado nada` }, `Cortada: ${motivo}`, en);
+    const data = { ideas: doc.ideas.map((i) => (i.id === idea.id ? suelta : i)) };
+
+    const { data: filas, error: e2 } = await supabase.from("app_documents").update({ data, updated_at: en }).eq("key", X.CLAVE_X_IDEAS).eq("updated_at", fila.updated_at).select("key");
+
+    if (e2) throw new Error(claro(e2.message));
+    if (filas?.length) return;
+
+    await new Promise((r) => setTimeout(r, 200 + Math.random() * 400));
+  }
+}
+
+async function haceXIdea() {
+  await empieza("x-idea");
+
+  apunta("Idea de X: empieza…");
+  const { codigo, texto } = await ejecuta("x-idea", process.execPath, [path.join(RAIZ, "scripts/x-idea-aplica.mjs")], sigue("x-idea"));
+  const dice = resumen(texto) || (codigo === 0 ? "hecho" : `ha fallado (código ${codigo})`);
+
+  /* `acaba` se come la orden: se mira antes. */
+  const orden = cortadoPorOrden.get("x-idea");
+
+  await acaba("x-idea", codigo === 0, dice);
+  apunta(`Idea de X: ${dice}.`);
+
+  /* Cancelada o en pausa a medias: la idea sale de la cola (no se publicó nada); al reiniciar sigue en ella. */
+  if (orden === "cancelar" || orden === "pausar") await sueltaIdeaX(TEXTO_ORDEN[orden]).catch((error) => apunta(`Idea de X: no se ha podido soltar (${claro(error.message)}).`));
+
+  const quedan = Number(texto.match(/^QUEDAN: (\d+)$/m)?.[1] ?? 0);
+
+  if (quedan > 0 && !orden) {
+    await marca("x-idea", { pedidoEn: new Date(Date.now() + 1000).toISOString(), pedidoPor: "el ordenador del club: la siguiente idea en cola" });
+    apunta(`Idea de X: quedan ${quedan} en cola; se pide la siguiente.`);
+  }
 }
 
 /**
@@ -1471,7 +1552,38 @@ async function ronda() {
     partido: estadoEncargo("partido", encargos.partido),
     entreno: estadoEncargo("entreno", encargos.entreno),
     opta: estadoEncargo("opta", encargos.opta),
+    x: estadoEncargo("x", encargos.x),
+    "x-idea": estadoEncargo("x-idea", encargos["x-idea"]),
   };
+
+  /* Ideas desde X (12/11/2026): su propio Chrome, así que no espera a nadie. */
+  if (estados.x === "pedido" && !enMarcha.has("x")) {
+    arranca("x", haceX);
+  }
+
+  /* Una idea en cola sin encargo (el ordenador se apagó entre dos, o se perdió
+     el pedido): cada cinco minutos se mira y se vuelve a pedir. */
+  if (estados["x-idea"] === "libre" && !enMarcha.has("x-idea") && Date.now() - colaXMirada > 5 * 60_000) {
+    colaXMirada = Date.now();
+
+    try {
+      const X = require(path.join(RAIZ, "lib/x-ideas.ts"));
+      const { data } = await supabase.from("app_documents").select("data").eq("key", X.CLAVE_X_IDEAS).maybeSingle();
+
+      if (X.enCola(X.normalizaIdeas(data?.data)) > 0) {
+        await marca("x-idea", { pedidoEn: new Date().toISOString(), pedidoPor: "el ordenador del club: ideas en cola sin atender" });
+        estados["x-idea"] = "pedido";
+        apunta("Idea de X: había ideas en cola sin encargo; se piden.");
+      }
+    } catch (error) {
+      apunta(`Idea de X: no se ha podido mirar la cola (${claro(error.message)}).`);
+    }
+  }
+
+  /* Programar una idea lleva un `next build`: no a la vez que el análisis del partido, que ya pesa. */
+  if (estados["x-idea"] === "pedido" && !enMarcha.has("x-idea") && !enMarcha.has("partido")) {
+    arranca("x-idea", haceXIdea);
+  }
 
   if (estados.entreno === "pedido" && !enMarcha.has("entreno") && !enMarcha.has("wyscout") && !enMarcha.has("partido")) {
     arranca("entreno", haceEntreno);

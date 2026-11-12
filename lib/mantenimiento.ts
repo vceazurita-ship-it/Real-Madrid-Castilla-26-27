@@ -47,7 +47,11 @@ export type SesionYoutube = {
    leen. Lo hace `scripts/analisis-partido.cjs`. */
 /* `entreno` (16/10/2026, en obras): el análisis de un entrenamiento por objetivos
    (scripts/entreno/analiza-entreno.mjs). */
-export const TAREAS = ["quiniela", "rivales", "wyscout", "carpeta", "partido", "entreno", "opta"] as const;
+/* `x` (12/11/2026): leer las publicaciones nuevas de @fernandosb9 en X y sacar
+   ideas para la app (scripts/x-ideas.mjs). `x-idea`: «Añadir» o «Deshacer»
+   una de esas ideas (scripts/x-idea-aplica.mjs); la cola va en `x:ideas`
+   (lib/x-ideas.ts), una idea por pasada. */
+export const TAREAS = ["quiniela", "rivales", "wyscout", "carpeta", "partido", "entreno", "opta", "x", "x-idea"] as const;
 
 export type Tarea = (typeof TAREAS)[number];
 
@@ -169,6 +173,10 @@ export const LIMITE_MIN: Record<Tarea, number> = {
   entreno: 4 * 60,
   /* Medido (09/11/2026): unos cuatro minutos toda la categoría. */
   opta: 30,
+  /* Abrir X, leer el perfil con calma y que Claude saque las ideas. */
+  x: 30,
+  /* Claude programando la idea, y luego tsc, eslint y `next build`. */
+  "x-idea": 3 * 60,
 };
 
 export function esTarea(valor: unknown): valor is Tarea {

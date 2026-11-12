@@ -91,6 +91,22 @@ export const ETAPAS: Record<Tarea, Etapa[]> = {
     { nombre: "Comprobar cada sección", minutos: 2, marca: /^PASO:\s*8\// },
   ],
 
+  /* Las líneas «PASO: n/4» de scripts/x-ideas.mjs (12/11/2026). */
+  x: [
+    { nombre: "Abrir X", minutos: 0.5, marca: /^PASO:\s*1\// },
+    { nombre: "Leer las publicaciones", minutos: 1, marca: /^PASO:\s*2\// },
+    { nombre: "Sacar las ideas", minutos: 3, marca: /^PASO:\s*3\// },
+    { nombre: "Guardar", minutos: 0.1, marca: /^PASO:\s*4\// },
+  ],
+
+  /* Las líneas «PASO: n/4» de scripts/x-idea-aplica.mjs (12/11/2026): una idea por pasada. */
+  "x-idea": [
+    { nombre: "Preparar una copia aparte", minutos: 0.5, marca: /^PASO:\s*1\// },
+    { nombre: "Programar (o revertir) la idea", minutos: 20, marca: /^PASO:\s*2\// },
+    { nombre: "Comprobar: tsc, eslint y build", minutos: 8, marca: /^PASO:\s*3\// },
+    { nombre: "Publicar", minutos: 0.5, marca: /^PASO:\s*4\// },
+  ],
+
   /* Las líneas «PASO: n/5» de scripts/entreno/analiza-entreno.mjs (16/10/2026). */
   entreno: [
     /* 17/10/2026: nada se baja entero; cada parte se pide a Hudl y se borra tras mirarla. */
@@ -135,6 +151,8 @@ const FALLO: Record<Tarea, RegExp> = {
   partido: /^✗ /,
   entreno: /^FALLO/,
   opta: /caducado|rechaza|no contesta|No encuentro/i,
+  x: /^FALLO/,
+  "x-idea": /^FALLO/,
 };
 
 /* ------------------------------------------------------------------ */
