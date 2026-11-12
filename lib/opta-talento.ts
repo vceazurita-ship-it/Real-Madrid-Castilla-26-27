@@ -569,18 +569,63 @@ export type TarjetaTemporada = {
   /** Con cuántos de su puesto se compara (con el mínimo de minutos). */
   comparados: number;
   familia: string;
+  /** Partidos de su equipo que trae la tabla (null en la temporada en curso, que no se mide). */
+  partidosEquipo: number | null;
+  /** La tabla no trae la temporada entera de su equipo: sin percentil. */
+  incompleta: boolean;
 };
 
-/** La tarjeta de una temporada para `playerId` (null si no aparece o no jugó). */
 /** Con menos de su puesto en la tabla, el percentil no dice nada. */
 export const COMPARADOS_MIN = 10;
 
-export function tarjetaTemporada(clave: string, filas: Fila[], playerId: string, minimo: number): TarjetaTemporada | null {
+/*
+| LA COBERTURA DE CADA TEMPORADA (12/11/2026).
+|
+| Las tablas pasadas de Opta no traen la temporada entera de todos: la 25/26
+| tiene los 20 equipos del grupo del Castilla, pero de casi todos sólo 2 o 3
+| partidos (del Castilla, 3; del Athletic Club II, 38). Con eso, el percentil
+| de un jugador sale de compararle con gente que jugó un partido o dos, y la
+| tarjeta lo daba como si fuera su temporada. Ahora se mide: los partidos de
+| un equipo en la tabla son los del que más jugó de ese equipo (`GM`), y con
+| menos de `PARTIDOS_COMPLETA` la temporada de ese equipo cuenta como
+| incompleta: su tarjeta lo dice y no lleva percentil, y sus jugadores tampoco
+| entran en el percentil de los demás.
+*/
+
+/** Una temporada de grupo son 38 jornadas. */
+export const JORNADAS_TEMPORADA = 38;
+
+/** Desde aquí (8 de cada 10 jornadas) la temporada de un equipo se da por completa. */
+export const PARTIDOS_COMPLETA = 30;
+
+/** Partidos de cada equipo (teamId) que trae una tabla de jugadores. */
+export function partidosPorEquipo(filas: Fila[]): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const f of filas) {
+    const id = String(f.teamId ?? "");
+    if (!id) continue;
+    m.set(id, Math.max(m.get(id) ?? 0, num(f.GM) ?? 0));
+  }
+  return m;
+}
+
+/** La tarjeta de una temporada para `playerId` (null si no aparece o no jugó). */
+export function tarjetaTemporada(
+  clave: string,
+  filas: Fila[],
+  playerId: string,
+  minimo: number,
+  /** Sólo en las temporadas cerradas: partidos de cada equipo en la tabla, para medir la cobertura. */
+  cobertura?: Map<string, number>,
+): TarjetaTemporada | null {
   const f = filas.find((x) => String(x.playerId ?? "") === playerId);
   const min = num(f?.Min) ?? 0;
   if (!f || min <= 0) return null;
   const fam = familiaFina(f);
-  const pares = filas.filter((x) => familiaFina(x) === fam && (num(x.Min) ?? 0) >= minimo);
+  const completo = (x: Fila) => !cobertura || (cobertura.get(String(x.teamId ?? "")) ?? 0) >= PARTIDOS_COMPLETA;
+  const partidosEquipo = cobertura ? (cobertura.get(String(f.teamId ?? "")) ?? 0) : null;
+  const incompleta = Boolean(cobertura) && !completo(f);
+  const pares = filas.filter((x) => familiaFina(x) === fam && (num(x.Min) ?? 0) >= minimo && completo(x));
   return {
     clave,
     equipo: f.teamId === CASTILLA_OPTA ? "Real Madrid Castilla" : String(f.equipo ?? ""),
@@ -590,10 +635,12 @@ export function tarjetaTemporada(clave: string, filas: Fila[], playerId: string,
     puesto: String(f.puesto ?? ""),
     familia: fam,
     comparados: pares.length,
+    partidosEquipo,
+    incompleta,
     valores: METRICAS_TEMPORADA.filter((m) => f[m.a] !== undefined).map((m) => {
       const total = num(f[m.a]);
       const p90 = valor90(f, m.a);
-      const p = fam && p90 != null && min >= minimo && pares.length >= COMPARADOS_MIN ? percentil(p90, pares.map((x) => valor90(x, m.a))) : null;
+      const p = fam && !incompleta && p90 != null && min >= minimo && pares.length >= COMPARADOS_MIN ? percentil(p90, pares.map((x) => valor90(x, m.a))) : null;
       return { a: m.a, nombre: m.nombre, total, p90, p };
     }),
   };

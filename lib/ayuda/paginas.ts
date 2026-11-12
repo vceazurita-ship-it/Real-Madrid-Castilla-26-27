@@ -278,6 +278,11 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Por 90", es: "Cifra del jugador llevada a un partido entero", cuenta: "valor ÷ minutos × 90" },
           { que: "Puesto del jugador", es: "Se compara con los de su familia: porteros, centrales, laterales, mediocentros, mediapuntas, bandas o delanteros" },
           { que: "Mínimo de minutos", es: "Para entrar en la muestra del percentil; 270′ por defecto y se cambia" },
+          {
+            que: "Temporada a temporada (ficha del jugador)",
+            es: "Las temporadas pasadas de Opta no traen todos los partidos de cada equipo: la tarjeta dice «incompleta» y no da percentil",
+            cuenta: "Partidos del equipo = los del que más jugó de ese equipo en la tabla; completa desde 30 de 38",
+          },
           { que: "Goles evitados", es: "Lo que el portero salva por encima de lo esperado", cuenta: "xG en contra − goles encajados" },
           { que: "PPDA", es: "Pases que se deja dar al rival por cada acción defensiva: menos, más presión" },
           { que: "Diferenciales (La liga)", es: "Lo de cada equipo menos lo de su rival, de media por partido", cuenta: "Σ (propio − rival) ÷ partidos; en los porcentajes, puntos" },
@@ -301,6 +306,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Si una pantalla enseña la jornada pasada, lo que falta es publicar: bajar los datos no los sube.",
       "Si los datos se quedan atrás varias semanas, mira .cache/wyscout: casi siempre es que hay que volver a entrar en Wyscout una vez.",
     ],
+    revisada: "2026-11-12",
   },
 
   /* ==================== MICROCICLOS ==================== */
@@ -489,7 +495,33 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Tendencia", es: "Nota partido a partido, Wyscout semana a semana y 26/27 frente a 25/26" },
         ],
       },
+      {
+        titulo: "Opta: temporada a temporada",
+        filas: [
+          {
+            que: "Tarjeta de Opta",
+            es: "Equipo, minutos, partidos y lo principal de cada temporada, con su percentil frente a los de su puesto con 270′ o más de esa tabla",
+            cuenta: "Por 90 = total ÷ minutos × 90",
+          },
+          {
+            que: "«Incompleta»",
+            es: "Opta no tiene la temporada entera de su equipo (la 25/26 trae 2 o 3 partidos de casi todos; del Castilla, 3)",
+            cuenta: "Partidos del equipo = los del que más jugó de ese equipo en la tabla; con menos de 30 de 38, la tarjeta lo dice, va sin percentil y sus jugadores no entran en el de los demás",
+          },
+          {
+            que: "Tarjeta de Wyscout · temporada completa",
+            es: "Completa la temporada pasada cuando Opta no la tiene entera o no le tiene: partidos, minutos, goles con su xG, asistencias con su xA y seis métricas de su puesto por 90",
+            cuenta: "Percentil frente a los de su puesto de toda la categoría con 450′ o más (el portero, sólo con porteros); con menos de 450′ o un porcentaje de muy pocas acciones, sin percentil. Wyscout no da titularidades",
+          },
+          {
+            que: "Quién es quién en Wyscout",
+            es: "Por su nombre entre los del Castilla de esta temporada y la fila del año pasado con ese mismo nombre de Wyscout; si no, por nombre en toda la categoría",
+            cuenta: "Sólo si la edad (la de Opta), la altura y la inicial no lo desmienten; con dos posibles, no sale",
+          },
+        ],
+      },
     ],
+    revisada: "2026-11-12",
   },
   {
     ruta: "/individual_proc",
