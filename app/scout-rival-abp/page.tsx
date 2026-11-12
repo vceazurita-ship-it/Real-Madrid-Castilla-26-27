@@ -30,10 +30,12 @@ import {
   Ruler,
   Shapes,
   Target,
+  TrendingUp,
   Users,
 } from "lucide-react";
 
 import { Sidebar } from "@/components/ui/sidebar";
+import { PanelProyeccion } from "@/components/proyeccion/PanelProyeccion";
 import { Topbar } from "@/components/ui/topbar";
 import {
   AbpHeader,
@@ -127,7 +129,8 @@ type Grupo = "liga" | "pretemporada";
 | Las vistas (14/10/2026): antes era un scroll de once paneles y el registro
 | editable quedaba al fondo. Ahora cada pregunta en su pestaña (?vista=).
 */
-const VISTAS = ["resumen", "coding", "apuntes", "laminas", "patrones", "banda", "quien", "registrar"] as const;
+/* 12/11/2026: «proyeccion», la proyección de la jornada con Opta (components/proyeccion). */
+const VISTAS = ["resumen", "proyeccion", "coding", "apuntes", "laminas", "patrones", "banda", "quien", "registrar"] as const;
 type Vista = (typeof VISTAS)[number];
 
 const GRUPOS: { key: Grupo; label: string }[] = [
@@ -178,7 +181,7 @@ export default function ScoutRivalAbpPage() {
   /* Las láminas sólo existen en Liga: en Pretemporada se vuelve al resumen en vez de enseñar una pestaña vacía. */
   /* Y las del analista, sólo con sesión de administrador (07/11/2026): sin ella, al resumen. */
   const vistaPrevia: Vista =
-    (vistaElegida === "laminas" && grupo !== "liga") || (!admin && ["coding", "laminas", "registrar"].includes(vistaElegida))
+    ((vistaElegida === "laminas" || vistaElegida === "proyeccion") && grupo !== "liga") || (!admin && ["coding", "laminas", "registrar"].includes(vistaElegida))
       ? "resumen"
       : vistaElegida;
   const [side, setSide] = useState<AbpSide>("ofensivo");
@@ -864,6 +867,8 @@ export default function ScoutRivalAbpPage() {
                 */
                 opciones={[
                   { clave: "resumen", label: "¿Cuánto peligro tiene?", icono: LayoutDashboard },
+                  /* La proyección es de un partido de liga: con Opta y el calendario. */
+                  ...(grupo === "liga" && equipo ? [{ clave: "proyeccion" as const, label: "Proyección de la jornada", icono: TrendingUp }] : []),
                   /* Sin acciones, las tres vistas que viven de ellas no salen. */
                   ...(delEquipo.length > 0
                     ? [
@@ -912,6 +917,8 @@ export default function ScoutRivalAbpPage() {
                 />
               )}
 
+              {vista === "proyeccion" && equipo && grupo === "liga" && <PanelProyeccion tipo="abp" equipo={equipo} />}
+
               {vista === "apuntes" && equipo && <ApuntesAbp key={`${equipo}|${jornadaDe(equipo)?.etiqueta ?? ""}`} equipo={equipo} jornadaPartido={jornadaDe(equipo)?.etiqueta ?? null} />}
 
               {/* ----------- análisis visual de la jornada ----------- */}
@@ -925,7 +932,7 @@ export default function ScoutRivalAbpPage() {
                 />
               )}
 
-              {delEquipo.length > 0 && vista !== "laminas" && vista !== "apuntes" && vista !== "registrar" && (
+              {delEquipo.length > 0 && vista !== "laminas" && vista !== "apuntes" && vista !== "registrar" && vista !== "proyeccion" && (
                 <FilterDrawer
                   activeCount={activeFilters}
                   summary={`${jornadas.length - 1} ${jornadas.length === 2 ? "jornada" : "jornadas"} con datos`}
@@ -957,7 +964,7 @@ export default function ScoutRivalAbpPage() {
 
               {/* ------------------- aviso de origen ---------------- */}
 
-              {!hayScout && hayDerivado && vista !== "laminas" && vista !== "apuntes" && (
+              {!hayScout && hayDerivado && vista !== "laminas" && vista !== "apuntes" && vista !== "proyeccion" && (
                 <Explicativo>
                 <Notice
                   tone="warn"
@@ -975,7 +982,7 @@ export default function ScoutRivalAbpPage() {
 
               {/* ---------------------- totales --------------------- */}
 
-              {vista === "laminas" || vista === "apuntes" || vista === "coding" || vista === "registrar" ? null : delEquipo.length === 0 ? (
+              {vista === "laminas" || vista === "apuntes" || vista === "coding" || vista === "registrar" || vista === "proyeccion" ? null : delEquipo.length === 0 ? (
                 /* Sin acciones registradas: lo que ya se sabe de él (Wyscout,
                    goles y etiquetas), en la vista de resumen. */
                 vista === "resumen" && equipo ? (

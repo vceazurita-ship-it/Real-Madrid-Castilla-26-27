@@ -24,6 +24,7 @@ import RecursosRival, {
   type RecursoFijo,
 } from "@/components/rivals/RecursosRival";
 import { BocetoPlanDialog } from "@/components/match-preparation/BocetoPlanDialog";
+import { PanelProyeccion } from "@/components/proyeccion/PanelProyeccion";
 import { PorQueDelBoceto } from "@/components/match-preparation/PorQueDelBoceto";
 import { KIND_MOTIVOS_PLAN, claveMotivosPlan, type BocetoPlan } from "@/lib/plan-partido/boceto";
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
@@ -2940,6 +2941,14 @@ export default function MatchPreparation() {
                   );
                 })()}
               </section>
+
+              {/* ----------------------------------- PROYECCIÓN (12/11/2026) */}
+              {/* El juego que se espera con Opta y Wyscout; el del balón parado va en /scout-rival-abp. */}
+              {rivalActivo.EQUIPO && (
+                <div id="proyeccion" className="mp-no-print scroll-mt-56 print:hidden">
+                  <PanelProyeccion tipo="juego" equipo={String(rivalActivo.EQUIPO)} />
+                </div>
+              )}
 
               {/* ------------------------------------------------------ PLAN */}
               {hayEnLectura("ATAQUE", "DEFENSA", "ABP_OF", "ABP_DEF") && (
