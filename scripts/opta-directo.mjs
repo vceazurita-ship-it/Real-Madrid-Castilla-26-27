@@ -123,6 +123,10 @@ async function temporada() {
   return t[0];
 }
 
+/* La lectura anterior de cada partido: la pantalla sólo da una alerta si ya
+   lo era en la lectura de antes (que no parpadee con una jugada suelta). */
+const anteriores = new Map();
+
 async function vuelta(S) {
   const dia = hoy();
   const juegos = await consulta(
@@ -160,7 +164,12 @@ async function vuelta(S) {
     const filas = cifras.filas.filter((f) => f[0] === partido);
     indice.push({ partido, fecha, estado, conDatos: filas.length > 0, equipos: filas.map((f) => f[2]) });
     const suyos = tramos.filas.filter((f) => f[0] === partido);
-    if (filas.length) await guarda(`opta:directo:${partido}`, { partido, fecha, estado, actualizado: ahora, equipos: { cols: cifras.cols, filas }, tramos: { cols: tramos.cols, filas: suyos } });
+    /* «anterior» = la última lectura con cifras distintas de las de ahora. */
+    if (filas.length && JSON.stringify(filas) !== JSON.stringify(anteriores.get(`${partido}:ultimo`)?.filas)) {
+      if (anteriores.has(`${partido}:ultimo`)) anteriores.set(partido, anteriores.get(`${partido}:ultimo`));
+      anteriores.set(`${partido}:ultimo`, { cols: cifras.cols, filas });
+    }
+    if (filas.length) await guarda(`opta:directo:${partido}`, { partido, fecha, estado, actualizado: ahora, equipos: { cols: cifras.cols, filas }, anterior: anteriores.get(partido) ?? null, tramos: { cols: tramos.cols, filas: suyos } });
   }
   await guarda("opta:directo", { dia, actualizado: ahora, hasta: new Date(fin).toISOString(), partidos: indice });
 

@@ -224,9 +224,9 @@ function pantallas() {
 /** Lo de dentro de las marcas no puede cerrar la marca. */
 const sinMarcas = (t) => String(t).replace(/<<<|>>>/g, "«»");
 
-export function encargoIdeas(posts, lista) {
+export function encargoIdeas(posts, lista, previas = []) {
   return [
-    "Eres analista de producto de la «Plataforma Integral» del Real Madrid Castilla: una app web (Next.js) que usa su cuerpo técnico para preparar partidos, analizar rivales, balón parado, datos (Wyscout, Opta, BeSoccer), vídeo, entrenamientos y la gestión del día a día.",
+    "Piensas como el cuerpo técnico (entrenador UEFA Pro y analista de datos) del Real Madrid Castilla, Primera RFEF, y conoces su «Plataforma Integral»: una app web (Next.js) para preparar partidos, analizar rivales, balón parado, datos (Wyscout, Opta, BeSoccer), vídeo, entrenamientos y el día a día. Una idea vale si ayuda a tomar una decisión de juego, no si sólo queda bonita.",
     "",
     "Te paso (1) la lista de pantallas de la app y (2) publicaciones recientes de la cuenta de X @" + X.CUENTA_X + ".",
     "",
@@ -235,7 +235,13 @@ export function encargoIdeas(posts, lista) {
     "Tu trabajo: sacar ideas CONCRETAS para mejorar ESTA app, que se puedan programar en la propia app (interfaz o lógica): una visualización, una métrica derivada de los datos que ya tiene, un filtro, una comparación, un informe, un atajo. Cada idea debe encajar en UNA pantalla de la lista.",
     "Descarta lo que no aplique: opinión, noticias, publicidad, cosas que pidan datos o servicios de pago que la app no tiene, o cambios que no sean de la app. Mejor ninguna idea que una forzada. Como mucho dos por publicación.",
     "",
-    'Responde SOLO con JSON, sin texto alrededor: una lista de objetos {"titulo": "≤ 80 caracteres", "idea": "qué cambiar exactamente y dónde, en 2-5 frases", "pantalla": "/ruta exacta de la lista", "porque": "qué gana el cuerpo técnico, una frase", "postId": "el id de la publicación"}. En español. Si no hay ninguna, responde [].',
+    "Cada idea tiene que decir: la fase del juego (organización ofensiva/defensiva, transición, balón parado, gestión), el momento en que se usa (previa MD-3, MD-1, directo, post, de fondo), la decisión que ayuda a tomar, y la FUENTE: la métrica o columna concreta que ya existe (Opta: eventos con coordenadas x/y, métricas de equipo y jugador; Wyscout: informes de equipo y jugador; nuestras hojas de ABP; BeSoccer). Si la fuente no está entre esas, descártala. Da un ejemplo de lectura con cifra y referencia (media de la liga o del equipo) y la muestra mínima para que no sea ruido (p. ej. «≥ 8 partidos»).",
+    "Prioridad: 1 si sirve para preparar el próximo partido, 2 para la semana, 3 si es de fondo. No repitas ni reformules las ideas YA PROPUESTAS de la lista de abajo (ni las añadidas ni las descartadas).",
+    "",
+    'Responde SOLO con JSON, sin texto alrededor: una lista de objetos {"titulo": "≤ 80 caracteres", "idea": "qué cambiar exactamente y dónde, en 2-5 frases", "pantalla": "/ruta exacta de la lista", "porque": "qué gana el cuerpo técnico, una frase", "fase": "…", "momento": "…", "decision": "…", "fuente": "proveedor y métrica o columna", "ejemplo": "Hércules: 62 % de ataques por la izquierda (liga 41 %, 11 partidos)", "muestra": "…", "prioridad": 1, "postId": "el id de la publicación"}. Ordénalas por prioridad. En español. Si no hay ninguna, responde [].',
+    "",
+    "IDEAS YA PROPUESTAS:",
+    ...(previas.length ? previas.map((p) => `- ${p.titulo} (${p.estado})`) : ["(ninguna)"]),
     "",
     "PANTALLAS:",
     ...lista.map((p) => `${p.ruta} — ${p.titulo}: ${p.resumen}`),
@@ -303,7 +309,8 @@ async function principal() {
 
   if (posts.length) {
     const lista = pantallas();
-    const encargo = encargoIdeas(posts, lista);
+    const yaIdeas = X.normalizaIdeas(await leeDoc(X.CLAVE_X_IDEAS)).ideas;
+    const encargo = encargoIdeas(posts, lista, yaIdeas.map((i) => ({ titulo: i.titulo, estado: i.estado })));
 
     /* Sin herramientas que escriban ni que salgan a la red: sólo pensar. */
     const r = await claude(encargo, {

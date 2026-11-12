@@ -37,6 +37,8 @@ type DocDirecto = {
   equipos?: TablaOpta;
   /** Tramos de 5' por equipo (desde el 12/11/2026). */
   tramos?: TablaOpta;
+  /** Las cifras de la lectura anterior con cifras distintas. */
+  anterior?: TablaOpta | null;
 };
 
 const CADA_MS = 60_000;
@@ -114,6 +116,8 @@ export function Directo({ datos }: { datos: DatosOpta }) {
   const metricas = doc?.equipos?.cols?.filter((c) => !NO_METRICA.has(c)) ?? [];
   const tramos = useMemo(() => (a ? tramosDe(doc?.tramos, String(a.teamId ?? "")) : []), [doc, a]);
   const minuto = num(doc?.minuto) ?? minutoDe(tramos);
+  const antes = useMemo(() => aObjetos(doc?.anterior ?? null), [doc]);
+  const marcador = useMemo(() => (a && b ? { nos: num(a.Goal) ?? 0, ellos: num(b.Goal) ?? 0 } : null), [a, b]);
 
   const explicacion = (
     <div className="space-y-2 text-sm text-white/65">
@@ -210,6 +214,9 @@ export function Directo({ datos }: { datos: DatosOpta }) {
               <DirectoPlan
                 nos={a}
                 ellos={b}
+                antesNos={antes.find((f) => f.teamId === a.teamId) ?? null}
+                antesEllos={antes.find((f) => f.teamId === b.teamId) ?? null}
+                marcador={marcador}
                 nombreNos={nombre(a)}
                 nombreEllos={nombre(b)}
                 esCastilla={a.teamId === CASTILLA_OPTA}

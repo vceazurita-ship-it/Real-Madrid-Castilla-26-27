@@ -87,6 +87,19 @@ export type Idea = {
   /** La ruta de la pantalla («/rivals»). */
   pantalla: string;
   porque: string;
+  /* Lo que pide el cuerpo técnico (revisión de expertos, 12/11/2026): para qué
+     fase, en qué momento de la semana, qué decisión ayuda a tomar, de qué
+     dato real sale y un ejemplo de cómo se leería. Las ideas sin fuente que
+     ya exista no pasan. Opcionales: las de antes no los traen. */
+  fase?: string;
+  momento?: string;
+  decision?: string;
+  fuente?: string;
+  ejemplo?: string;
+  /** Muestra mínima para que no sea ruido («≥ 8 partidos»). */
+  muestra?: string;
+  /** 1 = sirve para el próximo partido; 2 = para la semana; 3 = de fondo. */
+  prioridad?: number;
   postId: string;
   url: string;
   /** La fecha de la publicación. */
@@ -408,8 +421,15 @@ export function ideasDeRespuesta(respuesta: string, posts: PostX[], rutas: strin
     const titulo = texto(o.titulo, 90);
     const idea = texto(o.idea, 1200);
     const porque = texto(o.porque, 400);
+    const fuente = texto(o.fuente, 200);
+    const prioridad = Math.min(3, Math.max(1, Math.round(Number(o.prioridad) || 2)));
 
-    if (!post || !titulo || !idea || !validas.has(pantalla)) continue;
+    /* Sin un dato real del que salga, la idea no se puede programar bien. */
+    if (!post || !titulo || !idea || !fuente || !validas.has(pantalla)) continue;
+    /* La muestra tiene que traer su número («≥ 8 partidos»): si no, es ruido. */
+    if (!/d/.test(texto(o.muestra, 120))) continue;
+    /* Dos publicaciones con la misma idea: se queda la primera. */
+    if (ideas.some((i) => i.titulo.toLowerCase() === titulo.toLowerCase())) continue;
 
     const n = (cuantas.get(post.id) ?? 0) + 1;
 
@@ -421,6 +441,13 @@ export function ideasDeRespuesta(respuesta: string, posts: PostX[], rutas: strin
       idea,
       pantalla,
       porque,
+      fase: texto(o.fase, 80) || undefined,
+      momento: texto(o.momento, 80) || undefined,
+      decision: texto(o.decision, 200) || undefined,
+      fuente,
+      ejemplo: texto(o.ejemplo, 240) || undefined,
+      muestra: texto(o.muestra, 120) || undefined,
+      prioridad,
       postId: post.id,
       url: post.url,
       fecha: post.fecha,

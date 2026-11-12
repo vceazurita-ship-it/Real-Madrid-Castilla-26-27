@@ -20,7 +20,7 @@
  */
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import { AlertTriangle, ArrowUpRight, Check, Loader2, Plus, RefreshCw, RotateCcw, Undo2, X as Cruz } from "lucide-react";
 import { toast } from "sonner";
 
@@ -154,7 +154,8 @@ export function IdeasDeX({
   const leyendo = lecturaEncargo === "pedido" || lecturaEncargo === "en-marcha";
   const ideaEncargo = estadoEncargo("x-idea", estado["x-idea"], ahora);
 
-  const vivas = (ideas ?? []).filter((i) => i.estado !== "descartada");
+  /* Primero lo que sirve para el próximo partido (revisión de expertos, 12/11/2026). */
+  const vivas = (ideas ?? []).filter((i) => i.estado !== "descartada").sort((a, b) => (a.prioridad ?? 2) - (b.prioridad ?? 2));
   const descartadas = (ideas ?? []).filter((i) => i.estado === "descartada");
 
   return (
@@ -292,6 +293,19 @@ function TarjetaIdea({
             <dd className="min-w-0 text-white/75">{idea.porque}</dd>
           </>
         )}
+        {[
+          ["Para", [idea.fase, idea.momento].filter(Boolean).join(" · ") + (idea.prioridad === 1 ? " · próximo partido" : idea.prioridad === 3 ? " · de fondo" : "")],
+          ["Decide", idea.decision],
+          ["Dato", [idea.fuente, idea.muestra].filter(Boolean).join(" · ")],
+          ["Se leería", idea.ejemplo],
+        ]
+          .filter(([, v]) => v)
+          .map(([k, v]) => (
+            <Fragment key={k}>
+              <dt className="text-white/40">{k}</dt>
+              <dd className="min-w-0 text-white/75">{v}</dd>
+            </Fragment>
+          ))}
         <dt className="text-white/40">Publicación</dt>
         <dd className="min-w-0 text-white/60">
           <span className="italic">«{idea.extracto}»</span>{" "}
