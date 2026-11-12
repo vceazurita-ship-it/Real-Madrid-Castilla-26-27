@@ -2098,6 +2098,1004 @@ export const AYUDAS: AyudaDePagina[] = [
       "El criterio elegido se recuerda en este aparato.",
     ],
   },
+
+  /* ==================== AJUSTES (12/11/2026) ==================== */
+  {
+    ruta: "/ajustes",
+    titulo: "Ajustes",
+    resumen: "Lo que normalmente se pone al día solo, pedido a mano cuando no se quiere esperar, y la lista de cuándo se actualizó cada dato.",
+    origen:
+      "Sólo admin, con usuario y contraseña propios. Cada botón deja un encargo que recoge el vigía del ordenador del club en segundos; Opta corre en la nube (GitHub). Las fechas de «Actualizaciones» son las de los documentos de Supabase o las de los ficheros publicados con la web.",
+    bloques: [
+      {
+        titulo: "Poner al día",
+        filas: [
+          { que: "El ordenador del club", es: "Si el vigía está encendido (y su último aviso) o apagado: lo que se pida espera a que se encienda" },
+          { que: "Datos de Opta", es: "Primera RFEF entera de Opta ProVision; corre en GitHub cada lunes y al pulsar. «Seguir en directo» mira los partidos del día" },
+          { que: "Resultados de la quiniela", es: "Pone el 1-X-2 de la jornada en curso y la anterior desde BeSoccer; no toca una jornada que no apostó nadie" },
+          { que: "Jornada de BeSoccer", es: "Resultados, goleadores, alineaciones, clasificación, fichas, altas, bajas y dorsales: la pasada de cada noche, lanzada ahora" },
+          { que: "Datos de Wyscout", es: "Baja sólo lo cambiado (equipos con un partido jugado que falta y jugadores de quien ha jugado) y lo publica. «Desde cero» lo baja todo" },
+          { que: "Hasta qué jornada (Wyscout)", es: "Jornada completa, último partido del Castilla que hay, partidos que faltan y cómo fue la última pasada" },
+          { que: "Análisis del partido", es: "El partido elegido (por defecto, el último jugado) en todas las secciones que lo leen, y su vídeo. «Sólo el vídeo» rehace sólo el vídeo" },
+          { que: "Sesión de YouTube", es: "Si el ordenador del club tiene la cuenta abierta: sin ella no se saca el segundo exacto de cada acción a balón parado" },
+        ],
+      },
+      {
+        titulo: "Cada encargo",
+        filas: [
+          { que: "Pedido / en marcha / hecho", es: "En qué punto va el encargo y cuándo terminó la última vez («hace 12 min»)" },
+          { que: "La barra de etapas", es: "Por qué paso va y cuánto queda", cuenta: "Con lo que suele tardar cada etapa; «estimado por el reloj» si aún no hay medida" },
+          { que: "Pausar · Cancelar · Reiniciar", es: "Deja la orden; el vigía la ve en unos segundos y corta. En los de la nube no hay" },
+          { que: "Repetir lo marcado", es: "Vuelve a lanzar sólo las etapas elegidas, con su duración frente a la del encargo entero" },
+        ],
+      },
+      {
+        titulo: "Más mandos",
+        filas: [
+          { que: "Reabrir la quiniela", es: "Para quien no apostó antes del cierre del viernes a las 12:00; volver a reabrir sustituye a la anterior. «Cerrar ya» la cierra" },
+          { que: "Textos explicativos", es: "Apagados, en ABP, banda, faltas y transiciones sólo se ven las conclusiones; encendidos, también el método. Vale para todos" },
+          { que: "Ordenador principal", es: "Marca este aparato como el del club; se guarda en este navegador" },
+          { que: "Almacén", es: "Lo que ocupan los ficheros en Supabase frente al gigabyte gratis, las carpetas que más pesan y el botón para borrar adjuntos repetidos o caducados" },
+          { que: "Lo que sigue haciéndose solo", es: "El recordatorio de lo que corre sin pedirlo" },
+        ],
+      },
+      {
+        titulo: "Actualizaciones",
+        filas: [
+          { que: "Los grupos", es: "Cada noche · la jornada, Cada mañana, Cada semana o cada mes, Durante el día y Cuando se pide" },
+          { que: "Último dato", es: "La fecha del dato de verdad, no la de la última pasada" },
+          { que: "Al día / Atrasada / Sin dato", es: "Si va a tiempo", cuenta: "Atrasada = más del doble de lo normal (y un margen) sin ponerse al día" },
+          { que: "El botón de cada uno", es: "Los que se pueden pedir a mano lanzan el mismo encargo de «Poner al día»" },
+        ],
+      },
+    ],
+    ojo: [
+      "Mientras trabaja Wyscout o el análisis del partido, en el ordenador del club se mueve solo un Chrome: que nadie lo toque.",
+      "Con el ordenador del club apagado no se pierde nada: el encargo queda apuntado y empieza al encenderlo.",
+      "La lista de «Actualizaciones» sale de un catálogo: un proceso nuevo que no se añada allí no aparece.",
+    ],
+    revisada: "2026-11-12",
+  },
+
+  /* ==================== TAREAS Y ALERTAS (12/11/2026) ==================== */
+  {
+    ruta: "/alertas",
+    titulo: "Tareas y alertas",
+    resumen: "Recordatorios que salen solos por correo, aunque nadie tenga la app abierta, hasta que se silencian.",
+    origen:
+      "La pestaña ALERTAS de la hoja de cálculo es el único origen: la lee y la envía el Apps Script con su disparador horario. Los adjuntos se suben a Supabase y al correo va el enlace. Las que van atadas al partido usan el calendario del Castilla.",
+    bloques: [
+      {
+        titulo: "La lista",
+        filas: [
+          { que: "N alertas activas · próximo aviso", es: "Cuántas van a sonar y cuál es la siguiente, con su fecha" },
+          { que: "La tarjeta", es: "Tarea, cuándo sale, cada cuánto se repite, a quién va, alarma, adjuntos y cuántas veces se ha enviado" },
+          { que: "Silenciadas (N)", es: "No sale ningún correo hasta reactivarlas; agrupadas por partido" },
+          { que: "Caducadas (N)", es: "Silenciadas cuya fecha ya pasó: necesitan fecha nueva para volver a salir" },
+          { que: "Sin fecha", es: "No sonará hasta editarla; si va atada al partido, espera a que haya próximo partido en el calendario" },
+          { que: "Más acciones", es: "Editar, Enviar ahora, Silenciar y Borrar" },
+        ],
+      },
+      {
+        titulo: "Nueva tarea",
+        filas: [
+          { que: "Tarea y Mensaje", es: "El asunto y lo que se lee en el correo" },
+          { que: "Enviar a", es: "Los correos; propone primero los ya usados en otras tareas, por cuántas veces" },
+          { que: "Adjuntos", es: "Foto, vídeo, audio o documento; se sube a Supabase y va como enlace (Gmail rechaza más de 25 MB)" },
+          { que: "Primer aviso", es: "Fecha y hora del primer correo" },
+          { que: "Se repite", es: "Una sola vez, cada día, cada semana, cada mes, cada N días o a X días del partido" },
+          { que: "A X días del partido", es: "Sale tantos días antes del próximo partido, a la hora elegida", cuenta: "Fecha = día del partido − X; se recalcula al abrir la pantalla si la jornada se mueve" },
+          { que: "Alarma en el móvil", es: "Con alguna marcada, el correo lleva la cita (.ics) y el calendario suena aunque no se abra el correo" },
+        ],
+      },
+    ],
+    ojo: [
+      "«El motor de envío no responde»: no sale ningún correo hasta instalar el Apps Script de las alertas en la hoja.",
+      "«Nadie está repasando el calendario»: «Enviar ahora» funciona, pero las programadas no suenan hasta poner el disparador horario.",
+      "Es la misma herramienta que el botón flotante; esta pantalla sirve para repasarlo todo de una vez.",
+    ],
+    revisada: "2026-11-12",
+  },
+
+  /* ==================== CENTRO DE DATOS (12/11/2026) ==================== */
+  {
+    ruta: "/data-center",
+    titulo: "Centro de Datos",
+    resumen: "Subida de CSV sueltos de jugadores, colectivos y scout, que se quedan en este aparato.",
+    origen: "Los CSV que se suben aquí, guardados sólo en este navegador. Los informes semanales de Wyscout y Opta no pasan por aquí: se ven en Data Análisis.",
+    bloques: [
+      {
+        titulo: "Los bloques",
+        filas: [
+          { que: "Jugadores Castilla · Datos Colectivos · Scout Rival", es: "Cada uno con su «Subir archivo CSV» (con cabecera)" },
+          { que: "Cargado", es: "El último archivo subido: nombre, filas y fecha de la subida" },
+          { que: "N filas guardadas en este aparato", es: "Lo que hay de ese bloque en este navegador" },
+          { que: "Área Condicional", es: "Todavía no se carga aquí: la carga de cada tarea se registra en Microciclos" },
+          { que: "Hudl", es: "Todavía no se carga aquí: los timelines se leen solos cada noche y se ven en Análisis de goles" },
+        ],
+      },
+    ],
+    ojo: [
+      "Lo subido no llega a otros aparatos ni a ninguna otra pantalla de análisis.",
+      "Un CSV sin filas no se carga: se avisa en la propia tarjeta.",
+    ],
+    revisada: "2026-11-12",
+  },
+
+  /* ==================== REPOSITORIO SEMANAL (12/11/2026) ==================== */
+  {
+    ruta: "/general",
+    titulo: "Repositorio semanal",
+    resumen: "El material semanal del cuerpo técnico (planificaciones, imágenes y PDF), semana a semana de la temporada.",
+    origen: "Lo que sube el cuerpo técnico. La lista de semanas se guarda en Supabase (temporada 2026-2027) y los archivos en su almacén de ficheros.",
+    bloques: [
+      {
+        titulo: "La cabecera",
+        filas: [
+          { que: "Temporada: N semanas", es: "Las semanas que tiene la temporada" },
+          { que: "N imágenes y N PDF en X de Y semanas", es: "Lo subido hasta hoy", cuenta: "Y = semanas ya empezadas; X = las que tienen algún archivo" },
+          { que: "La tira de semanas", es: "Una casilla por semana hasta la actual: dorada con marca, con material; en blanco, sin él; «ahora», la actual" },
+          { que: "N semanas sin subir material", es: "La racha de semanas vacías seguidas hasta la actual (sale con dos o más)" },
+          { que: "Ver las imágenes / los PDF de la temporada", es: "Todo lo subido, de la semana más reciente a la más antigua" },
+          { que: "Actualizar", es: "Vuelve a leer las semanas" },
+        ],
+      },
+      {
+        titulo: "La semana",
+        filas: [
+          { que: "Imágenes · PDFs · Subir", es: "Las tres pestañas de la semana abierta; abre la semana en curso aunque esté vacía" },
+          { que: "Esta semana no hay material", es: "Con el botón de subir y el enlace a la última semana que sí tiene" },
+          { que: "Otras semanas", es: "La lista por meses, plegada, para buscar una semana futura o por fecha" },
+          { que: "Borrar", es: "Quita la imagen o el documento de esa semana; no se puede deshacer" },
+        ],
+      },
+    ],
+    ojo: [
+      "Si una subida o un borrado falla, se deshace sólo ese cambio y se avisa.",
+      "Dos personas subiendo a la vez no se pisan: viaja sólo el cambio, no la temporada entera.",
+    ],
+    revisada: "2026-11-12",
+  },
+
+  /* ==================== IDENTIDAD EN EL CAMPO (12/11/2026) ==================== */
+  {
+    ruta: "/identidad-campo",
+    titulo: "Identidad en el campo",
+    resumen: "Nuestra forma de jugar, el perfil de cada puesto y los valores del vestuario, frente a lo que sale en el partido y a lo que se entrena en la semana.",
+    origen:
+      "Los principios, de la hoja del modelo de juego; lo medido, de Wyscout (nuestros partidos contra la categoría) y de Opta; la semana, del registro de tareas de los microciclos; las jornadas, del calendario de BeSoccer.",
+    bloques: [
+      {
+        titulo: "El índice",
+        filas: [
+          { que: "Índice de identidad", es: "Cuánto se nos reconoce, de 0 a 100", cuenta: "Media de los índices de las fases; cada fase, media de sus principios; cada principio, media del percentil de sus indicadores" },
+          PERCENTIL,
+          { que: "muy reconocible … no aparece", es: "El nivel del índice", cuenta: "≥75 muy reconocible · ≥60 reconocible · ≥40 a medias · ≥25 poco reconocible · menos, no aparece" },
+          { que: "La curva", es: "El índice partido a partido, contra todos los partidos de la categoría; la raya es el 50" },
+          { que: "Verde / naranja", es: "Más nuestro (60 o más) / menos (por debajo de 40)" },
+          { que: "Estrella", es: "Principio marcado como CLAVE en la hoja del modelo" },
+          { que: "Lo que nos dice", es: "Las conclusiones: lo que sube o cae en los tres últimos partidos y lo que se entrena y no sale" },
+        ],
+      },
+      {
+        titulo: "Con balón · Sin balón",
+        filas: [
+          { que: "Cada fase", es: "Sus principios con los indicadores de Wyscout, la cifra, la mediana de la categoría y el percentil" },
+          { que: "Los mismos principios, evento a evento", es: "Los que Opta mide con una cifra de equipo, contra los equipos de Primera RFEF (los dos grupos)" },
+          { que: "Dominio del partido", es: "Cuánto del partido vivimos más cerca de su portería que ellos de la nuestra (momentum de Opta, se carga al abrirlo)" },
+        ],
+      },
+      {
+        titulo: "La semana y la gente",
+        filas: [
+          { que: "% de la semana", es: "Lo que se entrena cada fase", cuenta: "Minutos de tareas de la fase ÷ minutos de entrenamiento, sin el día de partido, asignados al partido siguiente" },
+          { que: "Se entrena y se ve", es: "Fase con cuota igual o mayor que la media y índice 60 o más" },
+          { que: "Se entrena y no sale", es: "Cuota igual o mayor que la media e índice por debajo de 45" },
+          { que: "Sale sin apenas entrenarlo / Ni se entrena ni sale", es: "Cuota por debajo del 60 % de la media, con índice 60 o más / por debajo de 40" },
+          { que: "Partido a partido", es: "Cada fase en cada jornada, con el color del percentil" },
+          { que: "Nuestros valores en el campo", es: "Exigencia y valentía, Compromiso y Respeto, medidos con duelos, presión, recuperaciones, tarjetas y faltas" },
+          { que: "Cada jugador y su puesto", es: "Encaje con lo que pide la Identidad Posicional", cuenta: "Media de sus percentiles contra los de su puesto en la categoría; sólo con más de 270 minutos" },
+        ],
+      },
+    ],
+    ojo: [
+      "Sólo sale un principio si tiene indicador con dato: lo que no se puede medir no se nombra.",
+      "En pérdidas, remates en contra, juego largo y PPDA, menos es mejor: el percentil ya lo tiene en cuenta.",
+      "Si un principio deja de estar en la hoja del modelo, desaparece de la pantalla.",
+    ],
+    revisada: "2026-11-12",
+  },
+
+  /* ==================== IDENTIDAD Y CULTURA (12/11/2026) ==================== */
+  {
+    ruta: "/identidad-cultura",
+    titulo: "Identidad y cultura",
+    resumen: "Los valores votados por la plantilla y la estantería de documentos de cultura, listos para proyectar o imprimir.",
+    origen:
+      "Los documentos publicados con la web y los que sube el administrador, guardados en Supabase. Es el mismo repositorio que se abre desde Dinámicas y Valores.",
+    bloques: [
+      {
+        titulo: "Los valores",
+        filas: [
+          { que: "El titular", es: "Cuántos valores se votaron y cuál fue el más votado, con sus votos sobre el total", cuenta: "Sale del propio documento de valores: si cambia el recuento, cambia el titular" },
+          { que: "N votos", es: "Los votos de cada valor en el recuento; la barra, frente al más votado" },
+          { que: "+N a otro valor", es: "Votos a un valor afín que el recuento agrupó con el suyo; no entran en el total" },
+          { que: "Antivalor", es: "Lo que no se admite, con sus votos, contados aparte" },
+        ],
+      },
+      {
+        titulo: "La estantería",
+        filas: [
+          { que: "Documentos", es: "Los publicados, por número; se elige uno para verlo" },
+          { que: "Vista previa", es: "Cada diapositiva tal y como se descarga; se abre a pantalla completa y se pasa con las flechas" },
+          { que: "PDF", es: "A4 apaisado, una diapositiva por hoja y con pie numerado" },
+          { que: "PowerPoint", es: "Para abrirlo en la sala sin la app" },
+        ],
+      },
+      {
+        titulo: "Sólo admin",
+        filas: [
+          { que: "Subir el bruto", es: "El HTML de la presentación tal y como se redactó" },
+          { que: "Revisar antes de publicar", es: "Valores y diapositivas leídos, con número, temporada, título, subtítulo, nombre del fichero, resumen y entradilla" },
+          { que: "Hay diapositivas sin entender", es: "Partes del bruto que no se han podido leer" },
+        ],
+      },
+    ],
+    ojo: [
+      "Los documentos publicados con la web no se borran desde aquí: se corrigen subiendo uno con el mismo identificador, y al borrar el subido vuelve el original.",
+    ],
+    revisada: "2026-11-12",
+  },
+
+  /* ==================== CALENDARIO DE SEGUIMIENTO (12/11/2026) ==================== */
+  {
+    ruta: "/calendar",
+    titulo: "Calendario de Seguimiento",
+    resumen: "Los seguimientos individuales, día a día, y a quién del Castilla toca seguir.",
+    origen: "Hoja de seguimiento, una fila por registro (la misma de /individual). El jugador se ata por nombre con la plantilla, no por ID.",
+    bloques: [
+      {
+        titulo: "Las cifras del mes",
+        filas: [
+          { que: "Seguimientos en (mes)", es: "Registros del mes que se mira; si es el mes en curso, hasta hoy", cuenta: "Debajo, el mes anterior al mismo día (o entero), lo programado después de hoy y el total de la temporada, con el Castilla y los de otros equipos aparte" },
+          { que: "Jugadores con seguimiento", es: "Jugadores distintos con algún registro ese mes", cuenta: "Debajo, cuántos son del Castilla de los que tiene la plantilla" },
+          { que: "Por tipo", es: "Registros del mes por estrategia: Campo, Vídeo, Charla, Vídeo y charla, Sin tipo escrito", cuenta: "Se lee de la columna ESTRATEGIA; «Sin tipo escrito» es lo que no trae ninguna de esas palabras" },
+          { que: "Todos los jugadores", es: "Filtra todo a un jugador; el Castilla primero y los de otros equipos aparte" },
+        ],
+      },
+      {
+        titulo: "El calendario",
+        filas: [
+          { que: "A quién toca seguir", es: "Jugadores de campo del Castilla sin ningún seguimiento en 14 días, con los días desde el último", cuenta: "14 días que acaban hoy, hoy incluido; los porteros no cuentan. Sólo sale sin filtro de jugador" },
+          { que: "Tarjeta del día", es: "El jugador y quién lo hizo; la franja de color es el tipo", cuenta: "Hasta 3 por casilla; «+N más» abre el día" },
+          { que: "Programado", es: "Registro con fecha posterior a hoy: borde de puntos y fuera de las cifras «hasta hoy»" },
+          { que: "El día abierto", es: "Cada registro con su estrategia, quién, objetivo ofensivo, defensivo, mental y feedback" },
+          { que: "Pinchar un nombre", es: "Abre su ficha en /individual" },
+        ],
+      },
+    ],
+    ojo: [
+      "La hoja también apunta seguimientos de jugadores de otros equipos: por eso las cifras separan el Castilla del resto.",
+      "Aquí sólo se lee; los seguimientos se escriben desde la ficha individual.",
+    ],
+    revisada: "2026-11-12",
+  },
+  /* ==================== CALENDARIO DE OPERATIVA GENERAL (12/11/2026) ==================== */
+  {
+    ruta: "/calendar_general",
+    titulo: "Calendario de Operativa General",
+    resumen: "El mes del equipo en un sitio: partidos, viajes, sesiones, eventos del staff y documentos del Área General.",
+    origen: "Partidos: calendario de BeSoccer. Viajes: lo guardado en /desplazamiento. Sesiones: hoja de microciclos. Eventos del staff: documento propio en Supabase. Imágenes y PDF: los subidos al Área General.",
+    bloques: [
+      {
+        titulo: "Lo que sale solo",
+        filas: [
+          { que: "Próximo partido", es: "Jornada, rival, día y hora; si es fuera, desde qué día se viaja y lleva a su desplazamiento" },
+          { que: "Partido", es: "Rival con escudos, hora y, si ya se jugó, el resultado (el nuestro primero)" },
+          { que: "Viaje", es: "Los viajes guardados en Desplazamiento, con la hora de salida; los días tras el partido son la vuelta", cuenta: "Partido fuera sin viaje guardado: sale con la salida que propondría Desplazamiento" },
+          { que: "Sesión (MD y minutos)", es: "El MD del día y los minutos de entreno de la hoja, con el contenido de más minutos", cuenta: "Sin la fila del partido; sin MD en la hoja, el MD se saca del próximo partido" },
+          { que: "Libre", es: "Día sin sesión ni partido entre la primera y la última sesión apuntadas, y el día después de un partido más adelante" },
+        ],
+      },
+      {
+        titulo: "Lo que escribe el staff",
+        filas: [
+          { que: "Nuevo evento", es: "Reunión, Viaje, Logística, Médico o Institucional, con título, descripción, hora, lugar, responsable y participantes" },
+          { que: "Editar / borrar", es: "Desde el día abierto; se guarda solo" },
+          { que: "Imágenes y PDF", es: "Documentos del Área General, colgados del día en que se subieron" },
+        ],
+      },
+      {
+        titulo: "La cabecera del mes",
+        filas: [
+          { que: "Resumen del mes", es: "Cuántos partidos (y jugados), viajes, entrenos en la hoja, eventos del staff, imágenes y PDF hay en el mes" },
+          { que: "Leyenda", es: "Sólo los tipos que tienen algo en el mes que se mira" },
+        ],
+      },
+    ],
+    ojo: [
+      "Partidos, viajes y sesiones aquí sólo se leen: se cambian en su pantalla (BeSoccer, /desplazamiento, la hoja de microciclos).",
+      "Si una fuente no llega en 15 s se ofrece reintentar; lo que sí llegó se pinta igual.",
+      "Entrenos y partidos se cuentan igual que en /micro_calendar: la fila de competición no es sesión.",
+    ],
+    revisada: "2026-11-12",
+  },
+  /* ==================== CALENDARIO CONDICIONAL (12/11/2026) ==================== */
+  {
+    ruta: "/calendar_performance",
+    titulo: "Calendario Condicional",
+    resumen: "Los trabajos del área condicional por día, con sus imágenes y PDF.",
+    origen: "Hoja de trabajos condicionales (lectura por /api/rivals, con copia en el servidor). Los archivos, del almacén del área Performance en Supabase.",
+    bloques: [
+      {
+        titulo: "Las cifras del mes",
+        filas: [
+          { que: "Trabajos", es: "Trabajos apuntados en el mes" },
+          { que: "Días programados", es: "Días del mes con al menos un trabajo" },
+          { que: "Imágenes / PDFs", es: "Archivos del área subidos ese mes", cuenta: "Cada archivo cuelga del día en que se subió" },
+        ],
+      },
+      {
+        titulo: "Cada trabajo",
+        filas: [
+          { que: "Tipo", es: "Fuerza, Preventivo, Readaptación, Movilidad o Recuperación; es el color de la franja" },
+          { que: "Ficha", es: "Título, descripción, jugadores, responsable, duración e intensidad, tal y como se escribieron" },
+          { que: "Crear / editar / borrar", es: "Desde el día abierto; se escribe en la hoja y se comprueba que el texto ha llegado" },
+        ],
+      },
+    ],
+    ojo: [
+      "La intensidad y la duración son texto libre: no se suman ni se promedian.",
+    ],
+    revisada: "2026-11-12",
+  },
+  /* ==================== CONTENIDOS MICROCICLO (12/11/2026) ==================== */
+  {
+    ruta: "/micro_calendar",
+    titulo: "Contenidos Microciclo",
+    resumen: "Cada día de entreno con su MD, sus minutos y sus contenidos, y la carga del mes contra el anterior.",
+    origen: "Hoja de microciclos, una fila por tarea (la misma de /microcycles). Hora, lado y resultado del partido: calendario de BeSoccer.",
+    bloques: [
+      {
+        titulo: "Las cifras del mes",
+        filas: [
+          { que: "Titular", es: "Mes, entrenos (hechos), volumen y cómo va la carga frente al mes anterior" },
+          { que: "Entrenos", es: "Días con tarea de entreno; hechos = con minutos o carga apuntados, el resto planificados", cuenta: "Los partidos aparte: la fila de competición no es entreno" },
+          { que: "Volumen", es: "Minutos de entreno del mes, sin los partidos" },
+          { que: "Carga física media / entreno", es: "Puntos de carga por entreno hecho", cuenta: "UA = minutos × intensidad (1-10), de la columna «Carga Ponderada»; suma del mes ÷ entrenos hechos" },
+          { que: "Carga cognitiva media / entreno", es: "Lo mismo con la demanda cognitiva", cuenta: "UA = minutos × demanda cognitiva (1-10); suma ÷ entrenos hechos" },
+          { que: "Frente al mes anterior", es: "La media contra los mismos días del mes anterior", cuenta: "Del 1 al último día con entreno hecho; con menos de 3 entrenos hechos en un lado no se compara" },
+          { que: "Lectura de la carga", es: "Qué MD se ha movido más contra el mes anterior y si hay otro número de partidos", cuenta: "Un MD sólo se nombra con 3 sesiones suyas o más en cada mes" },
+        ],
+      },
+      {
+        titulo: "El calendario",
+        filas: [
+          { que: "Fondo del día", es: "La fase con más minutos ese día, sin contar Global", cuenta: "Ofensiva, Defensiva, Transición ofensiva, Transición defensiva o ABP; sólo Global deja el fondo normal" },
+          { que: "MD", es: "El de la hoja; sin él, el del próximo partido del calendario" },
+          { que: "Contenidos", es: "Minutos por contenido principal, de más a menos; sin contenido, el tipo de tarea" },
+          { que: "Partido", es: "Rival con escudo, hora, en casa o fuera y resultado, si BeSoccer lo tiene" },
+          { que: "Libre", es: "Día sin nada entre la primera y la última sesión apuntadas" },
+          { que: "Siglas", es: "Bajo el calendario, las siglas de los contenidos que salen ese mes, desarrolladas" },
+        ],
+      },
+      {
+        titulo: "El día abierto",
+        filas: [
+          { que: "Bloques", es: "Las tareas agrupadas por contenido principal, con sus minutos" },
+          { que: "Tarea", es: "Descripción, grupo y nº de jugadores" },
+          { que: "Carga física / cognitiva", es: "Barra de cada tarea", cuenta: "Llena = la tarea más cargada de ese día" },
+        ],
+      },
+    ],
+    ojo: [
+      "Más carga no es mejor: un mes con más partidos baja la media a propósito.",
+      "Entrenos y partidos se cuentan igual que en /calendar_general y /microcycles.",
+    ],
+    revisada: "2026-11-12",
+  },
+  /* ==================== JUGADORES SESIÓN · DISPONIBILIDAD (12/11/2026) ==================== */
+  {
+    ruta: "/training",
+    titulo: "Jugadores Sesión · disponibilidad",
+    resumen: "El estado de cada jugador en la sesión de un día, importado de una imagen o de WhatsApp y ajustado a mano.",
+    origen: "Plantilla y estados de la hoja de jugadores (por Apps Script). La imagen o el texto los lee Gemini y los nombres se emparejan con la plantilla.",
+    bloques: [
+      {
+        titulo: "Importar disponibilidad",
+        filas: [
+          { que: "Imagen / Texto de WhatsApp", es: "Se sube la foto del parte o se pega el mensaje y se detecta el estado de cada uno" },
+          { que: "Nombres sin identificar", es: "Los que no casan con nadie de la plantilla" },
+          { que: "Coincidencia ambigua", es: "Varios candidatos con su porcentaje de parecido: se elige uno y «Asociar» guarda el alias" },
+          { que: "Jugador nuevo detectado", es: "Sin candidato: «Crear» lo da de alta con su licencia (RMC, Juvenil A, Juvenil B, Castilla u Otro)" },
+        ],
+      },
+      {
+        titulo: "Disponibilidad de la plantilla",
+        filas: [
+          { que: "Fecha", es: "El día de la sesión; lo pendiente se guarda en su día antes de cambiar" },
+          { que: "Estado", es: "Óptimo, Control de carga, Tocado, Reincorporación, Sancionado, Lesionado, Primer equipo, Selección, Otros o No convocado" },
+          { que: "Entrenan", es: "Los que pisan el campo", cuenta: "Óptimo + Control de carga + Tocado + Reincorporación + Sancionado" },
+          { que: "Chips por estado", es: "Cuántos hay en cada estado ese día" },
+          { que: "Todos / Entrenan / Fuera", es: "Filtra la lista; con el buscador por nombre" },
+          { que: "Recargar", es: "Manda lo pendiente y vuelve a leer la hoja" },
+        ],
+      },
+    ],
+    ojo: [
+      "Cada cambio se guarda solo al dejar de tocar, en la fecha elegida.",
+      "Sin estado guardado, el jugador sale como No convocado.",
+    ],
+    revisada: "2026-11-12",
+  },
+  /* ==================== DINÁMICAS Y VALORES (12/11/2026) ==================== */
+  {
+    ruta: "/team-values",
+    titulo: "Dinámicas y Valores",
+    resumen: "La hoja de ruta de la cultura del vestuario, etapa a etapa, y el resultado de la votación de valores.",
+    origen: "Hoja de contenidos culturales publicada (una fila por contenido con etapa, tipo, título y texto). Los votos, del documento de Identidad y Cultura.",
+    bloques: [
+      {
+        titulo: "Las etapas",
+        filas: [
+          { que: "Marco, Planificación, Semana 1-4", es: "Las etapas de la hoja de ruta, con cuántos contenidos tiene cada una" },
+          { que: "Titular de la etapa", es: "La idea de esa etapa; encima, su nombre y, si la hoja la trae, su semana real" },
+          { que: "Filtro por tipo", es: "Sólo los tipos de contenido que hay en esa etapa" },
+          { que: "Buscar valor o conducta", es: "Busca en título, texto y tipo de la etapa" },
+          { que: "Ficha de la dinámica", es: "Duración, material y lo que entrega el vestuario, si la hoja lo trae" },
+        ],
+      },
+      {
+        titulo: "La votación",
+        filas: [
+          { que: "Resultado de la votación", es: "El valor más votado con su base; arriba en el Marco, al pie en las demás etapas" },
+          { que: "Votos de cada valor", es: "Los cinco valores con sus votos del recuento y lo que lo destruye (antivalores)", cuenta: "Los votos a un valor afín se dicen aparte y no entran en el total; los antivalores se cuentan aparte" },
+          { que: "Ver el documento", es: "Abre el documento en /identidad-cultura" },
+        ],
+      },
+      {
+        titulo: "Editar",
+        filas: [
+          { que: "Editar", es: "Cambia los textos de la etapa; cada contenido se escribe solo en la hoja al dejar de escribir" },
+          { que: "Deshacer", es: "Vuelve a lo que había al entrar en edición, también en la hoja" },
+        ],
+      },
+    ],
+    ojo: [
+      "La hoja publicada tarda minutos en refrescarse: lo recién escrito se enseña encima desde este aparato.",
+    ],
+    revisada: "2026-11-12",
+  },
+
+  /* ==================== LABORATORIO · DEL SCOUTING AL PLAN (12/11/2026) ==================== */
+  {
+    ruta: "/laboratorio",
+    titulo: "Del scouting al plan de partido",
+    resumen:
+      "Prueba: un modelo lee el análisis del rival ya escrito y redacta un borrador del plan de partido imitando los planes del cuerpo técnico. No escribe nada: se lee, se corrige y se copia.",
+    origen:
+      "La hoja RIVALES (el scouting del rival elegido y, como ejemplo, los dos planes ya escritos más recientes de otros rivales). La redacta el motor elegido en el servidor.",
+    bloques: [
+      {
+        titulo: "Qué se redacta",
+        filas: [
+          { que: "Partido", es: "Las jornadas de la hoja RIVALES; abre en el próximo partido (el primero con fecha de hoy en adelante)" },
+          { que: "Motor", es: "«Motor gratuito» (el del dictado por voz, sin coste) o «Motor de pago» (se cobra por uso)" },
+          { que: "Redactar el borrador", es: "Manda el scouting y los planes de ejemplo al motor; tarda unos veinte segundos" },
+        ],
+      },
+      {
+        titulo: "Con qué se ha escrito",
+        filas: [
+          { que: "Campos de scouting usados", es: "Cuántos campos del análisis del rival tenían texto y entraron" },
+          { que: "Planes de ejemplo", es: "Los rivales cuyos planes se le dieron como modelo de cómo escribe la casa" },
+          { que: "Motor y coste", es: "Qué motor lo ha escrito y lo que ha costado (o «sin coste»)" },
+          { que: "Lo que el scouting no cuenta", es: "Los huecos que el propio motor dice que no ha podido rellenar con lo escrito" },
+        ],
+      },
+      {
+        titulo: "El borrador",
+        filas: [
+          { que: "Los campos", es: "Claves del partido y emocionales, ataque, defensa, ABP ofensivo y defensivo, duelos CB y SB a favor y en contra, fortalezas, debilidades y estructuras" },
+          { que: "Se apoya en", es: "Debajo de cada campo, de qué partes del scouting ha salido" },
+          { que: "Copiar / Copiar todo", es: "Al portapapeles, para pegarlo en el plan de partido; «Abrir el plan de partido» lleva allí" },
+        ],
+      },
+    ],
+    ojo: [
+      "Ningún texto se escribe en la hoja: lo que no se copie y se pegue en el plan, se pierde al cambiar de partido.",
+      "Un rival sin scouting escrito no da borrador.",
+    ],
+    revisada: "2026-11-12",
+  },
+
+  /* ==================== LABORATORIO ABP · EL BALÓN PARADO DE CADA LIGA (12/11/2026) ==================== */
+  {
+    ruta: "/laboratorio/abp/datos",
+    titulo: "El balón parado de cada liga",
+    resumen:
+      "Todos los equipos de los dos grupos de Primera RFEF y de la Premier con lo que Wyscout trae de balón parado, cada uno leído contra su liga. Sólo administrador.",
+    origen:
+      "Wyscout, en public/data/abp-ligas.json (lo arma scripts/abp-ligas.cjs; las ligas que no son la nuestra las baja scripts/actualizar-abp-ligas.cmd). El próximo rival, del calendario de BeSoccer.",
+    bloques: [
+      {
+        titulo: "Mandos",
+        filas: [
+          { que: "Liga", es: "Sólo las ligas que están bajadas. La nuestra abre con el Castilla; la Premier, con el Arsenal" },
+          { que: "Equipo", es: "El que se mira en toda la pantalla; también se elige pinchando una barra o un punto" },
+          { que: "Métrica de la clasificación y la tendencia", es: "La que ordena la clasificación y dibuja la serie partido a partido" },
+          { que: "En azul", es: "El próximo rival, sólo en su liga" },
+        ],
+      },
+      {
+        titulo: "Los paneles",
+        filas: [
+          { que: "De un vistazo", es: "Una barra por métrica: su valor, la mediana de la liga y su puesto, con el próximo rival al lado" },
+          PERCENTIL,
+          { que: "Clasificación", es: "Los equipos de la liga de mejor a peor en la métrica elegida" },
+          { que: "Peligro a favor y en contra", es: "Cada equipo es un punto: ABP con remate a favor (derecha, más) frente a en contra (abajo, menos)" },
+          { que: "Partido a partido", es: "La métrica elegida en cada partido del equipo; la raya, su valor en la temporada", cuenta: "Debajo, la base: partidos o acciones sobre las que se calcula" },
+          { que: "Frente a la referencia", es: "El equipo contra un equipo de la Premier, cada uno con su percentil en su liga" },
+          { que: "Su gemelo en la Premier", es: "El equipo de la Premier con el perfil de balón parado más parecido", cuenta: "Menor distancia media entre percentiles en las métricas que se juzgan (al menos 4 en común)" },
+        ],
+      },
+      {
+        titulo: "Las métricas",
+        filas: [
+          { que: "ABP con remate (a favor / en contra) por partido", es: "Jugadas a balón parado que acaban en remate, cada partido" },
+          { que: "… que acaban en remate (por cada 100)", es: "Del total de balón parado, de córners o de faltas, cuántas terminan en remate", cuenta: "Jugadas con remate ÷ jugadas × 100, sumando la temporada" },
+          { que: "Córners, faltas y penaltis por partido", es: "Volumen a favor y en contra" },
+          { que: "Remates que nacen de ABP (por cada 100)", es: "De cada 100 remates propios, cuántos vienen de balón parado" },
+          { que: "Las de estilo", es: "Córners y faltas a favor y la cuota de remates de ABP no se juzgan: sin percentil, el puesto va del más alto al más bajo" },
+        ],
+      },
+    ],
+    ojo: [
+      "La Premier y Primera RFEF se comparan por percentiles, nunca cifra contra cifra.",
+      "Un gemelo es parecido de perfil, no de nivel.",
+    ],
+    revisada: "2026-11-12",
+  },
+
+  /* ==================== ESCUDOS DE LA LIGA (12/11/2026) ==================== */
+  {
+    ruta: "/laboratorio/escudos",
+    titulo: "Escudos de la liga",
+    resumen:
+      "Los escudos de la categoría en un .pptx, por orden alfabético, cada uno como objeto suelto con su PNG transparente para copiar y pegar.",
+    origen:
+      "BeSoccer, a través de Supabase: el documento del informe del rival (rivals:informe, cada equipo y su clasificación) y el de los dos grupos de la categoría (escudos:categoria).",
+    bloques: [
+      {
+        titulo: "Lo que hay",
+        filas: [
+          { que: "N escudos de BeSoccer", es: "Cuántos han llegado y de cuándo es el documento («actualizados el…»)" },
+          { que: "Descargar .pptx", es: "Veinte escudos por diapositiva (5 × 4) sobre el azul noche del documento, recortado el aire de los márgenes", cuenta: "Espera a que lleguen todas las imágenes; la que no llega en 15 s sale sin ella" },
+          { que: "Actualizar escudos", es: "Vuelve a pedir la lista" },
+          { que: "Buscar", es: "Filtra la parrilla por nombre de equipo" },
+          { que: "Cada tarjeta", es: "Copia ese escudo en PNG transparente; si el navegador no deja copiar imágenes, lo descarga" },
+          { que: "Borde oro", es: "El nuestro" },
+          { que: "Borde ámbar", es: "Trae fondo, no es transparente", cuenta: "Las cuatro esquinas del PNG son opacas" },
+        ],
+      },
+    ],
+    ojo: [
+      "Si el documento del informe no está bajado al día, puede faltar algún equipo: la caja ámbar dice cuáles.",
+      "Los nombres van como en la quiniela (lib/equipos/nombres.ts), no como los escribe BeSoccer.",
+    ],
+    revisada: "2026-11-12",
+  },
+
+  /* ==================== ANÁLISIS DE FALTAS (12/11/2026) ==================== */
+  {
+    ruta: "/laboratorio/faltas",
+    titulo: "Análisis de faltas",
+    resumen:
+      "Dónde se comete cada falta del partido, a favor y en contra, y cuánta gente defendía entre ella y la portería.",
+    origen:
+      "Etiquetado propio, viendo el partido falta a falta (scripts/abp-clips-preparar.mjs y scripts/faltas-datos.mjs escriben lib/faltas/datos.ts). El jugador, del timeline de Hudl por jugador. Al lado, Opta.",
+    bloques: [
+      {
+        titulo: "Mandos",
+        filas: [
+          { que: "Partido", es: "Un botón por jornada etiquetada; abre en el último por fecha" },
+          { que: "Todas / A favor / En contra", es: "A favor = nos la hacen a nosotros; en contra = la cometemos" },
+          { que: "Filtrando", es: "Todo lo que se pincha (casilla del campo, distancia, número de defensores, celda de la tabla) filtra la pantalla entera" },
+          { que: "Vistas", es: "Resumen, En el campo, Detalle, Por jugador y Falta a falta" },
+        ],
+      },
+      {
+        titulo: "Resumen",
+        filas: [
+          { que: "Comparativa", es: "El partido frente a la media de los anteriores: faltas a favor y en contra, frontales, en contra en nuestro campo y a favor en campo rival", cuenta: "Media por partido de los anteriores por fecha, con su mínimo y máximo; verde mejor, naranja peor, gris no se juzga" },
+          { que: "Casos escasos", es: "Las filas con muy pocos casos, plegadas aparte" },
+          { que: "Qué hacemos", es: "Las faltas en contra frente a la media, dónde se hicieron y la tarea con su criterio de éxito" },
+          { que: "Opta · el Castilla en su grupo", es: "Faltas cometidas y recibidas por partido según Opta, con su puesto en el grupo; y el partido según Opta al lado del etiquetado" },
+          PERCENTIL,
+        ],
+      },
+      {
+        titulo: "Campo y detalle",
+        filas: [
+          { que: "Dónde se cometen", es: "Cada punto, una falta en su tercio y carril; el Castilla ataca hacia la derecha", cuenta: "Se etiquetan zonas, no metros: dentro de una zona los puntos se reparten para no taparse" },
+          { que: "Cuánta gente defendía", es: "Defensores entre la falta y su portería, portero incluido: la media y el reparto número a número", cuenta: "Las que no dejaban ver el campo entero no se cuentan" },
+          { que: "Faltas que cortaron algo", es: "Las que frenaron una transición", cuenta: "3 defensores o menos por delante y fuera del último tercio" },
+          { que: "A qué distancia", es: "Frontal, media o lejana, de la portería que ataca quien la saca" },
+        ],
+      },
+      {
+        titulo: "Por jugador y falta a falta",
+        filas: [
+          { que: "Comete / Recibe", es: "Faltas en contra que hace él y faltas que le hacen a él; este partido o la temporada", cuenta: "No se mira cuántos minutos jugó" },
+          { que: "Cortan contra", es: "Las suyas con 3 defensores o menos del rival por delante, fuera del último tercio" },
+          { que: "La tabla", es: "Lado, jugador, dónde, distancia, defendían, minuto y vídeo (nuestro corte o el partido en Hudl)" },
+        ],
+      },
+    ],
+    ojo: [
+      "Los partidos mirados a ojo desde los clips, sin timeline de Hudl, no tienen jugador y no entran en «Por jugador».",
+      "El etiquetado no apunta en qué acaba cada falta: el peligro se lee por el sitio.",
+    ],
+    revisada: "2026-11-12",
+  },
+
+  /* ==================== ROBOS Y TRANSICIONES (12/11/2026) ==================== */
+  {
+    ruta: "/laboratorio/transiciones",
+    titulo: "Robos y transiciones",
+    resumen:
+      "Cada balón que robamos de forma activa: dónde, qué es lo primero que hacemos con él y en qué acaba la jugada que nace de ahí.",
+    origen:
+      "El timeline de Hudl de cada partido (scripts/partido/robos.cjs, recogido en lib/transiciones/datos.ts por scripts/transiciones-datos.mjs). J2 y J3 se miraron imagen a imagen. Al lado, Opta.",
+    bloques: [
+      {
+        titulo: "Mandos",
+        filas: [
+          { que: "Temporada / jornada", es: "Todos los partidos o uno; abre en el último por fecha" },
+          { que: "Ver porcentajes / totales", es: "Cambia las cifras de los gráficos" },
+          { que: "Quitar los dudosos", es: "Saca los robos con confianza baja" },
+          { que: "Revisado entero", es: "Cuánto del partido está revisado; si falta, los totales son de esos minutos" },
+          { que: "Filtrando", es: "Cualquier sector, barra, leyenda, cifra o celda que se pincha filtra la pantalla entera" },
+        ],
+      },
+      {
+        titulo: "Resumen",
+        filas: [
+          { que: "Comparativa", es: "El último partido frente a la media de los anteriores: robos, salen hacia delante, acaban en remate o área, la perdemos al momento, robos en campo rival y duración", cuenta: "Media por partido con los mismos filtros, con mínimo y máximo; «muestra pequeña» por debajo de 15" },
+          { que: "Lo que pide trabajo esta semana", es: "La cifra peor que nuestra media, con la tarea y su criterio de éxito («Qué entrenamos para mantenerlo» si todo va bien)" },
+          { que: "Salen hacia delante", es: "Lo primero tras el robo es un pase o conducción hacia delante", cuenta: "Sobre los robos que se juegan con pase o conducción" },
+          { que: "Dura la transición", es: "Segundos de media de la jugada tras el robo" },
+          { que: "Opta · el Castilla en su grupo", es: "Recuperaciones (total y por tercio), intercepciones y PPDA por partido, con su puesto en el grupo" },
+          PERCENTIL,
+        ],
+      },
+      {
+        titulo: "Campo, detalle y jugadores",
+        filas: [
+          { que: "Dónde robamos", es: "Cada robo en su tercio y carril; el Castilla ataca hacia la derecha" },
+          { que: "Qué hacemos con el balón robado", es: "Adelante, horizontal o atrás, despeje o pérdida inmediata" },
+          { que: "Dónde robamos y cómo salimos", es: "Por tercio, cuántos salen hacia delante" },
+          { que: "En qué acaba la transición", es: "Remate, balón al área, último tercio, falta, posesión larga, atrás al portero, fuera o la perdemos" },
+          { que: "Cuándo robamos / Por qué carril", es: "Por tramos de 15 minutos y por carril" },
+          { que: "Quién roba", es: "Por jugador: en campo rival, salen adelante, remate o área, remate y perdida al momento" },
+          { que: "Robo a robo", es: "Minuto, zona, carril, salida, en qué acaba, fiabilidad y la jugada (corte de Hudl, 5 s antes y 8 después)" },
+        ],
+      },
+    ],
+    ojo: [
+      "Robo es la recuperación activa: entrada, interceptación o balón ganado por presión, con el balón en juego. Rechaces sin disputa, paradas o balón parado no cuentan.",
+      "La transición son los 15 s tras el robo: lo que llega después cuenta como posesión.",
+      "La «recuperación» de Opta no es la misma cuenta que el robo de aquí: se enseñan aparte.",
+    ],
+    revisada: "2026-11-12",
+  },
+
+  /* ==================== PÉRDIDAS Y TRANSICIONES DEFENSIVAS (12/11/2026) ==================== */
+  {
+    ruta: "/laboratorio/perdidas",
+    titulo: "Pérdidas y transiciones defensivas",
+    resumen:
+      "El espejo de los robos: cada balón que perdemos en juego, qué es lo primero que hace el rival con él y en qué acaba su posesión.",
+    origen:
+      "El timeline de Hudl de cada partido (scripts/partido/perdidas.cjs, recogido en lib/transiciones/datos.ts). Salen solas con «Actualizar análisis del partido» de Ajustes. J2 y J3 no tienen pérdidas. Al lado, Opta.",
+    bloques: [
+      {
+        titulo: "Mandos",
+        filas: [
+          { que: "Temporada / jornada", es: "Todos los partidos o uno; abre en el último por fecha" },
+          { que: "Ver porcentajes / totales", es: "Cambia las cifras de los gráficos" },
+          { que: "Quitar los dudosos", es: "Saca las pérdidas con confianza media (las que Wyscout no clasifica como pase, conducción o duelo)" },
+          { que: "Revisado entero", es: "Cuánto del partido está revisado; si falta, los totales son de esos minutos" },
+          { que: "Filtrando", es: "Cualquier sector, barra, leyenda, cifra o celda que se pincha filtra la pantalla entera" },
+        ],
+      },
+      {
+        titulo: "Resumen",
+        filas: [
+          { que: "Comparativa", es: "El último partido frente a la media de los anteriores: pérdidas, el rival sale hacia delante, acaban en remate o en nuestra área, la recuperamos al momento, pérdidas en campo propio y duración de su posesión", cuenta: "Media por partido con los mismos filtros, con mínimo y máximo; aquí, en casi todas, menos es mejor" },
+          { que: "Lo que pide trabajo esta semana", es: "La cifra peor que nuestra media, con la tarea y su criterio de éxito («Qué entrenamos para mantenerlo» si todo va bien)" },
+          { que: "El rival sale hacia delante", es: "Lo primero que hace con el balón es un pase o conducción hacia delante: lo malo", cuenta: "Sobre las pérdidas que el rival llega a jugar" },
+          { que: "Dura su transición", es: "Segundos de media de la posesión del rival tras la pérdida" },
+          { que: "Opta · el Castilla en su grupo", es: "Pérdidas (total y por tercio) y balones robados en conducción por partido, con su puesto en el grupo" },
+          PERCENTIL,
+        ],
+      },
+      {
+        titulo: "Campo, detalle y jugadores",
+        filas: [
+          { que: "Dónde perdemos el balón", es: "Cada pérdida en su tercio y carril; el Castilla ataca hacia la derecha" },
+          { que: "Qué hace el rival con el balón perdido", es: "Sale hacia delante, horizontal o atrás, despeja o la recuperamos al momento" },
+          { que: "Dónde perdemos y cómo salen", es: "Por tercio, cuántas sale el rival hacia delante; la de campo propio es la que más peligro trae" },
+          { que: "En qué acaba su transición", es: "La recuperamos, nos hacen falta, fuera, atrás a su portero, se quedan el balón, falta nuestra, último tercio, nuestra área o remate" },
+          { que: "Cuándo perdemos / Por qué carril", es: "Por tramos de 15 minutos y por carril" },
+          { que: "Quién pierde el balón", es: "Por jugador: en nuestro campo, caras (acaban en remate o en nuestra área), remate rival, salen adelante y recuperada" },
+          { que: "Pérdida a pérdida", es: "Minuto, zona, carril, su salida, en qué acaba, fiabilidad y la jugada (corte de Hudl, 5 s antes y 8 después)" },
+        ],
+      },
+    ],
+    ojo: [
+      "La salida y el desenlace son del rival: verde es lo bueno para nosotros, naranja lo malo.",
+      "Pérdida es un balón nuestro que pasa al rival en juego: pase que no llega, conducción cortada, control o duelo perdido. Remates, despejes y faltas pitadas no cuentan.",
+      "La «pérdida» de Opta no es la misma cuenta que la de aquí: se enseñan aparte.",
+    ],
+    revisada: "2026-11-12",
+  },
+
+  /* ==================== CREAR O EDITAR EL MICROCICLO (12/11/2026) ==================== */
+  {
+    ruta: "/laboratorio/microciclo",
+    titulo: "Crear o editar el microciclo",
+    resumen: "Preparar la semana que viene, o retocar una ya escrita, y escribirla en la hoja de registro de tareas.",
+    origen: "La hoja de registro de tareas (la misma que leen Microciclos, el microciclo de ABP y Data análisis) y el calendario del Castilla que baja de BeSoccer el ordenador del club. Los equipos del día salen de Jugadores sesión y del análisis de entrenamiento.",
+    bloques: [
+      {
+        titulo: "1 · La semana",
+        filas: [
+          { que: "Días de la semana", es: "Del día siguiente al partido anterior hasta el del próximo, cada uno con su MD", cuenta: "El MD+1 viene marcado como libre; un día libre no escribe ninguna fila" },
+          { que: "Partir de lo que ya está en la hoja", es: "El último microciclo con tareas, otro cualquiera o la semana en blanco", cuenta: "Las tareas entran atadas por MD: el MD-2 de aquella semana al MD-2 de ésta" },
+          { que: "Copiar también el tiempo y la intensidad", es: "Si no se marca, se copian tareas y contenidos pero no los minutos ni la intensidad" },
+          { que: "Semana tipo / Todos los días de entreno", es: "Atajos: libre sólo el MD+1, o sesión todos los días" },
+          { que: "Editar o copiar un microciclo", es: "Abre uno de la hoja con todas sus columnas, o copia la semana de uno sobre otro", cuenta: "La evaluación y el análisis post de sus filas no se tocan" },
+        ],
+      },
+      {
+        titulo: "2 · La semana en el tablero",
+        filas: [
+          { que: "Cabecera", es: "Tareas, minutos de entreno, minutos de partido y minutos de balón parado de la semana", cuenta: "Las tareas sin minutos no suman a la carga" },
+          { que: "Barra de carga del día", es: "La carga del día frente a la media de ese MD esta temporada (la marca encima)", cuenta: "Carga = tiempo × intensidad. Sin el microciclo que se edita; sin tres sesiones parecidas no se compara" },
+          { que: "Minutos por fase", es: "En la leyenda, los minutos de la semana de cada familia de fase; el partido no cuenta" },
+          { que: "Objetivo de la semana", es: "Una línea que sale en la lámina y abre el texto del grupo. No se escribe en la hoja" },
+          { que: "Copiar texto · WhatsApp · Correo · Lámina PNG · PDF", es: "La semana en texto para el cuerpo técnico, o en una lámina (el PDF, A4 apaisado)" },
+          { que: "Atajos", es: "Ctrl+Z deshacer, Ctrl+Y rehacer; con el foco en un día, Alt+N tarea nueva y Alt+C copiar un día de otro microciclo" },
+        ],
+      },
+      {
+        titulo: "Cada día y cada tarea",
+        filas: [
+          { que: "Rellenar rápido", es: "En un día vacío: la sesión tipo de ese MD, el último día con el mismo MD o elegir otro día" },
+          { que: "Avisos del día", es: "Minutos frente a la media del MD y tareas sin tipo, fase, contenido o minutos", cuenta: "Se resalta si se separa un 25 % o más de la media. Sin intensidad sólo avisa en días ya pasados" },
+          { que: "Poner los minutos habituales", es: "Rellena los minutos vacíos con lo que suele durar cada ejercicio en la hoja" },
+          { que: "Corta / larga", es: "Junto a los minutos de la sesión", cuenta: "Corta por debajo de 35′, larga por encima de 75′; el día de partido nunca es larga" },
+          { que: "Demanda cognitiva", es: "Los seis campos (jugadores, comodines, normativa, incertidumbre, familiaridad, motivación); en gris, lo que propone la hoja por tareas parecidas" },
+          { que: "Evaluación y análisis post", es: "La nota y el análisis tras la sesión; sólo en los días que ya han llegado" },
+          { que: "Lo que pasó en la sesión", es: "Los equipos de Jugadores sesión y lo del análisis de entrenamiento; lo cambiado llega como propuesta y se acepta con un clic" },
+        ],
+      },
+      {
+        titulo: "3 · Escribir en la hoja",
+        filas: [
+          { que: "Revisar", es: "La tabla de filas que se van a escribir: fecha, tarea, tipo, fase, contenido, tiempo, intensidad y cognitiva" },
+          { que: "Antes de escribir", es: "Lo que impide escribir; «Antes de mandar la semana» son avisos que no bloquean" },
+          { que: "Escribir en la hoja", es: "Nuevo: añade las filas al final de la pestaña. Editando o con «Borrar sus filas y escribirlas otra vez»: las sustituye en su sitio", cuenta: "Las tareas en blanco (sin tipo, contenido ni tiempo) no se escriben" },
+        ],
+      },
+    ],
+    ojo: [
+      "Escribe en la hoja de verdad: se mira la tabla de «Revisar» antes de pulsar.",
+      "Carga ponderada, carga cognitiva y demanda cognitiva son fórmulas de la hoja: no se mandan, las filas nuevas las heredan de la de arriba.",
+      "El borrador se guarda en este navegador mientras se rellena; si ya está en la hoja o tiene más de tres semanas, se tira.",
+    ],
+    revisada: "2026-11-12",
+  },
+
+  /* ==================== VÍDEO ANÁLISIS PARTIDOS (12/11/2026) ==================== */
+  {
+    ruta: "/match-plans",
+    titulo: "Vídeo Análisis Partidos",
+    resumen: "El vídeo de análisis de cada partido ya jugado, microciclo a microciclo, con el balance de la liga arriba.",
+    origen: "La hoja de vídeos de partido (microciclo, fecha, resultado, partido y enlace), completada con el calendario de BeSoccer para los partidos de liga que no están en ella. La media de la liga sale del análisis de goles de la categoría. Hudl, la grabación táctica y el resumen RFEF, de los enlaces de cada día.",
+    bloques: [
+      {
+        titulo: "El balance",
+        filas: [
+          { que: "Ganamos · empatamos · perdimos", es: "El reparto de los partidos de liga con resultado; la pretemporada no cuenta" },
+          { que: "Tendencia reciente", es: "Los puntos de los últimos cinco y cuáles son", cuenta: "Victoria 3, empate 1; sale con tres partidos o más" },
+          { que: "Partido a partido", es: "La tira de resultados del más antiguo al más reciente, con la jornada debajo", cuenta: "Verde victoria, ámbar empate, rojo derrota; borde dorado, los cinco últimos" },
+          { que: "Goles a favor / en contra", es: "La suma y la media por partido, frente a la media de la liga", cuenta: "Liga = goles por equipo y partido de todos los equipos; ▲ mejor, ▼ peor, «igual» si la diferencia es menor de 0,05" },
+          { que: "Diferencia", es: "Goles a favor menos goles en contra" },
+        ],
+      },
+      {
+        titulo: "La lista",
+        filas: [
+          { que: "Buscar", es: "Por rival, partido, microciclo o fecha" },
+          { que: "Microciclo", es: "Un microciclo o todos; «Todos» dice cuántos son de liga y cuántos de pretemporada" },
+          { que: "Victorias · Empates · Derrotas", es: "Filtra por resultado" },
+          { que: "Solo con vídeo", es: "Encendido al entrar: sólo los partidos con vídeo en la hoja o con cortes en Coding" },
+          { que: "Ver vídeo análisis", es: "Abre el vídeo de la hoja en un pop-up, con anterior y siguiente" },
+          { que: "Cortes en Coding", es: "Sale en los partidos de liga sin enlace en la hoja: lleva a su lista en Coding" },
+          { que: "Hudl · Grabación táctica · Resumen RFEF", es: "Debajo de cada tarjeta, lo que exista; la grabación táctica sólo en el ordenador principal" },
+        ],
+      },
+    ],
+    ojo: [
+      "Las cifras de arriba siguen a los filtros: con un microciclo o «Victorias» elegidos, cuentan sólo esos partidos.",
+    ],
+    revisada: "2026-11-12",
+  },
+
+  /* ==================== PIZARRA DE COMPETICIÓN (12/11/2026) ==================== */
+  {
+    ruta: "/pizarra",
+    titulo: "Pizarra de Competición",
+    resumen: "La alineación y el banquillo del partido, y un tablero para la fase defensiva y otro para la ofensiva.",
+    origen: "Los jugadores, de la plantilla de la hoja. La disponibilidad se comparte con el staff (Supabase); las alineaciones guardadas van a la hoja por el Apps Script.",
+    bloques: [
+      {
+        titulo: "Las cifras de arriba",
+        filas: [
+          { que: "Disponibles", es: "Jugadores de la plantilla sin baja marcada" },
+          { que: "Bajas", es: "Los que tienen baja; debajo, el motivo más repetido" },
+          { que: "En el once", es: "Puestos ocupados del dibujo" },
+          { que: "Banquillo", es: "Suplentes convocados" },
+          { que: "No Castilla", es: "Convocados (once y banquillo) con otra licencia", cuenta: "El tope es 4: por encima, la tarjeta se pone roja" },
+        ],
+      },
+      {
+        titulo: "Alineación y banquillo",
+        filas: [
+          { que: "Plantilla", es: "Buscador por nombre, apodo o dorsal, filtro por línea (POR, DEF, MED, ATA) y por disponibles o bajas" },
+          { que: "Chip OK / TOC / LES…", es: "La disponibilidad de cada uno: tocado, lesionado, sancionado, primer equipo, selección o no disponible" },
+          { que: "Colocar", es: "Arrastrar la foto al campo o pulsar + y luego un puesto; doble clic lo saca. Una baja no entra" },
+          { que: "4-4-2 · 4-3-3 · 4-2-3-1 · 3-5-2 · 3-4-3", es: "El dibujo del campo" },
+          { que: "Guardar / Actualizar", es: "Escribe la alineación en la hoja con nombre, rival, fecha y sistema", cuenta: "El nombre tiene que ser «Jornada» y su número" },
+          { que: "Alineaciones guardadas", es: "Las jornadas guardadas; abrir una sustituye lo que hay en el campo" },
+          { que: "Exportar · Compartir", es: "Imagen PNG de la alineación, o mandarla (en el móvil abre WhatsApp, correo…)" },
+        ],
+      },
+      {
+        titulo: "Fase defensiva · Fase ofensiva",
+        filas: [
+          { que: "Tablero", es: "Fichas, flechas, zonas y escenas para explicar cómo defenderemos o atacaremos" },
+          { que: "Colocar alineación", es: "Pone en la primera escena a los once de «Alineación y banquillo»; se puede deshacer" },
+          { que: "▶ de la barra de escenas", es: "Reproduce la secuencia de escenas" },
+        ],
+      },
+    ],
+    ojo: [
+      "Una baja marcada desde otro aparato saca al jugador del once y del banquillo.",
+      "Sólo salen en «Alineaciones guardadas» las que se llaman «Jornada N».",
+    ],
+    revisada: "2026-11-12",
+  },
+
+  /* ==================== PIZARRA DE SESIÓN (12/11/2026) ==================== */
+  {
+    ruta: "/pizarra_sesion",
+    titulo: "Pizarra de Sesión",
+    resumen: "Quién puede entrenar hoy y un campograma por tarea para repartir los equipos con petos.",
+    origen: "La hoja de disponibilidad por sesión: se toma la última fecha con más de cuatro jugadores. La pizarra de cada fecha se guarda en Supabase y la comparte el staff.",
+    bloques: [
+      {
+        titulo: "Las cifras",
+        filas: [
+          { que: "Convocados", es: "Los de la última sesión que pueden entrenar", cuenta: "Estado óptimo, disponible, control de carga, tocado, reincorporación o sancionado" },
+          { que: "En sesión", es: "Convocados menos los apartados" },
+          { que: "Apartados", es: "Los que se han quitado de la sesión con un clic en el campograma" },
+          { que: "Tareas", es: "Cuántas tareas tiene la pizarra de esta fecha" },
+        ],
+      },
+      {
+        titulo: "Campogramas",
+        filas: [
+          { que: "Fecha de la sesión", es: "Cada fecha tiene su pizarra; por defecto, hoy" },
+          { que: "Campograma de sesión", es: "Todos los que pueden entrenar, con el color de su estado; un clic lo aparta y lo saca de todas las tareas" },
+          { que: "Campogramas por tarea", es: "Una pestaña por tarea con nombre, formato, duración y objetivo; los jugadores se arrastran a cada equipo" },
+          { que: "Repartir equipos", es: "Reparte a los que están en sesión", cuenta: "Un portero por equipo y el resto por líneas (defensas, medios, delanteros) en ida y vuelta" },
+          { que: "Añadir equipo · Vaciar tarea", es: "Hasta cuatro equipos por tarea; vaciar los deja sin jugadores" },
+          { que: "Petos", es: "Amarillo, naranja, verde o sin peto" },
+          { que: "Guardado · Sin guardar · Solo en este dispositivo", es: "Estado del guardado; con fallo, el rótulo es un botón que reintenta" },
+        ],
+      },
+    ],
+    ojo: [
+      "Si no hay nadie disponible, la disponibilidad se importa en Jugadores sesión.",
+      "Quitar una tarea con jugadores repartidos pregunta antes: no hay deshacer.",
+    ],
+    revisada: "2026-11-12",
+  },
+
+  /* ==================== SCOUT INDIVIDUAL (12/11/2026) ==================== */
+  {
+    ruta: "/scout-rival-individual",
+    titulo: "Vídeos del rival",
+    resumen: "Los cortes de cada rival que montamos en el coding, repartidos por jugador, y cuántas veces se ven.",
+    origen: "El canal de YouTube del club, con una lista por rival. La plantilla, el puesto y las etiquetas (campo IMPACTO) salen de la hoja de plantillas rivales; partidos y minutos, de BeSoccer; el once probable, de Plantillas rivales (Supabase).",
+    bloques: [
+      {
+        titulo: "Clips",
+        filas: [
+          { que: "Rival", es: "La tira de escudos, ordenada por calendario: primero el próximo, con la chapa «Próximo» y su jornada" },
+          { que: "La lista", es: "Se empareja sola por el nombre del equipo; si no casa, se elige una vez y vale para todo el cuerpo técnico" },
+          { que: "Chips de jugador", es: "Índice y filtro: por puesto y, dentro, primero el once probable y luego por minutos", cuenta: "El número es cuántos cortes tiene; «Todos los vídeos» cuenta cortes, no jugadores" },
+          { que: "Por jugador · Todos", es: "Agrupado por jugador, o todos los cortes seguidos" },
+          { que: "Ficha del corte", es: "Jugador, puesto, etiquetas y de qué va; abajo, la lista, el número de corte y las vistas en YouTube", cuenta: "Etiquetas: verde = lo que hace bien, naranja = lo que podemos explotar" },
+          { que: "Titular en X de Y", es: "Titularidades y partidos de la temporada, con los minutos de BeSoccer" },
+          { que: "Del equipo", es: "Los cortes cuyo título no dice con seguridad de quién son" },
+          { que: "Buscar · Copiar enlaces", es: "Busca en los títulos (córner, pérdida, un nombre…) y copia los enlaces de lo que se ve" },
+        ],
+      },
+      {
+        titulo: "Visionados",
+        filas: [
+          { que: "Vistas en YouTube", es: "Vistas acumuladas de todos los clips del canal desde la jornada 1", cuenta: "«+» = vistas desde la foto anterior; se hace una al día" },
+          { que: "Clips vistos · Sin ver", es: "Cuántos clips tienen alguna vista y cuántos ninguna" },
+          { que: "Vistas por clip", es: "La mediana de vistas por clip del canal" },
+          { que: "El más visto", es: "El clip con más vistas, con su jugador y rival" },
+          { que: "Por rival y jornada · Por puesto · Por jugador", es: "Las vistas repartidas", cuenta: "Jugador y puesto salen del título del vídeo contra la plantilla del rival; lo que no se cruza no se nombra" },
+          { que: "Aperturas desde la app", es: "Cada vez que alguien abre un clip en Clips, desde el 06/11/2026: quién, de qué puestos y de qué rivales", cuenta: "Aparte: no suman a las cifras de YouTube. Con menos de 15 aperturas, el reparto es sólo tendencia" },
+          { que: "Viendo como", es: "El nombre de quien mira en este aparato, para apuntar quién abre cada clip" },
+        ],
+      },
+    ],
+    ojo: [
+      "YouTube dice cuántas veces se ve un vídeo, nunca quién.",
+      "Un dorsal repetido dentro del mismo rival en la hoja no se pinta en ninguno de los dos hasta corregirlo.",
+      "/visionados lleva a esta pantalla, en la pestaña «Visionados».",
+    ],
+    revisada: "2026-11-12",
+  },
+
+  /* ==================== IDENTIDAD POSICIONAL (12/11/2026) ==================== */
+  {
+    ruta: "/identidad-posicional",
+    titulo: "Identidad posicional",
+    resumen: "Los contenidos individuales de cada puesto, con balón y sin balón, y cómo están nuestros jugadores en lo que se mide.",
+    origen: "La hoja de identidad posicional (una fila por contenido); la escribe el cuerpo técnico, aquí o en la hoja. Los jugadores del puesto, de la plantilla; las cifras, de Wyscout (liga).",
+    bloques: [
+      {
+        titulo: "La pantalla",
+        filas: [
+          { que: "Posiciones", es: "Los puestos de la hoja; el buscador filtra los contenidos" },
+          { que: "Con balón / Sin balón", es: "Los contenidos del puesto en dos columnas, con cuántos hay en cada una", cuenta: "Fuera de edición, primero los que se miden" },
+          { que: "Sus jugadores · su área de mejora", es: "Los de la plantilla en ese puesto; cada chip abre su área de mejora en Individual" },
+          { que: "Ficha del contenido", es: "Si la hoja lo trae, se despliega con definición, qué se ve, criterio y clip" },
+        ],
+      },
+      {
+        titulo: "Lo que se mide",
+        filas: [
+          { que: "Se mide en el partido", es: "La métrica de Wyscout con que se sigue ese contenido; sin métrica no sale nada" },
+          { que: "▲ / ▼ / =", es: "Cada jugador nuestro frente a la mediana del puesto en la categoría", cuenta: "▲ mejor, ▼ peor, = la misma cifra con los decimales que se enseñan. Con el sentido de la métrica puesto" },
+          { que: "Mediana", es: "La de los jugadores del puesto en la categoría", cuenta: "Sólo con 450′ o más de liga, y con al menos seis para comparar" },
+          { que: "Objetivo en la tarea", es: "Si alguno queda por debajo: llegar a la mediana (o bajar de ella si menos es mejor)" },
+          { que: "Por dónde empezar a entrenar", es: "El contenido medido con más jugadores nuestros por debajo de la mediana", cuenta: "Por la proporción de los que quedan por debajo; empate, por el número" },
+        ],
+      },
+      {
+        titulo: "Editar",
+        filas: [
+          { que: "Editar", es: "Cada contenido se guarda solo en la hoja unos segundos después de dejar de escribir" },
+          { que: "Nuevo contenido · Eliminar", es: "Añade un contenido al puesto y bloque, o lo borra (pregunta antes)" },
+        ],
+      },
+    ],
+    ojo: [
+      "Un jugador con menos de 450′ de liga sale en los chips pero no en las cifras, y su chip lo dice.",
+      "Si el guardado no llega a la hoja, se sigue en edición y se reintenta solo.",
+    ],
+    revisada: "2026-11-12",
+  },
 ];
 
 const limpia = (ruta: string) => ruta.replace(/\/+$/, "") || "/";
