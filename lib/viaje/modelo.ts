@@ -287,6 +287,12 @@ export type DatosEstadio = {
   ciudad: string;
   superficie: string;
   dimensiones: string;
+  /**
+   * De dónde sale la medida que se ve —«BeSoccer», «Hoja RIVALES», «OSM»—,
+   * cuando se eligió con su botón. Opcional (12/11/2026): sin ella, la
+   * pantalla la deduce cotejando con las fuentes.
+   */
+  dimensionesFuente?: string;
   direccion: string;
   /** Cómo se llega: "365 km" y "3 h 40". Dos campos porque se leen aparte. */
   distancia: string;
@@ -1347,6 +1353,9 @@ export function copiaViaje(
           estadio: {
             ...fuente.estadio,
             dimensiones: fuente.estadio.dimensiones || destino.estadio.dimensiones,
+            ...((fuente.estadio.dimensiones ? fuente.estadio.dimensionesFuente : destino.estadio.dimensionesFuente)
+              ? { dimensionesFuente: fuente.estadio.dimensiones ? fuente.estadio.dimensionesFuente : destino.estadio.dimensionesFuente }
+              : {}),
           },
         }
       : {}),

@@ -44,6 +44,7 @@ import {
   type ImagenViaje,
 } from "@/lib/viaje/modelo";
 import { resuelveLugar } from "@/lib/viaje/rutas";
+import { comoCompeticion } from "@/lib/viaje/revision";
 
 /**
  * Las fotos de BeSoccer (`cdn.resfu.com`) no mandan CORS y la captura del
@@ -166,7 +167,11 @@ function Casilla({
  * campo— rehecha: fondo crema, filetes verticales entre casillas y el rival
  * en rosa hondo, que es el dato que se busca al abrir el fichero.
  */
-function BandaPartido({ viaje }: { viaje: Desplazamiento }) {
+/*
+| `sinCampo` (12/11/2026, expertos): en la diapositiva del estadio el nombre
+| ya va en grande debajo; repetido en la banda se leía dos veces seguidas.
+*/
+function BandaPartido({ viaje, sinCampo = false }: { viaje: Desplazamiento; sinCampo?: boolean }) {
   const casa = viaje.condicion === "local";
 
   const todas = [
@@ -175,7 +180,9 @@ function BandaPartido({ viaje }: { viaje: Desplazamiento }) {
     { rotulo: "Jornada", dato: valor(viaje.jornada) },
     { rotulo: "Fecha", dato: valor(diaLargo(viaje.fecha) || viaje.fecha) },
     { rotulo: "Hora", dato: valor(viaje.hora) },
-    { rotulo: casa ? "En casa" : "Fuera", dato: valor(viaje.estadio.nombre) },
+    sinCampo
+      ? { rotulo: "Se juega", dato: casa ? "En casa" : "Fuera" }
+      : { rotulo: casa ? "En casa" : "Fuera", dato: valor(viaje.estadio.nombre) },
   ];
 
   const casillas = todas.filter((casilla) => hay(casilla.dato));
@@ -466,8 +473,9 @@ function Marco({
               textTransform: "uppercase",
             }}
           >
-            {hay(viaje.competicion)
-              ? viaje.competicion
+            {/* «Jornada 12» no es una competición: se lee la liga (12/11/2026). */}
+            {hay(comoCompeticion(viaje.competicion))
+              ? comoCompeticion(viaje.competicion)
               : "Desplazamiento de partido"}
           </p>
         </div>
@@ -599,7 +607,7 @@ function SlideEstadio({ viaje }: { viaje: Desplazamiento }) {
 
   return (
     <Marco titulo="El estadio" viaje={viaje}>
-      <BandaPartido viaje={viaje} />
+      <BandaPartido viaje={viaje} sinCampo={hay(viaje.estadio.nombre)} />
 
       <div style={{ display: "flex", gap: 44, marginTop: 34 }}>
         <div style={{ width: 800, flex: "0 0 auto" }}>
@@ -620,7 +628,11 @@ function SlideEstadio({ viaje }: { viaje: Desplazamiento }) {
 
           <div style={{ marginTop: hay(viaje.estadio.nombre) ? 22 : 0 }}>
             <Renglon rotulo="Superficie" dato={valor(viaje.estadio.superficie)} />
-            <Renglon rotulo="Dimensiones" dato={valor(viaje.estadio.dimensiones)} />
+            {/* Con su fuente (12/11/2026): «102 × 67 · BeSoccer», para saber de dónde sale la medida. */}
+            <Renglon
+              rotulo="Dimensiones"
+              dato={hay(viaje.estadio.dimensiones) ? [valor(viaje.estadio.dimensiones), valor(viaje.estadio.dimensionesFuente)].filter(Boolean).join(" · ") : ""}
+            />
             <Renglon rotulo="Capacidad" dato={valor(viaje.estadio.capacidad)} />
             <Renglon rotulo="Ciudad" dato={valor(viaje.estadio.ciudad)} />
             <Renglon rotulo="Dirección" dato={valor(viaje.estadio.direccion)} />
