@@ -59,7 +59,11 @@ const recorre = (dir) => {
 
     if (fs.existsSync(path.join(RAIZ, sub, "page.tsx"))) {
       const ruta = "/" + sub.split(path.sep).slice(1).join("/");
-      if (!conAyuda.has(ruta)) sinAyuda.push(ruta);
+      /* Las que sólo redirigen (/opta, /visionados) llevan la ayuda de su destino. */
+      const codigo = fs.readFileSync(path.join(RAIZ, sub, "page.tsx"), "utf8");
+      const soloRedirige = /\bredirect\(/.test(codigo) && codigo.split("\n").length < 40;
+
+      if (!conAyuda.has(ruta) && !soloRedirige) sinAyuda.push(ruta);
     }
 
     recorre(sub);
