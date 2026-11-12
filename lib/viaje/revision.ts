@@ -24,6 +24,8 @@ import {
   aHora,
   aMinutos,
   diaCorto,
+  diasEntre,
+  nuevoId,
   esLlegada,
   esSalida,
   leeDuracion,
@@ -52,8 +54,12 @@ export type AvisoHorario = {
   citaId?: string;
   lineas?: LineaAviso[];
   /** El arreglo de un clic: lo que dice el botón y los días como quedarían. */
-  arreglo?: { rotulo: string; hecho: string; dias: (viaje: Desplazamiento) => DiaViaje[] };
+  arreglo?: ArregloHorario;
+  /** Otra salida, menor (va como enlace al lado del botón): «o convertirlo en víspera». */
+  otroArreglo?: ArregloHorario;
 };
+
+export type ArregloHorario = { rotulo: string; hecho: string; dias: (viaje: Desplazamiento) => DiaViaje[] };
 
 /* ------------------------------------------------------------------ */
 /*  LA COMPETICIÓN                                                     */
@@ -224,6 +230,83 @@ export function corrigeCita(texto: string, propios: Set<string> = new Set()): st
   return cambiado ? partes.join("") : null;
 }
 
+/**
+ * El nombre del rival como lo escribe el calendario (12/11/2026, expertos):
+ * «Partido Gimnastic Tarragona» frente a «Gimnàstic de Tarragona» de
+ * BeSoccer. Cada palabra de la cita que sea la del nombre oficial sin su
+ * tilde, o a una letra de ella (siete letras o más), se propone escrita como
+ * allí. Devuelve `null` si no hay nada que cambiar.
+ */
+export function corrigeRival(texto: string, nombres: string[]): string | null {
+  const oficiales = new Map<string, string>();
+
+  for (const nombre of nombres) {
+    for (const palabra of (nombre ?? "").split(/[^\p{L}]+/u)) {
+      if (palabra.length >= 4 && !VOCABULARIO.has(sinTildes(palabra))) oficiales.set(sinTildes(palabra), palabra);
+    }
+  }
+
+  if (oficiales.size === 0) return null;
+
+  let cambiado = false;
+
+  const partes = texto.split(/(\s+)/).map((parte) => {
+    const letras = parte.replace(/[^\p{L}]/gu, "");
+    const clave = sinTildes(letras);
+
+    if (clave.length < 4 || VOCABULARIO.has(clave) || SIGLAS.has(clave)) return parte;
+
+    let buena = oficiales.get(clave);
+
+    if (!buena && clave.length >= 7) {
+      for (const [oficial, escrita] of oficiales) {
+        if (Math.abs(oficial.length - clave.length) <= 1 && distancia(clave, oficial) === 1) {
+          buena = escrita;
+          break;
+        }
+      }
+    }
+
+    /* Igual salvo mayúsculas: no es errata, es la forma de escribir la cita. */
+    if (!buena || buena.toLowerCase() === letras.toLowerCase()) return parte;
+
+    cambiado = true;
+
+    /* En mayúsculas se queda en mayúsculas («GIMNÀSTIC»); si no, como el nombre oficial. */
+    return parte.replace(letras, letras === letras.toUpperCase() ? buena.toUpperCase() : buena);
+  });
+
+  return cambiado ? partes.join("") : null;
+}
+
+/* ------------------------------------------------------------------ */
+/*  EL DÍA DE PARTIDO COPIADO                                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Las citas que sólo tiene el día de partido (12/11/2026, expertos): al
+ * duplicar el día del partido para montar la víspera se quedaban la charla,
+ * la salida al estadio, la llegada al campo, el calentamiento y el partido.
+ */
+const SECUENCIA_PARTIDO: { clave: string; es: (cita: CitaHorario) => boolean }[] = [
+  { clave: "charla", es: (c) => c.clase === "charla" || /^\s*charla\b/i.test(c.texto) },
+  { clave: "salida-estadio", es: (c) => c.clase === "salida-estadio" || /salida.*\b(estadio|campo)\b/i.test(c.texto) },
+  { clave: "llegada-campo", es: (c) => c.clase === "llegada-campo" || /llegada.*\b(estadio|campo)\b/i.test(c.texto) },
+  { clave: "calentamiento", es: (c) => c.clase === "calentamiento" || /calentamiento/i.test(c.texto) },
+  { clave: "partido", es: (c) => c.tipo === "partido" || /^\s*partido\b/i.test(c.texto) },
+];
+
+const deLaSecuencia = (cita: CitaHorario) => SECUENCIA_PARTIDO.find((paso) => paso.es(cita))?.clave ?? null;
+
+/** Si el día lleva el partido y al menos tres pasos más de la secuencia, sus citas de partido; si no, ninguna. */
+function citasDePartidoCopiadas(dia: DiaViaje): CitaHorario[] {
+  const pasos = new Set(dia.citas.map(deLaSecuencia).filter((clave): clave is string => clave !== null));
+
+  if (!pasos.has("partido") || pasos.size < 4) return [];
+
+  return dia.citas.filter((cita) => deLaSecuencia(cita) !== null);
+}
+
 /* ------------------------------------------------------------------ */
 /*  TRAYECTOS                                                          */
 /* ------------------------------------------------------------------ */
@@ -289,7 +372,11 @@ function duracionEsperada(salida: CitaHorario, llegada: CitaHorario, viaje: Desp
 
 const esPartido = (cita: Pick<CitaHorario, "tipo" | "texto">) => cita.tipo === "partido" || /^\s*partido\b/i.test(cita.texto);
 
-export function avisosHorario(viaje: Desplazamiento): AvisoHorario[] {
+/**
+ * `nombres`: cómo llama al rival el calendario de BeSoccer, para corregir
+ * su nombre en las citas. El de la ficha (`viaje.rival`) entra siempre.
+ */
+export function avisosHorario(viaje: Desplazamiento, nombres: string[] = []): AvisoHorario[] {
   const avisos: AvisoHorario[] = [];
   const propios = propiosDelViaje(viaje);
   const frase = (texto: string) => comoFrase(texto, propios);
@@ -297,8 +384,72 @@ export function avisosHorario(viaje: Desplazamiento): AvisoHorario[] {
 
   const partidos = viaje.dias.flatMap((d) => d.citas.filter(esPartido).map((cita) => ({ dia: d, cita })));
 
+  /*
+  | 0. Un día que no es el del partido con la secuencia del partido
+  | (12/11/2026, expertos): un solo aviso con todas sus citas y dos salidas,
+  | quitarlas o dejar el día como víspera. Sustituye al de «dos partidos»
+  | cuando el partido de más es el de ese día.
+  */
+  const copiados = viaje.fecha
+    ? viaje.dias
+        .filter((d) => d.fecha && d.fecha !== viaje.fecha)
+        .map((d) => ({ dia: d, citas: citasDePartidoCopiadas(d) }))
+        .filter((c) => c.citas.length > 0)
+    : [];
+
+  for (const { dia: copiado, citas } of copiados) {
+    const nombreDia = dia(copiado.fecha);
+    const ids = new Set(citas.map((c) => c.id));
+    const esVispera = diasEntre(copiado.fecha, viaje.fecha) === 1;
+    const n = citas.length;
+
+    avisos.push({
+      clave: `dia-copiado-${copiado.id}`,
+      grave: true,
+      texto: `El ${nombreDia} es un día de partido copiado: lleva ${n} citas del día del partido.`,
+      lineas: [...citas]
+        .sort((a, b) => a.minuto - b.minuto)
+        .map((c) => ({ texto: `${aHora(c.minuto)} · ${frase(c.texto)}`, diaId: copiado.id, citaId: c.id })),
+      arreglo: {
+        rotulo: `Quitar estas ${n} citas`,
+        hecho: `Quitadas ${n} citas del ${nombreDia}`,
+        dias: (actual) => actual.dias.map((d) => (d.id === copiado.id ? { ...d, citas: d.citas.filter((c) => !ids.has(c.id)) } : d)),
+      },
+      ...(esVispera
+        ? {
+            otroArreglo: {
+              rotulo: "convertirlo en víspera",
+              hecho: `El ${nombreDia} queda como víspera`,
+              /* La víspera se queda la charla y lleva cena; sale lo que es del partido. */
+              dias: (actual: Desplazamiento) =>
+                actual.dias.map((d) => {
+                  if (d.id !== copiado.id) return d;
+
+                  const quedan = d.citas.filter((c) => !ids.has(c.id) || deLaSecuencia(c) === "charla");
+                  const conCena: CitaHorario[] = quedan.some((c) => c.clase === "cena" || /^\s*cena\b/i.test(c.texto))
+                    ? quedan
+                    : [...quedan, { id: nuevoId("CI"), minuto: 21 * 60, texto: "Cena", tipo: "comida", emoji: "🍽️", clase: "cena" }];
+
+                  return {
+                    ...d,
+                    titulo: /v[íi]spera/i.test(d.titulo) ? d.titulo : "Víspera",
+                    citas: [...conCena].sort((a, b) => a.minuto - b.minuto),
+                  };
+                }),
+            },
+          }
+        : {}),
+    });
+  }
+
+  const fechasCopiadas = new Set(copiados.map((c) => c.dia.fecha));
+  const sobranTodosCopiados =
+    Boolean(viaje.fecha) &&
+    partidos.some((p) => p.dia.fecha === viaje.fecha) &&
+    partidos.filter((p) => p.dia.fecha !== viaje.fecha).every((p) => fechasCopiadas.has(p.dia.fecha));
+
   /* 1. Dos partidos: se queda el del día del partido; el otro se quita con un botón. */
-  if (partidos.length > 1) {
+  if (partidos.length > 1 && !sobranTodosCopiados) {
     const sobran = viaje.fecha ? partidos.filter((p) => p.dia.fecha !== viaje.fecha) : [];
     const diasQueSobran = [...new Set(sobran.map((p) => p.dia.fecha))];
     const diasSobran = diasQueSobran.map(dia).join(" y ");
@@ -404,9 +555,12 @@ export function avisosHorario(viaje: Desplazamiento): AvisoHorario[] {
   /* 5. Erratas en las citas, con la propuesta. */
   const erratas: LineaAviso[] = [];
 
+  const nombresRival = [viaje.rival, ...nombres].filter((n) => n && n.trim());
+
   for (const d of viaje.dias) {
     for (const cita of d.citas) {
-      const bien = corrigeCita(cita.texto, propios);
+      const sinErratas = corrigeCita(cita.texto, propios);
+      const bien = corrigeRival(sinErratas ?? cita.texto, nombresRival) ?? sinErratas;
 
       if (bien) erratas.push({ texto: `«${cita.texto}» → «${frase(bien)}»`, diaId: d.id, citaId: cita.id, corregido: frase(bien) });
     }

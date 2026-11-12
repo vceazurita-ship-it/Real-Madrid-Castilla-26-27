@@ -52,7 +52,14 @@ export function CampoImagen({
   imagen,
   onCambio,
   pista,
+  compacto = false,
 }: {
+  /**
+   * Sin imagen, un botón compacto «Añadir foto» en vez de la tarjeta
+   * (12/11/2026, expertos): tres recuadros de alturas distintas, dos de
+   * ellos vacíos, no se leían. Se sigue pudiendo pegar o soltar encima.
+   */
+  compacto?: boolean;
   etiqueta: string;
   ayuda: string;
   /** Qué tiene que ser la imagen («una foto de la fachada, no el mapa»): se lee bajo el título. */
@@ -133,6 +140,75 @@ export function CampoImagen({
     }
   }, [sube]);
 
+  const entrada = (
+    <input
+      ref={entradaRef}
+      type="file"
+      accept="image/*"
+      className="hidden"
+      onChange={(evento) => {
+        const fichero = evento.target.files?.[0];
+
+        if (fichero) void sube(fichero);
+
+        evento.target.value = "";
+      }}
+    />
+  );
+
+  if (compacto && !imagen?.url) {
+    return (
+      <div
+        tabIndex={0}
+        title="También puedes pegar con Ctrl+V o soltar la imagen encima"
+        onPaste={(evento) => {
+          const fichero = Array.from(evento.clipboardData?.files ?? [])[0];
+
+          if (fichero) {
+            evento.preventDefault();
+            void sube(fichero);
+          }
+        }}
+        onDragOver={(evento) => {
+          evento.preventDefault();
+          setEncima(true);
+        }}
+        onDragLeave={() => setEncima(false)}
+        onDrop={(evento) => {
+          evento.preventDefault();
+          setEncima(false);
+
+          const fichero = evento.dataTransfer.files[0];
+
+          if (fichero) void sube(fichero);
+        }}
+        className={`inline-flex max-w-full flex-wrap items-center gap-1.5 rounded-xl border border-dashed px-2 py-1.5 outline-none transition ${
+          encima ? "border-[#C8A96B] bg-[#C8A96B]/10" : "border-white/15 focus:border-[#C8A96B]/50"
+        }`}
+      >
+        {entrada}
+        <button
+          type="button"
+          disabled={subiendo}
+          onClick={() => entradaRef.current?.click()}
+          className="inline-flex items-center gap-1.5 rounded-lg px-1.5 py-0.5 text-[12px] font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/10 disabled:opacity-40"
+        >
+          {subiendo ? <Loader2 size={13} className="animate-spin" /> : <ImagePlus size={13} />}
+          {subiendo ? "Subiendo…" : `Añadir ${etiqueta.toLowerCase()}`}
+        </button>
+        <button
+          type="button"
+          disabled={subiendo}
+          onClick={() => void pegaDelPortapapeles()}
+          aria-label={`Pegar ${etiqueta.toLowerCase()} del portapapeles`}
+          className="inline-flex items-center gap-1 rounded-lg px-1.5 py-0.5 text-[11px] text-white/55 transition hover:text-white disabled:opacity-40"
+        >
+          <Clipboard size={12} /> Pegar
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div
       tabIndex={0}
@@ -157,7 +233,7 @@ export function CampoImagen({
 
         if (fichero) void sube(fichero);
       }}
-      className={`rounded-2xl border p-3 outline-none transition ${
+      className={`flex h-full flex-col rounded-2xl border p-3 outline-none transition ${
         encima
           ? "border-[#C8A96B] bg-[#C8A96B]/10"
           : "border-white/10 bg-white/[0.03] focus:border-[#C8A96B]/50"
@@ -186,21 +262,9 @@ export function CampoImagen({
         </div>
       )}
 
-      <input
-        ref={entradaRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={(evento) => {
-          const fichero = evento.target.files?.[0];
+      {entrada}
 
-          if (fichero) void sube(fichero);
-
-          evento.target.value = "";
-        }}
-      />
-
-      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+      <div className="mt-auto flex flex-wrap items-center gap-1.5 pt-2">
         <button
           type="button"
           disabled={subiendo}
