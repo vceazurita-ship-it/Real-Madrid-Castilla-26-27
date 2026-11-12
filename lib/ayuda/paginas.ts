@@ -462,6 +462,55 @@ export const AYUDAS: AyudaDePagina[] = [
       },
     ],
   },
+  {
+    ruta: "/abp-pizarra",
+    titulo: "Pizarra de Balón Parado",
+    resumen: "Las láminas de ABP del partido: quién va en cada puesto, sus carreras por fases y lo que se exporta a la sala y a cada jugador.",
+    origen:
+      "El documento «abp-pizarra» de la app (Supabase), el calendario (partidos jugados + hoja RIVALES) y el once de la pizarra táctica. Las fotos, de la plantilla.",
+    revisada: "2026-11-12",
+    bloques: [
+      {
+        titulo: "Montar la jornada",
+        filas: [
+          { que: "Copiar de J.. y poner el once", es: "Trae jugadores, flechas y consignas de la jornada anterior y cambia a los que no están en el once" },
+          { que: "Colocar", es: "Rellena los huecos con quien suele hacer ese puesto", cuenta: "La memoria es por puesto: se anota sola cada vez que se asigna a alguien" },
+          { que: "0/10 colocados", es: "En la tira, lo que falta en cada diapositiva" },
+          { que: "Soltar una cara sobre otra", es: "Las intercambia: cada sitio conserva su puesto y sus carreras" },
+        ],
+      },
+      {
+        titulo: "Flechas y fases",
+        filas: [
+          { que: "Carrera, balón, bloqueo", es: "Se dibujan arrastrando desde el jugador; el tirador del centro las curva" },
+          {
+            que: "Carreras atadas",
+            es: "Una flecha va con quien está en su arranque, no con un jugador fijo",
+            cuenta: "Al cambiar a alguien, el que entra nace en su sitio y corre sus flechas; arrastrarlo se las lleva",
+          },
+          { que: "Fase 1, 2, 3", es: "El orden de los movimientos: la punta de una fase es el arranque de la siguiente" },
+          { que: "Difuminado", es: "En la hoja de la fase n, lo ya recorrido sale al 25 % y las caras están donde arranca esa fase" },
+          { que: "Ctrl+Z", es: "Deshace un gesto entero (un arrastre es un paso); versiones y memoria no se deshacen" },
+        ],
+      },
+      {
+        titulo: "Enseñar y exportar",
+        filas: [
+          { que: "Proyector", es: "A pantalla completa: → o espacio dibuja la fase siguiente y luego pasa de lámina; A quita el panel" },
+          { que: "Exportar", es: "PDF general, PowerPoint, vídeos y .zip; lo que no ha cambiado sale al momento (caché por contenido)" },
+          { que: "PDF por jugador", es: "Uno vertical por jugador para WhatsApp: su cara en rosa, su cometido y a quién marca" },
+          { que: "Rival implícito", es: "En las defensivas sin rivales dibujados se pinta un atacante por marca, con el dorsal de «Quién marca a quién»" },
+          { que: "Al 8 Montalvo · 1,80", es: "En el panel exportado: a quién marca cada uno, con su altura si se sabe" },
+          { que: "Portero", es: "En las defensivas, el del once de la pizarra táctica bajo palos (su cara y su nombre)" },
+        ],
+      },
+    ],
+    ojo: [
+      "La lámina es azul noche en los dos temas a propósito: es lo que se proyecta y se imprime.",
+      "Las consignas que nombran a alguien sin ficha en la lámina se avisan antes de exportar.",
+      "En el móvil, el botón de ampliar abre la lámina en horizontal: en vertical es una miniatura.",
+    ],
+  },
 
   /* ==================== INDIVIDUAL ==================== */
   {

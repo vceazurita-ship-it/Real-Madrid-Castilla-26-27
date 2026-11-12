@@ -93,6 +93,29 @@ export function poderAereo(m: Marcador) {
 
 const metros = (cm: number | null) => (cm ? `${(cm / 100).toFixed(2).replace(".", ",")} m` : "");
 
+/*
+| A QUIÉN MARCA CADA UNO, EN EL PANEL EXPORTADO (12/11/2026, jueces)
+|
+| «Marca al 8» no decía quién es el 8. El panel de la lámina escribe
+| «Al 8 Montalvo · 1,80»: el apellido (la última palabra, que es como se le
+| nombra en la charla) y la altura si se sabe.
+*/
+export type AtacantePanel = { dorsal: string; nombre: string; altura: string };
+
+export function atacantesDelPanel(atacantes: Atacante[] | undefined | null): AtacantePanel[] {
+  return (atacantes ?? [])
+    .filter((a) => String(a.dorsal ?? "").trim())
+    .map((a) => {
+      const palabras = String(a.nombre ?? "").trim().split(/\s+/).filter(Boolean);
+
+      return {
+        dorsal: String(a.dorsal).trim(),
+        nombre: palabras.length > 1 ? palabras[palabras.length - 1] : (palabras[0] ?? ""),
+        altura: a.altura ? (a.altura / 100).toFixed(2).replace(".", ",") : "",
+      };
+    });
+}
+
 const aereos = (pct: number | null, duelos: number | null) =>
   pct != null && duelos ? `${Math.round(pct)} % aéreos (${Math.round(duelos)})` : "";
 

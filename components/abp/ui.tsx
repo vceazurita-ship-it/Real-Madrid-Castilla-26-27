@@ -852,7 +852,8 @@ export function Button({
       title={title}
       aria-pressed={ariaPressed}
       aria-label={ariaLabel}
-      className={`inline-flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${styles}`}
+      /* 12/11/2026 (jueces): 44 px de alto en el móvil, lo que pide un dedo. */
+      className={`inline-flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition max-sm:min-h-[44px] disabled:cursor-not-allowed disabled:opacity-50 ${styles}`}
     >
       {Icon && <Icon size={13} />}
       {children}

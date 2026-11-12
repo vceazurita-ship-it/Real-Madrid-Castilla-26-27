@@ -42,6 +42,7 @@ export function ProyectaPizarra({
   temporada,
   rival,
   onCerrar,
+  portero = null,
 }: {
   slides: SlidePizarra[];
   inicial: number;
@@ -50,6 +51,8 @@ export function ProyectaPizarra({
   rival: string;
   /** Devuelve en qué diapositiva se ha quedado, para seguir ahí al volver. */
   onCerrar: (indice: number) => void;
+  /** El portero del once, para su chapa bajo palos en las defensivas. */
+  portero?: string | null;
 }) {
   const raizRef = useRef<HTMLDivElement>(null);
 
@@ -250,6 +253,7 @@ export function ProyectaPizarra({
           onSeleccionar={NADA}
           tiempo={reloj.tiempo}
           soloVer
+          portero={portero}
           panel={conPanel}
           titulo={tituloVisible(slides, indice)}
         />

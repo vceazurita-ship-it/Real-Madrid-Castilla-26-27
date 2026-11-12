@@ -70,6 +70,7 @@ import { cargaEscudos, cometidosDe, filasParaPdf, nombreArchivo, nombreCorto, pr
 import { porteroDelOnce, usePorteroDelOnce } from "@/components/abp/pizarra/usePorteroDelOnce";
 import { useDatosMarcas } from "@/components/abp/pizarra/useDatosMarcas";
 import { cargaDatosMarcas, conMarcasPropuestas } from "@/lib/abp/marcas-datos";
+import { atacantesDelPanel } from "@/lib/abp/marcas-corner";
 import { faltanFotos, fotosDeHojas } from "@/lib/abp/fotos-tablero";
 import { creaPptx } from "@/lib/export/pptx";
 import { apodo, descarga, pdfDeLienzos, pintado } from "@/lib/export/lienzos";
@@ -254,7 +255,8 @@ export function ExportaTodo({
   const slides = tablero.slides;
   const conJugada = slides.map((slide, i) => ({ slide, i })).filter(({ slide }) => fasesDe(slide.trazos) > 0);
   const conFases = slides.some((slide) => fasesDe(slide.trazos) > 1);
-  const contexto = { players, temporada, rival };
+  const atacantes = useMemo(() => atacantesDelPanel(datosMarcas?.atacantes), [datosMarcas]);
+  const contexto = { players, temporada, rival, portero, atacantes };
   const titulos = slides.map((_, i) => tituloVisible(slides, i));
 
   /* La misma que usa «PDF por jugador»: así los dos comparten lo ya hecho. */
@@ -719,6 +721,8 @@ export function ExportaTodo({
     onQuitar: () => undefined,
     onPulsarPuesto: () => undefined,
     onSeleccionar: () => undefined,
+    portero,
+    atacantes,
   };
 
   const hechas = tareas?.filter((t) => t.estado === "hecho" || t.estado === "fallo").length ?? 0;
