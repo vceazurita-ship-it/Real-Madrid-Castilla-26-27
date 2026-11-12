@@ -2003,16 +2003,26 @@ export default function DesplazamientoPage() {
   }, [pantallaCompleta]);
 
   /* Lo que se ve en la vista previa: el dossier o las hojas del horario. */
-  const documentoVista = viaje
+  /*
+  | El mismo viaje para contar, dibujar y exportar (12/11/2026): la cuenta de
+  | diapositivas salía del viaje sin la fuente de la medida y el dibujo, de
+  | `viajeVista`; si algún día difieren, la vista previa cortaría la última.
+  */
+  const enVista = viajeVista ?? viaje;
+  const nDiapositivas = enVista ? titulosDossier(enVista).length : 0;
+  const rotuloDossier = `Dossier · ${nDiapositivas} ${nDiapositivas === 1 ? "diapositiva" : "diapositivas"}`;
+  const rotuloHorario = viaje ? `Horario · ${viaje.dias.length} ${viaje.dias.length === 1 ? "hoja A4" : "hojas A4"}` : "Horario";
+
+  const documentoVista = enVista
     ? vista === "dossier"
       ? (
-          <Escalado ancho={DOSSIER_W} alto={(DOSSIER_H + 26) * titulosDossier(viaje).length}>
-            <DossierViaje viaje={viajeVista ?? viaje} lugares={store.lugares} />
+          <Escalado ancho={DOSSIER_W} alto={(DOSSIER_H + 26) * nDiapositivas}>
+            <DossierViaje viaje={enVista} lugares={store.lugares} />
           </Escalado>
         )
       : (
-          <Escalado ancho={HOJA_W} alto={(HOJA_H + 26) * Math.max(1, viaje.dias.length)}>
-            <HojasHorario viaje={viaje} />
+          <Escalado ancho={HOJA_W} alto={(HOJA_H + 26) * Math.max(1, enVista.dias.length)}>
+            <HojasHorario viaje={enVista} />
           </Escalado>
         )
     : null;
@@ -2059,9 +2069,12 @@ export default function DesplazamientoPage() {
                       <Button tone="primary" icon={Download} onClick={() => irA("viaje-exporta")}>
                         Sacar los documentos
                       </Button>
-                      <Button icon={Eye} onClick={() => irA("viaje-vista")}>
-                        Vista previa
-                      </Button>
+                      {/* Desde xl la vista previa ya está a la vista, a la derecha: el botón sobra. */}
+                      <span className="contents xl:hidden">
+                        <Button icon={Eye} onClick={() => irA("viaje-vista")}>
+                          Vista previa
+                        </Button>
+                      </span>
                     </>
                   )}
                 </div>
@@ -2868,7 +2881,14 @@ export default function DesplazamientoPage() {
 
                   {/* ================ VISTA PREVIA ================ */}
 
-                  <div className="min-w-0">
+                  {/*
+                  | 12/11/2026 (expertos, segunda vuelta): en escritorio ancho el
+                  | documento se queda a la vista mientras se edita a la izquierda
+                  | —cambias la hora y ves moverse la hoja—, bajo la barra de arriba
+                  | (sticky, ~96 px) y con su propio desplazamiento si no cabe.
+                  */}
+                  <div className="min-w-0 xl:sticky xl:top-[104px] xl:max-h-[calc(100vh-112px)] xl:overflow-y-auto xl:overscroll-contain xl:pb-4">
+
                   <div className="mt-5 scroll-mt-20 xl:mt-4" id="viaje-vista">
                     <Panel
                       title="Cómo va a quedar"
@@ -2880,15 +2900,14 @@ export default function DesplazamientoPage() {
                           tone={vista === "dossier" ? "primary" : "ghost"}
                           onClick={() => setVista("dossier")}
                         >
-                          Dossier · {titulosDossier(viaje).length} diapositivas
+                          {rotuloDossier}
                         </Button>
 
                         <Button
                           tone={vista === "horario" ? "primary" : "ghost"}
                           onClick={() => setVista("horario")}
                         >
-                          Horario · {viaje.dias.length}{" "}
-                          {viaje.dias.length === 1 ? "hoja A4" : "hojas A4"}
+                          {rotuloHorario}
                         </Button>
 
                         {/* 12/11/2026 (expertos): en el móvil la miniatura no se lee; a pantalla completa y con zoom sí. */}
@@ -2920,7 +2939,7 @@ export default function DesplazamientoPage() {
                     >
                       <div className="flex flex-wrap items-center gap-2 border-b border-white/10 bg-[#0B0F14] px-4 py-2 pr-14">
                         <p className="min-w-0 flex-1 truncate text-sm font-semibold text-white">
-                          {vista === "dossier" ? `Dossier · ${titulosDossier(viaje).length} diapositivas` : `Horario · ${viaje.dias.length} ${viaje.dias.length === 1 ? "hoja A4" : "hojas A4"}`}
+                          {vista === "dossier" ? rotuloDossier : rotuloHorario}
                         </p>
                         <span className="flex items-center gap-1">
                           <button

@@ -46,6 +46,8 @@ export type AyudaDePagina = {
   bloques: BloqueAyuda[];
   /** Lo que conviene no olvidar al leerla. */
   ojo?: string[];
+  /** Cuándo se cotejó por última vez con la pantalla (ISO). Opcional (12/11/2026). */
+  revisada?: string;
 };
 
 /* Lo que se repite en varias pantallas, escrito una vez. */
@@ -797,31 +799,58 @@ export const AYUDAS: AyudaDePagina[] = [
   {
     ruta: "/desplazamiento",
     titulo: "Desplazamiento de Partido",
-    resumen: "El dossier del viaje y el horario del día.",
-    origen: "Se escribe aquí; se guarda solo.",
+    resumen: "El dossier del viaje y el horario de cada día, para el cuerpo técnico y para los jugadores.",
+    origen: "Se escribe aquí y se guarda solo. Fecha y hora, del calendario de BeSoccer; estadio, medidas, foto y escudo, de BeSoccer y OpenStreetMap.",
+    revisada: "2026-11-12",
     bloques: [
       {
-        titulo: "Cómo funciona",
+        titulo: "Lo primero de la pantalla",
         filas: [
-          { que: "Qué sale", es: "El dossier del viaje (campo, ruta y hotel) y el horario de cada día, listos para PowerPoint o PDF" },
-          { que: "En casa", es: "Sin viaje ni hotel: sólo el horario del día de partido y los recordatorios" },
-          { que: "Al entrar", es: "Abre el próximo partido fuera; los de casa siguen en el selector" },
-          { que: "Días", es: "Un viaje puede tener uno o varios: cada día es una hoja A4" },
-          {
-            que: "Horario elástico",
-            es: "Al cambiar la hora del partido, el día del partido se mueve solo; los demás días van por reloj",
-          },
+          { que: "Al entrar", es: "Abre el próximo partido; los demás siguen en el selector (✓ = viaje ya guardado)" },
+          { que: "Cómo va el viaje", es: "Salida, partido, hotel y horario de un vistazo, y una sola lista de lo que queda, ordenada por gravedad, con un botón por fila" },
+          { que: "N de M datos listos", es: "Lo que ya tiene el documento; pinchándolo, lo hecho por bloque", cuenta: "La barra va en rojo si hay errores, ámbar si hay avisos y verde si está todo" },
+          { que: "Partido · estadio · hotel", es: "Una sola fila con un «Editar» que abre los tres bloques" },
+          { que: "Escritorio ancho", es: "El formulario a la izquierda y el documento a la derecha, siempre a la vista mientras se edita" },
+        ],
+      },
+      {
+        titulo: "El horario",
+        filas: [
+          { que: "Días", es: "Fuera abre con dos (víspera y partido) y en casa con uno; cada día es una hoja A4" },
+          { que: "Horario elástico", es: "Al cambiar la hora del partido, el día del partido se mueve solo; los demás días van por reloj" },
           { que: "Horas", es: "Se escriben enteras («1830», «18.30») y se guardan al salir del campo; flechas ±5 min" },
-          { que: "Copiar de otro viaje", es: "Cualquier viaje montado: el horario, los avisos, y el estadio y el hotel si es el mismo rival" },
-          { que: "Paleta con emoticonos", es: "🚌 salida, 🍝 comida, ⚽ partido…: se arrastran al día (o se tocan) y llegan con su hora; salen en el horario y en el PDF" },
-          { que: "Trayectos", es: "Cada salida dice de dónde a dónde; en autobús la duración se calcula sola (OpenStreetMap) y la llegada cae sola" },
+          { que: "Añadir cita", es: "La paleta de eventos (🚌 salida, 🍝 comida, ⚽ partido…) va plegada; se arrastra al día o se toca y llega con su hora. El emoticono sale del mismo catálogo por palabra clave" },
+          { que: "Trayectos", es: "Cada salida dice de dónde a dónde; en autobús la duración se calcula sola (OSRM sobre OpenStreetMap) y la llegada cae sola" },
           { que: "Duraciones recordadas", es: "Si corriges una duración, ese trayecto vale así en los viajes que vengan" },
           { que: "Encadenar", es: "Cambiar una hora o una duración corre las citas de detrás, hasta la primera fijada (📌) o el partido" },
-          { que: "BeSoccer y OpenStreetMap", es: "Estadio, dirección, aforo, medidas, foto y escudo vienen rellenos; las medidas se cotejan (OSM · BeSoccer)" },
-          { que: "Dossier", es: "Como mucho tres diapositivas, sin portada: estadio, hotel y viaje. Lo vacío no sale" },
-          { que: "Plan por rival", es: "Guarda el viaje como plan ante el rival y, al volver a jugar contra él, se propone con su valoración" },
+          { que: "Avisos del horario", es: "Día de partido copiado, vuelta antes del partido, trayectos imposibles (un tren de 9 min)…: cada uno con su arreglo; nada se cambia solo" },
+          { que: "Erratas", es: "Marcadas en su fila con la corrección propuesta («Llehagda» → «Llegada»); la aplica el analista con «Corregir»" },
+          { que: "Copiar de otro viaje", es: "Cualquier viaje montado: el horario, los avisos, y el estadio y el hotel si es el mismo rival. Un día suelto también se copia y se pega" },
+        ],
+      },
+      {
+        titulo: "Estadio y hotel",
+        filas: [
+          { que: "BeSoccer y OpenStreetMap", es: "Estadio, dirección, aforo, foto y escudo vienen rellenos" },
+          { que: "Medidas con fuente", es: "Se cotejan OSM, BeSoccer y la hoja RIVALES; si no coinciden se elige una con su botón y el dossier dice de dónde sale («102 × 67 · BeSoccer»)" },
+          { que: "Fotos de los lugares de salida", es: "Valdebebas, estaciones…: se ponen una vez y valen para todos los viajes" },
+        ],
+      },
+      {
+        titulo: "Lo que sale",
+        filas: [
+          { que: "Dossier", es: "Como mucho tres diapositivas, sin portada: el estadio, el hotel (si lo hay) y el viaje (si hay trayectos). Lo vacío no sale y las fotos llenan la hoja" },
+          { que: "Para el cuerpo técnico", es: "«Todo en un PDF» (dossier y horario), el dossier en PowerPoint o en PDF" },
+          { que: "Para los jugadores", es: "«Horario en imagen»: un JPEG por día que se ve en el propio chat de WhatsApp; «Horario para imprimir», el A4 para el vestuario y el autobús" },
+          { que: "Antes de sacarlo", es: "Si algo no cuadra, se pregunta con la lista de lo pendiente; el documento sale como esté" },
+          { que: "Nota para el vestuario", es: "Agradecimiento (fuera) o bienvenida (en casa), plegada al final; no lleva rival ni fecha" },
+        ],
+      },
+      {
+        titulo: "Después del viaje",
+        filas: [
           { que: "Valoración", es: "Nota del viaje, de cada ítem y de cada cita, e incidencias: no sale en ningún PDF" },
-          { que: "Copiar un día", es: "Se copia en un viaje y se pega en otro" },
+          { que: "Plan por rival", es: "Guarda el viaje como plan ante el rival y, al volver a jugar contra él (o en su campo), se propone con su valoración" },
         ],
       },
     ],

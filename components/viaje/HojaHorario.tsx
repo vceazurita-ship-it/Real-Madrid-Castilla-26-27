@@ -306,7 +306,8 @@ export function HojaHorario({
                 style={{
                   margin: 0,
                   color: C.verde,
-                  fontSize: 12,
+                  /* 15 y no 12 (12/11/2026, expertos): impreso, 12 px a 150 ppp son dos milímetros. */
+                  fontSize: 15,
                   fontWeight: 700,
                   lineHeight: 1,
                   letterSpacing: "0.28em",
@@ -527,6 +528,8 @@ export function HojaHorario({
             left: MARGEN,
             top: COLUMNA_Y + columnaAlto + 34,
             width: HOJA_W - MARGEN * 2,
+            /* Con su relleno dentro: si no, el recuadro se salía del margen derecho de la hoja. */
+            boxSizing: "border-box",
             backgroundColor: C.crema,
             borderLeft: `6px solid ${C.rosaHondo}`,
             borderRadius: 12,
@@ -537,7 +540,7 @@ export function HojaHorario({
             style={{
               margin: 0,
               color: C.verde,
-              fontSize: 13,
+              fontSize: 15,
               fontWeight: 700,
               lineHeight: 1,
               letterSpacing: "0.28em",
