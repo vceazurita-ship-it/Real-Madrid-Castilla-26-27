@@ -344,11 +344,11 @@ export function BarraDibujo({
               {ficha.puesto ? <span className="font-normal text-white/50"> · {ficha.puesto}</span> : null}
             </span>
 
-            {ficha.puesto && onCambiarJugador && (
+            {onCambiarJugador && (
               <button
                 type="button"
                 onClick={onCambiarJugador}
-                title="Poner a otro en este puesto (Intro)"
+                title={ficha.puesto ? "Poner a otro en este puesto (Intro)" : "Poner a otro en esta ficha, con sus carreras (Intro)"}
                 className={`${BOTON} min-h-7 border-[#C8A96B]/60 text-white hover:border-[#C8A96B]`}
               >
                 <UserRound size={13} />

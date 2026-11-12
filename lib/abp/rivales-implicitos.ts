@@ -45,7 +45,9 @@ export function rivalesDeLaLamina(slide: SlidePizarra): RivalPizarra[] {
     for (const ficha of slide.fichas) {
       const puesto = puestoDe(slide, ficha.puesto);
 
-      if (puesto?.grupo !== "marcas") continue;
+      /* 12/11/2026: el saque de banda no tiene grupo «marcas» —sus marcas
+         (M1…M5) van en «ÁREA»— y la lámina salía sin un solo rival. */
+      if (!puesto || (puesto.grupo !== "marcas" && !/^M\d$/.test(puesto.code))) continue;
 
       const m = aMetros(vista, { x: ficha.x, y: ficha.y });
       const p = aLienzo(vista, { x: m.x + 0.5, y: m.y + 1.3 });
@@ -55,8 +57,14 @@ export function rivalesDeLaLamina(slide: SlidePizarra): RivalPizarra[] {
     }
   }
 
+  /* El sacador del saque de banda, en la línea, junto a nuestro «al sacador». */
+  const saque = propios.length === 0 ? saqueDeLaLamina(slide) : null;
+
+  if (saque) extra.push({ id: `${PREFIJO_IMPLICITO}sacador`, x: saque.sacador.x, y: saque.sacador.y });
+
   /* Su portero en las ofensivas, si no lo han dibujado ya. */
-  if (plantilla.lado === "ofensivo" && !propios.some((r) => /^p$/i.test(r.dorsal ?? ""))) {
+  /* En la falta directa no: el rótulo «PENALTI» cae justo encima de la portería y lo tapaba. */
+  if (plantilla.lado === "ofensivo" && plantilla.key !== "directas" && !propios.some((r) => /^p$/i.test(r.dorsal ?? ""))) {
     const p = aLienzo(vista, { x: 34, y: 0.8 });
 
     extra.push({ id: `${PREFIJO_IMPLICITO}portero`, x: p.x, y: p.y, dorsal: "P" });
@@ -72,4 +80,31 @@ export function porteroPropioDeLaLamina(slide: SlidePizarra): { x: number; y: nu
   if (!plantilla || plantilla.lado !== "defensivo" || SIN_PORTERIA.has(plantilla.key)) return null;
 
   return aLienzo(slide.vista === "porteria" ? "porteria" : "ancho", { x: 34, y: 0.6 });
+}
+
+/**
+ * El punto de saque de un saque de banda (12/11/2026, jueces): la lámina
+ * defensiva salía sin balón ni sacador y no se sabía desde dónde venía. Se
+ * pone en la banda más cercana a nuestro «al sacador», a su altura, y el
+ * sacador rival un paso por fuera. `null` si la lámina no es de banda, si no
+ * hay nadie al sacador o si ya hay un balón dibujado.
+ */
+export function saqueDeLaLamina(slide: SlidePizarra): { balon: { x: number; y: number }; sacador: { x: number; y: number } } | null {
+  if (!slide.plantilla.startsWith("banda")) return null;
+
+  if (slide.trazos?.some((trazo) => trazo.tipo === "balon")) return null;
+
+  const ficha = slide.fichas.find((item) => puestoDe(slide, item.puesto)?.code === "S");
+
+  if (!ficha) return null;
+
+  const vista = slide.vista === "porteria" ? "porteria" : "ancho";
+  const m = aMetros(vista, { x: ficha.x, y: ficha.y });
+  const banda = m.x < 34 ? 0 : 68;
+  const fuera = m.x < 34 ? -0.6 : 68.6;
+
+  return {
+    balon: aLienzo(vista, { x: banda, y: m.y - 0.4 }),
+    sacador: aLienzo(vista, { x: fuera, y: m.y }),
+  };
 }

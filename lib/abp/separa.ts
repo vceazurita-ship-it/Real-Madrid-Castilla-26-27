@@ -203,11 +203,17 @@ export function apartaRivales(
   fichas: Punto[],
   separadas: Separadas | null,
 ): Apartados {
-  const caras = fichas.map((ficha) => {
+  /* La cara y, si se sabe, la chapa con el nombre: un rival encima de la chapa
+     dejaba la lámina sin saber quién era el de debajo (12/11/2026, jueces). */
+  const caras = fichas.flatMap((ficha) => {
     const sep = separadas?.get(ficha.id);
     const x = sep?.x ?? ficha.x;
+    const k = sep?.compacta ? ESCALA_APRETADA : 1;
 
-    return caja(x, ficha.y, sep?.compacta ? DISCO : CARA);
+    return [
+      caja(x, ficha.y, sep?.compacta ? DISCO : CARA),
+      ...(ficha.chapa ? [cajaChapa(x, ficha.y, ficha.chapa, k)] : []),
+    ];
   });
 
   const puestos: Caja[] = [];

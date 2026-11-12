@@ -7,6 +7,8 @@ import { idVigente } from "@/lib/fichajes";
 import { BASES, JORNADA_DESDE_BASE, baseDe, rivalesDeBase, sitiosDeBase, trazosDeBase } from "./pizarra-base";
 import {
   arrastraTrazos,
+  ataHuerfanas,
+  trazosQueSalenDe,
   clonaRivales,
   clonaTrazos,
   huellaRivales,
@@ -182,9 +184,13 @@ export const VISTAS: Record<VistaCampo, VistaCampoDef> = {
       },
     ],
     /* El velo apaga la banda derecha hacia el MISMO azul noche del panel que
-       se apoya en ella: con otro tono se veía el corte de la caja. */
+       se apoya en ella: con otro tono se veía el corte de la caja.
+       12/11/2026 (jueces, falta directa): arrancaba en el 62 % y oscurecía la
+       falta lateral derecha, que está en x≈1100 (57 %). Ahora empieza donde
+       empieza el fundido de la foto de portería (x≈1390, 72 %): tapa la
+       costura y deja el campo limpio. */
     velo:
-      "linear-gradient(90deg, rgba(15,32,54,0) 0%, rgba(15,32,54,0) 62%, rgba(15,32,54,.55) 76%, rgba(15,32,54,.9) 88%, rgba(15,32,54,.96) 100%)",
+      "linear-gradient(90deg, rgba(15,32,54,0) 0%, rgba(15,32,54,0) 72%, rgba(15,32,54,.5) 79%, rgba(15,32,54,.9) 87%, rgba(15,32,54,.96) 100%)",
   },
 };
 
@@ -874,6 +880,12 @@ export type SlidePizarra = {
   /** Con qué versión del dibujo de la plantilla se colocaron las fichas. */
   rev?: number;
   /**
+   * 12/11/2026: las carreras sueltas (de un jugador cambiado que nacía en
+   * otro sitio) ya se han vuelto a atar a su cara una vez. Se hace una sola
+   * vez por diapositiva para no deshacer un arranque que se suelte a mano.
+   */
+  ataduras?: number;
+  /**
    * La rutina del laboratorio de ABP de la que salió (o con la que se
    * sustituyó), para que «Abrir en el laboratorio» vuelva a ella y no cree
    * otra. Ver `lib/abp-lab/puente-pizarra.ts`.
@@ -1114,8 +1126,21 @@ export function sinTextosPropios(slide: SlidePizarra): SlidePizarra {
  * Devuelve **el mismo objeto** si no hay nada que cambiar: la pizarra se lee en
  * cada render y crear un tablero nuevo cada vez dispararía el autoguardado.
  */
+/** La versión de `ataHuerfanas` que ya han pasado las diapositivas. */
+const ATADURAS = 1;
+
 export function normalizaTablero(entrada: TableroPizarra): TableroPizarra {
   let tocado = false;
+
+  const repara = (slide: SlidePizarra): SlidePizarra => {
+    if (!slide.trazos?.length || (slide.ataduras ?? 0) >= ATADURAS) return slide;
+
+    const trazos = ataHuerfanas(slide.trazos, slide.fichas.filter(enElCampo), slide.rivales ?? []);
+
+    tocado = true;
+
+    return { ...slide, ...(trazos ? { trazos } : {}), ataduras: ATADURAS };
+  };
 
   /* Desde la J10 (30/10/2026), las diapositivas de córner y falta lateral
      ofensivos sin dibujar reciben los movimientos de la base. Las jornadas
@@ -1129,10 +1154,13 @@ export function normalizaTablero(entrada: TableroPizarra): TableroPizarra {
 
   const slides = tablero.slides.map((entrada) => {
     /* Fichas con un ID de jugador que ya no existe: al suyo de hoy (lib/fichajes). */
-    const slide = entrada.fichas.some((ficha) => idVigente(ficha.playerId) !== ficha.playerId)
+    const conIds = entrada.fichas.some((ficha) => idVigente(ficha.playerId) !== ficha.playerId)
       ? ((tocado = true),
         { ...entrada, fichas: entrada.fichas.map((ficha) => ({ ...ficha, playerId: idVigente(ficha.playerId) })) })
       : entrada;
+
+    /* Las carreras que se quedaron sin cara al cambiar a un jugador (una vez). */
+    const slide = repara(conIds);
 
     const plantilla = PLANTILLA_BY_KEY.get(slide.plantilla);
 
@@ -1560,6 +1588,43 @@ export function huellaTablero(rival: string, slides: SlidePizarra[]) {
 
 export function huellaVersion(version: VersionPizarra) {
   return huellaTablero(version.rival, version.slides);
+}
+
+/**
+ * Una lámina que no enseña nada: ni una cara en el campo, ni una flecha, ni
+ * un rival, ni el campograma de caídas. Al exportar no sale (12/11/2026,
+ * jueces: «falta directa ofensiva» salía en el PDF con el césped vacío).
+ */
+export function laminaVacia(slide: SlidePizarra) {
+  return (
+    !slide.fichas.some(enElCampo) &&
+    !slide.trazos?.length &&
+    !slide.rivales?.length &&
+    !slide.caidas?.length
+  );
+}
+
+/**
+ * Las variantes de una misma acción con las consignas copiadas (12/11/2026,
+ * jueces: «las variantes 1 y 2 del córner ofensivo dicen lo mismo»). Grupos
+ * de índices de diapositiva, de la misma plantilla y con las mismas
+ * consignas, sin contar mayúsculas ni espacios. Una sola consigna o ninguna
+ * no cuenta: «Voz de mando» puede valer para las dos.
+ */
+export function consignasRepetidas(slides: SlidePizarra[]): number[][] {
+  const grupos = new Map<string, number[]>();
+
+  slides.forEach((slide, i) => {
+    const lineas = lineasConsignas(slide.notas).filter((linea) => linea.tipo === "consigna");
+
+    if (lineas.length < 2) return;
+
+    const clave = `${slide.plantilla}|${lineas.map((linea) => linea.texto.toLocaleLowerCase("es-ES").replace(/\s+/g, " ")).join("|")}`;
+
+    grupos.set(clave, [...(grupos.get(clave) ?? []), i]);
+  });
+
+  return [...grupos.values()].filter((grupo) => grupo.length > 1);
 }
 
 /** Si no hay una sola cara puesta, no hay pizarra que guardar. */
@@ -2063,7 +2128,7 @@ export function conElegidosDelGrupo(
 
     return previa && previa.playerId === playerId
       ? previa
-      : fichaNueva(playerId, puestos[indice]);
+      : fichaEnPuesto(slide, playerId, puestos[indice]);
   });
 
   return { ...slide, fichas: [...limpio, ...nuevas] };
@@ -2101,6 +2166,58 @@ export function fichaNueva(
   const { x, y } = sitioDe(puesto, indice);
 
   return { id: nuevoId("FI"), playerId, puesto: puesto?.key ?? null, x, y };
+}
+
+/**
+ * La ficha del que entra en un puesto de `slide` (12/11/2026).
+ *
+ * Nace **donde estaba el que sale**, no en el sitio de la plantilla: si a ése
+ * lo habían arrastrado, sus carreras salían de allí, y el nuevo aparecía en
+ * otro punto sin ninguna —la línea quedaba en el césped y al reproducir no se
+ * movía nadie—. Sin nadie antes, el sitio del puesto (el de la variante si lo
+ * hay, que ya lo aplica `puestoDe`).
+ */
+export function fichaEnPuesto(
+  slide: SlidePizarra,
+  playerId: string,
+  puesto: PuestoAbp | null,
+  indice = 0,
+): FichaPizarra {
+  const previa = puesto
+    ? slide.fichas.find((ficha) => ficha.puesto === puesto.key && enElCampo(ficha))
+    : undefined;
+
+  const nueva = fichaNueva(playerId, puesto, indice);
+
+  return previa ? { ...nueva, x: previa.x, y: previa.y } : nueva;
+}
+
+/**
+ * Quita fichas de la diapositiva sin dejar sus carreras perdidas en el césped
+ * (12/11/2026). Las de una ficha con puesto vuelven al sitio del puesto, que
+ * es donde nacerá el próximo que se ponga ahí, y así las hereda; las de una
+ * ficha suelta se quedan donde estaban (se borran a mano si sobran).
+ */
+export function quitaFichas(slide: SlidePizarra, quita: (ficha: FichaPizarra) => boolean): SlidePizarra {
+  const fuera = slide.fichas.filter(quita);
+
+  if (fuera.length === 0) return slide;
+
+  const quedan = slide.fichas.filter((ficha) => !quita(ficha));
+  let trazos = slide.trazos;
+
+  for (const ficha of fuera) {
+    const puesto = puestoDe(slide, ficha.puesto);
+
+    if (!puesto || puesto.x == null || puesto.y == null || !enElCampo(ficha)) continue;
+
+    /* Si otra cara está ya en ese sitio, no se le cuelgan carreras ajenas. */
+    if (quedan.some((otra) => Math.hypot(otra.x - (puesto.x as number), otra.y - (puesto.y as number)) <= 3)) continue;
+
+    trazos = arrastraTrazos(trazos, ficha, { x: puesto.x, y: puesto.y }, trazosQueSalenDe(trazos, ficha));
+  }
+
+  return { ...slide, fichas: quedan, ...(trazos ? { trazos } : {}) };
 }
 
 /** Una ficha del panel, sin sitio en el campo, no se dibuja sobre el césped. */
@@ -2347,10 +2464,27 @@ export const CONSIGNAS_MAX = 3;
 /* «lanzadador», «ultimo»: erratas de la hoja corregidas al pintar (06/11/2026). */
 
 export function normalizaConsigna(texto: string) {
-  const base = normalizaConsignaBase(texto);
+  const base = puntuaConsigna(normalizaConsignaBase(texto));
 
   /* Primera letra en mayúscula, sin tocar nada más del texto. */
   return base.charAt(0).toLocaleUpperCase("es-ES") + base.slice(1);
+}
+
+/*
+| 12/11/2026 (jueces, marketing): «Joan-Mario+ Dani-Cestero», «va a  juego»,
+| «2. directa: sacador…». Espacios de más fuera, el «+» con un espacio a cada
+| lado, sin espacio antes de coma o punto y mayúscula al empezar cada frase
+| (tras un punto o tras el número de orden). Las parejas con guion
+| («Joan-Mario») se quedan juntas: es como las escribe el cuerpo técnico.
+*/
+function puntuaConsigna(texto: string) {
+  return texto
+    .replace(/\s*\+\s*/g, " + ")
+    .replace(/\s+([,.;:])/g, "$1")
+    .replace(/([,;:])(?=[A-Za-zÁÉÍÓÚÜÑáéíóúüñ])/g, "$1 ")
+    .replace(/\s{2,}/g, " ")
+    .replace(/(^|[.!?]\s+|^\d{1,2}\.\s+)([a-záéíóúüñ])/g, (_, antes: string, letra: string) => antes + letra.toLocaleUpperCase("es-ES"))
+    .trim();
 }
 
 function normalizaConsignaBase(texto: string) {

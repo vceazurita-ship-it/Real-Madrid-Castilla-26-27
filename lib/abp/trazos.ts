@@ -256,6 +256,12 @@ export function arrastraTrazos(
   trazos: TrazoPizarra[] | undefined,
   desde: Punto,
   hasta: Punto,
+  /**
+   * Sólo estos trazos (12/11/2026). Al arrastrar una cara por encima de otra,
+   * en cuanto pisaba su punto se llevaba también las carreras de la otra: el
+   * arrastre anota al empezar cuáles son las suyas y mueve sólo ésas.
+   */
+  solo?: ReadonlySet<string>,
 ): TrazoPizarra[] | undefined {
   if (!trazos?.length) return trazos;
 
@@ -267,7 +273,7 @@ export function arrastraTrazos(
   let tocado = false;
 
   const lista = trazos.map((trazo) => {
-    if (distancia({ x: trazo.x1, y: trazo.y1 }, desde) > MISMO_PUNTO) return trazo;
+    if (solo ? !solo.has(trazo.id) : distancia({ x: trazo.x1, y: trazo.y1 }, desde) > MISMO_PUNTO) return trazo;
 
     tocado = true;
 
@@ -284,6 +290,88 @@ export function arrastraTrazos(
   return tocado ? lista : trazos;
 }
 
+/** Los `id` de los trazos que salen de un punto (los de la cara que está ahí). */
+export function trazosQueSalenDe(trazos: TrazoPizarra[] | undefined, punto: Punto) {
+  return new Set(
+    (trazos ?? [])
+      .filter((trazo) => distancia({ x: trazo.x1, y: trazo.y1 }, punto) <= MISMO_PUNTO)
+      .map((trazo) => trazo.id),
+  );
+}
+
+/**
+ * Vuelve a atar a su cara las carreras que se han quedado sueltas
+ * (12/11/2026).
+ *
+ * Al cambiar al jugador de un puesto, el que entraba nacía en el sitio de la
+ * plantilla y no donde estaba el que salía: si a ese lo habían arrastrado, su
+ * carrera se quedaba en el césped sin nadie que la corriera, y al reproducir
+ * el jugador nuevo no se movía. El cambio ya pone al que entra en el sitio del
+ * que sale; esto arregla las jornadas guardadas con el fallo.
+ *
+ * Una carrera (o bloqueo) está suelta si no sale de ninguna cara ni de la
+ * punta de otro trazo. Se ata a la cara **sin trazos propios** más cercana a
+ * menos de `RADIO_HUERFANA`, y sólo si es la única candidata a esa distancia:
+ * ante la duda, se deja como está. El balón no se toca —sale del banderín—.
+ *
+ * Devuelve **la misma lista** si no hay nada que atar.
+ */
+const RADIO_HUERFANA = 160;
+
+export function ataHuerfanas(
+  trazos: TrazoPizarra[] | undefined,
+  fichas: FichaEnCampo[],
+  /** Rivales dibujados: lo que sale de al lado de uno es suyo a propósito. */
+  rivales: Punto[] = [],
+): TrazoPizarra[] | undefined {
+  if (!trazos?.length || fichas.length === 0) return trazos;
+
+  const sale = (p: Punto) =>
+    fichas.some((ficha) => distancia(ficha, p) <= MISMO_PUNTO) ||
+    rivales.some((rival) => distancia(rival, p) <= IMAN_FICHA) ||
+    trazos.some((otro) => distancia({ x: otro.x2, y: otro.y2 }, p) <= MISMO_PUNTO);
+
+  /* Arranques sueltos, agrupados por punto: los trazos de un mismo sitio van juntos. */
+  const sueltos: Punto[] = [];
+
+  for (const trazo of trazos) {
+    if (trazo.tipo === "balon") continue;
+
+    const p = { x: trazo.x1, y: trazo.y1 };
+
+    if (sale(p) || sueltos.some((otro) => distancia(otro, p) <= MISMO_PUNTO)) continue;
+
+    sueltos.push(p);
+  }
+
+  if (sueltos.length === 0) return trazos;
+
+  const conTrazos = (ficha: FichaEnCampo) =>
+    trazos.some((trazo) => distancia({ x: trazo.x1, y: trazo.y1 }, ficha) <= MISMO_PUNTO);
+
+  let libres = fichas.filter((ficha) => !conTrazos(ficha));
+  let lista = trazos;
+
+  for (const p of sueltos) {
+    const cerca = libres
+      .map((ficha) => ({ ficha, d: distancia(ficha, p) }))
+      .filter((item) => item.d <= RADIO_HUERFANA)
+      .sort((a, b) => a.d - b.d);
+
+    if (cerca.length === 0) continue;
+
+    /* Dos caras casi a la misma distancia: no se adivina de quién era. */
+    if (cerca.length > 1 && cerca[1].d - cerca[0].d < 40) continue;
+
+    const ficha = cerca[0].ficha;
+
+    lista = arrastraTrazos(lista, p, ficha) ?? lista;
+    libres = libres.filter((item) => item !== ficha);
+  }
+
+  return lista;
+}
+
 /* ------------------------------------------------------------------ */
 /*  REPRODUCIR                                                         */
 /* ------------------------------------------------------------------ */
@@ -298,6 +386,30 @@ export function avanceDe(trazo: TrazoPizarra, t: number | null) {
   if (t == null) return 1;
 
   return Math.max(0, Math.min(1, t - (trazo.fase - 1)));
+}
+
+/**
+ * La fase que se está viendo: en el instante `t` de la reproducción, o en la
+ * hoja «hasta la fase n» del PDF. `null` = la foto fija, sin fase.
+ */
+export function faseEnCurso(t: number | null, hastaFase?: number | null) {
+  if (hastaFase != null) return Math.max(0, hastaFase);
+
+  if (t == null) return null;
+
+  return Math.max(1, Math.ceil(t - 1e-6));
+}
+
+/**
+ * Un trazo ya recorrido —de una fase anterior a la que se ve— se pinta
+ * difuminado (12/11/2026, petición del analista): con tres fases el campo se
+ * llenaba de líneas y no se sabía cuál tocaba ahora. Las de la fase en curso y
+ * las pendientes, nítidas.
+ */
+export const OPACIDAD_RECORRIDO = 0.25;
+
+export function yaRecorrido(trazo: TrazoPizarra, enCurso: number | null) {
+  return enCurso != null && trazo.fase < enCurso;
 }
 
 /** Suaviza el arranque y la llegada: una carrera no va a velocidad fija. */

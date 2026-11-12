@@ -29,6 +29,9 @@ import {
   type SuJugador,
 } from "@/lib/abp/pizarra-jugador";
 import { buildAerialThreats, cargaAlturasBesoccer } from "@/lib/abp/rival";
+import { cargaDatosMarcas } from "@/lib/abp/marcas-datos";
+import { mismoClub } from "@/lib/rivals/mismoClub";
+import type { Player } from "@/types/player";
 import { trabajoPdfs, type EncargoPdfs } from "@/lib/abp/trabajo-pdfs";
 import { subeAdjunto } from "@/lib/correo/subeAdjunto";
 import { capturaLienzos, esperaFotos, pintado, respira } from "@/lib/export/lienzos";
@@ -52,6 +55,9 @@ const A_LA_VEZ = 3;
  */
 const ESPERA_HOJA_MS = 6_000;
 
+/** Clave de la chapa «POR» en `puntos` (no es el id de nadie). */
+const PORTERO_SIN_FICHA = "__portero__";
+
 const aTiempo = <T,>(promesa: Promise<T>, siNo: T) =>
   Promise.race([promesa.catch(() => siNo), new Promise<T>((listo) => setTimeout(() => listo(siNo), ESPERA_HOJA_MS))]);
 
@@ -61,21 +67,51 @@ const aTiempo = <T,>(promesa: Promise<T>, siNo: T) =>
  * nov» de un partido del viernes 13 a las 21:15—; la hoja, sólo si el
  * calendario no tiene esa jornada.
  */
+/*
+| 12/11/2026 (jueces otra vez: «15 nov» en el pie de un partido del viernes
+| 13). Causa: la fecha entera iba en UNA carrera de 6 s con la hoja RIVALES
+| detrás; si el calendario no casaba por número —el tablero sin `jornada`, o
+| una jornada de la hoja que no es la de BeSoccer— o tardaba, ganaba la hoja,
+| que apunta el domingo de la jornada y no el día del partido. Ahora el
+| calendario tiene su propia espera, casa por número Y por rival (el partido
+| del calendario contra ese rival más cercano a la fecha de la hoja), y la
+| hoja sólo vale si el calendario no tiene ese partido.
+*/
+const SIN_DIAS = 5;
+
+const dia = (iso: string) => Date.parse(`${iso.slice(0, 10)}T12:00:00Z`);
+
 async function fechaDelPartido(encargo: EncargoPdfs) {
-  const numero = Number(/(\d+)/.exec(encargo.jornada ?? "")?.[1] ?? NaN);
+  const numero = Number(/(\d+)/.exec(encargo.jornada ?? encargo.tablero.jornada ?? "")?.[1] ?? NaN);
+  const calendario = await aTiempo(cargaCalendario(), []);
+  const conCuando = calendario.filter((p) => p.cuando);
+  const porNumero = Number.isFinite(numero) ? conCuando.filter((p) => Number(p.jornada) === numero) : [];
+  const contraEl = conCuando.filter((p) => mismoClub(p.local, encargo.rival) || mismoClub(p.visitante, encargo.rival));
 
-  if (Number.isFinite(numero)) {
-    const calendario = await cargaCalendario().catch(() => []);
-    const suyo = calendario.find((p) => Number(p.jornada) === numero && p.cuando);
+  /* Por número, y si hay dos con el mismo (otra competición), el de este rival. */
+  const porAmbos = porNumero.find((p) => contraEl.includes(p));
 
-    if (suyo?.cuando) return suyo.cuando;
-  }
+  if (porAmbos) return porAmbos.cuando;
+  if (porNumero.length === 1 && contraEl.length === 0) return porNumero[0].cuando;
 
   const id = encargo.tablero.rivalId || encargo.tablero.partidoId.replace(/^riv-/, "");
-  const filas = await traeJson<FilaRival[]>("/api/rivals?action=rivales");
+  const filas = await aTiempo(traeJson<FilaRival[]>("/api/rivals?action=rivales"), [] as FilaRival[]);
   const fila = (Array.isArray(filas) ? filas : []).find((f) => f && String(f.ID ?? "").trim() === id);
+  const deLaHoja = fila ? aJornada(fila).fecha : "";
 
-  return fila ? aJornada(fila).fecha : "";
+  /* Contra este rival en el calendario, el más cercano a lo que dice la hoja (ida o vuelta). */
+  if (contraEl.length) {
+    const referencia = deLaHoja ? dia(deLaHoja) : NaN;
+    const cercano = Number.isFinite(referencia)
+      ? [...contraEl].sort((a, b) => Math.abs(dia(a.cuando) - referencia) - Math.abs(dia(b.cuando) - referencia))[0]
+      : contraEl.length === 1
+        ? contraEl[0]
+        : null;
+
+    if (cercano && (!Number.isFinite(referencia) || Math.abs(dia(cercano.cuando) - referencia) <= SIN_DIAS * 86_400_000)) return cercano.cuando;
+  }
+
+  return porNumero[0]?.cuando ?? deLaHoja;
 }
 
 /** Nombre y altura de cada dorsal de su plantilla (para «Marcas al 4 Pérez (1,86 m)»). */
@@ -87,6 +123,33 @@ async function suPlantilla(rival: string) {
       .filter((j) => j.dorsal)
       .map((j) => [j.dorsal, { nombre: j.nombre, altura: j.altura ?? null }]),
   );
+}
+
+/*
+| 12/11/2026 (fútbol: «Marcas al 8» sin decir a quién). La plantilla de la
+| hoja no siempre casa con el nombre del rival del tablero, y el dorsal de
+| «Quién marca a quién» sale de SU once probable (`cargaDatosMarcas`): de ahí
+| salen también el nombre y la altura. Se juntan las dos; manda la hoja si ya
+| trae nombre, y lo que falte lo pone el once probable.
+*/
+async function susNombres(rival: string, players: Map<string, Player>) {
+  const [hoja, marcas] = await Promise.all([
+    suPlantilla(rival).catch(() => new Map<string, SuJugador>()),
+    cargaDatosMarcas(rival, [...players.values()]).catch(() => null),
+  ]);
+  const juntos = new Map(hoja);
+
+  for (const atacante of marcas?.atacantes ?? []) {
+    const dorsal = String(atacante.dorsal ?? "").trim();
+
+    if (!dorsal || !atacante.nombre) continue;
+
+    const previo = juntos.get(dorsal);
+
+    juntos.set(dorsal, { nombre: previo?.nombre || atacante.nombre, altura: previo?.altura ?? atacante.altura ?? null });
+  }
+
+  return juntos;
 }
 
 /**
@@ -155,8 +218,9 @@ export function MesaPdfs({
         if (!raiz) throw new Error("Sin mesa de trabajo");
 
         /* Lo de la hoja, a la vez que se montan y fotografían las diapositivas. */
-        const fechaEnCamino = aTiempo(fechaDelPartido(encargo), "");
-        const suyosEnCamino = aTiempo(suPlantilla(encargo.rival), new Map<string, SuJugador>());
+        /* La fecha lleva sus propias esperas (calendario y hoja, cada una la suya). */
+        const fechaEnCamino = fechaDelPartido(encargo).catch(() => "");
+        const suyosEnCamino = aTiempo(susNombres(encargo.rival, encargo.players), new Map<string, SuJugador>());
 
         await pintado();
         await esperaFuentePortada();
@@ -185,6 +249,16 @@ export function MesaPdfs({
               });
             }
           });
+
+          /* La chapa «POR» de nuestro portero (sin ficha): ahí va su aro, medida como las caras. */
+          const disco = nodo.querySelector<HTMLElement>("[data-portero]")?.firstElementChild?.getBoundingClientRect();
+
+          if (disco?.width) {
+            puntos.set(`${indices[k]}:${PORTERO_SIN_FICHA}`, {
+              x: (disco.left + disco.width / 2 - caja.left) * escala,
+              y: (disco.top + disco.height / 2 - caja.top) * escala,
+            });
+          }
         });
 
         const t0 = performance.now();
@@ -221,7 +295,12 @@ export function MesaPdfs({
               player: encargo.players.get(id),
               acciones,
               tableros: acciones.map((accion) => porIndice.get(accion.indice) ?? null),
-              puntos: acciones.map((accion) => puntos.get(`${accion.indice}:${id}`) ?? null),
+              puntos: acciones.map(
+                (accion) =>
+                  puntos.get(`${accion.indice}:${id}`) ??
+                  (accion.sinFicha && accion.portero ? puntos.get(`${accion.indice}:${PORTERO_SIN_FICHA}`) : null) ??
+                  null,
+              ),
               marcos: acciones.map((accion) => marcos.get(accion.indice) ?? null),
               suyos,
               rival: encargo.rival,

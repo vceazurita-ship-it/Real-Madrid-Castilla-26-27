@@ -26,9 +26,10 @@ import type { Player } from "@/types/player";
 import { Button, Dialog } from "@/components/abp/ui";
 import { type TableroPizarra } from "@/lib/abp/pizarra";
 import { filasParaPdf } from "@/lib/abp/pizarra-jugador";
-import { usePorteroDelOnce } from "@/components/abp/pizarra/usePorteroDelOnce";
+import { porteroDelOnce, usePorteroDelOnce } from "@/components/abp/pizarra/usePorteroDelOnce";
 import { useDatosMarcas } from "@/components/abp/pizarra/useDatosMarcas";
 import { conMarcasPropuestas } from "@/lib/abp/marcas-datos";
+import { nombreRivalPieza } from "@/lib/abp/nombre-rival";
 import { nombreCorto } from "@/lib/abp/pizarra-jugador";
 import { enlaceWhatsapp, esTelefono, telefonoLegible } from "@/lib/correo/whatsapp";
 import { descarga } from "@/lib/export/lienzos";
@@ -58,6 +59,8 @@ export function PizarrasJugadores({
   const portero = usePorteroDelOnce(players);
   /* Las marcas sin poner, con la propuesta de «Quién marca a quién» (como en «Exportar»). */
   const datosMarcas = useDatosMarcas(rival, players);
+  /* El rival escrito igual que en el PDF y en el resto de piezas (12/11/2026). */
+  const rivalTexto = nombreRivalPieza(rival) || rival;
   const tablero = useMemo(() => conMarcasPropuestas(tableroGuardado, datosMarcas), [tableroGuardado, datosMarcas]);
   const [abierto, setAbierto] = useState(false);
   const [enviados, setEnviados] = useState<Set<string>>(new Set());
@@ -149,11 +152,18 @@ export function PizarrasJugadores({
     }
   };
 
-  const abre = () => {
+  const abre = async () => {
     abreVentana();
 
-    /* De golpe: lo que falte se prepara solo al abrir. */
-    prepara(jugadores.map((fila) => fila.playerId).filter((id) => !hechos[id]));
+    /*
+    | De golpe: lo que falte se prepara solo al abrir. El portero sale del once
+    | de la pizarra táctica, que llega por detrás: abriendo antes de que
+    | llegase salían 10 PDF y no 11 (12/11/2026). Se espera aquí.
+    */
+    const elPortero = portero ?? (await porteroDelOnce(players));
+    const ids = filasParaPdf(tablero, players, elPortero).map((fila) => fila.playerId);
+
+    prepara(ids.filter((id) => !hechos[id]));
   };
 
   /* El aviso de «listos» abre esta ventana: en esta pantalla, o al llegar con `?pdfs=1`. */
@@ -226,7 +236,7 @@ export function PizarrasJugadores({
   */
   const mensaje = (player: Player | undefined, pdf: Hecho, video?: HechoVideo) =>
     [
-      `${nombreCorto(player)}, tus ${pdf.acciones} ${pdf.acciones === 1 ? "acción" : "acciones"} a balón parado vs ${rival}. Míralo antes de salir.`,
+      `${nombreCorto(player)}, tus ${pdf.acciones} ${pdf.acciones === 1 ? "acción" : "acciones"} a balón parado vs ${rivalTexto}. Míralo antes de salir.`,
       video?.url ? `▶ Vídeo: ${video.url}` : "",
       pdf.url ? `📄 Pizarra: ${pdf.url}` : "",
     ]
@@ -306,7 +316,7 @@ export function PizarrasJugadores({
     <>
       <Button
         icon={Smartphone}
-        onClick={abre}
+        onClick={() => void abre()}
         disabled={jugadores.length === 0}
         title="Un PDF vertical por jugador, con su portada y sus cometidos, para mandarlo por WhatsApp"
       >
@@ -319,7 +329,7 @@ export function PizarrasJugadores({
           subtitle={
             ocupado
               ? `Preparando ${Math.min(trabajo.hecho + 1, trabajo.total)} de ${trabajo.total}… Puedes cerrar y seguir por la app: te aviso al terminar.`
-              : `${listos.length} PDF listos contra ${rival}. Un toque por jugador abre su WhatsApp con el enlace.`
+              : `${listos.length} PDF listos contra ${rivalTexto}. Un toque por jugador abre su WhatsApp con el enlace.`
           }
           onClose={() => setAbierto(false)}
           footer={

@@ -31,7 +31,7 @@ import type { Player } from "@/types/player";
  * Sube cuando cambia cómo se dibuja o se monta algo: lo guardado con la
  * versión anterior deja de valer sin tener que recargar.
  */
-const VERSION = "2026-11-01-tv";
+const VERSION = "2026-11-12-recorrido";
 
 /* ------------------------------------------------------------------ */
 /*  HUELLAS                                                            */
