@@ -427,7 +427,7 @@ export function ideasDeRespuesta(respuesta: string, posts: PostX[], rutas: strin
     /* Sin un dato real del que salga, la idea no se puede programar bien. */
     if (!post || !titulo || !idea || !fuente || !validas.has(pantalla)) continue;
     /* La muestra tiene que traer su número («≥ 8 partidos»): si no, es ruido. */
-    if (!/d/.test(texto(o.muestra, 120))) continue;
+    if (!/\d/.test(texto(o.muestra, 120))) continue;
     /* Dos publicaciones con la misma idea: se queda la primera. */
     if (ideas.some((i) => i.titulo.toLowerCase() === titulo.toLowerCase())) continue;
 
