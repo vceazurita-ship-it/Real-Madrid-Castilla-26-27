@@ -182,6 +182,7 @@ import {
   type TextosSlide,
   type VersionPizarra,
 } from "@/lib/abp/pizarra";
+import { consignasConOtroPapel } from "@/lib/abp/consignas-exportar";
 import {
   buscaJornada,
   cargaJornadas,
@@ -1547,10 +1548,17 @@ export default function PizarraAbpPage() {
       if (nombres.length) {
         avisos.push(`${i + 1}. ${tituloVisible(tablero.slides, i)}: las consignas nombran a ${nombres.join(", ")}, que no tiene${nombres.length > 1 ? "n" : ""} ficha en esta lámina.`);
       }
+
+      /* 12/11/2026 (jueces): «Cestero saca a corta» con Cestero de rechace largo en la lámina. */
+      for (const otro of consignasConOtroPapel(item, lista)) {
+        avisos.push(`${i + 1}. ${tituloVisible(tablero.slides, i)}: ${otro}.`);
+      }
     });
 
     for (const grupo of consignasRepetidas(tablero.slides)) {
-      avisos.push(`${grupo.map((i) => i + 1).join(" y ")}. ${tituloVisible(tablero.slides, grupo[0])}: las variantes llevan las mismas consignas; cada una debería decir lo suyo.`);
+      avisos.push(
+        `${grupo.map((i) => i + 1).join(" y ")}. ${tituloVisible(tablero.slides, grupo[0])}: las variantes llevan las mismas consignas; cada una debería decir lo suyo. Al exportar, de la segunda en adelante salen las de su lámina (quién hace qué y dónde).`,
+      );
     }
 
     return avisos;
@@ -1875,6 +1883,20 @@ export default function PizarraAbpPage() {
   | todas» —lo aprendido y el once de la pizarra táctica—, sin tocar lo
   | guardado: lo que se ve en la pizarra no cambia hasta que se pulse.
   */
+  /*
+  | La jornada de lo exportado (12/11/2026, jueces: el PDF de cada jugador
+  | decía «de la pizarra de la jornada» y el pie no llevaba la J): la del
+  | tablero y, si no la tiene escrita (los de la hoja RIVALES no la traen),
+  | la de su fila en la hoja.
+  */
+  const numeroJornada = useMemo(() => {
+    const propia = String(tablero?.jornada ?? "").trim();
+    const deLaHoja = /(\d+)/.exec(String(jornada?.jornada ?? ""))?.[1] ?? "";
+
+    return propia || deLaHoja;
+  }, [tablero?.jornada, jornada?.jornada]);
+  const jornadaPieza = numeroJornada ? `J${numeroJornada.replace(/^j/i, "").padStart(2, "0")}` : undefined;
+
   const rellenaParaExportar = useCallback(
     (actual: TableroPizarra): TableroPizarra => {
       let puestas = 0;
@@ -1886,9 +1908,13 @@ export default function PizarraAbpPage() {
         return nuevas.length ? { ...item, fichas: [...item.fichas, ...nuevas] } : item;
       });
 
-      return puestas ? { ...actual, slides } : actual;
+      const conJornada = !actual.jornada && numeroJornada ? { jornada: numeroJornada } : null;
+
+      if (!puestas && !conJornada) return actual;
+
+      return { ...actual, ...(puestas ? { slides } : {}), ...conJornada };
     },
-    [memoriaAlDia, disponibles],
+    [memoriaAlDia, disponibles, numeroJornada],
   );
 
   const tableroParaJugadores = useMemo(() => (tablero ? rellenaParaExportar(tablero) : null), [tablero, rellenaParaExportar]);
@@ -2851,7 +2877,7 @@ export default function PizarraAbpPage() {
                     temporada={temporadaCorta(RATINGS_SEASON)}
                     rival={nombreRivalPieza(tablero.rival || partido?.opponent)}
                     escudoRival={escudoDe(tablero.rival || partido?.opponent || "")}
-                    jornada={tablero.jornada ? `J${String(tablero.jornada).padStart(2, "0")}` : undefined}
+                    jornada={jornadaPieza}
                   />
                 )}
 
@@ -2863,11 +2889,7 @@ export default function PizarraAbpPage() {
                     temporada={temporadaCorta(RATINGS_SEASON)}
                     rival={nombreRivalPieza(tablero.rival || partido?.opponent)}
                     escudoRival={escudoDe(tablero.rival || partido?.opponent || "")}
-                    jornada={
-                      tablero.jornada
-                        ? `J${String(tablero.jornada).padStart(2, "0")}`
-                        : undefined
-                    }
+                    jornada={jornadaPieza}
                   />
                 )}
 

@@ -100,20 +100,38 @@ const metros = (cm: number | null) => (cm ? `${(cm / 100).toFixed(2).replace("."
 | «Al 8 Montalvo · 1,80»: el apellido (la última palabra, que es como se le
 | nombra en la charla) y la altura si se sabe.
 */
-export type AtacantePanel = { dorsal: string; nombre: string; altura: string };
+export type AtacantePanel = {
+  dorsal: string;
+  nombre: string;
+  altura: string;
+  /** Su portero (12/11/2026): la chapa «P» de las ofensivas lleva su apellido. */
+  portero?: boolean;
+};
 
+/*
+| 12/11/2026 (jueces): la lámina pinta a los rivales que no traen dorsal con
+| uno de su once; por eso la lista va del más fuerte por arriba al menos
+| (`peligro`), con el portero al final.
+*/
 export function atacantesDelPanel(atacantes: Atacante[] | undefined | null): AtacantePanel[] {
-  return (atacantes ?? [])
-    .filter((a) => String(a.dorsal ?? "").trim())
-    .map((a) => {
-      const palabras = String(a.nombre ?? "").trim().split(/\s+/).filter(Boolean);
+  const conDorsal = (atacantes ?? []).filter((a) => String(a.dorsal ?? "").trim());
+  /* Sin posición no es portero (el `PORTERO` de arriba casa también la cadena vacía). */
+  const esSuPortero = (a: Atacante) => /portero|^por$|^gk$/i.test(String(a.posicion ?? "").trim());
+  const ordenados = [
+    ...conDorsal.filter((a) => !esSuPortero(a)).sort((a, b) => peligro(b) - peligro(a)),
+    ...conDorsal.filter(esSuPortero),
+  ];
 
-      return {
-        dorsal: String(a.dorsal).trim(),
-        nombre: palabras.length > 1 ? palabras[palabras.length - 1] : (palabras[0] ?? ""),
-        altura: a.altura ? (a.altura / 100).toFixed(2).replace(".", ",") : "",
-      };
-    });
+  return ordenados.map((a) => {
+    const palabras = String(a.nombre ?? "").trim().split(/\s+/).filter(Boolean);
+
+    return {
+      dorsal: String(a.dorsal).trim(),
+      nombre: palabras.length > 1 ? palabras[palabras.length - 1] : (palabras[0] ?? ""),
+      altura: a.altura ? (a.altura / 100).toFixed(2).replace(".", ",") : "",
+      ...(esSuPortero(a) ? { portero: true } : {}),
+    };
+  });
 }
 
 const aereos = (pct: number | null, duelos: number | null) =>

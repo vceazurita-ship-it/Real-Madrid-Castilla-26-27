@@ -32,7 +32,8 @@ import type { Player } from "@/types/player";
  * Sube cuando cambia cómo se dibuja o se monta algo: lo guardado con la
  * versión anterior deja de valer sin tener que recargar.
  */
-const VERSION = "2026-11-12-portero";
+/* 12/11/2026 (jueces): letras que no tapan nombres, rivales con dorsal y apellido, dato del rival y fecha en el pie. */
+const VERSION = "2026-11-12-dato-y-letras";
 
 /* ------------------------------------------------------------------ */
 /*  HUELLAS                                                            */
@@ -61,21 +62,34 @@ export type ContextoHuella = {
   portero?: string;
   /** Su once (dorsal, nombre, altura): el panel dice a quién marca cada uno. */
   atacantes?: AtacantePanel[];
+  /** La jornada y el día del partido, bajo el rival de la cabecera (12/11/2026). */
+  jornada?: string;
+  fecha?: string;
+  /** La línea de dato de cada diapositiva, por su id (`lib/abp/dato-lamina.ts`). */
+  datos?: Record<string, string>;
 };
 
-/** Lo que hace que una diapositiva salga distinta en la foto. */
-export function huellaSlide(slide: SlidePizarra, titulo: string, { players, temporada, rival, portero, atacantes }: ContextoHuella) {
+/** Lo que hace que una diapositiva salga distinta en la foto. `extra`, lo que pone quien la monta (la cabecera «J12 · lámina 3 de 9»). */
+export function huellaSlide(
+  slide: SlidePizarra,
+  titulo: string,
+  { players, temporada, rival, portero, atacantes, datos }: ContextoHuella,
+  extra = "",
+) {
   const jugadores = [...new Set(slide.fichas.map((ficha) => ficha.playerId))]
     .sort()
     .map((id) => [id, players.get(id) ?? null]);
 
   const elPortero = portero ? [portero, players.get(portero)?.apodo ?? null, players.get(portero)?.foto ?? null] : null;
 
-  /* Sólo los dorsales que nombra esta diapositiva: otro cambio en su once no rehace las demás. */
-  const dorsales = new Set(Object.values(slide.marcas ?? {}).map((d) => String(d ?? "").trim()).filter(Boolean));
-  const suyos = (atacantes ?? []).filter((a) => dorsales.has(a.dorsal)).map((a) => [a.dorsal, a.nombre, a.altura]);
+  /*
+  | Su once entero, en su orden (12/11/2026): los rivales dibujados sin dorsal
+  | toman uno de ahí y todos llevan el apellido, así que cualquier cambio en
+  | su once cambia la lámina.
+  */
+  const suyos = (atacantes ?? []).map((a) => [a.dorsal, a.nombre, a.altura, a.portero ?? false]);
 
-  return resumen(JSON.stringify([VERSION, slide, titulo, rival, temporada, jugadores, elPortero, suyos]));
+  return resumen(JSON.stringify([VERSION, slide, titulo, rival, temporada, jugadores, elPortero, suyos, datos?.[slide.id] ?? "", extra]));
 }
 
 /* ------------------------------------------------------------------ */

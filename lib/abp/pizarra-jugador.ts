@@ -138,6 +138,13 @@ export type CometidoAccion = {
    */
   base?: string;
   /**
+   * La cifra del rival que sostiene la acción, con su base (12/11/2026,
+   * jueces): «Gimnàstic saca 5,5 córners por partido (el que más de los 20)
+   * y remata el 27 % (10 de 37) · Wyscout, 11 partidos». La pone quien arma
+   * el PDF con `lib/abp/dato-lamina.ts`; vacía, no sale.
+   */
+  dato?: string;
+  /**
    * Lo que el recorte del PDF no puede cortar además de `foco` y `zona`: las
    * flechas de sus compañeros de zona (12/11/2026: salían fuera del encuadre).
    */
@@ -368,6 +375,9 @@ export const nombreCorto = (player: Player | undefined) =>
 
 const plano = (texto: string) =>
   texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+/** Para comparar dos frases sin mayúsculas, tildes, espacios ni signos. */
+const soloLetras = (texto: string) => plano(texto).replace(/[^a-z0-9]/g, "");
 
 const conPalabra = (texto: string, palabra: string) =>
   palabra.length > 1 &&
@@ -693,7 +703,10 @@ function cometidosCrudos(
         puestos,
         mision: mision.charAt(0).toLocaleUpperCase("es-ES") + mision.slice(1),
         senal,
-        consignas: consignasSuyas(lineasConsignas(slide.notas), claves, siglas).map((texto) => conNombres(texto, players)),
+        /* La que repite su tarea («Pol: sales de la frontal y atacas el 1.er palo», de la lámina) no sale dos veces. */
+        consignas: consignasSuyas(lineasConsignas(slide.notas), claves, siglas)
+          .filter((texto) => !tarea || soloLetras(texto) !== soloLetras(lista(tarea.split(/\s*·\s*/).filter((paso) => !/^arrancas en la fase/i.test(paso)))))
+          .map((texto) => conNombres(texto, players)),
         rival,
         despues: despues ? despues.charAt(0).toLocaleUpperCase("es-ES") + despues.slice(1).toLowerCase() : "",
         pasos,
@@ -970,9 +983,58 @@ function pie(ctx: Ctx, cx: Contexto, volver = false): ZonaHoja | null {
  * fila por acción con su sigla, su puesto y a quién marca. Es lo que se
  * relee en el autobús sin pasar páginas.
  */
-const RESUMEN_Y = CABEZA_H + 176;
+/*
+| 12/11/2026 (marketing): la portada lleva debajo del título el partido
+| («Gimnàstic de Tarragona · J12 · vie 13 nov · 21:15»), para que el PDF que
+| llega por WhatsApp se identifique solo; las filas bajan 44 px para dejarle
+| sitio.
+*/
+const RESUMEN_Y = CABEZA_H + 220;
 const RESUMEN_FILA = 150;
 const altoResumen = (acciones: number) => RESUMEN_Y + acciones * RESUMEN_FILA + 16 + PIE_H;
+
+/** El texto, cortado por palabras con «…» hasta caber en `maxW` (con el espaciado de 1 de las filas). */
+function recorta(ctx: Ctx, texto: string, maxW: number) {
+  if (anchoEspaciado(ctx, texto, 1) <= maxW) return texto;
+
+  const palabras = texto.split(" ");
+
+  while (palabras.length > 1 && anchoEspaciado(ctx, `${palabras.join(" ")}…`, 1) > maxW) palabras.pop();
+
+  return `${palabras.join(" ").replace(/[,·\s]+$/, "")}…`;
+}
+
+/** El pictograma del lado: una flecha hacia arriba (atacamos) o un escudo (defendemos). */
+function pictogramaLado(ctx: Ctx, lado: LadoPizarra, x: number, y: number, alto: number) {
+  ctx.save();
+  ctx.fillStyle = colorLado(lado);
+  ctx.beginPath();
+
+  if (lado === "ofensivo") {
+    const w = alto * 0.8;
+
+    ctx.moveTo(x + w / 2, y);
+    ctx.lineTo(x + w, y + alto * 0.55);
+    ctx.lineTo(x + w * 0.68, y + alto * 0.55);
+    ctx.lineTo(x + w * 0.68, y + alto);
+    ctx.lineTo(x + w * 0.32, y + alto);
+    ctx.lineTo(x + w * 0.32, y + alto * 0.55);
+    ctx.lineTo(x, y + alto * 0.55);
+  } else {
+    const w = alto * 0.84;
+
+    ctx.moveTo(x, y + alto * 0.12);
+    ctx.lineTo(x + w / 2, y);
+    ctx.lineTo(x + w, y + alto * 0.12);
+    ctx.lineTo(x + w, y + alto * 0.5);
+    ctx.quadraticCurveTo(x + w, y + alto * 0.86, x + w / 2, y + alto);
+    ctx.quadraticCurveTo(x, y + alto * 0.86, x, y + alto * 0.5);
+  }
+
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
 
 function dibujaResumen(ctx: Ctx, cx: Contexto, acciones: CometidoAccion[], suyos?: Map<string, SuJugador>): ZonaHoja[] {
   cabecera(ctx, cx, `${acciones.length} ACCIONES`);
@@ -982,6 +1044,15 @@ function dibujaResumen(ctx: Ctx, cx: Contexto, acciones: CometidoAccion[], suyos
   textoEspaciado(ctx, "TU BALÓN PARADO", MARGEN, CABEZA_H + 116, 2);
   ctx.fillStyle = C.rosa;
   ctx.fillRect(MARGEN, CABEZA_H + 136, 200, 10);
+
+  /* El partido: rival, jornada, día y hora (lo que haya). */
+  const partido = [cx.rival, cx.jornada, fechaCorta(cx.fecha)].map((t) => t?.trim()).filter(Boolean).join(" · ");
+
+  if (partido) {
+    ctx.fillStyle = TINTA_SUAVE;
+    ajusta(ctx, partido, HOJA_W - MARGEN * 2, 36, 600, 1);
+    textoEspaciado(ctx, partido, MARGEN, CABEZA_H + 192, 1);
+  }
 
   const y0 = RESUMEN_Y;
   const fila = RESUMEN_FILA;
@@ -1025,8 +1096,22 @@ function dibujaResumen(ctx: Ctx, cx: Contexto, acciones: CometidoAccion[], suyos
     /* Remite a la cabecera de su hoja («ACCIÓN 1 DE 4»), no a un número de página (11/11/2026). */
     /* Si el disco ya lleva el número (el portero: «POR» en todas), «ACCIÓN 1…4» repetía lo mismo (12/11/2026). */
     const hoja = todasIguales ? "" : `ACCIÓN ${orden + 1}`;
-    if (hoja) ctx.fillText(hoja, HOJA_W - MARGEN - 24, top + alto / 2 + 10);
-    const anchoHoja = hoja ? ctx.measureText(hoja).width : -24;
+    if (hoja) ctx.fillText(hoja, HOJA_W - MARGEN - 24, top + alto * 0.42);
+    const anchoNumero = hoja ? ctx.measureText(hoja).width : 0;
+
+    /*
+    | El tipo de acción con su pictograma (12/11/2026, análisis: «la portada
+    | dice 4 acciones y no cuáles»): flecha si atacamos, escudo si defendemos,
+    | debajo del número de la acción.
+    */
+    const tipo = accion.lado === "ofensivo" ? "OFENSIVA" : "DEFENSIVA";
+
+    fuente(ctx, 24, 700);
+    const anchoTipo = ctx.measureText(tipo).width;
+    ctx.fillStyle = colorLado(accion.lado);
+    ctx.fillText(tipo, HOJA_W - MARGEN - 24, top + (hoja ? alto * 0.78 : alto / 2 + 9));
+    pictogramaLado(ctx, accion.lado, HOJA_W - MARGEN - 24 - anchoTipo - 30, top + (hoja ? alto * 0.78 - 20 : alto / 2 - 11), 22);
+    const anchoHoja = Math.max(anchoNumero, anchoTipo + 30);
     ctx.textAlign = "left";
 
     const tx = discoX + r + 26;
@@ -1042,7 +1127,8 @@ function dibujaResumen(ctx: Ctx, cx: Contexto, acciones: CometidoAccion[], suyos
       /* Tinta de la paleta: el verde oscuro sobre crema no se leía (12/11/2026, marketing). */
       ctx.fillStyle = accion.lado === "ofensivo" ? TINTA_SUAVE : "#7A1F2B";
       ajusta(ctx, detalle, maxW, Math.min(34, alto * 0.27), 600, 1);
-      textoEspaciado(ctx, detalle, tx, top + alto * 0.8, 1);
+      /* Ni a la letra más pequeña cabe (las directas): se corta por palabras, sin montarse en el tipo de la derecha. */
+      textoEspaciado(ctx, recorta(ctx, detalle, maxW), tx, top + alto * 0.8, 1);
     }
   });
 
@@ -1232,16 +1318,22 @@ function resalta(
   const sitioChapa = (() => {
     if (!yo) return null;
 
+    /*
+    | Pegado al aro (12/11/2026, marketing: en la hoja de Pol flotaba 60 px
+    | por debajo de él). Cada sitio monta la placa sobre el borde del aro
+    | —encima, a un lado o al otro— para que se lea como suya; debajo va el
+    | último porque ahí está su propia chapa con el nombre.
+    */
     const candidatos = [
-      { x: yo.x, y: yo.y - radioYo - 33 },
-      { x: yo.x + radioYo + 58, y: yo.y - radioYo * 0.5 },
-      { x: yo.x - radioYo - 58, y: yo.y - radioYo * 0.5 },
-      { x: yo.x, y: yo.y + radioYo + 92 },
+      { x: yo.x, y: yo.y - radioYo - 10 },
+      { x: yo.x + radioYo + 38, y: yo.y - radioYo * 0.35 },
+      { x: yo.x - radioYo - 38, y: yo.y - radioYo * 0.35 },
+      { x: yo.x, y: yo.y + radioYo + 12 },
     ].filter((p) => p.y - 23 > 4 && p.y + 23 < enc.alto - 4 && p.x - 48 > 0 && p.x + 48 < HOJA_W);
     const aire = (p: { x: number; y: number }) =>
       Math.min(9999, ...ocupados.map((o) => Math.hypot((o.x - p.x) / 1.5, o.y - p.y)), ...(suyo ? [Math.hypot((suyo.x - p.x) / 1.5, suyo.y - p.y)] : []));
 
-    return candidatos.find((p) => aire(p) > 62 * s) ?? [...candidatos].sort((a, b) => aire(b) - aire(a))[0] ?? { x: yo.x, y: yo.y - radioYo - 33 };
+    return candidatos.find((p) => aire(p) > 52 * s) ?? [...candidatos].sort((a, b) => aire(b) - aire(a))[0] ?? { x: yo.x, y: yo.y - radioYo - 10 };
   })();
 
   if (suyo) {
@@ -1519,19 +1611,24 @@ function bloqueNotas(ctx: Ctx, accion: CometidoAccion, y0: number, pinta: boolea
   let y = y0 + 30;
   const ancho = HOJA_W - MARGEN * 2;
 
-  const notas: { rotulo: string; fondo: string; tinta: string; texto: string }[] = [
+  const notas: { rotulo: string; fondo: string; tinta: string; texto: string; px?: number }[] = [
     ...(orden ? [{ rotulo: "ORDEN", fondo: C.rosa, tinta: C.navy, texto: orden }] : []),
     ...(accion.senal ? [{ rotulo: "SEÑAL", fondo: C.navy, tinta: C.crema, texto: accion.senal }] : []),
     ...accion.consignas.map((texto) => ({ rotulo: "OJO", fondo: C.rosa, tinta: C.navy, texto })),
     ...(accion.despuesDibujado && accion.despues
       ? [{ rotulo: "DESPUÉS", fondo: C.verde, tinta: C.crema, texto: accion.despues }]
       : []),
+    /* La cifra del rival que sostiene la acción (12/11/2026, jueces): también en las del portero. */
+    ...(accion.dato?.trim() ? [{ rotulo: "DATO", fondo: "#7A5F26", tinta: C.crema, texto: accion.dato.trim(), px: 32 }] : []),
   ];
 
   const sangria = 170;
 
   for (const nota of notas) {
-    fuente(ctx, 40, 500);
+    const px = nota.px ?? 40;
+    const interlinea = Math.round(px * 1.25);
+
+    fuente(ctx, px, 500);
     const filas = renglones(ctx, nota.texto, ancho - sangria);
 
     if (pinta) {
@@ -1548,11 +1645,11 @@ function bloqueNotas(ctx: Ctx, accion: CometidoAccion, y0: number, pinta: boolea
       });
 
       ctx.fillStyle = C.navy;
-      fuente(ctx, 40, 500);
-      filas.forEach((fila, i) => ctx.fillText(fila, MARGEN + sangria, y + 40 + i * 50));
+      fuente(ctx, px, 500);
+      filas.forEach((fila, i) => ctx.fillText(fila, MARGEN + sangria, y + px + i * interlinea));
     }
 
-    y += Math.max(54, filas.length * 50) + 20;
+    y += Math.max(54, filas.length * interlinea) + 20;
   }
 
   /* La base: de dónde sale esta hoja, en letra pequeña y sin chapa. */
@@ -1601,7 +1698,14 @@ function planAccion(
   const lineasDebajo = debajo ? renglones(medida, debajo, ancho).slice(0, 2) : [];
 
   /* Una orden por acción (12/11/2026, expertos): lo grande, en imperativo. */
-  const orden = ordenDe(grande);
+  /*
+  | Sólo si dice algo que el titular no dice (12/11/2026, jueces: «la línea
+  | ORDEN repite el titular»). Con un titular de un solo paso («Marcas al 9»,
+  | «Mandas en el área pequeña…») la orden era la misma frase en imperativo; con
+  | varios pasos («Sales del 2.º palo · atacas el punto de penalti») resume el
+  | último, adónde va, y se queda.
+  */
+  const orden = grande.includes("·") ? ordenDe(grande) : "";
 
   const yCampo = bloqueArriba(medida, accion, { grande: lineasGrande, debajo: lineasDebajo }, false);
   const yNotas = yCampo + (enc ? enc.alto + 8 : 0);

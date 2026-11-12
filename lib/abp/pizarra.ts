@@ -2498,7 +2498,8 @@ function normalizaConsignaBase(texto: string) {
     .trim()
     .replace(/(\d)([ªº])/g, "$1.$2")
     /* «2.DIRECTA» sin espacio tras el número de orden. */
-    .replace(/(^|\s)(\d{1,2})\.(?=[A-Za-zÁÉÍÓÚÜÑáéíóúüñ])/g, "$1$2. ");
+    /* «1.er palo» es un ordinal, no el número de orden (12/11/2026: salía «1. Er palo»). */
+    .replace(/(^|\s)(\d{1,2})\.(?![eE][rR]\b)(?=[A-Za-zÁÉÍÓÚÜÑáéíóúüñ])/g, "$1$2. ");
 
   const letras = limpio.replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/g, "");
   const mayusculas = letras.replace(/[^A-ZÁÉÍÓÚÜÑ]/g, "").length;
