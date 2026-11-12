@@ -36,6 +36,8 @@ import { trabajoPdfs, type EncargoPdfs } from "@/lib/abp/trabajo-pdfs";
 import { subeAdjunto } from "@/lib/correo/subeAdjunto";
 import { capturaLienzos, esperaFotos, pintado, respira } from "@/lib/export/lienzos";
 import { traeJson } from "@/lib/hojaCsv";
+import { comparativaATiempo, datoDeLamina } from "@/lib/abp/dato-lamina";
+import { nombreRivalPieza } from "@/lib/abp/nombre-rival";
 import { esperaFuentePortada } from "@/lib/rivals/portada-font";
 
 /*
@@ -81,7 +83,9 @@ const SIN_DIAS = 5;
 
 const dia = (iso: string) => Date.parse(`${iso.slice(0, 10)}T12:00:00Z`);
 
-async function fechaDelPartido(encargo: EncargoPdfs) {
+export async function fechaDelPartido(
+  encargo: Pick<EncargoPdfs, "jornada" | "rival"> & { tablero: Pick<EncargoPdfs["tablero"], "jornada" | "rivalId" | "partidoId"> },
+) {
   const numero = Number(/(\d+)/.exec(encargo.jornada ?? encargo.tablero.jornada ?? "")?.[1] ?? NaN);
   const calendario = await aTiempo(cargaCalendario(), []);
   const conCuando = calendario.filter((p) => p.cuando);
@@ -221,6 +225,8 @@ export function MesaPdfs({
         /* La fecha lleva sus propias esperas (calendario y hoja, cada una la suya). */
         const fechaEnCamino = fechaDelPartido(encargo).catch(() => "");
         const suyosEnCamino = aTiempo(susNombres(encargo.rival, encargo.players), new Map<string, SuJugador>());
+        /* La cifra del rival de cada acción, de la comparativa del informe de ABP (12/11/2026). */
+        const comparativaEnCamino = comparativaATiempo();
 
         await pintado();
         await esperaFuentePortada();
@@ -275,13 +281,19 @@ export function MesaPdfs({
         const imagenes = await Promise.all(capturas.map((captura) => imagenDeCaptura(captura ?? "")));
         const porIndice = new Map(indices.map((indice, k) => [indice, imagenes[k] ?? null]));
         const escudos = await escudosEnCamino;
-        const [fecha, suyos] = await Promise.all([fechaEnCamino, suyosEnCamino]);
+        const [fecha, suyos, comparativa] = await Promise.all([fechaEnCamino, suyosEnCamino, comparativaEnCamino]);
+        const rivalTexto = nombreRivalPieza(encargo.rival) || encargo.rival;
+        const datoDe = (indice: number) => datoDeLamina(encargo.tablero.slides[indice]?.plantilla ?? "", comparativa, rivalTexto);
         const t1 = performance.now();
 
         await enParalelo(encargo.ids, A_LA_VEZ, async (id) => {
           if (!vivo) return;
 
-          const acciones = porJugador.get(id) ?? [];
+          const acciones = (porJugador.get(id) ?? []).map((accion) => {
+            const dato = datoDe(accion.indice);
+
+            return dato ? { ...accion, dato } : accion;
+          });
 
           if (acciones.length === 0) {
             trabajoPdfs.salta();

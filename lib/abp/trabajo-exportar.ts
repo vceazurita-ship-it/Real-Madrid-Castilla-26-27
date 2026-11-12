@@ -12,6 +12,7 @@
  */
 
 import type { Destino } from "@/components/abp/pizarra/VideoJugada";
+import type { AtacantePanel } from "@/lib/abp/marcas-corner";
 import type { SlidePizarra, TableroPizarra } from "@/lib/abp/pizarra";
 import type { Player } from "@/types/player";
 
@@ -22,7 +23,22 @@ import type { Player } from "@/types/player";
  */
 export type PiezasExportar = { documentos: boolean; videos: boolean; videosJugador: boolean };
 
-type Comun = { players: Map<string, Player>; temporada: string; rival: string; jornada?: string };
+type Comun = {
+  players: Map<string, Player>;
+  temporada: string;
+  rival: string;
+  jornada?: string;
+  /*
+  | Lo que la lámina lleva además de la pizarra (12/11/2026, jueces): el día
+  | del partido, la línea de dato del rival de cada diapositiva (por su id) y,
+  | para el PowerPoint y el PDF sueltos, el portero y su once. Se calcula al
+  | pulsar, en la pizarra, y viaja con el encargo.
+  */
+  fecha?: string;
+  datos?: Record<string, string>;
+  portero?: string;
+  atacantes?: AtacantePanel[];
+};
 
 export type EncargoExportar =
   | { id: string; tipo: "todo"; piezas: PiezasExportar; datos: Comun & { tablero: TableroPizarra; escudoRival?: string } }

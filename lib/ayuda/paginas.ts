@@ -645,16 +645,53 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           { que: "Proyector", es: "A pantalla completa: → o espacio dibuja la fase siguiente y luego pasa de lámina; A quita el panel" },
           { que: "Exportar", es: "PDF general, PowerPoint, vídeos y .zip; lo que no ha cambiado sale al momento (caché por contenido)" },
-          { que: "PDF por jugador", es: "Uno vertical por jugador para WhatsApp: su cara en rosa, su cometido y a quién marca" },
+          {
+            que: "PDF por jugador",
+            es: "Uno vertical por jugador para WhatsApp: portada con rival · jornada · día y hora y la lista de sus acciones (ofensiva con flecha, defensiva con escudo); en cada hoja «Acción n de N», su cara con «TÚ» pegado al aro y «Volver al resumen»",
+          },
           { que: "Rival implícito", es: "En las defensivas sin rivales dibujados se pinta un atacante por marca, con el dorsal de «Quién marca a quién»" },
+          {
+            que: "Rivales con dorsal y apellido",
+            es: "Al exportar, el rival dibujado sin dorsal toma uno de su once probable (el de «Quién marca a quién»), del más fuerte por arriba al menos y sin repetir; todos llevan el apellido debajo",
+            cuenta: "Sin once del rival se queda como estaba; el sacador del saque de banda no se adivina",
+          },
+          { que: "M3 →9", es: "El dorsal decidido va dentro de la chapa de quien marca, no en una casilla suelta encima de la cabeza" },
           { que: "Al 8 Montalvo · 1,80", es: "En el panel exportado: a quién marca cada uno, con su altura si se sabe" },
           { que: "Portero", es: "En las defensivas, el del once de la pizarra táctica bajo palos (su cara y su nombre)" },
+          {
+            que: "Letras A, B, C… en el campo",
+            es: "Junto a quien nombra cada consigna, en el primer sitio alrededor de su figura que no tapa ningún nombre, rival ni otra letra",
+            cuenta: "Mismo motor (lib/abp/separa.ts) para el PDF general, el PowerPoint y el PDF de cada jugador; en las directas no se ponen",
+          },
+          {
+            que: "Línea DATO",
+            es: "Al pie de cada lámina y de cada acción del PDF por jugador: la cifra del rival que la sostiene, con su base y su puesto entre los 20",
+            cuenta: "Sale de la misma comparativa de Wyscout que el informe de ABP (córners o faltas que saca o concede y su % de remate; en faltas directas, los penaltis). El saque de banda no lo mide Wyscout: sin línea",
+          },
+          { que: "J12 · vie 13 nov · 21:15", es: "Bajo el rival de la cabecera y en el pie del PDF: la jornada y el día y hora del calendario de BeSoccer, con «lámina n de N»" },
+          { que: "Leyenda de flechas", es: "Dos filas fijas (flechas arriba; rival y fases abajo), del ancho justo de lo que la lámina dibuja" },
+        ],
+      },
+      {
+        titulo: "Consignas en lo exportado",
+        filas: [
+          {
+            que: "Variantes copiadas",
+            es: "Si una variante lleva las mismas consignas que otra anterior, al exportar sale con las de su lámina: quién hace qué y dónde",
+            cuenta: "Con flechas, la tarea de cada uno («Joan: sales del 2.º palo y atacas el punto de penalti»); sin flechas, por grupos del panel y con el dorsal de su marca",
+          },
+          {
+            que: "Consignas genéricas",
+            es: "«Orden de lanzamiento cerrado antes del partido» y «Despeje expeditivo con la pierna corta» no salen: en su lugar, el orden de lanzadores de cada zona o los papeles de la lámina",
+          },
+          { que: "Lo guardado", es: "No se toca: lo que escribes sigue en la pizarra; sólo cambia lo que sale en el PDF, el PowerPoint y el PDF de cada jugador" },
         ],
       },
     ],
     ojo: [
       "La lámina es azul noche en los dos temas a propósito: es lo que se proyecta y se imprime.",
-      "Las consignas que nombran a alguien sin ficha en la lámina se avisan antes de exportar.",
+      "Antes de exportar se avisa de las consignas que nombran a alguien sin ficha en la lámina, de las que le dan otro papel («Cestero saca a corta» con Cestero de rechace largo) y de las variantes copiadas.",
+      "En el PDF de cada jugador la línea «ORDEN» sólo sale si dice algo que el titular no dice.",
       "En el móvil, el botón de ampliar abre la lámina en horizontal: en vertical es una miniatura.",
     ],
   },

@@ -66,18 +66,22 @@ import {
 } from "@/lib/abp/cache-exportar";
 import { ruedaMaterial, type MaterialJugada } from "@/lib/abp/rodaje-jugada";
 import { duracionResponsabilidad, videoResponsabilidad } from "@/lib/abp/video-responsabilidad";
-import { cargaEscudos, cometidosDe, filasParaPdf, nombreArchivo, nombreCorto, preparaJugador } from "@/lib/abp/pizarra-jugador";
+import { cargaEscudos, cometidosDe, fechaCorta, filasParaPdf, nombreArchivo, nombreCorto, preparaJugador } from "@/lib/abp/pizarra-jugador";
 import { porteroDelOnce, usePorteroDelOnce } from "@/components/abp/pizarra/usePorteroDelOnce";
 import { useDatosMarcas } from "@/components/abp/pizarra/useDatosMarcas";
 import { cargaDatosMarcas, conMarcasPropuestas } from "@/lib/abp/marcas-datos";
-import { atacantesDelPanel } from "@/lib/abp/marcas-corner";
+import { atacantesDelPanel, type AtacantePanel } from "@/lib/abp/marcas-corner";
 import { faltanFotos, fotosDeHojas } from "@/lib/abp/fotos-tablero";
 import { creaPptx } from "@/lib/export/pptx";
 import { apodo, descarga, pdfDeLienzos, pintado } from "@/lib/export/lienzos";
 import { creaZip, type Bytes, type EntradaZip } from "@/lib/export/zip";
 import { puedeHacerVideo } from "@/lib/tactics/lamina";
+import { comparativaATiempo, datosDeLaminas } from "@/lib/abp/dato-lamina";
+import { consignasParaExportar } from "@/lib/abp/consignas-exportar";
+import { fechaDelPartido } from "@/components/abp/pizarra/MesaPdfs";
 
-type Montaje = { que: "general"; indices: number[] } | { que: "video"; indice: number; tiempo: number } | null;
+/* `pies`, en paralelo a `indices`: lo que va bajo el rival y la línea de dato de cada lámina (12/11/2026). */
+type Montaje = { que: "general"; indices: number[]; pies?: { partido: string; dato: string }[] } | { que: "video"; indice: number; tiempo: number } | null;
 
 type Estado = "pendiente" | "marcha" | "hecho" | "fallo";
 
@@ -191,6 +195,21 @@ function esperaPdfs(huella: string, ids: string[], cancelado: () => boolean, top
 
 type Opcion = "todo" | "documentos" | "videos" | "videosJugador" | "pptx" | "pdf";
 
+/**
+ * El día del partido (el del calendario, como en el pie del PDF de cada
+ * jugador) y la línea de dato del rival de cada lámina, con tope de espera:
+ * la exportación no se para por ellas y, si no llegan, la lámina sale sin
+ * ellas (12/11/2026).
+ */
+async function extrasDeLaminas({ tablero, rival, jornada }: { tablero: TableroPizarra; rival: string; jornada?: string }) {
+  const [comparativa, fecha] = await Promise.all([
+    comparativaATiempo(),
+    fechaDelPartido({ tablero, rival, jornada }).catch(() => ""),
+  ]);
+
+  return { fecha: fecha || "", datos: datosDeLaminas(tablero.slides, comparativa, rival) };
+}
+
 export function ExportaTodo({
   tablero: tableroGuardado,
   players,
@@ -201,7 +220,17 @@ export function ExportaTodo({
   trabajo,
   rellena,
   avisos = [],
+  fecha: fechaEncargo,
+  datos: datosEncargo,
+  portero: porteroEncargo,
+  atacantes: atacantesEncargo,
 }: {
+  /** En segundo plano: el día del partido y la línea de dato de cada lámina, calculados al pulsar. */
+  fecha?: string;
+  datos?: Record<string, string>;
+  /** En segundo plano: el portero del once y su once (en la pizarra se leen aquí mismo). */
+  portero?: string;
+  atacantes?: AtacantePanel[];
   /** Lo que conviene mirar antes de exportar (nombres sin ficha, consignas copiadas). No bloquea. */
   avisos?: string[];
   /** Montado por el trabajo de segundo plano del layout: arranca solo y no enseña botones. */
@@ -218,17 +247,45 @@ export function ExportaTodo({
   jornada?: string;
   escudoRival?: string;
 }) {
-  const portero = usePorteroDelOnce(players);
+  const porteroAqui = usePorteroDelOnce(players);
+  const portero = porteroEncargo ?? porteroAqui;
   /*
   | Las marcas que el analista no ha puesto salen con la propuesta de «Quién
   | marca a quién» (segunda ronda de jueces: casillas «Nº» vacías en el
   | córner defensivo). En segundo plano el tablero ya llega con ellas.
   */
   const datosMarcas = useDatosMarcas(trabajo ? "" : rival, players);
+  /* Y las consignas de cada lámina, las suyas (ver `lib/abp/consignas-exportar.ts`). */
   const tablero = useMemo(
-    () => (trabajo ? tableroGuardado : conMarcasPropuestas(rellena ? rellena(tableroGuardado) : tableroGuardado, datosMarcas)),
-    [trabajo, tableroGuardado, datosMarcas, rellena],
+    () =>
+      trabajo
+        ? tableroGuardado
+        : consignasParaExportar(conMarcasPropuestas(rellena ? rellena(tableroGuardado) : tableroGuardado, datosMarcas), players),
+    [trabajo, tableroGuardado, datosMarcas, rellena, players],
   );
+  /*
+  | El día del partido y la cifra del rival de cada lámina (12/11/2026,
+  | jueces). En la pizarra se piden al montar el menú; en segundo plano ya
+  | llegan con el encargo.
+  */
+  const [extras, setExtras] = useState<{ fecha: string; datos: Record<string, string> } | null>(null);
+
+  useEffect(() => {
+    if (trabajo) return;
+
+    let vivo = true;
+
+    void extrasDeLaminas({ tablero: tableroGuardado, rival, jornada }).then((hechos) => {
+      if (vivo) setExtras(hechos);
+    });
+
+    return () => {
+      vivo = false;
+    };
+  }, [trabajo, tableroGuardado, rival, jornada]);
+
+  const fecha = trabajo ? fechaEncargo : extras?.fecha;
+  const datosLaminas = trabajo ? datosEncargo : extras?.datos;
   const [montaje, setMontaje] = useState<Montaje>(null);
   const [tareas, setTareas] = useState<Tarea[] | null>(null);
   const [enMarcha, setEnMarcha] = useState(false);
@@ -255,8 +312,9 @@ export function ExportaTodo({
   const slides = tablero.slides;
   const conJugada = slides.map((slide, i) => ({ slide, i })).filter(({ slide }) => fasesDe(slide.trazos) > 0);
   const conFases = slides.some((slide) => fasesDe(slide.trazos) > 1);
-  const atacantes = useMemo(() => atacantesDelPanel(datosMarcas?.atacantes), [datosMarcas]);
-  const contexto = { players, temporada, rival, portero, atacantes };
+  const atacantesAqui = useMemo(() => atacantesDelPanel(datosMarcas?.atacantes), [datosMarcas]);
+  const atacantes = trabajo ? atacantesEncargo : atacantesAqui;
+  const contexto = { players, temporada, rival, portero, atacantes, jornada, fecha, datos: datosLaminas };
   const titulos = slides.map((_, i) => tituloVisible(slides, i));
 
   /* La misma que usa «PDF por jugador»: así los dos comparten lo ya hecho. */
@@ -375,16 +433,17 @@ export function ExportaTodo({
           const claves = hojas.map((hoja) => hoja.clave);
           /* Las de las hojas, no las de las diapositivas: las vacías no salen y se correría la cuenta. */
           const titulosHojas = hojas.map((hoja) => hoja.titulo);
-          const cabecera = [rival || "RMCF Castilla", jornada, `versión del ${new Date().toLocaleDateString("es-ES")}`].filter(Boolean).join(" · ");
+          const cabecera = [rival || "RMCF Castilla", jornada, fechaCorta(fecha), `versión del ${new Date().toLocaleDateString("es-ES")}`].filter(Boolean).join(" · ");
           const claveDocs = resumen(JSON.stringify([claves, titulosHojas, cabecera, "indice-1"]));
           let docs = documentos.get(claveDocs);
 
           if (docs) deMemoria += 1;
           else {
             const montadas = faltanFotos(claves);
-            const indices = montadas.map((clave) => hojas[claves.indexOf(clave)].orden);
+            const deMontar = montadas.map((clave) => hojas[claves.indexOf(clave)]);
+            const indices = deMontar.map((hoja) => hoja.orden);
 
-            if (indices.length) await monta({ que: "general", indices });
+            if (indices.length) await monta({ que: "general", indices, pies: deMontar.map((hoja) => ({ partido: hoja.partido, dato: hoja.dato })) });
 
             const imagenes = await fotosDeHojas({
               raiz: raizRef.current,
@@ -782,10 +841,14 @@ export function ExportaTodo({
       setAbierto(false);
 
       /* Si la propuesta de marcas aún no ha llegado, se espera (unos segundos): sin ella el córner defensivo saldría en blanco. */
+      const marcasTarde = datosMarcas || !rival ? null : await cargaDatosMarcas(rival, [...players.values()]).catch(() => null);
       const conMarcas =
         datosMarcas || !rival
           ? tablero
-          : conMarcasPropuestas(rellena ? rellena(tableroGuardado) : tableroGuardado, await cargaDatosMarcas(rival, [...players.values()]).catch(() => null));
+          : consignasParaExportar(conMarcasPropuestas(rellena ? rellena(tableroGuardado) : tableroGuardado, marcasTarde), players);
+      /* El día del partido y la cifra del rival de cada lámina: si aún no habían llegado, se esperan (con tope). */
+      const hechos = extras ?? (await extrasDeLaminas({ tablero: tableroGuardado, rival, jornada }));
+      const suOnce = datosMarcas ? atacantes : atacantesDelPanel(marcasTarde?.atacantes);
       const puestas =
         conMarcas.slides.reduce((a, s) => a + s.fichas.length, 0) - tableroGuardado.slides.reduce((a, s) => a + s.fichas.length, 0);
 
@@ -794,10 +857,15 @@ export function ExportaTodo({
           description: "Sólo en lo exportado: la pizarra no cambia hasta que pulses «Colocar en todas».",
         });
       }
-      const datos = { tablero: conMarcas, players, temporada, rival, jornada, escudoRival };
+      const datos = { tablero: conMarcas, players, temporada, rival, jornada, escudoRival, fecha: hechos.fecha, datos: hechos.datos, portero, atacantes: suOnce };
 
       if (opcion === "pptx" || opcion === "pdf") {
-        trabajoExportar.encarga({ tipo: "pizarra", formato: opcion, porFases: opcion === "pdf" && porFases, datos: { slides: conMarcas.slides, players, temporada, rival, jornada } });
+        trabajoExportar.encarga({
+          tipo: "pizarra",
+          formato: opcion,
+          porFases: opcion === "pdf" && porFases,
+          datos: { slides: conMarcas.slides, players, temporada, rival, jornada, fecha: hechos.fecha, datos: hechos.datos, portero, atacantes: suOnce },
+        });
       } else {
         trabajoExportar.encarga({
           tipo: "todo",
@@ -1043,9 +1111,9 @@ export function ExportaTodo({
           style={{ position: "fixed", top: 0, left: -(TABLERO_W + 200), width: TABLERO_W, zIndex: -1 }}
         >
           {montaje.que === "general" ? (
-            montaje.indices.map((i) => (
+            montaje.indices.map((i, k) => (
               <div key={slides[i].id} style={{ width: TABLERO_W }}>
-                <TableroSlide slide={slides[i]} titulo={titulos[i]} {...comun} />
+                <TableroSlide slide={slides[i]} titulo={titulos[i]} partido={montaje.pies?.[k]?.partido} dato={montaje.pies?.[k]?.dato} {...comun} />
               </div>
             ))
           ) : (

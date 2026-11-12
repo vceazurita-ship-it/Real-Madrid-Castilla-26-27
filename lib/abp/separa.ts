@@ -52,6 +52,14 @@ export const ESCALA_APRETADA = 0.74;
 const DISCO = { w: Math.round(84 * ESCALA_APRETADA), arriba: Math.round(118 * ESCALA_APRETADA), abajo: Math.round(32 * ESCALA_APRETADA) };
 const RIVAL = { w: 52, arriba: 56, abajo: -2 };
 
+/*
+| El rival con su apellido debajo del disco (12/11/2026, jueces: «rival y su
+| dorsal» en la leyenda y un icono genérico en el campo). La placa del nombre
+| ocupa unos 22 px bajo el punto y lo que mida de ancho (`chapa` del rival).
+*/
+const formaRival = (rival: { chapa?: number }) =>
+  rival.chapa ? { w: Math.max(RIVAL.w, rival.chapa), arriba: RIVAL.arriba, abajo: 22 } : RIVAL;
+
 
 /** Hasta dónde se aparta un rival antes de rendirse y pintarse debajo. */
 const APARTA_MAX = 56;
@@ -219,7 +227,21 @@ export function apartaRivales(
   const puestos: Caja[] = [];
   const salida: Apartados = new Map();
 
-  const pisa = (c: Caja) => caras.some((cara) => solape(cara, c) > 40) || puestos.some((otra) => solape(otra, c) > 40);
+  /*
+  | 12/11/2026 (jueces, saque de banda defensivo): con 40 px² de tolerancia el
+  | disco de un rival se comía el borde de la chapa de Sergio, de Mario y de
+  | Cestero. Contra una chapa (el nombre) no se tolera nada; contra la cara,
+  | un poco (el borde transparente de la foto).
+  */
+  const chapas = fichas.flatMap((ficha) => {
+    const sep = separadas?.get(ficha.id);
+
+    return ficha.chapa ? [cajaChapa(sep?.x ?? ficha.x, ficha.y, ficha.chapa + 8, sep?.compacta ? ESCALA_APRETADA : 1)] : [];
+  });
+  const pisa = (c: Caja) =>
+    chapas.some((chapa) => solape(chapa, c) > 0) ||
+    caras.some((cara) => solape(cara, c) > 40) ||
+    puestos.some((otra) => solape(otra, c) > 40);
 
   const PASOS = [0, 14, 28, 42, APARTA_MAX, APARTA_MAX + 14];
 
@@ -239,7 +261,7 @@ export function apartaRivales(
               { x: rival.x, y: rival.y + paso },
             ];
 
-      elegido = candidatos.find((c) => !pisa(caja(c.x, c.y, RIVAL))) ?? null;
+      elegido = candidatos.find((c) => !pisa(caja(c.x, c.y, formaRival(rival)))) ?? null;
 
       if (elegido) break;
     }
@@ -255,7 +277,7 @@ export function apartaRivales(
       for (const dy of [70, 90, 110, 130]) {
         const candidatos = [0, 18, -18, 36, -36, 54, -54].map((dx) => ({ x: rival.x + dx, y: rival.y + dy }));
 
-        elegido = candidatos.find((c) => !pisa(caja(c.x, c.y, RIVAL))) ?? null;
+        elegido = candidatos.find((c) => !pisa(caja(c.x, c.y, formaRival(rival)))) ?? null;
 
         if (elegido) break;
       }
@@ -263,8 +285,92 @@ export function apartaRivales(
 
     const final = elegido ?? { x: rival.x, y: rival.y };
 
-    puestos.push(caja(final.x, final.y, RIVAL));
+    puestos.push(caja(final.x, final.y, formaRival(rival)));
     salida.set(rival.id, { x: Math.round(final.x), y: Math.round(final.y), debajo: elegido == null });
+  }
+
+  return salida;
+}
+
+/* ------------------------------------------------------------------ */
+/*  LAS LETRAS DE LAS CONSIGNAS                                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * La letra de una consigna (A, B, «C·D·E») junto a la figura que nombra.
+ * `x, y` son los pies de la figura (ya separada), `k` su escala (compacta o
+ * no) y `w × h` lo que mide la letra.
+ */
+export type Insignia = { id: string; x: number; y: number; k: number; w: number; h: number };
+
+export type Colocadas = Map<string, { left: number; top: number }>;
+
+/**
+ * Dónde va cada letra para no tapar ningún nombre (12/11/2026, jueces: «E»
+ * sobre CORTA LEIVA, «C» sobre MARIO → «MAR»).
+ *
+ * Iba siempre en la esquina de arriba a la derecha de la cabeza y, en el
+ * córner, esa esquina cae justo en la chapa del compañero de detrás. Ahora se
+ * prueban sitios alrededor de su figura —las dos esquinas de la cabeza, los
+ * dos costados de la cara, encima y a los lados de su chapa— y gana el
+ * primero que no pisa ninguna chapa (tampoco la suya), ninguna otra cara,
+ * ningún rival ni otra letra ya puesta. Si ninguno queda limpio, el que menos
+ * pisa. Lo comparten la lámina general, el PowerPoint y el PDF de cada
+ * jugador (que fotografía la misma lámina).
+ */
+export function colocaInsignias(
+  insignias: Insignia[],
+  fichas: Punto[],
+  separadas: Separadas | null,
+  rivales: Punto[] = [],
+  otras: Caja[] = [],
+): Colocadas {
+  const delante = fichas.map((ficha) => {
+    const sep = separadas?.get(ficha.id);
+    const x = sep?.x ?? ficha.x;
+    const k = sep?.compacta ? ESCALA_APRETADA : 1;
+
+    return {
+      id: ficha.id,
+      cara: caja(x, ficha.y, sep?.compacta ? DISCO : CARA),
+      chapa: ficha.chapa ? cajaChapa(x, ficha.y, ficha.chapa + 6, k) : null,
+    };
+  });
+
+  const fijas: Caja[] = [...rivales.map((rival) => caja(rival.x, rival.y, formaRival(rival))), ...otras];
+  const puestas: Caja[] = [];
+  const salida: Colocadas = new Map();
+
+  for (const una of insignias) {
+    const { x, y, k, w, h } = una;
+    const suya = delante.find((d) => d.id === una.id);
+    const anchoChapa = suya?.chapa ? suya.chapa.x1 - suya.chapa.x0 : 60 * k;
+
+    const candidatos = [
+      { left: x + 34 * k, top: y - 138 * k },
+      { left: x - 34 * k - w, top: y - 138 * k },
+      { left: x + 44 * k, top: y - 86 * k },
+      { left: x - 44 * k - w, top: y - 86 * k },
+      { left: x - w / 2, top: y - 122 * k - h - 4 },
+      { left: x + anchoChapa / 2 + 4, top: y - 4 },
+      { left: x - anchoChapa / 2 - 4 - w, top: y - 4 },
+    ];
+
+    const coste = (c: { left: number; top: number }) => {
+      /* Con 3 px de aire: tocar el borde de una chapa ya se lee como encima. */
+      const box = { x0: c.left - 3, x1: c.left + w + 3, y0: c.top - 3, y1: c.top + h + 3 };
+
+      return (
+        delante.reduce((suma, d) => suma + (d.chapa ? solape(d.chapa, box) * 4 : 0) + (d.id !== una.id ? solape(d.cara, box) : 0), 0) +
+        fijas.reduce((suma, otra) => suma + solape(otra, box) * 2, 0) +
+        puestas.reduce((suma, otra) => suma + solape(otra, box) * 4, 0)
+      );
+    };
+
+    const elegido = candidatos.find((c) => coste(c) === 0) ?? [...candidatos].sort((a, b) => coste(a) - coste(b))[0];
+
+    puestas.push({ x0: elegido.left, x1: elegido.left + w, y0: elegido.top, y1: elegido.top + h });
+    salida.set(una.id, { left: Math.round(elegido.left), top: Math.round(elegido.top) });
   }
 
   return salida;

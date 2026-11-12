@@ -25,7 +25,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Pencil, User, X } from "lucide-react";
 
-import { apartaRivales, ESCALA_APRETADA, separaFichas } from "@/lib/abp/separa";
+import { apartaRivales, colocaInsignias, ESCALA_APRETADA, separaFichas } from "@/lib/abp/separa";
 import type { AtacantePanel } from "@/lib/abp/marcas-corner";
 
 import type { Player } from "@/types/player";
@@ -63,6 +63,7 @@ import {
   TABLERO_W,
   VISTAS,
   adornosDe,
+  admiteRepetidos,
   limpiaSigla,
   type CambioTexto,
   enElCampo,
@@ -385,6 +386,9 @@ const COLUMNA_PANEL = 404;
 const FRANJA_MIN = 140;
 const FRANJA_MAX = 284;
 
+/** La franja cuando sólo lleva la línea de dato del rival (sin consignas). */
+const FRANJA_DATO = 84;
+
 /** Lo que ocupa una línea de consigna a la letra normal, con su margen. */
 const ALTO_LINEA_NOTA = 42;
 
@@ -684,7 +688,14 @@ function Ficha({
         onDobleClic();
       }}
     >
-      {dorsal && <CasillaDorsal numero={marca} />}
+      {/*
+      | 12/11/2026 (jueces, córner defensivo): el dorsal decidido iba en una
+      | casilla encima de la cabeza y, con dos filas de marcas, la casilla de
+      | la de atrás caía pegada a la chapa de la de delante: «4-5-9-8» y
+      | «23-7-17» sueltos sin saber de quién eran. Decidido, va DENTRO de su
+      | chapa («M3 →9»); la casilla en blanco queda para escribir a mano.
+      */}
+      {dorsal && !marca && <CasillaDorsal />}
 
       {/*
       | Sombra de suelo. Sin ella las caras flotan sobre el césped y el campo
@@ -737,8 +748,17 @@ function Ficha({
           height: CHAPA_H,
         }}
       >
-        <span className="text-[15px] font-bold leading-[15px] tracking-[0.04em] text-white" style={foco === "si" ? { color: COLORES.navy } : undefined}>
+        <span className="whitespace-nowrap text-[15px] font-bold leading-[15px] tracking-[0.04em] text-white" style={foco === "si" ? { color: COLORES.navy } : undefined}>
           {codigo ?? code}
+          {marca && (
+            <span
+              data-marca
+              className="ml-1 inline-block rounded-[3px] px-1 font-black tabular-nums"
+              style={{ backgroundColor: COLORES.crema, color: COLORES.navy, lineHeight: "15px" }}
+            >
+              →{marca}
+            </span>
+          )}
         </span>
 
         <span
@@ -1193,9 +1213,12 @@ function ChapaRival({
   elegido,
   editable,
   debajo = false,
+  nombre = "",
   onPointerDown,
 }: {
   rival: RivalPizarra;
+  /** Su apellido, del once probable (12/11/2026, jueces): debajo del disco. */
+  nombre?: string;
   /** Al enseñar, no cabe al lado de los nuestros: va por debajo de las caras. */
   debajo?: boolean;
   elegido: boolean;
@@ -1249,9 +1272,21 @@ function ChapaRival({
           {rival.dorsal ?? <User size={26} strokeWidth={2.6} aria-hidden />}
         </span>
       </div>
+
+      {nombre && (
+        <span
+          className="pointer-events-none absolute left-1/2 -translate-x-1/2 whitespace-nowrap rounded-[4px] px-1.5 text-[13px] font-bold uppercase leading-[18px] tracking-[0.04em]"
+          style={{ top: lado + 2, backgroundColor: "#6E1622", color: "#FFFFFF", boxShadow: "0 0 0 1px rgba(255,255,255,.85)" }}
+        >
+          {nombre}
+        </span>
+      )}
     </div>
   );
 }
+
+/** Lo que mide de ancho la placa con el apellido del rival (13 px, mayúsculas). */
+const anchoNombreRival = (nombre: string) => (nombre ? Math.round(nombre.length * 8.6 + 14) : 0);
 
 /**
  * Nuestro portero bajo palos en las láminas defensivas (07/11/2026): una
@@ -1345,16 +1380,30 @@ function LeyendaTrazos({
   /** Algún rival lleva dorsal: la leyenda lo dice. */
   conDorsal: boolean;
 }) {
+  /*
+  | 12/11/2026 (jueces, análisis y marketing): la caja crecía hasta 620 px y
+  | repartía los símbolos con `flex-wrap` alineados a la derecha; con tres
+  | flechas arriba y el rival solo abajo quedaba un hueco vacío a la izquierda,
+  | distinto en cada lámina. Ahora son dos filas fijas —las flechas arriba; el
+  | rival y las fases abajo—, alineadas a la izquierda, con el alto de siempre
+  | (dos filas aunque sólo haya una) y el ancho justo de lo que lleva.
+  */
+  const conTipos = TIPOS_TRAZO.filter((tipo) => tipos.includes(tipo.key));
+  const conFases = !conFase && fases > 1;
+
   return (
     <div
-      className="pointer-events-none flex shrink-0 flex-wrap items-center justify-end gap-x-5 gap-y-2 rounded-xl px-4 py-2"
+      className="pointer-events-none flex shrink-0 flex-col justify-center gap-2 rounded-xl px-4"
       style={{
-        maxWidth: 620,
+        height: 76,
+        width: "max-content",
         backgroundColor: "rgba(255,255,255,.04)",
         border: "1px solid rgba(200,169,107,.22)",
       }}
     >
-      {TIPOS_TRAZO.filter((tipo) => tipos.includes(tipo.key)).map((tipo) => {
+      {conTipos.length > 0 && (
+      <div className="flex items-center gap-5">
+      {conTipos.map((tipo) => {
         const estilo = ESTILO_TRAZO[tipo.key];
 
         return (
@@ -1386,17 +1435,18 @@ function LeyendaTrazos({
           </span>
         );
       })}
+      </div>
+      )}
 
       {/*
-      | El rival no es una flecha (12/11/2026, marketing): va separado por un
-      | filete y con su chapa de muestra —con un dorsal dentro si los llevan—,
-      | para que no se lea como un cuarto tipo de trazo.
+      | El rival no es una flecha (12/11/2026, marketing): va en su fila y con
+      | su chapa de muestra —con un dorsal dentro si los llevan—, para que no se
+      | lea como un cuarto tipo de trazo.
       */}
+      {(rivales || conFases) && (
+      <div className="flex items-center gap-5">
       {rivales && (
         <span className="flex items-center gap-2">
-          {tipos.length > 0 && (
-            <span aria-hidden className="mr-2 inline-block" style={{ width: 1, height: 22, backgroundColor: "rgba(200,169,107,.45)" }} />
-          )}
           <span
             aria-hidden
             className="inline-flex items-center justify-center rounded-full"
@@ -1423,13 +1473,15 @@ function LeyendaTrazos({
         </span>
       )}
 
-      {!conFase && fases > 1 && (
+      {conFases && (
         <span
           className="text-[13px] font-semibold uppercase leading-none tracking-[0.14em]"
           style={{ color: COLORES.oroClaro }}
         >
           {fases} fases · el número dice el orden
         </span>
+      )}
+      </div>
       )}
     </div>
   );
@@ -1493,7 +1545,15 @@ export function TableroSlide({
   partido = "",
   portero = null,
   atacantes,
+  dato = "",
 }: {
+  /**
+   * La línea de dato del rival con su base (12/11/2026, jueces): «Gimnàstic
+   * saca 5,5 córners por partido (el que más de los 20)…». La calcula
+   * `lib/abp/dato-lamina.ts` con la misma comparativa de Wyscout que el
+   * informe de ABP. Sólo al enseñar; vacía, no sale nada.
+   */
+  dato?: string;
   slide: SlidePizarra;
   players: Map<string, Player>;
   temporada: string;
@@ -1683,8 +1743,13 @@ export function TableroSlide({
   const letraConsigna = (n: number) => (n > 0 ? String.fromCharCode(64 + Math.min(26, n)) : "");
   const letrasPorFicha = new Map<string, string[]>();
 
+  /*
+  | En las directas la misma cara sale en varias zonas y cada consigna es el
+  | orden de una zona («Penalti: 1.º Pol, 2.º Leiva…»): con letras, cada cara
+  | acababa con «A·B·C·D» encima (12/11/2026). Ahí no se ponen.
+  */
   lineas.forEach((linea, indice) => {
-    if (linea.tipo !== "consigna") return;
+    if (linea.tipo !== "consigna" || admiteRepetidos(slide)) return;
 
     const texto = sinTildesBajo(linea.texto);
 
@@ -1707,8 +1772,10 @@ export function TableroSlide({
   | campo crece.
   */
   const conPanel = panel && grupos.length > 0 && !(soloVer && slide.fichas.length === 0);
-  const conNotas = lineas.length > 0;
-  const franja = altoFranja(lineas.length);
+  const datoPie = soloVer ? dato.trim() : "";
+  const conNotas = lineas.length > 0 || Boolean(datoPie);
+  /* La línea de dato cuenta como una más; sola, una franja baja. */
+  const franja = lineas.length ? altoFranja(lineas.length + (datoPie ? 1 : 0)) : datoPie ? FRANJA_DATO : 0;
 
   /** La línea de la franja, envuelta para escribirla en su sitio. */
   const lineaEnSitio = (posicion: number, mostrado: ReactNode) => {
@@ -1753,7 +1820,7 @@ export function TableroSlide({
   const tituloRef = useRef<HTMLDivElement>(null);
   const [ajustePanel, setAjustePanel] = useState(1);
   const [cabeLeyenda, setCabeLeyenda] = useState(true);
-  const claveNotas = `${franja}|${lineas.map((l) => ("rotulo" in l ? l.rotulo : "") + l.texto).join("\n")}`;
+  const claveNotas = `${franja}|${lineas.map((l) => ("rotulo" in l ? l.rotulo : "") + l.texto).join("\n")}|${datoPie}`;
   const [pasoNotas, setPasoNotas] = useState({ clave: "", paso: 0, encoge: 1 });
   const paso = pasoNotas.clave === claveNotas ? pasoNotas.paso : 0;
   const encogeNotas = pasoNotas.clave === claveNotas ? pasoNotas.encoge : 1;
@@ -2158,9 +2225,13 @@ export function TableroSlide({
         const player = players.get(ficha.playerId);
         const puesto = puestoDe(slide, ficha.puesto);
 
+        /* Con el dorsal de su marca dentro («M3 →9»), la chapa es más ancha. */
+        const marca = ficha.puesto ? slide.marcas?.[ficha.puesto] : undefined;
+        const sigla = puesto ? siglaDe(puesto) : String(player?.dorsal ?? "");
+
         return {
           ...ficha,
-          chapa: anchoChapa(player?.apodo ?? player?.nombre ?? "", puesto ? siglaDe(puesto) : String(player?.dorsal ?? "")),
+          chapa: anchoChapa(player?.apodo ?? player?.nombre ?? "", marca ? `${sigla} →${marca}` : sigla),
         };
       })
     : null;
@@ -2173,12 +2244,66 @@ export function TableroSlide({
   | su portero en las ofensivas— y a nuestro portero bajo palos en las
   | defensivas. Ver `lib/abp/rivales-implicitos.ts`.
   */
-  const rivalesVistos = soloVer ? rivalesDeLaLamina(slide) : (slide.rivales ?? []);
+  /*
+  | Dorsal y apellido de cada rival (12/11/2026, jueces: en el córner
+  | ofensivo salían con un icono genérico aunque la leyenda decía «rival y su
+  | dorsal»). Al enseñar, el que no lo trae toma uno de su once probable —el
+  | mismo que usa «Quién marca a quién»—, del más fuerte por arriba al menos y
+  | sin repetir los que ya hay en la lámina; y todos llevan el apellido debajo
+  | si se sabe. El sacador del saque de banda no se adivina: se queda sin él.
+  | Sin once del rival, nada cambia.
+  */
+  const suOnce = soloVer ? (atacantes ?? []) : [];
+  const rivalesVistos = (() => {
+    const todosRivales = soloVer ? rivalesDeLaLamina(slide) : (slide.rivales ?? []);
+
+    if (!suOnce.length) return todosRivales;
+
+    const usados = new Set(todosRivales.map((uno) => String(uno.dorsal ?? "").trim()).filter(Boolean));
+    const libres = suOnce.filter((uno) => !uno.portero && !usados.has(uno.dorsal));
+
+    return todosRivales.map((uno) => {
+      if (String(uno.dorsal ?? "").trim() || uno.id.endsWith("sacador")) return uno;
+
+      const suyo = libres.shift();
+
+      return suyo ? { ...uno, dorsal: suyo.dorsal } : uno;
+    });
+  })();
+  const nombreDeRival = (uno: RivalPizarra) => {
+    const dorsal = String(uno.dorsal ?? "").trim();
+
+    if (!suOnce.length || !dorsal) return "";
+    if (/^p$/i.test(dorsal)) return suOnce.find((otro) => otro.portero)?.nombre ?? "";
+
+    return suOnce.find((otro) => otro.dorsal === dorsal)?.nombre ?? "";
+  };
+  const rivalesConNombre = rivalesVistos.map((uno) => ({ ...uno, chapa: anchoNombreRival(nombreDeRival(uno)) }));
   const porteroPropio =
     soloVer && !slide.fichas.some((ficha) => esPortero(players.get(ficha.playerId))) ? porteroPropioDeLaLamina(slide) : null;
 
   /* Y los rivales, que no tapen a los nuestros: se apartan o van por debajo. */
-  const apartados = soloVer ? apartaRivales(rivalesVistos, conChapas ?? enCampo, separadas) : null;
+  const apartados = soloVer ? apartaRivales(rivalesConNombre, conChapas ?? enCampo, separadas) : null;
+
+  /* La letra de cada consigna, donde no tape ningún nombre (ver `colocaInsignias`). */
+  const insignias = soloVer
+    ? colocaInsignias(
+        enCampo.flatMap((ficha) => {
+          const letras = letrasPorFicha.get(ficha.id);
+
+          if (!letras?.length) return [];
+
+          const separada = separadas?.get(ficha.id);
+          const texto = letras.join("·");
+
+          return [{ id: ficha.id, x: separada?.x ?? ficha.x, y: ficha.y, k: separada?.compacta ? ESCALA_APRETADA : 1, w: Math.max(34, texto.length * 13 + 12), h: 34 }];
+        }),
+        conChapas ?? enCampo,
+        separadas,
+        rivalesConNombre.map((uno) => ({ ...uno, ...(apartados?.get(uno.id) ?? {}) })),
+        porteroPropio ? [{ x0: porteroPropio.x - 60, x1: porteroPropio.x + 60, y0: porteroPropio.y - 60, y1: porteroPropio.y + 26 }] : [],
+      )
+    : null;
 
   /* El encuadre cuenta también a los rivales que se han apartado un paso por delante de la fila. */
   const maqueta = maquetaDe(conPanel, franja, soloVer ? cajaDeJugada(slide, apartados ? [...apartados.values()] : []) : null);
@@ -2580,6 +2705,7 @@ export function TableroSlide({
             key={rival.id}
             rival={apartados?.has(rival.id) ? { ...rival, x: apartados.get(rival.id)!.x, y: apartados.get(rival.id)!.y } : rival}
             debajo={apartados?.get(rival.id)?.debajo ?? false}
+            nombre={nombreDeRival(rival)}
             elegido={!soloVer && rivalElegido === rival.id}
             editable={!esImplicito(rival) && editaTrazos && herramienta === "mover"}
             onPointerDown={(event) => empiezaRival(event, rival)}
@@ -2596,6 +2722,7 @@ export function TableroSlide({
             if (!letras?.length) return null;
 
             const x = separadas?.get(ficha.id)?.x ?? ficha.x;
+            const sitio = insignias?.get(ficha.id);
 
             return (
               <span
@@ -2603,9 +2730,10 @@ export function TableroSlide({
                 data-letra-consigna
                 className="pointer-events-none absolute flex items-center justify-center rounded-md font-bold"
                 style={{
-                  left: x + FOTO_W / 2 - 14,
-                  top: ficha.y - FOTO_H - 18,
+                  left: sitio?.left ?? x + FOTO_W / 2 - 14,
+                  top: sitio?.top ?? ficha.y - FOTO_H - 18,
                   minWidth: 34,
+                  whiteSpace: "nowrap",
                   height: 34,
                   padding: "0 6px",
                   fontSize: 22,
@@ -3231,6 +3359,27 @@ export function TableroSlide({
                       </span>
                     </p>
                   ),
+                )}
+
+                {/*
+                | La base de la lámina (12/11/2026, jueces): una línea con el
+                | dato del rival que la sostiene, de la misma comparativa que el
+                | informe de ABP. Sin dato, no sale.
+                */}
+                {datoPie && (
+                  <p
+                    data-dato-lamina
+                    className={`flex items-center gap-3 font-semibold leading-[1.2] ${lineas.length ? "mt-1 border-t pt-2" : ""}`}
+                    style={{ color: COLORES.navy, fontSize: letra.texto * 0.78, borderColor: "rgba(122,95,38,.28)" }}
+                  >
+                    <span
+                      className="shrink-0 rounded-md px-2 font-bold uppercase tracking-[0.14em]"
+                      style={{ backgroundColor: COLORES.oroTinta, color: COLORES.crema, fontSize: letra.texto * 0.6, lineHeight: `${letra.texto * 1.05}px` }}
+                    >
+                      Dato
+                    </span>
+                    <span className="min-w-0">{datoPie}</span>
+                  </p>
                 )}
               </div>
               </div>

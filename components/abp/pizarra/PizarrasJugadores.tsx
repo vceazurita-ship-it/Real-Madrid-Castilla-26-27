@@ -29,6 +29,7 @@ import { filasParaPdf } from "@/lib/abp/pizarra-jugador";
 import { porteroDelOnce, usePorteroDelOnce } from "@/components/abp/pizarra/usePorteroDelOnce";
 import { useDatosMarcas } from "@/components/abp/pizarra/useDatosMarcas";
 import { conMarcasPropuestas } from "@/lib/abp/marcas-datos";
+import { consignasParaExportar } from "@/lib/abp/consignas-exportar";
 import { nombreRivalPieza } from "@/lib/abp/nombre-rival";
 import { nombreCorto } from "@/lib/abp/pizarra-jugador";
 import { enlaceWhatsapp, esTelefono, telefonoLegible } from "@/lib/correo/whatsapp";
@@ -61,7 +62,11 @@ export function PizarrasJugadores({
   const datosMarcas = useDatosMarcas(rival, players);
   /* El rival escrito igual que en el PDF y en el resto de piezas (12/11/2026). */
   const rivalTexto = nombreRivalPieza(rival) || rival;
-  const tablero = useMemo(() => conMarcasPropuestas(tableroGuardado, datosMarcas), [tableroGuardado, datosMarcas]);
+  /* Y las consignas de cada lámina, las suyas, como en «Exportar» (12/11/2026, `lib/abp/consignas-exportar.ts`). */
+  const tablero = useMemo(
+    () => consignasParaExportar(conMarcasPropuestas(tableroGuardado, datosMarcas), players),
+    [tableroGuardado, datosMarcas, players],
+  );
   const [abierto, setAbierto] = useState(false);
   const [enviados, setEnviados] = useState<Set<string>>(new Set());
 

@@ -31,23 +31,39 @@ import { fasesDe } from "@/lib/abp/trazos";
 import { trabajoExportar } from "@/lib/abp/trabajo-exportar";
 import { claveFoto, huellaSlide } from "@/lib/abp/cache-exportar";
 import { faltanFotos, fotosDeHojas } from "@/lib/abp/fotos-tablero";
+import type { AtacantePanel } from "@/lib/abp/marcas-corner";
+import { fechaCorta } from "@/lib/abp/pizarra-jugador";
 
 type Formato = "pptx" | "pdf";
 
 /** Las hojas que salen: una por diapositiva o, con «una hoja por fase», una por fase. */
 export function hojasDe(slides: SlidePizarra[], porFases: boolean, contexto: Parameters<typeof huellaSlide>[2]) {
+  const conAlgo = slides.filter((slide) => !laminaVacia(slide));
+  let numero = 0;
+
   return slides.flatMap((slide, orden) => {
     /* Una lámina sin nadie, sin flechas y sin rivales no explica nada (12/11/2026, jueces): no sale. */
     if (laminaVacia(slide)) return [];
+
+    numero += 1;
 
     const n = fasesDe(slide.trazos);
 
     /* Dos córneres ofensivos no pueden llamarse igual en la hoja. */
     const visible = tituloVisible(slides, orden);
-    const huella = huellaSlide(slide, visible, contexto);
+    /*
+    | Bajo el rival de la cabecera (12/11/2026, marketing): la jornada, el día
+    | y la hora del partido y la lámina («J12 · vie 13 nov · 21:15 · lámina 3
+    | de 9»), para que la hoja impresa se entienda sin la web.
+    */
+    const partido = [contexto.jornada?.trim() ?? "", fechaCorta(contexto.fecha), conAlgo.length > 1 ? `lámina ${numero} de ${conAlgo.length}` : ""]
+      .filter(Boolean)
+      .join(" · ");
+    const dato = contexto.datos?.[slide.id] ?? "";
+    const huella = huellaSlide(slide, visible, contexto, partido);
 
     if (!porFases || n < 2) {
-      return [{ key: slide.id, slide, orden, visible, titulo: visible, hasta: undefined as number | undefined, clave: claveFoto(huella) }];
+      return [{ key: slide.id, slide, orden, visible, titulo: visible, partido, dato, hasta: undefined as number | undefined, clave: claveFoto(huella) }];
     }
 
     return Array.from({ length: n }, (_, indice) => ({
@@ -55,6 +71,8 @@ export function hojasDe(slides: SlidePizarra[], porFases: boolean, contexto: Par
       slide,
       orden,
       visible,
+      partido,
+      dato,
       hasta: indice + 1,
       titulo: `${visible} · fase ${indice + 1} de ${n}`,
       clave: claveFoto(huella, indice + 1),
@@ -69,6 +87,10 @@ export function ExportaPizarra({
   rival,
   jornada,
   trabajo,
+  portero,
+  atacantes,
+  fecha,
+  datos,
 }: {
   /** Montado por el trabajo de segundo plano del layout: exporta solo y no enseña nada. */
   trabajo: { id: string; formato: Formato; porFases: boolean };
@@ -77,6 +99,11 @@ export function ExportaPizarra({
   temporada: string;
   rival: string;
   jornada?: string;
+  /* Lo mismo que lleva «Exportar todo» (12/11/2026): la lámina sale igual por los dos caminos. */
+  portero?: string;
+  atacantes?: AtacantePanel[];
+  fecha?: string;
+  datos?: Record<string, string>;
 }) {
   const deckRef = useRef<HTMLDivElement>(null);
 
@@ -90,8 +117,8 @@ export function ExportaPizarra({
   const { formato, porFases } = trabajo;
 
   const hojas = useMemo(
-    () => hojasDe(slides, porFases, { players, temporada, rival }),
-    [slides, porFases, players, temporada, rival],
+    () => hojasDe(slides, porFases, { players, temporada, rival, portero, atacantes, jornada, fecha, datos }),
+    [slides, porFases, players, temporada, rival, portero, atacantes, jornada, fecha, datos],
   );
 
   /* Lo que aún no tiene foto, fijado al empezar: es lo único que se monta. */
@@ -129,7 +156,7 @@ export function ExportaPizarra({
 
         toast.success(`PowerPoint listo · ${imagenes.length} ${imagenes.length === 1 ? "diapositiva" : "diapositivas"}`, { id: aviso });
       } else {
-        const cabecera = [rival || "RMCF Castilla", jornada, `versión del ${new Date().toLocaleDateString("es-ES")}`].filter(Boolean).join(" · ");
+        const cabecera = [rival || "RMCF Castilla", jornada, fechaCorta(fecha), `versión del ${new Date().toLocaleDateString("es-ES")}`].filter(Boolean).join(" · ");
 
         const doc = await pdfDeLienzos(imagenes, {
           ancho: TABLERO_W,
@@ -157,7 +184,7 @@ export function ExportaPizarra({
 
       trabajoExportar.termina(trabajo.id);
     }
-  }, [formato, jornada, rival, hojas, montadas, trabajo.id]);
+  }, [formato, jornada, rival, fecha, hojas, montadas, trabajo.id]);
 
   useEffect(() => {
     /* Un respiro para que el tablero de repuesto entre en el DOM. */
@@ -193,7 +220,10 @@ export function ExportaPizarra({
               players={players}
               temporada={temporada}
               rival={rival}
-              partido={[jornada?.trim() ?? "", hojas.length > 1 ? `lámina ${hojas.indexOf(hoja) + 1} de ${hojas.length}` : ""].filter(Boolean).join(" · ")}
+              partido={hoja.partido}
+              dato={hoja.dato}
+              portero={portero ?? null}
+              atacantes={atacantes}
               seleccion={null}
               onMover={() => undefined}
               onQuitar={() => undefined}
