@@ -44,12 +44,17 @@ import {
   ClipboardList,
   Clock,
   Copy,
+  Download,
   Eye,
   Hotel,
   Landmark,
+  Maximize2,
   Navigation,
   RotateCcw,
   Shield,
+  X,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -248,7 +253,7 @@ type Pendiente = { clave: string; rotulo: string; hecho: boolean; seccion: strin
  * (19/10/2026): el formulario es largo y no se veía de un golpe qué quedaba.
  * Cada chapa lleva a su sección.
  */
-function pendientesDe(viaje: Desplazamiento): Pendiente[] {
+function pendientesDe(viaje: Desplazamiento, avisos: AvisoHorario[] = avisosHorario(viaje)): Pendiente[] {
   /*
   | En casa no hay viaje (30/10/2026): ni ruta, ni hotel, ni plano. Lo que
   | hace falta es el horario del día de partido y los recordatorios.
@@ -265,6 +270,10 @@ function pendientesDe(viaje: Desplazamiento): Pendiente[] {
     { clave: "hora", rotulo: "Hora del partido", hecho: Boolean(viaje.hora), seccion: "viaje-partido" },
     { clave: "estadio", rotulo: "Nombre", hecho: Boolean(viaje.estadio.nombre.trim()), seccion: "viaje-estadio" },
     { clave: "direccion", rotulo: "Dirección", hecho: Boolean(viaje.estadio.direccion.trim()), seccion: "viaje-estadio" },
+    /* 12/11/2026 (expertos): todo lo que el dossier no llevará, no sólo la ruta: así lo pendiente se ve entero sin abrir la sección. */
+    { clave: "distancia", rotulo: "Distancia", hecho: Boolean(viaje.estadio.distancia.trim()), seccion: "viaje-estadio" },
+    { clave: "tiempo", rotulo: "Tiempo de viaje", hecho: Boolean(viaje.estadio.tiempo.trim()), seccion: "viaje-estadio" },
+    { clave: "foto-estadio", rotulo: "Foto del estadio", hecho: Boolean(viaje.estadio.foto?.url), seccion: "viaje-estadio" },
     { clave: "plano", rotulo: "Plano", hecho: Boolean(viaje.estadio.plano?.url), seccion: "viaje-estadio" },
     { clave: "ruta", rotulo: "Ruta del autobús", hecho: Boolean(viaje.estadio.ruta?.url), seccion: "viaje-estadio" },
   ];
@@ -272,13 +281,15 @@ function pendientesDe(viaje: Desplazamiento): Pendiente[] {
   if (viaje.conHotel) {
     lista.push(
       { clave: "hotel", rotulo: "Nombre", hecho: Boolean(viaje.hotel.nombre.trim()), seccion: "viaje-hotel" },
+      { clave: "telefono", rotulo: "Teléfono de recepción", hecho: Boolean(viaje.hotel.telefono.trim()), seccion: "viaje-hotel" },
+      { clave: "entrada", rotulo: "Entrada", hecho: Boolean(viaje.hotel.entrada.trim()), seccion: "viaje-hotel" },
       { clave: "foto", rotulo: "Foto", hecho: Boolean(viaje.hotel.foto?.url), seccion: "viaje-hotel" },
       { clave: "ruta-hotel", rotulo: "Ruta hotel · estadio", hecho: Boolean(viaje.hotel.ruta?.url), seccion: "viaje-hotel" },
     );
   }
 
   lista.push(
-    { clave: "horario", rotulo: "Horario", hecho: viaje.dias.some((dia) => dia.citas.length > 0) && !avisosHorario(viaje).some((a) => a.clave !== "erratas"), seccion: "viaje-horario" },
+    { clave: "horario", rotulo: "Horario", hecho: viaje.dias.some((dia) => dia.citas.length > 0) && !avisos.some((a) => a.clave !== "erratas"), seccion: "viaje-horario" },
     { clave: "avisos", rotulo: "No olvidar", hecho: viaje.avisos.some((a) => a.trim()), seccion: "viaje-avisos" },
   );
 
@@ -309,113 +320,141 @@ const TAREA_SECCION: Record<(typeof SECCIONES_VIAJE)[number], string> = {
 /** Lo que hacen los botones de los avisos del horario: los pulsa el analista, nada se cambia solo. */
 type AccionesAviso = {
   onVer: (diaId: string, citaId: string) => void;
-  onArregla: (aviso: AvisoHorario) => void;
+  onArregla: (aviso: AvisoHorario, cual?: "arreglo" | "otroArreglo") => void;
   onCorrige: (linea: LineaAviso) => void;
 };
 
+/** Un dato de la tarjeta del viaje: «Salida · jueves 08:40 · desde Valdebebas». `alerta`: se pinta en rojo con «revisar». */
+type DatoViaje = { que: string; valor: string; alerta?: boolean };
+
+const BOTON_FILA = "shrink-0 rounded-full border border-[#C8A96B]/45 px-2.5 py-0.5 text-[12px] font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/10";
+const BOTON_FILA_PRIMARIO = "shrink-0 rounded-full bg-[#C8A96B] px-2.5 py-0.5 text-[12px] font-semibold text-[#0B0F14] transition hover:brightness-110";
+
 /**
- * «Revisa el horario», accionable (12/11/2026, revisión de los expertos):
- * cada aviso lleva a su cita («Ver»), el de dos partidos se arregla con un
- * botón y las erratas se corrigen con otro. Los graves van en rojo y arriba;
- * los demás, en ámbar debajo de lo que falta.
+ * Una fila de la lista única de «Cómo va el viaje» (12/11/2026, expertos):
+ * rojo, ámbar y tareas en la misma lista, ordenada por gravedad, con UN solo
+ * botón por fila (Quitar / Corregir / Ver / Rellenar). Las citas que nombra
+ * un aviso se abren pinchando su texto, sin un «Ver» en cada una.
  */
-function BloqueAvisos({ avisos, grave, onIr, acciones }: { avisos: AvisoHorario[]; grave: boolean; onIr: (id: string) => void; acciones?: AccionesAviso }) {
-  if (avisos.length === 0) return null;
-
-  const tono = grave
-    ? { caja: "border-red-400/40 bg-red-500/[0.08]", titulo: "text-red-300" }
-    : { caja: "border-amber-400/30 bg-amber-400/[0.06]", titulo: "text-amber-300" };
-
-  const boton = "shrink-0 rounded-full border border-[#C8A96B]/45 px-2 py-0.5 text-[12px] font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/10";
+function FilaAviso({ aviso, acciones }: { aviso: AvisoHorario; acciones?: AccionesAviso }) {
+  const grave = aviso.grave;
+  const punto = grave ? "bg-red-400" : "bg-amber-400";
+  const unaCita = aviso.diaId && aviso.citaId ? { diaId: aviso.diaId, citaId: aviso.citaId } : null;
 
   return (
-    /* pr-10 en el móvil: el botón flotante ⋮ de herramientas va pegado a la derecha y tapaba el final de las líneas. */
-    <div className={`mt-2 rounded-xl border py-2 pl-3 pr-10 sm:pr-3 ${tono.caja}`} role={grave ? "alert" : undefined}>
-      <p className={`flex flex-wrap items-center gap-x-2 text-[13px] font-semibold ${tono.titulo}`}>
-        {grave ? "No cuadra en el horario" : "Revisa el horario"}
-        <button type="button" onClick={() => onIr("viaje-horario")} className="font-semibold text-[#C8A96B] hover:underline">
-          Ir al horario
-        </button>
-      </p>
+    <li className="flex min-w-0 items-start gap-2.5 py-1.5">
+      <span className={`mt-[7px] h-2 w-2 shrink-0 rounded-full ${punto}`} aria-hidden />
 
-      <ul className="mt-1 space-y-1.5 text-[13px] text-white/80">
-        {avisos.map((aviso) => (
-          <li key={aviso.clave} className="min-w-0">
-            <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-              <span className="min-w-0">{aviso.texto}</span>
-              {aviso.diaId && aviso.citaId && acciones && (
-                <button type="button" className={boton} onClick={() => acciones.onVer(aviso.diaId!, aviso.citaId!)}>
-                  Ver la cita
-                </button>
-              )}
-              {aviso.arreglo && acciones && (
-                <button
-                  type="button"
-                  onClick={() => acciones.onArregla(aviso)}
-                  className="shrink-0 rounded-full bg-[#C8A96B] px-2.5 py-0.5 text-[12px] font-semibold text-[#0B0F14] transition hover:brightness-110"
-                >
-                  {aviso.arreglo.rotulo}
-                </button>
-              )}
+      <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+          <span className={`min-w-0 text-[13px] ${grave ? "font-semibold text-red-300" : "text-white/80"}`}>{aviso.texto}</span>
+
+          {acciones && aviso.arreglo ? (
+            <button type="button" onClick={() => acciones.onArregla(aviso)} className={BOTON_FILA_PRIMARIO}>
+              {aviso.arreglo.rotulo}
+            </button>
+          ) : acciones && unaCita ? (
+            <button type="button" onClick={() => acciones.onVer(unaCita.diaId, unaCita.citaId)} className={BOTON_FILA}>
+              Ver
+            </button>
+          ) : null}
+
+          {acciones && aviso.otroArreglo && (
+            <span className="text-[12px] text-white/50">
+              o{" "}
+              <button type="button" onClick={() => acciones.onArregla(aviso, "otroArreglo")} className="font-semibold text-[#C8A96B] hover:underline">
+                {aviso.otroArreglo.rotulo}
+              </button>
             </span>
+          )}
+        </div>
 
-            {aviso.lineas && aviso.lineas.length > 0 && (
-              <ul className="mt-1 space-y-1 border-l border-white/10 pl-3">
-                {aviso.lineas.map((linea) => (
-                  <li key={`${linea.diaId}-${linea.citaId}`} className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-white/70">
-                    <span className="min-w-0">{linea.texto}</span>
-                    {acciones && (
-                      <button type="button" className={boton} onClick={() => acciones.onVer(linea.diaId, linea.citaId)}>
-                        Ver
-                      </button>
-                    )}
-                    {linea.corregido && acciones && (
-                      <button type="button" className={boton} onClick={() => acciones.onCorrige(linea)}>
-                        Corregir
-                      </button>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </li>
-        ))}
-      </ul>
-    </div>
+        {aviso.lineas && aviso.lineas.length > 0 && (
+          <ul className="mt-1 space-y-1 border-l border-white/10 pl-3">
+            {aviso.lineas.map((linea) => (
+              <li key={`${linea.diaId}-${linea.citaId}`} className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-white/70">
+                {acciones ? (
+                  <button
+                    type="button"
+                    title="Ver la cita en el horario"
+                    onClick={() => acciones.onVer(linea.diaId, linea.citaId)}
+                    className="min-w-0 text-left underline decoration-white/25 decoration-dotted underline-offset-2 transition hover:text-white hover:decoration-[#C8A96B]"
+                  >
+                    {linea.texto}
+                  </button>
+                ) : (
+                  <span className="min-w-0">{linea.texto}</span>
+                )}
+                {linea.corregido && acciones && (
+                  <button type="button" className={BOTON_FILA} onClick={() => acciones.onCorrige(linea)}>
+                    Corregir
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </li>
   );
 }
 
-function ListaPendiente({ viaje, onIr = irA, acciones }: { viaje: Desplazamiento; onIr?: (id: string) => void; acciones?: AccionesAviso }) {
-  const lista = pendientesDe(viaje);
+/**
+ * CÓMO VA EL VIAJE (12/11/2026, expertos): lo primero de la página es una
+ * sola tarjeta con los cuatro datos del viaje (salida, partido, hotel,
+ * horario) y su estado al lado; debajo, una sola lista de lo que queda,
+ * ordenada por gravedad. Antes eran un panel de avisos y, debajo, una franja
+ * gris que repetía los datos.
+ */
+function ListaPendiente({
+  viaje,
+  avisos,
+  datos,
+  onIr = irA,
+  acciones,
+}: {
+  viaje: Desplazamiento;
+  avisos: AvisoHorario[];
+  datos: DatoViaje[];
+  onIr?: (id: string) => void;
+  acciones?: AccionesAviso;
+}) {
+  const lista = pendientesDe(viaje, avisos);
   const hechos = lista.filter((p) => p.hecho).length;
   const completo = hechos === lista.length;
-  /* 11/11/2026: «Hecho» sólo nombra los bloques completos; antes salía «estadio»
-     hecho al lado de «Falta: Estadio · dirección, plano…». */
+  /* 11/11/2026: «Hecho» sólo nombra los bloques completos. */
   const bloquesHechos = SECCIONES_VIAJE.filter((sec) => {
     const del = lista.filter((p) => p.seccion === sec);
     return del.length > 0 && del.every((p) => p.hecho);
   });
 
-  /*
-  | 11/11/2026 (revisión de los expertos): lo que falta, como TAREAS, con un
-  | botón que lleva a su bloque: «Añadir el hotel · nombre, foto y ruta».
-  | Como mucho tres a la vista; el resto se cuenta.
-  */
+  /* Lo que falta, como TAREAS. El horario ya montado no es tarea: lo que tenga mal lo dicen sus avisos. */
+  const conCitas = viaje.dias.some((dia) => dia.citas.length > 0);
   const tareas = SECCIONES_VIAJE
     .map((seccion) => ({ seccion, faltan: lista.filter((p) => !p.hecho && p.seccion === seccion) }))
-    .filter((g) => g.faltan.length > 0);
-  const aLaVista = tareas.slice(0, 3);
-  const resto = tareas.length - aLaVista.length;
+    .filter((g) => g.faltan.length > 0 && !(g.seccion === "viaje-horario" && conCitas));
   const listaDe = (rotulos: string[]) =>
     rotulos.length <= 1 ? rotulos.join("") : `${rotulos.slice(0, -1).join(", ")} y ${rotulos[rotulos.length - 1]}`;
 
-  /* En casa también se revisa (dos partidos, erratas): lo que no aplica, no sale. */
-  const noCuadra = avisosHorario(viaje);
-  const graves = noCuadra.filter((a) => a.grave);
-  const leves = noCuadra.filter((a) => !a.grave);
+  const graves = avisos.filter((a) => a.grave);
+  const leves = avisos.filter((a) => !a.grave);
+  const pendientes = graves.length + leves.length + tareas.length;
+
+  const estado = graves.length
+    ? { texto: "El horario no cuadra", clase: "font-semibold text-red-300" }
+    : pendientes === 0
+      ? { texto: "Todo listo para exportar", clase: "font-semibold text-emerald-300" }
+      : completo && tareas.length === 0
+        ? { texto: "Listo, con algo que revisar", clase: "text-white/70" }
+        : { texto: `Quedan ${pendientes} ${pendientes === 1 ? "cosa" : "cosas"} por hacer`, clase: "text-white/70" };
 
   return (
-    <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-3">
+    /*
+    | pr-12: el botón flotante de herramientas (⋮, components/ui/MenuFlotante)
+    | va pegado al borde derecho a media altura y tapaba el final de los datos
+    | en escritorio y la fila «Completar el estadio» en el móvil.
+    */
+    <div className="mt-4 rounded-2xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.05] py-3 pl-4 pr-12">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <p className="text-[13px] font-semibold uppercase tracking-[0.14em] text-white/55">
           {viaje.condicion === "local" ? "Día de partido en casa" : "Cómo va el viaje"}
@@ -425,64 +464,130 @@ function ListaPendiente({ viaje, onIr = irA, acciones }: { viaje: Desplazamiento
           <div className="h-full rounded-full bg-[#C8A96B] transition-all" style={{ width: `${(hechos / lista.length) * 100}%` }} />
         </div>
 
-        <p className="text-[13px] tabular-nums text-white/65">
-          {completo
-            ? noCuadra.length > 0
-              ? "Listo, con algo que revisar"
-              : "Todo listo para exportar"
-            : `Quedan ${tareas.length} ${tareas.length === 1 ? "cosa" : "cosas"} por hacer`}
-        </p>
+        <p className={`text-[13px] tabular-nums ${estado.clase}`} role={graves.length ? "alert" : undefined}>{estado.texto}</p>
       </div>
 
-      {/* Lo grave, arriba y en rojo: con esto el horario no vale. */}
-      <BloqueAvisos avisos={graves} grave onIr={onIr} acciones={acciones} />
-
-      {!completo && (
-        <>
-          <ul className="mt-2 flex flex-col gap-1.5">
-            {aLaVista.map((g) => (
-              <li key={g.seccion} className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-                <button
-                  type="button"
-                  onClick={() => onIr(g.seccion)}
-                  className="flex shrink-0 items-center gap-1.5 rounded-full border border-[#C8A96B]/50 px-3 py-1.5 text-[14px] font-semibold text-white/90 transition hover:bg-[#C8A96B]/10"
-                >
-                  <Circle size={13} className="text-[#C8A96B]" />
-                  {TAREA_SECCION[g.seccion]}
-                  <ChevronRight size={14} className="text-[#C8A96B]" />
-                </button>
-                {/* Lo que falta dentro del bloque, en minúscula y sin repetir el nombre de la tarea. */}
-                {g.faltan.length > 1 || g.seccion === "viaje-estadio" || g.seccion === "viaje-hotel" ? (
-                  <span className="min-w-0 text-[13px] text-white/55">
-                    falta {listaDe(g.faltan.map((p) => p.rotulo.toLowerCase()))}
-                  </span>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-          {resto > 0 && (
-            <p className="mt-1.5 text-[13px] text-white/50">
-              Y {resto} más:{" "}
-              {tareas.slice(3).map((g, i) => (
-                <span key={g.seccion}>
-                  {i > 0 ? " · " : ""}
-                  <button type="button" onClick={() => onIr(g.seccion)} className="text-[#C8A96B] hover:underline">
-                    {NOMBRE_SECCION[g.seccion].toLowerCase()}
-                  </button>
-                </span>
-              ))}
-            </p>
-          )}
-        </>
+      {/* Los cuatro datos del viaje: lo que no está escrito no se nombra. */}
+      {datos.length > 0 && (
+        <dl className="mt-3 grid min-w-0 gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-4">
+          {datos.map((dato) => (
+            <div key={dato.que} className="min-w-0">
+              <dt className={`text-[11px] font-semibold uppercase tracking-[0.16em] ${dato.alerta ? "text-red-300" : "text-[#C8A96B]"}`}>
+                {dato.que}
+                {dato.alerta && (
+                  <span className="ml-2 rounded-full border border-red-400/50 px-1.5 py-px text-[10px] tracking-[0.12em]">revisar</span>
+                )}
+              </dt>
+              <dd className={`mt-0.5 break-words text-sm font-semibold ${dato.alerta ? "text-red-300" : "text-white"}`}>{dato.valor}</dd>
+            </div>
+          ))}
+        </dl>
       )}
 
-      <BloqueAvisos avisos={leves} grave={false} onIr={onIr} acciones={acciones} />
+      {pendientes > 0 && (
+        <ul className="mt-3 divide-y divide-white/[0.06] border-t border-white/10 pt-1">
+          {graves.map((aviso) => (
+            <FilaAviso key={aviso.clave} aviso={aviso} acciones={acciones} />
+          ))}
+          {leves.map((aviso) => (
+            <FilaAviso key={aviso.clave} aviso={aviso} acciones={acciones} />
+          ))}
+          {tareas.map((g) => (
+            <li key={g.seccion} className="flex min-w-0 items-start gap-2.5 py-1.5">
+              <Circle size={12} className="mt-[4px] shrink-0 text-[#C8A96B]" aria-hidden />
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
+                <span className="min-w-0 text-[13px] text-white/85">
+                  <span className="font-semibold">{TAREA_SECCION[g.seccion]}</span>
+                  {/* Lo que falta dentro del bloque, en minúscula: todo lo que el documento no va a llevar. */}
+                  {g.faltan.length > 1 || g.seccion === "viaje-estadio" || g.seccion === "viaje-hotel" ? (
+                    <span className="text-white/55"> · falta {listaDe(g.faltan.map((p) => p.rotulo.toLowerCase()))}</span>
+                  ) : null}
+                </span>
+                <button type="button" onClick={() => onIr(g.seccion)} className={BOTON_FILA}>
+                  Rellenar
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
 
-      {!completo && bloquesHechos.length > 0 && (
+      {pendientes > 0 && bloquesHechos.length > 0 && (
         <p className="mt-2 flex flex-wrap items-center gap-1 text-[13px] text-white/45">
           <CheckCircle2 size={13} className="text-emerald-400/70" />
           Hecho: {bloquesHechos.map((sec) => NOMBRE_SECCION[sec].toLowerCase()).join(", ")}
         </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Los campos que estaban vacíos al abrir el viaje, tras «Añadir datos»
+ * (12/11/2026, expertos): diez casillas en blanco no dicen nada. La decisión
+ * se toma al montar y no cambia al escribir —si cambiara a la primera letra,
+ * el campo se montaría en otro sitio y perdería el foco—; se rehace con la
+ * `key` del viaje. `data-anadir`: ir a la tarea desde «Cómo va» lo abre.
+ */
+function CamposOpcionales({
+  campos,
+  plegar = true,
+  className = "grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4",
+}: {
+  campos: { clave: string; rotulo: string; vacio: boolean; nodo: React.ReactNode }[];
+  plegar?: boolean;
+  className?: string;
+}) {
+  const [vacios] = useState(() => new Set(campos.filter((c) => c.vacio).map((c) => c.clave)));
+  const llenos = campos.filter((c) => !plegar || !vacios.has(c.clave));
+  const ocultos = plegar ? campos.filter((c) => vacios.has(c.clave)) : [];
+
+  return (
+    <>
+      {llenos.length > 0 && <div className={className}>{llenos.map((c) => <div key={c.clave} className="min-w-0">{c.nodo}</div>)}</div>}
+      {ocultos.length > 0 && (
+        <details data-anadir className={`group rounded-xl border border-dashed border-white/15 px-3 py-2 ${llenos.length ? "mt-3" : ""}`}>
+          <summary className="cursor-pointer select-none text-[13px] font-semibold text-[#C8A96B] hover:underline">
+            Añadir datos
+            <span className="ml-2 font-normal text-white/45">{ocultos.map((c) => c.rotulo.toLowerCase()).join(", ")}</span>
+          </summary>
+          <div className={`mt-2 pb-1 ${className}`}>{ocultos.map((c) => <div key={c.clave} className="min-w-0">{c.nodo}</div>)}</div>
+        </details>
+      )}
+    </>
+  );
+}
+
+/**
+ * Las imágenes de un bloque (12/11/2026, expertos): las puestas, en rejilla y
+ * a la misma altura; las que faltan, como botones compactos «Añadir foto»
+ * (se sigue pudiendo pegar con Ctrl+V o soltar el archivo encima).
+ */
+function RejillaImagenes({
+  imagenes,
+  columnas = "sm:grid-cols-2 lg:grid-cols-3",
+}: {
+  imagenes: { clave: string; tiene: boolean; nodo: (compacto: boolean) => React.ReactNode }[];
+  columnas?: string;
+}) {
+  const puestas = imagenes.filter((i) => i.tiene);
+  const faltan = imagenes.filter((i) => !i.tiene);
+
+  return (
+    <div className="mt-3 min-w-0">
+      {puestas.length > 0 && (
+        <div className={`grid min-w-0 items-stretch gap-3 ${columnas}`}>
+          {puestas.map((i) => (
+            <div key={i.clave} className="min-w-0">{i.nodo(false)}</div>
+          ))}
+        </div>
+      )}
+      {faltan.length > 0 && (
+        <div className={`flex min-w-0 flex-wrap gap-2 ${puestas.length ? "mt-3" : ""}`}>
+          {faltan.map((i) => (
+            <div key={i.clave} className="min-w-0">{i.nodo(true)}</div>
+          ))}
+        </div>
       )}
     </div>
   );
@@ -576,22 +681,43 @@ function DetalleFalta({
  * con su título y lo que llevan; en escritorio se ven siempre. Sólo CSS
  * («hidden sm:block»): nada cambia de sitio al girar el teléfono.
  */
-function SeccionMovil({ titulo, resumen, abierta, onCambia, children }: { titulo: string; resumen?: string; abierta: boolean; onCambia: () => void; children: React.ReactNode }) {
+function SeccionMovil({
+  titulo,
+  resumen,
+  abierta,
+  onCambia,
+  escritorio = false,
+  children,
+}: {
+  titulo: string;
+  resumen?: string;
+  abierta: boolean;
+  onCambia: () => void;
+  /** 12/11/2026: plegada también en escritorio, con «Editar» / «Plegar». */
+  escritorio?: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <div className="min-w-0">
       <button
         type="button"
         onClick={onCambia}
         aria-expanded={abierta}
-        className="flex w-full min-w-0 items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left sm:hidden"
+        /* pr-12: el botón flotante ⋮ va pegado a la derecha y tapaba la flecha. */
+        className={`flex w-full min-w-0 items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] py-3 pl-4 pr-12 text-left transition hover:border-white/20 ${escritorio ? "sm:pr-14" : "sm:hidden"}`}
       >
         <span className="min-w-0 flex-1">
           <span className="block text-sm font-semibold text-white">{titulo}</span>
-          {resumen ? <span className="block truncate text-[11px] text-white/50">{resumen}</span> : null}
+          {resumen ? <span className="block truncate text-[11px] text-white/50 sm:text-[13px]">{resumen}</span> : null}
         </span>
-        <ChevronDown size={16} className={`shrink-0 text-white/50 transition ${abierta ? "rotate-180" : ""}`} />
+        {escritorio && (
+          <span className="hidden shrink-0 rounded-full border border-[#C8A96B]/45 px-3 py-1 text-[12px] font-semibold text-[#C8A96B] sm:inline">
+            {abierta ? "Plegar" : "Editar"}
+          </span>
+        )}
+        <ChevronDown size={16} className={`shrink-0 text-white/50 transition ${abierta ? "rotate-180" : ""} ${escritorio ? "sm:hidden" : ""}`} />
       </button>
-      <div className={abierta ? "mt-2 sm:mt-0" : "hidden sm:block"}>{children}</div>
+      <div className={abierta ? (escritorio ? "mt-2" : "mt-2 sm:mt-0") : escritorio ? "hidden" : "hidden sm:block"}>{children}</div>
     </div>
   );
 }
@@ -996,6 +1122,17 @@ export default function DesplazamientoPage() {
   const medidasOsm = osm && osm.consulta === consultaCampo ? osm.medidas : null;
 
   /* Lo que BeSoccer sabe del estadio del rival, para cotejar y rellenar huecos. */
+  /*
+  | La revisión del horario, una vez por render (12/11/2026): con el nombre
+  | del rival según BeSoccer y la hoja, para corregirlo en las citas
+  | («Gimnastic» → «Gimnàstic»). La usan el titular, «Cómo va» y la salida.
+  */
+  const avisosViaje = useMemo(
+    () => (viaje ? avisosHorario(viaje, [delCalendario?.rival ?? "", partido?.opponent ?? ""]) : []),
+    [viaje, delCalendario, partido],
+  );
+  const horarioNoCuadra = avisosViaje.some((a) => a.grave);
+
   const besoccerEstadio = useMemo(() => {
     if (!partido || partido.isHome) return null;
 
@@ -1032,11 +1169,11 @@ export default function DesplazamientoPage() {
   const porRevisar = ((): string[] => {
     if (!viaje) return [];
 
-    const avisos = avisosHorario(viaje);
+    const avisos = avisosViaje;
     const lista = avisos.filter((a) => a.grave).map((a) => a.texto);
     const leves = avisos.filter((a) => !a.grave).length;
 
-    if (leves) lista.push(leves === 1 ? "Hay 1 aviso más en «Revisa el horario»." : `Hay ${leves} avisos más en «Revisa el horario».`);
+    if (leves) lista.push(leves === 1 ? "Hay 1 aviso más del horario en «Cómo va el viaje»." : `Hay ${leves} avisos más del horario en «Cómo va el viaje».`);
 
     if (
       viaje.condicion === "visitante" &&
@@ -1410,8 +1547,19 @@ export default function DesplazamientoPage() {
       ? `: salida ${diaLargo(primero.fecha).split(" ")[0].toLowerCase()} ${aHora(cita.minuto)}`
       : "";
 
+    /*
+    | 12/11/2026 (expertos): con el horario en rojo, el titular no da la
+    | salida por segura: «Viaje a Gimnàstic de Tarragona · viernes 13, 21:15
+    | · el horario no cuadra».
+    */
+    if (rival && horarioNoCuadra) {
+      const partidoCuando = [viaje.fecha ? diaCorto(viaje.fecha).toLowerCase() : "", viaje.hora].filter(Boolean).join(", ");
+
+      return `Viaje a ${rival}${partidoCuando ? ` · ${partidoCuando}` : ""} · el horario no cuadra`;
+    }
+
     return rival ? `Viaje a ${rival}${salida}` : "Desplazamiento de Partido";
-  }, [viaje, partido]);
+  }, [viaje, partido, horarioNoCuadra]);
 
   /* En casa no hay viaje (30/10/2026): sin hotel, sin «Sale de» y la ruta del autobús plegada con los datos del estadio. */
   const enCasa = viaje?.condicion === "local";
@@ -1421,7 +1569,13 @@ export default function DesplazamientoPage() {
   const conmuta = (id: string) => setAbiertas((a) => ({ ...a, [id]: !a[id] }));
   const abreYVe = (id: string) => {
     setAbiertas((a) => ({ ...a, [id]: true }));
-    window.setTimeout(() => irA(id), 50);
+    window.setTimeout(() => {
+      /* Lo que estaba tras «Añadir datos» también se abre: la tarea lleva al campo que falta. */
+      document.querySelectorAll<HTMLDetailsElement>(`#${id} details[data-anadir]`).forEach((d) => {
+        d.open = true;
+      });
+      irA(id);
+    }, 50);
   };
 
   /*
@@ -1436,8 +1590,8 @@ export default function DesplazamientoPage() {
     setEnfoque((previo) => ({ diaId, citaId, n: (previo?.n ?? 0) + 1 }));
   };
 
-  const arreglaAviso = (aviso: AvisoHorario) => {
-    const arreglo = aviso.arreglo;
+  const arreglaAviso = (aviso: AvisoHorario, cual: "arreglo" | "otroArreglo" = "arreglo") => {
+    const arreglo = aviso[cual];
 
     if (!arreglo || !viaje) return;
 
@@ -1514,179 +1668,282 @@ export default function DesplazamientoPage() {
   };
 
 
-  /* Los campos de más del estadio y los del hotel: se pintan en su tarjeta o en «Datos que faltan». */
-  const camposEstadioExtra = () => {
+  /*
+  | Los campos de más del estadio y los del hotel: se pintan en su tarjeta o en
+  | «Datos que faltan». 12/11/2026 (expertos): los vacíos, tras «Añadir datos»;
+  | las imágenes puestas, a la misma altura, y las que faltan, en un botón.
+  | `plegar = false` dentro de «Datos que faltan», que ya va plegado.
+  */
+  const claveCampos = `${viaje?.partidoId ?? ""}-${status === "loading" ? "leyendo" : "listo"}`;
+
+  const camposEstadioExtra = (plegar = true, conAforo = false) => {
     if (!viaje || !partido) return null;
 
+    const imagen = (
+      clave: "foto" | "plano" | "ruta",
+      etiqueta: string,
+      ayuda: string,
+    ) => ({
+      clave,
+      tiene: Boolean(viaje.estadio[clave]?.url),
+      nodo: (compacto: boolean) => (
+        <CampoImagen
+          etiqueta={etiqueta}
+          ayuda={ayuda}
+          carpeta={carpeta}
+          imagen={viaje.estadio[clave]}
+          onCambio={(nueva) => estadio({ [clave]: nueva })}
+          compacto={compacto}
+        />
+      ),
+    });
+
     return (
-                      <>
-                      <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <>
+        <div className="mt-3">
+          <CamposOpcionales
+            key={`estadio-${claveCampos}`}
+            plegar={plegar}
+            campos={[
+              {
+                clave: "direccion",
+                rotulo: "Dirección",
+                vacio: !viaje.estadio.direccion.trim(),
+                nodo: <Field label="Dirección" value={viaje.estadio.direccion} onChange={(valor) => estadio({ direccion: valor })} placeholder="Calle, número y ciudad" />,
+              },
+              ...(conAforo
+                ? [
+                    {
+                      clave: "aforo",
+                      rotulo: "Aforo",
+                      vacio: !(viaje.estadio.capacidad ?? "").trim(),
+                      nodo: (
                         <Field
-                          label="Dirección"
-                          value={viaje.estadio.direccion}
-                          onChange={(valor) => estadio({ direccion: valor })}
-                          placeholder="Calle, número y ciudad"
+                          label="Aforo"
+                          value={viaje.estadio.capacidad ?? ""}
+                          onChange={(valor) => estadio({ capacidad: valor })}
+                          placeholder="Espectadores"
+                          hint={besoccerEstadio?.capacidad && besoccerEstadio.capacidad === viaje.estadio.capacidad ? "Viene de BeSoccer." : undefined}
                         />
+                      ),
+                    },
+                  ]
+                : []),
+              {
+                clave: "distancia",
+                rotulo: "Distancia",
+                vacio: !viaje.estadio.distancia.trim(),
+                nodo: <Field label="Distancia" value={viaje.estadio.distancia} onChange={(valor) => estadio({ distancia: valor })} placeholder="Kilómetros" />,
+              },
+              {
+                clave: "tiempo",
+                rotulo: "Tiempo de viaje",
+                vacio: !viaje.estadio.tiempo.trim(),
+                nodo: <Field label="Tiempo de viaje" value={viaje.estadio.tiempo} onChange={(valor) => estadio({ tiempo: valor })} placeholder="Horas y minutos" />,
+              },
+              {
+                clave: "enlace",
+                rotulo: "Enlace del mapa",
+                vacio: !viaje.estadio.enlace.trim(),
+                nodo: <Field label="Enlace del mapa" value={viaje.estadio.enlace} onChange={(valor) => estadio({ enlace: valor })} placeholder="https://maps.app.goo.gl/…" />,
+              },
+            ]}
+          />
+        </div>
 
-                        <Field
-                          label="Distancia"
-                          value={viaje.estadio.distancia}
-                          onChange={(valor) => estadio({ distancia: valor })}
-                          placeholder="Kilómetros"
-                        />
+        {/* La ruta abierta en Google Maps: de ahí salen la distancia, el tiempo y la captura (19/10/2026). */}
+        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+          <EnlaceRuta
+            desde={viaje.origen || "Ciudad Real Madrid, Valdebebas"}
+            hasta={viaje.estadio.direccion || [viaje.estadio.nombre, viaje.estadio.ciudad || equipoDelInforme(equiposInforme, viaje.rival || partido.opponent)?.nombre || viaje.rival || partido.opponent].filter(Boolean).join(", ")}
+            rotulo={`Ruta ${viaje.origen || "Valdebebas"} · estadio en Google Maps`}
+          />
 
-                        <Field
-                          label="Tiempo de viaje"
-                          value={viaje.estadio.tiempo}
-                          onChange={(valor) => estadio({ tiempo: valor })}
-                          placeholder="Horas y minutos"
-                        />
+          {viaje.estadio.enlace.trim() && /^https?:\/\//i.test(viaje.estadio.enlace.trim()) && (
+            <a href={viaje.estadio.enlace.trim()} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-[#C8A96B] hover:underline">
+              <Landmark size={12} /> Abrir el mapa del estadio
+            </a>
+          )}
+        </div>
 
-                        <Field
-                          label="Enlace del mapa"
-                          value={viaje.estadio.enlace}
-                          onChange={(valor) => estadio({ enlace: valor })}
-                          placeholder="https://maps.app.goo.gl/…"
-                        />
-                      </div>
-
-                      {/* La ruta abierta en Google Maps: de ahí salen la distancia, el tiempo y la captura (19/10/2026). */}
-                      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
-                        <EnlaceRuta
-                          desde={viaje.origen || "Ciudad Real Madrid, Valdebebas"}
-                          hasta={viaje.estadio.direccion || [viaje.estadio.nombre, viaje.estadio.ciudad || equipoDelInforme(equiposInforme, viaje.rival || partido.opponent)?.nombre || viaje.rival || partido.opponent].filter(Boolean).join(", ")}
-                          rotulo={`Ruta ${viaje.origen || "Valdebebas"} · estadio en Google Maps`}
-                        />
-
-                        {viaje.estadio.enlace.trim() && /^https?:\/\//i.test(viaje.estadio.enlace.trim()) && (
-                          <a href={viaje.estadio.enlace.trim()} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-[#C8A96B] hover:underline">
-                            <Landmark size={12} /> Abrir el mapa del estadio
-                          </a>
-                        )}
-                      </div>
-
-                      <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                        {/* La foto del estadio (11/11/2026): la de BeSoccer por defecto; es la del destino del bus. */}
-                        <CampoImagen
-                          etiqueta="Foto del estadio"
-                          ayuda="Sale en «El viaje» y, sin plano, en «El estadio»"
-                          carpeta={carpeta}
-                          imagen={viaje.estadio.foto}
-                          onCambio={(imagen) => estadio({ foto: imagen })}
-                        />
-
-                        <CampoImagen
-                          etiqueta="Plano del estadio"
-                          ayuda="Pie: «Nombre del estadio · acceso autobús»"
-                          carpeta={carpeta}
-                          imagen={viaje.estadio.plano}
-                          onCambio={(imagen) => estadio({ plano: imagen })}
-                        />
-
-                        <CampoImagen
-                          etiqueta="Ruta del autobús"
-                          ayuda="Pie: «Valdebebas · ciudad del estadio, kilómetros»"
-                          carpeta={carpeta}
-                          imagen={viaje.estadio.ruta}
-                          onCambio={(imagen) => estadio({ ruta: imagen })}
-                        />
-                      </div>
-                      </>
+        {/* La foto del estadio (11/11/2026): la de BeSoccer por defecto; es la del destino del bus. */}
+        <RejillaImagenes
+          imagenes={[
+            imagen("foto", "Foto del estadio", "Sale en «El viaje» y, sin plano, en «El estadio»"),
+            imagen("plano", "Plano del estadio", "Pie: «Nombre del estadio · acceso autobús»"),
+            imagen("ruta", "Ruta del autobús", "Pie: «Valdebebas · ciudad del estadio, kilómetros»"),
+          ]}
+        />
+      </>
     );
   };
 
-  const camposHotel = () => {
+  const camposHotel = (plegar = true) => {
     if (!viaje) return null;
 
+    const opcional = (clave: "telefono" | "entrada" | "distancia" | "tiempo" | "enlace", rotulo: string, placeholder: string) => ({
+      clave,
+      rotulo,
+      vacio: !viaje.hotel[clave].trim(),
+      nodo: <Field label={rotulo} value={viaje.hotel[clave]} onChange={(valor) => hotel({ [clave]: valor })} placeholder={placeholder} />,
+    });
+
     return (
-                        <>
-                        <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                          <Field
-                            label="Nombre"
-                            value={viaje.hotel.nombre}
-                            onChange={(valor) => hotel({ nombre: valor })}
-                            placeholder="Nombre del hotel"
-                          />
+      <>
+        <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+          <Field label="Nombre" value={viaje.hotel.nombre} onChange={(valor) => hotel({ nombre: valor })} placeholder="Nombre del hotel" />
+          <Field label="Dirección" value={viaje.hotel.direccion} onChange={(valor) => hotel({ direccion: valor })} placeholder="Calle, número y ciudad" />
+        </div>
 
-                          <Field
-                            label="Dirección"
-                            value={viaje.hotel.direccion}
-                            onChange={(valor) => hotel({ direccion: valor })}
-                            placeholder="Calle, número y ciudad"
-                          />
+        <div className="mt-3">
+          <CamposOpcionales
+            key={`hotel-${claveCampos}`}
+            plegar={plegar}
+            campos={[
+              opcional("telefono", "Teléfono", "Teléfono de recepción"),
+              opcional("entrada", "Entrada", "Día y hora de entrada"),
+              opcional("distancia", "Distancia al campo", "Kilómetros al estadio"),
+              opcional("tiempo", "Tiempo al campo", "Minutos al estadio"),
+              opcional("enlace", "Enlace de la reserva", "https://…"),
+            ]}
+          />
+        </div>
 
-                          <Field
-                            label="Teléfono"
-                            value={viaje.hotel.telefono}
-                            onChange={(valor) => hotel({ telefono: valor })}
-                            placeholder="Teléfono de recepción"
-                          />
+        <div className="mt-2">
+          <EnlaceRuta
+            desde={viaje.hotel.direccion || viaje.hotel.nombre}
+            hasta={viaje.estadio.direccion || [viaje.estadio.nombre, viaje.estadio.ciudad].filter(Boolean).join(", ")}
+            rotulo="Ruta hotel · estadio en Google Maps"
+          />
+        </div>
 
-                          <Field
-                            label="Entrada"
-                            value={viaje.hotel.entrada}
-                            onChange={(valor) => hotel({ entrada: valor })}
-                            placeholder="Día y hora de entrada"
-                          />
-                        </div>
-
-                        <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                          <Field
-                            label="Distancia al campo"
-                            value={viaje.hotel.distancia}
-                            onChange={(valor) => hotel({ distancia: valor })}
-                            placeholder="Kilómetros al estadio"
-                          />
-
-                          <Field
-                            label="Tiempo al campo"
-                            value={viaje.hotel.tiempo}
-                            onChange={(valor) => hotel({ tiempo: valor })}
-                            placeholder="Minutos al estadio"
-                          />
-
-                          <Field
-                            label="Enlace de la reserva"
-                            value={viaje.hotel.enlace}
-                            onChange={(valor) => hotel({ enlace: valor })}
-                            placeholder="https://…"
-                          />
-                        </div>
-
-                        <div className="mt-2">
-                          <EnlaceRuta
-                            desde={viaje.hotel.direccion || viaje.hotel.nombre}
-                            hasta={viaje.estadio.direccion || [viaje.estadio.nombre, viaje.estadio.ciudad].filter(Boolean).join(", ")}
-                            rotulo="Ruta hotel · estadio en Google Maps"
-                          />
-                        </div>
-
-                        <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2">
-                          <CampoImagen
-                            etiqueta="Foto del hotel"
-                            ayuda="Pie: «Nombre del hotel»"
-                            pista="Una foto del hotel (la fachada o la entrada). La captura del mapa va en «Ruta hotel · estadio»."
-                            carpeta={carpeta}
-                            imagen={viaje.hotel.foto}
-                            onCambio={(imagen) => hotel({ foto: imagen })}
-                          />
-
-                          <CampoImagen
-                            etiqueta="Ruta hotel · estadio"
-                            ayuda="Pie: «Hotel · estadio, minutos»"
-                            carpeta={carpeta}
-                            imagen={viaje.hotel.ruta}
-                            onCambio={(imagen) => hotel({ ruta: imagen })}
-                          />
-                        </div>
-                        </>
+        <RejillaImagenes
+          columnas="sm:grid-cols-2"
+          imagenes={[
+            {
+              clave: "foto",
+              tiene: Boolean(viaje.hotel.foto?.url),
+              nodo: (compacto) => (
+                <CampoImagen
+                  etiqueta="Foto del hotel"
+                  ayuda="Pie: «Nombre del hotel»"
+                  pista="Una foto del hotel (la fachada o la entrada). La captura del mapa va en «Ruta hotel · estadio»."
+                  carpeta={carpeta}
+                  imagen={viaje.hotel.foto}
+                  onCambio={(nueva) => hotel({ foto: nueva })}
+                  compacto={compacto}
+                />
+              ),
+            },
+            {
+              clave: "ruta",
+              tiene: Boolean(viaje.hotel.ruta?.url),
+              nodo: (compacto) => (
+                <CampoImagen
+                  etiqueta="Ruta hotel · estadio"
+                  ayuda="Pie: «Hotel · estadio, minutos»"
+                  carpeta={carpeta}
+                  imagen={viaje.hotel.ruta}
+                  onCambio={(nueva) => hotel({ ruta: nueva })}
+                  compacto={compacto}
+                />
+              ),
+            },
+          ]}
+        />
+      </>
     );
   };
+
+  /*
+  | ================= EL VIAJE DE UN VISTAZO =================
+  | 10/11/2026: salida, partido, hotel y horario antes del formulario. Lo que
+  | no está escrito no se nombra. 12/11/2026 (expertos): van dentro de «Cómo
+  | va el viaje», lo primero de la página, y con el horario en rojo la salida
+  | lleva «revisar».
+  */
+  const datosViaje = ((): DatoViaje[] => {
+    if (!viaje) return [];
+
+    const dias = [...viaje.dias].filter((d) => d.fecha).sort((a, b) => a.fecha.localeCompare(b.fecha));
+    const primero = dias.find((d) => d.citas.length > 0);
+    const salidaCita = primero
+      ? [...primero.citas].sort((a, b) => a.minuto - b.minuto).find((c) => c.tipo === "viaje") ??
+        [...primero.citas].sort((a, b) => a.minuto - b.minuto)[0]
+      : undefined;
+    const citas = dias.reduce((n, d) => n + d.citas.length, 0);
+    const datos: (DatoViaje | null)[] = [
+      !enCasa && primero && salidaCita
+        ? {
+            que: "Salida",
+            valor: `${diaLargo(primero.fecha).split(" ")[0].toLowerCase()} ${aHora(salidaCita.minuto)}${viaje.origen ? ` · desde ${viaje.origen}` : ""}`,
+            alerta: horarioNoCuadra,
+          }
+        : null,
+      viaje.fecha
+        ? { que: "Partido", valor: `${diaLargo(viaje.fecha).toLowerCase()}${viaje.hora ? ` · ${viaje.hora}` : ""}${viaje.estadio.nombre ? ` · ${viaje.estadio.nombre}` : ""}` }
+        : null,
+      !enCasa && viaje.conHotel && viaje.hotel.nombre.trim()
+        ? { que: "Hotel", valor: [viaje.hotel.nombre, viaje.hotel.entrada].filter((x) => x.trim()).join(" · ") }
+        : null,
+      /* 11/11/2026: las horas de cada día (de la primera a la última cita), para leerlo sin bajar. */
+      citas > 0
+        ? {
+            que: guardado ? "Horario" : "Horario propuesto",
+            valor:
+              dias
+                .filter((d) => d.citas.length > 0)
+                .map((d) => {
+                  const orden = [...d.citas].sort((a, b) => a.minuto - b.minuto);
+                  const dia = diaLargo(d.fecha).split(" ")[0].toLowerCase();
+                  const desde = aHora(orden[0].minuto);
+                  const ultimo = orden[orden.length - 1].minuto;
+                  const hasta = aHora(ultimo);
+                  /* Pasada la medianoche se dice el día real: «viernes 09:30 – sáb 14 03:15». */
+                  if (esDiaSiguiente(ultimo)) return `${dia} ${desde} – ${diaSiguienteCorto(d.fecha).toLowerCase()} ${hasta}`;
+                  return `${dia} ${desde}${hasta !== desde ? `–${hasta}` : ""}`;
+                })
+                .join(" · ") + ` · ${citas} ${citas === 1 ? "cita" : "citas"}`,
+          }
+        : null,
+    ];
+
+    return datos.filter((d): d is DatoViaje => d !== null);
+  })();
+
+  /* La vista previa a pantalla completa, con zoom (12/11/2026): en el móvil la miniatura no se lee. */
+  const [pantallaCompleta, setPantallaCompleta] = useState(false);
+  const [zoom, setZoom] = useState(100);
+
+  useEffect(() => {
+    if (!pantallaCompleta) return;
+
+    const alPulsar = (evento: KeyboardEvent) => {
+      if (evento.key === "Escape") setPantallaCompleta(false);
+    };
+
+    window.addEventListener("keydown", alPulsar);
+
+    return () => window.removeEventListener("keydown", alPulsar);
+  }, [pantallaCompleta]);
+
+  /* Lo que se ve en la vista previa: el dossier o las hojas del horario. */
+  const documentoVista = viaje
+    ? vista === "dossier"
+      ? (
+          <Escalado ancho={DOSSIER_W} alto={(DOSSIER_H + 26) * titulosDossier(viaje).length}>
+            <DossierViaje viaje={viajeVista ?? viaje} lugares={store.lugares} />
+          </Escalado>
+        )
+      : (
+          <Escalado ancho={HOJA_W} alto={(HOJA_H + 26) * Math.max(1, viaje.dias.length)}>
+            <HojasHorario viaje={viaje} />
+          </Escalado>
+        )
+    : null;
 
   return (
     <main
-      /* overflow-x-clip (30/10/2026): un hijo más ancho que el móvil ensanchaba la
-         página entera y el teléfono la pintaba con la maqueta de escritorio. */
       className={`min-h-screen overflow-x-clip bg-[#0B0F14] text-white ${barlowCondensed.className}`}
       style={
         {
@@ -1721,10 +1978,16 @@ export default function DesplazamientoPage() {
                       savedAt={lastSavedAt}
                     />
                   )}
+                  {/* 12/11/2026 (expertos): sacar los documentos es la acción principal, también en el móvil. */}
                   {viaje && (
-                    <Button tone="primary" icon={Eye} onClick={() => irA("viaje-vista")}>
-                      Vista previa y exportar
-                    </Button>
+                    <>
+                      <Button tone="primary" icon={Download} onClick={() => irA("viaje-exporta")}>
+                        Sacar los documentos
+                      </Button>
+                      <Button icon={Eye} onClick={() => irA("viaje-vista")}>
+                        Vista previa
+                      </Button>
+                    </>
                   )}
                 </div>
               }
@@ -1865,7 +2128,13 @@ export default function DesplazamientoPage() {
                   {/* `viaje-form` (globals.css): la letra del formulario a 13 px las etiquetas y 15 px los campos; la vista previa queda fuera. */}
                   <div className="viaje-form">
                   {/* Cómo va el viaje, arriba y pegado al selector de partido. */}
-                  <ListaPendiente viaje={viaje} onIr={irATarea} acciones={{ onVer: verCita, onArregla: arreglaAviso, onCorrige: corrigeTexto }} />
+                  <ListaPendiente
+                    viaje={viaje}
+                    avisos={avisosViaje}
+                    datos={datosViaje}
+                    onIr={irATarea}
+                    acciones={{ onVer: verCita, onArregla: arreglaAviso, onCorrige: corrigeTexto }}
+                  />
 
                   {/* El plan de viaje ante este rival (o en este campo), de otra vez (11/11/2026). */}
                   {planAjeno && (() => {
@@ -1934,72 +2203,22 @@ export default function DesplazamientoPage() {
                     );
                   })()}
 
-                  {/*
-                  | ================= EL VIAJE DE UN VISTAZO =================
-                  | 10/11/2026: salida, hotel y horario en una tarjeta de lectura
-                  | antes del formulario. Lo que no está escrito no se nombra.
-                  */}
-                  {(() => {
-                    const dias = [...viaje.dias].filter((d) => d.fecha).sort((a, b) => a.fecha.localeCompare(b.fecha));
-                    const primero = dias.find((d) => d.citas.length > 0);
-                    const salidaCita = primero
-                      ? [...primero.citas].sort((a, b) => a.minuto - b.minuto).find((c) => c.tipo === "viaje") ??
-                        [...primero.citas].sort((a, b) => a.minuto - b.minuto)[0]
-                      : undefined;
-                    const citas = dias.reduce((n, d) => n + d.citas.length, 0);
-                    const filas = [
-                      !enCasa && primero && salidaCita
-                        ? ["Salida", `${diaLargo(primero.fecha).split(" ")[0].toLowerCase()} ${aHora(salidaCita.minuto)}${viaje.origen ? ` · desde ${viaje.origen}` : ""}`]
-                        : null,
-                      viaje.fecha
-                        ? ["Partido", `${diaLargo(viaje.fecha).toLowerCase()}${viaje.hora ? ` · ${viaje.hora}` : ""}${viaje.estadio.nombre ? ` · ${viaje.estadio.nombre}` : ""}`]
-                        : null,
-                      !enCasa && viaje.conHotel && viaje.hotel.nombre.trim()
-                        ? ["Hotel", [viaje.hotel.nombre, viaje.hotel.entrada].filter((x) => x.trim()).join(" · ")]
-                        : null,
-                      /* 11/11/2026: las horas de cada día (de la primera a la última cita), para leerlo sin bajar. */
-                      citas > 0
-                        ? [
-                            guardado ? "Horario" : "Horario propuesto",
-                            dias
-                              .filter((d) => d.citas.length > 0)
-                              .map((d) => {
-                                const orden = [...d.citas].sort((a, b) => a.minuto - b.minuto);
-                                const dia = diaLargo(d.fecha).split(" ")[0].toLowerCase();
-                                const desde = aHora(orden[0].minuto);
-                                const ultimo = orden[orden.length - 1].minuto;
-                                const hasta = aHora(ultimo);
-                                /* Pasada la medianoche se dice el día real: «viernes 09:30 – sáb 14 03:15». */
-                                if (esDiaSiguiente(ultimo)) return `${dia} ${desde} – ${diaSiguienteCorto(d.fecha).toLowerCase()} ${hasta}`;
-                                return `${dia} ${desde}${hasta !== desde ? `–${hasta}` : ""}`;
-                              })
-                              .join(" · ") + ` · ${citas} ${citas === 1 ? "cita" : "citas"}`,
-                          ]
-                        : null,
-                    ].filter((f): f is string[] => f !== null);
-
-                    if (!filas.length) return null;
-
-                    return (
-                      <dl className="mt-4 grid min-w-0 gap-x-6 gap-y-2 rounded-2xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.05] px-4 py-3 sm:grid-cols-2 lg:grid-cols-4">
-                        {filas.map(([que, valor]) => (
-                          <div key={que} className="min-w-0">
-                            <dt className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">{que}</dt>
-                            <dd className="mt-0.5 break-words text-sm font-semibold text-white">{valor}</dd>
-                          </div>
-                        ))}
-                      </dl>
-                    );
-                  })()}
-
                   {/* ================== EL PARTIDO ================== */}
 
                   <div className="mt-5 scroll-mt-20" id="viaje-partido">
                     <SeccionMovil
                       titulo="El partido"
-                      resumen={[viaje.rival || partido.opponent, viaje.hora, enCasa ? "en casa" : "fuera"].filter(Boolean).join(" · ")}
+                      resumen={[
+                        viaje.rival || partido.opponent,
+                        viaje.jornada.trim() ? `J${viaje.jornada.trim()}` : "",
+                        viaje.fecha ? diaCorto(viaje.fecha).toLowerCase() : "",
+                        viaje.hora,
+                        enCasa ? "en casa" : "fuera",
+                        !enCasa && viaje.conHotel ? "con hotel" : "",
+                      ].filter(Boolean).join(" · ")}
                       abierta={Boolean(abiertas["viaje-partido"])}
                       onCambia={() => conmuta("viaje-partido")}
+                      escritorio
                     >
                     <Panel
                       title="El partido"
@@ -2153,12 +2372,45 @@ export default function DesplazamientoPage() {
 
                   {/* ================== EL ESTADIO ================= */}
 
+                  {(() => {
+                    /*
+                    | 11/11/2026: de dónde salen las medidas, a la vista y cotejadas
+                    | —OpenStreetMap (el polígono del campo) y BeSoccer—. 12/11/2026
+                    | (expertos): si no coinciden, UNA decisión con su botón
+                    | principal, y la fuente se dice una sola vez.
+                    */
+                    const otras = fuentesMedidas.filter((f) => !mismaMedida(f.texto, viaje.estadio.dimensiones));
+                    const elegida = Boolean(viaje.estadio.dimensionesFuente?.trim());
+                    const medidas = viaje.estadio.dimensiones.trim();
+                    const porElegir = otras.length > 0 && !elegida && !enCasa;
+
+                    const huecos = besoccerEstadio
+                      ? ([
+                          ["nombre", "nombre", besoccerEstadio.estadio],
+                          ["ciudad", "ciudad", besoccerEstadio.ciudad],
+                          ["direccion", "dirección", besoccerEstadio.direccion ?? ""],
+                          ["capacidad", "aforo", besoccerEstadio.capacidad ?? ""],
+                        ] as const).filter(([clave, , dato]) => dato.trim() && !(viaje.estadio[clave] ?? "").trim())
+                      : [];
+                    const sinFoto = Boolean(besoccerEstadio?.fotoEstadio && !viaje.estadio.foto?.url);
+                    const sinEscudo = Boolean(!viaje.escudo && (escudoDe(partido.opponent) || besoccerEstadio?.escudo));
+
+                    const usa = (f: { de: string; texto: string }) => estadio({ dimensiones: f.texto, dimensionesFuente: f.de });
+
+                    return (
                   <div className="mt-5 scroll-mt-20" id="viaje-estadio">
                     <SeccionMovil
                       titulo="El estadio"
-                      resumen={[viaje.estadio.nombre, viaje.estadio.ciudad].filter((x) => x.trim()).join(" · ")}
+                      resumen={[
+                        viaje.estadio.nombre,
+                        viaje.estadio.ciudad,
+                        viaje.estadio.superficie,
+                        medidas,
+                        porElegir ? "medidas por elegir" : "",
+                      ].filter((x) => x.trim()).join(" · ")}
                       abierta={Boolean(abiertas["viaje-estadio"])}
                       onCambia={() => conmuta("viaje-estadio")}
+                      escritorio
                     >
                     <Panel
                       title="El estadio"
@@ -2196,163 +2448,151 @@ export default function DesplazamientoPage() {
                           /* Escrita a mano ya no es de ninguna fuente. */
                           onChange={(valor) => estadio({ dimensiones: valor, dimensionesFuente: undefined })}
                           placeholder="105 × 68"
-                          hint={
-                            viaje.estadio.dimensiones.trim()
-                              ? fuenteMedidas
-                                ? `${viaje.estadio.dimensiones.trim()} · ${fuenteMedidas}`
-                                : "Escrita a mano."
-                              : undefined
-                          }
+                          /* La fuente, una vez: si las medidas no coinciden, la dice el aviso de abajo. */
+                          hint={medidas && !porElegir ? (fuenteMedidas ? `Fuente: ${fuenteMedidas}` : "Escrita a mano.") : undefined}
                         />
                       </div>
 
-                      {/*
-                      | 11/11/2026: de dónde salen las medidas, a la vista y cotejadas
-                      | —OpenStreetMap (el polígono del campo) y BeSoccer—, con un
-                      | botón para quedarse con una. Y lo que BeSoccer sabe del campo
-                      | que aquí sigue en blanco.
-                      | 12/11/2026: sólo se enseñan las que NO coinciden con la elegida;
-                      | ya elegida una con su botón, las demás se pliegan.
-                      */}
-                      {(() => {
-                        const otras = fuentesMedidas.filter((f) => !mismaMedida(f.texto, viaje.estadio.dimensiones));
-                        const elegida = Boolean(viaje.estadio.dimensionesFuente?.trim());
-
-                        const huecos = besoccerEstadio
-                          ? ([
-                              ["nombre", "nombre", besoccerEstadio.estadio],
-                              ["ciudad", "ciudad", besoccerEstadio.ciudad],
-                              ["direccion", "dirección", besoccerEstadio.direccion ?? ""],
-                              ["capacidad", "aforo", besoccerEstadio.capacidad ?? ""],
-                            ] as const).filter(([clave, , dato]) => dato.trim() && !(viaje.estadio[clave] ?? "").trim())
-                          : [];
-                        const sinFoto = Boolean(besoccerEstadio?.fotoEstadio && !viaje.estadio.foto?.url);
-                        const sinEscudo = Boolean(!viaje.escudo && (escudoDe(partido.opponent) || besoccerEstadio?.escudo));
-
-                        if (!otras.length && !huecos.length && !sinFoto && !sinEscudo) return null;
-
-                        const botonesOtras = otras.map((f) => (
-                          <button
-                            key={f.de}
-                            type="button"
-                            onClick={() => estadio({ dimensiones: f.texto, dimensionesFuente: f.de })}
-                            className="rounded-full border border-[#C8A96B]/40 px-2 py-0.5 text-[#C8A96B] transition hover:bg-[#C8A96B]/10"
-                          >
-                            Usar {f.de} {f.texto}
-                          </button>
-                        ));
-
-                        return (
-                          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12px] text-white/60">
-                            {otras.length > 0 && elegida && (
-                              <details className="min-w-0">
-                                <summary className="cursor-pointer select-none text-white/50 hover:text-white/80">
-                                  Otras medidas ({otras.length})
-                                </summary>
-                                <span className="mt-1 flex flex-wrap items-center gap-1.5">{botonesOtras}</span>
-                              </details>
-                            )}
-                            {otras.length > 0 && !elegida && (
-                              <>
-                                <span className="tabular-nums" title="OSM: el polígono del campo en OpenStreetMap, medido con su rectángulo mínimo">
-                                  No coinciden: {otras.map((f) => `${f.de} ${f.texto}`).join(" · ")}
-                                </span>
-                                {botonesOtras}
-                                {fuenteMedidas && (
-                                  <button
-                                    type="button"
-                                    onClick={() => estadio({ dimensionesFuente: fuenteMedidas })}
-                                    className="rounded-full border border-white/15 px-2 py-0.5 text-white/70 transition hover:border-white/30 hover:text-white"
-                                  >
-                                    Quedarme con {fuenteMedidas} {viaje.estadio.dimensiones.trim()}
-                                  </button>
-                                )}
-                              </>
-                            )}
-                            {(huecos.length > 0 || sinFoto || sinEscudo) && (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  muta((actual) => ({
-                                    ...actual,
-                                    ...(sinEscudo ? { escudo: escudoDe(partido.opponent) || besoccerEstadio?.escudo || "" } : {}),
-                                    estadio: {
-                                      ...actual.estadio,
-                                      ...Object.fromEntries(huecos.map(([clave, , dato]) => [clave, dato])),
-                                      ...(sinFoto && besoccerEstadio?.fotoEstadio ? { foto: { url: besoccerEstadio.fotoEstadio, pie: besoccerEstadio.estadio } } : {}),
-                                    },
-                                  }))
-                                }
-                                className="rounded-full border border-[#C8A96B]/40 px-2 py-0.5 text-[#C8A96B] transition hover:bg-[#C8A96B]/10"
-                              >
-                                Rellenar con BeSoccer: {[...huecos.map(([, rotulo]) => rotulo), sinFoto ? "foto" : "", sinEscudo ? "escudo" : ""].filter(Boolean).join(", ")}
+                      {porElegir && (
+                        <div className="mt-3 rounded-xl border border-amber-400/30 bg-amber-400/[0.06] px-3 py-2 text-[13px] text-white/80">
+                          <p className="tabular-nums" title="OSM: el polígono del campo en OpenStreetMap, medido con su rectángulo mínimo">
+                            <span className="font-semibold text-amber-300">Las medidas no coinciden.</span>{" "}
+                            {medidas ? `Aquí: ${medidas}${fuenteMedidas ? ` (${fuenteMedidas})` : " (escritas a mano)"}; ` : ""}
+                            {otras.map((f) => `${f.de}: ${f.texto}`).join(" · ")}.
+                          </p>
+                          <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                            {medidas && fuenteMedidas ? (
+                              <button type="button" onClick={() => estadio({ dimensionesFuente: fuenteMedidas })} className={BOTON_FILA_PRIMARIO}>
+                                Quedarme con {medidas}
+                              </button>
+                            ) : (
+                              <button type="button" onClick={() => usa(otras[0])} className={BOTON_FILA_PRIMARIO}>
+                                Usar {otras[0].texto}
                               </button>
                             )}
+                            {(medidas && fuenteMedidas ? otras : otras.slice(1)).map((f) => (
+                              <span key={f.de} className="text-[12px] text-white/50">
+                                o{" "}
+                                <button type="button" onClick={() => usa(f)} className="font-semibold text-[#C8A96B] hover:underline">
+                                  usar {f.texto}
+                                </button>
+                              </span>
+                            ))}
+                          </p>
+                        </div>
+                      )}
+
+                      {((otras.length > 0 && elegida) || huecos.length > 0 || sinFoto || sinEscudo) && (
+                        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12px] text-white/60">
+                          {otras.length > 0 && elegida && (
+                            <details className="min-w-0">
+                              <summary className="cursor-pointer select-none text-white/50 hover:text-white/80">
+                                Otras medidas ({otras.length})
+                              </summary>
+                              <span className="mt-1 flex flex-wrap items-center gap-1.5">
+                                {otras.map((f) => (
+                                  <button
+                                    key={f.de}
+                                    type="button"
+                                    onClick={() => usa(f)}
+                                    className="rounded-full border border-[#C8A96B]/40 px-2 py-0.5 text-[#C8A96B] transition hover:bg-[#C8A96B]/10"
+                                  >
+                                    Usar {f.de} {f.texto}
+                                  </button>
+                                ))}
+                              </span>
+                            </details>
+                          )}
+                          {(huecos.length > 0 || sinFoto || sinEscudo) && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                muta((actual) => ({
+                                  ...actual,
+                                  ...(sinEscudo ? { escudo: escudoDe(partido.opponent) || besoccerEstadio?.escudo || "" } : {}),
+                                  estadio: {
+                                    ...actual.estadio,
+                                    ...Object.fromEntries(huecos.map(([clave, , dato]) => [clave, dato])),
+                                    ...(sinFoto && besoccerEstadio?.fotoEstadio ? { foto: { url: besoccerEstadio.fotoEstadio, pie: besoccerEstadio.estadio } } : {}),
+                                  },
+                                }))
+                              }
+                              className="rounded-full border border-[#C8A96B]/40 px-2 py-0.5 text-[#C8A96B] transition hover:bg-[#C8A96B]/10"
+                            >
+                              Rellenar con BeSoccer: {[...huecos.map(([, rotulo]) => rotulo), sinFoto ? "foto" : "", sinEscudo ? "escudo" : ""].filter(Boolean).join(", ")}
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      {enCasa ? (
+                        <>
+                          <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                            <Field
+                              label="Aforo"
+                              value={viaje.estadio.capacidad ?? ""}
+                              onChange={(valor) => estadio({ capacidad: valor })}
+                              placeholder="Espectadores"
+                            />
                           </div>
-                        );
-                      })()}
-
-                      <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                        <Field
-                          label="Aforo"
-                          value={viaje.estadio.capacidad ?? ""}
-                          onChange={(valor) => estadio({ capacidad: valor })}
-                          placeholder="Espectadores"
-                          hint={besoccerEstadio?.capacidad && besoccerEstadio.capacidad === viaje.estadio.capacidad ? "Viene de BeSoccer." : undefined}
-                        />
-                      </div>
-
-                      {!estadioEnFaltan && (
-                      <Plegable
-                        key={`estadio-${viaje.partidoId}-${status === "loading" ? "leyendo" : "listo"}`}
-                        plegado={
-                          enCasa ||
-                          (![viaje.estadio.direccion, viaje.estadio.distancia, viaje.estadio.tiempo, viaje.estadio.enlace].some((x) => x.trim()) &&
-                            !viaje.estadio.plano?.url &&
-                            !viaje.estadio.ruta?.url)
-                        }
-                        titulo={enCasa ? undefined : "Añadir los datos del estadio"}
-                        detalle={enCasa ? undefined : "dirección, distancia, plano y ruta"}
-                      >
-                        {camposEstadioExtra()}
-                      </Plegable>
+                          <Plegable key={`estadio-${claveCampos}`} plegado>
+                            {camposEstadioExtra(false)}
+                          </Plegable>
+                        </>
+                      ) : estadioEnFaltan ? (
+                        /* Lo de cómo se llega va en «Datos que faltan»; aquí sólo el aforo. */
+                        <div className="mt-3">
+                          <CamposOpcionales
+                            key={`aforo-${claveCampos}`}
+                            campos={[
+                              {
+                                clave: "aforo",
+                                rotulo: "Aforo",
+                                vacio: !(viaje.estadio.capacidad ?? "").trim(),
+                                nodo: (
+                                  <Field
+                                    label="Aforo"
+                                    value={viaje.estadio.capacidad ?? ""}
+                                    onChange={(valor) => estadio({ capacidad: valor })}
+                                    placeholder="Espectadores"
+                                  />
+                                ),
+                              },
+                            ]}
+                          />
+                        </div>
+                      ) : (
+                        camposEstadioExtra(true, true)
                       )}
                     </Panel>
                     </SeccionMovil>
                   </div>
+                    );
+                  })()}
 
                   {/* =================== EL HOTEL ================== */}
 
                   {viaje.conHotel && !enCasa && !hotelEnFaltan && (
                     <div className="mt-5 scroll-mt-20" id="viaje-hotel">
-                      {/* 12/11/2026: plegado en el móvil como los demás bloques, con su resumen de una línea. */}
+                      {/* 12/11/2026: plegado, en el móvil y en escritorio, con su resumen de una línea. */}
                       <SeccionMovil
                         titulo="El hotel"
                         resumen={[
                           viaje.hotel.nombre,
+                          viaje.hotel.entrada.trim() ? `entrada ${viaje.hotel.entrada.trim()}` : "",
                           viaje.hotel.tiempo.trim() ? `${viaje.hotel.tiempo.trim()} al campo` : "",
                           viaje.hotel.foto?.url ? "" : "sin foto",
                         ].filter((x) => x.trim()).join(" · ")}
                         abierta={Boolean(abiertas["viaje-hotel"])}
                         onCambia={() => conmuta("viaje-hotel")}
+                        escritorio
                       >
                       <Panel
                         title="El hotel"
                         subtitle="Dónde se come y se descansa, y a cuánto queda del campo"
                         icon={Hotel}
                       >
-                        <Plegable
-                          key={`hotel-${viaje.partidoId}-${status === "loading" ? "leyendo" : "listo"}`}
-                          plegado={
-                            ![viaje.hotel.nombre, viaje.hotel.direccion, viaje.hotel.telefono, viaje.hotel.entrada, viaje.hotel.distancia, viaje.hotel.tiempo, viaje.hotel.enlace].some((x) => x.trim()) &&
-                            !viaje.hotel.foto?.url &&
-                            !viaje.hotel.ruta?.url
-                          }
-                          titulo="Añadir el hotel"
-                          detalle="nombre, dirección, teléfono, entrada y fotos"
-                        >
                         {camposHotel()}
-                        </Plegable>
                       </Panel>
                       </SeccionMovil>
                     </div>
@@ -2376,7 +2616,7 @@ export default function DesplazamientoPage() {
                               abierto={Boolean(abiertas["faltan-estadio"])}
                               onCambia={(abierto) => setAbiertas((a) => (Boolean(a["faltan-estadio"]) === abierto ? a : { ...a, "faltan-estadio": abierto }))}
                             >
-                              {camposEstadioExtra()}
+                              {camposEstadioExtra(false)}
                             </DetalleFalta>
                           )}
                           {hotelEnFaltan && (
@@ -2387,7 +2627,7 @@ export default function DesplazamientoPage() {
                               abierto={Boolean(abiertas["faltan-hotel"])}
                               onCambia={(abierto) => setAbiertas((a) => (Boolean(a["faltan-hotel"]) === abierto ? a : { ...a, "faltan-hotel": abierto }))}
                             >
-                              {camposHotel()}
+                              {camposHotel(false)}
                             </DetalleFalta>
                           )}
                         </div>
@@ -2537,49 +2777,95 @@ export default function DesplazamientoPage() {
                           Horario · {viaje.dias.length}{" "}
                           {viaje.dias.length === 1 ? "hoja A4" : "hojas A4"}
                         </Button>
+
+                        {/* 12/11/2026 (expertos): en el móvil la miniatura no se lee; a pantalla completa y con zoom sí. */}
+                        <Button
+                          icon={Maximize2}
+                          onClick={() => {
+                            setZoom(estrecho ? 250 : 100);
+                            setPantallaCompleta(true);
+                          }}
+                        >
+                          Ver a pantalla completa
+                        </Button>
                       </div>
 
                       <div className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-[#11161C] p-3">
-                        {vista === "dossier" ? (
-                          <Escalado
-                            ancho={DOSSIER_W}
-                            alto={
-                              (DOSSIER_H + 26) * titulosDossier(viaje).length
-                            }
-                          >
-                            <DossierViaje viaje={viajeVista ?? viaje} lugares={store.lugares} />
-                          </Escalado>
-                        ) : (
-                          <div className="mx-auto max-w-[720px]">
-                            <Escalado
-                              ancho={HOJA_W}
-                              alto={
-                                (HOJA_H + 26) * Math.max(1, viaje.dias.length)
-                              }
-                            >
-                              <HojasHorario viaje={viaje} />
-                            </Escalado>
-                          </div>
-                        )}
+                        {vista === "dossier" ? documentoVista : <div className="mx-auto max-w-[720px]">{documentoVista}</div>}
                       </div>
                     </Panel>
                   </div>
 
+                  {/* ======== VISTA PREVIA A PANTALLA COMPLETA ======== */}
+
+                  {pantallaCompleta && (
+                    <div
+                      role="dialog"
+                      aria-modal="true"
+                      aria-label="Vista previa a pantalla completa"
+                      className="modal-veil fixed inset-0 z-50 flex flex-col"
+                    >
+                      <div className="flex flex-wrap items-center gap-2 border-b border-white/10 bg-[#0B0F14] px-4 py-2 pr-14">
+                        <p className="min-w-0 flex-1 truncate text-sm font-semibold text-white">
+                          {vista === "dossier" ? `Dossier · ${titulosDossier(viaje).length} diapositivas` : `Horario · ${viaje.dias.length} ${viaje.dias.length === 1 ? "hoja A4" : "hojas A4"}`}
+                        </p>
+                        <span className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            aria-label="Alejar"
+                            disabled={zoom <= 50}
+                            onClick={() => setZoom((z) => Math.max(50, z - 50))}
+                            className="rounded-lg border border-white/15 p-1.5 text-white/70 transition hover:text-white disabled:opacity-30"
+                          >
+                            <ZoomOut size={16} />
+                          </button>
+                          <button
+                            type="button"
+                            title="Ajustar al ancho"
+                            onClick={() => setZoom(100)}
+                            className="min-w-[52px] rounded-lg px-1.5 py-1 text-center text-[13px] tabular-nums text-white/80 hover:text-white"
+                          >
+                            {zoom} %
+                          </button>
+                          <button
+                            type="button"
+                            aria-label="Acercar"
+                            disabled={zoom >= 400}
+                            onClick={() => setZoom((z) => Math.min(400, z + 50))}
+                            className="rounded-lg border border-white/15 p-1.5 text-white/70 transition hover:text-white disabled:opacity-30"
+                          >
+                            <ZoomIn size={16} />
+                          </button>
+                        </span>
+                        <Button icon={X} onClick={() => setPantallaCompleta(false)}>
+                          Cerrar
+                        </Button>
+                      </div>
+
+                      {/* Al 100 % el documento va al ancho de la pantalla; por encima se desplaza en las dos direcciones. */}
+                      <div className="min-h-0 flex-1 overflow-auto bg-[#11161C] p-3 [touch-action:pan-x_pan-y_pinch-zoom]">
+                        <div style={{ width: `${zoom}%` }} className={vista === "horario" && zoom <= 100 ? "mx-auto max-w-[820px]" : ""}>
+                          {documentoVista}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* ================== EXPORTAR ================== */}
 
-                  <div className="mt-5">
+                  <div className="mt-5 scroll-mt-20" id="viaje-exporta">
                     <ExportaViaje viaje={viajeVista ?? viaje} lugares={store.lugares} porRevisar={porRevisar} />
                   </div>
 
                   {/*
-                  | En el móvil, «Vista previa y exportar» siempre a mano (11/11/2026):
+                  | En el móvil, «Sacar los documentos» siempre a mano (11/11/2026):
                   | el formulario es largo y el botón de la cabecera se quedaba arriba.
                   | Abajo a la izquierda, lejos del botón flotante de herramientas.
                   */}
                   <div className={`pointer-events-none fixed inset-x-0 bottom-0 z-40 justify-start px-4 pb-[max(12px,env(safe-area-inset-bottom))] sm:hidden ${bajado ? "flex" : "hidden"}`}>
                     <span className="pointer-events-auto rounded-xl shadow-lg shadow-black/30">
-                      <Button tone="primary" icon={Eye} onClick={() => irA("viaje-vista")}>
-                        Vista previa y exportar
+                      <Button tone="primary" icon={Download} onClick={() => irA("viaje-exporta")}>
+                        Sacar los documentos
                       </Button>
                     </span>
                   </div>
