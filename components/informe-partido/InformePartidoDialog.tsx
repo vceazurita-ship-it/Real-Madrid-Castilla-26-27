@@ -2300,8 +2300,21 @@ export function InformePartidoDialog({
           {informe && !cargando ? (
             <span className="min-w-0 text-[11px] text-white/50" role="status" aria-live="polite">
               {abpCargando ? (
-                <span className="inline-flex items-center gap-1.5">
+                <span className="inline-flex flex-wrap items-center gap-1.5">
                   <Loader2 size={11} className="shrink-0 animate-spin" /> Preparando el informe de ABP del microciclo…
+                  {/*
+                  | NO ESPERAR (12/11/2026, fútbol y análisis): el envío se quedaba
+                  | hasta dos minutos en «Preparando ABP…». Con esto, sale ya con lo
+                  | que hay del plan de ABP; «Reintentar» lo vuelve a pedir.
+                  */}
+                  <button
+                    type="button"
+                    className="underline underline-offset-2"
+                    onClick={() => setAbp({ ok: false, clave: abpClave, error: "se ha seguido sin esperarlo" })}
+                    title="Mandar o descargar ya, sin el informe de balón parado de la semana"
+                  >
+                    Seguir sin él
+                  </button>
                 </span>
               ) : abpActual?.ok ? (
                 <span className="inline-flex items-center gap-1.5" title="Va su resumen en las diapositivas y el informe entero en el completo">
