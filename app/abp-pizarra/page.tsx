@@ -47,6 +47,7 @@ import {
   FlaskConical,
   History,
   LayoutGrid,
+  Maximize2,
   MoreHorizontal,
   Link2,
   Pencil,
@@ -203,6 +204,7 @@ import { SCOUT_DOC_KEY, actionsOf } from "@/lib/abp/rivalScout";
 import { buildAerialThreats, cargaAlturasBesoccer } from "@/lib/abp/rival";
 import { enElCampo } from "@/lib/abp/pizarra";
 import { nombreRivalPieza } from "@/lib/abp/nombre-rival";
+import { esPortero } from "@/lib/abp/pizarra-jugador";
 
 /** `editando` de una ficha suelta: cambiar de quién es sin puesto de la plantilla. */
 const CLAVE_SUELTA = "suelta:";
@@ -236,7 +238,29 @@ const ESPERA_VERSION_MS = 45_000;
  * La jornada va delante porque es como el cuerpo técnico llama a la semana. Los
  * amistosos de pretemporada no la tienen y empiezan por la fecha.
  */
-function etiquetaPartido(partido: MatchMeta, fechas?: Map<number, string>) {
+/**
+ * El rival en corto para el desplegable (12/11/2026, jueces): a 390 px
+ * «J12 · 13 nov · @ Gimnàstic de Tar…» se cortaba. Sin siglas de club y, si
+ * es largo, sin el «de Ciudad»: «Gimnàstic», «Hércules», «Huesca». El nombre
+ * entero va en el chip de al lado y en las láminas.
+ */
+function rivalCorto(nombre: string) {
+  const palabras = nombre.replace(/\s+/g, " ").trim().split(" ");
+  const sinSiglas = palabras.filter((p, i) => !(palabras.length > 1 && /^(ad|cd|cf|fc|sd|ud|ue|rcd|sad|cp|ce|rc|club)$/i.test(p) && (i === 0 || i === palabras.length - 1)));
+  let corto = sinSiglas.join(" ");
+
+  if (corto.length > 14) {
+    const de = sinSiglas.findIndex((p, i) => i > 0 && /^(de|del)$/i.test(p));
+    /* El filial («B», «C») se queda: «Atlético B» no es el Atlético. */
+    const filial = /^[BC]$/.test(sinSiglas[sinSiglas.length - 1] ?? "") ? ` ${sinSiglas[sinSiglas.length - 1]}` : "";
+
+    if (de > 0) corto = sinSiglas.slice(0, de).join(" ") + filial;
+  }
+
+  return corto || nombre;
+}
+
+function etiquetaPartido(partido: MatchMeta, fechas?: Map<number, string>, corto = false) {
   const numero = partido.competition.match(/^Jornada\s+(\d+)/i);
 
   /* Un amistoso no tiene número de jornada: sin rótulo parecía un hueco. */
@@ -246,7 +270,9 @@ function etiquetaPartido(partido: MatchMeta, fechas?: Map<number, string>) {
      RIVALES va un día corrida («01 nov» frente a «sábado 31 de octubre»). */
   const real = numero ? fechas?.get(Number(numero[1])) : undefined;
 
-  return `${jornada}${formatMatchDate(real ? { ...partido, date: real } : partido)} · ${matchLabel(partido)}`;
+  const quien = corto ? `${rivalCorto(partido.opponent)} (${partido.isHome ? "casa" : "fuera"})` : matchLabel(partido);
+
+  return `${jornada}${formatMatchDate(real ? { ...partido, date: real } : partido)} · ${quien}`;
 }
 
 /**
@@ -298,13 +324,14 @@ function SelectorJornada({
 }) {
   const [todas, setTodas] = useState(false);
   const iProximo = opciones.findIndex((una) => una.proximo);
-  const ultimaJugada = [...opciones].reverse().find((una) => una.jugado);
+  /* 12/11/2026 (jueces): las dos últimas jugadas (de donde se copia), no sólo una. */
+  const ultimasJugadas = opciones.filter((una) => una.jugado).slice(-2);
   const atajos = [
-    ultimaJugada,
+    ...ultimasJugadas,
     ...(iProximo >= 0 ? opciones.slice(iProximo, iProximo + 2) : opciones.filter((una) => !una.jugado).slice(0, 2)),
   ].filter((una, i, lista): una is OpcionJornada => !!una && lista.findIndex((otra) => otra?.id === una.id) === i);
-  /* 30/10/2026: el desplegable trae sólo la última jugada, la próxima y la
-     siguiente (y la elegida); las otras 35, tras «Más jornadas». */
+  /* 30/10/2026: el desplegable trae sólo las dos últimas jugadas, la próxima
+     y la siguiente (y la elegida); las demás, tras «Ver las otras…». */
   const cercanas = new Set(atajos.map((una) => una.id));
   const visibles = (una: OpcionJornada) => todas || cercanas.has(una.id) || una.id === valor;
   const jugadas = opciones.filter((una) => una.jugado && visibles(una));
@@ -326,7 +353,7 @@ function SelectorJornada({
           if (event.target.value === MAS_JORNADAS) setTodas((antes) => !antes);
           else onCambia(event.target.value);
         }}
-        className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"
+        className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/50 sm:min-h-0"
       >
         {vacio !== undefined && (
           <option value="" className="bg-[#11161C]">
@@ -356,7 +383,7 @@ function SelectorJornada({
 
         {(plegadas > 0 || todas) && (
           <option value={MAS_JORNADAS} className="bg-[#11161C]">
-            {todas ? "Sólo las jornadas cercanas" : `Más jornadas (${plegadas})…`}
+            {todas ? "Ver sólo las cercanas" : `Ver las otras ${plegadas} jornadas…`}
           </option>
         )}
       </select>
@@ -377,7 +404,8 @@ function marcaDeTablero(tablero?: TableroPizarra) {
 
   if (total === 0) return " · con pizarra";
 
-  return ` · ${total} ${total === 1 ? "versión" : "versiones"}`;
+  /* «· 3 v.»: con «versiones» entero la línea no cabía a 390 px. */
+  return ` · ${total} v.`;
 }
 
 /**
@@ -670,7 +698,7 @@ export default function PizarraAbpPage() {
   /* Sin el año (30/10/2026, expertos): toda la temporada cae en él y en el
      móvil cortaba la opción en «J10 · 31 oct 2026 · vs Cartagena · próximo · 1…». */
   const etiquetaOpcion = (item: MatchMeta) =>
-    `${etiquetaPartido(item, fechasReales).replace(/(\d{1,2} [a-zé]+\.?) \d{4}/i, "$1")}${item.id === proximoId ? " · próximo" : ""}`;
+    `${etiquetaPartido(item, fechasReales, true).replace(/(\d{1,2} [a-zé]+\.?) \d{4}/i, "$1")}${item.id === proximoId ? " · próximo" : ""}`;
 
   const esJugado = (item: MatchMeta) => item.id !== proximoId && Boolean(item.date) && (item.date as string) < hoy;
 
@@ -1413,6 +1441,9 @@ export default function PizarraAbpPage() {
     return ids.length >= 7 ? ids : [];
   }, [onceTactica, players]);
 
+  /* El portero del once: bajo palos en las defensivas del proyector (su cara, no «POR»). */
+  const porteroOnce = useMemo(() => delOnce.find((id) => esPortero(porId.get(id))) ?? null, [delOnce, porId]);
+
   const disponibles = useMemo(
     () => new Set(delOnce.length > 0 ? delOnce : players.map((player) => player.id)),
     [delOnce, players],
@@ -1446,10 +1477,18 @@ export default function PizarraAbpPage() {
   | esté aún en la pizarra y sea de su misma línea (portero, defensa, medio,
   | delantero). Lo que no tiene pareja clara se queda para «Cambiarlos».
   */
-  const parejasDelOnce = useMemo(() => {
-    if (!tablero || delOnce.length === 0) return [] as { sale: string; entra: string; soloTexto: boolean }[];
+  /*
+  | Pura sobre el tablero que se le pase (12/11/2026): «Copiar de J11 y poner
+  | el once» la necesita sobre la copia recién hecha, antes de que llegue al
+  | estado.
+  */
+  const parejasDe = useCallback((tab: TableroPizarra) => {
+    if (delOnce.length === 0) return [] as { sale: string; entra: string; soloTexto: boolean }[];
 
-    const enPizarra = new Set(jugadoresDelTablero(tablero).map((item) => item.playerId));
+    const enOnce = new Set(delOnce);
+    const fueraDelOnce = jugadoresDelTablero(tab).filter((item) => !enOnce.has(item.playerId)).map((item) => item.playerId);
+    const textosFuera = mencionesFuera(tab, players, enOnce);
+    const enPizarra = new Set(jugadoresDelTablero(tab).map((item) => item.playerId));
     const libres = delOnce.filter((id) => !enPizarra.has(id));
     const linea = (id: string) => {
       const puesto = String(porId.get(id)?.posicion ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
@@ -1479,7 +1518,9 @@ export default function PizarraAbpPage() {
     }
 
     return parejas;
-  }, [tablero, delOnce, fueraDelOnce, textosFuera, porId]);
+  }, [delOnce, players, porId]);
+
+  const parejasDelOnce = useMemo(() => (tablero ? parejasDe(tablero) : []), [tablero, parejasDe]);
 
   /* --------------------------- PUESTOS ----------------------------- */
 
@@ -1858,7 +1899,7 @@ export default function PizarraAbpPage() {
   | histórico. Rehacer la semana desde la anterior era justo el momento en el
   | que el pptx se comía el trabajo del martes.
   */
-  const copiaDelAnterior = useCallback(() => {
+  const copiaDelAnterior = useCallback((conOnce = false) => {
     if (!partido || !anterior) return;
 
     const origen = store.tableros?.[anterior.id];
@@ -1875,15 +1916,36 @@ export default function PizarraAbpPage() {
       jornadas.find((item) => `riv-${item.id}` === partido.id) ??
       buscaJornada(jornadas, { rival: partido.opponent, fecha: partido.date });
 
+    /* Con el once: las parejas se calculan sobre la copia, no sobre lo de antes,
+       y ANTES del setState (contar dentro del actualizador daba cero en el aviso). */
+    const parejas = conOnce && tablero ? parejasDe(copiaTablero(origen, tablero, cuando)) : [];
+    const cambios = parejas.length;
+
     mutaTablero((actual) => {
       const conPrevia = tieneFichas(actual.slides)
         ? registraVersion(actual, { cuando, motivo: "previa" })
         : actual;
 
-      return registraVersion({ ...copiaTablero(origen, conPrevia, cuando), rivalId: delPartido?.id ?? "", jornada: delPartido?.jornada ?? "" }, {
+      let copia: TableroPizarra = { ...copiaTablero(origen, conPrevia, cuando), rivalId: delPartido?.id ?? "", jornada: delPartido?.jornada ?? "" };
+
+      if (conOnce) {
+        for (const { sale, entra, soloTexto } of parejas) {
+          const sP = porId.get(sale);
+          const eP = porId.get(entra);
+
+          if (soloTexto) {
+            if (sP && eP) copia = cambiaEnTextosDelTablero(copia, sP, eP, cuando);
+            continue;
+          }
+
+          copia = cambiaJugador(copia, sale, entra, { cuando, nombres: sP && eP ? { sale: sP, entra: eP } : undefined });
+        }
+      }
+
+      return registraVersion(copia, {
         cuando,
         motivo: "copia",
-        etiqueta: `Traída de ${matchLabel(anterior)}`,
+        etiqueta: `Traída de ${matchLabel(anterior)}${conOnce ? " con el once" : ""}`,
         forzar: true,
       });
     });
@@ -1893,12 +1955,12 @@ export default function PizarraAbpPage() {
     /* Si alguna consigna heredada no cabe en la sala, se avisa ya. */
     const conAviso = origen.slides.filter((s) => avisosConsignas(s.notas).length > 0).length;
 
-    toast.success(`Copiado de ${matchLabel(anterior)}`, {
+    toast.success(`Copiado de ${matchLabel(anterior)}${conOnce && cambios > 0 ? ` y puesto el once (${cambios} ${cambios === 1 ? "cambio" : "cambios"})` : ""}`, {
       description: conAviso
         ? `${conAviso} ${conAviso === 1 ? "diapositiva trae" : "diapositivas traen"} consignas largas o de más: revísalas en «Textos».`
         : undefined,
     });
-  }, [partido, anterior, store.tableros, mutaTablero, jornadas]);
+  }, [partido, anterior, store.tableros, mutaTablero, jornadas, parejasDe, porId, tablero]);
 
   /* --------------------------- VERSIONES --------------------------- */
 
@@ -2757,7 +2819,7 @@ export default function PizarraAbpPage() {
                     })}
                     junto={
                       partido ? (
-                        <span className="inline-flex h-9 max-w-[45%] shrink-0 items-center gap-1.5 rounded-full border border-white/10 px-2.5 text-xs font-semibold text-white/75">
+                        <span className="inline-flex h-9 max-w-[45%] shrink-0 items-center gap-1.5 rounded-full border border-white/10 px-2.5 text-xs font-semibold text-white/75 max-sm:hidden">
                           <EscudoEquipo
                             nombre={tablero?.rival || partido.opponent}
                             escudo={escudoDe(tablero?.rival || partido.opponent)}
@@ -2813,7 +2875,7 @@ export default function PizarraAbpPage() {
                     10/11/2026 (jueces): «Colocar en todas» también va aquí; con la
                     pizarra sin empezar, la acción principal está en el aviso. */}
                 <details className="relative">
-                  <summary className="inline-flex h-9 cursor-pointer list-none items-center gap-1.5 rounded-xl border border-white/12 px-3 text-sm text-white/70 transition hover:border-white/25 hover:text-white marker:hidden">
+                  <summary className="inline-flex h-9 cursor-pointer list-none items-center gap-1.5 rounded-xl border border-white/12 px-3 text-sm text-white/70 transition hover:border-white/25 hover:text-white marker:hidden max-sm:h-11">
                     Más
                     <ChevronRight size={13} className="rotate-90" />
                   </summary>
@@ -2838,7 +2900,7 @@ export default function PizarraAbpPage() {
                     {anterior && !leyendo && tablero && tieneFichas(tablero.slides) && (
                       <Button
                         icon={Copy}
-                        onClick={copiaDelAnterior}
+                        onClick={() => copiaDelAnterior()}
                         title={`Traer las diapositivas de ${matchLabel(anterior)}`}
                       >
                         {guardado ? "Rehacer desde" : "Copiar de"} {matchLabel(anterior)}
@@ -2862,6 +2924,17 @@ export default function PizarraAbpPage() {
                     >
                       Cambiar jugador
                     </Button>
+
+                    {/* 12/11/2026 (jueces): era un tercer mando a la vista para casi lo mismo que el selector de partido. */}
+                    {partido && (
+                      <Button
+                        icon={Shield}
+                        onClick={() => setCabeceraAbierta((antes) => !antes)}
+                        title="El nombre del rival que sale en las láminas y la jornada del plan con la que se cruza"
+                      >
+                        {cabeceraAbierta ? "Ocultar rival y jornada" : "Rival y jornada de la pizarra"}
+                      </Button>
+                    )}
                   </div>
                 </details>
 
@@ -2946,7 +3019,7 @@ export default function PizarraAbpPage() {
               </div>
             )}
 
-            {partido && (
+            {partido && cabeceraAbierta && (
               <button
                 type="button"
                 onClick={() => setCabeceraAbierta((antes) => !antes)}
@@ -3127,21 +3200,29 @@ export default function PizarraAbpPage() {
                 | aprendido. Las consignas que trae la plantilla en blanco son
                 | las que se dejaron «para las siguientes»: se dice.
                 */}
+                {/* 12/11/2026 (jueces): una línea y un botón que hace las dos cosas
+                    (copiar y poner el once); lo que falta por diapositiva va en la tira. */}
                 {!guardado && !leyendo && (
-                  <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-[#C8A96B]/30 bg-[#C8A96B]/[0.06] px-4 py-3.5 sm:flex-row sm:items-center">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-white/90">
-                        Pizarra sin empezar · {totales.total} puestos por colocar en {tablero?.slides.length ?? 0} diapositivas
-                      </p>
-                      <p className="mt-1 text-[13px] leading-snug text-white/60">
-                        {anterior
-                          ? `Copia ${matchLabel(anterior)} y después pon el once de la pizarra táctica. Las consignas de la plantilla son las que se dejaron guardadas de jornadas anteriores: revísalas.`
-                          : "Coloca con lo aprendido o pincha un hueco del campo. Las consignas de la plantilla son las que se dejaron guardadas de jornadas anteriores: revísalas."}
-                      </p>
-                    </div>
+                  <div className="mt-4 flex flex-col gap-2 rounded-2xl border border-[#C8A96B]/30 bg-[#C8A96B]/[0.06] px-4 py-2.5 sm:flex-row sm:items-center">
+                    <p className="min-w-0 flex-1 text-sm text-white/80">
+                      <b className="font-semibold text-white/95">Pizarra sin empezar.</b>{" "}
+                      {anterior
+                        ? `Trae jugadores, flechas y consignas de ${matchLabel(anterior)}${delOnce.length > 0 ? " con el once de la pizarra táctica ya puesto" : ""}.`
+                        : "Coloca con lo aprendido o pincha un hueco del campo."}
+                    </p>
                     {anterior ? (
-                      <Button icon={Copy} tone="primary" onClick={copiaDelAnterior} title={`Traer las diapositivas de ${matchLabel(anterior)}`}>
-                        Copiar de {matchLabel(anterior)}
+                      <Button
+                        icon={Copy}
+                        tone="primary"
+                        onClick={() => copiaDelAnterior(delOnce.length > 0)}
+                        title={`Traer las diapositivas de ${matchLabel(anterior)}${delOnce.length > 0 ? " y cambiar a los que no están en el once" : ""}`}
+                      >
+                        {(() => {
+                          const n = anterior.competition.match(/^Jornada\s+(\d+)/i);
+                          const de = n ? `J${n[1].padStart(2, "0")}` : matchLabel(anterior);
+
+                          return delOnce.length > 0 ? `Copiar de ${de} y poner el once` : `Copiar de ${de}`;
+                        })()}
                       </Button>
                     ) : (
                       <Button icon={Wand2} tone="primary" onClick={() => coloca(true)} disabled={!tablero || aprendidos === 0}>
@@ -3291,10 +3372,10 @@ export default function PizarraAbpPage() {
                             })()}
 
                             {/* La cifra, sólo si falta alguien: completa no hace falta decir nada. */}
-                            {/* Sin empezar, la cuenta ya está en el aviso de arriba (10/11/2026). */}
-                            {guardado && (!total || cubiertos < total) && (
-                              <span className="block text-[11px] tabular-nums text-amber-300/70">
-                                {total ? `${cubiertos} de ${total} colocados` : "Libre"}
+                            {/* 12/11/2026 (jueces): también sin empezar, diapositiva a diapositiva («0/10»). */}
+                            {(!total || cubiertos < total) && (
+                              <span className="block text-[11px] tabular-nums text-amber-300/80">
+                                {total ? `${cubiertos}/${total} colocados` : "Libre"}
                               </span>
                             )}
                           </button>
@@ -3311,7 +3392,7 @@ export default function PizarraAbpPage() {
                           onChange={(event) => {
                             if (event.target.value) anadeSlide(event.target.value);
                           }}
-                          className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/70 outline-none transition focus:border-[#C8A96B]/50"
+                          className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/70 outline-none transition focus:border-[#C8A96B]/50 max-sm:min-h-[44px]"
                         >
                           <option value="">+ Añadir diapositiva…</option>
 
@@ -3549,6 +3630,17 @@ export default function PizarraAbpPage() {
                       );
                     })()}
 
+                    {/* 12/11/2026 (jueces): en el móvil, la miniatura lleva su propio
+                        «ampliar» encima, a un toque del pulgar (44 px). */}
+                    <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setProyectando(activa)}
+                      aria-label="Ver la lámina en grande, en horizontal"
+                      className="absolute right-2 top-2 z-[60] grid h-11 w-11 place-items-center rounded-full border border-white/25 bg-[#0F2036]/85 text-white shadow-lg sm:hidden"
+                    >
+                      <Maximize2 size={18} />
+                    </button>
                     <TableroSlide
                       slide={slide}
                       titulo={tablero ? tituloVisible(tablero.slides, activa) : undefined}
@@ -3583,6 +3675,7 @@ export default function PizarraAbpPage() {
                       }
                       onCambiarTexto={cambiaTextoEnSitio}
                     />
+                    </div>
 
                     {/*
                     | En el móvil en vertical la diapositiva es una miniatura: se
@@ -3644,8 +3737,9 @@ export default function PizarraAbpPage() {
                             Consignas
                           </p>
 
+                          {/* 12/11/2026 (jueces): con la misma letra que en la lámina (A, B, C…), no «1.», «2.». */}
                           <ul className="space-y-1.5">
-                            {lineasConsignas(slide.notas).map((linea, indice) =>
+                            {lineasConsignas(slide.notas).map((linea, indice, todas) =>
                               linea.tipo === "subtitulo" ? (
                                 <li
                                   key={`${indice}-${linea.texto}`}
@@ -3654,8 +3748,11 @@ export default function PizarraAbpPage() {
                                   {linea.texto}
                                 </li>
                               ) : (
-                                <li key={`${indice}-${linea.texto}`} className="text-base leading-snug text-white/85">
-                                  {ajustaNombres(linea.texto, players)}
+                                <li key={`${indice}-${linea.texto}`} className="flex gap-2 text-base leading-snug text-white/85">
+                                  <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded bg-[#0F2036] text-[12px] font-bold text-white ring-1 ring-[#C8A96B]/60">
+                                    {String.fromCharCode(64 + Math.min(26, todas.slice(0, indice + 1).filter((una) => una.tipo === "consigna").length))}
+                                  </span>
+                                  <span className="min-w-0">{ajustaNombres(linea.texto, players).replace(/^\s*\d+[.)ºª]?\s+/, "")}</span>
                                 </li>
                               ),
                             )}
@@ -3670,7 +3767,7 @@ export default function PizarraAbpPage() {
 
                 {slide && (
                   <div className="mt-5">
-                    <FichasSueltasPlegables plegado>
+                    <FichasSueltasPlegables plegado enCampo={slide.fichas.filter((ficha) => !ficha.puesto).length} plantilla={players.length}>
                     <Panel
                       title="Fichas sueltas"
                       subtitle="Alguien que no ocupa un puesto de la plantilla: se coloca a mano donde haga falta"
@@ -3713,7 +3810,7 @@ export default function PizarraAbpPage() {
 
                 {/* Con la pizarra sin empezar, textos, histórico y lo aprendido
                     van plegados: no hay nada que ajustar hasta que haya contenido. */}
-                <PlegadoSiVacio vacio={!guardado}>
+                <PlegadoSiVacio vacio={!guardado} aprendidos={aprendidos}>
                 {/* ====================== TEXTOS ====================== */}
 
                 {slide && (
@@ -3935,6 +4032,7 @@ export default function PizarraAbpPage() {
           players={porId}
           temporada={temporadaCorta(RATINGS_SEASON)}
           rival={nombreRivalPieza(tablero.rival || partido?.opponent)}
+          portero={porteroOnce}
           onCerrar={(indice) => {
             setProyectando(null);
             setPedida(indice);
@@ -3970,26 +4068,46 @@ export default function PizarraAbpPage() {
 }
 
 /** Pliega sus hijos bajo un resumen mientras no haya contenido que ajustar. */
-function FichasSueltasPlegables({ plegado, children }: { plegado: boolean; children: React.ReactNode }) {
+/* 12/11/2026 (jueces): los dos plegables del final no decían qué tenían dentro; ahora llevan la cuenta. */
+function FichasSueltasPlegables({
+  plegado,
+  enCampo = 0,
+  plantilla = 0,
+  children,
+}: {
+  plegado: boolean;
+  /** Las sueltas que ya hay en esta diapositiva. */
+  enCampo?: number;
+  /** Los jugadores que se pueden poner. */
+  plantilla?: number;
+  children: React.ReactNode;
+}) {
   if (!plegado) return <>{children}</>;
 
   return (
     <details className="rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3">
-      <summary className="cursor-pointer select-none text-xs font-medium text-white/60">
-        Fichas sueltas: alguien que no ocupa un puesto de la plantilla
+      <summary className="flex min-h-[44px] cursor-pointer select-none flex-wrap items-center gap-x-2 text-xs font-medium text-white/70 sm:min-h-0">
+        Fichas sueltas
+        <span className="font-normal text-white/50">
+          {enCampo > 0 ? `${enCampo} en esta diapositiva · ` : ""}
+          {plantilla} jugadores para poner fuera de un puesto
+        </span>
       </summary>
       <div className="mt-3">{children}</div>
     </details>
   );
 }
 
-function PlegadoSiVacio({ vacio, children }: { vacio: boolean; children: React.ReactNode }) {
+function PlegadoSiVacio({ vacio, aprendidos = 0, children }: { vacio: boolean; aprendidos?: number; children: React.ReactNode }) {
   if (!vacio) return <>{children}</>;
 
   return (
     <details className="mt-5 rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3">
-      <summary className="cursor-pointer select-none text-xs font-medium text-white/60">
-        Textos, histórico y lo que ha aprendido (se abren en cuanto haya contenido)
+      <summary className="flex min-h-[44px] cursor-pointer select-none flex-wrap items-center gap-x-2 text-xs font-medium text-white/70 sm:min-h-0">
+        Textos, historial y memoria
+        <span className="font-normal text-white/50">
+          título y consignas de cada diapositiva · 0 versiones · {aprendidos} {aprendidos === 1 ? "puesto aprendido" : "puestos aprendidos"}
+        </span>
       </summary>
       {children}
     </details>

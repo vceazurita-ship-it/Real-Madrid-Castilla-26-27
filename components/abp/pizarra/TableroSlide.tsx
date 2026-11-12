@@ -26,6 +26,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { Pencil, User, X } from "lucide-react";
 
 import { apartaRivales, ESCALA_APRETADA, separaFichas } from "@/lib/abp/separa";
+import type { AtacantePanel } from "@/lib/abp/marcas-corner";
 
 import type { Player } from "@/types/player";
 import { ajustaNombres } from "@/lib/abp/nombresPlantilla";
@@ -512,7 +513,7 @@ function maquetaDe(conPanel: boolean, franja: number, jugada?: Caja | null): Maq
 }
 
 /** Lo que ocupa la jugada: caras, rivales, flechas y puestos con sitio. */
-function cajaDeJugada(slide: SlidePizarra): Caja | null {
+function cajaDeJugada(slide: SlidePizarra, rivalesMovidos: { x: number; y: number }[] = []): Caja | null {
   const xs: number[] = [];
   const ys: number[] = [];
 
@@ -524,7 +525,7 @@ function cajaDeJugada(slide: SlidePizarra): Caja | null {
   /* Con los que se dibujan solos al enseñar (atacantes y porteros). */
   const porteroPropio = porteroPropioDeLaLamina(slide);
 
-  for (const rival of [...rivalesDeLaLamina(slide), ...(porteroPropio ? [porteroPropio] : [])]) {
+  for (const rival of [...rivalesDeLaLamina(slide), ...rivalesMovidos, ...(porteroPropio ? [porteroPropio] : [])]) {
     xs.push(rival.x - 30, rival.x + 30);
     ys.push(rival.y - 60, rival.y + 8);
   }
@@ -1256,9 +1257,40 @@ function ChapaRival({
  * Nuestro portero bajo palos en las láminas defensivas (07/11/2026): una
  * chapa blanca con filo oro y «POR», del mismo tamaño que la del rival, para
  * que la portería no salga vacía en el PDF.
+ *
+ * 12/11/2026 (jueces): con el portero del once, su cara en la chapa y su
+ * nombre debajo. Sigue siendo pequeña: es la referencia, no la jugada.
  */
-function ChapaPorteroPropio({ x, y }: { x: number; y: number }) {
+function ChapaPorteroPropio({ x, y, player }: { x: number; y: number; player?: Player }) {
   const lado = 52;
+  const nombre = (player?.apodo || player?.nombre || "").trim();
+
+  if (player?.foto) {
+    return (
+      <div
+        data-portero
+        className="pointer-events-none absolute flex select-none flex-col items-center"
+        style={{ left: x - 60, top: y - lado - 4, width: 120, zIndex: profundidad(x, y) }}
+        aria-label={`Nuestro portero: ${nombre}`}
+      >
+        <div
+          className="overflow-hidden rounded-full"
+          style={{ width: lado, height: lado, background: "#DCE3EC", boxShadow: `0 0 0 3px ${COLORES.oro}, 0 8px 14px rgba(0,0,0,.5)` }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={player.foto} alt="" className="h-full w-full object-cover object-top" draggable={false} />
+        </div>
+        {nombre && (
+          <span
+            className="mt-1 rounded-md px-1.5 text-[15px] font-bold uppercase leading-[20px]"
+            style={{ background: COLORES.noche, color: "#FFFFFF", fontFamily: "var(--fuente-pizarra, inherit)", boxShadow: `inset 0 0 0 1px ${COLORES.oro}` }}
+          >
+            {nombre.split(/\s+/)[0]}
+          </span>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div
@@ -1459,6 +1491,8 @@ export function TableroSlide({
   destacado = null,
   onCambiarTexto,
   partido = "",
+  portero = null,
+  atacantes,
 }: {
   slide: SlidePizarra;
   players: Map<string, Player>;
@@ -1528,6 +1562,16 @@ export function TableroSlide({
    * bajo el rival («J12 · lámina 3 de 9»), que sólo decía «Temporada 26/27».
    */
   partido?: string;
+  /**
+   * El portero del once de la pizarra táctica (12/11/2026, jueces): bajo palos
+   * en las defensivas iba un «POR» genérico; con él sale su cara y su nombre.
+   */
+  portero?: string | null;
+  /**
+   * Su once (12/11/2026, jueces): «Marca al 8» no decía quién es el 8. Con
+   * esto el panel exportado escribe «Al 8 Montalvo · 1,80».
+   */
+  atacantes?: AtacantePanel[];
 }) {
   const marcoRef = useRef<HTMLDivElement>(null);
 
@@ -1568,7 +1612,14 @@ export function TableroSlide({
   const tituloMostrado = (titulo ?? slide.titulo).trim();
   const corte = tituloMostrado.indexOf(" · ");
   const tituloTipo = corte > 0 ? tituloMostrado.slice(0, corte).trim() : tituloMostrado;
-  const tituloContexto = corte > 0 ? tituloMostrado.slice(corte + 3).trim() : "";
+  /*
+  | 12/11/2026 (jueces): la falta directa sin flechas es una lista de quién
+  | lanza desde cada zona, no una jugada; al enseñarla, el subtítulo lo dice
+  | para que no se lea como una rutina.
+  */
+  const sinContexto = corte > 0 ? tituloMostrado.slice(corte + 3).trim() : "";
+  const tituloContexto =
+    sinContexto || (soloVer && slide.plantilla === "directas" && !(slide.trazos ?? []).length ? "Quién lanza desde cada zona" : "");
 
   /*
   | La señal va fija junto a las asignaciones (01/11/2026, expertos): en la
@@ -2063,13 +2114,12 @@ export function TableroSlide({
     const base = String(puesto.label ?? "").replace(/\s*·\s*\d+$/, "").trim();
     /* «Marca 3» no dice a quién (jueces): con el dorsal de «Quién marca a quién», «Marca al 8». */
     const dorsal = puesto.key ? slide.marcas?.[puesto.key]?.trim() : "";
-    const label = dorsal && /^marca\b/i.test(base) ? `Marca al ${dorsal}` : base;
+    const suyo = dorsal ? atacantes?.find((a) => a.dorsal === dorsal) : undefined;
+    const label = dorsal && /^marca\b/i.test(base) ? (suyo ? `Al ${dorsal} ${suyo.nombre}${suyo.altura ? ` · ${suyo.altura}` : ""}` : `Marca al ${dorsal}`) : base;
     const plano = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 
     return !label || plano(label) === plano(grupo) || plano(label) === plano(siglaDe(puesto)) ? "" : label;
   };
-
-  const maqueta = maquetaDe(conPanel, franja, soloVer ? cajaDeJugada(slide) : null);
 
   const todos = slide.trazos ?? [];
 
@@ -2129,6 +2179,9 @@ export function TableroSlide({
 
   /* Y los rivales, que no tapen a los nuestros: se apartan o van por debajo. */
   const apartados = soloVer ? apartaRivales(rivalesVistos, conChapas ?? enCampo, separadas) : null;
+
+  /* El encuadre cuenta también a los rivales que se han apartado un paso por delante de la fila. */
+  const maqueta = maquetaDe(conPanel, franja, soloVer ? cajaDeJugada(slide, apartados ? [...apartados.values()] : []) : null);
 
   /*
   | En qué momento de la jugada se está, fijo en la cabecera: en el proyector
@@ -2533,7 +2586,7 @@ export function TableroSlide({
           />
         ))}
 
-        {porteroPropio && <ChapaPorteroPropio x={porteroPropio.x} y={porteroPropio.y} />}
+        {porteroPropio && <ChapaPorteroPropio x={porteroPropio.x} y={porteroPropio.y} player={portero ? players.get(portero) : undefined} />}
 
         {/* La letra de cada consigna junto a la figura que nombra (sólo al enseñar). */}
         {soloVer &&
@@ -2979,7 +3032,7 @@ export function TableroSlide({
                             <span
                               className={`min-w-0 flex-1 truncate font-semibold uppercase tracking-[0.02em] ${
                                 panelDenso ? "text-[21px]" : "text-[24px]"
-                              } ${player ? "text-white" : "text-white/35"}`}
+                              } ${player ? "text-white" : "text-white/60"}`}
                             >
                               {player?.apodo ?? player?.nombre ?? puesto.label}
                             </span>
@@ -2989,8 +3042,9 @@ export function TableroSlide({
                             | de jueces): la leyenda de abajo no cabía en las láminas
                             | cargadas y BZ, BC o RL salían sin explicar. Sólo en lo exportado.
                             */}
+                            {/* 12/11/2026 (jueces): a 14 px y al 60 % quedaba en unos 8 px grises en el PDF; ahora 17 px casi blanco. */}
                             {soloVer && player && significadoPuesto(puesto, grupo.label) && (
-                              <span className="max-w-[48%] shrink-0 text-right text-[14px] font-medium normal-case leading-tight text-white/60">
+                              <span className="max-w-[48%] shrink-0 text-right text-[17px] font-medium normal-case leading-tight text-white/85">
                                 {significadoPuesto(puesto, grupo.label)}
                               </span>
                             )}

@@ -23,6 +23,7 @@
  * eso está bien: no ocupa disco.
  */
 
+import type { AtacantePanel } from "@/lib/abp/marcas-corner";
 import type { SlidePizarra } from "@/lib/abp/pizarra";
 import type { MaterialJugada } from "@/lib/abp/rodaje-jugada";
 import type { Player } from "@/types/player";
@@ -31,7 +32,7 @@ import type { Player } from "@/types/player";
  * Sube cuando cambia cómo se dibuja o se monta algo: lo guardado con la
  * versión anterior deja de valer sin tener que recargar.
  */
-const VERSION = "2026-11-12-recorrido";
+const VERSION = "2026-11-12-portero";
 
 /* ------------------------------------------------------------------ */
 /*  HUELLAS                                                            */
@@ -56,15 +57,25 @@ export type ContextoHuella = {
   players: Map<string, Player>;
   temporada: string;
   rival: string;
+  /** El portero del once: se pinta bajo palos en las defensivas. */
+  portero?: string;
+  /** Su once (dorsal, nombre, altura): el panel dice a quién marca cada uno. */
+  atacantes?: AtacantePanel[];
 };
 
 /** Lo que hace que una diapositiva salga distinta en la foto. */
-export function huellaSlide(slide: SlidePizarra, titulo: string, { players, temporada, rival }: ContextoHuella) {
+export function huellaSlide(slide: SlidePizarra, titulo: string, { players, temporada, rival, portero, atacantes }: ContextoHuella) {
   const jugadores = [...new Set(slide.fichas.map((ficha) => ficha.playerId))]
     .sort()
     .map((id) => [id, players.get(id) ?? null]);
 
-  return resumen(JSON.stringify([VERSION, slide, titulo, rival, temporada, jugadores]));
+  const elPortero = portero ? [portero, players.get(portero)?.apodo ?? null, players.get(portero)?.foto ?? null] : null;
+
+  /* Sólo los dorsales que nombra esta diapositiva: otro cambio en su once no rehace las demás. */
+  const dorsales = new Set(Object.values(slide.marcas ?? {}).map((d) => String(d ?? "").trim()).filter(Boolean));
+  const suyos = (atacantes ?? []).filter((a) => dorsales.has(a.dorsal)).map((a) => [a.dorsal, a.nombre, a.altura]);
+
+  return resumen(JSON.stringify([VERSION, slide, titulo, rival, temporada, jugadores, elPortero, suyos]));
 }
 
 /* ------------------------------------------------------------------ */

@@ -244,6 +244,23 @@ export function apartaRivales(
       if (elegido) break;
     }
 
+    /*
+    | 12/11/2026 (jueces): en una fila de marcas —córner y falta lateral
+    | defensivos— los nuestros van a 76 px y no queda hueco a los lados: un
+    | tercio de los rivales acababa «debajo», sin dorsal a la vista. Antes de
+    | rendirse se prueba un paso por delante de la fila (hacia el que saca, más
+    | abajo en la foto), donde está de verdad el atacante antes del golpeo.
+    */
+    if (!elegido) {
+      for (const dy of [70, 90, 110, 130]) {
+        const candidatos = [0, 18, -18, 36, -36, 54, -54].map((dx) => ({ x: rival.x + dx, y: rival.y + dy }));
+
+        elegido = candidatos.find((c) => !pisa(caja(c.x, c.y, RIVAL))) ?? null;
+
+        if (elegido) break;
+      }
+    }
+
     const final = elegido ?? { x: rival.x, y: rival.y };
 
     puestos.push(caja(final.x, final.y, RIVAL));
