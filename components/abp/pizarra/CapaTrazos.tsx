@@ -27,9 +27,12 @@ import {
   caminoDe,
   controlDe,
   esCurvo,
+  faseEnCurso,
   fasesDe,
+  OPACIDAD_RECORRIDO,
   puntoEn,
   tangenteEn,
+  yaRecorrido,
   type TipoTrazo,
   type TrazoPizarra,
 } from "@/lib/abp/trazos";
@@ -60,11 +63,14 @@ function UnTrazo({
   avance,
   elegido,
   conFase,
+  recorrido = false,
 }: {
   trazo: TrazoPizarra;
   avance: number;
   elegido: boolean;
   conFase: boolean;
+  /** De una fase ya pasada: se pinta difuminado. */
+  recorrido?: boolean;
 }) {
   if (avance <= 0) return null;
 
@@ -83,7 +89,7 @@ function UnTrazo({
   const fase = { x: medio.x - dir.y * 26, y: medio.y + dir.x * 26 };
 
   return (
-    <g>
+    <g data-recorrido={recorrido || undefined} opacity={recorrido && !elegido ? OPACIDAD_RECORRIDO : undefined}>
       {elegido && (
         <path
           d={d}
@@ -163,10 +169,13 @@ export function CapaTrazos({
   elegido,
   editable,
   onElegir,
+  hastaFase,
 }: {
   trazos: TrazoPizarra[];
   /** Instante de la reproducción, en fases; `null` = todo dibujado. */
   tiempo: number | null;
+  /** Hoja «hasta la fase n»: las de antes, difuminadas. */
+  hastaFase?: number;
   elegido: string | null;
   /** Si se puede pinchar un trazo para elegirlo. */
   editable: boolean;
@@ -177,9 +186,16 @@ export function CapaTrazos({
   /* El número sólo dice algo cuando hay más de una fase. */
   const conFase = fasesDe(trazos) > 1;
 
-  /* El balón por encima de las carreras: es lo que se sigue con la vista. */
+  /* Lo ya recorrido, difuminado; la fase que se ve y las que faltan, nítidas. */
+  const enCurso = faseEnCurso(tiempo, hastaFase);
+
+  /* El balón por encima de las carreras: es lo que se sigue con la vista. Y
+     lo difuminado por debajo de lo nítido, para que no lo tape. */
   const orden = [...trazos].sort(
-    (a, b) => Number(a.tipo === "balon") - Number(b.tipo === "balon") || a.fase - b.fase,
+    (a, b) =>
+      Number(!yaRecorrido(a, enCurso)) - Number(!yaRecorrido(b, enCurso)) ||
+      Number(a.tipo === "balon") - Number(b.tipo === "balon") ||
+      a.fase - b.fase,
   );
 
   return (
@@ -198,6 +214,7 @@ export function CapaTrazos({
           avance={avanceDe(trazo, tiempo)}
           elegido={elegido === trazo.id}
           conFase={conFase}
+          recorrido={yaRecorrido(trazo, enCurso)}
         />
       ))}
 

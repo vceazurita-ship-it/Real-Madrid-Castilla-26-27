@@ -24,7 +24,7 @@ import { toast } from "sonner";
 
 import type { Player } from "@/types/player";
 import { TableroSlide } from "@/components/abp/pizarra/TableroSlide";
-import { TABLERO_H, TABLERO_W, tituloVisible, type SlidePizarra } from "@/lib/abp/pizarra";
+import { TABLERO_H, TABLERO_W, laminaVacia, tituloVisible, type SlidePizarra } from "@/lib/abp/pizarra";
 import { creaPptx } from "@/lib/export/pptx";
 import { apodo, descarga, pdfDeLienzos, pintado } from "@/lib/export/lienzos";
 import { fasesDe } from "@/lib/abp/trazos";
@@ -37,6 +37,9 @@ type Formato = "pptx" | "pdf";
 /** Las hojas que salen: una por diapositiva o, con «una hoja por fase», una por fase. */
 export function hojasDe(slides: SlidePizarra[], porFases: boolean, contexto: Parameters<typeof huellaSlide>[2]) {
   return slides.flatMap((slide, orden) => {
+    /* Una lámina sin nadie, sin flechas y sin rivales no explica nada (12/11/2026, jueces): no sale. */
+    if (laminaVacia(slide)) return [];
+
     const n = fasesDe(slide.trazos);
 
     /* Dos córneres ofensivos no pueden llamarse igual en la hoja. */
@@ -44,12 +47,13 @@ export function hojasDe(slides: SlidePizarra[], porFases: boolean, contexto: Par
     const huella = huellaSlide(slide, visible, contexto);
 
     if (!porFases || n < 2) {
-      return [{ key: slide.id, slide, visible, titulo: visible, hasta: undefined as number | undefined, clave: claveFoto(huella) }];
+      return [{ key: slide.id, slide, orden, visible, titulo: visible, hasta: undefined as number | undefined, clave: claveFoto(huella) }];
     }
 
     return Array.from({ length: n }, (_, indice) => ({
       key: `${slide.id}-${indice + 1}`,
       slide,
+      orden,
       visible,
       hasta: indice + 1,
       titulo: `${visible} · fase ${indice + 1} de ${n}`,

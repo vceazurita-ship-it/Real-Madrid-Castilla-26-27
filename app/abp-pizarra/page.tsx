@@ -94,6 +94,7 @@ import {
   clonaRivales,
   clonaTrazos,
   fasesDe,
+  trazosQueSalenDe,
   type FaseTrazo,
   type RivalPizarra,
   type TrazoPizarra,
@@ -103,7 +104,7 @@ import { useEscudos } from "@/hooks/useEscudos";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { usePlayers } from "@/hooks/usePlayers";
 import { idsDelOnce, onceDeLaPizarra, type OnceDeLaPizarra } from "@/lib/tactics/onceDeLaPizarra";
-import { ajustaNombres, nombresSinFicha, nombresSueltos } from "@/lib/abp/nombresPlantilla";
+import { ajustaNombres, nombresDudosos, nombresSinFicha, nombresSueltos } from "@/lib/abp/nombresPlantilla";
 import type { Player } from "@/types/player";
 import {
   compareMatches,
@@ -128,6 +129,10 @@ import {
   cambiaJugador,
   colocaAutomatico,
   conElegidosDelGrupo,
+  ATADURAS,
+  consignasRepetidas,
+  fichaEnPuesto,
+  quitaFichas,
   copiaTablero,
   cuentaPuestos,
   eligeEnGrupo,
@@ -197,6 +202,10 @@ import {
 import { SCOUT_DOC_KEY, actionsOf } from "@/lib/abp/rivalScout";
 import { buildAerialThreats, cargaAlturasBesoccer } from "@/lib/abp/rival";
 import { enElCampo } from "@/lib/abp/pizarra";
+import { nombreRivalPieza } from "@/lib/abp/nombre-rival";
+
+/** `editando` de una ficha suelta: cambiar de quién es sin puesto de la plantilla. */
+const CLAVE_SUELTA = "suelta:";
 import { siglasQueChocan, siglasSinChoque } from "@/lib/abp/siglas";
 import { traeJson } from "@/lib/hojaCsv";
 import { VideoJugada } from "@/components/abp/pizarra/VideoJugada";
@@ -796,10 +805,12 @@ export default function PizarraAbpPage() {
 
   const ultimoPaso = useRef<{ clave: string; cuando: number }>({ clave: "", cuando: 0 });
 
-  const [hayDeshacer, setHayDeshacer] = useState({ atras: 0, adelante: 0 });
+  /* Con el partido de la pila: al cambiar de partido, los botones no se quedan encendidos con lo del anterior. */
+  const [hayDeshacer, setHayDeshacer] = useState({ partido: "", atras: 0, adelante: 0 });
 
   const cuentaPilas = useCallback(() => {
     setHayDeshacer({
+      partido: pilas.current.partido,
       atras: pilas.current.atras.length,
       adelante: pilas.current.adelante.length,
     });
@@ -814,6 +825,8 @@ export default function PizarraAbpPage() {
 
       if (pila.partido !== partido.id) {
         pilas.current = { partido: partido.id, atras: [], adelante: [] };
+        /* La clave del último gesto era del otro partido: no puede juntar el primero de éste. */
+        ultimoPaso.current = { clave: "", cuando: 0 };
       }
 
       const ahora = Date.now();
@@ -843,10 +856,15 @@ export default function PizarraAbpPage() {
   );
 
   const mutaTablero = useCallback(
-    (fn: (actual: TableroPizarra) => TableroPizarra, clave?: string) => {
+    (
+      fn: (actual: TableroPizarra) => TableroPizarra,
+      clave?: string,
+      /* Lo que sólo toca el histórico de versiones: ni es un paso ni borra el rehacer. */
+      sinPaso = false,
+    ) => {
       if (!partido) return;
 
-      anotaPaso(clave);
+      if (!sinPaso) anotaPaso(clave);
 
       setStore((actual) => {
         const base = tableroAlDia(actual, partido.id, partido.opponent);
@@ -918,6 +936,9 @@ export default function PizarraAbpPage() {
 
   /* Cada gesto del tablero (arrastrar, tirar de una flecha) es un paso. */
   const gesto = useRef(0);
+
+  /* Ver `mueveFicha`: las carreras que se lleva la cara del gesto o de las flechas en curso. */
+  const llevadas = useRef<{ clave: string; id: string; trazos: Set<string> } | null>(null);
 
   const pasoNuevo = useCallback(() => {
     gesto.current += 1;
@@ -1109,7 +1130,9 @@ export default function PizarraAbpPage() {
 
   const creaTrazo = useCallback(
     (trazo: TrazoPizarra) => {
-      mutaSlide((actual) => ({ ...actual, trazos: [...(actual.trazos ?? []), trazo] }));
+      /* `ataduras`: lo dibujado desde ahora no lo recoloca la reparación de las carreras sueltas. */
+      mutaSlide((actual) => ({ ...actual, ataduras: actual.ataduras ?? ATADURAS, trazos: [...(actual.trazos ?? []), trazo] }));
+      llevadas.current = null;
 
       /* Recién dibujado queda elegido: lo normal es curvarlo o cambiarle la
          fase justo después. La herramienta sigue en la mano para el siguiente. */
@@ -1148,6 +1171,7 @@ export default function PizarraAbpPage() {
         ...actual,
         trazos: (actual.trazos ?? []).filter((trazo) => trazo.id !== id),
       }));
+      llevadas.current = null;
 
       setTrazoElegido(null);
     },
@@ -1158,6 +1182,12 @@ export default function PizarraAbpPage() {
    * Mueve una cara y, con ella, las flechas que salen de sus pies.
    * La clave del gesto junta el arrastre entero en un paso de deshacer.
    */
+  /*
+  | Las carreras que se lleva la cara que se arrastra, anotadas al primer
+  | movimiento del gesto (12/11/2026). Por posición a secas, al pasar por
+  | encima de otra cara se llevaba también las suyas.
+  */
+
   const mueveFicha = useCallback(
     (id: string, x: number, y: number, clave: string) =>
       mutaSlide((actual) => {
@@ -1165,7 +1195,16 @@ export default function PizarraAbpPage() {
 
         if (!antes || (antes.x === x && antes.y === y)) return actual;
 
-        const movidos = arrastraTrazos(actual.trazos, antes, { x, y });
+        /* Arrastre o flechas del teclado: las suyas se anotan al empezar (al dibujar o borrar una se vuelven a anotar). */
+        const anclada = clave.startsWith("gesto:") || clave.startsWith("tecla:");
+
+        if (anclada && (llevadas.current?.clave !== clave || llevadas.current.id !== id)) {
+          llevadas.current = { clave, id, trazos: trazosQueSalenDe(actual.trazos, antes) };
+        }
+
+        const suyas = anclada ? llevadas.current?.trazos : undefined;
+
+        const movidos = arrastraTrazos(actual.trazos, antes, { x, y }, suyas);
 
         return {
           ...actual,
@@ -1215,6 +1254,15 @@ export default function PizarraAbpPage() {
 
     return () => clearTimeout(vuelta);
   }, [tiempo, fases, paraReproduccion]);
+
+  /* Cambiar de diapositiva a media reproducción la para: si no, el reloj seguía y al volver salía la foto final con las flechas bloqueadas. */
+  useEffect(() => {
+    if (!reproducida || slide?.id === reproducida) return;
+
+    const corta = setTimeout(paraReproduccion, 0);
+
+    return () => clearTimeout(corta);
+  }, [slide?.id, reproducida, paraReproduccion]);
 
   /* ---------------------------- TECLADO ---------------------------- */
 
@@ -1438,7 +1486,119 @@ export default function PizarraAbpPage() {
   const [editando, setEditando] = useState<string | null>(null);
   const [seleccion, setSeleccion] = useState<string | null>(null);
 
-  const puestoEditado = slide ? puestoDe(slide, editando) : null;
+  /*
+  | Lo que conviene mirar antes de exportar (12/11/2026, jueces): nombres de
+  | las consignas que no tienen ficha en su lámina («Rachad», «Rober») y
+  | variantes con las consignas copiadas de otra. No bloquea: se dice en el
+  | menú «Exportar», encima de las opciones.
+  */
+  const avisosAlExportar = useMemo(() => {
+    if (!tablero) return [];
+
+    const lista = players.map((player) => ({ id: player.id, nombre: player.nombre, apodo: player.apodo }));
+    const avisos: string[] = [];
+
+    tablero.slides.forEach((item, i) => {
+      if (item.fichas.length === 0) return;
+
+      const nombres = consignasSinPuesto(item, lista);
+
+      if (nombres.length) {
+        avisos.push(`${i + 1}. ${tituloVisible(tablero.slides, i)}: las consignas nombran a ${nombres.join(", ")}, que no tiene${nombres.length > 1 ? "n" : ""} ficha en esta lámina.`);
+      }
+    });
+
+    for (const grupo of consignasRepetidas(tablero.slides)) {
+      avisos.push(`${grupo.map((i) => i + 1).join(" y ")}. ${tituloVisible(tablero.slides, grupo[0])}: las variantes llevan las mismas consignas; cada una debería decir lo suyo.`);
+    }
+
+    return avisos;
+  }, [tablero, players]);
+
+  /*
+  | Soltar una cara encima de otra (12/11/2026): se cambian los jugadores y
+  | cada sitio conserva su puesto y sus carreras. El arrastrado vuelve a su
+  | sitio de salida con las suyas y pasa a ser del otro, y el de debajo pasa a
+  | ser del arrastrado: así el que entra corre la línea que ya estaba dibujada.
+  | Va en la misma clave del gesto, así que un Ctrl+Z deshace todo.
+  */
+  const intercambiaFichas = useCallback(
+    (id: string, sobre: string, origen: { x: number; y: number }, clave: string) => {
+      const cuando = new Date().toISOString();
+
+      /* Lo que se aprende se cuenta FUERA del actualizador (ver la trampa de colocaAutomatico). */
+      const a = slide?.fichas.find((ficha) => ficha.id === id);
+      const b = slide?.fichas.find((ficha) => ficha.id === sobre);
+
+      const aprendidos =
+        a && b
+          ? [
+              ...(a.puesto ? [{ puesto: a.puesto, playerId: b.playerId }] : []),
+              ...(b.puesto ? [{ puesto: b.puesto, playerId: a.playerId }] : []),
+            ]
+          : [];
+
+      mutaSlide((actual) => {
+        const arrastrada = actual.fichas.find((ficha) => ficha.id === id);
+        const debajo = actual.fichas.find((ficha) => ficha.id === sobre);
+
+        if (!arrastrada || !debajo) return actual;
+
+        const suyas =
+          llevadas.current?.clave === clave && llevadas.current.id === id
+            ? llevadas.current.trazos
+            : trazosQueSalenDe(actual.trazos, arrastrada);
+
+        const trazos = arrastraTrazos(actual.trazos, arrastrada, origen, suyas);
+
+        return {
+          ...actual,
+          fichas: actual.fichas.map((ficha) =>
+            ficha.id === id
+              ? { ...ficha, x: origen.x, y: origen.y, playerId: debajo.playerId }
+              : ficha.id === sobre
+                ? { ...ficha, playerId: arrastrada.playerId }
+                : ficha,
+          ),
+          ...(trazos ? { trazos } : {}),
+        };
+      }, clave);
+
+      if (aprendidos.length) {
+        setStore((actual) => ({
+          ...actual,
+          memoria: aprendidos.reduce(
+            (memoria, item) => aprende(memoria, item.puesto, item.playerId, cuando),
+            normalizaMemoria(actual.memoria ?? {}),
+          ),
+        }));
+      }
+
+      if (a && b) {
+        const nombre = (playerId: string) => porId.get(playerId)?.apodo || porId.get(playerId)?.nombre || "jugador";
+
+        toast.success(`Cambiados: ${nombre(a.playerId)} ↔ ${nombre(b.playerId)}`, {
+          description: "Cada uno hace lo del sitio en el que queda, con sus carreras. Ctrl + Z lo deshace.",
+        });
+      }
+
+      setSeleccion(sobre);
+    },
+    [mutaSlide, setStore, slide, porId],
+  );
+
+
+  const puestoEditado = useMemo<PuestoAbp | null>(
+    () =>
+      !slide
+        ? null
+        : editando?.startsWith(CLAVE_SUELTA)
+          ? slide.fichas.some((ficha) => ficha.id === editando.slice(CLAVE_SUELTA.length))
+            ? { key: editando, code: "FS", label: "Ficha suelta", grupo: CLAVE_SUELTA }
+            : null
+          : puestoDe(slide, editando),
+    [slide, editando],
+  );
 
   /* La ficha elegida, para la barra: quién es y qué puesto ocupa. */
   const fichaElegida = useMemo(() => {
@@ -1503,18 +1663,33 @@ export default function PizarraAbpPage() {
 
       const cuando = new Date().toISOString();
 
-      mutaSlide((actual) => {
-        const limpio = actual.fichas.filter((ficha) => {
-          if (ficha.puesto === puestoKey) return false;
+      /* Una ficha suelta (sin puesto): sólo cambia de quién es, en su sitio y con sus carreras. */
+      const suelta = puestoKey.startsWith(CLAVE_SUELTA) ? puestoKey.slice(CLAVE_SUELTA.length) : null;
 
-          if (ficha.playerId !== playerId) return true;
+      if (suelta) {
+        mutaSlide((actual) => {
+          /* Si el que entra ya estaba en otro sitio, lo deja, y sus carreras vuelven a su puesto. */
+          const sin = quitaFichas(actual, (ficha) => ficha.id !== suelta && ficha.playerId === playerId && !repite);
 
-          if (!repite) return false;
-
-          return puestoDe(actual, ficha.puesto)?.grupo !== puesto?.grupo;
+          return { ...sin, fichas: sin.fichas.map((ficha) => (ficha.id === suelta ? { ...ficha, playerId } : ficha)) };
         });
+        setEditando(null);
 
-        return { ...actual, fichas: [...limpio, fichaNueva(playerId, puesto)] };
+        return;
+      }
+
+      mutaSlide((actual) => {
+        /* Donde estaba el que sale: sus carreras salen de ahí (ver fichaEnPuesto). */
+        const nueva = fichaEnPuesto(actual, playerId, puesto);
+
+        /* El que entra deja su otro puesto de esta diapositiva, y sus carreras vuelven a ese sitio. */
+        const sinSuOtra = quitaFichas(
+          { ...actual, fichas: actual.fichas.filter((ficha) => ficha.puesto !== puestoKey) },
+          (ficha) =>
+            ficha.playerId === playerId && (!repite || puestoDe(actual, ficha.puesto)?.grupo === puesto?.grupo),
+        );
+
+        return { ...sinSuOtra, fichas: [...sinSuOtra.fichas, nueva] };
       });
 
       setStore((actual) => ({
@@ -1597,10 +1772,9 @@ export default function PizarraAbpPage() {
 
   const vacia = useCallback(
     (puestoKey: string) => {
-      mutaSlide((actual) => ({
-        ...actual,
-        fichas: actual.fichas.filter((ficha) => ficha.puesto !== puestoKey),
-      }));
+      const suelta = puestoKey.startsWith(CLAVE_SUELTA) ? puestoKey.slice(CLAVE_SUELTA.length) : null;
+
+      mutaSlide((actual) => quitaFichas(actual, (ficha) => (suelta ? ficha.id === suelta : ficha.puesto === puestoKey)));
 
       setEditando(null);
     },
@@ -1765,11 +1939,14 @@ export default function PizarraAbpPage() {
     if (!tieneFichas(tablero.slides) || alDia) return;
 
     const timer = setTimeout(() => {
-      mutaTablero((actual) =>
-        registraVersion(actual, {
-          cuando: new Date().toISOString(),
-          motivo: "auto",
-        }),
+      mutaTablero(
+        (actual) =>
+          registraVersion(actual, {
+            cuando: new Date().toISOString(),
+            motivo: "auto",
+          }),
+        undefined,
+        true,
       );
     }, ESPERA_VERSION_MS);
 
@@ -1791,15 +1968,18 @@ export default function PizarraAbpPage() {
 
     const etiqueta = etiquetaNueva.trim();
 
-    mutaTablero((actual) =>
-      registraVersion(actual, {
-        cuando,
-        motivo: "mano",
-        etiqueta,
-        /* Guardada a propósito: se queda aunque entren veinte automáticas. */
-        fijada: true,
-        forzar: true,
-      }),
+    mutaTablero(
+      (actual) =>
+        registraVersion(actual, {
+          cuando,
+          motivo: "mano",
+          etiqueta,
+          /* Guardada a propósito: se queda aunque entren veinte automáticas. */
+          fijada: true,
+          forzar: true,
+        }),
+      undefined,
+      true,
     );
 
     setEtiquetaNueva("");
@@ -1832,6 +2012,9 @@ export default function PizarraAbpPage() {
     const cuando = new Date().toISOString();
     const nombre = (playerId: string) => porId.get(playerId)?.apodo || porId.get(playerId)?.nombre || playerId;
 
+    /* Un paso de deshacer propio: si no, Ctrl+Z se llevaba también el gesto anterior. */
+    anotaPaso();
+
     setStore((actual) => {
       const base = tableroAlDia(actual, partido.id, partido.opponent);
       let nuevo = tieneFichas(base.slides)
@@ -1860,7 +2043,7 @@ export default function PizarraAbpPage() {
       description: `${parejasDelOnce.map((par) => `${nombre(par.entra)} por ${nombre(par.sale)}${par.soloTexto ? " (en los textos)" : ""}`).join(" · ")}. Fichas y textos al día; lo anterior queda en el histórico.`,
       duration: 9_000,
     });
-  }, [partido, tablero, parejasDelOnce, porId, setStore, tableroAlDia]);
+  }, [partido, tablero, parejasDelOnce, porId, setStore, tableroAlDia, anotaPaso]);
 
   /* Un nombre de los textos por otro del once, sin tocar las fichas (31/10/2026). */
   const cambiaEnTextos = useCallback(
@@ -1872,6 +2055,9 @@ export default function PizarraAbpPage() {
 
       const cuando = new Date().toISOString();
 
+      /* Un paso de deshacer propio: si no, Ctrl+Z se llevaba también el gesto anterior. */
+      anotaPaso();
+
       setStore((actual) => {
         const base = tableroAlDia(actual, partido.id, partido.opponent);
         const conPrevia = registraVersion(base, { cuando, motivo: "previa", etiqueta: `Antes de cambiar en los textos a ${sP.apodo || sP.nombre} por ${eP.apodo || eP.nombre}` });
@@ -1881,7 +2067,7 @@ export default function PizarraAbpPage() {
 
       toast.success(`En los textos, ${eP.apodo || eP.nombre} por ${sP.apodo || sP.nombre}`, { description: "Lo anterior queda en el histórico." });
     },
-    [partido, porId, setStore, tableroAlDia],
+    [partido, porId, setStore, tableroAlDia, anotaPaso],
   );
 
   const aplicaCambio = useCallback(
@@ -1907,6 +2093,9 @@ export default function PizarraAbpPage() {
 
         return player?.apodo || player?.nombre || playerId;
       };
+
+      /* Un paso de deshacer propio: si no, Ctrl+Z se llevaba también el gesto anterior. */
+      anotaPaso();
 
       setStore((actual) => {
         const base = tableroAlDia(actual, partido.id, partido.opponent);
@@ -1949,7 +2138,7 @@ export default function PizarraAbpPage() {
         },
       );
     },
-    [tableroAlDia, partido, tablero, porId, setStore],
+    [tableroAlDia, partido, tablero, porId, setStore, anotaPaso],
   );
 
   /*
@@ -1977,18 +2166,22 @@ export default function PizarraAbpPage() {
 
   const borraVersion = useCallback(
     (version: VersionPizarra) => {
-      mutaTablero((actual) => quitaVersion(actual, version.id));
+      mutaTablero((actual) => quitaVersion(actual, version.id), undefined, true);
 
       toast(`Quitada del histórico: ${version.etiqueta}`, {
         action: {
           label: "Deshacer",
           onClick: () =>
-            mutaTablero((actual) => ({
-              ...actual,
-              versiones: [version, ...(actual.versiones ?? [])].sort((a, b) =>
-                b.creada.localeCompare(a.creada),
-              ),
-            })),
+            mutaTablero(
+              (actual) => ({
+                ...actual,
+                versiones: [version, ...(actual.versiones ?? [])].sort((a, b) =>
+                  b.creada.localeCompare(a.creada),
+                ),
+              }),
+              undefined,
+              true,
+            ),
         },
       });
     },
@@ -2080,6 +2273,9 @@ export default function PizarraAbpPage() {
         label: "Deshacer",
         onClick: () =>
           mutaTablero((actual) => {
+            /* Ya devuelta con Ctrl+Z: otra vez la duplicaría con el mismo id. */
+            if (actual.slides.some((item) => item.id === fuera.id)) return actual;
+
             const slides = [...actual.slides];
 
             slides.splice(Math.min(activa, slides.length), 0, fuera);
@@ -2180,7 +2376,7 @@ export default function PizarraAbpPage() {
       const llega = recibido.recado.slide;
 
       if (destino.modo === "nueva") {
-        const nueva: SlidePizarra = { ...llega, id: `SL-${Math.random().toString(36).slice(2, 10)}` };
+        const nueva: SlidePizarra = { ...llega, id: `SL-${Math.random().toString(36).slice(2, 10)}`, ataduras: ATADURAS };
 
         mutaTablero((actual) => ({ ...actual, slides: [...actual.slides, nueva] }));
         setPedida(tablero.slides.length);
@@ -2203,7 +2399,7 @@ export default function PizarraAbpPage() {
         if (!antes) return;
 
         /* Conserva el id: así la rutina del laboratorio sigue sabiendo cuál es la suya. */
-        const nueva: SlidePizarra = { ...llega, id: antes.id };
+        const nueva: SlidePizarra = { ...llega, id: antes.id, ataduras: ATADURAS };
 
         mutaTablero((actual) => ({
           ...actual,
@@ -2284,6 +2480,9 @@ export default function PizarraAbpPage() {
     teclado.current = (event: KeyboardEvent) => {
       if (!slide || proyectando != null || editando || cambiando) return;
 
+      /* Con un diálogo abierto, el teclado es suyo: el Dialog no mete el foco dentro y Supr borraba la ficha de detrás. */
+      if (document.querySelector('[aria-modal="true"]')) return;
+
       const blanco = event.target as HTMLElement | null;
 
       if (
@@ -2343,16 +2542,18 @@ export default function PizarraAbpPage() {
       if (tecla === "Enter" && blanco?.tagName !== "BUTTON" && seleccion) {
         const ficha = slide.fichas.find((item) => item.id === seleccion);
 
-        if (ficha?.puesto && puestoDe(slide, ficha.puesto)) {
+        if (ficha) {
           event.preventDefault();
-          setEditando(ficha.puesto);
+          setEditando(ficha.puesto && puestoDe(slide, ficha.puesto) ? ficha.puesto : `${CLAVE_SUELTA}${ficha.id}`);
         }
 
         return;
       }
 
       /* Sin nada elegido, ← → y RePág/AvPág pasan de diapositiva. */
-      const nadaElegido = !seleccion && !rivalEnMano && !trazoEnMano;
+      /* La ficha elegida tiene que estar en ESTA diapositiva: tras cambiar de diapositiva o deshacer, el id se queda colgado. */
+      const fichaEnMano = Boolean(seleccion && slide.fichas.some((ficha) => ficha.id === seleccion));
+      const nadaElegido = !fichaEnMano && !rivalEnMano && !trazoEnMano;
       const pasa =
         tecla === "PageUp" || (nadaElegido && tecla === "ArrowLeft")
           ? -1
@@ -2430,10 +2631,7 @@ export default function PizarraAbpPage() {
           borraTrazo(trazoEnMano.id);
         } else if (seleccion && slide.fichas.some((ficha) => ficha.id === seleccion)) {
           event.preventDefault();
-          mutaSlide((actual) => ({
-            ...actual,
-            fichas: actual.fichas.filter((ficha) => ficha.id !== seleccion),
-          }));
+          mutaSlide((actual) => quitaFichas(actual, (ficha) => ficha.id === seleccion));
           setSeleccion(null);
         }
 
@@ -2586,9 +2784,10 @@ export default function PizarraAbpPage() {
                   <ExportaTodo
                     tablero={tablero}
                     rellena={rellenaParaExportar}
+                    avisos={avisosAlExportar}
                     players={porId}
                     temporada={temporadaCorta(RATINGS_SEASON)}
-                    rival={tablero.rival || partido?.opponent || ""}
+                    rival={nombreRivalPieza(tablero.rival || partido?.opponent)}
                     escudoRival={escudoDe(tablero.rival || partido?.opponent || "")}
                     jornada={tablero.jornada ? `J${String(tablero.jornada).padStart(2, "0")}` : undefined}
                   />
@@ -2600,7 +2799,7 @@ export default function PizarraAbpPage() {
                     tablero={tableroParaJugadores}
                     players={porId}
                     temporada={temporadaCorta(RATINGS_SEASON)}
-                    rival={tablero.rival || partido?.opponent || ""}
+                    rival={nombreRivalPieza(tablero.rival || partido?.opponent)}
                     escudoRival={escudoDe(tablero.rival || partido?.opponent || "")}
                     jornada={
                       tablero.jornada
@@ -3213,8 +3412,8 @@ export default function PizarraAbpPage() {
                         trazoEnMano && cambiaTrazo(trazoEnMano.id, cambio)
                       }
                       onBorrarElegido={() => trazoEnMano && borraTrazo(trazoEnMano.id)}
-                      puedeDeshacer={hayDeshacer.atras > 0}
-                      puedeRehacer={hayDeshacer.adelante > 0}
+                      puedeDeshacer={hayDeshacer.partido === partido?.id && hayDeshacer.atras > 0}
+                      puedeRehacer={hayDeshacer.partido === partido?.id && hayDeshacer.adelante > 0}
                       onDeshacer={deshaz}
                       onRehacer={rehaz}
                       fases={fases}
@@ -3235,17 +3434,14 @@ export default function PizarraAbpPage() {
                       onBorrarRival={() => rivalEnMano && quitaRivalDibujado(rivalEnMano.id)}
                       ficha={fichaElegida}
                       onCambiarJugador={() => {
-                        const puesto = slide.fichas.find((item) => item.id === seleccion)?.puesto;
+                        const ficha = slide.fichas.find((item) => item.id === seleccion);
 
-                        if (puesto) setEditando(puesto);
+                        if (ficha) setEditando(ficha.puesto && puestoDe(slide, ficha.puesto) ? ficha.puesto : `${CLAVE_SUELTA}${ficha.id}`);
                       }}
                       onQuitarFicha={() => {
                         if (!seleccion) return;
 
-                        mutaSlide((actual) => ({
-                          ...actual,
-                          fichas: actual.fichas.filter((item) => item.id !== seleccion),
-                        }));
+                        mutaSlide((actual) => quitaFichas(actual, (item) => item.id === seleccion));
                         setSeleccion(null);
                       }}
                       atajos={atajos}
@@ -3281,7 +3477,11 @@ export default function PizarraAbpPage() {
                                 const cambian = filas.filter((fila) => !actual.fichas.some((f) => f.puesto === fila.puesto && f.playerId === fila.playerId));
                                 const huecos = new Set(cambian.map((fila) => fila.puesto));
                                 const entran = new Set(cambian.map((fila) => fila.playerId).filter(Boolean));
-                                const fichas = actual.fichas.filter((f) => !(f.puesto && huecos.has(f.puesto)) && !entran.has(f.playerId));
+                                /* Las del hueco las hereda el que entra (fichaEnPuesto); las del que deja otro puesto vuelven a ese sitio. */
+                                const sin = quitaFichas(
+                                  { ...actual, fichas: actual.fichas.filter((f) => !(f.puesto && huecos.has(f.puesto))) },
+                                  (f) => entran.has(f.playerId),
+                                );
                                 const marcas = { ...(actual.marcas ?? {}) };
 
                                 for (const fila of filas) {
@@ -3290,10 +3490,10 @@ export default function PizarraAbpPage() {
                                 }
 
                                 return {
-                                  ...actual,
+                                  ...sin,
                                   fichas: [
-                                    ...fichas,
-                                    ...cambian.flatMap((fila) => (fila.playerId ? [fichaNueva(fila.playerId, puestoDe(actual, fila.puesto))] : [])),
+                                    ...sin.fichas,
+                                    ...cambian.flatMap((fila) => (fila.playerId ? [fichaEnPuesto(actual, fila.playerId, puestoDe(actual, fila.puesto))] : [])),
                                   ],
                                   marcas,
                                 };
@@ -3307,7 +3507,7 @@ export default function PizarraAbpPage() {
                           titulo={tablero ? tituloVisible(tablero.slides, activa) : slide.titulo}
                           players={porId}
                           temporada={temporadaCorta(RATINGS_SEASON)}
-                          rival={tablero?.rival || partido.opponent}
+                          rival={nombreRivalPieza(tablero?.rival || partido.opponent)}
                           jornada={tablero?.jornada ? `J${tablero.jornada}` : undefined}
                         />
                       </div>
@@ -3354,15 +3554,13 @@ export default function PizarraAbpPage() {
                       titulo={tablero ? tituloVisible(tablero.slides, activa) : undefined}
                       players={porId}
                       temporada={temporadaCorta(RATINGS_SEASON)}
-                      rival={tablero?.rival || partido.opponent}
+                      rival={nombreRivalPieza(tablero?.rival || partido.opponent)}
                       seleccion={seleccion}
                       onSeleccionar={setSeleccion}
                       onMover={(id, x, y) => mueveFicha(id, x, y, `gesto:${gesto.current}`)}
+                      onSoltarSobre={(id, sobre, origen) => intercambiaFichas(id, sobre, origen, `gesto:${gesto.current}`)}
                       onQuitar={(id) => {
-                        mutaSlide((actual) => ({
-                          ...actual,
-                          fichas: actual.fichas.filter((ficha) => ficha.id !== id),
-                        }));
+                        mutaSlide((actual) => quitaFichas(actual, (ficha) => ficha.id === id));
 
                         setSeleccion(null);
                       }}
@@ -3645,14 +3843,10 @@ export default function PizarraAbpPage() {
                           enPantalla={versionEnPantalla?.id ?? null}
                           onRestaurar={restaura}
                           onFijar={(version, fijada) =>
-                            mutaTablero((actual) =>
-                              fijaVersion(actual, version.id, fijada),
-                            )
+                            mutaTablero((actual) => fijaVersion(actual, version.id, fijada), undefined, true)
                           }
                           onRenombrar={(version, etiqueta) =>
-                            mutaTablero((actual) =>
-                              renombraVersion(actual, version.id, etiqueta),
-                            )
+                            mutaTablero((actual) => renombraVersion(actual, version.id, etiqueta), undefined, true)
                           }
                           onBorrar={borraVersion}
                         />
@@ -3716,8 +3910,11 @@ export default function PizarraAbpPage() {
           }
           ocupadoPor={ocupadoPor}
           actual={
-            slide.fichas.find((ficha) => ficha.puesto === puestoEditado.key)
-              ?.playerId ?? null
+            slide.fichas.find((ficha) =>
+              puestoEditado.key.startsWith(CLAVE_SUELTA)
+                ? ficha.id === puestoEditado.key.slice(CLAVE_SUELTA.length)
+                : ficha.puesto === puestoEditado.key,
+            )?.playerId ?? null
           }
           elegidos={
             grupoEditado ? ocupantesDeGrupo(slide, grupoEditado.key) : undefined
@@ -3737,7 +3934,7 @@ export default function PizarraAbpPage() {
           inicial={proyectando}
           players={porId}
           temporada={temporadaCorta(RATINGS_SEASON)}
-          rival={tablero.rival || partido?.opponent || ""}
+          rival={nombreRivalPieza(tablero.rival || partido?.opponent)}
           onCerrar={(indice) => {
             setProyectando(null);
             setPedida(indice);
@@ -4397,11 +4594,13 @@ function consignasSinPuesto(
   const textos = [...slide.notas, ...Object.values(slide.guion ?? {}).map(String)];
   const ids = new Set(slide.fichas.map((ficha) => ficha.playerId));
   const enCampo = jugadores.filter((jugador) => ids.has(jugador.id));
-  const todos = [...nombresSinFicha(textos, jugadores, ids), ...nombresSueltos(textos, enCampo)];
+  /* Los que no se ven por la mayúscula (consignas en mayúsculas sostenidas): «Fortu (¿Fortea?)». */
+  const dudosos = nombresDudosos(textos, jugadores).map((uno) => (uno.sugerencia ? `${uno.palabra} (¿${uno.sugerencia}?)` : uno.palabra));
+  const todos = [...nombresSinFicha(textos, jugadores, ids), ...nombresSueltos(textos, enCampo), ...dudosos];
   const vistos = new Set<string>();
 
   return todos.filter((nombre) => {
-    const clave = nombre.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+    const clave = nombre.replace(/\s*\(.*$/, "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
     if (!nombre || vistos.has(clave)) return false;
     vistos.add(clave);

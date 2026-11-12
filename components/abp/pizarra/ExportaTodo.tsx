@@ -46,7 +46,7 @@ import {
   textosDelVideo,
   videoDeLaJugada,
 } from "@/components/abp/pizarra/VideoJugada";
-import { TABLERO_H, TABLERO_W, jugadoresDelTablero, tituloVisible, type TableroPizarra } from "@/lib/abp/pizarra";
+import { TABLERO_H, TABLERO_W, jugadoresDelTablero, laminaVacia, tituloVisible, type TableroPizarra } from "@/lib/abp/pizarra";
 import { fasesDe } from "@/lib/abp/trazos";
 import { trabajoPdfs, type EstadoPdfs } from "@/lib/abp/trabajo-pdfs";
 import { arrancados, enMarcha as encargoEnMarcha, trabajoExportar, type PiezasExportar } from "@/lib/abp/trabajo-exportar";
@@ -199,7 +199,10 @@ export function ExportaTodo({
   escudoRival,
   trabajo,
   rellena,
+  avisos = [],
 }: {
+  /** Lo que conviene mirar antes de exportar (nombres sin ficha, consignas copiadas). No bloquea. */
+  avisos?: string[];
   /** Montado por el trabajo de segundo plano del layout: arranca solo y no enseña botones. */
   trabajo?: { id: string; piezas: PiezasExportar };
   tablero: TableroPizarra;
@@ -368,14 +371,16 @@ export function ExportaTodo({
         try {
           const hojas = hojasDe(slides, false, contexto);
           const claves = hojas.map((hoja) => hoja.clave);
+          /* Las de las hojas, no las de las diapositivas: las vacías no salen y se correría la cuenta. */
+          const titulosHojas = hojas.map((hoja) => hoja.titulo);
           const cabecera = [rival || "RMCF Castilla", jornada, `versión del ${new Date().toLocaleDateString("es-ES")}`].filter(Boolean).join(" · ");
-          const claveDocs = resumen(JSON.stringify([claves, titulos, cabecera, "indice-1"]));
+          const claveDocs = resumen(JSON.stringify([claves, titulosHojas, cabecera, "indice-1"]));
           let docs = documentos.get(claveDocs);
 
           if (docs) deMemoria += 1;
           else {
             const montadas = faltanFotos(claves);
-            const indices = montadas.map((clave) => claves.indexOf(clave));
+            const indices = montadas.map((clave) => hojas[claves.indexOf(clave)].orden);
 
             if (indices.length) await monta({ que: "general", indices });
 
@@ -393,15 +398,15 @@ export function ExportaTodo({
               alto: TABLERO_H,
               orientacion: "landscape",
               pie: (indice, total) => ({
-                izquierda: `${indice + 1}. ${titulos[indice] ?? ""}`.toUpperCase(),
+                izquierda: `${indice + 1}. ${titulosHojas[indice] ?? ""}`.toUpperCase(),
                 centro: cabecera,
                 derecha: `${indice + 1} / ${total}`,
               }),
               /* La primera página, el índice: cada diapositiva enlazada a la suya (01/11/2026). */
-              indice: { titulo: "Balón parado", subtitulo: cabecera, entradas: titulos },
+              indice: { titulo: "Balón parado", subtitulo: cabecera, entradas: titulosHojas },
             });
             const pptx = creaPptx(
-              imagenes.map((imagen, indice) => ({ titulo: titulos[indice] ?? `Diapositiva ${indice + 1}`, imagen })),
+              imagenes.map((imagen, indice) => ({ titulo: titulosHojas[indice] ?? `Diapositiva ${indice + 1}`, imagen })),
               { titulo: `Balón parado · ${rival || "RMCF Castilla"}`, autor: "RMCF Castilla" },
             );
 
@@ -413,7 +418,7 @@ export function ExportaTodo({
           }
 
           entradas.push({ nombre: `General/${base}.pdf`, datos: docs.pdf }, { nombre: `General/${base}.pptx`, datos: docs.pptx });
-          marca("general", "hecho", `${slides.length} diapositivas`);
+          marca("general", "hecho", `${hojas.length} diapositivas`);
         } catch (error) {
           if (error instanceof Cancelado) throw error;
 
@@ -859,7 +864,7 @@ export function ExportaTodo({
         clave: "pptx",
         icono: MonitorPlay,
         titulo: "PowerPoint para proyectar",
-        lleva: `${plural(slides.length, "diapositiva", "diapositivas")} a 1920 × 1080, se abre sin la app`,
+        lleva: `${plural(slides.filter((s) => !laminaVacia(s)).length, "diapositiva", "diapositivas")} a 1920 × 1080, se abre sin la app`,
         puede: true,
       },
       {
@@ -896,6 +901,18 @@ export function ExportaTodo({
               role="menu"
               className="absolute right-0 top-full z-40 mt-1.5 w-[min(380px,calc(100vw-32px))] rounded-xl border border-white/10 bg-[#11161C] p-1.5 shadow-2xl max-sm:left-0 max-sm:right-auto"
             >
+              {avisos.length > 0 && (
+                <div className="mb-1.5 rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-[12px] leading-snug text-amber-300">
+                  <p className="font-semibold">Antes de exportar, revisa {avisos.length === 1 ? "esto" : `estas ${avisos.length} cosas`}:</p>
+                  <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                    {avisos.slice(0, 5).map((aviso) => (
+                      <li key={aviso}>{aviso}</li>
+                    ))}
+                  </ul>
+                  {avisos.length > 5 && <p className="mt-1">… y {avisos.length - 5} más en «Control de la convocatoria».</p>}
+                </div>
+              )}
+
               {opciones.map(({ clave, icono: Icono, titulo, lleva, puede, aviso }) => {
                 const c = cuentas?.[clave];
                 const alMomento = c ? c.segundos <= 3 : false;

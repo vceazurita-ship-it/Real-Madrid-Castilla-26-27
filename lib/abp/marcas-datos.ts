@@ -10,7 +10,7 @@
 */
 
 import { proponMarcas, type Atacante, type Marcador } from "@/lib/abp/marcas-corner";
-import { puestosDeGrupo, type SlidePizarra, type TableroPizarra } from "@/lib/abp/pizarra";
+import { PLANTILLA_BY_KEY, puestosDe, puestosDeGrupo, type SlidePizarra, type TableroPizarra } from "@/lib/abp/pizarra";
 import { buildAerialThreats, cargaAlturasBesoccer, loadRivalAbp } from "@/lib/abp/rival";
 import { SCOUT_DOC_KEY, actionsOf } from "@/lib/abp/rivalScout";
 import { casaNombre, sitioDe } from "@/lib/data-analisis/once";
@@ -156,7 +156,13 @@ export async function cargaDatosMarcas(rival: string, players: Player[]): Promis
 
 /** Lo que depende de la diapositiva: quién está ya en cada marca y quién está en otro sitio. */
 export function huecosDeMarca(slide: SlidePizarra) {
-  const puestos = puestosDeGrupo(slide, "marcas");
+  /* El saque de banda no tiene grupo «marcas»: sus marcas (M1…M5) van en «ÁREA» (12/11/2026). */
+  const delGrupo = puestosDeGrupo(slide, "marcas");
+  const puestos = delGrupo.length
+    ? delGrupo
+    : PLANTILLA_BY_KEY.get(slide.plantilla)?.lado === "defensivo"
+      ? puestosDe(slide).filter((puesto) => /^M\d$/.test(puesto.code))
+      : [];
   const claves = new Set(puestos.map((p) => p.key));
   const yaPuestos = new Map(slide.fichas.filter((f) => f.puesto && claves.has(f.puesto)).map((f) => [f.puesto!, f.playerId]));
   const enMarca = new Set(yaPuestos.values());

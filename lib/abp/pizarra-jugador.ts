@@ -48,6 +48,8 @@ import {
 } from "@/lib/abp/pizarra";
 import type { TipoTrazo, TrazoPizarra } from "@/lib/abp/trazos";
 import { aLienzo, aMetros } from "@/lib/abp-lab/puente-pizarra";
+import { nombreRivalPieza } from "@/lib/abp/nombre-rival";
+import { porteroPropioDeLaLamina } from "@/lib/abp/rivales-implicitos";
 import {
   C,
   ajusta,
@@ -129,7 +131,94 @@ export type CometidoAccion = {
    * penumbra, que al portero le importa toda el área.
    */
   portero?: { x: number; y: number };
+  /**
+   * De dónde sale la acción (12/11/2026, análisis): «Córner ofensivo ·
+   * variante 2 de 3 de la pizarra J12». Sin ella el PDF no decía por qué el
+   * portero tiene cuatro acciones y los de campo seis.
+   */
+  base?: string;
+  /**
+   * Lo que el recorte del PDF no puede cortar además de `foco` y `zona`: las
+   * flechas de sus compañeros de zona (12/11/2026: salían fuera del encuadre).
+   */
+  marco?: { x: number; y: number }[];
 };
+
+/* ------------------------- base y orden ------------------------- */
+
+/** «CÓRNER OFENSIVO» → «Córner ofensivo». */
+const comoFrase = (texto: string) => {
+  const bajo = texto.trim().toLocaleLowerCase("es-ES");
+
+  return bajo.charAt(0).toLocaleUpperCase("es-ES") + bajo.slice(1);
+};
+
+/**
+ * La base de la acción: qué acción es, qué variante de cuántas que tiene la
+ * pizarra de la jornada, y de dónde sale su marca si la tiene.
+ */
+function baseDe(tablero: TableroPizarra, indice: number, marca: "propuesta" | "dibujo" | "" = "") {
+  const slide = tablero.slides[indice];
+  const plantilla = PLANTILLA_BY_KEY.get(slide.plantilla);
+  const hermanas = tablero.slides
+    .map((otra, i) => ({ otra, i }))
+    .filter(({ otra }) => otra.plantilla === slide.plantilla);
+  const n = hermanas.findIndex(({ i }) => i === indice) + 1;
+  const jornada = String(tablero.jornada ?? "").trim();
+  const pizarra = jornada ? `la pizarra de la J${jornada.replace(/^j/i, "")}` : "la pizarra de la jornada";
+  const que = comoFrase(plantilla?.titulo ?? slide.titulo ?? "Balón parado");
+  const accion = hermanas.length > 1 ? `${que}, variante ${n} de ${hermanas.length} de ${pizarra}` : `${que} de ${pizarra}`;
+  const deLaMarca =
+    marca === "propuesta" ? "tu marca, de «Quién marca a quién»" : marca === "dibujo" ? "tu marca, el rival dibujado a tu lado" : "";
+
+  return [accion, deLaMarca].filter(Boolean).join(" · ");
+}
+
+/* Los imperativos que no salen quitando la «s» final. */
+const IMPERATIVO: Record<string, string> = {
+  sales: "Sal",
+  pones: "Pon",
+  "la pones": "Ponla",
+  "te quedas": "Quédate",
+  "te tumbas": "Túmbate",
+  "te colocas": "Colócate",
+  vas: "Ve",
+  haces: "Haz",
+  tienes: "Ten",
+};
+
+/**
+ * «Atacas el 1.er palo» → «Ataca el 1.er palo»; «Sales al juego en corto» →
+ * «Sal al juego en corto». La orden es el último paso de su tarea (adónde va),
+ * o lo primero que hace si no tiene flechas.
+ */
+export function ordenDe(texto: string) {
+  /* Lo que va tras «:» es el porqué, no la orden: se queda con lo de delante. */
+  const pasos = (texto.split(":")[0] ?? "")
+    .split(/\s*·\s*/)
+    .map((paso) => paso.trim())
+    .filter((paso) => paso && !/^arrancas en la fase/i.test(paso));
+  const paso = (pasos.length > 1 && /^(sales|empiezas) (del?|en|al?) /i.test(pasos[0]) ? pasos[pasos.length - 1] : pasos[0]) ?? "";
+
+  if (!paso) return "";
+
+  const plano2 = paso.toLocaleLowerCase("es-ES");
+  const doble = Object.keys(IMPERATIVO).find((clave) => clave.includes(" ") && plano2.startsWith(`${clave} `));
+
+  if (doble) return `${IMPERATIVO[doble]}${paso.slice(doble.length)}`;
+
+  const [primera, ...resto] = paso.split(" ");
+  const verbo = primera.toLocaleLowerCase("es-ES");
+  const imperativo = IMPERATIVO[verbo] ?? (/[aei]s$/.test(verbo) ? verbo.slice(0, -1) : "");
+
+  /* Un verbo solo («Tira») no es una orden: sin complemento, nada. */
+  if (!imperativo || resto.length === 0) return "";
+
+  return [imperativo.charAt(0).toLocaleUpperCase("es-ES") + imperativo.slice(1), ...resto]
+    .join(" ")
+    .replace(/\s*\([^)]*\)\s*$/, "")
+    .replace(/\.$/, "");
+}
 
 /*
 | EL PORTERO TAMBIÉN TIENE SU PDF (06/11/2026, expertos)
@@ -163,6 +252,14 @@ function accionDelPortero(tablero: TableroPizarra, indice: number): CometidoAcci
   const tarea = lado === "defensivo" ? (TAREA_PORTERO[slide.plantilla] ?? "Mandas en tu área: hablas y ordenas a la línea") : "Ordenas el equilibrio atrás: hablas a los que se quedan";
   const enLienzo = (x: number, y: number) => aLienzo(slide.vista, { x, y });
   const porteria = [enLienzo(30.3, 0), enLienzo(37.7, 0), enLienzo(34, 5.5)].filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
+  /*
+  | Su aro, en SU chapa (12/11/2026, fútbol): iba al centro del área pequeña
+  | (5,5 m), donde se planta el que ataca el primer palo, y el «TÚ» del
+  | portero señalaba a Sergio. La chapa «POR» la pinta la lámina bajo palos
+  | sólo en las defensivas (`porteroPropioDeLaLamina`); en las ofensivas
+  | nuestro portero no sale en el campo y la hoja va sin aro.
+  */
+  const chapaPortero = porteroPropioDeLaLamina(slide);
   const balon = (slide.trazos ?? []).filter((t) => t.tipo === "balon").flatMap((t) => [{ x: t.x2, y: t.y2 }]);
 
   return [
@@ -189,7 +286,8 @@ function accionDelPortero(tablero: TableroPizarra, indice: number): CometidoAcci
       zona: slide.fichas.filter((f) => f.x >= 0 && f.y >= 0).map((f) => ({ x: f.x, y: f.y })),
       otros: slide.fichas.filter((f) => f.x >= 0 && f.y >= 0).map((f) => ({ x: f.x, y: f.y })),
       sinFicha: true,
-      ...(porteria.length === 3 ? { portero: porteria[2] } : {}),
+      ...(chapaPortero && Number.isFinite(chapaPortero.x) && Number.isFinite(chapaPortero.y) ? { portero: chapaPortero } : {}),
+      base: baseDe(tablero, indice),
     },
   ];
 }
@@ -579,6 +677,14 @@ function cometidosCrudos(
 
     const siglas = puestos.map((p) => p.sigla).filter((sigla) => sigla.length >= 2 && sigla === sigla.toUpperCase());
 
+    /* Las flechas de sus compañeros de zona, enteras dentro del recorte. */
+    const deZona = slide.fichas.filter(
+      (ficha) => ficha.playerId !== playerId && ficha.x >= 0 && susGrupos.has(puestoDe(slide, ficha.puesto)?.grupo),
+    );
+    const marco = (slide.trazos ?? [])
+      .filter((t) => t.tipo !== "balon" && deZona.some((f) => Math.hypot(t.x1 - f.x, t.y1 - f.y) <= PIES))
+      .flatMap((t) => [{ x: t.x2, y: t.y2 }, ...(t.cx != null && t.cy != null ? [{ x: (t.cx + t.x2) / 2, y: (t.cy + t.y2) / 2 }] : [])]);
+
     return [
       {
         indice,
@@ -603,6 +709,8 @@ function cometidosCrudos(
         otros: slide.fichas
           .filter((ficha) => ficha.playerId !== playerId && ficha.x >= 0 && ficha.y >= 0)
           .map((ficha) => ({ x: ficha.x, y: ficha.y })),
+        base: baseDe(tablero, indice, marcado ? "propuesta" : marcaDorsal ? "dibujo" : ""),
+        marco,
       },
     ];
   });
@@ -676,6 +784,9 @@ function renglones(ctx: Ctx, texto: string, maxW: number) {
 function colorLado(lado: LadoPizarra) {
   return lado === "ofensivo" ? C.verde : C.navy;
 }
+
+/** Lo secundario de la hoja: el azul de la paleta, un punto más claro. */
+const TINTA_SUAVE = "rgba(15,30,61,.78)";
 
 const mayuscula = (texto: string) => texto.charAt(0).toLocaleUpperCase("es-ES") + texto.slice(1);
 const minuscula = (texto: string) => texto.charAt(0).toLocaleLowerCase("es-ES") + texto.slice(1);
@@ -863,7 +974,7 @@ const RESUMEN_Y = CABEZA_H + 176;
 const RESUMEN_FILA = 150;
 const altoResumen = (acciones: number) => RESUMEN_Y + acciones * RESUMEN_FILA + 16 + PIE_H;
 
-function dibujaResumen(ctx: Ctx, cx: Contexto, acciones: CometidoAccion[]): ZonaHoja[] {
+function dibujaResumen(ctx: Ctx, cx: Contexto, acciones: CometidoAccion[], suyos?: Map<string, SuJugador>): ZonaHoja[] {
   cabecera(ctx, cx, `${acciones.length} ACCIONES`);
 
   ctx.fillStyle = C.navy;
@@ -912,22 +1023,24 @@ function dibujaResumen(ctx: Ctx, cx: Contexto, acciones: CometidoAccion[]): Zona
     ctx.fillStyle = "rgba(15,30,61,.55)";
     fuente(ctx, 30, 600);
     /* Remite a la cabecera de su hoja («ACCIÓN 1 DE 4»), no a un número de página (11/11/2026). */
-    const hoja = `ACCIÓN ${orden + 1}`;
-    ctx.fillText(hoja, HOJA_W - MARGEN - 24, top + alto / 2 + 10);
-    const anchoHoja = ctx.measureText(hoja).width;
+    /* Si el disco ya lleva el número (el portero: «POR» en todas), «ACCIÓN 1…4» repetía lo mismo (12/11/2026). */
+    const hoja = todasIguales ? "" : `ACCIÓN ${orden + 1}`;
+    if (hoja) ctx.fillText(hoja, HOJA_W - MARGEN - 24, top + alto / 2 + 10);
+    const anchoHoja = hoja ? ctx.measureText(hoja).width : -24;
     ctx.textAlign = "left";
 
     const tx = discoX + r + 26;
     const maxW = HOJA_W - MARGEN - 24 - anchoHoja - 24 - tx;
     /* Lo que hace, no sólo el puesto (segunda ronda de jueces): «Arrancas en la fase 2 · atacas el 2.º palo». */
-    const detalle = (titulares(accion, undefined).grande || [accion.puestos.map((p) => p.label).join(" · "), accion.rival].filter(Boolean).join(" · ")).toUpperCase();
+    const detalle = (titulares(accion, suyos).grande || [accion.puestos.map((p) => p.label).join(" · "), accion.rival].filter(Boolean).join(" · ")).toUpperCase();
 
     ctx.fillStyle = C.navy;
     ajusta(ctx, accion.titulo.toUpperCase(), maxW, Math.min(46, alto * 0.36), 700, 1);
     textoEspaciado(ctx, accion.titulo.toUpperCase(), tx, top + (detalle ? alto * 0.47 : alto / 2 + 14), 1);
 
     if (detalle) {
-      ctx.fillStyle = accion.lado === "ofensivo" ? C.verde : "#7A1F2B";
+      /* Tinta de la paleta: el verde oscuro sobre crema no se leía (12/11/2026, marketing). */
+      ctx.fillStyle = accion.lado === "ofensivo" ? TINTA_SUAVE : "#7A1F2B";
       ajusta(ctx, detalle, maxW, Math.min(34, alto * 0.27), 600, 1);
       textoEspaciado(ctx, detalle, tx, top + alto * 0.8, 1);
     }
@@ -985,6 +1098,8 @@ function encuadre(accion: CometidoAccion, yo: { x: number; y: number } | null, m
 
   accion.zona.forEach((p) => caja(p, FICHA));
   accion.foco.forEach((p) => caja(p, { izq: 50, der: 50, arriba: 110, abajo: 50 }));
+  /* Las flechas de sus compañeros de zona: la punta entera, con su cabeza. */
+  accion.marco?.forEach((p) => caja(p, { izq: 36, der: 36, arriba: 36, abajo: 36 }));
 
   if (accion.marcaPunto) caja(accion.marcaPunto, { izq: 50, der: 50, arriba: 90, abajo: 30 });
 
@@ -995,31 +1110,58 @@ function encuadre(accion: CometidoAccion, yo: { x: number; y: number } | null, m
     return { sx: campo.x, sy: campo.y, sw: campo.w, sh: campo.h, alto: Math.round((HOJA_W * campo.h) / campo.w), k };
   }
 
-  /* Lo que se sale del césped no se puede enseñar: se recorta a él. */
-  const x0 = Math.max(campo.x, Math.min(...cajas.map((c) => c.x0)));
-  const y0 = Math.max(campo.y, Math.min(...cajas.map((c) => c.y0)));
-  const x1 = Math.min(campo.x + campo.w, Math.max(...cajas.map((c) => c.x1)));
-  const y1 = Math.min(campo.y + campo.h, Math.max(...cajas.map((c) => c.y1)));
   const aire = 24 * k;
 
-  /* Nunca menos de media diapositiva: la referencia del área y la portería. */
-  let w = Math.min(campo.w, Math.max(x1 - x0 + aire * 2, 1000 * k));
-  const h = Math.min(campo.h, Math.max(y1 - y0 + aire * 2, w * 0.62));
+  /* Lo que se sale del césped no se puede enseñar: se recorta a él. */
+  const recorte = () => {
+    const x0 = Math.max(campo.x, Math.min(...cajas.map((c) => c.x0)));
+    const y0 = Math.max(campo.y, Math.min(...cajas.map((c) => c.y0)));
+    const x1 = Math.min(campo.x + campo.w, Math.max(...cajas.map((c) => c.x1)));
+    const y1 = Math.min(campo.y + campo.h, Math.max(...cajas.map((c) => c.y1)));
 
-  /* Si sale muy alto en la hoja, se abre a lo ancho (si cabe) antes que encoger. */
-  if ((HOJA_W * h) / w > CAMPO_MAX_HOJA) w = Math.min(campo.w, (h * HOJA_W) / CAMPO_MAX_HOJA);
+    /* Nunca menos de media diapositiva: la referencia del área y la portería. */
+    let w = Math.min(campo.w, Math.max(x1 - x0 + aire * 2, 1000 * k));
+    const h = Math.min(campo.h, Math.max(y1 - y0 + aire * 2, w * 0.62));
 
-  const cxBox = (x0 + x1) / 2;
-  const cyBox = (y0 + y1) / 2;
+    /* Si sale muy alto en la hoja, se abre a lo ancho (si cabe) antes que encoger. */
+    if ((HOJA_W * h) / w > CAMPO_MAX_HOJA) w = Math.min(campo.w, (h * HOJA_W) / CAMPO_MAX_HOJA);
 
-  return {
-    sx: Math.max(campo.x, Math.min(campo.x + campo.w - w, cxBox - w / 2)),
-    sy: Math.max(campo.y, Math.min(campo.y + campo.h - h, cyBox - h / 2)),
-    sw: w,
-    sh: h,
-    alto: Math.round((HOJA_W * h) / w),
-    k,
+    const cxBox = (x0 + x1) / 2;
+    const cyBox = (y0 + y1) / 2;
+
+    return {
+      sx: Math.max(campo.x, Math.min(campo.x + campo.w - w, cxBox - w / 2)),
+      sy: Math.max(campo.y, Math.min(campo.y + campo.h - h, cyBox - h / 2)),
+      sw: w,
+      sh: h,
+    };
   };
+
+  /*
+  | Nadie a medias (12/11/2026, análisis y marketing: «Cestero cortado»). El
+  | recorte mínimo coge a compañeros que no son de su zona y los partía por el
+  | borde: el que queda cortado entra entero (hasta tres pasadas, porque al
+  | abrir el marco puede asomar otro). El que ni asoma, se queda fuera.
+  */
+  let r = recorte();
+
+  for (let pasada = 0; pasada < 3; pasada += 1) {
+    const cortados = accion.otros
+      .map((p) => ({ x0: dx + (p.x - FICHA.izq) * k, y0: dy + (p.y - FICHA.arriba) * k, x1: dx + (p.x + FICHA.der) * k, y1: dy + (p.y + FICHA.abajo) * k }))
+      .filter((c) => {
+        const asoma = c.x1 > r.sx && c.x0 < r.sx + r.sw && c.y1 > r.sy && c.y0 < r.sy + r.sh;
+        const entero = c.x0 >= r.sx && c.x1 <= r.sx + r.sw && c.y0 >= r.sy && c.y1 <= r.sy + r.sh;
+
+        return asoma && !entero;
+      });
+
+    if (cortados.length === 0) break;
+
+    cajas.push(...cortados);
+    r = recorte();
+  }
+
+  return { ...r, alto: Math.round((HOJA_W * r.sh) / r.sw), k };
 }
 
 /**
@@ -1034,6 +1176,9 @@ function resalta(
   marca: { x: number; y: number } | null,
   accion: CometidoAccion,
   otros: { x: number; y: number }[] = [],
+  /** Su cara y su nombre, para la hoja del portero (que no tiene ficha). */
+  retrato: HTMLImageElement | null = null,
+  nombre = "",
 ) {
   const z = HOJA_W / enc.sw;
   /* Los tamaños, de la ficha en la foto: si la pizarra acercó el campo, el aro crece con ella. */
@@ -1076,6 +1221,29 @@ function resalta(
   ctx.rect(0, top, HOJA_W, enc.alto);
   ctx.clip();
 
+  /*
+  | Dónde va el «TÚ»: donde no tape a nadie (06/11/2026, expertos): arriba
+  | tapaba el nombre del de delante. Se prueba arriba, a los lados y abajo;
+  | gana el primero con aire y, si ninguno lo tiene, el que más. Se decide
+  | ANTES que «TU HOMBRE» para que las dos placas no se monten (12/11/2026).
+  */
+  const radioYo = 42 * s;
+  const ocupados = otros.map(enHoja);
+  const sitioChapa = (() => {
+    if (!yo) return null;
+
+    const candidatos = [
+      { x: yo.x, y: yo.y - radioYo - 33 },
+      { x: yo.x + radioYo + 58, y: yo.y - radioYo * 0.5 },
+      { x: yo.x - radioYo - 58, y: yo.y - radioYo * 0.5 },
+      { x: yo.x, y: yo.y + radioYo + 92 },
+    ].filter((p) => p.y - 23 > 4 && p.y + 23 < enc.alto - 4 && p.x - 48 > 0 && p.x + 48 < HOJA_W);
+    const aire = (p: { x: number; y: number }) =>
+      Math.min(9999, ...ocupados.map((o) => Math.hypot((o.x - p.x) / 1.5, o.y - p.y)), ...(suyo ? [Math.hypot((suyo.x - p.x) / 1.5, suyo.y - p.y)] : []));
+
+    return candidatos.find((p) => aire(p) > 62 * s) ?? [...candidatos].sort((a, b) => aire(b) - aire(a))[0] ?? { x: yo.x, y: yo.y - radioYo - 33 };
+  })();
+
   if (suyo) {
     const radio = 46 * s;
 
@@ -1087,9 +1255,17 @@ function resalta(
     ctx.stroke();
     ctx.setLineDash([]);
 
-    chapa(ctx, accion.rival.startsWith("Marcas") ? "TU HOMBRE" : "TE VIGILA", {
+    /* Con su dorsal: «TU HOMBRE · 8» (12/11/2026, fútbol: «a quién»). */
+    const rotulo = `${accion.rival.startsWith("Marcas") ? "TU HOMBRE" : "TE VIGILA"}${accion.marcaDorsal ? ` · ${accion.marcaDorsal}` : ""}`;
+    const debajo = Math.min(enc.alto - 48, suyo.y + radio + 10);
+    const encima = Math.max(4, suyo.y - radio - 50);
+    /* Si debajo pisa la placa «TÚ», va encima del aro. */
+    const pisa = (y: number) => sitioChapa != null && Math.abs(sitioChapa.x - suyo.x) < 160 && Math.abs(sitioChapa.y - 23 - y) < 46;
+    const y = pisa(debajo) && !pisa(encima) ? encima : debajo;
+
+    chapa(ctx, rotulo, {
       x: suyo.x,
-      y: Math.min(top + enc.alto - 48, top + suyo.y + radio + 10),
+      y: top + y,
       alto: 40,
       fondo: "#7A1F2B",
       tinta: C.crema,
@@ -1100,8 +1276,43 @@ function resalta(
     });
   }
 
-  if (yo) {
-    const radio = 42 * s;
+  if (yo && sitioChapa) {
+    const radio = radioYo;
+
+    /*
+    | El portero no tiene ficha: en la lámina sale la chapa genérica «POR».
+    | En SU hoja va su cara y su nombre encima (12/11/2026, fútbol).
+    */
+    if (accion.sinFicha && retrato) {
+      const r = 30 * s;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(yo.x, top + yo.y, r, 0, Math.PI * 2);
+      ctx.fillStyle = C.crema;
+      ctx.fill();
+      ctx.clip();
+      const lado = r * 2;
+      const escala = Math.max(lado / retrato.width, lado / retrato.height);
+      const w = retrato.width * escala;
+      const h = retrato.height * escala;
+      ctx.drawImage(retrato, yo.x - w / 2, top + yo.y - r, w, h);
+      ctx.restore();
+
+      if (nombre) {
+        chapa(ctx, nombre.toLocaleUpperCase("es-ES"), {
+          x: yo.x,
+          y: Math.min(top + enc.alto - 40, top + yo.y + radio + 8),
+          alto: 34,
+          fondo: C.navy,
+          tinta: C.crema,
+          tamano: 20,
+          espaciado: 1,
+          padding: 12,
+          desdeCentro: true,
+        });
+      }
+    }
 
     ctx.strokeStyle = "rgba(255,255,255,.95)";
     ctx.lineWidth = 12;
@@ -1111,22 +1322,6 @@ function resalta(
     ctx.strokeStyle = C.rosa;
     ctx.lineWidth = 7;
     ctx.stroke();
-
-    /*
-    | Donde no tape a nadie (06/11/2026, expertos): arriba tapaba el nombre del
-    | de delante. Se prueba arriba, a los lados y abajo; gana el primero con
-    | aire y, si ninguno lo tiene, el que más.
-    */
-    const ocupados = otros.map(enHoja);
-    const candidatos = [
-      { x: yo.x, y: yo.y - radio - 33 },
-      { x: yo.x + radio + 58, y: yo.y - radio * 0.5 },
-      { x: yo.x - radio - 58, y: yo.y - radio * 0.5 },
-      { x: yo.x, y: yo.y + radio + 92 },
-    ].filter((p) => p.y - 23 > 4 && p.y + 23 < enc.alto - 4 && p.x - 48 > 0 && p.x + 48 < HOJA_W);
-    const aire = (p: { x: number; y: number }) => Math.min(9999, ...ocupados.map((o) => Math.hypot((o.x - p.x) / 1.5, o.y - p.y)));
-    const sitioChapa =
-      candidatos.find((p) => aire(p) > 62 * s) ?? [...candidatos].sort((a, b) => aire(b) - aire(a))[0] ?? { x: yo.x, y: yo.y - radio - 33 };
 
     chapa(ctx, "TÚ", {
       x: sitioChapa.x,
@@ -1211,6 +1406,8 @@ type PlanAccion = {
   enc: Encuadre | null;
   grande: string[];
   debajo: string[];
+  /** La orden en imperativo («Ataca el 1.er palo»), o "" si no sale una clara. */
+  orden: string;
   yCampo: number;
   alto: number;
 };
@@ -1304,7 +1501,8 @@ function bloqueArriba(ctx: Ctx, accion: CometidoAccion, plan: Pick<PlanAccion, "
     y += DEBAJO_PX * 1.2;
 
     if (pinta) {
-      ctx.fillStyle = colorLado(accion.lado);
+      /* «Con Sergio» en verde oscuro no se leía sobre el papel (marketing): tinta de la paleta. */
+      ctx.fillStyle = TINTA_SUAVE;
       fuente(ctx, DEBAJO_PX, 600);
       ctx.fillText(linea, MARGEN, y);
     }
@@ -1313,12 +1511,16 @@ function bloqueArriba(ctx: Ctx, accion: CometidoAccion, plan: Pick<PlanAccion, "
   return y + 26;
 }
 
-/** SEÑAL, OJO y DESPUÉS, con su chapa; la señal, la primera. */
-function bloqueNotas(ctx: Ctx, accion: CometidoAccion, y0: number, pinta: boolean) {
+/**
+ * ORDEN, SEÑAL, OJO y DESPUÉS, con su chapa; la orden, la primera. Al final,
+ * en pequeño, la base de la acción (12/11/2026, análisis).
+ */
+function bloqueNotas(ctx: Ctx, accion: CometidoAccion, y0: number, pinta: boolean, orden = "") {
   let y = y0 + 30;
   const ancho = HOJA_W - MARGEN * 2;
 
   const notas: { rotulo: string; fondo: string; tinta: string; texto: string }[] = [
+    ...(orden ? [{ rotulo: "ORDEN", fondo: C.rosa, tinta: C.navy, texto: orden }] : []),
     ...(accion.senal ? [{ rotulo: "SEÑAL", fondo: C.navy, tinta: C.crema, texto: accion.senal }] : []),
     ...accion.consignas.map((texto) => ({ rotulo: "OJO", fondo: C.rosa, tinta: C.navy, texto })),
     ...(accion.despuesDibujado && accion.despues
@@ -1353,7 +1555,21 @@ function bloqueNotas(ctx: Ctx, accion: CometidoAccion, y0: number, pinta: boolea
     y += Math.max(54, filas.length * 50) + 20;
   }
 
-  return notas.length ? y : y0;
+  /* La base: de dónde sale esta hoja, en letra pequeña y sin chapa. */
+  if (accion.base) {
+    fuente(ctx, 28, 500);
+    const filas = renglones(ctx, `Base: ${accion.base}`, ancho).slice(0, 2);
+
+    if (pinta) {
+      ctx.fillStyle = "rgba(15,30,61,.62)";
+      fuente(ctx, 28, 500);
+      filas.forEach((fila, i) => ctx.fillText(fila, MARGEN, y + (notas.length ? 28 : 46) + i * 36));
+    }
+
+    y += (notas.length ? 28 : 46) + filas.length * 36;
+  }
+
+  return notas.length || accion.base ? y : y0;
 }
 
 /** Lo que mide la hoja de una acción, antes de pintarla. */
@@ -1365,7 +1581,10 @@ function planAccion(
   suyos: Map<string, SuJugador> | undefined,
 ): PlanAccion {
   const enFoto = (p: { x: number; y: number }) => ({ x: marco.dx + p.x * marco.k, y: marco.dy + p.y * marco.k });
-  const yo = accion.sinFicha ? (accion.portero ? enFoto(accion.portero) : null) : punto ?? (accion.foco[0] ? enFoto({ x: accion.foco[0].x, y: accion.foco[0].y - 50 }) : null);
+  /* El portero: su chapa «POR» medida en el DOM (`punto`) o, si no, su disco (30 px por encima de los pies). */
+  const yo = accion.sinFicha
+    ? punto ?? (accion.portero ? enFoto({ x: accion.portero.x, y: accion.portero.y - 30 }) : null)
+    : punto ?? (accion.foco[0] ? enFoto({ x: accion.foco[0].x, y: accion.foco[0].y - 50 }) : null);
   /* Cara y nombre de cada uno de los demás, en la foto. */
   const otros = accion.otros.flatMap((p) => [enFoto({ x: p.x, y: p.y - 50 }), enFoto({ x: p.x, y: p.y + 4 })]);
   const marca = accion.marcaPunto ? enFoto({ x: accion.marcaPunto.x, y: accion.marcaPunto.y - 30 }) : null;
@@ -1381,11 +1600,14 @@ function planAccion(
   fuente(medida, DEBAJO_PX, 600);
   const lineasDebajo = debajo ? renglones(medida, debajo, ancho).slice(0, 2) : [];
 
+  /* Una orden por acción (12/11/2026, expertos): lo grande, en imperativo. */
+  const orden = ordenDe(grande);
+
   const yCampo = bloqueArriba(medida, accion, { grande: lineasGrande, debajo: lineasDebajo }, false);
   const yNotas = yCampo + (enc ? enc.alto + 8 : 0);
-  const alto = bloqueNotas(medida, accion, yNotas, false) + 10 + PIE_H;
+  const alto = bloqueNotas(medida, accion, yNotas, false, orden) + 10 + PIE_H;
 
-  return { yo, otros, marca, enc, grande: lineasGrande, debajo: lineasDebajo, yCampo, alto };
+  return { yo, otros, marca, enc, grande: lineasGrande, debajo: lineasDebajo, orden, yCampo, alto };
 }
 
 function dibujaAccion(
@@ -1397,6 +1619,7 @@ function dibujaAccion(
   orden: number,
   acciones: number,
   volver = false,
+  retrato: HTMLImageElement | null = null,
 ): ZonaHoja | null {
   cabecera(ctx, cx, acciones > 1 ? `ACCIÓN ${orden} DE ${acciones}` : "BALÓN PARADO");
 
@@ -1412,13 +1635,13 @@ function dibujaAccion(
     ctx.fillRect(0, yCampo - 8, HOJA_W, 8);
     ctx.imageSmoothingQuality = "high";
     ctx.drawImage(tablero, enc.sx * k, enc.sy * k, enc.sw * k, enc.sh * k, 0, yCampo, HOJA_W, enc.alto);
-    resalta(ctx, enc, yCampo, yo, marca, accion, otros);
+    resalta(ctx, enc, yCampo, yo, marca, accion, otros, accion.sinFicha ? retrato : null, nombreCorto(cx.player));
 
     ctx.fillStyle = C.rosa;
     ctx.fillRect(0, yCampo + enc.alto, HOJA_W, 8);
   }
 
-  bloqueNotas(ctx, accion, yCampo + (enc ? enc.alto + 8 : 0), true);
+  bloqueNotas(ctx, accion, yCampo + (enc ? enc.alto + 8 : 0), true, plan.orden);
   return pie(ctx, cx, volver);
 }
 
@@ -1511,7 +1734,13 @@ export async function pdfJugador(opciones: {
   const { jsPDF } = await import("jspdf");
   const { player, acciones } = opciones;
 
-  const cx: Contexto = { player, rival: opciones.rival, jornada: opciones.jornada, fecha: opciones.fecha, escudos: opciones.escudos };
+  /* El rival, escrito igual que en el resto de piezas (12/11/2026, marketing). */
+  const rival = nombreRivalPieza(opciones.rival) || opciones.rival;
+  const cx: Contexto = { player, rival, jornada: opciones.jornada, fecha: opciones.fecha, escudos: opciones.escudos };
+
+  /* El portero no tiene ficha: su cara va sobre la chapa «POR» de su hoja. */
+  const foto = acciones.some((accion) => accion.sinFicha) ? player?.foto || player?.fotoLejos : "";
+  const retrato = foto ? await cargaImagen(foto).catch(() => null) : null;
 
   const hojas: HTMLCanvasElement[] = [];
   const conResumen = acciones.length >= 2;
@@ -1522,7 +1751,7 @@ export async function pdfJugador(opciones: {
   if (conResumen) {
     const resumen = lienzo(altoResumen(acciones.length));
 
-    filasResumen = dibujaResumen(resumen.ctx, cx, acciones);
+    filasResumen = dibujaResumen(resumen.ctx, cx, acciones, opciones.suyos);
     hojas.push(resumen.canvas);
   }
 
@@ -1532,7 +1761,7 @@ export async function pdfJugador(opciones: {
     const plan = planAccion(accion, opciones.puntos?.[orden] ?? null, Boolean(tablero), marco, opciones.suyos);
     const hoja = lienzo(plan.alto);
 
-    vueltas.push(dibujaAccion(hoja.ctx, cx, accion, tablero, plan, orden + 1, acciones.length, conResumen));
+    vueltas.push(dibujaAccion(hoja.ctx, cx, accion, tablero, plan, orden + 1, acciones.length, conResumen, retrato));
     hojas.push(hoja.canvas);
   });
 
@@ -1566,7 +1795,7 @@ export async function pdfJugador(opciones: {
 
   const quien = nombreCorto(player) || "jugador";
 
-  doc.setProperties({ title: `Balón parado · ${quien} · ${opciones.rival}`, author: "RMCF Castilla" });
+  doc.setProperties({ title: `Balón parado · ${quien} · ${rival}`, author: "RMCF Castilla" });
 
   const nombre = `ABP-${[player?.dorsal, archivo(quien), opciones.jornada, archivo(opciones.rival)]
     .filter((parte) => parte != null && parte !== "")
@@ -1591,7 +1820,7 @@ export async function preparaJugador(opciones: {
   const foto = opciones.player?.fotoLejos || opciones.player?.foto;
   const retrato = foto ? await cargaImagen(foto).catch(() => null) : null;
 
-  return { cx: { ...opciones } as Contexto, retrato };
+  return { cx: { ...opciones, rival: nombreRivalPieza(opciones.rival) || opciones.rival } as Contexto, retrato };
 }
 
 export { renglones, escudo as pintaEscudo, archivo as nombreArchivo };

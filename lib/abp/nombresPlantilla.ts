@@ -79,22 +79,35 @@ export function ajustaNombres(texto: string, jugadores: Jugador[]): string {
 | que sólo puede ser el arranque de UN jugador va con mayúscula; el resto del
 | texto no se toca.
 */
+/*
+| 12/11/2026 (jueces): «Fortu» salía así en la lámina y en el PDF del
+| jugador, y en su chapa pone «Pol» (Pol Fortuny): el lector no los casaba.
+| El apodo corto pasa al nombre de la chapa —el apodo de la plantilla— si es
+| de un solo jugador; si no hay apodo, sólo se le pone la mayúscula.
+*/
 function conApodosCortos(texto: string, jugadores: Jugador[]) {
-  const nombres = new Set<string>();
+  /* Palabra de su nombre (≥6 letras) → cómo se le llama en la chapa. */
+  const nombres = new Map<string, string>();
 
   for (const jugador of jugadores) {
+    const chapa = (jugador.apodo ?? "").trim();
+
     for (const campo of [jugador.apodo, jugador.nombre]) {
       for (const palabra of (campo ?? "").trim().split(/\s+/)) {
-        if (palabra.length >= 6) nombres.add(sinTildes(palabra));
+        if (palabra.length >= 6) nombres.set(sinTildes(palabra), chapa);
       }
     }
   }
 
   return texto.replace(/(?<![\p{L}])([a-zñáéíóúü]{5,})(?![\p{L}])/gu, (palabra) => {
     const clave = sinTildes(palabra);
-    const casan = [...nombres].filter((nombre) => nombre.startsWith(clave) && nombre !== clave);
+    const casan = [...nombres.keys()].filter((nombre) => nombre.startsWith(clave) && nombre !== clave);
 
-    return casan.length === 1 ? palabra.charAt(0).toLocaleUpperCase("es-ES") + palabra.slice(1) : palabra;
+    if (casan.length !== 1) return palabra;
+
+    const chapa = nombres.get(casan[0]) ?? "";
+
+    return chapa ? chapa : palabra.charAt(0).toLocaleUpperCase("es-ES") + palabra.slice(1);
   });
 }
 
@@ -196,4 +209,117 @@ export function nombresSueltos(textos: string[], enDiapositiva: Jugador[]): stri
   }
 
   return [...sueltos.values()];
+}
+
+/*
+| 12/11/2026 (jueces): «JOAN-MARIO+ RACHAD-CESTERO», «ROBER SACA A CORTA»,
+| «CUANDO FORTU VA A JUEGO EN CORTO». Las consignas llegan en mayúsculas
+| sostenidas y `nombresSueltos` sólo ve nombres por la mayúscula, así que
+| ninguno de los tres saltaba y el jugador recibía «Fortu» en su PDF. Aquí
+| se mira la forma de la frase, no la mayúscula: una palabra que no es de la
+| plantilla ni del oficio y que va pegada con guion, «+» o «/» al nombre de un
+| jugador, o que hace de sujeto de un verbo de la jugada («X saca», «cuando
+| X va»), es un nombre. Se propone el jugador más parecido si lo hay.
+*/
+const VERBOS_JUGADA = new Set([
+  "va", "van", "saca", "sacan", "sale", "salen", "entra", "entran", "cae", "caen", "bloquea", "bloquean", "remata",
+  "rematan", "fija", "fijan", "corta", "arrastra", "ataca", "atacan", "tira", "lanza", "busca", "espera", "queda",
+  "marca", "amplia", "cierra", "ocupa", "viene", "llega", "pide", "juega", "pisa", "gira", "vigila", "acompana",
+  "dobla", "aguanta", "cubre", "salta", "empuja", "protege", "libera", "recibe", "pasa", "centra", "mete", "se",
+]);
+
+const PALABRAS_COMUNES = new Set([
+  "de", "la", "el", "los", "las", "a", "en", "y", "o", "u", "e", "que", "por", "para", "con", "del", "al", "se", "su",
+  "sus", "un", "una", "unos", "unas", "lo", "le", "les", "si", "no", "mas", "muy", "ya", "pero", "como", "sobre",
+  "otro", "otra", "cada", "mismo", "misma", "este", "esta", "ese", "esa", "hay", "es", "son", "sea", "esten",
+  "juego", "acciones", "accion", "lado", "orden", "parejas", "pareja", "fijadores", "fijador", "cortas", "cortos",
+  "directas", "zona", "porteria", "primero", "segundo", "tercero", "golpeo", "golpea", "bote", "bajo", "alto",
+  "mientras", "rematadores", "bloqueadores", "lanzadores", "sacadores", "jugador", "jugadores", "companero",
+]);
+
+function distanciaEdicion(a: string, b: string) {
+  const fila = Array.from({ length: b.length + 1 }, (_, j) => j);
+
+  for (let i = 1; i <= a.length; i += 1) {
+    let previo = fila[0];
+
+    fila[0] = i;
+
+    for (let j = 1; j <= b.length; j += 1) {
+      const guardado = fila[j];
+
+      fila[j] = Math.min(fila[j] + 1, fila[j - 1] + 1, previo + (a[i - 1] === b[j - 1] ? 0 : 1));
+      previo = guardado;
+    }
+  }
+
+  return fila[b.length];
+}
+
+export type NombreDudoso = { palabra: string; sugerencia?: string };
+
+export function nombresDudosos(textos: string[], jugadores: Jugador[]): NombreDudoso[] {
+  /* Palabra → forma oficial, de todos los nombres y apodos de la plantilla. */
+  const formas = new Map<string, string>();
+
+  for (const jugador of jugadores) {
+    for (const campo of [jugador.apodo, jugador.nombre]) {
+      for (const palabra of (campo ?? "").trim().split(/\s+/)) {
+        if (palabra.length >= 3) formas.set(sinTildes(palabra), palabra);
+      }
+    }
+  }
+
+  const deLaPlantilla = (w: string) =>
+    formas.has(w) || (w.length >= 5 && [...formas.keys()].some((nombre) => nombre.length > w.length && nombre.startsWith(w)));
+
+  const salida = new Map<string, NombreDudoso>();
+
+  for (const texto of textos) {
+    const crudo = String(texto ?? "");
+    const limpio = sinTildes(crudo);
+
+    if (limpio.length !== crudo.length) continue;
+
+    /* Palabras con su separador de antes y de después. */
+    const trozos = limpio.split(/([^a-zñ]+)/);
+    const palabras: { w: string; antes: string; despues: string; inicio: number }[] = [];
+    let posicion = 0;
+
+    trozos.forEach((trozo, i) => {
+      if (i % 2 === 0 && trozo) palabras.push({ w: trozo, antes: trozos[i - 1] ?? "", despues: trozos[i + 1] ?? "", inicio: posicion });
+      posicion += trozo.length;
+    });
+
+    palabras.forEach(({ w, antes, despues, inicio }, i) => {
+      if (w.length < 3 || DEL_OFICIO.has(w) || PALABRAS_COMUNES.has(w) || VERBOS_JUGADA.has(w) || deLaPlantilla(w)) return;
+
+      const pegada = (sep: string) => /^\s*[-+/]\s*$/.test(sep);
+      const vecinaJugador =
+        (pegada(antes) && i > 0 && formas.has(palabras[i - 1].w)) ||
+        (pegada(despues) && i + 1 < palabras.length && formas.has(palabras[i + 1].w));
+
+      const siguiente = palabras[i + 1];
+      const anterior = palabras[i - 1];
+      const abreFrase = i === 0 || /[:+,;.(]/.test(antes);
+      /* «superar corta», «sacar rápido»: un infinitivo no es un nombre. */
+      const sujeto =
+        !/(ar|er|ir)$/.test(w) &&
+        Boolean(siguiente && /^\s+$/.test(despues) && VERBOS_JUGADA.has(siguiente.w)) &&
+        (abreFrase || ["cuando", "si", "y", "que", "mientras"].includes(anterior?.w ?? ""));
+
+      if (!vecinaJugador && !sujeto) return;
+
+      const original = crudo.slice(inicio, inicio + w.length);
+      const palabra = original.charAt(0).toLocaleUpperCase("es-ES") + original.slice(1).toLocaleLowerCase("es-ES");
+      const parecida = [...formas.entries()]
+        .map(([clave, forma]) => ({ forma, d: distanciaEdicion(w, clave) }))
+        .filter(({ d, forma }) => d <= 2 && forma.length >= 4)
+        .sort((a, b) => a.d - b.d)[0];
+
+      if (!salida.has(w)) salida.set(w, { palabra, ...(parecida ? { sugerencia: parecida.forma } : {}) });
+    });
+  }
+
+  return [...salida.values()];
 }

@@ -77,7 +77,7 @@ import {
   type SlidePizarra,
 } from "@/lib/abp/pizarra";
 import { leyendaSiglas } from "@/lib/abp/siglas";
-import { esImplicito, porteroPropioDeLaLamina, rivalesDeLaLamina } from "@/lib/abp/rivales-implicitos";
+import { esImplicito, porteroPropioDeLaLamina, rivalesDeLaLamina, saqueDeLaLamina } from "@/lib/abp/rivales-implicitos";
 import { esPortero } from "@/lib/abp/pizarra-jugador";
 import { useEscalaCara } from "@/lib/abp/escala-cara";
 
@@ -1355,18 +1355,38 @@ function LeyendaTrazos({
         );
       })}
 
+      {/*
+      | El rival no es una flecha (12/11/2026, marketing): va separado por un
+      | filete y con su chapa de muestra —con un dorsal dentro si los llevan—,
+      | para que no se lea como un cuarto tipo de trazo.
+      */}
       {rivales && (
         <span className="flex items-center gap-2">
+          {tipos.length > 0 && (
+            <span aria-hidden className="mr-2 inline-block" style={{ width: 1, height: 22, backgroundColor: "rgba(200,169,107,.45)" }} />
+          )}
           <span
             aria-hidden
-            className="inline-block rounded-full"
-            style={{ width: 18, height: 18, backgroundColor: "#8E2430", boxShadow: "0 0 0 2px #FFFFFF" }}
-          />
+            className="inline-flex items-center justify-center rounded-full"
+            style={{
+              width: 26,
+              height: 26,
+              backgroundImage: "radial-gradient(70% 70% at 35% 30%, #A8323E 0%, #6E1622 100%)",
+              boxShadow: "0 0 0 2px #FFFFFF",
+              color: "#FFFFFF",
+              fontSize: 13,
+              fontWeight: 700,
+              lineHeight: 1,
+              fontFamily: "var(--fuente-pizarra, inherit)",
+            }}
+          >
+            {conDorsal ? "8" : ""}
+          </span>
           <span
             className="text-[15px] font-semibold uppercase leading-none tracking-[0.12em]"
             style={{ color: "#FFFFFF" }}
           >
-            {conDorsal ? "Rival · dorsal" : "Rival"}
+            {conDorsal ? "Rival y su dorsal" : "Rival"}
           </span>
         </span>
       )}
@@ -1386,6 +1406,27 @@ function LeyendaTrazos({
 /* ------------------------------------------------------------------ */
 /*  TABLERO                                                            */
 /* ------------------------------------------------------------------ */
+
+/** A menos de esto del pie de otra cara, soltar las cambia. */
+const RADIO_CAMBIO = 34;
+
+function fichaDebajo(fichas: FichaPizarra[], id: string, p: { x: number; y: number }) {
+  let mejor: FichaPizarra | null = null;
+  let menor = RADIO_CAMBIO;
+
+  for (const ficha of fichas) {
+    if (ficha.id === id || !enElCampo(ficha)) continue;
+
+    const d = Math.hypot(ficha.x - p.x, ficha.y - p.y);
+
+    if (d <= menor) {
+      menor = d;
+      mejor = ficha;
+    }
+  }
+
+  return mejor;
+}
 
 export function TableroSlide({
   slide,
@@ -1412,6 +1453,7 @@ export function TableroSlide({
   onElegirRival,
   onCrearRival,
   onMoverRival,
+  onSoltarSobre,
   panel = true,
   titulo,
   destacado = null,
@@ -1448,7 +1490,8 @@ export function TableroSlide({
   sinCasillasVacias?: boolean;
   /**
    * Hoja de una fase, para el PDF y el PowerPoint «por fases»: sólo las
-   * flechas hasta esa fase, con las caras en su sitio de salida.
+   * flechas hasta esa fase, con las caras donde arranca esa fase y las de
+   * las fases anteriores difuminadas.
    */
   hastaFase?: number;
   /**
@@ -1460,6 +1503,11 @@ export function TableroSlide({
   onElegirRival?: (id: string | null) => void;
   onCrearRival?: (rival: RivalPizarra) => void;
   onMoverRival?: (id: string, x: number, y: number) => void;
+  /**
+   * Una cara soltada encima de otra: cambiarlas. `origen` es de dónde salió la
+   * que se arrastraba. Sin esto, se quedan una encima de la otra.
+   */
+  onSoltarSobre?: (id: string, sobre: string, origen: { x: number; y: number }) => void;
   /** El panel de asignaciones en su columna. Sin él, el campo crece. */
   panel?: boolean;
   /** El título de la cabecera, si no es el de la diapositiva (ver `tituloVisible`). */
@@ -1714,7 +1762,7 @@ export function TableroSlide({
   | tirar de un extremo o de la curva de un trazo, y dibujar uno nuevo.
   */
   const arrastre = useRef<
-    | { modo: "ficha"; id: string; dx: number; dy: number }
+    | { modo: "ficha"; id: string; dx: number; dy: number; x0: number; y0: number; x: number; y: number }
     | { modo: "tirador"; id: string; cual: TiradorTrazo }
     | { modo: "dibujo"; desde: Punto }
     | { modo: "rival"; id: string; dx: number; dy: number }
@@ -1731,6 +1779,9 @@ export function TableroSlide({
   }, [slide.fichas, slide.trazos]);
 
   /** Las líneas de alineación que se ven mientras se arrastra una cara. */
+  /* La cara sobre la que se va a soltar la que se arrastra: al soltar, se cambian. */
+  const [destinoCambio, setDestinoCambio] = useState<string | null>(null);
+
   const [guias, setGuias] = useState<{ x: number | null; y: number | null }>({
     x: null,
     y: null,
@@ -1777,7 +1828,16 @@ export function TableroSlide({
 
       if (!p) return;
 
-      arrastre.current = { modo: "ficha", id: ficha.id, dx: p.x - ficha.x, dy: p.y - ficha.y };
+      arrastre.current = {
+        modo: "ficha",
+        id: ficha.id,
+        dx: p.x - ficha.x,
+        dy: p.y - ficha.y,
+        x0: ficha.x,
+        y0: ficha.y,
+        x: ficha.x,
+        y: ficha.y,
+      };
 
       onPasoNuevo?.();
       onSeleccionar(ficha.id);
@@ -1938,7 +1998,14 @@ export function TableroSlide({
         actual.x === guiaX && actual.y === guiaY ? actual : { x: guiaX, y: guiaY },
       );
 
-      onMover(activo.id, Math.round(x), Math.round(y));
+      activo.x = Math.round(x);
+      activo.y = Math.round(y);
+
+      const debajo = onSoltarSobre ? fichaDebajo(fichasRef.current, activo.id, activo) : null;
+
+      setDestinoCambio((actual) => (actual === (debajo?.id ?? null) ? actual : (debajo?.id ?? null)));
+
+      onMover(activo.id, activo.x, activo.y);
     };
 
     const suelta = () => {
@@ -1947,6 +2014,20 @@ export function TableroSlide({
       arrastre.current = null;
 
       setGuias((actual) => (actual.x == null && actual.y == null ? actual : { x: null, y: null }));
+      setDestinoCambio(null);
+
+      /*
+      | Soltar una cara encima de otra las cambia (12/11/2026): el que se
+      | arrastra ocupa el sitio del otro —su puesto y sus carreras— y el otro
+      | vuelve al sitio de donde salió el primero, con las suyas.
+      */
+      if (activo?.modo === "ficha" && onSoltarSobre) {
+        const debajo = fichaDebajo(fichasRef.current, activo.id, activo);
+
+        if (debajo) onSoltarSobre(activo.id, debajo.id, { x: activo.x0, y: activo.y0 });
+
+        return;
+      }
 
       if (activo?.modo !== "dibujo") return;
 
@@ -1969,7 +2050,7 @@ export function TableroSlide({
       window.removeEventListener("pointerup", suelta);
       window.removeEventListener("pointercancel", suelta);
     };
-  }, [onMover, onCambiarTrazo, onCrearTrazo, onMoverRival, alLienzo, setBorrador]);
+  }, [onMover, onCambiarTrazo, onCrearTrazo, onMoverRival, onSoltarSobre, alLienzo, setBorrador]);
 
   const puestos = puestosDe(slide);
 
@@ -1977,8 +2058,12 @@ export function TableroSlide({
   const conGente = new Set(slide.fichas.map((ficha) => ficha.puesto).filter(Boolean) as string[]);
   const leyenda = leyendaSiglas(puestos.filter((puesto) => conGente.has(puesto.key)));
   /* Lo que es cada puesto, por su propio rótulo (no por la sigla: «E» puede ser «Ejecutor» o «Equilibra»). Si repite la sigla o el grupo, nada. */
-  const significadoPuesto = (puesto: { label?: string; sigla?: string; code: string }, grupo: string) => {
-    const label = String(puesto.label ?? "").replace(/s*·s*d+$/, "").trim();
+  const significadoPuesto = (puesto: { key?: string; label?: string; sigla?: string; code: string }, grupo: string) => {
+    /* 12/11/2026: la expresión había perdido sus barras («/s*·s*d+$/») y no quitaba nada. */
+    const base = String(puesto.label ?? "").replace(/\s*·\s*\d+$/, "").trim();
+    /* «Marca 3» no dice a quién (jueces): con el dorsal de «Quién marca a quién», «Marca al 8». */
+    const dorsal = puesto.key ? slide.marcas?.[puesto.key]?.trim() : "";
+    const label = dorsal && /^marca\b/i.test(base) ? `Marca al ${dorsal}` : base;
     const plano = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 
     return !label || plano(label) === plano(grupo) || plano(label) === plano(siglaDe(puesto)) ? "" : label;
@@ -1997,30 +2082,40 @@ export function TableroSlide({
   | Durante la reproducción cada cara está donde la lleva su carrera; parada,
   | en su sitio. Lo que se mueve es sólo lo pintado: el documento no cambia.
   */
-  const enCampo = slide.fichas.filter(enElCampo).map((ficha) => {
-    if (tiempo == null) return ficha;
+  /*
+  | En la hoja de la fase n (PDF y PPT «por fases»), las caras ya han hecho las
+  | fases anteriores: están donde arranca la n, y lo recorrido va difuminado
+  | (12/11/2026). Antes seguían en la salida con todas las flechas encima.
+  */
+  const tiempoCaras = tiempo ?? (hastaFase != null && hastaFase > 1 ? hastaFase - 1 : null);
 
-    const { x, y } = posicionEn(ficha, trazos, tiempo);
+  const enCampo = slide.fichas.filter(enElCampo).map((ficha) => {
+    if (tiempoCaras == null) return ficha;
+
+    const { x, y } = posicionEn(ficha, trazos, tiempoCaras);
 
     return x === ficha.x && y === ficha.y ? ficha : { ...ficha, x, y };
   });
 
   const balon = balonEn(trazos, tiempo);
 
-  /* Al enseñar, las caras que se pisan se abren o se pintan compactas. */
-  const separadas = soloVer
-    ? separaFichas(
-        enCampo.map((ficha) => {
-          const player = players.get(ficha.playerId);
-          const puesto = puestoDe(slide, ficha.puesto);
+  /* El punto de saque del saque de banda, al enseñar y sin balón dibujado. */
+  const saque = soloVer ? saqueDeLaLamina(slide) : null;
 
-          return {
-            ...ficha,
-            chapa: anchoChapa(player?.apodo ?? player?.nombre ?? "", puesto ? siglaDe(puesto) : String(player?.dorsal ?? "")),
-          };
-        }),
-      )
+  /* Al enseñar, las caras que se pisan se abren o se pintan compactas. */
+  const conChapas = soloVer
+    ? enCampo.map((ficha) => {
+        const player = players.get(ficha.playerId);
+        const puesto = puestoDe(slide, ficha.puesto);
+
+        return {
+          ...ficha,
+          chapa: anchoChapa(player?.apodo ?? player?.nombre ?? "", puesto ? siglaDe(puesto) : String(player?.dorsal ?? "")),
+        };
+      })
     : null;
+
+  const separadas = conChapas ? separaFichas(conChapas) : null;
 
   /*
   | 07/11/2026 (jueces, exportables): al enseñar, la lámina lleva también al
@@ -2033,7 +2128,7 @@ export function TableroSlide({
     soloVer && !slide.fichas.some((ficha) => esPortero(players.get(ficha.playerId))) ? porteroPropioDeLaLamina(slide) : null;
 
   /* Y los rivales, que no tapen a los nuestros: se apartan o van por debajo. */
-  const apartados = soloVer ? apartaRivales(rivalesVistos, enCampo, separadas) : null;
+  const apartados = soloVer ? apartaRivales(rivalesVistos, conChapas ?? enCampo, separadas) : null;
 
   /*
   | En qué momento de la jugada se está, fijo en la cabecera: en el proyector
@@ -2323,6 +2418,7 @@ export function TableroSlide({
         <CapaTrazos
           trazos={borrador ? [...trazos, borrador] : trazos}
           tiempo={tiempo}
+          hastaFase={hastaFase}
           elegido={elegido?.id ?? null}
           editable={editaTrazos && herramienta === "mover"}
           onElegir={(id) => {
@@ -2473,6 +2569,38 @@ export function TableroSlide({
           })}
 
         {balon && <BalonEnJuego x={balon.x} y={balon.y} />}
+        {!balon && saque && <BalonEnJuego x={saque.balon.x} y={saque.balon.y} />}
+
+        {/* La cara con la que se va a cambiar la que se arrastra. */}
+        {destinoCambio &&
+          (() => {
+            const otra = slide.fichas.find((ficha) => ficha.id === destinoCambio);
+
+            if (!otra) return null;
+
+            return (
+              <div
+                data-export-hide
+                className="pointer-events-none absolute flex items-end justify-center"
+                style={{
+                  left: otra.x - 70,
+                  top: otra.y - 150,
+                  width: 140,
+                  height: 170,
+                  zIndex: 2_940_000,
+                  border: `4px dashed ${COLORES.oroClaro}`,
+                  borderRadius: 24,
+                }}
+              >
+                <span
+                  className="mb-[-18px] rounded-md px-2 py-0.5 text-[18px] font-bold uppercase"
+                  style={{ background: COLORES.noche, color: COLORES.oroClaro, border: `2px solid ${COLORES.oroClaro}` }}
+                >
+                  Soltar para cambiar
+                </span>
+              </div>
+            );
+          })()}
 
         {/* Las guías del imán, mientras se arrastra: no se exportan. */}
         {guias.x != null && (
