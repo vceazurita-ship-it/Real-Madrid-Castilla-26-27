@@ -82,6 +82,8 @@ const EQUIVALENCIAS_JUGADOR: Record<string, string> = {
   "l fati": "Lamini",
   "lamini fati": "Lamini",
   "lamini fati joao": "Lamini",
+  /* 12/11/2026: Wyscout le escribe «Dani Meso» (como Opta) y no comparte apellido con Mesonero. */
+  "dani meso": "Dani Mesonero",
 };
 
 const claveJugador = (texto: string) =>

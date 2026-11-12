@@ -288,7 +288,7 @@ function EnElCampo({ datos, yo }: { datos: DatosOpta; yo: Fila }) {
 /*  TEMPORADA A TEMPORADA                                              */
 /* ------------------------------------------------------------------ */
 
-function Temporadas({ datos, yo }: { datos: DatosOpta; yo: Fila }) {
+function Temporadas({ datos, yo, nombre, apodo }: { datos: DatosOpta; yo: Fila; nombre: string; apodo?: string }) {
   /* Las mismas claves que pide TemporadasJugador: se comparten en memoria. */
   const indice = useDocsOpta<[{ temporadas?: { clave: string; actual?: boolean }[] }]>("opta:temporadas");
   const pasadas = useMemo(() => {
@@ -297,11 +297,19 @@ function Temporadas({ datos, yo }: { datos: DatosOpta; yo: Fila }) {
   }, [indice.docs]);
   const hist = useDocsOpta<TablaOpta[]>(...pasadas.map((t) => `opta:hist:${t}:jugadores`));
   const id = String(yo.playerId ?? "");
-  const sale = hist.docs.some((t) => aObjetos(t as TablaOpta | null).some((f) => f.playerId === id));
+  /* Con su nombre de la plantilla, la temporada pasada se completa con Wyscout (12/11/2026). */
+  const wyscout = useMemo(() => ({ nombre, apodo }), [nombre, apodo]);
 
   if (indice.cargando || hist.cargando) return <Cargando que="sus temporadas pasadas" />;
-  if (!sale) return <p className="text-[12px] text-white/55">Opta no le tiene en las temporadas pasadas que hay descargadas (25/26 sólo trae el grupo del Castilla; 24/25, el grupo 1).</p>;
-  return <TemporadasJugador datos={datos} playerId={id} minimo={MINUTOS_REFERENCIA} />;
+  return (
+    <TemporadasJugador
+      datos={datos}
+      playerId={id}
+      minimo={MINUTOS_REFERENCIA}
+      wyscout={wyscout}
+      sinPasado={<p className="text-[12px] text-white/55">Ni Opta (25/26 sólo trae el grupo del Castilla; 24/25, el grupo 1) ni Wyscout le tienen en la temporada pasada.</p>}
+    />
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -404,8 +412,8 @@ export function OptaFicha({ nombre, apodo, alIr }: { nombre: string; apodo?: str
         </Bloque>
       )}
 
-      <Bloque titulo="Temporada a temporada" detalle="Si Opta le tiene en temporadas pasadas: equipo, minutos y lo principal, con su percentil en cada una.">
-        <Temporadas datos={datos} yo={yo} />
+      <Bloque titulo="Temporada a temporada" detalle="Equipo, minutos y lo principal de cada temporada, con su percentil. Si Opta no tiene entera la temporada pasada, se completa con Wyscout.">
+        <Temporadas datos={datos} yo={yo} nombre={nombre} apodo={apodo} />
       </Bloque>
     </div>
   );
