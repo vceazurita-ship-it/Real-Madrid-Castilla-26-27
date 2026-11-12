@@ -126,7 +126,7 @@ import {
   type QueCopiar,
   type ViajeStore,
 } from "@/lib/viaje/modelo";
-import { avisosHorario, comoCompeticion, type AvisoHorario, type LineaAviso } from "@/lib/viaje/revision";
+import { arreglosSeguros, avisosHorario, comoCompeticion, type AvisoHorario, type LineaAviso } from "@/lib/viaje/revision";
 import { LUGARES_FIJOS, comoMedidas, leeMedidas } from "@/lib/viaje/rutas";
 import { pideMedidasCampo } from "@/lib/viaje/trayectos-cliente";
 import { ValoracionViajePanel } from "@/components/viaje/ValoracionViaje";
@@ -262,7 +262,7 @@ function pendientesDe(viaje: Desplazamiento, avisos: AvisoHorario[] = avisosHora
     return [
       { clave: "hora", rotulo: "Hora del partido", hecho: Boolean(viaje.hora), seccion: "viaje-partido" },
       { clave: "horario", rotulo: "Horario del día", hecho: viaje.dias.some((dia) => dia.citas.length > 0), seccion: "viaje-horario" },
-      { clave: "avisos", rotulo: "Recordatorios", hecho: viaje.avisos.some((a) => a.trim()), seccion: "viaje-avisos" },
+      { clave: "avisos", rotulo: "No olvidar", hecho: viaje.avisos.some((a) => a.trim()), seccion: "viaje-avisos" },
     ];
   }
 
@@ -305,7 +305,8 @@ const NOMBRE_SECCION: Record<(typeof SECCIONES_VIAJE)[number], string> = {
   "viaje-estadio": "Estadio",
   "viaje-hotel": "Hotel",
   "viaje-horario": "Horario",
-  "viaje-avisos": "Avisos",
+  /* 12/11/2026 (expertos): el mismo nombre en escritorio y móvil, «No olvidar». */
+  "viaje-avisos": "No olvidar",
 };
 
 /* Qué se hace en cada bloque que falta: el botón dice la tarea, no el campo. */
@@ -325,7 +326,7 @@ type AccionesAviso = {
 };
 
 /** Una tarea de «Cómo va el viaje» que no es un campo vacío, con su botón (12/11/2026). */
-type TareaExtra = { clave: string; texto: string; detalle?: string; boton: string; seccion: string };
+type TareaExtra = { clave: string; texto: string; detalle?: string; boton: string; seccion: string; /** Cómo se nombra en el recuento plegado: «medidas». */ corto?: string };
 
 /** Un dato de la tarjeta del viaje: «Salida · jueves 08:40 · desde Valdebebas». `alerta`: se pinta en rojo con «revisar». */
 type DatoViaje = { que: string; valor: string; alerta?: boolean };
@@ -372,6 +373,9 @@ function FilaAviso({ aviso, acciones }: { aviso: AvisoHorario; acciones?: Accion
           )}
         </div>
 
+        {/* 12/11/2026 (expertos): la regla que lo dispara, con su dato; así se ve por qué y si es verdad. */}
+        {aviso.regla && <p className="mt-0.5 text-[12px] leading-snug text-white/50">{aviso.regla}</p>}
+
         {aviso.lineas && aviso.lineas.length > 0 && (
           <ul className="mt-1 space-y-1 border-l border-white/10 pl-3">
             {aviso.lineas.map((linea) => (
@@ -393,6 +397,7 @@ function FilaAviso({ aviso, acciones }: { aviso: AvisoHorario; acciones?: Accion
                     Corregir
                   </button>
                 )}
+                {linea.regla && <span className="basis-full text-[12px] leading-snug text-white/45">{linea.regla}</span>}
               </li>
             ))}
           </ul>
@@ -409,31 +414,76 @@ function FilaAviso({ aviso, acciones }: { aviso: AvisoHorario; acciones?: Accion
  * ordenada por gravedad. Antes eran un panel de avisos y, debajo, una franja
  * gris que repetía los datos.
  */
+/** Lo que falta, como TAREAS por bloque. El horario ya montado no es tarea: lo que tenga mal lo dicen sus avisos. */
+function tareasDe(viaje: Desplazamiento, lista: Pendiente[]) {
+  const conCitas = viaje.dias.some((dia) => dia.citas.length > 0);
+
+  return SECCIONES_VIAJE
+    .map((seccion) => ({ seccion, faltan: lista.filter((p) => !p.hecho && p.seccion === seccion) }))
+    .filter((g) => g.faltan.length > 0 && !(g.seccion === "viaje-horario" && conCitas));
+}
+
+/** Cuántos avisos se ven en el semáforo; el resto, plegado (12/11/2026, expertos). */
+const AVISOS_A_LA_VISTA = 4;
+
+/**
+ * El estado del viaje en una chapa, junto al titular (12/11/2026, expertos):
+ * el h1 dice el viaje y la chapa, cómo va. Lleva a «Cómo va el viaje».
+ */
+function ChapaEstado({ errores, avisos, porCompletar }: { errores: number; avisos: number; porCompletar: number }) {
+  const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
+  const tono = errores
+    ? "border-red-400/50 bg-red-400/10 text-red-300"
+    : avisos
+      ? "border-amber-400/50 bg-amber-400/10 text-amber-300"
+      : porCompletar
+        ? "border-[#C8A96B]/45 bg-[#C8A96B]/10 text-[#C8A96B]"
+        : "border-emerald-400/50 bg-emerald-400/10 text-emerald-300";
+  const texto = errores
+    ? ["El horario no cuadra", plural(errores, "error", "errores"), avisos ? plural(avisos, "aviso", "avisos") : ""]
+    : avisos
+      ? ["Algo que revisar", plural(avisos, "aviso", "avisos")]
+      : porCompletar
+        ? [`${porCompletar} por completar`]
+        : ["Listo para sacar los documentos"];
+
+  return (
+    <button
+      type="button"
+      onClick={() => irA("viaje-estado")}
+      title="Ir a «Cómo va el viaje»"
+      className={`inline-flex max-w-full items-center gap-1.5 rounded-full border px-3 py-1 text-[13px] font-semibold tabular-nums transition hover:brightness-125 ${tono}`}
+    >
+      <span className={`h-2 w-2 shrink-0 rounded-full ${errores ? "bg-red-400" : avisos ? "bg-amber-400" : porCompletar ? "bg-[#C8A96B]" : "bg-emerald-400"}`} aria-hidden />
+      <span className="min-w-0">{texto.filter(Boolean).join(" · ")}</span>
+    </button>
+  );
+}
+
 function ListaPendiente({
   viaje,
   avisos,
-  datos,
   onIr = irA,
   acciones,
   extras = [],
+  seguros,
+  onSeguros,
 }: {
   viaje: Desplazamiento;
   avisos: AvisoHorario[];
-  datos: DatoViaje[];
   onIr?: (id: string) => void;
   acciones?: AccionesAviso;
   /** Tareas que no son un campo vacío (12/11/2026): «Elegir las medidas del campo». */
   extras?: TareaExtra[];
+  /** Los arreglos de un clic, juntos (`arreglosSeguros`). */
+  seguros?: { n: number; que: string[] };
+  onSeguros?: () => void;
 }) {
   const lista = pendientesDe(viaje, avisos);
   const hechos = lista.filter((p) => p.hecho).length;
   const completo = hechos === lista.length;
 
-  /* Lo que falta, como TAREAS. El horario ya montado no es tarea: lo que tenga mal lo dicen sus avisos. */
-  const conCitas = viaje.dias.some((dia) => dia.citas.length > 0);
-  const tareas = SECCIONES_VIAJE
-    .map((seccion) => ({ seccion, faltan: lista.filter((p) => !p.hecho && p.seccion === seccion) }))
-    .filter((g) => g.faltan.length > 0 && !(g.seccion === "viaje-horario" && conCitas));
+  const tareas = tareasDe(viaje, lista);
   const listaDe = (rotulos: string[]) =>
     rotulos.length <= 1 ? rotulos.join("") : `${rotulos.slice(0, -1).join(", ")} y ${rotulos[rotulos.length - 1]}`;
 
@@ -467,7 +517,7 @@ function ListaPendiente({
     | va pegado al borde derecho a media altura y tapaba el final de los datos
     | en escritorio y la fila «Completar el estadio» en el móvil.
     */
-    <div className="mt-4 rounded-2xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.05] py-3 pl-4 pr-12">
+    <div id="viaje-estado" className="mt-4 scroll-mt-20 rounded-2xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.05] py-3 pl-4 pr-12">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <p className="text-[13px] font-semibold uppercase tracking-[0.14em] text-white/55">
           {viaje.condicion === "local" ? "Día de partido en casa" : "Cómo va el viaje"}
@@ -496,7 +546,10 @@ function ListaPendiente({
                 <CheckCircle2 size={14} className="mt-[3px] shrink-0 text-emerald-400/80" aria-hidden />
                 <span className="min-w-0">
                   <span className="font-semibold text-white/80">{NOMBRE_SECCION[g.seccion]}</span>
-                  <span>: {listaDe(g.hechos.map((p) => p.rotulo.toLowerCase()))}</span>
+                  {/* «No olvidar: no olvidar» no: si el dato es el bloque, basta con el nombre. */}
+                  {g.hechos.length === 1 && g.hechos[0].rotulo === NOMBRE_SECCION[g.seccion] ? null : (
+                    <span>: {listaDe(g.hechos.map((p) => p.rotulo.toLowerCase()))}</span>
+                  )}
                 </span>
               </li>
             ))}
@@ -504,31 +557,54 @@ function ListaPendiente({
         )}
       </details>
 
-      {/* Los cuatro datos del viaje: lo que no está escrito no se nombra. */}
-      {datos.length > 0 && (
-        <dl className="mt-3 grid min-w-0 gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-2 2xl:grid-cols-4">
-          {datos.map((dato) => (
-            <div key={dato.que} className="min-w-0">
-              <dt className={`text-[11px] font-semibold uppercase tracking-[0.16em] ${dato.alerta ? "text-red-300" : "text-[#C8A96B]"}`}>
-                {dato.que}
-                {dato.alerta && (
-                  <span className="ml-2 rounded-full border border-red-400/50 px-1.5 py-px text-[10px] tracking-[0.12em]">revisar</span>
-                )}
-              </dt>
-              <dd className={`mt-0.5 break-words text-sm font-semibold ${dato.alerta ? "text-red-300" : "text-white"}`}>{dato.valor}</dd>
-            </div>
-          ))}
-        </dl>
+      {/*
+      | 12/11/2026 (expertos, tercera vuelta): el semáforo enseña los cuatro
+      | avisos más graves; el resto, plegado. Los arreglos que no piden
+      | decidir nada van juntos en un botón (cada uno sigue en su aviso), y lo
+      | «por completar» va plegado aparte: no está al nivel de un error.
+      */}
+      {acciones && onSeguros && seguros && seguros.n > 1 && (
+        <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1">
+          <button type="button" onClick={onSeguros} className={BOTON_FILA_PRIMARIO} title={seguros.que.join(" · ")}>
+            Aplicar los {seguros.n} arreglos seguros
+          </button>
+          <span className="text-[12px] text-white/50">se puede deshacer; cada uno sigue en su aviso</span>
+        </div>
       )}
 
-      {pendientes > 0 && (
+      {avisos.length > 0 && (
         <ul className="mt-3 divide-y divide-white/[0.06] border-t border-white/10 pt-1">
-          {graves.map((aviso) => (
+          {[...graves, ...leves].slice(0, AVISOS_A_LA_VISTA).map((aviso) => (
             <FilaAviso key={aviso.clave} aviso={aviso} acciones={acciones} />
           ))}
-          {leves.map((aviso) => (
-            <FilaAviso key={aviso.clave} aviso={aviso} acciones={acciones} />
-          ))}
+        </ul>
+      )}
+
+      {avisos.length > AVISOS_A_LA_VISTA && (
+        <details className="group mt-1 min-w-0">
+          <summary className="flex cursor-pointer select-none list-none items-center gap-1.5 text-[13px] font-semibold text-amber-300/90 hover:text-amber-200 [&::-webkit-details-marker]:hidden">
+            <ChevronRight size={14} className="shrink-0 transition group-open:rotate-90" aria-hidden />
+            {plural(avisos.length - AVISOS_A_LA_VISTA, "aviso más", "avisos más")}
+          </summary>
+          <ul className="mt-1 divide-y divide-white/[0.06]">
+            {[...graves, ...leves].slice(AVISOS_A_LA_VISTA).map((aviso) => (
+              <FilaAviso key={aviso.clave} aviso={aviso} acciones={acciones} />
+            ))}
+          </ul>
+        </details>
+      )}
+
+      {porCompletar > 0 && (
+        /* Abierto sólo si no hay ningún aviso: entonces es lo único que queda. */
+        <details className="group mt-2 min-w-0 border-t border-white/10 pt-2" open={avisos.length === 0 || undefined}>
+          <summary className="flex cursor-pointer select-none list-none items-center gap-1.5 text-[13px] font-semibold text-[#C8A96B] hover:underline [&::-webkit-details-marker]:hidden">
+            <ChevronRight size={14} className="shrink-0 transition group-open:rotate-90" aria-hidden />
+            {porCompletar} por completar
+            <span className="font-normal text-white/45">
+              · {[...tareas.map((g) => NOMBRE_SECCION[g.seccion].toLowerCase()), ...extras.map((e) => e.corto ?? e.texto.toLowerCase())].join(", ")}
+            </span>
+          </summary>
+        <ul className="mt-1 divide-y divide-white/[0.06]">
           {tareas.map((g) => (
             <li key={g.seccion} className="flex min-w-0 items-start gap-2.5 py-1.5">
               <Circle size={12} className="mt-[4px] shrink-0 text-[#C8A96B]" aria-hidden />
@@ -561,6 +637,7 @@ function ListaPendiente({
             </li>
           ))}
         </ul>
+        </details>
       )}
     </div>
   );
@@ -1218,15 +1295,34 @@ export default function DesplazamientoPage() {
       !viaje.estadio.dimensionesFuente?.trim() &&
       fuentesMedidas.some((f) => !mismaMedida(f.texto, viaje.estadio.dimensiones)),
   );
+  /*
+  | 12/11/2026 (expertos, tercera vuelta): una sola regla en el aviso, en el
+  | resumen y en la diapositiva. Si el viaje ya tiene medidas, el dossier las
+  | imprime con su fuente («102 × 67 · BeSoccer»): el aviso dice cuál se usa y
+  | ofrece cambiarla, no pide «Elegir». Sólo sin medidas se pide elegir.
+  */
+  const medidasEnUso = viaje?.estadio.dimensiones.trim() ?? "";
+  const comoFuente = (f: { de: string; texto: string }) => `${f.texto} (${f.de === "Hoja RIVALES" ? "hoja RIVALES" : f.de})`;
+  const otrasMedidas = fuentesMedidas.filter((f) => !mismaMedida(f.texto, medidasEnUso));
   const tareasExtra: TareaExtra[] = medidasPorElegir
     ? [
-        {
-          clave: "medidas",
-          texto: "Elegir las medidas del campo",
-          detalle: fuentesMedidas.map((f) => `${f.de} ${f.texto}`).join(" · "),
-          boton: "Elegir",
-          seccion: "medidas",
-        },
+        medidasEnUso
+          ? {
+              clave: "medidas",
+              texto: `Medidas del campo: se usa ${medidasEnUso}${fuenteMedidas ? ` (${fuenteMedidas === "Hoja RIVALES" ? "hoja RIVALES" : fuenteMedidas})` : " (escritas a mano)"}`,
+              detalle: otrasMedidas.length ? `también ${otrasMedidas.map(comoFuente).join(" o ")}` : undefined,
+              boton: "Cambiar",
+              seccion: "medidas",
+              corto: "medidas",
+            }
+          : {
+              clave: "medidas",
+              texto: "Elegir las medidas del campo",
+              detalle: fuentesMedidas.map(comoFuente).join(" o "),
+              boton: "Elegir",
+              seccion: "medidas",
+              corto: "medidas",
+            },
       ]
     : [];
 
@@ -1255,7 +1351,12 @@ export default function DesplazamientoPage() {
       !viaje.estadio.dimensionesFuente?.trim() &&
       fuentesMedidas.some((f) => !mismaMedida(f.texto, viaje.estadio.dimensiones))
     ) {
-      lista.push(`Las medidas del campo no coinciden entre fuentes (${fuentesMedidas.map((f) => `${f.de} ${f.texto}`).join(" · ")}): elige una en «El estadio».`);
+      lista.push(
+        `El dossier lleva ${viaje.estadio.dimensiones.trim()}${fuenteMedidas ? ` (${fuenteMedidas})` : ""}; también hay ${fuentesMedidas
+          .filter((f) => !mismaMedida(f.texto, viaje.estadio.dimensiones))
+          .map((f) => `${f.texto} (${f.de})`)
+          .join(" o ")}. Se cambia en «El estadio».`,
+      );
     }
 
     return lista;
@@ -1613,27 +1714,32 @@ export default function DesplazamientoPage() {
       return rival ? `En casa contra ${rival}${cuando ? `: ${cuando}` : ""}` : "Partido en casa";
     }
 
-    const primero = [...viaje.dias]
-      .filter((d) => d.fecha && d.citas.length > 0)
-      .sort((a, b) => a.fecha.localeCompare(b.fecha))[0];
-    const cita = primero ? [...primero.citas].sort((a, b) => a.minuto - b.minuto)[0] : null;
-    const salida = primero && cita
-      ? `: salida ${diaLargo(primero.fecha).split(" ")[0].toLowerCase()} ${aHora(cita.minuto)}`
-      : "";
-
     /*
-    | 12/11/2026 (expertos): con el horario en rojo, el titular no da la
-    | salida por segura: «Viaje a Gimnàstic de Tarragona · viernes 13, 21:15
-    | · el horario no cuadra».
+    | 12/11/2026 (expertos, tercera vuelta): el titular dice sólo el viaje,
+    | «Viaje a Gimnàstic de Tarragona · viernes 13, 21:15». Cómo va (el
+    | horario no cuadra, lo que falta) es la chapa de al lado; la salida, el
+    | resumen del viaje.
     */
-    if (rival && horarioNoCuadra) {
-      const partidoCuando = [viaje.fecha ? diaCorto(viaje.fecha).toLowerCase() : "", viaje.hora].filter(Boolean).join(", ");
+    const partidoCuando = [viaje.fecha ? diaCorto(viaje.fecha).toLowerCase() : "", viaje.hora].filter(Boolean).join(", ");
 
-      return `Viaje a ${rival}${partidoCuando ? ` · ${partidoCuando}` : ""} · el horario no cuadra`;
-    }
+    return rival ? `Viaje a ${rival}${partidoCuando ? ` · ${partidoCuando}` : ""}` : "Desplazamiento de Partido";
+  }, [viaje, partido]);
 
-    return rival ? `Viaje a ${rival}${salida}` : "Desplazamiento de Partido";
-  }, [viaje, partido, horarioNoCuadra]);
+  /* La chapa del estado, con los mismos recuentos que «Cómo va el viaje». */
+  const recuento = useMemo(() => {
+    if (!viaje) return null;
+
+    const tareas = tareasDe(viaje, pendientesDe(viaje, avisosViaje));
+
+    return {
+      errores: avisosViaje.filter((a) => a.grave).length,
+      avisos: avisosViaje.filter((a) => !a.grave).length,
+      porCompletar: tareas.length + tareasExtra.length,
+    };
+  }, [viaje, avisosViaje, tareasExtra.length]);
+
+  /* Los arreglos que no piden decidir nada, juntos (12/11/2026, expertos). */
+  const seguros = useMemo(() => (viaje ? arreglosSeguros(viaje, avisosViaje) : { n: 0, que: [], dias: [] }), [viaje, avisosViaje]);
 
   /* En casa no hay viaje (30/10/2026): sin hotel, sin «Sale de» y la ruta del autobús plegada con los datos del estadio. */
   const enCasa = viaje?.condicion === "local";
@@ -1674,6 +1780,22 @@ export default function DesplazamientoPage() {
     muta((actual) => ({ ...actual, dias: arreglo.dias(actual) }));
 
     toast.success(arreglo.hecho, {
+      duration: 10000,
+      action: { label: "Deshacer", onClick: () => campo("dias", previos) },
+    });
+  };
+
+  /* Todos los arreglos seguros de una vez, con un solo «Deshacer». */
+  const aplicaSeguros = () => {
+    if (!viaje || seguros.n === 0) return;
+
+    const previos = viaje.dias;
+    const n = seguros.n;
+
+    muta((actual) => ({ ...actual, dias: arreglosSeguros(actual, avisosViaje).dias }));
+
+    toast.success(`Aplicados ${n} arreglos`, {
+      description: seguros.que.join(" · "),
       duration: 10000,
       action: { label: "Deshacer", onClick: () => campo("dias", previos) },
     });
@@ -1988,6 +2110,8 @@ export default function DesplazamientoPage() {
 
   /* La vista previa a pantalla completa, con zoom (12/11/2026): en el móvil la miniatura no se lee. */
   const [pantallaCompleta, setPantallaCompleta] = useState(false);
+  /* El diálogo de «Sacar los documentos» (12/11/2026): uno solo, desde la cabecera o el botón fijo del móvil. */
+  const [exportando, setExportando] = useState(false);
   const [zoom, setZoom] = useState(100);
 
   useEffect(() => {
@@ -2046,6 +2170,8 @@ export default function DesplazamientoPage() {
             <AbpHeader
               area="RMCF Castilla · Operativa · Desplazamiento"
               title={titular}
+              /* 12/11/2026 (expertos): el estado, en una chapa bajo el titular; lleva a «Cómo va el viaje». */
+              lead={partido && viaje && recuento ? <ChapaEstado {...recuento} /> : undefined}
               /* 30/10/2026: el párrafo de entrada pasa a la ayuda («?», lib/ayuda/paginas.ts);
                  delante, el titular y el botón de vista previa y exportar. */
               aside={
@@ -2063,10 +2189,14 @@ export default function DesplazamientoPage() {
                       savedAt={lastSavedAt}
                     />
                   )}
-                  {/* 12/11/2026 (expertos): sacar los documentos es la acción principal, también en el móvil. */}
+                  {/*
+                  | 12/11/2026 (expertos): sacar los documentos es la acción principal,
+                  | también en el móvil, y está UNA vez: abre el panel de exportar en
+                  | un diálogo (antes había además una tarjeta bajo la vista previa).
+                  */}
                   {viaje && (
                     <>
-                      <Button tone="primary" icon={Download} onClick={() => irA("viaje-exporta")}>
+                      <Button tone="primary" icon={Download} onClick={() => setExportando(true)}>
                         Sacar los documentos
                       </Button>
                       {/* Desde xl la vista previa ya está a la vista, a la derecha: el botón sobra. */}
@@ -2219,18 +2349,23 @@ export default function DesplazamientoPage() {
                   | formulario con «Cómo va el viaje» a la izquierda y el documento
                   | (vista previa y «Sacar los documentos») a la derecha.
                   */}
-                  <div className="min-w-0 xl:grid xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] xl:items-start xl:gap-6">
-                  <div className="min-w-0">
+                  {/*
+                  | 12/11/2026 (expertos, tercera vuelta): el semáforo y los avisos
+                  | de arriba, a todo lo ancho y antes que nada; detrás, el documento
+                  | y el formulario, en el MISMO orden en el móvil y en el escritorio
+                  | (en el móvil, la vista previa justo después del semáforo).
+                  */}
                   {/* `viaje-form` (globals.css): la letra del formulario a 13 px las etiquetas y 15 px los campos; la vista previa queda fuera. */}
                   <div className="viaje-form">
                   {/* Cómo va el viaje, arriba y pegado al selector de partido. */}
                   <ListaPendiente
                     viaje={viaje}
                     avisos={avisosViaje}
-                    datos={datosViaje}
                     onIr={irATarea}
                     acciones={{ onVer: verCita, onArregla: arreglaAviso, onCorrige: corrigeTexto }}
                     extras={tareasExtra}
+                    seguros={seguros}
+                    onSeguros={aplicaSeguros}
                   />
 
                   {/* El plan de viaje ante este rival (o en este campo), de otra vez (11/11/2026). */}
@@ -2306,40 +2441,66 @@ export default function DesplazamientoPage() {
                   | lo que ya dice «Cómo va el viaje». Ahora es una sola fila con un
                   | único «Editar», que abre las tres; las tareas de arriba siguen
                   | abriendo sólo la suya. El resumen dice lo que la tarjeta no.
+                  | 12/11/2026 (tercera vuelta): es EL resumen del viaje —salida,
+                  | partido, hotel, horario— y sale una sola vez; el semáforo de
+                  | arriba ya no lo repite.
                   */}
+                  </div>
+
+                  <div className="mt-5 flex min-w-0 flex-col xl:grid xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] xl:items-start xl:gap-6">
+                  <div className="mt-5 min-w-0 xl:mt-0">
+                  <div className="viaje-form">
                   {(() => {
                     const claves = ["viaje-partido", "viaje-estadio", ...(viaje.conHotel && !enCasa && !hotelEnFaltan ? ["viaje-hotel"] : [])];
                     const alguna = claves.some((clave) => abiertas[clave]);
+                    /* La medida con su fuente: la misma regla que el aviso y la diapositiva («102 × 67 (BeSoccer)»). */
+                    const medidas = viaje.estadio.dimensiones.trim();
                     const resumen = [
                       viaje.jornada.trim() ? `J${viaje.jornada.trim()}` : "",
                       comoCompeticion(viaje.competicion),
                       enCasa ? "en casa" : "fuera",
                       !enCasa && viaje.conHotel ? "con hotel" : "",
                       viaje.estadio.superficie,
-                      viaje.estadio.dimensiones.trim(),
+                      medidas ? `${medidas}${fuenteMedidas ? ` (${fuenteMedidas})` : ""}` : "",
                     ].filter((x) => x?.trim()).join(" · ");
 
                     return (
-                      <div className="mt-5 scroll-mt-20" id="viaje-datos">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setAbiertas((a) => ({ ...a, ...Object.fromEntries(claves.map((clave) => [clave, !alguna])) }))
-                          }
-                          aria-expanded={alguna}
-                          /* pr-12: el botón flotante ⋮ va pegado a la derecha. */
-                          className="flex w-full min-w-0 items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] py-3 pl-4 pr-12 text-left transition hover:border-white/20 sm:pr-14"
-                        >
+                      <div className="scroll-mt-20 rounded-2xl border border-white/10 bg-white/[0.03] py-3 pl-4 pr-12 sm:pr-14" id="viaje-datos">
+                        <div className="flex min-w-0 items-start gap-2">
                           <span className="min-w-0 flex-1">
                             <span className="block text-[15px] font-semibold text-white">
                               {claves.length === 3 ? "Partido · estadio · hotel" : "Partido · estadio"}
                             </span>
-                            {resumen ? <span className="block truncate text-[13px] text-white/55 sm:text-[14px]">{resumen}</span> : null}
+                            {resumen ? <span className="block break-words text-[13px] text-white/55 sm:text-[14px]">{resumen}</span> : null}
                           </span>
-                          <span className="shrink-0 rounded-full border border-[#C8A96B]/45 px-3 py-1 text-[13px] font-semibold text-[#C8A96B]">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setAbiertas((a) => ({ ...a, ...Object.fromEntries(claves.map((clave) => [clave, !alguna])) }))
+                            }
+                            aria-expanded={alguna}
+                            className="shrink-0 rounded-full border border-[#C8A96B]/45 px-3 py-1 text-[13px] font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/10"
+                          >
                             {alguna ? "Plegar" : "Editar"}
-                          </span>
-                        </button>
+                          </button>
+                        </div>
+
+                        {/* Los cuatro datos del viaje: lo que no está escrito no se nombra. */}
+                        {datosViaje.length > 0 && (
+                          <dl className="mt-3 grid min-w-0 gap-x-6 gap-y-2 sm:grid-cols-2">
+                            {datosViaje.map((dato) => (
+                              <div key={dato.que} className="min-w-0">
+                                <dt className={`text-[11px] font-semibold uppercase tracking-[0.16em] ${dato.alerta ? "text-red-300" : "text-[#C8A96B]"}`}>
+                                  {dato.que}
+                                  {dato.alerta && (
+                                    <span className="ml-2 rounded-full border border-red-400/50 px-1.5 py-px text-[10px] tracking-[0.12em]">revisar</span>
+                                  )}
+                                </dt>
+                                <dd className={`mt-0.5 break-words text-sm font-semibold ${dato.alerta ? "text-red-300" : "text-white"}`}>{dato.valor}</dd>
+                              </div>
+                            ))}
+                          </dl>
+                        )}
                       </div>
                     );
                   })()}
@@ -2582,14 +2743,21 @@ export default function DesplazamientoPage() {
                       {porElegir && (
                         <div className="mt-3 rounded-xl border border-amber-400/30 bg-amber-400/[0.06] px-3 py-2 text-[13px] text-white/80">
                           <p className="tabular-nums" title="OSM: el polígono del campo en OpenStreetMap, medido con su rectángulo mínimo">
-                            <span className="font-semibold text-amber-300">Las medidas no coinciden.</span>{" "}
-                            {medidas ? `Aquí: ${medidas}${fuenteMedidas ? ` (${fuenteMedidas})` : " (escritas a mano)"}; ` : ""}
-                            {otras.map((f) => `${f.de}: ${f.texto}`).join(" · ")}.
+                            {/* 12/11/2026 (expertos): la misma regla que el aviso de arriba y el dossier: cuál se usa y cuáles hay. */}
+                            {medidas ? (
+                              <>
+                                <span className="font-semibold text-amber-300">Se usa {medidas}{fuenteMedidas ? ` (${fuenteMedidas})` : " (escritas a mano)"}</span>
+                                {": es lo que lleva el dossier. También: "}
+                              </>
+                            ) : (
+                              <span className="font-semibold text-amber-300">Sin medidas en el dossier. Hay: </span>
+                            )}
+                            {otras.map((f) => `${f.texto} (${f.de})`).join(" o ")}.
                           </p>
                           <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
                             {medidas && fuenteMedidas ? (
                               <button type="button" onClick={() => estadio({ dimensionesFuente: fuenteMedidas })} className={BOTON_FILA_PRIMARIO}>
-                                Quedarme con {medidas}
+                                Dejar {medidas}
                               </button>
                             ) : (
                               <button type="button" onClick={() => usa(otras[0])} className={BOTON_FILA_PRIMARIO}>
@@ -2817,7 +2985,7 @@ export default function DesplazamientoPage() {
 
                   <div className="mt-5 scroll-mt-20" id="viaje-avisos">
                     <SeccionMovil
-                      titulo="Recordatorios"
+                      titulo="No olvidar"
                       resumen={viaje.avisos.filter((a) => a.trim()).slice(0, 3).join(" · ")}
                       abierta={Boolean(abiertas["viaje-avisos"])}
                       onCambia={() => conmuta("viaje-avisos")}
@@ -2887,9 +3055,10 @@ export default function DesplazamientoPage() {
                   | —cambias la hora y ves moverse la hoja—, bajo la barra de arriba
                   | (sticky, ~96 px) y con su propio desplazamiento si no cabe.
                   */}
-                  <div className="min-w-0 xl:sticky xl:top-[104px] xl:max-h-[calc(100vh-112px)] xl:overflow-y-auto xl:overscroll-contain xl:pb-4">
+                  {/* `order-first`: en el móvil, el documento va justo detrás del semáforo (12/11/2026, expertos). */}
+                  <div className="order-first min-w-0 xl:sticky xl:top-[104px] xl:order-none xl:max-h-[calc(100vh-112px)] xl:overflow-y-auto xl:overscroll-contain xl:pb-4">
 
-                  <div className="mt-5 scroll-mt-20 xl:mt-4" id="viaje-vista">
+                  <div className="scroll-mt-20" id="viaje-vista">
                     <Panel
                       title="Cómo va a quedar"
                       subtitle="Es el documento de verdad, a escala: lo que se ve aquí es exactamente lo que se exporta"
@@ -2983,13 +3152,26 @@ export default function DesplazamientoPage() {
                     </div>
                   )}
 
+                  </div>
+                  </div>
+
                   {/* ================== EXPORTAR ================== */}
 
-                  <div className="mt-5 scroll-mt-20" id="viaje-exporta">
-                    <ExportaViaje viaje={viajeVista ?? viaje} lugares={store.lugares} porRevisar={porRevisar} />
-                  </div>
-                  </div>
-                  </div>
+                  {/*
+                  | 12/11/2026 (expertos, tercera vuelta): un solo «Sacar los
+                  | documentos», el de la cabecera (y su copia fija en el móvil),
+                  | que abre este panel. Antes había además una tarjeta igual bajo
+                  | la vista previa.
+                  */}
+                  {exportando && (
+                    <Dialog
+                      title="Sacar los documentos"
+                      subtitle={`${rotuloDossier} y ${rotuloHorario.toLowerCase()}, tal y como se ven en la vista previa`}
+                      onClose={() => setExportando(false)}
+                    >
+                      <ExportaViaje viaje={viajeVista ?? viaje} lugares={store.lugares} porRevisar={porRevisar} sinMarco />
+                    </Dialog>
+                  )}
 
                   {/*
                   | En el móvil, «Sacar los documentos» siempre a mano (11/11/2026):
@@ -2998,7 +3180,7 @@ export default function DesplazamientoPage() {
                   */}
                   <div className={`pointer-events-none fixed inset-x-0 bottom-0 z-40 justify-start px-4 pb-[max(12px,env(safe-area-inset-bottom))] sm:hidden ${bajado ? "flex" : "hidden"}`}>
                     <span className="pointer-events-auto rounded-xl shadow-lg shadow-black/30">
-                      <Button tone="primary" icon={Download} onClick={() => irA("viaje-exporta")}>
+                      <Button tone="primary" icon={Download} onClick={() => setExportando(true)}>
                         Sacar los documentos
                       </Button>
                     </span>

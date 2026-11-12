@@ -1001,12 +1001,17 @@ function TarjetaDia({
       | día que se va a tocar.
       */}
       {plegado && citas.length > 0 && (
-        /* xl:grid-cols-2: en escritorio ancho el formulario comparte la fila con la vista previa. */
-        <ol className="grid gap-x-4 gap-y-1 px-3 py-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-2 2xl:grid-cols-3">
+        /*
+        | xl:columns-2: en escritorio ancho el formulario comparte la fila con la vista previa.
+        | 12/11/2026 (expertos): en COLUMNAS de periódico, no en rejilla: se llena
+        | la de la izquierda de arriba abajo y luego la siguiente, y se lee en
+        | orden como la hoja A4 (la rejilla iba fila a fila, alternando columnas).
+        */
+        <ol className="columns-1 gap-x-4 px-3 py-2.5 sm:columns-2 lg:columns-3 xl:columns-2 2xl:columns-3">
           {[...citas]
             .sort((a, b) => a.minuto - b.minuto)
             .map((cita) => (
-              <li key={cita.id} id={`cita-${cita.id}`} className="flex min-w-0 scroll-mt-24 items-baseline gap-2 rounded-md text-[14px]">
+              <li key={cita.id} id={`cita-${cita.id}`} className="mb-1 flex min-w-0 break-inside-avoid scroll-mt-24 flex-wrap items-baseline gap-x-2 gap-y-0.5 rounded-md text-[14px]">
                 <span
                   className="w-12 shrink-0 font-semibold tabular-nums text-white"
                   style={{ borderLeft: `3px solid ${(TIPO_CITA[cita.tipo] ?? TIPO_CITA.otro).color}`, paddingLeft: 6 }}
@@ -1018,7 +1023,8 @@ function TarjetaDia({
                 )}
                 {emojiDeCita(cita) && <span aria-hidden className="shrink-0 text-[14px] leading-none">{emojiDeCita(cita)}</span>}
                 {/* 12/11/2026: con mayúscula sólo al principio, para leerlo igual («SALIDA BUS» y «Salida hacia…»); lo guardado no cambia. */}
-                <span className="min-w-0 truncate text-white/75" title={cita.texto}>{cita.texto ? comoFrase(cita.texto, propios) : "Sin nombre"}</span>
+                {/* 12/11/2026 (expertos): el nombre entero, sin «Parid…»; si no cabe, baja de línea. */}
+                <span className="min-w-[12ch] flex-1 text-white/75 [overflow-wrap:anywhere]" title={cita.texto}>{cita.texto ? comoFrase(cita.texto, propios) : "Sin nombre"}</span>
                 {cita.fijada && <Pin size={11} className="shrink-0 text-[#C8A96B]" aria-label="fijada" />}
                 {/*
                 | 12/11/2026 (expertos): la errata, pegada a su fila. El aviso de
@@ -1030,15 +1036,18 @@ function TarjetaDia({
 
                   if (!errata || !onCorrige) return null;
 
+                  /* En su propia línea, bajo el nombre (12/11/2026, expertos): antes se comía el nombre de la cita. */
                   return (
-                    <button
-                      type="button"
-                      onClick={() => onCorrige(errata)}
-                      title={`Corregir a «${errata.corregido}»`}
-                      className="shrink-0 rounded-full border border-amber-400/50 px-2 py-px text-[12px] font-semibold text-amber-300 transition hover:bg-amber-400/10"
-                    >
-                      ¿{errata.corregido}?
-                    </button>
+                    <span className="basis-full pl-[56px]">
+                      <button
+                        type="button"
+                        onClick={() => onCorrige(errata)}
+                        title={`Corregir a «${errata.corregido}»`}
+                        className="max-w-full rounded-full border border-amber-400/50 px-2 py-px text-left text-[12px] font-semibold text-amber-300 transition hover:bg-amber-400/10"
+                      >
+                        ¿{errata.corregido}?
+                      </button>
+                    </span>
                   );
                 })()}
               </li>
