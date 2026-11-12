@@ -31,7 +31,7 @@
  * El modelo vive en `lib/viaje/modelo.ts` y el dibujo en `components/viaje/`.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import {
   Binoculars,
@@ -79,6 +79,7 @@ import {
   compareMatches,
   fetchMatches,
   formatMatchDate,
+  formatMatchDateShort,
   matchLabel,
 } from "@/lib/ratings/matches";
 import type { MatchMeta } from "@/lib/ratings/types";
@@ -104,7 +105,6 @@ import {
   comoDesfase,
   copiaViaje,
   diaCorto,
-  esLlegada,
   diaLargo,
   diaSiguienteCorto,
   esDiaSiguiente,
@@ -121,6 +121,7 @@ import {
   type QueCopiar,
   type ViajeStore,
 } from "@/lib/viaje/modelo";
+import { avisosHorario, comoCompeticion, type AvisoHorario, type LineaAviso } from "@/lib/viaje/revision";
 import { LUGARES_FIJOS, comoMedidas, leeMedidas } from "@/lib/viaje/rutas";
 import { pideMedidasCampo } from "@/lib/viaje/trayectos-cliente";
 import { ValoracionViajePanel } from "@/components/viaje/ValoracionViaje";
@@ -131,16 +132,46 @@ import { CALENDARIO_CASTILLA_KEY, enlaceRuta, horaDelCalendario, type PartidoBes
 import { barlowCondensed } from "@/lib/rivals/portada-font";
 import { equipoDelInforme, type EquipoPortada } from "@/lib/portada/proximo-partido";
 
-/** "J07 · 18 oct 2026 · @ Teruel", como se llama a la semana en la caseta. */
-function etiquetaPartido(partido: MatchMeta, fechaReal?: string) {
+/** El nombre corto del rival para el móvil: «Gimnàstic de Tarragona» → «Tarragona»; los cortos, enteros. */
+function rivalCorto(nombre: string) {
+  const limpio = nombre.trim();
+
+  if (limpio.length <= 14) return limpio;
+
+  return limpio.split(/\s+/).pop() ?? limpio;
+}
+
+/**
+ * "J07 · 18 oct 2026 · @ Teruel", como se llama a la semana en la caseta.
+ * `corta` (12/11/2026, móvil a 390 px): «J12 · 13 nov · @ Tarragona», sin año
+ * y con el rival corto; el selector nativo cortaba «Gimnàstic de Tarragor».
+ */
+function etiquetaPartido(partido: MatchMeta, fechaReal?: string, corta = false) {
   const numero = partido.competition.match(/^Jornada\s+(\d+)/i);
 
   const jornada = numero ? `J${numero[1].padStart(2, "0")} · ` : "";
 
   /* Manda la fecha del calendario de BeSoccer: la hoja RIVALES a veces va un día corrida. */
-  const dia = formatMatchDate(fechaReal ? { ...partido, date: fechaReal } : partido);
+  const conFecha = fechaReal ? { ...partido, date: fechaReal } : partido;
 
-  return `${jornada}${dia} · ${matchLabel(partido)}`;
+  if (corta) return `${jornada}${formatMatchDateShort(conFecha)} · ${partido.isHome ? "vs" : "@"} ${rivalCorto(partido.opponent)}`;
+
+  return `${jornada}${formatMatchDate(conFecha)} · ${matchLabel(partido)}`;
+}
+
+/* El móvil, para el texto corto del selector de partido (las <option> no se pueden estilar por ancho). */
+const CONSULTA_ESTRECHO = "(max-width: 639px)";
+
+function suscribeEstrecho(aviso: () => void) {
+  const consulta = window.matchMedia(CONSULTA_ESTRECHO);
+
+  consulta.addEventListener("change", aviso);
+
+  return () => consulta.removeEventListener("change", aviso);
+}
+
+function useEstrecho() {
+  return useSyncExternalStore(suscribeEstrecho, () => window.matchMedia(CONSULTA_ESTRECHO).matches, () => false);
 }
 
 /** Lo que se busca en OpenStreetMap para dar con el campo: la dirección o el nombre y la ciudad. */
@@ -217,51 +248,6 @@ type Pendiente = { clave: string; rotulo: string; hecho: boolean; seccion: strin
  * (19/10/2026): el formulario es largo y no se veía de un golpe qué quedaba.
  * Cada chapa lleva a su sección.
  */
-/**
- * Lo que no cuadra en el horario (11/11/2026, revisión de los expertos):
- * dos partidos, el partido fuera de su día, la vuelta a Valdebebas antes del
- * partido o una llegada que no da tiempo al trayecto. Mientras haya alguno, el
- * horario no cuenta como hecho.
- */
-function avisosHorario(viaje: Desplazamiento): string[] {
-  const avisos: string[] = [];
-  const esPartido = (c: { tipo: string; texto: string }) => c.tipo === "partido" || /^\s*partido\b/i.test(c.texto);
-  const partidos = viaje.dias.flatMap((d) => d.citas.filter(esPartido).map((c) => ({ dia: d, cita: c })));
-
-  if (partidos.length > 1) {
-    avisos.push(`Hay ${partidos.length} partidos en el horario (${partidos.map((p) => diaCorto(p.dia.fecha).toLowerCase()).join(" y ")}): deja sólo el del ${viaje.fecha ? diaCorto(viaje.fecha).toLowerCase() : "día del partido"}.`);
-  }
-
-  if (viaje.fecha && partidos.length > 0 && !partidos.some((p) => p.dia.fecha === viaje.fecha)) {
-    avisos.push(`El partido no está en su día (${diaCorto(viaje.fecha).toLowerCase()}).`);
-  }
-
-  const diaPartido = viaje.dias.find((d) => d.fecha === viaje.fecha);
-  const minutoPartido = viaje.hora ? aMinutos(viaje.hora) : null;
-
-  if (diaPartido && minutoPartido != null) {
-    const vueltaAntes = diaPartido.citas.find((c) => /llegada.*valdebebas/i.test(c.texto) && c.minuto < minutoPartido);
-
-    if (vueltaAntes) avisos.push(`«${vueltaAntes.texto}» está a las ${aHora(vueltaAntes.minuto)}, antes del partido de las ${viaje.hora}.`);
-  }
-
-  for (const dia of viaje.dias) {
-    const orden = [...dia.citas].sort((a, b) => a.minuto - b.minuto);
-
-    orden.forEach((cita, i) => {
-      if (!esLlegada(cita) || i === 0) return;
-
-      const salida = [...orden.slice(0, i)].reverse().find((c) => /^salida\b/i.test(c.texto.trim()) || c.clase?.startsWith("salida"));
-
-      if (salida && cita.minuto - salida.minuto < 30 && !(cita.duracion && cita.duracion < 30) && !(salida.duracion && salida.duracion < 30)) {
-        avisos.push(`${diaCorto(dia.fecha).toLowerCase()}: «${salida.texto}» ${aHora(salida.minuto)} y «${cita.texto}» ${aHora(cita.minuto)}: ¿el trayecto dura ${cita.minuto - salida.minuto} min?`);
-      }
-    });
-  }
-
-  return avisos;
-}
-
 function pendientesDe(viaje: Desplazamiento): Pendiente[] {
   /*
   | En casa no hay viaje (30/10/2026): ni ruta, ni hotel, ni plano. Lo que
@@ -292,7 +278,7 @@ function pendientesDe(viaje: Desplazamiento): Pendiente[] {
   }
 
   lista.push(
-    { clave: "horario", rotulo: "Horario", hecho: viaje.dias.some((dia) => dia.citas.length > 0) && avisosHorario(viaje).length === 0, seccion: "viaje-horario" },
+    { clave: "horario", rotulo: "Horario", hecho: viaje.dias.some((dia) => dia.citas.length > 0) && !avisosHorario(viaje).some((a) => a.clave !== "erratas"), seccion: "viaje-horario" },
     { clave: "avisos", rotulo: "No olvidar", hecho: viaje.avisos.some((a) => a.trim()), seccion: "viaje-avisos" },
   );
 
@@ -320,7 +306,86 @@ const TAREA_SECCION: Record<(typeof SECCIONES_VIAJE)[number], string> = {
   "viaje-avisos": "Escribir el «No olvidar»",
 };
 
-function ListaPendiente({ viaje, onIr = irA }: { viaje: Desplazamiento; onIr?: (id: string) => void }) {
+/** Lo que hacen los botones de los avisos del horario: los pulsa el analista, nada se cambia solo. */
+type AccionesAviso = {
+  onVer: (diaId: string, citaId: string) => void;
+  onArregla: (aviso: AvisoHorario) => void;
+  onCorrige: (linea: LineaAviso) => void;
+};
+
+/**
+ * «Revisa el horario», accionable (12/11/2026, revisión de los expertos):
+ * cada aviso lleva a su cita («Ver»), el de dos partidos se arregla con un
+ * botón y las erratas se corrigen con otro. Los graves van en rojo y arriba;
+ * los demás, en ámbar debajo de lo que falta.
+ */
+function BloqueAvisos({ avisos, grave, onIr, acciones }: { avisos: AvisoHorario[]; grave: boolean; onIr: (id: string) => void; acciones?: AccionesAviso }) {
+  if (avisos.length === 0) return null;
+
+  const tono = grave
+    ? { caja: "border-red-400/40 bg-red-500/[0.08]", titulo: "text-red-300" }
+    : { caja: "border-amber-400/30 bg-amber-400/[0.06]", titulo: "text-amber-300" };
+
+  const boton = "shrink-0 rounded-full border border-[#C8A96B]/45 px-2 py-0.5 text-[12px] font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/10";
+
+  return (
+    /* pr-10 en el móvil: el botón flotante ⋮ de herramientas va pegado a la derecha y tapaba el final de las líneas. */
+    <div className={`mt-2 rounded-xl border py-2 pl-3 pr-10 sm:pr-3 ${tono.caja}`} role={grave ? "alert" : undefined}>
+      <p className={`flex flex-wrap items-center gap-x-2 text-[13px] font-semibold ${tono.titulo}`}>
+        {grave ? "No cuadra en el horario" : "Revisa el horario"}
+        <button type="button" onClick={() => onIr("viaje-horario")} className="font-semibold text-[#C8A96B] hover:underline">
+          Ir al horario
+        </button>
+      </p>
+
+      <ul className="mt-1 space-y-1.5 text-[13px] text-white/80">
+        {avisos.map((aviso) => (
+          <li key={aviso.clave} className="min-w-0">
+            <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="min-w-0">{aviso.texto}</span>
+              {aviso.diaId && aviso.citaId && acciones && (
+                <button type="button" className={boton} onClick={() => acciones.onVer(aviso.diaId!, aviso.citaId!)}>
+                  Ver la cita
+                </button>
+              )}
+              {aviso.arreglo && acciones && (
+                <button
+                  type="button"
+                  onClick={() => acciones.onArregla(aviso)}
+                  className="shrink-0 rounded-full bg-[#C8A96B] px-2.5 py-0.5 text-[12px] font-semibold text-[#0B0F14] transition hover:brightness-110"
+                >
+                  {aviso.arreglo.rotulo}
+                </button>
+              )}
+            </span>
+
+            {aviso.lineas && aviso.lineas.length > 0 && (
+              <ul className="mt-1 space-y-1 border-l border-white/10 pl-3">
+                {aviso.lineas.map((linea) => (
+                  <li key={`${linea.diaId}-${linea.citaId}`} className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-white/70">
+                    <span className="min-w-0">{linea.texto}</span>
+                    {acciones && (
+                      <button type="button" className={boton} onClick={() => acciones.onVer(linea.diaId, linea.citaId)}>
+                        Ver
+                      </button>
+                    )}
+                    {linea.corregido && acciones && (
+                      <button type="button" className={boton} onClick={() => acciones.onCorrige(linea)}>
+                        Corregir
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function ListaPendiente({ viaje, onIr = irA, acciones }: { viaje: Desplazamiento; onIr?: (id: string) => void; acciones?: AccionesAviso }) {
   const lista = pendientesDe(viaje);
   const hechos = lista.filter((p) => p.hecho).length;
   const completo = hechos === lista.length;
@@ -344,7 +409,10 @@ function ListaPendiente({ viaje, onIr = irA }: { viaje: Desplazamiento; onIr?: (
   const listaDe = (rotulos: string[]) =>
     rotulos.length <= 1 ? rotulos.join("") : `${rotulos.slice(0, -1).join(", ")} y ${rotulos[rotulos.length - 1]}`;
 
-  const noCuadra = viaje.condicion === "local" ? [] : avisosHorario(viaje);
+  /* En casa también se revisa (dos partidos, erratas): lo que no aplica, no sale. */
+  const noCuadra = avisosHorario(viaje);
+  const graves = noCuadra.filter((a) => a.grave);
+  const leves = noCuadra.filter((a) => !a.grave);
 
   return (
     <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-3">
@@ -359,10 +427,15 @@ function ListaPendiente({ viaje, onIr = irA }: { viaje: Desplazamiento; onIr?: (
 
         <p className="text-[13px] tabular-nums text-white/65">
           {completo
-            ? "Todo listo para exportar"
+            ? noCuadra.length > 0
+              ? "Listo, con algo que revisar"
+              : "Todo listo para exportar"
             : `Quedan ${tareas.length} ${tareas.length === 1 ? "cosa" : "cosas"} por hacer`}
         </p>
       </div>
+
+      {/* Lo grave, arriba y en rojo: con esto el horario no vale. */}
+      <BloqueAvisos avisos={graves} grave onIr={onIr} acciones={acciones} />
 
       {!completo && (
         <>
@@ -400,28 +473,16 @@ function ListaPendiente({ viaje, onIr = irA }: { viaje: Desplazamiento; onIr?: (
               ))}
             </p>
           )}
-          {noCuadra.length > 0 && (
-            <div className="mt-2 rounded-xl border border-amber-400/30 bg-amber-400/[0.06] px-3 py-2">
-              <p className="flex items-center gap-2 text-[13px] font-semibold text-amber-300">
-                Revisa el horario
-                <button type="button" onClick={() => onIr("viaje-horario")} className="font-semibold text-[#C8A96B] hover:underline">
-                  Ir al horario
-                </button>
-              </p>
-              <ul className="mt-1 list-disc space-y-0.5 pl-5 text-[13px] text-white/75">
-                {noCuadra.map((a) => (
-                  <li key={a}>{a}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {bloquesHechos.length > 0 && (
-            <p className="mt-2 flex flex-wrap items-center gap-1 text-[13px] text-white/45">
-              <CheckCircle2 size={13} className="text-emerald-400/70" />
-              Hecho: {bloquesHechos.map((sec) => NOMBRE_SECCION[sec].toLowerCase()).join(", ")}
-            </p>
-          )}
         </>
+      )}
+
+      <BloqueAvisos avisos={leves} grave={false} onIr={onIr} acciones={acciones} />
+
+      {!completo && bloquesHechos.length > 0 && (
+        <p className="mt-2 flex flex-wrap items-center gap-1 text-[13px] text-white/45">
+          <CheckCircle2 size={13} className="text-emerald-400/70" />
+          Hecho: {bloquesHechos.map((sec) => NOMBRE_SECCION[sec].toLowerCase()).join(", ")}
+        </p>
       )}
     </div>
   );
@@ -774,6 +835,8 @@ export default function DesplazamientoPage() {
 
   const elegido = pedido || porDefecto;
 
+  const estrecho = useEstrecho();
+
   const indiceElegido = partidos.findIndex((item) => item.id === elegido);
 
   const proximoId = useMemo(() => partidos.find((item) => item.date && item.date >= hoy)?.id ?? "", [partidos, hoy]);
@@ -853,7 +916,7 @@ export default function DesplazamientoPage() {
       fecha: delCalendario?.fecha || partido.date || "",
       hora: delCalendario?.hora ?? "",
       condicion: partido.isHome ? "local" : "visitante",
-      competicion: partido.competition,
+      competicion: comoCompeticion(partido.competition),
     });
 
     /* La hoja RIVALES trae las dimensiones del campo del rival: es el único
@@ -938,6 +1001,54 @@ export default function DesplazamientoPage() {
 
     return equipoDelInforme(equiposInforme, partido.opponent) ?? equipoDelInforme(equiposInforme, jornada?.equipo ?? "");
   }, [partido, equiposInforme, jornada]);
+
+  /*
+  | Las medidas del campo y DE DÓNDE SALEN (12/11/2026, expertos): la ficha
+  | decía «Viene de la hoja RIVALES» enseñando la medida de BeSoccer. La
+  | fuente es la elegida con su botón o, si no, la que coincide con la cifra.
+  | Por defecto manda la hoja RIVALES, luego BeSoccer y luego OpenStreetMap.
+  */
+  const besoccerMedidas = leeMedidas(besoccerEstadio?.tamano);
+  const fuentesMedidas = [
+    jornada?.fila?.DIMENSIONES ? { de: "Hoja RIVALES", texto: jornada.fila.DIMENSIONES } : null,
+    besoccerMedidas ? { de: "BeSoccer", texto: comoMedidas(besoccerMedidas) } : null,
+    medidasOsm ? { de: "OSM", texto: comoMedidas(medidasOsm) } : null,
+  ].filter((f): f is { de: string; texto: string } => f !== null);
+  const mismaMedida = (a: string, b: string) => a.replace(/\s/g, "").toLowerCase() === b.replace(/\s/g, "").toLowerCase();
+  const fuenteMedidas = viaje?.estadio.dimensiones.trim()
+    ? viaje.estadio.dimensionesFuente?.trim() || fuentesMedidas.find((f) => mismaMedida(f.texto, viaje.estadio.dimensiones))?.de || ""
+    : "";
+
+  /* Lo que se ve y se exporta: el viaje con la fuente de la medida («102 × 67 · BeSoccer»). */
+  const viajeVista =
+    viaje && fuenteMedidas && fuenteMedidas !== viaje.estadio.dimensionesFuente
+      ? { ...viaje, estadio: { ...viaje.estadio, dimensionesFuente: fuenteMedidas } }
+      : viaje;
+
+  /*
+  | Lo que queda por revisar al sacar los documentos (12/11/2026): se pregunta
+  | antes de exportar con el diálogo de la app, nunca con window.confirm.
+  */
+  const porRevisar = ((): string[] => {
+    if (!viaje) return [];
+
+    const avisos = avisosHorario(viaje);
+    const lista = avisos.filter((a) => a.grave).map((a) => a.texto);
+    const leves = avisos.filter((a) => !a.grave).length;
+
+    if (leves) lista.push(leves === 1 ? "Hay 1 aviso más en «Revisa el horario»." : `Hay ${leves} avisos más en «Revisa el horario».`);
+
+    if (
+      viaje.condicion === "visitante" &&
+      viaje.estadio.dimensiones.trim() &&
+      !viaje.estadio.dimensionesFuente?.trim() &&
+      fuentesMedidas.some((f) => !mismaMedida(f.texto, viaje.estadio.dimensiones))
+    ) {
+      lista.push(`Las medidas del campo no coinciden entre fuentes (${fuentesMedidas.map((f) => `${f.de} ${f.texto}`).join(" · ")}): elige una en «El estadio».`);
+    }
+
+    return lista;
+  })();
 
   const muta = useCallback(
     (fn: (actual: Desplazamiento) => Desplazamiento) => {
@@ -1314,6 +1425,56 @@ export default function DesplazamientoPage() {
   };
 
   /*
+  | Los botones de «Revisa el horario» (12/11/2026, expertos). «Ver» abre el
+  | horario (también en el móvil), su día y centra la cita; los arreglos los
+  | pulsa el analista y todos se pueden deshacer desde el aviso.
+  */
+  const [enfoque, setEnfoque] = useState<{ diaId: string; citaId: string; n: number } | null>(null);
+
+  const verCita = (diaId: string, citaId: string) => {
+    setAbiertas((a) => ({ ...a, "viaje-horario": true }));
+    setEnfoque((previo) => ({ diaId, citaId, n: (previo?.n ?? 0) + 1 }));
+  };
+
+  const arreglaAviso = (aviso: AvisoHorario) => {
+    const arreglo = aviso.arreglo;
+
+    if (!arreglo || !viaje) return;
+
+    const previos = viaje.dias;
+
+    muta((actual) => ({ ...actual, dias: arreglo.dias(actual) }));
+
+    toast.success(arreglo.hecho, {
+      duration: 10000,
+      action: { label: "Deshacer", onClick: () => campo("dias", previos) },
+    });
+  };
+
+  const corrigeTexto = (linea: LineaAviso) => {
+    const corregido = linea.corregido;
+
+    if (!corregido || !viaje) return;
+
+    const antes = viaje.dias.find((d) => d.id === linea.diaId)?.citas.find((c) => c.id === linea.citaId)?.texto ?? "";
+
+    const pon = (texto: string) =>
+      muta((actual) => ({
+        ...actual,
+        dias: actual.dias.map((d) =>
+          d.id !== linea.diaId ? d : { ...d, citas: d.citas.map((c) => (c.id === linea.citaId ? { ...c, texto } : c)) },
+        ),
+      }));
+
+    pon(corregido);
+
+    toast.success(`Corregido: «${corregido}»`, {
+      duration: 10000,
+      action: { label: "Deshacer", onClick: () => pon(antes) },
+    });
+  };
+
+  /*
   | «DATOS QUE FALTAN» (11/11/2026, revisión de los expertos): lo vacío del
   | estadio (dirección, distancia, planos) y el hotel sin nada escrito van
   | juntos en un acordeón, en vez de ocupar dos tarjetas medio vacías. La
@@ -1504,6 +1665,7 @@ export default function DesplazamientoPage() {
                           <CampoImagen
                             etiqueta="Foto del hotel"
                             ayuda="Pie: «Nombre del hotel»"
+                            pista="Una foto del hotel (la fachada o la entrada). La captura del mapa va en «Ruta hotel · estadio»."
                             carpeta={carpeta}
                             imagen={viaje.hotel.foto}
                             onCambio={(imagen) => hotel({ foto: imagen })}
@@ -1604,9 +1766,9 @@ export default function DesplazamientoPage() {
 
                   {visibles.map((item) => (
                     <option key={item.id} value={item.id} className="bg-[#11161C]">
-                      {etiquetaPartido(item, fechaBesoccer.get(item.id))}
+                      {etiquetaPartido(item, fechaBesoccer.get(item.id), estrecho)}
                       {store.viajes?.[item.id] ? " ✓" : ""}
-                      {item.id === proximoId ? " · próximo" : ""}
+                      {item.id === proximoId && !estrecho ? " · próximo" : ""}
                     </option>
                   ))}
 
@@ -1703,7 +1865,7 @@ export default function DesplazamientoPage() {
                   {/* `viaje-form` (globals.css): la letra del formulario a 13 px las etiquetas y 15 px los campos; la vista previa queda fuera. */}
                   <div className="viaje-form">
                   {/* Cómo va el viaje, arriba y pegado al selector de partido. */}
-                  <ListaPendiente viaje={viaje} onIr={irATarea} />
+                  <ListaPendiente viaje={viaje} onIr={irATarea} acciones={{ onVer: verCita, onArregla: arreglaAviso, onCorrige: corrigeTexto }} />
 
                   {/* El plan de viaje ante este rival (o en este campo), de otra vez (11/11/2026). */}
                   {planAjeno && (() => {
@@ -1941,9 +2103,11 @@ export default function DesplazamientoPage() {
 
                         <Field
                           label="Competición"
-                          value={viaje.competicion}
+                          /* 12/11/2026: el calendario la traía como «Jornada 12»; se enseña la liga y se guarda al escribir. */
+                          value={comoCompeticion(viaje.competicion)}
                           onChange={(valor) => campo("competicion", valor)}
-                          placeholder={partido.competition}
+                          placeholder="Primera Federación"
+                          hint={comoCompeticion(viaje.competicion) !== viaje.competicion.trim() ? "La liga del calendario; la jornada va en su campo." : undefined}
                         />
 
                         {!enCasa && (
@@ -2029,11 +2193,14 @@ export default function DesplazamientoPage() {
                         <Field
                           label="Dimensiones"
                           value={viaje.estadio.dimensiones}
-                          onChange={(valor) => estadio({ dimensiones: valor })}
+                          /* Escrita a mano ya no es de ninguna fuente. */
+                          onChange={(valor) => estadio({ dimensiones: valor, dimensionesFuente: undefined })}
                           placeholder="105 × 68"
                           hint={
-                            jornada?.fila?.DIMENSIONES
-                              ? "Viene de la hoja RIVALES."
+                            viaje.estadio.dimensiones.trim()
+                              ? fuenteMedidas
+                                ? `${viaje.estadio.dimensiones.trim()} · ${fuenteMedidas}`
+                                : "Escrita a mano."
                               : undefined
                           }
                         />
@@ -2044,14 +2211,12 @@ export default function DesplazamientoPage() {
                       | —OpenStreetMap (el polígono del campo) y BeSoccer—, con un
                       | botón para quedarse con una. Y lo que BeSoccer sabe del campo
                       | que aquí sigue en blanco.
+                      | 12/11/2026: sólo se enseñan las que NO coinciden con la elegida;
+                      | ya elegida una con su botón, las demás se pliegan.
                       */}
                       {(() => {
-                        const deBesoccer = leeMedidas(besoccerEstadio?.tamano);
-                        const fuentes = [
-                          medidasOsm ? { de: "OSM", texto: comoMedidas(medidasOsm) } : null,
-                          deBesoccer ? { de: "BeSoccer", texto: comoMedidas(deBesoccer) } : null,
-                          jornada?.fila?.DIMENSIONES ? { de: "Hoja RIVALES", texto: jornada.fila.DIMENSIONES } : null,
-                        ].filter((f): f is { de: string; texto: string } => f !== null);
+                        const otras = fuentesMedidas.filter((f) => !mismaMedida(f.texto, viaje.estadio.dimensiones));
+                        const elegida = Boolean(viaje.estadio.dimensionesFuente?.trim());
 
                         const huecos = besoccerEstadio
                           ? ([
@@ -2064,27 +2229,46 @@ export default function DesplazamientoPage() {
                         const sinFoto = Boolean(besoccerEstadio?.fotoEstadio && !viaje.estadio.foto?.url);
                         const sinEscudo = Boolean(!viaje.escudo && (escudoDe(partido.opponent) || besoccerEstadio?.escudo));
 
-                        if (!fuentes.length && !huecos.length && !sinFoto && !sinEscudo) return null;
+                        if (!otras.length && !huecos.length && !sinFoto && !sinEscudo) return null;
+
+                        const botonesOtras = otras.map((f) => (
+                          <button
+                            key={f.de}
+                            type="button"
+                            onClick={() => estadio({ dimensiones: f.texto, dimensionesFuente: f.de })}
+                            className="rounded-full border border-[#C8A96B]/40 px-2 py-0.5 text-[#C8A96B] transition hover:bg-[#C8A96B]/10"
+                          >
+                            Usar {f.de} {f.texto}
+                          </button>
+                        ));
 
                         return (
                           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12px] text-white/60">
-                            {fuentes.length > 0 && (
-                              <span className="tabular-nums" title="OSM: el polígono del campo en OpenStreetMap, medido con su rectángulo mínimo">
-                                Medidas: {fuentes.map((f) => `${f.de} ${f.texto}`).join(" · ")}
-                              </span>
+                            {otras.length > 0 && elegida && (
+                              <details className="min-w-0">
+                                <summary className="cursor-pointer select-none text-white/50 hover:text-white/80">
+                                  Otras medidas ({otras.length})
+                                </summary>
+                                <span className="mt-1 flex flex-wrap items-center gap-1.5">{botonesOtras}</span>
+                              </details>
                             )}
-                            {fuentes
-                              .filter((f) => f.texto.replace(/\s/g, "") !== viaje.estadio.dimensiones.replace(/\s/g, ""))
-                              .map((f) => (
-                                <button
-                                  key={f.de}
-                                  type="button"
-                                  onClick={() => estadio({ dimensiones: f.texto })}
-                                  className="rounded-full border border-[#C8A96B]/40 px-2 py-0.5 text-[#C8A96B] transition hover:bg-[#C8A96B]/10"
-                                >
-                                  Usar {f.de} {f.texto}
-                                </button>
-                              ))}
+                            {otras.length > 0 && !elegida && (
+                              <>
+                                <span className="tabular-nums" title="OSM: el polígono del campo en OpenStreetMap, medido con su rectángulo mínimo">
+                                  No coinciden: {otras.map((f) => `${f.de} ${f.texto}`).join(" · ")}
+                                </span>
+                                {botonesOtras}
+                                {fuenteMedidas && (
+                                  <button
+                                    type="button"
+                                    onClick={() => estadio({ dimensionesFuente: fuenteMedidas })}
+                                    className="rounded-full border border-white/15 px-2 py-0.5 text-white/70 transition hover:border-white/30 hover:text-white"
+                                  >
+                                    Quedarme con {fuenteMedidas} {viaje.estadio.dimensiones.trim()}
+                                  </button>
+                                )}
+                              </>
+                            )}
                             {(huecos.length > 0 || sinFoto || sinEscudo) && (
                               <button
                                 type="button"
@@ -2141,6 +2325,17 @@ export default function DesplazamientoPage() {
 
                   {viaje.conHotel && !enCasa && !hotelEnFaltan && (
                     <div className="mt-5 scroll-mt-20" id="viaje-hotel">
+                      {/* 12/11/2026: plegado en el móvil como los demás bloques, con su resumen de una línea. */}
+                      <SeccionMovil
+                        titulo="El hotel"
+                        resumen={[
+                          viaje.hotel.nombre,
+                          viaje.hotel.tiempo.trim() ? `${viaje.hotel.tiempo.trim()} al campo` : "",
+                          viaje.hotel.foto?.url ? "" : "sin foto",
+                        ].filter((x) => x.trim()).join(" · ")}
+                        abierta={Boolean(abiertas["viaje-hotel"])}
+                        onCambia={() => conmuta("viaje-hotel")}
+                      >
                       <Panel
                         title="El hotel"
                         subtitle="Dónde se come y se descansa, y a cuánto queda del campo"
@@ -2159,6 +2354,7 @@ export default function DesplazamientoPage() {
                         {camposHotel()}
                         </Plegable>
                       </Panel>
+                      </SeccionMovil>
                     </div>
                   )}
 
@@ -2220,6 +2416,7 @@ export default function DesplazamientoPage() {
                       copiado={diaCopiado}
                       onCopiado={setDiaCopiado}
                       lugares={store.lugares}
+                      enfoque={enfoque && viaje.dias.some((d) => d.id === enfoque.diaId) ? enfoque : null}
                     />
 
                     {/*
@@ -2350,7 +2547,7 @@ export default function DesplazamientoPage() {
                               (DOSSIER_H + 26) * titulosDossier(viaje).length
                             }
                           >
-                            <DossierViaje viaje={viaje} lugares={store.lugares} />
+                            <DossierViaje viaje={viajeVista ?? viaje} lugares={store.lugares} />
                           </Escalado>
                         ) : (
                           <div className="mx-auto max-w-[720px]">
@@ -2371,7 +2568,7 @@ export default function DesplazamientoPage() {
                   {/* ================== EXPORTAR ================== */}
 
                   <div className="mt-5">
-                    <ExportaViaje viaje={viaje} lugares={store.lugares} />
+                    <ExportaViaje viaje={viajeVista ?? viaje} lugares={store.lugares} porRevisar={porRevisar} />
                   </div>
 
                   {/*

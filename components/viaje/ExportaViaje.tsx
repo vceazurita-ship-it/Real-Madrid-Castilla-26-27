@@ -29,6 +29,7 @@ import { useSyncExternalStore } from "react";
 import { FileDown, FileText, MonitorPlay, Printer, Files } from "lucide-react";
 
 import { Button, Panel } from "@/components/abp/ui";
+import { confirmar } from "@/lib/avisos";
 import { DossierViaje, titulosDossier } from "@/components/viaje/DossierViaje";
 import { HojasHorario } from "@/components/viaje/HojaHorario";
 import { creaPptx } from "@/lib/export/pptx";
@@ -186,11 +187,38 @@ function encargaViaje(viaje: Desplazamiento, formato: Formato, lugares?: Record<
   });
 }
 
-export function ExportaViaje({ viaje, lugares }: { viaje: Desplazamiento; lugares?: Record<string, ImagenViaje> }) {
+export function ExportaViaje({
+  viaje,
+  lugares,
+  porRevisar = [],
+}: {
+  viaje: Desplazamiento;
+  lugares?: Record<string, ImagenViaje>;
+  /**
+   * Lo que no cuadra todavía (12/11/2026, expertos): con algo aquí se pregunta
+   * antes de sacar el documento —con el diálogo de la app, no window.confirm—.
+   */
+  porRevisar?: string[];
+}) {
   const enTodo = useEnMarcha(tituloDescarga("todo", viaje));
   const enPptx = useEnMarcha(tituloDescarga("pptx", viaje));
   const enDossier = useEnMarcha(tituloDescarga("dossier", viaje));
   const enHorario = useEnMarcha(tituloDescarga("horario", viaje));
+
+  const saca = async (formato: Formato) => {
+    if (porRevisar.length > 0) {
+      const sigue = await confirmar({
+        titulo: porRevisar.length === 1 ? "Queda una cosa por revisar" : `Quedan ${porRevisar.length} cosas por revisar`,
+        texto: [...porRevisar.map((linea) => `· ${linea}`), "", "El documento saldrá tal y como está."].join("\n"),
+        aceptar: "Sacarlo igual",
+        cancelar: "Revisar antes",
+      });
+
+      if (!sigue) return;
+    }
+
+    encargaViaje(viaje, formato, lugares);
+  };
 
   return (
     <Panel
@@ -204,7 +232,7 @@ export function ExportaViaje({ viaje, lugares }: { viaje: Desplazamiento; lugare
         <Button
           tone="primary"
           icon={Files}
-          onClick={() => encargaViaje(viaje, "todo", lugares)}
+          onClick={() => void saca("todo")}
           disabled={enTodo}
           title="Dossier apaisado y horario vertical en un solo PDF"
         >
@@ -213,7 +241,7 @@ export function ExportaViaje({ viaje, lugares }: { viaje: Desplazamiento; lugare
 
         <Button
           icon={MonitorPlay}
-          onClick={() => encargaViaje(viaje, "pptx", lugares)}
+          onClick={() => void saca("pptx")}
           disabled={enPptx}
           title="El dossier como .pptx, una diapositiva por hoja a 1920×1080"
         >
@@ -222,7 +250,7 @@ export function ExportaViaje({ viaje, lugares }: { viaje: Desplazamiento; lugare
 
         <Button
           icon={FileText}
-          onClick={() => encargaViaje(viaje, "dossier", lugares)}
+          onClick={() => void saca("dossier")}
           disabled={enDossier}
           title="El dossier en PDF, A4 apaisado"
         >
@@ -231,7 +259,7 @@ export function ExportaViaje({ viaje, lugares }: { viaje: Desplazamiento; lugare
 
         <Button
           icon={Printer}
-          onClick={() => encargaViaje(viaje, "horario", lugares)}
+          onClick={() => void saca("horario")}
           disabled={enHorario || viaje.dias.length === 0}
           title={viaje.dias.length === 0 ? "El viaje no tiene ningún día: añade uno en el horario" : `${viaje.dias.length} ${
             viaje.dias.length === 1 ? "hoja" : "hojas"

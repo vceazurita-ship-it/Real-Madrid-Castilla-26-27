@@ -21,7 +21,7 @@
  */
 
 import { useCallback, useRef, useState } from "react";
-import { Clipboard, ImagePlus, Loader2, X } from "lucide-react";
+import { Clipboard, ImagePlus, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { uploadFile } from "@/lib/uploadFile";
@@ -51,9 +51,12 @@ export function CampoImagen({
   carpeta,
   imagen,
   onCambio,
+  pista,
 }: {
   etiqueta: string;
   ayuda: string;
+  /** Qué tiene que ser la imagen («una foto de la fachada, no el mapa»): se lee bajo el título. */
+  pista?: string;
   /** Dónde se guarda en Supabase: "desplazamientos/<partido>". */
   carpeta: string;
   imagen?: ImagenViaje;
@@ -165,17 +168,9 @@ export function CampoImagen({
           {etiqueta}
         </p>
 
-        {imagen?.url && (
-          <button
-            type="button"
-            onClick={() => onCambio(undefined)}
-            title="Quitar el plano"
-            className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-white/35 transition hover:text-rose-300"
-          >
-            <X size={11} /> Quitar
-          </button>
-        )}
       </div>
+
+      {pista && <p className="mt-0.5 text-[11px] leading-snug text-white/40">{pista}</p>}
 
       {/* El fondo oscuro, sólo con imagen (19/10/2026). 10/11/2026: vacío ya
           no reserva una caja de 144 px: la fila de botones basta para añadirla
@@ -228,6 +223,30 @@ export function CampoImagen({
         >
           <Clipboard size={12} /> Pegar
         </button>
+
+        {/*
+        | Quitar, a la vista y con su nombre (12/11/2026, expertos): antes era
+        | una «× quitar» gris en la esquina. Se puede deshacer desde el aviso.
+        */}
+        {imagen?.url && (
+          <button
+            type="button"
+            disabled={subiendo}
+            onClick={() => {
+              const antes = imagen;
+
+              onCambio(undefined);
+
+              toast.success(`Quitada: ${etiqueta.toLowerCase()}`, {
+                action: { label: "Deshacer", onClick: () => onCambio(antes) },
+              });
+            }}
+            title={`Quitar ${etiqueta.toLowerCase()}`}
+            className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-rose-400/40 px-2.5 py-1 text-[11px] text-rose-300 transition hover:border-rose-400/70 disabled:opacity-40"
+          >
+            <Trash2 size={12} /> Quitar la imagen
+          </button>
+        )}
       </div>
 
       {imagen?.url && (

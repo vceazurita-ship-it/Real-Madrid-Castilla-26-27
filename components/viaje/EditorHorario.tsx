@@ -86,6 +86,7 @@ import { EntradaHora } from "@/components/viaje/EntradaHora";
 import { srcImagen } from "@/components/viaje/DossierViaje";
 import { CLAVES_LUGAR, nombreLugar, resuelveLugar } from "@/lib/viaje/rutas";
 import { pideTrayecto, recuerdaDuracion } from "@/lib/viaje/trayectos-cliente";
+import { comoFrase, propiosDelViaje } from "@/lib/viaje/revision";
 import {
   EVENTOS_PALETA,
   EVENTO_POR_CLAVE,
@@ -284,7 +285,8 @@ function FilaCita({
   return (
     <div
       ref={setNodeRef}
-      className={`grid min-w-0 grid-cols-[auto_96px_minmax(0,1fr)_auto] items-start gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-2 py-2 transition ${
+      id={`cita-${cita.id}`}
+      className={`grid min-w-0 scroll-mt-24 grid-cols-[auto_96px_minmax(0,1fr)_auto] items-start gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-2 py-2 transition ${
         isDragging || arrastrando ? "opacity-30" : ""
       }`}
     >
@@ -331,6 +333,7 @@ function FilaCita({
             value={cita.texto}
             onChange={(evento) => onCambia({ texto: evento.target.value })}
             autoFocus={enfoca}
+            data-texto-cita
             placeholder="Qué es: salida bus, comida…"
             className="w-full min-w-0 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#C8A96B]/50"
           />
@@ -695,6 +698,9 @@ function TarjetaDia({
 
   const citas = dia.citas;
 
+  /* Los nombres propios del viaje, para leer las citas plegadas con su mayúscula. */
+  const propios = propiosDelViaje(viaje);
+
   /*
   | Encadenado (11/11/2026): cambiar la hora de una cita corre las de detrás lo
   | mismo, hasta la primera fijada o el partido. Ver `encadenaCitas`.
@@ -994,7 +1000,7 @@ function TarjetaDia({
           {[...citas]
             .sort((a, b) => a.minuto - b.minuto)
             .map((cita) => (
-              <li key={cita.id} className="flex min-w-0 items-baseline gap-2 text-[14px]">
+              <li key={cita.id} id={`cita-${cita.id}`} className="flex min-w-0 scroll-mt-24 items-baseline gap-2 rounded-md text-[14px]">
                 <span
                   className="w-12 shrink-0 font-semibold tabular-nums text-white"
                   style={{ borderLeft: `3px solid ${(TIPO_CITA[cita.tipo] ?? TIPO_CITA.otro).color}`, paddingLeft: 6 }}
@@ -1005,7 +1011,8 @@ function TarjetaDia({
                   <span className="shrink-0 text-[12px] font-semibold uppercase tracking-wide text-[#C8A96B]">{diaSiguienteCorto(dia.fecha).toLowerCase()}</span>
                 )}
                 {emojiDeCita(cita) && <span aria-hidden className="shrink-0 text-[14px] leading-none">{emojiDeCita(cita)}</span>}
-                <span className="min-w-0 truncate text-white/75">{cita.texto || "Sin nombre"}</span>
+                {/* 12/11/2026: con mayúscula sólo al principio, para leerlo igual («SALIDA BUS» y «Salida hacia…»); lo guardado no cambia. */}
+                <span className="min-w-0 truncate text-white/75" title={cita.texto}>{cita.texto ? comoFrase(cita.texto, propios) : "Sin nombre"}</span>
                 {cita.fijada && <Pin size={11} className="shrink-0 text-[#C8A96B]" aria-label="fijada" />}
               </li>
             ))}
@@ -1134,6 +1141,7 @@ export function EditorHorario({
   copiado,
   onCopiado,
   lugares,
+  enfoque,
 }: {
   viaje: Desplazamiento;
   onCambio: (dias: DiaViaje[]) => void;
@@ -1146,6 +1154,12 @@ export function EditorHorario({
   onCopiado: (copiado: DiaCopiado | null) => void;
   /** Las fotos de los lugares fijos de Madrid (Valdebebas, Atocha…). */
   lugares?: Record<string, ImagenViaje>;
+  /**
+   * La cita a la que hay que llevar (12/11/2026): «Ver» en un aviso de
+   * «Revisa el horario» abre su día, la centra y la resalta. `n` cambia en
+   * cada petición, para poder pedir la misma cita dos veces.
+   */
+  enfoque?: { diaId: string; citaId: string; n: number } | null;
 }) {
   const dias = viaje.dias;
 
@@ -1179,6 +1193,42 @@ export function EditorHorario({
   */
   const [abiertos, setAbiertos] = useState<string[]>([]);
   const estaPlegado = (dia: DiaViaje) => dia.citas.length > 0 && !abiertos.includes(dia.id);
+
+  /*
+  | Llevar a una cita desde un aviso (12/11/2026): se abre su día durante el
+  | render (el patrón de React para ajustar estado a una prop) y, ya pintada,
+  | se centra, se resalta un momento y se pone el cursor en su texto.
+  */
+  const [enfoqueVisto, setEnfoqueVisto] = useState(0);
+
+  if (enfoque && enfoque.n !== enfoqueVisto) {
+    setEnfoqueVisto(enfoque.n);
+
+    if (!abiertos.includes(enfoque.diaId)) setAbiertos([...abiertos, enfoque.diaId]);
+  }
+
+  useEffect(() => {
+    if (!enfoque) return;
+
+    let quita: number | undefined;
+
+    const reloj = window.setTimeout(() => {
+      const fila = document.getElementById(`cita-${enfoque.citaId}`);
+
+      if (!fila) return;
+
+      fila.scrollIntoView({ behavior: "smooth", block: "center" });
+      fila.classList.add("ring-2", "ring-[#C8A96B]");
+      fila.querySelector<HTMLInputElement>("input[data-texto-cita]")?.focus({ preventScroll: true });
+
+      quita = window.setTimeout(() => fila.classList.remove("ring-2", "ring-[#C8A96B]"), 2600);
+    }, 150);
+
+    return () => {
+      window.clearTimeout(reloj);
+      if (quita) window.clearTimeout(quita);
+    };
+  }, [enfoque]);
 
   /* La cita recién añadida a mano, para abrirla con el cursor dentro. */
   const [recien, setRecien] = useState<string | null>(null);
