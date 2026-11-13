@@ -64,7 +64,8 @@ import {
   volumenDelPorcentaje,
   type Puesto,
 } from "@/lib/data-analisis/individual";
-import type { FilaJugador } from "@/lib/data-analisis/leer";
+import type { FilaJugador, FilaPartido } from "@/lib/data-analisis/leer";
+import { ajustaAPosesion, factorPosesion, posesionDe, posesionesDe, seAjustaAPosesion } from "@/lib/comparativa-posesion";
 import {
   FASES,
   PREGUNTAS,
@@ -88,7 +89,7 @@ import { RadiografiaPercentiles, type CunaPercentil } from "@/components/data/vi
 import { MarcoGrafico, useTipoGrafico } from "@/components/data/visual/MarcoGrafico";
 import { ComparativaOpta } from "./ComparativaOpta";
 
-type Respuesta = { ok: boolean; jugadores?: FilaJugador[]; error?: string };
+type Respuesta = { ok: boolean; jugadores?: FilaJugador[]; partidos?: FilaPartido[]; error?: string };
 type RegistroSeguimiento = { ID_JUGADOR: string; NOMBRE?: string; FECHA?: string };
 type Pestana = "ranking" | "graficos" | "ficha" | "cara";
 type Orden = "nombre" | "edad" | "minutos" | "nota" | "indice" | "ranking" | "evolucion" | "seguimientos";
@@ -163,6 +164,100 @@ function Chip({ activo, onClick, children, fuerte }: { activo: boolean; onClick:
   );
 }
 
+/* ------------------------------------------------------------------ */
+/*  AJUSTE A LA POSESIÓN (13/11/2026)                                  */
+/* ------------------------------------------------------------------ */
+
+const pct = (v: number) => `${v.toFixed(0)} %`;
+const dec = (v: number) => v.toFixed(2).replace(".", ",");
+
+/**
+ * El interruptor «ajustar a la posesión». Va en el ranking, en la fase
+ * defensiva de los gráficos y en la ficha; los tres comparten el estado.
+ */
+function InterruptorPosesion({
+  activo,
+  onCambia,
+  disponible,
+  posesionCastilla,
+  equiposSinDato,
+}: {
+  activo: boolean;
+  onCambia: (v: boolean) => void;
+  disponible: boolean;
+  posesionCastilla: number | null;
+  equiposSinDato: number;
+}) {
+  if (!disponible) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+      <Chip activo={activo} onClick={() => onCambia(!activo)} fuerte>
+        <span className="inline-flex items-center gap-1.5">
+          <span
+            aria-hidden
+            className={`relative inline-block h-3 w-5 rounded-full transition ${activo ? "bg-[#C8A96B]" : "bg-white/20"}`}
+          >
+            <span className={`absolute top-0.5 h-2 w-2 rounded-full bg-white transition-all ${activo ? "left-[10px]" : "left-0.5"}`} />
+          </span>
+          Ajustar a la posesión
+        </span>
+      </Chip>
+      <span className="text-[11px] text-white/45">
+        {activo
+          ? `Sin balón por 90 × 50 / (100 − posesión de su equipo)${posesionCastilla !== null ? ` · Castilla ${pct(posesionCastilla)}: ×${dec(factorPosesion(posesionCastilla))}` : ""}${equiposSinDato ? ` · ${equiposSinDato} equipos sin posesión en Wyscout, sin ajustar` : ""}`
+          : "Intercepciones, entradas, duelos y acciones defensivas como si cada equipo tuviera el 50 % del balón."}
+      </span>
+    </div>
+  );
+}
+
+/** En la ficha, con el interruptor puesto: la cifra de Wyscout y la ajustada, y sus dos percentiles. */
+function DosCifrasPosesion({ fila, bruta, posesion }: { fila: FilaComparativa; bruta: FilaComparativa; posesion: number | null }) {
+  const filas = fila.percentiles
+    .filter((p) => seAjustaAPosesion(p.metrica.columna))
+    .map((p) => ({ ajustada: p, cruda: bruta.percentiles.find((b) => b.metrica.columna === p.metrica.columna) ?? null }));
+  if (filas.length === 0) return null;
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 xl:col-span-3">
+      <p className="text-sm font-semibold">Sin balón, ajustado a la posesión</p>
+      <p className="mt-1 text-[11px] text-white/45">
+        {posesion !== null
+          ? `Su equipo tiene de media el ${pct(posesion)} del balón: cada cifra se multiplica por ${dec(factorPosesion(posesion))}. Los rivales de su puesto, con la posesión del suyo.`
+          : "Su equipo no tiene posesión en la descarga de partidos: su cifra no cambia; la de los demás, sí."}
+        {bruta.indice !== null && fila.indice !== null ? ` Índice: ${bruta.indice} sin ajustar → ${fila.indice} ajustado.` : ""}
+      </p>
+      <div className="mt-3 overflow-x-auto">
+        <table className="w-full min-w-[420px] text-xs">
+          <thead>
+            <tr className="text-left text-[10px] uppercase tracking-wider text-white/40">
+              <th className="py-1.5 pr-2 font-medium">Métrica /90</th>
+              <th className="px-2 py-1.5 text-right font-medium">Wyscout</th>
+              <th className="px-2 py-1.5 text-right font-medium">Ajustada</th>
+              <th className="px-2 py-1.5 text-right font-medium">Percentil</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filas.map(({ ajustada, cruda }) => {
+              const salto = cruda ? ajustada.percentil - cruda.percentil : 0;
+              return (
+                <tr key={ajustada.metrica.columna} className="border-t border-white/[0.06]" title={ajustada.metrica.comoLeer}>
+                  <td className="py-1.5 pr-2 text-white/80">{ajustada.metrica.nombre}</td>
+                  <td className="px-2 py-1.5 text-right tabular-nums text-white/55">{cruda ? dec(cruda.valor) : dec(ajustada.valor)}</td>
+                  <td className="px-2 py-1.5 text-right tabular-nums text-white/85">{dec(ajustada.valor)}</td>
+                  <td className="px-2 py-1.5 text-right tabular-nums">
+                    {cruda ? <span className="text-white/45">P{cruda.percentil} → </span> : null}
+                    <b style={{ color: salto > 0 ? MEJOR : salto < 0 ? PEOR : tinta(0.85) }}>P{ajustada.percentil}</b>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 export default function ComparativaCategoria() {
   const { players } = usePlayers();
   const { season } = useRatingsSeason();
@@ -180,6 +275,8 @@ export default function ComparativaCategoria() {
   const [orden, setOrden] = useState<{ por: Orden; desc: boolean }>({ por: "indice", desc: true });
   /* 09/11/2026: la misma comparativa con Opta y con sus temporadas pasadas. */
   const [fuente, setFuente] = useState<"wyscout" | "opta">("wyscout");
+  /* 13/11/2026: las cifras sin balón llevadas a una posesión del 50 % (lib/comparativa-posesion.ts). */
+  const [ajustado, setAjustado] = useState(false);
 
   /* Subirlo relanza la lectura: el botón «Reintentar» del aviso de error. */
   const [intento, setIntento] = useState(0);
@@ -219,8 +316,34 @@ export default function ComparativaCategoria() {
     setIntento((n) => n + 1);
   };
 
-  const jugadores = useMemo(() => datos?.jugadores ?? [], [datos]);
+  const jugadoresBase = useMemo(() => datos?.jugadores ?? [], [datos]);
+  const posesiones = useMemo(() => posesionesDe(datos?.partidos ?? []), [datos]);
+  const ajuste = useMemo(
+    () => (ajustado && jugadoresBase.length ? ajustaAPosesion(jugadoresBase, posesiones) : null),
+    [ajustado, jugadoresBase, posesiones],
+  );
+  /* Con el interruptor, TODO (percentiles, índice, ranking, gráficos) se calcula con la cifra ajustada. */
+  const jugadores = ajuste?.jugadores ?? jugadoresBase;
   const filas = useMemo(() => (jugadores.length ? comparativa(jugadores, ref) : []), [jugadores, ref]);
+  /* Las mismas filas sin ajustar, para que la ficha enseñe las dos cifras. */
+  const filasBrutas = useMemo(
+    () => (ajuste && jugadoresBase.length ? comparativa(jugadoresBase, ref) : null),
+    [ajuste, jugadoresBase, ref],
+  );
+  const hayPosesion = posesiones.actual.size > 0;
+  const posesionCastilla = useMemo(() => {
+    const nuestro = jugadoresBase.find((j) => esNuestro(j) && j.temporada === "actual");
+    return nuestro ? posesionDe(nuestro, posesiones) : null;
+  }, [jugadoresBase, posesiones]);
+  const interruptorPosesion = (
+    <InterruptorPosesion
+      activo={ajustado}
+      onCambia={setAjustado}
+      disponible={hayPosesion}
+      posesionCastilla={posesionCastilla}
+      equiposSinDato={ajuste?.equiposSinDato.length ?? 0}
+    />
+  );
 
   /*
   | De la fila de Wyscout a la ficha de la plantilla (foto, ID para
@@ -556,6 +679,7 @@ export default function ComparativaCategoria() {
                         : ""}
                       {" · "}índice = media de sus percentiles en las métricas de su puesto; más es mejor (50 = la media del grupo)
                     </p>
+                    <div className="mt-2">{interruptorPosesion}</div>
                     <div className="mt-2 grid grid-cols-2 gap-3 lg:grid-cols-4">
                       {[
                         { t: "Jugadores comparados", v: kpis.comparados, h: "con índice esta temporada" },
@@ -781,6 +905,7 @@ export default function ComparativaCategoria() {
                     setEquiposSel={setEquiposSel}
                     escudoDe={escudoDe}
                     jornadaDe={jornadaDe}
+                    interruptorPosesion={interruptorPosesion}
                   />
                 )}
 
@@ -821,8 +946,11 @@ export default function ComparativaCategoria() {
                           ))}
                       </select>
                     </label>
+                    <div className="mt-4">{interruptorPosesion}</div>
                     <Detalle
                       fila={activo.f}
+                      bruta={filasBrutas?.find((b) => ajuste?.original.get(activo.f.jugador) === b.jugador) ?? null}
+                      posesion={ajuste?.posesion.get(activo.f.jugador) ?? null}
                       jugadores={jugadores}
                       refe={ref}
                       refLabel={refLabel}
@@ -965,6 +1093,7 @@ function Graficos({
   setEquiposSel,
   escudoDe,
   jornadaDe,
+  interruptorPosesion,
 }: {
   jugadores: FilaJugador[];
   refe: Referencia;
@@ -978,6 +1107,7 @@ function Graficos({
   setEquiposSel: (s: string[]) => void;
   escudoDe: (equipo: string) => string | null;
   jornadaDe: (equipo: string) => JornadaDeEquipo | null;
+  interruptorPosesion: React.ReactNode;
 }) {
   const [pregunta, setPregunta] = useState(0);
   const [ejes, setEjes] = useState<{ x: string; y: string } | null>(null);
@@ -1072,6 +1202,8 @@ function Graficos({
           ) : null,
         )}
       </div>
+      {/* Sólo en la fase defensiva: es donde la posesión del equipo pesa en las cifras. */}
+      {fase === "sin" && interruptorPosesion}
 
       <div className="grid gap-3 lg:grid-cols-[1fr_280px]">
         <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
@@ -1392,6 +1524,8 @@ function Dispersion({
 
 function Detalle({
   fila,
+  bruta,
+  posesion,
   jugadores,
   refe,
   refLabel,
@@ -1401,6 +1535,10 @@ function Detalle({
   escudoDe,
 }: {
   fila: FilaComparativa;
+  /** La misma fila sin ajustar a la posesión (sólo con el interruptor puesto). */
+  bruta: FilaComparativa | null;
+  /** La posesión media de su equipo usada en el ajuste. */
+  posesion: number | null;
   jugadores: FilaJugador[];
   refe: Referencia;
   refLabel: string;
@@ -1521,6 +1659,8 @@ function Detalle({
           ))
         )}
       </div>
+
+      {bruta && <DosCifrasPosesion fila={fila} bruta={bruta} posesion={posesion} />}
 
       {/* ---- los mejores de su edad y la nube ---- */}
       <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">

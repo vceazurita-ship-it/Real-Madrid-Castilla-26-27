@@ -945,8 +945,8 @@ export const AYUDAS: AyudaDePagina[] = [
     ruta: "/comparative_ind",
     titulo: "Comparativa con la categoría",
     resumen: "Cada jugador del Castilla frente a los de su puesto en la categoría (sub-21, sub-23 o todos), con Wyscout o con Opta: ranking, gráficos por fase, ficha y, según la fuente, contra otros equipos o su evolución por temporadas.",
-    origen: "Wyscout: la descarga de jugadores de toda la categoría (esta temporada y la pasada). Opta: sus tablas de jugadores de Primera RFEF, todas las temporadas que hay. Al lado, nuestras Valoraciones (nota) y la hoja de seguimiento (nº de registros).",
-    revisada: "2026-11-12",
+    origen: "Wyscout: la descarga de jugadores de toda la categoría (esta temporada y la pasada) y, para el ajuste a la posesión, la posesión media de cada equipo en sus partidos de liga de Wyscout. Opta: sus tablas de jugadores de Primera RFEF, todas las temporadas que hay. Al lado, nuestras Valoraciones (nota) y la hoja de seguimiento (nº de registros).",
+    revisada: "2026-11-13",
     bloques: [
       {
         titulo: "Arriba",
@@ -966,6 +966,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Gráficos por fase", es: "Una pregunta por fase del juego o dos métricas a elegir; las líneas son las medianas del grupo elegido", cuenta: "Se ve como dispersión, mapa de élite o ranking; con porteros arriba, sólo lo de portero" },
           { que: "Ficha del jugador", es: "Radiografía de percentiles, los mejores del puesto en la categoría y la proyección edad-nivel" },
           { que: "Contra otros equipos", es: "Uno de los nuestros frente a los de su puesto de los equipos que elijas, con 90′ o más", cuenta: "Percentil contra todos los de su puesto de la categoría con 90′ o más" },
+          { que: "Ajustar a la posesión", es: "Interruptor en el ranking, en la fase «sin balón» de los gráficos y en la ficha: acciones defensivas, duelos defensivos, entradas, interceptaciones y remates bloqueados por 90 de cada jugador, nuestro o de la categoría, se llevan a un reparto del balón a medias. Percentiles, índice, ranking y gráficos se recalculan con la cifra ajustada; la ficha enseña la de Wyscout y la ajustada con sus dos percentiles", cuenta: "Ajustada = por 90 × 50 / (100 − posesión media de su equipo en la liga esa temporada, sin amistosos). Con un 60 % de balón, ×1,25. Los porcentajes no se tocan; un equipo sin partidos en la descarga (el otro grupo) se queda sin ajustar" },
         ],
       },
       {
