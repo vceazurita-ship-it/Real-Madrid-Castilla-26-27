@@ -36,7 +36,10 @@ import { normalizarOnce, rivalOnceKey } from "@/lib/rivals/once";
 import { findInforme, type InformeDoc } from "@/lib/rivals/informe";
 import { PUESTOS } from "@/lib/data-analisis/individual";
 import { HUECOS } from "@/lib/data-analisis/once";
-import type { FilaJugador } from "@/lib/data-analisis/leer";
+import type { FilaJugador, FilaPartido } from "@/lib/data-analisis/leer";
+import { posesionesDe } from "@/lib/comparativa-posesion";
+import { aObjetos, DOCS_OPTA, traeOpta } from "@/lib/opta";
+import { robadoresDelOnce, rotuloZona, UMBRAL_ROBADOR, type RoboJugador } from "@/lib/duelos-robador";
 import { baseSuyaDe, nuestrosDe, onceNuestroDe, onceSuyoDe, separaSinPareja, suyosDe } from "@/lib/duelos-onces";
 import { fuenteUltimoOnce, huecosDelUltimoOnce } from "@/lib/tactics/ultimoOnce";
 import { huecosDeLaPizarra } from "@/lib/tactics/huecosDeLaPizarra";
@@ -179,6 +182,10 @@ export default function DuelosPage() {
   const escudoDe = useEscudos();
 
   const [jugadores, setJugadores] = useState<FilaJugador[] | null>(null);
+  /* Los partidos de Wyscout: de ahí sale la posesión media de cada equipo (robador oculto, 13/11/2026). */
+  const [partidosWy, setPartidosWy] = useState<FilaPartido[]>([]);
+  /* opta:jugadores, sólo para la zona habitual de robo; si no llega, no se pone. */
+  const [optaJugadores, setOptaJugadores] = useState<Record<string, string | number | null>[]>([]);
   const [plantillasLeidas, setPlantillas] = useState<Fila[] | null>(null);
   const plantillas = useMemo(() => plantillasLeidas ?? [], [plantillasLeidas]);
   const [informes, setInformes] = useState<InformeDoc | null>(null);
@@ -212,10 +219,11 @@ export default function DuelosPage() {
     let vivo = true;
     /* Por `traeJson`: los datos de Wyscout quedan en el aparato y la pantalla
        abre al momento con lo de la última vez. */
-    traeJson<{ ok: boolean; jugadores?: FilaJugador[]; error?: string }>("/api/data-analisis")
+    traeJson<{ ok: boolean; jugadores?: FilaJugador[]; partidos?: FilaPartido[]; error?: string }>("/api/data-analisis")
       .then((r) => {
         if (!vivo) return;
         setJugadores(r.jugadores ?? []);
+        setPartidosWy(Array.isArray(r.partidos) ? r.partidos : []);
         if (!r.ok) setError(r.error ?? "No se han podido leer los datos.");
       })
       .catch(() => {
@@ -231,6 +239,9 @@ export default function DuelosPage() {
       .catch(() => {
         if (vivo) setPlantillas([]);
       });
+    void traeOpta(DOCS_OPTA.jugadores).then((t) => {
+      if (vivo) setOptaJugadores(aObjetos(t));
+    });
     leeDoc<InformeDoc>("rivals:informe").then((doc) => {
       if (vivo) setInformes(doc);
     });
@@ -347,6 +358,18 @@ export default function DuelosPage() {
       : "Propuesto con los minutos de Wyscout en 4-2-3-1";
   const onceNuestro = useMemo(() => onceNuestroDe(nuestros, aMano.nuestro, baseNuestra, players), [nuestros, aMano.nuestro, baseNuestra, players]);
   const onceSuyo = useMemo(() => onceSuyoDe(suyos, baseSuya.lista, aMano.suyo), [suyos, baseSuya, aMano.suyo]);
+
+  /*
+  | ROBADOR OCULTO (13/11/2026): los cortes por 90 de su once ajustados a la
+  | posesión de su equipo, con percentil contra su puesto y la zona de Opta.
+  | Va en el sentido «dónde nos pueden hacer daño» (lib/duelos-robador.ts).
+  */
+  const posesiones = useMemo(() => posesionesDe(partidosWy), [partidosWy]);
+  const robadores = useMemo(
+    () => robadoresDelOnce(Object.values(onceSuyo).filter((j): j is JugadorDuelo => Boolean(j)), jugadores ?? [], posesiones, optaJugadores, equipoVisto),
+    [onceSuyo, jugadores, posesiones, optaJugadores, equipoVisto],
+  );
+  const roboDe = useMemo(() => new Map(robadores.map((r) => [r.jugador.clave, r])), [robadores]);
 
   /* Sin el duelo cuyo hueco del rival lo ocupa alguien fuera de sitio (10/11/2026, jueces). */
   const { conPareja: duelos, fueraDeSitioEn } = useMemo(
@@ -650,6 +673,8 @@ export default function DuelosPage() {
                   deshaz={deshaz}
                 />
 
+                {modo !== "nuestro" && robadores.length > 0 && <Robadores lista={robadores} equipo={equipoVisto} />}
+
                 {ZONAS.map((z) => (
                   <div key={z.key} className="mt-8">
                     <p className="mb-3 text-xs uppercase tracking-[0.25em] text-white/40">{z.label}</p>
@@ -657,7 +682,7 @@ export default function DuelosPage() {
                       {duelosVistos
                         .filter((d) => d.def.zona === z.key && d.veredicto !== "sin-datos" && !tendencias.has(d.def.clave))
                         .map((d) => (
-                          <Tarjeta key={`${d.def.clave}|${d.nuestros.map((j) => j.clave).join(",")}|${d.suyos.map((j) => j.clave).join(",")}`} d={d} activo={elegido === d.def.clave} onElige={() => setElegido(d.def.clave)} equipo={equipoVisto} modo={modo} />
+                          <Tarjeta key={`${d.def.clave}|${d.nuestros.map((j) => j.clave).join(",")}|${d.suyos.map((j) => j.clave).join(",")}`} d={d} activo={elegido === d.def.clave} onElige={() => setElegido(d.def.clave)} equipo={equipoVisto} modo={modo} roboDe={roboDe} />
                         ))}
                     </div>
                   </div>
@@ -674,7 +699,7 @@ export default function DuelosPage() {
                       </summary>
                       <div className="mt-4 grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
                         {pocos.map((d) => (
-                          <Tarjeta key={`poco-${d.def.clave}`} d={d} activo={elegido === d.def.clave} onElige={() => setElegido(d.def.clave)} equipo={equipoVisto} modo={modo} />
+                          <Tarjeta key={`poco-${d.def.clave}`} d={d} activo={elegido === d.def.clave} onElige={() => setElegido(d.def.clave)} equipo={equipoVisto} modo={modo} roboDe={roboDe} />
                         ))}
                       </div>
                     </details>
@@ -1165,7 +1190,7 @@ const verbo = (lista: JugadorDuelo[], singular: string) => (lista.length > 1 ? `
  * pensarlo, QUIÉN TIENE EL BALÓN y quién ataca y quién defiende, y cada
  * enfrentamiento dice quién lo gana.
  */
-function bloquesDe(d: ResultadoDuelo, modo: Modo, equipo: string) {
+function bloquesDe(d: ResultadoDuelo, modo: Modo, equipo: string, roboDe: Map<string, RoboJugador>) {
   const visibles = d.bloques.filter(
     (b) =>
       /* Por arriba sin percentil aéreo de los dos lados (29/10/2026): el bloque salía con los rótulos y nada; queda la línea de altura media. */
@@ -1263,9 +1288,111 @@ function bloquesDe(d: ResultadoDuelo, modo: Modo, equipo: string) {
                 })(),
               }))}
             />
+
+            {/* Robador oculto (13/11/2026): sus cortes ajustados a la posesión, en el sentido «dónde nos pueden hacer daño». */}
+            {b.sentido === "sin" && <RoboEnDuelo lista={d.suyos.map((j) => roboDe.get(j.clave)).filter((r): r is RoboJugador => Boolean(r))} />}
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  EL ROBADOR OCULTO (13/11/2026)                                     */
+/* ------------------------------------------------------------------ */
+
+const coma = (v: number, d = 1) => v.toLocaleString("es-ES", { minimumFractionDigits: d, maximumFractionDigits: d });
+
+/** «4,1/90 ajustado (3,2 en bruto · 39 % de posesión)». */
+const cifraRobo = (r: RoboJugador) =>
+  r.ajustado === null
+    ? `${coma(r.bruto)}/90 en bruto (su equipo sin posesión en Wyscout)`
+    : `${coma(r.ajustado)}/90 ajustado (${coma(r.bruto)} en bruto · ${Math.round(r.posesion ?? 0)} % de posesión)`;
+
+function MarcaRobador({ r }: { r: RoboJugador }) {
+  if (!r.robador) return null;
+  return (
+    <span
+      className="inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider"
+      style={{ background: `${PEOR}22`, color: PEOR }}
+      title={r.oculto ? `En bruto sale P${r.percentilBruto}: con su poca posesión, corta como un P${r.percentil}.` : `P${r.percentil} de su puesto, ajustado a la posesión.`}
+    >
+      {r.oculto ? "Robador oculto" : "Robador"}
+    </span>
+  );
+}
+
+/** Dentro del bloque «Balón: rival» de cada duelo: lo que cortan los suyos de ese duelo. */
+function RoboEnDuelo({ lista }: { lista: RoboJugador[] }) {
+  if (!lista.length) return null;
+  return (
+    <div className="mt-2.5 space-y-1 border-t border-white/[0.06] pt-2 text-xs">
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-white/55">Si se lo roban: sus cortes por 90, a su posesión</p>
+      {lista.map((r) => (
+        <div key={r.jugador.clave} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <b className="text-white/85">{apellidoDe(r.jugador)}</b>
+          <span className="tabular-nums text-white/60">{cifraRobo(r)}</span>
+          {r.percentil !== null && (
+            <span className="tabular-nums font-semibold" style={{ color: r.robador ? PEOR : tinta(0.6) }}>
+              P{r.percentil}
+            </span>
+          )}
+          <MarcaRobador r={r} />
+          {r.zona && <span className="basis-full text-white/45">Roba sobre todo {rotuloZona(r.zona)}: {r.zona.parte} % de sus {r.zona.total} recuperaciones (Opta)</span>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Su once ordenado por cortes ajustados a la posesión, con el robador marcado. */
+function Robadores({ lista, equipo }: { lista: RoboJugador[]; equipo: string }) {
+  const ocultos = lista.filter((r) => r.oculto);
+  return (
+    <div className="mt-6 min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-4" style={{ borderLeftColor: PEOR, borderLeftWidth: 4 }}>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <p className="text-sm font-semibold">Dónde nos pueden hacer daño · quién nos roba el balón</p>
+        <p className="text-xs text-white/45">
+          {ocultos.length
+            ? `${ocultos.map((r) => apellidoDe(r.jugador)).join(" y ")}: ${ocultos.length === 1 ? "corta" : "cortan"} como un P${UMBRAL_ROBADOR}+ aunque en bruto no lo parezca`
+            : lista.some((r) => r.robador)
+              ? `Robadores: ${lista.filter((r) => r.robador).map((r) => apellidoDe(r.jugador)).join(", ")}`
+              : `Nadie de ${equipo || "su once"} llega al P${UMBRAL_ROBADOR} de su puesto`}
+        </p>
+      </div>
+      <ol className="mt-3 grid grid-cols-1 gap-x-6 gap-y-2 md:grid-cols-2">
+        {lista.map((r, i) => (
+          <li key={r.jugador.clave} className="flex min-w-0 items-start gap-2 text-xs">
+            <span className="w-4 shrink-0 text-right tabular-nums text-white/40">{i + 1}</span>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                <b className="text-sm font-medium text-white/90">{r.jugador.nombre}</b>
+                <span className="text-white/45">{puestoVisible(r.jugador)}</span>
+                <MarcaRobador r={r} />
+              </div>
+              <div className="flex flex-wrap items-baseline gap-x-2 text-white/60">
+                <span className="tabular-nums">{cifraRobo(r)}</span>
+                {r.percentil !== null && (
+                  <span className="tabular-nums font-semibold" style={{ color: r.robador ? PEOR : tinta(0.6) }}>
+                    P{r.percentil}
+                    {r.percentilBruto !== null && <span className="font-normal text-white/45"> (P{r.percentilBruto} en bruto)</span>}
+                  </span>
+                )}
+              </div>
+              {r.zona && <p className="text-white/45">Roba sobre todo {rotuloZona(r.zona)} · {r.zona.parte} % de {r.zona.total} (Opta)</p>}
+            </div>
+          </li>
+        ))}
+      </ol>
+      <Explicativo>
+        <p className="mt-3 text-[11px] leading-relaxed text-white/45">
+          Interceptaciones por 90 de Wyscout llevadas a un partido con el balón a medias: × 50 / (100 − posesión media de su equipo en
+          sus partidos de liga). Quien casi no tiene el balón tiene menos ratos para cortar: así sale el que corta mucho cuando le
+          dejan. El percentil es contra los de su puesto en la categoría (90′ o más) ajustados igual. Robador = P{UMBRAL_ROBADOR} o más;
+          oculto = en bruto queda por debajo. La zona son sus recuperaciones de la temporada por tercios en Opta, si está.
+        </p>
+      </Explicativo>
     </div>
   );
 }
@@ -1311,12 +1438,14 @@ function Tarjeta({
   onElige,
   equipo,
   modo,
+  roboDe,
 }: {
   d: ResultadoDuelo;
   activo: boolean;
   onElige: () => void;
   equipo: string;
   modo: Modo;
+  roboDe: Map<string, RoboJugador>;
 }) {
   const [verParejas, setVerParejas] = useState(false);
   const [pareja, setPareja] = useState<number | null>(null);
@@ -1440,7 +1569,7 @@ function Tarjeta({
         </p>
       ))}
 
-      <div className="mt-4">{bloquesDe(d, modo, equipo)}</div>
+      <div className="mt-4">{bloquesDe(d, modo, equipo, roboDe)}</div>
 
       {d.altura && (
         <p className="mt-3 text-xs text-white/45">
@@ -1490,7 +1619,7 @@ function Tarjeta({
                         {v !== null ? ` ${v > 0 ? "+" : ""}${v}` : ""}
                       </span>
                     </button>
-                    {pareja === i && <div className="px-1 pb-2 pt-1">{bloquesDe(p, modo, equipo)}</div>}
+                    {pareja === i && <div className="px-1 pb-2 pt-1">{bloquesDe(p, modo, equipo, roboDe)}</div>}
                   </div>
                 );
               })}

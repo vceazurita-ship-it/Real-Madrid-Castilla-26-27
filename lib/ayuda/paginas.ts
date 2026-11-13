@@ -987,8 +987,8 @@ export const AYUDAS: AyudaDePagina[] = [
     ruta: "/duelos",
     titulo: "Duelos",
     resumen: "Nuestro once contra el once probable del rival, duelo a duelo y en los dos sentidos: dónde les podemos hacer daño con nuestro balón y dónde nos lo pueden hacer con el suyo.",
-    origen: "Nuestro once: el de la pizarra táctica (tablero «Once 4-2-3-1», si es de este rival y tiene siete casados); si no, nuestro último once de Valoraciones; si no, el propuesto con los minutos de Wyscout. Su once: el marcado en Plantillas rivales; si no, su último once de BeSoccer; si no, los de más minutos, siempre sin sus bajas. Métricas: descarga de jugadores de Wyscout de toda la categoría. Lo cambiado a mano se guarda por rival (documento «duelos:<rival>»).",
-    revisada: "2026-11-12",
+    origen: "Nuestro once: el de la pizarra táctica (tablero «Once 4-2-3-1», si es de este rival y tiene siete casados); si no, nuestro último once de Valoraciones; si no, el propuesto con los minutos de Wyscout. Su once: el marcado en Plantillas rivales; si no, su último once de BeSoccer; si no, los de más minutos, siempre sin sus bajas. Métricas: descarga de jugadores de Wyscout de toda la categoría. Posesión de cada equipo: media de sus partidos de liga de esta temporada en Wyscout. Zona de robo: «opta:jugadores» (Opta). Lo cambiado a mano se guarda por rival (documento «duelos:<rival>»).",
+    revisada: "2026-11-13",
     bloques: [
       {
         titulo: "Arriba",
@@ -1016,6 +1016,16 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Alineaciones", es: "Los dos onces hueco a hueco, cada uno con su fuente; se cambian aquí sin tocar el once de Plantillas", cuenta: "«Volver a la propuesta» deshace lo cambiado" },
           { que: "Cuando nos atacan · En el centro del campo · Cuando atacamos", es: "Las tarjetas por zona: cada faceta con el valor de verdad debajo y el uno contra uno de cada pareja" },
           { que: "Sin pareja en nuestro 4-2-3-1", es: "Quien en su dibujo cae fuera de sitio: ese duelo no se mide" },
+        ],
+      },
+      {
+        titulo: "Quién nos roba el balón",
+        filas: [
+          { que: "La lista", es: "Su once (sin portero) ordenado por interceptaciones por 90 ajustadas a la posesión de su equipo; sale con «Balón: rival» o «Los dos»", cuenta: "Interceptaciones/90 de Wyscout × 50 / (100 − posesión media de su equipo). Sin posesión de su equipo en Wyscout, se enseña en bruto y no se marca" },
+          { que: "P85 (P60 en bruto)", es: "Percentil contra los de su puesto en la categoría con 90′ o más, todos ajustados con la posesión de su equipo; entre paréntesis, el de la cifra sin ajustar", cuenta: "Hacen falta 5 comparables; los de equipos sin posesión en Wyscout no entran" },
+          { que: "Robador · Robador oculto", es: "Robador: P80 o más ajustado. Oculto: además, en bruto queda por debajo del P80; es el que corta mucho en un equipo que casi no tiene el balón" },
+          { que: "Roba sobre todo…", es: "En qué tercio gana más balones en la temporada (en nuestra salida, en el centro del campo o en su tercio propio) y qué parte de sus recuperaciones es", cuenta: "PosWonA3rd, PosWonM3rd y PosWonD3rd de Opta; con menos de 5 o sin cruce de nombre, no se pone" },
+          { que: "Si se lo roban (en cada tarjeta)", es: "En el bloque «Balón: rival» de cada duelo, la misma cifra, percentil, marca y zona de los suyos de ese duelo" },
         ],
       },
     ],
