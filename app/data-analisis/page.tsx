@@ -138,6 +138,7 @@ import { esAreaOpta, PanelAreaOpta, type AreaOpta } from "@/components/data/Area
 import { SelloFuente } from "@/components/ui/SelloFuente";
 import { PanelDestacados } from "@/components/data/PanelDestacados";
 import { PanelEquipo } from "@/components/data/PanelEquipo";
+import { ClasificacionJusta } from "@/components/data/ClasificacionJusta";
 import { PanelParecidos } from "@/components/data/PanelParecidos";
 import { SelloJornada, useCalendarioCastilla } from "@/components/data/SelloJornada";
 import { alcanceDeFechas, alcanceWyscout } from "@/lib/data-analisis/alcance";
@@ -2707,6 +2708,9 @@ export default function DataAnalisisPage() {
                 {/* ============= 5 · JUGADOR A JUGADOR ============ */}
 
                 {area === "equipo" && <PanelEquipo liga={deLaLiga} jugadores={datos.jugadores ?? []} />}
+
+                {/* Clasificación justa (13/11/2026): puntos reales contra xPts del grupo, Opta. */}
+                {area === "equipo" && <ClasificacionJusta />}
 
                 {area === "parecidos" && <PanelParecidos partidos={datos.partidos ?? []} />}
 

@@ -111,7 +111,7 @@ export const AYUDAS: AyudaDePagina[] = [
     resumen:
       "Una sola área de datos, por pregunta y no por proveedor: el partido (post y directo), nuestro equipo, los jugadores, el rival y la categoría, el balón parado y el entrenamiento. Cada cifra sale de la fuente que mejor la mide y lo dice en un sello pequeño. Lo que antes era el «Área Opta» (/opta) está repartido aquí, cada pestaña en su bloque.",
     origen:
-      "public/data — wys/ son los informes de Wyscout (un .xlsx por equipo) y opta/ sus descargas. El balón parado sale de nuestras cuatro hojas y los entrenamientos, de la hoja de microciclos.",
+      "public/data — wys/ son los informes de Wyscout (un .xlsx por equipo) y opta/ sus descargas («Clasificación justa», de opta:partidos). El balón parado sale de nuestras cuatro hojas y los entrenamientos, de la hoja de microciclos.",
     bloques: [
       {
         titulo: "Siete bloques: el partido, resumen, nuestro equipo, jugadores, rival y categoría, balón parado, entreno e identidad",
@@ -140,6 +140,12 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Buscador de la categoría", es: "Jugadores de la categoría por puesto, edad, minutos y una métrica por 90" },
           { que: "Talento y goles que valen", es: "Dispersión de percentiles con la zona élite, ranking por perfil, goles que dan puntos y goles desde el banquillo" },
           { que: "Un equipo de un vistazo", es: "Tres lecturas de cualquier equipo: de un vistazo, jornada a jornada y sus remates; abre con el próximo rival" },
+          {
+            que: "Clasificación justa",
+            es: "Al pie de «De un vistazo»: la clasificación real del grupo del Castilla (puntos) junto a la clasificación por puntos esperados (xPts). En la real, la flecha dice cuánto merece de más (▲ verde) o tiene de más (▼ naranja); en la justa, cuántos puestos sube o baja. El Castilla en oro y el próximo rival (calendario de BeSoccer) en azul. Selector «hasta la jornada N»",
+            cuenta:
+              "Opta, opta:partidos (equipo × partido), sólo partidos entre equipos del grupo con xG de los dos. En cada partido, los goles de cada equipo son un Poisson independiente con media su ExpG (el del rival, ExpGAg o su ExpG): xPts = 3 × P(ganar) + P(empatar), sumados por equipo. Los puntos reales, del marcador de esa misma fila. «Jornada N» = los N primeros partidos de cada equipo por fecha. Desempates: real por puntos, diferencia de goles y goles; justa por xPts y diferencia de xG. Diferencias de menos de 1,5 puntos se pintan como «=»",
+          },
           { que: "Todos contra todos", es: "Dos lecturas: la tabla de toda la liga con las columnas que se elijan (y el cruce de dos) y una métrica ordenada" },
           { que: "Estilos de juego", es: "Quién aprieta y cuándo en toda la liga, el Venn de dominio, peligro y solidez y la radiografía de 22 métricas de cualquier equipo" },
           { que: "Cualquier partido", es: "Cualquier partido de la categoría: el cara a cara, el momentum por tramos de 5′ y los remates de los dos" },
