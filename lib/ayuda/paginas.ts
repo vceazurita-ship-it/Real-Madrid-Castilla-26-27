@@ -1380,7 +1380,7 @@ export const AYUDAS: AyudaDePagina[] = [
     ruta: "/scout-rival-collective",
     titulo: "Scout Colectivo",
     resumen: "Cómo juega el rival como equipo, según el analista y los datos de la categoría.",
-    origen: "El informe lo escribe el analista en la hoja RIVALES (la transición ofensiva, en Supabase «scout-rival-colectivo-extra»). Fecha, jornadas y dibujo, de BeSoccer; «Datos del rival» y «Por dónde ataca», de Wyscout y Opta; «Evolución comparada», de Opta (opta:partidos).",
+    origen: "El informe lo escribe el analista en la hoja RIVALES (la transición ofensiva, en Supabase «scout-rival-colectivo-extra»). Fecha, jornadas y dibujo, de BeSoccer; «Datos del rival» y «Por dónde ataca», de Wyscout y Opta; «Evolución comparada», de Opta (opta:partidos); «Reparto del xG», de Opta (opta:jugadores-partidos).",
     revisada: "2026-11-13",
     bloques: [
       {
@@ -1414,6 +1414,12 @@ export const AYUDAS: AyudaDePagina[] = [
             es: "Dos gráficos de líneas jornada a jornada: xG a favor por partido y xG en contra por partido del Castilla (oro) y del rival (azul), con la media de nuestro grupo en gris discontinuo. Al pie, el último valor de cada línea; arriba, si el rival genera y concede más o menos que hace tres partidos",
             cuenta:
               "Opta, opta:partidos (equipo × partido, por fecha). «Jornada k» es el k-ésimo partido de cada equipo. Cada punto es la media acumulada hasta esa jornada: ExpG para el a favor y ExpGAg (o el ExpG del rival en ese partido) para el en contra. La media del grupo es la de las medias acumuladas de los equipos del grupo del Castilla en esa jornada. «Más» o «menos» que hace tres partidos, si la media acumulada se mueve al menos 0,1 xG. Si el rival no cruza con Opta, no sale",
+          },
+          {
+            que: "Reparto del xG",
+            es: "Barras con los 10 jugadores que más xG suman en la temporada, con su % del xG del equipo, minutos y xG por 90; una raya marca lo que aportaría con la media del equipo por minuto y al lado «×N media». Arriba, el % que concentra el primero, lo que suman los tres primeros y si el gol está muy concentrado, en tres o repartido. Un selector cambia del rival al Castilla",
+            cuenta:
+              "Opta, opta:jugadores-partidos sumado por jugador y equipo (si cambió de club, sólo lo de este equipo): Min y xG sin penaltis si el documento trae esa columna (si no, ExpG total, y la etiqueta lo dice). El % es sobre la suma del xG de todos sus jugadores. La raya = xG del equipo / minutos del equipo × minutos del jugador; «×N» = su xG entre esa raya. xG/90 sólo con 90 minutos o más. «Muy concentrado» si el primero hace el 30 % o más; «en tres» si los tres primeros llegan al 55 %. Si el rival no cruza con Opta, no sale",
           },
           { que: "Dibujo de referencia", es: "El que más repite en sus alineaciones de la temporada (BeSoccer, la misma cuenta que Plantillas rivales) frente a los que escribe el analista por fase" },
           { que: "Sólo lo ves tú, como analista", es: "Con sesión: lo que choca con su ficha de Plantillas rivales o con Duelos" },
