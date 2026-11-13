@@ -20,6 +20,9 @@ import { defMetrica, nombreMetrica } from "@/lib/opta-nombres";
 
 import { minutoDe, tramosDe } from "@/lib/opta-directo-plan";
 import { useAdmin } from "@/hooks/useAdmin";
+import { cargaCalendario } from "@/hooks/useCalendario";
+import { alrededorDe } from "@/lib/castilla/calendario";
+import { mismoEquipo } from "@/lib/data-analisis/nombres";
 import { indiceVivo, useDirectoOpta } from "@/hooks/useDirectoOpta";
 
 import { Elegir, fmt, Panel } from "./comun";
@@ -113,7 +116,21 @@ export function Directo({ datos }: { datos: DatosOpta }) {
 
   const partidos = useMemo(() => (Array.isArray(indice?.partidos) ? indice!.partidos!.filter((p) => p?.partido) : []), [indice]);
   const delCastilla = partidos.find((p) => (p.equipos ?? []).some((e) => e === CASTILLA_NOMBRE_OPTA));
-  const visto = (elegido && partidos.some((p) => p.partido === elegido) ? elegido : "") || delCastilla?.partido || partidos.find((p) => p.conDatos)?.partido || partidos[0]?.partido || "";
+  /* El próximo rival (13/11/2026, tras los expertos): si no jugamos, se abre su partido y se marca en la tira. */
+  const [proximo, setProximo] = useState("");
+  useEffect(() => {
+    let vivo = true;
+    void cargaCalendario().then((lista) => {
+      const sig = alrededorDe(lista, Date.now()).proximo;
+      if (vivo) setProximo(sig?.rival ?? "");
+    });
+    return () => {
+      vivo = false;
+    };
+  }, []);
+  const esDelRival = (p: PartidoIndice) => !!proximo && (p.equipos ?? []).some((e) => mismoEquipo(e, proximo));
+  const delRival = partidos.find(esDelRival);
+  const visto = (elegido && partidos.some((p) => p.partido === elegido) ? elegido : "") || delCastilla?.partido || delRival?.partido || partidos.find((p) => p.conDatos)?.partido || partidos[0]?.partido || "";
 
   useEffect(() => {
     if (!visto) return;
@@ -264,6 +281,7 @@ export function Directo({ datos }: { datos: DatosOpta }) {
                   onClick={() => setElegido(p.partido)}
                   className={`shrink-0 rounded-xl border px-3 py-1.5 text-left text-xs ${activo ? "border-white/40 bg-white/[0.10] text-white" : "border-white/10 bg-white/[0.03] text-white/70 hover:text-white"}`}
                 >
+                  {!delCastilla && esDelRival(p) && <span className="block text-[10px] font-black uppercase tracking-[0.14em]" style={{ color: ORO }}>Próximo rival</span>}
                   <span className="block font-semibold">
                     {eq.length === 2 ? `${eq[0]} ${g[0] ?? "–"}-${g[1] ?? "–"} ${eq[1]}` : p.partido}
                   </span>

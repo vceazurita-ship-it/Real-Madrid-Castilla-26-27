@@ -108,6 +108,9 @@ function Tarjeta({ j, grande, completa }: { j: Juicio; grande: boolean; completa
   );
 }
 
+/** De cuántos partidos sale la media de un equipo (la banda más larga). */
+const muestraDe = (bandas: Record<string, { n: number }>) => Math.max(0, ...Object.values(bandas).map((b) => b.n));
+
 export function DirectoPlan({
   nos,
   ellos,
@@ -184,7 +187,10 @@ export function DirectoPlan({
       antesNos && antesEllos
         ? juzga({ plan: elPlan, minuto: minuto != null ? minuto - 1 : null, nos: antesNos, ellos: antesEllos, bandaNos, bandaEllos, marcador })
         : null;
-    const confirmados = confirma(ahora, antes);
+    /* Muestra corta (13/11/2026, tras los expertos): con menos de 5 partidos
+       en la media de alguno de los dos, una alerta se queda en duda. */
+    const corta = Math.min(muestraDe(bandaNos), muestraDe(bandaEllos)) < 5;
+    const confirmados = confirma(ahora, antes).map((j) => (corta && j.estado === "alerta" ? { ...j, estado: "duda" as Estado, consigna: undefined } : j));
     /* Partido de otros (13/11/2026, tras los expertos): sin consignas de
        banquillo, que no son para nadie; cada equipo, contra su propia media. */
     return esCastilla ? confirmados : confirmados.map((j) => ({ ...j, consigna: undefined }));
@@ -248,7 +254,7 @@ export function DirectoPlan({
       : plan
         ? `Contra el plan de la J${String(plan.JORNADA ?? "")} (${String(plan.EQUIPO ?? "")}) y lo habitual de cada equipo esta temporada`
         : `Sin plan de partido de ${nombreEllos}: objetivos generales contra lo habitual`
-    : `No juega el Castilla: ${nombreNos} contra lo habitual en sus partidos`;
+    : `No juega el Castilla: cada equipo contra su media (${nombreNos}, ${muestraDe(bandaNos)} partidos; ${nombreEllos}, ${muestraDe(bandaEllos)})${Math.min(muestraDe(bandaNos), muestraDe(bandaEllos)) < 5 ? " · muestra corta: sin alertas firmes" : ""}`;
 
   return (
     <div ref={caja} className={`rounded-2xl border border-white/10 bg-[var(--background,#0b0b0f)] p-4 ${completa ? "overflow-auto p-6" : ""}`}>
@@ -288,7 +294,8 @@ export function DirectoPlan({
 
       {/* El descanso (13/11/2026, tras los expertos): la charla en tres cosas,
           las alertas que más pesan con su consigna. Del 44' al 52'. */}
-      {esCastilla && minuto != null && minuto >= 44 && minuto <= 52 && (() => {
+      {/* Sólo antes de que asome la segunda parte en los tramos: al volver del vestuario ya no estorba. */}
+      {esCastilla && minuto != null && minuto >= 44 && minuto <= 52 && !tramos.some((t) => t.parte >= 2) && (() => {
         const tres = juicios.filter((j) => j.estado === "alerta" && j.consigna).sort((a, b) => b.peso - a.peso).slice(0, 3);
         if (!tres.length) return null;
         return (
