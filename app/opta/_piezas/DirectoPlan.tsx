@@ -184,7 +184,10 @@ export function DirectoPlan({
       antesNos && antesEllos
         ? juzga({ plan: elPlan, minuto: minuto != null ? minuto - 1 : null, nos: antesNos, ellos: antesEllos, bandaNos, bandaEllos, marcador })
         : null;
-    return confirma(ahora, antes);
+    const confirmados = confirma(ahora, antes);
+    /* Partido de otros (13/11/2026, tras los expertos): sin consignas de
+       banquillo, que no son para nadie; cada equipo, contra su propia media. */
+    return esCastilla ? confirmados : confirmados.map((j) => ({ ...j, consigna: undefined }));
   }, [esCastilla, plan, minuto, nos, ellos, antesNos, antesEllos, bandaNos, bandaEllos, marcador]);
 
   /* Alerta nueva ya confirmada (dos lecturas): pitido corto y vibración, que en
