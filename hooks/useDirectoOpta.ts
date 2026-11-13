@@ -35,6 +35,17 @@ export type EstadoDirecto = {
 };
 
 const VIVO_MS = 3 * 60_000;
+/** Recién lanzado (GitHub tarda en enseñar la pasada): no se vuelve a lanzar en 3 minutos. */
+const RECIEN_MS = 3 * 60_000;
+const CLAVE_LANZADO = "rmcf:opta-directo:lanzado";
+
+const leeLanzado = () => {
+  try {
+    return Number(localStorage.getItem(CLAVE_LANZADO) ?? 0) || 0;
+  } catch {
+    return 0;
+  }
+};
 
 /** El índice se ha escrito hace poco y no ha llegado a su hora de acabar. */
 export function indiceVivo(i: IndiceDirecto | null | undefined, ahora: number): boolean {
@@ -51,6 +62,7 @@ export function useDirectoOpta(admin: boolean) {
   const [ahora, setAhora] = useState(0);
   const [vuelta, setVuelta] = useState(0);
   const [lanzando, setLanzando] = useState(false);
+  const [lanzadoEn, setLanzadoEn] = useState(0);
 
   useEffect(() => {
     let vivo = true;
@@ -65,6 +77,7 @@ export function useDirectoOpta(admin: boolean) {
       ]);
       if (!vivo) return;
       setAhora(Date.now());
+      setLanzadoEn(leeLanzado());
       setEstado({ preparado: g?.success ? !!g.preparado : admin ? false : null, ultima: g?.ultima ?? null, indice });
     })();
     return () => {
@@ -73,15 +86,16 @@ export function useDirectoOpta(admin: boolean) {
   }, [admin, vuelta]);
 
   const corriendo = !!estado.ultima && estado.ultima.estado !== "completed";
-  const enMarcha = corriendo || indiceVivo(estado.indice, ahora);
+  const recien = lanzadoEn > 0 && ahora - lanzadoEn < RECIEN_MS;
+  const enMarcha = corriendo || indiceVivo(estado.indice, ahora) || recien;
 
   useEffect(() => {
     const t = window.setInterval(() => setVuelta((v) => v + 1), enMarcha || lanzando ? 30_000 : 120_000);
     return () => window.clearInterval(t);
   }, [enMarcha, lanzando]);
 
-  const abre = useCallback(async (alLanzar?: (en: number) => void) => {
-    if (enMarcha) {
+  const abre = useCallback(async (alLanzar?: (en: number) => void, forzar = false) => {
+    if (enMarcha && !forzar) {
       router.push(RUTA_DIRECTO);
       return;
     }
@@ -100,6 +114,12 @@ export function useDirectoOpta(admin: boolean) {
       if (!r.ok || !j?.success) throw new Error(j?.error ?? "No se ha podido lanzar.");
       toast.success("Directo en marcha", { description: "La primera lectura llega en uno o dos minutos." });
       const en = Date.now();
+      try {
+        localStorage.setItem(CLAVE_LANZADO, String(en));
+      } catch {
+        /* sin almacenamiento: sólo se pierde la guarda del doble toque */
+      }
+      setLanzadoEn(en);
       if (alLanzar) {
         alLanzar(en);
         setLanzando(false);

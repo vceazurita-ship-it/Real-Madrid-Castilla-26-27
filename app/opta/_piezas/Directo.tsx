@@ -78,7 +78,8 @@ export function Directo({ datos }: { datos: DatosOpta }) {
   const [lanzadoEn, setLanzadoEn] = useState<number | null>(() => {
     if (typeof window === "undefined") return null;
     const v = Number(new URLSearchParams(window.location.search).get("lanzado"));
-    return Number.isFinite(v) && v > 0 ? v : null;
+    /* Sólo si es de hace menos de media hora: una recarga o un enlace guardado no da un aviso falso. */
+    return Number.isFinite(v) && v > 0 && Date.now() - v < 30 * 60_000 ? v : null;
   });
   const { admin } = useAdmin();
   const lanzar = useDirectoOpta(Boolean(admin));
@@ -173,13 +174,27 @@ export function Directo({ datos }: { datos: DatosOpta }) {
     <div className="rounded-2xl border border-amber-500/40 bg-amber-500/[0.07] px-4 py-3 text-sm" role="status">
       <p className="font-semibold text-white/90">El directo no ha dado señales en 6 minutos.</p>
       <p className="text-xs text-white/60">
-        Mira la última pasada en <Link href="/ajustes" className="underline">Ajustes → Opta</Link>{lanzar.ultima?.enlace ? <> o <a href={lanzar.ultima.enlace} target="_blank" rel="noreferrer" className="underline">en GitHub</a></> : null}. Si falló, vuelve a pulsar «Empezar directo».
+        Mira la última pasada en <Link href="/ajustes" className="underline">Ajustes → Opta</Link>{lanzar.ultima?.enlace ? <> o <a href={lanzar.ultima.enlace} target="_blank" rel="noreferrer" className="underline">en GitHub</a></> : null}. Si falló, reinténtalo.
       </p>
+      {admin && lanzar.preparado && (
+        <button
+          type="button"
+          onClick={() => void lanzar.abre((en) => {
+            setLanzadoEn(en);
+            setVuelta((n) => n + 1);
+          }, true)}
+          disabled={lanzar.lanzando}
+          className="mt-2 inline-flex min-h-[40px] items-center gap-2 rounded-full bg-red-500 px-4 text-sm font-bold text-white hover:brightness-110 disabled:opacity-60"
+        >
+          <Radio size={14} aria-hidden />
+          {lanzar.lanzando ? "Lanzando…" : "Reintentar"}
+        </button>
+      )}
     </div>
   ) : null;
 
   const boton =
-    admin && !vivo && !esperando && !lanzar.corriendo && lanzar.preparado ? (
+    admin && !vivo && !esperando && !lanzar.enMarcha && lanzar.preparado ? (
       <button
         type="button"
         onClick={() => void lanzar.abre((en) => {
@@ -289,6 +304,8 @@ export function Directo({ datos }: { datos: DatosOpta }) {
                 minuto={minuto}
                 tramos={tramos}
                 partidos={filasTemporada}
+                actualizado={doc.actualizado}
+                ahora={ahora}
               />
             </div>
 

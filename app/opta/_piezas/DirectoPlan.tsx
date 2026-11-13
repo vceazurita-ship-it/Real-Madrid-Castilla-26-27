@@ -120,6 +120,8 @@ export function DirectoPlan({
   minuto,
   tramos,
   partidos,
+  actualizado,
+  ahora,
 }: {
   nos: Valores;
   ellos: Valores;
@@ -133,6 +135,9 @@ export function DirectoPlan({
   minuto: number | null;
   tramos: Tramo[];
   partidos: Valores[];
+  /** Hora de las cifras y de la última mirada: si se quedan viejas, se avisa (también en pantalla completa). */
+  actualizado?: string;
+  ahora?: number;
 }) {
   const { plan, cargando } = usePlanDelRival(esCastilla ? nombreEllos : null);
   const caja = useRef<HTMLDivElement>(null);
@@ -144,6 +149,22 @@ export function DirectoPlan({
     document.addEventListener("fullscreenchange", al);
     return () => document.removeEventListener("fullscreenchange", al);
   }, []);
+
+  /* En pantalla completa la tableta no se apaga (13/11/2026, banquillo). */
+  useEffect(() => {
+    if (!completa) return;
+    let cerrojo: { release: () => Promise<void> } | null = null;
+    const nav = navigator as Navigator & { wakeLock?: { request: (t: "screen") => Promise<{ release: () => Promise<void> }> } };
+    void nav.wakeLock
+      ?.request("screen")
+      .then((c) => {
+        cerrojo = c;
+      })
+      .catch(() => undefined);
+    return () => {
+      void cerrojo?.release().catch(() => undefined);
+    };
+  }, [completa]);
 
   const bandaNos = useMemo(() => mediasDe(partidos, String(nos.teamId ?? "")), [partidos, nos.teamId]);
   const bandaEllos = useMemo(() => mediasDe(partidos, String(ellos.teamId ?? "")), [partidos, ellos.teamId]);
@@ -169,6 +190,10 @@ export function DirectoPlan({
     else void caja.current?.requestFullscreen?.().catch(() => undefined);
   };
 
+  /* Cifras de hace más de 3 minutos: el proceso se ha parado o Opta no publica. */
+  const actualMs = actualizado ? Date.parse(actualizado) : NaN;
+  const viejas = ahora && Number.isFinite(actualMs) ? Math.floor((ahora - actualMs) / 60_000) : 0;
+
   const origen = esCastilla
     ? cargando
       ? "Buscando el plan de partido…"
@@ -184,6 +209,12 @@ export function DirectoPlan({
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/50">Cómo se está dando el partido</p>
           <p className="truncate text-xs text-white/55">{origen}</p>
         </div>
+        {completa && marcador && (
+          <p className="text-4xl font-black tabular-nums text-white" aria-label="Marcador y minuto">
+            {marcador.nos} - {marcador.ellos}
+            {minuto != null && <span className="ml-3 text-2xl font-bold text-white/60">{minuto}′</span>}
+          </p>
+        )}
         <div className="flex flex-wrap items-center gap-2">
           {(["alerta", "certeza", "duda"] as Estado[]).map((e) => (
             <span key={e} className="rounded-full px-2.5 py-1 text-xs font-bold tabular-nums" style={{ background: COLOR[e].fondo, color: COLOR[e].tinta }}>
@@ -200,6 +231,12 @@ export function DirectoPlan({
           </button>
         </div>
       </div>
+
+      {viejas >= 3 && (
+        <p className={`mb-3 rounded-xl px-3 py-2 font-bold ${completa ? "text-xl" : "text-base"}`} style={{ background: COLOR.duda.fondo, color: COLOR.duda.tinta }} role="status">
+          Cifras de hace {viejas} min: no te fíes de las alertas hasta la siguiente lectura.
+        </p>
+      )}
 
       {mom.ultimos && (
         <p
