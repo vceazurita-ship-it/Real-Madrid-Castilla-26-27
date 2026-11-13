@@ -26,7 +26,7 @@ import { Elegir, fmt, Panel } from "./comun";
 import { DirectoPlan } from "./DirectoPlan";
 import type { DatosOpta } from "./useOpta";
 
-type PartidoIndice = { partido: string; fecha?: string; estado?: string; conDatos?: boolean; equipos?: string[] };
+type PartidoIndice = { partido: string; fecha?: string; estado?: string; conDatos?: boolean; equipos?: string[]; goles?: (number | null)[]; xg?: (number | null)[] };
 type Indice = { dia?: string; actualizado?: string; hasta?: string; partidos?: PartidoIndice[] };
 type DocDirecto = {
   partido?: string;
@@ -248,6 +248,34 @@ export function Directo({ datos }: { datos: DatosOpta }) {
           </>
         }
       >
+        {/* La jornada de un vistazo (13/11/2026, tras los expertos): todos los partidos del día; se pulsa y se abre. */}
+        {partidos.length > 1 && (
+          <div className="mb-3 flex gap-2 overflow-x-auto pb-1" role="list" aria-label="Partidos del día">
+            {partidos.map((p) => {
+              const eq = (p.equipos ?? []).map((e) => (e === CASTILLA_NOMBRE_OPTA ? NOMBRE_CASTILLA : e));
+              const g = p.goles ?? [];
+              const x = p.xg ?? [];
+              const activo = p.partido === visto;
+              return (
+                <button
+                  key={p.partido}
+                  type="button"
+                  role="listitem"
+                  onClick={() => setElegido(p.partido)}
+                  className={`shrink-0 rounded-xl border px-3 py-1.5 text-left text-xs ${activo ? "border-white/40 bg-white/[0.10] text-white" : "border-white/10 bg-white/[0.03] text-white/70 hover:text-white"}`}
+                >
+                  <span className="block font-semibold">
+                    {eq.length === 2 ? `${eq[0]} ${g[0] ?? "–"}-${g[1] ?? "–"} ${eq[1]}` : p.partido}
+                  </span>
+                  <span className="block tabular-nums text-white/50">
+                    {x.length === 2 && x[0] != null && x[1] != null ? `xG ${x[0].toFixed(2).replace(".", ",")}-${x[1].toFixed(2).replace(".", ",")}` : p.conDatos ? "" : "aún sin cifras"}
+                    {/played|full/i.test(String(p.estado ?? "")) ? " · final" : ""}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
         {partidos.length === 0 || (!vivo && !esperando && !lanzar.corriendo && boton) ? (
           <>
             <p className="mb-2 text-sm font-semibold text-white/85">

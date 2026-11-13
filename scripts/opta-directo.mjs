@@ -162,7 +162,10 @@ async function vuelta(S) {
   const indice = [];
   for (const [partido, fecha, estado] of delDia) {
     const filas = cifras.filas.filter((f) => f[0] === partido);
-    indice.push({ partido, fecha, estado, conDatos: filas.length > 0, equipos: filas.map((f) => f[2]) });
+    /* Goles y xG en el índice (13/11/2026): la tira de la jornada de la pantalla, sin pedir cada partido. */
+    const col = (m) => cifras.cols.indexOf(m);
+    const cifra = (f, m) => (col(m) >= 0 && typeof f[col(m)] === "number" ? f[col(m)] : null);
+    indice.push({ partido, fecha, estado, conDatos: filas.length > 0, equipos: filas.map((f) => f[2]), goles: filas.map((f) => cifra(f, "Goal")), xg: filas.map((f) => cifra(f, "ExpG")) });
     const suyos = tramos.filas.filter((f) => f[0] === partido);
     /* «anterior» = la última lectura con cifras distintas de las de ahora. */
     if (filas.length && JSON.stringify(filas) !== JSON.stringify(anteriores.get(`${partido}:ultimo`)?.filas)) {

@@ -286,6 +286,25 @@ export function DirectoPlan({
         </p>
       )}
 
+      {/* El descanso (13/11/2026, tras los expertos): la charla en tres cosas,
+          las alertas que más pesan con su consigna. Del 44' al 52'. */}
+      {esCastilla && minuto != null && minuto >= 44 && minuto <= 52 && (() => {
+        const tres = juicios.filter((j) => j.estado === "alerta" && j.consigna).sort((a, b) => b.peso - a.peso).slice(0, 3);
+        if (!tres.length) return null;
+        return (
+          <div className="mb-3 rounded-xl border px-3 py-2" style={{ borderColor: COLOR.alerta.tinta, background: COLOR.alerta.fondo, color: COLOR.alerta.tinta }} role="status">
+            <p className={`font-black uppercase tracking-[0.12em] ${completa ? "text-xl" : "text-sm"}`}>Descanso · {tres.length === 1 ? "1 cosa" : `${tres.length} cosas`}</p>
+            <ol className={`mt-1 list-decimal space-y-0.5 pl-5 font-semibold ${completa ? "text-lg" : "text-sm"}`}>
+              {tres.map((j) => (
+                <li key={j.id}>
+                  {j.titulo} ({j.valor}): {j.consigna}
+                </li>
+              ))}
+            </ol>
+          </div>
+        );
+      })()}
+
       {mom.ultimos && (
         <p
           className={`mb-3 rounded-xl px-3 py-2 font-bold ${completa ? "text-xl" : "text-base"}`}
