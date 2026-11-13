@@ -125,8 +125,8 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Partido en el campo", es: "Dos lecturas: por momentos (campograma) y pase a pase (red de pases, pases que hacen avanzar, recuperaciones y pérdidas por altura)" },
           {
             que: "Huella táctica",
-            es: "Debajo de la red de pases: dónde tocamos el balón en un partido (selector) frente a lo normal nuestro, en el campo de 105 × 68 partido en 12 × 8 casillas y siempre atacando a la derecha. Rojo = ahí tocamos más que nuestra media, azul = menos, con la misma escala en todos los partidos. Debajo, el % de toques en campo rival del partido, la media y la diferencia. Sale de opta:castilla-eventos (EventX, EventY), sólo las acciones del Castilla",
-            cuenta: "Por casilla: toques del partido ÷ toques del partido − media de esa parte en los partidos de la temporada (cada partido pesa igual; sólo partidos con 50 toques o más). La escala es el mayor desvío de la temporada. Campo rival = x ≥ 50",
+            es: "Debajo de la red de pases: dónde tocamos el balón en un partido (selector) frente a lo normal nuestro, como mapa de calor continuo sobre el campo de 105 × 68 y siempre atacando a la derecha. Rojo = ahí tocamos más que nuestra media, azul = menos, sin color = como siempre, con la misma escala en todos los partidos. Al pasar el ratón, la zona (12 × 8) con su % y el de la media. Debajo, el % de toques en campo rival del partido, la media y la diferencia. Sale de opta:castilla-eventos (EventX, EventY), sólo las acciones del Castilla",
+            cuenta: "Cada toque se reparte con un suavizado gaussiano de unos 6 m en una malla de 50 × 34; la densidad del partido suma 1 (reparto, no volumen) y se le resta la media de las densidades de la temporada (cada partido pesa igual; sólo partidos con 50 toques o más). La escala es el mayor desvío de la temporada. La frase y el texto al pasar el ratón van por zonas de 12 × 8. Campo rival = x ≥ 50",
           },
           {
             que: "Altura de los centrales",
