@@ -66,6 +66,7 @@ import {
   Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { TalCual } from "@/components/abp/pizarra/TalCual";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
@@ -1536,6 +1537,8 @@ export default function PizarraAbpPage() {
 
   const [editando, setEditando] = useState<string | null>(null);
   const [seleccion, setSeleccion] = useState<string | null>(null);
+  /* «Tal cual» (13/11/2026): la lámina de la pantalla, fotografiada sin rehacer nada. */
+  const laminaPantalla = useRef<HTMLDivElement>(null);
 
   /*
   | Lo que conviene mirar antes de exportar (12/11/2026, jueces): nombres de
@@ -2890,6 +2893,20 @@ export default function PizarraAbpPage() {
                   />
                 )}
 
+                {/* «Tal cual» (13/11/2026, petición del analista): exactamente las
+                    pizarras que se ven, fotografiadas de la pantalla, en PDF o PPT. */}
+                {tablero && tablero.slides.length > 0 && (
+                  <TalCual
+                    total={tablero.slides.length}
+                    titulos={tablero.slides.map((_, i) => tituloVisible(tablero.slides, i))}
+                    nombre={`Pizarras ABP tal cual - ${nombreRivalPieza(tablero.rival || partido?.opponent) || "rival"}`}
+                    actual={activa}
+                    ponPizarra={setPedida}
+                    nodo={() => laminaPantalla.current?.querySelector<HTMLElement>(":scope > :not([data-fuera-de-exportar])") ?? laminaPantalla.current}
+                    antes={() => setSeleccion(null)}
+                  />
+                )}
+
                 {/* Un PDF vertical por jugador, para el WhatsApp de antes del partido. */}
                 {tablero && tablero.slides.length > 0 && tableroParaJugadores && (
                   <PizarrasJugadores
@@ -3663,9 +3680,10 @@ export default function PizarraAbpPage() {
 
                     {/* 12/11/2026 (jueces): en el móvil, la miniatura lleva su propio
                         «ampliar» encima, a un toque del pulgar (44 px). */}
-                    <div className="relative">
+                    <div className="relative" ref={laminaPantalla}>
                     <button
                       type="button"
+                      data-fuera-de-exportar="si"
                       onClick={() => setProyectando(activa)}
                       aria-label="Ver la lámina en grande, en horizontal"
                       className="absolute right-2 top-2 z-[60] grid h-11 w-11 place-items-center rounded-full border border-white/25 bg-[#0F2036]/85 text-white shadow-lg sm:hidden"

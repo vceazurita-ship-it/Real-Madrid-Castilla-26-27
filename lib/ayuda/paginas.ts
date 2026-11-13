@@ -632,11 +632,12 @@ export const AYUDAS: AyudaDePagina[] = [
     resumen: "Las láminas de ABP del partido: quién va en cada puesto, sus carreras por fases y lo que se exporta a la sala y a cada jugador.",
     origen:
       "El documento «abp-pizarra» de la app (Supabase), el calendario (partidos jugados + hoja RIVALES) y el once de la pizarra táctica. Las fotos, de la plantilla.",
-    revisada: "2026-11-12",
+    revisada: "2026-11-13",
     bloques: [
       {
         titulo: "Montar la jornada",
         filas: [
+          { que: "Tal cual: PDF · PPT", es: "Saca exactamente las pizarras como las has pintado: pasa por cada una, la fotografía de la pantalla y pone una por hoja en el PDF y una por diapositiva en el PowerPoint. No recoloca, no rellena ni cambia nada; sólo deja fuera el botón «ampliar» del móvil y quita la selección. Al acabar vuelve a la pizarra en la que estabas", cuenta: "PDF: cada hoja mide lo que la foto, sin recortar ni estirar. PPT: diapositiva 16:9 con la foto entera centrada (si la pizarra no es 16:9 quedan márgenes azul marino, nunca se deforma). Es una imagen: para mover fichas en PowerPoint, el «Exportar» de siempre" },
           { que: "Copiar de J.. y poner el once", es: "Trae jugadores, flechas y consignas de la jornada anterior y cambia a los que no están en el once" },
           { que: "Colocar", es: "Rellena los huecos con quien suele hacer ese puesto", cuenta: "La memoria es por puesto: se anota sola cada vez que se asigna a alguien" },
           { que: "0/10 colocados", es: "En la tira, lo que falta en cada diapositiva" },
