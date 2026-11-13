@@ -3169,7 +3169,7 @@ export const AYUDAS: AyudaDePagina[] = [
   {
     ruta: "/identidad-posicional",
     titulo: "Identidad posicional",
-    resumen: "Los contenidos individuales de cada puesto, con balón y sin balón, y cómo están nuestros jugadores en lo que se mide.",
+    resumen: "Los contenidos individuales de cada puesto, con balón y sin balón, cómo están nuestros jugadores en lo que se mide y quién de toda la plantilla lo ejecuta mejor.",
     origen: "La hoja de identidad posicional (una fila por contenido); la escribe el cuerpo técnico, aquí o en la hoja. Los jugadores del puesto, de la plantilla; las cifras, de Wyscout (liga).",
     bloques: [
       {
@@ -3192,6 +3192,17 @@ export const AYUDAS: AyudaDePagina[] = [
         ],
       },
       {
+        titulo: "¿Quién lo ejecuta mejor?",
+        filas: [
+          { que: "La vista", es: "Botón junto a «Contenidos del puesto»: todos los jugadores de campo del Castilla ordenados por cómo cumplen los contenidos medibles del puesto elegido, también los que no lo tienen como puesto" },
+          { que: "La cifra (0-100)", es: "Media de sus percentiles en esos contenidos contra los jugadores DE ESE PUESTO en la categoría (Wyscout, liga)", cuenta: "Cada percentil con el sentido de la métrica; 50 = la mediana del puesto. Sólo 450′ o más, con cifra en todos los contenidos medidos y al menos seis del puesto para comparar" },
+          { que: "natural / otro puesto", es: "Natural si su primera demarcación en Wyscout es ese puesto; si no, dice cuál es la suya" },
+          { que: "vs el mejor especialista", es: "Su cifra menos la del natural mejor colocado; en verde si le supera" },
+          { que: "Resumen de arriba", es: "Quién de otro puesto queda por encima del mejor especialista, o que nadie lo hace" },
+          { que: "Bajo cada fila", es: "El percentil de cada contenido, con el texto de la hoja" },
+        ],
+      },
+      {
         titulo: "Editar",
         filas: [
           { que: "Editar", es: "Cada contenido se guarda solo en la hoja unos segundos después de dejar de escribir" },
@@ -3202,8 +3213,9 @@ export const AYUDAS: AyudaDePagina[] = [
     ojo: [
       "Un jugador con menos de 450′ de liga sale en los chips pero no en las cifras, y su chip lo dice.",
       "Si el guardado no llega a la hoja, se sigue en edición y se reintenta solo.",
+      "«¿Quién lo ejecuta mejor?» compara perfiles estadísticos con los del puesto, no cómo rindió jugando allí; los porteros no entran y hacen falta al menos dos contenidos medidos.",
     ],
-    revisada: "2026-11-12",
+    revisada: "2026-11-13",
   },
 ];
 

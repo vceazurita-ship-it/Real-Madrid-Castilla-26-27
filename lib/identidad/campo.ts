@@ -422,6 +422,103 @@ export function cifraDelContenido(jugadores: FilaJugador[], posicionHoja: string
   };
 }
 
+export type FilaQuienLoEjecuta = {
+  nombre: string;
+  /** El puesto de Wyscout del jugador (su demarcación natural). */
+  puestoNatural: Puesto;
+  natural: boolean;
+  minutos: number;
+  /** Media de los percentiles en los contenidos medidos del puesto elegido. */
+  encaje: number;
+  rasgos: { columna: string; percentil: number }[];
+  /** Encaje menos el del mejor especialista (null si no hay especialista). */
+  diferencia: number | null;
+};
+
+export type QuienLoEjecuta = {
+  puesto: Puesto;
+  contenidos: { texto: string; columna: string; nombre: string }[];
+  /** Jugadores del puesto en la categoría con los minutos de corte (la referencia). */
+  n: number;
+  filas: FilaQuienLoEjecuta[];
+  mejorEspecialista: { nombre: string; encaje: number } | null;
+};
+
+/**
+ * 13/11/2026: «¿Quién lo ejecuta mejor?». Para los contenidos medibles de un
+ * puesto, cada jugador de campo del Castilla con 450′ de liga —sea o no de ese
+ * puesto— se mide contra los jugadores DE ESE PUESTO en la categoría: el
+ * percentil de cada contenido (orientado: más es mejor) y su media. Así un
+ * medio puede salir por encima de los centrales en lo que se pide al central.
+ * Sólo entra quien tiene cifra en todos los contenidos medidos; null si el
+ * puesto no tiene al menos dos contenidos medidos o no hay referencia.
+ */
+export function quienLoEjecutaMejor(jugadores: FilaJugador[], posicionHoja: string, contenidos: string[]): QuienLoEjecuta | null {
+  const puesto = PUESTO_DE_HOJA.find(([re]) => re.test(posicionHoja))?.[1];
+  const perfil = puesto ? PERFIL_PUESTO[puesto] : undefined;
+
+  if (!puesto || !perfil) return null;
+
+  const vistos = new Set<string>();
+  const medidos = contenidos.flatMap((texto) => {
+    const columna = medidaDelContenido(posicionHoja, texto);
+
+    if (!columna || vistos.has(columna)) return [];
+    vistos.add(columna);
+
+    return [{ texto, columna, nombre: nombreColumna(columna), mejorAlto: perfil.find((r) => r.columna === columna)?.mejorAlto ?? true }];
+  });
+
+  if (medidos.length < 2) return null;
+
+  const liga = universoDe(jugadores, "liga").filter((j) => j.minutos >= MINUTOS_CONTENIDO);
+  const referencia = liga.filter((j) => puestoDe(j.posicion) === puesto);
+
+  if (referencia.length < 6) return null;
+
+  const valoresRef = new Map(
+    medidos.map((m) => [m.columna, referencia.map((j) => valorDe(j, m.columna)).filter((v): v is number => v !== null && Number.isFinite(v))]),
+  );
+
+  const sinRedondear = liga
+    .filter((j) => esNuestro(j) && puestoDe(j.posicion) !== "POR")
+    .flatMap((j) => {
+      const rasgos = medidos.flatMap((m) => {
+        const v = valorDe(j, m.columna);
+
+        if (v === null || !Number.isFinite(v)) return [];
+
+        const p = percentil(v, valoresRef.get(m.columna) ?? [], m.mejorAlto);
+
+        return p === null ? [] : [{ columna: m.columna, percentil: Math.round(p) }];
+      });
+
+      if (rasgos.length < medidos.length) return [];
+
+      const puestoNatural = puestoDe(j.posicion);
+
+      return [{
+        nombre: j.jugador,
+        puestoNatural,
+        natural: puestoNatural === puesto,
+        minutos: j.minutos,
+        encaje: Math.round(media(rasgos.map((x) => x.percentil)) ?? 0),
+        rasgos,
+      }];
+    })
+    .sort((a, b) => b.encaje - a.encaje || b.minutos - a.minutos);
+
+  const especialista = sinRedondear.find((f) => f.natural) ?? null;
+
+  return {
+    puesto,
+    contenidos: medidos.map(({ texto, columna, nombre }) => ({ texto, columna, nombre })),
+    n: referencia.length,
+    filas: sinRedondear.map((f) => ({ ...f, diferencia: especialista ? f.encaje - especialista.encaje : null })),
+    mejorEspecialista: especialista ? { nombre: especialista.nombre, encaje: especialista.encaje } : null,
+  };
+}
+
 export const NOMBRE_PUESTO: Record<Puesto, string> ={ POR: "Portero", CEN: "Central", LAT: "Lateral", MED: "Centrocampista", BAN: "Extremo", DEL: "Delantero" };
 
 function encajes(jugadores: FilaJugador[]): JugadorEncaje[] {

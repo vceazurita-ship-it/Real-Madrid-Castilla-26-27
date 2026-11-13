@@ -43,7 +43,9 @@ import {
   cifraDelContenido,
   medidaDelContenido,
   nombreColumna,
+  quienLoEjecutaMejor,
 } from "@/lib/identidad/campo";
+import { QuienLoEjecutaVista } from "@/components/identidad/QuienLoEjecuta";
 import type { FilaJugador } from "@/lib/data-analisis/leer";
 import { mismaPersona, nombreCanonico } from "@/lib/data-analisis/nombres";
 import { esNuestro, universoDe } from "@/lib/data-analisis/individual";
@@ -265,6 +267,8 @@ export default function IdentidadPosicionalPage() {
   const [originalData, setOriginalData] = useState<PosicionItem[]>([]);
 
   const [posicion, setPosicion] = useState("");
+  /* 13/11/2026: los contenidos del puesto o «¿Quién lo ejecuta mejor?». */
+  const [vista, setVista] = useState<"contenidos" | "quien">("contenidos");
   const [query, setQuery] = useState("");
 
   const [editing, setEditing] = useState(false);
@@ -501,6 +505,42 @@ export default function IdentidadPosicionalPage() {
   }, [cifrasPuesto]);
 
   const puestoCampo = cifrasPuesto[0]?.cifra.puesto ?? null;
+
+  /*
+  | 13/11/2026: «¿Quién lo ejecuta mejor?»: toda la plantilla de campo contra
+  | los contenidos medidos del puesto. Los nombres, con los de la plantilla
+  | entera (no sólo los del puesto), para los que vienen de otra demarcación.
+  */
+  const quienLoEjecuta = useMemo(
+    () =>
+      jugadoresWyscout && posicion
+        ? quienLoEjecutaMejor(
+            jugadoresWyscout,
+            posicion,
+            data.filter((r) => r.POSICION === posicion).sort((a, b) => Number(a.ORDEN) - Number(b.ORDEN)).map((r) => r.CONTENIDO ?? ""),
+          )
+        : null,
+    [jugadoresWyscout, data, posicion],
+  );
+
+  const plantillaEntera = useMemo<Quien[]>(
+    () =>
+      players
+        .filter((j) => j.esCastilla)
+        .map((j) => ({ corto: j.apodo || j.nombre, nombre: j.nombre || j.apodo || "" })),
+    [players],
+  );
+
+  const nombreDe = useCallback(
+    (wyscout: string): Quien =>
+      plantillaEntera.find((q) => mismaPersona(wyscout, q.nombre) || mismaPersona(wyscout, q.corto)) ?? {
+        corto: nombreCanonico(wyscout),
+        nombre: nombreCanonico(wyscout),
+      },
+    [plantillaEntera],
+  );
+
+  const enQuien = vista === "quien" && !editing;
 
   const cambios = useMemo(
     () =>
@@ -1149,11 +1189,38 @@ export default function IdentidadPosicionalPage() {
                 {!editing && !loading && !error && toolbar}
               </div>
 
-              <div className="mt-10">
+              {!editing && !loading && !error && totalPosicion > 0 && (
+                <div role="group" aria-label="Vista" className="mt-6 inline-flex flex-wrap gap-1 rounded-xl border border-white/10 p-1">
+                  {(
+                    [
+                      ["contenidos", "Contenidos del puesto"],
+                      ["quien", "¿Quién lo ejecuta mejor?"],
+                    ] as const
+                  ).map(([v, texto]) => (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => setVista(v)}
+                      aria-pressed={vista === v}
+                      className={cn(
+                        "rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors sm:text-sm",
+                        focusRing,
+                        vista === v ? "bg-[#C8A96B] text-black" : "text-gray-300 hover:bg-white/[0.06] hover:text-white",
+                      )}
+                    >
+                      {texto}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className={enQuien ? "mt-6" : "mt-10"}>
                 {loading ? (
                   <LoadingState rows={3} />
                 ) : error ? (
                   <ErrorState message={error} onRetry={() => recargar()} />
+                ) : enQuien && totalPosicion > 0 ? (
+                  <QuienLoEjecutaVista datos={quienLoEjecuta} cargando={!jugadoresWyscout} nombreDe={nombreDe} />
                 ) : totalPosicion === 0 && !editing ? (
                   <EmptyState
                     title="Esta posición aún no tiene contenidos"
