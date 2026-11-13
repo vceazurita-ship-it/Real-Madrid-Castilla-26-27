@@ -1369,7 +1369,7 @@ export const AYUDAS: AyudaDePagina[] = [
     ruta: "/scout-rival-collective",
     titulo: "Scout Colectivo",
     resumen: "Cómo juega el rival como equipo, según el analista y los datos de la categoría.",
-    origen: "El informe lo escribe el analista en la hoja RIVALES (la transición ofensiva, en Supabase «scout-rival-colectivo-extra»). Fecha, jornadas y dibujo, de BeSoccer; «Datos del rival» y «Por dónde ataca», de Wyscout y Opta.",
+    origen: "El informe lo escribe el analista en la hoja RIVALES (la transición ofensiva, en Supabase «scout-rival-colectivo-extra»). Fecha, jornadas y dibujo, de BeSoccer; «Datos del rival» y «Por dónde ataca», de Wyscout y Opta; «Evolución comparada», de Opta (opta:partidos).",
     revisada: "2026-11-13",
     bloques: [
       {
@@ -1397,6 +1397,12 @@ export const AYUDAS: AyudaDePagina[] = [
             es: "Sus centros, regates, pases al área y acciones progresivas (pases progresivos + carreras en progresión) de la temporada, repartidos entre banda izquierda, centro y banda derecha, y en cada banda el jugador que más pone; su nombre abre su ficha en Plantillas rivales",
             cuenta:
               "Wyscout por jugador: cifra por 90 × minutos / 90, jugadores de campo con minutos. El lado, del puesto principal (laterales, carrileros y extremos con L/R a su banda; centrales, medios, mediapuntas y delanteros al centro); los centros, de «Centros desde la banda izquierda/derecha». El % es sobre el total del equipo; el titular dice qué banda carga (≥ 58 % de lo de fuera) y el jugador del que más depende",
+          },
+          {
+            que: "Evolución comparada",
+            es: "Dos gráficos de líneas jornada a jornada: xG a favor por partido y xG en contra por partido del Castilla (oro) y del rival (azul), con la media de nuestro grupo en gris discontinuo. Al pie, el último valor de cada línea; arriba, si el rival genera y concede más o menos que hace tres partidos",
+            cuenta:
+              "Opta, opta:partidos (equipo × partido, por fecha). «Jornada k» es el k-ésimo partido de cada equipo. Cada punto es la media acumulada hasta esa jornada: ExpG para el a favor y ExpGAg (o el ExpG del rival en ese partido) para el en contra. La media del grupo es la de las medias acumuladas de los equipos del grupo del Castilla en esa jornada. «Más» o «menos» que hace tres partidos, si la media acumulada se mueve al menos 0,1 xG. Si el rival no cruza con Opta, no sale",
           },
           { que: "Dibujo de referencia", es: "El que más repite en sus alineaciones de la temporada (BeSoccer, la misma cuenta que Plantillas rivales) frente a los que escribe el analista por fase" },
           { que: "Sólo lo ves tú, como analista", es: "Con sesión: lo que choca con su ficha de Plantillas rivales o con Duelos" },

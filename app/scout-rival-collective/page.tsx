@@ -38,6 +38,7 @@ import RecursosRival, {
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { DatosDelRival } from "@/components/rivals/DatosDelRival";
 import { PorDondeAtaca } from "@/components/rivals/PorDondeAtaca";
+import { EvolucionComparada } from "@/components/rivals/EvolucionComparada";
 import { AvisoLento } from "@/components/rivals/AvisoLento";
 import { TiraJornadas } from "@/components/rivals/TiraJornadas";
 import { useRivalInforme } from "@/hooks/useRivalInforme";
@@ -1934,6 +1935,9 @@ export default function ScoutRivalCollective() {
             </div>
           </section>
           )}
+
+          {/* Evolución comparada (13/11/2026): xG a favor y en contra, media acumulada, Castilla contra el rival. */}
+          {!modoEdicion && rivalActivo?.EQUIPO && <EvolucionComparada equipo={rivalActivo.EQUIPO} />}
 
           {/* Wyscout y Opta del rival, por pregunta (10/11/2026). Se carga al asomar. */}
           {rivalActivo?.EQUIPO && <DatosDelRival equipo={rivalActivo.EQUIPO} rivalId={String(rivalActivo.ID ?? "")} />}
