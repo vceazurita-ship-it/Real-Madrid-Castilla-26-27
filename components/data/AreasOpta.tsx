@@ -40,6 +40,7 @@ import { Penaltis } from "@/app/opta/_piezas/Penaltis";
 import { RematesEquipo } from "@/app/opta/_piezas/Remates";
 import { Talento } from "@/app/opta/_piezas/Talento";
 import { useOpta, type DatosOpta } from "@/app/opta/_piezas/useOpta";
+import { AlturaCentrales } from "@/components/data/AlturaCentrales";
 import { HuellaTactica } from "@/components/data/HuellaTactica";
 import { useCalendarioCastilla } from "@/components/data/SelloJornada";
 import { EsqueletoPantalla, EstadoVacio } from "@/components/ui/estados";
@@ -168,6 +169,8 @@ export function PanelAreaOpta({ area }: { area: AreaOpta }) {
           <Fases datos={datos} />
           {/* 13/11/2026: dónde tocamos más y menos que nuestra media, partido a partido. */}
           <HuellaTactica datos={datos} />
+          {/* 13/11/2026: a qué altura tocan el balón nuestros centrales, en casa y fuera. */}
+          <AlturaCentrales datos={datos} />
         </>
       )}
       {area === "evolucion" && <Evolucion datos={datos} fijo={CASTILLA_OPTA} />}
