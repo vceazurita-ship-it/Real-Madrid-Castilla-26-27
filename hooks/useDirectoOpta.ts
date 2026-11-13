@@ -108,7 +108,7 @@ export function useDirectoOpta(admin: boolean) {
       const r = await fetch("/api/opta/directo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ duracion: 150 }),
+        body: JSON.stringify({ duracion: 300 }), /* 13/11: cubre la jornada escalonada; se para solo al acabar todos */
       });
       const j = await r.json().catch(() => null);
       if (!r.ok || !j?.success) throw new Error(j?.error ?? "No se ha podido lanzar.");

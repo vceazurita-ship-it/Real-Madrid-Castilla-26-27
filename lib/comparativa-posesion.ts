@@ -112,7 +112,7 @@ export function ajustaAPosesion(jugadores: FilaJugador[], posesiones: Posesiones
       const v = datos[c];
       if (typeof v === "number" && Number.isFinite(v)) datos[c] = v * f;
     }
-    const copia: FilaJugador = { ...j, datos };
+    const copia: FilaJugador = { ...j, datos, datosSinAjustar: j.datos };
     original.set(copia, j);
     posesion.set(copia, pos);
     return copia;

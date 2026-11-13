@@ -16,6 +16,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { COMPARADO, MEJOR, ORO, PEOR } from "@/components/data/graficas";
 import { cargaCalendario } from "@/hooks/useCalendario";
+import { alrededorDe } from "@/lib/castilla/calendario";
 import { useOptaLigero } from "@/hooks/useOptaLigero";
 import { clasificacionJusta, jornadasDe, type FilaJusta } from "@/lib/data-analisis/clasificacion-justa";
 import { CASTILLA_OPTA } from "@/lib/opta";
@@ -49,12 +50,12 @@ function useProximoRival(): string {
   useEffect(() => {
     let vivo = true;
     void cargaCalendario().then((partidos) => {
-      const ahora = new Date();
-      const hoy = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, "0")}-${String(ahora.getDate()).padStart(2, "0")}`;
-      const sig = partidos
-        .filter((p) => p.cuando && p.cuando.slice(0, 10) >= hoy)
-        .sort((a, b) => a.cuando.localeCompare(b.cuando))[0];
-      if (vivo && sig) setProximo(/castilla/i.test(sig.local) ? sig.visitante : sig.local);
+      /* El mismo corte que la portada (13/11/2026): el de hoy deja de ser el
+         próximo en cuanto tiene marcador o pasan 2 h 30 desde su hora. */
+      const ahora = Date.now();
+      const pendientes = partidos.filter((p) => !(p.golesLocal !== null && p.golesVisitante !== null && Date.parse(p.cuando) <= ahora));
+      const sig = alrededorDe(pendientes, ahora).proximo;
+      if (vivo) setProximo(sig?.rival ?? "");
     });
     return () => {
       vivo = false;

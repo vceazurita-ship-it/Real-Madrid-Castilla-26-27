@@ -235,6 +235,12 @@ export type FilaJugador = {
   contrato: string;
   /** Todas las columnas numéricas, por su rótulo. */
   datos: Record<string, number>;
+  /**
+   * Sólo en las copias ajustadas a la posesión (lib/comparativa-posesion.ts):
+   * las cifras de Wyscout tal cual. El volumen que dice si un porcentaje es
+   * fiable sale de aquí, no de la cifra ajustada (13/11/2026).
+   */
+  datosSinAjustar?: Record<string, number>;
 };
 
 export type HistoricoOpta = {

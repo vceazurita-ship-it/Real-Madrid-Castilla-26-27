@@ -1154,7 +1154,8 @@ export function volumenDelPorcentaje(jugador: FilaJugador, columna: string) {
 
   if (!regla) return { fiable: true, cuantas: null as number | null, regla: null };
 
-  const cuantas = valorDe(jugador, regla.columna);
+  /* Con la posesión ajustada, las acciones de verdad son las de Wyscout. */
+  const cuantas = jugador.datosSinAjustar?.[regla.columna] ?? valorDe(jugador, regla.columna);
 
   return {
     fiable: cuantas !== null && cuantas >= regla.minimo,
