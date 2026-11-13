@@ -53,7 +53,13 @@ class NoSale extends Error {}
 /** Ejecuta un `node <script>` en la copia y devuelve su salida; lanza NoSale si falla. */
 function corre(nombre, args, plazoMs) {
   return new Promise((resolve, reject) => {
-    const hijo = spawn(process.execPath, args, { cwd: OBRA, windowsHide: true, env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" } });
+    /* Con poca RAM el build se queda colgado en «Creating an optimized production
+       build» hasta el plazo (13/11/2026): el mismo tope de memoria que a mano. */
+    const hijo = spawn(process.execPath, args, {
+      cwd: OBRA,
+      windowsHide: true,
+      env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1", NODE_OPTIONS: [process.env.NODE_OPTIONS, "--max-old-space-size=3072"].filter(Boolean).join(" ") },
+    });
     let texto = "";
     const recoge = (t) => {
       texto = (texto + t.toString()).slice(-60_000);
@@ -193,7 +199,17 @@ async function comprueba(tocados, pantalla) {
   }
 
   console.log("next build…");
-  await corre("build", [path.join(OBRA, "node_modules/next/dist/bin/next"), "build"], 40 * 60_000);
+  const build = [path.join(OBRA, "node_modules/next/dist/bin/next"), "build"];
+
+  try {
+    await corre("build", build, 40 * 60_000);
+  } catch (e) {
+    /* Un plazo agotado (falta de memoria del momento) o la red al bajar las
+       fuentes de Google no son culpa del cambio: una vez más. */
+    if (!/plazo agotado|internal\/font\/google|fonts\.g(oogleapis|static)|Failed to fetch|ECONNRESET|ETIMEDOUT|ENOTFOUND|getaddrinfo/i.test(String(e?.message))) throw e;
+    console.log("next build… (otra vez: el primero agotó el plazo)");
+    await corre("build", build, 40 * 60_000);
+  }
 }
 
 /**
