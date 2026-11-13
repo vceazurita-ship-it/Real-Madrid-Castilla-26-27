@@ -252,12 +252,12 @@ function mismaInicial(uno: string, otro: string) {
  * entrada no se le da a ninguna. Mejor una ficha sin datos que una con los de
  * su compañero.
  */
-export function asignaPerfiles<T extends FilaHoja>(
+export function asignaPerfiles<T extends FilaHoja, P extends { jugador: string } = PerfilWyscout>(
   fichas: T[],
-  perfiles: PerfilWyscout[],
+  perfiles: P[],
   clave: (ficha: T) => string,
-): Map<string, PerfilWyscout> {
-  const asignados = new Map<string, PerfilWyscout>();
+): Map<string, P> {
+  const asignados = new Map<string, P>();
 
   if (!perfiles.length) return asignados;
 
@@ -276,12 +276,12 @@ export function asignaPerfiles<T extends FilaHoja>(
 
   /* 2. Por apellido, entre los que quedan, y sólo si nadie más lo reclama. */
   const libres = perfiles.filter((p) => !usados.has(p.jugador));
-  const reclamos = new Map<string, { ficha: T; perfil: PerfilWyscout }[]>();
+  const reclamos = new Map<string, { ficha: T; perfil: P }[]>();
 
   for (const ficha of fichas) {
     if (asignados.has(clave(ficha))) continue;
 
-    let perfil: PerfilWyscout | null = null;
+    let perfil: P | null = null;
 
     for (const nombre of nombresDe(ficha)) {
       const candidato = casaNombre(nombre, libres, (p) => p.jugador);

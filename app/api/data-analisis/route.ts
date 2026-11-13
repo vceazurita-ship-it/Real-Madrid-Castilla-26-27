@@ -15,6 +15,7 @@ import { alertasDeData, seleccionaAlertas } from "@/lib/data-analisis/alertas";
 import { equiposConMuestra, golesAbpDeEquipo } from "@/lib/data-analisis/goles-abp";
 import { proponeTipologia } from "@/lib/rivals/tipologia-wyscout";
 import { perfilesDeEquipo } from "@/lib/rivals/perfil-wyscout";
+import { porDondeAtaca } from "@/lib/rivals/por-donde-ataca";
 import { puestoEnPalabras } from "@/lib/informe-partido/rival-datos";
 import { readDoc } from "@/lib/docStore";
 import { alertasDeFichajes, type CotejoRival } from "@/lib/portada/alertas-fichajes";
@@ -1243,6 +1244,9 @@ async function contesta(peticion: Request) {
   /* La plantilla rival (21/10/2026): cada suyo contra su puesto, y el equipo. */
   const equipoPerfiles = parametros.get("perfiles");
 
+  /* Por dónde ataca (13/11/2026): sus acciones por banda, para el Scout Colectivo. */
+  const equipoBandas = parametros.get("bandas");
+
   /* Su balón parado en Wyscout (23/10/2026), para el ABP del rival. */
   const equipoAbp = parametros.get("abpRival");
   const ambitoAbp = parametros.get("ambito") === "area" ? "area" : parametros.get("ambito") === "estilo" ? "estilo" : "abp";
@@ -1257,6 +1261,10 @@ async function contesta(peticion: Request) {
   if (!fresco && guardado && ahora - guardado.en < VIDA) {
     if (equipoAbp) {
       return NextResponse.json({ ok: true, ...abpRivalDe(guardado.datos, equipoAbp, ambitoAbp) });
+    }
+
+    if (equipoBandas) {
+      return NextResponse.json({ ok: true, ...porDondeAtaca(guardado.datos.jugadores, equipoBandas) });
     }
 
     if (equipoPerfiles) {
@@ -1321,6 +1329,10 @@ async function contesta(peticion: Request) {
 
     if (equipoAbp) {
       return NextResponse.json({ ok: true, origen, ...abpRivalDe(datos, equipoAbp, ambitoAbp) });
+    }
+
+    if (equipoBandas) {
+      return NextResponse.json({ ok: true, origen, ...porDondeAtaca(datos.jugadores, equipoBandas) });
     }
 
     if (equipoPerfiles) {

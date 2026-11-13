@@ -37,6 +37,7 @@ import RecursosRival, {
 } from "@/components/rivals/RecursosRival";
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { DatosDelRival } from "@/components/rivals/DatosDelRival";
+import { PorDondeAtaca } from "@/components/rivals/PorDondeAtaca";
 import { AvisoLento } from "@/components/rivals/AvisoLento";
 import { TiraJornadas } from "@/components/rivals/TiraJornadas";
 import { useRivalInforme } from "@/hooks/useRivalInforme";
@@ -562,6 +563,12 @@ export default function ScoutRivalCollective() {
           dorsal: String(f.DORSAL ?? "").trim(),
         }))
         .filter((f) => f.nombre),
+    [plantillaRival, equipoActivo],
+  );
+
+  /* Sus fichas de Plantillas rivales, para enlazar a cada jugador desde «Por dónde ataca». */
+  const plantillaDelRival = useMemo(
+    () => plantillaRival.filter((f) => mismoClub(String(f.NOMBRE_EQUIPO ?? ""), equipoActivo)),
     [plantillaRival, equipoActivo],
   );
 
@@ -1682,6 +1689,9 @@ export default function ScoutRivalCollective() {
               <span className="text-white/45">Los dibujos se escriben sin contar al portero.</span>
             </p>
           )}
+
+          {/* Por dónde ataca (13/11/2026): sus acciones por banda en Wyscout y quién carga cada una. */}
+          {!modoEdicion && rivalActivo && <PorDondeAtaca equipo={equipoActivo} plantilla={plantillaDelRival} />}
 
           {modoEdicion && (
             <div
