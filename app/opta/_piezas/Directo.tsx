@@ -145,17 +145,19 @@ export function Directo({ datos }: { datos: DatosOpta }) {
 
   const doc = leido?.clave === visto ? leido.doc : null;
   const filas = useMemo(() => aObjetos(doc?.equipos ?? null), [doc]);
-  /* El Castilla a la izquierda; si no juega, el local (o el primero). */
+  /* El Castilla a la izquierda; si no juega, el próximo rival (las tarjetas se leen desde él), el local o el primero. */
   const [a, b] = useMemo(() => {
     const ordenadas = [...filas].sort((x, y) => {
       if (x.teamId === CASTILLA_OPTA) return -1;
       if (y.teamId === CASTILLA_OPTA) return 1;
+      if (proximo && mismoEquipo(String(x.equipo ?? ""), proximo)) return -1;
+      if (proximo && mismoEquipo(String(y.equipo ?? ""), proximo)) return 1;
       if (doc?.local && x.equipo === doc.local) return -1;
       if (doc?.local && y.equipo === doc.local) return 1;
       return 0;
     });
     return [ordenadas[0] ?? null, ordenadas[1] ?? null];
-  }, [filas, doc]);
+  }, [filas, doc, proximo]);
   const metricas = doc?.equipos?.cols?.filter((c) => !NO_METRICA.has(c)) ?? [];
   const tramos = useMemo(() => (a ? tramosDe(doc?.tramos, String(a.teamId ?? "")) : []), [doc, a]);
   const minuto = num(doc?.minuto) ?? minutoDe(tramos);
