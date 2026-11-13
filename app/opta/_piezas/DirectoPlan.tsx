@@ -150,21 +150,29 @@ export function DirectoPlan({
     return () => document.removeEventListener("fullscreenchange", al);
   }, []);
 
-  /* En pantalla completa la tableta no se apaga (13/11/2026, banquillo). */
+  /* Mientras se ve un directo la pantalla no se apaga (13/11/2026, banquillo):
+     siempre, no sólo en pantalla completa (el iPhone no la tiene), y se vuelve
+     a pedir al volver a la pestaña, porque el navegador lo suelta al cambiar de
+     app o bloquear la tableta. */
   useEffect(() => {
-    if (!completa) return;
     let cerrojo: { release: () => Promise<void> } | null = null;
     const nav = navigator as Navigator & { wakeLock?: { request: (t: "screen") => Promise<{ release: () => Promise<void> }> } };
-    void nav.wakeLock
-      ?.request("screen")
-      .then((c) => {
-        cerrojo = c;
-      })
-      .catch(() => undefined);
+    const pide = () => {
+      if (document.visibilityState !== "visible" || !nav.wakeLock) return;
+      void nav.wakeLock
+        .request("screen")
+        .then((c) => {
+          cerrojo = c;
+        })
+        .catch(() => undefined);
+    };
+    pide();
+    document.addEventListener("visibilitychange", pide);
     return () => {
+      document.removeEventListener("visibilitychange", pide);
       void cerrojo?.release().catch(() => undefined);
     };
-  }, [completa]);
+  }, []);
 
   const bandaNos = useMemo(() => mediasDe(partidos, String(nos.teamId ?? "")), [partidos, nos.teamId]);
   const bandaEllos = useMemo(() => mediasDe(partidos, String(ellos.teamId ?? "")), [partidos, ellos.teamId]);
@@ -178,6 +186,43 @@ export function DirectoPlan({
         : null;
     return confirma(ahora, antes);
   }, [esCastilla, plan, minuto, nos, ellos, antesNos, antesEllos, bandaNos, bandaEllos, marcador]);
+
+  /* Alerta nueva ya confirmada (dos lecturas): pitido corto y vibración, que en
+     el banquillo un aviso sólo visual se pierde (13/11/2026). La primera
+     lectura sólo apunta las que ya había, sin sonar. */
+  const sonadas = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    const ahoraAlertas = juicios.filter((j) => j.estado === "alerta").map((j) => j.id);
+    if (sonadas.current == null) {
+      sonadas.current = new Set(ahoraAlertas);
+      return;
+    }
+    const nuevas = ahoraAlertas.filter((id) => !sonadas.current!.has(id));
+    sonadas.current = new Set(ahoraAlertas);
+    if (!nuevas.length) return;
+    try {
+      navigator.vibrate?.([200, 100, 200]);
+    } catch {
+      /* sin vibración */
+    }
+    try {
+      const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!Ctx) return;
+      const ctx = new Ctx();
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.frequency.value = 880;
+      g.gain.setValueAtTime(0.0001, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.3, ctx.currentTime + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.5);
+      o.connect(g).connect(ctx.destination);
+      o.start();
+      o.stop(ctx.currentTime + 0.55);
+      o.onended = () => void ctx.close().catch(() => undefined);
+    } catch {
+      /* el navegador no deja sonar sin un toque antes: queda el aviso visual */
+    }
+  }, [juicios]);
 
   const mom = useMemo(() => momento(tramos), [tramos]);
   const cuenta = (e: Estado) => juicios.filter((j) => j.estado === e).length;
