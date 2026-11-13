@@ -123,6 +123,11 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Resumen", es: "Lo primero que se abre: las claves de la jornada, cada una con el botón que lleva a donde se ve entera, y el mapa de toda la sección. Arriba a la derecha, el buscador de áreas" },
           { que: "Escala del percentil", es: "La misma en todas las áreas: verde P60 o más, oro en la media, naranja P40 o menos" },
           { que: "Partido en el campo", es: "Dos lecturas: por momentos (campograma) y pase a pase (red de pases, pases que hacen avanzar, recuperaciones y pérdidas por altura)" },
+          {
+            que: "Huella táctica",
+            es: "Debajo de la red de pases: dónde tocamos el balón en un partido (selector) frente a lo normal nuestro, en el campo de 105 × 68 partido en 12 × 8 casillas y siempre atacando a la derecha. Rojo = ahí tocamos más que nuestra media, azul = menos, con la misma escala en todos los partidos. Debajo, el % de toques en campo rival del partido, la media y la diferencia. Sale de opta:castilla-eventos (EventX, EventY), sólo las acciones del Castilla",
+            cuenta: "Por casilla: toques del partido ÷ toques del partido − media de esa parte en los partidos de la temporada (cada partido pesa igual; sólo partidos con 50 toques o más). La escala es el mayor desvío de la temporada. Campo rival = x ≥ 50",
+          },
           { que: "Contra la liga", es: "Dos lecturas: lo esencial por fase (puesto y percentil en el grupo, y partido a partido contra su media) y métrica a métrica contra los 20 equipos" },
           { que: "Nuestra historia", es: "Dos lecturas: temporada a temporada y jornada a jornada contra nuestros rivales y la media" },
           { que: "Nuestros remates", es: "El mapa de remates del Castilla, a favor y en contra" },
@@ -307,7 +312,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Si una pantalla enseña la jornada pasada, lo que falta es publicar: bajar los datos no los sube.",
       "Si los datos se quedan atrás varias semanas, mira .cache/wyscout: casi siempre es que hay que volver a entrar en Wyscout una vez.",
     ],
-    revisada: "2026-11-12",
+    revisada: "2026-11-13",
   },
 
   /* ==================== MICROCICLOS ==================== */

@@ -40,6 +40,7 @@ import { Penaltis } from "@/app/opta/_piezas/Penaltis";
 import { RematesEquipo } from "@/app/opta/_piezas/Remates";
 import { Talento } from "@/app/opta/_piezas/Talento";
 import { useOpta, type DatosOpta } from "@/app/opta/_piezas/useOpta";
+import { HuellaTactica } from "@/components/data/HuellaTactica";
 import { useCalendarioCastilla } from "@/components/data/SelloJornada";
 import { EsqueletoPantalla, EstadoVacio } from "@/components/ui/estados";
 import { SelloFuente } from "@/components/ui/SelloFuente";
@@ -162,7 +163,13 @@ export function PanelAreaOpta({ area }: { area: AreaOpta }) {
       </div>
 
       {area === "colectivo" && <Colectivo datos={datos} />}
-      {area === "fases" && <Fases datos={datos} />}
+      {area === "fases" && (
+        <>
+          <Fases datos={datos} />
+          {/* 13/11/2026: dónde tocamos más y menos que nuestra media, partido a partido. */}
+          <HuellaTactica datos={datos} />
+        </>
+      )}
       {area === "evolucion" && <Evolucion datos={datos} fijo={CASTILLA_OPTA} />}
       {area === "remates" && (
         <div className="mt-6">
