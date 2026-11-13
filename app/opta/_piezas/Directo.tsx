@@ -19,6 +19,8 @@ import { NOMBRE_CASTILLA, valorPartido, type Fila } from "@/lib/opta-analisis";
 import { defMetrica, nombreMetrica } from "@/lib/opta-nombres";
 
 import { minutoDe, tramosDe } from "@/lib/opta-directo-plan";
+import { useAdmin } from "@/hooks/useAdmin";
+import { indiceVivo, useDirectoOpta } from "@/hooks/useDirectoOpta";
 
 import { Elegir, fmt, Panel } from "./comun";
 import { DirectoPlan } from "./DirectoPlan";
@@ -42,6 +44,10 @@ type DocDirecto = {
 };
 
 const CADA_MS = 60_000;
+/** Recién lanzado desde la portada: se mira más a menudo hasta la primera lectura. */
+const ESPERANDO_MS = 15_000;
+/** Cuánto se espera la primera lectura antes de decir que algo va mal. */
+const PLAZO_ARRANQUE_MS = 6 * 60_000;
 const NO_METRICA = new Set(["partido", "teamId", "equipo"]);
 const CASTILLA_NOMBRE_OPTA = "Real Madrid II";
 
@@ -66,19 +72,38 @@ export function Directo({ datos }: { datos: DatosOpta }) {
   const { catalogo, partidos: filasTemporada } = datos;
   const [vuelta, setVuelta] = useState(0);
   const [indice, setIndice] = useState<Indice | null | undefined>(undefined);
+  /* La hora de la última mirada (no Date.now() al pintar: regla de pureza). */
+  const [ahora, setAhora] = useState(0);
+  /* ?lanzado=<ms>: viene de «Empezar directo» en la portada. */
+  const [lanzadoEn, setLanzadoEn] = useState<number | null>(() => {
+    if (typeof window === "undefined") return null;
+    const v = Number(new URLSearchParams(window.location.search).get("lanzado"));
+    return Number.isFinite(v) && v > 0 ? v : null;
+  });
+  const { admin } = useAdmin();
+  const lanzar = useDirectoOpta(Boolean(admin));
   const [elegido, setElegido] = useState("");
   const [leido, setLeido] = useState<{ clave: string; doc: DocDirecto | null } | null>(null);
 
-  /* Cada minuto, otra vuelta. */
+  const vivo = indiceVivo(indice, ahora);
+  /* Recién lanzado y aún sin una lectura posterior al lanzamiento. */
+  const actualizadoMs = indice?.actualizado ? Date.parse(indice.actualizado) : NaN;
+  const esperando =
+    lanzadoEn != null && ahora > 0 && ahora - lanzadoEn < PLAZO_ARRANQUE_MS && !(Number.isFinite(actualizadoMs) && actualizadoMs >= lanzadoEn - 30_000);
+  const tardando = lanzadoEn != null && ahora > 0 && ahora - lanzadoEn >= PLAZO_ARRANQUE_MS && !vivo;
+
+  /* Cada minuto otra vuelta; cada 15 s mientras se espera la primera lectura. */
   useEffect(() => {
-    const t = window.setInterval(() => setVuelta((n) => n + 1), CADA_MS);
+    const t = window.setInterval(() => setVuelta((n) => n + 1), esperando || lanzadoEn != null && ahora === 0 ? ESPERANDO_MS : CADA_MS);
     return () => window.clearInterval(t);
-  }, []);
+  }, [esperando, lanzadoEn, ahora]);
 
   useEffect(() => {
     let vivo = true;
     void traeOpta<Indice>("opta:directo").then((i) => {
-      if (vivo) setIndice(i);
+      if (!vivo) return;
+      setIndice(i);
+      setAhora(Date.now());
     });
     return () => {
       vivo = false;
@@ -122,8 +147,8 @@ export function Directo({ datos }: { datos: DatosOpta }) {
   const explicacion = (
     <div className="space-y-2 text-sm text-white/65">
       <p>
-        El directo se lanza desde <Link href="/ajustes" className="font-semibold underline">Ajustes</Link> durante el partido: un proceso entra en Opta cada minuto y deja aquí las cifras de los
-        partidos de Primera RFEF del día.
+        El directo se lanza con «Empezar directo» en la <Link href="/" className="font-semibold underline">portada</Link> (o aquí mismo, o en Ajustes): un proceso entra en Opta cada
+        minuto y deja aquí las cifras de los partidos de Primera RFEF del día. Si juega el Castilla, se cruzan con el plan de partido.
       </p>
       <p className="text-xs text-white/50">Esta pestaña se pone al día sola cada minuto; no hace falta recargar.</p>
     </div>
@@ -133,8 +158,45 @@ export function Directo({ datos }: { datos: DatosOpta }) {
     return <p className="mt-6 text-sm text-white/55">Buscando partidos en directo…</p>;
   }
 
+  const aviso = esperando ? (
+    <div className="flex items-center gap-3 rounded-2xl border border-red-500/40 bg-red-500/[0.07] px-4 py-3" role="status">
+      <span className="relative flex h-3 w-3 shrink-0" aria-hidden>
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-70" />
+        <span className="relative inline-flex h-3 w-3 rounded-full bg-red-500" />
+      </span>
+      <div className="min-w-0 text-sm">
+        <p className="font-semibold text-white/90">Arrancando el directo…</p>
+        <p className="text-xs text-white/60">GitHub tarda uno o dos minutos en entrar en Opta. Esta pantalla mira cada 15 segundos y las cifras salen solas: no hace falta tocar nada.</p>
+      </div>
+    </div>
+  ) : tardando ? (
+    <div className="rounded-2xl border border-amber-500/40 bg-amber-500/[0.07] px-4 py-3 text-sm" role="status">
+      <p className="font-semibold text-white/90">El directo no ha dado señales en 6 minutos.</p>
+      <p className="text-xs text-white/60">
+        Mira la última pasada en <Link href="/ajustes" className="underline">Ajustes → Opta</Link>{lanzar.ultima?.enlace ? <> o <a href={lanzar.ultima.enlace} target="_blank" rel="noreferrer" className="underline">en GitHub</a></> : null}. Si falló, vuelve a pulsar «Empezar directo».
+      </p>
+    </div>
+  ) : null;
+
+  const boton =
+    admin && !vivo && !esperando && !lanzar.corriendo && lanzar.preparado ? (
+      <button
+        type="button"
+        onClick={() => void lanzar.abre((en) => {
+          setLanzadoEn(en);
+          setVuelta((n) => n + 1);
+        })}
+        disabled={lanzar.lanzando}
+        className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-red-500 px-5 text-sm font-bold text-white hover:brightness-110 disabled:opacity-60"
+      >
+        <Radio size={15} aria-hidden />
+        {lanzar.lanzando ? "Lanzando…" : "Empezar directo"}
+      </button>
+    ) : null;
+
   return (
     <div className="mt-6 space-y-6">
+      {aviso}
       <Panel
         titulo={
           <span className="inline-flex items-center gap-2">
@@ -171,12 +233,16 @@ export function Directo({ datos }: { datos: DatosOpta }) {
           </>
         }
       >
-        {partidos.length === 0 ? (
+        {partidos.length === 0 || (!vivo && !esperando && !lanzar.corriendo && boton) ? (
           <>
-            <p className="mb-2 text-sm font-semibold text-white/85">Ahora mismo no hay ningún directo en marcha.</p>
+            <p className="mb-2 text-sm font-semibold text-white/85">
+              {partidos.length === 0 ? "Ahora mismo no hay ningún directo en marcha." : `No hay directo en marcha; abajo, el último${indice?.dia ? ` (${indice.dia})` : ""}.`}
+            </p>
             {explicacion}
+            {boton && <div className="mt-3">{boton}</div>}
           </>
-        ) : !doc || !a || !b ? (
+        ) : null}
+        {partidos.length === 0 ? null : !doc || !a || !b ? (
           <>
             <p className="mb-2 text-sm font-semibold text-white/85">
               {estadoEnPalabras(partidos.find((p) => p.partido === visto)?.estado) || "Partido del día"}: Opta todavía no ha publicado cifras de este partido.

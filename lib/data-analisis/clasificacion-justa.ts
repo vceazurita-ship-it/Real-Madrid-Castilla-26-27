@@ -72,7 +72,7 @@ export function jornadasDe(partidos: Fila[], grupo: Set<string>): number {
   const porEquipo = partidosPorEquipo(partidos);
   let max = 0;
   for (const id of grupo) {
-    const n = (porEquipo.get(id) ?? []).filter((p) => num(p.fila.ExpG) != null && p.otra && num(p.otra.ExpG) != null).length;
+    const n = (porEquipo.get(id) ?? []).filter((p) => num(p.fila.ExpG) != null && p.otra && grupo.has(p.rivalId) && num(p.otra.ExpG) != null).length;
     max = Math.max(max, n);
   }
   return max;

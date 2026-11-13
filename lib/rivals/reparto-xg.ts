@@ -73,7 +73,11 @@ export function repartoXg(filas: Fila[], teamId: string, max = 10): RepartoXg | 
   const total = todos.reduce((s, j) => s + j.xg, 0);
   const minutosEquipo = todos.reduce((s, j) => s + j.minutos, 0);
   if (!(total > 0) || !(minutosEquipo > 0)) return null;
-  const porMinuto = total / minutosEquipo;
+  /* La referencia es el jugador medio de los que rematan (xG > 0): con los
+     porteros y centrales dentro, cualquier atacante salía a ×2 o más (revisión 13/11). */
+  const conTiro = todos.filter((j) => j.xg > 0);
+  const minutosConTiro = conTiro.reduce((s, j) => s + j.minutos, 0);
+  const porMinuto = minutosConTiro > 0 ? total / minutosConTiro : total / minutosEquipo;
 
   const jugadores: RepartoJugador[] = todos
     .filter((j) => j.xg > 0)

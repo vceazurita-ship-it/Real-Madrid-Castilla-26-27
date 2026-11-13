@@ -20,6 +20,7 @@ import { Cifras } from "@/components/portada/Cifras"
 import { ProximoPartido } from "@/components/portada/ProximoPartido"
 import { MisTareas } from "@/components/portada/MisTareas"
 import { HREFS_MESA, PanelHoy } from "@/components/portada/PanelHoy"
+import { DirectoPortada } from "@/components/portada/DirectoPortada"
 import { OptaPortada } from "@/components/portada/OptaPortada"
 import { EVENTO_ABRIR as EVENTO_ABRIR_TAREAS } from "@/lib/portada/mis-tareas"
 import { useAdmin } from "@/hooks/useAdmin"
@@ -1048,6 +1049,9 @@ export default function Home() {
 
             {/* 02/11/2026: lo que toca hoy (tareas del micro, pendientes y envíos)
                 y las herramientas de todos los días, con lo último abierto. */}
+            {/* 13/11/2026: el directo de Opta de un toque (lanza y lleva a verlo). */}
+            <DirectoPortada admin={Boolean(admin)} />
+
             <PanelHoy admin={Boolean(admin)} />
 
             {/* =========================== ALERTAS ============================ */}

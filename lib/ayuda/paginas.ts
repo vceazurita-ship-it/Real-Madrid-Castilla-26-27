@@ -116,7 +116,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Siete bloques: el partido, resumen, nuestro equipo, jugadores, rival y categoría, balón parado, entreno e identidad",
         filas: [
-          { que: "El partido", es: "«Post del partido» (lo que se abre) y «En directo»: las cifras del partido del día mientras se juega, que se ponen al día solas cada minuto" },
+          { que: "El partido", es: "«Post del partido» (lo que se abre) y «En directo»: las cifras del partido del día mientras se juega, que se ponen al día solas cada minuto. Si no hay directo, el administrador tiene aquí «Empezar directo»; recién lanzado sale «Arrancando el directo…» y la pantalla mira cada 15 s hasta la primera lectura (si en 6 minutos no llega, lo dice y enlaza la pasada de GitHub)" },
           { que: "Cómo se está dando el partido (directo)", es: "Si juega el Castilla, se cruza Opta con el plan de partido de ese rival (/match-preparation): cada tema que nombra el plan (posesión, agresividad, robos arriba, nos roban atrás, robos suyos para correr, defensa del área, llegada, progresión, juego directo, su ataque posicional) es una tarjeta de una cifra; siempre van las ocasiones nuestras, el peligro que nos crean y las amarillas desde la segunda. Lo habitual es el rango entre el cuartil 25 y el 75 de los partidos de esta temporada de ese equipo en Opta (lo nuestro contra lo nuestro, lo suyo contra lo suyo), llevado al minuto con la curva real de la liga (al descanso va el 42-46 % de lo que se acumula, no la mitad); en porcentajes y PPDA, tal cual. ALERTA en rojo = fuera de lo raro (cuartiles 10-90) por el lado malo, con la consigna para el banquillo; CERTEZA en verde = lo mismo por el lado bueno; EN EL FILO en ámbar = entre los dos rangos; LO HABITUAL en gris; los recuentos pequeños llevan más holgura al principio; córners en contra si el plan habla de ABP; PRONTO hasta el 20' (25' en porcentajes y PPDA); SIN DATO si Opta no la da. Una alerta nueva sale primero como «posible alerta» y se confirma si sigue en la lectura siguiente. Ganando, las alertas de balón, presión y llegada no lo son (ceder es normal) y desde el 70' pesa más lo que nos crean. Cuatro tarjetas grandes y el resto plegado; la línea de cada tarjeta es el rango habitual y el punto, hoy. Arriba, quién manda en los últimos 15' (xG y toques en el área por separado) y debajo el xG de cada 5'. «Pantalla completa» agranda las cifras para el banquillo. Si no jugamos, objetivos generales contra lo habitual de cada equipo" },
           { que: "Lecturas", es: "Cuando dos áreas contestaban lo mismo van en un botón con dos o tres lecturas; la primera es la que se abre" },
           { que: "Sello de fuente", es: "Debajo del título: de qué fuente sale, con quién se compara y hasta qué jornada llega. Opta manda en xG, remates, presión, balón parado y estilo; Wyscout en el perfil del jugador, el once y los duelos" },
@@ -1029,7 +1029,7 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           { que: "La lista", es: "Su once (sin portero) ordenado por interceptaciones por 90 ajustadas a la posesión de su equipo; sale con «Balón: rival» o «Los dos»", cuenta: "Interceptaciones/90 de Wyscout × 50 / (100 − posesión media de su equipo). Sin posesión de su equipo en Wyscout, se enseña en bruto y no se marca" },
           { que: "P85 (P60 en bruto)", es: "Percentil contra los de su puesto en la categoría con 90′ o más, todos ajustados con la posesión de su equipo; entre paréntesis, el de la cifra sin ajustar", cuenta: "Hacen falta 5 comparables; los de equipos sin posesión en Wyscout no entran" },
-          { que: "Robador · Robador oculto", es: "Robador: P80 o más ajustado. Oculto: además, en bruto queda por debajo del P80; es el que corta mucho en un equipo que casi no tiene el balón" },
+          { que: "Robador · Robador oculto", es: "Robador: P80 o más ajustado. Oculto: además, en bruto queda por debajo del P80; es el que corta mucho en un equipo que casi no tiene el balón. Los que no tienen cifra ajustada van al final de la lista" },
           { que: "Roba sobre todo…", es: "En qué tercio gana más balones en la temporada (en nuestra salida, en el centro del campo o en su tercio propio) y qué parte de sus recuperaciones es", cuenta: "PosWonA3rd, PosWonM3rd y PosWonD3rd de Opta; con menos de 5 o sin cruce de nombre, no se pone" },
           { que: "Si se lo roban (en cada tarjeta)", es: "En el bloque «Balón: rival» de cada duelo, la misma cifra, percentil, marca y zona de los suyos de ese duelo" },
         ],
@@ -1423,9 +1423,9 @@ export const AYUDAS: AyudaDePagina[] = [
           },
           {
             que: "Reparto del xG",
-            es: "Barras con los 10 jugadores que más xG suman en la temporada, con su % del xG del equipo, minutos y xG por 90; una raya marca lo que aportaría con la media del equipo por minuto y al lado «×N media». Arriba, el % que concentra el primero, lo que suman los tres primeros y si el gol está muy concentrado, en tres o repartido. Un selector cambia del rival al Castilla",
+            es: "Barras con los 10 jugadores que más xG suman en la temporada, con su % del xG del equipo, minutos y xG por 90; una raya marca lo que aportaría con la media por minuto de los que rematan en su equipo y al lado «×N media». Arriba, el % que concentra el primero, lo que suman los tres primeros y si el gol está muy concentrado, en tres o repartido. Un selector cambia del rival al Castilla",
             cuenta:
-              "Opta, opta:jugadores-partidos sumado por jugador y equipo (si cambió de club, sólo lo de este equipo): Min y xG sin penaltis si el documento trae esa columna (si no, ExpG total, y la etiqueta lo dice). El % es sobre la suma del xG de todos sus jugadores. La raya = xG del equipo / minutos del equipo × minutos del jugador; «×N» = su xG entre esa raya. xG/90 sólo con 90 minutos o más. «Muy concentrado» si el primero hace el 30 % o más; «en tres» si los tres primeros llegan al 55 %. Si el rival no cruza con Opta, no sale",
+              "Opta, opta:jugadores-partidos sumado por jugador y equipo (si cambió de club, sólo lo de este equipo): Min y xG sin penaltis si el documento trae esa columna (si no, ExpG total, y la etiqueta lo dice). El % es sobre la suma del xG de todos sus jugadores. La raya = xG del equipo / minutos de los jugadores con xG > 0 × minutos del jugador (sin porteros ni defensas que no rematan, que inflaban el «×N»); «×N» = su xG entre esa raya. xG/90 sólo con 90 minutos o más. «Muy concentrado» si el primero hace el 30 % o más; «en tres» si los tres primeros llegan al 55 %. Si el rival no cruza con Opta, no sale",
           },
           { que: "Dibujo de referencia", es: "El que más repite en sus alineaciones de la temporada (BeSoccer, la misma cuenta que Plantillas rivales) frente a los que escribe el analista por fase" },
           { que: "Sólo lo ves tú, como analista", es: "Con sesión: lo que choca con su ficha de Plantillas rivales o con Duelos" },
@@ -2085,7 +2085,7 @@ export const AYUDAS: AyudaDePagina[] = [
     resumen: "El próximo partido, lo que toca hoy, el rival y el equipo en cifras de un vistazo, y la puerta a todas las áreas.",
     origen:
       "El calendario y la clasificación de BeSoccer (se ponen al día cada noche), la hoja RIVALES (para abrir cada pantalla con el rival puesto), la hoja de registro del microciclo, Opta (xG, PPDA, balón parado y momentum), los informes de Wyscout (Data Análisis) y la hoja de seguimiento. Ninguna cifra se escribe aquí.",
-    revisada: "2026-11-12",
+    revisada: "2026-11-13",
     bloques: [
       {
         titulo: "El próximo partido",
@@ -2099,6 +2099,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "El botón de hoy", es: "Los contenidos de la sesión de hoy escritos en la hoja de registro; sin sesión escrita no sale" },
           { que: "Microciclo · día 3 de 7", es: "Cuánto se ha recorrido de la semana, cuántas sesiones quedan y qué días son libres" },
           { que: "Los botones", es: "Plantilla del rival, Plan de partido, Microciclo ABP, Desplazamiento (sólo fuera) y Pizarra táctica a pantalla completa con los dos onces" },
+          { que: "Opta en directo", es: "Arriba de todo, un botón rojo. Si hay directo en marcha, «Ver el directo» lleva a Análisis de datos → En directo (lo ve cualquiera mientras dura). Si no, el administrador tiene «Empezar directo»: lo lanza en GitHub sin preguntar y lleva a la pantalla, que espera sola la primera lectura", cuenta: "En marcha = la pasada de GitHub sigue corriendo o el índice opta:directo se escribió hace menos de 3 minutos y no ha llegado a su hora de acabar. Sin la variable GITHUB_TOKEN_DIRECTO en Render no se ofrece" },
           { que: "Lo que toca hoy", es: "MD y MD-1: En directo (el día de partido), PDF y vídeo ABP por jugador, Duelos. MD+1 y MD+2: Informe post, Análisis de datos, Histórico. MD-2 a MD-4: scout y ABP del rival" },
           { que: "Del rival", es: "Scout colectivo, ABP rival, Pizarra ABP, Duelos e Individual con el rival puesto; sin repetir lo de arriba" },
           { que: "Últimos 5", es: "Nuestros cinco últimos con el marcador debajo; el más reciente, a la derecha", cuenta: "V ganado · E empatado · D perdido" },

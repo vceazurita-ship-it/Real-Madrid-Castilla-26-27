@@ -185,6 +185,11 @@ export function HuellaTactica({ datos }: { datos: DatosOpta }) {
   const partido = partidos.find((p) => p.partido === elegido) ?? partidos[0];
   const difFina = useMemo(() => (partido ? partido.densidad.map((v, i) => v - media.densidad[i]) : []), [partido, media]);
 
+  /* El PNG del mapa sólo se rehace cuando cambia el partido o la escala (no en
+     cada repintado del campo). Mismo sentido que CampoOpta: y = 100 arriba y
+     ataque a la derecha. */
+  const href = useMemo(() => (difFina.length ? imagenDe(difFina, tope, true, true) : ""), [difFina, tope]);
+
   if (cargando || partidos.length < 2 || !partido) return null;
   const dif = partido.reparto.map((v, i) => v - media.reparto[i]);
   const difRival = partido.rival50 - media.rival50;
@@ -219,7 +224,6 @@ export function HuellaTactica({ datos }: { datos: DatosOpta }) {
           {(p) => {
             const [ax, ay] = p(0, 100);
             const [bx, by] = p(100, 0);
-            const href = imagenDe(difFina, tope, ay < by, ax < bx);
             return (
               <>
                 {href && (

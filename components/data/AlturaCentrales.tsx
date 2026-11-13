@@ -45,7 +45,7 @@ const NO_ES_TOQUE = new Set(["Error", "Foul", "Card", "OffsideProvoked"]);
 /** Filial: termina en B, C o II, o es uno de los nombres propios de filial. */
 const FILIAL = /(\s(b|c|ii)$)|madrile[nñ]o|promesas|sanse|bilbao athletic|atl[eè]tic$/;
 const esFilial = (rival: string) =>
-  FILIAL.test(rival.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[.]/g, " ").replace(/\s+/g, " ").trim());
+  FILIAL.test(rival.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().replace(/[.]/g, " ").replace(/\s+/g, " ").trim());
 
 const esCentral = (p: Player) => /\bcentral\b|\bdfc\b/i.test(nombrePuesto(p.posicion));
 

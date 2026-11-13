@@ -140,5 +140,6 @@ export function robadoresDelOnce(
       zona: zonaDeRobo(jugador, equipo, opta),
     });
   }
-  return salida.sort((a, b) => (b.ajustado ?? b.bruto) - (a.ajustado ?? a.bruto));
+  /* Primero los que tienen cifra ajustada (comparables entre sí); después, en bruto. */
+  return salida.sort((a, b) => Number(b.ajustado != null) - Number(a.ajustado != null) || (b.ajustado ?? b.bruto) - (a.ajustado ?? a.bruto));
 }
