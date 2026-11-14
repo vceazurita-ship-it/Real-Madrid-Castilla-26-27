@@ -19,6 +19,9 @@ import { Botonera, Elegir, Panel } from "@/app/opta/_piezas/comun";
 import type { DatosOpta } from "@/app/opta/_piezas/useOpta";
 import { COMPARADO, ORO, tinta, useEscudos } from "@/components/data/graficas";
 import { CASTILLA_OPTA, num, PUESTO_OPTA } from "@/lib/opta";
+
+/** Opta llama al filial «Real Madrid II»: en la app es el Castilla. */
+const nombreDe = (f: Record<string, unknown>) => (String(f.teamId) === CASTILLA_OPTA ? "Real Madrid Castilla" : String(f.equipo ?? ""));
 import { nombreMetrica } from "@/lib/opta-nombres";
 import { minutosDe, PARTES_RADIOGRAFIA, parteDe, radiografiaJugador, type Radiografia } from "@/lib/opta-radiografia-jugador";
 import { familiaFina, TASAS, type Fila } from "@/lib/opta-talento";
@@ -109,7 +112,7 @@ function useEleccion(jugadores: Fila[], minimo: number, inicialEquipo: string) {
   const [playerId, setPlayerId] = useState("");
   const equipos = useMemo(() => {
     const m = new Map<string, string>();
-    for (const f of jugadores) m.set(String(f.teamId), String(f.equipo ?? ""));
+    for (const f of jugadores) m.set(String(f.teamId), nombreDe(f));
     return [...m.entries()].map(([clave, nombre]) => ({ clave, nombre })).sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
   }, [jugadores]);
   const delEquipo = useMemo(
@@ -141,7 +144,7 @@ function Cabecera({ f, r, color, escudo }: { f: Fila; r: Radiografia; color: str
           {String(f.jugador ?? "")}
         </p>
         <p className="text-sm text-white/65">
-          {[String(f.equipo ?? ""), puesto, edad ? `${Math.round(edad)} años` : "", `${Math.round(minutosDe(f))} min`, num(f.GM) ? `${num(f.GM)} partidos` : ""].filter(Boolean).join(" · ")}
+          {[nombreDe(f), puesto, edad ? `${Math.round(edad)} años` : "", `${Math.round(minutosDe(f))} min`, num(f.GM) ? `${num(f.GM)} partidos` : ""].filter(Boolean).join(" · ")}
         </p>
       </div>
       <div className="ml-auto shrink-0 text-right max-sm:w-full max-sm:text-left">

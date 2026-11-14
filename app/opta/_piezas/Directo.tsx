@@ -399,13 +399,14 @@ export function Directo({ datos }: { datos: DatosOpta }) {
           </>
         ) : (
           <div>
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-3xl px-4 py-5" style={{ background: "radial-gradient(120% 140% at 50% 0%, rgba(200,169,107,0.18), rgba(10,14,24,0.9) 60%)", border: "1px solid rgba(200,169,107,0.25)" }}>
-              <div className="min-w-0 flex-1 text-right">
-                <p className="truncate text-xl font-bold sm:text-2xl" style={{ color: a.teamId === CASTILLA_OPTA ? "#E3C27E" : "#FFFFFF" }}>
+            <div className="mb-4 grid grid-cols-2 items-center gap-x-3 gap-y-2 rounded-3xl px-4 py-5 sm:flex sm:justify-between" style={{ background: "radial-gradient(120% 140% at 50% 0%, rgba(200,169,107,0.18), rgba(10,14,24,0.9) 60%)", border: "1px solid rgba(200,169,107,0.25)" }}>
+              {/* Móvil: los dos nombres arriba y el marcador debajo a lo ancho (antes «R… 1-0 G…»). */}
+              <div className="order-1 min-w-0 flex-1 sm:order-none sm:text-right">
+                <p className="truncate text-base font-bold sm:text-2xl" style={{ color: a.teamId === CASTILLA_OPTA ? "#E3C27E" : "#FFFFFF" }}>
                   {nombre(a)}
                 </p>
               </div>
-              <div className="shrink-0 text-center">
+              <div className="order-3 col-span-2 shrink-0 text-center sm:order-none">
                 <p className="font-mono text-7xl font-black leading-none tabular-nums sm:text-8xl" style={{ color: "#FFFFFF", textShadow: "0 0 24px rgba(227,194,126,0.35)" }}>
                   {num(a.Goal) ?? 0} - {num(b.Goal) ?? 0}
                 </p>
@@ -415,8 +416,8 @@ export function Directo({ datos }: { datos: DatosOpta }) {
                     .join(" · ")}
                 </p>
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-xl font-bold sm:text-2xl" style={{ color: b.teamId === CASTILLA_OPTA ? "#E3C27E" : "#FFFFFF" }}>
+              <div className="order-2 min-w-0 flex-1 text-right sm:order-none sm:text-left">
+                <p className="truncate text-base font-bold sm:text-2xl" style={{ color: b.teamId === CASTILLA_OPTA ? "#E3C27E" : "#FFFFFF" }}>
                   {nombre(b)}
                 </p>
               </div>

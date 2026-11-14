@@ -87,7 +87,7 @@ function Tarjeta({ j, grande, completa }: { j: Juicio; grande: boolean; completa
         <span
           className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-black tracking-[0.15em]"
           /* Alerta, filo y certeza en píldora de color con letra oscura: se distinguen de un vistazo y del oro de la marca. */
-          style={j.estado === "alerta" || j.estado === "duda" || j.estado === "certeza" ? { background: c.tinta, color: "#111827" } : { color: c.tinta }}
+          style={{ background: c.tinta, color: "#111827" }}
         >
           <Icono size={14} />
           {c.rotulo}
@@ -99,7 +99,8 @@ function Tarjeta({ j, grande, completa }: { j: Juicio; grande: boolean; completa
       <p className="mt-1 text-xs text-white/55">{j.liston}</p>
       <p className={`mt-2 font-bold leading-snug text-white ${enorme ? "text-xl" : grande ? "text-base" : "text-sm"}`}>{j.frase}</p>
       {j.consigna && (
-        <p className={`mt-2 flex items-start gap-1.5 rounded-lg px-2 py-1.5 font-bold ${enorme ? "text-lg" : "text-sm"}`} style={{ background: "rgba(239,68,68,0.18)", color: "#fecaca" }}>
+        <p className={`mt-2 flex items-start gap-1.5 rounded-lg px-2 py-1.5 font-bold ${enorme ? "text-lg" : "text-sm"}`} /* Rojo lleno y letra blanca: se lee igual en modo día y en noche (antes, rosa sobre rosa de día). */
+          style={{ background: "#dc2626", color: "#FFFFFF" }}>
           <Megaphone size={enorme ? 18 : 14} className="mt-0.5 shrink-0" />
           {j.consigna}
         </p>

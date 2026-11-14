@@ -524,7 +524,7 @@ export function RelievePartido({
         </div>
       )}
       {!compacto && (
-        <div className="pointer-events-none absolute left-4 top-[100px] max-w-[230px] rounded-xl px-3 py-2 shadow-xl sm:left-6" style={{ background: "rgba(8,10,20,0.82)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.1)", color: "#FFFFFF" }}>
+        <div className="pointer-events-none absolute left-4 top-[100px] hidden max-w-[230px] rounded-xl px-3 py-2 shadow-xl sm:left-6 sm:block" style={{ background: "rgba(8,10,20,0.82)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.1)", color: "#FFFFFF" }}>
           <p className="text-xs font-semibold uppercase tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.55)" }}>Hasta el {minuto}′</p>
           <p className="font-mono text-base font-bold tabular-nums">
             xG <span style={{ color: css(colA) }}>{xgA.toFixed(2).replace(".", ",")}</span> – <span style={{ color: css(colB) }}>{xgB.toFixed(2).replace(".", ",")}</span>
@@ -547,10 +547,28 @@ export function RelievePartido({
           )}
         </div>
       )}
+      {/* Móvil (14/11/2026): las cifras van debajo del campo, no encima (lo tapaban entero). */}
+      {!compacto && (
+        <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 px-3 pt-2 text-xs tabular-nums sm:hidden" style={{ color: "rgba(255,255,255,0.8)" }}>
+          <p>
+            xG hasta el {minuto}′: <b style={{ color: css(colA) }}>{xgA.toFixed(2).replace(".", ",")}</b> – <b style={{ color: css(colB) }}>{xgB.toFixed(2).replace(".", ",")}</b>
+          </p>
+          {terrAhora != null && (
+            <p className="text-right">
+              Territorio ahora <b style={{ color: css(colA) }}>{Math.round(terrAhora * 100)} %</b>
+            </p>
+          )}
+          {ultima && (
+            <p className="col-span-2 truncate" style={{ color: "rgba(255,255,255,0.6)" }}>
+              Última ocasión: {ultima.minuto}′ {nombre(ultima.jugadorId) || (ultima.deA ? a.nombre : b.nombre)} · xG {ultima.xg.toFixed(2).replace(".", ",")}
+            </p>
+          )}
+        </div>
+      )}
       {!compacto && minuto < 3 && (
         <div className="pointer-events-none absolute inset-x-0 top-[40%] text-center" style={{ animation: "rmcfTitulo 3s ease-out forwards" }}>
           <p className="text-xs font-bold uppercase tracking-[0.4em]" style={{ color: "rgba(255,255,255,0.6)" }}>El partido en 3D</p>
-          <p className="text-3xl font-black sm:text-4xl" style={{ color: "#FFFFFF" }}>
+          <p className="text-xl font-black sm:text-4xl" style={{ color: "#FFFFFF" }}>
             <span style={{ color: css(colA) }}>{a.nombre}</span> <span style={{ color: "rgba(255,255,255,0.5)" }}>·</span> <span style={{ color: css(colB) }}>{b.nombre}</span>
           </p>
           <style>{`@keyframes rmcfTitulo { 0% { opacity: 0; letter-spacing: .1em } 20% { opacity: 1; letter-spacing: 0 } 75% { opacity: 1 } 100% { opacity: 0 } }`}</style>
@@ -565,11 +583,11 @@ export function RelievePartido({
             [b.nombre, golesB, colB],
           ].map(([n, gl, c]) => (
             <div key={String(n)} className="min-w-0">
-              <p className={`truncate font-bold ${compacto ? "max-w-[90px] text-xs" : "max-w-[160px] text-xs"}`} style={{ color: "#FFFFFF" }}>
+              <p className={`truncate font-bold ${compacto ? "max-w-[90px] text-xs" : "max-w-[110px] text-xs sm:max-w-[160px]"}`} style={{ color: "#FFFFFF" }}>
                 {String(n)}
               </p>
               <span className="mt-0.5 block h-1 rounded-full" style={{ background: css(c as RGB) }} />
-              <p className={`font-mono font-black tabular-nums ${compacto ? "text-2xl" : "text-5xl"}`} style={{ color: "#FFFFFF" }}>
+              <p className={`font-mono font-black tabular-nums ${compacto ? "text-2xl" : "text-3xl sm:text-5xl"}`} style={{ color: "#FFFFFF" }}>
                 {String(gl)}
               </p>
             </div>
@@ -577,7 +595,7 @@ export function RelievePartido({
         </div>
       </div>
       <div className={`pointer-events-none absolute right-3 top-3 text-right ${compacto ? "" : "sm:right-6 sm:top-5"}`}>
-        <p className={`font-mono font-black tabular-nums ${compacto ? "text-xl" : "text-4xl"}`} style={{ color: "#FFFFFF" }}>
+        <p className={`font-mono font-black tabular-nums ${compacto ? "text-xl" : "text-2xl sm:text-4xl"}`} style={{ color: "#FFFFFF" }}>
           {minuto}′
         </p>
         <p className="text-xs font-semibold tracking-[0.2em]" style={{ color: "rgba(255,255,255,0.55)" }}>
@@ -587,7 +605,7 @@ export function RelievePartido({
       {aviso && !compacto && minuto - aviso.minuto < 4 && (
         <div
           key={`${aviso.minuto}-${aviso.jugadorId}`}
-          className="pointer-events-none absolute bottom-[34%] left-4 rounded-r-xl py-2.5 pl-4 pr-6 text-left shadow-2xl sm:left-6"
+          className="pointer-events-none absolute left-2 top-[78px] max-w-[70%] sm:top-auto rounded-r-xl py-1.5 pl-3 pr-4 text-left shadow-2xl sm:bottom-[34%] sm:left-6 sm:max-w-none sm:py-2.5 sm:pl-4 sm:pr-6"
           style={{
             background: "rgba(10,12,22,0.55)",
             backdropFilter: "blur(10px)",
@@ -599,7 +617,7 @@ export function RelievePartido({
           <p className="text-xs font-black uppercase tracking-[0.3em]" style={{ color: css(aviso.deA ? colA : colB) }}>
             {aviso.gol ? "Gol" : aviso.xg >= 0.25 ? "Ocasión clara" : "Ocasión"} · {aviso.minuto}′
           </p>
-          <p className={`font-bold ${aviso.gol ? "text-3xl" : "text-lg"}`} style={{ color: "#FFFFFF" }}>
+          <p className={`truncate font-bold ${aviso.gol ? "text-xl sm:text-3xl" : "text-sm sm:text-lg"}`} style={{ color: "#FFFFFF" }}>
             {(nombre(aviso.jugadorId) || (aviso.deA ? a.nombre : b.nombre)).toUpperCase()}
           </p>
           <p className="text-xs tabular-nums" style={{ color: "rgba(255,255,255,0.65)" }}>
@@ -609,7 +627,7 @@ export function RelievePartido({
         </div>
       )}
       {!compacto && (
-        <div className="absolute right-3 top-[86px] flex max-w-[60%] flex-wrap items-center justify-end gap-2 transition-opacity duration-500 focus-within:opacity-100 sm:right-5 sm:opacity-0 sm:group-hover:opacity-100">
+        <div className="flex flex-wrap items-center justify-center gap-2 px-3 py-2 transition-opacity duration-500 focus-within:opacity-100 sm:absolute sm:right-5 sm:top-[86px] sm:max-w-[60%] sm:justify-end sm:p-0 sm:opacity-0 sm:group-hover:opacity-100">
           <button type="button" onClick={() => setJugando((j) => !j)} aria-label={jugando ? "Pausa" : "Reproducir"} className="inline-flex h-9 w-9 items-center justify-center rounded-full" style={{ background: "#FFFFFF", color: "#000000" }}>
             {jugando ? <Pause size={16} /> : <Play size={16} />}
           </button>
