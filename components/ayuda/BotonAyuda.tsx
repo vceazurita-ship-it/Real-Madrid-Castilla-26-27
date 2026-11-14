@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { ChevronDown, CircleHelp, Search, Sigma, TriangleAlert, X } from "lucide-react";
 
 import { ItemMenuFlotante } from "@/components/ui/MenuFlotante";
+import { useAdmin } from "@/hooks/useAdmin";
 import { ayudaDe } from "@/lib/ayuda/paginas";
 
 /**
@@ -116,6 +117,8 @@ const primeraFrase = (t: string, tope = 120) => {
 const sinTildes = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
 function PanelAyuda({ ayuda, alCerrar }: { ayuda: Ayuda; alCerrar: () => void }) {
+  /* Lo técnico (scripts, documentos, claves) sólo para el administrador: el cuerpo técnico, lo que se lee. */
+  const { admin: esAdmin } = useAdmin();
   const [busca, setBusca] = useState("");
   const [abiertas, setAbiertas] = useState<Set<string>>(new Set());
   const [cuentas, setCuentas] = useState<Set<string>>(new Set());
@@ -145,11 +148,10 @@ function PanelAyuda({ ayuda, alCerrar }: { ayuda: Ayuda; alCerrar: () => void })
               <CircleHelp size={22} aria-hidden />
             </div>
             <div className="min-w-0">
-              <h2 className="text-2xl font-bold">{ayuda.titulo}</h2>
-              <p className="text-xs text-white/45">Cómo se lee esta pantalla</p>
+              <h2 className="text-[28px] font-bold leading-tight">{ayuda.titulo}</h2>
             </div>
           </div>
-          <button type="button" onClick={alCerrar} aria-label="Cerrar" className="shrink-0 rounded-full p-2 text-white/50 transition hover:bg-white/10 hover:text-white">
+          <button type="button" onClick={alCerrar} aria-label="Cerrar" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white/70 transition hover:bg-white/10 hover:text-white">
             <X size={20} aria-hidden />
           </button>
         </div>
@@ -205,7 +207,7 @@ function PanelAyuda({ ayuda, alCerrar }: { ayuda: Ayuda; alCerrar: () => void })
                         className="flex w-full items-start gap-3 px-4 py-3 text-left"
                       >
                         <div className="min-w-0 flex-1">
-                          <p className="text-base font-bold text-white">{fila.que}</p>
+                          <p className="text-base font-bold" style={{ color: "#E3C27E" }}>{fila.que}</p>
                           {!abierta && <p className="mt-1 text-sm leading-relaxed text-white/70">{corta}</p>}
                         </div>
                         <ChevronDown size={18} className={`mt-0.5 shrink-0 text-white/45 transition ${abierta ? "rotate-180" : ""}`} aria-hidden />
@@ -213,7 +215,7 @@ function PanelAyuda({ ayuda, alCerrar }: { ayuda: Ayuda; alCerrar: () => void })
                       {abierta && (
                         <div className="px-4 pb-3">
                           <p className="text-[15px] leading-relaxed text-white/85">{fila.es}</p>
-                          {fila.cuenta && (
+                          {fila.cuenta && esAdmin && (
                             <div className="mt-2">
                               <button type="button" onClick={() => setCuentas((x) => cambia(x, k))} className="text-xs font-semibold text-[#C8A96B] hover:underline">
                                 {cuentas.has(k) || q ? "Ocultar cómo se calcula" : "Cómo se calcula"}

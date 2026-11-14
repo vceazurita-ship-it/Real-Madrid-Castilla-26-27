@@ -933,7 +933,12 @@ function SemaforoJugadores({ filas, temporada, color, alElegir }: { filas: Rendi
   const alertas = con.filter((x) => x.m.some((k) => k.tipo === "alerta"));
   const certezas = con.filter((x) => !x.m.some((k) => k.tipo === "alerta") && x.m.some((k) => k.tipo === "certeza"));
   const habitual = con.filter((x) => !x.m.length);
-  const caja = (titulo: string, borde: string, l: typeof con, tipo: Marca["tipo"] | null) => (
+  const caja = (titulo: string, borde: string, l: typeof con, tipo: Marca["tipo"] | null) =>
+    l.length === 0 ? (
+      <p className="rounded-xl border px-3 py-2 text-xs font-bold uppercase tracking-[0.12em]" style={{ borderColor: borde, color: borde }}>
+        {titulo}: ninguno
+      </p>
+    ) : (
     <div className="min-w-0 rounded-2xl border bg-white/[0.03] p-3" style={{ borderColor: borde }}>
       <p className="mb-2 text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: borde }}>
         {titulo} · {l.length}
@@ -946,6 +951,7 @@ function SemaforoJugadores({ filas, temporada, color, alElegir }: { filas: Rendi
             <li key={r.jugador.id}>
               <button type="button" onClick={() => alElegir(r.jugador.id)} className="text-left text-[13px] font-semibold text-white hover:underline">
                 <span className="tabular-nums text-white/50">{r.jugador.dorsal}</span> {r.jugador.nombre}
+                <span className="ml-1 text-xs font-normal text-white/50">{r.jugador.minutos}′</span>
               </button>
               {tipo && (
                 <p className="text-[11px] text-white/65">
