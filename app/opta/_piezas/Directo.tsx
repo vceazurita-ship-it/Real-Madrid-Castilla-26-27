@@ -26,6 +26,7 @@ import { mismoEquipo } from "@/lib/data-analisis/nombres";
 import { indiceVivo, useDirectoOpta } from "@/hooks/useDirectoOpta";
 
 import { Elegir, fmt, Panel } from "./comun";
+import { DirectoMapas } from "./DirectoMapas";
 import { DirectoPlan } from "./DirectoPlan";
 import type { DatosOpta } from "./useOpta";
 
@@ -44,6 +45,9 @@ type DocDirecto = {
   tramos?: TablaOpta;
   /** Las cifras de la lectura anterior con cifras distintas. */
   anterior?: TablaOpta | null;
+  /** Evento a evento y jugador a jugador (14/11/2026): los mapas. */
+  eventos?: TablaOpta;
+  jugadores?: TablaOpta;
 };
 
 const CADA_MS = 60_000;
@@ -354,6 +358,15 @@ export function Directo({ datos }: { datos: DatosOpta }) {
                 partidos={filasTemporada}
                 actualizado={doc.actualizado}
                 ahora={ahora}
+              />
+            </div>
+
+            <div className="mb-8">
+              <DirectoMapas
+                eventos={doc.eventos}
+                jugadores={doc.jugadores}
+                a={{ teamId: String(a.teamId ?? ""), nombre: nombre(a) }}
+                b={{ teamId: String(b.teamId ?? ""), nombre: nombre(b) }}
               />
             </div>
 

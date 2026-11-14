@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@/lib/datos/cliente";
 
 import { RATINGS_SEASON, RatingsSeason, emptySeason } from "./types";
 

@@ -850,7 +850,10 @@ export function accionesCastilla(t: TablaOpta | null, nuestros: Set<string>): Ac
   return salida;
 }
 
-export const esPase = (a: AccionCastilla) => a.tipo === "Pass" && a.finX != null && a.finY != null;
+/** Lo que miran las reglas de abajo (14/11/2026: también las usa el directo). */
+export type AccionMinima = Pick<AccionCastilla, "tipo" | "x" | "y" | "finX" | "finY" | "ok">;
+
+export const esPase = (a: AccionMinima) => a.tipo === "Pass" && a.finX != null && a.finY != null;
 
 /* La portería rival, en metros (105 × 68): el centro de la línea de gol. */
 const distGol = (x: number, y: number) => Math.hypot(((100 - x) * 105) / 100, ((50 - y) * 68) / 100);
@@ -861,7 +864,7 @@ const distGol = (x: number, y: number) => Math.hypot(((100 - x) * 105) / 100, ((
  * para quedarse en campo propio (los despejes en largo hacia nadie no
  * cuentan).
  */
-export function esProgresivo(a: AccionCastilla): boolean {
+export function esProgresivo(a: AccionMinima): boolean {
   if (!esPase(a) || !a.ok) return false;
   const antes = distGol(a.x, a.y);
   const despues = distGol(a.finX!, a.finY!);
@@ -870,10 +873,10 @@ export function esProgresivo(a: AccionCastilla): boolean {
 }
 
 /** Pase al último tercio: completado, que entra en el último tercio desde fuera de él. */
-export const esAlUltimoTercio = (a: AccionCastilla) => esPase(a) && a.ok && a.x < 66.7 && a.finX! >= 66.7;
+export const esAlUltimoTercio = (a: AccionMinima) => esPase(a) && a.ok && a.x < 66.7 && a.finX! >= 66.7;
 
 /** Recuperación: robo, intercepción o entrada ganada. */
-export const esRecuperacion = (a: AccionCastilla) =>
+export const esRecuperacion = (a: AccionMinima) =>
   a.tipo === "BallRecovery" || a.tipo === "Interception" || (a.tipo === "Tackle" && a.ok);
 
 /**
@@ -883,7 +886,7 @@ export const esRecuperacion = (a: AccionCastilla) =>
  * atribuye por la posesión y a veces cae del lado que no es) y, cuando es
  * nuestro, va pegado a la acción fallada, que ya cuenta: era contar doble.
  */
-export const esPerdida = (a: AccionCastilla) =>
+export const esPerdida = (a: AccionMinima) =>
   (a.tipo === "Pass" && !a.ok) || a.tipo === "Dispossessed" || (a.tipo === "TakeOn" && !a.ok);
 
 export type Altura3 = "alta" | "media" | "baja";

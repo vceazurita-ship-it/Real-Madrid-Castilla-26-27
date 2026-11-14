@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@/lib/datos/cliente";
 
 import { mismoDocumento } from "@/lib/igualdad";
 

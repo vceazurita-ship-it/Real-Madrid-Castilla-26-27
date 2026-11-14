@@ -17,7 +17,7 @@
  * Sólo en el servidor (usa la llave de servicio).
  */
 
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@/lib/datos/cliente";
 
 export const BUCKET = "performance";
 /** El tope del plan gratis de Supabase: 1 GB de ficheros. */
