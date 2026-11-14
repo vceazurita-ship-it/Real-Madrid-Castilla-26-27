@@ -349,7 +349,8 @@ export function DirectoPlan({
                   </span>
                   <span className="min-w-0 text-white/85" title={j.plan}>
                     {j.titulo.charAt(0) + j.titulo.slice(1).toLowerCase()}: <b className="tabular-nums text-white">{j.valor}</b>
-                    {j.liston && <span className="text-white/55"> ({j.liston.replace(/^habitual[^:]*:\s*/i, "lo habitual, ")})</span>}
+                    {j.liston && <span className="text-white/55"> · {j.liston.replace(/^habitual[^:]*:\s*/i, "lo habitual: ")}</span>}
+                    {j.estado === "alerta" && j.consigna && <span className="block text-white/75">→ Para el vídeo del lunes: {j.consigna.charAt(0).toLowerCase() + j.consigna.slice(1)}</span>}
                   </span>
                 </li>
               ))}

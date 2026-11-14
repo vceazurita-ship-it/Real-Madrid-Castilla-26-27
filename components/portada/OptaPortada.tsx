@@ -34,7 +34,7 @@ import { useProximoRival } from "@/hooks/useAbpLigas";
 import { useDocsOpta } from "@/hooks/useDocsOpta";
 import { useOptaLigero } from "@/hooks/useOptaLigero";
 import { trackModuleVisit } from "@/lib/module-usage";
-import { CASTILLA_OPTA, DOCS_OPTA, type TablaOpta } from "@/lib/opta";
+import { CASTILLA_OPTA, DOCS_OPTA, aObjetos, traeOpta, type TablaOpta } from "@/lib/opta";
 import { NOMBRE_CASTILLA, fechaCorta, nombreEquipo, partidosDe, valorEquipo, valorPartido, type Fila, type PartidoEquipo } from "@/lib/opta-analisis";
 import { UMBRAL_DOMINIO } from "@/lib/opta-estilos";
 import { curvaMomento, momentoDe } from "@/lib/opta-eventos";
@@ -211,6 +211,20 @@ function Celda({ x, base = "" }: { x: FilaLab; base?: string }) {
 /* ------------------------------------------------------------------ */
 
 function UltimoPartido({ ultimo }: { ultimo: PartidoEquipo }) {
+  /* ¿Jugamos fuera? Del doc del directo de ese partido (campo de Opta): el local va a la izquierda (expertos, 14/11/2026). */
+  const [fuera, setFuera] = useState(false);
+  useEffect(() => {
+    const id = String(ultimo.fila.partido ?? "");
+    if (!id) return;
+    let vivo = true;
+    void traeOpta<{ equipos?: TablaOpta }>(DOCS_OPTA.directo(id)).then((d) => {
+      const nos = aObjetos(d?.equipos ?? null).find((f) => f.teamId === CASTILLA_OPTA);
+      if (vivo) setFuera(String(nos?.campo ?? "").toUpperCase() === "AWAY");
+    });
+    return () => {
+      vivo = false;
+    };
+  }, [ultimo.fila.partido]);
   const caja = useRef<HTMLAnchorElement>(null);
   const [aLaVista, setALaVista] = useState(false);
 
@@ -265,11 +279,19 @@ function UltimoPartido({ ultimo }: { ultimo: PartidoEquipo }) {
     >
       <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#D8B45A]">El último partido · {fechaCorta(ultimo.fecha)}</p>
       <p className="mt-2 truncate text-[15px] font-semibold text-white">
-        {NOMBRE_CASTILLA} {marcador ? <span className="tabular-nums">{marcador}</span> : "·"} {ultimo.rival}
+        {fuera ? (
+          <>
+            {ultimo.rival} {ultimo.gf != null && ultimo.gc != null ? <span className="tabular-nums">{`${ultimo.gc}-${ultimo.gf}`}</span> : "·"} {NOMBRE_CASTILLA}
+          </>
+        ) : (
+          <>
+            {NOMBRE_CASTILLA} {marcador ? <span className="tabular-nums">{marcador}</span> : "·"} {ultimo.rival}
+          </>
+        )}
       </p>
       {xgA != null && xgB != null ? (
         <p className="mt-0.5 text-[12px] text-white/65 tabular-nums">
-          xG {coma(xgA, 2)} – {coma(xgB, 2)}
+          xG {fuera ? `${coma(xgB, 2)} – ${coma(xgA, 2)}` : `${coma(xgA, 2)} – ${coma(xgB, 2)}`}
         </p>
       ) : null}
       {/* La base: es un solo partido, no la media de la temporada. */}

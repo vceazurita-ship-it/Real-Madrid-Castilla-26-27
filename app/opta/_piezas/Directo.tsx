@@ -417,7 +417,7 @@ export function Directo({ datos }: { datos: DatosOpta }) {
             <div className="mb-4 grid grid-cols-2 items-center gap-x-3 gap-y-2 rounded-3xl px-4 py-5 sm:flex sm:justify-between" style={{ background: "radial-gradient(120% 140% at 50% 0%, rgba(200,169,107,0.18), rgba(10,14,24,0.9) 60%)", border: "1px solid rgba(200,169,107,0.25)" }}>
               {/* Móvil: los dos nombres arriba y el marcador debajo a lo ancho (antes «R… 1-0 G…»). */}
               <div className="order-1 min-w-0 flex-1 sm:order-none sm:text-right">
-                <p className="truncate text-base font-bold sm:text-2xl" style={{ color: loc.teamId === CASTILLA_OPTA ? "#E3C27E" : "#FFFFFF" }}>
+                <p className="truncate text-base font-bold sm:text-xl lg:text-2xl" style={{ color: loc.teamId === CASTILLA_OPTA ? "#E3C27E" : "#FFFFFF" }}>
                   <span className="lg:hidden">{nombreCorto(nombre(loc))}</span>
                   <span className="hidden lg:inline">{nombre(loc)}</span>
                 </p>
@@ -448,7 +448,7 @@ export function Directo({ datos }: { datos: DatosOpta }) {
                 </p>
               </div>
               <div className="order-2 min-w-0 flex-1 text-right sm:order-none sm:text-left">
-                <p className="truncate text-base font-bold sm:text-2xl" style={{ color: vis.teamId === CASTILLA_OPTA ? "#E3C27E" : "#FFFFFF" }}>
+                <p className="truncate text-base font-bold sm:text-xl lg:text-2xl" style={{ color: vis.teamId === CASTILLA_OPTA ? "#E3C27E" : "#FFFFFF" }}>
                   <span className="lg:hidden">{nombreCorto(nombre(vis))}</span>
                   <span className="hidden lg:inline">{nombre(vis)}</span>
                 </p>

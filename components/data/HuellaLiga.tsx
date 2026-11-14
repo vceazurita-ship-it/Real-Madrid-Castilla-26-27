@@ -192,7 +192,7 @@ export function HuellaLiga() {
     <Panel
       className="mt-6"
       titulo={titular ?? "Huella táctica · dónde toca cada equipo más y menos balón que la media"}
-      subtitulo={`${riv ? `Próximo rival, ${riv.nombre}: ${lista.indexOf(riv) + 1}.º, ${pct(riv.campoRival)} en campo rival (${puntos(riv.campoRival - calc.campoMedio)}); marcado en rojo. ` : ""}Frente al equipo medio del grupo · ordenados por % de toques en campo rival · ${doc.partidos} partidos de Opta · rojo = toca más ahí, no mejor`}
+      subtitulo={`${riv ? `Próximo rival, ${riv.nombre}: ${lista.indexOf(riv) + 1}.º, ${pct(riv.campoRival)} en campo rival (${puntos(riv.campoRival - calc.campoMedio)}); recuadro blanco. ` : ""}Frente al equipo medio del grupo · ordenados por % de toques en campo rival · ${doc.partidos} partidos de Opta · rojo = toca más ahí, no mejor`}
       derecha={
         <Botonera
           etiqueta="Grupo"
@@ -272,7 +272,7 @@ export function HuellaLiga() {
               onClick={() => setElegido(e.teamId === elegido ? "" : e.teamId)}
               aria-pressed={e.teamId === elegido}
               className="min-w-0 rounded-xl p-1 text-center transition hover:bg-white/[0.05]"
-              style={e.castilla ? { boxShadow: "inset 0 0 0 2px rgba(227,194,126,0.7)" } : e.teamId === riv?.teamId ? { boxShadow: "inset 0 0 0 2px rgba(232,72,77,0.8)" } : e.teamId === elegido ? { boxShadow: "inset 0 0 0 2px rgba(255,255,255,0.4)" } : undefined}
+              style={e.castilla ? { boxShadow: "inset 0 0 0 2px rgba(227,194,126,0.7)" } : e.teamId === riv?.teamId ? { boxShadow: "inset 0 0 0 2px var(--foreground)" } : e.teamId === elegido ? { boxShadow: "inset 0 0 0 2px rgba(255,255,255,0.4)" } : undefined}
             >
               <p className="flex items-center justify-center gap-1.5 truncate text-sm font-bold" style={e.castilla ? { color: ORO } : undefined}>
                 {escudo && (

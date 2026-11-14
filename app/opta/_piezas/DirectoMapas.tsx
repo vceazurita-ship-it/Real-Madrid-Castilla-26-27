@@ -573,7 +573,7 @@ function FichaJugador({ ev, r, color, rgb, alCerrar, foto }: { ev: EventoDirecto
 }
 
 /** El balón parado de un equipo: cuántos, qué dan y quién los saca y remata. */
-function BalonParado({ acciones, equipo, color, jugadores }: { acciones: AccionAbp[]; equipo: Equipo; color: string; jugadores: Map<string, JugadorDirecto> }) {
+function BalonParado({ acciones, equipo, color, jugadores, rivalDeCastilla = false }: { acciones: AccionAbp[]; equipo: Equipo; color: string; jugadores: Map<string, JugadorDirecto>; rivalDeCastilla?: boolean }) {
   const corners = acciones.filter((x) => x.tipo === "corner");
   const bandas = acciones.filter((x) => x.tipo === "banda");
   const conRemate = acciones.filter((x) => x.remate);
@@ -634,7 +634,8 @@ function BalonParado({ acciones, equipo, color, jugadores }: { acciones: AccionA
       )}
       {micro.length > 0 && (
         <p className="mt-2 rounded-lg px-2 py-1.5 text-sm font-semibold text-white" style={{ background: tinta(0.06), borderLeft: `3px solid ${color}` }}>
-          Para el micro: {micro.join("; ")}.
+          {/* Visto desde el Castilla: el balón parado del rival es nuestra defensa (expertos). */}
+          {equipo.teamId === CASTILLA_OPTA || !rivalDeCastilla ? `Para el micro: ${micro.join("; ")}.` : `Para el micro (nuestra defensa del balón parado): ${micro.join("; ")} → quién gana esa zona y quién marca a su rematador.`}
         </p>
       )}
       {rematan.length > 0 && (
@@ -885,8 +886,8 @@ export function DirectoMapas({
         {titulo("Balón parado", "Córners y saques de banda en el último tercio de cada equipo, con el remate que dan (10 s después) y la contra que encajan (remate rival en 15 s). Las faltas no salen: Opta no las marca en el directo.")}
         <Conclusion>{fraseAbp(balonParado(ev, a.teamId), balonParado(ev, b.teamId), a, b)}</Conclusion>
         <div className="grid gap-3 md:grid-cols-2">
-          <BalonParado acciones={balonParado(ev, a.teamId)} equipo={a} color={COLOR_A} jugadores={porId} />
-          <BalonParado acciones={balonParado(ev, b.teamId)} equipo={b} color={COLOR_B} jugadores={porId} />
+          <BalonParado acciones={balonParado(ev, a.teamId)} equipo={a} color={COLOR_A} jugadores={porId} rivalDeCastilla={b.teamId === CASTILLA_OPTA} />
+          <BalonParado acciones={balonParado(ev, b.teamId)} equipo={b} color={COLOR_B} jugadores={porId} rivalDeCastilla={a.teamId === CASTILLA_OPTA} />
         </div>
       </section>}
 
