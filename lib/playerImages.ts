@@ -13,14 +13,13 @@
 
 export type PlayerImageVariant = "cerca" | "lejos";
 
-/** Carpeta pública de las fotos: Supabase si está configurado, si no local. */
-const PHOTO_BASE = (() => {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-
-  return url
-    ? `${url.replace(/\/$/, "")}/storage/v1/object/public/performance/players`
-    : "/players";
-})();
+/**
+ * Carpeta pública de las fotos. Desde el 14/11/2026, la de la propia web
+ * (`/public/players`, en el repositorio): Supabase tiene el almacén cortado por
+ * el plan (responde 402) y las fotos salían rotas en toda la app. En Render no
+ * hay tope de tamaño de función, así que servirlas desde aquí no cuesta nada.
+ */
+const PHOTO_BASE = "/players";
 
 /** Slugs con archivo en `/public/players/{cerca,lejos}`. */
 export const PLAYER_IMAGE_SLUGS = [
