@@ -591,6 +591,13 @@ function BalonParado({ acciones, equipo, color, jugadores }: { acciones: AccionA
   };
   const sacan = cuenta(corners.map((x) => x.saque.jugadorId));
   const rematan = cuenta(conRemate.map((x) => x.remate?.jugadorId ?? ""));
+  /* Para el micro (expertos): la zona que más se repite y quién remata, en una línea. */
+  const zonas = (["primer palo", "centro", "segundo palo", "corto"] as const).map((z) => [z, corners.filter((x) => zonaCorner(x.saque) === z).length] as const).sort((x, y) => y[1] - x[1]);
+  const micro = [
+    corners.length >= 2 && zonas[0][1] >= 2 ? `${zonas[0][1]} de ${corners.length} córners ${zonas[0][0] === "corto" ? "en corto" : `al ${zonas[0][0]}`}` : "",
+    rematan[0] ? `remata ${nombre(rematan[0][0])}${rematan[0][1] > 1 ? ` (${rematan[0][1]})` : ""}` : "",
+    corners.length > 0 && conRemate.length === 0 ? "ningún balón parado acaba en remate" : "",
+  ].filter(Boolean);
   const cifra = (t: string, v: string, aviso = false) => (
     <div className="rounded-xl px-2 py-1.5" style={{ background: tinta(0.05) }}>
       <p className="text-xs uppercase tracking-[0.12em] text-white/50">{t}</p>
@@ -623,6 +630,11 @@ function BalonParado({ acciones, equipo, color, jugadores }: { acciones: AccionA
         <p className="mt-1 text-sm text-white/75">
           <span className="text-white/50">Saca los córners: </span>
           {sacan.map(([id, n]) => `${nombre(id)} (${n})`).join(" · ")}
+        </p>
+      )}
+      {micro.length > 0 && (
+        <p className="mt-2 rounded-lg px-2 py-1.5 text-sm font-semibold text-white" style={{ background: tinta(0.06), borderLeft: `3px solid ${color}` }}>
+          Para el micro: {micro.join("; ")}.
         </p>
       )}
       {rematan.length > 0 && (

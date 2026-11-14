@@ -143,6 +143,12 @@ function lectura(r: Radiografia): string {
   return partes.length ? `${partes.join("; ")}.` : "";
 }
 
+/** Lo que se entrena: sus dos percentiles más bajos (≤ 35), para llevarlo a una tarea con criterio medible. */
+function tarea(r: Radiografia): string {
+  const bajos = r.porciones.filter((x) => x.p != null && x.p <= 35).sort((x, y) => (x.p ?? 0) - (y.p ?? 0)).slice(0, 2);
+  return bajos.length ? `${bajos.map((x) => `${nombreMetrica(x.a).toLowerCase()} (P${x.p})`).join(" y ")}; medirlo en la tarea y volver a mirarlo en cinco jornadas.` : "";
+}
+
 function Cabecera({ f, r, color, escudo, foto }: { f: Fila; r: Radiografia; color: string; escudo: string | null; foto: string | null }) {
   const puesto = PUESTO_OPTA[String(f.puesto ?? "")] ?? String(f.puesto ?? "");
   const edad = num(f.Age);
@@ -163,6 +169,7 @@ function Cabecera({ f, r, color, escudo, foto }: { f: Fila; r: Radiografia; colo
           {[nombreDe(f), puesto, edad ? `${Math.round(edad)} años` : "", `${Math.round(minutosDe(f))} min`, num(f.GM) ? `${num(f.GM)} partidos` : ""].filter(Boolean).join(" · ")}
         </p>
         {lectura(r) && <p className="mt-1 text-sm font-semibold text-white/85">{lectura(r)}</p>}
+        {tarea(r) && <p className="mt-1 text-sm text-white/75"><b className="text-[#C8A96B]">Para la tarea:</b> {tarea(r)}</p>}
       </div>
       <div className="ml-auto shrink-0 text-right max-sm:w-full max-sm:text-left">
         <p className="font-mono text-4xl font-black tabular-nums leading-none sm:text-5xl" style={{ color }}>

@@ -117,6 +117,9 @@ const primeraFrase = (t: string, tope = 120) => {
 };
 const sinTildes = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
+/** Separador de puntos en el texto de la ayuda. */
+const SALTO = String.fromCharCode(10);
+
 function PanelAyuda({ ayuda, alCerrar }: { ayuda: Ayuda; alCerrar: () => void }) {
   /* Lo técnico (scripts, documentos, claves) sólo para el administrador: el cuerpo técnico, lo que se lee. */
   const { admin: esAdmin } = useAdmin();
@@ -221,7 +224,22 @@ function PanelAyuda({ ayuda, alCerrar }: { ayuda: Ayuda; alCerrar: () => void })
                       </button>
                       {abierta && (
                         <div className="px-4 pb-3">
-                          <p className="text-[15px] leading-relaxed text-white/85">{fila.es}</p>
+                          {fila.es.includes(SALTO) ? (
+                            /* Con saltos de línea, en puntos (expertos: un bloque de 25 líneas no se lee). */
+                            <ul className="space-y-1.5">
+                              {fila.es.split(SALTO).map((linea) => {
+                                const [cabeza, ...resto] = linea.split(": ");
+                                return (
+                                  <li key={linea} className="flex gap-2 text-[15px] leading-relaxed text-white/85">
+                                    <span className="mt-[9px] h-1.5 w-1.5 shrink-0 rounded-full bg-[#C8A96B]" aria-hidden />
+                                    <span>{resto.length ? <><b className="text-white">{cabeza}:</b> {resto.join(": ")}</> : linea}</span>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          ) : (
+                            <p className="text-[15px] leading-relaxed text-white/85">{fila.es}</p>
+                          )}
                           {fila.cuenta && esAdmin && (
                             <div className="mt-2">
                               <button type="button" onClick={() => setCuentas((x) => cambia(x, k))} className="text-sm font-semibold text-[#C8A96B] hover:underline">

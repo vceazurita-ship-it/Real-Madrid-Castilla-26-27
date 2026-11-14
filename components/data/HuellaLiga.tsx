@@ -21,6 +21,8 @@ import { Botonera, Panel } from "@/app/opta/_piezas/comun";
 import { CampoOpta, type Proyecta } from "@/components/campo/CampoOpta";
 import { ORO, useEscudos } from "@/components/data/graficas";
 import { traeOpta } from "@/lib/opta";
+import { useProximoRival } from "@/hooks/useAbpLigas";
+import { mismoClub } from "@/lib/rivals/mismoClub";
 
 type EquipoHuella = { teamId: string; nombre: string; grupo: number; castilla: boolean; partidos: number; toques: number; campoRival: number; malla: number[] };
 type DocHuella = { actualizado: string; mx: number; my: number; partidos: number; equipos: EquipoHuella[] };
@@ -126,6 +128,7 @@ function zonaDe(dif: number[], mx: number, my: number, signo: 1 | -1): string {
 }
 
 export function HuellaLiga() {
+  const proximo = useProximoRival();
   const [doc, setDoc] = useState<DocHuella | null | undefined>(undefined);
   const [grupo, setGrupo] = useState<"1" | "2">("1");
   const [elegido, setElegido] = useState("");
@@ -182,12 +185,14 @@ export function HuellaLiga() {
   const titular = cas
     ? `Castilla, ${lista.indexOf(cas) + 1}.º del grupo en campo rival: ${pct(cas.campoRival)} de sus toques, ${puntos(cas.campoRival - calc.campoMedio)} frente a la media`
     : null;
+  /* El próximo rival, marcado como el Castilla y con su línea (expertos, 14/11/2026). */
+  const riv = proximo ? lista.find((e) => !e.castilla && mismoClub(e.nombre, proximo)) : undefined;
 
   return (
     <Panel
       className="mt-6"
       titulo={titular ?? "Huella táctica · dónde toca cada equipo más y menos balón que la media"}
-      subtitulo={`Frente al equipo medio del grupo · ordenados por % de toques en campo rival · ${doc.partidos} partidos de Opta`}
+      subtitulo={`${riv ? `Próximo rival, ${riv.nombre}: ${lista.indexOf(riv) + 1}.º, ${pct(riv.campoRival)} en campo rival (${puntos(riv.campoRival - calc.campoMedio)}); marcado en rojo. ` : ""}Frente al equipo medio del grupo · ordenados por % de toques en campo rival · ${doc.partidos} partidos de Opta · rojo = toca más ahí, no mejor`}
       derecha={
         <Botonera
           etiqueta="Grupo"
@@ -267,7 +272,7 @@ export function HuellaLiga() {
               onClick={() => setElegido(e.teamId === elegido ? "" : e.teamId)}
               aria-pressed={e.teamId === elegido}
               className="min-w-0 rounded-xl p-1 text-center transition hover:bg-white/[0.05]"
-              style={e.castilla ? { boxShadow: "inset 0 0 0 2px rgba(227,194,126,0.7)" } : e.teamId === elegido ? { boxShadow: "inset 0 0 0 2px rgba(255,255,255,0.4)" } : undefined}
+              style={e.castilla ? { boxShadow: "inset 0 0 0 2px rgba(227,194,126,0.7)" } : e.teamId === riv?.teamId ? { boxShadow: "inset 0 0 0 2px rgba(232,72,77,0.8)" } : e.teamId === elegido ? { boxShadow: "inset 0 0 0 2px rgba(255,255,255,0.4)" } : undefined}
             >
               <p className="flex items-center justify-center gap-1.5 truncate text-sm font-bold" style={e.castilla ? { color: ORO } : undefined}>
                 {escudo && (

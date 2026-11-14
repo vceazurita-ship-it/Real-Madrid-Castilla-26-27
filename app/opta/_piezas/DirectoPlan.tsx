@@ -404,6 +404,32 @@ export function DirectoPlan({
 
       {mom.barras.length > 1 && (
         <div className="mt-4">
+          {/* Titular con la lectura (expertos: el gráfico solo no decía nada). */}
+          {(() => {
+            const racha = (signo: 1 | -1) => {
+              let mejor: [number, number] | null = null;
+              let ini = -1;
+              mom.barras.forEach((b, i) => {
+                const vale = b.balanza * signo > 0;
+                if (vale && ini < 0) ini = i;
+                if ((!vale || i === mom.barras.length - 1) && ini >= 0) {
+                  const fin = vale ? i : i - 1;
+                  if (!mejor || fin - ini > mejor[1] - mejor[0]) mejor = [ini, fin];
+                  ini = -1;
+                }
+              });
+              return mejor as [number, number] | null;
+            };
+            const tramo = (r: [number, number] | null) => {
+              if (!r || r[1] - r[0] < 1) return "";
+              const desde = parseInt(mom.barras[r[0]].etiqueta, 10) - 5;
+              return `del ${desde}′ al ${mom.barras[r[1]].etiqueta.replace("'", "′")}`;
+            };
+            const nos = tramo(racha(1));
+            const ellos = tramo(racha(-1));
+            const frase = [nos && `${nombreNos} mandó ${nos}`, ellos && `${nombreEllos} ${ellos}`].filter(Boolean).join("; ");
+            return frase ? <p className="mb-1 text-sm font-bold text-white/85">{frase}</p> : null;
+          })()}
           <p className="mb-1 text-xs font-semibold uppercase tracking-[0.15em] text-white/50">
             xG cada 5{"'"} · arriba {nombreNos}, abajo {nombreEllos}
           </p>
