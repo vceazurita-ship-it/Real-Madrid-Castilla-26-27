@@ -298,7 +298,18 @@ async function vuelta(S) {
     }
     if (filas.length) await guarda(`opta:directo:${partido}`, { partido, fecha, estado, actualizado: ahora, equipos: { cols: cifras.cols, filas }, anterior: anteriores.get(partido) ?? null, tramos: { cols: tramos.cols, filas: suyos }, eventos: { cols: eventos.cols, filas: eventos.filas.filter((f) => f[0] === partido) }, jugadores: { cols: jugadores.cols, filas: jugadores.filas.filter((f) => f[0] === partido) } });
   }
-  await guarda("opta:directo", { dia: SOLO && delDia[0] ? String(delDia[0][1]).slice(0, 10) : dia, actualizado: ahora, hasta: new Date(fin).toISOString(), partidos: indice });
+  /* SIN_INDICE (carga de la temporada): no se pisa el índice del directo del día. */
+  if (!process.env.SIN_INDICE) await guarda("opta:directo", { dia: SOLO && delDia[0] ? String(delDia[0][1]).slice(0, 10) : dia, actualizado: ahora, hasta: new Date(fin).toISOString(), partidos: indice });
+
+  /* EL ARCHIVO (14/11/2026): todos los partidos que ya tienen su documento, para el
+     desplegable «Ver otro partido» de la pantalla (sólo salen los que tienen datos). */
+  const conDocs = indice.filter((p) => p.conDatos);
+  if (conDocs.length) {
+    const previo = A_FICHERO ? null : (await sb.from("app_documents").select("data").eq("key", "opta:directo:archivo").maybeSingle()).data?.data;
+    const lista = new Map((previo?.partidos ?? []).map((p) => [p.partido, p]));
+    for (const p of conDocs) lista.set(p.partido, { partido: p.partido, fecha: String(p.fecha).slice(0, 10), equipos: p.equipos, goles: p.goles, estado: p.estado });
+    await guarda("opta:directo:archivo", { actualizado: ahora, partidos: [...lista.values()].sort((x, y) => String(y.fecha).localeCompare(String(x.fecha))) });
+  }
 
   console.log(`${ahora.slice(11, 19)} · ${delDia.length} partidos hoy, ${indice.filter((p) => p.conDatos).length} con datos, ${indice.filter((p) => /played|full/i.test(String(p.estado))).length} acabados.`);
   return indice;

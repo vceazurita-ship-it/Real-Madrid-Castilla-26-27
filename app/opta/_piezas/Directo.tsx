@@ -135,7 +135,7 @@ export function Directo({ datos }: { datos: DatosOpta }) {
   }, []);
   const esDelRival = (p: PartidoIndice) => !!proximo && (p.equipos ?? []).some((e) => mismoEquipo(e, proximo));
   const delRival = partidos.find(esDelRival);
-  const visto = (elegido && partidos.some((p) => p.partido === elegido) ? elegido : "") || delCastilla?.partido || delRival?.partido || partidos.find((p) => p.conDatos)?.partido || partidos[0]?.partido || "";
+  const visto = elegido || delCastilla?.partido || delRival?.partido || partidos.find((p) => p.conDatos)?.partido || partidos[0]?.partido || "";
 
   useEffect(() => {
     if (!visto) return;
@@ -162,34 +162,17 @@ export function Directo({ datos }: { datos: DatosOpta }) {
     };
   }, [todos, partidos, vuelta]);
 
-  /* Repasar otro partido (admin): cualquiera de la temporada, también ya jugado; se lanza el proceso sólo para él. */
-  const [repaso, setRepaso] = useState("");
-  const [lanzandoRepaso, setLanzandoRepaso] = useState(false);
-  const recientes = useMemo(() => {
-    const m = new Map<string, { partido: string; fecha: string; equipos: string[] }>();
-    for (const f of filasTemporada) {
-      const id = String(f.partido ?? "");
-      if (!id) continue;
-      const p = m.get(id) ?? { partido: id, fecha: String(f.fecha ?? "").slice(0, 10), equipos: [] };
-      p.equipos.push(f.teamId === CASTILLA_OPTA ? NOMBRE_CASTILLA : String(f.equipo ?? ""));
-      m.set(id, p);
-    }
-    return [...m.values()].sort((x, y) => y.fecha.localeCompare(x.fecha)).slice(0, 60);
-  }, [filasTemporada]);
-  const repasar = async () => {
-    if (!repaso) return;
-    setLanzandoRepaso(true);
-    try {
-      const r = await fetch("/api/opta/directo", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ partido: repaso, duracion: 15 }) });
-      if (r.ok) {
-        setElegido(repaso);
-        setLanzadoEn(Date.now());
-        setVuelta((n) => n + 1);
-      }
-    } finally {
-      setLanzandoRepaso(false);
-    }
-  };
+  /* Todos los partidos con su documento (14/11/2026): el desplegable sólo ofrece los que tienen datos. */
+  const [archivo, setArchivo] = useState<PartidoIndice[]>([]);
+  useEffect(() => {
+    let vivo = true;
+    void traeOpta<{ partidos?: PartidoIndice[] }>("opta:directo:archivo").then((d) => {
+      if (vivo && Array.isArray(d?.partidos)) setArchivo(d!.partidos!);
+    });
+    return () => {
+      vivo = false;
+    };
+  }, []);
 
   const doc = leido?.clave === visto ? leido.doc : null;
   /* Tres pestañas (14/11/2026, petición del analista: menos scroll): colectivo, individual y todas las cifras. */
@@ -376,21 +359,23 @@ export function Directo({ datos }: { datos: DatosOpta }) {
             )}
           </div>
         )}
-        {admin && lanzar.preparado && recientes.length > 0 && (
+        {archivo.length > 0 && (
           <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs">
-            <span className="font-semibold text-white/75">Repasar otro partido (también ya jugado):</span>
-            <select value={repaso} onChange={(e) => setRepaso(e.target.value)} className="max-w-full rounded-lg border border-white/15 bg-black/30 px-2 py-1 text-white/85">
-              <option value="">Elige un partido…</option>
-              {recientes.map((p) => (
+            <span className="font-semibold text-white/75">Ver otro partido (con todos sus datos):</span>
+            <select
+              value={archivo.some((p) => p.partido === elegido) ? elegido : ""}
+              onChange={(e) => e.target.value && setElegido(e.target.value)}
+              className="max-w-full rounded-lg border border-white/15 bg-black/30 px-2 py-1 text-white/85"
+              aria-label="Ver otro partido"
+            >
+              <option value="">Elige un partido de la temporada…</option>
+              {archivo.map((p) => (
                 <option key={p.partido} value={p.partido}>
-                  {p.fecha} · {p.equipos.join(" - ")}
+                  {p.fecha} · {(p.equipos ?? []).map((e) => (e === CASTILLA_NOMBRE_OPTA ? NOMBRE_CASTILLA : e)).join(` ${p.goles?.[0] ?? ""}-${p.goles?.[1] ?? ""} `)}
                 </option>
               ))}
             </select>
-            <button type="button" onClick={() => void repasar()} disabled={!repaso || lanzandoRepaso} className="rounded-lg bg-red-500 px-3 py-1 font-bold text-white disabled:opacity-50">
-              {lanzandoRepaso ? "Pidiendo…" : "Cargar"}
-            </button>
-            <span className="text-white/45">Tarda 1-2 minutos (lo pide a Opta desde GitHub) y sale aquí solo.</span>
+            <span className="text-white/45">{archivo.length} partidos; se abre al momento.</span>
           </div>
         )}
         {partidos.length === 0 || (!vivo && !esperando && !lanzar.corriendo && boton) ? (
@@ -402,7 +387,7 @@ export function Directo({ datos }: { datos: DatosOpta }) {
             {boton && <div className="mt-3">{boton}</div>}
           </>
         ) : null}
-        {partidos.length === 0 ? null : !doc || !a || !b ? (
+        {partidos.length === 0 && !elegido ? null : !doc || !a || !b ? (
           <>
             <p className="mb-2 text-sm font-semibold text-white/85">
               {estadoEnPalabras(partidos.find((p) => p.partido === visto)?.estado) || "Partido del día"}: Opta todavía no ha publicado cifras de este partido.
