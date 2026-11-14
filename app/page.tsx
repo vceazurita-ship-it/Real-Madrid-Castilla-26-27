@@ -989,7 +989,7 @@ export default function Home() {
                     {nuestroXg.diferencia != null && nuestroXg.goles != null && (
                       <div className="min-w-0">
                         <p className="flex items-center justify-between gap-3 text-[12px] uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,.9)" }}>
-                          <span className="min-w-0">Goles del Castilla frente a lo esperado</span>
+                          <span className="min-w-0">{`Castilla: ${nuestroXg.goles} goles; lo esperado, ${coma(nuestroXg.esperados, 1)}`}</span>
                           {nuestroXg.fuente === "opta" && (
                             <span className="inline-flex shrink-0 items-center gap-1 normal-case tracking-normal" style={{ color: "#F7D98B" }}>
                               Análisis de datos

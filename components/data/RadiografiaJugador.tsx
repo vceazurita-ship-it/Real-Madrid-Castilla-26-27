@@ -16,6 +16,8 @@
 import { useMemo, useState } from "react";
 
 import { useFotosOpta } from "@/hooks/useFotosOpta";
+import { useProximoRival } from "@/hooks/useAbpLigas";
+import { mismoClub } from "@/lib/rivals/mismoClub";
 import { corrigeNombre } from "@/lib/opta-directo-mapas";
 import { FotoRedonda } from "@/components/ui/FotoRedonda";
 
@@ -128,7 +130,7 @@ function useEleccion(jugadores: Fila[], minimo: number, inicialEquipo: string) {
     setTeamId(t);
     setPlayerId("");
   };
-  return { teamId, setTeamId: cambiaEquipo, playerId: fila ? String(fila.playerId) : "", setPlayerId, equipos, delEquipo, fila };
+  return { teamId, setTeamId: cambiaEquipo, playerId: fila ? String(fila.playerId) : "", elegidoAMano: playerId, setPlayerId, equipos, delEquipo, fila };
 }
 
 /** La lectura en una línea: sus dos mejores percentiles y el peor (los de muestra suficiente). */
@@ -237,11 +239,15 @@ export function RadiografiaJugador({ datos }: { datos: DatosOpta }) {
   const [resalta, setResalta] = useState<number | null>(null);
   const uno = useEleccion(jugadores, minimo, CASTILLA_OPTA);
   const dos = useEleccion(jugadores, minimo, CASTILLA_OPTA);
+  const proximo = useProximoRival();
+  const rivalId = proximo ? (dos.equipos.find((e) => e.clave !== CASTILLA_OPTA && mismoClub(e.nombre, proximo))?.clave ?? "") : "";
 
   const familia = uno.fila ? familiaFina(uno.fila) : "";
   const rA = useMemo(() => (uno.fila ? radiografiaJugador(uno.fila, jugadores, minimo) : null), [uno.fila, jugadores, minimo]);
   /* El segundo, con las métricas y el universo del primero: así se comparan las mismas cosas. */
-  const filaB = compara ? (dos.fila && dos.playerId !== uno.playerId ? dos.fila : (dos.delEquipo.find((f) => String(f.playerId) !== uno.playerId) ?? null)) : null;
+  /* Con el próximo rival elegido y sin jugador escogido a mano: el suyo de la misma familia de puesto con más minutos (su par directo). */
+  const parDirecto = dos.teamId !== uno.teamId && !dos.elegidoAMano ? (dos.delEquipo.find((f) => familiaFina(f) === familia) ?? null) : null;
+  const filaB = compara ? (parDirecto ?? (dos.fila && dos.playerId !== uno.playerId ? dos.fila : (dos.delEquipo.find((f) => String(f.playerId) !== uno.playerId) ?? null))) : null;
   const rB = useMemo(() => (filaB && familia ? radiografiaJugador(filaB, jugadores, minimo, familia) : null), [filaB, jugadores, minimo, familia]);
 
   const selector = (e: ReturnType<typeof useEleccion>, rotulo: string, mostrado?: Fila | null) => (
@@ -308,7 +314,11 @@ export function RadiografiaJugador({ datos }: { datos: DatosOpta }) {
           <Botonera etiqueta="Minutos mínimos del universo" valor={minimoTxt} opciones={MINIMOS} alCambiar={setMinimoTxt} />
           <button
             type="button"
-            onClick={() => setCompara((c) => !c)}
+            onClick={() => {
+              /* Al abrir la comparativa, «Contra» propone al próximo rival (expertos, 14/11/2026): así la tarea queda ligada al partido. */
+              if (!compara && rivalId && dos.teamId === CASTILLA_OPTA) dos.setTeamId(rivalId);
+              setCompara((c) => !c);
+            }}
             aria-pressed={compara}
             className="rounded-xl border px-3 py-1.5 text-sm font-semibold"
             style={compara ? { borderColor: COMPARADO, color: COMPARADO, background: "rgba(79,143,232,0.12)" } : { borderColor: tinta(0.2) }}
