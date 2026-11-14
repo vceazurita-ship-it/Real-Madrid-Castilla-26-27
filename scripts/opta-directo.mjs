@@ -241,7 +241,7 @@ async function vuelta(S) {
   let cifras = { cols: [], filas: [] };
   if (ids.length) {
     cifras = await consulta(
-      `SELECT game.gameId as partido, teamId, fullName as equipo, newest(team.game.teamColor) as color, ${METRICAS.map((m) => `[${m}]`).join(",")} FROM team 't' BY game ORDER BY game.gameDate DESC LIMIT 60`,
+      `SELECT game.gameId as partido, teamId, fullName as equipo, newest(team.game.teamColor) as color, newest(team.game.homeAway) as campo, ${METRICAS.map((m) => `[${m}]`).join(",")} FROM team 't' BY game ORDER BY game.gameDate DESC LIMIT 60`,
       /* El filtro por partido (smid) no lo coge el SSQL: se piden los últimos
          y se criban aquí. */
       S, "team t");

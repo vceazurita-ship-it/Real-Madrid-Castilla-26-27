@@ -56,7 +56,7 @@ const CADA_MS = 60_000;
 const ESPERANDO_MS = 15_000;
 /** Cuánto se espera la primera lectura antes de decir que algo va mal. */
 const PLAZO_ARRANQUE_MS = 6 * 60_000;
-const NO_METRICA = new Set(["partido", "teamId", "equipo", "color"]);
+const NO_METRICA = new Set(["partido", "teamId", "equipo", "color", "campo"]);
 const CASTILLA_NOMBRE_OPTA = "Real Madrid II";
 
 const hora = (iso?: string) => {
@@ -368,7 +368,7 @@ export function Directo({ datos }: { datos: DatosOpta }) {
                         <span style={{ color: "rgb(236,194,92)" }}>{nombre(x)}</span> {num(x.Goal) ?? 0}-{num(y.Goal) ?? 0} <span style={{ color: "rgb(236,84,88)" }}>{nombre(y)}</span>
                         {/played|full/i.test(String(p.estado ?? "")) ? " · final" : ""}
                       </p>
-                      <RelievePartido eventos={d.eventos} a={{ teamId: String(x.teamId ?? ""), nombre: nombre(x), color: String(x.color ?? "") }} b={{ teamId: String(y.teamId ?? ""), nombre: nombre(y), color: String(y.color ?? "") }} compacto />
+                      <RelievePartido eventos={d.eventos} a={{ teamId: String(x.teamId ?? ""), nombre: nombre(x), color: String(x.color ?? ""), campo: String(x.campo ?? "") }} b={{ teamId: String(y.teamId ?? ""), nombre: nombre(y), color: String(y.color ?? ""), campo: String(y.campo ?? "") }} partido={p.partido} compacto />
                     </button>
                   );
                 })}
@@ -480,8 +480,9 @@ export function Directo({ datos }: { datos: DatosOpta }) {
                 temporada={datos.jugadores}
                 eventos={doc.eventos}
                 jugadores={doc.jugadores}
-                a={{ teamId: String(a.teamId ?? ""), nombre: nombre(a), color: String(a.color ?? "") }}
-                b={{ teamId: String(b.teamId ?? ""), nombre: nombre(b), color: String(b.color ?? "") }}
+                a={{ teamId: String(a.teamId ?? ""), nombre: nombre(a), color: String(a.color ?? ""), campo: String(a.campo ?? "") }}
+                partido={visto}
+                b={{ teamId: String(b.teamId ?? ""), nombre: nombre(b), color: String(b.color ?? ""), campo: String(b.campo ?? "") }}
               />
             </div>
 

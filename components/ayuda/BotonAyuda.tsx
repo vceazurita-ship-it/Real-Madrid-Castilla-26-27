@@ -76,11 +76,11 @@ export function BotonAyuda() {
           aria-modal="true"
           aria-label={`Cómo se lee ${ayuda.titulo}`}
           data-export-hide
-          className="modal-veil fixed inset-0 z-[85] flex justify-end backdrop-blur-sm"
+          className="modal-veil fixed inset-0 z-[85] flex items-center justify-center p-2 backdrop-blur-sm sm:p-6"
           onClick={() => setAbierto(false)}
         >
           <aside
-            className="flex h-full w-full max-w-3xl flex-col border-l border-white/10 bg-[#11161D] shadow-2xl"
+            className="flex h-[96vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#11161D] shadow-2xl sm:h-[90vh]"
             onClick={(evento) => evento.stopPropagation()}
           >
             <PanelAyuda ayuda={ayuda} alCerrar={() => setAbierto(false)} />
@@ -101,9 +101,13 @@ export function BotonAyuda() {
 */
 type Ayuda = NonNullable<ReturnType<typeof ayudaDe>>;
 
-const primeraFrase = (t: string) => {
-  const m = /^(.{40,180}?[.:;])\s/.exec(t);
-  return m ? m[1] : t.length > 180 ? `${t.slice(0, 170)}…` : t;
+/** Lo corto que se ve plegado: la primera frase, y nunca más de `tope` letras. */
+const primeraFrase = (t: string, tope = 120) => {
+  const m = new RegExp(`^(.{30,${tope}}?[.:;])\\s`).exec(t);
+  if (m) return m[1];
+  if (t.length <= tope) return t;
+  const corte = t.slice(0, tope);
+  return `${corte.slice(0, Math.max(corte.lastIndexOf(" "), tope - 20))}…`;
 };
 const sinTildes = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
@@ -137,7 +141,7 @@ function PanelAyuda({ ayuda, alCerrar }: { ayuda: Ayuda; alCerrar: () => void })
               <CircleHelp size={22} aria-hidden />
             </div>
             <div className="min-w-0">
-              <h2 className="text-xl font-semibold">{ayuda.titulo}</h2>
+              <h2 className="text-2xl font-bold">{ayuda.titulo}</h2>
               <p className="text-xs text-white/45">Cómo se lee esta pantalla</p>
             </div>
           </div>
@@ -145,7 +149,7 @@ function PanelAyuda({ ayuda, alCerrar }: { ayuda: Ayuda; alCerrar: () => void })
             <X size={20} aria-hidden />
           </button>
         </div>
-        <p className="mt-3 text-[15px] leading-relaxed text-white/80">{ayuda.resumen}</p>
+        <p className="mt-3 max-w-4xl text-base leading-relaxed text-white/85">{primeraFrase(ayuda.resumen, 260)}</p>
         <label className="mt-3 flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-3 py-2">
           <Search size={16} className="shrink-0 text-white/45" aria-hidden />
           <input
@@ -183,13 +187,13 @@ function PanelAyuda({ ayuda, alCerrar }: { ayuda: Ayuda; alCerrar: () => void })
                 <Sigma size={14} aria-hidden />
                 {bl.titulo}
               </h3>
-              <div className="space-y-2">
+              <div className="grid items-start gap-3 md:grid-cols-2">
                 {bl.filas.map((fila) => {
                   const k = `${bl.titulo}|${fila.que}`;
                   const abierta = !!q || abiertas.has(k);
                   const corta = primeraFrase(fila.es);
                   return (
-                    <div key={k} className="rounded-xl border border-white/[0.09] bg-white/[0.03]">
+                    <div key={k} className={`rounded-2xl border bg-white/[0.03] ${abierta ? "border-[#C8A96B]/60 md:col-span-2" : "border-white/[0.09] hover:border-white/25"}`}>
                       <button
                         type="button"
                         onClick={() => setAbiertas((x) => cambia(x, k))}
@@ -197,14 +201,14 @@ function PanelAyuda({ ayuda, alCerrar }: { ayuda: Ayuda; alCerrar: () => void })
                         className="flex w-full items-start gap-3 px-4 py-3 text-left"
                       >
                         <div className="min-w-0 flex-1">
-                          <p className="text-[15px] font-semibold text-white">{fila.que}</p>
-                          {!abierta && <p className="mt-0.5 text-[13px] leading-relaxed text-white/60">{corta}</p>}
+                          <p className="text-base font-bold text-white">{fila.que}</p>
+                          {!abierta && <p className="mt-1 text-sm leading-relaxed text-white/70">{corta}</p>}
                         </div>
                         <ChevronDown size={18} className={`mt-0.5 shrink-0 text-white/45 transition ${abierta ? "rotate-180" : ""}`} aria-hidden />
                       </button>
                       {abierta && (
                         <div className="px-4 pb-3">
-                          <p className="text-[14px] leading-relaxed text-white/80">{fila.es}</p>
+                          <p className="text-[15px] leading-relaxed text-white/85">{fila.es}</p>
                           {fila.cuenta && (
                             <div className="mt-2">
                               <button type="button" onClick={() => setCuentas((x) => cambia(x, k))} className="text-xs font-semibold text-[#C8A96B] hover:underline">

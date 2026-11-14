@@ -457,13 +457,13 @@ function RelieveDelPartido({ partido }: { partido: string }) {
   if (doc === undefined) return null;
   return (
     <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-      <h3 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/55">El partido en relieve</h3>
+      <h3 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/55">El partido en 3D</h3>
       <p className="mb-2 text-[11px] text-white/45">
         Minuto a minuto (a lo largo), carril del campo (al fondo) y presión de ataque (en altura): oro el Castilla, rojo el rival. Cada pico es un remate de verdad, más alto
         cuanto más xG; la bola blanca, el gol. Los mapas, la red de pases y cada jugador, en Análisis de datos → En directo.
       </p>
       {doc?.eventos?.filas?.length && x && y ? (
-        <RelievePartido eventos={doc.eventos} a={{ teamId: String(x.teamId ?? ""), nombre: nom(x), color: String(x.color ?? "") }} b={{ teamId: String(y.teamId ?? ""), nombre: nom(y), color: String(y.color ?? "") }} />
+        <RelievePartido eventos={doc.eventos} a={{ teamId: String(x.teamId ?? ""), nombre: nom(x), color: String(x.color ?? ""), campo: String(x.campo ?? "") }} b={{ teamId: String(y.teamId ?? ""), nombre: nom(y), color: String(y.color ?? ""), campo: String(y.campo ?? "") }} partido={partido} />
       ) : admin ? (
         <button
           type="button"

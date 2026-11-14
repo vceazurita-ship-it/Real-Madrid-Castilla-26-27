@@ -56,7 +56,7 @@ import { RelievePartido } from "@/components/data/RelievePartido";
 
 import { Botonera } from "./comun";
 
-type Equipo = { teamId: string; nombre: string; color?: string };
+type Equipo = { teamId: string; nombre: string; color?: string; campo?: string };
 
 const TRAMOS: { clave: Tramo; nombre: string }[] = [
   { clave: "todo", nombre: "Partido" },
@@ -586,7 +586,9 @@ export function DirectoMapas({
   b,
   parte = "colectivo",
   temporada = [],
+  partido,
 }: {
+  partido?: string;
   eventos: TablaOpta | null | undefined;
   jugadores: TablaOpta | null | undefined;
   a: Equipo;
@@ -697,8 +699,8 @@ export function DirectoMapas({
 
       {/* 0. El partido en relieve. */}
       {ve("relieve") && <section>
-        {titulo("El partido en relieve", "De izquierda a derecha, el minuto; hacia el fondo, el carril del campo; en altura, la presión de ataque (oro: " + a.nombre + "; rojo: " + b.nombre + "). Cada pico es un remate de verdad, más alto cuanto más xG; la bola blanca, el gol. La presión sin remate sólo levanta lomas bajas. Al pasar el ratón por un pico, quién y cuánto.")}
-        <RelievePartido eventos={eventos} a={a} b={b} jugadores={porId} />
+        {titulo("El partido en 3D", "El campo entero como superficie: cada zona del color del equipo que la domina en los últimos minutos y más alta cuanta más actividad hay en ella; los remates levantan un bulto y el gol, un destello. Corre en bucle; abajo, quién manda minuto a minuto. Colores: los de la equipación de ese partido (el administrador los cambia en «Colores»).")}
+        <RelievePartido eventos={eventos} a={a} b={b} jugadores={porId} partido={partido} />
       </section>}
 
       {/* 1. Territorio y calor. */}
