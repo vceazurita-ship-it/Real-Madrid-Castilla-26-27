@@ -233,7 +233,7 @@ const anteriores = new Map();
 async function vuelta(S) {
   const dia = hoy();
   const juegos = await consulta(
-    "SELECT game.gameId, game.gameDate, game.status FROM game 'g' ORDER BY game.gameDate DESC LIMIT 60", S, "game g");
+    `SELECT game.gameId, game.gameDate, game.status FROM game 'g' ${SOLO ? `WHERE game.gameId = '${SOLO.replace(/[^a-z0-9]/gi, "")}' ` : ""}ORDER BY game.gameDate DESC LIMIT 60`, S, "game g");
   /* Con PARTIDO, el que sea (también uno ya jugado); si no, los de hoy. */
   const delDia = juegos.filas.filter((g) => (SOLO ? g[0] === SOLO : String(g[1]).startsWith(dia)));
 
@@ -241,7 +241,7 @@ async function vuelta(S) {
   let cifras = { cols: [], filas: [] };
   if (ids.length) {
     cifras = await consulta(
-      `SELECT game.gameId as partido, teamId, fullName as equipo, newest(team.game.teamColor) as color, newest(team.game.homeAway) as campo, ${METRICAS.map((m) => `[${m}]`).join(",")} FROM team 't' BY game ORDER BY game.gameDate DESC LIMIT 60`,
+      `SELECT game.gameId as partido, teamId, fullName as equipo, newest(team.game.teamColor) as color, newest(team.game.homeAway) as campo, ${METRICAS.map((m) => `[${m}]`).join(",")} FROM team 't' BY game ${SOLO ? `WHERE game.gameId = '${SOLO.replace(/[^a-z0-9]/gi, "")}' ` : ""}ORDER BY game.gameDate DESC LIMIT 60`,
       /* El filtro por partido (smid) no lo coge el SSQL: se piden los últimos
          y se criban aquí. */
       S, "team t");
@@ -269,7 +269,7 @@ async function vuelta(S) {
   if (ids.length) {
     try {
       jugadores = await consulta(
-        `SELECT game.gameId as partido, playerId, fullName as jugador, newest(team.game.teamId) as teamId, newest(player.game.jerseyNum) as dorsal, newest(player.game.position) as puesto, ${METRICAS_JUGADOR.map((m) => `[${m}]`).join(",")} FROM player 'p' BY game ORDER BY game.gameDate DESC LIMIT ${Math.max(120, ids.length * 60)}`,
+        `SELECT game.gameId as partido, playerId, fullName as jugador, newest(team.game.teamId) as teamId, newest(player.game.jerseyNum) as dorsal, newest(player.game.position) as puesto, ${METRICAS_JUGADOR.map((m) => `[${m}]`).join(",")} FROM player 'p' BY game ${SOLO ? `WHERE game.gameId = '${SOLO.replace(/[^a-z0-9]/gi, "")}' ` : ""}ORDER BY game.gameDate DESC LIMIT ${Math.max(120, ids.length * 60)}`,
         S, "player p");
       jugadores = { cols: jugadores.cols, filas: jugadores.filas.filter((f) => ids.includes(f[0])) };
       const crudos = await consulta(

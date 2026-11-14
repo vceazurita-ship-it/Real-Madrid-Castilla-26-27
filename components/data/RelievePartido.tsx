@@ -23,7 +23,7 @@ import { Pause, Play, RotateCcw } from "lucide-react";
 import { useAdmin } from "@/hooks/useAdmin";
 import { leeEventos, type JugadorDirecto } from "@/lib/opta-directo-mapas";
 import { CASTILLA_OPTA, traeOpta, type TablaOpta } from "@/lib/opta";
-import { GX, GY, retrato, ventana } from "@/lib/opta-retrato";
+import { GX, GY, retrato, ventana, type TiroRetrato } from "@/lib/opta-retrato";
 
 type Equipo = { teamId: string; nombre: string; color?: string; campo?: string };
 type RGB = [number, number, number];
@@ -96,7 +96,24 @@ export function RelievePartido({
     };
   }, []);
   const delPartido = useMemo(() => (partido ? (fijados[partido] ?? {}) : {}), [fijados, partido]);
-  const [colA, colB] = useMemo(() => dosColores(a, b, delPartido), [a, b, delPartido]);
+  const [modo, setModo] = useState<"app" | "camisetas">(() => {
+    if (typeof window === "undefined") return "app";
+    try {
+      return localStorage.getItem("rmcf:3d-colores") === "camisetas" ? "camisetas" : "app";
+    } catch {
+      return "app";
+    }
+  });
+  const cambiaModo = (m: "app" | "camisetas") => {
+    setModo(m);
+    try {
+      localStorage.setItem("rmcf:3d-colores", m);
+    } catch {
+      /* nada */
+    }
+  };
+  /* Colores de la app (petición del analista): el nuestro (o el de la izquierda) en oro y el otro en blanco hielo. */
+  const [colA, colB] = useMemo<[RGB, RGB]>(() => (modo === "app" ? [[214, 178, 104], [226, 232, 240]] : dosColores(a, b, delPartido)), [modo, a, b, delPartido]);
   const fija = async (teamId: string, hex: string) => {
     if (!partido) return;
     const nuevo = { ...fijados, [partido]: { ...(fijados[partido] ?? {}), [teamId]: hex } };
@@ -108,6 +125,7 @@ export function RelievePartido({
   const [jugando, setJugando] = useState(true);
   const [velocidad, setVelocidad] = useState(1);
   const [minuto, setMinuto] = useState(0);
+  const [aviso, setAviso] = useState<(TiroRetrato & { en: number }) | null>(null);
   const estado = useRef({ t: 0, quieto: 0 });
   const mandos = useRef({ jugando: true, velocidad: 1, saltar: null as number | null });
   useEffect(() => {
@@ -129,11 +147,13 @@ export function RelievePartido({
 
     const N = GX * GY;
     const alto = new Float32Array(N);
+    const suave = new Float32Array(N);
     let escala = r.escala;
     const inicio = performance.now();
     let ultimo = inicio;
     let pedido = 0;
     let minutoPintado = -1;
+    let anterior = -1;
 
     /* Mundo en metros: X a lo largo (A ataca a +X), Z a lo ancho (y de Opta = 0 a la derecha del que ataca, abajo), Y arriba. */
     const mundo = (i: number, j: number, h: number): [number, number, number] => [(i / (GX - 1) - 0.5) * 105, h * 24, (j / (GY - 1) - 0.5) * 68];
@@ -174,74 +194,41 @@ export function RelievePartido({
     const img = g.createImageData(PW, PH);
     const px = new Uint32Array(img.data.buffer);
     const zbuf = new Float32Array(PW * PH);
-    /* EL FONDO, UN ESTADIO DE NOCHE (una vez): cielo azul noche, cuatro torres de luz con su halo,
-       las gradas en curva con el público en puntitos y todo oscurecido hacia el centro para que
-       mande el campo. Semilla fija: el público no baila de un fotograma a otro. */
+    /* EL FONDO (14/11/2026, más elegante): noche azul limpia, dos haces de luz de estadio que
+       caen suaves desde arriba, un horizonte de grada apenas insinuado y viñeta. */
     const fondo = new Uint32Array(PW * PH);
-    let semilla = 7;
-    const azar = () => ((semilla = (semilla * 16807) % 2147483647) / 2147483647);
-    const focos = [
-      [0.08, 0.1],
-      [0.92, 0.1],
-      [0.3, 0.04],
-      [0.7, 0.04],
-    ];
     for (let y = 0; y < PH; y++)
       for (let x = 0; x < PW; x++) {
         const u = x / PW;
         const v = y / PH;
-        /* Cielo. */
-        let R = 8 + 10 * (1 - v);
-        let G = 12 + 14 * (1 - v);
-        let B = 30 + 26 * (1 - v);
-        /* Gradas: una banda curva (más alta en los lados), con el público. */
-        const borde = 0.3 + 0.12 * Math.pow(Math.abs(u - 0.5) * 2, 2);
-        if (v > borde - 0.2 && v < borde + 0.32) {
-          const enGrada = (v - (borde - 0.2)) / 0.52;
-          R = 14 + 10 * enGrada;
-          G = 16 + 10 * enGrada;
-          B = 26 + 12 * enGrada;
-          /* Las filas de asientos. */
-          if (Math.sin(v * PH * 0.9) > 0.85) {
-            R += 6;
-            G += 6;
-            B += 8;
-          }
-          /* El público: puntitos de colores apagados. */
-          if (azar() < 0.12) {
-            const tono = azar();
-            R += 12 + 26 * tono;
-            G += 10 + 18 * (1 - tono);
-            B += 14 + 16 * azar();
-          }
+        let R = 6 + 10 * (1 - v);
+        let G = 9 + 14 * (1 - v);
+        let B = 22 + 30 * (1 - v);
+        /* Haces de luz: conos suaves desde las esquinas de arriba. */
+        for (const [fx, dir] of [
+          [0.12, 1],
+          [0.88, -1],
+        ]) {
+          const dx = u - fx - dir * v * 0.35;
+          const k = Math.exp(-(dx * dx) / (0.012 + v * 0.05)) * (1 - v) * 0.9;
+          R += k * 38;
+          G += k * 42;
+          B += k * 52;
         }
-        /* Halo de las torres de luz. */
-        for (const [fx, fy] of focos) {
-          const d = Math.hypot(u - fx, (v - fy) * 1.4);
-          const k = Math.exp(-d * d * 220) * 90 + Math.exp(-d * d * 14) * 12;
-          R += k * 0.95;
-          G += k;
-          B += k * 1.1;
-        }
-        /* Viñeta: el centro (el campo) más oscuro y limpio. */
-        const c = Math.max(0, 1 - Math.hypot((u - 0.5) * 1.3, (v - 0.62) * 1.6));
-        const osc = 1 - 0.55 * Math.pow(c, 1.4);
-        R = Math.min(255, R * osc);
-        G = Math.min(255, G * osc);
-        B = Math.min(255, B * osc);
-        fondo[y * PW + x] = (255 << 24) | (Math.round(B) << 16) | (Math.round(G) << 8) | Math.round(R);
+        /* La grada: una banda curva apenas más clara. */
+        const borde = 0.3 + 0.1 * Math.pow(Math.abs(u - 0.5) * 2, 2);
+        const g0 = Math.exp(-Math.pow((v - borde) / 0.05, 2));
+        R += g0 * 10;
+        G += g0 * 12;
+        B += g0 * 16;
+        const c = Math.hypot((u - 0.5) * 1.2, (v - 0.55) * 1.5);
+        const osc = Math.max(0.35, 1 - c * 0.7);
+        fondo[y * PW + x] = (255 << 24) | (Math.round(Math.min(255, B * osc)) << 16) | (Math.round(Math.min(255, G * osc)) << 8) | Math.round(Math.min(255, R * osc));
       }
-    /* Las torres: cuatro puntos de luz fuertes. */
-    for (const [fx, fy] of focos) {
-      const cx = Math.round(fx * PW);
-      const cy = Math.round(fy * PH);
-      for (let dy = -2 * dpr; dy <= 2 * dpr; dy++)
-        for (let dx = -2 * dpr; dx <= 2 * dpr; dx++) {
-          const xx = cx + dx;
-          const yy = cy + dy;
-          if (dx * dx + dy * dy <= 4 * dpr * dpr && xx >= 0 && yy >= 0 && xx < PW && yy < PH) fondo[yy * PW + xx] = 0xfff8f4ec;
-        }
-    }
+    const brillo = document.createElement("canvas");
+    brillo.width = Math.round(W / 3);
+    brillo.height = Math.round(H / 3);
+    const gg = brillo.getContext("2d");
     const tam = Math.max(1, Math.round((compacto ? 1.2 : 1.6) * dpr));
     const bil = (arr: Float32Array, u: number, v: number) => {
       const fx = u * (GX - 1);
@@ -260,7 +247,16 @@ export function RelievePartido({
       let max = 0;
       for (let i = 0; i < N; i++) max = Math.max(max, total[i]);
       escala = escala * 0.97 + Math.max(r.escala * 0.35, max) * 0.03;
-      for (let i = 0; i < N; i++) alto[i] = 0.5 * Math.sqrt(total[i] / escala);
+      /* Fluir como el mar: cada punto va hacia su altura poco a poco (sin golpes) y encima
+         un oleaje suave que nunca para. */
+      const fase = (ahora - inicio) / 1000;
+      for (let i = 0; i < N; i++) {
+        const objetivo = 0.5 * Math.sqrt(total[i] / escala);
+        suave[i] += (objetivo - suave[i]) * 0.06;
+        const ii = i % GX;
+        const jj = (i - ii) / GX;
+        alto[i] = suave[i] + 0.018 * Math.sin(ii * 0.32 + fase * 1.3) * Math.cos(jj * 0.27 - fase * 0.9);
+      }
       const destellos: { i: number; j: number; k: number }[] = [];
       for (const s of r.tiros) {
         const d = t - s.minuto;
@@ -291,13 +287,14 @@ export function RelievePartido({
           /* Luz por la pendiente (de dónde viene la luz: arriba a la izquierda). */
           const hx = bil(alto, Math.min(1, uu + 0.01), vv) - bil(alto, Math.max(0, uu - 0.01), vv);
           const hy = bil(alto, uu, Math.min(1, vv + 0.015)) - bil(alto, uu, Math.max(0, vv - 0.015));
-          const ilum = Math.max(0.3, Math.min(1.45, 0.85 - hx * 7 + hy * 5 + h * 0.35));
-          const q = Math.min(1, Math.max(0, (p - 0.32) / 0.36));
-          const vida = Math.min(1, 0.38 + it * 0.95);
+          const ilum = Math.max(0.2, Math.min(1.7, 0.78 - hx * 9 + hy * 6.5 + h * 0.7));
+          const q = Math.min(1, Math.max(0, (p - 0.2) / 0.6));
+          const espuma = Math.min(1, Math.max(0, (h - 0.42) / 0.35)) * 0.55;
+          const vida = Math.min(1.15, 0.22 + Math.pow(it, 0.8) * 1.1);
           const k = ilum * vida;
-          const R = Math.min(255, (colA[0] * q + colB[0] * (1 - q)) * k);
-          const G = Math.min(255, (colA[1] * q + colB[1] * (1 - q)) * k);
-          const B = Math.min(255, (colA[2] * q + colB[2] * (1 - q)) * k);
+          const R = Math.min(255, (colA[0] * q + colB[0] * (1 - q)) * k * (1 - espuma) + 255 * espuma);
+          const G = Math.min(255, (colA[1] * q + colB[1] * (1 - q)) * k * (1 - espuma) + 255 * espuma);
+          const B = Math.min(255, (colA[2] * q + colB[2] * (1 - q)) * k * (1 - espuma) + 255 * espuma);
           const [X, Y, Z] = mundo(uu * (GX - 1), vv * (GY - 1), h);
           const [sx, sy, d] = proyecta(X, Y, Z, giro);
           const x0 = Math.round(sx * dpr);
@@ -317,6 +314,18 @@ export function RelievePartido({
         }
       }
       g.putImageData(img, 0, 0);
+      /* BRILLO (14/11/2026, «visualmente top»): la imagen en pequeño, desenfocada y sumada
+         encima: los puntos y las torres de luz brillan como en el vídeo. */
+      if (gg) {
+        gg.clearRect(0, 0, brillo.width, brillo.height);
+        gg.drawImage(cv, 0, 0, brillo.width, brillo.height);
+        g.save();
+        g.globalCompositeOperation = "lighter";
+        g.globalAlpha = compacto ? 0.25 : 0.32;
+        g.filter = `blur(${compacto ? 4 : 9}px)`;
+        g.drawImage(brillo, 0, 0, W, H);
+        g.restore();
+      }
 
       /* Las líneas del campo, finas y pegadas a la superficie. */
       g.strokeStyle = "rgba(255,255,255,0.45)";
@@ -370,6 +379,11 @@ export function RelievePartido({
         } else s.t = Math.min(fin, s.t + (dt / 1000) * (fin / SEGUNDOS_PARTIDO) * m.velocidad);
       }
       pinta(ahora);
+      /* Cada remate que acaba de pasar, aviso. */
+      for (const tiro of r.tiros) {
+        if (tiro.minuto + 0.5 > anterior && tiro.minuto + 0.5 <= s.t) setAviso({ ...tiro, en: s.t });
+      }
+      anterior = s.t < anterior ? -1 : s.t;
       const mm = Math.floor(s.t);
       if (mm !== minutoPintado) {
         minutoPintado = mm;
@@ -383,7 +397,6 @@ export function RelievePartido({
 
   const golesA = r.tiros.filter((p) => p.gol && p.deA && p.minuto <= minuto).length;
   const golesB = r.tiros.filter((p) => p.gol && !p.deA && p.minuto <= minuto).length;
-  const golAhora = r.tiros.find((p) => p.gol && minuto - p.minuto >= 0 && minuto - p.minuto < 3);
   const nombre = (id: string) => jugadores?.get(id)?.nombre ?? "";
   const parte = minuto <= 45 ? "1.ª PARTE" : "2.ª PARTE";
 
@@ -419,9 +432,28 @@ export function RelievePartido({
           {parte}
         </p>
       </div>
-      {golAhora && !compacto && (
-        <div className="pointer-events-none absolute inset-x-0 top-[38%] text-center text-4xl font-black" style={{ color: css(golAhora.deA ? colA : colB) }}>
-          ¡GOL! {nombre(golAhora.jugadorId)}
+      {aviso && !compacto && minuto - aviso.minuto < 4 && (
+        <div
+          key={`${aviso.minuto}-${aviso.jugadorId}`}
+          className="pointer-events-none absolute left-1/2 top-[22%] -translate-x-1/2 rounded-2xl px-5 py-3 text-center shadow-2xl"
+          style={{
+            background: "rgba(10,12,22,0.55)",
+            backdropFilter: "blur(10px)",
+            border: `1px solid ${css(aviso.deA ? colA : colB, 0.7)}`,
+            boxShadow: `0 0 40px ${css(aviso.deA ? colA : colB, 0.35)}`,
+            animation: "rmcfAviso 3.2s ease-out forwards",
+          }}
+        >
+          <p className="text-[10px] font-black uppercase tracking-[0.3em]" style={{ color: css(aviso.deA ? colA : colB) }}>
+            {aviso.gol ? "Gol" : aviso.xg >= 0.25 ? "Ocasión clara" : "Ocasión"} · {aviso.minuto}′
+          </p>
+          <p className={`font-bold ${aviso.gol ? "text-3xl" : "text-lg"}`} style={{ color: "#FFFFFF" }}>
+            {nombre(aviso.jugadorId) || (aviso.deA ? a.nombre : b.nombre)}
+          </p>
+          <p className="text-[11px] tabular-nums" style={{ color: "rgba(255,255,255,0.65)" }}>
+            {aviso.deA ? a.nombre : b.nombre} · xG {aviso.xg.toFixed(2).replace(".", ",")}
+          </p>
+          <style>{`@keyframes rmcfAviso { 0% { opacity: 0; transform: translate(-50%, 8px) scale(.96) } 12% { opacity: 1; transform: translate(-50%, 0) scale(1) } 75% { opacity: 1 } 100% { opacity: 0 } }`}</style>
         </div>
       )}
       {!compacto && (
@@ -457,7 +489,14 @@ export function RelievePartido({
             aria-label="Minuto del partido"
             className="w-32 accent-white sm:w-48"
           />
-          {admin && partido && (
+          <span className="flex overflow-hidden rounded-full text-[10px] font-bold" style={{ background: "rgba(255,255,255,0.12)" }}>
+            {(["app", "camisetas"] as const).map((m) => (
+              <button key={m} type="button" onClick={() => cambiaModo(m)} className="px-2.5 py-1.5" style={modo === m ? { background: "#FFFFFF", color: "#000000" } : { color: "rgba(255,255,255,0.8)" }}>
+                {m === "app" ? "Oro y blanco" : "Camisetas"}
+              </button>
+            ))}
+          </span>
+          {admin && partido && modo === "camisetas" && (
             <span className="flex items-center gap-1 rounded-full px-2 py-1 text-[10px]" style={{ background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.8)" }} title="Color de cada equipo en este partido (se guarda para todos)">
               Colores
               <input type="color" value={aHex(colA)} onChange={(e) => void fija(a.teamId, e.target.value)} aria-label={`Color de ${a.nombre}`} className="h-6 w-6 cursor-pointer rounded border-0 bg-transparent" />

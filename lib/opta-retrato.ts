@@ -93,11 +93,15 @@ export function retrato(ev: EventoDirecto[], a: string, b: string): Retrato {
 
 /** Lo que se ve en el instante t: intensidad total y parte de A en cada celda. */
 export function ventana(r: Retrato, t: number): { total: Float32Array; parteA: Float32Array } {
+  /* Peso continuo en el tiempo (campana de ~2,5 minutos centrada un poco antes de t):
+     la superficie fluye como un mar, sin escalones al cambiar de minuto. */
   const total = new Float32Array(GX * GY);
   const sa = new Float32Array(GX * GY);
-  const desde = Math.max(0, Math.floor(t) - 12);
-  for (let m = desde; m <= Math.min(r.minutos - 1, Math.floor(t)); m++) {
-    const w = Math.exp(-(t - m) / 4);
+  const centro = t - 1.5;
+  for (let m = Math.max(0, Math.floor(centro) - 8); m <= Math.min(r.minutos - 1, Math.ceil(t) + 1); m++) {
+    const d = centro - m;
+    const w = Math.exp(-(d * d) / (2 * 2.5 * 2.5)) * (m > t ? Math.max(0, 1 - (m - t)) : 1);
+    if (w < 0.01) continue;
     const A = r.a[m];
     const B = r.b[m];
     for (let i = 0; i < GX * GY; i++) {
