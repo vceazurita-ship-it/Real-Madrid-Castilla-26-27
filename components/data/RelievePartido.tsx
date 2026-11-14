@@ -122,6 +122,8 @@ export function RelievePartido({
   };
 
   const lienzo = useRef<HTMLCanvasElement>(null);
+  const cursorMom = useRef<SVGLineElement>(null);
+  const recorteMom = useRef<SVGRectElement>(null);
   const [jugando, setJugando] = useState(true);
   const [velocidad, setVelocidad] = useState(1);
   const [minuto, setMinuto] = useState(0);
@@ -466,6 +468,10 @@ export function RelievePartido({
         if (tiro.minuto + 0.5 > anterior && tiro.minuto + 0.5 <= s.t) setAviso({ ...tiro, en: s.t });
       }
       anterior = s.t < anterior ? -1 : s.t;
+      const xm = 190 + (Math.min(fin, s.t) / Math.max(1, fin)) * 790;
+      cursorMom.current?.setAttribute("x1", String(xm));
+      cursorMom.current?.setAttribute("x2", String(xm));
+      recorteMom.current?.setAttribute("width", String(xm));
       const mm = Math.floor(s.t);
       if (mm !== minutoPintado) {
         minutoPintado = mm;
@@ -498,7 +504,7 @@ export function RelievePartido({
 
   if (ev.length < 20) return null;
   return (
-    <div className="group relative overflow-hidden rounded-2xl" style={{ background: "#05050a" }}>
+    <div className="group relative mx-auto overflow-hidden rounded-2xl" style={{ background: "#05050a", maxWidth: compacto ? undefined : "min(100%, calc((100vh - 170px) * 1.4))" }}>
       <canvas ref={lienzo} className="block h-auto w-full" style={{ aspectRatio: compacto ? "480 / 270" : "1000 / 560" }} role="img" aria-label={`Retrato 3D del partido ${a.nombre} - ${b.nombre}, animado`} />
       {!compacto && (
         <div className="pointer-events-none absolute bottom-[calc(150px*var(--k,1)+12px)] right-4 hidden w-[400px] rounded-xl px-3 py-2 text-[11px] sm:block" style={{ background: "rgba(8,10,20,0.82)", color: "rgba(255,255,255,0.85)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.1)", bottom: "calc(min(15vw, 150px) + 14px)" }}>
@@ -550,7 +556,7 @@ export function RelievePartido({
           <style>{`@keyframes rmcfTitulo { 0% { opacity: 0; letter-spacing: .1em } 20% { opacity: 1; letter-spacing: 0 } 75% { opacity: 1 } 100% { opacity: 0 } }`}</style>
         </div>
       )}
-      {!compacto && <Momentum curva={r.curva} tiros={r.tiros} minuto={minuto} colA={colA} colB={colB} nombreA={a.nombre} nombreB={b.nombre} />}
+      {!compacto && <Momentum cursorRef={cursorMom} recorteRef={recorteMom} curva={r.curva} tiros={r.tiros} minuto={minuto} colA={colA} colB={colB} nombreA={a.nombre} nombreB={b.nombre} />}
       {/* Marcador, como en la tele. */}
       <div className={`pointer-events-none absolute left-3 top-3 ${compacto ? "" : "sm:left-6 sm:top-5"}`}>
         <div className="flex gap-4">
@@ -662,6 +668,8 @@ export function RelievePartido({
    equipo A, abajo el B, áreas con degradado de su color, el descanso, los goles con bola y
    minuto, y la línea blanca del minuto que corre. Lo ya jugado, encendido; lo que falta, tenue. */
 function Momentum({
+  cursorRef,
+  recorteRef,
   curva,
   tiros,
   minuto,
@@ -670,6 +678,8 @@ function Momentum({
   nombreA,
   nombreB,
 }: {
+  cursorRef: React.RefObject<SVGLineElement | null>;
+  recorteRef: React.RefObject<SVGRectElement | null>;
   curva: number[];
   tiros: { minuto: number; gol: boolean; deA: boolean }[];
   minuto: number;
@@ -685,7 +695,14 @@ function Momentum({
   const tope = Math.max(1, ...curva.map(Math.abs));
   const X = (m: number) => 190 + (m / fin) * (W - 210);
   const Y = (v: number) => mid - (v / tope) * (mid - 14);
-  const linea = curva.map((v, m) => `${m ? "L" : "M"}${X(m).toFixed(1)},${Y(v).toFixed(1)}`).join(" ");
+  const pts = curva.map((v, m) => [X(m), Y(v)] as const);
+  const linea = pts
+    .map(([x, y], i) => {
+      if (i === 0) return `M${x.toFixed(1)},${y.toFixed(1)}`;
+      const [px, py] = pts[i - 1];
+      return `Q${px.toFixed(1)},${py.toFixed(1)} ${((px + x) / 2).toFixed(1)},${((py + y) / 2).toFixed(1)}`;
+    })
+    .join(" ");
   const area = `${linea} L${X(fin)},${mid} L${X(0)},${mid} Z`;
   const id = `mom-${Math.round(colA[0])}-${Math.round(colB[0])}`;
   return (
@@ -698,7 +715,7 @@ function Momentum({
           <stop offset="1" stopColor={css(colB)} stopOpacity="0.95" />
         </linearGradient>
         <clipPath id={`${id}-hecho`}>
-          <rect x={0} y={0} width={X(Math.min(fin, minuto))} height={H} />
+          <rect ref={recorteRef} x={0} y={0} width={X(Math.min(fin, minuto))} height={H} />
         </clipPath>
       </defs>
       <text x={12} y={18} style={{ fill: css(colA), fontSize: 13, fontWeight: 700 }}>
@@ -729,7 +746,7 @@ function Momentum({
             </text>
           </g>
         ))}
-      <line x1={X(Math.min(fin, minuto))} x2={X(Math.min(fin, minuto))} y1={4} y2={H - 4} style={{ stroke: "#FFFFFF", strokeWidth: 2 }} />
+      <line ref={cursorRef} x1={X(Math.min(fin, minuto))} x2={X(Math.min(fin, minuto))} y1={4} y2={H - 4} style={{ stroke: "#FFFFFF", strokeWidth: 2, filter: "drop-shadow(0 0 4px rgba(255,255,255,0.8))" }} />
     </svg>
   );
 }
