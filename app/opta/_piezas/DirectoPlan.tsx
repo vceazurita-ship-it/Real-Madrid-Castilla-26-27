@@ -365,7 +365,8 @@ export function DirectoPlan({
         return (
           <div className="mb-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
             <p className={`font-black text-[#C8A96B] ${completa ? "text-2xl" : "text-base sm:text-lg"}`}>
-              {decide.length ? `Logramos ${n("certeza")} de ${decide.length} ${decide.length === 1 ? "objetivo que decide" : "objetivos que deciden"}` : "Todo como siempre frente al plan"}
+              {/* El titular cuenta lo claro (logrado o no); lo que quedó «a medias» se ve en la lista, no en la cuenta. */}
+              {n("certeza") + n("alerta") ? `Logramos ${n("certeza")} de ${n("certeza") + n("alerta")} ${n("certeza") + n("alerta") === 1 ? "objetivo que decide" : "objetivos que deciden"}` : decide.length ? "Nada claro: todo a medias o como siempre" : "Todo como siempre frente al plan"}
             </p>
             <p className="text-xs text-white/55">
               Balance frente al plan · {[n("certeza") && `${n("certeza")} ${n("certeza") === 1 ? "logrado" : "logrados"}`, n("alerta") && `${n("alerta")} no ${n("alerta") === 1 ? "logrado" : "logrados"}`, n("duda") && `${n("duda")} a medias`, n("habitual") && `${n("habitual")} como siempre`].filter(Boolean).join(" · ")}
