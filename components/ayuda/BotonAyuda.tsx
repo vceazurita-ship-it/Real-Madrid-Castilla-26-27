@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
-import { CircleHelp, Sigma, TriangleAlert, X } from "lucide-react";
+import { ChevronDown, CircleHelp, Search, Sigma, TriangleAlert, X } from "lucide-react";
 
 import { ItemMenuFlotante } from "@/components/ui/MenuFlotante";
 import { ayudaDe } from "@/lib/ayuda/paginas";
@@ -80,103 +80,178 @@ export function BotonAyuda() {
           onClick={() => setAbierto(false)}
         >
           <aside
-            className="flex h-full w-full max-w-xl flex-col border-l border-white/10 bg-[#11161D] shadow-2xl"
+            className="flex h-full w-full max-w-3xl flex-col border-l border-white/10 bg-[#11161D] shadow-2xl"
             onClick={(evento) => evento.stopPropagation()}
           >
-            <div className="flex items-start justify-between gap-4 border-b border-white/10 p-5">
-              <div className="flex min-w-0 items-center gap-3">
-                <div className="rounded-2xl bg-white/[0.06] p-2.5 text-[#C8A96B]">
-                  <CircleHelp size={20} aria-hidden />
-                </div>
-
-                <div className="min-w-0">
-                  <h2 className="truncate text-lg font-semibold">{ayuda.titulo}</h2>
-
-                  <p className="text-xs text-white/40">Cómo se lee esta pantalla</p>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setAbierto(false)}
-                aria-label="Cerrar"
-                className="shrink-0 rounded-full p-1.5 text-white/40 transition hover:bg-white/10 hover:text-white"
-              >
-                <X size={18} aria-hidden />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-5">
-              <p className="text-[13px] leading-relaxed text-white/70">
-                {ayuda.resumen}
-              </p>
-
-              <p className="mt-3 rounded-xl border border-white/[0.08] bg-white/[0.02] px-3 py-2.5 text-[11.5px] leading-relaxed text-white/45">
-                <span className="text-[10px] uppercase tracking-[0.16em] text-white/35">
-                  De dónde sale
-                </span>
-                <br />
-                {ayuda.origen}
-              </p>
-
-              {ayuda.bloques.map((bloque) => (
-                <section key={bloque.titulo} className="mt-5">
-                  <h3 className="mb-2 flex items-center gap-2 text-[10px] uppercase tracking-[0.16em] text-[#C8A96B]">
-                    <Sigma size={12} aria-hidden />
-                    {bloque.titulo}
-                  </h3>
-
-                  <dl className="space-y-2">
-                    {bloque.filas.map((fila) => (
-                      <div
-                        key={fila.que}
-                        className="rounded-xl border border-white/[0.07] bg-white/[0.02] px-3 py-2"
-                      >
-                        <dt className="text-[12.5px] font-semibold text-white/85">
-                          {fila.que}
-                        </dt>
-
-                        <dd className="mt-0.5 text-[12px] leading-relaxed text-white/55">
-                          {fila.es}
-
-                          {fila.cuenta && (
-                            /* La cuenta va aparte y en monoespaciado: es lo que
-                               se viene a mirar, no una coletilla de la frase. */
-                            <span className="mt-1 block rounded-lg bg-white/[0.04] px-2 py-1 font-mono text-[11px] leading-relaxed text-[#C8A96B]/90">
-                              {fila.cuenta}
-                            </span>
-                          )}
-                        </dd>
-                      </div>
-                    ))}
-                  </dl>
-                </section>
-              ))}
-
-              {ayuda.ojo && ayuda.ojo.length > 0 && (
-                <section className="mt-5">
-                  <h3 className="mb-2 flex items-center gap-2 text-[10px] uppercase tracking-[0.16em] text-amber-300/80">
-                    <TriangleAlert size={12} aria-hidden />
-                    Ojo al leerlo
-                  </h3>
-
-                  <ul className="space-y-1.5">
-                    {ayuda.ojo.map((linea) => (
-                      <li
-                        key={linea}
-                        className="flex gap-2 text-[12px] leading-relaxed text-white/55"
-                      >
-                        <span className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-amber-300/70" />
-                        {linea}
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              )}
-            </div>
+            <PanelAyuda ayuda={ayuda} alCerrar={() => setAbierto(false)} />
           </aside>
         </div>
       )}
+    </>
+  );
+}
+
+/*
+| EL PANEL (14/11/2026, petición del analista: «caja pequeña y demasiado chorro de texto»).
+|
+| Más ancho y con letra más grande; arriba el resumen y un buscador; debajo, un
+| atajo por bloque. Cada fila se ve plegada (su nombre y la primera frase) y se
+| abre al pulsar; «Cómo se calcula» va aparte, plegado también. Al buscar, se
+| abren solas las que casan.
+*/
+type Ayuda = NonNullable<ReturnType<typeof ayudaDe>>;
+
+const primeraFrase = (t: string) => {
+  const m = /^(.{40,180}?[.:;])\s/.exec(t);
+  return m ? m[1] : t.length > 180 ? `${t.slice(0, 170)}…` : t;
+};
+const sinTildes = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+function PanelAyuda({ ayuda, alCerrar }: { ayuda: Ayuda; alCerrar: () => void }) {
+  const [busca, setBusca] = useState("");
+  const [abiertas, setAbiertas] = useState<Set<string>>(new Set());
+  const [cuentas, setCuentas] = useState<Set<string>>(new Set());
+  const [verOrigen, setVerOrigen] = useState(false);
+  const q = sinTildes(busca.trim());
+  const bloques = useMemo(
+    () =>
+      ayuda.bloques
+        .map((bl) => ({ ...bl, filas: q ? bl.filas.filter((f) => sinTildes(`${f.que} ${f.es} ${f.cuenta ?? ""}`).includes(q)) : bl.filas }))
+        .filter((bl) => bl.filas.length),
+    [ayuda, q],
+  );
+  const cambia = (set: Set<string>, k: string) => {
+    const n = new Set(set);
+    if (n.has(k)) n.delete(k);
+    else n.add(k);
+    return n;
+  };
+  const total = bloques.reduce((n, bl) => n + bl.filas.length, 0);
+
+  return (
+    <>
+      <div className="border-b border-white/10 p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="rounded-2xl bg-white/[0.06] p-2.5 text-[#C8A96B]">
+              <CircleHelp size={22} aria-hidden />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-xl font-semibold">{ayuda.titulo}</h2>
+              <p className="text-xs text-white/45">Cómo se lee esta pantalla</p>
+            </div>
+          </div>
+          <button type="button" onClick={alCerrar} aria-label="Cerrar" className="shrink-0 rounded-full p-2 text-white/50 transition hover:bg-white/10 hover:text-white">
+            <X size={20} aria-hidden />
+          </button>
+        </div>
+        <p className="mt-3 text-[15px] leading-relaxed text-white/80">{ayuda.resumen}</p>
+        <label className="mt-3 flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-3 py-2">
+          <Search size={16} className="shrink-0 text-white/45" aria-hidden />
+          <input
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            placeholder="Buscar en la ayuda (p. ej. xG, red de pases, alertas…)"
+            className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/35"
+            aria-label="Buscar en la ayuda"
+          />
+          {busca && (
+            <button type="button" onClick={() => setBusca("")} className="text-xs text-white/50 hover:text-white">
+              Borrar
+            </button>
+          )}
+        </label>
+        {!q && ayuda.bloques.length > 1 && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {ayuda.bloques.map((bl, i) => (
+              <a key={bl.titulo} href={`#ayuda-bloque-${i}`} className="rounded-full border border-white/15 px-3 py-1 text-xs font-semibold text-white/75 hover:bg-white/10 hover:text-white">
+                {bl.titulo.length > 38 ? `${bl.titulo.slice(0, 36)}…` : bl.titulo}
+              </a>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-5">
+        {q && <p className="mb-3 text-xs text-white/50">{total ? `${total} ${total === 1 ? "resultado" : "resultados"}` : "Nada con eso. Prueba con otra palabra."}</p>}
+
+        {bloques.map((bl) => {
+          const i = ayuda.bloques.findIndex((x) => x.titulo === bl.titulo);
+          return (
+            <section key={bl.titulo} id={`ayuda-bloque-${i}`} className="mb-6 scroll-mt-4">
+              <h3 className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-[#C8A96B]">
+                <Sigma size={14} aria-hidden />
+                {bl.titulo}
+              </h3>
+              <div className="space-y-2">
+                {bl.filas.map((fila) => {
+                  const k = `${bl.titulo}|${fila.que}`;
+                  const abierta = !!q || abiertas.has(k);
+                  const corta = primeraFrase(fila.es);
+                  return (
+                    <div key={k} className="rounded-xl border border-white/[0.09] bg-white/[0.03]">
+                      <button
+                        type="button"
+                        onClick={() => setAbiertas((x) => cambia(x, k))}
+                        aria-expanded={abierta}
+                        className="flex w-full items-start gap-3 px-4 py-3 text-left"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[15px] font-semibold text-white">{fila.que}</p>
+                          {!abierta && <p className="mt-0.5 text-[13px] leading-relaxed text-white/60">{corta}</p>}
+                        </div>
+                        <ChevronDown size={18} className={`mt-0.5 shrink-0 text-white/45 transition ${abierta ? "rotate-180" : ""}`} aria-hidden />
+                      </button>
+                      {abierta && (
+                        <div className="px-4 pb-3">
+                          <p className="text-[14px] leading-relaxed text-white/80">{fila.es}</p>
+                          {fila.cuenta && (
+                            <div className="mt-2">
+                              <button type="button" onClick={() => setCuentas((x) => cambia(x, k))} className="text-xs font-semibold text-[#C8A96B] hover:underline">
+                                {cuentas.has(k) || q ? "Ocultar cómo se calcula" : "Cómo se calcula"}
+                              </button>
+                              {(cuentas.has(k) || !!q) && (
+                                <p className="mt-1 rounded-lg bg-white/[0.05] px-3 py-2 font-mono text-[12px] leading-relaxed text-[#C8A96B]">{fila.cuenta}</p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          );
+        })}
+
+        {!q && ayuda.ojo && ayuda.ojo.length > 0 && (
+          <section className="mb-6">
+            <h3 className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-amber-300/90">
+              <TriangleAlert size={14} aria-hidden />
+              Ojo al leerlo
+            </h3>
+            <ul className="space-y-2">
+              {ayuda.ojo.map((linea) => (
+                <li key={linea} className="flex gap-2 text-[14px] leading-relaxed text-white/75">
+                  <span className="mt-[9px] h-1.5 w-1.5 shrink-0 rounded-full bg-amber-300/80" />
+                  {linea}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {!q && (
+          <div className="rounded-xl border border-white/[0.08] bg-white/[0.02]">
+            <button type="button" onClick={() => setVerOrigen((v) => !v)} className="flex w-full items-center justify-between px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.14em] text-white/55">
+              De dónde salen los datos
+              <ChevronDown size={16} className={`transition ${verOrigen ? "rotate-180" : ""}`} aria-hidden />
+            </button>
+            {verOrigen && <p className="px-4 pb-3 text-[13px] leading-relaxed text-white/65">{ayuda.origen}</p>}
+          </div>
+        )}
+      </div>
     </>
   );
 }
