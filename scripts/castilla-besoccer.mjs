@@ -33,7 +33,8 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 
 import Papa from "papaparse";
-import { createClient } from "@supabase/supabase-js";
+import { createRequire as crearRequireDatos } from "node:module";
+const { createClient } = crearRequireDatos(import.meta.url)("../lib/datos/cliente.cjs"); /* con reserva: lib/datos/cliente.cjs */
 
 const CACHE_DIR = ".cache/castilla-besoccer";
 

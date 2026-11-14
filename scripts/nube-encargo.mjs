@@ -16,7 +16,8 @@
  *
  * El registro de GitHub es público: aquí no se escribe nada más que la tarea.
  */
-import { createClient } from "@supabase/supabase-js";
+import { createRequire as crearRequireDatos } from "node:module";
+const { createClient } = crearRequireDatos(import.meta.url)("../lib/datos/cliente.cjs"); /* con reserva: lib/datos/cliente.cjs */
 
 const [tarea, accion, estado, ...resto] = process.argv.slice(2);
 const resultado = resto.join(" ").trim();

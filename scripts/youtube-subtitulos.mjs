@@ -255,7 +255,7 @@ export async function publicaEstado(raiz, estado) {
 
     if (!env) return false;
 
-    const { createClient } = require("@supabase/supabase-js");
+    const { createClient } = require("../lib/datos/cliente.cjs"); /* con reserva: lib/datos/cliente.cjs */
 
     const supabase = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 

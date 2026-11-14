@@ -36,6 +36,8 @@ jobs:
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      # Reserva de lib/datos/cliente.cjs: vacío = Supabase; con valor = Postgres propio (14/11/2026).
+      DATOS_PG_URL: ${{ secrets.DATOS_PG_URL }}
       YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
       YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
       GMAIL_SMTP_USER: ${{ secrets.GMAIL_SMTP_USER }}

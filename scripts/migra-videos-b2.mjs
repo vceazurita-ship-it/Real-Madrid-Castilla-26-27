@@ -30,7 +30,7 @@ import { fileURLToPath } from "node:url";
 
 const require = createRequire(import.meta.url);
 const { entorno } = require("./supabase-local.cjs");
-const { createClient } = require("@supabase/supabase-js");
+const { createClient } = require("../lib/datos/cliente.cjs"); /* con reserva: lib/datos/cliente.cjs */
 const b2 = require("./b2.cjs");
 
 const COPIAR = process.argv.includes("--copiar");

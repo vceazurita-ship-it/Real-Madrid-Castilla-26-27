@@ -1,0 +1,48 @@
+/* Prueba del cliente de reserva (lib/datos/cliente.cjs) contra un Postgres en memoria. Sólo local. */
+import { PGlite } from "@electric-sql/pglite";
+import { PGLiteSocketServer } from "@electric-sql/pglite-socket";
+import { createRequire } from "node:module";
+import fs from "node:fs";
+const require = createRequire(import.meta.url);
+
+const db = await PGlite.create();
+const servidor = new PGLiteSocketServer({ db, port: 54329, host: "127.0.0.1" });
+await servidor.start();
+process.env.DATOS_PG_URL = "postgres://postgres@127.0.0.1:54329/postgres";
+process.env.DATOS_PG_MAX = "1";
+const { createClient, conexion } = require("../lib/datos/cliente.cjs");
+await conexion().unsafe(fs.readFileSync(new URL("../supabase/reserva-esquema.sql", import.meta.url), "utf8"));
+const sb = createClient("x", "y");
+const ok = (c, m) => { if (!c) { console.error("FALLA:", m); process.exitCode = 1; } else console.log("ok ·", m); };
+
+let r = await sb.from("app_documents").upsert({ key: "a:1", kind: "k", data: { x: 1 }, updated_at: new Date().toISOString() }, { onConflict: "key" });
+ok(!r.error, "upsert " + (r.error?.message ?? ""));
+r = await sb.from("app_documents").upsert([{ key: "a:1", kind: "k", data: { x: 2 } }, { key: "a:2", kind: "k", data: [1, 2] }]);
+ok(!r.error, "upsert varias");
+r = await sb.from("app_documents").select("data").eq("key", "a:1").maybeSingle();
+ok(r.data?.data?.x === 2, "maybeSingle + jsonb");
+r = await sb.from("app_documents").select("key, updated_at").like("key", "a:%").order("key", { ascending: false });
+ok(r.data?.length === 2 && r.data[0].key === "a:2", "like + order");
+r = await sb.from("app_documents").select("key").in("key", ["a:2", "zz"]);
+ok(r.data?.length === 1, "in");
+r = await sb.from("app_documents").select("key").eq("key", "nada").maybeSingle();
+ok(r.data === null && !r.error, "maybeSingle vacío");
+r = await sb.from("app_documents").update({ data: { y: 3 } }).eq("key", "a:1").select("key");
+ok(r.data?.length === 1, "update + select");
+r = await sb.from("app_documents").select("*", { count: "exact", head: true });
+ok(r.count === 2, "count head");
+r = await sb.from("app_documents").delete().eq("key", "a:2");
+ok(!r.error, "delete");
+r = await sb.from("general_seasons").insert({ season: "26/27", data: [1], updated_at: new Date().toISOString() }).select("season");
+ok(r.data?.[0]?.season === "26/27", "insert temporada");
+r = await sb.from("general_seasons").select("data, updated_at").eq("season", "26/27").order("updated_at", { ascending: false }).limit(1).maybeSingle();
+ok(Array.isArray(r.data?.data), "temporada última");
+r = await sb.from("general_seasons").update({ data: [2] }).eq("season", "26/27").is("updated_at", null).select("season");
+ok(r.data?.length === 0, "is null");
+r = await sb.from("rara").select("*");
+ok(!!r.error, "tabla desconocida = error, no excepción");
+const { data } = sb.storage.from("performance").getPublicUrl("2026/x y.pdf");
+ok(data.publicUrl.endsWith("/api/video/2026/x%20y.pdf"), "getPublicUrl");
+await conexion().end();
+await servidor.stop();
+await db.close();

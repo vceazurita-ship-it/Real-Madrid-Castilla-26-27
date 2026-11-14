@@ -486,7 +486,7 @@ async function publica(informe) {
   };
 
   try {
-    const { createClient } = await import("@supabase/supabase-js");
+    const { createClient } = (await import(new URL("../lib/datos/cliente.cjs", import.meta.url).href)).default; /* con reserva */
 
     const env = { ...process.env };
 

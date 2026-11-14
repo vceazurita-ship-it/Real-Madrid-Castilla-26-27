@@ -23,7 +23,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@/lib/datos/cliente";
 
 import { barreAdjuntos, hayHueco } from "@/lib/almacen/ocupacion";
 import { ADJUNTOS_PERMITIDOS, MAX_ADJUNTOS, puedeMandar } from "@/lib/correo/peticionInforme";

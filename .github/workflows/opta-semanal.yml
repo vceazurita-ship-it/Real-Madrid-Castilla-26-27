@@ -41,6 +41,8 @@ jobs:
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      # Reserva de lib/datos/cliente.cjs: vacío = Supabase; con valor = Postgres propio (14/11/2026).
+      DATOS_PG_URL: ${{ secrets.DATOS_PG_URL }}
     steps:
       - uses: actions/checkout@v4
 
@@ -54,7 +56,7 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/dep" && cd "$RUNNER_TEMP/dep"
           npm init -y > /dev/null
-          npm install --no-audit --no-fund --ignore-scripts @supabase/supabase-js@2 > /dev/null
+          npm install --no-audit --no-fund --ignore-scripts @supabase/supabase-js@2 postgres@3.4.5 > /dev/null
           ln -s "$RUNNER_TEMP/dep/node_modules" "$GITHUB_WORKSPACE/node_modules"
 
       - name: En marcha (Ajustes)

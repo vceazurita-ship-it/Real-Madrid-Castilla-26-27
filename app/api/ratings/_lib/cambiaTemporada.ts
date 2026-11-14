@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@/lib/datos/cliente";
 
 import { readSeason, writeSeason } from "@/lib/ratings/store";
 import { RATINGS_SEASON, RatingsSeason } from "@/lib/ratings/types";

@@ -21,7 +21,8 @@
  * Si sólo al acabar, el índice lo dirá («sin datos en juego») y el proceso
  * acaba solo en cuanto el partido aparece completo.
  */
-import { createClient } from "@supabase/supabase-js";
+import { createRequire as crearRequireDatos } from "node:module";
+const { createClient } = crearRequireDatos(import.meta.url)("../lib/datos/cliente.cjs"); /* con reserva: lib/datos/cliente.cjs */
 
 const SITIO = "https://realmadrid.opta.trumediasports.com";
 const LIGA = "Primera División RFEF";

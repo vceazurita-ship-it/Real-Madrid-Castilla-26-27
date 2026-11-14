@@ -24,7 +24,7 @@ import { createRequire } from "node:module";
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const require = createRequire(import.meta.url);
-const { createClient } = require(path.join(RAIZ, "node_modules", "@supabase", "supabase-js"));
+const { createClient } = require(path.join(RAIZ, "lib", "datos", "cliente.cjs")); /* con reserva */
 require(path.join(RAIZ, "node_modules", "dotenv")).config({ path: path.join(RAIZ, ".env.local"), quiet: true });
 
 const ABP_OF = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub?gid=675048698&single=true&output=csv";

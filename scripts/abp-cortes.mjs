@@ -33,7 +33,7 @@ require("./cargador-ts.cjs");
 const REPO = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const { publicada } = require("./partido/comun.cjs");
 const { entorno, salir } = require("./supabase-local.cjs");
-const { createClient } = require("@supabase/supabase-js");
+const { createClient } = require("../lib/datos/cliente.cjs"); /* con reserva: lib/datos/cliente.cjs */
 const { filasAbpDelPartido, momentosAbpDeHudl, casaConHudl, minutoDeJuego, clavesEnOrden, esGolDeLaAccion, DOC_CORTES_ABP } = require("../lib/abp/cortes-abp.ts");
 import { subeAlmacen, urlAlmacen, listaAlmacen } from "./almacen.cjs";
 

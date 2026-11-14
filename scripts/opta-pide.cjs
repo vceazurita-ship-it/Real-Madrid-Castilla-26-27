@@ -8,7 +8,7 @@
  */
 const fs = require("fs");
 const path = require("path");
-const { createClient } = require("@supabase/supabase-js");
+const { createClient } = require("../lib/datos/cliente.cjs"); /* con reserva: lib/datos/cliente.cjs */
 
 const RAIZ = path.join(__dirname, "..");
 const env = Object.fromEntries(

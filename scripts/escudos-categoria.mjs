@@ -21,7 +21,7 @@ import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
 const { entorno } = require("./supabase-local.cjs");
-const { createClient } = require("@supabase/supabase-js");
+const { createClient } = require("../lib/datos/cliente.cjs"); /* con reserva: lib/datos/cliente.cjs */
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36";
 const GRUPOS = [1, 2];

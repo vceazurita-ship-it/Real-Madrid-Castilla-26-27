@@ -31,7 +31,7 @@ import { fileURLToPath } from "node:url";
 
 const require = createRequire(import.meta.url);
 const { entorno, salir } = require("../supabase-local.cjs");
-const { createClient } = require("@supabase/supabase-js");
+const { createClient } = require("../../lib/datos/cliente.cjs"); /* con reserva: lib/datos/cliente.cjs */
 const { AQUI } = require("./transiciones-comun.cjs");
 import { subeAlmacen, urlAlmacen, listaAlmacen } from "../almacen.cjs";
 

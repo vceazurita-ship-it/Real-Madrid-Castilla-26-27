@@ -117,7 +117,7 @@ function git(...args) {
   }
 
   try {
-    const { createClient } = require(path.join(REPO, "node_modules", "@supabase", "supabase-js"));
+    const { createClient } = require(path.join(REPO, "lib", "datos", "cliente.cjs")); /* con reserva */
 
     const { entorno } = require(path.join(REPO, "scripts", "supabase-local.cjs"));
 

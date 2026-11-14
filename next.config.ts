@@ -32,7 +32,7 @@ const nextConfig: NextConfig = {
   /* En Render (512 MB) el repaso de tipos del build se queda sin memoria; los
      tipos ya los comprueba el CI de GitHub en cada push. */
   typescript: { ignoreBuildErrors: Boolean(process.env.RENDER) || process.env.SIN_TIPOS_EN_BUILD === "1" },
-  serverExternalPackages: ["ffmpeg-static", "ffprobe-static"],
+  serverExternalPackages: ["ffmpeg-static", "ffprobe-static", "postgres"],
 
   /*
   | Las funciones no se llevan dentro ni las fotos ni los vídeos.

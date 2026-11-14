@@ -670,7 +670,7 @@ async function ponCortes(lista) {
 
   if (!env || !lista.length) return;
 
-  const { createClient } = require("@supabase/supabase-js");
+  const { createClient } = require("../lib/datos/cliente.cjs"); /* con reserva: lib/datos/cliente.cjs */
   const supabase = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
   const ya = await nombresEnBucket(supabase, BUCKET, CARPETA_CORTES).catch((error) => {
     console.log(`Cortes: ${error.message}`);

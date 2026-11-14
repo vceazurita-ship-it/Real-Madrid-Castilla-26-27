@@ -22,7 +22,7 @@ const require = createRequire(import.meta.url);
 require("./cargador-ts.cjs");
 
 const { entorno, salir } = require("./supabase-local.cjs");
-const { createClient } = require("@supabase/supabase-js");
+const { createClient } = require("../lib/datos/cliente.cjs"); /* con reserva: lib/datos/cliente.cjs */
 const { aprendePosiciones, sitioEnPalabras } = require("../lib/sesion-equipos/aprendizaje.ts");
 const { demarcacionCercana, demarcacion } = require("../lib/sesion-equipos/demarcacion.ts");
 

@@ -19,7 +19,7 @@ const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 require(path.join(RAIZ, "scripts/cargador-ts.cjs"));
 
-const { createClient } = require(path.join(RAIZ, "node_modules/@supabase/supabase-js"));
+const { createClient } = require(path.join(RAIZ, "lib/datos/cliente.cjs")); /* con reserva */
 const { entorno } = require(path.join(RAIZ, "scripts/supabase-local.cjs"));
 const { analisisKey, clipsKey, normalizaAnalisis, normalizaClips, ANALISIS_KIND } = require(path.join(RAIZ, "lib/rivals/analisis.ts"));
 const { importaPdfAnalisis } = require(path.join(RAIZ, "lib/rivals/importa-pdf.ts"));

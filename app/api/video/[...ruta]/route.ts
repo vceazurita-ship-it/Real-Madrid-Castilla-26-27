@@ -17,7 +17,8 @@
 
 export const dynamic = "force-dynamic";
 
-const VIDEO = /\.(mp4|mov|webm|m4v)$/i;
+/* 14/11/2026: también PDF, imágenes y presentaciones, por si los ficheros van a la reserva (lib/datos/cliente.cjs). */
+const VIDEO = /\.(mp4|mov|webm|m4v|pdf|png|jpe?g|webp|gif|svg|pptx?|docx?|xlsx?|csv|json|txt|zip)$/i;
 const VALE_SEGUNDOS = 24 * 3600;
 const RENUEVA_MS = 20 * 3600 * 1000;
 

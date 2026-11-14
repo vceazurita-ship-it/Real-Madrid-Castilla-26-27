@@ -40,7 +40,7 @@ const require = createRequire(import.meta.url);
 require("./cargador-ts.cjs");
 
 const { entorno, salir } = require("./supabase-local.cjs");
-const { createClient } = require("@supabase/supabase-js");
+const { createClient } = require("../lib/datos/cliente.cjs"); /* con reserva: lib/datos/cliente.cjs */
 const { leeTimeline, publicada } = require("./partido/comun.cjs");
 const { mismoEquipo: mismoNombre } = require("../lib/data-analisis/nombres.ts");
 const { mismoClub } = require("../lib/rivals/mismoClub.ts");

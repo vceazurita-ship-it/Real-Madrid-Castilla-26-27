@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@/lib/datos/cliente";
 import { after, NextResponse } from "next/server";
 
 import { dameAcceso, dameEstadisticas, dameListas, dameVideosDeLista, leeAjustes, vaciaPendientesLista } from "@/lib/coding/youtube";

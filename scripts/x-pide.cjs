@@ -8,7 +8,7 @@
  * medias). Igual que scripts/opta-pide.cjs.
  */
 const path = require("path");
-const { createClient } = require("@supabase/supabase-js");
+const { createClient } = require("../lib/datos/cliente.cjs"); /* con reserva: lib/datos/cliente.cjs */
 
 const { entorno } = require(path.join(__dirname, "supabase-local.cjs"));
 

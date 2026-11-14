@@ -43,16 +43,21 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      # Sólo hace falta supabase-js: se instala aparte, sin el árbol entero de la web.
+      # Sólo supabase-js y postgres, aparte (sin el árbol entero de la web) y
+      # enlazados como node_modules del repo: el script carga
+      # lib/datos/cliente.cjs (con reserva, 14/11/2026) desde el repo.
       - run: |
-          mkdir -p "$RUNNER_TEMP/opta" && cp scripts/opta-directo.mjs "$RUNNER_TEMP/opta/"
-          cd "$RUNNER_TEMP/opta" && npm init -y > /dev/null && npm install --no-audit --no-fund --ignore-scripts @supabase/supabase-js > /dev/null
-      - run: node "$RUNNER_TEMP/opta/opta-directo.mjs"
+          mkdir -p "$RUNNER_TEMP/dep" && cd "$RUNNER_TEMP/dep" && npm init -y > /dev/null
+          npm install --no-audit --no-fund --ignore-scripts @supabase/supabase-js@2 postgres@3.4.5 > /dev/null
+          ln -s "$RUNNER_TEMP/dep/node_modules" "$GITHUB_WORKSPACE/node_modules"
+      - run: node scripts/opta-directo.mjs
         env:
           OPTA_USUARIO: ${{ secrets.OPTA_USUARIO }}
           OPTA_CLAVE: ${{ secrets.OPTA_CLAVE }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # Reserva: vacío = Supabase; con valor = Postgres propio.
+          DATOS_PG_URL: ${{ secrets.DATOS_PG_URL }}
           DURACION_MIN: ${{ inputs.duracion }}
           INTERVALO_S: ${{ inputs.intervalo }}
           PARTIDO: ${{ inputs.partido }}

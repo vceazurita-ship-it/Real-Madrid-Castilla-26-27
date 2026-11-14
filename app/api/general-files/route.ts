@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@/lib/datos/cliente";
 import { SEASON_FIRST_DAY, SEASON_LAST_DAY, dateKey } from "@/lib/calendar";
 import { MonthData } from "@/lib/season/types";
 import { parseWeekDate, weekRangeLabel } from "@/lib/season/utils";

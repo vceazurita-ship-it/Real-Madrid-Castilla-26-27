@@ -33,7 +33,7 @@ import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
 const { entorno } = require("./supabase-local.cjs");
-const { createClient } = require("@supabase/supabase-js");
+const { createClient } = require("../lib/datos/cliente.cjs"); /* con reserva: lib/datos/cliente.cjs */
 
 const HACER = process.argv.includes("--hacer");
 const ALIGERAR = process.argv.includes("--aligerar");

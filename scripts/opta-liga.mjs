@@ -41,7 +41,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
-import { createClient } from "@supabase/supabase-js";
+import { createRequire as crearRequireDatos } from "node:module";
+const { createClient } = crearRequireDatos(import.meta.url)("../lib/datos/cliente.cjs"); /* con reserva: lib/datos/cliente.cjs */
 
 const RAIZ = process.cwd();
 const CACHE = path.join(RAIZ, ".cache", "opta");

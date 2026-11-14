@@ -43,7 +43,7 @@ export function supabase() {
 
   if (!env) throw new Error("Faltan NEXT_PUBLIC_SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY en .env.local.");
 
-  const { createClient } = require(path.join(RAIZ, "node_modules/@supabase/supabase-js"));
+  const { createClient } = require(path.join(RAIZ, "lib/datos/cliente.cjs")); /* con reserva */
 
   cliente = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 

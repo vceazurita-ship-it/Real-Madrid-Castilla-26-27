@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@/lib/datos/cliente";
 import { NextRequest, NextResponse } from "next/server";
 
 import { COOKIE_ADMIN, esAdmin } from "@/lib/admin/sesion";

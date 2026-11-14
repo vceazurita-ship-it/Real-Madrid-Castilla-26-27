@@ -33,7 +33,7 @@ const RAIZ = path.join(__dirname, "..");
 
 require(path.join(RAIZ, "scripts/cargador-ts.cjs"));
 
-const { createClient } = require(path.join(RAIZ, "node_modules/@supabase/supabase-js"));
+const { createClient } = require(path.join(RAIZ, "lib/datos/cliente.cjs")); /* con reserva */
 
 const { traeResultados } = require(path.join(RAIZ, "lib/quiniela/besoccer.ts"));
 const { CALENDARIO } = require(path.join(RAIZ, "lib/quiniela/calendario.ts"));

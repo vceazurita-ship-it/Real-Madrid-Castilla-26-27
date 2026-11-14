@@ -29,6 +29,7 @@
     "openai": "^6.42.0",
     "papaparse": "^5.5.3",
     "pdfjs-dist": "^6.2.108",
+    "postgres": "^3.4.5",
     "powerbi-client": "^2.23.10",
     "qrcode-generator": "^1.4.4",
     "radix-ui": "^1.4.3",

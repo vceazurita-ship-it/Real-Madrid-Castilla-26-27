@@ -41,7 +41,7 @@ require("../cargador-ts.cjs");
 
 const { REPO, leePartido, publicada } = require("./comun.cjs");
 const { entorno } = require("../supabase-local.cjs");
-const { createClient } = require("@supabase/supabase-js");
+const { createClient } = require("../../lib/datos/cliente.cjs"); /* con reserva: lib/datos/cliente.cjs */
 const { GoogleGenAI } = require("@google/genai");
 const { createCanvas, GlobalFonts } = require("@napi-rs/canvas");
 const { Worker } = require("worker_threads");

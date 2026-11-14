@@ -31,7 +31,7 @@ const require = createRequire(import.meta.url);
 require("./cargador-ts.cjs");
 
 const { entorno, salir } = require("./supabase-local.cjs");
-const { createClient } = require("@supabase/supabase-js");
+const { createClient } = require("../lib/datos/cliente.cjs"); /* con reserva: lib/datos/cliente.cjs */
 const { publicada, reloj } = require("./partido/comun.cjs");
 const { partidosHudl, partidoDeJornada, saquesHudl, casaSaques, mismoJugador, minutoDeHoja, nombresEnBucket } = require("./partido/faltas-banda.cjs");
 

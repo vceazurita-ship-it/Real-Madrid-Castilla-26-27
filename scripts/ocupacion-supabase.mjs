@@ -15,7 +15,7 @@ import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
 const { entorno } = require("./supabase-local.cjs");
-const { createClient } = require("@supabase/supabase-js");
+const { createClient } = require("../lib/datos/cliente.cjs"); /* con reserva: lib/datos/cliente.cjs */
 
 const BUCKET = "performance";
 const TOPE_FICHEROS_MB = 1024;

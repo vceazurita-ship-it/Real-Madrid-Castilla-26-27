@@ -100,18 +100,30 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+          # Reserva de lib/datos/cliente.cjs: vacío = Supabase; con valor = Postgres propio (14/11/2026).
+
+          DATOS_PG_URL: ${{ secrets.DATOS_PG_URL }}
         run: node scripts/rivals-informe.mjs ${{ inputs.refrescar && '--refrescar' || '' }}
 
       - name: Estadísticas de los jugadores rivales
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+          # Reserva de lib/datos/cliente.cjs: vacío = Supabase; con valor = Postgres propio (14/11/2026).
+
+          DATOS_PG_URL: ${{ secrets.DATOS_PG_URL }}
         run: node scripts/rivals-stats.mjs ${{ inputs.refrescar && '--refrescar' || '' }}
 
       - name: Nuestra plantilla en BeSoccer
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+          # Reserva de lib/datos/cliente.cjs: vacío = Supabase; con valor = Postgres propio (14/11/2026).
+
+          DATOS_PG_URL: ${{ secrets.DATOS_PG_URL }}
         run: node scripts/castilla-besoccer.mjs ${{ inputs.refrescar && '--refrescar' || '' }}
 
       - name: Qué ha quedado

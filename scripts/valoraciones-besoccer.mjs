@@ -28,7 +28,8 @@
 import fs from "node:fs";
 import { execFileSync } from "node:child_process";
 
-import { createClient } from "@supabase/supabase-js";
+import { createRequire as crearRequireDatos } from "node:module";
+const { createClient } = crearRequireDatos(import.meta.url)("../lib/datos/cliente.cjs"); /* con reserva: lib/datos/cliente.cjs */
 import Papa from "papaparse";
 
 import { leeAlineacion, leeCambios, leeGoles, leePartidos, leeSuplentes, leeTarjetas } from "./rivals-informe.mjs";

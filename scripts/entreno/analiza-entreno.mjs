@@ -26,7 +26,7 @@ import { abreHudl, cabecerasPara, espera } from "../hudl-chrome.mjs";
 
 const require = createRequire(import.meta.url);
 const { entorno } = require("../supabase-local.cjs");
-const { createClient } = require("@supabase/supabase-js");
+const { createClient } = require("../../lib/datos/cliente.cjs"); /* con reserva: lib/datos/cliente.cjs */
 const { GoogleGenAI, MediaResolution, createPartFromUri } = require("@google/genai");
 import { subeAlmacen, urlAlmacen, listaAlmacen, borraAlmacen } from "../almacen.cjs";
 
