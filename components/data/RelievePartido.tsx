@@ -505,7 +505,19 @@ export function RelievePartido({
   if (ev.length < 20) return null;
   return (
     <div className="group relative mx-auto overflow-hidden rounded-2xl" style={{ background: "#05050a", maxWidth: compacto ? undefined : "min(100%, calc((100vh - 170px) * 1.4))" }}>
-      <canvas ref={lienzo} className="block h-auto w-full" style={{ aspectRatio: compacto ? "480 / 270" : "1000 / 560" }} role="img" aria-label={`Retrato 3D del partido ${a.nombre} - ${b.nombre}, animado`} />
+      {/* El lienzo con su tira de ocasión pegada abajo (móvil y tablet): no tapa marcador ni campo. */}
+      <div className="relative">
+        <canvas ref={lienzo} className="block h-auto w-full" style={{ aspectRatio: compacto ? "480 / 270" : "1000 / 560" }} role="img" aria-label={`Retrato 3D del partido ${a.nombre} - ${b.nombre}, animado`} />
+        {aviso && !compacto && minuto - aviso.minuto < 4 && (
+          <p
+            key={`tira-${aviso.minuto}-${aviso.jugadorId}`}
+            className="pointer-events-none absolute bottom-2 left-2 right-2 truncate rounded-md px-2 py-1 text-xs font-bold sm:text-sm lg:hidden"
+            style={{ background: "rgba(10,12,22,0.7)", color: "#FFFFFF", borderLeft: `3px solid ${css(aviso.deA ? colA : colB)}`, animation: "rmcfAviso 3.2s ease-out forwards" }}
+          >
+            <span style={{ color: css(aviso.deA ? colA : colB) }}>{aviso.gol ? "GOL" : aviso.xg >= 0.25 ? "OCASIÓN CLARA" : "OCASIÓN"} {aviso.minuto}′</span> · {nombre(aviso.jugadorId) || (aviso.deA ? a.nombre : b.nombre)} · xG {aviso.xg.toFixed(2).replace(".", ",")}
+          </p>
+        )}
+      </div>
       {!compacto && (
         <div className="pointer-events-none absolute bottom-[calc(150px*var(--k,1)+12px)] right-4 hidden w-[400px] rounded-xl px-3 py-2 text-xs lg:block" style={{ background: "rgba(8,10,20,0.82)", color: "rgba(255,255,255,0.85)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.1)", bottom: "calc(min(15vw, 150px) + 14px)" }}>
           <p className="flex justify-between font-semibold">
@@ -603,15 +615,6 @@ export function RelievePartido({
           {parte}
         </p>
       </div>
-      {aviso && !compacto && minuto - aviso.minuto < 4 && (
-        <p
-          key={`tira-${aviso.minuto}-${aviso.jugadorId}`}
-          className="pointer-events-none absolute left-2 right-2 top-[64px] truncate rounded-md px-2 py-0.5 text-xs font-bold sm:top-[84px] lg:hidden"
-          style={{ background: "rgba(10,12,22,0.7)", color: "#FFFFFF", borderLeft: `3px solid ${css(aviso.deA ? colA : colB)}`, animation: "rmcfAviso 3.2s ease-out forwards" }}
-        >
-          <span style={{ color: css(aviso.deA ? colA : colB) }}>{aviso.gol ? "GOL" : aviso.xg >= 0.25 ? "OCASIÓN CLARA" : "OCASIÓN"} {aviso.minuto}′</span> · {nombre(aviso.jugadorId) || (aviso.deA ? a.nombre : b.nombre)} · xG {aviso.xg.toFixed(2).replace(".", ",")}
-        </p>
-      )}
       {aviso && !compacto && minuto - aviso.minuto < 4 && (
         <div
           key={`${aviso.minuto}-${aviso.jugadorId}`}
