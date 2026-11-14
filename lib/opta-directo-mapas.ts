@@ -93,7 +93,7 @@ export function leeEventos(t: TablaOpta | null | undefined): EventoDirecto[] {
 }
 
 /** Erratas de Opta en los nombres (sólo al pintar; el dato no se toca). */
-const ERRATAS: [RegExp, string][] = [[/Ávaro/g, "Álvaro"]];
+const ERRATAS: [RegExp, string][] = [[/Ávaro/g, "Álvaro"]];
 export const corrigeNombre = (n: string) => ERRATAS.reduce((t, [re, bien]) => t.replace(re, bien), n);
 
 export function leeJugadores(t: TablaOpta | null | undefined): JugadorDirecto[] {
