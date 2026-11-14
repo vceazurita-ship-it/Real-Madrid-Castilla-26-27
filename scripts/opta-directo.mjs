@@ -128,16 +128,35 @@ function guardaGalletas(r) {
 let pagina = null;
 async function enChrome(ruta, init) {
   if (!pagina) {
+    /* 14/11/2026: una pestaña de Opta dormida (descartada por Chrome) no contesta, la promesa
+       se quedaba colgada y Node salía sin decir nada. Ahora se prueba cada pestaña con «1» y
+       un tope de 10 s, y cada consulta tiene un tope de 4 min (error, no silencio). */
     const lista = await (await fetch(`http://127.0.0.1:${PUERTO_CHROME}/json/list`)).json();
-    const p = lista.find((t) => t.type === "page" && t.url.includes("trumedia"));
-    if (!p) throw new Error("No hay pestaña de Opta en el Chrome del club (puerto 9335).");
-    const ws = new WebSocket(p.webSocketDebuggerUrl);
-    await new Promise((ok, mal) => { ws.onopen = ok; ws.onerror = mal; });
-    let n = 0;
-    const pendientes = new Map();
-    ws.onmessage = (m) => { const d = JSON.parse(m.data); pendientes.get(d.id)?.(d); pendientes.delete(d.id); };
-    pagina = (expr) => new Promise((ok) => { const i = ++n; pendientes.set(i, ok); ws.send(JSON.stringify({ id: i, method: "Runtime.evaluate", params: { expression: expr, awaitPromise: true, returnByValue: true } })); });
-    pagina.cierra = () => ws.close();
+    const candidatas = lista.filter((t) => t.type === "page" && t.url.includes("trumedia")).reverse();
+    if (!candidatas.length) throw new Error("No hay pestaña de Opta en el Chrome del club (puerto 9335).");
+    for (const p of candidatas) {
+      const ws = new WebSocket(p.webSocketDebuggerUrl);
+      try {
+        await new Promise((ok, mal) => { ws.onopen = ok; ws.onerror = mal; setTimeout(() => mal(new Error("sin conexión")), 10_000); });
+      } catch {
+        continue;
+      }
+      let n = 0;
+      const pendientes = new Map();
+      ws.onmessage = (m) => { const d = JSON.parse(m.data); pendientes.get(d.id)?.(d); pendientes.delete(d.id); };
+      const evalua = (expr, tope) => new Promise((ok, mal) => {
+        const i = ++n;
+        const t = setTimeout(() => { pendientes.delete(i); mal(new Error(`la pestaña de Opta no contesta en ${tope / 1000} s`)); }, tope);
+        pendientes.set(i, (d) => { clearTimeout(t); ok(d); });
+        ws.send(JSON.stringify({ id: i, method: "Runtime.evaluate", params: { expression: expr, awaitPromise: true, returnByValue: true } }));
+      });
+      const vive = await evalua("1", 10_000).then(() => true, () => false);
+      if (!vive) { ws.close(); continue; }
+      pagina = (expr) => evalua(expr, 240_000);
+      pagina.cierra = () => ws.close();
+      break;
+    }
+    if (!pagina) throw new Error("Ninguna pestaña de Opta del Chrome del club contesta (puerto 9335).");
   }
   const d = await pagina(`fetch(${JSON.stringify(ruta)}, ${JSON.stringify({ method: init.method ?? "GET", headers: init.headers ?? {}, body: init.body })}).then(async (r) => [r.status, r.headers.get("content-type") || "", await r.text()])`);
   const [status, tipo, texto] = d.result?.result?.value ?? [0, "", ""];
