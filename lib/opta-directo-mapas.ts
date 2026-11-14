@@ -37,7 +37,12 @@ export type EventoDirecto = {
   ok: boolean;
   xG: number | null;
   xPV: number;
+  /** "banda" o "puerta" si el pase es un saque (Opta no los cuenta en «pases intentados»). */
+  saque: string;
 };
+
+/** Pase en juego: sin saques de banda ni de puerta (así cuadra con «pases intentados» de Opta). */
+export const esPaseEnJuego = (e: EventoDirecto) => e.tipo === "Pass" && !e.saque;
 
 export type JugadorDirecto = {
   id: string;
@@ -59,7 +64,7 @@ const TIROS = new Set(["Goal", "Miss", "AttemptSaved", "Post"]);
 export function leeEventos(t: TablaOpta | null | undefined): EventoDirecto[] {
   if (!t?.cols?.length || !Array.isArray(t.filas)) return [];
   const c = (n: string) => t.cols.indexOf(n);
-  const [iT, iP, iS, iTi, iJ, iR, iX, iY, iFx, iFy, iOk, iXg, iXpv] = ["teamId", "parte", "segundo", "tipo", "jugadorId", "receptorId", "x", "y", "finX", "finY", "ok", "xG", "xPV"].map(c);
+  const [iT, iP, iS, iTi, iJ, iR, iX, iY, iFx, iFy, iOk, iXg, iXpv, iSa] = ["teamId", "parte", "segundo", "tipo", "jugadorId", "receptorId", "x", "y", "finX", "finY", "ok", "xG", "xPV", "saque"].map(c);
   const salida: EventoDirecto[] = [];
   for (const f of t.filas) {
     const x = num(f[iX]);
@@ -81,6 +86,7 @@ export function leeEventos(t: TablaOpta | null | undefined): EventoDirecto[] {
       ok: num(f[iOk]) === 1,
       xG: num(f[iXg]),
       xPV: num(f[iXpv]) ?? 0,
+      saque: iSa >= 0 ? String(f[iSa] ?? "") : "",
     });
   }
   return salida;
@@ -210,7 +216,7 @@ export function redPases(ev: EventoDirecto[], teamId: string): { nodos: Nodo[]; 
   const enlaces = new Map<string, Enlace>();
   let pases = 0;
   for (const e of ev) {
-    if (e.teamId !== teamId || e.tipo !== "Pass" || e.finX == null || e.finY == null) continue;
+    if (e.teamId !== teamId || !esPaseEnJuego(e) || e.finX == null || e.finY == null) continue;
     pases++;
     suma(e.jugadorId, e.x, e.y, true);
     if (!e.ok || !e.receptorId || e.receptorId === e.jugadorId) continue;
@@ -230,12 +236,29 @@ export function redPases(ev: EventoDirecto[], teamId: string): { nodos: Nodo[]; 
 
 /* ------------------------------ remates ------------------------------ */
 
-export type Tiro = EventoDirecto & { gol: boolean; aPuerta: boolean };
+export type Tiro = EventoDirecto & { gol: boolean; aPuerta: boolean; origen: EventoDirecto | null };
 
+/**
+ * Los remates, cada uno con su origen: el último pase completado de su
+ * equipo en los 12 segundos de antes (en la misma parte), si lo hay.
+ * `ev` en orden de partido.
+ */
 export function tiros(ev: EventoDirecto[]): Tiro[] {
-  return ev
-    .filter((e) => TIROS.has(e.tipo))
-    .map((e) => ({ ...e, gol: e.tipo === "Goal", aPuerta: e.tipo === "Goal" || e.tipo === "AttemptSaved" }));
+  const salida: Tiro[] = [];
+  ev.forEach((e, i) => {
+    if (!TIROS.has(e.tipo)) return;
+    let origen: EventoDirecto | null = null;
+    for (let k = i - 1; k >= 0 && k >= i - 40; k--) {
+      const o = ev[k];
+      if (o.parte !== e.parte || e.segundo - o.segundo > 12) break;
+      if (o.teamId === e.teamId && o.tipo === "Pass" && o.ok && o.finX != null) {
+        origen = o;
+        break;
+      }
+    }
+    salida.push({ ...e, gol: e.tipo === "Goal", aPuerta: e.tipo === "Goal" || e.tipo === "AttemptSaved", origen });
+  });
+  return salida;
 }
 
 /** xG acumulado de cada equipo, minuto a minuto (0 … último). */
@@ -260,16 +283,35 @@ export const pierde = (e: EventoDirecto) => esPerdida(comoAccion(e));
 export const progresa = (e: EventoDirecto) => esProgresivo(comoAccion(e));
 export const alUltimoTercio = (e: EventoDirecto) => e.tipo === "Pass" && e.ok && e.finX != null && e.x < 66.7 && e.finX >= 66.7;
 
+/** Pérdida que acaba en remate del rival en menos de 15 segundos (misma parte). */
+function peligrosas(ev: EventoDirecto[], teamId: string): Set<EventoDirecto> {
+  const salida = new Set<EventoDirecto>();
+  ev.forEach((e, i) => {
+    if (e.teamId !== teamId || !pierde(e)) return;
+    for (let k = i + 1; k < ev.length; k++) {
+      const o = ev[k];
+      if (o.parte !== e.parte || o.segundo - e.segundo > 15) break;
+      if (o.teamId !== teamId && TIROS.has(o.tipo)) {
+        salida.add(e);
+        break;
+      }
+    }
+  });
+  return salida;
+}
+
 export function robosYPerdidas(ev: EventoDirecto[], teamId: string) {
   const suyos = ev.filter((e) => e.teamId === teamId);
   const robos = suyos.filter(recupera);
-  const perdidas = suyos.filter(pierde);
+  /* Pérdidas en juego: un saque de banda o de puerta largo que no llega no es perder el balón jugando. */
+  const perdidas = suyos.filter((e) => pierde(e) && !e.saque);
+  const caras = peligrosas(ev, teamId);
   const cuenta = (l: EventoDirecto[]) => {
     const c: Record<Altura3, number> = { alta: 0, media: 0, baja: 0 };
     for (const e of l) c[alturaAccion(e.x)]++;
     return c;
   };
-  return { robos, perdidas, alturaRobos: cuenta(robos), alturaPerdidas: cuenta(perdidas) };
+  return { robos, perdidas, caras: perdidas.filter((e) => caras.has(e)), alturaRobos: cuenta(robos), alturaPerdidas: cuenta(perdidas) };
 }
 
 /* ------------------------------ jugadores ------------------------------ */
@@ -289,7 +331,19 @@ export type Rendimiento = {
   duelosGanados: number;
   /** Suma del xPV añadido de sus acciones (cuánto acerca el balón al gol). */
   xPV: number;
+  /** Minutos en el campo dentro del tramo (aprox.: de su primera a su última acción, o sus minutos si es el partido). */
+  enCampo: number;
 };
+
+/** xPV por 90 minutos en el campo. */
+export const xpv90 = (r: Rendimiento) => (r.xPV / r.enCampo) * 90;
+
+function minutosEn(l: EventoDirecto[], minutosPartido: number): number {
+  if (!l.length) return 0;
+  const a = Math.min(...l.map((e) => e.segundo));
+  const b = Math.max(...l.map((e) => e.segundo));
+  return Math.min(minutosPartido || 999, Math.max(5, (b - a) / 60 + 3));
+}
 
 const DUELO = new Set(["Aerial", "TakeOn", "Tackle", "Challenge", "AttemptedTackle"]);
 
@@ -305,7 +359,7 @@ export function rendimientos(ev: EventoDirecto[], jugadores: JugadorDirecto[]): 
     .filter((j) => j.minutos > 0 || por.has(j.id))
     .map((j) => {
       const l = por.get(j.id) ?? [];
-      const pases = l.filter((e) => e.tipo === "Pass");
+      const pases = l.filter(esPaseEnJuego);
       const duelos = l.filter((e) => DUELO.has(e.tipo));
       return {
         jugador: j,
@@ -321,6 +375,31 @@ export function rendimientos(ev: EventoDirecto[], jugadores: JugadorDirecto[]): 
         duelos: duelos.length,
         duelosGanados: duelos.filter((e) => e.ok).length,
         xPV: l.reduce((s, e) => s + e.xPV, 0),
+        enCampo: Math.max(1, minutosEn(l, j.minutos)),
       };
     });
+}
+
+/* ------------------------------ las dos partes ------------------------------ */
+
+export type Parte = { territorio: number | null; xg: number; tercio: number; toques: number };
+
+/** Lo de cada parte para un equipo, para compararlas en una línea. */
+export function porPartes(ev: EventoDirecto[], a: string, b: string): Record<1 | 2, { a: Parte; b: Parte }> {
+  const una = (p: 1 | 2) => {
+    const l = ev.filter((e) => e.parte === p);
+    const t = territorio(l, a, b);
+    const de = (id: string): Parte => {
+      const m = l.filter((e) => e.teamId === id);
+      const toques = m.filter(esToque);
+      return {
+        territorio: t.pctA == null ? null : id === a ? t.pctA : 1 - t.pctA,
+        xg: m.reduce((s, e) => s + (TIROS.has(e.tipo) ? (e.xG ?? 0) : 0), 0),
+        tercio: toques.length ? toques.filter((e) => e.x >= 66.7).length / toques.length : 0,
+        toques: toques.length,
+      };
+    };
+    return { a: de(a), b: de(b) };
+  };
+  return { 1: una(1), 2: una(2) };
 }

@@ -102,11 +102,13 @@ function limpiaEventos(t, jugadores) {
       f[c("partido")], equipoDe.get(jugador) ?? "", f[c("parte")], f[c("segundo")], tipo, jugador, f[c("receptorId")] || "",
       r1(x), r1(y), conFin ? r1(fx) : null, conFin ? r1(fy) : null, f[c("PsCompleted|EVENT")] === "Yes" ? 1 : 0,
       typeof f[c("xG|EVENT")] === "number" ? Math.round(f[c("xG|EVENT")] * 1000) / 1000 : null, Math.round(xpv * 10000) / 10000,
+      /* Saque de banda o de puerta: Opta no los cuenta en «pases intentados». */
+      f[c("banda")] === true ? "banda" : f[c("puerta")] === true ? "puerta" : "",
     ];
     vistos.set(clave, fila);
     filas.push(fila);
   }
-  return { cols: ["partido", "teamId", "parte", "segundo", "tipo", "jugadorId", "receptorId", "x", "y", "finX", "finY", "ok", "xG", "xPV"], filas };
+  return { cols: ["partido", "teamId", "parte", "segundo", "tipo", "jugadorId", "receptorId", "x", "y", "finX", "finY", "ok", "xG", "xPV", "saque"], filas };
 }
 
 const espera = (ms) => new Promise((ok) => setTimeout(ok, ms));
@@ -271,7 +273,7 @@ async function vuelta(S) {
         S, "player p");
       jugadores = { cols: jugadores.cols, filas: jugadores.filas.filter((f) => ids.includes(f[0])) };
       const crudos = await consulta(
-        `SELECT game.gameId as partido, event.period as parte, event.gameClock as segundo, event.playType as tipo, event.primaryPlayerId AS jugadorId, event.toucherPlayerId AS tocaId, event.receiverPlayerId AS receptorId, [EventX|EVENT],[EventY|EVENT],[PassEndX|EVENT],[PassEndY|EVENT],[PsCompleted|EVENT],[xG|EVENT],[xPVAdded|EVENT] FROM team BY event WHERE game.gameId IN (${ids.map((i) => `'${String(i).replace(/[^a-z0-9]/gi, "")}'`).join(",")}) ORDER BY event.gameEventIndex DEFAULT LIMIT ${ids.length * 6000}`,
+        `SELECT game.gameId as partido, event.period as parte, event.gameClock as segundo, event.playType as tipo, event.primaryPlayerId AS jugadorId, event.toucherPlayerId AS tocaId, event.receiverPlayerId AS receptorId, [EventX|EVENT],[EventY|EVENT],[PassEndX|EVENT],[PassEndY|EVENT],[PsCompleted|EVENT],[xG|EVENT],[xPVAdded|EVENT], event.q107 AS banda, event.q124 AS puerta FROM team BY event WHERE game.gameId IN (${ids.map((i) => `'${String(i).replace(/[^a-z0-9]/gi, "")}'`).join(",")}) ORDER BY event.gameEventIndex DEFAULT LIMIT ${ids.length * 6000}`,
         S, "team t");
       eventos = limpiaEventos(crudos, jugadores);
     } catch (e) {

@@ -19,7 +19,7 @@
  * equipo de la izquierda (`a`) es el de las tarjetas del directo.
  */
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 
 import { CampoOpta, SOBRE_CESPED, type Proyecta } from "@/components/campo/CampoOpta";
 import { ORO, tinta } from "@/components/data/graficas";
@@ -35,6 +35,7 @@ import {
   leeEventos,
   leeJugadores,
   pierde,
+  porPartes,
   porTercios,
   progresa,
   recupera,
@@ -43,6 +44,8 @@ import {
   robosYPerdidas,
   territorio,
   tiros as tirosDe,
+  xpv90,
+  type Tiro,
   type EventoDirecto,
   type JugadorDirecto,
   type Rendimiento,
@@ -101,9 +104,9 @@ function imagenCalor(malla: number[], max: number, rgb: string): string {
   return lienzo.toDataURL();
 }
 
-function Calor({ ev, rgb, etiqueta, maxAlto = 300 }: { ev: EventoDirecto[]; rgb: string; etiqueta: string; maxAlto?: number }) {
+function Calor({ ev, rgb, etiqueta, maxAlto = 300, tope }: { ev: EventoDirecto[]; rgb: string; etiqueta: string; maxAlto?: number; tope?: number }) {
   const { malla, max, toques } = useMemo(() => densidad(ev), [ev]);
-  const href = useMemo(() => imagenCalor(malla, max, rgb), [malla, max, rgb]);
+  const href = useMemo(() => imagenCalor(malla, tope ?? max, rgb), [malla, max, tope, rgb]);
   return (
     <CampoOpta ariaLabel={etiqueta} maxAlto={maxAlto}>
       {(p) => {
@@ -140,6 +143,7 @@ const RGB_B = "255,122,122";
 
 function Red({
   ev,
+  tramo,
   equipo,
   jugadores,
   color,
@@ -147,6 +151,7 @@ function Red({
   alElegir,
 }: {
   ev: EventoDirecto[];
+  tramo: Tramo;
   equipo: Equipo;
   jugadores: Map<string, JugadorDirecto>;
   color: string;
@@ -156,24 +161,31 @@ function Red({
   const red = useMemo(() => redPases(ev, equipo.teamId), [ev, equipo.teamId]);
   /* El once inicial (con los cambios se amontonan los puntos); si Opta aún no dice quién salió de inicio, los 11 que más la mueven. */
   const nodos = useMemo(() => {
+    /* En el partido entero, el once inicial; en un tramo, los once que más la han movido en él (los que están en el campo). */
     const titulares = red.nodos.filter((n) => jugadores.get(n.id)?.titular);
-    const base = titulares.length >= 7 ? titulares : red.nodos;
+    const base = tramo === "todo" && titulares.length >= 7 ? titulares : red.nodos;
     return [...base].sort((a, b) => b.pases + b.recibe - (a.pases + a.recibe)).slice(0, 11);
-  }, [red, jugadores]);
+  }, [red, jugadores, tramo]);
   const dentro = new Set(nodos.map((n) => n.id));
-  const minimo = red.pases > 250 ? 4 : red.pases > 120 ? 3 : 2;
+  const minimo = red.pases > 120 ? 3 : 2;
   const enlaces = red.enlaces.filter((e) => e.n >= minimo && dentro.has(e.a) && dentro.has(e.b));
   const tope = Math.max(1, ...enlaces.map((e) => e.n));
   const topeN = Math.max(1, ...nodos.map((n) => n.pases));
   const sitio = new Map(nodos.map((n) => [n.id, n]));
   const pareja = [...enlaces].sort((a, b) => b.n - a.n)[0];
   const nombre = (id: string) => jugadores.get(id)?.nombre ?? "";
+  const conDorsal = (id: string) => `${jugadores.get(id)?.dorsal ?? ""} ${apellido(nombre(id))}`.trim();
+  /* Etiqueta encima si hay otro nodo justo debajo (no se pisan los nombres). */
+  const arriba = new Set(
+    nodos.filter((n) => nodos.some((m) => m.id !== n.id && Math.abs(m.x - n.x) < 9 && m.y < n.y && n.y - m.y < 12)).map((n) => n.id),
+  );
+  const masPasa = [...nodos].sort((x, y) => y.pases - x.pases)[0];
 
   if (nodos.length < 3) return <p className="text-xs text-white/50">Aún pocos pases para dibujar la red de {equipo.nombre}.</p>;
   return (
     <div className="min-w-0">
       <p className="mb-1 text-sm font-semibold" style={{ color }}>
-        {equipo.nombre} · {red.pases} pases
+        {equipo.nombre} · {red.pases} pases en juego
       </p>
       <CampoOpta ariaLabel={`Red de pases de ${equipo.nombre}`} maxAlto={300}>
         {(p) => (
@@ -210,7 +222,7 @@ function Red({
                   <text x={cx} y={cy + 8} textAnchor="middle" style={{ fill: "#FFFFFF", fontSize: 22, fontWeight: 800, pointerEvents: "none" }}>
                     {j?.dorsal || "·"}
                   </text>
-                  <text x={cx} y={cy + r + 22} textAnchor="middle" style={{ fill: "rgba(255,255,255,0.85)", fontSize: 18, fontWeight: 600, pointerEvents: "none" }}>
+                  <text x={cx} y={arriba.has(n.id) ? cy - r - 10 : cy + r + 22} textAnchor="middle" style={{ fill: "rgba(255,255,255,0.85)", fontSize: 18, fontWeight: 600, pointerEvents: "none" }}>
                     {apellido(j?.nombre ?? "")}
                   </text>
                 </g>
@@ -221,7 +233,8 @@ function Red({
       </CampoOpta>
       {pareja && (
         <p className="mt-1 text-[11px] text-white/60">
-          Pareja que más se asocia: <b className="text-white/85">{apellido(nombre(pareja.a))}</b> – <b className="text-white/85">{apellido(nombre(pareja.b))}</b> ({pareja.n} pases).
+          Pareja que más se asocia: <b className="text-white/85">{conDorsal(pareja.a)}</b> – <b className="text-white/85">{conDorsal(pareja.b)}</b> ({pareja.n} pases, en los dos sentidos)
+          {masPasa ? <>; el que más pasa: <b className="text-white/85">{conDorsal(masPasa.id)}</b> ({masPasa.pases})</> : null}.
         </p>
       )}
     </div>
@@ -230,12 +243,22 @@ function Red({
 
 /* ------------------------------ remates y xG ------------------------------ */
 
-function Remates({ ev, a, b, jugadores }: { ev: EventoDirecto[]; a: Equipo; b: Equipo; jugadores: Map<string, JugadorDirecto> }) {
-  const ts = useMemo(() => tirosDe(ev), [ev]);
+function Remates({ ts, a, b, jugadores }: { ts: Tiro[]; a: Equipo; b: Equipo; jugadores: Map<string, JugadorDirecto> }) {
+  const [sel, setSel] = useState(-1);
+  const t0 = ts[sel] ?? null;
+  const quien = (id: string) => jugadores.get(id)?.nombre ?? "";
   return (
+    <div className="min-w-0">
     <CampoOpta ariaLabel="Remates de los dos equipos" maxAlto={320}>
       {(p) => (
         <>
+          {t0?.origen && (() => {
+            const deA = t0.teamId === a.teamId;
+            const q = (x: number, y: number) => (deA ? p(x, y) : p(100 - x, 100 - y));
+            const [x1, y1] = q(t0.origen.x, t0.origen.y);
+            const [x2, y2] = q(t0.origen.finX ?? t0.origen.x, t0.origen.finY ?? t0.origen.y);
+            return <line x1={x1} y1={y1} x2={x2} y2={y2} style={{ stroke: "#FFFFFF", strokeWidth: 4, strokeDasharray: "10 6" }} />;
+          })()}
           {ts.map((t, i) => {
             const deA = t.teamId === a.teamId;
             /* El de la izquierda ataca a la derecha; el otro, a la izquierda. */
@@ -248,7 +271,8 @@ function Remates({ ev, a, b, jugadores }: { ev: EventoDirecto[]; a: Equipo; b: E
                 cx={cx}
                 cy={cy}
                 r={r}
-                style={{ fill: t.gol ? color : t.aPuerta ? `${color}55` : "transparent", stroke: t.gol ? "#FFFFFF" : color, strokeWidth: t.gol ? 4 : 3, strokeDasharray: t.aPuerta || t.gol ? undefined : "6 5" }}
+                onClick={() => setSel(sel === i ? -1 : i)}
+                style={{ cursor: "pointer", opacity: t0 && sel !== i ? 0.45 : 1, fill: t.gol ? color : t.aPuerta ? `${color}55` : "transparent", stroke: t.gol ? "#FFFFFF" : color, strokeWidth: t.gol ? 4 : 3, strokeDasharray: t.aPuerta || t.gol ? undefined : "6 5" }}
               >
                 <title>{`${t.minuto}′ ${jugadores.get(t.jugadorId)?.nombre ?? ""} (${deA ? a.nombre : b.nombre}): ${t.gol ? "GOL" : t.aPuerta ? "a puerta" : "fuera o tapado"}, xG ${dec(t.xG ?? 0)}`}</title>
               </circle>
@@ -257,11 +281,19 @@ function Remates({ ev, a, b, jugadores }: { ev: EventoDirecto[]; a: Equipo; b: E
         </>
       )}
     </CampoOpta>
+      <p className="mt-1 min-h-[2.5em] text-[11px] text-white/70">
+        {t0
+          ? `${t0.minuto}′ ${quien(t0.jugadorId)} (${t0.teamId === a.teamId ? a.nombre : b.nombre}): ${t0.gol ? "GOL" : t0.aPuerta ? "a puerta" : "fuera o tapado"}, xG ${dec(t0.xG ?? 0)}. ${t0.origen ? `Le llega de ${quien(t0.origen.jugadorId)} desde ${carril(t0.origen.y)} (línea blanca).` : "Sin pase previo: jugada individual, rechace o balón parado directo."}`
+          : "Pincha un remate para ver quién lo tira, su xG y de dónde le llega el pase."}
+      </p>
+    </div>
   );
 }
 
-function CurvaXg({ ev, todos, a, b }: { ev: EventoDirecto[]; todos: EventoDirecto[]; a: Equipo; b: Equipo }) {
-  const ts = useMemo(() => tirosDe(ev), [ev]);
+/** El carril, desde quien ataca (Opta: y = 0 en su banda derecha). */
+const carril = (y: number) => (y < 33.3 ? "la derecha" : y > 66.7 ? "la izquierda" : "el centro");
+
+function CurvaXg({ ts, todos, a, b }: { ts: Tiro[]; todos: EventoDirecto[]; a: Equipo; b: Equipo }) {
   const hasta = useMemo(() => todos.reduce((m, e) => Math.max(m, e.minuto), 0), [todos]);
   const curva = useMemo(() => curvaXg(ts, [a.teamId, b.teamId], hasta), [ts, a.teamId, b.teamId, hasta]);
   const fin = curva[a.teamId].length - 1;
@@ -316,7 +348,7 @@ function RobosPerdidas({ ev, equipo, color }: { ev: EventoDirecto[]; equipo: Equ
   return (
     <div className="min-w-0">
       <p className="mb-1 text-sm font-semibold" style={{ color }}>
-        {equipo.nombre}: {r.robos.length} robos · {r.perdidas.length} pérdidas
+        {equipo.nombre}: {r.robos.length} robos · {r.perdidas.length} pérdidas{r.caras.length ? ` · ${r.caras.length} acaban en remate rival` : ""}
       </p>
       <CampoOpta ariaLabel={`Robos y pérdidas de ${equipo.nombre}`} maxAlto={280}>
         {(p) => (
@@ -328,8 +360,10 @@ function RobosPerdidas({ ev, equipo, color }: { ev: EventoDirecto[]; equipo: Equ
             })}
             {r.perdidas.map((e, i) => {
               const [cx, cy] = p(e.x, e.y);
+              const cara = r.caras.includes(e);
               return (
                 <g key={`p${i}`}>
+                  {cara && <circle cx={cx} cy={cy} r={20} style={{ fill: "none", stroke: "#FFFFFF", strokeWidth: 3 }} />}
                   <line x1={cx - 9} y1={cy - 9} x2={cx + 9} y2={cy + 9} style={{ stroke: "#FF6B6B", strokeWidth: 4 }} />
                   <line x1={cx - 9} y1={cy + 9} x2={cx + 9} y2={cy - 9} style={{ stroke: "#FF6B6B", strokeWidth: 4 }} />
                 </g>
@@ -357,20 +391,22 @@ function RobosPerdidas({ ev, equipo, color }: { ev: EventoDirecto[]; equipo: Equ
 
 const COLUMNAS: { k: string; t: string; v: (r: Rendimiento) => number; f?: (r: Rendimiento) => string; def?: string }[] = [
   { k: "min", t: "Min", v: (r) => r.jugador.minutos },
-  { k: "xpv", t: "Impacto", v: (r) => r.xPV, f: (r) => dec(r.xPV), def: "xPV: cuánto acercan al gol sus acciones con balón (suma)" },
+  { k: "xpv", t: "Impacto/90", v: (r) => xpv90(r), f: (r) => dec(xpv90(r)), def: "xPV por 90 minutos en el campo: cuánto acercan al gol sus acciones con balón" },
   { k: "toques", t: "Toques", v: (r) => r.toques },
   { k: "pases", t: "Pases", v: (r) => r.pases, f: (r) => `${r.pasesOk}/${r.pases}` },
   { k: "prog", t: "Progr.", v: (r) => r.progresivos, def: "Pases que acercan el balón a la portería al menos un 25 %" },
   { k: "tercio", t: "Al 3.º", v: (r) => r.alTercio, def: "Pases completados que entran en el último tercio" },
   { k: "xg", t: "xG", v: (r) => r.xG, f: (r) => (r.tiros ? `${dec(r.xG)} (${r.tiros})` : "–") },
-  { k: "xa", t: "xA", v: (r) => r.jugador.cifras.xA ?? 0, f: (r) => dec(r.jugador.cifras.xA ?? 0) },
+  { k: "xa", t: "xA (part.)", def: "Del partido entero (Opta no lo da por tramo)", v: (r) => r.jugador.cifras.xA ?? 0, f: (r) => dec(r.jugador.cifras.xA ?? 0) },
   { k: "rec", t: "Robos", v: (r) => r.recuperaciones },
   { k: "duel", t: "Duelos", v: (r) => r.duelosGanados, f: (r) => (r.duelos ? `${r.duelosGanados}/${r.duelos}` : "–") },
   { k: "perd", t: "Pérd.", v: (r) => -r.perdidas, f: (r) => String(r.perdidas) },
 ];
 
 function Destacados({ filas, color }: { filas: Rendimiento[]; color: string }) {
-  const top = [...filas].filter((r) => r.toques >= 5).sort((a, b) => b.xPV - a.xPV).slice(0, 3);
+  const validos = filas.filter((r) => r.toques >= 5 && r.enCampo >= 15);
+  const top = [...validos].sort((a, b) => xpv90(b) - xpv90(a)).slice(0, 3);
+  const media = validos.length ? validos.reduce((s, r) => s + xpv90(r), 0) / validos.length : 0;
   if (!top.length) return null;
   return (
     <div className="grid gap-2 sm:grid-cols-3">
@@ -383,7 +419,7 @@ function Destacados({ filas, color }: { filas: Rendimiento[]; color: string }) {
             <span className="tabular-nums text-white/55">{r.jugador.dorsal}</span> {r.jugador.nombre}
           </p>
           <p className="text-[11px] tabular-nums text-white/60">
-            xPV {dec(r.xPV)} · {r.progresivos} progresivos · {r.recuperaciones} robos{r.tiros ? ` · ${r.tiros} remates` : ""}
+            {dec(xpv90(r))} por 90′{media > 0 ? ` (${dec(xpv90(r) / media, 1)} × la media del equipo)` : ""} · {r.progresivos} progresivos · {r.recuperaciones} robos{r.tiros ? ` · ${r.tiros} remates` : ""}
           </p>
         </div>
       ))}
@@ -463,16 +499,16 @@ function FichaJugador({ ev, r, color, rgb, alCerrar }: { ev: EventoDirecto[]; r:
       </div>
       <div className="mb-3 grid grid-cols-3 gap-1.5 text-center sm:grid-cols-6">
         {[
-          ["Impacto xPV", dec(r.xPV)],
+          ["Impacto/90", dec(xpv90(r))],
           ["Pases", `${r.pasesOk}/${r.pases}`],
           ["Progresivos", String(r.progresivos)],
           ["Robos", String(r.recuperaciones)],
           ["Duelos", r.duelos ? `${r.duelosGanados}/${r.duelos}` : "–"],
           ["Pérdidas", String(r.perdidas)],
           ["xG", r.tiros ? `${dec(r.xG)} (${r.tiros})` : "–"],
-          ["xA", dec(c.xA ?? 0)],
-          ["Ocasiones", String(c.Chance ?? 0)],
-          ["En el área", String(c.TouchOpBox ?? 0)],
+          ["xA (partido)", dec(c.xA ?? 0)],
+          ["Ocasiones (partido)", String(c.Chance ?? 0)],
+          ["En el área (partido)", String(c.TouchOpBox ?? 0)],
           ["Toques 3.º", pct(tercios.alta)],
           ["Toques propio", pct(tercios.baja)],
         ].map(([t, v]) => (
@@ -546,6 +582,11 @@ export function DirectoMapas({ eventos, jugadores, a, b }: { eventos: TablaOpta 
   const ficha = rend.find((r) => r.jugador.id === elegido) ?? null;
   const toquesA = evA.filter(esToque).length;
   const toquesB = evB.filter(esToque).length;
+  const ts = useMemo(() => tirosDe(ev), [ev]);
+  const topeCalor = useMemo(() => Math.max(densidad(evA).max, densidad(evB).max), [evA, evB]);
+  const partes = useMemo(() => porPartes(todos, a.teamId, b.teamId), [todos, a.teamId, b.teamId]);
+  const rpA = robosYPerdidas(ev, a.teamId);
+  const rpB = robosYPerdidas(ev, b.teamId);
   const xgA = evA.reduce((s, e) => s + (["Goal", "Miss", "AttemptSaved", "Post"].includes(e.tipo) ? (e.xG ?? 0) : 0), 0);
   const xgB = evB.reduce((s, e) => s + (["Goal", "Miss", "AttemptSaved", "Post"].includes(e.tipo) ? (e.xG ?? 0) : 0), 0);
 
@@ -576,7 +617,7 @@ export function DirectoMapas({ eventos, jugadores, a, b }: { eventos: TablaOpta 
         {[
           ["Toques", toquesA, toquesB, (v: number) => String(v)],
           ["xG", xgA, xgB, (v: number) => dec(v)],
-          ["Robos", robosYPerdidas(ev, a.teamId).robos.length, robosYPerdidas(ev, b.teamId).robos.length, (v: number) => String(v)],
+          ["Robos", rpA.robos.length, rpB.robos.length, (v: number) => String(v)],
           ["Pases progresivos", evA.filter(progresa).length, evB.filter(progresa).length, (v: number) => String(v)],
         ].map(([t, va, vb, f]) => {
           const x = Number(va);
@@ -599,9 +640,16 @@ export function DirectoMapas({ eventos, jugadores, a, b }: { eventos: TablaOpta 
         })}
       </div>
 
+      <p className="-mt-3 text-[10px] text-white/45">
+        Pases = en juego, sin saques de banda ni de puerta (como «pases intentados» de Opta). Robos = recuperaciones + intercepciones + entradas ganadas (la
+        «Recuperaciones» de Opta de abajo sólo cuenta las primeras). Pérdidas = pase fallado, regate perdido o robado en conducción (la de Opta suma además duelos y
+        despejes).
+      </p>
+
       {/* 1. Territorio y calor. */}
       <section>
-        {titulo("Dónde se juega", "Mapa de calor de los toques de cada equipo, los dos atacando hacia la derecha. Territorio = de los toques en el último tercio, cuántos son de cada uno.")}
+        {titulo("Dónde se juega", "Mapa de calor de los toques de cada equipo, los dos atacando hacia la derecha y con la misma escala (más color = más parte de sus toques). Territorio = de los toques en el último tercio, cuántos son de cada uno.")}
+        <Conclusion>{fraseTerritorio(terr.pctA, a, b, partes, tramo)}</Conclusion>
         {terr.pctA != null && (
           <div className="mb-3">
             <div className="flex justify-between text-xs font-semibold tabular-nums">
@@ -631,7 +679,7 @@ export function DirectoMapas({ eventos, jugadores, a, b }: { eventos: TablaOpta 
                 <p className="mb-1 text-sm font-semibold" style={{ color: color as string }}>
                   {e.nombre}
                 </p>
-                <Calor ev={l as EventoDirecto[]} rgb={rgb as string} etiqueta={`Mapa de calor de ${e.nombre}`} />
+                <Calor ev={l as EventoDirecto[]} rgb={rgb as string} etiqueta={`Mapa de calor de ${e.nombre}`} tope={topeCalor} />
                 <p className="mt-1 text-[11px] tabular-nums text-white/60">
                   Toques en campo propio {pct(t.baja)} · medio {pct(t.media)} · último tercio {pct(t.alta)}
                 </p>
@@ -645,8 +693,8 @@ export function DirectoMapas({ eventos, jugadores, a, b }: { eventos: TablaOpta 
       <section>
         {titulo("Red de pases", "El once inicial: cada jugador (su dorsal) en la posición media de lo que da y recibe; más grande, más pases; más gruesa la línea, más pases completados entre los dos. Pincha un jugador para ver su ficha.")}
         <div className="grid gap-3 md:grid-cols-2">
-          <Red ev={ev} equipo={a} jugadores={porId} color={COLOR_A} elegido={elegido} alElegir={setElegido} />
-          <Red ev={ev} equipo={b} jugadores={porId} color={COLOR_B} elegido={elegido} alElegir={setElegido} />
+          <Red ev={ev} tramo={tramo} equipo={a} jugadores={porId} color={COLOR_A} elegido={elegido} alElegir={setElegido} />
+          <Red ev={ev} tramo={tramo} equipo={b} jugadores={porId} color={COLOR_B} elegido={elegido} alElegir={setElegido} />
         </div>
       </section>
 
@@ -666,20 +714,22 @@ export function DirectoMapas({ eventos, jugadores, a, b }: { eventos: TablaOpta 
           "Remates y xG",
           `${a.nombre} ataca hacia la derecha y ${b.nombre} hacia la izquierda. Tamaño = xG; relleno = gol; medio relleno = a puerta; discontinuo = fuera o tapado.`,
         )}
+        <Conclusion>{fraseRemates(ts, a, b, porId)}</Conclusion>
         <div className="grid gap-3 lg:grid-cols-[1.2fr_1fr]">
-          <Remates ev={ev} a={a} b={b} jugadores={porId} />
+          <Remates ts={ts} a={a} b={b} jugadores={porId} />
           <div className="min-w-0">
             <p className="mb-1 text-xs text-white/60">
               xG acumulado: <span style={{ color: a.teamId === CASTILLA_OPTA ? ORO : "#4F8FE8" }}>{a.nombre}</span> y <span style={{ color: "#E8484D" }}>{b.nombre}</span>
             </p>
-            <CurvaXg ev={ev} todos={todos} a={a} b={b} />
+            <CurvaXg ts={ts} todos={todos} a={a} b={b} />
           </div>
         </div>
       </section>
 
       {/* 4. Robos y pérdidas. */}
       <section>
-        {titulo("Robos y pérdidas", "● robo (recuperación, intercepción o entrada ganada) · ✕ pérdida (pase fallado, regate perdido o robado). Las líneas parten el campo en tercios.")}
+        {titulo("Robos y pérdidas", "● robo (recuperación, intercepción o entrada ganada) · ✕ pérdida en juego (pase fallado, regate perdido o robado); con aro blanco, la que acaba en remate rival en menos de 15 segundos. Las líneas parten el campo en tercios.")}
+        <Conclusion>{frasePerdidas(rpA, rpB, a, b)}</Conclusion>
         <div className="grid gap-3 md:grid-cols-2">
           <RobosPerdidas ev={ev} equipo={a} color={COLOR_A} />
           <RobosPerdidas ev={ev} equipo={b} color={COLOR_B} />
@@ -688,7 +738,7 @@ export function DirectoMapas({ eventos, jugadores, a, b }: { eventos: TablaOpta 
 
       {/* 5. Rendimiento individual. */}
       <section className="space-y-4">
-        {titulo("Rendimiento individual", "Impacto = xPV de Opta sumado: cuánto acerca al gol cada acción con balón. Pulsa una columna para ordenar y un jugador para abrir su ficha.")}
+        {titulo("Rendimiento individual", "Impacto/90 = xPV de Opta (cuánto acerca al gol cada acción con balón) por 90 minutos en el campo. Todo es del tramo elegido salvo lo marcado «partido». Pulsa una columna para ordenar y un jugador para abrir su ficha.")}
         {[
           [a, rendA, COLOR_A],
           [b, rendB, COLOR_B],
@@ -704,4 +754,60 @@ export function DirectoMapas({ eventos, jugadores, a, b }: { eventos: TablaOpta 
       </section>
     </div>
   );
+}
+
+/* ------------------------------ las frases ------------------------------ */
+
+function Conclusion({ children }: { children: ReactNode }) {
+  if (!children) return null;
+  return <p className="mb-3 rounded-xl border-l-4 border-[#C8A96B] bg-white/[0.04] px-3 py-2 text-[13px] font-semibold text-white/90">{children}</p>;
+}
+
+function fraseTerritorio(pct: number | null, a: Equipo, b: Equipo, partes: ReturnType<typeof porPartes>, tramo: Tramo): string {
+  if (pct == null) return "";
+  const manda = pct >= 0.5 ? a : b;
+  const suyo = pct >= 0.5 ? pct : 1 - pct;
+  let f = `${manda.nombre} pisa más el último tercio: ${Math.round(suyo * 100)} % de los toques que hay allí.`;
+  const t1 = partes[1].a.territorio;
+  const t2 = partes[2].a.territorio;
+  if (tramo === "todo" && t1 != null && t2 != null && partes[2].a.toques + partes[2].b.toques > 60) {
+    const dif = Math.round((t2 - t1) * 100);
+    f += ` De la 1.ª a la 2.ª parte ${a.nombre} pasa del ${Math.round(t1 * 100)} % al ${Math.round(t2 * 100)} %${Math.abs(dif) >= 8 ? (dif < 0 ? ": le han hecho retroceder." : ": ha ganado metros.") : "."}`;
+    f += ` xG por partes: ${dec(partes[1].a.xg)} y ${dec(partes[2].a.xg)} (${a.nombre}); ${dec(partes[1].b.xg)} y ${dec(partes[2].b.xg)} (${b.nombre}).`;
+  }
+  return f;
+}
+
+function fraseRemates(ts: Tiro[], a: Equipo, b: Equipo, jugadores: Map<string, JugadorDirecto>): string {
+  if (!ts.length) return "";
+  const de = (eq: Equipo) => ts.filter((t) => t.teamId === eq.teamId);
+  const enArea = (l: Tiro[]) => l.filter((t) => t.x >= 83 && t.y >= 21 && t.y <= 79).length;
+  const trozos: string[] = [];
+  for (const eq of [b, a]) {
+    const l = de(eq);
+    if (!l.length) continue;
+    const xg = l.reduce((s, t) => s + (t.xG ?? 0), 0);
+    /* Quién más amenaza y por dónde le llega. */
+    const por = new Map<string, { n: number; xg: number }>();
+    for (const t of l) {
+      const v = por.get(t.jugadorId) ?? { n: 0, xg: 0 };
+      v.n++;
+      v.xg += t.xG ?? 0;
+      por.set(t.jugadorId, v);
+    }
+    const [id, top] = [...por.entries()].sort((x, y) => y[1].xg - x[1].xg)[0];
+    const carriles = { derecha: 0, centro: 0, izquierda: 0 };
+    for (const t of l) if (t.origen) carriles[t.origen.y < 33.3 ? "derecha" : t.origen.y > 66.7 ? "izquierda" : "centro"]++;
+    const [car, nCar] = Object.entries(carriles).sort((x, y) => y[1] - x[1])[0];
+    trozos.push(
+      `${eq.nombre}: ${l.length} remates, ${dec(xg)} xG, ${enArea(l)} desde el área; el que más, ${jugadores.get(id)?.nombre ?? ""} (${top.n}, ${dec(top.xg)} xG)${nCar >= 2 ? `; le llegan sobre todo por ${car === "centro" ? "el centro" : `su ${car}`} (${nCar})` : ""}.`,
+    );
+  }
+  return trozos.join(" ");
+}
+
+function frasePerdidas(rpA: ReturnType<typeof robosYPerdidas>, rpB: ReturnType<typeof robosYPerdidas>, a: Equipo, b: Equipo): string {
+  const una = (r: typeof rpA, eq: Equipo) =>
+    `${eq.nombre} pierde ${r.alturaPerdidas.baja} en su tercio y roba ${r.alturaRobos.alta} en el último${r.caras.length ? `; ${r.caras.length} de sus pérdidas acaban en remate rival` : ""}.`;
+  return `${una(rpA, a)} ${una(rpB, b)}`;
 }
