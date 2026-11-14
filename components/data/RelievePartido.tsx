@@ -127,8 +127,8 @@ export function RelievePartido({
   const [minuto, setMinuto] = useState(0);
   const [aviso, setAviso] = useState<(TiroRetrato & { en: number }) | null>(null);
   const estado = useRef({ t: 0, quieto: 0 });
-  const mandos = useRef({ jugando: true, velocidad: 1, saltar: null as number | null, cenital: false });
-  const [cenital, setCenital] = useState(false);
+  const mandos = useRef({ jugando: true, velocidad: 1, saltar: null as number | null, cenital: true });
+  const [cenital, setCenital] = useState(true);
   useEffect(() => {
     mandos.current.jugando = jugando;
     mandos.current.velocidad = velocidad;
@@ -164,7 +164,7 @@ export function RelievePartido({
       const s = Math.sin(giro);
       const x1 = X * c - Z * s;
       const z1 = X * s + Z * c;
-      const fi = mandos.current.cenital ? 1.38 : 0.98;
+      const fi = mandos.current.cenital ? 1.2 : 0.95;
       const prof = -z1 * Math.cos(fi) - Y * Math.sin(fi);
       const f = 170 / (170 + prof);
       const esc = (compacto ? 3.1 : 6.3) * f;
@@ -280,7 +280,7 @@ export function RelievePartido({
       const intens = new Float32Array(N);
       for (let i = 0; i < N; i++) intens[i] = Math.sqrt(total[i] / escala);
 
-      const giro = mandos.current.cenital ? 0 : -0.3 + 0.12 * Math.sin((ahora - inicio) / 16000);
+      const giro = mandos.current.cenital ? -0.05 : -0.3 + 0.14 * Math.sin((ahora - inicio) / 16000);
       px.set(fondo);
       zbuf.fill(1e9);
       for (let v = 0; v < DY; v++) {
@@ -477,6 +477,7 @@ export function RelievePartido({
   const xgA = r.tiros.filter((p) => p.deA && p.minuto <= minuto).reduce((x, p) => x + p.xg, 0);
   const xgB = r.tiros.filter((p) => !p.deA && p.minuto <= minuto).reduce((x, p) => x + p.xg, 0);
   const terrAhora = territorioRetrato(r, minuto);
+  const ultima = [...r.tiros].filter((p) => p.minuto <= minuto).sort((x, y) => y.minuto - x.minuto)[0] ?? null;
   const terrPartido = useMemo(() => territorioRetrato(r, null), [r]);
   const golesA = r.tiros.filter((p) => p.gol && p.deA && p.minuto <= minuto).length;
   const golesB = r.tiros.filter((p) => p.gol && !p.deA && p.minuto <= minuto).length;
@@ -485,7 +486,7 @@ export function RelievePartido({
 
   if (ev.length < 20) return null;
   return (
-    <div className="relative overflow-hidden rounded-2xl" style={{ background: "#05050a" }}>
+    <div className="group relative overflow-hidden rounded-2xl" style={{ background: "#05050a" }}>
       <canvas ref={lienzo} className="block h-auto w-full" style={{ aspectRatio: compacto ? "480 / 270" : "1000 / 560" }} role="img" aria-label={`Retrato 3D del partido ${a.nombre} - ${b.nombre}, animado`} />
       {!compacto && (
         <div className="pointer-events-none absolute bottom-[calc(150px*var(--k,1)+12px)] right-4 hidden w-[400px] rounded-xl px-3 py-2 text-[11px] sm:block" style={{ background: "rgba(8,10,20,0.55)", color: "rgba(255,255,255,0.8)", backdropFilter: "blur(6px)", bottom: "calc(min(15vw, 150px) + 14px)" }}>
@@ -505,9 +506,9 @@ export function RelievePartido({
         </div>
       )}
       {!compacto && (
-        <div className="pointer-events-none absolute left-4 top-[104px] rounded-xl px-3 py-2 sm:left-6" style={{ background: "rgba(8,10,20,0.55)", backdropFilter: "blur(6px)", color: "#FFFFFF" }}>
+        <div className="pointer-events-none absolute left-4 top-[104px] rounded-xl px-3 py-1.5 sm:left-6" style={{ background: "rgba(8,10,20,0.3)", color: "#FFFFFF" }}>
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.55)" }}>Hasta el {minuto}′</p>
-          <p className="font-mono text-lg font-bold tabular-nums">
+          <p className="font-mono text-sm font-bold tabular-nums">
             xG <span style={{ color: css(colA) }}>{xgA.toFixed(2).replace(".", ",")}</span> – <span style={{ color: css(colB) }}>{xgB.toFixed(2).replace(".", ",")}</span>
           </p>
           {terrAhora != null && (
@@ -516,6 +517,20 @@ export function RelievePartido({
               {terrPartido != null ? <span style={{ color: "rgba(255,255,255,0.55)" }}> · {Math.round(terrPartido * 100)} % el partido</span> : null}
             </p>
           )}
+          {ultima && (
+            <p className="text-xs" style={{ color: "rgba(255,255,255,0.75)" }}>
+              Última ocasión: {ultima.minuto}′ {nombre(ultima.jugadorId) || (ultima.deA ? a.nombre : b.nombre)} · xG {ultima.xg.toFixed(2).replace(".", ",")}
+            </p>
+          )}
+        </div>
+      )}
+      {!compacto && minuto < 3 && (
+        <div className="pointer-events-none absolute inset-x-0 top-[40%] text-center" style={{ animation: "rmcfTitulo 3s ease-out forwards" }}>
+          <p className="text-[11px] font-bold uppercase tracking-[0.4em]" style={{ color: "rgba(255,255,255,0.6)" }}>El partido en 3D</p>
+          <p className="text-3xl font-black sm:text-4xl" style={{ color: "#FFFFFF" }}>
+            <span style={{ color: css(colA) }}>{a.nombre}</span> <span style={{ color: "rgba(255,255,255,0.5)" }}>·</span> <span style={{ color: css(colB) }}>{b.nombre}</span>
+          </p>
+          <style>{`@keyframes rmcfTitulo { 0% { opacity: 0; letter-spacing: .1em } 20% { opacity: 1; letter-spacing: 0 } 75% { opacity: 1 } 100% { opacity: 0 } }`}</style>
         </div>
       )}
       {!compacto && <Momentum curva={r.curva} tiros={r.tiros} minuto={minuto} colA={colA} colB={colB} nombreA={a.nombre} nombreB={b.nombre} />}
@@ -571,7 +586,7 @@ export function RelievePartido({
         </div>
       )}
       {!compacto && (
-        <div className="absolute right-3 top-[86px] flex max-w-[60%] flex-wrap items-center justify-end gap-2 opacity-40 transition-opacity duration-300 hover:opacity-100 focus-within:opacity-100 sm:right-5">
+        <div className="absolute right-3 top-[86px] flex max-w-[60%] flex-wrap items-center justify-end gap-2 transition-opacity duration-500 focus-within:opacity-100 sm:right-5 sm:opacity-0 sm:group-hover:opacity-100">
           <button type="button" onClick={() => setJugando((j) => !j)} aria-label={jugando ? "Pausa" : "Reproducir"} className="inline-flex h-9 w-9 items-center justify-center rounded-full" style={{ background: "#FFFFFF", color: "#000000" }}>
             {jugando ? <Pause size={16} /> : <Play size={16} />}
           </button>
@@ -604,7 +619,7 @@ export function RelievePartido({
             className="w-32 accent-white sm:w-48"
           />
           <button type="button" onClick={() => setCenital((c) => !c)} className="h-9 rounded-full px-3 text-xs font-bold" style={{ background: "rgba(255,255,255,0.18)", color: "#FFFFFF" }}>
-            {cenital ? "Vista 3D" : "Desde arriba"}
+            {cenital ? "Girar en 3D" : "Desde arriba"}
           </button>
           <span className="flex overflow-hidden rounded-full text-[10px] font-bold" style={{ background: "rgba(255,255,255,0.12)" }}>
             {(["app", "camisetas"] as const).map((m) => (
