@@ -927,12 +927,39 @@ function marcasDe(r: Rendimiento, t: Record<string, unknown> | undefined): Marca
   return m;
 }
 
+/** Lo que más se aparta de lo suyo (por 90′): para ordenar de más a menos riesgo y decirlo en una línea. */
+function desvioDe(r: Rendimiento, t: Record<string, unknown> | undefined): { riesgo: number; texto: string } {
+  const c = r.jugador.cifras;
+  const min = r.jugador.minutos;
+  const n = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+  const minT = n(t?.Min) ?? 0;
+  if (min < 10 || !t || minT < 270) return { riesgo: 0, texto: "" };
+  const p90 = (v: number | null | undefined) => ((v ?? 0) / min) * 90;
+  const t90 = (k: string) => ((n(t[k]) ?? 0) / minT) * 90;
+  const opciones: { riesgo: number; texto: string }[] = [];
+  if (t90("PossLost") > 0) {
+    const x = p90(c.PossLost) / t90("PossLost");
+    opciones.push({ riesgo: x - 1, texto: `pierde ${dec(x, 1)}× lo suyo` });
+  }
+  if (t90("Touches") > 0) {
+    const x = p90(c.Touches) / t90("Touches");
+    opciones.push({ riesgo: (1 - x) * 0.8, texto: `toca ${dec(x, 1)}× lo suyo` });
+  }
+  const pase = n(c["Pass%"]);
+  const paseT = n(t["Pass%"]);
+  if (pase != null && paseT != null && (c.PsAtt ?? 0) >= 8) opciones.push({ riesgo: (paseT - pase) * 4, texto: `${Math.round(pase * 100)} % de pase (lo suyo ${Math.round(paseT * 100)})` });
+  if ((c.Yellow ?? 0) > 0) opciones.push({ riesgo: 0.6, texto: "amonestado" });
+  opciones.sort((x, y) => Math.abs(y.riesgo) - Math.abs(x.riesgo));
+  const top = opciones[0];
+  return top ? { riesgo: Math.max(...opciones.map((o) => o.riesgo)), texto: top.texto } : { riesgo: 0, texto: "" };
+}
+
 function SemaforoJugadores({ filas, temporada, color, alElegir }: { filas: Rendimiento[]; temporada: Record<string, unknown>[]; color: string; alElegir: (id: string) => void }) {
   const porId = new Map(temporada.map((t) => [String(t.playerId ?? ""), t]));
   const con = filas.filter((r) => r.jugador.minutos > 0).map((r) => ({ r, m: marcasDe(r, porId.get(r.jugador.id)) }));
   const alertas = con.filter((x) => x.m.some((k) => k.tipo === "alerta"));
   const certezas = con.filter((x) => !x.m.some((k) => k.tipo === "alerta") && x.m.some((k) => k.tipo === "certeza"));
-  const habitual = con.filter((x) => !x.m.length);
+  const habitual = con.filter((x) => !x.m.length).sort((x, y) => desvioDe(y.r, porId.get(y.r.jugador.id)).riesgo - desvioDe(x.r, porId.get(x.r.jugador.id)).riesgo);
   const caja = (titulo: string, borde: string, l: typeof con, tipo: Marca["tipo"] | null) =>
     l.length === 0 ? (
       <p className="rounded-xl border px-3 py-2 text-xs font-bold uppercase tracking-[0.12em]" style={{ borderColor: borde, color: borde }}>
@@ -953,6 +980,9 @@ function SemaforoJugadores({ filas, temporada, color, alElegir }: { filas: Rendi
                 <span className="tabular-nums text-white/50">{r.jugador.dorsal}</span> {r.jugador.nombre}
                 <span className="ml-1 text-xs font-normal text-white/50">{r.jugador.minutos}′</span>
               </button>
+              {!tipo && desvioDe(r, porId.get(r.jugador.id)).texto && (
+                <p className="text-[12px] text-white/60">{desvioDe(r, porId.get(r.jugador.id)).texto}</p>
+              )}
               {tipo && (
                 <p className="text-[11px] text-white/65">
                   {m
@@ -975,7 +1005,7 @@ function SemaforoJugadores({ filas, temporada, color, alElegir }: { filas: Rendi
       <div className="grid gap-2 md:grid-cols-3">
         {caja("Alertas", "#FF6B6B", alertas, "alerta")}
         {caja("Certezas", "#3DDC97", certezas, "certeza")}
-        {caja("Lo habitual", color, habitual, null)}
+        {caja("Lo habitual (de más a menos riesgo)", color, habitual, null)}
       </div>
     </div>
   );
