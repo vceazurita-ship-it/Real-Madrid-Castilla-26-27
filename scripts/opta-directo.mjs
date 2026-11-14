@@ -304,7 +304,11 @@ async function vuelta(S) {
   const ahora = new Date().toISOString();
   const indice = [];
   for (const [partido, fecha, estado] of delDia) {
-    const filas = cifras.filas.filter((f) => f[0] === partido);
+    /* El local primero (14/11/2026): Opta devuelve los dos en cualquier orden y la tira, el archivo y la galería salían al revés. */
+    const cCampo = cifras.cols.indexOf("campo");
+    const filas = cifras.filas
+      .filter((f) => f[0] === partido)
+      .sort((x, y) => Number(String(y[cCampo]).toUpperCase() === "HOME") - Number(String(x[cCampo]).toUpperCase() === "HOME"));
     /* Goles y xG en el índice (13/11/2026): la tira de la jornada de la pantalla, sin pedir cada partido. */
     const col = (m) => cifras.cols.indexOf(m);
     const cifra = (f, m) => (col(m) >= 0 && typeof f[col(m)] === "number" ? f[col(m)] : null);

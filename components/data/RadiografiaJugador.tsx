@@ -140,7 +140,8 @@ function lectura(r: Radiografia): string {
   const alto = con.slice(0, 2).filter((x) => (x.p ?? 0) >= 70);
   const bajo = con[con.length - 1];
   const partes = [
-    alto.length ? `Destaca en ${alto.map((x) => `${nombreMetrica(x.a).toLowerCase()} (P${x.p})`).join(" y ")}` : "",
+    /* En las de «menos es mejor», en positivo: «pocos balones perdidos», no «balones perdidos» (expertos). */
+    alto.length ? `Destaca en ${alto.map((x) => `${nombreMetrica(x.a).toLowerCase()} (${x.inverso ? "muy pocos, " : ""}P${x.p})`).join(" y ")}` : "",
     (bajo.p ?? 100) <= 30 ? `flojo en ${nombreMetrica(bajo.a).toLowerCase()} (P${bajo.p})` : "",
   ].filter(Boolean);
   return partes.length ? `${partes.join("; ")}.` : "";

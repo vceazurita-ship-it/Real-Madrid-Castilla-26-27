@@ -134,6 +134,7 @@ export function DirectoPlan({
   actualizado,
   ahora,
   acabado = false,
+  amonestados = [],
 }: {
   nos: Valores;
   ellos: Valores;
@@ -152,6 +153,8 @@ export function DirectoPlan({
   ahora?: number;
   /** Partido acabado: arriba el balance frente al plan («Buscábamos / Logramos») y sin «últimos 15'». */
   acabado?: boolean;
+  /** Los nuestros con amarilla (de la tabla de jugadores del partido): para la charla individual. */
+  amonestados?: string[];
 }) {
   const { plan, cargando } = usePlanDelRival(esCastilla ? nombreEllos : null);
   const caja = useRef<HTMLDivElement>(null);
@@ -371,7 +374,7 @@ export function DirectoPlan({
                       <span className="block text-white/75">
                         → Para el vídeo del lunes: {j.consigna.charAt(0).toLowerCase() + j.consigna.slice(1)}
                         {/* El tramo en que mandó el rival sirve para lo del juego, no para las amarillas (expertos). */}
-                        {tramoRival && !/amarill/i.test(j.titulo) ? ` · clips ${tramoRival}, cuando mandó ${nombreEllos}` : /amarill/i.test(j.titulo) ? " · cada falta: dónde fue y si hacía falta" : ""}
+                        {tramoRival && !/amarill/i.test(j.titulo) ? ` · clips ${tramoRival}, cuando mandó ${nombreEllos}` : /amarill/i.test(j.titulo) ? ` · ${amonestados.length ? `amonestados: ${amonestados.join(", ")}; ` : ""}cada falta: dónde fue y si hacía falta` : ""}
                       </span>
                     )}
                   </span>

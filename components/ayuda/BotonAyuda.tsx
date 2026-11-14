@@ -124,7 +124,8 @@ function PanelAyuda({ ayuda, alCerrar }: { ayuda: Ayuda; alCerrar: () => void })
   /* Lo técnico (scripts, documentos, claves) sólo para el administrador: el cuerpo técnico, lo que se lee. */
   const { admin: esAdmin } = useAdmin();
   const [busca, setBusca] = useState("");
-  const [abiertas, setAbiertas] = useState<Set<string>>(new Set());
+  /* «Qué miro…» abierto de entrada: son los pasos, no se esconden tras un clic. */
+  const [abiertas, setAbiertas] = useState<Set<string>>(() => new Set(ayuda.bloques.flatMap((bl) => bl.filas.filter((f) => /^Qué miro/.test(f.que)).map((f) => `${bl.titulo}|${f.que}`))));
   const [cuentas, setCuentas] = useState<Set<string>>(new Set());
   const [verOrigen, setVerOrigen] = useState(false);
   const q = sinTildes(busca.trim());

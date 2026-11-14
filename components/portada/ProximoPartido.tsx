@@ -714,7 +714,7 @@ export function ProximoPartido() {
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-white/[0.08] pt-5">
         <Racha ultimos={ultimos} cargando={cargando} ultimo={anterior} />
 
-        <Clasificacion informe={informe} />
+        <Clasificacion informe={informe} jugados={(alrededor?.todos ?? []).filter((uno) => uno.jugado).length} />
       </div>
     </div>
   );
@@ -890,7 +890,7 @@ function diaCorto(cuando: string) {
 }
 
 /** Nuestra fila de la tabla, en una línea. Lleva al equipo de un vistazo. */
-function Clasificacion({ informe }: { informe: RespuestaPortada | null }) {
+function Clasificacion({ informe, jugados = 0 }: { informe: RespuestaPortada | null; jugados?: number }) {
   const fila = informe?.clasificacion ?? null;
 
   /* Con la lectura hecha y sin fila nuestra no hay nada que decir. */
@@ -931,6 +931,12 @@ function Clasificacion({ informe }: { informe: RespuestaPortada | null }) {
           {/* La base (07/11/2026, análisis): «10 partidos» frente a «Jornada 11» parecía
               una contradicción. Es la tabla tras los jugados, y dice de dónde sale. */}
           <span className="basis-full text-[12px] text-white/60">
+            {/* Si el calendario ya tiene más partidos jugados que la tabla, se dice (expertos: 11 frente a 12 confundía). */}
+            {jugados > fila.ganados + fila.empatados + fila.perdidos && (
+              <span className="mr-1 font-semibold text-[#C8A96B]">
+                Sin la última jornada: BeSoccer aún no la ha cargado ({fila.ganados + fila.empatados + fila.perdidos} de {jugados}) ·
+              </span>
+            )}
             <span className="sm:hidden">Tras los {fila.ganados + fila.empatados + fila.perdidos} jugados · BeSoccer</span>
             <span className="hidden sm:inline">
               Clasificación tras los {fila.ganados + fila.empatados + fila.perdidos} partidos ya jugados, sin contar el que viene · BeSoccer

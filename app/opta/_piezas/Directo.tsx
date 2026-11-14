@@ -358,7 +358,7 @@ export function Directo({ datos }: { datos: DatosOpta }) {
               <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {partidos.filter((p) => p.conDatos).map((p) => {
                   const d = docsTodos[p.partido];
-                  const fs = aObjetos(d?.equipos ?? null);
+                  const fs = aObjetos(d?.equipos ?? null).sort((p, q) => Number(String(q.campo ?? "").toUpperCase() === "HOME") - Number(String(p.campo ?? "").toUpperCase() === "HOME")); /* el local primero */
                   const [x, y] = [fs[0], fs[1]];
                   if (!d || !x || !y) return <div key={p.partido} className="rounded-xl border border-white/10 p-3 text-xs text-white/50">Cargando…</div>;
                   return (
@@ -492,6 +492,9 @@ export function Directo({ datos }: { datos: DatosOpta }) {
                 /* Partido acabado: las cifras son las finales, no «de hace X minutos». */
                 ahora={/played|full/i.test(String(doc.estado ?? "")) ? Date.parse(doc.actualizado ?? "") || ahora : ahora}
                 acabado={/played|full/i.test(String(doc.estado ?? ""))}
+                amonestados={aObjetos(doc.jugadores ?? null)
+                  .filter((f) => String(f.teamId) === CASTILLA_OPTA && (num(f.Yellow) ?? 0) > 0)
+                  .map((f) => String(f.jugador ?? "").split(" ").slice(-1)[0])}
               />
             </div>
 

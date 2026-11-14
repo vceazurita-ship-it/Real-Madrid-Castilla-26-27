@@ -452,7 +452,8 @@ function RelieveDelPartido({ partido }: { partido: string }) {
     return () => window.clearInterval(t);
   }, [pedido, doc]);
   const filas = aObjetos(doc?.equipos ?? null).sort((x, y) => (x.teamId === CASTILLA_OPTA ? -1 : y.teamId === CASTILLA_OPTA ? 1 : 0));
-  const [x, y] = [filas[0], filas[1]];
+  /* El local primero (el campo de Opta). */
+  const [x, y] = [...filas].sort((p, q) => Number(String(q.campo ?? "").toUpperCase() === "HOME") - Number(String(p.campo ?? "").toUpperCase() === "HOME"));
   const nom = (f: Record<string, unknown>) => (f.teamId === CASTILLA_OPTA ? "Real Madrid Castilla" : String(f.equipo ?? ""));
   if (doc === undefined) return null;
   return (
