@@ -949,9 +949,10 @@ function desvioDe(r: Rendimiento, t: Record<string, unknown> | undefined): { rie
   const paseT = n(t["Pass%"]);
   if (pase != null && paseT != null && (c.PsAtt ?? 0) >= 8) opciones.push({ riesgo: (paseT - pase) * 4, texto: `${Math.round(pase * 100)} % de pase (lo suyo ${Math.round(paseT * 100)})` });
   if ((c.Yellow ?? 0) > 0) opciones.push({ riesgo: 0.6, texto: "amonestado" });
-  opciones.sort((x, y) => Math.abs(y.riesgo) - Math.abs(x.riesgo));
+  /* El texto es el del mismo desvío que ordena (el de más riesgo). */
+  opciones.sort((x, y) => y.riesgo - x.riesgo);
   const top = opciones[0];
-  return top ? { riesgo: Math.max(...opciones.map((o) => o.riesgo)), texto: top.texto } : { riesgo: 0, texto: "" };
+  return top && top.riesgo > 0 ? { riesgo: top.riesgo, texto: top.texto } : { riesgo: 0, texto: "" };
 }
 
 function SemaforoJugadores({ filas, temporada, color, alElegir }: { filas: Rendimiento[]; temporada: Record<string, unknown>[]; color: string; alElegir: (id: string) => void }) {
