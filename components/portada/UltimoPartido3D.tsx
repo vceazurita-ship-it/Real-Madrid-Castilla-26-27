@@ -55,10 +55,10 @@ export function UltimoPartido3D() {
   const dxg = n(x.ExpG) - n(y.ExpG);
   const lectura =
     gx > gy
-      ? dxg >= 0.3 ? "Victoria merecida: más ocasiones que el rival." : dxg <= -0.3 ? "Victoria por encima de las ocasiones: el rival generó más." : "Victoria en un partido de ocasiones igualadas."
+      ? dxg >= 0.15 ? "Victoria merecida: más ocasiones que el rival." : dxg <= -0.15 ? "Victoria con menos ocasiones que el rival." : "Victoria en un partido de ocasiones igualadas."
       : gx < gy
-        ? dxg >= 0.3 ? "Derrota con más ocasiones que el rival: faltó acierto." : dxg <= -0.3 ? "Derrota en la que el rival generó más." : "Derrota en un partido de ocasiones igualadas."
-        : dxg >= 0.3 ? "Empate con más ocasiones nuestras." : dxg <= -0.3 ? "Empate con más ocasiones del rival." : "Empate con ocasiones igualadas.";
+        ? dxg >= 0.15 ? "Derrota con más ocasiones que el rival: faltó acierto." : dxg <= -0.15 ? "Derrota en la que el rival generó más." : "Derrota en un partido de ocasiones igualadas."
+        : dxg >= 0.15 ? "Empate con más ocasiones nuestras." : dxg <= -0.15 ? "Empate con más ocasiones del rival." : "Empate con ocasiones igualadas.";
   /* Tres claves para el micro (expertos, 14/11/2026): ocasiones, presión y balón parado, con el dato. */
   const claves = [
     dxg <= -0.15
@@ -79,7 +79,9 @@ export function UltimoPartido3D() {
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/50">El último partido en 3D</p>
           <p className="text-sm font-semibold text-white">
-            {nom(x)} {String(x.Goal ?? "")}-{String(y.Goal ?? "")} {nom(y)}
+            {String(x.campo ?? "").toUpperCase() === "AWAY"
+              ? `${nom(y)} ${String(y.Goal ?? "")}-${String(x.Goal ?? "")} ${nom(x)}`
+              : `${nom(x)} ${String(x.Goal ?? "")}-${String(y.Goal ?? "")} ${nom(y)}`}
             {doc.fecha ? <span className="ml-2 text-xs font-normal text-white/50">{String(doc.fecha).slice(0, 10)}</span> : null}
           </p>
         </div>

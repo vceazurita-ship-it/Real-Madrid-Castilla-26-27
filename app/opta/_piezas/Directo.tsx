@@ -76,6 +76,13 @@ const estadoEnPalabras = (e?: string) => (e ? (ESTADO[e.toLowerCase()] ?? e) : "
 
 const nombre = (f: Fila) => (f.teamId === CASTILLA_OPTA ? NOMBRE_CASTILLA : String(f.equipo ?? ""));
 
+/** En móvil y tablet: «Castilla», «Tarragona»… (expertos: «Gimnàstic Tarra…» cortado). */
+function nombreCorto(n: string): string {
+  if (/castilla/i.test(n)) return "Castilla";
+  const p = n.split(" ").filter((x) => x.length > 3);
+  return p.length ? p[p.length - 1] : n;
+}
+
 export function Directo({ datos }: { datos: DatosOpta }) {
   const { catalogo, partidos: filasTemporada } = datos;
   const [vuelta, setVuelta] = useState(0);
@@ -411,7 +418,8 @@ export function Directo({ datos }: { datos: DatosOpta }) {
               {/* Móvil: los dos nombres arriba y el marcador debajo a lo ancho (antes «R… 1-0 G…»). */}
               <div className="order-1 min-w-0 flex-1 sm:order-none sm:text-right">
                 <p className="truncate text-base font-bold sm:text-2xl" style={{ color: loc.teamId === CASTILLA_OPTA ? "#E3C27E" : "#FFFFFF" }}>
-                  {nombre(loc)}
+                  <span className="lg:hidden">{nombreCorto(nombre(loc))}</span>
+                  <span className="hidden lg:inline">{nombre(loc)}</span>
                 </p>
               </div>
               <div className="order-3 col-span-2 shrink-0 text-center sm:order-none">
@@ -426,7 +434,8 @@ export function Directo({ datos }: { datos: DatosOpta }) {
               </div>
               <div className="order-2 min-w-0 flex-1 text-right sm:order-none sm:text-left">
                 <p className="truncate text-base font-bold sm:text-2xl" style={{ color: vis.teamId === CASTILLA_OPTA ? "#E3C27E" : "#FFFFFF" }}>
-                  {nombre(vis)}
+                  <span className="lg:hidden">{nombreCorto(nombre(vis))}</span>
+                  <span className="hidden lg:inline">{nombre(vis)}</span>
                 </p>
               </div>
             </div>

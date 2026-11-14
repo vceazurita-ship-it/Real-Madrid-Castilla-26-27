@@ -325,29 +325,37 @@ export function DirectoPlan({
 
       {/* Partido acabado (14/11/2026, expertos): el balance frente al plan, lo que se enseña el lunes. */}
       {acabado && juicios.length > 0 && (() => {
-        const delPlan = juicios.filter((j) => j.estado !== "sindato" && j.estado !== "pronto");
-        const logrados = delPlan.filter((j) => j.estado === "certeza" || j.estado === "habitual").length;
-        const ETIQUETA: Partial<Record<Estado, string>> = { certeza: "Logrado", habitual: "Lo normal", duda: "A medias", alerta: "No logrado" };
+        /* Una fila por tema (sin repetir el mismo trozo de plan). */
+        const delPlan = juicios.filter((j, i, l) => j.estado !== "sindato" && j.estado !== "pronto" && l.findIndex((k) => k.titulo === j.titulo) === i);
+        /* Primero lo que decide (logrado, a medias, no logrado); «lo normal», plegado. */
+        const decide = delPlan.filter((j) => j.estado !== "habitual");
+        const normales = delPlan.filter((j) => j.estado === "habitual");
+        const ETIQUETA: Partial<Record<Estado, string>> = { certeza: "Logrado", habitual: "Como siempre", duda: "A medias", alerta: "No logrado" };
+        const n = (e: Estado) => delPlan.filter((j) => j.estado === e).length;
         return (
           <div className="mb-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
             <p className={`font-black uppercase tracking-[0.12em] text-[#C8A96B] ${completa ? "text-xl" : "text-sm"}`}>
-              Balance frente al plan · {logrados} de {delPlan.length} en lo buscado o lo normal
+              Balance frente al plan · {[n("certeza") && `${n("certeza")} ${n("certeza") === 1 ? "logrado" : "logrados"}`, n("alerta") && `${n("alerta")} no ${n("alerta") === 1 ? "logrado" : "logrados"}`, n("duda") && `${n("duda")} a medias`, n("habitual") && `${n("habitual")} como siempre`].filter(Boolean).join(" · ")}
             </p>
-            <ul className="mt-2 space-y-1.5">
-              {delPlan.map((j) => (
-                <li key={j.id} className={`grid gap-x-3 gap-y-0.5 sm:grid-cols-[1fr_auto] ${completa ? "text-lg" : "text-sm"}`}>
-                  <span className="min-w-0 text-white/85">
-                    <span className="text-white/55">Buscábamos: </span>
-                    {j.plan === "Objetivo general" ? j.titulo.toLowerCase() : j.plan}
-                    <span className="text-white/55"> → Logramos: </span>
-                    <b className="tabular-nums text-white">{j.valor}</b>
-                  </span>
-                  <span className="justify-self-start rounded-full px-2 py-0.5 text-xs font-black sm:justify-self-end" style={{ background: COLOR[j.estado].tinta, color: "#111827" }}>
+            <p className="mt-1 text-xs text-white/55">Cada tema del plan con la cifra del partido y su referencia (el texto del plan, al pasar el ratón)</p>
+            <ul className="mt-1 space-y-1.5">
+              {(todas ? delPlan : decide).map((j) => (
+                <li key={j.id} className={`flex items-start gap-2 ${completa ? "text-lg" : "text-sm"}`}>
+                  <span className="mt-0.5 w-24 shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-center text-xs font-black" style={{ background: COLOR[j.estado].tinta, color: "#111827" }}>
                     {ETIQUETA[j.estado] ?? COLOR[j.estado].rotulo}
+                  </span>
+                  <span className="min-w-0 text-white/85" title={j.plan}>
+                    {j.titulo.charAt(0) + j.titulo.slice(1).toLowerCase()}: <b className="tabular-nums text-white">{j.valor}</b>
+                    {j.liston && <span className="text-white/55"> ({j.liston.replace(/^habitual[^:]*:\s*/i, "lo habitual, ")})</span>}
                   </span>
                 </li>
               ))}
             </ul>
+            {normales.length > 0 && (
+              <button type="button" onClick={() => setTodas((t) => !t)} className="mt-2 text-xs font-semibold text-[#C8A96B] hover:underline">
+                {todas ? "Ver sólo lo que decide" : `Ver ${normales.length === 1 ? "el otro" : `los otros ${normales.length}`} (como siempre)`}
+              </button>
+            )}
           </div>
         );
       })()}

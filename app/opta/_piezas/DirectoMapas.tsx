@@ -57,6 +57,7 @@ import {
 
 import { RelievePartido } from "@/components/data/RelievePartido";
 import { useFotosOpta } from "@/hooks/useFotosOpta";
+import { FotoRedonda } from "@/components/ui/FotoRedonda";
 
 import { Botonera } from "./comun";
 
@@ -491,10 +492,7 @@ function FichaJugador({ ev, r, color, rgb, alCerrar, foto }: { ev: EventoDirecto
   return (
     <div className="rounded-2xl border border-white/15 bg-white/[0.04] p-3">
       <div className="mb-2 flex items-start justify-between gap-2">
-        {foto && (
-          // eslint-disable-next-line @next/next/no-img-element -- foto de la plantilla o de BeSoccer por el proxy propio
-          <img src={foto} alt="" className="h-14 w-14 shrink-0 rounded-full object-cover object-top" style={{ border: `2px solid ${color}` }} />
-        )}
+        {foto && <FotoRedonda src={foto} iniciales={r.jugador.nombre.split(" ").map((p) => p[0]).slice(0, 2).join("")} className="h-14 w-14 shrink-0 rounded-full text-lg font-black" style={{ border: `2px solid ${color}`, color }} />}
         <div className="mr-auto min-w-0">
           <p className="text-xs font-black uppercase tracking-[0.14em]" style={{ color }}>
             Ficha del directo · {puesto(r.jugador.puesto) || "jugador"} · {r.jugador.minutos}′
@@ -596,7 +594,7 @@ function BalonParado({ acciones, equipo, color, jugadores }: { acciones: AccionA
   const cifra = (t: string, v: string, aviso = false) => (
     <div className="rounded-xl px-2 py-1.5" style={{ background: tinta(0.05) }}>
       <p className="text-xs uppercase tracking-[0.12em] text-white/50">{t}</p>
-      <p className="font-mono text-xl font-bold tabular-nums" style={{ color: aviso ? "#f59e0b" : "#FFFFFF" }}>{v}</p>
+      <p className={`font-mono text-xl font-bold tabular-nums ${aviso ? "text-amber-500" : "text-white"}`}>{v}</p>
     </div>
   );
   return (
@@ -606,9 +604,10 @@ function BalonParado({ acciones, equipo, color, jugadores }: { acciones: AccionA
         {cifra("Córners", String(corners.length))}
         {cifra("Banda arriba", String(bandas.length))}
         {cifra("Con remate", `${conRemate.length}/${acciones.length}`)}
-        {cifra("xG", dec(xg))}
-        {cifra("Goles", String(goles))}
-        {cifra("Contras encajadas", String(contras), contras > 0)}
+        {/* Las casillas a 0 no se pintan: seis ceros seguidos no dicen nada. */}
+        {xg > 0 && cifra("xG", dec(xg))}
+        {goles > 0 && cifra("Goles", String(goles))}
+        {contras > 0 && cifra("Contras encajadas", String(contras), true)}
       </div>
       {corners.length > 0 && (
         <p className="mt-2 text-sm text-white/75">
@@ -641,11 +640,13 @@ function fraseAbp(abpA: AccionAbp[], abpB: AccionAbp[], a: Equipo, b: Equipo): s
   const x = lado(abpA);
   const y = lado(abpB);
   if (x.n + y.n === 0) return "Aún no ha habido córners ni saques de banda en el último tercio.";
-  const quien = x.xg > y.xg + 0.1 ? a : y.xg > x.xg + 0.1 ? b : null;
+  /* El veredicto por remates y xG (expertos: «igualados» con 3 remates de 15 frente a 0 de 8 no decía nada). */
+  const quien = x.rem > y.rem || x.xg > y.xg + 0.1 ? (y.rem > x.rem ? null : a) : y.rem > x.rem || y.xg > x.xg + 0.1 ? b : null;
   const base = `${a.nombre}: ${x.n} a balón parado, ${x.rem} con remate (xG ${dec(x.xg)}). ${b.nombre}: ${y.n}, ${y.rem} con remate (xG ${dec(y.xg)}).`;
   const contras = [[a, abpA.filter((x) => x.contra).length], [b, abpB.filter((x) => x.contra).length]] as const;
   const aviso = contras.filter(([, n]) => n > 0).map(([e, n]) => `${e.nombre} encajó ${n} ${n === 1 ? "contra" : "contras"} tras su balón parado.`).join(" ");
-  return `${quien ? `${base} Saca más del balón parado ${quien.nombre}.` : `${base} Igualados a balón parado.`}${aviso ? ` ${aviso}` : ""}`;
+  const veredicto = quien ? `Saca más del balón parado ${quien.nombre}: ${quien === a ? x.rem : y.rem} remates frente a ${quien === a ? y.rem : x.rem}.` : "Igualados a balón parado.";
+  return `${base} ${veredicto}${aviso ? ` ${aviso}` : ""}`;
 }
 
 /* ------------------------------ la pieza ------------------------------ */

@@ -65,8 +65,8 @@ const PAUSA_FINAL = 2000;
 
 export function RelievePartido({
   eventos,
-  a,
-  b,
+  a: a0,
+  b: b0,
   jugadores,
   compacto = false,
   partido,
@@ -79,6 +79,10 @@ export function RelievePartido({
   /** Id de Opta del partido: para los colores fijados a mano. */
   partido?: string;
 }) {
+  /* El local siempre a la izquierda (expertos, 14/11/2026: «Castilla 1-0» en un partido que jugamos fuera confundía). */
+  const fuera = String(a0.campo ?? "").toUpperCase() === "AWAY";
+  const a = fuera ? b0 : a0;
+  const b = fuera ? a0 : b0;
   const ev = useMemo(() => leeEventos(eventos), [eventos]);
   const r = useMemo(() => retrato(ev, a.teamId, b.teamId), [ev, a.teamId, b.teamId]);
   const fin = r.minutos - 1;

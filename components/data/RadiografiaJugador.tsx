@@ -16,6 +16,7 @@
 import { useMemo, useState } from "react";
 
 import { useFotosOpta } from "@/hooks/useFotosOpta";
+import { FotoRedonda } from "@/components/ui/FotoRedonda";
 
 import { Botonera, Elegir, Panel } from "@/app/opta/_piezas/comun";
 import type { DatosOpta } from "@/app/opta/_piezas/useOpta";
@@ -148,12 +149,7 @@ function Cabecera({ f, r, color, escudo, foto }: { f: Fila; r: Radiografia; colo
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-3">
       <div className="relative flex h-16 w-16 shrink-0 items-center justify-center rounded-full text-xl font-black" style={{ background: tinta(0.06), border: `2px solid ${color}`, color }}>
-        {foto ? (
-          // eslint-disable-next-line @next/next/no-img-element -- foto de la plantilla o de BeSoccer por el proxy propio
-          <img src={foto} alt="" className="h-full w-full rounded-full object-cover object-top" />
-        ) : (
-          iniciales(String(f.jugador ?? ""))
-        )}
+        <FotoRedonda src={foto} iniciales={iniciales(String(f.jugador ?? ""))} className="h-full w-full rounded-full" />
         {escudo && (
           // eslint-disable-next-line @next/next/no-img-element -- escudo pequeño por el proxy propio
           <img src={escudo} alt="" width={22} height={22} className="absolute -bottom-1 -right-1 h-[22px] w-[22px] object-contain" />
@@ -173,7 +169,7 @@ function Cabecera({ f, r, color, escudo, foto }: { f: Fila; r: Radiografia; colo
           {nota(r.nota)}
         </p>
         <p className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-white/55">Nota de perfil</p>
-        <p className="text-xs text-white/50">de 100 · el jugador medio de su puesto, 50</p>
+        <p className="text-xs text-white/50">sobre 100 (media del puesto = 50)</p>
       </div>
     </div>
   );
@@ -286,7 +282,7 @@ export function RadiografiaJugador({ datos }: { datos: DatosOpta }) {
           </div>
 
           {filaB && rB && (
-            <p className="mt-3 rounded-xl px-3 py-2 text-sm font-semibold" style={{ background: tinta(0.05) }}>
+            <p className="mt-3 rounded-xl px-3 py-2 text-base font-bold sm:text-lg" style={{ background: tinta(0.05) }}>
               <span style={{ color: ORO }}>{String(uno.fila.jugador)}</span> gana en {ganadas} de {n} métricas;{" "}
               <span style={{ color: COMPARADO }}>{String(filaB.jugador)}</span>, en {perdidas}.
               {familiaFina(filaB) !== familia ? ` Ojo: ${String(filaB.jugador)} es de otro puesto (${familiaFina(filaB) || "sin puesto"}); se le mide con las métricas y el universo de ${familia.toLowerCase()}.` : ""}
