@@ -41,6 +41,23 @@ export function UltimoPartido3D() {
   const [x, y] = [filas[0], filas[1]];
   if (!doc?.eventos?.filas?.length || !x || !y) return null;
   const nom = (f: Record<string, unknown>) => (f.teamId === CASTILLA_OPTA ? "Real Madrid Castilla" : String(f.equipo ?? ""));
+  const n = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : Number(v) || 0);
+  const coma = (v: number, d = 2) => v.toFixed(d).replace(".", ",");
+  /* Tres cifras que cuentan el partido sin abrirlo: ocasiones, puntería y balón. */
+  const cifras: [string, string, string][] = [
+    ["xG", coma(n(x.ExpG)), coma(n(y.ExpG))],
+    ["Remates a puerta", String(n(x.SOG)), String(n(y.SOG))],
+    ["Posesión", `${Math.round(n(x["Poss%"]) * (n(x["Poss%"]) <= 1 ? 100 : 1))} %`, `${Math.round(n(y["Poss%"]) * (n(y["Poss%"]) <= 1 ? 100 : 1))} %`],
+  ];
+  const gx = n(x.Goal);
+  const gy = n(y.Goal);
+  const dxg = n(x.ExpG) - n(y.ExpG);
+  const lectura =
+    gx > gy
+      ? dxg >= 0.3 ? "Victoria merecida: más ocasiones que el rival." : dxg <= -0.3 ? "Victoria por encima de las ocasiones: el rival generó más." : "Victoria en un partido de ocasiones igualadas."
+      : gx < gy
+        ? dxg >= 0.3 ? "Derrota con más ocasiones que el rival: faltó acierto." : dxg <= -0.3 ? "Derrota en la que el rival generó más." : "Derrota en un partido de ocasiones igualadas."
+        : dxg >= 0.3 ? "Empate con más ocasiones nuestras." : dxg <= -0.3 ? "Empate con más ocasiones del rival." : "Empate con ocasiones igualadas.";
   const eq = (f: Record<string, unknown>) => ({ teamId: String(f.teamId ?? ""), nombre: nom(f), color: String(f.color ?? ""), campo: String(f.campo ?? "") });
 
   return (
@@ -53,10 +70,21 @@ export function UltimoPartido3D() {
             {doc.fecha ? <span className="ml-2 text-xs font-normal text-white/50">{String(doc.fecha).slice(0, 10)}</span> : null}
           </p>
         </div>
-        <Link href="/data-analisis?area=directo" className="inline-flex items-center gap-1 text-xs font-semibold text-white/70 hover:text-white">
+        <Link href={`/data-analisis?area=directo&partido=${ultimo}`} className="inline-flex items-center gap-1 text-xs font-semibold text-white/70 hover:text-white">
           Verlo entero con los mapas
           <ArrowRight size={13} aria-hidden />
         </Link>
+      </div>
+      <div className="mb-3 grid gap-2 px-1 sm:grid-cols-[1.4fr_repeat(3,1fr)]">
+        <p className="self-center text-sm font-semibold leading-snug text-[#E3C27E]">{lectura}</p>
+        {cifras.map(([t, a, b]) => (
+          <div key={t} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-1.5">
+            <p className="text-xs uppercase tracking-[0.12em] text-white/50">{t}</p>
+            <p className="font-mono text-lg font-bold tabular-nums text-white">
+              {a} <span className="text-white/40">–</span> {b}
+            </p>
+          </div>
+        ))}
       </div>
       <RelievePartido eventos={doc.eventos} a={eq(x)} b={eq(y)} partido={ultimo} />
     </section>

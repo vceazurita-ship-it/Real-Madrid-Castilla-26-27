@@ -91,7 +91,8 @@ export function Directo({ datos }: { datos: DatosOpta }) {
   });
   const { admin } = useAdmin();
   const lanzar = useDirectoOpta(Boolean(admin));
-  const [elegido, setElegido] = useState("");
+  /* ?partido=<id> (enlace de la portada, 14/11/2026): abre ese partido. Lazy: sin setState en un efecto. */
+  const [elegido, setElegido] = useState(() => (typeof window === "undefined" ? "" : (new URLSearchParams(window.location.search).get("partido") ?? "").replace(/[^a-z0-9]/gi, "")));
   const [leido, setLeido] = useState<{ clave: string; doc: DocDirecto | null } | null>(null);
 
   const vivo = indiceVivo(indice, ahora);
