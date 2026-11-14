@@ -133,6 +133,7 @@ export function DirectoPlan({
   partidos,
   actualizado,
   ahora,
+  acabado = false,
 }: {
   nos: Valores;
   ellos: Valores;
@@ -149,6 +150,8 @@ export function DirectoPlan({
   /** Hora de las cifras y de la última mirada: si se quedan viejas, se avisa (también en pantalla completa). */
   actualizado?: string;
   ahora?: number;
+  /** Partido acabado: arriba el balance frente al plan («Buscábamos / Logramos») y sin «últimos 15'». */
+  acabado?: boolean;
 }) {
   const { plan, cargando } = usePlanDelRival(esCastilla ? nombreEllos : null);
   const caja = useRef<HTMLDivElement>(null);
@@ -320,7 +323,36 @@ export function DirectoPlan({
         );
       })()}
 
-      {mom.ultimos && (
+      {/* Partido acabado (14/11/2026, expertos): el balance frente al plan, lo que se enseña el lunes. */}
+      {acabado && juicios.length > 0 && (() => {
+        const delPlan = juicios.filter((j) => j.estado !== "sindato" && j.estado !== "pronto");
+        const logrados = delPlan.filter((j) => j.estado === "certeza" || j.estado === "habitual").length;
+        const ETIQUETA: Partial<Record<Estado, string>> = { certeza: "Logrado", habitual: "Lo normal", duda: "A medias", alerta: "No logrado" };
+        return (
+          <div className="mb-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+            <p className={`font-black uppercase tracking-[0.12em] text-[#C8A96B] ${completa ? "text-xl" : "text-sm"}`}>
+              Balance frente al plan · {logrados} de {delPlan.length} en lo buscado o lo normal
+            </p>
+            <ul className="mt-2 space-y-1.5">
+              {delPlan.map((j) => (
+                <li key={j.id} className={`grid gap-x-3 gap-y-0.5 sm:grid-cols-[1fr_auto] ${completa ? "text-lg" : "text-sm"}`}>
+                  <span className="min-w-0 text-white/85">
+                    <span className="text-white/55">Buscábamos: </span>
+                    {j.plan === "Objetivo general" ? j.titulo.toLowerCase() : j.plan}
+                    <span className="text-white/55"> → Logramos: </span>
+                    <b className="tabular-nums text-white">{j.valor}</b>
+                  </span>
+                  <span className="justify-self-start rounded-full px-2 py-0.5 text-xs font-black sm:justify-self-end" style={{ background: COLOR[j.estado].tinta, color: "#111827" }}>
+                    {ETIQUETA[j.estado] ?? COLOR[j.estado].rotulo}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })()}
+
+      {mom.ultimos && !acabado && (
         <p
           className={`mb-3 rounded-xl px-3 py-2 font-bold ${completa ? "text-xl" : "text-base"}`}
           style={{

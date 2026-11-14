@@ -59,6 +59,18 @@ export function UltimoPartido3D() {
       : gx < gy
         ? dxg >= 0.3 ? "Derrota con más ocasiones que el rival: faltó acierto." : dxg <= -0.3 ? "Derrota en la que el rival generó más." : "Derrota en un partido de ocasiones igualadas."
         : dxg >= 0.3 ? "Empate con más ocasiones nuestras." : dxg <= -0.3 ? "Empate con más ocasiones del rival." : "Empate con ocasiones igualadas.";
+  /* Tres claves para el micro (expertos, 14/11/2026): ocasiones, presión y balón parado, con el dato. */
+  const claves = [
+    dxg <= -0.15
+      ? `Concedimos más de lo que generamos (xG ${coma(n(x.ExpG))} – ${coma(n(y.ExpG))}): defensa del área y de su ataque.`
+      : dxg >= 0.15
+        ? `Generamos más que el rival (xG ${coma(n(x.ExpG))} – ${coma(n(y.ExpG))}): mantener la llegada.`
+        : `Ocasiones igualadas (xG ${coma(n(x.ExpG))} – ${coma(n(y.ExpG))}): el detalle decidió.`,
+    n(x.PPDA) > 0
+      ? `Presión: dejamos ${coma(n(x.PPDA), 1)} pases por acción defensiva (el rival, ${coma(n(y.PPDA), 1)}); cuanto menos, más arriba se presiona.`
+      : "",
+    `Balón parado: ${n(x.Corners)} córners nuestros y ${n(y.Corners)} suyos.`,
+  ].filter(Boolean);
   const eq = (f: Record<string, unknown>) => ({ teamId: String(f.teamId ?? ""), nombre: nom(f), color: String(f.color ?? ""), campo: String(f.campo ?? "") });
 
   return (
@@ -87,6 +99,14 @@ export function UltimoPartido3D() {
           </div>
         ))}
       </div>
+      <ul className="mb-3 space-y-1 px-1 text-sm text-white/80">
+        {claves.map((c) => (
+          <li key={c} className="flex gap-2">
+            <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-[#C8A96B]" aria-hidden />
+            {c}
+          </li>
+        ))}
+      </ul>
       <RelievePartido eventos={doc.eventos} jugadores={new Map(leeJugadores(doc.jugadores).map((j) => [j.id, j]))} a={eq(x)} b={eq(y)} partido={ultimo} />
     </section>
   );

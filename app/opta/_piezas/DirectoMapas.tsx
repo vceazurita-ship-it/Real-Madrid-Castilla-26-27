@@ -29,6 +29,7 @@ import {
   MY,
   alUltimoTercio,
   balonParado,
+  zonaCorner,
   curvaXg,
   densidad,
   esToque,
@@ -609,8 +610,18 @@ function BalonParado({ acciones, equipo, color, jugadores }: { acciones: AccionA
         {cifra("Goles", String(goles))}
         {cifra("Contras encajadas", String(contras), contras > 0)}
       </div>
-      {sacan.length > 0 && (
+      {corners.length > 0 && (
         <p className="mt-2 text-sm text-white/75">
+          <span className="text-white/50">Dónde caen: </span>
+          {(["primer palo", "centro", "segundo palo", "corto"] as const)
+            .map((z) => [z, corners.filter((x) => zonaCorner(x.saque) === z).length] as const)
+            .filter(([, n]) => n > 0)
+            .map(([z, n]) => `${n} ${z}`)
+            .join(" · ") || "sin dato"}
+        </p>
+      )}
+      {sacan.length > 0 && (
+        <p className="mt-1 text-sm text-white/75">
           <span className="text-white/50">Saca los córners: </span>
           {sacan.map(([id, n]) => `${nombre(id)} (${n})`).join(" · ")}
         </p>
@@ -632,7 +643,9 @@ function fraseAbp(abpA: AccionAbp[], abpB: AccionAbp[], a: Equipo, b: Equipo): s
   if (x.n + y.n === 0) return "Aún no ha habido córners ni saques de banda en el último tercio.";
   const quien = x.xg > y.xg + 0.1 ? a : y.xg > x.xg + 0.1 ? b : null;
   const base = `${a.nombre}: ${x.n} a balón parado, ${x.rem} con remate (xG ${dec(x.xg)}). ${b.nombre}: ${y.n}, ${y.rem} con remate (xG ${dec(y.xg)}).`;
-  return quien ? `${base} Saca más del balón parado ${quien.nombre}.` : `${base} Igualados a balón parado.`;
+  const contras = [[a, abpA.filter((x) => x.contra).length], [b, abpB.filter((x) => x.contra).length]] as const;
+  const aviso = contras.filter(([, n]) => n > 0).map(([e, n]) => `${e.nombre} encajó ${n} ${n === 1 ? "contra" : "contras"} tras su balón parado.`).join(" ");
+  return `${quien ? `${base} Saca más del balón parado ${quien.nombre}.` : `${base} Igualados a balón parado.`}${aviso ? ` ${aviso}` : ""}`;
 }
 
 /* ------------------------------ la pieza ------------------------------ */

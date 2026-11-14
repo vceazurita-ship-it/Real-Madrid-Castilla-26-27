@@ -467,6 +467,7 @@ export function Directo({ datos }: { datos: DatosOpta }) {
                 actualizado={doc.actualizado}
                 /* Partido acabado: las cifras son las finales, no «de hace X minutos». */
                 ahora={/played|full/i.test(String(doc.estado ?? "")) ? Date.parse(doc.actualizado ?? "") || ahora : ahora}
+                acabado={/played|full/i.test(String(doc.estado ?? ""))}
               />
             </div>
 

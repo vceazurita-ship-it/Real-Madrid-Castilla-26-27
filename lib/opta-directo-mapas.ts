@@ -441,3 +441,17 @@ export function balonParado(ev: EventoDirecto[], teamId: string): AccionAbp[] {
   }
   return salida;
 }
+
+export type ZonaCorner = "corto" | "primer palo" | "centro" | "segundo palo";
+
+/**
+ * Dónde cae el córner: corto (fuera del área, x < 83) o, dentro, primer palo,
+ * centro o segundo palo (los postes van en y 45,2 y 54,8; se mide desde el lado
+ * del saque). Sin fin del pase, nada.
+ */
+export function zonaCorner(e: EventoDirecto): ZonaCorner | null {
+  if (e.finX == null || e.finY == null) return null;
+  if (e.finX < 83) return "corto";
+  const rel = e.y <= 50 ? e.finY : 100 - e.finY;
+  return rel < 45.2 ? "primer palo" : rel <= 54.8 ? "centro" : "segundo palo";
+}
