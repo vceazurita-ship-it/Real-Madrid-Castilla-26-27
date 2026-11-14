@@ -164,7 +164,7 @@ export function RelievePartido({
       const s = Math.sin(giro);
       const x1 = X * c - Z * s;
       const z1 = X * s + Z * c;
-      const fi = mandos.current.cenital ? 1.2 : 0.95;
+      const fi = mandos.current.cenital ? 1.08 : 0.95;
       const prof = -z1 * Math.cos(fi) - Y * Math.sin(fi);
       const f = 170 / (170 + prof);
       const esc = (compacto ? 3.1 : 6.3) * f;
@@ -257,7 +257,7 @@ export function RelievePartido({
          un oleaje suave que nunca para. */
       const fase = (ahora - inicio) / 1000;
       for (let i = 0; i < N; i++) {
-        const objetivo = 0.66 * Math.sqrt(total[i] / escala);
+        const objetivo = 0.85 * Math.sqrt(total[i] / escala);
         suave[i] += (objetivo - suave[i]) * 0.06;
         const ii = i % GX;
         const jj = (i - ii) / GX;
@@ -280,7 +280,7 @@ export function RelievePartido({
       const intens = new Float32Array(N);
       for (let i = 0; i < N; i++) intens[i] = Math.sqrt(total[i] / escala);
 
-      const giro = mandos.current.cenital ? -0.05 : -0.3 + 0.14 * Math.sin((ahora - inicio) / 16000);
+      const giro = mandos.current.cenital ? -0.12 + 0.14 * Math.sin((ahora - inicio) / 18000) : -0.3 + 0.14 * Math.sin((ahora - inicio) / 16000);
       px.set(fondo);
       zbuf.fill(1e9);
       for (let v = 0; v < DY; v++) {
@@ -298,7 +298,7 @@ export function RelievePartido({
           const fuerza = Math.pow(Math.min(1, Math.abs(dom) * 1.6), 0.8);
           const equipo = dom >= 0 ? colA : colB;
           const neutro = 118;
-          const espuma = Math.min(1, Math.max(0, (h - 0.3) / 0.32)) * 0.6;
+          const espuma = Math.min(1, Math.max(0, (h - 0.28) / 0.3)) * 0.72;
           const vida = Math.min(1.25, 0.16 + Math.pow(it, 0.8) * 1.15);
           const k = ilum * vida;
           const R = Math.min(255, (neutro * (1 - fuerza) + equipo[0] * fuerza) * k * (1 - espuma) + 255 * espuma);
@@ -489,7 +489,7 @@ export function RelievePartido({
     <div className="group relative overflow-hidden rounded-2xl" style={{ background: "#05050a" }}>
       <canvas ref={lienzo} className="block h-auto w-full" style={{ aspectRatio: compacto ? "480 / 270" : "1000 / 560" }} role="img" aria-label={`Retrato 3D del partido ${a.nombre} - ${b.nombre}, animado`} />
       {!compacto && (
-        <div className="pointer-events-none absolute bottom-[calc(150px*var(--k,1)+12px)] right-4 hidden w-[400px] rounded-xl px-3 py-2 text-[11px] sm:block" style={{ background: "rgba(8,10,20,0.55)", color: "rgba(255,255,255,0.8)", backdropFilter: "blur(6px)", bottom: "calc(min(15vw, 150px) + 14px)" }}>
+        <div className="pointer-events-none absolute bottom-[calc(150px*var(--k,1)+12px)] right-4 hidden w-[400px] rounded-xl px-3 py-2 text-[11px] sm:block" style={{ background: "rgba(8,10,20,0.82)", color: "rgba(255,255,255,0.85)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.1)", bottom: "calc(min(15vw, 150px) + 14px)" }}>
           <p className="flex justify-between font-semibold">
             <span style={{ color: css(colB) }}>← {b.nombre}</span>
             <span style={{ color: css(colA) }}>{a.nombre} →</span>
@@ -506,9 +506,9 @@ export function RelievePartido({
         </div>
       )}
       {!compacto && (
-        <div className="pointer-events-none absolute left-4 top-[104px] rounded-xl px-3 py-1.5 sm:left-6" style={{ background: "rgba(8,10,20,0.3)", color: "#FFFFFF" }}>
+        <div className="pointer-events-none absolute left-4 top-[104px] rounded-xl px-4 py-2.5 shadow-xl sm:left-6" style={{ background: "rgba(8,10,20,0.82)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.1)", color: "#FFFFFF" }}>
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.55)" }}>Hasta el {minuto}′</p>
-          <p className="font-mono text-sm font-bold tabular-nums">
+          <p className="font-mono text-lg font-bold tabular-nums">
             xG <span style={{ color: css(colA) }}>{xgA.toFixed(2).replace(".", ",")}</span> – <span style={{ color: css(colB) }}>{xgB.toFixed(2).replace(".", ",")}</span>
           </p>
           {terrAhora != null && (
