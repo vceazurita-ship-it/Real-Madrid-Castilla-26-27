@@ -507,25 +507,25 @@ export function RelievePartido({
     <div className="group relative mx-auto overflow-hidden rounded-2xl" style={{ background: "#05050a", maxWidth: compacto ? undefined : "min(100%, calc((100vh - 170px) * 1.4))" }}>
       <canvas ref={lienzo} className="block h-auto w-full" style={{ aspectRatio: compacto ? "480 / 270" : "1000 / 560" }} role="img" aria-label={`Retrato 3D del partido ${a.nombre} - ${b.nombre}, animado`} />
       {!compacto && (
-        <div className="pointer-events-none absolute bottom-[calc(150px*var(--k,1)+12px)] right-4 hidden w-[400px] rounded-xl px-3 py-2 text-[11px] sm:block" style={{ background: "rgba(8,10,20,0.82)", color: "rgba(255,255,255,0.85)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.1)", bottom: "calc(min(15vw, 150px) + 14px)" }}>
+        <div className="pointer-events-none absolute bottom-[calc(150px*var(--k,1)+12px)] right-4 hidden w-[400px] rounded-xl px-3 py-2 text-xs sm:block" style={{ background: "rgba(8,10,20,0.82)", color: "rgba(255,255,255,0.85)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.1)", bottom: "calc(min(15vw, 150px) + 14px)" }}>
           <p className="flex justify-between font-semibold">
             <span style={{ color: css(colB) }}>← {b.nombre}</span>
             <span style={{ color: css(colA) }}>{a.nombre} →</span>
           </p>
           <div className="mt-1.5 h-1.5 rounded-full" style={{ background: `linear-gradient(90deg, ${css(colB)}, rgb(118,118,118), ${css(colA)})` }} />
-          <p className="mt-1 grid grid-cols-3 text-[11px]" style={{ color: "rgba(255,255,255,0.65)" }}>
+          <p className="mt-1 grid grid-cols-3 text-xs" style={{ color: "rgba(255,255,255,0.65)" }}>
             <span>manda {b.nombre.split(" ")[0]}</span>
             <span className="text-center">parejo</span>
             <span className="text-right">manda {a.nombre.split(" ").slice(-1)[0]}</span>
           </p>
-          <p className="mt-1 text-[11px]" style={{ color: "rgba(255,255,255,0.6)" }}>
+          <p className="mt-1 text-xs" style={{ color: "rgba(255,255,255,0.6)" }}>
             Altura = actividad · columna y marca = remate
           </p>
         </div>
       )}
       {!compacto && (
         <div className="pointer-events-none absolute left-4 top-[100px] max-w-[230px] rounded-xl px-3 py-2 shadow-xl sm:left-6" style={{ background: "rgba(8,10,20,0.82)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.1)", color: "#FFFFFF" }}>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.55)" }}>Hasta el {minuto}′</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.55)" }}>Hasta el {minuto}′</p>
           <p className="font-mono text-base font-bold tabular-nums">
             xG <span style={{ color: css(colA) }}>{xgA.toFixed(2).replace(".", ",")}</span> – <span style={{ color: css(colB) }}>{xgB.toFixed(2).replace(".", ",")}</span>
           </p>
@@ -536,7 +536,7 @@ export function RelievePartido({
             </p>
           )}
           {terrMax && (
-            <p className="text-[11px] tabular-nums" style={{ color: "rgba(255,255,255,0.55)" }}>
+            <p className="text-xs tabular-nums" style={{ color: "rgba(255,255,255,0.55)" }}>
               Máximo del partido: {Math.round(terrMax.v * 100)} % a los {terrMax.m}′
             </p>
           )}
@@ -549,7 +549,7 @@ export function RelievePartido({
       )}
       {!compacto && minuto < 3 && (
         <div className="pointer-events-none absolute inset-x-0 top-[40%] text-center" style={{ animation: "rmcfTitulo 3s ease-out forwards" }}>
-          <p className="text-[11px] font-bold uppercase tracking-[0.4em]" style={{ color: "rgba(255,255,255,0.6)" }}>El partido en 3D</p>
+          <p className="text-xs font-bold uppercase tracking-[0.4em]" style={{ color: "rgba(255,255,255,0.6)" }}>El partido en 3D</p>
           <p className="text-3xl font-black sm:text-4xl" style={{ color: "#FFFFFF" }}>
             <span style={{ color: css(colA) }}>{a.nombre}</span> <span style={{ color: "rgba(255,255,255,0.5)" }}>·</span> <span style={{ color: css(colB) }}>{b.nombre}</span>
           </p>
@@ -565,7 +565,7 @@ export function RelievePartido({
             [b.nombre, golesB, colB],
           ].map(([n, gl, c]) => (
             <div key={String(n)} className="min-w-0">
-              <p className={`truncate font-bold ${compacto ? "max-w-[90px] text-[10px]" : "max-w-[160px] text-xs"}`} style={{ color: "#FFFFFF" }}>
+              <p className={`truncate font-bold ${compacto ? "max-w-[90px] text-xs" : "max-w-[160px] text-xs"}`} style={{ color: "#FFFFFF" }}>
                 {String(n)}
               </p>
               <span className="mt-0.5 block h-1 rounded-full" style={{ background: css(c as RGB) }} />
@@ -580,7 +580,7 @@ export function RelievePartido({
         <p className={`font-mono font-black tabular-nums ${compacto ? "text-xl" : "text-4xl"}`} style={{ color: "#FFFFFF" }}>
           {minuto}′
         </p>
-        <p className="text-[10px] font-semibold tracking-[0.2em]" style={{ color: "rgba(255,255,255,0.55)" }}>
+        <p className="text-xs font-semibold tracking-[0.2em]" style={{ color: "rgba(255,255,255,0.55)" }}>
           {parte}
         </p>
       </div>
@@ -596,13 +596,13 @@ export function RelievePartido({
             animation: "rmcfAviso 3.2s ease-out forwards",
           }}
         >
-          <p className="text-[10px] font-black uppercase tracking-[0.3em]" style={{ color: css(aviso.deA ? colA : colB) }}>
+          <p className="text-xs font-black uppercase tracking-[0.3em]" style={{ color: css(aviso.deA ? colA : colB) }}>
             {aviso.gol ? "Gol" : aviso.xg >= 0.25 ? "Ocasión clara" : "Ocasión"} · {aviso.minuto}′
           </p>
           <p className={`font-bold ${aviso.gol ? "text-3xl" : "text-lg"}`} style={{ color: "#FFFFFF" }}>
             {(nombre(aviso.jugadorId) || (aviso.deA ? a.nombre : b.nombre)).toUpperCase()}
           </p>
-          <p className="text-[11px] tabular-nums" style={{ color: "rgba(255,255,255,0.65)" }}>
+          <p className="text-xs tabular-nums" style={{ color: "rgba(255,255,255,0.65)" }}>
             {aviso.deA ? a.nombre : b.nombre} · xG {aviso.xg.toFixed(2).replace(".", ",")}
           </p>
           <style>{`@keyframes rmcfAviso { 0% { opacity: 0; transform: translateX(-24px) } 10% { opacity: 1; transform: translateX(0) } 85% { opacity: 1 } 100% { opacity: 0; transform: translateX(-12px) } }`}</style>
@@ -644,7 +644,7 @@ export function RelievePartido({
           <button type="button" onClick={() => setCenital((c) => !c)} className="h-9 rounded-full px-3 text-xs font-bold" style={{ background: "rgba(255,255,255,0.18)", color: "#FFFFFF" }}>
             {cenital ? "Girar en 3D" : "Desde arriba"}
           </button>
-          <span className="flex overflow-hidden rounded-full text-[10px] font-bold" style={{ background: "rgba(255,255,255,0.12)" }}>
+          <span className="flex overflow-hidden rounded-full text-xs font-bold" style={{ background: "rgba(255,255,255,0.12)" }}>
             {(["app", "camisetas"] as const).map((m) => (
               <button key={m} type="button" onClick={() => cambiaModo(m)} className="px-2.5 py-1.5" style={modo === m ? { background: "#FFFFFF", color: "#000000" } : { color: "rgba(255,255,255,0.8)" }}>
                 {m === "app" ? "Oro y blanco" : "Camisetas"}
@@ -652,7 +652,7 @@ export function RelievePartido({
             ))}
           </span>
           {admin && partido && modo === "camisetas" && (
-            <span className="flex items-center gap-1 rounded-full px-2 py-1 text-[10px]" style={{ background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.8)" }} title="Color de cada equipo en este partido (se guarda para todos)">
+            <span className="flex items-center gap-1 rounded-full px-2 py-1 text-xs" style={{ background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.8)" }} title="Color de cada equipo en este partido (se guarda para todos)">
               Colores
               <input type="color" value={aHex(colA)} onChange={(e) => void fija(a.teamId, e.target.value)} aria-label={`Color de ${a.nombre}`} className="h-6 w-6 cursor-pointer rounded border-0 bg-transparent" />
               <input type="color" value={aHex(colB)} onChange={(e) => void fija(b.teamId, e.target.value)} aria-label={`Color de ${b.nombre}`} className="h-6 w-6 cursor-pointer rounded border-0 bg-transparent" />
@@ -741,7 +741,7 @@ function Momentum({
         .map((t, i) => (
           <g key={i} style={{ opacity: t.minuto <= minuto ? 1 : 0.3 }}>
             <circle cx={X(t.minuto)} cy={t.deA ? 12 : H - 12} r={6} style={{ fill: "#FFFFFF", stroke: css(t.deA ? colA : colB), strokeWidth: 3 }} />
-            <text x={X(t.minuto) + 10} y={t.deA ? 16 : H - 8} style={{ fill: "#FFFFFF", fontSize: 10, fontWeight: 700 }}>
+            <text x={X(t.minuto) + 10} y={t.deA ? 16 : H - 8} style={{ fill: "#FFFFFF", fontSize: 12, fontWeight: 700 }}>
               {t.minuto}′
             </text>
           </g>

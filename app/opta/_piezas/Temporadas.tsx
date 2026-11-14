@@ -177,7 +177,7 @@ function TarjetaDeOpta({ t, minimo, completaEnWyscout }: { t: TarjetaTemporada &
       <div className="flex items-baseline justify-between gap-2">
         <p className="text-base font-semibold text-white">
           {t.clave === "actual" ? "Esta temporada" : corta(t.clave)}
-          <span className="ml-1.5 text-[11px] font-normal text-white/50">Opta{t.incompleta ? " · incompleta" : ""}</span>
+          <span className="ml-1.5 text-xs font-normal text-white/50">Opta{t.incompleta ? " · incompleta" : ""}</span>
         </p>
         <p className="truncate text-xs text-white/60">{t.equipo}</p>
       </div>
@@ -189,12 +189,12 @@ function TarjetaDeOpta({ t, minimo, completaEnWyscout }: { t: TarjetaTemporada &
           .filter((v) => v.total != null)
           .map((v) => (
             <div key={v.a} className="min-w-0">
-              <p className="truncate text-[11px] text-white/50">{v.nombre}</p>
+              <p className="truncate text-xs text-white/50">{v.nombre}</p>
               <p className="text-sm font-semibold tabular-nums text-white">
                 {v.total}
-                {v.p90 != null && <span className="ml-1 text-[10px] font-normal text-white/45">{dec(v.p90)}/90</span>}
+                {v.p90 != null && <span className="ml-1 text-xs font-normal text-white/45">{dec(v.p90)}/90</span>}
                 {v.p != null && (
-                  <span className="ml-1 text-[10px] font-semibold" style={{ color: colorPercentil(v.p) }}>
+                  <span className="ml-1 text-xs font-semibold" style={{ color: colorPercentil(v.p) }}>
                     P{v.p}
                   </span>
                 )}
@@ -202,7 +202,7 @@ function TarjetaDeOpta({ t, minimo, completaEnWyscout }: { t: TarjetaTemporada &
             </div>
           ))}
       </div>
-      {pie && <p className="mt-2 text-[11px] text-white/45">{pie}</p>}
+      {pie && <p className="mt-2 text-xs text-white/45">{pie}</p>}
     </div>
   );
 }
@@ -228,7 +228,7 @@ function TarjetaDeWyscout({ clave, w }: { clave: string; w: TarjetaWyscout }) {
       <div className="flex items-baseline justify-between gap-2">
         <p className="text-base font-semibold text-white">
           {corta(clave)}
-          <span className="ml-1.5 text-[11px] font-normal text-white/50">Wyscout · temporada completa</span>
+          <span className="ml-1.5 text-xs font-normal text-white/50">Wyscout · temporada completa</span>
         </p>
         <p className="truncate text-xs text-white/60">{w.equipo}</p>
       </div>
@@ -238,23 +238,23 @@ function TarjetaDeWyscout({ clave, w }: { clave: string; w: TarjetaWyscout }) {
       <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5">
         {totales.map((x) => (
           <div key={x.rotulo} className="min-w-0">
-            <p className="truncate text-[11px] text-white/50">{x.rotulo}</p>
+            <p className="truncate text-xs text-white/50">{x.rotulo}</p>
             <p className="text-sm font-semibold tabular-nums text-white">
               {x.valor}
-              {x.detalle && <span className="ml-1 text-[10px] font-normal text-white/45">{x.detalle}</span>}
+              {x.detalle && <span className="ml-1 text-xs font-normal text-white/45">{x.detalle}</span>}
             </p>
           </div>
         ))}
         {w.metricas.map((m) => (
           <div key={m.columna} className="min-w-0">
-            <p className="truncate text-[11px] text-white/50" title={m.nombre}>
+            <p className="truncate text-xs text-white/50" title={m.nombre}>
               {m.nombre}
             </p>
             <p className="text-sm font-semibold tabular-nums text-white">
               {cifra(m)}
-              {m.unidad !== "porcentaje" && <span className="ml-0.5 text-[10px] font-normal text-white/45">/90</span>}
+              {m.unidad !== "porcentaje" && <span className="ml-0.5 text-xs font-normal text-white/45">/90</span>}
               {m.p != null && (
-                <span className="ml-1 text-[10px] font-semibold" style={{ color: colorPercentil(m.p) }}>
+                <span className="ml-1 text-xs font-semibold" style={{ color: colorPercentil(m.p) }}>
                   P{m.p}
                 </span>
               )}
@@ -262,7 +262,7 @@ function TarjetaDeWyscout({ clave, w }: { clave: string; w: TarjetaWyscout }) {
           </div>
         ))}
       </div>
-      <p className="mt-2 text-[11px] text-white/45">
+      <p className="mt-2 text-xs text-white/45">
         {pie}
         {pocas && !w.sinMinimo && w.contra !== "solo" ? " Un porcentaje de muy pocas acciones va sin percentil." : ""}
       </p>

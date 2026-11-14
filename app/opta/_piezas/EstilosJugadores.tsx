@@ -223,7 +223,7 @@ export function EstilosJugadores({ datos }: { datos: DatosOpta }) {
                 if (!lista.length) return null;
                 return (
                   <div key={m}>
-                    <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/45">
+                    <p className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-white/45">
                       {nombre} · {lista.length}
                     </p>
                     <div className="flex flex-wrap gap-1.5">{lista.map(chip)}</div>
@@ -232,7 +232,7 @@ export function EstilosJugadores({ datos }: { datos: DatosOpta }) {
               })}
               {fuera.length > 0 && (
                 <details>
-                  <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-[0.14em] text-white/45 hover:text-white/70">
+                  <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.14em] text-white/45 hover:text-white/70">
                     En ninguno · {fuera.length}
                   </summary>
                   <div className="mt-1 flex flex-wrap gap-1.5">{fuera.map(chip)}</div>
@@ -245,7 +245,7 @@ export function EstilosJugadores({ datos }: { datos: DatosOpta }) {
             <div className="mt-4 overflow-x-auto">
               <table className="w-full min-w-[560px] text-left text-[12px] tabular-nums">
                 <thead>
-                  <tr className="border-b border-white/10 text-[11px] text-white/55">
+                  <tr className="border-b border-white/10 text-xs text-white/55">
                     <th className="py-2 pr-2 font-semibold">Resaltado</th>
                     <th className="py-2 pr-2 font-semibold">Equipo</th>
                     <th className="py-2 pr-2 text-right font-semibold">Min</th>
@@ -286,7 +286,7 @@ export function EstilosJugadores({ datos }: { datos: DatosOpta }) {
             {CIRCULOS.map((c) => {
               const conj = def.conjuntos[c.clave];
               return (
-                <div key={c.clave} className="min-w-0 text-[11px] leading-relaxed text-white/55">
+                <div key={c.clave} className="min-w-0 text-xs leading-relaxed text-white/55">
                   <p className="font-semibold" style={{ color: c.color }}>
                     {NOMBRES[c.clave]}: {conj.que.toLowerCase()}
                   </p>
@@ -295,7 +295,7 @@ export function EstilosJugadores({ datos }: { datos: DatosOpta }) {
               );
             })}
           </div>
-          <p className="mt-2 text-[11px] leading-relaxed text-white/45">
+          <p className="mt-2 text-xs leading-relaxed text-white/45">
             Cómo se cuenta: datos de Opta de toda la categoría. Cada conjunto es la media de los percentiles (0-100) de sus métricas por 90′ —los
             porcentajes, tal cual— contra los {def.nombre.toLowerCase()} con {minimo}′ o más del ámbito elegido; el puesto es el que más ha repetido en
             la temporada. Entra en un círculo quien llega al percentil {tope}. Las métricas cambian con el puesto; los porteros no entran.

@@ -181,7 +181,7 @@ export function Colectivo({ datos }: { datos: DatosOpta }) {
           }
         >
           <Evolucion serie={serie} unidad={defEvo.unidad} media={mediaGrupo} />
-          {defEvo.mejor === false && <p className="mt-1 text-[11px] text-white/45">En esta métrica, menos es mejor.</p>}
+          {defEvo.mejor === false && <p className="mt-1 text-xs text-white/45">En esta métrica, menos es mejor.</p>}
         </Panel>
       )}
 

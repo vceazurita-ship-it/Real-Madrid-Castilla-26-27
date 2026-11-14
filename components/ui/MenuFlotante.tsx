@@ -56,7 +56,12 @@ export function MenuFlotante({ children }: { children: ReactNode }) {
     if (!abierto) return;
 
     const alTocar = (evento: PointerEvent) => {
-      if (!caja.current?.contains(evento.target as Node)) setAbierto(false);
+      const destino = evento.target as Element | null;
+      if (caja.current?.contains(destino)) return;
+      /* Un panel que cuelga del menú pero vive en el body (la ayuda, 14/11/2026):
+         tocar dentro NO es tocar fuera; si no, el menú se cerraba y lo desmontaba. */
+      if (destino?.closest?.(".modal-veil")) return;
+      setAbierto(false);
     };
 
     const alPulsar = (evento: KeyboardEvent) => {

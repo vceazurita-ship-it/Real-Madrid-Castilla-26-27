@@ -134,7 +134,7 @@ export function Porteria({ penaltis, ariaLabel }: { penaltis: Penalti[]; ariaLab
           )}
         </g>
       </svg>
-      <p className="mt-1 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] text-white/55">
+      <p className="mt-1 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-white/55">
         <span className="inline-flex items-center gap-1.5">
           <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: SOBRE_CESPED.gol }} />
           Gol
@@ -162,7 +162,7 @@ function Lista({ penaltis, columna }: { penaltis: Penalti[]; columna: "portero" 
     <div className="mt-3 overflow-x-auto">
       <table className="w-full min-w-[480px] text-left text-[12px] tabular-nums">
         <thead>
-          <tr className="border-b border-white/10 text-[11px] text-white/55">
+          <tr className="border-b border-white/10 text-xs text-white/55">
             <th className="py-1.5 pr-2 font-semibold">Fecha</th>
             <th className="py-1.5 pr-2 font-semibold">{columna === "portero" ? "Portero" : "Lanzador"}</th>
             <th className="py-1.5 pr-2 font-semibold">Resultado</th>
@@ -433,7 +433,7 @@ function RankingEquipos({ penaltis, marcado, alElegir }: { penaltis: Penalti[]; 
       <div className="max-h-[480px] max-w-full overflow-auto">
         <table className="w-full min-w-[600px] text-left text-[12px] tabular-nums">
           <thead>
-            <tr className="border-b border-white/10 text-[11px] text-white/55">
+            <tr className="border-b border-white/10 text-xs text-white/55">
               <th className="py-1.5 pr-2 font-semibold">Equipo</th>
               {cols.map((c) => (
                 <th key={c.clave} className="py-1.5 pr-2 text-right font-semibold" title={c.titulo} aria-sort={orden === c.clave ? "descending" : undefined}>
@@ -480,7 +480,7 @@ function TablaPersonas({
     <div className="max-h-[420px] overflow-auto">
       <table className="w-full min-w-[380px] text-left text-[12px] tabular-nums">
         <thead>
-          <tr className="border-b border-white/10 text-[11px] text-white/55">
+          <tr className="border-b border-white/10 text-xs text-white/55">
             <th className="py-1.5 pr-2 font-semibold">{tipo === "lanzador" ? "Lanzador" : "Portero"}</th>
             <th className="py-1.5 pr-2 text-right font-semibold">Pen.</th>
             <th className="py-1.5 pr-2 text-right font-semibold">{tipo === "lanzador" ? "Goles" : "Encajados"}</th>
@@ -493,7 +493,7 @@ function TablaPersonas({
             <tr key={f.nombre} onClick={() => alElegir(f.nombre)} className="cursor-pointer border-b border-white/[0.06] hover:bg-white/[0.04]">
               <td className="max-w-[200px] truncate py-1.5 pr-2 text-white/85">
                 {f.nombre}
-                <span className="ml-1 text-[10px] text-white/45">{f.equipo}</span>
+                <span className="ml-1 text-xs text-white/45">{f.equipo}</span>
               </td>
               <td className="py-1.5 pr-2 text-right text-white/75">{f.n}</td>
               <td className="py-1.5 pr-2 text-right text-white/75">{f.goles}</td>

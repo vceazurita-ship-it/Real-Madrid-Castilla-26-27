@@ -182,7 +182,7 @@ export function Leyenda({ nombre, liga, modo }: { nombre: string; liga: string; 
     </svg>
   );
   return (
-    <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-white/60">
+    <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/60">
       <span className="inline-flex items-center gap-1.5">{raya(ORO)}{nombre}</span>
       <span className="inline-flex items-center gap-1.5">{raya(COMPARADO)}Sus rivales</span>
       <span className="inline-flex items-center gap-1.5">{raya(tinta(0.5), true)}Media de {liga}</span>
@@ -253,7 +253,7 @@ export function MiniEvolucion({
       <figcaption className="mb-1 flex items-start justify-between gap-2">
         <span className="min-w-0">
           <span className="block text-[13px] font-semibold leading-tight text-white">{nombre}</span>
-          {def.mejor === false && <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-white/45">↓ menos es mejor</span>}
+          {def.mejor === false && <span className="text-xs font-semibold uppercase tracking-[0.12em] text-white/45">↓ menos es mejor</span>}
         </span>
         {alQuitar && (
           <button type="button" onClick={alQuitar} aria-label={`Quitar ${nombre}`} className="shrink-0 rounded-lg p-1 text-white/45 hover:bg-white/[0.06] hover:text-white">
@@ -314,7 +314,7 @@ export function MiniEvolucion({
         <TablaSerie serie={serie} def={def} equipo={equipo} />
       </div>
       <details className="mt-2 sm:hidden">
-        <summary className="cursor-pointer text-[11px] font-semibold text-white/55">Ver los números</summary>
+        <summary className="cursor-pointer text-xs font-semibold text-white/55">Ver los números</summary>
         <div className="mt-1">
           <TablaSerie serie={serie} def={def} equipo={equipo} />
         </div>
@@ -432,7 +432,7 @@ function ArranqueProceso({
       <div className="max-w-full overflow-x-auto">
         <table className="w-full min-w-[560px] text-left text-[12px] tabular-nums">
           <thead>
-            <tr className="text-[11px] text-white/55">
+            <tr className="text-xs text-white/55">
               <th rowSpan={2} className="py-1 pr-2 align-bottom font-semibold">
                 Métrica
               </th>
@@ -443,7 +443,7 @@ function ArranqueProceso({
                 Sus rivales
               </th>
             </tr>
-            <tr className="border-b border-white/10 text-[11px] text-white/45">
+            <tr className="border-b border-white/10 text-xs text-white/45">
               {[0, 1].map((i) => (
                 <FilaCabecera key={i} a={tramoA} b={tramoB} izquierda={i === 1} />
               ))}
@@ -456,7 +456,7 @@ function ArranqueProceso({
           </tbody>
         </table>
       </div>
-      <p className="mt-1 text-[11px] text-white/45">En verde, el cambio a mejor para {nombre}; en naranja, a peor (en los rivales, que suban sus cifras de ataque es a peor). Las de estilo, sin color.</p>
+      <p className="mt-1 text-xs text-white/45">En verde, el cambio a mejor para {nombre}; en naranja, a peor (en los rivales, que suban sus cifras de ataque es a peor). Las de estilo, sin color.</p>
 
       {!cargando && (rPrimeras.length > 0 || rUltimas.length > 0) && (
         <div className="mt-5 grid gap-5 border-t border-white/10 pt-4 lg:grid-cols-2">
@@ -505,7 +505,7 @@ function FilaTramo({ fila, def }: { fila: FilaArranque; def: DefMetrica }) {
     <tr className="border-b border-white/[0.06]">
       <td className="max-w-[220px] py-1 pr-2 text-white/85">
         {def.nombre}
-        {def.mejor === false && <span className="ml-1 text-[10px] text-white/40">↓</span>}
+        {def.mejor === false && <span className="ml-1 text-xs text-white/40">↓</span>}
       </td>
       {celdas(fila.equipo, false)}
       {celdas(fila.rivales, true)}

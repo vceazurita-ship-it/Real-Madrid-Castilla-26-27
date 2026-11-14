@@ -15,6 +15,11 @@
 name: Opta en directo
 
 on:
+  # Solo, sin botón (14/11/2026, petición del analista: «que el directo compruebe
+  # los partidos que hay en directo»): cada 30 min de 10:00 a 22:30 (hora de
+  # Madrid ≈ UTC+1). Si hoy no hay partidos de Primera RFEF, sale en segundos.
+  schedule:
+    - cron: "*/30 9-21 * * *"
   workflow_dispatch:
     inputs:
       duracion:
@@ -32,7 +37,8 @@ permissions:
 
 concurrency:
   group: opta-directo
-  cancel-in-progress: true
+  # Una vuelta programada no corta a la que está mirando: espera a que acabe.
+  cancel-in-progress: false
 
 jobs:
   directo:
@@ -58,6 +64,6 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           # Reserva: vacío = Supabase; con valor = Postgres propio.
           DATOS_PG_URL: ${{ secrets.DATOS_PG_URL }}
-          DURACION_MIN: ${{ inputs.duracion }}
+          DURACION_MIN: ${{ inputs.duracion || '35' }}
           INTERVALO_S: ${{ inputs.intervalo }}
           PARTIDO: ${{ inputs.partido }}

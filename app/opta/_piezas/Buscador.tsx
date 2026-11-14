@@ -113,7 +113,7 @@ export function Buscador({ datos, minimo, setMinimo }: { datos: DatosOpta; minim
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px] text-left text-[12px] tabular-nums">
               <thead>
-                <tr className="border-b border-white/10 text-[11px] text-white/55">
+                <tr className="border-b border-white/10 text-xs text-white/55">
                   <th className="w-8 py-2 pr-2 font-semibold">#</th>
                   <th className="py-2 pr-3 font-semibold">Jugador</th>
                   <th className="py-2 pr-3 font-semibold">Equipo</th>
@@ -145,7 +145,7 @@ export function Buscador({ datos, minimo, setMinimo }: { datos: DatosOpta; minim
                       <td className="py-1.5 pr-3 text-white/65">
                         {nombreEquipo(f)}
                         {grupos.size > 0 && ambito === "todos" && grupos.get(String(f.teamId)) === 1 && (
-                          <span className="ml-1.5 text-[10px] text-white/40">nuestro grupo</span>
+                          <span className="ml-1.5 text-xs text-white/40">nuestro grupo</span>
                         )}
                       </td>
                       <td className="py-1.5 pr-3 text-white/60">{PUESTO_OPTA[String(f.puesto ?? "")] ?? ""}</td>
@@ -161,7 +161,7 @@ export function Buscador({ datos, minimo, setMinimo }: { datos: DatosOpta; minim
               </tbody>
             </table>
             {resultado.length > TOPE && (
-              <p className="mt-2 text-[11px] text-white/45">
+              <p className="mt-2 text-xs text-white/45">
                 Se enseñan los {TOPE} primeros de {resultado.length}. Afina el puesto, la edad o los minutos para ver el resto.
               </p>
             )}

@@ -250,7 +250,7 @@ function Dispersion({ datos, filas, minimo, alAbrir }: { datos: DatosOpta; filas
         </>
       }
     >
-      <div className="mb-3 flex flex-wrap items-center gap-2 text-[11px] text-white/55">
+      <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-white/55">
         {FAMILIAS_ANCHAS.map((f) => (
           <button
             key={f}
@@ -298,7 +298,7 @@ function Dispersion({ datos, filas, minimo, alAbrir }: { datos: DatosOpta; filas
       )}
 
       <div className="mt-4 border-t border-white/10 pt-3 text-xs leading-relaxed text-white/65">
-        <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/45">Qué estás viendo</p>
+        <p className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-white/45">Qué estás viendo</p>
         <p>
           Las rayas diagonales unen a los que suman lo mismo entre los dos percentiles (100, 130 y 160). Por encima de 160 —la zona
           sombreada— está la élite: {elite.length} de {puntos.length} jugadores
@@ -361,10 +361,10 @@ function Ranking({ datos, filas, minimo, alAbrir }: { datos: DatosOpta; filas: D
         </>
       }
     >
-      <ol className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-white/60">
+      <ol className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-white/60">
         {perfil.metricas.map((m, i) => (
           <li key={m.a} className="inline-flex items-center gap-1">
-            <span className="inline-flex h-4 w-4 items-center justify-center rounded bg-white/[0.08] text-[10px] font-bold text-white/80">{i + 1}</span>
+            <span className="inline-flex h-4 w-4 items-center justify-center rounded bg-white/[0.08] text-xs font-bold text-white/80">{i + 1}</span>
             {nombreTalento(m.a, catalogo)}
             {TASAS.has(m.a) ? "" : " /90"}
             {m.inverso ? " (menos es mejor)" : ""}
@@ -376,7 +376,7 @@ function Ranking({ datos, filas, minimo, alAbrir }: { datos: DatosOpta; filas: D
         <div className="overflow-x-auto">
           <table className="w-full min-w-[620px] text-left text-[12px] tabular-nums">
             <thead>
-              <tr className="border-b border-white/10 text-[11px] text-white/55">
+              <tr className="border-b border-white/10 text-xs text-white/55">
                 <th className="w-8 py-2 pr-2 font-semibold">#</th>
                 <th className="py-2 pr-3 font-semibold">Jugador</th>
                 <th className="py-2 pr-3 text-right font-semibold">Min</th>
@@ -397,7 +397,7 @@ function Ranking({ datos, filas, minimo, alAbrir }: { datos: DatosOpta; filas: D
                     <td className="py-1.5 pr-2 text-white/55">{i + 1}</td>
                     <td className="max-w-[220px] py-1.5 pr-3">
                       <p className="truncate font-semibold text-white/90">{x.jugador}</p>
-                      <p className="truncate text-[11px] text-white/50">
+                      <p className="truncate text-xs text-white/50">
                         {[nombreDe(x.teamId, x.equipo), PUESTO_OPTA[x.puesto] ?? "", x.edad ? `${x.edad} años` : ""].filter(Boolean).join(" · ")}
                       </p>
                     </td>
@@ -425,7 +425,7 @@ function Ranking({ datos, filas, minimo, alAbrir }: { datos: DatosOpta; filas: D
                                 <span className="absolute inset-0 block" style={{ backgroundImage: `repeating-linear-gradient(45deg, ${tinta(0.25)} 0 2px, transparent 2px 5px)` }} />
                               ) : null}
                             </span>
-                            <span className="mt-0.5 text-[9px] text-white/45">{d.corta ? "·" : j + 1}</span>
+                            <span className="mt-0.5 text-xs text-white/45">{d.corta ? "·" : j + 1}</span>
                           </span>
                         ))}
                       </div>
@@ -439,7 +439,7 @@ function Ranking({ datos, filas, minimo, alAbrir }: { datos: DatosOpta; filas: D
       ) : (
         <p className="py-6 text-center text-sm text-white/55">Nadie de ese puesto llega a {minimo}′.</p>
       )}
-      <p className="mt-2 text-[11px] text-white/45">
+      <p className="mt-2 text-xs text-white/45">
         Pulsa un jugador para ver su ficha.
         {nuestros.length ? " Debajo de la raya, los del Castilla que no entran en el corte, con su puesto en el ranking." : ""}
         {hayCortas ? " Las barras rayadas son porcentajes de muy pocos intentos: se marcan y no cuentan para la nota." : ""}

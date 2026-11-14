@@ -28,6 +28,7 @@ import {
   MX,
   MY,
   alUltimoTercio,
+  balonParado,
   curvaXg,
   densidad,
   esToque,
@@ -46,6 +47,7 @@ import {
   tiros as tirosDe,
   xpv90,
   type Tiro,
+  type AccionAbp,
   type EventoDirecto,
   type JugadorDirecto,
   type Rendimiento,
@@ -234,7 +236,7 @@ function Red({
         )}
       </CampoOpta>
       {pareja && (
-        <p className="mt-1 text-[11px] text-white/60">
+        <p className="mt-1 text-xs text-white/60">
           Pareja que más se asocia: <b className="text-white/85">{conDorsal(pareja.a)}</b> – <b className="text-white/85">{conDorsal(pareja.b)}</b> ({pareja.n} pases, en los dos sentidos)
           {masPasa ? <>; el que más pasa: <b className="text-white/85">{conDorsal(masPasa.id)}</b> ({masPasa.pases})</> : null}.
         </p>
@@ -283,7 +285,7 @@ function Remates({ ts, a, b, jugadores }: { ts: Tiro[]; a: Equipo; b: Equipo; ju
         </>
       )}
     </CampoOpta>
-      <p className="mt-1 min-h-[2.5em] text-[11px] text-white/70">
+      <p className="mt-1 min-h-[2.5em] text-xs text-white/70">
         {t0
           ? `${t0.minuto}′ ${quien(t0.jugadorId)} (${t0.teamId === a.teamId ? a.nombre : b.nombre}): ${t0.gol ? "GOL" : t0.aPuerta ? "a puerta" : "fuera o tapado"}, xG ${dec(t0.xG ?? 0)}. ${t0.origen ? `Le llega de ${quien(t0.origen.jugadorId)} desde ${carril(t0.origen.y)} (línea blanca).` : "Sin pase previo: jugada individual, rechace o balón parado directo."}`
           : "Pincha un remate para ver quién lo tira, su xG y de dónde le llega el pase."}
@@ -314,13 +316,13 @@ function CurvaXg({ ts, todos, a, b }: { ts: Tiro[]; todos: EventoDirecto[]; a: E
       {[0, tope / 2, tope].map((v) => (
         <g key={v}>
           <line x1={34} x2={W - 10} y1={Y(v)} y2={Y(v)} style={{ stroke: tinta(0.1) }} />
-          <text x={28} y={Y(v) + 4} textAnchor="end" style={{ fill: tinta(0.5), fontSize: 11 }}>
+          <text x={28} y={Y(v) + 4} textAnchor="end" style={{ fill: tinta(0.5), fontSize: 12 }}>
             {dec(v, 1)}
           </text>
         </g>
       ))}
       {[0, 15, 30, 45, 60, 75, 90].filter((m) => m <= fin).map((m) => (
-        <text key={m} x={X(m)} y={H - 6} textAnchor="middle" style={{ fill: tinta(0.5), fontSize: 11 }}>
+        <text key={m} x={X(m)} y={H - 6} textAnchor="middle" style={{ fill: tinta(0.5), fontSize: 12 }}>
           {m}′
         </text>
       ))}
@@ -333,7 +335,7 @@ function CurvaXg({ ts, todos, a, b }: { ts: Tiro[]; todos: EventoDirecto[]; a: E
         return (
           <g key={i}>
             <circle cx={X(Math.min(fin, t.minuto))} cy={Y(v)} r={6} style={{ fill: deA ? (a.teamId === CASTILLA_OPTA ? "#C8A96B" : "#4F8FE8") : "#E8484D", stroke: "#fff", strokeWidth: 2 }} />
-            <text x={X(Math.min(fin, t.minuto))} y={Y(v) - 10} textAnchor="middle" style={{ fill: tinta(0.85), fontSize: 11, fontWeight: 700 }}>
+            <text x={X(Math.min(fin, t.minuto))} y={Y(v) - 10} textAnchor="middle" style={{ fill: tinta(0.85), fontSize: 12, fontWeight: 700 }}>
               GOL {t.minuto}′
             </text>
           </g>
@@ -378,7 +380,7 @@ function RobosPerdidas({ ev, equipo, color }: { ev: EventoDirecto[]; equipo: Equ
           </>
         )}
       </CampoOpta>
-      <div className="mt-1 grid grid-cols-3 gap-1 text-center text-[11px] tabular-nums text-white/70">
+      <div className="mt-1 grid grid-cols-3 gap-1 text-center text-xs tabular-nums text-white/70">
         {(["baja", "media", "alta"] as const).map((k) => (
           <span key={k} className="rounded-lg bg-white/[0.04] px-1 py-1">
             {k === "alta" ? "Último tercio" : k === "media" ? "Medio" : "Propio"}: <b style={{ color: SOBRE_CESPED.verde }}>{r.alturaRobos[k]}</b> / <b style={{ color: "#FF6B6B" }}>{r.alturaPerdidas[k]}</b>
@@ -414,13 +416,13 @@ function Destacados({ filas, color }: { filas: Rendimiento[]; color: string }) {
     <div className="grid gap-2 sm:grid-cols-3">
       {top.map((r, i) => (
         <div key={r.jugador.id} className="rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2">
-          <p className="text-[10px] font-black uppercase tracking-[0.14em]" style={{ color }}>
+          <p className="text-xs font-black uppercase tracking-[0.14em]" style={{ color }}>
             {i === 0 ? "El que más empuja" : `${i + 1}.º en impacto`}
           </p>
           <p className="truncate text-sm font-semibold text-white">
             <span className="tabular-nums text-white/55">{r.jugador.dorsal}</span> {r.jugador.nombre}
           </p>
-          <p className="text-[11px] tabular-nums text-white/60">
+          <p className="text-xs tabular-nums text-white/60">
             {dec(xpv90(r))} por 90′{media > 0 ? ` (${dec(xpv90(r) / media, 1)} × la media del equipo)` : ""} · {r.progresivos} progresivos · {r.recuperaciones} robos{r.tiros ? ` · ${r.tiros} remates` : ""}
           </p>
         </div>
@@ -459,7 +461,7 @@ function Tabla({ filas, color, elegido, alElegir }: { filas: Rendimiento[]; colo
               <td className="max-w-[170px] truncate px-1 py-1 text-white/85">
                 <span className="mr-1 inline-block w-5 text-right text-white/45">{r.jugador.dorsal}</span>
                 {r.jugador.nombre}
-                {!r.jugador.titular && <span className="ml-1 text-[10px] text-white/40">(supl.)</span>}
+                {!r.jugador.titular && <span className="ml-1 text-xs text-white/40">(supl.)</span>}
               </td>
               {COLUMNAS.map((c) => {
                 const v = c.v(r);
@@ -488,7 +490,7 @@ function FichaJugador({ ev, r, color, rgb, alCerrar }: { ev: EventoDirecto[]; r:
     <div className="rounded-2xl border border-white/15 bg-white/[0.04] p-3">
       <div className="mb-2 flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-[10px] font-black uppercase tracking-[0.14em]" style={{ color }}>
+          <p className="text-xs font-black uppercase tracking-[0.14em]" style={{ color }}>
             Ficha del directo · {puesto(r.jugador.puesto) || "jugador"} · {r.jugador.minutos}′
           </p>
           <p className="truncate text-lg font-semibold text-white">
@@ -515,7 +517,7 @@ function FichaJugador({ ev, r, color, rgb, alCerrar }: { ev: EventoDirecto[]; r:
           ["Toques propio", pct(tercios.baja)],
         ].map(([t, v]) => (
           <div key={t} className="rounded-xl bg-white/[0.04] px-1 py-1.5">
-            <p className="text-[10px] text-white/50">{t}</p>
+            <p className="text-xs text-white/50">{t}</p>
             <p className="text-sm font-semibold tabular-nums text-white">{v}</p>
           </div>
         ))}
@@ -566,16 +568,79 @@ function FichaJugador({ ev, r, color, rgb, alCerrar }: { ev: EventoDirecto[]; r:
   );
 }
 
+/** El balón parado de un equipo: cuántos, qué dan y quién los saca y remata. */
+function BalonParado({ acciones, equipo, color, jugadores }: { acciones: AccionAbp[]; equipo: Equipo; color: string; jugadores: Map<string, JugadorDirecto> }) {
+  const corners = acciones.filter((x) => x.tipo === "corner");
+  const bandas = acciones.filter((x) => x.tipo === "banda");
+  const conRemate = acciones.filter((x) => x.remate);
+  const xg = conRemate.reduce((t, x) => t + (x.remate?.xG ?? 0), 0);
+  const goles = conRemate.filter((x) => x.remate?.gol).length;
+  const contras = acciones.filter((x) => x.contra).length;
+  const cuenta = (ids: string[]) => {
+    const m = new Map<string, number>();
+    for (const id of ids) if (id) m.set(id, (m.get(id) ?? 0) + 1);
+    return [...m.entries()].sort((x, y) => y[1] - x[1]).slice(0, 3);
+  };
+  const nombre = (id: string) => {
+    const j = jugadores.get(id);
+    return j ? `${j.dorsal ?? ""} ${apellido(j.nombre)}`.trim() : "—";
+  };
+  const sacan = cuenta(corners.map((x) => x.saque.jugadorId));
+  const rematan = cuenta(conRemate.map((x) => x.remate?.jugadorId ?? ""));
+  const cifra = (t: string, v: string, aviso = false) => (
+    <div className="rounded-xl px-2 py-1.5" style={{ background: tinta(0.05) }}>
+      <p className="text-xs uppercase tracking-[0.12em] text-white/50">{t}</p>
+      <p className="font-mono text-xl font-bold tabular-nums" style={{ color: aviso ? "#f59e0b" : "#FFFFFF" }}>{v}</p>
+    </div>
+  );
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+      <p className="mb-2 text-sm font-bold" style={{ color }}>{equipo.nombre}</p>
+      <div className="grid grid-cols-3 gap-2">
+        {cifra("Córners", String(corners.length))}
+        {cifra("Banda arriba", String(bandas.length))}
+        {cifra("Con remate", `${conRemate.length}/${acciones.length}`)}
+        {cifra("xG", dec(xg))}
+        {cifra("Goles", String(goles))}
+        {cifra("Contras encajadas", String(contras), contras > 0)}
+      </div>
+      {sacan.length > 0 && (
+        <p className="mt-2 text-sm text-white/75">
+          <span className="text-white/50">Saca los córners: </span>
+          {sacan.map(([id, n]) => `${nombre(id)} (${n})`).join(" · ")}
+        </p>
+      )}
+      {rematan.length > 0 && (
+        <p className="mt-1 text-sm text-white/75">
+          <span className="text-white/50">Remata: </span>
+          {rematan.map(([id, n]) => `${nombre(id)} (${n})`).join(" · ")}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function fraseAbp(abpA: AccionAbp[], abpB: AccionAbp[], a: Equipo, b: Equipo): string {
+  const lado = (l: AccionAbp[]) => ({ n: l.length, rem: l.filter((x) => x.remate).length, xg: l.reduce((t, x) => t + (x.remate?.xG ?? 0), 0) });
+  const x = lado(abpA);
+  const y = lado(abpB);
+  if (x.n + y.n === 0) return "Aún no ha habido córners ni saques de banda en el último tercio.";
+  const quien = x.xg > y.xg + 0.1 ? a : y.xg > x.xg + 0.1 ? b : null;
+  const base = `${a.nombre}: ${x.n} a balón parado, ${x.rem} con remate (xG ${dec(x.xg)}). ${b.nombre}: ${y.n}, ${y.rem} con remate (xG ${dec(y.xg)}).`;
+  return quien ? `${base} Saca más del balón parado ${quien.nombre}.` : `${base} Igualados a balón parado.`;
+}
+
 /* ------------------------------ la pieza ------------------------------ */
 
 export type ParteDirecto = "colectivo" | "individual";
-type Seccion = "relieve" | "campo" | "red" | "remates" | "robos" | "todo";
+type Seccion = "relieve" | "campo" | "red" | "remates" | "robos" | "abp" | "todo";
 const SECCIONES: { clave: Seccion; nombre: string }[] = [
   { clave: "relieve", nombre: "Relieve" },
   { clave: "campo", nombre: "Dónde se juega" },
   { clave: "red", nombre: "Red de pases" },
   { clave: "remates", nombre: "Remates y xG" },
   { clave: "robos", nombre: "Robos y pérdidas" },
+  { clave: "abp", nombre: "Balón parado" },
   { clave: "todo", nombre: "Todo seguido" },
 ];
 
@@ -633,15 +698,15 @@ export function DirectoMapas({
 
   const titulo = (t: string, sub?: string) => (
     <div className="mb-2">
-      <h3 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/55">{t}</h3>
-      {sub && <p className="text-[11px] text-white/45">{sub}</p>}
+      <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-white/55">{t}</h3>
+      {sub && <p className="text-xs text-white/45">{sub}</p>}
     </div>
   );
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/45">El partido en el campo</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/45">El partido en el campo</p>
         <Botonera etiqueta="Tramo del partido" valor={tramo} opciones={TRAMOS} alCambiar={setTramo} />
       </div>
 
@@ -659,7 +724,7 @@ export function DirectoMapas({
           const parte = x + y > 0 ? (x / (x + y)) * 100 : 50;
           return (
             <div key={String(t)} className="rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/45">{String(t)}</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/45">{String(t)}</p>
               <p className="flex items-baseline justify-between text-lg font-semibold tabular-nums">
                 <span style={{ color: COLOR_A }}>{fx(x)}</span>
                 <span style={{ color: COLOR_B }}>{fx(y)}</span>
@@ -673,7 +738,7 @@ export function DirectoMapas({
         })}
       </div>}
 
-      {parte === "colectivo" && <p className="-mt-3 text-[10px] text-white/45">
+      {parte === "colectivo" && <p className="-mt-3 text-xs text-white/45">
         Pases = en juego, sin saques de banda ni de puerta (como «pases intentados» de Opta). Robos = recuperaciones + intercepciones + entradas ganadas (la
         «Recuperaciones» de Opta de abajo sólo cuenta las primeras). Pérdidas = pase fallado, regate perdido o robado en conducción (la de Opta suma además duelos y
         despejes).
@@ -737,7 +802,7 @@ export function DirectoMapas({
                   {e.nombre}
                 </p>
                 <Calor ev={l as EventoDirecto[]} rgb={rgb as string} etiqueta={`Mapa de calor de ${e.nombre}`} tope={topeCalor} />
-                <p className="mt-1 text-[11px] tabular-nums text-white/60">
+                <p className="mt-1 text-xs tabular-nums text-white/60">
                   Toques en campo propio {pct(t.baja)} · medio {pct(t.media)} · último tercio {pct(t.alta)}
                 </p>
               </div>
@@ -780,6 +845,15 @@ export function DirectoMapas({
             </p>
             <CurvaXg ts={ts} todos={todos} a={a} b={b} />
           </div>
+        </div>
+      </section>}
+
+      {ve("abp") && <section>
+        {titulo("Balón parado", "Córners y saques de banda en el último tercio de cada equipo, con el remate que dan (10 s después) y la contra que encajan (remate rival en 15 s). Las faltas no salen: Opta no las marca en el directo.")}
+        <Conclusion>{fraseAbp(balonParado(ev, a.teamId), balonParado(ev, b.teamId), a, b)}</Conclusion>
+        <div className="grid gap-3 md:grid-cols-2">
+          <BalonParado acciones={balonParado(ev, a.teamId)} equipo={a} color={COLOR_A} jugadores={porId} />
+          <BalonParado acciones={balonParado(ev, b.teamId)} equipo={b} color={COLOR_B} jugadores={porId} />
         </div>
       </section>}
 
@@ -968,7 +1042,7 @@ function SemaforoJugadores({ filas, temporada, color, alElegir }: { filas: Rendi
       </p>
     ) : (
     <div className="min-w-0 rounded-2xl border bg-white/[0.03] p-3" style={{ borderColor: borde }}>
-      <p className="mb-2 text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: borde }}>
+      <p className="mb-2 text-xs font-black uppercase tracking-[0.14em]" style={{ color: borde }}>
         {titulo} · {l.length}
       </p>
       {l.length === 0 ? (
@@ -985,7 +1059,7 @@ function SemaforoJugadores({ filas, temporada, color, alElegir }: { filas: Rendi
                 <p className="text-[12px] text-white/60">{desvioDe(r, porId.get(r.jugador.id)).texto}</p>
               )}
               {tipo && (
-                <p className="text-[11px] text-white/65">
+                <p className="text-xs text-white/65">
                   {m
                     .filter((k) => k.tipo === tipo)
                     .map((k) => k.texto)
@@ -1000,7 +1074,7 @@ function SemaforoJugadores({ filas, temporada, color, alElegir }: { filas: Rendi
   );
   return (
     <div className="space-y-2">
-      <p className="text-[11px] text-white/50">
+      <p className="text-xs text-white/50">
         Cada jugador en este partido frente a lo suyo de la temporada (Opta, por 90′; con 20′ jugados y 270′ en la temporada). Pincha un nombre para abrir su ficha.
       </p>
       <div className="grid gap-2 md:grid-cols-3">

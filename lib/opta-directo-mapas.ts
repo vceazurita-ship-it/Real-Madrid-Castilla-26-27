@@ -403,3 +403,41 @@ export function porPartes(ev: EventoDirecto[], a: string, b: string): Record<1 |
   };
   return { 1: una(1), 2: una(2) };
 }
+
+/* ------------------------------ balón parado ------------------------------ */
+
+export type AccionAbp = {
+  tipo: "corner" | "banda";
+  saque: EventoDirecto;
+  /** Remate del mismo equipo en los 10 s siguientes (misma parte), si lo hay. */
+  remate: Tiro | null;
+  /** Remate del rival en los 15 s siguientes: la contra que nos hacen. */
+  contra: Tiro | null;
+};
+
+/** Córner: pase que sale de la esquina (Opta lo pone en x ≥ 99 y en y ≤ 1 o ≥ 99). */
+export const esCorner = (e: EventoDirecto) => e.tipo === "Pass" && !e.saque && e.x >= 99 && (e.y <= 1 || e.y >= 99);
+
+/**
+ * El balón parado de un equipo: sus córners y sus saques de banda en el
+ * último tercio, cada uno con el remate que da (10 s) y la contra rival (15 s).
+ * `ev` en orden de partido. Las faltas no salen: el directo no trae el
+ * calificador de falta de Opta.
+ */
+export function balonParado(ev: EventoDirecto[], teamId: string): AccionAbp[] {
+  const ts = tiros(ev);
+  const salida: AccionAbp[] = [];
+  for (const e of ev) {
+    if (e.teamId !== teamId) continue;
+    const tipo = esCorner(e) ? "corner" : e.saque === "banda" && e.x >= 66.7 ? "banda" : null;
+    if (!tipo) continue;
+    const tras = (t: Tiro, s: number) => t.parte === e.parte && t.segundo >= e.segundo && t.segundo - e.segundo <= s;
+    salida.push({
+      tipo,
+      saque: e,
+      remate: ts.find((t) => t.teamId === teamId && tras(t, 10)) ?? null,
+      contra: ts.find((t) => t.teamId !== teamId && tras(t, 15)) ?? null,
+    });
+  }
+  return salida;
+}

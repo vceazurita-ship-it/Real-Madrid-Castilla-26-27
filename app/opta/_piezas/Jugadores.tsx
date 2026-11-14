@@ -100,7 +100,7 @@ export function Jugadores({ datos, minimo, setMinimo }: { datos: DatosOpta; mini
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px] text-left text-[12px] tabular-nums">
             <thead>
-              <tr className="border-b border-white/10 text-[11px] text-white/55">
+              <tr className="border-b border-white/10 text-xs text-white/55">
                 <th className="py-2 pr-3 font-semibold">Jugador</th>
                 <th className="py-2 pr-3 font-semibold">Puesto</th>
                 {cabecera("Age", "Edad")}
@@ -138,7 +138,7 @@ export function Jugadores({ datos, minimo, setMinimo }: { datos: DatosOpta; mini
             </tbody>
           </table>
         </div>
-        <p className="mt-2 text-[11px] text-white/45">Los que están por debajo del mínimo de minutos salen más apagados: su cifra por 90 sale de poco tiempo.</p>
+        <p className="mt-2 text-xs text-white/45">Los que están por debajo del mínimo de minutos salen más apagados: su cifra por 90 sale de poco tiempo.</p>
       </Panel>
 
       {jugador && <FichaJugador key={String(jugador.playerId)} datos={datos} jugador={jugador} minimo={minimo} alCerrar={() => setElegido(null)} />}

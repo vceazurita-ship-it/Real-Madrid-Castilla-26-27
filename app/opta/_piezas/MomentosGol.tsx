@@ -89,7 +89,7 @@ function GolesQueValen({ datos, ambito, nombres }: { datos: DatosOpta; ambito: A
       <div className="overflow-x-auto">
         <table className="w-full min-w-[720px] text-left text-[12px] tabular-nums">
           <thead>
-            <tr className="border-b border-white/10 text-[11px] text-white/55">
+            <tr className="border-b border-white/10 text-xs text-white/55">
               <th className="w-8 py-2 pr-2 font-semibold">#</th>
               <th className="py-2 pr-3 font-semibold">Jugador</th>
               <th className="py-2 pr-3 text-right font-semibold">Goles</th>
@@ -113,7 +113,7 @@ function GolesQueValen({ datos, ambito, nombres }: { datos: DatosOpta; ambito: A
                 <td className="py-1.5 pr-2 text-white/55">{i + 1}</td>
                 <td className="max-w-[220px] py-1.5 pr-3">
                   <p className="truncate font-semibold text-white/90">{r.jugador}</p>
-                  <p className="truncate text-[11px] text-white/50">
+                  <p className="truncate text-xs text-white/50">
                     {nombres.get(r.teamId) ?? ""}
                     {r.penaltis ? ` · ${r.penaltis} de penalti` : ""}
                   </p>
@@ -132,7 +132,7 @@ function GolesQueValen({ datos, ambito, nombres }: { datos: DatosOpta; ambito: A
           </tbody>
         </table>
       </div>
-      <p className="mt-2 text-[11px] leading-relaxed text-white/45">
+      <p className="mt-2 text-xs leading-relaxed text-white/45">
         Ordenado por puntos; a igualdad, por goles decisivos.
         {nuestrosFuera.length ? " Debajo de la raya, los del Castilla que no entran en el corte." : ""}
         {partidosMal > 0 &&
@@ -200,7 +200,7 @@ function DesdeElBanquillo({ datos, ambito, nombres }: { datos: DatosOpta; ambito
       <div className="overflow-x-auto">
         <table className="w-full min-w-[720px] text-left text-[12px] tabular-nums">
           <thead>
-            <tr className="border-b border-white/10 text-[11px] text-white/55">
+            <tr className="border-b border-white/10 text-xs text-white/55">
               <th className="w-8 py-2 pr-2 font-semibold">#</th>
               <th className="py-2 pr-3 font-semibold">Jugador</th>
               {COLUMNAS.map((c) => (
@@ -223,7 +223,7 @@ function DesdeElBanquillo({ datos, ambito, nombres }: { datos: DatosOpta; ambito
                 <td className="py-1.5 pr-2 text-white/55">{i + 1}</td>
                 <td className="max-w-[220px] py-1.5 pr-3">
                   <p className="truncate font-semibold text-white/90">{s.jugador}</p>
-                  <p className="truncate text-[11px] text-white/50">{nombres.get(s.teamId) ?? ""}</p>
+                  <p className="truncate text-xs text-white/50">{nombres.get(s.teamId) ?? ""}</p>
                 </td>
                 <td className="py-1.5 pr-3 text-right text-white/70">{s.partidosSup}</td>
                 <td className="py-1.5 pr-3 text-right text-white/70">{s.minSup}</td>
@@ -237,7 +237,7 @@ function DesdeElBanquillo({ datos, ambito, nombres }: { datos: DatosOpta; ambito
           </tbody>
         </table>
       </div>
-      {nuestrosFuera.length > 0 && <p className="mt-2 text-[11px] text-white/45">Debajo de la raya, los del Castilla que no entran en el corte.</p>}
+      {nuestrosFuera.length > 0 && <p className="mt-2 text-xs text-white/45">Debajo de la raya, los del Castilla que no entran en el corte.</p>}
     </Panel>
   );
 }

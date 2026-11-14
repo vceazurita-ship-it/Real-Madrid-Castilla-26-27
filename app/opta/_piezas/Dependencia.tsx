@@ -66,7 +66,7 @@ export function Dependencia({ datos, teamId, elegirEquipo = false }: { datos: Da
         <div className="overflow-x-auto">
           <table className="w-full min-w-[620px] text-left text-[12px] tabular-nums">
             <thead>
-              <tr className="border-b border-white/10 text-[11px] text-white/55">
+              <tr className="border-b border-white/10 text-xs text-white/55">
                 <th className="py-1.5 pr-3 font-semibold">Jugador</th>
                 <th className="w-[36%] py-1.5 pr-3 font-semibold">{nombreMetrica(metrica, catalogo)}</th>
                 {METRICAS_DEPENDENCIA.filter((k) => k !== metrica).map((k) => (
@@ -83,7 +83,7 @@ export function Dependencia({ datos, teamId, elegirEquipo = false }: { datos: Da
                   <tr key={x.playerId} className="border-b border-white/[0.06]">
                     <td className="py-1.5 pr-3">
                       <span className="font-semibold text-white/85">{x.jugador}</span>
-                      <span className="ml-1.5 text-[10px] text-white/45">{[PUESTO_OPTA[x.puesto] ?? "", `${x.min}′`].filter(Boolean).join(" · ")}</span>
+                      <span className="ml-1.5 text-xs text-white/45">{[PUESTO_OPTA[x.puesto] ?? "", `${x.min}′`].filter(Boolean).join(" · ")}</span>
                     </td>
                     <td className="py-1.5 pr-3">
                       <span className="flex items-center gap-2">
@@ -105,7 +105,7 @@ export function Dependencia({ datos, teamId, elegirEquipo = false }: { datos: Da
               })}
             </tbody>
           </table>
-          {lista.length > FILAS && <p className="mt-2 text-[11px] text-white/45">Los {FILAS} que más pesan; el resto pone menos.</p>}
+          {lista.length > FILAS && <p className="mt-2 text-xs text-white/45">Los {FILAS} que más pesan; el resto pone menos.</p>}
         </div>
       )}
     </Panel>

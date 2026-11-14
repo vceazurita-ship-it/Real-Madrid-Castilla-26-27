@@ -93,7 +93,7 @@ export function Momentum({ datos, partido, teamId }: { datos: DatosOpta; partido
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
           <h3 className="text-sm font-semibold text-white">Quién manda en cada tramo</h3>
-          <p className="text-[11px] text-white/55">
+          <p className="text-xs text-white/55">
             Por tramos de 5′, suavizado con los de al lado. Arriba, <span style={{ color: ORO }}>{nombreA}</span>; abajo, <span style={{ color: COMPARADO }}>{nombreB}</span>. xG{" "}
             {suma(ea, "xG").toFixed(1).replace(".", ",")} – {suma(eb, "xG").toFixed(1).replace(".", ",")} · toques en el área {suma(ea, "toquesArea")} – {suma(eb, "toquesArea")}.
           </p>
@@ -154,7 +154,7 @@ export function Momentum({ datos, partido, teamId }: { datos: DatosOpta; partido
       </svg>
       </div>
       {tramoEncima && (
-        <p className="mt-1 text-[11px] text-white/65">
+        <p className="mt-1 text-xs text-white/65">
           {`${tramoEncima.tramo * 5}′–${tramoEncima.tramo * 5 + 5}′ · ${nombreA}: xG ${(ta?.xG ?? 0).toFixed(1).replace(".", ",")}, ${ta?.remates ?? 0} remates, ${ta?.toquesArea ?? 0} toques en el área${ta?.posesion != null ? `, ${Math.round(ta.posesion * 100)} % de posesión` : ""} · ${nombreB}: xG ${(tb?.xG ?? 0).toFixed(1).replace(".", ",")}, ${tb?.remates ?? 0} remates, ${tb?.toquesArea ?? 0} toques en el área`}
         </p>
       )}

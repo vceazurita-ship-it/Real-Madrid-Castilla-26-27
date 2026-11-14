@@ -31,12 +31,12 @@ function FilaBarra({ nombre, valor, p, puesto, de, mejor, sufijo }: { nombre: st
       <div className="flex min-w-0 items-baseline gap-2">
         <span className="min-w-0 flex-1 truncate text-[13px] text-white/80">
           {nombre}
-          {sufijo && <span className="ml-1 text-[10px] text-white/40">{sufijo}</span>}
-          {mejor === false && <span className="ml-1.5 text-[10px] text-white/40">(menos es mejor)</span>}
-          {estilo && <span className="ml-1.5 text-[10px] text-white/40">(estilo)</span>}
+          {sufijo && <span className="ml-1 text-xs text-white/40">{sufijo}</span>}
+          {mejor === false && <span className="ml-1.5 text-xs text-white/40">(menos es mejor)</span>}
+          {estilo && <span className="ml-1.5 text-xs text-white/40">(estilo)</span>}
         </span>
         <span className="shrink-0 text-[13px] font-semibold tabular-nums text-white">{valor}</span>
-        <span className="w-16 shrink-0 text-right text-[11px] font-semibold tabular-nums" style={{ color }}>
+        <span className="w-16 shrink-0 text-right text-xs font-semibold tabular-nums" style={{ color }}>
           {puesto ? `${puesto}º/${de}` : ""}
         </span>
       </div>
@@ -47,7 +47,7 @@ function FilaBarra({ nombre, valor, p, puesto, de, mejor, sufijo }: { nombre: st
             <span className="absolute inset-y-0 rounded-full" style={{ left: `${Math.min(50, p)}%`, width: `${Math.abs(p - 50)}%`, background: color }} />
           )}
         </div>
-        <span className="w-9 shrink-0 text-right text-[10px] tabular-nums" style={{ color: tinta(0.45) }}>
+        <span className="w-9 shrink-0 text-right text-xs tabular-nums" style={{ color: tinta(0.45) }}>
           {p != null ? `P${p}` : ""}
         </span>
       </div>
@@ -187,7 +187,7 @@ export function FichaJugador({
           <div className="mt-3 overflow-x-auto">
             <table className="w-full min-w-[520px] text-left text-[12px] tabular-nums">
               <thead>
-                <tr className="border-b border-white/10 text-[11px] text-white/55">
+                <tr className="border-b border-white/10 text-xs text-white/55">
                   <th className="py-1.5 pr-3 font-semibold">Fecha</th>
                   <th className="py-1.5 pr-3 font-semibold">Rival</th>
                   <th className="py-1.5 pr-3 text-right font-semibold">Min</th>

@@ -316,7 +316,7 @@ export function Directo({ datos }: { datos: DatosOpta }) {
                   onClick={() => setElegido(p.partido)}
                   className={`shrink-0 rounded-xl border px-3 py-1.5 text-left text-xs ${activo ? "border-white/40 bg-white/[0.10] text-white" : "border-white/10 bg-white/[0.03] text-white/70 hover:text-white"}`}
                 >
-                  {!delCastilla && esDelRival(p) && <span className="block text-[10px] font-black uppercase tracking-[0.14em]" style={{ color: ORO }}>Próximo rival</span>}
+                  {!delCastilla && esDelRival(p) && <span className="block text-xs font-black uppercase tracking-[0.14em]" style={{ color: ORO }}>Próximo rival</span>}
                   <span className="block font-semibold">
                     {eq.length === 2 ? `${eq[0]} ${g[0] ?? "–"}-${g[1] ?? "–"} ${eq[1]}` : p.partido}
                   </span>
@@ -405,10 +405,10 @@ export function Directo({ datos }: { datos: DatosOpta }) {
                 </p>
               </div>
               <div className="shrink-0 text-center">
-                <p className="font-mono text-5xl font-black tabular-nums" style={{ color: "#FFFFFF", textShadow: "0 0 24px rgba(227,194,126,0.35)" }}>
+                <p className="font-mono text-7xl font-black leading-none tabular-nums sm:text-8xl" style={{ color: "#FFFFFF", textShadow: "0 0 24px rgba(227,194,126,0.35)" }}>
                   {num(a.Goal) ?? 0} - {num(b.Goal) ?? 0}
                 </p>
-                <p className="mt-1 text-[11px]" style={{ color: "rgba(255,255,255,0.6)" }}>
+                <p className="mt-1 text-xs" style={{ color: "rgba(255,255,255,0.6)" }}>
                   {[minuto != null ? `${num(doc.minuto) != null ? "" : "≈"}${minuto}′` : "", estadoEnPalabras(doc.estado), doc.actualizado ? `cifras de las ${hora(doc.actualizado)}` : ""]
                     .filter(Boolean)
                     .join(" · ")}
@@ -490,7 +490,7 @@ export function Directo({ datos }: { datos: DatosOpta }) {
                         <span className={`w-20 shrink-0 text-right ${ganaA === true ? "font-semibold text-white" : "text-white/70"}`}>{fmt(va, def.unidad)}</span>
                         <span className="min-w-0 flex-1 truncate text-center text-[12px] text-white/60">
                           {nombreMetrica(k, catalogo)}
-                          {def.mejor === false && <span className="ml-1 text-[10px] text-white/40">(menos es mejor)</span>}
+                          {def.mejor === false && <span className="ml-1 text-xs text-white/40">(menos es mejor)</span>}
                         </span>
                         <span className={`w-20 shrink-0 ${ganaA === false ? "font-semibold text-white" : "text-white/70"}`}>{fmt(vb, def.unidad)}</span>
                       </div>

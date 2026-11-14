@@ -47,7 +47,7 @@ export function UltimoPartido3D() {
     <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-3 sm:p-4">
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2 px-1">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/50">El último partido en 3D</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/50">El último partido en 3D</p>
           <p className="text-sm font-semibold text-white">
             {nom(x)} {String(x.Goal ?? "")}-{String(y.Goal ?? "")} {nom(y)}
             {doc.fecha ? <span className="ml-2 text-xs font-normal text-white/50">{String(doc.fecha).slice(0, 10)}</span> : null}

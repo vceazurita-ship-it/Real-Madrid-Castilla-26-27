@@ -84,15 +84,19 @@ function Tarjeta({ j, grande, completa }: { j: Juicio; grande: boolean; completa
   return (
     <div className="min-w-0 rounded-2xl border-2 p-3" style={{ borderColor: c.borde, background: c.fondo }}>
       <div className="flex items-center justify-between gap-2">
-        <span className="inline-flex items-center gap-1.5 text-[11px] font-black tracking-[0.15em]" style={{ color: c.tinta }}>
+        <span
+          className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-black tracking-[0.15em]"
+          /* Alerta, filo y certeza en píldora de color con letra oscura: se distinguen de un vistazo y del oro de la marca. */
+          style={j.estado === "alerta" || j.estado === "duda" || j.estado === "certeza" ? { background: c.tinta, color: "#111827" } : { color: c.tinta }}
+        >
           <Icono size={14} />
           {c.rotulo}
         </span>
-        <span className="truncate text-[11px] font-semibold uppercase tracking-wide text-white/65">{j.titulo}</span>
+        <span className="truncate text-xs font-semibold uppercase tracking-wide text-white/65">{j.titulo}</span>
       </div>
       <p className={`mt-1 font-black tabular-nums leading-none text-white ${enorme ? "text-7xl" : grande ? "text-5xl" : "text-3xl"}`}>{j.valor}</p>
       <LineaRango j={j} grande={grande} />
-      <p className="mt-1 text-[11px] text-white/55">{j.liston}</p>
+      <p className="mt-1 text-xs text-white/55">{j.liston}</p>
       <p className={`mt-2 font-bold leading-snug text-white ${enorme ? "text-xl" : grande ? "text-base" : "text-sm"}`}>{j.frase}</p>
       {j.consigna && (
         <p className={`mt-2 flex items-start gap-1.5 rounded-lg px-2 py-1.5 font-bold ${enorme ? "text-lg" : "text-sm"}`} style={{ background: "rgba(239,68,68,0.18)", color: "#fecaca" }}>
@@ -100,8 +104,8 @@ function Tarjeta({ j, grande, completa }: { j: Juicio; grande: boolean; completa
           {j.consigna}
         </p>
       )}
-      {j.nota && <p className="mt-1 text-[11px] font-semibold text-white/70">{j.nota}</p>}
-      <p className="mt-1 truncate text-[11px] italic text-white/45" title={j.plan}>
+      {j.nota && <p className="mt-1 text-xs font-semibold text-white/70">{j.nota}</p>}
+      <p className="mt-1 truncate text-xs italic text-white/45" title={j.plan}>
         Plan: {j.plan}
       </p>
     </div>
@@ -260,7 +264,7 @@ export function DirectoPlan({
     <div ref={caja} className={`rounded-2xl border border-white/10 bg-[var(--background,#0b0b0f)] p-4 ${completa ? "overflow-auto p-6" : ""}`}>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/50">Cómo se está dando el partido</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/50">Cómo se está dando el partido</p>
           <p className="truncate text-xs text-white/55">{origen}</p>
         </div>
         {completa && marcador && (
@@ -287,8 +291,8 @@ export function DirectoPlan({
       </div>
 
       {viejas >= 3 && (
-        <p className={`mb-3 rounded-xl px-3 py-2 font-bold ${completa ? "text-xl" : "text-base"}`} style={{ background: COLOR.duda.fondo, color: COLOR.duda.tinta }} role="status">
-          Cifras de hace {viejas} min: no te fíes de las alertas hasta la siguiente lectura.
+        <p className={`mb-3 border-l-4 px-3 py-1 font-semibold ${completa ? "text-base" : "text-xs"}`} style={{ borderColor: COLOR.duda.tinta, color: COLOR.duda.tinta }} role="status">
+          Cifras de hace {viejas} min · espera a la siguiente lectura antes de fiarte de las alertas
         </p>
       )}
 
@@ -356,7 +360,7 @@ export function DirectoPlan({
 
       {mom.barras.length > 1 && (
         <div className="mt-4">
-          <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.15em] text-white/50">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-[0.15em] text-white/50">
             xG cada 5{"'"} · arriba {nombreNos}, abajo {nombreEllos}
           </p>
           <div className="flex h-24 items-stretch gap-[3px]">
@@ -371,7 +375,7 @@ export function DirectoPlan({
               );
             })}
           </div>
-          <div className="mt-0.5 flex justify-between text-[10px] text-white/40">
+          <div className="mt-0.5 flex justify-between text-xs text-white/40">
             <span>{mom.barras[0]?.etiqueta}</span>
             <span>{mom.barras.at(-1)?.etiqueta}</span>
           </div>

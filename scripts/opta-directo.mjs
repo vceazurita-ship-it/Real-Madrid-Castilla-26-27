@@ -327,6 +327,10 @@ async function principal() {
     try {
       const indice = await vuelta(S);
       fallos = 0;
+      if (!indice.length) {
+        console.log("Hoy no hay partidos: fin.");
+        break;
+      }
       if (indice.length && indice.every((p) => p.conDatos && /played|full/i.test(String(p.estado)))) {
         console.log("Todos los partidos del día acabados: fin.");
         break;

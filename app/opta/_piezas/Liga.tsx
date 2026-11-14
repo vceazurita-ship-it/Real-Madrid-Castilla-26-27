@@ -150,7 +150,7 @@ export function Liga({ datos }: { datos: DatosOpta }) {
                     >
                       <Plus size={12} className="shrink-0 text-white/45" />
                       <span className="min-w-0 flex-1 truncate">{nombreMetrica(k, catalogo)}</span>
-                      <span className="shrink-0 font-mono text-[10px] text-white/40">{k}</span>
+                      <span className="shrink-0 font-mono text-xs text-white/40">{k}</span>
                     </button>
                   </li>
                 ))}
@@ -162,7 +162,7 @@ export function Liga({ datos }: { datos: DatosOpta }) {
         <div className="overflow-x-auto">
           <table className="w-full min-w-[640px] text-left text-[12px] tabular-nums">
             <thead>
-              <tr className="border-b border-white/10 text-[11px] text-white/55">
+              <tr className="border-b border-white/10 text-xs text-white/55">
                 <th className="w-8 py-2 pr-2 font-semibold">#</th>
                 <th className="py-2 pr-3 font-semibold">Equipo</th>
                 <th className="py-2 pr-3 text-right font-semibold">PJ</th>
@@ -207,7 +207,7 @@ export function Liga({ datos }: { datos: DatosOpta }) {
                           {nombreEquipo(f)}
                         </span>
                         {ambito === "todos" && grupos.size > 0 && (
-                          <span className="text-[10px] text-white/40">{grupos.get(String(f.teamId)) === 1 ? "nuestro grupo" : "otro grupo"}</span>
+                          <span className="text-xs text-white/40">{grupos.get(String(f.teamId)) === 1 ? "nuestro grupo" : "otro grupo"}</span>
                         )}
                       </span>
                     </td>
@@ -271,7 +271,7 @@ export function Liga({ datos }: { datos: DatosOpta }) {
           />
         )}
         {(defX.mejor === false || defY.mejor === false) && (
-          <p className="mt-1 text-[11px] text-white/45">
+          <p className="mt-1 text-xs text-white/45">
             {[defX.mejor === false ? defX.nombre : "", defY.mejor === false ? defY.nombre : ""].filter(Boolean).join(" y ")}: menos es mejor.
           </p>
         )}

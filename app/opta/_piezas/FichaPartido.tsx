@@ -85,7 +85,7 @@ export function CaraACara({ datos, partido, teamId, conAbp = false }: { datos: D
         k in a || k.startsWith("·") ? <FilaCara key={k} def={defDe(k, catalogo)} va={valorDe(a, k, catalogo)} vb={valorDe(b, k, catalogo)} unDecimal={k === "ExpG" || k === "ExpGAg"} /> : null,
       )}
       {conAbp && <FilaCorners datos={datos} partido={partido} a={String(a.teamId)} b={String(b.teamId)} />}
-      <p className="mt-2 text-[11px] text-white/45">
+      <p className="mt-2 text-xs text-white/45">
         En cada fila, la barra más larga es la mayor de las dos y el que sale mejor va en color pleno (↓ menos es mejor). En las de estilo (posesión, centros, pases por
         secuencia) no hay mejor ni peor.{"PPDA" in a ? " PPDA: pases que deja dar el rival antes de que presionemos; menos es más presión." : ""}
       </p>
@@ -107,7 +107,7 @@ function FilaCara({ def, va, vb, unDecimal = false }: { def: DefMetrica; va: num
         <span className={`w-16 shrink-0 ${ganaA === true ? "font-semibold text-white" : "text-white/70"}`}>{cifra(va)}</span>
         <span className="line-clamp-2 min-w-0 flex-1 text-center text-[12px] leading-tight text-white/60">
           {def.nombre}
-          {def.mejor === false && <span className="ml-1 text-[10px] text-white/40">↓</span>}
+          {def.mejor === false && <span className="ml-1 text-xs text-white/40">↓</span>}
         </span>
         <span className={`w-16 shrink-0 text-right ${ganaA === false ? "font-semibold text-white" : "text-white/70"}`}>{cifra(vb)}</span>
       </div>

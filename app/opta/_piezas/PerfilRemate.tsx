@@ -24,13 +24,13 @@ function Reparto({ titulo, partes }: { titulo: string; partes: Parte[] }) {
   if (!total) return null;
   return (
     <div className="min-w-0">
-      <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-white/45">{titulo}</p>
+      <p className="mb-1 text-xs font-semibold uppercase tracking-[0.12em] text-white/45">{titulo}</p>
       <div className="flex h-3 overflow-hidden rounded-full" style={{ background: tinta(0.08) }}>
         {partes.map((p) =>
           p.remates ? <span key={p.nombre} style={{ width: `${(p.remates / total) * 100}%`, background: p.color }} title={`${p.nombre}: ${p.remates}`} /> : null,
         )}
       </div>
-      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-white/65">
+      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-white/65">
         {partes
           .filter((p) => p.remates)
           .map((p) => (
@@ -71,7 +71,7 @@ export function PerfilRemate({ fila }: { fila: Fila }) {
       <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
         {cifras.map((c) => (
           <div key={c.rotulo} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
-            <p className="text-[10px] uppercase tracking-[0.12em] text-white/45">{c.rotulo}</p>
+            <p className="text-xs uppercase tracking-[0.12em] text-white/45">{c.rotulo}</p>
             <p className="text-base font-semibold tabular-nums" style={{ color: c.rotulo === "Goles" ? ORO : undefined }}>
               {c.valor}
             </p>
@@ -102,7 +102,7 @@ export function PerfilRemate({ fila }: { fila: Fila }) {
           ]}
         />
       </div>
-      <p className="mt-2 text-[11px] text-white/45">
+      <p className="mt-2 text-xs text-white/45">
         Los repartos cuentan los remates que no se bloquearon ({sinBloqueo} de {remates}).
         {n("PenTaken") ? ` Incluye ${n("PenTaken")} ${n("PenTaken") === 1 ? "penalti" : "penaltis"}.` : ""}
       </p>

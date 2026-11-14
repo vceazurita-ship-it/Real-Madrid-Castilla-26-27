@@ -169,7 +169,7 @@ function VennEstilos({ datos, alElegir }: { datos: DatosOpta; alElegir: (teamId:
             if (!lista.length) return null;
             return (
               <div key={m}>
-                <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/45">
+                <p className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-white/45">
                   {nombre} · {lista.length}
                 </p>
                 <div className="flex flex-wrap gap-1.5">{lista.map((x) => ficha(x, x.teamId === CASTILLA_OPTA))}</div>
@@ -178,7 +178,7 @@ function VennEstilos({ datos, alElegir }: { datos: DatosOpta; alElegir: (teamId:
           })}
           {fuera.length > 0 && (
             <div>
-              <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/45">En ninguno · {fuera.length}</p>
+              <p className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-white/45">En ninguno · {fuera.length}</p>
               <div className="flex flex-wrap gap-1.5">{fuera.map((x) => ficha(x, x.teamId === CASTILLA_OPTA))}</div>
             </div>
           )}
@@ -187,7 +187,7 @@ function VennEstilos({ datos, alElegir }: { datos: DatosOpta; alElegir: (teamId:
 
       <div className="mt-4 grid gap-3 border-t border-white/10 pt-3 sm:grid-cols-3">
         {INDICES.map((i) => (
-          <div key={i.clave} className="min-w-0 text-[11px] leading-relaxed text-white/55">
+          <div key={i.clave} className="min-w-0 text-xs leading-relaxed text-white/55">
             <p className="font-semibold text-white/80" style={{ color: CIRCULOS.find((c) => c.clave === i.clave)?.color }}>
               {i.nombre}: {i.que.toLowerCase()}
             </p>
@@ -197,7 +197,7 @@ function VennEstilos({ datos, alElegir }: { datos: DatosOpta; alElegir: (teamId:
           </div>
         ))}
       </div>
-      <p className="mt-2 text-[11px] text-white/45">
+      <p className="mt-2 text-xs text-white/45">
         Cada índice es la media de los percentiles de sus métricas por partido (0-100) entre los equipos que se ven; el «top» es el de ese índice.
       </p>
     </Panel>

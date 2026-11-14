@@ -30,7 +30,7 @@ export function Leyenda() {
     <span aria-hidden className="inline-block h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: fondo, boxShadow: borde ? `inset 0 0 0 1.5px ${borde}` : undefined }} />
   );
   return (
-    <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-white/55">
+    <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/55">
       <span className="inline-flex items-center gap-1.5">{punto(SOBRE_CESPED.gol)}Gol</span>
       <span className="inline-flex items-center gap-1.5">{punto(SOBRE_CESPED.puerta)}A puerta (parado)</span>
       <span className="inline-flex items-center gap-1.5">{punto(SOBRE_CESPED.palo)}Al palo</span>
@@ -260,7 +260,7 @@ export function RematesEquipo({
         <div className="min-w-0">
           <MapaRemates remates={filtrados} enContra={lado === "contra"} ariaLabel={`Mapa de remates ${lado === "favor" ? "de" : "contra"} ${nombre}`} />
           {enPropia > 0 && situacion === "todas" && cuerpo === "todos" && !jugador && (
-            <p className="mt-1 text-[11px] text-white/50">
+            <p className="mt-1 text-xs text-white/50">
               {`${lado === "favor" ? "Le marcaron además" : "Encajó además"} ${enPropia === 1 ? "un gol" : `${enPropia} goles`} en propia puerta, que no ${
                 enPropia === 1 ? "es un remate y no sale" : "son remates y no salen"
               } aquí: ${oficiales} ${lado === "favor" ? "a favor" : "en contra"} en total.`}
@@ -273,7 +273,7 @@ export function RematesEquipo({
             <h3 className="mb-1.5 text-sm font-semibold text-white">{lado === "favor" ? "Quién remata" : "Quién le remata"}</h3>
             <table className="w-full min-w-[420px] text-left text-[12px] tabular-nums">
               <thead>
-                <tr className="border-b border-white/10 text-[11px] text-white/55">
+                <tr className="border-b border-white/10 text-xs text-white/55">
                   <th className="py-1.5 pr-2 font-semibold">Jugador</th>
                   <th className="py-1.5 pr-2 text-right font-semibold">Rem.</th>
                   <th className="py-1.5 pr-2 text-right font-semibold">Goles</th>
@@ -292,7 +292,7 @@ export function RematesEquipo({
                   >
                     <td className="max-w-[160px] truncate py-1.5 pr-2 text-white/85" title={t.equipo || undefined}>
                       {t.nombre}
-                      {t.equipo && <span className="ml-1 text-[10px] text-white/45">{t.equipo}</span>}
+                      {t.equipo && <span className="ml-1 text-xs text-white/45">{t.equipo}</span>}
                     </td>
                     <td className="py-1.5 pr-2 text-right text-white/75">{t.remates}</td>
                     <td className="py-1.5 pr-2 text-right text-white/75">{t.goles}</td>
@@ -304,7 +304,7 @@ export function RematesEquipo({
                 ))}
               </tbody>
             </table>
-            <p className="mt-2 text-[11px] leading-relaxed text-white/50">
+            <p className="mt-2 text-xs leading-relaxed text-white/50">
               xG: la probabilidad de gol de cada ocasión antes del golpeo. xGOT: la misma tras el golpeo, sólo de los que van entre los palos; si xGOT − xG es positivo, el
               jugador coloca mejor de lo que la ocasión pedía.
             </p>

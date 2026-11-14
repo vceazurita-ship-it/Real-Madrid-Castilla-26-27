@@ -82,7 +82,7 @@ export function Diferenciales({ datos }: { datos: DatosOpta }) {
               style={nuestro ? { background: "rgba(200, 169, 107, 0.14)" } : undefined}
               title={`${f.equipo}: ${fmt(f.propio / f.partidos, unidad)} por partido contra ${fmt(f.rival / f.partidos, unidad)} de sus rivales (${f.partidos} partidos)`}
             >
-              <span className="w-5 shrink-0 text-right text-[10px] tabular-nums text-white/40">{i + 1}</span>
+              <span className="w-5 shrink-0 text-right text-xs tabular-nums text-white/40">{i + 1}</span>
               <span className={`w-36 shrink-0 truncate sm:w-44 ${nuestro ? "font-semibold" : "text-white/70"}`} style={nuestro ? { color: ORO } : undefined}>
                 {f.equipo}
               </span>
@@ -106,7 +106,7 @@ export function Diferenciales({ datos }: { datos: DatosOpta }) {
           );
         })}
       </div>
-      <p className="mt-2 text-[11px] text-white/45">
+      <p className="mt-2 text-xs text-white/45">
         {def.mejor === false ? "En esta métrica, menos es mejor: tener más que el rival cuenta en contra y va a la izquierda en naranja. " : ""}
         {def.unidad === "porcentaje" ? "En los porcentajes, la diferencia es en puntos. " : ""}
         Pasa por una barra para ver lo propio y lo de sus rivales por partido.

@@ -111,7 +111,7 @@ export function ElegirAmbito({ valor, alCambiar }: { valor: Ambito; alCambiar: (
 export function Cifra({ rotulo, valor, detalle, color }: { rotulo: string; valor: string; detalle?: string; color?: string }) {
   return (
     <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/45">{rotulo}</p>
+      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/45">{rotulo}</p>
       <p className="mt-1 text-2xl font-semibold tabular-nums text-white" style={color ? { color } : undefined}>
         {valor}
       </p>

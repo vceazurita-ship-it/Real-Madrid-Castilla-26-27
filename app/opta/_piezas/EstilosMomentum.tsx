@@ -29,7 +29,7 @@ export const colorCalor = (p: number | null) => {
 
 export function LeyendaCalor() {
   return (
-    <span className="inline-flex flex-wrap items-center gap-2 text-[11px] text-white/55">
+    <span className="inline-flex flex-wrap items-center gap-2 text-xs text-white/55">
       <span className="font-semibold uppercase tracking-[0.14em] text-white/40">Color</span>
       <span>peor</span>
       <span
@@ -150,7 +150,7 @@ export function MomentumLiga({ datos }: { datos: DatosOpta }) {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[980px] text-left text-[12px] tabular-nums">
               <thead>
-                <tr className="border-b border-white/10 text-[11px] text-white/55">
+                <tr className="border-b border-white/10 text-xs text-white/55">
                   <th className="w-8 py-2 pr-2 font-semibold">#</th>
                   {cabecera("equipo", "Equipo", "Ordenar por nombre", false)}
                   {cabecera("partidos", "PJ", "Partidos con momentum")}
@@ -212,7 +212,7 @@ export function MomentumLiga({ datos }: { datos: DatosOpta }) {
               </tbody>
             </table>
           </div>
-          <p className="mt-3 text-[11px] leading-relaxed text-white/50">
+          <p className="mt-3 text-xs leading-relaxed text-white/50">
             Cómo se cuenta: cada tramo de 5′ es la curva de momentum de la pestaña «Partidos» (xG y toques en el área de los dos, suavizada con los
             tramos de al lado); aprieta el que la tiene a su favor por más de {UMBRAL_DOMINIO.toFixed(2).replace(".", ",")} en una escala de −1 a 1. En
             los tramos igualados no aprieta nadie, así que lo de los dos no suma 100 %. Cada gol se mira con los 5′ anteriores sin contar el propio

@@ -122,7 +122,7 @@ function RedDePases({ acciones, jugador, partidos, alElegir }: { acciones: Accio
   return (
     <div className="min-w-0">
       <h3 className="text-sm font-semibold text-white">Red de pases</h3>
-      <p className="mb-2 text-[11px] text-white/55">
+      <p className="mb-2 text-xs text-white/55">
         Cada jugador en la posición media de sus pases y de lo que recibe; el tamaño, los pases que da; las líneas, las parejas con {minimo} o más pases completados entre
         los dos{partidos > 1 ? " en la temporada" : ""}. Pincha un jugador para ver con quién se asocia.
       </p>
@@ -367,7 +367,7 @@ function RecuperacionesPerdidas({ acciones, todas, partidos, jugador, alElegir }
               alElegir={alElegir}
             />
             {modo === "recuperaciones" && (
-              <p className="mt-2 text-[11px] text-white/50">
+              <p className="mt-2 text-xs text-white/50">
                 Opta no pone nombre a las recuperaciones sueltas: la tabla cuenta las intercepciones y las entradas ganadas
                 {jugador ? "" : `, ${conJugador.reduce((s, f) => s + f.rec, 0)} de las ${lista.length} de arriba`}.
               </p>
@@ -394,7 +394,7 @@ function TablaJugadores({ filas, cabeceras, jugador, alElegir }: { filas: { nomb
     <div className="min-w-0 overflow-x-auto">
       <table className="w-full min-w-[320px] text-left text-[12px] tabular-nums">
         <thead>
-          <tr className="border-b border-white/10 text-[11px] text-white/55">
+          <tr className="border-b border-white/10 text-xs text-white/55">
             <th className="py-1.5 pr-2 font-semibold">Jugador</th>
             {cabeceras.map((c) => (
               <th key={c} className="py-1.5 pr-2 text-right font-semibold">

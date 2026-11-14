@@ -163,7 +163,7 @@ export const Radiografia = forwardRef<HTMLDivElement, { datos: DatosOpta; teamId
 
           <div className="min-w-0 space-y-3">
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/45">Nota de juego</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/45">Nota de juego</p>
               <p className="mt-1 text-3xl font-semibold tabular-nums text-white">{rx.nota != null ? Math.round(rx.nota) : ""}</p>
               <p className="mt-0.5 text-xs text-white/55">Media de {EN_LA_NOTA} percentiles contra {contra}: 50 es la media. Posesión, pases y secuencias largas son estilo: se ven, pero no cuentan.</p>
             </div>
