@@ -143,10 +143,45 @@ function lectura(r: Radiografia): string {
   return partes.length ? `${partes.join("; ")}.` : "";
 }
 
-/** Lo que se entrena: sus dos percentiles más bajos (≤ 35), para llevarlo a una tarea con criterio medible. */
+/**
+ * Lo que se entrena (expertos, 14/11/2026): su percentil más bajo traducido a
+ * un comportamiento que se ve en el campo y un criterio de éxito medible; el
+ * segundo más bajo, nombrado al lado. Sin traducción, la métrica tal cual.
+ */
+const CONDUCTA: Record<string, string> = {
+  LgBall: "cambio de orientación largo al lado débil en la salida; éxito: 3 de 5 que llegan",
+  LgBallCp: "cambio de orientación largo al lado débil en la salida; éxito: 3 de 5 que llegan",
+  "LongBall%": "pase largo tenso al espacio del extremo; éxito: 3 de 5 que llegan",
+  Int: "perfilarse por dentro con el rival a la espalda y leer la línea de pase; éxito: 2 cortes por bloque",
+  Recovery: "reacción tras pérdida en 5 s; éxito: recuperar en 2 de 4 repeticiones",
+  "Tackle%": "entrada a la pierna de apoyo sin ir al suelo; éxito: 3 de 5 duelos 1c1 ganados",
+  "Duel%": "perfilarse antes del contacto y no ir al cuerpo; éxito: 3 de 5 duelos ganados",
+  "Aerial%": "atacar el balón aéreo en carrera y con el brazo de protección; éxito: 3 de 5 ganados",
+  AerialWon: "atacar el balón aéreo en carrera; éxito: 3 de 5 ganados",
+  "Pass%": "pase a un toque en rondo de posición con presión; éxito: 8 de 10 completados",
+  "Ps%InA3rd": "último pase en 3c2 en el último tercio; éxito: 3 de 5 que acaban en remate",
+  PossLost: "proteger y soltar a dos toques bajo presión; éxito: ninguna pérdida en 5 repeticiones",
+  Disposs: "conducción protegiendo con el cuerpo ante entrada; éxito: 4 de 5 sin perderla",
+  Crosses: "centro tras desborde al punto de penalti; éxito: 3 de 5 que llegan a un compañero",
+  CrossCmp: "centro tras desborde al punto de penalti; éxito: 3 de 5 que llegan a un compañero",
+  KeyPass: "pase filtrado entre líneas al desmarque; éxito: 2 de 5 que acaban en remate",
+  Chance: "pase filtrado entre líneas al desmarque; éxito: 2 de 5 que acaban en remate",
+  ShtIncBl: "remate tras control orientado en la frontal; éxito: 3 de 5 a portería",
+  SOG: "remate tras control orientado en la frontal; éxito: 3 de 5 a portería",
+  TouchOpBox: "ataque al área en llegada al segundo palo; éxito: tocar el balón en 2 de 5 centros",
+  TchsA3: "recibir entre líneas perfilado hacia portería; éxito: 3 de 5 giros",
+  "PosWonA3rd": "presión tras pérdida en campo rival; éxito: robar en 2 de 5 repeticiones",
+};
+
 function tarea(r: Radiografia): string {
   const bajos = r.porciones.filter((x) => x.p != null && x.p <= 35).sort((x, y) => (x.p ?? 0) - (y.p ?? 0)).slice(0, 2);
-  return bajos.length ? `${bajos.map((x) => `${nombreMetrica(x.a).toLowerCase()} (P${x.p})`).join(" y ")}; medirlo en la tarea y volver a mirarlo en cinco jornadas.` : "";
+  if (!bajos.length) return "";
+  const [peor, otro] = bajos;
+  const conducta = CONDUCTA[peor.a];
+  const base = conducta
+    ? `${conducta.charAt(0).toUpperCase() + conducta.slice(1)} (sale de ${nombreMetrica(peor.a).toLowerCase()}, P${peor.p})`
+    : `${nombreMetrica(peor.a)} (P${peor.p}); medirlo en la tarea`;
+  return `${base}${otro ? `. También: ${nombreMetrica(otro.a).toLowerCase()} (P${otro.p})` : ""}.`;
 }
 
 function Cabecera({ f, r, color, escudo, foto }: { f: Fila; r: Radiografia; color: string; escudo: string | null; foto: string | null }) {

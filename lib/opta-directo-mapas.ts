@@ -413,6 +413,8 @@ export type AccionAbp = {
   remate: Tiro | null;
   /** Remate del rival en los 15 s siguientes: la contra que nos hacen. */
   contra: Tiro | null;
+  /** Primer contacto tras el saque (5 s): del rival (lo despeja o lo gana), nuestro, o nadie. */
+  primero: "rival" | "nuestro" | null;
 };
 
 /** Córner: pase que sale de la esquina (Opta lo pone en x ≥ 99 y en y ≤ 1 o ≥ 99). */
@@ -427,18 +429,20 @@ export const esCorner = (e: EventoDirecto) => e.tipo === "Pass" && !e.saque && e
 export function balonParado(ev: EventoDirecto[], teamId: string): AccionAbp[] {
   const ts = tiros(ev);
   const salida: AccionAbp[] = [];
-  for (const e of ev) {
-    if (e.teamId !== teamId) continue;
+  ev.forEach((e, i) => {
+    if (e.teamId !== teamId) return;
     const tipo = esCorner(e) ? "corner" : e.saque === "banda" && e.x >= 66.7 ? "banda" : null;
-    if (!tipo) continue;
+    if (!tipo) return;
+    const sig = ev.slice(i + 1, i + 6).find((o) => o.parte === e.parte && o.segundo - e.segundo <= 5 && o.tipo !== "Pass");
     const tras = (t: Tiro, s: number) => t.parte === e.parte && t.segundo >= e.segundo && t.segundo - e.segundo <= s;
     salida.push({
       tipo,
       saque: e,
       remate: ts.find((t) => t.teamId === teamId && tras(t, 10)) ?? null,
       contra: ts.find((t) => t.teamId !== teamId && tras(t, 15)) ?? null,
+      primero: sig ? (sig.teamId === teamId ? "nuestro" : "rival") : null,
     });
-  }
+  });
   return salida;
 }
 

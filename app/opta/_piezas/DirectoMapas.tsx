@@ -596,7 +596,9 @@ function BalonParado({ acciones, equipo, color, jugadores, rivalDeCastilla = fal
   const micro = [
     corners.length >= 2 && zonas[0][1] >= 2 ? `${zonas[0][1]} de ${corners.length} córners ${zonas[0][0] === "corto" ? "en corto" : `al ${zonas[0][0]}`}` : "",
     rematan[0] ? `remata ${nombre(rematan[0][0])}${rematan[0][1] > 1 ? ` (${rematan[0][1]})` : ""}` : "",
-    corners.length > 0 && conRemate.length === 0 ? "ningún balón parado acaba en remate" : "",
+    corners.length > 0 && conRemate.length === 0
+      ? `ningún balón parado acaba en remate${corners.filter((x) => x.primero === "rival").length ? ` (${corners.filter((x) => x.primero === "rival").length} de ${corners.length} córners los gana o despeja el rival al primer contacto: trabajar el bloqueo y la llegada)` : ""}`
+      : "",
   ].filter(Boolean);
   const cifra = (t: string, v: string, aviso = false) => (
     <div className="rounded-xl px-2 py-1.5" style={{ background: tinta(0.05) }}>
