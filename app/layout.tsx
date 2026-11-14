@@ -21,6 +21,7 @@ import { TrabajoInformes } from "@/components/informes/TrabajoInformes";
 import { AvisoEncargos } from "@/components/ui/AvisoEncargos";
 import { DescargasEnSegundoPlano } from "@/components/ui/DescargasEnSegundoPlano";
 import { AvisoTareasPendientes } from "@/components/portada/AvisoTareasPendientes";
+import { AvisoBaseDatos } from "@/components/ui/AvisoBaseDatos";
 import { LanzaderaGlobal } from "@/components/video/LanzaderaGlobal";
 
 const geistSans = Geist({
@@ -150,6 +151,7 @@ export default function RootLayout({
             <AvisoEncargos />
             {/* Al entrar, lo que quedó sin hacer de días anteriores en «Mis tareas» (31/10/2026). */}
             <AvisoTareasPendientes />
+            <AvisoBaseDatos />
             {/* Dos dedos en el mousepad sobre cualquier vídeo: más rápido o más lento (31/10/2026). */}
             <LanzaderaGlobal />
           </DataProvider>
