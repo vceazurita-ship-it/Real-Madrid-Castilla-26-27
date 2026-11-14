@@ -24,7 +24,7 @@ import { traeOpta } from "@/lib/opta";
 import { useProximoRival } from "@/hooks/useAbpLigas";
 import { mismoClub } from "@/lib/rivals/mismoClub";
 
-type EquipoHuella = { teamId: string; nombre: string; grupo: number; castilla: boolean; partidos: number; toques: number; campoRival: number; malla: number[] };
+type EquipoHuella = { teamId: string; nombre: string; grupo: number; castilla: boolean; partidos: number; toques: number; campoRival: number; malla: number[]; quien?: string[][] };
 type DocHuella = { actualizado: string; mx: number; my: number; partidos: number; equipos: EquipoHuella[] };
 
 const MAS = [232, 72, 77];
@@ -199,7 +199,10 @@ export function HuellaLiga() {
     const tercio = x < 1 / 3 ? "en su salida" : x < 2 / 3 ? "en el medio campo" : "en campo rival";
     const carril = y < 1 / 3 ? "por su derecha" : y > 2 / 3 ? "por su izquierda" : "por dentro";
     const plan = x < 1 / 3 ? "la presión tras pérdida empieza ahí" : x < 2 / 3 ? "ahí hay que robar para correr" : "ahí hay que defender cerca del área";
-    return ` Toca más que la media ${tercio} ${carril}: ${plan}.`;
+    /* Quién toca ese balón en su equipo (zona 3 × 3 del script: carril × 3 + tercio). */
+    const z = Math.min(2, Math.floor(y * 3)) * 3 + Math.min(2, Math.floor(x * 3));
+    const quien = (riv.quien?.[z] ?? []).slice(0, 2).map((n) => n.split(" ").slice(-1)[0]);
+    return ` Toca más que la media ${tercio} ${carril}${quien.length ? ` (sobre todo ${quien.join(" y ")})` : ""}: ${plan}.`;
   })();
 
   return (

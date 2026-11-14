@@ -66,13 +66,16 @@ for (const key of await claves()) {
   partidos += 1;
   une(delPartido[0].teamId, delPartido[1].teamId);
   for (const { teamId, nombre } of delPartido) {
-    if (!equipos.has(teamId)) equipos.set(teamId, { teamId, nombre, partidos: 0, toques: 0, rival: 0, malla: new Array(MX * MY).fill(0) });
+    if (!equipos.has(teamId)) equipos.set(teamId, { teamId, nombre, partidos: 0, toques: 0, rival: 0, malla: new Array(MX * MY).fill(0), zonas: Array.from({ length: 9 }, () => new Map()) });
     const e = equipos.get(teamId);
     e.partidos += 1;
     if (nombre) e.nombre = nombre;
   }
   const i = (n) => ev.cols.indexOf(n);
-  const [cT, cTipo, cX, cY] = [i("teamId"), i("tipo"), i("x"), i("y")];
+  const [cT, cTipo, cX, cY, cJ] = [i("teamId"), i("tipo"), i("x"), i("y"), i("jugadorId")];
+  /* Nombres del partido, para decir quién toca en cada zona (14/11/2026, expertos). */
+  const jug = doc.jugadores;
+  const nombres = new Map(jug?.cols ? jug.filas.map((f) => [String(f[jug.cols.indexOf("playerId")]), String(f[jug.cols.indexOf("jugador")] ?? "")]) : []);
   for (const f of ev.filas) {
     const e = equipos.get(String(f[cT]));
     if (!e || NO_ES_TOQUE.has(f[cTipo])) continue;
@@ -83,6 +86,12 @@ for (const key of await claves()) {
     const gy = Math.min(MY - 1, Math.max(0, Math.floor((y / 100) * MY)));
     e.malla[gy * MX + gx] += 1;
     e.toques += 1;
+    /* Zona 3 × 3 (tercio × carril) y quién toca ahí. */
+    const nombreJ = nombres.get(String(f[cJ] ?? ""));
+    if (nombreJ) {
+      const z = Math.min(2, Math.max(0, Math.floor((y / 100) * 3))) * 3 + Math.min(2, Math.max(0, Math.floor((x / 100) * 3)));
+      e.zonas[z].set(nombreJ, (e.zonas[z].get(nombreJ) ?? 0) + 1);
+    }
     if (x > 50) e.rival += 1;
   }
 }
@@ -114,6 +123,8 @@ const lista = [...equipos.values()]
     toques: e.toques,
     campoRival: e.rival / e.toques,
     malla: e.malla,
+    /* Los tres que más tocan en cada zona 3 × 3 (índice = carril × 3 + tercio). */
+    quien: e.zonas.map((m) => [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([n]) => n)),
   }))
   .sort((a, b) => b.campoRival - a.campoRival);
 

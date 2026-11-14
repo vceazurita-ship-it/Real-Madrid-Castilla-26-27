@@ -201,14 +201,15 @@ function FichaRival({
           <p className="text-[12px]" style={{ color: "rgba(255,255,255,.78)" }}>
             Sus últimos {ficha.ultimos.length} · el más reciente, a la derecha
           </p>
-          <ol className="mt-1.5 flex flex-wrap gap-1.5">
+          {/* En una fila también en móvil (expertos: se partían 4 + 1). */}
+          <ol className="mt-1.5 flex flex-nowrap gap-1">
             {ficha.ultimos.map((p, i) => {
               const color = p.signo === "V" ? "#34D399" : p.signo === "D" ? "#FB923C" : "#CBD5E1"
 
               return (
                 <li
                   key={`${i}-${p.rival}`}
-                  className="flex w-[52px] flex-col items-center"
+                  className="flex w-[44px] shrink-0 flex-col items-center sm:w-[52px]"
                   title={`${p.enCasa ? "En casa con" : "En"} ${p.rival}${p.marcador ? ` · ${p.marcador}` : ""}`}
                 >
                   <span

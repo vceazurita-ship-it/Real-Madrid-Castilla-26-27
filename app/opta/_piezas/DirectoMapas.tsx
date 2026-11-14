@@ -1003,7 +1003,7 @@ function frasePerdidas(rpA: ReturnType<typeof robosYPerdidas>, rpB: ReturnType<t
 
 /* ------------------------------ semáforo individual ------------------------------ */
 
-type Marca = { tipo: "alerta" | "certeza"; texto: string };
+type Marca = { tipo: "alerta" | "certeza"; texto: string; video?: string };
 
 /**
  * Lo de cada jugador en este partido frente a lo suyo de la temporada (opta:jugadores, por 90′),
@@ -1019,21 +1019,21 @@ function marcasDe(r: Rendimiento, t: Record<string, unknown> | undefined): Marca
   const t90 = (k: string) => ((n(t[k]) ?? 0) / minT) * 90;
   const m: Marca[] = [];
   const perd = p90(c.PossLost);
-  if (perd >= t90("PossLost") * 1.5 && perd - t90("PossLost") >= 3) m.push({ tipo: "alerta", texto: `pierde ${dec(perd, 0)} balones por 90′ (lo suyo, ${dec(t90("PossLost"), 0)})` });
+  if (perd >= t90("PossLost") * 1.5 && perd - t90("PossLost") >= 3) m.push({ tipo: "alerta", texto: `pierde ${dec(perd, 0)} balones por 90′ (lo suyo, ${dec(t90("PossLost"), 0)})`, video: "sus pérdidas: ¿en qué zona y bajo cuánta presión? · tarea: protección y pase a dos toques con presión de dos" });
   const pase = n(c["Pass%"]);
   const paseT = n(t["Pass%"]);
   if (pase != null && paseT != null && (c.PsAtt ?? 0) >= 10) {
-    if (pase <= paseT - 0.12) m.push({ tipo: "alerta", texto: `acierta el ${Math.round(pase * 100)} % de pases (lo suyo, ${Math.round(paseT * 100)} %)` });
+    if (pase <= paseT - 0.12) m.push({ tipo: "alerta", texto: `acierta el ${Math.round(pase * 100)} % de pases (lo suyo, ${Math.round(paseT * 100)} %)`, video: "sus pases fallados: ¿en largo o tras recibir presionado? · tarea: elegir el corto al libre en salida 3+1" });
     else if (pase >= paseT + 0.08) m.push({ tipo: "certeza", texto: `acierta el ${Math.round(pase * 100)} % de pases (lo suyo, ${Math.round(paseT * 100)} %)` });
   }
   const toq = p90(c.Touches);
-  if (t90("Touches") > 0 && toq <= t90("Touches") * 0.6) m.push({ tipo: "alerta", texto: `desconectado: ${dec(toq, 0)} toques por 90′ (lo suyo, ${dec(t90("Touches"), 0)})` });
+  if (t90("Touches") > 0 && toq <= t90("Touches") * 0.6) m.push({ tipo: "alerta", texto: `desconectado: ${dec(toq, 0)} toques por 90′ (lo suyo, ${dec(t90("Touches"), 0)})`, video: "dónde estaba cuando el equipo tenía el balón: ¿ofrecía línea de pase?" });
   else if (t90("Touches") > 0 && toq >= t90("Touches") * 1.4) m.push({ tipo: "certeza", texto: `muy metido: ${dec(toq, 0)} toques por 90′ (lo suyo, ${dec(t90("Touches"), 0)})` });
   const rec = p90(c.Recovery);
   if ((c.Recovery ?? 0) >= 4 && rec >= t90("Recovery") * 1.6) m.push({ tipo: "certeza", texto: `${c.Recovery} recuperaciones (${dec(rec, 1)} por 90′; lo suyo, ${dec(t90("Recovery"), 1)})` });
   const duel = n(c["Duel%"]);
   const duelT = n(t["Duel%"]);
-  if (duel != null && duelT != null && duel <= duelT - 0.2) m.push({ tipo: "alerta", texto: `gana el ${Math.round(duel * 100)} % de duelos (lo suyo, ${Math.round(duelT * 100)} %)` });
+  if (duel != null && duelT != null && duel <= duelT - 0.2) m.push({ tipo: "alerta", texto: `gana el ${Math.round(duel * 100)} % de duelos (lo suyo, ${Math.round(duelT * 100)} %)`, video: "sus duelos perdidos: perfil y distancia antes del contacto · tarea: 1c1 perfilado, éxito 3 de 5" });
   if ((c.ExpG ?? 0) >= 0.3 || (c.Chance ?? 0) >= 2) m.push({ tipo: "certeza", texto: `peligro: ${dec(c.ExpG ?? 0)} xG y ${c.Chance ?? 0} ocasiones creadas` });
   return m;
 }
@@ -1109,6 +1109,16 @@ function SemaforoJugadores({ filas, temporada, color, alElegir }: { filas: Rendi
                     .join(" · ")}
                 </p>
               )}
+              {/* La alerta, con su línea para el vídeo y la tarea (expertos, 14/11/2026). */}
+              {tipo === "alerta" &&
+                m
+                  .filter((k) => k.tipo === "alerta" && k.video)
+                  .slice(0, 1)
+                  .map((k) => (
+                    <p key={k.video} className="text-xs font-semibold text-white/80">
+                      → Para el vídeo: {k.video}
+                    </p>
+                  ))}
             </li>
           ))}
         </ul>
