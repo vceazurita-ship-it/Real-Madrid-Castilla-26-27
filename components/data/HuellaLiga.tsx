@@ -187,12 +187,26 @@ export function HuellaLiga() {
     : null;
   /* El próximo rival, marcado como el Castilla y con su línea (expertos, 14/11/2026). */
   const riv = proximo ? lista.find((e) => !e.castilla && mismoClub(e.nombre, proximo)) : undefined;
+  /* Dónde toca el rival más que la media (la celda con más diferencia) y qué hacemos con eso. */
+  const zonaRival = (() => {
+    if (!riv) return "";
+    let k = 0;
+    riv.dif.forEach((v, i) => {
+      if (v > riv.dif[k]) k = i;
+    });
+    const x = ((k % mx) + 0.5) / mx;
+    const y = (Math.floor(k / mx) + 0.5) / my;
+    const tercio = x < 1 / 3 ? "en su salida" : x < 2 / 3 ? "en el medio campo" : "en campo rival";
+    const carril = y < 1 / 3 ? "por su derecha" : y > 2 / 3 ? "por su izquierda" : "por dentro";
+    const plan = x < 1 / 3 ? "la presión tras pérdida empieza ahí" : x < 2 / 3 ? "ahí hay que robar para correr" : "ahí hay que defender cerca del área";
+    return ` Toca más que la media ${tercio} ${carril}: ${plan}.`;
+  })();
 
   return (
     <Panel
       className="mt-6"
       titulo={titular ?? "Huella táctica · dónde toca cada equipo más y menos balón que la media"}
-      subtitulo={`${riv ? `Próximo rival, ${riv.nombre}: ${lista.indexOf(riv) + 1}.º, ${pct(riv.campoRival)} en campo rival (${puntos(riv.campoRival - calc.campoMedio)}), con recuadro blanco en la rejilla. ` : ""}Frente al equipo medio del grupo · ordenados por % de toques en campo rival · ${doc.partidos} partidos de Opta · rojo = toca más ahí, no mejor`}
+      subtitulo={`${riv ? `Próximo rival, ${riv.nombre}: ${lista.indexOf(riv) + 1}.º, ${pct(riv.campoRival)} en campo rival (${puntos(riv.campoRival - calc.campoMedio)}), con recuadro blanco en la rejilla.${zonaRival} ` : ""}Frente al equipo medio del grupo · ordenados por % de toques en campo rival · ${doc.partidos} partidos de Opta · rojo = toca más ahí, no mejor`}
       derecha={
         <Botonera
           etiqueta="Grupo"

@@ -109,7 +109,7 @@ type Ayuda = NonNullable<ReturnType<typeof ayudaDe>>;
 
 /** Lo corto que se ve plegado: la primera frase, y nunca más de `tope` letras. */
 const primeraFrase = (t: string, tope = 120) => {
-  const m = new RegExp(`^(.{30,${tope}}?[.;])\\s`).exec(t);
+  const m = new RegExp(`^(.{30,${tope}}?[.])\\s`).exec(t);
   if (m) return m[1];
   if (t.length <= tope) return t;
   const corte = t.slice(0, tope);

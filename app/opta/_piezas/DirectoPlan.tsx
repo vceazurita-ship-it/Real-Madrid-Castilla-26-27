@@ -370,7 +370,8 @@ export function DirectoPlan({
                     {j.estado === "alerta" && j.consigna && (
                       <span className="block text-white/75">
                         → Para el vídeo del lunes: {j.consigna.charAt(0).toLowerCase() + j.consigna.slice(1)}
-                        {tramoRival ? ` · clips ${tramoRival}, cuando mandó ${nombreEllos}` : ""}
+                        {/* El tramo en que mandó el rival sirve para lo del juego, no para las amarillas (expertos). */}
+                        {tramoRival && !/amarill/i.test(j.titulo) ? ` · clips ${tramoRival}, cuando mandó ${nombreEllos}` : /amarill/i.test(j.titulo) ? " · cada falta: dónde fue y si hacía falta" : ""}
                       </span>
                     )}
                   </span>

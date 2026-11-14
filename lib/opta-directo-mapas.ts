@@ -92,13 +92,17 @@ export function leeEventos(t: TablaOpta | null | undefined): EventoDirecto[] {
   return salida;
 }
 
+/** Erratas de Opta en los nombres (sólo al pintar; el dato no se toca). */
+const ERRATAS: [RegExp, string][] = [[/Ávaro/g, "Álvaro"]];
+export const corrigeNombre = (n: string) => ERRATAS.reduce((t, [re, bien]) => t.replace(re, bien), n);
+
 export function leeJugadores(t: TablaOpta | null | undefined): JugadorDirecto[] {
   return aObjetos(t ?? null).map((f) => {
     const cifras: Record<string, number | null> = {};
     for (const [k, v] of Object.entries(f)) if (!["partido", "playerId", "jugador", "teamId", "dorsal", "puesto"].includes(k)) cifras[k] = num(v);
     return {
       id: String(f.playerId ?? ""),
-      nombre: String(f.jugador ?? ""),
+      nombre: corrigeNombre(String(f.jugador ?? "")),
       teamId: String(f.teamId ?? ""),
       dorsal: String(f.dorsal ?? ""),
       puesto: String(f.puesto ?? ""),

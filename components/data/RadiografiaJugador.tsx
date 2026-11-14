@@ -16,6 +16,7 @@
 import { useMemo, useState } from "react";
 
 import { useFotosOpta } from "@/hooks/useFotosOpta";
+import { corrigeNombre } from "@/lib/opta-directo-mapas";
 import { FotoRedonda } from "@/components/ui/FotoRedonda";
 
 import { Botonera, Elegir, Panel } from "@/app/opta/_piezas/comun";
@@ -190,7 +191,7 @@ function Cabecera({ f, r, color, escudo, foto }: { f: Fila; r: Radiografia; colo
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-3">
       <div className="relative flex h-16 w-16 shrink-0 items-center justify-center rounded-full text-xl font-black" style={{ background: tinta(0.06), border: `2px solid ${color}`, color }}>
-        <FotoRedonda src={foto} iniciales={iniciales(String(f.jugador ?? ""))} className="h-full w-full rounded-full" />
+        <FotoRedonda src={foto} iniciales={iniciales(corrigeNombre(String(f.jugador ?? "")))} className="h-full w-full rounded-full" />
         {escudo && (
           // eslint-disable-next-line @next/next/no-img-element -- escudo pequeño por el proxy propio
           <img src={escudo} alt="" width={22} height={22} className="absolute -bottom-1 -right-1 h-[22px] w-[22px] object-contain" />
@@ -198,7 +199,7 @@ function Cabecera({ f, r, color, escudo, foto }: { f: Fila; r: Radiografia; colo
       </div>
       <div className="min-w-0">
         <p className="break-words text-2xl font-black leading-tight sm:text-3xl" style={{ color }}>
-          {String(f.jugador ?? "")}
+          {corrigeNombre(String(f.jugador ?? ""))}
         </p>
         <p className="text-sm text-white/65">
           {[nombreDe(f), puesto, edad ? `${Math.round(edad)} años` : "", `${Math.round(minutosDe(f))} min`, num(f.GM) ? `${num(f.GM)} partidos` : ""].filter(Boolean).join(" · ")}
@@ -249,7 +250,7 @@ export function RadiografiaJugador({ datos }: { datos: DatosOpta }) {
       <Elegir
         /* El que se ve (expertos: «Contra» enseñaba a Fortea mientras se comparaba con Aguado). */
         valor={mostrado ? String(mostrado.playerId) : e.playerId}
-        opciones={e.delEquipo.map((f) => ({ clave: String(f.playerId), nombre: `${String(f.jugador ?? "")} · ${PUESTO_OPTA[String(f.puesto ?? "")] ?? ""} · ${Math.round(minutosDe(f))}′` }))}
+        opciones={e.delEquipo.map((f) => ({ clave: String(f.playerId), nombre: `${corrigeNombre(String(f.jugador ?? ""))} · ${PUESTO_OPTA[String(f.puesto ?? "")] ?? ""} · ${Math.round(minutosDe(f))}′` }))}
         alCambiar={e.setPlayerId}
       />
     </div>
@@ -329,15 +330,29 @@ export function RadiografiaJugador({ datos }: { datos: DatosOpta }) {
       ) : (
         <>
           <div className="space-y-3">
-            <Cabecera f={uno.fila} r={rA} color={ORO} escudo={escudoDe(String(uno.fila.equipo ?? ""))} foto={fotoDe(String(uno.fila.jugador ?? ""), String(uno.fila.equipo ?? ""), String(uno.fila.teamId) === CASTILLA_OPTA)} />
-            {filaB && rB && <Cabecera f={filaB} r={rB} color={COMPARADO} escudo={escudoDe(String(filaB.equipo ?? ""))} foto={fotoDe(String(filaB.jugador ?? ""), String(filaB.equipo ?? ""), String(filaB.teamId) === CASTILLA_OPTA)} />}
+            <Cabecera f={uno.fila} r={rA} color={ORO} escudo={escudoDe(String(uno.fila.equipo ?? ""))} foto={fotoDe(corrigeNombre(String(uno.fila.jugador ?? "")), String(uno.fila.equipo ?? ""), String(uno.fila.teamId) === CASTILLA_OPTA)} />
+            {filaB && rB && <Cabecera f={filaB} r={rB} color={COMPARADO} escudo={escudoDe(String(filaB.equipo ?? ""))} foto={fotoDe(corrigeNombre(String(filaB.jugador ?? "")), String(filaB.equipo ?? ""), String(filaB.teamId) === CASTILLA_OPTA)} />}
           </div>
 
+          {filaB && rB && (() => {
+            /* La mayor distancia entre los dos, dicha como quién le enseña a quién (expertos, 14/11/2026). */
+            const pares = rA.porciones.map((x, i) => [x, rB.porciones[i]] as const).filter(([x, y]) => x.p != null && y?.p != null);
+            const [x, y] = [...pares].sort((p, q) => Math.abs((q[0].p ?? 0) - (q[1].p ?? 0)) - Math.abs((p[0].p ?? 0) - (p[1].p ?? 0)))[0] ?? [];
+            if (!x || !y || Math.abs((x.p ?? 0) - (y.p ?? 0)) < 25) return null;
+            const nA = corrigeNombre(String(uno.fila.jugador ?? ""));
+            const nB = corrigeNombre(String(filaB.jugador ?? ""));
+            const [mejor, peor, pm, pp] = (x.p ?? 0) > (y.p ?? 0) ? [nA, nB, x.p, y.p] : [nB, nA, y.p, x.p];
+            return (
+              <p className="mt-3 rounded-xl border-l-4 border-[#C8A96B] px-3 py-2 text-base font-bold" style={{ background: tinta(0.05) }}>
+                Mayor distancia: {nombreMetrica(x.a).toLowerCase()} (P{pm} frente a P{pp}) → clips de {mejor} para la charla individual de {peor}.
+              </p>
+            );
+          })()}
           {filaB && rB && (
             <p className="mt-3 rounded-xl px-3 py-2 text-base font-bold sm:text-lg" style={{ background: tinta(0.05) }}>
-              <span style={{ color: ORO }}>{String(uno.fila.jugador)}</span> gana en {ganadas} de {n} métricas;{" "}
-              <span style={{ color: COMPARADO }}>{String(filaB.jugador)}</span>, en {perdidas}.
-              {familiaFina(filaB) !== familia ? ` Ojo: ${String(filaB.jugador)} es de otro puesto (${familiaFina(filaB) || "sin puesto"}); se le mide con las métricas y el universo de ${familia.toLowerCase()}.` : ""}
+              <span style={{ color: ORO }}>{corrigeNombre(String(uno.fila.jugador ?? ""))}</span> gana en {ganadas} de {n} métricas;{" "}
+              <span style={{ color: COMPARADO }}>{corrigeNombre(String(filaB.jugador ?? ""))}</span>, en {perdidas}.
+              {familiaFina(filaB) !== familia ? ` Ojo: ${corrigeNombre(String(filaB.jugador ?? ""))} es de otro puesto (${familiaFina(filaB) || "sin puesto"}); se le mide con las métricas y el universo de ${familia.toLowerCase()}.` : ""}
             </p>
           )}
 
