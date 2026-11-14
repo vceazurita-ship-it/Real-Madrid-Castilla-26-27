@@ -46,8 +46,8 @@ export function AvisoBaseDatos() {
 
   if (!abierto) return null;
   return (
-    <div className="modal-veil fixed inset-0 z-[90] flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true" aria-labelledby="aviso-bd-titulo">
-      <div className="w-full max-w-md rounded-2xl border border-amber-500/50 bg-[#141414] p-5 text-white shadow-2xl">
+    <div className="modal-veil fixed inset-0 z-[90] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="aviso-bd-titulo">
+      <div className="siempre-oscuro w-full max-w-md rounded-2xl border border-amber-500/50 bg-[#141414] p-5 text-white shadow-2xl">
         <div className="mb-3 flex items-start justify-between gap-3">
           <p id="aviso-bd-titulo" className="flex items-center gap-2 text-base font-semibold">
             <Database size={18} className="text-amber-400" aria-hidden />

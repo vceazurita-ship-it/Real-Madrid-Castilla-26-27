@@ -79,7 +79,7 @@ export function BotonAyuda() {
           aria-modal="true"
           aria-label={`Cómo se lee ${ayuda.titulo}`}
           data-export-hide
-          className="modal-veil fixed inset-0 z-[85] flex justify-end bg-black/40 backdrop-blur-sm"
+          className="modal-veil fixed inset-0 z-[85] flex justify-end backdrop-blur-sm"
           onClick={() => setAbierto(false)}
         >
           <aside

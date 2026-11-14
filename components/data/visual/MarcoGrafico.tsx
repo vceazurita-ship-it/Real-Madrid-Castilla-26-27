@@ -128,7 +128,7 @@ export function MarcoGrafico({
       {children}
 
       {abierto && items && (
-        <div className="modal-veil fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true" aria-label="Ponderación" onClick={() => setAbierto(false)}>
+        <div className="modal-veil fixed inset-0 z-[80] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Ponderación" onClick={() => setAbierto(false)}>
           <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl border border-[rgb(var(--rmcf-ink-rgb)/0.10)] bg-[var(--rmcf-surface,#0B0F14)] p-4 text-[rgb(var(--rmcf-ink-rgb))] shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-1 flex items-center justify-between">
               <h3 className="text-base font-bold">Ponderación</h3>
