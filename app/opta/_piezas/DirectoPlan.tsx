@@ -360,16 +360,16 @@ export function DirectoPlan({
         /* Primero lo que decide (logrado, a medias, no logrado); «lo normal», plegado. */
         const decide = delPlan.filter((j) => j.estado !== "habitual");
         const normales = delPlan.filter((j) => j.estado === "habitual");
-        const ETIQUETA: Partial<Record<Estado, string>> = { certeza: "Logrado", habitual: "Como siempre", duda: "A medias", alerta: "No logrado" };
+        const ETIQUETA: Partial<Record<Estado, string>> = { certeza: "Logrado", habitual: "Como siempre", duda: "En el filo", alerta: "No logrado" };
         const n = (e: Estado) => delPlan.filter((j) => j.estado === e).length;
         return (
           <div className="mb-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
             <p className={`font-black text-[#C8A96B] ${completa ? "text-2xl" : "text-base sm:text-lg"}`}>
               {/* El titular cuenta lo claro (logrado o no); lo que quedó «a medias» se ve en la lista, no en la cuenta. */}
-              {n("certeza") + n("alerta") ? `Logramos ${n("certeza")} de ${n("certeza") + n("alerta")} ${n("certeza") + n("alerta") === 1 ? "objetivo que decide" : "objetivos que deciden"}` : decide.length ? "Nada claro: todo a medias o como siempre" : "Todo como siempre frente al plan"}
+              {n("certeza") + n("alerta") ? `Logramos ${n("certeza")} de ${n("certeza") + n("alerta")} ${n("certeza") + n("alerta") === 1 ? "objetivo que decide" : "objetivos que deciden"}` : decide.length ? "Nada claro: todo en el filo o como siempre" : "Todo como siempre frente al plan"}
             </p>
             <p className="text-xs text-white/55">
-              Balance frente al plan · {[n("certeza") && `${n("certeza")} ${n("certeza") === 1 ? "logrado" : "logrados"}`, n("alerta") && `${n("alerta")} no ${n("alerta") === 1 ? "logrado" : "logrados"}`, n("duda") && `${n("duda")} a medias`, n("habitual") && `${n("habitual")} como siempre`].filter(Boolean).join(" · ")}
+              Balance frente al plan · {[n("certeza") && `${n("certeza")} ${n("certeza") === 1 ? "logrado" : "logrados"}`, n("alerta") && `${n("alerta")} no ${n("alerta") === 1 ? "logrado" : "logrados"}`, n("duda") && `${n("duda")} en el filo`, n("habitual") && `${n("habitual")} como siempre`].filter(Boolean).join(" · ")}
             </p>
             <p className="mt-1 hidden text-xs text-white/55 sm:block">Cada tema del plan con la cifra del partido y su referencia (el texto del plan, al pasar el ratón)</p>
             <ul className="mt-1 space-y-1.5">
