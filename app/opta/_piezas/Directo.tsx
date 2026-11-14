@@ -377,21 +377,21 @@ export function Directo({ datos }: { datos: DatosOpta }) {
         )}
         {archivo.length > 0 && (
           <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs">
-            <span className="font-semibold text-white/75">Ver otro partido (con todos sus datos):</span>
+            <span className="hidden font-semibold text-white/75 sm:inline">Ver otro partido (con todos sus datos):</span>
             <select
               value={archivo.some((p) => p.partido === elegido) ? elegido : ""}
               onChange={(e) => e.target.value && setElegido(e.target.value)}
-              className="max-w-full rounded-lg border border-white/15 bg-black/30 px-2 py-1 text-white/85"
+              className="w-full max-w-full rounded-lg border border-white/15 bg-black/30 px-2 py-1 text-white/85 sm:w-auto"
               aria-label="Ver otro partido"
             >
-              <option value="">Elige un partido de la temporada…</option>
+              <option value="">Ver otro partido de la temporada…</option>
               {archivo.map((p) => (
                 <option key={p.partido} value={p.partido}>
                   {p.fecha} · {(p.equipos ?? []).map((e) => (e === CASTILLA_NOMBRE_OPTA ? NOMBRE_CASTILLA : e)).join(` ${p.goles?.[0] ?? ""}-${p.goles?.[1] ?? ""} `)}
                 </option>
               ))}
             </select>
-            <span className="text-white/45">{archivo.length} partidos; se abre al momento.</span>
+            <span className="hidden text-white/45 sm:inline">{archivo.length} partidos; se abre al momento.</span>
           </div>
         )}
         {partidos.length === 0 || (!vivo && !esperando && !lanzar.corriendo && boton) ? (

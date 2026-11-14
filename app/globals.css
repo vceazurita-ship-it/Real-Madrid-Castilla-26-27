@@ -634,22 +634,22 @@ scrollbar-width:none;
   color: rgb(var(--rmcf-ink-rgb) / .78);
 }
 :root[data-theme="light"] [class~="text-white/60"] {
-  color: rgb(var(--rmcf-ink-rgb) / .76);
+  color: rgb(var(--rmcf-ink-rgb) / .82);
 }
 :root[data-theme="light"] [class~="text-white/55"] {
-  color: rgb(var(--rmcf-ink-rgb) / .74);
+  color: rgb(var(--rmcf-ink-rgb) / .8);
 }
 :root[data-theme="light"] [class~="text-white/50"] {
-  color: rgb(var(--rmcf-ink-rgb) / .72);
+  color: rgb(var(--rmcf-ink-rgb) / .78);
 }
 :root[data-theme="light"] [class~="text-white/45"] {
-  color: rgb(var(--rmcf-ink-rgb) / .7);
+  color: rgb(var(--rmcf-ink-rgb) / .76);
 }
 :root[data-theme="light"] [class~="text-white/40"] {
-  color: rgb(var(--rmcf-ink-rgb) / .68);
+  color: rgb(var(--rmcf-ink-rgb) / .74);
 }
 :root[data-theme="light"] [class~="text-white/35"] {
-  color: rgb(var(--rmcf-ink-rgb) / .66);
+  color: rgb(var(--rmcf-ink-rgb) / .72);
 }
 :root[data-theme="light"] [class~="text-white/30"] {
   color: rgb(var(--rmcf-ink-rgb) / .64);
