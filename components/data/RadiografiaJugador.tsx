@@ -15,6 +15,8 @@
 
 import { useMemo, useState } from "react";
 
+import { useFotosOpta } from "@/hooks/useFotosOpta";
+
 import { Botonera, Elegir, Panel } from "@/app/opta/_piezas/comun";
 import type { DatosOpta } from "@/app/opta/_piezas/useOpta";
 import { COMPARADO, ORO, tinta, useEscudos } from "@/components/data/graficas";
@@ -140,13 +142,18 @@ function lectura(r: Radiografia): string {
   return partes.length ? `${partes.join("; ")}.` : "";
 }
 
-function Cabecera({ f, r, color, escudo }: { f: Fila; r: Radiografia; color: string; escudo: string | null }) {
+function Cabecera({ f, r, color, escudo, foto }: { f: Fila; r: Radiografia; color: string; escudo: string | null; foto: string | null }) {
   const puesto = PUESTO_OPTA[String(f.puesto ?? "")] ?? String(f.puesto ?? "");
   const edad = num(f.Age);
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-3">
       <div className="relative flex h-16 w-16 shrink-0 items-center justify-center rounded-full text-xl font-black" style={{ background: tinta(0.06), border: `2px solid ${color}`, color }}>
-        {iniciales(String(f.jugador ?? ""))}
+        {foto ? (
+          // eslint-disable-next-line @next/next/no-img-element -- foto de la plantilla o de BeSoccer por el proxy propio
+          <img src={foto} alt="" className="h-full w-full rounded-full object-cover object-top" />
+        ) : (
+          iniciales(String(f.jugador ?? ""))
+        )}
         {escudo && (
           // eslint-disable-next-line @next/next/no-img-element -- escudo pequeño por el proxy propio
           <img src={escudo} alt="" width={22} height={22} className="absolute -bottom-1 -right-1 h-[22px] w-[22px] object-contain" />
@@ -173,6 +180,7 @@ function Cabecera({ f, r, color, escudo }: { f: Fila; r: Radiografia; color: str
 }
 
 export function RadiografiaJugador({ datos }: { datos: DatosOpta }) {
+  const fotoDe = useFotosOpta();
   const jugadores = datos.jugadores;
   const escudoDe = useEscudos();
   const [minimoTxt, setMinimoTxt] = useState("450");
@@ -273,8 +281,8 @@ export function RadiografiaJugador({ datos }: { datos: DatosOpta }) {
       ) : (
         <>
           <div className="space-y-3">
-            <Cabecera f={uno.fila} r={rA} color={ORO} escudo={escudoDe(String(uno.fila.equipo ?? ""))} />
-            {filaB && rB && <Cabecera f={filaB} r={rB} color={COMPARADO} escudo={escudoDe(String(filaB.equipo ?? ""))} />}
+            <Cabecera f={uno.fila} r={rA} color={ORO} escudo={escudoDe(String(uno.fila.equipo ?? ""))} foto={fotoDe(String(uno.fila.jugador ?? ""), String(uno.fila.equipo ?? ""), String(uno.fila.teamId) === CASTILLA_OPTA)} />
+            {filaB && rB && <Cabecera f={filaB} r={rB} color={COMPARADO} escudo={escudoDe(String(filaB.equipo ?? ""))} foto={fotoDe(String(filaB.jugador ?? ""), String(filaB.equipo ?? ""), String(filaB.teamId) === CASTILLA_OPTA)} />}
           </div>
 
           {filaB && rB && (

@@ -55,6 +55,7 @@ import {
 } from "@/lib/opta-directo-mapas";
 
 import { RelievePartido } from "@/components/data/RelievePartido";
+import { useFotosOpta } from "@/hooks/useFotosOpta";
 
 import { Botonera } from "./comun";
 
@@ -481,7 +482,7 @@ function Tabla({ filas, color, elegido, alElegir }: { filas: Rendimiento[]; colo
   );
 }
 
-function FichaJugador({ ev, r, color, rgb, alCerrar }: { ev: EventoDirecto[]; r: Rendimiento; color: string; rgb: string; alCerrar: () => void }) {
+function FichaJugador({ ev, r, color, rgb, alCerrar, foto }: { ev: EventoDirecto[]; r: Rendimiento; color: string; rgb: string; alCerrar: () => void; foto?: string | null }) {
   const suyos = useMemo(() => ev.filter((e) => e.jugadorId === r.jugador.id), [ev, r.jugador.id]);
   const pases = suyos.filter((e) => e.tipo === "Pass" && e.finX != null && e.finY != null);
   const tercios = porTercios(suyos);
@@ -489,7 +490,11 @@ function FichaJugador({ ev, r, color, rgb, alCerrar }: { ev: EventoDirecto[]; r:
   return (
     <div className="rounded-2xl border border-white/15 bg-white/[0.04] p-3">
       <div className="mb-2 flex items-start justify-between gap-2">
-        <div className="min-w-0">
+        {foto && (
+          // eslint-disable-next-line @next/next/no-img-element -- foto de la plantilla o de BeSoccer por el proxy propio
+          <img src={foto} alt="" className="h-14 w-14 shrink-0 rounded-full object-cover object-top" style={{ border: `2px solid ${color}` }} />
+        )}
+        <div className="mr-auto min-w-0">
           <p className="text-xs font-black uppercase tracking-[0.14em]" style={{ color }}>
             Ficha del directo · {puesto(r.jugador.puesto) || "jugador"} · {r.jugador.minutos}′
           </p>
@@ -662,6 +667,7 @@ export function DirectoMapas({
   /** Los jugadores de la categoría en la temporada (opta:jugadores), para lo habitual de cada uno. */
   temporada?: Record<string, unknown>[];
 }) {
+  const fotoDe = useFotosOpta();
   const [tramo, setTramo] = useState<Tramo>("todo");
   const [seccion, setSeccion] = useState<Seccion>("relieve");
   const [equipoInd, setEquipoInd] = useState<"a" | "b">("a");
@@ -827,6 +833,7 @@ export function DirectoMapas({
           color={ficha.jugador.teamId === a.teamId ? COLOR_A : COLOR_B}
           rgb={ficha.jugador.teamId === a.teamId ? RGB_A : RGB_B}
           alCerrar={() => setElegido("")}
+          foto={fotoDe(ficha.jugador.nombre, ficha.jugador.teamId === a.teamId ? a.nombre : b.nombre, ficha.jugador.teamId === CASTILLA_OPTA)}
         />
       )}
 

@@ -507,7 +507,7 @@ export function RelievePartido({
     <div className="group relative mx-auto overflow-hidden rounded-2xl" style={{ background: "#05050a", maxWidth: compacto ? undefined : "min(100%, calc((100vh - 170px) * 1.4))" }}>
       <canvas ref={lienzo} className="block h-auto w-full" style={{ aspectRatio: compacto ? "480 / 270" : "1000 / 560" }} role="img" aria-label={`Retrato 3D del partido ${a.nombre} - ${b.nombre}, animado`} />
       {!compacto && (
-        <div className="pointer-events-none absolute bottom-[calc(150px*var(--k,1)+12px)] right-4 hidden w-[400px] rounded-xl px-3 py-2 text-xs sm:block" style={{ background: "rgba(8,10,20,0.82)", color: "rgba(255,255,255,0.85)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.1)", bottom: "calc(min(15vw, 150px) + 14px)" }}>
+        <div className="pointer-events-none absolute bottom-[calc(150px*var(--k,1)+12px)] right-4 hidden w-[400px] rounded-xl px-3 py-2 text-xs lg:block" style={{ background: "rgba(8,10,20,0.82)", color: "rgba(255,255,255,0.85)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.1)", bottom: "calc(min(15vw, 150px) + 14px)" }}>
           <p className="flex justify-between font-semibold">
             <span style={{ color: css(colB) }}>← {b.nombre}</span>
             <span style={{ color: css(colA) }}>{a.nombre} →</span>
@@ -524,7 +524,7 @@ export function RelievePartido({
         </div>
       )}
       {!compacto && (
-        <div className="pointer-events-none absolute left-4 top-[100px] hidden max-w-[230px] rounded-xl px-3 py-2 shadow-xl sm:left-6 sm:block" style={{ background: "rgba(8,10,20,0.82)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.1)", color: "#FFFFFF" }}>
+        <div className="pointer-events-none absolute left-4 top-[100px] hidden max-w-[230px] rounded-xl px-3 py-2 shadow-xl sm:left-6 lg:block" style={{ background: "rgba(8,10,20,0.82)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.1)", color: "#FFFFFF" }}>
           <p className="text-xs font-semibold uppercase tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.55)" }}>Hasta el {minuto}′</p>
           <p className="font-mono text-base font-bold tabular-nums">
             xG <span style={{ color: css(colA) }}>{xgA.toFixed(2).replace(".", ",")}</span> – <span style={{ color: css(colB) }}>{xgB.toFixed(2).replace(".", ",")}</span>
@@ -549,7 +549,7 @@ export function RelievePartido({
       )}
       {/* Móvil (14/11/2026): las cifras van debajo del campo, no encima (lo tapaban entero). */}
       {!compacto && (
-        <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 px-3 pt-2 text-xs tabular-nums sm:hidden" style={{ color: "rgba(255,255,255,0.8)" }}>
+        <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 px-3 pt-2 text-xs tabular-nums sm:text-sm lg:hidden" style={{ color: "rgba(255,255,255,0.8)" }}>
           <p>
             xG hasta el {minuto}′: <b style={{ color: css(colA) }}>{xgA.toFixed(2).replace(".", ",")}</b> – <b style={{ color: css(colB) }}>{xgB.toFixed(2).replace(".", ",")}</b>
           </p>
@@ -604,9 +604,18 @@ export function RelievePartido({
         </p>
       </div>
       {aviso && !compacto && minuto - aviso.minuto < 4 && (
+        <p
+          key={`tira-${aviso.minuto}-${aviso.jugadorId}`}
+          className="pointer-events-none absolute left-2 right-2 top-[64px] truncate rounded-md px-2 py-0.5 text-xs font-bold sm:top-[84px] lg:hidden"
+          style={{ background: "rgba(10,12,22,0.7)", color: "#FFFFFF", borderLeft: `3px solid ${css(aviso.deA ? colA : colB)}`, animation: "rmcfAviso 3.2s ease-out forwards" }}
+        >
+          <span style={{ color: css(aviso.deA ? colA : colB) }}>{aviso.gol ? "GOL" : aviso.xg >= 0.25 ? "OCASIÓN CLARA" : "OCASIÓN"} {aviso.minuto}′</span> · {nombre(aviso.jugadorId) || (aviso.deA ? a.nombre : b.nombre)} · xG {aviso.xg.toFixed(2).replace(".", ",")}
+        </p>
+      )}
+      {aviso && !compacto && minuto - aviso.minuto < 4 && (
         <div
           key={`${aviso.minuto}-${aviso.jugadorId}`}
-          className="pointer-events-none absolute left-2 top-[78px] max-w-[70%] sm:top-auto rounded-r-xl py-1.5 pl-3 pr-4 text-left shadow-2xl sm:bottom-[34%] sm:left-6 sm:max-w-none sm:py-2.5 sm:pl-4 sm:pr-6"
+          className="pointer-events-none absolute left-2 top-[78px] hidden max-w-[70%] lg:block sm:top-auto rounded-r-xl py-1.5 pl-3 pr-4 text-left shadow-2xl sm:bottom-[34%] sm:left-6 sm:max-w-none sm:py-2.5 sm:pl-4 sm:pr-6"
           style={{
             background: "rgba(10,12,22,0.55)",
             backdropFilter: "blur(10px)",
@@ -628,7 +637,7 @@ export function RelievePartido({
         </div>
       )}
       {!compacto && (
-        <div className="flex flex-wrap items-center justify-center gap-2 px-3 py-2 transition-opacity duration-500 focus-within:opacity-100 sm:absolute sm:right-5 sm:top-[86px] sm:max-w-[60%] sm:justify-end sm:p-0 sm:opacity-0 sm:group-hover:opacity-100">
+        <div className="flex flex-wrap items-center justify-center gap-2 px-3 py-2 transition-opacity duration-500 focus-within:opacity-100 lg:absolute lg:right-5 lg:top-[86px] lg:max-w-[60%] lg:justify-end lg:p-0 lg:opacity-0 lg:group-hover:opacity-100">
           <button type="button" onClick={() => setJugando((j) => !j)} aria-label={jugando ? "Pausa" : "Reproducir"} className="inline-flex h-9 w-9 items-center justify-center rounded-full" style={{ background: "#FFFFFF", color: "#000000" }}>
             {jugando ? <Pause size={16} /> : <Play size={16} />}
           </button>
