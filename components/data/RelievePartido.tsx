@@ -23,7 +23,7 @@ import { Pause, Play, RotateCcw } from "lucide-react";
 import { useAdmin } from "@/hooks/useAdmin";
 import { leeEventos, type JugadorDirecto } from "@/lib/opta-directo-mapas";
 import { CASTILLA_OPTA, traeOpta, type TablaOpta } from "@/lib/opta";
-import { GX, GY, retrato, ventana, type TiroRetrato } from "@/lib/opta-retrato";
+import { GX, GY, retrato, territorioRetrato, ventana, type TiroRetrato } from "@/lib/opta-retrato";
 
 type Equipo = { teamId: string; nombre: string; color?: string; campo?: string };
 type RGB = [number, number, number];
@@ -113,7 +113,7 @@ export function RelievePartido({
     }
   };
   /* Colores de la app (petición del analista): el nuestro (o el de la izquierda) en oro y el otro en blanco hielo. */
-  const [colA, colB] = useMemo<[RGB, RGB]>(() => (modo === "app" ? [[236, 184, 72], [196, 220, 255]] : dosColores(a, b, delPartido)), [modo, a, b, delPartido]);
+  const [colA, colB] = useMemo<[RGB, RGB]>(() => (modo === "app" ? [[240, 186, 70], [226, 238, 255]] : dosColores(a, b, delPartido)), [modo, a, b, delPartido]);
   const fija = async (teamId: string, hex: string) => {
     if (!partido) return;
     const nuevo = { ...fijados, [partido]: { ...(fijados[partido] ?? {}), [teamId]: hex } };
@@ -127,11 +127,13 @@ export function RelievePartido({
   const [minuto, setMinuto] = useState(0);
   const [aviso, setAviso] = useState<(TiroRetrato & { en: number }) | null>(null);
   const estado = useRef({ t: 0, quieto: 0 });
-  const mandos = useRef({ jugando: true, velocidad: 1, saltar: null as number | null });
+  const mandos = useRef({ jugando: true, velocidad: 1, saltar: null as number | null, cenital: false });
+  const [cenital, setCenital] = useState(false);
   useEffect(() => {
     mandos.current.jugando = jugando;
     mandos.current.velocidad = velocidad;
-  }, [jugando, velocidad]);
+    mandos.current.cenital = cenital;
+  }, [jugando, velocidad, cenital]);
 
   useEffect(() => {
     const cv = lienzo.current;
@@ -162,7 +164,7 @@ export function RelievePartido({
       const s = Math.sin(giro);
       const x1 = X * c - Z * s;
       const z1 = X * s + Z * c;
-      const fi = 0.98;
+      const fi = mandos.current.cenital ? 1.38 : 0.98;
       const prof = -z1 * Math.cos(fi) - Y * Math.sin(fi);
       const f = 170 / (170 + prof);
       const esc = (compacto ? 3.1 : 6.3) * f;
@@ -255,7 +257,7 @@ export function RelievePartido({
          un oleaje suave que nunca para. */
       const fase = (ahora - inicio) / 1000;
       for (let i = 0; i < N; i++) {
-        const objetivo = 0.5 * Math.sqrt(total[i] / escala);
+        const objetivo = 0.66 * Math.sqrt(total[i] / escala);
         suave[i] += (objetivo - suave[i]) * 0.06;
         const ii = i % GX;
         const jj = (i - ii) / GX;
@@ -278,7 +280,7 @@ export function RelievePartido({
       const intens = new Float32Array(N);
       for (let i = 0; i < N; i++) intens[i] = Math.sqrt(total[i] / escala);
 
-      const giro = -0.3 + 0.12 * Math.sin((ahora - inicio) / 16000);
+      const giro = mandos.current.cenital ? 0 : -0.3 + 0.12 * Math.sin((ahora - inicio) / 16000);
       px.set(fondo);
       zbuf.fill(1e9);
       for (let v = 0; v < DY; v++) {
@@ -296,7 +298,7 @@ export function RelievePartido({
           const fuerza = Math.pow(Math.min(1, Math.abs(dom) * 1.6), 0.8);
           const equipo = dom >= 0 ? colA : colB;
           const neutro = 118;
-          const espuma = Math.min(1, Math.max(0, (h - 0.42) / 0.35)) * 0.55;
+          const espuma = Math.min(1, Math.max(0, (h - 0.3) / 0.32)) * 0.6;
           const vida = Math.min(1.25, 0.16 + Math.pow(it, 0.8) * 1.15);
           const k = ilum * vida;
           const R = Math.min(255, (neutro * (1 - fuerza) + equipo[0] * fuerza) * k * (1 - espuma) + 255 * espuma);
@@ -335,6 +337,11 @@ export function RelievePartido({
         g.restore();
       }
 
+      const vin = g.createRadialGradient(W / 2, H * 0.55, Math.min(W, H) * 0.35, W / 2, H * 0.55, Math.max(W, H) * 0.75);
+      vin.addColorStop(0, "rgba(0,0,0,0)");
+      vin.addColorStop(1, "rgba(0,0,0,0.6)");
+      g.fillStyle = vin;
+      g.fillRect(0, 0, W, H);
       /* Las líneas del campo, finas y pegadas a la superficie. */
       g.strokeStyle = "rgba(255,255,255,0.45)";
       g.lineWidth = compacto ? 0.5 : 0.9;
@@ -369,7 +376,12 @@ export function RelievePartido({
         haz.addColorStop(0, css(c, 0.85 * k));
         haz.addColorStop(1, css(c, 0));
         g.fillStyle = haz;
-        g.fillRect(sx - (compacto ? 1.5 : 3), sy - altoCol, compacto ? 3 : 6, altoCol);
+        g.shadowColor = css(c, 0.9 * k);
+        g.shadowBlur = compacto ? 8 : 22;
+        g.fillRect(sx - (compacto ? 2 : 5), sy - altoCol, compacto ? 4 : 10, altoCol);
+        g.fillStyle = css([255, 255, 255], 0.7 * k);
+        g.fillRect(sx - 1, sy - altoCol * 0.85, 2, altoCol * 0.85);
+        g.shadowBlur = 0;
         g.strokeStyle = css(c, 0.9 * k);
         g.lineWidth = compacto ? 1 : 2;
         g.beginPath();
@@ -384,14 +396,16 @@ export function RelievePartido({
         const a0 = Math.max(0.25, 1 - edad / 30);
         const [X, Y, Z] = mundo(tiro.gx, tiro.gy, alto[tiro.gy * GX + tiro.gx] + 0.01);
         const [sx, sy] = proyecta(X, Y, Z, giro);
-        const rad = (compacto ? 1.5 : 3) + Math.sqrt(tiro.xg) * (compacto ? 5 : 12);
+        const rad = (compacto ? 2.5 : 5) + Math.sqrt(tiro.xg) * (compacto ? 8 : 20);
         g.lineWidth = compacto ? 0.8 : 1.5;
         g.strokeStyle = css(tiro.deA ? colA : colB, 0.9 * a0);
-        g.fillStyle = tiro.gol ? css([255, 255, 255], 0.9 * a0) : css(tiro.deA ? colA : colB, 0.25 * a0);
+        g.fillStyle = tiro.gol ? css([255, 255, 255], 0.95 * a0) : tiro.aPuerta ? css(tiro.deA ? colA : colB, 0.75 * a0) : "rgba(0,0,0,0)";
+        g.setLineDash(tiro.aPuerta || tiro.gol ? [] : [3, 3]);
         g.beginPath();
         g.ellipse(sx, sy, rad, rad * 0.45, 0, 0, Math.PI * 2);
         g.fill();
         g.stroke();
+        g.setLineDash([]);
       }
       /* Destello del gol: un instante de pantalla blanca. */
       for (const tiro of r.tiros) {
@@ -403,7 +417,19 @@ export function RelievePartido({
       for (const d of destellos) {
         const [X, Y, Z] = mundo(d.i, d.j, alto[d.j * GX + d.i] + 0.15);
         const [sx, sy] = proyecta(X, Y, Z, giro);
-        const rad = (compacto ? 16 : 40) * (0.6 + 0.4 * d.k);
+        const rad = (compacto ? 22 : 70) * (0.6 + 0.4 * d.k);
+        g.save();
+        g.globalCompositeOperation = "lighter";
+        g.strokeStyle = `rgba(255,255,255,${0.5 * d.k})`;
+        g.lineWidth = compacto ? 1 : 2;
+        for (let n = 0; n < 10; n++) {
+          const ang = (n / 10) * Math.PI * 2 + d.k;
+          g.beginPath();
+          g.moveTo(sx + Math.cos(ang) * rad * 0.3, sy + Math.sin(ang) * rad * 0.3);
+          g.lineTo(sx + Math.cos(ang) * rad * 1.3, sy + Math.sin(ang) * rad * 1.3);
+          g.stroke();
+        }
+        g.restore();
         const gr = g.createRadialGradient(sx, sy, 0, sx, sy, rad);
         gr.addColorStop(0, `rgba(255,255,255,${0.95 * d.k})`);
         gr.addColorStop(1, "rgba(255,255,255,0)");
@@ -448,6 +474,10 @@ export function RelievePartido({
     return () => cancelAnimationFrame(pedido);
   }, [r, fin, compacto, colA, colB]);
 
+  const xgA = r.tiros.filter((p) => p.deA && p.minuto <= minuto).reduce((x, p) => x + p.xg, 0);
+  const xgB = r.tiros.filter((p) => !p.deA && p.minuto <= minuto).reduce((x, p) => x + p.xg, 0);
+  const terrAhora = territorioRetrato(r, minuto);
+  const terrPartido = useMemo(() => territorioRetrato(r, null), [r]);
   const golesA = r.tiros.filter((p) => p.gol && p.deA && p.minuto <= minuto).length;
   const golesB = r.tiros.filter((p) => p.gol && !p.deA && p.minuto <= minuto).length;
   const nombre = (id: string) => jugadores?.get(id)?.nombre ?? "";
@@ -460,18 +490,32 @@ export function RelievePartido({
       {!compacto && (
         <div className="pointer-events-none absolute bottom-[calc(150px*var(--k,1)+12px)] right-4 hidden w-[400px] rounded-xl px-3 py-2 text-[11px] sm:block" style={{ background: "rgba(8,10,20,0.55)", color: "rgba(255,255,255,0.8)", backdropFilter: "blur(6px)", bottom: "calc(min(15vw, 150px) + 14px)" }}>
           <p className="flex justify-between font-semibold">
-            <span style={{ color: css(colB) }}>← ataca {b.nombre}</span>
-            <span style={{ color: css(colA) }}>ataca {a.nombre} →</span>
+            <span style={{ color: css(colB) }}>← {b.nombre}</span>
+            <span style={{ color: css(colA) }}>{a.nombre} →</span>
           </p>
           <div className="mt-1.5 h-1.5 rounded-full" style={{ background: `linear-gradient(90deg, ${css(colB)}, rgb(118,118,118), ${css(colA)})` }} />
-          <p className="mt-1 flex justify-between text-[10px]" style={{ color: "rgba(255,255,255,0.55)" }}>
-            <span>domina {b.nombre}</span>
-            <span>parejo</span>
-            <span>domina {a.nombre}</span>
+          <p className="mt-1 grid grid-cols-3 text-[11px]" style={{ color: "rgba(255,255,255,0.65)" }}>
+            <span>manda {b.nombre.split(" ")[0]}</span>
+            <span className="text-center">parejo</span>
+            <span className="text-right">manda {a.nombre.split(" ").slice(-1)[0]}</span>
           </p>
-          <p className="mt-1 text-[10px]" style={{ color: "rgba(255,255,255,0.55)" }}>
-            Altura = actividad en los últimos 2,5′ · columna = remate · marca = remates ya hechos (rellena, gol)
+          <p className="mt-1 text-[11px]" style={{ color: "rgba(255,255,255,0.6)" }}>
+            Altura = actividad · columna y marca = remate
           </p>
+        </div>
+      )}
+      {!compacto && (
+        <div className="pointer-events-none absolute left-4 top-[104px] rounded-xl px-3 py-2 sm:left-6" style={{ background: "rgba(8,10,20,0.55)", backdropFilter: "blur(6px)", color: "#FFFFFF" }}>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.55)" }}>Hasta el {minuto}′</p>
+          <p className="font-mono text-lg font-bold tabular-nums">
+            xG <span style={{ color: css(colA) }}>{xgA.toFixed(2).replace(".", ",")}</span> – <span style={{ color: css(colB) }}>{xgB.toFixed(2).replace(".", ",")}</span>
+          </p>
+          {terrAhora != null && (
+            <p className="text-xs tabular-nums" style={{ color: "rgba(255,255,255,0.8)" }}>
+              Territorio {a.nombre.split(" ").slice(-1)[0]}: <b style={{ color: css(colA) }}>{Math.round(terrAhora * 100)} %</b> ahora
+              {terrPartido != null ? <span style={{ color: "rgba(255,255,255,0.55)" }}> · {Math.round(terrPartido * 100)} % el partido</span> : null}
+            </p>
+          )}
         </div>
       )}
       {!compacto && <Momentum curva={r.curva} tiros={r.tiros} minuto={minuto} colA={colA} colB={colB} nombreA={a.nombre} nombreB={b.nombre} />}
@@ -559,6 +603,9 @@ export function RelievePartido({
             aria-label="Minuto del partido"
             className="w-32 accent-white sm:w-48"
           />
+          <button type="button" onClick={() => setCenital((c) => !c)} className="h-9 rounded-full px-3 text-xs font-bold" style={{ background: "rgba(255,255,255,0.18)", color: "#FFFFFF" }}>
+            {cenital ? "Vista 3D" : "Desde arriba"}
+          </button>
           <span className="flex overflow-hidden rounded-full text-[10px] font-bold" style={{ background: "rgba(255,255,255,0.12)" }}>
             {(["app", "camisetas"] as const).map((m) => (
               <button key={m} type="button" onClick={() => cambiaModo(m)} className="px-2.5 py-1.5" style={modo === m ? { background: "#FFFFFF", color: "#000000" } : { color: "rgba(255,255,255,0.8)" }}>
@@ -604,7 +651,7 @@ function Momentum({
   const mid = H / 2;
   const fin = curva.length - 1;
   const tope = Math.max(1, ...curva.map(Math.abs));
-  const X = (m: number) => 40 + (m / fin) * (W - 60);
+  const X = (m: number) => 190 + (m / fin) * (W - 210);
   const Y = (v: number) => mid - (v / tope) * (mid - 14);
   const linea = curva.map((v, m) => `${m ? "L" : "M"}${X(m).toFixed(1)},${Y(v).toFixed(1)}`).join(" ");
   const area = `${linea} L${X(fin)},${mid} L${X(0)},${mid} Z`;

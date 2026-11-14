@@ -25,7 +25,7 @@ const RADIO = 2; // celdas (≈ 4 m)
 const TIROS = new Set(["Goal", "Miss", "AttemptSaved", "Post"]);
 const NO_ES_ACCION = new Set(["FreeKick", "Corner", "Foul"]);
 
-export type TiroRetrato = { minuto: number; gx: number; gy: number; xg: number; gol: boolean; deA: boolean; jugadorId: string };
+export type TiroRetrato = { minuto: number; gx: number; gy: number; xg: number; gol: boolean; aPuerta: boolean; deA: boolean; jugadorId: string };
 
 export type Retrato = {
   minutos: number;
@@ -47,7 +47,8 @@ for (let dx = -RADIO * 2; dx <= RADIO * 2; dx++)
   }
 
 export function retrato(ev: EventoDirecto[], a: string, b: string): Retrato {
-  const fin = Math.max(90, ...ev.map(minutoEje));
+  /* Sólo hasta el último minuto con datos (en directo, donde va el partido). */
+  const fin = Math.max(1, ...ev.map(minutoEje));
   const M = fin + 1;
   const ma = Array.from({ length: M }, () => new Float32Array(GX * GY));
   const mb = Array.from({ length: M }, () => new Float32Array(GX * GY));
@@ -69,7 +70,7 @@ export function retrato(ev: EventoDirecto[], a: string, b: string): Retrato {
       malla[j * GX + i] += k.w;
     }
     if (e.x >= 66.7) dif[m] += deA ? 1 : -1;
-    if (TIROS.has(e.tipo)) tiros.push({ minuto: m, gx, gy, xg: e.xG ?? 0, gol: e.tipo === "Goal", deA, jugadorId: e.jugadorId });
+    if (TIROS.has(e.tipo)) tiros.push({ minuto: m, gx, gy, xg: e.xG ?? 0, gol: e.tipo === "Goal", aPuerta: e.tipo === "Goal" || e.tipo === "AttemptSaved", deA, jugadorId: e.jugadorId });
   }
   const curva = dif.map((_, i) => {
     let s = 0;
@@ -112,4 +113,18 @@ export function ventana(r: Retrato, t: number): { total: Float32Array; parteA: F
   const parteA = new Float32Array(GX * GY);
   for (let i = 0; i < GX * GY; i++) parteA[i] = total[i] > 0 ? sa[i] / total[i] : 0.5;
   return { total, parteA };
+}
+
+/** Territorio: de lo que pasa en las mitades rivales, cuánto es de A (en la ventana de t, o del partido si t es null). */
+export function territorioRetrato(r: Retrato, t: number | null): number | null {
+  let a = 0;
+  let b = 0;
+  const minutos = t == null ? [...Array(r.minutos).keys()] : [...Array(r.minutos).keys()].filter((m) => m <= t && m > t - 6);
+  for (const m of minutos)
+    for (let j = 0; j < GY; j++)
+      for (let i = 0; i < GX; i++) {
+        if (i >= GX / 2) a += r.a[m][j * GX + i];
+        else b += r.b[m][j * GX + i];
+      }
+  return a + b > 0 ? a / (a + b) : null;
 }

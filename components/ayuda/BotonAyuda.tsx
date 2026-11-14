@@ -82,7 +82,8 @@ export function BotonAyuda() {
           onClick={() => setAbierto(false)}
         >
           <aside
-            className="flex h-[100dvh] w-full max-w-2xl flex-col overflow-hidden border-l border-white/10 bg-[#11161D] shadow-2xl"
+            className="siempre-oscuro flex h-[100dvh] w-full flex-col overflow-hidden border-l border-white/10 shadow-2xl sm:max-w-2xl lg:max-w-3xl"
+            style={{ background: "#0f141b", color: "#FFFFFF" }}
             onClick={(evento) => evento.stopPropagation()}
           >
             <PanelAyuda ayuda={ayuda} alCerrar={() => setAbierto(false)} />
