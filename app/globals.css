@@ -1901,6 +1901,17 @@ scrollbar-width:none;
 :root[data-theme="light"] .siempre-oscuro [class~="text-white/30"] { color: rgb(255 255 255 / .30); }
 :root[data-theme="light"] .siempre-oscuro [class~="text-white/25"] { color: rgb(255 255 255 / .25); }
 :root[data-theme="light"] .siempre-oscuro [class~="text-white/20"] { color: rgb(255 255 255 / .20); }
+:root[data-theme="light"] .siempre-oscuro [class~="text-[#C8A96B]"] { color: #C8A96B; }
+:root[data-theme="light"] .siempre-oscuro [class~="text-amber-300/90"] { color: rgb(252 211 77 / .9); }
+:root[data-theme="light"] .siempre-oscuro [class~="bg-white/[0.02]"] { background-color: rgb(255 255 255 / .02); }
+:root[data-theme="light"] .siempre-oscuro [class~="bg-white/[0.025]"] { background-color: rgb(255 255 255 / .025); }
+:root[data-theme="light"] .siempre-oscuro [class~="bg-white/[0.03]"] { background-color: rgb(255 255 255 / .03); }
+/* 14/11/2026: las filas de la ayuda (panel oscuro) salían como tarjetas blancas con letra blanca en modo día. */
+:root[data-theme="light"] .siempre-oscuro [class~="border-white/[0.08]"] { border-color: rgb(255 255 255 / .08); }
+:root[data-theme="light"] .siempre-oscuro [class~="border-white/[0.09]"] { border-color: rgb(255 255 255 / .09); }
+:root[data-theme="light"] .siempre-oscuro [class~="hover:bg-white/10"]:hover { background-color: rgb(255 255 255 / .1); }
+:root[data-theme="light"] .siempre-oscuro [class~="hover:border-white/25"]:hover { border-color: rgb(255 255 255 / .25); }
+:root[data-theme="light"] .siempre-oscuro [class~="placeholder:text-white/35"]::placeholder { color: rgb(255 255 255 / .35); }
 :root[data-theme="light"] .siempre-oscuro [class~="bg-white/[0.04]"] { background-color: rgb(255 255 255 / .04); }
 :root[data-theme="light"] .siempre-oscuro [class~="bg-white/[0.05]"] { background-color: rgb(255 255 255 / .05); }
 :root[data-theme="light"] .siempre-oscuro [class~="bg-white/5"] { background-color: rgb(255 255 255 / .05); }
