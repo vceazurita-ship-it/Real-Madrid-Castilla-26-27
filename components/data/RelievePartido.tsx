@@ -397,15 +397,18 @@ export function RelievePartido({
         const [X, Y, Z] = mundo(tiro.gx, tiro.gy, alto[tiro.gy * GX + tiro.gx] + 0.01);
         const [sx, sy] = proyecta(X, Y, Z, giro);
         const rad = (compacto ? 2.5 : 5) + Math.sqrt(tiro.xg) * (compacto ? 8 : 20);
-        g.lineWidth = compacto ? 0.8 : 1.5;
-        g.strokeStyle = css(tiro.deA ? colA : colB, 0.9 * a0);
-        g.fillStyle = tiro.gol ? css([255, 255, 255], 0.95 * a0) : tiro.aPuerta ? css(tiro.deA ? colA : colB, 0.75 * a0) : "rgba(0,0,0,0)";
+        g.lineWidth = compacto ? 1 : 2.2;
+        g.strokeStyle = css(tiro.deA ? colA : colB, a0);
+        g.shadowColor = css(tiro.deA ? colA : colB, 0.8 * a0);
+        g.shadowBlur = compacto ? 4 : 10;
+        g.fillStyle = tiro.gol ? css([255, 255, 255], 0.95 * a0) : tiro.aPuerta ? css(tiro.deA ? colA : colB, 0.95 * a0) : css(tiro.deA ? colA : colB, 0.18 * a0);
         g.setLineDash(tiro.aPuerta || tiro.gol ? [] : [3, 3]);
         g.beginPath();
         g.ellipse(sx, sy, rad, rad * 0.45, 0, 0, Math.PI * 2);
         g.fill();
         g.stroke();
         g.setLineDash([]);
+        g.shadowBlur = 0;
       }
       /* Destello del gol: un instante de pantalla blanca. */
       for (const tiro of r.tiros) {
@@ -479,6 +482,15 @@ export function RelievePartido({
   const terrAhora = territorioRetrato(r, minuto);
   const ultima = [...r.tiros].filter((p) => p.minuto <= minuto).sort((x, y) => y.minuto - x.minuto)[0] ?? null;
   const terrPartido = useMemo(() => territorioRetrato(r, null), [r]);
+  /* El máximo del partido (y su minuto), como referencia del momento. */
+  const terrMax = useMemo(() => {
+    let mejor: { v: number; m: number } | null = null;
+    for (let m = 5; m < r.minutos; m++) {
+      const v = territorioRetrato(r, m);
+      if (v != null && (!mejor || v > mejor.v)) mejor = { v, m };
+    }
+    return mejor;
+  }, [r]);
   const golesA = r.tiros.filter((p) => p.gol && p.deA && p.minuto <= minuto).length;
   const golesB = r.tiros.filter((p) => p.gol && !p.deA && p.minuto <= minuto).length;
   const nombre = (id: string) => jugadores?.get(id)?.nombre ?? "";
@@ -506,15 +518,20 @@ export function RelievePartido({
         </div>
       )}
       {!compacto && (
-        <div className="pointer-events-none absolute left-4 top-[104px] rounded-xl px-4 py-2.5 shadow-xl sm:left-6" style={{ background: "rgba(8,10,20,0.82)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.1)", color: "#FFFFFF" }}>
+        <div className="pointer-events-none absolute left-4 top-[100px] max-w-[230px] rounded-xl px-3 py-2 shadow-xl sm:left-6" style={{ background: "rgba(8,10,20,0.82)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.1)", color: "#FFFFFF" }}>
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.55)" }}>Hasta el {minuto}′</p>
-          <p className="font-mono text-lg font-bold tabular-nums">
+          <p className="font-mono text-base font-bold tabular-nums">
             xG <span style={{ color: css(colA) }}>{xgA.toFixed(2).replace(".", ",")}</span> – <span style={{ color: css(colB) }}>{xgB.toFixed(2).replace(".", ",")}</span>
           </p>
           {terrAhora != null && (
             <p className="text-xs tabular-nums" style={{ color: "rgba(255,255,255,0.8)" }}>
               Territorio {a.nombre.split(" ").slice(-1)[0]}: <b style={{ color: css(colA) }}>{Math.round(terrAhora * 100)} %</b> ahora
               {terrPartido != null ? <span style={{ color: "rgba(255,255,255,0.55)" }}> · {Math.round(terrPartido * 100)} % el partido</span> : null}
+            </p>
+          )}
+          {terrMax && (
+            <p className="text-[11px] tabular-nums" style={{ color: "rgba(255,255,255,0.55)" }}>
+              Máximo del partido: {Math.round(terrMax.v * 100)} % a los {terrMax.m}′
             </p>
           )}
           {ultima && (
