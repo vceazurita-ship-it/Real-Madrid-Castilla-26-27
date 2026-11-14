@@ -398,24 +398,24 @@ export function Directo({ datos }: { datos: DatosOpta }) {
           </>
         ) : (
           <div>
-            <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-3xl px-4 py-5" style={{ background: "radial-gradient(120% 140% at 50% 0%, rgba(200,169,107,0.18), rgba(10,14,24,0.9) 60%)", border: "1px solid rgba(200,169,107,0.25)" }}>
               <div className="min-w-0 flex-1 text-right">
-                <p className="truncate text-lg font-semibold" style={a.teamId === CASTILLA_OPTA ? { color: ORO } : undefined}>
+                <p className="truncate text-xl font-bold sm:text-2xl" style={{ color: a.teamId === CASTILLA_OPTA ? "#E3C27E" : "#FFFFFF" }}>
                   {nombre(a)}
                 </p>
               </div>
               <div className="shrink-0 text-center">
-                <p className="text-3xl font-semibold tabular-nums text-white">
+                <p className="font-mono text-5xl font-black tabular-nums" style={{ color: "#FFFFFF", textShadow: "0 0 24px rgba(227,194,126,0.35)" }}>
                   {num(a.Goal) ?? 0} - {num(b.Goal) ?? 0}
                 </p>
-                <p className="text-[11px] text-white/55">
+                <p className="mt-1 text-[11px]" style={{ color: "rgba(255,255,255,0.6)" }}>
                   {[minuto != null ? `${num(doc.minuto) != null ? "" : "≈"}${minuto}′` : "", estadoEnPalabras(doc.estado), doc.actualizado ? `cifras de las ${hora(doc.actualizado)}` : ""]
                     .filter(Boolean)
                     .join(" · ")}
                 </p>
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-lg font-semibold" style={b.teamId === CASTILLA_OPTA ? { color: ORO } : undefined}>
+                <p className="truncate text-xl font-bold sm:text-2xl" style={{ color: b.teamId === CASTILLA_OPTA ? "#E3C27E" : "#FFFFFF" }}>
                   {nombre(b)}
                 </p>
               </div>

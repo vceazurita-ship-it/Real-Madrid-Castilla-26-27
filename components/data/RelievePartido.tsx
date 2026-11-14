@@ -187,8 +187,8 @@ export function RelievePartido({
     /* MICROBOLITAS (14/11/2026, petición del analista: «como el vídeo»): la superficie no son
        baldosas sino ~30.000 puntos finos, escritos directamente en los píxeles con su
        profundidad (el de delante tapa al de detrás), cada uno con su luz. Fluido y fino. */
-    const DX = compacto ? 130 : 220;
-    const DY = compacto ? 84 : 142;
+    const DX = compacto ? 150 : 270;
+    const DY = compacto ? 96 : 174;
     const PW = Math.round(W * dpr);
     const PH = Math.round(H * dpr);
     const img = g.createImageData(PW, PH);
@@ -221,6 +221,10 @@ export function RelievePartido({
         R += g0 * 10;
         G += g0 * 12;
         B += g0 * 16;
+        const sombra = Math.exp(-Math.pow((u - 0.5) / 0.4, 2) - Math.pow((v - 0.7) / 0.14, 2));
+        R *= 1 - 0.6 * sombra;
+        G *= 1 - 0.6 * sombra;
+        B *= 1 - 0.5 * sombra;
         const c = Math.hypot((u - 0.5) * 1.2, (v - 0.55) * 1.5);
         const osc = Math.max(0.35, 1 - c * 0.7);
         fondo[y * PW + x] = (255 << 24) | (Math.round(Math.min(255, B * osc)) << 16) | (Math.round(Math.min(255, G * osc)) << 8) | Math.round(Math.min(255, R * osc));
@@ -229,7 +233,7 @@ export function RelievePartido({
     brillo.width = Math.round(W / 3);
     brillo.height = Math.round(H / 3);
     const gg = brillo.getContext("2d");
-    const tam = Math.max(1, Math.round((compacto ? 1.2 : 1.6) * dpr));
+    const tam = Math.max(1, Math.round((compacto ? 1.1 : 1.35) * dpr));
     const bil = (arr: Float32Array, u: number, v: number) => {
       const fx = u * (GX - 1);
       const fy = v * (GY - 1);
@@ -274,7 +278,7 @@ export function RelievePartido({
       const intens = new Float32Array(N);
       for (let i = 0; i < N; i++) intens[i] = Math.sqrt(total[i] / escala);
 
-      const giro = -0.42 + 0.32 * Math.sin((ahora - inicio) / 9000);
+      const giro = -0.4 + 0.26 * Math.sin((ahora - inicio) / 14000);
       px.set(fondo);
       zbuf.fill(1e9);
       for (let v = 0; v < DY; v++) {
@@ -290,7 +294,7 @@ export function RelievePartido({
           const ilum = Math.max(0.2, Math.min(1.7, 0.78 - hx * 9 + hy * 6.5 + h * 0.7));
           const q = Math.min(1, Math.max(0, (p - 0.2) / 0.6));
           const espuma = Math.min(1, Math.max(0, (h - 0.42) / 0.35)) * 0.55;
-          const vida = Math.min(1.15, 0.22 + Math.pow(it, 0.8) * 1.1);
+          const vida = Math.min(1.2, 0.34 + Math.pow(it, 0.8) * 1.05);
           const k = ilum * vida;
           const R = Math.min(255, (colA[0] * q + colB[0] * (1 - q)) * k * (1 - espuma) + 255 * espuma);
           const G = Math.min(255, (colA[1] * q + colB[1] * (1 - q)) * k * (1 - espuma) + 255 * espuma);
@@ -299,7 +303,8 @@ export function RelievePartido({
           const [sx, sy, d] = proyecta(X, Y, Z, giro);
           const x0 = Math.round(sx * dpr);
           const y0 = Math.round(sy * dpr);
-          const col = (255 << 24) | (Math.round(B) << 16) | (Math.round(G) << 8) | Math.round(R);
+          const bruma = Math.min(0.55, Math.max(0, (d + 30) / 110) * 0.55);
+          const col = (255 << 24) | (Math.round(B * (1 - bruma) + 40 * bruma) << 16) | (Math.round(G * (1 - bruma) + 26 * bruma) << 8) | Math.round(R * (1 - bruma) + 16 * bruma);
           for (let a2 = 0; a2 < tam; a2++)
             for (let b2 = 0; b2 < tam; b2++) {
               const xx = x0 + a2;
@@ -345,6 +350,25 @@ export function RelievePartido({
             else g.lineTo(sx, sy);
           }
         }
+        g.stroke();
+      }
+      for (const tiro of r.tiros) {
+        const edad = t - tiro.minuto;
+        if (edad < 0 || edad > 3) continue;
+        const k = 1 - edad / 3;
+        const [X, Y, Z] = mundo(tiro.gx, tiro.gy, alto[tiro.gy * GX + tiro.gx]);
+        const [sx, sy] = proyecta(X, Y, Z, giro);
+        const c = tiro.deA ? colA : colB;
+        const altoCol = (compacto ? 50 : 130) * (0.4 + Math.min(1, Math.sqrt(tiro.xg / 0.5)) * 0.6);
+        const haz = g.createLinearGradient(sx, sy, sx, sy - altoCol);
+        haz.addColorStop(0, css(c, 0.85 * k));
+        haz.addColorStop(1, css(c, 0));
+        g.fillStyle = haz;
+        g.fillRect(sx - (compacto ? 1.5 : 3), sy - altoCol, compacto ? 3 : 6, altoCol);
+        g.strokeStyle = css(c, 0.9 * k);
+        g.lineWidth = compacto ? 1 : 2;
+        g.beginPath();
+        g.ellipse(sx, sy, (compacto ? 6 : 14) * (1.6 - k * 0.6), (compacto ? 2.5 : 5) * (1.6 - k * 0.6), 0, 0, Math.PI * 2);
         g.stroke();
       }
       for (const d of destellos) {
