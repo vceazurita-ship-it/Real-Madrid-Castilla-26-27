@@ -204,7 +204,17 @@ export function DirectoPlan({
     /* Muestra corta (13/11/2026, tras los expertos): con menos de 5 partidos
        en la media de alguno de los dos, una alerta se queda en duda. */
     const corta = Math.min(muestraDe(bandaNos), muestraDe(bandaEllos)) < 5;
-    const confirmados = confirma(ahora, antes).map((j) => (corta && j.estado === "alerta" ? { ...j, estado: "duda" as Estado, consigna: undefined } : j));
+    /* Por los pelos (14/11/2026, expertos): si la cifra se sale de lo habitual menos de un 10 % del ancho
+       del rango, no es alerta ni certeza sino «en el filo» (81 % frente a 69-80 % no abre el vídeo del lunes). */
+    const porLosPelos = (j: Juicio) => {
+      if (j.cifra == null || !j.rango) return false;
+      const [lo, hi] = j.rango;
+      const fuera = j.cifra > hi ? j.cifra - hi : j.cifra < lo ? lo - j.cifra : 0;
+      return fuera > 0 && fuera < (hi - lo) * 0.1;
+    };
+    const confirmados = confirma(ahora, antes).map((j) =>
+      (corta && j.estado === "alerta") || ((j.estado === "alerta" || j.estado === "certeza") && porLosPelos(j)) ? { ...j, estado: "duda" as Estado, consigna: undefined } : j,
+    );
     /* Partido de otros (13/11/2026, tras los expertos): sin consignas de
        banquillo, que no son para nadie; cada equipo, contra su propia media. */
     return esCastilla ? confirmados : confirmados.map((j) => ({ ...j, consigna: undefined }));

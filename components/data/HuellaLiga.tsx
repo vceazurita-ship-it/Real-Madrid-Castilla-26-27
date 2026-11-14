@@ -201,7 +201,8 @@ export function HuellaLiga() {
     const plan = x < 1 / 3 ? "la presión tras pérdida empieza ahí" : x < 2 / 3 ? "ahí hay que robar para correr" : "ahí hay que defender cerca del área";
     /* Quién toca ese balón en su equipo (zona 3 × 3 del script: carril × 3 + tercio). */
     const z = Math.min(2, Math.floor(y * 3)) * 3 + Math.min(2, Math.floor(x * 3));
-    const quien = (riv.quien?.[z] ?? []).slice(0, 2).map((n) => n.split(" ").slice(-1)[0]);
+    /* Nombre entero: «Mier» solo no distingue a Javi (mediocentro) de Jorge (lateral). */
+    const quien = (riv.quien?.[z] ?? []).slice(0, 2);
     return ` Toca más que la media ${tercio} ${carril}${quien.length ? ` (sobre todo ${quien.join(" y ")})` : ""}: ${plan}.`;
   })();
 

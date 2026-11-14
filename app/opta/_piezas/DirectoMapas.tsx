@@ -1009,7 +1009,15 @@ type Marca = { tipo: "alerta" | "certeza"; texto: string; video?: string };
  * Lo de cada jugador en este partido frente a lo suyo de la temporada (opta:jugadores, por 90′),
  * con las cifras de Opta del partido entero. Sólo con 20′ jugados y 270′ en la temporada.
  */
+/** Las marcas del portero: las mismas cifras, con el vídeo y la tarea de su puesto. */
+function marcasPortero(r: Rendimiento, t: Record<string, unknown> | undefined): Marca[] {
+  const VIDEO = "cada envío fallado: ¿corto con presión encima o largo sin apoyo? · tarea: salida 3+P contra 2 que presionan, elegir corto o largo al lado débil; éxito: 4 de 5 que llegan";
+  return marcasDe({ ...r, jugador: { ...r.jugador, puesto: "Portero" } }, t).map((m) => (m.tipo === "alerta" && m.video ? { ...m, video: VIDEO } : m));
+}
+
 function marcasDe(r: Rendimiento, t: Record<string, unknown> | undefined): Marca[] {
+  /* El portero, con su tarea: juego de pies y elegir corto o largo, no proteger de espaldas (expertos). */
+  if (r.jugador.puesto === "Goalkeeper") return marcasPortero(r, t);
   const c = r.jugador.cifras;
   const min = r.jugador.minutos;
   const n = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
