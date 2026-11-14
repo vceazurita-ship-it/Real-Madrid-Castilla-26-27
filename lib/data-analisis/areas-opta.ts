@@ -19,6 +19,9 @@ export const AREAS_OPTA = [
   "partidoCategoria",
   "penaltis",
   "directo",
+  /* 14/11/2026: las dos de F. Sosa (huella de la liga y radiografía del jugador). */
+  "huella",
+  "radiografia",
 ] as const;
 export type AreaOpta = (typeof AREAS_OPTA)[number];
 

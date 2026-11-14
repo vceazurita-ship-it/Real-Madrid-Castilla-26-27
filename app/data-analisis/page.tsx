@@ -403,6 +403,8 @@ const AREAS: { key: Area; label: string; icono: typeof History; pregunta: string
   { key: "evolucionLiga", label: "Un equipo jornada a jornada", icono: History, pregunta: "¿Cómo ha evolucionado este equipo, contra sus rivales y la media?" },
   { key: "rematesLiga", label: "Los remates de un equipo", icono: Goal, pregunta: "¿Desde dónde remata este equipo y desde dónde le rematan?" },
   { key: "partidoCategoria", label: "Cualquier partido", icono: Activity, pregunta: "¿Qué pasó en cualquier partido de la categoría, tramo a tramo?" },
+  { key: "huella", label: "Huella táctica de la liga", icono: Palette, pregunta: "¿Dónde toca cada equipo más y menos balón que la media de la liga?" },
+  { key: "radiografia", label: "Radiografía y comparativa", icono: Sparkles, pregunta: "¿Cómo es un jugador frente a los de su puesto, y quién gana entre dos?" },
   { key: "penaltis", label: "Penaltis", icono: CircleDot, pregunta: "¿Dónde se tiran los penaltis, quién los mete y quién los para?" },
 ];
 
@@ -498,6 +500,15 @@ const LECTURAS: Partial<Record<Area, { area: Area; label: string }[]>> = {
     { area: "equipo", label: "De un vistazo" },
     { area: "evolucionLiga", label: "Jornada a jornada" },
     { area: "rematesLiga", label: "Sus remates" },
+  ],
+  /* 14/11/2026: segundas lecturas nuevas (F. Sosa). */
+  estilos: [
+    { area: "estilos", label: "Estilos de juego" },
+    { area: "huella", label: "Huella táctica" },
+  ],
+  talento: [
+    { area: "talento", label: "Talento y goles" },
+    { area: "radiografia", label: "Radiografía y comparativa" },
   ],
   todos: [
     { area: "tablaLiga", label: "Tabla de toda la liga" },

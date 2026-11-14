@@ -77,6 +77,13 @@ jobs:
           node scripts/opta-liga.mjs --nube $extra 2>&1 | tee "$RUNNER_TEMP/opta.log"
           exit "${PIPESTATUS[0]}"
 
+      # Huella táctica (14/11/2026): con el evento a evento ya guardado
+      # (opta:directo:<partido>); si falla, no tumba la bajada de la semana.
+      - name: Huella táctica
+        if: steps.baja.outcome == 'success'
+        continue-on-error: true
+        run: node scripts/opta-huella.mjs
+
       - name: Cómo ha ido (Ajustes)
         if: always()
         run: |

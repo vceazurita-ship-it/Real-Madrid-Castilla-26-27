@@ -41,7 +41,9 @@ import { RematesEquipo } from "@/app/opta/_piezas/Remates";
 import { Talento } from "@/app/opta/_piezas/Talento";
 import { useOpta, type DatosOpta } from "@/app/opta/_piezas/useOpta";
 import { AlturaCentrales } from "@/components/data/AlturaCentrales";
+import { HuellaLiga } from "@/components/data/HuellaLiga";
 import { HuellaTactica } from "@/components/data/HuellaTactica";
+import { RadiografiaJugador } from "@/components/data/RadiografiaJugador";
 import { useCalendarioCastilla } from "@/components/data/SelloJornada";
 import { EsqueletoPantalla, EstadoVacio } from "@/components/ui/estados";
 import { SelloFuente } from "@/components/ui/SelloFuente";
@@ -69,6 +71,8 @@ const POBLACION: Record<AreaOpta, Poblacion> = {
   partidoCategoria: "partido",
   penaltis: "penaltis",
   directo: "directo",
+  huella: "evento",
+  radiografia: "jugadores",
 };
 
 function poblacionDe(area: AreaOpta, datos: DatosOpta): string {
@@ -193,6 +197,8 @@ export function PanelAreaOpta({ area }: { area: AreaOpta }) {
       {area === "partidoCategoria" && <PartidosCategoria datos={datos} inicial={rival} />}
       {area === "penaltis" && <Penaltis datos={datos} />}
       {area === "directo" && <Directo datos={datos} />}
+      {area === "huella" && <HuellaLiga />}
+      {area === "radiografia" && <RadiografiaJugador datos={datos} />}
     </>
   );
 }
