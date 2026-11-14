@@ -177,11 +177,16 @@ export function HuellaLiga() {
     ...lista.slice(mitad).map((e) => ({ tipo: "equipo" as const, e })),
   ];
   const sel = lista.find((e) => e.teamId === elegido) ?? null;
+  /* El titular es la conclusión (expertos, 14/11/2026): dónde está el Castilla frente a la media. */
+  const cas = lista.find((e) => e.castilla);
+  const titular = cas
+    ? `Castilla, ${lista.indexOf(cas) + 1}.º del grupo en campo rival: ${pct(cas.campoRival)} de sus toques, ${puntos(cas.campoRival - calc.campoMedio)} frente a la media`
+    : null;
 
   return (
     <Panel
       className="mt-6"
-      titulo="Huella táctica · dónde toca cada equipo más y menos balón que la media"
+      titulo={titular ?? "Huella táctica · dónde toca cada equipo más y menos balón que la media"}
       subtitulo={`Frente al equipo medio del grupo · ordenados por % de toques en campo rival · ${doc.partidos} partidos de Opta`}
       derecha={
         <Botonera

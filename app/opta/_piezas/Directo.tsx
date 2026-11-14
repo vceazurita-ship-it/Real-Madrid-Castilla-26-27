@@ -262,6 +262,11 @@ export function Directo({ datos }: { datos: DatosOpta }) {
       </button>
     ) : null;
 
+  const acabado = /played|full/i.test(String(doc?.estado ?? ""));
+  /* El marcador, local a la izquierda (expertos: «Castilla 1-0» en un partido que jugamos fuera confundía). */
+  const fuera = String(a?.campo ?? "").toUpperCase() === "AWAY";
+  const loc = fuera ? b : a;
+  const vis = fuera ? a : b;
   return (
     <div className="mt-6 space-y-6">
       {aviso}
@@ -269,11 +274,14 @@ export function Directo({ datos }: { datos: DatosOpta }) {
         titulo={
           <span className="inline-flex items-center gap-2">
             <Radio size={16} style={{ color: ORO }} />
-            Directo
+            {acabado ? "Final del partido" : "Directo"}
           </span>
         }
         subtitulo={
-          indice?.actualizado
+          /* Partido acabado: nada de «el proceso sigue» (contradecía al marcador «Terminado»). */
+          acabado
+            ? "Cifras finales de Opta."
+            : indice?.actualizado
             ? `Última mirada a Opta a las ${hora(indice.actualizado)}${indice.hasta ? `; el proceso sigue hasta las ${hora(indice.hasta)}` : ""}.`
             : undefined
         }
@@ -402,13 +410,13 @@ export function Directo({ datos }: { datos: DatosOpta }) {
             <div className="mb-4 grid grid-cols-2 items-center gap-x-3 gap-y-2 rounded-3xl px-4 py-5 sm:flex sm:justify-between" style={{ background: "radial-gradient(120% 140% at 50% 0%, rgba(200,169,107,0.18), rgba(10,14,24,0.9) 60%)", border: "1px solid rgba(200,169,107,0.25)" }}>
               {/* Móvil: los dos nombres arriba y el marcador debajo a lo ancho (antes «R… 1-0 G…»). */}
               <div className="order-1 min-w-0 flex-1 sm:order-none sm:text-right">
-                <p className="truncate text-base font-bold sm:text-2xl" style={{ color: a.teamId === CASTILLA_OPTA ? "#E3C27E" : "#FFFFFF" }}>
-                  {nombre(a)}
+                <p className="truncate text-base font-bold sm:text-2xl" style={{ color: loc.teamId === CASTILLA_OPTA ? "#E3C27E" : "#FFFFFF" }}>
+                  {nombre(loc)}
                 </p>
               </div>
               <div className="order-3 col-span-2 shrink-0 text-center sm:order-none">
                 <p className="font-mono text-7xl font-black leading-none tabular-nums sm:text-8xl" style={{ color: "#FFFFFF", textShadow: "0 0 24px rgba(227,194,126,0.35)" }}>
-                  {num(a.Goal) ?? 0} - {num(b.Goal) ?? 0}
+                  {num(loc.Goal) ?? 0} - {num(vis.Goal) ?? 0}
                 </p>
                 <p className="mt-1 text-xs" style={{ color: "rgba(255,255,255,0.6)" }}>
                   {[minuto != null ? `${num(doc.minuto) != null ? "" : "≈"}${minuto}′` : "", estadoEnPalabras(doc.estado), doc.actualizado ? `cifras de las ${hora(doc.actualizado)}` : ""]
@@ -417,8 +425,8 @@ export function Directo({ datos }: { datos: DatosOpta }) {
                 </p>
               </div>
               <div className="order-2 min-w-0 flex-1 text-right sm:order-none sm:text-left">
-                <p className="truncate text-base font-bold sm:text-2xl" style={{ color: b.teamId === CASTILLA_OPTA ? "#E3C27E" : "#FFFFFF" }}>
-                  {nombre(b)}
+                <p className="truncate text-base font-bold sm:text-2xl" style={{ color: vis.teamId === CASTILLA_OPTA ? "#E3C27E" : "#FFFFFF" }}>
+                  {nombre(vis)}
                 </p>
               </div>
             </div>

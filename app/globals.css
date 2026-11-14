@@ -1782,11 +1782,11 @@ scrollbar-width:none;
 :where(:root[data-theme="light"]) :is(
   [class~="border-white/5"], [class~="border-white/[0.05]"], [class~="border-white/[0.06]"],
   [class~="border-white/[0.07]"], [class~="border-white/8"], [class~="border-white/[0.08]"],
-  [class~="border-white/10"], [class~="border-white/12"]
+  [class~="border-white/[0.09]"], [class~="border-white/10"], [class~="border-white/12"]
 ) {
   border-color: var(--rmcf-border);
 }
-:where(:root[data-theme="light"]) :is([class~="border-white/15"], [class~="border-white/20"], [class~="border-l-white/20"]) {
+:where(:root[data-theme="light"]) :is([class~="border-white/15"], [class~="border-white/20"], [class~="border-white/25"], [class~="border-l-white/20"]) {
   border-color: rgb(var(--rmcf-ink-rgb) / .2);
 }
 :where(:root[data-theme="light"]) :is(

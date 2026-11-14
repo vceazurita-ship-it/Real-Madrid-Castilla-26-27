@@ -583,8 +583,9 @@ export function RelievePartido({
             [b.nombre, golesB, colB],
           ].map(([n, gl, c]) => (
             <div key={String(n)} className="min-w-0">
-              <p className={`truncate font-bold ${compacto ? "max-w-[90px] text-xs" : "max-w-[110px] text-xs sm:max-w-[160px]"}`} style={{ color: "#FFFFFF" }}>
-                {String(n)}
+              <p className={`truncate font-bold ${compacto ? "max-w-[90px] text-xs" : "max-w-[120px] text-[13px] sm:max-w-[160px] sm:text-xs"}`} style={{ color: "#FFFFFF" }}>
+                <span className="sm:hidden">{corto(String(n))}</span>
+                <span className="hidden sm:inline">{String(n)}</span>
               </p>
               <span className="mt-0.5 block h-1 rounded-full" style={{ background: css(c as RGB) }} />
               <p className={`font-mono font-black tabular-nums ${compacto ? "text-2xl" : "text-3xl sm:text-5xl"}`} style={{ color: "#FFFFFF" }}>
@@ -657,7 +658,7 @@ export function RelievePartido({
               mandos.current.saltar = Number(e.target.value);
             }}
             aria-label="Minuto del partido"
-            className="w-32 accent-white sm:w-48"
+            className="h-8 w-40 accent-white sm:h-auto sm:w-48"
           />
           <button type="button" onClick={() => setCenital((c) => !c)} className="h-9 rounded-full px-3 text-xs font-bold" style={{ background: "rgba(255,255,255,0.18)", color: "#FFFFFF" }}>
             {cenital ? "Girar en 3D" : "Desde arriba"}
@@ -685,6 +686,13 @@ export function RelievePartido({
 /* EL MOMENTUM (14/11/2026, «debe verse mejor»): una franja propia debajo del 3D. Arriba el
    equipo A, abajo el B, áreas con degradado de su color, el descanso, los goles con bola y
    minuto, y la línea blanca del minuto que corre. Lo ya jugado, encendido; lo que falta, tenue. */
+/** Nombre corto para el móvil: «Real Madrid Castilla» → «Castilla», y si no, la última palabra larga. */
+function corto(n: string): string {
+  if (/castilla/i.test(n)) return "Castilla";
+  const p = n.split(" ").filter((x) => x.length > 3);
+  return p.length ? p[p.length - 1] : n;
+}
+
 function Momentum({
   cursorRef,
   recorteRef,
@@ -736,16 +744,16 @@ function Momentum({
           <rect ref={recorteRef} x={0} y={0} width={X(Math.min(fin, minuto))} height={H} />
         </clipPath>
       </defs>
-      <text x={12} y={18} style={{ fill: css(colA), fontSize: 13, fontWeight: 700 }}>
+      <text x={12} y={18} className="max-sm:hidden" style={{ fill: css(colA), fontSize: 13, fontWeight: 700 }}>
         {nombreA}
       </text>
-      <text x={12} y={H - 8} style={{ fill: css(colB), fontSize: 13, fontWeight: 700 }}>
+      <text x={12} y={H - 8} className="max-sm:hidden" style={{ fill: css(colB), fontSize: 13, fontWeight: 700 }}>
         {nombreB}
       </text>
       <line x1={X(0)} x2={X(fin)} y1={mid} y2={mid} style={{ stroke: "rgba(255,255,255,0.18)" }} />
       {fin >= 45 && <line x1={X(45)} x2={X(45)} y1={8} y2={H - 8} style={{ stroke: "rgba(255,255,255,0.22)", strokeDasharray: "3 4" }} />}
       {[15, 30, 60, 75, 90].filter((m) => m <= fin).map((m) => (
-        <text key={m} x={X(m)} y={mid + 4} textAnchor="middle" style={{ fill: "rgba(255,255,255,0.45)", fontSize: 12 }}>
+        <text key={m} x={X(m)} y={mid + 4} textAnchor="middle" className={m === 45 || m === 90 ? "" : "max-sm:hidden"} style={{ fill: "rgba(255,255,255,0.45)", fontSize: 12 }}>
           {m}′
         </text>
       ))}

@@ -13,10 +13,11 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
 import { RelievePartido } from "@/components/data/RelievePartido";
+import { leeJugadores } from "@/lib/opta-directo-mapas";
 import { useOptaLigero } from "@/hooks/useOptaLigero";
 import { CASTILLA_OPTA, DOCS_OPTA, aObjetos, traeOpta, type TablaOpta } from "@/lib/opta";
 
-type Doc = { eventos?: TablaOpta; equipos?: TablaOpta; fecha?: string };
+type Doc = { eventos?: TablaOpta; equipos?: TablaOpta; jugadores?: TablaOpta; fecha?: string };
 
 export function UltimoPartido3D() {
   const { opta } = useOptaLigero();
@@ -76,7 +77,7 @@ export function UltimoPartido3D() {
         </Link>
       </div>
       <div className="mb-3 grid gap-2 px-1 sm:grid-cols-[1.4fr_repeat(3,1fr)]">
-        <p className="self-center text-sm font-semibold leading-snug text-[#E3C27E]">{lectura}</p>
+        <p className="self-center text-sm font-semibold leading-snug text-[#C8A96B]">{lectura}</p>
         {cifras.map(([t, a, b]) => (
           <div key={t} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-1.5">
             <p className="text-xs uppercase tracking-[0.12em] text-white/50">{t}</p>
@@ -86,7 +87,7 @@ export function UltimoPartido3D() {
           </div>
         ))}
       </div>
-      <RelievePartido eventos={doc.eventos} a={eq(x)} b={eq(y)} partido={ultimo} />
+      <RelievePartido eventos={doc.eventos} jugadores={new Map(leeJugadores(doc.jugadores).map((j) => [j.id, j]))} a={eq(x)} b={eq(y)} partido={ultimo} />
     </section>
   );
 }

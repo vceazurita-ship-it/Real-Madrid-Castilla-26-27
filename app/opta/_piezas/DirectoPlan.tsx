@@ -96,7 +96,7 @@ function Tarjeta({ j, grande, completa }: { j: Juicio; grande: boolean; completa
       </div>
       <p className={`mt-1 font-black tabular-nums leading-none text-white ${enorme ? "text-7xl" : grande ? "text-5xl" : "text-3xl"}`}>{j.valor}</p>
       <LineaRango j={j} grande={grande} />
-      <p className="mt-1 text-xs text-white/55">{j.liston}</p>
+      <p className="mt-1 text-sm text-white/70">{j.liston}</p>
       <p className={`mt-2 font-bold leading-snug text-white ${enorme ? "text-xl" : grande ? "text-base" : "text-sm"}`}>{j.frase}</p>
       {j.consigna && (
         <p className={`mt-2 flex items-start gap-1.5 rounded-lg px-2 py-1.5 font-bold ${enorme ? "text-lg" : "text-sm"}`} /* Rojo lleno y letra blanca: se lee igual en modo día y en noche (antes, rosa sobre rosa de día). */
@@ -106,9 +106,12 @@ function Tarjeta({ j, grande, completa }: { j: Juicio; grande: boolean; completa
         </p>
       )}
       {j.nota && <p className="mt-1 text-xs font-semibold text-white/70">{j.nota}</p>}
-      <p className="mt-1 truncate text-xs italic text-white/45" title={j.plan}>
-        Plan: {j.plan}
-      </p>
+      {/* Con consigna, ésa es la acción: el «Plan:» repetido sobraba. */}
+      {!j.consigna && (
+        <p className="mt-1 truncate text-sm italic text-white/60" title={j.plan}>
+          Plan: {j.plan}
+        </p>
+      )}
     </div>
   );
 }

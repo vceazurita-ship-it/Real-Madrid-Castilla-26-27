@@ -83,8 +83,9 @@ export function BotonAyuda() {
           onClick={() => setAbierto(false)}
         >
           <aside
-            className="siempre-oscuro flex h-[100dvh] w-full flex-col overflow-hidden border-l border-white/10 shadow-2xl sm:max-w-2xl lg:max-w-3xl"
-            style={{ background: "#0f141b", color: "#FFFFFF" }}
+            className="flex h-[100dvh] w-full flex-col overflow-hidden border-l border-white/10 shadow-2xl sm:max-w-2xl lg:max-w-3xl"
+            /* Sigue el modo de la app (14/11/2026, petición del analista): de día, claro; de noche, oscuro. */
+            style={{ background: "var(--background)", color: "var(--foreground)" }}
             onClick={(evento) => evento.stopPropagation()}
           >
             <PanelAyuda ayuda={ayuda} alCerrar={() => setAbierto(false)} />
@@ -213,7 +214,7 @@ function PanelAyuda({ ayuda, alCerrar }: { ayuda: Ayuda; alCerrar: () => void })
                         className="flex w-full items-start gap-3 px-4 py-3 text-left"
                       >
                         <div className="min-w-0 flex-1">
-                          <p className="text-base font-bold" style={{ color: "#E3C27E" }}>{fila.que}</p>
+                          <p className="text-base font-bold text-[#C8A96B]">{fila.que}</p>
                           {!abierta && <p className="mt-1 text-sm leading-relaxed text-white/70">{corta}</p>}
                         </div>
                         <ChevronDown size={18} className={`mt-0.5 shrink-0 text-white/45 transition ${abierta ? "rotate-180" : ""}`} aria-hidden />
@@ -227,7 +228,7 @@ function PanelAyuda({ ayuda, alCerrar }: { ayuda: Ayuda; alCerrar: () => void })
                                 {cuentas.has(k) || q ? "Ocultar cómo se calcula" : "Cómo se calcula"}
                               </button>
                               {(cuentas.has(k) || !!q) && (
-                                <p className="mt-1 rounded-lg bg-white/[0.05] px-3 py-2 border-l-2 border-[#C8A96B] font-mono text-[13px] leading-relaxed text-[#E3C27E]">{fila.cuenta}</p>
+                                <p className="mt-1 rounded-lg bg-white/[0.05] px-3 py-2 border-l-2 border-[#C8A96B] font-mono text-[13px] leading-relaxed text-[#C8A96B]">{fila.cuenta}</p>
                               )}
                             </div>
                           )}

@@ -127,6 +127,19 @@ function useEleccion(jugadores: Fila[], minimo: number, inicialEquipo: string) {
   return { teamId, setTeamId: cambiaEquipo, playerId: fila ? String(fila.playerId) : "", setPlayerId, equipos, delEquipo, fila };
 }
 
+/** La lectura en una línea: sus dos mejores percentiles y el peor (los de muestra suficiente). */
+function lectura(r: Radiografia): string {
+  const con = r.porciones.filter((x) => x.p != null).sort((x, y) => (y.p ?? 0) - (x.p ?? 0));
+  if (con.length < 3) return "";
+  const alto = con.slice(0, 2).filter((x) => (x.p ?? 0) >= 70);
+  const bajo = con[con.length - 1];
+  const partes = [
+    alto.length ? `Destaca en ${alto.map((x) => `${nombreMetrica(x.a).toLowerCase()} (P${x.p})`).join(" y ")}` : "",
+    (bajo.p ?? 100) <= 30 ? `flojo en ${nombreMetrica(bajo.a).toLowerCase()} (P${bajo.p})` : "",
+  ].filter(Boolean);
+  return partes.length ? `${partes.join("; ")}.` : "";
+}
+
 function Cabecera({ f, r, color, escudo }: { f: Fila; r: Radiografia; color: string; escudo: string | null }) {
   const puesto = PUESTO_OPTA[String(f.puesto ?? "")] ?? String(f.puesto ?? "");
   const edad = num(f.Age);
@@ -146,12 +159,14 @@ function Cabecera({ f, r, color, escudo }: { f: Fila; r: Radiografia; color: str
         <p className="text-sm text-white/65">
           {[nombreDe(f), puesto, edad ? `${Math.round(edad)} años` : "", `${Math.round(minutosDe(f))} min`, num(f.GM) ? `${num(f.GM)} partidos` : ""].filter(Boolean).join(" · ")}
         </p>
+        {lectura(r) && <p className="mt-1 text-sm font-semibold text-white/85">{lectura(r)}</p>}
       </div>
       <div className="ml-auto shrink-0 text-right max-sm:w-full max-sm:text-left">
         <p className="font-mono text-4xl font-black tabular-nums leading-none sm:text-5xl" style={{ color }}>
           {nota(r.nota)}
         </p>
         <p className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-white/55">Nota de perfil</p>
+        <p className="text-xs text-white/50">de 100 · el jugador medio de su puesto, 50</p>
       </div>
     </div>
   );
