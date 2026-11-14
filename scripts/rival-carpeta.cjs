@@ -30,6 +30,7 @@ require(path.join(RAIZ, "scripts/cargador-ts.cjs"));
 
 const { createClient } = require(path.join(RAIZ, "node_modules/@supabase/supabase-js"));
 const { entorno } = require(path.join(RAIZ, "scripts/supabase-local.cjs"));
+const { subeAlmacen, urlAlmacen } = require(path.join(RAIZ, "scripts/almacen.cjs"));
 const {
   CLIPS_KIND,
   carpetaBucket,
@@ -240,14 +241,15 @@ async function principal() {
 
   const carpeta = carpetaBucket(equipo, jornada);
 
+  /* 14/11/2026: por subeAlmacen, como los demás scripts. Los vídeos van a
+     Backblaze B2 y lo demás a Supabase con el freno del 95 %; antes subía
+     todo a Supabase y llenó el plan gratis. */
   const sube = async (fichero, destino, tipo) => {
-    const { error } = await supabase.storage
-      .from(BUCKET)
-      .upload(destino, fs.readFileSync(fichero), { contentType: tipo, upsert: true });
+    const { error, url } = await subeAlmacen(supabase, destino, fichero, { contentType: tipo, upsert: true }, { recomprime: false });
 
     if (error) throw new Error(error.message);
 
-    return supabase.storage.from(BUCKET).getPublicUrl(destino).data.publicUrl;
+    return url ?? urlAlmacen(supabase, destino);
   };
 
   fs.mkdirSync(TEMPORAL, { recursive: true });
