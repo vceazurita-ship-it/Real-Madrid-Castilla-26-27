@@ -423,7 +423,7 @@ export function Directo({ datos }: { datos: DatosOpta }) {
                 </p>
               </div>
               <div className="order-3 col-span-2 shrink-0 text-center sm:order-none">
-                <p className="font-mono text-7xl font-black leading-none tabular-nums sm:text-8xl" style={{ color: "#FFFFFF", textShadow: "0 0 24px rgba(227,194,126,0.35)" }}>
+                <p className="font-mono text-5xl font-black leading-none tabular-nums sm:text-7xl lg:text-8xl" style={{ color: "#FFFFFF", textShadow: "0 0 24px rgba(227,194,126,0.35)" }}>
                   {num(loc.Goal) ?? 0} - {num(vis.Goal) ?? 0}
                 </p>
                 {/* Veredicto en una línea (expertos, 14/11/2026): resultado y ocasiones, con verbo y dato. */}

@@ -204,14 +204,23 @@ function Cabecera({ f, r, color, escudo, foto }: { f: Fila; r: Radiografia; colo
           {[nombreDe(f), puesto, edad ? `${Math.round(edad)} años` : "", `${Math.round(minutosDe(f))} min`, num(f.GM) ? `${num(f.GM)} partidos` : ""].filter(Boolean).join(" · ")}
         </p>
         {lectura(r) && <p className="mt-1 text-sm font-semibold text-white/85">{lectura(r)}</p>}
-        {tarea(r) && <p className="mt-1 text-sm text-white/75"><b className="text-[#C8A96B]">Para la tarea:</b> {tarea(r)}</p>}
+        {tarea(r) && (() => {
+          /* El criterio de éxito, aparte y en oro: que se vea como tarea, no como dato. */
+          const [que, exito] = tarea(r).split("; éxito: ");
+          return (
+            <p className="mt-1 text-sm font-semibold text-white/85">
+              <b className="text-white">Para la tarea:</b> {que}
+              {exito && <> · <b className="text-[#C8A96B]">éxito: {exito}</b></>}
+            </p>
+          );
+        })()}
       </div>
       <div className="ml-auto shrink-0 text-right max-sm:w-full max-sm:text-left">
         <p className="font-mono text-4xl font-black tabular-nums leading-none sm:text-5xl" style={{ color }}>
           {nota(r.nota)}
         </p>
         <p className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-white/55">Nota de perfil</p>
-        <p className="text-xs text-white/50">sobre 100 (media del puesto = 50)</p>
+        <p className="text-xs font-semibold text-white/65">{r.nota != null ? `${r.nota >= 50 ? "+" : "−"}${Math.abs(r.nota - 50).toFixed(1).replace(".", ",")} sobre la media del puesto (50)` : "sobre 100 (media del puesto = 50)"}</p>
       </div>
     </div>
   );
@@ -234,11 +243,12 @@ export function RadiografiaJugador({ datos }: { datos: DatosOpta }) {
   const filaB = compara ? (dos.fila && dos.playerId !== uno.playerId ? dos.fila : (dos.delEquipo.find((f) => String(f.playerId) !== uno.playerId) ?? null)) : null;
   const rB = useMemo(() => (filaB && familia ? radiografiaJugador(filaB, jugadores, minimo, familia) : null), [filaB, jugadores, minimo, familia]);
 
-  const selector = (e: ReturnType<typeof useEleccion>, rotulo: string) => (
+  const selector = (e: ReturnType<typeof useEleccion>, rotulo: string, mostrado?: Fila | null) => (
     <div className="flex min-w-0 flex-wrap items-center gap-2">
       <Elegir etiqueta={rotulo} valor={e.teamId} opciones={e.equipos} alCambiar={e.setTeamId} />
       <Elegir
-        valor={e.playerId}
+        /* El que se ve (expertos: «Contra» enseñaba a Fortea mientras se comparaba con Aguado). */
+        valor={mostrado ? String(mostrado.playerId) : e.playerId}
         opciones={e.delEquipo.map((f) => ({ clave: String(f.playerId), nombre: `${String(f.jugador ?? "")} · ${PUESTO_OPTA[String(f.puesto ?? "")] ?? ""} · ${Math.round(minutosDe(f))}′` }))}
         alCambiar={e.setPlayerId}
       />
@@ -309,7 +319,7 @@ export function RadiografiaJugador({ datos }: { datos: DatosOpta }) {
     >
       <div className="mb-4 grid gap-2">
         {selector(uno, "Jugador")}
-        {compara && selector(dos, "Contra")}
+        {compara && selector(dos, "Contra", filaB)}
       </div>
 
       {!uno.fila || !rA ? (

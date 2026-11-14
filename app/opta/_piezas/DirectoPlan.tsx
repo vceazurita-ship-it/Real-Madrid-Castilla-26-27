@@ -245,6 +245,23 @@ export function DirectoPlan({
   }, [juicios]);
 
   const mom = useMemo(() => momento(tramos), [tramos]);
+  /* El tramo más largo en que mandó el rival (xG cada 5′): de ahí salen los clips del lunes. */
+  const tramoRival = useMemo(() => {
+    let mejor: [number, number] | null = null;
+    let ini = -1;
+    mom.barras.forEach((b, i) => {
+      const vale = b.balanza < 0;
+      if (vale && ini < 0) ini = i;
+      if ((!vale || i === mom.barras.length - 1) && ini >= 0) {
+        const fin = vale ? i : i - 1;
+        if (!mejor || fin - ini > mejor[1] - mejor[0]) mejor = [ini, fin];
+        ini = -1;
+      }
+    });
+    if (!mejor) return "";
+    const [a, b] = mejor as [number, number];
+    return b - a >= 1 ? `del ${parseInt(mom.barras[a].etiqueta, 10) - 5}′ al ${mom.barras[b].etiqueta.replace("'", "′")}` : "";
+  }, [mom]);
   const cuenta = (e: Estado) => juicios.filter((j) => j.estado === e).length;
   const maxBarra = Math.max(1, ...mom.barras.map((b) => Math.abs(b.balanza)));
   const grandes = juicios.slice(0, GRANDES);
@@ -340,17 +357,22 @@ export function DirectoPlan({
             <p className="text-xs text-white/55">
               Balance frente al plan · {[n("certeza") && `${n("certeza")} ${n("certeza") === 1 ? "logrado" : "logrados"}`, n("alerta") && `${n("alerta")} no ${n("alerta") === 1 ? "logrado" : "logrados"}`, n("duda") && `${n("duda")} a medias`, n("habitual") && `${n("habitual")} como siempre`].filter(Boolean).join(" · ")}
             </p>
-            <p className="mt-1 text-xs text-white/55">Cada tema del plan con la cifra del partido y su referencia (el texto del plan, al pasar el ratón)</p>
+            <p className="mt-1 hidden text-xs text-white/55 sm:block">Cada tema del plan con la cifra del partido y su referencia (el texto del plan, al pasar el ratón)</p>
             <ul className="mt-1 space-y-1.5">
               {(todas ? delPlan : decide).map((j) => (
-                <li key={j.id} className={`flex flex-col items-start gap-1 sm:flex-row sm:gap-2 ${completa ? "text-lg" : "text-sm"}`}>
+                <li key={j.id} className={`flex flex-col items-start gap-1 sm:grid sm:grid-cols-[6rem_minmax(0,1fr)] sm:gap-2 ${completa ? "text-lg" : "text-sm"}`}>
                   <span className="mt-0.5 w-24 shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-center text-xs font-black" style={{ background: COLOR[j.estado].tinta, color: "#111827" }}>
                     {ETIQUETA[j.estado] ?? COLOR[j.estado].rotulo}
                   </span>
                   <span className="min-w-0 text-white/85" title={j.plan}>
                     {j.titulo.charAt(0) + j.titulo.slice(1).toLowerCase()}: <b className="tabular-nums text-white">{j.valor}</b>
                     {j.liston && <span className="text-white/55"> · {j.liston.replace(/^habitual[^:]*:\s*/i, "lo habitual: ")}</span>}
-                    {j.estado === "alerta" && j.consigna && <span className="block text-white/75">→ Para el vídeo del lunes: {j.consigna.charAt(0).toLowerCase() + j.consigna.slice(1)}</span>}
+                    {j.estado === "alerta" && j.consigna && (
+                      <span className="block text-white/75">
+                        → Para el vídeo del lunes: {j.consigna.charAt(0).toLowerCase() + j.consigna.slice(1)}
+                        {tramoRival ? ` · clips ${tramoRival}, cuando mandó ${nombreEllos}` : ""}
+                      </span>
+                    )}
                   </span>
                 </li>
               ))}

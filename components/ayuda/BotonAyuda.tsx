@@ -109,7 +109,7 @@ type Ayuda = NonNullable<ReturnType<typeof ayudaDe>>;
 
 /** Lo corto que se ve plegado: la primera frase, y nunca más de `tope` letras. */
 const primeraFrase = (t: string, tope = 120) => {
-  const m = new RegExp(`^(.{30,${tope}}?[.:;])\\s`).exec(t);
+  const m = new RegExp(`^(.{30,${tope}}?[.;])\\s`).exec(t);
   if (m) return m[1];
   if (t.length <= tope) return t;
   const corte = t.slice(0, tope);
@@ -185,7 +185,7 @@ function PanelAyuda({ ayuda, alCerrar }: { ayuda: Ayuda; alCerrar: () => void })
                 onClick={() => document.getElementById(`ayuda-bloque-${i}`)?.scrollIntoView({ behavior: "smooth", block: "start" })}
                 className="rounded-full border border-white/15 px-3 py-1.5 text-sm font-semibold text-white/80 hover:bg-white/10 hover:text-white"
               >
-                {bl.titulo.length > 38 ? `${bl.titulo.slice(0, 36)}…` : bl.titulo}
+                {bl.titulo.split(":")[0]}
               </button>
             ))}
           </div>

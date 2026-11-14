@@ -437,7 +437,8 @@ function Destacados({ filas, color }: { filas: Rendimiento[]; color: string }) {
 function Tabla({ filas, color, elegido, alElegir }: { filas: Rendimiento[]; color: string; elegido: string; alElegir: (id: string) => void }) {
   const [orden, setOrden] = useState("xpv");
   const col = COLUMNAS.find((c) => c.k === orden) ?? COLUMNAS[1];
-  const ordenadas = [...filas].sort((a, b) => col.v(b) - col.v(a));
+  /* Con menos de 20′ no encabeza (expertos: salía arriba uno con 2′): al final, en su orden. */
+  const ordenadas = [...filas].sort((a, b) => Number(b.jugador.minutos >= 20) - Number(a.jugador.minutos >= 20) || col.v(b) - col.v(a));
   const topes = Object.fromEntries(COLUMNAS.map((c) => [c.k, Math.max(0.0001, ...filas.map((r) => Math.abs(c.v(r))))]));
   return (
     <div className="overflow-x-auto">
@@ -635,9 +636,9 @@ function BalonParado({ acciones, equipo, color, jugadores, rivalDeCastilla = fal
         </p>
       )}
       {micro.length > 0 && (
-        <p className="mt-2 rounded-lg px-2 py-1.5 text-sm font-semibold text-white" style={{ background: tinta(0.06), borderLeft: `3px solid ${color}` }}>
+        <p className="mt-2 rounded-lg border-l-4 border-[#C8A96B] px-2 py-1.5 text-sm font-semibold text-white" style={{ background: tinta(0.06) }}>
           {/* Visto desde el Castilla: el balón parado del rival es nuestra defensa (expertos). */}
-          {equipo.teamId === CASTILLA_OPTA || !rivalDeCastilla ? `Para el micro: ${micro.join("; ")}.` : `Para el micro (nuestra defensa del balón parado): ${micro.join("; ")} → quién gana esa zona y quién marca a su rematador.`}
+          {equipo.teamId === CASTILLA_OPTA || !rivalDeCastilla ? `Entrenar (nuestro balón parado): ${micro.join("; ")}.` : `Entrenar (nuestra defensa del balón parado): ${micro.join("; ")} → quién gana esa zona y quién marca a su rematador.`}
         </p>
       )}
       {rematan.length > 0 && (
@@ -1058,7 +1059,11 @@ function desvioDe(r: Rendimiento, t: Record<string, unknown> | undefined): { rie
   const pase = n(c["Pass%"]);
   const paseT = n(t["Pass%"]);
   if (pase != null && paseT != null && (c.PsAtt ?? 0) >= 8) opciones.push({ riesgo: (paseT - pase) * 4, texto: `${Math.round(pase * 100)} % de pase (lo suyo ${Math.round(paseT * 100)})` });
-  if ((c.Yellow ?? 0) > 0) opciones.push({ riesgo: 0.6, texto: "amonestado" });
+  /* La amarilla suma riesgo, pero el texto es la cifra que cambió, con la amarilla al lado. */
+  if ((c.Yellow ?? 0) > 0) {
+    const otra = [...opciones].sort((x, y) => y.riesgo - x.riesgo)[0];
+    opciones.push({ riesgo: 0.6 + Math.max(0, otra?.riesgo ?? 0), texto: otra ? `${otra.texto} · amonestado` : "amonestado" });
+  }
   /* El texto es el del mismo desvío que ordena (el de más riesgo). */
   opciones.sort((x, y) => y.riesgo - x.riesgo);
   const top = opciones[0];
@@ -1070,7 +1075,9 @@ function SemaforoJugadores({ filas, temporada, color, alElegir }: { filas: Rendi
   const con = filas.filter((r) => r.jugador.minutos > 0).map((r) => ({ r, m: marcasDe(r, porId.get(r.jugador.id)) }));
   const alertas = con.filter((x) => x.m.some((k) => k.tipo === "alerta"));
   const certezas = con.filter((x) => !x.m.some((k) => k.tipo === "alerta") && x.m.some((k) => k.tipo === "certeza"));
-  const habitual = con.filter((x) => !x.m.length).sort((x, y) => desvioDe(y.r, porId.get(y.r.jugador.id)).riesgo - desvioDe(x.r, porId.get(x.r.jugador.id)).riesgo);
+  const habitual = con
+    .filter((x) => !x.m.length)
+    .sort((x, y) => Number(y.r.jugador.minutos >= 20) - Number(x.r.jugador.minutos >= 20) || desvioDe(y.r, porId.get(y.r.jugador.id)).riesgo - desvioDe(x.r, porId.get(x.r.jugador.id)).riesgo);
   const caja = (titulo: string, borde: string, l: typeof con, tipo: Marca["tipo"] | null) =>
     l.length === 0 ? (
       <p className="rounded-xl border px-3 py-2 text-xs font-bold uppercase tracking-[0.12em]" style={{ borderColor: borde, color: borde }}>
