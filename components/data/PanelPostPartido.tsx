@@ -463,7 +463,7 @@ function RelieveDelPartido({ partido }: { partido: string }) {
         cuanto más xG; la bola blanca, el gol. Los mapas, la red de pases y cada jugador, en Análisis de datos → En directo.
       </p>
       {doc?.eventos?.filas?.length && x && y ? (
-        <RelievePartido eventos={doc.eventos} a={{ teamId: String(x.teamId ?? ""), nombre: nom(x) }} b={{ teamId: String(y.teamId ?? ""), nombre: nom(y) }} />
+        <RelievePartido eventos={doc.eventos} a={{ teamId: String(x.teamId ?? ""), nombre: nom(x), color: String(x.color ?? "") }} b={{ teamId: String(y.teamId ?? ""), nombre: nom(y), color: String(y.color ?? "") }} />
       ) : admin ? (
         <button
           type="button"

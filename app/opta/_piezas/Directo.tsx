@@ -56,7 +56,7 @@ const CADA_MS = 60_000;
 const ESPERANDO_MS = 15_000;
 /** Cuánto se espera la primera lectura antes de decir que algo va mal. */
 const PLAZO_ARRANQUE_MS = 6 * 60_000;
-const NO_METRICA = new Set(["partido", "teamId", "equipo"]);
+const NO_METRICA = new Set(["partido", "teamId", "equipo", "color"]);
 const CASTILLA_NOMBRE_OPTA = "Real Madrid II";
 
 const hora = (iso?: string) => {
@@ -192,6 +192,8 @@ export function Directo({ datos }: { datos: DatosOpta }) {
   };
 
   const doc = leido?.clave === visto ? leido.doc : null;
+  /* Tres pestañas (14/11/2026, petición del analista: menos scroll): colectivo, individual y todas las cifras. */
+  const [pestana, setPestana] = useState<"colectivo" | "individual" | "cifras">("colectivo");
   const filas = useMemo(() => aObjetos(doc?.equipos ?? null), [doc]);
   /* El Castilla a la izquierda; si no juega, el próximo rival (las tarjetas se leen desde él), el local o el primero. */
   const [a, b] = useMemo(() => {
@@ -366,7 +368,7 @@ export function Directo({ datos }: { datos: DatosOpta }) {
                         <span style={{ color: "rgb(236,194,92)" }}>{nombre(x)}</span> {num(x.Goal) ?? 0}-{num(y.Goal) ?? 0} <span style={{ color: "rgb(236,84,88)" }}>{nombre(y)}</span>
                         {/played|full/i.test(String(p.estado ?? "")) ? " · final" : ""}
                       </p>
-                      <RelievePartido eventos={d.eventos} a={{ teamId: String(x.teamId ?? ""), nombre: nombre(x) }} b={{ teamId: String(y.teamId ?? ""), nombre: nombre(y) }} compacto />
+                      <RelievePartido eventos={d.eventos} a={{ teamId: String(x.teamId ?? ""), nombre: nombre(x), color: String(x.color ?? "") }} b={{ teamId: String(y.teamId ?? ""), nombre: nombre(y), color: String(y.color ?? "") }} compacto />
                     </button>
                   );
                 })}
@@ -434,7 +436,27 @@ export function Directo({ datos }: { datos: DatosOpta }) {
               </div>
             </div>
 
-            <div className="mb-6">
+            <div className="sticky top-0 z-30 mb-4 flex gap-1 rounded-2xl p-1 backdrop-blur" style={{ background: "rgba(13,17,16,0.95)" }} role="tablist" aria-label="Qué mirar del partido">
+              {([
+                ["colectivo", "Colectivo"],
+                ["individual", "Individual"],
+                ["cifras", "Todas las cifras"],
+              ] as const).map(([k, t]) => (
+                <button
+                  key={k}
+                  type="button"
+                  role="tab"
+                  aria-selected={pestana === k}
+                  onClick={() => setPestana(k)}
+                  className="flex-1 rounded-xl px-3 py-2 text-sm font-bold"
+                  style={pestana === k ? { background: "#FFFFFF", color: "#000000" } : { color: "rgba(255,255,255,0.75)" }}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+
+            <div className={pestana === "colectivo" ? "mb-6" : "hidden"}>
               <DirectoPlan
                 nos={a}
                 ellos={b}
@@ -452,17 +474,18 @@ export function Directo({ datos }: { datos: DatosOpta }) {
               />
             </div>
 
-            <div className="mb-8">
+            <div className={pestana === "cifras" ? "hidden" : "mb-8"}>
               <DirectoMapas
+                parte={pestana === "individual" ? "individual" : "colectivo"}
+                temporada={datos.jugadores}
                 eventos={doc.eventos}
                 jugadores={doc.jugadores}
-                a={{ teamId: String(a.teamId ?? ""), nombre: nombre(a) }}
-                b={{ teamId: String(b.teamId ?? ""), nombre: nombre(b) }}
+                a={{ teamId: String(a.teamId ?? ""), nombre: nombre(a), color: String(a.color ?? "") }}
+                b={{ teamId: String(b.teamId ?? ""), nombre: nombre(b), color: String(b.color ?? "") }}
               />
             </div>
 
-            <p className="mb-2 text-center text-[11px] font-semibold uppercase tracking-[0.2em] text-white/45">Todas las cifras</p>
-            <div className="mx-auto max-w-3xl">
+            <div className={pestana === "cifras" ? "mx-auto max-w-3xl" : "hidden"}>
               {metricas
                 .filter((k) => k !== "Goal")
                 .map((k) => {

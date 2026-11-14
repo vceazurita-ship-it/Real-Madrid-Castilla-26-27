@@ -56,7 +56,7 @@ import { RelievePartido } from "@/components/data/RelievePartido";
 
 import { Botonera } from "./comun";
 
-type Equipo = { teamId: string; nombre: string };
+type Equipo = { teamId: string; nombre: string; color?: string };
 
 const TRAMOS: { clave: Tramo; nombre: string }[] = [
   { clave: "todo", nombre: "Partido" },
@@ -568,8 +568,37 @@ function FichaJugador({ ev, r, color, rgb, alCerrar }: { ev: EventoDirecto[]; r:
 
 /* ------------------------------ la pieza ------------------------------ */
 
-export function DirectoMapas({ eventos, jugadores, a, b }: { eventos: TablaOpta | null | undefined; jugadores: TablaOpta | null | undefined; a: Equipo; b: Equipo }) {
+export type ParteDirecto = "colectivo" | "individual";
+type Seccion = "relieve" | "campo" | "red" | "remates" | "robos" | "todo";
+const SECCIONES: { clave: Seccion; nombre: string }[] = [
+  { clave: "relieve", nombre: "Relieve" },
+  { clave: "campo", nombre: "Dónde se juega" },
+  { clave: "red", nombre: "Red de pases" },
+  { clave: "remates", nombre: "Remates y xG" },
+  { clave: "robos", nombre: "Robos y pérdidas" },
+  { clave: "todo", nombre: "Todo seguido" },
+];
+
+export function DirectoMapas({
+  eventos,
+  jugadores,
+  a,
+  b,
+  parte = "colectivo",
+  temporada = [],
+}: {
+  eventos: TablaOpta | null | undefined;
+  jugadores: TablaOpta | null | undefined;
+  a: Equipo;
+  b: Equipo;
+  parte?: ParteDirecto;
+  /** Los jugadores de la categoría en la temporada (opta:jugadores), para lo habitual de cada uno. */
+  temporada?: Record<string, unknown>[];
+}) {
   const [tramo, setTramo] = useState<Tramo>("todo");
+  const [seccion, setSeccion] = useState<Seccion>("relieve");
+  const [equipoInd, setEquipoInd] = useState<"a" | "b">("a");
+  const ve = (k: Seccion) => parte === "colectivo" && (seccion === k || seccion === "todo");
   const [elegido, setElegido] = useState("");
   const todos = useMemo(() => leeEventos(eventos), [eventos]);
   const plantilla = useMemo(() => leeJugadores(jugadores), [jugadores]);
@@ -615,7 +644,7 @@ export function DirectoMapas({ eventos, jugadores, a, b }: { eventos: TablaOpta 
       </div>
 
       {/* Lo grande de un vistazo. */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      {parte === "colectivo" && <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {[
           ["Toques", toquesA, toquesB, (v: number) => String(v)],
           ["xG", xgA, xgB, (v: number) => dec(v)],
@@ -640,22 +669,40 @@ export function DirectoMapas({ eventos, jugadores, a, b }: { eventos: TablaOpta 
             </div>
           );
         })}
-      </div>
+      </div>}
 
-      <p className="-mt-3 text-[10px] text-white/45">
+      {parte === "colectivo" && <p className="-mt-3 text-[10px] text-white/45">
         Pases = en juego, sin saques de banda ni de puerta (como «pases intentados» de Opta). Robos = recuperaciones + intercepciones + entradas ganadas (la
         «Recuperaciones» de Opta de abajo sólo cuenta las primeras). Pérdidas = pase fallado, regate perdido o robado en conducción (la de Opta suma además duelos y
         despejes).
-      </p>
+      </p>}
+
+      {parte === "colectivo" && (
+        <div className="sticky top-0 z-20 -mx-1 flex gap-1 overflow-x-auto rounded-xl p-1 backdrop-blur" style={{ background: "rgba(16,22,19,0.95)" }} role="tablist" aria-label="Qué ver">
+          {SECCIONES.map((x) => (
+            <button
+              key={x.clave}
+              type="button"
+              role="tab"
+              aria-selected={seccion === x.clave}
+              onClick={() => setSeccion(x.clave)}
+              className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold"
+              style={seccion === x.clave ? { background: "#FFFFFF", color: "#000000" } : { color: "rgba(255,255,255,0.75)" }}
+            >
+              {x.nombre}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* 0. El partido en relieve. */}
-      <section>
+      {ve("relieve") && <section>
         {titulo("El partido en relieve", "De izquierda a derecha, el minuto; hacia el fondo, el carril del campo; en altura, la presión de ataque (oro: " + a.nombre + "; rojo: " + b.nombre + "). Cada pico es un remate de verdad, más alto cuanto más xG; la bola blanca, el gol. La presión sin remate sólo levanta lomas bajas. Al pasar el ratón por un pico, quién y cuánto.")}
         <RelievePartido eventos={eventos} a={a} b={b} jugadores={porId} />
-      </section>
+      </section>}
 
       {/* 1. Territorio y calor. */}
-      <section>
+      {ve("campo") && <section>
         {titulo("Dónde se juega", "Mapa de calor de los toques de cada equipo, los dos atacando hacia la derecha y con la misma escala (más color = más parte de sus toques). Territorio = de los toques en el último tercio, cuántos son de cada uno.")}
         <Conclusion>{fraseTerritorio(terr.pctA, a, b, partes, tramo)}</Conclusion>
         {terr.pctA != null && (
@@ -695,16 +742,16 @@ export function DirectoMapas({ eventos, jugadores, a, b }: { eventos: TablaOpta 
             );
           })}
         </div>
-      </section>
+      </section>}
 
       {/* 2. Red de pases. */}
-      <section>
+      {ve("red") && <section>
         {titulo("Red de pases", "El once inicial: cada jugador (su dorsal) en la posición media de lo que da y recibe; más grande, más pases; más gruesa la línea, más pases completados entre los dos. Pincha un jugador para ver su ficha.")}
         <div className="grid gap-3 md:grid-cols-2">
           <Red ev={ev} tramo={tramo} equipo={a} jugadores={porId} color={COLOR_A} elegido={elegido} alElegir={setElegido} />
           <Red ev={ev} tramo={tramo} equipo={b} jugadores={porId} color={COLOR_B} elegido={elegido} alElegir={setElegido} />
         </div>
-      </section>
+      </section>}
 
       {ficha && (
         <FichaJugador
@@ -717,7 +764,7 @@ export function DirectoMapas({ eventos, jugadores, a, b }: { eventos: TablaOpta 
       )}
 
       {/* 3. Remates y xG. */}
-      <section>
+      {ve("remates") && <section>
         {titulo(
           "Remates y xG",
           `${a.nombre} ataca hacia la derecha y ${b.nombre} hacia la izquierda. Tamaño = xG; relleno = gol; medio relleno = a puerta; discontinuo = fuera o tapado.`,
@@ -732,25 +779,46 @@ export function DirectoMapas({ eventos, jugadores, a, b }: { eventos: TablaOpta 
             <CurvaXg ts={ts} todos={todos} a={a} b={b} />
           </div>
         </div>
-      </section>
+      </section>}
 
       {/* 4. Robos y pérdidas. */}
-      <section>
+      {ve("robos") && <section>
         {titulo("Robos y pérdidas", "● robo (recuperación, intercepción o entrada ganada) · ✕ pérdida en juego (pase fallado, regate perdido o robado); con aro blanco, la que acaba en remate rival en menos de 15 segundos. Las líneas parten el campo en tercios.")}
         <Conclusion>{frasePerdidas(rpA, rpB, a, b)}</Conclusion>
         <div className="grid gap-3 md:grid-cols-2">
           <RobosPerdidas ev={ev} equipo={a} color={COLOR_A} />
           <RobosPerdidas ev={ev} equipo={b} color={COLOR_B} />
         </div>
-      </section>
+      </section>}
 
-      {/* 5. Rendimiento individual. */}
-      <section className="space-y-4">
+      {/* 5. Rendimiento individual: alertas, certezas y lo habitual de cada uno; luego la tabla. */}
+      {parte === "individual" && (
+        <section className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Botonera
+              etiqueta="Equipo"
+              valor={equipoInd}
+              opciones={[
+                { clave: "a", nombre: a.nombre },
+                { clave: "b", nombre: b.nombre },
+              ]}
+              alCambiar={setEquipoInd}
+            />
+          </div>
+          <SemaforoJugadores
+            filas={equipoInd === "a" ? rendA : rendB}
+            temporada={temporada}
+            color={equipoInd === "a" ? COLOR_A : COLOR_B}
+            alElegir={setElegido}
+          />
+        </section>
+      )}
+      {parte === "individual" && <section className="space-y-4">
         {titulo("Rendimiento individual", "Impacto/90 = xPV de Opta (cuánto acerca al gol cada acción con balón) por 90 minutos en el campo. Todo es del tramo elegido salvo lo marcado «partido». Pulsa una columna para ordenar y un jugador para abrir su ficha.")}
         {[
           [a, rendA, COLOR_A],
           [b, rendB, COLOR_B],
-        ].map(([eq, filas, color]) => (
+        ].filter(([eq]) => (eq as Equipo).teamId === (equipoInd === "a" ? a : b).teamId).map(([eq, filas, color]) => (
           <div key={(eq as Equipo).teamId} className="space-y-2">
             <p className="text-sm font-semibold" style={{ color: color as string }}>
               {(eq as Equipo).nombre}
@@ -759,7 +827,7 @@ export function DirectoMapas({ eventos, jugadores, a, b }: { eventos: TablaOpta 
             <Tabla filas={filas as Rendimiento[]} color={color as string} elegido={elegido} alElegir={setElegido} />
           </div>
         ))}
-      </section>
+      </section>}
     </div>
   );
 }
@@ -818,4 +886,89 @@ function frasePerdidas(rpA: ReturnType<typeof robosYPerdidas>, rpB: ReturnType<t
   const una = (r: typeof rpA, eq: Equipo) =>
     `${eq.nombre} pierde ${r.alturaPerdidas.baja} en su tercio y roba ${r.alturaRobos.alta} en el último${r.caras.length ? `; ${r.caras.length} de sus pérdidas acaban en remate rival` : ""}.`;
   return `${una(rpA, a)} ${una(rpB, b)}`;
+}
+
+/* ------------------------------ semáforo individual ------------------------------ */
+
+type Marca = { tipo: "alerta" | "certeza"; texto: string };
+
+/**
+ * Lo de cada jugador en este partido frente a lo suyo de la temporada (opta:jugadores, por 90′),
+ * con las cifras de Opta del partido entero. Sólo con 20′ jugados y 270′ en la temporada.
+ */
+function marcasDe(r: Rendimiento, t: Record<string, unknown> | undefined): Marca[] {
+  const c = r.jugador.cifras;
+  const min = r.jugador.minutos;
+  const n = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+  const minT = n(t?.Min) ?? 0;
+  if (min < 20 || !t || minT < 270) return [];
+  const p90 = (v: number | null | undefined) => ((v ?? 0) / min) * 90;
+  const t90 = (k: string) => ((n(t[k]) ?? 0) / minT) * 90;
+  const m: Marca[] = [];
+  const perd = p90(c.PossLost);
+  if (perd >= t90("PossLost") * 1.5 && perd - t90("PossLost") >= 3) m.push({ tipo: "alerta", texto: `pierde ${dec(perd, 0)} balones por 90′ (lo suyo, ${dec(t90("PossLost"), 0)})` });
+  const pase = n(c["Pass%"]);
+  const paseT = n(t["Pass%"]);
+  if (pase != null && paseT != null && (c.PsAtt ?? 0) >= 10) {
+    if (pase <= paseT - 0.12) m.push({ tipo: "alerta", texto: `acierta el ${Math.round(pase * 100)} % de pases (lo suyo, ${Math.round(paseT * 100)} %)` });
+    else if (pase >= paseT + 0.08) m.push({ tipo: "certeza", texto: `acierta el ${Math.round(pase * 100)} % de pases (lo suyo, ${Math.round(paseT * 100)} %)` });
+  }
+  const toq = p90(c.Touches);
+  if (t90("Touches") > 0 && toq <= t90("Touches") * 0.6) m.push({ tipo: "alerta", texto: `desconectado: ${dec(toq, 0)} toques por 90′ (lo suyo, ${dec(t90("Touches"), 0)})` });
+  else if (t90("Touches") > 0 && toq >= t90("Touches") * 1.4) m.push({ tipo: "certeza", texto: `muy metido: ${dec(toq, 0)} toques por 90′ (lo suyo, ${dec(t90("Touches"), 0)})` });
+  const rec = p90(c.Recovery);
+  if ((c.Recovery ?? 0) >= 4 && rec >= t90("Recovery") * 1.6) m.push({ tipo: "certeza", texto: `${c.Recovery} recuperaciones (${dec(rec, 1)} por 90′; lo suyo, ${dec(t90("Recovery"), 1)})` });
+  const duel = n(c["Duel%"]);
+  const duelT = n(t["Duel%"]);
+  if (duel != null && duelT != null && duel <= duelT - 0.2) m.push({ tipo: "alerta", texto: `gana el ${Math.round(duel * 100)} % de duelos (lo suyo, ${Math.round(duelT * 100)} %)` });
+  if ((c.ExpG ?? 0) >= 0.3 || (c.Chance ?? 0) >= 2) m.push({ tipo: "certeza", texto: `peligro: ${dec(c.ExpG ?? 0)} xG y ${c.Chance ?? 0} ocasiones creadas` });
+  return m;
+}
+
+function SemaforoJugadores({ filas, temporada, color, alElegir }: { filas: Rendimiento[]; temporada: Record<string, unknown>[]; color: string; alElegir: (id: string) => void }) {
+  const porId = new Map(temporada.map((t) => [String(t.playerId ?? ""), t]));
+  const con = filas.filter((r) => r.jugador.minutos > 0).map((r) => ({ r, m: marcasDe(r, porId.get(r.jugador.id)) }));
+  const alertas = con.filter((x) => x.m.some((k) => k.tipo === "alerta"));
+  const certezas = con.filter((x) => !x.m.some((k) => k.tipo === "alerta") && x.m.some((k) => k.tipo === "certeza"));
+  const habitual = con.filter((x) => !x.m.length);
+  const caja = (titulo: string, borde: string, l: typeof con, tipo: Marca["tipo"] | null) => (
+    <div className="min-w-0 rounded-2xl border bg-white/[0.03] p-3" style={{ borderColor: borde }}>
+      <p className="mb-2 text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: borde }}>
+        {titulo} · {l.length}
+      </p>
+      {l.length === 0 ? (
+        <p className="text-xs text-white/45">Ninguno.</p>
+      ) : (
+        <ul className="space-y-1.5">
+          {l.map(({ r, m }) => (
+            <li key={r.jugador.id}>
+              <button type="button" onClick={() => alElegir(r.jugador.id)} className="text-left text-[13px] font-semibold text-white hover:underline">
+                <span className="tabular-nums text-white/50">{r.jugador.dorsal}</span> {r.jugador.nombre}
+              </button>
+              {tipo && (
+                <p className="text-[11px] text-white/65">
+                  {m
+                    .filter((k) => k.tipo === tipo)
+                    .map((k) => k.texto)
+                    .join(" · ")}
+                </p>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+  return (
+    <div className="space-y-2">
+      <p className="text-[11px] text-white/50">
+        Cada jugador en este partido frente a lo suyo de la temporada (Opta, por 90′; con 20′ jugados y 270′ en la temporada). Pincha un nombre para abrir su ficha.
+      </p>
+      <div className="grid gap-2 md:grid-cols-3">
+        {caja("Alertas", "#FF6B6B", alertas, "alerta")}
+        {caja("Certezas", "#3DDC97", certezas, "certeza")}
+        {caja("Lo habitual", color, habitual, null)}
+      </div>
+    </div>
+  );
 }
