@@ -113,7 +113,7 @@ export function RelievePartido({
     }
   };
   /* Colores de la app (petición del analista): el nuestro (o el de la izquierda) en oro y el otro en blanco hielo. */
-  const [colA, colB] = useMemo<[RGB, RGB]>(() => (modo === "app" ? [[214, 178, 104], [226, 232, 240]] : dosColores(a, b, delPartido)), [modo, a, b, delPartido]);
+  const [colA, colB] = useMemo<[RGB, RGB]>(() => (modo === "app" ? [[236, 184, 72], [196, 220, 255]] : dosColores(a, b, delPartido)), [modo, a, b, delPartido]);
   const fija = async (teamId: string, hex: string) => {
     if (!partido) return;
     const nuevo = { ...fijados, [partido]: { ...(fijados[partido] ?? {}), [teamId]: hex } };
@@ -162,7 +162,7 @@ export function RelievePartido({
       const s = Math.sin(giro);
       const x1 = X * c - Z * s;
       const z1 = X * s + Z * c;
-      const fi = 0.82;
+      const fi = 0.98;
       const prof = -z1 * Math.cos(fi) - Y * Math.sin(fi);
       const f = 170 / (170 + prof);
       const esc = (compacto ? 3.1 : 6.3) * f;
@@ -259,7 +259,7 @@ export function RelievePartido({
         suave[i] += (objetivo - suave[i]) * 0.06;
         const ii = i % GX;
         const jj = (i - ii) / GX;
-        alto[i] = suave[i] + 0.018 * Math.sin(ii * 0.32 + fase * 1.3) * Math.cos(jj * 0.27 - fase * 0.9);
+        alto[i] = suave[i] + 0.014 * Math.sin(ii * 0.32 + fase * 0.9) * Math.cos(jj * 0.27 - fase * 0.6);
       }
       const destellos: { i: number; j: number; k: number }[] = [];
       for (const s of r.tiros) {
@@ -278,7 +278,7 @@ export function RelievePartido({
       const intens = new Float32Array(N);
       for (let i = 0; i < N; i++) intens[i] = Math.sqrt(total[i] / escala);
 
-      const giro = -0.4 + 0.26 * Math.sin((ahora - inicio) / 14000);
+      const giro = -0.3 + 0.12 * Math.sin((ahora - inicio) / 16000);
       px.set(fondo);
       zbuf.fill(1e9);
       for (let v = 0; v < DY; v++) {
@@ -292,13 +292,16 @@ export function RelievePartido({
           const hx = bil(alto, Math.min(1, uu + 0.01), vv) - bil(alto, Math.max(0, uu - 0.01), vv);
           const hy = bil(alto, uu, Math.min(1, vv + 0.015)) - bil(alto, uu, Math.max(0, vv - 0.015));
           const ilum = Math.max(0.2, Math.min(1.7, 0.78 - hx * 9 + hy * 6.5 + h * 0.7));
-          const q = Math.min(1, Math.max(0, (p - 0.2) / 0.6));
+          const dom = (p - 0.5) * 2;
+          const fuerza = Math.pow(Math.min(1, Math.abs(dom) * 1.6), 0.8);
+          const equipo = dom >= 0 ? colA : colB;
+          const neutro = 118;
           const espuma = Math.min(1, Math.max(0, (h - 0.42) / 0.35)) * 0.55;
-          const vida = Math.min(1.2, 0.34 + Math.pow(it, 0.8) * 1.05);
+          const vida = Math.min(1.25, 0.16 + Math.pow(it, 0.8) * 1.15);
           const k = ilum * vida;
-          const R = Math.min(255, (colA[0] * q + colB[0] * (1 - q)) * k * (1 - espuma) + 255 * espuma);
-          const G = Math.min(255, (colA[1] * q + colB[1] * (1 - q)) * k * (1 - espuma) + 255 * espuma);
-          const B = Math.min(255, (colA[2] * q + colB[2] * (1 - q)) * k * (1 - espuma) + 255 * espuma);
+          const R = Math.min(255, (neutro * (1 - fuerza) + equipo[0] * fuerza) * k * (1 - espuma) + 255 * espuma);
+          const G = Math.min(255, (neutro * (1 - fuerza) + equipo[1] * fuerza) * k * (1 - espuma) + 255 * espuma);
+          const B = Math.min(255, (neutro * (1 - fuerza) + equipo[2] * fuerza) * k * (1 - espuma) + 255 * espuma);
           const [X, Y, Z] = mundo(uu * (GX - 1), vv * (GY - 1), h);
           const [sx, sy, d] = proyecta(X, Y, Z, giro);
           const x0 = Math.round(sx * dpr);
@@ -359,7 +362,9 @@ export function RelievePartido({
         const [X, Y, Z] = mundo(tiro.gx, tiro.gy, alto[tiro.gy * GX + tiro.gx]);
         const [sx, sy] = proyecta(X, Y, Z, giro);
         const c = tiro.deA ? colA : colB;
-        const altoCol = (compacto ? 50 : 130) * (0.4 + Math.min(1, Math.sqrt(tiro.xg / 0.5)) * 0.6);
+        const altoCol = (compacto ? 120 : 330) * (0.35 + Math.min(1, Math.sqrt(tiro.xg / 0.5)) * 0.65);
+        g.save();
+        g.globalCompositeOperation = "lighter";
         const haz = g.createLinearGradient(sx, sy, sx, sy - altoCol);
         haz.addColorStop(0, css(c, 0.85 * k));
         haz.addColorStop(1, css(c, 0));
@@ -368,8 +373,32 @@ export function RelievePartido({
         g.strokeStyle = css(c, 0.9 * k);
         g.lineWidth = compacto ? 1 : 2;
         g.beginPath();
-        g.ellipse(sx, sy, (compacto ? 6 : 14) * (1.6 - k * 0.6), (compacto ? 2.5 : 5) * (1.6 - k * 0.6), 0, 0, Math.PI * 2);
+        g.ellipse(sx, sy, (compacto ? 8 : 22) * (2.4 - k * 1.4), (compacto ? 3 : 8) * (2.4 - k * 1.4), 0, 0, Math.PI * 2);
         g.stroke();
+        g.restore();
+      }
+      /* Cada remate ya pasado deja su marca en el campo (tamaño por xG; llena si fue gol), que se va apagando. */
+      for (const tiro of r.tiros) {
+        if (tiro.minuto > t) continue;
+        const edad = t - tiro.minuto;
+        const a0 = Math.max(0.25, 1 - edad / 30);
+        const [X, Y, Z] = mundo(tiro.gx, tiro.gy, alto[tiro.gy * GX + tiro.gx] + 0.01);
+        const [sx, sy] = proyecta(X, Y, Z, giro);
+        const rad = (compacto ? 1.5 : 3) + Math.sqrt(tiro.xg) * (compacto ? 5 : 12);
+        g.lineWidth = compacto ? 0.8 : 1.5;
+        g.strokeStyle = css(tiro.deA ? colA : colB, 0.9 * a0);
+        g.fillStyle = tiro.gol ? css([255, 255, 255], 0.9 * a0) : css(tiro.deA ? colA : colB, 0.25 * a0);
+        g.beginPath();
+        g.ellipse(sx, sy, rad, rad * 0.45, 0, 0, Math.PI * 2);
+        g.fill();
+        g.stroke();
+      }
+      /* Destello del gol: un instante de pantalla blanca. */
+      for (const tiro of r.tiros) {
+        const edad = t - tiro.minuto;
+        if (!tiro.gol || edad < 0 || edad > 0.35) continue;
+        g.fillStyle = `rgba(255,255,255,${0.35 * (1 - edad / 0.35)})`;
+        g.fillRect(0, 0, W, H);
       }
       for (const d of destellos) {
         const [X, Y, Z] = mundo(d.i, d.j, alto[d.j * GX + d.i] + 0.15);
@@ -428,6 +457,23 @@ export function RelievePartido({
   return (
     <div className="relative overflow-hidden rounded-2xl" style={{ background: "#05050a" }}>
       <canvas ref={lienzo} className="block h-auto w-full" style={{ aspectRatio: compacto ? "480 / 270" : "1000 / 560" }} role="img" aria-label={`Retrato 3D del partido ${a.nombre} - ${b.nombre}, animado`} />
+      {!compacto && (
+        <div className="pointer-events-none absolute bottom-[calc(150px*var(--k,1)+12px)] right-4 hidden w-[400px] rounded-xl px-3 py-2 text-[11px] sm:block" style={{ background: "rgba(8,10,20,0.55)", color: "rgba(255,255,255,0.8)", backdropFilter: "blur(6px)", bottom: "calc(min(15vw, 150px) + 14px)" }}>
+          <p className="flex justify-between font-semibold">
+            <span style={{ color: css(colB) }}>← ataca {b.nombre}</span>
+            <span style={{ color: css(colA) }}>ataca {a.nombre} →</span>
+          </p>
+          <div className="mt-1.5 h-1.5 rounded-full" style={{ background: `linear-gradient(90deg, ${css(colB)}, rgb(118,118,118), ${css(colA)})` }} />
+          <p className="mt-1 flex justify-between text-[10px]" style={{ color: "rgba(255,255,255,0.55)" }}>
+            <span>domina {b.nombre}</span>
+            <span>parejo</span>
+            <span>domina {a.nombre}</span>
+          </p>
+          <p className="mt-1 text-[10px]" style={{ color: "rgba(255,255,255,0.55)" }}>
+            Altura = actividad en los últimos 2,5′ · columna = remate · marca = remates ya hechos (rellena, gol)
+          </p>
+        </div>
+      )}
       {!compacto && <Momentum curva={r.curva} tiros={r.tiros} minuto={minuto} colA={colA} colB={colB} nombreA={a.nombre} nombreB={b.nombre} />}
       {/* Marcador, como en la tele. */}
       <div className={`pointer-events-none absolute left-3 top-3 ${compacto ? "" : "sm:left-6 sm:top-5"}`}>
@@ -459,11 +505,11 @@ export function RelievePartido({
       {aviso && !compacto && minuto - aviso.minuto < 4 && (
         <div
           key={`${aviso.minuto}-${aviso.jugadorId}`}
-          className="pointer-events-none absolute left-1/2 top-[22%] -translate-x-1/2 rounded-2xl px-5 py-3 text-center shadow-2xl"
+          className="pointer-events-none absolute bottom-[34%] left-4 rounded-r-xl py-2.5 pl-4 pr-6 text-left shadow-2xl sm:left-6"
           style={{
             background: "rgba(10,12,22,0.55)",
             backdropFilter: "blur(10px)",
-            border: `1px solid ${css(aviso.deA ? colA : colB, 0.7)}`,
+            borderLeft: `5px solid ${css(aviso.deA ? colA : colB)}`,
             boxShadow: `0 0 40px ${css(aviso.deA ? colA : colB, 0.35)}`,
             animation: "rmcfAviso 3.2s ease-out forwards",
           }}
@@ -472,16 +518,16 @@ export function RelievePartido({
             {aviso.gol ? "Gol" : aviso.xg >= 0.25 ? "Ocasión clara" : "Ocasión"} · {aviso.minuto}′
           </p>
           <p className={`font-bold ${aviso.gol ? "text-3xl" : "text-lg"}`} style={{ color: "#FFFFFF" }}>
-            {nombre(aviso.jugadorId) || (aviso.deA ? a.nombre : b.nombre)}
+            {(nombre(aviso.jugadorId) || (aviso.deA ? a.nombre : b.nombre)).toUpperCase()}
           </p>
           <p className="text-[11px] tabular-nums" style={{ color: "rgba(255,255,255,0.65)" }}>
             {aviso.deA ? a.nombre : b.nombre} · xG {aviso.xg.toFixed(2).replace(".", ",")}
           </p>
-          <style>{`@keyframes rmcfAviso { 0% { opacity: 0; transform: translate(-50%, 8px) scale(.96) } 12% { opacity: 1; transform: translate(-50%, 0) scale(1) } 75% { opacity: 1 } 100% { opacity: 0 } }`}</style>
+          <style>{`@keyframes rmcfAviso { 0% { opacity: 0; transform: translateX(-24px) } 10% { opacity: 1; transform: translateX(0) } 85% { opacity: 1 } 100% { opacity: 0; transform: translateX(-12px) } }`}</style>
         </div>
       )}
       {!compacto && (
-        <div className="absolute right-3 top-[86px] flex max-w-[60%] flex-wrap items-center justify-end gap-2 sm:right-5">
+        <div className="absolute right-3 top-[86px] flex max-w-[60%] flex-wrap items-center justify-end gap-2 opacity-40 transition-opacity duration-300 hover:opacity-100 focus-within:opacity-100 sm:right-5">
           <button type="button" onClick={() => setJugando((j) => !j)} aria-label={jugando ? "Pausa" : "Reproducir"} className="inline-flex h-9 w-9 items-center justify-center rounded-full" style={{ background: "#FFFFFF", color: "#000000" }}>
             {jugando ? <Pause size={16} /> : <Play size={16} />}
           </button>
@@ -554,7 +600,7 @@ function Momentum({
   nombreB: string;
 }) {
   const W = 1000;
-  const H = 110;
+  const H = 150;
   const mid = H / 2;
   const fin = curva.length - 1;
   const tope = Math.max(1, ...curva.map(Math.abs));
@@ -576,16 +622,16 @@ function Momentum({
           <rect x={0} y={0} width={X(Math.min(fin, minuto))} height={H} />
         </clipPath>
       </defs>
-      <text x={12} y={18} style={{ fill: css(colA), fontSize: 11, fontWeight: 700 }}>
+      <text x={12} y={18} style={{ fill: css(colA), fontSize: 13, fontWeight: 700 }}>
         {nombreA}
       </text>
-      <text x={12} y={H - 8} style={{ fill: css(colB), fontSize: 11, fontWeight: 700 }}>
+      <text x={12} y={H - 8} style={{ fill: css(colB), fontSize: 13, fontWeight: 700 }}>
         {nombreB}
       </text>
       <line x1={X(0)} x2={X(fin)} y1={mid} y2={mid} style={{ stroke: "rgba(255,255,255,0.18)" }} />
       {fin >= 45 && <line x1={X(45)} x2={X(45)} y1={8} y2={H - 8} style={{ stroke: "rgba(255,255,255,0.22)", strokeDasharray: "3 4" }} />}
       {[15, 30, 60, 75, 90].filter((m) => m <= fin).map((m) => (
-        <text key={m} x={X(m)} y={mid + 4} textAnchor="middle" style={{ fill: "rgba(255,255,255,0.25)", fontSize: 9 }}>
+        <text key={m} x={X(m)} y={mid + 4} textAnchor="middle" style={{ fill: "rgba(255,255,255,0.45)", fontSize: 12 }}>
           {m}′
         </text>
       ))}
