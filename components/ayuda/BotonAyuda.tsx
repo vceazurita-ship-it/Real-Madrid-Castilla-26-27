@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
+import { createPortal } from "react-dom";
 import { ChevronDown, CircleHelp, Search, Sigma, TriangleAlert, X } from "lucide-react";
 
 import { ItemMenuFlotante } from "@/components/ui/MenuFlotante";
@@ -70,22 +71,24 @@ export function BotonAyuda() {
         mantenAbierto
       />
 
-      {abierto && (
+      {abierto && typeof document !== "undefined" && createPortal(
+        /* En el body (14/11/2026): dentro del menú flotante el «fixed» quedaba atrapado en su caja y se veía pequeño. */
         <div
           role="dialog"
           aria-modal="true"
           aria-label={`Cómo se lee ${ayuda.titulo}`}
           data-export-hide
-          className="modal-veil fixed inset-0 z-[85] flex items-center justify-center p-2 backdrop-blur-sm sm:p-6"
+          className="modal-veil fixed inset-0 z-[85] flex justify-end bg-black/40 backdrop-blur-sm"
           onClick={() => setAbierto(false)}
         >
           <aside
-            className="flex h-[96vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#11161D] shadow-2xl sm:h-[90vh]"
+            className="flex h-[100dvh] w-full max-w-2xl flex-col overflow-hidden border-l border-white/10 bg-[#11161D] shadow-2xl"
             onClick={(evento) => evento.stopPropagation()}
           >
             <PanelAyuda ayuda={ayuda} alCerrar={() => setAbierto(false)} />
           </aside>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );
@@ -187,13 +190,13 @@ function PanelAyuda({ ayuda, alCerrar }: { ayuda: Ayuda; alCerrar: () => void })
                 <Sigma size={14} aria-hidden />
                 {bl.titulo}
               </h3>
-              <div className="grid items-start gap-3 md:grid-cols-2">
+              <div className="grid items-start gap-3">
                 {bl.filas.map((fila) => {
                   const k = `${bl.titulo}|${fila.que}`;
                   const abierta = !!q || abiertas.has(k);
                   const corta = primeraFrase(fila.es);
                   return (
-                    <div key={k} className={`rounded-2xl border bg-white/[0.03] ${abierta ? "border-[#C8A96B]/60 md:col-span-2" : "border-white/[0.09] hover:border-white/25"}`}>
+                    <div key={k} className={`rounded-2xl border bg-white/[0.03] ${abierta ? "border-[#C8A96B]/60" : "border-white/[0.09] hover:border-white/25"}`}>
                       <button
                         type="button"
                         onClick={() => setAbiertas((x) => cambia(x, k))}

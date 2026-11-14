@@ -164,16 +164,104 @@ export function RelievePartido({
       Array.from({ length: 33 }, (_, k) => [50 + (9.15 / 1.05) * Math.cos((k / 32) * Math.PI * 2), 50 + (9.15 / 0.68) * Math.sin((k / 32) * Math.PI * 2)] as [number, number]),
     ];
 
+    /* MICROBOLITAS (14/11/2026, petición del analista: «como el vídeo»): la superficie no son
+       baldosas sino ~30.000 puntos finos, escritos directamente en los píxeles con su
+       profundidad (el de delante tapa al de detrás), cada uno con su luz. Fluido y fino. */
+    const DX = compacto ? 130 : 220;
+    const DY = compacto ? 84 : 142;
+    const PW = Math.round(W * dpr);
+    const PH = Math.round(H * dpr);
+    const img = g.createImageData(PW, PH);
+    const px = new Uint32Array(img.data.buffer);
+    const zbuf = new Float32Array(PW * PH);
+    /* EL FONDO, UN ESTADIO DE NOCHE (una vez): cielo azul noche, cuatro torres de luz con su halo,
+       las gradas en curva con el público en puntitos y todo oscurecido hacia el centro para que
+       mande el campo. Semilla fija: el público no baila de un fotograma a otro. */
+    const fondo = new Uint32Array(PW * PH);
+    let semilla = 7;
+    const azar = () => ((semilla = (semilla * 16807) % 2147483647) / 2147483647);
+    const focos = [
+      [0.08, 0.1],
+      [0.92, 0.1],
+      [0.3, 0.04],
+      [0.7, 0.04],
+    ];
+    for (let y = 0; y < PH; y++)
+      for (let x = 0; x < PW; x++) {
+        const u = x / PW;
+        const v = y / PH;
+        /* Cielo. */
+        let R = 8 + 10 * (1 - v);
+        let G = 12 + 14 * (1 - v);
+        let B = 30 + 26 * (1 - v);
+        /* Gradas: una banda curva (más alta en los lados), con el público. */
+        const borde = 0.3 + 0.12 * Math.pow(Math.abs(u - 0.5) * 2, 2);
+        if (v > borde - 0.2 && v < borde + 0.32) {
+          const enGrada = (v - (borde - 0.2)) / 0.52;
+          R = 14 + 10 * enGrada;
+          G = 16 + 10 * enGrada;
+          B = 26 + 12 * enGrada;
+          /* Las filas de asientos. */
+          if (Math.sin(v * PH * 0.9) > 0.85) {
+            R += 6;
+            G += 6;
+            B += 8;
+          }
+          /* El público: puntitos de colores apagados. */
+          if (azar() < 0.12) {
+            const tono = azar();
+            R += 12 + 26 * tono;
+            G += 10 + 18 * (1 - tono);
+            B += 14 + 16 * azar();
+          }
+        }
+        /* Halo de las torres de luz. */
+        for (const [fx, fy] of focos) {
+          const d = Math.hypot(u - fx, (v - fy) * 1.4);
+          const k = Math.exp(-d * d * 220) * 90 + Math.exp(-d * d * 14) * 12;
+          R += k * 0.95;
+          G += k;
+          B += k * 1.1;
+        }
+        /* Viñeta: el centro (el campo) más oscuro y limpio. */
+        const c = Math.max(0, 1 - Math.hypot((u - 0.5) * 1.3, (v - 0.62) * 1.6));
+        const osc = 1 - 0.55 * Math.pow(c, 1.4);
+        R = Math.min(255, R * osc);
+        G = Math.min(255, G * osc);
+        B = Math.min(255, B * osc);
+        fondo[y * PW + x] = (255 << 24) | (Math.round(B) << 16) | (Math.round(G) << 8) | Math.round(R);
+      }
+    /* Las torres: cuatro puntos de luz fuertes. */
+    for (const [fx, fy] of focos) {
+      const cx = Math.round(fx * PW);
+      const cy = Math.round(fy * PH);
+      for (let dy = -2 * dpr; dy <= 2 * dpr; dy++)
+        for (let dx = -2 * dpr; dx <= 2 * dpr; dx++) {
+          const xx = cx + dx;
+          const yy = cy + dy;
+          if (dx * dx + dy * dy <= 4 * dpr * dpr && xx >= 0 && yy >= 0 && xx < PW && yy < PH) fondo[yy * PW + xx] = 0xfff8f4ec;
+        }
+    }
+    const tam = Math.max(1, Math.round((compacto ? 1.2 : 1.6) * dpr));
+    const bil = (arr: Float32Array, u: number, v: number) => {
+      const fx = u * (GX - 1);
+      const fy = v * (GY - 1);
+      const i = Math.min(GX - 2, Math.floor(fx));
+      const j = Math.min(GY - 2, Math.floor(fy));
+      const tx = fx - i;
+      const ty = fy - j;
+      const k = j * GX + i;
+      return (arr[k] * (1 - tx) + arr[k + 1] * tx) * (1 - ty) + (arr[k + GX] * (1 - tx) + arr[k + GX + 1] * tx) * ty;
+    };
+
     const pinta = (ahora: number) => {
       const t = estado.current.t;
       const { total, parteA } = ventana(r, Math.min(fin, t));
-      /* Escala que se mueve despacio (sin parpadeos). */
       let max = 0;
       for (let i = 0; i < N; i++) max = Math.max(max, total[i]);
       escala = escala * 0.97 + Math.max(r.escala * 0.35, max) * 0.03;
       for (let i = 0; i < N; i++) alto[i] = 0.5 * Math.sqrt(total[i] / escala);
-      /* Los remates de los 3 últimos minutos: un bulto por su xG. */
-      const destellos: { i: number; j: number; k: number; deA: boolean }[] = [];
+      const destellos: { i: number; j: number; k: number }[] = [];
       for (const s of r.tiros) {
         const d = t - s.minuto;
         if (d < 0 || d > 3) continue;
@@ -185,59 +273,64 @@ export function RelievePartido({
             if (i < 0 || i >= GX || j < 0 || j >= GY) continue;
             alto[j * GX + i] += amp * Math.exp(-(di * di + dj * dj) / 6);
           }
-        if (s.gol) destellos.push({ i: s.gx, j: s.gy, k: 1 - d / 3, deA: s.deA });
+        if (s.gol) destellos.push({ i: s.gx, j: s.gy, k: 1 - d / 3 });
       }
+      const intens = new Float32Array(N);
+      for (let i = 0; i < N; i++) intens[i] = Math.sqrt(total[i] / escala);
 
       const giro = -0.42 + 0.32 * Math.sin((ahora - inicio) / 9000);
-      g.clearRect(0, 0, W, H);
-      const fondo = g.createRadialGradient(W / 2, H * 0.5, 40, W / 2, H * 0.5, W * 0.7);
-      fondo.addColorStop(0, "#14131f");
-      fondo.addColorStop(1, "#05050a");
-      g.fillStyle = fondo;
-      g.fillRect(0, 0, W, H);
-
-      /* Las caras, de la más lejana a la más cercana. */
-      const caras: { d: number; p: [number, number][]; col: string }[] = [];
-      for (let j = 0; j < GY - 1; j++)
-        for (let i = 0; i < GX - 1; i++) {
-          const k = j * GX + i;
-          const hs = [alto[k], alto[k + 1], alto[k + GX + 1], alto[k + GX]];
-          const pts = [mundo(i, j, hs[0]), mundo(i + 1, j, hs[1]), mundo(i + 1, j + 1, hs[2]), mundo(i, j + 1, hs[3])].map(([X, Y, Z]) => proyecta(X, Y, Z, giro));
-          const p = (parteA[k] + parteA[k + 1] + parteA[k + GX] + parteA[k + GX + 1]) / 4;
-          const q = Math.min(1, Math.max(0, (p - 0.3) / 0.4));
-          const base = [0, 1, 2].map((c) => colA[c] * q + colB[c] * (1 - q));
-          const pendiente = (hs[1] + hs[2] - hs[0] - hs[3]) * 0.9 + (hs[2] + hs[3] - hs[0] - hs[1]) * 0.6;
-          const ilum = Math.max(0.35, Math.min(1.25, 0.78 + pendiente * 2.2 + (hs[0] + hs[2]) * 0.25));
-          const vida = Math.min(1, 0.45 + Math.sqrt(total[k] / escala) * 0.9);
-          caras.push({ d: (pts[0][2] + pts[2][2]) / 2, p: pts.map(([x, y]) => [x, y] as [number, number]), col: css(base.map((v) => v * ilum * vida) as RGB) });
-        }
-      caras.sort((x, y) => y.d - x.d);
-      for (const c of caras) {
-        g.fillStyle = c.col;
-        g.beginPath();
-        g.moveTo(c.p[0][0], c.p[0][1]);
-        for (let n = 1; n < 4; n++) g.lineTo(c.p[n][0], c.p[n][1]);
-        g.closePath();
-        g.fill();
-        if (!compacto) {
-          g.strokeStyle = "rgba(0,0,0,0.18)";
-          g.lineWidth = 0.4;
-          g.stroke();
+      px.set(fondo);
+      zbuf.fill(1e9);
+      for (let v = 0; v < DY; v++) {
+        const vv = v / (DY - 1);
+        for (let u = 0; u < DX; u++) {
+          const uu = u / (DX - 1);
+          const h = bil(alto, uu, vv);
+          const p = bil(parteA, uu, vv);
+          const it = bil(intens, uu, vv);
+          /* Luz por la pendiente (de dónde viene la luz: arriba a la izquierda). */
+          const hx = bil(alto, Math.min(1, uu + 0.01), vv) - bil(alto, Math.max(0, uu - 0.01), vv);
+          const hy = bil(alto, uu, Math.min(1, vv + 0.015)) - bil(alto, uu, Math.max(0, vv - 0.015));
+          const ilum = Math.max(0.3, Math.min(1.45, 0.85 - hx * 7 + hy * 5 + h * 0.35));
+          const q = Math.min(1, Math.max(0, (p - 0.32) / 0.36));
+          const vida = Math.min(1, 0.38 + it * 0.95);
+          const k = ilum * vida;
+          const R = Math.min(255, (colA[0] * q + colB[0] * (1 - q)) * k);
+          const G = Math.min(255, (colA[1] * q + colB[1] * (1 - q)) * k);
+          const B = Math.min(255, (colA[2] * q + colB[2] * (1 - q)) * k);
+          const [X, Y, Z] = mundo(uu * (GX - 1), vv * (GY - 1), h);
+          const [sx, sy, d] = proyecta(X, Y, Z, giro);
+          const x0 = Math.round(sx * dpr);
+          const y0 = Math.round(sy * dpr);
+          const col = (255 << 24) | (Math.round(B) << 16) | (Math.round(G) << 8) | Math.round(R);
+          for (let a2 = 0; a2 < tam; a2++)
+            for (let b2 = 0; b2 < tam; b2++) {
+              const xx = x0 + a2;
+              const yy = y0 + b2;
+              if (xx < 0 || yy < 0 || xx >= PW || yy >= PH) continue;
+              const o = yy * PW + xx;
+              if (d < zbuf[o]) {
+                zbuf[o] = d;
+                px[o] = col;
+              }
+            }
         }
       }
-      /* Las líneas del campo, pegadas a la superficie. */
-      g.strokeStyle = "rgba(255,255,255,0.55)";
-      g.lineWidth = compacto ? 0.6 : 1.1;
+      g.putImageData(img, 0, 0);
+
+      /* Las líneas del campo, finas y pegadas a la superficie. */
+      g.strokeStyle = "rgba(255,255,255,0.45)";
+      g.lineWidth = compacto ? 0.5 : 0.9;
       for (const l of lineas) {
         g.beginPath();
         for (let n = 0; n < l.length - 1; n++) {
-          const [x0, y0] = l[n];
-          const [x1, y1] = l[n + 1];
-          const pasos = Math.max(2, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 2));
+          const [xa, ya] = l[n];
+          const [xb, yb] = l[n + 1];
+          const pasos = Math.max(2, Math.ceil(Math.hypot(xb - xa, yb - ya) / 2));
           for (let s = 0; s <= pasos; s++) {
-            const x = x0 + ((x1 - x0) * s) / pasos;
-            const y = y0 + ((y1 - y0) * s) / pasos;
-            const [X, Y, Z] = mundo((x / 100) * (GX - 1), (y / 100) * (GY - 1), altoEn(x, y) + 0.01);
+            const x = xa + ((xb - xa) * s) / pasos;
+            const y = ya + ((yb - ya) * s) / pasos;
+            const [X, Y, Z] = mundo((x / 100) * (GX - 1), (y / 100) * (GY - 1), altoEn(x, y) + 0.012);
             const [sx, sy] = proyecta(X, Y, Z, giro);
             if (n === 0 && s === 0) g.moveTo(sx, sy);
             else g.lineTo(sx, sy);
@@ -245,11 +338,10 @@ export function RelievePartido({
         }
         g.stroke();
       }
-      /* El gol: destello blanco. */
       for (const d of destellos) {
         const [X, Y, Z] = mundo(d.i, d.j, alto[d.j * GX + d.i] + 0.15);
         const [sx, sy] = proyecta(X, Y, Z, giro);
-        const rad = (compacto ? 14 : 34) * (0.6 + 0.4 * d.k);
+        const rad = (compacto ? 16 : 40) * (0.6 + 0.4 * d.k);
         const gr = g.createRadialGradient(sx, sy, 0, sx, sy, rad);
         gr.addColorStop(0, `rgba(255,255,255,${0.95 * d.k})`);
         gr.addColorStop(1, "rgba(255,255,255,0)");
@@ -257,22 +349,6 @@ export function RelievePartido({
         g.beginPath();
         g.arc(sx, sy, rad, 0, Math.PI * 2);
         g.fill();
-      }
-      /* La curva de dominio, abajo a la izquierda. */
-      if (!compacto) {
-        const cx0 = 24;
-        const cw = 260;
-        const cy0 = H - 40;
-        const tope = Math.max(1, ...r.curva.map(Math.abs));
-        for (let m = 0; m < r.minutos - 1; m++) {
-          const v = r.curva[m];
-          const x = cx0 + (m / fin) * cw;
-          g.fillStyle = css(v >= 0 ? colA : colB, m <= t ? 0.9 : 0.25);
-          const h = (Math.abs(v) / tope) * 22;
-          g.fillRect(x, v >= 0 ? cy0 - h : cy0, cw / fin + 0.5, h);
-        }
-        g.fillStyle = "#FFFFFF";
-        g.fillRect(cx0 + (Math.min(fin, t) / fin) * cw, cy0 - 26, 1.5, 52);
       }
     };
 
@@ -315,6 +391,7 @@ export function RelievePartido({
   return (
     <div className="relative overflow-hidden rounded-2xl" style={{ background: "#05050a" }}>
       <canvas ref={lienzo} className="block h-auto w-full" style={{ aspectRatio: compacto ? "480 / 270" : "1000 / 560" }} role="img" aria-label={`Retrato 3D del partido ${a.nombre} - ${b.nombre}, animado`} />
+      {!compacto && <Momentum curva={r.curva} tiros={r.tiros} minuto={minuto} colA={colA} colB={colB} nombreA={a.nombre} nombreB={b.nombre} />}
       {/* Marcador, como en la tele. */}
       <div className={`pointer-events-none absolute left-3 top-3 ${compacto ? "" : "sm:left-6 sm:top-5"}`}>
         <div className="flex gap-4">
@@ -348,7 +425,7 @@ export function RelievePartido({
         </div>
       )}
       {!compacto && (
-        <div className="absolute bottom-3 right-3 flex flex-wrap items-center justify-end gap-2 sm:right-5">
+        <div className="absolute right-3 top-[86px] flex max-w-[60%] flex-wrap items-center justify-end gap-2 sm:right-5">
           <button type="button" onClick={() => setJugando((j) => !j)} aria-label={jugando ? "Pausa" : "Reproducir"} className="inline-flex h-9 w-9 items-center justify-center rounded-full" style={{ background: "#FFFFFF", color: "#000000" }}>
             {jugando ? <Pause size={16} /> : <Play size={16} />}
           </button>
@@ -390,5 +467,81 @@ export function RelievePartido({
         </div>
       )}
     </div>
+  );
+}
+
+/* EL MOMENTUM (14/11/2026, «debe verse mejor»): una franja propia debajo del 3D. Arriba el
+   equipo A, abajo el B, áreas con degradado de su color, el descanso, los goles con bola y
+   minuto, y la línea blanca del minuto que corre. Lo ya jugado, encendido; lo que falta, tenue. */
+function Momentum({
+  curva,
+  tiros,
+  minuto,
+  colA,
+  colB,
+  nombreA,
+  nombreB,
+}: {
+  curva: number[];
+  tiros: { minuto: number; gol: boolean; deA: boolean }[];
+  minuto: number;
+  colA: RGB;
+  colB: RGB;
+  nombreA: string;
+  nombreB: string;
+}) {
+  const W = 1000;
+  const H = 110;
+  const mid = H / 2;
+  const fin = curva.length - 1;
+  const tope = Math.max(1, ...curva.map(Math.abs));
+  const X = (m: number) => 40 + (m / fin) * (W - 60);
+  const Y = (v: number) => mid - (v / tope) * (mid - 14);
+  const linea = curva.map((v, m) => `${m ? "L" : "M"}${X(m).toFixed(1)},${Y(v).toFixed(1)}`).join(" ");
+  const area = `${linea} L${X(fin)},${mid} L${X(0)},${mid} Z`;
+  const id = `mom-${Math.round(colA[0])}-${Math.round(colB[0])}`;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="block w-full" style={{ background: "linear-gradient(180deg, #07080f, #0b0d18)" }} role="img" aria-label="Quién manda minuto a minuto">
+      <defs>
+        <linearGradient id={`${id}-a`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor={css(colA)} stopOpacity="0.95" />
+          <stop offset="0.5" stopColor={css(colA)} stopOpacity="0.15" />
+          <stop offset="0.5" stopColor={css(colB)} stopOpacity="0.15" />
+          <stop offset="1" stopColor={css(colB)} stopOpacity="0.95" />
+        </linearGradient>
+        <clipPath id={`${id}-hecho`}>
+          <rect x={0} y={0} width={X(Math.min(fin, minuto))} height={H} />
+        </clipPath>
+      </defs>
+      <text x={12} y={18} style={{ fill: css(colA), fontSize: 11, fontWeight: 700 }}>
+        {nombreA}
+      </text>
+      <text x={12} y={H - 8} style={{ fill: css(colB), fontSize: 11, fontWeight: 700 }}>
+        {nombreB}
+      </text>
+      <line x1={X(0)} x2={X(fin)} y1={mid} y2={mid} style={{ stroke: "rgba(255,255,255,0.18)" }} />
+      {fin >= 45 && <line x1={X(45)} x2={X(45)} y1={8} y2={H - 8} style={{ stroke: "rgba(255,255,255,0.22)", strokeDasharray: "3 4" }} />}
+      {[15, 30, 60, 75, 90].filter((m) => m <= fin).map((m) => (
+        <text key={m} x={X(m)} y={mid + 4} textAnchor="middle" style={{ fill: "rgba(255,255,255,0.25)", fontSize: 9 }}>
+          {m}′
+        </text>
+      ))}
+      <path d={area} style={{ fill: `url(#${id}-a)`, opacity: 0.25 }} />
+      <g clipPath={`url(#${id}-hecho)`}>
+        <path d={area} style={{ fill: `url(#${id}-a)` }} />
+        <path d={linea} style={{ fill: "none", stroke: "rgba(255,255,255,0.75)", strokeWidth: 1.4 }} />
+      </g>
+      {tiros
+        .filter((t) => t.gol)
+        .map((t, i) => (
+          <g key={i} style={{ opacity: t.minuto <= minuto ? 1 : 0.3 }}>
+            <circle cx={X(t.minuto)} cy={t.deA ? 12 : H - 12} r={6} style={{ fill: "#FFFFFF", stroke: css(t.deA ? colA : colB), strokeWidth: 3 }} />
+            <text x={X(t.minuto) + 10} y={t.deA ? 16 : H - 8} style={{ fill: "#FFFFFF", fontSize: 10, fontWeight: 700 }}>
+              {t.minuto}′
+            </text>
+          </g>
+        ))}
+      <line x1={X(Math.min(fin, minuto))} x2={X(Math.min(fin, minuto))} y1={4} y2={H - 4} style={{ stroke: "#FFFFFF", strokeWidth: 2 }} />
+    </svg>
   );
 }

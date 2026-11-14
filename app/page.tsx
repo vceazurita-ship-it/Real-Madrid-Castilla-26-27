@@ -22,6 +22,7 @@ import { MisTareas } from "@/components/portada/MisTareas"
 import { HREFS_MESA, PanelHoy } from "@/components/portada/PanelHoy"
 import { DirectoPortada } from "@/components/portada/DirectoPortada"
 import { OptaPortada } from "@/components/portada/OptaPortada"
+import { UltimoPartido3D } from "@/components/portada/UltimoPartido3D"
 import { EVENTO_ABRIR as EVENTO_ABRIR_TAREAS } from "@/lib/portada/mis-tareas"
 import { useAdmin } from "@/hooks/useAdmin"
 import { trackModuleVisit } from "@/lib/module-usage"
@@ -1074,6 +1075,9 @@ export default function Home() {
 
             {/* 10/11/2026: el próximo rival y nosotros en cuatro cifras de Opta, y el
                 momentum del último partido. Sólo documentos ligeros: ver el componente. */}
+            {/* 14/11/2026: el último partido en 3D (si ya tiene su evento a evento). */}
+            <UltimoPartido3D />
+
             <OptaPortada />
 
             {/* ACCESO RÁPIDO, fuera (30/10/2026): repetía los botones del héroe
