@@ -1568,7 +1568,8 @@ export default function DataAnalisisPage() {
                         está en su botón encendido; el título es la pregunta y el
                         nombre queda para el lector de pantalla. */}
                     {bloqueDe(area).areas.length > 1 ? (
-                      <h2 className="text-lg font-semibold tracking-tight text-white sm:text-xl">
+                      /* En directo, en móvil, fuera: el marcador sube a la primera pantalla (expertos, 14/11/2026). */
+                      <h2 className={`text-lg font-semibold tracking-tight text-white sm:text-xl ${area === "directo" ? "max-sm:sr-only" : ""}`}>
                         <span className="sr-only">{AREAS.find((a) => a.key === cabezaDe(area))?.label}: </span>
                         {AREAS.find((a) => a.key === area)?.pregunta}
                       </h2>

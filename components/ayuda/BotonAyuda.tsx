@@ -185,7 +185,7 @@ function PanelAyuda({ ayuda, alCerrar }: { ayuda: Ayuda; alCerrar: () => void })
                 onClick={() => document.getElementById(`ayuda-bloque-${i}`)?.scrollIntoView({ behavior: "smooth", block: "start" })}
                 className="rounded-full border border-white/15 px-3 py-1.5 text-sm font-semibold text-white/80 hover:bg-white/10 hover:text-white"
               >
-                {bl.titulo.split(":")[0]}
+                {ayuda.bloques.filter((x) => x.titulo.split(":")[0] === bl.titulo.split(":")[0]).length > 1 ? (bl.titulo.length > 40 ? `${bl.titulo.slice(0, 38)}…` : bl.titulo) : bl.titulo.split(":")[0]}
               </button>
             ))}
           </div>
