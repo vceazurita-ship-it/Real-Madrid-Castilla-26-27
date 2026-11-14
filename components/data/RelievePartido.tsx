@@ -11,7 +11,8 @@
  * partidos a la vez.
  */
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Pause, Play, RotateCcw } from "lucide-react";
 
 import { leeEventos, type JugadorDirecto } from "@/lib/opta-directo-mapas";
 import type { TablaOpta } from "@/lib/opta";
@@ -55,11 +56,33 @@ export function RelievePartido({
   const dx = (W - x0 - 20 - sx * (CARRILES - 1)) / (r.minutos - 1);
   const P = (t: number, c: number, h: number): [number, number] => [x0 + t * dx + c * sx, y0 - c * sy - h * alto];
 
+  /* LA ANIMACIÓN (14/11/2026, petición del analista: «dinámico, como el ejemplo»): el volumen
+     se levanta minuto a minuto, con el reloj y el marcador corriendo; cada remate sale como
+     un pico al pasar su minuto. Arranca solo (no en el pequeño); play/pausa, otra vez y velocidad. */
+  const fin = r.minutos - 1;
+  const [hasta, setHasta] = useState(compacto ? fin : 0);
+  const [jugando, setJugando] = useState(!compacto);
+  const [velocidad, setVelocidad] = useState(1);
+  useEffect(() => {
+    if (!jugando) return;
+    const t = window.setInterval(() => {
+      setHasta((h) => {
+        const n = Math.min(fin, h + 0.5 * velocidad);
+        if (n >= fin) setJugando(false);
+        return n;
+      });
+    }, 40);
+    return () => window.clearInterval(t);
+  }, [jugando, velocidad, fin]);
+  /* Lo que ya ha pasado sube del todo; el minuto que está pasando, a medias (el frente que crece). */
+  const sube = (t: number) => Math.max(0, Math.min(1, hasta - t + 1));
+
   const caras = useMemo(() => {
     const l: { d: string; fill: string }[] = [];
     for (let c = CARRILES - 2; c >= 0; c--)
       for (let t = 0; t < r.minutos - 1; t++) {
-        const h = [r.altura[t][c], r.altura[t + 1][c], r.altura[t + 1][c + 1], r.altura[t][c + 1]];
+        if (t > hasta + 1) continue;
+        const h = [r.altura[t][c] * sube(t), r.altura[t + 1][c] * sube(t + 1), r.altura[t + 1][c + 1] * sube(t + 1), r.altura[t][c + 1] * sube(t)];
         const pts = [P(t, c, h[0]), P(t + 1, c, h[1]), P(t + 1, c + 1, h[2]), P(t, c + 1, h[3])];
         const hm = (h[0] + h[1] + h[2] + h[3]) / 4;
         const p = (r.parteA[t][c] + r.parteA[t + 1][c] + r.parteA[t][c + 1] + r.parteA[t + 1][c + 1]) / 4;
@@ -67,14 +90,65 @@ export function RelievePartido({
       }
     return l;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [r, W, H]);
+  }, [r, W, H, hasta]);
 
   const nombre = (id: string) => jugadores?.get(id)?.nombre ?? "";
-  const golesA = r.picos.filter((p) => p.gol && p.deA).length;
-  const golesB = r.picos.filter((p) => p.gol && !p.deA).length;
+  const vistos = r.picos.filter((p) => p.minuto <= hasta);
+  const golesA = vistos.filter((p) => p.gol && p.deA).length;
+  const golesB = vistos.filter((p) => p.gol && !p.deA).length;
+  /* El último gol, para que brille un momento al llegar. */
+  const golReciente = vistos.filter((p) => p.gol).find((p) => hasta - p.minuto < 4);
 
   if (ev.length < 20) return null;
   return (
+    <div className="relative">
+    {!compacto && (
+      <div className="absolute left-3 top-3 z-10 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            if (hasta >= fin) setHasta(0);
+            setJugando((j) => !j || hasta >= fin);
+          }}
+          aria-label={jugando ? "Pausa" : "Reproducir"}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-black hover:bg-white"
+        >
+          {jugando ? <Pause size={16} /> : <Play size={16} />}
+        </button>
+        <button type="button" onClick={() => { setHasta(0); setJugando(true); }} aria-label="Otra vez" className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25">
+          <RotateCcw size={15} />
+        </button>
+        <button type="button" onClick={() => setVelocidad((v) => (v >= 4 ? 0.5 : v * 2))} className="h-9 rounded-full bg-white/15 px-3 text-xs font-bold text-white hover:bg-white/25">
+          ×{String(velocidad).replace(".", ",")}
+        </button>
+        <span className="ml-1 font-mono text-2xl font-bold tabular-nums text-white">{Math.min(fin, Math.floor(hasta))}′</span>
+        <span className="text-2xl font-bold tabular-nums">
+          <span style={{ color: "rgb(236,194,92)" }}>{golesA}</span>
+          <span className="text-white/60">-</span>
+          <span style={{ color: "rgb(236,84,88)" }}>{golesB}</span>
+        </span>
+      </div>
+    )}
+    {!compacto && (
+      <input
+        type="range"
+        min={0}
+        max={fin}
+        step={1}
+        value={Math.floor(hasta)}
+        onChange={(e) => {
+          setJugando(false);
+          setHasta(Number(e.target.value));
+        }}
+        aria-label="Minuto del partido"
+        className="absolute bottom-2 left-1/2 z-10 w-1/2 -translate-x-1/2 accent-[#ECC25C]"
+      />
+    )}
+    {golReciente && !compacto && (
+      <div className="pointer-events-none absolute inset-x-0 top-14 z-10 text-center text-3xl font-black tracking-wide" style={{ color: golReciente.deA ? "rgb(236,194,92)" : "rgb(236,84,88)", opacity: Math.max(0, 1 - (hasta - golReciente.minuto) / 4) }}>
+        ¡GOL! {golReciente.minuto}′ {nombre(golReciente.jugadorId)}
+      </div>
+    )}
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={`El partido en relieve: ${a.nombre} ${golesA}-${golesB} ${b.nombre}`}>
       <rect x={0} y={0} width={W} height={H} rx={compacto ? 10 : 16} style={{ fill: "#0B1410" }} />
       {/* El suelo: la rejilla de los minutos. */}
@@ -96,7 +170,7 @@ export function RelievePartido({
         <path key={i} d={q.d} style={{ fill: q.fill, stroke: "rgba(0,0,0,0.25)", strokeWidth: compacto ? 0.3 : 0.5 }} />
       ))}
       {/* Cada remate: su punta (el ratón dice quién y cuánto); el gol, con bola. */}
-      {r.picos.map((p, i) => {
+      {vistos.map((p, i) => {
         const h = Math.max(...[-1, 0, 1].map((dc) => r.altura[p.minuto]?.[Math.min(CARRILES - 1, Math.max(0, p.carril + dc))] ?? 0));
         const [x, y] = P(p.minuto, p.carril, h);
         return (
@@ -123,5 +197,6 @@ export function RelievePartido({
         </g>
       )}
     </svg>
+    </div>
   );
 }
