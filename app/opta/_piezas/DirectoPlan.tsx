@@ -334,13 +334,16 @@ export function DirectoPlan({
         const n = (e: Estado) => delPlan.filter((j) => j.estado === e).length;
         return (
           <div className="mb-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
-            <p className={`font-black uppercase tracking-[0.12em] text-[#C8A96B] ${completa ? "text-xl" : "text-sm"}`}>
+            <p className={`font-black text-[#C8A96B] ${completa ? "text-2xl" : "text-base sm:text-lg"}`}>
+              {decide.length ? `Logramos ${n("certeza")} de ${decide.length} ${decide.length === 1 ? "objetivo que decide" : "objetivos que deciden"}` : "Todo como siempre frente al plan"}
+            </p>
+            <p className="text-xs text-white/55">
               Balance frente al plan · {[n("certeza") && `${n("certeza")} ${n("certeza") === 1 ? "logrado" : "logrados"}`, n("alerta") && `${n("alerta")} no ${n("alerta") === 1 ? "logrado" : "logrados"}`, n("duda") && `${n("duda")} a medias`, n("habitual") && `${n("habitual")} como siempre`].filter(Boolean).join(" · ")}
             </p>
             <p className="mt-1 text-xs text-white/55">Cada tema del plan con la cifra del partido y su referencia (el texto del plan, al pasar el ratón)</p>
             <ul className="mt-1 space-y-1.5">
               {(todas ? delPlan : decide).map((j) => (
-                <li key={j.id} className={`flex items-start gap-2 ${completa ? "text-lg" : "text-sm"}`}>
+                <li key={j.id} className={`flex flex-col items-start gap-1 sm:flex-row sm:gap-2 ${completa ? "text-lg" : "text-sm"}`}>
                   <span className="mt-0.5 w-24 shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-center text-xs font-black" style={{ background: COLOR[j.estado].tinta, color: "#111827" }}>
                     {ETIQUETA[j.estado] ?? COLOR[j.estado].rotulo}
                   </span>
@@ -435,7 +438,8 @@ export function DirectoPlan({
           </p>
           <div className="flex h-24 items-stretch gap-[3px]">
             {mom.barras.map((b, i) => {
-              const alto = (Math.abs(b.balanza) / maxBarra) * 100;
+              /* Altura mínima: una barra de 1 px no se ve (expertos). */
+              const alto = b.balanza === 0 ? 0 : Math.max(8, (Math.abs(b.balanza) / maxBarra) * 100);
               return (
                 <div key={i} className="relative flex min-w-0 flex-1 flex-col" title={`${b.etiqueta}: ${b.balanza > 0 ? nombreNos : b.balanza < 0 ? nombreEllos : "igual"}`}>
                   <div className="flex flex-1 items-end">{b.balanza > 0 && <span className="w-full rounded-t" style={{ height: `${alto}%`, background: "#C8A96B" }} />}</div>
