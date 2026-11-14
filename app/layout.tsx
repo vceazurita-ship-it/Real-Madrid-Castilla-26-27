@@ -1,3 +1,4 @@
+import { BotonSubir } from "@/components/ui/BotonSubir";
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -152,6 +153,8 @@ export default function RootLayout({
             {/* Al entrar, lo que quedó sin hacer de días anteriores en «Mis tareas» (31/10/2026). */}
             <AvisoTareasPendientes />
             <AvisoBaseDatos />
+            {/* Volver arriba en las pantallas largas, en todas (14/11/2026). */}
+            <BotonSubir />
             {/* Dos dedos en el mousepad sobre cualquier vídeo: más rápido o más lento (31/10/2026). */}
             <LanzaderaGlobal />
           </DataProvider>

@@ -385,6 +385,17 @@ export function BotonPaleta() {
   const mac = useSyncExternalStore(sinCambios, esMac, noEsMac)
 
   return (
+    <>
+    {/* En el móvil, sólo la lupa (14/11/2026): antes no había forma de buscar una pantalla sin abrir el menú. */}
+    <button
+      type="button"
+      onClick={abrePaleta}
+      aria-label="Buscar una pantalla"
+      title="Buscar una pantalla"
+      className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] text-white/70 transition hover:text-white md:hidden"
+    >
+      <Search size={17} aria-hidden />
+    </button>
     <button
       type="button"
       onClick={abrePaleta}
@@ -398,5 +409,6 @@ export function BotonPaleta() {
         {mac ? "⌘" : "Ctrl"} K
       </kbd>
     </button>
+    </>
   )
 }

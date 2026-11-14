@@ -1623,6 +1623,16 @@ scrollbar-width:none;
 | la ficha abierta. Ya no queda ningún `data-flotante` en la aplicación.
 */
 
+/* Volver arriba (14/11/2026): con un modal delante no se pinta (taparía su pie en el móvil), ni al imprimir. */
+body:has(.modal-veil) .boton-subir {
+  display: none;
+}
+@media print {
+  .boton-subir {
+    display: none;
+  }
+}
+
 /*
 | La etapa en marcha de Ajustes (04/10/2026): rayas que avanzan sobre el oro,
 | para que se vea que trabaja aunque la cuenta tarde en moverse. Con

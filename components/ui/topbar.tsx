@@ -16,14 +16,15 @@ import { NavSeccion } from "@/components/ui/NavSeccion";
 export function Topbar() {
   return (
     <header className="sticky top-0 z-30 border-b border-white/10 bg-[#0B0F14]/85 backdrop-blur-xl">
-      <div className="flex items-center justify-between px-4 py-4 md:px-10 md:py-5">
+      {/* En el móvil, más baja (14/11/2026): 16 px menos de cabecera pegada en cada pantalla. */}
+      <div className="flex items-center justify-between px-4 py-3 md:px-10 md:py-5">
         {/*
           En móvil la esquina de arriba a la izquierda la ocupan dos botones
           fijos del menú —la hamburguesa y el «volver»—, así que la cabecera
           arranca después de los dos. En escritorio no hay nada que esquivar.
         */}
         <div className="ml-24 flex min-w-0 items-center gap-3 md:ml-0 md:gap-5">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] shadow-[0_0_30px_rgba(200,169,107,0.08)] md:h-14 md:w-14">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] shadow-[0_0_30px_rgba(200,169,107,0.08)] md:h-14 md:w-14">
             <Image
               src="/logo.png"
               alt="Real Madrid Castilla"
@@ -48,13 +49,15 @@ export function Topbar() {
             </p>
 
             <h2 className="mt-1 truncate text-lg font-semibold tracking-tight text-white sm:text-xl md:text-2xl">
-              Plataforma Integral
+              {/* «Plataforma» sola en el móvil: con la lupa al lado salía «Plataforma Int…». */}
+              <span className="sm:hidden">Plataforma</span>
+              <span className="hidden sm:inline">Plataforma Integral</span>
             </h2>
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-3">
-          {/* Ir a cualquier pantalla tecleando (Ctrl+K). En el móvil no sale. */}
+        <div className="flex shrink-0 items-center gap-2 md:gap-3">
+          {/* Ir a cualquier pantalla tecleando (Ctrl+K); en el móvil, la lupa (14/11/2026). */}
           <BotonPaleta />
 
           {/* De cuándo son los datos que se ven, y «Recargar» cuando hay nuevos. */}
