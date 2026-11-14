@@ -52,6 +52,8 @@ import {
   type Tramo,
 } from "@/lib/opta-directo-mapas";
 
+import { RelievePartido } from "@/components/data/RelievePartido";
+
 import { Botonera } from "./comun";
 
 type Equipo = { teamId: string; nombre: string };
@@ -645,6 +647,12 @@ export function DirectoMapas({ eventos, jugadores, a, b }: { eventos: TablaOpta 
         «Recuperaciones» de Opta de abajo sólo cuenta las primeras). Pérdidas = pase fallado, regate perdido o robado en conducción (la de Opta suma además duelos y
         despejes).
       </p>
+
+      {/* 0. El partido en relieve. */}
+      <section>
+        {titulo("El partido en relieve", "De izquierda a derecha, el minuto; hacia el fondo, el carril del campo; en altura, la presión de ataque (oro: " + a.nombre + "; rojo: " + b.nombre + "). Cada pico es un remate de verdad, más alto cuanto más xG; la bola blanca, el gol. La presión sin remate sólo levanta lomas bajas. Al pasar el ratón por un pico, quién y cuánto.")}
+        <RelievePartido eventos={eventos} a={a} b={b} jugadores={porId} />
+      </section>
 
       {/* 1. Territorio y calor. */}
       <section>

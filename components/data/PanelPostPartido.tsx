@@ -23,7 +23,7 @@
  * comparten entre las piezas (`hooks/useDocsOpta.ts`).
  */
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { ArrowRight, CalendarDays, Crosshair, Footprints, LayoutGrid, ShieldAlert, Swords, Timer } from "lucide-react";
 
@@ -37,6 +37,9 @@ import { alturaAccion, esPerdida, esProgresivo, esRecuperacion } from "@/lib/opt
 import { useOpta, type DatosOpta } from "@/app/opta/_piezas/useOpta";
 import { Notice } from "@/components/abp/ui";
 import { PanelCampograma } from "@/components/data/PanelCampograma";
+import { RelievePartido } from "@/components/data/RelievePartido";
+import { useAdmin } from "@/hooks/useAdmin";
+import { DOCS_OPTA, aObjetos, traeOpta, type TablaOpta } from "@/lib/opta";
 import { useCalendarioCastilla } from "@/components/data/SelloJornada";
 import { Hueso } from "@/components/ui/estados";
 import { SelloFuente } from "@/components/ui/SelloFuente";
@@ -177,6 +180,9 @@ export function PanelPostPartido({ wyscout, wyscoutCaido = false }: { wyscout: F
           </Notice>
         </div>
       )}
+
+      {/* 0 · EL PARTIDO EN RELIEVE (14/11/2026): del evento a evento del directo de ese partido. */}
+      {visto.opta && <RelieveDelPartido partido={visto.clave} />}
 
       {/* 1 · OPTA: EL CARA A CARA, EL MOMENTUM Y LOS REMATES */}
       {visto.opta && datos && <BloqueOpta datos={datos} partido={visto} hasta={hasta} />}
@@ -421,5 +427,58 @@ function BloqueOpta({ datos, partido, hasta }: { datos: DatosOpta; partido: Part
         )
       )}
     </Bloque>
+  );
+}
+
+/* El relieve del partido: lo deja scripts/opta-directo.mjs en opta:directo:<partido>. Si aún no está, el
+   administrador lo pide (1-2 minutos, desde GitHub). */
+function RelieveDelPartido({ partido }: { partido: string }) {
+  const [doc, setDoc] = useState<{ eventos?: TablaOpta; equipos?: TablaOpta } | null | undefined>(undefined);
+  const [vuelta, setVuelta] = useState(0);
+  const [pedido, setPedido] = useState(false);
+  const { admin } = useAdmin();
+  useEffect(() => {
+    let vivo = true;
+    void traeOpta<{ eventos?: TablaOpta; equipos?: TablaOpta }>(DOCS_OPTA.directo(partido)).then((d) => {
+      if (vivo) setDoc(d);
+    });
+    return () => {
+      vivo = false;
+    };
+  }, [partido, vuelta]);
+  useEffect(() => {
+    if (!pedido || doc?.eventos?.filas?.length) return;
+    const t = window.setInterval(() => setVuelta((n) => n + 1), 20_000);
+    return () => window.clearInterval(t);
+  }, [pedido, doc]);
+  const filas = aObjetos(doc?.equipos ?? null).sort((x, y) => (x.teamId === CASTILLA_OPTA ? -1 : y.teamId === CASTILLA_OPTA ? 1 : 0));
+  const [x, y] = [filas[0], filas[1]];
+  const nom = (f: Record<string, unknown>) => (f.teamId === CASTILLA_OPTA ? "Real Madrid Castilla" : String(f.equipo ?? ""));
+  if (doc === undefined) return null;
+  return (
+    <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+      <h3 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/55">El partido en relieve</h3>
+      <p className="mb-2 text-[11px] text-white/45">
+        Minuto a minuto (a lo largo), carril del campo (al fondo) y presión de ataque (en altura): oro el Castilla, rojo el rival. Cada pico es un remate de verdad, más alto
+        cuanto más xG; la bola blanca, el gol. Los mapas, la red de pases y cada jugador, en Análisis de datos → En directo.
+      </p>
+      {doc?.eventos?.filas?.length && x && y ? (
+        <RelievePartido eventos={doc.eventos} a={{ teamId: String(x.teamId ?? ""), nombre: nom(x) }} b={{ teamId: String(y.teamId ?? ""), nombre: nom(y) }} />
+      ) : admin ? (
+        <button
+          type="button"
+          disabled={pedido}
+          onClick={() => {
+            setPedido(true);
+            void fetch("/api/opta/directo", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ partido, duracion: 15 }) });
+          }}
+          className="rounded-xl bg-red-500 px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
+        >
+          {pedido ? "Pedido a Opta: sale aquí en 1-2 minutos…" : "Cargar el relieve y los mapas de este partido"}
+        </button>
+      ) : (
+        <p className="text-xs text-white/50">Aún no está el evento a evento de este partido.</p>
+      )}
+    </section>
   );
 }

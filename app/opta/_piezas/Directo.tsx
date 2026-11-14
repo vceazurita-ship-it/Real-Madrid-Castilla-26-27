@@ -27,6 +27,7 @@ import { indiceVivo, useDirectoOpta } from "@/hooks/useDirectoOpta";
 
 import { Elegir, fmt, Panel } from "./comun";
 import { DirectoMapas } from "./DirectoMapas";
+import { RelievePartido } from "@/components/data/RelievePartido";
 import { DirectoPlan } from "./DirectoPlan";
 import type { DatosOpta } from "./useOpta";
 
@@ -146,6 +147,49 @@ export function Directo({ datos }: { datos: DatosOpta }) {
       vivo = false;
     };
   }, [visto, vuelta]);
+
+  /* Todos los partidos a la vez (14/11/2026): sólo si se pide, que son ~200 KB por partido cada minuto. */
+  const [todos, setTodos] = useState(false);
+  const [docsTodos, setDocsTodos] = useState<Record<string, DocDirecto | null>>({});
+  useEffect(() => {
+    if (!todos) return;
+    let vivo = true;
+    void Promise.all(partidos.filter((p) => p.conDatos).map(async (p) => [p.partido, await traeOpta<DocDirecto>(DOCS_OPTA.directo(p.partido))] as const)).then((l) => {
+      if (vivo) setDocsTodos(Object.fromEntries(l));
+    });
+    return () => {
+      vivo = false;
+    };
+  }, [todos, partidos, vuelta]);
+
+  /* Repasar otro partido (admin): cualquiera de la temporada, también ya jugado; se lanza el proceso sólo para él. */
+  const [repaso, setRepaso] = useState("");
+  const [lanzandoRepaso, setLanzandoRepaso] = useState(false);
+  const recientes = useMemo(() => {
+    const m = new Map<string, { partido: string; fecha: string; equipos: string[] }>();
+    for (const f of filasTemporada) {
+      const id = String(f.partido ?? "");
+      if (!id) continue;
+      const p = m.get(id) ?? { partido: id, fecha: String(f.fecha ?? "").slice(0, 10), equipos: [] };
+      p.equipos.push(f.teamId === CASTILLA_OPTA ? NOMBRE_CASTILLA : String(f.equipo ?? ""));
+      m.set(id, p);
+    }
+    return [...m.values()].sort((x, y) => y.fecha.localeCompare(x.fecha)).slice(0, 60);
+  }, [filasTemporada]);
+  const repasar = async () => {
+    if (!repaso) return;
+    setLanzandoRepaso(true);
+    try {
+      const r = await fetch("/api/opta/directo", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ partido: repaso, duracion: 15 }) });
+      if (r.ok) {
+        setElegido(repaso);
+        setLanzadoEn(Date.now());
+        setVuelta((n) => n + 1);
+      }
+    } finally {
+      setLanzandoRepaso(false);
+    }
+  };
 
   const doc = leido?.clave === visto ? leido.doc : null;
   const filas = useMemo(() => aObjetos(doc?.equipos ?? null), [doc]);
@@ -298,6 +342,53 @@ export function Directo({ datos }: { datos: DatosOpta }) {
                 </button>
               );
             })}
+          </div>
+        )}
+        {partidos.length > 1 && (
+          <div className="mb-3">
+            <button
+              type="button"
+              onClick={() => setTodos((v) => !v)}
+              className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-white/80 hover:text-white"
+            >
+              {todos ? "Ocultar todos a la vez" : "Ver todos los partidos a la vez (en relieve)"}
+            </button>
+            {todos && (
+              <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {partidos.filter((p) => p.conDatos).map((p) => {
+                  const d = docsTodos[p.partido];
+                  const fs = aObjetos(d?.equipos ?? null);
+                  const [x, y] = [fs[0], fs[1]];
+                  if (!d || !x || !y) return <div key={p.partido} className="rounded-xl border border-white/10 p-3 text-xs text-white/50">Cargando…</div>;
+                  return (
+                    <button key={p.partido} type="button" onClick={() => setElegido(p.partido)} className={`rounded-xl border p-2 text-left ${p.partido === visto ? "border-white/40" : "border-white/10 hover:border-white/25"}`}>
+                      <p className="mb-1 truncate text-xs font-semibold text-white/85">
+                        <span style={{ color: "rgb(236,194,92)" }}>{nombre(x)}</span> {num(x.Goal) ?? 0}-{num(y.Goal) ?? 0} <span style={{ color: "rgb(236,84,88)" }}>{nombre(y)}</span>
+                        {/played|full/i.test(String(p.estado ?? "")) ? " · final" : ""}
+                      </p>
+                      <RelievePartido eventos={d.eventos} a={{ teamId: String(x.teamId ?? ""), nombre: nombre(x) }} b={{ teamId: String(y.teamId ?? ""), nombre: nombre(y) }} compacto />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+        {admin && lanzar.preparado && recientes.length > 0 && (
+          <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs">
+            <span className="font-semibold text-white/75">Repasar otro partido (también ya jugado):</span>
+            <select value={repaso} onChange={(e) => setRepaso(e.target.value)} className="max-w-full rounded-lg border border-white/15 bg-black/30 px-2 py-1 text-white/85">
+              <option value="">Elige un partido…</option>
+              {recientes.map((p) => (
+                <option key={p.partido} value={p.partido}>
+                  {p.fecha} · {p.equipos.join(" - ")}
+                </option>
+              ))}
+            </select>
+            <button type="button" onClick={() => void repasar()} disabled={!repaso || lanzandoRepaso} className="rounded-lg bg-red-500 px-3 py-1 font-bold text-white disabled:opacity-50">
+              {lanzandoRepaso ? "Pidiendo…" : "Cargar"}
+            </button>
+            <span className="text-white/45">Tarda 1-2 minutos (lo pide a Opta desde GitHub) y sale aquí solo.</span>
           </div>
         )}
         {partidos.length === 0 || (!vivo && !esperando && !lanzar.corriendo && boton) ? (
