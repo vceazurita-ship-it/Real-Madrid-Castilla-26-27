@@ -934,7 +934,7 @@ function Clasificacion({ informe, jugados = 0 }: { informe: RespuestaPortada | n
             {/* Si el calendario ya tiene más partidos jugados que la tabla, se dice (expertos: 11 frente a 12 confundía). */}
             {jugados > fila.ganados + fila.empatados + fila.perdidos && (
               <span className="mr-1 font-semibold text-[#C8A96B]">
-                Sin la última jornada: BeSoccer aún no la ha cargado ({fila.ganados + fila.empatados + fila.perdidos} de {jugados}) ·
+                Sin la última jornada ({fila.ganados + fila.empatados + fila.perdidos} de {jugados}) ·
               </span>
             )}
             <span className="sm:hidden">Tras los {fila.ganados + fila.empatados + fila.perdidos} jugados · BeSoccer</span>
