@@ -18,7 +18,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Pause, Play, RotateCcw } from "lucide-react";
+import { Maximize2, Minimize2, Pause, Play, RotateCcw } from "lucide-react";
 
 import { useAdmin } from "@/hooks/useAdmin";
 import { leeEventos, type JugadorDirecto } from "@/lib/opta-directo-mapas";
@@ -126,6 +126,95 @@ export function RelievePartido({
   };
 
   const lienzo = useRef<HTMLCanvasElement>(null);
+  const marco = useRef<HTMLDivElement>(null);
+
+  /*
+  | AL GIRAR EL MÓVIL Y A PANTALLA COMPLETA (15/11/2026, petición del analista).
+  | El lienzo dibuja en 1000 × 560 y el CSS lo escala; la nitidez (píxeles por
+  | punto) sale ahora del ancho que ocupa de verdad, medido con un
+  | ResizeObserver: al girar el móvil o al pasar a pantalla completa se vuelve a
+  | montar el dibujo con la resolución que toca (el minuto no se pierde: vive en
+  | `estado`). «completa» = API de pantalla completa del navegador; en el
+  | iPhone, que no la tiene para un div, el marco pasa a `fixed inset-0`.
+  */
+  const [completa, setCompleta] = useState(false);
+  const [nativa, setNativa] = useState(false);
+  const [resolucion, setResolucion] = useState(1);
+  useEffect(() => {
+    const cv = lienzo.current;
+    if (!cv) return;
+    const mide = () => {
+      const ancho = cv.getBoundingClientRect().width;
+      if (!ancho) return;
+      const base = compacto ? 480 : 1000;
+      const r0 = Math.min(2, Math.max(1, (ancho * (window.devicePixelRatio || 1)) / base));
+      setResolucion(Math.round(r0 * 4) / 4);
+    };
+    mide();
+    const ro = new ResizeObserver(mide);
+    ro.observe(cv);
+    window.addEventListener("orientationchange", mide);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("orientationchange", mide);
+    };
+  }, [compacto]);
+  useEffect(() => {
+    const doc = document as Document & { webkitFullscreenElement?: Element | null };
+    const cambio = () => {
+      const el = document.fullscreenElement ?? doc.webkitFullscreenElement ?? null;
+      const dentro = Boolean(el && el === marco.current);
+      setNativa(dentro);
+      if (!dentro) setCompleta((c) => (c && !el ? false : c));
+    };
+    document.addEventListener("fullscreenchange", cambio);
+    document.addEventListener("webkitfullscreenchange", cambio);
+    return () => {
+      document.removeEventListener("fullscreenchange", cambio);
+      document.removeEventListener("webkitfullscreenchange", cambio);
+    };
+  }, []);
+  /* El modo del iPhone: sin scroll detrás y Escape para salir. */
+  useEffect(() => {
+    if (!completa || nativa) return;
+    const antes = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const tecla = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setCompleta(false);
+    };
+    window.addEventListener("keydown", tecla);
+    return () => {
+      document.body.style.overflow = antes;
+      window.removeEventListener("keydown", tecla);
+    };
+  }, [completa, nativa]);
+  const alternaCompleta = async () => {
+    const el = marco.current as (HTMLDivElement & { webkitRequestFullscreen?: () => Promise<void> | void }) | null;
+    const doc = document as Document & { webkitExitFullscreen?: () => Promise<void> | void; webkitFullscreenElement?: Element | null };
+    if (completa) {
+      try {
+        if (document.fullscreenElement) await document.exitFullscreen();
+        else if (doc.webkitFullscreenElement) await doc.webkitExitFullscreen?.();
+      } catch {
+        /* ya había salido */
+      }
+      setCompleta(false);
+      return;
+    }
+    setCompleta(true);
+    try {
+      if (el?.requestFullscreen) await el.requestFullscreen();
+      else if (el?.webkitRequestFullscreen) await el.webkitRequestFullscreen();
+    } catch {
+      /* sin API (iPhone): se queda el modo fijo */
+    }
+    try {
+      const orient = screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> };
+      await orient?.lock?.("landscape");
+    } catch {
+      /* el navegador no deja fijar el giro: no pasa nada */
+    }
+  };
   const cursorMom = useRef<SVGLineElement>(null);
   const recorteMom = useRef<SVGRectElement>(null);
   const [jugando, setJugando] = useState(true);
@@ -146,7 +235,7 @@ export function RelievePartido({
     if (!cv || r.minutos < 2) return;
     const W = compacto ? 480 : 1000;
     const H = compacto ? 270 : 560;
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const dpr = resolucion;
     cv.width = W * dpr;
     cv.height = H * dpr;
     const g = cv.getContext("2d");
@@ -485,7 +574,7 @@ export function RelievePartido({
     };
     pedido = requestAnimationFrame(vuelta);
     return () => cancelAnimationFrame(pedido);
-  }, [r, fin, compacto, colA, colB]);
+  }, [r, fin, compacto, colA, colB, resolucion]);
 
   const xgA = r.tiros.filter((p) => p.deA && p.minuto <= minuto).reduce((x, p) => x + p.xg, 0);
   const xgB = r.tiros.filter((p) => !p.deA && p.minuto <= minuto).reduce((x, p) => x + p.xg, 0);
@@ -508,10 +597,21 @@ export function RelievePartido({
 
   if (ev.length < 20) return null;
   return (
-    <div className="group relative mx-auto overflow-hidden rounded-2xl" style={{ background: "#05050a", maxWidth: compacto ? undefined : "min(100%, calc((100vh - 170px) * 1.4))" }}>
+    <div
+      ref={marco}
+      className={completa ? "group fixed inset-0 z-[80] flex flex-col justify-center overflow-hidden" : "group relative mx-auto overflow-hidden rounded-2xl"}
+      style={{ background: "#05050a", maxWidth: compacto || completa ? undefined : "min(100%, max(560px, calc((100vh - 170px) * 1.4)))" }}
+    >
       {/* El lienzo con su tira de ocasión pegada abajo (móvil y tablet): no tapa marcador ni campo. */}
       <div className="relative">
-        <canvas ref={lienzo} className="block h-auto w-full" style={{ aspectRatio: compacto ? "480 / 270" : "1000 / 560" }} role="img" aria-label={`Retrato 3D del partido ${a.nombre} - ${b.nombre}, animado`} />
+        {/* Tumbado en el móvil (poco alto), el campo se ajusta al alto que hay y se centra; a pantalla completa ocupa todo. */}
+        <canvas
+          ref={lienzo}
+          className="mx-auto block h-auto"
+          style={{
+            aspectRatio: compacto ? "480 / 270" : "1000 / 560",
+            width: compacto ? "100%" : completa ? "min(100vw, calc(100dvh * 1000 / 560))" : "min(100%, calc((100dvh - 96px) * 1000 / 560))",
+          }} role="img" aria-label={`Retrato 3D del partido ${a.nombre} - ${b.nombre}, animado`} />
         {aviso && !compacto && minuto - aviso.minuto < 4 && (
           <p
             key={`tira-${aviso.minuto}-${aviso.jugadorId}`}
@@ -565,7 +665,7 @@ export function RelievePartido({
       )}
       {/* Móvil (14/11/2026): las cifras van debajo del campo, no encima (lo tapaban entero). */}
       {!compacto && (
-        <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 px-3 pt-2 text-xs tabular-nums sm:text-sm lg:hidden" style={{ color: "rgba(255,255,255,0.8)" }}>
+        <div className={`grid grid-cols-2 gap-x-3 gap-y-0.5 px-3 pt-2 text-xs tabular-nums sm:text-sm lg:hidden ${completa ? "hidden" : ""}`} style={{ color: "rgba(255,255,255,0.8)" }}>
           <p>
             xG hasta el {minuto}′: <b style={{ color: css(colA) }}>{xgA.toFixed(2).replace(".", ",")}</b> – <b style={{ color: css(colB) }}>{xgB.toFixed(2).replace(".", ",")}</b>
           </p>
@@ -590,7 +690,7 @@ export function RelievePartido({
           <style>{`@keyframes rmcfTitulo { 0% { opacity: 0; letter-spacing: .1em } 20% { opacity: 1; letter-spacing: 0 } 75% { opacity: 1 } 100% { opacity: 0 } }`}</style>
         </div>
       )}
-      {!compacto && <Momentum cursorRef={cursorMom} recorteRef={recorteMom} curva={r.curva} tiros={r.tiros} minuto={minuto} colA={colA} colB={colB} nombreA={a.nombre} nombreB={b.nombre} />}
+      {!compacto && !completa && <Momentum cursorRef={cursorMom} recorteRef={recorteMom} curva={r.curva} tiros={r.tiros} minuto={minuto} colA={colA} colB={colB} nombreA={a.nombre} nombreB={b.nombre} />}
       {/* Marcador, como en la tele. */}
       <div className={`pointer-events-none absolute left-3 top-3 ${compacto ? "" : "sm:left-6 sm:top-5"}`}>
         <div className="flex gap-4">
@@ -644,7 +744,24 @@ export function RelievePartido({
         </div>
       )}
       {!compacto && (
-        <div className="flex flex-wrap items-center justify-center gap-2 px-3 py-2 transition-opacity duration-500 focus-within:opacity-100 lg:absolute lg:right-5 lg:top-[86px] lg:max-w-[60%] lg:justify-end lg:p-0 lg:opacity-0 lg:group-hover:opacity-100">
+        <div
+          className={
+            completa
+              ? "absolute inset-x-2 bottom-2 flex flex-wrap items-center justify-center gap-2 rounded-2xl px-2 py-1.5"
+              : "flex flex-wrap items-center justify-center gap-2 px-3 py-2 transition-opacity duration-500 focus-within:opacity-100 lg:absolute lg:right-5 lg:top-[86px] lg:max-w-[60%] lg:justify-end lg:p-0 lg:opacity-0 lg:group-hover:opacity-100"
+          }
+          style={completa ? { background: "rgba(5,5,10,0.72)", backdropFilter: "blur(8px)" } : undefined}
+        >
+          <button
+            type="button"
+            onClick={() => void alternaCompleta()}
+            aria-label={completa ? "Salir de pantalla completa" : "Ver a pantalla completa"}
+            title={completa ? "Salir de pantalla completa (Esc)" : "Ver a pantalla completa"}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full"
+            style={{ background: "rgba(255,255,255,0.18)", color: "#FFFFFF" }}
+          >
+            {completa ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+          </button>
           <button type="button" onClick={() => setJugando((j) => !j)} aria-label={jugando ? "Pausa" : "Reproducir"} className="inline-flex h-9 w-9 items-center justify-center rounded-full" style={{ background: "#FFFFFF", color: "#000000" }}>
             {jugando ? <Pause size={16} /> : <Play size={16} />}
           </button>
@@ -679,14 +796,14 @@ export function RelievePartido({
           <button type="button" onClick={() => setCenital((c) => !c)} className="h-9 rounded-full px-3 text-xs font-bold" style={{ background: "rgba(255,255,255,0.18)", color: "#FFFFFF" }}>
             {cenital ? "Girar en 3D" : "Desde arriba"}
           </button>
-          <span className="flex overflow-hidden rounded-full text-xs font-bold" style={{ background: "rgba(255,255,255,0.12)" }}>
+          <span className={`flex overflow-hidden rounded-full text-xs font-bold ${completa ? "max-lg:hidden" : ""}`} style={{ background: "rgba(255,255,255,0.12)" }}>
             {(["app", "camisetas"] as const).map((m) => (
               <button key={m} type="button" onClick={() => cambiaModo(m)} className="px-2.5 py-1.5" style={modo === m ? { background: "#FFFFFF", color: "#000000" } : { color: "rgba(255,255,255,0.8)" }}>
                 {m === "app" ? "Oro y blanco" : "Camisetas"}
               </button>
             ))}
           </span>
-          {admin && partido && modo === "camisetas" && (
+          {admin && partido && modo === "camisetas" && !completa && (
             <span className="flex items-center gap-1 rounded-full px-2 py-1 text-xs" style={{ background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.8)" }} title="Color de cada equipo en este partido (se guarda para todos)">
               Colores
               <input type="color" value={aHex(colA)} onChange={(e) => void fija(a.teamId, e.target.value)} aria-label={`Color de ${a.nombre}`} className="h-6 w-6 cursor-pointer rounded border-0 bg-transparent" />
