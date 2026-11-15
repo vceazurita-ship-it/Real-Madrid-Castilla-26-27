@@ -15,10 +15,18 @@
  */
 
 import { useEffect, useState, type ReactNode } from "react";
-import { Crosshair, Lightbulb, ShieldAlert, Sparkles, Swords, TrendingUp } from "lucide-react";
+import { CornerDownRight, Crosshair, Lightbulb, ShieldAlert, Sparkles, Swords, TrendingUp } from "lucide-react";
 
 import { diaLargoDelCalendario, horaDelCalendarioLocal } from "@/lib/castilla/calendario";
-import { COMO_SE_CUENTA_ABP, dentroDelRango, type ProyeccionAbp } from "@/lib/proyeccion/abp";
+import {
+  COMO_SE_CUENTA_ABP,
+  MIN_CORNERS_LADO,
+  NOMBRE_ZONA_CORNER,
+  dentroDelRango,
+  type EntregaCorner,
+  type EntregaLado,
+  type ProyeccionAbp,
+} from "@/lib/proyeccion/abp";
 import { coma, pct, rango, type Proyeccion } from "@/lib/proyeccion/base";
 import { COMO_SE_CUENTA_JUEGO, type ProyeccionJuego } from "@/lib/proyeccion/juego";
 import type { PartidoObjetivo } from "@/lib/proyeccion/montaje";
@@ -226,7 +234,11 @@ function Celda({ p, real, tendencia, dec = 1 }: { p: Proyeccion; real?: number |
 export function PanelAbp({ partido, d, accion }: { partido: PartidoObjetivo; d: ProyeccionAbp; accion?: ReactNode }) {
   const hayReal = d.lineas.some((l) => l.real && l.real.favor != null);
   const ventajas = d.ventajas.slice(0, 2).map((v) => ({ clave: v.tipo, frase: v.frase, consigna: v.consigna, tendencia: v.tendencia }));
-  const riesgos = d.riesgos.slice(0, 2).map((v) => ({ clave: v.tipo, frase: v.frase, consigna: v.consigna, tendencia: v.tendencia }));
+  /* Si su córner repite una zona (Cómo saca el córner), el córner en contra entra siempre en los riesgos. */
+  const enRiesgo = d.riesgos.slice(0, 2);
+  const cornerC = d.entregaCorner?.mayor ? d.riesgos.find((v) => v.tipo === "corner") : undefined;
+  if (cornerC && !enRiesgo.includes(cornerC)) enRiesgo.push(cornerC);
+  const riesgos = enRiesgo.map((v) => ({ clave: v.tipo, frase: v.frase, consigna: v.consigna, tendencia: v.tendencia }));
   return (
     <section className="space-y-4 rounded-3xl border border-[#C8A96B]/20 bg-white/[0.03] p-5 md:p-7">
       <Cabecera partido={partido} titulo="Balón parado" hasta={d.hasta} accion={accion} />
@@ -301,6 +313,8 @@ export function PanelAbp({ partido, d, accion }: { partido: PartidoObjetivo; d: 
         <Consignas titulo="Dónde más riesgo" icono={<ShieldAlert size={13} className="text-rose-300" />} items={riesgos} />
       </div>
 
+      {d.entregaCorner && <ComoSacaElCorner e={d.entregaCorner} rival={partido.rival} />}
+
       {(d.amenaza || d.nuestroRematador) && (
         <div className="grid gap-3 md:grid-cols-2">
           {d.amenaza && (
@@ -322,6 +336,84 @@ export function PanelAbp({ partido, d, accion }: { partido: PartidoObjetivo; d: 
 
       <ComoSeCuenta lineas={COMO_SE_CUENTA_ABP} />
     </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  CÓMO SACA EL CÓRNER (15/11/2026)                                   */
+/* ------------------------------------------------------------------ */
+
+/** Puntos de diferencia con signo: «+14», «−9». */
+const puntos = (dif: number) => {
+  const v = Math.round(dif * 100);
+  return v > 0 ? `+${v}` : v < 0 ? `−${Math.abs(v)}` : "0";
+};
+
+function LadoEntrega({ l, rival }: { l: EntregaLado; rival: string }) {
+  const corto = l.n < MIN_CORNERS_LADO;
+  return (
+    <div className="min-w-0 rounded-xl border border-white/10 bg-white/[0.02] p-3">
+      <p className="text-[12px] font-semibold text-white/85">
+        Desde su {l.lado}
+        <span className="ml-1.5 font-normal text-white/50">
+          {l.n} {l.n === 1 ? "córner" : "córners"}
+        </span>
+        {corto && <Tendencia />}
+      </p>
+      <ul className="mt-2 space-y-2">
+        {l.zonas.map((z) => {
+          const tono = !z.destaca ? "text-white/45" : z.dif > 0 ? "text-rose-300" : "text-sky-300";
+          return (
+            <li
+              key={z.zona}
+              className={`rounded-lg px-2 py-1.5 ${z.destaca ? "border border-[#C8A96B]/40 bg-[#C8A96B]/10" : "border border-transparent"}`}
+              title={`${rival}: ${pct(z.cuota)} desde la ${l.lado}; el resto del grupo, ${pct(z.cuotaGrupo)} (${l.nGrupo} córners)`}
+            >
+              <div className="flex items-baseline justify-between gap-2 text-[12px]">
+                <span className="min-w-0 truncate text-white/80">{NOMBRE_ZONA_CORNER[z.zona]}</span>
+                <span className="shrink-0 tabular-nums">
+                  <span className="font-semibold text-white">{pct(z.cuota)}</span>
+                  <span className="ml-1 text-white/45">grupo {pct(z.cuotaGrupo)}</span>
+                  <span className={`ml-1.5 font-semibold ${tono}`}>{puntos(z.dif)}</span>
+                </span>
+              </div>
+              {/* La barra es su parte; la raya, la del grupo. */}
+              <div className="relative mt-1 h-1.5 rounded-full bg-white/10">
+                <div className="absolute inset-y-0 left-0 rounded-full bg-[#C8A96B]" style={{ width: `${Math.min(100, z.cuota * 100)}%` }} />
+                <div className="absolute -top-0.5 h-2.5 w-0.5 rounded bg-current text-white/70" style={{ left: `calc(${Math.min(100, z.cuotaGrupo * 100)}% - 1px)` }} />
+              </div>
+              {z.n > 0 && (
+                <p className="mt-0.5 text-[11px] tabular-nums text-white/50">
+                  {z.n} {z.n === 1 ? "córner" : "córners"} · {z.conRemate} con remate · {z.remates} {z.remates === 1 ? "remate" : "remates"} en la acción · {coma(z.xG, 2)} xG
+                </p>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+function ComoSacaElCorner({ e, rival }: { e: EntregaCorner; rival: string }) {
+  const m = e.mayor;
+  return (
+    <Bloque titulo="Cómo saca el córner" icono={<CornerDownRight size={13} className="text-[#C8A96B]" />}>
+      <p className="mb-3 text-[12px] leading-snug text-white/60">
+        {e.n} córners del {rival} en {e.partidos} {e.partidos === 1 ? "partido" : "partidos"}, por dónde caen (destino del pase de Opta) y frente al resto del grupo desde el mismo lado.
+        Resaltado, lo que se separa 10 puntos o más{m ? "" : "; esta temporada no se separa en ninguna zona"}.
+      </p>
+      {m && (
+        <p className="mb-3 rounded-lg border border-[#C8A96B]/25 bg-[#C8A96B]/10 px-3 py-2 text-sm text-white/85">
+          Lo que más repite: <strong>{NOMBRE_ZONA_CORNER[m.zona.zona].toLowerCase()}</strong> desde su {m.lado}, {pct(m.zona.cuota)} frente a {pct(m.zona.cuotaGrupo)} del grupo ({puntos(m.zona.dif)}). Va a «Dónde más riesgo».
+        </p>
+      )}
+      <div className="grid gap-3 md:grid-cols-2">
+        {e.lados.filter((l) => l.n > 0).map((l) => (
+          <LadoEntrega key={l.lado} l={l} rival={rival} />
+        ))}
+      </div>
+    </Bloque>
   );
 }
 

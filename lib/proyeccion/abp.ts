@@ -158,6 +158,8 @@ export type ProyeccionAbp = {
   riesgos: Ventaja[];
   amenaza: Amenaza | null;
   nuestroRematador: Amenaza | null;
+  /** Dónde cae su córner frente al grupo, por lado (15/11/2026). */
+  entregaCorner: EntregaCorner | null;
   partidos: { nos: number; riv: number };
   /** Hasta qué partido llegan los datos. */
   hasta: string;
@@ -271,6 +273,114 @@ const ZONA_TEXTO: Record<ZonaCorner, string> = {
 };
 
 /* ------------------------------------------------------------------ */
+/*  CÓMO SACA EL CÓRNER (15/11/2026)                                   */
+/* ------------------------------------------------------------------ */
+/*
+| Dónde cae cada córner del rival (las cinco zonas de `zonaCorner`, con el
+| destino del pase de Opta), separado por el lado del saque, frente al reparto
+| del resto del grupo desde ese mismo lado. Se resalta la zona que se separa
+| 10 puntos o más de la media; la que más se separa (con 8 córners de ese lado
+| como mínimo) va a la consigna del córner en contra de la proyección.
+*/
+
+export const ORDEN_ZONAS_CORNER: ZonaCorner[] = ["corto", "primer palo", "centro", "segundo palo", "frontal"];
+
+export const NOMBRE_ZONA_CORNER: Record<ZonaCorner, string> = {
+  corto: "En corto",
+  "primer palo": "Primer palo",
+  centro: "Punto de penalti",
+  "segundo palo": "Segundo palo",
+  frontal: "Frontal",
+};
+
+/** Separación que se resalta: 10 puntos frente al grupo. */
+export const UMBRAL_ENTREGA = 0.1;
+/** Córners de un lado por debajo de los cuales no se resalta nada. */
+export const MIN_CORNERS_LADO = 8;
+
+export type LadoCorner = "derecha" | "izquierda";
+
+export type ZonaEntrega = {
+  zona: ZonaCorner;
+  n: number;
+  /** Su parte de los córners de ese lado (tanto por uno). */
+  cuota: number;
+  /** La del resto del grupo desde el mismo lado. */
+  cuotaGrupo: number;
+  /** cuota − cuotaGrupo. */
+  dif: number;
+  /** Córners de la zona que acaban en remate en la primera jugada. */
+  conRemate: number;
+  /** Remates de la acción, segunda jugada incluida, y su xG. */
+  remates: number;
+  xG: number;
+  /** Se separa 10 puntos o más del grupo con muestra suficiente. */
+  destaca: boolean;
+};
+
+export type EntregaLado = { lado: LadoCorner; n: number; nGrupo: number; zonas: ZonaEntrega[] };
+
+export type EntregaCorner = {
+  lados: EntregaLado[];
+  n: number;
+  partidos: number;
+  /** La zona que más se separa del grupo (de las resaltadas). */
+  mayor: { lado: LadoCorner; zona: ZonaEntrega } | null;
+};
+
+/** Lado del saque visto por quien ataca (y < 50 = su banda derecha), como `ladoSaque`. */
+const ladoDe = (s: Saque): LadoCorner => (s.y < 50 ? "derecha" : "izquierda");
+
+export function entregaCorner(saques: Saque[], equipo: string, antes: string | null): EntregaCorner | null {
+  const dia = antes?.slice(0, 10) ?? null;
+  const corners = saques.filter((s) => s.abp === "corner" && (!dia || s.fecha.slice(0, 10) < dia));
+  const suyos = corners.filter((s) => s.teamId === equipo);
+  if (!suyos.length) return null;
+  const grupo = corners.filter((s) => s.teamId !== equipo);
+  const lados: EntregaLado[] = (["derecha", "izquierda"] as const).map((lado) => {
+    const de = suyos.filter((s) => ladoDe(s) === lado);
+    const deG = grupo.filter((s) => ladoDe(s) === lado);
+    const zonas = ORDEN_ZONAS_CORNER.map((zona): ZonaEntrega => {
+      const ss = de.filter((s) => zonaCorner(s) === zona);
+      const nG = deG.filter((s) => zonaCorner(s) === zona).length;
+      const rs = ss.flatMap((s) => [...s.remates, ...s.segundas]);
+      const cuota = de.length ? ss.length / de.length : 0;
+      const cuotaGrupo = deG.length ? nG / deG.length : 0;
+      const dif = cuota - cuotaGrupo;
+      return {
+        zona,
+        n: ss.length,
+        cuota,
+        cuotaGrupo,
+        dif,
+        conRemate: ss.filter((s) => s.remates.length > 0).length,
+        remates: rs.length,
+        xG: rs.reduce((x, r) => x + (r.xG || 0), 0),
+        destaca: de.length >= MIN_CORNERS_LADO && deG.length > 0 && Math.abs(dif) >= UMBRAL_ENTREGA - 1e-9,
+      };
+    });
+    return { lado, n: de.length, nGrupo: deG.length, zonas };
+  });
+  let mayor: EntregaCorner["mayor"] = null;
+  for (const l of lados)
+    for (const z of l.zonas) if (z.destaca && (!mayor || Math.abs(z.dif) > Math.abs(mayor.zona.dif))) mayor = { lado: l.lado, zona: z };
+  return { lados, n: suyos.length, partidos: new Set(suyos.map((s) => s.partido)).size, mayor };
+}
+
+/** La consigna de la zona que más se separa del grupo. */
+function consignaEntrega(m: NonNullable<EntregaCorner["mayor"]>, R: string): string {
+  const { zona: z, lado } = m;
+  /* «el primer palo» → «al primer palo». */
+  const aLa = z.zona === "corto" ? "en corto" : ZONA_TEXTO[z.zona].replace(/^el /, "al ");
+  const cifras = `${pct(z.cuota)} de sus córners desde la ${lado}, por ${pct(z.cuotaGrupo)} en el grupo`;
+  if (z.dif < 0) return `En los córners desde su ${lado}, el ${R} apenas va ${aLa}: ${cifras}. La carga, en las otras zonas.`;
+  const sale = z.remates ? `; de ahí salen ${z.remates} ${z.remates === 1 ? "remate" : "remates"} y ${coma(z.xG, 2)} xG` : "";
+  if (z.zona === "corto") return `En los córners desde su ${lado}, salir a la jugada en corto: el ${R} la saca así en el ${cifras}${sale}.`;
+  if (z.zona === "frontal") return `En los córners desde su ${lado}, cubrir el frontal y el rechace: el ${R} manda ahí el ${cifras}${sale}.`;
+  return `Cargar ${ZONA_TEXTO[z.zona]} en los córners desde su ${lado}: el ${R} manda ahí el ${cifras}${sale}.`;
+}
+
+/* ------------------------------------------------------------------ */
 /*  LA PROYECCIÓN                                                      */
 /* ------------------------------------------------------------------ */
 
@@ -340,8 +450,9 @@ export function proyeccionAbp(e: EntradaAbp): ProyeccionAbp | null {
   const puntos = puntosDe(t, lineas, nos, riv, R);
   /* Lo que es «tendencia» (poca muestra) baja un cuarto en el orden. */
   const peso = (v: Ventaja) => v.indice * (v.tendencia ? 0.75 : 1);
+  const entrega = e.saques ? entregaCorner(e.saques, riv, e.antesDe ?? null) : null;
   const ventajas = ventajasDe(lineas, "favor", e, t, R).sort((a, b) => peso(b) - peso(a));
-  const riesgos = ventajasDe(lineas, "contra", e, t, R).sort((a, b) => peso(b) - peso(a));
+  const riesgos = ventajasDe(lineas, "contra", e, t, R, entrega).sort((a, b) => peso(b) - peso(a));
 
   const tipoPartido = tipoDePartido(posNos, R);
 
@@ -368,6 +479,7 @@ export function proyeccionAbp(e: EntradaAbp): ProyeccionAbp | null {
     riesgos,
     amenaza: comoAmenaza(am),
     nuestroRematador: comoAmenaza(nu),
+    entregaCorner: entrega,
     partidos: { nos: resume(serie(t, nos, "corner", "propio")).n, riv: resume(serie(t, riv, "corner", "propio")).n },
     hasta: t.filas.reduce((m, f) => (f.fecha > m ? f.fecha : m), ""),
   };
@@ -444,7 +556,7 @@ function puntosDe(t: Tabla, lineas: LineaAbp[], nos: string, riv: string, R: str
 /*  DÓNDE MÁS VENTAJA (Y DÓNDE MÁS RIESGO)                             */
 /* ------------------------------------------------------------------ */
 
-function ventajasDe(lineas: LineaAbp[], lado: "favor" | "contra", e: EntradaAbp, t: Tabla, R: string): Ventaja[] {
+function ventajasDe(lineas: LineaAbp[], lado: "favor" | "contra", e: EntradaAbp, t: Tabla, R: string, entrega: EntregaCorner | null = null): Ventaja[] {
   const out: Ventaja[] = [];
   const antes = e.antesDe ?? null;
   const defensor = lado === "favor" ? e.riv : e.nos;
@@ -484,8 +596,11 @@ function ventajasDe(lineas: LineaAbp[], lado: "favor" | "contra", e: EntradaAbp,
     } else {
       switch (l.tipo) {
         case "corner": {
+          /* Si su entrega se separa del grupo, manda eso (lo que repite); si no, la zona que más remata. */
           const z = e.saques ? zonaClave(zonasCorner(e.saques, atacante, "propio", antes)) : null;
-          consigna = z
+          consigna = entrega?.mayor
+            ? consignaEntrega(entrega.mayor, R)
+            : z
             ? `Defender ${ZONA_TEXTO[z.zona]}: de ${z.entregas} córners que el ${R} manda ahí, ${z.conRemate} acaban en remate (${pct(z.conRemate / z.entregas)}).`
             : `Defender el córner: el ${R} saca ${ladoSobre(A)} por partido y remata ${coma(c.remAccionAtaque * 10, 1)} de cada 10.`;
           break;

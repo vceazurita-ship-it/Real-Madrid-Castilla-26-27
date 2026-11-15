@@ -1516,6 +1516,12 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Gol a balón parado (al menos uno)", es: "La probabilidad de marcar alguno", cuenta: "1 − e^(−xG)" },
           { que: "Por qué · puntos fuertes", es: "El tipo de partido (posesión esperada), su punto fuerte, su débil, el nuestro y los rematadores de cada uno" },
           { que: "Dónde más ventaja · riesgo", es: "Nuestro xG esperado de cada tipo frente a la media del grupo; el riesgo, el del rival", cuenta: "«tendencia» con menos de 15 acciones detrás" },
+          {
+            que: "Cómo saca el córner",
+            es: "Cada córner del rival en la temporada (Opta, evento a evento), por su lado de saque (derecha o izquierda) y por dónde cae: en corto, primer palo, punto de penalti, segundo palo o frontal. Al lado, la parte del resto del grupo desde ese lado (la raya de la barra), los que acaban en remate y los remates y el xG de la acción (con la segunda jugada)",
+            cuenta:
+              "Zona por el destino del pase: en corto si Opta lo marca así; frontal si cae antes del área (x < 83); dentro, por la anchura vista desde el banderín: primer palo hasta el primer poste, punto de penalti entre los postes y segundo palo más allá. Se resalta la zona que se separa 10 puntos o más del grupo, con 8 córners de ese lado como mínimo; la que más se separa pasa a la consigna del córner en «Dónde más riesgo»",
+          },
           { que: "Ver el último partido: proyectado y real", es: "Lo proyectado antes del partido junto a lo que pasó: verde si cayó dentro del intervalo" },
         ],
       },
