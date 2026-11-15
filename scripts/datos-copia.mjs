@@ -19,6 +19,7 @@
 */
 
 import fs from "node:fs";
+import zlib from "node:zlib";
 import postgres from "postgres";
 
 const arg = (n) => {
@@ -40,7 +41,9 @@ const TABLAS = ["app_documents", "general_seasons", "performance_seasons", "matc
 
 async function leeOrigen() {
   if (!/^postgres(ql)?:\/\//.test(DESDE)) {
-    const j = JSON.parse(fs.readFileSync(DESDE, "utf8"));
+    /* Vale también la copia de cada noche (.cache/copias/datos-AAAA-MM-DD.json.gz, salud-datos.mjs). */
+    const crudo = fs.readFileSync(DESDE);
+    const j = JSON.parse((DESDE.endsWith(".gz") ? zlib.gunzipSync(crudo) : crudo).toString("utf8"));
     return Object.fromEntries(TABLAS.map((t) => [t, Array.isArray(j[t]) ? j[t] : []]));
   }
   const sql = abre(DESDE);

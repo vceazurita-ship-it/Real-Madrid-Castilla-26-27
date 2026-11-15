@@ -569,6 +569,25 @@ async function miraGoogle() {
 }
 
 /*
+| COPIA DE LA BASE Y LÍMITES, UNA VEZ AL DÍA (15/11/2026).
+|
+| `salud-datos.mjs` copia las tablas a .cache/copias y a Backblaze, mide la
+| base, B2 y los días que le quedan a la base gratis de Render, y si algo se
+| acerca al límite manda un correo (uno al día). Al arrancar y cada 24 h.
+*/
+let datosEn = 0;
+
+const DATOS_CADA_MS = 24 * 3_600_000;
+
+async function miraDatos() {
+  datosEn = Date.now();
+
+  const { codigo, texto } = await ejecuta("datos", process.execPath, [path.join(RAIZ, "scripts/salud-datos.mjs")]);
+
+  if (codigo !== 0) apunta(`Copia y límites: ${resumen(texto) || `código ${codigo}`}.`);
+}
+
+/*
 | WYSCOUT SIN QUE NADIE LO PIDA (09/10/2026).
 |
 | La tarea semanal de Wyscout no estaba instalada en el ordenador del club,
@@ -829,7 +848,7 @@ function limpiaRegistros() {
   try {
     const viejos = fs
       .readdirSync(REGISTRO)
-      .filter((f) => /^(quiniela|wyscout|calendario|rivales|carpeta|partido|pendientes|entreno|videojug|agentes|opta|x|x-idea)-\d+\.log$/.test(f))
+      .filter((f) => /^(quiniela|wyscout|calendario|rivales|carpeta|partido|pendientes|entreno|videojug|agentes|opta|x|x-idea|datos)-\d+\.log$/.test(f))
       .sort()
       .reverse()
       .slice(40);
@@ -1704,6 +1723,14 @@ async function ronda() {
     miraGoogle()
       .catch((error) => apunta(`Google: se ha roto la comprobación (${error.message}).`))
       .finally(() => enMarcha.delete("google"));
+  }
+
+  if (Date.now() - datosEn > DATOS_CADA_MS && !enMarcha.has("datos")) {
+    enMarcha.add("datos");
+
+    miraDatos()
+      .catch((error) => apunta(`Copia y límites: se ha roto (${error.message}).`))
+      .finally(() => enMarcha.delete("datos"));
   }
 
   if (Date.now() - ultimoLatido > LATIDO_MS) await latido();
