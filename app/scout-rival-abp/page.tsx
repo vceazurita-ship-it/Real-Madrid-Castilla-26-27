@@ -60,6 +60,7 @@ import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { Explicativo } from "@/components/ui/textos-analisis";
 import type { PatternCatalog } from "@/components/abp/PatternCombo";
 import { AbpWyscoutRival } from "@/components/abp/AbpWyscoutRival";
+import { PenaltisLanzadores } from "@/components/abp/PenaltisLanzadores";
 import { useAlturasBesoccer } from "@/hooks/useAlturasBesoccer";
 import { RivalScoutEditor } from "@/components/abp/RivalScoutEditor";
 import { AnalisisRival } from "@/components/rivals/analisis/AnalisisRival";
@@ -1284,6 +1285,9 @@ export default function ScoutRivalAbpPage() {
                 )}
               </Panel>
               )}
+
+              {/* Sus lanzadores de penalti, para nuestro portero (15/11/2026, Opta). */}
+              {vista === "quien" && equipo && side === "ofensivo" && <PenaltisLanzadores equipo={equipo} />}
 
               {/* ------------------ registro editable --------------- */}
 

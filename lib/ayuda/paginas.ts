@@ -641,7 +641,7 @@ export const AYUDAS: AyudaDePagina[] = [
     resumen: "Las láminas de ABP del partido: quién va en cada puesto, sus carreras por fases y lo que se exporta a la sala y a cada jugador.",
     origen:
       "El documento «abp-pizarra» de la app (Supabase), el calendario (partidos jugados + hoja RIVALES) y el once de la pizarra táctica. Las fotos, de la plantilla.",
-    revisada: "2026-11-13",
+    revisada: "2026-11-15",
     bloques: [
       {
         titulo: "Montar la jornada",
@@ -674,7 +674,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Exportar", es: "PDF general, PowerPoint, vídeos y .zip; lo que no ha cambiado sale al momento (caché por contenido)" },
           {
             que: "PDF por jugador",
-            es: "Uno vertical por jugador para WhatsApp: portada con rival · jornada · día y hora y la lista de sus acciones (ofensiva con flecha, defensiva con escudo); en cada hoja «Acción n de N», su cara con «TÚ» pegado al aro y «Volver al resumen»",
+            es: "Uno vertical por jugador para WhatsApp: portada con rival · jornada · día y hora y la lista de sus acciones (ofensiva con flecha, defensiva con escudo); en cada hoja «Acción n de N», su cara con «TÚ» pegado al aro y «Volver al resumen». El del portero acaba con una hoja de penaltis: cada lanzador del rival, su lado más repetido, si cambió en el último y la portería en seis zonas (Opta; la misma tarjeta que en ABP del Rival · Quién)",
             cuenta:
               "Las láminas se fotografían con el once del rival ya cargado (dorsal y apellido, como en el PDF general; si tarda, se espera hasta 25 s) y con la letra de la pizarra. El «TÚ» va donde no tapa ninguna letra, chapa ni rival (si pegado al aro no cabe, un paso más lejos con un trazo rosa); el recorte deja entera toda flecha, rival o chapa que asome. En la portada, lo que hace en cada acción va a la letra de los demás subtítulos, en dos renglones si hace falta",
           },
@@ -1500,6 +1500,12 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           { que: "Lanzadores · Rematadores", es: "Quién ejecuta y quién ataca el balón, con cuántas de sus acciones acaban en gol u ocasión" },
           { que: "Amenaza aérea", es: "Los doce más altos de su plantilla; la barra compara dentro de la plantilla", cuenta: "Manda la estatura de BeSoccer; si la hoja dice otra, salen las dos («hoja 185»)" },
+          {
+            que: "Sus lanzadores de penalti",
+            es: "En «Su ataque», una tarjeta por cada jugador del rival que ha tirado algún penalti (Opta, evento a evento: «opta:penaltis»): su pie, una línea con su lado más repetido y si en el último lo cambió (en dorado si lo cambió), y la portería en seis zonas con cada penalti (gol en dorado, parado en azul, fuera o al palo hueco). Esta temporada (desde el 1 de julio) y las anteriores, por separado. Si no tiene penaltis en Opta, no sale. La misma hoja va al final del PDF de nuestro portero en la pizarra de ABP («PDF por jugador»)",
+            cuenta:
+              "Zona por dónde cruzó la línea de gol, vista desde el punto: izquierda, centro o derecha del lanzador (tercios entre palos) × raso o arriba (mitad de la altura del larguero); los de fuera, en la zona a la que iban. Lado más repetido: al menos dos y más que los otros; el portero lo lee al revés (su izquierda es tu derecha)",
+          },
           { que: "¿Qué repite?", es: "Las acciones agrupadas por el patrón escrito al registrarlas, el más visto arriba; no sale en lo deducido" },
           { que: "Saques de banda", es: "Por zona: 1 tercio propio · 2 medio · 3 último tercio" },
         ],

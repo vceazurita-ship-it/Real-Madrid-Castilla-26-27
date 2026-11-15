@@ -42,6 +42,8 @@ import { barlowCondensed, esperaFuentePortada } from "@/lib/rivals/portada-font"
 import { porteroDelOnce } from "@/components/abp/pizarra/usePorteroDelOnce";
 import { atacantesDelPanel, type AtacantePanel } from "@/lib/abp/marcas-corner";
 import type { CajaFoto } from "@/lib/abp/pizarra-jugador";
+import { cargaFichasPenaltis, type FichaLanzador } from "@/lib/abp/penaltis-lanzador";
+import { hojaPenaltis } from "@/lib/abp/penaltis-lanzador-hoja";
 
 /*
 | La hoja enseña sólo SU trozo de campo (unos 1150 px de los 1920 de la
@@ -292,6 +294,8 @@ export function MesaPdfs({
         const suyosEnCamino = aTiempo(susNombres(encargo.rival, encargo.players), new Map<string, SuJugador>());
         /* La cifra del rival de cada acción, de la comparativa del informe de ABP (12/11/2026). */
         const comparativaEnCamino = comparativaATiempo();
+        /* Los penaltis de sus lanzadores, para la hoja final del PDF del portero (15/11/2026, Opta). */
+        const penaltisEnCamino = suOnce.portero && encargo.ids.includes(suOnce.portero) ? aTiempo(cargaFichasPenaltis(encargo.rival), [] as FichaLanzador[]) : Promise.resolve([] as FichaLanzador[]);
 
         await pintado();
         await esperaFuentePortada();
@@ -348,7 +352,7 @@ export function MesaPdfs({
         const imagenes = await Promise.all(capturas.map((captura) => imagenDeCaptura(captura ?? "")));
         const porIndice = new Map(indices.map((indice, k) => [indice, imagenes[k] ?? null]));
         const escudos = await escudosEnCamino;
-        const [fecha, suyos, comparativa] = await Promise.all([fechaEnCamino, suyosEnCamino, comparativaEnCamino]);
+        const [fecha, suyos, comparativa, penaltis] = await Promise.all([fechaEnCamino, suyosEnCamino, comparativaEnCamino, penaltisEnCamino]);
         const rivalTexto = nombreRivalPieza(encargo.rival) || encargo.rival;
         const datoDe = (indice: number) => datoDeLamina(encargo.tablero.slides[indice]?.plantilla ?? "", comparativa, rivalTexto);
         const t1 = performance.now();
@@ -387,6 +391,10 @@ export function MesaPdfs({
               jornada: encargo.jornada,
               fecha,
               escudos,
+              anexos: (() => {
+                const hoja = id === suOnce.portero ? hojaPenaltis(penaltis, rivalTexto) : null;
+                return hoja ? [hoja] : [];
+              })(),
             });
 
             trabajoPdfs.apunta(encargo.huella, id, pdf);

@@ -1950,6 +1950,8 @@ export async function pdfJugador(opciones: {
   /** «YYYY-MM-DD» del partido, para el pie. */
   fecha?: string;
   escudos: Escudos;
+  /** Hojas que van al final, ya dibujadas a 1080 de ancho (15/11/2026: los penaltis del rival en la del portero). */
+  anexos?: HTMLCanvasElement[];
 }): Promise<PdfJugador> {
   const { jsPDF } = await import("jspdf");
   const { player, acciones } = opciones;
@@ -1988,6 +1990,8 @@ export async function pdfJugador(opciones: {
     vueltas.push(dibujaAccion(hoja.ctx, cx, accion, tablero, plan, orden + 1, acciones.length, conResumen, retrato, opciones.obstaculos?.[orden] ?? []));
     hojas.push(hoja.canvas);
   });
+
+  for (const anexo of opciones.anexos ?? []) if (anexo.width === HOJA_W && anexo.height > 0) hojas.push(anexo);
 
   const medidas = hojas.map((hoja) => [HOJA_W / 2, hoja.height / 2] as [number, number]);
 
