@@ -1453,6 +1453,40 @@ scrollbar-width:none;
 }
 
 /* ===========================
+   EL CAMPO DIBUJADO DEL CAMPOGRAMA DE RIVALES (15/11/2026)
+
+   components/rivals/CampoVectorial.tsx. Propuesta del experto de diseño:
+   verde vivo y sobrio en día (no el salvia lavado de la foto), verde muy
+   oscuro con franjas apenas visibles en noche, líneas en blanco roto y una
+   viñeta que lo funde con la página. Las cajas de puesto, casi opacas para
+   que el césped no ensucie las fichas.
+=========================== */
+:root {
+  --campo-cesped: #0f2a1e;
+  --campo-franja: #123224;
+  --campo-linea: #f2f4ef;
+  --campo-linea-opacidad: 0.55;
+  --campo-vineta: #0b0f14;
+  --campo-vineta-opacidad: 0.55;
+}
+:root[data-theme="light"] {
+  --campo-cesped: #4f8a5e;
+  --campo-franja: #5a966a;
+  --campo-linea-opacidad: 0.85;
+  --campo-vineta: #14281e;
+  --campo-vineta-opacidad: 0.18;
+}
+.caja-puesto {
+  background: rgba(11, 15, 20, 0.72);
+  backdrop-filter: blur(4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+}
+:root[data-theme="light"] .caja-puesto {
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 3px 10px rgba(15, 40, 25, 0.25);
+}
+
+/* ===========================
    MODO DÍA: CONMUTADOR
    El botón dibuja los dos iconos y deja que el CSS enseñe el que toca. Así no
    depende del estado de React y no parpadea durante la hidratación.

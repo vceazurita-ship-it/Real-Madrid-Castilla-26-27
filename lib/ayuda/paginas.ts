@@ -1313,11 +1313,12 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Plantillas Rivales",
     resumen: "Cómo llega cada rival, su plantilla en el campo y la ficha de cada jugador.",
     origen: "Hoja RIVALES (plantillas, fichas y análisis); BeSoccer (tabla, resultados, alineaciones, minutos y tarjetas, en Supabase); Wyscout de toda la categoría; resúmenes del canal de la RFEF. El once probable y los recursos, en Supabase.",
-    revisada: "2026-11-12",
+    revisada: "2026-11-15",
     bloques: [
       {
         titulo: "Arriba, antes de mirar a nadie",
         filas: [
+          { que: "El campo del campograma", es: "Dibujado, no una foto: césped verde con franjas de corte en día y verde muy oscuro en noche, líneas en blanco roto y cada puesto en una caja casi opaca con el borde de su color, para que las fichas se lean. De pie (móvil) se dibuja de pie, sin estirar", cuenta: "components/rivals/CampoVectorial.tsx; colores en app/globals.css (--campo-*). Propuesta del experto de diseño del 15/11/2026" },
           { que: "Selector de equipo", es: "Ordenado por calendario: el próximo, fijo a la izquierda con «Próximo», y cada uno con su jornada" },
           { que: "Plantilla · Pizarra", es: "La lista con el campograma, o la pizarra táctica del rival" },
           {

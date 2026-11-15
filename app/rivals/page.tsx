@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { traeJson } from "@/lib/hojaCsv";
+import { CampoVectorial } from "@/components/rivals/CampoVectorial";
 
 import {
   useCallback,
@@ -8720,7 +8721,7 @@ function TacticalPitch({
   return (
     <div
       ref={containerRef}
-      className={`pitch-photo relative w-full overflow-hidden bg-[#173b2a] ${
+      className={`relative w-full overflow-hidden rounded-b-2xl bg-[var(--campo-cesped)] ${
         horizontal
           ? /* Tumbado el campo ya no lleva un alto suelto: toma el ancho que
                le da la columna y de ahí saca el alto con la proporción de la
@@ -8745,33 +8746,9 @@ function TacticalPitch({
             "h-[min(900px,calc(100vh-120px))] min-h-[680px]"
       }`}
     >
-      {/* FONDO DEL CAMPO */}
+      {/* FONDO DEL CAMPO — dibujado (components/rivals/CampoVectorial.tsx, 15/11/2026) */}
 
-      {/* La imagen es un campo apaisado: de pie hay que girarla, tumbada no. */}
-
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/emotional-field-bg.webp"
-          alt=""
-          className={
-            horizontal
-              ? /* `object-fill` y no `object-cover`: la caja ya viene con la
-                   proporción de la foto, así que las dos dan lo mismo salvo
-                   cuando entra el suelo de alto. Ahí `cover` recortaría los
-                   extremos del campo y `fill` los conserva a cambio de un
-                   estiramiento que no se nota en el césped. */
-                "absolute inset-0 h-full w-full object-fill"
-              : "absolute left-1/2 top-1/2 h-[75%] w-[240%] max-w-none -translate-x-1/2 -translate-y-1/2 rotate-90 object-fill sm:h-[133%] sm:w-[240%] lg:h-[135%] lg:w-[100%]"
-          }
-        />
-      </div>
-
-      <div className="pitch-photo-veil pointer-events-none absolute inset-0 bg-gradient-to-b from-black/45 via-black/10 to-black/45" />
-
-      {/* Modo día: aclara el césped hasta los tonos del tema claro (globals.css) */}
-
-      <div className="pitch-photo-wash" />
+      <CampoVectorial horizontal={horizontal} ancho={size.width} alto={size.height} />
 
       {/* FONDO DEL BLOQUE — el grupo de una posición, de un vistazo */}
 
@@ -8783,18 +8760,17 @@ function TacticalPitch({
       {clusters.map((cluster) => (
         <div
           key={`caja-${cluster.key}`}
-          className="pointer-events-none absolute rounded-2xl border"
+          className="caja-puesto pointer-events-none absolute rounded-2xl"
+          /* 15/11/2026, con el experto de diseño: fondo casi opaco (el césped
+             ya no se cuela y las fichas se leen) y el borde del color de la
+             línea al 85 %, que es lo que dice qué puesto es. Fondo y sombra
+             de cada tema en globals.css (.caja-puesto). */
           style={{
             left: cluster.boxX - cluster.boxWidth / 2,
             top: cluster.boxTop,
             width: cluster.boxWidth,
             height: cluster.boxHeight,
-            borderColor: `${cluster.color}59`,
-            background: `${cluster.color}1F`,
-            /* Un filo oscuro por fuera separa dos bloques vecinos de la misma
-               línea, que llevan el mismo color y pegados se leían como uno. */
-            boxShadow:
-              "inset 0 1px 0 rgba(255,255,255,0.07), 0 0 0 1px rgba(8,12,16,0.35)",
+            border: `1.5px solid ${cluster.color}D9`,
           }}
         />
       ))}
