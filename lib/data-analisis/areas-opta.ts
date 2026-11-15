@@ -19,6 +19,8 @@ export const AREAS_OPTA = [
   "partidoCategoria",
   "penaltis",
   "directo",
+  /* 15/11/2026: los partidos que pasaron por el directo, ya acabados, con todo. */
+  "partidosJugados",
   /* 14/11/2026: las dos de F. Sosa (huella de la liga y radiografía del jugador). */
   "huella",
   "radiografia",

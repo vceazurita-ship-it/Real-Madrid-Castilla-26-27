@@ -391,6 +391,7 @@ const AREAS: { key: Area; label: string; icono: typeof History; pregunta: string
     (`LECTURAS`) y no ocupan botón propio.
   */
   { key: "directo", label: "En directo", icono: Radio, pregunta: "¿Cómo va el partido que se está jugando?" },
+  { key: "partidosJugados", label: "Partidos ya jugados", icono: History, pregunta: "¿Qué pasó en un partido que ya no está en directo, con todo lo que se veía en él?" },
   { key: "fases", label: "Red de pases, progresión y robos", icono: Footprints, pregunta: "¿Cómo nos asociamos, cuánto progresamos y dónde robamos y perdimos?" },
   { key: "colectivo", label: "Contra el grupo, por fases", icono: Scale, pregunta: "¿En qué puesto de nuestro grupo estamos en cada fase, y cómo ha ido partido a partido?" },
   { key: "evolucion", label: "Nuestra evolución jornada a jornada", icono: History, pregunta: "¿Cómo evoluciona cada métrica, jornada a jornada, contra nuestros rivales y la media?" },
@@ -443,7 +444,7 @@ const BLOQUES: {
   /** Una pantalla de fuera que es parte natural del bloque. */
   enlace?: { href: string; label: string };
 }[] = [
-  { clave: "post", label: "El partido", icono: ClipboardCheck, areas: ["post", "directo"] },
+  { clave: "post", label: "El partido", icono: ClipboardCheck, areas: ["post", "directo", "partidosJugados"] },
   { clave: "resumen", label: "Resumen", icono: Compass, areas: ["resumen"] },
   { clave: "nosotros", label: "Nuestro equipo", icono: Shield, areas: ["campo", "liga", "historia", "remates", "parecidos"] },
   { clave: "jugadores", label: "Jugadores", icono: Users, areas: ["individual", "once", "eventos", "buscador", "talento"] },

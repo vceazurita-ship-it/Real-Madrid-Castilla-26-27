@@ -83,10 +83,15 @@ function nombreCorto(n: string): string {
   return p.length ? p[p.length - 1] : n;
 }
 
-export function Directo({ datos }: { datos: DatosOpta }) {
+/**
+ * `archivo` (15/11/2026, petición del analista): la misma pantalla para los
+ * partidos que ya no están en directo, en su área «Partidos ya jugados». No
+ * mira el índice del directo ni se refresca: elige de `opta:directo:archivo`.
+ */
+export function Directo({ datos, archivo: soloArchivo = false }: { datos: DatosOpta; archivo?: boolean }) {
   const { catalogo, partidos: filasTemporada } = datos;
   const [vuelta, setVuelta] = useState(0);
-  const [indice, setIndice] = useState<Indice | null | undefined>(undefined);
+  const [indice, setIndice] = useState<Indice | null | undefined>(soloArchivo ? {} : undefined);
   /* La hora de la última mirada (no Date.now() al pintar: regla de pureza). */
   const [ahora, setAhora] = useState(0);
   /* ?lanzado=<ms>: viene de «Empezar directo» en la portada. */
@@ -111,11 +116,13 @@ export function Directo({ datos }: { datos: DatosOpta }) {
 
   /* Cada minuto otra vuelta; cada 15 s mientras se espera la primera lectura. */
   useEffect(() => {
+    if (soloArchivo) return;
     const t = window.setInterval(() => setVuelta((n) => n + 1), esperando || lanzadoEn != null && ahora === 0 ? ESPERANDO_MS : CADA_MS);
     return () => window.clearInterval(t);
-  }, [esperando, lanzadoEn, ahora]);
+  }, [esperando, lanzadoEn, ahora, soloArchivo]);
 
   useEffect(() => {
+    if (soloArchivo) return;
     let vivo = true;
     void traeOpta<Indice>("opta:directo").then((i) => {
       if (!vivo) return;
@@ -125,7 +132,7 @@ export function Directo({ datos }: { datos: DatosOpta }) {
     return () => {
       vivo = false;
     };
-  }, [vuelta]);
+  }, [vuelta, soloArchivo]);
 
   const partidos = useMemo(() => (Array.isArray(indice?.partidos) ? indice!.partidos!.filter((p) => p?.partido) : []), [indice]);
   const delCastilla = partidos.find((p) => (p.equipos ?? []).some((e) => e === CASTILLA_NOMBRE_OPTA));
@@ -143,7 +150,12 @@ export function Directo({ datos }: { datos: DatosOpta }) {
   }, []);
   const esDelRival = (p: PartidoIndice) => !!proximo && (p.equipos ?? []).some((e) => mismoEquipo(e, proximo));
   const delRival = partidos.find(esDelRival);
-  const visto = elegido || delCastilla?.partido || delRival?.partido || partidos.find((p) => p.conDatos)?.partido || partidos[0]?.partido || "";
+  /* El archivo y su buscador (15/11/2026). Va aquí arriba porque `visto` lo necesita. */
+  const [archivo, setArchivo] = useState<PartidoIndice[]>([]);
+  const [busca, setBusca] = useState("");
+  const visto = soloArchivo
+    ? elegido || archivo[0]?.partido || ""
+    : elegido || delCastilla?.partido || delRival?.partido || partidos.find((p) => p.conDatos)?.partido || partidos[0]?.partido || "";
 
   useEffect(() => {
     if (!visto) return;
@@ -171,7 +183,6 @@ export function Directo({ datos }: { datos: DatosOpta }) {
   }, [todos, partidos, vuelta]);
 
   /* Todos los partidos con su documento (14/11/2026): el desplegable sólo ofrece los que tienen datos. */
-  const [archivo, setArchivo] = useState<PartidoIndice[]>([]);
   useEffect(() => {
     let vivo = true;
     void traeOpta<{ partidos?: PartidoIndice[] }>("opta:directo:archivo").then((d) => {
@@ -276,17 +287,19 @@ export function Directo({ datos }: { datos: DatosOpta }) {
   const vis = fuera ? a : b;
   return (
     <div className="mt-6 space-y-6">
-      {aviso}
+      {!soloArchivo && aviso}
       <Panel
         titulo={
           <span className="inline-flex items-center gap-2">
             <Radio size={16} style={{ color: ORO }} />
-            {acabado ? "Final del partido" : "Directo"}
+            {soloArchivo ? "Partidos ya jugados" : acabado ? "Final del partido" : "Directo"}
           </span>
         }
         subtitulo={
           /* Partido acabado: nada de «el proceso sigue» (contradecía al marcador «Terminado»). */
-          acabado
+          soloArchivo
+            ? "Cada partido de la temporada que pasó por el directo, con todo lo que se veía en él: plan, mapas, 3D, jugadores y cifras."
+            : acabado
             ? "Cifras finales de Opta."
             : indice?.actualizado
             ? `Última mirada a Opta a las ${hora(indice.actualizado)}${indice.hasta ? `; el proceso sigue hasta las ${hora(indice.hasta)}` : ""}.`
@@ -305,14 +318,16 @@ export function Directo({ datos }: { datos: DatosOpta }) {
                 }))}
               />
             )}
-            <button
-              type="button"
-              onClick={() => setVuelta((n) => n + 1)}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/75 hover:text-white"
-            >
-              <RefreshCw size={12} />
-              Mirar ahora
-            </button>
+            {!soloArchivo && (
+              <button
+                type="button"
+                onClick={() => setVuelta((n) => n + 1)}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/75 hover:text-white"
+              >
+                <RefreshCw size={12} />
+                Mirar ahora
+              </button>
+            )}
           </>
         }
       >
@@ -375,7 +390,44 @@ export function Directo({ datos }: { datos: DatosOpta }) {
             )}
           </div>
         )}
-        {archivo.length > 0 && (
+        {soloArchivo && (() => {
+          const q = busca.trim().toLowerCase();
+          const lista = q ? archivo.filter((p) => (p.equipos ?? []).some((e) => (e === CASTILLA_NOMBRE_OPTA ? NOMBRE_CASTILLA : e).toLowerCase().includes(q))) : archivo;
+          return archivo.length === 0 ? (
+            <p className="mb-3 text-sm text-white/60">Todavía no hay partidos guardados del directo.</p>
+          ) : (
+            <div className="mb-4 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+              <input
+                type="search"
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                placeholder="Buscar un equipo…"
+                aria-label="Buscar un equipo"
+                className="mb-2 w-full rounded-lg border border-white/15 bg-black/30 px-3 py-2 text-sm text-white/90 sm:max-w-xs"
+              />
+              <div className="flex max-h-56 flex-wrap gap-2 overflow-y-auto" role="list" aria-label="Partidos ya jugados">
+                {lista.map((p) => {
+                  const eq = (p.equipos ?? []).map((e) => (e === CASTILLA_NOMBRE_OPTA ? NOMBRE_CASTILLA : e));
+                  const activo = p.partido === visto;
+                  return (
+                    <button
+                      key={p.partido}
+                      type="button"
+                      role="listitem"
+                      onClick={() => setElegido(p.partido)}
+                      className={`rounded-xl border px-3 py-1.5 text-left text-xs ${activo ? "border-white/40 bg-white/[0.10] text-white" : "border-white/10 bg-white/[0.03] text-white/70 hover:text-white"}`}
+                    >
+                      <span className="block text-white/45">{p.fecha}</span>
+                      <span className="block font-semibold">{eq.length === 2 ? `${eq[0]} ${p.goles?.[0] ?? "–"}-${p.goles?.[1] ?? "–"} ${eq[1]}` : p.partido}</span>
+                    </button>
+                  );
+                })}
+                {lista.length === 0 && <p className="text-xs text-white/50">Ningún partido de ese equipo.</p>}
+              </div>
+            </div>
+          );
+        })()}
+        {!soloArchivo && archivo.length > 0 && (
           <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs">
             <span className="hidden font-semibold text-white/75 sm:inline">Ver otro partido (con todos sus datos):</span>
             <select
@@ -391,10 +443,13 @@ export function Directo({ datos }: { datos: DatosOpta }) {
                 </option>
               ))}
             </select>
-            <span className="hidden text-white/45 sm:inline">{archivo.length} partidos; se abre al momento.</span>
+            <span className="hidden text-white/45 sm:inline">
+              {archivo.length} partidos; se abre al momento. Todos, con buscador, en{" "}
+              <Link href="/data-analisis?area=partidosJugados" className="underline">Partidos ya jugados</Link>.
+            </span>
           </div>
         )}
-        {partidos.length === 0 || (!vivo && !esperando && !lanzar.corriendo && boton) ? (
+        {soloArchivo ? null : partidos.length === 0 || (!vivo && !esperando && !lanzar.corriendo && boton) ? (
           <>
             <p className="mb-2 text-sm font-semibold text-white/85">
               {partidos.length === 0 ? "Ahora mismo no hay ningún directo en marcha." : `No hay directo en marcha; abajo, el último${indice?.dia ? ` (${indice.dia})` : ""}.`}
@@ -403,7 +458,10 @@ export function Directo({ datos }: { datos: DatosOpta }) {
             {boton && <div className="mt-3">{boton}</div>}
           </>
         ) : null}
-        {partidos.length === 0 && !elegido ? null : !doc || !a || !b ? (
+        {!visto ? null : !doc || !a || !b ? (
+          soloArchivo ? (
+            <p className="text-sm text-white/55">{leido?.clave === visto ? "Este partido no tiene cifras guardadas." : "Abriendo el partido…"}</p>
+          ) : (
           <>
             <p className="mb-2 text-sm font-semibold text-white/85">
               {estadoEnPalabras(partidos.find((p) => p.partido === visto)?.estado) || "Partido del día"}: Opta todavía no ha publicado cifras de este partido.
@@ -412,6 +470,7 @@ export function Directo({ datos }: { datos: DatosOpta }) {
               Puede que Opta sólo las publique al acabar; en cuanto aparezcan, salen aquí solas.
             </p>
           </>
+          )
         ) : (
           <div>
             <div className="mb-4 grid grid-cols-2 items-center gap-x-3 gap-y-2 rounded-3xl px-4 py-5 sm:flex sm:justify-between" style={{ background: "radial-gradient(120% 140% at 50% 0%, rgba(200,169,107,0.18), rgba(10,14,24,0.9) 60%)", border: "1px solid rgba(200,169,107,0.25)" }}>
@@ -546,7 +605,7 @@ export function Directo({ datos }: { datos: DatosOpta }) {
         )}
       </Panel>
 
-      {partidos.length > 0 && <Panel titulo="Cómo funciona">{explicacion}</Panel>}
+      {!soloArchivo && partidos.length > 0 && <Panel titulo="Cómo funciona">{explicacion}</Panel>}
     </div>
   );
 }

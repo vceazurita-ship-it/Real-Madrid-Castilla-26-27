@@ -21,9 +21,10 @@
 
 import Link from "next/link";
 import { Fragment, useCallback, useEffect, useState } from "react";
-import { AlertTriangle, ArrowUpRight, Check, Loader2, Plus, RefreshCw, RotateCcw, Undo2, X as Cruz } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, Check, ChevronDown, Loader2, Plus, RefreshCw, RotateCcw, Undo2, X as Cruz } from "lucide-react";
 import { toast } from "sonner";
 
+import { usePlegado, type Tono } from "@/components/ajustes/Plegable";
 import { ProgresoEncargo } from "@/components/ajustes/ProgresoEncargo";
 import { confirmar } from "@/lib/avisos";
 import { estadoEncargo, type Mantenimiento, type Tarea, type Vigia } from "@/lib/mantenimiento";
@@ -155,7 +156,10 @@ export function IdeasDeX({
   const ideaEncargo = estadoEncargo("x-idea", estado["x-idea"], ahora);
 
   /* Primero lo que sirve para el próximo partido (revisión de expertos, 12/11/2026). */
-  const vivas = (ideas ?? []).filter((i) => i.estado !== "descartada").sort((a, b) => (a.prioridad ?? 2) - (b.prioridad ?? 2));
+  /* Lo ya decidido (añadida o deshecha) va aparte y plegado (15/11/2026: la pestaña se hacía larguísima). */
+  const hecha = (i: Idea) => i.estado === "añadida" || i.estado === "deshecha";
+  const vivas = (ideas ?? []).filter((i) => i.estado !== "descartada" && !hecha(i)).sort((a, b) => (a.prioridad ?? 2) - (b.prioridad ?? 2));
+  const hechas = (ideas ?? []).filter(hecha);
   const descartadas = (ideas ?? []).filter((i) => i.estado === "descartada");
 
   return (
@@ -234,6 +238,17 @@ export function IdeasDeX({
         ))}
       </ul>
 
+      {hechas.length > 0 && (
+        <details className="mt-3 min-w-0">
+          <summary className="cursor-pointer text-[12px] text-white/55 hover:text-white">Ya añadidas o deshechas ({hechas.length})</summary>
+          <ul className="mt-3 grid min-w-0 gap-3 lg:grid-cols-2">
+            {hechas.map((idea) => (
+              <TarjetaIdea key={idea.id} idea={idea} pulsado={pulsado} onBoton={boton} />
+            ))}
+          </ul>
+        </details>
+      )}
+
       {descartadas.length > 0 && (
         <details className="mt-3 min-w-0">
           <summary className="cursor-pointer text-[12px] text-white/55 hover:text-white">Descartadas ({descartadas.length})</summary>
@@ -267,16 +282,33 @@ function TarjetaIdea({
   const chip = CHIP[idea.estado];
   const acciones = accionesDe(idea);
   const ultimo = idea.log[idea.log.length - 1];
+  /* Plegada en una línea (15/11/2026); en marcha o fallida, abierta. Lo que se abre a mano se recuerda en el aparato. */
+  const tono: Tono = idea.estado === "añadiendo" || idea.estado === "deshaciendo" ? "marcha" : idea.estado === "fallida" ? "aviso" : "ok";
+  const { abierto, cambia } = usePlegado(`x-idea:${idea.id}`, tono);
 
   return (
-    <li className="flex min-w-0 flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-      <div className="flex min-w-0 items-start justify-between gap-3">
-        <p className="min-w-0 text-[15px] font-semibold text-white">{idea.titulo}</p>
-        <span className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${chip.clase}`}>
-          {(idea.estado === "añadiendo" || idea.estado === "deshaciendo") && <Loader2 size={11} className="animate-spin" aria-hidden />}
-          {chip.texto}
+    <li className={`flex min-w-0 flex-col rounded-2xl border border-white/10 bg-white/[0.03] ${abierto ? "gap-3 p-4" : "px-4 py-2.5"}`}>
+      <button type="button" onClick={cambia} aria-expanded={abierto} className="flex min-w-0 items-start justify-between gap-3 text-left">
+        <span className="min-w-0">
+          <span className="block text-[15px] font-semibold text-white">{idea.titulo}</span>
+          {!abierto && (
+            <span className="mt-0.5 block truncate text-[12px] text-white/50">
+              {idea.pantalla}
+              {idea.prioridad === 1 ? " · próximo partido" : ""}
+            </span>
+          )}
         </span>
-      </div>
+        <span className="flex shrink-0 items-center gap-2">
+          <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${chip.clase}`}>
+            {(idea.estado === "añadiendo" || idea.estado === "deshaciendo") && <Loader2 size={11} className="animate-spin" aria-hidden />}
+            {chip.texto}
+          </span>
+          <ChevronDown size={16} aria-hidden className={`text-white/45 transition-transform ${abierto ? "rotate-180" : ""}`} />
+        </span>
+      </button>
+
+      {abierto && (
+        <>
 
       <p className="whitespace-pre-line text-[13px] leading-relaxed text-white/80">{idea.idea}</p>
 
@@ -364,6 +396,8 @@ function TarjetaIdea({
           </details>
         )}
       </div>
+        </>
+      )}
     </li>
   );
 }

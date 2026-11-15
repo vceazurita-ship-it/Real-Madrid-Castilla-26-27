@@ -71,6 +71,7 @@ const POBLACION: Record<AreaOpta, Poblacion> = {
   partidoCategoria: "partido",
   penaltis: "penaltis",
   directo: "directo",
+  partidosJugados: "partido",
   huella: "evento",
   radiografia: "jugadores",
 };
@@ -144,7 +145,7 @@ export function PanelAreaOpta({ area }: { area: AreaOpta }) {
   }
 
   const sinDatos = !datos || datos.equipos.length === 0;
-  if (sinDatos && area !== "directo") {
+  if (sinDatos && area !== "directo" && area !== "partidosJugados") {
     return (
       <EstadoVacio
         className="mt-5"
@@ -164,7 +165,7 @@ export function PanelAreaOpta({ area }: { area: AreaOpta }) {
   return (
     <>
       <div className="mt-3">
-        <SelloFuente fuente="opta" poblacion={poblacionDe(area, datos)} hasta={area === "directo" ? undefined : hastaDe(datos)} />
+        <SelloFuente fuente="opta" poblacion={poblacionDe(area, datos)} hasta={area === "directo" || area === "partidosJugados" ? undefined : hastaDe(datos)} />
       </div>
 
       {area === "colectivo" && <Colectivo datos={datos} />}
@@ -197,6 +198,7 @@ export function PanelAreaOpta({ area }: { area: AreaOpta }) {
       {area === "partidoCategoria" && <PartidosCategoria datos={datos} inicial={rival} />}
       {area === "penaltis" && <Penaltis datos={datos} />}
       {area === "directo" && <Directo datos={datos} />}
+      {area === "partidosJugados" && <Directo key="archivo" datos={datos} archivo />}
       {area === "huella" && <HuellaLiga />}
       {area === "radiografia" && <RadiografiaJugador datos={datos} />}
     </>

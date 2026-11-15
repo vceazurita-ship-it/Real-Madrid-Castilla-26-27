@@ -53,6 +53,8 @@ export type Juicio = {
   frase: string;
   /** Lo que se dice al banquillo (sólo en las alertas). */
   consigna?: string;
+  /** De qué equipo es la cifra, con nombre (sólo en partidos sin el Castilla). */
+  equipo?: string;
   /** Si el marcador cambia la lectura («Ganando: ceder balón es normal»). */
   nota?: string;
   peso: number;
@@ -151,23 +153,29 @@ type Regla = {
   bien: string;
   mal: string;
   consigna: string;
+  /**
+   * Partido sin el Castilla (15/11/2026, petición del analista): título, «bien»
+   * y «mal» en tercera persona, con {A} = el equipo de la izquierda y {B} = el
+   * otro. «Nos crean peligro» no dice nada cuando ninguno de los dos somos nosotros.
+   */
+  neutro?: [string, string, string];
   peso: number;
 };
 
 const REGLAS: Regla[] = [
-  { id: "xg-contra", titulo: "Peligro que nos crean", metrica: "ExpG", quien: "ellos", mas: false, oficio: [0.7, 1.5], bien: "Nos crean menos de lo que suelen", mal: "Nos están creando peligro", consigna: "Juntar líneas y cerrar el carril central", peso: 12 },
-  { id: "xg-favor", titulo: "Ocasiones nuestras", metrica: "ExpG", quien: "nos", mas: true, oficio: [0.8, 1.7], cedeGanando: true, bien: "Generamos lo que solemos o más", mal: "Estamos generando poco", consigna: "Más gente en el área y llegar de segunda línea", peso: 10 },
-  { id: "nos-roban", titulo: "Nos roban atrás", re: /nuestros errores|salida|p[eé]rdida|transici[oó]n|transitar/i, metrica: "PosWonA3rd", quien: "ellos", mas: false, oficio: [2, 6], bien: "Salimos limpios de atrás", mal: "Nos roban en nuestro tercio", consigna: "Salida limpia: no forzar por dentro, fijar y jugar fuera", peso: 10 },
-  { id: "transicion", titulo: "Robos suyos para correr", re: /transici[oó]n|transitar|contragolpe|nuestros errores/i, metrica: "RobosMedio", quien: "ellos", mas: false, oficio: [14, 24], bien: "Les damos pocos robos para correr", mal: "Nos roban y salen a correr", consigna: "Vigilancias 2+1 y no perder por dentro", peso: 9 },
-  { id: "posesion", titulo: "Dominio con balón", re: /posesi[oó]n|control del partido|dominio/i, metrica: "Poss%", quien: "nos", mas: true, tasa: true, oficio: [48, 58], unidad: "%", cedeGanando: true, bien: "El balón es nuestro, como pide el plan", mal: "No estamos teniendo el balón", consigna: "Apoyos por dentro al pivote, no rifar", peso: 9 },
-  { id: "presion", titulo: "Agresividad sin balón", re: /agresiv|presi[oó]n|apret|saltos|campo contrario/i, metrica: "PPDA", quien: "nos", mas: false, tasa: true, oficio: [8, 13], cedeGanando: true, bien: "Apretamos como pide el plan", mal: "Les dejamos dar demasiados pases", consigna: "Saltar juntos y antes: equipo corto", peso: 8 },
-  { id: "robo-alto", titulo: "Robos arriba", re: /agresiv|presi[oó]n|apret|campo contrario|reinicio/i, metrica: "PosWonA3rd", quien: "nos", mas: true, oficio: [2, 6], cedeGanando: true, bien: "Recuperamos en su campo", mal: "Casi no robamos arriba", consigna: "Presión tras pérdida 5 segundos", peso: 6 },
-  { id: "area-contra", titulo: "Defensa del área", re: /defensa de [aá]rea|segunda l[ií]nea|pisan [aá]rea|ruptura/i, metrica: "TouchOpBox", quien: "ellos", mas: false, oficio: [12, 24], bien: "Pisan poco nuestra área", mal: "Entran mucho en nuestra área", consigna: "Vigilar la segunda línea y cerrar el rechace", peso: 8 },
-  { id: "llegada", titulo: "Llegada al área", re: /llegada|a llegar|ocupaci[oó]n|pisar su [aá]rea|finaliz/i, metrica: "TouchOpBox", quien: "nos", mas: true, oficio: [14, 28], cedeGanando: true, bien: "Llegamos al área como queremos", mal: "No pisamos su área", consigna: "Ocupar el área con 4-5 y frontal con 2-3", peso: 7 },
-  { id: "abp-contra", titulo: "Córners en contra", re: /\babp\b|bal[oó]n parado|c[oó]rner/i, donde: "ambos", metrica: "Corners", quien: "ellos", mas: false, oficio: [3, 7], bien: "Les damos pocos balones parados", mal: "Les estamos dando córners", consigna: "Faltas lejos del área; córner: marcas y rechace", peso: 7 },
-  { id: "progresion", titulo: "Precisión en su campo", re: /progresi|ventaja interior|v[ií]as|entre l[ií]neas/i, metrica: "Ps%InA3rd", quien: "nos", mas: true, tasa: true, oficio: [60, 72], unidad: "%", bien: "Progresamos con pase limpio", mal: "Perdemos el pase en su campo", consigna: "Una pausa más antes del último pase", peso: 5 },
-  { id: "directo", titulo: "Duelo aéreo", re: /directo|golpeo largo|juego largo|segunda jugada/i, metrica: "Aerial%", quien: "nos", mas: true, tasa: true, oficio: [44, 56], unidad: "%", bien: "Ganamos el juego aéreo", mal: "Perdemos el balón largo", consigna: "Meter al MC en la línea y ganar la segunda", peso: 5 },
-  { id: "pos-rival", titulo: "Su ataque posicional", re: /ataque posicional|juego propositivo/i, donde: "rival", metrica: "Pass%", quien: "ellos", mas: false, tasa: true, oficio: [72, 82], unidad: "%", bien: "Les cuesta jugar con balón", mal: "Están jugando cómodos con balón", consigna: "Orientar su salida hacia fuera y saltar", peso: 4 },
+  { id: "xg-contra", titulo: "Peligro que nos crean", metrica: "ExpG", quien: "ellos", mas: false, oficio: [0.7, 1.5], bien: "Nos crean menos de lo que suelen", mal: "Nos están creando peligro", consigna: "Juntar líneas y cerrar el carril central", neutro: ["Ocasiones de {B}", "{B} crea menos peligro del que suele", "{B} le está creando peligro a {A}"], peso: 12 },
+  { id: "xg-favor", titulo: "Ocasiones nuestras", metrica: "ExpG", quien: "nos", mas: true, oficio: [0.8, 1.7], cedeGanando: true, bien: "Generamos lo que solemos o más", mal: "Estamos generando poco", consigna: "Más gente en el área y llegar de segunda línea", neutro: ["Ocasiones de {A}", "{A} genera lo que suele o más", "{A} está generando poco"], peso: 10 },
+  { id: "nos-roban", titulo: "Nos roban atrás", re: /nuestros errores|salida|p[eé]rdida|transici[oó]n|transitar/i, metrica: "PosWonA3rd", quien: "ellos", mas: false, oficio: [2, 6], bien: "Salimos limpios de atrás", mal: "Nos roban en nuestro tercio", consigna: "Salida limpia: no forzar por dentro, fijar y jugar fuera", neutro: ["{B} roba en campo de {A}", "{A} sale limpio desde atrás", "{B} le roba a {A} en su tercio"], peso: 10 },
+  { id: "transicion", titulo: "Robos suyos para correr", re: /transici[oó]n|transitar|contragolpe|nuestros errores/i, metrica: "RobosMedio", quien: "ellos", mas: false, oficio: [14, 24], bien: "Les damos pocos robos para correr", mal: "Nos roban y salen a correr", consigna: "Vigilancias 2+1 y no perder por dentro", neutro: ["Robos de {B} para correr", "{A} le da pocos robos a {B}", "{B} roba y sale a correr"], peso: 9 },
+  { id: "posesion", titulo: "Dominio con balón", re: /posesi[oó]n|control del partido|dominio/i, metrica: "Poss%", quien: "nos", mas: true, tasa: true, oficio: [48, 58], unidad: "%", cedeGanando: true, bien: "El balón es nuestro, como pide el plan", mal: "No estamos teniendo el balón", consigna: "Apoyos por dentro al pivote, no rifar", neutro: ["Balón de {A}", "{A} tiene el balón", "{A} no está teniendo el balón"], peso: 9 },
+  { id: "presion", titulo: "Agresividad sin balón", re: /agresiv|presi[oó]n|apret|saltos|campo contrario/i, metrica: "PPDA", quien: "nos", mas: false, tasa: true, oficio: [8, 13], cedeGanando: true, bien: "Apretamos como pide el plan", mal: "Les dejamos dar demasiados pases", consigna: "Saltar juntos y antes: equipo corto", neutro: ["Presión de {A}", "{A} aprieta arriba", "{A} deja dar demasiados pases a {B}"], peso: 8 },
+  { id: "robo-alto", titulo: "Robos arriba", re: /agresiv|presi[oó]n|apret|campo contrario|reinicio/i, metrica: "PosWonA3rd", quien: "nos", mas: true, oficio: [2, 6], cedeGanando: true, bien: "Recuperamos en su campo", mal: "Casi no robamos arriba", consigna: "Presión tras pérdida 5 segundos", neutro: ["Robos arriba de {A}", "{A} recupera en campo de {B}", "{A} casi no roba arriba"], peso: 6 },
+  { id: "area-contra", titulo: "Defensa del área", re: /defensa de [aá]rea|segunda l[ií]nea|pisan [aá]rea|ruptura/i, metrica: "TouchOpBox", quien: "ellos", mas: false, oficio: [12, 24], bien: "Pisan poco nuestra área", mal: "Entran mucho en nuestra área", consigna: "Vigilar la segunda línea y cerrar el rechace", neutro: ["{B} en el área de {A}", "{B} pisa poco el área de {A}", "{B} entra mucho en el área de {A}"], peso: 8 },
+  { id: "llegada", titulo: "Llegada al área", re: /llegada|a llegar|ocupaci[oó]n|pisar su [aá]rea|finaliz/i, metrica: "TouchOpBox", quien: "nos", mas: true, oficio: [14, 28], cedeGanando: true, bien: "Llegamos al área como queremos", mal: "No pisamos su área", consigna: "Ocupar el área con 4-5 y frontal con 2-3", neutro: ["{A} en el área de {B}", "{A} llega al área", "{A} no pisa el área de {B}"], peso: 7 },
+  { id: "abp-contra", titulo: "Córners en contra", re: /\babp\b|bal[oó]n parado|c[oó]rner/i, donde: "ambos", metrica: "Corners", quien: "ellos", mas: false, oficio: [3, 7], bien: "Les damos pocos balones parados", mal: "Les estamos dando córners", consigna: "Faltas lejos del área; córner: marcas y rechace", neutro: ["Córners de {B}", "{B} saca pocos córners", "{B} está sacando muchos córners"], peso: 7 },
+  { id: "progresion", titulo: "Precisión en su campo", re: /progresi|ventaja interior|v[ií]as|entre l[ií]neas/i, metrica: "Ps%InA3rd", quien: "nos", mas: true, tasa: true, oficio: [60, 72], unidad: "%", bien: "Progresamos con pase limpio", mal: "Perdemos el pase en su campo", consigna: "Una pausa más antes del último pase", neutro: ["Pase de {A} en campo rival", "{A} progresa con pase limpio", "{A} pierde el pase en campo rival"], peso: 5 },
+  { id: "directo", titulo: "Duelo aéreo", re: /directo|golpeo largo|juego largo|segunda jugada/i, metrica: "Aerial%", quien: "nos", mas: true, tasa: true, oficio: [44, 56], unidad: "%", bien: "Ganamos el juego aéreo", mal: "Perdemos el balón largo", consigna: "Meter al MC en la línea y ganar la segunda", neutro: ["Duelo aéreo de {A}", "{A} gana el juego aéreo", "{A} pierde el balón largo"], peso: 5 },
+  { id: "pos-rival", titulo: "Su ataque posicional", re: /ataque posicional|juego propositivo/i, donde: "rival", metrica: "Pass%", quien: "ellos", mas: false, tasa: true, oficio: [72, 82], unidad: "%", bien: "Les cuesta jugar con balón", mal: "Están jugando cómodos con balón", consigna: "Orientar su salida hacia fuera y saltar", neutro: ["Pase de {B}", "A {B} le cuesta jugar con balón", "{B} juega cómodo con balón"], peso: 4 },
 ];
 
 const CAMPOS_NUESTROS = ["CLAVES_PARTIDO", "ATAQUE", "DEFENSA", "ABP_OF", "ABP_DEF"];
@@ -180,6 +188,9 @@ const lineas = (plan: Valores | null, campos: string[]) =>
       .map((l) => l.replace(/^\s*(?:[-•]|\d+\.(?:\s*[AB]\.)?)\s*/, "").trim())
       .filter((l) => l.length > 3),
   );
+
+/** «En el filo: …» y «Posible alerta: …»: la primera en minúscula, salvo que empiece por el nombre de un equipo. */
+const minuscula = (t: string, conNombre: boolean) => (conNombre ? t : t.toLowerCase());
 
 const corta = (t: string, n = 70) => (t.length > n ? `${t.slice(0, n - 1).trimEnd()}…` : t);
 
@@ -209,8 +220,11 @@ export function juzga(opciones: {
   bandaNos: Record<string, Banda>;
   bandaEllos: Record<string, Banda>;
   marcador?: Marcador | null;
+  /** Partido sin el Castilla: los nombres de los dos, y los textos van en tercera persona. */
+  nombres?: { nos: string; ellos: string } | null;
 }): Juicio[] {
-  const { plan, bandaNos, bandaEllos, marcador } = opciones;
+  const { plan, bandaNos, bandaEllos, marcador, nombres } = opciones;
+  const pon = (t: string) => (nombres ? t.replaceAll("{A}", nombres.nos).replaceAll("{B}", nombres.ellos) : t);
   const nos = derivadas(opciones.nos);
   const ellos = derivadas(opciones.ellos);
   const minuto = Math.max(0, Math.min(opciones.minuto ?? 45, 95));
@@ -247,10 +261,15 @@ export function juzga(opciones: {
     const muyLo = lo10 * parte - holgura(lo10);
     const muyHi = hi90 * parte + holgura(hi90);
     const quien = r.quien === "nos" ? "nuestros" : "sus";
-    const liston = `${r.tasa ? "habitual" : "habitual a estas alturas"}: ${fmt(Math.max(lo, 0), r.unidad)}-${fmt(hi, r.unidad)}${banda ? ` (${quien} ${banda.n} partidos)` : " (de oficio)"}`;
+    /* De quién es la cifra, con nombre, si no juega el Castilla. */
+    const equipo = nombres ? (r.quien === "nos" ? nombres.nos : nombres.ellos) : undefined;
+    const titulo = nombres && r.neutro ? pon(r.neutro[0]) : r.titulo;
+    const bien = nombres && r.neutro ? pon(r.neutro[1]) : r.bien;
+    const mal = nombres && r.neutro ? pon(r.neutro[2]) : r.mal;
+    const liston = `${r.tasa ? "habitual" : "habitual a estas alturas"}: ${fmt(Math.max(lo, 0), r.unidad)}-${fmt(hi, r.unidad)}${banda ? (equipo ? ` (${banda.n} partidos de ${equipo})` : ` (${quien} ${banda.n} partidos)`) : " (de oficio)"}`;
 
     if (v == null) {
-      juicios.push({ id: r.id, titulo: r.titulo, plan: cita, estado: "sindato", valor: "—", cifra: null, rango: [lo, hi], liston, frase: "Opta aún no da esta cifra", peso: 0 });
+      juicios.push({ id: r.id, titulo, equipo, plan: cita, estado: "sindato", valor: "—", cifra: null, rango: [lo, hi], liston, frase: "Opta aún no da esta cifra", peso: 0 });
       continue;
     }
 
@@ -265,7 +284,7 @@ export function juzga(opciones: {
 
     if (ganando && r.cedeGanando && estado === "alerta") {
       estado = "habitual";
-      nota = "Ganando: ceder balón y ritmo es normal";
+      nota = nombres ? `Gana ${nombres.nos}: ceder balón y ritmo es normal` : "Ganando: ceder balón y ritmo es normal";
     }
     /* Ganando en el tramo final, lo que más pesa es lo que nos crean. */
     if (ganando && minuto >= 70 && r.quien === "ellos") peso += 4;
@@ -273,36 +292,41 @@ export function juzga(opciones: {
 
     juicios.push({
       id: r.id,
-      titulo: r.titulo,
+      titulo,
+      equipo,
       plan: cita,
       estado,
       valor: fmt(v, r.unidad),
       cifra: v,
       rango: [lo, hi],
       liston,
-      frase: estado === "certeza" ? r.bien : estado === "alerta" ? r.mal : estado === "pronto" ? "Aún es pronto para juzgarlo" : estado === "duda" ? `En el filo: ${((r.mas ? v < lo : v > hi) ? r.mal : r.bien).toLowerCase()}` : "Dentro de lo habitual",
+      frase: estado === "certeza" ? bien : estado === "alerta" ? mal : estado === "pronto" ? "Aún es pronto para juzgarlo" : estado === "duda" ? `En el filo: ${minuscula((r.mas ? v < lo : v > hi) ? mal : bien, !!nombres)}` : "Dentro de lo habitual",
       consigna: estado === "alerta" ? r.consigna : undefined,
       nota,
       peso,
     });
   }
 
-  /* Disciplina: tres amarillas nuestras es alerta pase lo que pase. */
-  const am = num(nos.Yellow);
+  /* Disciplina: tres amarillas nuestras es alerta pase lo que pase. Sin el Castilla, las de cada uno, con su nombre. */
+  for (const [lado, filaAm] of (nombres ? [["nos", nos], ["ellos", ellos]] : [["nos", nos]]) as ["nos" | "ellos", Valores][]) {
+  const am = num(filaAm.Yellow);
+  const deQuien = nombres ? (lado === "nos" ? nombres.nos : nombres.ellos) : undefined;
   if (am != null && am >= 2) {
     juicios.push({
-      id: "amarillas",
-      titulo: "Amarillas nuestras",
+      id: lado === "nos" ? "amarillas" : "amarillas-ellos",
+      titulo: deQuien ? `Amarillas de ${deQuien}` : "Amarillas nuestras",
+      equipo: deQuien,
       plan: nuestras.find((l) => /falta|interrumpir/i.test(l)) ? corta(nuestras.find((l) => /falta|interrumpir/i.test(l))!) : "Objetivo general",
       estado: am >= 3 ? "alerta" : "duda",
       valor: String(am),
       cifra: am,
       rango: null,
       liston: "a partir de 3, riesgo de quedarse con diez",
-      frase: am >= 3 ? "Demasiadas amarillas: cuidado con la falta" : "Dos amarillas: cortar con cabeza",
+      frase: deQuien ? (am >= 3 ? `${deQuien} va cargado de amarillas` : `${deQuien} lleva dos amarillas`) : am >= 3 ? "Demasiadas amarillas: cuidado con la falta" : "Dos amarillas: cortar con cabeza",
       consigna: am >= 3 ? "Falta táctica sólo lejos de nuestra área y no los amonestados" : undefined,
       peso: 9,
     });
+  }
   }
 
   const orden: Record<Estado, number> = { alerta: 0, certeza: 1, duda: 2, habitual: 3, pronto: 4, sindato: 5 };
@@ -318,7 +342,7 @@ export function confirma(ahora: Juicio[], antes: Juicio[] | null): Juicio[] {
   const previo = new Map(antes.map((j) => [j.id, j.estado]));
   return ahora.map((j) =>
     j.estado === "alerta" && previo.has(j.id) && previo.get(j.id) !== "alerta"
-      ? { ...j, estado: "duda" as Estado, frase: `Posible alerta: ${j.frase.toLowerCase()}`, nota: "Se confirma si sigue así en la próxima lectura" }
+      ? { ...j, estado: "duda" as Estado, frase: `Posible alerta: ${minuscula(j.frase, !!j.equipo)}`, nota: "Se confirma si sigue así en la próxima lectura" }
       : j,
   );
 }
@@ -330,7 +354,7 @@ export function confirma(ahora: Juicio[], antes: Juicio[] | null): Juicio[] {
 /* La barra de cada 5' es sólo el xG (una unidad); los toques van en la frase. */
 const empuje = (v: Valores) => num(v.ExpG) ?? 0;
 
-export function momento(tramos: Tramo[]): Momento {
+export function momento(tramos: Tramo[], nombres?: { nos: string; ellos: string } | null): Momento {
   const orden = [...tramos].sort((a, b) => a.parte - b.parte || a.tramo - b.tramo);
   const barras = orden.map((t) => ({
     /* Por el final del tramo: «5'» es lo que pasó del 0 al 5. */
@@ -350,8 +374,8 @@ export function momento(tramos: Tramo[]): Momento {
   /* Manda quien gana en las dos cosas, o en una por mucho. */
   const puntos = Math.sign(xgNos - xgEllos) * (Math.abs(xgNos - xgEllos) >= 0.15 ? 2 : Math.abs(xgNos - xgEllos) >= 0.05 ? 1 : 0) + Math.sign(areaNos - areaEllos) * (Math.abs(areaNos - areaEllos) >= 4 ? 2 : Math.abs(areaNos - areaEllos) >= 2 ? 1 : 0);
   if (Math.abs(puntos) < 2) return { barras, ultimos: { manda: "igual", frase: `Últimos 15': igualado (${datos})` } };
-  if (puntos > 0) return { barras, ultimos: { manda: "nos", frase: `Últimos 15': mandamos nosotros (${datos})` } };
-  return { barras, ultimos: { manda: "ellos", frase: `Últimos 15': aprietan ellos (${datos}${roboEllos >= 2 ? ` · ${roboEllos} robos en nuestro campo` : ""})` } };
+  if (puntos > 0) return { barras, ultimos: { manda: "nos", frase: nombres ? `Últimos 15': manda ${nombres.nos} (${datos})` : `Últimos 15': mandamos nosotros (${datos})` } };
+  return { barras, ultimos: { manda: "ellos", frase: nombres ? `Últimos 15': aprieta ${nombres.ellos} (${datos}${roboEllos >= 2 ? ` · ${roboEllos} robos en campo de ${nombres.nos}` : ""})` : `Últimos 15': aprietan ellos (${datos}${roboEllos >= 2 ? ` · ${roboEllos} robos en nuestro campo` : ""})` } };
 }
 
 /** Los tramos de `opta:directo:<partido>` (forma {cols, filas}) partidos por equipo. */

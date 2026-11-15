@@ -92,7 +92,8 @@ function Tarjeta({ j, grande, completa }: { j: Juicio; grande: boolean; completa
           <Icono size={14} />
           {c.rotulo}
         </span>
-        <span className="truncate text-xs font-semibold uppercase tracking-wide text-white/65">{j.titulo}</span>
+        {/* Con el nombre del equipo (partidos sin el Castilla) no se corta: es lo que dice de quién habla. */}
+        <span className={`text-xs font-semibold uppercase tracking-wide text-white/65 ${j.equipo ? "min-w-0 break-words text-right" : "truncate"}`}>{j.titulo}</span>
       </div>
       <p className={`mt-1 font-black tabular-nums leading-none text-white ${enorme ? "text-7xl" : grande ? "text-5xl" : "text-3xl"}`}>{j.valor}</p>
       <LineaRango j={j} grande={grande} />
@@ -196,10 +197,12 @@ export function DirectoPlan({
 
   const juicios = useMemo<Juicio[]>(() => {
     const elPlan = esCastilla ? plan : null;
-    const ahora = juzga({ plan: elPlan, minuto, nos, ellos, bandaNos, bandaEllos, marcador });
+    /* Sin el Castilla, cada tarjeta dice de qué equipo habla (15/11/2026, petición del analista). */
+    const nombres = esCastilla ? null : { nos: nombreNos, ellos: nombreEllos };
+    const ahora = juzga({ plan: elPlan, minuto, nos, ellos, bandaNos, bandaEllos, marcador, nombres });
     const antes =
       antesNos && antesEllos
-        ? juzga({ plan: elPlan, minuto: minuto != null ? minuto - 1 : null, nos: antesNos, ellos: antesEllos, bandaNos, bandaEllos, marcador })
+        ? juzga({ plan: elPlan, minuto: minuto != null ? minuto - 1 : null, nos: antesNos, ellos: antesEllos, bandaNos, bandaEllos, marcador, nombres })
         : null;
     /* Muestra corta (13/11/2026, tras los expertos): con menos de 5 partidos
        en la media de alguno de los dos, una alerta se queda en duda. */
@@ -218,7 +221,7 @@ export function DirectoPlan({
     /* Partido de otros (13/11/2026, tras los expertos): sin consignas de
        banquillo, que no son para nadie; cada equipo, contra su propia media. */
     return esCastilla ? confirmados : confirmados.map((j) => ({ ...j, consigna: undefined }));
-  }, [esCastilla, plan, minuto, nos, ellos, antesNos, antesEllos, bandaNos, bandaEllos, marcador]);
+  }, [esCastilla, plan, minuto, nos, ellos, antesNos, antesEllos, bandaNos, bandaEllos, marcador, nombreNos, nombreEllos]);
 
   /* Alerta nueva ya confirmada (dos lecturas): pitido corto y vibración, que en
      el banquillo un aviso sólo visual se pierde (13/11/2026). La primera
@@ -257,7 +260,7 @@ export function DirectoPlan({
     }
   }, [juicios]);
 
-  const mom = useMemo(() => momento(tramos), [tramos]);
+  const mom = useMemo(() => momento(tramos, esCastilla ? null : { nos: nombreNos, ellos: nombreEllos }), [tramos, esCastilla, nombreNos, nombreEllos]);
   /* El tramo más largo en que mandó el rival (xG cada 5′): de ahí salen los clips del lunes. */
   const tramoRival = useMemo(() => {
     let mejor: [number, number] | null = null;
@@ -295,7 +298,7 @@ export function DirectoPlan({
       : plan
         ? `Contra el plan de la J${String(plan.JORNADA ?? "")} (${String(plan.EQUIPO ?? "")}) y lo habitual de cada equipo esta temporada`
         : `Sin plan de partido de ${nombreEllos}: objetivos generales contra lo habitual`
-    : `No juega el Castilla: cada equipo contra su media (${nombreNos}, ${muestraDe(bandaNos)} partidos; ${nombreEllos}, ${muestraDe(bandaEllos)})${Math.min(muestraDe(bandaNos), muestraDe(bandaEllos)) < 5 ? " · muestra corta: sin alertas firmes" : ""}`;
+    : `No juega el Castilla: cada tarjeta dice de qué equipo es la cifra; rojo = malo para ${nombreNos}, verde = bueno para ${nombreNos}. Cada equipo contra su media (${nombreNos}, ${muestraDe(bandaNos)} partidos; ${nombreEllos}, ${muestraDe(bandaEllos)})${Math.min(muestraDe(bandaNos), muestraDe(bandaEllos)) < 5 ? " · muestra corta: sin alertas firmes" : ""}`;
 
   return (
     <div ref={caja} className={`rounded-2xl border border-white/10 bg-[var(--background,#0b0b0f)] p-4 ${completa ? "overflow-auto p-6" : ""}`}>
@@ -360,16 +363,23 @@ export function DirectoPlan({
         /* Primero lo que decide (logrado, a medias, no logrado); «lo normal», plegado. */
         const decide = delPlan.filter((j) => j.estado !== "habitual");
         const normales = delPlan.filter((j) => j.estado === "habitual");
-        const ETIQUETA: Partial<Record<Estado, string>> = { certeza: "Logrado", habitual: "Como siempre", duda: "En el filo", alerta: "No logrado" };
+        /* Sin el Castilla no hay plan nuestro: se cuenta desde el equipo de la izquierda, con su nombre. */
+        const ETIQUETA: Partial<Record<Estado, string>> = esCastilla
+          ? { certeza: "Logrado", habitual: "Como siempre", duda: "En el filo", alerta: "No logrado" }
+          : { certeza: "A favor", habitual: "Como siempre", duda: "En el filo", alerta: "En contra" };
         const n = (e: Estado) => delPlan.filter((j) => j.estado === e).length;
         return (
           <div className="mb-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
             <p className={`font-black text-[#C8A96B] ${completa ? "text-2xl" : "text-base sm:text-lg"}`}>
               {/* El titular cuenta lo claro (logrado o no); lo que quedó «a medias» se ve en la lista, no en la cuenta. */}
-              {n("certeza") + n("alerta") ? `Logramos ${n("certeza")} de ${n("certeza") + n("alerta")} ${n("certeza") + n("alerta") === 1 ? "objetivo que decide" : "objetivos que deciden"}` : decide.length ? "Nada claro: todo en el filo o como siempre" : "Todo como siempre frente al plan"}
+              {!esCastilla
+                ? n("certeza") + n("alerta")
+                  ? `${nombreNos}: ${n("certeza")} de ${n("certeza") + n("alerta")} ${n("certeza") + n("alerta") === 1 ? "cifra que decide" : "cifras que deciden"}, a su favor`
+                  : "Todo dentro de lo habitual de cada equipo"
+                : n("certeza") + n("alerta") ? `Logramos ${n("certeza")} de ${n("certeza") + n("alerta")} ${n("certeza") + n("alerta") === 1 ? "objetivo que decide" : "objetivos que deciden"}` : decide.length ? "Nada claro: todo en el filo o como siempre" : "Todo como siempre frente al plan"}
             </p>
             <p className="text-xs text-white/55">
-              Balance frente al plan · {[n("certeza") && `${n("certeza")} ${n("certeza") === 1 ? "logrado" : "logrados"}`, n("alerta") && `${n("alerta")} no ${n("alerta") === 1 ? "logrado" : "logrados"}`, n("duda") && `${n("duda")} en el filo`, n("habitual") && `${n("habitual")} como siempre`].filter(Boolean).join(" · ")}
+              {esCastilla ? "Balance frente al plan" : `Balance leído desde ${nombreNos}, cada equipo contra su media`} · {[n("certeza") && `${n("certeza")} ${esCastilla ? (n("certeza") === 1 ? "logrado" : "logrados") : "a favor"}`, n("alerta") && `${n("alerta")} ${esCastilla ? `no ${n("alerta") === 1 ? "logrado" : "logrados"}` : "en contra"}`, n("duda") && `${n("duda")} en el filo`, n("habitual") && `${n("habitual")} como siempre`].filter(Boolean).join(" · ")}
             </p>
             <p className="mt-1 hidden text-xs text-white/55 sm:block">Cada tema del plan con la cifra del partido y su referencia (el texto del plan, al pasar el ratón)</p>
             <ul className="mt-1 space-y-1.5">
@@ -379,7 +389,7 @@ export function DirectoPlan({
                     {ETIQUETA[j.estado] ?? COLOR[j.estado].rotulo}
                   </span>
                   <span className="min-w-0 text-white/85" title={j.plan}>
-                    {j.titulo.charAt(0) + j.titulo.slice(1).toLowerCase()}: <b className="tabular-nums text-white">{j.valor}</b>
+                    {j.equipo ? j.titulo : j.titulo.charAt(0) + j.titulo.slice(1).toLowerCase()}:<b className="tabular-nums text-white">{j.valor}</b>
                     {j.liston && <span className="text-white/55"> · {j.liston.replace(/^habitual[^:]*:\s*/i, "lo habitual: ")}</span>}
                     {j.estado === "alerta" && j.consigna && (
                       <span className="block text-white/75">
