@@ -318,7 +318,7 @@ async function anadir(idea) {
 
   const tocados = revisaCambios();
 
-  git(["commit", "-q", "-m", `Idea de X: ${idea.titulo}\n\n${idea.idea}\n\nPantalla: ${idea.pantalla}\nPublicación: ${idea.url}\n\nCo-Authored-By: Claude <noreply@anthropic.com>`]);
+  git(["commit", "-q", "-m", `Idea de X: ${idea.titulo} [skip render]\n\n${idea.idea}\n\nPantalla: ${idea.pantalla}\nPublicación: ${idea.url}\n\nCo-Authored-By: Claude <noreply@anthropic.com>`]);
 
   const sha = await publica(tocados, idea.pantalla);
 
@@ -386,7 +386,7 @@ async function deshacer(idea) {
 
   if (!tocados.length) throw new NoSale("ya estaba deshecha: revertir no cambia nada");
 
-  git(["commit", "-q", "-m", `Deshace la idea de X: ${idea.titulo}\n\nRevierte ${commits.join(", ")}.\n\nCo-Authored-By: Claude <noreply@anthropic.com>`]);
+  git(["commit", "-q", "-m", `Deshace la idea de X: ${idea.titulo} [skip render]\n\nRevierte ${commits.join(", ")}.\n\nCo-Authored-By: Claude <noreply@anthropic.com>`]);
 
   /* La ayuda no se exige al deshacer: vuelve tal y como estaba. */
   const sha = await publica(tocados, null);

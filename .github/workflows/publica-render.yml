@@ -1,0 +1,102 @@
+# Publicar en Render por lotes (15/11/2026)
+#
+# Render da 500 minutos de compilación al mes gratis y cobra el resto. El
+# 15/11 avisó del 70 %: se subían 50 versiones al día y cada una compilaba la
+# web entera. Desde ahora los commits llevan «[skip render]» (Render se salta
+# ese deploy) y ESTE proceso es el que publica, como mucho:
+#   · a las 7:00 y a las 15:00 (hora de Madrid en invierno), si desde la
+#     última publicación ha cambiado algo de la web;
+#   · cuando se lanza a mano (Actions → «Publicar en Render» → Run workflow),
+#     para algo urgente.
+# Topes: 3 publicaciones al día y PUBLICACIONES_MES al mes (≈ 8 min cada una,
+# 50 × 8 = 400 de 500). Pasado el tope no publica y la ejecución sale en rojo
+# (GitHub manda correo). Cada publicación deja una etiqueta render-AAAAMMDD-HHMM;
+# salud-datos.mjs las cuenta para el aviso del administrador.
+#
+# Cómo publica: si existe el secreto RENDER_DEPLOY_HOOK (Render → el servicio →
+# Settings → Deploy Hook), lo llama; es lo recomendado, con el Auto-Deploy de
+# Render apagado. Si no, sube un commit vacío sin «[skip render]» y lo publica
+# el Auto-Deploy.
+
+name: Publicar en Render
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+    - cron: "0 14 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publica-render
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    name: Publicar si hay cambios de la web
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PUBLICACIONES_MES: "50"
+      PUBLICACIONES_DIA: "3"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Decidir
+        id: decide
+        run: |
+          set -e
+          git fetch --tags -q
+          ULTIMA=$(git tag -l 'render-*' --sort=-creatordate | head -1)
+          if [ -z "$ULTIMA" ]; then
+            BASE=$(git log --format=%H -1 --invert-grep --grep='\[skip render\]' -- .)
+          else
+            BASE=$(git rev-list -n1 "$ULTIMA")
+          fi
+          echo "Última publicación: ${ULTIMA:-ninguna etiqueta} ($BASE)"
+          CAMBIOS=$(git diff --name-only "$BASE" HEAD -- . \
+            ':(exclude)scripts/**' ':(exclude).github/**' ':(exclude)supabase/**' \
+            ':(exclude).claude/**' ':(exclude)docs/**' ':(exclude)**/*.md' \
+            ':(exclude)**/*.cmd' ':(exclude)**/*.ps1' ':(exclude)**/*.vbs' ':(exclude)**/*.log' | wc -l)
+          echo "Ficheros de la web cambiados: $CAMBIOS"
+          MES=$(date -u +%Y%m); DIA=$(date -u +%Y%m%d)
+          N_MES=$(git tag -l "render-${MES}*" | wc -l)
+          N_DIA=$(git tag -l "render-${DIA}*" | wc -l)
+          # Noviembre de 2026 empezó a contarse con 350 minutos ya gastados: quedan ~17 compilaciones.
+          if [ "$MES" = "202611" ]; then PUBLICACIONES_MES=15; fi
+          echo "Publicaciones: $N_DIA hoy, $N_MES de $PUBLICACIONES_MES este mes"
+          if [ "$CAMBIOS" -eq 0 ]; then echo "publicar=no" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if [ "$N_MES" -ge "$PUBLICACIONES_MES" ]; then
+            echo "::error::Tope del mes alcanzado ($N_MES publicaciones). No se publica para no pasar de los 500 minutos gratis de Render."
+            exit 1
+          fi
+          if [ "$N_DIA" -ge "$PUBLICACIONES_DIA" ]; then
+            echo "::warning::Ya van $N_DIA publicaciones hoy; espera a la próxima pasada."
+            echo "publicar=no" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          echo "publicar=si" >> "$GITHUB_OUTPUT"
+
+      - name: Publicar
+        if: steps.decide.outputs.publicar == 'si'
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          if [ -n "$HOOK" ]; then
+            curl -fsS -X POST "$HOOK" > /dev/null
+            echo "Publicado por el Deploy Hook."
+          else
+            git commit --allow-empty -q -m "Publicar en Render (lote de cambios)"
+            git push -q origin HEAD:main
+            echo "Publicado con un commit vacío (Auto-Deploy)."
+          fi
+          ETIQUETA="render-$(date -u +%Y%m%d-%H%M)"
+          git tag "$ETIQUETA"
+          git push -q origin "$ETIQUETA"
+          echo "Etiqueta $ETIQUETA"

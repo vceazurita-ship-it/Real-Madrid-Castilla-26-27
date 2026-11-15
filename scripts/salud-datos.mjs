@@ -81,6 +81,7 @@ async function copia() {
     for (const f of viejas.slice(0, Math.max(0, viejas.length - GUARDAR))) fs.unlinkSync(path.join(CARPETA, f));
 
     const filas = TABLAS.map((t) => `${t} ${salida[t].length}`).join(", ");
+    estado.copia = { dia: HOY, bytes: gz.length };
     notas.push(`Copia de hoy: ${filas} (${mb(gz.length)} comprimida), en .cache/copias.`);
 
     if (!EN_SECO) {
@@ -107,6 +108,7 @@ async function copia() {
 
 function miraBase(bytes) {
   if (bytes == null) return;
+  estado.base = { bytes };
   const url = process.env.DATOS_PG_URL || "";
   const enNeon = /neon\.tech/.test(url);
   const tope = enNeon ? 0.5e9 : 1e9;
@@ -117,6 +119,8 @@ function miraBase(bytes) {
   if (/render\.com/.test(url)) {
     const caduca = process.env.DATOS_PG_CADUCA || "2026-12-14";
     const dias = Math.round((new Date(`${caduca}T00:00:00Z`) - new Date(`${HOY}T00:00:00Z`)) / 86_400_000);
+    estado.base.caduca = caduca;
+    estado.base.dias = dias;
     notas.push(`La base gratis de Render caduca el ${caduca} (quedan ${dias} días).`);
     if (dias <= 10) {
       avisos.push(
@@ -136,6 +140,7 @@ async function miraB2() {
     let total = 0;
     for (const v of todo.values()) total += v;
     const uso = total / B2_GRATIS;
+    estado.b2 = { bytes: total, ficheros: todo.size, tope: B2_GRATIS };
     notas.push(`Backblaze B2 (vídeos, fotos y copias): ${mb(total)} de 10 GB (${Math.round(uso * 100)} %), ${todo.size} ficheros.`);
     if (uso > 0.7) avisos.push(`Backblaze B2 lleva ${mb(total)} de los 10 GB gratis (${Math.round(uso * 100)} %). Hay que borrar vídeos de temporadas o jornadas viejas antes de llegar al 100 %, o pasará a cobrar.`);
   } catch (e) {
@@ -149,11 +154,66 @@ async function miraSupabase() {
   if (!u || !k) return;
   try {
     const r = await fetch(`${u}/rest/v1/app_documents?select=key&limit=1`, { headers: { apikey: k, Authorization: `Bearer ${k}` } });
+    estado.supabase = r.status === 402 ? "cortado" : r.ok ? "vuelto" : String(r.status);
     if (r.status === 402) notas.push("Supabase sigue cortado (402).");
     else if (r.ok) notas.push("Supabase ha vuelto: se puede pensar en volver (ver la nota del plan B), pero la reserva sigue mandando mientras DATOS_PG_URL esté puesta.");
     else notas.push(`Supabase responde ${r.status}.`);
   } catch (e) {
     notas.push(`Supabase: sin respuesta (${e.message}).`);
+  }
+}
+
+/* ------------------------ Render: minutos ------------------------ */
+
+/*
+| Las publicaciones las hace .github/workflows/publica-render.yml y cada una
+| deja la etiqueta render-AAAAMMDD-HHMM: se cuentan las del mes y se calcula
+| con RENDER_MIN_POR_BUILD (8 por defecto) contra los 500 gratis.
+*/
+const estado = { comprobadoEn: new Date().toISOString(), pendientes: [] };
+
+function miraRender() {
+  try {
+    const { execFileSync } = require("node:child_process");
+    const salida = execFileSync("git", ["ls-remote", "--tags", "origin", "render-*"], { cwd: RAIZ, encoding: "utf8", timeout: 30_000 });
+    const mes = HOY.slice(0, 7).replace("-", "");
+    const n = salida.split(/\r?\n/).filter((l) => l.includes(`refs/tags/render-${mes}`)).length;
+    const porBuild = Number(process.env.RENDER_MIN_POR_BUILD || 8);
+    /* Noviembre de 2026 ya llevaba más del 70 % (350 min) cuando se empezó a contar (correo de Render del 15/11). */
+    const ANTES = { "202611": 350 };
+    const minutos = n * porBuild + (ANTES[mes] ?? 0);
+    estado.render = { publicacionesMes: n, minutosEstimados: minutos, tope: 500 };
+    notas.push(`Render: ${n} publicaciones este mes, unos ${minutos} de los 500 minutos gratis (con los 350 de antes del 15/11).`);
+    if (minutos > 350) avisos.push(`Render lleva unos ${minutos} de 500 minutos de compilación este mes. «Publicar en Render» se para solo en 50 publicaciones; para algo urgente, se lanza a mano en GitHub.`);
+  } catch (e) {
+    notas.push(`Render: no se han podido contar las publicaciones (${e.message}).`);
+  }
+}
+
+/* Lo que queda por cerrar a mano: sale en el aviso del administrador hasta que se resuelva. */
+const PENDIENTES = [
+  {
+    id: "besoccer-api",
+    titulo: "Alta en la API de BeSoccer",
+    texto:
+      "El registro no funcionó el 15/11. Hace falta la clave (BESOCCER_API_KEY en .env.local) para traer todo el historial de cada jugador rival: las fichas de la web de BeSoccer están bloqueadas desde el 10/11.",
+  },
+];
+
+async function guardaEstado() {
+  estado.avisos = avisos;
+  estado.notas = notas;
+  estado.pendientes = PENDIENTES.filter((p) => !(p.id === "besoccer-api" && process.env.BESOCCER_API_KEY));
+  if (EN_SECO) return;
+  try {
+    const { createClient } = require("../lib/datos/cliente.cjs");
+    const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+    const { error } = await sb
+      .from("app_documents")
+      .upsert({ key: "salud:plataformas", kind: "salud", data: estado, updated_at: new Date().toISOString() }, { onConflict: "key" });
+    if (error) console.log(`No se ha podido guardar el estado para el aviso (${error.message}).`);
+  } catch (e) {
+    console.log(`No se ha podido guardar el estado para el aviso (${e.message}).`);
   }
 }
 
@@ -208,7 +268,9 @@ try {
 }
 await miraB2();
 await miraSupabase();
+miraRender();
 await avisa();
+await guardaEstado();
 
 for (const n of notas) console.log(n);
 for (const a of avisos) console.log(`AVISO: ${a}`);

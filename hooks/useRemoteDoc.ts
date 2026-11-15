@@ -463,11 +463,11 @@ export function useRemoteDoc<T>({
         setStatus("error");
         setSinGuardar(true);
 
-        toast.warning("Alguien ha guardado esto mientras lo editabas", {
+        /* Texto corto (15/11/2026): el largo se cortaba en el aviso («Puedes quedarte con lo tuy…»). */
+        toast.warning("Otra pantalla guardó esto a la vez", {
           id: `doc-conflicto-${trabajo.key}`,
           duration: 30000,
-          description:
-            "No se ha escrito encima. Puedes quedarte con lo tuyo —se manda y pisa lo suyo— o traer lo del servidor y perder lo que tengas sin guardar.",
+          description: "No se ha pisado nada. Elige qué versión se queda.",
           action: {
             label: "Quedarme con lo mío",
             onClick: () => {
