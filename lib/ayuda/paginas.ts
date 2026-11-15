@@ -405,7 +405,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "ABP Ofensivo",
     resumen: "Córners y faltas a favor, acción por acción: qué se lanza, dónde cae, quién remata y cuánto peligro deja.",
     origen: "Nuestra hoja de ABP ofensivo, una fila por acción, registrada a mano. El corte de cada acción, de Hudl (doc «abp:cortes»); la categoría, de Opta.",
-    revisada: "2026-11-12",
+    revisada: "2026-11-15",
     bloques: [
       {
         titulo: "Las tarjetas",
@@ -457,7 +457,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "ABP Defensivo",
     resumen: "Córners y faltas en contra, acción por acción: dónde nos atacan, quién nos hace daño y cuánto conceden.",
     origen: "Nuestra hoja de ABP defensivo, una fila por acción del rival. El corte de cada acción, de Hudl (doc «abp:cortes»); la categoría, de Opta.",
-    revisada: "2026-11-12",
+    revisada: "2026-11-15",
     bloques: [
       {
         titulo: "Las tarjetas",
