@@ -4,7 +4,7 @@
 |--------------------------------------------------------------------------
 |
 | Para la reserva de lib/datos/cliente.cjs: copia app_documents,
-| general_seasons y performance_seasons de un Postgres a otro.
+| general_seasons, performance_seasons y match_ratings de un Postgres a otro.
 |
 |   node scripts/datos-copia.mjs --desde <url|fichero.json> --hacia <url> [--hacer]
 |
@@ -36,7 +36,7 @@ if (!DESDE || !HACIA) {
 const ssl = (u) => (/localhost|127\.0\.0\.1/.test(u) ? false : "require");
 const abre = (u) => postgres(u, { max: 2, ssl: ssl(u), prepare: false, connect_timeout: 20, onnotice: () => {} });
 
-const TABLAS = ["app_documents", "general_seasons", "performance_seasons"];
+const TABLAS = ["app_documents", "general_seasons", "performance_seasons", "match_ratings"];
 
 async function leeOrigen() {
   if (!/^postgres(ql)?:\/\//.test(DESDE)) {
@@ -98,6 +98,18 @@ for (const t of ["general_seasons", "performance_seasons"]) {
   }
   console.log(`${t}: ${n} filas nuevas`);
 }
+
+let notas = 0;
+for (const f of origen.match_ratings) {
+  await destino.unsafe(
+    `insert into match_ratings (season, data, updated_at) values ($1, $2::text::jsonb, coalesce($3::timestamptz, now()))
+     on conflict (season) do update set data = excluded.data, updated_at = excluded.updated_at
+     where match_ratings.updated_at <= excluded.updated_at`,
+    [f.season, texto(f.data) ?? "{}", fecha(f.updated_at)],
+  );
+  notas += 1;
+}
+console.log(`match_ratings: ${notas} temporadas`);
 
 const [{ n }] = await destino.unsafe("select count(*)::int as n from app_documents");
 console.log(`Hecho: ${docs} documentos copiados; el destino tiene ${n}.`);

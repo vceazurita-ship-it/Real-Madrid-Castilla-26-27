@@ -728,7 +728,7 @@ export default function ScoutRivalAbpPage() {
       <main className="min-w-0 flex-1">
         <Topbar />
 
-        <div className="mx-auto min-w-0 max-w-[1500px] px-4 py-6 md:px-8 md:py-8">
+        <div className="mx-auto min-w-0 max-w-[1500px] px-4 py-6 sm:px-6 md:py-8 lg:px-10">
           <AbpHeader
             area="RMCF Castilla · Rival"
             title={vista === "coding" ? (equipo ? `Coding del ABP · ${equipo}` : "Coding del ABP") : equipo ? `ABP · ${equipo}` : "ABP del Rival"}

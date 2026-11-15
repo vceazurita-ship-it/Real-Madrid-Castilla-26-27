@@ -4400,6 +4400,8 @@ outerRadius={isMobile ? 90 : 120}
       </div>
       <button
         onClick={() => void exportaPDF()}
+        aria-label="Descargar en PDF"
+        title="Descargar en PDF"
         className="
           fixed
           top-24

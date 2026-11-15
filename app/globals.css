@@ -2070,6 +2070,14 @@ body:has(.modal-veil) .boton-subir {
   :is(button, [role="button"]):not(.absolute, .fixed, .sr-only, .tactil-libre, svg *) {
     min-width: 36px;
   }
+
+  /* Las casillas y los botones de opción (15/11/2026): medían 13-16 px en
+     /analisis-goles, /desplazamiento y el editor del microciclo, y en la
+     tableta se fallaba al marcarlas. */
+  input:is([type="checkbox"], [type="radio"]):not(.absolute, .sr-only, .tactil-libre) {
+    width: 20px;
+    height: 20px;
+  }
 }
 
 /*

@@ -832,7 +832,7 @@ export const AYUDAS: AyudaDePagina[] = [
         ],
       },
     ],
-    revisada: "2026-11-12",
+    revisada: "2026-11-15",
   },
   {
     ruta: "/individual_proc",
@@ -878,7 +878,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Dashboard de plantilla",
     resumen: "Quién juega, cuánto y cómo rinde: minutos por puesto, avisos de la semana, jornada a jornada, la ficha de cada uno y quién rinde más.",
     origen: "Wyscout (minutos, edad, contrato, amarillas, goles, asistencias y percentiles por puesto), Valoraciones (quién jugó cada jornada, titular o suplente, minutos y nota), hoja JUGADORES (plantilla, licencia y ficha de competencias) y Jugadores sesión (documento «jugadores-sesion», desde el 21/10).",
-    revisada: "2026-11-12",
+    revisada: "2026-11-15",
     bloques: [
       {
         titulo: "Arriba",
@@ -962,7 +962,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Comparativa con la categoría",
     resumen: "Cada jugador del Castilla frente a los de su puesto en la categoría (sub-21, sub-23 o todos), con Wyscout o con Opta: ranking, gráficos por fase, ficha y, según la fuente, contra otros equipos o su evolución por temporadas.",
     origen: "Wyscout: la descarga de jugadores de toda la categoría (esta temporada y la pasada) y, para el ajuste a la posesión, la posesión media de cada equipo en sus partidos de liga de Wyscout. Opta: sus tablas de jugadores de Primera RFEF, todas las temporadas que hay. Al lado, nuestras Valoraciones (nota) y la hoja de seguimiento (nº de registros).",
-    revisada: "2026-11-13",
+    revisada: "2026-11-15",
     bloques: [
       {
         titulo: "Arriba",
@@ -1470,7 +1470,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Su balón parado: cuánto peligro tiene, quién lo lanza y lo remata, qué repite, la proyección del próximo partido y el material de la jornada (clips, apuntes y láminas).",
     origen:
       "Scouting propio registrado aquí (documento «abp-rival-scout» de Supabase) o, si no lo hay, lo deducido de nuestras cuatro hojas de ABP. Sin acciones registradas, Wyscout y las etiquetas de Plantillas rivales. La proyección, de Opta. Las estaturas, de BeSoccer por encima de la hoja.",
-    revisada: "2026-11-12",
+    revisada: "2026-11-15",
     bloques: [
       {
         titulo: "Arriba",
@@ -2095,7 +2095,7 @@ export const AYUDAS: AyudaDePagina[] = [
     resumen: "El próximo partido, lo que toca hoy, el rival y el equipo en cifras de un vistazo, y la puerta a todas las áreas.",
     origen:
       "El calendario y la clasificación de BeSoccer (se ponen al día cada noche), la hoja RIVALES (para abrir cada pantalla con el rival puesto), la hoja de registro del microciclo, Opta (xG, PPDA, balón parado y momentum), los informes de Wyscout (Data Análisis) y la hoja de seguimiento. Ninguna cifra se escribe aquí.",
-    revisada: "2026-11-14",
+    revisada: "2026-11-15",
     bloques: [
       {
         titulo: "El próximo partido",
@@ -2112,7 +2112,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Opta en directo", es: "Arriba de todo, un botón rojo. Si hay directo en marcha, «Ver el directo» lleva a Análisis de datos → En directo (lo ve cualquiera mientras dura). Si no, el administrador tiene «Empezar directo»: lo lanza en GitHub sin preguntar y lleva a la pantalla, que espera sola la primera lectura. Corre en la nube de GitHub: no hace falta el ordenador del club encendido. Sigue todos los partidos de Opta del día, el nuestro y los demás (se elige en la pantalla), hasta 5 horas, y se para solo cuando han acabado todos. Además se mira solo cada 30 minutos de 10:00 a 22:30: si hay partidos jugándose, salen en la tira sin que nadie pulse nada. En un partido sin el Castilla no salen consignas de banquillo: cada equipo se compara con su propia media. Arriba, una tira con todos los partidos del día (marcador y xG, del índice opta:directo): se pulsa y se abre. En nuestro partido, del 44' al 52' sale «Descanso»: las tres alertas que más pesan con su consigna (se quita en cuanto Opta da tramos de la segunda parte). Si no jugamos, se abre el partido del próximo rival (calendario de BeSoccer) y la tira lo marca «Próximo rival»; ese equipo va a la izquierda y las tarjetas se leen desde él. En partidos ajenos se dice de cuántos partidos sale la media de cada equipo; con menos de 5, las alertas se quedan en duda", cuenta: "En marcha = la pasada de GitHub sigue corriendo o el índice opta:directo se escribió hace menos de 3 minutos y no ha llegado a su hora de acabar. Sin la variable GITHUB_TOKEN_DIRECTO en Render no se ofrece" },
           { que: "Aviso de la base de datos", es: "Sólo para el administrador (la sesión de Ajustes, v.ceazurita@gmail.com), la primera vez que entra cada día: Supabase sigue cortado y la app va con el plan B, una base gratis de Render que caduca el 14/12/2026, con los días que quedan y las salidas. «Entendido, hoy no más» lo cierra hasta mañana. Se quita cuando la base de datos esté resuelta", cuenta: "components/ui/AvisoBaseDatos.tsx, montado en el layout; el día visto se recuerda en este aparato (localStorage)" },
           { que: "El último partido en 3D", es: "Debajo de las alertas: el último partido del Castilla con su evento a evento, en 3D y en bucle, con una línea que lo resume (victoria merecida, derrota con más ocasiones…), tres claves para el micro (ocasiones, presión con el PPDA y córners) y tres cifras de los dos equipos: xG, remates a puerta y posesión. «Verlo entero con los mapas» abre ese mismo partido en el directo", cuenta: "La lectura compara el resultado con la diferencia de xG (±0,3). Cifras del doc opta:directo:<partido> (equipos)" },
-          { que: "Moverse por la app (todas las pantallas)", es: "Arriba, la cabecera pegada con la tira de las pantallas de la misma sección; la lupa (o Ctrl+K en el ordenador) busca cualquier pantalla tecleando. Al bajar más de pantalla y media sale abajo a la izquierda el botón redondo de volver arriba. En el móvil la cabecera y el título de cada pantalla ocupan menos y las pestañas de sección tienen 40 px de alto para el dedo" },
+          { que: "Moverse por la app (todas las pantallas)", es: "Arriba, la cabecera pegada con la tira de las pantallas de la misma sección; la lupa (o Ctrl+K en el ordenador) busca cualquier pantalla tecleando. Al bajar más de pantalla y media sale abajo a la izquierda el botón redondo de volver arriba. En el móvil la cabecera y el título de cada pantalla ocupan menos y las pestañas de sección tienen 40 px de alto para el dedo; en el móvil y la tableta las casillas para marcar miden 20 px. Cada pestaña del navegador lleva el nombre de la pantalla («Microciclos · RMCF Castilla»), y así se distinguen en el historial, los marcadores y el selector de apps del móvil", cuenta: "El nombre es la etiqueta del menú (components/ui/TituloPestana.tsx); /general y /performance conservan el suyo" },
           { que: "Lo que toca hoy", es: "MD y MD-1: En directo (el día de partido), PDF y vídeo ABP por jugador, Duelos. MD+1 y MD+2: Informe post, Análisis de datos, Histórico. MD-2 a MD-4: scout y ABP del rival" },
           { que: "Del rival", es: "Scout colectivo, ABP rival, Pizarra ABP, Duelos e Individual con el rival puesto; sin repetir lo de arriba" },
           { que: "Últimos 5", es: "Nuestros cinco últimos con el marcador debajo; el más reciente, a la derecha", cuenta: "V ganado · E empatado · D perdido" },
