@@ -10,6 +10,23 @@ services:
     plan: free
     region: frankfurt
     branch: main
+    # 15/11/2026: Render avisó del 70 % de los 500 minutos gratis de compilación
+    # del mes (58 subidas en un día, y cada una compilaba la web entera aunque
+    # sólo cambiase un script del ordenador del club). Lo que no forma parte de
+    # la web no dispara compilación. Además, los commits que sólo tocan la web
+    # a medias llevan «[skip render]» y se publican juntos.
+    buildFilter:
+      ignoredPaths:
+        - scripts/**
+        - .github/**
+        - supabase/**
+        - .claude/**
+        - docs/**
+        - "**/*.md"
+        - "**/*.cmd"
+        - "**/*.ps1"
+        - "**/*.vbs"
+        - "**/*.log"
     buildCommand: npm ci && npm run build
     startCommand: npm start
     envVars:
