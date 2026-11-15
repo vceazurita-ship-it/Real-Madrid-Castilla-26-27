@@ -2267,6 +2267,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Poner al día",
         filas: [
+          { que: "Plegado", es: "Cada proceso es una línea con un punto de color (verde al día, dorado en marcha, ámbar con aviso, gris sin dato), «Hecho hace X» con lo que dejó y su botón. Lo que está al día va plegado: se pulsa la línea para verlo entero. Lo que está en marcha, falló, se cortó o está en pausa sale abierto y arriba. Arriba, el recuento: cuántos al día, en marcha y con aviso. En «Actualizaciones» igual: lo atrasado o sin fecha primero y abierto, lo que está al día en una línea con «Último dato hace X»", cuenta: "Lo que se abre o cierra a mano se recuerda en este aparato, atado al estado: si algo plegado falla, vuelve a abrirse. components/ajustes/Plegable.tsx" },
           { que: "El ordenador del club", es: "Si el vigía está encendido (y su último aviso) o apagado: lo que se pida espera a que se encienda" },
           { que: "Datos de Opta", es: "Primera RFEF entera de Opta ProVision; corre en GitHub cada lunes y al pulsar. «Seguir en directo» mira los partidos del día" },
           { que: "Resultados de la quiniela", es: "Pone el 1-X-2 de la jornada en curso y la anterior desde BeSoccer; no toca una jornada que no apostó nadie" },
@@ -2323,7 +2324,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Con el ordenador del club apagado no se pierde nada: el encargo queda apuntado y empieza al encenderlo.",
       "La lista de «Actualizaciones» sale de un catálogo: un proceso nuevo que no se añada allí no aparece.",
     ],
-    revisada: "2026-11-12",
+    revisada: "2026-11-15",
   },
 
   /* ==================== TAREAS Y ALERTAS (12/11/2026) ==================== */

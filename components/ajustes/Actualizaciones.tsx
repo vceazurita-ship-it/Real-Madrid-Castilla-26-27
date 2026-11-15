@@ -9,7 +9,8 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { AlertTriangle, ArrowUpRight, CheckCircle2, CircleDashed, Loader2, RefreshCw } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, CheckCircle2, ChevronDown, CircleDashed, Loader2, RefreshCw } from "lucide-react";
+import { PUNTO, usePlegado, type Tono } from "@/components/ajustes/Plegable";
 
 import { ACTUALIZACIONES, GRUPOS, frescura, type EstadoFrescura, type FechaActualizacion } from "@/lib/actualizaciones";
 import { IdeasDeX } from "@/components/ajustes/IdeasDeX";
@@ -128,7 +129,10 @@ export function Actualizaciones({
       <IdeasDeX estado={estado} vigia={vigia} ahora={ahora} pide={pide} />
 
       {GRUPOS.map(({ grupo, titulo, texto }) => {
-        const lista = ACTUALIZACIONES.filter((a) => a.grupo === grupo);
+        const PESO = { atrasada: 0, "sin-dato": 1, "al-dia": 2 } as const;
+        const lista = ACTUALIZACIONES.filter((a) => a.grupo === grupo).sort((x, y) =>
+          fechas ? PESO[frescura(x, fechas[x.clave] ?? null, ahora)] - PESO[frescura(y, fechas[y.clave] ?? null, ahora)] : 0,
+        );
 
         if (!lista.length) return null;
 
@@ -137,69 +141,17 @@ export function Actualizaciones({
             <h2 className="text-[12px] font-semibold uppercase tracking-[0.22em] text-[#C8A96B]">{titulo}</h2>
             <p className="mt-1 text-[12px] text-white/45">{texto}</p>
 
-            <ul className="mt-3 grid min-w-0 gap-3 lg:grid-cols-2">
+            <ul className="mt-3 grid min-w-0 items-start gap-3 lg:grid-cols-2">
               {lista.map((a) => {
                 const fecha = fechas ? (fechas[a.clave] ?? null) : undefined;
                 const marca = fecha === undefined ? null : MARCA[frescura(a, fecha, ahora)];
                 const encargo = a.encargo ? estadoEncargo(a.encargo, estado[a.encargo], ahora) : "libre";
                 const enMarcha = encargo === "pedido" || encargo === "en-marcha";
-                const sePide = a.encargo && SE_PIDE_AQUI.includes(a.encargo);
+                const sePide = Boolean(a.encargo && SE_PIDE_AQUI.includes(a.encargo));
+                const tono: Tono = enMarcha ? "marcha" : fecha === undefined ? "neutro" : frescura(a, fecha, ahora) === "al-dia" ? "ok" : frescura(a, fecha, ahora) === "atrasada" ? "aviso" : "neutro";
 
                 return (
-                  <li key={a.clave} className="flex min-w-0 flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                    <div className="flex min-w-0 items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-[15px] font-semibold text-white">{a.nombre}</p>
-                        <p className="mt-0.5 text-[12px] leading-snug text-white/55">{a.alimenta}</p>
-                      </div>
-
-                      {marca ? (
-                        <span className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${marca.clase}`}>
-                          <marca.Icono size={12} /> {marca.texto}
-                        </span>
-                      ) : (
-                        <span className="h-6 w-16 shrink-0 animate-pulse rounded-full bg-white/10" aria-hidden />
-                      )}
-                    </div>
-
-                    <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-[12px] sm:gap-x-4">
-                      <dt className="text-white/40">Último dato</dt>
-                      <dd className="min-w-0 text-white/80">
-                        {fecha === undefined ? "…" : fecha ? `${hace(fecha, ahora)} · ${fechaCorta(fecha)}` : "No hay fecha guardada"}
-                      </dd>
-                      <dt className="text-white/40">Cuándo</dt>
-                      <dd className="min-w-0 text-white/80">{a.cuando}</dd>
-                      <dt className="text-white/40">De dónde</dt>
-                      <dd className="min-w-0 text-white/80">{a.fuente}</dd>
-                    </dl>
-
-                    <div className="mt-auto flex flex-wrap items-center gap-2">
-                      {enMarcha && (
-                        <span className="inline-flex items-center gap-1.5 text-[12px] text-[#C8A96B]">
-                          <Loader2 size={13} className="animate-spin" /> {encargo === "pedido" ? "Pedida, esperando al ordenador del club" : "Actualizándose ahora"}
-                        </span>
-                      )}
-
-                      {sePide && !enMarcha && (
-                        <button
-                          type="button"
-                          onClick={() => pide(a.encargo!)}
-                          className="inline-flex min-h-[36px] items-center gap-1.5 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 text-[12px] font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/20"
-                        >
-                          <RefreshCw size={13} /> Actualizar ahora
-                        </button>
-                      )}
-
-                      {a.enlace && (
-                        <Link
-                          href={a.enlace}
-                          className="inline-flex min-h-[36px] items-center gap-1 rounded-xl px-2 text-[12px] text-white/60 transition hover:text-white"
-                        >
-                          Ver dónde se usa <ArrowUpRight size={13} />
-                        </Link>
-                      )}
-                    </div>
-                  </li>
+                  <Fila key={a.clave} id={`act:${a.clave}`} tono={tono} a={a} fecha={fecha} marca={marca} encargo={encargo} enMarcha={enMarcha} sePide={sePide} pide={pide} ahora={ahora} />
                 );
               })}
             </ul>
@@ -207,5 +159,110 @@ export function Actualizaciones({
         );
       })}
     </div>
+  );
+}
+
+/* Una actualización (15/11/2026): al día va plegada en una línea; atrasada,
+   sin fecha o en marcha, abierta. Lo que se abre a mano se recuerda. */
+function Fila({
+  id,
+  tono,
+  a,
+  fecha,
+  marca,
+  encargo,
+  enMarcha,
+  sePide,
+  pide,
+  ahora,
+}: {
+  id: string;
+  tono: Tono;
+  a: (typeof ACTUALIZACIONES)[number];
+  fecha: string | null | undefined;
+  marca: (typeof MARCA)[EstadoFrescura] | null;
+  encargo: string;
+  enMarcha: boolean;
+  sePide: boolean;
+  pide: (tarea: Tarea) => void;
+  ahora: number;
+}) {
+  const plegable = tono === "ok" || tono === "neutro";
+  const { abierto: abiertoGuardado, cambia } = usePlegado(id, tono);
+  const abierto = !plegable || abiertoGuardado;
+
+  return (
+    <li className={`flex min-w-0 flex-col gap-3 rounded-2xl border bg-white/[0.03] ${abierto ? "p-4" : "px-4 py-2.5"} ${tono === "aviso" ? "border-amber-400/40" : tono === "marcha" ? "border-[#C8A96B]/40" : "border-white/10"}`}>
+      <button
+        type="button"
+        onClick={plegable ? cambia : undefined}
+        aria-expanded={plegable ? abierto : undefined}
+        disabled={!plegable}
+        className="flex min-w-0 items-center justify-between gap-3 text-left disabled:cursor-default"
+      >
+        <span className="flex min-w-0 items-center gap-2.5">
+          <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${PUNTO[tono].clase}`} aria-hidden />
+          <span className="min-w-0">
+            <span className="block text-[15px] font-semibold text-white">{a.nombre}</span>
+            <span className="mt-0.5 block text-[12px] leading-snug text-white/55">
+              {abierto ? a.alimenta : fecha ? `Último dato ${hace(fecha, ahora)}` : a.cuando}
+            </span>
+          </span>
+        </span>
+
+        <span className="flex shrink-0 items-center gap-2">
+          {marca ? (
+            <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${marca.clase}`}>
+              <marca.Icono size={12} /> {marca.texto}
+            </span>
+          ) : (
+            <span className="h-6 w-16 animate-pulse rounded-full bg-white/10" aria-hidden />
+          )}
+          {plegable && <ChevronDown size={16} aria-hidden className={`text-white/45 transition-transform ${abierto ? "rotate-180" : ""}`} />}
+        </span>
+      </button>
+
+      {abierto && (
+        <>
+          <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-[12px] sm:gap-x-4">
+            <dt className="text-white/45">Último dato</dt>
+            <dd className="min-w-0 text-white/80">
+              {fecha === undefined ? "…" : fecha ? `${hace(fecha, ahora)} · ${fechaCorta(fecha)}` : "No hay fecha guardada"}
+            </dd>
+            <dt className="text-white/45">Cuándo</dt>
+            <dd className="min-w-0 text-white/80">{a.cuando}</dd>
+            <dt className="text-white/45">De dónde</dt>
+            <dd className="min-w-0 text-white/80">{a.fuente}</dd>
+          </dl>
+
+          <div className="mt-auto flex flex-wrap items-center gap-2">
+            {enMarcha && (
+              <span className="inline-flex items-center gap-1.5 text-[12px] text-[#C8A96B]">
+                <Loader2 size={13} className="animate-spin" /> {encargo === "pedido" ? "Pedida, esperando al ordenador del club" : "Actualizándose ahora"}
+              </span>
+            )}
+
+            {sePide && !enMarcha && (
+              <button
+                type="button"
+                onClick={() => pide(a.encargo!)}
+                className="inline-flex min-h-[36px] items-center gap-1.5 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 text-[12px] font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/20"
+              >
+                <RefreshCw size={13} /> Actualizar ahora
+              </button>
+            )}
+
+            {a.enlace && (
+              <Link
+                href={a.enlace}
+                className="inline-flex min-h-[36px] items-center gap-1 rounded-xl px-2 text-[12px] text-white/65 transition hover:text-white"
+              >
+                Ver dónde se usa <ArrowUpRight size={13} />
+              </Link>
+            )}
+          </div>
+        </>
+      )}
+    </li>
   );
 }

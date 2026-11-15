@@ -60,6 +60,7 @@ import { avisaCambioTextos, useTextosExplicativos } from "@/components/ui/textos
 import { InterruptorOrdenadorPrincipal } from "@/components/video-partido/InterruptorOrdenadorPrincipal";
 import { OcupacionAlmacen } from "@/components/ajustes/OcupacionAlmacen";
 import { OptaDirecto } from "@/components/ajustes/OptaDirecto";
+import { Plegable, PUNTO, type Tono } from "@/components/ajustes/Plegable";
 import {
   LIMITE_MIN,
   estadoEncargo,
@@ -686,6 +687,43 @@ export default function AjustesPage() {
           ? "Pedido"
           : libre;
 
+  /* Plegado (15/11/2026): el color y la línea de cada proceso. */
+  const tonoDe = (tarea: Tarea): Tono => {
+    const suyo = estados[tarea];
+    if (suyo === "pedido" || suyo === "en-marcha") return "marcha";
+    const e = estado[tarea];
+    if (suyo === "cortado" || e?.pausado) return "aviso";
+    if (!e?.hechoEn) return "neutro";
+    return e.ok === false ? "aviso" : "ok";
+  };
+
+  const resumenDe = (tarea: Tarea) => {
+    const suyo = estados[tarea];
+    const e = estado[tarea];
+    if (suyo === "pedido") return vivo ? "Pedido: empieza en unos segundos" : "Pedido: se hará cuando el ordenador del club se encienda";
+    if (suyo === "en-marcha") return e?.paso ? `En marcha · ${e.paso}` : `En marcha · ${TARDA[tarea]}`;
+    if (e?.pausado) return "En pausa: pulsa «Reanudar» para seguir";
+    if (suyo === "cortado") return "Se cortó sin terminar: vuelve a pedirlo";
+    if (!e?.hechoEn) return "Todavía no se ha hecho desde aquí";
+    const cuando = hace(e.hechoEn, ahora);
+    const que = (e.resultado ?? "").replace(/\s+/g, " ").trim();
+    const corto = que.length > 110 ? `${que.slice(0, 107)}…` : que;
+    return `${e.ok === false ? "Falló" : "Hecho"} ${cuando}${corto ? ` · ${corto}` : ""}`;
+  };
+
+  /* Lo que pide atención, arriba: con aviso y en marcha antes que lo hecho. */
+  const PESO: Record<Tono, number> = { aviso: 0, marcha: 1, neutro: 2, ok: 3 };
+  const orden = (tarea: Tarea) => ({ order: PESO[tonoDe(tarea)] });
+
+  const TAREAS_PANEL: Tarea[] = ["opta", "quiniela", "rivales", "wyscout", "partido"];
+  const cuentaTonos = TAREAS_PANEL.reduce(
+    (c, t) => {
+      c[tonoDe(t)] += 1;
+      return c;
+    },
+    { ok: 0, marcha: 0, aviso: 0, neutro: 0 } as Record<Tono, number>,
+  );
+
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
       <div className="flex">
@@ -787,14 +825,31 @@ export default function AjustesPage() {
               )}
             </div>
 
-            <div className="mt-5 grid min-w-0 gap-5 xl:grid-cols-3">
+            {/* Resumen de un vistazo (15/11/2026). */}
+            {ahora > 0 && (
+              <p className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-white/65" aria-live="polite">
+                {(["ok", "marcha", "aviso"] as Tono[]).map((t) => (
+                  <span key={t} className="inline-flex items-center gap-1.5">
+                    <span className={`h-2 w-2 rounded-full ${PUNTO[t].clase}`} aria-hidden />
+                    {cuentaTonos[t]} {t === "ok" ? "al día" : t === "marcha" ? "en marcha" : "con aviso"}
+                  </span>
+                ))}
+                <span className="text-white/45">· Lo que está al día va plegado: púlsalo para verlo entero.</span>
+              </p>
+            )}
+
+            <div className="mt-3 flex min-w-0 flex-col gap-3">
               {/* ------------------- OPTA (09/11/2026) ------------------- */}
 
-              <Panel
-                title="Datos de Opta"
-                subtitle="Primera RFEF entera, de Opta ProVision · cada lunes"
-                icon={BarChart3}
-                action={
+              <div style={orden("opta")} className="min-w-0">
+              <Plegable
+                id="opta"
+                titulo="Datos de Opta"
+                subtitulo="Primera RFEF entera, de Opta ProVision · cada lunes"
+                icono={BarChart3}
+                tono={tonoDe("opta")}
+                resumen={resumenDe("opta")}
+                accion={
                   <Button
                     tone="primary"
                     icon={RefreshCw}
@@ -825,15 +880,20 @@ export default function AjustesPage() {
                 />
 
                 <OptaDirecto deshabilitado={!yo} />
-              </Panel>
+              </Plegable>
+              </div>
 
               {/* ------------------- LA QUINIELA ------------------- */}
 
-              <Panel
-                title="Resultados de la quiniela"
-                subtitle="El 1-X-2 de la jornada, de BeSoccer"
-                icon={Trophy}
-                action={
+              <div style={orden("quiniela")} className="min-w-0">
+              <Plegable
+                id="quiniela"
+                titulo="Resultados de la quiniela"
+                subtitulo="El 1-X-2 de la jornada, de BeSoccer"
+                icono={Trophy}
+                tono={tonoDe("quiniela")}
+                resumen={resumenDe("quiniela")}
+                accion={
                   <Button
                     tone="primary"
                     icon={RefreshCw}
@@ -891,15 +951,20 @@ export default function AjustesPage() {
                     ))}
                   </ul>
                 )}
-              </Panel>
+              </Plegable>
+              </div>
 
               {/* -------------------- BESOCCER ------------------- */}
 
-              <Panel
-                title="Jornada de BeSoccer"
-                subtitle="Equipos y jugadores: rivales y los nuestros"
-                icon={Download}
-                action={
+              <div style={orden("rivales")} className="min-w-0">
+              <Plegable
+                id="rivales"
+                titulo="Jornada de BeSoccer"
+                subtitulo="Equipos y jugadores: rivales y los nuestros"
+                icono={Download}
+                tono={tonoDe("rivales")}
+                resumen={resumenDe("rivales")}
+                accion={
                   <Button
                     tone="primary"
                     icon={RefreshCw}
@@ -927,15 +992,20 @@ export default function AjustesPage() {
                   onPide={(plan) => void pide("rivales", plan)}
                   onOrden={(que) => void ordena("rivales", que)}
                 />
-              </Panel>
+              </Plegable>
+              </div>
 
               {/* -------------------- WYSCOUT ------------------- */}
 
-              <Panel
-                title="Datos de Wyscout"
-                subtitle="Los informes nuevos de toda la liga, y publicados"
-                icon={BarChart3}
-                action={
+              <div style={orden("wyscout")} className="min-w-0">
+              <Plegable
+                id="wyscout"
+                titulo="Datos de Wyscout"
+                subtitulo="Los informes nuevos de toda la liga, y publicados"
+                icono={BarChart3}
+                tono={tonoDe("wyscout")}
+                resumen={resumenDe("wyscout")}
+                accion={
                   <div className="flex flex-wrap items-center justify-end gap-2">
                     <Button
                       icon={RefreshCw}
@@ -992,26 +1062,20 @@ export default function AjustesPage() {
                   onPide={(plan) => void pide("wyscout", plan)}
                   onOrden={(que) => void ordena("wyscout", que)}
                 />
-              </Panel>
-            </div>
+              </Plegable>
+              </div>
 
-            {/* ---------------- TEXTOS EXPLICATIVOS ---------------- */}
+              {/* ---------------- EL ANÁLISIS DEL PARTIDO ---------------- */}
 
-            <ReabrirQuiniela />
-
-            <InterruptorTextos />
-
-            <InterruptorOrdenadorPrincipal />
-            <OcupacionAlmacen />
-
-            {/* ---------------- EL ANÁLISIS DEL PARTIDO ---------------- */}
-
-            <div className="mt-5">
-              <Panel
-                title="Análisis del partido"
-                subtitle="El partido que elijas (por defecto, el último jugado), en todas las secciones que lo leen, y su vídeo"
-                icon={Clapperboard}
-                action={
+              <div style={orden("partido")} className="min-w-0">
+              <Plegable
+                id="partido"
+                titulo="Análisis del partido"
+                subtitulo="El partido que elijas (por defecto, el último jugado), en todas las secciones que lo leen, y su vídeo"
+                icono={Clapperboard}
+                tono={tonoDe("partido")}
+                resumen={resumenDe("partido")}
+                accion={
                   <div className="flex flex-wrap items-center gap-2">
                     <select
                       aria-label="Partido"
@@ -1107,8 +1171,21 @@ export default function AjustesPage() {
                   onPide={(plan) => void pide("partido", plan, jornadaElegida || undefined)}
                   onOrden={(que) => void ordena("partido", que)}
                 />
-              </Panel>
+              </Plegable>
+              </div>
             </div>
+
+            <h2 className="mt-8 text-[12px] font-semibold uppercase tracking-[0.22em] text-[#C8A96B]">Otros ajustes</h2>
+
+            {/* ---------------- TEXTOS EXPLICATIVOS ---------------- */}
+
+            <ReabrirQuiniela />
+
+            <InterruptorTextos />
+
+            <InterruptorOrdenadorPrincipal />
+            <OcupacionAlmacen />
+
 
             <div className="mt-5">
               <Notice tone="info" title="Lo que sigue haciéndose solo">
