@@ -1198,6 +1198,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Puntos acumulados",
         filas: [
+          { que: "Visual · Detalle (16/11/2026)", es: "«Jornada a jornada» se abre en «Visual»: la curva de puntos con su conclusión en el título (cuántos llevamos tras la última jornada y cuántos más o menos que la media de la liga) y la racha partido a partido (G, E o P con el marcador y, si está en todas, nuestro puesto debajo), titulada con los 5 últimos. «Detalle» es la curva y la tabla de siempre. Se recuerda en este aparato", cuenta: "Mismos datos que la tabla; a menos de medio punto de la media se dice «en la media»" },
           { que: "La línea dorada", es: "Nuestros puntos acumulados, jornada a jornada" },
           { que: "La raya de puntos", es: "Lo que lleva de media un equipo de la liga tras cada jornada", cuenta: "Puntos por equipo y partido de la liga hasta esa jornada × partidos que llevamos" },
           { que: "Eje de puntos", es: "Una marca cada 3 puntos; pasados los 12, cada 6, para que se lea en el móvil" },

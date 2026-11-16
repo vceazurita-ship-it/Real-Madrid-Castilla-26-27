@@ -12,6 +12,50 @@ import { DOC_GOLES, GOLES_VACIO, type GolesDoc } from "@/lib/goles/analisis";
 import type { ClasificacionPortada } from "@/lib/portada/proximo-partido";
 import { nombreEquipo } from "@/lib/equipos";
 import { mismoClub } from "@/lib/rivals/mismoClub";
+import { Lamina, TituloConclusion, VistaVisualDetalle, useVistaAnalisis } from "@/components/ui/VistaVisual";
+
+const coma1 = (v: number) => v.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
+/*
+| VISUAL (16/11/2026, petición del analista: «las áreas visuales mucho mejor,
+| trasládalo a todo lo que tenga sentido»). La temporada en dos láminas con su
+| conclusión en el título: los puntos frente a la media de la liga y la racha
+| partido a partido (con el puesto debajo, si está en todas). «Detalle» es la
+| tabla de siempre.
+*/
+function RachaPartidos({
+  jugados,
+  puestos,
+}: {
+  jugados: { jornada: number; rival: string; gf: number; gc: number; puntos: number }[];
+  puestos: Map<number, number> | null;
+}) {
+  return (
+    <div className="min-w-0 overflow-x-auto">
+      <ol className="flex gap-1.5" style={{ minWidth: jugados.length * 44 }}>
+        {jugados.map((uno) => (
+          <li key={uno.jornada} className="flex min-w-0 flex-1 flex-col items-center gap-1" title={`J${uno.jornada} · ${nombreEquipo(uno.rival)} · ${uno.gf}-${uno.gc}`}>
+            <span className="text-[10px] tabular-nums text-white/55">J{uno.jornada}</span>
+            <span
+              className={`flex h-10 w-full max-w-[52px] flex-col items-center justify-center rounded-md text-[11px] font-bold tabular-nums ${
+                uno.puntos === 3 ? "bg-emerald-500/20 text-emerald-600" : uno.puntos === 1 ? "bg-amber-500/20 text-amber-600" : "bg-red-500/20 text-red-600"
+              }`}
+            >
+              <span>{uno.puntos === 3 ? "G" : uno.puntos === 1 ? "E" : "P"}</span>
+              <span className="text-[10px] font-semibold">{uno.gf}-{uno.gc}</span>
+            </span>
+            {puestos?.has(uno.jornada) ? (
+              <span className="text-[10px] font-semibold tabular-nums" style={{ color: "var(--rmcf-gold-ink)" }}>
+                {puestos.get(uno.jornada)}º
+              </span>
+            ) : null}
+          </li>
+        ))}
+      </ol>
+      <p className="mt-2 text-[11px] text-white/50">G, E, P: ganado, empatado, perdido, con el marcador{puestos ? "; debajo, nuestro puesto tras esa jornada" : ""}.</p>
+    </div>
+  );
+}
 
 type Vecino = { puesto: number; nombre: string; puntos: number };
 /** Nuestros puntos en la última tabla completa y los equipos de justo arriba y abajo. */
@@ -294,6 +338,28 @@ const movimientoPuesto = (() => {
 */
 const ultimo = jugados.at(-1) ?? null;
 const corte = ultimo ? `J${ultimo.jornada}${diaCorto(ultimo.cuando) ? `, ${diaCorto(ultimo.cuando)}` : ""}` : "";
+/* Los títulos-conclusión del modo Visual. */
+const mediaUltima = ultimo ? liga.acumuladaLiga.get(ultimo.jornada) : undefined;
+const tituloPuntos = ultimo
+  ? mediaUltima === undefined
+    ? `Tras J${ultimo.jornada}, ${ultimo.acumulados} puntos en ${jugados.length} partidos`
+    : `Tras J${ultimo.jornada}, ${ultimo.acumulados} puntos: ${
+        Math.abs(ultimo.acumulados - mediaUltima) < 0.5
+          ? `en la media de la liga (${coma1(mediaUltima)})`
+          : `${coma1(Math.abs(ultimo.acumulados - mediaUltima))} ${ultimo.acumulados > mediaUltima ? "más" : "menos"} que la media de la liga (${coma1(mediaUltima)})`
+      }`
+  : "";
+const tituloRacha = (() => {
+  const ult = jugados.slice(-5);
+  if (!ult.length) return "";
+  const g = ult.filter((u) => u.puntos === 3).length;
+  const e = ult.filter((u) => u.puntos === 1).length;
+  const d = ult.length - g - e;
+  const partes = [g ? `${g} ${g === 1 ? "victoria" : "victorias"}` : "", e ? `${e} ${e === 1 ? "empate" : "empates"}` : "", d ? `${d} ${d === 1 ? "derrota" : "derrotas"}` : ""].filter(Boolean);
+  const lista = partes.length > 1 ? `${partes.slice(0, -1).join(", ")} y ${partes.at(-1)}` : partes[0];
+  const pts = ult.reduce((s, u) => s + u.puntos, 0);
+  return `${ult.length === jugados.length ? `En ${ult.length} partidos` : `En los ${ult.length} últimos`}: ${lista} (${pts} de ${ult.length * 3} puntos)`;
+})();
 
 /*
 | 16/11/2026 (fútbol, marketing): qué hacemos con el dato. El siguiente
@@ -362,6 +428,8 @@ const videoRef = useRef<HTMLDivElement | null>(null);
 | flotantes se apartan mientras la tabla está en pantalla.
 */
 const tablaRef = useRef<HTMLDivElement | null>(null);
+/* La tabla sólo está en «Detalle»: al cambiar de vista se vuelve a vigilar. */
+const [vistaHistorico] = useVistaAnalisis("collective-history");
 const [tablaEnPantalla, setTablaEnPantalla] = useState(false);
 
 useEffect(() => {
@@ -374,7 +442,7 @@ useEffect(() => {
   vigia.observe(nodo);
 
   return () => vigia.disconnect();
-}, [jugados.length]);
+}, [jugados.length, vistaHistorico]);
 
   const src = "https://app.powerbi.com/view?r=eyJrIjoiNzY4NjNmZjktZWU3Zi00NjkyLTg5NTMtNzQwYjQwMGVjZmQxIiwidCI6ImQ2Zjc2YzExLWZmYjktNGExNS05YjQ5LWU2ZWQ0MjljOTVhMiIsImMiOjl9";
 
@@ -575,6 +643,26 @@ useEffect(() => {
                 */}
                 {/* 11/11/2026 (análisis): primero la curva de puntos frente a la
                     media, que se lee de un vistazo; debajo, la tabla. */}
+                <VistaVisualDetalle
+                  pantalla="collective-history"
+                  visual={
+                    <div className="grid min-w-0 gap-4">
+                      <Lamina>
+                        <TituloConclusion pregunta="¿Vamos por encima de la media?" fuente={`Calendario y marcadores de BeSoccer · la media, de los ${liga.equipos || 20} equipos`}>
+                          {tituloPuntos}
+                        </TituloConclusion>
+                        <GraficaPuntos jugados={jugados} liga={liga.acumuladaLiga} equipos={liga.equipos} />
+                      </Lamina>
+                      <Lamina>
+                        <TituloConclusion pregunta="¿Cómo va la racha?" fuente={`${jugados.length} partidos de liga`}>
+                          {tituloRacha}
+                        </TituloConclusion>
+                        <RachaPartidos jugados={jugados} puestos={conPuesto ? liga.puestos : null} />
+                      </Lamina>
+                    </div>
+                  }
+                  detalle={
+                <>
                 <div className="mb-4">
                   <GraficaPuntos jugados={jugados} liga={liga.acumuladaLiga} equipos={liga.equipos} />
                 </div>
@@ -714,6 +802,9 @@ useEffect(() => {
                     {conPuestoRival ? "; el del rival, de la misma tabla" : ""}. Con {jugados.length} jornadas es una tendencia.
                   </p>
                 ) : null}
+                </>
+                  }
+                />
 
               </div>
             ) : null}
