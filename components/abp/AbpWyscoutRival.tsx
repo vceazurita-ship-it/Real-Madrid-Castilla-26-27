@@ -16,6 +16,7 @@ import { normalizarOnce, playerKey, rivalOnceKey } from "@/lib/rivals/once";
 import { filaPropia, findInforme } from "@/lib/rivals/informe";
 import { aJornada, type FilaRival } from "@/lib/abp/jornada";
 import { mismoClub } from "@/lib/rivals/mismoClub";
+import { lecturaDePuesto, type LecturaPuesto } from "@/lib/rivals/puesto-liga";
 import { cargaDatosMarcas } from "@/lib/abp/marcas-datos";
 import { motivoAtacante, ordenaAtacantes, ordenaMarcadores, type Atacante } from "@/lib/abp/marcas-corner";
 import { usePlayers } from "@/hooks/usePlayers";
@@ -51,6 +52,10 @@ type Fila = {
   /** El menor y el mayor de la liga, para la barra (11/11/2026). */
   minimo?: number | null;
   maximo?: number | null;
+  /** Puesto, población y lectura de la cuenta común (`lib/rivals/puesto-liga.ts`, 16/11/2026). */
+  puesto?: number | null;
+  de?: number | null;
+  lectura?: LecturaPuesto;
 };
 
 /*
@@ -79,7 +84,7 @@ export function ComoSeCuenta({ ambito }: { ambito: "abp" | "area" }) {
       <summary className="cursor-pointer select-none font-semibold text-[#C8A96B]">Cómo se cuenta</summary>
       <ul className="mt-1.5 list-disc space-y-1 pl-4">
         <li>La descarga de Wyscout puede ir una jornada por detrás del calendario: por eso sus partidos pueden ser uno menos que los de BeSoccer.</li>
-        <li>▲ mejor y ▼ peor ya tienen en cuenta si a ese equipo le conviene más o menos. El puesto va del mejor (1.º) al peor.</li>
+        <li>▲ mejor y ▼ peor ya tienen en cuenta si a ese equipo le conviene más o menos, y sólo salen entre los 6 primeros o los 6 últimos de 20: lo de en medio no es fortaleza ni carencia. El puesto va del mejor (1.º) al peor y es el mismo que en Plantillas y en el Scout colectivo.</li>
         <li>Un porcentaje con menos de {POCOS_CASOS} casos detrás es una tendencia: va sin flecha y no se lee como fortaleza ni como carencia.</li>
         <li>En la barra, la raya es la mediana de la liga y el rombo verde, el mejor de la liga (en una cifra de estilo, el que más).</li>
         {ambito === "area" && <li>«x de y» es la base real: en «sus centros», los que hace; en «los que recibe», los que le hacen.</li>}
@@ -148,7 +153,13 @@ function cifra1(valor: number | null, unidad: Unidad) {
 }
 
 /** «Mejor que 8 de cada 10» / «Peor que 8 de cada 10»: percentil ya orientado. El extremo se dice como es: «el mejor/peor de los 20». */
-function lectura(percentil: number, equipos: number, mejorAlto?: boolean | null) {
+function lectura(
+  percentil: number,
+  equipos: number,
+  mejorAlto?: boolean | null,
+  /* El puesto que manda el servidor (16/11/2026): el mismo del Scout colectivo y de Plantillas. */
+  sitio?: Pick<Fila, "puesto" | "de" | "lectura">,
+) {
   const base = lecturaSinPuesto(percentil, equipos, mejorAlto);
 
   /*
@@ -157,6 +168,27 @@ function lectura(percentil: number, equipos: number, mejorAlto?: boolean | null)
   | estilo, el que más).
   */
   if (!equipos || equipos < 2) return base;
+
+  if (sitio?.puesto != null && sitio.puesto > 0) {
+    const de = sitio.de ?? equipos;
+    const puesto = sitio.puesto;
+
+    if (mejorAlto === null) {
+      if (puesto === 1) return { texto: `el que más de los ${de}`, bueno: null };
+      if (puesto === de) return { texto: `el que menos de los ${de}`, bueno: null };
+
+      return { texto: `${base.texto} (${puesto}.º de ${de}, de más a menos)`, bueno: null };
+    }
+
+    if (puesto === 1) return { texto: `el mejor de los ${de} en esta cifra`, bueno: true };
+    if (puesto === de) return { texto: `el peor de los ${de} en esta cifra`, bueno: false };
+
+    /* Flecha sólo en los extremos (6 primeros o 6 últimos de 20): lo de en medio no es fortaleza ni carencia. */
+    const bueno = sitio.lectura === "fuerte" ? true : sitio.lectura === "flojo" ? false : null;
+    const texto = bueno === null && /^(mejor|peor) que/.test(base.texto) ? "en la zona media de la liga" : base.texto;
+
+    return { texto: `${texto} (${puesto}.º de ${de})`, bueno };
+  }
 
   const puesto = 1 + Math.round(((100 - percentil) / 100) * (equipos - 1));
   const extremo = /^el (mejor|peor|que más|que menos) de los/.test(base.texto);
@@ -197,7 +229,16 @@ const RECIBE_MENOS_ES_MEJOR = new Set(["Centros que recibe"]);
 function orientada(fila: Fila): Fila {
   if (!RECIBE_MENOS_ES_MEJOR.has(fila.nombre) || fila.mejorAlto != null) return fila;
 
-  return { ...fila, mejorAlto: false, percentil: 100 - fila.percentil };
+  /* El puesto se cuenta al revés (de menos a más) y se vuelve a leer con la regla común. */
+  const puesto = fila.puesto != null && fila.de != null ? fila.de + 1 - fila.puesto : null;
+
+  return {
+    ...fila,
+    mejorAlto: false,
+    percentil: 100 - fila.percentil,
+    puesto,
+    lectura: puesto != null && fila.de != null ? lecturaDePuesto(puesto, fila.de, false) : null,
+  };
 }
 
 /* «Córners con remate %» → «Córners con remate»: la cifra ya lleva el «%» (29/10/2026). */
@@ -228,7 +269,7 @@ function consignaOfensiva(aspecto: Aspecto | undefined, equipos: number): { fras
 
   if (corners) {
     partes.push({
-      frase: `como concede ${cifra1(corners.valor, corners.unidad)} córners por partido (mediana ${cifra1(corners.mediana, corners.unidad)}; ${lectura(corners.percentil, equipos, false).texto}), llegar a línea de fondo y forzar córner`,
+      frase: `como concede ${cifra1(corners.valor, corners.unidad)} córners por partido (mediana ${cifra1(corners.mediana, corners.unidad)}; ${lectura(corners.percentil, equipos, false, corners).texto}), llegar a línea de fondo y forzar córner`,
       tarea: `dos rutinas de córner ofensivo; objetivo en el partido: ${Math.ceil(corners.valor)} córners a favor, por encima de los ${cifra1(corners.valor, corners.unidad)} que concede de media`,
     });
   }
@@ -290,25 +331,56 @@ function queHacemosConCentros(
   const muchoRecibe = !!recibe && recibe.valor > recibe.mediana && !cercaDeLaMediana;
   const cuantoRecibe = recibe ? `${cifra1(recibe.valor, recibe.unidad)} centros por partido (mediana ${cifra1(recibe.mediana, recibe.unidad)})` : "";
 
+  /*
+  | 16/11/2026 (jueces, fútbol): la regla mira también el ACIERTO de los
+  | centros que recibe. Con el 36,5 % (15.º de 20) decía «probar primero por
+  | dentro» aunque defiende mal el centro. Ahora, si ese acierto está entre los
+  | 6 peores de la liga (y no es tendencia), manda: atacar el área con centro.
+  | Si está entre los 6 mejores, el «por dentro» lleva su porqué.
+  */
+  const aciertoRecibe = filas.find((f) => f.nombre === "Acierto de los centros que recibe %");
+  const lecturaAcierto = aciertoRecibe && !esTendencia(aciertoRecibe) ? aciertoRecibe.lectura ?? null : null;
+  const defiendeMal = lecturaAcierto === "flojo";
+  const defiendeBien = lecturaAcierto === "fuerte";
+  const cuantoAcierta = aciertoRecibe
+    ? `el ${cifra1(aciertoRecibe.valor, aciertoRecibe.unidad)} de los centros que recibe encuentra a un rival${
+        aciertoRecibe.base ? ` (${Math.round(aciertoRecibe.base.arriba)} de ${Math.round(aciertoRecibe.base.abajo)})` : ""
+      }, con la mediana de la liga en ${cifra1(aciertoRecibe.mediana, aciertoRecibe.unidad)}${
+        aciertoRecibe.puesto != null ? ` (${aciertoRecibe.puesto}.º de ${aciertoRecibe.de ?? equipos})` : ""
+      }`
+    : "";
+  /* El objetivo con su decimal y su unidad: «14,5 centros por partido» (16/11/2026). */
+  const objetivoCentros = (n: number, unidad: Unidad) => `${cifra1(n, unidad)} centros por partido`;
+
   const lesCentramos: BloqueCentros | null = !recibe
     ? null
-    : muchoRecibe
+    : defiendeMal
       ? {
           rotulo: "Nuestro ataque · cuando les centramos",
-          frase: `como le hacen ${cuantoRecibe}, ${lectura(recibe.percentil, equipos, false).texto}, atacarle por fuera, con extremo y lateral doblando y tres hombres en el área`,
-          tarea: `centro lateral tras el doblaje del lateral, con tres en el área; objetivo en el partido: ${Math.round(recibe.valor)} centros nuestros, los que le hacen de media`,
+          frase: `como ${cuantoAcierta}, defienden mal el centro: atacar el área con centro y tres rematadores`,
+          tarea: `centro lateral con tres rematadores atacando primer palo, punto de penalti y segundo palo; objetivo en el partido: ${objetivoCentros(Math.max(recibe.valor, recibe.mediana), recibe.unidad)}, ${
+            recibe.valor >= recibe.mediana ? "los que le hacen de media" : "la mediana de la liga"
+          }`,
         }
-      : cercaDeLaMediana
+      : muchoRecibe
         ? {
             rotulo: "Nuestro ataque · cuando les centramos",
-            frase: `como le hacen ${cuantoRecibe}, cerca de lo normal en la liga, probar primero por dentro y centrar con el área cargada (tendencia, no rasgo)`,
-            tarea: `finalización tras centro con tres en el área; objetivo: ${Math.round(recibe.mediana)} centros, la mediana de la liga`,
+            frase: `como le hacen ${cuantoRecibe}, ${lectura(recibe.percentil, equipos, false, recibe).texto}, atacarle por fuera, con extremo y lateral doblando y tres hombres en el área`,
+            tarea: `centro lateral tras el doblaje del lateral, con tres en el área; objetivo en el partido: ${objetivoCentros(recibe.valor, recibe.unidad)}, los que le hacen de media`,
           }
-        : {
-            rotulo: "Nuestro ataque · cuando les centramos",
-            frase: `como sólo le hacen ${cuantoRecibe}, el centro no es la primera vía: llegar por dentro y centrar sólo con el área cargada`,
-            tarea: `juego interior hasta el área, con pase entre líneas y apoyo-desmarque; objetivo: más llegadas por dentro que centros, que le hacen ${Math.round(recibe.valor)} de media`,
-          };
+        : cercaDeLaMediana
+          ? {
+              rotulo: "Nuestro ataque · cuando les centramos",
+              frase: defiendeBien
+                ? `como le hacen ${cuantoRecibe}, cerca de lo normal en la liga, y ${cuantoAcierta}, defiende bien el centro: probar primero por dentro y centrar sólo con el área cargada`
+                : `como le hacen ${cuantoRecibe}, cerca de lo normal en la liga, alternar el centro con el juego por dentro y centrar con el área cargada (tendencia, no rasgo)`,
+              tarea: `finalización tras centro con tres en el área; objetivo: ${objetivoCentros(recibe.mediana, recibe.unidad)}, la mediana de la liga`,
+            }
+          : {
+              rotulo: "Nuestro ataque · cuando les centramos",
+              frase: `como sólo le hacen ${cuantoRecibe}, el centro no es la primera vía: llegar por dentro y centrar sólo con el área cargada`,
+              tarea: `juego interior hasta el área, con pase entre líneas y apoyo-desmarque; objetivo: más llegadas por dentro que centros, que le hacen ${cifra1(recibe.valor, recibe.unidad)} por partido de media`,
+            };
 
   if (!volumen || !acierto) {
     return { titular: "", bloques: lesCentramos ? [lesCentramos] : [], poco: null };
@@ -355,9 +427,11 @@ function queHacemosConCentros(
       : cercaDeLaMediana
         ? "; le centran como a la media de la liga"
         : "; le centran poco";
+  /* Y cómo defiende ese centro, si se sale de la zona media (16/11/2026). */
+  const deDefensa = defiendeMal ? ", y defiende mal el centro" : defiendeBien ? ", y defiende bien el centro" : "";
 
   return {
-    titular: `${equipo} centra ${muchos ? "mucho" : "poco"}${deAcierto}${deRecibe}`,
+    titular: `${equipo} centra ${muchos ? "mucho" : "poco"}${deAcierto}${deRecibe}${deRecibe ? deDefensa : ""}`,
     bloques: [nosCentran, ...(lesCentramos ? [lesCentramos] : [])],
     poco: !muchos,
   };
@@ -735,7 +809,7 @@ export function AbpWyscoutRival({
     const texto = colectivo.lineas.map((l) => l.texto).join(" ").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
     const diceMucho = /carg|much|constant|principal|abus|insist|frecuen|continu|siempre|busca/.test(texto);
     const dicePoco = /\bpoco|apenas|rara vez|no centra|evita/.test(texto);
-    const puesto = lectura(volumenCentros.percentil, nEquipos, null).texto;
+    const puesto = lectura(volumenCentros.percentil, nEquipos, null, volumenCentros).texto;
 
     const veredicto =
       diceMucho && !dicePoco
@@ -855,7 +929,7 @@ export function AbpWyscoutRival({
 
                 <ul className="mt-2 space-y-2">
                   {aspecto.filas.map(orientada).map((fila) => {
-                    const lee = lectura(fila.percentil, nEquipos, fila.mejorAlto);
+                    const lee = lectura(fila.percentil, nEquipos, fila.mejorAlto, fila);
                     const tendencia = esTendencia(fila);
                     /* En tendencia, sin flecha ni color (11/11/2026, análisis). */
                     const bueno = tendencia ? null : lee.bueno;
