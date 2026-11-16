@@ -1,0 +1,253 @@
+"use client";
+
+/**
+ * VER DE SEGUIDO TODOS LOS GOLES (16/11/2026).
+ *
+ * «¿Y poder ver de seguido todos los goles de los rivales en vídeo?» Los goles
+ * de un equipo (a favor o en contra) uno detrás de otro, cada uno cortado de
+ * 10 s antes a 5 s después, sobre el resumen oficial de la RFEF de su partido.
+ *
+ * El segundo de cada gol en el resumen lo marca Gemini viendo el vídeo
+ * (scripts/rfef-goles-resumenes.mjs → documento `rfef:goles-resumenes`) y sólo
+ * se usa si salen tantos goles como dice el marcador. El gol de Opta se ata al
+ * del resumen por equipo y orden: el k-ésimo gol de ese equipo en el partido.
+ * Los que aún no tienen marca no se reproducen y se dice cuántos son.
+ *
+ * El reproductor es la API de iframe de YouTube (gratis, sin clave): con
+ * `start`/`end` corta el trozo y al acabar pasa solo al siguiente.
+ */
+
+import { useEffect, useMemo, useRef, useState } from "react";
+
+import { fechaCorta } from "@/lib/opta-analisis";
+import { cargaResumenesRfef, mismoEquipo, resumenDelPartido } from "@/lib/rivals/resumen-de-partido";
+import type { ResumenRfef } from "@/lib/rivals/resumenes-rfef";
+import type { Remate } from "@/lib/opta-eventos";
+
+import { nombreDe } from "./eventos";
+
+type GolMarcado = { segundo: number; equipo: string; descripcion: string };
+type Marcas = Record<string, { goles: GolMarcado[]; cuadra: boolean }>;
+
+const ANTES = 10;
+const DESPUES = 5;
+
+type Toma = { clave: string; video: string; inicio: number; fin: number; titulo: string; detalle: string };
+
+/* ---------- la API de iframe de YouTube, una vez por pestaña ---------- */
+
+type YTPlayer = { loadVideoById: (o: { videoId: string; startSeconds: number; endSeconds: number }) => void; destroy: () => void };
+type YTApi = { Player: new (el: HTMLElement, o: unknown) => YTPlayer; PlayerState: { ENDED: number } };
+
+let cargandoApi: Promise<YTApi> | null = null;
+
+function apiYoutube(): Promise<YTApi> {
+  const w = window as unknown as { YT?: YTApi; onYouTubeIframeAPIReady?: () => void };
+
+  if (w.YT?.Player) return Promise.resolve(w.YT);
+
+  cargandoApi ??= new Promise((listo) => {
+    const antes = w.onYouTubeIframeAPIReady;
+
+    w.onYouTubeIframeAPIReady = () => {
+      antes?.();
+      listo(w.YT as YTApi);
+    };
+
+    const s = document.createElement("script");
+
+    s.src = "https://www.youtube.com/iframe_api";
+    document.head.appendChild(s);
+  });
+
+  return cargandoApi;
+}
+
+/* ---------- las marcas de Gemini ---------- */
+
+let cargandoMarcas: Promise<Marcas> | null = null;
+
+function cargaMarcas(): Promise<Marcas> {
+  cargandoMarcas ??= fetch("/api/docs?key=rfef:goles-resumenes")
+    .then((r) => r.json() as Promise<{ data?: { videos?: Marcas } }>)
+    .then((j) => j?.data?.videos ?? {})
+    .catch(() => {
+      cargandoMarcas = null;
+
+      return {};
+    });
+
+  return cargandoMarcas;
+}
+
+/** Las tomas de los goles, en el orden en que se ven en la pantalla (lo más reciente primero). */
+export function tomasDeGoles(goles: Remate[], resumenes: ResumenRfef[], marcas: Marcas): { tomas: Toma[]; sinMarca: number } {
+  const tomas: Toma[] = [];
+  let sinMarca = 0;
+
+  /* El k-ésimo gol de cada equipo en cada partido, por orden de reloj. */
+  const porPartido = new Map<string, Remate[]>();
+
+  for (const g of goles) {
+    const k = `${g.partido}|${g.teamId}`;
+
+    porPartido.set(k, [...(porPartido.get(k) ?? []), g]);
+  }
+
+  for (const lista of porPartido.values()) lista.sort((a, b) => a.parte - b.parte || a.minuto - b.minuto);
+
+  const ordenados = [...goles].sort((a, b) => b.fecha.localeCompare(a.fecha) || a.parte - b.parte || a.minuto - b.minuto);
+
+  for (const g of ordenados) {
+    const marca = nombreDe(g.teamId, g.equipo);
+    const rival = nombreDe(g.rivalId, g.rival);
+    const resumen = resumenDelPartido(resumenes, marca, rival, g.fecha);
+    const m = resumen ? marcas[resumen.id] : undefined;
+
+    /* Vale si de ESTE equipo salen en el resumen tantos goles como en Opta,
+       aunque al de enfrente le falte alguno (16/11/2026). */
+    const delPartido = porPartido.get(`${g.partido}|${g.teamId}`) ?? [];
+    const suyos = m ? m.goles.filter((x) => mismoEquipo(x.equipo, marca)) : [];
+    const k = delPartido.indexOf(g);
+    const enResumen = resumen && (m?.cuadra || suyos.length === delPartido.length) ? suyos[k] : undefined;
+
+    if (!enResumen || !resumen) {
+      sinMarca++;
+      continue;
+    }
+
+    tomas.push({
+      clave: `${g.partido}-${g.parte}-${g.minuto}-${g.tirador}`,
+      video: resumen.id,
+      inicio: Math.max(0, enResumen.segundo - ANTES),
+      fin: enResumen.segundo + DESPUES,
+      titulo: `${g.tirador} · ${g.minuto}′`,
+      detalle: `${fechaCorta(g.fecha)} · ${marca} contra ${rival} (J${resumen.jornada}, ${resumen.local} ${resumen.golesLocal}-${resumen.golesVisitante} ${resumen.visitante})`,
+    });
+  }
+
+  return { tomas, sinMarca };
+}
+
+export function GolesDeSeguido({ goles, titulo }: { goles: Remate[]; titulo: string }) {
+  const [resumenes, setResumenes] = useState<ResumenRfef[] | null>(null);
+  const [marcas, setMarcas] = useState<Marcas | null>(null);
+  const [abierto, setAbierto] = useState(false);
+  const [i, setI] = useState(0);
+  const caja = useRef<HTMLDivElement>(null);
+  const jugador = useRef<YTPlayer | null>(null);
+
+  useEffect(() => {
+    let cancelado = false;
+
+    Promise.all([cargaResumenesRfef(), cargaMarcas()]).then(([r, m]) => {
+      if (cancelado) return;
+      setResumenes(r);
+      setMarcas(m);
+    });
+
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
+  const { tomas, sinMarca } = useMemo(
+    () => (resumenes && marcas ? tomasDeGoles(goles, resumenes, marcas) : { tomas: [], sinMarca: 0 }),
+    [goles, resumenes, marcas],
+  );
+
+  const actual = tomas[i];
+
+  /* Crea el reproductor al abrir; al cambiar de toma, sólo carga el trozo nuevo. */
+  useEffect(() => {
+    if (!abierto || !actual || !caja.current) return;
+
+    let vivo = true;
+    const el = caja.current;
+
+    apiYoutube().then((YT) => {
+      if (!vivo) return;
+
+      const trozo = { videoId: actual.video, startSeconds: actual.inicio, endSeconds: actual.fin };
+
+      if (jugador.current) {
+        jugador.current.loadVideoById(trozo);
+
+        return;
+      }
+
+      const hueco = document.createElement("div");
+
+      el.replaceChildren(hueco);
+      jugador.current = new YT.Player(hueco, {
+        width: "100%",
+        height: "100%",
+        videoId: actual.video,
+        playerVars: { start: actual.inicio, end: actual.fin, autoplay: 1, rel: 0, modestbranding: 1, playsinline: 1 },
+        events: {
+          onStateChange: (e: { data: number }) => {
+            if (e.data === YT.PlayerState.ENDED) setI((n) => n + 1);
+          },
+        },
+      });
+    });
+
+    return () => {
+      vivo = false;
+    };
+  }, [abierto, actual]);
+
+  /* Al cerrar, fuera el reproductor. */
+  useEffect(() => {
+    if (abierto) return;
+
+    jugador.current?.destroy();
+    jugador.current = null;
+  }, [abierto]);
+
+  if (!resumenes || !marcas || goles.length === 0) return null;
+
+  const boton =
+    "inline-flex min-h-[36px] items-center gap-1.5 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 text-[12px] font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/20 disabled:opacity-40";
+  const fueraDeLista = i >= tomas.length;
+
+  return (
+    <div className="mb-3 min-w-0">
+      {!abierto ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <button type="button" className={boton} disabled={!tomas.length} onClick={() => (setI(0), setAbierto(true))}>
+            ▶ Ver de seguido los {tomas.length} goles
+          </button>
+          <span className="text-[12px] text-white/55">
+            {titulo}: cada gol de {ANTES} s antes a {DESPUES} s después, sobre el resumen oficial de la RFEF
+            {sinMarca > 0 ? ` · ${sinMarca} aún sin marcar en su resumen (se marcan cada noche)` : ""}
+          </span>
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+          <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+            <p className="min-w-0 text-[13px] font-semibold text-white">
+              {fueraDeLista ? "Fin: ya están todos" : `${i + 1} de ${tomas.length} · ${actual?.titulo ?? ""}`}
+            </p>
+            <div className="flex items-center gap-2">
+              <button type="button" className={boton} disabled={i === 0} onClick={() => setI((n) => Math.max(0, n - 1))}>
+                ‹ Anterior
+              </button>
+              <button type="button" className={boton} disabled={fueraDeLista} onClick={() => setI((n) => n + 1)}>
+                Siguiente ›
+              </button>
+              <button type="button" className={boton} onClick={() => setAbierto(false)}>
+                Cerrar
+              </button>
+            </div>
+          </div>
+          {!fueraDeLista && <p className="mb-2 text-[12px] text-white/55">{actual?.detalle}</p>}
+          <div className="aspect-video w-full overflow-hidden rounded-xl bg-black" ref={caja} />
+          <p className="mt-2 text-[11px] text-white/45">
+            El segundo de cada gol lo marca una IA viendo el resumen: si un corte empieza tarde o pronto, «Siguiente» pasa al próximo.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}

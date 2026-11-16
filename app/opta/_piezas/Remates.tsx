@@ -21,6 +21,7 @@ import type { ResumenRfef } from "@/lib/rivals/resumenes-rfef";
 import { casaEquipo, CUERPO, MARCADOR, PRESION, resumenRemates, SITUACION, TIPO_REMATE, type Remate } from "@/lib/opta-eventos";
 
 import { Botonera, Cifra, Elegir, Panel } from "./comun";
+import { GolesDeSeguido } from "./GolesDeSeguido";
 import { conSigno, dec, equiposDe, nombreDe, pct, useRemates } from "./eventos";
 import { useOpta, type DatosOpta } from "./useOpta";
 
@@ -259,6 +260,11 @@ function GolesDelEquipo({ datos, equipo, esCastilla }: { datos: DatosOpta; equip
           ]}
         />
       </div>
+      <GolesDeSeguido
+        key={`seguido-${teamId}-${lado}`}
+        goles={delLado.filter((r) => r.gol)}
+        titulo={`Goles ${lado === "favor" ? "de" : "contra"} ${equipo}`}
+      />
       <MapaRemates
         key={`${teamId}-${lado}`}
         remates={delLado}

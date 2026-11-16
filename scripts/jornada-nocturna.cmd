@@ -329,6 +329,19 @@ if errorlevel 1 (
 )
 :tras_7
 
+rem --- 8. el segundo de cada gol en los resumenes de la RFEF (16/11/2026) ---
+rem
+rem  Para «Ver de seguido» los goles en /analisis-goles. Gemini marca los
+rem  resumenes nuevos (gratis, con pausa; 30 como mucho para no alargar la
+rem  noche). Si se agota la cuota (codigo 8) sigue la noche siguiente; nunca
+rem  cuenta como fallo de la jornada.
+echo. >> "%LOG%"
+echo --- Goles en los resumenes de la RFEF --- >> "%LOG%"
+call node scripts\rfef-goles-resumenes.mjs --max 30 >> "%LOG%" 2>&1
+if errorlevel 1 (
+  echo AVISO: el marcado de goles en los resumenes no ha terminado ^(codigo !errorlevel!^); sigue la noche siguiente >> "%LOG%"
+)
+
 echo. >> "%LOG%"
 if defined HUBO_FALLO (
   echo TERMINADO CON FALLOS · %DATE% %TIME% >> "%LOG%"
