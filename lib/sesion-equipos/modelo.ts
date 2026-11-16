@@ -873,7 +873,8 @@ export function valida(tarea: TareaEquipos, sesion: SesionEquipos, puestoDe: Pue
           .filter((j) => puestoDe(j) !== p && puestoDe(j) !== "POR")
           .sort((x, y) => cuenta(otros, puestoDe(y)) - cuenta(suyos, puestoDe(y)) - (cuenta(otros, puestoDe(x)) - cuenta(suyos, puestoDe(x))))[0];
 
-        if (a && b) arreglo = { a: a.id, b: b.id, texto: `Cambiar a ${a.nombre} por ${b.nombre}` };
+        /* 16/11/2026: con el sentido del cambio («Cambiar a X por Y» no decía quién iba adónde). */
+        if (a && b) arreglo = { a: a.id, b: b.id, texto: `${a.nombre} pasa a ${nombreEq(menos)} y ${b.nombre} a ${nombreEq(mas)}` };
       }
 
       return [`${plural} ${p === "DEF" ? "descompensadas" : "descompensados"}: ${tarea.equipos.map((e, i) => `${nombreEq(e)} ${n[i]}`).join(", ")}. Pasa uno de ${nombreEq(mas)} a ${nombreEq(menos)}.`];

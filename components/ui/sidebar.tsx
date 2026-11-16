@@ -576,7 +576,10 @@ export function Sidebar() {
       <div
         data-export-hide
         className={cn(
-          "w-0 shrink-0 self-stretch transition-[width] duration-300 ease-in-out md:border-r md:border-white/10 md:bg-[#111827]",
+          /* `bg-[#111827]` sin prefijo (16/11/2026): con `md:` la tabla del modo día no lo
+             traducía y, por debajo del panel fijo (100dvh), el hueco salía en franja oscura.
+             En el móvil el hueco mide 0, así que el fondo no se ve. */
+          "w-0 shrink-0 self-stretch bg-[#111827] transition-[width] duration-300 ease-in-out md:min-h-[100dvh] md:border-r md:border-white/10",
           fijado ? "md:w-[280px]" : "md:w-[78px]",
         )}
       >
