@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { traeJson } from "@/lib/hojaCsv";
+import { puestoEnPalabras } from "@/lib/posiciones";
 import { asignaPerfiles } from "@/lib/rivals/perfil-wyscout";
 import { fichaRivalPath, playerKey } from "@/lib/rivals/once";
 import { BANDAS, TIPOS_ACCION, type PorDondeAtaca as Datos } from "@/lib/rivals/por-donde-ataca";
@@ -104,7 +105,12 @@ export function PorDondeAtaca({ equipo, plantilla }: { equipo: string; plantilla
     const texto = (
       <>
         {jugador}
-        {posicion && <span className="ml-1 text-[11px] font-normal text-white/50">{posicion}</span>}
+        {/* En castellano (16/11/2026, jueces de fútbol): «lateral izquierdo», no «LB». */}
+        {posicion && (
+          <span className="ml-1 text-[12px] font-normal text-white/60">
+            ({puestoEnPalabras(posicion.split(",")[0]) || posicion.split(",")[0].trim()})
+          </span>
+        )}
       </>
     );
 

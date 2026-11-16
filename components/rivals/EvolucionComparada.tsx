@@ -12,29 +12,20 @@
  * no tiene partidos, el bloque no se pinta. Nada se pide hasta que asoma.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
 
 import { COMPARADO, ORO, tinta } from "@/components/data/graficas";
 import { useOptaLigero } from "@/hooks/useOptaLigero";
 import { CASTILLA_OPTA } from "@/lib/opta";
 import { casaEquipo } from "@/lib/opta-eventos";
+import { useAsoma } from "@/hooks/useAsoma";
 import { evolucionComparada, tendencia, ultimoDe, type PuntoComparado, type SerieComparada } from "@/lib/rivals/evolucion-comparada";
 
 const coma = (v: number) => v.toFixed(2).replace(".", ",");
 
 export function EvolucionComparada({ equipo }: { equipo: string }) {
-  const caja = useRef<HTMLDivElement>(null);
-  const [abierto, setAbierto] = useState(false);
-
-  useEffect(() => {
-    const el = caja.current;
-    if (!el || abierto) return;
-    const io = new IntersectionObserver((entradas) => {
-      if (entradas.some((e) => e.isIntersecting)) setAbierto(true);
-    }, { rootMargin: "300px 0px" });
-    io.observe(el);
-    return () => io.disconnect();
-  }, [abierto]);
+  /* Al asomar o, como muy tarde, a los 2 s (16/11/2026): en el móvil no salía si no se bajaba. Sin dato, no se pinta. */
+  const { caja, abierto } = useAsoma<HTMLDivElement>(2000);
 
   return <div ref={caja} className="min-w-0">{abierto && <Bloque equipo={equipo} />}</div>;
 }

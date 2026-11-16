@@ -12,12 +12,13 @@
  * cuentas, en `lib/rivals/reparto-xg.ts`.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { COMPARADO, ORO, tinta } from "@/components/data/graficas";
 import { useDocsOpta } from "@/hooks/useDocsOpta";
 import { aObjetos, CASTILLA_OPTA, DOCS_OPTA, type TablaOpta } from "@/lib/opta";
 import { casaEquipo } from "@/lib/opta-eventos";
+import { useAsoma } from "@/hooks/useAsoma";
 import { lecturaConcentracion, repartoXg } from "@/lib/rivals/reparto-xg";
 
 const coma = (v: number, d = 2) => v.toFixed(d).replace(".", ",");
@@ -43,18 +44,8 @@ export function nombreDePlantilla(opta: string, nombres: string[]) {
 }
 
 export function RepartoXg({ equipo, nombres = [] }: { equipo: string; nombres?: string[] }) {
-  const caja = useRef<HTMLDivElement>(null);
-  const [abierto, setAbierto] = useState(false);
-
-  useEffect(() => {
-    const el = caja.current;
-    if (!el || abierto) return;
-    const io = new IntersectionObserver((entradas) => {
-      if (entradas.some((e) => e.isIntersecting)) setAbierto(true);
-    }, { rootMargin: "300px 0px" });
-    io.observe(el);
-    return () => io.disconnect();
-  }, [abierto]);
+  /* Al asomar o, como muy tarde, a los 2 s (16/11/2026): en el móvil no salía si no se bajaba. Sin dato, no se pinta. */
+  const { caja, abierto } = useAsoma<HTMLDivElement>(2000);
 
   return <div ref={caja} className="min-w-0">{abierto && <Bloque equipo={equipo} nombres={nombres} />}</div>;
 }

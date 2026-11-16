@@ -4001,6 +4001,11 @@ export default function RivalPlayersPage() {
               </button>
             </div>
 
+            {/* Una sola convención de jornada (16/11/2026, jueces de análisis): la J de cada chapa es la nuestra. */}
+            <p className={`mt-1 text-[12px] text-white/55 ${selectedTeam && !cambiandoEquipo ? "hidden sm:block" : ""}`}>
+              J = nuestra jornada contra ese rival.
+            </p>
+
             {view === "plantilla" && (
               <>
               {/* CÓMO LLEGA — lo que se pregunta antes de mirar a nadie */}
@@ -4487,7 +4492,7 @@ export default function RivalPlayersPage() {
                           <p className="mt-1 text-[13px] text-white/70">
                             {(() => {
                               const lectura = lecturaTemporada.dibujo
-                                ? `${lecturaTemporada.veces} de sus ${lecturaTemporada.alineaciones} ${lecturaTemporada.alineaciones === 1 ? "alineación" : "alineaciones"}${lecturaTemporada.alineaciones < 15 ? ", tendencia" : ""}`
+                                ? `${lecturaTemporada.veces} de ${lecturaTemporada.alineaciones} ${lecturaTemporada.alineaciones === 1 ? "partido" : "partidos"} de liga, BeSoccer${lecturaTemporada.alineaciones < 15 ? ", tendencia" : ""}`
                                 : "";
 
                               if (!lecturaTemporada.dibujo) return `Once probable en ${dibujoDelEquipo}.`;

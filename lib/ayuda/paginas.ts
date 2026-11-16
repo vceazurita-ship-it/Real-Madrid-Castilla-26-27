@@ -1344,12 +1344,12 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Arriba, antes de mirar a nadie",
         filas: [
           { que: "El campo del campograma", es: "Dibujado, no una foto: césped verde con franjas de corte en día y verde muy oscuro en noche, líneas en blanco roto y cada puesto en una caja casi opaca con el borde de su color, para que las fichas se lean. De pie (móvil) se dibuja de pie, sin estirar", cuenta: "components/rivals/CampoVectorial.tsx; colores en app/globals.css (--campo-*). Propuesta del experto de diseño del 15/11/2026" },
-          { que: "Selector de equipo", es: "Ordenado por calendario: el próximo, fijo a la izquierda con «Próximo», y cada uno con su jornada" },
+          { que: "Selector de equipo", es: "Ordenado por calendario: el próximo, fijo a la izquierda con «Próximo», y cada uno con su jornada. J = nuestra jornada contra ese rival" },
           { que: "Plantilla · Pizarra", es: "La lista con el campograma, o la pizarra táctica del rival" },
           {
             que: "«Cómo llega»",
             es: "Clasificación (con la mediana de goles del grupo), su balance en el campo del partido, los últimos cinco, el dibujo que más repite y quién le hace los goles",
-            cuenta: "BeSoccer; los últimos cinco son sólo de su liga (sin copa ni torneos), el más reciente a la derecha. «Tendencia» con menos de 6 partidos en ese campo, menos de 15 alineaciones o menos de 15 goles",
+            cuenta: "BeSoccer, sólo su liga (sin copa ni torneos). Los últimos cinco, el más reciente a la derecha, y siempre como tendencia. La mediana de goles es por equipo, a favor y en contra (en contra, menos es mejor). El dibujo, «N de M partidos de liga (BeSoccer)», la misma cuenta que el campograma y el Scout colectivo. «Tendencia» con menos de 8 partidos en ese campo, menos de 15 partidos de liga o menos de 15 goles",
           },
           {
             que: "Bajas y apercibidos",
@@ -1358,7 +1358,7 @@ export const AYUDAS: AyudaDePagina[] = [
           },
           {
             que: "«Lo que le hace distinto»",
-            es: "Arriba, un titular con la cifra más extrema de cada lado («fuerte en presión alta (PPDA 8,8, 2.º de 20)…»). Debajo, hasta cuatro aspectos, fuerte en verde y flojo en rojo, cada uno sólo con las cifras que lo sostienen, con su mediana y su puesto; se ven tres y el resto se despliega con «N más»",
+            es: "Arriba, una frase con verbo y una sola cifra, la de lo flojo («destaca en presión alta, pero flojea en balón parado en contra (córners rematados 44,6 %, 20.º de 20)»); en cada grupo va primero el aspecto de esa cifra. Cada cifra lleva su base («25 de 56 en 12 partidos») y el PPDA es el de Opta cuando Opta lo tiene, rotulado (con el de Wyscout al lado), como en el Scout colectivo. Debajo, hasta cuatro aspectos, fuerte en verde y flojo en rojo, cada uno sólo con las cifras que lo sostienen, con su mediana y su puesto; se ven tres y el resto se despliega con «N más»",
             cuenta: "Wyscout, equipos de su competición esta temporada (sin copa). Aspecto: percentil medio de sus cifras, si se separa ±20 puntos. Una cifra sólo entra en «Fuerte en» si está entre los 6 primeros de 20 y en «Flojo en» si está entre los 6 últimos; lo que vale la mediana, nunca. Puesto y mediana salen de puestoEnLiga (lib/rivals/puesto-liga.ts): con el sentido de la métrica (en PPDA, 1.º el que más aprieta), empates con el mismo puesto y mediana de verdad (media de los dos del medio con 20). Es la misma cuenta que el Scout colectivo y Área del rival",
           },
           {
@@ -1429,8 +1429,9 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Arriba",
         filas: [
           { que: "«Nuestra J10 · sáb 31 oct · en casa»", es: "El partido en una línea; es el desplegable de la jornada del Castilla (el rival que nos tocó)", cuenta: "La fecha, la del calendario de BeSoccer; la columna FECHA de la hoja no se toca" },
-          { que: "Tira de jornadas", es: "Sus J1…Jn de liga con V/E/D y el marcador, el más reciente a la derecha: «Su J» es su jornada, no la nuestra (nuestra J13 es la ida; la J23, la vuelta)", cuenta: "BeSoccer; sólo la competición oficial en la que más ha jugado: la copa y los torneos de verano no entran, así que cuadra con los partidos de Wyscout" },
-          { que: "Plan de partido · Pizarra ABP", es: "El mismo partido en esas pantallas; en el móvil, con Editar, en una sola fila" },
+          { que: "Conclusión", es: "Tres líneas encima de los partidos: V/E/D y puntos por partido frente a la mediana de los equipos, goles a favor y en contra por partido frente a la mediana por equipo, y qué hacemos", cuenta: "BeSoccer, sólo su liga; la mediana sale de la clasificación (todos los equipos). Qué hacemos: si encaja o marca más de 0,15 por partido por encima de la mediana, o si concede y marca poco" },
+          { que: "Partido a partido", es: "Sus partidos de liga con fecha, casa o fuera, rival y V/E/D con el marcador, del más antiguo al más reciente, en una rejilla que no se corta. La única jornada que se nombra es la nuestra, la de la cabecera", cuenta: "BeSoccer; sólo la competición oficial en la que más ha jugado: la copa y los torneos de verano no entran" },
+          { que: "Plan de partido · Pizarra ABP", es: "El mismo partido en esas pantallas; en el móvil van los primeros, con Editar, en una sola fila" },
           { que: "Editar · Hecho", es: "En edición salen todos los campos y cuántos están completados; se guarda solo" },
         ],
       },
@@ -1447,7 +1448,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Cómo nos hacen daño", es: "Hasta tres de su ataque (atacan el área, sus centros, por fuera, al espacio, sus referencias), con lo que hacemos, deducido del campo" },
           {
             que: "Por dónde ataca",
-            es: "Sus centros, regates, pases al área y acciones progresivas (pases progresivos + carreras en progresión) de la temporada, repartidos entre banda izquierda, centro y banda derecha, y en cada banda el jugador que más pone; su nombre abre su ficha en Plantillas rivales",
+            es: "Sus centros, regates, pases al área y acciones progresivas (pases progresivos + carreras en progresión) de la temporada, repartidos entre banda izquierda, centro y banda derecha, y en cada banda el jugador que más pone; su nombre abre su ficha en Plantillas rivales; el puesto, en castellano («lateral izquierdo», no «LB»)",
             cuenta:
               "Wyscout por jugador: cifra por 90 × minutos / 90, jugadores de campo con minutos. El lado, del puesto principal (laterales, carrileros y extremos con L/R a su banda; centrales, medios, mediapuntas y delanteros al centro); los centros, de «Centros desde la banda izquierda/derecha». El % es sobre el total del equipo; el titular dice qué banda carga (≥ 58 % de lo de fuera) y el jugador del que más depende",
           },
@@ -1482,7 +1483,7 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           {
             que: "De un vistazo",
-            es: "«Un equipo de un vistazo» de Wyscout, con el rival fijado: V-E-D, los últimos cinco (V/E/D, el más reciente a la derecha), el mapa de progresar y pisar área, «En pocas palabras», las fases, «Donde destaca», «Donde sufre» y «Su estilo»",
+            es: "«Un equipo de un vistazo» de Wyscout, con el rival fijado: V-E-D, los últimos cinco (V/E/D, el más reciente a la derecha), el mapa de progresar y pisar área, «En pocas palabras», las fases (con cuántas de sus cifras están entre los 6 primeros y los 6 últimos; si salen parejas, se dice), «Donde destaca», «Donde sufre» y «Su estilo». La lectura del mapa, en tres frases: qué hace, qué hacemos y qué entrenamos. Los sistemas llevan su fuente (Wyscout) y su base. Mientras carga, cada bloque dice qué viene; Evolución comparada, Reparto del xG y estos datos se cargan al asomar o a los 2-3 s, y si no hay dato no se pintan",
             cuenta: "Puesto y mediana con puestoEnLiga (lib/rivals/puesto-liga.ts), la misma cuenta que Plantillas y Área: «Donde destaca» sólo entre los 6 primeros de 20 y «Donde sufre» entre los 6 últimos. En «Su estilo», las cifras con sentido van del mejor al peor (PPDA, del que más aprieta al que menos) y las de estilo puro, de más a menos. Si las fases salen empatadas, la frase de «lo mejor y lo menos destacado» no sale",
           },
           { que: "Cifras de cabecera", es: "xG a favor y en contra, remates y PPDA por partido: manda Opta y Wyscout va en pequeño como «2.ª lectura»; en PPDA, con su puesto en Wyscout y, si no coincide, por qué (cada proveedor cuenta a su manera las acciones defensivas)" },
@@ -1595,7 +1596,8 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           { que: "El rival", es: "Abre con el del próximo partido; «Cambiar equipo» despliega los demás, por calendario" },
           { que: "Sus centros · Los que recibe", es: "Por partido o en porcentaje frente a los equipos de la liga; «x de y» es la base real" },
-          { que: "Barra", es: "El rival en oro entre cero y el máximo de la liga: la raya es la mediana y el rombo verde, el mejor" },
+          { que: "Barra", es: "El rival en oro entre cero y el máximo de la liga: la raya es la mediana y el rombo verde, el mejor (la leyenda va una vez, encima de las tarjetas). Cada cifra lleva su base: «17,3 por partido · 208 en 12 partidos» o «60 de 208»" },
+          { que: "Mapa de dos ejes", es: "Los equipos de la liga en centros por partido frente a centros precisos %, en percentil dentro de la liga, con el rival en azul y el Castilla en oro", cuenta: "Wyscout, esta temporada, su competición; percentil de cada equipo entre los de la liga en cada eje" },
           {
             que: "▲ ▼ y puesto",
             es: "Mejor o peor según le convenga a ese equipo; el puesto va del 1.º (el mejor) al último y es el mismo que en el Scout colectivo y Plantillas. La flecha sólo sale entre los 6 primeros (▲) o los 6 últimos (▼) de 20; en medio, «en la zona media de la liga»",
@@ -1604,8 +1606,8 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Tendencia", es: "Un porcentaje con menos de 15 casos arriba o 25 abajo, o menos de 10 partidos: sin flecha ni color" },
           {
             que: "Qué hacemos · Qué entrenamos",
-            es: "Criterio de juego a partir de la cifra, encima de la tabla: la cifra lo sostiene, no lo dicta. El objetivo va con su decimal y su unidad («14,5 centros por partido, la mediana de la liga»)",
-            cuenta: "«Cuando les centramos» mira cuántos centros recibe y también su acierto: si el acierto de los centros que recibe está entre los 6 peores de 20 (y no es tendencia), «defienden mal el centro: atacar el área con centro y tres rematadores»; si está entre los 6 mejores, «probar primero por dentro» lleva ese porqué",
+            es: "Criterio de juego a partir de la cifra, encima de la tabla: la cifra lo sostiene, no lo dicta. El titular lleva su base («60 precisos de 208 en 12 partidos»). Los objetivos salen de la liga, no de su propia media: en defensa, el acierto que concede la mejor defensa del centro; en ataque, la mediana de centros por partido y que al menos la mediana de centros precisos llegue a un rematador nuestro",
+            cuenta: "«Cuando les centramos» mira cuántos centros recibe y también su acierto: si el acierto de los centros que recibe está entre los 6 peores de 20 (y no es tendencia), «el X % de los centros que le hacen llega a un rematador contrario (n de m)… defienden mal el centro: atacar el área con centro y tres rematadores»; si está entre los 6 mejores, «probar primero por dentro» lleva ese porqué",
           },
           { que: "Contraste con el Scout Colectivo", es: "Si su texto dice que centran mucho o poco, se dice si Wyscout lo respalda, con enlace al análisis" },
         ],

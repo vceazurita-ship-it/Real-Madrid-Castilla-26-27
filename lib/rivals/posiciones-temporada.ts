@@ -43,6 +43,7 @@
 
 import {
   alineaEstructura,
+  deSuLiga,
   esLiga,
   type InformeEquipo,
   type JugadorOnce,
@@ -315,10 +316,17 @@ function alineacionesDeLaTemporada(informe: InformeEquipo) {
 
   const conJugadores = informe.onces.filter((once) => once.jugadores.length > 0);
 
+  /*
+  | Sólo SU liga (16/11/2026, jueces de fútbol): con la copa y los torneos de
+  | verano, Plantillas decía «4-3-3 en 9 de sus 14 alineaciones» y el Scout
+  | colectivo «4-3-3 ×7 de 12». Ahora cuenta lo mismo que la tira de partidos.
+  */
+  const deLiga = new Set(deSuLiga(informe.partidos).map((partido) => partido.id));
+
   const oficiales = conJugadores.filter((once) => {
     const partido = porId.get(once.partidoId);
 
-    return partido ? esLiga(partido) : false;
+    return partido ? esLiga(partido) && deLiga.has(partido.id) : false;
   });
 
   const conAmistosos = oficiales.length < MINIMO_DE_LIGA;
