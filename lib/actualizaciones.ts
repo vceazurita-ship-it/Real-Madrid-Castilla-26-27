@@ -109,6 +109,17 @@ export const ACTUALIZACIONES: Actualizacion[] = [
     enlace: "/analisis-goles",
   },
   {
+    clave: "goles-video-opta",
+    nombre: "Vídeo de cada gol (Opta)",
+    alimenta: "Análisis de goles → «Ver de seguido»: el corte de la retransmisión de cada gol",
+    fuente: "Opta ProVision",
+    cuando: "Cada noche (con la jornada); primero el Castilla, el Murcia y los próximos rivales",
+    grupo: "jornada",
+    cadaHoras: 24,
+    docs: ["opta:goles-video"],
+    enlace: "/analisis-goles",
+  },
+  {
     clave: "abp-cortes",
     nombre: "Vídeo de cada acción a balón parado",
     alimenta: "Los cortes de ABP ofensivo y defensivo de cada jornada",

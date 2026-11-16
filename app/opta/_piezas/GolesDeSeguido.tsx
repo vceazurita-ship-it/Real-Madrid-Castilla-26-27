@@ -4,8 +4,14 @@
  * VER DE SEGUIDO TODOS LOS GOLES (16/11/2026).
  *
  * «¿Y poder ver de seguido todos los goles de los rivales en vídeo?» Los goles
- * de un equipo (a favor o en contra) uno detrás de otro, cada uno cortado de
- * 10 s antes a 5 s después, sobre el resumen oficial de la RFEF de su partido.
+ * de un equipo (a favor o en contra) uno detrás de otro.
+ *
+ * Primero, el vídeo de Opta (16/11/2026): el ordenador del club baja de
+ * ProVision el corte de cada gol (10 s antes y 6 después, la retransmisión
+ * entera del partido) y lo sube a B2 (scripts/opta-goles-video.mjs →
+ * documento `opta:goles-video`, por partido, parte y segundo). Si un gol aún
+ * no lo tiene, se usa el resumen oficial de la RFEF en YouTube, de 10 s antes
+ * a 5 s después:
  *
  * El segundo de cada gol en el resumen lo marca Gemini viendo el vídeo
  * (scripts/rfef-goles-resumenes.mjs → documento `rfef:goles-resumenes`) y sólo
@@ -32,11 +38,15 @@ type Marcas = Record<string, { goles: GolMarcado[]; cuadra: boolean }>;
 const ANTES = 10;
 const DESPUES = 5;
 
-type Toma = { clave: string; video: string; inicio: number; fin: number; titulo: string; detalle: string };
+type Toma = { clave: string; titulo: string; detalle: string } & (
+  | { fuente: "opta"; src: string }
+  | { fuente: "rfef"; video: string; inicio: number; fin: number }
+);
+type ClipsOpta = Record<string, { url: string }>;
 
 /* ---------- la API de iframe de YouTube, una vez por pestaña ---------- */
 
-type YTPlayer = { loadVideoById: (o: { videoId: string; startSeconds: number; endSeconds: number }) => void; destroy: () => void };
+type YTPlayer = { loadVideoById: (o: { videoId: string; startSeconds: number; endSeconds: number }) => void; pauseVideo: () => void; destroy: () => void };
 type YTApi = { Player: new (el: HTMLElement, o: unknown) => YTPlayer; PlayerState: { ENDED: number } };
 
 let cargandoApi: Promise<YTApi> | null = null;
@@ -80,10 +90,28 @@ function cargaMarcas(): Promise<Marcas> {
   return cargandoMarcas;
 }
 
+/* ---------- los cortes de Opta ---------- */
+
+let cargandoClips: Promise<ClipsOpta> | null = null;
+
+function cargaClipsOpta(): Promise<ClipsOpta> {
+  cargandoClips ??= fetch("/api/docs?key=opta:goles-video")
+    .then((r) => r.json() as Promise<{ data?: { clips?: ClipsOpta } }>)
+    .then((j) => j?.data?.clips ?? {})
+    .catch(() => {
+      cargandoClips = null;
+
+      return {};
+    });
+
+  return cargandoClips;
+}
+
 /** Las tomas de los goles, en el orden en que se ven en la pantalla (lo más reciente primero). */
-export function tomasDeGoles(goles: Remate[], resumenes: ResumenRfef[], marcas: Marcas): { tomas: Toma[]; sinMarca: number } {
+export function tomasDeGoles(goles: Remate[], resumenes: ResumenRfef[], marcas: Marcas, clips: ClipsOpta = {}): { tomas: Toma[]; sinMarca: number; deOpta: number } {
   const tomas: Toma[] = [];
   let sinMarca = 0;
+  let deOpta = 0;
 
   /* El k-ésimo gol de cada equipo en cada partido, por orden de reloj. */
   const porPartido = new Map<string, Remate[]>();
@@ -101,6 +129,21 @@ export function tomasDeGoles(goles: Remate[], resumenes: ResumenRfef[], marcas: 
   for (const g of ordenados) {
     const marca = nombreDe(g.teamId, g.equipo);
     const rival = nombreDe(g.rivalId, g.rival);
+    const clip = clips[`${g.partido}|${g.parte}|${g.segundo}`];
+    const titulo = `${g.tirador} · ${g.minuto}′`;
+
+    if (clip?.url) {
+      deOpta++;
+      tomas.push({
+        clave: `${g.partido}-${g.parte}-${g.segundo}-${g.tirador}`,
+        fuente: "opta",
+        src: clip.url,
+        titulo,
+        detalle: `${fechaCorta(g.fecha)} · ${marca} contra ${rival}`,
+      });
+      continue;
+    }
+
     const resumen = resumenDelPartido(resumenes, marca, rival, g.fecha);
     const m = resumen ? marcas[resumen.id] : undefined;
 
@@ -119,20 +162,22 @@ export function tomasDeGoles(goles: Remate[], resumenes: ResumenRfef[], marcas: 
 
     tomas.push({
       clave: `${g.partido}-${g.parte}-${g.minuto}-${g.tirador}`,
+      fuente: "rfef",
       video: resumen.id,
       inicio: Math.max(0, enResumen.segundo - ANTES),
       fin: enResumen.segundo + DESPUES,
-      titulo: `${g.tirador} · ${g.minuto}′`,
-      detalle: `${fechaCorta(g.fecha)} · ${marca} contra ${rival} (J${resumen.jornada}, ${resumen.local} ${resumen.golesLocal}-${resumen.golesVisitante} ${resumen.visitante})`,
+      titulo,
+      detalle: `${fechaCorta(g.fecha)} · ${marca} contra ${rival} · resumen de la RFEF (J${resumen.jornada}, ${resumen.local} ${resumen.golesLocal}-${resumen.golesVisitante} ${resumen.visitante})`,
     });
   }
 
-  return { tomas, sinMarca };
+  return { tomas, sinMarca, deOpta };
 }
 
 export function GolesDeSeguido({ goles, titulo }: { goles: Remate[]; titulo: string }) {
   const [resumenes, setResumenes] = useState<ResumenRfef[] | null>(null);
   const [marcas, setMarcas] = useState<Marcas | null>(null);
+  const [clips, setClips] = useState<ClipsOpta | null>(null);
   const [abierto, setAbierto] = useState(false);
   const [i, setI] = useState(0);
   const caja = useRef<HTMLDivElement>(null);
@@ -141,10 +186,11 @@ export function GolesDeSeguido({ goles, titulo }: { goles: Remate[]; titulo: str
   useEffect(() => {
     let cancelado = false;
 
-    Promise.all([cargaResumenesRfef(), cargaMarcas()]).then(([r, m]) => {
+    Promise.all([cargaResumenesRfef(), cargaMarcas(), cargaClipsOpta()]).then(([r, m, c]) => {
       if (cancelado) return;
       setResumenes(r);
       setMarcas(m);
+      setClips(c);
     });
 
     return () => {
@@ -152,9 +198,9 @@ export function GolesDeSeguido({ goles, titulo }: { goles: Remate[]; titulo: str
     };
   }, []);
 
-  const { tomas, sinMarca } = useMemo(
-    () => (resumenes && marcas ? tomasDeGoles(goles, resumenes, marcas) : { tomas: [], sinMarca: 0 }),
-    [goles, resumenes, marcas],
+  const { tomas, sinMarca, deOpta } = useMemo(
+    () => (resumenes && marcas && clips ? tomasDeGoles(goles, resumenes, marcas, clips) : { tomas: [], sinMarca: 0, deOpta: 0 }),
+    [goles, resumenes, marcas, clips],
   );
 
   const actual = tomas[i];
@@ -162,6 +208,13 @@ export function GolesDeSeguido({ goles, titulo }: { goles: Remate[]; titulo: str
   /* Crea el reproductor al abrir; al cambiar de toma, sólo carga el trozo nuevo. */
   useEffect(() => {
     if (!abierto || !actual || !caja.current) return;
+
+    /* Un corte de Opta va en su <video>: el de YouTube, si lo había, se pausa. */
+    if (actual.fuente === "opta") {
+      jugador.current?.pauseVideo();
+
+      return;
+    }
 
     let vivo = true;
     const el = caja.current;
@@ -206,7 +259,7 @@ export function GolesDeSeguido({ goles, titulo }: { goles: Remate[]; titulo: str
     jugador.current = null;
   }, [abierto]);
 
-  if (!resumenes || !marcas || goles.length === 0) return null;
+  if (!resumenes || !marcas || !clips || goles.length === 0) return null;
 
   const boton =
     "inline-flex min-h-[36px] items-center gap-1.5 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 text-[12px] font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/20 disabled:opacity-40";
@@ -220,8 +273,8 @@ export function GolesDeSeguido({ goles, titulo }: { goles: Remate[]; titulo: str
             ▶ Ver de seguido los {tomas.length} goles
           </button>
           <span className="text-[12px] text-white/55">
-            {titulo}: cada gol de {ANTES} s antes a {DESPUES} s después, sobre el resumen oficial de la RFEF
-            {sinMarca > 0 ? ` · ${sinMarca} aún sin marcar en su resumen (se marcan cada noche)` : ""}
+            {titulo}: {deOpta === tomas.length ? "cada gol con el vídeo del partido de Opta" : deOpta > 0 ? `${deOpta} con el vídeo del partido de Opta y ${tomas.length - deOpta} con el resumen de la RFEF` : `cada gol de ${ANTES} s antes a ${DESPUES} s después, sobre el resumen oficial de la RFEF`}
+            {sinMarca > 0 ? ` · ${sinMarca} aún sin vídeo (se bajan cada noche)` : ""}
           </span>
         </div>
       ) : (
@@ -243,9 +296,22 @@ export function GolesDeSeguido({ goles, titulo }: { goles: Remate[]; titulo: str
             </div>
           </div>
           {!fueraDeLista && <p className="mb-2 text-[12px] text-white/55">{actual?.detalle}</p>}
-          <div className="aspect-video w-full overflow-hidden rounded-xl bg-black" ref={caja} />
+          {actual?.fuente === "opta" && (
+            <video
+              key={actual.clave}
+              src={actual.src}
+              className="aspect-video w-full rounded-xl bg-black"
+              autoPlay
+              controls
+              playsInline
+              onEnded={() => setI((n) => n + 1)}
+            />
+          )}
+          <div className={`aspect-video w-full overflow-hidden rounded-xl bg-black ${actual?.fuente === "rfef" ? "" : "hidden"}`} ref={caja} />
           <p className="mt-2 text-[11px] text-white/45">
-            El segundo de cada gol lo marca una IA viendo el resumen: si un corte empieza tarde o pronto, «Siguiente» pasa al próximo.
+            {actual?.fuente === "rfef"
+              ? "De este gol aún no está el vídeo de Opta: va sobre el resumen de la RFEF, con el segundo marcado por una IA. Si empieza tarde o pronto, «Siguiente» pasa al próximo."
+              : "Vídeo de la retransmisión del partido (Opta ProVision), de 10 s antes del gol a 6 s después."}
           </p>
         </div>
       )}

@@ -90,18 +90,17 @@ const guarda = async () => {
             on conflict (key) do update set data = excluded.data, updated_at = excluded.updated_at`);
 };
 
-/* Primero nuestro grupo (son los rivales), y dentro, lo más reciente. */
-const NUESTRO_GRUPO = /castilla|murcia|majadahonda|jaen|zaragoza|huesca|europa|villarreal|algeciras|antequera|andreu|cartagena|ibiza|teruel|madrileno|alcorcon|hercules|gimnastic|torremolinos|aguilas/;
-const delGrupo = (v) => {
-  const d = (t) => t.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
-
-  return NUESTRO_GRUPO.test(d(v.local)) && NUESTRO_GRUPO.test(d(v.visitante)) ? 0 : 1;
-};
+/* Primero el Castilla, el Murcia y los próximos rivales; luego el resto del grupo y, dentro, lo más reciente
+   (16/11/2026, el analista: «que termine cuanto antes dando prioridad al Castilla, al Murcia y a los próximos rivales»). */
+const { prioridades } = require("./goles-prioridad.cjs");
+const [cal] = await conReintento(() => sql`select data from app_documents where key = 'castilla:calendario'`);
+const { dePartido } = prioridades(cal?.data?.partidos);
 const pendientes = lista.videos
   .filter((v) => (REHACER ? v.id === REHACER : !doc.videos[v.id] || (!doc.videos[v.id].cuadra && (!doc.videos[v.id].reintentado || doc.videos[v.id].modelo !== MODELOS[0]))))
-  /* Sólo nuestro grupo 2 de Primera RFEF (16/11/2026, el analista): el cupo gratis no da para los dos. */
-  .filter((v) => REHACER || process.argv.includes("--otros") || delGrupo(v) === 0)
-  .sort((a, b) => b.jornada - a.jornada)
+  .map((v) => ({ ...v, prioridad: dePartido(v.local, v.visitante) }))
+  /* Sólo nuestro grupo 2 de Primera RFEF salvo --otros: el cupo gratis no da para los dos. */
+  .filter((v) => REHACER || process.argv.includes("--otros") || v.prioridad < 99)
+  .sort((a, b) => a.prioridad - b.prioridad || b.jornada - a.jornada)
   .slice(0, MAX);
 
 let hechos = 0;

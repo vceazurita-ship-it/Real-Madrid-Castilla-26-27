@@ -332,14 +332,27 @@ if errorlevel 1 (
 rem --- 8. el segundo de cada gol en los resumenes de la RFEF (16/11/2026) ---
 rem
 rem  Para «Ver de seguido» los goles en /analisis-goles. Gemini marca los
-rem  resumenes nuevos (gratis, con pausa; 30 como mucho para no alargar la
+rem  resumenes nuevos (gratis, con pausa; 60 como mucho, primero el Castilla, el Murcia y los proximos rivales, para no alargar la
 rem  noche). Si se agota la cuota (codigo 8) sigue la noche siguiente; nunca
 rem  cuenta como fallo de la jornada.
 echo. >> "%LOG%"
 echo --- Goles en los resumenes de la RFEF --- >> "%LOG%"
-call node scripts\rfef-goles-resumenes.mjs --max 30 >> "%LOG%" 2>&1
+call node scripts\rfef-goles-resumenes.mjs --max 60 >> "%LOG%" 2>&1
 if errorlevel 1 (
   echo AVISO: el marcado de goles en los resumenes no ha terminado ^(codigo !errorlevel!^); sigue la noche siguiente >> "%LOG%"
+)
+
+rem --- 9. el video de cada gol, de Opta (16/11/2026) ---
+rem
+rem  Para Ver de seguido: baja de ProVision (Chrome de Opta del club, puerto
+rem  9335, con su sesion) el corte de cada gol nuevo del grupo y lo sube a B2.
+rem  Sin el Chrome o sin sesion (codigo 8) sigue la noche siguiente; nunca
+rem  cuenta como fallo de la jornada.
+echo. >> "%LOG%"
+echo --- Video de los goles desde Opta --- >> "%LOG%"
+call node scripts\opta-goles-video.mjs --max 150 >> "%LOG%" 2>&1
+if errorlevel 1 (
+  echo AVISO: el video de los goles de Opta no ha terminado ^(codigo !errorlevel!^); sigue la noche siguiente >> "%LOG%"
 )
 
 echo. >> "%LOG%"
