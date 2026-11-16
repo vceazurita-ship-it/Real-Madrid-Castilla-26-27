@@ -318,7 +318,10 @@ export type ZonaEntrega = {
   destaca: boolean;
 };
 
-export type EntregaLado = { lado: LadoCorner; n: number; nGrupo: number; zonas: ZonaEntrega[] };
+/** Cada córner, del banderín a donde cae (Opta), para dibujarlo como el original de X (16/11/2026). */
+export type CaidaCorner = { x: number; y: number; finX: number; finY: number; remate: boolean; gol: boolean; llega: boolean };
+
+export type EntregaLado = { lado: LadoCorner; n: number; nGrupo: number; zonas: ZonaEntrega[]; caidas: CaidaCorner[] };
 
 export type EntregaCorner = {
   lados: EntregaLado[];
@@ -359,7 +362,16 @@ export function entregaCorner(saques: Saque[], equipo: string, antes: string | n
         destaca: de.length >= MIN_CORNERS_LADO && deG.length > 0 && Math.abs(dif) >= UMBRAL_ENTREGA - 1e-9,
       };
     });
-    return { lado, n: de.length, nGrupo: deG.length, zonas };
+    const caidas = de.map((s): CaidaCorner => ({
+      x: s.x,
+      y: s.y,
+      finX: s.finX,
+      finY: s.finY,
+      remate: s.remates.length > 0,
+      gol: [...s.remates, ...s.segundas].some((r) => r.gol),
+      llega: s.completo,
+    }));
+    return { lado, n: de.length, nGrupo: deG.length, zonas, caidas };
   });
   let mayor: EntregaCorner["mayor"] = null;
   for (const l of lados)

@@ -363,6 +363,74 @@ const puntos = (dif: number) => {
   return v > 0 ? `+${v}` : v < 0 ? `−${Math.abs(v)}` : "0";
 };
 
+/*
+| CADA CÓRNER, DEL BANDERÍN A DONDE CAE (16/11/2026, como el original de X
+| «¿Cómo saca cada equipo sus córners?»): el área atacando hacia arriba, una
+| línea por córner desde su banderín hasta donde cae el balón y un punto al
+| final: oro si el siguiente toque es un remate, verde si llega a un compañero,
+| rojo si no llega; el gol, con bola blanca. Antes sólo había barras por zona.
+*/
+const CORNER_REMATE = "#C8A96B";
+const CORNER_LLEGA = "#22B573";
+const CORNER_NO = "#E5534B";
+
+function MapaCaidas({ l }: { l: EntregaLado }) {
+  /* Una proyección guardada antes del 16/11/2026 no trae las caídas. */
+  if (!l.caidas?.length) return null;
+  /* Coordenadas de Opta (x hacia su portería, y = 0 su banda derecha) a metros, atacando hacia arriba. */
+  const X = (y: number) => ((100 - y) / 100) * 68;
+  const Y = (x: number) => ((100 - x) / 100) * 105;
+  const alto = 30;
+  const linea = { stroke: "rgb(var(--rmcf-ink-rgb) / 0.4)", fill: "none", strokeWidth: 0.35 } as const;
+  const remates = l.caidas.filter((c) => c.remate).length;
+  const llegan = l.caidas.filter((c) => c.llega).length;
+  const goles = l.caidas.filter((c) => c.gol).length;
+  return (
+    <figure className="m-0 mt-2">
+      <svg viewBox={`-1 -2 70 ${alto + 3}`} className="block w-full rounded-lg" style={{ background: "rgb(var(--rmcf-ink-rgb) / 0.04)" }} role="img" aria-label={`${l.n} córners desde su ${l.lado}: ${llegan} llegan a un compañero, ${remates} acaban en remate directo${goles ? `, ${goles} con gol` : ""}`}>
+        {/* Área grande, área chica, portería y semicírculo. */}
+        <rect x={0} y={0} width={68} height={alto} style={linea} />
+        <rect x={13.84} y={0} width={40.32} height={16.5} style={linea} />
+        <rect x={24.84} y={0} width={18.32} height={5.5} style={linea} />
+        <rect x={30.34} y={-1.6} width={7.32} height={1.6} style={{ fill: "rgb(var(--rmcf-ink-rgb) / 0.35)" }} />
+        <path d="M26.69,16.5 A9.15,9.15 0 0 0 41.31,16.5" style={linea} />
+        {[...l.caidas.filter((c) => !c.remate), ...l.caidas.filter((c) => c.remate)].map((c, i) => {
+          const color = c.remate ? CORNER_REMATE : c.llega ? CORNER_LLEGA : CORNER_NO;
+          const fx = X(c.finY);
+          const fy = Math.min(alto - 0.6, Y(c.finX));
+          return (
+            <g key={i}>
+              <line x1={X(c.y)} y1={Y(c.x)} x2={fx} y2={fy} style={{ stroke: color, strokeWidth: c.remate ? 0.45 : 0.25, opacity: c.remate ? 0.9 : 0.4 }} />
+              <circle cx={fx} cy={fy} r={c.remate ? 0.9 : 0.7} style={{ fill: color }} />
+              {c.gol && <circle cx={fx} cy={fy} r={1.3} style={{ fill: "#FFFFFF", stroke: "#111111", strokeWidth: 0.45 }} />}
+            </g>
+          );
+        })}
+      </svg>
+      <figcaption className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-white/60">
+        <span className="inline-flex items-center gap-1">
+          <i className="inline-block h-2 w-2 rounded-full" style={{ background: CORNER_REMATE }} />
+          Remate directo {pct(remates / l.n)}
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <i className="inline-block h-2 w-2 rounded-full" style={{ background: CORNER_LLEGA }} />
+          Llega a un compañero {pct(llegan / l.n)}
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <i className="inline-block h-2 w-2 rounded-full" style={{ background: CORNER_NO }} />
+          No llega
+        </span>
+        {goles > 0 && (
+          <span className="inline-flex items-center gap-1">
+            <i className="inline-block h-2 w-2 rounded-full bg-white" style={{ boxShadow: "0 0 0 1px #111" }} />
+            Gol ({goles})
+          </span>
+        )}
+      </figcaption>
+    </figure>
+  );
+}
+
 function LadoEntrega({ l, rival }: { l: EntregaLado; rival: string }) {
   const corto = l.n < MIN_CORNERS_LADO;
   return (
@@ -374,6 +442,7 @@ function LadoEntrega({ l, rival }: { l: EntregaLado; rival: string }) {
         </span>
         {corto && <Tendencia />}
       </p>
+      <MapaCaidas l={l} />
       <ul className="mt-2 space-y-2">
         {l.zonas.map((z) => {
           const tono = !z.destaca ? "text-white/45" : z.dif > 0 ? "text-rose-300" : "text-sky-300";
