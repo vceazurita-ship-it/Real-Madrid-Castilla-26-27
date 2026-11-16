@@ -16,7 +16,6 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { usePlayers } from "@/hooks/usePlayers";
 import { alineaSeguimiento, DIAS_SIN_SEGUIMIENTO, esDeSeguimiento, sinSeguimientoReciente } from "@/lib/seguimiento";
-import { SESIONES_CONTADAS_DESDE, SESIONES_DESDE_TEXTO } from "@/lib/sesion-equipos/estadistica";
 import { recordDateKey } from "@/lib/calendar";
 import { PLAYER_PHOTO_FALLBACK } from "@/lib/playerImages";
 import { descargaEnMarcha, encargaDescarga } from "@/lib/trabajos/descargas";
@@ -117,6 +116,31 @@ const SEASON_START_DAY = 8;
 | El 8 de julio de 2026 cae en miércoles: las semanas salían de miércoles a
 | martes y el «día 6 de 7» no cuadraba. Se arranca en el lunes de esa semana.
 */
+/*
+| Estrategia y entrenador vienen compuestos en la hoja («VÍDEO Y CHARLA»,
+| «JULIÁN Y MIGUEL»). Filtrar por «VÍDEO» dejaba fuera los de vídeo y charla
+| (16/11/2026): un valor casa si tiene todas las partes del elegido.
+*/
+const partes = (v: unknown) =>
+  String(v ?? "")
+    .toUpperCase()
+    .split(/\s+Y\s+|\s*[,/+]\s*/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+function contiene(valor: unknown, elegido: string) {
+  const suyas = new Set(partes(valor));
+
+  return partes(elegido).every((p) => suyas.has(p));
+}
+
+/** Las opciones del filtro: primero cada parte suelta, luego las combinaciones que hay. */
+function conPartes(valores: string[]) {
+  const sueltas = [...new Set(valores.flatMap((v) => partes(v)))].sort();
+
+  return [...sueltas, ...valores.filter((v) => partes(v).length > 1)];
+}
+
 function lunesDeTemporada(año: number) {
   const d = new Date(año, SEASON_START_MONTH, SEASON_START_DAY);
   d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
@@ -341,15 +365,15 @@ export default function DashboardSeguimiento() {
 
   const tracking = useMemo(
     () => {
-      /* Sólo cuenta desde SESIONES_CONTADAS_DESDE; lo anterior (y lo que no
-         tiene fecha) no entra en ningún cálculo ni texto de la pantalla.
+      /* La temporada entera (16/11/2026: el corte del 21/10 era sólo para las
+         sesiones de entrenamiento, no para los seguimientos). Lo que no tiene
+         fecha no entra en ningún cálculo ni texto de la pantalla.
          10/11/2026: y nada fechado después de hoy (un registro del 11/11
          salía como «Último registro: hoy»): eso es lo programado. */
-      const desde = new Date(`${SESIONES_CONTADAS_DESDE}T00:00:00`).getTime();
       const hasta = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 23, 59, 59, 999).getTime();
       return delGrupo.filter((s) => {
         const d = fechaValida(s.FECHA);
-        return d !== null && d.getTime() >= desde && d.getTime() <= hasta;
+        return d !== null && d.getTime() <= hasta;
       });
     },
     [delGrupo, hoy],
@@ -427,8 +451,9 @@ export default function DashboardSeguimiento() {
       const week = getSeasonWeek(s.FECHA);
 
       if (filters.player && s.ID_JUGADOR !== filters.player) return false;
-      if (filters.strategy && s.ESTRATEGIA !== filters.strategy) return false;
-      if (filters.coach && s.QUIEN !== filters.coach) return false;
+      /* «VÍDEO» también trae los de «VÍDEO Y CHARLA», y «JULIÁN» los de «JULIÁN Y MIGUEL» (16/11/2026). */
+      if (filters.strategy && !contiene(s.ESTRATEGIA, filters.strategy)) return false;
+      if (filters.coach && !contiene(s.QUIEN, filters.coach)) return false;
       if (filters.modality && s.MODALIDAD !== filters.modality) return false;
       if (filters.moment && s.MOMENTO !== filters.moment) return false;
       if (filters.month && month !== Number(filters.month)) return false;
@@ -754,8 +779,9 @@ export default function DashboardSeguimiento() {
      curso se pinta, pero no entra en la media. */
   /* 10/11/2026: tampoco la primera si el conteo empezó a media semana (el
      21/10 fue miércoles): «3 semanas completas» eran 2 y una de 5 días. */
-  const semanaDeInicio = `S${getSeasonWeek(`${SESIONES_CONTADAS_DESDE}T12:00:00`)}`;
-  const inicioEnLunes = new Date(`${SESIONES_CONTADAS_DESDE}T12:00:00`).getDay() === 1;
+  const primerDia = tracking.reduce((min, s) => (String(s.FECHA).slice(0, 10) < min ? String(s.FECHA).slice(0, 10) : min), "9999-12-31");
+  const semanaDeInicio = `S${getSeasonWeek(`${primerDia}T12:00:00`)}`;
+  const inicioEnLunes = new Date(`${primerDia}T12:00:00`).getDay() === 1;
   const semanasCerradas = weeklyData.filter(
     (w) => !(w.week === semanaDeHoy && diaDeSemana < 7) && (inicioEnLunes || w.week !== semanaDeInicio),
   );
@@ -831,7 +857,7 @@ export default function DashboardSeguimiento() {
       cells: strategies.map((st) => ({
         strategy: st,
         count: filteredTracking.filter(
-          (s) => s.QUIEN === c.name && s.ESTRATEGIA === st
+          (s) => contiene(s.QUIEN, c.name) && contiene(s.ESTRATEGIA, st)
         ).length,
       })),
     }));
@@ -995,8 +1021,8 @@ export default function DashboardSeguimiento() {
 
     return {
       positions: [...new Set(players.map((p) => p.posicion).filter(Boolean))].sort(),
-      coaches: uniq((t) => t.QUIEN),
-      strategies: uniq((t) => t.ESTRATEGIA),
+      coaches: conPartes(uniq((t) => t.QUIEN)),
+      strategies: conPartes(uniq((t) => t.ESTRATEGIA)),
       modalities: uniq((t) => t.MODALIDAD),
       moments: uniq((t) => t.MOMENTO),
       months: [
@@ -1093,7 +1119,7 @@ export default function DashboardSeguimiento() {
               </h1>
 
               <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-white/60">
-                {totalSessions} registros {SESIONES_DESDE_TEXTO}
+                {totalSessions} registros en la temporada
               </span>
 
               {/* Se dice a quién cuenta el panel: si no, la cobertura y la
@@ -1323,14 +1349,14 @@ export default function DashboardSeguimiento() {
                   /* 10/11/2026: la ventana dicha (el registro de la temporada
                      está en /calendar) y, con un filtro que deja menos de 15,
                      el aviso de que es tendencia. */
-                  hint={`registros ${SESIONES_DESDE_TEXTO}, cuando empezó el registro completo (la temporada entera, en Calendario) · ${withFeedback} de ${totalSessions} con feedback${totalSessions > 0 && totalSessions < 15 ? " · tendencia: menos de 15 registros" : ""}`}
+                  hint={`registros de la temporada · ${withFeedback} de ${totalSessions} con feedback${totalSessions > 0 && totalSessions < 15 ? " · tendencia: menos de 15 registros" : ""}`}
                 />
 
                 <StatCard
                   icon={Users}
                   title="Con seguimiento"
                   value={cubiertos}
-                  hint={`jugadores con algún registro ${SESIONES_DESDE_TEXTO} · ${cm(avgPerPlayer)} registros por jugador (de ${totalSessions})`}
+                  hint={`jugadores con algún registro en la temporada · ${cm(avgPerPlayer)} registros por jugador (de ${totalSessions})`}
                   accent="#6E7F99"
                 />
 
@@ -1338,7 +1364,7 @@ export default function DashboardSeguimiento() {
                   icon={UserCheck}
                   title="Cobertura · de campo del Castilla"
                   value={`${cm(coverage)} %`}
-                  hint={`${cubiertos} de ${squadSize} jugadores de campo con licencia del Castilla ${SESIONES_DESDE_TEXTO} (sin porteros ni otras licencias)`}
+                  hint={`${cubiertos} de ${squadSize} jugadores de campo con licencia del Castilla en la temporada (sin porteros ni otras licencias)`}
                   accent={coverage >= 80 ? "#10B981" : coverage >= 50 ? "#C8A96B" : "#EF4444"}
                   progress={coverage}
                 />
@@ -1349,7 +1375,7 @@ export default function DashboardSeguimiento() {
                   value={cm(semanasCerradas.length >= 1 && weeklyData.length > 1 ? weeklyMean : averageWeek)}
                   hint={
                     semanasCerradas.length >= 1 && weeklyData.length > 1
-                      ? `registros por semana: media de ${semanasCerradas.length} ${semanasCerradas.length === 1 ? "semana completa" : "semanas completas"} (lunes a domingo)${semanasCerradas.length < weeklyData.length ? "; la primera (desde el miércoles 21/10) y la actual van aparte" : ""}`
+                      ? `registros por semana: media de ${semanasCerradas.length} ${semanasCerradas.length === 1 ? "semana completa" : "semanas completas"} (lunes a domingo)${semanasCerradas.length < weeklyData.length ? "; la primera (si empezó a media semana) y la actual van aparte" : ""}`
                       : totalWeeks === 1 ? "1 semana activa" : `${totalWeeks} semanas activas`
                   }
                   accent="#4C7A67"
@@ -1665,7 +1691,7 @@ export default function DashboardSeguimiento() {
                        seguimiento en 14 días» de Lecturas: aquí sale quien no
                        tiene ningún registro con los filtros puestos. */
                     title={`Sin ningún registro (${untrackedPlayers.length})`}
-                    subtitle={`Sin ningún registro ${SESIONES_DESDE_TEXTO} con los filtros actuales; junto a cada nombre, su último registro de la temporada`}
+                    subtitle={`Sin ningún registro en la temporada con los filtros actuales; junto a cada nombre, su último registro de la temporada`}
                   >
                     <div className="flex flex-wrap gap-2.5">
                       {untrackedPlayers.map((p) => (

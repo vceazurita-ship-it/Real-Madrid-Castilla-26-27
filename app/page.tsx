@@ -28,7 +28,6 @@ import { useAdmin } from "@/hooks/useAdmin"
 import { trackModuleVisit } from "@/lib/module-usage"
 import { usePlayers } from "@/hooks/usePlayers"
 import { alineaSeguimiento, esDeSeguimiento, filasDeSeguimiento } from "@/lib/seguimiento"
-import { SESIONES_CONTADAS_DESDE } from "@/lib/sesion-equipos/estadistica"
 import { traeJson } from "@/lib/hojaCsv"
 import { EstadoError } from "@/components/ui/estados"
 import { useCalendario } from "@/hooks/useCalendario"
@@ -366,7 +365,7 @@ export default function Home() {
     )
   }, [filasSeguimiento, plantillaEntera, plantilla])
 
-  /* Los de las cifras: sólo desde el 21/10. */
+  /* Los de las cifras: la temporada entera (16/11/2026). */
   const seguimientoCastilla = useMemo(() => {
     if (plantillaEntera.length === 0) return []
 
@@ -378,13 +377,12 @@ export default function Home() {
       plantillaEntera,
     )
 
-    /* Sólo cuentan los registros desde el día en que se empezó a contar. */
-    const desde = new Date(SESIONES_CONTADAS_DESDE).getTime()
+    /* La temporada entera: el corte del 21/10 es sólo para las sesiones (16/11/2026). */
 
     return filasDeSeguimiento(atados, plantilla).filter((fila) => {
       const fecha = new Date(fila.FECHA ?? "").getTime()
 
-      return Number.isFinite(fecha) && fecha >= desde
+      return Number.isFinite(fecha)
     })
   }, [filasSeguimiento, plantillaEntera, plantilla])
 
@@ -1138,7 +1136,7 @@ export default function Home() {
                             label: "Seguimientos",
                             value: seguimientos,
                             caption: [
-                              `registrados desde el ${new Date(`${SESIONES_CONTADAS_DESDE}T12:00:00Z`).toLocaleDateString("es-ES", { day: "numeric", month: "short", timeZone: "Europe/Madrid" }).replace(".", "")}`,
+                              "en la temporada",
                               ultimos30Dias === seguimientos ? `${ultimos7Dias} esta semana` : `${ultimos30Dias} en los últimos 30 días`,
                             ].join(" · "),
                             destino: "Abrir los seguimientos",

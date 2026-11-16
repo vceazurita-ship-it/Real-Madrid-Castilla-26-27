@@ -852,9 +852,9 @@ export const AYUDAS: AyudaDePagina[] = [
   {
     ruta: "/individual_proc",
     titulo: "Dashboard Seguimiento",
-    resumen: "Cuánto se sigue a cada jugador de campo del Castilla, quién lo hace y de qué se le habla, desde el 21/10.",
-    origen: "Hoja de seguimiento (una fila por registro, por el Apps Script) cruzada con la plantilla de la hoja JUGADORES. Cuenta desde el 21/10/2026 y nada fechado después de hoy.",
-    revisada: "2026-11-12",
+    resumen: "Cuánto se sigue a cada jugador de campo del Castilla, quién lo hace y de qué se le habla, en toda la temporada.",
+    origen: "Hoja de seguimiento (una fila por registro, por el Apps Script) cruzada con la plantilla de la hoja JUGADORES. Cuenta toda la temporada (el corte del 21/10 es sólo de las sesiones de entrenamiento) y nada fechado después de hoy. Los filtros de estrategia y entrenador leen cada parte: «VÍDEO» trae también los de «VÍDEO Y CHARLA» y «JULIÁN» los de «JULIÁN Y MIGUEL».",
+    revisada: "2026-11-16",
     bloques: [
       {
         titulo: "A quién cuenta",
@@ -867,10 +867,10 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Las cifras de arriba",
         filas: [
-          { que: "Seguimientos", es: "Registros desde el 21/10 y cuántos llevan feedback", cuenta: "Con menos de 15, tendencia" },
+          { que: "Seguimientos", es: "Registros de la temporada y cuántos llevan feedback", cuenta: "Con menos de 15, tendencia" },
           { que: "Con seguimiento", es: "Jugadores con algún registro y registros por jugador", cuenta: "Registros de la plantilla ÷ jugadores con registro" },
           { que: "Cobertura · de campo del Castilla", es: "Qué parte del grupo tiene algún seguimiento", cuenta: "Con registro ÷ jugadores de campo del Castilla (de la posición filtrada) × 100; verde desde el 80 %, oro desde el 50 %" },
-          { que: "Media semanal", es: "Registros por semana completa", cuenta: "Sólo semanas cerradas de lunes a domingo; la primera (desde el miércoles 21/10) y la actual van aparte. Con una sola semana, «Esta semana»" },
+          { que: "Media semanal", es: "Registros por semana completa", cuenta: "Sólo semanas cerradas de lunes a domingo; la primera (si empezó a media semana) y la actual van aparte. Con una sola semana, «Esta semana»" },
           { que: "Individualización", es: "Registros de modalidad individual ÷ total × 100; el resto, grupales" },
           { que: "Último registro", es: "Hace cuánto fue el más reciente y de quién" },
         ],
@@ -2207,7 +2207,7 @@ export const AYUDAS: AyudaDePagina[] = [
     resumen: "El próximo partido, lo que toca hoy, el rival y el equipo en cifras de un vistazo, y la puerta a todas las áreas.",
     origen:
       "El calendario y la clasificación de BeSoccer (se ponen al día cada noche), la hoja RIVALES (para abrir cada pantalla con el rival puesto), la hoja de registro del microciclo, Opta (xG, PPDA, balón parado y momentum), los informes de Wyscout (Data Análisis) y la hoja de seguimiento. Ninguna cifra se escribe aquí.",
-    revisada: "2026-11-15",
+    revisada: "2026-11-16",
     bloques: [
       {
         titulo: "El próximo partido",
@@ -2277,8 +2277,8 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "El equipo en cifras",
         filas: [
-          { que: "Con seguimiento", es: "Jugadores de campo con licencia del Castilla con algún seguimiento desde el 21/10, como el Dashboard Seguimiento", cuenta: "% = jugadores con seguimiento ÷ jugadores de campo" },
-          { que: "Seguimientos", es: "Registros desde el 21 oct y cuántos en los últimos 30 días (o esta semana, si son todos)" },
+          { que: "Con seguimiento", es: "Jugadores de campo con licencia del Castilla con algún seguimiento en la temporada, como el Dashboard Seguimiento", cuenta: "% = jugadores con seguimiento ÷ jugadores de campo" },
+          { que: "Seguimientos", es: "Registros de la temporada y cuántos en los últimos 30 días (o esta semana, si son todos)" },
           { que: "Reintentar", es: "Si la hoja de seguimiento no contesta, sólo sale la plantilla y el botón para volver a pedirla" },
           { que: "Áreas de trabajo", es: "Seis de las más usadas en este aparato (sin repetir la mesa), el buscador y «Ver todas las áreas»" },
         ],
