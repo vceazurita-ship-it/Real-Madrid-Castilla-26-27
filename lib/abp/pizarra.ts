@@ -401,7 +401,7 @@ export const PLANTILLAS: PlantillaSlide[] = [
     puestos: puestos("corner-of", [
       /* 16/11/2026 (jueces, ronda 18): «Corta» salía dos veces en el panel; el
          grupo es EQUILIBRIO y el cuerpo técnico le pone «E». La clave sigue siendo C. */
-      { code: "C", label: "Equilibrio", grupo: "lanzadores", x: 831, y: 845 },
+      { code: "C", sigla: "E", label: "Equilibrio", grupo: "lanzadores", x: 831, y: 845 },
       /* Nombres del cuerpo técnico (27/09/2026). Las claves siguen siendo BZ, BC
          y RC, así que nadie se mueve de su sitio: sólo cambian la sigla que se
          lee y el grupo en el que sale. */
