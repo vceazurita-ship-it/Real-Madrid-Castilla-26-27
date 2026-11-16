@@ -32,6 +32,8 @@ import {
   type LectorAnalisis,
 } from "@/components/abp/AnalisisSeccion";
 import { hablado, type ClaveMetrica } from "@/lib/abp/analisis";
+import { ConmutadorVista, useVistaAnalisis } from "@/components/ui/VistaVisual";
+import { COLOR_DESENLACE, VisualAbp } from "@/components/abp/VisualAbp";
 import { zonaFaltaEnPalabras } from "@/lib/abp/informe-micro";
 
 /*
@@ -2409,6 +2411,15 @@ const textosExplicativos = useTextosExplicativos();
 const [vista, setVista] = usePestanaUrl<"resumen" | "donde" | "como" | "quien" | "cuando" | "opta">("vista", ["resumen", "donde", "como", "quien", "cuando", "opta"], "resumen");
 const [todoVisible, setTodoVisible] = useState(false);
 const oculto = (clave: string) => (todoVisible || vista === clave ? "" : "hidden");
+/*
+| VISUAL / DETALLE (16/11/2026, petición del analista). «Visual» (lo que se
+| abre): cómo acaban sus córners y faltas, jornada a jornada, el mapa de
+| nuestra área y la categoría, con su conclusión en el título
+| (components/abp/VisualAbp.tsx). «Detalle» son las pestañas de siempre.
+*/
+const [vistaPantalla, setVistaPantalla] = useVistaAnalisis("setpieces-def");
+const enVisual = vistaPantalla === "visual";
+const soloVisual = enVisual && !todoVisible;
 
 /* Las jornadas anteriores a la elegida: la media que cita la conclusión de la zona. */
 const anterioresConclusion = jornada !== "ALL" && comparativa ? comparativa.filasAnteriores : null;
@@ -2895,7 +2906,7 @@ const pie = (
 </div>
 </div>
     {/* Las conclusiones antes que las tarjetas, también en el ordenador (10/11/2026, jueces). */}
-    {vista === "resumen" && (
+    {(vista === "resumen" || enVisual) && (
       <Conclusiones
         items={conclusionesVista}
         titular={titularConclusiones}
@@ -2999,6 +3010,66 @@ const pie = (
             {/* Lo primero: este partido frente a la media de los anteriores.
                 Con «Todas las jornadas» elegido se compara la última igualmente. */}
             {/* Las conclusiones en pocas frases, antes de los gráficos. */}
+            <div className="mt-6 flex justify-end lg:px-2">
+              <ConmutadorVista vista={vistaPantalla} onCambia={setVistaPantalla} />
+            </div>
+
+            {soloVisual && (
+              <VisualAbp
+                filas={filtered.map((r) => {
+                  const res = normalizaResultado(r.resultadoFinal);
+                  return {
+                    jornada: r.contexto.jornada,
+                    cat:
+                      res === "Gol Rival"
+                        ? "gol"
+                        : res === "Ocasión"
+                          ? "ocasion"
+                          : LECTOR.remate(r)
+                            ? "remate"
+                            : res === "Gol RMCF" || res === "Transición Ofensiva"
+                              ? "nuestra"
+                              : "sin",
+                    exito: LECTOR.peligro(r),
+                    zona: esSuperioridad(r.zonaCaida) ? "" : zonaLegible(r.zonaCaida),
+                  };
+                })}
+                categorias={[
+                  { clave: "gol", rotulo: "Gol del rival", color: COLOR_DESENLACE.peor },
+                  { clave: "ocasion", rotulo: "Ocasión del rival", color: COLOR_DESENLACE.peorSuave },
+                  { clave: "remate", rotulo: "Remate sin ocasión", color: COLOR_DESENLACE.remate },
+                  { clave: "sin", rotulo: "Sin remate", color: COLOR_DESENLACE.nada },
+                  { clave: "nuestra", rotulo: "Salimos a la contra o marcamos", color: COLOR_DESENLACE.mejor },
+                ]}
+                unidad={{ uno: "acción del rival", varios: "acciones del rival", genero: "f" }}
+                exito={{ uno: "acaba en gol u ocasión suya", varios: "acaban en gol u ocasión suya", mejorAlto: false }}
+                fuente="Hoja de ABP defensivo · con los filtros de arriba"
+                mapa={{
+                  pregunta: "¿Dónde nos cae?",
+                  nodo: (
+                    <ABPZoneMap
+                      mode="defensive"
+                      zonaFiltro={zonaAreaFilter === "ALL" ? null : zonaAreaFilter}
+                      onZonaFiltro={(zona) => setZonaAreaFilter(zona ?? "ALL")}
+                      rows={sin("zonaArea").map((r) => ({
+                        zonaCaida: r.zonaCaida,
+                        zonaRemate: r.zonaRemate,
+                        xg: r.xg,
+                        resultadoFinal: r.resultadoFinal,
+                        tipoRemate: r.tipoRemate,
+                        oc1P: num(r.oc1P),
+                        ocCentral: num(r.ocCentral),
+                        oc2P: num(r.oc2P),
+                        ocFrontal: num(r.ocFrontal),
+                      }))}
+                    />
+                  ),
+                }}
+                liga={<OptaAbpDia lado="contra" />}
+              />
+            )}
+
+            <div className={soloVisual ? "hidden" : ""}>
             <div className="mt-6 lg:px-2">
               <Pestanas
                 etiqueta="Vistas del balón parado defensivo"
@@ -3016,7 +3087,7 @@ const pie = (
             </div>
 
             {/* Opta (10/11/2026): lo que nos hacen a balón parado frente a la categoría. Sólo se monta (y se pide) en su pestaña. */}
-            {vista === "opta" && (
+            {!enVisual && vista === "opta" && (
               <div className="mt-5 lg:px-2">
                 <OptaAbpDia lado="contra" />
               </div>
@@ -4426,6 +4497,7 @@ outerRadius={isMobile ? 90 : 120}
   </Chart></div>
 </Panel>
 
+            </div>
             </div>
     </>
   )}

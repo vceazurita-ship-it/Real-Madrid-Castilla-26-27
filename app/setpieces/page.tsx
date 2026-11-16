@@ -33,8 +33,10 @@ import {
   type LectorAnalisis,
 } from "@/components/abp/AnalisisSeccion";
 import { hablado, type ClaveMetrica } from "@/lib/abp/analisis";
+import { ConmutadorVista, useVistaAnalisis } from "@/components/ui/VistaVisual";
+import { COLOR_DESENLACE, VisualAbp } from "@/components/abp/VisualAbp";
 import { lecturaRapida } from "@/lib/abp/lectura-rapida";
-import { patronEnvio } from "@/lib/abp/accionFrase";
+import { patronEnvio, zonaLegible } from "@/lib/abp/accionFrase";
 import { LecturaRapida, MUESTRA_FIRME } from "@/components/abp/LecturaRapida";
 import ABPObjectiveFlow, {
   type ABPFlowCol,
@@ -2487,6 +2489,15 @@ const textosExplicativos = useTextosExplicativos();
 const [vista, setVista] = usePestanaUrl<"resumen" | "donde" | "como" | "quien" | "cuando" | "clips" | "opta">("vista", ["resumen", "donde", "como", "quien", "cuando", "clips", "opta"], "resumen");
 const [todoVisible, setTodoVisible] = useState(false);
 const oculto = (clave: string) => (todoVisible || vista === clave ? "" : "hidden");
+/*
+| VISUAL / DETALLE (16/11/2026, petición del analista). «Visual» (lo que se
+| abre): cómo acaban, jornada a jornada, el mapa del área y la categoría, cada
+| uno con su conclusión en el título (components/abp/VisualAbp.tsx). «Detalle»
+| son las pestañas de siempre. Al descargar el PDF se enseña el detalle entero.
+*/
+const [vistaPantalla, setVistaPantalla] = useVistaAnalisis("setpieces");
+const enVisual = vistaPantalla === "visual";
+const soloVisual = enVisual && !todoVisible;
 
 /* Las jornadas anteriores a la elegida, para atar la tarea a un dato. */
 const anterioresConclusion = jornada !== "ALL" && comparativa ? comparativa.filasAnteriores : null;
@@ -2978,7 +2989,7 @@ const pie = (
     {/* 29/10/2026: 40 px a la derecha en el móvil para el botón flotante, que tapaba la tarjeta de la esquina. */}
     {/* Las conclusiones antes que las tarjetas, también en el ordenador y con
         un titular con verbo y dato (10/11/2026, jueces). */}
-    {vista === "resumen" && (
+    {(vista === "resumen" || enVisual) && (
       <Conclusiones
         items={conclusionesVista}
         titular={titularConclusiones}
@@ -3150,6 +3161,56 @@ const pie = (
             {/* Lo primero: este partido frente a la media de los anteriores.
                 Con «Todas» elegido se compara la última jornada igualmente. */}
             {/* Las conclusiones en pocas frases, antes de los gráficos. */}
+            <div className="mt-6 flex justify-end lg:px-2">
+              <ConmutadorVista vista={vistaPantalla} onCambia={setVistaPantalla} />
+            </div>
+
+            {soloVisual && (
+              <VisualAbp
+                filas={filtered.map((r) => {
+                  const res = normalizaResultado(r.resultadoFinal);
+                  return {
+                    jornada: r.contexto.jornada,
+                    cat: res === "Gol" ? "gol" : res === "Ocasión" ? "ocasion" : LECTOR.remate(r) ? "remate" : "sin",
+                    exito: LECTOR.peligro(r),
+                    zona: esSuperioridad(r.zonaCaida) ? "" : zonaLegible(r.zonaCaida),
+                  };
+                })}
+                categorias={[
+                  { clave: "gol", rotulo: "Gol", color: COLOR_DESENLACE.oro },
+                  { clave: "ocasion", rotulo: "Ocasión", color: COLOR_DESENLACE.mejor },
+                  { clave: "remate", rotulo: "Remate sin ocasión", color: COLOR_DESENLACE.remate },
+                  { clave: "sin", rotulo: "Sin remate", color: COLOR_DESENLACE.nada },
+                ]}
+                unidad={{ uno: "acción", varios: "acciones", genero: "f" }}
+                exito={{ uno: "acaba en gol u ocasión", varios: "acaban en gol u ocasión", mejorAlto: true }}
+                fuente="Hoja de ABP ofensivo · con los filtros de arriba"
+                mapa={{
+                  pregunta: "¿Dónde cae?",
+                  nodo: (
+                    <ABPZoneMap
+                      mode="offensive"
+                      zonaFiltro={zonaAreaFilter === "ALL" ? null : zonaAreaFilter}
+                      onZonaFiltro={(zona) => setZonaAreaFilter(zona ?? "ALL")}
+                      rows={sin("zonaArea").map((r) => ({
+                        zonaCaida: r.zonaCaida,
+                        zonaRemate: r.zonaRemate,
+                        xg: r.xg,
+                        resultadoFinal: r.resultadoFinal,
+                        tipoRemate: r.tipoRemate,
+                        oc1P: r.oc1P,
+                        ocCentral: r.ocCentral,
+                        oc2P: r.oc2P,
+                        ocFrontal: r.ocFrontal,
+                      }))}
+                    />
+                  ),
+                }}
+                liga={<OptaAbpDia lado="favor" />}
+              />
+            )}
+
+            <div className={soloVisual ? "hidden" : ""}>
             <div className="mt-6 lg:px-2">
               <Pestanas
                 etiqueta="Vistas del balón parado ofensivo"
@@ -3168,14 +3229,14 @@ const pie = (
             </div>
 
             {/* Coding de nuestro ABP (05/11/2026): los clips de la jornada anterior que vienen en la carpeta del rival («… CASTILLA»). Misma criba, etiquetas y texto que el del rival. */}
-            {vista === "clips" && (
+            {!enVisual && vista === "clips" && (
               <div className="mt-5 lg:px-2">
                 <CodingAbpRival equipo={null} lado="propio" />
               </div>
             )}
 
             {/* Opta (10/11/2026): el Castilla frente a la categoría y cada saque de la temporada. Sólo se monta (y se pide) en su pestaña. */}
-            {vista === "opta" && (
+            {!enVisual && vista === "opta" && (
               <div className="mt-5 lg:px-2">
                 <OptaAbpDia lado="favor" />
               </div>
@@ -4864,6 +4925,7 @@ value={`${tasaPeligroResultado.toFixed(0)}%`}
   </Chart></div>
 </Panel>
 
+            </div>
             </div>
     </>
   )}
