@@ -53,7 +53,18 @@ export function nuestrosDe(jugadores: FilaJugador[], fichas: FichaPropia[]): Jug
   }
   const conFicha = new Set<string>();
   const deWyscout: JugadorDuelo[] = [...porNombre.values()].map((f) => {
-    const ficha = casaNombre(f.jugador, fichas, (p) => p.nombre) ?? casaNombre(f.jugador, fichas, (p) => p.apodo ?? "");
+    /*
+    | Sin cruce por nombre ni apodo, por el apellido si sólo lo tiene uno de la
+    | plantilla (16/11/2026, ronda 17): «D. Yáñez» de Wyscout se quedaba sin
+    | ficha y salía «Yáñez» donde la pizarra dice el nombre corto de la plantilla.
+    */
+    const sinTilde = (t: string) => t.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+    const apellidoWy = sinTilde(f.jugador.trim().split(/\s+/).slice(-1)[0] ?? "");
+    const porApellido = apellidoWy.length > 2 ? fichas.filter((p) => sinTilde(`${p.nombre} ${p.apodo ?? ""}`).split(/\s+/).includes(apellidoWy)) : [];
+    const ficha =
+      casaNombre(f.jugador, fichas, (p) => p.nombre) ??
+      casaNombre(f.jugador, fichas, (p) => p.apodo ?? "") ??
+      (porApellido.length === 1 && !conFicha.has(porApellido[0].id) ? porApellido[0] : null);
     if (ficha) conFicha.add(ficha.id);
     const sitio = sitioDe(ficha?.posicion ?? "", f.posicion);
     return {

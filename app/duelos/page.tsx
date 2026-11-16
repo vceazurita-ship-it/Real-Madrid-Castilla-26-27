@@ -585,7 +585,6 @@ export default function DuelosPage() {
     vigilar.length,
     atacar.filter((a) => vigilar.some((v) => v.def.clave === a.def.clave)).length,
   ).replace(/^\d+ duelos? medidos?/, `${pintados.length} ${pintados.length === 1 ? "duelo medido" : "duelos medidos"}`);
-  const recuento = tendencias.size ? `${recuentoBase}, ${tendencias.size} con pocos minutos (tendencia)` : recuentoBase;
 
   const cargando = jugadores === null || plantillasLeidas === null || (!equipoVisto && !proximoListo);
   const escudo = equipoVisto ? escudoDe(equipoVisto) : null;
@@ -597,7 +596,7 @@ export default function DuelosPage() {
         <div className="min-w-0 flex-1">
           <Topbar />
 
-          <section className="pb-12 pl-4 pr-12 pt-6 sm:px-8 sm:pt-10">
+          <section className="pb-12 pl-4 pr-12 pt-6 sm:pl-8 sm:pr-20 sm:pt-10">
             <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">RMCF CASTILLA · COMPETICIÓN</p>
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <Swords className="h-7 w-7 text-[#C8A96B]" />
@@ -611,9 +610,11 @@ export default function DuelosPage() {
             {/* El dato arriba (10/11/2026, jueces): el recuento es el titular; la clave del percentil, debajo. */}
             {!cargando && equipoVisto && pintados.length > 0 && (
               <p className="mt-3 max-w-3xl text-lg font-semibold leading-snug text-white sm:text-xl">
-                Contra {equipoVisto}: {recuento.replace(/^\d+ duelos? medidos?: /, "")}
-                <span className="ml-2 text-sm font-normal text-white/50">
-                  ({pintados.length} {pintados.length === 1 ? "duelo medido" : "duelos medidos"}: los huecos del 4-2-3-1 con datos de Wyscout en los dos lados)
+                Contra {equipoVisto}: {recuentoBase.replace(/^\d+ duelos? medidos?: /, "")}
+                {" "}
+                <span className="text-sm font-normal text-white/50">
+                  · {pintados.length - tendencias.size} {pintados.length - tendencias.size === 1 ? "duelo medido" : "duelos medidos"}
+                  {tendencias.size ? ` y ${tendencias.size} con pocos minutos (menos de 450′ en un lado: tendencia)` : ""}, los huecos del 4-2-3-1 con Wyscout en los dos lados
                 </span>
               </p>
             )}
@@ -778,6 +779,7 @@ export default function DuelosPage() {
                       suyo={onceSuyo}
                       duelos={duelosVistos}
                       dorsalNuestro={dorsalNuestro}
+                      tendencias={tendencias}
                       equipo={equipoVisto}
                       elegido={elegido}
                       onElige={eligeYMuestra}
@@ -805,7 +807,7 @@ export default function DuelosPage() {
                           m.balance >= UMBRAL_DUELO ? "gana el Castilla" : m.balance <= -UMBRAL_DUELO ? `gana ${equipoVisto || "el rival"}` : `parejo: hace falta ±${UMBRAL_DUELO} para que gane alguien`;
                         return (
                           <span className="basis-full">
-                            Medular {m.balance > 0 ? "+" : m.balance < 0 ? "−" : ""}{Math.abs(m.balance)}: nuestro doble pivote contra el suyo, diferencia de percentil (+ a favor nuestro, − a favor de {equipoVisto || "ellos"}); {quien}.
+                            Centro del campo {firmaN(m.balance)}: nuestro doble pivote contra el suyo, diferencia de percentil (+ a favor nuestro, − a favor de {equipoVisto || "ellos"}); {quien}.
                           </span>
                         );
                       })()}
@@ -940,6 +942,7 @@ function Campo({
   suyo,
   duelos,
   dorsalNuestro,
+  tendencias,
   equipo,
   elegido,
   onElige,
@@ -948,6 +951,7 @@ function Campo({
   suyo: Record<string, JugadorDuelo | undefined>;
   duelos: ResultadoDuelo[];
   dorsalNuestro: Map<string, string>;
+  tendencias: Set<string>;
   equipo: string;
   elegido: string | null;
   onElige: (clave: string) => void;
@@ -969,6 +973,33 @@ function Campo({
     ),
   );
 
+  /*
+  | ANTICOLISIÓN DE LOS NOMBRES (16/11/2026, ronda 17): en pareja se pisaban
+  | (Sergio sobre Núñez, Javi Mier sobre Pol). Cada rótulo se aparta 20 px más
+  | (los nuestros hacia abajo, los suyos hacia arriba) mientras choque con otro.
+  */
+  const desplaza = (() => {
+    const rotulos = [
+      ...HUECOS.map((h) => ({ key: `n-${h.clave}`, j: once[h.clave], p: px(SITIO[h.clave]), nuestro: true })),
+      ...HUECOS.map((h) => ({ key: `s-${h.clave}`, j: suyo[h.clave], p: px(espejo(SITIO[h.clave])), nuestro: false })),
+    ].filter((r) => r.j);
+    const puestos: { x: number; y: number; w: number }[] = [];
+    const salida = new Map<string, number>();
+    for (const r of rotulos) {
+      const w = apellidoDe(r.j!).length * 9.5 + 8;
+      let dy = r.nuestro ? 44 : -28;
+      for (let vez = 0; vez < 3; vez++) {
+        const y = r.p.y + dy;
+        const choca = puestos.some((o) => Math.abs(o.x - r.p.x) < (o.w + w) / 2 && Math.abs(o.y - y) < 20);
+        if (!choca) break;
+        dy += r.nuestro ? 20 : -20;
+      }
+      puestos.push({ x: r.p.x, y: r.p.y + dy, w });
+      salida.set(r.key, dy);
+    }
+    return salida;
+  })();
+
   const ficha = (j: JugadorDuelo | undefined, p: { x: number; y: number }, nuestro: boolean, key: string) => {
     const { x, y } = px(p);
     /* En el móvil, el número (el dorsal; sin él, el puesto) y el nombre sólo de la ficha tocada. */
@@ -984,7 +1015,7 @@ function Campo({
         </text>
         {j && !estrecho && (
           /* Los nuestros debajo y los suyos encima: en pareja ya no se pisan (16/11/2026, ronda 17). */
-          <text x={x} y={nuestro ? y + 44 : y - 28} textAnchor="middle" className="text-[25px] sm:text-[17px]" fill={nuestro ? ORO_CAMPO : "rgba(255,255,255,0.85)"} fontWeight={600}>
+          <text x={x} y={y + (desplaza.get(key) ?? (nuestro ? 44 : -28))} textAnchor="middle" className="text-[25px] sm:text-[17px]" fill={nuestro ? ORO_CAMPO : "rgba(255,255,255,0.85)"} fontWeight={600}>
             {apellidoDe(j)}
           </text>
         )}
@@ -1044,7 +1075,16 @@ function Campo({
                 <span className="min-w-0">
                   <b style={{ color: ORO }}>{d.nuestros.map((j) => apellidoDe(j)).join(" y ")}</b> <span className="text-white/55">vs</span> {d.suyos.map((j) => apellidoDe(j)).join(" y ")}
                 </span>
-                <b className="shrink-0 tabular-nums" style={{ color: textoDe(COLOR[d.veredicto]) }}>{firmaN(d.balance)}</b>
+                {/* Las dos cifras de cada momento, las mismas de «Qué hacemos» y de las tarjetas (16/11/2026, ronda 17). */}
+                <span className="shrink-0 text-right tabular-nums">
+                  {tendencias.has(d.def.clave) ? (
+                    <span className="text-white/55">tendencia</span>
+                  ) : (
+                    <>
+                      <b style={{ color: (d.conBalon ?? 0) >= 0 ? MEJOR : PEOR }}>{firmaN(d.conBalon)}</b> <span className="text-white/50">con balón</span> · <b style={{ color: (d.sinBalon ?? 0) >= 0 ? MEJOR : PEOR }}>{firmaN(d.sinBalon)}</b> <span className="text-white/50">sin él</span>
+                    </>
+                  )}
+                </span>
               </button>
             </li>
           ))}
@@ -1235,7 +1275,7 @@ function FilasClaves({
                   {/* «Cuenta en los dos sentidos» salía en casi todas las filas: ahora
                       va en el título de la cifra, al pasar el ratón (30/10/2026). */}
                   <span className="truncate text-white/60">
-                    {d.nuestros.map((j) => apellidoDe(j)).join(" y ")} contra {d.suyos.map((j) => `${apellidoDe(j)}, ${puestoVisible(j, huecoDe)}`).join(" y ")}
+                    {d.nuestros.map((j) => apellidoDe(j)).join(" y ")} contra {d.suyos.map((j) => apellidoDe(j)).join(" y ")}
                   </span>
                   <span className="tabular-nums text-white/60" title={base.texto}>{base.corto}</span>
                   {pocaMuestra && <span className="font-semibold" style={{ color: ORO }}>tendencia: menos de {MINUTOS_MUESTRA}′ en un lado</span>}
@@ -1563,8 +1603,9 @@ function RoboEnDuelo({ lista }: { lista: RoboJugador[] }) {
 /** Su once ordenado por cortes ajustados a la posesión, con el robador marcado. */
 function Robadores({ lista: listaEntera, equipo, huecoDe }: { lista: RoboJugador[]; equipo: string; huecoDe: Map<string, string> }) {
   /* Los de pocos minutos, al final y sin orden de mérito (16/11/2026, ronda 17). */
-  const lista = [...listaEntera.filter((r) => !r.tendencia), ...listaEntera.filter((r) => r.tendencia)];
-  const ocultos = lista.filter((r) => r.oculto);
+  /* Ordenados por su percentil ajustado (el criterio del título y de la orden); los de pocos minutos, al final. */
+  const porPercentil = (a: RoboJugador, b: RoboJugador) => (b.percentil ?? -1) - (a.percentil ?? -1);
+  const lista = [...listaEntera.filter((r) => !r.tendencia).sort(porPercentil), ...listaEntera.filter((r) => r.tendencia)];
   const posesion = lista.find((r) => r.posesion != null)?.posesion ?? null;
   /* El bloque acaba en una orden: no conducir hacia el que más roba (16/11/2026, ronda 17). */
   const primero = lista.find((r) => r.robador && r.ajustado != null);
@@ -1573,8 +1614,8 @@ function Robadores({ lista: listaEntera, equipo, huecoDe }: { lista: RoboJugador
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="text-sm font-semibold">Dónde nos pueden hacer daño · quién nos roba el balón</p>
         <p className="text-xs text-white/45">
-          {ocultos.length
-            ? ocultos.map((r) => `${apellidoDe(r.jugador)}: P${r.percentil} ajustado a la posesión (P${r.percentilBruto} en bruto)`).join(" · ")
+          {primero
+            ? `${apellidoDe(primero.jugador)}: P${primero.percentil} ajustado a la posesión${primero.percentilBruto != null ? ` (P${primero.percentilBruto} en bruto)` : ""}`
             : lista.some((r) => r.robador)
               ? `Robadores: ${lista.filter((r) => r.robador).map((r) => apellidoDe(r.jugador)).join(", ")}`
               : `Nadie de ${equipo || "su once"} llega al P${UMBRAL_ROBADOR} de su puesto`}
@@ -1582,7 +1623,7 @@ function Robadores({ lista: listaEntera, equipo, huecoDe }: { lista: RoboJugador
       </div>
       {/* La población y qué es «ajustado», en una línea fija (16/11/2026, ronda 17). */}
       <p className="mt-1 text-xs leading-snug text-white/60">
-        Interceptaciones por 90′ de Wyscout, frente a los de su puesto con 90′ o más.
+        Interceptaciones por 90′ de Wyscout, frente a los de su puesto con 90′ o más. Robador: P{UMBRAL_ROBADOR} o más ajustado, con 450′ o más.
         {posesion != null && ` «Ajustado» las lleva a un partido con el balón a medias: su equipo tiene el ${Math.round(posesion)} % de posesión media en sus partidos de liga (Wyscout), así que con menos balón corta más de lo que parece en bruto.`}
       </p>
       <ol className="mt-3 grid grid-cols-1 gap-x-6 gap-y-2 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
