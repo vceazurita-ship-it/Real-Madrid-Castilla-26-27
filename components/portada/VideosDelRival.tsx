@@ -19,7 +19,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
-import { GolesDelRivalEnVideo, type LadoGoles } from "@/components/rivals/GolesDelRivalEnVideo";
+import { GolesDelRivalEnVideo, type LadoGoles, type Tipo } from "@/components/rivals/GolesDelRivalEnVideo";
 import { cargaResumenesRfef, mismoEquipo, urlResumen } from "@/lib/rivals/resumen-de-partido";
 import type { ResumenRfef } from "@/lib/rivals/resumenes-rfef";
 import { trackModuleVisit } from "@/lib/module-usage";
@@ -27,7 +27,17 @@ import { trackModuleVisit } from "@/lib/module-usage";
 const CHIP =
   "inline-flex min-h-9 min-w-0 shrink-0 items-center whitespace-nowrap justify-center rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 py-1 text-center text-[13px] font-semibold leading-tight text-[#C8A96B] transition-colors hover:border-[#C8A96B]/70 hover:bg-[#C8A96B]/20 sm:min-h-0";
 
-export function VideosDelRival({ rival }: { rival: string }) {
+export function VideosDelRival({
+  rival,
+  etiqueta = "Próximo rival · vídeo",
+  tipo = "todos",
+}: {
+  rival: string;
+  /** Fuera de la portada (tira de accesos del área rival, 16/11/2026) el rival no tiene por qué ser el próximo. */
+  etiqueta?: string;
+  /** «abp»: desde ABP del rival, los goles a balón parado. */
+  tipo?: Tipo;
+}) {
   const [abierto, setAbierto] = useState<LadoGoles | null>(null);
   const [sinGoles, setSinGoles] = useState(false);
   const [resumenes, setResumenes] = useState<ResumenRfef[]>([]);
@@ -79,10 +89,10 @@ export function VideosDelRival({ rival }: { rival: string }) {
       {!sinGoles && (
         <>
           <button type="button" className={CHIP} onClick={() => abre("favor")} title={`Los goles de ${rival}, de seguido o uno a uno`}>
-            ▶ Sus goles en vídeo
+            {tipo === "abp" ? "▶ Sus goles a balón parado" : "▶ Sus goles en vídeo"}
           </button>
           <button type="button" className={CHIP} onClick={() => abre("contra")} title={`Los goles que le han marcado a ${rival}: por dónde hacerle daño`}>
-            ▶ Cómo le marcan
+            {tipo === "abp" ? "▶ Cómo le marcan a balón parado" : "▶ Cómo le marcan"}
           </button>
         </>
       )}
@@ -116,7 +126,7 @@ export function VideosDelRival({ rival }: { rival: string }) {
             >
               <div className="flex items-start justify-between gap-3 border-b border-white/[0.08] px-4 py-3 sm:px-5 sm:py-4">
                 <div className="min-w-0">
-                  <p className="text-[11px] uppercase tracking-[0.32em] text-[#C8A96B]">Próximo rival · vídeo</p>
+                  <p className="text-[11px] uppercase tracking-[0.32em] text-[#C8A96B]">{etiqueta}</p>
                   <h2 className="mt-1 text-lg font-semibold text-white">{rival}, gol a gol</h2>
                 </div>
                 <button
@@ -129,7 +139,7 @@ export function VideosDelRival({ rival }: { rival: string }) {
                 </button>
               </div>
               <div className="min-w-0 px-4 py-4 sm:px-5">
-                <GolesDelRivalEnVideo equipo={rival} ladoInicial={abierto} alVacio={alVacio} />
+                <GolesDelRivalEnVideo equipo={rival} ladoInicial={abierto} tipoInicial={tipo} alVacio={alVacio} />
               </div>
             </div>
           </div>,
