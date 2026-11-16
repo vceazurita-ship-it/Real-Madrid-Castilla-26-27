@@ -241,7 +241,22 @@ function lectura(
 
     /* Flecha sólo en los extremos (6 primeros o 6 últimos de 20): lo de en medio no es fortaleza ni carencia. */
     const bueno = sitio.lectura === "fuerte" ? true : sitio.lectura === "flojo" ? false : null;
-    const texto = bueno === null && /^(mejor|peor) que/.test(base.texto) ? "en la zona media de la liga" : base.texto;
+    /*
+    | 16/11/2026 (tercera vuelta, fútbol): «faltas que le sacan 2,9 · 5.º de
+    | 20» salía como «zona media». Sin juicio del servidor pero en los
+    | extremos (6 de 20), se dice «de los que más / de los que menos», sin flecha.
+    */
+    const punta = Math.round(de * 0.3);
+    const texto =
+      bueno === null && mejorAlto !== false && puesto <= punta
+        ? "de los que más"
+        : bueno === null && mejorAlto !== false && puesto > de - punta
+          ? "de los que menos"
+          : bueno === null && /^(mejor|peor) que/.test(base.texto)
+            ? "en la zona media de la liga"
+            : base.texto;
+
+    if (texto === "de los que más" || texto === "de los que menos") return { texto: `${texto} (${puesto}.º de ${de}, de más a menos)`, bueno: null };
 
     return { texto: `${texto} (${puesto}.º de ${de})`, bueno };
   }
@@ -334,9 +349,22 @@ function consignaOfensiva(aspecto: Aspecto | undefined, equipos: number, nuestro
 
   if (conRemate) {
     const nuestra = nuestro?.filas.find((f) => f.nombre === "Córners con remate %");
-    const desde = nuestra
-      ? `pasar de nuestro ${cifra1(nuestra.valor, nuestra.unidad)}${nuestra.base ? ` (${Math.round(nuestra.base.arriba)} de ${Math.round(nuestra.base.abajo)})` : ""} al ${cifra1(conRemate.valor, conRemate.unidad)} que le rematan sus rivales`
+    /*
+    | UN OBJETIVO ALCANZABLE (16/11/2026, tercera vuelta, análisis y fútbol):
+    | «pasar de nuestro 23,6 % al 44,6 %» tomaba como meta su peor cifra, que
+    | además es otra población (lo que concede él). La meta es la mediana de la
+    | liga en córners a favor (la misma población que la nuestra) y el 44,6 %
+    | queda como techo de referencia.
+    */
+    const nuestroTxt = nuestra
+      ? `nuestro ${cifra1(nuestra.valor, nuestra.unidad)}${nuestra.base ? ` (${Math.round(nuestra.base.arriba)} de ${Math.round(nuestra.base.abajo)})` : ""}`
       : "";
+    const techo = `techo de referencia, el ${cifra1(conRemate.valor, conRemate.unidad)} que le rematan sus rivales`;
+    const desde = !nuestra
+      ? ""
+      : nuestra.valor < nuestra.mediana
+        ? `subir de ${nuestroTxt} a la mediana de la liga, ${cifra1(nuestra.mediana, nuestra.unidad)}; ${techo}`
+        : `sostener ${nuestroTxt}, ya por encima de la mediana de la liga (${cifra1(nuestra.mediana, nuestra.unidad)}); ${techo}`;
 
     partes.push({
       frase: `como le rematan el ${cifra1(conRemate.valor, conRemate.unidad)} de los córners${conRemate.base ? ` (${Math.round(conRemate.base.arriba)} de ${Math.round(conRemate.base.abajo)})` : ""}, con la mediana de la liga en ${cifra1(conRemate.mediana, conRemate.unidad)} (${QUE_ES_CORNER_CON_REMATE}), cargar el área con nuestros mejores rematadores en cada córner`,
@@ -346,8 +374,8 @@ function consignaOfensiva(aspecto: Aspecto | undefined, equipos: number, nuestro
       | sus rivales, con su fuente y su unidad, y la mediana como referencia.
       */
       tarea: desde
-        ? `córner con cinco en el área y bloqueo al que defiende el primer palo; objetivo: ${desde} (córners con remate, Wyscout; mediana de la liga ${cifra1(conRemate.mediana, conRemate.unidad)})`
-        : `córner con cinco en el área y bloqueo al que defiende el primer palo; objetivo: que acabe en remate el ${cifra1(conRemate.valor, conRemate.unidad)} de nuestros córners, lo que le rematan sus rivales (Wyscout${conRemate.partidos ? `, ${conRemate.partidos} partidos` : ""}), por encima de la mediana de la liga (${cifra1(conRemate.mediana, conRemate.unidad)})`,
+        ? `córner con cinco en el área y bloqueo al que defiende el primer palo; objetivo: ${desde} (córners con remate, Wyscout)`
+        : `córner con cinco en el área y bloqueo al que defiende el primer palo; objetivo: que acabe en remate al menos la mediana de la liga, ${cifra1(conRemate.mediana, conRemate.unidad)}, de nuestros córners; ${techo} (córners con remate, Wyscout)`,
     });
   }
 
@@ -922,6 +950,26 @@ export function AbpWyscoutRival({
   | rematador, el segundo más alto con el segundo; quien entre desde el
   | banquillo lo coge el que marcaba al que sale.
   */
+  /*
+  | QUIÉN SACA, CON UN SOLO «Y» Y SU CIFRA (16/11/2026, tercera vuelta,
+  | fútbol): «vigilar la trayectoria de Joel Jorquera y Javi Moreno y Chema
+  | Núñez» pasa a «vigilar los córners de Javi Moreno (≈23) y Joel Jorquera
+  | (≈18); las faltas, Chema Núñez (≈8)».
+  */
+  const conY = (lista: string[]) => (lista.length <= 1 ? lista.join("") : `${lista.slice(0, -1).join(", ")} y ${lista[lista.length - 1]}`);
+  const vigilar = (() => {
+    if (!lanzaDeWyscout) return sacan.length > 0 ? `vigilar los saques de ${conY(sacan.map((uno) => uno.nombre))}` : "";
+
+    const deCorner = porLanzador.filter((u) => u.corner > 0).sort((a, b) => b.corner - a.corner);
+    const deFalta = porLanzador.filter((u) => u.falta > 0).sort((a, b) => b.falta - a.falta);
+    const partes = [
+      deCorner.length ? `vigilar los córners de ${conY(deCorner.map((u) => `${u.nombre} (≈${u.corner})`))}` : "",
+      deFalta.length ? `${deCorner.length ? "las faltas, " : "vigilar las faltas de "}${conY(deFalta.map((u) => `${u.nombre} (≈${u.falta})`))}` : "",
+    ].filter(Boolean);
+
+    return partes.join("; ");
+  })();
+
   const principales = (titulares ? titularesQueRematan : porAltura(rematan)).slice(0, 2);
   const ORDINAL = ["nuestro jugador más alto", "nuestro segundo más alto"];
   const consigna = [
@@ -931,7 +979,7 @@ export function AbpWyscoutRival({
         ? `en el córner, ${principales.map((uno, i) => `${ORDINAL[i]} con ${conCm(uno)}`).join(" y ")}`
         : "",
     ...rematanFuera.slice(0, 2).map((uno) => `si entra ${conCm(uno)}, lo coge quien marcaba al que sale`),
-    sacan.length > 0 ? `vigilar la trayectoria de ${sacan.map((uno) => uno.nombre).join(" y ")} en el saque` : "",
+    vigilar,
   ]
     .filter(Boolean)
     .join("; ");
@@ -978,6 +1026,20 @@ export function AbpWyscoutRival({
         })).filter((v) => v.favor || v.contra)
       : [];
   const enTarjeta = (fila: Fila) => !(volumen.length > 0 && VOLUMEN.includes(fila.nombre));
+
+  /* La lectura de cada celda de volumen: con menos de 15 casos, tendencia sin flecha ni puesto. */
+  const leeVolumen = (fila: Fila) => {
+    const casos = fila.partidos ? Math.round(fila.valor * fila.partidos) : null;
+    const corta = casos != null && casos < POCOS_CASOS;
+    const lee = corta
+      ? { texto: `tendencia: sólo ${casos} en ${fila.partidos} partidos`, bueno: null as boolean | null }
+      : lectura(fila.percentil, nEquipos, fila.mejorAlto, fila);
+
+    return { corta, lee };
+  };
+
+  /* La leyenda ▲/▼ sólo si alguna celda lleva flecha (16/11/2026, tercera vuelta, fútbol). */
+  const flechasVolumen = volumen.some((v) => [v.favor, v.contra].some((f) => f && leeVolumen(f).lee.bueno !== null));
   const hayEstilo = aspectos.some((a) => a.filas.filter(enTarjeta).map(orientada).some((f) => f.mejorAlto == null));
 
   const esperaQuien =
@@ -1133,11 +1195,7 @@ export function AbpWyscoutRival({
                         | con ▲ como una fortaleza. Con menos de 15 casos en la temporada,
                         | sin flecha ni color y rotulado «tendencia».
                         */
-                        const casos = fila.partidos ? Math.round(fila.valor * fila.partidos) : null;
-                        const corta = casos != null && casos < POCOS_CASOS;
-                        const lee = corta
-                          ? { texto: `tendencia: sólo ${casos} en ${fila.partidos} partidos`, bueno: null as boolean | null }
-                          : lectura(fila.percentil, nEquipos, fila.mejorAlto, fila);
+                        const { corta, lee } = leeVolumen(fila);
                         const total = v.nombre === "Penaltis" && !corta && fila.partidos ? Math.round(fila.valor * fila.partidos) : null;
 
                         return (
@@ -1165,9 +1223,11 @@ export function AbpWyscoutRival({
                   ))}
                 </tbody>
               </table>
-              <p className="mt-1 text-[11px] text-white/50">
-                ▲ le conviene · ▼ no le conviene: más a favor es mejor para él, más en contra es peor.
-              </p>
+              {flechasVolumen && (
+                <p className="mt-1 text-[11px] text-white/50">
+                  ▲ le conviene · ▼ no le conviene: más a favor es mejor para él, más en contra es peor.
+                </p>
+              )}
             </div>
           )}
 

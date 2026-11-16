@@ -197,7 +197,81 @@ export type JugadorPlantilla = {
   minutos?: number;
   /** Su clave de jugador (la de Plantillas rivales): la ficha de /rivals se abre con ella. */
   clave?: string;
+  /** BeSoccer, temporada en curso: las cifras que sostienen las etiquetas (16/11/2026). */
+  amarillas?: number;
+  goles?: number;
+  asistencias?: number;
+  /** 1 o 2 cifras de Wyscout contra su puesto, ya escritas («Duelos ganados 68 % · P85 de 40 laterales · 1.020′»). */
+  cifras?: string[];
 };
+
+/*
+|--------------------------------------------------------------------------
+| LAS ETIQUETAS, EN LENGUAJE DE CASETA (16/11/2026, jueces)
+|--------------------------------------------------------------------------
+| «Hace bien: El duro» y «Explotable: Tarjeteable» eran etiquetas en bruto.
+| Cada una pasa a lo que hace en el campo y, si BeSoccer tiene la cifra que la
+| sostiene, se dice con su base («se carga de amarillas: 4 en 12 partidos,
+| BeSoccer»). La que no está en el diccionario sale como viene.
+*/
+const EN_CASETA: Record<string, string> = {
+  "el duro": "va fuerte al duelo",
+  "el fuerte": "gana por fuerza en el choque",
+  "el rapido": "rápido al espacio",
+  "el alto": "manda por arriba",
+  "el regateador": "busca el uno contra uno",
+  "el desequilibrante": "rompe por fuera con regate",
+  "el cerebro": "ordena el juego",
+  "el tecnico": "limpio con el balón",
+  "el motor": "llega a todo, de área a área",
+  "el presionador": "aprieta la salida",
+  "el lider": "manda en el equipo",
+  anticipa: "sale a anticipar",
+  "sube la banda": "se suma al ataque por su banda",
+  "buen centrador": "centra bien desde fuera",
+  "corrige en velocidad": "corrige a la espalda en carrera",
+  "cambia el juego": "cambia de orientación en largo",
+  "llega desde atras": "llega al área desde segunda línea",
+  recuperador: "roba mucho en medio",
+  "juega entre lineas": "recibe entre líneas",
+  "tira de lejos": "dispara desde fuera del área",
+  "desmarque de ruptura": "ataca la espalda con desmarque de ruptura",
+  "juega de espaldas": "aguanta de espaldas",
+  "cae a banda": "cae a banda a recibir",
+  "remata de primeras": "remata de primeras",
+  "saca el balon jugado": "saca el balón jugado",
+  "perdedor de duelos": "pierde duelos: búscale el uno contra uno",
+  lento: "le cuesta en carrera: atácale la espalda",
+  "comete errores no forzados": "regala balones sin presión",
+  "flojo por alto": "flojo por arriba: búscale con balón aéreo",
+  "solo una pierna": "sólo usa una pierna: llévalo a la otra",
+  "sufre la presion": "sufre si se le presiona",
+  "no repliega": "no vuelve tras pérdida: atacar su espalda",
+  "se cae fisicamente": "baja en la segunda parte",
+  "se descentra": "se descentra si se le provoca",
+  "inseguro con los pies": "inseguro con el balón en los pies",
+  "se tira al suelo": "va al suelo para robar: amagar y salir",
+  "no salta al hombre": "no salta al hombre: recibir a su altura",
+  "tarda en soltarla": "tarda en soltarla: presión tras su control",
+  "no se gira con el balon": "no se gira: presionarle de espaldas",
+  "no cierra el pasillo interior": "deja el pasillo interior",
+  "deja centrar": "deja centrar",
+  "cae en fuera de juego": "cae mucho en fuera de juego",
+  "falla ocasiones claras": "falla ocasiones claras",
+};
+
+export function etiquetaEnCaseta(etiqueta: string, jugador: Pick<JugadorPlantilla, "amarillas" | "goles" | "asistencias" | "partidos"> | null) {
+  const clave = desnuda(etiqueta);
+  const partidos = jugador?.partidos ?? 0;
+  const base = (n: number | undefined, que: string) =>
+    n != null && partidos > 0 ? `: ${n} ${que} en ${partidos} ${partidos === 1 ? "partido" : "partidos"} (BeSoccer)` : "";
+
+  if (clave === "tarjeteable") return `se carga de amarillas${base(jugador?.amarillas, jugador?.amarillas === 1 ? "amarilla" : "amarillas")}`;
+  if (clave === "el goleador") return `llega al gol${base(jugador?.goles, jugador?.goles === 1 ? "gol" : "goles")}`;
+  if (clave === "el asistente") return `da el último pase${base(jugador?.asistencias, jugador?.asistencias === 1 ? "asistencia" : "asistencias")}`;
+
+  return EN_CASETA[clave] ?? etiqueta;
+}
 
 /*
 | ¿La etiqueta es de las que podemos explotar?

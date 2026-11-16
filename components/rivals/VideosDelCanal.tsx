@@ -57,6 +57,7 @@ import {
   enlaceLista,
   enlaceVideo,
   esEtiquetaDebil,
+  etiquetaEnCaseta,
   jugadorDelTitulo,
   tituloSoloRepite,
   resumenDeTemporada,
@@ -153,6 +154,10 @@ type Pieza = {
   resumen: string;
   /** Su clave en Plantillas rivales, para enlazar su ficha (16/11/2026). */
   clave?: string;
+  /** Las etiquetas ya en lenguaje de caseta, con su cifra si la hay (16/11/2026). */
+  enCaseta: { texto: string; debil: boolean }[];
+  /** 1 o 2 cifras de su puesto (Wyscout), con percentil, población y minutos. */
+  cifras: string[];
 };
 
 type Estado =
@@ -598,6 +603,8 @@ export function VideosDelCanal({
         etiquetas: jugador?.etiquetas ?? [],
         resumen: resumenDeTemporada(jugador),
         clave: jugador?.clave,
+        enCaseta: (jugador?.etiquetas ?? []).map((e) => ({ texto: etiquetaEnCaseta(e, jugador), debil: esEtiquetaDebil(e) })),
+        cifras: jugador?.cifras ?? [],
       };
 
       if (!jugador) {
@@ -899,11 +906,19 @@ export function VideosDelCanal({
             </option>
           )}
 
-          {estado.listas.map((item) => (
+          {/* La de este rival arriba; las demás, plegadas en «Otras jornadas» (16/11/2026, fútbol). */}
+          {lista && (
+            <option value={lista.id} className="bg-[#11161C]">
+              {nombreDeLista(lista.nombre, rivalDeJornada, equipos)} · {lista.cuenta} {lista.cuenta === 1 ? "vídeo" : "vídeos"}
+            </option>
+          )}
+          <optgroup label="Otras jornadas" className="bg-[#11161C]">
+          {estado.listas.filter((item) => item.id !== lista?.id).map((item) => (
             <option key={item.id} value={item.id} className="bg-[#11161C]">
               {nombreDeLista(item.nombre, rivalDeJornada, equipos)} · {item.cuenta} {item.cuenta === 1 ? "vídeo" : "vídeos"}
             </option>
           ))}
+          </optgroup>
         </select>
 
         {lista && (
@@ -1181,6 +1196,18 @@ export function VideosDelCanal({
             {!soloDe && !termino && videos.length > 0 && videos.length < 10 && (
               <span className="text-[11px] text-white/55">· muestra corta: {videos.length} {videos.length === 1 ? "vídeo" : "vídeos"} en la lista</span>
             )}
+
+            {/* Qué cortar primero (16/11/2026, fútbol): los del once probable sin clip, sólo para el analista. */}
+            {admin && !soloDe && !termino && (() => {
+              const conVideo = new Set(grupos.jugadores.map((g) => g.jugador));
+              const faltan = plantilla.filter((j) => j.titular && !conVideo.has(j.nombre)).map((j) => j.nombre);
+
+              return faltan.length > 0 ? (
+                <span className="w-full text-[11px] text-white/55">
+                  Del once probable, sin clip: {faltan.join(", ")} · sólo lo ves tú
+                </span>
+              ) : null;
+            })()}
 
             {admin && !soloDe && !termino && lineasSinCortes.length > 0 && (
               <span className="w-full text-[11px] text-white/55 sm:w-auto">
@@ -1508,7 +1535,7 @@ function Rejilla({
      mirar—, pero se leen al pasar el cursor (29/10/2026). */
   return (
     <div className={`grid min-w-0 gap-2.5 ${columnas}`}>
-      {piezas.map(({ video, tema, jugador, dorsal, puesto, etiquetas, resumen, clave }) => (
+      {piezas.map(({ video, tema, jugador, dorsal, puesto, resumen, clave, enCaseta, cifras }) => (
         <div
           key={video.id}
           title={[video.titulo, fecha(video.publicado) && `subido el ${fecha(video.publicado)}`].filter(Boolean).join(" · ")}
@@ -1552,8 +1579,8 @@ function Rejilla({
             {conJugador && puesto && <p className="mb-0.5 text-[12px] leading-snug text-white/60">{puesto}</p>}
             {conJugador &&
               ([
-                { rotulo: "▲ Hace bien", color: MEJOR, lista: etiquetas.filter((e) => !esEtiquetaDebil(e)) },
-                { rotulo: "▼ Explotable", color: PEOR, lista: etiquetas.filter(esEtiquetaDebil) },
+                { rotulo: "▲ Hace bien", color: MEJOR, lista: enCaseta.filter((e) => !e.debil).map((e) => e.texto) },
+                { rotulo: "▼ Explotable", color: PEOR, lista: enCaseta.filter((e) => e.debil).map((e) => e.texto) },
               ] as const)
                 .filter((g) => g.lista.length > 0)
                 .map((g) => (
@@ -1561,6 +1588,14 @@ function Rejilla({
                     <span className="font-semibold">{g.rotulo}:</span> {g.lista.join(" · ")}
                   </p>
                 ))}
+
+            {/* Su cifra contra los de su puesto (Wyscout), con su base. */}
+            {conJugador &&
+              cifras.map((c) => (
+                <p key={c} className="mb-0.5 text-[11px] leading-snug tabular-nums text-white/65">
+                  {c}
+                </p>
+              ))}
 
             {/* El título original del vídeo, en pequeño: lo que manda es quién es. */}
             {/* «Corte 14», el nombre del equipo o un título que sólo repite al jugador
@@ -1579,14 +1614,15 @@ function Rejilla({
 
             {/* Del vídeo a la consigna (16/11/2026, fútbol): su ficha en /rivals y su duelo en /duelos. */}
             {jugador && equipo && (
-              <p className="mt-1 flex flex-wrap gap-x-3 text-[11px]">
+              /* 44 px de alto en el móvil para el dedo (16/11/2026, análisis). */
+              <p className="mt-1 flex flex-wrap gap-x-4 text-[12px]">
                 <Link
                   href={`/rivals?equipo=${encodeURIComponent(equipo)}${clave ? `&jugador=${encodeURIComponent(clave)}` : ""}`}
-                  className="font-semibold text-[#C8A96B] hover:underline"
+                  className="inline-flex min-h-[44px] items-center font-semibold text-[#C8A96B] hover:underline sm:min-h-0"
                 >
                   Su ficha →
                 </Link>
-                <Link href={`/duelos?equipo=${encodeURIComponent(equipo)}`} className="font-semibold text-[#C8A96B] hover:underline">
+                <Link href={`/duelos?equipo=${encodeURIComponent(equipo)}`} className="inline-flex min-h-[44px] items-center font-semibold text-[#C8A96B] hover:underline sm:min-h-0">
                   Su duelo →
                 </Link>
               </p>
