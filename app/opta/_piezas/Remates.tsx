@@ -16,6 +16,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CampoOpta, SOBRE_CESPED } from "@/components/campo/CampoOpta";
 import { CASTILLA_OPTA, num } from "@/lib/opta";
 import { fechaCorta, type Fila } from "@/lib/opta-analisis";
+import { urlVideoOpta } from "@/lib/opta-video";
 import { cargaResumenesRfef, resumenDelPartido, urlResumen } from "@/lib/rivals/resumen-de-partido";
 import type { ResumenRfef } from "@/lib/rivals/resumenes-rfef";
 import { casaEquipo, CUERPO, MARCADOR, PRESION, resumenRemates, SITUACION, TIPO_REMATE, type Remate } from "@/lib/opta-eventos";
@@ -304,6 +305,8 @@ function EnlacesVideo({ remate, enContra }: { remate: Remate; enContra: boolean 
     };
   }, []);
 
+  /* El remate exacto en el Event Log de ProVision, con su vídeo abierto (16/11/2026). */
+  const urlOpta = urlVideoOpta({ partido: remate.partido, fecha: remate.fecha, parte: remate.parte, segundo: remate.segundo }, "shots");
   const resumen = resumenDelPartido(resumenes, nombreDe(remate.teamId, remate.equipo), nombreDe(remate.rivalId, remate.rival), remate.fecha);
   const local = enContra ? nombreDe(remate.teamId, remate.equipo) : nombreDe(remate.rivalId, remate.rival);
   const nota = `${fechaCorta(remate.fecha)} · ${nombreDe(remate.teamId, remate.equipo)} contra ${nombreDe(remate.rivalId, remate.rival)} · ${remate.parte}.ª parte, minuto ${remate.minuto}′ · ${remate.tirador}`;
@@ -330,13 +333,25 @@ function EnlacesVideo({ remate, enContra }: { remate: Remate; enContra: boolean 
           ▶ Ver el resumen (YouTube)
         </a>
       )}
-      <button type="button" onClick={() => abre(URL_OPTA)} className={boton} title={`Abre Opta ProVision y copia: ${nota}`}>
-        ▶ Ver en Opta
-      </button>
+      {urlOpta ? (
+        <a
+          href={urlOpta}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={boton}
+          title={`Abre en Opta ProVision este remate (${remate.parte}.ª parte, ${remate.minuto}′, ${remate.tirador}) con su vídeo, 8 s antes y 8 s después. Hace falta la sesión de Opta abierta.`}
+        >
+          ▶ Ver en Opta
+        </a>
+      ) : (
+        <button type="button" onClick={() => abre(URL_OPTA)} className={boton} title={`Abre Opta ProVision y copia: ${nota}`}>
+          ▶ Ver en Opta
+        </button>
+      )}
       <button type="button" onClick={() => abre(URL_WYSCOUT)} className={boton} title={`Abre Wyscout y copia: ${nota}`}>
         ▶ Ver en Wyscout
       </button>
-      <span className="text-[11px] text-white/50">{copiado ? "Partido y minuto copiados: pégalos en su buscador." : "Abre la plataforma y copia el partido y el minuto."}</span>
+      <span className="text-[11px] text-white/50">{copiado ? "Partido y minuto copiados: pégalos en su buscador." : urlOpta ? "Opta abre el remate exacto; Wyscout, la plataforma con el minuto copiado." : "Abre la plataforma y copia el partido y el minuto."}</span>
     </div>
   );
 }
