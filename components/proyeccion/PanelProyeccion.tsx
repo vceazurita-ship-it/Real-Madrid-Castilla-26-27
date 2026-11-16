@@ -32,6 +32,7 @@ import { COMO_SE_CUENTA_JUEGO, type ProyeccionJuego } from "@/lib/proyeccion/jue
 import type { PartidoObjetivo } from "@/lib/proyeccion/montaje";
 import { fuerteYFlojoDelRival } from "@/components/rivals/VistazoRival";
 import { useRivalPerfiles } from "@/hooks/useRivalPerfiles";
+import { useOptaLigero } from "@/hooks/useOptaLigero";
 
 type Respuesta = {
   success: boolean;
@@ -53,6 +54,8 @@ export function PanelProyeccion({ tipo, equipo }: Props) {
   const [anterior, setAnterior] = useState(false);
   /* Lo fuerte, lo flojo y la presión del rival con la cuenta de Plantillas rivales (sólo el panel del juego). */
   const perfiles = useRivalPerfiles(tipo === "juego" ? (equipo ?? "") : "");
+  /* La cifra que manda en presión, la misma de Plantillas y del Scout colectivo (lib/rivals/cifra-principal.ts, 16/11/2026). */
+  const { tablas } = useOptaLigero();
 
   useEffect(() => {
     let vivo = true;
@@ -104,7 +107,7 @@ export function PanelProyeccion({ tipo, equipo }: Props) {
         partido={p}
         d={datos.juego}
         accion={boton}
-        rival={perfiles && equipo ? { ...fuerteYFlojoDelRival(equipo, perfiles.aspectos ?? [], perfiles.equipos ?? 0), partidos: perfiles.partidos ?? 0 } : null}
+        rival={perfiles && equipo ? { ...fuerteYFlojoDelRival(equipo, perfiles.aspectos ?? [], perfiles.equipos ?? 0, tablas), partidos: perfiles.partidos ?? 0 } : null}
       />
     );
   /* Sin datos del último partido, que se pueda volver; sin datos de la próxima, el panel no sale. */
@@ -442,7 +445,7 @@ export function PanelJuego({
   d: ProyeccionJuego;
   accion?: ReactNode;
   /** Lo más fuerte y lo más flojo del rival y su presión, de la misma cuenta que Plantillas rivales (Wyscout). */
-  rival?: { fuerte: string; flojo: string; ppda: { valor: string; puesto: number; de: number } | null; partidos: number } | null;
+  rival?: { fuerte: string; flojo: string; ppda: { valor: string; puesto: number; de: number; proveedor?: string; partidos?: number | null } | null; partidos: number } | null;
 }) {
   const f = (cuota: boolean | undefined, dec: number, v: number | null | undefined) => (cuota ? pct(v ?? null) : coma(v ?? null, dec));
   const ventajas = d.ventajas.slice(0, 2).map((v) => ({ clave: v.clave, frase: `${v.frase} ${v.entrena}`, consigna: v.consigna }));
@@ -461,7 +464,9 @@ export function PanelJuego({
           */}
           {rival?.ppda && (
             <p className="mb-1.5 text-sm font-semibold leading-snug text-white/90">
-              Su presión en la temporada: PPDA {rival.ppda.valor}, {rival.ppda.puesto}.º de {rival.ppda.de} que más aprieta ({fuenteW}, la misma cifra de Plantillas rivales).
+              {`Su presión en la temporada: PPDA ${rival.ppda.valor}, ${rival.ppda.puesto}.º de ${rival.ppda.de} que más aprieta (${
+                rival.ppda.proveedor === "Opta" ? `Opta${rival.ppda.partidos ? `, ${rival.ppda.partidos} partidos` : ""}` : fuenteW
+              }, la misma cifra de Plantillas rivales y del Scout colectivo).`}
             </p>
           )}
           {/* Tres frases como mucho: posesión, ocasiones y presión. El estilo va dentro de «Por qué». */}

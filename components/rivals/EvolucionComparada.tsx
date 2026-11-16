@@ -19,7 +19,7 @@ import { useOptaLigero } from "@/hooks/useOptaLigero";
 import { CASTILLA_OPTA } from "@/lib/opta";
 import { casaEquipo } from "@/lib/opta-eventos";
 import { useAsoma } from "@/hooks/useAsoma";
-import { evolucionComparada, tendencia, ultimoDe, type PuntoComparado, type SerieComparada } from "@/lib/rivals/evolucion-comparada";
+import { evolucionComparada, ultimoDe, ultimosCincoFrenteAntes, type PuntoComparado, type SerieComparada } from "@/lib/rivals/evolucion-comparada";
 
 const coma = (v: number) => v.toFixed(2).replace(".", ",");
 
@@ -51,11 +51,14 @@ function Bloque({ equipo }: { equipo: string }) {
   const favor = series.find((s) => s.lado === "favor")!;
   const contra = series.find((s) => s.lado === "contra")!;
 
-  const tFavor = tendencia(favor.puntos, "rival");
-  const tContra = tendencia(contra.puntos, "rival");
+  /* Últimos 5 frente a los anteriores, como el Plan de partido (16/11/2026), con la base escrita. */
+  const vFavor = ultimosCincoFrenteAntes(favor.valoresRival);
+  const vContra = ultimosCincoFrenteAntes(contra.valoresRival);
+  const verbo = (v: ReturnType<typeof ultimosCincoFrenteAntes>, mas: string, menos: string, igual: string) =>
+    v ? `${v.cambio === "sube" ? mas : v.cambio === "baja" ? menos : igual} (${coma(v.ultimos)} en los últimos ${v.enUltimos}, ${coma(v.previos)} en los ${v.enPrevios} anteriores)` : null;
   const frase = [
-    tFavor === "sube" ? "genera más que hace tres partidos" : tFavor === "baja" ? "genera menos que hace tres partidos" : tFavor === "igual" ? "genera lo mismo que hace tres partidos" : null,
-    tContra === "sube" ? "concede más" : tContra === "baja" ? "concede menos" : tContra === "igual" ? "concede lo mismo" : null,
+    verbo(vFavor, "genera más xG", "genera menos xG", "genera lo mismo"),
+    verbo(vContra, "concede más", "concede menos", "concede lo mismo"),
   ].filter(Boolean);
 
   return (

@@ -338,7 +338,14 @@ export function proyeccionJuego(e: EntradaJuego): ProyeccionJuego | null {
     if (propio != null && nosDejan != null) {
       const dif = ppda.contra.valor / propio - 1;
       contraste =
-        `En la temporada el ${R} deja ${coma(propio)} pases por acción defensiva de media por partido (Opta, ${ppda.contra.ataque.n} partidos; media del grupo ${coma(ppda.liga)}). ` +
+        /*
+        | Sin su cifra de temporada aquí (16/11/2026, jueces de fútbol): la de
+        | la proyección es la media de los PPDA de cada partido (10,8 con el
+        | Murcia) y la de Plantillas y el Scout colectivo, el cociente de las
+        | sumas de Opta (10,2). Su presión de la temporada va una vez, arriba,
+        | de `lib/rivals/cifra-principal.ts`; aquí sólo el esperado y su porqué.
+        */
+        `Lo esperado sale del cruce de su presión de siempre con lo que nos dejan a nosotros (Opta, ${ppda.contra.ataque.n} partidos suyos). ` +
         (Math.abs(dif) >= 0.05
           ? `Contra nosotros se espera ${coma(ppda.contra.valor)}, ${dif > 0 ? "menos" : "más"} presión que la suya de siempre, porque al Castilla sus rivales le dejan ${coma(nosDejan)}: con nosotros ${dif > 0 ? "se aprieta menos" : "se aprieta más"} que a la media.`
           : `Contra nosotros se espera lo mismo: ${coma(ppda.contra.valor)}.`);

@@ -20,28 +20,13 @@ import { aObjetos, CASTILLA_OPTA, DOCS_OPTA, type TablaOpta } from "@/lib/opta";
 import { casaEquipo } from "@/lib/opta-eventos";
 import { useAsoma } from "@/hooks/useAsoma";
 import { lecturaConcentracion, repartoXg } from "@/lib/rivals/reparto-xg";
+import { nombreDePlantilla } from "@/lib/rivals/nombre-jugador";
 
 const coma = (v: number, d = 2) => v.toFixed(d).replace(".", ",");
 const miles = (v: number) => Math.round(v).toLocaleString("es-ES");
 
-/** Para casar nombres sin tildes ni mayúsculas. */
-const llano = (t: string) => t.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().split(/[^a-z0-9ñ]+/).filter(Boolean);
-
-/**
- * El nombre de la plantilla en vez del de Opta (16/11/2026, jueces de fútbol):
- * «Flakus», no «David Flakus Bosilj». Vale si todas las palabras del nombre de
- * la plantilla están en el de Opta y sólo una ficha casa; si no, el de Opta.
- */
-export function nombreDePlantilla(opta: string, nombres: string[]) {
-  const deOpta = new Set(llano(opta));
-  const casan = [...new Set(nombres)].filter((n) => {
-    const palabras = llano(n);
-
-    return palabras.length > 0 && palabras.every((p) => deOpta.has(p));
-  });
-
-  return casan.length === 1 ? casan[0] : opta;
-}
+/* El nombre de la plantilla en vez del de Opta: «Flakus», no «David Flakus Bosilj» (lib/rivals/nombre-jugador.ts). */
+export { nombreDePlantilla };
 
 export function RepartoXg({ equipo, nombres = [] }: { equipo: string; nombres?: string[] }) {
   /* Al asomar o, como muy tarde, a los 2 s (16/11/2026): en el móvil no salía si no se bajaba. Sin dato, no se pinta. */

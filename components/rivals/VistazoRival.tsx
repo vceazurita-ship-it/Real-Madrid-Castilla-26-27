@@ -7,9 +7,8 @@ import { ArrowUpRight, Goal, LayoutGrid, Trophy, UserX } from "lucide-react";
 
 import { chipInk } from "@/lib/theme";
 import { useOptaLigero } from "@/hooks/useOptaLigero";
-import { valorEquipo } from "@/lib/opta-analisis";
-import { casaEquipo } from "@/lib/opta-eventos";
-import { lecturaDePuesto, puestoEnLiga } from "@/lib/rivals/puesto-liga";
+import type { TablasOpta } from "@/lib/cifras-equipo";
+import { aspectosConCifraPrincipal } from "@/lib/rivals/cifra-principal";
 import type { AspectoDestacado } from "@/lib/rivals/destacados-rival";
 import type { JornadaDeEquipo } from "@/lib/rivals/orden-calendario";
 import { balanceDe, fraseDelVistazo, MUESTRA_TENDENCIA, type ResultadoForma, type Vistazo } from "@/lib/rivals/vistazo";
@@ -49,17 +48,25 @@ function Casilla({
   children,
   pie,
   ancha = false,
+  tendencia = false,
 }: {
   titulo: string;
   children: React.ReactNode;
   pie?: React.ReactNode;
+  /** Muestra corta: chip «tendencia» junto al título, no dentro de la frase (16/11/2026, jueces de análisis). */
+  tendencia?: boolean;
   /** En el móvil ocupa las dos columnas (la lista de goleadores). */
   ancha?: boolean;
 }) {
   return (
     <div className={`min-w-0 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 ${ancha ? "col-span-2 md:col-span-1" : ""}`}>
-      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-white/55">
+      <p className="flex flex-wrap items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-white/55">
         {titulo}
+        {tendencia && (
+          <span className="rounded-full border border-white/20 px-1.5 py-px text-[10px] font-semibold normal-case tracking-normal text-white/65" title="Muestra corta: se lee como tendencia, no como rasgo">
+            tendencia
+          </span>
+        )}
       </p>
 
       <div className="mt-1 min-w-0">{children}</div>
@@ -121,7 +128,29 @@ function puestoDeFila(f: { percentil: number; puesto?: number; de?: number }, eq
 | sacado aquí para que el Plan de partido diga exactamente lo mismo que esta
 | franja («fuerte en presión alta (PPDA 8,8, 2.º de 20)»).
 */
-export function fuerteYFlojoDelRival(equipo: string, aspectos: AspectoDestacado[], equipos: number) {
+/**
+ * En cada grupo (fuerte, flojo), primero el aspecto con la cifra más extrema
+ * (16/11/2026, jueces de fútbol): el titular hablaba del balón parado en contra
+ * y la tarjeta salía la segunda, plegada.
+ */
+export function ordenaAspectos<A extends { desviacion: number; filas: { percentil: number; puesto?: number; de?: number }[] }>(lista: A[], equipos: number): A[] {
+  /* Cuánto le falta a su mejor cifra para la punta: 0 es el 1.º (fuerte) o el último (flojo). */
+  const extremoDe = (a: A) =>
+    Math.min(...a.filas.map((f) => (a.desviacion >= 0 ? puestoDeFila(f, equipos) - 1 : (f.de ?? equipos) - puestoDeFila(f, equipos))));
+
+  return [...lista].sort((x, y) => {
+    if (x.desviacion >= 0 !== y.desviacion >= 0) return x.desviacion >= 0 ? -1 : 1;
+    return extremoDe(x) - extremoDe(y);
+  });
+}
+
+/**
+ * Lo más fuerte y lo más flojo del rival (lo lee también el Plan de partido).
+ * Con `opta` (las tablas de `useOptaLigero().tablas`), el PPDA es el de Opta,
+ * el mismo que enseña esta franja; sin él, el de Wyscout, rotulado.
+ */
+export function fuerteYFlojoDelRival(equipo: string, aspectosEntrada: AspectoDestacado[], equipos: number, opta?: TablasOpta | null) {
+  const aspectos = ordenaAspectos(aspectosConCifraPrincipal(aspectosEntrada, equipo, opta ?? null, equipos), equipos);
   const extremo = (lista: AspectoDestacado[], mejor: boolean) =>
     lista
       .flatMap((a) => a.filas.map((f) => ({ a, f, puesto: puestoDeFila(f, equipos) })))
@@ -147,27 +176,16 @@ export function fuerteYFlojoDelRival(equipo: string, aspectos: AspectoDestacado[
           : "";
   /* Su presión, con la misma cifra y el mismo puesto que esta franja (la fila de PPDA, si la hay). */
   const filaPpda = aspectos.flatMap((a) => a.filas).find((f) => /ppda/i.test(f.nombre));
-  const ppda = filaPpda && equipos > 0 ? { valor: cifraAspecto(filaPpda.valor, filaPpda.unidad), puesto: puestoDeFila(filaPpda, equipos), de: filaPpda.de ?? equipos } : null;
+  const ppda =
+    filaPpda && equipos > 0
+      ? { valor: cifraAspecto(filaPpda.valor, filaPpda.unidad), puesto: puestoDeFila(filaPpda, equipos), de: filaPpda.de ?? equipos, proveedor: filaPpda.proveedor, partidos: filaPpda.partidos ?? null }
+      : null;
   return { conDato, fuerte: fuerte ? dato(fuerte) : "", flojo: flojo ? dato(flojo) : "", ppda };
 }
 
 /* Tres bloques a la vista; el resto, plegado (16/11/2026, jueces de marketing). */
 const BLOQUES_A_LA_VISTA = 3;
 
-/** «Destaca en dominio con balón y eficacia, pero se queda corto en producción de remate.» */
-function fraseDeAspectos(aspectos: AspectoDestacado[]) {
-  const lista = (nombres: string[]) =>
-    nombres.length === 1 ? nombres[0] : `${nombres.slice(0, -1).join(", ")} y ${nombres[nombres.length - 1]}`;
-
-  const fuertes = aspectos.filter((a) => a.desviacion >= 0).map((a) => a.aspecto.toLowerCase());
-  const flojos = aspectos.filter((a) => a.desviacion < 0).map((a) => a.aspecto.toLowerCase());
-
-  if (fuertes.length && flojos.length) return `Destaca en ${lista(fuertes)}, pero se queda corto en ${lista(flojos)}.`;
-  if (fuertes.length) return `Destaca en ${lista(fuertes)}.`;
-  if (flojos.length) return `Se queda corto en ${lista(flojos)}.`;
-
-  return "";
-}
 
 export type AvisosRival = {
   fuera: { nombre: string; estado: string }[];
@@ -187,7 +205,7 @@ export function VistazoRival({
   enlaces,
 }: {
   /** Dónde hacerles daño: jugadores con etiquetas de debilidad y rasgos flojos en Wyscout. */
-  dano?: { nombre: string; puesto: string; rasgos: string[]; accion?: string; base?: string; minutos?: number; contraste?: string }[];
+  dano?: { nombre: string; puesto: string; rasgos: string[]; accion?: string; cifra?: string; base?: string; minutos?: number; contraste?: string }[];
   /** Bajas de la hoja, apercibidos y rojas de BeSoccer; `null` si no hay nada. */
   avisos?: AvisosRival | null;
   equipo: string;
@@ -203,56 +221,16 @@ export function VistazoRival({
   enlaces: { href: string; label: string }[];
 }) {
   /*
-  | UNA CIFRA POR MÉTRICA, LA QUE MANDA (16/11/2026, jueces de fútbol): en el
-  | Scout colectivo el PPDA es el de Opta (10,2, 5.º) y aquí salía el de
-  | Wyscout (8,8, 2.º). Si Opta lo tiene, va el de Opta, con su proveedor
-  | rotulado y el puesto de la cuenta común entre los equipos de su grupo.
+  | UNA CIFRA POR MÉTRICA, LA QUE MANDA (16/11/2026, jueces de fútbol): el PPDA
+  | es el de Opta (cociente de las sumas de la temporada) cuando Opta lo tiene,
+  | con la cuenta común de `lib/rivals/cifra-principal.ts`; Wyscout queda como
+  | 2.ª lectura en el detalle. Y en cada grupo, primero el aspecto más extremo.
   */
-  const { opta } = useOptaLigero();
-  const ppdaOpta = useMemo(() => {
-    if (!opta) return null;
-    const lista = opta.equipos.map((f) => ({ teamId: String(f.teamId ?? ""), equipo: String(f.equipo ?? "") }));
-    const id = casaEquipo(equipo, lista);
-    if (!id) return null;
-    const grupo = opta.grupos.get(id);
-    const fila = opta.equipos.find((f) => String(f.teamId ?? "") === id);
-    const valor = fila ? valorEquipo(fila, "PPDA", "partido", opta.catalogo) : null;
-    if (valor == null) return null;
-    const valores = opta.equipos
-      .filter((f) => grupo === undefined || opta.grupos.get(String(f.teamId ?? "")) === grupo)
-      .map((f) => valorEquipo(f, "PPDA", "partido", opta.catalogo))
-      .filter((v): v is number => v != null);
-    return puestoEnLiga(valor, valores, false);
-  }, [opta, equipo]);
-
-  const aspectos = useMemo(() => {
-    const lista = aspectosWyscout
-      .map((a) => {
-        const filas = a.filas
-          .map((f) =>
-            /ppda/i.test(f.nombre) && ppdaOpta
-              ? { ...f, valor: ppdaOpta.valor, mediana: ppdaOpta.mediana, puesto: ppdaOpta.puesto, de: ppdaOpta.de, proveedor: "Opta" as const, wyscout: f.valor }
-              : { ...f, proveedor: "Wyscout" as const, wyscout: undefined },
-          )
-          /* Con la cifra de Opta puede dejar de estar en el extremo: entonces no sostiene el aspecto. */
-          .filter((f) => f.proveedor === "Wyscout" || lecturaDePuesto(f.puesto ?? 0, f.de ?? equipos, false) === (a.desviacion >= 0 ? "fuerte" : "flojo"));
-        return { ...a, filas };
-      })
-      .filter((a) => a.filas.length > 0);
-
-    /*
-    | En cada grupo, primero el aspecto con la cifra más extrema (16/11/2026,
-    | jueces de fútbol): el titular hablaba del balón parado en contra y la
-    | tarjeta salía la segunda, plegada tras «Uno más».
-    */
-    /* Cuánto le falta a su mejor cifra para la punta: 0 es el 1.º (fuerte) o el último (flojo). */
-    const extremoDe = (a: (typeof lista)[number]) =>
-      Math.min(...a.filas.map((f) => (a.desviacion >= 0 ? puestoDeFila(f, equipos) - 1 : (f.de ?? equipos) - puestoDeFila(f, equipos))));
-    return [...lista].sort((x, y) => {
-      if (x.desviacion >= 0 !== y.desviacion >= 0) return x.desviacion >= 0 ? -1 : 1;
-      return extremoDe(x) - extremoDe(y);
-    });
-  }, [aspectosWyscout, ppdaOpta, equipos]);
+  const { tablas } = useOptaLigero();
+  const aspectos = useMemo(
+    () => ordenaAspectos(aspectosConCifraPrincipal(aspectosWyscout, equipo, tablas, equipos), equipos),
+    [aspectosWyscout, equipo, tablas, equipos],
+  );
 
   if (!vistazo && aspectos.length === 0) return null;
 
@@ -278,10 +256,8 @@ export function VistazoRival({
 
       {/* Primero la lectura, luego las cifras que la sostienen. Con lo flojo de Wyscout al final (10/11/2026, jueces): el titular dice dónde atacarle. */}
       {(() => {
-        const flojos = aspectos.filter((a) => a.desviacion < 0).map((a) => a.aspecto.toLowerCase());
-        const lista = flojos.length > 1 ? `${flojos.slice(0, -1).join(", ")} y ${flojos[flojos.length - 1]}` : flojos[0];
-        const fuente = partidosWyscout > 0 ? `Wyscout, ${partidosWyscout} ${partidosWyscout === 1 ? "partido" : "partidos"}` : "Wyscout";
-        const titular = [fraseDelVistazo(vistazo), flojos.length ? `Flojo en ${lista} (${fuente}).` : ""].filter(Boolean).join(" ");
+        /* Sin repetir lo flojo (16/11/2026, jueces): ya lo dice la frase de arriba. */
+        const titular = fraseDelVistazo(vistazo);
 
         /*
         | 16/11/2026 (jueces, marketing): un titular con la idea y el dato antes
@@ -307,7 +283,7 @@ export function VistazoRival({
             /* Con la referencia del grupo (30/10/2026, análisis). */
             pie={`${balanceDe(tabla)} · ${tabla.favor}-${tabla.contra} en goles${
               tabla.medianaFavor != null && tabla.medianaContra != null
-                ? ` (mediana por equipo de los ${tabla.equipos}: ${tabla.medianaFavor} a favor y ${tabla.medianaContra} en contra; en contra, menos es mejor)`
+                ? ` (mediana por equipo: ${tabla.medianaFavor}-${tabla.medianaContra}; en contra, menos es mejor)`
                 : ""
             }`}
           >
@@ -324,9 +300,10 @@ export function VistazoRival({
         {enEseCampo && (
           <Casilla
             titulo={enEseCampo.donde === "fuera" ? "Lejos de casa" : "En su campo"}
+            tendencia={enEseCampo.fila.jugados < Math.max(MUESTRA_TENDENCIA, 8)}
             pie={`${enEseCampo.fila.favor}-${enEseCampo.fila.contra} en goles · ${enEseCampo.fila.jugados} ${enEseCampo.fila.jugados === 1 ? "partido" : "partidos"}${
               /* 16/11/2026 (jueces de análisis): con menos de 8 partidos, tendencia. */
-              enEseCampo.fila.jugados < Math.max(MUESTRA_TENDENCIA, 8) ? " · tendencia" : ""
+              ""
             }`}
           >
             {/* El balance en una sola línea y los puntos debajo: en el móvil «2V 0E 2D» se partía (07/11/2026). */}
@@ -340,7 +317,8 @@ export function VistazoRival({
         {forma.length > 0 && (
           <Casilla
             titulo={`Últimos ${forma.length} · el más reciente, a la derecha`}
-            pie={`El último: ${forma[0].marcador} ${forma[0].enCasa ? "en casa" : "fuera"} con ${forma[0].rival} · cinco partidos: tendencia`}
+            tendencia
+            pie={`El último: ${forma[0].marcador} ${forma[0].enCasa ? "en casa" : "fuera"} con ${forma[0].rival}`}
           >
             {/* Del más antiguo al más reciente, de izquierda a derecha: así
                 se lee la racha, como en cualquier tabla de forma. */}
@@ -368,7 +346,8 @@ export function VistazoRival({
             titulo="Dibujo que más repite"
             /* Con menos de 15 alineaciones es tendencia, no costumbre (07/11/2026, análisis). */
             /* Sólo liga y con la fuente (16/11/2026, jueces): la misma cuenta que el campograma y el Scout colectivo. */
-            pie={`${dibujo.veces} de ${dibujo.de} ${dibujo.de === 1 ? "partido" : "partidos"} de liga (BeSoccer)${dibujo.de < 15 ? " · tendencia" : ""}`}
+            tendencia={dibujo.de < 15}
+            pie={`${dibujo.veces} de ${dibujo.de} ${dibujo.de === 1 ? "partido" : "partidos"} de liga (BeSoccer)`}
           >
             <p className="flex items-center gap-1.5">
               <LayoutGrid size={13} className="shrink-0 text-[#C8A96B]" aria-hidden />
@@ -381,11 +360,12 @@ export function VistazoRival({
         {goleadores.length > 0 && (
           <Casilla
             titulo="Le hacen los goles"
+            tendencia={!!tabla && tabla.favor < 15}
             ancha
             /* La base: de cuántos goles y en cuántos partidos (07/11/2026, análisis). */
             pie={
               tabla && tabla.favor > 0
-                ? `${goleadores.reduce((suma, g) => suma + g.goles, 0)} de sus ${tabla.favor} goles (${Math.round((100 * goleadores.reduce((suma, g) => suma + g.goles, 0)) / tabla.favor)} %) en ${tabla.jugados} ${tabla.jugados === 1 ? "partido" : "partidos"}${tabla.favor < 15 ? " · tendencia: menos de 15 goles" : ""} · BeSoccer, todos los jugados (las pantallas de Wyscout pueden ir una jornada por detrás)`
+                ? `${goleadores.reduce((suma, g) => suma + g.goles, 0)} de sus ${tabla.favor} goles (${Math.round((100 * goleadores.reduce((suma, g) => suma + g.goles, 0)) / tabla.favor)} %) en ${tabla.jugados} ${tabla.jugados === 1 ? "partido" : "partidos"} · BeSoccer, todos los jugados (las pantallas de Wyscout pueden ir una jornada por detrás)`
                 : undefined
             }
           >
@@ -455,7 +435,7 @@ export function VistazoRival({
           </p>
 
           {/* Primero la frase, luego los dos grupos: una lista de «p15 · p80» no se leía (guion, 21/10). */}
-          {fraseDeAspectos(aspectos) && <p className="mb-2 pr-10 text-sm text-white/75 md:pr-0">{fraseDeAspectos(aspectos)}</p>}
+          {/* Sin la frase que repetía el titular (16/11/2026, jueces de fútbol): se abre con «Fuerte en» y «Flojo en». */}
           {/*
             El puesto se lee solo (08/11/2026, análisis): no hay que fiarse de «Fuerte/Flojo».
             11/11/2026 (jueces, marketing): una sola leyenda, en vez de «peor que 18 de los 20» en cada fila,
@@ -465,6 +445,13 @@ export function VistazoRival({
             <p className="mb-2 text-[13px] text-white/60">
               Junto a cada cifra, su puesto entre los {equipos}: el 1.º es el mejor de la categoría; el {equipos}.º, el peor.
               {partidosWyscout > 0 ? ` Medias por partido en sus ${partidosWyscout} ${partidosWyscout === 1 ? "partido" : "partidos"} de Wyscout.` : ""}
+              {(() => {
+                /* Una sola cifra de presión y su porqué, en una línea (16/11/2026, jueces). */
+                const ppda = aspectos.flatMap((x) => x.filas).find((f) => f.proveedor === "Opta" && /ppda/i.test(f.nombre));
+                return ppda
+                  ? ` El PPDA es el de Opta (la temporada: pases que deja dar entre acciones defensivas, sumados), el proveedor que manda en presión; Wyscout lo cuenta con otra definición${ppda.segunda ? ` y le da ${cifraAspecto(ppda.segunda.valor, ppda.unidad)}` : ""}.`
+                  : "";
+              })()}
             </p>
           )}
 
@@ -517,7 +504,7 @@ export function VistazoRival({
                             {equipos > 0 ? ` · ${puestoDeFila(f, equipos)}.º de ${f.de ?? equipos}` : ""}
                             {/* La base y el proveedor (16/11/2026, jueces de fútbol): «25 de 56 en 12 partidos», «Opta». */}
                             {f.base && f.unidad === "porcentaje" ? ` · ${Math.round(f.base.arriba)} de ${Math.round(f.base.abajo)}${f.partidos ? ` en ${f.partidos} partidos` : ""}` : ""}
-                            {f.proveedor === "Opta" ? ` · Opta (Wyscout ${cifraAspecto(f.wyscout ?? NaN, f.unidad)})` : ""}
+                            {f.proveedor === "Opta" ? " · Opta" : ""}
                             {/ppda/i.test(f.nombre) ? " (pases que deja dar antes de presionar: menos es más presión)" : ""}
                           </span>
                         ))}
@@ -529,7 +516,8 @@ export function VistazoRival({
                     return plegada ? (
                       <details key="plegada" className="mt-1.5 min-w-0">
                         <summary className="cursor-pointer text-[13px] text-white/60 hover:text-white">
-                          {lista.length === 1 ? "Uno más" : `${lista.length} más`}
+                          {/* Que diga qué hay dentro (16/11/2026, jueces de fútbol). */}
+                          {`${grupo.titulo === "Fuerte en" ? (lista.length === 1 ? "Otro punto fuerte" : "Otros puntos fuertes") : lista.length === 1 ? "Otro punto flojo" : "Otros puntos flojos"}: ${lista.map((x) => x.aspecto.toLowerCase()).join(", ")}`}
                         </summary>
                         <div className="mt-1.5">{filas}</div>
                       </details>
@@ -568,6 +556,7 @@ export function VistazoRival({
                     <span className="text-white/85">{uno.accion.charAt(0).toUpperCase() + uno.accion.slice(1)}.</span>
                   </p>
                 ) : null}
+                {uno.cifra ? <p className="mt-0.5 text-[13px] tabular-nums text-white/75">{uno.cifra}</p> : null}
                 {uno.base ? (
                   <p className="mt-0.5 text-[13px] tabular-nums text-white/55">
                     {uno.base}

@@ -33,6 +33,8 @@ import {
   type MetricaEquipo,
 } from "@/lib/data-analisis/equipo";
 import { mismoClub } from "@/lib/rivals/mismoClub";
+import { nombreEquipo } from "@/lib/rivals/nombre-equipo";
+import { nombreDePlantilla } from "@/lib/rivals/nombre-jugador";
 import { comparaPorCalendario } from "@/lib/rivals/orden-calendario";
 import { useOrdenRivales } from "@/hooks/useOrdenRivales";
 import { MapaDosEjes, type PuntoMapa } from "@/components/data/visual/MapaDosEjes";
@@ -144,7 +146,8 @@ function mapaDeProgresion(liga: FilaPartido[], competicion: string, equipo: stri
   const ry = rango(filas.map((x) => x.ent));
   return filas.map((x, i) => ({
     id: x.nombre,
-    nombre: x.nombre,
+    /* El nombre de pantalla del club (16/11/2026): «Atlético Madrileño», no «Atlético Madrid B». */
+    nombre: nombreEquipo(x.nombre),
     x: rx[i],
     y: ry[i],
     propio: x.nombre === NOSOTROS || x.nombre === equipo,
@@ -195,11 +198,14 @@ export function PanelEquipo({
   jugadores,
   fijo,
   segundaLectura,
+  nombresPlantilla,
 }: {
   liga: FilaPartido[];
   jugadores: FilaJugador[];
   fijo?: string;
   segundaLectura?: ReadonlySet<string>;
+  /** Los nombres de su plantilla (hoja RIVALES): con ellos, «Flakus» y no «D. Flakus Bosilj» (16/11/2026). */
+  nombresPlantilla?: string[];
 }) {
   const [tipoProgresion, setTipoProgresion] = useTipoGrafico("progresion-equipos", "mapa", ["mapa", "ranking"] as const);
   const escudoDe = useEscudos();
@@ -260,7 +266,18 @@ export function PanelEquipo({
   const plantilla = useMemo(() => plantillaDe(equipo, jugadores), [equipo, jugadores]);
   const once = useMemo(() => onceTipoDe(plantilla), [plantilla]);
   /* 07/11/2026: «el que más rinde» con 450′, el mismo mínimo que la ficha individual. */
-  const frases = useMemo(() => sintesisDe(equipo, resumen, perfil, plantilla, MINUTOS_INDICE), [equipo, resumen, perfil, plantilla]);
+  const frases = useMemo(() => {
+    const crudas = sintesisDe(equipo, resumen, perfil, plantilla, MINUTOS_INDICE);
+    if (!nombresPlantilla?.length) return crudas;
+    /* Cada nombre de Wyscout, el de su plantilla (lib/rivals/nombre-jugador.ts). */
+    return crudas.map((f) =>
+      plantilla.reduce((texto, j) => {
+        const bueno = nombreDePlantilla(j.fila.jugador, nombresPlantilla);
+        return bueno !== j.fila.jugador ? texto.split(j.fila.jugador).join(bueno) : texto;
+      }, f),
+    );
+  }, [equipo, resumen, perfil, plantilla, nombresPlantilla]);
+  const nombreVisto = (jugador: string) => (nombresPlantilla?.length ? nombreDePlantilla(jugador, nombresPlantilla) : jugador);
   const [escudoRoto, setEscudoRoto] = useState("");
 
   const escudo = escudoDe(equipo);
@@ -380,7 +397,7 @@ export function PanelEquipo({
                     key={f.fecha + f.rival}
                     className="flex h-7 w-7 items-center justify-center rounded-md text-[11px] font-bold text-[#0B0F14]"
                     style={{ background: COLOR_RES[f.resultado] }}
-                    title={`${f.fecha.split("-").reverse().join("/")} · ${f.casa ? "vs" : "en"} ${f.rival} ${f.marcador}`}
+                    title={`${f.fecha.split("-").reverse().join("/")} · ${f.casa ? "vs" : "en"} ${nombreEquipo(f.rival)} ${f.marcador}`}
                   >
                     {f.resultado === "G" ? "V" : f.resultado === "P" ? "D" : "E"}
                   </span>
@@ -522,35 +539,33 @@ export function PanelEquipo({
                 otra es cuántas de sus cifras están en los extremos (6 primeros o
                 6 últimos de la liga, la regla común de lib/rivals/puesto-liga.ts).
               */}
-              {(() => {
-                const conP = perfil.fases.filter((f) => f.percentil !== null && f.fase !== "general");
-                const ps = conP.map((f) => f.percentil as number);
-                return conP.length >= 2 && Math.max(...ps) - Math.min(...ps) < 5 ? (
-                  <p className="text-[13px] leading-snug text-white/70">
-                    Sus fases salen parejas en la media (P{Math.min(...ps)}–P{Math.max(...ps)}): lo que le distingue son las cifras sueltas en los extremos, que se cuentan debajo de cada una.
-                  </p>
-                ) : null;
-              })()}
+              {/* Si las fases salen en el mismo percentil, sin la frase del rango ni las P repetidas: sólo sus extremos (16/11/2026, jueces de fútbol). */}
               {perfil.fases.filter((f) => f.percentil !== null).map((f) => {
                 const deLaFase = perfil.metricas.filter((x) => x.metrica.fase === f.fase && x.percentil !== null);
                 const arriba = deLaFase.filter((x) => lecturaDeMetrica(x) === "fuerte").length;
                 const abajo = deLaFase.filter((x) => lecturaDeMetrica(x) === "flojo").length;
+                const conP = perfil.fases.filter((x) => x.percentil !== null && x.fase !== "general").map((x) => x.percentil as number);
+                const parejas = f.fase !== "general" && conP.length >= 2 && Math.max(...conP) - Math.min(...conP) < 5;
                 return (
                 <div key={f.fase}>
                   <div className="flex items-baseline justify-between text-sm">
                     <span className="text-white/80">{f.label}</span>
-                    <b className="tabular-nums" style={{ color: colorP(f.percentil) }}>
-                      {`P${f.percentil}`}
-                    </b>
+                    {!parejas && (
+                      <b className="tabular-nums" style={{ color: colorP(f.percentil) }}>
+                        {`P${f.percentil}`}
+                      </b>
+                    )}
                   </div>
                   {deLaFase.length > 0 && (
                     <p className="text-[12px] tabular-nums text-white/60">
                       De sus {deLaFase.length} cifras, {arriba} entre los 6 primeros y {abajo} entre los 6 últimos
                     </p>
                   )}
-                  <div className="mt-1">
-                    <Barra valor={f.percentil} color={colorP(f.percentil)} />
-                  </div>
+                  {!parejas && (
+                    <div className="mt-1">
+                      <Barra valor={f.percentil} color={colorP(f.percentil)} />
+                    </div>
+                  )}
                 </div>
                 );
               })}
@@ -638,7 +653,7 @@ export function PanelEquipo({
             {lideres.map((l) => (
               <div key={l.t} className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                 <p className="text-[10px] uppercase tracking-wider text-white/40">{l.t}</p>
-                <p className="mt-1 truncate text-sm font-medium text-white/90">{l.j.fila.jugador}</p>
+                <p className="mt-1 truncate text-sm font-medium text-white/90">{nombreVisto(l.j.fila.jugador)}</p>
                 <p className="text-lg font-semibold tabular-nums text-[#C8A96B]">{l.v(l.j)}</p>
               </div>
             ))}
@@ -667,7 +682,7 @@ export function PanelEquipo({
                 <tbody>
                   {plantilla.filter((j) => j.fila.minutos >= 90).map((j) => (
                     <tr key={j.fila.jugador} className="border-t border-white/[0.05] align-top">
-                      <td className="py-1.5 pr-2 font-medium text-white/85">{j.fila.jugador}</td>
+                      <td className="py-1.5 pr-2 font-medium text-white/85">{nombreVisto(j.fila.jugador)}</td>
                       <td className="px-1 text-white/55" title={j.fila.posicion}>
                         {PUESTOS.find((p) => p.key === j.puesto)?.corto} <span className="text-white/30">{j.fila.posicion.split(",")[0]}</span>
                         {j.fila.edad > 0 && <span className="text-white/45"> · {j.fila.edad} años</span>}

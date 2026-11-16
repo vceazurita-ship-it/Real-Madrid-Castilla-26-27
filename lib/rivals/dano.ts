@@ -85,8 +85,18 @@ export function fraseDeDano(
   puesto = "",
   /** «PIE DOMINANTE» de la plantilla: «ZURDO», «Diestro», «IZDO»… */
   pie = "",
-): { frases: string[]; accion: string } | null {
+): { frases: string[]; accion: string; respaldo: string | null } | null {
   const frases: string[] = [];
+  /*
+  | Qué rasgo de Wyscout sostiene cada regla (16/11/2026, jueces de fútbol): una
+  | orden sin cifra detrás no sale como «Qué hacemos». La pierna de la
+  | plantilla también cuenta como dato.
+  */
+  const respaldos = new Map<string, string>();
+  for (const texto of flojos) {
+    const regla = REGLAS.find((r) => r.patron.test(sinTildes(texto)));
+    if (regla && !respaldos.has(regla.frase)) respaldos.set(regla.frase, texto);
+  }
   let accion = "";
   const halladas: Regla[] = [];
   const lugar = sinTildes(puesto);
@@ -115,10 +125,13 @@ export function fraseDeDano(
     halladas.push(regla);
   }
 
+  /* Sólo las que tienen dato detrás: un rasgo flojo de Wyscout o la pierna escrita. */
+  const conDato = halladas.filter((h) => respaldos.has(h.frase) || (h.frase === UNA_PIERNA && pierna));
+
   /* El central se ataca por su espalda y presionándole al recibir: manda la acción de mayor rango. Los demás, la primera que salió. */
-  const elegida = esCentral ? [...halladas].sort((x, y) => rango(x.frase) - rango(y.frase))[0] : halladas[0];
+  const elegida = esCentral ? [...conDato].sort((x, y) => rango(x.frase) - rango(y.frase))[0] : conDato[0];
 
   if (elegida) accion = elegida.frase === UNA_PIERNA && pierna ? accionDePierna(pierna, esCentral, esBanda) : adaptaAccion(elegida, esCentral, esLateral);
 
-  return accion ? { frases: frases.slice(0, 3), accion } : null;
+  return accion ? { frases: frases.slice(0, 3), accion, respaldo: elegida ? respaldos.get(elegida.frase) ?? null : null } : null;
 }

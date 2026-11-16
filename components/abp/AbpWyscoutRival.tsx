@@ -16,6 +16,7 @@ import { normalizarOnce, playerKey, rivalOnceKey } from "@/lib/rivals/once";
 import { filaPropia, findInforme } from "@/lib/rivals/informe";
 import { aJornada, type FilaRival } from "@/lib/abp/jornada";
 import { mismoClub } from "@/lib/rivals/mismoClub";
+import { nombreEquipo } from "@/lib/rivals/nombre-equipo";
 import { MapaDosEjes } from "@/components/data/visual/MapaDosEjes";
 import { lecturaDePuesto, type LecturaPuesto } from "@/lib/rivals/puesto-liga";
 import { cargaDatosMarcas } from "@/lib/abp/marcas-datos";
@@ -385,6 +386,8 @@ function queHacemosConCentros(
   aspectos: Aspecto[],
   equipo: string,
   equipos: number,
+  /** Lo del Castilla en las mismas columnas (de la nube de la liga): ningún objetivo por debajo de lo que ya hacemos. */
+  nuestros: { centros: number | null; precisos: number | null } = { centros: null, precisos: null },
 ): { titular: string; bloques: BloqueCentros[]; poco: boolean | null } {
   const filas = aspectos.flatMap((a) => a.filas);
   const volumen = filas.find((f) => f.nombre === "Centros laterales");
@@ -426,7 +429,21 @@ function queHacemosConCentros(
   | Y de calidad, no sólo de cantidad (16/11/2026, jueces de análisis): que
   | lleguen a un rematador como en la mediana de la liga (Centros precisos %).
   */
-  const deCalidad = acierto ? ` y que al menos el ${cifra1(acierto.mediana, acierto.unidad)} llegue a un rematador nuestro (la mediana de centros precisos de la liga)` : "";
+  /*
+  | 16/11/2026 (jueces de fútbol, 3.ª vuelta): la misma métrica que el dato
+  | —el acierto de los centros que le hacen, con la mediana de esa columna— y
+  | nunca por debajo de lo que ya hacemos.
+  */
+  const metaCalidad = aciertoRecibe ? Math.max(aciertoRecibe.mediana, nuestros.precisos ?? 0) : null;
+  const deCalidad =
+    aciertoRecibe && metaCalidad != null
+      ? ` y que al menos el ${cifra1(metaCalidad, aciertoRecibe.unidad)} llegue a un rematador nuestro (${
+          metaCalidad > aciertoRecibe.mediana ? "lo que ya acertamos nosotros" : "la mediana de la liga en los centros que recibe cada equipo"
+        })`
+      : "";
+  /* La cantidad, tampoco por debajo de la nuestra. */
+  const metaCentros = (n: number) => Math.max(n, nuestros.centros ?? 0);
+  const porQueMeta = (n: number, porDefecto: string) => (nuestros.centros != null && nuestros.centros > n ? "los que ya hacemos nosotros" : porDefecto);
 
   const lesCentramos: BloqueCentros | null = !recibe
     ? null
@@ -434,15 +451,16 @@ function queHacemosConCentros(
       ? {
           rotulo: "Nuestro ataque · cuando les centramos",
           frase: `como ${cuantoAcierta}, defienden mal el centro: atacar el área con centro y tres rematadores`,
-          tarea: `centro lateral con tres rematadores atacando primer palo, punto de penalti y segundo palo; objetivo en el partido: ${objetivoCentros(Math.max(recibe.valor, recibe.mediana), recibe.unidad)}, ${
-            recibe.valor >= recibe.mediana ? "los que le hacen de media" : "la mediana de la liga"
-          }${deCalidad}`,
+          tarea: `centro lateral con tres rematadores atacando primer palo, punto de penalti y segundo palo; objetivo en el partido: ${objetivoCentros(metaCentros(Math.max(recibe.valor, recibe.mediana)), recibe.unidad)}, ${porQueMeta(
+            Math.max(recibe.valor, recibe.mediana),
+            recibe.valor >= recibe.mediana ? "los que le hacen de media" : "la mediana de la liga",
+          )}${deCalidad}`,
         }
       : muchoRecibe
         ? {
             rotulo: "Nuestro ataque · cuando les centramos",
             frase: `como le hacen ${cuantoRecibe}, ${lectura(recibe.percentil, equipos, false, recibe).texto}, atacarle por fuera, con extremo y lateral doblando y tres hombres en el área`,
-            tarea: `centro lateral tras el doblaje del lateral, con tres en el área; objetivo en el partido: ${objetivoCentros(recibe.valor, recibe.unidad)}, los que le hacen de media${deCalidad}`,
+            tarea: `centro lateral tras el doblaje del lateral, con tres en el área; objetivo en el partido: ${objetivoCentros(metaCentros(recibe.valor), recibe.unidad)}, ${porQueMeta(recibe.valor, "los que le hacen de media")}${deCalidad}`,
           }
         : cercaDeLaMediana
           ? {
@@ -450,7 +468,7 @@ function queHacemosConCentros(
               frase: defiendeBien
                 ? `como le hacen ${cuantoRecibe}, cerca de lo normal en la liga, y ${cuantoAcierta}, defiende bien el centro: probar primero por dentro y centrar sólo con el área cargada`
                 : `como le hacen ${cuantoRecibe}, cerca de lo normal en la liga, alternar el centro con el juego por dentro y centrar con el área cargada (tendencia, no rasgo)`,
-              tarea: `finalización tras centro con tres en el área; objetivo: ${objetivoCentros(recibe.mediana, recibe.unidad)}, la mediana de la liga${deCalidad}`,
+              tarea: `finalización tras centro con tres en el área; objetivo: ${objetivoCentros(metaCentros(recibe.mediana), recibe.unidad)}, ${porQueMeta(recibe.mediana, "la mediana de la liga")}${deCalidad}`,
             }
           : {
               rotulo: "Nuestro ataque · cuando les centramos",
@@ -469,21 +487,14 @@ function queHacemosConCentros(
   const bien = dif > 2 && !esTendencia(acierto);
   const mal = dif < -2 && !esTendencia(acierto);
 
-  const cuanto = `${cifra1(volumen.valor, volumen.unidad)} por partido (mediana ${cifra1(volumen.mediana, volumen.unidad)})`;
-  /* Con la base: «58 de 201» (07/11/2026, fútbol). */
-  const baseAcierto = acierto.base ? `, ${Math.round(acierto.base.arriba)} de ${Math.round(acierto.base.abajo)} precisos` : "";
-  const comoAcierta = `${bien ? "con más acierto que la liga" : mal ? "con menos acierto que la liga" : "con un acierto como el de la liga"} (${cifra1(acierto.valor, acierto.unidad)} frente a ${cifra1(acierto.mediana, acierto.unidad)}${baseAcierto})`;
-
   /* Atada al dato (11/11/2026, fútbol): el porqué va en la frase, no se da la orden suelta. */
   const [porque, accion, tarea] =
     muchos && bien
       ? ["el centro es su vía de gol", "cerrar el carril exterior y proteger el segundo palo", `defensa del centro lateral con el segundo palo ocupado; objetivo: que acierte por debajo de la mediana de la liga (${cifra1(acierto.mediana, acierto.unidad)})`]
       : muchos && mal
         ? ["centra mucho pero encuentra poco", "dejarle centrar desde fuera del área, nunca sin presión al que centra, y ganar el área", `defensa del área ante centro desde tres cuartos, con presión al que centra; objetivo: ${
-            /* De la liga, no de su propia media (16/11/2026, jueces de fútbol): lo que concede la mejor defensa del centro. */
-            aciertoRecibe?.minimo != null
-              ? `dejarle en el ${cifra1(aciertoRecibe.minimo, aciertoRecibe.unidad)} de centros precisos, lo que concede la mejor defensa del centro de la liga`
-              : `dejarle por debajo de la mediana de la liga (${cifra1(acierto.mediana, acierto.unidad)} de centros precisos)`
+            /* La misma columna que su dato, «centros precisos %» (16/11/2026, 3.ª vuelta). */
+            `que siga por debajo de la mediana de la liga en centros precisos (${cifra1(acierto.mediana, acierto.unidad)}; el mejor centrador de la liga acierta el ${cifra1(acierto.maximo ?? acierto.mediana, acierto.unidad)})`
           }`]
         : muchos
           ? ["el centro es una de sus vías", "cerrar el carril exterior y ganar el área", `basculación al carril exterior y defensa del área; objetivo: dejarle en la mediana de la liga (${cifra1(volumen.mediana, volumen.unidad)} centros) o menos`]
@@ -493,29 +504,19 @@ function queHacemosConCentros(
 
   const nosCentran: BloqueCentros = {
     rotulo: "Su ataque · cuando ellos centran",
-    frase: `como centra ${cuanto} ${comoAcierta}, ${porque}: ${accion}`,
+    /* Una frase de decisión; las cifras, en la tarjeta (16/11/2026, análisis). */
+    frase: `${porque}: ${accion}`,
     tarea,
   };
 
   /* El titular, la lectura sin cifras: las cifras van una vez, abajo. */
   const deAcierto = bien ? " y con acierto" : mal ? " y con poco acierto" : "";
-  const deRecibe = !recibe
-    ? ""
-    : muchoRecibe
-      ? recibe.percentil <= 3
-        ? "; le centran más que a nadie en la liga"
-        : "; le centran más que a la mayoría"
-      : cercaDeLaMediana
-        ? "; le centran como a la media de la liga"
-        : "; le centran poco";
-  /* Y cómo defiende ese centro, si se sale de la zona media (16/11/2026). */
-  const deDefensa = defiendeMal ? ", y defiende mal el centro" : defiendeBien ? ", y defiende bien el centro" : "";
-
   return {
     /* Con su base al lado (16/11/2026, jueces de análisis). */
+    /* Una idea con su dato (16/11/2026, marketing): lo que reciben va en su bloque. */
     titular: `${equipo} centra ${muchos ? "mucho" : "poco"}${deAcierto}${
-      acierto.base && acierto.partidos ? ` (${Math.round(acierto.base.arriba)} precisos de ${Math.round(acierto.base.abajo)} en ${acierto.partidos} partidos)` : ""
-    }${deRecibe}${deRecibe ? deDefensa : ""}`,
+      acierto.base && acierto.partidos ? `: ${Math.round(acierto.base.arriba)} precisos de ${Math.round(acierto.base.abajo)} en ${acierto.partidos} partidos` : ""
+    }`,
     bloques: [nosCentran, ...(lesCentramos ? [lesCentramos] : [])],
     poco: !muchos,
   };
@@ -984,7 +985,12 @@ export function AbpWyscoutRival({
     ambito === "abp" && !plazoCumplido && (!wyscoutListo || !onceListo || plantilla.length === 0 || (players.length > 0 && !marcasListas));
   const salenQuien = ambito === "abp" && !esperaQuien && wyscoutListo && (filasRemata.length > 0 || sacan.length > 0);
 
-  const centros = ambito === "area" ? queHacemosConCentros(aspectos, equipo, nEquipos) : null;
+  /* Lo nuestro en las mismas columnas, de la nube de la liga. */
+  const nuestrosCentros = datos?.nubeCentros?.puntos.find((p) => /castilla/i.test(p.equipo)) ?? null;
+  const centros =
+    ambito === "area"
+      ? queHacemosConCentros(aspectos, equipo, nEquipos, { centros: nuestrosCentros?.x ?? null, precisos: nuestrosCentros?.y ?? null })
+      : null;
 
   /*
   | El contraste con el analista: si su texto habla de muchos centros (cargar,
@@ -1012,6 +1018,40 @@ export function AbpWyscoutRival({
 
     return { veredicto };
   })();
+
+  /*
+  | Cada «Qué hacemos / Qué entrenamos» bajo su bloque (16/11/2026, jueces de
+  | marketing): el de su ataque junto a «Sus centros laterales», el nuestro
+  | junto a «Los centros que recibe».
+  */
+  const pintaBloque = (b: BloqueCentros) => (
+                <div key={b.rotulo} className="space-y-0.5">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">{b.rotulo}</p>
+                  <p>
+                    <b className="text-white">Qué hacemos: </b>
+                    {b.frase.charAt(0).toUpperCase() + b.frase.slice(1)}.
+                  </p>
+                  <p>
+                    <b className="text-white">Qué entrenamos: </b>
+                    {b.tarea}.
+                  </p>
+                  {b.rotulo.startsWith("Su ataque") && colectivo && contraste && (
+                    <p className="mt-1 rounded-lg border border-white/[0.07] bg-white/[0.02] px-3 py-1.5 text-[13px] text-white/70">
+                      <b className="text-white/85">Contraste con Scout Colectivo</b>
+                      {" · "}
+                      {colectivo.lineas.map((l) => `${l.rotulo}: «${l.texto}»`).join("; ")}
+                      {" — "}
+                      {contraste.veredicto}.{" "}
+                      <Link
+                        href={colectivo.id ? `/scout-rival-collective?rival=${encodeURIComponent(colectivo.id)}` : "/scout-rival-collective"}
+                        className="text-[#C8A96B] hover:underline"
+                      >
+                        Ver el análisis →
+                      </Link>
+                    </p>
+                  )}
+                </div>
+  );
 
   return (
     <div className="space-y-5">
@@ -1060,34 +1100,6 @@ export function AbpWyscoutRival({
             */
             <div className="mb-4 space-y-3 border-b border-white/10 pb-3 text-sm text-white/85">
               {centros.titular && <p className="text-base font-semibold text-white md:text-lg">{centros.titular}</p>}
-              {centros.bloques.map((b) => (
-                <div key={b.rotulo} className="space-y-0.5">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">{b.rotulo}</p>
-                  <p>
-                    <b className="text-white">Qué hacemos: </b>
-                    {b.frase.charAt(0).toUpperCase() + b.frase.slice(1)}.
-                  </p>
-                  <p>
-                    <b className="text-white">Qué entrenamos: </b>
-                    {b.tarea}.
-                  </p>
-                  {b.rotulo.startsWith("Su ataque") && colectivo && contraste && (
-                    <p className="mt-1 rounded-lg border border-white/[0.07] bg-white/[0.02] px-3 py-1.5 text-[13px] text-white/70">
-                      <b className="text-white/85">Contraste con Scout Colectivo</b>
-                      {" · "}
-                      {colectivo.lineas.map((l) => `${l.rotulo}: «${l.texto}»`).join("; ")}
-                      {" — "}
-                      {contraste.veredicto}.{" "}
-                      <Link
-                        href={colectivo.id ? `/scout-rival-collective?rival=${encodeURIComponent(colectivo.id)}` : "/scout-rival-collective"}
-                        className="text-[#C8A96B] hover:underline"
-                      >
-                        Ver el análisis →
-                      </Link>
-                    </p>
-                  )}
-                </div>
-              ))}
               <p className="text-[12px] text-white/55">La cifra es de Wyscout; la decisión y la tarea son criterio de juego a partir de ella.</p>
             </div>
           )}
@@ -1197,6 +1209,14 @@ export function AbpWyscoutRival({
                   )}
                 </h3>
 
+                {/* Lo que hacemos con este bloque, antes de sus cifras. */}
+                {centros?.bloques
+                  .filter((b) => (aspecto.clave === "centrosOf" ? b.rotulo.startsWith("Su ataque") : aspecto.clave === "centrosDef" ? b.rotulo.startsWith("Nuestro ataque") : false))
+                  .map((b) => (
+                    <div key={b.rotulo} className="mt-2 rounded-xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.05] px-3 py-2 text-sm text-white/85">
+                      {pintaBloque(b)}
+                    </div>
+                  ))}
                 <ul className="mt-2 space-y-2">
                   {aspecto.filas.filter(enTarjeta).map(orientada).map((fila) => {
                     const lee = lectura(fila.percentil, nEquipos, fila.mejorAlto, fila);
@@ -1277,7 +1297,8 @@ export function AbpWyscoutRival({
             const py = percentiles(con.map((p) => p.y));
             const puntos = con.map((p, i) => ({
               id: p.equipo,
-              nombre: p.equipo,
+              /* Un solo nombre en el área (16/11/2026): «Atlético Madrileño», no «Atlético Madrid B». */
+              nombre: nombreEquipo(p.equipo),
               x: px[i],
               y: py[i],
               propio: mismoClub(p.equipo, equipo) || /castilla/i.test(p.equipo),
@@ -1295,7 +1316,7 @@ export function AbpWyscoutRival({
                   puntos={puntos}
                   ejeX="Centros por partido"
                   ejeY="Centros precisos"
-                  rotulos={{ ambos: "Centran mucho y bien", soloX: "Centran mucho, aciertan poco", soloY: "Centran poco pero bien", nada: "Centran poco y mal", nadaCorto: "Poco y mal" }}
+                  rotulos={{ ambos: "Centran mucho y bien", soloX: "Mucho, sin acierto", soloY: "Centran poco pero bien", nada: "Centran poco y mal", nadaCorto: "Poco y mal" }}
                 />
               </div>
             );

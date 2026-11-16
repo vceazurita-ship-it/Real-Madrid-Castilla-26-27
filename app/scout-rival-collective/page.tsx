@@ -1954,7 +1954,7 @@ export default function ScoutRivalCollective() {
           {!modoEdicion && rivalActivo?.EQUIPO && <RepartoXg equipo={rivalActivo.EQUIPO} nombres={nombresRival} />}
 
           {/* Wyscout y Opta del rival, por pregunta (10/11/2026). Se carga al asomar. */}
-          {rivalActivo?.EQUIPO && <DatosDelRival equipo={rivalActivo.EQUIPO} rivalId={String(rivalActivo.ID ?? "")} />}
+          {rivalActivo?.EQUIPO && <DatosDelRival equipo={rivalActivo.EQUIPO} rivalId={String(rivalActivo.ID ?? "")} nombres={nombresRival} />}
 
           {/* Las siglas del texto del analista, sólo las que salen (29/10/2026). */}
           {!modoEdicion && siglasUsadas.length > 0 && (

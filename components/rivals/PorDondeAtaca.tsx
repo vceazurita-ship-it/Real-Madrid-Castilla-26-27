@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { traeJson } from "@/lib/hojaCsv";
 import { puestoEnPalabras } from "@/lib/posiciones";
+import { puestoDelRival } from "@/lib/rivals/colocacion-once";
 import { asignaPerfiles } from "@/lib/rivals/perfil-wyscout";
 import { fichaRivalPath, playerKey } from "@/lib/rivals/once";
 import { BANDAS, TIPOS_ACCION, type PorDondeAtaca as Datos } from "@/lib/rivals/por-donde-ataca";
@@ -53,8 +54,9 @@ export function PorDondeAtaca({ equipo, plantilla }: { equipo: string; plantilla
   /* Cada nombre de Wyscout, su ficha: la plantilla entera a la vez, uno a uno. */
   const enlaces = useMemo(() => {
     const mapa = new Map<string, string>();
+    const puestos = new Map<string, string>();
 
-    if (!datos?.nombres?.length || !plantilla.length) return mapa;
+    if (!datos?.nombres?.length || !plantilla.length) return { mapa, puestos };
 
     const asignados = asignaPerfiles(
       plantilla,
@@ -65,10 +67,15 @@ export function PorDondeAtaca({ equipo, plantilla }: { equipo: string; plantilla
     for (const ficha of plantilla) {
       const casado = asignados.get(playerKey(ficha));
 
-      if (casado) mapa.set(casado.jugador, fichaRivalPath(String(ficha.NOMBRE_EQUIPO ?? equipo), playerKey(ficha)));
+      if (casado) {
+        mapa.set(casado.jugador, fichaRivalPath(String(ficha.NOMBRE_EQUIPO ?? equipo), playerKey(ficha)));
+        /* El puesto de su plantilla, el mismo de todas las pantallas (`puestoDelRival`, 16/11/2026). */
+        const origen = puestoDelRival(String(ficha["POSICIÓN"] ?? "")).origen;
+        if (origen) puestos.set(casado.jugador, origen);
+      }
     }
 
-    return mapa;
+    return { mapa, puestos };
   }, [datos, plantilla, equipo]);
 
   if (!datos) return null;
@@ -101,16 +108,14 @@ export function PorDondeAtaca({ equipo, plantilla }: { equipo: string; plantilla
     .sort((a, b) => b.parte - a.parte)[0];
 
   const nombre = (jugador: string, posicion: string, clase: string) => {
-    const href = enlaces.get(jugador);
+    const href = enlaces.mapa.get(jugador);
+    /* Primero el de la plantilla; sin cruce, la sigla de Wyscout en castellano. */
+    const puesto = enlaces.puestos.get(jugador) || puestoEnPalabras(posicion.split(",")[0]) || posicion.split(",")[0].trim();
     const texto = (
       <>
         {jugador}
         {/* En castellano (16/11/2026, jueces de fútbol): «lateral izquierdo», no «LB». */}
-        {posicion && (
-          <span className="ml-1 text-[12px] font-normal text-white/60">
-            ({puestoEnPalabras(posicion.split(",")[0]) || posicion.split(",")[0].trim()})
-          </span>
-        )}
+        {puesto && <span className="ml-1 text-[12px] font-normal text-white/60">({puesto})</span>}
       </>
     );
 

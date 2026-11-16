@@ -13,6 +13,7 @@
  */
 
 import { num } from "@/lib/opta";
+import { resume } from "@/lib/proyeccion/base";
 import { partidosPorEquipo } from "@/lib/opta-evolucion";
 import type { Fila, PartidoEquipo } from "@/lib/opta-analisis";
 
@@ -26,6 +27,8 @@ export type SerieComparada = {
   /** Partidos con dato de cada uno. */
   partidosCastilla: number;
   partidosRival: number;
+  /** El xG del rival partido a partido, por fecha (para «los últimos 5 frente a los anteriores»). */
+  valoresRival: number[];
 };
 
 function xgDe(p: PartidoEquipo, lado: LadoXg): number | null {
@@ -77,6 +80,7 @@ export function evolucionComparada(partidos: Fila[], castillaId: string, rivalId
       puntos,
       partidosCastilla: nuestros.filter((p) => xgDe(p, lado) != null).length,
       partidosRival: suyos.filter((p) => xgDe(p, lado) != null).length,
+      valoresRival: suyos.map((p) => xgDe(p, lado)).filter((v): v is number => v != null && Number.isFinite(v)),
     };
   });
 }
@@ -99,4 +103,18 @@ export function tendencia(puntos: PuntoComparado[], k: "castilla" | "rival", atr
   if (conDato.length <= atras) return null;
   const dif = conDato[conDato.length - 1] - conDato[conDato.length - 1 - atras];
   return dif >= 0.1 ? "sube" : dif <= -0.1 ? "baja" : "igual";
+}
+
+/**
+ * La misma ventana que el Plan de partido (16/11/2026, jueces de fútbol): los
+ * últimos 5 partidos frente a los anteriores, con `resume` de
+ * `lib/proyeccion/base.ts` (mismo umbral). Antes esta pantalla comparaba la
+ * media acumulada con la de hace tres partidos y el Plan decía otra cosa.
+ */
+export function ultimosCincoFrenteAntes(valores: number[]) {
+  const r = resume(valores);
+
+  if (r.ultimos == null || r.previos == null) return null;
+
+  return { ultimos: r.ultimos, previos: r.previos, cambio: r.cambio, n: r.n, enUltimos: Math.min(5, r.n), enPrevios: Math.max(0, r.n - 5) };
 }

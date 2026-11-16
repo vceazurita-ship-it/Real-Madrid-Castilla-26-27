@@ -120,6 +120,7 @@ import { ParaLaSemana } from "@/components/rivals/ParaLaSemana";
 import ResumenesRival from "@/components/rivals/ResumenesRival";
 import PerfilWyscoutCard from "@/components/rivals/PerfilWyscoutCard";
 import { pieDominante } from "@/lib/rivals/pie";
+import { puestoDelRival } from "@/lib/rivals/colocacion-once";
 import { centimetros, kilos } from "@/lib/rivals/lienzo-club";
 import type { HojaInforme } from "@/lib/rivals/informe-elementos";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
@@ -3054,6 +3055,13 @@ export default function RivalPlayersPage() {
           puesto: (puestoHoja || perfil?.posicionTexto || String(p["POSICIÓN"] ?? "").trim()).toLowerCase(),
           rasgos: frase?.frases ?? [],
           accion: frase?.accion ?? "",
+          /* La cifra que sostiene la orden (16/11/2026, jueces de fútbol): el rasgo de Wyscout, contra los de su puesto. */
+          cifra: (() => {
+            const rasgo = frase?.respaldo ? perfil?.flojos.find((x) => x.nombre === frase.respaldo) : null;
+            if (!rasgo) return "";
+            const valor = rasgo.valor.toLocaleString("es-ES", { maximumFractionDigits: 1 });
+            return `${rasgo.nombre.replace(/\s*%$/, "")}: ${valor}${rasgo.unidad === "porcentaje" ? " %" : ""}${rasgo.casos != null ? ` (${Math.round(rasgo.casos)} en la temporada)` : ""} · peor que ${Math.min(9, Math.max(1, Math.round((100 - rasgo.percentil) / 10)))} de cada 10 de su puesto (Wyscout)`;
+          })(),
           cruzan: debilidades.length > 0 && flojos.length > 0,
           base: base ? `${base.minutos}′${base.fuente} · ${base.partidos} ${base.partidos === 1 ? "partido" : "partidos"}` : "",
           minutos: base?.minutos ?? 0,
@@ -9166,7 +9174,12 @@ function TacticalPitch({
               </span>
 
               <span className="mt-0.5 block truncate text-[10px] text-[#C8A96B]">
-                {getSlot(player["POSICIÓN"])?.slot.label || player["POSICIÓN"]}
+                {/* Con el bloque en el que le pone su once, si es otro (16/11/2026): «extremo izquierdo en su once (delantero de origen)». */}
+                {(() => {
+                  const visto = puestoDelRival(String(player["POSICIÓN"] ?? ""), ficha.bloque);
+                  const texto = visto.texto || getSlot(player["POSICIÓN"])?.slot.label || player["POSICIÓN"];
+                  return texto ? texto.charAt(0).toUpperCase() + texto.slice(1) : texto;
+                })()}
 
                 {(() => {
                   /* La 2ª posición, con el mismo nombre de puesto que la

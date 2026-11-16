@@ -136,7 +136,7 @@ function Cargando({ texto, alto }: { texto: string; alto: string }) {
   );
 }
 
-export function DatosDelRival({ equipo, rivalId }: { equipo: string; rivalId?: string }) {
+export function DatosDelRival({ equipo, rivalId, nombres = [] }: { equipo: string; rivalId?: string; nombres?: string[] }) {
   /* Se pide al asomar o, como muy tarde, a los 2,5 s de entrar (16/11/2026). */
   const { caja, abierto } = useAsoma<HTMLElement>();
 
@@ -166,7 +166,7 @@ export function DatosDelRival({ equipo, rivalId }: { equipo: string; rivalId?: s
       </div>
 
       {abierto ? (
-        <Contenido key={equipo} equipo={equipo} />
+        <Contenido key={equipo} equipo={equipo} nombres={nombres} />
       ) : (
         <div className="mt-4 space-y-3">
           <Cargando alto="h-24" texto="Cargando las cifras de Opta del rival…" />
@@ -177,7 +177,7 @@ export function DatosDelRival({ equipo, rivalId }: { equipo: string; rivalId?: s
   );
 }
 
-function Contenido({ equipo }: { equipo: string }) {
+function Contenido({ equipo, nombres }: { equipo: string; nombres: string[] }) {
   const { wys, cargando: cargaWys } = useWyscout();
   const { datos: opta, cargando: cargaOpta } = useOpta();
   const [pestana, setPestana] = useState<Pestana>("vistazo");
@@ -250,7 +250,7 @@ function Contenido({ equipo }: { equipo: string }) {
             <div className="flex justify-end">
               <Sello de={selloWys} />
             </div>
-            <PanelEquipo liga={wys.liga} jugadores={wys.jugadores} fijo={equipoWys} segundaLectura={idOpta ? SEGUNDA_LECTURA_WYSCOUT : undefined} />
+            <PanelEquipo liga={wys.liga} jugadores={wys.jugadores} fijo={equipoWys} segundaLectura={idOpta ? SEGUNDA_LECTURA_WYSCOUT : undefined} nombresPlantilla={nombres} />
           </div>
         ))}
 
