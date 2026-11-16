@@ -32,6 +32,9 @@ import type { JugadorDuelo } from "@/lib/duelos";
 
 export const COLUMNA_ROBO = "Interceptaciones/90";
 
+/** Por debajo de estos minutos no se marca a nadie como robador: es tendencia (el umbral de Duelos). */
+export const MUESTRA_ROBO = 450;
+
 /** Desde este percentil (ajustado) se marca como robador. */
 export const UMBRAL_ROBADOR = 80;
 
@@ -56,6 +59,8 @@ export type RoboJugador = {
   percentilBruto: number | null;
   robador: boolean;
   oculto: boolean;
+  /** Menos de 450′ en Wyscout: se enseña como tendencia y sin la marca de robador (16/11/2026, jueces). */
+  tendencia: boolean;
   zona: ZonaRobo | null;
 };
 
@@ -127,7 +132,9 @@ export function robadoresDelOnce(
     const hayRef = Boolean(ref && ref.ajustado.length >= 5);
     const percentil = ajustado !== null && hayRef ? percentilEnPlantilla(ajustado, ref!.ajustado, true) : null;
     const percentilBruto = hayRef ? percentilEnPlantilla(bruto, ref!.bruto, true) : null;
-    const robador = percentil !== null && percentil >= UMBRAL_ROBADOR;
+    /* Con menos de 450′ (Diao, 234′) el percentil es de muy pocos partidos: tendencia, sin marca. */
+    const tendencia = fila.minutos < MUESTRA_ROBO;
+    const robador = !tendencia && percentil !== null && percentil >= UMBRAL_ROBADOR;
     salida.push({
       jugador,
       bruto,
@@ -137,6 +144,7 @@ export function robadoresDelOnce(
       percentilBruto,
       robador,
       oculto: robador && percentilBruto !== null && percentilBruto < UMBRAL_ROBADOR,
+      tendencia,
       zona: zonaDeRobo(jugador, equipo, opta),
     });
   }

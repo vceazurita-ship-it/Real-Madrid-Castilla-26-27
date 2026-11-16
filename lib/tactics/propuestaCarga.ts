@@ -16,7 +16,7 @@ import Papa from "papaparse";
 
 import { aplicaEdiciones, normalizaDocEmocional, CLAVE_DOC_EMOCIONAL, type Player as FilaEmocionalHoja } from "@/app/emotion/modelo";
 import { normalizaDuelos } from "@/lib/duelos";
-import { baseSuyaDe, onceSuyoDe, suyosDe } from "@/lib/duelos-onces";
+import { baseSuyaDe, huecosDePlantillas, onceSuyoDe, suyosDe } from "@/lib/duelos-onces";
 import type { FilaJugador, FilaPartido } from "@/lib/data-analisis/leer";
 import { isHiddenPlayer } from "@/lib/hiddenPlayers";
 import { traeCsv, traeJson } from "@/lib/hojaCsv";
@@ -101,7 +101,7 @@ export async function cargaDatosPropuesta(plantilla: Player[], rival: string, le
     const informe = marcados.length >= 7 ? null : findInforme(await doc<InformeDoc>(lector, "rivals:informe"), equipo);
     const base = baseSuyaDe(suyos, marcados, informe);
 
-    onceSuyo = onceSuyoDe(suyos, base.lista, normalizaDuelos(duelosDoc).suyo);
+    onceSuyo = onceSuyoDe(suyos, base.lista, normalizaDuelos(duelosDoc).suyo, huecosDePlantillas(normalizarOnce(onceDoc).puestos, marcados));
   }
 
   const emocional: FilaEmocional[] = aplicaEdiciones(csvEmocional ? leeHojaEmocional(csvEmocional) : [], normalizaDocEmocional(capaEmocional)).map((r) => ({
