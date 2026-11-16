@@ -39,9 +39,9 @@ export function EnlacesDelRival({
   const id = (rivalId ?? "").replace(/^riv-/i, "").trim();
 
   const enlaces: { clave: EnlaceDelRival; href: string; texto: string; icono: ReactNode }[] = [
-    { clave: "abp", href: `/scout-rival-abp?equipo=${encodeURIComponent(nombre)}`, texto: "Su ABP", icono: <Shield size={13} aria-hidden /> },
-    { clave: "goles", href: urlGolesDelEquipo(nombre, "favor"), texto: "▶ Sus goles en vídeo", icono: <Film size={13} aria-hidden /> },
-    { clave: "encaja", href: urlGolesDelEquipo(nombre, "contra"), texto: "▶ Cómo le marcan", icono: <ShieldAlert size={13} aria-hidden /> },
+    { clave: "abp" as const, href: `/scout-rival-abp?equipo=${encodeURIComponent(nombre)}`, texto: "Su ABP", icono: <Shield size={13} aria-hidden /> },
+    { clave: "goles" as const, href: urlGolesDelEquipo(nombre, "favor"), texto: "▶ Sus goles en vídeo", icono: <Film size={13} aria-hidden /> },
+    { clave: "encaja" as const, href: urlGolesDelEquipo(nombre, "contra"), texto: "▶ Cómo le marcan", icono: <ShieldAlert size={13} aria-hidden /> },
     ...(id
       ? [
           { clave: "plan" as const, href: `/match-preparation?rival=${encodeURIComponent(id)}`, texto: "Plan de partido", icono: <ClipboardList size={13} aria-hidden /> },
