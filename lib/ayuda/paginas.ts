@@ -2212,13 +2212,19 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Jugadores sesión",
     resumen: "Los equipos de cada tarea del día, a partir de la lista del delegado, listos para proyectar o mandar.",
     origen:
-      "La lista que se pega (título, listado y apartados de bajas) y las tareas del microciclo de ese día (hoja de registro). Los puestos salen de la plantilla y de dónde coloca el cuerpo técnico a cada uno; el once, de la pizarra táctica; sinergias y perfiles, de Wyscout. Se guarda en el documento «jugadores-sesion» de Supabase.",
-    revisada: "2026-11-14",
+      "La lista que se pega (título, listado y apartados de bajas) y las tareas del microciclo de ese día (hoja de registro, por la fuente común de las pantallas de planificación). Los puestos salen de la plantilla y de dónde coloca el cuerpo técnico a cada uno; el once, de la pizarra táctica; sinergias y perfiles, de Wyscout. Se guarda en el documento «jugadores-sesion» de Supabase.",
+    revisada: "2026-11-16",
     bloques: [
       {
         titulo: "La sesión",
         filas: [
-          { que: "18 disponibles · 3 equipos en la tarea 2", es: "El titular: quién está y cómo va la tarea abierta («tarea 1 sin equipos» mientras no hay nadie colocado)" },
+          {
+            que: "Abre en el día de hoy",
+            es: "Sin «?fecha», el día de trabajo de hoy del micro en curso (hoy si se entrena; si no, el próximo con tareas), el mismo que abren /microcycles y los calendarios",
+            cuenta: "Si aún no hay sesión de ese día, arriba sale «Lun 16/11 · MD-4 · Micro 22: aún sin sesión» con sus tareas planificadas y «Crear la sesión»; debajo sigue la última guardada",
+          },
+          { que: "Jue 12/11 · MD-1 · Tarea 1, Analítica: 21 disponibles · 2 equipos", es: "El titular: fecha, MD y la tarea abierta con su nombre, quién está y cuántos equipos («sin equipos» mientras no hay nadie colocado)" },
+          { que: "Diapositivas y exportar", es: "El botón en oro de la barra de la sesión: lleva a la pestaña de diapositivas (ver, presentar, exportar)" },
           { que: "disponibles · bajas · tareas listas", es: "Las cifras del día; las bajas, con su motivo al pasar por encima", cuenta: "Tareas listas = tareas sin nada que corregir ÷ tareas" },
           { que: "Las tareas del microciclo", es: "Al crear la sesión las tareas salen del plan de ese día, con equipos y comodines de su formato; casan con la hoja por nombre antes que por código" },
           { que: "Traer", es: "Si el plan cambió (tareas que faltan, nombres u orden), las añade y las ata sin mover a nadie; se puede deshacer" },
@@ -2234,6 +2240,10 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Titulares vs suplentes", es: "El once de la pizarra táctica (tablero «Once 4-2-3-1») en un equipo y los suplentes en el otro", cuenta: "Casado por nombre con la lista; si el once no llena el equipo, entran suplentes de la línea que falta" },
           { que: "Mezcla parcial / total", es: "Parcial: el porcentaje del deslizador cambia titulares de lado, cada uno por un suplente de su línea (100 % = mitad y mitad). Total: titulares a partes iguales y líneas parejas, al azar" },
           { que: "Por líneas", es: "Cada equipo con portero, defensas, medios y arriba; laterales y centrales repartidos" },
+          { que: "Reparto propuesto / Criterio elegido", es: "Encima de los equipos: el criterio con que salieron (o el elegido, si se hicieron a mano) y cuántos hay en cada equipo" },
+          { que: "11/10 en rojo", es: "Contador de cada campo: jugadores de campo del equipo / huecos del dibujo, contando a los que comparten puesto", cuenta: "Verde si cuadra; ámbar si falta alguien o las líneas no van parejas; rojo si hay más que huecos (al pasar, quiénes comparten): amplía el dibujo o pasa a uno" },
+          { que: "X pasa a Naranja y Y a Amarillo", es: "El arreglo de un toque de las líneas descompensadas, con el sentido del cambio" },
+          { que: "La hoja dice 10v10…", es: "Aviso si el formato de la hoja no cuadra con lo colocado, en total o equipo a equipo (11 y 10 en un 10v10); si la tarea se renombró, dice de qué tarea de la hoja sale" },
           { que: "Sinergias / Por perfiles", es: "Parten de «Por líneas» y sólo cambian jugadores de la misma línea", cuenta: "Sinergias: juntas las parejas que se potencian según Wyscout (Data análisis, once). Perfiles: el rasgo que más destaca de cada uno contra su puesto, repartido o junto" },
           { que: "Completar", es: "Coloca sólo a los que faltan, en el equipo más corto, sin mover a nadie", cuenta: "Sale cuando ya hay alguien colocado y alguien pendiente" },
           { que: "Más (junto a Proponer)", es: "Vaciar la tarea, Como la anterior (equipos, colores y comodines de la tarea de antes), Duplicar, Mover antes o después y Quitar esta tarea" },

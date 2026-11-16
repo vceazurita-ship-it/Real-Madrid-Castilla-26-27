@@ -56,6 +56,7 @@ import {
   Eraser,
   Send,
   SlidersHorizontal,
+  Presentation,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -65,7 +66,8 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { LAMINA_H, LAMINA_W, LaminaEquipos, LaminaEscalada } from "@/components/sesion-equipos/LaminaEquipos";
 import { CampoEstructura } from "@/components/sesion-equipos/CampoEstructura";
-import { loadRegistro, type RegistroTarea } from "@/lib/abp/registro";
+import type { RegistroTarea } from "@/lib/abp/registro";
+import { useSemanaDeHoy } from "@/hooks/useSemanaDeHoy";
 import { lineaDeDetalle, type ContextoSesion } from "@/lib/sesion-equipos/registro";
 import { apuntaQuitada, cambiosDelPlan, detalleDePlan, enlaza, firmaTarea, hayCambiosDelPlan, nombreEnSesion, parecido, planDeRegistro, resultadosPorTarea, sesionDeFecha, traeDelPlan } from "@/lib/sesion-dia/conexion";
 import { useDiasConectados } from "@/hooks/useDiasConectados";
@@ -809,6 +811,8 @@ function EstructuraEquipo({
   const companerosFuera = sobran.filter((j) => enParejas.has(j.id)).length;
   const deCampo = jugadores.length - porteros.length - huecos.reduce((n, h) => n + (h.companeros?.length ?? 0), 0) - companerosFuera;
   const compartidos = huecos.filter((h) => h.jugador && h.companeros?.length);
+  /* Todos los de campo, también los que comparten puesto (16/11/2026). */
+  const todosDeCampo = jugadores.length - porteros.length;
   const abiertos = huecos.filter((h) => h.jugador && h.abierto);
   const actual = normalizaEstructura(equipo.estructura ?? "");
   /*
@@ -905,12 +909,30 @@ function EstructuraEquipo({
         >
           {creando ? "Cerrar" : "Crear"}
         </button>
+        {/*
+        | 16/11/2026 (jueces): con dos en un mismo puesto el contador decía 10/10
+        | con 11 en el equipo. Ahora cuenta a TODOS los de campo (compañeros de
+        | puesto incluidos) y, si pasan de los huecos, va en rojo y dice quiénes
+        | comparten: se ve que hay que resolverlo (ampliar el dibujo o pasarlo).
+        */}
         <span
-          className={`shrink-0 whitespace-nowrap rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${deCampo === total && !descompensado ? "bg-emerald-400/10 text-emerald-300/90" : "bg-amber-400/10 text-amber-300/90"}`}
-          title={descompensado ? "Los huecos están llenos, pero las líneas no van parejas entre equipos: mira el validador" : "Jugadores de campo del equipo / huecos del dibujo (el portero no se dibuja)"}
+          className={`shrink-0 whitespace-nowrap rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${
+            todosDeCampo > total
+              ? "bg-red-500/15 text-red-300"
+              : deCampo === total && !descompensado
+                ? "bg-emerald-400/10 text-emerald-300/90"
+                : "bg-amber-400/10 text-amber-300/90"
+          }`}
+          title={
+            todosDeCampo > total
+              ? `${todosDeCampo} de campo para ${total} huecos${compartidos.length ? `: ${compartidos.map((h) => yNombres([h.jugador!, ...(h.companeros ?? [])].map((j) => j.nombre))).join("; ")} comparten puesto` : ""}. Amplía el dibujo o pasa a uno a otro equipo`
+              : descompensado
+                ? "Los huecos están llenos, pero las líneas no van parejas entre equipos: mira el validador"
+                : "Jugadores de campo del equipo / huecos del dibujo (el portero no se dibuja)"
+          }
         >
           {/* Sin la palabra (05/11/2026): «9/10 huecos» se partía en «hueco s»; lo explica el title. */}
-          {deCampo}/{total}
+          {todosDeCampo}/{total}
         </span>
       </div>
 
@@ -1321,6 +1343,22 @@ const ICONO_AVISO = {
   ok: <Check size={13} className="mt-0.5 shrink-0 text-emerald-300" />,
 };
 
+/** «Jue 12/11», para el titular (16/11/2026). */
+function fechaCortaTitular(iso: string) {
+  const d = new Date(`${iso}T12:00:00Z`);
+
+  if (Number.isNaN(d.getTime())) return "";
+
+  return `${["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"][d.getUTCDay()]} ${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+}
+
+/** «ANALÍTICA» → «Analítica»: el nombre de la tarea sin gritar en el titular. */
+function tituloTarea(nombre: string) {
+  const limpio = nombre.trim();
+
+  return limpio === limpio.toUpperCase() ? limpio.charAt(0) + limpio.slice(1).toLowerCase() : limpio;
+}
+
 /* ------------------------------------------------------------------ */
 /*  LA PÁGINA                                                          */
 /* ------------------------------------------------------------------ */
@@ -1472,7 +1510,7 @@ export default function JugadoresSesionPage() {
   | se ofrece crearla y sus tareas salen del microciclo. Se lee tras montar:
   | en el servidor no hay dirección.
   */
-  const [fechaPedida, setFechaPedida] = useState<string | null>(null);
+  const [fechaDeLaDireccion, setFechaPedida] = useState<string | null>(null);
 
   useEffect(() => {
     const id = setTimeout(() => {
@@ -1483,6 +1521,17 @@ export default function JugadoresSesionPage() {
 
     return () => clearTimeout(id);
   }, []);
+
+  /*
+  | EL DÍA DE HOY (16/11/2026, jueces): sin «?fecha», la pantalla se abría en
+  | la última sesión guardada (el 12/11) aunque el micro 22 ya tuviera sus
+  | tareas del 16. Ahora abre en el día de trabajo de hoy de la semana común
+  | (hooks/useSemanaDeHoy.ts): hoy si se entrena, si no el próximo con tareas.
+  | Si aún no hay sesión de ese día, se dice con sus tareas planificadas.
+  */
+  const { semana: semanaHoy, registro: registroComun } = useSemanaDeHoy();
+  const deHoy = !fechaDeLaDireccion && semanaHoy?.diaDeTrabajo ? semanaHoy.diaDeTrabajo : null;
+  const fechaPedida = fechaDeLaDireccion ?? deHoy?.fecha ?? null;
 
   const sesion = sesiones.find((s) => s.id === sesionId) ?? (fechaPedida ? sesionDeFecha(sesiones, fechaPedida) : null) ?? sesiones[0] ?? null;
 
@@ -1582,19 +1631,8 @@ export default function JugadoresSesionPage() {
   | contenido) y el micro, el rival y el MD: salen en la diapositiva. Sólo se
   | lee; si la hoja no tiene el día, la diapositiva queda como estaba.
   */
-  const [registro, setRegistro] = useState<RegistroTarea[]>([]);
-
-  useEffect(() => {
-    let vivo = true;
-    loadRegistro()
-      .then((r) => {
-        if (vivo) setRegistro(r.tareas);
-      })
-      .catch(() => {});
-    return () => {
-      vivo = false;
-    };
-  }, []);
+  /* 16/11/2026: el registro y la semana de hoy, de la fuente común de las pantallas de planificación. */
+  const registro: RegistroTarea[] = registroComun;
 
   /*
   | EL MICROCICLO DEL DÍA (24/10/2026). Las tareas planificadas para la fecha
@@ -2769,21 +2807,36 @@ export default function JugadoresSesionPage() {
     | hoja ya no describe la tarea y el aviso era falso: el validador decía
     | «todo en verde» y la franja ámbar, «falta 1». Entonces no se compara.
     */
+    /*
+    | 16/11/2026 (jueces): renombrada ya no calla el aviso si el número de
+    | equipos cuadra con el formato —la «ANALÍTICA» con reglas «10v10» y
+    | equipos de 11 y 10 no avisaba—; se dice de qué tarea de la hoja sale. Y
+    | se mira equipo a equipo: 11 contra 10 en un 10v10 también avisa.
+    */
     const renombrada = Boolean(tarea.plan && tarea.plan.nombre.trim() && tarea.plan.nombre.trim() !== tarea.nombre.trim());
     const [lados, extra = "0"] = m[0].split("+");
     const porEquipo = lados.split(/v/i).map((n) => Number(n.trim()));
-    if (renombrada || tarea.equipos.length !== porEquipo.length) return [];
+    if (tarea.equipos.length !== porEquipo.length) return [];
     const esperados = porEquipo.reduce((s, n) => s + n, 0) + Number(extra.trim());
     const hay = enLaTarea.length;
-    if (!hay || hay === esperados) return [];
+    const tamanos = tarea.equipos.map((e) => (reparto.porEquipo[e.id] ?? []).length);
+    const descuadre = [...tamanos].sort((a, b) => a - b).join() !== [...porEquipo].sort((a, b) => a - b).join();
+    const deLaHoja = renombrada && tarea.plan ? ` (tarea «${tarea.plan.nombre.trim()}» de la hoja)` : "";
+    if (!hay || (hay === esperados && !descuadre)) return [];
+    if (hay === esperados) {
+      const texto = `La hoja${deLaHoja} dice ${formato.trim()} y los equipos son de ${tarea.equipos.map((e, i) => `${tamanos[i]} (${e.nombre || `equipo ${i + 1}`})`).join(" y ")}: pasa uno para que cuadren.`;
+
+      return [{ nivel: "aviso", texto, titular: texto }];
+    }
     const dif = Math.abs(hay - esperados);
+    const reparto2 = descuadre ? ` Equipos: ${tarea.equipos.map((e, i) => `${e.nombre || `equipo ${i + 1}`} ${tamanos[i]}`).join(", ")}.` : "";
     return [
       {
         nivel: "aviso",
         texto:
-          hay > esperados
-            ? `La hoja dice ${formato.trim()} (${esperados}) y hay ${hay} colocados: ¿${dif} ${dif === 1 ? "sobra o es comodín" : "sobran o son comodines"}?`
-            : `La hoja dice ${formato.trim()} (${esperados}) y hay ${hay} colocados: ${dif === 1 ? "falta 1" : `faltan ${dif}`}.`,
+          (hay > esperados
+            ? `La hoja${deLaHoja} dice ${formato.trim()} (${esperados}) y hay ${hay} colocados: ¿${dif} ${dif === 1 ? "sobra o es comodín" : "sobran o son comodines"}?`
+            : `La hoja${deLaHoja} dice ${formato.trim()} (${esperados}) y hay ${hay} colocados: ${dif === 1 ? "falta 1" : `faltan ${dif}`}.`) + reparto2,
         /* 11/11/2026: el titular lleva la base. «Faltan 3 jugadores» a secas
            parecía que había tres sin colocar con los 11 ya dentro. */
         titular:
@@ -3337,9 +3390,16 @@ export default function JugadoresSesionPage() {
               /* 11/11/2026: el titular con el dato del día; sin sesión, el nombre de la pantalla. */
               title={
                 sesion && tarea
-                  ? /* 11/11/2026: «2 equipos en la tarea 1» con nadie colocado prometía lo que no había. */
-                    `${sesion.jugadores.filter((j) => !j.baja).length} disponibles · ${
-                      enTarea === 0 ? `tarea ${activa + 1} sin equipos` : `${tarea.equipos.length} ${tarea.equipos.length === 1 ? "equipo" : "equipos"} en la tarea ${activa + 1}`
+                  ? /* 11/11/2026: «2 equipos en la tarea 1» con nadie colocado prometía lo que no había.
+                       16/11/2026: el titular dice la sesión y la tarea: «Jue 12/11 · MD-1 · Tarea 1, Analítica: …». */
+                    `${[
+                      sesion.fecha ? fechaCortaTitular(sesion.fecha) : "",
+                      contexto?.md ?? "",
+                      `Tarea ${activa + 1}${tarea.nombre?.trim() ? `, ${tituloTarea(tarea.nombre)}` : ""}`,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}: ${sesion.jugadores.filter((j) => !j.baja).length} disponibles${
+                      enTarea === 0 ? " · sin equipos" : ` · ${tarea.equipos.length} ${tarea.equipos.length === 1 ? "equipo" : "equipos"}`
                     }`
                   : "Jugadores sesión"
               }
@@ -3450,6 +3510,19 @@ export default function JugadoresSesionPage() {
 
                 <span className="flex-1" />
 
+                {/* 16/11/2026 (jueces): la acción principal a la vista, en oro; lo demás, agrupado en «Más». */}
+                {vista !== "diapositivas" && (
+                  <button
+                    type="button"
+                    onClick={() => setVista("diapositivas")}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-[#C8A96B] px-3 py-1.5 text-[12px] font-semibold text-[#0B0F14] transition hover:bg-[#D8B97B]"
+                    style={{ color: "var(--rmcf-on-gold)" }}
+                    title="Ver, presentar y exportar las diapositivas de la sesión"
+                  >
+                    <Presentation size={14} /> Diapositivas y exportar
+                  </button>
+                )}
+
                 <Button icon={Keyboard} onClick={() => setChuleta(true)} title="Atajos de teclado (?)" aria-label="Atajos de teclado" />
 
                 <Button icon={Undo2} disabled={pasos.atras === 0} onClick={deshaz} title="Deshacer el último cambio (Ctrl+Z)">
@@ -3523,8 +3596,31 @@ export default function JugadoresSesionPage() {
 
             {faltaLaPedida && fechaPedida && sesion && status !== "loading" && (
               <div className="mt-4">
-                <Notice title={`No hay sesión del ${fechaPedida.split("-").reverse().slice(0, 2).join("/")}`}>
-                  <p>Pega la lista del delegado para crearla{planDeRegistro(registro, fechaPedida).length ? ": las tareas salen del microciclo de ese día" : ""}.</p>
+                <Notice
+                  title={
+                    deHoy
+                      ? `${fechaCortaTitular(deHoy.fecha)}${deHoy.md ? ` · ${deHoy.md}` : ""} · Micro ${semanaHoy?.etiqueta ?? ""}${semanaHoy?.rival ? ` · ${semanaHoy.rival}` : ""}: aún sin sesión`
+                      : `No hay sesión del ${fechaPedida.split("-").reverse().slice(0, 2).join("/")}`
+                  }
+                >
+                  {/* 16/11/2026: las tareas planificadas del día, a la vista antes de pegar la lista. */}
+                  {(() => {
+                    const plan = planDeRegistro(registro, fechaPedida);
+
+                    return plan.length ? (
+                      <ol className="mb-2 list-decimal space-y-0.5 pl-5 text-[13px] text-white/80">
+                        {plan.map((p, i) => (
+                          <li key={`${p.codigo}-${i}`}>
+                            <span className="font-semibold">{p.tipo || p.contenidoPrincipal || p.codigo}</span>
+                            {[p.formato, p.tiempo > 0 ? `${p.tiempo}′` : "", p.contenidoPrincipal && p.tipo ? p.contenidoPrincipal : ""].filter(Boolean).length ? (
+                              <span className="text-white/55"> · {[p.formato, p.tiempo > 0 ? `${p.tiempo}′` : "", p.contenidoPrincipal && p.tipo ? p.contenidoPrincipal : ""].filter(Boolean).join(" · ")}</span>
+                            ) : null}
+                          </li>
+                        ))}
+                      </ol>
+                    ) : null;
+                  })()}
+                  <p>Pega la lista del delegado para crearla{planDeRegistro(registro, fechaPedida).length ? ": estas tareas salen del microciclo de ese día" : ""}.{deHoy && sesion?.fecha ? ` Debajo sigue la última sesión guardada (${fechaCortaTitular(sesion.fecha)}).` : ""}</p>
                   <div className="mt-2">
                     <Button
                       icon={Plus}
@@ -4435,6 +4531,15 @@ export default function JugadoresSesionPage() {
                     )}
 
                     {/* --- equipos --- */}
+                    {/* 16/11/2026 (jueces): el criterio del reparto, en la cabecera de los equipos y no sólo en el validador plegado. */}
+                    {enTarea > 0 && (
+                      <p className="mb-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-white/65">
+                        <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/45">{explicacion?.tarea === tarea.id ? "Reparto propuesto" : "Criterio elegido"}</span>
+                        <span className="font-semibold text-[#C8A96B]">{explicacion?.tarea === tarea.id ? explicacion.criterio : rotuloCriterio(criterio)}</span>
+                        <span>·</span>
+                        <span>{tarea.equipos.map((e) => `${e.nombre || "Equipo"} ${(reparto?.porEquipo[e.id] ?? []).length}`).join(" · ")}</span>
+                      </p>
+                    )}
                     <div
                       className="grid min-w-0 gap-3"
                       style={{
