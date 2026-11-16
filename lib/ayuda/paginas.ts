@@ -3467,7 +3467,8 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           { que: "Posiciones", es: "Los puestos de la hoja; el buscador filtra los contenidos" },
           { que: "Con balón / Sin balón", es: "Los contenidos del puesto en dos columnas, con cuántos hay en cada una", cuenta: "Fuera de edición, primero los que se miden" },
-          { que: "Sus jugadores · su área de mejora", es: "Los de la plantilla en ese puesto; cada chip abre su área de mejora en Individual" },
+          { que: "Sus jugadores · su área de mejora", es: "Los de la plantilla en ese puesto; el nombre abre su área de mejora en Individual y el icono de la carpeta, su seguimiento" },
+          { que: "Los demás contenidos", es: "Los que no se miden quedan plegados tras «Ver los otros N contenidos» en cada columna (se abren al editar o buscar)" },
           { que: "Ficha del contenido", es: "Si la hoja lo trae, se despliega con definición, qué se ve, criterio y clip" },
         ],
       },
@@ -3475,10 +3476,13 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Lo que se mide",
         filas: [
           { que: "Se mide en el partido", es: "La métrica de Wyscout con que se sigue ese contenido; sin métrica no sale nada" },
+          { que: "El gráfico", es: "Una fila por jugador: su punto sobre una escala común, la raya azul es la mediana del puesto y la franja verde el lado bueno. El título dice quién queda por debajo y quién por encima; el nombre abre su ficha" },
           { que: "▲ / ▼ / =", es: "Cada jugador nuestro frente a la mediana del puesto en la categoría", cuenta: "▲ mejor, ▼ peor, = la misma cifra con los decimales que se enseñan. Con el sentido de la métrica puesto" },
+          { que: "11 de 29 · ≈ 26 en 883′", es: "La base de cada cifra: en los %, aciertos de intentos; en las cifras por 90′, cuántas acciones lleva en sus minutos", cuenta: "Estimado con el volumen por 90′ de Wyscout y sus minutos de liga" },
+          { que: "tendencia", es: "Un % que sale de menos de 15 intentos: punto hueco, sin ▲/▼, y no entra en «Por dónde empezar a entrenar»" },
           { que: "Mediana", es: "La de los jugadores del puesto en la categoría", cuenta: "Sólo con 450′ o más de liga, y con al menos seis para comparar" },
-          { que: "Objetivo en la tarea", es: "Si alguno queda por debajo: llegar a la mediana (o bajar de ella si menos es mejor)" },
-          { que: "Por dónde empezar a entrenar", es: "El contenido medido con más jugadores nuestros por debajo de la mediana", cuenta: "Por la proporción de los que quedan por debajo; empate, por el número" },
+          { que: "Qué entrenamos", es: "Si alguno queda por debajo: a quién, la tarea del contenido, qué contar en ella y el objetivo de partido (llegar a la mediana, o bajar de ella si menos es mejor)" },
+          { que: "Por dónde empezar a entrenar", es: "Tarjeta destacada: el contenido medido con más jugadores nuestros por debajo de la mediana, quiénes con su cifra y base, y el objetivo", cuenta: "Por la proporción de los que quedan por debajo (sin contar los de «tendencia»); empate, por el número" },
         ],
       },
       {
@@ -3501,11 +3505,11 @@ export const AYUDAS: AyudaDePagina[] = [
       },
     ],
     ojo: [
-      "Un jugador con menos de 450′ de liga sale en los chips pero no en las cifras, y su chip lo dice.",
+      "Un jugador con menos de 450′ de liga sale en los chips pero no en las cifras; el umbral se dice una vez en la leyenda.",
       "Si el guardado no llega a la hoja, se sigue en edición y se reintenta solo.",
       "«¿Quién lo ejecuta mejor?» compara perfiles estadísticos con los del puesto, no cómo rindió jugando allí; los porteros no entran y hacen falta al menos dos contenidos medidos.",
     ],
-    revisada: "2026-11-13",
+    revisada: "2026-11-16",
   },
 ];
 
