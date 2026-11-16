@@ -93,6 +93,7 @@ import {
   tinta,
   type FilaPercentil,
 } from "@/components/data/graficas";
+import { ConmutadorVista, Lamina, TituloConclusion, useVistaAnalisis } from "@/components/ui/VistaVisual";
 import {
   Composicion,
   Distribucion,
@@ -539,6 +540,15 @@ function etiquetaDePartido(fila: FilaPartido) {
 }
 
 export default function DataAnalisisPage() {
+  /*
+  | VISUAL / DETALLE en «Contra la liga» (16/11/2026, petición del analista: «de
+  | primeras debe ser mucho más visual»). Visual: las conclusiones, los gráficos
+  | de la fase, el cara a cara y los extremos (lo mejor y lo peor del Castilla
+  | en la fase, en barras de percentil). Detalle: lo de siempre, con la lista
+  | entera métrica a métrica.
+  */
+  const [vistaLiga, setVistaLiga] = useVistaAnalisis("data-analisis-liga");
+  const ligaVisual = vistaLiga === "visual";
   const [datos, setDatos] = useState<Respuesta | null>(null);
   const [cargando, setCargando] = useState(true);
   const [intento, setIntento] = useState(0);
@@ -2352,8 +2362,11 @@ export default function DataAnalisisPage() {
                       </div>
                     ) : (
                       <>
+                        <div className="mt-5 flex justify-end">
+                          <ConmutadorVista vista={vistaLiga} onCambia={setVistaLiga} />
+                        </div>
                         <Conclusiones
-                          className="mt-5"
+                          className="mt-3"
                           titulo={`El Castilla en ${laQueMando} · ${(FASES.find((f) => f.key === fase)?.label ?? "").toLowerCase()}`}
                           items={conclusionesCastilla}
                         />
@@ -2460,12 +2473,51 @@ export default function DataAnalisisPage() {
                           </div>
                         )}
 
+                        {/* Visual: lo mejor y lo peor de la fase, con su conclusión en el título. */}
+                        {ligaVisual &&
+                          (() => {
+                            const deFase = percentiles.filter((f) => METRICA_POR_KEY.get(f.key)?.fase === fase && f.mejorAlto !== null && f.percentil !== null && (f.casos == null || f.casos >= 10));
+                            if (deFase.length < 4) return null;
+                            const orden = [...deFase].sort((a, b) => (b.percentil ?? 0) - (a.percentil ?? 0));
+                            const mejores = orden.slice(0, 4);
+                            const peores = orden.slice(-4).reverse();
+                            const altas = deFase.filter((f) => (f.percentil ?? 0) >= 60).length;
+                            const bajas = deFase.filter((f) => (f.percentil ?? 0) <= 40).length;
+                            return (
+                              <div className="mt-5">
+                                <Lamina>
+                                  <TituloConclusion
+                                    pregunta={`Lo mejor y lo peor del Castilla · ${(FASES.find((f) => f.key === fase)?.label ?? "").toLowerCase()}`}
+                                    fuente={`Wyscout · ${laQueMando} · percentil contra los ${equiposLiga.length} equipos de la liga`}
+                                  >
+                                    {mejores[0].nombre} es lo más alto (P{Math.round(mejores[0].percentil ?? 0)}) y {peores[0].nombre.toLowerCase()} lo más bajo (P{Math.round(peores[0].percentil ?? 0)}): {altas} de {deFase.length} métricas por encima y {bajas} por debajo de la mitad de la liga
+                                  </TituloConclusion>
+                                  <div className="grid gap-x-6 lg:grid-cols-2">
+                                    <div>
+                                      <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: MEJOR }}>Donde más destaca</p>
+                                      {mejores.map((fila) => (
+                                        <BarraPercentil key={fila.key} fila={fila} otra={percentilesOtro.find((o) => o.key === fila.key) ?? null} nombreOtra={otroEquipo} />
+                                      ))}
+                                    </div>
+                                    <div>
+                                      <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: PEOR }}>Donde más flojea</p>
+                                      {peores.map((fila) => (
+                                        <BarraPercentil key={fila.key} fila={fila} otra={percentilesOtro.find((o) => o.key === fila.key) ?? null} nombreOtra={otroEquipo} />
+                                      ))}
+                                    </div>
+                                  </div>
+                                  <p className="mt-2 text-[11px] text-white/50">La lista entera, métrica a métrica, en «Detalle».</p>
+                                </Lamina>
+                              </div>
+                            );
+                          })()}
+
                         {/*
                           29/10/2026: el detalle son más de tres pantallas de alto. Una
                           barra fija con los bloques de esta fase (Valor gol, Creación,
                           Ocupación del área…) lleva a cada uno sin bajar a ciegas.
                         */}
-                        {(() => {
+                        {!ligaVisual && (() => {
                           const conFilas = GRUPOS.filter((grupo) =>
                             percentiles.some((f) => {
                               const met = METRICA_POR_KEY.get(f.key);
@@ -2495,7 +2547,7 @@ export default function DataAnalisisPage() {
                         })()}
 
                         {/* Y el detalle métrica a métrica. */}
-                        {GRUPOS.map((grupo) => {
+                        {!ligaVisual && GRUPOS.map((grupo) => {
                           const filas = percentiles.filter((f) => {
                             const met = METRICA_POR_KEY.get(f.key);
 
