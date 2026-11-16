@@ -145,6 +145,7 @@ export function useDuelosClaveConEstado(equipo: string) {
           equipo: equipoHoja,
           marcados: normalizarOnce(onceDoc).titulares,
           puestosPlantillas: normalizarOnce(onceDoc).puestos,
+          dibujoPlantillas: normalizarOnce(onceDoc).dibujo,
           informe: findInforme(informes, equipoHoja),
           aMano: normalizaDuelos(manual),
           baseNuestra: dePizarra ? dePizarra.huecos : reparto?.ultimo ? Object.fromEntries(Object.entries(reparto.huecos).filter(([, id]) => id)) : null,

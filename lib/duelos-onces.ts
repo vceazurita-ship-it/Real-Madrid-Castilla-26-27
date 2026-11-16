@@ -18,6 +18,8 @@ import { conTildes } from "@/lib/rivals/tildes";
 import { bajaDe } from "@/lib/rivals/bajas";
 import { nombrePuesto } from "@/lib/posiciones";
 import type { InformeEquipo } from "@/lib/rivals/informe";
+import { colocacionDelOnce, ladoDeLaHoja, puestoDelRival, slotDeLaHoja } from "@/lib/rivals/colocacion-once";
+import { leePosicionesDeLaTemporada } from "@/lib/rivals/posiciones-temporada";
 import {
   HUECO_VACIO,
   alturaEnCm,
@@ -148,6 +150,7 @@ export function suyosDe(filasHoja: Fila[], equipo: string, jugadores: FilaJugado
         lado: sitio.lado,
         posicion: wy?.posicion.split(",")[0] || texto(f["POSICIÓN"]),
         puestoHoja: nombrePuesto(texto(f["POSICIÓN"])).toLowerCase() || undefined,
+        posicionHoja: texto(f["POSICIÓN"]) || undefined,
         altura: alturaEnCm(wy?.altura || f.ALTURA),
         pie: wy?.pie || texto(f["PIE DOMINANTE"]),
         minutos: wy?.minutos ?? 0,
@@ -338,6 +341,49 @@ export function huecosDePlantillas(puestos: Record<string, string> | undefined, 
   return salida;
 }
 
+/*
+| EL ONCE ÚNICO (16/11/2026, ronda 17): dónde cae cada jugador del rival con
+| la MISMA cuenta del campograma de /rivals (`colocacionDelOnce` de la capa
+| común, lib/rivals/colocacion-once.ts): toda su plantilla repartida en el
+| dibujo del once (el elegido en Plantillas o el que más repite), con lo que
+| lleva jugado esta temporada y lo puesto a mano, que manda.
+| Devuelve clave del jugador → clave del bloque.
+*/
+export function colocacionDelCampograma(
+  filasHoja: Fila[],
+  equipo: string,
+  informe: InformeEquipo | null,
+  doc: { dibujo?: string; puestos?: Record<string, string> },
+): Map<string, string> {
+  const plantilla = filasHoja.filter((f) => texto(f.NOMBRE_EQUIPO) === equipo && texto(f.ESTADO).toUpperCase() !== "NO EN PLANTILLA");
+  if (!plantilla.length) return new Map();
+  const lectura = leePosicionesDeLaTemporada(
+    informe,
+    plantilla.map((f) => ({
+      clave: playerKey(f as never),
+      dorsal: texto(f.DORSAL),
+      nombre: texto(f["NOMBRE DEPORTIVO"]) || texto(f.JUGADOR),
+      slot: slotDeLaHoja(texto(f["POSICIÓN"]))?.key ?? "otros",
+      lado: ladoDeLaHoja(texto(f["POSICIÓN"])),
+    })),
+  );
+  const colocados = colocacionDelOnce(
+    plantilla.map((f) => ({ clave: playerKey(f as never), posicion: texto(f["POSICIÓN"]) })),
+    { dibujo: doc.dibujo || lectura.dibujo, sitios: lectura.porJugador, puestos: doc.puestos },
+  );
+  return new Map([...colocados].map(([clave, bloque]) => [clave, bloque.key]));
+}
+
+/** Los titulares, a nuestro hueco del 4-2-3-1 según su bloque del campograma (sin equivalencia, nada). */
+export function huecosDeBloques(colocacion: Map<string, string>, titulares: string[]): Record<string, string> {
+  return huecosDePlantillas(Object.fromEntries(titulares.map((c) => [c, colocacion.get(c) ?? ""])), titulares);
+}
+
+/** El puesto del rival, el mismo de todas las pantallas: «extremo izquierdo en su once (delantero de origen)». */
+export function puestoDelSuyo(j: JugadorDuelo, colocacion: Map<string, string>): string {
+  return puestoDelRival(j.posicionHoja ?? "", colocacion.get(j.clave) ?? null).texto;
+}
+
 export function onceSuyoDe(suyos: JugadorDuelo[], base: JugadorDuelo[], manualDuelos: Record<string, string>, dePlantillas: Record<string, string> = {}) {
   /* Lo de Duelos manda; lo colocado en Plantillas, debajo (sin repetir jugador). */
   const enDuelos = new Set(Object.values(manualDuelos));
@@ -403,12 +449,14 @@ export function duelosDelPartido(entrada: {
   baseNuestra?: Record<string, string> | null;
   /** Lo colocado a mano en el campograma de Plantillas rivales (clave → bloque). */
   puestosPlantillas?: Record<string, string>;
+  /** El dibujo elegido en Plantillas rivales para su campograma. */
+  dibujoPlantillas?: string;
 }): { duelos: ResultadoDuelo[]; fuenteSuya: string } {
   const nuestros = nuestrosDe(entrada.jugadores, entrada.fichas);
   const suyos = suyosDe(entrada.filasHoja, entrada.equipo, entrada.jugadores);
   const base = baseSuyaDe(suyos, entrada.marcados, entrada.informe);
   const referencias = referenciasPorPuesto(entrada.jugadores);
-  const onceSuyo = onceSuyoDe(suyos, base.lista, entrada.aMano.suyo, huecosDePlantillas(entrada.puestosPlantillas, entrada.marcados ?? []));
+  const onceSuyo = onceSuyoDe(suyos, base.lista, entrada.aMano.suyo, huecosDeBloques(colocacionDelCampograma(entrada.filasHoja, entrada.equipo, entrada.informe, { dibujo: entrada.dibujoPlantillas, puestos: entrada.puestosPlantillas }), entrada.marcados ?? []));
   const onceNuestro = sinChoqueDeNombres(onceNuestroDe(nuestros, entrada.aMano.nuestro, entrada.baseNuestra, entrada.fichas), onceSuyo);
   return {
     duelos: separaSinPareja(mideDuelos(onceNuestro, onceSuyo, referencias), onceSuyo).conPareja,

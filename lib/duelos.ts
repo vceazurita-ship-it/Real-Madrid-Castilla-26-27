@@ -51,6 +51,8 @@ export type JugadorDuelo = {
    * jugó por dentro algún día (07/11/2026, jueces). Se enseña antes que `posicion`.
    */
   puestoHoja?: string;
+  /** La columna POSICIÓN de su hoja, tal cual (sólo suyos): con ella sale el puesto común del rival. */
+  posicionHoja?: string;
   /** En centímetros; null si no se sabe. */
   altura: number | null;
   pie: string;

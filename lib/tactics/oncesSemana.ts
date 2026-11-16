@@ -29,7 +29,7 @@ import { mismoClub } from "@/lib/rivals/mismoClub";
 import { normalizarOnce, playerKey, rivalOnceKey } from "@/lib/rivals/once";
 import type { RatingsSeason } from "@/lib/ratings/types";
 import type { FilaJugador } from "@/lib/data-analisis/leer";
-import { baseSuyaDe, huecosDePlantillas, onceNuestroDe, onceSuyoDe, nuestrosDe, suyosDe } from "@/lib/duelos-onces";
+import { baseSuyaDe, colocacionDelCampograma, huecosDeBloques, onceNuestroDe, onceSuyoDe, nuestrosDe, suyosDe } from "@/lib/duelos-onces";
 import { normalizaDuelos, type JugadorDuelo } from "@/lib/duelos";
 import type { Player } from "@/types/player";
 
@@ -296,7 +296,7 @@ export async function oncesDeLaSemana(plantilla: Player[]): Promise<OncesSemana 
   const onceNuestro = onceNuestroDe(nuestros, aMano.nuestro, baseNuestra, plantilla);
   /* Lo colocado a mano en el campograma de Plantillas rivales, como en Duelos (16/11/2026). */
   const marcado = normalizarOnce(onceDoc);
-  const onceSuyo = onceSuyoDe(suyos, baseSuya.lista, aMano.suyo, huecosDePlantillas(marcado.puestos, marcado.titulares));
+  const onceSuyo = onceSuyoDe(suyos, baseSuya.lista, aMano.suyo, huecosDeBloques(colocacionDelCampograma(hoja, equipo, findInforme(informeDoc, equipo), marcado), marcado.titulares));
 
   const fichaDe = new Map(plantilla.map((p) => [p.id, p]));
   const idHoja = new Map(hoja.map((f) => [playerKey(f as never), texto(f.ID_JUGADOR)]));
