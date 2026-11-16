@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import type { ReactNode } from "react";
 
 import { puedeVerEntreno } from "@/lib/entreno/acceso";
+import { ultimaSesionPublica } from "@/lib/entreno/ultima-publica";
 
 import { AccesoEntreno } from "./AccesoEntreno";
 
@@ -17,5 +18,6 @@ import { AccesoEntreno } from "./AccesoEntreno";
 export default async function AnalisisEntrenamientoLayout({ children }: { children: ReactNode }) {
   if (puedeVerEntreno(await cookies())) return children;
 
-  return <AccesoEntreno />;
+  /* 16/11/2026 (jueces): la última sesión analizada, sólo lo agregado, encima del acceso. */
+  return <AccesoEntreno ultima={await ultimaSesionPublica()} />;
 }

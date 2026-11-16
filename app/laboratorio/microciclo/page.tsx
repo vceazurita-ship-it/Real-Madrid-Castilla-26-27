@@ -72,7 +72,6 @@ import {
   Send,
   Kanban,
   ListChecks,
-  Lock,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -354,9 +353,9 @@ function TiraDias({
 /* ------------------------------------------------------------------ */
 
 const PASOS = [
-  { titulo: "La semana", detalle: "Días libres y semana de partida", candado: "" },
-  { titulo: "El contenido", detalle: "Tareas, tiempos e intensidad", candado: "Cómo empieza, abajo; se edita al crear" },
-  { titulo: "Revisar y escribir", detalle: "Carga de la semana y escritura en la hoja", candado: "Al final, con «Escribir en la hoja»" },
+  { titulo: "La semana", detalle: "Días libres y semana de partida" },
+  { titulo: "El contenido", detalle: "Tareas, tiempos e intensidad de cada día" },
+  { titulo: "Revisar y escribir", detalle: "Carga de la semana y «Escribir en la hoja»" },
 ] as const;
 
 /*
@@ -394,15 +393,15 @@ function Pasos({ actual }: { actual: 1 | 2 | 3 }) {
                       : "border border-dashed border-white/20 text-white/40"
                 }`}
               >
-                {/* El candado sólo antes de crear: luego el paso 3 ya se puede alcanzar, está abajo. */}
-                {hecho ? <CheckCircle2 size={13} aria-hidden /> : ahora ? n : actual === 1 ? <Lock size={11} aria-hidden /> : n}
+                {/* 16/11/2026 (jueces): sin candado ni «(bloqueado)»; los pasos que vienen, en gris con lo que llevan. */}
+                {hecho ? <CheckCircle2 size={13} aria-hidden /> : n}
               </span>
               <div className="min-w-0">
-                <p className={`text-[12px] font-semibold ${ahora ? "text-[#E9D5A8]" : hecho ? "text-white/75" : "text-white/45"}`}>
+                <p className={`text-[13px] font-semibold ${ahora ? "text-[#E9D5A8]" : hecho ? "text-white/75" : "text-white/45"}`}>
                   {paso.titulo}
-                  <span className="sr-only">{hecho ? " (hecho)" : ahora ? " (ahora)" : actual === 1 ? " (bloqueado)" : " (después)"}</span>
+                  <span className="sr-only">{hecho ? " (hecho)" : ahora ? " (ahora)" : " (después)"}</span>
                 </p>
-                <p className="text-[11px] text-white/45">{hecho ? "Hecho" : ahora || !paso.candado ? paso.detalle : paso.candado}</p>
+                <p className="text-[12px] text-white/45">{hecho ? "Hecho" : paso.detalle}</p>
               </div>
             </li>
           );
@@ -922,6 +921,7 @@ function ResumenOrigen({
 
   const listaMd = (mds: string[]) => (mds.length === 1 ? mds[0] : `${mds.slice(0, -1).join(", ")} y ${mds[mds.length - 1]}`);
   const hayMedia = datos.mediaTareas > 0;
+  const conColTiempo = datos.minutos > 0;
 
   /*
   | Lo que se copia frente a la media, en la MISMA unidad (11/11/2026): antes
@@ -941,7 +941,8 @@ function ResumenOrigen({
             <th scope="col" className="px-2 py-1 text-left font-medium" />
             <th scope="col" className={`${celda} font-medium`}>Tareas</th>
             <th scope="col" className={`${celda} font-medium`}>Días</th>
-            <th scope="col" className={`${celda} font-medium`}>Tiempo</th>
+            {/* 16/11/2026 (jueces, segunda vuelta): sin minutos en el origen, la columna no sale; lo dice la línea de abajo. */}
+            {conColTiempo && <th scope="col" className={`${celda} font-medium`}>Tiempo</th>}
           </tr>
         </thead>
         <tbody>
@@ -949,8 +950,8 @@ function ResumenOrigen({
             <th scope="row" className="px-2 py-1 text-left font-semibold">Micro {micro}</th>
             <td className={celda}>{datos.tareas}</td>
             <td className={celda}>{datos.diasEntreno}</td>
-            {/* 16/11/2026 (jueces): el tiempo planificado (suma de los minutos de sus tareas); sin minutos, la celda va vacía y lo explica la línea de abajo. */}
-            <td className={celda}>{datos.minutos > 0 ? minutosLegibles(datos.minutos) : ""}</td>
+            {/* El tiempo planificado: la suma de los minutos de sus tareas. */}
+            {conColTiempo && <td className={celda}>{minutosLegibles(datos.minutos)}</td>}
           </tr>
           {hayMedia && (
             <tr className="border-t border-white/10">
@@ -959,7 +960,7 @@ function ResumenOrigen({
               </th>
               <td className={celda}>{comaDecimal(datos.mediaTareas)}</td>
               <td className={celda}>{comaDecimal(datos.mediaDias)}</td>
-              <td className={celda}>{datos.media > 0 ? minutosLegibles(datos.media) : ""}</td>
+              {conColTiempo && <td className={celda}>{datos.media > 0 ? minutosLegibles(datos.media) : ""}</td>}
             </tr>
           )}
         </tbody>
@@ -970,13 +971,11 @@ function ResumenOrigen({
       | minutos de sus tareas— y se dice cuántas lo llevan.
       */}
       <p className="mt-1 px-2 text-[12px] leading-relaxed text-white/55">
-        Tiempo planificado = suma de los minutos de sus tareas
-        {datos.conTiempo === datos.tareas
-          ? ` (las ${datos.tareas} lo llevan)`
-          : datos.conTiempo > 0
-            ? ` · ${datos.tareas} tareas, ${datos.conTiempo} con tiempo`
-            : ` · ninguna de sus ${datos.tareas} tareas lleva minutos en la hoja: se ponen en el paso 2 («Minutos habituales» en cada día)`}
-        .
+        {conColTiempo
+          ? `Tiempo planificado = suma de los minutos de sus tareas${datos.conTiempo === datos.tareas ? ` (las ${datos.tareas} lo llevan)` : ` · ${datos.tareas} tareas, ${datos.conTiempo} con tiempo`}.`
+          : `Sus ${datos.tareas} tareas no llevan minutos en la hoja: se ponen en el paso 2 («Minutos habituales» en cada día).${
+              datos.media > 0 ? ` La temporada va a ${minutosLegibles(datos.media)} por semana.` : ""
+            }`}
         {hayMedia && ` Media por semana de ${datos.baseMicros} micros ${datos.baseConTiempo ? "con tiempo apuntado" : "con tareas de entreno"}; sin el partido.`}
       </p>
 
@@ -1047,8 +1046,17 @@ function ResumenOrigen({
                       </span>
                     )}
                   </p>
-                  <p className="truncate text-[12px] text-white/55">
-                    {n > 0 ? (nombres.length ? nombres.slice(0, 3).join(" · ") + (nombres.length > 3 ? " …" : "") : tipo ? "Sesión tipo" : "") : "Se rellena en el paso 2"}
+                  <p className="break-words text-[12px] text-white/55">
+                    {/* 16/11/2026 (jueces): hasta 4 enteras; si hay más, «+N», sin cortar la cuarta. */}
+                    {n > 0
+                      ? nombres.length
+                        ? nombres.length <= 4
+                          ? nombres.join(" · ")
+                          : `${nombres.slice(0, 3).join(" · ")} · +${nombres.length - 3}`
+                        : tipo
+                          ? "Sesión tipo"
+                          : ""
+                      : "Se rellena en el paso 2"}
                   </p>
                 </li>
               );
@@ -1150,6 +1158,8 @@ export default function EditorMicrocicloPage() {
 
   /* De qué microciclo se parte al crear: por defecto, el último con tareas. */
   const [partirDe, setPartirDe] = useState<string>("ultimo");
+  /* La lista de «Partir de…», corta hasta pedir el resto (16/11/2026). */
+  const [verTodosOrigen, setVerTodosOrigen] = useState(false);
 
   /*
   | Al copiar otra semana, ¿viajan también el tiempo y la intensidad?
@@ -2538,8 +2548,8 @@ export default function EditorMicrocicloPage() {
                   </span>
                   {libresMarcados.size > 0 && (
                     <span className="rounded-lg border border-white/10 bg-white/[0.04] px-2 py-0.5 text-white/75">
+                      {/* 16/11/2026 (jueces): «MD+1» ya lo dicen la casilla del día y la propuesta; aquí sólo la cuenta. */}
                       {plural(libresMarcados.size, "libre", "libres")}
-                      {fechaPost && libresMarcados.has(fechaPost) ? (libresMarcados.size === 1 ? " (MD+1)" : ", con el MD+1") : ""}
                     </span>
                   )}
                   <span className="rounded-lg border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2 py-0.5 text-[#E9D5A8]">Partido</span>
@@ -2575,14 +2585,19 @@ export default function EditorMicrocicloPage() {
                           : "El último (no hay ninguno con tareas)",
                       },
                       { value: "", label: "Semana en blanco" },
+                      /* 16/11/2026 (jueces): los 5 últimos; «Ver todos» despliega el resto (y el elegido se queda siempre). */
                       ...microsDeLaHoja
                         .filter((uno) => uno.tareas > 0 && uno.micro !== ultimoConTareas)
+                        .filter((uno, i) => verTodosOrigen || i < 4 || String(uno.micro) === partirDe)
                         .map((uno) => ({
                           value: String(uno.micro),
                           label: etiquetaMicroHoja(uno, registro?.tareas ?? []),
                         })),
+                      ...(!verTodosOrigen && microsDeLaHoja.filter((uno) => uno.tareas > 0 && uno.micro !== ultimoConTareas).length > 4
+                        ? [{ value: "__todos", label: "Ver todos los microciclos…" }]
+                        : []),
                     ]}
-                    onChange={setPartirDe}
+                    onChange={(valor) => (valor === "__todos" ? setVerTodosOrigen(true) : setPartirDe(valor))}
                   />
                   <p className="mt-1 text-[11px] text-white/35">
                     Sus tareas entran atadas por MD —el MD-2 de aquella semana al MD-2 de ésta— y luego se cambia lo que toque.

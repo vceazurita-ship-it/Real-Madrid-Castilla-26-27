@@ -17,6 +17,8 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { useQuinielaSesion } from "@/hooks/useQuinielaSesion";
 import { PERSONA_POR_SLUG } from "@/lib/quiniela/staff";
+import { MINIMO_PORCENTAJE } from "@/lib/entreno/modelo";
+import type { UltimaSesionPublica } from "@/lib/entreno/ultima-publica";
 
 /* Los mismos colores que la pantalla de dentro (`COLOR_BIEN` y `COLOR_MEJORABLE` de VisorClips). */
 const BIEN = "#1B9E77";
@@ -30,8 +32,9 @@ const TINTA = "rgb(var(--rmcf-ink-rgb) / .8)";
  *
  * 16/11/2026 (jueces): con una tarea entera —su gráfico de correctas y
  * mejorables por jugador y un clip—, para que se entienda qué da la
- * pantalla sin entrar. Las bases pasan de 15 acciones: con «9 de 14»
- * el juez de fútbol pedía leerlo como tendencia.
+ * pantalla sin entrar. Segunda vuelta: el umbral de tendencia es el de la
+ * pantalla (`MINIMO_PORCENTAJE`, 15) y un jugador queda por debajo para
+ * enseñar cómo se lee; la tarjeta dice «Ejemplo» dentro.
  */
 function MuestraFicha() {
   const meta = 60;
@@ -39,13 +42,14 @@ function MuestraFicha() {
     { jugador: "Jugador A", correctas: 12, total: 18 },
     { jugador: "Jugador B", correctas: 8, total: 16 },
     { jugador: "Jugador C", correctas: 13, total: 17 },
-  ].map((f) => ({ ...f, pct: Math.round((f.correctas / f.total) * 100) }));
+    { jugador: "Jugador D", correctas: 6, total: 9 },
+  ].map((f) => ({ ...f, pct: Math.round((f.correctas / f.total) * 100), tendencia: f.total < MINIMO_PORCENTAJE }));
 
   return (
-    <figure className="@container rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5" aria-label="Ejemplo de la ficha de objetivos">
+    <figure className="@container relative rounded-2xl border border-dashed border-white/20 bg-white/[0.03] p-4 sm:p-5" aria-label="Ejemplo inventado de la ficha de objetivos">
       <figcaption className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <span className="text-[12px] font-semibold uppercase tracking-[0.16em] text-white/55">Así se lee una tarea</span>
-        <span className="rounded-full border border-white/15 px-2 py-0.5 text-[12px] font-semibold text-white/60">Muestra del formato</span>
+        <span className="rounded-full bg-[#C8A96B] px-2.5 py-0.5 text-[12px] font-bold uppercase tracking-[0.12em] text-[#0B0F14]">Ejemplo</span>
       </figcaption>
       <p className="text-[15px] font-semibold text-white">
         <span className="text-[#C8A96B]">MD-3 · T2</span> Rondo 7v3
@@ -75,12 +79,21 @@ function MuestraFicha() {
                 <li key={f.jugador} className="min-w-0">
                   <p className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-[13px] text-white/75">
                     <span className="font-semibold text-white/85">{f.jugador}</span>
-                    <span className="tabular-nums">
-                      {f.correctas} de {f.total} ({f.pct} %)
-                    </span>
-                    <span className={`font-semibold ${cumple ? "text-emerald-300" : "text-amber-300"}`}>{cumple ? "· cumple" : "· no llega"}</span>
+                    {f.tendencia ? (
+                      <>
+                        <span className="tabular-nums">{f.correctas} de {f.total}</span>
+                        <span className="font-semibold text-white/60">· tendencia, sin porcentaje ni veredicto</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="tabular-nums">
+                          {f.correctas} de {f.total} ({f.pct} %)
+                        </span>
+                        <span className={`font-semibold ${cumple ? "text-emerald-300" : "text-amber-300"}`}>{cumple ? "· cumple" : "· no llega"}</span>
+                      </>
+                    )}
                   </p>
-                  <div className="relative mt-1 flex h-2.5 overflow-hidden rounded-full bg-white/10" aria-hidden>
+                  <div className={`relative mt-1 flex h-2.5 overflow-hidden rounded-full bg-white/10 ${f.tendencia ? "opacity-50" : ""}`} aria-hidden>
                     <span style={{ width: `${(f.correctas / f.total) * 100}%`, background: BIEN }} />
                     <span style={{ width: `${((f.total - f.correctas) / f.total) * 100}%`, background: MEJORABLE }} />
                     <span className="absolute inset-y-0 w-0.5" style={{ left: `${meta}%`, background: TINTA }} />
@@ -89,7 +102,7 @@ function MuestraFicha() {
               );
             })}
           </ul>
-          <p className="mt-2 text-[12px] text-white/50">Acierto = correctas ÷ acciones revisadas. Con menos de 8 acciones no se da porcentaje: se lee como tendencia.</p>
+          <p className="mt-2 text-[12px] text-white/50">Acierto = correctas ÷ acciones revisadas. Con menos de {MINIMO_PORCENTAJE} acciones no se da porcentaje: se lee como tendencia.</p>
         </div>
 
         {/* Un clip, como sale al pulsar una barra: el fotograma, su veredicto y lo que se vio. */}
@@ -121,7 +134,40 @@ function MuestraFicha() {
   );
 }
 
-export function AccesoEntreno() {
+/** «lunes 16/11» sin depender del reloj del aparato. */
+function fechaLegible(iso: string) {
+  const [a, m, d] = iso.split("-").map(Number);
+  const dia = new Date(Date.UTC(a, m - 1, d)).toLocaleDateString("es-ES", { weekday: "long", timeZone: "UTC" });
+
+  return `${dia} ${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}`;
+}
+
+/**
+ * La última sesión analizada, de verdad y sólo agregada (16/11/2026, jueces):
+ * fecha, objetivos medidos, acierto y su base. Sin jugadores ni textos: esta
+ * puerta es pública.
+ */
+function UltimaSesion({ ultima }: { ultima: UltimaSesionPublica }) {
+  return (
+    <section aria-label="Última sesión analizada" className="rounded-2xl border border-[#C8A96B]/35 bg-[#C8A96B]/[0.06] p-4 sm:p-5">
+      <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">Última sesión analizada · {fechaLegible(ultima.fecha)}</p>
+      <p className="mt-1.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <span className="text-2xl font-semibold tabular-nums text-white sm:text-3xl">
+          {ultima.pct !== null ? `${ultima.pct} % de acierto` : `${ultima.correctas} de ${ultima.total} correctas`}
+        </span>
+        <span className="text-[14px] text-white/65">
+          {ultima.pct !== null
+            ? `${ultima.correctas} de ${ultima.total} acciones revisadas`
+            : `menos de ${MINIMO_PORCENTAJE} acciones: tendencia`}
+          {` · ${ultima.objetivos} ${ultima.objetivos === 1 ? "objetivo medido" : "objetivos medidos"}`}
+        </span>
+      </p>
+      <p className="mt-1 text-[12px] text-white/50">El detalle por jugador, con sus clips, al entrar con la cuenta del staff.</p>
+    </section>
+  );
+}
+
+export function AccesoEntreno({ ultima = null }: { ultima?: UltimaSesionPublica | null }) {
   const router = useRouter();
   const sesion = useQuinielaSesion();
   const yo = sesion.yo;
@@ -141,7 +187,12 @@ export function AccesoEntreno() {
           <Topbar />
 
           <div className="mx-auto w-full min-w-0 max-w-6xl space-y-5 px-4 py-6 sm:px-6">
-            <AbpHeader area="RMCF Castilla · Entrenamiento" title="Análisis de entrenamiento" lead="Mira qué objetivo cumplió cada jugador en la sesión." />
+            {/* 16/11/2026 (jueces): un titular que dice qué da la pantalla; el nombre, en la miga. */}
+            <AbpHeader
+              area="RMCF Castilla · Entrenamiento · Análisis de entrenamiento"
+              title="Qué cumplió cada jugador en la sesión"
+              lead="Objetivos por jugador medidos en el vídeo del entrenamiento, con sus clips."
+            />
 
             {/*
             | Dos columnas en escritorio (10/11/2026): lo que hay dentro a la
@@ -151,6 +202,9 @@ export function AccesoEntreno() {
             */}
             <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,23rem)]">
             <div className="min-w-0 space-y-5">
+            {/* Lo primero, la última sesión de verdad, con el acceso al lado (16/11/2026). */}
+            {ultima ? <UltimaSesion ultima={ultima} /> : null}
+
             {/* Lo que hay dentro, antes de entrar (24/10/2026): quien llega desde el menú no sabía qué aporta la pantalla. */}
             <ul className="space-y-1.5 text-[15px] text-white/70">
               {[

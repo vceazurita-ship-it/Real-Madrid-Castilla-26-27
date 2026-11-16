@@ -129,8 +129,12 @@ export function veredictoFinal(a: AccionEntreno, validaciones: Record<string, Va
 /**
  * Con menos acciones que esto no se da porcentaje (19/10/2026): un 67 % de
  * tres acciones se leía igual que uno de cuarenta. Por debajo, «tendencia».
+ *
+ * 16/11/2026 (jueces): de 8 a 15, la regla de «tendencia» del resto de la
+ * plataforma (ABP, seguimientos, peligro…). Es el único umbral: todos los
+ * textos de la pantalla y la muestra sin sesión leen esta constante.
  */
-export const MINIMO_PORCENTAJE = 8;
+export const MINIMO_PORCENTAJE = 15;
 
 export type Cuentas = {
   /** Las que cuentan (Y): las revisadas como correcta o mejorable. Las propuestas sin revisar no cuentan. */

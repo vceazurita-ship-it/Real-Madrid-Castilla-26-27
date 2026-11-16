@@ -127,6 +127,7 @@ import {
   mueveEnLista,
   nuevoId,
   ordenaDias,
+  ordenaCitas,
   rotuloDia,
   sumaDias,
   type CitaHorario,
@@ -1008,12 +1009,12 @@ function TarjetaDia({
         | orden como la hoja A4 (la rejilla iba fila a fila, alternando columnas).
         */
         <ol className="columns-1 gap-x-4 px-3 py-2.5 sm:columns-2 lg:columns-3 xl:columns-2 2xl:columns-3">
-          {[...citas]
-            .sort((a, b) => a.minuto - b.minuto)
+          {/* 16/11/2026: el mismo orden que la hoja y el resumen (ordenaCitas); las que no tienen hora, al final y «por fijar». */}
+          {ordenaCitas(citas)
             .map((cita) => (
               <li key={cita.id} id={`cita-${cita.id}`} className="mb-1 flex min-w-0 break-inside-avoid scroll-mt-24 flex-wrap items-baseline gap-x-2 gap-y-0.5 rounded-md text-[14px]">
                 <span
-                  className="w-12 shrink-0 font-semibold tabular-nums text-white"
+                  className={`shrink-0 font-semibold tabular-nums ${Number.isFinite(cita.minuto) ? "w-12 text-white" : "text-amber-300"}`}
                   style={{ borderLeft: `3px solid ${(TIPO_CITA[cita.tipo] ?? TIPO_CITA.otro).color}`, paddingLeft: 6 }}
                 >
                   {aHora(cita.minuto)}

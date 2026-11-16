@@ -1665,6 +1665,7 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           { que: "Al entrar", es: "Abre el próximo partido; los demás siguen en el selector (✓ = viaje ya guardado). Copiar de otro viaje, Plan de partido e Informe del rival van en una sola fila; en el móvil se desliza de lado" },
           { que: "Titular y chapa", es: "El titular dice sólo el viaje («Viaje a Gimnàstic de Tarragona · viernes 13, 21:15»); debajo, una chapa de color con cómo va («El horario no cuadra · 2 errores · 1 aviso»). Pinchándola se abre «Cómo va el viaje». Si lo único que queda son datos por completar, la chapa no sale: eso lo cuenta sólo «Cómo va el viaje»", cuenta: "Rojo si hay errores, ámbar si sólo avisos y verde si está todo; los mismos recuentos que «Cómo va el viaje»" },
+          { que: "Horas por fijar", es: "Una cita cuya hora no se ha podido calcular (por ejemplo, una ruta que llega sin minutos) sale «por fijar», al final de su día y en ámbar; nunca con una hora inventada. Es la primera tarea de «Cómo va el viaje», con «Poner la hora», y el botón de sacar dice «Faltan N horas» y lleva a la primera en vez de exportar", cuenta: "El dossier no nombra los trayectos sin hora ni ningún dato roto; la hoja A4 sólo coloca las citas con hora. Hoja, resumen y editor van en el mismo orden (por hora)" },
           { que: "Sacar igualmente", es: "Con errores en el horario el botón dice «Sacar igualmente»: se puede sacar, y el motivo va en el propio botón y en el diálogo («El horario tiene 2 errores; se puede sacar igual, pero saldrá así»)" },
           { que: "Partido · estadio · hotel", es: "Lo primero tras la cabecera, en el móvil y en el escritorio: salida, partido, hotel y horario, con la jornada, la competición, el césped y las medidas con su fuente; «Editar» abre los tres bloques. La salida es la primera cita de salida del primer día; si no hay ninguna, no se nombra" },
           { que: "Cómo va el viaje", es: "Plegado bajo un titular con el contador y lo que falta nombrado («2 avisos · 4 por completar: distancia al estadio, foto del estadio, plano del estadio y 1 más»), y la barra de lo hecho. Es el único sitio que dice cuánto queda por completar; un clic lo abre con la lista a la vista. Dentro, los cuatro avisos más graves (rojos primero), el resto en «N avisos más», lo «por completar» y, al final, «Hecho: N de M datos»", cuenta: "La barra va en rojo si hay errores, ámbar si hay avisos, dorado si queda algo por completar y verde si está todo" },
@@ -2067,7 +2068,9 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Antes de entrar",
         filas: [
           { que: "Entra con tu cuenta del staff", es: "El correo y la contraseña, uno debajo de otro y a todo el ancho. Sólo puede registrarse el cuerpo técnico: en «Registrarme» se elige el nombre de la lista del staff. Al entrar se abre el entrenamiento de hoy (o el último con trabajo) y no se vuelve a pedir la cuenta en un mes en ese navegador" },
-          { que: "Así se lee una tarea", es: "Una muestra del formato, con jugadores y cifras inventados (esta puerta es pública): la tarea, su objetivo y su meta, el gráfico de correctas y mejorables de cada jugador con la meta marcada, y un clip con su veredicto y lo que se vio", cuenta: "Acierto = correctas ÷ acciones revisadas; la muestra usa bases de 15 acciones o más. Con menos de 8 no se da porcentaje: tendencia" },
+          { que: "Titular", es: "«Qué cumplió cada jugador en la sesión»; el nombre de la pantalla va en la línea de arriba" },
+          { que: "Última sesión analizada", es: "Encima, con el acceso al lado: la fecha, el acierto del día, su base de acciones revisadas y cuántos objetivos se midieron. Sólo lo agregado: sin jugadores, textos ni clips, porque esta puerta es pública", cuenta: "La más reciente con alguna acción revisada (lo propuesto sin revisar no cuenta). Acierto = correctas ÷ revisadas; con menos de 15, la cuenta y «tendencia»" },
+          { que: "Así se lee una tarea", es: "Un ejemplo inventado, marcado «Ejemplo» dentro de la tarjeta: la tarea, su objetivo y su meta, el gráfico de correctas y mejorables de cada jugador con la meta marcada (uno por debajo de 15 acciones, para ver cómo se lee la tendencia) y un clip con su veredicto", cuenta: "El mismo umbral que dentro: con menos de 15 acciones no hay porcentaje ni «cumple»" },
         ],
       },
       {
@@ -2088,7 +2091,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Objetivo", es: "Qué se busca, de quién, cómo reconocerlo (peto, dorsal) y qué es correcto o mejorable" },
           { que: "Mirar sólo en", es: "Opcional: acota la tarea o el tramo del vídeo («rondo 6v3», «del minuto 20 al 45»)" },
           { que: "Tarea del día", es: "En qué tarea del registro mirarlo (L-T1…). No cambia lo que mira el vídeo" },
-          { que: "Meta (%)", es: "El porcentaje de correctas que se pide", cuenta: "Cumplida si el acierto llega a la meta (sólo con 8 acciones o más)" },
+          { que: "Meta (%)", es: "El porcentaje de correctas que se pide", cuenta: "Cumplida si el acierto llega a la meta (sólo con 15 acciones o más)" },
           { que: "De dónde sale", es: "Seguimiento individual, «Qué toca» del post, Plan de partido o Cuerpo técnico: por qué se mide" },
           { que: "Lo que toca según el post", es: "Lee el último informe post y prepara el objetivo entero (a quién, tarea, correcto, mejorable y meta); no entra en la sesión hasta añadirlo" },
           { que: "Copiar los del dd/mm", es: "Trae los objetivos del último día con el mismo texto, para seguir su evolución" },
@@ -2098,14 +2101,14 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Resumen",
         filas: [
-          { que: "64 % de acierto", es: "El titular del día; con menos de 8 acciones, «5 de 7 correctas» y tendencia", cuenta: "±N puntos frente al día anterior, si los dos tienen porcentaje y se separan 5 o más" },
+          { que: "64 % de acierto", es: "El titular del día; con menos de 15 acciones, «9 de 12 correctas» y tendencia", cuenta: "±N puntos frente al día anterior, si los dos tienen porcentaje y se separan 5 o más" },
           { que: "Objetivos en meta · lo mejor · lo que más cuesta", es: "La lectura del día; lo mejor y lo peor, sólo entre objetivos con porcentaje" },
           { que: "Correctas · Mejorables · Revisadas · Con clip", es: "Cada cifra con su base; un toque abre los clips que la forman" },
           { que: "Cumplimiento por objetivo", es: "Barra de correctas y mejorables; la raya dorada es la meta" },
           { que: "Cuándo pasa en la sesión", es: "Acciones por tramo y una calle por objetivo con cada acción en su minuto", cuenta: "Tramos de 2 min hasta media hora de vídeo; de 5 min si es más largo" },
           { que: "Tramo sombreado", es: "Minutos que el análisis no pudo mirar: ahí no hay acciones porque no se vieron" },
           { que: "Por tarea / Por jugador", es: "Sólo si hay dos o más; las acciones de grupo sin jugador reconocido van aparte" },
-          { que: "Evolución entre sesiones", es: "Acierto de cada entrenamiento analizado; columna rayada = menos de 8 acciones" },
+          { que: "Evolución entre sesiones", es: "Acierto de cada entrenamiento analizado; columna rayada = menos de 15 acciones" },
         ],
       },
       {
@@ -2113,7 +2116,7 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           { que: "9 de 14 correctas · 3 por revisar", es: "Sólo cuentan las acciones revisadas (correctas y mejorables); las descartadas y las propuestas sin revisar, no" },
           { que: "Acierto", es: "Porcentaje de correctas", cuenta: "correctas ÷ acciones revisadas que cuentan; sólo con 8 o más" },
-          { que: "Tendencia", es: "Menos de 8 acciones: se da la cuenta, no el porcentaje" },
+          { que: "Tendencia", es: "Menos de 15 acciones (la regla de toda la plataforma desde el 16/11/2026; antes, 8): se da la cuenta, no el porcentaje ni si cumple la meta" },
           { que: "Sesión anterior", es: "El mismo objetivo (mismo texto) el último día analizado", cuenta: "mejora o baja = 5 puntos o más de diferencia" },
           { que: "Liso / rayado", es: "Validado / propuesta automática sin revisar, que no entra en las cifras" },
           { que: "Dar por buenas las N propuestas", es: "Valida de golpe las que quedan con el veredicto propuesto" },
@@ -3103,9 +3106,9 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           { que: "Días de la semana", es: "Del día siguiente al partido anterior hasta el del próximo, cada uno con su MD. Junto a los días, de dónde sale la propuesta en una línea. En el móvil, los botones Entreno/Libre miden 44 px de alto", cuenta: "Propuesta: libre el MD+1 (el día después del partido); el resto, entreno. Un día libre no escribe ninguna fila" },
           { que: "Partir de lo que ya está en la hoja", es: "El último microciclo con tareas, otro cualquiera o la semana en blanco", cuenta: "Las tareas entran atadas por MD: el MD-2 de aquella semana al MD-2 de ésta" },
-          { que: "Lo que se copia", es: "Tareas, días y tiempo planificado del micro de origen frente a la media de la temporada, con la base de cada cifra («13 tareas, 9 con tiempo»). Si ninguna tarea lleva minutos, la celda va vacía y se dice dónde se ponen", cuenta: "Tiempo planificado = suma de los minutos de sus tareas, sin el partido. Media = media por semana de los micros con tiempo apuntado (si hay 3 o más; si no, de los micros con tareas)" },
+          { que: "Lo que se copia", es: "Tareas, días y tiempo planificado del micro de origen frente a la media de la temporada, con la base de cada cifra («13 tareas, 9 con tiempo»). Si ninguna tarea lleva minutos, la columna de tiempo no sale y una línea dice dónde se ponen y a cuánto va la temporada. La lista «Partir de…» enseña los 5 últimos; «Ver todos los microciclos…» despliega el resto", cuenta: "Tiempo planificado = suma de los minutos de sus tareas, sin el partido. Media = media por semana de los micros con tiempo apuntado (si hay 3 o más; si no, de los micros con tareas)" },
           { que: "Días que entran en blanco", es: "Si el micro de origen no tiene algún MD de la semana nueva, el aviso lo dice y ofrece, en el mismo sitio, «Partir del micro N» (la última semana de liga que sí los tiene) y «Rellenar con la semana tipo»", cuenta: "La semana tipo de un MD es lo más repetido en sus sesiones de la hoja (hacen falta 2 o más); se pone al crear el microciclo y se cambia como cualquier tarea" },
-          { que: "Así empieza el paso 2", es: "Vista previa, día a día, de con qué tareas nacerá la semana: el MD, el día, cuántas tareas y minutos, y las tres primeras", cuenta: "Sale de las tareas del micro de origen con ese MD o, con «Rellenar con la semana tipo», de la sesión tipo; si no hay ninguna, «Se rellena en el paso 2»" },
+          { que: "Así empieza el paso 2", es: "Vista previa, día a día, de con qué tareas nacerá la semana: el MD, el día, cuántas tareas y minutos, y sus tareas (hasta 4; con más, las 3 primeras y «+N»). Los pasos 2 y 3 se ven en gris con lo que llevan", cuenta: "Sale de las tareas del micro de origen con ese MD o, con «Rellenar con la semana tipo», de la sesión tipo; si no hay ninguna, «Se rellena en el paso 2»" },
           { que: "Copiar también el tiempo y la intensidad", es: "Si no se marca, se copian tareas y contenidos pero no los minutos ni la intensidad" },
           { que: "Semana tipo / Todos los días de entreno", es: "Atajos: libre sólo el MD+1, o sesión todos los días" },
           { que: "Editar o copiar un microciclo", es: "Abre uno de la hoja con todas sus columnas, o copia la semana de uno sobre otro", cuenta: "La evaluación y el análisis post de sus filas no se tocan" },

@@ -106,6 +106,9 @@ import {
   COPIA_POR_DEFECTO,
   aHora,
   aMinutos,
+  citasDelViaje,
+  tieneHora,
+  ordenaCitas,
   anclaDelHorario,
   comoDesfase,
   copiaViaje,
@@ -319,7 +322,7 @@ const llano = (texto: string) => texto.normalize("NFD").replace(/[̀-ͯ]/g, "").
 function salidaDelViaje(viaje: Desplazamiento) {
   const dias = [...viaje.dias].filter((d) => d.fecha).sort((a, b) => a.fecha.localeCompare(b.fecha));
   const dia = dias.find((d) => d.citas.length > 0);
-  const orden = dia ? [...dia.citas].sort((a, b) => a.minuto - b.minuto) : [];
+  const orden = dia ? ordenaCitas(dia.citas) : [];
   const cita = orden.find((c) => esSalida(c)) ?? orden.find((c) => c.tipo === "viaje" && !/^llegada\b/i.test(c.texto.trim()));
 
   if (!dia || !cita) return null;
@@ -1576,7 +1579,30 @@ export default function DesplazamientoPage() {
   | con «Corregir», que le pone el sitio al texto de la cita.
   */
   const salidaViaje = viaje && viaje.condicion !== "local" ? salidaDelViaje(viaje) : null;
+  /*
+  | 16/11/2026 (jueces, segunda vuelta): las citas sin hora calculada. Salen
+  | «por fijar», son la primera tarea de «Cómo va el viaje» y bloquean
+  | «Sacar los documentos» («Faltan N horas») hasta que se ponen.
+  */
+  const citasSinHora = viaje ? citasDelViaje(viaje).filter(({ cita }) => !tieneHora(cita)) : [];
+  const irASinHora = () => {
+    const primera = citasSinHora[0];
+    if (primera) verCita(primera.dia.id, primera.cita.id);
+  };
   const tareasExtra: TareaExtra[] = [
+    ...(citasSinHora.length
+      ? [
+          {
+            clave: "sin-hora",
+            texto: citasSinHora.length === 1 ? "1 cita sin hora" : `${citasSinHora.length} citas sin hora`,
+            detalle: citasSinHora.slice(0, 3).map(({ cita }) => cita.texto.trim()).filter(Boolean).join(", "),
+            boton: "Poner la hora",
+            seccion: "viaje-horario",
+            corto: citasSinHora.length === 1 ? "1 hora por fijar" : `${citasSinHora.length} horas por fijar`,
+            accion: irASinHora,
+          },
+        ]
+      : []),
     ...tareasMedidas,
     ...(salidaViaje?.corregido
       ? [
@@ -1923,6 +1949,7 @@ export default function DesplazamientoPage() {
   }, [viaje, partido]);
 
   /* La chapa del estado, con los mismos recuentos que «Cómo va el viaje». */
+  const nExtras = tareasExtra.length;
   const recuento = useMemo(() => {
     if (!viaje) return null;
 
@@ -1931,15 +1958,26 @@ export default function DesplazamientoPage() {
     return {
       errores: avisosViaje.filter((a) => a.grave).length,
       avisos: avisosViaje.filter((a) => !a.grave).length,
-      porCompletar: tareas.length + tareasExtra.length,
+      porCompletar: tareas.length + nExtras,
     };
-  }, [viaje, avisosViaje, tareasExtra.length]);
+  }, [viaje, avisosViaje, nExtras]);
 
   /* El botón de sacar: con errores, «Sacar igualmente» y el porqué (quinta vuelta). */
-  const rotuloSacar = horarioNoCuadra ? "Sacar igualmente" : "Sacar los documentos";
-  const motivoSacar = horarioNoCuadra && recuento
-    ? `El horario tiene ${plural(recuento.errores, "error", "errores")}; se puede sacar igual, pero saldrá así.`
-    : "";
+  /* 16/11/2026: con horas sin resolver no se saca nada: el botón dice cuántas faltan y lleva a la primera. */
+  const faltanHoras = citasSinHora.length;
+  const rotuloSacar = faltanHoras
+    ? faltanHoras === 1
+      ? "Falta 1 hora"
+      : `Faltan ${faltanHoras} horas`
+    : horarioNoCuadra
+      ? "Sacar igualmente"
+      : "Sacar los documentos";
+  const motivoSacar = faltanHoras
+    ? `${faltanHoras === 1 ? "Hay una cita" : `Hay ${faltanHoras} citas`} sin hora: ponla${faltanHoras === 1 ? "" : "s"} antes de sacar los documentos.`
+    : horarioNoCuadra && recuento
+      ? `El horario tiene ${plural(recuento.errores, "error", "errores")}; se puede sacar igual, pero saldrá así.`
+      : "";
+  const pulsaSacar = () => (faltanHoras ? irASinHora() : setExportando(true));
 
   /* Los arreglos que no piden decidir nada, juntos (12/11/2026, expertos). */
   const seguros = useMemo(() => (viaje ? arreglosSeguros(viaje, avisosViaje) : { n: 0, que: [], dias: [] }), [viaje, avisosViaje]);
@@ -2316,7 +2354,7 @@ export default function DesplazamientoPage() {
       !enCasa && salida
         ? {
             que: "Salida",
-            valor: `${diaLargo(salida.dia.fecha).split(" ")[0].toLowerCase()} ${aHora(salida.cita.minuto)}${viaje.origen ? ` · desde ${viaje.origen}` : ""}`,
+            valor: `${diaLargo(salida.dia.fecha).split(" ")[0].toLowerCase()} ${tieneHora(salida.cita) ? aHora(salida.cita.minuto) : "· hora por fijar"}${viaje.origen ? ` · desde ${viaje.origen}` : ""}`,
           }
         : null,
       viaje.fecha
@@ -2331,9 +2369,10 @@ export default function DesplazamientoPage() {
             que: guardado ? "Horario" : "Horario propuesto",
             valor:
               dias
-                .filter((d) => d.citas.length > 0)
+                /* 16/11/2026: el tramo de cada día sólo con las citas que tienen hora (las otras van «por fijar» en «Cómo va el viaje»). */
+                .filter((d) => d.citas.some(tieneHora))
                 .map((d) => {
-                  const orden = [...d.citas].sort((a, b) => a.minuto - b.minuto);
+                  const orden = d.citas.filter(tieneHora).sort((a, b) => a.minuto - b.minuto);
                   const dia = diaLargo(d.fecha).split(" ")[0].toLowerCase();
                   const desde = aHora(orden[0].minuto);
                   const ultimo = orden[orden.length - 1].minuto;
@@ -2444,7 +2483,7 @@ export default function DesplazamientoPage() {
                   */}
                   {viaje && (
                     <>
-                      <Button tone="primary" icon={Download} onClick={() => setExportando(true)} title={motivoSacar || undefined}>
+                      <Button tone="primary" icon={Download} onClick={pulsaSacar} title={motivoSacar || undefined}>
                         {rotuloSacar}
                       </Button>
                       {/* Desde xl la vista previa ya está a la vista, a la derecha: el botón sobra. */}
@@ -3501,7 +3540,7 @@ export default function DesplazamientoPage() {
                   */}
                   <div className={`pointer-events-none fixed inset-x-0 bottom-0 z-40 justify-start px-4 pb-[max(12px,env(safe-area-inset-bottom))] sm:hidden ${bajado ? "flex" : "hidden"}`}>
                     <span className="pointer-events-auto rounded-xl shadow-lg shadow-black/30">
-                      <Button tone="primary" icon={Download} onClick={() => setExportando(true)} title={motivoSacar || undefined}>
+                      <Button tone="primary" icon={Download} onClick={pulsaSacar} title={motivoSacar || undefined}>
                         {rotuloSacar}
                       </Button>
                     </span>
