@@ -38,6 +38,7 @@ import { Check, FolderOpen, Layers, Link2, RefreshCw, Upload } from "lucide-reac
 import { Button } from "@/components/abp/ui";
 import type { FuenteVideo } from "@/lib/coding/modelo";
 import { NotaPlegable } from "@/components/coding/piezas";
+import { claveClub } from "@/lib/rivals/mismoClub";
 
 type VideoDePartido = {
   ruta: string;
@@ -102,18 +103,50 @@ function nombreDeEnlace(url: string) {
   }
 }
 
+/*
+| 16/11/2026 (fútbol): la carpeta sólo enseña los vídeos del equipo elegido.
+| Con Real Murcia salía un «Villarreal B - CD Teruel». Se cruza por las
+| palabras del nombre sin siglas (claveClub): «Real Murcia» → «murcia».
+*/
+function esDelEquipo(nombreVideo: string, equipo: string) {
+  const palabras = claveClub(equipo)
+    .split(" ")
+    .filter((palabra) => palabra.length >= 4);
+
+  if (palabras.length === 0) return true;
+
+  const video = ` ${claveClub(nombreVideo)} `;
+
+  return palabras.some((palabra) => video.includes(palabra));
+}
+
 export function SelectorFuente({
   fuente,
   videos,
+  equipo,
   onElegir,
 }: {
   fuente: FuenteVideo | null;
   /** Los que ya están en la sesión, para no ofrecerlos como novedad. */
   videos?: FuenteVideo[];
+  /** El rival elegido: la carpeta enseña sólo sus vídeos (los demás, plegados). */
+  equipo?: string;
   /** Los vídeos elegidos. El primero es el que se pone delante. */
   onElegir: (elegidos: VideoElegido[]) => void;
 }) {
-  const [carpeta, setCarpeta] = useState<Carpeta | null>(null);
+  const [carpetaEntera, setCarpeta] = useState<Carpeta | null>(null);
+  const [verOtros, setVerOtros] = useState(false);
+
+  /* Los de otros equipos se quedan fuera hasta que se pidan. */
+  const otros =
+    carpetaEntera && equipo
+      ? carpetaEntera.videos.filter((video) => !esDelEquipo(video.nombre, equipo)).length
+      : 0;
+  const carpeta =
+    carpetaEntera && equipo && !verOtros
+      ? { ...carpetaEntera, videos: carpetaEntera.videos.filter((video) => esDelEquipo(video.nombre, equipo)) }
+      : carpetaEntera;
+  const sinNadaDelEquipo = Boolean(equipo) && !verOtros && carpeta !== null && carpeta.videos.length === 0 && otros > 0;
   const [cargando, setCargando] = useState(true);
   const [enlace, setEnlace] = useState("");
 
@@ -173,6 +206,16 @@ export function SelectorFuente({
     <div className="min-w-0 space-y-4">
       {/* ------------------------- LA CARPETA ------------------------- */}
 
+      {sinNadaDelEquipo ? (
+        <button
+          type="button"
+          onClick={() => setVerOtros(true)}
+          className="flex w-full items-center gap-2 text-left text-[11px] text-white/55 underline-offset-4 transition hover:text-white hover:underline"
+        >
+          <FolderOpen size={13} className="shrink-0 text-[#C8A96B]" />
+          La carpeta de partidos no tiene vídeos de {equipo} · ver {otros === 1 ? "el de otro equipo" : `los ${otros} de otros equipos`}
+        </button>
+      ) : (
       <div className="min-w-0">
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <p className="flex items-center gap-2 text-[11px] uppercase tracking-[0.16em] text-white/35">
@@ -280,6 +323,16 @@ export function SelectorFuente({
           )
         )}
 
+        {equipo && otros > 0 && (
+          <button
+            type="button"
+            onClick={() => setVerOtros((valor) => !valor)}
+            className="mt-1.5 text-[11px] text-white/50 underline-offset-4 transition hover:text-white hover:underline"
+          >
+            {verOtros ? `Sólo los de ${equipo}` : `Ver también ${otros === 1 ? "el de otro equipo" : `los ${otros} de otros equipos`}`}
+          </button>
+        )}
+
         {carpeta && !carpeta.ffmpeg && (
           <p className="mt-2 rounded-lg border border-amber-400/25 bg-amber-400/[0.07] px-3 py-2 text-[11px] leading-relaxed text-amber-200/80">
             En este servidor no está el motor de vídeo: se puede codificar y
@@ -287,6 +340,7 @@ export function SelectorFuente({
           </p>
         )}
       </div>
+      )}
 
       {/* -------------------------- EL ENLACE ------------------------- */}
 

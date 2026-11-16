@@ -1308,16 +1308,19 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Coding de Partido",
     resumen: "Marcar las acciones de nuestro partido o de un rival y sacar los cortes en vídeo.",
     origen: "El vídeo lo pone el usuario (carpeta de partidos, enlace o su ordenador); los cortes, las listas y la configuración se guardan solos en Supabase («coding:…»). Partidos, del calendario de BeSoccer; rivales y plantillas, de la hoja RIVALES.",
-    revisada: "2026-11-12",
+    revisada: "2026-11-16",
     bloques: [
       {
         titulo: "Qué se codifica",
         filas: [
           { que: "Nuestro partido · Un rival", es: "El conmutador de arriba; cada partido y cada rival tiene su propia sesión de cortes" },
           { que: "Partido", es: "Del calendario; «Otro» añade un rival que no está (amistoso, vídeo propio)" },
-          { que: "Rival", es: "Viene puesto el del último partido; si un vídeo lleva el nombre de otro equipo, avisa con un botón para cada uno" },
+          { que: "Rival", es: "Viene puesto el de la jornada, arriba y aparte («El de esta semana»); los demás, debajo por calendario. Si un vídeo lleva el nombre de otro equipo, avisa con un botón para cada uno" },
+          { que: "Guardado", es: "Cuántos cortes lleva la sesión y la hora del último guardado; «Sin guardar» mientras quede algo por mandar" },
           { que: "Marcador", es: "Escudos, resultado, competición y fecha, con los cortes que lleva cada categoría y cada comportamiento", cuenta: "Cuenta los cortes de todo el partido, no sólo los del vídeo abierto" },
-          { que: "El vídeo", es: "Carpeta de partidos (la del ordenador donde corre la app), «Desde un enlace» o «Abrir ficheros» del propio ordenador; se pueden abrir varios a la vez" },
+          { que: "El vídeo", es: "Carpeta de partidos (la del ordenador donde corre la app), «Desde un enlace» o «Abrir ficheros» del propio ordenador; se pueden abrir varios a la vez. En el móvil, sin vídeo abierto, va lo primero" },
+          { que: "Carpeta de partidos", es: "Sólo los vídeos del rival elegido; los de otros equipos, plegados tras «Ver también». Si no hay ninguno suyo, la carpeta queda en una línea", cuenta: "Un vídeo es del rival si su nombre lleva alguna palabra del rival sin siglas (Real Murcia → «murcia»)" },
+          { que: "Para empezar", es: "Sin un solo corte, en vez del panel de marcar y la lista vacía: tres pasos (abrir el vídeo, elegir jugador, marcar con I y O), con lo hecho tachado y lo siguiente en oro" },
           { que: "Este rival no tiene plantilla", es: "Se codifica igual por dorsales o sólo con los comportamientos colectivos" },
           { que: "Retoma tu sesión", es: "Aviso de sesión abierta; darla por terminada no borra ningún corte" },
         ],
@@ -1326,7 +1329,8 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Marcar",
         filas: [
           { que: "Los cuatro tiempos", es: "Inicio y fin marcados más el aire de antes y de después: lo que se exporta es el corte con márgenes", cuenta: "Margen antes y después, en «Configuración» (ms)" },
-          { que: "Marcar inicio (I y O)", es: "Abre y cierra el corte; mientras está abierto va en rojo con piloto" },
+          { que: "Mandos", es: "Reproducir, Fotograma ‹ y › (teclas ← y →; con ⇧, diez), velocidad: 0,5× · 1× · 2× · 4× · 8× a la vista y el resto (0,25× a 20×) en el menú; en el móvil, sólo el menú. Sin vídeo abierto, los mandos no salen" },
+          { que: "Marcar inicio (I y O)", es: "Abre y cierra el corte; mientras está abierto va en rojo con piloto. La leyenda del teclado va al lado" },
           { que: "Un toque (Intro)", es: "Coge los segundos de antes y de después del instante que se fijan en «Configuración»" },
           { que: "Jugadores · Comportamientos colectivos · Categorías", es: "Quién (cada uno con su tecla), lo del equipo (con ⇧) y, si se quiere, la categoría con su fase" },
           { que: "Pantalla completa", es: "El vídeo a todo el alto, con la columna de cortes para pasarlos y ordenarlos y el selector de jugador y categoría dentro" },
