@@ -872,7 +872,7 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
                 editandoManual ? "border-[#C8A96B] bg-[#C8A96B]/15 text-[#C8A96B]" : "border-white/15 text-white/80 hover:bg-white/10"
               }`}
             >
-              <Pencil size={14} /> {editandoManual ? "Terminar" : "Editar"}
+              <Pencil size={14} /> {editandoManual ? "Terminar" : ambito === "area" ? "Editar láminas" : "Editar"}
             </button>
           )}
 
