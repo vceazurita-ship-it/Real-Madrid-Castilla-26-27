@@ -366,7 +366,21 @@ export type VideoDeLista = {
   publicado: string;
   /** Su sitio en la lista, por si alguien la ha ordenado a mano. */
   posicion: number;
+  /** Lo que dura, en segundos (16/11/2026): el pie de la ficha dice «0:42» en vez de «corte 4». */
+  duracion?: number;
 };
+
+/** «PT1M5S» → 65. Lo que no se entiende, null. */
+function segundosIso(iso: string | undefined): number | null {
+  const m = /^P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/.exec(iso ?? "");
+
+  if (!m) return null;
+
+  const [, d, h, min, s] = m.map((v) => Number(v ?? 0));
+  const total = d * 86400 + h * 3600 + min * 60 + s;
+
+  return total > 0 ? total : null;
+}
 
 /**
  * Los vídeos de una lista, de la primera página a la última.
@@ -436,6 +450,30 @@ export async function dameVideosDeLista(
 
     pagina = datos.nextPageToken;
   } while (pagina && videos.length < tope);
+
+  /*
+  | LA DURACIÓN DE CADA CORTE (16/11/2026, jueces del scout individual): la
+  | lista no la trae; `videos?part=contentDetails` sí, de 50 en 50 y a un punto
+  | de cuota por llamada. Si falla, los vídeos salen igual, sin duración.
+  */
+  try {
+    for (let i = 0; i < videos.length; i += 50) {
+      const tanda = videos.slice(i, i + 50);
+      const datos = await llamaApi<{ items?: { id?: string; contentDetails?: { duration?: string } }[] }>(
+        acceso,
+        `videos?part=contentDetails&maxResults=50&id=${tanda.map((v) => encodeURIComponent(v.id)).join(",")}`,
+      );
+      const porId = new Map((datos.items ?? []).map((item) => [item.id ?? "", segundosIso(item.contentDetails?.duration)]));
+
+      for (const video of tanda) {
+        const segundos = porId.get(video.id);
+
+        if (segundos) video.duracion = segundos;
+      }
+    }
+  } catch (error) {
+    console.warn("[youtube] sin duraciones", error);
+  }
 
   /*
   | Los vídeos borrados o puestos en privado siguen en la lista con el título

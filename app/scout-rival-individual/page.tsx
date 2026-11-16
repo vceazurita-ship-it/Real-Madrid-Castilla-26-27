@@ -18,7 +18,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { Eye, Search, Users, Video as IconoVideo } from "lucide-react";
+import { ChevronDown, Eye, Search, Users, Video as IconoVideo } from "lucide-react";
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { PanelVisionados } from "@/components/visionados/PanelVisionados";
 
@@ -79,6 +79,12 @@ export default function ScoutRivalIndividual() {
 
   const [equipoPedido, setEquipoPedido] = useState("");
   const [buscaEquipo, setBuscaEquipo] = useState("");
+  /*
+  | LA TIRA PLEGADA (16/11/2026, análisis): con el próximo rival ya puesto, los
+  | diecinueve escudos ocupaban la pantalla antes del primer vídeo. Queda una
+  | fila con el elegido y «Cambiar equipo».
+  */
+  const [cambiandoEquipo, setCambiandoEquipo] = useState(false);
 
   /*
   | El orden de la fila es el del calendario, no el alfabeto.
@@ -184,7 +190,6 @@ export default function ScoutRivalIndividual() {
     };
   }, []);
 
-  const vistasTotales = useMemo(() => Object.values(vistasPorVideo).reduce((suma, n) => suma + n, 0), [vistasPorVideo]);
 
   /* Los titulares del once probable marcado en Plantillas rivales (sólo se lee). */
   const [titularesDe, setTitularesDe] = useState<{ equipo: string; claves: string[] }>({ equipo: "", claves: [] });
@@ -332,7 +337,8 @@ export default function ScoutRivalIndividual() {
               onCambia={setVista}
               opciones={[
                 { clave: "clips", label: "Clips", icono: IconoVideo },
-                { clave: "visionados", label: "Visionados", icono: Eye, cuenta: vistasTotales || undefined },
+                /* Sin la cifra suelta (16/11/2026, marketing): «Visionados 499» no decía de qué; dentro se explica quién y cuándo. */
+                { clave: "visionados", label: "Visionados en YouTube", corto: "Visionados", icono: Eye },
               ]}
             />
           </div>
@@ -350,6 +356,31 @@ export default function ScoutRivalIndividual() {
           {/* ---------------------- A QUIÉN SE MIRA ------------------------ */}
 
           <section className="mt-6 min-w-0 rounded-3xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
+            {equipo && !cambiandoEquipo && !buscaEquipo && (
+              <div className="flex flex-wrap items-center gap-3">
+                <EscudoEquipo nombre={equipo} escudo={escudoDe(equipo)} lado={28} />
+                <span className="min-w-0 truncate text-sm font-semibold text-white">{equipo}</span>
+                {esElProximo(orden, equipo) && (
+                  <span className="rounded-full bg-[#C8A96B] px-1.5 py-px text-xs font-bold uppercase tracking-wider text-black">Próximo</span>
+                )}
+                <ChapaJornada jornada={jornadaDeEquipo(orden, equipo)} activo />
+                <button
+                  type="button"
+                  onClick={() => setCambiandoEquipo(true)}
+                  className="flex items-center gap-1 rounded-lg border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2.5 py-1.5 text-[12px] text-[#C8A96B]"
+                >
+                  Cambiar equipo <ChevronDown size={13} />
+                </button>
+                <Link
+                  href={`/rivals?equipo=${encodeURIComponent(equipo)}`}
+                  className="text-[11px] text-[#C8A96B] transition hover:underline sm:ml-auto"
+                >
+                  Plantilla de {equipo}, con la ficha de cada jugador →
+                </Link>
+              </div>
+            )}
+
+            <div className={equipo && !cambiandoEquipo && !buscaEquipo ? "hidden" : undefined}>
             <div className="flex flex-wrap items-center gap-3">
               <span className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-white/40">
                 <Users size={13} />
@@ -424,7 +455,11 @@ export default function ScoutRivalIndividual() {
                   <button
                     key={nombre}
                     type="button"
-                    onClick={() => setEquipoPedido(nombre)}
+                    onClick={() => {
+                      setEquipoPedido(nombre);
+                      setCambiandoEquipo(false);
+                      setBuscaEquipo("");
+                    }}
                     title={
                       proximo
                         ? `${nombre} — ${etiquetaDelProximo(orden) ?? "próximo partido"}`
@@ -464,6 +499,7 @@ export default function ScoutRivalIndividual() {
                 </p>
               )}
             </div>
+            </div>
           </section>
 
           {/* ---------------------------- VÍDEOS --------------------------- */}
@@ -478,6 +514,7 @@ export default function ScoutRivalIndividual() {
                 equipo={equipo}
                 plantilla={plantilla}
                 visionados={vistasPorVideo}
+                equipos={equipos}
               />
             ) : (loading || !ordenListo) && !lento ? (
               <EsqueletoPantalla titulo="las plantillas rivales" cifras={0} paneles={1} />

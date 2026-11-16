@@ -17,7 +17,7 @@ import { filaPropia, findInforme } from "@/lib/rivals/informe";
 import { aJornada, type FilaRival } from "@/lib/abp/jornada";
 import { mismoClub } from "@/lib/rivals/mismoClub";
 import { cargaDatosMarcas } from "@/lib/abp/marcas-datos";
-import { motivoAtacante, ordenaAtacantes, ordenaMarcadores, type Atacante } from "@/lib/abp/marcas-corner";
+import { motivoAtacante, ordenaAtacantes, ordenaMarcadores, type Atacante, type Marcador } from "@/lib/abp/marcas-corner";
 import { usePlayers } from "@/hooks/usePlayers";
 import { useRivalInforme } from "@/hooks/useRivalInforme";
 import Link from "next/link";
@@ -64,8 +64,36 @@ const POCOS_CASOS = 15;
 const esTendencia = (fila: Fila) =>
   fila.unidad === "porcentaje" && !!fila.base && (fila.base.arriba < POCOS_CASOS || fila.base.abajo < 25);
 
-/** «1 de cada 10» redondeado hacia arriba: el objetivo de una tarea sale de la cifra. */
-const deCadaDiez = (porcentaje: number) => Math.min(10, Math.max(1, Math.ceil(porcentaje / 10)));
+/*
+| NUESTRO NOMBRE, CON DORSAL E INICIAL (16/11/2026, fútbol): «Joan con A.
+| González» y «Mario con Joan Rojas» confundían a nuestro Joan con su Joan
+| Rojas. Ahora «5 J. Martínez con 6 A. González»: dorsal, inicial y primer
+| apellido (con sus partículas: «de la Fuente»).
+*/
+const PARTICULAS = new Set(["de", "del", "la", "las", "los", "da", "dos", "van", "von", "di"]);
+
+function inicialApellido(nombre: string) {
+  const limpio = nombre.trim().replace(/\s+/g, " ");
+  const bonito =
+    limpio === limpio.toUpperCase() && /[A-ZÁÉÍÓÚÑ]{2}/.test(limpio)
+      ? limpio.toLowerCase().replace(/(^|[\s.'-])(\p{L})/gu, (_, sep: string, letra: string) => sep + letra.toUpperCase())
+      : limpio;
+  const trozos = bonito.split(" ");
+
+  if (trozos.length < 2 || trozos[0].endsWith(".")) return bonito;
+
+  const apellido: string[] = [];
+
+  for (const t of trozos.slice(1)) {
+    apellido.push(t);
+    if (!PARTICULAS.has(t.toLowerCase())) break;
+  }
+
+  return `${trozos[0].charAt(0)}. ${apellido.join(" ")}`;
+}
+
+/** «Córner con remate», dicho la primera vez que sale (16/11/2026, marketing). */
+const QUE_ES_CORNER_CON_REMATE = "córner con remate es el que acaba en un tiro de cualquiera, vaya o no a puerta";
 
 /*
 | «CÓMO SE CUENTA», UNA VEZ Y PLEGADO (11/11/2026, análisis y marketing): el
@@ -235,8 +263,13 @@ function consignaOfensiva(aspecto: Aspecto | undefined, equipos: number): { fras
 
   if (conRemate) {
     partes.push({
-      frase: `como le rematan el ${cifra1(conRemate.valor, conRemate.unidad)} de los córners${conRemate.base ? ` (${Math.round(conRemate.base.arriba)} de ${Math.round(conRemate.base.abajo)})` : ""}, con la mediana en ${cifra1(conRemate.mediana, conRemate.unidad)}, cargar el área con nuestros mejores rematadores en cada córner`,
-      tarea: `córner con cinco en el área y bloqueo al que defiende el primer palo; objetivo: rematar ${deCadaDiez(conRemate.valor)} de cada 10 córners`,
+      frase: `como le rematan el ${cifra1(conRemate.valor, conRemate.unidad)} de los córners${conRemate.base ? ` (${Math.round(conRemate.base.arriba)} de ${Math.round(conRemate.base.abajo)})` : ""}, con la mediana de la liga en ${cifra1(conRemate.mediana, conRemate.unidad)} (${QUE_ES_CORNER_CON_REMATE}), cargar el área con nuestros mejores rematadores en cada córner`,
+      /*
+      | El objetivo sale del dato (16/11/2026, fútbol y marketing): «rematar 5
+      | de cada 10» era una cifra redonda inventada. Ahora es lo que le rematan
+      | sus rivales, con su fuente y su unidad, y la mediana como referencia.
+      */
+      tarea: `córner con cinco en el área y bloqueo al que defiende el primer palo; objetivo: que acabe en remate el ${cifra1(conRemate.valor, conRemate.unidad)} de nuestros córners, lo que le rematan sus rivales (Wyscout${conRemate.partidos ? `, ${conRemate.partidos} partidos` : ""}), por encima de la mediana de la liga (${cifra1(conRemate.mediana, conRemate.unidad)})`,
     });
   }
 
@@ -388,7 +421,7 @@ export function AbpWyscoutRival({
 
     /* v=5 (11/11/2026): la respuesta trae el mínimo y el máximo de la liga para la barra. */
     traeJson<{ ok?: boolean } & Partial<Datos>>(
-      `/api/data-analisis?abpRival=${encodeURIComponent(equipo)}${ambito === "area" ? "&ambito=area" : ""}&v=5`,
+      `/api/data-analisis?abpRival=${encodeURIComponent(equipo)}${ambito === "area" ? "&ambito=area" : ""}&v=6`,
     )
       .then((r) => {
         if (cancelado) return;
@@ -447,7 +480,7 @@ export function AbpWyscoutRival({
   | valor por arriba. Sólo cuenta; no escribe nada en la pizarra.
   */
   const { players } = usePlayers();
-  const [marcasDe, setMarcasDe] = useState<{ equipo: string; filas: { nuestro: string; suyo: Atacante }[]; fuente: string } | null>(null);
+  const [marcasDe, setMarcasDe] = useState<{ equipo: string; filas: { nuestro: Marcador; suyo: Atacante }[]; atacantes: Atacante[]; fuente: string } | null>(null);
 
   useEffect(() => {
     if (ambito !== "abp" || !equipo || players.length === 0) return;
@@ -459,20 +492,20 @@ export function AbpWyscoutRival({
         if (!vivo) return;
 
         if (!d) {
-          setMarcasDe({ equipo, filas: [], fuente: "" });
+          setMarcasDe({ equipo, filas: [], atacantes: [], fuente: "" });
           return;
         }
 
         const nuestros = ordenaMarcadores(d.plantel.filter((m) => m.titular));
         const suyos = ordenaAtacantes(d.atacantes).filter((a) => a.remates > 0 || a.remataAbp || (a.altura ?? 0) >= 183);
-        const filas = suyos.slice(0, 3).flatMap((suyo, i) => (nuestros[i] ? [{ nuestro: nuestros[i].nombre, suyo }] : []));
+        const filas = suyos.slice(0, 3).flatMap((suyo, i) => (nuestros[i] ? [{ nuestro: nuestros[i], suyo }] : []));
 
-        setMarcasDe({ equipo, filas, fuente: d.fuente });
+        setMarcasDe({ equipo, filas, atacantes: d.atacantes, fuente: d.fuente });
       })
       .catch((error) => {
         console.error("[abp-rival] marcas", error);
 
-        if (vivo) setMarcasDe({ equipo, filas: [], fuente: "" });
+        if (vivo) setMarcasDe({ equipo, filas: [], atacantes: [], fuente: "" });
       });
 
     return () => {
@@ -614,6 +647,14 @@ export function AbpWyscoutRival({
       : nombre;
   };
 
+  /* Nuestro jugador con dorsal e inicial; el suyo con dorsal y el nombre de Plantillas. */
+  const nuestroVisible = (m: Marcador) => {
+    const ficha = players.find((p) => p.id === m.playerId);
+
+    return `${ficha?.dorsal ? `${ficha.dorsal} ` : ""}${inicialApellido(ficha?.nombre || m.nombre)}`;
+  };
+  const suyoVisible = (a: Atacante) => `${String(a.dorsal ?? "").trim() ? `${String(a.dorsal).trim()} ` : ""}${nombreVisible(a.nombre)}`;
+
   /* Sin etiquetas de «sacador», los lanza quien más saca según Wyscout. */
   const lanzadoresWyscout = datos?.lanzadores ?? [];
 
@@ -666,7 +707,66 @@ export function AbpWyscoutRival({
     : [];
   const rematanFuera = titulares ? porAltura(rematan.filter((uno) => !esTitular(uno))) : [];
   const rematanVisibles = titulares ? [...titularesQueRematan, ...rematanFuera] : porAltura(rematan);
-  const conRemates = rematanVisibles.some((uno) => uno.remates > 0);
+
+  /*
+  | LA TABLA «REMATAN» CON TODOS LOS EMPAREJADOS (16/11/2026, fútbol): sólo
+  | salía A. González, el etiquetado, mientras «Qué hacemos» nombraba también a
+  | Joan Rojas y a Flakus. Ahora van primero los de la propuesta de marcas, con
+  | su altura y su % de duelos aéreos, y después el resto de rematadores.
+  */
+  type FilaRemata = {
+    clave: string;
+    dorsal: string;
+    nombre: string;
+    altura: number | null;
+    alturaHoja?: number | null;
+    aereoPct: number | null;
+    duelos: number | null;
+    remates: number;
+    fuera: boolean;
+  };
+  const atacantesWy = marcasDe?.equipo === equipo ? marcasDe.atacantes : [];
+  const filasRemata: FilaRemata[] = [];
+  const yaEsta = (nombre: string) => filasRemata.some((f) => normalizePlayerName(f.nombre) === normalizePlayerName(nombre));
+
+  for (const f of marcas?.filas ?? []) {
+    const nombre = nombreVisible(f.suyo.nombre);
+
+    if (yaEsta(nombre)) continue;
+
+    filasRemata.push({
+      clave: f.suyo.clave || nombre,
+      dorsal: String(f.suyo.dorsal ?? "").trim(),
+      nombre,
+      altura: f.suyo.altura,
+      alturaHoja: f.suyo.alturaHoja,
+      aereoPct: f.suyo.duelos ? f.suyo.aereoPct : null,
+      duelos: f.suyo.duelos,
+      remates: f.suyo.remates,
+      fuera: false,
+    });
+  }
+
+  for (const uno of rematanVisibles) {
+    if (yaEsta(uno.nombre)) continue;
+
+    const wy = casaNombre(uno.nombre, atacantesWy, (a) => a.nombre);
+
+    filasRemata.push({
+      clave: uno.id || uno.nombre,
+      dorsal: String(uno.dorsal ?? wy?.dorsal ?? "").trim(),
+      nombre: uno.nombre,
+      altura: alturaDe(uno) || wy?.altura || null,
+      alturaHoja: uno.alturaHoja,
+      aereoPct: wy?.duelos ? wy.aereoPct : null,
+      duelos: wy?.duelos ?? null,
+      remates: uno.remates,
+      fuera: !!titulares && esTitular(uno) === false,
+    });
+  }
+
+  const conRemates = filasRemata.some((uno) => uno.remates > 0);
+  const conAereos = filasRemata.some((uno) => uno.aereoPct != null);
   /*
   | 07/11/2026 (fútbol): «nuestro central más alto» salía para dos rematadores
   | distintos. Ahora se empareja por orden: nuestro más alto con su primer
@@ -677,7 +777,7 @@ export function AbpWyscoutRival({
   const ORDINAL = ["nuestro jugador más alto", "nuestro segundo más alto"];
   const consigna = [
     marcas
-      ? `en el córner, ${marcas.filas.map((f) => `${f.nuestro} con ${nombreVisible(f.suyo.nombre)}${motivoAtacante(f.suyo) ? ` (${motivoAtacante(f.suyo)})` : ""}`).join("; ")}`
+      ? `en el córner, ${marcas.filas.map((f) => `${nuestroVisible(f.nuestro)} con ${suyoVisible(f.suyo)}${motivoAtacante(f.suyo) ? ` (${motivoAtacante(f.suyo)})` : ""}`).join("; ")}`
       : principales.length
         ? `en el córner, ${principales.map((uno, i) => `${ORDINAL[i]} con ${conCm(uno)}`).join(" y ")}`
         : "",
@@ -716,11 +816,24 @@ export function AbpWyscoutRival({
   const partidosWy = aspectos[0]?.filas[0]?.partidos ?? null;
   const ofensiva = ambito === "abp" ? consignaOfensiva(aspectos.find((a) => a.clave === "abpDef"), nEquipos) : [];
   const conTendencia = hayGoles && !!goles && [goles.aFavor, goles.enContra].some((g) => g.abp > 0 && (g.abp < 10 || g.partidos < 10));
-  const hayEstilo = aspectos.some((a) => a.filas.map(orientada).some((f) => f.mejorAlto == null));
+  /* Córners, faltas y penaltis van en la tabla de arriba (16/11/2026); las tarjetas, con los porcentajes. */
+  const VOLUMEN = ["Córners", "Faltas lanzadas", "Penaltis"];
+  const abpOf = aspectos.find((a) => a.clave === "abpOf");
+  const abpDef = aspectos.find((a) => a.clave === "abpDef");
+  const volumen =
+    ambito === "abp"
+      ? VOLUMEN.map((nombre) => ({
+          nombre,
+          favor: abpOf?.filas.find((f) => f.nombre === nombre) ?? null,
+          contra: abpDef?.filas.find((f) => f.nombre === nombre) ?? null,
+        })).filter((v) => v.favor || v.contra)
+      : [];
+  const enTarjeta = (fila: Fila) => !(volumen.length > 0 && VOLUMEN.includes(fila.nombre));
+  const hayEstilo = aspectos.some((a) => a.filas.filter(enTarjeta).map(orientada).some((f) => f.mejorAlto == null));
 
   const esperaQuien =
     ambito === "abp" && !plazoCumplido && (!wyscoutListo || !onceListo || plantilla.length === 0 || (players.length > 0 && !marcasListas));
-  const salenQuien = ambito === "abp" && !esperaQuien && wyscoutListo && (rematan.length > 0 || sacan.length > 0);
+  const salenQuien = ambito === "abp" && !esperaQuien && wyscoutListo && (filasRemata.length > 0 || sacan.length > 0);
 
   const centros = ambito === "area" ? queHacemosConCentros(aspectos, equipo, nEquipos) : null;
 
@@ -780,6 +893,10 @@ export function AbpWyscoutRival({
                 La cifra es de Wyscout; la decisión y la tarea son criterio de juego a partir de ella.{" "}
                 <Link href="/abp-pizarra" className="font-semibold text-[#C8A96B] hover:underline">
                   Preparar las rutinas en la pizarra de balón parado →
+                </Link>{" "}
+                {/* La tarea, también al microciclo (16/11/2026, análisis). */}
+                <Link href="/abp-microciclo" className="font-semibold text-[#C8A96B] hover:underline">
+                  Meter la tarea en el microciclo de ABP →
                 </Link>
               </p>
             </div>
@@ -839,7 +956,70 @@ export function AbpWyscoutRival({
             </p>
           )}
 
+          {volumen.length > 0 && (
+            /*
+            | CUÁNTO BALÓN PARADO HAY, ARRIBA (16/11/2026, análisis): córners,
+            | faltas y penaltis por partido, los suyos y los que le sacan, contra
+            | la mediana de los 20 y con el sentido (▲ le conviene, ▼ no).
+            */
+            <div className="mb-4 border-b border-white/10 pb-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">Cuánto balón parado hay · por partido</p>
+              <table className="mt-1.5 w-full table-fixed text-sm text-white/85">
+                <thead>
+                  <tr className="text-left text-[11px] text-white/50">
+                    <th className="w-[24%] py-0.5 pr-2 font-semibold" />
+                    <th className="py-0.5 pr-2 font-semibold">Los suyos (a favor)</th>
+                    <th className="py-0.5 font-semibold">Los que le sacan (en contra)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {volumen.map((v) => (
+                    <tr key={v.nombre} className="border-t border-white/[0.06] align-top">
+                      <td className="py-1.5 pr-2 text-white/80">{v.nombre}</td>
+                      {[v.favor, v.contra].map((fila, i) => {
+                        if (!fila) return <td key={i} className="py-1.5 pr-2" />;
+
+                        const lee = lectura(fila.percentil, nEquipos, fila.mejorAlto);
+                        const total = v.nombre === "Penaltis" && fila.partidos ? Math.round(fila.valor * fila.partidos) : null;
+
+                        return (
+                          <td key={i} className="py-1.5 pr-2">
+                            <span className="font-semibold tabular-nums text-white">{cifra1(fila.valor, fila.unidad)}</span>
+                            {total != null && (
+                              <span className="ml-1 text-[11px] text-white/55">
+                                ({total} en {fila.partidos})
+                              </span>
+                            )}
+                            <span className="ml-1.5 text-[11px] text-white/55">mediana {cifra1(fila.mediana, fila.unidad)}</span>
+                            <span
+                              className="block text-[11px]"
+                              style={{
+                                color: lee.bueno === true ? "var(--rmcf-rate-good, #15803D)" : lee.bueno === false ? "var(--rmcf-rate-low, #DC2626)" : undefined,
+                              }}
+                            >
+                              {lee.bueno === true ? "▲ " : lee.bueno === false ? "▼ " : ""}
+                              {lee.texto}
+                            </span>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="mt-1 text-[11px] text-white/50">
+                ▲ le conviene · ▼ no le conviene: más a favor es mejor para él, más en contra es peor.
+              </p>
+            </div>
+          )}
+
           <ComoSeCuenta ambito={ambito} />
+
+          {ambito === "abp" && !ofensiva.some((o) => o.frase.includes(QUE_ES_CORNER_CON_REMATE)) && (
+            <p className="mb-2 text-[12px] text-white/60">
+              {QUE_ES_CORNER_CON_REMATE.charAt(0).toUpperCase() + QUE_ES_CORNER_CON_REMATE.slice(1)}; «x de y» son los córners con remate y los córners.
+            </p>
+          )}
 
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
             {aspectos.map((aspecto) => (
@@ -854,7 +1034,7 @@ export function AbpWyscoutRival({
                 </h3>
 
                 <ul className="mt-2 space-y-2">
-                  {aspecto.filas.map(orientada).map((fila) => {
+                  {aspecto.filas.filter(enTarjeta).map(orientada).map((fila) => {
                     const lee = lectura(fila.percentil, nEquipos, fila.mejorAlto);
                     const tendencia = esTendencia(fila);
                     /* En tendencia, sin flecha ni color (11/11/2026, análisis). */
@@ -937,7 +1117,7 @@ export function AbpWyscoutRival({
 
       {salenQuien && (
         <Panel
-          title={sacan.length > 0 && rematan.length > 0 ? "Quién lo lanza y quién remata" : sacan.length > 0 ? "Quién lo lanza" : "Quién remata"}
+          title={sacan.length > 0 && filasRemata.length > 0 ? "Quién lo lanza y quién remata" : sacan.length > 0 ? "Quién lo lanza" : "Quién remata"}
           subtitle={`${lanzaDeWyscout ? "Lanzan: Wyscout, estimado (≈) con lanzamientos por 90 × minutos" : "Lanzan: etiquetas de la plantilla"}. Rematan: etiquetas de Plantillas rivales${conRemates ? " y remates contados en nuestras hojas de ABP" : ""}${titulares ? ", cruzados con su once probable" : ""}.`}
           icon={BarChart3}
         >
@@ -990,7 +1170,7 @@ export function AbpWyscoutRival({
               </div>
             )}
 
-            {rematanVisibles.length > 0 && (
+            {filasRemata.length > 0 && (
               <div className="min-w-0">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">Rematan</p>
                 {/* Sin remates contados, la columna no sale (11/11/2026, fútbol): lo que no tiene dato no se nombra. */}
@@ -998,18 +1178,26 @@ export function AbpWyscoutRival({
                   <thead>
                     <tr className="text-left text-[11px] text-white/50">
                       <th className="py-0.5 pr-2 font-semibold">Jugador</th>
-                      <th className={`py-0.5 text-right font-semibold ${conRemates ? "pr-2" : ""}`}>Altura</th>
+                      <th className="py-0.5 pr-2 text-right font-semibold">Altura</th>
+                      {conAereos && <th className="py-0.5 pr-2 text-right font-semibold">Duelos aéreos</th>}
                       {conRemates && <th className="py-0.5 text-right font-semibold">Remates ABP</th>}
                     </tr>
                   </thead>
                   <tbody>
-                    {rematanVisibles.map((uno) => (
-                      <tr key={uno.nombre} className="border-t border-white/[0.06]">
+                    {filasRemata.map((uno) => (
+                      <tr key={uno.clave} className="border-t border-white/[0.06]">
                         <td className="py-1 pr-2">
+                          {uno.dorsal && <span className="mr-1 tabular-nums text-white/55">{uno.dorsal}</span>}
                           {uno.nombre}
-                          {titulares && esTitular(uno) === false && <span className="ml-1 text-[11px] text-white/50">fuera del once</span>}
+                          {uno.fuera && <span className="ml-1 text-[11px] text-white/50">fuera del once</span>}
                         </td>
-                        <td className={`py-1 text-right tabular-nums ${conRemates ? "pr-2" : ""}`}>{alturaDe(uno) ? `${alturaDe(uno)} cm${uno.alturaHoja ? ` · hoja ${uno.alturaHoja}` : ""}` : ""}</td>
+                        <td className="py-1 pr-2 text-right tabular-nums">{uno.altura ? `${uno.altura} cm${uno.alturaHoja ? ` · hoja ${uno.alturaHoja}` : ""}` : ""}</td>
+                        {conAereos && (
+                          <td className="py-1 pr-2 text-right tabular-nums">
+                            {uno.aereoPct != null ? `${Math.round(uno.aereoPct)} %` : ""}
+                            {uno.aereoPct != null && uno.duelos ? <span className="ml-1 text-[11px] text-white/50">de {Math.round(uno.duelos)}</span> : null}
+                          </td>
+                        )}
                         {conRemates && <td className="py-1 text-right tabular-nums">{uno.remates > 0 ? uno.remates : ""}</td>}
                       </tr>
                     ))}

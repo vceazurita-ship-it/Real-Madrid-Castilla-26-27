@@ -1473,12 +1473,13 @@ export const AYUDAS: AyudaDePagina[] = [
       "Su balón parado: cuánto peligro tiene, quién lo lanza y lo remata, qué repite, la proyección del próximo partido y el material de la jornada (clips, apuntes y láminas).",
     origen:
       "Scouting propio registrado aquí (documento «abp-rival-scout» de Supabase) o, si no lo hay, lo deducido de nuestras cuatro hojas de ABP. Sin acciones registradas, Wyscout y las etiquetas de Plantillas rivales. La proyección, de Opta. Las estaturas, de BeSoccer por encima de la hoja.",
-    revisada: "2026-11-15",
+    revisada: "2026-11-16",
     bloques: [
       {
         titulo: "Arriba",
         filas: [
-          { que: "Liga · Pretemporada", es: "Sus partidos de Primera Federación o sus amistosos; láminas y proyección, sólo en Liga" },
+          { que: "Liga · Pretemporada", es: "Dos poblaciones que no se mezclan: en Liga, sus partidos de Primera Federación (Wyscout, frente a los 20 del grupo); en Pretemporada, los amistosos de nuestras hojas. Wyscout, láminas y proyección, sólo en Liga" },
+          { que: "Pestañas · Más", es: "Las de lectura (¿Cuánto peligro tiene?, Proyección, Quién, Qué repite, Saques de banda) a la vista; las de trabajo (Apuntes y vídeo, Coding de clips, Recoger y láminas, Registrar) en el menú «Más». El atajo «Recoger la carpeta de la jornada» sólo sale con la sesión de administrador" },
           { que: "El rival", es: "Abre con el del próximo partido; «Cambiar equipo» despliega los demás, por calendario" },
           { que: "Su ataque · Su defensa", es: "Lo que genera el rival / lo que le generan a él" },
           { que: "Scouting propio · Deducido", es: "Propio: sus partidos, con sacador y rematador. Deducido: sólo contra nosotros y sin nombres. La etiqueta de arriba dice cuál se ve" },
@@ -1489,11 +1490,14 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "¿Cuánto peligro tiene?",
         filas: [
           { que: "Acciones · Remates · xG · Goles", es: "Ejecutadas (su ataque) o defendidas (su defensa) en la selección; el xG, acumulado" },
-          { que: "Peligro", es: "Las que acaban en gol u ocasión", cuenta: "acciones con gol u ocasión ÷ acciones" },
+          { que: "Peligro", es: "Las que acaban en gol u ocasión; con menos de 15 acciones detrás se rotula «tendencia» y no se pinta de rojo", cuenta: "acciones con gol u ocasión ÷ acciones" },
           { que: "Amenaza por tipo de balón parado", es: "Lo mismo por córner, falta lateral, falta directa, penalti, banda, saque de centro y de meta" },
           { que: "Lectura al pie", es: "El análisis de cada panel leído para el Castilla: en su ataque, más peligro es rojo; en su defensa, verde" },
-          { que: "Su balón parado según Wyscout", es: "Si no hay acciones: córners, remates y lo que concede frente a la liga, con «Qué hacemos» y la barra contra la liga (raya = mediana)" },
-          { que: "Quién lo lanza y quién remata", es: "Etiquetas de Plantillas (o Wyscout, ≈ lanzamientos por 90 × minutos), cruzadas con su once probable, y a quién marca cada uno de los nuestros" },
+          { que: "Su balón parado según Wyscout", es: "En Liga (con o sin acciones registradas, en su propio bloque): «Qué hacemos» y «Qué entrenamos» arriba, con enlace a la pizarra y al microciclo de ABP; luego la barra contra la liga (raya = mediana, rombo = el mejor)" },
+          { que: "Cuánto balón parado hay · por partido", es: "Córners, faltas lanzadas y penaltis, los suyos y los que le sacan, con la mediana de los 20 y el puesto. ▲ le conviene, ▼ no: más a favor es mejor para él, más en contra es peor. En penaltis, además, el total («3 en 12»)", cuenta: "Wyscout, media por partido de la temporada; total de penaltis = media × partidos" },
+          { que: "Córners con remate", es: "El córner que acaba en un tiro de cualquiera, vaya o no a puerta; «x de y» = córners con remate de sus córners", cuenta: "Tendencia, sin flecha, con menos de 15 córners con remate o 25 córners detrás" },
+          { que: "Objetivo de «Qué entrenamos»", es: "Sale del dato, no de una cifra redonda: si le rematan muchos córners, el objetivo es que acabe en remate ese mismo % de los nuestros (Wyscout), por encima de la mediana de la liga; si concede muchos, sacarle esos córners" },
+          { que: "Quién lo lanza y quién remata", es: "Etiquetas de Plantillas (o Wyscout, ≈ lanzamientos por 90 × minutos), cruzadas con su once probable. «Qué hacemos» empareja a los nuestros con dorsal, inicial y apellido («5 J. Martínez con 6 A. González») para no confundir nombres de pila. La tabla «Rematan» lista a todos los emparejados y a los etiquetados, con altura y % de duelos aéreos ganados (de cuántos)" },
           { que: "Goles a balón parado", es: "Los que marca y los que encaja: el total y los penaltis son dato; córner y falta, estimado calibrado con Opta" },
         ],
       },
@@ -3211,11 +3215,13 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Clips",
         filas: [
-          { que: "Rival", es: "La tira de escudos, ordenada por calendario: primero el próximo, con la chapa «Próximo» y su jornada" },
-          { que: "La lista", es: "Se empareja sola por el nombre del equipo; si no casa, se elige una vez y vale para todo el cuerpo técnico" },
-          { que: "Chips de jugador", es: "Índice y filtro: por puesto y, dentro, primero el once probable y luego por minutos", cuenta: "El número es cuántos cortes tiene; «Todos los vídeos» cuenta cortes, no jugadores" },
+          { que: "Rival", es: "Abre con el próximo (chapa «Próximo» y su jornada) y la tira plegada; «Cambiar equipo» despliega los escudos, ordenados por calendario" },
+          { que: "La lista", es: "Se empareja sola por el nombre del equipo; si no casa, se elige una vez y vale para todo el cuerpo técnico. Cada lista con el nombre corto del club (el de la tira) y «J» = nuestra jornada contra ese rival" },
+          { que: "Chips de jugador", es: "Índice y filtro: por puesto y, dentro, primero el once probable, luego quien más tiene que explotar (naranja) y luego por minutos", cuenta: "El número es cuántos cortes tiene; «Todos los vídeos» cuenta cortes, no jugadores" },
+          { que: "Once probable · N con vídeo de M", es: "Los titulares del once probable con algún corte, de los que tiene marcados en Plantillas rivales; por línea, del portero a la delantera" },
           { que: "Por jugador · Todos", es: "Agrupado por jugador, o todos los cortes seguidos" },
-          { que: "Ficha del corte", es: "Jugador, puesto, etiquetas y de qué va; abajo, la lista, el número de corte y las vistas en YouTube", cuenta: "Etiquetas: verde = lo que hace bien, naranja = lo que podemos explotar" },
+          { que: "Ficha del corte", es: "Jugador, puesto, etiquetas y de qué va (la acción, del título del vídeo); abajo, la jornada, el minuto si el título o la descripción lo dicen («63′») y lo que dura el corte", cuenta: "Etiquetas con su leyenda pegada: «▲ Hace bien» en verde y «▼ Explotable» en naranja. La duración la da YouTube; si no está escrito el minuto, no se pone" },
+          { que: "Sólo para el analista", es: "Con la sesión de administrador: las vistas en YouTube de cada corte y, en «Por jugador», de qué líneas no hay cortes" },
           { que: "Titular en X de Y", es: "Titularidades y partidos de la temporada, con los minutos de BeSoccer" },
           { que: "Del equipo", es: "Los cortes cuyo título no dice con seguridad de quién son" },
           { que: "Buscar · Copiar enlaces", es: "Busca en los títulos (córner, pérdida, un nombre…) y copia los enlaces de lo que se ve" },
@@ -3224,7 +3230,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Visionados",
         filas: [
-          { que: "Vistas en YouTube", es: "Vistas acumuladas de todos los clips del canal desde la jornada 1", cuenta: "«+» = vistas desde la foto anterior; se hace una al día" },
+          { que: "Vistas en YouTube", es: "Pestaña «Visionados en YouTube» (sin cifra en la pestaña): vistas acumuladas de todos los clips del canal desde la jornada 1", cuenta: "«+» = vistas desde la foto anterior; se hace una al día" },
           { que: "Clips vistos · Sin ver", es: "Cuántos clips tienen alguna vista y cuántos ninguna" },
           { que: "Vistas por clip", es: "La mediana de vistas por clip del canal" },
           { que: "El más visto", es: "El clip con más vistas, con su jugador y rival" },
@@ -3239,7 +3245,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Un dorsal repetido dentro del mismo rival en la hoja no se pinta en ninguno de los dos hasta corregirlo.",
       "/visionados lleva a esta pantalla, en la pestaña «Visionados».",
     ],
-    revisada: "2026-11-12",
+    revisada: "2026-11-16",
   },
 
   /* ==================== IDENTIDAD POSICIONAL (12/11/2026) ==================== */
