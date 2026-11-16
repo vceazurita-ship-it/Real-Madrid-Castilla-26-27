@@ -51,6 +51,7 @@ import { CASTILLA_OPTA } from "@/lib/opta";
 import { fechaCorta, NOMBRE_CASTILLA } from "@/lib/opta-analisis";
 import { CASTILLA_WYSCOUT, castillaWyscout, emparejaPartidos, enlaceConPartido, temporadaVigente, type PartidoPost } from "@/lib/post-partido";
 import { partidoEnlazado, usePartidoDeLaUrl } from "@/lib/partido-enlazado";
+import { useEtiquetadoEnVideo } from "@/hooks/useEtiquetadoEnVideo";
 
 /**
  * QUÉ TOCA EN EL MICROCICLO (16/11/2026, expertos, ronda 17): una o dos
@@ -164,7 +165,7 @@ export function PanelPostPartido({ wyscout, wyscoutCaido = false }: { wyscout: F
     [lista, enlace.fecha, enlace.rival],
   );
   const visto = lista.find((p) => p.clave === (elegido || desdeUrl)) ?? lista[0] ?? null;
-  const delVideo = useFechasDelVideo();
+  const delVideo = useEtiquetadoEnVideo();
 
   /* Lo de Wyscout para el campograma: la temporada de liga y la de la categoría. */
   const nuestrosW = useMemo(() => castillaWyscout(wyscout, temporada), [wyscout, temporada]);
@@ -340,41 +341,7 @@ export function PanelPostPartido({ wyscout, wyscoutCaido = false }: { wyscout: F
   );
 }
 
-/*
-| 16/11/2026 (expertos, ronda 18): «Visto en el vídeo» enlazaba a robos,
-| pérdidas y faltas aunque el partido aún no estuviera etiquetado (y abrían en
-| otra jornada). Ahora cada enlace sale sólo si su laboratorio tiene ese
-| partido. Los datos pesan (cientos de KB): se cargan aparte, al abrir.
-*/
-type ConFecha = { id: string; fecha: string; rival: string };
-type Etiquetado = Record<"robos" | "perdidas" | "faltas", (p: Pick<PartidoPost, "fecha" | "rival">) => boolean>;
-function useFechasDelVideo(): Etiquetado | null {
-  const [listas, setListas] = useState<Record<keyof Etiquetado, ConFecha[]> | null>(null);
-  useEffect(() => {
-    let cancelado = false;
-    Promise.all([import("@/lib/transiciones/datos"), import("@/lib/faltas/datos")])
-      .then(([t, f]) => {
-        if (cancelado) return;
-        const corta = (p: ConFecha) => ({ id: p.id, fecha: p.fecha, rival: p.rival });
-        setListas({
-          robos: t.PARTIDOS.filter((p) => p.robos.length > 0).map(corta),
-          perdidas: t.PARTIDOS.filter((p) => (p.perdidas ?? []).length > 0).map(corta),
-          faltas: f.PARTIDOS.filter((p) => p.faltas.length > 0).map(corta),
-        });
-      })
-      .catch(() => {
-        /* sin los datos, el bloque no sale */
-      });
-    return () => {
-      cancelado = true;
-    };
-  }, []);
-  return useMemo(() => {
-    if (!listas) return null;
-    const tiene = (l: ConFecha[]) => (p: Pick<PartidoPost, "fecha" | "rival">) => partidoEnlazado(l, p.fecha, p.rival) !== null;
-    return { robos: tiene(listas.robos), perdidas: tiene(listas.perdidas), faltas: tiene(listas.faltas) };
-  }, [listas]);
-}
+/* «Visto en el vídeo»: cada enlace sale sólo si su laboratorio tiene ese partido (hooks/useEtiquetadoEnVideo.ts). */
 
 function Enlace({ href, icono: Icono, titulo, texto }: { href: string; icono: typeof Swords; titulo: string; texto: string }) {
   return (
