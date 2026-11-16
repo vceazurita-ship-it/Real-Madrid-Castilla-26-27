@@ -1939,7 +1939,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Los nueve partidos de la jornada —la liga sin el Castilla—, el 1-X-2 de cada uno y el ranking de acierto del cuerpo técnico.",
     origen:
       "El calendario de Primera RFEF grupo 2 viaja con la aplicación —38 jornadas que no cambian—. Los pronósticos los escribe cada uno aquí y viven en el documento «quiniela» de Supabase. Los resultados los baja de BeSoccer el trabajo nocturno o los pone alguien a mano; no salen de ninguna hoja.",
-    revisada: "2026-11-12",
+    revisada: "2026-11-16",
     bloques: [
       {
         titulo: "Cómo se rellena",
@@ -1969,7 +1969,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Cómo se cuenta el acierto",
         filas: [
-          { que: "Acierto", es: "Partidos acertados entre los ya jugados desde tu primera apuesta", cuenta: "acertados ÷ jugados desde la primera apuesta; desde ahí, el que no pones es fallo" },
+          { que: "Acierto", es: "Partidos acertados entre los ya jugados desde tu primera apuesta", cuenta: "acertados ÷ jugados desde la primera apuesta; desde ahí, el que no pones es fallo. Excepción (16/11/2026): a Miguel Barrio no le cuentan las jornadas enteras en blanco (no estuvo de la J5 a la J10); un partido suelto sin poner, sí" },
           { que: "Un partido sin resultado", es: "No cuenta para nadie, ni a favor ni en contra" },
           { que: "=8", es: "Puesto compartido: mismo porcentaje y mismos aciertos. A igual porcentaje, manda quien más acierta" },
           { que: "Con pocas apuestas", es: "Abajo y fuera del orden", cuenta: "quien lleva menos de la mitad de partidos que el que más, o apostó menos de la mitad de los suyos" },

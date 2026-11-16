@@ -75,6 +75,7 @@ import {
   jornadaVacia,
   partidosDe,
   primeraJornadaDe,
+  noCuentaEnBlanco,
   ranking,
   rankingDeBloque,
   rarezasDe,
@@ -731,7 +732,9 @@ export default function QuinielaPage() {
                                     */}
                                     {fila.total.jugados < maxJugados && Number.isFinite(primeraDe.get(fila.slug) ?? Infinity) && (
                                       <span className="block text-[13px] text-white/65">
-                                        {`entró en la jornada ${primeraDe.get(fila.slug)} · cuenta desde ahí (${fila.total.jugados} ${fila.total.jugados === 1 ? "partido" : "partidos"})`}
+                                        {noCuentaEnBlanco(fila.slug)
+                                          ? `cuentan sólo las jornadas que jugó (${fila.total.jugados} ${fila.total.jugados === 1 ? "partido" : "partidos"})`
+                                          : `entró en la jornada ${primeraDe.get(fila.slug)} · cuenta desde ahí (${fila.total.jugados} ${fila.total.jugados === 1 ? "partido" : "partidos"})`}
                                       </span>
                                     )}
                                     {fila.apostados < fila.total.jugados && (

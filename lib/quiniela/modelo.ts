@@ -291,6 +291,26 @@ export type FilaRanking = {
  * sola regla para los dos, para que la misma persona no salga con dos
  * porcentajes distintos (23/10/2026).
  */
+/**
+ * Quien tiene jornadas enteras en blanco a mitad de temporada y no le cuentan
+ * (16/11/2026, el analista): Miguel Barrio apostó la J4, no estuvo de la J5 a
+ * la J10 y volvió en la J11. «Mismo patrón que David»: lo que no hizo no le
+ * cuenta. Sólo una jornada SIN NINGÚN signo; un partido suelto sin poner en
+ * una jornada que sí juega sigue siendo fallo, como para todos.
+ */
+const SIN_CONTAR_JORNADAS_EN_BLANCO = new Set(["miguel-barrio"]);
+
+export const noCuentaEnBlanco = (slug: string) => SIN_CONTAR_JORNADAS_EN_BLANCO.has(slug);
+
+/** ¿Entra esta jornada en sus cuentas (ranking y comida)? */
+export function cuentaLaJornada(jornada: JornadaQuiniela, slug: string, suyaPrimera: number): boolean {
+  if (Number.isFinite(suyaPrimera) && jornada.jornada < suyaPrimera) return false;
+
+  if (SIN_CONTAR_JORNADAS_EN_BLANCO.has(slug) && !(jornada.pronosticos[slug] ?? []).some(Boolean)) return false;
+
+  return true;
+}
+
 export function primeraJornadaDe(doc: DocumentoQuiniela, slug: string): number {
   return Object.values(doc.jornadas)
     .filter((jornada) => (jornada.pronosticos[slug] ?? []).some(Boolean))
@@ -338,7 +358,7 @@ export function ranking(
     const suyaPrimera = primeraJornadaDe(doc, slug);
 
     for (const jornada of jornadas) {
-      if (Number.isFinite(suyaPrimera) && jornada.jornada < suyaPrimera) continue;
+      if (!cuentaLaJornada(jornada, slug, suyaPrimera)) continue;
 
       const marcador = marcadorDe(jornada, slug);
 
@@ -554,7 +574,7 @@ export function rankingDeBloque(
       const suyaPrimera = primeraJornadaDe(doc, slug);
 
       for (const jornada of jornadas) {
-        if (Number.isFinite(suyaPrimera) && jornada.jornada < suyaPrimera) continue;
+        if (!cuentaLaJornada(jornada, slug, suyaPrimera)) continue;
 
         const marcador = marcadorDe(jornada, slug);
 
