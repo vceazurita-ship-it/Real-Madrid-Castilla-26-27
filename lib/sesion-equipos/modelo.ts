@@ -717,6 +717,8 @@ export type Aviso = {
    * ámbar tras el primer reparto; el rojo queda para los avisos de verdad.
    */
   pendiente?: boolean;
+  /** Meter a este jugador en ese equipo, de un toque (16/11/2026): «falta 1» con uno que no hace la tarea. */
+  mete?: { id: string; equipo: string; texto: string };
 };
 
 /** El puesto de un jugador: el puesto a mano, si no el de la plantilla. */
