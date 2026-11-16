@@ -17,29 +17,37 @@ import type { Mode } from "./throwInModel";
 export function LeyendaSaques({ mode, className = "" }: { mode: Mode; className?: string }) {
   const ofensivo = mode === "offensive";
 
+  /*
+  | 16/11/2026 (jueces): las zonas se dicen siempre desde nuestra portería.
+  | La hoja numera desde la portería del que saca, así que en la defensiva la
+  | zona 1 del rival es su tercio, el más lejano a nuestra área.
+  */
   const zonas = ofensivo
     ? [
-        ["Zona 1", "tercio propio: el saque sale cerca de nuestra portería."],
-        ["Zona 2", "tercio central."],
-        ["Zona 3", "último tercio: el saque sale junto al área rival."],
+        ["Nuestro tercio (zona 1)", "el saque sale cerca de nuestra portería."],
+        ["El medio (zona 2)", "tercio central."],
+        ["Su tercio (zona 3)", "el saque sale junto al área rival."],
       ]
     : [
-        ["Zona 1", "tercio del rival: saca cerca de su portería."],
-        ["Zona 2", "tercio central."],
-        ["Zona 3", "junto a nuestra área: aquí un error cuesta caro."],
+        ["Su tercio (zona 1)", "el rival saca cerca de su portería, lejos de la nuestra."],
+        ["El medio (zona 2)", "tercio central."],
+        ["Nuestro tercio (zona 3)", "el rival saca junto a nuestra área: aquí un error cuesta caro."],
       ];
 
+  /* Los desenlaces, con el mismo nombre que en las barras de «Cómo se reparten». */
   const resultados = ofensivo
     ? [
-        ["Posicional", "mantenemos el balón y seguimos jugando."],
-        ["Posicional Rival", "perdemos la posesión: el rival se queda con el balón."],
-        ["Conquista último tercio", "llegamos al último tercio rival."],
+        ["Nos quedamos el balón", "mantenemos la posesión y seguimos jugando."],
+        ["El rival se queda el balón", "perdemos la posesión y el rival ataca en posicional."],
+        ["Llegamos a su último tercio", "el saque acaba con nosotros cerca de su área."],
+        ["Balón parado nuestro o del rival", "la jugada acaba en córner, falta o saque a favor de uno u otro."],
         ["Receptor «Medios»", "el saque va a los centrocampistas (no a defensas ni delanteros)."],
       ]
     : [
-        ["Posicional", "recuperamos el balón y seguimos jugando."],
-        ["Posicional Rival", "el rival mantiene el balón."],
-        ["Conquista último tercio", "el rival llega al último tercio (peligro concedido)."],
+        ["Recuperamos el balón", "le robamos el saque y seguimos jugando."],
+        ["El rival se queda el balón", "el rival mantiene la posesión."],
+        ["El rival llega a nuestro último tercio", "peligro concedido."],
+        ["Balón parado nuestro o del rival", "la jugada acaba en córner, falta o saque a favor de uno u otro."],
         ["Receptor «Medios»", "el rival saca a sus centrocampistas."],
       ];
 

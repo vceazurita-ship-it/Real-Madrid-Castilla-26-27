@@ -427,9 +427,10 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Las tarjetas",
         filas: [
           { que: "Acciones lanzadas", es: "Córners y faltas a favor con los filtros puestos", cuenta: "Debajo, la temporada: total, jornadas y por partido" },
+          { que: "Sin remate", es: "Si ninguna acción acaba en remate ni en ocasión, una sola tarjeta «5 de 5» sustituye a goles esperados, remates y gol u ocasión", cuenta: "Debajo, la temporada con su población: remates y gol u ocasión sobre todas sus acciones" },
           { ...XG, que: "Goles esperados", es: "Lo que valían las acciones, entraran o no" },
           { que: "Remates", es: "Acciones con remate (todo menos «No Remate» y «No aplica»)" },
-          { que: "Goles", es: "Sólo los nuestros; pulsar filtra las acciones de gol" },
+          { que: "Goles", es: "Sólo los nuestros, con su base («0 de 5 acciones»); pulsar filtra las acciones de gol", cuenta: "Debajo, los de la temporada y en cuántas acciones" },
           { que: "Conversión", es: "Goles ÷ remates", cuenta: "Sólo sale con 5 remates o más" },
           { que: "Goles esperados por ABP", es: "Peligro medio de cada lanzamiento", cuenta: "Goles esperados ÷ acciones. Sólo con 15 acciones o más" },
           { que: "Gol u ocasión", es: "Acciones cuyo resultado final es Gol u Ocasión", cuenta: "Gol u ocasión ÷ acciones" },
@@ -443,8 +444,9 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Las pestañas",
         filas: [
-          { que: "Resumen", es: "Conclusiones, lectura rápida, este partido frente a la media de las jornadas anteriores, lectura por envío y «Acción a acción»" },
-          { que: "Acción a acción", es: "Cada acción del partido con «Ver la acción» (nuestro corte) y «Abrir en Hudl» en su segundo" },
+          { que: "Resumen", es: "Conclusiones (cierran con «Qué entrenamos»: el envío más repetido, qué se cuenta y el objetivo de remate de la media de las jornadas anteriores), lectura rápida, este partido frente a la media de las jornadas anteriores, cómo se reparte el envío y «Acción a acción»" },
+          { que: "Este partido frente a los anteriores", es: "Cada cifra del partido contra la media por partido de las jornadas anteriores y su rango", cuenta: "Con menos de 15 acciones la fila es «indicio»: gris, sin «mejor» ni «peor». El número de acciones no se juzga. Un rango de 0 % a 100 % no se pinta" },
+          { que: "Acción a acción", es: "Todas las acciones del partido (hasta 15 sin plegar), con columnas fijas de minuto, acción, zona de caída y desenlace, «Ver la acción» (nuestro corte) y «Abrir en Hudl» en su segundo", cuenta: "Con más de 15 se pliega, pero lo que acaba en gol o remate va arriba. Debajo, qué es un remate forzado o limpio y el rechace" },
           { que: "Dónde cae", es: "Zona de caída, zona de remate, segundo balón, superioridad en corto y goles esperados por zona" },
           { que: "Cómo lo sacamos", es: "Tipo de acción, tipo de envío, carrera, rutinas, calidad del envío (1 a 4) y atacantes en el área" },
           { que: "Quién", es: "Impacto de sacadores y rematadores, defensa rival y goles esperados contra cada rival" },
@@ -479,17 +481,20 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Las tarjetas",
         filas: [
-          { que: "Remates concedidos", es: "ABP del rival que acaban en remate · menos es mejor", cuenta: "Acciones con remate ÷ acciones" },
+          { que: "Acciones rivales con remate", es: "ABP del rival que acaban en remate, en % · menos es mejor", cuenta: "Acciones con remate ÷ acciones. En la tabla, «Remates concedidos» es el número" },
           { que: "Gol u ocasión", es: "ABP del rival que acaban en «Gol Rival» u «Ocasión»", cuenta: "Ojo: en esta hoja el sujeto de «Ocasión» es el rival, no nosotros" },
-          { ...XG, que: "Goles esperados concedidos", es: "Lo que valían los remates del rival en su ABP" },
-          { que: "Goles encajados de ABP", es: "Los «Gol Rival»; pulsar filtra esas acciones" },
+          { ...XG, que: "Goles esperados concedidos", es: "Lo que valían los remates del rival en su ABP (la calidad de sus remates, sumada), con su base · menos es mejor" },
+          { que: "Goles encajados de ABP", es: "Los «Gol Rival», con su base («1 de 7 acciones») · menos es mejor; pulsar filtra esas acciones" },
           { que: "Media de las N jornadas anteriores", es: "Con una jornada elegida, debajo de cada tarjeta: la misma cifra en los partidos de antes" },
         ],
       },
       {
         titulo: "Las pestañas",
         filas: [
-          { que: "Resumen", es: "Conclusiones, lectura rápida, este partido frente a los anteriores y «Acción a acción» con su corte y su segundo de Hudl" },
+          { que: "Resumen", es: "Conclusiones (dos hallazgos, el vídeo y «Qué entrenamos»; las faltas se dicen en palabras: «falta frontal escorada a un lado, al borde del área (zona 2)»), lectura rápida, este partido frente a los anteriores, cómo se reparte la zona de caída y «Acción a acción»" },
+          { que: "Este partido frente a los anteriores", es: "Cada cifra contra la media por partido de las jornadas anteriores", cuenta: "Con menos de 15 acciones la fila es «indicio», en gris y sin «mejor» ni «peor»" },
+          { que: "Cómo se reparten · zona de caída", es: "Las acciones por dónde cae el balón", cuenta: "Si alguna no tiene zona (un córner en corto), se dice cuántas quedan fuera y por qué" },
+          { que: "Acción a acción", es: "Todas las acciones del partido, sin «Ver las 7»: minuto, acción, zona de caída y desenlace en columnas, con su corte y su segundo de Hudl", cuenta: "El gol encajado va en fila roja. Debajo, qué es un remate forzado y un rechace nuestro" },
           { que: "Dónde cae", es: "Zona de caída, zona de remate, segundo balón, superioridad en corto y goles esperados concedidos por zona" },
           { que: "Cómo nos atacan", es: "Tipo de acción, tipo de envío, carrera, calidad del envío rival y estructura de la jugada (atacantes en el área)" },
           { que: "Quién nos hace daño", es: "Goles esperados concedidos por perfil de golpeo, por tipo de remate y a cada rival" },
@@ -530,14 +535,15 @@ export const AYUDAS: AyudaDePagina[] = [
             cuenta: "Resultados nuestros (posicional, ABP, último tercio, ocasión, gol) ÷ saques. Por debajo de la mitad, el saque es una pérdida con otro nombre",
           },
           { que: "Producción", es: "Saques que llegan a último tercio, ocasión o gol nuestro", cuenta: "Nº y % sobre los saques" },
-          { que: "Calidad media de envío", es: "Nota de 1 (malo) a 4 (perfecto) de los saques valorados, con la media de la temporada" },
-          { que: "Este partido frente a los anteriores", es: "Con jornada, la tabla del partido contra la media de las anteriores; entonces las cifras de arriba no se repiten" },
+          { que: "Calidad media de envío", es: "Nota de 1 (malo) a 4 (perfecto) de los saques valorados, con la media de la temporada", cuenta: "Con menos de 15 saques valorados, en pequeño y con «tendencia»" },
+          { que: "Este partido frente a los anteriores", es: "Con jornada, la tabla del partido contra la media por partido de las anteriores; entonces las cifras de arriba no se repiten", cuenta: "Con menos de 15 saques la fila es «indicio» (gris, sin «mejor» ni «peor»); 0 contra 0 va sin barras" },
         ],
       },
       {
         titulo: "Las pestañas",
         filas: [
-          { que: "Resumen", es: "Lectura rápida, comparativa del partido, conclusiones, leyenda y lectura por resultado" },
+          { que: "Resumen", es: "El rival del partido, conclusiones (titular con el dato, lo firme antes que la tendencia y «Qué entrenamos» con el objetivo de conservación de la media de las jornadas anteriores), lectura rápida, comparativa del partido, leyenda y cómo se reparte el resultado" },
+          { que: "Cómo se reparten · resultado", es: "Cada desenlace dicho como en el vestuario («El rival se queda el balón», «Acaba en balón parado del rival») y agrupado por de quién es el balón" },
           { que: "Dónde", es: "Mapa por zonas (con el nº de saques) y campo con cada saque; pulsar filtra" },
           { que: "Cómo acaban", es: "Flujo del saque al resultado y reparto por banda, envío, receptor, intención, rutina, sacador…" },
           { que: "Saque a saque", es: "La tabla entera, con el vídeo de cada saque y «Hudl» en su segundo cuando están cortados" },
@@ -547,9 +553,9 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Cómo se lee",
         filas: [
-          { que: "Zona de saque", es: "Zona 1 tercio propio, 2 central, 3 último tercio (junto al área rival)" },
+          { que: "Zona de saque", es: "Siempre desde nuestra portería: nuestro tercio (zona 1), el medio (zona 2), su tercio (zona 3, junto al área rival)" },
           { que: "Dirección del envío", es: "Progresión o retroceso, por carril, o al área" },
-          { que: "Descargar PNG", es: "La pantalla entera con los filtros, en imagen" },
+          { que: "Descargar PNG", es: "El botón redondo de arriba a la derecha, como en ABP: la pantalla entera con los filtros, en imagen" },
         ],
       },
     ],
@@ -574,14 +580,15 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "% Recuperación", es: "El saque acaba con el balón para el RMCF", cuenta: "Resultados nuestros ÷ saques del rival" },
           { que: "Peligro concedido", es: "Saques suyos que le llegan a último tercio, ocasión o gol · menos es mejor", cuenta: "Nº y % sobre sus saques" },
           { que: "Transiciones tras robo", es: "Le robamos el saque y llegamos a último tercio, ocasión o gol nuestro", cuenta: "Nº y % sobre sus saques" },
-          { que: "Calidad media del envío rival", es: "Nota de 1 a 4 de sus saques valorados · menos es mejor" },
-          { que: "Este partido frente a los anteriores", es: "Con jornada, la tabla del partido contra la media de las anteriores" },
+          { que: "Calidad media del envío rival", es: "Nota de 1 a 4 de sus saques valorados · menos es mejor", cuenta: "Con menos de 15 saques valorados, en pequeño y con «tendencia»" },
+          { que: "Este partido frente a los anteriores", es: "Con jornada, la tabla del partido contra la media por partido de las anteriores", cuenta: "Con menos de 15 saques la fila es «indicio»: sin verde ni naranja aunque sea de «menos es mejor»" },
         ],
       },
       {
         titulo: "Las pestañas",
         filas: [
-          { que: "Resumen", es: "Lectura rápida, comparativa del partido, conclusiones, leyenda y lectura por resultado" },
+          { que: "Resumen", es: "El rival del partido, conclusiones (titular con el dato, «vía peligrosa» sólo con 15 saques o más y dos llegadas, y la «Orden para el próximo partido» con su métrica y el objetivo de recuperación de la media de las jornadas anteriores), lectura rápida, comparativa, leyenda y cómo se reparte el resultado" },
+          { que: "Cómo se reparten · resultado", es: "Cada desenlace dicho como en el vestuario y agrupado por de quién es el balón («3 acaban en balón parado del rival y 1 en nada»)" },
           { que: "Dónde", es: "Mapa por zonas y campo con cada saque; el rival ataca hacia la izquierda" },
           { que: "Cómo acaban", es: "Flujo del saque al resultado y reparto por banda, envío, receptor, nuestra defensa y debilidad defensiva" },
           { que: "Saque a saque", es: "La tabla entera, con el vídeo de cada saque y «Hudl» en su segundo cuando están cortados" },
@@ -591,9 +598,9 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Cómo se lee",
         filas: [
-          { que: "Zona de saque", es: "Del rival: Zona 1 cerca de su portería, 3 junto a nuestra área (ahí un error cuesta caro)" },
+          { que: "Zona de saque", es: "Siempre desde nuestra portería: su tercio (zona 1 de la hoja), el medio (zona 2), nuestro tercio (zona 3, junto a nuestra área: ahí un error cuesta caro). La hoja numera desde la portería del que saca" },
           { que: "Receptor", es: "A quién se la ponen: primera línea, medios, 9, extremo" },
-          { que: "Descargar PNG", es: "La pantalla entera con los filtros, en imagen" },
+          { que: "Descargar PNG", es: "El botón redondo de arriba a la derecha, como en ABP: la pantalla entera con los filtros, en imagen" },
         ],
       },
     ],

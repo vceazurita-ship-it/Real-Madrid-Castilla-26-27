@@ -326,15 +326,32 @@ const pctTexto = (parte: number, total: number) =>
 
 const mayuscula = (texto: string) => texto.charAt(0).toUpperCase() + texto.slice(1);
 
+/*
+| 16/11/2026 (jueces): la zona se dice SIEMPRE desde nuestra portería. La hoja
+| numera desde la portería del que saca —en la defensiva la «zona 1» del
+| rival es su tercio, el más lejano a nuestra área—, así que el sitio va
+| delante en palabras y el número de la hoja entre paréntesis.
+*/
+const LUGAR_ZONA: Record<Mode, Record<string, string>> = {
+  offensive: { "1": "nuestro tercio", "2": "el medio", "3": "su tercio" },
+  defensive: { "1": "su tercio", "2": "el medio", "3": "nuestro tercio" },
+};
+
 /* Cómo se nombra un valor dentro de una frase. */
-function nombreDe(key: string, crudo: string) {
+function nombreDe(key: string, crudo: string, mode?: Mode) {
   const valor = conTildes(crudo);
 
   switch (key) {
     case "Tipo_Envio":
       return `envío ${valor.toLowerCase()}`;
-    case "Zona_Saque":
+    case "Zona_Saque": {
+      const numero = /(\d)/.exec(valor)?.[1];
+      const lugar = mode && numero ? LUGAR_ZONA[mode][numero] : undefined;
+
+      if (lugar) return `${lugar} (zona ${numero})`;
+
       return /^zona/i.test(valor) ? valor.replace(/^zona/i, "zona") : `zona ${valor}`;
+    }
     case "Perfil":
     case "Zona_Caida":
       return valor.toLowerCase();
@@ -393,62 +410,58 @@ function extremo(grupos: Grupo[], tasa: (g: Grupo) => number, mayor: boolean) {
 const retencionDe = (g: Grupo) => g.favorables / g.n;
 const produccionTasa = (g: Grupo) => g.produccion / g.n;
 
-function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
-  if (!rows.length) return [];
+type ConclusionesBanda = { titular?: string; items: string[] };
+
+/**
+ * Las conclusiones de la pantalla de banda.
+ *
+ * 16/11/2026 (jueces): abren con un titular con verbo y dato («17 saques:
+ * conservamos 11 (65 %) y 9 llegan a último tercio, 3 en ocasión»); las
+ * líneas con dato firme van antes que las de tendencia, y cada tendencia lo
+ * dice en la propia línea (fuera el aviso suelto del final, que repetía la
+ * tabla); y cierran con «Qué entrenamos» (ataque) u «Orden para el próximo
+ * partido» (defensa), con la métrica, la tarea y el objetivo sacado de la
+ * media de las jornadas anteriores.
+ */
+function conclusionesDe(rows: RecordRow[], mode: Mode, anteriores: RecordRow[] | null = null, nAnteriores = 0): ConclusionesBanda {
+  if (!rows.length) return { items: [] };
 
   const ofensivo = mode === "offensive";
-  /*
-  | Con menos de 20 saques la cifra es un indicio, no un dato. 07/11/2026
-  | (jueces): el aviso va una sola vez, al final del bloque, y no repetido
-  | «(indicio: sólo N saques)» en cada línea; cada línea ya lleva su base.
-  */
-  let menor = Infinity;
-  const indicio = (n: number) => {
-    if (n < MUESTRA_FIRME) menor = Math.min(menor, n);
-
-    return "";
-  };
-  /* 29/10/2026: «zona 3» se explica dentro de la propia conclusión la primera
-     vez que sale (la leyenda va plegada y nadie la abría): «zona 3 (último
-     tercio, junto al área rival)». Mismos textos que LeyendaSaques. */
-  const zonasExplicadas = new Set<string>();
-  const QUE_ES_ZONA: Record<string, string> = ofensivo
-    ? { "1": "tercio propio, cerca de nuestra portería", "2": "tercio central", "3": "último tercio, junto al área rival" }
-    : { "1": "tercio del rival, cerca de su portería", "2": "tercio central", "3": "junto a nuestra área" };
-  const nombre = (key: string, valor: string) => {
-    const texto = nombreDe(key, valor);
-    const numero = key === "Zona_Saque" ? /(\d)/.exec(valor)?.[1] : undefined;
-
-    if (!numero || !QUE_ES_ZONA[numero] || zonasExplicadas.has(numero)) return texto;
-    zonasExplicadas.add(numero);
-
-    return `${texto} (${QUE_ES_ZONA[numero]})`;
-  };
+  /* Con menos de MUESTRA_FIRME saques en el grupo, la línea lo dice al final. */
+  const indicio = (n: number) => (n < MUESTRA_FIRME ? ` Tendencia: ${n} ${n === 1 ? "saque" : "saques"}.` : "");
+  /* 16/11/2026: el sitio de la zona va en palabras y desde nuestra portería («nuestro tercio (zona 1)»). */
+  const nombre = (key: string, valor: string) => nombreDe(key, valor, mode);
   const resumen = resumenDe(rows, mode);
   const total = rows.length;
   const favorables = Math.round((resumen.favorablePct / 100) * total);
+  const dueno = ofensivo ? "rmcf" : "rival";
   const goles = rows.filter((row) => {
     const resultado = parseResultado(read(row, "Resultado_Final"));
 
-    return resultado.rank === 5 && resultado.owner === (ofensivo ? "rmcf" : "rival");
+    return resultado.rank === 5 && resultado.owner === dueno;
   }).length;
+  const ocasiones = rows.filter((row) => {
+    const resultado = parseResultado(read(row, "Resultado_Final"));
+
+    return resultado.rank >= 4 && resultado.owner === dueno;
+  }).length;
+  const fuenteMedia = nAnteriores === 1 ? "la jornada anterior" : `media de las ${nAnteriores} jornadas anteriores`;
+  const mediaRetencion =
+    anteriores && anteriores.length
+      ? (anteriores.filter((row) => esFavorable(parseResultado(read(row, "Resultado_Final")))).length / anteriores.length) * 100
+      : null;
+  const pctUno = (x: number) => `${(Math.round(x * 10) / 10).toLocaleString("es-ES")} %`;
 
   const frases: string[] = [];
 
-  /* 1. Volumen y cómo acaban. */
-  const llegan = `${resumen.produccion} ${
-    ofensivo
-      ? resumen.produccion === 1 ? "llega" : "llegan"
-      : resumen.produccion === 1 ? "le llega" : "le llegan"
-  } a último tercio`;
-
-  frases.push(
-    ofensivo
-      ? `${total} ${total === 1 ? "saque" : "saques"}: retenemos ${favorables} de ${total} (${pctTexto(favorables, total)}), ${llegan}${
-          goles ? ` (${goles} ${goles === 1 ? "gol" : "goles"})` : ""
-        }.`
-      : `${total} ${total === 1 ? "saque" : "saques"} del rival: recuperamos ${favorables} de ${total} (${pctTexto(favorables, total)}), ${llegan}${goles ? ` (${goles} ${goles === 1 ? "gol" : "goles"} en contra)` : ""}.`,
-  );
+  /* El titular: volumen, cómo acaban y en qué. */
+  const titular = ofensivo
+    ? `${total} ${total === 1 ? "saque" : "saques"}: conservamos ${favorables} (${pctTexto(favorables, total)}) y ${resumen.produccion} ${
+        resumen.produccion === 1 ? "llega" : "llegan"
+      } a último tercio${ocasiones ? `, ${ocasiones} en ocasión${goles ? ` (${goles} ${goles === 1 ? "gol" : "goles"})` : ""}` : ""}`
+    : `${total} ${total === 1 ? "saque" : "saques"} del rival: recuperamos ${favorables} (${pctTexto(favorables, total)}) y le ${
+        resumen.produccion === 1 ? "llega" : "llegan"
+      } ${resumen.produccion} a último tercio${ocasiones ? `, ${ocasiones} en ocasión${goles ? ` (${goles} ${goles === 1 ? "gol" : "goles"} en contra)` : ""}` : ""}`;
 
   /* 2. Dónde y cómo funciona mejor (para nosotros). */
   const zonas = [
@@ -505,8 +518,10 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
       }
     }
 
-    /* Con menos de cinco saques una «vía peligrosa» es una anécdota: no se nombra. */
-    const peligrosas = [...zonas, ...envios].filter((g) => g.produccion > 0 && g.n >= 5);
+    /* Con menos de cinco saques una «vía peligrosa» es una anécdota: no se
+       nombra. 16/11/2026 (jueces): con una sola llegada tampoco («1 de 7» no
+       es una vía peligrosa). */
+    const peligrosas = [...zonas, ...envios].filter((g) => g.produccion >= 2 && g.n >= 5);
 
     /* 29/10/2026: con muestra corta se dice «tendencia», sin imperativo, y se
        dice cómo cerrarla. Si la vía peligrosa es la misma donde más robamos,
@@ -525,15 +540,15 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
         const i = frases.findIndex((f) => f.startsWith("Más robos en "));
 
         if (i >= 0) frases.splice(i, 1);
-        /* La explicación de la zona iba en la frase quitada: se vuelve a dar. */
-        zonasExplicadas.clear();
         frases.push(
           `${mayuscula(nombre(peor.key, peor.valor))}: es donde más robamos (${masRobos.favorables} de ${masRobos.n}) y por donde más llegan (${peor.produccion} de ${peor.n}).${consigna(peor.n, ` ${COMO_CERRAR}`)}${indicio(peor.n)}`,
         );
       } else if (!mismo(peor, masRobos)) {
         frases.push(
-          /* 10/11/2026 (jueces): con muestra corta, «tendencia» en la misma frase. */
-          `${peor.n < MUESTRA_FIRME ? "Por ahora es tendencia: su" : "Su"} vía más peligrosa es ${nombre(peor.key, peor.valor)} (${peor.produccion} de ${peor.n} a último tercio).${consigna(peor.n, ` ${COMO_CERRAR}`)}${indicio(peor.n)}`,
+          /* 16/11/2026 (jueces): por debajo de MUESTRA_FIRME no se llama «vía peligrosa»: se da el dato. */
+          peor.n < MUESTRA_FIRME
+            ? `Por ${nombre(peor.key, peor.valor)} le llegan ${peor.produccion} de ${peor.n} a último tercio.${indicio(peor.n)}`
+            : `Su vía más peligrosa es ${nombre(peor.key, peor.valor)} (${peor.produccion} de ${peor.n} a último tercio).${consigna(peor.n, ` ${COMO_CERRAR}`)}`,
         );
       }
     }
@@ -576,6 +591,8 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
   }
 
   /* 4. Punto débil (sólo en ataque: en defensa ya lo dice la vía peligrosa). */
+  let debil: Grupo | null = null;
+
   if (ofensivo) {
     const candidatos = [
       ...envios,
@@ -588,11 +605,34 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
       const peor = extremo(candidatos, retencionDe, false);
 
       if (retencionDe(peor) < global) {
+        debil = peor;
         frases.push(
           `Punto débil: ${nombre(peor.key, peor.valor)}, retenemos ${peor.favorables} de ${peor.n}.${indicio(peor.n)}`,
         );
       }
     }
+  }
+
+  /* 16/11/2026 (jueces): lo firme antes que la tendencia (orden estable). */
+  frases.sort((a, b) => Number(/ Tendencia: \d/.test(a)) - Number(/ Tendencia: \d/.test(b)));
+
+  /*
+  | 16/11/2026 (jueces): «Qué entrenamos» al final, con la tarea, qué se
+  | cuenta y el objetivo sacado de la media de las jornadas anteriores.
+  */
+  if (ofensivo && debil) {
+    const tarea =
+      debil.key === "Zona_Saque" && /1/.test(debil.valor)
+        ? "salida de banda en campo propio con apoyo cercano y pase de seguridad"
+        : debil.key === "Tipo_Envio"
+          ? `${nombre(debil.key, debil.valor)}: perfil del receptor y protección del balón`
+          : `saques hacia ${nombre(debil.key, debil.valor)}: apoyo cercano y segunda jugada`;
+
+    frases.push(
+      `Qué entrenamos${debil.n < MUESTRA_FIRME ? " (tendencia que vigilar)" : ""}: ${tarea}; conservamos ${debil.favorables} de ${debil.n} en ${nombre(debil.key, debil.valor)}; se cuenta el balón conservado${
+        mediaRetencion !== null ? ` · objetivo: ${pctUno(mediaRetencion)} conservados (${fuenteMedia})` : ""
+      }.`,
+    );
   }
 
   /*
@@ -608,20 +648,21 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
     if (robo) {
       const vigilancia = vigila ? `, con vigilancia al ${nombreDe(vigila.key, vigila.valor).replace(/^saque a /, "").replace(/^receptor /, "receptor ")}` : "";
 
-      frases.splice(4);
+      /*
+      | 16/11/2026 (jueces): «si se confirma» era vago. La orden es para el
+      | partido de esta semana (no para el ya jugado), cita su métrica y su
+      | objetivo: recuperar al menos la media de las jornadas anteriores.
+      */
+      frases.splice(3);
       frases.push(
-        `Orden de partido${robo.n < MUESTRA_FIRME ? " (si se confirma)" : ""}: presión al saque en ${nombreDe(robo.key, robo.valor)} (${robo.favorables} de ${robo.n} robados)${vigilancia}. Se trabaja en la tarea de saque de banda defensivo del microciclo.`,
+        `Orden para el próximo partido${robo.n < MUESTRA_FIRME ? " (tendencia que vigilar)" : ""}: presión al saque del rival en ${nombre(robo.key, robo.valor)}, donde robamos ${robo.favorables} de ${robo.n}${vigilancia}; se cuentan los saques del rival que recuperamos${
+          mediaRetencion !== null ? ` · objetivo: al menos ${pctUno(mediaRetencion)} (${fuenteMedia}; hoy ${pctUno((favorables / total) * 100)})` : ""
+        }. Tarea de saque de banda defensivo del microciclo.`,
       );
     }
   }
 
-  const lineas = frases.slice(0, 5);
-
-  if (Number.isFinite(menor) && lineas.length > 1) {
-    lineas.push(`Tendencia, no dato: hay grupos de sólo ${menor} ${menor === 1 ? "saque" : "saques"} (menos de ${MUESTRA_FIRME}); hay que confirmarlo en las próximas jornadas.`);
-  }
-
-  return lineas;
+  return { titular, items: frases.slice(0, 6) };
 }
 
 /*
@@ -830,6 +871,7 @@ function MetricCard({
   hint,
   accent = false,
   visible,
+  tendencia = false,
 }: {
   label: string;
   value: string | number;
@@ -837,11 +879,17 @@ function MetricCard({
   accent?: boolean;
   /** Una línea que se ve siempre (la escala de una nota), a diferencia de `hint`. */
   visible?: string;
+  /** Muestra corta: la cifra en gris y en tamaño de texto. */
+  tendencia?: boolean;
 }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 md:p-5">
       <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">{label}</p>
-      <p className={`mt-2 text-2xl font-semibold ${accent ? "text-[#E7D2A0]" : "text-white"}`}>{value}</p>
+      {tendencia ? (
+        <p className="mt-2 text-lg font-semibold" style={{ color: "rgb(var(--rmcf-ink-rgb) / .6)" }}>{value}</p>
+      ) : (
+        <p className={`mt-2 text-2xl font-semibold ${accent ? "text-[#E7D2A0]" : "text-white"}`}>{value}</p>
+      )}
       {visible ? <p className="mt-1 text-[11px] leading-snug text-slate-500">{visible}</p> : null}
       {/* La ayuda de cada KPI cuenta cómo se mide: va con los textos explicativos. */}
       {hint ? <Explicativo><p className="mt-1 text-[11px] leading-snug text-slate-500">{hint}</p></Explicativo> : null}
@@ -1452,7 +1500,11 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
   const calidadGlobal = useMemo(() => resumenDe(rows, mode).calidad, [rows, mode]);
 
   /* Las frases de arriba, con las mismas filas filtradas que los gráficos. */
-  const conclusiones = useMemo(() => conclusionesDe(filtered, mode), [filtered, mode]);
+  /* 16/11/2026: el objetivo de «Qué entrenamos» sale de las jornadas anteriores de la tabla del partido. */
+  const conclusiones = useMemo(
+    () => conclusionesDe(filtered, mode, comparativa?.filasAnteriores ?? null, comparativa?.anteriores.length ?? 0),
+    [filtered, mode, comparativa],
+  );
 
   /*
   | Cómo lee el análisis una fila de esta hoja.
@@ -1520,7 +1572,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
           : /* «Receptor: «Primera línea»», sin repetir «receptor» (10/11/2026). */
             key === "Receptor" && /^receptor «/.test(nombreDe(key, valor))
             ? `«${conTildes(valor)}»`
-            : nombreDe(key, valor),
+            : nombreDe(key, valor, mode),
       entrenar,
     });
 
@@ -1543,7 +1595,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
             dim("Receptor", "receptor", (v) => `${v[0]?.toUpperCase()}${v.slice(1)} del rival: presión al control`),
           ],
     });
-  }, [filtered, isOffensive, aciertoLectura]);
+  }, [filtered, isOffensive, aciertoLectura, mode]);
 
   /*
   | El objetivo de partido de «Qué entrenar», con su fuente: lo mismo que
@@ -1754,18 +1806,20 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                   </>
                 ) : undefined
               }
-              aside={
-                <button
-                  type="button"
-                  onClick={exportPng}
-                  disabled={exportandoPng || loading}
-                  className="flex shrink-0 items-center gap-2 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-4 py-2.5 text-sm text-[#E7D2A0] transition hover:bg-[#C8A96B]/20 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <FileDown size={16} />
-                  {exportandoPng ? "Generando…" : "Descargar PNG"}
-                </button>
-              }
             />
+
+            {/* 16/11/2026 (jueces): la descarga, en el mismo sitio que en ABP
+                ofensivo y defensivo: el botón redondo de oro, arriba a la derecha. */}
+            <button
+              type="button"
+              onClick={exportPng}
+              disabled={exportandoPng || loading}
+              aria-label={exportandoPng ? "Generando el PNG" : "Descargar PNG"}
+              title={exportandoPng ? "Generando…" : "Descargar PNG"}
+              className="fixed right-5 top-24 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-[#C8A96B] text-black shadow-xl transition-all hover:scale-105 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <FileDown size={18} />
+            </button>
 
             {/* Los filtros van plegados: son dieciocho y ocupaban la primera
                 pantalla entera antes de enseñar un solo dato. El recuento de
@@ -1953,7 +2007,26 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                   <>
                 {/* Lo primero: si lo de este partido es lo de siempre o una
                     excepción. Va antes que los KPI, que son del filtro entero. */}
-                {/* En el móvil, las conclusiones antes que la tabla (30/10/2026, expertos). */}
+                {/*
+                | 16/11/2026 (jueces): el mismo orden que ABP ofensivo y
+                | defensivo, en el móvil y en el ordenador: el rival del
+                | partido, las conclusiones con su titular y «qué entrenamos»,
+                | las tarjetas y, después, la tabla del partido.
+                */}
+                {comparativa?.rival ? (
+                  <div className="mb-4">
+                    <p className="text-sm text-white/55">Rival · {comparativa.elegida.etiqueta}</p>
+                    <p className="mt-1 text-lg font-semibold uppercase tracking-[0.04em] text-white/90">{comparativa.rival}</p>
+                  </div>
+                ) : null}
+
+                <Conclusiones
+                  items={conclusiones.items}
+                  titular={conclusiones.titular}
+                  enlace={{ href: "/abp-microciclo", rotulo: `Ver la tarea de saque de banda ${isOffensive ? "ofensivo" : "defensivo"} en el microciclo` }}
+                  className="mb-6"
+                />
+
                 <LecturaRapida
                   lectura={lectura}
                   unidad="saques"
@@ -1963,8 +2036,6 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                   tarea={{ href: "/abp-microciclo", rotulo: "Ver la tarea de saque de banda en el microciclo" }}
                   className="mb-6"
                 />
-
-                <Conclusiones items={conclusiones} className="mb-4 md:hidden" />
 
                 {comparativa ? (
                   <ComparativaPartido
@@ -1986,8 +2057,6 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                     nota={notaComparativa}
                   />
                 ) : null}
-
-                <Conclusiones items={conclusiones} className="mb-4 max-md:hidden" />
 
                 <LeyendaSaques mode={mode} className="mb-7" />
 
@@ -2037,7 +2106,9 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                   {totals.calidad === null ? null : (
                     <MetricCard
                       label={isOffensive ? "Calidad media de envío" : "Calidad media del envío rival"}
-                      value={`${totals.calidad.toFixed(1).replace(".", ",")} de 4`}
+                      /* 16/11/2026 (jueces): con menos de 15 saques valorados es tendencia y no va en tamaño de cifra principal. */
+                      tendencia={totals.calidadN < MUESTRA_FIRME}
+                      value={`${totals.calidad.toFixed(1).replace(".", ",")} de 4${totals.calidadN < MUESTRA_FIRME ? " · tendencia" : ""}`}
                       visible={`Sobre ${totals.calidadN} ${totals.calidadN === 1 ? "saque valorado" : "saques valorados"} · 1 = envío malo, 4 = perfecto${
                         calidadGlobal === null ? "" : ` · media de la temporada ${calidadGlobal.toFixed(1).replace(".", ",")}`
                       }`}
