@@ -16,9 +16,9 @@
  * debajo están sus vídeos repartidos por jugador (`VideosDelCanal`).
  */
 
-import Link from "next/link";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { ChevronDown, Eye, Search, Users, Video as IconoVideo } from "lucide-react";
+import { Eye, Users, Video as IconoVideo } from "lucide-react";
+import { AccesosDelRival } from "@/components/rivals/AccesosDelRival";
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { PanelVisionados } from "@/components/visionados/PanelVisionados";
 
@@ -41,7 +41,6 @@ import {
   cargaOrdenRivales,
   comparaPorCalendario,
   esElProximo,
-  etiquetaDelProximo,
   jornadaDeEquipo,
   type OrdenRivales,
 } from "@/lib/rivals/orden-calendario";
@@ -64,8 +63,24 @@ import { formatea } from "@/lib/data-analisis/metricas";
 function cifrasDePerfil(perfil: PerfilWyscout | undefined) {
   if (!perfil || perfil.muestraCorta) return [];
 
-  const escribe = (r: RasgoWyscout, signo: string) =>
-    `${signo} ${r.nombre} ${formatea(r.valor, r.unidad)} · P${Math.round(r.percentil)} entre ${perfil.iguales} ${perfil.puestoLabel.toLowerCase()} · ${perfil.minutos.toLocaleString("es-ES")}′ en Wyscout`;
+  /*
+  | «Faltas cometidas 1,4 · P30» no se leía como explotable (16/11/2026, ronda
+  | 18, fútbol): en las de «menos es mejor» el percentil ya va al revés, así
+  | que se dice con palabras: «comete más que 7 de cada 10 laterales».
+  */
+  const escribe = (r: RasgoWyscout, signo: string) => {
+    const base = `${perfil.minutos.toLocaleString("es-ES")}′ en Wyscout`;
+    const puesto = perfil.puestoLabel.toLowerCase();
+
+    if (r.mejorAlto === false) {
+      const flojo = signo === "▼";
+      const de10 = Math.min(9, Math.max(1, Math.round((flojo ? 100 - r.percentil : r.percentil) / 10)));
+
+      return `${signo} ${r.nombre} ${formatea(r.valor, r.unidad)} · ${flojo ? "más" : "menos"} que ${de10} de cada 10 ${puesto} (aquí menos es mejor) · ${base}`;
+    }
+
+    return `${signo} ${r.nombre} ${formatea(r.valor, r.unidad)} · P${Math.round(r.percentil)} entre ${perfil.iguales} ${puesto} · ${base}`;
+  };
 
   return [
     ...(perfil.fuertes[0] ? [escribe(perfil.fuertes[0], "▲")] : []),
@@ -80,6 +95,8 @@ function cifrasDePerfil(perfil: PerfilWyscout | undefined) {
 | sin desajuste al hidratar.
 */
 const leeEquipoEnlazado = () => new URLSearchParams(window.location.search).get("equipo") ?? "";
+
+const leeJugadorEnlazado = () => new URLSearchParams(window.location.search).get("jugador") ?? "";
 
 const sinEquipoEnlazado = () => "";
 
@@ -100,13 +117,6 @@ export default function ScoutRivalIndividual() {
   const lento = useLento(loading, 8_000);
 
   const [equipoPedido, setEquipoPedido] = useState("");
-  const [buscaEquipo, setBuscaEquipo] = useState("");
-  /*
-  | LA TIRA PLEGADA (16/11/2026, análisis): con el próximo rival ya puesto, los
-  | diecinueve escudos ocupaban la pantalla antes del primer vídeo. Queda una
-  | fila con el elegido y «Cambiar equipo».
-  */
-  const [cambiandoEquipo, setCambiandoEquipo] = useState(false);
 
   /*
   | El orden de la fila es el del calendario, no el alfabeto.
@@ -163,15 +173,8 @@ export default function ScoutRivalIndividual() {
 
   const equipo = equipoPedido || delEnlace || (ordenListo ? equipos[0] : "") || "";
 
-  /* La tira de escudos se filtra al teclear: con treinta y ocho equipos,
-     buscar el escudo a ojo es más lento que escribir tres letras. */
-  const visibles = useMemo(() => {
-    const termino = buscaEquipo.trim().toLowerCase();
-
-    if (!termino) return equipos;
-
-    return equipos.filter((nombre) => nombre.toLowerCase().includes(termino));
-  }, [buscaEquipo, equipos]);
+  /* `?jugador=<nombre>` (16/11/2026, desde Duelos): se abre con sus cortes filtrados, si es de este rival. */
+  const jugadorEnlazado = useSyncExternalStore(seSabraAlLlegar, leeJugadorEnlazado, sinEquipoEnlazado);
 
   /*
   | Las etiquetas de cada jugador (campo IMPACTO de la hoja, separadas por «;»),
@@ -367,6 +370,9 @@ export default function ScoutRivalIndividual() {
             <p className="mt-3 max-w-2xl text-white/60">
               {vista === "visionados" ? "Cuántas veces se ven los clips en YouTube, donde los ven los jugadores." : "Los cortes de cada rival, jugador a jugador."}
             </p>
+
+            {/* El resto del área con este rival puesto: sus goles en vídeo, el Plan, el ABP… (16/11/2026, ronda 18). */}
+            {vista !== "visionados" && equipo && <AccesosDelRival equipo={equipo} aqui="/scout-rival-individual" className="mt-4" />}
           </header>
 
           <div className="mt-5">
@@ -394,151 +400,46 @@ export default function ScoutRivalIndividual() {
 
           {/* ---------------------- A QUIÉN SE MIRA ------------------------ */}
 
+          {/*
+          | UN SOLO SELECTOR DE RIVAL (16/11/2026, ronda 18, análisis y
+          | marketing): el mismo rival se elegía de tres maneras (tira de
+          | escudos, «Cambiar equipo» y la lista del canal). Queda una fila con
+          | su escudo y un desplegable ordenado por calendario; la lista del
+          | canal va plegada debajo, en los vídeos.
+          */}
           <section className="mt-6 min-w-0 rounded-3xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
-            {equipo && !cambiandoEquipo && !buscaEquipo && (
-              <div className="flex flex-wrap items-center gap-3">
-                <EscudoEquipo nombre={equipo} escudo={escudoDe(equipo)} lado={28} />
-                <span className="min-w-0 truncate text-sm font-semibold text-white">{equipo}</span>
-                {esElProximo(orden, equipo) && (
+            {equipos.length === 0 && loading && !ordenListo ? (
+              <div className="h-10 w-full max-w-md animate-pulse rounded-xl bg-white/[0.05]" />
+            ) : (
+              <div className="flex min-w-0 flex-wrap items-center gap-3">
+                {equipo && <EscudoEquipo nombre={equipo} escudo={escudoDe(equipo)} lado={28} />}
+                <label className="flex min-w-0 flex-1 items-center gap-2 sm:max-w-md">
+                  <span className="sr-only">Rival</span>
+                  <select
+                    value={equipo}
+                    onChange={(evento) => setEquipoPedido(evento.target.value)}
+                    className="w-full min-w-0 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 py-2 text-sm font-semibold text-white outline-none transition focus:border-[#C8A96B]"
+                  >
+                    {!equipo && <option value="" className="bg-[#11161C]">Elige rival…</option>}
+                    {equipos.map((nombre) => {
+                      const jornada = jornadaDeEquipo(orden, nombre);
+
+                      return (
+                        <option key={nombre} value={nombre} className="bg-[#11161C]">
+                          {nombre}
+                          {jornada ? ` · ${jornada.etiqueta}` : ""}
+                          {esElProximo(orden, nombre) ? " · próximo" : ""}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </label>
+                {equipo && esElProximo(orden, equipo) && (
                   <span className="rounded-full bg-[#C8A96B] px-1.5 py-px text-xs font-bold uppercase tracking-wider text-black">Próximo</span>
                 )}
-                <ChapaJornada jornada={jornadaDeEquipo(orden, equipo)} activo />
-                <button
-                  type="button"
-                  onClick={() => setCambiandoEquipo(true)}
-                  className="flex items-center gap-1 rounded-lg border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2.5 py-1.5 text-[12px] text-[#C8A96B]"
-                >
-                  Cambiar equipo <ChevronDown size={13} />
-                </button>
-                <Link
-                  href={`/rivals?equipo=${encodeURIComponent(equipo)}`}
-                  className="text-[11px] text-[#C8A96B] transition hover:underline sm:ml-auto"
-                >
-                  Plantilla de {equipo}, con la ficha de cada jugador →
-                </Link>
+                {equipo && <ChapaJornada jornada={jornadaDeEquipo(orden, equipo)} activo />}
               </div>
             )}
-
-            <div className={equipo && !cambiandoEquipo && !buscaEquipo ? "hidden" : undefined}>
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-white/40">
-                <Users size={13} />
-                Rival
-              </span>
-
-              {/* En el móvil el buscador baja a su fila, a todo el ancho: en la
-                  misma línea que el rótulo y la cuenta, «19 de 19» salía cortado. */}
-              <div className="relative order-last w-full min-w-0 sm:order-none sm:w-auto sm:max-w-xs sm:flex-1">
-                <Search
-                  size={14}
-                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/30"
-                />
-
-                <input
-                  value={buscaEquipo}
-                  onChange={(evento) => setBuscaEquipo(evento.target.value)}
-                  placeholder="Filtrar equipos…"
-                  className="w-full rounded-xl border border-white/10 bg-white/[0.04] py-2 pl-9 pr-3 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#C8A96B]/50"
-                />
-              </div>
-
-              {/* Qué cuenta (30/10/2026): «19 de 19» eran dos números sueltos. */}
-              <span className="shrink-0 whitespace-nowrap text-[12px] tabular-nums text-white/50">
-                {equipos.length
-                  ? visibles.length === equipos.length
-                    ? `${equipos.length} equipos`
-                    : `${visibles.length} de ${equipos.length} equipos`
-                  : ""}
-              </span>
-
-              {/* Su plantilla, con las fichas de cada jugador. */}
-              {equipo && (
-                <Link
-                  href={`/rivals?equipo=${encodeURIComponent(equipo)}`}
-                  className="ml-auto text-[11px] text-[#C8A96B] transition hover:underline"
-                >
-                  Plantilla de {equipo}, con la ficha de cada jugador →
-                </Link>
-              )}
-            </div>
-
-            {/*
-              Una tira de escudos y no un desplegable: el escudo se reconoce
-              antes que el nombre, y con el desplegable había que abrirlo,
-              leer treinta y ocho líneas y acertar. Se desplaza en horizontal
-              para no comerse media pantalla con la lista entera. En el móvil
-              se desvanece a la derecha: cortada a ras parecía que no había
-              más equipos (29/10/2026). La máscara no lleva color, así que
-              vale igual en el modo día.
-            */}
-            <div className="mt-3 flex gap-2 overflow-x-auto pb-1 [mask-image:linear-gradient(to_right,#000_82%,transparent)] sm:[mask-image:none]">
-              {loading && !ordenListo && equipos.length === 0 && (
-                <div className="flex gap-2">
-                  {Array.from({ length: 8 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="h-[70px] w-[104px] shrink-0 animate-pulse rounded-2xl border border-white/10 bg-white/[0.03]"
-                    />
-                  ))}
-                </div>
-              )}
-
-              {visibles.map((nombre) => {
-                const activo = nombre === equipo;
-
-                /* El primero de la fila lleva chapa, y sólo con fecha delante:
-                   sin ella, ser el primero es una suposición. */
-                const proximo = esElProximo(orden, nombre);
-
-                return (
-                  <button
-                    key={nombre}
-                    type="button"
-                    onClick={() => {
-                      setEquipoPedido(nombre);
-                      setCambiandoEquipo(false);
-                      setBuscaEquipo("");
-                    }}
-                    title={
-                      proximo
-                        ? `${nombre} — ${etiquetaDelProximo(orden) ?? "próximo partido"}`
-                        : nombre
-                    }
-                    aria-current={activo ? "true" : undefined}
-                    className={`relative flex w-[104px] shrink-0 flex-col items-center gap-1.5 rounded-2xl border px-2 py-2.5 transition ${
-                      activo
-                        ? "border-[#C8A96B]/60 bg-[#C8A96B]/10"
-                        : "border-white/10 bg-white/[0.02] hover:border-white/25"
-                    }`}
-                  >
-                    {proximo && (
-                      <span className="absolute -top-1.5 rounded-full bg-[#C8A96B] px-1.5 py-px text-xs font-bold uppercase tracking-wider text-black">
-                        Próximo
-                      </span>
-                    )}
-
-                    <EscudoEquipo nombre={nombre} escudo={escudoDe(nombre)} lado={26} />
-
-                    <span
-                      className={`line-clamp-2 text-center text-xs leading-tight ${
-                        activo ? "text-[#C8A96B]" : "text-white/55"
-                      }`}
-                    >
-                      {nombre}
-                    </span>
-
-                    <ChapaJornada jornada={jornadaDeEquipo(orden, nombre)} activo={activo} />
-                  </button>
-                );
-              })}
-
-              {equipos.length > 0 && visibles.length === 0 && (
-                <p className="py-4 text-xs text-white/35">
-                  Ningún equipo se llama así.
-                </p>
-              )}
-            </div>
-            </div>
           </section>
 
           {/* ---------------------------- VÍDEOS --------------------------- */}
@@ -554,6 +455,7 @@ export default function ScoutRivalIndividual() {
                 plantilla={plantilla}
                 visionados={vistasPorVideo}
                 equipos={equipos}
+                jugadorInicial={equipo === delEnlace ? jugadorEnlazado : ""}
               />
             ) : (loading || !ordenListo) && !lento ? (
               <EsqueletoPantalla titulo="las plantillas rivales" cifras={0} paneles={1} />

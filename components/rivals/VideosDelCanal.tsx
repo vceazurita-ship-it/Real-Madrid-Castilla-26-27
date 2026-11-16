@@ -46,6 +46,7 @@ import { useCalendario } from "@/hooks/useCalendario";
 import { comoNuestro } from "@/lib/castilla/calendario";
 import { nombreEquipo } from "@/lib/equipos";
 import { mismoClub } from "@/lib/rivals/mismoClub";
+import { mismoNombreRival } from "@/lib/rivals/rival-en-curso";
 import Link from "next/link";
 import {
   CLAVE_LISTAS,
@@ -138,6 +139,9 @@ function rangoDePuesto(puesto: string) {
 
 /** El rótulo de cada línea, por el rango de `rangoDePuesto`. */
 const LINEAS = ["Porteros", "Defensas", "Centrocampistas", "Delanteros", "Otros"] as const;
+
+/** Etiquetas de la ficha que hablan de balón parado: rematador, lanzador, córner, falta directa… */
+const ES_ABP = /abp|bal[oó]n parado|rematador|lanzador|c[oó]rner|falta directa|penalti/i;
 
 /** Un vídeo ya colocado: de quién es y de qué va, además del vídeo. */
 type Pieza = {
@@ -269,9 +273,12 @@ export function VideosDelCanal({
   plantilla,
   visionados = {},
   equipos = [],
+  jugadorInicial = "",
 }: {
   equipo: string;
   plantilla: JugadorPlantilla[];
+  /** `?jugador=` (desde Duelos, 16/11/2026): se abre con sus cortes filtrados. */
+  jugadorInicial?: string;
   /** Los nombres de la tira de escudos: el nombre corto de cada lista sale de aquí. */
   equipos?: string[];
   /** Cuántas veces se ha abierto cada vídeo en la app, por su id (10/11/2026). */
@@ -647,7 +654,14 @@ export function VideosDelCanal({
   | buscando un nombre. Los chips de arriba son el índice **y** el filtro: dicen
   | de un vistazo quién tiene material y cuánto, y al pulsar dejan sólo lo suyo.
   */
-  const [soloDe, setSoloDe] = useState<string>("");
+  /* `null` = nadie ha tocado los chips: manda el jugador del enlace, si tiene cortes. */
+  const [soloElegido, setSoloDe] = useState<string | null>(null);
+  const delEnlace = useMemo(() => {
+    if (!jugadorInicial.trim()) return "";
+
+    return grupos.jugadores.find((g) => mismoNombreRival(g.jugador, jugadorInicial))?.jugador ?? "";
+  }, [grupos.jugadores, jugadorInicial]);
+  const soloDe = soloElegido ?? delEnlace;
 
   const SUELTOS = "__equipo";
 
@@ -875,13 +889,40 @@ export function VideosDelCanal({
 
       {/* En el móvil el selector va en su fila y a todo el ancho: en la misma
           línea que el rótulo y el canal salía «J10 Cartag…» (29/10/2026). */}
-      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
-        <ListVideo size={15} className="shrink-0 text-[#C8A96B]" />
+      {/*
+      | LA LISTA DEL CANAL, PLEGADA (16/11/2026, ronda 18, fútbol y análisis):
+      | arriba mandaba el desplegable de las listas de los 13 rivales, una
+      | tercera forma de elegir rival. Ahora es una línea con la lista que se
+      | está viendo; se abre para cambiarla. Sin lista, o con una que no
+      | parece de este rival, sale abierta.
+      */}
+      {/* Conclusión primero (16/11/2026, marketing): quién tiene vídeo y cuántos del once. */}
+      {lista && !cargandoVideos && grupos.jugadores.length > 0 && (() => {
+        const delOnce = grupos.jugadores.filter((g) => g.titular).length;
+        const explotables = jugadoresPorPuesto.filter((g) => g.explotables > 0).map((g) => g.jugador);
 
-        <span className="text-xs uppercase tracking-[0.16em] text-white/40">
-          Lista del canal
-        </span>
+        return (
+          <p className="mb-3 text-base font-semibold text-white sm:text-lg">
+            {grupos.jugadores.length} {grupos.jugadores.length === 1 ? "jugador" : "jugadores"} con vídeo
+            {delOnce > 0 ? `, ${delOnce} del once probable` : ""}
+            {explotables.length > 0 ? `; algo que explotar en ${explotables.slice(0, 3).join(", ").replace(/, ([^,]*)$/, " y $1")}${explotables.length > 3 ? ` y ${explotables.length - 3} más` : ""}` : ""}.
+          </p>
+        );
+      })()}
 
+      <details
+        key={lista && !sospechosa ? "plegada" : "abierta"}
+        open={!lista || Boolean(sospechosa)}
+        className="group/lista rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2"
+      >
+        <summary className="flex min-h-9 cursor-pointer list-none flex-wrap items-center gap-2 text-[13px] text-white/70">
+          <ListVideo size={15} className="shrink-0 text-[#C8A96B]" />
+          <span className="text-xs uppercase tracking-[0.16em] text-white/50">Lista del canal</span>
+          {lista && <span className="min-w-0 truncate font-semibold text-white/85">{etiquetaLista} · {lista.cuenta} {lista.cuenta === 1 ? "vídeo" : "vídeos"}</span>}
+          <span className="ml-auto text-[12px] text-[#C8A96B] group-open/lista:hidden">Cambiar</span>
+        </summary>
+
+      <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-white/[0.06] pt-2">
         {/* Qué es la J (16/11/2026, fútbol): la de nuestro calendario, no la del rival. */}
         <span className="text-[11px] text-white/50">J = nuestra jornada contra ese rival</span>
 
@@ -935,6 +976,7 @@ export function VideosDelCanal({
 
         <span className="text-[11px] text-white/30">{estado.canal}</span>
       </div>
+      </details>
 
       {/* Sin lista (10/11/2026, jueces): ni instrucciones al analista ni hueco;
           la plantilla con la ficha de cada jugador, que es contenido. */}
@@ -1061,7 +1103,7 @@ export function VideosDelCanal({
       )}
 
       {lista && !cargandoVideos && videos.length > 0 && (
-        <div className="scrollbar-none mt-3 flex items-center gap-1.5 overflow-x-auto pb-1 pr-6 [mask-image:linear-gradient(to_right,#000_calc(100%-32px),transparent)] [&_button]:shrink-0 [&_span]:shrink-0 sm:flex-wrap sm:overflow-visible sm:pb-0 sm:pr-0 sm:[mask-image:none]">
+        <div className="mt-3 flex [scrollbar-width:thin] items-center gap-1.5 overflow-x-auto pb-1 pr-6 [mask-image:linear-gradient(to_right,#000_calc(100%-32px),transparent)] [&_button]:shrink-0 [&_span]:shrink-0 sm:flex-wrap sm:overflow-visible sm:pb-0 sm:pr-0 sm:[mask-image:none]">
           <Chip
             activo={!soloDe}
             onClick={() => setSoloDe("")}
@@ -1283,6 +1325,74 @@ export function VideosDelCanal({
           </div>
         </section>
       )}
+
+      {/*
+      | EL RESTO DEL ONCE PROBABLE (16/11/2026, ronda 18, fútbol): de los
+      | titulares sin corte (sus tres más peligrosos, a veces) no se veía nada.
+      | Cada uno sale con lo que sí hay: su radiografía contra los de su puesto
+      | (Wyscout) y la lectura del analista, con su ficha y su duelo. Quien no
+      | tiene ni cifra ni etiqueta no sale.
+      */}
+      {!cargandoVideos && lista && videos.length > 0 && !soloDe && !termino && (() => {
+        const conVideo = new Set(grupos.jugadores.map((g) => g.jugador));
+        const resto = plantilla
+          .filter((j) => j.titular && !conVideo.has(j.nombre) && ((j.cifras?.length ?? 0) > 0 || (j.etiquetas?.length ?? 0) > 0))
+          .sort((a, b) => rangoDePuesto(a.puesto ?? "") - rangoDePuesto(b.puesto ?? "") || (b.minutos ?? 0) - (a.minutos ?? 0));
+
+        return resto.length > 0 ? (
+          <section className="mt-6 min-w-0">
+            <header className="mb-3 flex flex-wrap items-baseline gap-2 border-b border-white/10 pb-2">
+              <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#C8A96B]">El resto de su once probable</h2>
+              <span className="text-[12px] text-white/55">lo que dicen sus datos y la ficha del analista</span>
+            </header>
+            <div className="grid min-w-0 grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+              {resto.map((j) => {
+                const enCaseta = (j.etiquetas ?? []).map((e) => ({ texto: etiquetaEnCaseta(e, j), debil: esEtiquetaDebil(e) }));
+                const resumen = resumenDeTemporada(j);
+
+                return (
+                  <div key={j.hoja ?? j.nombre} className="min-w-0 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                    <p className="flex min-w-0 items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-[#C8A96B]">
+                      {j.dorsal && <span className="tabular-nums">{j.dorsal}</span>}
+                      <span className="min-w-0 truncate">{j.nombre}</span>
+                    </p>
+                    {(j.puesto || resumen) && <p className="mt-0.5 text-[12px] tabular-nums text-white/60">{[j.puesto, resumen].filter(Boolean).join(" · ")}</p>}
+                    {[
+                      { rotulo: "▲ Hace bien", color: MEJOR, lista: enCaseta.filter((e) => !e.debil).map((e) => e.texto) },
+                      { rotulo: "▼ Explotable", color: PEOR, lista: enCaseta.filter((e) => e.debil).map((e) => e.texto) },
+                    ]
+                      .filter((g) => g.lista.length > 0)
+                      .map((g) => (
+                        <p key={g.rotulo} className="mt-0.5 text-[12px] leading-snug" style={{ color: g.color }}>
+                          <span className="font-semibold">{g.rotulo}:</span> {g.lista.join(" · ")}
+                        </p>
+                      ))}
+                    {(j.cifras ?? []).map((c) => (
+                      <p key={c} className="mt-0.5 text-[11px] leading-snug tabular-nums text-white/65">{c}</p>
+                    ))}
+                    <p className="mt-1 flex flex-wrap gap-x-4 text-[12px]">
+                      <Link
+                        href={`/rivals?equipo=${encodeURIComponent(equipo)}${j.clave ? `&jugador=${encodeURIComponent(j.clave)}` : ""}`}
+                        className="inline-flex min-h-[44px] items-center font-semibold text-[#C8A96B] hover:underline sm:min-h-0"
+                      >
+                        Su ficha →
+                      </Link>
+                      <Link href={`/duelos?equipo=${encodeURIComponent(equipo)}`} className="inline-flex min-h-[44px] items-center font-semibold text-[#C8A96B] hover:underline sm:min-h-0">
+                        Su duelo →
+                      </Link>
+                      {(j.etiquetas ?? []).some((e) => ES_ABP.test(e)) && (
+                        <Link href={`/scout-rival-abp?equipo=${encodeURIComponent(equipo)}`} className="inline-flex min-h-[44px] items-center font-semibold text-[#C8A96B] hover:underline sm:min-h-0">
+                          Su ABP →
+                        </Link>
+                      )}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        ) : null;
+      })()}
 
       {!cargandoVideos &&
         agrupado &&
@@ -1535,7 +1645,7 @@ function Rejilla({
      mirar—, pero se leen al pasar el cursor (29/10/2026). */
   return (
     <div className={`grid min-w-0 gap-2.5 ${columnas}`}>
-      {piezas.map(({ video, tema, jugador, dorsal, puesto, resumen, clave, enCaseta, cifras }) => (
+      {piezas.map(({ video, tema, jugador, dorsal, puesto, resumen, clave, enCaseta, cifras, etiquetas }) => (
         <div
           key={video.id}
           title={[video.titulo, fecha(video.publicado) && `subido el ${fecha(video.publicado)}`].filter(Boolean).join(" · ")}
@@ -1584,7 +1694,8 @@ function Rejilla({
               ] as const)
                 .filter((g) => g.lista.length > 0)
                 .map((g) => (
-                  <p key={g.rotulo} className="mb-0.5 line-clamp-2 text-[12px] leading-snug" style={{ color: g.color }} title="Lectura del analista, de la ficha del jugador">
+                  /* La frase entera, sin cortar (16/11/2026, ronda 18, marketing): «va al suelo para robar:…» no decía nada. */
+                  <p key={g.rotulo} className="mb-0.5 text-[12px] leading-snug" style={{ color: g.color }} title="Lectura del analista, de la ficha del jugador">
                     <span className="font-semibold">{g.rotulo}:</span> {g.lista.join(" · ")}
                   </p>
                 ))}
@@ -1625,6 +1736,12 @@ function Rejilla({
                 <Link href={`/duelos?equipo=${encodeURIComponent(equipo)}`} className="inline-flex min-h-[44px] items-center font-semibold text-[#C8A96B] hover:underline sm:min-h-0">
                   Su duelo →
                 </Link>
+                {/* Rematador o lanzador de ABP: su balón parado (16/11/2026, ronda 18, fútbol). */}
+                {etiquetas.some((e) => ES_ABP.test(e)) && (
+                  <Link href={`/scout-rival-abp?equipo=${encodeURIComponent(equipo)}`} className="inline-flex min-h-[44px] items-center font-semibold text-[#C8A96B] hover:underline sm:min-h-0">
+                    Su ABP →
+                  </Link>
+                )}
               </p>
             )}
 

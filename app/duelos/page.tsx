@@ -16,9 +16,12 @@
  * en `lib/duelos.ts`.
  */
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import { ChevronDown, ChevronUp, CircleDot, RotateCcw, Swords } from "lucide-react";
 
+import { AccesosDelRival } from "@/components/rivals/AccesosDelRival";
 import { EsqueletoPantalla } from "@/components/ui/estados";
 import { Explicativo } from "@/components/ui/textos-analisis";
 import { Sidebar } from "@/components/ui/sidebar";
@@ -101,7 +104,8 @@ function ConsignaPartida({ c }: { c: string }) {
   return (
     <span className="block space-y-0.5 text-[13px] leading-snug text-white/85">
       <span className="block"><b style={{ color: ORO }}>Qué le decimos:</b> {queLimpio}</span>
-      {tarea && <span className="block"><b className="text-white/90">Tarea:</b> {tarea.replace(/\.$/, "")}.</span>}
+      {/* «Qué entrenamos» (16/11/2026, ronda 18, fútbol): la tarea de 1 contra 1 que mide esa acción. */}
+      {tarea && <span className="block"><b className="text-white/90">Qué entrenamos:</b> {tarea.replace(/\.$/, "")}.</span>}
       {objetivo && <span className="block"><b className="text-white/90">Objetivo:</b> {objetivo} <span className="text-white/55">(percentil contra su puesto, Wyscout)</span></span>}
     </span>
   );
@@ -130,6 +134,12 @@ const apellido = (nombre: string) => {
 
 /** Con la inicial del nombre cuando el apellido se repite en el once (J. Martínez, S. Martínez). */
 const apellidoDe = (j: JugadorDuelo): string => j.corto ?? apellido(j.nombre);
+
+/** Su ficha (16/11/2026, ronda 18): el nuestro en /individual; el suyo, sus cortes en Scout individual con el rival puesto. */
+const fichaDe = (j: JugadorDuelo, nuestro: boolean, equipo: string) =>
+  nuestro
+    ? `/individual?nombre=${encodeURIComponent(j.nombre)}`
+    : `/scout-rival-individual?equipo=${encodeURIComponent(equipo)}&jugador=${encodeURIComponent(j.nombre)}`;
 
 /** «RCB» → «central derecho». Lo que no se sabe traducir se deja como viene; vacío, vacío. */
 const ROL_NUMERO: Record<string, string> = {
@@ -623,6 +633,9 @@ export default function DuelosPage() {
               45 puntos de percentil a favor nuestro; un −28, 28 a favor del rival. Con pocos minutos, la cifra es menos fiable.
             </p>
 
+            {/* El Plan, sus goles en vídeo y el resto del rival, con él puesto (16/11/2026, ronda 18). */}
+            {equipoVisto && <AccesosDelRival equipo={equipoVisto} aqui="/duelos" className="mt-4" />}
+
             <div className="sticky top-[81px] z-20 -mx-4 mt-6 flex flex-wrap items-center gap-3 border-b border-white/[0.06] bg-[#0B0F14]/95 px-4 pb-3 pt-3 backdrop-blur sm:-mx-8 sm:px-8 md:top-[97px]">
               <span className="text-xs uppercase tracking-wider text-white/55">Rival</span>
               {escudo && (
@@ -749,6 +762,15 @@ export default function DuelosPage() {
                                 <span className="block text-xs text-white/55">{sentido === "sin" ? "con su balón" : "con nuestro balón"} · {d.nuestros.map((j) => `${apellidoDe(j)} (${j.minutos}′)`).join(" y ")} contra {d.suyos.map((j) => `${apellidoDe(j)} (${j.minutos}′)`).join(" y ")} · minutos en Wyscout</span>
                                 {/* Una línea con la orden; la consigna entera, en la tarjeta del duelo (sin repetirla en tres sitios). */}
                                 <span className="mt-1 block text-[13px] leading-snug text-white/85">{ordenCorta(consignaDelDuelo(d, sentido))}</span>
+                                {/* Y qué se entrena, si la consigna trae su tarea (16/11/2026, ronda 18, fútbol). */}
+                                {(() => {
+                                  const tarea = consignaDelDuelo(d, sentido).split(" Tarea: ")[1]?.split(" Objetivo: ")[0]?.replace(/\.$/, "");
+                                  return tarea ? (
+                                    <span className="mt-0.5 block text-[12px] leading-snug text-white/65">
+                                      <b className="text-white/80">Qué entrenamos:</b> {tarea}.
+                                    </span>
+                                  ) : null;
+                                })()}
                               </button>
                             </li>
                           );
@@ -958,6 +980,8 @@ function Campo({
 }) {
   const estrecho = useSyncExternalStore(suscribeEstrecho, esEstrecho, anchoServidor);
   const [tocada, setTocada] = useState<string | null>(null);
+  /* El nombre en el campo abre su ficha sin recargar (16/11/2026, ronda 18). */
+  const router = useRouter();
   const K = 8;
   const px = (p: { x: number; y: number }) => ({ x: p.x * K, y: p.y * K });
   const W = 100 * K;
@@ -1015,7 +1039,17 @@ function Campo({
         </text>
         {j && !estrecho && (
           /* Los nuestros debajo y los suyos encima: en pareja ya no se pisan (16/11/2026, ronda 17). */
-          <text x={x} y={y + (desplaza.get(key) ?? (nuestro ? 44 : -28))} textAnchor="middle" className="text-[25px] sm:text-[17px]" fill={nuestro ? ORO_CAMPO : "rgba(255,255,255,0.85)"} fontWeight={600}>
+          <text
+            x={x}
+            y={y + (desplaza.get(key) ?? (nuestro ? 44 : -28))}
+            textAnchor="middle"
+            className="cursor-pointer text-[25px] hover:underline sm:text-[17px]"
+            fill={nuestro ? ORO_CAMPO : "rgba(255,255,255,0.85)"}
+            fontWeight={600}
+            role="link"
+            onClick={() => router.push(fichaDe(j, nuestro, equipo))}
+          >
+            <title>{nuestro ? `La ficha de ${j.nombre}` : `Los vídeos y la ficha de ${j.nombre}`}</title>
             {apellidoDe(j)}
           </text>
         )}
@@ -1026,7 +1060,8 @@ function Campo({
   return (
     /* Encajado al ancho (10/11/2026, jueces): a 390 px se cortaba por la derecha y había que deslizarlo.
        Las letras crecen en el móvil para que, escaladas, sigan por encima de 11 px. */
-    <div className="mt-3 min-w-0">
+    /* En el móvil, la lista de parejas va primero y el campo de apoyo (16/11/2026, ronda 18, análisis). */
+    <div className="mt-3 flex min-w-0 flex-col">
     <svg viewBox={`-24 -40 ${W + 48} ${H + 84}`} preserveAspectRatio="xMidYMid meet" className="h-auto w-full" style={{ maxHeight: "max(300px, calc(100vh - 330px))" }} role="img" aria-label="Duelos en el campo">
       <rect x={0} y={0} width={W} height={H} rx={10} fill="#12301f" />
       {[...Array(10)].map((_, i) => (
@@ -1066,7 +1101,7 @@ function Campo({
     </svg>
     {/* En el móvil, sólo el número en la ficha y debajo las parejas con su cifra (16/11/2026, ronda 17). */}
     {estrecho && (
-      <ul className="mt-2 space-y-1 text-[13px] text-white/80">
+      <ul className="order-first mb-3 space-y-1.5 text-[13px] text-white/80">
         {duelos
           .filter((d) => d.veredicto !== "sin-datos")
           .map((d) => (
@@ -1096,7 +1131,14 @@ function Campo({
           const [lado, hueco] = (tocada ?? "").split(/-(.+)/);
           const j = lado === "n" ? once[hueco] : lado === "s" ? suyo[hueco] : undefined;
           if (!j) return "Toca una ficha para ver quién es.";
-          return `${lado === "n" ? "Castilla" : equipo}: ${j.nombre}, ${puestoDelHueco(hueco) || puestoNatural(j)}`;
+          return (
+            <>
+              {`${lado === "n" ? "Castilla" : equipo}: ${j.nombre}, ${puestoDelHueco(hueco) || puestoNatural(j)} · `}
+              <Link href={fichaDe(j, lado === "n", equipo)} className="font-semibold text-[#C8A96B] hover:underline">
+                Su ficha →
+              </Link>
+            </>
+          );
         })()}
       </p>
     )}
@@ -1600,12 +1642,54 @@ function RoboEnDuelo({ lista }: { lista: RoboJugador[] }) {
   );
 }
 
+/** Una fila de «quién nos roba»: nombre (abre su ficha), cifra y una barra de percentil con la raya del robador. */
+function FilaRobador({ r, i, huecoDe, equipo }: { r: RoboJugador; i?: number; huecoDe: Map<string, string>; equipo: string }) {
+  return (
+    <li className="flex min-w-0 items-start gap-2 text-xs">
+      <span className="w-4 shrink-0 text-right tabular-nums text-white/40">{i === undefined || r.tendencia ? "·" : i + 1}</span>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <Link href={fichaDe(r.jugador, false, equipo)} className="text-sm font-medium text-white/90 underline-offset-2 hover:underline">
+            {r.jugador.nombre}
+          </Link>
+          <span className="text-white/50">{puestoVisible(r.jugador, huecoDe)}</span>
+          <MarcaRobador r={r} />
+        </div>
+        {r.percentil !== null && (
+          <div className="relative mt-1 h-2 w-full overflow-hidden rounded-full bg-white/[0.08]" aria-hidden>
+            <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${Math.max(2, r.percentil)}%`, background: r.robador ? PEOR : tinta(0.45) }} />
+            <span className="absolute inset-y-0 w-px" style={{ left: `${UMBRAL_ROBADOR}%`, background: tinta(0.7) }} />
+          </div>
+        )}
+        <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2 text-white/60">
+          <span className="tabular-nums">{cifraRobo(r)}</span>
+          {r.percentil !== null && (
+            <span className="tabular-nums font-semibold" style={{ color: r.robador ? PEOR : tinta(0.6) }}>
+              P{r.percentil}
+              {r.percentilBruto !== null && <span className="font-normal text-white/45"> (P{r.percentilBruto} en bruto)</span>}
+            </span>
+          )}
+        </div>
+        {r.zona && <p className="text-white/45">Roba sobre todo {rotuloZona(r.zona)} · {r.zona.parte} % de {r.zona.total} (Opta){r.zona.total < MUESTRA_ZONA && <ChipTendencia />}</p>}
+      </div>
+    </li>
+  );
+}
+
 /** Su once ordenado por cortes ajustados a la posesión, con el robador marcado. */
 function Robadores({ lista: listaEntera, equipo, huecoDe }: { lista: RoboJugador[]; equipo: string; huecoDe: Map<string, string> }) {
   /* Los de pocos minutos, al final y sin orden de mérito (16/11/2026, ronda 17). */
   /* Ordenados por su percentil ajustado (el criterio del título y de la orden); los de pocos minutos, al final. */
   const porPercentil = (a: RoboJugador, b: RoboJugador) => (b.percentil ?? -1) - (a.percentil ?? -1);
-  const lista = [...listaEntera.filter((r) => !r.tendencia).sort(porPercentil), ...listaEntera.filter((r) => r.tendencia)];
+  /*
+  | SÓLO QUIEN ROBA (16/11/2026, ronda 18, fútbol y marketing): Olmedo, P5 y
+  | 376′, salía en la lista de robadores. A la vista quedan los robadores y
+  | los de 450′ o más de la mitad alta de su puesto, en barras de percentil;
+  | el resto del once, plegado debajo con sus cifras.
+  */
+  const cuenta = (r: RoboJugador) => r.robador || (!r.tendencia && (r.percentil ?? 0) >= 50);
+  const lista = listaEntera.filter(cuenta).sort(porPercentil);
+  const resto = [...listaEntera.filter((r) => !cuenta(r) && !r.tendencia).sort(porPercentil), ...listaEntera.filter((r) => !cuenta(r) && r.tendencia)];
   const posesion = lista.find((r) => r.posesion != null)?.posesion ?? null;
   /* El bloque acaba en una orden: no conducir hacia el que más roba (16/11/2026, ronda 17). */
   const primero = lista.find((r) => r.robador && r.ajustado != null);
@@ -1623,33 +1707,28 @@ function Robadores({ lista: listaEntera, equipo, huecoDe }: { lista: RoboJugador
       </div>
       {/* La población y qué es «ajustado», en una línea fija (16/11/2026, ronda 17). */}
       <p className="mt-1 text-xs leading-snug text-white/60">
-        Interceptaciones por 90′ de Wyscout, frente a los de su puesto con 90′ o más. Robador: P{UMBRAL_ROBADOR} o más ajustado, con 450′ o más.
+        Interceptaciones por 90′ de Wyscout, frente a los de su puesto con 90′ o más. Robador: P{UMBRAL_ROBADOR} o más ajustado, con 450′ o más. La barra es su percentil; la raya, P{UMBRAL_ROBADOR}.
         {posesion != null && ` «Ajustado» las lleva a un partido con el balón a medias: su equipo tiene el ${Math.round(posesion)} % de posesión media en sus partidos de liga (Wyscout), así que con menos balón corta más de lo que parece en bruto.`}
       </p>
-      <ol className="mt-3 grid grid-cols-1 gap-x-6 gap-y-2 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-        {lista.map((r, i) => (
-          <li key={r.jugador.clave} className="flex min-w-0 items-start gap-2 text-xs">
-            <span className="w-4 shrink-0 text-right tabular-nums text-white/40">{r.tendencia ? "·" : i + 1}</span>
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                <b className="text-sm font-medium text-white/90">{r.jugador.nombre}</b>
-                <span className="text-white/50">{puestoVisible(r.jugador, huecoDe)}</span>
-                <MarcaRobador r={r} />
-              </div>
-              <div className="flex flex-wrap items-baseline gap-x-2 text-white/60">
-                <span className="tabular-nums">{cifraRobo(r)}</span>
-                {r.percentil !== null && (
-                  <span className="tabular-nums font-semibold" style={{ color: r.robador ? PEOR : tinta(0.6) }}>
-                    P{r.percentil}
-                    {r.percentilBruto !== null && <span className="font-normal text-white/45"> (P{r.percentilBruto} en bruto)</span>}
-                  </span>
-                )}
-              </div>
-              {r.zona && <p className="text-white/45">Roba sobre todo {rotuloZona(r.zona)} · {r.zona.parte} % de {r.zona.total} (Opta){r.zona.total < MUESTRA_ZONA && <ChipTendencia />}</p>}
-            </div>
-          </li>
-        ))}
-      </ol>
+      {lista.length > 0 && (
+        <ol className="mt-3 grid grid-cols-1 gap-x-6 gap-y-2.5 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+          {lista.map((r, i) => (
+            <FilaRobador key={r.jugador.clave} r={r} i={i} huecoDe={huecoDe} equipo={equipo} />
+          ))}
+        </ol>
+      )}
+      {resto.length > 0 && (
+        <details className="mt-3 border-t border-white/[0.06] pt-2">
+          <summary className="cursor-pointer select-none text-xs text-white/60 hover:text-white">
+            El resto de su once, que roba poco o con pocos minutos ({resto.length})
+          </summary>
+          <ol className="mt-2 grid grid-cols-1 gap-x-6 gap-y-2.5 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+            {resto.map((r) => (
+              <FilaRobador key={r.jugador.clave} r={r} huecoDe={huecoDe} equipo={equipo} />
+            ))}
+          </ol>
+        </details>
+      )}
       {primero && (
         <p className="mt-3 text-[13px] font-semibold leading-snug text-white/85">
           Qué hacemos: no conducir hacia {apellidoDe(primero.jugador)} en nuestro tercio; corta {coma(primero.ajustado!)} por 90′ ajustado, P{primero.percentil} de su puesto.
@@ -1771,7 +1850,17 @@ function Tarjeta({
         <div key={j.clave} className={`flex min-w-0 max-w-full items-center gap-2 ${nuestro ? "" : "sm:flex-row-reverse"}`}>
           <Foto src={j.foto} nombre={j.nombre} size={34} borde={nuestro ? ORO : tinta(0.5)} />
           <div className="min-w-0">
-            <p className={`truncate text-sm font-medium ${nuestro ? "text-[#C8A96B]" : "text-white/90"}`}>{j.nombre}</p>
+            {/* El nombre abre su ficha (16/11/2026, ronda 18): el nuestro en Individual, el suyo en Scout individual con sus cortes. */}
+            <p className="truncate text-sm font-medium">
+              <Link
+                href={fichaDe(j, nuestro, equipo)}
+                onClick={(e) => e.stopPropagation()}
+                title={nuestro ? `La ficha de ${j.nombre}` : `Los vídeos y la ficha de ${j.nombre}`}
+                className={`underline-offset-2 hover:underline ${nuestro ? "text-[#C8A96B]" : "text-white/90"}`}
+              >
+                {j.nombre}
+              </Link>
+            </p>
             <p className="text-xs text-white/45">
               {[
                 puestoVisible(j, huecoDe),
