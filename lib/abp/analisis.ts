@@ -519,7 +519,49 @@ export type CuotaCategoria = {
   deltaPp: number;
   /** La métrica de la sección dentro de esa categoría. */
   metrica: number | null;
+  /**
+   * 16/11/2026 (jueces): cómo se lee en la barra, en lenguaje de vestuario
+   * («El rival se queda el balón» y no «Posicional Rival»). Sólo en los
+   * saques de banda (`conGlosa`); si falta, se enseña `nombre`.
+   */
+  rotulo?: string;
+  /** De quién es el balón al acabar: para agrupar las barras. */
+  grupo?: "nuestro" | "rival" | "neutro";
 };
+
+/**
+ * El desenlace de un saque de banda dicho como en el vestuario, con su dueño
+ * (16/11/2026, jueces). Las dos hojas de banda son absolutas: sin sufijo es
+ * del RMCF y «… Rival» es del rival; en la defensiva la conquista de último
+ * tercio es siempre del rival (la que se nos concede), como en el resto del
+ * motor.
+ */
+export function desenlaceBanda(nombre: string, sentido: Sentido): { rotulo: string; grupo: "nuestro" | "rival" | "neutro" } | null {
+  const c = nombre.trim().toLowerCase().replace(/\s+/g, " ");
+  const rival = /\brival\b/.test(c);
+
+  if (c.startsWith("conquista último tercio") || c.startsWith("conquista ultimo tercio")) {
+    return rival || sentido === "defensivo"
+      ? { rotulo: "El rival llega a nuestro último tercio", grupo: "rival" }
+      : { rotulo: "Llegamos a su último tercio", grupo: "nuestro" };
+  }
+  if (/^gol\b/.test(c)) return rival ? { rotulo: "Gol del rival", grupo: "rival" } : { rotulo: "Gol nuestro", grupo: "nuestro" };
+  if (c.startsWith("ocasi")) return rival ? { rotulo: "Ocasión del rival", grupo: "rival" } : { rotulo: "Ocasión nuestra", grupo: "nuestro" };
+  if (c.startsWith("posicional")) {
+    return rival
+      ? { rotulo: "El rival se queda el balón", grupo: "rival" }
+      : { rotulo: sentido === "ofensivo" ? "Nos quedamos el balón" : "Recuperamos el balón", grupo: "nuestro" };
+  }
+  if (c.startsWith("abp")) {
+    return rival ? { rotulo: "Acaba en balón parado del rival", grupo: "rival" } : { rotulo: "Acaba en balón parado nuestro", grupo: "nuestro" };
+  }
+  if (c.startsWith("transici")) {
+    return rival ? { rotulo: "El rival sale en transición", grupo: "rival" } : { rotulo: "Salimos en transición", grupo: "nuestro" };
+  }
+  if (c === "nada") return { rotulo: "Sin consecuencia", grupo: "neutro" };
+
+  return null;
+}
 
 export type Reparto = {
   /** Cómo se llama la dimensión: "tipo de acción", "zona de caída"… */
@@ -564,7 +606,10 @@ function analizaReparto(
 
   const glosa = (nombre: string) => {
     /* Sin comillas ni mayúscula de etiqueta: «Lo más frecuente es córner». */
-    const llano = /[a-záéíóúñ]/.test(nombre.slice(1)) ? nombre.charAt(0).toLowerCase() + nombre.slice(1) : nombre;
+    /* 16/11/2026 (jueces): una sigla no se baja a minúscula («aBP Rival»). */
+    const primera = nombre.split(/\s+/)[0] ?? "";
+    const sigla = primera.length > 1 && primera === primera.toUpperCase() && /[A-ZÁÉÍÓÚÑ]/.test(primera);
+    const llano = !sigla && /[a-záéíóúñ]/.test(nombre.slice(1)) ? nombre.charAt(0).toLowerCase() + nombre.slice(1) : nombre;
 
     if (!conGlosa) return llano;
 
@@ -578,7 +623,13 @@ function analizaReparto(
           ? ofensivo ? "mantener el balón" : "recuperar el balón"
           : clave.startsWith("conquista último tercio")
             ? ofensivo ? "llegar al último tercio rival" : "que el rival llegue a nuestro último tercio"
-            : "";
+            : clave === "abp rival"
+              ? "balón parado del rival"
+              : clave === "abp"
+                ? "balón parado nuestro"
+                : clave === "nada"
+                  ? "nada"
+                  : "";
 
     /* La etiqueta de Hudl no se nombra: sólo lo que pasó. */
     return dicho || llano;
@@ -646,7 +697,12 @@ function analizaReparto(
 
       if (!nombres.length || nombres.reduce((a, [, k]) => a + k, 0) !== n) return `${n} ${verbo} sin desenlace anotado`;
 
-      return `${n} ${verbo} en ${nombres.map(([nombre, k]) => (nombres.length > 1 ? `${glosa(nombre)} (${k})` : glosa(nombre))).join(", ")}`;
+      if (nombres.length === 1) return `${n} ${verbo} en ${glosa(nombres[0][0])}`;
+
+      /* 16/11/2026 (jueces): «3 acaban en balón parado del rival y 1 en nada», no «4 acaban en aBP Rival (3), nada (1)». */
+      const trozos = nombres.map(([nombre, k], i) => (i === 0 ? `${k} ${k === 1 ? "acaba" : "acaban"} en ${glosa(nombre)}` : `${k} en ${glosa(nombre)}`));
+
+      return `${trozos.slice(0, -1).join(", ")} y ${trozos[trozos.length - 1]}`;
     };
 
     /*
@@ -752,6 +808,7 @@ function analizaReparto(
         deltaPp: cuota - cuotaGlobal,
         /* Con menos de tres acciones el porcentaje de la categoría es anecdótico. */
         metrica: suyos.length >= 3 ? metrica.medir(suyos) : null,
+        ...(conGlosa && /resultado/i.test(etiqueta) ? desenlaceBanda(nombre, sentido) ?? {} : {}),
       };
     })
     .sort((a, b) => b.acciones - a.acciones);

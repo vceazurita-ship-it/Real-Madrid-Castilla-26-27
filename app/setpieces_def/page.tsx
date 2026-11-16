@@ -32,6 +32,20 @@ import {
   type LectorAnalisis,
 } from "@/components/abp/AnalisisSeccion";
 import { hablado, type ClaveMetrica } from "@/lib/abp/analisis";
+import { zonaFaltaEnPalabras } from "@/lib/abp/informe-micro";
+
+/*
+| 16/11/2026 (jueces): «falta directa perfilada zona 2» es lenguaje de la
+| hoja. Se dice dónde fue, con el glosario de zonas del informe, y el número
+| de zona entre paréntesis para casar con la hoja y el campograma.
+*/
+function accionEnPalabras(tipo: string) {
+  const crudo = tipo.trim().toLowerCase();
+  const palabras = zonaFaltaEnPalabras(crudo);
+  const zona = /\bz\s*(\d)\b/i.exec(crudo)?.[1];
+
+  return palabras ? `${palabras}${zona ? ` (zona ${zona})` : ""}` : hablado(crudo);
+}
 import { lecturaRapida } from "@/lib/abp/lectura-rapida";
 import { zonaLegible } from "@/lib/abp/accionFrase";
 import { LecturaRapida, MUESTRA_FIRME } from "@/components/abp/LecturaRapida";
@@ -2418,7 +2432,7 @@ const conclusiones = (() => {
   const peligroN = filtered.filter(LECTOR.peligro).length;
   const golesDichos = filtered
     .filter(LECTOR.gol)
-    .map((r) => `${hablado(r.tipoAccion.trim().toLowerCase())}${r.contexto.minuto.minuto != null ? `, ${r.contexto.minuto.minuto}′` : ""}`);
+    .map((r) => `${accionEnPalabras(r.tipoAccion)}${r.contexto.minuto.minuto != null ? `, ${r.contexto.minuto.minuto}′` : ""}`);
   const frases: (string | null)[] = [
     `${plural(filtered.length, "ABP", "ABP")} en contra: ${
       peligroN === 0 ? "ninguna acaba en gol u ocasión" : `${peligroN} de ${filtered.length} ${peligroN === 1 ? "acaba" : "acaban"} en gol u ocasión`
@@ -2437,7 +2451,7 @@ const conclusiones = (() => {
     const grupos = new Map<string, Row[]>();
 
     for (const r of conRemate) {
-      const clave = hablado(`${r.tipoAccion.trim().toLowerCase()}${r.zonaCaida ? ` a ${zonaDicha(r.zonaCaida)}` : ""}`);
+      const clave = `${accionEnPalabras(r.tipoAccion)}${r.zonaCaida ? hablado(` a ${zonaDicha(r.zonaCaida)}`) : ""}`;
 
       grupos.set(clave, [...(grupos.get(clave) ?? []), r]);
     }
@@ -2564,7 +2578,7 @@ const conclusiones = (() => {
   const golEncajado = filtered.find(LECTOR.gol);
   const objetivoRemate =
     anterioresConclusion && anterioresConclusion.length
-      ? `objetivo: como mucho ${Math.round((anterioresConclusion.filter(LECTOR.remate).length / anterioresConclusion.length) * 100)} % de acciones con remate (media de las ${nAnterioresConclusion} jornadas anteriores)`
+      ? `objetivo: como mucho ${Math.round((anterioresConclusion.filter(LECTOR.remate).length / anterioresConclusion.length) * 100)} % con remate (media de las ${nAnterioresConclusion} jornadas anteriores; hoy ${Math.round((filtered.filter(LECTOR.remate).length / filtered.length) * 100)} %)`
       : "";
   const tarea = golEncajado
     ? `Qué entrenamos${filtered.length < MUESTRA_FIRME ? " (tendencia que vigilar)" : ""}: ${
@@ -2573,10 +2587,11 @@ const conclusiones = (() => {
           : /c[oó]rner/i.test(golEncajado.tipoAccion)
             ? "marcas y primer contacto en el córner defensivo"
             : `defensa de la ${hablado(golEncajado.tipoAccion.trim().toLowerCase())}`
-      } (gol encajado${golEncajado.contexto.minuto.minuto != null ? `, ${golEncajado.contexto.minuto.minuto}′` : ""}); se cuentan los remates concedidos${objetivoRemate ? ` · ${objetivoRemate}` : ""}.`
+      } (gol encajado${golEncajado.contexto.minuto.minuto != null ? `, ${golEncajado.contexto.minuto.minuto}′` : ""}); se cuentan las acciones del rival con remate${objetivoRemate ? ` · ${objetivoRemate}` : ""}.`
     : null;
 
-  return [...frases.filter(Boolean).slice(0, 4), cierre, tarea].filter(Boolean);
+  /* 16/11/2026 (jueces): menos párrafos; dos hallazgos, el vídeo y la tarea. */
+  return [...frases.filter(Boolean).slice(0, 2), cierre, tarea].filter(Boolean);
 })();
 
 /* Las cuatro tarjetas de arriba (02/11/2026). Aquí el acierto es del rival
@@ -2669,6 +2684,7 @@ const pie = (
     dimensionDerivada?: boolean;
     categoria?: (fila: Row) => string;
     destacado?: boolean;
+    motivoFuera?: string;
   } = {},
 ) => (
   <AnalisisSeccion
@@ -2895,7 +2911,9 @@ const pie = (
     */}
     <div className="mt-5 grid grid-cols-2 gap-3 sm:mt-6 xl:grid-cols-4 max-sm:pr-10">
   <Card
-  title="Remates concedidos"
+  /* 16/11/2026 (jueces): en la tabla «Remates concedidos» es un número (3);
+     aquí es un porcentaje, y se llama como la fila de la tabla en %. */
+  title="Acciones rivales con remate"
   referencia={mediaAnterior("conRemate", pctComa)}
   value={
     metrics.total
@@ -2921,14 +2939,17 @@ const pie = (
   <Card
     title="Goles esperados concedidos"
     value={dosDecimales(metrics.xg)}
-  hint={`En ${metrics.total} acciones defendidas · menos es mejor`}
+  hint="La calidad de sus remates, sumada · menos es mejor"
+  /* 16/11/2026 (jueces): la misma base que las otras dos tarjetas. */
+  muestra={{ n: metrics.total, de: metrics.total, unidad: "acciones", soloBase: true }}
   referencia={mediaAnterior("xg", dosDecimales)}
   />
 
   <Card
   title="Goles encajados de ABP"
   value={metrics.goalsAgainst.toLocaleString()}
-  hint="Encajados desde su ABP"
+  hint="Encajados desde su ABP · menos es mejor"
+  muestra={{ n: metrics.goalsAgainst, de: metrics.total, unidad: "acciones" }}
   activo={resultadoFilter === "Gol Rival"}
   onClick={() => pulsa("resultado", "Gol Rival")}
   referencia={mediaAnterior("golesRival", (n) => cifra(n, 1))}
@@ -3022,10 +3043,11 @@ const pie = (
     <ComparativaPartido
       title={vaPorDetras ? `Último partido cargado: ${comparativa.partido}` : undefined}
       partido={comparativa.partido}
-      anteriores={{ n: comparativa.anteriores }}
+      anteriores={{ n: comparativa.anteriores, rotulo: comparativa.anteriores === 1 ? "la jornada anterior" : `la media de las ${comparativa.anteriores} jornadas anteriores` }}
       metricas={comparativa.metricas}
       tira={comparativa.tira}
-      muestraMinima={10}
+      /* 16/11/2026 (jueces): con menos de 15 acciones, «▲+16,2 puntos» es un indicio en gris, no una alerta. */
+      muestraMinima={MUESTRA_FIRME}
       nota={
         jornada === "ALL"
           ? "Con «Todas las jornadas» elegido, aquí se compara la última; el resto de la página suma todos los partidos. La media es por partido, con los mismos filtros. Verde: mejor que la media; naranja: peor; gris: no se juzga."
@@ -3041,7 +3063,20 @@ const pie = (
             <div className="mt-6">
               {/* Por zona de caída (07/11/2026, jueces): «Lo más frecuente es
                   córner, 6 de 7» repetía la tabla; dónde nos cae no está arriba. */}
-              {pie({ destacado: true, dimension: "zona de caída", categoria: (r) => zonaLegible(r.zonaCaida) })}
+              {/* 16/11/2026 (jueces): si una acción no tiene zona de caída (el
+                  córner en corto), el bloque dice cuál queda fuera y por qué. */}
+              {pie({
+                destacado: true,
+                dimension: "zona de caída",
+                categoria: (r) => zonaLegible(r.zonaCaida),
+                motivoFuera: (() => {
+                  const fuera = filtered.filter((r) => !zonaLegible(r.zonaCaida));
+
+                  return fuera.length && fuera.every((r) => /corto/i.test(`${r.tipoEnvio} ${r.zonaCaida}`))
+                    ? fuera.length === 1 ? `${hablado(fuera[0].tipoAccion.trim().toLowerCase())} en corto` : "sacadas en corto"
+                    : undefined;
+                })(),
+              })}
             </div>
 
             {accionesLista.length > 0 && (
@@ -4475,7 +4510,7 @@ function Card({
   value: React.ReactNode;
   hint?: string;
   /** De cuántas acciones sale la cifra: con menos de 10 va en gris, con «tendencia». */
-  muestra?: { n: number; de: number; unidad: string };
+  muestra?: { n: number; de: number; unidad: string; soloBase?: boolean };
   /** Las tarjetas que son un resultado concreto («Gol Rival») filtran por él. */
   onClick?: () => void;
   activo?: boolean;
@@ -4534,7 +4569,7 @@ function Card({
 
       {muestra && (
         <p className="mt-1.5 text-[12px] font-medium leading-snug text-white/60">
-          {muestra.n} de {muestra.de} {muestra.unidad}
+          {muestra.soloBase ? `${muestra.de} ${muestra.unidad}` : `${muestra.n} de ${muestra.de} ${muestra.unidad}`}
           {corta ? " · tendencia" : ""}
         </p>
       )}

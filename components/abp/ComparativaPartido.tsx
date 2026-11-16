@@ -94,6 +94,18 @@ export type ComparativaPartidoProps = {
   muestraMinima?: number;
 };
 
+/**
+ * «pocas acciones» y «pocos saques» (16/11/2026, jueces): el género sale de la
+ * unidad. Decía «fila de pocas saques».
+ */
+export function pocosDe(unidad: string): string {
+  const u = unidad.trim().toLowerCase();
+
+  return /^(acciones|faltas|pérdidas|perdidas|transiciones|ocasiones|jugadas|recuperaciones|llegadas|entradas)$/.test(u) || /as$/.test(u)
+    ? "pocas"
+    : "pocos";
+}
+
 /** 8.43 → «8,4»; 8 → «8». */
 export function numeroCorto(n: number): string {
   const entero = Math.abs(n - Math.round(n)) < 0.05;
@@ -171,6 +183,8 @@ export function ComparativaPartido({
   const fueraPorAbajo = (m: MetricaComparada) => {
     if (m.mejorAlto !== true && m.mejorAlto !== false) return false;
     if (!m.rango || anteriores.n < 3 || m.actual === null) return false;
+    /* 16/11/2026 (jueces): con una base corta tampoco se grita «peor que todos». */
+    if (m.de !== undefined && m.de < muestraMinima) return false;
 
     return m.mejorAlto ? m.actual < m.rango[0] : m.actual > m.rango[1];
   };
@@ -211,7 +225,7 @@ export function ComparativaPartido({
             </span>
             <span className="text-right">
               {anteriores.n === 1 ? "Anterior" : `Media de las ${anteriores.n} anteriores`}
-              {anteriores.n > 1 && metricas.some((m) => m.rango) ? <span className="block font-normal normal-case tracking-normal text-white/40">y su rango</span> : null}
+              {anteriores.n > 1 && metricas.some((m) => m.rango) ? <span className="block font-normal normal-case tracking-normal text-white/40">por partido y su rango</span> : null}
             </span>
             {/* La clave de colores va en la nota, que sólo sale con los textos
                 explicativos: al pasar por encima se lee igual. */}
@@ -236,7 +250,7 @@ export function ComparativaPartido({
               ) : null}
               {[
                 anteriores.n > 0 && anteriores.n < UMBRAL_TENDENCIA_PARTIDOS ? `muestra de ${anteriores.n === 1 ? "un solo partido" : `${anteriores.n} partidos`}: la media y su rango son tendencia, no norma` : "",
-                hayIndicios ? `«indicio»: fila de pocas ${unidadPartido}${notaCortas ? ` (${notaCortas})` : ""}` : "",
+                hayIndicios ? `«indicio»: fila de ${pocosDe(unidadPartido)} ${unidadPartido}${notaCortas ? ` (${notaCortas})` : ""}` : "",
                 hayIgual ? "«igual»: a menos de 2 puntos o del 5 % de la media" : "",
               ]
                 .filter(Boolean)
@@ -333,21 +347,13 @@ export function ComparativaPartido({
                     )}
                     {m.tendencia ? (
                       <p className="mt-1 text-[11px] font-medium" style={{ color: "rgb(var(--rmcf-ink-rgb) / .55)" }}>tendencia, pocos casos</p>
-                    ) : (
+                    ) : m.actual === 0 && (m.media ?? 0) === 0 ? null : (
+                    /* 16/11/2026 (jueces): 0 contra 0 va sin barras («0 · igual»
+                       basta) y un 0 ya no es una mota sobre la barra, sino una
+                       raya en el arranque, donde empieza la escala. */
                     <div className="mt-1.5 space-y-1">
-                      {/* Con valor 0 la barra se pinta igual, como una marca de 3 px (10/11/2026). */}
-                      <span className="block h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
-                        <span
-                          className="block h-full rounded-full"
-                          style={{ width: `${m.actual === null ? 0 : (Math.max(0, m.actual) / tope) * 100}%`, minWidth: m.actual === null ? 0 : 3, background: ORO }}
-                        />
-                      </span>
-                      <span className="block h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
-                        <span
-                          className="block h-full rounded-full"
-                          style={{ width: `${m.media === null ? 0 : (Math.max(0, m.media) / tope) * 100}%`, minWidth: m.media === null ? 0 : 3, background: MEDIA_BARRA }}
-                        />
-                      </span>
+                      <Barra valor={m.actual} tope={tope} color={ORO} />
+                      <Barra valor={m.media} tope={tope} color={MEDIA_BARRA} />
                     </div>
                     )}
                   </div>
@@ -366,9 +372,16 @@ export function ComparativaPartido({
 
                   <span className="text-right tabular-nums">
                     <span className="block text-lg text-white/70">{m.media === null ? "" : formato(m.media)}</span>
-                    {m.rango && anteriores.n > 1 && m.rango[0] !== m.rango[1] ? (
-                      <span className="block text-[12px] text-white/55">
-                        de {formato(m.rango[0])} a {formato(m.rango[1])}
+                    {/* 16/11/2026 (jueces): «de 0 % a 100 %» no informa (partidos de
+                        una o dos acciones) y no se pinta; los recuentos dicen «por
+                        partido», que 3 frente a 1,1 no parezca mezclar unidades, y el
+                        rango no se parte en dos renglones en el móvil. */}
+                    {m.media !== null && !porcentaje && anteriores.n > 1 && !(m.rango && m.rango[0] !== m.rango[1]) ? (
+                      <span className="block whitespace-nowrap text-[12px] text-white/55">por partido</span>
+                    ) : null}
+                    {m.rango && anteriores.n > 1 && m.rango[0] !== m.rango[1] && !(porcentaje && m.rango[0] <= 0 && m.rango[1] >= 100) ? (
+                      <span className="block whitespace-nowrap text-[12px] text-white/55">
+                        {porcentaje ? "" : "por partido · "}de {formato(m.rango[0])} a {formato(m.rango[1])}
                         {/* 11/11/2026 (expertos, ronda 2): «tendencia» se dice una
                             sola vez, en el aviso de muestra de arriba; repetida en
                             el rango y en la diferencia llenaba cada fila. */}
@@ -399,6 +412,9 @@ export function ComparativaPartido({
                         con pocos partidos detrás, el sello de tendencia junto a la cifra. */}
                     {d !== null && mejor !== null ? (
                       <span className="block text-[11px] font-medium">{mejor ? "mejor" : "peor"}</span>
+                    ) : d !== null && indicio && juzga && !igual ? (
+                      /* 16/11/2026 (jueces): con base corta la palabra va en la propia celda, en gris. */
+                      <span className="block text-[11px] font-medium">indicio</span>
                     ) : null}
                   </span>
                 </li>
@@ -459,6 +475,25 @@ export function ComparativaPartido({
         </>
       )}
     </Panel>
+  );
+}
+
+/** Una barra de la fila; con 0, una raya en el arranque (16/11/2026). */
+function Barra({ valor, tope, color }: { valor: number | null; tope: number; color: string }) {
+  if (valor === null) return <span className="block h-1.5 rounded-full bg-white/[0.06]" />;
+
+  if (valor <= 0) {
+    return (
+      <span className="relative block h-1.5 rounded-full bg-white/[0.06]">
+        <span className="absolute -top-0.5 left-0 h-2.5 w-0.5 rounded-full" style={{ background: color }} />
+      </span>
+    );
+  }
+
+  return (
+    <span className="block h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+      <span className="block h-full rounded-full" style={{ width: `${(valor / tope) * 100}%`, minWidth: 3, background: color }} />
+    </span>
   );
 }
 

@@ -929,7 +929,9 @@ const comparativa = (() => {
       actual: total(actual),
       media: mediaPorPartido(anteriores, total),
       rango: rangoDe(anteriores, total),
-      mejorAlto: true,
+      /* 16/11/2026 (jueces): lanzar menos no es peor por sí solo (depende de
+         cuánto se ataca); como el número de saques en /throw-ins, no se juzga. */
+      mejorAlto: null,
       pie: `córners y faltas lanzados · muestra de ${anteriores.length === 1 ? "1 partido" : `${anteriores.length} partidos`}`,
     },
     {
@@ -2649,9 +2651,21 @@ const conclusiones = (() => {
     anterioresConclusion && anterioresConclusion.length
       ? Math.round((anterioresConclusion.filter(LECTOR.remate).length / anterioresConclusion.length) * 100)
       : null;
+  /*
+  | 16/11/2026 (jueces): sin un patrón que pase de la mitad (2 córners cortos
+  | de 5), la tarea sale igual del más repetido si nadie lo empata: «córner
+  | corto (2 de 5) que acabe en centro al área». Y también cuando hubo
+  | remates pero por debajo de la media de las jornadas anteriores.
+  */
+  const moda =
+    dominante ??
+    (patrones[0] && patrones[0][1].length >= 2 && (patrones[1]?.[1].length ?? 0) < patrones[0][1].length
+      ? { nombre: patrones[0][0], filas: patrones[0][1] }
+      : null);
+  const tasaRemateHoy = filtered.length ? Math.round((remates / filtered.length) * 100) : 0;
   const tarea =
-    dominante && remates === 0 && criterioRemate !== null
-      ? `Qué entrenamos${filtered.length < MUESTRA_FIRME ? " (tendencia que vigilar)" : ""}: ${dominante.nombre} ${/\bcort|\d+v\d+/i.test(dominante.nombre) ? "con salida a centro en dos toques" : "con desmarque y llegada al remate"}; se cuentan las acciones que acaban en remate · objetivo: ${criterioRemate} % con remate (media de las ${nAnterioresConclusion} jornadas anteriores).`
+    moda && criterioRemate !== null && (remates === 0 || tasaRemateHoy < criterioRemate)
+      ? `Qué entrenamos${filtered.length < MUESTRA_FIRME ? " (tendencia que vigilar)" : ""}: ${moda.nombre} (${moda.filas.length} de ${filtered.length}) ${/\bcort|\d+v\d+/i.test(moda.nombre) ? "que acabe en centro al área en dos toques" : "con desmarque y llegada al remate"}; se cuentan las acciones que acaban en remate · objetivo: ${criterioRemate} % con remate (media de las ${nAnterioresConclusion} jornadas anteriores; hoy ${tasaRemateHoy} %).`
       : null;
 
   return [...frases.filter(Boolean).slice(0, 4), cierre, tarea].filter(Boolean);
@@ -2975,7 +2989,9 @@ const pie = (
     {/* 30/10/2026 (expertos): cada fila de tarjetas se llena entera —la
         última no deja hueco a la derecha—: dos por fila en el móvil y las que
         quepan de 200 px en adelante, estiradas, en el ordenador. */}
-    <div className="mt-5 flex flex-wrap gap-4 sm:mt-6 sm:gap-5 max-sm:pr-10 [&>*]:min-w-0 [&>*]:grow [&>*]:basis-[calc(50%-0.5rem)] sm:[&>*]:basis-[200px]">
+    {/* 16/11/2026 (jueces): en el móvil, una tarjeta por fila (dos columnas de
+        alto desigual dejaban la última sola y estrecha). */}
+    <div className="mt-5 flex flex-wrap gap-4 sm:mt-6 sm:gap-5 max-sm:pr-10 [&>*]:min-w-0 [&>*]:grow [&>*]:basis-full sm:[&>*]:basis-[200px]">
       <Card
         title="Acciones lanzadas"
         value={metrics.total}
@@ -2983,12 +2999,27 @@ const pie = (
         referencia={temporada ? `Temporada: ${temporada.n} en ${temporada.jornadas} ${temporada.jornadas === 1 ? "jornada" : "jornadas"} (${cifra(temporada.n / Math.max(1, temporada.jornadas), 1)} por partido)` : undefined}
       />
 
+      {/*
+      | 16/11/2026 (jueces): sin un solo remate, tres tarjetas repetían «0 ·
+      | tendencia» (remates, goles esperados y gol u ocasión). Van en una sola,
+      | «Sin remate: 5 de 5», y el titular de Conclusiones dice el resto.
+      */}
+      {metrics.total > 0 && metrics.shots === 0 && accionesPeligrosas === 0 ? (
+        <Card
+          title="Sin remate"
+          value={`${metrics.total} de ${metrics.total}`}
+          hint="Ninguna acción acaba en remate ni en ocasión: 0 goles esperados"
+          muestra={{ n: metrics.total, de: metrics.total, unidad: "acciones", soloBase: true }}
+          referencia={temporada ? `Temporada, ${temporada.n} acciones: ${temporada.remates} con remate (${Math.round((temporada.remates / Math.max(1, temporada.n)) * 100)} %) y ${temporada.peligro} en gol u ocasión (${Math.round((temporada.peligro / Math.max(1, temporada.n)) * 100)} %)` : undefined}
+        />
+      ) : (
+        <>
       <Card
         title="Goles esperados"
         value={dosDecimales(metrics.xg)}
         hint="Acumulados en todas las acciones"
         muestra={{ n: metrics.total, de: metrics.total, unidad: "acciones", soloBase: true }}
-        referencia={temporada ? `Temporada: ${cifra(temporada.xgAccion, 2)} por acción` : undefined}
+        referencia={temporada ? `Temporada, ${temporada.n} acciones: ${cifra(temporada.xgAccion, 2)} por acción` : undefined}
       />
 
       <Card
@@ -2996,16 +3027,20 @@ const pie = (
         value={metrics.shots}
         hint="Acciones que acaban en remate"
         muestra={{ n: metrics.shots, de: metrics.total, unidad: "acciones" }}
-        referencia={temporada ? `Temporada: ${temporada.remates} de ${temporada.n} con remate (${Math.round((temporada.remates / Math.max(1, temporada.n)) * 100)} %)` : undefined}
+        referencia={temporada ? `Temporada, ${temporada.n} acciones: ${temporada.remates} con remate (${Math.round((temporada.remates / Math.max(1, temporada.n)) * 100)} %)` : undefined}
       />
+        </>
+      )}
 
       <Card
         title="Goles"
         value={metrics.goals}
         hint="Marcados a balón parado"
+        /* 16/11/2026 (jueces): la misma base que las demás tarjetas. */
+        muestra={{ n: metrics.goals, de: metrics.total, unidad: "acciones" }}
         activo={resultadoFilter === "Gol"}
         onClick={() => pulsa("resultado", "Gol")}
-        referencia={temporada ? `Temporada: ${temporada.goles}` : undefined}
+        referencia={temporada ? `Temporada: ${temporada.goles} en ${temporada.n} acciones` : undefined}
       />
       {/* Con menos de 5 remates, «0,0 % · 0 de 2» no dice nada: la tarjeta no sale (30/10/2026). */}
       {metrics.shots >= 5 && (
@@ -3025,13 +3060,18 @@ const pie = (
 />
 )}
 
+{/* 16/11/2026 (jueces): la población en el rótulo; la media de las 10
+    jornadas anteriores (29,8 %) es la de la tabla de abajo, y ésta es la de
+    la temporada entera. */}
+{!(metrics.total > 0 && metrics.shots === 0 && accionesPeligrosas === 0) && (
 <Card
   title="Gol u ocasión"
   value={`${tasaPeligro === 0 ? "0" : tasaPeligro.toFixed(1).replace(".", ",")} %`}
   hint="Acciones que acaban en gol u ocasión"
   muestra={{ n: accionesPeligrosas, de: metrics.total, unidad: "acciones" }}
-  referencia={temporada ? `Temporada: ${temporada.peligro} de ${temporada.n} (${Math.round((temporada.peligro / Math.max(1, temporada.n)) * 100)} %)` : undefined}
+  referencia={temporada ? `Temporada, ${temporada.n} acciones: ${temporada.peligro} (${Math.round((temporada.peligro / Math.max(1, temporada.n)) * 100)} %)` : undefined}
 />
+)}
 
 {/* 29/10/2026: la tarjeta del sacador sólo sale si hay uno con dato o uno filtrado; sin él, la rejilla se queda en las demás sin hueco ni «-». */}
 {(mejorSacador || sacador !== "ALL") && (
@@ -3160,10 +3200,12 @@ const pie = (
             {comparativa && (
     <ComparativaPartido
       partido={comparativa.partido}
-      anteriores={{ n: comparativa.anteriores }}
+      /* 16/11/2026 (jueces): la población dicha, para no confundirla con la temporada de las tarjetas. */
+      anteriores={{ n: comparativa.anteriores, rotulo: comparativa.anteriores === 1 ? "la jornada anterior" : `la media de las ${comparativa.anteriores} jornadas anteriores` }}
       metricas={comparativa.metricas}
       tira={comparativa.tira}
-      muestraMinima={10}
+      /* 16/11/2026 (jueces): con menos de 15 acciones la fila no se juzga (sin verde ni «peor»). */
+      muestraMinima={MUESTRA_FIRME}
       nota={
         jornada === "ALL"
           ? "Con «Todas» las jornadas elegidas, aquí se compara la última; el resto de la página suma todos los partidos. La media es por partido, con los mismos filtros. Verde: mejor que la media; naranja: peor."

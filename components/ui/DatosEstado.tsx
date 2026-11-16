@@ -156,9 +156,11 @@ export function DatosEstado() {
     if (acabadoEn === null || ahora === 0) return null;
 
     return (
-      <span className="hidden items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-[11px] text-white/55 sm:inline-flex" title="Todo lo que se ve está recién bajado">
+      /* 16/11/2026 (jueces): la hora real del dato, como en las demás
+         pantallas («Datos de las 17:21»); «hace X min» queda al pasar por encima. */
+      <span className="hidden items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-[11px] text-white/55 sm:inline-flex" title={`${actualizado(Math.min(acabadoEn, ahora))}: todo lo que se ve está recién bajado`}>
         <RefreshCw size={12} />
-        {actualizado(Math.min(acabadoEn, ahora))}
+        Datos de las {new Date(Math.min(acabadoEn, ahora)).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
       </span>
     );
   }
