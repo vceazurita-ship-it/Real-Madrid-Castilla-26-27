@@ -25,6 +25,7 @@ import { nombreCorto as nombreCortoEquipo } from "@/lib/abp/informe-graficos";
 import { esFilaDePartido, etiquetaMicro, fechaIsoDeHoja, rivalDelMicro, separaSemanas, tipoDeTareaUnificado } from "@/lib/microciclo/cuenta";
 import { fechasDePartido, mdDelDia, microDeHoy as microDeHoyComun } from "@/lib/microciclo/semana-de-hoy";
 import { useCalendario } from "@/hooks/useCalendario";
+import { comoNuestro, horaDelCalendarioLocal } from "@/lib/castilla/calendario";
 import {
   Activity,
   ArrowDown,
@@ -574,6 +575,27 @@ const fechaIso = fechaIsoDeHoja;
  * partido), el siguiente si ya está planificado. Si la hoja no tiene fechas
  * que se entiendan, el de número más alto. «ALL» mientras no se sepa el día.
  */
+/**
+ * UN SOLO NOMBRE DE EQUIPO (16/11/2026, jueces): la hoja mezcla «HÉRCULES»,
+ * «R.FERROL» y «Murcia». El nombre corto de siempre, en mayúscula inicial
+ * (las siglas cortas se quedan: «UD», «CF»); la semana sin partido, «Sin partido».
+ */
+function nombreEquipo(rival: string) {
+  const r = rivalDelMicro(rival);
+
+  if (r !== rival) return r;
+
+  const corto = nombreCortoEquipo(rival);
+
+  if (corto !== corto.toUpperCase()) return corto;
+
+  return corto
+    .toLowerCase()
+    .split(/(\s+|\.|-)/)
+    .map((p) => (/^(de|del|la|el)$/.test(p) ? p : /^[a-záéíóúñü]{1,2}$/.test(p) ? p.toUpperCase() : p.charAt(0).toUpperCase() + p.slice(1)))
+    .join("");
+}
+
 function microDeHoy(rows: Row[], hoy: Date | null): string {
   if (!hoy || rows.length === 0) return "ALL";
 
@@ -1134,18 +1156,21 @@ export default function Page() {
 
   /* ---------------- trends ---------------- */
 
-  const trendData = useMemo(
-    () =>
-      microStats.map((m) => ({
-        micro: m.label,
-        value: m.eval > 0 ? m.eval : null,
-        rival: m.rival,
-        load: m.load,
-        cog: m.cog,
-        tareas: m.tareas,
-      })),
-    [microStats]
-  );
+  const trendData = useMemo(() => {
+    const todos = microStats.map((m) => ({
+      micro: m.label,
+      value: m.eval > 0 ? m.eval : null,
+      rival: m.rival,
+      load: m.load,
+      cog: m.cog,
+      tareas: m.tareas,
+    }));
+    /* Segunda vuelta (16/11/2026): los micros del final sin ninguna valorada (el que
+       está en curso) no entran: no son un hueco, aún no se han valorado. */
+    let fin = todos.length;
+    while (fin > 0 && todos[fin - 1].value === null) fin -= 1;
+    return todos.slice(0, fin);
+  }, [microStats]);
 
   const evalMean = avg(trendData.map((d) => d.value ?? 0).filter((n) => n > 0));
 
@@ -1254,6 +1279,31 @@ export default function Page() {
 
     return `Cada eje de 0 a 10. ${radarData.map((d) => base[d.metric]).filter(Boolean).join(" · ")}`;
   }, [radarData, metrics.evaluadas, metrics.tareasEntreno]);
+
+  /*
+  | LA MEDIA DE LA TEMPORADA EN CADA BARRA DEL PERFIL (16/11/2026, segunda
+  | vuelta): «Exig. cog. 9» sola no tenía referencia. Por eje, la media de los
+  | micros que tienen ese dato (sin el elegido), y cuántos son.
+  */
+  const mediaPerfil = useMemo(() => {
+    const otros = micros.filter((m) => String(m) !== micro);
+    const maxDiv = Math.max(...microStats.map((m) => m.diversidad), 1);
+    const porMicro = otros.map((m) => {
+      const s = rows.filter((r) => r.micro === m && !esFilaDePartido(r));
+      return {
+        "Evaluación": avg(s.map((r) => r.evaluacion).filter((n) => n > 0)),
+        "Intensidad": avg(s.map((r) => r.intensidad).filter((n) => n > 0)),
+        "Exig. cog.": avg(s.map((r) => r.exigCog).filter((n) => n > 0)),
+        "Diversidad": s.length ? Math.min((new Set(s.map((r) => r.tipo).filter(Boolean)).size / maxDiv) * 10, 10) : 0,
+      } as Record<string, number>;
+    });
+    const salida: Record<string, { media: number; n: number }> = {};
+    for (const eje of ["Evaluación", "Intensidad", "Exig. cog.", "Diversidad"]) {
+      const v = porMicro.map((p) => p[eje]).filter((n) => n > 0);
+      if (v.length >= 3) salida[eje] = { media: avg(v), n: v.length };
+    }
+    return salida;
+  }, [micros, micro, microStats, rows]);
 
   /*
   | LA CARGA DEL MICRO FRENTE A LA TEMPORADA (16/11/2026), con el cálculo de
@@ -1720,6 +1770,49 @@ export default function Page() {
       : null;
 
   /*
+  | EL PARTIDO DEL MICRO (16/11/2026, segunda vuelta): el primero del
+  | calendario desde el último día con tareas (hasta 6 días después). Si aún
+  | no se ha jugado, el micro está «en curso»: titular con el MD de hoy y el
+  | partido, y sin la lectura de «tareas sin evaluación».
+  */
+  const isoLocal = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const partidoDelMicro = useMemo(() => {
+    if (!selectedMicroStat?.hasta) return null;
+    const ultimo = isoLocal(selectedMicroStat.hasta);
+    const limite = new Date(selectedMicroStat.hasta.getTime() + 6 * 86_400_000);
+    return (
+      calendarioBesoccer
+        .filter((p) => typeof p?.cuando === "string")
+        .map((p) => ({ p, dia: String(p.cuando).slice(0, 10) }))
+        .filter(({ dia }) => dia >= ultimo && dia <= isoLocal(limite))
+        .sort((a, b) => a.dia.localeCompare(b.dia))[0] ?? null
+    );
+  }, [selectedMicroStat, calendarioBesoccer]);
+
+  const partidoPorJugar = Boolean(partidoDelMicro && !comoNuestro(partidoDelMicro.p).jugado);
+
+  /* Con el micro en curso, «13 tareas sin evaluación» no es un hueco: se valora después del MD. */
+  const lecturas = partidoPorJugar ? insights.filter((i) => !/sin evaluación/.test(i.text)) : insights;
+
+  const titularSemana = (() => {
+    if (!selectedMicroStat || !partidoDelMicro || !partidoPorJugar) return "";
+    const nuestro = comoNuestro(partidoDelMicro.p);
+    const hoyIso = hoy ? isoLocal(hoy) : "";
+    const md = hoyIso && hoyIso <= partidoDelMicro.dia ? mdDelDia(hoyIso, fechasPartido) : "";
+    const dia = new Date(`${partidoDelMicro.dia}T12:00:00Z`);
+    const fecha = `${["dom", "lun", "mar", "mié", "jue", "vie", "sáb"][dia.getUTCDay()]} ${partidoDelMicro.dia.slice(8, 10)}/${partidoDelMicro.dia.slice(5, 7)}`;
+    const hora = horaDelCalendarioLocal(partidoDelMicro.p.cuando);
+    return [
+      `Micro ${etiquetaMicro(selectedMicroStat.micro)}`,
+      md,
+      `${partidoDelMicro.p.jornada ? `J${partidoDelMicro.p.jornada} ` : ""}${nuestro.lado === "casa" ? "vs" : "en"} ${nombreEquipo(nuestro.rival)}`,
+      `${fecha}${hora ? `, ${hora}` : ""}`,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  })();
+
+  /*
   | LA SEMANA EN SESIÓN (24/10/2026). Por cada día del micro elegido, sus
   | tareas con los equipos de Jugadores sesión y lo que concluyó el análisis de
   | entrenamiento, y lo que se cambió en la sesión (se acepta en el editor, que
@@ -1832,15 +1925,21 @@ export default function Page() {
 
               <div className="mt-4 flex flex-wrap items-center gap-3 sm:gap-5">
                 {/* Con un micro elegido, el título es su lectura (24/10/2026): qué se hizo y cómo va contra el anterior. */}
-                <h1 className={`min-w-0 font-semibold tracking-tight ${titular ? "text-2xl sm:text-3xl" : "text-3xl sm:text-4xl"}`}>
-                  {titular ?? "Microciclos"}
-                </h1>
+                {/* Segunda vuelta (16/11/2026): con el partido por jugar, el titular es la
+                    semana («Micro 22 · MD-4 · J13 vs Real Murcia · vie 20/11, 21:15») y la
+                    cuenta de tareas pasa a la línea de debajo. */}
+                <div className="min-w-0">
+                  <h1 className={`min-w-0 font-semibold tracking-tight ${titular ? "text-2xl sm:text-3xl" : "text-3xl sm:text-4xl"}`}>
+                    {titularSemana || titular || "Microciclos"}
+                  </h1>
+                  {titularSemana && titular ? <p className="mt-1 text-sm text-white/60">{titular.replace(/^Micro [^:]+: /, "")}</p> : null}
+                </div>
 
                 {selectedMicroStat && (
                   <span className="rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 py-1 text-xs sm:text-sm text-[#C8A96B]">
                     M{etiquetaMicro(selectedMicroStat.micro)}
                     {selectedMicroStat.rival
-                      ? ` · ${rivalDelMicro(selectedMicroStat.rival) === selectedMicroStat.rival ? nombreCortoEquipo(selectedMicroStat.rival) : rivalDelMicro(selectedMicroStat.rival)}`
+                      ? ` · ${nombreEquipo(selectedMicroStat.rival)}`
                       : ""}
                   </span>
                 )}
@@ -1985,7 +2084,7 @@ export default function Page() {
                             className="mt-1 truncate text-sm font-semibold"
                             title={m.rival}
                           >
-                            {rivalDelMicro(m.rival) === m.rival ? nombreCortoEquipo(m.rival) : rivalDelMicro(m.rival)}
+                            {nombreEquipo(m.rival)}
                           </p>
                         )}
 
@@ -2031,7 +2130,7 @@ export default function Page() {
                     { value: "ALL", label: "Todos los microciclos" },
                     ...[...microOptions].reverse().map((m) => ({
                       value: String(m.micro),
-                      label: `Micro ${etiquetaMicro(m.micro)}${m.rival ? ` · ${rivalDelMicro(m.rival)}` : ""}`,
+                      label: `Micro ${etiquetaMicro(m.micro)}${m.rival ? ` · ${nombreEquipo(m.rival)}` : ""}`,
                     })),
                   ]}
                 />
@@ -2408,7 +2507,7 @@ export default function Page() {
                   </Panel>
                 )}
 
-                {insights.length > 0 && (
+                {lecturas.length > 0 && (
                   <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#C8A96B]/[0.07] to-white/[0.02] p-6 sm:p-7">
                     <h2 className="mb-5 flex items-center gap-2 text-lg font-semibold">
                       <Sparkles className="h-5 w-5 text-[#C8A96B]" />
@@ -2416,7 +2515,7 @@ export default function Page() {
                     </h2>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-3">
-                      {insights.map((i, idx) => {
+                      {lecturas.map((i, idx) => {
                         const Icon = i.icon;
 
                         return (
@@ -2589,10 +2688,26 @@ export default function Page() {
                           <div key={d.metric}>
                             <div className="flex items-baseline justify-between gap-2 text-xs">
                               <span className="text-white/60">{d.metric}</span>
-                              <span className="font-semibold text-[#C8A96B]">{fmt1(d.value)}</span>
+                              <span className="font-semibold text-[#C8A96B]">
+                                {fmt1(d.value)}
+                                {mediaPerfil[d.metric] ? (
+                                  <span className="ml-1.5 font-normal text-white/55">
+                                    · media {fmt1(mediaPerfil[d.metric].media)} en {mediaPerfil[d.metric].n} micros
+                                  </span>
+                                ) : null}
+                              </span>
                             </div>
                             <div className="relative mt-1 h-2 rounded-full bg-white/10">
                               <div className="h-full rounded-full bg-[#C8A96B]" style={{ width: `${Math.min(d.value, 10) * 10}%` }} />
+                              {/* La marca de la media de la temporada (16/11/2026). */}
+                              {mediaPerfil[d.metric] ? (
+                                <span
+                                  aria-hidden
+                                  title={`Media de la temporada: ${fmt1(mediaPerfil[d.metric].media)} (${mediaPerfil[d.metric].n} micros)`}
+                                  className="absolute -top-1 h-4 w-0.5 rounded-full"
+                                  style={{ left: `${Math.min(mediaPerfil[d.metric].media, 10) * 10}%`, background: "rgb(var(--rmcf-ink-rgb) / .85)" }}
+                                />
+                              ) : null}
                               {/* Marcas en 2, 4, 6 y 8. */}
                               {[2, 4, 6, 8].map((t) => (
                                 <span key={t} aria-hidden className="absolute top-0 h-full w-px bg-white/20" style={{ left: `${t * 10}%` }} />

@@ -123,6 +123,15 @@ const faseDominante = (s: SesionDia | undefined) => {
   return top ? (FASES_COLOR.find((f) => f.clave === top[0]) ?? null) : null;
 };
 
+/** «2-0» (el Castilla primero) → «ganado 2-0», «empate 2-2», «perdido 0-1». */
+const resultadoConSentido = (marcador: string) => {
+  const [a, b] = marcador.split("-").map(Number);
+
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return marcador;
+
+  return `${a > b ? "ganado" : a < b ? "perdido" : "empate"} ${marcador}`;
+};
+
 /** «16:15» de los minutos de una cita (pueden pasar de 1440: la vuelta de madrugada). */
 const horaDeMinutos = (m: number) => {
   const d = ((Math.round(m) % 1440) + 1440) % 1440;
@@ -517,27 +526,40 @@ export default function CalendarGeneralPage() {
         /* 10/11/2026: la salida es la misma que propone Desplazamiento al
            abrir el partido (viajeVacio: la plantilla de dos días), y se dice
            que es propuesta mientras nadie guarde el horario. */
+        /*
+        | LA MISMA PROPUESTA QUE DESPLAZAMIENTO (16/11/2026, segunda vuelta de
+        | los jueces). El calendario pintaba «Viaje a Majadahonda · salida
+        | 16:00» el sábado 28 con la plantilla vieja de dos días, mientras
+        | /desplazamiento proponía un viaje de un día, el 29, sin hora: sin
+        | distancia no se propone hotel ni víspera. Ahora se llama a viajeVacio
+        | igual que esa pantalla (`trayecto: null`) y sólo se pinta una salida
+        | que tenga hora; si no la tiene, no se nombra.
+        */
         const propuesto = viajeVacio(`calendario-${p.jornada}`, {
           rival,
           fecha: m[1],
           hora: p.cuando.slice(11, 16) === "00:00" ? "" : p.cuando.slice(11, 16),
           condicion: "visitante",
+          trayecto: null,
         });
-        const salidaPropuesta = [...(propuesto.dias.find((d) => d.fecha === vispera)?.citas ?? [])]
-          .filter((c) => c.tipo === "viaje")
-          .sort((a, b) => a.minuto - b.minuto)[0];
 
-        lista.push({
-          id: `viaje-propuesto-${p.jornada}-${vispera}`,
-          fecha: vispera,
-          clase: "VIAJE",
-          titulo: `Viaje a ${rival}`,
-          detalle: salidaPropuesta
-            ? "Víspera del partido · horario propuesto por Desplazamiento, aún sin guardar"
-            : "Víspera del partido",
-          hora: salidaPropuesta ? `salida ${horaDeMinutos(salidaPropuesta.minuto)}` : "",
-          enlace: `/desplazamiento?jornada=${p.jornada}`,
-        });
+        for (const dia of propuesto.dias) {
+          const salida = [...(dia.citas ?? [])]
+            .filter((c) => c.tipo === "viaje" && Number.isFinite(c.minuto))
+            .sort((a, b) => a.minuto - b.minuto)[0];
+
+          if (!salida || !dia.fecha) continue;
+
+          lista.push({
+            id: `viaje-propuesto-${p.jornada}-${dia.fecha}`,
+            fecha: dia.fecha,
+            clase: "VIAJE",
+            titulo: dia.fecha === m[1] ? `Viaje a ${rival} (en el día)` : `Viaje a ${rival}`,
+            detalle: "Horario propuesto por Desplazamiento, aún sin guardar",
+            hora: `salida ${horaDeMinutos(salida.minuto)}`,
+            enlace: `/desplazamiento?jornada=${p.jornada}`,
+          });
+        }
       }
 
       for (const viaje of guardados) {
@@ -567,7 +589,8 @@ export default function CalendarGeneralPage() {
         for (const fecha of fechas) {
           /* La salida, del horario guardado (07/11/2026): la primera cita de viaje de ese día. */
           const citas = (viaje.dias ?? []).find((d) => d.fecha === fecha)?.citas ?? [];
-          const deViaje = [...citas].filter((c) => c.tipo === "viaje").sort((a, b) => a.minuto - b.minuto);
+          /* Sólo citas con hora de verdad: una sin minutos no se pinta (nada de «NaN:NaN»). */
+          const deViaje = [...citas].filter((c) => c.tipo === "viaje" && Number.isFinite(c.minuto)).sort((a, b) => a.minuto - b.minuto);
           const salida = deViaje[0];
           const regreso = Boolean(delPartido && fecha > delPartido);
           const detalle = [viaje.estadio?.ciudad, viaje.hotel?.nombre].filter(Boolean).join(" · ");
@@ -1069,7 +1092,6 @@ export default function CalendarGeneralPage() {
 
         const sesionDia = sesionesDia.get(key);
         const hayPartido = dayAuto.some((a) => a.clase === "PARTIDO");
-        const hayViaje = dayAuto.some((a) => a.clase === "VIAJE");
         /* Más allá de la última sesión apuntada: lo que toca por el calendario. */
         const porVenir = !sesionDia && !hayPartido && tramoSesiones !== null && key > tramoSesiones.hasta;
         /* 11/11/2026: el día después del partido es libre, como propone
@@ -1121,7 +1143,8 @@ export default function CalendarGeneralPage() {
                   (es previsto: la hoja aún no tiene la sesión). El día de
                   viaje se queda con el viaje (11/11/2026): un MD-1 sin sesión
                   al lado del autobús no decía nada. */}
-              {porVenir && !trasPartido && !hayViaje && (() => {
+              {/* 16/11/2026: también con viaje (el 28/11 salía sin su MD-1). */}
+              {porVenir && !trasPartido && (() => {
                 const previsto = mdDelDia(key, fechasDelMd);
 
                 return previsto ? (
@@ -1171,7 +1194,7 @@ export default function CalendarGeneralPage() {
                       <span className="line-clamp-2 min-w-0 break-words">{sesionDia.principal || "Sesión"}</span>
                     </p>
                     <p className="text-[9px] text-white/60 md:text-[10px]">
-                      {[sesionDia.planificado ? "Sesión planificada" : "Sesión", sesionDia.minutos > 0 ? formatMinutes(sesionDia.minutos) : ""].filter(Boolean).join(" · ")}
+                      {sesionDia.planificado || sesionDia.minutos <= 0 ? "Planificada" : `Sesión · ${formatMinutes(sesionDia.minutos)}`}
                     </p>
                   </div>
                 )}
@@ -1196,7 +1219,8 @@ export default function CalendarGeneralPage() {
                         {nombreCorto(auto.rival)}
                       </p>
                       <p className="text-[9px] text-white/60 md:text-[10px]">
-                        {[auto.enCasa ? "En casa" : "Fuera", auto.marcador || auto.hora].filter(Boolean).join(" · ")}
+                        {/* 16/11/2026: el resultado con su sentido («ganado 1-0», el Castilla primero); sin jugar, la hora. */}
+                        {[auto.enCasa ? "En casa" : "Fuera", auto.marcador ? resultadoConSentido(auto.marcador) : auto.hora].filter(Boolean).join(" · ")}
                       </p>
                     </div>
                   ) : (

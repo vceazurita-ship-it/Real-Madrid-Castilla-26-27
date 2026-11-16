@@ -388,8 +388,10 @@ export const AYUDAS: AyudaDePagina[] = [
             que: "La semana en sesión",
             es: "Cada día del micro elegido con TODAS sus tareas (nombre, formato, minutos y contenido), también las sólo planificadas; «Equipos hechos» y «Analizado» si ya los hay, y una sola acción: la que toca (hacer los equipos, analizar o ver el análisis)",
           },
-          { que: "Perfil del microciclo", es: "Los ejes con dato de 0 a 10 y, con carga medida, la carga física por entreno frente a la media de la temporada", cuenta: "UA de los días hechos ÷ esos días (como /micro_calendar); la media es la de los demás micros con carga, con 3 o más" },
-          { que: "Tendencia de evaluación", es: "Valoración media de cada micro, eje de 5 a 10", cuenta: "La línea se corta en los micros sin tareas valoradas, y el subtítulo dice cuáles" },
+          { que: "Perfil del microciclo", es: "Los ejes con dato de 0 a 10; en barras, cada una con la marca y el valor de la media de la temporada («media 7,4 en 21 micros»). Con carga medida, la carga física por entreno frente a la media de la temporada", cuenta: "Media por eje de los demás micros con ese dato (3 o más). Carga: UA de los días hechos ÷ esos días (como /micro_calendar)" },
+          { que: "Tendencia de evaluación", es: "Valoración media de cada micro, eje de 5 a 10; el micro en curso sin valorar no entra", cuenta: "La línea se corta en los micros ya pasados sin tareas valoradas, y el subtítulo dice cuáles" },
+          { que: "Titular del micro en curso", es: "Con el partido por jugar: «Micro 22 · MD-4 · J13 vs Murcia · vie 20/11, 21:15» y, debajo, las tareas", cuenta: "El partido es el primero del calendario de BeSoccer desde el último día con tareas; el MD, el de hoy con la regla común. Mientras no se juega, no sale «tareas sin evaluación»" },
+          { que: "Nombre del rival", es: "El mismo en tarjetas, chapa y desplegable: nombre corto con mayúscula inicial («Hércules», «R.Ferrol»)" },
           { que: "Reparto por fase de juego", es: "Anillo con el peso de cada fase y el total en el centro; pulsar un tramo o una fila filtra" },
           { que: "Cargas", es: "Mapa de calor micro × día (pulsar filtra), carga acumulada por micro, física frente a cognitiva por tarea, tiempo por día e intensidad" },
           { que: "Contenidos", es: "Contenido principal y secundario (los 15 primeros), tabla comparativa, valoración por tipo de tarea y los 12 formatos más usados" },
@@ -2280,7 +2282,8 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Reparto propuesto / Criterio elegido", es: "Encima de los equipos: el criterio con que salieron (o el elegido, si se hicieron a mano) y cuántos hay en cada equipo" },
           { que: "11/10 en rojo", es: "Contador de cada campo: jugadores de campo del equipo / huecos del dibujo, contando a los que comparten puesto", cuenta: "Verde si cuadra; ámbar si falta alguien o las líneas no van parejas; rojo si hay más que huecos (al pasar, quiénes comparten): amplía el dibujo o pasa a uno" },
           { que: "X pasa a Naranja y Y a Amarillo", es: "El arreglo de un toque de las líneas descompensadas, con el sentido del cambio" },
-          { que: "La hoja dice 10v10…", es: "Aviso si el formato de la hoja no cuadra con lo colocado, en total o equipo a equipo (11 y 10 en un 10v10); si la tarea se renombró, dice de qué tarea de la hoja sale" },
+          { que: "La hoja dice 10v10…", es: "Aviso si el formato de la hoja no cuadra con lo colocado, en total o equipo a equipo (11 y 10 en un 10v10); si la tarea se renombró, dice de qué tarea de la hoja sale", cuenta: "Si falta gente, botón «Meter a X en Naranja»: el primero sin colocar o, si no hay, el primero que no hace la tarea, al equipo al que más le falta" },
+          { que: "Más opciones", es: "Plegados: formato con estructura, cambio a mitad, tamaño del campo, comodines y qué pasa al soltar encima de otro. Cada uno sale solo si ya se está usando" },
           { que: "Sinergias / Por perfiles", es: "Parten de «Por líneas» y sólo cambian jugadores de la misma línea", cuenta: "Sinergias: juntas las parejas que se potencian según Wyscout (Data análisis, once). Perfiles: el rasgo que más destaca de cada uno contra su puesto, repartido o junto" },
           { que: "Completar", es: "Coloca sólo a los que faltan, en el equipo más corto, sin mover a nadie", cuenta: "Sale cuando ya hay alguien colocado y alguien pendiente" },
           { que: "Más (junto a Proponer)", es: "Vaciar la tarea, Como la anterior (equipos, colores y comodines de la tarea de antes), Duplicar, Mover antes o después y Quitar esta tarea" },
@@ -2635,11 +2638,11 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Lo que sale solo",
         filas: [
           { que: "Próximo partido", es: "Jornada, rival, día y hora; si es fuera, desde qué día se viaja y lleva a su desplazamiento" },
-          { que: "Partido", es: "Rival con escudos, hora y, si ya se jugó, el resultado (el nuestro primero)" },
+          { que: "Partido", es: "Jornada, rival con escudos, en casa o fuera y la hora; si ya se jugó, el resultado con su sentido («ganado 1-0», el Castilla primero)" },
           {
             que: "Viaje",
             es: "Un renglón ligero con punto morado (el partido manda en la casilla): «Viaje a…» los días antes, «Traslado al estadio» y «Vuelta de…» el día del partido, «Vuelta de…» los días de después, cada uno con su salida",
-            cuenta: "El día del partido, las citas de viaje antes de la hora del partido son el traslado y las de después, la vuelta. Partido fuera sin viaje guardado: sale con la salida que propondría Desplazamiento",
+            cuenta: "El día del partido, las citas de viaje antes de la hora del partido son el traslado y las de después, la vuelta. Partido fuera sin viaje guardado: la misma propuesta que abre Desplazamiento sin distancia (viajeVacio); si esa propuesta no trae hora de salida, no se pinta nada. Una cita sin hora nunca sale",
           },
           {
             que: "Sesión (MD y minutos)",
@@ -2661,7 +2664,7 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "La cabecera del mes",
         filas: [
           { que: "Resumen del mes", es: "Cuántos partidos (y jugados), viajes, entrenos en la hoja, eventos del staff, imágenes y PDF hay en el mes; pulsar partidos, viajes o entrenos deja sólo eso en el mes («Ver todo» lo quita)", cuenta: "Un viaje es un desplazamiento: ida, traslado y vuelta cuentan uno" },
-          { que: "Leyenda", es: "Sólo los tipos que tienen algo en el mes que se mira, los colores de fase de las sesiones y qué es el MD" },
+          { que: "Leyenda", es: "Encima del mes: sólo los tipos que tienen algo en el mes que se mira, los colores de fase de las sesiones y qué es el MD (también en días con viaje)" },
         ],
       },
     ],
@@ -2711,13 +2714,15 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Las cifras del mes",
         filas: [
-          { que: "Titular", es: "Mes, entrenos (hechos), volumen y cómo van la carga física y la cognitiva frente al mes anterior, con la base (entrenos hechos de cada lado)" },
+          { que: "Titular", es: "Corto: cómo van la carga física y la cognitiva frente al mes anterior. Debajo, la base: entrenos (hechos y planificados), volumen y cuántos entrenos hechos se comparan, en los mismos días de cada mes" },
           { que: "Entrenos", es: "Días con tarea de entreno; hechos = con minutos o carga apuntados, el resto planificados", cuenta: "Los partidos aparte: la fila de competición no es entreno" },
           { que: "Volumen", es: "Minutos de entreno del mes, sin los partidos" },
           { que: "Carga física media / entreno", es: "Puntos de carga por entreno hecho", cuenta: "UA = minutos × intensidad (1-10), de la columna «Carga Ponderada»; suma del mes ÷ entrenos hechos" },
           { que: "Carga cognitiva media / entreno", es: "Lo mismo con la demanda cognitiva", cuenta: "UA = minutos × demanda cognitiva (1-10); suma ÷ entrenos hechos" },
           { que: "Frente al mes anterior", es: "La media contra los mismos días del mes anterior", cuenta: "Del 1 al último día con entreno hecho; con menos de 3 entrenos hechos en un lado no se compara" },
-          { que: "Lectura de la carga", es: "Qué MD se ha movido más contra el mes anterior, si hay otro número de partidos, y la carga cognitiva; los días a vigilar son los reales del micro de hoy (su MD-1 y el día después del partido)", cuenta: "Un MD sólo se nombra con 3 sesiones suyas o más en cada mes" },
+          { que: "Lectura de la carga", es: "Qué MD se ha movido más contra el mes anterior, si hay otro número de partidos, y la carga cognitiva; los días a vigilar son los reales del micro de hoy (su MD-1 y el día después del partido), con la carga media de los MD-1 ya hechos de la temporada", cuenta: "Un MD sólo se nombra con 3 sesiones suyas o más en cada mes; la orden de vigilar, sólo con 3 MD-1 hechos o más" },
+          { que: "Partido", es: "Hora, en casa o fuera y, si ya se jugó, el resultado con su sentido («ganado 1-0», el Castilla primero)" },
+          { que: "Leyenda", es: "Encima del mes: colores de fase, qué es la barra y qué es el borde discontinuo" },
         ],
       },
       {

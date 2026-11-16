@@ -31,6 +31,12 @@ import type { SesionEquipos } from "@/lib/sesion-equipos/modelo";
 
 import { EnlacesDia } from "./EnlacesDia";
 
+/** «OLEADAS» → «Oleadas»: en /microcycles los nombres van igual (16/11/2026). Las siglas cortas (ABP, CP) se quedan. */
+const sinGritos = (s: string) =>
+  s === s.toUpperCase() && /[A-ZÁÉÍÓÚÑ]{4,}/.test(s)
+    ? s.toLowerCase().replace(/(^|\s)(\p{L})/u, (_, a: string, b: string) => a + b.toUpperCase()).replace(/\b(abp|cp|cr|tad|tda)\b/g, (m) => m.toUpperCase())
+    : s;
+
 /** El resultado de un objetivo en una línea: «Perfilarse… · 9 de 14 correctas · cumple». */
 export function LineaResultado({ r }: { r: ResultadoObjetivo }) {
   return (
@@ -177,7 +183,7 @@ export function DiaConectado({
                 <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[12px]">
                   <span className="font-semibold text-[#C8A96B]">{p.codigo}</span>
                   {/* 07/11/2026: el título es el nombre de la sesión (lo que se hizo) y el del plan va de nota debajo. */}
-                  <span className={`min-w-0 truncate text-white/80 ${quitada ? "line-through decoration-white/30" : ""}`}>{nombreVisible(otroNombre, t?.nombre, p.tipo, p.contenidoPrincipal, p.formato) || "Tarea sin nombre"}</span>
+                  <span className={`min-w-0 truncate text-white/80 ${quitada ? "line-through decoration-white/30" : ""}`}>{(soloLectura ? sinGritos : (s: string) => s)(nombreVisible(otroNombre, t?.nombre, p.tipo, p.contenidoPrincipal, p.formato) || "Tarea sin nombre")}</span>
                   {quitada || (enteras && sesion && !t) ? <span className="rounded-full border border-white/15 px-1.5 text-[10px] font-semibold uppercase tracking-wide text-white/55">no se hizo</span> : null}
                   {colocados.map((e) => (
                     <span key={e.nombre + e.color} className="inline-flex items-center gap-1 text-[11px] text-white/60" title={e.jugadores.join(", ")}>

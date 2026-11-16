@@ -2830,6 +2830,19 @@ export default function JugadoresSesionPage() {
     }
     const dif = Math.abs(hay - esperados);
     const reparto2 = descuadre ? ` Equipos: ${tarea.equipos.map((e, i) => `${e.nombre || `equipo ${i + 1}`} ${tamanos[i]}`).join(", ")}.` : "";
+    /*
+    | Segunda vuelta (16/11/2026): si falta gente, la solución en un toque —meter
+    | al primero sin colocar o, si no hay, al primero disponible que no hace la
+    | tarea— en el equipo más corto respecto a su formato.
+    */
+    const corto = tarea.equipos
+      .map((e, i) => ({ e, falta: (porEquipo[i] ?? 0) - tamanos[i] }))
+      .sort((a, b) => b.falta - a.falta)[0]?.e;
+    const candidato =
+      hay < esperados && corto
+        ? (reparto.sinSitio[0] ?? sesion?.jugadores.find((j) => !j.baja && tarea.sitio[j.id] === FUERA) ?? null)
+        : null;
+    const mete = candidato && corto ? { id: candidato.id, equipo: corto.id, texto: `Meter a ${candidato.nombre} en ${corto.nombre || "el equipo más corto"}` } : undefined;
     return [
       {
         nivel: "aviso",
@@ -2843,6 +2856,7 @@ export default function JugadoresSesionPage() {
           hay > esperados
             ? `La tarea pide ${esperados} (${formato.trim()}) y hay ${hay} colocados: ${dif === 1 ? "sobra 1 o es comodín" : `sobran ${dif} o son comodines`}`
             : `La tarea pide ${esperados} (${formato.trim()}) y hay ${hay} colocados`,
+        mete,
       },
     ];
   })();
@@ -3516,7 +3530,8 @@ export default function JugadoresSesionPage() {
                     type="button"
                     onClick={() => setVista("diapositivas")}
                     className="inline-flex items-center gap-1.5 rounded-xl bg-[#C8A96B] px-3 py-1.5 text-[12px] font-semibold text-[#0B0F14] transition hover:bg-[#D8B97B]"
-                    style={{ color: "var(--rmcf-on-gold)" }}
+                    /* Segunda vuelta: tinta azul noche fija en los dos temas (en día, el blanco sobre oro daba 2,25:1). */
+                    style={{ color: "#0B0F14" }}
                     title="Ver, presentar y exportar las diapositivas de la sesión"
                   >
                     <Presentation size={14} /> Diapositivas y exportar
@@ -4066,6 +4081,12 @@ export default function JugadoresSesionPage() {
                       </div>
                       )}
 
+                      {/*
+                      | Segunda vuelta (16/11/2026, jueces): lo secundario se pliega en
+                      | «Más opciones» —cambio a mitad, tamaño del campo y comodines— y
+                      | sólo sale solo si ya se está usando. Los equipos suben.
+                      */}
+                      {(masOpciones || tareaBase?.cambio) && (
                       <div>
                         <span className="mb-1.5 block text-[12px] uppercase tracking-[0.14em] text-white/55">Cambio a mitad</span>
                         {tareaBase?.cambio ? (
@@ -4113,6 +4134,7 @@ export default function JugadoresSesionPage() {
                           </Button>
                         )}
                       </div>
+                      )}
 
                       {(masOpciones || modoSoltar === "compartir") && (
                       <div>
@@ -4135,14 +4157,14 @@ export default function JugadoresSesionPage() {
                           onClick={() => setMasOpciones((v) => !v)}
                           aria-expanded={masOpciones}
                           className="flex min-h-[32px] items-center gap-1 self-end rounded-lg px-2 py-1 text-[12px] font-semibold text-white/60 transition hover:text-white"
-                          title="Formato con estructura y qué pasa al soltar a un jugador encima de otro"
+                          title="Formato con estructura, cambio a mitad, tamaño del campo, comodines y qué pasa al soltar a un jugador encima de otro"
                         >
                           <ChevronRight size={13} className={`transition ${masOpciones ? "rotate-90" : ""}`} />
                           {masOpciones ? "Menos opciones" : "Más opciones"}
                         </button>
                       )}
 
-                      {tarea.conEstructura && (
+                      {tarea.conEstructura && (masOpciones || campoGrande) && (
                         <div>
                           <span className="mb-1.5 block text-[12px] uppercase tracking-[0.14em] text-white/55">Tamaño del campo</span>
                           <Segmented
@@ -4157,6 +4179,7 @@ export default function JugadoresSesionPage() {
                         </div>
                       )}
 
+                      {(masOpciones || tarea.comodines > 0) && (
                       <div>
                         <span className="mb-1.5 block text-[12px] uppercase tracking-[0.14em] text-white/55">Comodines</span>
                         <div className="flex items-center gap-2">
@@ -4197,6 +4220,7 @@ export default function JugadoresSesionPage() {
                           )}
                         </div>
                       </div>
+                      )}
 
                       {/*
                       | 11/11/2026 (revisión de los expertos): una sola acción principal,
@@ -4430,6 +4454,26 @@ export default function JugadoresSesionPage() {
                                       className="inline-flex rounded-md border border-current px-2 py-1 text-[12px] font-semibold"
                                     >
                                       {a.ajustaComodines}
+                                    </button>
+                                  ))}
+                              </span>
+                            )}
+                            {/* Segunda vuelta (16/11/2026): «falta 1» con su solución en un toque. */}
+                            {problemas.some((a) => a.mete) && (
+                              <span className="mt-1.5 flex flex-wrap gap-1.5">
+                                {problemas
+                                  .filter((a) => a.mete)
+                                  .map((a) => (
+                                    <button
+                                      key={a.mete!.id}
+                                      type="button"
+                                      onClick={() => {
+                                        cambiaTarea((t) => ({ ...t, sitio: { ...t.sitio, [a.mete!.id]: a.mete!.equipo } }));
+                                        toast.success(a.mete!.texto, { action: { label: "Deshacer", onClick: deshaz } });
+                                      }}
+                                      className="inline-flex rounded-md border border-current px-2 py-1 text-[12px] font-semibold"
+                                    >
+                                      {a.mete!.texto}
                                     </button>
                                   ))}
                               </span>

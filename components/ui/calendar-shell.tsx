@@ -73,6 +73,8 @@ export type CalendarLegendItem = {
 type CalendarShellProps = {
   eyebrow: string;
   title: string;
+  /** Una línea bajo el titular, con su base (16/11/2026). */
+  subtitle?: string;
   months: CalendarMonth[];
   monthIndex: number;
   onMonthChange: (index: number) => void;
@@ -118,6 +120,7 @@ export function CalendarStat({
 export function CalendarShell({
   eyebrow,
   title,
+  subtitle,
   months,
   monthIndex,
   onMonthChange,
@@ -187,7 +190,11 @@ export function CalendarShell({
             </p>
 
             <div className="mt-4 flex flex-col md:flex-row md:items-center gap-4 md:gap-5">
-              <h1 className="text-2xl md:text-4xl font-semibold">{title}</h1>
+              <div className="min-w-0">
+                <h1 className="text-2xl md:text-4xl font-semibold">{title}</h1>
+                {/* La base del titular en su propia línea (16/11/2026): el H1 se queda corto. */}
+                {subtitle ? <p className="mt-1.5 text-sm text-white/60 md:text-base">{subtitle}</p> : null}
+              </div>
 
               <div className="hidden md:block h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
             </div>
@@ -263,6 +270,21 @@ export function CalendarShell({
                   del mes no caben, y con `hidden` no se podía filtrar. */}
               {toolbar && <div className="-mt-3 mb-5 md:hidden [&_select]:w-full [&_select]:max-w-none">{toolbar}</div>}
 
+              {/* La clave de colores ARRIBA del mes (16/11/2026, jueces): al pie, en el
+                  móvil, quedaba tras 30 días de lista. */}
+              {listo && legend && legend.length > 0 && (
+                <div className="-mt-2 mb-5 flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-white/10 pb-4">
+                  {legend.map((item) => (
+                    <div key={item.label} className="flex items-center gap-2">
+                      <span
+                        className={cn("h-2.5 w-2.5 rounded-full", item.color)}
+                      />
+                      <span className="text-xs text-white/60">{item.label}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {/* En el móvil la rejilla de 7 columnas no cabe y se pierde el fin de
                   semana (los partidos): se enseña una lista de los días con algo,
                   y la rejilla queda a un toque por si hay que abrir un día vacío. */}
@@ -327,18 +349,6 @@ export function CalendarShell({
                 </div>
               </div>
 
-              {listo && legend && legend.length > 0 && (
-                <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-white/10 pt-4">
-                  {legend.map((item) => (
-                    <div key={item.label} className="flex items-center gap-2">
-                      <span
-                        className={cn("h-2.5 w-2.5 rounded-full", item.color)}
-                      />
-                      <span className="text-xs text-white/60">{item.label}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           </div>
 
