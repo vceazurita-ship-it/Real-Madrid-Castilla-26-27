@@ -10,12 +10,16 @@
 | desenlace decidido por su propio lector, que no comparten convención de
 | resultado: ver la memoria de arquitectura de ABP) y sus categorías.
 |
-| Láminas, cada una con su conclusión en el título:
-| 1. Cómo acaban: una barra apilada con el reparto de desenlaces.
-| 2. Jornada a jornada: una columna apilada por partido, en orden de
+| Láminas, cada una con su conclusión en el título (orden del 16/11/2026,
+| ronda 18: el campo primero):
+| 1. Dónde: el campograma que ya tiene la pantalla, con su conclusión.
+| 2. Acción a acción con su vídeo (si la pantalla la da).
+| 3. ¿Es lo de siempre?: este partido frente a la media, en barras con la
+|    raya de la media y la franja del rango; mismo juicio que la tabla.
+| 4. Cómo acaban: una barra apilada con el reparto de desenlaces.
+| 5. Jornada a jornada: una columna apilada por partido, en orden de
 |    calendario (pretemporada antes que liga), y si va a mejor o a peor.
-| 3. Dónde: el campograma que ya tiene la pantalla, con su conclusión.
-| 4. La categoría: el bloque de Opta de la pantalla.
+| 6. La categoría: el bloque de Opta de la pantalla.
 | Lo que no tiene dato no sale.
 */
 
@@ -23,6 +27,7 @@ import type { ReactNode } from "react";
 
 import { Lamina, TituloConclusion } from "@/components/ui/VistaVisual";
 import { tinta } from "@/components/data/graficas";
+import { formatoPorcentaje, numeroCorto, type MetricaComparada } from "@/components/abp/ComparativaPartido";
 import { comparaCronologico } from "@/lib/abp/analisis";
 import type { JornadaAbp } from "@/lib/abp/partido";
 
@@ -70,7 +75,10 @@ export function tituloDondeAbp(filas: FilaVisualAbp[], unidad: Unidad, exito: Ex
       : total === 1
         ? `; ahí nace ${f ? "la única" : "el único"} que ${exito.uno}`
         : `; ahí nacen ${aqui} de ${f ? "las" : "los"} ${total} que ${exito.varios}`;
-  return `${mayuscula(zona)} concentra ${suyas.length} de ${conZona.length} ${unidad.varios} (${pc(suyas.length, conZona.length)} %)${nace}`;
+  /* 16/11/2026 (jueces): «6 de 7» sin decir por qué falta una; se dice cuántas no tienen sitio. */
+  const sinSitio = filas.length - conZona.length;
+  const deCuantas = sinSitio > 0 ? `${conZona.length} con sitio (${sinSitio} sin zona de caída)` : `${conZona.length} ${unidad.varios}`;
+  return `${mayuscula(zona)} concentra ${suyas.length} de ${deCuantas}, el ${pc(suyas.length, conZona.length)} %${nace}`;
 }
 
 export type Unidad = { uno: string; varios: string; genero: "f" | "m" };
@@ -217,6 +225,143 @@ function tituloTipo(filas: FilaVisualAbp[], exito: ExitoVisual): string {
   return `${exito.mejorAlto ? "Lo que más rinde" : "Lo que más peligro da"}: ${tipo.toLowerCase()}, ${k} de ${fs.length} ${k === 1 ? exito.uno : exito.varios} (${pc(k, fs.length)} %)`;
 }
 
+
+/* ------------------------------------------------------------------ */
+/*  Este partido frente a la media, en barras (16/11/2026, jueces)     */
+/* ------------------------------------------------------------------ */
+
+export type ComparativaVisualDatos = {
+  /** «Jornada 11 · Hércules». */
+  partido: string;
+  /** «la media de las 10 jornadas anteriores». */
+  rotuloMedia: string;
+  metricas: MetricaComparada[];
+  /** Desde cuántas acciones una fila se juzga (la misma regla que la tabla de «Detalle»). */
+  muestraMinima: number;
+};
+
+type FilaComparada = { m: MetricaComparada; d: number; juicio: "mejor" | "peor" | "igual" | "tendencia" | null };
+
+/** El mismo juicio que la tabla: «igual» a menos de 2 puntos o del 5 %; con base corta, tendencia. */
+function juzgaFila(m: MetricaComparada, muestraMinima: number): FilaComparada | null {
+  if (m.actual === null || m.media === null) return null;
+  const pct = (m.formato ?? numeroCorto) === formatoPorcentaje;
+  const d = m.actual - m.media;
+  const juzga = m.mejorAlto === true || m.mejorAlto === false;
+  if (!juzga) return { m, d, juicio: null };
+  const corta = m.tendencia || (m.de !== undefined && m.de < muestraMinima);
+  const margen = pct ? 2 : Math.max(0.05, Math.abs(m.media) * 0.05);
+  if (Math.abs(d) < margen) return { m, d, juicio: "igual" };
+  if (corta) return { m, d, juicio: "tendencia" };
+  return { m, d, juicio: (d > 0) === m.mejorAlto ? "mejor" : "peor" };
+}
+
+const lista = (xs: string[]) => (xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} y ${xs[xs.length - 1]}`);
+
+function tituloComparativa(filas: FilaComparada[], datos: ComparativaVisualDatos): string {
+  const nombre = (f: FilaComparada) => f.m.nombre.charAt(0).toLowerCase() + f.m.nombre.slice(1);
+  const mejores = filas.filter((f) => f.juicio === "mejor").map(nombre);
+  const peores = filas.filter((f) => f.juicio === "peor").map(nombre);
+  if (mejores.length || peores.length) {
+    return [mejores.length ? `Mejor que de costumbre en ${lista(mejores)}` : "", peores.length ? `${mejores.length ? "peor" : "Peor que de costumbre"} en ${lista(peores)}` : ""]
+      .filter(Boolean)
+      .join("; ");
+  }
+  const tendencias = filas.filter((f) => f.juicio === "tendencia");
+  if (tendencias.length) {
+    const peso = (f: FilaComparada) => Math.abs(f.d) / Math.max(0.5, Math.abs(f.m.media ?? 0));
+    const mayor = [...tendencias].sort((a, b) => peso(b) - peso(a))[0];
+    const fmt = mayor.m.formato ?? numeroCorto;
+    return `Con pocas acciones, sólo tendencia: ${nombre(mayor)}, ${fmt(mayor.m.actual ?? 0)} frente a ${fmt(mayor.m.media ?? 0)} de media`;
+  }
+  return filas.some((f) => f.juicio === "igual") ? `En la línea de ${datos.rotuloMedia}` : "";
+}
+
+const COLOR_JUICIO: Record<string, string> = { mejor: "var(--rmcf-dif-mejor)", peor: "var(--rmcf-dif-peor)" };
+const ORO_PUNTO = "#C8A96B";
+
+function ComparativaBarras({ filas }: { filas: FilaComparada[] }) {
+  return (
+    <ul className="min-w-0 space-y-3.5">
+      {filas.map(({ m, juicio }) => {
+        const fmt = m.formato ?? numeroCorto;
+        const pct = fmt === formatoPorcentaje;
+        const actual = m.actual ?? 0;
+        const media = m.media ?? 0;
+        const tope = Math.max(actual, media, m.rango?.[1] ?? 0, pct ? 10 : 1) * 1.08;
+        const x = (v: number) => Math.max(0, Math.min(100, (v / tope) * 100));
+        const color = juicio && COLOR_JUICIO[juicio] ? COLOR_JUICIO[juicio] : ORO_PUNTO;
+        const rango = m.rango && m.rango[0] !== m.rango[1] && !(pct && m.rango[0] <= 0 && m.rango[1] >= 100) ? m.rango : null;
+        const base = m.de !== undefined ? (m.n !== undefined ? `${m.n} de ${m.de}` : `de ${m.de} ${m.unidad ?? "acciones"}`) : "";
+        return (
+          <li key={m.clave} className="min-w-0">
+            <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-[12px]">
+              <span className="min-w-0 text-white/85">
+                {m.nombre}
+                {m.mejorAlto === true ? <span className="text-white/50"> · ▲ más es mejor</span> : m.mejorAlto === false ? <span className="text-white/50"> · ▼ menos es mejor</span> : null}
+              </span>
+              <span className="shrink-0 tabular-nums">
+                <span className="text-[13px] font-bold" style={{ color: juicio === "mejor" || juicio === "peor" ? color : "var(--rmcf-gold-ink)" }}>
+                  {fmt(actual)}
+                </span>
+                <span className="text-white/60"> · media {fmt(media)}</span>
+                {juicio ? (
+                  <span
+                    className="ml-1.5 rounded-full px-1.5 py-0.5 text-[11px] font-semibold"
+                    style={{ color: COLOR_JUICIO[juicio] ?? "rgb(var(--rmcf-ink-rgb) / .65)", background: "rgb(var(--rmcf-ink-rgb) / .06)" }}
+                  >
+                    {juicio}
+                  </span>
+                ) : null}
+              </span>
+            </div>
+            <div
+              className="relative mt-1.5 h-3 rounded-full"
+              style={{ background: "rgb(var(--rmcf-ink-rgb) / .07)" }}
+              role="img"
+              aria-label={`${m.nombre}: ${fmt(actual)}; media ${fmt(media)}${rango ? `; antes, de ${fmt(rango[0])} a ${fmt(rango[1])}` : ""}`}
+            >
+              {rango ? (
+                <span
+                  className="absolute inset-y-0 rounded-full"
+                  style={{ left: `${x(rango[0])}%`, width: `${Math.max(1, x(rango[1]) - x(rango[0]))}%`, background: "rgb(var(--rmcf-ink-rgb) / .15)" }}
+                />
+              ) : null}
+              <span className="absolute -bottom-1 -top-1 w-[2px] rounded-full" style={{ left: `${x(media)}%`, background: "rgb(var(--rmcf-ink-rgb) / .7)" }} />
+              <span
+                className="absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2"
+                style={{ left: `${x(actual)}%`, background: juicio === "tendencia" ? "transparent" : color, borderColor: color }}
+              />
+            </div>
+            {rango || base ? (
+              <p className="mt-1 text-[11px] text-white/55">
+                {[rango ? `${pct ? "" : "por partido · "}antes, de ${fmt(rango[0])} a ${fmt(rango[1])}` : "", base ? `este partido, ${base}` : ""].filter(Boolean).join(" · ")}
+              </p>
+            ) : null}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function LeyendaComparativa() {
+  return (
+    <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-white/55">
+      <span className="inline-flex items-center gap-1">
+        <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: ORO_PUNTO }} aria-hidden /> este partido
+      </span>
+      <span className="inline-flex items-center gap-1">
+        <span className="inline-block h-3 w-[2px]" style={{ background: "rgb(var(--rmcf-ink-rgb) / .7)" }} aria-hidden /> la media
+      </span>
+      <span className="inline-flex items-center gap-1">
+        <span className="inline-block h-2.5 w-5 rounded-full" style={{ background: "rgb(var(--rmcf-ink-rgb) / .15)" }} aria-hidden /> del partido más bajo al más alto
+      </span>
+      <span>· círculo hueco: tendencia, pocas acciones</span>
+    </p>
+  );
+}
+
 export function VisualAbp({
   filas,
   categorias,
@@ -226,6 +371,8 @@ export function VisualAbp({
   mapa,
   liga,
   ligaPregunta = "¿Y frente a la categoría?",
+  comparativa,
+  acciones,
 }: {
   filas: FilaVisualAbp[];
   categorias: CategoriaVisual[];
@@ -237,6 +384,10 @@ export function VisualAbp({
   /** El bloque de la categoría (Opta). */
   liga?: ReactNode;
   ligaPregunta?: string;
+  /** Este partido frente a la media de los anteriores (la tabla de «Detalle», en barras). */
+  comparativa?: ComparativaVisualDatos | null;
+  /** La lista de acciones con su vídeo, bajo el campo. */
+  acciones?: { titulo: string; nodo: ReactNode } | null;
 }) {
   if (!filas.length) return null;
 
@@ -255,8 +406,41 @@ export function VisualAbp({
   const tituloMapa = mapa ? tituloDondeAbp(filas, unidad, exito) : "";
   const tituloTipos = tituloTipo(filas, exito);
 
+  const filasComparadas = comparativa
+    ? comparativa.metricas.map((m) => juzgaFila(m, comparativa.muestraMinima)).filter((f): f is FilaComparada => f !== null)
+    : [];
+  const tituloComparada = comparativa && filasComparadas.length ? tituloComparativa(filasComparadas, comparativa) : "";
+
+  /*
+  | 16/11/2026 (jueces, ronda 18): el campo va el primero —«dónde cae no puede
+  | quedar escondido»—, con la lista de acciones y su vídeo justo debajo, y
+  | luego este partido frente a la media en barras con el rango.
+  */
   return (
     <div className="mt-5 min-w-0 space-y-4">
+      {mapa ? (
+        <Lamina>
+          <TituloConclusion pregunta={mapa.pregunta} fuente={fuente}>
+            {tituloMapa || `${total} ${total === 1 ? unidad.uno : unidad.varios} en el campo`}
+          </TituloConclusion>
+          {mapa.nodo}
+        </Lamina>
+      ) : null}
+      {acciones ? (
+        <Lamina>
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/50">{acciones.titulo}</p>
+          {acciones.nodo}
+        </Lamina>
+      ) : null}
+      {comparativa && tituloComparada ? (
+        <Lamina>
+          <TituloConclusion pregunta="¿Es lo de siempre?" fuente={`${comparativa.partido} · frente a ${comparativa.rotuloMedia}`}>
+            {tituloComparada}
+          </TituloConclusion>
+          <ComparativaBarras filas={filasComparadas} />
+          <LeyendaComparativa />
+        </Lamina>
+      ) : null}
       <div className="grid min-w-0 gap-4 xl:grid-cols-2">
         <Lamina>
           <TituloConclusion pregunta="¿Cómo acaban?" fuente={fuente}>
@@ -279,13 +463,6 @@ export function VisualAbp({
             {tituloTipos}
           </TituloConclusion>
           <PorTipo filas={filas} categorias={categorias} />
-        </Lamina>
-      ) : null}
-      {mapa ? (        <Lamina>
-          <TituloConclusion pregunta={mapa.pregunta} fuente={fuente}>
-            {tituloMapa || `${total} ${total === 1 ? unidad.uno : unidad.varios} en el campo`}
-          </TituloConclusion>
-          {mapa.nodo}
         </Lamina>
       ) : null}
       {liga ? (

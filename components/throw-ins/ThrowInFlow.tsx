@@ -465,7 +465,7 @@ export default function ThrowInFlow({
 
         <div className="rounded-2xl border border-white/10 bg-[#0B1320] p-4">
           <div className="text-xs uppercase tracking-wide text-slate-400">
-            {isOffensive ? "Retención" : "Recuperación"}
+            {isOffensive ? "Conservados" : "Recuperación"}
           </div>
           <div className="mt-1 text-2xl font-semibold text-[#E7D2A0]">{resumen.favorablePct.toFixed(1)}%</div>
         </div>

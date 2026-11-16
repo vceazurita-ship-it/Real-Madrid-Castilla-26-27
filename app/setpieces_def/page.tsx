@@ -38,15 +38,15 @@ import { zonaFaltaEnPalabras } from "@/lib/abp/informe-micro";
 
 /*
 | 16/11/2026 (jueces): «falta directa perfilada zona 2» es lenguaje de la
-| hoja. Se dice dónde fue, con el glosario de zonas del informe, y el número
-| de zona entre paréntesis para casar con la hoja y el campograma.
+| hoja. Se dice dónde fue, con el glosario de zonas del informe. 16/11/2026
+| (jueces, ronda 18): sin el número de zona entre paréntesis, que en la
+| charla no se entiende; el campograma ya enseña el sitio.
 */
 function accionEnPalabras(tipo: string) {
   const crudo = tipo.trim().toLowerCase();
   const palabras = zonaFaltaEnPalabras(crudo);
-  const zona = /\bz\s*(\d)\b/i.exec(crudo)?.[1];
 
-  return palabras ? `${palabras}${zona ? ` (zona ${zona})` : ""}` : hablado(crudo);
+  return palabras || hablado(crudo);
 }
 import { lecturaRapida } from "@/lib/abp/lectura-rapida";
 import { zonaLegible } from "@/lib/abp/accionFrase";
@@ -88,6 +88,7 @@ import {
 import { completaMarcador } from "@/lib/abp/marcador-goles";
 import { DOC_GOLES, type PartidoGoles } from "@/lib/goles/analisis";
 import { AccionesDelPartido, type AccionDeLista } from "@/components/abp/AccionesDelPartido";
+import { RelacionadoAbp } from "@/components/abp/RelacionadoAbp";
 import { DOC_CORTES_ABP, clavesEnOrden, enlacesDeCortes, filaAbpDeHoja, type DocCortesAbp, type EnlaceAccionAbp } from "@/lib/abp/cortes-abp";
 import {
   ComparativaPartido,
@@ -1026,6 +1027,24 @@ const comparativa = (() => {
     tira,
   };
 })();
+
+/*
+| 16/11/2026 (jueces, ronda 18): para la franja de lo relacionado (como en
+| ABP ofensivo). Aquí el sacador y el rematador son del rival: van a la
+| plantilla de ese rival.
+*/
+const rivalAnalizado =
+  rival !== "ALL"
+    ? rival
+    : jornada !== "ALL"
+      ? rows.find((r) => r.contexto.jornada.clave === jornada)?.rival ?? ""
+      : "";
+const etiquetaAnalizada = jornada !== "ALL" ? jornadas.find((una) => una.clave === jornada)?.etiqueta : undefined;
+const numeroEnHoja = jornadas.reduce<number | null>(
+  (max, una) => (una.competicion === "liga" && una.numero != null && (max === null || una.numero > max) ? una.numero : max),
+  null,
+);
+const fichaRival = (equipo: string) => (equipo ? `/scout-rival-individual?equipo=${encodeURIComponent(equipo)}` : null);
 
 /* La jornada que se compara es la última de esta hoja y la ofensiva ya va por una posterior. */
 const jornadaComparadaObj = jornadas.find((una) => una.clave === jornadaComparada);
@@ -2751,8 +2770,14 @@ const pie = (
   ) : (
     <>
 
-  {/* Lo primero: este partido frente a la media de los anteriores. Antes iba
-      debajo de la tarjeta de filtros y había que bajar para verlo. */}
+  {/* 16/11/2026 (jueces, ronda 18): el rival del partido y el de la semana, a un toque. */}
+  <RelacionadoAbp
+    pantalla="setpieces_def"
+    rival={rivalAnalizado}
+    etiqueta={etiquetaAnalizada}
+    numeroEnHoja={numeroEnHoja}
+    className="mt-6"
+  />
 
 
   {/* Selector + KPIs */}
@@ -3066,6 +3091,24 @@ const pie = (
                     />
                   ),
                 }}
+                acciones={
+                  accionesLista.length
+                    ? {
+                        titulo: `Acción a acción · ${accionesLista.length === 1 ? "la acción" : `las ${accionesLista.length}`} del rival con su vídeo`,
+                        nodo: <AccionesDelPartido acciones={accionesLista} enlaces={enlaces} fichaDe={() => fichaRival(rivalAnalizado)} />,
+                      }
+                    : null
+                }
+                comparativa={
+                  comparativa
+                    ? {
+                        partido: comparativa.partido,
+                        rotuloMedia: comparativa.anteriores === 1 ? "la jornada anterior" : `la media de las ${comparativa.anteriores} jornadas anteriores`,
+                        metricas: comparativa.metricas,
+                        muestraMinima: MUESTRA_FIRME,
+                      }
+                    : null
+                }
                 liga={<OptaAbpDia lado="contra" />}
               />
             )}
@@ -3153,7 +3196,7 @@ const pie = (
 
             {accionesLista.length > 0 && (
               <Panel title="Acción a acción" className="mt-6">
-                <AccionesDelPartido acciones={accionesLista} enlaces={enlaces} />
+                <AccionesDelPartido acciones={accionesLista} enlaces={enlaces} fichaDe={() => fichaRival(rivalAnalizado)} />
               </Panel>
             )}
             </div>

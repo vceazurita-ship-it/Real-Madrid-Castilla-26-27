@@ -85,6 +85,7 @@ import { jornadasAnteriores, ultimaJornada } from "@/lib/abp/ultimo-partido";
 import { completaMarcador } from "@/lib/abp/marcador-goles";
 import { DOC_GOLES, type PartidoGoles } from "@/lib/goles/analisis";
 import { AccionesDelPartido, type AccionDeLista } from "@/components/abp/AccionesDelPartido";
+import { RelacionadoAbp } from "@/components/abp/RelacionadoAbp";
 import { DOC_CORTES_ABP, clavesEnOrden, enlacesDeCortes, filaAbpDeHoja, type DocCortesAbp, type EnlaceAccionAbp } from "@/lib/abp/cortes-abp";
 
 import {
@@ -998,6 +999,26 @@ const comparativa = (() => {
     tira,
   };
 })();
+
+/*
+| 16/11/2026 (jueces, ronda 18): para la franja de lo relacionado. El rival
+| del partido que se mira (el elegido, o el de la jornada elegida), la
+| jornada en palabras y la última de liga que tiene la hoja: si el
+| calendario ya jugó otra, la franja lo dice.
+*/
+const rivalAnalizado =
+  rival !== "ALL"
+    ? rival
+    : jornada !== "ALL"
+      ? rows.find((r) => r.contexto.jornada.clave === jornada)?.rival ?? ""
+      : "";
+const etiquetaAnalizada = jornada !== "ALL" ? jornadas.find((una) => una.clave === jornada)?.etiqueta : undefined;
+const numeroEnHoja = jornadas.reduce<number | null>(
+  (max, una) => (una.competicion === "liga" && una.numero != null && (max === null || una.numero > max) ? una.numero : max),
+  null,
+);
+/* El sacador y el rematador son nuestros: a su ficha individual. */
+const fichaNuestra = (nombre: string) => `/individual?nombre=${encodeURIComponent(nombre)}`;
 
 /* Con una jornada puesta, elegir un rival de otra dejaría la página vacía:
    en ese caso se suelta la jornada, que lo que se quiere ver es el rival. */
@@ -2833,8 +2854,16 @@ const pie = (
   ) : (
     <>
 
-  {/* Lo primero: este partido frente a la media de los anteriores. Antes iba
-      debajo de la tarjeta de filtros y había que bajar para verlo. */}
+  {/* 16/11/2026 (jueces, ronda 18): el rival del partido y el de la semana, a
+      un toque (su ABP, sus goles en vídeo, la pizarra, el plan), y el aviso
+      si el último partido jugado aún no está en la hoja. */}
+  <RelacionadoAbp
+    pantalla="setpieces"
+    rival={rivalAnalizado}
+    etiqueta={etiquetaAnalizada}
+    numeroEnHoja={numeroEnHoja}
+    className="mt-6"
+  />
 
 
   {/* Selector + KPIs */}
@@ -3207,6 +3236,24 @@ const pie = (
                     />
                   ),
                 }}
+                acciones={
+                  accionesLista.length
+                    ? {
+                        titulo: `Acción a acción · ${accionesLista.length === 1 ? "la acción" : `las ${accionesLista.length}`} con su vídeo`,
+                        nodo: <AccionesDelPartido acciones={accionesLista} enlaces={enlaces} fichaDe={fichaNuestra} />,
+                      }
+                    : null
+                }
+                comparativa={
+                  comparativa
+                    ? {
+                        partido: comparativa.partido,
+                        rotuloMedia: comparativa.anteriores === 1 ? "la jornada anterior" : `la media de las ${comparativa.anteriores} jornadas anteriores`,
+                        metricas: comparativa.metricas,
+                        muestraMinima: MUESTRA_FIRME,
+                      }
+                    : null
+                }
                 liga={<OptaAbpDia lado="favor" />}
               />
             )}
@@ -3289,7 +3336,7 @@ const pie = (
 
             {accionesLista.length > 0 && (
               <Panel title="Acción a acción" className="mt-6">
-                <AccionesDelPartido acciones={accionesLista} enlaces={enlaces} />
+                <AccionesDelPartido acciones={accionesLista} enlaces={enlaces} fichaDe={fichaNuestra} />
               </Panel>
             )}
             </div>

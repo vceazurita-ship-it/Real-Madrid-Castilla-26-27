@@ -739,25 +739,43 @@ function analizaReparto(
     | etiqueta «Posicional» (decía 7 donde todo lo demás decía 8). Y la suma
     | se cierra hasta el total con «de otra forma».
     */
-    const recuperamos = utiles.filter((uno) => uno.retencion).length || de((c) => c === "posicional");
-    const conserva = de((c) => c === "posicional rival");
-    /* La misma definición que la tabla (06/11/2026): último tercio, ocasión o gol. Decía 5 donde la tabla 7. */
-    const llegan = de((c) => c.startsWith("conquista último tercio") || c.includes("ocasi") || /^gol\b/.test(c));
-    const otros = Math.max(0, total - recuperamos - conserva - llegan);
-    const partes = [
-      recuperamos ? `${recuperamos} los recuperamos` : "",
-      conserva ? `${conserva} ${conserva === 1 ? "lo conserva" : "los conserva"} el rival` : "",
-      llegan ? `${llegan} le ${llegan === 1 ? "llega" : "llegan"} a último tercio, ocasión o gol` : "",
-      otros
-        ? otrosDicho(
-            otros,
-            utiles.filter((uno) => {
-              const c = plana(uno.categoria);
+    /*
+    | 16/11/2026 (jueces, ronda 18): «6 los recuperamos, 2 los conserva, 2
+    | llegan, 3 acaban en balón parado del rival y 1 en nada» no cuadraba con
+    | el desglose de al lado (balón nuestro / balón del rival). Se dice por
+    | grupos, con la misma base: «6 para nosotros (5 recuperados y 1 en balón
+    | parado nuestro), 7 para el rival (…) y 1 en nada».
+    */
+    const llega = (c: string) => c.startsWith("conquista último tercio") || c.includes("ocasi") || /^gol\b/.test(c);
+    const nuestros = utiles.filter((uno) => uno.retencion);
+    const suyos = utiles.filter((uno) => !uno.retencion && (/\brival\b/.test(plana(uno.categoria)) || llega(plana(uno.categoria))));
+    const resto = utiles.filter((uno) => !nuestros.includes(uno) && !suyos.includes(uno));
+    const desglose = (lista: EventoAnalisis[], rotulo: (c: string, k: number) => string) => {
+      const cuenta = new Map<string, number>();
 
-              return !uno.retencion && c !== "posicional rival" && !(c.startsWith("conquista último tercio") || c.includes("ocasi") || /^gol\b/.test(c));
-            }),
-          )
-        : "",
+      lista.forEach((uno) => {
+        const r = rotulo(plana(uno.categoria), 1);
+        cuenta.set(r, (cuenta.get(r) ?? 0) + 1);
+      });
+
+      const trozos = [...cuenta.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .map(([r, k]) => {
+          const ejemplo = lista.find((uno) => rotulo(plana(uno.categoria), 1) === r)!;
+          return `${k} ${rotulo(plana(ejemplo.categoria), k)}`;
+        });
+
+      return trozos.length === 1 ? "" : trozos.length === 2 ? trozos.join(" y ") : `${trozos.slice(0, -1).join(", ")} y ${trozos[trozos.length - 1]}`;
+    };
+    const dichoNuestro = (c: string, k: number) => (c === "posicional" ? (k === 1 ? "recuperado" : "recuperados") : `en ${glosa(c)}`);
+    const dichoSuyo = (c: string, k: number) =>
+      llega(c) ? `le ${k === 1 ? "llega" : "llegan"} a último tercio, ocasión o gol` : c === "posicional rival" ? (k === 1 ? "lo conserva" : "los conserva") : `en ${glosa(c)}`;
+    const dentroNuestro = desglose(nuestros, dichoNuestro);
+    const dentroSuyo = desglose(suyos, dichoSuyo);
+    const partes = [
+      nuestros.length ? `${nuestros.length} ${nuestros.length === 1 ? "acaba" : "acaban"} con el balón para nosotros${dentroNuestro ? ` (${dentroNuestro})` : ""}` : "",
+      suyos.length ? `${suyos.length} para el rival${dentroSuyo ? ` (${dentroSuyo})` : ""}` : "",
+      resto.length ? otrosDicho(resto.length, resto) : "",
     ].filter(Boolean);
 
     if (partes.length < 2) return null;

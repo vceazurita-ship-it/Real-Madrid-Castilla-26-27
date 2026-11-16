@@ -18,6 +18,7 @@ import { Database, FileDown, LayoutDashboard, Map as MapaIcono, Workflow, ListOr
 import { OptaBandaDia } from "@/components/abp/OptaDia";
 import { ConmutadorVista, useVistaAnalisis } from "@/components/ui/VistaVisual";
 import { COLOR_DESENLACE, VisualAbp, type FilaVisualAbp } from "@/components/abp/VisualAbp";
+import { RelacionadoAbp } from "@/components/abp/RelacionadoAbp";
 import { capturaNodo, fotograma } from "@/lib/export/captura";
 import { descargaEnMarcha, descargas, encargaDescarga } from "@/lib/trabajos/descargas";
 import { EstadoError } from "@/components/ui/estados";
@@ -54,7 +55,7 @@ import {
 } from "@/components/abp/AnalisisSeccion";
 import type { ClaveMetrica, Etiquetas } from "@/lib/abp/analisis";
 import { lecturaRapida } from "@/lib/abp/lectura-rapida";
-import { LecturaRapida, MUESTRA_FIRME } from "@/components/abp/LecturaRapida";
+import { LecturaRapida } from "@/components/abp/LecturaRapida";
 import { ThrowInField } from "@/components/throw-ins/ThrowInField";
 import ThrowInZoneMap from "@/components/throw-ins/ThrowInZoneMap";
 import ThrowInFlow from "@/components/throw-ins/ThrowInFlow";
@@ -316,7 +317,13 @@ const MIN_MUESTRA = 3;
    de 20 se deja el dato con su base y sin imperativo. */
 /* 10/11/2026 (jueces): un solo umbral en toda la pantalla, el de las tarjetas
    de arriba (MUESTRA_FIRME, 15): la nota decía 15 y las conclusiones, 20. */
-const consigna = (n: number, texto: string) => (n >= MUESTRA_FIRME ? texto : "");
+/*
+| 16/11/2026 (jueces, ronda 18): un partido da 10-20 saques y «64,7 % · peor»
+| con 17 se leía como veredicto. En la banda, por debajo de 25 saques todo es
+| tendencia: en las etiquetas de la tabla, en las barras y en las conclusiones.
+*/
+const MUESTRA_BANDA = 25;
+const consigna = (n: number, texto: string) => (n >= MUESTRA_BANDA ? texto : "");
 
 /* «Primera linea» de la hoja → «Primera línea» (10/11/2026). */
 const conTildes = (valor: string) => valor.replace(/\b([Ll])inea(s?)\b/g, "$1ínea$2");
@@ -350,7 +357,9 @@ function nombreDe(key: string, crudo: string, mode?: Mode) {
       const numero = /(\d)/.exec(valor)?.[1];
       const lugar = mode && numero ? LUGAR_ZONA[mode][numero] : undefined;
 
-      if (lugar) return `${lugar} (zona ${numero})`;
+      /* 16/11/2026 (jueces, ronda 18): sin el número de la hoja, que en ofensivo y
+         defensivo va al revés; el número queda en «Qué significan las zonas». */
+      if (lugar) return lugar;
 
       return /^zona/i.test(valor) ? valor.replace(/^zona/i, "zona") : `zona ${valor}`;
     }
@@ -364,7 +373,11 @@ function nombreDe(key: string, crudo: string, mode?: Mode) {
           ? "saque a defensas"
           : /^delanteros?$/i.test(valor)
             ? "saque a delanteros"
-            : `receptor «${valor}»`;
+            : /primera l[ií]nea/i.test(valor)
+              ? "el que recibe de cara junto a la línea"
+              : /segunda l[ií]nea/i.test(valor)
+                ? "el que recibe por detrás del primero"
+                : `receptor «${valor}»`;
     case "Intencion":
       return `intención «${valor}»`;
     default:
@@ -430,7 +443,7 @@ function conclusionesDe(rows: RecordRow[], mode: Mode, anteriores: RecordRow[] |
 
   const ofensivo = mode === "offensive";
   /* Con menos de MUESTRA_FIRME saques en el grupo, la línea lo dice al final. */
-  const indicio = (n: number) => (n < MUESTRA_FIRME ? ` Tendencia: ${n} ${n === 1 ? "saque" : "saques"}.` : "");
+  const indicio = (n: number) => (n < MUESTRA_BANDA ? ` Tendencia: ${n} ${n === 1 ? "saque" : "saques"}.` : "");
   /* 16/11/2026: el sitio de la zona va en palabras y desde nuestra portería («nuestro tercio (zona 1)»). */
   const nombre = (key: string, valor: string) => nombreDe(key, valor, mode);
   const resumen = resumenDe(rows, mode);
@@ -487,7 +500,7 @@ function conclusionesDe(rows: RecordRow[], mode: Mode, anteriores: RecordRow[] |
       const mejor = extremo(envios, retencionDe, true);
 
       frases.push(
-        `${mayuscula(nombre(mejor.key, mejor.valor))}, el más fiable: retenemos ${mejor.favorables} de ${mejor.n} (${pctTexto(mejor.favorables, mejor.n)})${consigna(mejor.n, "; usarlo para conservar")}.${indicio(mejor.n)}`,
+        `${mayuscula(nombre(mejor.key, mejor.valor))}, el más fiable: conservamos ${mejor.favorables} de ${mejor.n} (${pctTexto(mejor.favorables, mejor.n)})${consigna(mejor.n, "; usarlo para conservar")}.${indicio(mejor.n)}`,
       );
     }
   } else {
@@ -548,7 +561,7 @@ function conclusionesDe(rows: RecordRow[], mode: Mode, anteriores: RecordRow[] |
       } else if (!mismo(peor, masRobos)) {
         frases.push(
           /* 16/11/2026 (jueces): por debajo de MUESTRA_FIRME no se llama «vía peligrosa»: se da el dato. */
-          peor.n < MUESTRA_FIRME
+          peor.n < MUESTRA_BANDA
             ? `Por ${nombre(peor.key, peor.valor)} le llegan ${peor.produccion} de ${peor.n} a último tercio.${indicio(peor.n)}`
             : `Su vía más peligrosa es ${nombre(peor.key, peor.valor)} (${peor.produccion} de ${peor.n} a último tercio).${consigna(peor.n, ` ${COMO_CERRAR}`)}`,
         );
@@ -581,7 +594,7 @@ function conclusionesDe(rows: RecordRow[], mode: Mode, anteriores: RecordRow[] |
       const mejor = extremo(personas, (g) => produccionTasa(g) * 2 + retencionDe(g), true);
 
       frases.push(
-        `Más eficaz: ${nombre(mejor.key, mejor.valor)} (retenemos ${mejor.favorables} de ${mejor.n}, ${mejor.produccion} a último tercio)${consigna(mejor.n, "; buscarlo más")}.${indicio(mejor.n)}`,
+        `Más eficaz: ${nombre(mejor.key, mejor.valor)} (conservamos ${mejor.favorables} de ${mejor.n}, ${mejor.produccion} a último tercio)${consigna(mejor.n, "; buscarlo más")}.${indicio(mejor.n)}`,
       );
     } else {
       const comodo = extremo(receptores.length >= 2 ? receptores : personas, retencionDe, false);
@@ -609,7 +622,10 @@ function conclusionesDe(rows: RecordRow[], mode: Mode, anteriores: RecordRow[] |
       if (retencionDe(peor) < global) {
         debil = peor;
         frases.push(
-          `Punto débil: ${nombre(peor.key, peor.valor)}, retenemos ${peor.favorables} de ${peor.n}.${indicio(peor.n)}`,
+          /* 16/11/2026 (jueces, ronda 18): con pocos saques no es un «punto débil», es el dato. */
+          peor.n >= MUESTRA_BANDA
+            ? `Punto débil: ${nombre(peor.key, peor.valor)}, conservamos ${peor.favorables} de ${peor.n}.`
+            : `Donde menos conservamos: ${nombre(peor.key, peor.valor)}, ${peor.favorables} de ${peor.n}.${indicio(peor.n)}`,
         );
       }
     }
@@ -631,7 +647,7 @@ function conclusionesDe(rows: RecordRow[], mode: Mode, anteriores: RecordRow[] |
           : `saques hacia ${nombre(debil.key, debil.valor)}: apoyo cercano y segunda jugada`;
 
     frases.push(
-      `Qué entrenamos${debil.n < MUESTRA_FIRME ? " (tendencia que vigilar)" : ""}: ${tarea}; conservamos ${debil.favorables} de ${debil.n} en ${nombre(debil.key, debil.valor)}; se cuenta el balón conservado${
+      `Qué entrenamos${debil.n < MUESTRA_BANDA ? " (tendencia que vigilar)" : ""}: ${tarea}; conservamos ${debil.favorables} de ${debil.n} en ${nombre(debil.key, debil.valor)}; se cuenta el balón conservado${
         mediaRetencion !== null ? ` · objetivo: ${pctUno(mediaRetencion)} conservados (${fuenteMedia})` : ""
       }.`,
     );
@@ -648,7 +664,8 @@ function conclusionesDe(rows: RecordRow[], mode: Mode, anteriores: RecordRow[] |
     const vigila = receptoresRival.length ? extremo(receptoresRival, produccionTasa, true) : null;
 
     if (robo) {
-      const vigilancia = vigila ? `, con vigilancia al ${nombreDe(vigila.key, vigila.valor).replace(/^saque a /, "").replace(/^receptor /, "receptor ")}` : "";
+      const quien = nombreDe(vigila?.key ?? "", vigila?.valor ?? "").replace(/^saque a /, "");
+      const vigilancia = vigila ? `, con vigilancia ${quien.startsWith("el que") ? `a ${quien}` : `al ${quien}`}` : "";
 
       /*
       | 16/11/2026 (jueces): «si se confirma» era vago. La orden es para el
@@ -657,9 +674,9 @@ function conclusionesDe(rows: RecordRow[], mode: Mode, anteriores: RecordRow[] |
       */
       frases.splice(3);
       frases.push(
-        `Orden para el próximo partido${robo.n < MUESTRA_FIRME ? " (tendencia que vigilar)" : ""}: presión al saque del rival en ${nombre(robo.key, robo.valor)}, donde robamos ${robo.favorables} de ${robo.n}${vigilancia}; se cuentan los saques del rival que recuperamos${
+        `Orden para el próximo partido${robo.n < MUESTRA_BANDA ? " (tendencia que vigilar)" : ""}: presión al saque del rival en ${nombre(robo.key, robo.valor)}, donde robamos ${robo.favorables} de ${robo.n}${vigilancia}; se cuentan los saques del rival que recuperamos${
           mediaRetencion !== null ? ` · objetivo: al menos ${pctUno(mediaRetencion)} (${fuenteMedia}; hoy ${pctUno((favorables / total) * 100)})` : ""
-        }. Tarea de saque de banda defensivo del microciclo.`,
+        }.`,
       );
     }
   }
@@ -1628,7 +1645,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
     () => ({
       /* 07/11/2026: un solo nombre para la misma cifra en toda la pantalla, el de la tabla. */
       peligro: isOffensive ? "Saques que llegan a último tercio" : "Saques del rival que llegan a último tercio",
-      retencion: isOffensive ? "Retención" : "Recuperación",
+      retencion: isOffensive ? "Conservados" : "Recuperación",
       progresion: isOffensive ? "Progresión" : "Progresión rival",
       volumen: "Saques por jornada",
     }),
@@ -1793,6 +1810,21 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
     ...(soloLiga ? ["Sólo liga (sin pretemporada)"] : []),
     ...activos.map(({ key, label }) => `${label}: ${filters[key]}`),
   ].join(" · ") || "Sin filtros · todos los saques registrados";
+
+  /* 16/11/2026 (jueces, ronda 18): el rival del partido y el de la semana, a un toque. */
+  const numeroEnHoja = jornadasPresentes.reduce<number | null>(
+    (max, una) => (una.competicion === "liga" && una.numero != null && (max === null || una.numero > max) ? una.numero : max),
+    null,
+  );
+  const relacionado = (
+    <RelacionadoAbp
+      pantalla={isOffensive ? "throw-ins" : "throw-ins-def"}
+      rival={comparativa?.rival || ""}
+      etiqueta={comparativa?.elegida.etiqueta}
+      numeroEnHoja={numeroEnHoja}
+      className="mb-5"
+    />
+  );
 
   return (
     <div className="flex min-h-screen bg-[#0B0F14] text-white">
@@ -2002,12 +2034,10 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
 
                 {!exporting && enVisual && (
                   <>
-                    {comparativa?.rival ? (
-                      <div className="mb-4">
-                        <p className="text-sm text-white/55">Rival · {comparativa.elegida.etiqueta}</p>
-                        <p className="mt-1 text-lg font-semibold uppercase tracking-[0.04em] text-white/90">{comparativa.rival}</p>
-                      </div>
-                    ) : null}
+                    {/* 16/11/2026 (jueces, ronda 18): el rival del partido ya no es un
+                        rótulo suelto: lleva a sus goles en vídeo, su ABP y su plan, y
+                        al lado va el de la semana. */}
+                    {relacionado}
                     <Conclusiones
                       items={conclusiones.items}
                       titular={conclusiones.titular}
@@ -2051,6 +2081,17 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                         pregunta: isOffensive ? "¿Dónde sacamos?" : "¿Dónde saca el rival?",
                         nodo: <ThrowInField rows={filasCampo} mode={mode} filtros={filters} onFiltrar={alternar} />,
                       }}
+                      comparativa={
+                        comparativa
+                          ? {
+                              partido: `${comparativa.elegida.etiqueta}${comparativa.rival ? ` · ${comparativa.rival}` : ""}`,
+                              rotuloMedia:
+                                comparativa.anteriores.length === 1 ? "la jornada anterior" : `la media de las ${comparativa.anteriores.length} jornadas anteriores`,
+                              metricas: comparativa.metricas,
+                              muestraMinima: MUESTRA_BANDA,
+                            }
+                          : null
+                      }
                       liga={<OptaBandaDia lado={isOffensive ? "favor" : "contra"} />}
                     />
                   </>
@@ -2085,11 +2126,13 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                 | partido, las conclusiones con su titular y «qué entrenamos»,
                 | las tarjetas y, después, la tabla del partido.
                 */}
-                {comparativa?.rival ? (
+                {exporting && comparativa?.rival ? (
                   <div className="mb-4">
                     <p className="text-sm text-white/55">Rival · {comparativa.elegida.etiqueta}</p>
                     <p className="mt-1 text-lg font-semibold uppercase tracking-[0.04em] text-white/90">{comparativa.rival}</p>
                   </div>
+                ) : !exporting ? (
+                  relacionado
                 ) : null}
 
                 <Conclusiones
@@ -2102,7 +2145,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                 <LecturaRapida
                   lectura={lectura}
                   unidad="saques"
-                  acierto={isOffensive ? "retenidos" : "que le llegan a último tercio"}
+                  acierto={isOffensive ? "conservados" : "que le llegan a último tercio"}
                   mejorAlto={isOffensive}
                   objetivo={objetivoLectura}
                   tarea={{ href: "/abp-microciclo", rotulo: "Ver la tarea de saque de banda en el microciclo" }}
@@ -2125,7 +2168,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                     }}
                     metricas={comparativa.metricas}
                     /* Un partido da 10-20 saques: el mismo umbral que las tarjetas de arriba. */
-                    muestraMinima={MUESTRA_FIRME}
+                    muestraMinima={MUESTRA_BANDA}
                     nota={notaComparativa}
                   />
                 ) : null}
@@ -2153,7 +2196,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                     }
                   />
                   <MetricCard
-                    label={isOffensive ? "% Retención" : "% Recuperación"}
+                    label={isOffensive ? "% Conservados" : "% Recuperación"}
                     value={pctVisto(totals.favorablePct)}
                     hint={`${Math.round((totals.favorablePct / 100) * totals.acciones)} de ${totals.acciones} saques · acaba con el balón para el RMCF`}
                   />
@@ -2179,8 +2222,8 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                     <MetricCard
                       label={isOffensive ? "Calidad media de envío" : "Calidad media del envío rival"}
                       /* 16/11/2026 (jueces): con menos de 15 saques valorados es tendencia y no va en tamaño de cifra principal. */
-                      tendencia={totals.calidadN < MUESTRA_FIRME}
-                      value={`${totals.calidad.toFixed(1).replace(".", ",")} de 4${totals.calidadN < MUESTRA_FIRME ? " · tendencia" : ""}`}
+                      tendencia={totals.calidadN < MUESTRA_BANDA}
+                      value={`${totals.calidad.toFixed(1).replace(".", ",")} de 4${totals.calidadN < MUESTRA_BANDA ? " · tendencia" : ""}`}
                       visible={`Sobre ${totals.calidadN} ${totals.calidadN === 1 ? "saque valorado" : "saques valorados"} · 1 = envío malo, 4 = perfecto${
                         calidadGlobal === null ? "" : ` · media de la temporada ${calidadGlobal.toFixed(1).replace(".", ",")}`
                       }`}

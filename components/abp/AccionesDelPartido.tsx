@@ -11,7 +11,8 @@
  * acción que aún no lo tiene sale igual, sin botones.
  */
 
-import { useState } from "react";
+import Link from "next/link";
+import { useState, type ReactNode } from "react";
 
 import { VerAccion } from "@/components/video/VerAccion";
 import { desenlace, nombreDeAccion, type EnlaceAccionAbp, type FilaAbpCorte } from "@/lib/abp/cortes-abp";
@@ -30,9 +31,22 @@ const A_LA_VISTA = 6;
 /** Hasta aquí (un partido) salen todas, sin botón (16/11/2026). */
 const MUESTRA_PARTIDO = 15;
 
-/** «Saca Aguado · remata Mario»: sólo lo que la hoja tiene. */
-function quienes(f: FilaAbpCorte) {
-  return [f.sacador && `Saca ${f.sacador}`, f.remate && f.rematador && `remata ${f.rematador}`].filter(Boolean).join(" · ");
+/** «Saca Aguado · remata Mario»: sólo lo que la hoja tiene; cada nombre, a su ficha si la hay (16/11/2026). */
+function quienes(f: FilaAbpCorte, fichaDe?: (nombre: string) => string | null): ReactNode[] {
+  const nombre = (n: string) => {
+    const href = fichaDe?.(n);
+    return href ? (
+      <Link href={href} className="font-medium text-white/80 underline decoration-white/25 underline-offset-2 hover:decoration-[#C8A96B]" title={`La ficha de ${n}`}>
+        {n}
+      </Link>
+    ) : (
+      n
+    );
+  };
+  const trozos: ReactNode[] = [];
+  if (f.sacador) trozos.push(<span key="saca">Saca {nombre(f.sacador)}</span>);
+  if (f.remate && f.rematador) trozos.push(<span key="remata">remata {nombre(f.rematador)}</span>);
+  return trozos;
 }
 
 /** El envío solo («Bombeado»), sin la zona: la zona va en su columna (16/11/2026). */
@@ -55,7 +69,16 @@ function caidaDe(f: FilaAbpCorte) {
 /** Acaba en gol o en remate: lo que se busca primero en la lista. */
 const pesa = (final: string) => /^gol|marcamos$|penalti/.test(final) || /^remate|tiro directo/.test(final);
 
-export function AccionesDelPartido({ acciones, enlaces }: { acciones: AccionDeLista[]; enlaces: Map<string, EnlaceAccionAbp> }) {
+export function AccionesDelPartido({
+  acciones,
+  enlaces,
+  fichaDe,
+}: {
+  acciones: AccionDeLista[];
+  enlaces: Map<string, EnlaceAccionAbp>;
+  /** Dónde abre la ficha de un jugador citado (sacador, rematador); `null` si no la tiene. */
+  fichaDe?: (nombre: string) => string | null;
+}) {
   const [todas, setTodas] = useState(false);
 
   if (!acciones.length) return null;
@@ -110,7 +133,15 @@ export function AccionesDelPartido({ acciones, enlaces }: { acciones: AccionDeLi
             const tono = final === "gol en contra" ? "text-rose-400" : final === "gol" || /marcamos$/.test(final) ? "text-emerald-400" : "text-white/70";
             /* 10/11/2026 (jueces): el gol en contra, en una fila destacada y no sólo en rojo. */
             const destacada = final === "gol en contra";
-            const detalle = [soloEnvio(a.fila), quienes(a.fila)].filter(Boolean).join(" · ");
+            const trozosDetalle: ReactNode[] = [soloEnvio(a.fila), ...quienes(a.fila, fichaDe)].filter(Boolean);
+            const detalle = trozosDetalle.length
+              ? trozosDetalle.map((t, k) => (
+                  <span key={k}>
+                    {k ? " · " : ""}
+                    {t}
+                  </span>
+                ))
+              : null;
             const caida = caidaDe(a.fila);
 
             return (
