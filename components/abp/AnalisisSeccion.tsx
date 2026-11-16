@@ -212,6 +212,15 @@ function Sparkline({ tendencia }: { tendencia: Tendencia }) {
   );
 }
 
+/** Con dueño (saques de banda), primero lo nuestro, luego lo del rival y al final lo neutro; dentro, por volumen. */
+function ordenaPorGrupo<C extends { grupo?: "nuestro" | "rival" | "neutro"; acciones: number }>(cats: C[]): C[] {
+  if (!cats.some((c) => c.grupo)) return cats;
+
+  const peso = { nuestro: 0, rival: 1, neutro: 2 } as const;
+
+  return [...cats].sort((a, b) => peso[a.grupo ?? "neutro"] - peso[b.grupo ?? "neutro"] || b.acciones - a.acciones);
+}
+
 /* ------------------------------------------------------------------ */
 /*  EL PIE COMPLETO                                                    */
 /* ------------------------------------------------------------------ */
@@ -230,6 +239,7 @@ export function AnalisisSeccion<T>({
   acompanan,
   destacado = false,
   referencia,
+  motivoFuera,
 }: {
   /** Las filas que el filtro deja pasar. */
   filas: T[];
@@ -263,6 +273,8 @@ export function AnalisisSeccion<T>({
    * las dos digan la misma media y la misma diferencia.
    */
   referencia?: { filas: T[]; rotulo: string } | null;
+  /** Por qué alguna acción no entra en el reparto («córner en corto, sin zona de caída»). */
+  motivoFuera?: string;
 }) {
   /* El reparto de cada panel explica; las conclusiones van en la cabecera.
      Escondido salvo que el administrador encienda los textos explicativos. */
@@ -376,23 +388,42 @@ export function AnalisisSeccion<T>({
         className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.02] p-4 sm:p-5"
         aria-label="Cómo se reparten las acciones"
       >
+        {/* 16/11/2026 (jueces): la base del bloque cuadra con la de la
+            cabecera; si alguna acción no tiene esa dimensión anotada, se dice
+            cuántas quedan fuera («6 de 7 acciones · 1 sin zona de caída»). */}
         <p className="text-[12px] font-medium uppercase tracking-[0.2em] text-[color:var(--rmcf-gold-ink)]">
-          Cómo se reparten · {reparto.etiqueta} · {totalCats} {totalCats === 1 ? "acción" : "acciones"}
+          Cómo se reparten · {reparto.etiqueta} ·{" "}
+          {totalCats < muestra.filtradas ? `${totalCats} de ${muestra.filtradas}` : totalCats}{" "}
+          {muestra.filtradas === 1 ? (unidad === "saques" ? "saque" : "acción") : unidad}
         </p>
+        {totalCats < muestra.filtradas ? (
+          <p className="mt-1 text-[12px] text-white/60">
+            {muestra.filtradas - totalCats} sin {reparto.etiqueta}
+            {motivoFuera ? ` (${motivoFuera})` : ""}
+          </p>
+        ) : null}
         {cats.length >= 2 ? (
           <ul className="mt-3 space-y-1.5">
-            {cats.slice(0, 8).map((c) => (
-              <li key={c.nombre} className="grid grid-cols-[minmax(0,10rem)_minmax(0,1fr)_2.5rem] items-center gap-2 text-[13px]">
-                <span className="truncate text-white/75" title={c.nombre}>
-                  {c.nombre}
-                </span>
-                <span className="h-2.5 rounded-full bg-white/10" aria-hidden>
-                  <span
-                    className="block h-full rounded-full"
-                    style={{ width: `${(c.acciones / maximo) * 100}%`, background: "var(--rmcf-gold-ink)" }}
-                  />
-                </span>
-                <span className="text-right font-semibold tabular-nums text-white/85">{c.acciones}</span>
+            {/* 16/11/2026 (jueces): la etiqueta entera, en dos renglones si hace
+                falta («bombeado al segundo pa…» se cortaba), y en los saques de
+                banda dicha como en el vestuario y agrupada por de quién es el balón. */}
+            {ordenaPorGrupo(cats.slice(0, 8)).map((c, i, lista) => (
+              <li key={c.nombre}>
+                {c.grupo && c.grupo !== lista[i - 1]?.grupo ? (
+                  <p className={`${i ? "mt-2.5" : ""} mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/50`}>
+                    {c.grupo === "nuestro" ? "Balón nuestro" : c.grupo === "rival" ? "Balón del rival" : "Ni de unos ni de otros"}
+                  </p>
+                ) : null}
+                <div className="grid grid-cols-[minmax(0,11rem)_minmax(0,1fr)_2.5rem] items-center gap-2 text-[13px]">
+                  <span className="break-words leading-tight text-white/75">{c.rotulo ?? c.nombre}</span>
+                  <span className="h-2.5 rounded-full bg-white/10" aria-hidden>
+                    <span
+                      className="block h-full rounded-full"
+                      style={{ width: `${(c.acciones / maximo) * 100}%`, background: "var(--rmcf-gold-ink)" }}
+                    />
+                  </span>
+                  <span className="text-right font-semibold tabular-nums text-white/85">{c.acciones}</span>
+                </div>
               </li>
             ))}
           </ul>

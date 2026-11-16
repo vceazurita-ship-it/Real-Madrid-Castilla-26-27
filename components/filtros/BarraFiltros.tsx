@@ -61,14 +61,22 @@ export function PastillaPretemporada({
       Con pretemporada <X size={11} aria-hidden className="shrink-0 opacity-70" />
     </button>
   ) : (
-    <button
-      type="button"
-      onClick={() => onCambiar(true)}
-      title="La pretemporada está fuera de todos los datos. Pulsa para incluirla."
-      className="inline-flex max-w-full items-center gap-1 rounded-full border border-dashed border-white/15 bg-white/[0.03] px-2.5 py-1 text-white/65 transition hover:border-[#C8A96B]/40 hover:text-white"
-    >
-      {rotuloSolo} · <span className="text-[#E7D2A0]">incluir pretemporada</span>
-    </button>
+    /* 16/11/2026 (jueces de balón parado): «Sólo liga · incluir pretemporada»
+       no decía si la pretemporada estaba dentro o fuera. Ahora el estado va
+       en un rótulo y la acción, en un botón aparte. */
+    <span className="inline-flex max-w-full flex-wrap items-center gap-1.5">
+      <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-white/65">
+        {rotuloSolo} (sin pretemporada)
+      </span>
+      <button
+        type="button"
+        onClick={() => onCambiar(true)}
+        title="La pretemporada está fuera de todos los datos. Pulsa para incluirla."
+        className="inline-flex items-center gap-1 rounded-full border border-dashed border-[#C8A96B]/40 bg-white/[0.03] px-2.5 py-1 text-[#E7D2A0] transition hover:bg-[#C8A96B]/10"
+      >
+        + Incluir pretemporada
+      </button>
+    </span>
   );
 }
 
