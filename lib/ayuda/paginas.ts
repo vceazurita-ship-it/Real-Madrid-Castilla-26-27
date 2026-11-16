@@ -2632,11 +2632,11 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Lo que sale solo",
         filas: [
           { que: "Próximo partido", es: "Jornada, rival, día y hora; si es fuera, desde qué día se viaja y lleva a su desplazamiento" },
-          { que: "Partido", es: "Rival con escudos, hora y, si ya se jugó, el resultado (el nuestro primero)" },
+          { que: "Partido", es: "Jornada, rival con escudos, en casa o fuera y la hora; si ya se jugó, el resultado con su sentido («ganado 1-0», el Castilla primero)" },
           {
             que: "Viaje",
             es: "Un renglón ligero con punto morado (el partido manda en la casilla): «Viaje a…» los días antes, «Traslado al estadio» y «Vuelta de…» el día del partido, «Vuelta de…» los días de después, cada uno con su salida",
-            cuenta: "El día del partido, las citas de viaje antes de la hora del partido son el traslado y las de después, la vuelta. Partido fuera sin viaje guardado: sale con la salida que propondría Desplazamiento",
+            cuenta: "El día del partido, las citas de viaje antes de la hora del partido son el traslado y las de después, la vuelta. Partido fuera sin viaje guardado: la misma propuesta que abre Desplazamiento sin distancia (viajeVacio); si esa propuesta no trae hora de salida, no se pinta nada. Una cita sin hora nunca sale",
           },
           {
             que: "Sesión (MD y minutos)",
@@ -2658,7 +2658,7 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "La cabecera del mes",
         filas: [
           { que: "Resumen del mes", es: "Cuántos partidos (y jugados), viajes, entrenos en la hoja, eventos del staff, imágenes y PDF hay en el mes; pulsar partidos, viajes o entrenos deja sólo eso en el mes («Ver todo» lo quita)", cuenta: "Un viaje es un desplazamiento: ida, traslado y vuelta cuentan uno" },
-          { que: "Leyenda", es: "Sólo los tipos que tienen algo en el mes que se mira, los colores de fase de las sesiones y qué es el MD" },
+          { que: "Leyenda", es: "Encima del mes: sólo los tipos que tienen algo en el mes que se mira, los colores de fase de las sesiones y qué es el MD (también en días con viaje)" },
         ],
       },
     ],
