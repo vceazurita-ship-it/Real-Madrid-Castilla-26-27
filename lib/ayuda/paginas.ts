@@ -1122,6 +1122,11 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Equipo y Condición", es: "Cualquier equipo de la liga, con el Castilla y el próximo rival arriba del desplegable; Todos, Casa o Fuera (también desde la dirección, ?lugar=casa)" },
           { que: "Cambiar jornadas y franjas", es: "Desde y hasta qué jornada, franjas de 5, 10, 15, 30 o 45′, tramos a medida («20, 45, 70») y «Descuentos aparte»" },
           { que: "45+ y 90+", es: "Los descuentos; sin «Descuentos aparte», cuentan en la última franja de cada parte" },
+          {
+            que: "Visual · Detalle (16/11/2026)",
+            es: "La pantalla se abre en «Visual»: la frase del balance y, cada una con su conclusión en el título, las franjas en espejo (a favor arriba, en contra abajo, con la raya de la liga), la nube de la liga (goles a favor y en contra por partido de cada equipo, el elegido en oro y el próximo rival en azul; pinchar un punto cambia de equipo) y, para el Castilla, cómo llegan los goles (Hudl). «Detalle» es la pantalla de siempre con sus seis pestañas. La elección se recuerda en este aparato",
+            cuenta: "Mismos filtros de arriba. Nube: goles a favor y en contra entre partidos de cada equipo en las jornadas y la condición elegidas; las rayas son las medianas de la liga. Título de las franjas: el tramo con más goles (si empatan tres o más, no se nombra)",
+          },
         ],
       },
       {
