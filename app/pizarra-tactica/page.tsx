@@ -22,6 +22,7 @@ import {
   MoreHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
+import { confirmar } from "@/lib/avisos";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
@@ -1089,7 +1090,7 @@ function BoardEditor({
           {/* En el móvil, en su propia fila: al lado de los botones se quedaba en una palabra por renglón. */}
           <span className="min-w-0 sm:flex-1">
             {fuentes
-              ? `${fuentes.nuestra} (el Castilla ataca hacia la derecha) · vs ${fuentes.rival}, hacia la izquierda: ${fuentes.suya.charAt(0).toLowerCase()}${fuentes.suya.slice(1)}.`
+              ? `Castilla, hacia la derecha: ${fuentes.nuestra}. ${fuentes.rival}, hacia la izquierda: ${fuentes.suya.charAt(0).toLowerCase()}${fuentes.suya.slice(1)}.`
               : doc.semanaOnces
                 ? `Nuestro once y el suyo para el ${diaYLugar(
                     doc.semanaOnces.split("|")[0],
@@ -1134,7 +1135,20 @@ function BoardEditor({
           </details>
           <button
             type="button"
-            onClick={() => void rellenaSemana(true)}
+            onClick={async () => {
+              /* Con aviso propio antes de pisar lo movido (16/11/2026, jueces); se puede deshacer igual. */
+              if (
+                !tableroSinTocar(doc.scenes) &&
+                !(await confirmar({
+                  titulo: "¿Rellenar otra vez los dos onces?",
+                  texto: "Lo que hayas movido en el tablero se sustituye por nuestro último once y el del rival. Luego se puede deshacer en «Más».",
+                  aceptar: "Rellenar",
+                  cancelar: "Dejarlo como está",
+                }))
+              )
+                return;
+              void rellenaSemana(true);
+            }}
             disabled={rellenando}
             title="Vuelve a poner solos nuestro último once y el del rival. Se puede deshacer."
             className="inline-flex items-center gap-1.5 rounded-full bg-[#C8A96B] px-3.5 py-1.5 font-bold text-[#0B0F14] transition hover:brightness-110 disabled:opacity-50"

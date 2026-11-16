@@ -8,6 +8,8 @@
 
 import { comoNuestro, ordenaPartidos, type PartidoNuestro } from "@/lib/castilla/calendario";
 import { aObjetos, CASTILLA_OPTA, type TablaOpta } from "@/lib/opta";
+import { gruposDe, type Fila } from "@/lib/opta-analisis";
+import { presionDeTemporada } from "./presion";
 import { gruposDePartidos } from "@/lib/opta-abp";
 import { casaEquipo, pistaDe, rematesDe, saquesDe, type Remate, type Saque } from "@/lib/opta-eventos";
 import type { PartidoBeSoccer } from "@/lib/quiniela/besoccer";
@@ -31,7 +33,7 @@ export type DocsAbp = {
   castilla: TablaOpta | null;
 };
 
-export type PreparadoJuego = { tabla: Tabla; equipos: EquipoOpta[] };
+export type PreparadoJuego = { tabla: Tabla; equipos: EquipoOpta[]; filasEquipos: Fila[]; gruposOpta: Map<string, number> };
 export type PreparadoAbp = { tabla: Tabla; saques: Saque[]; remates: Remate[]; equipos: EquipoOpta[] };
 
 const equiposDe = (t: TablaOpta | null): EquipoOpta[] => aObjetos(t).map((f) => ({ teamId: String(f.teamId ?? ""), equipo: String(f.equipo ?? "") }));
@@ -43,7 +45,7 @@ export function preparaJuego(d: DocsBase): PreparadoJuego | null {
   const campos = camposDeWyscout(d.wyscout, equipos);
   const grupos = gruposDePartidos(d.partidos);
   const filas = delGrupo(conWyscout(filasJuegoOpta(aObjetos(d.partidos), campos), d.wyscout, equipos), grupos, CASTILLA_OPTA);
-  return { tabla: tablaDe(filas), equipos };
+  return { tabla: tablaDe(filas), equipos, filasEquipos: aObjetos(d.equipos) as Fila[], gruposOpta: gruposDe(d.partidos) };
 }
 
 /** La tabla del balón parado: Opta evento a evento, sólo nuestro grupo. */
@@ -111,7 +113,10 @@ export function proyeccionDelPartido(partido: PartidoObjetivo, juego: PreparadoJ
   const nombre = partido.rival;
   return {
     partido,
-    juego: riv && juego ? proyeccionJuego({ tabla: juego.tabla, nos: CASTILLA_OPTA, riv, nosLocal, nombreRival: nombre, antesDe }) : null,
+    juego:
+      riv && juego
+        ? proyeccionJuego({ tabla: juego.tabla, nos: CASTILLA_OPTA, riv, nosLocal, nombreRival: nombre, antesDe, presion: presionDeTemporada(juego.filasEquipos, juego.gruposOpta, riv) })
+        : null,
     abp:
       riv && abp
         ? proyeccionAbp({ tabla: abp.tabla, saques: abp.saques, remates: abp.remates, nos: CASTILLA_OPTA, riv, nosLocal, nombreRival: nombre, antesDe })

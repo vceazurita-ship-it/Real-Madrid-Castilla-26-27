@@ -387,7 +387,8 @@ export default function OnceTitular({
               const baja = jugador && !disponible(jugador) ? estadoEnPalabras(jugador) : null;
               const encaja = puestoDelElegido !== null && h?.hueco.puesto === puestoDelElegido;
               const rotulo = HUECOS.find((x) => x.clave === k)?.rotulo ?? k;
-              const nombre = token?.nombre?.trim();
+              /* El nombre corto de la plantilla, el mismo de Duelos y del Plan (16/11/2026): no el guardado el día del relleno. */
+              const nombre = (jugador ? jugador.apodo || jugador.nombre : token?.nombre)?.trim();
 
               return (
                 <button
