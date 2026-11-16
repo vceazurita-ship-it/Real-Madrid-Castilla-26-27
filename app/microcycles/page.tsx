@@ -17,6 +17,7 @@ import {
 } from "react";
 import Papa from "papaparse";
 import Link from "next/link";
+import { EnlacesDelRival } from "@/components/rivals/EnlacesDelRival";
 import { DiaConectado } from "@/components/sesion-dia/DiaConectado";
 import { useDiasConectados } from "@/hooks/useDiasConectados";
 import { planDeRegistro, propuestasDeLaSesion, sesionDeFecha, type FilaPlan } from "@/lib/sesion-dia/conexion";
@@ -749,7 +750,8 @@ export default function Page() {
     useState("ALL");
   const [evaluacionFilter, setEvaluacionFilter] = useState("ALL");
   const [faseFilter, setFaseFilter] = useState("ALL");
-  const [mdFilter, setMdFilter] = useState("ALL");
+  /* 16/11/2026: «?md=MD-3» llega del calendario de contenidos (un día → su micro y su MD). */
+  const [mdFilter, setMdFilter] = useFiltroPersistente<string>("md", "ALL");
   const [search, setSearch] = useState("");
   const [excludeComp, setExcludeComp] = useState(true);
   /* 29/10/2026: en el móvil los filtros van plegados tras «Filtros (n)». */
@@ -1625,7 +1627,8 @@ export default function Page() {
     }
 
     const bestTipo = [...tipoMetrics]
-      .filter((t) => t.eval > 0 && t.tareas >= 2)
+      /* 16/11/2026 (jueces): con menos de 5 tareas valoradas no es una lectura; no sale. */
+      .filter((t) => t.eval > 0 && t.tareas >= 5)
       .sort((a, b) => b.eval - a.eval)[0];
 
     if (bestTipo) {
@@ -1633,12 +1636,13 @@ export default function Page() {
         icon: Star,
         tone: "text-emerald-400",
         peso: 50,
-        text: `"${bestTipo.name}", el mejor valorado (${fmt1(bestTipo.eval)} de media en ${bestTipo.tareas} tarea${bestTipo.tareas === 1 ? "" : "s"}): ${bestTipo.tareas >= 5 ? "mantenerlo en el plan" : "tendencia, con pocas tareas todavía"}.`,
+        text: `"${bestTipo.name}", el mejor valorado (${fmt1(bestTipo.eval)} de media en ${bestTipo.tareas} tarea${bestTipo.tareas === 1 ? "" : "s"}): mantenerlo en el plan.`,
       });
     }
 
     const worstTipo = [...tipoMetrics]
-      .filter((t) => t.eval > 0 && t.tareas >= 2)
+      /* 16/11/2026 (jueces): con menos de 5 tareas valoradas no es una lectura; no sale. */
+      .filter((t) => t.eval > 0 && t.tareas >= 5)
       .sort((a, b) => a.eval - b.eval)[0];
 
     if (worstTipo && bestTipo && worstTipo.name !== bestTipo.name) {
@@ -1646,7 +1650,7 @@ export default function Page() {
         icon: Target,
         tone: "text-rose-400",
         peso: 90,
-        text: `"${worstTipo.name}", valorado ${fmt1(worstTipo.eval)} de media en ${worstTipo.tareas} tareas: ${worstTipo.tareas >= 5 ? "revisar el diseño o el día en que se aplica" : "tendencia, con pocas tareas todavía; míralo si se repite"}.`,
+        text: `"${worstTipo.name}", valorado ${fmt1(worstTipo.eval)} de media en ${worstTipo.tareas} tareas: revisar el diseño o el día en que se aplica.`,
       });
     }
 
@@ -1982,6 +1986,23 @@ export default function Page() {
                   Informe del partido
                 </button>
               </div>
+
+              {/*
+              | 16/11/2026 (jueces): el rival del titular lleva a lo suyo, ya
+              | elegido: plan, ABP, goles en vídeo y plantilla, con las mismas
+              | llaves que la portada (components/rivals/EnlacesDelRival.tsx).
+              */}
+              {selectedMicroStat?.rival && !/sin partido|introduct|pretemporada|amistos/i.test(selectedMicroStat.rival) ? (
+                <EnlacesDelRival
+                  className="mt-3"
+                  rival={nombreEquipo(selectedMicroStat.rival)}
+                  fecha={
+                    selectedMicroStat.hasta
+                      ? `${selectedMicroStat.hasta.getFullYear()}-${String(selectedMicroStat.hasta.getMonth() + 1).padStart(2, "0")}-${String(selectedMicroStat.hasta.getDate()).padStart(2, "0")}`
+                      : undefined
+                  }
+                />
+              ) : null}
             </div>
 
             {informeAbierto && (
@@ -2145,7 +2166,8 @@ export default function Page() {
                   type="button"
                   onClick={() => setFiltrosAbiertos((v) => !v)}
                   aria-expanded={filtrosAbiertos}
-                  className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-left text-sm text-white/70 transition hover:border-white/25 sm:hidden"
+                  /* 16/11/2026 (jueces): plegados también en el ordenador; ocupaban media pantalla antes del contenido. */
+                  className="self-end rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-left text-sm text-white/70 transition hover:border-white/25"
                 >
                   {filtrosAbiertos ? "Ocultar filtros" : "Filtros"}
                   {activeFilters - (micro !== "ALL" ? 1 : 0) > 0
@@ -2153,7 +2175,7 @@ export default function Page() {
                     : ""}
                 </button>
 
-                <div className={filtrosAbiertos ? "contents" : "hidden sm:contents"}>
+                <div className={filtrosAbiertos ? "contents" : "hidden"}>
                 <Select
                   value={mdFilter}
                   onChange={setMdFilter}
@@ -2212,7 +2234,7 @@ export default function Page() {
                 </div>
               </div>
 
-              <div className={`mt-4 flex-col sm:flex sm:flex-row gap-3 ${filtrosAbiertos ? "flex" : "hidden"}`}>
+              <div className={`mt-4 flex-col sm:flex-row gap-3 ${filtrosAbiertos ? "flex" : "hidden"}`}>
                 <div className="relative flex-1">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
 
@@ -2231,9 +2253,11 @@ export default function Page() {
                       ? "border-[#C8A96B]/40 bg-[#C8A96B]/10 text-[#C8A96B]"
                       : "border-white/10 bg-[#11161C] text-white/60 hover:border-white/25"
                   }`}
-                  title="Excluye las tareas de fase Competición de los análisis metodológicos"
+                  aria-pressed={!excludeComp}
+                  title="El partido (las filas de fase Competición) cuenta o no en las cifras y gráficos de esta pantalla"
                 >
-                  {excludeComp ? "Competición excluida" : "Competición incluida"}
+                  {/* 16/11/2026 (jueces): dice qué hace, no la jerga de la hoja. */}
+                  {excludeComp ? "Cifras sin el partido" : "Cifras con el partido"}
                 </button>
               </div>
 
@@ -2472,9 +2496,15 @@ export default function Page() {
             {/* ================= RESUMEN ================= */}
 
             {!loading && filtered.length > 0 && tab === "resumen" && (
-              <div className="mt-8 space-y-6">
+              /*
+              | 16/11/2026 (jueces, segunda vuelta): lo primero, la conclusión —las
+              | lecturas, el perfil y la tendencia—; la semana tarea a tarea, debajo.
+              | Con «order», sin mover los bloques.
+              */
+              <div className="mt-8 flex flex-col gap-6">
                 {diasDelMicro.length > 0 && (
                   <Panel
+                    className="order-3"
                     title="La semana en sesión"
                     subtitle="Los equipos de Jugadores sesión y lo que midió el análisis de entrenamiento, junto a cada tarea"
                   >
@@ -2508,7 +2538,7 @@ export default function Page() {
                 )}
 
                 {lecturas.length > 0 && (
-                  <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#C8A96B]/[0.07] to-white/[0.02] p-6 sm:p-7">
+                  <div className="order-1 rounded-3xl border border-white/10 bg-gradient-to-br from-[#C8A96B]/[0.07] to-white/[0.02] p-6 sm:p-7">
                     <h2 className="mb-5 flex items-center gap-2 text-lg font-semibold">
                       <Sparkles className="h-5 w-5 text-[#C8A96B]" />
                       Lecturas del periodo
@@ -2536,10 +2566,11 @@ export default function Page() {
 
                 {/* items-start (16/11/2026): cada tarjeta mide lo que su contenido; el perfil
                     de dos barras ya no se estira a la altura del gráfico de al lado. */}
-                <div className="grid grid-cols-1 items-start xl:grid-cols-2 gap-5 sm:gap-6">
+                <div className="order-2 grid grid-cols-1 items-start xl:grid-cols-2 gap-5 sm:gap-6">
                   {/* 11/11/2026: sin minutos medidos el bloque no se pinta (nada de «aún sin medir»). */}
                   {hayCarga && (
                   <Panel
+                    className="order-4 xl:col-span-2"
                     title="Distribución de carga en el microciclo"
                     subtitle="Carga física y cognitiva por día, con intensidad media"
                   >
@@ -2631,7 +2662,13 @@ export default function Page() {
                   </Panel>
                   )}
 
+                  {/*
+                  | 16/11/2026 (jueces): con barras (3 ejes o menos), el perfil va a
+                  | todo el ancho y en una fila de tres; a media columna dejaba un
+                  | hueco junto a la tendencia.
+                  */}
                   <Panel
+                    className={`order-1 ${radarData.length < 4 ? "xl:col-span-2" : ""}`}
                     title="Perfil del microciclo"
                     subtitle={perfilSubtitulo}
                   >
@@ -2683,29 +2720,34 @@ export default function Page() {
                       </RadarChart>
                     </Chart>
                     ) : (
-                      <div className="space-y-3">
-                        {radarData.map((d) => (
-                          <div key={d.metric}>
-                            <div className="flex items-baseline justify-between gap-2 text-xs">
+                      <div className="grid gap-4 sm:grid-cols-3">
+                        {radarData.map((d) => {
+                          /* 16/11/2026 (jueces): con menos de 5 micros con dato no hay media firme: «tendencia · 3 micros» y sin marca. */
+                          const ref = mediaPerfil[d.metric];
+                          const firme = Boolean(ref && ref.n >= 5);
+
+                          return (
+                          <div key={d.metric} className="min-w-0">
+                            <div className="flex flex-wrap items-baseline justify-between gap-x-2 text-xs">
                               <span className="text-white/60">{d.metric}</span>
                               <span className="font-semibold text-[#C8A96B]">
                                 {fmt1(d.value)}
-                                {mediaPerfil[d.metric] ? (
+                                {ref ? (
                                   <span className="ml-1.5 font-normal text-white/55">
-                                    · media {fmt1(mediaPerfil[d.metric].media)} en {mediaPerfil[d.metric].n} micros
+                                    {firme ? `· media ${fmt1(ref.media)} en ${ref.n} micros` : `· tendencia · ${ref.n} ${ref.n === 1 ? "micro" : "micros"}`}
                                   </span>
                                 ) : null}
                               </span>
                             </div>
                             <div className="relative mt-1 h-2 rounded-full bg-white/10">
                               <div className="h-full rounded-full bg-[#C8A96B]" style={{ width: `${Math.min(d.value, 10) * 10}%` }} />
-                              {/* La marca de la media de la temporada (16/11/2026). */}
-                              {mediaPerfil[d.metric] ? (
+                              {/* La marca de la media de la temporada (16/11/2026), sólo con base firme. */}
+                              {ref && firme ? (
                                 <span
                                   aria-hidden
-                                  title={`Media de la temporada: ${fmt1(mediaPerfil[d.metric].media)} (${mediaPerfil[d.metric].n} micros)`}
+                                  title={`Media de la temporada: ${fmt1(ref.media)} (${ref.n} micros)`}
                                   className="absolute -top-1 h-4 w-0.5 rounded-full"
-                                  style={{ left: `${Math.min(mediaPerfil[d.metric].media, 10) * 10}%`, background: "rgb(var(--rmcf-ink-rgb) / .85)" }}
+                                  style={{ left: `${Math.min(ref.media, 10) * 10}%`, background: "rgb(var(--rmcf-ink-rgb) / .85)" }}
                                 />
                               ) : null}
                               {/* Marcas en 2, 4, 6 y 8. */}
@@ -2714,7 +2756,8 @@ export default function Page() {
                               ))}
                             </div>
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
 
@@ -2737,6 +2780,7 @@ export default function Page() {
                   </Panel>
 
                   <Panel
+                    className="order-2"
                     title="Tendencia de evaluación por microciclo"
                     /* 16/11/2026: el corte de la línea se explica (micros sin tareas valoradas). */
                     subtitle={`Media de la temporada: ${fmt1(evalMean)}${trendSinValorar.length ? ` · la línea se corta en ${trendSinValorar.join(", ")}: sin tareas valoradas` : ""}`}
@@ -2811,6 +2855,7 @@ export default function Page() {
                   </Panel>
 
                   <Panel
+                    className="order-3"
                     title="Reparto por fase de juego"
                     subtitle={`Peso de cada fase sobre ${work.length} tarea${work.length === 1 ? "" : "s"}${excludeComp ? " de entreno" : ""}`}
                   >
@@ -4348,14 +4393,16 @@ function Panel({
   subtitle,
   action,
   children,
+  className = "",
 }: {
   title: ReactNode;
   subtitle?: ReactNode;
   action?: ReactNode;
   children?: ReactNode;
+  className?: string;
 }) {
   return (
-    <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 sm:p-6 shadow-xl">
+    <div className={`min-w-0 rounded-3xl border border-white/10 bg-white/[0.03] p-4 sm:p-6 shadow-xl ${className}`}>
       <div className="mb-5 flex items-start justify-between gap-3">
         <div>
           <h2 className="text-base sm:text-xl font-semibold leading-tight">
