@@ -1314,8 +1314,8 @@ export const AYUDAS: AyudaDePagina[] = [
     ruta: "/rivals",
     titulo: "Plantillas Rivales",
     resumen: "Cómo llega cada rival, su plantilla en el campo y la ficha de cada jugador.",
-    origen: "Hoja RIVALES (plantillas, fichas y análisis); BeSoccer (tabla, resultados, alineaciones, minutos y tarjetas, en Supabase); Wyscout de toda la categoría; resúmenes del canal de la RFEF. El once probable y los recursos, en Supabase.",
-    revisada: "2026-11-15",
+    origen: "Hoja RIVALES (plantillas, fichas y análisis); BeSoccer (tabla, resultados, alineaciones, minutos y tarjetas, en Supabase); Wyscout de toda la categoría; Opta (revulsivos); resúmenes del canal de la RFEF. El once probable y los recursos, en Supabase.",
+    revisada: "2026-11-16",
     bloques: [
       {
         titulo: "Arriba, antes de mirar a nadie",
@@ -1346,6 +1346,11 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Enlaces", es: "Su balón parado, Cómo juega como equipo, Duelos contra nuestro once y Vídeos de sus jugadores, con el mismo rival" },
           { que: "Para la semana", es: "Sólo del próximo rival: informe, PDF del once probable, PDF para el portero y PowerPoint de día de partido" },
           { que: "Resúmenes de sus partidos", es: "El resumen oficial de cada partido suyo de liga en el canal de la RFEF; abre YouTube" },
+          {
+            que: "Revulsivos",
+            es: "Cada jugador que ha salido desde el banquillo: veces que entra, minutos de suplente, goles y asistencias entrando, G+A por 90 como suplente frente a como titular, el minuto medio de su cambio y la banda de sus remates tras entrar. Los que rinden mucho más entrando salen arriba, marcados «revulsivo»",
+            cuenta: "Opta: opta:jugadores-partidos (GS = 1 titular; si no, suplente) y opta:remates de los partidos en que entra (y < 37 derecha, > 63 izquierda, con dos remates o más). Sólo con este equipo. Revulsivo: 90′ o más entrando, 0,3 G+A/90 o más y 1,5 veces su cifra de titular. Entrada ≈ 90 − minutos jugados. Lógica en lib/rivals/revulsivos.ts",
+          },
         ],
       },
       {

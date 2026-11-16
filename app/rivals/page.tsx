@@ -118,6 +118,7 @@ import { bajaDe } from "@/lib/rivals/bajas";
 import { LINE_DEFINITIONS, type LineKey } from "@/lib/rivals/lineas-puesto";
 import { ParaLaSemana } from "@/components/rivals/ParaLaSemana";
 import ResumenesRival from "@/components/rivals/ResumenesRival";
+import { Revulsivos } from "@/components/rivals/Revulsivos";
 import PerfilWyscoutCard from "@/components/rivals/PerfilWyscoutCard";
 import { pieDominante } from "@/lib/rivals/pie";
 import { centimetros, kilos } from "@/lib/rivals/lienzo-club";
@@ -4101,6 +4102,10 @@ export default function RivalPlayersPage() {
               {/* RESÚMENES — el vídeo oficial de cada partido suyo (canal de la RFEF). */}
 
               {selectedTeam && !loading && <ResumenesRival equipo={selectedTeam} />}
+
+              {/* REVULSIVOS — quién le cambia el partido desde el banquillo (Opta). */}
+
+              {selectedTeam && !loading && <Revulsivos equipo={selectedTeam} />}
 
               {/* FILTROS */}
 
