@@ -2181,10 +2181,11 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Antes de entrar",
         filas: [
-          { que: "Entra con tu cuenta del staff", es: "El correo y la contraseña, uno debajo de otro y a todo el ancho. Sólo puede registrarse el cuerpo técnico: en «Registrarme» se elige el nombre de la lista del staff. Al entrar se abre el entrenamiento de hoy (o el último con trabajo) y no se vuelve a pedir la cuenta en un mes en ese navegador" },
+          { que: "Entra con tu cuenta del staff", es: "El correo, la contraseña y un solo botón «Entrar». Sólo puede registrarse el cuerpo técnico: en «Registrarme» se elige el nombre de la lista del staff. Al entrar se abre el entrenamiento de hoy (o el último con trabajo) y no se vuelve a pedir la cuenta en un mes en ese navegador" },
           { que: "Titular", es: "«Qué cumplió cada jugador en la sesión»; el nombre de la pantalla va en la línea de arriba" },
-          { que: "Última sesión analizada", es: "Encima, con el acceso al lado: la fecha, el acierto del día, su base de acciones revisadas y cuántos objetivos se midieron. Sólo lo agregado: sin jugadores, textos ni clips, porque esta puerta es pública", cuenta: "La más reciente con alguna acción revisada (lo propuesto sin revisar no cuenta). Acierto = correctas ÷ revisadas; con menos de 15, la cuenta y «tendencia»" },
-          { que: "Así se lee una tarea", es: "Un ejemplo inventado, marcado «Ejemplo» dentro de la tarjeta: la tarea, su objetivo y su meta, el gráfico de correctas y mejorables de cada jugador con la meta marcada (uno por debajo de 15 acciones, para ver cómo se lee la tendencia) y un clip con su veredicto", cuenta: "El mismo umbral que dentro: con menos de 15 acciones no hay porcentaje ni «cumple»" },
+          { que: "Última sesión analizada", es: "Lo primero, con el acceso al lado: la fecha, el acierto del día, su base de acciones revisadas, cuántos objetivos se midieron y una barra por tarea (código, nombre de la tarea, acierto y correctas de revisadas). Sólo lo agregado: sin jugadores, textos de objetivo ni clips, porque esta puerta es pública", cuenta: "La más reciente con alguna acción revisada (lo propuesto sin revisar no cuenta). Acierto = correctas ÷ revisadas; con menos de 15, la cuenta y «tendencia» (barra atenuada). Por tarea se suman los objetivos atados a esa tarea" },
+          { que: "Equipos de la sesión · Microciclo de la semana", es: "Lo que completa la pantalla, a un toque y sin cuenta: Jugadores sesión del día de esa última sesión y Microciclos" },
+          { que: "Cómo se lee una tarea (ejemplo)", es: "Plegado: un ejemplo inventado, marcado «Ejemplo», con la tarea, su objetivo y su meta, el gráfico de correctas y mejorables de cada jugador y un clip con su veredicto. Sale abierto sólo si no hay ninguna sesión analizada que enseñar", cuenta: "El mismo umbral que dentro: con menos de 15 acciones no hay porcentaje ni «cumple»" },
         ],
       },
       {
@@ -2250,6 +2251,7 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Por jugador",
         filas: [
           { que: "Evolución", es: "Cada objetivo suyo sesión a sesión, con la anterior, el sentido y sus clips" },
+          { que: "Ficha de … · Su seguimiento", es: "Encima del jugador elegido: abren su ficha en Individual, en el perfil o en la pestaña de seguimiento" },
           { que: "Tu sesión", es: "Dos frases, su cuenta frente a la meta y su clip correcto y su clip mejorable, para WhatsApp; el texto se puede retocar" },
           { que: "Abrir su chat", es: "Abre WhatsApp con el mensaje escrito; lo mandas tú. El móvil sólo se recuerda en ese aparato" },
         ],

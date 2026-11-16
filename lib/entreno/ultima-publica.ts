@@ -4,6 +4,7 @@ import {
   accionesQueCuentan,
   claveSesion,
   cuentasDe,
+  MINIMO_PORCENTAJE,
   normalizaAnalisis,
   normalizaSesion,
   objetivoMedido,
@@ -27,6 +28,13 @@ export type UltimaSesionPublica = {
   correctas: number;
   /** null por debajo de `MINIMO_PORCENTAJE`: tendencia. */
   pct: number | null;
+  /**
+   * El acierto por tarea (16/11/2026, segunda vuelta de los jueces: «vista
+   * previa real, cumplimiento por tarea»). Sólo el código y el nombre de la
+   * tarea del registro, con lo agregado de sus objetivos: sin jugadores ni el
+   * texto de los objetivos. En el orden de la sesión.
+   */
+  tareas: { codigo: string; nombre: string; correctas: number; total: number; pct: number | null }[];
 };
 
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
@@ -50,7 +58,35 @@ export async function ultimaSesionPublica(): Promise<UltimaSesionPublica | null>
 
       if (!c.total) continue;
 
+      const acciones = accionesQueCuentan(sesion, limpio);
+      const tareas: UltimaSesionPublica["tareas"] = [];
+
+      for (const o of sesion.objetivos) {
+        const codigo = (o.tarea ?? "").trim();
+
+        if (!codigo || !objetivoMedido(o, limpio)) continue;
+
+        const suyas = cuentasDe(
+          acciones.filter((a) => a.objetivoId === o.id),
+          vigentes,
+        );
+
+        if (!suyas.total) continue;
+
+        const ya = tareas.find((t) => t.codigo === codigo);
+
+        if (ya) {
+          ya.correctas += suyas.correctas;
+          ya.total += suyas.total;
+        } else {
+          tareas.push({ codigo, nombre: (o.tareaTexto ?? "").trim(), correctas: suyas.correctas, total: suyas.total, pct: null });
+        }
+      }
+
+      for (const t of tareas) t.pct = t.total >= MINIMO_PORCENTAJE ? Math.round((100 * t.correctas) / t.total) : null;
+
       return {
+        tareas,
         fecha,
         objetivos: sesion.objetivos.filter((o) => objetivoMedido(o, limpio)).length,
         total: c.total,
