@@ -36,6 +36,8 @@ export type FilaVisualAbp = {
   exito: boolean;
   /** Dónde (zona de caída, zona de saque) en palabras; vacío si no hay. */
   zona?: string;
+  /** El tipo (córner, falta lateral…), para «¿Qué hace más daño?»; vacío si no hay. */
+  tipo?: string;
 };
 
 export type ExitoVisual = {
@@ -168,6 +170,53 @@ function tituloTendencia(partidos: Partido[], unidad: Unidad, exito: ExitoVisual
   return `${partidos.length} partidos; el mejor, ${mejor.jornada.etiqueta}: ${k} de ${mejor.filas.length} ${unidad.varios} ${k === 1 ? exito.uno : exito.varios}`;
 }
 
+/** Una barra apilada por tipo, del que más tiene al que menos, y cuál rinde (o duele) más. */
+function PorTipo({ filas, categorias }: { filas: FilaVisualAbp[]; categorias: CategoriaVisual[] }) {
+  const grupos = new Map<string, FilaVisualAbp[]>();
+  for (const f of filas) if (f.tipo) grupos.set(f.tipo, [...(grupos.get(f.tipo) ?? []), f]);
+  const orden = [...grupos.entries()].sort((a, b) => b[1].length - a[1].length);
+  const tope = Math.max(...orden.map(([, fs]) => fs.length), 1);
+  return (
+    <ul className="min-w-0 space-y-2">
+      {orden.map(([tipo, fs]) => {
+        const k = fs.filter((f) => f.exito).length;
+        return (
+          <li key={tipo} className="min-w-0">
+            <div className="flex min-w-0 items-baseline justify-between gap-2 text-[12px]">
+              <span className="min-w-0 truncate text-white/80">{mayuscula(tipo)}</span>
+              <span className="shrink-0 tabular-nums text-white/60">
+                {k}/{fs.length}
+              </span>
+            </div>
+            <div className="mt-1 flex h-3 overflow-hidden rounded-[3px]" style={{ width: `${Math.max(6, (fs.length / tope) * 100)}%` }}>
+              {categorias.map((c) => {
+                const n = fs.filter((f) => f.cat === c.clave).length;
+                return n ? <div key={c.clave} style={{ width: `${(n / fs.length) * 100}%`, background: c.color }} title={`${c.rotulo}: ${n}`} /> : null;
+              })}
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function tituloTipo(filas: FilaVisualAbp[], exito: ExitoVisual): string {
+  const grupos = new Map<string, FilaVisualAbp[]>();
+  for (const f of filas) if (f.tipo) grupos.set(f.tipo, [...(grupos.get(f.tipo) ?? []), f]);
+  if (grupos.size < 2) return "";
+  const conMuestra = [...grupos.entries()].filter(([, fs]) => fs.length >= 3);
+  const tasa = (fs: FilaVisualAbp[]) => fs.filter((f) => f.exito).length / fs.length;
+  const elegido = [...conMuestra].sort((a, b) => tasa(b[1]) - tasa(a[1]))[0];
+  if (!elegido || tasa(elegido[1]) === 0) {
+    const [tipo, fs] = [...grupos.entries()].sort((a, b) => b[1].length - a[1].length)[0];
+    return `Lo más repetido: ${tipo.toLowerCase()} (${fs.length} de ${filas.filter((f) => f.tipo).length})`;
+  }
+  const [tipo, fs] = elegido;
+  const k = fs.filter((f) => f.exito).length;
+  return `${exito.mejorAlto ? "Lo que más rinde" : "Lo que más peligro da"}: ${tipo.toLowerCase()}, ${k} de ${fs.length} ${k === 1 ? exito.uno : exito.varios} (${pc(k, fs.length)} %)`;
+}
+
 export function VisualAbp({
   filas,
   categorias,
@@ -176,6 +225,7 @@ export function VisualAbp({
   fuente,
   mapa,
   liga,
+  ligaPregunta = "¿Y frente a la categoría?",
 }: {
   filas: FilaVisualAbp[];
   categorias: CategoriaVisual[];
@@ -186,6 +236,7 @@ export function VisualAbp({
   mapa?: { pregunta: string; nodo: ReactNode } | null;
   /** El bloque de la categoría (Opta). */
   liga?: ReactNode;
+  ligaPregunta?: string;
 }) {
   if (!filas.length) return null;
 
@@ -202,6 +253,7 @@ export function VisualAbp({
   const partidos = [...porJornada.values()].filter((p) => p.jornada.clave).sort((a, b) => comparaCronologico(a.jornada, b.jornada));
   const tituloJornadas = tituloTendencia(partidos, unidad, exito);
   const tituloMapa = mapa ? tituloDondeAbp(filas, unidad, exito) : "";
+  const tituloTipos = tituloTipo(filas, exito);
 
   return (
     <div className="mt-5 min-w-0 space-y-4">
@@ -221,8 +273,15 @@ export function VisualAbp({
           </Lamina>
         ) : null}
       </div>
-      {mapa ? (
+      {tituloTipos ? (
         <Lamina>
+          <TituloConclusion pregunta="¿Qué hace más daño?" fuente={`A la derecha, las que ${exito.varios} sobre el total de cada tipo`}>
+            {tituloTipos}
+          </TituloConclusion>
+          <PorTipo filas={filas} categorias={categorias} />
+        </Lamina>
+      ) : null}
+      {mapa ? (        <Lamina>
           <TituloConclusion pregunta={mapa.pregunta} fuente={fuente}>
             {tituloMapa || `${total} ${total === 1 ? unidad.uno : unidad.varios} en el campo`}
           </TituloConclusion>
@@ -231,7 +290,7 @@ export function VisualAbp({
       ) : null}
       {liga ? (
         <Lamina>
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/50">¿Y frente a la categoría?</p>
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/50">{ligaPregunta}</p>
           {liga}
         </Lamina>
       ) : null}

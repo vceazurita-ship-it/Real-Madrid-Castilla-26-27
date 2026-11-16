@@ -3032,6 +3032,7 @@ const pie = (
                               : "sin",
                     exito: LECTOR.peligro(r),
                     zona: esSuperioridad(r.zonaCaida) ? "" : zonaLegible(r.zonaCaida),
+                    tipo: r.tipoAccion ? hablado(r.tipoAccion.trim()) : "",
                   };
                 })}
                 categorias={[
