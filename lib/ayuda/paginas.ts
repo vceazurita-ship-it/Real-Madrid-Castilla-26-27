@@ -1864,7 +1864,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Emocional",
     resumen: "El estado emocional del once de la pizarra táctica, línea a línea, en cuatro dimensiones de 0 a 10.",
     origen: "La hoja emocional (una fila por jugador, que se sobrescribe) y, encima, lo editado aquí en «Editar valoraciones» (documento «emotion:valoraciones» de Supabase), que manda jugador a jugador. El once, del tablero de la pizarra táctica. La flecha compara con la foto anterior guardada en este aparato.",
-    revisada: "2026-11-12",
+    revisada: "2026-11-16",
     bloques: [
       {
         titulo: "Las cuatro dimensiones",
@@ -1883,12 +1883,16 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Fichas del once", es: "Cada titular en su sitio: el aro es su media y la flecha, el cambio desde la evaluación anterior; al pulsarlo, su perfil y debajo el banquillo", cuenta: "Flecha desde 0,25; punto rojo si baja 0,5 o más o un eje cae 1 punto" },
           { que: "Titular sin valorar", es: "Entra con la media de la plantilla y no cuenta en las medias" },
           { que: "Cambiar el once en la pizarra", es: "Lleva a la pizarra táctica; más abajo se cambia quién entra en cada radar y «Restablecer líneas» (en «Más») lo deshace" },
+          { que: "Lectura del once", es: "Qué entrenamos, jugadores foco y ejes más bajos; cada nombre lleva a su ficha y a su seguimiento; al pulsar un jugador, su perfil con Ficha, Seguimiento, Registrar seguimiento y Valoraciones" },
         ],
       },
       {
         titulo: "Las cifras",
         filas: [
           { que: "Jugadores analizados", es: "Registros en la base emocional", cuenta: "Con menos de 12, tendencia" },
+          { que: "Fecha de la valoración", es: "Arriba, «Estado del once según la valoración del dd/mm»; pasados 14 días, «a revisar»" },
+          { que: "Base", es: "Una valoración por jugador; una línea suma de 2 a 5", cuenta: "Por debajo de 25 valoraciones la media de una línea es tendencia, y se marca así en cada radar" },
+          { que: "Media de la línea", es: "Bajo cada radar, las cuatro cifras de los jugadores de esa línea; el trazo discontinuo es la media de la plantilla" },
           { que: "Media de plantilla", es: "Media de las medias de cada jugador evaluado, con su banda de la escala" },
           { que: "Dimensión más fuerte · Dimensión a desarrollar", es: "La de media más alta y la más baja del grupo" },
           { que: "Editar valoraciones", es: "Cambia las cuatro notas de un jugador; «N valoraciones hechas en la app» dice cuántas no salen de la hoja" },
