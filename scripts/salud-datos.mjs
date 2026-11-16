@@ -256,6 +256,22 @@ async function avisa() {
   }
 }
 
+/*
+| Los ficheros que se quedaron en Supabase (16/11/2026): 252 sin copia en otro
+| sitio. En cuanto Supabase vuelve, scripts/supabase-rescate.mjs los baja, los
+| sube a B2 y cambia los enlaces; mientras falte algo, se avisa.
+*/
+async function rescataSupabase() {
+  if (estado.supabase !== "vuelto" || EN_SECO) return;
+
+  const { spawnSync } = await import("node:child_process");
+  const r = spawnSync(process.execPath, [path.join(RAIZ, "scripts", "supabase-rescate.mjs")], { encoding: "utf8", timeout: 50 * 60_000 });
+  const resumen = (String(r.stdout).match(/RESUMEN: (.*)/) ?? [])[1] ?? `sin resumen (código ${r.status})`;
+
+  if (r.status === 0) notas.push(`Rescate de ficheros de Supabase: ${resumen}.`);
+  else avisos.push(`Supabase ha vuelto y el rescate de sus ficheros no ha terminado: ${resumen}. Se reintenta mañana solo.`);
+}
+
 /* ---------------------------- marcha ---------------------------- */
 
 let codigo = 0;
@@ -268,6 +284,7 @@ try {
 }
 await miraB2();
 await miraSupabase();
+await rescataSupabase();
 miraRender();
 await avisa();
 await guardaEstado();
