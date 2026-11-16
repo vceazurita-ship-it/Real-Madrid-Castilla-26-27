@@ -50,6 +50,28 @@ import { mismoClub } from "@/lib/rivals/mismoClub";
 import { conTildes } from "@/lib/rivals/tildes";
 import { comoNombre } from "@/lib/duelos-onces";
 import { rotuloDePuesto } from "@/lib/rivals/lineas-puesto";
+import { useRivalPerfiles } from "@/hooks/useRivalPerfiles";
+import { asignaPerfiles, type PerfilWyscout, type RasgoWyscout } from "@/lib/rivals/perfil-wyscout";
+import { formatea } from "@/lib/data-analisis/metricas";
+
+/*
+| UNA CIFRA DE SU PUESTO EN CADA FICHA (16/11/2026, tercera vuelta): la
+| pantalla era una galería con poco dato. De Wyscout (`?perfiles=`, la misma
+| cuenta que /rivals), su rasgo más fuerte y su más flojo contra los de su
+| puesto, con el percentil, contra cuántos y sus minutos. Con muestra corta
+| (menos de 270′), nada.
+*/
+function cifrasDePerfil(perfil: PerfilWyscout | undefined) {
+  if (!perfil || perfil.muestraCorta) return [];
+
+  const escribe = (r: RasgoWyscout, signo: string) =>
+    `${signo} ${r.nombre} ${formatea(r.valor, r.unidad)} · P${Math.round(r.percentil)} entre ${perfil.iguales} ${perfil.puestoLabel.toLowerCase()} · ${perfil.minutos.toLocaleString("es-ES")}′ en Wyscout`;
+
+  return [
+    ...(perfil.fuertes[0] ? [escribe(perfil.fuertes[0], "▲")] : []),
+    ...(perfil.flojos[0] ? [escribe(perfil.flojos[0], "▼")] : []),
+  ];
+}
 
 /*
 | `?equipo=<NOMBRE>` (26/10/2026): desde la ficha del rival o la portada se
@@ -272,6 +294,18 @@ export default function ScoutRivalIndividual() {
     }
   }, [dorsalesRepetidos, equipo]);
 
+  const perfilesRival = useRivalPerfiles(equipo);
+
+  const perfilPorFicha = useMemo(() => {
+    if (!perfilesRival) return new Map<string, PerfilWyscout>();
+
+    const delEquipo = Object.entries(filasDe)
+      .filter(([k]) => k.startsWith(`${equipo}|`))
+      .map(([k, fila]) => ({ JUGADOR: fila.JUGADOR, "NOMBRE DEPORTIVO": fila["NOMBRE DEPORTIVO"], __k: k }));
+
+    return asignaPerfiles(delEquipo, perfilesRival.perfiles, (f) => f.__k);
+  }, [perfilesRival, filasDe, equipo]);
+
   const plantilla = useMemo(
     () =>
       (squads.find((squad) => squad.equipo === equipo)?.players ?? []).map((jugador) => {
@@ -284,6 +318,10 @@ export default function ScoutRivalIndividual() {
         titularidades: temporada?.titular,
         minutos: temporada?.minutos,
         clave: clavesDe[`${equipo}|${jugador.nombre}`],
+        amarillas: temporada?.amarillas,
+        goles: temporada?.goles,
+        asistencias: temporada?.asistencias,
+        cifras: cifrasDePerfil(perfilPorFicha.get(`${equipo}|${jugador.nombre}`)),
         /* Como en Plantillas, con tildes y en caja de nombre: «SAMU VAZQUEZ» → «Samu Vázquez» (07/11/2026). */
         nombre: conTildes(comoNombre(jugador.nombre)),
         hoja: jugador.nombre,
@@ -295,7 +333,7 @@ export default function ScoutRivalIndividual() {
           titularesDe.equipo === equipo && titularesDe.claves.includes(clavesDe[`${equipo}|${jugador.nombre}`] ?? "\u0000"),
         };
       }),
-    [squads, equipo, etiquetasDe, clavesDe, titularesDe, filasDe, statsDoc, dorsalesRepetidos],
+    [squads, equipo, etiquetasDe, clavesDe, titularesDe, filasDe, statsDoc, dorsalesRepetidos, perfilPorFicha],
   );
 
   return (
