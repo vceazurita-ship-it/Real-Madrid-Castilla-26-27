@@ -29,6 +29,8 @@ export type Relieve = {
   /** parteA[m][c] en 0..1: cuánto de esa altura es del equipo A. */
   parteA: number[][];
   picos: Pico[];
+  /** Franjas a lo ancho. */
+  carriles: number;
 };
 
 /** El minuto en el eje: el descuento de la 1.ª parte se queda en el 45, la 2.ª empieza en el 46. */
