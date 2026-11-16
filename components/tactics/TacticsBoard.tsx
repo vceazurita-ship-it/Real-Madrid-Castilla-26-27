@@ -472,7 +472,8 @@ export default function TacticsBoard({
   const nombresVisibles = !doc.sinNombres;
   const muyEstrecho = useSyncExternalStore(suscribeAncho, esMuyEstrecho, anchoDelServidor);
   /* En el móvil, los nombres bajo las fichas a petición (para la charla desde el teléfono, 16/11/2026). Sólo en este aparato. */
-  const [nombresEnMovil, setNombresEnMovil] = useState(false);
+  /* Encendido por defecto (16/11/2026, ronda 17): en el móvil no se sabía quién era quién. */
+  const [nombresEnMovil, setNombresEnMovil] = useState(true);
 
   /* Prefijo de los degradados de las figuras: en /pizarra hay dos tableros en la misma página. */
   const prefijoFiguras = `pz${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
@@ -534,6 +535,10 @@ export default function TacticsBoard({
   | plantilla, y cuyo nombre guardado es una palabra del suyo, se rotula con el
   | nombre corto de la plantilla.
   */
+  const suyas = useMemo(
+    () => new Set(scene.tokens.filter((t) => t.kind === "away" && t.nombre).flatMap((t) => claveNombre(t.nombre).split(" ")).filter(Boolean)),
+    [scene.tokens],
+  );
   const nombreDePlantilla = useMemo(() => {
     const porDorsal = new Map<string, Player[]>();
     roster.forEach((p) => {
@@ -548,9 +553,12 @@ export default function TacticsBoard({
       const p = candidatos[0];
       const palabras = new Set(claveNombre(p.nombre + " " + (p.apodo ?? "")).split(" ").filter(Boolean));
       const guardado = claveNombre(token.nombre).split(" ").filter(Boolean);
-      return guardado.some((w) => palabras.has(w)) ? p.apodo || p.nombre : token.nombre;
+      const corto = p.apodo || p.nombre;
+      /* «Joan» contra Joan Rojas: con nombre y apellido, como en Duelos (16/11/2026, ronda 17). */
+      const choca = suyas.has(claveNombre(corto));
+      return guardado.some((w) => palabras.has(w)) ? (choca ? p.nombre : corto) : token.nombre;
     };
-  }, [roster]);
+  }, [roster, suyas]);
 
   /** Lo que la ficha guarda, completado con lo que se sepa del jugador. */
   const perfilDe = useCallback(
@@ -3276,7 +3284,7 @@ function PanelEscena({
           onChange={(event) => onCambia({ nota: event.target.value || undefined })}
           rows={2}
           maxLength={280}
-          placeholder="Lo que tiene que ver el grupo: «el 6 salta al poseedor y el 8 cierra el pase interior». Sale bajo el campo y en lo que se exporta."
+          placeholder="Qué hay que mirar en esta escena (sale bajo el campo y en lo que se exporta)."
           className="min-h-[3.25rem] w-full resize-y rounded-xl border border-white/10 bg-[#0F141B] px-2.5 py-2 text-xs leading-relaxed text-white/85 outline-none placeholder:text-white/30 focus:border-[#C8A96B]/50"
         />
       </div>

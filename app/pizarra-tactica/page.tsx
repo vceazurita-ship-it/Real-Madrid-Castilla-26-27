@@ -1088,24 +1088,31 @@ function BoardEditor({
         <div className="flex flex-col gap-2 rounded-2xl border border-[#C8A96B]/20 bg-[#C8A96B]/[0.05] px-3 py-2 text-[12px] text-white/65 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3">
           <span className="font-semibold uppercase tracking-[0.18em] text-[#C8A96B]">Onces de la semana</span>
           {/* En el móvil, en su propia fila: al lado de los botones se quedaba en una palabra por renglón. */}
-          <span className="min-w-0 sm:flex-1">
-            {fuentes
-              ? `Castilla, hacia la derecha: ${fuentes.nuestra}. ${fuentes.rival}, hacia la izquierda: ${fuentes.suya.charAt(0).toLowerCase()}${fuentes.suya.slice(1)}.`
-              : doc.semanaOnces
-                ? `Nuestro once y el suyo para el ${diaYLugar(
-                    doc.semanaOnces.split("|")[0],
-                    /* El nombre de Plantillas rivales, el de las demás pantallas (10/11/2026, jueces): no «Gimnàstic Tarragona». */
-                    rivalSquads.find((s) => mismoClub(s.equipo, doc.semanaOnces!.split("|")[1] ?? ""))?.equipo ?? doc.semanaOnces.split("|")[1],
-                    partido,
-                  )}.`
-                : "Se rellenan solos cada semana con nuestro último once y el teórico del rival."}
-            {/* Con su espacio de verdad: en el texto copiado salía «Tarragona.Toca» (10/11/2026). */}
-            {doc.semanaOnces && (
+          {/* Tres renglones (16/11/2026, ronda 17): nuestro once, el suyo con su etiqueta, y cómo se cambia. */}
+          <span className="min-w-0 space-y-0.5 sm:flex-1">
+            {fuentes ? (
               <>
-                {" "}
-                <b className="font-semibold text-white/85">Toca dos veces una ficha para cambiar al jugador.</b>
+                <span className="block"><b className="font-semibold text-white/85">Castilla</b>, hacia la derecha: {fuentes.nuestra}.</span>
+                <span className="block">
+                  <b className="font-semibold text-white/85">{fuentes.rival}</b>, hacia la izquierda:{" "}
+                  <span className="rounded border border-white/15 px-1 py-px text-[11px] font-semibold text-white/75">
+                    {/marcado/i.test(fuentes.suya) ? "probable" : /besoccer/i.test(fuentes.suya) ? "su último once" : "por minutos"}
+                  </span>{" "}
+                  {fuentes.suya.charAt(0).toLowerCase()}{fuentes.suya.slice(1)}.
+                </span>
               </>
+            ) : (
+              <span className="block">
+                {doc.semanaOnces
+                  ? `Nuestro once y el suyo para el ${diaYLugar(
+                      doc.semanaOnces.split("|")[0],
+                      rivalSquads.find((s) => mismoClub(s.equipo, doc.semanaOnces!.split("|")[1] ?? ""))?.equipo ?? doc.semanaOnces.split("|")[1],
+                      partido,
+                    )}.`
+                  : "Se rellenan solos cada semana con nuestro último once y el teórico del rival."}
+              </span>
             )}
+            {doc.semanaOnces && <b className="block font-semibold text-white/85">Toca dos veces una ficha para cambiar al jugador.</b>}
           </span>
           {/*
             16/11/2026 (marketing): arriba sólo el tablero y las acciones. Las
