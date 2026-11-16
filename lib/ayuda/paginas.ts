@@ -2754,24 +2754,26 @@ export const AYUDAS: AyudaDePagina[] = [
     ruta: "/calendar",
     titulo: "Calendario de Seguimiento",
     resumen: "Los seguimientos individuales, día a día, y a quién del Castilla toca seguir.",
-    origen: "Hoja de seguimiento, una fila por registro (la misma de /individual). El jugador se ata por nombre con la plantilla, no por ID.",
+    origen: "Hoja de seguimiento, una fila por registro (la misma de /individual). El jugador se ata por nombre con la plantilla, no por ID. Los días de partido salen del calendario de BeSoccer (el mismo de la portada).",
     bloques: [
       {
         titulo: "Las cifras del mes",
         filas: [
-          { que: "Seguimientos en (mes)", es: "Registros del mes que se mira; si es el mes en curso, hasta hoy", cuenta: "Debajo, el mes anterior al mismo día (o entero), lo programado después de hoy y el total de la temporada, con el Castilla y los de otros equipos aparte. Los porteros no cuentan: llevan un registro independiente y sus registros no se pintan" },
-          { que: "Jugadores con seguimiento", es: "Jugadores distintos con algún registro ese mes", cuenta: "Debajo, cuántos son de los jugadores de campo del Castilla" },
+          { que: "Seguimientos en (mes)", es: "Registros del mes de los jugadores de campo del Castilla; si es el mes en curso, hasta hoy", cuenta: "Debajo, cuántos más o menos que el mes anterior al mismo día (o entero), lo programado después de hoy y la temporada hasta hoy (la misma cuenta que el Dashboard Seguimiento). Lo de otros equipos va aparte, este mes y en la temporada. Los porteros no cuentan: llevan un registro independiente y sus registros no se pintan" },
+          { que: "Jugadores con seguimiento", es: "«N de M»: jugadores de campo del Castilla con algún registro ese mes, sobre todos ellos", cuenta: "Debajo, cuántos de otros equipos además" },
           { que: "Por tipo", es: "Registros del mes por estrategia: Campo, Vídeo, Charla, Vídeo y charla, Sin tipo escrito", cuenta: "Se lee de la columna ESTRATEGIA; «Sin tipo escrito» es lo que no trae ninguna de esas palabras" },
-          { que: "Todos los jugadores", es: "Filtra todo a un jugador; el Castilla primero y los de otros equipos aparte; los porteros no salen" },
+          { que: "Por semana · últimas 8", es: "Barras de los registros de los de campo del Castilla en las 8 últimas semanas (lunes a domingo) con la media de las cerradas en raya", cuenta: "La semana en curso, atenuada y fuera de la media" },
+          { que: "Selector de jugador", es: "«Todos (sin porteros)» o uno: Castilla de campo y otros equipos, cada grupo por orden alfabético; con uno elegido, «Ficha» y «Registrar seguimiento» al lado", cuenta: "Se entra ya filtrado con /calendar?player=ID (desde la ficha o el Dashboard Seguimiento)" },
         ],
       },
       {
         titulo: "El calendario",
         filas: [
-          { que: "A quién toca seguir", es: "Jugadores de campo del Castilla sin ningún seguimiento en 14 días, con los días desde el último", cuenta: "14 días que acaban hoy, hoy incluido; los porteros no cuentan. Sólo sale sin filtro de jugador" },
-          { que: "Tarjeta del día", es: "El jugador y quién lo hizo; la franja de color es el tipo", cuenta: "Hasta 3 por casilla; «+N más» abre el día" },
+          { que: "A quién toca seguir", es: "Jugadores de campo del Castilla sin ningún seguimiento en 14 días, con los días desde el último; el nombre abre su ficha y «Registrar seguimiento» abre el formulario con el jugador ya elegido", cuenta: "14 días que acaban hoy, hoy incluido; los porteros no cuentan. Sólo sale sin filtro de jugador" },
+          { que: "Día de partido", es: "En azul, con el marcador del Castilla primero (V/E/D), «vs» en casa y «@» fuera", cuenta: "Al abrir el día, «Análisis del partido» lleva al post de Análisis de datos" },
+          { que: "Tarjeta del día", es: "El jugador y quién lo hizo (sin autor escrito, el tipo); la franja de color es el tipo", cuenta: "Hasta 3 por casilla; «+N más» abre el día" },
           { que: "Programado", es: "Registro con fecha posterior a hoy: borde de puntos y fuera de las cifras «hasta hoy»" },
-          { que: "El día abierto", es: "Cada registro con su estrategia, quién, objetivo ofensivo, defensivo, mental y feedback" },
+          { que: "El día abierto", es: "Cada registro con su estrategia, quién, objetivo ofensivo, defensivo, mental y feedback, y sus accesos: ficha, seguimiento y registrar" },
           { que: "Pinchar un nombre", es: "Abre su ficha en /individual" },
         ],
       },
