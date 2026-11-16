@@ -283,6 +283,7 @@ export default function ScoutRivalIndividual() {
         partidos: temporada?.partidos,
         titularidades: temporada?.titular,
         minutos: temporada?.minutos,
+        clave: clavesDe[`${equipo}|${jugador.nombre}`],
         /* Como en Plantillas, con tildes y en caja de nombre: «SAMU VAZQUEZ» → «Samu Vázquez» (07/11/2026). */
         nombre: conTildes(comoNombre(jugador.nombre)),
         hoja: jugador.nombre,

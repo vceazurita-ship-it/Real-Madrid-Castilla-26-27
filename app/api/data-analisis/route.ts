@@ -604,6 +604,8 @@ function abpRivalDe(datos: Dataset, equipo: string, ambito: "abp" | "area" | "es
     equipos: equipos.length,
     aspectos,
     lanzadores: ambito !== "abp" ? [] : lanzadoresDe(datos, equipo),
+    /* Hasta qué partido llega (16/11/2026): la fecha de su último partido en la descarga. */
+    hasta: suyosDe.map((p) => p.fecha).filter(Boolean).sort().at(-1) ?? null,
     golesAbp: goles && (goles.aFavor.partidos > 0 || goles.enContra.partidos > 0) ? goles : null,
   };
 }

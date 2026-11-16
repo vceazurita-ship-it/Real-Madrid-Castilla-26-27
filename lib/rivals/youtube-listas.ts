@@ -195,6 +195,8 @@ export type JugadorPlantilla = {
   partidos?: number;
   titularidades?: number;
   minutos?: number;
+  /** Su clave de jugador (la de Plantillas rivales): la ficha de /rivals se abre con ella. */
+  clave?: string;
 };
 
 /*
@@ -274,7 +276,8 @@ export function tituloSoloRepite(titulo: string, jugador: string, equipo = "") {
 export function resumenDeTemporada(jugador: Pick<JugadorPlantilla, "partidos" | "titularidades" | "minutos"> | null) {
   if (!jugador?.partidos) return "";
 
-  const partes = [`titular en ${jugador.titularidades ?? 0} de ${jugador.partidos}`];
+  /* Muestra corta (16/11/2026, análisis): con menos de 10 partidos se dice. */
+  const partes = [`titular en ${jugador.titularidades ?? 0} de ${jugador.partidos}${jugador.partidos < 10 ? " (muestra corta)" : ""}`];
 
   /* Con la fuente (08/11/2026, jueces): no chocan con los minutos de Wyscout de /duelos. */
   if (jugador.minutos) partes.push(`${jugador.minutos.toLocaleString("es-ES")}′ en BeSoccer`);

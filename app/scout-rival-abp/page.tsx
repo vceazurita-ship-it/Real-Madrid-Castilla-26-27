@@ -188,7 +188,15 @@ function MenuMas<K extends string>({
         }`}
       >
         <MoreHorizontal size={15} className={activa ? "text-[#C8A96B]" : ""} />
-        <span>{activa ? activa.label : "Más"}</span>
+        {/* Dice qué contiene (16/11/2026, segunda vuelta): «Más» a secas no lo decía. */}
+        {activa ? (
+          <span>{activa.label}</span>
+        ) : (
+          <>
+            <span className="sm:hidden">Trabajo</span>
+            <span className="hidden sm:inline">Trabajo del analista</span>
+          </>
+        )}
         <ChevronDown size={13} />
       </summary>
       <div className="absolute right-0 z-30 mt-1 w-60 rounded-xl border border-white/10 bg-[#11161C] p-1 shadow-xl">

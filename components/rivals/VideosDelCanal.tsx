@@ -151,6 +151,8 @@ type Pieza = {
   etiquetas: string[];
   /** «titular en 5 de 8 · 540 min», para decidir a quién ver primero. */
   resumen: string;
+  /** Su clave en Plantillas rivales, para enlazar su ficha (16/11/2026). */
+  clave?: string;
 };
 
 type Estado =
@@ -595,6 +597,7 @@ export function VideosDelCanal({
         puesto: jugador?.puesto ?? "",
         etiquetas: jugador?.etiquetas ?? [],
         resumen: resumenDeTemporada(jugador),
+        clave: jugador?.clave,
       };
 
       if (!jugador) {
@@ -682,7 +685,8 @@ export function VideosDelCanal({
     return [
       /* «Once probable · 5 con vídeo de 11» (16/11/2026, marketing), por línea: portero, defensa, medios, delanteros. */
       ...(hayOnce ? [linea(-1, `Once probable · ${titulares.length} con vídeo de ${Math.max(titulares.length, plantilla.filter((j) => j.titular).length)}`, titulares)] : []),
-      ...LINEAS.map((rotulo, rango) => linea(rango, rotulo, resto.filter((g) => rangoDePuesto(g.puesto) === rango))),
+      /* «Fuera del once probable · defensas» (16/11/2026, fútbol): «Defensas» a secas se confundía con la línea del once. */
+      ...LINEAS.map((rotulo, rango) => linea(rango, hayOnce ? `Fuera del once probable · ${rotulo.toLowerCase()}` : rotulo, resto.filter((g) => rangoDePuesto(g.puesto) === rango))),
     ].filter((l) => l.unCorte.length > 0 || l.variosCortes.length > 0);
   }, [jugadoresVisibles, plantilla]);
 
@@ -955,7 +959,9 @@ export function VideosDelCanal({
             <input
               value={busca}
               onChange={(evento) => setBusca(evento.target.value)}
-              placeholder="Buscar: córner, pérdida, un nombre…"
+              placeholder="Buscar"
+              aria-label="Buscar en los títulos: córner, pérdida, un nombre…"
+              title="Busca en los títulos: córner, pérdida, un nombre…"
               className="w-full rounded-xl border border-white/10 bg-white/[0.04] py-2 pl-9 pr-3 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#C8A96B]/50"
             />
           </div>
@@ -1002,6 +1008,7 @@ export function VideosDelCanal({
                 onClick={() => eligeTamano(item.key)}
                 aria-pressed={tamano === item.key}
                 title={`Fichas de tamaño ${item.label.toLowerCase()}`}
+                aria-label={`Fichas de tamaño ${item.label.toLowerCase()}`}
                 className={`rounded-lg px-2.5 py-1.5 text-[11px] transition ${
                   tamano === item.key
                     ? "bg-[#C8A96B]/15 text-[#C8A96B]"
@@ -1021,7 +1028,7 @@ export function VideosDelCanal({
             className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-white/12 px-3 py-2 text-xs text-white/60 transition hover:border-white/25 hover:text-white disabled:opacity-40"
           >
             <Link2 size={13} />
-            <span className="hidden sm:inline">Copiar enlaces</span>
+            <span>Copiar enlaces</span>
           </button>
         </div>
       )}
@@ -1169,6 +1176,11 @@ export function VideosDelCanal({
                 ? `${grupos.jugadores.length} ${grupos.jugadores.length === 1 ? "jugador" : "jugadores"} con vídeo, de los ${plantilla.length} de la plantilla`
                 : `${jugadoresVisibles.length} ${jugadoresVisibles.length === 1 ? "jugador" : "jugadores"} con vídeo`}
             </span>
+
+            {/* Muestra corta (16/11/2026, análisis): con menos de 10 cortes, se dice. */}
+            {!soloDe && !termino && videos.length > 0 && videos.length < 10 && (
+              <span className="text-[11px] text-white/55">· muestra corta: {videos.length} {videos.length === 1 ? "vídeo" : "vídeos"} en la lista</span>
+            )}
 
             {admin && !soloDe && !termino && lineasSinCortes.length > 0 && (
               <span className="w-full text-[11px] text-white/55 sm:w-auto">
@@ -1496,7 +1508,7 @@ function Rejilla({
      mirar—, pero se leen al pasar el cursor (29/10/2026). */
   return (
     <div className={`grid min-w-0 gap-2.5 ${columnas}`}>
-      {piezas.map(({ video, tema, jugador, dorsal, puesto, etiquetas, resumen }) => (
+      {piezas.map(({ video, tema, jugador, dorsal, puesto, etiquetas, resumen, clave }) => (
         <div
           key={video.id}
           title={[video.titulo, fecha(video.publicado) && `subido el ${fecha(video.publicado)}`].filter(Boolean).join(" · ")}
@@ -1564,6 +1576,21 @@ function Rejilla({
                 </p>
               );
             })()}
+
+            {/* Del vídeo a la consigna (16/11/2026, fútbol): su ficha en /rivals y su duelo en /duelos. */}
+            {jugador && equipo && (
+              <p className="mt-1 flex flex-wrap gap-x-3 text-[11px]">
+                <Link
+                  href={`/rivals?equipo=${encodeURIComponent(equipo)}${clave ? `&jugador=${encodeURIComponent(clave)}` : ""}`}
+                  className="font-semibold text-[#C8A96B] hover:underline"
+                >
+                  Su ficha →
+                </Link>
+                <Link href={`/duelos?equipo=${encodeURIComponent(equipo)}`} className="font-semibold text-[#C8A96B] hover:underline">
+                  Su duelo →
+                </Link>
+              </p>
+            )}
 
             {/* El pie (16/11/2026, jueces): «J13 · 63′ · 0:42», la jornada, el minuto si
                 el título lo dice y lo que dura; ya no «corte 4». Las vistas, sólo al analista. */}

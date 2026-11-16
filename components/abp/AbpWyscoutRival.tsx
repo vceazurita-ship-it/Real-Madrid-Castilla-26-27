@@ -169,7 +169,20 @@ type Datos = {
   lanzadores?: Lanzador[];
   aspectos: Aspecto[];
   golesAbp: { aFavor: GolesAbp; enContra: GolesAbp } | null;
+  /** Fecha (ISO) de su último partido en la descarga de Wyscout. */
+  hasta?: string | null;
 };
+
+/** «2026-11-09…» → «9 nov.»; lo que no se entiende, vacío. */
+function diaCorto(iso?: string | null) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso ?? "");
+
+  if (!m) return "";
+
+  const meses = ["ene.", "feb.", "mar.", "abr.", "may.", "jun.", "jul.", "ago.", "sept.", "oct.", "nov.", "dic."];
+
+  return `${Number(m[3])} ${meses[Number(m[2]) - 1] ?? ""}`.trim();
+}
 
 /** Cifras por partido a un decimal (16,1 y no 16,08); porcentajes, enteros y minutos, como siempre. */
 function cifra1(valor: number | null, unidad: Unidad) {
@@ -287,7 +300,9 @@ const rotuloDe = (fila: Fila) => (fila.unidad === "porcentaje" ? fila.nombre.rep
 | frase («como concede 7,1 córners…, llegar a línea de fondo») y, debajo, la
 | tarea con un objetivo que sale de la cifra. Las filas en tendencia no entran.
 */
-function consignaOfensiva(aspecto: Aspecto | undefined, equipos: number): { frase: string; tarea: string }[] {
+const NOSOTROS_WYSCOUT = "Real Madrid Castilla";
+
+function consignaOfensiva(aspecto: Aspecto | undefined, equipos: number, nuestro?: Aspecto | null): { frase: string; tarea: string }[] {
   if (!aspecto || aspecto.clave !== "abpDef") return [];
 
   const peor = (fila: Fila | undefined) => (fila && fila.mejorAlto === false && fila.percentil <= 20 && !esTendencia(fila) ? fila : null);
@@ -303,6 +318,11 @@ function consignaOfensiva(aspecto: Aspecto | undefined, equipos: number): { fras
   }
 
   if (conRemate) {
+    const nuestra = nuestro?.filas.find((f) => f.nombre === "Córners con remate %");
+    const desde = nuestra
+      ? `pasar de nuestro ${cifra1(nuestra.valor, nuestra.unidad)}${nuestra.base ? ` (${Math.round(nuestra.base.arriba)} de ${Math.round(nuestra.base.abajo)})` : ""} al ${cifra1(conRemate.valor, conRemate.unidad)} que le rematan sus rivales`
+      : "";
+
     partes.push({
       frase: `como le rematan el ${cifra1(conRemate.valor, conRemate.unidad)} de los córners${conRemate.base ? ` (${Math.round(conRemate.base.arriba)} de ${Math.round(conRemate.base.abajo)})` : ""}, con la mediana de la liga en ${cifra1(conRemate.mediana, conRemate.unidad)} (${QUE_ES_CORNER_CON_REMATE}), cargar el área con nuestros mejores rematadores en cada córner`,
       /*
@@ -310,7 +330,9 @@ function consignaOfensiva(aspecto: Aspecto | undefined, equipos: number): { fras
       | de cada 10» era una cifra redonda inventada. Ahora es lo que le rematan
       | sus rivales, con su fuente y su unidad, y la mediana como referencia.
       */
-      tarea: `córner con cinco en el área y bloqueo al que defiende el primer palo; objetivo: que acabe en remate el ${cifra1(conRemate.valor, conRemate.unidad)} de nuestros córners, lo que le rematan sus rivales (Wyscout${conRemate.partidos ? `, ${conRemate.partidos} partidos` : ""}), por encima de la mediana de la liga (${cifra1(conRemate.mediana, conRemate.unidad)})`,
+      tarea: desde
+        ? `córner con cinco en el área y bloqueo al que defiende el primer palo; objetivo: ${desde} (córners con remate, Wyscout; mediana de la liga ${cifra1(conRemate.mediana, conRemate.unidad)})`
+        : `córner con cinco en el área y bloqueo al que defiende el primer palo; objetivo: que acabe en remate el ${cifra1(conRemate.valor, conRemate.unidad)} de nuestros córners, lo que le rematan sus rivales (Wyscout${conRemate.partidos ? `, ${conRemate.partidos} partidos` : ""}), por encima de la mediana de la liga (${cifra1(conRemate.mediana, conRemate.unidad)})`,
     });
   }
 
@@ -515,6 +537,30 @@ export function AbpWyscoutRival({
       cancelado = true;
     };
   }, [equipo, ambito]);
+
+  /*
+  | NUESTRO DATO AL LADO DEL SUYO (16/11/2026, segunda vuelta, fútbol y
+  | análisis): el objetivo «44,6 % de nuestros córners» copiaba su cifra sin
+  | enseñar la nuestra. Se pide nuestro balón parado a la misma API (Wyscout,
+  | misma liga) para poner el hueco.
+  */
+  const [nuestroAbp, setNuestroAbp] = useState<Aspecto | null>(null);
+
+  useEffect(() => {
+    if (ambito !== "abp") return;
+
+    let vivo = true;
+
+    traeJson<{ ok?: boolean } & Partial<Datos>>(`/api/data-analisis?abpRival=${encodeURIComponent(NOSOTROS_WYSCOUT)}&v=6`)
+      .then((r) => {
+        if (vivo && r?.ok && Array.isArray(r.aspectos)) setNuestroAbp(r.aspectos.find((a) => a.clave === "abpOf") ?? null);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      vivo = false;
+    };
+  }, [ambito]);
 
   /*
   | Su once probable (29/10/2026), el mismo documento que /rivals y /duelos:
@@ -888,7 +934,7 @@ export function AbpWyscoutRival({
 
   const nEquipos = datos?.equipos ?? 20;
   const partidosWy = aspectos[0]?.filas[0]?.partidos ?? null;
-  const ofensiva = ambito === "abp" ? consignaOfensiva(aspectos.find((a) => a.clave === "abpDef"), nEquipos) : [];
+  const ofensiva = ambito === "abp" ? consignaOfensiva(aspectos.find((a) => a.clave === "abpDef"), nEquipos, nuestroAbp) : [];
   const conTendencia = hayGoles && !!goles && [goles.aFavor, goles.enContra].some((g) => g.abp > 0 && (g.abp < 10 || g.partidos < 10));
   /* Córners, faltas y penaltis van en la tabla de arriba (16/11/2026); las tarjetas, con los porcentajes. */
   const VOLUMEN = ["Córners", "Faltas lanzadas", "Penaltis"];
@@ -944,7 +990,8 @@ export function AbpWyscoutRival({
         <Panel
           title={ambito === "area" ? "Sus centros laterales, los que hace y los que recibe, según Wyscout" : "Su balón parado según Wyscout"}
           /* Una línea (11/11/2026): el método, plegado en «Cómo se cuenta». */
-          subtitle={`${equipo}${partidosWy != null ? `: ${partidosWy} partidos de Wyscout` : ""} frente a los ${nEquipos} equipos de la liga${nEquipos === 20 ? ", el Castilla incluido" : ""}.`}
+          /* Con la fecha de su último partido incluido (16/11/2026, segunda vuelta): el sello de la cabecera dice cuándo se bajó, no hasta dónde llega. */
+          subtitle={`${equipo}${partidosWy != null ? `: ${partidosWy} partidos de Wyscout${diaCorto(datos?.hasta) ? `, hasta el del ${diaCorto(datos?.hasta)}` : ""}` : ""} frente a los ${nEquipos} equipos de la liga${nEquipos === 20 ? ", el Castilla incluido" : ""}.`}
           icon={BarChart3}
         >
           {/* Lo que hacemos, en el primer pliegue (11/11/2026, marketing): encima de la tabla y de los goles. */}
@@ -1053,8 +1100,17 @@ export function AbpWyscoutRival({
                       {[v.favor, v.contra].map((fila, i) => {
                         if (!fila) return <td key={i} className="py-1.5 pr-2" />;
 
-                        const lee = lectura(fila.percentil, nEquipos, fila.mejorAlto);
-                        const total = v.nombre === "Penaltis" && fila.partidos ? Math.round(fila.valor * fila.partidos) : null;
+                        /*
+                        | MUESTRA CORTA (16/11/2026, segunda vuelta): «1 penalti en 12» salía
+                        | con ▲ como una fortaleza. Con menos de 15 casos en la temporada,
+                        | sin flecha ni color y rotulado «tendencia».
+                        */
+                        const casos = fila.partidos ? Math.round(fila.valor * fila.partidos) : null;
+                        const corta = casos != null && casos < POCOS_CASOS;
+                        const lee = corta
+                          ? { texto: `tendencia: sólo ${casos} en ${fila.partidos} partidos`, bueno: null as boolean | null }
+                          : lectura(fila.percentil, nEquipos, fila.mejorAlto);
+                        const total = null;
 
                         return (
                           <td key={i} className="py-1.5 pr-2">
