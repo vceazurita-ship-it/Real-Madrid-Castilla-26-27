@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { nombrePuesto } from "@/lib/posiciones";
 import {
   CalendarPlus,
@@ -89,6 +89,49 @@ function draftFromSeason(season: RatingsSeason, id: string): Draft {
  * de `huecosDelUltimoOnce`) con 90 minutos, y los jugadores que no son del
  * Castilla, «sin valorar». Todo se puede cambiar a mano.
  */
+/* ---------- copia en el aparato de lo no guardado (16/11/2026) ---------- */
+
+const claveCopia = (id: string) => `valoraciones:sin-guardar:${id}`;
+const oyentesCopia = new Set<() => void>();
+const avisaCopia = () => oyentesCopia.forEach((fn) => fn());
+
+function suscribeCopia(fn: () => void) {
+  oyentesCopia.add(fn);
+  window.addEventListener("storage", fn);
+
+  return () => {
+    oyentesCopia.delete(fn);
+    window.removeEventListener("storage", fn);
+  };
+}
+
+/** La copia sin guardar de un partido, si la hay en este navegador. */
+function useCopiaSinGuardar(id: string): { en: string; draft: Draft } | null {
+  const crudo = useSyncExternalStore(
+    suscribeCopia,
+    () => {
+      try {
+        return id ? localStorage.getItem(claveCopia(id)) : null;
+      } catch {
+        return null;
+      }
+    },
+    () => null,
+  );
+
+  return useMemo(() => {
+    if (!crudo) return null;
+
+    try {
+      const v = JSON.parse(crudo) as { en?: string; draft?: Draft };
+
+      return v.en && v.draft && Object.keys(v.draft).length ? { en: v.en, draft: v.draft } : null;
+    } catch {
+      return null;
+    }
+  }, [crudo]);
+}
+
 function borradorPorDefecto(season: RatingsSeason, players: Player[]): Draft {
   if (players.length === 0) return {};
 
@@ -312,6 +355,43 @@ export function RateMatchPanel({
     });
   };
 
+  /*
+  | COPIA EN EL APARATO (16/11/2026). Las notas del Nàstic se escribieron y el
+  | guardado falló; al recargar se perdían. Mientras haya cambios sin guardar
+  | se copian en el navegador; al guardar bien se borran, y si al abrir el
+  | partido queda una copia, un aviso deja recuperarla.
+  */
+  useEffect(() => {
+    if (!dirty || !selectedId) return;
+
+    try {
+      localStorage.setItem(claveCopia(selectedId), JSON.stringify({ en: new Date().toISOString(), draft }));
+      avisaCopia();
+    } catch {
+      /* sin almacenamiento en este aparato: queda el aviso al salir */
+    }
+  }, [dirty, draft, selectedId]);
+
+  const copia = useCopiaSinGuardar(selectedId);
+  const copiaVigente =
+    copia && !dirty && Date.parse(copia.en) > Date.parse(season.matches[selectedId]?.updatedAt ?? "") ? copia : null;
+
+  const recuperaCopia = () => {
+    if (!copiaVigente) return;
+
+    setState((previous) => ({ ...previous, draft: copiaVigente.draft, dirty: true }));
+    toast.success("Valoraciones sin guardar recuperadas: revisa y pulsa Guardar");
+  };
+
+  const olvidaCopia = () => {
+    try {
+      localStorage.removeItem(claveCopia(selectedId));
+      avisaCopia();
+    } catch {
+      /* nada */
+    }
+  };
+
   useEffect(() => {
     if (!dirty) return;
 
@@ -464,6 +544,7 @@ export function RateMatchPanel({
 
       /* El histórico nuevo llega por props y vuelve a sembrar el borrador. */
       setState((previous) => ({ ...previous, dirty: false }));
+      olvidaCopia();
 
       toast.success(
         `Valoraciones guardadas · ${matchLabel(selected)} (${filled.length} jugadores)`
@@ -1089,6 +1170,24 @@ export function RateMatchPanel({
               </div>
             </div>
           </div>
+
+          {copiaVigente && (
+            <div
+              role="status"
+              className="fixed inset-x-3 bottom-24 z-40 mx-auto flex max-w-xl flex-wrap items-center gap-3 rounded-2xl border border-[#C8A96B]/50 bg-[#111827] px-4 py-3 text-[13px] text-white shadow-[0_12px_40px_rgba(0,0,0,.35)]"
+            >
+              <span className="min-w-0 flex-1">
+                En este aparato hay valoraciones de este partido sin guardar ({Object.keys(copiaVigente.draft).length} jugadores, de las{" "}
+                {new Date(copiaVigente.en).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}).
+              </span>
+              <GoldButton icon={RotateCcw} onClick={recuperaCopia}>
+                Recuperarlas
+              </GoldButton>
+              <GhostButton icon={Trash2} onClick={olvidaCopia}>
+                Tirarlas
+              </GhostButton>
+            </div>
+          )}
         </>
       )}
     </div>

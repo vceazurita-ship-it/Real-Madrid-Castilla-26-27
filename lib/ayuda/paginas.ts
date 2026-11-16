@@ -936,7 +936,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Valoraciones de partido",
     resumen: "La nota que el cuerpo técnico pone a cada jugador en cada partido y lo que sale de ella: ranking, campograma, comparativa e histórico.",
     origen: "Supabase (tabla match_ratings, temporada 2026-2027); los partidos, de la hoja del calendario (la misma que Planes de partido). Minutos, titularidad, goles, asistencias y tarjetas los rellena cada noche BeSoccer (scripts/valoraciones-besoccer.mjs); la nota, las áreas y el comentario, sólo el cuerpo técnico.",
-    revisada: "2026-11-12",
+    revisada: "2026-11-16",
     bloques: [
       {
         titulo: "Registrar",
@@ -970,7 +970,10 @@ export const AYUDAS: AyudaDePagina[] = [
         ],
       },
     ],
-    ojo: ["Es la valoración del cuerpo técnico, no una métrica: se lee junto a los datos, no en su lugar."],
+    ojo: [
+      "Es la valoración del cuerpo técnico, no una métrica: se lee junto a los datos, no en su lugar.",
+      "Lo escrito y sin guardar se copia en el navegador: si el guardado falla o se recarga la página, al volver al partido sale «Recuperarlas» (16/11/2026). Al guardar bien, la copia se borra.",
+    ],
   },
   {
     ruta: "/comparative_ind",
