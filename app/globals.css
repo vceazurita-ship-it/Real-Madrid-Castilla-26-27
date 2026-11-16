@@ -2356,3 +2356,12 @@ html[data-pizarra-abierta] [data-menu-flotante] {
 .viaje-form :is(.text-\[10px\], .text-\[11px\], .text-\[12px\], .text-xs) {
   font-size: 13px;
 }
+
+/* 16/11/2026 (jueces): en el editor del horario, 14 px como mínimo y algo de aire entre letras (la Barlow es estrecha). */
+.viaje-form #viaje-horario :is(.text-\[10px\], .text-\[11px\], .text-\[12px\], .text-xs, .text-\[13px\]) {
+  font-size: 14px;
+}
+
+.viaje-form #viaje-horario {
+  letter-spacing: 0.01em;
+}
