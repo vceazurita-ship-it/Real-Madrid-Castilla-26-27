@@ -27,7 +27,7 @@
  */
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Flame, Swords } from "lucide-react";
 
 import { PanelEquipo } from "@/components/data/PanelEquipo";
@@ -48,6 +48,7 @@ import { FRANJAS, momentumLiga } from "@/lib/opta-estilos";
 import { casaEquipo, enArea } from "@/lib/opta-eventos";
 import { defDe, metricasPartido, partidosPorEquipo, serieEvolucion, type Modo } from "@/lib/opta-evolucion";
 import { mismoClub } from "@/lib/rivals/mismoClub";
+import { useAsoma } from "@/hooks/useAsoma";
 import { puestoEnLiga } from "@/lib/rivals/puesto-liga";
 import type { Sello as DatosSello } from "@/lib/fuentes";
 import { SelloFuente } from "@/components/ui/SelloFuente";
@@ -123,20 +124,21 @@ function useWyscout() {
   return { wys: datos, cargando: datos === null };
 }
 
-export function DatosDelRival({ equipo, rivalId }: { equipo: string; rivalId?: string }) {
-  const caja = useRef<HTMLElement>(null);
-  const [abierto, setAbierto] = useState(false);
+/*
+| Mientras carga, un esqueleto que dice qué viene (16/11/2026, jueces de
+| fútbol): en el móvil salían dos tarjetas en blanco sin rótulo.
+*/
+function Cargando({ texto, alto }: { texto: string; alto: string }) {
+  return (
+    <div role="status" aria-live="polite" className={`flex animate-pulse items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] px-4 text-center text-[13px] text-white/60 ${alto}`}>
+      {texto}
+    </div>
+  );
+}
 
-  /* Nada se pide hasta que la sección asoma (con margen, para que llegue a tiempo). */
-  useEffect(() => {
-    const el = caja.current;
-    if (!el || abierto) return;
-    const io = new IntersectionObserver((entradas) => {
-      if (entradas.some((e) => e.isIntersecting)) setAbierto(true);
-    }, { rootMargin: "300px 0px" });
-    io.observe(el);
-    return () => io.disconnect();
-  }, [abierto]);
+export function DatosDelRival({ equipo, rivalId }: { equipo: string; rivalId?: string }) {
+  /* Se pide al asomar o, como muy tarde, a los 2,5 s de entrar (16/11/2026). */
+  const { caja, abierto } = useAsoma<HTMLElement>();
 
   const q = `equipo=${encodeURIComponent(equipo)}${rivalId ? `&rival=${encodeURIComponent(rivalId)}` : ""}`;
 
@@ -166,9 +168,9 @@ export function DatosDelRival({ equipo, rivalId }: { equipo: string; rivalId?: s
       {abierto ? (
         <Contenido key={equipo} equipo={equipo} />
       ) : (
-        <div className="mt-4 space-y-3" role="status" aria-label="Cargando los datos del rival">
-          <Hueso className="h-24 w-full" />
-          <Hueso className="h-72 w-full" />
+        <div className="mt-4 space-y-3">
+          <Cargando alto="h-24" texto="Cargando las cifras de Opta del rival…" />
+          <Cargando alto="h-40" texto="Cargando su equipo en Wyscout: resultados, fases y estilo…" />
         </div>
       )}
     </section>
@@ -229,7 +231,7 @@ function Contenido({ equipo }: { equipo: string }) {
   return (
     <div className="mt-4 min-w-0 space-y-4">
       {cargaOpta ? (
-        <Hueso className="h-24 w-full" />
+        <Cargando alto="h-24" texto="Cargando las cifras de Opta del rival…" />
       ) : (
         opta && idOpta && <CifrasClave opta={opta} teamId={idOpta} wys={wys?.liga.filter((f) => f.equipo === equipoWys) ?? []} ligaWys={wys?.liga ?? []} sello={selloOpta} />
       )}
@@ -242,7 +244,7 @@ function Contenido({ equipo }: { equipo: string }) {
 
       {vista === "vistazo" &&
         (cargaWys || !wys ? (
-          <Hueso className="h-96 w-full" />
+          <Cargando alto="h-40" texto="Cargando su equipo en Wyscout: resultados, fases y estilo…" />
         ) : (
           <div className="min-w-0">
             <div className="flex justify-end">
@@ -252,7 +254,7 @@ function Contenido({ equipo }: { equipo: string }) {
           </div>
         ))}
 
-      {vista !== "vistazo" && (cargaOpta || !opta) && <Hueso className="h-96 w-full" />}
+      {vista !== "vistazo" && (cargaOpta || !opta) && <Cargando alto="h-40" texto="Cargando los datos de Opta…" />}
       {vista === "estilo" && opta && idOpta && (
         <div className="min-w-0 space-y-4">
           <Momentos opta={opta} teamId={idOpta} sello={selloOpta} />

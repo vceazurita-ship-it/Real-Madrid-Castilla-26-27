@@ -597,6 +597,18 @@ function abpRivalDe(datos: Dataset, equipo: string, ambito: "abp" | "area" | "es
     })),
   }));
 
+  /*
+  | Los 20 equipos en cantidad de centros y acierto (16/11/2026, jueces de
+  | análisis y marketing): el mapa de dos ejes de Área del rival. Sólo sus
+  | centros (los que hace), con la misma población que las tarjetas.
+  */
+  const nubeCentros = (() => {
+    if (ambito !== "area") return null;
+    const propios = destacadosDeEquipo(equipo, liga, equipos, [{ ...ASPECTO_CENTROS, metricas: [...ASPECTO_CENTROS.metricas] }])[0];
+    const nube = propios ? nubeDeAspecto(propios, liga, equipos) : null;
+    return nube && nube.y ? { puntos: nube.puntos, medianaX: nube.medianaX, medianaY: nube.medianaY } : null;
+  })();
+
   const goles = ambito !== "abp" ? null : golesAbpDeEquipo(equipo, liga);
 
   return {
@@ -606,6 +618,7 @@ function abpRivalDe(datos: Dataset, equipo: string, ambito: "abp" | "area" | "es
     lanzadores: ambito !== "abp" ? [] : lanzadoresDe(datos, equipo),
     /* Hasta qué partido llega (16/11/2026): la fecha de su último partido en la descarga. */
     hasta: suyosDe.map((p) => p.fecha).filter(Boolean).sort().at(-1) ?? null,
+    ...(nubeCentros ? { nubeCentros } : {}),
     golesAbp: goles && (goles.aFavor.partidos > 0 || goles.enContra.partidos > 0) ? goles : null,
   };
 }
@@ -685,15 +698,22 @@ function destacadosDe(datos: Dataset, equipo: string, aspectos: string[]) {
           explica: d.aspecto.explica,
           percentil: Math.round(d.percentil),
           desviacion: Math.round(d.desviacion),
-          filas: sostienen.map((f) => ({
-            nombre: f.metrica.nombre,
-            valor: f.valor,
-            mediana: f.mediana,
-            unidad: f.metrica.unidad,
-            percentil: f.percentil,
-            puesto: f.puesto,
-            de: f.de,
-          })),
+          filas: sostienen.map((f) => {
+            /* La base de cada cifra (16/11/2026, jueces de fútbol): «25 de 56 córners», en cuántos partidos. */
+            const filasBase = d.aspecto.key === "abpDef" ? liga.filter((p) => mismoEquipo(p.rival, equipo)) : liga.filter((p) => mismoEquipo(p.equipo, equipo));
+            const base = cocienteEnGrupo(f.metrica, filasBase);
+            return {
+              nombre: f.metrica.nombre,
+              valor: f.valor,
+              mediana: f.mediana,
+              unidad: f.metrica.unidad,
+              percentil: f.percentil,
+              puesto: f.puesto,
+              de: f.de,
+              ...(base ? { base } : {}),
+              partidos: filasBase.length,
+            };
+          }),
           nube: nube
             ? {
                 x: {

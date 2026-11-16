@@ -33,6 +33,9 @@ export type FilaDestacada = {
    */
   puesto?: number;
   de?: number;
+  /** «x de y» de un porcentaje (córners rematados: 25 de 56), y los partidos detrás. */
+  base?: { arriba: number; abajo: number };
+  partidos?: number;
 };
 
 export type EjeNube = {

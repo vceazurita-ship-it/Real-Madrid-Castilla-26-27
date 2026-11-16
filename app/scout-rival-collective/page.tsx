@@ -1468,7 +1468,7 @@ export default function ScoutRivalCollective() {
             </div>
 
             {/* En el móvil, los tres en una fila (16/11/2026, jueces de marketing): más estrechos por debajo de sm. */}
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3" data-export-hide>
+            <div className="order-first flex flex-wrap items-center gap-2 sm:gap-3 lg:order-none" data-export-hide>
               <Link
                 href={enlacePlanDePartido(rivalActivo)}
                 className="inline-flex items-center gap-1.5 rounded-2xl sm:gap-2 bg-[#C8A96B] px-3 py-2 text-[13px] sm:px-5 sm:py-3 sm:text-sm font-semibold text-black transition hover:opacity-90"
@@ -1628,9 +1628,8 @@ export default function ScoutRivalCollective() {
               <ul className="mt-2 grid gap-3 md:grid-cols-3">
                 {dano.map((d) => (
                   <li key={d.campo} className="min-w-0">
-                    <a href={`#campo-${d.campo}`} className="text-[12px] font-semibold text-white/60 hover:text-emerald-300 hover:underline">
-                      {d.rotulo} ↓
-                    </a>
+                    {/* Un solo enlace al pie (16/11/2026, jueces de marketing): tres «↓» seguidos eran ruido. */}
+                    <p className="text-[12px] font-semibold text-white/65">{d.rotulo}</p>
                     <p className="mt-0.5 text-sm leading-6 text-white/85">{conSiglas(sinPortero(sinErratas(conPlantilla(d.texto, nombresRival, fichasRival))))}</p>
                     {d.queHacemos && (
                       <p className="mt-1 text-sm leading-6 text-white/85">
@@ -1650,8 +1649,11 @@ export default function ScoutRivalCollective() {
                   {contrasteFichaUnico(dano.map((d) => conPlantilla(d.texto, nombresRival, fichasRival)))}
                 </p>
               )}
-              <p className="mt-2 text-xs text-white/50">
-                Es lectura de vídeo, sin métrica detrás: las cifras de Wyscout de cada jugador están en su ficha de Plantillas rivales y en Duelos.
+              <p className="mt-2 text-xs text-white/60">
+                Es lectura de vídeo, sin métrica detrás: las cifras de Wyscout de cada jugador están en su ficha de Plantillas rivales y en Duelos.{" "}
+                <a href={`#campo-${dano[0].campo}`} className="font-semibold text-emerald-300 hover:underline">
+                  Las tarjetas enteras, abajo ↓
+                </a>
               </p>
             </section>
           )}
@@ -1692,7 +1694,7 @@ export default function ScoutRivalCollective() {
             <p className="mb-6 rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-2.5 text-[13px] leading-6 text-white/65">
               <b className="text-white/80">Dibujo de referencia: {dibujoMedido.dibujo}</b>{" "}
               <span className="rounded-full border border-white/15 px-1.5 py-px text-[11px] font-semibold text-white/60">dato · BeSoccer</span>
-              {" · "}Salen en {dibujoMedido.dibujo} en {dibujoMedido.veces} de sus {dibujoMedido.de} alineaciones (la misma cuenta que Plantillas rivales)
+              {" · "}Salen en {dibujoMedido.dibujo} en {dibujoMedido.veces} de {dibujoMedido.de} partidos de liga (la misma cuenta que Plantillas rivales)
               {dibujosEscritos.some((d) => d.dibujo !== dibujoMedido.dibujo)
                 ? `; según el analista, se transforman en ${dibujosEscritos.map((d) => `${d.dibujo} ${d.fase}`).join(", ")}. Es el mismo equipo cambiando de forma en cada fase.`
                 : ", lo mismo que ve el analista en cada fase."}{" "}

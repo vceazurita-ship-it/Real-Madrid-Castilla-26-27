@@ -23,6 +23,7 @@ import type { FilaJugador, FilaPartido } from "@/lib/data-analisis/leer";
 import { GRUPOS, formatea } from "@/lib/data-analisis/metricas";
 import { PUESTOS } from "@/lib/data-analisis/individual";
 import {
+  lecturaDeMetrica,
   onceTipoDe,
   perfilDe,
   plantillaDe,
@@ -387,7 +388,8 @@ export function PanelEquipo({
               </div>
             </div>
             <div>
-              <p className="mb-1 text-[10px] uppercase tracking-wider text-white/40">Sistemas</p>
+              {/* Con la fuente y la base (16/11/2026): el dibujo de Plantillas es de BeSoccer y puede no coincidir. */}
+              <p className="mb-1 text-[10px] uppercase tracking-wider text-white/50">Sistemas · Wyscout, {resumen.partidos} partidos</p>
               <div className="flex flex-wrap gap-1">
                 {resumen.sistemas.slice(0, 3).map((s, i) => (
                   <span key={s.sistema} className={`rounded-md px-2 py-1 text-xs ${i === 0 ? "bg-white/10 text-white" : "text-white/50"}`}>
@@ -456,18 +458,43 @@ export function PanelEquipo({
                 const masProg = nuestro.prog - suyo.prog;
                 /* 07/11/2026: por debajo de un 10 % de diferencia, «parecidos», no un titular. */
                 const ordinalDe = (clave: "x" | "y") => [...puntos].sort((a, b) => b[clave] - a[clave]).findIndex((p) => p.id === NOSOTROS) + 1;
-                frente = ` Frente al Castilla, con la misma medida (percentil y puesto de ${puntos.length}): ${c(nuestro.prog)} progresivos, P${Math.round(nuestro.x)} · ${ordinalDe("x")}º, y ${c(nuestro.ent)} entradas, P${Math.round(nuestro.y)} · ${ordinalDe("y")}º. En llegada al área, ${parecidos(suyo.ent, nuestro.ent) ? `diferencia de sólo ${c(Math.abs(masArea))} por partido (menos de un 10 %: parecidos)` : masArea > 0 ? `pisamos más área (+${c(masArea)} por partido)` : `pisa más área que nosotros (+${c(-masArea)} por partido)`}${parecidos(suyo.prog, nuestro.prog) ? `; en progresión, diferencia de sólo ${c(Math.abs(masProg))} (parecidos)` : masProg > 0 ? `; y progresamos más (+${c(masProg)})` : `; y progresa más (+${c(-masProg)})`}.`;
+                frente = `Con la misma medida (percentil y puesto de ${puntos.length}): ${c(nuestro.prog)} progresivos, P${Math.round(nuestro.x)} · ${ordinalDe("x")}º, y ${c(nuestro.ent)} entradas, P${Math.round(nuestro.y)} · ${ordinalDe("y")}º. En llegada al área, ${parecidos(suyo.ent, nuestro.ent) ? `diferencia de sólo ${c(Math.abs(masArea))} por partido (menos de un 10 %: parecidos)` : masArea > 0 ? `pisamos más área (+${c(masArea)} por partido)` : `pisa más área que nosotros (+${c(-masArea)} por partido)`}${parecidos(suyo.prog, nuestro.prog) ? `; en progresión, diferencia de sólo ${c(Math.abs(masProg))} (parecidos)` : masProg > 0 ? `; y progresamos más (+${c(masProg)})` : `; y progresa más (+${c(-masProg)})`}.`;
               }
               /* La orden, según su vía de llegada medida (carreras o centros), no una frase fija.
                  Con la base (07/11/2026): las dos vías no suman el total, el resto llega por otras. */
               const via = `De sus ${c(suyo.ent)} entradas al área por partido, ${c(suyo.centros)} llegan con pase (P${Math.round(suyo.pCentros)}) y ${c(suyo.carreras)} conduciendo (P${Math.round(suyo.pCarreras)})${suyo.ent - suyo.centros - suyo.carreras >= 1 ? `; el resto (${c(suyo.ent - suyo.centros - suyo.carreras)}), por otras vías` : ""}.`;
-              const accion =
+              /*
+              | 16/11/2026 (jueces de fútbol): el párrafo de diez líneas, en tres
+              | frases con su rótulo —qué hace, qué hacemos, qué entrenamos— y la
+              | comparación con el Castilla aparte, más pequeña.
+              */
+              const porCentro = suyo.pCentros >= suyo.pCarreras;
+              const lineas: { rotulo: string; texto: string }[] =
                 equipo === NOSOTROS
-                  ? ""
+                  ? [{ rotulo: "Qué hace", texto: deEl }]
                   : suyo.y >= 60
-                    ? ` ${via} ${suyo.pCentros >= suyo.pCarreras ? "Defender el área con gente y ganar el primer balón." : "Cerrar por dentro y no dejarle encarar de cara."} Qué entrenamos: ${suyo.pCentros >= suyo.pCarreras ? "defensa del área ante centro y pase al hueco, con tres atacantes entrando al área contra cuatro defensas" : "1c1 defensivo orientando hacia fuera y cierre del carril interior ante conducción"}. Qué contar: entradas al área que concede el equipo por partido, con el dato de este rival (${c(suyo.ent)}) como techo de la tarea.`
-                    : ` Llega poco (${c(suyo.ent)} entradas por partido): se le puede dejar progresar por fuera y esperar en el área.`;
-              return <p className="mt-2 rounded-lg border border-[#D8B45A]/30 bg-[#D8B45A]/[0.06] px-3 py-2 text-[13px] leading-relaxed text-white/85"><b>Lectura:</b> {deEl}{frente}{accion}</p>;
+                    ? [
+                        { rotulo: "Qué hace", texto: `${deEl} ${via}` },
+                        { rotulo: "Qué hacemos", texto: porCentro ? "Defender el área con gente y ganar el primer balón." : "Cerrar por dentro y no dejarle encarar de cara." },
+                        {
+                          rotulo: "Qué entrenamos",
+                          texto: `${porCentro ? "Defensa del área ante centro y pase al hueco, con tres atacantes entrando al área contra cuatro defensas" : "1c1 defensivo orientando hacia fuera y cierre del carril interior ante conducción"}; se cuentan las entradas al área que concede el equipo, con su ${c(suyo.ent)} por partido como techo.`,
+                        },
+                      ]
+                    : [
+                        { rotulo: "Qué hace", texto: deEl },
+                        { rotulo: "Qué hacemos", texto: `Llega poco (${c(suyo.ent)} entradas por partido): se le puede dejar progresar por fuera y esperar en el área.` },
+                      ];
+              return (
+                <div className="mt-2 space-y-1 rounded-lg border border-[#D8B45A]/30 bg-[#D8B45A]/[0.06] px-3 py-2 text-[13px] leading-relaxed text-white/85">
+                  {lineas.map((l) => (
+                    <p key={l.rotulo}>
+                      <b>{l.rotulo}:</b> {l.texto}
+                    </p>
+                  ))}
+                  {frente && <p className="text-[12px] text-white/65"><b>Frente al Castilla:</b> {frente}</p>}
+                </div>
+              );
             })()}
             <p className="mt-1 text-[11px] text-white/45">Medias por partido de esta temporada ({Math.max(...puntos.map((p) => p.partidos))} partidos como mucho por equipo): es una tendencia, no un veredicto. «Parecidos» = menos de un 10 % de diferencia en la media por partido.</p>
           </Tarjeta>
@@ -489,19 +516,44 @@ export function PanelEquipo({
         <Tarjeta titulo={`Por fases · contra ${perfil?.equipos ?? "—"} equipos`}>
           {perfil ? (
             <div className="space-y-3">
-              {perfil.fases.map((f) => (
+              {/*
+                16/11/2026 (jueces de fútbol): «P52 · P52 · P52» no decía nada. La
+                media de muchos percentiles tiende a 50; lo que separa una fase de
+                otra es cuántas de sus cifras están en los extremos (6 primeros o
+                6 últimos de la liga, la regla común de lib/rivals/puesto-liga.ts).
+              */}
+              {(() => {
+                const conP = perfil.fases.filter((f) => f.percentil !== null && f.fase !== "general");
+                const ps = conP.map((f) => f.percentil as number);
+                return conP.length >= 2 && Math.max(...ps) - Math.min(...ps) < 5 ? (
+                  <p className="text-[13px] leading-snug text-white/70">
+                    Sus fases salen parejas en la media (P{Math.min(...ps)}–P{Math.max(...ps)}): lo que le distingue son las cifras sueltas en los extremos, que se cuentan debajo de cada una.
+                  </p>
+                ) : null;
+              })()}
+              {perfil.fases.filter((f) => f.percentil !== null).map((f) => {
+                const deLaFase = perfil.metricas.filter((x) => x.metrica.fase === f.fase && x.percentil !== null);
+                const arriba = deLaFase.filter((x) => lecturaDeMetrica(x) === "fuerte").length;
+                const abajo = deLaFase.filter((x) => lecturaDeMetrica(x) === "flojo").length;
+                return (
                 <div key={f.fase}>
                   <div className="flex items-baseline justify-between text-sm">
                     <span className="text-white/80">{f.label}</span>
                     <b className="tabular-nums" style={{ color: colorP(f.percentil) }}>
-                      {f.percentil === null ? "—" : `P${f.percentil}`}
+                      {`P${f.percentil}`}
                     </b>
                   </div>
+                  {deLaFase.length > 0 && (
+                    <p className="text-[12px] tabular-nums text-white/60">
+                      De sus {deLaFase.length} cifras, {arriba} entre los 6 primeros y {abajo} entre los 6 últimos
+                    </p>
+                  )}
                   <div className="mt-1">
                     <Barra valor={f.percentil} color={colorP(f.percentil)} />
                   </div>
                 </div>
-              ))}
+                );
+              })}
               <Explicativo><p className="text-[11px] text-white/35">Media de sus percentiles en cada fase (P50 = la media de su competición).</p></Explicativo>
               {/* 19/10/2026: los tres colores no se explicaban en ningún sitio. */}
               <p className="text-[11px] leading-relaxed text-white/45">
