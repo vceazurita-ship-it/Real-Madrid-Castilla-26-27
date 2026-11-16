@@ -410,7 +410,9 @@ export const PLANTILLAS: PlantillaSlide[] = [
       { code: "R1", label: "Rematador 1", grupo: "rematadores", x: 1000, y: 455 },
       { code: "R2", label: "Rematador 2", grupo: "rematadores", x: 1076, y: 415 },
       { code: "R3", label: "Rematador 3", grupo: "rematadores", x: 1152, y: 375 },
-      { code: "D1", label: "Defensa 1", grupo: "cierra", x: 154, y: 258 },
+      /* 16/11/2026 (jueces): «Defensa 1» no se entendía en un córner a favor; es
+         quien vigila la contra. La clave sigue siendo D1: nadie se mueve. */
+      { code: "D1", label: "Vigilancia 1", grupo: "cierra", x: 154, y: 258 },
       { code: "Z1", label: "Zaguero 1", grupo: "cierra", x: 290, y: 356 },
     ]),
     notas: [
@@ -2486,6 +2488,10 @@ export function normalizaConsigna(texto: string) {
 function puntuaConsigna(texto: string) {
   return texto
     .replace(/\s*\+\s*/g, " + ")
+    /* 16/11/2026 (jueces): «Joan /Mario» → «Joan / Mario» (entre palabras; «1/2» se queda). */
+    .replace(/([A-Za-zÁÉÍÓÚÜÑáéíóúüñ])\s*\/\s*(?=[A-Za-zÁÉÍÓÚÜÑáéíóúüñ])/g, "$1 / ")
+    /* «amplia portería» es el verbo (el adjetivo iría detrás: «portería amplia»). */
+    .replace(/\b([Aa])mplia (la )?(porter[ií]a)/g, (_, a: string, la = "", p: string) => `${a}mplía ${la}${p.replace("porteria", "portería")}`)
     .replace(/\s+([,.;:])/g, "$1")
     .replace(/([,;:])(?=[A-Za-zÁÉÍÓÚÜÑáéíóúüñ])/g, "$1 ")
     .replace(/\s{2,}/g, " ")
