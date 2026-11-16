@@ -66,6 +66,7 @@ import {
   Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { confirmar } from "@/lib/avisos";
 import { TalCual } from "@/components/abp/pizarra/TalCual";
 
 import { Sidebar } from "@/components/ui/sidebar";
@@ -3252,10 +3253,25 @@ export default function PizarraAbpPage() {
                     (copiar y poner el once); lo que falta por diapositiva va en la tira. */}
                 {!guardado && !leyendo && (
                   <div className="mt-4 flex flex-col gap-2 rounded-2xl border border-[#C8A96B]/30 bg-[#C8A96B]/[0.06] px-4 py-2.5 sm:flex-row sm:items-center">
+                    {/* 16/11/2026 (jueces): el rótulo en tinta del tema (en blanco no se
+                        leía en modo día), sin la «@» y con lo que se copia contado. */}
                     <p className="min-w-0 flex-1 text-sm text-white/80">
-                      <b className="font-semibold text-white/95">Pizarra sin empezar.</b>{" "}
+                      <b className="font-semibold" style={{ color: "rgb(var(--rmcf-ink-rgb))" }}>
+                        Pizarra sin empezar.
+                      </b>{" "}
                       {anterior
-                        ? `Trae jugadores, flechas y consignas de ${matchLabel(anterior)}${delOnce.length > 0 ? " con el once de la pizarra táctica ya puesto" : ""}.`
+                        ? (() => {
+                            const origen = store.tableros?.[anterior.id];
+                            const conFichas = (origen?.slides ?? []).filter((s) => s.fichas.length > 0);
+                            const jugadores = new Set(conFichas.flatMap((s) => s.fichas.map((f) => f.playerId).filter(Boolean))).size;
+                            const n = anterior.competition.match(/^Jornada\s+(\d+)/i);
+                            const de = `${n ? `la J${n[1].padStart(2, "0")} · ` : ""}${anterior.opponent} (${anterior.isHome ? "casa" : "fuera"})`;
+                            const cuanto = conFichas.length
+                              ? `${conFichas.length} ${conFichas.length === 1 ? "diapositiva" : "diapositivas"} con ${jugadores} ${jugadores === 1 ? "jugador" : "jugadores"}, sus flechas y sus consignas`
+                              : "jugadores, flechas y consignas";
+
+                            return `Trae ${cuanto} de ${de}${delOnce.length > 0 ? ", con el once de la pizarra táctica ya puesto" : ""}.`;
+                          })()
                         : "Coloca con lo aprendido o pincha un hueco del campo."}
                     </p>
                     {anterior ? (
@@ -3503,14 +3519,30 @@ export default function PizarraAbpPage() {
                         Colocar en esta
                       </Button>
 
-                      <span className={`contents ${masSlide ? "" : "max-sm:hidden"}`}>
+                      {/* 16/11/2026 (jueces): «Quitar» aparte, al otro extremo de la barra, y
+                          con confirmación si la diapositiva tiene algo (el «Deshacer» sigue). */}
+                      <span className={`sm:ml-auto ${masSlide ? "" : "max-sm:hidden"}`}>
                       <Button
                         tone="danger"
                         icon={Trash2}
-                        onClick={quitaSlide}
+                        onClick={async () => {
+                          if (!slide) return;
+                          const conAlgo = slide.fichas.length > 0 || slide.notas.some((n) => n.trim());
+                          if (
+                            conAlgo &&
+                            !(await confirmar({
+                              titulo: `¿Quitar «${slide.titulo}»?`,
+                              texto: `Lleva ${slide.fichas.length} ${slide.fichas.length === 1 ? "ficha" : "fichas"} y sus consignas. Se puede deshacer justo después.`,
+                              aceptar: "Quitar",
+                              peligro: true,
+                            }))
+                          )
+                            return;
+                          quitaSlide();
+                        }}
                         disabled={!tablero || tablero.slides.length <= 1}
                       >
-                        Quitar
+                        Quitar diapositiva
                       </Button>
                       </span>
 
@@ -3660,8 +3692,12 @@ export default function PizarraAbpPage() {
                       return (
                         <p className="flex flex-wrap items-center gap-1.5 border-b border-white/10 bg-amber-300/[0.06] px-3 py-1.5 text-[12px] text-amber-200">
                           <AlertTriangle size={13} className="shrink-0" />
+                          {/* 16/11/2026 (jueces): en palabras del cuerpo técnico, no «R = Rechace largo / Zaguero». */}
                           <span>
-                            {choques.map((c) => `«${c.sigla}» = ${c.significados.join(" / ")}`).join(" · ")}
+                            {choques
+                              .map((c) => `${c.significados.length === 2 ? "Dos puestos" : `${c.significados.length} puestos`} comparten la sigla ${c.sigla} (${c.significados.join(" y ").toLowerCase()})`)
+                              .join(" · ")}
+                            : en la sala no se distinguen.
                           </span>
                           {Object.keys(nuevas).length > 0 && (
                             <button
@@ -3671,7 +3707,7 @@ export default function PizarraAbpPage() {
                               }
                               className="rounded-md border border-current px-2 py-0.5 font-semibold"
                             >
-                              Darles siglas distintas ({Object.values(nuevas).join(", ")})
+                              Renombrarlos {Object.values(nuevas).join(" y ")}
                             </button>
                           )}
                         </p>
@@ -3798,7 +3834,11 @@ export default function PizarraAbpPage() {
                                 </li>
                               ) : (
                                 <li key={`${indice}-${linea.texto}`} className="flex gap-2 text-base leading-snug text-white/85">
-                                  <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded bg-[#0F2036] text-[12px] font-bold text-white ring-1 ring-[#C8A96B]/60">
+                                  {/* 16/11/2026 (jueces): la letra en color fijo; con text-white el modo día la volvía tinta sobre el azul marino. */}
+                                  <span
+                                    className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded bg-[#0F2036] text-[12px] font-bold ring-1 ring-[#C8A96B]/60"
+                                    style={{ color: "#F3E3BF" }}
+                                  >
                                     {String.fromCharCode(64 + Math.min(26, todas.slice(0, indice + 1).filter((una) => una.tipo === "consigna").length))}
                                   </span>
                                   <span className="min-w-0">{ajustaNombres(linea.texto, players).replace(/^\s*\d+[.)ºª]?\s+/, "")}</span>
@@ -4136,7 +4176,7 @@ function FichasSueltasPlegables({
   return (
     <details className="rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3">
       <summary className="flex min-h-[44px] cursor-pointer select-none flex-wrap items-center gap-x-2 text-xs font-medium text-white/70 sm:min-h-0">
-        Fichas sueltas
+        Poner fichas sueltas
         <span className="font-normal text-white/50">
           {enCampo > 0 ? `${enCampo} en esta diapositiva · ` : ""}
           {plantilla} jugadores para poner fuera de un puesto
@@ -4153,9 +4193,11 @@ function PlegadoSiVacio({ vacio, aprendidos = 0, children }: { vacio: boolean; a
   return (
     <details className="mt-5 rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3">
       <summary className="flex min-h-[44px] cursor-pointer select-none flex-wrap items-center gap-x-2 text-xs font-medium text-white/70 sm:min-h-0">
-        Textos, historial y memoria
+        {/* 16/11/2026 (jueces): un verbo y nada de lo que está a cero («0 versiones»). */}
+        Editar textos y ver los puestos aprendidos
         <span className="font-normal text-white/50">
-          título y consignas de cada diapositiva · 0 versiones · {aprendidos} {aprendidos === 1 ? "puesto aprendido" : "puestos aprendidos"}
+          título y consignas de cada diapositiva
+          {aprendidos > 0 ? ` · ${aprendidos} ${aprendidos === 1 ? "puesto aprendido" : "puestos aprendidos"}` : ""}
         </span>
       </summary>
       {children}

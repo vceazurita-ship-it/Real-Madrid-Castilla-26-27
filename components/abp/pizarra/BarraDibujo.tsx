@@ -209,7 +209,8 @@ export function BarraDibujo({
                     style={{ backgroundColor: color, boxShadow: "0 0 0 1px rgba(8,21,36,.5)" }}
                   />
                 )}
-                <span>{item.label}</span>
+                {/* 16/11/2026 (jueces): a 390 px, icono y color; el nombre sólo de la elegida. */}
+                <span className={activa ? "" : "max-sm:sr-only"}>{item.label}</span>
                 <Tecla>{TECLA_HERRAMIENTA[item.key]}</Tecla>
               </button>
             );
@@ -283,7 +284,8 @@ export function BarraDibujo({
           )}
         </div>
 
-        <div className="ml-auto flex flex-wrap items-center gap-1">
+        {/* En el móvil, Proyectar y Reproducir van primero y a lo ancho: es lo que se usa en la sala. */}
+        <div className="ml-auto flex flex-wrap items-center gap-1 max-sm:order-first max-sm:ml-0 max-sm:grid max-sm:w-full max-sm:grid-cols-2">
           <button
             type="button"
             onClick={reproduciendo ? onParar : onReproducir}

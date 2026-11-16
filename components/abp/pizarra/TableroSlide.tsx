@@ -1827,7 +1827,9 @@ export function TableroSlide({
   */
   const enLamina = enLaLamina(slide, portero && porteroPropioDeLaLamina(slide) ? portero : null);
   const resalta = (texto: string): ReactNode => {
-    if (!editaTextos) return texto;
+    /* 16/11/2026 (jueces): con la lámina vacía todos los nombres «faltan» y
+       la marca parecía el subrayado del corrector: no se marca nada. */
+    if (!editaTextos || slide.fichas.length === 0) return texto;
 
     const menciones = mencionesDe(texto, enLamina, players);
 
@@ -1853,7 +1855,8 @@ export function TableroSlide({
           style={
             m.estado === "enlazada"
               ? { boxShadow: "inset 0 -0.18em 0 rgba(200,169,107,.6)", borderRadius: 2 }
-              : { textDecorationLine: "underline", textDecorationStyle: "wavy", textDecorationColor: "rgba(190,18,60,.8)", textDecorationThickness: 2, textUnderlineOffset: 5 }
+              : /* Punteado ámbar, no ondulado rojo: no es una falta de ortografía. */
+                { textDecorationLine: "underline", textDecorationStyle: "dotted", textDecorationColor: "rgba(217,119,6,.9)", textDecorationThickness: 2, textUnderlineOffset: 5 }
           }
         >
           {texto.slice(m.desde, m.hasta)}
