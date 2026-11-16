@@ -69,9 +69,12 @@ export function MapaRemates({
   enContra = false,
   maxAlto = 440,
   soloGolesInicial = false,
+  rotuloGoles,
 }: {
   remates: Remate[];
   ariaLabel: string;
+  /** El rótulo de la cifra de goles («Nos marcaron» en el post del partido). */
+  rotuloGoles?: string;
   /** Abre con «Sólo goles» puesto (el campograma de /analisis-goles). */
   soloGolesInicial?: boolean;
   conTirador?: boolean;
@@ -141,17 +144,28 @@ export function MapaRemates({
       <div className="grid gap-2 sm:grid-cols-4">
         {/* 10/11/2026: con un solo partido, «17,0 por partido» no decía nada. */}
         <Cifra rotulo="Remates" valor={String(r.remates)} detalle={r.partidos && r.partidos > 1 ? `${dec(r.remates / r.partidos, 1)} por partido` : undefined} />
-        <Cifra rotulo={enContra ? "Goles encajados" : "Goles"} valor={String(r.goles)} detalle={`xG ${dec(r.xG, 1)} · ${conSigno(r.golesMenosXG, 1)}`} />
+        <Cifra rotulo={rotuloGoles ?? (enContra ? "Goles encajados" : "Goles")} valor={String(r.goles)} detalle={`xG ${dec(r.xG, 1)} · ${conSigno(r.golesMenosXG, 1)}`} />
         <Cifra rotulo="xG por remate" valor={dec(r.xGPorRemate)} detalle={r.pctPuerta != null ? `${pct(r.pctPuerta)} a puerta` : undefined} />
         {r.xGOTmenosXG != null && (
+          /*
+          | 16/11/2026 (expertos, ronda 17): «+0,7» con 0 goles no se entendía.
+          | Lleva su base (cuántos a puerta de cuántos), y con un solo partido
+          | se dice que es tendencia. Si fue en contra, con signo + y sin gol,
+          | se lee: remates bien dirigidos que paró el portero.
+          */
           <Cifra
             rotulo="Calidad del golpeo"
             valor={conSigno(r.xGOTmenosXG, 1)}
-            detalle={
+            detalle={[
               enContra
-                ? "xG del remate a puerta menos xG del remate, en los suyos: + es que nos golpean bien"
-                : "xG del remate a puerta menos xG del remate: + es buen golpeo"
-            }
+                ? "xG de sus remates a puerta menos xG de sus remates: + es que nos golpean bien"
+                : "xG del remate a puerta menos xG del remate: + es buen golpeo",
+              r.pctPuerta != null && r.remates ? `${Math.round(r.pctPuerta * r.remates)} a puerta de ${r.remates}` : "",
+              enContra && r.goles === 0 && r.xGOTmenosXG >= 0.3 ? "bien dirigidos y parados: el portero sostuvo" : "",
+              r.partidos === 1 ? "un solo partido: tendencia" : "",
+            ]
+              .filter(Boolean)
+              .join(" · ")}
           />
         )}
       </div>

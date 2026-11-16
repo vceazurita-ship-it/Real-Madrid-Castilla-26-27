@@ -65,11 +65,30 @@ function ladosDe(partidos: Fila[], partido: string, teamId: string): [Fila, Fila
   return a && b ? [a, b] : null;
 }
 
-export function CaraACara({ datos, partido, teamId, conAbp = false }: { datos: DatosOpta; partido: string; teamId: string; conAbp?: boolean }) {
+export function CaraACara({
+  datos,
+  partido,
+  teamId,
+  conAbp = false,
+  principales,
+}: {
+  datos: DatosOpta;
+  partido: string;
+  teamId: string;
+  conAbp?: boolean;
+  /**
+   * 16/11/2026 (Data análisis, ronda 17): las filas que se ven de entrada; el
+   * resto, plegado bajo «Ver todas». Sin darlo, salen todas como siempre.
+   */
+  principales?: string[];
+}) {
   const { partidos, catalogo } = datos;
   const lados = useMemo(() => ladosDe(partidos, partido, teamId), [partidos, partido, teamId]);
   if (!lados) return null;
   const [a, b] = lados;
+  const fila = (k: string) =>
+    k in a || k.startsWith("·") ? <FilaCara key={k} def={defDe(k, catalogo)} va={valorDe(a, k, catalogo)} vb={valorDe(b, k, catalogo)} unDecimal={k === "ExpG" || k === "ExpGAg"} /> : null;
+  const resto = principales ? METRICAS.filter((k) => !principales.includes(k) && (k in a || k.startsWith("·"))) : [];
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -81,10 +100,26 @@ export function CaraACara({ datos, partido, teamId, conAbp = false }: { datos: D
           {nombreEquipo(b)}
         </span>
       </div>
-      {METRICAS.map((k) =>
-        k in a || k.startsWith("·") ? <FilaCara key={k} def={defDe(k, catalogo)} va={valorDe(a, k, catalogo)} vb={valorDe(b, k, catalogo)} unDecimal={k === "ExpG" || k === "ExpGAg"} /> : null,
+      {principales ? (
+        <>
+          {principales.map(fila)}
+          {resto.length > 0 && (
+            <details className="group mt-1">
+              <summary className="inline-flex min-h-[36px] cursor-pointer list-none items-center rounded-lg px-1 text-[12px] font-medium text-[#C8A96B] [&::-webkit-details-marker]:hidden">
+                <span className="group-open:hidden">Ver todas las cifras ({resto.length} más)</span>
+                <span className="hidden group-open:inline">Ver sólo las principales</span>
+              </summary>
+              {resto.map(fila)}
+              {conAbp && <FilaCorners datos={datos} partido={partido} a={String(a.teamId)} b={String(b.teamId)} />}
+            </details>
+          )}
+        </>
+      ) : (
+        <>
+          {METRICAS.map(fila)}
+          {conAbp && <FilaCorners datos={datos} partido={partido} a={String(a.teamId)} b={String(b.teamId)} />}
+        </>
       )}
-      {conAbp && <FilaCorners datos={datos} partido={partido} a={String(a.teamId)} b={String(b.teamId)} />}
       <p className="mt-2 text-xs text-white/45">
         En cada fila, la barra más larga es la mayor de las dos y el que sale mejor va en color pleno (↓ menos es mejor). En las de estilo (posesión, centros, pases por
         secuencia) no hay mejor ni peor.{"PPDA" in a ? " PPDA: pases que deja dar el rival antes de que presionemos; menos es más presión." : ""}

@@ -70,12 +70,19 @@ export function RelievePartido({
   jugadores,
   compacto = false,
   partido,
+  quietoAlFinal = false,
 }: {
   eventos: TablaOpta | null | undefined;
   a: Equipo;
   b: Equipo;
   jugadores?: Map<string, JugadorDirecto>;
   compacto?: boolean;
+  /**
+   * 16/11/2026 (expertos, ronda 17): arranca parado en el pitido final, con
+   * el resumen del partido entero; se reproduce al pulsar. Lo usa el post del
+   * partido de Data análisis, que antes se abría a mitad de la primera parte.
+   */
+  quietoAlFinal?: boolean;
   /** Id de Opta del partido: para los colores fijados a mano. */
   partido?: string;
 }) {
@@ -217,12 +224,12 @@ export function RelievePartido({
   };
   const cursorMom = useRef<SVGLineElement>(null);
   const recorteMom = useRef<SVGRectElement>(null);
-  const [jugando, setJugando] = useState(true);
+  const [jugando, setJugando] = useState(!quietoAlFinal);
   const [velocidad, setVelocidad] = useState(1);
-  const [minuto, setMinuto] = useState(0);
+  const [minuto, setMinuto] = useState(() => (quietoAlFinal ? Math.max(0, Math.floor(fin)) : 0));
   const [aviso, setAviso] = useState<(TiroRetrato & { en: number }) | null>(null);
-  const estado = useRef({ t: 0, quieto: 0 });
-  const mandos = useRef({ jugando: true, velocidad: 1, saltar: null as number | null, cenital: true });
+  const estado = useRef({ t: quietoAlFinal ? Math.max(0, fin) : 0, quieto: 0 });
+  const mandos = useRef({ jugando: !quietoAlFinal, velocidad: 1, saltar: null as number | null, cenital: true });
   const [cenital, setCenital] = useState(true);
   useEffect(() => {
     mandos.current.jugando = jugando;
@@ -581,15 +588,16 @@ export function RelievePartido({
   const terrAhora = territorioRetrato(r, minuto);
   const ultima = [...r.tiros].filter((p) => p.minuto <= minuto).sort((x, y) => y.minuto - x.minuto)[0] ?? null;
   const terrPartido = useMemo(() => territorioRetrato(r, null), [r]);
-  /* El máximo del partido (y su minuto), como referencia del momento. */
+  /* El máximo hasta el minuto que se ve (y su minuto). 16/11/2026 (expertos):
+     era el del partido entero y salía «hasta el 24′» al lado de «89 % a los 98′». */
   const terrMax = useMemo(() => {
     let mejor: { v: number; m: number } | null = null;
-    for (let m = 5; m < r.minutos; m++) {
+    for (let m = 5; m <= Math.min(minuto, r.minutos - 1); m++) {
       const v = territorioRetrato(r, m);
       if (v != null && (!mejor || v > mejor.v)) mejor = { v, m };
     }
     return mejor;
-  }, [r]);
+  }, [r, minuto]);
   const golesA = r.tiros.filter((p) => p.gol && p.deA && p.minuto <= minuto).length;
   const golesB = r.tiros.filter((p) => p.gol && !p.deA && p.minuto <= minuto).length;
   const nombre = (id: string) => jugadores?.get(id)?.nombre ?? "";
@@ -653,7 +661,7 @@ export function RelievePartido({
           )}
           {terrMax && (
             <p className="text-xs tabular-nums" style={{ color: "rgba(255,255,255,0.55)" }}>
-              Máximo del partido: {Math.round(terrMax.v * 100)} % a los {terrMax.m}′
+              Máximo hasta el {minuto}′: {Math.round(terrMax.v * 100)} % a los {terrMax.m}′
             </p>
           )}
           {ultima && (
