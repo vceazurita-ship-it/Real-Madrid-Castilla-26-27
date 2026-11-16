@@ -41,7 +41,9 @@ const MAX = Number(arg("max") ?? 60);
 const REHACER = arg("rehacer");
 const SITIO = (process.env.SITIO_PUBLICO || "https://rmcf-castilla.onrender.com").replace(/\/$/, "");
 const CLAVE = "rfef:goles-resumenes";
-const MODELO = "gemini-2.5-flash";
+/* Cada modelo tiene su cupo gratis diario (2.5 Flash: 20 peticiones); al agotarse uno se pasa al siguiente. */
+const MODELOS = ["gemini-2.5-flash", "gemini-3.5-flash-lite", "gemini-3.8-flash"];
+let modelo = 0;
 const PAUSA_MS = 25_000;
 
 const espera = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -97,7 +99,9 @@ const delGrupo = (v) => {
 };
 const pendientes = lista.videos
   .filter((v) => (REHACER ? v.id === REHACER : !doc.videos[v.id] || (!doc.videos[v.id].cuadra && !doc.videos[v.id].reintentado)))
-  .sort((a, b) => delGrupo(a) - delGrupo(b) || b.jornada - a.jornada)
+  /* Sólo nuestro grupo 2 de Primera RFEF (16/11/2026, el analista): el cupo gratis no da para los dos. */
+  .filter((v) => REHACER || process.argv.includes("--otros") || delGrupo(v) === 0)
+  .sort((a, b) => b.jornada - a.jornada)
   .slice(0, MAX);
 
 let hechos = 0;
@@ -116,7 +120,7 @@ for (const v of pendientes) {
   const preguntaUnaVez = async (extra) => {
   const prompt = extra + `Es el resumen oficial de un partido de fútbol: ${v.local} ${v.golesLocal}-${v.golesVisitante} ${v.visitante}. Localiza CADA gol del partido en el vídeo (deberían ser ${esperados}). Para cada gol da el segundo del vídeo en que el balón entra en la portería (la primera vez que se ve, no la repetición), el equipo que marca tal y como aparece en el marcador del título, y una descripción en español de unas 8 palabras con el goleador si se entiende. Si una repetición vuelve a enseñar el mismo gol, no lo cuentes dos veces. Responde SOLO JSON: {"goles":[{"segundo":n,"equipo":"...","descripcion":"..."}]}`;
 
-  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODELO}:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODELOS[modelo]}:generateContent?key=${process.env.GEMINI_API_KEY}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -136,7 +140,16 @@ for (const v of pendientes) {
     for (let n = 0; ; n++) {
       const res = await preguntaUnaVez(extra);
 
-      if (res.r.status !== 429 || n >= 3) return res;
+      const diario = res.r.status === 429 && /per day|PerDay/i.test(JSON.stringify(res.j));
+
+      if (diario && modelo < MODELOS.length - 1) {
+        modelo++;
+        console.log(`  (cupo diario agotado; sigo con ${MODELOS[modelo]})`);
+        n = -1;
+        continue;
+      }
+
+      if (res.r.status !== 429 || diario || n >= 3) return res;
       console.log(`  (límite por minuto de Gemini; espero ${65 * (n + 1)} s)`);
       await espera(65_000 * (n + 1));
     }
