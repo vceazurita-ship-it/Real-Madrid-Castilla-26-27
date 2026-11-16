@@ -114,7 +114,7 @@ export function TiraJornadas({ equipo }: { equipo: string }) {
       ? "concede más que la media: ir a por él desde el principio y llegar con gente al área."
       : marca === "más"
         ? "marca más que la media: cerrar primero su vía de gol y no partirse."
-        : encaja === "menos" && marca !== "más"
+        : encaja === "menos"
           ? "concede poco y marca poco: partido cerrado, paciencia con balón y el balón parado como palanca."
           : "está en la media de la liga en goles: lo deciden los detalles (balón parado y transiciones).";
 
