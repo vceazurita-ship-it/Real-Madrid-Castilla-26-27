@@ -32,7 +32,9 @@ import { useProximoRival } from "@/hooks/useAbpLigas";
 import { useDocsOpta } from "@/hooks/useDocsOpta";
 import { useOptaLigero, type OptaLigero } from "@/hooks/useOptaLigero";
 import { CASTILLA_OPTA, DOCS_OPTA, aObjetos, type TablaOpta } from "@/lib/opta";
-import { fechaCorta, nombreEquipo, type Fila, type PartidoEquipo } from "@/lib/opta-analisis";
+import { fechaCorta, nombreEquipo, partidosDe, type Fila, type PartidoEquipo } from "@/lib/opta-analisis";
+import { useCalendarioCastilla } from "@/components/data/SelloJornada";
+import { partidoDeFecha } from "@/lib/data-analisis/alcance";
 import { accionesCastilla, esPerdida, esRecuperacion, type AccionCastilla } from "@/lib/opta-eventos";
 import {
   METRICAS_LAB,
@@ -90,6 +92,7 @@ export function OptaLaboratorio({
 }) {
   const { opta, cargando } = useOptaLigero();
   const proximo = useProximoRival();
+  const calendario = useCalendarioCastilla();
 
   const castilla = useMemo(
     () => (opta ? contextoGrupo(opta.equipos, opta.grupos, CASTILLA_OPTA, METRICAS_LAB[modo], opta.catalogo) : []),
@@ -120,17 +123,66 @@ export function OptaLaboratorio({
   }
   if (!opta || !castilla.length) return null;
 
-  const hasta = hastaElPartido(opta.meta, opta.partidos);
+  /*
+  | 16/11/2026 (expertos, ronda 17): «hasta el partido del 15 nov» al lado
+  | de un partido elegido del 8 de noviembre confundía. Se dice la jornada
+  | del último partido NUESTRO que tiene Opta y que es la temporada entera,
+  | no el partido elegido.
+  */
+  const ultimoNuestro = partidosDe(opta.partidos, CASTILLA_OPTA).reduce((m, p) => (p.fecha > m ? p.fecha : m), "");
+  const jornadaOpta = calendario && ultimoNuestro ? partidoDeFecha(calendario.partidos, ultimoNuestro)?.jornada ?? null : null;
+  const hasta = ultimoNuestro ? fechaCorta(ultimoNuestro) : hastaElPartido(opta.meta, opta.partidos);
   const deCuantos = castilla[0]?.pos.deCuantos ?? 0;
   const titulo = modo === "robos" ? "Recuperar el balón" : modo === "perdidas" ? "Perder el balón" : "Faltas";
+  const corte = jornadaOpta ? `hasta la J${jornadaOpta} (${hasta})` : hasta ? `hasta el ${hasta}` : "";
+
+  /* Lo que dice el próximo rival de nuestra salida (robos): su presión y dónde recupera. */
+  const lecturaRival = (() => {
+    if (modo !== "robos" || !rival.length) return null;
+    const a3 = rival.find((r) => r.a === "PosWonA3rd");
+    const ppda = rival.find((r) => r.a === "PPDA");
+    if (!a3 || !ppda || a3.pos.percentil == null || ppda.pos.percentil == null || a3.pos.valor == null || ppda.pos.valor == null) return null;
+    const pA3 = Math.round(a3.pos.percentil);
+    const pPpda = Math.round(ppda.pos.percentil);
+    const dato = `${nombreRival}: ${coma(a3.pos.valor)} recuperaciones por partido en el último tercio (P${pA3}) y PPDA ${coma(ppda.pos.valor)} (P${pPpda}).`;
+    const presiona = pPpda >= 60;
+    const esperaAbajo = pPpda <= 40;
+    const recuperaArriba = pA3 >= 60;
+    const lectura = presiona
+      ? recuperaArriba
+        ? "Aprieta pronto y recupera arriba: salida con apoyos cortos cerca del poseedor y el balón largo preparado si nos encierra."
+        : "Aprieta pronto pero recupera poco arriba: si superamos su primera línea de presión, hay campo a la espalda."
+      : esperaAbajo
+        ? "Deja salir y espera en su campo: la salida tendrá tiempo; el trabajo está en atacar un bloque bajo."
+        : "Presiona como la media del grupo: la salida no es donde se decide el partido.";
+    return `${dato} ${lectura}`;
+  })();
+
+  /* Pérdidas: qué quiere decir la del último tercio, que es estilo (16/11/2026). */
+  const lecturaUltimoTercio = (() => {
+    if (modo !== "perdidas") return null;
+    const x = castilla.find((c) => c.a === "PsLostA3");
+    if (!x || x.pos.valor == null || x.pos.mediana == null) return null;
+    const mas = x.pos.valor > x.pos.mediana;
+    return `Pérdidas en el último tercio: ${coma(x.pos.valor)} por partido, liga ${coma(x.pos.mediana)}. ${
+      mas
+        ? "Perdemos más que la media cerca de su área porque llegamos y arriesgamos más ahí; no es un fallo si tras perderla apretamos: lo mide «La recuperamos al momento» de la tabla de arriba."
+        : "Perdemos menos que la media cerca de su área: llegamos menos o arriesgamos menos en el último pase."
+    }`;
+  })();
 
   return (
     <Panel
       title={`Opta · ${titulo}: el Castilla en su grupo`}
-      subtitle={`Por partido, frente a los ${deCuantos} equipos del grupo («liga» = su mediana) · Opta${hasta ? ` · hasta el partido del ${hasta}` : ""}`}
+      subtitle={`Por partido, frente a los ${deCuantos} equipos del grupo («liga» = su mediana) · Opta, temporada${corte ? ` ${corte}` : ""}: es el curso entero, no el partido elegido`}
       icon={Database}
       className={className}
     >
+      {lecturaRival ? (
+        <p className="mb-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[13px] leading-relaxed text-white/80">
+          <b className="text-white">Para nuestra salida.</b> {lecturaRival}
+        </p>
+      ) : null}
       <div className="mb-2">
         <LeyendaPercentil poblacion="el grupo" />
       </div>
@@ -152,6 +204,7 @@ export function OptaLaboratorio({
           En azul, {nombreRival}, el próximo rival: su cifra, su puesto y su marca en la barra.
         </p>
       )}
+      {lecturaUltimoTercio ? <p className="mt-2 text-[12px] leading-relaxed text-white/70">{lecturaUltimoTercio}</p> : null}
 
       {partido && delPartido && (
         <ElPartido modo={modo} partido={partido} opta={opta} delPartido={delPartido} aMano={aMano ?? null} />
@@ -193,7 +246,7 @@ export function ContrasteOpta({ modo, partido, aqui }: { modo: "robos" | "perdid
   return (
     <p className="mt-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[12px] leading-relaxed text-white/70">
       <b className="text-white/85">Aquí, {aqui} pérdidas</b>: todas las vistas en el vídeo, sólo el balón que teníamos y pasa al rival en juego. <b className="text-white/85">Opta, {total}</b>
-      {propio != null ? ` (${propio} en nuestro tercio)` : ""}: suma cada pase que no llega, aunque salga fuera. Por eso no coinciden con Análisis de datos.
+      {propio != null ? ` (${propio} en nuestro tercio)` : ""}: suma cada pase que no llega, cada regate perdido y cada balón robado, aunque salga fuera. Por eso las dos cifras no coinciden, aquí ni en Análisis de datos.
     </p>
   );
 }
@@ -276,7 +329,11 @@ function ElPartido({
           {aMano
             ? cuadra
               ? "Las dos fuentes cuentan lo mismo, las faltas pitadas, y aquí cuadran."
-              : "Manda la lista de esta pantalla: cada falta vista y con su vídeo."
+              : /* 16/11/2026 (expertos, ronda 17): por qué no cuadran, a la vista. */
+                `No cuadran por ${filas
+                  .filter((x) => x.mano != null && x.mano !== x.opta)
+                  .map((x) => `${Math.abs((x.opta ?? 0) - (x.mano ?? 0))} en las ${x.nombre.split(" (")[0].toLowerCase()}`)
+                  .join(" y ")}: las dos cuentan faltas pitadas, pero no siempre apuntan igual una jugada dudosa (en la temporada difieren de 0 a 3 por partido). Manda la lista de esta pantalla: cada falta vista y con su vídeo.`
             : "Opta cuenta las faltas pitadas, lo mismo que se etiqueta aquí."}
         </p>
         {/* 11/11/2026 (experto de fútbol): el descuadre es trabajo del analista;
@@ -335,26 +392,14 @@ function ElPartido({
         })}
       </div>
 
-      {/* 10/11/2026: plegada; la diferencia de cifras ya va dicha arriba en una línea. */}
-      <details className="mt-3 rounded-xl border border-amber-400/30 bg-amber-400/[0.05] px-3 py-2 text-[12px] leading-relaxed text-white/75">
-        <summary className="cursor-pointer font-semibold text-white/85">¿Por qué Opta no cuenta lo mismo que esta pantalla?</summary>
-        {robos ? (
-          <p className="mt-0.5">
-            Aquí se apunta cada robo activo del vídeo: entrada, intercepción o balón ganado apretando. La «recuperación» de Opta es otra cosa: quedarse un balón suelto o uno que
-            el rival nos da; las intercepciones y las entradas ganadas las cuenta aparte. Por eso no se ponen una al lado de la otra.
-          </p>
-        ) : (
-          <p className="mt-0.5">
-            Aquí se apunta sólo el balón que teníamos y pasa a ser del rival con el balón en juego. Opta cuenta como pérdida cada pase que no llega a un compañero, cada regate
-            perdido y cada balón robado, aunque salga del campo: por eso su cifra es mucho más alta y no se pone al lado de la nuestra.
-          </p>
-        )}
-        <Explicativo>
-          <p className="mt-1 text-white/55">
-            Los tercios de Opta parten el campo en tres partes iguales hacia la portería rival, igual que la zona del etiquetado; lo que cambia es qué acción se cuenta.
-          </p>
-        </Explicativo>
-      </details>
+      {/* 16/11/2026 (expertos, ronda 17): el «por qué no coinciden» se dice una
+          sola vez, en la línea bajo la tabla del resumen (ContrasteOpta); aquí
+          se repetía plegado. */}
+      <Explicativo>
+        <p className="mt-2 text-[11px] leading-relaxed text-white/55">
+          Los tercios de Opta parten el campo en tres partes iguales hacia la portería rival, igual que la zona del etiquetado; lo que cambia es qué acción se cuenta.
+        </p>
+      </Explicativo>
 
       {verMapa ? (
         <MapaOpta modo={modo} partidoOpta={String(f.partido ?? "")} />

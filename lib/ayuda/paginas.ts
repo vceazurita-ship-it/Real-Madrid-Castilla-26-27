@@ -127,6 +127,11 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Partidos ya jugados", es: "En el bloque «El partido», junto a En directo: todos los partidos de la temporada que pasaron por el directo, con un buscador por equipo, y al pulsar uno se abre con todo lo que tenía en directo (marcador, balance, tarjetas, mapas, 3D, individual y todas las cifras). No mira si hay directo ni se refresca. Desde el desplegable del directo hay un enlace aquí", cuenta: "La misma pantalla del directo leyendo opta:directo:archivo y opta:directo:<partido>; nada nuevo se guarda" },
           { que: "Partidos sin el Castilla (directo)", es: "Cada tarjeta dice de qué equipo es la cifra: «Ocasiones de Sabadell», «Gimnàstic deja dar demasiados pases a Sabadell», «Amarillas de…» (las de los dos). Rojo y verde se leen desde el equipo de la izquierda (el próximo rival si juega), y la línea de arriba lo dice. Lo mismo en «Últimos 15′» («aprieta Sabadell»), en el balance del final («Gimnàstic: 1 de 3 cifras que deciden, a su favor», con A favor / En contra) y en el balón parado («Lo que repite X a balón parado»)" },
           { que: "Ver otro partido (directo)", es: "Para todos: un desplegable con los partidos de la temporada que ya tienen todos sus datos (plan, mapas, 3D, jugadores) y se abren al momento, también el de ayer; sólo salen los que tienen datos. Con varios partidos en el directo, la tira de arriba y el selector cambian de uno a otro; en la tira, el archivo y la galería, el local va primero", cuenta: "opta:directo:archivo, que actualiza scripts/opta-directo.mjs con cada partido que guarda; la temporada se cargó entera el 14/11/2026 (SIN_INDICE=1 PARTIDO=<id> --chrome, uno a uno)" },
+          {
+            que: "Post del partido (16/11/2026)",
+            es: "Arriba el partido con el local primero («Gimnàstic Tarragona 0-1 Real Madrid Castilla»), y victoria, empate o derrota; el desplegable usa la misma convención. Lo primero, el cara a cara: las 8 cifras clave (goles, xG, remates, a puerta, toques en el área, centros, PPDA y duelos aéreos) y el resto bajo «Ver todas las cifras». En los remates del rival, «Nos marcaron» y la calidad del golpeo con su base (cuántos a puerta de cuántos; con un partido, tendencia). Después el 3D, que sale parado en el final con el partido entero (se reproduce al pulsar) y cuyas cifras siguen al minuto que se ve. Lo que una fuente aún no tiene no sale. Al pie, «¿Qué toca en el microciclo?» con una o dos órdenes atadas a una cifra del cara a cara cuando la diferencia es clara",
+            cuenta: "Órdenes: duelos aéreos ganados por debajo del 45 %; el rival centra 15 veces o más y al menos 1,5 veces lo nuestro; o nos crean 0,5 de xG más de lo que creamos. Como mucho dos",
+          },
           { que: "Lecturas", es: "Cuando dos áreas contestaban lo mismo van en un botón con dos o tres lecturas; la primera es la que se abre" },
           { que: "Sello de fuente", es: "Debajo del título: de qué fuente sale, con quién se compara y hasta qué jornada llega. Opta manda en xG, remates, presión, balón parado y estilo; Wyscout en el perfil del jugador, el once y los duelos" },
           { que: "Resumen", es: "Lo primero que se abre: las claves de la jornada, cada una con el botón que lleva a donde se ve entera, y el mapa de toda la sección. Arriba a la derecha, el buscador de áreas" },
@@ -1109,8 +1114,8 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Mandos",
         filas: [
-          { que: "Equipo y Condición", es: "Cualquier equipo de la liga; Todos, Casa o Fuera (también desde la dirección, ?lugar=casa)" },
-          { que: "Más opciones", es: "Desde y hasta qué jornada, franjas de 5, 10, 15, 30 o 45′, tramos a medida («20, 45, 70») y «Descuentos aparte»" },
+          { que: "Equipo y Condición", es: "Cualquier equipo de la liga, con el Castilla y el próximo rival arriba del desplegable; Todos, Casa o Fuera (también desde la dirección, ?lugar=casa)" },
+          { que: "Cambiar jornadas y franjas", es: "Desde y hasta qué jornada, franjas de 5, 10, 15, 30 o 45′, tramos a medida («20, 45, 70») y «Descuentos aparte»" },
           { que: "45+ y 90+", es: "Los descuentos; sin «Descuentos aparte», cuentan en la última franja de cada parte" },
         ],
       },
@@ -1119,9 +1124,11 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           { que: "Partidos", es: "Los del equipo en el tramo; si al Castilla le falta alguno del calendario, «N de M» y qué jornada falta" },
           { que: "Goles a favor y en contra", es: "Del marcador de cada partido, con la media de los equipos de la liga", cuenta: "Goles ÷ partidos; liga = goles ÷ (partidos × 2), o ÷ partidos con casa o fuera" },
-          { que: "Nuestro mejor tramo / tramo más débil", es: "El que más se separa de la liga marcando (o encajando); si ninguno, el tramo con más goles", cuenta: "Goles del tramo ÷ partidos − lo de un equipo medio de la liga en ese tramo" },
-          { que: "Qué hacemos y qué concedemos", es: "Las frases que salen de las cifras, siempre frente a la media de la liga" },
-          { que: "¿Qué pasa cuando marcamos primero?", es: "Cómo acaban los partidos según quién abre el marcador, frente a la liga en la misma situación", cuenta: "Pts/PJ = (3 × G + E) ÷ PJ; con menos de 5 partidos, «tendencia»" },
+          { que: "La frase de arriba", es: "Cuántos goles en cuántos partidos (y de qué jornadas), a favor y en contra, y si marca y encaja más o menos que la media; con su fuente (BeSoccer y Hudl). Sólo sale con todos los partidos dentro" },
+          { que: "Nuestro mejor tramo / tramo más débil", es: "El que más se separa de la liga marcando (o encajando), en verde o naranja sólo desde 6 goles en ese tramo; con menos, «Más goles a favor / en contra» en neutro, con su base y «tendencia»", cuenta: "Goles del tramo ÷ partidos − lo de un equipo medio de la liga en ese tramo" },
+          { que: "Nuestros goles, tramo a tramo", es: "El título dice de quién son los partidos (equipo, casa o fuera, cuántos y qué jornadas); el pie, las franjas y cuántos goles hay arriba y abajo" },
+          { que: "Qué hacemos y qué concedemos", es: "Las frases que salen de las cifras: goles, tramos y resultados frente a la media de la liga; cómo llegan los goles en contra, de nuestros partidos (Hudl) y sin orden de la semana. En la banda se dice de quién es («su banda derecha, nuestro lado izquierdo»)", cuenta: "Un tramo con 3 goles o menos sale como «tendencia», sin afirmar que marca o encaja más que la liga, y se vigila; desde 4, tarea" },
+          { que: "¿Qué pasa cuando marcamos primero?", es: "Cómo acaban los partidos según quién abre el marcador, frente a la liga en la misma situación", cuenta: "Pts/PJ = (3 × G + E) ÷ PJ; con menos de 5 partidos, «tendencia» junto al nombre de la fila (en el móvil, con G, E y P debajo). La frase sólo dice «remontamos más que la media» o «sabemos cerrar» desde 10 partidos en esa situación; con menos, la cifra y «tendencia»" },
         ],
       },
       {
@@ -3041,7 +3048,8 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Mandos",
         filas: [
-          { que: "Partido", es: "Un botón por jornada etiquetada; abre en el último por fecha" },
+          { que: "Datos hasta la J·", es: "Una línea: la última jornada etiquetada, su rival y fecha, y cuántos partidos hay; si ya se jugó otra, dice que entra en cuanto se etiquete" },
+          { que: "Partido", es: "Un desplegable con las jornadas etiquetadas, la última arriba (abre en ella), y cuántas hay" },
           { que: "Todas / A favor / En contra", es: "A favor = nos la hacen a nosotros; en contra = la cometemos" },
           { que: "Filtrando", es: "Todo lo que se pincha (casilla del campo, distancia, número de defensores, celda de la tabla) filtra la pantalla entera" },
           { que: "Vistas", es: "Resumen, En el campo, Detalle, Por jugador y Falta a falta" },
@@ -3050,10 +3058,11 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Resumen",
         filas: [
-          { que: "Comparativa", es: "El partido frente a la media de los anteriores: faltas a favor y en contra, frontales, en contra en nuestro campo y a favor en campo rival", cuenta: "Media por partido de los anteriores por fecha, con su mínimo y máximo; verde mejor, naranja peor, gris no se juzga" },
-          { que: "Casos escasos", es: "Las filas con muy pocos casos, plegadas aparte" },
-          { que: "Qué hacemos", es: "Las faltas en contra frente a la media, dónde se hicieron y la tarea con su criterio de éxito" },
-          { que: "Opta · el Castilla en su grupo", es: "Faltas cometidas y recibidas por partido según Opta, con su puesto en el grupo; y el partido según Opta al lado del etiquetado" },
+          { que: "Lo que pide trabajo / Qué entrenamos", es: "Arriba, como en Robos y Pérdidas: el objetivo en faltas en contra, lo del partido elegido (jornada y rival), la tarea y el criterio de éxito, en tres líneas", cuenta: "Media de los partidos anteriores con su mínimo y máximo; con menos de 10, tendencia. La zona sólo se nombra si reúne la mitad de las faltas o más y no empata" },
+          { que: "Comparativa", es: "El partido frente a la media de los anteriores: faltas a favor y en contra, frontales, en contra en nuestro campo y a favor en campo rival", cuenta: "Recuentos del partido sin decimales; medias con uno. Media por partido de los anteriores por fecha, con su mínimo y máximo; verde mejor, naranja peor, gris no se juzga. Una fila de «tendencia, pocos casos» (menos de 5) no lleva veredicto. Las faltas a favor dicen si caen dentro de lo de siempre" },
+          { que: "Con 2 casos o menos", es: "Una frase con las filas de muy pocos casos y su media: sólo tendencia" },
+          { que: "A balón parado", es: "Las faltas a favor en campo rival del partido (laterales y frontales), con el enlace a ABP Ofensivo" },
+          { que: "Opta · el Castilla en su grupo", es: "Faltas cometidas y recibidas por partido según Opta, temporada hasta la jornada de nuestro último partido en Opta (no sólo el elegido), con su puesto en el grupo; y el partido según Opta al lado del etiquetado, con una línea de por qué no cuadran si no cuadran" },
           PERCENTIL,
         ],
       },
@@ -3095,8 +3104,9 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Mandos",
         filas: [
-          { que: "Temporada / jornada", es: "Todos los partidos o uno; abre en el último por fecha" },
-          { que: "Ver porcentajes / totales", es: "Cambia las cifras de los gráficos" },
+          { que: "Datos hasta la J·", es: "Una línea: la última jornada etiquetada, su rival y fecha, y cuántos partidos hay (el mismo número que la línea de debajo); si ya se jugó otra, dice que entra en cuanto se etiquete" },
+          { que: "Partido", es: "Un desplegable con las jornadas (la última arriba, abre en ella) y «Temporada entera»" },
+          { que: "Ver en % / en número", es: "Cambia las cifras de los gráficos entre porcentaje y número" },
           { que: "Quitar los dudosos", es: "Saca los robos con confianza baja" },
           { que: "Revisado entero", es: "Cuánto del partido está revisado; si falta, los totales son de esos minutos" },
           { que: "Filtrando", es: "Cualquier sector, barra, leyenda, cifra o celda que se pincha filtra la pantalla entera" },
@@ -3105,11 +3115,12 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Resumen",
         filas: [
-          { que: "Comparativa", es: "El último partido frente a la media de los anteriores: robos, salen hacia delante, acaban en remate o área, la perdemos al momento, robos en campo rival y duración", cuenta: "Media por partido con los mismos filtros, con mínimo y máximo; «muestra pequeña» por debajo de 15" },
-          { que: "Lo que pide trabajo esta semana", es: "La cifra peor que nuestra media, con la tarea y su criterio de éxito («Qué entrenamos para mantenerlo» si todo va bien)" },
+          { que: "Comparativa", es: "El último partido frente a la media de los anteriores: robos, salen hacia delante, acaban en remate o área, la perdemos al momento y robos en campo rival (la duración, que es estilo, va en las conclusiones)", cuenta: "Media por partido con los mismos filtros, con mínimo y máximo; «muestra pequeña» por debajo de 15" },
+          { que: "Lo que pide trabajo esta semana", es: "La cifra peor que nuestra media, con la tarea y su criterio de éxito («Qué entrenamos para mantenerlo» si todo va bien). El titular nombra la jornada y el rival del partido elegido; debajo, tres líneas: dónde estamos, la tarea y el criterio", cuenta: "Si la más justa queda por debajo de la media sin salirse de lo normal, se dice «ligeramente por debajo»; el rango es el de los partidos anteriores etiquetados" },
           { que: "Salen hacia delante", es: "Lo primero tras el robo es un pase o conducción hacia delante", cuenta: "Sobre los robos que se juegan con pase o conducción" },
           { que: "Dura la transición", es: "Segundos de media de la jugada tras el robo" },
-          { que: "Opta · el Castilla en su grupo", es: "Recuperaciones (total y por tercio), intercepciones y PPDA por partido, con su puesto en el grupo" },
+          { que: "Opta · el Castilla en su grupo", es: "Recuperaciones (total y por tercio), intercepciones y PPDA por partido, con su puesto en el grupo: temporada hasta la jornada de nuestro último partido en Opta, no sólo el partido elegido" },
+          { que: "Para nuestra salida", es: "Las recuperaciones en el último tercio y el PPDA del próximo rival, con su percentil, y lo que dicen de nuestra salida", cuenta: "PPDA en P60 o más = aprieta pronto; P40 o menos = espera en su campo. Recuperaciones arriba en P60 o más = recupera arriba" },
           PERCENTIL,
         ],
       },
@@ -3147,8 +3158,9 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Mandos",
         filas: [
-          { que: "Temporada / jornada", es: "Todos los partidos o uno; abre en el último por fecha" },
-          { que: "Ver porcentajes / totales", es: "Cambia las cifras de los gráficos" },
+          { que: "Datos hasta la J·", es: "Una línea: la última jornada etiquetada, su rival y fecha, y cuántos partidos hay (el mismo número que la línea de debajo); si ya se jugó otra, dice que entra en cuanto se etiquete" },
+          { que: "Partido", es: "Un desplegable con las jornadas (la última arriba, abre en ella) y «Temporada entera»" },
+          { que: "Ver en % / en número", es: "Cambia las cifras de los gráficos entre porcentaje y número" },
           { que: "Quitar los dudosos", es: "Saca las pérdidas con confianza media (las que Wyscout no clasifica como pase, conducción o duelo)" },
           { que: "Revisado entero", es: "Cuánto del partido está revisado; si falta, los totales son de esos minutos" },
           { que: "Filtrando", es: "Cualquier sector, barra, leyenda, cifra o celda que se pincha filtra la pantalla entera" },
@@ -3158,10 +3170,11 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Resumen",
         filas: [
           { que: "Comparativa", es: "El último partido frente a la media de los anteriores: pérdidas, el rival sale hacia delante, acaban en remate o en nuestra área, la recuperamos al momento, pérdidas en campo propio y duración de su posesión", cuenta: "Media por partido con los mismos filtros, con mínimo y máximo; aquí, en casi todas, menos es mejor" },
-          { que: "Lo que pide trabajo esta semana", es: "La cifra peor que nuestra media, con la tarea y su criterio de éxito («Qué entrenamos para mantenerlo» si todo va bien)" },
+          { que: "Lo que pide trabajo esta semana", es: "La cifra peor que nuestra media, con la tarea y su criterio de éxito («Qué entrenamos para mantenerlo» si todo va bien). El titular nombra la jornada y el rival; debajo, tres líneas: dónde estamos (con su base, «17 de 30»), la tarea y el criterio con el rango de los partidos anteriores etiquetados" },
+          { que: "Conclusiones", es: "Cuántas, dónde (campo rival = atacando, en su mitad), cuántas en nuestro campo y, si donde más perdemos es campo rival, la tarea de contrapresión con la referencia del partido (cuántas jugó el rival)" },
           { que: "El rival sale hacia delante", es: "Lo primero que hace con el balón es un pase o conducción hacia delante: lo malo", cuenta: "Sobre las pérdidas que el rival llega a jugar" },
           { que: "Dura su transición", es: "Segundos de media de la posesión del rival tras la pérdida" },
-          { que: "Opta · el Castilla en su grupo", es: "Pérdidas (total y por tercio) y balones robados en conducción por partido, con su puesto en el grupo" },
+          { que: "Opta · el Castilla en su grupo", es: "Pérdidas (total y por tercio) y balones robados en conducción por partido, con su puesto en el grupo: temporada hasta la jornada de nuestro último partido en Opta, no sólo el elegido. Las del último tercio son estilo (en gris) y llevan una frase de qué significan", cuenta: "El «por qué no coinciden» con las pérdidas de aquí se dice una vez, bajo la tabla del resumen" },
           PERCENTIL,
         ],
       },

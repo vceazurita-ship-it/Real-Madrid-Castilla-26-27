@@ -86,8 +86,20 @@ export function lecturaFranjas(filas: FilaFranja[], corto = "El equipo") {
   const fuerte = [...conDif].filter((f) => f.gf > 0).sort((a, b) => b.df - a.df)[0];
   const flojo = [...conDif].filter((f) => f.gc > 0).sort((a, b) => b.dc - a.dc)[0];
 
-  if (fuerte && fuerte.df > 0) frases.push(`${corto} marca más que la liga en el ${fuerte.franja.nombre}: ${veces(fuerte.gf)}, ${n2(media(fuerte.gf, partidos))} por partido frente a ${n2(fuerte.ligaPP)} (tendencia, ${partidos} ${partidos === 1 ? "partido" : "partidos"}).`);
-  if (flojo && flojo.dc > 0) frases.push(`${corto} encaja más que la liga en el ${flojo.franja.nombre}: ${veces(flojo.gc)} en contra, ${n2(media(flojo.gc, partidos))} por partido frente a ${n2(flojo.ligaContraPP)} (tendencia, ${partidos} ${partidos === 1 ? "partido" : "partidos"}).`);
+  /* 16/11/2026: con 3 goles o menos, «tendencia» y sin afirmar que marca o encaja más. */
+  const pj = `${partidos} ${partidos === 1 ? "partido" : "partidos"}`;
+  if (fuerte && fuerte.df > 0)
+    frases.push(
+      fuerte.gf <= 3
+        ? `Tendencia en el ${fuerte.franja.nombre}: ${veces(fuerte.gf)} a favor, ${n2(media(fuerte.gf, partidos))} por partido frente a ${n2(fuerte.ligaPP)} de la liga (${pj}).`
+        : `${corto} marca más que la liga en el ${fuerte.franja.nombre}: ${veces(fuerte.gf)}, ${n2(media(fuerte.gf, partidos))} por partido frente a ${n2(fuerte.ligaPP)} (tendencia, ${pj}).`,
+    );
+  if (flojo && flojo.dc > 0)
+    frases.push(
+      flojo.gc <= 3
+        ? `Tendencia en el ${flojo.franja.nombre}: ${veces(flojo.gc)} en contra, ${n2(media(flojo.gc, partidos))} por partido frente a ${n2(flojo.ligaContraPP)} de la liga (${pj}).`
+        : `${corto} encaja más que la liga en el ${flojo.franja.nombre}: ${veces(flojo.gc)} en contra, ${n2(media(flojo.gc, partidos))} por partido frente a ${n2(flojo.ligaContraPP)} (tendencia, ${pj}).`,
+    );
 
   /* Antes y después del descanso. */
   const parte = (p: 1 | 2, k: "gf" | "gc") => filas.filter((f) => f.franja.parte === p).reduce((s, f) => s + f[k], 0);
@@ -146,19 +158,27 @@ export function lecturaTipologia(favor: Map<string, number>, contra: Map<string,
     FASES.map((f) => ({ fase: f.fase, n: f.tipos.reduce((s, t) => s + (m.get(t.clave) ?? 0), 0) }))
       .filter((x) => x.n > 0)
       .sort((a, b) => b.n - a.n);
-  const principales = (m: Map<string, number>) =>
+  /* 16/11/2026 (experto de fútbol): la banda es la del que ataca; en contra se
+     dice de quién es («su banda derecha, nuestro lado izquierdo»). */
+  const nombreTipo = (t: string, enContra: boolean) =>
+    enContra && t === "bandaD"
+      ? "su banda derecha, nuestro lado izquierdo"
+      : enContra && t === "bandaI"
+        ? "su banda izquierda, nuestro lado derecho"
+        : NOMBRE_TIPO[t as TipoGol].toLowerCase();
+  const principales = (m: Map<string, number>, enContra = false) =>
     [...m]
       .filter(([, n]) => n > 0)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 2)
-      .map(([t, n]) => `${NOMBRE_TIPO[t as TipoGol].toLowerCase()} (${n})`);
+      .map(([t, n]) => `${nombreTipo(t, enContra)} (${n})`);
   const fase = (f: string) => (f === "AT. ORGANIZADO" ? "ataque organizado" : f === "TRANSICIÓN" ? "transición" : "balón parado");
 
   const pf = porFase(favor);
   const pc = porFase(contra);
 
   if (pf.length) frases.push(`A favor, ${pf[0].n} de ${totalFavor} en ${fase(pf[0].fase)}; lo que más se repite: ${principales(favor).join(" y ")}.`);
-  if (pc.length) frases.push(`En contra, ${pc[0].n} de ${totalContra} en ${fase(pc[0].fase)}; lo que más se repite: ${principales(contra).join(" y ")}.`);
+  if (pc.length) frases.push(`En contra, ${pc[0].n} de ${totalContra} en ${fase(pc[0].fase)}; lo que más se repite: ${principales(contra, true).join(" y ")}.`);
 
   return frases;
 }
@@ -178,9 +198,14 @@ export function lecturaPrimero(eq: ResumenPrimero, lg: ResumenPrimero, nosotros 
       ? f < 0 ? "se nos escapan ventajas" : f > 0 ? "sabemos cerrar los partidos" : "como el resto"
       : f < 0 ? "se le escapan ventajas" : f > 0 ? "sabe cerrar los partidos" : "como el resto";
 
-    const muestra = eq.propio.n < 5 ? ` (tendencia: ${eq.propio.n} ${eq.propio.n === 1 ? "partido" : "partidos"})` : "";
+    /* 16/11/2026 (expertos, ronda 17): con menos de 10 partidos no hay
+       veredicto («sabemos cerrar», «remontamos más»): sólo la cifra y
+       «tendencia». Con 5 partidos y uno ganado, «remontamos más que la
+       media» era sacar un rasgo de la nada. */
+    const muestra = ` (tendencia: ${eq.propio.n} ${eq.propio.n === 1 ? "partido" : "partidos"})`;
+    const cierre = eq.propio.n < MUESTRA_VEREDICTO ? muestra : `: ${dice}`;
 
-    frases.push(`${nosotros ? "Cuando marcamos primero ganamos" : "Cuando marca primero gana"} ${eq.propio.G} de ${eq.propio.n} (${n2(pts(eq.propio))} puntos por partido; la liga, ${n2(pts(lg.propio))}): ${dice}${muestra}.`);
+    frases.push(`${nosotros ? "Cuando marcamos primero ganamos" : "Cuando marca primero gana"} ${eq.propio.G} de ${eq.propio.n} (${n2(pts(eq.propio))} puntos por partido; la liga, ${n2(pts(lg.propio))})${cierre}.`);
   }
 
   if (eq.rival.n) {
@@ -188,14 +213,17 @@ export function lecturaPrimero(eq: ResumenPrimero, lg: ResumenPrimero, nosotros 
     const dice = nosotros
       ? f > 0 ? "remontamos más que la media" : f < 0 ? "nos cuesta reaccionar" : "reaccionamos como el resto"
       : f > 0 ? "remonta más que la media" : f < 0 ? "le cuesta reaccionar" : "reacciona como el resto";
-    /* 08/11/2026: con menos de 5 partidos es tendencia, no rasgo. */
-    const muestra = eq.rival.n < 5 ? ` (tendencia: ${eq.rival.n} ${eq.rival.n === 1 ? "partido" : "partidos"})` : "";
+    const muestra = ` (tendencia: ${eq.rival.n} ${eq.rival.n === 1 ? "partido" : "partidos"}, ${eq.rival.G} ${eq.rival.G === 1 ? "ganado" : "ganados"})`;
+    const cierre = eq.rival.n < MUESTRA_VEREDICTO ? muestra : `: ${dice}`;
 
-    frases.push(`${nosotros ? "Cuando nos marcan primero sacamos" : "Cuando recibe primero saca"} ${n2(pts(eq.rival))} puntos por partido (la liga, ${n2(pts(lg.rival))}): ${dice}${muestra}.`);
+    frases.push(`${nosotros ? "Cuando nos marcan primero sacamos" : "Cuando recibe primero saca"} ${n2(pts(eq.rival))} puntos por partido (la liga, ${n2(pts(lg.rival))})${cierre}.`);
   }
 
   return frases;
 }
+
+/** Desde cuántos partidos una situación («nos marcan primero») lleva veredicto (16/11/2026). */
+const MUESTRA_VEREDICTO = 10;
 
 /** El aviso de muestra corta. */
 export const avisoMuestra = (partidos: number) => (partidos > 0 && partidos < 10 ? `Son ${partidos} partidos: un gol mueve mucho una franja, léelo como tendencia.` : "");
@@ -264,13 +292,23 @@ export function loImportante(e: EntradaImportante): Importante[] {
   if (flojo) {
     const nombre = tramoLargo(flojo.franja.nombre);
 
+    /* 16/11/2026 (expertos, ronda 17): con 3 goles o menos no se afirma
+       «encaja más que la liga»: es una tendencia y se dice así. */
+    const porPartido = e.incompleto ? "" : `, ${n2(media(flojo.gc, e.partidos))} por partido frente a ${n2(flojo.ligaContraPP)} de la liga`;
     filas.push({
-      texto: `${e.corto} encaja más que la liga en el ${nombre}: ${veces(flojo.gc)} en contra${e.incompleto ? "" : `, ${n2(media(flojo.gc, e.partidos))} por partido frente a ${n2(flojo.ligaContraPP)} de la liga`}${flojo.gc <= 3 ? ` (tendencia, ${base(e.partidos)})` : ""}.`,
+      texto:
+        flojo.gc <= 3
+          ? `Tendencia en el ${nombre}: ${veces(flojo.gc)} en contra${porPartido} (${base(e.partidos)}).`
+          : `${e.corto} encaja más que la liga en el ${nombre}: ${veces(flojo.gc)} en contra${porPartido}.`,
       accion: flojo.gc <= 3 ? vigilar(flojo.gc, nombre) : flojo.franja.parte === 2 && flojo.franja.desde >= 61 ? `Esta semana, ${TAREA_VENTAJA}` : `Esta semana, tarea de concentración y de ajuste defensivo en el tramo ${nombre}, con el partido en marcha.`,
     });
   } else if (fuerte) {
+    const porPartido = e.incompleto ? "" : `, ${n2(media(fuerte.gf, e.partidos))} por partido frente a ${n2(fuerte.ligaPP)} de la liga`;
     filas.push({
-      texto: `${e.corto} marca más que la liga en el ${tramoLargo(fuerte.franja.nombre)}: ${veces(fuerte.gf)}${e.incompleto ? "" : `, ${n2(media(fuerte.gf, e.partidos))} por partido frente a ${n2(fuerte.ligaPP)} de la liga`}${fuerte.gf <= 3 ? ` (tendencia, ${base(e.partidos)})` : ""}.`,
+      texto:
+        fuerte.gf <= 3
+          ? `Tendencia en el ${tramoLargo(fuerte.franja.nombre)}: ${veces(fuerte.gf)} a favor${porPartido} (${base(e.partidos)}).`
+          : `${e.corto} marca más que la liga en el ${tramoLargo(fuerte.franja.nombre)}: ${veces(fuerte.gf)}${porPartido}.`,
       accion: fuerte.gf <= 3 ? vigilar(fuerte.gf, fuerte.franja.nombre) : `Esta semana, repetir en el entrenamiento lo que ocurre en el tramo ${fuerte.franja.nombre} y llevarlo a otros momentos del partido.`,
     });
   }
@@ -293,7 +331,7 @@ export function loImportante(e: EntradaImportante): Importante[] {
     filas.push({ texto: condicion, accion: `Esta semana, ${accion}` });
   }
 
-  if (!e.incompleto && e.primeroEq.propio.n && frente(media(e.primeroEq.propio.G * 3 + e.primeroEq.propio.E, e.primeroEq.propio.n), media(e.primeroLg.propio.G * 3 + e.primeroLg.propio.E, e.primeroLg.propio.n)) < 0) {
+  if (!e.incompleto && e.primeroEq.propio.n >= MUESTRA_VEREDICTO && frente(media(e.primeroEq.propio.G * 3 + e.primeroEq.propio.E, e.primeroEq.propio.n), media(e.primeroLg.propio.G * 3 + e.primeroLg.propio.E, e.primeroLg.propio.n)) < 0) {
     filas.push({ texto: lecturaPrimero(e.primeroEq, e.primeroLg, e.nosotros)[0], accion: `Esta semana, ${TAREA_VENTAJA}` });
   }
 
@@ -301,15 +339,17 @@ export function loImportante(e: EntradaImportante): Importante[] {
     const frases = lecturaTipologia(e.favor, e.contra, 0, e.totalContra);
     const enContra = frases.find((f) => f.startsWith("En contra"));
 
-    if (enContra) {
-      const fase = enContra.includes("balón parado") ? "las acciones de balón parado defensivo" : enContra.includes("transición") ? "la transición defensiva tras pérdida" : "la defensa del ataque organizado del rival";
-
-      filas.push({ texto: enContra, accion: `Esta semana, trabajar ${fase}, que es de donde más goles nos llegan.` });
-    }
+    /*
+    | 16/11/2026 (experto de fútbol): la tipología sólo existe para nuestros
+    | partidos, sin media de la liga con la que comparar «6 de 13 en ataque
+    | organizado». Se dice lo que es, pero sin orden de la semana: sin
+    | referencia, no se sabe si es mucho o lo normal.
+    */
+    if (enContra) filas.push({ texto: `${enContra} Cuenta de nuestros partidos (Hudl).`, accion: "" });
   }
 
   /* 10/11/2026: lo accionable arriba; lo que sólo es «a vigilar» (tendencia), debajo. */
-  const vigila = (f: Importante) => (f.accion.startsWith("A vigilar") ? 1 : 0);
+  const vigila = (f: Importante) => (!f.accion ? 2 : f.accion.startsWith("A vigilar") ? 1 : 0);
   return filas
     .map((f, i) => ({ f, i }))
     .sort((a, b) => vigila(a.f) - vigila(b.f) || a.i - b.i)

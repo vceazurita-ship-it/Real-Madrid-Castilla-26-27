@@ -278,7 +278,10 @@ export function ComparativaPartido({
                  recuento): 64,9 % frente a 64,7 % no es ni mejora ni empeora. */
               const margenIgual = porcentaje ? 2 : Math.max(0.05, Math.abs(m.media ?? 0) * 0.05);
               const igual = d !== null && Math.abs(d) < margenIgual;
-              const mejor = fuera ? false : !indicio && d !== null && juzga && !igual ? (d > 0) === m.mejorAlto : null;
+              /* 16/11/2026 (expertos, ronda 17): una fila de «tendencia, pocos
+                 casos» no lleva veredicto: «2 frente a 3,1 · peor» en rojo con
+                 dos faltas era sacar una conclusión de la nada. */
+              const mejor = fuera ? false : !indicio && !m.tendencia && d !== null && juzga && !igual ? (d > 0) === m.mejorAlto : null;
               /* Una sola regla para la negrita: sólo si la diferencia pesa de
                  verdad (10 puntos en un porcentaje; un 15 % de la media, y al
                  menos medio punto, en un recuento) y la base no es un indicio. */

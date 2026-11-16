@@ -331,14 +331,17 @@ export function alcanceWyscout(partidos: FilaPartido[], calendario: PartidoCalen
 /* ------------------------------------------------------------------ */
 
 /** Para fuentes que sólo tienen partidos nuestros: hasta cuál llegan y si es el último jugado. */
-export function alcanceDeFechas(fuente: string, fechas: string[], calendario: PartidoCalendario[], hoy: string, queEs: string): Alcance {
+export function alcanceDeFechas(fuente: string, fechas: string[], calendario: PartidoCalendario[], hoy: string, queEs: string, cuantos?: number): Alcance {
   const base: Alcance = { fuente, jornada: null, fecha: null, rival: "", estado: "sin-datos", detalle: "", pendientes: [] };
   const conJornada = fechas
     .map((f) => ({ f, p: partidoDeFecha(calendario, f) }))
     .filter((x): x is { f: string; p: PartidoCalendario } => Boolean(x.p))
     .sort((a, b) => b.f.localeCompare(a.f));
   if (!conJornada.length) return { ...base, detalle: `Todavía no hay ${queEs} de ningún partido de liga.`, pendientes: pendientesDesde(calendario, hoy, 0) };
-  return jornadaHecha(fuente, conJornada[0].p, calendario, hoy, queEs, new Set(conJornada.map((x) => x.p.jornada ?? 0)).size);
+  /* 16/11/2026 (expertos, ronda 17): la pantalla puede dar su propio
+     recuento («10 partidos etiquetados»); el sello contaba sólo los que
+     casaban con una jornada del calendario y decía 9 en la línea de al lado. */
+  return jornadaHecha(fuente, conJornada[0].p, calendario, hoy, queEs, cuantos ?? new Set(conJornada.map((x) => x.p.jornada ?? 0)).size);
 }
 
 /** Igual, cuando la fuente ya escribe el número de jornada (el registro propio de ABP). */

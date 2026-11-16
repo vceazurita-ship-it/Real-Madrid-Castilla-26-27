@@ -52,6 +52,49 @@ import { fechaCorta, NOMBRE_CASTILLA } from "@/lib/opta-analisis";
 import { CASTILLA_WYSCOUT, castillaWyscout, emparejaPartidos, enlaceConPartido, temporadaVigente, type PartidoPost } from "@/lib/post-partido";
 
 /**
+ * QUÉ TOCA EN EL MICROCICLO (16/11/2026, expertos, ronda 17): una o dos
+ * órdenes atadas a una cifra del cara a cara, sólo cuando la diferencia es
+ * clara. Sin ninguna clara, no se escribe nada y quedan los enlaces.
+ */
+function ordenesMicro(datos: DatosOpta | null, partido: string, rival: string): string[] {
+  if (!datos) return [];
+  const filas = datos.partidos.filter((f) => String(f.partido ?? "") === partido);
+  const nos = filas.find((f) => f.teamId === CASTILLA_OPTA);
+  const ellos = filas.find((f) => f.teamId !== CASTILLA_OPTA);
+  if (!nos || !ellos) return [];
+  const num = (f: (typeof filas)[number], k: string) => {
+    const v = f[k];
+    return typeof v === "number" && Number.isFinite(v) ? v : null;
+  };
+  const pct = (v: number | null) => (v == null ? null : v <= 1 ? v * 100 : v);
+  const coma = (v: number) => v.toFixed(1).replace(".", ",");
+  const ordenes: string[] = [];
+
+  const aereoNos = pct(num(nos, "Aerial%"));
+  if (aereoNos != null && aereoNos < 45) {
+    ordenes.push(
+      `Duelo aéreo: ganamos el ${coma(aereoNos)} % (${rival}, el ${coma(100 - aereoNos)} %). Tarea de duelo aéreo y segunda jugada, contando los ganados en cada serie; objetivo, pasar del 50 %.`,
+    );
+  }
+  const centrosNos = num(nos, "Crosses");
+  const centrosEllos = num(ellos, "Crosses");
+  if (centrosNos != null && centrosEllos != null && centrosEllos >= 15 && centrosEllos >= centrosNos * 1.5) {
+    ordenes.push(
+      `Centros: ${rival} centró ${centrosEllos} veces y nosotros ${centrosNos}. Tarea de defensa del centro lateral (cerrar al centrador y las marcas en el área), contando los centros que nos llegan al área.`,
+    );
+  }
+  const xgNos = num(nos, "ExpG");
+  const xgEllos = num(ellos, "ExpG");
+  if (ordenes.length < 2 && xgNos != null && xgEllos != null && xgEllos - xgNos >= 0.5) {
+    ordenes.push(`Ocasiones: concedimos ${coma(xgEllos)} de xG y creamos ${coma(xgNos)}. Tarea de defensa del área y de vigilancias, contando los remates que concedemos por serie.`);
+  }
+  return ordenes.slice(0, 2);
+}
+
+/** Las filas del cara a cara que se ven de entrada (16/11/2026): resultado, ocasiones, llegada, centros, presión y duelo aéreo. */
+const PRINCIPALES_CARA = ["Goal", "ExpG", "ShtIncBl", "SOG", "TouchOpBox", "Crosses", "PPDA", "Aerial%"];
+
+/**
  * Lo contado a mano no es de ningún proveedor: no lleva `SelloFuente` (sólo
  * Opta y Wyscout), sino esta chapa con su misma forma, para que se lea igual.
  */
@@ -113,10 +156,28 @@ export function PanelPostPartido({ wyscout, wyscoutCaido = false }: { wyscout: F
   const equiposW = useMemo(() => new Set(ligaW.map((p) => p.equipo)).size, [ligaW]);
 
   const jornadaDe = (p: PartidoPost) => (calendario ? (partidoDeFecha(calendario.partidos, p.fecha)?.jornada ?? null) : null);
+  /* En casa o fuera: el calendario de BeSoccer manda; si no, el nombre del partido en Wyscout. */
+  const enCasaDe = (p: PartidoPost): boolean | null => {
+    const c = calendario ? partidoDeFecha(calendario.partidos, p.fecha) : null;
+    if (c) return /castilla|real madrid/i.test(c.local);
+    return p.wyscout ? p.wyscout.partido.startsWith(CASTILLA_WYSCOUT) : null;
+  };
+  /*
+  | 16/11/2026 (expertos, ronda 17): el marcador, siempre el local primero,
+  | como en el resto de la app («Gimnàstic Tarragona 0-1 Castilla»). Antes la
+  | cabecera ponía el nuestro primero y el desplegable «Gimnàstic 1-0»: el
+  | mismo partido se leía como derrota en un sitio y victoria en otro.
+  */
+  const marcadorLocal = (p: PartidoPost, nuestro: string) => {
+    const casa = enCasaDe(p);
+    const marcador = p.gf != null && p.gc != null ? (casa === false ? `${p.gc}-${p.gf}` : `${p.gf}-${p.gc}`) : "";
+    const [l, v] = casa === false ? [p.rival, nuestro] : [nuestro, p.rival];
+    return { local: l, visitante: v, marcador };
+  };
   const etiqueta = (p: PartidoPost) => {
     const j = jornadaDe(p);
-    const marcador = p.gf != null && p.gc != null ? ` ${p.gf}-${p.gc}` : "";
-    return `${j ? `J${j} · ` : ""}${fechaCorta(p.fecha)} · ${p.rival}${marcador}`;
+    const m = marcadorLocal(p, "Castilla");
+    return `${j ? `J${j} · ` : ""}${m.local}${m.marcador ? ` ${m.marcador} ` : " - "}${m.visitante}`;
   };
 
   if (cargando) {
@@ -138,9 +199,12 @@ export function PanelPostPartido({ wyscout, wyscoutCaido = false }: { wyscout: F
 
   if (!visto) return avisoWyscout || null;
 
-  const cal = calendario ? partidoDeFecha(calendario.partidos, visto.fecha) : null;
-  const enCasa = cal ? /castilla|real madrid/i.test(cal.local) : visto.wyscout ? visto.wyscout.partido.startsWith(CASTILLA_WYSCOUT) : null;
+  const enCasa = enCasaDe(visto);
   const jornada = jornadaDe(visto);
+  const cabecera = marcadorLocal(visto, NOMBRE_CASTILLA);
+  const ordenes = visto.opta ? ordenesMicro(datos, visto.clave, visto.opta.rival ? nombreDe(visto.opta.rivalId, visto.opta.rival) : visto.rival) : [];
+  const resultado =
+    visto.gf == null || visto.gc == null ? "" : visto.gf > visto.gc ? "victoria" : visto.gf < visto.gc ? "derrota" : "empate";
   /* La jornada sólo si es la de verdad (la del calendario de BeSoccer). */
   const hasta = jornada ? `J${jornada}` : undefined;
 
@@ -152,12 +216,12 @@ export function PanelPostPartido({ wyscout, wyscoutCaido = false }: { wyscout: F
       <div className="mt-5 flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 sm:px-5">
         <div className="min-w-0">
           <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">
-            {[jornada ? `Jornada ${jornada}` : "", fechaCorta(visto.fecha), enCasa === null ? "" : enCasa ? "en casa" : "fuera"].filter(Boolean).join(" · ")}
+            {[jornada ? `Jornada ${jornada}` : "", fechaCorta(visto.fecha), enCasa === null ? "" : enCasa ? "en casa" : "fuera", resultado].filter(Boolean).join(" · ")}
           </p>
           <p className="mt-0.5 break-words text-lg font-semibold text-white sm:text-xl">
-            {NOMBRE_CASTILLA}{" "}
-            {visto.gf != null && visto.gc != null && <span className="tabular-nums text-[#C8A96B]">{`${visto.gf}-${visto.gc}`} </span>}
-            {visto.rival}
+            {cabecera.local}{" "}
+            {cabecera.marcador && <span className="tabular-nums text-[#C8A96B]">{cabecera.marcador} </span>}
+            {cabecera.visitante}
           </p>
         </div>
         {lista.length > 1 && (
@@ -165,27 +229,21 @@ export function PanelPostPartido({ wyscout, wyscoutCaido = false }: { wyscout: F
             etiqueta="Partido"
             valor={visto.clave}
             alCambiar={setElegido}
-            className="max-sm:w-full"
+            className="min-w-0 max-w-full max-sm:w-full"
             opciones={lista.map((p) => ({ clave: p.clave, nombre: etiqueta(p) }))}
           />
         )}
       </div>
 
-      {(!visto.opta || (!visto.wyscout && !wyscoutCaido)) && (
-        <div className="mt-3">
-          <Notice tone="info" title={!visto.wyscout ? "Wyscout aún no tiene este partido" : "Opta aún no tiene este partido"}>
-            {!visto.wyscout
-              ? "Su informe suele llegar el martes; entonces sale aquí el partido en el campo."
-              : "Su descarga se hace los lunes; entonces salen aquí el cara a cara, el momentum, los remates y las fases."}
-          </Notice>
-        </div>
-      )}
+      {/* 16/11/2026 (expertos, ronda 17): fuera el aviso «Wyscout aún no tiene
+          este partido»: lo que no hay no se nombra; su bloque simplemente no sale. */}
 
-      {/* 0 · EL PARTIDO EN RELIEVE (14/11/2026): del evento a evento del directo de ese partido. */}
-      {visto.opta && <RelieveDelPartido partido={visto.clave} />}
-
-      {/* 1 · OPTA: EL CARA A CARA, EL MOMENTUM Y LOS REMATES */}
+      {/* 1 · OPTA: EL CARA A CARA, EL MOMENTUM Y LOS REMATES. Lo primero que
+          lee el cuerpo técnico (16/11/2026: antes iba detrás del 3D). */}
       {visto.opta && datos && <BloqueOpta datos={datos} partido={visto} hasta={hasta} />}
+
+      {/* 2 · EL PARTIDO EN RELIEVE (14/11/2026): parado en el final, con el resumen. */}
+      {visto.opta && <RelieveDelPartido partido={visto.clave} />}
 
       {/* 2 · WYSCOUT: EL PARTIDO EN EL CAMPO */}
       {visto.wyscout && (
@@ -234,10 +292,19 @@ export function PanelPostPartido({ wyscout, wyscoutCaido = false }: { wyscout: F
 
       {/* AL PIE: QUÉ SE LLEVA A LA SEMANA */}
       <div className="mt-5 flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.06] px-4 py-3 sm:px-5">
-        <p className="flex min-w-0 items-center gap-2 text-sm font-semibold text-white">
-          <CalendarDays size={16} className="shrink-0 text-[#C8A96B]" />
-          ¿Qué toca en el microciclo?
-        </p>
+        <div className="min-w-0 basis-full sm:basis-auto sm:flex-1">
+          <p className="flex min-w-0 items-center gap-2 text-sm font-semibold text-white">
+            <CalendarDays size={16} className="shrink-0 text-[#C8A96B]" />
+            ¿Qué toca en el microciclo?
+          </p>
+          {ordenes.length > 0 && (
+            <ul className="mt-1.5 space-y-1 text-[13px] leading-snug text-white/80">
+              {ordenes.map((o) => (
+                <li key={o}>· {o}</li>
+              ))}
+            </ul>
+          )}
+        </div>
         <div className="flex flex-wrap gap-2">
           <Link href="/microcycles" className="inline-flex items-center gap-1 rounded-xl border border-white/10 px-3 py-2 text-sm text-white/85 hover:border-[#C8A96B]/50">
             Microciclo <ArrowRight size={14} />
@@ -406,7 +473,9 @@ function BloqueOpta({ datos, partido, hasta }: { datos: DatosOpta; partido: Part
       sello={<SelloFuente fuente="opta" poblacion="cifras del partido" hasta={hasta} partidos={1} className="shrink-0" />}
     >
       <LecturaCara datos={datos} partido={id} rival={lados[1].n} />
-      <CaraACara datos={datos} partido={id} teamId={CASTILLA_OPTA} />
+      {/* 16/11/2026 (expertos, ronda 17): 24 filas sin jerarquía; las 8 clave
+          a la vista y el resto bajo «Ver todas las cifras». */}
+      <CaraACara datos={datos} partido={id} teamId={CASTILLA_OPTA} principales={PRINCIPALES_CARA} />
       <Momentum datos={datos} partido={id} teamId={CASTILLA_OPTA} />
 
       {cargando ? (
@@ -419,7 +488,7 @@ function BloqueOpta({ datos, partido, hasta }: { datos: DatosOpta; partido: Part
               return (
                 <div key={lado.id} className="min-w-0">
                   <h3 className="mb-2 text-sm font-semibold text-white">Remates de {lado.n}</h3>
-                  {rs.length ? <MapaRemates remates={rs} ariaLabel={`Remates de ${lado.n} en el partido`} enContra={lado.id !== CASTILLA_OPTA} maxAlto={360} /> : <p className="text-sm text-white/55">No remató.</p>}
+                  {rs.length ? <MapaRemates remates={rs} ariaLabel={`Remates de ${lado.n} en el partido`} enContra={lado.id !== CASTILLA_OPTA} rotuloGoles={lado.id !== CASTILLA_OPTA ? "Nos marcaron" : undefined} maxAlto={360} /> : <p className="text-sm text-white/55">No remató.</p>}
                 </div>
               );
             })}
@@ -457,14 +526,15 @@ function RelieveDelPartido({ partido }: { partido: string }) {
   const nom = (f: Record<string, unknown>) => (f.teamId === CASTILLA_OPTA ? "Real Madrid Castilla" : String(f.equipo ?? ""));
   if (doc === undefined) return null;
   return (
-    <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+    <section className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
       <h3 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/55">El partido en 3D</h3>
       <p className="mb-2 text-[11px] text-white/45">
         Minuto a minuto (a lo largo), carril del campo (al fondo) y presión de ataque (en altura): oro el Castilla, rojo el rival. Cada pico es un remate de verdad, más alto
-        cuanto más xG; la bola blanca, el gol. Los mapas, la red de pases y cada jugador, en Análisis de datos → En directo.
+        cuanto más xG; la bola blanca, el gol. Sale parado en el final, con el partido entero: pulsa reproducir para verlo minuto a minuto. Los mapas, la red de pases y cada
+        jugador, en Análisis de datos → En directo.
       </p>
       {doc?.eventos?.filas?.length && x && y ? (
-        <RelievePartido eventos={doc.eventos} a={{ teamId: String(x.teamId ?? ""), nombre: nom(x), color: String(x.color ?? ""), campo: String(x.campo ?? "") }} b={{ teamId: String(y.teamId ?? ""), nombre: nom(y), color: String(y.color ?? ""), campo: String(y.campo ?? "") }} partido={partido} />
+        <RelievePartido quietoAlFinal eventos={doc.eventos} a={{ teamId: String(x.teamId ?? ""), nombre: nom(x), color: String(x.color ?? ""), campo: String(x.campo ?? "") }} b={{ teamId: String(y.teamId ?? ""), nombre: nom(y), color: String(y.color ?? ""), campo: String(y.campo ?? "") }} partido={partido} />
       ) : admin ? (
         <button
           type="button"
