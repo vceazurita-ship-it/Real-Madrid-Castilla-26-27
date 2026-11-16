@@ -2588,8 +2588,16 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           { que: "Próximo partido", es: "Jornada, rival, día y hora; si es fuera, desde qué día se viaja y lleva a su desplazamiento" },
           { que: "Partido", es: "Rival con escudos, hora y, si ya se jugó, el resultado (el nuestro primero)" },
-          { que: "Viaje", es: "Los viajes guardados en Desplazamiento, con la hora de salida; los días tras el partido son la vuelta", cuenta: "Partido fuera sin viaje guardado: sale con la salida que propondría Desplazamiento" },
-          { que: "Sesión (MD y minutos)", es: "El MD del día y los minutos de entreno de la hoja, con el contenido de más minutos", cuenta: "Sin la fila del partido; sin MD en la hoja, el MD se saca del próximo partido" },
+          {
+            que: "Viaje",
+            es: "Un renglón ligero con punto morado (el partido manda en la casilla): «Viaje a…» los días antes, «Traslado al estadio» y «Vuelta de…» el día del partido, «Vuelta de…» los días de después, cada uno con su salida",
+            cuenta: "El día del partido, las citas de viaje antes de la hora del partido son el traslado y las de después, la vuelta. Partido fuera sin viaje guardado: sale con la salida que propondría Desplazamiento",
+          },
+          {
+            que: "Sesión (MD y minutos)",
+            es: "El MD del día, los minutos de entreno y el contenido de más minutos, con un punto del color de la fase que manda (como /micro_calendar); en discontinuo y «planificada» si la hoja aún no tiene sus minutos",
+            cuenta: "Sin la fila del partido. MD = días que faltan para el próximo partido, hasta 14, con la regla común del creador de micros; lo planificado sale de la hoja publicada aunque la copia de lo hecho no lo traiga",
+          },
           { que: "Libre", es: "Día sin sesión ni partido entre la primera y la última sesión apuntadas, y el día después de un partido más adelante" },
         ],
       },
@@ -2604,8 +2612,8 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "La cabecera del mes",
         filas: [
-          { que: "Resumen del mes", es: "Cuántos partidos (y jugados), viajes, entrenos en la hoja, eventos del staff, imágenes y PDF hay en el mes" },
-          { que: "Leyenda", es: "Sólo los tipos que tienen algo en el mes que se mira" },
+          { que: "Resumen del mes", es: "Cuántos partidos (y jugados), viajes, entrenos en la hoja, eventos del staff, imágenes y PDF hay en el mes; pulsar partidos, viajes o entrenos deja sólo eso en el mes («Ver todo» lo quita)", cuenta: "Un viaje es un desplazamiento: ida, traslado y vuelta cuentan uno" },
+          { que: "Leyenda", es: "Sólo los tipos que tienen algo en el mes que se mira, los colores de fase de las sesiones y qué es el MD" },
         ],
       },
     ],
@@ -2614,7 +2622,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Si una fuente no llega en 15 s se ofrece reintentar; lo que sí llegó se pinta igual.",
       "Entrenos y partidos se cuentan igual que en /micro_calendar: la fila de competición no es sesión.",
     ],
-    revisada: "2026-11-12",
+    revisada: "2026-11-16",
   },
   /* ==================== CALENDARIO CONDICIONAL (12/11/2026) ==================== */
   {
