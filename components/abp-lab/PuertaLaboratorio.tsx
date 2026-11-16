@@ -22,20 +22,28 @@
  * público (una rutina del Arsenal ya citada en `referentes.ts` y una pregunta
  * del banco, con su fuente). Nada del documento del laboratorio, del rival ni
  * de la plantilla sale sin sesión.
+ *
+ * 16/11/2026 (jueces, ronda 18): la muestra en español y con su base en cada
+ * cifra (qué es ejemplo, de dónde sale y si es medida o modelo), la leyenda de
+ * las letras de la pizarra en lugar de letras sueltas, y el próximo rival con
+ * nombre y un enlace a su ABP (el nombre sale del calendario público, no del
+ * laboratorio). La ventana y el correo siguen: petición expresa del analista.
  */
 
 import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { Lock } from "lucide-react";
+import { Lock, Shield } from "lucide-react";
 import { AbpHeader } from "@/components/abp/ui";
 import type { JugadorLab } from "@/components/abp-lab/comun";
 import { MiniPizarra } from "@/components/abp-lab/PizarraRutina";
+import { CODIGO_PAPEL } from "@/components/abp-lab/Escena";
 import { PuertaAdmin } from "@/components/admin/PuertaAdmin";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { useAdmin } from "@/hooks/useAdmin";
+import { useProximoRival } from "@/hooks/useAbpLigas";
 import { ESQUEMAS } from "@/lib/abp-lab/esquemas";
-import { BANCO, DEFENSAS } from "@/lib/abp-lab/modelo";
+import { BANCO, DEFENSAS, PAPELES } from "@/lib/abp-lab/modelo";
 import { REFERENTES } from "@/lib/abp-lab/referentes";
 import { encajeSistemas } from "@/lib/abp-lab/ventaja";
 import { comaXg } from "@/lib/abp-lab/xg";
@@ -55,13 +63,25 @@ const etiquetaDefensa = (d: string) => (DEFENSAS.find((x) => x.key === d)?.label
 function MuestraPizarra() {
   if (!ESQUEMA || !MUESTRA) return null;
 
+  /* Qué es cada letra de la pizarra, sólo las que salen («Al portero» se lee «Pared delante del portero» en esta rutina). */
+  const papeles = [...new Set(ESQUEMA.roles.map((rol) => rol.papel))];
+  const leyenda = papeles.map((papel) => ({
+    codigo: CODIGO_PAPEL[papel],
+    texto: papel === "portero" ? "pared delante del portero" : (PAPELES.find((x) => x.key === papel)?.label ?? papel).toLowerCase(),
+  }));
+
   return (
-    <div className="overflow-hidden rounded-lg">
-      <MiniPizarra
-        rutina={{ nombre: MUESTRA.nombre, senal: "", tipo: "corner", lado: "ofensivo", contra: "cualquiera", roles: ESQUEMA.roles, balon: ESQUEMA.balon }}
-        porId={SIN_JUGADORES}
-      />
-    </div>
+    <figure className="min-w-0">
+      <div className="overflow-hidden rounded-lg" aria-hidden>
+        <MiniPizarra
+          rutina={{ nombre: MUESTRA.nombre, senal: "", tipo: "corner", lado: "ofensivo", contra: "cualquiera", roles: ESQUEMA.roles, balon: ESQUEMA.balon }}
+          porId={SIN_JUGADORES}
+        />
+      </div>
+      <figcaption className="mt-1.5 text-[11px] leading-snug text-white/60">
+        {leyenda.map((uno) => `${uno.codigo} ${uno.texto}`).join(" · ")}
+      </figcaption>
+    </figure>
   );
 }
 
@@ -78,7 +98,7 @@ function MuestraEncaje() {
 
   return (
     <div className="space-y-2 rounded-lg border border-white/10 bg-white/[0.02] p-3">
-      <p className="text-[11px] uppercase tracking-[0.14em] text-white/55">Goles esperados del remate</p>
+      <p className="text-[11px] font-semibold text-white/70">Goles esperados del remate, según cómo defienda el rival</p>
       {encaje.map((e, i) => (
         <div key={e.defensa} className="grid grid-cols-[4.5rem_minmax(0,1fr)_2.5rem] items-center gap-2 text-[12px]">
           <span className="text-white/70">{etiquetaDefensa(e.defensa)}</span>
@@ -91,6 +111,7 @@ function MuestraEncaje() {
           <span className="text-right font-semibold tabular-nums text-white">{comaXg(e.xg)}</span>
         </div>
       ))}
+      <p className="text-[11px] leading-snug text-white/55">Ejemplo: la rutina del Arsenal de al lado. Estimación del modelo del laboratorio (sitio del remate, marca y duelo aéreo), no una medición: sirve para comparar sistemas.</p>
     </div>
   );
 }
@@ -125,25 +146,26 @@ const HERRAMIENTAS: { titulo: string; texto: string; pie: string; muestra: React
   {
     titulo: "Pizarra viva",
     texto: "La rutina en metros: de dónde sale cada uno, su carrera y el vuelo del balón, en cenital, vista de televisión o a pie de campo.",
-    pie: MUESTRA ? `Muestra: «${MUESTRA.nombre}», del Arsenal contra el ${MUESTRA.contra} (${FUENTE}).` : "",
+    pie: MUESTRA ? `Ejemplo · «${MUESTRA.nombre}», del Arsenal contra el ${MUESTRA.contra}. Fuente: ${FUENTE.replace("Premier League (Opta Analyst)", "web de la Premier League, con datos de Opta")}.` : "",
     muestra: <MuestraPizarra />,
   },
   {
     titulo: "Encaje con el rival",
     texto: "Cuánto vale el remate de la rutina contra zona, mixta y hombre, y qué concede a balón parado el próximo rival en nuestra liga.",
-    pie: "Muestra: esa misma rutina contra los tres sistemas, con el modelo del laboratorio.",
+    pie: "",
     muestra: <MuestraEncaje />,
   },
   {
     titulo: "Retos de proyector",
     texto: "Preguntas a pantalla completa para la plantilla, con cuenta atrás y clasificación de quién acierta.",
-    pie: PREGUNTA?.fuente ? `Pregunta del banco · ${PREGUNTA.fuente.titulo}.` : "",
+    pie: PREGUNTA?.fuente ? "Ejemplo · pregunta del banco. Fuente: The Analyst (Opta), estadística de córners de la Premier League 2022/23, toda la temporada." : "",
     muestra: <MuestraReto />,
   },
 ];
 
 export function PuertaLaboratorio() {
   const { entra } = useAdmin();
+  const proximo = useProximoRival();
   const [aviso, setAviso] = useState(true);
 
   /* «Soy yo»: cierra la ventana y deja el cursor en el usuario, el único camino de entrada. */
@@ -167,7 +189,7 @@ export function PuertaLaboratorio() {
           <div className="flex min-w-0 flex-1 flex-col px-4 pb-24 pt-6 sm:px-6 sm:pb-10 lg:px-10">
             <AbpHeader
               area="RMCF Castilla · Balón parado"
-              title="Prueba una rutina de córner contra el próximo rival"
+              title={proximo ? `Prueba una rutina de córner contra el ${proximo}` : "Prueba una rutina de córner contra el próximo rival"}
               lead="Monta la jugada, mira cómo encaja con el rival y llévala al proyector."
             />
 
@@ -191,7 +213,17 @@ export function PuertaLaboratorio() {
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-white">{titulo}</p>
                       <p className="mt-1 text-[13px] leading-relaxed text-white/70">{texto}</p>
-                      {pie && <p className="mt-2 text-[11px] leading-snug text-white/50">{pie}</p>}
+                      {pie && <p className="mt-2 text-[11px] leading-snug text-white/55">{pie}</p>}
+                      {/* El próximo rival, con nombre y su ABP a un toque: lo que promete la tarjeta. */}
+                      {titulo === "Encaje con el rival" && proximo && (
+                        <Link
+                          href={`/scout-rival-abp?equipo=${encodeURIComponent(proximo)}`}
+                          className="mt-2 inline-flex min-h-9 items-center gap-1.5 rounded-full border border-sky-400/35 bg-sky-400/10 px-3 py-1 text-xs font-semibold text-sky-300 transition hover:bg-sky-400/20"
+                        >
+                          <Shield size={13} aria-hidden />
+                          Próximo rival: {proximo} · su ABP
+                        </Link>
+                      )}
                     </div>
                   </li>
                 ))}
