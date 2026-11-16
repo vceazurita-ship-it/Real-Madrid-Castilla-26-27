@@ -2764,15 +2764,16 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Partido", es: "Jornada, rival con escudos, en casa o fuera y la hora; si ya se jugó, el resultado con su sentido («ganado 1-0», el Castilla primero)" },
           {
             que: "Viaje",
-            es: "Un renglón ligero con punto morado (el partido manda en la casilla): «Viaje a…» los días antes, «Traslado al estadio» y «Vuelta de…» el día del partido, «Vuelta de…» los días de después, cada uno con su salida",
+            es: "Un renglón ligero con punto morado (el partido manda en la casilla): «Viaje a…» los días antes, «Traslado al estadio» y «Vuelta de…» el día del partido, «Vuelta de…» los días de después, cada uno con su primera cita y su nombre: «salida 08:40» sólo si la cita es una salida; si no, la cita como se llama en Desplazamiento («llegada estadio 14:30»). En el día abierto, «Abrir el desplazamiento» lleva a ese viaje",
             cuenta: "El día del partido, las citas de viaje antes de la hora del partido son el traslado y las de después, la vuelta. Partido fuera sin viaje guardado: la misma propuesta que abre Desplazamiento sin distancia (viajeVacio); si esa propuesta no trae hora de salida, no se pinta nada. Una cita sin hora nunca sale",
           },
           {
             que: "Sesión (MD y minutos)",
             es: "El MD del día, los minutos de entreno y el contenido de más minutos, con un punto del color de la fase que manda (como /micro_calendar); en discontinuo y «planificada» si la hoja aún no tiene sus minutos",
-            cuenta: "Sin la fila del partido. MD = días que faltan para el próximo partido, hasta 14, con la regla común del creador de micros; lo planificado sale de la hoja publicada aunque la copia de lo hecho no lo traiga",
+            cuenta: "Sin la fila del partido. MD = días que faltan para el próximo partido, hasta 14, con la regla común del creador de micros; lo planificado sale de la hoja publicada aunque la copia de lo hecho no lo traiga. En los días aún sin sesión, el MD previsto (discontinuo) sólo sale en la semana del partido: MD-5 a MD-1",
           },
           { que: "Libre", es: "Día sin sesión ni partido entre la primera y la última sesión apuntadas, y el día después de un partido más adelante" },
+          { que: "El día abierto: accesos", es: "Una sesión abre su micro y su MD en Microciclos, sus equipos en Jugadores sesión y su análisis de entrenamiento. Un partido jugado, «Informe del partido» (Microciclos en su micro); uno por jugar, el Plan de partido, el ABP y los goles en vídeo del rival, ya elegido", cuenta: "El micro de cada fecha sale de la hoja de registro; el Plan, por el ID de la hoja RIVALES buscado por la fecha" },
         ],
       },
       {
