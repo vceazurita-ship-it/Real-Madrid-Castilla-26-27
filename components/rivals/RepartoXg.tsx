@@ -23,7 +23,26 @@ import { lecturaConcentracion, repartoXg } from "@/lib/rivals/reparto-xg";
 const coma = (v: number, d = 2) => v.toFixed(d).replace(".", ",");
 const miles = (v: number) => Math.round(v).toLocaleString("es-ES");
 
-export function RepartoXg({ equipo }: { equipo: string }) {
+/** Para casar nombres sin tildes ni mayúsculas. */
+const llano = (t: string) => t.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().split(/[^a-z0-9ñ]+/).filter(Boolean);
+
+/**
+ * El nombre de la plantilla en vez del de Opta (16/11/2026, jueces de fútbol):
+ * «Flakus», no «David Flakus Bosilj». Vale si todas las palabras del nombre de
+ * la plantilla están en el de Opta y sólo una ficha casa; si no, el de Opta.
+ */
+export function nombreDePlantilla(opta: string, nombres: string[]) {
+  const deOpta = new Set(llano(opta));
+  const casan = [...new Set(nombres)].filter((n) => {
+    const palabras = llano(n);
+
+    return palabras.length > 0 && palabras.every((p) => deOpta.has(p));
+  });
+
+  return casan.length === 1 ? casan[0] : opta;
+}
+
+export function RepartoXg({ equipo, nombres = [] }: { equipo: string; nombres?: string[] }) {
   const caja = useRef<HTMLDivElement>(null);
   const [abierto, setAbierto] = useState(false);
 
@@ -37,10 +56,10 @@ export function RepartoXg({ equipo }: { equipo: string }) {
     return () => io.disconnect();
   }, [abierto]);
 
-  return <div ref={caja} className="min-w-0">{abierto && <Bloque equipo={equipo} />}</div>;
+  return <div ref={caja} className="min-w-0">{abierto && <Bloque equipo={equipo} nombres={nombres} />}</div>;
 }
 
-function Bloque({ equipo }: { equipo: string }) {
+function Bloque({ equipo, nombres }: { equipo: string; nombres: string[] }) {
   const { docs } = useDocsOpta<[TablaOpta, TablaOpta]>(DOCS_OPTA.equipos, DOCS_OPTA.jugadoresPartidos);
   const [tEquipos, tJugPartidos] = docs;
   const [lado, setLado] = useState<"rival" | "castilla">("rival");
@@ -63,6 +82,8 @@ function Bloque({ equipo }: { equipo: string }) {
   const nombre = esCastilla ? "Real Madrid Castilla" : rival.nombre;
   const color = esCastilla ? ORO : COMPARADO;
   const primero = r.jugadores[0];
+  /* Los del rival con el nombre de su plantilla; los nuestros, como vienen. */
+  const nombreVisto = (jugador: string) => (esCastilla ? jugador : nombreDePlantilla(jugador, nombres));
   const escala = Math.max(...r.jugadores.map((j) => Math.max(j.xg, j.esperado)), 0.01);
 
   return (
@@ -93,7 +114,7 @@ function Bloque({ equipo }: { equipo: string }) {
       {primero && (
         <p className="mt-2 text-sm leading-6 text-white/75">
           <span className="text-2xl font-bold tabular-nums text-white">{coma(r.pctPrimero, 0)} %</span>{" "}
-          del xG de {nombre} es de <strong className="text-white">{primero.jugador}</strong>; los tres primeros suman el {coma(r.pctTres, 0)} %. Gol{" "}
+          del xG de {nombre} es de <strong className="text-white">{nombreVisto(primero.jugador)}</strong>; los tres primeros suman el {coma(r.pctTres, 0)} %. Gol{" "}
           {lecturaConcentracion(r)} ({r.conXg} jugadores con xG, {coma(r.total, 1)} xG en total).
         </p>
       )}
@@ -117,7 +138,7 @@ function Bloque({ equipo }: { equipo: string }) {
               <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 text-[12px]">
                 <span className="min-w-0 truncate font-semibold text-white">
                   <span className="mr-1.5 tabular-nums text-white/40">{i + 1}</span>
-                  {j.jugador}
+                  {nombreVisto(j.jugador)}
                 </span>
                 <span className="shrink-0 tabular-nums text-white/60">
                   <strong className="text-white">{coma(j.pct, 0)} %</strong> · {coma(j.xg)} xG · {miles(j.minutos)}′
@@ -151,7 +172,8 @@ function Bloque({ equipo }: { equipo: string }) {
       </ol>
 
       <p className="mt-3 text-[11px] leading-5 text-white/45">
-        Temporada entera con este equipo. La raya es el xG del equipo entre sus minutos, por los minutos del jugador; «×N media» es cuántas veces eso hace.
+        Temporada entera con este equipo. xG: goles esperados por la calidad de sus remates. La raya es lo que le tocaría por sus minutos con la media del
+        equipo; «×3,2 media» = remata 3,2 veces lo que le tocaría por sus minutos.
       </p>
     </section>
   );

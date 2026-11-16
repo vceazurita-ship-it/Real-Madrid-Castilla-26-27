@@ -361,7 +361,7 @@ export function PanelEquipo({
           <div className="flex flex-wrap items-center gap-5">
             {[
               { t: "PJ", d: "Partidos jugados con informe de Wyscout", v: resumen.partidos },
-              { t: "G-E-P", d: "Ganados, empatados y perdidos", v: `${resumen.g}-${resumen.e}-${resumen.p}` },
+              { t: "V-E-D", d: "Victorias, empates y derrotas", v: `${resumen.g}-${resumen.e}-${resumen.p}` },
               { t: "Goles favor · contra", d: "A favor y en contra", v: `${resumen.gf} · ${resumen.gc}` },
               { t: "Pts/partido", d: "Puntos por partido", v: resumen.partidos ? (resumen.puntos / resumen.partidos).toFixed(2).replace(".", ",") : "—" },
             ].map((k) => (
@@ -371,16 +371,17 @@ export function PanelEquipo({
               </div>
             ))}
             <div>
-              <p className="mb-1 text-[10px] uppercase tracking-wider text-white/40">Últimos 5</p>
+              {/* V/E/D y el más reciente a la derecha, como en Plantillas (16/11/2026, jueces de fútbol). */}
+              <p className="mb-1 text-[10px] uppercase tracking-wider text-white/40">Últimos {resumen.forma.length} · el más reciente, a la derecha</p>
               <div className="flex gap-1">
-                {resumen.forma.map((f) => (
+                {[...resumen.forma].reverse().map((f) => (
                   <span
                     key={f.fecha + f.rival}
                     className="flex h-7 w-7 items-center justify-center rounded-md text-[11px] font-bold text-[#0B0F14]"
                     style={{ background: COLOR_RES[f.resultado] }}
                     title={`${f.fecha.split("-").reverse().join("/")} · ${f.casa ? "vs" : "en"} ${f.rival} ${f.marcador}`}
                   >
-                    {f.resultado}
+                    {f.resultado === "G" ? "V" : f.resultado === "P" ? "D" : "E"}
                   </span>
                 ))}
               </div>
@@ -534,12 +535,12 @@ export function PanelEquipo({
                     <b className="text-white/90">{formatea(x.valor, x.metrica.unidad)}</b>
                     <span className="text-white/40">
                       {" "}
-                      · mediana {formatea(x.mediana, x.metrica.unidad)} · {ordinal(x.puestoDeMas)}
+                      · mediana {formatea(x.mediana, x.metrica.unidad)} · {ordinal(x.metrica.mejorAlto === null ? x.puestoDeMas : x.puesto)} de {x.de}
                     </span>
                   </span>
                 </div>
               ))}
-              <Explicativo><p className="pt-1 text-[11px] text-white/35">Cómo juega, no si lo hace bien: 1º = el que más (en PPDA, el que menos presiona; el que más aprieta es el último).</p></Explicativo>
+              <Explicativo><p className="pt-1 text-[11px] text-white/35">Cómo juega. El puesto es el mismo que en «Donde destaca» y en Plantillas: en las cifras con sentido, 1º = el mejor (en PPDA, el que más aprieta); en las de estilo puro (centros, juego largo…), 1º = el que más.</p></Explicativo>
             </div>
           </Tarjeta>
         </div>

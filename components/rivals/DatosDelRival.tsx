@@ -48,6 +48,7 @@ import { FRANJAS, momentumLiga } from "@/lib/opta-estilos";
 import { casaEquipo, enArea } from "@/lib/opta-eventos";
 import { defDe, metricasPartido, partidosPorEquipo, serieEvolucion, type Modo } from "@/lib/opta-evolucion";
 import { mismoClub } from "@/lib/rivals/mismoClub";
+import { puestoEnLiga } from "@/lib/rivals/puesto-liga";
 import type { Sello as DatosSello } from "@/lib/fuentes";
 import { SelloFuente } from "@/components/ui/SelloFuente";
 
@@ -230,7 +231,7 @@ function Contenido({ equipo }: { equipo: string }) {
       {cargaOpta ? (
         <Hueso className="h-24 w-full" />
       ) : (
-        opta && idOpta && <CifrasClave opta={opta} teamId={idOpta} wys={wys?.liga.filter((f) => f.equipo === equipoWys) ?? []} sello={selloOpta} />
+        opta && idOpta && <CifrasClave opta={opta} teamId={idOpta} wys={wys?.liga.filter((f) => f.equipo === equipoWys) ?? []} ligaWys={wys?.liga ?? []} sello={selloOpta} />
       )}
 
       {pestanas.length > 1 && (
@@ -273,7 +274,7 @@ function Contenido({ equipo }: { equipo: string }) {
 /*  LAS CUATRO CIFRAS (Opta manda, Wyscout segunda lectura)            */
 /* ------------------------------------------------------------------ */
 
-function CifrasClave({ opta, teamId, wys, sello }: { opta: DatosOpta; teamId: string; wys: FilaPartido[]; sello: DatosSello | null }) {
+function CifrasClave({ opta, teamId, wys, ligaWys, sello }: { opta: DatosOpta; teamId: string; wys: FilaPartido[]; ligaWys: FilaPartido[]; sello: DatosSello | null }) {
   const { equipos, grupos, catalogo } = opta;
   const fila = equipos.find((f) => f.teamId === teamId);
   const delGrupo = useMemo(() => equipos.filter((f) => grupos.get(String(f.teamId ?? "")) === grupos.get(teamId)), [equipos, grupos, teamId]);
@@ -283,12 +284,26 @@ function CifrasClave({ opta, teamId, wys, sello }: { opta: DatosOpta; teamId: st
     const v = valorEquipo(fila, c.a, "partido", catalogo);
     if (v == null) return null;
     const muestra = delGrupo.map((f) => valorEquipo(f, c.a, "partido", catalogo));
-    /* PPDA es estilo: se dice el puesto de los que más aprietan (menos PPDA), no un «mejor». */
-    const puesto = muestra.filter((x): x is number => x != null && (c.estilo ? x < v : x > v)).length + 1;
+    /* PPDA es estilo: se dice el puesto de los que más aprietan (menos PPDA), no un «mejor». Con la cuenta común (16/11/2026). */
+    const validos = muestra.filter((x): x is number => x != null);
+    const puesto = puestoEnLiga(v, validos, c.estilo ? false : c.inverso ? false : true)?.puesto ?? validos.filter((x) => (c.estilo ? x < v : x > v)).length + 1;
     const p = c.estilo ? null : percentil(v, muestra, c.inverso);
     const met = METRICA_POR_KEY.get(c.wys);
     const otra = met && wys.length ? valorEnGrupo(met, wys, "promedio") : null;
-    return { ...c, v, p, puesto, de: muestra.filter((x) => x != null).length, otra: otra != null ? formatea(otra, met!.unidad) : "" };
+    /*
+    | El puesto de la 2.ª lectura, con la misma cuenta y los equipos de su
+    | competición en Wyscout (16/11/2026, jueces de fútbol): en PPDA Opta daba
+    | «5.º» y Wyscout «2.º» en la misma pantalla sin decir por qué.
+    */
+    const comp = wys[0]?.competicion;
+    const deLaComp = comp ? ligaWys.filter((f) => f.competicion === comp) : [];
+    const valoresWys = met
+      ? [...new Set(deLaComp.map((f) => f.equipo))]
+          .map((e) => valorEnGrupo(met, deLaComp.filter((f) => f.equipo === e), "promedio"))
+          .filter((x): x is number => x != null)
+      : [];
+    const puestoOtra = met && otra != null ? puestoEnLiga(otra, valoresWys, met.mejorAlto)?.puesto ?? null : null;
+    return { ...c, v, p, puesto, de: validos.length, otra: otra != null ? formatea(otra, met!.unidad) : "", puestoOtra };
   }).filter((x): x is NonNullable<typeof x> => x !== null);
   if (!cifras.length) return null;
 
@@ -306,10 +321,21 @@ function CifrasClave({ opta, teamId, wys, sello }: { opta: DatosOpta; teamId: st
             <p className="text-[11px] text-white/50">
               {c.estilo ? `${c.puesto}.º que más aprieta de ${c.de}` : c.p != null ? `P${c.p} en su grupo` : ""}
             </p>
-            {c.otra && <p className="mt-0.5 text-[10px] text-white/35">2.ª lectura · Wyscout {c.otra}</p>}
+            {c.otra && (
+              <p className="mt-0.5 text-[11px] text-white/50">
+                2.ª lectura · Wyscout {c.otra}
+                {c.estilo && c.puestoOtra != null ? ` (${c.puestoOtra}.º)` : ""}
+              </p>
+            )}
           </div>
         ))}
       </div>
+      {cifras.some((c) => c.estilo && c.puestoOtra != null && c.puestoOtra !== c.puesto) && (
+        <p className="mt-3 text-[12px] leading-snug text-white/60">
+          El PPDA de Opta y el de Wyscout no salen iguales: cada proveedor cuenta a su manera las acciones defensivas que dividen los pases
+          rivales. Por eso el puesto cambia de una a otra; aquí manda Opta y, en el resto de la pantalla, la cifra de Wyscout va rotulada como 2.ª lectura.
+        </p>
+      )}
     </div>
   );
 }

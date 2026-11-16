@@ -462,7 +462,7 @@ export function AbpWyscoutRival({
 
     /* v=5 (11/11/2026): la respuesta trae el mínimo y el máximo de la liga para la barra. */
     traeJson<{ ok?: boolean } & Partial<Datos>>(
-      `/api/data-analisis?abpRival=${encodeURIComponent(equipo)}${ambito === "area" ? "&ambito=area" : ""}&v=5`,
+      `/api/data-analisis?abpRival=${encodeURIComponent(equipo)}${ambito === "area" ? "&ambito=area" : ""}&v=6`,
     )
       .then((r) => {
         if (cancelado) return;

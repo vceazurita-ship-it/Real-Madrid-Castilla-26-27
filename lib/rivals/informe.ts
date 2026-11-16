@@ -479,6 +479,33 @@ export function esLiga(partido: Partido) {
   return !/amistos/i.test(partido.competicion);
 }
 
+/** «Primera Federación. Jornada 11» → «Primera Federación»: BeSoccer mete la jornada en la competición. */
+const competicionSinJornada = (c?: string | null) => (c ?? "").replace(/[.,\s-]*jornada\s*\d+.*$/i, "").trim();
+
+/**
+ * Sólo los partidos de SU liga (16/11/2026, jueces de fútbol).
+ *
+ * `esLiga` deja fuera los amistosos, pero la copa y los torneos de verano
+ * (Mazarrón, Cotillas, Mensajero…) pasaban: el Scout colectivo decía «sus 17
+ * partidos de liga: 10V 2E 5D» cuando en liga eran 12 (6-2-4, lo mismo que
+ * Wyscout). La liga es la competición oficial en la que más ha jugado, la
+ * misma regla que la portada (`/api/data-analisis`).
+ */
+export function deSuLiga<P extends Partido>(partidos: P[]): P[] {
+  const oficiales = partidos.filter(esLiga);
+  const cuantas = new Map<string, number>();
+
+  for (const p of oficiales) {
+    const c = competicionSinJornada(p.competicion);
+
+    cuantas.set(c, (cuantas.get(c) ?? 0) + 1);
+  }
+
+  const liga = [...cuantas.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+
+  return liga === undefined ? oficiales : oficiales.filter((p) => competicionSinJornada(p.competicion) === liga);
+}
+
 /* ------------------------------------------------------------------ */
 /*  ONCES: QUIÉN ACABA EL PARTIDO Y CON QUÉ DIBUJO                     */
 /* ------------------------------------------------------------------ */

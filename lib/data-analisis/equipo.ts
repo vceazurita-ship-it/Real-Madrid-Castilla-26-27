@@ -305,7 +305,7 @@ export function sintesisDe(equipo: string, resumen: ResumenEquipo, perfil: Perfi
   if (resumen.partidos) {
     const ppp = (resumen.puntos / resumen.partidos).toFixed(2).replace(".", ",");
     frases.push(
-      `${resumen.g}G ${resumen.e}E ${resumen.p}P en ${resumen.partidos} partidos (${ppp} puntos por partido${
+      `${resumen.g}V ${resumen.e}E ${resumen.p}D en ${resumen.partidos} partidos (${ppp} puntos por partido${
         resumen.tabla ? `, ${ordinal(resumen.tabla.puesto)} de ${resumen.tabla.de} por puntos por partido` : ""
       }), ${resumen.gf} goles a favor y ${resumen.gc} en contra.`,
     );
@@ -328,7 +328,8 @@ export function sintesisDe(equipo: string, resumen: ResumenEquipo, perfil: Perfi
       frases.push(
         `Ninguna fase de su juego pasa de la mediana (la mejor, ${mejorFase[0].label.toLowerCase()}, ${mejorFase[0].percentil} de 100); la más floja, ${mejorFase[mejorFase.length - 1].label.toLowerCase()} (${mejorFase[mejorFase.length - 1].percentil} de 100)${yResultado}.`,
       );
-    } else if (mejorFase.length >= 2) {
+    } else if (mejorFase.length >= 2 && mejorFase[0].percentil !== mejorFase[mejorFase.length - 1].percentil) {
+      /* Con las fases empatadas no hay «lo mejor» ni «lo menos destacado»: la frase no sale (16/11/2026, jueces de fútbol). */
       frases.push(
         `Lo mejor de su juego, ${mejorFase[0].label.toLowerCase()} (${mejorFase[0].percentil} de 100); ${(mejorFase[mejorFase.length - 1].percentil ?? 0) >= 40 ? "lo menos destacado" : "lo más flojo"}, ${mejorFase[mejorFase.length - 1].label.toLowerCase()} (${mejorFase[mejorFase.length - 1].percentil} de 100). Con ${resumen.partidos} partidos es una tendencia, no un veredicto.`,
       );

@@ -528,7 +528,7 @@ export default function ScoutRivalCollective() {
       ok?: boolean;
       equipos?: number;
       aspectos?: { filas: FilaEstilo[] }[];
-    }>(`/api/data-analisis?abpRival=${encodeURIComponent(equipoActivo)}&ambito=estilo&v=1`)
+    }>(`/api/data-analisis?abpRival=${encodeURIComponent(equipoActivo)}&ambito=estilo&v=2`)
       .then((r) => {
         if (!cancelado)
           setEstilo({
@@ -1467,10 +1467,11 @@ export default function ScoutRivalCollective() {
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3" data-export-hide>
+            {/* En el móvil, los tres en una fila (16/11/2026, jueces de marketing): más estrechos por debajo de sm. */}
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3" data-export-hide>
               <Link
                 href={enlacePlanDePartido(rivalActivo)}
-                className="inline-flex items-center gap-2 rounded-2xl bg-[#C8A96B] px-5 py-3 text-sm font-semibold text-black transition hover:opacity-90"
+                className="inline-flex items-center gap-1.5 rounded-2xl sm:gap-2 bg-[#C8A96B] px-3 py-2 text-[13px] sm:px-5 sm:py-3 sm:text-sm font-semibold text-black transition hover:opacity-90"
               >
                 <ClipboardList size={16} />
                 Plan de partido
@@ -1479,7 +1480,7 @@ export default function ScoutRivalCollective() {
               <Link
                 href={enlacePizarraAbp(rivalActivo)}
                 title="Abrir la pizarra de balón parado de este partido"
-                className="inline-flex items-center gap-2 rounded-2xl border border-white/12 px-5 py-3 text-sm font-semibold text-white/70 transition hover:border-[#C8A96B]/50 hover:text-white"
+                className="inline-flex items-center gap-1.5 rounded-2xl sm:gap-2 border border-white/12 px-3 py-2 text-[13px] sm:px-5 sm:py-3 sm:text-sm font-semibold text-white/70 transition hover:border-[#C8A96B]/50 hover:text-white"
               >
                 <Flame size={16} />
                 Pizarra ABP
@@ -1496,7 +1497,7 @@ export default function ScoutRivalCollective() {
                   <button
                     disabled={guardando}
                     onClick={terminarEdicion}
-                    className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-wait disabled:opacity-70"
+                    className="inline-flex items-center gap-1.5 rounded-2xl sm:gap-2 bg-emerald-600 px-3 py-2 text-[13px] sm:px-5 sm:py-3 sm:text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-wait disabled:opacity-70"
                   >
                     {guardando ? (
                       <Loader2 size={16} className="animate-spin" />
@@ -1510,7 +1511,7 @@ export default function ScoutRivalCollective() {
                 <button
                   disabled={!rivalActivo}
                   onClick={empezarEdicion}
-                  className="inline-flex items-center gap-2 rounded-2xl border border-[#C8A96B]/40 px-5 py-3 text-sm font-semibold text-[#E4C977] transition hover:border-[#C8A96B] hover:bg-[#C8A96B]/10 disabled:opacity-40"
+                  className="inline-flex items-center gap-1.5 rounded-2xl sm:gap-2 border border-[#C8A96B]/40 px-3 py-2 text-[13px] sm:px-5 sm:py-3 sm:text-sm font-semibold text-[#E4C977] transition hover:border-[#C8A96B] hover:bg-[#C8A96B]/10 disabled:opacity-40"
                 >
                   <Pencil size={16} />
                   Editar
@@ -1529,6 +1530,12 @@ export default function ScoutRivalCollective() {
             siendo un único documento —se exporta entero—, por eso son anclas
             y no pestañas.
           */}
+          {/*
+            Con una sola sección visible no hay a dónde saltar (16/11/2026, jueces):
+            la pastilla suelta «Datos del rival» se leía como un segundo
+            encabezado, encima del de la propia sección.
+          */}
+          {NAV.filter((item) => seccionVisible(item.id)).length > 1 && (
           <nav
             data-export-hide
             className="sticky top-0 z-20 -mx-4 mb-6 flex gap-2 overflow-x-auto border-b border-white/10 bg-[#0B0F14] px-4 py-3 scrollbar-none sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10"
@@ -1543,6 +1550,7 @@ export default function ScoutRivalCollective() {
               </a>
             ))}
           </nav>
+          )}
 
           {lento && !error && <AvisoLento className="mb-6" onReintentar={reintenta} />}
 
@@ -1941,7 +1949,7 @@ export default function ScoutRivalCollective() {
           {!modoEdicion && rivalActivo?.EQUIPO && <EvolucionComparada equipo={rivalActivo.EQUIPO} />}
 
           {/* Reparto del xG (13/11/2026): de quién depende el gol del rival (o el nuestro). */}
-          {!modoEdicion && rivalActivo?.EQUIPO && <RepartoXg equipo={rivalActivo.EQUIPO} />}
+          {!modoEdicion && rivalActivo?.EQUIPO && <RepartoXg equipo={rivalActivo.EQUIPO} nombres={nombresRival} />}
 
           {/* Wyscout y Opta del rival, por pregunta (10/11/2026). Se carga al asomar. */}
           {rivalActivo?.EQUIPO && <DatosDelRival equipo={rivalActivo.EQUIPO} rivalId={String(rivalActivo.ID ?? "")} />}
