@@ -53,6 +53,18 @@ const fechasValidas = (() => {
   return [-1, 0, 1].map((d) => new Date(base + d * 86_400_000).toISOString().slice(0, 10));
 })();
 
+/** Cómo escribe el analista la fecha: «13112026», «13-11-2026», «13/11/2026». */
+const fechasDelTitulo = (() => {
+  const [a, m, d] = FECHA.split("-");
+
+  return [`${d}${m}${a}`, `${d}-${m}-${a}`, `${d}/${m}/${a}`];
+})();
+
+const hasta4 = new Date(Date.parse(`${FECHA}T12:00:00Z`) + 4 * 86_400_000).toISOString().slice(0, 10);
+
+/** Entrenamientos: «S79», «"S078"», «Castilla s76», «S74 RM Castilla». */
+const esSesion = (titulo) => /(^|[\s"])S\d{2,3}\b/i.test(titulo);
+
 const esDeWyscout = (titulo) =>
   /^\d{4}-\d{2}-\d{2} .+ - .+ \d+ - \d+$/.test(titulo) && /Real Madrid Castilla/i.test(titulo);
 
@@ -128,8 +140,34 @@ async function principal() {
       await recoge();
     }
 
-    const casan = () =>
+    const casanWyscout = () =>
       videos.filter((v) => esDeWyscout(v.title) && fechasValidas.includes(v.title.slice(0, 10)));
+
+    /*
+    | J12 (16/11/2026): Wyscout no subió su copia y el timeline venía en la
+    | del analista («13112026 LIGA J.12 NASTIC - RM CASTILLA»). Si no hay
+    | copia con nombre de Wyscout, se abren también las demás del partido
+    | —las que llevan su fecha en el título o se subieron en los 4 días
+    | siguientes con «Castilla» y sin pinta de sesión— y decide el timeline.
+    */
+    const otrasDelPartido = () =>
+      videos.filter((v) => {
+        if (esDeWyscout(v.title)) return false;
+
+        const t = v.title;
+
+        if (fechasDelTitulo.some((f) => t.includes(f))) return !esSesion(t);
+
+        const subido = String(v.createdAt ?? "").slice(0, 10);
+
+        return subido >= FECHA && subido <= hasta4 && /castilla/i.test(t) && !esSesion(t) && !/^J\.\d+ /i.test(t);
+      });
+
+    const casan = () => {
+      const wy = casanWyscout();
+
+      return wy.length ? wy : otrasDelPartido();
+    };
 
     /*
     | La biblioteca carga por páginas al bajar. Después de un partido se suben
@@ -169,6 +207,10 @@ async function principal() {
       .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
 
     console.log(`Biblioteca: ${videos.length} vídeos; del partido del ${FECHA}: ${candidatos.length}`);
+
+    if (process.argv.includes("--lista")) {
+      for (const v of videos) console.log(`    ${String(v.createdAt ?? "").slice(0, 10)}  ${v.title}`);
+    }
 
     for (const v of candidatos) console.log(`  · ${v.title} (${v.id})`);
 
