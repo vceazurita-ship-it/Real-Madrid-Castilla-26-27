@@ -299,11 +299,14 @@ export function revisaSemana({
 
   /* ------------------- TRABAJO EN DÍAS SIN SESIÓN ------------------ */
 
-  /* El vídeo previo (PRE) el día del partido es normal: no es un error de planificación. */
+  /*
+  | El vídeo o la charla el día del partido es normal: es la activación
+  | previa (el plan de partido), no un error de planificación. 16/11/2026
+  | (jueces): antes sólo valía el vídeo PRE, y la charla del viernes salía
+  | como «tareas en un día sin entrenamiento».
+  */
   const fueraDeSesion = entradas.filter(
-    ({ dia, trabajo }) =>
-      dias[dia]?.tipo !== "entreno" &&
-      !(dias[dia]?.tipo === "partido" && trabajo.medio === "video" && trabajo.momento === "pre"),
+    ({ dia, trabajo }) => dias[dia]?.tipo !== "entreno" && !(dias[dia]?.tipo === "partido" && trabajo.medio === "video"),
   );
 
   if (fueraDeSesion.length) {
@@ -316,6 +319,27 @@ export function revisaSemana({
       )}: muévelas a un día de sesión.`,
       dia: libre(fueraDeSesion).dia,
       trabajo: libre(fueraDeSesion).trabajo,
+    });
+  }
+
+  /* ----------------------- SIN CRITERIO DE ÉXITO ----------------------- */
+
+  /*
+  | 16/11/2026 (jueces): sólo una tarea de la semana llevaba «Éxito» y nada lo
+  | decía. Sin criterio no hay qué mirar en el campo ni qué revisar después.
+  */
+  const sinExito = entradas.filter(({ trabajo }) => !trabajo.objetivo?.trim());
+
+  if (sinExito.length) {
+    const diasSin = [...new Set(sinExito.map(({ dia }) => nombreDia(dia)))];
+
+    puntos.push({
+      id: "sin-exito",
+      tono: "aviso",
+      titulo: `${plural(sinExito.length, "tarea", "tareas")} sin criterio de éxito`,
+      detalle: `${enLista(diasSin).replace(/^./, (letra) => letra.toUpperCase())}: ${sinExito.length === 1 ? "ábrela" : "ábrelas"} y elige el criterio propuesto, así se sabe qué mirar en el campo.`,
+      dia: libre(sinExito).dia,
+      trabajo: libre(sinExito).trabajo,
     });
   }
 
@@ -425,8 +449,10 @@ export function revisaSemana({
     }
   });
 
-  const tarde = entradas.filter(({ trabajo }, indice) =>
+  /* El vídeo del día del partido es la charla del plan: va después del campo de la semana por definición. */
+  const tarde = entradas.filter(({ dia, trabajo }, indice) =>
     trabajo.medio === "video" &&
+    dias[dia]?.tipo !== "partido" &&
     ladosDe(trabajo).some((lado) =>
       trabajo.aspectos.some((aspecto) => {
         const primera = primeraVez.get(claveAspecto(aspecto, lado));
@@ -492,8 +518,10 @@ export function revisaSemana({
     .filter((fila) => (fila.urgencia ?? 0) >= 50 && !enSemana.has(claveAspecto(fila.aspecto.key, fila.lado)))
     .slice(0, 2);
 
+  const carencias: PuntoRevision[] = [];
+
   for (const fila of olvidadas) {
-    puntos.push({
+    carencias.push({
       id: `urgente-${fila.aspecto.key}-${fila.lado}`,
       tono: "aviso",
       titulo: `${fila.aspecto.label} ${fila.lado === "ofensivo" ? "a favor" : "en contra"}: no entran en la semana`,
@@ -516,6 +544,27 @@ export function revisaSemana({
       /* Con tan poca muestra no se ofrece añadirla a la semana: sería la acción principal de un dato que ni se fía. */
       ...(fila.stats.acciones < 3 ? {} : { falta: { aspecto: fila.aspecto.key, lado: fila.lado } }),
     });
+  }
+
+  /*
+  | 16/11/2026 (jueces): dos tarjetas «X en contra: no entran en la semana»
+  | seguidas repetían el patrón. Juntas, en una: «Dos carencias sin tarea», con
+  | el porqué de cada una y el «Añadir» de la que tiene muestra.
+  */
+  if (carencias.length === 2) {
+    const [a, b] = carencias;
+    const nombre = (p: PuntoRevision) => p.titulo.replace(/: no entran en la semana$/, "");
+
+    puntos.push({
+      id: "urgentes",
+      tono: "aviso",
+      titulo: `Dos carencias sin tarea: ${nombre(a).toLowerCase()} y ${nombre(b).toLowerCase()}`,
+      /* Un renglón por carencia (la tarjeta respeta el salto de línea). */
+      detalle: `${nombre(a)}. ${a.detalle}\n${nombre(b)}. ${b.detalle}`,
+      falta: a.falta ?? b.falta,
+    });
+  } else {
+    puntos.push(...carencias);
   }
 
   /* «Faltan 60′» y «2 tareas sin tiempo» dicen lo mismo: una sola tarjeta que abre la tarea. */

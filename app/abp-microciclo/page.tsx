@@ -1455,6 +1455,9 @@ export default function AbpMicrocicloPage() {
 
   const sinMicros = !cargando && !micros.length;
 
+  /* El campo del rival sólo hace falta si la tarjeta del partido no lo dice ya (o al pedir «Más»). */
+  const rivalALaVista = masAcciones || cargando || sinMicros || !ventana.partido || !plan.rival.trim();
+
   /* Lo que el informe de ABP necesita de esta pantalla. */
   const datosInforme: DatosDelMicro = {
     temporada: plan.temporada || microActivo?.temporada || "",
@@ -1613,7 +1616,19 @@ export default function AbpMicrocicloPage() {
               piezas en una fila que se partía por cualquier sitio. */}
 
           <div className="mt-6 grid min-w-0 gap-3 2xl:grid-cols-[minmax(0,1fr)_auto] 2xl:items-end">
-            <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_150px]">
+            {/*
+            | 16/11/2026 (jueces): el rival salía tres veces (selector, campo y
+            | tarjeta del partido). Con la tarjeta a la vista, el campo para
+            | escribirlo va detrás de «Más»; y en el móvil microciclo y días
+            | comparten fila, para llegar antes a la semana.
+            */}
+            <div
+              className={`grid min-w-0 gap-3 ${
+                rivalALaVista
+                  ? "grid-cols-[minmax(0,1fr)_6.5rem] sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_150px]"
+                  : "grid-cols-[minmax(0,1fr)_6.5rem] sm:grid-cols-[minmax(0,1fr)_150px]"
+              }`}
+            >
               <label className="block min-w-0">
                 <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">
                   Microciclo
@@ -1659,7 +1674,8 @@ export default function AbpMicrocicloPage() {
                 </select>
               </label>
 
-              <label className="block min-w-0">
+              {rivalALaVista && (
+              <label className="col-span-2 block min-w-0 sm:order-none sm:col-span-1 max-sm:order-last">
                 <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">
                   Rival de la semana
                 </span>
@@ -1671,6 +1687,7 @@ export default function AbpMicrocicloPage() {
                   className="w-full min-w-0 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#C8A96B]/50"
                 />
               </label>
+              )}
 
               {/*
                 LOS DÍAS QUE SE ENTRENÓ.
@@ -1923,8 +1940,8 @@ export default function AbpMicrocicloPage() {
                   title="La semana"
                   subtitle={
                     vistaSemana !== "compacta"
-                      ? "Cada bloque enseña todo lo que se trabaja, para que un pantallazo se entienda sin entrar en la app. Pulsa uno para editarlo y arrástralo para cambiarlo de día. Carga = intensidad × minutos"
-                      : "Fichas cortas, para mover bloques de día. Pulsa uno para editarlo; cada uno se puede duplicar o quitar. Carga = intensidad × minutos"
+                      ? "Cada bloque enseña todo lo que se trabaja, para que un pantallazo se entienda sin entrar en la app. Pulsa uno para editarlo y arrástralo para cambiarlo de día."
+                      : "Fichas cortas, para mover bloques de día. Pulsa uno para editarlo; cada uno se puede duplicar o quitar."
                   }
                   icon={CalendarDays}
                   action={
@@ -1962,6 +1979,10 @@ export default function AbpMicrocicloPage() {
                   <p className="mb-2 text-[12px] leading-relaxed text-white/60">
                     <span className="font-semibold text-white/75">Leyenda · </span>
                     PRE y POST = vídeo antes o después del campo · INTRA = vídeo durante la tarea · VÍDEO = sesión de vídeo · CAMPO = en el campo · HOJA = viene del registro de tareas
+                    {/* 16/11/2026 (jueces): la fórmula de la carga, una sola vez y aquí, no en cada día. */}
+                    <br />
+                    <span className="font-semibold text-white/75">Al pie de cada día · </span>
+                    carga = minutos × intensidad (1-10) · mental = minutos × exigencia cognitiva (1-10). Más carga es más trabajo, no mejor.
                   </p>
 
                   <SemanaGrid

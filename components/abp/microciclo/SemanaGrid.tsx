@@ -156,7 +156,7 @@ function TrabajoCuerpo({
 
   const desgaste = [
     trabajo.intensidad > 0 ? `intensidad ${trabajo.intensidad}/10` : "",
-    trabajo.exigCognitiva > 0 ? `cognitiva ${trabajo.exigCognitiva}/10` : "",
+    trabajo.exigCognitiva > 0 ? `exigencia mental ${trabajo.exigCognitiva}/10` : "",
   ].filter(Boolean);
 
   return (
@@ -169,18 +169,11 @@ function TrabajoCuerpo({
             detalle ? "leading-snug" : "truncate leading-tight"
           }`}
         >
-          {/* Dos aspectos como mucho y «y N más» (21/10/2026): cinco seguidos
-              ocupaban ocho líneas en una columna estrecha. */}
+          {/* 16/11/2026 (jueces): todas las acciones, que «Córner directo ·
+              Penaltis y 2 más» obligaba a entrar para saber qué se trabaja. El
+              nombre se parte en renglones en vez de cortarse. */}
           {detalle ? (
-            <span title={aspectos.map((aspecto) => aspecto.label).join(" · ")}>
-              {aspectos
-                .slice(0, 2)
-                .map((aspecto) => aspecto.label)
-                .join(" · ")}
-              {aspectos.length > 2 && (
-                <span className="font-medium text-white/45"> y {aspectos.length - 2} más</span>
-              )}
-            </span>
+            <span>{aspectos.map((aspecto) => aspecto.label).join(" · ")}</span>
           ) : (
             etiquetaTrabajo(trabajo, true)
           )}
@@ -258,6 +251,12 @@ function TrabajoCuerpo({
       {notas &&
         (detalle ? (
           <p className="mt-1 whitespace-pre-wrap break-words text-[11px] leading-snug text-white/60">
+            {/* 16/11/2026 (jueces): la nota de una tarea de la hoja es el nombre
+                de la tarea de la sesión («Desarrollo modelo de juego y plan de
+                partido»), no un segundo título del bloque de balón parado. */}
+            {trabajo.origen === "registro" && (
+              <span className="font-semibold text-white/70">En la tarea de la sesión · </span>
+            )}
             {notas}
           </p>
         ) : (
@@ -284,7 +283,7 @@ function TrabajoCuerpo({
       )}
 
       {detalle && desgaste.length > 0 && (
-        <p className="mt-1 text-[9.5px] leading-snug tabular-nums text-white/35">
+        <p className="mt-1 text-[10.5px] leading-snug tabular-nums text-white/45">
           {enLista(desgaste).replace(/^./, (letra) => letra.toUpperCase())}
         </p>
       )}
@@ -574,10 +573,12 @@ function DiaColumna({
           <span className="font-semibold text-white/75">{fmtMin(minutos)}</span>
 
           {(carga > 0 || cargaCog > 0 || sinCarga > 0) && (
-            <span className="min-w-0 text-white/50" title="Carga = intensidad × minutos. Cognitiva = exigencia cognitiva × minutos.">
+            /* 16/11/2026 (jueces): sin la «ⓘ» pegada a la cifra («105ⓘ») y sin
+               «cognitiva» suelto; la fórmula se explica una vez, en la leyenda. */
+            <span className="min-w-0 text-white/55" title="Carga = minutos × intensidad. Mental = minutos × exigencia cognitiva.">
               {[
                 carga > 0 ? `carga ${Math.round(carga)}` : "",
-                cargaCog > 0 ? `cognitiva ${Math.round(cargaCog)}` : "",
+                cargaCog > 0 ? `mental ${Math.round(cargaCog)}` : "",
                 /* Qué tarea falta de dato, en vez de dejar el hueco. */
                 sinCarga > 0
                   ? sinCarga === plan.trabajos.length
@@ -587,15 +588,6 @@ function DiaColumna({
               ]
                 .filter(Boolean)
                 .join(" · ")}
-              {carga > 0 || cargaCog > 0 ? (
-                <abbr
-                  className="ml-1 cursor-help no-underline"
-                  title="Carga = intensidad × minutos. Cognitiva = exigencia cognitiva × minutos."
-                  aria-label="Carga: intensidad por minutos. Cognitiva: exigencia cognitiva por minutos."
-                >
-                  ⓘ
-                </abbr>
-              ) : null}
             </span>
           )}
         </div>

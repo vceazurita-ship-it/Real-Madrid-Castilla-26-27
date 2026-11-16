@@ -61,8 +61,18 @@ export function RevisionSemana({
   | se abre desde un solo punto: «Abrir «Córner directo + 6» del sábado» salía
   | dos veces seguidas.
   */
-  const visibles = todos ? ordenados : ordenados.filter((punto) => punto.tono !== "bien");
-  const ocultos = ordenados.length - visibles.length;
+  /*
+  | 16/11/2026 (jueces): la revisión ocupaba media pantalla con cuatro tarjetas
+  | de ancho desigual. Ahora es una lista: los tres avisos más graves, con su
+  | acción a la vista, y el resto plegado diciendo cuántos avisos y cuántos
+  | aciertos hay dentro.
+  */
+  const avisos = ordenados.filter((punto) => punto.tono !== "bien");
+  const TOPE = 3;
+  const visibles = todos ? ordenados : avisos.slice(0, TOPE);
+  const avisosOcultos = todos ? 0 : Math.max(0, avisos.length - TOPE);
+  const bienOcultos = todos ? 0 : ordenados.length - avisos.length;
+  const ocultos = avisosOcultos + bienOcultos;
   const yaAbre = new Set<unknown>();
   const abreUnaVez = new Map<string, boolean>();
 
@@ -83,7 +93,8 @@ export function RevisionSemana({
       }
       icon={pendientes ? CircleAlert : CheckCircle2}
     >
-      <ul className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+      {visibles.length > 0 && (
+      <ul className="divide-y divide-white/[0.06] rounded-xl border border-white/10 bg-white/[0.02]">
         {visibles.map((punto) => {
           const { Icono, clase, etiqueta } = ICONO[punto.tono];
 
@@ -95,17 +106,20 @@ export function RevisionSemana({
           return (
             <li
               key={punto.id}
-              className="flex min-w-0 items-start gap-2.5 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2.5"
+              className="flex min-w-0 flex-col gap-1.5 px-3 py-2.5 md:flex-row md:items-start md:gap-4"
             >
-              <Icono size={15} className={`mt-0.5 shrink-0 ${clase}`} aria-label={etiqueta} />
+              <div className="flex min-w-0 flex-1 items-start gap-2.5">
+                <Icono size={15} className={`mt-0.5 shrink-0 ${clase}`} aria-label={etiqueta} />
 
-              <div className="min-w-0 flex-1">
-                <p className="text-[12.5px] font-semibold leading-snug text-white">{punto.titulo}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[12.5px] font-semibold leading-snug text-white">{punto.titulo}</p>
 
-                <p className="mt-0.5 text-[11.5px] leading-snug text-white/55">{punto.detalle}</p>
+                  <p className="mt-0.5 whitespace-pre-line text-[11.5px] leading-snug text-white/60">{punto.detalle}</p>
+                </div>
+              </div>
 
                 {(abre || punto.falta) && (
-                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  <div className="flex shrink-0 flex-wrap gap-1.5 pl-6 md:max-w-[45%] md:justify-end md:pl-0">
                     {abre && (
                       <button
                         type="button"
@@ -131,11 +145,11 @@ export function RevisionSemana({
                     )}
                   </div>
                 )}
-              </div>
             </li>
           );
         })}
       </ul>
+      )}
 
       {/* Lo que no cabe en las tres primeras tarjetas va dentro de «Ver N más», con la misma tarjeta, no en líneas sueltas. */}
       {(ocultos > 0 || todos) && ordenados.length > 1 && (
@@ -145,7 +159,14 @@ export function RevisionSemana({
           aria-expanded={todos}
           className="mt-2 inline-flex items-center gap-1 rounded-lg border border-white/12 px-2.5 py-1 text-[11.5px] font-medium text-white/65 transition hover:border-white/25 hover:text-white"
         >
-          {todos ? "Ver menos" : `Ver lo que ya está bien (${ocultos})`}
+          {todos
+            ? "Ver menos"
+            : [
+                avisosOcultos ? `Ver ${avisosOcultos} ${avisosOcultos === 1 ? "aviso más" : "avisos más"}` : "",
+                bienOcultos ? `${avisosOcultos ? "y lo" : "Ver lo"} que ya está bien (${bienOcultos})` : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
         </button>
       )}
     </Panel>
