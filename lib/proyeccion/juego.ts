@@ -199,10 +199,10 @@ export function proyeccionJuego(e: EntradaJuego): ProyeccionJuego | null {
     const d = totalXg / ref - 1;
     tipo.push(
       d >= 0.12
-        ? `Partido abierto: ${coma(totalXg, 2)} xG entre los dos, ${frenteA(totalXg, ref)} de un partido del grupo.`
+        ? `Partido abierto: ${coma(totalXg, 2)} xG (goles esperados) entre los dos, ${frenteA(totalXg, ref)} de un partido del grupo.`
         : d <= -0.12
-          ? `Partido cerrado: ${coma(totalXg, 2)} xG entre los dos, ${frenteA(totalXg, ref)} de un partido del grupo.`
-          : `Partido de ocasiones normales: ${coma(totalXg, 2)} xG entre los dos (un partido del grupo da ${coma(ref, 2)}).`,
+          ? `Partido cerrado: ${coma(totalXg, 2)} xG (goles esperados) entre los dos, ${frenteA(totalXg, ref)} de un partido del grupo.`
+          : `Partido de ocasiones normales: ${coma(totalXg, 2)} xG (goles esperados) entre los dos (un partido del grupo da ${coma(ref, 2)}).`,
     );
   }
   if (ppda) {
@@ -211,10 +211,10 @@ export function proyeccionJuego(e: EntradaJuego): ProyeccionJuego | null {
     const L = ppda.liga;
     const frase =
       suya <= 0.88 * L
-        ? `El ${R} apretará arriba: PPDA esperado ${coma(suya)} (media ${coma(L)}; más bajo, más presión).`
+        ? `El ${R} apretará arriba: PPDA (pases que nos deja dar antes de presionar; menos es más presión) esperado ${coma(suya)}, media ${coma(L)}.`
         : suya >= 1.12 * L
-          ? `El ${R} nos esperará en bloque: PPDA esperado ${coma(suya)} (media ${coma(L)}).`
-          : `PPDA esperado del ${R} contra nosotros: ${coma(suya)} (media del grupo ${coma(L)}; más bajo, más presión).`;
+          ? `El ${R} nos esperará en bloque: PPDA (pases que nos deja dar antes de presionar; menos es más presión) esperado ${coma(suya)}, media ${coma(L)}.`
+          : `PPDA (pases que nos deja dar antes de presionar; menos es más presión) esperado del ${R} contra nosotros: ${coma(suya)}, media del grupo ${coma(L)}.`;
     tipo.push(`${frase} El nuestro, ${coma(nuestra)}.`);
   }
   /* El estilo del rival con el balón: balón largo frente al grupo. */
@@ -366,7 +366,7 @@ export function proyeccionJuego(e: EntradaJuego): ProyeccionJuego | null {
       frase: `Le recuperaremos ${coma(v)} balones en su último tercio (media ${coma(rec.liga)}; a él le recuperan ${coma(rec.favor.defensa.temporada)} por partido ahí). ${base(rec.metrica, rec.favor.defensa.n)}${largo}`,
       consigna:
         v > rec.liga * 1.1
-          ? "Presionar su salida: apretar el primer pase y el perfil del receptor."
+          ? `Presión alta tras el pase al lateral: le recuperaremos ${coma(v)} balones en su último tercio (media ${coma(rec.liga)}).`
           : LdF && dirR != null && dirR > LdF.media * 1.15
             ? "Si salta la presión, saldrá en largo: ganar el duelo y la segunda jugada."
             : "",
@@ -433,10 +433,10 @@ export function proyeccionJuego(e: EntradaJuego): ProyeccionJuego | null {
     if (!l.metrica.bueno) continue;
     const a = l.contra.ataque;
     if (a.cambio && a.ultimos != null && a.previos != null)
-      cambios.push(`el ${R} ${a.cambio === "sube" ? "genera más" : "genera menos"} ${l.metrica.nombre === "xG" ? "xG" : l.metrica.nombre.toLowerCase()} (${fmt(l.metrica, a.ultimos)} en los últimos 5, ${fmt(l.metrica, a.previos)} antes)`);
+      cambios.push(`el ${R} ${a.cambio === "sube" ? "genera más" : "genera menos"} ${l.metrica.nombre === "xG" ? "xG" : l.metrica.nombre.toLowerCase()} (${fmt(l.metrica, a.ultimos)} en los últimos 5 partidos, ${fmt(l.metrica, a.previos)} en los ${a.n - 5} anteriores)`);
     const d = l.favor.defensa;
     if (d.cambio && d.ultimos != null && d.previos != null)
-      cambios.push(`el ${R} ${d.cambio === "sube" ? "concede más" : "concede menos"} ${l.metrica.nombre === "xG" ? "xG" : l.metrica.nombre.toLowerCase()} (${fmt(l.metrica, d.ultimos)} en los últimos 5, ${fmt(l.metrica, d.previos)} antes)`);
+      cambios.push(`el ${R} ${d.cambio === "sube" ? "concede más" : "concede menos"} ${l.metrica.nombre === "xG" ? "xG" : l.metrica.nombre.toLowerCase()} (${fmt(l.metrica, d.ultimos)} en los últimos 5 partidos, ${fmt(l.metrica, d.previos)} en los ${d.n - 5} anteriores)`);
   }
   if (cambios.length) porque.push(`Tendencia: ${cambios.slice(0, 2).join("; ")}.`);
 

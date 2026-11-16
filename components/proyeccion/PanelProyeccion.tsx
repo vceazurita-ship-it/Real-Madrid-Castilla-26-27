@@ -435,6 +435,12 @@ function ComoSacaElCorner({ e, rival }: { e: EntregaCorner; rival: string }) {
 /*  JUEGO                                                              */
 /* ------------------------------------------------------------------ */
 
+/** «Córners rematados 44,6 %» dicho en claro: qué es y por qué es malo para ellos (16/11/2026, ronda 17). */
+export function enClaro(dato: string): string {
+  const m = dato.match(/c[óo]rners rematados ([\d,]+ ?%)/i);
+  return m ? `${dato}: de los córners que le sacan, el ${m[1].replace(/ ?%$/, " %")} acaba en remate del rival` : dato;
+}
+
 export function PanelJuego({
   partido,
   d,
@@ -470,7 +476,12 @@ export function PanelJuego({
           {d.presion && (
             <p className="mb-1.5 text-sm font-semibold leading-snug text-white/90">
               Su presión en la temporada: PPDA {coma(d.presion.valor)}, {d.presion.puesto}.º de {d.presion.de} que más aprieta ({d.presion.proveedor}).
-              {rival?.ppda && <span className="ml-1 text-xs font-normal text-white/55">2.ª lectura · Wyscout {rival.ppda.valor} ({rival.ppda.puesto}.º)</span>}
+              {/* La de Wyscout sólo si da otro puesto, y con el motivo (16/11/2026, ronda 17). */}
+              {rival?.ppda && rival.ppda.puesto !== d.presion.puesto && (
+                <span className="ml-1 text-xs font-normal text-white/55">
+                  Wyscout lo pone {rival.ppda.puesto}.º: cuenta distinto las acciones defensivas.
+                </span>
+              )}
             </p>
           )}
           {/* Tres frases como mucho: posesión, ocasiones y presión. El estilo va dentro de «Por qué». */}
@@ -610,7 +621,7 @@ export function PanelJuego({
       */}
       <div className="grid gap-3 md:grid-cols-3">
         <Punto titulo="Su punto fuerte" frase={rival?.fuerte ? `${rival.fuerte.charAt(0).toUpperCase()}${rival.fuerte.slice(1)} (${fuenteW}).` : d.suFuerte?.frase} tono="rojo" />
-        <Punto titulo="Su punto débil" frase={rival?.flojo ? `${rival.flojo.charAt(0).toUpperCase()}${rival.flojo.slice(1)} (${fuenteW}).` : d.suDebil?.frase} tono="verde" />
+        <Punto titulo="Su punto débil" frase={rival?.flojo ? `${enClaro(rival.flojo.charAt(0).toUpperCase() + rival.flojo.slice(1))} (${fuenteW}).` : d.suDebil?.frase} tono="verde" />
         <Punto titulo="El nuestro" frase={d.nuestroFuerte?.frase} tono="oro" />
       </div>
 
@@ -620,13 +631,13 @@ export function PanelJuego({
       </div>
 
       {/* Fases (16/11/2026, jueces de fútbol): cómo sale cada uno ante la presión del otro y cómo transita. */}
-      {d.fases.length > 0 && (
+      {d.fases.some((x) => x.consigna) && (
         <Bloque titulo="Fases del juego" icono={<CornerDownRight size={13} className="text-[#C8A96B]" />}>
           <ul className="grid gap-3 md:grid-cols-2">
-            {d.fases.map((x) => (
+            {d.fases.filter((x) => x.consigna).map((x) => (
               <li key={x.titulo} className="min-w-0 text-sm leading-snug">
                 <p className="font-semibold text-white/90">{x.titulo}</p>
-                <p className="mt-0.5 text-xs text-white/60">{x.frase}</p>
+                <p className="mt-0.5 text-[13px] text-white/65">{x.frase}</p>
                 {x.consigna && <p className="mt-0.5 text-white/85">{x.consigna}</p>}
               </li>
             ))}

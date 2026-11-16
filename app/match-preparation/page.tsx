@@ -24,7 +24,9 @@ import RecursosRival, {
   type RecursoFijo,
 } from "@/components/rivals/RecursosRival";
 import { BocetoPlanDialog } from "@/components/match-preparation/BocetoPlanDialog";
-import { PanelProyeccion, useProyeccionJuego } from "@/components/proyeccion/PanelProyeccion";
+import { PanelProyeccion, enClaro, useProyeccionJuego } from "@/components/proyeccion/PanelProyeccion";
+import { fuerteYFlojoDelRival } from "@/components/rivals/VistazoRival";
+import { useRivalPerfiles } from "@/hooks/useRivalPerfiles";
 import { PorQueDelBoceto } from "@/components/match-preparation/PorQueDelBoceto";
 import { KIND_MOTIVOS_PLAN, claveMotivosPlan, type BocetoPlan } from "@/lib/plan-partido/boceto";
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
@@ -1653,25 +1655,53 @@ export default function MatchPreparation() {
   | duelos de abajo; lo que no tiene dato no sale.
   */
   const proyeccionJuego = useProyeccionJuego(rivalActivo?.EQUIPO ?? null);
+  /*
+  | CÓMO LE GANAMOS (16/11/2026, ronda 17, jueces de fútbol): arriba del todo,
+  | una idea por fase y cada una con la métrica que ya está en pantalla —su
+  | salida ante nuestra presión, lo nuestro con balón y su punto débil— y, como
+  | cuarta línea, el duelo que decide. Lo que no tiene dato no sale.
+  */
+  const perfilesRival = useRivalPerfiles(rivalActivo?.EQUIPO ?? "");
+  const extremosRival = perfilesRival && rivalActivo?.EQUIPO ? fuerteYFlojoDelRival(rivalActivo.EQUIPO, perfilesRival.aspectos ?? [], perfilesRival.equipos ?? 0) : null;
+  const cornerEnContra = (() => {
+    if (!perfilesRival) return null;
+    const fila = (perfilesRival.aspectos ?? []).flatMap((a) => a.filas).find((f) => /c[óo]rners con remate/i.test(f.nombre));
+    if (!fila || !fila.puesto || !fila.de) return null;
+    return { valor: `${fila.valor.toLocaleString("es-ES", { maximumFractionDigits: 1 })} %`, puesto: fila.puesto, de: fila.de };
+  })();
+  /* El duelo que decide va en «Cómo le ganamos»; abajo no se repite (16/11/2026, ronda 17). */
+  const claveDelQueDecide = duelosClave
+    ? [...duelosClave.grupos.vigilar, ...duelosClave.grupos.doble, ...duelosClave.grupos.buscar]
+        .filter((d) => d.consigna)
+        .sort((a, b) => Math.max(Math.abs(b.conBalon ?? 0), Math.abs(b.sinBalon ?? 0)) - Math.max(Math.abs(a.conBalon ?? 0), Math.abs(a.sinBalon ?? 0)))[0]?.clave
+    : undefined;
   const tresIdeas = (() => {
-    /* La idea en una línea y su dato debajo; el detalle está más abajo y no se repite (16/11/2026, jueces). */
     const ideas: { titulo: string; texto: string; base: string; enlace?: string }[] = [];
-    const parte = (c: string) => {
-      const i = c.indexOf(": ");
-      return i > 0 ? { texto: c.slice(0, i), base: c.slice(i + 2) } : { texto: c, base: "" };
+    const salida = proyeccionJuego?.fases.find((f) => f.titulo === "Su salida ante nuestra presión" && f.consigna);
+    if (salida) ideas.push({ titulo: "Sin balón · su salida", texto: salida.consigna, base: salida.frase });
+    const nuestro = proyeccionJuego?.nuestroFuerte;
+    const VERBO: Record<string, string> = {
+      TouchOpBox: "Entrar al área con gente",
+      ShtIncBl: "Terminar las jugadas",
+      ExpG: "Rematar desde dentro del área",
+      PosWonA3rd: "Presionar arriba tras pérdida",
+      wContra: "Correr al robo",
     };
-    const v = proyeccionJuego?.ventajas[0];
-    if (v) ideas.push({ titulo: "Dónde hacerle daño", ...parte(v.consigna) });
-    const r = proyeccionJuego?.riesgos[0];
-    if (r) ideas.push({ titulo: "De qué cuidarnos", ...parte(r.consigna) });
+    if (nuestro) ideas.push({ titulo: "Con balón · lo nuestro", texto: VERBO[nuestro.clave] ?? "Explotar lo nuestro", base: nuestro.frase });
+    if (extremosRival?.flojo)
+      ideas.push({
+        titulo: "Su punto débil",
+        texto: cornerEnContra ? "El córner a favor" : `Atacar su ${extremosRival.flojo.split(" (")[0]}`,
+        base: enClaro(extremosRival.flojo.charAt(0).toUpperCase() + extremosRival.flojo.slice(1)),
+      });
     const fuerza = (d: DueloClave) => Math.max(Math.abs(d.conBalon ?? 0), Math.abs(d.sinBalon ?? 0));
     const duelo = duelosClave
       ? [...duelosClave.grupos.vigilar, ...duelosClave.grupos.doble, ...duelosClave.grupos.buscar].filter((d) => d.consigna).sort((a, b) => fuerza(b) - fuerza(a))[0]
       : undefined;
     if (duelo) {
       const v = Math.abs(duelo.sinBalon ?? 0) > Math.abs(duelo.conBalon ?? 0) ? duelo.sinBalon : duelo.conBalon;
-      const firma = v == null ? "" : ` (${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(v)})`;
-      ideas.push({ titulo: "El duelo que decide", texto: `${duelo.nuestros.join(" y ")} contra ${duelo.suyos.join(" y ")}${firma}`, base: duelo.titulo, enlace: enlaceDuelos });
+      const firma = v == null ? "" : ` (${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(v)}: diferencia de percentil; ${v < 0 ? "negativo, ventaja suya" : "positivo, ventaja nuestra"})`;
+      ideas.push({ titulo: "El duelo que decide", texto: `${duelo.nuestros.join(" y ")} contra ${duelo.suyos.join(" y ")}`, base: `${duelo.titulo}${firma}`, enlace: enlaceDuelos });
     }
     return ideas;
   })();
@@ -2378,7 +2408,7 @@ export default function MatchPreparation() {
       <main className="min-w-0 flex-1">
         <Topbar />
 
-        <div className="mp-print-area px-4 pb-28 pt-6 md:px-10 md:pb-16">
+        <div className="mp-print-area pb-28 pl-4 pr-12 pt-6 sm:pr-4 md:px-10 md:pb-16">
           {/* CABECERA */}
           <header className="mp-page-title mb-6">
             <p className="text-[11px] uppercase tracking-[0.3em] text-[#C8A96B] md:text-xs">
@@ -2899,7 +2929,9 @@ export default function MatchPreparation() {
                 </div>
 
                 {!editando && tresIdeas.length > 0 && (
-                  <div className="mp-no-print grid gap-3 md:grid-cols-3" aria-label="Tres ideas del partido">
+                  <div className="mp-no-print" aria-label="Cómo le ganamos">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-[0.22em] text-[#C8A96B]">Cómo le ganamos</p>
+                  <div className={`grid gap-3 sm:grid-cols-2 ${tresIdeas.length >= 4 ? "xl:grid-cols-4" : "xl:grid-cols-3"}`}>
                     {tresIdeas.map((idea, i) => (
                       <div key={idea.titulo} className="min-w-0 rounded-2xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.06] p-4">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#C8A96B]">
@@ -2914,6 +2946,7 @@ export default function MatchPreparation() {
                         )}
                       </div>
                     ))}
+                  </div>
                   </div>
                 )}
 
@@ -3038,7 +3071,11 @@ export default function MatchPreparation() {
                   >
                     <span className="min-w-0">
                       <span className="block text-lg font-bold">Balón parado</span>
-                      <span className="block text-xs text-white/60">Qué hacemos a favor y en contra, cómo saca el córner y quién remata (Opta)</span>
+                      <span className="block text-xs text-white/60">
+                        {cornerEnContra
+                          ? `De los córners que le sacan, el ${cornerEnContra.valor} acaba en remate del rival (${cornerEnContra.puesto}.º de ${cornerEnContra.de}, Wyscout). Dentro: qué hacemos, cómo saca el córner y quién remata (Opta).`
+                          : "Qué hacemos a favor y en contra, cómo saca el córner y quién remata (Opta)"}
+                      </span>
                     </span>
                     <ChevronDown size={16} className={`shrink-0 transition ${abpAbierto ? "rotate-180" : ""}`} />
                   </button>
@@ -3302,9 +3339,10 @@ export default function MatchPreparation() {
                         </span>
                         {d.base && <span className="block text-[13px] text-white/50">{d.base}</span>}
                         {/* La consigna de vestuario, sacada del enfrentamiento que más pierde (16/11/2026, fútbol). */}
+                        {/* Una orden de una línea; la consigna entera (tarea y objetivo), en Duelos (16/11/2026, ronda 17). */}
                         {d.consigna && (
                           <span className="mt-1 block text-[13px] leading-5 text-white/80">
-                            <b className="font-semibold text-[#C8A96B]">Qué le decimos:</b> {d.consigna}
+                            <b className="font-semibold text-[#C8A96B]">Qué le decimos:</b> {d.consigna.split(" (")[0]}
                           </span>
                         )}
                         {(lectura.etiquetas.get(d.clave) ?? []).map((e, i) => (
@@ -3330,7 +3368,7 @@ export default function MatchPreparation() {
                     ...duelosClave.grupos.doble.map((d) => ({ d, modo: "doble" as const })),
                     ...duelosClave.grupos.vigilar.map((d) => ({ d, modo: "vigilar" as const })),
                   ]
-                    .filter((x) => !repetidos.has(x.d.clave))
+                    .filter((x) => !repetidos.has(x.d.clave) && x.d.clave !== claveDelQueDecide)
                     .sort((x, y) => Math.max(Math.abs(y.d.conBalon ?? 0), Math.abs(y.d.sinBalon ?? 0)) - Math.max(Math.abs(x.d.conBalon ?? 0), Math.abs(x.d.sinBalon ?? 0)))
                     .slice(0, 3);
                   const ETIQUETA = { buscar: ["Para buscar", "text-emerald-300"], doble: ["Doble cara", "text-[#C8A96B]"], vigilar: ["Para vigilar", "text-rose-300"] } as const;

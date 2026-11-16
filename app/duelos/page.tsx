@@ -597,7 +597,7 @@ export default function DuelosPage() {
         <div className="min-w-0 flex-1">
           <Topbar />
 
-          <section className="px-4 pb-12 pt-6 sm:px-8 sm:pt-10">
+          <section className="pb-12 pl-4 pr-12 pt-6 sm:px-8 sm:pt-10">
             <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">RMCF CASTILLA · COMPETICIÓN</p>
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <Swords className="h-7 w-7 text-[#C8A96B]" />
