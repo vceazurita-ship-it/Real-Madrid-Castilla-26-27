@@ -119,6 +119,7 @@ import {
   normalizaViaje,
   viajeVacio,
   diasPorDistancia,
+  trayectoUsable,
   comoDuracion,
   esSalida,
   type TrayectoEstadio,
@@ -1338,12 +1339,12 @@ export default function DesplazamientoPage() {
     | Sin distancia, sin hotel. La distancia y el tiempo se quedan escritos.
     */
     const kmHoja = Number(String(jornada?.fila?.DISTANCIA ?? jornada?.fila?.KM ?? "").replace(",", ".").match(/\d+(?:\.\d+)?/)?.[0]) || 0;
-    const trayecto: TrayectoEstadio | null =
+    const trayecto: TrayectoEstadio | null = trayectoUsable(
       ruta && ruta.par && ruta.par === parAlEstadio(conDimensiones, store.lugares) && ruta.dato
         ? ruta.dato
         : kmHoja > 0
           ? { km: Math.round(kmHoja), minutos: Math.round((kmHoja / 70) * 60) }
-          : null;
+          : null);
     const conDistancia =
       base.condicion === "visitante" && trayecto
         ? (() => {

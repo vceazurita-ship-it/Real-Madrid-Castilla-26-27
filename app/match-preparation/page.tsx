@@ -2298,10 +2298,24 @@ export default function MatchPreparation() {
   }, [cargando, rivalActivo]);
 
   /* La pestaña activa se centra en la tira (29/10/2026): en el móvil la tira se corta y la activa quedaba fuera. */
+  /*
+  | Sólo se mueve la tira (16/11/2026): `scrollIntoView` también desplaza el
+  | `body` en horizontal aunque lleve `overflow-x-hidden`, y la página salía
+  | corrida 70 px a la izquierda con el menú lateral tapado.
+  */
   useEffect(() => {
-    document
-      .querySelector('nav[aria-label="Secciones del plan"] [data-activa="true"]')
-      ?.scrollIntoView({ inline: "center", block: "nearest" });
+    const activa = document.querySelector<HTMLElement>('nav[aria-label="Secciones del plan"] [data-activa="true"]');
+
+    let tira = activa?.parentElement ?? null;
+
+    while (tira && tira.scrollWidth <= tira.clientWidth) tira = tira.parentElement;
+
+    if (!activa || !tira || tira === document.body || tira === document.documentElement) return;
+
+    const caja = tira.getBoundingClientRect();
+    const pestaña = activa.getBoundingClientRect();
+
+    tira.scrollBy({ left: pestaña.left + pestaña.width / 2 - (caja.left + caja.width / 2) });
   }, [seccionActiva]);
 
   const irASeccion = (id: string) => {

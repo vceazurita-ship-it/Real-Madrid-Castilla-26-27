@@ -1325,10 +1325,28 @@ const arriba = (minuto: number, paso: number) => Math.ceil(minuto / paso) * paso
  *   16:00 salvo que no dé tiempo a llegar a cenar; la llegada al hotel es la
  *   salida más el trayecto.
  */
+/**
+ * Un trayecto con el que se puede contar, o null (16/11/2026).
+ *
+ * La ruta de Cerro del Espino llegó sin minutos y el horario entero salió en
+ * «NaN:NaN», también en el PDF. Sin minutos se estiman con los km a 70 km/h
+ * de media de autobús; sin ninguno de los dos, es «sin distancia».
+ */
+export function trayectoUsable(trayecto: TrayectoEstadio | null | undefined): TrayectoEstadio | null {
+  if (!trayecto) return null;
+
+  const km = Number.isFinite(trayecto.km) && (trayecto.km ?? 0) > 0 ? trayecto.km : undefined;
+
+  if (Number.isFinite(trayecto.minutos) && trayecto.minutos > 0) return { km, minutos: trayecto.minutos };
+
+  return km !== undefined ? { km, minutos: Math.round((km / 70) * 60) } : null;
+}
+
 export function diasPorDistancia(
   viaje: Desplazamiento,
-  trayecto: TrayectoEstadio | null,
+  trayectoPedido: TrayectoEstadio | null,
 ): { dias: DiaViaje[]; conHotel: boolean } {
+  const trayecto = trayectoUsable(trayectoPedido);
   const partido = aMinutos(viaje.hora) ?? 20 * 60;
   const origen = (viaje.origen || "Valdebebas").split(",")[0].trim();
   const cita = (minuto: number, texto: string, tipo: TipoCita, extra: Partial<CitaHorario> = {}): CitaHorario => ({
