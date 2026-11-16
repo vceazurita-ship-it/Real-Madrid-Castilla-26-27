@@ -63,6 +63,11 @@ export type MetricaComparada = {
    * expertos): una media de 1,8 no dice si fue siempre 2 o si va de 0 a 5.
    */
   rango?: [number, number] | null;
+  /**
+   * 16/11/2026 (ronda 18): lo que es la media cuando no es «por partido»
+   * (los defensores por delante son una media por falta: «por falta»).
+   */
+  porCada?: string;
 };
 
 /** Con menos acciones que éstas, una diferencia es un indicio y no un dato. */
@@ -380,11 +385,11 @@ export function ComparativaPartido({
                         partido», que 3 frente a 1,1 no parezca mezclar unidades, y el
                         rango no se parte en dos renglones en el móvil. */}
                     {m.media !== null && !porcentaje && anteriores.n > 1 && !(m.rango && m.rango[0] !== m.rango[1]) ? (
-                      <span className="block whitespace-nowrap text-[12px] text-white/55">por partido</span>
+                      <span className="block whitespace-nowrap text-[12px] text-white/55">{m.porCada ?? "por partido"}</span>
                     ) : null}
                     {m.rango && anteriores.n > 1 && m.rango[0] !== m.rango[1] && !(porcentaje && m.rango[0] <= 0 && m.rango[1] >= 100) ? (
                       <span className="block whitespace-nowrap text-[12px] text-white/55">
-                        {porcentaje ? "" : "por partido · "}de {formato(m.rango[0])} a {formato(m.rango[1])}
+                        {porcentaje ? "" : `${m.porCada ?? "por partido"} · `}de {formato(m.rango[0])} a {formato(m.rango[1])}
                         {/* 11/11/2026 (expertos, ronda 2): «tendencia» se dice una
                             sola vez, en el aviso de muestra de arriba; repetida en
                             el rango y en la diferencia llenaba cada fila. */}

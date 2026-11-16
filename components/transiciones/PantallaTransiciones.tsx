@@ -87,6 +87,8 @@ import { CARRILES_CAMPO, ZONAS_CAMPO } from "@/components/faltas/CampoFaltas";
 import { anterioresPorFecha, ultimoPorFecha } from "@/lib/abp/ultimo-partido";
 import { ContrasteOpta, OptaLaboratorio } from "@/components/opta-partido/OptaLaboratorio";
 import { partidoEnlazado, usePartidoDeLaUrl } from "@/lib/partido-enlazado";
+import { EnlacesRapidos } from "@/components/ui/EnlacesRapidos";
+import { enlaceConPartido, urlPostDelPartido } from "@/lib/post-partido";
 import {
   BarraFiltros,
   Filtrable,
@@ -158,8 +160,9 @@ type Textos = {
     adelante: (pct: string, n: number, de: number) => string;
     /** `juegan`: los de esa zona que se juegan con pase o conducción; `adelante`, los que salen hacia delante. */
     zona: (zona: string, n: number, total: number, adelante: number, juegan: number) => string;
-    acaba: (llegan: string, pierden: string, de: number) => string;
-    dura: (s: string) => string;
+    acaba: (llegan: number, pierden: number, de: number) => string;
+    /** `media`: la de los otros partidos etiquetados (16/11/2026, ronda 18), para leer la cifra. */
+    dura: (s: string, media?: { s: string; n: number } | null) => string;
   };
   dudosos: string;
   vacio: string;
@@ -214,11 +217,15 @@ const TEXTOS: Record<ModoTransiciones, Textos> = {
       rotuloSalida: "Salida",
     },
     conclusiones: {
-      adelante: (pct, n, de) => `El ${pct} % sale hacia delante tras robar (${n} de ${de}).`,
+      adelante: (pct, n, de) => `El ${pct} % sale hacia delante tras robar: ${n} de los ${de} que llegamos a jugar con pase o conducción.`,
       zona: (zona, n, total, adelante, juegan) =>
         `Donde más robamos es en ${zona}: ${n} de ${total}. De esos ${n}, jugamos ${juegan} con pase o conducción y ${adelante} salen hacia delante.`,
-      acaba: (llegan, pierden, de) => `De ${de} con desenlace, ${llegan} % acaba en remate o área y ${pierden} % en pérdida.`,
-      dura: (s) => `La transición dura ${s} s de media.`,
+      acaba: (llegan, pierden, de) =>
+        `De ${de} con desenlace, ${pct(llegan, de)} % acaba en remate o área (${llegan} de ${de}) y ${pct(pierden, de)} % en pérdida (${pierden} de ${de}).`,
+      dura: (s, media) =>
+        media
+          ? `La transición dura ${s} s de media; en los otros ${media.n} partidos etiquetados, ${media.s} s (es estilo: ni mejor ni peor).`
+          : `La transición dura ${s} s de media.`,
     },
     dudosos:
       "Los robos marcados con confianza baja son los que el etiquetado no puede defender fotograma a fotograma",
@@ -279,9 +286,13 @@ const TEXTOS: Record<ModoTransiciones, Textos> = {
       adelante: (pct, n, de) => `El rival sale hacia delante en el ${pct} % de las pérdidas que llega a jugar (${n} de ${de}).`,
       zona: (zona, n, total, adelante, juegan) =>
         /* 30/10/2026: dos frases, una cifra cada una (marketing: mezclaba tres). */
-        `Donde más perdemos es en ${zona === "campo rival" ? "campo rival, atacando en su mitad" : zona}: ${n} de ${total}. De esas ${n}, el rival juega ${juegan} y sale hacia delante en ${adelante}.`,
-      acaba: (llegan, pierden, de) => `De ${de} con desenlace, ${llegan} % nos llegan al área o al remate y ${pierden} % las recuperamos.`,
-      dura: (s) => `Su transición dura ${s} s de media.`,
+        `Donde más perdemos es en ${zona === "campo rival" ? "campo rival, atacando en su mitad" : zona}: ${n} de ${total}. De esas ${n}, el rival juega ${juegan} con pase o conducción y sale hacia delante en ${adelante}.`,
+      acaba: (llegan, pierden, de) =>
+        `De ${de} con desenlace, ${pct(llegan, de)} % nos llegan al área o al remate (${llegan} de ${de}) y ${pct(pierden, de)} % las recuperamos antes de que acabe su posesión (${pierden} de ${de}).`,
+      dura: (s, media) =>
+        media
+          ? `Su transición dura ${s} s de media; en los otros ${media.n} partidos etiquetados, ${media.s} s (cuanto más corta, antes la cortamos).`
+          : `Su transición dura ${s} s de media.`,
     },
     dudosos:
       "Las pérdidas marcadas con confianza media son las que Wyscout no clasifica como pase, conducción o duelo",
@@ -1114,7 +1125,8 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
 
     return (
       <>
-        {ade ? <tspan fill={COLOR_ACCION.ADELANTE}>{ade}</tspan> : null}
+        {/* 16/11/2026 (ronda 18): «3 · 5» no se leía sin leyenda: la flecha marca las que salen hacia delante. */}
+        {ade ? <tspan fill={COLOR_ACCION.ADELANTE}>{ade}↑</tspan> : null}
         {ade && resto ? <tspan fill="rgba(255,255,255,0.35)"> · </tspan> : null}
         {resto ? <tspan fill="rgba(255,255,255,0.8)">{resto}</tspan> : null}
       </>
@@ -1195,19 +1207,31 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
         modo === "robos" ? r.desenlace === "PERDIDA" : r.desenlace === "RECUPERAMOS",
       ).length;
 
-      frases.push(T.conclusiones.acaba(pct(llegan, seguidas.length), pct(pierden, seguidas.length), seguidas.length));
+      frases.push(T.conclusiones.acaba(llegan, pierden, seguidas.length));
 
       const tiempos = seguidas
         .map((r) => r.duracion)
         .filter((d): d is number => typeof d === "number");
 
       if (tiempos.length) {
-        frases.push(T.conclusiones.dura(decimal(tiempos.reduce((a, b) => a + b, 0) / tiempos.length)));
+        /* 16/11/2026 (expertos, ronda 18): con un partido, la duración con la
+           media de los otros partidos etiquetados (cada partido pesa igual). */
+        let media: { s: string; n: number } | null = null;
+        if (partidosVistos === 1) {
+          const este = robos[0].partido;
+          const porPartido = partidos
+            .filter((p) => p.id !== este && !esPretemporada(p.jornada))
+            .map((p) => p.robos.filter((r) => r.desenlace && typeof r.duracion === "number").map((r) => r.duracion as number))
+            .filter((t) => t.length > 0)
+            .map((t) => t.reduce((a, b) => a + b, 0) / t.length);
+          if (porPartido.length >= 2) media = { s: decimal(porPartido.reduce((a, b) => a + b, 0) / porPartido.length), n: porPartido.length };
+        }
+        frases.push(T.conclusiones.dura(decimal(tiempos.reduce((a, b) => a + b, 0) / tiempos.length), media));
       }
     }
 
     return frases;
-  }, [robos, filtros, T, modo]);
+  }, [robos, filtros, T, modo, partidos]);
 
   /*
   | Qué toca en la semana: la cifra que más se aleja de la media de los
@@ -1310,7 +1334,9 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
       /* 08/11/2026: el titular destacado encima de la tabla. 16/11/2026: el
          partido elegido no es «hoy»: se nombra la jornada y el rival. */
       titular: `${objetivo(formato(m.media!))}: en la ${comparativa.jornada} (${comparativa.rival}), ${cifra}`,
-      rotulo: mantener ? "Qué entrenamos para mantenerlo" : "Lo que pide trabajo esta semana",
+      /* 16/11/2026 (expertos, ronda 18): el rótulo sigue el sentido del dato;
+         37 robos frente a 38,4 no es «para mantenerlo». */
+      rotulo: mantener ? (porDebajo ? "Qué entrenamos para corregirlo" : "Qué entrenamos para mantenerlo") : "Lo que pide trabajo esta semana",
       filtro,
     };
   }, [comparativa, modo]);
@@ -1411,8 +1437,139 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
       .filter((x) => x.z !== top.z && x.n > 0)
       .map((x) => `${pct(x.n, robos.length)} % en ${dicho(x.z)}`)
       .join(" y ");
-    return `${modo === "robos" ? "Robamos" : "Perdemos el balón"} sobre todo en ${dicho(top.z)}: ${pct(top.n, robos.length)} %${resto ? `, por ${resto}` : ""}`;
+    /* 16/11/2026 (expertos, ronda 18): con un partido y sin filtro, la misma
+       zona en los otros partidos etiquetados, para leer si es lo de siempre. */
+    let enOtros = "";
+    const vistos = new Set(robos.map((r) => r.partido));
+    if (vistos.size === 1 && Object.keys(filtros).length === 0) {
+      const otros = partidos.filter((p) => !vistos.has(p.id) && !esPretemporada(p.jornada)).flatMap((p) => p.robos);
+      const nOtros = partidos.filter((p) => !vistos.has(p.id) && !esPretemporada(p.jornada) && p.robos.length > 0).length;
+      if (otros.length && nOtros >= 2) enOtros = ` (en los otros ${nOtros} partidos, ${pct(otros.filter((r) => zonaDe(r) === top.z).length, otros.length)} %)`;
+    }
+    return `${modo === "robos" ? "Robamos" : "Perdemos el balón"} sobre todo en ${dicho(top.z)}: ${pct(top.n, robos.length)} % (${top.n} de ${robos.length})${enOtros}${resto ? `, por ${resto}` : ""}`;
   })();
+
+  /* 16/11/2026 (expertos, ronda 18): quién más roba o pierde en lo que se ve, para su ficha a un toque. */
+  const masDeTodos = (() => {
+    const cuenta = new Map<string, number>();
+    for (const r of robos) {
+      const q = jugadorDe(r);
+      if (q) cuenta.set(q, (cuenta.get(q) ?? 0) + 1);
+    }
+    return [...cuenta.entries()].sort((a, b) => b[1] - a[1])[0] ?? null;
+  })();
+  const enlacesRapidos = [
+    {
+      href: enlaceConPartido(modo === "robos" ? "/laboratorio/perdidas" : "/laboratorio/transiciones", partidoElegido ?? { fecha: "", rival: "" }).replace(/\?fecha=&rival=$/, ""),
+      texto: modo === "robos" ? "Pérdidas de este partido" : "Robos de este partido",
+      icono: modo === "robos" ? ArrowLeftRight : Crosshair,
+    },
+    { href: partidoElegido ? enlaceConPartido("/laboratorio/faltas", partidoElegido) : "/laboratorio/faltas", texto: partidoElegido ? "Sus faltas" : "Faltas", icono: Timer },
+    partidoElegido ? { href: urlPostDelPartido(partidoElegido.fecha, partidoElegido.rival), texto: `Post del partido · ${partidoElegido.jornada}`, icono: BarChart3 } : { texto: "" },
+    masDeTodos
+      ? { href: `/individual?nombre=${encodeURIComponent(masDeTodos[0])}`, texto: `${masDeTodos[0]}, el que más ${modo === "robos" ? "roba" : "pierde"} (${masDeTodos[1]})`, icono: Users }
+      : { texto: "" },
+  ];
+
+  /*
+  | 16/11/2026 (expertos, ronda 18): en «Visual» el campo con su conclusión va
+  | lo primero, antes del texto de «qué entrenamos»; en «Detalle» sigue en su
+  | pestaña «En el campo».
+  */
+  const bloqueCampo = (
+    <div className="mt-5">
+      {enVisual && tituloCampo ? (
+        <TituloConclusion pregunta={modo === "robos" ? "¿Dónde robamos?" : "¿Dónde perdemos el balón?"} fuente={`Vídeo etiquetado · ${robos.length} ${robos.length === 1 ? T.unidadUna : T.unidad}`}>
+          {tituloCampo}
+        </TituloConclusion>
+      ) : null}
+      <Panel
+        title={modo === "robos" ? "Dónde robamos" : "Dónde perdemos el balón"}
+        subtitle={
+          explicativos
+            ? `Cada ${T.unidadUna} en su tercio y su carril; el color dice cómo sale, el anillo que acaba en remate o en el área. Pincha una casilla, un tercio o un carril para filtrar.`
+            : undefined
+        }
+        icon={MapIcon}
+        bodyClassName="p-0"
+      >
+        {paraCampo.length === 0 ? (
+          <p className="p-4 text-sm text-white/45 sm:p-5">{base.length === 0 ? T.vacio : T.vacioFiltro}</p>
+        ) : (
+          <CampoZonas
+            onPunto={(id, origen) => {
+              const r = paraCampo.find((x) => idDe(x) === id);
+
+              if (!r) return;
+
+              const opciones = opcionesDeAccion({
+                video: r.video,
+                hudl: r.hudlUrl && r.hudl != null ? { url: r.hudlUrl, seg: Math.round(r.hudl) } : null,
+                fila: robos.some((x) => idDe(x) === id) ? id : null,
+                /* La tabla vive en su pestaña: hay que ir a ella antes. */
+                aLaTabla: () => {
+                  setVista("lista");
+                  setVistaPantalla("detalle");
+                },
+              });
+
+              /* Sin vídeo ni fila, el punto hace lo de siempre: filtra su cajón. */
+              if (!abreMenu(origen, puntosCampo.find((p) => p.id === id)?.titulo.split("\n")[0] ?? "", opciones))
+                alternaVarios([
+                  ["zona", zonaDe(r)],
+                  ["carril", r.carril],
+                ]);
+            }}
+            puntos={puntosCampo}
+            zonas={ZONAS_CAMPO}
+            carriles={CARRILES_CAMPO}
+            resaltado={resaltado}
+            onResaltar={setResaltado}
+            zonasMarcadas={(filtros.zona ?? []).map((z) => ZONA_EN_CAMPO[z] ?? z)}
+            carrilesMarcados={filtros.carril ?? []}
+            onCajon={(zona, carril) =>
+              alternaVarios([
+                ["zona", ZONA_DEL_CAMPO[zona] ?? zona],
+                ["carril", carril],
+              ])
+            }
+            onZona={(zona) => alterna("zona", ZONA_DEL_CAMPO[zona] ?? zona)}
+            onCarril={(carril) => alterna("carril", carril)}
+            cuenta={cuentaCajon}
+            unidad={{ una: T.unidadUna, varias: T.unidad }}
+            ariaLabel={`Campo con ${T.unidad} por tercio y carril`}
+            leyenda={
+              <>
+                {T.acciones.map((a) => (
+                  <button
+                    key={a.clave}
+                    type="button"
+                    onClick={() => alterna("accion", a.clave)}
+                    aria-pressed={estaActivo(filtros, "accion", a.clave)}
+                    title={TITULO_FILTRO}
+                    style={marcaPieza(estaActivo(filtros, "accion", a.clave), hayFiltro(filtros, "accion"))}
+                    className="inline-flex cursor-pointer items-center gap-1.5 rounded-md px-1 transition hover:opacity-100"
+                  >
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ background: a.color }} />
+                    {a.nombre}
+                  </button>
+                ))}
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-3 w-3 rounded-full border-2 border-white/80" /> acaba en remate o en el área
+                </span>
+                <span>Cifras de cada zona: con ↑, las que salen hacia delante · sin flecha, el resto</span>
+                {/* En línea: el pie del campo es verde oscuro en los dos temas
+                    y la clase se volvía tinta oscura en modo día. */}
+                {sinSitio > 0 && explicativos && (
+                  <span style={{ color: "rgba(255,255,255,0.45)" }}>{sinSitio} sin carril anotado, fuera del campo</span>
+                )}
+              </>
+            }
+          />
+        )}
+      </Panel>
+    </div>
+  );
 
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
@@ -1449,6 +1606,8 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                 {partidosLiga} {partidosLiga === 1 ? "partido etiquetado" : "partidos etiquetados"} en vídeo, desde la {primeraConDato}: es el primer partido etiquetado {modo === "robos" ? "robo a robo" : "pérdida a pérdida"}, y las medias sólo comparan partidos etiquetados igual.
               </p>
             ) : null}
+
+            <EnlacesRapidos enlaces={enlacesRapidos} className="mt-3" />
 
             {/* ---------------- mandos ---------------- */}
 
@@ -1554,6 +1713,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
 
             {(vista === "resumen" || enVisual) && (
             <>
+            {enVisual && bloqueCampo}
             {/* ---------------- este partido frente a los anteriores ---------------- */}
 
             {/* 29/10/2026: en el móvil se deja a la derecha el ancho del botón ⋮
@@ -1685,105 +1845,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
             </>
             )}
 
-            {(vista === "campo" || enVisual) && (
-            <>
-            {/* ---------------- dónde, en el campo ---------------- */}
-
-            <div className="mt-5">
-              {enVisual && tituloCampo ? (
-                <TituloConclusion pregunta={modo === "robos" ? "¿Dónde robamos?" : "¿Dónde perdemos el balón?"} fuente={`Vídeo etiquetado · ${robos.length} ${robos.length === 1 ? T.unidadUna : T.unidad}`}>
-                  {tituloCampo}
-                </TituloConclusion>
-              ) : null}
-              <Panel
-                title={modo === "robos" ? "Dónde robamos" : "Dónde perdemos el balón"}
-                subtitle={
-                  explicativos
-                    ? `Cada ${T.unidadUna} en su tercio y su carril; el color dice cómo sale, el anillo que acaba en remate o en el área. Pincha una casilla, un tercio o un carril para filtrar.`
-                    : undefined
-                }
-                icon={MapIcon}
-                bodyClassName="p-0"
-              >
-                {paraCampo.length === 0 ? (
-                  <p className="p-4 text-sm text-white/45 sm:p-5">{base.length === 0 ? T.vacio : T.vacioFiltro}</p>
-                ) : (
-                  <CampoZonas
-                    onPunto={(id, origen) => {
-                      const r = paraCampo.find((x) => idDe(x) === id);
-
-                      if (!r) return;
-
-                      const opciones = opcionesDeAccion({
-                        video: r.video,
-                        hudl: r.hudlUrl && r.hudl != null ? { url: r.hudlUrl, seg: Math.round(r.hudl) } : null,
-                        fila: robos.some((x) => idDe(x) === id) ? id : null,
-                        /* La tabla vive en su pestaña: hay que ir a ella antes. */
-                        aLaTabla: () => {
-                          setVista("lista");
-                          setVistaPantalla("detalle");
-                        },
-                      });
-
-                      /* Sin vídeo ni fila, el punto hace lo de siempre: filtra su cajón. */
-                      if (!abreMenu(origen, puntosCampo.find((p) => p.id === id)?.titulo.split("\n")[0] ?? "", opciones))
-                        alternaVarios([
-                          ["zona", zonaDe(r)],
-                          ["carril", r.carril],
-                        ]);
-                    }}
-                    puntos={puntosCampo}
-                    zonas={ZONAS_CAMPO}
-                    carriles={CARRILES_CAMPO}
-                    resaltado={resaltado}
-                    onResaltar={setResaltado}
-                    zonasMarcadas={(filtros.zona ?? []).map((z) => ZONA_EN_CAMPO[z] ?? z)}
-                    carrilesMarcados={filtros.carril ?? []}
-                    onCajon={(zona, carril) =>
-                      alternaVarios([
-                        ["zona", ZONA_DEL_CAMPO[zona] ?? zona],
-                        ["carril", carril],
-                      ])
-                    }
-                    onZona={(zona) => alterna("zona", ZONA_DEL_CAMPO[zona] ?? zona)}
-                    onCarril={(carril) => alterna("carril", carril)}
-                    cuenta={cuentaCajon}
-                    unidad={{ una: T.unidadUna, varias: T.unidad }}
-                    ariaLabel={`Campo con ${T.unidad} por tercio y carril`}
-                    leyenda={
-                      <>
-                        {T.acciones.map((a) => (
-                          <button
-                            key={a.clave}
-                            type="button"
-                            onClick={() => alterna("accion", a.clave)}
-                            aria-pressed={estaActivo(filtros, "accion", a.clave)}
-                            title={TITULO_FILTRO}
-                            style={marcaPieza(estaActivo(filtros, "accion", a.clave), hayFiltro(filtros, "accion"))}
-                            className="inline-flex cursor-pointer items-center gap-1.5 rounded-md px-1 transition hover:opacity-100"
-                          >
-                            <span className="h-2.5 w-2.5 rounded-full" style={{ background: a.color }} />
-                            {a.nombre}
-                          </button>
-                        ))}
-                        <span className="inline-flex items-center gap-1.5">
-                          <span className="h-3 w-3 rounded-full border-2 border-white/80" /> acaba en remate o en el área
-                        </span>
-                        <span>Cifras de cada zona: hacia delante · el resto</span>
-                        {/* En línea: el pie del campo es verde oscuro en los dos temas
-                            y la clase se volvía tinta oscura en modo día. */}
-                        {sinSitio > 0 && explicativos && (
-                          <span style={{ color: "rgba(255,255,255,0.45)" }}>{sinSitio} sin carril anotado, fuera del campo</span>
-                        )}
-                      </>
-                    }
-                  />
-                )}
-              </Panel>
-            </div>
-
-            </>
-            )}
+            {vista === "campo" && !enVisual && bloqueCampo}
 
             {!enVisual && vista === "detalle" && (
             <>

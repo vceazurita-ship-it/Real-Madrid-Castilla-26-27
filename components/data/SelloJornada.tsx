@@ -152,6 +152,8 @@ export function SelloDeFechas({
    * 16/11/2026 (expertos, ronda 17): una sola línea en la cabecera, sin la
    * franja «JORNADA INCOMPLETA»: hasta dónde llega, cuántos partidos y, si
    * ya se jugó otra, que entra al etiquetarla. Lo usan robos, pérdidas y faltas.
+   * 16/11/2026 (ronda 18): sin el «la J· entra en cuanto se etiquete», que es
+   * un pendiente para el analista y no se nombra en pantalla.
    */
   compacto?: boolean;
 }) {
@@ -165,7 +167,8 @@ export function SelloDeFechas({
 
   if (compacto) {
     const n = cuantos ?? fechas.length;
-    const siguiente = alcance.pendientes[0];
+    // 16/11/2026 (ronda 18): sin «la J· entra en cuanto se etiquete»: es un
+    // pendiente del analista y lo que no tiene dato no se nombra.
     return (
       <p className={`mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs ${className}`} role="status">
         <CheckCircle2 size={14} style={{ color: chipInk("#1B9E77") }} className="shrink-0" />
@@ -174,9 +177,6 @@ export function SelloDeFechas({
           {alcance.rival ? ` · ${alcance.rival}` : ""}
           {alcance.fecha ? ` · ${fecha(alcance.fecha)}` : ""} · {n} {n === 1 ? "partido" : "partidos"}
         </span>
-        {siguiente ? (
-          <span className="text-white/60">· la {siguiente} entra en cuanto se etiquete</span>
-        ) : null}
       </p>
     );
   }

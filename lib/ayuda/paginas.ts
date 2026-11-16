@@ -3075,19 +3075,20 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Mandos",
         filas: [
-          { que: "Datos hasta la J·", es: "Una línea: la última jornada etiquetada, su rival y fecha, y cuántos partidos hay; si ya se jugó otra, dice que entra en cuanto se etiquete" },
+          { que: "Datos hasta la J·", es: "Una línea: la última jornada etiquetada, su rival y fecha, y cuántos partidos hay. Lo que aún no está etiquetado no se nombra (16/11/2026)" },
           { que: "Partido", es: "Un desplegable con las jornadas etiquetadas, la última arriba (abre en ella), y cuántas hay" },
           { que: "Todas / A favor / En contra", es: "A favor = nos la hacen a nosotros; en contra = la cometemos" },
           { que: "Filtrando", es: "Todo lo que se pincha (casilla del campo, distancia, número de defensores, celda de la tabla) filtra la pantalla entera" },
           { que: "Vistas", es: "Resumen, En el campo, Detalle, Por jugador y Falta a falta" },
-          { que: "Visual · Detalle (16/11/2026)", es: "La pantalla se abre en «Visual»: el partido frente a los anteriores y, debajo, el campo con cada falta y su conclusión en el título (de las que cometemos, cuántas en nuestro tercio; de las que nos hacen, cuántas en su tercio). «Detalle» deja las cinco vistas de siempre; abrir la tabla desde el campo pasa solo a Detalle. Se recuerda en este aparato", cuenta: "Mismos filtros que arriba; tercios del campo de verdad (sitioEnCampo), el Castilla atacando hacia la derecha" },
+          { que: "A un toque", es: "Bajo la línea de datos: robos y pérdidas de este mismo partido, su post en Análisis de datos (abierto en ese partido) y ABP ofensivo" },
+          { que: "Visual · Detalle (16/11/2026)", es: "La pantalla se abre en «Visual»: el partido y, justo debajo, el campo con cada falta y su conclusión en el título (de las que cometemos, cuántas en nuestro tercio; de las que nos hacen, cuántas en su tercio); después, el partido frente a los anteriores. Lo de Opta (la temporada entera, no el partido) va sólo en «Detalle», que deja las cinco vistas de siempre; abrir la tabla desde el campo pasa solo a Detalle. Se recuerda en este aparato", cuenta: "Mismos filtros que arriba; tercios del campo de verdad (sitioEnCampo), el Castilla atacando hacia la derecha" },
         ],
       },
       {
         titulo: "Resumen",
         filas: [
           { que: "Lo que pide trabajo / Qué entrenamos", es: "Arriba, como en Robos y Pérdidas: el objetivo en faltas en contra, lo del partido elegido (jornada y rival), la tarea y el criterio de éxito, en tres líneas", cuenta: "Media de los partidos anteriores con su mínimo y máximo; con menos de 10, tendencia. La zona sólo se nombra si reúne la mitad de las faltas o más y no empata" },
-          { que: "Comparativa", es: "El partido frente a la media de los anteriores: faltas a favor y en contra, frontales, en contra en nuestro campo y a favor en campo rival", cuenta: "Recuentos del partido sin decimales; medias con uno. Media por partido de los anteriores por fecha, con su mínimo y máximo; verde mejor, naranja peor, gris no se juzga. Una fila de «tendencia, pocos casos» (menos de 5) no lleva veredicto. Las faltas a favor dicen si caen dentro de lo de siempre" },
+          { que: "Comparativa", es: "El partido frente a la media de los anteriores: faltas a favor y en contra, frontales, en contra en nuestro campo y a favor en campo rival", cuenta: "Recuentos del partido sin decimales; medias con uno. Media por partido de los anteriores por fecha, con su mínimo y máximo; verde mejor, naranja peor, gris no se juzga. Una fila de «tendencia, pocos casos» (menos de 5) no lleva veredicto. Las faltas a favor dicen, en neutro, si caen por debajo, dentro o por encima de lo habitual. Los defensores por delante son una media por falta (la fila lo dice: «por falta»)" },
           { que: "Con 2 casos o menos", es: "Una frase con las filas de muy pocos casos y su media: sólo tendencia" },
           { que: "A balón parado", es: "Las faltas a favor en campo rival del partido (laterales y frontales), con el enlace a ABP Ofensivo" },
           { que: "Opta · el Castilla en su grupo", es: "Faltas cometidas y recibidas por partido según Opta, temporada hasta la jornada de nuestro último partido en Opta (no sólo el elegido), con su puesto en el grupo; y el partido según Opta al lado del etiquetado, con una línea de por qué no cuadran si no cuadran" },
@@ -3132,9 +3133,10 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Mandos",
         filas: [
-          { que: "Datos hasta la J·", es: "Una línea: la última jornada etiquetada, su rival y fecha, y cuántos partidos hay (el mismo número que la línea de debajo); si ya se jugó otra, dice que entra en cuanto se etiquete" },
+          { que: "Datos hasta la J·", es: "Una línea: la última jornada etiquetada, su rival y fecha, y cuántos partidos hay (el mismo número que la línea de debajo). Lo que aún no está etiquetado no se nombra (16/11/2026)" },
           { que: "Partido", es: "Un desplegable con las jornadas (la última arriba, abre en ella) y «Temporada entera»" },
-          { que: "Visual · Detalle (16/11/2026)", es: "La pantalla se abre en «Visual»: lo que pide trabajo, las conclusiones y el campo con cada robo en su sitio, con su conclusión en el título (en qué tercio se concentran, con el % de cada uno). «Detalle» es la pantalla de siempre con sus cinco pestañas (Resumen, En el campo, Detalle, Por jugador y la lista); «Ver uno a uno» y la tabla desde el campo pasan solos a Detalle. Se recuerda en este aparato", cuenta: "Mismos filtros que arriba; el % de cada tercio es sobre todos los que se ven" },
+          { que: "A un toque", es: "Bajo la línea de datos: pérdidas y faltas de este mismo partido, su post en Análisis de datos (abierto en ese partido) y la ficha del que más roba en lo que se ve" },
+          { que: "Visual · Detalle (16/11/2026)", es: "La pantalla se abre en «Visual»: primero el campo con cada robo en su sitio y su conclusión en el título (en qué tercio se concentran, con su base y, con un partido, el % de esa zona en los otros partidos etiquetados); después lo que pide trabajo y las conclusiones. «Detalle» es la pantalla de siempre con sus cinco pestañas (Resumen, En el campo, Detalle, Por jugador y la lista); «Ver uno a uno» y la tabla desde el campo pasan solos a Detalle. Se recuerda en este aparato", cuenta: "Mismos filtros que arriba; el % de cada tercio es sobre todos los que se ven" },
           { que: "Ver en % / en número", es: "Cambia las cifras de los gráficos entre porcentaje y número" },
           { que: "Quitar los dudosos", es: "Saca los robos con confianza baja" },
           { que: "Revisado entero", es: "Cuánto del partido está revisado; si falta, los totales son de esos minutos" },
@@ -3145,9 +3147,11 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Resumen",
         filas: [
           { que: "Comparativa", es: "El último partido frente a la media de los anteriores: robos, salen hacia delante, acaban en remate o área, la perdemos al momento y robos en campo rival (la duración, que es estilo, va en las conclusiones)", cuenta: "Media por partido con los mismos filtros, con mínimo y máximo; «muestra pequeña» por debajo de 15" },
-          { que: "Lo que pide trabajo esta semana", es: "La cifra peor que nuestra media, con la tarea y su criterio de éxito («Qué entrenamos para mantenerlo» si todo va bien). El titular nombra la jornada y el rival del partido elegido; debajo, tres líneas: dónde estamos, la tarea y el criterio", cuenta: "Si la más justa queda por debajo de la media sin salirse de lo normal, se dice «ligeramente por debajo»; el rango es el de los partidos anteriores etiquetados" },
-          { que: "Salen hacia delante", es: "Lo primero tras el robo es un pase o conducción hacia delante", cuenta: "Sobre los robos que se juegan con pase o conducción" },
-          { que: "Dura la transición", es: "Segundos de media de la jugada tras el robo" },
+          { que: "Lo que pide trabajo esta semana", es: "La cifra peor que nuestra media, con la tarea y su criterio de éxito («Qué entrenamos para mantenerlo» si todo va bien; «para corregirlo» si la más justa queda por debajo de la media). El titular nombra la jornada y el rival del partido elegido; debajo, tres líneas: dónde estamos, la tarea y el criterio", cuenta: "Si la más justa queda por debajo de la media sin salirse de lo normal, se dice «ligeramente por debajo»; el rango es el de los partidos anteriores etiquetados" },
+          { que: "Salen hacia delante", es: "Lo primero tras el robo es un pase o conducción hacia delante", cuenta: "Sobre los robos que se juegan con pase o conducción (la conclusión lo dice: «de los N que llegamos a jugar»)" },
+          { que: "Conclusiones", es: "Cada porcentaje con su recuento («13,5 % · 5 de 37»)" },
+          { que: "Dura la transición", es: "Segundos de media de la jugada tras el robo; con un partido, al lado la media de los otros partidos etiquetados (es estilo: ni mejor ni peor)", cuenta: "Cada partido pesa igual; hacen falta 2 partidos más" },
+          { que: "En el campo", es: "Cada casilla dice «3↑ · 5»: con flecha, los que salen hacia delante; sin ella, el resto" },
           { que: "Opta · el Castilla en su grupo", es: "Recuperaciones (total y por tercio), intercepciones y PPDA por partido, con su puesto en el grupo: temporada hasta la jornada de nuestro último partido en Opta, no sólo el partido elegido" },
           { que: "Para nuestra salida", es: "Las recuperaciones en el último tercio y el PPDA del próximo rival, con su percentil, y lo que dicen de nuestra salida", cuenta: "PPDA en P60 o más = aprieta pronto; P40 o menos = espera en su campo. Recuperaciones arriba en P60 o más = recupera arriba" },
           PERCENTIL,
@@ -3187,9 +3191,10 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Mandos",
         filas: [
-          { que: "Datos hasta la J·", es: "Una línea: la última jornada etiquetada, su rival y fecha, y cuántos partidos hay (el mismo número que la línea de debajo); si ya se jugó otra, dice que entra en cuanto se etiquete" },
+          { que: "Datos hasta la J·", es: "Una línea: la última jornada etiquetada, su rival y fecha, y cuántos partidos hay (el mismo número que la línea de debajo). Lo que aún no está etiquetado no se nombra (16/11/2026)" },
           { que: "Partido", es: "Un desplegable con las jornadas (la última arriba, abre en ella) y «Temporada entera»" },
-          { que: "Visual · Detalle (16/11/2026)", es: "La pantalla se abre en «Visual»: lo que pide trabajo, las conclusiones y el campo con cada pérdida en su sitio, con su conclusión en el título (en qué tercio se concentran, con el % de cada uno). «Detalle» es la pantalla de siempre con sus cinco pestañas (Resumen, En el campo, Detalle, Por jugador y la lista); «Ver uno a uno» y la tabla desde el campo pasan solos a Detalle. Se recuerda en este aparato", cuenta: "Mismos filtros que arriba; el % de cada tercio es sobre todos los que se ven" },
+          { que: "A un toque", es: "Bajo la línea de datos: robos y faltas de este mismo partido, su post en Análisis de datos (abierto en ese partido) y la ficha del que más pierde en lo que se ve" },
+          { que: "Visual · Detalle (16/11/2026)", es: "La pantalla se abre en «Visual»: primero el campo con cada pérdida en su sitio y su conclusión en el título (en qué tercio se concentran, con su base y, con un partido, el % de esa zona en los otros partidos etiquetados); después lo que pide trabajo y las conclusiones. «Detalle» es la pantalla de siempre con sus cinco pestañas (Resumen, En el campo, Detalle, Por jugador y la lista); «Ver uno a uno» y la tabla desde el campo pasan solos a Detalle. Se recuerda en este aparato", cuenta: "Mismos filtros que arriba; el % de cada tercio es sobre todos los que se ven" },
           { que: "Ver en % / en número", es: "Cambia las cifras de los gráficos entre porcentaje y número" },
           { que: "Quitar los dudosos", es: "Saca las pérdidas con confianza media (las que Wyscout no clasifica como pase, conducción o duelo)" },
           { que: "Revisado entero", es: "Cuánto del partido está revisado; si falta, los totales son de esos minutos" },
@@ -3200,10 +3205,11 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Resumen",
         filas: [
           { que: "Comparativa", es: "El último partido frente a la media de los anteriores: pérdidas, el rival sale hacia delante, acaban en remate o en nuestra área, la recuperamos al momento, pérdidas en campo propio y duración de su posesión", cuenta: "Media por partido con los mismos filtros, con mínimo y máximo; aquí, en casi todas, menos es mejor" },
-          { que: "Lo que pide trabajo esta semana", es: "La cifra peor que nuestra media, con la tarea y su criterio de éxito («Qué entrenamos para mantenerlo» si todo va bien). El titular nombra la jornada y el rival; debajo, tres líneas: dónde estamos (con su base, «17 de 30»), la tarea y el criterio con el rango de los partidos anteriores etiquetados" },
+          { que: "Lo que pide trabajo esta semana", es: "La cifra peor que nuestra media, con la tarea y su criterio de éxito («Qué entrenamos para mantenerlo» si todo va bien; «para corregirlo» si la más justa queda por debajo). El titular nombra la jornada y el rival; debajo, tres líneas: dónde estamos (con su base, «17 de 30»), la tarea y el criterio con el rango de los partidos anteriores etiquetados" },
           { que: "Conclusiones", es: "Cuántas, dónde (campo rival = atacando, en su mitad), cuántas en nuestro campo y, si donde más perdemos es campo rival, la tarea de contrapresión con la referencia del partido (cuántas jugó el rival)" },
           { que: "El rival sale hacia delante", es: "Lo primero que hace con el balón es un pase o conducción hacia delante: lo malo", cuenta: "Sobre las pérdidas que el rival llega a jugar" },
-          { que: "Dura su transición", es: "Segundos de media de la posesión del rival tras la pérdida" },
+          { que: "Dura su transición", es: "Segundos de media de la posesión del rival tras la pérdida; con un partido, al lado la media de los otros partidos etiquetados (cuanto más corta, antes la cortamos)" },
+          { que: "Cifras con su base", es: "Cada porcentaje lleva su recuento («60 % · 30 de 50»). «El rival juega N» son las que juega con pase o conducción; «las recuperamos» son las que volvemos a ganar antes de que acabe su posesión: no se pisan" },
           { que: "Opta · el Castilla en su grupo", es: "Pérdidas (total y por tercio) y balones robados en conducción por partido, con su puesto en el grupo: temporada hasta la jornada de nuestro último partido en Opta, no sólo el elegido. Las del último tercio son estilo (en gris) y llevan una frase de qué significan", cuenta: "El «por qué no coinciden» con las pérdidas de aquí se dice una vez, bajo la tabla del resumen" },
           PERCENTIL,
         ],

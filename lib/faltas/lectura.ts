@@ -137,7 +137,8 @@ export function comparativaFaltas(partido: PartidoFaltas, partidos: PartidoFalta
     const actual = defensoresDe(lado)(partido.faltas);
     const medias = anteriores.map(defensoresDe(lado)).filter((n): n is number => n !== null);
 
-    if (actual !== null || medias.length > 0) metricas.push({ clave, nombre, actual, media: mediaDe(medias), formato: decimal, mejorAlto, pie });
+    /* 16/11/2026 (ronda 18): es una media por falta, no un recuento por partido. */
+    if (actual !== null || medias.length > 0) metricas.push({ clave, nombre, actual, media: mediaDe(medias), formato: decimal, mejorAlto, pie: `de media por falta · ${pie}`, porCada: "por falta" });
   };
 
   conDefensores("defensores", "Defensores por delante (a favor)", aFavor, false, "entre la falta y la portería, portero incluido");
