@@ -111,6 +111,34 @@ function puestoDeFila(f: { percentil: number; puesto?: number; de?: number }, eq
   return Math.min(equipos, Math.max(1, equipos - Math.round((f.percentil / 100) * equipos) + 1));
 }
 
+/*
+| Lo más fuerte y lo más flojo del rival, con su cifra y su puesto (16/11/2026):
+| sacado aquí para que el Plan de partido diga exactamente lo mismo que esta
+| franja («fuerte en presión alta (PPDA 8,8, 2.º de 20)»).
+*/
+export function fuerteYFlojoDelRival(equipo: string, aspectos: AspectoDestacado[], equipos: number) {
+  const extremo = (lista: AspectoDestacado[], mejor: boolean) =>
+    lista
+      .flatMap((a) => a.filas.map((f) => ({ a, f, puesto: puestoDeFila(f, equipos) })))
+      .sort((x, y) => (mejor ? x.puesto - y.puesto : y.puesto - x.puesto))[0];
+  const fuerte = equipos > 0 ? extremo(aspectos.filter((a) => a.desviacion >= 0), true) : undefined;
+  const flojo = equipos > 0 ? extremo(aspectos.filter((a) => a.desviacion < 0), false) : undefined;
+  const dato = (x: NonNullable<typeof fuerte>) =>
+    `${x.a.aspecto.toLowerCase()} (${nombreDeFila(x.a.aspecto, x.f.nombre).replace(/ %$/, "")} ${cifraAspecto(x.f.valor, x.f.unidad)}, ${x.puesto}.º de ${x.f.de ?? equipos})`;
+  const conDato =
+    fuerte && flojo
+      ? `${equipo}, fuerte en ${dato(fuerte)} y flojo en ${dato(flojo)}`
+      : fuerte
+        ? `${equipo}, fuerte en ${dato(fuerte)}`
+        : flojo
+          ? `${equipo}, flojo en ${dato(flojo)}`
+          : "";
+  /* Su presión, con la misma cifra y el mismo puesto que esta franja (la fila de PPDA, si la hay). */
+  const filaPpda = aspectos.flatMap((a) => a.filas).find((f) => /ppda/i.test(f.nombre));
+  const ppda = filaPpda && equipos > 0 ? { valor: cifraAspecto(filaPpda.valor, filaPpda.unidad), puesto: puestoDeFila(filaPpda, equipos), de: filaPpda.de ?? equipos } : null;
+  return { conDato, fuerte: fuerte ? dato(fuerte) : "", flojo: flojo ? dato(flojo) : "", ppda };
+}
+
 /* Tres bloques a la vista; el resto, plegado (16/11/2026, jueces de marketing). */
 const BLOQUES_A_LA_VISTA = 3;
 
@@ -197,22 +225,7 @@ export function VistazoRival({
         | 2.º de 20) y flojo en balón parado en contra (córners rematados
         | 44,6 %, 20.º de 20)». Sale de la cifra más extrema de cada lado.
         */
-        const extremo = (lista: AspectoDestacado[], mejor: boolean) =>
-          lista
-            .flatMap((a) => a.filas.map((f) => ({ a, f, puesto: puestoDeFila(f, equipos) })))
-            .sort((x, y) => (mejor ? x.puesto - y.puesto : y.puesto - x.puesto))[0];
-        const fuerte = equipos > 0 ? extremo(aspectos.filter((a) => a.desviacion >= 0), true) : undefined;
-        const flojo = equipos > 0 ? extremo(aspectos.filter((a) => a.desviacion < 0), false) : undefined;
-        const dato = (x: NonNullable<typeof fuerte>) =>
-          `${x.a.aspecto.toLowerCase()} (${nombreDeFila(x.a.aspecto, x.f.nombre).replace(/ %$/, "")} ${cifraAspecto(x.f.valor, x.f.unidad)}, ${x.puesto}.º de ${x.f.de ?? equipos})`;
-        const conDato =
-          fuerte && flojo
-            ? `${equipo}, fuerte en ${dato(fuerte)} y flojo en ${dato(flojo)}`
-            : fuerte
-              ? `${equipo}, fuerte en ${dato(fuerte)}`
-              : flojo
-                ? `${equipo}, flojo en ${dato(flojo)}`
-                : "";
+        const { conDato } = fuerteYFlojoDelRival(equipo, aspectos, equipos);
 
         return titular || conDato ? (
           <div className="mb-3 min-w-0">

@@ -24,7 +24,7 @@ import RecursosRival, {
   type RecursoFijo,
 } from "@/components/rivals/RecursosRival";
 import { BocetoPlanDialog } from "@/components/match-preparation/BocetoPlanDialog";
-import { PanelProyeccion } from "@/components/proyeccion/PanelProyeccion";
+import { PanelProyeccion, useProyeccionJuego } from "@/components/proyeccion/PanelProyeccion";
 import { PorQueDelBoceto } from "@/components/match-preparation/PorQueDelBoceto";
 import { KIND_MOTIVOS_PLAN, claveMotivosPlan, type BocetoPlan } from "@/lib/plan-partido/boceto";
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
@@ -1643,6 +1643,27 @@ export default function MatchPreparation() {
   /* `/duelos` se abre con el mismo rival que este plan, no con el próximo. */
   const enlaceDuelos = rivalActivo?.EQUIPO ? `/duelos?equipo=${encodeURIComponent(rivalActivo.EQUIPO)}` : "/duelos";
   const contraste = useContrasteRival(rivalActivo?.EQUIPO ?? "");
+  /* El balón parado, plegado: sólo se pide al abrirlo (pesa en el servidor). */
+  const [abpAbierto, setAbpAbierto] = useState(false);
+  /*
+  | TRES IDEAS ARRIBA (16/11/2026, jueces): dónde hacerle daño, de qué cuidarnos
+  | y el duelo que decide, cada una con su dato. Salen de la proyección y de los
+  | duelos de abajo; lo que no tiene dato no sale.
+  */
+  const proyeccionJuego = useProyeccionJuego(rivalActivo?.EQUIPO ?? null);
+  const tresIdeas = (() => {
+    const ideas: { titulo: string; texto: string; base: string }[] = [];
+    const v = proyeccionJuego?.ventajas[0];
+    if (v) ideas.push({ titulo: "Dónde hacerle daño", texto: v.consigna, base: v.frase });
+    const r = proyeccionJuego?.riesgos[0];
+    if (r) ideas.push({ titulo: "De qué cuidarnos", texto: r.consigna, base: r.frase });
+    const fuerza = (d: DueloClave) => Math.max(Math.abs(d.conBalon ?? 0), Math.abs(d.sinBalon ?? 0));
+    const duelo = duelosClave
+      ? [...duelosClave.grupos.vigilar, ...duelosClave.grupos.doble, ...duelosClave.grupos.buscar].filter((d) => d.consigna).sort((a, b) => fuerza(b) - fuerza(a))[0]
+      : undefined;
+    if (duelo) ideas.push({ titulo: "El duelo que decide", texto: duelo.consigna, base: `${duelo.titulo}: ${duelo.nuestros.join(" y ")} contra ${duelo.suyos.join(" y ")}` });
+    return ideas;
+  })();
 
   /* «Contraste con Scout Colectivo» por la posesión: quitado (11/11/2026, fútbol). La posesión es nuestro plan y el juego directo el suyo; no se contradicen. */
 
@@ -2431,11 +2452,12 @@ export default function MatchPreparation() {
                   <details className="mp-no-print group relative">
                     <summary
                       className="
-                        flex cursor-pointer list-none items-center gap-2 rounded-xl border
-                        border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white/70
-                        transition hover:border-white/25 hover:text-white
+                        flex cursor-pointer list-none items-center gap-2 rounded-xl
+                        bg-[#C8A96B] px-3.5 py-2.5 text-sm font-bold text-[#0B0F14]
+                        transition hover:brightness-110
                         [&::-webkit-details-marker]:hidden
                       "
+                      title="El botón principal del plan (16/11/2026): Scout Colectivo, Pizarra ABP e imprimir"
                     >
                       <Binoculars size={15} />
 
@@ -2865,6 +2887,20 @@ export default function MatchPreparation() {
                   )}
                 </div>
 
+                {!editando && tresIdeas.length > 0 && (
+                  <div className="mp-no-print grid gap-3 md:grid-cols-3" aria-label="Tres ideas del partido">
+                    {tresIdeas.map((idea, i) => (
+                      <div key={idea.titulo} className="min-w-0 rounded-2xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.06] p-4">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#C8A96B]">
+                          {i + 1} · {idea.titulo}
+                        </p>
+                        <p className="mt-1 text-[15px] font-semibold leading-snug text-white">{idea.texto}</p>
+                        <p className="mt-1 text-xs leading-snug text-white/60">{idea.base}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 {!editando && (() => {
                   const claves = lineasDeClaves(rivalActivo.CLAVES_PARTIDO).slice(0, CLAVES_ESENCIALES);
 
@@ -2969,6 +3005,38 @@ export default function MatchPreparation() {
                 <div id="proyeccion" className="mp-no-print scroll-mt-56 print:hidden">
                   <PanelProyeccion tipo="juego" equipo={String(rivalActivo.EQUIPO)} />
                 </div>
+              )}
+
+              {/*
+                BALÓN PARADO (16/11/2026, jueces de fútbol): el mismo panel de
+                /scout-rival-abp (ventajas y riesgos con su consigna, cómo saca el
+                córner y sus rematadores), plegado y pedido sólo al abrirlo.
+              */}
+              {rivalActivo.EQUIPO && (
+                <section id="abp" className="mp-no-print scroll-mt-56 rounded-3xl border border-white/10 bg-white/[0.03] print:hidden">
+                  <button
+                    type="button"
+                    onClick={() => setAbpAbierto((v) => !v)}
+                    aria-expanded={abpAbierto}
+                    className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left md:px-7"
+                  >
+                    <span className="min-w-0">
+                      <span className="block text-lg font-bold">Balón parado</span>
+                      <span className="block text-xs text-white/60">Qué hacemos a favor y en contra, cómo saca el córner y quién remata (Opta)</span>
+                    </span>
+                    <ChevronDown size={16} className={`shrink-0 transition ${abpAbierto ? "rotate-180" : ""}`} />
+                  </button>
+                  {abpAbierto && (
+                    <div className="space-y-3 px-3 pb-4 md:px-5">
+                      <PanelProyeccion tipo="abp" equipo={String(rivalActivo.EQUIPO)} />
+                      <p className="px-2 text-[13px]">
+                        <Link href={enlacePizarraAbp(rivalActivo)} className="font-semibold text-[#C8A96B] hover:underline">
+                          Marcas, lanzadores y pizarra de este partido →
+                        </Link>
+                      </p>
+                    </div>
+                  )}
+                </section>
               )}
 
               {/* ------------------------------------------------------ PLAN */}
@@ -3236,11 +3304,20 @@ export default function MatchPreparation() {
                     </li>
                   );
 
-                  const columnas = ([
-                    ["buscar", "Para buscar", "Ventaja nuestra con nuestro balón", "text-emerald-300", duelosClave.grupos.buscar],
-                    ["doble", "Doble cara", "Ganamos con balón, perdemos sin él", "text-[#C8A96B]", duelosClave.grupos.doble],
-                    ["vigilar", "Para vigilar", "Ventaja suya con su balón", "text-rose-300", duelosClave.grupos.vigilar],
-                  ] as const).filter(([, , , , lista]) => lista.length > 0);
+                  /*
+                  | SÓLO LOS TRES DECISIVOS (16/11/2026, jueces): el plan repetía /duelos
+                  | entero. Aquí van los tres de más diferencia (sin tendencias ni
+                  | repetidos), con su consigna, y el resto en la pantalla de Duelos.
+                  */
+                  const decisivos = [
+                    ...duelosClave.grupos.buscar.map((d) => ({ d, modo: "buscar" as const })),
+                    ...duelosClave.grupos.doble.map((d) => ({ d, modo: "doble" as const })),
+                    ...duelosClave.grupos.vigilar.map((d) => ({ d, modo: "vigilar" as const })),
+                  ]
+                    .filter((x) => !repetidos.has(x.d.clave))
+                    .sort((x, y) => Math.max(Math.abs(y.d.conBalon ?? 0), Math.abs(y.d.sinBalon ?? 0)) - Math.max(Math.abs(x.d.conBalon ?? 0), Math.abs(x.d.sinBalon ?? 0)))
+                    .slice(0, 3);
+                  const ETIQUETA = { buscar: ["Para buscar", "text-emerald-300"], doble: ["Doble cara", "text-[#C8A96B]"], vigilar: ["Para vigilar", "text-rose-300"] } as const;
 
                   return (
                     <>
@@ -3249,43 +3326,21 @@ export default function MatchPreparation() {
                           {sinMinutos.join(" y ")} {sinMinutos.length === 1 ? "no tiene" : "no tienen"} minutos en Wyscout: en sus duelos se mide sólo a su compañero de línea.
                         </p>
                       )}
-                      <div className={`mb-4 grid gap-4 ${columnas.length >= 3 ? "lg:grid-cols-3" : columnas.length === 2 ? "md:grid-cols-2" : ""}`}>
-                        {columnas.map(([grupo, titulo, ayuda, color, lista]) => (
-                          <div key={grupo} id={`duelos-${grupo}`} className="scroll-mt-56 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-4">
-                            <p className={`text-[12px] font-semibold uppercase tracking-[0.2em] ${color}`}>
-                              {titulo} · {lista.length}
-                            </p>
-                            <p className="mt-0.5 text-[13px] text-white/50">{ayuda}</p>
-
-                            <ul className="mt-3 space-y-3 text-[14px] leading-6 text-white/85">
-                              {lista.map((d) => tarjeta(d, grupo))}
-                            </ul>
-                          </div>
-                        ))}
-                      </div>
-
-                      {duelosClave.grupos.parejos.length > 0 && (
-                        <details id="duelos-parejos" className="mb-4 scroll-mt-56 rounded-2xl border border-white/[0.07] bg-white/[0.02] px-4 py-3">
-                          <summary className="cursor-pointer select-none text-[13px] font-semibold text-white/70">
-                            {duelosClave.grupos.parejos.length} {duelosClave.grupos.parejos.length === 1 ? "parejo" : "parejos"} · ver
-                          </summary>
-                          <ul className="mt-3 space-y-3 text-[14px] leading-6 text-white/80">
-                            {duelosClave.grupos.parejos.map((d) => tarjeta(d, "parejos"))}
-                          </ul>
-                        </details>
+                      {decisivos.length > 0 && (
+                        <div className="mb-4 grid gap-4 lg:grid-cols-3">
+                          {decisivos.map(({ d, modo }) => (
+                            <div key={d.clave} id={`duelos-${modo}`} className="scroll-mt-56 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-4">
+                              <p className={`text-[12px] font-semibold uppercase tracking-[0.2em] ${ETIQUETA[modo][1]}`}>{ETIQUETA[modo][0]}</p>
+                              <ul className="mt-2 text-[14px] leading-6 text-white/85">{tarjeta(d, modo)}</ul>
+                            </div>
+                          ))}
+                        </div>
                       )}
-
-                      {/* Regla 11 (10/11/2026, jueces): con menos de 450′ en un lado no es amenaza ni oportunidad, es tendencia. */}
-                      {duelosClave.grupos.tendencia.length > 0 && (
-                        <details id="duelos-tendencia" className="mb-4 scroll-mt-56 rounded-2xl border border-white/[0.07] bg-white/[0.02] px-4 py-3">
-                          <summary className="cursor-pointer select-none text-[13px] font-semibold text-white/70">
-                            {duelosClave.grupos.tendencia.length} {duelosClave.grupos.tendencia.length === 1 ? "tendencia" : "tendencias"} con pocos minutos (menos de 450′ en un lado) · ver
-                          </summary>
-                          <ul className="mt-3 space-y-3 text-[14px] leading-6 text-white/80">
-                            {duelosClave.grupos.tendencia.map((d) => tarjeta(d, "tendencia"))}
-                          </ul>
-                        </details>
-                      )}
+                      <p className="mb-4 text-[13px]">
+                        <Link href={enlaceDuelos} className="font-semibold text-[#C8A96B] hover:underline">
+                          Ver los {duelosClave.medidos} duelos, con los parejos y los de pocos minutos, en Duelos →
+                        </Link>
+                      </p>
 
                       {/*
                         Los duelos que el analista escribió a mano y no casan con
