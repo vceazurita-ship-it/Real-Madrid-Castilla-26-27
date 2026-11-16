@@ -203,7 +203,10 @@ export function VistazoRival({
   avisos = null,
   dano = [],
   enlaces,
+  abreJugador,
 }: {
+  /** Abre la ficha del jugador en la pantalla (16/11/2026): devuelve con qué abrirla, o `null` si no está en la plantilla. */
+  abreJugador?: (nombre: string) => (() => void) | null;
   /** Dónde hacerles daño: jugadores con etiquetas de debilidad y rasgos flojos en Wyscout. */
   dano?: { nombre: string; puesto: string; rasgos: string[]; accion?: string; cifra?: string; base?: string; minutos?: number; contraste?: string }[];
   /** Bajas de la hoja, apercibidos y rojas de BeSoccer; `null` si no hay nada. */
@@ -370,13 +373,23 @@ export function VistazoRival({
             }
           >
             <ul className="min-w-0 space-y-0.5">
-              {goleadores.map((g) => (
+              {goleadores.map((g) => {
+                const abre = abreJugador?.(g.nombre) ?? null;
+
+                return (
                 <li key={g.nombre} className="flex min-w-0 items-center gap-1.5 text-sm">
                   <Goal size={12} className="shrink-0 text-white/40" aria-hidden />
-                  <span className="min-w-0 truncate">{g.nombre}</span>
+                  {abre ? (
+                    <button type="button" onClick={abre} title={`Abrir la ficha de ${g.nombre}`} className="min-w-0 truncate text-left underline decoration-white/25 underline-offset-2 hover:decoration-[#C8A96B]">
+                      {g.nombre}
+                    </button>
+                  ) : (
+                    <span className="min-w-0 truncate">{g.nombre}</span>
+                  )}
                   <span className="ml-auto shrink-0 font-semibold tabular-nums">{g.goles}</span>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           </Casilla>
         )}
@@ -517,7 +530,15 @@ export function VistazoRival({
                       <details key="plegada" className="mt-1.5 min-w-0">
                         <summary className="cursor-pointer text-[13px] text-white/60 hover:text-white">
                           {/* Que diga qué hay dentro (16/11/2026, jueces de fútbol). */}
-                          {`${grupo.titulo === "Fuerte en" ? (lista.length === 1 ? "Otro punto fuerte" : "Otros puntos fuertes") : lista.length === 1 ? "Otro punto flojo" : "Otros puntos flojos"}: ${lista.map((x) => x.aspecto.toLowerCase()).join(", ")}`}
+                          {/* Con su cifra y su puesto (16/11/2026, ronda 18): «cuidado del balón» a secas no decía nada. */}
+                          {`${grupo.titulo === "Fuerte en" ? (lista.length === 1 ? "Otro punto fuerte" : "Otros puntos fuertes") : lista.length === 1 ? "Otro punto flojo" : "Otros puntos flojos"}: ${lista
+                            .map((x) => {
+                              const f = x.filas[0];
+                              return f
+                                ? `${x.aspecto.toLowerCase()} (${nombreDeFila(x.aspecto, f.nombre).toLowerCase()} ${cifraAspecto(f.valor, f.unidad)}${equipos > 0 ? `, ${puestoDeFila(f, equipos)}.º de ${f.de ?? equipos}` : ""})`
+                                : x.aspecto.toLowerCase();
+                            })
+                            .join(", ")}`}
                         </summary>
                         <div className="mt-1.5">{filas}</div>
                       </details>
@@ -544,7 +565,17 @@ export function VistazoRival({
             {dano.map((uno) => (
               <li key={uno.nombre} className="min-w-0">
                 <p>
-                  <b className="font-semibold text-white">{uno.nombre}</b>
+                  {(() => {
+                    const abre = abreJugador?.(uno.nombre) ?? null;
+
+                    return abre ? (
+                      <button type="button" onClick={abre} title={`Abrir la ficha de ${uno.nombre}`} className="font-semibold text-white underline decoration-white/25 underline-offset-2 hover:decoration-[#C8A96B]">
+                        {uno.nombre}
+                      </button>
+                    ) : (
+                      <b className="font-semibold text-white">{uno.nombre}</b>
+                    );
+                  })()}
                   {uno.puesto ? <span className="text-white/55"> ({uno.puesto})</span> : null}: {uno.rasgos.join(" y ")}.
                 </p>
                 {/* La consigna nuestra, en su renglón y con su nombre (11/11/2026, jueces de marketing): «→ presionar» se perdía al final de la frase. */}

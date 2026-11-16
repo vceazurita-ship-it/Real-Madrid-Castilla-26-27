@@ -75,6 +75,42 @@ export function suscribeRivalEnCurso(avisa: () => void) {
 export const rivalEnCursoActual = () => lee();
 export const rivalEnCursoServidor = () => null;
 
+const plano = (t: string) =>
+  t
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+/**
+ * ¿Es el mismo jugador del rival escrito de dos maneras? («Flakus» de BeSoccer
+ * y «FLAKUS BOSILJ» de la hoja, «Jorge Mier» y «J. Mier»). Igual, o uno
+ * contiene al otro palabra a palabra; con inicial, la inicial y el apellido.
+ */
+export function mismoNombreRival(a: string, b: string) {
+  const x = plano(a);
+  const y = plano(b);
+
+  if (!x || !y) return false;
+  if (x === y) return true;
+
+  const [corto, largo] = x.length <= y.length ? [x, y] : [y, x];
+
+  if (` ${largo} `.includes(` ${corto} `) && corto.length >= 4) return true;
+
+  /* «j mier» frente a «jorge mier». */
+  const partes = corto.split(" ");
+
+  if (partes.length === 2 && partes[0].length === 1) {
+    const otras = largo.split(" ");
+
+    return otras[0]?.startsWith(partes[0]) === true && otras.slice(1).includes(partes[1]);
+  }
+
+  return false;
+}
+
 /** Las pantallas que entienden el rival en la dirección. */
 const CON_RIVAL = new Set([
   "/rivals",

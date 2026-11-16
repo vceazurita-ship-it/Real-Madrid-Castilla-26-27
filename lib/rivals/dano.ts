@@ -137,3 +137,47 @@ export function fraseDeDano(
 
   return accion ? { frases: frases.slice(0, 3), accion, respaldo: elegida ? respaldos.get(elegida.frase) ?? null : null } : null;
 }
+
+/*
+| UNA SOLA ORDEN POR JUGADOR (16/11/2026, ronda 18, jueces de fútbol): /rivals
+| mandaba «provocarle el 1 contra 1» a Jorge Mier mientras el Plan y Duelos lo
+| daban por el duelo que perdemos (−62). Si el jugador está en un duelo medido
+| que se despega (±10, sin muestra corta), manda la orden del duelo: la misma
+| frase que /duelos y el Plan de partido. Si no, la de sus etiquetas.
+*/
+type DueloParaOrden = {
+  titulo: string;
+  suyos: string[];
+  conBalon: number | null;
+  sinBalon: number | null;
+  consigna: string;
+  base: string;
+};
+
+export function ordenDelDuelo(
+  nombre: string,
+  grupos: { buscar: DueloParaOrden[]; doble: DueloParaOrden[]; vigilar: DueloParaOrden[] } | null | undefined,
+  mismo: (a: string, b: string) => boolean,
+): { accion: string; cifra: string; enContra: boolean } | null {
+  if (!grupos || !nombre) return null;
+
+  /* Primero donde perdemos: es la orden que no se puede contradecir. */
+  const lista = [...grupos.vigilar, ...grupos.doble, ...grupos.buscar];
+  const duelo = lista.find((d) => d.consigna && d.suyos.some((s) => mismo(s.replace(/\s*\(.*\)\s*$/, ""), nombre)));
+
+  if (!duelo) return null;
+
+  const [orden, ...resto] = duelo.consigna.split(/\s(?=Tarea:|Objetivo:)/);
+  const signo = (v: number) => `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(Math.round(v))}`;
+  const cifras = [
+    duelo.conBalon != null ? `con nuestro balón ${signo(duelo.conBalon)}` : "",
+    duelo.sinBalon != null ? `con el suyo ${signo(duelo.sinBalon)}` : "",
+  ].filter(Boolean);
+  const enContra = (duelo.sinBalon ?? 0) <= -10 || (duelo.conBalon ?? 0) <= -10;
+
+  return {
+    accion: orden.replace(/\.\s*$/, ""),
+    cifra: `Duelo «${duelo.titulo}» (${cifras.join(" · ")}), el mismo de Duelos y del Plan de partido.${resto.length ? ` ${resto.join(" ")}` : ""}${duelo.base ? ` ${duelo.base}.` : ""}`,
+    enContra,
+  };
+}

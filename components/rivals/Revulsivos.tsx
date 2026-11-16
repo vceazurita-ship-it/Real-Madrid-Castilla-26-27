@@ -50,7 +50,14 @@ function Bloque({ equipo }: { equipo: string }) {
   if (!datos) return null;
   const { lista, nombre } = datos;
   const frase = lecturaRevulsivos(lista, nombre);
-  const visibles = verTodos ? lista : lista.slice(0, 8);
+  /*
+  | 16/11/2026 (ronda 18, jueces de fútbol): la tabla de ocho filas era casi
+  | toda ceros. A la vista, la conclusión y sólo quien ha hecho algo entrando
+  | (G+A o «revulsivo»), hasta tres; la tabla entera, plegada. Y un /90 sacado
+  | de menos de 90′ de suplente se marca «tendencia».
+  */
+  const conAlgo = lista.filter((j) => j.destacado || j.golesSup + j.asistSup > 0).slice(0, 3);
+  const visibles = verTodos ? lista : conAlgo;
   const hayBanda = lista.some((j) => j.banda);
 
   return (
@@ -61,6 +68,7 @@ function Bloque({ equipo }: { equipo: string }) {
       </p>
       {frase && <p className="mt-1 text-sm leading-6 text-white/75">{frase}</p>}
 
+      {visibles.length > 0 && (
       <div className="mt-3 overflow-x-auto">
         <table className="w-full min-w-[34rem] border-collapse text-[12px] tabular-nums">
           <thead>
@@ -93,6 +101,11 @@ function Bloque({ equipo }: { equipo: string }) {
                 </td>
                 <td className={`px-2 py-1.5 text-right ${j.destacado ? "font-bold text-white" : "text-white/75"}`}>
                   {j.ga90Sup != null ? coma(j.ga90Sup) : ""}
+                  {j.ga90Sup != null && j.minSup < 90 && (
+                    <span className="ml-1 rounded-full border border-white/20 px-1.5 py-px text-[10px] font-semibold text-white/60" title={`Sale de ${Math.round(j.minSup)}′ de suplente: menos de 90′`}>
+                      tendencia
+                    </span>
+                  )}
                 </td>
                 <td className="px-2 py-1.5 text-right text-white/60" title={j.titularidades ? `${j.titularidades} de titular, ${Math.round(j.minTit)}′` : undefined}>
                   {j.ga90Tit != null ? coma(j.ga90Tit) : ""}
@@ -108,10 +121,11 @@ function Bloque({ equipo }: { equipo: string }) {
           </tbody>
         </table>
       </div>
+      )}
 
-      {lista.length > 8 && (
-        <button type="button" onClick={() => setVerTodos((v) => !v)} className="mt-2 text-[11px] font-semibold text-white/60 underline-offset-2 hover:text-white hover:underline">
-          {verTodos ? "Ver menos" : `Ver los ${lista.length}`}
+      {lista.length > conAlgo.length && (
+        <button type="button" onClick={() => setVerTodos((v) => !v)} className="mt-2 text-[12px] font-semibold text-white/60 underline-offset-2 hover:text-white hover:underline">
+          {verTodos ? "Ver sólo los que han hecho algo entrando" : `Ver la tabla de los ${lista.length} suplentes`}
         </button>
       )}
 

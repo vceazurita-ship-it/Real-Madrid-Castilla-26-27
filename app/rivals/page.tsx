@@ -111,7 +111,10 @@ import { traeDestacadosRival } from "@/lib/rivals/destacados-rival";
 import { fraseDelVistazo, vistazoDe } from "@/lib/rivals/vistazo";
 import { asignaPerfiles, type PerfilWyscout } from "@/lib/rivals/perfil-wyscout";
 import { conTildes } from "@/lib/rivals/tildes";
-import { fraseDeDano, nombrePropio } from "@/lib/rivals/dano";
+import { fraseDeDano, nombrePropio, ordenDelDuelo } from "@/lib/rivals/dano";
+import { mismoNombreRival } from "@/lib/rivals/rival-en-curso";
+import { AccesosDelRival } from "@/components/rivals/AccesosDelRival";
+import { useDuelosClaveConEstado } from "@/hooks/useDuelosClave";
 import { useRivalPerfiles } from "@/hooks/useRivalPerfiles";
 import VistazoRival from "@/components/rivals/VistazoRival";
 import { bajaDe } from "@/lib/rivals/bajas";
@@ -2776,11 +2779,18 @@ export default function RivalPlayersPage() {
     const { equipo, clave } = enlaceDirecto;
 
     if (clave) {
-      const encontrado = players.find(
-        (player) =>
-          playerKey(player) === clave &&
-          (!equipo || player.NOMBRE_EQUIPO === equipo),
-      );
+      const encontrado =
+        players.find(
+          (player) =>
+            playerKey(player) === clave &&
+            (!equipo || player.NOMBRE_EQUIPO === equipo),
+        ) ??
+        /* Por nombre (16/11/2026): las otras pantallas del rival enlazan con el nombre del jugador, no con su clave. */
+        players.find(
+          (player) =>
+            (!equipo || mismoClub(String(player.NOMBRE_EQUIPO ?? ""), equipo)) &&
+            mismoNombreRival(String(player["NOMBRE DEPORTIVO"] || player.JUGADOR || ""), clave),
+        );
 
       if (encontrado) openPlayer(encontrado);
       else toast.error("Ese jugador ya no está en la plantilla del rival.");
@@ -3023,8 +3033,11 @@ export default function RivalPlayersPage() {
     };
   }, [selectedTeam]);
 
+  /* Los duelos del partido, la misma cuenta que /duelos y el Plan: su orden manda sobre la de las etiquetas (16/11/2026, ronda 18). */
+  const { datos: duelosDelRival, listo: duelosListos } = useDuelosClaveConEstado(selectedTeam);
+
   const danoDelRival = useMemo(() => {
-    if (!perfilesRival || analistaLeidoDe !== selectedTeam) return [];
+    if (!perfilesRival || analistaLeidoDe !== selectedTeam || !duelosListos) return [];
 
     const todos = players
       .filter((p) => p.NOMBRE_EQUIPO === selectedTeam)
@@ -3104,10 +3117,15 @@ export default function RivalPlayersPage() {
     const deWyscout = candidatos
       .filter((uno) => !(analista && (estaEn(uno.nombre, analista.mas) || estaEn(uno.nombre, analista.menos))))
       .sort((a, b) => b.rasgos.length - a.rasgos.length || b.minutos - a.minutos || a.nombre.localeCompare(b.nombre, "es"))
-      .map(({ nombre, puesto, rasgos, accion, base, minutos }) => ({ nombre, puesto, rasgos, accion, base, minutos, contraste: "" }));
+      .map(({ nombre, puesto, rasgos, accion, cifra, base, minutos }) => ({ nombre, puesto, rasgos, accion, cifra, base, minutos, contraste: "" }));
 
-    return [...deAnalista, ...deWyscout].slice(0, 3);
-  }, [players, perfilesRival, perfilesPorFicha, selectedTeam, statsDoc, centralesAnalista, analistaLeidoDe]);
+    /* Una sola orden por jugador: si está en un duelo que se despega, la del duelo, con su cifra. */
+    return [...deAnalista.map((uno) => ({ ...uno, cifra: "" })), ...deWyscout].slice(0, 3).map((uno) => {
+      const delDuelo = ordenDelDuelo(uno.nombre, duelosDelRival?.grupos, mismoNombreRival);
+
+      return delDuelo ? { ...uno, accion: delDuelo.accion, cifra: delDuelo.cifra } : uno;
+    });
+  }, [players, perfilesRival, perfilesPorFicha, selectedTeam, statsDoc, centralesAnalista, analistaLeidoDe, duelosDelRival, duelosListos]);
 
   /* La temporada en curso de cada uno, para el listado. */
   const temporadaDe = (player: RivalPlayer) =>
@@ -4016,6 +4034,16 @@ export default function RivalPlayersPage() {
               J = nuestra jornada contra ese rival.
             </p>
 
+            {/* A un toque, el resto del rival con él ya puesto: sus goles en vídeo, el Plan, el ABP… (16/11/2026, ronda 18). */}
+            {selectedTeam && (
+              <AccesosDelRival
+                equipo={selectedTeam}
+                rivalId={enfrentamientoDe(ordenRivales, selectedTeam)?.id ?? ""}
+                aqui="/rivals"
+                className="mt-3"
+              />
+            )}
+
             {view === "plantilla" && (
               <>
               {/* CÓMO LLEGA — lo que se pregunta antes de mirar a nadie */}
@@ -4035,36 +4063,11 @@ export default function RivalPlayersPage() {
                   partidosWyscout={perfilesRival?.partidos ?? 0}
                   avisos={avisosRival}
                   dano={danoDelRival}
-                  enlaces={[
-                    {
-                      href: `/scout-rival-abp?equipo=${encodeURIComponent(selectedTeam)}`,
-                      label: "Ver sus córners y faltas",
-                    },
-                    /* El colectivo se abre por el `ID` de su fila en RIVALES:
-                       sin él, sólo se ofrece si es el próximo (que es donde
-                       abre solo), o llevaría a otro equipo. */
-                    ...(enfrentamientoDe(ordenRivales, selectedTeam)?.id
-                      ? [
-                          {
-                            href: `/scout-rival-collective?rival=${encodeURIComponent(
-                              enfrentamientoDe(ordenRivales, selectedTeam)?.id ?? "",
-                            )}`,
-                            label: "Ver cómo juega como equipo",
-                          },
-                        ]
-                      : esElProximo(ordenRivales, selectedTeam)
-                        ? [{ href: "/scout-rival-collective", label: "Ver cómo juega como equipo" }]
-                        : []),
-                    /* Duelos e individual se eligen por nombre de equipo. */
-                    {
-                      href: `/duelos?equipo=${encodeURIComponent(selectedTeam)}`,
-                      label: "Comparar su once con el nuestro",
-                    },
-                    {
-                      href: `/scout-rival-individual?equipo=${encodeURIComponent(selectedTeam)}`,
-                      label: "Ver los vídeos de sus jugadores",
-                    },
-                  ]}
+                  enlaces={[]}
+                  abreJugador={(nombre) => {
+                    const ficha = players.find((p) => p.NOMBRE_EQUIPO === selectedTeam && mismoNombreRival(String(p["NOMBRE DEPORTIVO"] || p.JUGADOR || ""), nombre));
+                    return ficha ? () => openPlayer(ficha) : null;
+                  }}
                 />
               )}
 

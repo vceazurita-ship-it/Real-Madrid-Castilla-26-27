@@ -50,7 +50,7 @@ function BotonPieza({ pieza, ocupado }: { pieza: PiezaDeLaSemana; ocupado: boole
       <Icono size={16} className="mt-0.5 shrink-0 text-[#C8A96B]" aria-hidden />
       <span className="min-w-0">
         <span className="block text-[13px] font-semibold text-white/90">{pieza.etiqueta}</span>
-        <span className="mt-0.5 block text-[12px] leading-snug text-white/50">{pieza.explica}</span>
+        <span className="mt-0.5 hidden text-[12px] leading-snug text-white/50 sm:block">{pieza.explica}</span>
       </span>
     </button>
   );
@@ -97,7 +97,8 @@ export function ParaLaSemana({
       </header>
 
       {/* Dos a la vista y el resto en «Más» (10/11/2026, jueces): cuatro tarjetas iguales no decían cuál es la de cada semana. */}
-      <ul className={`min-w-0 grid-cols-1 gap-2 sm:grid sm:grid-cols-2 ${abierto ? "grid" : "hidden"}`}>
+      {/* Los dos principales (Informe y PDF del once), siempre a la vista, también en el móvil (16/11/2026, ronda 18): plegados sólo se veían WhatsApp y Correo. */}
+      <ul className="grid min-w-0 grid-cols-2 gap-2">
         {piezas.slice(0, 2).map((pieza) => (
           <li key={pieza.clave} className="min-w-0">
             <BotonPieza pieza={pieza} ocupado={ocupado} />
