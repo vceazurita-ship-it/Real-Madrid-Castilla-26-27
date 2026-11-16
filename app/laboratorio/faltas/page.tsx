@@ -46,6 +46,7 @@ import { Topbar } from "@/components/ui/topbar";
 import { cn } from "@/lib/utils";
 import { AbpHeader, Panel } from "@/components/abp/ui";
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
+import { ConmutadorVista, TituloConclusion, useVistaAnalisis } from "@/components/ui/VistaVisual";
 import { ComparativaPartido, UMBRAL_TENDENCIA_PARTIDOS, numeroCorto } from "@/components/abp/ComparativaPartido";
 import { SelloDeFechas } from "@/components/data/SelloJornada";
 import { ultimoPorFecha } from "@/lib/abp/ultimo-partido";
@@ -194,6 +195,13 @@ function fechaCorta(iso: string) {
 export default function FaltasPage() {
   const explicativos = useTextosExplicativos();
   const [vista, setVista] = usePestanaUrl("vista", VISTAS, "resumen");
+  /*
+  | VISUAL / DETALLE (16/11/2026, petición del analista). En «Visual» (lo que se
+  | abre): el partido frente a los anteriores y el campo con cada falta, con su
+  | conclusión en el título. «Detalle» es la pantalla de siempre.
+  */
+  const [vistaPantalla, setVistaPantalla] = useVistaAnalisis("laboratorio-faltas");
+  const enVisual = vistaPantalla === "visual";
   const [filtro, setFiltro] = useState<Filtro>("todas");
   /*
   | La pretemporada, fuera salvo que se pida: los amistosos no se leen igual
@@ -590,6 +598,24 @@ export default function FaltasPage() {
     return frases;
   })();
 
+  /* El título-conclusión del campo en «Visual»: cuántas de las que cometemos caen en nuestro tercio (las que dan balón parado cerca de nuestra área). */
+  const tituloCampoFaltas = (() => {
+    const enContra = paraCampo.filter((f) => f.lado !== "ofensivo");
+    const aFavor = paraCampo.filter((f) => f.lado === "ofensivo");
+    const pc = (n: number, de: number) => Math.round((n / de) * 100);
+    const partes: string[] = [];
+    if (enContra.length) {
+      const atras = enContra.filter((f) => sitioEnCampo(f).zona === "nuestro campo").length;
+      partes.push(`De las ${enContra.length} que cometemos, ${atras} (${pc(atras, enContra.length)} %) en nuestro tercio`);
+    }
+    if (aFavor.length) {
+      const arriba = aFavor.filter((f) => sitioEnCampo(f).zona === "campo rival").length;
+      partes.push(`de las ${aFavor.length} que nos hacen, ${arriba} (${pc(arriba, aFavor.length)} %) en su tercio`);
+    }
+    const t = partes.join("; ");
+    return t ? t.charAt(0).toUpperCase() + t.slice(1) : "";
+  })();
+
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
       {menuAccion}
@@ -705,6 +731,10 @@ export default function FaltasPage() {
             />
             )}
 
+            <div className="mt-4 flex justify-end">
+              <ConmutadorVista vista={vistaPantalla} onCambia={setVistaPantalla} />
+            </div>
+            {!enVisual && (
             <div className="mt-4">
               <Pestanas
                 etiqueta="Vistas"
@@ -719,8 +749,9 @@ export default function FaltasPage() {
                 ]}
               />
             </div>
+            )}
 
-            {vista === "resumen" && (
+            {(vista === "resumen" || enVisual) && (
             <>
             {/* ---------------- el partido ---------------- */}
 
@@ -944,11 +975,16 @@ export default function FaltasPage() {
             </>
             )}
 
-            {vista === "campo" && (
+            {(vista === "campo" || enVisual) && (
             <>
             {/* ---------------- el campo ---------------- */}
 
             <div className="mt-5">
+              {enVisual && tituloCampoFaltas ? (
+                <TituloConclusion pregunta="¿Dónde se cometen?" fuente={`Vídeo etiquetado · ${paraCampo.length} ${paraCampo.length === 1 ? "falta" : "faltas"}`}>
+                  {tituloCampoFaltas}
+                </TituloConclusion>
+              ) : null}
               <Panel
                 title="Dónde se cometen"
                 /* 11/11/2026 (expertos, ronda 2): la base del mapa, siempre a la vista. */
@@ -980,7 +1016,10 @@ export default function FaltasPage() {
 
                     if (!f) return;
 
-                    const opciones = opcionesDeAccion({ video: f.video, hudl: f.hudl, fila: faltas.some((x) => x.clip === id) ? id : null, aLaTabla: () => setVista("lista") });
+                    const opciones = opcionesDeAccion({ video: f.video, hudl: f.hudl, fila: faltas.some((x) => x.clip === id) ? id : null, aLaTabla: () => {
+                        setVista("lista");
+                        setVistaPantalla("detalle");
+                      } });
 
                     /* Sin vídeo ni fila, el punto hace lo de siempre: filtra su cajón. */
                     if (!abreMenu(origen, `Falta ${f.lado === "ofensivo" ? "a favor" : "en contra"}${f.minuto ? ` · ${f.minuto}` : ""}`, opciones)) {
@@ -1012,7 +1051,7 @@ export default function FaltasPage() {
             </>
             )}
 
-            {vista === "detalle" && (
+            {!enVisual && vista === "detalle" && (
             <>
               <div className="mt-5 grid gap-4 lg:grid-cols-3">
                 <Panel title="Cuánta gente defendía" icon={Shield}>
@@ -1170,7 +1209,7 @@ export default function FaltasPage() {
             </>
             )}
 
-            {vista === "jugadores" && (
+            {!enVisual && vista === "jugadores" && (
             <>
             {/* ---------------- por jugador ---------------- */}
 
@@ -1250,7 +1289,7 @@ export default function FaltasPage() {
             </>
             )}
 
-            {vista === "lista" && (
+            {!enVisual && vista === "lista" && (
             <>
             {/* ---------------- una por una ---------------- */}
 

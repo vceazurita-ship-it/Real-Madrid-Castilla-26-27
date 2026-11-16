@@ -3063,6 +3063,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Todas / A favor / En contra", es: "A favor = nos la hacen a nosotros; en contra = la cometemos" },
           { que: "Filtrando", es: "Todo lo que se pincha (casilla del campo, distancia, número de defensores, celda de la tabla) filtra la pantalla entera" },
           { que: "Vistas", es: "Resumen, En el campo, Detalle, Por jugador y Falta a falta" },
+          { que: "Visual · Detalle (16/11/2026)", es: "La pantalla se abre en «Visual»: el partido frente a los anteriores y, debajo, el campo con cada falta y su conclusión en el título (de las que cometemos, cuántas en nuestro tercio; de las que nos hacen, cuántas en su tercio). «Detalle» deja las cinco vistas de siempre; abrir la tabla desde el campo pasa solo a Detalle. Se recuerda en este aparato", cuenta: "Mismos filtros que arriba; tercios del campo de verdad (sitioEnCampo), el Castilla atacando hacia la derecha" },
         ],
       },
       {
