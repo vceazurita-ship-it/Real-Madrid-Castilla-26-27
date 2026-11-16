@@ -144,7 +144,7 @@ export const AYUDAS: AyudaDePagina[] = [
           },
           { que: "Contra la liga", es: "Dos lecturas: lo esencial por fase (puesto y percentil en el grupo, y partido a partido contra su media) y métrica a métrica contra los 20 equipos" },
           { que: "Nuestra historia", es: "Dos lecturas: temporada a temporada y jornada a jornada contra nuestros rivales y la media" },
-          { que: "Nuestros remates", es: "El mapa de remates del Castilla, a favor y en contra" },
+          { que: "Nuestros remates", es: "El mapa de remates del Castilla, a favor y en contra; en cada mapa, «Sólo goles», el partido y, al pinchar, «Ver en Opta» / «Ver en Wyscout» (abren la plataforma y copian partido y minuto)" },
           { que: "Jugador a jugador", es: "Dos lecturas: dentro de la plantilla y por 90′ contra los de su puesto en la categoría (al pinchar uno, su ficha)" },
           { que: "Buscador de la categoría", es: "Jugadores de la categoría por puesto, edad, minutos y una métrica por 90" },
           { que: "Talento y goles que valen", es: "Dispersión de percentiles con la zona élite, ranking por perfil, goles que dan puntos y goles desde el banquillo" },
@@ -1069,8 +1069,8 @@ export const AYUDAS: AyudaDePagina[] = [
     ruta: "/analisis-goles",
     titulo: "Análisis de goles",
     resumen: "Los goles de un equipo y de toda la liga por tramos de minutos, en casa y fuera, con remates y xG al lado, quién marca primero, cómo llega cada gol y la ficha técnica de los nuestros.",
-    origen: "Goles, minutos y marcadores: BeSoccer, todos los partidos de liga. Remates, a puerta y xG por partido: Wyscout (sin minuto). Remates por minuto, tipología, corte de vídeo y enlace de cada gol: el timeline de Hudl de nuestros partidos. Lo cambiado a mano se guarda en Supabase («goles:tipologia-manual» y «goles:tecnico-manual»). Se rehace cada noche en el ordenador del club (scripts/goles-liga.mjs).",
-    revisada: "2026-11-12",
+    origen: "Goles, minutos y marcadores: BeSoccer, todos los partidos de liga. Remates, a puerta y xG por partido: Wyscout (sin minuto). Remates por minuto, tipología, corte de vídeo y enlace de cada gol: el timeline de Hudl de nuestros partidos. «En el campo»: los remates uno a uno de Opta (doc opta:remates). Lo cambiado a mano se guarda en Supabase («goles:tipologia-manual» y «goles:tecnico-manual»). Se rehace cada noche en el ordenador del club (scripts/goles-liga.mjs).",
+    revisada: "2026-11-16",
     bloques: [
       {
         titulo: "Mandos",
@@ -1108,6 +1108,11 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Propuesta de Hudl", es: "Ataque organizado (por dentro, banda, espalda, 2ª acción, tras error), transición (campo propio o contrario) o ABP", cuenta: "Tras error: pérdida en su tercio y gol en ≤ 10 s; transición: contraataque o robo y gol en ≤ 15 s; organizado: por el último pase" },
           { que: "Cómo llega", es: "El desplegable de cada gol: lo elegido manda sobre lo de Hudl" },
           { que: "Banda D e I", es: "Vistas desde el equipo que ataca" },
+          {
+            que: "En el campo",
+            es: "Los goles del equipo elegido (cualquiera de la categoría), a favor o en contra, en el campograma de remates: de un partido o de todos. Pinchar un gol (en el campo o en la lista) da el remate y «Ver en Opta» / «Ver en Wyscout»",
+            cuenta: "Punto = sitio del remate; tamaño = xG. Opta y Wyscout no dejan enlazar un clip: el botón abre la plataforma y copia el partido y el minuto para pegarlos en su buscador. Los goles en propia puerta no son remates y no salen",
+          },
           { que: "Ficha técnica", es: "Sólo nuestros goles: fase, campo, acción, dónde nace, los nuestros implicados, lectura y «Para repetir» o «Para corregir». Se guarda sola" },
           { que: "✓ Revisado en vídeo", es: "La marca de los goles que el cuerpo técnico ya ha visto" },
         ],

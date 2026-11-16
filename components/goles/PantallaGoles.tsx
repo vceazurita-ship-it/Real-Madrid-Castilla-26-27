@@ -27,6 +27,7 @@ import { Lectura } from "@/components/data/formas";
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { Explicativo, useTextosExplicativos } from "@/components/ui/textos-analisis";
 import { GraficasTipologia, type GolConTipo } from "@/components/goles/GraficasTipologia";
+import { GolesEnElCampo } from "@/app/opta/_piezas/Remates";
 import { avisoMuestra, loImportante, lecturaCondicion, lecturaFranjas, lecturaPrimero, lecturaTipologia, tramoLargo, tramosClave } from "@/lib/goles/lecturas";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { useCalendario } from "@/hooks/useCalendario";
@@ -78,7 +79,7 @@ const rotuloLugar = (c: Condicion) => (c === "local" ? "en casa" : c === "visita
 
 const TAMANOS = [5, 10, 15, 30, 45];
 
-const VISTAS = ["resumen", "minutos", "casa", "tipo", "goles"] as const;
+const VISTAS = ["resumen", "minutos", "casa", "tipo", "goles", "campo"] as const;
 type Vista = (typeof VISTAS)[number];
 
 /* Un motivo que habla de las fuentes (Hudl, timeline…) es método, no fútbol: sólo con los textos explicativos encendidos. */
@@ -932,6 +933,7 @@ export function PantallaGoles() {
               { clave: "casa", label: "Casa y fuera", icono: Home },
               { clave: "tipo", label: "Cómo llegan", icono: Shapes },
               { clave: "goles", label: "Gol a gol", corto: "Goles", icono: ListOrdered, cuenta: goles.length },
+              { clave: "campo", label: "En el campo", corto: "Campo", icono: Crosshair },
             ]}
           />
 
@@ -1289,6 +1291,20 @@ export function PantallaGoles() {
             </details>
           </Panel>
             </>
+          ) : null}
+
+          {/*
+          | EN EL CAMPO (16/11/2026, petición del analista): los goles del equipo
+          | elegido —a favor o en contra, de un partido o de todos— en el
+          | campograma de remates de Opta, con el vídeo a mano en Opta o Wyscout.
+          */}
+          {vistaVer === "campo" ? (
+            <Panel
+              title="Los goles en el campo"
+              subtitle={`Desde dónde marca ${esNuestro ? "el Castilla" : nombreEquipo(equipo)} y desde dónde le marcan, gol a gol (Opta). Elige un partido o todos; pincha un gol para ver el remate y abrir su vídeo en Opta o en Wyscout. Los goles en propia puerta no son remates y no salen.`}
+            >
+              <GolesEnElCampo equipo={equipo} esCastilla={esNuestro} />
+            </Panel>
           ) : null}
 
           {vistaVer === "goles" ? (
