@@ -109,7 +109,8 @@ export function tomasDeGoles(goles: Remate[], resumenes: ResumenRfef[], marcas: 
     const delPartido = porPartido.get(`${g.partido}|${g.teamId}`) ?? [];
     const suyos = m ? m.goles.filter((x) => mismoEquipo(x.equipo, marca)) : [];
     const k = delPartido.indexOf(g);
-    const enResumen = resumen && (m?.cuadra || suyos.length === delPartido.length) ? suyos[k] : undefined;
+    /* Sólo con la misma cuenta: un gol en propia puerta no es un remate de Opta y, aunque el marcador «cuadre», correría el orden y cada corte enseñaría el gol de al lado. */
+    const enResumen = resumen && m && suyos.length === delPartido.length ? suyos[k] : undefined;
 
     if (!enResumen || !resumen) {
       sinMarca++;

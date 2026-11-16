@@ -145,7 +145,8 @@ if (!HACER) {
 }
 
 const r = leidoEn
-  ? await sql`update match_ratings set data = ${sql.json(salida)}, updated_at = date_trunc('milliseconds', now()) where season = ${TEMPORADA} and updated_at = ${leidoEn}`
+  ? /* En milisegundos: una fila escrita antes del disparador guarda microsegundos y `leidoEn` (Date de JS) no los trae. */
+    await sql`update match_ratings set data = ${sql.json(salida)}, updated_at = date_trunc('milliseconds', now()) where season = ${TEMPORADA} and date_trunc('milliseconds', updated_at) = date_trunc('milliseconds', ${leidoEn}::timestamptz)`
   : await sql`insert into match_ratings (season, data, updated_at) values (${TEMPORADA}, ${sql.json(salida)}, date_trunc('milliseconds', now())) on conflict (season) do nothing`;
 
 console.log(r.count === 1 ? "Escrito." : "NO escrito: alguien guardó en medio. Vuelve a lanzarlo.");

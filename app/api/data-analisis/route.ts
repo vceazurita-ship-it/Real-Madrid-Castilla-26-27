@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { mismoEquipo } from "@/lib/data-analisis/nombres";
 import { competicionPrincipal } from "@/lib/data-analisis/equipo";
 import { esNuestro } from "@/lib/data-analisis/individual";
+import { enLaMediana, lecturaDePuesto } from "@/lib/rivals/puesto-liga";
 
 import { expandeIndice, leeDatos, type Dataset } from "@/lib/data-analisis/leer";
 import {
@@ -566,35 +567,50 @@ function abpRivalDe(datos: Dataset, equipo: string, ambito: "abp" | "area" | "es
   ).map((d) => ({
     clave: d.aspecto.key,
     aspecto: d.aspecto.label,
-    filas: d.filas.map((f) => ({
+    filas: d.filas.map((f) => {
+      /*
+      | Las faltas lanzadas llegan «de más a menos» (estilo): aquí tienen
+      | sentido, así que el puesto y la lectura se rehacen con él. En contra,
+      | el 1.º pasa a ser el que menos concede (si no, «el mejor de los 20»
+      | era el que más faltas encaja).
+      */
+      const faltas = f.metrica.key === "faltasTiro";
+      const enContraFaltas = faltas && d.aspecto.key === "abpDef";
+      const puesto = enContraFaltas && f.puesto != null && f.de != null ? f.de + 1 - f.puesto : (f.puesto ?? null);
+      const lectura =
+        faltas && puesto != null && f.de != null
+          ? lecturaDePuesto(puesto, f.de, !enContraFaltas, enLaMediana(f.valor, f.mediana))
+          : (f.lectura ?? null);
+
+      return {
       nombre: d.aspecto.key === "centrosDef" ? (NOMBRE_EN_CONTRA[f.metrica.key] ?? f.metrica.nombre) : f.metrica.nombre,
       valor: f.valor,
       mediana: f.mediana,
       unidad: f.metrica.unidad,
-      percentil: f.metrica.key === "faltasTiro" && d.aspecto.key === "abpDef" ? 100 - f.percentil : f.percentil,
+      percentil: enContraFaltas ? 100 - f.percentil : f.percentil,
       /* Los extremos de la liga, para la barra (11/11/2026, análisis). */
       minimo: f.minimo ?? null,
       maximo: f.maximo ?? null,
       /* El puesto de la cuenta común (`lib/rivals/puesto-liga.ts`): el mismo en todas las pantallas. */
-      puesto: f.puesto ?? null,
+      puesto,
       de: f.de ?? null,
-      lectura: f.lectura ?? null,
+      lectura,
       /* En lo que RECIBE el sentido se gira: más córners concedidos no es mejor. */
       /*
       | Las faltas lanzadas son «estilo» en el catálogo; aquí, como los córners,
       | más a favor es mejor y más en contra es peor (16/11/2026). El
       | percentil ya va «de más a menos», así que en contra se gira.
       */
-      mejorAlto:
-        f.metrica.key === "faltasTiro"
-          ? d.aspecto.key !== "abpDef"
-          : (d.aspecto.key === "abpDef" || d.aspecto.key === "centrosDef") && f.metrica.mejorAlto != null
-            ? !f.metrica.mejorAlto
-            : f.metrica.mejorAlto,
+      mejorAlto: faltas
+        ? !enContraFaltas
+        : (d.aspecto.key === "abpDef" || d.aspecto.key === "centrosDef") && f.metrica.mejorAlto != null
+          ? !f.metrica.mejorAlto
+          : f.metrica.mejorAlto,
       /* «x de y»: la base del porcentaje y los partidos que lo respaldan. */
       base: cocienteEnGrupo(f.metrica, d.aspecto.key === "abpDef" || d.aspecto.key === "centrosDef" ? contraDe : suyosDe),
       partidos: (d.aspecto.key === "abpDef" || d.aspecto.key === "centrosDef" ? contraDe : suyosDe).length,
-    })),
+      };
+    }),
   }));
 
   /*

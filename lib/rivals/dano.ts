@@ -46,6 +46,8 @@ const UNA_PIERNA = "sólo juega con una pierna";
 function piernaDe(pie: string) {
   const limpio = sinTildes(pie);
 
+  /* «Ambidiestro» / «ambos» lleva «diestr» dentro, pero no tiene pierna mala. */
+  if (/ambi|ambos|las dos/.test(limpio)) return null;
   if (/zurd|izq|izd/.test(limpio)) return { buena: "izquierda", mala: "derecha" };
   if (/diestr|derech|dch|\bder/.test(limpio)) return { buena: "derecha", mala: "izquierda" };
 

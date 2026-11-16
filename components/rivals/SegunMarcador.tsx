@@ -12,7 +12,9 @@
  * `lib/rivals/segun-marcador.ts`. Si el rival no cruza con Opta, no se pinta.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
+
+import { useAsoma } from "@/hooks/useAsoma";
 
 import { MEJOR, PEOR, tinta } from "@/components/data/graficas";
 import { useDocsOpta } from "@/hooks/useDocsOpta";
@@ -38,18 +40,8 @@ import {
 const COLOR_ESTADO: Record<Estado, string> = { ganando: MEJOR, empatando: tinta(0.22), perdiendo: PEOR };
 
 export function SegunMarcador({ equipo }: { equipo: string }) {
-  const caja = useRef<HTMLDivElement>(null);
-  const [abierto, setAbierto] = useState(false);
-
-  useEffect(() => {
-    const el = caja.current;
-    if (!el || abierto) return;
-    const io = new IntersectionObserver((entradas) => {
-      if (entradas.some((e) => e.isIntersecting)) setAbierto(true);
-    }, { rootMargin: "300px 0px" });
-    io.observe(el);
-    return () => io.disconnect();
-  }, [abierto]);
+  /* El mismo «al asomar o, como muy tarde, a los 2,5 s» que los demás bloques del rival: sin bajar (captura, exportación) también se pinta. */
+  const { caja, abierto } = useAsoma<HTMLDivElement>();
 
   return <div ref={caja} className="min-w-0">{abierto && <Bloque equipo={equipo} />}</div>;
 }

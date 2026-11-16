@@ -575,7 +575,7 @@ export function AbpWyscoutRival({
 
     /* v=5 (11/11/2026): la respuesta trae el mínimo y el máximo de la liga para la barra. */
     traeJson<{ ok?: boolean } & Partial<Datos>>(
-      `/api/data-analisis?abpRival=${encodeURIComponent(equipo)}${ambito === "area" ? "&ambito=area" : ""}&v=6`,
+      `/api/data-analisis?abpRival=${encodeURIComponent(equipo)}${ambito === "area" ? "&ambito=area" : ""}&v=7`,
     )
       .then((r) => {
         if (cancelado) return;
@@ -609,7 +609,7 @@ export function AbpWyscoutRival({
 
     let vivo = true;
 
-    traeJson<{ ok?: boolean } & Partial<Datos>>(`/api/data-analisis?abpRival=${encodeURIComponent(NOSOTROS_WYSCOUT)}&v=6`)
+    traeJson<{ ok?: boolean } & Partial<Datos>>(`/api/data-analisis?abpRival=${encodeURIComponent(NOSOTROS_WYSCOUT)}&v=7`)
       .then((r) => {
         if (vivo && r?.ok && Array.isArray(r.aspectos)) setNuestroAbp(r.aspectos.find((a) => a.clave === "abpOf") ?? null);
       })

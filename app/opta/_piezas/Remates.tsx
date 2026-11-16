@@ -243,6 +243,8 @@ function GolesDelEquipo({ datos, equipo, esCastilla }: { datos: DatosOpta; equip
     return casaEquipo(equipo, equiposDe(datos)) ?? "";
   }, [datos, equipo, esCastilla]);
   const delLado = useMemo(() => remates.filter((r) => (lado === "favor" ? r.teamId === teamId : r.rivalId === teamId)), [remates, teamId, lado]);
+  /* Memorizado: una lista nueva en cada pintado rehacía las tomas y volvía a cargar el corte que se estaba viendo. */
+  const golesDelLado = useMemo(() => delLado.filter((r) => r.gol), [delLado]);
 
   if (cargando)
     return <div className="h-64 animate-pulse rounded-2xl bg-white/[0.05]" role="status" aria-label="Cargando los goles de Opta" />;
@@ -263,7 +265,7 @@ function GolesDelEquipo({ datos, equipo, esCastilla }: { datos: DatosOpta; equip
       </div>
       <GolesDeSeguido
         key={`seguido-${teamId}-${lado}`}
-        goles={delLado.filter((r) => r.gol)}
+        goles={golesDelLado}
         titulo={`Goles ${lado === "favor" ? "de" : "contra"} ${equipo}`}
       />
       <MapaRemates

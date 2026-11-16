@@ -51,7 +51,6 @@ const AJENOS = new Set(["aspecto"]);
 const fin = async (codigo, texto) => {
   console.log(`RESUMEN: ${texto}`);
   process.exitCode = codigo;
-  setTimeout(() => process.exit(codigo), 300).unref?.();
   setTimeout(() => process.exit(codigo), 300);
   await new Promise(() => {});
 };
@@ -126,7 +125,16 @@ if (!EN_SECO && process.env.DATOS_PG_URL) {
   const host = new URL(URL_SB).host.replace(/\./g, "\\.");
   const patron = new RegExp(`https?://${host}/storage/v1/object/(?:public|sign|authenticated)/([^/"?\\s]+)/([^"?\\s]+)(?:\\?[^"\\s]*)?`, "g");
   const nueva = (cubo, ruta) => {
-    const clave = `${cubo}/${decodeURIComponent(ruta)}`;
+    let llano = ruta;
+
+    /* Un «%» suelto en un enlace no puede tumbar el rescate entero: se deja ese enlace como estaba. */
+    try {
+      llano = decodeURIComponent(ruta);
+    } catch {
+      return null;
+    }
+
+    const clave = `${cubo}/${llano}`;
 
     if (!estado.subidos[clave]) return null;
 
@@ -149,7 +157,11 @@ if (!EN_SECO && process.env.DATOS_PG_URL) {
 
       if (!n) continue;
 
-      const r = await sql.unsafe(`update ${tabla} set data = $1::jsonb, updated_at = date_trunc('milliseconds', now()) where ${k} = $2 and updated_at = $3`, [d, f.k, f.updated_at]);
+      /* Se compara en milisegundos: las filas escritas antes del disparador que redondea guardan microsegundos y la fecha leída en JS no los trae. */
+      const r = await sql.unsafe(
+        `update ${tabla} set data = $1::jsonb, updated_at = date_trunc('milliseconds', now()) where ${k} = $2 and date_trunc('milliseconds', updated_at) = date_trunc('milliseconds', $3::timestamptz)`,
+        [d, f.k, f.updated_at],
+      );
 
       if (r.count === 1) {
         cambiados += n;

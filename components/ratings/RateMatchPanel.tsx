@@ -373,8 +373,16 @@ export function RateMatchPanel({
   }, [dirty, draft, selectedId]);
 
   const copia = useCopiaSinGuardar(selectedId);
+  /*
+  | Se ofrece si trae algo que lo guardado no tiene (nota, «sin valorar»,
+  | comentario o áreas distintos), no por fechas: BeSoccer reescribe cada
+  | noche la fecha del partido y escondía la copia de un guardado fallido.
+  */
+  const guardados = season.matches[selectedId]?.players ?? {};
+  const evaluacion = (p?: Partial<PlayerRating>) =>
+    JSON.stringify([Number(p?.rating) || 0, Boolean(p?.unrated), String(p?.note ?? "").trim(), p?.areas ?? {}]);
   const copiaVigente =
-    copia && !dirty && Date.parse(copia.en) > Date.parse(season.matches[selectedId]?.updatedAt ?? "") ? copia : null;
+    copia && !dirty && Object.entries(copia.draft).some(([id, p]) => evaluacion(p) !== evaluacion(guardados[id])) ? copia : null;
 
   const recuperaCopia = () => {
     if (!copiaVigente) return;
