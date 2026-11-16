@@ -95,6 +95,8 @@ import {
   tareasQueSePierden,
   ultimosDelMd,
   type Ejercicio,
+  type MicroDeLaHoja,
+  type SesionTipo,
 } from "@/lib/registro/rellenar";
 import { LaminaSemana, LAMINA } from "@/components/microciclo/LaminaSemana";
 import {
@@ -316,12 +318,13 @@ function TiraDias({
                 <Trophy size={12} aria-hidden /> Partido
               </p>
             ) : (
-              <div className="mt-2 flex rounded-lg border border-white/10 p-0.5 text-[11px]" role="group" aria-label={`${etiquetaDia(uno.fecha)}: entreno o libre`}>
+              /* 16/11/2026 (jueces): área táctil de 44 px en el móvil; en el ordenador, compacta. */
+              <div className="mt-2 flex rounded-lg border border-white/10 p-0.5 text-[13px] sm:text-[12px]" role="group" aria-label={`${etiquetaDia(uno.fecha)}: entreno o libre`}>
                 <button
                   type="button"
                   onClick={() => onCambia(uno.fecha, false)}
                   aria-pressed={!libre}
-                  className={`flex flex-1 items-center justify-center gap-1 rounded-md px-1.5 py-1 transition ${
+                  className={`flex min-h-11 flex-1 items-center justify-center gap-1 rounded-md px-1.5 py-1 transition sm:min-h-0 ${
                     !libre ? "bg-emerald-400/20 text-emerald-200" : "text-white/45 hover:text-white/80"
                   }`}
                 >
@@ -331,7 +334,7 @@ function TiraDias({
                   type="button"
                   onClick={() => onCambia(uno.fecha, true)}
                   aria-pressed={libre}
-                  className={`flex flex-1 items-center justify-center gap-1 rounded-md px-1.5 py-1 transition ${
+                  className={`flex min-h-11 flex-1 items-center justify-center gap-1 rounded-md px-1.5 py-1 transition sm:min-h-0 ${
                     libre ? "bg-white/15 text-white" : "text-white/45 hover:text-white/80"
                   }`}
                 >
@@ -352,7 +355,7 @@ function TiraDias({
 
 const PASOS = [
   { titulo: "La semana", detalle: "Días libres y semana de partida", candado: "" },
-  { titulo: "El contenido", detalle: "Tareas, tiempos e intensidad", candado: "Se abre al crear el microciclo" },
+  { titulo: "El contenido", detalle: "Tareas, tiempos e intensidad", candado: "Cómo empieza, abajo; se edita al crear" },
   { titulo: "Revisar y escribir", detalle: "Carga de la semana y escritura en la hoja", candado: "Al final, con «Escribir en la hoja»" },
 ] as const;
 
@@ -801,6 +804,10 @@ function ResumenOrigen({
   todas,
   mdSemana = [],
   onElige,
+  microsHoja = [],
+  tipoEnBlanco = false,
+  onTipoEnBlanco,
+  diasSemana = [],
 }: {
   micro: number | null;
   todas: RegistroTarea[];
@@ -808,6 +815,13 @@ function ResumenOrigen({
   mdSemana?: string[];
   /** Cambia el micro de origen (la propuesta de uno que sí tiene esos MD). */
   onElige?: (micro: number) => void;
+  /** Las semanas de la hoja, para la sesión tipo de cada MD (16/11/2026). */
+  microsHoja?: MicroDeLaHoja[];
+  /** Los días que quedan en blanco se rellenan con su sesión tipo al crear. */
+  tipoEnBlanco?: boolean;
+  onTipoEnBlanco?: (si: boolean) => void;
+  /** Los días de entreno de la semana nueva, para la vista previa del paso 2. */
+  diasSemana?: { fecha: string; md: string }[];
 }) {
   const datos = useMemo(() => {
     if (!micro) return null;
@@ -820,14 +834,16 @@ function ResumenOrigen({
 
     if (!suyas.length) return null;
 
-    const porMd = new Map<string, { tareas: number; minutos: number }>();
+    const porMd = new Map<string, { tareas: number; minutos: number; nombres: string[] }>();
 
     for (const t of suyas) {
       const md = t.md.trim().toUpperCase().replace(/\s+/g, "");
-      const uno = porMd.get(md) ?? { tareas: 0, minutos: 0 };
+      const uno = porMd.get(md) ?? { tareas: 0, minutos: 0, nombres: [] };
 
       uno.tareas += 1;
       uno.minutos += t.tiempo || 0;
+      const nombre = (t.tipoTarea || t.contenidoPrincipal).trim();
+      if (nombre) uno.nombres.push(nombre);
       porMd.set(md, uno);
     }
 
@@ -878,7 +894,16 @@ function ResumenOrigen({
     const propia = cuentaDe(micro);
     const mediaDias = baseMedia.length >= 3 ? baseMedia.reduce((s, c) => s + c.entrenos, 0) / baseMedia.length : 0;
 
+    /* La sesión tipo de cada MD que quedaría en blanco (16/11/2026): para «Rellenar con la semana tipo». */
+    const tipos = new Map(
+      faltan
+        .map((md) => [md, sesionTipo(microsHoja, md)] as const)
+        .filter((par): par is readonly [string, SesionTipo] => par[1] !== null),
+    );
+
     return {
+      tipos,
+      conTiempo: suyas.filter((t) => (t.tiempo || 0) > 0).length,
       faltan,
       propuesto,
       baseMicros: baseMedia.length,
@@ -891,7 +916,7 @@ function ResumenOrigen({
       mediaTareas,
       mediaDias,
     };
-  }, [micro, todas, mdSemana]);
+  }, [micro, todas, mdSemana, microsHoja]);
 
   if (!datos) return null;
 
@@ -924,7 +949,8 @@ function ResumenOrigen({
             <th scope="row" className="px-2 py-1 text-left font-semibold">Micro {micro}</th>
             <td className={celda}>{datos.tareas}</td>
             <td className={celda}>{datos.diasEntreno}</td>
-            <td className={celda}>{datos.minutos > 0 ? minutosLegibles(datos.minutos) : "Sin tiempo"}</td>
+            {/* 16/11/2026 (jueces): el tiempo planificado (suma de los minutos de sus tareas); sin minutos, la celda va vacía y lo explica la línea de abajo. */}
+            <td className={celda}>{datos.minutos > 0 ? minutosLegibles(datos.minutos) : ""}</td>
           </tr>
           {hayMedia && (
             <tr className="border-t border-white/10">
@@ -933,40 +959,103 @@ function ResumenOrigen({
               </th>
               <td className={celda}>{comaDecimal(datos.mediaTareas)}</td>
               <td className={celda}>{comaDecimal(datos.mediaDias)}</td>
-              <td className={celda}>{datos.media > 0 ? minutosLegibles(datos.media) : "Sin tiempo"}</td>
+              <td className={celda}>{datos.media > 0 ? minutosLegibles(datos.media) : ""}</td>
             </tr>
           )}
         </tbody>
       </table>
-      {hayMedia && (
-        <p className="mt-0.5 px-2 text-[10px] text-white/40">
-          Media por semana de {datos.baseMicros} micros {datos.baseConTiempo ? "con tiempo apuntado" : "con tareas de entreno"}; sin el partido.
-        </p>
-      )}
+      {/*
+      | La base de cada cifra (16/11/2026, jueces): «Sin tiempo» junto a «2h 33'»
+      | no decía qué faltaba. Ahora el tiempo es el planificado —la suma de los
+      | minutos de sus tareas— y se dice cuántas lo llevan.
+      */}
+      <p className="mt-1 px-2 text-[12px] leading-relaxed text-white/55">
+        Tiempo planificado = suma de los minutos de sus tareas
+        {datos.conTiempo === datos.tareas
+          ? ` (las ${datos.tareas} lo llevan)`
+          : datos.conTiempo > 0
+            ? ` · ${datos.tareas} tareas, ${datos.conTiempo} con tiempo`
+            : ` · ninguna de sus ${datos.tareas} tareas lleva minutos en la hoja: se ponen en el paso 2 («Minutos habituales» en cada día)`}
+        .
+        {hayMedia && ` Media por semana de ${datos.baseMicros} micros ${datos.baseConTiempo ? "con tiempo apuntado" : "con tareas de entreno"}; sin el partido.`}
+      </p>
 
       {/* Una frase y un botón (11/11/2026): antes eran el aviso, la explicación y un botón pequeño en ámbar. */}
-      {datos.faltan.length > 0 && (
-        <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-amber-400/30 bg-amber-400/[0.06] px-3 py-2">
-          <p className="min-w-0 flex-1 text-[12px] text-amber-200/90">
-            {datos.propuesto
-              ? `El micro ${micro} no tiene ${listaMd(datos.faltan)}; el ${datos.propuesto.micro}${datos.propuesto.rival ? ` (${datos.propuesto.rival})` : ""} es la última semana de liga que sí los entrena.`
-              : `El micro ${micro} no tiene ${listaMd(datos.faltan)}: ${datos.faltan.length === 1 ? "ese día entra" : "esos días entran"} en blanco.`}
-          </p>
-          {datos.propuesto && onElige && (
-            <Button tone="primary" icon={ClipboardCopy} onClick={() => onElige(datos.propuesto!.micro)}>
-              Partir del micro {datos.propuesto.micro}
-            </Button>
-          )}
+      {/*
+      | 16/11/2026 (jueces): el atajo, en el mismo aviso. «Rellenar con la
+      | semana tipo» pone en cada día que quedaría en blanco la sesión tipo de
+      | su MD (lo más repetido en la hoja) al crear el microciclo.
+      */}
+      {datos.faltan.length > 0 && (() => {
+        const conTipo = datos.faltan.filter((md) => datos.tipos.has(md));
+        const rellenos = tipoEnBlanco ? conTipo : [];
+        const enBlanco = datos.faltan.filter((md) => !rellenos.includes(md));
+
+        return (
+          <div
+            className={`mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border px-3 py-2 ${
+              enBlanco.length ? "border-amber-400/30 bg-amber-400/[0.06]" : "border-emerald-400/30 bg-emerald-400/[0.06]"
+            }`}
+          >
+            <p className={`min-w-0 flex-1 text-[13px] ${enBlanco.length ? "text-amber-200/90" : "text-emerald-200"}`}>
+              {rellenos.length > 0
+                ? `${listaMd(rellenos)} ${rellenos.length === 1 ? "entra" : "entran"} con su sesión tipo (lo más repetido en la hoja).${
+                    enBlanco.length ? ` ${listaMd(enBlanco)} ${enBlanco.length === 1 ? "entra" : "entran"} en blanco.` : ""
+                  }`
+                : datos.propuesto
+                  ? `El micro ${micro} no tiene ${listaMd(datos.faltan)}; el ${datos.propuesto.micro}${datos.propuesto.rival ? ` (${datos.propuesto.rival})` : ""} es la última semana de liga que sí los entrena.`
+                  : `El micro ${micro} no tiene ${listaMd(datos.faltan)}: ${datos.faltan.length === 1 ? "ese día entra" : "esos días entran"} en blanco.`}
+            </p>
+            {datos.propuesto && onElige && !tipoEnBlanco && (
+              <Button tone="primary" icon={ClipboardCopy} onClick={() => onElige(datos.propuesto!.micro)}>
+                Partir del micro {datos.propuesto.micro}
+              </Button>
+            )}
+            {conTipo.length > 0 && onTipoEnBlanco && (
+              <Button tone={tipoEnBlanco || datos.propuesto ? "ghost" : "primary"} icon={tipoEnBlanco ? Undo2 : Sparkles} onClick={() => onTipoEnBlanco(!tipoEnBlanco)}>
+                {tipoEnBlanco ? "Dejarlos en blanco" : "Rellenar con la semana tipo"}
+              </Button>
+            )}
+          </div>
+        );
+      })()}
+
+      {/*
+      | Vista previa del paso 2 (16/11/2026, jueces): el paso 2 era un candado.
+      | Ahora se ve, día a día, con qué tareas nacerá la semana.
+      */}
+      {diasSemana.length > 0 && (
+        <div className="mt-3">
+          <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-white/55">Así empieza el paso 2</p>
+          <ul className="mt-1.5 grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
+            {diasSemana.map((dia) => {
+              const md = dia.md.trim().toUpperCase().replace(/\s+/g, "");
+              const copia = datos.dias.find(([clave]) => clave === md)?.[1];
+              const tipo = !copia && tipoEnBlanco ? datos.tipos.get(md) : undefined;
+              const nombres = copia?.nombres ?? tipo?.tareas.map((t) => (t.tipoTarea || t.contenidoPrincipal).trim()).filter(Boolean) ?? [];
+              const n = copia?.tareas ?? tipo?.tareas.length ?? 0;
+
+              return (
+                <li key={dia.fecha} className="min-w-0 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-[13px] text-white/75">
+                  <p className="flex min-w-0 items-baseline gap-1.5">
+                    <span className="font-semibold text-[#C8A96B]">{dia.md}</span>
+                    <span className="truncate capitalize text-white/55">{etiquetaDia(dia.fecha)}</span>
+                    {n > 0 && (
+                      <span className="ml-auto shrink-0 tabular-nums text-white/60">
+                        {plural(n, "tarea", "tareas")}
+                        {copia && copia.minutos > 0 ? ` · ${copia.minutos}'` : ""}
+                      </span>
+                    )}
+                  </p>
+                  <p className="truncate text-[12px] text-white/55">
+                    {n > 0 ? (nombres.length ? nombres.slice(0, 3).join(" · ") + (nombres.length > 3 ? " …" : "") : tipo ? "Sesión tipo" : "") : "Se rellena en el paso 2"}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
         </div>
       )}
-      <ul className="mt-2 flex flex-wrap gap-1.5">
-        {datos.dias.map(([md, d]) => (
-          <li key={md} className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[11px] text-white/70">
-            <span className="font-semibold text-[#C8A96B]">{md}</span> · {d.tareas} {d.tareas === 1 ? "tarea" : "tareas"}
-            {d.minutos > 0 ? ` · ${d.minutos}'` : ""}
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }
@@ -1069,6 +1158,8 @@ export default function EditorMicrocicloPage() {
   | entero.
   */
   const [conTiempos, setConTiempos] = useState(false);
+  /* Los días que el origen deja en blanco, con la sesión tipo de su MD (16/11/2026). */
+  const [tipoEnBlanco, setTipoEnBlanco] = useState(false);
 
   /* «Copiar un microciclo en otro» desde la entrada: de cuál y a cuál. */
   const [copiaOrigen, setCopiaOrigen] = useState("");
@@ -1366,7 +1457,28 @@ export default function EditorMicrocicloPage() {
 
     const hecho = origen ? copiaSobre(vacio, origen) : null;
 
-    reiniciaMicro(hecho?.micro ?? vacio);
+    /*
+    | «Rellenar con la semana tipo» (16/11/2026): los días de entreno que el
+    | origen deja en blanco entran con la sesión tipo de su MD.
+    */
+    let base = hecho?.micro ?? vacio;
+    let conTipo = 0;
+
+    if (tipoEnBlanco && origen) {
+      base.sesiones.forEach((sesion, indice) => {
+        if (sesion.libre || !sesion.md.trim() || sesion.md.trim().toUpperCase() === "MD") return;
+        if (!sesion.tareas.every((tarea) => tareaEnBlanco(tarea) || /-COMP$/i.test(tarea.tarea))) return;
+
+        const tipo = sesionTipo(microsParaCopiar, sesion.md);
+
+        if (!tipo) return;
+
+        base = pegaEnDia(base, indice, tipo.tareas.map((tarea, i) => tareaDeLaHoja(tarea, sesion.dia, i + 1, false)), "anadir");
+        conTipo += 1;
+      });
+    }
+
+    reiniciaMicro(base);
     setEditando(null);
     setReemplazar(false);
     setEscrito(null);
@@ -1378,7 +1490,8 @@ export default function EditorMicrocicloPage() {
         `${plural(diasPlan.length - libres - 1, "día de entreno", "días de entreno")}, ${plural(libres, "libre", "libres")} y el partido.` +
         (hecho
           ? ` Relleno con ${plural(hecho.puestas, "tarea", "tareas")} del micro ${origen}${hecho.rival ? ` (${hecho.rival})` : ""}, atadas por MD: cambia lo que toque.`
-          : ""),
+          : "") +
+        (conTipo ? ` ${plural(conTipo, "día", "días")} con su sesión tipo.` : ""),
     });
   };
 
@@ -2431,9 +2544,9 @@ export default function EditorMicrocicloPage() {
                   )}
                   <span className="rounded-lg border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2 py-0.5 text-[#E9D5A8]">Partido</span>
                 </p>
-                <p className="mb-3 text-[12px] leading-relaxed text-white/50">
-                  Del día siguiente al partido anterior hasta el del próximo. Los días libres no llevan sesión y no
-                  escriben ninguna fila; el MD+1, el día después del partido, viene marcado como libre, pero se puede cambiar.
+                {/* 16/11/2026 (jueces): de dónde sale la propuesta, en una línea y junto a los días. */}
+                <p className="mb-2 text-[13px] text-white/55">
+                  Propuesta: libre el MD+1 (el día después del partido); el resto, entreno. Un día libre no escribe fila.
                 </p>
 
                 <TiraDias
@@ -2480,6 +2593,10 @@ export default function EditorMicrocicloPage() {
                     todas={registro?.tareas ?? []}
                     mdSemana={mdSemana}
                     onElige={(m) => setPartirDe(m === ultimoConTareas ? "ultimo" : String(m))}
+                    microsHoja={microsParaCopiar}
+                    tipoEnBlanco={tipoEnBlanco}
+                    onTipoEnBlanco={setTipoEnBlanco}
+                    diasSemana={diasPlan.filter((d) => !d.esPartido && !libresMarcados.has(d.fecha) && d.md)}
                   />
 
                   {/* 11/11/2026: si el micro de origen no tiene minutos, no hay tiempo que copiar: la casilla no sale. */}

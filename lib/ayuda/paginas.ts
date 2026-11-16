@@ -3039,8 +3039,11 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "1 · La semana",
         filas: [
-          { que: "Días de la semana", es: "Del día siguiente al partido anterior hasta el del próximo, cada uno con su MD", cuenta: "El MD+1 viene marcado como libre; un día libre no escribe ninguna fila" },
+          { que: "Días de la semana", es: "Del día siguiente al partido anterior hasta el del próximo, cada uno con su MD. Junto a los días, de dónde sale la propuesta en una línea. En el móvil, los botones Entreno/Libre miden 44 px de alto", cuenta: "Propuesta: libre el MD+1 (el día después del partido); el resto, entreno. Un día libre no escribe ninguna fila" },
           { que: "Partir de lo que ya está en la hoja", es: "El último microciclo con tareas, otro cualquiera o la semana en blanco", cuenta: "Las tareas entran atadas por MD: el MD-2 de aquella semana al MD-2 de ésta" },
+          { que: "Lo que se copia", es: "Tareas, días y tiempo planificado del micro de origen frente a la media de la temporada, con la base de cada cifra («13 tareas, 9 con tiempo»). Si ninguna tarea lleva minutos, la celda va vacía y se dice dónde se ponen", cuenta: "Tiempo planificado = suma de los minutos de sus tareas, sin el partido. Media = media por semana de los micros con tiempo apuntado (si hay 3 o más; si no, de los micros con tareas)" },
+          { que: "Días que entran en blanco", es: "Si el micro de origen no tiene algún MD de la semana nueva, el aviso lo dice y ofrece, en el mismo sitio, «Partir del micro N» (la última semana de liga que sí los tiene) y «Rellenar con la semana tipo»", cuenta: "La semana tipo de un MD es lo más repetido en sus sesiones de la hoja (hacen falta 2 o más); se pone al crear el microciclo y se cambia como cualquier tarea" },
+          { que: "Así empieza el paso 2", es: "Vista previa, día a día, de con qué tareas nacerá la semana: el MD, el día, cuántas tareas y minutos, y las tres primeras", cuenta: "Sale de las tareas del micro de origen con ese MD o, con «Rellenar con la semana tipo», de la sesión tipo; si no hay ninguna, «Se rellena en el paso 2»" },
           { que: "Copiar también el tiempo y la intensidad", es: "Si no se marca, se copian tareas y contenidos pero no los minutos ni la intensidad" },
           { que: "Semana tipo / Todos los días de entreno", es: "Atajos: libre sólo el MD+1, o sesión todos los días" },
           { que: "Editar o copiar un microciclo", es: "Abre uno de la hoja con todas sus columnas, o copia la semana de uno sobre otro", cuenta: "La evaluación y el análisis post de sus filas no se tocan" },
@@ -3083,7 +3086,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Carga ponderada, carga cognitiva y demanda cognitiva son fórmulas de la hoja: no se mandan, las filas nuevas las heredan de la de arriba.",
       "El borrador se guarda en este navegador mientras se rellena; si ya está en la hoja o tiene más de tres semanas, se tira.",
     ],
-    revisada: "2026-11-12",
+    revisada: "2026-11-16",
   },
 
   /* ==================== VÍDEO ANÁLISIS PARTIDOS (12/11/2026) ==================== */
