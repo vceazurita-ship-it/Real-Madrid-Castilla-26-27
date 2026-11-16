@@ -1015,7 +1015,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Comparativa con la categoría",
     resumen: "Cada jugador del Castilla frente a los de su puesto en la categoría (sub-21, sub-23 o todos), con Wyscout o con Opta: ranking, gráficos por fase, ficha y, según la fuente, contra otros equipos o su evolución por temporadas.",
     origen: "Wyscout: la descarga de jugadores de toda la categoría (esta temporada y la pasada) y, para el ajuste a la posesión, la posesión media de cada equipo en sus partidos de liga de Wyscout. Opta: sus tablas de jugadores de Primera RFEF, todas las temporadas que hay. Al lado, nuestras Valoraciones (nota) y la hoja de seguimiento (nº de registros).",
-    revisada: "2026-11-15",
+    revisada: "2026-11-16",
     bloques: [
       {
         titulo: "Arriba",
@@ -1028,6 +1028,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Con Wyscout",
         filas: [
+          { que: "Ranking · Visual o Detalle (16/11/2026)", es: "El ranking se abre en «Visual»: cada jugador del Castilla en una escala de 0 a 100 con la raya del 50 (la media de su puesto en el grupo elegido), ordenados de más a menos, el punto del color de su índice y, si jugó en la categoría en 25/26, un punto hueco con su índice de entonces unido por una línea. El título dice cuántos están por encima de la media, quién es el más alto y cuántos suben. Pinchar un jugador abre su ficha. «Detalle» es la tabla de siempre; se recuerda en este aparato", cuenta: "Mismo índice, filtros y posesión que la tabla. En gris, menos de 300′ (tendencia), que no cuentan en el título. «Suben» = más de 3 puntos sobre 25/26" },
           { que: "Índice", es: "Media de sus percentiles en las métricas de su puesto contra los de su puesto del grupo elegido", cuenta: "De 0 a 100; 50 = la media. Con 90′ o más; el portero, sólo contra porteros" },
           { que: "Ranking", es: "Su puesto entre los de su posición del grupo; «2º-3º de 34» = empatado en índice" },
           { que: "Evolución (pts)", es: "Puntos de índice frente a 25/26, cada año contra su categoría", cuenta: "Entre −3 y +3, estable; «nuevo» = sin minutos el año pasado. «Mejoran respecto a 25/26» pide 450′ el año pasado" },
