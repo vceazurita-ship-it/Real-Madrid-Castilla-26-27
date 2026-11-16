@@ -2026,8 +2026,15 @@ export const AYUDAS: AyudaDePagina[] = [
       "Objetivos por jugador medidos en el vídeo de la sesión: cuántas acciones salieron bien y cuántas hay que mejorar, con clips, su evolución día a día y el mensaje para cada jugador.",
     origen:
       "Los objetivos y las validaciones los escribe el cuerpo técnico aquí (documento «entreno:AAAA-MM-DD» de Supabase, se guarda solo). El análisis lo hace el ordenador del club al pedirlo y lo deja en «entreno-analisis:AAAA-MM-DD»: el vídeo es la cámara táctica de la carpeta SESIONES o, si no está, el entrenamiento subido a Hudl con la fecha en el título. Las tareas salen del registro de tareas (hoja) y los equipos, de Jugadores sesión. Se entra con la cuenta del staff (la de la quiniela).",
-    revisada: "2026-11-12",
+    revisada: "2026-11-16",
     bloques: [
+      {
+        titulo: "Antes de entrar",
+        filas: [
+          { que: "Entra con tu cuenta del staff", es: "El correo y la contraseña, uno debajo de otro y a todo el ancho. Sólo puede registrarse el cuerpo técnico: en «Registrarme» se elige el nombre de la lista del staff. Al entrar se abre el entrenamiento de hoy (o el último con trabajo) y no se vuelve a pedir la cuenta en un mes en ese navegador" },
+          { que: "Así se lee una tarea", es: "Una muestra del formato, con jugadores y cifras inventados (esta puerta es pública): la tarea, su objetivo y su meta, el gráfico de correctas y mejorables de cada jugador con la meta marcada, y un clip con su veredicto y lo que se vio", cuenta: "Acierto = correctas ÷ acciones revisadas; la muestra usa bases de 15 acciones o más. Con menos de 8 no se da porcentaje: tendencia" },
+        ],
+      },
       {
         titulo: "La cabecera y los pasos",
         filas: [

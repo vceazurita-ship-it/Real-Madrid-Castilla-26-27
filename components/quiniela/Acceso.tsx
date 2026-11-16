@@ -13,7 +13,7 @@
  * A cambio no es secreta, así que mientras alguien no la cambie se le recuerda.
  */
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { KeyRound, LogOut } from "lucide-react";
 import { toast } from "sonner";
 
@@ -75,7 +75,13 @@ export function Acceso({
   compacto = false,
   abierto = false,
   notaLectura = "Para ver el ranking y los partidos no hace falta entrar.",
+  apilado = false,
+  pie,
 }: {
+  /** Los campos uno debajo de otro y a todo el ancho (16/11/2026): en una columna estrecha el correo se cortaba. */
+  apilado?: boolean;
+  /** Con `sinPista`, la línea de pie propia de la pantalla (quién puede registrarse y qué pasa después). */
+  pie?: ReactNode;
   /**
    * La línea de pie de la franja compacta: qué se ve sin entrar. Cada pantalla
    * dice lo suyo (08/11/2026: en apuestas hablaba del ranking y los partidos
@@ -272,7 +278,7 @@ export function Acceso({
             void envia({ accion: "entrar", correo, clave }, "Dentro");
           }
         }}
-        className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
+        className={apilado ? "grid gap-3" : "grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end"}
       >
         {registrando ? (
           <Select
@@ -347,7 +353,7 @@ export function Acceso({
         {compacto && !registrando ? (
           <>{notaLectura}</>
         ) : sinPista ? (
-          <>Si no recuerdas la contraseña, pídela al administrador.</>
+          pie ?? <>Si no recuerdas la contraseña, pídela al administrador.</>
         ) : registrando ? (
           <>
             Tu contraseña será lo que va antes de la @ de tu correo
