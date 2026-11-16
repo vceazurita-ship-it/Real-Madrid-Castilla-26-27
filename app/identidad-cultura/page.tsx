@@ -23,7 +23,10 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { DOCUMENTO_VALORES } from "@/lib/cultura/documentos/valores";
 import { conVotos } from "@/components/cultura/HojaCultura";
-import { ResumenValores, TOTAL_VOTOS_VALORES } from "@/components/cultura/ResumenValores";
+import { TOTAL_VOTOS_VALORES } from "@/components/cultura/ResumenValores";
+import { ValoresIndice } from "@/components/cultura/ValoresIndice";
+import Link from "next/link";
+import { ClipboardList, Presentation, Route } from "lucide-react";
 
 /*
 | 08/11/2026: el titular dice la idea con el dato («Humildad, el más votado»)
@@ -55,21 +58,40 @@ export default function IdentidadCulturaPage() {
               area="RMCF Castilla · Identidad"
               /* 30/10/2026: titular con mensaje; «Identidad» ya lo dice el área. */
               title={TITULAR}
-              lead="Cinco valores, cada uno con lo que suma y lo que no se admite, dentro y fuera del campo. Listos para proyectar en la sala o imprimir."
+              lead="Cinco valores que eligió el vestuario, cada uno con lo que lo destruye y las conductas por las que se reconoce, dentro y fuera del campo."
             />
 
-            {/* 10/11/2026: cada valor con sus votos y su antivalor, en texto y en
-                la misma pantalla: en el móvil la miniatura no se lee, y así el
-                recuento se comprueba sin abrir las diapositivas. */}
-            <section className="mt-5 max-w-3xl rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-              <h2 className="text-sm font-semibold text-white">Los cinco valores y lo que los destruye</h2>
-              <div className="mt-2">
-                <ResumenValores />
-              </div>
-            </section>
+            {/* 16/11/2026: qué hacer con él, en una línea, y a qué etapa de la
+                hoja de ruta pertenece. */}
+            <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 py-1 font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)]">
+                <Presentation className="h-4 w-4" aria-hidden />
+                Proyéctalo en la charla y cuélgalo en el vestuario
+              </span>
+              <Link
+                href="/team-values"
+                className="inline-flex items-center gap-1 rounded-full border border-white/15 px-3 py-1 text-gray-200 transition-colors hover:border-[#C8A96B]/60 hover:text-white"
+              >
+                <Route className="h-4 w-4" aria-hidden />
+                Hoja de ruta de la cultura →
+              </Link>
+              <Link
+                href="/individual_proc"
+                className="inline-flex items-center gap-1 rounded-full border border-white/15 px-3 py-1 text-gray-200 transition-colors hover:border-[#C8A96B]/60 hover:text-white"
+              >
+                <ClipboardList className="h-4 w-4" aria-hidden />
+                Seguimiento de las conductas →
+              </Link>
+            </div>
 
-            <div className="mt-6">
-              <RepositorioCultura />
+            {/* 16/11/2026: primero las descargas, luego el índice de los cinco
+                valores (cada uno abre sus conductas en la vista previa) y la
+                vista previa. Es el único recuento completo de la app. */}
+            <div className="mt-6 pr-10 sm:pr-0">
+              <RepositorioCultura
+                enlazaUrl
+                antesDeLaVista={<ValoresIndice />}
+              />
             </div>
           </div>
         </section>

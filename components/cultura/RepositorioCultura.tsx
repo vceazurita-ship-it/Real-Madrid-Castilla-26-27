@@ -15,7 +15,7 @@
  * errata sin desplegar— y al borrar el subido vuelve a salir el original.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import {
   BookOpen,
   ChevronLeft,
@@ -70,7 +70,29 @@ type Pendiente = {
   ficha: FichaDocumento;
 };
 
-export function RepositorioCultura() {
+/*
+| 16/11/2026: la diapositiva activa puede ir en el ancla (`#diapo-3`) para que
+| se enlace desde fuera (Dinámicas y Valores, el índice de los valores). Se
+| lee con useSyncExternalStore: nada de setState en un efecto.
+*/
+const suscribeAncla = (avisa: () => void) => {
+  window.addEventListener("hashchange", avisa);
+  return () => window.removeEventListener("hashchange", avisa);
+};
+const leeAncla = () => {
+  const m = window.location.hash.match(/^#diapo-(\d+)$/);
+  return m ? Number(m[1]) - 1 : -1;
+};
+
+export function RepositorioCultura({
+  enlazaUrl = false,
+  antesDeLaVista,
+}: {
+  /** La diapositiva activa va en `#diapo-N` (sólo en /identidad-cultura). */
+  enlazaUrl?: boolean;
+  /** Lo que va entre las descargas y la vista previa (el índice de valores). */
+  antesDeLaVista?: ReactNode;
+} = {}) {
   /* Subir documentos y su explicación son cosa del administrador: el cuerpo
      técnico sólo ve el documento y las descargas. */
   const { admin } = useAdmin();
@@ -93,7 +115,18 @@ export function RepositorioCultura() {
 
   /* 30/10/2026: en el móvil la vista previa enseña una diapositiva cada vez
      (con flechas y «n / 11») y, al tocarla, se abre a pantalla completa. */
-  const [activa, setActiva] = useState(0);
+  const [activaLocal, setActivaLocal] = useState(0);
+  const desdeAncla = useSyncExternalStore(suscribeAncla, leeAncla, () => -1);
+  const activa = enlazaUrl && desdeAncla >= 0 ? desdeAncla : activaLocal;
+  const setActiva = useCallback(
+    (n: number) => {
+      setActivaLocal(n);
+      if (!enlazaUrl) return;
+      window.history.replaceState(null, "", `#diapo-${n + 1}`);
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    },
+    [enlazaUrl],
+  );
   const [visor, setVisor] = useState<number | null>(null);
   const [pendiente, setPendiente] = useState<Pendiente | null>(null);
 
@@ -562,6 +595,9 @@ export function RepositorioCultura() {
               />
             )}
 
+            {antesDeLaVista}
+
+            <div id="vista-previa-cultura" className="scroll-mt-24">
             <Panel
               title="Vista previa"
               subtitle="Lo mismo que se descarga"
@@ -604,7 +640,10 @@ export function RepositorioCultura() {
                 /* 10/11/2026: las pestañas dicen el valor («2 Humildad»), no «Valor 1»
                    (la chapa del lienzo sigue igual), y en el móvil se difuminan por
                    la derecha para que se vea que hay más. */
-                <div className="-mx-1 mb-3 flex gap-1.5 overflow-x-auto px-1 pb-1 pr-6 [mask-image:linear-gradient(to_right,black_85%,transparent)] lg:pr-1 lg:[mask-image:none]">
+                /* 16/11/2026: en escritorio las pestañas bajan de línea (se
+                   cortaban en «9 Compañerismo · Conductas»); en el móvil, en su
+                   lugar, puntos bajo la diapositiva. */
+                <div className="mb-3 hidden flex-wrap gap-1.5 sm:flex">
                   {aLaVista.diapositivas.map((hojaTab, indice) => (
                     <button
                       key={indice}
@@ -662,13 +701,35 @@ export function RepositorioCultura() {
                         <HojaCultura documento={aLaVista} hoja={hoja} />
                       </Escalado>
                     </button>
-                    <p className="mt-1.5 text-center text-[11px] text-white/40">
+                    <p className="mt-2 text-center text-xs font-medium text-white/70">
                       Pulsa la diapositiva para verla en grande
                     </p>
                   </div>
                 ))}
               </div>
+
+              {totalHojas > 1 && (
+                <div className="mt-3 flex flex-wrap justify-center gap-1.5 sm:hidden" aria-label="Diapositivas">
+                  {aLaVista.diapositivas.map((_, indice) => (
+                    <button
+                      key={indice}
+                      type="button"
+                      onClick={() => setActiva(indice)}
+                      aria-label={`Diapositiva ${indice + 1}`}
+                      aria-current={indice === hojaActiva ? "true" : undefined}
+                      className="flex h-6 w-6 items-center justify-center"
+                    >
+                      <span
+                        className={`block rounded-full transition-all ${
+                          indice === hojaActiva ? "h-2.5 w-5 bg-[#C8A96B]" : "h-2 w-2 bg-white/20"
+                        }`}
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
             </Panel>
+            </div>
 
             {visor !== null && visor < totalHojas && (
               <VisorCultura

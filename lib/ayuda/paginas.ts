@@ -2684,16 +2684,16 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Los valores",
         filas: [
           { que: "El titular", es: "Cuántos valores se votaron y cuál fue el más votado, con sus votos sobre el total", cuenta: "Sale del propio documento de valores: si cambia el recuento, cambia el titular" },
-          { que: "N votos", es: "Los votos de cada valor en el recuento; la barra, frente al más votado" },
-          { que: "+N a otro valor", es: "Votos a un valor afín que el recuento agrupó con el suyo; no entran en el total" },
-          { que: "Antivalor", es: "Lo que no se admite, con sus votos, contados aparte" },
+          { que: "Bajo el titular", es: "Qué hacer con el documento y, a un toque, la hoja de ruta de la cultura (/team-values) y el seguimiento de los jugadores" },
+          { que: "Las cinco láminas", es: "Un valor por lámina: su número, «Lo votaron» (barra de oro con N de 32 votos) y «Lo destruye» (barra granate por antivalor con sus votos). Pulsar una lámina abre su diapositiva de conductas en la vista previa", cuenta: "Es el único recuento completo de la app; /team-values enlaza aquí" },
+          { que: "+N a otro valor (aparte)", es: "Votos a un valor afín que el recuento agrupó con el suyo; no entran en el total" },
         ],
       },
       {
         titulo: "La estantería",
         filas: [
           { que: "Documentos", es: "Los publicados, por número; se elige uno para verlo" },
-          { que: "Vista previa", es: "Cada diapositiva tal y como se descarga; se abre a pantalla completa y se pasa con las flechas" },
+          { que: "Vista previa", es: "Cada diapositiva tal y como se descarga; se abre a pantalla completa y se pasa con las flechas, las pestañas (escritorio) o los puntos (móvil). La diapositiva va en la dirección (#diapo-N), así que se puede enlazar" },
           { que: "PDF", es: "A4 apaisado, una diapositiva por hoja y con pie numerado" },
           { que: "PowerPoint", es: "Para abrirlo en la sala sin la app" },
         ],
@@ -2710,6 +2710,7 @@ export const AYUDAS: AyudaDePagina[] = [
     ojo: [
       "Los documentos publicados con la web no se borran desde aquí: se corrigen subiendo uno con el mismo identificador, y al borrar el subido vuelve el original.",
     ],
+    revisada: "2026-11-16",
   },
 
   /* ==================== CALENDARIO DE SEGUIMIENTO (12/11/2026) ==================== */
@@ -2916,7 +2917,10 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Las etapas",
         filas: [
-          { que: "Marco, Planificación, Semana 1-4", es: "Las etapas de la hoja de ruta, con cuántos contenidos tiene cada una" },
+          { que: "Marco, Planificación, Semana 1-4", es: "Las etapas de la hoja de ruta, con cuántos contenidos tiene cada una (rail en escritorio)" },
+          { que: "Línea de proceso", es: "Las seis etapas en orden bajo el titular, con su fecha si la hoja la trae: la que se ve en oro, las anteriores teñidas; pulsar una la abre" },
+          { que: "Láminas", es: "Los contenidos de la etapa en tarjetas numeradas, a dos columnas en escritorio" },
+          { que: "Contenidos de conductas", es: "Llevan al seguimiento de los jugadores y a las conductas de cada valor en /identidad-cultura" },
           { que: "Titular de la etapa", es: "La idea de esa etapa; encima, su nombre y, si la hoja la trae, su semana real" },
           { que: "Filtro por tipo", es: "Sólo los tipos de contenido que hay en esa etapa" },
           { que: "Buscar valor o conducta", es: "Busca en título, texto y tipo de la etapa" },
@@ -2926,9 +2930,9 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "La votación",
         filas: [
-          { que: "Resultado de la votación", es: "El valor más votado con su base; arriba en el Marco, al pie en las demás etapas" },
-          { que: "Votos de cada valor", es: "Los cinco valores con sus votos del recuento y lo que lo destruye (antivalores)", cuenta: "Los votos a un valor afín se dicen aparte y no entran en el total; los antivalores se cuentan aparte" },
-          { que: "Ver el documento", es: "Abre el documento en /identidad-cultura" },
+          { que: "Resultado de la votación", es: "Una línea con el valor más votado y su base; arriba en el Marco, al pie en las demás etapas", cuenta: "El recuento completo (barras de votos y antivalores) está sólo en /identidad-cultura" },
+          { que: "Chips de los valores", es: "Cada uno abre su diapositiva de conductas en /identidad-cultura" },
+          { que: "Ver el recuento y el documento", es: "Abre /identidad-cultura" },
         ],
       },
       {
@@ -2942,7 +2946,7 @@ export const AYUDAS: AyudaDePagina[] = [
     ojo: [
       "La hoja publicada tarda minutos en refrescarse: lo recién escrito se enseña encima desde este aparato.",
     ],
-    revisada: "2026-11-12",
+    revisada: "2026-11-16",
   },
 
   /* ==================== LABORATORIO · DEL SCOUTING AL PLAN (12/11/2026) ==================== */

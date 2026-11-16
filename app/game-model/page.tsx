@@ -1185,7 +1185,7 @@ function GraficoCifra({ c }: { c: CifraDelPrincipio }) {
       >
         <div
           aria-hidden
-          className="absolute inset-x-0 z-10 border-t-2 border-dashed border-sky-400/80"
+          className="absolute inset-x-0 z-10 h-0.5 translate-y-1/2 bg-sky-400"
           style={{ bottom: alto(c.mediana) }}
         />
         <div className="flex h-full items-end gap-[3px] sm:gap-1">
