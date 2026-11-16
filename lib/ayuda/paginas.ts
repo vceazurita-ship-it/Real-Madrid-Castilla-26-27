@@ -2624,8 +2624,9 @@ export const AYUDAS: AyudaDePagina[] = [
     ojo: [
       "La hoja también apunta seguimientos de jugadores de otros equipos: por eso las cifras separan el Castilla del resto.",
       "Aquí sólo se lee; los seguimientos se escriben desde la ficha individual.",
+      "La leyenda de los tipos va encima del mes, no al pie (16/11/2026).",
     ],
-    revisada: "2026-11-12",
+    revisada: "2026-11-16",
   },
   /* ==================== CALENDARIO DE OPERATIVA GENERAL (12/11/2026) ==================== */
   {
@@ -2701,8 +2702,9 @@ export const AYUDAS: AyudaDePagina[] = [
     ],
     ojo: [
       "La intensidad y la duración son texto libre: no se suman ni se promedian.",
+      "La leyenda de los tipos va encima del mes, no al pie (16/11/2026).",
     ],
-    revisada: "2026-11-12",
+    revisada: "2026-11-16",
   },
   /* ==================== CONTENIDOS MICROCICLO (12/11/2026) ==================== */
   {
