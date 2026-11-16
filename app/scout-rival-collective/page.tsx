@@ -40,6 +40,7 @@ import { DatosDelRival } from "@/components/rivals/DatosDelRival";
 import { PorDondeAtaca } from "@/components/rivals/PorDondeAtaca";
 import { EvolucionComparada } from "@/components/rivals/EvolucionComparada";
 import { RepartoXg } from "@/components/rivals/RepartoXg";
+import { EmbudoAtaque } from "@/components/rivals/EmbudoAtaque";
 import { AvisoLento } from "@/components/rivals/AvisoLento";
 import { TiraJornadas } from "@/components/rivals/TiraJornadas";
 import { useRivalInforme } from "@/hooks/useRivalInforme";
@@ -1939,6 +1940,9 @@ export default function ScoutRivalCollective() {
 
           {/* Evolución comparada (13/11/2026): xG a favor y en contra, media acumulada, Castilla contra el rival. */}
           {!modoEdicion && rivalActivo?.EQUIPO && <EvolucionComparada equipo={rivalActivo.EQUIPO} />}
+
+          {/* Embudo del ataque (16/11/2026): secuencias → último tercio → área → remate, el suyo y el que le hacen. */}
+          {!modoEdicion && rivalActivo?.EQUIPO && <EmbudoAtaque equipo={rivalActivo.EQUIPO} />}
 
           {/* Reparto del xG (13/11/2026): de quién depende el gol del rival (o el nuestro). */}
           {!modoEdicion && rivalActivo?.EQUIPO && <RepartoXg equipo={rivalActivo.EQUIPO} />}

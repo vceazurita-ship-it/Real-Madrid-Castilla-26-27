@@ -1399,8 +1399,8 @@ export const AYUDAS: AyudaDePagina[] = [
     ruta: "/scout-rival-collective",
     titulo: "Scout Colectivo",
     resumen: "Cómo juega el rival como equipo, según el analista y los datos de la categoría.",
-    origen: "El informe lo escribe el analista en la hoja RIVALES (la transición ofensiva, en Supabase «scout-rival-colectivo-extra»). Fecha, jornadas y dibujo, de BeSoccer; «Datos del rival» y «Por dónde ataca», de Wyscout y Opta; «Evolución comparada», de Opta (opta:partidos); «Reparto del xG», de Opta (opta:jugadores-partidos).",
-    revisada: "2026-11-13",
+    origen: "El informe lo escribe el analista en la hoja RIVALES (la transición ofensiva, en Supabase «scout-rival-colectivo-extra»). Fecha, jornadas y dibujo, de BeSoccer; «Datos del rival» y «Por dónde ataca», de Wyscout y Opta; «Evolución comparada» y «Embudo del ataque», de Opta (opta:partidos); «Reparto del xG», de Opta (opta:jugadores-partidos).",
+    revisada: "2026-11-16",
     bloques: [
       {
         titulo: "Arriba",
@@ -1433,6 +1433,12 @@ export const AYUDAS: AyudaDePagina[] = [
             es: "Dos gráficos de líneas jornada a jornada: xG a favor por partido y xG en contra por partido del Castilla (oro) y del rival (azul), con la media de nuestro grupo en gris discontinuo. Al pie, el último valor de cada línea; arriba, si el rival genera y concede más o menos que hace tres partidos",
             cuenta:
               "Opta, opta:partidos (equipo × partido, por fecha). «Jornada k» es el k-ésimo partido de cada equipo. Cada punto es la media acumulada hasta esa jornada: ExpG para el a favor y ExpGAg (o el ExpG del rival en ese partido) para el en contra. La media del grupo es la de las medias acumuladas de los equipos del grupo del Castilla en esa jornada. «Más» o «menos» que hace tres partidos, si la media acumulada se mueve al menos 0,1 xG. Si el rival no cruza con Opta, no sale",
+          },
+          {
+            que: "Embudo del ataque",
+            es: "Cuatro barras por partido: secuencias, las que llegan al último tercio, toques en el área y remates; en cada escalón su paso y, en gris, la media de nuestro grupo (verde, mejor que la media; naranja, peor). «Su ataque» es lo que hace él con el balón; «Cómo le atacan», lo que le hacen sus rivales, para ver si su defensa cae antes del área o dentro. Arriba, una frase dice en qué escalón se aparta de la media",
+            cuenta:
+              "Opta, opta:partidos, sumando todos sus partidos con las cuatro columnas: Sequences, SeqEndInA3 (secuencias que llegan al último tercio, x > 66,7), TouchOpBox y ShtIncBl (remates con los bloqueados); «Cómo le atacan», las mismas columnas de la fila del contrario en cada partido. Último tercio = SeqEndInA3 / Sequences en %; toques y remates, por cada llegada (un toque no es una secuencia y una secuencia puede tener dos remates, así que no hay % de paso). La media del grupo es la media de esos cocientes de cada equipo del grupo del Castilla. La frase sale si un paso se aparta al menos un 8 % de la media. Opta no trae partido a partido las secuencias con tres pases en el último tercio ni las que tocan el área, y no se ponen. Si el rival no cruza con Opta, no sale",
           },
           {
             que: "Reparto del xG",
