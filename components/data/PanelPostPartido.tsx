@@ -50,6 +50,7 @@ import { temporadaDe } from "@/lib/data-analisis/metricas";
 import { CASTILLA_OPTA } from "@/lib/opta";
 import { fechaCorta, NOMBRE_CASTILLA } from "@/lib/opta-analisis";
 import { CASTILLA_WYSCOUT, castillaWyscout, emparejaPartidos, enlaceConPartido, temporadaVigente, type PartidoPost } from "@/lib/post-partido";
+import { partidoEnlazado, usePartidoDeLaUrl } from "@/lib/partido-enlazado";
 
 /**
  * QUÉ TOCA EN EL MICROCICLO (16/11/2026, expertos, ronda 17): una o dos
@@ -72,8 +73,19 @@ function ordenesMicro(datos: DatosOpta | null, partido: string, rival: string): 
 
   const aereoNos = pct(num(nos, "Aerial%"));
   if (aereoNos != null && aereoNos < 45) {
+    /* 16/11/2026 (expertos, ronda 18): el objetivo sale de un dato, nuestra
+       media de la temporada en Opta sin este partido, no de un 50 % suelto. */
+    const otros = datos.partidos
+      .filter((f) => f.teamId === CASTILLA_OPTA && String(f.partido ?? "") !== partido)
+      .map((f) => pct(num(f, "Aerial%")))
+      .filter((v): v is number => v != null);
+    const media = otros.length >= 3 ? otros.reduce((a, b) => a + b, 0) / otros.length : null;
+    const objetivo =
+      media != null && media > aereoNos
+        ? `objetivo, volver a nuestra media de la temporada, el ${coma(media)} % (Opta, ${otros.length} partidos)`
+        : "objetivo, ganar más de la mitad";
     ordenes.push(
-      `Duelo aéreo: ganamos el ${coma(aereoNos)} % (${rival}, el ${coma(100 - aereoNos)} %). Tarea de duelo aéreo y segunda jugada, contando los ganados en cada serie; objetivo, pasar del 50 %.`,
+      `Duelo aéreo: ganamos el ${coma(aereoNos)} % (${rival}, el ${coma(100 - aereoNos)} %). Tarea de duelo aéreo y segunda jugada, contando los ganados en cada serie; ${objetivo}.`,
     );
   }
   const centrosNos = num(nos, "Crosses");
@@ -144,7 +156,15 @@ export function PanelPostPartido({ wyscout, wyscoutCaido = false }: { wyscout: F
 
   /* Por defecto, el último jugado; lo elegido se guarda por su clave. */
   const [elegido, setElegido] = useState("");
-  const visto = lista.find((p) => p.clave === elegido) ?? lista[0] ?? null;
+  /* 16/11/2026 (ronda 18): con `?fecha=&rival=` (Plan de partido, histórico,
+     laboratorios) se abre en ese partido; lo que se elija después manda. */
+  const enlace = usePartidoDeLaUrl();
+  const desdeUrl = useMemo(
+    () => partidoEnlazado(lista.map((p) => ({ id: p.clave, fecha: p.fecha, rival: p.rival })), enlace.fecha, enlace.rival)?.id ?? "",
+    [lista, enlace.fecha, enlace.rival],
+  );
+  const visto = lista.find((p) => p.clave === (elegido || desdeUrl)) ?? lista[0] ?? null;
+  const delVideo = useFechasDelVideo();
 
   /* Lo de Wyscout para el campograma: la temporada de liga y la de la categoría. */
   const nuestrosW = useMemo(() => castillaWyscout(wyscout, temporada), [wyscout, temporada]);
@@ -277,6 +297,7 @@ export function PanelPostPartido({ wyscout, wyscoutCaido = false }: { wyscout: F
       {visto.opta && datos && <BloqueFases datos={datos} partido={visto.clave} hasta={hasta} />}
 
       {/* 4 · LO CONTADO A MANO, ABIERTO EN ESTE PARTIDO */}
+      {delVideo && (delVideo.robos(visto) || delVideo.perdidas(visto) || delVideo.faltas(visto)) && (
       <Bloque
         titulo="Visto en el vídeo"
         pregunta="Robos, pérdidas y faltas de este partido, contados jugada a jugada."
@@ -284,11 +305,12 @@ export function PanelPostPartido({ wyscout, wyscoutCaido = false }: { wyscout: F
         sello={<SelloPropio>Registro propio · vídeo</SelloPropio>}
       >
         <div className="grid gap-2 sm:grid-cols-3">
-          <Enlace href={enlaceConPartido("/laboratorio/transiciones", visto)} icono={Swords} titulo="Robos y transiciones" texto="Qué hicimos con cada balón robado." />
-          <Enlace href={enlaceConPartido("/laboratorio/perdidas", visto)} icono={ShieldAlert} titulo="Pérdidas y transiciones defensivas" texto="Qué hizo el rival con cada balón perdido." />
-          <Enlace href={enlaceConPartido("/laboratorio/faltas", visto)} icono={Timer} titulo="Faltas" texto="Dónde se pitaron y con cuánta gente detrás." />
+          {delVideo.robos(visto) && <Enlace href={enlaceConPartido("/laboratorio/transiciones", visto)} icono={Swords} titulo="Robos y transiciones" texto="Qué hicimos con cada balón robado." />}
+          {delVideo.perdidas(visto) && <Enlace href={enlaceConPartido("/laboratorio/perdidas", visto)} icono={ShieldAlert} titulo="Pérdidas y transiciones defensivas" texto="Qué hizo el rival con cada balón perdido." />}
+          {delVideo.faltas(visto) && <Enlace href={enlaceConPartido("/laboratorio/faltas", visto)} icono={Timer} titulo="Faltas" texto="Dónde se pitaron y con cuánta gente detrás." />}
         </div>
       </Bloque>
+      )}
 
       {/* AL PIE: QUÉ SE LLEVA A LA SEMANA */}
       <div className="mt-5 flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.06] px-4 py-3 sm:px-5">
@@ -316,6 +338,42 @@ export function PanelPostPartido({ wyscout, wyscoutCaido = false }: { wyscout: F
       </div>
     </>
   );
+}
+
+/*
+| 16/11/2026 (expertos, ronda 18): «Visto en el vídeo» enlazaba a robos,
+| pérdidas y faltas aunque el partido aún no estuviera etiquetado (y abrían en
+| otra jornada). Ahora cada enlace sale sólo si su laboratorio tiene ese
+| partido. Los datos pesan (cientos de KB): se cargan aparte, al abrir.
+*/
+type ConFecha = { id: string; fecha: string; rival: string };
+type Etiquetado = Record<"robos" | "perdidas" | "faltas", (p: Pick<PartidoPost, "fecha" | "rival">) => boolean>;
+function useFechasDelVideo(): Etiquetado | null {
+  const [listas, setListas] = useState<Record<keyof Etiquetado, ConFecha[]> | null>(null);
+  useEffect(() => {
+    let cancelado = false;
+    Promise.all([import("@/lib/transiciones/datos"), import("@/lib/faltas/datos")])
+      .then(([t, f]) => {
+        if (cancelado) return;
+        const corta = (p: ConFecha) => ({ id: p.id, fecha: p.fecha, rival: p.rival });
+        setListas({
+          robos: t.PARTIDOS.filter((p) => p.robos.length > 0).map(corta),
+          perdidas: t.PARTIDOS.filter((p) => (p.perdidas ?? []).length > 0).map(corta),
+          faltas: f.PARTIDOS.filter((p) => p.faltas.length > 0).map(corta),
+        });
+      })
+      .catch(() => {
+        /* sin los datos, el bloque no sale */
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+  return useMemo(() => {
+    if (!listas) return null;
+    const tiene = (l: ConFecha[]) => (p: Pick<PartidoPost, "fecha" | "rival">) => partidoEnlazado(l, p.fecha, p.rival) !== null;
+    return { robos: tiene(listas.robos), perdidas: tiene(listas.perdidas), faltas: tiene(listas.faltas) };
+  }, [listas]);
 }
 
 function Enlace({ href, icono: Icono, titulo, texto }: { href: string; icono: typeof Swords; titulo: string; texto: string }) {
@@ -485,10 +543,14 @@ function BloqueOpta({ datos, partido, hasta }: { datos: DatosOpta; partido: Part
           <div className="mt-5 grid gap-5 border-t border-white/10 pt-4 lg:grid-cols-2">
             {lados.map((lado) => {
               const rs = delPartido.filter((r) => r.teamId === lado.id);
+              /* 16/11/2026 (ronda 18): «xG por remate» de un partido, con la media del equipo en el resto de la temporada. */
+              const resto = remates.filter((r) => r.teamId === lado.id && r.partido !== id);
+              const nResto = new Set(resto.map((r) => r.partido)).size;
+              const referencia = resto.length && nResto >= 3 ? { valor: resto.reduce((a, r) => a + r.xG, 0) / resto.length, partidos: nResto } : null;
               return (
                 <div key={lado.id} className="min-w-0">
                   <h3 className="mb-2 text-sm font-semibold text-white">Remates de {lado.n}</h3>
-                  {rs.length ? <MapaRemates remates={rs} ariaLabel={`Remates de ${lado.n} en el partido`} enContra={lado.id !== CASTILLA_OPTA} rotuloGoles={lado.id !== CASTILLA_OPTA ? "Nos marcaron" : undefined} maxAlto={360} /> : <p className="text-sm text-white/55">No remató.</p>}
+                  {rs.length ? <MapaRemates remates={rs} ariaLabel={`Remates de ${lado.n} en el partido`} enContra={lado.id !== CASTILLA_OPTA} referenciaXgRemate={referencia} rotuloGoles={lado.id !== CASTILLA_OPTA ? "Nos marcaron" : undefined} maxAlto={360} /> : <p className="text-sm text-white/55">No remató.</p>}
                 </div>
               );
             })}
