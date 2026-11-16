@@ -1399,7 +1399,7 @@ export const AYUDAS: AyudaDePagina[] = [
     ruta: "/scout-rival-collective",
     titulo: "Scout Colectivo",
     resumen: "Cómo juega el rival como equipo, según el analista y los datos de la categoría.",
-    origen: "El informe lo escribe el analista en la hoja RIVALES (la transición ofensiva, en Supabase «scout-rival-colectivo-extra»). Fecha, jornadas y dibujo, de BeSoccer; «Datos del rival» y «Por dónde ataca», de Wyscout y Opta; «Evolución comparada» y «Embudo del ataque», de Opta (opta:partidos); «Reparto del xG», de Opta (opta:jugadores-partidos).",
+    origen: "El informe lo escribe el analista en la hoja RIVALES (la transición ofensiva, en Supabase «scout-rival-colectivo-extra»). Fecha, jornadas y dibujo, de BeSoccer; «Datos del rival» y «Por dónde ataca», de Wyscout y Opta; «Evolución comparada» y «Embudo del ataque», de Opta (opta:partidos); «Reparto del xG», de Opta (opta:jugadores-partidos); «Según el marcador», de Opta (opta:remates, opta:momento y opta:partidos).",
     revisada: "2026-11-16",
     bloques: [
       {
@@ -1439,6 +1439,12 @@ export const AYUDAS: AyudaDePagina[] = [
             es: "Cuatro barras por partido: secuencias, las que llegan al último tercio, toques en el área y remates; en cada escalón su paso y, en gris, la media de nuestro grupo (verde, mejor que la media; naranja, peor). «Su ataque» es lo que hace él con el balón; «Cómo le atacan», lo que le hacen sus rivales, para ver si su defensa cae antes del área o dentro. Arriba, una frase dice en qué escalón se aparta de la media",
             cuenta:
               "Opta, opta:partidos, sumando todos sus partidos con las cuatro columnas: Sequences, SeqEndInA3 (secuencias que llegan al último tercio, x > 66,7), TouchOpBox y ShtIncBl (remates con los bloqueados); «Cómo le atacan», las mismas columnas de la fila del contrario en cada partido. Último tercio = SeqEndInA3 / Sequences en %; toques y remates, por cada llegada (un toque no es una secuencia y una secuencia puede tener dos remates, así que no hay % de paso). La media del grupo es la media de esos cocientes de cada equipo del grupo del Castilla. La frase sale si un paso se aparta al menos un 8 % de la media. Opta no trae partido a partido las secuencias con tres pases en el último tercio ni las que tocan el área, y no se ponen. Si el rival no cruza con Opta, no sale",
+          },
+          {
+            que: "Según el marcador",
+            es: "Tres columnas (va ganando, va empatando, va perdiendo) con, por cada 90 minutos en ese estado: remates, xG a favor, xG en contra, posesión, toques en el último tercio y balones ganados en el último tercio; al lado, su media. En rojo, lo que se aparta más de un 25 % de su media. Arriba, una frase dice si cuando se adelanta se repliega o sigue apretando. Debajo, una línea por partido coloreada por el marcador (verde ganando, gris empatando, naranja perdiendo) con el minuto y el marcador de cada gol (▲ suyo, ▼ en contra); salen los 8 últimos y un botón enseña todos",
+            cuenta:
+              "Opta. Los goles de opta:remates (sin la fila repetida de cada evento) dan la línea del marcador de cada partido; el descuento de la primera parte se cuenta en el 45′ y el partido acaba en el 90′ o en lo último que se ve. Remates (con los bloqueados) y xG van al estado del MatchState de cada remate (el «ganando» del contrario es su «perdiendo»). Posesión (media pesada por el tiempo), toques en el último tercio (TchsA3) y balones ganados en el último tercio (PosWonA3rd), de opta:momento: cada tramo de 5′ se reparte entre los estados por los segundos que pasa en cada uno. Por 90 = suma / segundos en el estado × 5.400; la media, lo mismo con todos los minutos. Sólo se marca en rojo con 90′ o más en ese estado. La frase: ganando, posesión, toques arriba y balones ganados arriba frente a su media (dos que bajen un 15 % = se repliega). Opta no trae para todos los equipos el pase a pase ni los centros: el % de pases en campo contrario se lee con la posesión y los toques en el último tercio, la altura defensiva con los balones ganados arriba, y los centros no salen. Un partido cuyos goles no cuadran con el resultado de opta:partidos (gol en propia puerta) sale en la lista pero no entra en las cuentas. Si el rival no cruza con Opta, no sale",
           },
           {
             que: "Reparto del xG",
