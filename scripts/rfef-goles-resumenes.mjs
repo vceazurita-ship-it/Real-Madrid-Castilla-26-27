@@ -98,7 +98,7 @@ const delGrupo = (v) => {
   return NUESTRO_GRUPO.test(d(v.local)) && NUESTRO_GRUPO.test(d(v.visitante)) ? 0 : 1;
 };
 const pendientes = lista.videos
-  .filter((v) => (REHACER ? v.id === REHACER : !doc.videos[v.id] || (!doc.videos[v.id].cuadra && !doc.videos[v.id].reintentado)))
+  .filter((v) => (REHACER ? v.id === REHACER : !doc.videos[v.id] || (!doc.videos[v.id].cuadra && (!doc.videos[v.id].reintentado || doc.videos[v.id].modelo !== MODELOS[0]))))
   /* Sólo nuestro grupo 2 de Primera RFEF (16/11/2026, el analista): el cupo gratis no da para los dos. */
   .filter((v) => REHACER || process.argv.includes("--otros") || delGrupo(v) === 0)
   .sort((a, b) => b.jornada - a.jornada)
@@ -200,7 +200,8 @@ for (const v of pendientes) {
     cuadra = goles.length === esperados;
   }
 
-  doc.videos[v.id] = { goles, esperados, cuadra, reintentado: true, en: new Date().toISOString() };
+  /* Si no cuadra con un modelo de reserva, se repite con el bueno cuando vuelva su cupo. */
+  doc.videos[v.id] = { goles, esperados, cuadra, reintentado: true, modelo: MODELOS[modelo], en: new Date().toISOString() };
   hechos++;
   if (cuadra) cuadran++;
   console.log(`  J${v.jornada} ${v.local} ${v.golesLocal}-${v.golesVisitante} ${v.visitante}: ${goles.length}/${esperados}${cuadra ? "" : " (no cuadra)"}`);
