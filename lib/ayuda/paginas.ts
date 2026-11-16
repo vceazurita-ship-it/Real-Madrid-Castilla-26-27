@@ -2364,6 +2364,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Jue 12/11 · MD-1 · Tarea 1, Analítica: 21 disponibles · 2 equipos", es: "El titular: fecha, MD y la tarea abierta con su nombre, quién está y cuántos equipos («sin equipos» mientras no hay nadie colocado)" },
           { que: "Diapositivas y exportar", es: "El botón en oro de la barra de la sesión: lleva a la pestaña de diapositivas (ver, presentar, exportar)" },
           { que: "disponibles · bajas · tareas listas", es: "Las cifras del día; las bajas, con su motivo al pasar por encima", cuenta: "Tareas listas = tareas sin nada que corregir ÷ tareas" },
+          { que: "Porteros aparte: X, Y", es: "Los porteros no entran en los equipos, ni en el reparto, ni en las cifras de la sesión: llevan un registro independiente, con su entrenador", cuenta: "Se apartan si la lista los marca (apartado «PORTEROS:» o «(POR)» junto al nombre) o si su puesto es de portero (a mano, su ficha o la plantilla). Lo guardado antes con un portero en un equipo se lee sin él" },
           { que: "Las tareas del microciclo", es: "Al crear la sesión las tareas salen del plan de ese día, con equipos y comodines de su formato; casan con la hoja por nombre antes que por código" },
           { que: "Traer", es: "Si el plan cambió (tareas que faltan, nombres u orden), las añade y las ata sin mover a nadie; se puede deshacer" },
           { que: "Punto de cada tarea", es: "Verde, lista; ámbar, con avisos; rojo, falta algo" },
@@ -2374,10 +2375,10 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           { que: "En un toque", es: "2 equipos, 2 + 1 comodín, 2 + 2 comodines, 3 grupos, 3 + 2 comodines o 4 rondos: pone la forma y propone el reparto" },
           { que: "Más · criterio · repetir reparto", es: "El criterio del reparto y «Como el 28 oct» o copiar de otra tarea, de hoy o de otro día, casado por nombre" },
-          { que: "Proponer equipos / Otra propuesta", es: "Reparte a todos los que hacen la tarea con el criterio elegido (P)", cuenta: "Porteros separados y los comodines rotan entre quienes menos lo han sido; debajo sale una línea por equipo que explica el reparto" },
+          { que: "Proponer equipos / Otra propuesta", es: "Reparte a todos los que hacen la tarea con el criterio elegido (P)", cuenta: "Sin porteros (van aparte) y los comodines rotan entre quienes menos lo han sido; debajo sale una línea por equipo que explica el reparto" },
           { que: "Titulares vs suplentes", es: "El once de la pizarra táctica (tablero «Once 4-2-3-1») en un equipo y los suplentes en el otro", cuenta: "Casado por nombre con la lista; si el once no llena el equipo, entran suplentes de la línea que falta" },
           { que: "Mezcla parcial / total", es: "Parcial: el porcentaje del deslizador cambia titulares de lado, cada uno por un suplente de su línea (100 % = mitad y mitad). Total: titulares a partes iguales y líneas parejas, al azar" },
-          { que: "Por líneas", es: "Cada equipo con portero, defensas, medios y arriba; laterales y centrales repartidos" },
+          { que: "Por líneas", es: "Cada equipo con defensas, medios y arriba; laterales y centrales repartidos" },
           { que: "Reparto propuesto / Criterio elegido", es: "Encima de los equipos: el criterio con que salieron (o el elegido, si se hicieron a mano) y cuántos hay en cada equipo" },
           { que: "11/10 en rojo", es: "Contador de cada campo: jugadores de campo del equipo / huecos del dibujo, contando a los que comparten puesto", cuenta: "Verde si cuadra; ámbar si falta alguien o las líneas no van parejas; rojo si hay más que huecos (al pasar, quiénes comparten): amplía el dibujo o pasa a uno" },
           { que: "X pasa a Naranja y Y a Amarillo", es: "El arreglo de un toque de las líneas descompensadas, con el sentido del cambio" },
@@ -2395,7 +2396,7 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "El validador",
         filas: [
           { que: "Rojo", es: "Falta alguien por colocar, hay un equipo vacío o un nombre repetido en la lista" },
-          { que: "Ámbar", es: "Equipos o líneas descompensados, porteros juntos, colores repetidos o comodines que no cuadran", cuenta: "Línea descompensada: dos o más de diferencia entre equipos en defensas, medios, extremos o delanteros" },
+          { que: "Ámbar", es: "Equipos o líneas descompensados, colores repetidos o comodines que no cuadran", cuenta: "Línea descompensada: dos o más de diferencia entre equipos en defensas, medios, extremos o delanteros" },
           { que: "La tarea pide 14 (6v6+2) y hay 11 colocados", es: "El formato escrito en la hoja contra los colocados; no se compara si la tarea se renombró o tiene otros equipos" },
           { que: "La tarea lleva 2 · hay 3", es: "Comodines de más o de menos, con el botón que dice a quién mueve" },
           { que: "Com. y Fuera", es: "En la plantilla del día, en cuántas tareas ha sido comodín o no ha participado cada uno" },
@@ -2690,7 +2691,6 @@ export const AYUDAS: AyudaDePagina[] = [
     ojo: [
       "Los documentos publicados con la web no se borran desde aquí: se corrigen subiendo uno con el mismo identificador, y al borrar el subido vuelve el original.",
     ],
-    revisada: "2026-11-12",
   },
 
   /* ==================== CALENDARIO DE SEGUIMIENTO (12/11/2026) ==================== */
