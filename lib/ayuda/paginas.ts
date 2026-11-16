@@ -2650,29 +2650,30 @@ export const AYUDAS: AyudaDePagina[] = [
     ruta: "/micro_calendar",
     titulo: "Contenidos Microciclo",
     resumen: "Cada día de entreno con su MD, sus minutos y sus contenidos, y la carga del mes contra el anterior.",
-    origen: "Hoja de microciclos, una fila por tarea (la misma de /microcycles). Hora, lado y resultado del partido: calendario de BeSoccer.",
+    origen: "Hoja de microciclos, una fila por tarea (la misma de /microcycles): lo hecho, de la copia del Apps Script; lo planificado que aún no está en ella, de la hoja publicada (la fuente común de las pantallas de planificación). Hora, lado y resultado del partido: calendario de BeSoccer.",
     bloques: [
       {
         titulo: "Las cifras del mes",
         filas: [
-          { que: "Titular", es: "Mes, entrenos (hechos), volumen y cómo va la carga frente al mes anterior" },
+          { que: "Titular", es: "Mes, entrenos (hechos), volumen y cómo van la carga física y la cognitiva frente al mes anterior, con la base (entrenos hechos de cada lado)" },
           { que: "Entrenos", es: "Días con tarea de entreno; hechos = con minutos o carga apuntados, el resto planificados", cuenta: "Los partidos aparte: la fila de competición no es entreno" },
           { que: "Volumen", es: "Minutos de entreno del mes, sin los partidos" },
           { que: "Carga física media / entreno", es: "Puntos de carga por entreno hecho", cuenta: "UA = minutos × intensidad (1-10), de la columna «Carga Ponderada»; suma del mes ÷ entrenos hechos" },
           { que: "Carga cognitiva media / entreno", es: "Lo mismo con la demanda cognitiva", cuenta: "UA = minutos × demanda cognitiva (1-10); suma ÷ entrenos hechos" },
           { que: "Frente al mes anterior", es: "La media contra los mismos días del mes anterior", cuenta: "Del 1 al último día con entreno hecho; con menos de 3 entrenos hechos en un lado no se compara" },
-          { que: "Lectura de la carga", es: "Qué MD se ha movido más contra el mes anterior y si hay otro número de partidos", cuenta: "Un MD sólo se nombra con 3 sesiones suyas o más en cada mes" },
+          { que: "Lectura de la carga", es: "Qué MD se ha movido más contra el mes anterior, si hay otro número de partidos, y la carga cognitiva; los días a vigilar son los reales del micro de hoy (su MD-1 y el día después del partido)", cuenta: "Un MD sólo se nombra con 3 sesiones suyas o más en cada mes" },
         ],
       },
       {
         titulo: "El calendario",
         filas: [
           { que: "Fondo del día", es: "La fase con más minutos ese día, sin contar Global", cuenta: "Ofensiva, Defensiva, Transición ofensiva, Transición defensiva o ABP; sólo Global deja el fondo normal" },
-          { que: "MD", es: "El de la hoja; sin él, el del próximo partido del calendario" },
-          { que: "Contenidos", es: "Minutos por contenido principal, de más a menos; sin contenido, el tipo de tarea" },
+          { que: "MD", es: "Días que faltan para el próximo partido del calendario, hasta 14: la misma numeración que el creador de micros y /calendar_general. El día de partido es «MD» y no lleva duración" },
+          { que: "Planificado", es: "Entreno de la hoja sin minutos todavía: borde discontinuo y la etiqueta «planificado»" },
+          { que: "Contenidos", es: "Minutos por contenido principal, de más a menos; sin contenido, el tipo de tarea. La casilla crece para que no se corten" },
           { que: "Partido", es: "Rival con escudo, hora, en casa o fuera y resultado, si BeSoccer lo tiene" },
           { que: "Libre", es: "Día sin nada entre la primera y la última sesión apuntadas" },
-          { que: "Siglas", es: "Bajo el calendario, las siglas de los contenidos que salen ese mes, desarrolladas" },
+          { que: "Siglas", es: "Bajo el calendario, las siglas de los contenidos que salen ese mes, desarrolladas (CP, CR, ABP, Ind., TAD = transición ataque-defensa, TDA = defensa-ataque)" },
         ],
       },
       {
@@ -2688,7 +2689,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Más carga no es mejor: un mes con más partidos baja la media a propósito.",
       "Entrenos y partidos se cuentan igual que en /calendar_general y /microcycles.",
     ],
-    revisada: "2026-11-12",
+    revisada: "2026-11-16",
   },
   /* ==================== JUGADORES SESIÓN · DISPONIBILIDAD (12/11/2026) ==================== */
   {

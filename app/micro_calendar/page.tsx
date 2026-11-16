@@ -24,8 +24,10 @@ import {
 import { cn } from "@/lib/utils";
 import { EstadoError } from "@/components/ui/estados";
 import { buscadorDeEscudos, traeEscudos, type Escudos } from "@/lib/data-analisis/escudos";
-import { cuentaDias, esFilaDePartido, mdDeLaFecha } from "@/lib/microciclo/cuenta";
+import { cuentaDias, esFilaDePartido, fechaIsoDeHoja } from "@/lib/microciclo/cuenta";
+import { diasPlanificados, mdDelDia } from "@/lib/microciclo/semana-de-hoy";
 import { useCalendario } from "@/hooks/useCalendario";
+import { useSemanaDeHoy } from "@/hooks/useSemanaDeHoy";
 import { comoNuestro, horaDelCalendarioLocal, soloDia } from "@/lib/castilla/calendario";
 
 /** Nombre con el que sale el Castilla en la lista de escudos de BeSoccer. */
@@ -124,6 +126,9 @@ type MicrocycleRecord = {
   "Carga cognitiva": number;
 
   Observaciones: string;
+
+  /** Sólo planificada: viene de la hoja publicada y aún no está en la copia de lo hecho (16/11/2026). */
+  _plan?: boolean;
 };
 
 type PhaseTheme = {
@@ -241,6 +246,9 @@ const SIGLAS: { re: RegExp; sigla: string; es: string }[] = [
   { re: /\bCR\b/, sigla: "CR", es: "contraataque o transición rápida" },
   { re: /\bABP\b/, sigla: "ABP", es: "acciones a balón parado" },
   { re: /\bInd\b\.?/i, sigla: "Ind.", es: "trabajo individual" },
+  /* 16/11/2026: «Ritmo de juego, finalización y TAD» salía sin explicar. */
+  { re: /\bTAD\b/, sigla: "TAD", es: "transición ataque-defensa (tras pérdida)" },
+  { re: /\bTDA\b/, sigla: "TDA", es: "transición defensa-ataque (tras robo)" },
 ];
 
 /** Las siglas que lleva un rótulo, ya desarrolladas: «CP: ataque posicional…». */
@@ -383,6 +391,16 @@ export default function MicroCalendar() {
     };
   }, [intento]);
 
+  /*
+  | LO PLANIFICADO TAMBIÉN SE PINTA (16/11/2026). La copia de la hoja que llega
+  | por el Apps Script sólo trae lo ya hecho, y la semana del micro 22 (13
+  | tareas del 16 al 19/11) salía vacía mientras /microcycles la enseñaba. Los
+  | días que esa copia no tiene se completan con la hoja publicada, la fuente
+  | común de las cuatro pantallas (hooks/useSemanaDeHoy.ts), y se dibujan con
+  | borde discontinuo y «planificado».
+  */
+  const { registro, fechasDePartido: fechasPartido, semana } = useSemanaDeHoy();
+
   /** Tareas agrupadas por día. */
   const tasksByDay = useMemo(() => {
     const map = new Map<string, MicrocycleRecord[]>();
@@ -396,8 +414,38 @@ export default function MicroCalendar() {
       else map.set(key, [task]);
     });
 
+    diasPlanificados(registro, new Set(map.keys())).forEach((filas, key) => {
+      map.set(
+        key,
+        filas.map((t) => ({
+          Temporada: t.temporada,
+          Micro: String(t.micro),
+          Rival: t.rival,
+          Día: t.dia,
+          MD: t.md,
+          Fecha: fechaIsoDeHoja(t.fecha),
+          Tarea: t.tarea,
+          "Tipo Tarea": t.tipoTarea,
+          Formato: t.formato,
+          "Nº Jugadores": t.jugadores,
+          Grupo: t.grupo,
+          Espacio: t.espacio ?? "",
+          "Contenido Principal": t.contenidoPrincipal,
+          "Contenido Secundario": t.contenidoSecundario,
+          Fase: t.fase,
+          Tiempo: t.tiempo,
+          "Intensidad (1-10)": t.intensidad,
+          "Carga Ponderada": t.carga,
+          "Demanda Cognitiva(1-10)": t.exigCog,
+          "Carga cognitiva": t.cargaCog,
+          Observaciones: t.observaciones,
+          _plan: true,
+        })),
+      );
+    });
+
     return map;
-  }, [microcycleData]);
+  }, [microcycleData, registro]);
 
   const sessionDays = useMemo(() => [...tasksByDay.keys()].sort(), [tasksByDay]);
 
@@ -508,9 +556,11 @@ export default function MicroCalendar() {
       if (tema) vistas.add(tema);
     });
 
-    return Object.values(PHASE_THEMES)
+    /* 16/11/2026: la base del color, en la propia leyenda y no sólo al pie. */
+    const fases = Object.values(PHASE_THEMES)
       .filter((t) => vistas.has(t))
       .map((t) => ({ label: t.label, color: t.dot }));
+    return fases.length ? [{ label: "Fondo del día = fase con más minutos (sin Global):", color: "hidden" }, ...fases] : fases;
   }, [sessionDays, tasksByDay, active]);
 
   /* El mes anterior, en los mismos días (del 1 al último con registros de este mes). */
@@ -555,6 +605,21 @@ export default function MicroCalendar() {
   | 07/11/2026: dice de qué días sale la comparación y acaba en una orden —qué
   | MD subir o bajar la semana que viene—, sacada del MD que más se ha movido.
   */
+  /*
+  | 16/11/2026: «MD+1 de la semana que viene» pasa a los días reales del micro
+  | de hoy (la fuente común): su MD-1 y el día después de su partido.
+  */
+  const diasAVigilar = (() => {
+    if (!semana) return "";
+    const corto = (iso: string) =>
+      new Date(`${iso}T12:00:00Z`).toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "numeric", timeZone: "UTC" });
+    const md1 = semana.dias.find((d) => d.md === "MD-1");
+    const partido = semana.dias.find((d) => d.partido);
+    const despues = partido ? new Date(Date.parse(`${partido.fecha}T12:00:00Z`) + 86_400_000).toISOString().slice(0, 10) : "";
+    const partes = [md1 ? `el ${corto(md1.fecha)} (MD-1)` : "", despues ? `el ${corto(despues)} (día después del partido)` : ""].filter(Boolean);
+    return partes.length ? `del micro ${semana.etiqueta}: ${partes.join(" y ")}` : "";
+  })();
+
   const lecturaCarga = (() => {
     const previo = mesPrevio.stats;
     if (!comparable || previo.cargaMedia <= 0) return "";
@@ -597,7 +662,20 @@ export default function MicroCalendar() {
     }
     return pct < 0
       ? `La carga media baja un ${Math.abs(pct)} % (${base}) con los mismos partidos.${orden || " Si no es una descarga buscada, subir la carga del día más cargado de la semana que viene."}`
-      : `La carga media sube un ${pct} % (${base}).${orden || " Vigilar la recuperación en los MD-1 y MD+1 de la semana que viene."}`;
+      : `La carga media sube un ${pct} % (${base}).${orden || (diasAVigilar ? ` Vigilar la recuperación ${diasAVigilar}.` : " Vigilar la recuperación en los MD-1 y MD+1 de la semana que viene.")}`;
+  })();
+
+  /*
+  | LAS DOS CARGAS (16/11/2026): la física salía en el titular y en la lectura,
+  | y la cognitiva —que bajaba un 25 %— sólo en su tarjeta. Ahora la lectura
+  | dice las dos.
+  */
+  const lecturaCognitiva = (() => {
+    const previo = mesPrevio.stats;
+    if (!comparable || previo.cognitivaMedia <= 0 || monthStats.cognitivaMedia <= 0) return "";
+    const pct = Math.round(((monthStats.cognitivaMedia - previo.cognitivaMedia) / previo.cognitivaMedia) * 100);
+    if (Math.abs(pct) < 5) return "";
+    return `La carga cognitiva media ${pct > 0 ? "sube" : "baja"} un ${Math.abs(pct)} % (${monthStats.cognitivaMedia} UA por entreno frente a ${previo.cognitivaMedia} en ${basePrevio}).`;
   })();
 
   /*
@@ -608,18 +686,20 @@ export default function MicroCalendar() {
   */
   const titular = (() => {
     if (monthStats.sesiones === 0) return "Calendario de Microciclo";
-    const pctCarga =
-      comparable && mesPrevio.stats.cargaMedia > 0 && monthStats.cargaMedia > 0
-        ? Math.round(((monthStats.cargaMedia - mesPrevio.stats.cargaMedia) / mesPrevio.stats.cargaMedia) * 100)
-        : null;
+    const pctDe = (a: number, b: number) => (comparable && b > 0 && a > 0 ? Math.round(((a - b) / b) * 100) : null);
+    const pctCarga = pctDe(monthStats.cargaMedia, mesPrevio.stats.cargaMedia);
+    const pctCog = pctDe(monthStats.cognitivaMedia, mesPrevio.stats.cognitivaMedia);
+    const signo = (p: number) => (p === 0 ? "igual" : `${p > 0 ? "+" : "−"}${Math.abs(p)} %`);
+    /* 16/11/2026: las dos cargas y la base dentro del titular («8 hechos frente a 6»). */
+    const mesAntes = MONTHS[mesPrevio.month].toLowerCase();
+    const contra = mesPrevio.completo ? mesAntes : `el 1-${mesPrevio.hasta} de ${mesAntes}`;
+    const base = `${monthStats.hechos} entrenos hechos frente a ${mesPrevio.stats.hechos}`;
     return [
       `${MONTHS[active.month]}: ${monthStats.sesiones} ${monthStats.sesiones === 1 ? "entreno" : "entrenos"}${monthStats.planificados > 0 ? ` (${monthStats.hechos} ${monthStats.hechos === 1 ? "hecho" : "hechos"})` : ""}`,
       monthStats.minutos > 0 ? formatMinutes(monthStats.minutos) : "",
       pctCarga === null
         ? ""
-        : pctCarga === 0
-          ? `carga igual que en ${MONTHS[mesPrevio.month].toLowerCase()}`
-          : `carga ${pctCarga > 0 ? "+" : "−"}${Math.abs(pctCarga)} % frente a ${MONTHS[mesPrevio.month].toLowerCase()}`,
+        : `carga física ${signo(pctCarga)}${pctCog === null ? "" : ` y cognitiva ${signo(pctCog)}`} frente a ${contra} (${base})`,
     ]
       .filter(Boolean)
       .join(" · ");
@@ -750,8 +830,11 @@ export default function MicroCalendar() {
         const theme = faseDelDia(dayTasks) ?? NEUTRAL_THEME;
         /* 07/11/2026: el MD de cualquier tarea del día; sin ninguno, «fuera de micro» (nada de casilla sin etiqueta). */
         const mdHoja = dayTasks.map((t) => String(t.MD ?? "").trim()).find(Boolean) ?? "";
-        /* Sin MD en la hoja, el del próximo partido del calendario (misma regla que /calendar_general). */
-        const md = mdHoja || (esDiaDePartido(dayTasks) ? "" : mdDeLaFecha(key, partidoDelDia.keys()));
+        /* 16/11/2026: el MD sale de la regla común (lib/microciclo/semana-de-hoy.ts), la misma
+           del creador de micros y de /calendar_general; el de la hoja, si no hay partido a la vista. */
+        const md = esDiaDePartido(dayTasks) ? "MD" : mdDelDia(key, fechasPartido) || mdHoja;
+        /* Todo el día sólo planificado (sin minutos ni copia de lo hecho): borde discontinuo. */
+        const soloPlan = dayTasks.every((t) => t._plan) || (totalMinutes === 0 && !esDiaDePartido(dayTasks));
 
         const partido = esDiaDePartido(dayTasks) ? String(dayTasks[0]?.Rival ?? "").trim() : "";
         const detallePartido = partido ? lineaPartido(key) : "";
@@ -780,7 +863,9 @@ export default function MicroCalendar() {
 
               {/* Mismo formato con o sin minutos; el total del mes sólo suma los que los tienen. */}
               {/* 29/10/2026: sin minutos no sale ni píldora ni «sin tiempo»: lo que no hay no se nombra. */}
-              {totalMinutes > 0 && (
+              {/* 16/11/2026: el día de partido no lleva duración (el 13/11 no la tenía y
+                  los demás sí): el partido no es minutos de entreno, y así salen todos igual. */}
+              {totalMinutes > 0 && !esDiaDePartido(dayTasks) && (
                 <span className="rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-2 py-0.5 text-[10px] font-semibold text-[#C8A96B]">
                   {formatMinutes(totalMinutes)}
                 </span>
@@ -821,7 +906,9 @@ export default function MicroCalendar() {
               )}
 
               {/* 30/10/2026: una tarea sin minutos deja sólo su nombre (sin
-                  barra vacía ni cifra), y la letra no baja de 11 px. */}
+                  barra vacía ni cifra), y la letra no baja de 11 px.
+                  16/11/2026: lo sólo planificado va dentro de un borde discontinuo. */}
+              <div className={soloPlan && orderedBlocks.length ? "space-y-1 rounded-md border border-dashed border-white/30 px-1.5 py-1" : "contents"} style={soloPlan ? { borderStyle: "dashed", borderColor: "rgb(var(--rmcf-ink-rgb) / .35)" } : undefined}>
               {orderedBlocks.map(([name, minutes]) => (
                 <div key={name} title={tituloConSiglas(name)}>
                   <div className="flex items-baseline justify-between gap-2">
@@ -846,8 +933,11 @@ export default function MicroCalendar() {
                   )}
                 </div>
               ))}
+              </div>
             </>
           ),
+          /* 16/11/2026: la casilla crece con su contenido; los nombres ya no se cortan dentro de su propio scroll. */
+          crece: true,
         };
       }}
     >
@@ -874,7 +964,8 @@ export default function MicroCalendar() {
           <p>
             {leyendaMes.length > 0 ? "Fondo del día = fase con más minutos, sin contar Global · " : ""}Barra = minutos de ese contenido sobre los de la sesión.
           </p>
-          {lecturaCarga && <p>{lecturaCarga}</p>}
+          <p>Borde discontinuo y «planificado» = entreno de la hoja que aún no tiene minutos. MD-n = días que faltan para el próximo partido, como en el creador de micros.</p>
+          {(lecturaCarga || lecturaCognitiva) && <p>{[lecturaCarga, lecturaCognitiva].filter(Boolean).join(" ")}</p>}
           {monthStats.siglas.size > 0 && (
             <p>
               {SIGLAS.filter((s) => monthStats.siglas.has(s.sigla)).map((s, i) => (
