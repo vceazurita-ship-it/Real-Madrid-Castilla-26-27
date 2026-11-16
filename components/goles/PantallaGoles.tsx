@@ -28,9 +28,10 @@ import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { Explicativo, useTextosExplicativos } from "@/components/ui/textos-analisis";
 import { GraficasTipologia, type GolConTipo } from "@/components/goles/GraficasTipologia";
 import { GolesEnElCampo } from "@/app/opta/_piezas/Remates";
-import { avisoMuestra, loImportante, lecturaCondicion, lecturaFranjas, lecturaPrimero, lecturaTipologia, tramoLargo, tramosClave } from "@/lib/goles/lecturas";
+import { avisoMuestra, loImportante, lecturaBalance, lecturaCondicion, lecturaFranjas, lecturaPrimero, lecturaTipologia, tramoLargo, tramosClave } from "@/lib/goles/lecturas";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { useCalendario } from "@/hooks/useCalendario";
+import { useProximoRival } from "@/hooks/useAbpLigas";
 import { nombreEquipo } from "@/lib/equipos";
 import { comoNuestro } from "@/lib/castilla/calendario";
 import { mismoEquipo } from "@/lib/data-analisis/nombres";
@@ -260,6 +261,9 @@ function franjasTop(filas: { franja: Franja; gf: number; gc: number }[], k: "gf"
  * tramo con más goles, con su base y «tendencia», y aparte el que más se
  * separa de la liga si es otro.
  */
+/** Desde cuántos goles un tramo es «el mejor» o «el más débil» con su color (16/11/2026). */
+const TRAMO_CON_PESO = 6;
+
 function tarjetaTramoCorto(
   top: { nombre: string; goles: number; tramos: string[] },
   total: number,
@@ -316,6 +320,13 @@ export function PantallaGoles() {
 
   const equipos = useMemo(() => [...new Set(todos.flatMap((p) => [p.local, p.visitante]))].sort((a, b) => a.localeCompare(b, "es")), [todos]);
   const nuestroNombre = equipos.find((e) => mismoEquipo(e, CASTILLA)) ?? CASTILLA;
+  /* 16/11/2026 (marketing): en el selector, el Castilla y el próximo rival arriba; el resto, por orden alfabético. */
+  const proximoRival = useProximoRival();
+  const equiposEnOrden = useMemo(() => {
+    const rival = proximoRival ? equipos.find((e) => mismoEquipo(e, proximoRival)) : undefined;
+    const arriba = [nuestroNombre, ...(rival && rival !== nuestroNombre ? [rival] : [])].filter((e) => equipos.includes(e));
+    return [...arriba, ...equipos.filter((e) => !arriba.includes(e))];
+  }, [equipos, nuestroNombre, proximoRival]);
 
   const [equipoElegido, setEquipo] = useState<string | null>(null);
   const [lugar, setLugar] = usePestanaUrl<Lugar>("lugar", LUGARES, "todos");
@@ -745,6 +756,17 @@ export function PantallaGoles() {
      y qué concedemos» (antes la de «marca primero» salía dos veces). */
   const primeroSinRepetir = dePrimero.filter((f) => !importante.some((i) => i.texto === f));
   const conLigaContra = condicion !== "todos";
+  /* De quién son los partidos de cada gráfico (16/11/2026, marketing). */
+  const poblacion = `${esNuestro ? "el Castilla" : nombreEquipo(equipo)}, ${condicion === "todos" ? "en casa y fuera" : rotuloLugar(condicion)} · ${delEquipo.length} ${delEquipo.length === 1 ? "partido" : "partidos"}, J${jDesde}–J${jHasta}`;
+  /*
+  | La frase que abre el resumen (16/11/2026, marketing): qué dicen los goles,
+  | con su base (cuántos, de qué jornadas) y su fuente. Sólo con todos los
+  | partidos dentro: si falta uno, el total no se compara con la liga.
+  */
+  const fraseAbre =
+    delEquipo.length && !incompleto
+      ? `${gf + gc} goles en ${delEquipo.length} ${delEquipo.length === 1 ? "partido" : "partidos"} (J${jDesde}–J${jHasta}${condicion === "todos" ? "" : `, ${rotuloLugar(condicion)}`}), ${gf} a favor y ${gc} en contra. ${lecturaBalance(corto, delEquipo.length, gf, gc, ligaGolesPP, ligaContraPP)}`
+      : "";
 
   /* Los goles con tipología (los de nuestros partidos), con la corrección a mano encima de la de Hudl. Los que faltan por elegir no se dibujan. */
   const conTipo: GolConTipo[] = goles.map((g) => ({ ...g, tipoFinal: tipoDe(g.clave) })).filter((g) => g.tipoFinal);
@@ -862,7 +884,15 @@ export function PantallaGoles() {
       {/* 10/11/2026: a la vista, sólo equipo y condición; jornadas, franjas y
           tramos a medida, en «Más opciones» (ocupaban la primera pantalla). */}
       <div className="mt-6 grid min-w-0 gap-3 sm:grid-cols-2">
-        <Select label="Equipo" value={equipo} options={equipos.map((e) => ({ value: e, label: nombreEquipo(e) }))} onChange={(v) => setEquipo(v)} />
+        <Select
+          label="Equipo"
+          value={equipo}
+          options={equiposEnOrden.map((e) => ({
+            value: e,
+            label: `${nombreEquipo(e)}${proximoRival && !mismoEquipo(e, CASTILLA) && mismoEquipo(e, proximoRival) ? " (próximo rival)" : ""}`,
+          }))}
+          onChange={(v) => setEquipo(v)}
+        />
         <div className="min-w-0">
           <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">Condición</span>
           <Segmented<Lugar> ariaLabel="Condición" value={lugar} onChange={setLugar} options={OPCIONES_LUGAR} />
@@ -871,7 +901,8 @@ export function PantallaGoles() {
 
       <details className="group mt-3 min-w-0">
         <summary className="inline-flex cursor-pointer list-none items-center gap-1 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white/70 hover:text-white [&::-webkit-details-marker]:hidden">
-          Más opciones · J{jDesde}–J{jHasta} · franjas de {cortes.trim() ? "a medida" : `${tamano}'`}
+          {/* 16/11/2026 (expertos, ronda 17): «Más opciones» no decía qué había dentro. */}
+          Cambiar jornadas y franjas · ahora J{jDesde}–J{jHasta} · franjas de {cortes.trim() ? "a medida" : `${tamano}'`}
           {descuentos ? " · descuentos aparte" : ""} <span aria-hidden className="inline-block transition-transform group-open:rotate-180">▾</span>
         </summary>
       <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -932,7 +963,8 @@ export function PantallaGoles() {
               /* 10/11/2026: la etiqueta entera también en el móvil («Casa» no decía qué era). */
               { clave: "casa", label: "Casa y fuera", icono: Home },
               { clave: "tipo", label: "Cómo llegan", icono: Shapes },
-              { clave: "goles", label: "Gol a gol", corto: "Goles", icono: ListOrdered, cuenta: goles.length },
+              /* 16/11/2026: sin el «29» suelto al lado (no se sabía qué era). */
+              { clave: "goles", label: "Gol a gol", corto: "Goles", icono: ListOrdered },
               { clave: "campo", label: "En el campo", corto: "Campo", icono: Crosshair },
             ]}
           />
@@ -953,6 +985,12 @@ export function PantallaGoles() {
             </Notice>
           ) : null}
 
+          {fraseAbre ? (
+            <p className="text-[15px] font-semibold leading-snug text-white">
+              {fraseAbre} <span className="text-[12px] font-normal text-white/55">Fuente: BeSoccer (goles y minutos) y Hudl (cómo llegan).</span>
+            </p>
+          ) : null}
+
           {delEquipo.length ? (
           <StatRow>
             <StatCard label="Partidos" value={jugadosCalendario > delEquipo.length ? `${delEquipo.length} de ${jugadosCalendario}` : delEquipo.length} hint={jugadosCalendario > delEquipo.length ? (jornadasFaltan.length ? `falta la ${jornadasFaltan.map((j) => `J${j}`).join(", ")}` : "faltan partidos por cargar") : condicion === "todos" ? "en casa y fuera" : rotuloLugar(condicion)} />
@@ -963,7 +1001,8 @@ export function PantallaGoles() {
                 11/11/2026 (expertos, ronda 2): en vez de «Sin tramo claro», el
                 tramo con más goles con su base y «tendencia»; y, si es otro,
                 el más por encima de la liga, dicho como tal. */}
-            {tramos.fuerte && tramos.fuerte.gf > 3 ? (
+            {/* 16/11/2026 (expertos, ronda 17): «mejor tramo» en verde sólo desde 6 goles; con 4 es una lectura de pocos goles y va neutra. */}
+            {tramos.fuerte && tramos.fuerte.gf >= TRAMO_CON_PESO ? (
               <StatCard
                 label={nos("Nuestro mejor tramo", "Su mejor tramo")}
                 value={tramoLargo(tramos.fuerte.franja.nombre)}
@@ -972,7 +1011,7 @@ export function PantallaGoles() {
               />
             ) : masGoleadora ? (
               <StatCard
-                label="Tramo con más goles a favor"
+                label="Más goles a favor"
                 {...tarjetaTramoCorto(
                   masGoleadora,
                   totalFranjasGf,
@@ -983,9 +1022,9 @@ export function PantallaGoles() {
                 )}
               />
             ) : (
-              <StatCard label="Tramo con más goles a favor" value={0} hint="ningún gol a favor todavía" />
+              <StatCard label="Más goles a favor" value={0} hint="ningún gol a favor todavía" />
             )}
-            {tramos.flojo && tramos.flojo.gc > 3 ? (
+            {tramos.flojo && tramos.flojo.gc >= TRAMO_CON_PESO ? (
               <StatCard
                 label={nos("Nuestro tramo más débil", "Su tramo más débil")}
                 value={tramoLargo(tramos.flojo.franja.nombre)}
@@ -994,7 +1033,7 @@ export function PantallaGoles() {
               />
             ) : masEncajada ? (
               <StatCard
-                label="Tramo con más goles en contra"
+                label="Más goles en contra"
                 {...tarjetaTramoCorto(
                   masEncajada,
                   totalFranjasGc,
@@ -1005,7 +1044,7 @@ export function PantallaGoles() {
                 )}
               />
             ) : (
-              <StatCard label="Tramo con más goles en contra" value={0} hint="ningún gol en contra todavía" />
+              <StatCard label="Más goles en contra" value={0} hint="ningún gol en contra todavía" />
             )}
           </StatRow>
           ) : null}
@@ -1014,8 +1053,9 @@ export function PantallaGoles() {
               goles a favor y en contra por franja con la raya de la liga. */}
           {delEquipo.length && totalFranjasGf + totalFranjasGc > 0 ? (
             <Panel
-              title={nos("Nuestros goles, tramo a tramo", "Sus goles, tramo a tramo")}
-              subtitle="Arriba a favor, abajo en contra; la raya, lo que marca (o encaja) un equipo medio de la liga en ese tramo. Misma escala en los dos."
+              /* 16/11/2026 (expertos, ronda 17): la población y la base en el título. */
+              title={`${nos("Nuestros goles, tramo a tramo", `Goles de ${nombreEquipo(equipo)}, tramo a tramo`)} · ${poblacion}`}
+              subtitle={`Franjas de ${cortes.trim() ? "minutos a medida" : `${tamano}′`}${descuentos ? ", descuentos aparte" : ""}. Arriba los ${totalFranjasGf} a favor, abajo los ${totalFranjasGc} en contra; el número de cada barra, los goles del tramo («4» = 4 de ${totalFranjasGf}). La raya, lo que marca (o encaja) un equipo medio de la liga en ese tramo. Misma escala en los dos.`}
               icon={Clock}
             >
               <GraficaFranjas filas={filasFranja} />
@@ -1024,16 +1064,18 @@ export function PantallaGoles() {
 
           {/* ---------------- lo importante ---------------- */}
           {importante.length > 0 ? (
-          <Panel title={nos("Qué hacemos y qué concedemos", "Lo importante")} subtitle={`${nombreEquipo(equipo)} ·${jugadosCalendario > delEquipo.length ? `${delEquipo.length} de ${jugadosCalendario} partidos jugados` : `${delEquipo.length} ${delEquipo.length === 1 ? "partido" : "partidos"}`}${jUltimaFiltro > 0 ? `, hasta la J${jUltimaFiltro}` : ""}${condicion === "todos" ? "" : ` · sólo ${rotuloLugar(condicion)}`}.${incompleto ? "" : " Siempre comparado con la media de la liga."}${sinMinuto.length ? ` En ${sinMinuto.length === 1 ? "un partido" : `${sinMinuto.length} partidos`} falta el minuto de algún gol: cuenta en los totales y no en las franjas.` : ""}`} icon={Lightbulb}>
+          <Panel title={nos("Qué hacemos y qué concedemos", "Lo importante")} subtitle={`${nombreEquipo(equipo)} ·${jugadosCalendario > delEquipo.length ? `${delEquipo.length} de ${jugadosCalendario} partidos jugados` : `${delEquipo.length} ${delEquipo.length === 1 ? "partido" : "partidos"}`}${jUltimaFiltro > 0 ? `, hasta la J${jUltimaFiltro}` : ""}${condicion === "todos" ? "" : ` · sólo ${rotuloLugar(condicion)}`}.${incompleto ? "" : " Goles, tramos y resultados, comparados con la media de la liga; cómo llegan, de nuestros partidos (Hudl)."}${sinMinuto.length ? ` En ${sinMinuto.length === 1 ? "un partido" : `${sinMinuto.length} partidos`} falta el minuto de algún gol: cuenta en los totales y no en las franjas.` : ""}`} icon={Lightbulb}>
             <ul className="space-y-2.5">
               {importante.map((frase, i) => (
                 <li key={i} className="flex gap-2.5 text-[14px] leading-relaxed text-white/80">
                   <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-[#C8A96B]" aria-hidden />
                   <span>
                     {frase.texto}
-                    <span className="mt-0.5 block text-[13px] font-medium" style={{ color: "var(--rmcf-gold-ink)" }}>
-                      {frase.accion}
-                    </span>
+                    {frase.accion ? (
+                      <span className="mt-0.5 block text-[13px] font-medium" style={{ color: "var(--rmcf-gold-ink)" }}>
+                        {frase.accion}
+                      </span>
+                    ) : null}
                   </span>
                 </li>
               ))}
@@ -1066,12 +1108,15 @@ export function PantallaGoles() {
                     {/* 10/11/2026: en el móvil, la primera columna corta («Marcamos 1.º»). */}
                     <span className="sm:hidden">{k === "propio" ? nos("Marcamos 1.º", "Marca 1.º") : k === "rival" ? nos("Nos marcan 1.º", "Recibe 1.º") : "0-0"}</span>
                     <span className="hidden sm:inline">{k === "propio" ? nos("Marcamos primero", "Marca primero") : k === "rival" ? nos("Nos marcan primero", "Recibe primero") : "Nadie marca (0-0)"}</span>
-                  </span>,
-                  /* 08/11/2026: con menos de 5 partidos la fila es tendencia. */
-                  <span key={`n-${k}`}>
-                    {e.n}
+                    {/* 16/11/2026 (experto de fútbol): «tendencia» en la columna del
+                        nombre, no bajo el número (a 390 px descuadraba la fila); y en
+                        el móvil, donde no caben G, E y P, el balance en la misma celda. */}
                     {e.n < 5 ? <span className="block text-[10px] font-normal text-white/55">tendencia</span> : null}
+                    <span className="block text-[10px] font-normal text-white/55 sm:hidden">
+                      {e.G}G {e.E}E {e.P}P
+                    </span>
                   </span>,
+                  e.n,
                   e.G,
                   e.E,
                   e.P,
@@ -1094,7 +1139,7 @@ export function PantallaGoles() {
           {/* ---------------- franjas ---------------- */}
           <Panel
             title={nos("¿En qué minutos marcamos y en cuáles nos marcan?", "¿En qué minutos marca y en cuáles le marcan?")}
-            subtitle="Arriba los goles a favor, abajo los en contra. La raya es lo que marca (o encaja) un equipo medio de la liga en ese tramo."
+            subtitle={`${poblacion}. Arriba los ${totalFranjasGf} goles a favor, abajo los ${totalFranjasGc} en contra. La raya es lo que marca (o encaja) un equipo medio de la liga en ese tramo.`}
             icon={Clock}
             analisis={deFranjas.length ? <div className="px-4 pb-4 sm:px-5"><Lectura>{deFranjas.join(" ")}</Lectura></div> : undefined}
           >

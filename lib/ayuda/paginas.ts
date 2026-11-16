@@ -1094,8 +1094,8 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Mandos",
         filas: [
-          { que: "Equipo y Condición", es: "Cualquier equipo de la liga; Todos, Casa o Fuera (también desde la dirección, ?lugar=casa)" },
-          { que: "Más opciones", es: "Desde y hasta qué jornada, franjas de 5, 10, 15, 30 o 45′, tramos a medida («20, 45, 70») y «Descuentos aparte»" },
+          { que: "Equipo y Condición", es: "Cualquier equipo de la liga, con el Castilla y el próximo rival arriba del desplegable; Todos, Casa o Fuera (también desde la dirección, ?lugar=casa)" },
+          { que: "Cambiar jornadas y franjas", es: "Desde y hasta qué jornada, franjas de 5, 10, 15, 30 o 45′, tramos a medida («20, 45, 70») y «Descuentos aparte»" },
           { que: "45+ y 90+", es: "Los descuentos; sin «Descuentos aparte», cuentan en la última franja de cada parte" },
         ],
       },
@@ -1104,9 +1104,11 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           { que: "Partidos", es: "Los del equipo en el tramo; si al Castilla le falta alguno del calendario, «N de M» y qué jornada falta" },
           { que: "Goles a favor y en contra", es: "Del marcador de cada partido, con la media de los equipos de la liga", cuenta: "Goles ÷ partidos; liga = goles ÷ (partidos × 2), o ÷ partidos con casa o fuera" },
-          { que: "Nuestro mejor tramo / tramo más débil", es: "El que más se separa de la liga marcando (o encajando); si ninguno, el tramo con más goles", cuenta: "Goles del tramo ÷ partidos − lo de un equipo medio de la liga en ese tramo" },
-          { que: "Qué hacemos y qué concedemos", es: "Las frases que salen de las cifras, siempre frente a la media de la liga" },
-          { que: "¿Qué pasa cuando marcamos primero?", es: "Cómo acaban los partidos según quién abre el marcador, frente a la liga en la misma situación", cuenta: "Pts/PJ = (3 × G + E) ÷ PJ; con menos de 5 partidos, «tendencia»" },
+          { que: "La frase de arriba", es: "Cuántos goles en cuántos partidos (y de qué jornadas), a favor y en contra, y si marca y encaja más o menos que la media; con su fuente (BeSoccer y Hudl). Sólo sale con todos los partidos dentro" },
+          { que: "Nuestro mejor tramo / tramo más débil", es: "El que más se separa de la liga marcando (o encajando), en verde o naranja sólo desde 6 goles en ese tramo; con menos, «Más goles a favor / en contra» en neutro, con su base y «tendencia»", cuenta: "Goles del tramo ÷ partidos − lo de un equipo medio de la liga en ese tramo" },
+          { que: "Nuestros goles, tramo a tramo", es: "El título dice de quién son los partidos (equipo, casa o fuera, cuántos y qué jornadas); el pie, las franjas y cuántos goles hay arriba y abajo" },
+          { que: "Qué hacemos y qué concedemos", es: "Las frases que salen de las cifras: goles, tramos y resultados frente a la media de la liga; cómo llegan los goles en contra, de nuestros partidos (Hudl) y sin orden de la semana. En la banda se dice de quién es («su banda derecha, nuestro lado izquierdo»)", cuenta: "Un tramo con 3 goles o menos sale como «tendencia», sin afirmar que marca o encaja más que la liga, y se vigila; desde 4, tarea" },
+          { que: "¿Qué pasa cuando marcamos primero?", es: "Cómo acaban los partidos según quién abre el marcador, frente a la liga en la misma situación", cuenta: "Pts/PJ = (3 × G + E) ÷ PJ; con menos de 5 partidos, «tendencia» junto al nombre de la fila (en el móvil, con G, E y P debajo). La frase sólo dice «remontamos más que la media» o «sabemos cerrar» desde 10 partidos en esa situación; con menos, la cifra y «tendencia»" },
         ],
       },
       {
