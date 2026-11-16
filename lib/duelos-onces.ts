@@ -87,13 +87,51 @@ export function nuestrosDe(jugadores: FilaJugador[], fichas: FichaPropia[]): Jug
         fichaId: p.id,
       };
     });
-  return conApellidosClaros([...deWyscout, ...sinWyscout]);
+  return conNombreCorto(conApellidosClaros([...deWyscout, ...sinWyscout]), fichas);
+}
+
+/*
+| UN SOLO NOMBRE POR JUGADOR (16/11/2026, jueces): la pizarra decía «Dani», «Pol»
+| y «Sergio» (el APODO de la plantilla) y Duelos y el Plan «Yáñez», «Fortuny» y
+| «S. Martínez». Ahora los tres leen el mismo campo: el nombre corto de la
+| plantilla (`apodo`, que ya trae el NOMBRE si la hoja no tiene apodo). Si dos
+| de los nuestros comparten nombre corto, se queda el apellido con inicial.
+*/
+function conNombreCorto(lista: JugadorDuelo[], fichas: FichaPropia[]): JugadorDuelo[] {
+  const porId = new Map(fichas.map((f) => [f.id, f]));
+  const cortoDe = (j: JugadorDuelo) => {
+    const f = j.fichaId ? porId.get(j.fichaId) : undefined;
+    return (f?.apodo || f?.nombre || "").trim();
+  };
+  const cuenta = new Map<string, number>();
+  lista.forEach((j) => {
+    const c = cortoDe(j).toLowerCase();
+    if (c) cuenta.set(c, (cuenta.get(c) ?? 0) + 1);
+  });
+  return lista.map((j) => {
+    const c = cortoDe(j);
+    return c && cuenta.get(c.toLowerCase()) === 1 ? { ...j, corto: c } : j;
+  });
+}
+
+/*
+| Dos rivales con el mismo apellido (Jorge y Javi Mier, 16/11/2026, jueces):
+| «Mier» a secas no dice cuál. A los dos se les pone nombre y apellido.
+*/
+function conNombreCompletoSiSeRepite(lista: JugadorDuelo[]): JugadorDuelo[] {
+  const apellido = (n: string) => {
+    const t = n.trim().split(/\s+/);
+    return (t.length > 1 ? t.slice(1).join(" ") : n).toLowerCase();
+  };
+  const cuenta = new Map<string, number>();
+  lista.forEach((j) => cuenta.set(apellido(j.nombre), (cuenta.get(apellido(j.nombre)) ?? 0) + 1));
+  return lista.map((j) => ((cuenta.get(apellido(j.nombre)) ?? 0) > 1 ? { ...j, corto: j.nombre } : j));
 }
 
 /** Los suyos: la plantilla de la hoja RIVALES, cada uno con su fila de Wyscout si se encuentra. */
 export function suyosDe(filasHoja: Fila[], equipo: string, jugadores: FilaJugador[]): JugadorDuelo[] {
   const filasWy = jugadores.filter((j) => j.temporada === "actual" && mismoClub(j.equipo, equipo));
-  return filasHoja
+  return conNombreCompletoSiSeRepite(filasHoja
     .filter((f) => texto(f.NOMBRE_EQUIPO) === equipo)
     .map((f) => {
       const nombre = conTildes(comoNombre(texto(f["NOMBRE DEPORTIVO"]) || texto(f.JUGADOR)));
@@ -116,7 +154,7 @@ export function suyosDe(filasHoja: Fila[], equipo: string, jugadores: FilaJugado
         wyscout: wy,
         baja: bajaDe(f) ?? undefined,
       };
-    });
+    }));
 }
 
 /** Lesionado o sancionado: no entra solo en el once (sí si alguien lo pone a mano). */

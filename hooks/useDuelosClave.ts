@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import { cargaPlantilla } from "@/hooks/usePlayers";
 import { traeJson } from "@/lib/hojaCsv";
-import { MUESTRA_CORTA_DUELO, UMBRAL_DUELO, normalizaDuelos, referenciasPorPuesto } from "@/lib/duelos";
+import { MUESTRA_CORTA_DUELO, UMBRAL_DUELO, consignaDelDuelo, normalizaDuelos, referenciasPorPuesto, sentidoDeLaConsigna } from "@/lib/duelos";
 import { MINUTOS_MINIMOS, puestoDe } from "@/lib/data-analisis/individual";
 import { duelosDelPartido } from "@/lib/duelos-onces";
 import { huecosDelUltimoOnce } from "@/lib/tactics/ultimoOnce";
@@ -54,6 +54,10 @@ export type DueloClave = {
   /** Las dos cifras del cruce (30/10/2026): con nuestro balón y con el suyo. */
   conBalon: number | null;
   sinBalon: number | null;
+  /** «Qué le decimos» (16/11/2026): la consigna de vestuario del momento que más pesa, con su métrica. Vacía si nada se despega. */
+  consigna: string;
+  /** Los nuestros del hueco sin minutos en Wyscout (no entran en la media), con su nombre corto. */
+  sinMinutosNuestros: string[];
 };
 
 export type DuelosClave = {
@@ -144,25 +148,29 @@ export function useDuelosClave(equipo: string) {
           baseNuestra: dePizarra ? dePizarra.huecos : reparto?.ultimo ? Object.fromEntries(Object.entries(reparto.huecos).filter(([, id]) => id)) : null,
         });
 
-        /* Si dos jugadores distintos comparten apellido (Sergio y Joan Martínez, o un
-           «Martínez» a secas), se les pone el puesto: la línea no puede ser ambigua. */
+        /*
+        | El nombre: el corto de la plantilla para los nuestros (el mismo que la
+        | pizarra, 16/11/2026) y el de su plantilla para los suyos. Si aun así dos
+        | jugadores distintos salen igual, se les pone el puesto.
+        */
+        const nuestrasClaves = new Set(duelos.flatMap((d) => d.nuestros.map((j) => j.clave)));
         const todos = duelos.flatMap((d) => [...d.nuestros, ...d.suyos]);
-        const apellidoDe = (nombre: string) => nombre.trim().split(/\s+/).slice(-1)[0]?.toLowerCase() ?? "";
-        const porApellido = new Map<string, Set<string>>();
+        const visible = (j: (typeof todos)[number]) => (nuestrasClaves.has(j.clave) ? (j.corto ?? j.nombre) : j.nombre);
+        const porVisible = new Map<string, Set<string>>();
 
         todos.forEach((j) => {
-          const a = apellidoDe(j.nombre);
-          if (!porApellido.has(a)) porApellido.set(a, new Set());
-          porApellido.get(a)!.add(j.clave);
+          const a = visible(j).toLowerCase();
+          if (!porVisible.has(a)) porVisible.set(a, new Set());
+          porVisible.get(a)!.add(j.clave);
         });
 
         const rotulo = (j: (typeof todos)[number]) => {
-          if ((porApellido.get(apellidoDe(j.nombre))?.size ?? 0) < 2) return j.nombre;
+          if ((porVisible.get(visible(j).toLowerCase())?.size ?? 0) < 2) return visible(j);
 
           /* El de la hoja antes que el de Wyscout, como /duelos y Plantillas (07/11/2026). */
           const puesto = j.puestoHoja || puestoEnPalabras(j.posicion.split(",")[0]?.trim() ?? "") || j.dorsal || "";
 
-          return puesto ? `${j.nombre} (${puesto})` : j.nombre;
+          return puesto ? `${visible(j)} (${puesto})` : visible(j);
         };
 
         /* La misma referencia con la que `duelosDelPartido` saca los percentiles. */
@@ -197,6 +205,9 @@ export function useDuelosClave(equipo: string) {
               : "",
             conBalon: d.conBalon ?? null,
             sinBalon: d.sinBalon ?? null,
+            consigna: consignaDelDuelo(d, sentidoDeLaConsigna(d)),
+            /* Los nuestros llevan ficha de la plantilla; los suyos, no. */
+            sinMinutosNuestros: (d.sinMinutos ?? []).filter((j) => j.fichaId).map((j) => j.corto ?? j.nombre),
             titulo: d.def.titulo,
             nuestros: d.nuestros.map(rotulo),
             /* Si su puesto en la hoja es del otro lado que el hueco («su extremo izquierdo» con Narro, extremo derecho), se dice (08/11/2026, jueces). */

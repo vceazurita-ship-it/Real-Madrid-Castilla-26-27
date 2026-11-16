@@ -153,3 +153,25 @@ const SIGLA_PUESTO: Record<string, string> = {
 };
 
 export const puestoEnPalabras = (sigla: string) => SIGLA_PUESTO[sigla.trim().toUpperCase()] ?? "";
+
+/*
+| El puesto en el que le coloca un once (16/11/2026, jueces): Jorquera es «DC»
+| en su plantilla y LWF en Wyscout, pero el once probable le pone en la banda
+| izquierda; en el duelo «su extremo izquierdo» se dice «extremo izquierdo».
+| Claves de hueco del 4-2-3-1 de `lib/data-analisis/once.ts`.
+*/
+const PUESTO_DEL_HUECO: Record<string, string> = {
+  por: "portero",
+  "lat-d": "lateral derecho",
+  "cen-d": "central derecho",
+  "cen-i": "central izquierdo",
+  "lat-i": "lateral izquierdo",
+  "piv-d": "pivote",
+  "piv-i": "pivote",
+  "ban-d": "extremo derecho",
+  media: "mediapunta",
+  "ban-i": "extremo izquierdo",
+  del: "delantero centro",
+};
+
+export const puestoDelHueco = (hueco: string) => PUESTO_DEL_HUECO[hueco] ?? "";
