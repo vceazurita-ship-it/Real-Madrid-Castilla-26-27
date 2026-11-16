@@ -342,13 +342,18 @@ export const AYUDAS: AyudaDePagina[] = [
     ruta: "/microcycles",
     titulo: "Microciclos",
     resumen: "Cada tarea de cada sesión, con su contenido, su carga y su valoración, micro a micro.",
-    origen: "Hoja de microciclos, una fila por tarea (la escribe el cuerpo técnico). Los equipos del día, de Jugadores sesión; lo medido en la sesión, del análisis de entrenamiento.",
-    revisada: "2026-11-12",
+    origen: "Hoja de microciclos, una fila por tarea (la escribe el cuerpo técnico). Los equipos del día, de Jugadores sesión; lo medido en la sesión, del análisis de entrenamiento. El micro de hoy y el MD de cada día, de la regla común de las cuatro pantallas de planificación (lib/microciclo/semana-de-hoy.ts).",
+    revisada: "2026-11-16",
     bloques: [
       {
         titulo: "La tira de microciclos",
         filas: [
-          { que: "Micro N · rival", es: "Una tarjeta por semana, la última primero; pulsarla filtra la pantalla entera. «Todos» = la temporada" },
+          { que: "Micro N · rival", es: "Una tarjeta por semana, la última primero; pulsarla filtra la pantalla entera. «Todos» = la temporada. El degradado de la derecha avisa de que hay más tarjetas" },
+          {
+            que: "Abre en el micro de hoy",
+            es: "El mismo que abren los dos calendarios y Jugadores sesión",
+            cuenta: "El que tiene hoy entre su primera y su última fecha; entre dos (el libre tras el partido), el siguiente si ya está planificado y empieza en 7 días o menos",
+          },
           { que: "Val. 6,8", es: "Valoración media de sus tareas de entreno; en gris y con «· 5 de 13» si es provisional" },
           { que: "La barra", es: "Su carga física frente al micro que más carga tiene" },
           { que: "Editar este micro", es: "Lo abre en el editor de microciclos (mover tareas, copiar días, sacar la lámina)" },
@@ -358,7 +363,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Las cifras de cabecera",
         filas: [
-          { que: "Tareas", es: "Las filas filtradas, con el desglose «de entreno · entrenos + partidos»", cuenta: "El partido es la fila de competición del día MD" },
+          { que: "Tareas de entreno", es: "Una sola cifra, la de entreno (la misma de la cabecera); debajo, «13 de entreno + 1 partido · 4 entrenos»", cuenta: "El partido es la fila de competición del día MD y no cuenta como tarea. La diferencia con el micro anterior también es sólo de entreno" },
           { que: "Tiempo total", es: "Suma de los minutos de las tareas filtradas, partido incluido", cuenta: "Debajo, el tiempo total ÷ nº de tareas" },
           {
             que: "Valoración media",
@@ -379,7 +384,13 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Las pestañas",
         filas: [
           { que: "Resumen", es: "La semana en sesión, Lecturas del periodo, carga por día MD, perfil del micro, tendencia de la valoración y reparto por fase" },
-          { que: "La semana en sesión", es: "Cada día del micro elegido con sus tareas, los equipos de Jugadores sesión y lo que midió el análisis de entrenamiento" },
+          {
+            que: "La semana en sesión",
+            es: "Cada día del micro elegido con TODAS sus tareas (nombre, formato, minutos y contenido), también las sólo planificadas; «Equipos hechos» y «Analizado» si ya los hay, y una sola acción: la que toca (hacer los equipos, analizar o ver el análisis)",
+          },
+          { que: "Perfil del microciclo", es: "Los ejes con dato de 0 a 10 y, con carga medida, la carga física por entreno frente a la media de la temporada", cuenta: "UA de los días hechos ÷ esos días (como /micro_calendar); la media es la de los demás micros con carga, con 3 o más" },
+          { que: "Tendencia de evaluación", es: "Valoración media de cada micro, eje de 5 a 10", cuenta: "La línea se corta en los micros sin tareas valoradas, y el subtítulo dice cuáles" },
+          { que: "Reparto por fase de juego", es: "Anillo con el peso de cada fase y el total en el centro; pulsar un tramo o una fila filtra" },
           { que: "Cargas", es: "Mapa de calor micro × día (pulsar filtra), carga acumulada por micro, física frente a cognitiva por tarea, tiempo por día e intensidad" },
           { que: "Contenidos", es: "Contenido principal y secundario (los 15 primeros), tabla comparativa, valoración por tipo de tarea y los 12 formatos más usados" },
           { que: "Cognitivo", es: "Normativa, incertidumbre, dificultad y motivación llevadas a 0-10; su evolución por día, demanda frente a valoración y análisis post-tarea" },
@@ -389,7 +400,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Cómo se ordena",
         filas: [
-          { que: "MD-5 … MD", es: "Días contando hacia atrás desde el partido. MD es el día de partido" },
+          { que: "MD-5 … MD", es: "Días contando hacia atrás desde el partido. MD es el día de partido", cuenta: "En «La semana en sesión», con el calendario de BeSoccer: días que faltan para el próximo partido, hasta 14 (igual que el creador de micros y los calendarios)" },
           { que: "Filtros", es: "Microciclo, día (MD), tipo de tarea, contenido principal, fase, valoración mínima y buscador" },
           { que: "Formato", es: "8v8+3 = ocho contra ocho más tres comodines" },
         ],

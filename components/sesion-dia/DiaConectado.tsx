@@ -10,11 +10,14 @@
  * Ver lib/sesion-dia/conexion.ts.
  */
 
-import { Check, CheckCheck, Target } from "lucide-react";
+import Link from "next/link";
+import { Check, CheckCheck, ClipboardCheck, Target, Users } from "lucide-react";
 
 import { Button } from "@/components/abp/ui";
 import type { EntrenoDelDia } from "@/hooks/useDiasConectados";
 import {
+  enlaceAnalisis,
+  enlaceSesion,
   enlaza,
   equiposDeTarea,
   nombreVisible,
@@ -106,15 +109,34 @@ export function DiaConectado({
 
   const otrosCambios = soloLectura ? propuestas.filter((p) => p.tipo !== "renombrar" && p.tipo !== "quitar") : propuestas;
   /* Con sesión, el día se cuenta entero: todas las tareas del plan, en su orden. */
-  const enteras = soloLectura && Boolean(sesion);
+  /*
+  | 16/11/2026 (jueces): en /microcycles (sólo lectura) cada día lista SIEMPRE
+  | sus tareas, con tipo, minutos y contenido, aunque aún no haya equipos ni
+  | análisis; y en vez de dos botones iguales cada día, el estado del día
+  | («Equipos hechos», «Analizado») y UNA acción: la que toca después.
+  */
+  const enteras = soloLectura;
+  const analizado = Boolean(entreno?.sesion?.objetivos.length);
 
   /* Sin nada que contar no se dibuja la caja: sólo la fila con los accesos. */
-  const vacio = !hayAlgo && propuestas.length === 0;
+  const vacio = soloLectura ? plan.length === 0 : !hayAlgo && propuestas.length === 0;
+
+  const accion = !sesion
+    ? { href: enlaceSesion(fecha), texto: "Hacer los equipos", Icono: Users }
+    : !analizado
+      ? { href: enlaceAnalisis(fecha), texto: "Analizar el entreno", Icono: ClipboardCheck }
+      : { href: enlaceAnalisis(fecha), texto: "Ver el análisis", Icono: ClipboardCheck };
 
   return (
     <div className={vacio ? "min-w-0" : "min-w-0 space-y-2 rounded-xl border border-white/10 bg-white/[0.02] p-3"}>
       <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
-        {vacio ? null : <p className="min-w-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/45">En la sesión</p>}
+        {vacio || soloLectura ? null : <p className="min-w-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/45">En la sesión</p>}
+        {soloLectura ? (
+          <>
+            {conEquipos ? <span className="rounded-full border border-emerald-400/35 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-300">Equipos hechos</span> : null}
+            {analizado ? <span className="rounded-full border border-sky-400/35 bg-sky-500/10 px-2 py-0.5 text-[11px] font-semibold text-sky-300">Analizado</span> : null}
+          </>
+        ) : null}
         {sesion ? (
           <p className="min-w-0 text-[12px] text-white/70">
             {disponibles} jugadores{bajas ? ` · ${bajas} de baja` : ""}
@@ -122,10 +144,22 @@ export function DiaConectado({
           </p>
         ) : null}
         <span className="flex-1" />
-        <EnlacesDia fecha={fecha} micro={micro} actual="microciclo" textos={{ sesion: sesion ? "Ver los equipos" : "Hacer los equipos", analisis: entreno?.sesion?.objetivos.length ? "Ver el análisis" : "Analizar el entreno" }} />
+        {soloLectura ? (
+          /^\d{4}-\d{2}-\d{2}$/.test(fecha) ? (
+            <Link
+              href={accion.href}
+              className="inline-flex min-w-0 items-center gap-1.5 rounded-lg border border-[#C8A96B]/40 px-2.5 py-1 text-[11px] font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#C8A96B]"
+            >
+              <accion.Icono size={12} className="shrink-0" aria-hidden />
+              {accion.texto}
+            </Link>
+          ) : null
+        ) : (
+          <EnlacesDia fecha={fecha} micro={micro} actual="microciclo" textos={{ sesion: sesion ? "Ver los equipos" : "Hacer los equipos", analisis: analizado ? "Ver el análisis" : "Analizar el entreno" }} />
+        )}
       </div>
 
-      {(hayAlgo || renombres.size > 0) && plan.length > 0 ? (
+      {(hayAlgo || renombres.size > 0 || soloLectura) && plan.length > 0 ? (
         <ul className="min-w-0 space-y-1.5">
           {plan.map((p, k) => {
             const t = tareaDe(k);
@@ -144,7 +178,7 @@ export function DiaConectado({
                   <span className="font-semibold text-[#C8A96B]">{p.codigo}</span>
                   {/* 07/11/2026: el título es el nombre de la sesión (lo que se hizo) y el del plan va de nota debajo. */}
                   <span className={`min-w-0 truncate text-white/80 ${quitada ? "line-through decoration-white/30" : ""}`}>{nombreVisible(otroNombre, t?.nombre, p.tipo, p.contenidoPrincipal, p.formato) || "Tarea sin nombre"}</span>
-                  {quitada || (enteras && !t) ? <span className="rounded-full border border-white/15 px-1.5 text-[10px] font-semibold uppercase tracking-wide text-white/55">no se hizo</span> : null}
+                  {quitada || (enteras && sesion && !t) ? <span className="rounded-full border border-white/15 px-1.5 text-[10px] font-semibold uppercase tracking-wide text-white/55">no se hizo</span> : null}
                   {colocados.map((e) => (
                     <span key={e.nombre + e.color} className="inline-flex items-center gap-1 text-[11px] text-white/60" title={e.jugadores.join(", ")}>
                       <span className="h-2.5 w-2.5 shrink-0 rounded-full border border-white/20" style={{ background: e.color }} aria-hidden />
@@ -153,6 +187,11 @@ export function DiaConectado({
                   ))}
                   {eq && eq.comodines.length ? <span className="text-[11px] text-white/50" title={eq.comodines.join(", ")}>+{eq.comodines.length} {eq.comodines.length === 1 ? "comodín" : "comodines"}</span> : null}
                 </p>
+                {soloLectura && (p.tiempo > 0 || p.contenidoPrincipal || p.formato) ? (
+                  <p className="min-w-0 text-[11px] text-white/55">
+                    {[p.formato, p.tiempo > 0 ? `${p.tiempo}′` : "", p.contenidoPrincipal].filter(Boolean).join(" · ")}
+                  </p>
+                ) : null}
                 {otroNombre && delPlan && delPlan.toLowerCase() !== otroNombre.toLowerCase() ? (
                   <p className="text-[11px] text-white/50">
                     En el plan: «{delPlan}»

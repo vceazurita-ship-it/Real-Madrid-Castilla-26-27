@@ -23,6 +23,8 @@ import { planDeRegistro, propuestasDeLaSesion, sesionDeFecha, type FilaPlan } fr
 import type { LucideIcon } from "lucide-react";
 import { nombreCorto as nombreCortoEquipo } from "@/lib/abp/informe-graficos";
 import { esFilaDePartido, etiquetaMicro, fechaIsoDeHoja, rivalDelMicro, separaSemanas, tipoDeTareaUnificado } from "@/lib/microciclo/cuenta";
+import { fechasDePartido, mdDelDia, microDeHoy as microDeHoyComun } from "@/lib/microciclo/semana-de-hoy";
+import { useCalendario } from "@/hooks/useCalendario";
 import {
   Activity,
   ArrowDown,
@@ -55,8 +57,6 @@ import {
   ComposedChart,
   Legend,
   LabelList,
-  PieChart,
-  Pie,
   Cell,
   RadarChart,
   Radar,
@@ -568,45 +568,19 @@ const fechaIso = fechaIsoDeHoja;
 /**
  * El micro que toca hoy, para abrir la pantalla en él.
  *
- * El que tiene a hoy entre su primera y su última fecha; si hoy cae entre
- * dos —el libre después del partido—, el último que ha empezado; y si la
- * hoja no tiene fechas que se entiendan, el de número más alto. «ALL»
- * mientras no haya filas o no se sepa el día.
+ * Desde el 16/11/2026 es la regla compartida de lib/microciclo/semana-de-hoy.ts
+ * (la misma de los dos calendarios y de Jugadores sesión): el que tiene a hoy
+ * entre su primera y su última fecha; entre dos (el libre después del
+ * partido), el siguiente si ya está planificado. Si la hoja no tiene fechas
+ * que se entiendan, el de número más alto. «ALL» mientras no se sepa el día.
  */
 function microDeHoy(rows: Row[], hoy: Date | null): string {
   if (!hoy || rows.length === 0) return "ALL";
 
-  const fechas = new Map<number, { desde: number; hasta: number }>();
+  const iso = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`;
+  const deHoy = microDeHoyComun(rows, iso);
 
-  for (const r of rows) {
-    const fecha = parseFecha(r.fecha);
-
-    if (!fecha) continue;
-
-    const t = fecha.getTime();
-    const actual = fechas.get(r.micro);
-
-    fechas.set(
-      r.micro,
-      actual
-        ? { desde: Math.min(actual.desde, t), hasta: Math.max(actual.hasta, t) }
-        : { desde: t, hasta: t },
-    );
-  }
-
-  const ahora = hoy.getTime();
-
-  let empezado: { micro: number; desde: number } | null = null;
-
-  for (const [micro, { desde, hasta }] of fechas) {
-    if (desde <= ahora && ahora <= hasta) return String(micro);
-
-    if (desde <= ahora && (!empezado || desde > empezado.desde)) empezado = { micro, desde };
-  }
-
-  if (empezado) return String(empezado.micro);
-
-  return String(Math.max(...rows.map((r) => r.micro)));
+  return deHoy === null ? String(Math.max(...rows.map((r) => r.micro))) : String(deHoy);
 }
 
 type TabKey =
@@ -741,6 +715,10 @@ export default function Page() {
   }, []);
 
   const microActual = useMemo(() => microDeHoy(rows, hoy), [rows, hoy]);
+
+  /* Las fechas de partido de BeSoccer, para el MD de cada día (lib/microciclo/semana-de-hoy.ts). */
+  const { partidos: calendarioBesoccer } = useCalendario();
+  const fechasPartido = useMemo(() => fechasDePartido(calendarioBesoccer.map((p) => String(p?.cuando ?? ""))), [calendarioBesoccer]);
 
   const [micro, setMicro] = useFiltroPersistente("micro", microActual);
   const [informeAbierto, setInformeAbierto] = useState(false);
@@ -1069,7 +1047,8 @@ export default function Page() {
       loadPct: pctCambio(cur.load, prev.load),
       cog: cur.cog - prev.cog,
       cogPct: pctCambio(cur.cog, prev.cog),
-      tareas: cur.tareas - prev.tareas,
+      /* Sólo las de entreno (16/11/2026): la tarjeta cuenta 13 y el partido va aparte. */
+      tareas: cur.entreno - prev.entreno,
       tiempo: cur.tiempo - prev.tiempo,
     };
   }, [micro, microStats, rows]);
@@ -1169,6 +1148,11 @@ export default function Page() {
   );
 
   const evalMean = avg(trendData.map((d) => d.value ?? 0).filter((n) => n > 0));
+
+  /* El suelo del eje (5, o menos si algún micro baja de ahí) y los micros sin valorar,
+     que son los huecos de la línea (16/11/2026). */
+  const trendSuelo = Math.min(5, Math.floor(Math.min(10, ...trendData.map((d) => d.value ?? 10))));
+  const trendSinValorar = trendData.filter((d) => d.value === null).map((d) => d.micro);
 
   const compareData = useMemo(
     () =>
@@ -1270,6 +1254,41 @@ export default function Page() {
 
     return `Cada eje de 0 a 10. ${radarData.map((d) => base[d.metric]).filter(Boolean).join(" · ")}`;
   }, [radarData, metrics.evaluadas, metrics.tareasEntreno]);
+
+  /*
+  | LA CARGA DEL MICRO FRENTE A LA TEMPORADA (16/11/2026), con el cálculo de
+  | /micro_calendar: UA (minutos × intensidad) de los días con carga apuntada,
+  | sin el partido, entre esos días. La media de la temporada es la de los
+  | demás micros con carga; con menos de 3 no se compara.
+  */
+  const cargaPerfil = useMemo(() => {
+    if (micro === "ALL") return null;
+
+    const porEntreno = (set: Row[]) => {
+      const hechas = set.filter((r) => !esFilaDePartido(r) && r.carga > 0);
+      const dias = new Set(hechas.map((r) => fechaIso(r.fecha) || r.md)).size;
+
+      return dias ? { media: sum(hechas.map((r) => r.carga)) / dias, dias } : null;
+    };
+
+    const actual = porEntreno(rows.filter((r) => String(r.micro) === micro));
+    const otros = micros
+      .filter((m) => String(m) !== micro)
+      .map((m) => porEntreno(rows.filter((r) => r.micro === m)))
+      .filter((o): o is { media: number; dias: number } => o !== null);
+
+    if (!actual || otros.length < 3) return null;
+
+    const temporada = avg(otros.map((o) => o.media));
+
+    return {
+      actual: actual.media,
+      dias: actual.dias,
+      temporada,
+      micros: otros.length,
+      pct: temporada > 0 ? Math.round(((actual.media - temporada) / temporada) * 100) : 0,
+    };
+  }, [rows, micros, micro]);
 
   /* ---------------- grouped aggregations ---------------- */
 
@@ -1732,10 +1751,15 @@ export default function Page() {
 
     const fechas = [...new Set(suyas.map((r) => fechaIso(r.fecha)).filter(Boolean))].sort();
 
+    /* El MD con la regla compartida (16/11/2026): el mismo que dan el creador y los calendarios. */
     return fechas
-      .map((fecha) => ({ fecha, md: suyas.find((r) => fechaIso(r.fecha) === fecha)?.md ?? "", plan: planDeRegistro(suyas, fecha) }))
+      .map((fecha) => ({
+        fecha,
+        md: mdDelDia(fecha, fechasPartido) || (suyas.find((r) => fechaIso(r.fecha) === fecha)?.md ?? ""),
+        plan: planDeRegistro(suyas, fecha),
+      }))
       .filter((d) => d.plan.length > 0);
-  }, [rows, micro]);
+  }, [rows, micro, fechasPartido]);
 
   const fechasDelMicro = useMemo(() => diasDelMicro.map((d) => d.fecha), [diasDelMicro]);
 
@@ -1884,8 +1908,10 @@ export default function Page() {
             )}
 
             {!loading && microStats.length > 0 && (
-              <div className="mb-6 -mx-4 sm:mx-0 px-4 sm:px-0">
-                <div className="flex gap-3 overflow-x-auto pb-3 pr-14 sm:pr-0 scrollbar-thin">
+              <div className="relative mb-6 -mx-4 sm:mx-0 px-4 sm:px-0">
+                {/* 16/11/2026: un degradado a la derecha avisa de que hay más micros detrás. */}
+                <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-gradient-to-l from-[#0B0F14] to-transparent" />
+                <div className="flex gap-3 overflow-x-auto pb-3 pr-16 scrollbar-thin">
                   <button
                     onClick={() => setMicro("ALL")}
                     className={`shrink-0 w-[150px] rounded-2xl border p-4 text-left transition ${
@@ -2186,9 +2212,12 @@ export default function Page() {
               <div className={`mt-7 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4 ${loading ? "hidden" : ""}`}>
                 <StatCard
                   icon={ListChecks}
-                  title="Tareas"
-                  value={fmtInt(metrics.tasks)}
-                  hint={`${metrics.tareasEntreno} de entreno · ${metrics.entrenos} entreno${metrics.entrenos === 1 ? "" : "s"}${metrics.partidos ? ` + ${metrics.partidos} partido${metrics.partidos === 1 ? "" : "s"}` : ""}`}
+                  title="Tareas de entreno"
+                  /* UNA SOLA CIFRA (16/11/2026): la cabecera decía 13 y la tarjeta 14 (con
+                     el partido). El número es el de entreno y la base va debajo, en una
+                     línea: «13 de entreno + 1 partido · 4 entrenos». */
+                  value={fmtInt(metrics.tareasEntreno)}
+                  hint={`${metrics.tareasEntreno} de entreno${metrics.partidos ? ` + ${metrics.partidos} partido${metrics.partidos === 1 ? "" : "s"}` : ""} · ${metrics.entrenos} entreno${metrics.entrenos === 1 ? "" : "s"}`}
                   delta={microDelta?.tareas}
                   deltaTono="neutro"
                   deltaQue="tareas"
@@ -2406,7 +2435,9 @@ export default function Page() {
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 sm:gap-6">
+                {/* items-start (16/11/2026): cada tarjeta mide lo que su contenido; el perfil
+                    de dos barras ya no se estira a la altura del gráfico de al lado. */}
+                <div className="grid grid-cols-1 items-start xl:grid-cols-2 gap-5 sm:gap-6">
                   {/* 11/11/2026: sin minutos medidos el bloque no se pinta (nada de «aún sin medir»). */}
                   {hayCarga && (
                   <Panel
@@ -2505,6 +2536,15 @@ export default function Page() {
                     title="Perfil del microciclo"
                     subtitle={perfilSubtitulo}
                   >
+                    {/* 16/11/2026: la carga del micro frente a la temporada, con el cálculo de
+                        /micro_calendar (UA de los días hechos ÷ esos días). */}
+                    {cargaPerfil ? (
+                      <p className="mb-4 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[13px] text-white/75">
+                        <span className="font-semibold text-[#C8A96B]">{fmtInt(cargaPerfil.actual)} UA</span> de carga física por entreno ({cargaPerfil.dias} {cargaPerfil.dias === 1 ? "entreno hecho" : "entrenos hechos"}) frente a{" "}
+                        <span className="font-semibold">{fmtInt(cargaPerfil.temporada)} UA</span> de media en la temporada ({cargaPerfil.micros} micros)
+                        {cargaPerfil.pct !== 0 ? ` · ${cargaPerfil.pct > 0 ? "+" : "−"}${Math.abs(cargaPerfil.pct)} %` : ""}
+                      </p>
+                    ) : null}
                     {/* Con 3 ejes o menos un triángulo no se lee: van como barras de 0 a 10 (11/11/2026). */}
                     {radarData.length >= 4 ? (
                     <Chart>
@@ -2583,7 +2623,8 @@ export default function Page() {
 
                   <Panel
                     title="Tendencia de evaluación por microciclo"
-                    subtitle={`Media de la temporada: ${fmt1(evalMean)}`}
+                    /* 16/11/2026: el corte de la línea se explica (micros sin tareas valoradas). */
+                    subtitle={`Media de la temporada: ${fmt1(evalMean)}${trendSinValorar.length ? ` · la línea se corta en ${trendSinValorar.join(", ")}: sin tareas valoradas` : ""}`}
                   >
                     <Chart>
                       <ComposedChart data={trendData}>
@@ -2612,9 +2653,10 @@ export default function Page() {
 
                         <XAxis dataKey="micro" {...microAxisProps} />
 
+                        {/* Eje acotado (16/11/2026): las medias viven entre 6 y 8, y de 0 a 10 la línea salía plana. */}
                         <YAxis
-                          domain={[0, 10]}
-                          ticks={[0, 2, 4, 6, 8, 10]}
+                          domain={[trendSuelo, 10]}
+                          ticks={Array.from({ length: 11 - trendSuelo }, (_, i) => trendSuelo + i)}
                           tick={{ fill: "#94A3B8", fontSize: 11 }}
                           axisLine={false}
                           tickLine={false}
@@ -2658,39 +2700,16 @@ export default function Page() {
                     subtitle={`Peso de cada fase sobre ${work.length} tarea${work.length === 1 ? "" : "s"}${excludeComp ? " de entreno" : ""}`}
                   >
                     <div className="flex flex-col lg:flex-row items-center gap-4">
-                      <div className="h-[260px] w-full lg:w-1/2">
-                        <ResponsiveConVistas width="100%" height="100%" initialDimension={{ width: 300, height: 260 }}>
-                          <PieChart>
-                            <Pie
-                              data={faseMetrics}
-                              dataKey="tareas"
-                              nameKey="name"
-                              innerRadius={58}
-                              outerRadius={100}
-                              paddingAngle={2}
-                              cursor="pointer"
-                              onClick={(d) => {
-                                const name = d?.payload?.name ?? d?.name;
-                                if (name) setFaseFilter(name);
-                              }}
-                            >
-                              {faseMetrics.map((f, i) => (
-                                <Cell
-                                  key={f.name}
-                                  fill={PIE_COLORS[i % PIE_COLORS.length]}
-                                  opacity={
-                                    faseFilter !== "ALL" &&
-                                    faseFilter !== f.name
-                                      ? 0.25
-                                      : 1
-                                  }
-                                />
-                              ))}
-                            </Pie>
-
-                            <Tooltip content={<DarkTooltip />} />
-                          </PieChart>
-                        </ResponsiveConVistas>
+                      {/* 16/11/2026: el anillo se dibuja a mano en SVG. El de recharts iba
+                          diferido y animado, y en la captura de los jueces quedaba medio
+                          panel en blanco. */}
+                      <div className="flex w-full justify-center lg:w-1/2">
+                        <AnilloFases
+                          datos={faseMetrics.map((f, i) => ({ nombre: f.name, valor: f.tareas, color: PIE_COLORS[i % PIE_COLORS.length] }))}
+                          activo={faseFilter}
+                          total={work.length}
+                          onElige={(n) => setFaseFilter(faseFilter === n ? "ALL" : n)}
+                        />
                       </div>
 
                       <div className="w-full lg:w-1/2 space-y-2">
@@ -4238,6 +4257,78 @@ function Panel({
 
       {children}
     </div>
+  );
+}
+
+/**
+ * El anillo del reparto por fase (16/11/2026), en SVG sin librerías: se ve en
+ * cuanto hay datos, sin esperar a medir el contenedor ni a una animación. Cada
+ * tramo se pulsa para filtrar, como la lista de al lado; en el centro, el total.
+ */
+function AnilloFases({
+  datos,
+  activo,
+  total,
+  onElige,
+}: {
+  datos: { nombre: string; valor: number; color: string }[];
+  activo: string;
+  total: number;
+  onElige: (nombre: string) => void;
+}) {
+  const suma = datos.reduce((s, d) => s + d.valor, 0);
+
+  if (suma <= 0) return null;
+
+  const R = 92;
+  const r = 58;
+  const C = 110;
+  const punto = (ang: number, radio: number) => [C + radio * Math.sin(ang), C - radio * Math.cos(ang)];
+  /* Dónde empieza cada tramo: la suma de los anteriores. */
+  const inicios = datos.map((_, i) => datos.slice(0, i).reduce((s, d) => s + d.valor, 0) / suma);
+
+  return (
+    <svg viewBox="0 0 220 220" className="h-[220px] w-[220px] max-w-full" role="img" aria-label={`Reparto por fase de ${total} tareas`}>
+      {datos.map((d, i) => {
+        const frac = d.valor / suma;
+        const desde = inicios[i];
+        const a0 = desde * 2 * Math.PI;
+        const a1 = (desde + frac) * 2 * Math.PI - (datos.length > 1 ? 0.025 : 0);
+
+        const apagado = activo !== "ALL" && activo !== d.nombre;
+
+        if (frac >= 0.999) {
+          return (
+            <circle key={d.nombre} cx={C} cy={C} r={(R + r) / 2} fill="none" strokeWidth={R - r} style={{ stroke: d.color, opacity: apagado ? 0.25 : 1, cursor: "pointer" }} onClick={() => onElige(d.nombre)}>
+              <title>{`${d.nombre}: ${d.valor}`}</title>
+            </circle>
+          );
+        }
+
+        const grande = a1 - a0 > Math.PI ? 1 : 0;
+        const [x0, y0] = punto(a0, R);
+        const [x1, y1] = punto(a1, R);
+        const [x2, y2] = punto(a1, r);
+        const [x3, y3] = punto(a0, r);
+
+        return (
+          <path
+            key={d.nombre}
+            d={`M${x0} ${y0} A${R} ${R} 0 ${grande} 1 ${x1} ${y1} L${x2} ${y2} A${r} ${r} 0 ${grande} 0 ${x3} ${y3} Z`}
+            style={{ fill: d.color, opacity: apagado ? 0.25 : 1, cursor: "pointer" }}
+            onClick={() => onElige(d.nombre)}
+          >
+            <title>{`${d.nombre}: ${d.valor} (${Math.round(frac * 100)} %)`}</title>
+          </path>
+        );
+      })}
+      <text x={C} y={C - 4} textAnchor="middle" style={{ fill: "rgb(var(--rmcf-ink-rgb) / .9)", fontSize: 30, fontWeight: 700 }}>
+        {total}
+      </text>
+      <text x={C} y={C + 18} textAnchor="middle" style={{ fill: "rgb(var(--rmcf-ink-rgb) / .6)", fontSize: 11 }}>
+        {total === 1 ? "tarea" : "tareas"}
+      </text>
+    </svg>
   );
 }
 
