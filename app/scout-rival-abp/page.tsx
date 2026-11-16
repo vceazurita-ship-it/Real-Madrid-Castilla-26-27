@@ -58,6 +58,8 @@ import {
 } from "@/components/abp/AnalisisSeccion";
 import { RivalPatterns } from "@/components/abp/RivalPatterns";
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
+import { ConmutadorVista, useVistaAnalisis } from "@/components/ui/VistaVisual";
+import { COLOR_DESENLACE, VisualAbp } from "@/components/abp/VisualAbp";
 import { Explicativo } from "@/components/ui/textos-analisis";
 import type { PatternCatalog } from "@/components/abp/PatternCombo";
 import { AbpWyscoutRival } from "@/components/abp/AbpWyscoutRival";
@@ -246,6 +248,8 @@ export default function ScoutRivalAbpPage() {
 
   const [grupo, setGrupo] = useState<Grupo>("liga");
   const [vistaElegida, setVista] = usePestanaUrl<Vista>("vista", VISTAS, "resumen");
+  /* VISUAL / DETALLE en «¿Cuánto peligro tiene?» (16/11/2026, petición del analista): «Visual» abre con las láminas de components/abp/VisualAbp.tsx; «Detalle» es el resumen de siempre. */
+  const [vistaResumen, setVistaResumen] = useVistaAnalisis("scout-rival-abp");
   /* La sesión ya no esconde pestañas aquí (12/11/2026). */
 
   /* Las láminas sólo existen en Liga: en Pretemporada se vuelve al resumen en vez de enseñar una pestaña vacía. */
@@ -1066,6 +1070,38 @@ export default function ScoutRivalAbpPage() {
               ) : (
                 <>
                   {vista === "resumen" && (
+                    <div className="flex justify-end">
+                      <ConmutadorVista vista={vistaResumen} onCambia={setVistaResumen} />
+                    </div>
+                  )}
+
+                  {vista === "resumen" && vistaResumen === "visual" && (
+                    <VisualAbp
+                      filas={filtered.map((event) => ({
+                        jornada: parseJornada(event.jornada),
+                        cat: event.peligro && event.result.rank === 5 ? "gol" : event.peligro ? "ocasion" : event.remate ? "remate" : "sin",
+                        exito: event.peligro,
+                        tipo: FAMILY_LABEL[event.family],
+                      }))}
+                      categorias={[
+                        { clave: "gol", rotulo: "Gol", color: side === "ofensivo" ? COLOR_DESENLACE.peor : COLOR_DESENLACE.oro },
+                        { clave: "ocasion", rotulo: "Ocasión", color: side === "ofensivo" ? COLOR_DESENLACE.peorSuave : COLOR_DESENLACE.mejor },
+                        { clave: "remate", rotulo: "Remate sin ocasión", color: COLOR_DESENLACE.remate },
+                        { clave: "sin", rotulo: "Sin remate", color: COLOR_DESENLACE.nada },
+                      ]}
+                      unidad={{ uno: "acción", varios: "acciones", genero: "f" }}
+                      exito={
+                        side === "ofensivo"
+                          ? { uno: "acaba en gol u ocasión suya", varios: "acaban en gol u ocasión suya", mejorAlto: false }
+                          : { uno: "acaba en gol u ocasión de su rival", varios: "acaban en gol u ocasión de su rival", mejorAlto: true }
+                      }
+                      fuente={`${side === "ofensivo" ? "Su ataque" : "Su defensa"} · ${origenActivo === "derivado" ? "deducido de nuestros partidos contra él" : origenActivo === "scout" ? "scouting propio" : "scouting propio y nuestras hojas"}`}
+                      liga={grupo === "liga" && equipo ? <AbpWyscoutRival equipo={equipo} plantilla={aereos} acciones={acciones} /> : null}
+                      ligaPregunta="¿Y en la liga, según Wyscout?"
+                    />
+                  )}
+
+                  {vista === "resumen" && vistaResumen === "detalle" && (
                   <>
                   <StatRow>
                     <StatCard
@@ -1130,7 +1166,7 @@ export default function ScoutRivalAbpPage() {
 
                   {/* ------------- amenaza por tipo de ABP -------------- */}
 
-                  {vista === "resumen" && (
+                  {vista === "resumen" && vistaResumen === "detalle" && (
 
                   <Panel
                     title="Amenaza por tipo de balón parado"
@@ -1232,7 +1268,7 @@ export default function ScoutRivalAbpPage() {
                   | acciones registradas también sale, en su bloque y con su
                   | población (sus partidos de liga frente a los 20 del grupo).
                   */}
-                  {vista === "resumen" && grupo === "liga" && equipo && (
+                  {vista === "resumen" && vistaResumen === "detalle" && grupo === "liga" && equipo && (
                     <AbpWyscoutRival equipo={equipo} plantilla={aereos} acciones={acciones} />
                   )}
 

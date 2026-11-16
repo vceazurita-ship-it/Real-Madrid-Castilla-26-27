@@ -451,6 +451,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Las pestañas",
         filas: [
+          { que: "Visual · Detalle (16/11/2026)", es: "La pantalla se abre en «Visual»: las conclusiones y cuatro láminas con su conclusión en el título: cómo acaban (barra apilada: gol, ocasión, remate sin ocasión, sin remate), jornada a jornada (una columna apilada por partido, en orden de calendario, y si los 3 últimos van a mejor que los anteriores), dónde cae (el mapa de zonas del área, con la zona que concentra más acciones y cuántas de las de gol u ocasión nacen ahí), qué tipo de acción rinde más (en el defensivo, cuál nos hace más daño; con 3 acciones o más) y la categoría (Opta). «Detalle» son las pestañas de siempre; el PDF las saca todas. Se recuerda en este aparato", cuenta: "Mismos filtros que arriba; «gol u ocasión» = Resultado_Final Gol u Ocasión. Con 4 partidos o más, los 3 últimos contra los anteriores (a menos de 5 puntos, «se mantiene»)" },
           { que: "Resumen", es: "Conclusiones (cierran con «Qué entrenamos»: el envío más repetido, qué se cuenta y el objetivo de remate de la media de las jornadas anteriores), lectura rápida, este partido frente a la media de las jornadas anteriores, cómo se reparte el envío y «Acción a acción»" },
           { que: "Este partido frente a los anteriores", es: "Cada cifra del partido contra la media por partido de las jornadas anteriores y su rango", cuenta: "Con menos de 15 acciones la fila es «indicio»: gris, sin «mejor» ni «peor». El número de acciones no se juzga. Un rango de 0 % a 100 % no se pinta" },
           { que: "Acción a acción", es: "Todas las acciones del partido (hasta 15 sin plegar), con columnas fijas de minuto, acción, zona de caída y desenlace, «Ver la acción» (nuestro corte) y «Abrir en Hudl» en su segundo", cuenta: "Con más de 15 se pliega, pero lo que acaba en gol o remate va arriba. Debajo, qué es un remate forzado o limpio y el rechace" },
@@ -498,6 +499,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Las pestañas",
         filas: [
+          { que: "Visual · Detalle (16/11/2026)", es: "La pantalla se abre en «Visual»: las conclusiones y cuatro láminas con su conclusión en el título: cómo acaban sus córners y faltas (gol del rival, ocasión del rival, remate sin ocasión, sin remate y las que acaban en contra o gol nuestro), jornada a jornada (columna apilada por partido y si los 3 últimos van a mejor; aquí mejor es menos peligro), dónde nos cae (mapa de zonas de nuestra área), qué tipo de acción rinde más (en el defensivo, cuál nos hace más daño; con 3 acciones o más) y la categoría (Opta). «Detalle» son las pestañas de siempre; el PDF las saca todas. Se recuerda en este aparato", cuenta: "Mismos filtros que arriba; peligro = «Gol Rival» u «Ocasión» (sujeto: el rival)" },
           { que: "Resumen", es: "Conclusiones (dos hallazgos, el vídeo y «Qué entrenamos»; las faltas se dicen en palabras: «falta frontal escorada a un lado, al borde del área (zona 2)»), lectura rápida, este partido frente a los anteriores, cómo se reparte la zona de caída y «Acción a acción»" },
           { que: "Este partido frente a los anteriores", es: "Cada cifra contra la media por partido de las jornadas anteriores", cuenta: "Con menos de 15 acciones la fila es «indicio», en gris y sin «mejor» ni «peor»" },
           { que: "Cómo se reparten · zona de caída", es: "Las acciones por dónde cae el balón", cuenta: "Si alguna no tiene zona (un córner en corto), se dice cuántas quedan fuera y por qué" },
@@ -549,6 +551,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Las pestañas",
         filas: [
+          { que: "Visual · Detalle (16/11/2026)", es: "La pantalla se abre en «Visual»: el rival, las conclusiones y las láminas con su conclusión en el título: cómo acaban (último tercio, ocasión o gol; lo conservamos; se lo queda el rival; nada), jornada a jornada (columna apilada por partido y si los 3 últimos conservan más que los anteriores), dónde sacamos (el campo con cada saque y el tercio que concentra más) y la categoría (Opta). «Detalle» son las pestañas de siempre; el PNG lo saca todo. Se recuerda en este aparato", cuenta: "Mismos filtros que arriba; «con el balón para nosotros» = la % Retención de las cifras" },
           { que: "Resumen", es: "El rival del partido, conclusiones (titular con el dato, lo firme antes que la tendencia y «Qué entrenamos» con el objetivo de conservación de la media de las jornadas anteriores), lectura rápida, comparativa del partido, leyenda y cómo se reparte el resultado" },
           { que: "Cómo se reparten · resultado", es: "Cada desenlace dicho como en el vestuario («El rival se queda el balón», «Acaba en balón parado del rival») y agrupado por de quién es el balón" },
           { que: "Dónde", es: "Mapa por zonas (con el nº de saques) y campo con cada saque; pulsar filtra" },
@@ -594,6 +597,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Las pestañas",
         filas: [
+          { que: "Visual · Detalle (16/11/2026)", es: "La pantalla se abre en «Visual»: el rival, las conclusiones y las láminas con su conclusión en el título: cómo acaban sus saques (le llega a último tercio, ocasión o gol; lo conserva; lo recuperamos; nada), jornada a jornada (y si los 3 últimos le dejan llegar menos que los anteriores: aquí mejor es menos), dónde saca el rival (el campo con cada saque) y la categoría (Opta). «Detalle» son las pestañas de siempre; el PNG lo saca todo. Se recuerda en este aparato", cuenta: "Mismos filtros que arriba; el peligro es el de «Peligro concedido»" },
           { que: "Resumen", es: "El rival del partido, conclusiones (titular con el dato, «vía peligrosa» sólo con 15 saques o más y dos llegadas, y la «Orden para el próximo partido» con su métrica y el objetivo de recuperación de la media de las jornadas anteriores), lectura rápida, comparativa, leyenda y cómo se reparte el resultado" },
           { que: "Cómo se reparten · resultado", es: "Cada desenlace dicho como en el vestuario y agrupado por de quién es el balón («3 acaban en balón parado del rival y 1 en nada»)" },
           { que: "Dónde", es: "Mapa por zonas y campo con cada saque; el rival ataca hacia la izquierda" },
@@ -1196,6 +1200,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Puntos acumulados",
         filas: [
+          { que: "Visual · Detalle (16/11/2026)", es: "«Jornada a jornada» se abre en «Visual»: la curva de puntos con su conclusión en el título (cuántos llevamos tras la última jornada y cuántos más o menos que la media de la liga) y la racha partido a partido (G, E o P con el marcador y, si está en todas, nuestro puesto debajo), titulada con los 5 últimos. «Detalle» es la curva y la tabla de siempre. Se recuerda en este aparato", cuenta: "Mismos datos que la tabla; a menos de medio punto de la media se dice «en la media»" },
           { que: "La línea dorada", es: "Nuestros puntos acumulados, jornada a jornada" },
           { que: "La raya de puntos", es: "Lo que lleva de media un equipo de la liga tras cada jornada", cuenta: "Puntos por equipo y partido de la liga hasta esa jornada × partidos que llevamos" },
           { que: "Eje de puntos", es: "Una marca cada 3 puntos; pasados los 12, cada 6, para que se lea en el móvil" },
@@ -1614,6 +1619,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Su ataque · Su defensa", es: "Lo que genera el rival / lo que le generan a él" },
           { que: "Scouting propio · Deducido", es: "Propio: sus partidos, con sacador y rematador. Deducido: sólo contra nosotros y sin nombres. La etiqueta de arriba dice cuál se ve" },
           { que: "Filtros", es: "Competición, jornada y tipo de acción" },
+          { que: "Visual · Detalle (16/11/2026)", es: "«¿Cuánto peligro tiene?» se abre en «Visual»: láminas con su conclusión en el título: cómo acaban sus acciones (gol, ocasión, remate sin ocasión, sin remate), jornada a jornada (y si los 3 últimos partidos van a más o a menos), qué tipo de balón parado hace más daño (con 3 acciones o más) y, en Liga, lo de Wyscout. «Detalle» son las tarjetas, la tabla de amenaza por tipo y Wyscout como siempre. Se recuerda en este aparato", cuenta: "Mismos filtros y mismo lado (su ataque o su defensa); peligro = gol u ocasión" },
         ],
       },
       {

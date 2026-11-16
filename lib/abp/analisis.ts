@@ -31,7 +31,7 @@ import type { JornadaAbp } from "./partido";
  * de modo que «las últimas jornadas» eran en realidad los amistosos de verano
  * y la evolución se leía justo del revés.
  */
-function comparaCronologico(a: JornadaAbp, b: JornadaAbp) {
+export function comparaCronologico(a: JornadaAbp, b: JornadaAbp) {
   const bloque = (jornada: JornadaAbp) => (jornada.competicion === "amistoso" ? 0 : 1);
 
   if (bloque(a) !== bloque(b)) return bloque(a) - bloque(b);
