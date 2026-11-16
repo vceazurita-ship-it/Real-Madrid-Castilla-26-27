@@ -1361,7 +1361,7 @@ export const AYUDAS: AyudaDePagina[] = [
     ruta: "/rivals",
     titulo: "Plantillas Rivales",
     resumen: "Cómo llega cada rival, su plantilla en el campo y la ficha de cada jugador.",
-    origen: "Hoja RIVALES (plantillas, fichas y análisis); BeSoccer (tabla, resultados, alineaciones, minutos y tarjetas, en Supabase); Wyscout de toda la categoría; resúmenes del canal de la RFEF. El once probable y los recursos, en Supabase.",
+    origen: "Hoja RIVALES (plantillas, fichas y análisis); BeSoccer (tabla, resultados, alineaciones, minutos y tarjetas, en Supabase); Wyscout de toda la categoría; Opta (revulsivos); resúmenes del canal de la RFEF. El once probable y los recursos, en Supabase.",
     revisada: "2026-11-16",
     bloques: [
       {
@@ -1393,6 +1393,11 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Más de este rival", es: "Un solo bloque de accesos con verbo: ver sus córners y faltas, ver cómo juega como equipo, comparar su once con el nuestro y ver los vídeos de sus jugadores, con el mismo rival" },
           { que: "Para la semana", es: "Sólo del próximo rival: informe, PDF del once probable, PDF para el portero y PowerPoint de día de partido" },
           { que: "Resúmenes de sus partidos", es: "El resumen oficial de cada partido suyo de liga en el canal de la RFEF; abre YouTube" },
+          {
+            que: "Revulsivos",
+            es: "Cada jugador que ha salido desde el banquillo: veces que entra, minutos de suplente, goles y asistencias entrando, G+A por 90 como suplente frente a como titular, el minuto medio de su cambio y la banda de sus remates tras entrar. Los que rinden mucho más entrando salen arriba, marcados «revulsivo»",
+            cuenta: "Opta: opta:jugadores-partidos (GS = 1 titular; si no, suplente) y opta:remates de los partidos en que entra (y < 37 derecha, > 63 izquierda, con dos remates o más). Sólo con este equipo. Revulsivo: 90′ o más entrando, 0,3 G+A/90 o más y 1,5 veces su cifra de titular. Entrada ≈ 90 − minutos jugados. Lógica en lib/rivals/revulsivos.ts",
+          },
         ],
       },
       {
@@ -1447,7 +1452,7 @@ export const AYUDAS: AyudaDePagina[] = [
     ruta: "/scout-rival-collective",
     titulo: "Scout Colectivo",
     resumen: "Cómo juega el rival como equipo, según el analista y los datos de la categoría.",
-    origen: "El informe lo escribe el analista en la hoja RIVALES (la transición ofensiva, en Supabase «scout-rival-colectivo-extra»). Fecha, jornadas y dibujo, de BeSoccer; «Datos del rival» y «Por dónde ataca», de Wyscout y Opta; «Evolución comparada», de Opta (opta:partidos); «Reparto del xG», de Opta (opta:jugadores-partidos).",
+    origen: "El informe lo escribe el analista en la hoja RIVALES (la transición ofensiva, en Supabase «scout-rival-colectivo-extra»). Fecha, jornadas y dibujo, de BeSoccer; «Datos del rival» y «Por dónde ataca», de Wyscout y Opta; «Evolución comparada» y «Embudo del ataque», de Opta (opta:partidos); «Reparto del xG», de Opta (opta:jugadores-partidos); «Según el marcador», de Opta (opta:remates, opta:momento y opta:partidos).",
     revisada: "2026-11-16",
     bloques: [
       {
@@ -1482,6 +1487,18 @@ export const AYUDAS: AyudaDePagina[] = [
             es: "Dos gráficos de líneas jornada a jornada: xG (goles esperados) a favor por partido y xG en contra por partido del Castilla (oro) y del rival (azul), con la media de nuestro grupo en gris discontinuo. La etiqueta dice en cuántos partidos suyos de Opta. Al pie, el último valor de cada línea; arriba, si el rival genera y concede más o menos que hace tres partidos",
             cuenta:
               "Opta, opta:partidos (equipo × partido, por fecha). «Jornada k» es el k-ésimo partido de cada equipo. Cada punto es la media acumulada hasta esa jornada: ExpG para el a favor y ExpGAg (o el ExpG del rival en ese partido) para el en contra. La media del grupo es la de las medias acumuladas de los equipos del grupo del Castilla en esa jornada. «Más» o «menos» que hace tres partidos, si la media acumulada se mueve al menos 0,1 xG. Si el rival no cruza con Opta, no sale",
+          },
+          {
+            que: "Embudo del ataque",
+            es: "Cuatro barras por partido: secuencias, las que llegan al último tercio, toques en el área y remates; en cada escalón su paso y, en gris, la media de nuestro grupo (verde, mejor que la media; naranja, peor). «Su ataque» es lo que hace él con el balón; «Cómo le atacan», lo que le hacen sus rivales, para ver si su defensa cae antes del área o dentro. Arriba, una frase dice en qué escalón se aparta de la media",
+            cuenta:
+              "Opta, opta:partidos, sumando todos sus partidos con las cuatro columnas: Sequences, SeqEndInA3 (secuencias que llegan al último tercio, x > 66,7), TouchOpBox y ShtIncBl (remates con los bloqueados); «Cómo le atacan», las mismas columnas de la fila del contrario en cada partido. Último tercio = SeqEndInA3 / Sequences en %; toques y remates, por cada llegada (un toque no es una secuencia y una secuencia puede tener dos remates, así que no hay % de paso). La media del grupo es la media de esos cocientes de cada equipo del grupo del Castilla. La frase sale si un paso se aparta al menos un 8 % de la media. Opta no trae partido a partido las secuencias con tres pases en el último tercio ni las que tocan el área, y no se ponen. Si el rival no cruza con Opta, no sale",
+          },
+          {
+            que: "Según el marcador",
+            es: "Tres columnas (va ganando, va empatando, va perdiendo) con, por cada 90 minutos en ese estado: remates, xG a favor, xG en contra, posesión, toques en el último tercio y balones ganados en el último tercio; al lado, su media. En rojo, lo que se aparta más de un 25 % de su media. Arriba, una frase dice si cuando se adelanta se repliega o sigue apretando. Debajo, una línea por partido coloreada por el marcador (verde ganando, gris empatando, naranja perdiendo) con el minuto y el marcador de cada gol (▲ suyo, ▼ en contra); salen los 8 últimos y un botón enseña todos",
+            cuenta:
+              "Opta. Los goles de opta:remates (sin la fila repetida de cada evento) dan la línea del marcador de cada partido; el descuento de la primera parte se cuenta en el 45′ y el partido acaba en el 90′ o en lo último que se ve. Remates (con los bloqueados) y xG van al estado del MatchState de cada remate (el «ganando» del contrario es su «perdiendo»). Posesión (media pesada por el tiempo), toques en el último tercio (TchsA3) y balones ganados en el último tercio (PosWonA3rd), de opta:momento: cada tramo de 5′ se reparte entre los estados por los segundos que pasa en cada uno. Por 90 = suma / segundos en el estado × 5.400; la media, lo mismo con todos los minutos. Sólo se marca en rojo con 90′ o más en ese estado. La frase: ganando, posesión, toques arriba y balones ganados arriba frente a su media (dos que bajen un 15 % = se repliega). Opta no trae para todos los equipos el pase a pase ni los centros: el % de pases en campo contrario se lee con la posesión y los toques en el último tercio, la altura defensiva con los balones ganados arriba, y los centros no salen. Un partido cuyos goles no cuadran con el resultado de opta:partidos (gol en propia puerta) sale en la lista pero no entra en las cuentas. Si el rival no cruza con Opta, no sale",
           },
           {
             que: "Reparto del xG",
