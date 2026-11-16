@@ -72,6 +72,13 @@ export type JugadorDash<F extends FichaPlantilla = FichaPlantilla> = {
   fuenteMinutos: "wyscout" | "valoraciones";
   /** Minutos sobre los posibles (0-100), o `null` sin partidos. */
   pct: number | null;
+  /**
+   * Los minutos posibles de SU fuente (16/11/2026, jueces): los de Wyscout se
+   * dividen por los partidos que tiene la descarga de Wyscout (11 → 990′), y
+   * los de Valoraciones por los partidos de Valoraciones (12 → 1080′). Antes
+   * todo iba sobre el mayor de los dos y los de Wyscout salían por debajo.
+   */
+  posibles: number;
   /** Partidos con minutos: Wyscout si lo tiene, si no Valoraciones. */
   partidos: number;
   titular: number;
@@ -198,9 +205,12 @@ export function construyeJugadores<F extends FichaPlantilla>(
   filasWyscout: FilaJugador[],
   partidos: PartidoLiga[],
   partidosEquipo: number,
+  /** Partidos del Castilla en la descarga de Wyscout; 0 si no ha llegado. */
+  partidosDeWyscout = 0,
 ): JugadorDash<F>[] {
   const atadas = atarWyscout(fichas, filasWyscout);
-  const posibles = partidosEquipo * 90;
+  const posiblesValoraciones = partidos.length * 90 || partidosEquipo * 90;
+  const posiblesWyscout = partidosDeWyscout * 90 || partidosEquipo * 90;
 
   return fichas.map((ficha) => {
     const wy = atadas.get(ficha.id) ?? null;
@@ -209,6 +219,7 @@ export function construyeJugadores<F extends FichaPlantilla>(
     const minutosValoraciones = jugadas.reduce((acc, a) => acc + (a.minutos ?? 0), 0);
 
     const minutos = wy ? wy.minutos : minutosValoraciones;
+    const posibles = wy ? posiblesWyscout : posiblesValoraciones;
     const puesto: Puesto = wy && wy.minutos > 0 ? puestoDe(wy.posicion) : puestoDeLaHoja(ficha.posicionHoja);
 
     const entradas: RatedEntry[] = partidos.flatMap((p) => {
@@ -246,6 +257,7 @@ export function construyeJugadores<F extends FichaPlantilla>(
       minutos,
       fuenteMinutos: wy ? "wyscout" : "valoraciones",
       pct: posibles > 0 ? Math.min(100, Math.round((minutos / posibles) * 100)) : null,
+      posibles,
       partidos: wy ? wy.partidos : jugadas.length,
       titular: jugadas.filter((a) => a.titular).length,
       suplente: jugadas.filter((a) => !a.titular).length,
@@ -309,10 +321,11 @@ export const AVISOS: Record<TipoAviso, { titulo: string; regla: string; accion: 
 /** Los avisos de la semana, sólo de los del Castilla. */
 export function avisosDe<F extends FichaPlantilla>(lista: JugadorDash<F>[], partidosEquipo: number): Aviso<F>[] {
   const avisos: Aviso<F>[] = [];
-  const posibles = partidosEquipo * 90;
 
   for (const j of lista) {
     if (!j.ficha.delCastilla) continue;
+
+    const posibles = j.posibles;
 
     const deCampo = j.puesto !== "POR";
 

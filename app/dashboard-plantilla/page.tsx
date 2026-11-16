@@ -37,6 +37,7 @@ import {
 import { AlertTriangle, ExternalLink, RotateCcw, Search, UserRound, X } from "lucide-react";
 
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
+import { EnlacesJugador, NombreJugador, type DestinoJugador } from "@/components/individual/EnlacesJugador";
 
 /*
 |--------------------------------------------------------------------------
@@ -322,18 +323,16 @@ export default function DashboardPlantilla() {
 
   const partidos = useMemo(() => partidosDeLiga(ratingsSeason, hoy), [ratingsSeason, hoy]);
 
-  const partidosEquipo = useMemo(
-    () => Math.max(partidos.length, wyscout?.partidos ? partidosWyscout(wyscout.partidos, hoy) : 0),
-    [partidos, wyscout, hoy],
-  );
+  const partidosWy = useMemo(() => (wyscout?.partidos ? partidosWyscout(wyscout.partidos, hoy) : 0), [wyscout, hoy]);
+  const partidosEquipo = Math.max(partidos.length, partidosWy);
 
   /* Los del Castilla y, de fuera, sólo quien ha jugado con nosotros. */
   const todos = useMemo<Jugador[]>(
     () =>
-      construyeJugadores(fichas, wyscout?.jugadores ?? [], partidos, partidosEquipo)
+      construyeJugadores(fichas, wyscout?.jugadores ?? [], partidos, partidosEquipo, partidosWy)
         .filter((j) => j.ficha.delCastilla || j.minutos > 0 || j.apariciones.some((a) => a.jugo))
         .sort((a, b) => b.minutos - a.minutos || a.ficha.nombre.localeCompare(b.ficha.nombre, "es")),
-    [fichas, wyscout, partidos, partidosEquipo],
+    [fichas, wyscout, partidos, partidosEquipo, partidosWy],
   );
 
   const filtrados = useMemo(() => {
@@ -348,6 +347,14 @@ export default function DashboardPlantilla() {
   }, [todos, grupo, puesto, busca]);
 
   const avisos = useMemo(() => avisosDe(filtrados, partidosEquipo), [filtrados, partidosEquipo]);
+
+  /* 16/11/2026 (jueces): la cifra de arriba cuenta lo que se ve abajo. Quien
+     juega poco y además lleva tres partidos sin jugar sale en UNA fila
+     («Juega poco … y tres partidos sin jugar»), así que cuenta una vez. */
+  const avisosVisibles = useMemo(() => {
+    const juegaPoco = new Set(avisos.filter((a) => a.tipo === "pocos").map((a) => a.jugador.ficha.id));
+    return avisos.filter((a) => !(a.tipo === "sinJugar" && juegaPoco.has(a.jugador.ficha.id)));
+  }, [avisos]);
 
   const sesionesReg = useMemo(
     () => resumenDeSesiones(almacenSesiones, fichas.map((p) => ({ id: p.id, nombre: p.nombre, apodo: p.apodo }))),
@@ -371,6 +378,7 @@ export default function DashboardPlantilla() {
   */
 
   const posibles = partidosEquipo * 90;
+  const posiblesWy = partidosWy * 90;
   const delCastilla = filtrados.filter((j) => j.ficha.delCastilla).length;
   const conMinutos = filtrados.filter((j) => j.minutos > 0 || j.apariciones.some((a) => a.jugo)).length;
   const conEdad = filtrados.filter((j) => j.edad !== null && j.fuenteMinutos === "wyscout");
@@ -389,7 +397,10 @@ export default function DashboardPlantilla() {
     {
       title: "Partidos de liga",
       value: partidosEquipo,
-      base: `${posibles}′ posibles por jugador`,
+      base:
+        partidosWy > 0 && partidosWy !== partidos.length
+          ? `${partidos.length} en Valoraciones (${partidos.length * 90}′) y ${partidosWy} en Wyscout (${posiblesWy}′): cada minuto se mide sobre los partidos de su fuente`
+          : `${posibles}′ posibles por jugador`,
     },
     {
       title: "Han jugado",
@@ -408,10 +419,11 @@ export default function DashboardPlantilla() {
       : []),
     {
       title: "Avisos",
-      value: avisos.length,
+      value: avisosVisibles.length,
       /* 07/11/2026: avisos no son jugadores (uno puede tener dos). */
       /* 10/11/2026: qué los dispara, en la propia tarjeta. */
-      base: `${new Set(avisos.map((a) => a.jugador.ficha.id)).size} jugadores · por minutos (Wyscout), partidos sin jugar y notas (Valoraciones) y amarillas`,
+      /* 16/11/2026: la cifra es la de las filas que se ven abajo. */
+      base: `${new Set(avisosVisibles.map((a) => a.jugador.ficha.id)).size} jugadores del Castilla · por minutos, partidos sin jugar, notas y amarillas`,
     },
   ];
 
@@ -565,7 +577,7 @@ export default function DashboardPlantilla() {
                   );
 
                   /* 07/11/2026: «Avisos» lleva a su tarjeta. */
-                  if (kpi.title === "Avisos" && avisos.length > 0) {
+                  if (kpi.title === "Avisos" && avisosVisibles.length > 0) {
                     return (
                       <button
                         key={kpi.title}
@@ -592,6 +604,16 @@ export default function DashboardPlantilla() {
                 })}
               </div>
 
+              {/* 16/11/2026 (jueces): tres poblaciones en la misma pantalla
+                  (27, 23, 21) se explican en una sola línea. */}
+              <p className="-mt-3 text-[12px] leading-snug text-white/55">
+                <span className="font-semibold text-white/70">Quién cuenta:</span> {filtrados.length} jugadores
+                {filtrados.length > delCastilla ? ` = ${delCastilla} con licencia del Castilla + ${filtrados.length - delCastilla} de fuera que han jugado con nosotros` : " con licencia del Castilla"}
+                {` · ${conMinutos} han jugado al menos un minuto`}
+                {conEdad.length > 0 && conEdad.length < filtrados.length ? ` · Wyscout publica la edad de ${conEdad.length}` : ""}
+                {" · los avisos son sólo de licencia del Castilla."}
+              </p>
+
               <div className="sticky top-0 z-20 -mx-4 bg-[#0B0F14] px-4 py-2 sm:-mx-6 sm:px-6 md:-mx-8 md:px-8">
                 <Pestanas
                   pegada={false}
@@ -616,7 +638,7 @@ export default function DashboardPlantilla() {
                   {vista === "plantilla" && (
                     <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
                       <div className="min-w-0 space-y-6">
-                        <BloqueMinutos jugadores={filtrados} posibles={posibles} onAbre={abreFicha} />
+                        <BloqueMinutos jugadores={filtrados} onAbre={abreFicha} />
                       </div>
                       <div className="min-w-0 space-y-6">
                         <div id="avisos-semana" className="scroll-mt-20">
@@ -636,7 +658,6 @@ export default function DashboardPlantilla() {
                       jugador={seleccionado}
                       lista={filtrados}
                       partidos={partidos}
-                      posibles={posibles}
                       sesiones={sesionesReg}
                       onSelect={setSelectedId}
                     />
@@ -668,16 +689,27 @@ export default function DashboardPlantilla() {
 function Bloque({
   pregunta,
   base,
+  leer,
   children,
 }: {
   pregunta: string;
   base: React.ReactNode;
+  /** 16/11/2026: el método largo, plegado en «Cómo se lee». */
+  leer?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <section className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.025] p-4 md:p-5">
       <h2 className="text-base font-semibold tracking-wide text-neutral-100 md:text-lg">{pregunta}</h2>
       <p className="mt-1 text-xs leading-snug text-white/55">{base}</p>
+      {leer && (
+        <details className="group mt-1.5 text-xs leading-snug text-white/55">
+          <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-[11px] font-medium text-[#C8A96B] [&::-webkit-details-marker]:hidden">
+            <span aria-hidden className="transition group-open:rotate-90">›</span> Cómo se lee
+          </summary>
+          <div className="mt-1.5 space-y-1">{leer}</div>
+        </details>
+      )}
       <div className="mt-4 min-w-0">{children}</div>
     </section>
   );
@@ -781,17 +813,32 @@ function DeFuera({ jugador }: { jugador: Jugador }) {
 |--------------------------------------------------------------------------
 */
 
-function BloqueMinutos({ jugadores, posibles, onAbre }: { jugadores: Jugador[]; posibles: number; onAbre: (id: string) => void }) {
-  const deValoraciones = jugadores.some((j) => j.fuenteMinutos === "valoraciones" && j.minutos > 0);
+function BloqueMinutos({ jugadores, onAbre }: { jugadores: Jugador[]; onAbre: (id: string) => void }) {
+  const deValoraciones = jugadores.find((j) => j.fuenteMinutos === "valoraciones" && j.minutos > 0);
+  const deWyscout = jugadores.find((j) => j.fuenteMinutos === "wyscout");
+  /* 16/11/2026 (jueces): quien no ha jugado ni un minuto no es un 0 % de
+     rendimiento: sale aparte, en una línea, y no en el gráfico. */
+  const sinMinutos = jugadores.filter((j) => j.minutos <= 0 && !j.apariciones.some((a) => a.jugo));
+  const conMinutos = jugadores.filter((j) => !sinMinutos.includes(j));
 
   return (
     <Bloque
-      pregunta="¿Quién juega y cuánto, puesto a puesto?"
+      pregunta={
+        deWyscout
+          ? `¿Quién juega y cuánto? · % sobre ${deWyscout.posibles}′ (${deWyscout.posibles / 90} partidos de Wyscout)`
+          : "¿Quién juega y cuánto, puesto a puesto?"
+      }
       base={
         <>
-          Minutos de Wyscout sobre los {posibles}′ posibles. Titular y suplente, de Valoraciones (titular: marcado o 90′ jugados).
-          {deValoraciones ? " Con asterisco, minutos de Valoraciones: no tiene fila en Wyscout." : ""}{" "}
-          Wyscout cuenta también el añadido y Valoraciones anota 90′ por partido completo: por eso los minutos de una y otra no coinciden.
+          Minutos de Wyscout{deWyscout ? ` sobre los ${deWyscout.posibles}′ de los partidos que tiene su descarga` : ""}; titular y suplente, de Valoraciones.
+          {deValoraciones ? ` Con asterisco, minutos de Valoraciones, sobre sus ${deValoraciones.posibles}′.` : ""} Cada nombre abre su ficha.
+        </>
+      }
+      leer={
+        <>
+          <p>Titular: marcado en Valoraciones o con 90′ jugados. «Tendencia»: con un solo partido de titular, el porcentaje no es firme.</p>
+          <p>Wyscout cuenta también el añadido y Valoraciones anota 90′ por partido completo: por eso los minutos de una y otra no coinciden.</p>
+          <p>Cada fuente se mide sobre sus propios partidos, para que un partido que Wyscout aún no ha publicado no hunda a nadie.</p>
         </>
       }
     >
@@ -808,7 +855,7 @@ function BloqueMinutos({ jugadores, posibles, onAbre }: { jugadores: Jugador[]; 
       </p>
       <div className="space-y-5">
         {PUESTOS.map((p) => {
-          const suyos = jugadores.filter((j) => j.puesto === p.key);
+          const suyos = conMinutos.filter((j) => j.puesto === p.key);
           if (!suyos.length) return null;
 
           const fijos = suyos.filter((j) => (j.pct ?? 0) >= 50).length;
@@ -827,21 +874,28 @@ function BloqueMinutos({ jugadores, posibles, onAbre }: { jugadores: Jugador[]; 
                   const pct = j.pct ?? 0;
 
                   return (
-                    <li key={j.ficha.id}>
-                      <button
-                        type="button"
-                        onClick={() => onAbre(j.ficha.id)}
-                        className="grid w-full min-w-0 grid-cols-[minmax(0,7.5rem)_minmax(0,1fr)_auto] items-center gap-3 rounded-lg px-1.5 py-1.5 text-left transition hover:bg-white/[0.04] sm:grid-cols-[minmax(0,11rem)_minmax(0,1fr)_auto]"
-                      >
+                    <li
+                      key={j.ficha.id}
+                      className="grid w-full min-w-0 grid-cols-[minmax(0,7.5rem)_minmax(0,1fr)] items-center gap-3 rounded-lg px-1.5 py-1.5 transition hover:bg-white/[0.04] sm:grid-cols-[minmax(0,11rem)_minmax(0,1fr)]"
+                    >
                         {/* 07/11/2026: en el móvil la etiqueta del equipo
-                            (JUV A, RMC) va debajo y el nombre no se corta. */}
+                            (JUV A, RMC) va debajo y el nombre no se corta.
+                            16/11/2026: el nombre abre su ficha en Plantilla. */}
                         <span className="flex min-w-0 flex-col items-start text-sm leading-tight text-white/85 sm:flex-row sm:items-center">
-                          <span className="max-w-full break-words sm:truncate">{nombreDe(j)}</span>
+                          <NombreJugador jugador={{ id: j.ficha.id, nombre: j.ficha.nombre }} className="max-w-full break-words sm:truncate">
+                            {nombreDe(j)}
+                          </NombreJugador>
                           <span className="-ml-1.5 mt-0.5 sm:ml-0 sm:mt-0">
                             <DeFuera jugador={j} />
                           </span>
                         </span>
 
+                      <button
+                        type="button"
+                        onClick={() => onAbre(j.ficha.id)}
+                        title={`Ver a ${nombreDe(j)} en «¿Cómo está cada uno?»`}
+                        className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 text-left"
+                      >
                         <Barra pct={pct} color={pct < 25 ? PEOR : ORO} />
 
                         <span className="text-right tabular-nums">
@@ -850,7 +904,7 @@ function BloqueMinutos({ jugadores, posibles, onAbre }: { jugadores: Jugador[]; 
                             {/* 10/11/2026: separado («804′81 %» se leía como una cifra) y,
                                 si pasa de los posibles, se dice que es por el añadido. */}
                             <span className="ml-1.5 text-xs font-normal text-white/50">
-                              · {pct} %{j.minutos > posibles ? " (con el añadido)" : ""}
+                              · {pct} %{j.minutos > j.posibles ? " (con el añadido)" : ""}
                             </span>
                           </span>
                           {j.titular + j.suplente > 0 && (
@@ -869,6 +923,19 @@ function BloqueMinutos({ jugadores, posibles, onAbre }: { jugadores: Jugador[]; 
             </div>
           );
         })}
+
+        {sinMinutos.length > 0 && (
+          <p className="border-t border-white/5 pt-3 text-[12px] leading-snug text-white/60">
+            <span className="font-semibold text-white/75">Sin minutos esta temporada ({sinMinutos.length}):</span>{" "}
+            {sinMinutos.map((j, i) => (
+              <span key={j.ficha.id}>
+                {i > 0 && ", "}
+                <NombreJugador jugador={{ id: j.ficha.id, nombre: j.ficha.nombre }}>{nombreDe(j)}</NombreJugador>
+                {j.puesto === "POR" ? " (portero)" : ""}
+              </span>
+            ))}
+          </p>
+        )}
       </div>
     </Bloque>
   );
@@ -882,6 +949,16 @@ function BloqueMinutos({ jugadores, posibles, onAbre }: { jugadores: Jugador[]; 
 
 const ORDEN_AVISOS: TipoAviso[] = ["sinJugar", "pocos", "amarillas", "carga", "nota"];
 
+/* 16/11/2026 (jueces): el «qué hacer» de cada aviso, a un toque y con el
+   jugador ya elegido. */
+const ACCION_AVISO: Record<TipoAviso, { destino: DestinoJugador; label: string }> = {
+  pocos: { destino: "registrar", label: "Registrar seguimiento" },
+  sinJugar: { destino: "registrar", label: "Registrar seguimiento" },
+  carga: { destino: "valoraciones", label: "Valoraciones" },
+  amarillas: { destino: "valoraciones", label: "Valoraciones" },
+  nota: { destino: "videos", label: "Vídeos" },
+};
+
 function BloqueAvisos({
   avisos,
   onAbre,
@@ -891,23 +968,59 @@ function BloqueAvisos({
   onAbre: (id: string) => void;
   partidosEquipo: number;
 }) {
+  /* 10/11/2026: quien juega poco y además lleva tres sin jugar va en una
+     sola fila (la de «Juega poco») con las dos razones. */
+  const tambienSinJugar = new Set(avisos.filter((a) => a.tipo === "sinJugar").map((a) => a.jugador.ficha.id));
+  const juegaPoco = new Set(avisos.filter((a) => a.tipo === "pocos").map((a) => a.jugador.ficha.id));
+  const visibles = avisos.filter((a) => !(a.tipo === "sinJugar" && juegaPoco.has(a.jugador.ficha.id)));
+
+  /* Semáforo: un punto por jugador, naranja con dos avisos o más, oro con uno. */
+  const porJugador = new Map<string, { jugador: Jugador; n: number }>();
+  for (const a of visibles) {
+    const previo = porJugador.get(a.jugador.ficha.id);
+    porJugador.set(a.jugador.ficha.id, { jugador: a.jugador, n: (previo?.n ?? 0) + 1 + (a.tipo === "pocos" && tambienSinJugar.has(a.jugador.ficha.id) ? 1 : 0) });
+  }
+  const semaforo = [...porJugador.values()].sort((a, b) => b.n - a.n || nombreDe(a.jugador).localeCompare(nombreDe(b.jugador), "es"));
+
   return (
     <Bloque
-      pregunta="¿De quién hay que hablar esta semana?"
-      base={`Sólo licencia del Castilla. Minutos y amarillas de Wyscout; partidos y notas, de Valoraciones (${partidosEquipo} partidos). Los porteros no entran en los avisos de minutos. Los minutos posibles son los de los ${partidosEquipo} partidos (${partidosEquipo * 90}′) para todos, también para quien llegó con la liga empezada.`}
+      pregunta={
+        visibles.length
+          ? `¿De quién hay que hablar esta semana? · ${porJugador.size} ${porJugador.size === 1 ? "jugador" : "jugadores"}`
+          : "¿De quién hay que hablar esta semana?"
+      }
+      base="Sólo licencia del Castilla; los porteros no entran en los avisos de minutos. Cada nombre abre su ficha y el botón de al lado, lo que hay que hacer."
+      leer={
+        <>
+          <p>Minutos y amarillas, de Wyscout; partidos y notas, de Valoraciones ({partidosEquipo} partidos).</p>
+          <p>Los minutos se miden sobre los partidos de su fuente para todos, también para quien llegó con la liga empezada.</p>
+        </>
+      }
     >
-      {avisos.length === 0 ? (
+      {visibles.length === 0 ? (
         <p className="text-sm text-white/60">Con estas reglas no sale ningún aviso esta semana.</p>
       ) : (
         <div className="space-y-4">
+          <ul aria-label="Semáforo de avisos por jugador" className="flex flex-wrap gap-1.5">
+            {semaforo.map(({ jugador, n }) => (
+              <li key={jugador.ficha.id}>
+                <NombreJugador
+                  jugador={{ id: jugador.ficha.id, nombre: jugador.ficha.nombre }}
+                  className="inline-flex min-h-[28px] items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-0.5 text-xs text-white/85"
+                >
+                  <span aria-hidden className="h-2.5 w-2.5 rounded-full" style={{ background: n >= 2 ? PEOR : ORO }} />
+                  {nombreDe(jugador)}
+                  <span className="text-white/50">{n === 1 ? "1 aviso" : `${n} avisos`}</span>
+                </NombreJugador>
+              </li>
+            ))}
+          </ul>
+
           {ORDEN_AVISOS.map((tipo) => {
-            /* 10/11/2026: quien juega poco y además lleva tres sin jugar va en
-               una sola fila (la de «Juega poco») con las dos razones. */
-            const tambienSinJugar = new Set(avisos.filter((a) => a.tipo === "sinJugar").map((a) => a.jugador.ficha.id));
-            const juegaPoco = new Set(avisos.filter((a) => a.tipo === "pocos").map((a) => a.jugador.ficha.id));
-            const suyos = avisos.filter((a) => a.tipo === tipo && !(tipo === "sinJugar" && juegaPoco.has(a.jugador.ficha.id)));
+            const suyos = visibles.filter((a) => a.tipo === tipo);
             if (!suyos.length) return null;
             const def = AVISOS[tipo];
+            const accion = ACCION_AVISO[tipo];
 
             return (
               <div key={tipo} className="min-w-0 rounded-xl border border-white/10 bg-white/[0.02] p-3">
@@ -917,23 +1030,34 @@ function BloqueAvisos({
                 <p className="mt-0.5 text-[11px] leading-snug text-white/50">
                   {def.regla}. Qué hacer: {def.accion}.
                 </p>
-                <ul className="mt-2 flex flex-wrap gap-1.5">
+                <ul className="mt-2 space-y-1.5">
                   {suyos.map((a) => (
-                    <li key={a.jugador.ficha.id}>
+                    <li key={a.jugador.ficha.id} className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-xs">
+                      <NombreJugador jugador={{ id: a.jugador.ficha.id, nombre: a.jugador.ficha.nombre }} className="font-medium text-white/90">
+                        {nombreDe(a.jugador)}
+                      </NombreJugador>
                       <button
                         type="button"
                         onClick={() => onAbre(a.jugador.ficha.id)}
-                        className="min-h-[36px] rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1 text-left text-xs transition hover:border-[#C8A96B]"
+                        title="Ver su resumen en «¿Cómo está cada uno?»"
+                        className="min-w-0 text-left tabular-nums text-white/55 transition hover:text-white"
                       >
-                        <span className="font-medium text-white/90">{nombreDe(a.jugador)}</span>
-                        <span className="ml-1.5 tabular-nums text-white/55">{a.cifra}</span>
-                        {tipo === "pocos" && tambienSinJugar.has(a.jugador.ficha.id) && (
-                          <span className="ml-1.5 text-white/55">· y tres partidos sin jugar</span>
-                        )}
+                        {a.cifra}
+                        {tipo === "pocos" && tambienSinJugar.has(a.jugador.ficha.id) && " · y tres partidos sin jugar"}
                       </button>
+                      <EnlacesJugador
+                        className="ml-auto"
+                        jugador={{ id: a.jugador.ficha.id, nombre: a.jugador.ficha.nombre }}
+                        destinos={[accion.destino]}
+                      />
                     </li>
                   ))}
                 </ul>
+                {tipo === "carga" && (
+                  <Link href="/microcycles" className="mt-2 inline-block text-[11px] font-medium text-[#C8A96B] hover:underline">
+                    Planificar la semana en Microciclos →
+                  </Link>
+                )}
               </div>
             );
           })}
@@ -1252,14 +1376,12 @@ function FichaJugador({
   jugador: j,
   lista,
   partidos,
-  posibles,
   sesiones,
   onSelect,
 }: {
   jugador: Jugador;
   lista: Jugador[];
   partidos: PartidoLiga[];
-  posibles: number;
   sesiones: ResumenSesiones;
   onSelect: (id: string) => void;
 }) {
@@ -1326,7 +1448,7 @@ function FichaJugador({
             <Cifra
               titulo="Minutos"
               valor={`${j.minutos}′`}
-              base={`${j.pct ?? 0} % de ${posibles}′ · ${j.fuenteMinutos === "wyscout" ? "Wyscout" : "Valoraciones"}`}
+              base={`${j.pct ?? 0} % de ${j.posibles}′ · ${j.fuenteMinutos === "wyscout" ? "Wyscout" : "Valoraciones"}`}
             />
             <Cifra
               titulo="Partidos"
@@ -1357,10 +1479,14 @@ function FichaJugador({
             </p>
           )}
 
-          <div className="mt-4 flex flex-wrap items-center gap-4 border-t border-white/5 pt-3 text-xs">
-            <Link href={`/individual?player=${encodeURIComponent(j.ficha.id)}`} className="text-[#C8A96B] transition hover:text-[#e0c68d]">
-              Ficha completa en Plantilla
-            </Link>
+          {/* 16/11/2026 (jueces): su ficha, su seguimiento y sus valoraciones a un toque. */}
+          <EnlacesJugador
+            className="mt-4"
+            jugador={{ id: j.ficha.id, nombre: j.ficha.nombre }}
+            destinos={["ficha", "seguimiento", "registrar", "valoraciones", "comparativa", "videos"]}
+          />
+
+          <div className="mt-3 flex flex-wrap items-center gap-4 border-t border-white/5 pt-3 text-xs">
             {j.wy && (
               <Link href={`/data-analisis?area=individual&jugador=${encodeURIComponent(j.wy.jugador)}`} className="text-[#C8A96B] transition hover:text-[#e0c68d]">
                 Sus datos en Análisis de datos

@@ -950,24 +950,26 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Dashboard de plantilla",
     resumen: "Quién juega, cuánto y cómo rinde: minutos por puesto, avisos de la semana, jornada a jornada, la ficha de cada uno y quién rinde más.",
     origen: "Wyscout (minutos, edad, contrato, amarillas, goles, asistencias y percentiles por puesto), Valoraciones (quién jugó cada jornada, titular o suplente, minutos y nota), hoja JUGADORES (plantilla, licencia y ficha de competencias) y Jugadores sesión (documento «jugadores-sesion», desde el 21/10).",
-    revisada: "2026-11-15",
+    revisada: "2026-11-16",
     bloques: [
       {
         titulo: "Arriba",
         filas: [
           { que: "Jugadores del Castilla", es: "Los de licencia del Castilla y, aparte, los de fuera con minutos, con su etiqueta (RMC, JUV A…)", cuenta: "«Grupo» deja sólo la licencia del Castilla" },
-          { que: "Partidos de liga", es: "Los jugados y los minutos posibles por jugador", cuenta: "Partidos × 90" },
+          { que: "Partidos de liga", es: "Los jugados y los minutos posibles por jugador; si Valoraciones y Wyscout tienen distintos partidos, dice los dos", cuenta: "Partidos × 90, de cada fuente" },
           { que: "Han jugado", es: "Cuántos tienen al menos un minuto" },
           { que: "Minutos sub-21", es: "Parte de los minutos de Wyscout que juegan los de 21 años o menos", cuenta: "Minutos de los sub-21 ÷ minutos de los que tienen edad × 100; el mismo corte que la Comparativa" },
-          { que: "Avisos", es: "Cuántos avisos y de cuántos jugadores; pinchando, lleva a su tarjeta" },
+          { que: "Avisos", es: "Cuántas filas de aviso se ven abajo y de cuántos jugadores; pinchando, lleva a su tarjeta", cuenta: "Quien juega poco y además lleva tres partidos sin jugar es una sola fila y cuenta una vez (16/11/2026)" },
+          { que: "Quién cuenta", es: "Una línea bajo las cifras explica las poblaciones: el total (licencia del Castilla + los de fuera que han jugado), los que han jugado y de cuántos publica Wyscout la edad" },
         ],
       },
       {
         titulo: "¿Cómo está la plantilla?",
         filas: [
-          { que: "Minutos", es: "Los de Wyscout sobre los posibles, puesto a puesto; sin fila en Wyscout, los de Valoraciones con asterisco", cuenta: "En naranja, menos del 25 %. Wyscout cuenta el añadido: puede pasar de los posibles" },
+          { que: "Minutos", es: "Los de Wyscout sobre los minutos de los partidos que tiene la descarga de Wyscout (lo dice el título, p. ej. 990′ de 11 partidos); sin fila en Wyscout, los de Valoraciones con asterisco, sobre los partidos de Valoraciones. Cada nombre abre su ficha en Plantilla; la barra, su resumen en «¿Cómo está cada uno?»", cuenta: "En naranja, menos del 25 %. Wyscout cuenta el añadido: puede pasar de los posibles. Quien no tiene ni un minuto sale aparte, en «Sin minutos esta temporada», y no en el gráfico" },
+          { que: "Cómo se lee", es: "El método largo de cada bloque va plegado bajo su título" },
           { que: "Titular", es: "Marcado como titular en Valoraciones o con los 90′; con uno o ninguno, «tendencia»" },
-          { que: "¿De quién hay que hablar esta semana?", es: "Juega poco (menos del 25 %), tres partidos sin jugar, carga alta (90 % o más), a una amarilla del ciclo (4, 9, 14…) y nota a la baja", cuenta: "Sólo licencia del Castilla; los porteros no entran en los de minutos. Nota a la baja: media de las 3 últimas un punto o más por debajo de la de las 3 anteriores" },
+          { que: "¿De quién hay que hablar esta semana?", es: "Arriba, un semáforo con cada jugador avisado (oro, un aviso; naranja, dos o más). Debajo, juega poco (menos del 25 %), tres partidos sin jugar, carga alta (90 % o más), a una amarilla del ciclo (4, 9, 14…) y nota a la baja; cada fila lleva el nombre a su ficha y el «qué hacer» a un toque: registrar seguimiento, sus valoraciones o sus vídeos, y la carga alta, a Microciclos", cuenta: "Sólo licencia del Castilla; los porteros no entran en los de minutos. Nota a la baja: media de las 3 últimas un punto o más por debajo de la de las 3 anteriores" },
           { que: "¿Qué edad tiene quien juega?", es: "Tramos de edad de Wyscout con su parte de los minutos jugados", cuenta: "Edad media ponderada por minutos" },
           { que: "¿Cuándo acaban los contratos?", es: "Fin de contrato que publica Wyscout" },
           { que: "¿Quién entrena con el grupo?", es: "Sesiones de cada uno en Jugadores sesión, de menos a más, y quién del Castilla no sale en ninguna", cuenta: "En naranja, por debajo del 70 % de las sesiones" },
@@ -977,7 +979,7 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Jornadas, jugador y rendimiento",
         filas: [
           { que: "¿Quién juega cada jornada?", es: "Tabla jugador × partido de Valoraciones con sus minutos", cuenta: "Oro fuerte, titular; oro suave, desde el banquillo; punto, jugó sin minutos anotados" },
-          { que: "¿Cómo está cada uno?", es: "Minutos, partidos, goles y asistencias, nota, amarillas, minutos por jornada y enlaces a su ficha individual, a DATA y a Hudl" },
+          { que: "¿Cómo está cada uno?", es: "Minutos, partidos, goles y asistencias, nota, amarillas, minutos por jornada y accesos a su ficha, su seguimiento (y registrar uno nuevo), sus valoraciones, la Comparativa, sus vídeos, DATA y Hudl, con el jugador ya elegido" },
           { que: "¿Qué hace mejor y peor que los de su puesto?", es: "Sus métricas más altas y más bajas en percentil contra los de su puesto de la liga con 90′ o más (Wyscout)" },
           { que: "¿Cómo le ve el cuerpo técnico?", es: "Mentalidad, hábitos, interpretación, física y técnica de la ficha de competencias, de 0 a 10", cuenta: "Diferencia frente a la media de los que tienen ficha; en gris si es menor de 1 punto" },
           { que: "¿Quién tiene mejor nota de partido?", es: "Nota media de Valoraciones con 3 partidos valorados o más; entre paréntesis, la de los cinco últimos" },
@@ -986,7 +988,10 @@ export const AYUDAS: AyudaDePagina[] = [
         ],
       },
     ],
-    ojo: ["Los minutos de Wyscout y los de Valoraciones no coinciden: Wyscout cuenta el añadido y Valoraciones anota 90′ por partido completo."],
+    ojo: [
+      "Los minutos de Wyscout y los de Valoraciones no coinciden: Wyscout cuenta el añadido y Valoraciones anota 90′ por partido completo.",
+      "Cada fuente se mide sobre sus propios partidos (16/11/2026): un partido que Wyscout aún no ha publicado no hunde el porcentaje de nadie.",
+    ],
   },
   {
     ruta: "/ratings",
