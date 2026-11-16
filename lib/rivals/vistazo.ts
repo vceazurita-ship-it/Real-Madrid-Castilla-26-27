@@ -12,7 +12,7 @@
  * una lista vacía cuando falta, y la tarjeta no la pinta.
  */
 import {
-  esLiga,
+  deSuLiga,
   filaPropia,
   jugados,
   type FilaClasificacion,
@@ -113,7 +113,7 @@ export function vistazoDe(
     }
   }
 
-  const deLiga = jugados(informe).filter(esLiga);
+  const deLiga = deSuLiga(jugados(informe));
 
   const forma = deLiga
     .map(resultadoDe)

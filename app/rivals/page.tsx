@@ -3031,7 +3031,7 @@ export default function RivalPlayersPage() {
           .tags.filter((tag) => tag.tone === "debilidad")
           .map((tag) => tag.label.toLowerCase());
         const flojos = perfil && !perfil.muestraCorta ? perfil.flojos.slice(0, 2).map((rasgo) => rasgo.nombre) : [];
-        const frase = fraseDeDano(debilidades, flojos, perfil?.posicionTexto || String(p["POSICIÓN"] ?? ""));
+        const frase = fraseDeDano(debilidades, flojos, perfil?.posicionTexto || String(p["POSICIÓN"] ?? ""), String(p["PIE DOMINANTE"] ?? ""));
 
         /*
         | 30/10/2026 (fútbol y marketing): el puesto y los minutos, los de la
@@ -4023,7 +4023,7 @@ export default function RivalPlayersPage() {
                   enlaces={[
                     {
                       href: `/scout-rival-abp?equipo=${encodeURIComponent(selectedTeam)}`,
-                      label: "Su balón parado",
+                      label: "Ver sus córners y faltas",
                     },
                     /* El colectivo se abre por el `ID` de su fila en RIVALES:
                        sin él, sólo se ofrece si es el próximo (que es donde
@@ -4034,20 +4034,20 @@ export default function RivalPlayersPage() {
                             href: `/scout-rival-collective?rival=${encodeURIComponent(
                               enfrentamientoDe(ordenRivales, selectedTeam)?.id ?? "",
                             )}`,
-                            label: "Cómo juega como equipo",
+                            label: "Ver cómo juega como equipo",
                           },
                         ]
                       : esElProximo(ordenRivales, selectedTeam)
-                        ? [{ href: "/scout-rival-collective", label: "Cómo juega como equipo" }]
+                        ? [{ href: "/scout-rival-collective", label: "Ver cómo juega como equipo" }]
                         : []),
                     /* Duelos e individual se eligen por nombre de equipo. */
                     {
                       href: `/duelos?equipo=${encodeURIComponent(selectedTeam)}`,
-                      label: "Duelos contra nuestro once",
+                      label: "Comparar su once con el nuestro",
                     },
                     {
                       href: `/scout-rival-individual?equipo=${encodeURIComponent(selectedTeam)}`,
-                      label: "Vídeos de sus jugadores",
+                      label: "Ver los vídeos de sus jugadores",
                     },
                   ]}
                 />

@@ -71,10 +71,12 @@ function Bloque({ equipo }: { equipo: string }) {
     <section aria-label="Evolución comparada" className="mt-8 min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4 sm:px-5">
       <p className="flex flex-wrap items-baseline gap-x-2 text-base font-bold text-white">
         Evolución comparada
-        <span className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] font-semibold text-white/60">dato · Opta, media acumulada</span>
+        <span className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] font-semibold text-white/60">
+          dato · Opta, {favor.partidosRival} {favor.partidosRival === 1 ? "partido" : "partidos"} suyos, media acumulada
+        </span>
       </p>
       <p className="mt-1 text-sm leading-6 text-white/75">
-        xG por partido de {nombreRival} y del Castilla, la media hasta cada jornada.
+        xG (goles esperados: lo que valen sus remates por la ocasión) por partido de {nombreRival} y del Castilla, la media hasta cada jornada.
         {frase.length > 0 && ` ${nombreRival} ${frase.join(" y ")}.`}
       </p>
 

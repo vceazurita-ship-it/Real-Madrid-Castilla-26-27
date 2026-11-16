@@ -35,6 +35,30 @@ const rango = (frase: string) => {
   return i < 0 ? PRIORIDAD_CENTRAL.length : i;
 };
 
+/*
+| «Perfil único» con la pierna de la plantilla (16/11/2026, jueces de fútbol):
+| «cerrarle su perfil bueno» no decía cuál. Con «PIE DOMINANTE» se dice la
+| pierna y a qué lado se le obliga; sin pierna, la regla no da acción (no se
+| inventa un perfil que nadie ha escrito).
+*/
+const UNA_PIERNA = "sólo juega con una pierna";
+
+function piernaDe(pie: string) {
+  const limpio = sinTildes(pie);
+
+  if (/zurd|izq|izd/.test(limpio)) return { buena: "izquierda", mala: "derecha" };
+  if (/diestr|derech|dch|\bder/.test(limpio)) return { buena: "derecha", mala: "izquierda" };
+
+  return null;
+}
+
+function accionDePierna(pierna: { buena: string; mala: string }, esCentral: boolean, esBanda: boolean) {
+  if (esCentral) return `orientarle la salida hacia su pierna ${pierna.mala} y presionarle por su ${pierna.buena}`;
+  if (esBanda) return `cerrarle el perfil de dentro y obligarle a centrar con la ${pierna.mala}`;
+
+  return `taparle la pierna ${pierna.buena} y obligarle a jugar con la ${pierna.mala}`;
+}
+
 function adaptaAccion(regla: Regla, esCentral: boolean, esLateral: boolean) {
   if (regla.frase === "pierde duelos") {
     if (esCentral) return "que nuestro 9 le fije de espaldas y le gane la primera";
@@ -55,19 +79,36 @@ export const nombrePropio = (t: string) =>
  * equivalencia. `debilidades` son las etiquetas de la ficha y `flojos` los
  * nombres de los rasgos flojos en Wyscout.
  */
-export function fraseDeDano(debilidades: string[], flojos: string[], puesto = ""): { frases: string[]; accion: string } | null {
+export function fraseDeDano(
+  debilidades: string[],
+  flojos: string[],
+  puesto = "",
+  /** «PIE DOMINANTE» de la plantilla: «ZURDO», «Diestro», «IZDO»… */
+  pie = "",
+): { frases: string[]; accion: string } | null {
   const frases: string[] = [];
   let accion = "";
   const halladas: Regla[] = [];
   const lugar = sinTildes(puesto);
   const esCentral = /central|\bdfc\b|\bcb\b/.test(lugar);
   const esLateral = !esCentral && /lateral|carrilero|\bld\b|\bli\b|\brb\b|\blb\b/.test(lugar);
+  const esBanda = esLateral || /extremo|interior|\bed\b|\bei\b|\brw|\blw/.test(lugar);
+  const pierna = piernaDe(pie);
 
   for (const texto of [...debilidades, ...flojos]) {
     const limpio = sinTildes(texto);
     const regla = REGLAS.find((r) => r.patron.test(limpio));
 
-    if (!regla || frases.includes(regla.frase)) continue;
+    if (!regla || frases.includes(regla.frase) || (regla.frase === UNA_PIERNA && frases.some((f) => f.startsWith("sólo juega con")))) continue;
+
+    /* Con la pierna escrita, la frase la dice; sin ella, la regla no da acción. */
+    if (regla.frase === UNA_PIERNA) {
+      frases.push(pierna ? `sólo juega con la pierna ${pierna.buena}` : UNA_PIERNA);
+
+      if (pierna) halladas.push(regla);
+
+      continue;
+    }
 
     frases.push(regla.frase);
 
@@ -77,7 +118,7 @@ export function fraseDeDano(debilidades: string[], flojos: string[], puesto = ""
   /* El central se ataca por su espalda y presionándole al recibir: manda la acción de mayor rango. Los demás, la primera que salió. */
   const elegida = esCentral ? [...halladas].sort((x, y) => rango(x.frase) - rango(y.frase))[0] : halladas[0];
 
-  if (elegida) accion = adaptaAccion(elegida, esCentral, esLateral);
+  if (elegida) accion = elegida.frase === UNA_PIERNA && pierna ? accionDePierna(pierna, esCentral, esBanda) : adaptaAccion(elegida, esCentral, esLateral);
 
   return accion ? { frases: frases.slice(0, 3), accion } : null;
 }

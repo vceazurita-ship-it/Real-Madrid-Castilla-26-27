@@ -25,6 +25,7 @@
  * una cifra aquí: el repositorio es público.
  */
 
+import { medianaLiga } from "@/lib/rivals/puesto-liga";
 import type { Fuente, Magnitud } from "@/lib/fuentes";
 import { MAGNITUD, nombresOpta } from "@/lib/fuentes";
 import { aObjetos, num, type MetaOpta, type TablaOpta } from "@/lib/opta";
@@ -179,15 +180,15 @@ export function filaDelPartido(opta: TablasOpta | null | undefined, equipo: stri
   return cerca[0] ?? null;
 }
 
+/* El puesto y la mediana con la cuenta común del rival (`lib/rivals/puesto-liga.ts`, 16/11/2026). */
 const posicion = (valor: number, todos: number[], mejor: boolean | null) => {
-  const orden = [...todos].sort((a, b) => a - b);
-  const n = orden.length;
+  const n = todos.length;
   return {
     puesto: mejor === false ? todos.filter((x) => x < valor).length + 1 : todos.filter((x) => x > valor).length + 1,
     puestoDeMas: todos.filter((x) => x > valor).length + 1,
     de: n,
     percentil: mejor === null ? null : percentilWyscout(valor, todos, mejor),
-    mediana: n ? (n % 2 ? orden[(n - 1) / 2] : (orden[n / 2 - 1] + orden[n / 2]) / 2) : null,
+    mediana: n ? medianaLiga(todos) : null,
     media: n ? todos.reduce((a, b) => a + b, 0) / n : null,
   };
 };

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { mismoEquipo } from "@/lib/data-analisis/nombres";
+import { competicionPrincipal } from "@/lib/data-analisis/equipo";
 import { esNuestro } from "@/lib/data-analisis/individual";
 
 import { expandeIndice, leeDatos, type Dataset } from "@/lib/data-analisis/leer";
@@ -505,6 +506,24 @@ function lanzadoresDe(datos: Dataset, equipo: string) {
   return [...saca("Córneres/90", "corner"), ...saca("Tiros libres/90", "falta")];
 }
 
+/**
+ * La población con la que se compara a un equipo (16/11/2026): los partidos de
+ * esta temporada de SU competición, la misma que usa «Datos del rival» del
+ * Scout colectivo (`perfilDe`). Antes Plantillas y Área contaban también la
+ * copa, y el mismo dato salía con otra mediana y otro puesto.
+ */
+function ligaDeSuCompeticion(partidos: Dataset["partidos"], equipo: string) {
+  const suyos = partidos.filter((p) => mismoEquipo(p.equipo, equipo));
+  const competicion = competicionPrincipal(suyos);
+
+  if (!competicion) return partidos;
+
+  const deLaComp = partidos.filter((p) => p.competicion === competicion);
+
+  /* Con menos de 4 equipos no hay liga: se queda como estaba. */
+  return new Set(deLaComp.map((p) => p.equipo)).size >= 4 ? deLaComp : partidos;
+}
+
 function abpRivalDe(datos: Dataset, equipo: string, ambito: "abp" | "area" | "estilo" = "abp") {
   const temporadas = [...new Set(datos.partidos.map((p) => temporadaDe(p.fecha)))]
     .filter(Boolean)
@@ -512,7 +531,10 @@ function abpRivalDe(datos: Dataset, equipo: string, ambito: "abp" | "area" | "es
 
   const actual = temporadas[temporadas.length - 1] ?? "";
 
-  const liga = datos.partidos.filter((p) => temporadaDe(p.fecha) === actual);
+  const liga = ligaDeSuCompeticion(
+    datos.partidos.filter((p) => temporadaDe(p.fecha) === actual),
+    equipo,
+  );
 
   const equipos = [...new Set(liga.map((p) => p.equipo))];
 
@@ -553,6 +575,10 @@ function abpRivalDe(datos: Dataset, equipo: string, ambito: "abp" | "area" | "es
       /* Los extremos de la liga, para la barra (11/11/2026, análisis). */
       minimo: f.minimo ?? null,
       maximo: f.maximo ?? null,
+      /* El puesto de la cuenta común (`lib/rivals/puesto-liga.ts`): el mismo en todas las pantallas. */
+      puesto: f.puesto ?? null,
+      de: f.de ?? null,
+      lectura: f.lectura ?? null,
       /* En lo que RECIBE el sentido se gira: más córners concedidos no es mejor. */
       /*
       | Las faltas lanzadas son «estilo» en el catálogo; aquí, como los córners,
@@ -598,7 +624,10 @@ function destacadosDe(datos: Dataset, equipo: string, aspectos: string[]) {
 
   const actual = temporadas[temporadas.length - 1] ?? "";
 
-  const liga = datos.partidos.filter((p) => temporadaDe(p.fecha) === actual);
+  const liga = ligaDeSuCompeticion(
+    datos.partidos.filter((p) => temporadaDe(p.fecha) === actual),
+    equipo,
+  );
 
   const equipos = [...new Set(liga.map((p) => p.equipo))];
 
@@ -626,8 +655,20 @@ function destacadosDe(datos: Dataset, equipo: string, aspectos: string[]) {
     /* Sólo lo que cabe en una diapositiva, ya ordenado y sin el ruido. */
     equipo: deEquipo
       .filter((d) => Math.abs(d.desviacion) >= UMBRAL_EQUIPO)
+      /*
+      | Cada aspecto, sólo con las cifras que lo sostienen (16/11/2026, jueces
+      | de fútbol): un «fuerte» lleva las que están entre los 6 primeros de 20 y
+      | un «flojo» las de los 6 últimos. Lo de en medio —el 10.º, lo que vale la
+      | mediana— no se presenta ni como fortaleza ni como carencia, y un aspecto
+      | sin ninguna cifra en el extremo no sale.
+      */
+      .map((d) => ({
+        d,
+        sostienen: d.filas.filter((f) => f.lectura === (d.desviacion >= 0 ? "fuerte" : "flojo")),
+      }))
+      .filter(({ sostienen }) => sostienen.length > 0)
       .slice(0, MAXIMO_DESTACADOS)
-      .map((d) => {
+      .map(({ d, sostienen }) => {
         /*
         | Y la categoría entera en las dos métricas del aspecto.
         |
@@ -642,12 +683,14 @@ function destacadosDe(datos: Dataset, equipo: string, aspectos: string[]) {
           explica: d.aspecto.explica,
           percentil: Math.round(d.percentil),
           desviacion: Math.round(d.desviacion),
-          filas: d.filas.map((f) => ({
+          filas: sostienen.map((f) => ({
             nombre: f.metrica.nombre,
             valor: f.valor,
             mediana: f.mediana,
             unidad: f.metrica.unidad,
             percentil: f.percentil,
+            puesto: f.puesto,
+            de: f.de,
           })),
           nube: nube
             ? {

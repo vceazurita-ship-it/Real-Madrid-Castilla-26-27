@@ -13,7 +13,7 @@
 import { useMemo } from "react";
 import { House, Plane } from "lucide-react";
 import { useRivalInforme } from "@/hooks/useRivalInforme";
-import { esLiga, findInforme, jugados } from "@/lib/rivals/informe";
+import { deSuLiga, findInforme, jugados } from "@/lib/rivals/informe";
 import { chipInk } from "@/lib/theme";
 import { nombreCorto } from "@/lib/abp/informe-graficos";
 
@@ -29,8 +29,8 @@ export function TiraJornadas({ equipo }: { equipo: string }) {
 
     if (!informe) return [];
 
-    return jugados(informe)
-      .filter(esLiga)
+    /* Sólo su liga (16/11/2026): la copa y los torneos de verano, fuera. */
+    return deSuLiga(jugados(informe))
       .slice()
       .reverse()
       .map((partido, i) => {
@@ -70,7 +70,7 @@ export function TiraJornadas({ equipo }: { equipo: string }) {
       <p className="mb-1.5 text-[13px] font-semibold text-white/70">
         Sus {jornadas.length} partidos de liga: {jornadas.filter((j) => j.resultado === "G").length}V{" "}
         {jornadas.filter((j) => j.resultado === "E").length}E {jornadas.filter((j) => j.resultado === "P").length}D
-        <span className="font-normal text-white/50"> · del primero al último (la jornada es la suya, no la nuestra)</span>
+        <span className="font-normal text-white/60"> · el más reciente, a la derecha · sin copa ni torneos · «Su J» es la jornada suya, no la nuestra</span>
       </p>
       {/* Degradado a la derecha (30/10/2026): en el móvil la tira sigue y no se veía. */}
       <ol

@@ -19,6 +19,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { chipInk } from "@/lib/theme";
+
 export type PuntoMapa = {
   id: string;
   nombre: string;
@@ -199,7 +201,7 @@ export function MapaDosEjes({
                 <line x1={px(p.x)} y1={py(p.y)} x2={r.x} y2={r.y - 4} stroke="currentColor" strokeOpacity={0.35} />
               )}
               {r && (
-                <text className="md-rotulo" x={r.x} y={r.y} textAnchor={r.fin ? "end" : "start"} fontSize={propio ? letra + 3 : letra} fontWeight={propio ? 800 : 600} fill={propio ? color : "currentColor"} fillOpacity={propio ? 1 : 0.85}>
+                <text className="md-rotulo" x={r.x} y={r.y} textAnchor={r.fin ? "end" : "start"} fontSize={propio ? letra + 3 : letra} fontWeight={propio ? 800 : 600} fill={propio ? color : "currentColor"} style={propio && color !== "currentColor" ? { fill: chipInk(color) } : undefined} fillOpacity={propio ? 1 : 0.85}>
                   {p.nombre}
                 </text>
               )}
@@ -222,8 +224,9 @@ export function MapaDosEjes({
       ))}
 
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-white/60">
-        <span><span style={{ color: acento }}>◥</span> Zona sombreada: <b style={{ color: acento }}>{rotulos.ambos.toLowerCase()}</b> (suma ≥ {umbral})</span>
-        <span><b style={{ color: acento }}>Mejor en ambas:</b> {mejorAmbos.nombre} ({Math.round(mejorAmbos.x)} / {Math.round(mejorAmbos.y)})</span>
+        {/* Tinta con chipInk (16/11/2026, jueces): el dorado a pelo daba 1,98 de contraste en modo día. */}
+        <span><span style={{ color: chipInk(acento) }}>◥</span> Zona sombreada: <b style={{ color: chipInk(acento) }}>{rotulos.ambos.toLowerCase()}</b> (suma ≥ {umbral})</span>
+        <span><b style={{ color: chipInk(acento) }}>Mejor en ambas:</b> {mejorAmbos.nombre} ({Math.round(mejorAmbos.x)} / {Math.round(mejorAmbos.y)})</span>
         <span><b className="text-white/80">Más «{rotulos.soloX.toLowerCase()}»:</b> {mejorX.nombre}</span>
         <span><b className="text-white/80">Más «{rotulos.soloY.toLowerCase()}»:</b> {mejorY.nombre}</span>
         <span>{elite.length} de {puntos.length} en la zona de {rotulos.ambos.toLowerCase()} (suma ≥ {umbral})</span>

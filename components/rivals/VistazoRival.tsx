@@ -104,9 +104,15 @@ function nombreDeFila(aspecto: string, nombre: string) {
 | enseñar el puesto de la media junto a la primera cifra hacía decir «17.º» a
 | un 7,1 que, solo, es el peor de los 20 (11/11/2026, jueces de fútbol).
 */
-function puestoDeFila(percentil: number, equipos: number) {
-  return Math.min(equipos, Math.max(1, equipos - Math.round((percentil / 100) * equipos) + 1));
+function puestoDeFila(f: { percentil: number; puesto?: number; de?: number }, equipos: number) {
+  /* 16/11/2026: el puesto llega hecho del servidor (`puestoEnLiga`, lib/rivals/puesto-liga.ts), el mismo del Scout colectivo y de Área. */
+  if (typeof f.puesto === "number" && f.puesto > 0) return f.puesto;
+
+  return Math.min(equipos, Math.max(1, equipos - Math.round((f.percentil / 100) * equipos) + 1));
 }
+
+/* Tres bloques a la vista; el resto, plegado (16/11/2026, jueces de marketing). */
+const BLOQUES_A_LA_VISTA = 3;
 
 /** «Destaca en dominio con balón y eficacia, pero se queda corto en producción de remate.» */
 function fraseDeAspectos(aspectos: AspectoDestacado[]) {
@@ -185,7 +191,35 @@ export function VistazoRival({
         const fuente = partidosWyscout > 0 ? `Wyscout, ${partidosWyscout} ${partidosWyscout === 1 ? "partido" : "partidos"}` : "Wyscout";
         const titular = [fraseDelVistazo(vistazo), flojos.length ? `Flojo en ${lista} (${fuente}).` : ""].filter(Boolean).join(" ");
 
-        return titular ? <p className="mb-3 text-sm font-medium text-white/85 sm:text-[15px]">{titular}</p> : null;
+        /*
+        | 16/11/2026 (jueces, marketing): un titular con la idea y el dato antes
+        | que la descripción: «Real Murcia, fuerte en presión alta (PPDA 8,8,
+        | 2.º de 20) y flojo en balón parado en contra (córners rematados
+        | 44,6 %, 20.º de 20)». Sale de la cifra más extrema de cada lado.
+        */
+        const extremo = (lista: AspectoDestacado[], mejor: boolean) =>
+          lista
+            .flatMap((a) => a.filas.map((f) => ({ a, f, puesto: puestoDeFila(f, equipos) })))
+            .sort((x, y) => (mejor ? x.puesto - y.puesto : y.puesto - x.puesto))[0];
+        const fuerte = equipos > 0 ? extremo(aspectos.filter((a) => a.desviacion >= 0), true) : undefined;
+        const flojo = equipos > 0 ? extremo(aspectos.filter((a) => a.desviacion < 0), false) : undefined;
+        const dato = (x: NonNullable<typeof fuerte>) =>
+          `${x.a.aspecto.toLowerCase()} (${nombreDeFila(x.a.aspecto, x.f.nombre).replace(/ %$/, "")} ${cifraAspecto(x.f.valor, x.f.unidad)}, ${x.puesto}.º de ${x.f.de ?? equipos})`;
+        const conDato =
+          fuerte && flojo
+            ? `${equipo}, fuerte en ${dato(fuerte)} y flojo en ${dato(flojo)}`
+            : fuerte
+              ? `${equipo}, fuerte en ${dato(fuerte)}`
+              : flojo
+                ? `${equipo}, flojo en ${dato(flojo)}`
+                : "";
+
+        return titular || conDato ? (
+          <div className="mb-3 min-w-0">
+            {conDato && <p className="text-base font-semibold text-white sm:text-lg">{conDato}.</p>}
+            {titular && <p className="mt-0.5 text-sm font-medium text-white/80 sm:text-[15px]">{titular}</p>}
+          </div>
+        ) : null;
       })()}
 
       {vistazo && (
@@ -272,7 +306,7 @@ export function VistazoRival({
             /* La base: de cuántos goles y en cuántos partidos (07/11/2026, análisis). */
             pie={
               tabla && tabla.favor > 0
-                ? `${goleadores.reduce((suma, g) => suma + g.goles, 0)} de sus ${tabla.favor} goles (${Math.round((100 * goleadores.reduce((suma, g) => suma + g.goles, 0)) / tabla.favor)} %) en ${tabla.jugados} ${tabla.jugados === 1 ? "partido" : "partidos"} · BeSoccer, todos los jugados (las pantallas de Wyscout pueden ir una jornada por detrás)`
+                ? `${goleadores.reduce((suma, g) => suma + g.goles, 0)} de sus ${tabla.favor} goles (${Math.round((100 * goleadores.reduce((suma, g) => suma + g.goles, 0)) / tabla.favor)} %) en ${tabla.jugados} ${tabla.jugados === 1 ? "partido" : "partidos"}${tabla.favor < 15 ? " · tendencia: menos de 15 goles" : ""} · BeSoccer, todos los jugados (las pantallas de Wyscout pueden ir una jornada por detrás)`
                 : undefined
             }
           >
@@ -355,19 +389,36 @@ export function VistazoRival({
             </p>
           )}
 
+          {/*
+            16/11/2026 (jueces): sólo entra lo que está entre los 6 primeros
+            («Fuerte en») o los 6 últimos («Flojo en») de los 20 —el servidor
+            ya manda sólo esas cifras—, y se ven tres bloques; el resto, plegado.
+          */}
           <div className="grid min-w-0 gap-2 sm:grid-cols-2">
             {[
               { titulo: "Fuerte en", color: "#34D399", lista: aspectos.filter((a) => a.desviacion >= 0) },
               { titulo: "Flojo en", color: "#F87171", lista: aspectos.filter((a) => a.desviacion < 0) },
             ]
               .filter((grupo) => grupo.lista.length > 0)
+              .map((grupo, i, grupos) => {
+                /* Los tres primeros bloques entre los dos grupos, en el orden en que se leen. */
+                const antes = grupos.slice(0, i).reduce((suma, g) => suma + g.lista.length, 0);
+                /* Al menos uno de cada grupo a la vista: un «Flojo en» entero plegado no se ve. */
+                const caben = Math.max(1, BLOQUES_A_LA_VISTA - antes);
+
+                return { ...grupo, vista: grupo.lista.slice(0, caben), plegada: grupo.lista.slice(caben) };
+              })
               .map((grupo) => (
                 <div key={grupo.titulo} className="min-w-0">
                   <p className="mb-1 text-xs font-semibold uppercase tracking-[0.14em]" style={{ color: chipInk(grupo.color) }}>
                     {grupo.titulo}
                   </p>
+                  {[grupo.vista, grupo.plegada].map((lista, plegada) => {
+                    if (lista.length === 0) return null;
+
+                    const filas = (
                   <ul className="grid min-w-0 gap-1.5">
-                    {grupo.lista.map((a) => (
+                    {lista.map((a) => (
                       <li
                         key={a.aspecto}
                         title={`${a.explica}. ${a.filas.map((f) => `${f.nombre}: p${f.percentil}`).join(" · ")}`}
@@ -384,13 +435,26 @@ export function VistazoRival({
                           <span key={f.nombre} className="text-[13px] leading-snug tabular-nums text-white/70">
                             {nombreDeFila(a.aspecto, f.nombre)}: <b className="font-semibold text-white/85">{cifraAspecto(f.valor, f.unidad)}</b>
                             {porPartido(f.nombre, f.unidad)} · mediana {cifraAspecto(f.mediana, f.unidad)}
-                            {equipos > 0 ? ` · ${puestoDeFila(f.percentil, equipos)}.º de ${equipos}` : ""}
+                            {equipos > 0 ? ` · ${puestoDeFila(f, equipos)}.º de ${f.de ?? equipos}` : ""}
                             {/ppda/i.test(f.nombre) ? " (pases que deja dar antes de presionar: menos es más presión)" : ""}
                           </span>
                         ))}
                       </li>
                     ))}
                   </ul>
+                    );
+
+                    return plegada ? (
+                      <details key="plegada" className="mt-1.5 min-w-0">
+                        <summary className="cursor-pointer text-[13px] text-white/60 hover:text-white">
+                          {lista.length === 1 ? "Uno más" : `${lista.length} más`}
+                        </summary>
+                        <div className="mt-1.5">{filas}</div>
+                      </details>
+                    ) : (
+                      <div key="vista">{filas}</div>
+                    );
+                  })}
                 </div>
               ))}
           </div>
@@ -436,12 +500,14 @@ export function VistazoRival({
       )}
 
       {enlaces.length > 0 && (
-        <nav aria-label="Más de este rival" className="mt-3 flex min-w-0 flex-wrap gap-2">
+        /* Un solo bloque de accesos, cada uno con su verbo (16/11/2026, jueces de marketing). */
+        <nav aria-label="Más de este rival" className="mt-3 flex min-w-0 flex-wrap items-center gap-2">
+          <p className="mr-1 text-xs font-semibold uppercase tracking-[0.16em] text-white/55">Más de {equipo}</p>
           {enlaces.map((e) => (
             <Link
               key={e.href}
               href={e.href}
-              className="flex items-center gap-1 rounded-full border border-white/10 px-3 py-1 text-xs text-white/60 transition hover:border-[#C8A96B] hover:text-white"
+              className="flex items-center gap-1 rounded-full border border-white/15 px-3 py-1 text-[13px] text-white/75 transition hover:border-[#C8A96B] hover:text-white"
             >
               {e.label}
               <ArrowUpRight size={12} aria-hidden />

@@ -18,6 +18,7 @@
 
 const CON_TILDE: Record<string, string> = {
   alvarez: "Álvarez",
+  alvaro: "Álvaro",
   alamo: "Álamo",
   andres: "Andrés",
   angel: "Ángel",
@@ -48,8 +49,10 @@ const CON_TILDE: Record<string, string> = {
   munoz: "Muñoz",
   nicolas: "Nicolás",
   nunez: "Núñez",
-  /* «Nuñez»: la eñe sí, la tilde no (16/11/2026, jueces). */
+  /* «NUÑEZ»: la eñe la trae, la tilde no (16/11/2026). */
   "nuñez": "Núñez",
+  "ordoñez": "Ordóñez",
+  "ibañez": "Ibáñez",
   oscar: "Óscar",
   perez: "Pérez",
   ramirez: "Ramírez",
@@ -66,7 +69,10 @@ const CON_TILDE: Record<string, string> = {
   victor: "Víctor",
 };
 
-/* La eñe sola no cuenta como tilde: «Nuñez» trae la eñe y le falta el acento. */
+/*
+| Sólo la tilde de vocal cuenta como «ya viene bien»: «NUÑEZ» lleva la eñe y
+| le falta la tilde (16/11/2026, jueces: salía CHEMA NUÑEZ).
+*/
 const TIENE_TILDE = /[áéíóúÁÉÍÓÚ]/;
 
 /** Respeta cómo viene escrita: en mayúsculas sigue en mayúsculas. */

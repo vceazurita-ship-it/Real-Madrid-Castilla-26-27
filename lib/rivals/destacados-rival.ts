@@ -25,6 +25,14 @@ export type FilaDestacada = {
   mediana: number;
   unidad: Unidad;
   percentil: number;
+  /**
+   * Su puesto entre los equipos de su competición, con el sentido de la
+   * métrica (16/11/2026): sale de `puestoEnLiga` (`lib/rivals/puesto-liga.ts`),
+   * la misma cuenta del Scout colectivo y de Área del rival. Sólo llegan las
+   * cifras que sostienen el aspecto: entre los 6 primeros o los 6 últimos.
+   */
+  puesto?: number;
+  de?: number;
 };
 
 export type EjeNube = {
