@@ -84,7 +84,7 @@ function metricsFor(mode: Mode): Metric[] {
     },
     {
       key: "favorable",
-      label: of ? "% Retención" : "% Recuperación",
+      label: of ? "% Conservados" : "% Recuperación",
       hint: of
         ? "Acciones que terminan con el balón en poder del RMCF"
         : "Saques del rival que terminan con el balón en poder del RMCF",
