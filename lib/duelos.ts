@@ -664,9 +664,10 @@ export function consignaDelDuelo(d: ResultadoDuelo, sentido: "con" | "sin"): str
   /* La tarea y el objetivo medible (16/11/2026, jueces): no sólo la orden. */
   const tarea = (sentido === "sin" ? TAREA_DEFENDER : TAREA_ATACAR)[elegida.titulo];
   const columna = rotuloColumna(sentido === "sin" || peor ? elegida.columnaSuya : elegida.columnaNuestra).toLowerCase();
+  const en = columna ? ` en ${columna}` : "";
   const objetivo = peor
-    ? `que ${nombre(s)} no pase de la mediana de su puesto (P50) en ${columna}; hoy está en P${elegida.suyo}`
-    : `que ${nombre(n)} siga por encima de P${elegida.nuestro} en ${columna}`;
+    ? `que ${nombre(s)} no pase de la mediana de su puesto (P50)${en}; hoy está en P${elegida.suyo}`
+    : `que ${nombre(n)} siga por encima de P${elegida.nuestro}${en}`;
   return `${plantilla(nombre(n), nombre(s))} (${elegida.titulo.toLowerCase()}: P${elegida.nuestro} frente a P${elegida.suyo}).${tarea ? ` Tarea: ${tarea}.` : ""} Objetivo: ${objetivo}.`;
 }
 
