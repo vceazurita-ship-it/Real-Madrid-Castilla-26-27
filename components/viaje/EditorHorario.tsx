@@ -875,12 +875,18 @@ function TarjetaDia({
             </Button>
           )}
 
-          <Button icon={MoreHorizontal} onClick={() => setOpciones((v) => !v)} title="Plantilla, mover el día, copiar, replicar, vaciar o quitar el día">
-            {opciones ? "Cerrar opciones" : "Opciones del día"}
-          </Button>
+          {/*
+          | 16/11/2026 (jueces): un solo mando por día. Plegado, sólo «Editar»;
+          | al abrir el día aparecen sus opciones.
+          */}
+          {(!plegado || citas.length === 0) && (
+            <Button icon={MoreHorizontal} onClick={() => setOpciones((v) => !v)} title="Plantilla, mover el día, copiar, replicar, vaciar o quitar el día">
+              {opciones ? "Cerrar opciones" : "Opciones del día"}
+            </Button>
+          )}
         </div>
 
-        {opciones && (
+        {opciones && (!plegado || citas.length === 0) && (
         <div className="mt-2 flex flex-wrap items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.03] p-2">
           <select
             value=""
@@ -1994,12 +2000,12 @@ export function EditorHorario({
         </DragOverlay>
       </DndContext>
 
-      <p className="mt-3 text-[11px] leading-relaxed text-white/35">
-        Las horas se escriben enteras: «1830» vale.
-        {abarca > dias.length
-          ? ` Ojo: los ${dias.length} días abarcan ${abarca} de calendario, así que hay alguno suelto en medio.`
-          : ""}
-      </p>
+      {/* 16/11/2026 (jueces): «Las horas se escriben enteras: 1830 vale» pasa a la ayuda emergente de cada hora (EntradaHora). */}
+      {abarca > dias.length ? (
+        <p className="mt-3 text-[12px] leading-relaxed text-white/55">
+          Ojo: los {dias.length} días abarcan {abarca} de calendario, así que hay alguno suelto en medio.
+        </p>
+      ) : null}
     </Panel>
   );
 }

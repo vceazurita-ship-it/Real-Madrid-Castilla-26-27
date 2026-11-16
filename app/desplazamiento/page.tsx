@@ -33,8 +33,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
+import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
 import {
   Binoculars,
+  Clapperboard,
   Bus,
   CheckCircle2,
   ChevronDown,
@@ -124,6 +126,7 @@ import {
   diasPorDistancia,
   trayectoUsable,
   comoDuracion,
+  leeDuracion,
   esSalida,
   type TrayectoEstadio,
   clavePlan,
@@ -699,9 +702,14 @@ function ListaPendiente({
             {tareas.map((p) => (
               <li key={p.clave} className="flex min-w-0 items-center gap-2.5 py-1.5">
                 <Circle size={12} className="shrink-0 text-[#C8A96B]" aria-hidden />
-                <span className="min-w-0 flex-1 text-[14px] text-white/85">
+                {/* 16/11/2026 (jueces): el propio dato es el enlace que abre su campo. */}
+                <button
+                  type="button"
+                  onClick={() => (onCampo ? onCampo(p) : onIr(p.seccion))}
+                  className="min-w-0 flex-1 text-left text-[14px] text-white/85 underline decoration-white/20 decoration-dotted underline-offset-4 transition hover:text-white hover:decoration-[#C8A96B]"
+                >
                   {p.nombre.charAt(0).toUpperCase() + p.nombre.slice(1)}
-                </span>
+                </button>
                 <button type="button" onClick={() => (onCampo ? onCampo(p) : onIr(p.seccion))} className={BOTON_FILA}>
                   {p.seccion === "viaje-horario" ? "Montar" : "Poner"}
                 </button>
@@ -1342,12 +1350,30 @@ export default function DesplazamientoPage() {
     | Sin distancia, sin hotel. La distancia y el tiempo se quedan escritos.
     */
     const kmHoja = Number(String(jornada?.fila?.DISTANCIA ?? jornada?.fila?.KM ?? "").replace(",", ".").match(/\d+(?:\.\d+)?/)?.[0]) || 0;
+    /*
+    | 16/11/2026 (jueces): sin ruta ni distancia en la hoja, el tiempo de un
+    | viaje anterior al mismo rival (su estadio ya tiene «Tiempo» escrito): así
+    | el horario propuesto lleva la «Salida bus» con una base medida y no
+    | empieza en «Llegada estadio». Sin ninguna base, la salida no sale.
+    */
+    const deOtroViaje = (() => {
+      for (const otro of Object.values(store.viajes ?? {})) {
+        if (!otro || otro.partidoId === partido.id || otro.condicion === "local" || !otro.rival || !mismoEquipo(otro.rival, partido.opponent)) continue;
+
+        const minutos = leeDuracion(String(otro.estadio?.tiempo ?? ""));
+        const km = Number(String(otro.estadio?.distancia ?? "").replace(",", ".").match(/\d+(?:\.\d+)?/)?.[0]) || undefined;
+
+        if (minutos && minutos > 0) return { km, minutos };
+      }
+
+      return null;
+    })();
     const trayecto: TrayectoEstadio | null = trayectoUsable(
       ruta && ruta.par && ruta.par === parAlEstadio(conDimensiones, store.lugares) && ruta.dato
         ? ruta.dato
         : kmHoja > 0
           ? { km: Math.round(kmHoja), minutos: Math.round((kmHoja / 70) * 60) }
-          : null);
+          : deOtroViaje);
     const conDistancia =
       base.condicion === "visitante" && trayecto
         ? (() => {
@@ -2460,8 +2486,9 @@ export default function DesplazamientoPage() {
                   {/* 11/11/2026: un solo estado. Con el viaje aún propuesto, la cabecera no
                       dice «Guardado 19:25» (era la hora de otro viaje del almacén). */}
                   {viaje && !guardado && status === "saved" && !localOnly ? (
-                    <span className="rounded-md px-1.5 py-0.5 text-[11px] text-white/55" title="El horario propuesto se guarda en cuanto cambies algo">
-                      Propuesto · se guarda con el primer cambio
+                    /* 16/11/2026 (jueces): una palabra; la explicación, en la ayuda emergente. */
+                    <span className="cursor-help rounded-full border border-white/15 px-2 py-0.5 text-[12px] text-white/60" title="Horario propuesto: se guarda en cuanto cambies algo">
+                      Propuesto
                     </span>
                   ) : (
                     <SaveState
@@ -2581,14 +2608,23 @@ export default function DesplazamientoPage() {
                   </Button>
                 )}
 
-                {jornada && (
+                {/*
+                | 16/11/2026 (jueces): siempre con el rival de este viaje ya
+                | elegido (por su fila de la hoja RIVALES o, sin ella, por su
+                | nombre) y con sus goles en vídeo.
+                */}
+                {partido && (
                   <>
                     <Link href={enlacePlanDePartido(jornada)}>
                       <Button icon={ClipboardList}>Plan de partido</Button>
                     </Link>
 
-                    <Link href={enlaceAnalisisRival(jornada)}>
+                    <Link href={jornada ? enlaceAnalisisRival(jornada) : `/rivals?equipo=${encodeURIComponent(partido.opponent)}`}>
                       <Button icon={Binoculars}>Informe del rival</Button>
+                    </Link>
+
+                    <Link href={urlGolesDelEquipo(jornada?.equipo || partido.opponent)}>
+                      <Button icon={Clapperboard}>Sus goles en vídeo</Button>
                     </Link>
                   </>
                 )}
