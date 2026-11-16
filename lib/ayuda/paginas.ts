@@ -2068,7 +2068,9 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Antes de entrar",
         filas: [
           { que: "Entra con tu cuenta del staff", es: "El correo y la contraseña, uno debajo de otro y a todo el ancho. Sólo puede registrarse el cuerpo técnico: en «Registrarme» se elige el nombre de la lista del staff. Al entrar se abre el entrenamiento de hoy (o el último con trabajo) y no se vuelve a pedir la cuenta en un mes en ese navegador" },
-          { que: "Así se lee una tarea", es: "Una muestra del formato, con jugadores y cifras inventados (esta puerta es pública): la tarea, su objetivo y su meta, el gráfico de correctas y mejorables de cada jugador con la meta marcada, y un clip con su veredicto y lo que se vio", cuenta: "Acierto = correctas ÷ acciones revisadas; la muestra usa bases de 15 acciones o más. Con menos de 8 no se da porcentaje: tendencia" },
+          { que: "Titular", es: "«Qué cumplió cada jugador en la sesión»; el nombre de la pantalla va en la línea de arriba" },
+          { que: "Última sesión analizada", es: "Encima, con el acceso al lado: la fecha, el acierto del día, su base de acciones revisadas y cuántos objetivos se midieron. Sólo lo agregado: sin jugadores, textos ni clips, porque esta puerta es pública", cuenta: "La más reciente con alguna acción revisada (lo propuesto sin revisar no cuenta). Acierto = correctas ÷ revisadas; con menos de 15, la cuenta y «tendencia»" },
+          { que: "Así se lee una tarea", es: "Un ejemplo inventado, marcado «Ejemplo» dentro de la tarjeta: la tarea, su objetivo y su meta, el gráfico de correctas y mejorables de cada jugador con la meta marcada (uno por debajo de 15 acciones, para ver cómo se lee la tendencia) y un clip con su veredicto", cuenta: "El mismo umbral que dentro: con menos de 15 acciones no hay porcentaje ni «cumple»" },
         ],
       },
       {
@@ -2089,7 +2091,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Objetivo", es: "Qué se busca, de quién, cómo reconocerlo (peto, dorsal) y qué es correcto o mejorable" },
           { que: "Mirar sólo en", es: "Opcional: acota la tarea o el tramo del vídeo («rondo 6v3», «del minuto 20 al 45»)" },
           { que: "Tarea del día", es: "En qué tarea del registro mirarlo (L-T1…). No cambia lo que mira el vídeo" },
-          { que: "Meta (%)", es: "El porcentaje de correctas que se pide", cuenta: "Cumplida si el acierto llega a la meta (sólo con 8 acciones o más)" },
+          { que: "Meta (%)", es: "El porcentaje de correctas que se pide", cuenta: "Cumplida si el acierto llega a la meta (sólo con 15 acciones o más)" },
           { que: "De dónde sale", es: "Seguimiento individual, «Qué toca» del post, Plan de partido o Cuerpo técnico: por qué se mide" },
           { que: "Lo que toca según el post", es: "Lee el último informe post y prepara el objetivo entero (a quién, tarea, correcto, mejorable y meta); no entra en la sesión hasta añadirlo" },
           { que: "Copiar los del dd/mm", es: "Trae los objetivos del último día con el mismo texto, para seguir su evolución" },
@@ -2099,14 +2101,14 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Resumen",
         filas: [
-          { que: "64 % de acierto", es: "El titular del día; con menos de 8 acciones, «5 de 7 correctas» y tendencia", cuenta: "±N puntos frente al día anterior, si los dos tienen porcentaje y se separan 5 o más" },
+          { que: "64 % de acierto", es: "El titular del día; con menos de 15 acciones, «9 de 12 correctas» y tendencia", cuenta: "±N puntos frente al día anterior, si los dos tienen porcentaje y se separan 5 o más" },
           { que: "Objetivos en meta · lo mejor · lo que más cuesta", es: "La lectura del día; lo mejor y lo peor, sólo entre objetivos con porcentaje" },
           { que: "Correctas · Mejorables · Revisadas · Con clip", es: "Cada cifra con su base; un toque abre los clips que la forman" },
           { que: "Cumplimiento por objetivo", es: "Barra de correctas y mejorables; la raya dorada es la meta" },
           { que: "Cuándo pasa en la sesión", es: "Acciones por tramo y una calle por objetivo con cada acción en su minuto", cuenta: "Tramos de 2 min hasta media hora de vídeo; de 5 min si es más largo" },
           { que: "Tramo sombreado", es: "Minutos que el análisis no pudo mirar: ahí no hay acciones porque no se vieron" },
           { que: "Por tarea / Por jugador", es: "Sólo si hay dos o más; las acciones de grupo sin jugador reconocido van aparte" },
-          { que: "Evolución entre sesiones", es: "Acierto de cada entrenamiento analizado; columna rayada = menos de 8 acciones" },
+          { que: "Evolución entre sesiones", es: "Acierto de cada entrenamiento analizado; columna rayada = menos de 15 acciones" },
         ],
       },
       {
@@ -2114,7 +2116,7 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           { que: "9 de 14 correctas · 3 por revisar", es: "Sólo cuentan las acciones revisadas (correctas y mejorables); las descartadas y las propuestas sin revisar, no" },
           { que: "Acierto", es: "Porcentaje de correctas", cuenta: "correctas ÷ acciones revisadas que cuentan; sólo con 8 o más" },
-          { que: "Tendencia", es: "Menos de 8 acciones: se da la cuenta, no el porcentaje" },
+          { que: "Tendencia", es: "Menos de 15 acciones (la regla de toda la plataforma desde el 16/11/2026; antes, 8): se da la cuenta, no el porcentaje ni si cumple la meta" },
           { que: "Sesión anterior", es: "El mismo objetivo (mismo texto) el último día analizado", cuenta: "mejora o baja = 5 puntos o más de diferencia" },
           { que: "Liso / rayado", es: "Validado / propuesta automática sin revisar, que no entra en las cifras" },
           { que: "Dar por buenas las N propuestas", es: "Valida de golpe las que quedan con el veredicto propuesto" },

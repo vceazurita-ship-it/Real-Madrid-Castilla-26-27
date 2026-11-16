@@ -18,8 +18,8 @@
  * día y semanas anterior/siguiente.
  *
  * Terminada el 19/10/2026 (Paquete D del plan de los expertos): la cuenta
- * siempre igual («9 de 14 correctas (11 validadas)»), porcentaje sólo con 8
- * acciones o más, tarea, meta y origen por objetivo, vista por jugador y
+ * siempre igual («9 de 14 correctas (11 validadas)»), porcentaje sólo con
+ * `MINIMO_PORCENTAJE` acciones o más (15 desde el 16/11/2026), tarea, meta y origen por objetivo, vista por jugador y
  * «Tu sesión», y el día, la vista y el jugador en la dirección.
  *
  * REVISIÓN DEL 30/10/2026 (el analista: «debe mejorar mucho, visual,
