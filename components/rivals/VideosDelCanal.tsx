@@ -695,7 +695,7 @@ export function VideosDelCanal({
     const conVideo = new Set(grupos.jugadores.map((g) => rangoDePuesto(g.puesto)));
     const enPlantilla = new Set(plantilla.map((j) => rangoDePuesto(j.puesto ?? "")));
 
-    return [0, 1, 2, 3].filter((r) => enPlantilla.has(r) && !conVideo.has(r)).map((r) => LINEAS[r].toLowerCase());
+    return ([0, 1, 2, 3] as const).filter((r) => enPlantilla.has(r) && !conVideo.has(r)).map((r) => LINEAS[r].toLowerCase());
   }, [grupos.jugadores, plantilla]);
 
   /* Con varias líneas se rotula cada una; con una sola, el rótulo sobra. */
