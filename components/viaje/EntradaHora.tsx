@@ -43,9 +43,12 @@ export function EntradaHora({
   /* Lo que se está tecleando; `null` mientras no se escribe. */
   const [borrador, setBorrador] = useState<string | null>(null);
 
-  const mostrado = borrador ?? (minuto === null ? "" : aHora(minuto));
+  /* 16/11/2026: un minuto sin calcular (NaN) se ve vacío, con «por fijar» de pista y marcado; nunca «NaN:NaN». */
+  const sinHora = minuto !== null && !Number.isFinite(minuto);
 
-  const malo = borrador !== null && borrador.trim() !== "" && aMinutos(borrador) === null;
+  const mostrado = borrador ?? (minuto === null || sinHora ? "" : aHora(minuto));
+
+  const malo = sinHora || (borrador !== null && borrador.trim() !== "" && aMinutos(borrador) === null);
 
   /* La madrugada se queda en la madrugada. */
   const base = minuto !== null && minuto >= 1440 ? 1440 : 0;
@@ -88,7 +91,7 @@ export function EntradaHora({
     <input
       value={mostrado}
       inputMode="numeric"
-      placeholder={placeholder}
+      placeholder={sinHora ? "por fijar" : placeholder}
       title={titulo ?? "Escribe la hora (18:30, 1830…) y sal del campo o pulsa Intro. Flechas: ±5 min."}
       aria-label={etiqueta}
       aria-invalid={malo || undefined}
@@ -110,7 +113,7 @@ export function EntradaHora({
           return;
         }
 
-        if ((evento.key === "ArrowUp" || evento.key === "ArrowDown") && minuto !== null) {
+        if ((evento.key === "ArrowUp" || evento.key === "ArrowDown") && minuto !== null && !sinHora) {
           evento.preventDefault();
 
           setBorrador(null);

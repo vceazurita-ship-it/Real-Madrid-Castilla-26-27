@@ -41,6 +41,7 @@ import {
   emojiDeCita,
   fechaCorta,
   esSalida,
+  tieneHora,
   type Desplazamiento,
   type ImagenViaje,
 } from "@/lib/viaje/modelo";
@@ -63,9 +64,12 @@ export function srcImagen(url: string) {
  * recuadros que dicen lo que falta; el aviso de lo que falta va en la pantalla
  * de edición.
  */
-const valor = (texto: string | undefined) => (texto?.trim() ? texto : "");
+/* 16/11/2026: un dato roto («NaN km», «undefined») no se nombra: el dossier sólo dice lo que tiene. */
+const roto = (texto: string) => /\bNaN\b|\bundefined\b|\bnull\b/i.test(texto);
 
-const hay = (texto: string | undefined) => Boolean(texto?.trim());
+const valor = (texto: string | undefined) => (texto?.trim() && !roto(texto) ? texto : "");
+
+const hay = (texto: string | undefined) => Boolean(valor(texto).trim());
 
 /**
  * Una sola línea que cabe (19/10/2026): con un nombre largo —«Estadio
@@ -843,7 +847,8 @@ export function tramosDelViaje(viaje: Desplazamiento, lugares?: Record<string, I
   const varios = viaje.dias.length > 1;
 
   return citasDelViaje(viaje)
-    .filter(({ cita }) => esSalida(cita) && (cita.hasta || cita.desde))
+    /* 16/11/2026: un tramo sin hora no se nombra en el dossier. */
+    .filter(({ cita }) => esSalida(cita) && (cita.hasta || cita.desde) && tieneHora(cita))
     .map(({ dia, cita }) => {
       const desde = resuelveLugar(cita.desde, viaje, lugares);
       const hasta = resuelveLugar(cita.hasta, viaje, lugares);

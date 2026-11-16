@@ -94,8 +94,21 @@ export function aMinutos(hora: string): number | null {
   return h * 60 + m;
 }
 
-/** 1635 → "03:15". El día siguiente se dice aparte, no con un "27:15". */
+/** Lo que se escribe en lugar de una hora que no se ha podido calcular (16/11/2026). */
+export const HORA_POR_FIJAR = "por fijar";
+
+/** Si la cita tiene una hora de verdad: un minuto sin calcular (NaN) no se pinta nunca como hora. */
+export const tieneHora = (cita: { minuto: number }) => Number.isFinite(cita.minuto);
+
+/**
+ * 1635 → "03:15". El día siguiente se dice aparte, no con un "27:15".
+ *
+ * 16/11/2026: una ruta sin minutos dejó todo el horario en «NaN:NaN», también
+ * en el PDF. Sin un número de verdad no hay hora: sale «por fijar».
+ */
 export function aHora(minutos: number) {
+  if (!Number.isFinite(minutos)) return HORA_POR_FIJAR;
+
   const total = ((Math.round(minutos) % 1440) + 1440) % 1440;
 
   const h = Math.floor(total / 60);
@@ -715,7 +728,9 @@ export function horarioDePlantilla(
 export function margenesDe(citas: CitaHorario[]) {
   if (citas.length === 0) return { desde: 8 * 60, hasta: 24 * 60 };
 
-  const minutos = citas.map((cita) => cita.minuto);
+  const minutos = citas.map((cita) => cita.minuto).filter(Number.isFinite);
+
+  if (minutos.length === 0) return { desde: 8 * 60, hasta: 24 * 60 };
 
   const desde = Math.floor((Math.min(...minutos) - 30) / 30) * 30;
   const hasta = Math.ceil((Math.max(...minutos) + 30) / 30) * 30;
@@ -734,7 +749,10 @@ export function renglones(desde: number, hasta: number) {
 
 /** Ordenadas por hora: es como se leen y como se pintan. */
 export function ordenaCitas(citas: CitaHorario[]) {
-  return [...citas].sort((a, b) => a.minuto - b.minuto);
+  /* Las que no tienen hora, al final y en su orden: un NaN rompía la ordenación entera (14:30 salía tras las «NaN»). */
+  const clave = (cita: CitaHorario) => (Number.isFinite(cita.minuto) ? cita.minuto : Number.POSITIVE_INFINITY);
+
+  return [...citas].sort((a, b) => clave(a) - clave(b));
 }
 
 /* ------------------------------------------------------------------ */
@@ -1059,7 +1077,8 @@ export function ejeHorario(
     separacionMarcas: number;
   },
 ): EjeHorario {
-  const orden = ordenaCitas(citas);
+  /* Sin hora no hay sitio en la columna (16/11/2026): la exportación se bloquea antes, y aquí no rompen el eje. */
+  const orden = ordenaCitas(citas.filter(tieneHora));
 
   const { desde, hasta, alto, separacion, separacionMarcas } = opciones;
 
