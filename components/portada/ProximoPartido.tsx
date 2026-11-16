@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
   Bus,
@@ -18,6 +18,7 @@ import {
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { CuentaAtras } from "@/components/portada/CuentaAtras";
 import { DiaRapido } from "@/components/portada/DiaRapido";
+import { VideosDelRival } from "@/components/portada/VideosDelRival";
 import { useCalendario } from "@/hooks/useCalendario";
 import { pantallaCompletaAlNavegar } from "@/hooks/usePantallaCompleta";
 import { aJornada, buscaJornada, type FilaRival, type JornadaRival } from "@/lib/abp/jornada";
@@ -674,7 +675,7 @@ export function ProximoPartido() {
           | huérfano al principio de línea y los enlaces se apiñaban.
           */
           /* En el móvil, una fila que se desliza (02/11/2026): la rejilla de dos por fila alargaba la portada y se veía tosca. */
-          const fila = (rotulo: string, atajos: { href: string; texto: string; title?: string }[]) => (
+          const fila = (rotulo: string, atajos: { href: string; texto: string; title?: string }[], extra?: ReactNode) => (
             /* Baja de línea también en el móvil (05/11/2026): al deslizarse, «Individual» se cortaba en «In…» sin aviso. */
             <div className="flex min-w-0 flex-wrap items-center gap-1.5 [&>a]:shrink-0 [&>a]:whitespace-nowrap">
               <span className="mr-1 shrink-0 text-[12px] font-semibold uppercase tracking-[0.18em] text-white/65">
@@ -683,6 +684,7 @@ export function ProximoPartido() {
               {atajos.map((atajo) => (
                 <Atajo key={atajo.texto} href={atajo.href} texto={atajo.texto} title={atajo.title} />
               ))}
+              {extra}
             </div>
           );
 
@@ -703,7 +705,9 @@ export function ProximoPartido() {
             <div className="mt-4 space-y-2">
               {hoyToca && deHoy.length > 0 && fila("Lo que toca hoy", deHoy)}
 
-              {delRival.length > 0 && fila(hoyToca && deHoy.length > 0 ? "Más del rival" : "Del rival", delRival)}
+              {/* 16/11/2026: el rival en vídeo (sus goles, los que encaja y su último partido), con los chips dorados al final de la fila. */}
+              {delRival.length > 0 &&
+                fila(hoyToca && deHoy.length > 0 ? "Más del rival" : "Del rival", delRival, nombreRival ? <VideosDelRival key={nombreRival} rival={nombreRival} /> : null)}
             </div>
           );
         })()}

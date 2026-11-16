@@ -118,6 +118,7 @@ import { bajaDe } from "@/lib/rivals/bajas";
 import { LINE_DEFINITIONS, type LineKey } from "@/lib/rivals/lineas-puesto";
 import { ParaLaSemana } from "@/components/rivals/ParaLaSemana";
 import ResumenesRival from "@/components/rivals/ResumenesRival";
+import { SeccionGolesDelRival } from "@/components/rivals/GolesDelRivalEnVideo";
 import { Revulsivos } from "@/components/rivals/Revulsivos";
 import PerfilWyscoutCard from "@/components/rivals/PerfilWyscoutCard";
 import { pieDominante } from "@/lib/rivals/pie";
@@ -4115,6 +4116,10 @@ export default function RivalPlayersPage() {
               {/* RESÚMENES — el vídeo oficial de cada partido suyo (canal de la RFEF). */}
 
               {selectedTeam && !loading && <ResumenesRival equipo={selectedTeam} />}
+
+              {/* GOLES EN VÍDEO — los suyos y los que encaja, de seguido o uno a uno (16/11/2026). */}
+
+              {selectedTeam && !loading && <SeccionGolesDelRival equipo={selectedTeam} />}
 
               {/* REVULSIVOS — quién le cambia el partido desde el banquillo (Opta). */}
 

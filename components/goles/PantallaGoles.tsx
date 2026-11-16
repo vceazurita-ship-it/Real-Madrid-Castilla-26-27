@@ -12,7 +12,7 @@
 | transición y ABP). Los datos y de dónde sale cada uno: `lib/goles/analisis.ts`.
 */
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import { CircleCheck, Clock, Crosshair, Goal, Home, LayoutDashboard, Lightbulb, ListOrdered, Microscope, Shapes, SlidersHorizontal, Trophy } from "lucide-react";
 
 import { Sidebar } from "@/components/ui/sidebar";
@@ -290,6 +290,17 @@ function tarjetaTramoCorto(
 /*  Pantalla                                                           */
 /* ------------------------------------------------------------------ */
 
+/** Un parámetro de la dirección, sin `useSearchParams` (no pide Suspense). */
+const suscribeUrl = (aviso: () => void) => {
+  window.addEventListener("popstate", aviso);
+
+  return () => window.removeEventListener("popstate", aviso);
+};
+
+function useParametroUrl(nombre: string) {
+  return useSyncExternalStore(suscribeUrl, () => new URLSearchParams(window.location.search).get(nombre) ?? "", () => "");
+}
+
 export function PantallaGoles() {
   const { value: doc, status, reload } = useRemoteDoc<GolesDoc>({ key: DOC_GOLES, kind: "goles", fallback: GOLES_VACIO });
   /*
@@ -330,6 +341,15 @@ export function PantallaGoles() {
   }, [equipos, nuestroNombre, proximoRival]);
 
   const [equipoElegido, setEquipo] = useState<string | null>(null);
+  /*
+  | 16/11/2026 (goles del rival en vídeo): `?equipo=` abre la pantalla con ese
+  | equipo ya elegido (portada, Plantillas rivales, Scout colectivo, Plan de
+  | partido) y `?lado=contra`, «En el campo» en sus goles encajados. El nombre
+  | se casa con los del documento por `mismoEquipo`.
+  */
+  const equipoPedido = useParametroUrl("equipo");
+  const ladoPedido = useParametroUrl("lado") === "contra" ? "contra" : "favor";
+  const equipoDeUrl = equipoPedido ? (equipos.find((e) => e === equipoPedido) ?? equipos.find((e) => mismoEquipo(e, equipoPedido))) : undefined;
   const [lugar, setLugar] = usePestanaUrl<Lugar>("lugar", LUGARES, "todos");
   const condicion = CONDICION_DE[lugar];
   const [desde, setDesde] = useState<number | null>(null);
@@ -340,7 +360,7 @@ export function PantallaGoles() {
   const [vista, setVista] = usePestanaUrl<Vista>("vista", VISTAS, "resumen");
   const explicativos = useTextosExplicativos();
 
-  const equipo = equipoElegido ?? nuestroNombre;
+  const equipo = equipoElegido ?? equipoDeUrl ?? nuestroNombre;
   const esNuestro = mismoEquipo(equipo, CASTILLA);
   /* 19/10/2026: con «desde» por detrás de «hasta» (J9 a J4) la pantalla se
      quedaba entera a cero sin decir por qué. Se lee como el tramo entre las
@@ -1437,7 +1457,7 @@ export function PantallaGoles() {
               title="Los goles en el campo"
               subtitle={`Desde dónde marca ${esNuestro ? "el Castilla" : nombreEquipo(equipo)} y desde dónde le marcan, gol a gol (Opta). Elige un partido o todos; pincha un gol para ver el remate y abrir su vídeo en Opta o en Wyscout. Los goles en propia puerta no son remates y no salen.`}
             >
-              <GolesEnElCampo equipo={equipo} esCastilla={esNuestro} />
+              <GolesEnElCampo key={`${equipo}-${ladoPedido}`} equipo={equipo} esCastilla={esNuestro} ladoInicial={ladoPedido} />
             </Panel>
           ) : null}
 

@@ -1158,7 +1158,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Banda D e I", es: "Vistas desde el equipo que ataca" },
           {
             que: "En el campo",
-            es: "Los goles del equipo elegido (cualquiera de la categoría), a favor o en contra, en el campograma de remates: de un partido o de todos. Pinchar un gol (en el campo o en la lista) da el remate, «Ver el resumen (YouTube)» y «Ver en Opta» / «Ver en Wyscout». Encima, «Ver de seguido los N goles»: los goles uno tras otro con el vídeo de la retransmisión de Opta (10 s antes y 6 después), con «Anterior» y «Siguiente»; el gol que aún no lo tiene va sobre el resumen de la RFEF y los que no tienen ninguno de los dos se cuentan aparte",
+            es: "Los goles del equipo elegido (cualquiera de la categoría), a favor o en contra, en el campograma de remates: de un partido o de todos. Pinchar un gol (en el campo o en la lista) da el remate, «Ver el resumen (YouTube)» y «Ver en Opta» / «Ver en Wyscout». Encima, «Ver de seguido los N goles»: los goles uno tras otro con el vídeo de la retransmisión de Opta (10 s antes y 6 después), con «Anterior» y «Siguiente»; el gol que aún no lo tiene va sobre el resumen de la RFEF y los que no tienen ninguno de los dos se cuentan aparte. Se abre ya con un equipo desde la dirección (?vista=campo&equipo=NOMBRE, y &lado=contra para los que encaja): así llegan la portada, Plantillas rivales, Scout colectivo y el Plan de partido",
             cuenta: "Punto = sitio del remate; tamaño = xG. El resumen es el del canal de la RFEF de ese partido (/api/rivals/resumenes), cruzado por los dos equipos y la fecha (lib/rivals/resumen-de-partido.ts; «Real Madrid II» de Opta = Castilla): abre el partido resumido, no el segundo del gol, que la RFEF no trae. Para «Ver de seguido», el ordenador del club baja de Opta ProVision el corte de cada gol a 720p y lo guarda en B2 (scripts/opta-goles-video.mjs, documento opta:goles-video; primero el Castilla, el Murcia, los próximos rivales y el resto del grupo). De respaldo, Gemini marca cada noche el segundo de cada gol en los resúmenes (scripts/rfef-goles-resumenes.mjs, documento rfef:goles-resumenes; con el mismo orden) y sólo vale un resumen si salen tantos goles como su marcador; el gol de Opta se ata al del resumen por equipo y orden. «Ver en Opta» abre el Event Log del partido filtrado a ese segundo y esa parte, con el vídeo de la fila abierto (lib/opta-video.ts); si Opta no tiene el vídeo de ese partido, ProVision lo dice. Wyscout no deja enlazar un clip: su botón abre la plataforma y copia el partido y el minuto. Los goles en propia puerta no son remates y no salen",
           },
           { que: "Ficha técnica", es: "Sólo nuestros goles: fase, campo, acción, dónde nace, los nuestros implicados, lectura y «Para repetir» o «Para corregir». Se guarda sola" },
@@ -1234,7 +1234,8 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Informe (botón principal) · Más", es: "Informe: Scout Colectivo, Pizarra ABP e imprimir. Más: proponer boceto, replicar y editar" },
           { que: "Fecha · hora · campo de 105×68 m", es: "Día y hora oficial de BeSoccer; la medida del campo, la que escribe el cuerpo técnico" },
           { que: "Faltan N días", es: "La cuenta atrás al partido («Mañana», «Hoy es el partido», «Hace N días»); en rojo a tres días o menos" },
-          { que: "Informe", es: "Scout Colectivo, Pizarra ABP e «Imprimir o PDF»" },
+          { que: "Informe", es: "Scout Colectivo, Sus goles en vídeo, Pizarra ABP e «Imprimir o PDF»" },
+          { que: "Sus goles en vídeo (16/11/2026)", es: "En el menú «Informe»: abre Análisis de goles → «En el campo» con este rival puesto, para verlos de seguido y en el campo" },
           { que: "Más", es: "Proponer boceto, Replicar de otra jornada y Editar informe (Ctrl+E)" },
           { que: "Proponer boceto", es: "Copia el plan de la jornada anterior con «?» en lo que puede cambiar y «*» en lo que se propone incorporar" },
           { que: "Replicar", es: "Copia el plan de otra jornada que se elija, sin vídeos ni documentos" },
@@ -1411,7 +1412,7 @@ export const AYUDAS: AyudaDePagina[] = [
     ruta: "/rivals",
     titulo: "Plantillas Rivales",
     resumen: "Cómo llega cada rival, su plantilla en el campo y la ficha de cada jugador.",
-    origen: "Hoja RIVALES (plantillas, fichas y análisis); BeSoccer (tabla, resultados, alineaciones, minutos y tarjetas, en Supabase); Wyscout de toda la categoría; Opta (revulsivos); resúmenes del canal de la RFEF. El once probable y los recursos, en Supabase.",
+    origen: "Hoja RIVALES (plantillas, fichas y análisis); BeSoccer (tabla, resultados, alineaciones, minutos y tarjetas, en Supabase); Wyscout de toda la categoría; Opta (revulsivos y goles en vídeo, con los cortes de opta:goles-video); resúmenes del canal de la RFEF. El once probable y los recursos, en Supabase.",
     revisada: "2026-11-16",
     bloques: [
       {
@@ -1443,6 +1444,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Más de este rival", es: "Un solo bloque de accesos con verbo: ver sus córners y faltas, ver cómo juega como equipo, comparar su once con el nuestro y ver los vídeos de sus jugadores, con el mismo rival" },
           { que: "Para la semana", es: "Sólo del próximo rival: informe, PDF del once probable, PDF para el portero y PowerPoint de día de partido" },
           { que: "Resúmenes de sus partidos", es: "El resumen oficial de cada partido suyo de liga en el canal de la RFEF; abre YouTube" },
+          { que: "Sus goles en vídeo (16/11/2026)", es: "Debajo de los resúmenes. Los que marca y los que encaja (= por dónde hacerle daño), de seguido («▶ Ver de seguido») o uno a uno en la lista de debajo; filtros: en jugada o a balón parado (córner, faltas, banda y penalti) y temporada, últimos 3 o últimos 5 partidos. Cada gol, con el corte de Opta del partido (10 s antes y 6 después) o, si aún no está, sobre el resumen de la RFEF. «Verlos en el campo» abre Análisis de goles con el equipo puesto. No va en el PDF", cuenta: "Goles de Opta (opta:remates; los de propia puerta no son remates y no salen). Balón parado = situación del remate distinta de «juego» y «contragolpe». Vídeo: opta:goles-video y, si no, rfef:goles-resumenes" },
           {
             que: "Revulsivos",
             es: "Cada jugador que ha salido desde el banquillo: veces que entra, minutos de suplente, goles y asistencias entrando, G+A por 90 como suplente frente a como titular, el minuto medio de su cambio y la banda de sus remates tras entrar. Los que rinden mucho más entrando salen arriba, marcados «revulsivo»",
@@ -1526,6 +1528,11 @@ export const AYUDAS: AyudaDePagina[] = [
             cuenta: "Primera línea de cada campo; «se deduce del campo» cuando el «Qué hacemos» no lo ha escrito el analista",
           },
           { que: "Cómo nos hacen daño", es: "Hasta tres de su ataque (atacan el área, sus centros, por fuera, al espacio, sus referencias), con lo que hacemos, deducido del campo" },
+          {
+            que: "Sus goles en vídeo (16/11/2026)",
+            es: "Debajo de «Por dónde ataca»: los goles que marca y los que encaja (= por dónde hacerle daño), de seguido («▶ Ver de seguido») o uno a uno en la lista; filtros: en jugada o a balón parado (córner, faltas, banda y penalti) y temporada, últimos 3 o últimos 5 partidos. Cada gol, con el corte de Opta del partido o, si aún no está, sobre el resumen de la RFEF. «Verlos en el campo» abre Análisis de goles con el equipo puesto. No va en el PDF",
+            cuenta: "Goles de Opta (opta:remates; los de propia puerta no son remates y no salen). Balón parado = situación del remate distinta de «juego» y «contragolpe». Vídeo: opta:goles-video y, si no, rfef:goles-resumenes",
+          },
           {
             que: "Por dónde ataca",
             es: "Primero, como el original de X («¿Por qué carril ataca?»), medio campo atacando hacia arriba con sus tres carriles sombreados según su parte de todas esas acciones (el porcentaje grande dentro, el más cargado más grande) y al lado quién carga cada carril (el que más pone sumando los tipos en los que es el primero). Debajo, el detalle: sus centros, regates, pases al área y acciones progresivas (pases progresivos + carreras en progresión) de la temporada, repartidos entre banda izquierda, centro y banda derecha, y en cada banda el jugador que más pone; su nombre abre su ficha en Plantillas rivales; el puesto, en castellano («lateral izquierdo», no «LB»)",
@@ -2277,6 +2284,11 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Moverse por la app (todas las pantallas)", es: "Arriba, la cabecera pegada con la tira de las pantallas de la misma sección; la lupa (o Ctrl+K en el ordenador) busca cualquier pantalla tecleando. Al bajar más de pantalla y media sale abajo a la izquierda el botón redondo de volver arriba. En el móvil la cabecera y el título de cada pantalla ocupan menos y las pestañas de sección tienen 40 px de alto para el dedo; en el móvil y la tableta las casillas para marcar miden 20 px. Cada pestaña del navegador lleva el nombre de la pantalla («Microciclos · RMCF Castilla»), y así se distinguen en el historial, los marcadores y el selector de apps del móvil", cuenta: "El nombre es la etiqueta del menú (components/ui/TituloPestana.tsx); /general y /performance conservan el suyo" },
           { que: "Lo que toca hoy", es: "MD y MD-1: En directo (el día de partido), PDF y vídeo ABP por jugador, Duelos. MD+1 y MD+2: Informe post, Análisis de datos, Histórico. MD-2 a MD-4: scout y ABP del rival" },
           { que: "Del rival", es: "Scout colectivo, ABP rival, Pizarra ABP, Duelos e Individual con el rival puesto; sin repetir lo de arriba" },
+          {
+            que: "▶ Sus goles en vídeo · ▶ Cómo le marcan · ▶ Su último partido (16/11/2026)",
+            es: "Al final de la fila del rival, en dorado. Los dos primeros abren encima de la portada sus goles en vídeo: los que marca o los que encaja. Los que marca y los que encaja (= por dónde hacerle daño), de seguido («▶ Ver de seguido») o uno a uno en la lista de debajo; filtros: en jugada o a balón parado (córner, faltas, banda y penalti) y temporada, últimos 3 o últimos 5 partidos. Cada gol, con el corte de Opta del partido (10 s antes y 6 después) o, si aún no está, sobre el resumen de la RFEF. «Verlos en el campo» abre Análisis de goles con el equipo puesto. «Su último partido» abre en YouTube el resumen oficial de la RFEF de su último partido de liga. Si Opta no tiene sus goles, o no hay resumen, el botón no sale",
+            cuenta: "Goles de Opta (opta:remates; los de propia puerta no son remates y no salen). Balón parado = situación del remate distinta de «juego» y «contragolpe». Vídeo: opta:goles-video y, si no, rfef:goles-resumenes",
+          },
           { que: "Últimos 5", es: "Nuestros cinco últimos con el marcador debajo; el más reciente, a la derecha", cuenta: "V ganado · E empatado · D perdido" },
           { que: "Liga", es: "Puesto, puntos, V-E-D y goles a favor y en contra, de BeSoccer", cuenta: "Tras los partidos ya jugados, sin contar el que viene" },
         ],
