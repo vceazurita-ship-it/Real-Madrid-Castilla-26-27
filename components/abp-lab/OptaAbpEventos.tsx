@@ -17,6 +17,7 @@
 */
 
 import { useMemo, useState } from "react";
+import { VideoOpta } from "@/components/opta/VideoOpta";
 import { Crosshair } from "lucide-react";
 
 import { CampoOpta, SOBRE_CESPED } from "@/components/campo/CampoOpta";
@@ -276,7 +277,12 @@ export function OptaAbpEventos() {
                   <Punto color="rgba(255,255,255,0.75)">Llega a un compañero</Punto>
                   <Punto color={SOBRE_CESPED.rival}>No llega</Punto>
                 </p>
-                {visto && <p className="mt-1 text-[12px] text-white/75">{textoSaque(visto)}</p>}
+                {visto && (
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    <p className="text-[12px] text-white/75">{textoSaque(visto)}</p>
+                    <VideoOpta evento={visto} tipo="passes" descripcion={textoSaque(visto)} />
+                  </div>
+                )}
               </div>
 
               <div className="min-w-0 space-y-4">

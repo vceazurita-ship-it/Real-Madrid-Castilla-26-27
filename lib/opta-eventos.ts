@@ -315,6 +315,9 @@ export type Penalti = {
   equipo: string;
   rivalId: string;
   rival: string;
+  /** Parte y reloj de Opta en segundos: para abrir su vídeo en ProVision (lib/opta-video.ts). */
+  parte: number;
+  segundo: number;
   minuto: number;
   tipo: string;
   gol: boolean;
@@ -372,6 +375,8 @@ export function penaltisDe(t: TablaOpta | null, pista: Pista = PISTA_VACIA): Pen
       equipo,
       rivalId,
       rival,
+      parte: num(g(f, "parte")) ?? 1,
+      segundo: num(g(f, "segundo")) ?? 0,
       minuto: minutoDe(num(g(f, "segundo")) ?? 0),
       tipo,
       gol: tipo === "PenaltyGoal" || tipo === "Goal",
@@ -441,6 +446,7 @@ export type Saque = {
   rivalId: string;
   rival: string;
   abp: TipoSaque;
+  parte: number;
   segundo: number;
   minuto: number;
   secuencia: number | null;
@@ -523,6 +529,7 @@ export function saquesDe(t: TablaOpta | null, remates: Remate[], pista: Pista = 
       rivalId,
       rival,
       abp: str(g(f, "abp")) as TipoSaque,
+      parte: num(g(f, "parte")) ?? 1,
       segundo: num(g(f, "segundo")) ?? 0,
       minuto: minutoDe(num(g(f, "segundo")) ?? 0),
       secuencia,
@@ -759,6 +766,7 @@ export type AccionCastilla = {
   fecha: string;
   rival: string;
   parte: number;
+  segundo: number;
   minuto: number;
   tipo: string;
   secuencia: number | null;
@@ -827,6 +835,7 @@ export function accionesCastilla(t: TablaOpta | null, nuestros: Set<string>): Ac
       fecha: str(g(f, "fecha")),
       rival: str(g(f, "rival")),
       parte: num(g(f, "parte")) ?? 1,
+      segundo: num(g(f, "segundo")) ?? 0,
       minuto: minutoDe(num(g(f, "segundo")) ?? 0),
       tipo: str(g(f, "tipo")),
       secuencia: num(g(f, "secuencia")),

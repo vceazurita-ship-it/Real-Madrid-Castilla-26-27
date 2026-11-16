@@ -17,6 +17,7 @@
  */
 
 import { useMemo, useState } from "react";
+import { VideoOpta } from "@/components/opta/VideoOpta";
 
 import { useProximoRival } from "@/hooks/useAbpLigas";
 import { tinta } from "@/components/data/graficas";
@@ -169,7 +170,8 @@ function Lista({ penaltis, columna }: { penaltis: Penalti[]; columna: "portero" 
             <th className="py-1.5 pr-2 font-semibold">Lado (lanzador)</th>
             <th className="py-1.5 pr-2 font-semibold">Altura</th>
             <th className="py-1.5 pr-2 text-right font-semibold">Min</th>
-            <th className="py-1.5 font-semibold">Marcador</th>
+            <th className="py-1.5 pr-2 font-semibold">Marcador</th>
+            <th className="py-1.5 text-right font-semibold">Vídeo</th>
           </tr>
         </thead>
         <tbody>
@@ -181,7 +183,10 @@ function Lista({ penaltis, columna }: { penaltis: Penalti[]; columna: "portero" 
               <td className="py-1.5 pr-2 text-white/75">{ladoDe(p.gmY) ?? ""}</td>
               <td className="py-1.5 pr-2 text-white/75">{alturaDe(p.gmZ) ?? ""}</td>
               <td className="py-1.5 pr-2 text-right text-white/75">{p.minuto}′</td>
-              <td className="py-1.5 text-white/75">{MARCADOR[p.marcador] ?? ""}</td>
+              <td className="py-1.5 pr-2 text-white/75">{MARCADOR[p.marcador] ?? ""}</td>
+              <td className="py-1.5 text-right">
+                <VideoOpta evento={p} tipo="shots" etiqueta="▶ Opta" descripcion={`Penalti de ${p.tirador}, ${p.minuto}′`} />
+              </td>
             </tr>
           ))}
         </tbody>

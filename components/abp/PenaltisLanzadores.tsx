@@ -12,6 +12,7 @@
  */
 
 import { useMemo } from "react";
+import { urlVideoOpta } from "@/lib/opta-video";
 import { CircleDot } from "lucide-react";
 
 import { Panel } from "@/components/abp/ui";
@@ -66,8 +67,8 @@ function PorteriaSeis({ penaltis, rotulo }: { penaltis: Penalti[]; rotulo: strin
                 const cx = x0 + 18 + (i % 4) * 20;
                 const cy = y0 + 18 + Math.floor(i / 4) * 18;
                 return (
+                  <a key={i} href={urlVideoOpta(p, "shots") ?? undefined} target="_blank" rel="noopener noreferrer" style={{ cursor: "pointer" }}>
                   <circle
-                    key={i}
                     cx={cx}
                     cy={Math.min(cy, y0 + ch - 8)}
                     r={7}
@@ -77,8 +78,9 @@ function PorteriaSeis({ penaltis, rotulo }: { penaltis: Penalti[]; rotulo: strin
                       strokeWidth: r === "fuera" ? 2 : 1,
                     }}
                   >
-                    <title>{`${fechaCorta(p.fecha)} · ${r === "gol" ? "gol" : r === "parado" ? "parado" : p.tipo === "Post" ? "al palo" : "fuera"}${p.portero ? ` · portero ${p.portero}` : ""} · ${p.minuto}′`}</title>
+                    <title>{`${fechaCorta(p.fecha)} · ${r === "gol" ? "gol" : r === "parado" ? "parado" : p.tipo === "Post" ? "al palo" : "fuera"}${p.portero ? ` · portero ${p.portero}` : ""} · ${p.minuto}′ · pincha: vídeo en Opta`}</title>
                   </circle>
+                  </a>
                 );
               })}
             </g>

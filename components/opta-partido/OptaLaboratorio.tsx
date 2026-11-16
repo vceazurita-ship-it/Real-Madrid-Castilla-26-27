@@ -21,6 +21,7 @@
  */
 
 import { useMemo, useState } from "react";
+import { urlVideoOpta } from "@/lib/opta-video";
 import { Database, Map as MapIcon } from "lucide-react";
 
 import { Panel } from "@/components/abp/ui";
@@ -431,9 +432,11 @@ function MapaOpta({ modo, partidoOpta }: { modo: "robos" | "perdidas"; partidoOp
               {lista.map((a, i) => {
                 const [cx, cy] = p(a.x, a.y);
                 return (
-                  <circle key={i} cx={cx} cy={cy} r={11} style={{ fill: colorDe(a), fillOpacity: 0.8, stroke: "rgba(0,0,0,0.45)", strokeWidth: 1.5 }}>
-                    <title>{`${a.minuto}′ · ${a.jugador || "Castilla"} · ${TIPOS[modo].find((t) => t.es(a))?.nombre ?? a.tipo}`}</title>
-                  </circle>
+                  <a key={i} href={urlVideoOpta(a) ?? undefined} target="_blank" rel="noopener noreferrer" style={{ cursor: "pointer" }}>
+                    <circle cx={cx} cy={cy} r={11} style={{ fill: colorDe(a), fillOpacity: 0.8, stroke: "rgba(0,0,0,0.45)", strokeWidth: 1.5 }}>
+                      <title>{`${a.minuto}′ · ${a.jugador || "Castilla"} · ${TIPOS[modo].find((t) => t.es(a))?.nombre ?? a.tipo} · pincha: vídeo en Opta`}</title>
+                    </circle>
+                  </a>
                 );
               })}
             </>

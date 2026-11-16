@@ -325,6 +325,7 @@ export const AYUDAS: AyudaDePagina[] = [
       DE_DONDE_SALE,
     ],
     ojo: [
+      "Cada evento de Opta (saque, remate, penalti, acción) se pincha y abre su vídeo en Opta ProVision: el Event Log del partido filtrado a esa parte y ese segundo, con el vídeo abierto (8 s antes y después). Hace falta la sesión de Opta abierta; si Opta no tiene el vídeo de ese partido, ProVision lo dice (16/11/2026).",
       "Con pocos partidos jugados, un puesto en la tabla se mueve mucho por un solo resultado.",
       "Una cifra por 90 de alguien con pocos minutos es una tendencia, no un retrato: por eso el mínimo.",
       "El directo depende de que Opta publique durante el juego; si sólo publica al acabar, las cifras llegan al final.",
@@ -420,7 +421,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "ABP Ofensivo",
     resumen: "Córners y faltas a favor, acción por acción: qué se lanza, dónde cae, quién remata y cuánto peligro deja.",
     origen: "Nuestra hoja de ABP ofensivo, una fila por acción, registrada a mano. El corte de cada acción, de Hudl (doc «abp:cortes»); la categoría, de Opta.",
-    revisada: "2026-11-15",
+    revisada: "2026-11-16",
     bloques: [
       {
         titulo: "Las tarjetas",
@@ -463,6 +464,7 @@ export const AYUDAS: AyudaDePagina[] = [
       },
     ],
     ojo: [
+      "Cada evento de Opta (saque, remate, penalti, acción) se pincha y abre su vídeo en Opta ProVision: el Event Log del partido filtrado a esa parte y ese segundo, con el vídeo abierto (8 s antes y después). Hace falta la sesión de Opta abierta; si Opta no tiene el vídeo de ese partido, ProVision lo dice (16/11/2026).",
       "Por defecto va sin pretemporada: los amistosos de julio son contra equipos de otra categoría; se incluyen a propósito desde el filtro de competición.",
       "Con «Todas» las jornadas, la comparativa del partido usa la última; el resto de la página suma todos los partidos.",
     ],
@@ -472,7 +474,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "ABP Defensivo",
     resumen: "Córners y faltas en contra, acción por acción: dónde nos atacan, quién nos hace daño y cuánto conceden.",
     origen: "Nuestra hoja de ABP defensivo, una fila por acción del rival. El corte de cada acción, de Hudl (doc «abp:cortes»); la categoría, de Opta.",
-    revisada: "2026-11-15",
+    revisada: "2026-11-16",
     bloques: [
       {
         titulo: "Las tarjetas",
@@ -505,6 +507,7 @@ export const AYUDAS: AyudaDePagina[] = [
       },
     ],
     ojo: [
+      "Cada evento de Opta (saque, remate, penalti, acción) se pincha y abre su vídeo en Opta ProVision: el Event Log del partido filtrado a esa parte y ese segundo, con el vídeo abierto (8 s antes y después). Hace falta la sesión de Opta abierta; si Opta no tiene el vídeo de ese partido, ProVision lo dice (16/11/2026).",
       "«Gol RMCF» y «Transición Ofensiva» son nuestros: se marcan a mano porque el sujeto por defecto es el rival.",
       "Por defecto va sin pretemporada, como el ofensivo.",
     ],
@@ -514,7 +517,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Saque de Banda Ofensivo",
     resumen: "Cada saque de banda a favor: dónde se saca, adónde va y en qué acaba.",
     origen: "Nuestra hoja de saque de banda ofensivo, una fila por saque. El corte y el segundo de Hudl, del doc «banda:cortes»; la categoría, de Opta.",
-    revisada: "2026-11-12",
+    revisada: "2026-11-16",
     bloques: [
       {
         titulo: "Las cifras",
@@ -551,6 +554,7 @@ export const AYUDAS: AyudaDePagina[] = [
       },
     ],
     ojo: [
+      "Cada evento de Opta (saque, remate, penalti, acción) se pincha y abre su vídeo en Opta ProVision: el Event Log del partido filtrado a esa parte y ese segundo, con el vídeo abierto (8 s antes y después). Hace falta la sesión de Opta abierta; si Opta no tiene el vídeo de ese partido, ProVision lo dice (16/11/2026).",
       "Por defecto va sin pretemporada; se puede incluir desde el filtro de competición.",
       "Un partido da 10-20 saques: con poca muestra, la comparación es tendencia.",
     ],
@@ -560,7 +564,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Saque de Banda Defensivo",
     resumen: "Cada saque de banda del rival: dónde saca, adónde va y en qué acaba.",
     origen: "Nuestra hoja de saque de banda defensivo, una fila por saque del rival. El corte y el segundo de Hudl, del doc «banda:cortes»; la categoría, de Opta.",
-    revisada: "2026-11-12",
+    revisada: "2026-11-16",
     bloques: [
       {
         titulo: "Las cifras",
@@ -593,7 +597,7 @@ export const AYUDAS: AyudaDePagina[] = [
         ],
       },
     ],
-    ojo: ["Por defecto va sin pretemporada; se puede incluir desde el filtro de competición."],
+    ojo: ["Por defecto va sin pretemporada; se puede incluir desde el filtro de competición.", "Cada evento de Opta (saque, remate, penalti, acción) se pincha y abre su vídeo en Opta ProVision: el Event Log del partido filtrado a esa parte y ese segundo, con el vídeo abierto (8 s antes y después). Hace falta la sesión de Opta abierta; si Opta no tiene el vídeo de ese partido, ProVision lo dice (16/11/2026)."],
   },
   {
     ruta: "/abp-microciclo",
@@ -1624,6 +1628,7 @@ export const AYUDAS: AyudaDePagina[] = [
       },
     ],
     ojo: [
+      "Cada evento de Opta (saque, remate, penalti, acción) se pincha y abre su vídeo en Opta ProVision: el Event Log del partido filtrado a esa parte y ese segundo, con el vídeo abierto (8 s antes y después). Hace falta la sesión de Opta abierta; si Opta no tiene el vídeo de ese partido, ProVision lo dice (16/11/2026).",
       "Coding, láminas y registrar se ven sin sesión desde el 12/11/2026; dibujar láminas, sacar el PPT y recoger la carpeta siguen pidiendo «Editar» con la sesión de administrador.",
       "La proyección es de Opta (los 20 equipos del grupo) y, en el número de córners o bandas de un partido, los equipos aún apenas se distinguen: lo que más separa es el xG por acción. «Cómo se cuenta», plegado al pie del panel.",
     ],
@@ -2043,7 +2048,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Lo que hacen los mejores en balón parado, las mejores acciones de cada jornada, nuestras rutinas de la idea al partido, el Castilla frente a la categoría en Opta y una competición de retos para la plantilla.",
     origen:
       "Los referentes son artículos y análisis publicados, cada uno con su enlace. Las acciones de cada jornada salen de Wyscout cada mañana, con el resumen oficial de YouTube; la categoría, de Opta. Las rutinas y los retos se escriben aquí y viven en un documento propio de Supabase que sólo ve el administrador.",
-    revisada: "2026-11-12",
+    revisada: "2026-11-16",
     bloques: [
       {
         titulo: "Las pestañas",
@@ -2097,6 +2102,7 @@ export const AYUDAS: AyudaDePagina[] = [
       },
     ],
     ojo: [
+      "Cada evento de Opta (saque, remate, penalti, acción) se pincha y abre su vídeo en Opta ProVision: el Event Log del partido filtrado a esa parte y ese segundo, con el vídeo abierto (8 s antes y después). Hace falta la sesión de Opta abierta; si Opta no tiene el vídeo de ese partido, ProVision lo dice (16/11/2026).",
       "Sólo con la sesión de administrador: sin ella, la dirección enseña la puerta del laboratorio y el contenido no llega al navegador. Vale también para «Datos».",
       "Un reto de preguntas cuenta como jugado para quien se marca al empezar, aunque no acierte ninguna.",
       "El interruptor «Marcar para abrir» sólo deja apuntado que se abrirá a la plantilla: hoy la pantalla sigue siendo del administrador.",
@@ -3040,10 +3046,11 @@ export const AYUDAS: AyudaDePagina[] = [
       },
     ],
     ojo: [
+      "Cada evento de Opta (saque, remate, penalti, acción) se pincha y abre su vídeo en Opta ProVision: el Event Log del partido filtrado a esa parte y ese segundo, con el vídeo abierto (8 s antes y después). Hace falta la sesión de Opta abierta; si Opta no tiene el vídeo de ese partido, ProVision lo dice (16/11/2026).",
       "Los partidos mirados a ojo desde los clips, sin timeline de Hudl, no tienen jugador y no entran en «Por jugador».",
       "El etiquetado no apunta en qué acaba cada falta: el peligro se lee por el sitio.",
     ],
-    revisada: "2026-11-12",
+    revisada: "2026-11-16",
   },
 
   /* ==================== ROBOS Y TRANSICIONES (12/11/2026) ==================== */
@@ -3090,11 +3097,12 @@ export const AYUDAS: AyudaDePagina[] = [
       },
     ],
     ojo: [
+      "Cada evento de Opta (saque, remate, penalti, acción) se pincha y abre su vídeo en Opta ProVision: el Event Log del partido filtrado a esa parte y ese segundo, con el vídeo abierto (8 s antes y después). Hace falta la sesión de Opta abierta; si Opta no tiene el vídeo de ese partido, ProVision lo dice (16/11/2026).",
       "Robo es la recuperación activa: entrada, interceptación o balón ganado por presión, con el balón en juego. Rechaces sin disputa, paradas o balón parado no cuentan.",
       "La transición son los 15 s tras el robo: lo que llega después cuenta como posesión.",
       "La «recuperación» de Opta no es la misma cuenta que el robo de aquí: se enseñan aparte.",
     ],
-    revisada: "2026-11-12",
+    revisada: "2026-11-16",
   },
 
   /* ==================== PÉRDIDAS Y TRANSICIONES DEFENSIVAS (12/11/2026) ==================== */
@@ -3141,11 +3149,12 @@ export const AYUDAS: AyudaDePagina[] = [
       },
     ],
     ojo: [
+      "Cada evento de Opta (saque, remate, penalti, acción) se pincha y abre su vídeo en Opta ProVision: el Event Log del partido filtrado a esa parte y ese segundo, con el vídeo abierto (8 s antes y después). Hace falta la sesión de Opta abierta; si Opta no tiene el vídeo de ese partido, ProVision lo dice (16/11/2026).",
       "La salida y el desenlace son del rival: verde es lo bueno para nosotros, naranja lo malo.",
       "Pérdida es un balón nuestro que pasa al rival en juego: pase que no llega, conducción cortada, control o duelo perdido. Remates, despejes y faltas pitadas no cuentan.",
       "La «pérdida» de Opta no es la misma cuenta que la de aquí: se enseñan aparte.",
     ],
-    revisada: "2026-11-12",
+    revisada: "2026-11-16",
   },
 
   /* ==================== CREAR O EDITAR EL MICROCICLO (12/11/2026) ==================== */
