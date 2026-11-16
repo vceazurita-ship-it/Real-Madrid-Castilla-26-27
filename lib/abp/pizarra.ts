@@ -399,7 +399,9 @@ export const PLANTILLAS: PlantillaSlide[] = [
     | lado. Mismo trazado diagonal, con sitio para leerlos.
     */
     puestos: puestos("corner-of", [
-      { code: "C", label: "Corta", grupo: "lanzadores", x: 831, y: 845 },
+      /* 16/11/2026 (jueces, ronda 18): «Corta» salía dos veces en el panel; el
+         grupo es EQUILIBRIO y el cuerpo técnico le pone «E». La clave sigue siendo C. */
+      { code: "C", sigla: "E", label: "Equilibrio", grupo: "lanzadores", x: 831, y: 845 },
       /* Nombres del cuerpo técnico (27/09/2026). Las claves siguen siendo BZ, BC
          y RC, así que nadie se mueve de su sitio: sólo cambian la sigla que se
          lee y el grupo en el que sale. */
@@ -410,9 +412,11 @@ export const PLANTILLAS: PlantillaSlide[] = [
       { code: "R1", label: "Rematador 1", grupo: "rematadores", x: 1000, y: 455 },
       { code: "R2", label: "Rematador 2", grupo: "rematadores", x: 1076, y: 415 },
       { code: "R3", label: "Rematador 3", grupo: "rematadores", x: 1152, y: 375 },
-      /* 16/11/2026 (jueces): «Defensa 1» no se entendía en un córner a favor; es
-         quien vigila la contra. La clave sigue siendo D1: nadie se mueve. */
-      { code: "D1", label: "Vigilancia 1", grupo: "cierra", x: 154, y: 258 },
+      /* 16/11/2026 (jueces): «Defensa 1» no se entendía en un córner a favor.
+         Ronda 18: el grupo es SAQUE Y CORTA y el cuerpo técnico le pone la sigla
+         «SAQUE»; con «Vigilancia 1» el panel leía «SAQUE → VIGILANCIA 1». La
+         clave sigue siendo D1: nadie se mueve. */
+      { code: "D1", label: "Saque", grupo: "cierra", x: 154, y: 258 },
       { code: "Z1", label: "Zaguero 1", grupo: "cierra", x: 290, y: 356 },
     ]),
     notas: [
@@ -1016,7 +1020,20 @@ export function slideDePlantilla(
 ): SlidePizarra {
   const plantilla = PLANTILLA_BY_KEY.get(key) ?? PLANTILLAS[0];
 
-  const textos = clonaTextos(heredado);
+  let textos = clonaTextos(heredado);
+
+  /*
+  | 16/11/2026 (jueces, ronda 18): las siglas guardadas «para las siguientes»
+  | traían dos puestos con la misma («R» = rechace largo y zaguero), y cada
+  | jornada nueva nacía con la franja de aviso y el botón de renombrar. Al
+  | crear la diapositiva se separan ya (RE y ZA); en una jornada montada lo
+  | escrito a mano sigue sin tocarse.
+  */
+  if (textos?.siglas) {
+    const conSiglas = plantilla.puestos.map((p) => (textos!.siglas![p.key] ? { ...p, sigla: limpiaSigla(textos!.siglas![p.key]) } : p));
+    const separadas = siglasSinChoque(conSiglas);
+    if (Object.keys(separadas).length) textos = { ...textos, siglas: { ...textos.siglas, ...separadas } };
+  }
 
   return {
     id: nuevoId("SL"),

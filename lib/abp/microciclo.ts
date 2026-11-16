@@ -198,24 +198,30 @@ export const ASPECTOS: Aspecto[] = [
     grupo: "otras",
     reconocimiento: { family: "penalti" },
   },
+  /*
+  | 16/11/2026 (jueces, ronda 18): «Saque de banda Z3» no se entendía en la
+  | charla. La zona va desde el que saca (throwInModel: 1 = su propio tercio,
+  | 3 = el último), así que se nombra por el campo del que saca: atacando, el
+  | último tercio es el suyo; defendiendo, el nuestro. Las claves no cambian.
+  */
   {
     key: "banda-z1",
-    label: "Saque de banda Z1",
-    short: "Banda Z1",
+    label: "Saque de banda en el primer tercio",
+    short: "Banda 1.er tercio",
     grupo: "banda",
     reconocimiento: { family: "banda", zonaSaque: 1 },
   },
   {
     key: "banda-z2",
-    label: "Saque de banda Z2",
-    short: "Banda Z2",
+    label: "Saque de banda en el medio",
+    short: "Banda medio",
     grupo: "banda",
     reconocimiento: { family: "banda", zonaSaque: 2 },
   },
   {
     key: "banda-z3",
-    label: "Saque de banda Z3",
-    short: "Banda Z3",
+    label: "Saque de banda en el último tercio",
+    short: "Banda últ. tercio",
     grupo: "banda",
     reconocimiento: { family: "banda", zonaSaque: 3 },
   },

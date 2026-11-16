@@ -35,7 +35,7 @@ import type { Player } from "@/types/player";
 /* 12/11/2026 (jueces): letras que no tapan nombres, rivales con dorsal y apellido, dato del rival y fecha en el pie. */
 /* 12/11/2026, tercera ronda: nada tapa ningún nombre (`lib/abp/coloca-lamina.ts`), chapas a su ancho, letra de la pizarra en segundo plano. */
 /* 12/11/2026, el analista: todas las caras del mismo tamaño en todas las láminas (portero con su foto entera) y nombres de las consignas atados a su ficha. */
-const VERSION = "2026-11-12-r4-caras-iguales-nombres-atados";
+const VERSION = "2026-11-16-r18-rotulos-corner-of";
 
 /* ------------------------------------------------------------------ */
 /*  HUELLAS                                                            */

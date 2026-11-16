@@ -645,7 +645,7 @@ export const AYUDAS: AyudaDePagina[] = [
             es: "Minutos planificados frente al objetivo del cuerpo técnico, y el reparto atacando/defendiendo",
             cuenta: "90-100′ por cada 6 días de sesión, prorrateado hacia abajo (tope 6). Las tareas de los dos lados cuentan mitad y mitad",
           },
-          { que: "Pizarra ABP · ABP del rival · Plan de partido", es: "Atajos del partido de la semana; «Informe post» si ya se jugó y «Vídeo de ABP» si la pieza está subida" },
+          { que: "Pizarra ABP · ABP del rival · Sus goles en vídeo · Cómo le marcan · Plan de partido", es: "Atajos del partido de la semana, con el rival ya elegido; «Informe post» si ya se jugó y «Vídeo de ABP» si la pieza está subida" },
           { que: "Proponer boceto", es: "Propone la semana entera (días, aspectos y minutos) con el próximo partido, nuestro rendimiento y el del rival" },
           { que: "Informe de la semana", es: "El informe de balón parado de la semana, para verlo y mandarlo" },
           { que: "Más", es: "Exportar planificación (imagen, WhatsApp o correo), Importar del registro, Copiar de otro micro (atado por MD) y Nuevo microciclo" },
@@ -657,9 +657,9 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Lo que dejó el partido", es: "Ya jugado: cada aspecto trabajado con sus acciones, peligro y goles en ese partido, y su veredicto", cuenta: "Con menos de 5 acciones va en gris: «pocos casos»" },
           {
             que: "Revisión de la semana",
-            es: "Una lista con los tres avisos más graves y su acción (abrir la tarea o añadirla); el resto de avisos y lo que ya está bien, plegados con su número",
+            es: "El aviso más grave entero, con su acción; debajo, «También:» con los títulos de los demás, que se despliegan junto con lo que ya está bien. Con varias tareas sin criterio, un botón por tarea; cada carencia lleva a la pantalla donde se ven sus acciones (ABP o saque de banda, ofensivo o defensivo)",
             cuenta:
-              "Mira minutos, tareas sin tiempo, sin intensidad o sin criterio de éxito, tareas en día libre o de partido (en el día del partido el vídeo o la charla del plan valen: es la activación previa, ni se avisa ni cuenta como «vídeo después del campo»), el MD-1, el pico de carga, los lados y lo más urgente de la competición que no entra (dos a la vez se juntan en «Dos carencias sin tarea»)",
+              "Con menos de 15 acciones una carencia se escribe como tendencia, no como urgencia. Si todo lo que falta es de un lado y ese lado tiene menos del 40 % de los minutos, sale «El reparto va contra lo que falta». Mira minutos, tareas sin tiempo, sin intensidad o sin criterio de éxito, tareas en día libre o de partido (en el día del partido el vídeo o la charla del plan valen: es la activación previa, ni se avisa ni cuenta como «vídeo después del campo»), el MD-1, el pico de carga, los lados y lo más urgente de la competición que no entra (dos a la vez se juntan en «Dos carencias sin tarea»)",
           },
           { que: "Carga: … en N días con balón parado", es: "Plegado: Minutos de ABP, Carga condicional, Carga cognitiva y Campo / Vídeo", cuenta: "Condicional = tiempo × intensidad; cognitiva = tiempo × exigencia; al lado, la media de los otros micros" },
           {
@@ -688,6 +688,7 @@ export const AYUDAS: AyudaDePagina[] = [
     ojo: [
       "Lo importado del registro trae sus cargas medidas; lo planificado a futuro es una estimación con la misma cuenta.",
       "Las hojas no separan el córner directo del jugado en corto: se lee del tipo de envío (corto = indirecto).",
+      "El saque de banda se nombra por el campo del que saca: primer tercio, medio y último tercio. Atacando, el último tercio es el del rival; defendiendo, el nuestro.",
       "Si una de las hojas de ABP no se puede leer, un aviso arriba lo dice y el cruce se calcula sin ella.",
     ],
   },
@@ -705,7 +706,9 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Tal cual: PDF · PPT", es: "Saca exactamente las pizarras como las has pintado: pasa por cada una, la fotografía de la pantalla y pone una por hoja en el PDF y una por diapositiva en el PowerPoint. No recoloca, no rellena ni cambia nada; sólo deja fuera el botón «ampliar» del móvil y quita la selección. Al acabar vuelve a la pizarra en la que estabas", cuenta: "PDF: cada hoja mide lo que la foto, sin recortar ni estirar. PPT: diapositiva 16:9 con la foto entera centrada (si la pizarra no es 16:9 quedan márgenes azul marino, nunca se deforma). Es una imagen: para mover fichas en PowerPoint, el «Exportar» de siempre" },
           { que: "Copiar de J.. y poner el once", es: "Trae jugadores, flechas y consignas de la jornada anterior y cambia a los que no están en el once. El aviso de «Pizarra sin empezar» dice antes cuántas diapositivas y jugadores trae y de qué partido" },
           { que: "Quitar diapositiva", es: "Al otro extremo de la barra; si la diapositiva tiene fichas o consignas, pide confirmación. Se puede deshacer justo después" },
-          { que: "Dos puestos comparten la sigla…", es: "Aviso cuando dos puestos de la misma diapositiva se leen igual en la chapa; «Renombrarlos» les pone siglas distintas (las siglas escritas a mano no se cambian solas)" },
+          { que: "Su ABP · Sus goles en vídeo · Cómo le marcan · Plan de partido", es: "Bajo el partido, con el rival de la pizarra ya elegido: su balón parado (ABP del rival), sus goles y los que encaja en vídeo (Análisis de goles) y su plan de partido" },
+          { que: "Dos puestos comparten la sigla…", es: "Aviso cuando dos puestos de la misma diapositiva se leen igual en la chapa; «Renombrarlos» les pone siglas distintas. Una diapositiva nueva ya nace con ellas separadas (p. ej. rechace largo RE y zaguero ZA); en una ya montada, lo escrito a mano no se cambia solo" },
+          { que: "Consignas de una pizarra sin empezar", es: "Son las guardadas «para las siguientes» y pueden nombrar a jugadores de otra jornada; al copiar llegan las de la jornada anterior con el once cambiado" },
           { que: "Nombre subrayado en punteado", es: "En las consignas, un jugador que no está en esa lámina. Con la lámina vacía no se marca nada" },
           { que: "Colocar", es: "Rellena los huecos con quien suele hacer ese puesto", cuenta: "La memoria es por puesto: se anota sola cada vez que se asigna a alguien" },
           { que: "0/10 colocados", es: "En la tira, lo que falta en cada diapositiva" },
@@ -2171,7 +2174,7 @@ export const AYUDAS: AyudaDePagina[] = [
     ojo: [
       "Cada evento de Opta (saque, remate, penalti, acción) se pincha y abre su vídeo en Opta ProVision: el Event Log del partido filtrado a esa parte y ese segundo, con el vídeo abierto (8 s antes y después). Hace falta la sesión de Opta abierta; si Opta no tiene el vídeo de ese partido, ProVision lo dice (16/11/2026).",
       "Sólo con la sesión de administrador: sin ella, la dirección enseña la puerta del laboratorio y el contenido no llega al navegador. Vale también para «Datos».",
-      "La puerta (sin sesión): la ventana «No tienes acceso» con la vuelta a ABP Ofensivo y «Soy yo: poner la contraseña», que lleva al único formulario de entrada. Detrás, una muestra de cada herramienta pintada con el código del laboratorio y material público: la rutina «Pared delante del portero» del Arsenal (Premier League · Opta Analyst) en la pizarra viva, esa misma rutina contra zona, mixta y hombre con el modelo de xG del laboratorio sin calibrar, y una pregunta del banco de retos con su fuente. Nada del rival, de la plantilla ni de nuestras rutinas (16/11/2026).",
+      "La puerta (sin sesión): la ventana «No tienes acceso» con la vuelta a ABP Ofensivo y «Soy yo: poner la contraseña», que lleva al único formulario de entrada. Detrás, una muestra de cada herramienta rotulada «Ejemplo» con su fuente: la rutina «Pared delante del portero» del Arsenal (web de la Premier League, datos de Opta) en la pizarra viva, con la leyenda de sus letras (L lanzador, P pared delante del portero, R rematador, S señuelo, 2ª segunda jugada, V vigilancia); esa misma rutina contra zona, mixta y hombre con el modelo de xG del laboratorio sin calibrar (estimación, no medición); y una pregunta del banco de retos (The Analyst, córners de la Premier 2022/23, toda la temporada). El título y el «Próximo rival: … · su ABP» llevan el nombre del próximo rival, del calendario de BeSoccer, y abren su ABP. Nada de la plantilla ni de nuestras rutinas (16/11/2026).",
       "Un reto de preguntas cuenta como jugado para quien se marca al empezar, aunque no acierte ninguna.",
       "El interruptor «Marcar para abrir» sólo deja apuntado que se abrirá a la plantilla: hoy la pantalla sigue siendo del administrador.",
     ],

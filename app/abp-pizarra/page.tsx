@@ -214,6 +214,7 @@ import { esPortero } from "@/lib/abp/pizarra-jugador";
 const CLAVE_SUELTA = "suelta:";
 import { siglasQueChocan, siglasSinChoque } from "@/lib/abp/siglas";
 import { traeJson } from "@/lib/hojaCsv";
+import { EnlacesDelRival } from "@/components/abp/EnlacesDelRival";
 import { VideoJugada } from "@/components/abp/pizarra/VideoJugada";
 import {
   RecibeDelLaboratorio,
@@ -2990,6 +2991,18 @@ export default function PizarraAbpPage() {
               </div>
             </div>
 
+            {/* 16/11/2026 (jueces, ronda 18): junto al rival, a un toque, cómo
+                ataca y defiende su balón parado, sus goles en vídeo y su plan. */}
+            {partido && (tablero?.rival || partido.opponent) && (
+              <EnlacesDelRival
+                equipo={tablero?.rival || partido.opponent}
+                rivalId={jornada?.id ?? (partido.id.startsWith("riv-") ? partido.id.slice(4) : "")}
+                incluye={["abp", "goles", "encaja", "plan"]}
+                rotulo={`${rivalCorto(tablero?.rival || partido.opponent)} ·`}
+                className="mt-3"
+              />
+            )}
+
             {/* El once de la pizarra táctica, a la vista: es el que «Colocar» usa. */}
             {delOnce.length > 0 && (
               <div className="mt-3 flex min-w-0 flex-col gap-2 rounded-2xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.05] px-3 py-2.5 sm:flex-row sm:items-center">
@@ -3273,6 +3286,14 @@ export default function PizarraAbpPage() {
                             return `Trae ${cuanto} de ${de}${delOnce.length > 0 ? ", con el once de la pizarra táctica ya puesto" : ""}.`;
                           })()
                         : "Coloca con lo aprendido o pincha un hueco del campo."}
+                      {/* 16/11/2026 (jueces, ronda 18): las consignas que se ven ahora
+                          son las guardadas «para las siguientes» y pueden nombrar a
+                          jugadores de otra jornada; se dice, y se cambian al copiar. */}
+                      {anterior && tablero?.slides.some((s) => s.notas.some((n) => n.trim())) && (
+                        <span className="mt-0.5 block text-[12px] text-white/60">
+                          Las consignas que se ven son las de la plantilla guardada; al copiar llegan las de esa jornada con el once cambiado.
+                        </span>
+                      )}
                     </p>
                     {anterior ? (
                       <Button
