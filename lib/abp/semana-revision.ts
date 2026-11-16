@@ -128,7 +128,24 @@ export type PuntoRevision = {
   trabajo?: Trabajo;
   /** Para proponer una tarea de lo que falta. */
   falta?: { aspecto: AspectoKey; lado: AbpLado };
+  /**
+   * 16/11/2026 (jueces, ronda 18): cuando el punto habla de varias tareas
+   * («3 tareas sin criterio»), todas, para un botón por tarea.
+   */
+  tareas?: { dia: DiaKey; trabajo: Trabajo }[];
+  /** La pantalla que mide lo que dice el punto (las acciones de la temporada). */
+  enlaces?: { href: string; rotulo: string }[];
 };
+
+/*
+| Dónde se ven las acciones de un aspecto: la banda en sus dos pantallas y el
+| resto en ABP ofensivo / defensivo.
+*/
+function pantallaDe(aspecto: AspectoKey, lado: AbpLado): { href: string; rotulo: string } {
+  const banda = aspecto.startsWith("banda");
+  if (banda) return lado === "ofensivo" ? { href: "/throw-ins", rotulo: "Ver en Saque de banda ofensivo" } : { href: "/throw-ins-def", rotulo: "Ver en Saque de banda defensivo" };
+  return lado === "ofensivo" ? { href: "/setpieces", rotulo: "Ver en ABP ofensivo" } : { href: "/setpieces_def", rotulo: "Ver en ABP defensivo" };
+}
 
 const nombreDia = (clave: DiaKey) => DIAS.find((dia) => dia.key === clave)?.label.toLowerCase() ?? clave;
 
@@ -340,6 +357,7 @@ export function revisaSemana({
       detalle: `${enLista(diasSin).replace(/^./, (letra) => letra.toUpperCase())}: ${sinExito.length === 1 ? "ábrela" : "ábrelas"} y elige el criterio propuesto, así se sabe qué mirar en el campo.`,
       dia: libre(sinExito).dia,
       trabajo: libre(sinExito).trabajo,
+      ...(sinExito.length > 1 ? { tareas: sinExito } : {}),
     });
   }
 
@@ -532,7 +550,10 @@ export function revisaSemana({
           : fila.peligroAjustado < 15
             ? `Se repite mucho en competición (${fila.stats.acciones} acciones) pero casi nunca acaba en peligro (${Math.round(fila.peligroAjustado)} %): un repaso corto basta.`
             : /* 10/11/2026 (jueces): con su base, «3 de 11 acciones acaban en peligro (27 %)», y no «28 % de peligro» suelto. */
-              `Es de lo más urgente: ${fila.stats.peligro} de ${fila.stats.acciones} acciones en competición acaban en peligro (${Math.round(fila.stats.peligroPct)} %)${fila.stats.acciones < 15 ? "; tendencia, con poca muestra" : ""}.`
+              /* 16/11/2026 (jueces, ronda 18): con menos de 15 acciones no se llama «lo más urgente»: es una tendencia. */
+              fila.stats.acciones < 15
+                ? `Tendencia, con poca muestra: ${fila.stats.peligro} de ${fila.stats.acciones} acciones en competición acaban en peligro (${Math.round(fila.stats.peligroPct)} %).`
+                : `Es de lo más urgente: ${fila.stats.peligro} de ${fila.stats.acciones} acciones en competición acaban en peligro (${Math.round(fila.stats.peligroPct)} %).`
       }${(() => {
         /* Si el mismo aspecto sí se trabaja del otro lado, se dice: si no, parece un olvido sin motivo. */
         const otro = fila.lado === "ofensivo" ? "defensivo" : "ofensivo";
@@ -543,6 +564,7 @@ export function revisaSemana({
       })()}`,
       /* Con tan poca muestra no se ofrece añadirla a la semana: sería la acción principal de un dato que ni se fía. */
       ...(fila.stats.acciones < 3 ? {} : { falta: { aspecto: fila.aspecto.key, lado: fila.lado } }),
+      enlaces: [pantallaDe(fila.aspecto.key, fila.lado)],
     });
   }
 
@@ -562,9 +584,39 @@ export function revisaSemana({
       /* Un renglón por carencia (la tarjeta respeta el salto de línea). */
       detalle: `${nombre(a)}. ${a.detalle}\n${nombre(b)}. ${b.detalle}`,
       falta: a.falta ?? b.falta,
+      enlaces: [...new Map([...(a.enlaces ?? []), ...(b.enlaces ?? [])].map((e) => [e.href, e])).values()],
     });
   } else {
     puntos.push(...carencias);
+  }
+
+  /*
+  | 16/11/2026 (jueces, ronda 18): «71 % atacando» con las dos carencias que no
+  | entran defendiendo se contradecía sin decirlo. Si todo lo que falta es de
+  | un lado y ese lado se lleva menos del 40 % de los minutos, se avisa.
+  */
+  if (carencias.length && minutos > 0) {
+    const lados = new Set(olvidadas.map((fila) => fila.lado));
+    if (lados.size === 1) {
+      const lado = [...lados][0];
+      const porLado = { ofensivo: 0, defensivo: 0 };
+      for (const { trabajo } of entradas) {
+        const suyos = ladosDe(trabajo);
+        for (const uno of suyos) porLado[uno] += (trabajo.minutos || 0) / suyos.length;
+      }
+      const parte = porLado[lado] / minutos;
+      if (parte < 0.4) {
+        const pct = (n: number) => Math.round((n / minutos) * 100);
+        const conFalta = carencias.find((c) => c.falta);
+        puntos.push({
+          id: "reparto-carencias",
+          tono: "aviso",
+          titulo: `El reparto va contra lo que falta: ${pct(porLado[lado])} % ${lado === "ofensivo" ? "atacando" : "defendiendo"}`,
+          detalle: `Atacando ${Math.round(porLado.ofensivo)}′ (${pct(porLado.ofensivo)} %) y defendiendo ${Math.round(porLado.defensivo)}′ (${pct(porLado.defensivo)} %), y ${olvidadas.length === 1 ? "lo que pide trabajo y no entra es" : "las dos carencias que no entran son"} ${lado === "ofensivo" ? "atacando" : "defendiendo"}.`,
+          ...(conFalta?.falta ? { falta: conFalta.falta } : {}),
+        });
+      }
+    }
   }
 
   /* «Faltan 60′» y «2 tareas sin tiempo» dicen lo mismo: una sola tarjeta que abre la tarea. */

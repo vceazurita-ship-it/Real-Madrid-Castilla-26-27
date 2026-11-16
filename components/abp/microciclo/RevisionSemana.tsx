@@ -14,6 +14,7 @@
  *   acabó en gol u ocasión.
  */
 
+import Link from "next/link";
 import { useState } from "react";
 import { CheckCircle2, CircleAlert, Plus, TriangleAlert } from "lucide-react";
 
@@ -67,8 +68,13 @@ export function RevisionSemana({
   | acción a la vista, y el resto plegado diciendo cuántos avisos y cuántos
   | aciertos hay dentro.
   */
+  /*
+  | 16/11/2026 (jueces, ronda 18): aun así competían tres avisos antes de ver
+  | la semana. Sale el principal entero y, debajo, los títulos de los demás en
+  | una línea que despliega la lista.
+  */
   const avisos = ordenados.filter((punto) => punto.tono !== "bien");
-  const TOPE = 3;
+  const TOPE = 1;
   const visibles = todos ? ordenados : avisos.slice(0, TOPE);
   const avisosOcultos = todos ? 0 : Math.max(0, avisos.length - TOPE);
   const bienOcultos = todos ? 0 : ordenados.length - avisos.length;
@@ -118,9 +124,34 @@ export function RevisionSemana({
                 </div>
               </div>
 
-                {(abre || punto.falta) && (
+                {(abre || punto.falta || punto.tareas?.length || punto.enlaces?.length) && (
                   <div className="flex shrink-0 flex-wrap gap-1.5 pl-6 md:max-w-[45%] md:justify-end md:pl-0">
-                    {abre && (
+                    {/* 16/11/2026 (jueces, ronda 18): un botón por tarea, no sólo la primera. */}
+                    {punto.tareas && punto.tareas.length > 1
+                      ? punto.tareas.map(({ dia, trabajo }) => (
+                          <button
+                            key={trabajo.id}
+                            type="button"
+                            onClick={() => onAbrir(dia, trabajo)}
+                            title={`Abrir «${etiquetaTrabajo(trabajo)}»`}
+                            className="rounded-lg border border-white/12 px-2 py-1 text-[11px] font-medium text-white/70 transition hover:border-white/25 hover:text-white max-sm:min-h-9"
+                          >
+                            {`Abrir la del ${(DIAS.find((uno) => uno.key === dia)?.label ?? "día").toLowerCase()} · ${etiquetaTrabajo(trabajo, true)}`}
+                          </button>
+                        ))
+                      : null}
+
+                    {punto.enlaces?.map((enlace) => (
+                      <Link
+                        key={enlace.href}
+                        href={enlace.href}
+                        className="rounded-lg border border-sky-400/30 bg-sky-400/[0.06] px-2 py-1 text-[11px] font-medium text-sky-300 transition hover:bg-sky-400/15 max-sm:min-h-9"
+                      >
+                        {enlace.rotulo}
+                      </Link>
+                    ))}
+
+                    {abre && !(punto.tareas && punto.tareas.length > 1) && (
                       <button
                         type="button"
                         onClick={abre}
@@ -149,6 +180,13 @@ export function RevisionSemana({
           );
         })}
       </ul>
+      )}
+
+      {/* Los títulos de los avisos plegados, en una línea, para saber qué hay dentro sin abrirlo. */}
+      {!todos && avisosOcultos > 0 && (
+        <p className="mt-2 text-[11.5px] leading-snug text-white/60">
+          También: {avisos.slice(TOPE).map((punto) => punto.titulo).join(" · ")}
+        </p>
       )}
 
       {/* Lo que no cabe en las tres primeras tarjetas va dentro de «Ver N más», con la misma tarjeta, no en líneas sueltas. */}

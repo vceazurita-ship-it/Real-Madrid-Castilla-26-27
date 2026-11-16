@@ -12,10 +12,11 @@
  */
 
 import Link from "next/link";
-import { ArrowRight, CalendarClock, ClipboardList, Flag, LayoutTemplate, Play, Sparkles, Swords } from "lucide-react";
+import { ArrowRight, CalendarClock, ClipboardList, Film, Flag, LayoutTemplate, Play, Sparkles, Swords } from "lucide-react";
 
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { fmtMin } from "@/lib/abp/microciclo";
+import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
 import type { PartidoNuestro } from "@/lib/castilla/calendario";
 import { esSinPartido } from "@/lib/abp/ventana";
 
@@ -287,6 +288,21 @@ export function PartidoDeLaSemana({
           <Link href={enlaces.abpRival} className={enlaceClase}>
             <Swords size={13} aria-hidden />
             ABP del rival
+          </Link>
+        )}
+
+        {/* 16/11/2026 (jueces, ronda 18): sus goles y los que encaja, en vídeo, con el rival puesto. */}
+        {nombre && (
+          <Link href={urlGolesDelEquipo(nombre, "favor")} className={enlaceClase}>
+            <Film size={13} aria-hidden />
+            Sus goles en vídeo
+          </Link>
+        )}
+
+        {nombre && (
+          <Link href={urlGolesDelEquipo(nombre, "contra")} className={enlaceClase}>
+            <Film size={13} aria-hidden />
+            Cómo le marcan
           </Link>
         )}
 

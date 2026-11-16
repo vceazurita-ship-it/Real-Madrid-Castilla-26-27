@@ -636,7 +636,7 @@ export const AYUDAS: AyudaDePagina[] = [
             es: "Minutos planificados frente al objetivo del cuerpo técnico, y el reparto atacando/defendiendo",
             cuenta: "90-100′ por cada 6 días de sesión, prorrateado hacia abajo (tope 6). Las tareas de los dos lados cuentan mitad y mitad",
           },
-          { que: "Pizarra ABP · ABP del rival · Plan de partido", es: "Atajos del partido de la semana; «Informe post» si ya se jugó y «Vídeo de ABP» si la pieza está subida" },
+          { que: "Pizarra ABP · ABP del rival · Sus goles en vídeo · Cómo le marcan · Plan de partido", es: "Atajos del partido de la semana, con el rival ya elegido; «Informe post» si ya se jugó y «Vídeo de ABP» si la pieza está subida" },
           { que: "Proponer boceto", es: "Propone la semana entera (días, aspectos y minutos) con el próximo partido, nuestro rendimiento y el del rival" },
           { que: "Informe de la semana", es: "El informe de balón parado de la semana, para verlo y mandarlo" },
           { que: "Más", es: "Exportar planificación (imagen, WhatsApp o correo), Importar del registro, Copiar de otro micro (atado por MD) y Nuevo microciclo" },
@@ -648,9 +648,9 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Lo que dejó el partido", es: "Ya jugado: cada aspecto trabajado con sus acciones, peligro y goles en ese partido, y su veredicto", cuenta: "Con menos de 5 acciones va en gris: «pocos casos»" },
           {
             que: "Revisión de la semana",
-            es: "Una lista con los tres avisos más graves y su acción (abrir la tarea o añadirla); el resto de avisos y lo que ya está bien, plegados con su número",
+            es: "El aviso más grave entero, con su acción; debajo, «También:» con los títulos de los demás, que se despliegan junto con lo que ya está bien. Con varias tareas sin criterio, un botón por tarea; cada carencia lleva a la pantalla donde se ven sus acciones (ABP o saque de banda, ofensivo o defensivo)",
             cuenta:
-              "Mira minutos, tareas sin tiempo, sin intensidad o sin criterio de éxito, tareas en día libre o de partido (en el día del partido el vídeo o la charla del plan valen: es la activación previa, ni se avisa ni cuenta como «vídeo después del campo»), el MD-1, el pico de carga, los lados y lo más urgente de la competición que no entra (dos a la vez se juntan en «Dos carencias sin tarea»)",
+              "Con menos de 15 acciones una carencia se escribe como tendencia, no como urgencia. Si todo lo que falta es de un lado y ese lado tiene menos del 40 % de los minutos, sale «El reparto va contra lo que falta». Mira minutos, tareas sin tiempo, sin intensidad o sin criterio de éxito, tareas en día libre o de partido (en el día del partido el vídeo o la charla del plan valen: es la activación previa, ni se avisa ni cuenta como «vídeo después del campo»), el MD-1, el pico de carga, los lados y lo más urgente de la competición que no entra (dos a la vez se juntan en «Dos carencias sin tarea»)",
           },
           { que: "Carga: … en N días con balón parado", es: "Plegado: Minutos de ABP, Carga condicional, Carga cognitiva y Campo / Vídeo", cuenta: "Condicional = tiempo × intensidad; cognitiva = tiempo × exigencia; al lado, la media de los otros micros" },
           {
@@ -679,6 +679,7 @@ export const AYUDAS: AyudaDePagina[] = [
     ojo: [
       "Lo importado del registro trae sus cargas medidas; lo planificado a futuro es una estimación con la misma cuenta.",
       "Las hojas no separan el córner directo del jugado en corto: se lee del tipo de envío (corto = indirecto).",
+      "El saque de banda se nombra por el campo del que saca: primer tercio, medio y último tercio. Atacando, el último tercio es el del rival; defendiendo, el nuestro.",
       "Si una de las hojas de ABP no se puede leer, un aviso arriba lo dice y el cruce se calcula sin ella.",
     ],
   },
