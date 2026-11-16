@@ -49,7 +49,16 @@ export function useCalendarioCastilla() {
 
 const fecha = (iso: string) => iso.split("-").reverse().slice(0, 2).join("/");
 
-export function SelloJornada({ alcances, nota }: { alcances: Alcance[]; nota?: string }) {
+export function SelloJornada({
+  alcances,
+  nota,
+  sinCompleta = false,
+}: {
+  alcances: Alcance[];
+  nota?: string;
+  /** 16/11/2026: sin la etiqueta «Jornada completa» cuando la línea ya lo dice (Vídeo Análisis). */
+  sinCompleta?: boolean;
+}) {
   const explicativos = useTextosExplicativos();
 
   if (!alcances.length) return null;
@@ -78,7 +87,7 @@ export function SelloJornada({ alcances, nota }: { alcances: Alcance[]; nota?: s
               {a.rival ? ` · ${a.rival}` : ""}
               {a.fecha ? ` · ${fecha(a.fecha)}` : ""}
             </span>
-            {!sin && (
+            {!sin && !(sinCompleta && completa) && (
               <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: chipInk(color), background: `${color}22` }}>
                 {completa ? "Jornada completa" : "Jornada incompleta"}
               </span>
@@ -123,7 +132,19 @@ export function SelloJornada({ alcances, nota }: { alcances: Alcance[]; nota?: s
  * fechas de los partidos que tienen dato y dice hasta qué jornada llega,
  * como en Data análisis. Hasta que llega el calendario no pinta nada.
  */
-export function SelloDeFechas({ fuente, fechas, queEs, className = "" }: { fuente: string; fechas: string[]; queEs: string; className?: string }) {
+export function SelloDeFechas({
+  fuente,
+  fechas,
+  queEs,
+  className = "",
+  sinCompleta = false,
+}: {
+  fuente: string;
+  fechas: string[];
+  queEs: string;
+  className?: string;
+  sinCompleta?: boolean;
+}) {
   const calendario = useCalendarioCastilla();
   const alcance = useMemo(
     () => (calendario ? alcanceDeFechas(fuente, fechas, calendario.partidos, calendario.hoy, queEs) : null),
@@ -134,7 +155,7 @@ export function SelloDeFechas({ fuente, fechas, queEs, className = "" }: { fuent
 
   return (
     <div className={className}>
-      <SelloJornada alcances={[alcance]} />
+      <SelloJornada alcances={[alcance]} sinCompleta={sinCompleta} />
     </div>
   );
 }

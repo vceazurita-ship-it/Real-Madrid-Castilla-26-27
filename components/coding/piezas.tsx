@@ -58,6 +58,90 @@ export function Tecla({
 }
 
 /**
+ * LOS TRES PASOS PARA EMPEZAR (16/11/2026, expertos de análisis y marketing).
+ *
+ * Con la sesión vacía no se enseñan el panel de marcar ni la lista de cortes
+ * apagados: un solo paso guiado, con lo hecho en verde y lo siguiente en oro.
+ */
+export function PasosCoding({
+  hayVideo,
+  haySujeto,
+  onAbrirVideo,
+  onElegirSujeto,
+}: {
+  hayVideo: boolean;
+  haySujeto: boolean;
+  onAbrirVideo?: () => void;
+  onElegirSujeto?: () => void;
+}) {
+  const pasos: { hecho: boolean; titulo: ReactNode; detalle: ReactNode; accion?: { texto: string; onClick?: () => void } }[] = [
+    {
+      hecho: hayVideo,
+      titulo: "Abre el vídeo del partido",
+      detalle: "De la carpeta, de un enlace o del ordenador.",
+      accion: hayVideo ? undefined : { texto: "Elegir vídeo", onClick: onAbrirVideo },
+    },
+    {
+      hecho: haySujeto,
+      titulo: "Elige el jugador o el equipo",
+      detalle: "Con su tecla, o pulsando su tarjeta; el comportamiento colectivo, con ⇧ delante.",
+      accion: hayVideo && !haySujeto ? { texto: "Elegir jugador", onClick: onElegirSujeto } : undefined,
+    },
+    {
+      hecho: false,
+      titulo: "Marca el corte",
+      detalle: (
+        <span className="inline-flex flex-wrap items-center gap-1">
+          <Tecla tono="oro">I</Tecla> inicio · <Tecla tono="oro">O</Tecla> cierre · <Tecla>Intro</Tecla> un toque
+        </span>
+      ),
+    },
+  ];
+  const siguiente = pasos.findIndex((paso) => !paso.hecho);
+
+  return (
+    <ol className="min-w-0 space-y-2">
+      {pasos.map((paso, i) => {
+        const ahora = i === siguiente;
+
+        return (
+          <li
+            key={i}
+            className={`flex min-w-0 items-start gap-3 rounded-xl border px-3 py-2.5 ${
+              ahora ? "border-[#C8A96B]/50 bg-[#C8A96B]/[0.08]" : "border-white/10 bg-white/[0.02]"
+            }`}
+          >
+            <span
+              aria-hidden
+              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[12px] font-bold ${
+                paso.hecho ? "bg-emerald-500/20 text-emerald-600" : ahora ? "bg-[#C8A96B] text-black" : "bg-white/[0.08] text-white/60"
+              }`}
+            >
+              {paso.hecho ? "✓" : i + 1}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className={`block text-[13px] font-semibold ${paso.hecho ? "text-white/60 line-through decoration-white/30" : "text-white"}`}>
+                {paso.titulo}
+              </span>
+              {!paso.hecho ? <span className="mt-0.5 block text-[12px] leading-snug text-white/60">{paso.detalle}</span> : null}
+            </span>
+            {paso.accion && ahora ? (
+              <button
+                type="button"
+                onClick={paso.accion.onClick}
+                className="shrink-0 rounded-lg bg-[#C8A96B] px-3 py-1.5 text-[12px] font-semibold text-black transition hover:opacity-90"
+              >
+                {paso.accion.texto}
+              </button>
+            ) : null}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+/**
  * Texto explicativo largo plegado a una línea con «Ver más» (24/10/2026,
  * crítica del analista): quien sólo quiere marcar cortes no tiene que leerlo.
  */

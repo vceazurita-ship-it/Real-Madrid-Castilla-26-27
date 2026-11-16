@@ -103,6 +103,7 @@ import {
   PanelCategorias,
   PanelColectivos,
   PanelJugadores,
+  PasosCoding,
   TablaResumen,
 } from "@/components/coding/piezas";
 import {
@@ -349,6 +350,14 @@ function leePlantillasRivales(filas: unknown): PlantillaRival[] {
 /* ================================================================== */
 /*  A QUIÉN SE PUEDE ANALIZAR                                          */
 /* ================================================================== */
+
+/** Las cinco velocidades a la vista (16/11/2026); el resto, en el menú. */
+const VELOCIDADES_FIJAS = [0.5, 1, 2, 4, 8];
+
+/** «0,25×», «1×», «20×»: coma decimal y signo de multiplicar. */
+function velocidadEnTexto(velocidad: number) {
+  return `${velocidad.toLocaleString("es-ES", { maximumFractionDigits: 2 })}×`;
+}
 
 /** El documento donde viven los rivales añadidos a mano (los amistosos). */
 const CLAVE_RIVALES_CODING = "coding:rivales";
@@ -4060,6 +4069,12 @@ function Coding() {
                       status={sesion.status}
                       localOnly={sesion.localOnly}
                       savedAt={sesion.lastSavedAt}
+                      /* 16/11/2026 (marketing): con cuántos cortes; la hora la pone SaveState. */
+                      rotulo={
+                        sesion.sesion.clips.length > 0
+                          ? `${sesion.sesion.clips.length} ${sesion.sesion.clips.length === 1 ? "corte guardado" : "cortes guardados"}`
+                          : "Guardado"
+                      }
                       sinGuardar={sesion.sinGuardar}
                       onGuardar={() => {
                         void sesion.guardaYa().then((bien) => {
@@ -4281,16 +4296,36 @@ function Coding() {
                         <option value="">Cargando el calendario…</option>
                       )}
 
-                      {rivales.map((uno) => (
-                        <option
-                          key={uno.clave}
-                          value={uno.clave}
-                          className="bg-[#11161C]"
-                        >
-                          {uno.nombre}
-                          {uno.origen === "propio" ? " · amistoso" : ""}
-                        </option>
-                      ))}
+                      {/* 16/11/2026 (marketing, análisis): el de la semana
+                          arriba y aparte; el resto de la liga, debajo. */}
+                      {rivales.length > 1 && rivales[0].origen === "liga" ? (
+                        <>
+                          <optgroup label="El de esta semana">
+                            <option value={rivales[0].clave} className="bg-[#11161C]">
+                              {rivales[0].nombre}
+                            </option>
+                          </optgroup>
+                          <optgroup label="Los demás, por calendario">
+                            {rivales.slice(1).map((uno) => (
+                              <option key={uno.clave} value={uno.clave} className="bg-[#11161C]">
+                                {uno.nombre}
+                                {uno.origen === "propio" ? " · amistoso" : ""}
+                              </option>
+                            ))}
+                          </optgroup>
+                        </>
+                      ) : (
+                        rivales.map((uno) => (
+                          <option
+                            key={uno.clave}
+                            value={uno.clave}
+                            className="bg-[#11161C]"
+                          >
+                            {uno.nombre}
+                            {uno.origen === "propio" ? " · amistoso" : ""}
+                          </option>
+                        ))
+                      )}
                     </select>
 
                     <Button
@@ -4580,9 +4615,12 @@ function Coding() {
                       }
                       className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-white/60 transition hover:text-white"
                     >
-                      <Video size={26} />
-                      <span className="text-sm font-semibold">Elige el vídeo del partido</span>
-                      <span className="text-[11px] text-white/45">
+                      {/* 16/11/2026 (marketing): un único botón principal. */}
+                      <span className="inline-flex items-center gap-2 rounded-full bg-[#C8A96B] px-4 py-2 text-sm font-semibold text-black">
+                        <Video size={16} />
+                        Elegir vídeo
+                      </span>
+                      <span className="text-[11px] text-white/60">
                         de la carpeta, de un enlace o del ordenador
                       </span>
                     </button>
@@ -4822,30 +4860,35 @@ function Coding() {
                   </div>
                 )}
 
-                {/* Mandos y estado del coding. */}
+                {/* Mandos y estado del coding. 16/11/2026 (expertos): sin vídeo
+                    no sale; los mandos apagados, la barra de marcar y la línea de
+                    tiempo vacía («00:00.000 · 0 cortes») eran ruido. El <video>
+                    sigue montado arriba, que es lo que importa al reloj. */}
+                {src ? (
                 <div className="siempre-oscuro cdg-consola min-w-0 rounded-2xl border p-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <Button
                       icon={estado.reproduciendo ? Pause : Play}
                       onClick={reproductor.alterna}
                     >
-                      {estado.reproduciendo ? "Pausa" : "Play"}
+                      {/* 16/11/2026: en español y sin abreviar (expertos). */}
+                      {estado.reproduciendo ? "Pausa" : "Reproducir"}
                     </Button>
 
                     <Button
                       icon={SkipBack}
                       onClick={() => reproductor.fotograma(-1)}
-                      title="Un fotograma atrás"
+                      title="Un fotograma atrás · tecla ← (⇧← diez)"
                     >
-                      Fot.
+                      Fotograma ‹
                     </Button>
 
                     <Button
                       icon={SkipForward}
                       onClick={() => reproductor.fotograma(1)}
-                      title="Un fotograma adelante"
+                      title="Un fotograma adelante · tecla → (⇧→ diez)"
                     >
-                      Fot.
+                      Fotograma ›
                     </Button>
 
                     <span className="mx-1 font-mono text-sm tabular-nums text-white">
@@ -4860,7 +4903,7 @@ function Coding() {
                       }
                       className="rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2 py-0.5 text-[11px] tabular-nums text-[#C8A96B]"
                     >
-                      {estado.velocidad}x{estado.extra > 0 ? " ·turbo" : ""}
+                      {velocidadEnTexto(estado.velocidad)}{estado.extra > 0 ? " ·turbo" : ""}
                     </span>
 
                     <Button
@@ -4971,21 +5014,51 @@ function Coding() {
                     | velocidad se cambia arrastrando sobre la imagen, así que
                     | ahí no hacen falta; en cuanto hay ancho, vuelven.
                     */}
-                    <span className="ml-auto hidden flex-wrap gap-1 sm:flex">
-                      {VELOCIDADES.map((velocidad) => (
+                    {/* 16/11/2026 (fútbol, análisis): cinco velocidades fijas
+                        y el resto en un menú, con coma decimal y «×». En el
+                        teléfono, sólo el menú, que cabe en 390 px. */}
+                    <span className="ml-auto flex flex-wrap items-center gap-1">
+                      {VELOCIDADES_FIJAS.map((velocidad) => (
                         <button
                           key={velocidad}
                           type="button"
                           onClick={() => reproductor.ponVelocidad(velocidad)}
-                          className={`rounded-md border px-1.5 py-0.5 text-[10px] tabular-nums transition ${
+                          aria-pressed={estado.velocidad === velocidad}
+                          className={`hidden rounded-md border px-1.5 py-0.5 text-[11px] tabular-nums transition sm:inline-block ${
                             estado.velocidad === velocidad
                               ? "border-[#C8A96B] bg-[#C8A96B]/10 text-[#C8A96B]"
-                              : "border-white/10 text-white/40 hover:text-white"
+                              : "border-white/10 text-white/55 hover:text-white"
                           }`}
                         >
-                          {velocidad}x
+                          {velocidadEnTexto(velocidad)}
                         </button>
                       ))}
+                      <select
+                        aria-label="Velocidad de reproducción"
+                        title="Velocidad · teclas J y L para bajar y subir"
+                        value={VELOCIDADES.includes(estado.velocidad) ? String(estado.velocidad) : ""}
+                        onChange={(evento) => {
+                          const valor = Number(evento.target.value);
+
+                          if (valor > 0) reproductor.ponVelocidad(valor);
+
+                          /* Con el foco en el menú, el teclado del coding no
+                             llega (las teclas en un SELECT se ignoran). */
+                          evento.currentTarget.blur();
+                        }}
+                        className="rounded-md border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[11px] tabular-nums text-white/70 outline-none focus:border-[#C8A96B]/50"
+                      >
+                        {!VELOCIDADES.includes(estado.velocidad) && (
+                          <option value="" className="bg-[#11161C]">
+                            {velocidadEnTexto(estado.velocidad)}
+                          </option>
+                        )}
+                        {VELOCIDADES.map((velocidad) => (
+                          <option key={velocidad} value={String(velocidad)} className="bg-[#11161C]">
+                            {velocidadEnTexto(velocidad)}
+                          </option>
+                        ))}
+                      </select>
                     </span>
                   </div>
 
@@ -5084,6 +5157,7 @@ function Coding() {
                     />
                   </div>
                 </div>
+                ) : null}
 
                 {/* -------------------------- MATRIZ -------------------- */}
 
@@ -5118,6 +5192,23 @@ function Coding() {
 
                 {/* --------------------------- CLIPS --------------------- */}
 
+                {/* 16/11/2026 (análisis, marketing): con la sesión sin un solo
+                    corte, en vez de la lista vacía y «Reproducir todos»
+                    apagado, un único paso guiado. */}
+                {!src && sesion.sesion.clips.length === 0 && !listaGuardada ? (
+                  <Panel title="Para empezar" subtitle="Tres pasos y el primer corte está hecho" icon={ListVideo}>
+                    <PasosCoding
+                      hayVideo={Boolean(src)}
+                      haySujeto={Boolean(sujeto)}
+                      onAbrirVideo={() =>
+                        document
+                          .getElementById("coding-el-video")
+                          ?.scrollIntoView({ behavior: "smooth", block: "start" })
+                      }
+                      onElegirSujeto={() => setEligiendoMarca(true)}
+                    />
+                  </Panel>
+                ) : (
                 <Panel
                   title="Cortes"
                   subtitle={
@@ -5195,10 +5286,11 @@ function Coding() {
                         </Button>
                       )}
 
+                      {/* 16/11/2026 (fútbol): sin nada que reproducir, el botón no sale (antes, apagado). */}
+                      {colaParaReproducir.length > 0 && (
                       <Button
                         icon={Play}
                         onClick={() => lanzaCola(colaParaReproducir)}
-                        disabled={colaParaReproducir.length === 0}
                         title={
                           verTodosEnLista
                             ? "Reproducir uno detrás de otro los cortes del vídeo que está delante (el reproductor es de un vídeo)"
@@ -5207,6 +5299,7 @@ function Coding() {
                       >
                         {verTodosEnLista ? "Reproducir todos (este vídeo)" : "Reproducir todos"}
                       </Button>
+                      )}
                     </div>
                   }
                 >
@@ -5475,6 +5568,14 @@ function Coding() {
                     </div>
                   )}
 
+                  {/* 16/11/2026: sin un solo corte, los pasos y no el texto largo de la lista vacía. */}
+                  {sesion.sesion.clips.length === 0 && !listaGuardada ? (
+                    <PasosCoding
+                      hayVideo={Boolean(src)}
+                      haySujeto={Boolean(sujeto)}
+                      onElegirSujeto={() => setEligiendoMarca(true)}
+                    />
+                  ) : (
                   <ListaClips
                     clips={clipsDeLaLista}
                     miniaturaDe={miniaturaDe}
@@ -5520,6 +5621,7 @@ function Coding() {
                     pizarrasDe={(clip) => pizarrasDeClip(clip).length}
                     exportando={exportador.exportando}
                   />
+                  )}
 
                   {/*
                   | Lo que entra y sale de otras herramientas: el timeline de
@@ -5609,6 +5711,7 @@ function Coding() {
                   </PliegaSinVideo>
                   </div>
                 </Panel>
+                )}
 
                 {/* ------------------------ EXPORTACIÓN ------------------ */}
 
@@ -5725,13 +5828,20 @@ function Coding() {
 
               {/* -------------------------- DERECHA -------------------- */}
 
-              <div className="min-w-0 space-y-4">
+              {/* 16/11/2026 (fútbol): en el móvil, sin vídeo abierto, «El vídeo» va
+                  lo primero, encima del reproductor vacío. */}
+              <div className={`min-w-0 space-y-4 ${!src ? "max-xl:order-first" : ""}`}>
                 {(!src || cambiandoVideo) && (
                   <div id="coding-el-video" className="scroll-mt-24">
                     <Panel title="El vídeo" icon={Video}>
                       <SelectorFuente
                         fuente={sesion.sesion.fuente}
                         videos={videosSesion}
+                        equipo={
+                          (ambito === "partido"
+                            ? (rivalPropio?.nombre ?? partido?.opponent)
+                            : rival?.nombre) || undefined
+                        }
                         /* Elegidos a mano: entran siempre con su corte completo. */
                         onElegir={(elegidos) => abreVideos(elegidos)}
                       />

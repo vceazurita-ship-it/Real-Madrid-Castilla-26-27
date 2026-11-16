@@ -1162,18 +1162,19 @@ export const AYUDAS: AyudaDePagina[] = [
     ruta: "/collective_history",
     titulo: "Histórico Competición",
     resumen: "Cómo va el Castilla en la liga: puesto, puntos, balance y goles, la curva de puntos frente a la media de la liga y la tabla jornada a jornada.",
-    origen: "Nuestros resultados: el calendario de BeSoccer («castilla:calendario»). Puesto y totales: la tabla más reciente del informe de rivales (BeSoccer). La media de la liga y el puesto de cada jornada: todos los partidos de liga de BeSoccer («goles:analisis»). El informe completo sigue en Power BI.",
-    revisada: "2026-11-12",
+    origen: "Nuestros resultados: el calendario de BeSoccer («castilla:calendario»). Puesto y totales: la tabla más reciente del informe de rivales (BeSoccer). La media de la liga y el puesto de cada jornada: todos los partidos de liga de BeSoccer («goles:analisis»). El informe de Power BI queda como enlace secundario: la pantalla no depende de él.",
+    revisada: "2026-11-16",
     bloques: [
       {
         titulo: "Arriba",
         filas: [
-          { que: "El titular", es: "Puesto (y si subimos o bajamos en la última), puntos y puntos por partido frente a la media de la liga" },
+          { que: "El titular", es: "Puesto (y si subimos o bajamos en la última), puntos, la jornada y el día de corte, y los puntos por partido frente a la media de la liga" },
+          { que: "Siguiente", es: "El próximo partido del calendario y lo que hay en juego: los puntos al equipo de arriba y sobre el de abajo", cuenta: "De la tabla completa de nuestra última jornada; si esa tabla aún no está, no sale" },
           { que: "Puesto", es: "De la clasificación, con el movimiento de la última jornada" },
-          { que: "Puntos", es: "Con los partidos y los puntos por partido", cuenta: "Puntos ÷ partidos" },
-          { que: "Balance", es: "Ganados · empatados · perdidos" },
-          { que: "Goles", es: "A favor-en contra, la diferencia y los goles a favor por partido" },
-          { que: "Referencia", es: "La media de los equipos de la liga tras las mismas jornadas", cuenta: "Puntos repartidos (3 con ganador, 2 si empatan) ÷ (partidos × 2); goles de la liga ÷ (partidos × 2)" },
+          { que: "Puntos", es: "Con los partidos, los puntos por partido y la media de la liga al lado", cuenta: "Puntos ÷ partidos; liga = puntos repartidos (3 con ganador, 2 si empatan) ÷ (partidos × 2)" },
+          { que: "Balance", es: "Tres cifras: ganados, empatados y perdidos, con su rótulo debajo" },
+          { que: "Goles", es: "A favor-en contra, la diferencia y los goles a favor por partido con la media de la liga al lado", cuenta: "Liga = goles de la liga ÷ (partidos × 2)" },
+          { que: "Pie de cada tarjeta", es: "La fuente (BeSoccer) y la jornada y el día de corte" },
         ],
       },
       {
@@ -1181,6 +1182,7 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           { que: "La línea dorada", es: "Nuestros puntos acumulados, jornada a jornada" },
           { que: "La raya de puntos", es: "Lo que lleva de media un equipo de la liga tras cada jornada", cuenta: "Puntos por equipo y partido de la liga hasta esa jornada × partidos que llevamos" },
+          { que: "Eje de puntos", es: "Una marca cada 3 puntos; pasados los 12, cada 6, para que se lea en el móvil" },
         ],
       },
       {
@@ -1188,14 +1190,15 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           { que: "Resultado", es: "Verde si ganamos, ámbar si empatamos, rojo si perdemos" },
           { que: "Acumulados y Media liga", es: "Los dos puntos de la curva en cada jornada; en el móvil no salen" },
-          { que: "Puesto", es: "La clasificación tras esa jornada con todos los partidos de la liga hasta ella; la columna sólo sale si están todas", cuenta: "Por puntos, luego diferencia de goles, luego goles a favor" },
+          { que: "Rival y su puesto", es: "El rival y, a su lado, su puesto en la misma tabla tras esa jornada; sólo sale si se encuentra en todas" },
+          { que: "Nuestro puesto", es: "Destacada en dorado: la clasificación tras esa jornada con todos los partidos de la liga hasta ella; la columna sólo sale si están todas", cuenta: "Por puntos, luego diferencia de goles, luego goles a favor" },
           { que: "Total", es: "La suma de la tabla: goles y puntos de los partidos jugados" },
         ],
       },
       {
         titulo: "Power BI",
         filas: [
-          { que: "Abrir Power BI", es: "El informe completo de la competición, en otra pestaña; puede pedir la cuenta de Microsoft" },
+          { que: "Abrir Power BI", es: "Enlace secundario al informe de la competición en Power BI, en otra pestaña; pide la cuenta de Microsoft. Lo de arriba no depende de él" },
           { que: "Vídeo / Ver explicación", es: "Cómo se lee el informe de Power BI; en escritorio, el botón flotante lleva al enlace" },
         ],
       },
@@ -1327,16 +1330,19 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Coding de Partido",
     resumen: "Marcar las acciones de nuestro partido o de un rival y sacar los cortes en vídeo.",
     origen: "El vídeo lo pone el usuario (carpeta de partidos, enlace o su ordenador); los cortes, las listas y la configuración se guardan solos en Supabase («coding:…»). Partidos, del calendario de BeSoccer; rivales y plantillas, de la hoja RIVALES.",
-    revisada: "2026-11-12",
+    revisada: "2026-11-16",
     bloques: [
       {
         titulo: "Qué se codifica",
         filas: [
           { que: "Nuestro partido · Un rival", es: "El conmutador de arriba; cada partido y cada rival tiene su propia sesión de cortes" },
           { que: "Partido", es: "Del calendario; «Otro» añade un rival que no está (amistoso, vídeo propio)" },
-          { que: "Rival", es: "Viene puesto el del último partido; si un vídeo lleva el nombre de otro equipo, avisa con un botón para cada uno" },
+          { que: "Rival", es: "Viene puesto el de la jornada, arriba y aparte («El de esta semana»); los demás, debajo por calendario. Si un vídeo lleva el nombre de otro equipo, avisa con un botón para cada uno" },
+          { que: "Guardado", es: "Cuántos cortes lleva la sesión y la hora del último guardado; «Sin guardar» mientras quede algo por mandar" },
           { que: "Marcador", es: "Escudos, resultado, competición y fecha, con los cortes que lleva cada categoría y cada comportamiento", cuenta: "Cuenta los cortes de todo el partido, no sólo los del vídeo abierto" },
-          { que: "El vídeo", es: "Carpeta de partidos (la del ordenador donde corre la app), «Desde un enlace» o «Abrir ficheros» del propio ordenador; se pueden abrir varios a la vez" },
+          { que: "El vídeo", es: "Carpeta de partidos (la del ordenador donde corre la app), «Desde un enlace» o «Abrir ficheros» del propio ordenador; se pueden abrir varios a la vez. En el móvil, sin vídeo abierto, va lo primero" },
+          { que: "Carpeta de partidos", es: "Sólo los vídeos del rival elegido; los de otros equipos, plegados tras «Ver también». Si no hay ninguno suyo, la carpeta queda en una línea", cuenta: "Un vídeo es del rival si su nombre lleva alguna palabra del rival sin siglas (Real Murcia → «murcia»)" },
+          { que: "Para empezar", es: "Sin un solo corte, en vez del panel de marcar y la lista vacía: tres pasos (abrir el vídeo, elegir jugador, marcar con I y O), con lo hecho tachado y lo siguiente en oro" },
           { que: "Este rival no tiene plantilla", es: "Se codifica igual por dorsales o sólo con los comportamientos colectivos" },
           { que: "Retoma tu sesión", es: "Aviso de sesión abierta; darla por terminada no borra ningún corte" },
         ],
@@ -1345,7 +1351,8 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Marcar",
         filas: [
           { que: "Los cuatro tiempos", es: "Inicio y fin marcados más el aire de antes y de después: lo que se exporta es el corte con márgenes", cuenta: "Margen antes y después, en «Configuración» (ms)" },
-          { que: "Marcar inicio (I y O)", es: "Abre y cierra el corte; mientras está abierto va en rojo con piloto" },
+          { que: "Mandos", es: "Reproducir, Fotograma ‹ y › (teclas ← y →; con ⇧, diez), velocidad: 0,5× · 1× · 2× · 4× · 8× a la vista y el resto (0,25× a 20×) en el menú; en el móvil, sólo el menú. Sin vídeo abierto, los mandos no salen" },
+          { que: "Marcar inicio (I y O)", es: "Abre y cierra el corte; mientras está abierto va en rojo con piloto. La leyenda del teclado va al lado" },
           { que: "Un toque (Intro)", es: "Coge los segundos de antes y de después del instante que se fijan en «Configuración»" },
           { que: "Jugadores · Comportamientos colectivos · Categorías", es: "Quién (cada uno con su tecla), lo del equipo (con ⇧) y, si se quiere, la categoría con su fase" },
           { que: "Pantalla completa", es: "El vídeo a todo el alto, con la columna de cortes para pasarlos y ordenarlos y el selector de jugador y categoría dentro" },
@@ -3250,10 +3257,10 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "El balance",
         filas: [
-          { que: "Ganamos · empatamos · perdimos", es: "El reparto de los partidos de liga con resultado; la pretemporada no cuenta" },
-          { que: "Tendencia reciente", es: "Los puntos de los últimos cinco y cuáles son", cuenta: "Victoria 3, empate 1; sale con tres partidos o más" },
-          { que: "Partido a partido", es: "La tira de resultados del más antiguo al más reciente, con la jornada debajo", cuenta: "Verde victoria, ámbar empate, rojo derrota; borde dorado, los cinco últimos" },
-          { que: "Goles a favor / en contra", es: "La suma y la media por partido, frente a la media de la liga", cuenta: "Liga = goles por equipo y partido de todos los equipos; ▲ mejor, ▼ peor, «igual» si la diferencia es menor de 0,05" },
+          { que: "Ganamos · empatamos · perdimos", es: "El reparto de los partidos de liga con resultado; la pretemporada no cuenta. Pinchado, baja a la tira partido a partido; los resultados son del calendario de BeSoccer" },
+          { que: "Tendencia reciente", es: "Los puntos de los últimos cinco y cuáles son, con el marcador del Castilla primero", cuenta: "Victoria 3, empate 1; sale con tres partidos o más" },
+          { que: "Partido a partido", es: "La tira de resultados del más antiguo al más reciente: encima el escudo del rival; debajo la jornada, casa (C) o fuera (F) y la fecha", cuenta: "El marcador, el nuestro primero (como en Histórico); verde victoria, ámbar empate, rojo derrota; borde dorado, los cinco últimos" },
+          { que: "Goles a favor / en contra", es: "La suma y la media por partido, frente a lo que habría hecho un equipo medio de la liga en los mismos partidos", cuenta: "Diferencia = nuestros goles − media de la liga × partidos («16 en 12 frente a 15,6»); ▲ mejor, ▼ peor, ±0 si es menor de 0,05" },
           { que: "Diferencia", es: "Goles a favor menos goles en contra" },
         ],
       },
@@ -3261,19 +3268,18 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "La lista",
         filas: [
           { que: "Buscar", es: "Por rival, partido, microciclo o fecha" },
-          { que: "Microciclo", es: "Un microciclo o todos; «Todos» dice cuántos son de liga y cuántos de pretemporada" },
+          { que: "Microciclo", es: "Todos los partidos, uno de liga o uno de pretemporada: la pretemporada va en su propio grupo del selector y no cuenta en las cifras" },
           { que: "Victorias · Empates · Derrotas", es: "Filtra por resultado" },
-          { que: "Solo con vídeo", es: "Encendido al entrar: sólo los partidos con vídeo en la hoja o con cortes en Coding" },
+          { que: "Solo con vídeo", es: "Encendido al entrar: sólo los partidos con vídeo en la hoja o en Coding. Si todos tienen vídeo no sale, porque no filtraría nada" },
           { que: "Ver vídeo análisis", es: "Abre el vídeo de la hoja en un pop-up, con anterior y siguiente" },
-          { que: "Cortes en Coding", es: "Sale en los partidos de liga sin enlace en la hoja: lleva a su lista en Coding" },
-          { que: "Hudl · Grabación táctica · Resumen RFEF", es: "Debajo de cada tarjeta, lo que exista; la grabación táctica sólo en el ordenador principal" },
+          { que: "Coding · Hudl · Grabación táctica · Resumen", es: "Debajo de cada tarjeta, con el mismo peso y lo que exista: Coding en los partidos de liga sin enlace en la hoja; Hudl abre el partido o, si aún no tiene enlace propio, la biblioteca del club (lo dice el título del botón); la grabación táctica sólo en el ordenador principal; el resumen, el de la RFEF en YouTube" },
         ],
       },
     ],
     ojo: [
       "Las cifras de arriba siguen a los filtros: con un microciclo o «Victorias» elegidos, cuentan sólo esos partidos.",
     ],
-    revisada: "2026-11-12",
+    revisada: "2026-11-16",
   },
 
   /* ==================== PIZARRA DE COMPETICIÓN (12/11/2026) ==================== */

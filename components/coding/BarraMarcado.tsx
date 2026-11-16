@@ -322,8 +322,8 @@ export function BarraMarcado({
             </button>
           )}
 
-          <span className="hidden text-[11px] text-white/25 sm:inline">
-            o con las teclas I y O · Intro, un toque
+          <span className="hidden text-[11px] text-white/55 sm:inline">
+            Teclado: I inicio · O cierre · Intro, un toque
           </span>
         </span>
       </div>
