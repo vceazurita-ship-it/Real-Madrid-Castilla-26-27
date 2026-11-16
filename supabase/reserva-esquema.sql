@@ -37,3 +37,22 @@ create table if not exists match_ratings (
 insert into match_ratings (season, data, updated_at)
 values ('2026-2027', '{"season":"2026-2027","matches":{},"updatedAt":""}'::jsonb, 'epoch')
 on conflict (season) do nothing;
+
+-- 16/11/2026: las escrituras condicionales de la app comparan `updated_at`
+-- con lo que leen en JavaScript (milisegundos). Una fila con microsegundos
+-- (`now()` de Postgres) no casaba nunca y los guardados de Valoraciones
+-- fallaban con «otra persona estaba guardando». Se redondea siempre.
+create or replace function redondea_updated_at() returns trigger language plpgsql as $$
+begin
+  new.updated_at := date_trunc('milliseconds', new.updated_at);
+  return new;
+end $$;
+
+do $$
+declare t text;
+begin
+  foreach t in array array['app_documents', 'general_seasons', 'performance_seasons', 'match_ratings'] loop
+    execute format('drop trigger if exists redondea_updated_at on %I', t);
+    execute format('create trigger redondea_updated_at before insert or update on %I for each row execute function redondea_updated_at()', t);
+  end loop;
+end $$;

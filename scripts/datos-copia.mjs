@@ -79,7 +79,7 @@ const fecha = (v) => (v ? new Date(v).toISOString() : null);
 let docs = 0;
 for (const f of origen.app_documents) {
   await destino.unsafe(
-    `insert into app_documents (key, kind, data, updated_at) values ($1, $2, $3::text::jsonb, coalesce($4::timestamptz, now()))
+    `insert into app_documents (key, kind, data, updated_at) values ($1, $2, $3::text::jsonb, date_trunc('milliseconds', coalesce($4::timestamptz, now())))
      on conflict (key) do update set kind = excluded.kind, data = excluded.data, updated_at = excluded.updated_at
      where app_documents.updated_at <= excluded.updated_at`,
     [f.key, f.kind ?? "generic", texto(f.data) ?? "{}", fecha(f.updated_at)],
@@ -94,7 +94,7 @@ for (const t of ["general_seasons", "performance_seasons"]) {
   for (const f of origen[t]) {
     if (ya.has(`${f.season}|${fecha(f.updated_at)}`)) continue;
     await destino.unsafe(
-      `insert into ${t} (season, data, created_at, updated_at) values ($1, $2::text::jsonb, coalesce($3::timestamptz, now()), $4::timestamptz)`,
+      `insert into ${t} (season, data, created_at, updated_at) values ($1, $2::text::jsonb, date_trunc('milliseconds', coalesce($3::timestamptz, now())), $4::timestamptz)`,
       [f.season, texto(f.data) ?? "[]", fecha(f.created_at ?? f.updated_at), fecha(f.updated_at)],
     );
     n += 1;
@@ -105,7 +105,7 @@ for (const t of ["general_seasons", "performance_seasons"]) {
 let notas = 0;
 for (const f of origen.match_ratings) {
   await destino.unsafe(
-    `insert into match_ratings (season, data, updated_at) values ($1, $2::text::jsonb, coalesce($3::timestamptz, now()))
+    `insert into match_ratings (season, data, updated_at) values ($1, $2::text::jsonb, date_trunc('milliseconds', coalesce($3::timestamptz, now())))
      on conflict (season) do update set data = excluded.data, updated_at = excluded.updated_at
      where match_ratings.updated_at <= excluded.updated_at`,
     [f.season, texto(f.data) ?? "{}", fecha(f.updated_at)],

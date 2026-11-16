@@ -149,7 +149,7 @@ if (!EN_SECO && process.env.DATOS_PG_URL) {
 
       if (!n) continue;
 
-      const r = await sql.unsafe(`update ${tabla} set data = $1::jsonb, updated_at = now() where ${k} = $2 and updated_at = $3`, [d, f.k, f.updated_at]);
+      const r = await sql.unsafe(`update ${tabla} set data = $1::jsonb, updated_at = date_trunc('milliseconds', now()) where ${k} = $2 and updated_at = $3`, [d, f.k, f.updated_at]);
 
       if (r.count === 1) {
         cambiados += n;
