@@ -648,10 +648,19 @@ export const sentidoDeLaConsigna = (d: Pick<ResultadoDuelo, "conBalon" | "sinBal
  */
 export function consignaDelDuelo(d: ResultadoDuelo, sentido: "con" | "sin"): string {
   const facetas = d.facetas.filter((f) => (f.sentido === sentido || f.sentido === "aire") && f.diferencia !== null);
-  const peor = facetas.filter((f) => f.veredicto === "desventaja").sort((a, b) => (a.diferencia ?? 0) - (b.diferencia ?? 0))[0];
-  const mejor = facetas.filter((f) => f.veredicto === "ventaja").sort((a, b) => (b.diferencia ?? 0) - (a.diferencia ?? 0))[0];
-  const elegida = peor ?? (sentido === "con" ? mejor : undefined);
+  /*
+  | La consigna sale del enfrentamiento de MÁS diferencia de ese momento, el
+  | mismo que pintan las barras (16/11/2026, 3.ª vuelta, jueces): en «nuestros
+  | centrales vs su delantero, con balón nuestro (+13)» se ganaba el pase y la
+  | orden hablaba de la conducción, que se perdía. Con su balón, si lo de más
+  | diferencia es a favor, se busca lo que se pierde; si no se pierde nada, nada.
+  */
+  const conDif = facetas.filter((f) => f.veredicto !== "parejo" && f.veredicto !== "sin-datos");
+  const mayor = [...conDif].sort((a, b) => Math.abs(b.diferencia ?? 0) - Math.abs(a.diferencia ?? 0))[0];
+  const peorDeTodas = conDif.filter((f) => f.veredicto === "desventaja").sort((a, b) => (a.diferencia ?? 0) - (b.diferencia ?? 0))[0];
+  const elegida = mayor && (mayor.veredicto === "desventaja" || sentido === "con") ? mayor : peorDeTodas;
   if (!elegida) return "";
+  const peor = elegida.veredicto === "desventaja";
   const tabla = peor ? (sentido === "sin" ? DEFENDER : EVITAR) : BUSCAR;
   const plantilla = tabla[elegida.titulo];
   if (!plantilla) return "";

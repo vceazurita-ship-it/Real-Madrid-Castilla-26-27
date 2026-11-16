@@ -147,7 +147,26 @@ const puestoNatural = (j: JugadorDuelo) => j.puestoHoja || puestoLegible(j.posic
 | once (lib/posiciones.ts). Jorquera, «DC» en su plantilla y LWF en Wyscout,
 | salía «delantero» en el duelo «su extremo izquierdo». Fuera del once, el natural.
 */
-const puestoVisible = (j: JugadorDuelo, huecoDe?: Map<string, string>) => puestoDelHueco(huecoDe?.get(j.clave) ?? "") || puestoNatural(j);
+const puestoVisible = (j: JugadorDuelo, huecoDe?: Map<string, string>) => {
+  const enOnce = puestoDelHueco(huecoDe?.get(j.clave) ?? "");
+  const natural = puestoNatural(j);
+  if (!enOnce) return natural;
+  /* Fuera de su sitio, los dos (16/11/2026, 3.ª vuelta): «extremo izquierdo en el once (lateral derecho de origen)». */
+  return natural && familiaPuesto(natural) && familiaPuesto(natural) !== familiaPuesto(enOnce) ? `${enOnce} en el once (${natural} de origen)` : enOnce;
+};
+
+/** La familia de un puesto dicho en palabras, para saber si alguien juega fuera de su sitio. */
+function familiaPuesto(puesto: string): string {
+  const p = puesto.toLowerCase();
+  if (/portero/.test(p)) return "por";
+  if (/lateral|carrilero/.test(p)) return "lat";
+  if (/central/.test(p)) return "cen";
+  if (/mediapunta|segundo delantero/.test(p)) return "mp";
+  if (/pivote|mediocentro|medio centro|interior|medio/.test(p)) return "med";
+  if (/extremo|banda/.test(p)) return "ext";
+  if (/delantero|punta/.test(p)) return "del";
+  return "";
+}
 
 /* A 390 px las fichas del campo se pisaban (16/11/2026): por debajo de 640 px, sólo el número y el nombre al tocar. */
 const ESTRECHO = "(max-width: 639px)";
@@ -683,7 +702,7 @@ export default function DuelosPage() {
                                   <span className="min-w-0">{i + 1}. {d.def.titulo}</span>
                                   <b className="shrink-0 tabular-nums" style={{ color: (v ?? 0) >= 0 ? MEJOR : PEOR }}>{firmaN(v)}</b>
                                 </span>
-                                <span className="block text-xs text-white/55">{sentido === "sin" ? "con su balón" : "con nuestro balón"} · {d.nuestros.map((j) => apellidoDe(j)).join(" y ")} contra {d.suyos.map((j) => apellidoDe(j)).join(" y ")}</span>
+                                <span className="block text-xs text-white/55">{sentido === "sin" ? "con su balón" : "con nuestro balón"} · {d.nuestros.map((j) => `${apellidoDe(j)} (${j.minutos}′)`).join(" y ")} contra {d.suyos.map((j) => `${apellidoDe(j)} (${j.minutos}′)`).join(" y ")} · minutos en Wyscout</span>
                                 <span className="mt-1 block text-[13px] leading-snug text-white/85">{consignaDelDuelo(d, sentido)}</span>
                               </button>
                             </li>
@@ -1458,6 +1477,17 @@ const cifraRobo = (r: RoboJugador) =>
     ? `${coma(r.bruto)}/90 en bruto (su equipo sin posesión en Wyscout)`
     : `${coma(r.ajustado)}/90 ajustado (${coma(r.bruto)} en bruto · ${Math.round(r.posesion ?? 0)} % de posesión)`;
 
+/* Con menos de 15 recuperaciones el reparto por zonas es tendencia (16/11/2026, jueces): 60 % de 15 no es un hábito. */
+const MUESTRA_ZONA = 15;
+
+function ChipTendencia() {
+  return (
+    <span className="ml-1.5 inline-flex items-center rounded-full border border-white/15 px-1.5 py-px align-middle text-[11px] font-semibold text-white/60" title="Menos de 15 recuperaciones: el reparto por zonas sale de muy pocas acciones">
+      tendencia
+    </span>
+  );
+}
+
 function MarcaRobador({ r }: { r: RoboJugador }) {
   /* Con menos de 450′ no hay marca de robador: tendencia (16/11/2026, jueces). */
   if (r.tendencia)
@@ -1494,7 +1524,7 @@ function RoboEnDuelo({ lista }: { lista: RoboJugador[] }) {
             </span>
           )}
           <MarcaRobador r={r} />
-          {r.zona && <span className="basis-full text-white/45">Roba sobre todo {rotuloZona(r.zona)}: {r.zona.parte} % de sus {r.zona.total} recuperaciones (Opta)</span>}
+          {r.zona && <span className="basis-full text-white/45">Roba sobre todo {rotuloZona(r.zona)}: {r.zona.parte} % de sus {r.zona.total} recuperaciones (Opta){r.zona.total < MUESTRA_ZONA && <ChipTendencia />}</span>}
         </div>
       ))}
     </div>
@@ -1510,7 +1540,7 @@ function Robadores({ lista, equipo, huecoDe }: { lista: RoboJugador[]; equipo: s
         <p className="text-sm font-semibold">Dónde nos pueden hacer daño · quién nos roba el balón</p>
         <p className="text-xs text-white/45">
           {ocultos.length
-            ? `${ocultos.map((r) => apellidoDe(r.jugador)).join(" y ")}: ${ocultos.length === 1 ? "corta" : "cortan"} como un P${UMBRAL_ROBADOR}+ aunque en bruto no lo parezca`
+            ? ocultos.map((r) => `${apellidoDe(r.jugador)}: P${r.percentil} ajustado a la posesión (P${r.percentilBruto} en bruto)`).join(" · ")
             : lista.some((r) => r.robador)
               ? `Robadores: ${lista.filter((r) => r.robador).map((r) => apellidoDe(r.jugador)).join(", ")}`
               : `Nadie de ${equipo || "su once"} llega al P${UMBRAL_ROBADOR} de su puesto`}
@@ -1535,7 +1565,7 @@ function Robadores({ lista, equipo, huecoDe }: { lista: RoboJugador[]; equipo: s
                   </span>
                 )}
               </div>
-              {r.zona && <p className="text-white/45">Roba sobre todo {rotuloZona(r.zona)} · {r.zona.parte} % de {r.zona.total} (Opta)</p>}
+              {r.zona && <p className="text-white/45">Roba sobre todo {rotuloZona(r.zona)} · {r.zona.parte} % de {r.zona.total} (Opta){r.zona.total < MUESTRA_ZONA && <ChipTendencia />}</p>}
             </div>
           </li>
         ))}
