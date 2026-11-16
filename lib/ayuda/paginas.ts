@@ -550,6 +550,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Las pestañas",
         filas: [
+          { que: "Visual · Detalle (16/11/2026)", es: "La pantalla se abre en «Visual»: el rival, las conclusiones y las láminas con su conclusión en el título: cómo acaban (último tercio, ocasión o gol; lo conservamos; se lo queda el rival; nada), jornada a jornada (columna apilada por partido y si los 3 últimos conservan más que los anteriores), dónde sacamos (el campo con cada saque y el tercio que concentra más) y la categoría (Opta). «Detalle» son las pestañas de siempre; el PNG lo saca todo. Se recuerda en este aparato", cuenta: "Mismos filtros que arriba; «con el balón para nosotros» = la % Retención de las cifras" },
           { que: "Resumen", es: "El rival del partido, conclusiones (titular con el dato, lo firme antes que la tendencia y «Qué entrenamos» con el objetivo de conservación de la media de las jornadas anteriores), lectura rápida, comparativa del partido, leyenda y cómo se reparte el resultado" },
           { que: "Cómo se reparten · resultado", es: "Cada desenlace dicho como en el vestuario («El rival se queda el balón», «Acaba en balón parado del rival») y agrupado por de quién es el balón" },
           { que: "Dónde", es: "Mapa por zonas (con el nº de saques) y campo con cada saque; pulsar filtra" },
@@ -595,6 +596,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Las pestañas",
         filas: [
+          { que: "Visual · Detalle (16/11/2026)", es: "La pantalla se abre en «Visual»: el rival, las conclusiones y las láminas con su conclusión en el título: cómo acaban sus saques (le llega a último tercio, ocasión o gol; lo conserva; lo recuperamos; nada), jornada a jornada (y si los 3 últimos le dejan llegar menos que los anteriores: aquí mejor es menos), dónde saca el rival (el campo con cada saque) y la categoría (Opta). «Detalle» son las pestañas de siempre; el PNG lo saca todo. Se recuerda en este aparato", cuenta: "Mismos filtros que arriba; el peligro es el de «Peligro concedido»" },
           { que: "Resumen", es: "El rival del partido, conclusiones (titular con el dato, «vía peligrosa» sólo con 15 saques o más y dos llegadas, y la «Orden para el próximo partido» con su métrica y el objetivo de recuperación de la media de las jornadas anteriores), lectura rápida, comparativa, leyenda y cómo se reparte el resultado" },
           { que: "Cómo se reparten · resultado", es: "Cada desenlace dicho como en el vestuario y agrupado por de quién es el balón («3 acaban en balón parado del rival y 1 en nada»)" },
           { que: "Dónde", es: "Mapa por zonas y campo con cada saque; el rival ataca hacia la izquierda" },

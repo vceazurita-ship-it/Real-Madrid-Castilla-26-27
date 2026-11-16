@@ -16,6 +16,8 @@ import {
 } from "recharts";
 import { Database, FileDown, LayoutDashboard, Map as MapaIcono, Workflow, ListOrdered } from "lucide-react";
 import { OptaBandaDia } from "@/components/abp/OptaDia";
+import { ConmutadorVista, useVistaAnalisis } from "@/components/ui/VistaVisual";
+import { COLOR_DESENLACE, VisualAbp, type FilaVisualAbp } from "@/components/abp/VisualAbp";
 import { capturaNodo, fotograma } from "@/lib/export/captura";
 import { descargaEnMarcha, descargas, encargaDescarga } from "@/lib/trabajos/descargas";
 import { EstadoError } from "@/components/ui/estados";
@@ -1119,6 +1121,14 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
   | se pintan todas, que la imagen es el informe entero.
   */
   const [vista, setVista] = usePestanaUrl<"resumen" | "donde" | "como" | "lista" | "opta">("vista", ["resumen", "donde", "como", "lista", "opta"], "resumen");
+  /*
+  | VISUAL / DETALLE (16/11/2026, petición del analista). «Visual» (lo que se
+  | abre): las conclusiones y las láminas de components/abp/VisualAbp.tsx
+  | (cómo acaban, jornada a jornada, el campo con cada saque y la categoría).
+  | «Detalle» son las pestañas de siempre; el PNG sigue sacándolo todo.
+  */
+  const [vistaPantalla, setVistaPantalla] = useVistaAnalisis(mode === "offensive" ? "throw-ins" : "throw-ins-def");
+  const enVisual = vistaPantalla === "visual";
   const FILTERS = useMemo(() => filtersFor(mode), [mode]);
   const CHARTS = useMemo(() => chartsFor(mode), [mode]);
 
@@ -1985,6 +1995,68 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                 </div>
 
                 {!exporting && (
+                  <div className="mb-4 flex justify-end sm:px-2 md:px-0 lg:px-2">
+                    <ConmutadorVista vista={vistaPantalla} onCambia={setVistaPantalla} />
+                  </div>
+                )}
+
+                {!exporting && enVisual && (
+                  <>
+                    {comparativa?.rival ? (
+                      <div className="mb-4">
+                        <p className="text-sm text-white/55">Rival · {comparativa.elegida.etiqueta}</p>
+                        <p className="mt-1 text-lg font-semibold uppercase tracking-[0.04em] text-white/90">{comparativa.rival}</p>
+                      </div>
+                    ) : null}
+                    <Conclusiones
+                      items={conclusiones.items}
+                      titular={conclusiones.titular}
+                      enlace={{ href: "/abp-microciclo", rotulo: `Ver la tarea de saque de banda ${isOffensive ? "ofensivo" : "defensivo"} en el microciclo` }}
+                    />
+                    <VisualAbp
+                      filas={filtered.map((row): FilaVisualAbp => {
+                        const res = parseResultado(read(row, "Resultado_Final"));
+                        const sujeto = isOffensive ? "rmcf" : "rival";
+                        const zona = parseZona(row);
+                        return {
+                          jornada: parseJornada(read(row, "JORNADA")),
+                          cat: res.owner === sujeto && res.rank >= 3 ? "prod" : res.owner === sujeto && res.rank > 0 ? "conserva" : res.owner !== "neutro" && res.owner !== sujeto ? "otro" : "nada",
+                          exito: isOffensive ? esFavorable(res) : esProduccion(res, "defensive"),
+                          zona: zona ? (zona === 2 ? "el medio" : (zona === 1) === isOffensive ? "nuestro tercio" : "su tercio") : "",
+                        };
+                      })}
+                      categorias={
+                        isOffensive
+                          ? [
+                              { clave: "prod", rotulo: "Último tercio, ocasión o gol", color: COLOR_DESENLACE.mejor },
+                              { clave: "conserva", rotulo: "Lo conservamos", color: COLOR_DESENLACE.remate },
+                              { clave: "otro", rotulo: "Se lo queda el rival", color: COLOR_DESENLACE.peor },
+                              { clave: "nada", rotulo: "Nada", color: COLOR_DESENLACE.nada },
+                            ]
+                          : [
+                              { clave: "prod", rotulo: "Le llega a último tercio, ocasión o gol", color: COLOR_DESENLACE.peor },
+                              { clave: "conserva", rotulo: "Lo conserva el rival", color: COLOR_DESENLACE.remate },
+                              { clave: "otro", rotulo: "Lo recuperamos", color: COLOR_DESENLACE.mejor },
+                              { clave: "nada", rotulo: "Nada", color: COLOR_DESENLACE.nada },
+                            ]
+                      }
+                      unidad={isOffensive ? { uno: "saque", varios: "saques", genero: "m" } : { uno: "saque del rival", varios: "saques del rival", genero: "m" }}
+                      exito={
+                        isOffensive
+                          ? { uno: "acaba con el balón para nosotros", varios: "acaban con el balón para nosotros", mejorAlto: true }
+                          : { uno: "le llega a último tercio, ocasión o gol", varios: "le llegan a último tercio, ocasión o gol", mejorAlto: false }
+                      }
+                      fuente={`Hoja de saque de banda ${isOffensive ? "ofensivo" : "defensivo"} · con los filtros de arriba`}
+                      mapa={{
+                        pregunta: isOffensive ? "¿Dónde sacamos?" : "¿Dónde saca el rival?",
+                        nodo: <ThrowInField rows={filasCampo} mode={mode} filtros={filters} onFiltrar={alternar} />,
+                      }}
+                      liga={<OptaBandaDia lado={isOffensive ? "favor" : "contra"} />}
+                    />
+                  </>
+                )}
+
+                {!exporting && !enVisual && (
                   <div className="mb-6 sm:px-2 md:px-0 lg:px-2">
                     <Pestanas
                       etiqueta="Vistas de los saques de banda"
@@ -2003,7 +2075,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                   </div>
                 )}
 
-                {(exporting || vista === "resumen") && (
+                {(exporting || (!enVisual && vista === "resumen")) && (
                   <>
                 {/* Lo primero: si lo de este partido es lo de siempre o una
                     excepción. Va antes que los KPI, que son del filtro entero. */}
@@ -2132,7 +2204,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                   </>
                 )}
 
-                {(exporting || vista === "donde") && (
+                {(exporting || (!enVisual && vista === "donde")) && (
                   <>
                 {/* Abre con el mapa por zonas, que lleva el número de saques de cada una. */}
                 <ThrowInZoneMap rows={filasCampo} mode={mode} filtros={filters} onFiltrar={alternar} />
@@ -2156,7 +2228,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                   </>
                 )}
 
-                {(exporting || vista === "como") && (
+                {(exporting || (!enVisual && vista === "como")) && (
                   <>
                 <section className="mb-7 rounded-3xl border border-white/10 bg-white/[0.03] p-4 shadow-xl md:p-7">
                   <div className="mb-5">
@@ -2229,7 +2301,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                   </>
                 )}
 
-                {(exporting || vista === "lista") && (
+                {(exporting || (!enVisual && vista === "lista")) && (
                 <section className="mt-5 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
                   {pie({
                     dimension: "rival",
@@ -2364,7 +2436,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                 )}
 
                 {/* Opta (10/11/2026): los saques de banda de toda la categoría. Fuera del PDF; sólo se monta (y se pide) en su pestaña. */}
-                {!exporting && vista === "opta" && <OptaBandaDia lado={isOffensive ? "favor" : "contra"} />}
+                {!exporting && !enVisual && vista === "opta" && <OptaBandaDia lado={isOffensive ? "favor" : "contra"} />}
               </div>
             )}
           </div>
