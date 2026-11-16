@@ -19,6 +19,7 @@ import { alineaSeguimiento, DIAS_SIN_SEGUIMIENTO, esDeSeguimiento, sinSeguimient
 import { recordDateKey } from "@/lib/calendar";
 import { PLAYER_PHOTO_FALLBACK } from "@/lib/playerImages";
 import { descargaEnMarcha, encargaDescarga } from "@/lib/trabajos/descargas";
+import { EnlacesJugador, NombreJugador } from "@/components/individual/EnlacesJugador";
 
 import {
   AlertTriangle,
@@ -139,6 +140,25 @@ function conPartes(valores: string[]) {
   const sueltas = [...new Set(valores.flatMap((v) => partes(v)))].sort();
 
   return [...sueltas, ...valores.filter((v) => partes(v).length > 1)];
+}
+
+/*
+| ENTRENADORES, UNO A UNO (16/11/2026, jueces). La hoja escribe «JULIÁN Y
+| MIGUEL» o «TODOS»: el filtro ofrece sólo a cada autor y casa por «incluye
+| a»; el registro de «JULIÁN Y MIGUEL» sale con Julián y con Miguel, y el de
+| «TODOS» (todo el cuerpo técnico) con cualquiera.
+*/
+const TODOS_EL_CUERPO = "TODOS";
+const CUERPO_TECNICO = "Todo el cuerpo técnico";
+
+function autores(valor: unknown) {
+  return partes(valor).filter((p) => p !== TODOS_EL_CUERPO);
+}
+
+function incluyeA(valor: unknown, entrenador: string) {
+  if (entrenador === CUERPO_TECNICO) return partes(valor).includes(TODOS_EL_CUERPO);
+
+  return partes(valor).includes(TODOS_EL_CUERPO) || contiene(valor, entrenador);
 }
 
 function lunesDeTemporada(año: number) {
@@ -453,7 +473,7 @@ export default function DashboardSeguimiento() {
       if (filters.player && s.ID_JUGADOR !== filters.player) return false;
       /* «VÍDEO» también trae los de «VÍDEO Y CHARLA», y «JULIÁN» los de «JULIÁN Y MIGUEL» (16/11/2026). */
       if (filters.strategy && !contiene(s.ESTRATEGIA, filters.strategy)) return false;
-      if (filters.coach && !contiene(s.QUIEN, filters.coach)) return false;
+      if (filters.coach && !incluyeA(s.QUIEN, filters.coach)) return false;
       if (filters.modality && s.MODALIDAD !== filters.modality) return false;
       if (filters.moment && s.MOMENTO !== filters.moment) return false;
       if (filters.month && month !== Number(filters.month)) return false;
@@ -625,6 +645,36 @@ export default function DashboardSeguimiento() {
     return plantillaEnFoco.filter((p) => !trackedIds.has(p.id));
   }, [plantillaEnFoco, trackedIds]);
 
+  /*
+  | COBERTURA EN 14 DÍAS (16/11/2026, jueces). «Cobertura 100 %» en verde al
+  | lado de «3 sin seguimiento en 14 días» parecía una contradicción: eran dos
+  | ventanas. La tarjeta va ahora en la MISMA ventana que el aviso (14 días que
+  | acaban hoy, regla de lib/seguimiento) y la de temporada queda debajo.
+  */
+  const sinSeguir14 = useMemo(
+    () => sinSeguimientoReciente(delGrupo, plantillaEnFoco, hoy, (fecha) => recordDateKey(fecha)),
+    [delGrupo, plantillaEnFoco, hoy],
+  );
+
+  const cubiertos14 = squadSize - sinSeguir14.length;
+  const coverage14 = pct(cubiertos14, squadSize);
+
+  /* La mediana de registros por jugador de campo (con los que tienen 0): la
+     referencia de «por jugador» y la raya del ranking. */
+  const medianaPorJugador = useMemo(() => {
+    const cuenta = new Map<string, number>();
+
+    filteredTracking.forEach((s) => cuenta.set(s.ID_JUGADOR, (cuenta.get(s.ID_JUGADOR) ?? 0) + 1));
+
+    const lista = plantillaEnFoco.map((p) => cuenta.get(p.id) ?? 0).sort((a, b) => a - b);
+
+    if (!lista.length) return 0;
+
+    const mitad = Math.floor(lista.length / 2);
+
+    return lista.length % 2 ? lista[mitad] : +((lista[mitad - 1] + lista[mitad]) / 2).toFixed(1);
+  }, [filteredTracking, plantillaEnFoco]);
+
   /* 30/10/2026: el último registro de cada uno en TODA la temporada (no sólo
      desde el corte): «sin ningún registro desde el 21/10 · último: 30/09». */
   const ultimoEnTemporada = useMemo(() => {
@@ -678,10 +728,23 @@ export default function DashboardSeguimiento() {
     [filteredTracking, conMomento]
   );
 
-  const coachData = useMemo(
-    () => countBy(filteredTracking, "QUIEN", totalSessions),
-    [filteredTracking, totalSessions]
-  );
+  /* 16/11/2026: por autor suelto (un registro de «JULIÁN Y MIGUEL» suma a los
+     dos; el de «TODOS», en su propia fila de todo el cuerpo técnico). */
+  const coachData = useMemo(() => {
+    const mapa: Record<string, number> = {};
+
+    filteredTracking.forEach((s) => {
+      if (partes(s.QUIEN).includes(TODOS_EL_CUERPO)) mapa[CUERPO_TECNICO] = (mapa[CUERPO_TECNICO] ?? 0) + 1;
+
+      autores(s.QUIEN).forEach((a) => {
+        mapa[a] = (mapa[a] ?? 0) + 1;
+      });
+    });
+
+    return Object.entries(mapa)
+      .map(([name, value]) => ({ name, value, percentage: pct(value, totalSessions) }))
+      .sort((a, b) => b.value - a.value);
+  }, [filteredTracking, totalSessions]);
 
   const positionData = useMemo(() => {
     const map: Record<string, { value: number; jugadores: Set<string> }> = {};
@@ -733,14 +796,18 @@ export default function DashboardSeguimiento() {
   /* ---------------- weekly evolution ---------------- */
 
   const weeklyData = useMemo(() => {
-    const map: Record<number, { value: number; jugadores: Set<string> }> = {};
+    /* 16/11/2026 (jueces): cada barra partida en individual y grupal; un pico
+       de 69 en una semana era sobre todo registros grupales (un mismo trabajo
+       apuntado a muchos) y se leía como un mérito. */
+    const map: Record<number, { value: number; individual: number; jugadores: Set<string> }> = {};
 
     filteredTracking.forEach((s) => {
       const week = getSeasonWeek(s.FECHA);
 
-      if (!map[week]) map[week] = { value: 0, jugadores: new Set() };
+      if (!map[week]) map[week] = { value: 0, individual: 0, jugadores: new Set() };
 
       map[week].value += 1;
+      if (norm(s.MODALIDAD) === "individual") map[week].individual += 1;
       map[week].jugadores.add(s.ID_JUGADOR);
     });
 
@@ -752,6 +819,8 @@ export default function DashboardSeguimiento() {
       week: string;
       desde: string;
       value: number;
+      individual: number;
+      grupal: number;
       jugadores: number;
       percentage: number;
     }[] = [];
@@ -761,6 +830,8 @@ export default function DashboardSeguimiento() {
         week: `S${w}`,
         desde: inicioDeSemana(w, filteredTracking[0].FECHA),
         value: map[w]?.value ?? 0,
+        individual: map[w]?.individual ?? 0,
+        grupal: (map[w]?.value ?? 0) - (map[w]?.individual ?? 0),
         jugadores: map[w]?.jugadores.size ?? 0,
         percentage: pct(map[w]?.value ?? 0, totalSessions),
       });
@@ -790,6 +861,24 @@ export default function DashboardSeguimiento() {
         semanasCerradas.reduce((a, b) => a + b.value, 0) / semanasCerradas.length
       ).toFixed(1)
     : 0;
+
+  /* La semana pico, dicha con lo que la explica (16/11/2026). */
+  const notaDelPico = (() => {
+    if (weeklyData.length < 3 || !weeklyMean) return "";
+
+    const pico = weeklyData.reduce((a, b) => (b.value > a.value ? b : a));
+
+    if (pico.value < weeklyMean * 1.5) return "";
+
+    const lunes = pico.desde.split(" – ")[0];
+    const deGrupo = pico.grupal >= pico.value / 2;
+
+    return `El pico (${pico.value}, semana del ${lunes.replace("lun ", "")}) ${
+      deGrupo
+        ? `es sobre todo de registros grupales (${pico.grupal} de ${pico.value}): un mismo trabajo apuntado a varios jugadores, no más contacto uno a uno`
+        : `es sobre todo de registros individuales (${pico.individual} de ${pico.value})`
+    }.`;
+  })();
 
   const weeklyDelta = useMemo(() => {
     if (weeklyData.length < 3) return null;
@@ -846,6 +935,33 @@ export default function DashboardSeguimiento() {
     return { weeks, rows, max };
   }, [playerChart, filteredTracking, weeksSet]);
 
+  /* ---------------- strategy x moment matrix (16/11/2026) ---------------- */
+
+  /* En vez de un segundo anillo, el cruce: qué recurso se usa en cada momento
+     (marketing: «la matriz estrategia × momento sí aporta algo nuevo»). */
+  const estrategiaMomento = useMemo(() => {
+    const filas = strategyData.map((st) => ({
+      estrategia: st.name,
+      total: st.value,
+      celdas: momentData.map((m) => ({
+        momento: m.name,
+        n: filteredTracking.filter(
+          (s) => String(s.ESTRATEGIA ?? "").trim() === st.name && String(s.MOMENTO ?? "").trim() === m.name,
+        ).length,
+      })),
+    }));
+
+    const max = Math.max(1, ...filas.flatMap((f) => f.celdas.map((c) => c.n)));
+
+    let mayor = { estrategia: "", momento: "", n: 0 };
+
+    filas.forEach((f) => f.celdas.forEach((c) => {
+      if (c.n > mayor.n) mayor = { estrategia: f.estrategia, momento: c.momento, n: c.n };
+    }));
+
+    return { filas, max, mayor };
+  }, [strategyData, momentData, filteredTracking]);
+
   /* ---------------- coach x strategy matrix ---------------- */
 
   const coachStrategyMatrix = useMemo(() => {
@@ -857,7 +973,9 @@ export default function DashboardSeguimiento() {
       cells: strategies.map((st) => ({
         strategy: st,
         count: filteredTracking.filter(
-          (s) => contiene(s.QUIEN, c.name) && contiene(s.ESTRATEGIA, st)
+          (s) =>
+            (c.name === CUERPO_TECNICO ? partes(s.QUIEN).includes(TODOS_EL_CUERPO) : contiene(s.QUIEN, c.name)) &&
+            contiene(s.ESTRATEGIA, st)
         ).length,
       })),
     }));
@@ -880,7 +998,14 @@ export default function DashboardSeguimiento() {
   /* ---------------- insights ---------------- */
 
   const insights = useMemo(() => {
-    const out: { icon: LucideIcon; tone: string; text: string }[] = [];
+    /* 16/11/2026: las lecturas que nombran jugadores los llevan aparte, para
+       pintarlos como enlaces (su ficha, su calendario y registrar). */
+    const out: {
+      icon: LucideIcon;
+      tone: string;
+      text: string;
+      jugadores?: { id: string; nombre: string; detalle: string }[];
+    }[] = [];
 
     if (!totalSessions) return out;
 
@@ -935,9 +1060,7 @@ export default function DashboardSeguimiento() {
 
     /* 30/10/2026: la ventana de lib/seguimiento (14 días que acaban hoy, hoy
        incluido, sin días futuros), la misma que /calendar y /individual. */
-    const aCeroIds = new Set(
-      sinSeguimientoReciente(delGrupo, plantillaEnFoco, hoy, (fecha) => recordDateKey(fecha)).map((p) => p.id),
-    );
+    const aCeroIds = new Set(sinSeguir14.map((p) => p.id));
 
     delGrupo.forEach((s) => {
       const d = daysAgo(s.FECHA);
@@ -948,7 +1071,7 @@ export default function DashboardSeguimiento() {
     });
 
     const menos = plantillaEnFoco
-      .map((p) => ({ nombre: p.nombre, n: dosSemanas.get(p.id) ?? 0 }))
+      .map((p) => ({ id: p.id, nombre: p.nombre, n: dosSemanas.get(p.id) ?? 0 }))
       .sort((a, b) => a.n - b.n || a.nombre.localeCompare(b.nombre, "es"))
       .slice(0, 3);
 
@@ -967,23 +1090,30 @@ export default function DashboardSeguimiento() {
     };
     const aCero = plantillaEnFoco
       .filter((p) => aCeroIds.has(p.id))
-      .map((p) => ({ nombre: nombreVisible(p.nombre), dias: ultimoDias(p.id) }))
-      .sort((a, b) => (b.dias ?? 9999) - (a.dias ?? 9999))
-      .map((p) => `${p.nombre} (${p.dias === null ? "ningún registro" : `${p.dias} días`})`);
+      .map((p) => ({ id: p.id, nombre: nombreVisible(p.nombre), dias: ultimoDias(p.id) }))
+      .sort((a, b) => (b.dias ?? 9999) - (a.dias ?? 9999));
 
     if (aCero.length > 0) {
       out.unshift({
         icon: AlertTriangle,
         tone: "text-amber-400",
-        text: `Sin seguimiento en 14 días, hasta hoy: ${aCero.join(", ")}. Programa una sesión individual con ellos esta semana.`,
+        text: `Sin seguimiento en 14 días, hasta hoy: ${aCero.length} de ${plantillaEnFoco.length} de campo del Castilla. Programa una sesión individual con ${aCero.length === 1 ? "él" : "ellos"} esta semana:`,
+        jugadores: aCero.map((p) => ({
+          id: p.id,
+          nombre: p.nombre,
+          detalle: p.dias === null ? "ningún registro" : `${p.dias} días`,
+        })),
       });
     } else if (menos.length === 3) {
       out.unshift({
         icon: AlertTriangle,
         tone: "text-amber-400",
-        text: `Menos seguimiento en 14 días: ${menos
-          .map((m) => `${m.nombre} (${m.n} ${m.n === 1 ? "seguimiento" : "seguimientos"})`)
-          .join(", ")}. Programa una sesión individual con ellos esta semana.`,
+        text: "Menos seguimiento en 14 días (todos tienen alguno). Programa una sesión individual con ellos esta semana:",
+        jugadores: menos.map((m) => ({
+          id: m.id,
+          nombre: nombreVisible(m.nombre),
+          detalle: `${m.n} ${m.n === 1 ? "seguimiento" : "seguimientos"}`,
+        })),
       });
     }
 
@@ -1001,7 +1131,7 @@ export default function DashboardSeguimiento() {
 
     return out;
   }, [
-    hoy,
+    sinSeguir14,
     delGrupo,
     totalSessions,
     untrackedPlayers,
@@ -1013,6 +1143,8 @@ export default function DashboardSeguimiento() {
     focusData,
   ]);
 
+  const lecturasDelResumen = insights.filter((i, idx) => !(idx === 0 && i.jugadores && i.jugadores.length > 0));
+
   /* ---------------- filter options ---------------- */
 
   const filterOptions = useMemo(() => {
@@ -1021,7 +1153,7 @@ export default function DashboardSeguimiento() {
 
     return {
       positions: [...new Set(players.map((p) => p.posicion).filter(Boolean))].sort(),
-      coaches: conPartes(uniq((t) => t.QUIEN)),
+      coaches: [...new Set(tracking.flatMap((t) => autores(t.QUIEN)))].sort((a, b) => a.localeCompare(b, "es")),
       strategies: conPartes(uniq((t) => t.ESTRATEGIA)),
       modalities: uniq((t) => t.MODALIDAD),
       moments: uniq((t) => t.MOMENTO),
@@ -1123,12 +1255,14 @@ export default function DashboardSeguimiento() {
               </span>
 
               {/* Se dice a quién cuenta el panel: si no, la cobertura y la
-                  media parecen de toda la plantilla y no lo son. */}
+                  media parecen de toda la plantilla y no lo son. 16/11/2026:
+                  la misma población, con las mismas palabras, que Plantilla y
+                  Calendario de Seguimiento. */}
               <span
-                title="Sólo los jugadores de campo con licencia del Castilla. Fuera los del RMC y del juvenil que vienen a entrenar, que llevan su seguimiento en su equipo, y los porteros, que tienen el suyo."
+                title="Sólo los jugadores de campo con licencia del Castilla, la misma cuenta que Plantilla y Calendario de Seguimiento. Fuera los del RMC y del juvenil que vienen a entrenar, que llevan su seguimiento en su equipo, y los porteros, que llevan un registro aparte con su entrenador."
                 className="rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-3 py-1 text-xs text-[#C8A96B]"
               >
-                jugadores de campo del Castilla
+                {players.length} jugadores de campo del Castilla · porteros aparte
               </span>
 
               {sinFecha > 0 && (
@@ -1150,23 +1284,35 @@ export default function DashboardSeguimiento() {
               <div className="hidden md:block h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
             </div>
 
+            {/* 16/11/2026 (jueces): lo que pide trabajo, lo primero; cada
+                nombre abre su ficha y lleva a registrar el seguimiento. */}
+            {!loading && insights[0]?.jugadores && insights[0].jugadores.length > 0 && (
+              <div role="status" className="mt-6 rounded-2xl border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-4 py-3">
+                <p className="text-sm font-semibold text-[#C8A96B]">{insights[0].text}</p>
+                <JugadoresDeLectura jugadores={insights[0].jugadores} />
+              </div>
+            )}
+
             {/* ---------------- Filters ---------------- */}
 
             <div className="mt-6 rounded-[24px] md:rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-5 md:p-7">
               <button
                 type="button"
                 onClick={() => setFiltrosAbiertos((v) => !v)}
-                aria-expanded={filtrosAbiertos}
-                className="mb-3 flex w-full items-center justify-between rounded-2xl border border-white/10 bg-[#11161C] px-4 py-3 text-sm font-semibold md:hidden"
+                aria-expanded={filtrosAbiertos || activeFilterCount > 0}
+                className="mb-3 flex w-full items-center justify-between rounded-2xl border border-white/10 bg-[#11161C] px-4 py-3 text-sm font-semibold"
               >
                 <span>
-                  Filtros{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+                  Filtrar por jugador, posición o entrenador{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
                 </span>
-                <span className="text-white/50">{filtrosAbiertos ? "Ocultar" : "Mostrar"}</span>
+                <span className="text-white/50">{filtrosAbiertos || activeFilterCount > 0 ? "Ocultar" : "Mostrar"}</span>
               </button>
 
+              {/* 16/11/2026 (jueces): plegados también en escritorio, para que
+                  el primer vistazo sea el aviso y las cifras; se quedan
+                  abiertos mientras haya alguno puesto. */}
               <div
-                className={`${filtrosAbiertos ? "grid" : "hidden"} md:grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3`}
+                className={`${filtrosAbiertos || activeFilterCount > 0 ? "grid" : "hidden"} grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3`}
               >
                 <Select
                   label="Jugador"
@@ -1174,7 +1320,9 @@ export default function DashboardSeguimiento() {
                   onChange={(v: string) => updateFilter("player", v)}
                   options={[
                     { value: "", label: "Todos" },
-                    ...players.map((p) => ({ value: p.id, label: nombreVisible(p.nombre) })),
+                    ...players
+                      .map((p) => ({ value: p.id, label: nombreVisible(p.nombre) }))
+                      .sort((a, b) => a.label.localeCompare(b.label, "es")),
                   ]}
                 />
 
@@ -1349,24 +1497,26 @@ export default function DashboardSeguimiento() {
                   /* 10/11/2026: la ventana dicha (el registro de la temporada
                      está en /calendar) y, con un filtro que deja menos de 15,
                      el aviso de que es tendencia. */
-                  hint={`registros de la temporada · ${withFeedback} de ${totalSessions} con feedback${totalSessions > 0 && totalSessions < 15 ? " · tendencia: menos de 15 registros" : ""}`}
+                  hint={`registros de la temporada de los jugadores de campo del Castilla · ${withFeedback} de ${totalSessions} con feedback${totalSessions > 0 && totalSessions < 15 ? " · tendencia: menos de 15 registros" : ""}`}
                 />
 
                 <StatCard
                   icon={Users}
                   title="Con seguimiento"
-                  value={cubiertos}
-                  hint={`jugadores con algún registro en la temporada · ${cm(avgPerPlayer)} registros por jugador (de ${totalSessions})`}
+                  value={`${cubiertos} de ${squadSize}`}
+                  hint={`jugadores de campo del Castilla con algún registro en la temporada · ${cm(avgPerPlayer)} registros por jugador con seguimiento (mediana ${cm(medianaPorJugador)})`}
                   accent="#6E7F99"
                 />
 
+                {/* 16/11/2026 (jueces): la misma ventana que el aviso de 14
+                    días; la de la temporada, debajo. */}
                 <StatCard
                   icon={UserCheck}
-                  title="Cobertura · de campo del Castilla"
-                  value={`${cm(coverage)} %`}
-                  hint={`${cubiertos} de ${squadSize} jugadores de campo con licencia del Castilla en la temporada (sin porteros ni otras licencias)`}
-                  accent={coverage >= 80 ? "#10B981" : coverage >= 50 ? "#C8A96B" : "#EF4444"}
-                  progress={coverage}
+                  title={`Cobertura · últimos ${DIAS_SIN_SEGUIMIENTO} días`}
+                  value={`${cubiertos14} de ${squadSize}`}
+                  hint={`${cm(coverage14)} % de los jugadores de campo del Castilla con algún registro en los últimos ${DIAS_SIN_SEGUIMIENTO} días (la ventana del aviso) · en la temporada: ${cubiertos} de ${squadSize} (${cm(coverage)} %)`}
+                  accent={coverage14 >= 80 ? "#10B981" : coverage14 >= 50 ? "#C8A96B" : "#EF4444"}
+                  progress={coverage14}
                 />
 
                 <StatCard
@@ -1467,7 +1617,8 @@ export default function DashboardSeguimiento() {
 
             {!loading && totalSessions > 0 && tab === "resumen" && (
               <div className="mt-8 space-y-6">
-                {insights.length > 0 && (
+                {/* El aviso con nombres ya va arriba, sobre las cifras: aquí, el resto. */}
+                {lecturasDelResumen.length > 0 && (
                   <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#C8A96B]/[0.07] to-white/[0.02] p-6 md:p-7">
                     <h2 className="mb-5 flex items-center gap-2 text-lg font-semibold">
                       <Sparkles className="h-5 w-5 text-[#C8A96B]" />
@@ -1475,7 +1626,7 @@ export default function DashboardSeguimiento() {
                     </h2>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-3">
-                      {insights.map((i, idx) => {
+                      {lecturasDelResumen.map((i, idx) => {
                         const Icon = i.icon;
 
                         return (
@@ -1484,9 +1635,14 @@ export default function DashboardSeguimiento() {
                               className={`mt-0.5 h-4 w-4 shrink-0 ${i.tone}`}
                             />
 
-                            <p className="text-sm leading-relaxed text-white/75">
-                              {i.text}
-                            </p>
+                            <div className="min-w-0">
+                              <p className="text-sm leading-relaxed text-white/75">
+                                {i.text}
+                              </p>
+                              {i.jugadores && i.jugadores.length > 0 && (
+                                <JugadoresDeLectura jugadores={i.jugadores} />
+                              )}
+                            </div>
                           </div>
                         );
                       })}
@@ -1500,11 +1656,11 @@ export default function DashboardSeguimiento() {
                     subtitle={
                       weeklyData.length < 3
                         ? "Seguimientos por semana"
-                        : `Media de ${cm(weeklyMean)} seguimientos por semana completa (raya), de lunes a domingo${
+                        : `Media de ${cm(weeklyMean)} seguimientos por semana completa (raya), de lunes a domingo · oro, individuales; gris, grupales${
                             weeklyData[weeklyData.length - 1]?.week === semanaDeHoy && diaDeSemana < 7
                               ? ` · la última va en curso, día ${diaDeSemana} de 7`
                               : ""
-                          } · pulsa una barra para filtrar`
+                          } · pulsa una barra para filtrar${notaDelPico ? `. ${notaDelPico}` : ""}`
                     }
                   >
                     {/* 30/10/2026: con una o dos semanas, una barra por semana y la
@@ -1594,9 +1750,9 @@ export default function DashboardSeguimiento() {
                         />
 
                         <Bar
-                          dataKey="value"
-                          name="Seguimientos"
-                          radius={[6, 6, 0, 0]}
+                          dataKey="individual"
+                          name="Individuales"
+                          stackId="semana"
                           maxBarSize={56}
                           isAnimationActive={false}
                         >
@@ -1604,6 +1760,23 @@ export default function DashboardSeguimiento() {
                             <Cell
                               key={w.week}
                               fill={GOLD}
+                              fillOpacity={w.week === semanaDeHoy && diaDeSemana < 7 ? 0.45 : 1}
+                            />
+                          ))}
+                        </Bar>
+
+                        <Bar
+                          dataKey="grupal"
+                          name="Grupales"
+                          stackId="semana"
+                          radius={[6, 6, 0, 0]}
+                          maxBarSize={56}
+                          isAnimationActive={false}
+                        >
+                          {weeklyData.map((w) => (
+                            <Cell
+                              key={w.week}
+                              fill="#6E7F99"
                               fillOpacity={w.week === semanaDeHoy && diaDeSemana < 7 ? 0.45 : 1}
                             />
                           ))}
@@ -1668,20 +1841,75 @@ export default function DashboardSeguimiento() {
                     />
                   </Panel>
 
+                  {/* 16/11/2026 (jueces): el segundo anillo pasa a ser el
+                      cruce estrategia × momento, con su conclusión en el
+                      título; el total de cada momento va en su cabecera. */}
                   <Panel
-                    title="Momento de la intervención"
-                    subtitle={`Cuándo se produce el contacto con el jugador${conMomento < totalSessions ? ` · ${conMomento} de ${totalSessions} registros con momento anotado` : ""}`}
+                    title={
+                      estrategiaMomento.mayor.n > 0
+                        ? `Lo más repetido: ${estrategiaMomento.mayor.estrategia.toLowerCase()} ${estrategiaMomento.mayor.momento.toLowerCase()} (${estrategiaMomento.mayor.n})`
+                        : "Estrategia según el momento"
+                    }
+                    subtitle={`Qué recurso se usa en cada momento · registros con los dos datos anotados${conMomento < totalSessions ? ` · ${conMomento} de ${totalSessions} con momento` : ""} · pulsa una fila o una columna para filtrar`}
                   >
-                    <DonutWithLegend
-                      data={momentData}
-                      active={filters.moment}
-                      onSelect={(name: string) =>
-                        updateFilter(
-                          "moment",
-                          filters.moment === name ? "" : name
-                        )
-                      }
-                    />
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[420px] border-separate border-spacing-1 text-sm">
+                        <thead>
+                          <tr>
+                            <th />
+                            {momentData.map((m) => (
+                              <th key={m.name} className="px-1 pb-1 text-center align-bottom font-normal">
+                                <button
+                                  type="button"
+                                  onClick={() => updateFilter("moment", filters.moment === m.name ? "" : m.name)}
+                                  aria-pressed={filters.moment === m.name}
+                                  className={`w-full rounded-lg px-1 py-1 text-[11px] uppercase tracking-wide transition hover:text-white ${
+                                    filters.moment === m.name ? "bg-[#C8A96B]/20 text-white" : "text-white/60"
+                                  }`}
+                                >
+                                  {m.name.toLowerCase()}
+                                  <span className="block text-xs font-semibold normal-case tracking-normal text-white/80">
+                                    {m.value} · {cm(m.percentage)} %
+                                  </span>
+                                </button>
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {estrategiaMomento.filas.map((f) => (
+                            <tr key={f.estrategia}>
+                              <th scope="row" className="pr-2 text-left font-normal">
+                                <button
+                                  type="button"
+                                  onClick={() => updateFilter("strategy", filters.strategy === f.estrategia ? "" : f.estrategia)}
+                                  aria-pressed={filters.strategy === f.estrategia}
+                                  className={`text-left text-xs transition hover:text-white ${
+                                    filters.strategy === f.estrategia ? "font-semibold text-[#C8A96B]" : "text-white/75"
+                                  }`}
+                                >
+                                  {f.estrategia.charAt(0) + f.estrategia.slice(1).toLowerCase()}
+                                  <span className="ml-1 text-white/45">{f.total}</span>
+                                </button>
+                              </th>
+                              {f.celdas.map((c) => (
+                                <td
+                                  key={c.momento}
+                                  className="rounded-lg px-2 py-2 text-center tabular-nums"
+                                  style={{
+                                    background: c.n ? `rgba(200,169,107,${0.1 + 0.75 * (c.n / estrategiaMomento.max)})` : undefined,
+                                  }}
+                                >
+                                  <span className={c.n / estrategiaMomento.max > 0.55 ? "font-semibold text-black" : "text-white/80"}>
+                                    {c.n || ""}
+                                  </span>
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </Panel>
                 </div>
 
@@ -1707,7 +1935,9 @@ export default function DashboardSeguimiento() {
                           />
 
                           <div className="leading-tight">
-                            <p className="text-sm font-medium">{nombreVisible(p.nombre)}</p>
+                            <p className="text-sm font-medium">
+                              <NombreJugador jugador={{ id: p.id, nombre: nombreVisible(p.nombre) }} />
+                            </p>
 
                             <p className="text-[11px] text-white/55">
                               {nombrePuesto(p.posicion)}
@@ -1730,19 +1960,33 @@ export default function DashboardSeguimiento() {
               <div className="mt-8 space-y-6">
                 <Panel
                   title="Ranking de seguimiento por jugador"
-                  subtitle="Nº de registros, semanas cubiertas y días desde el último contacto"
+                  subtitle={`Registros de cada uno (de ${totalSessions}), semanas cubiertas y días desde el último contacto · la raya, la mediana de los jugadores de campo del Castilla (${cm(medianaPorJugador)}) · pulsa una fila para filtrar`}
                 >
                   <div className="space-y-2">
                     {playerChart.map((p, i) => {
                       const selected = filters.player === p.id;
+                      const tope = playerChart[0]?.value || 1;
 
+                      /* 16/11/2026: fila pulsable (filtra) con sus enlaces
+                         dentro: ficha, calendario y registrar. Un <button> no
+                         puede llevar enlaces dentro. */
                       return (
-                        <button
+                        <div
                           key={p.id + p.name}
+                          role="button"
+                          tabIndex={0}
+                          aria-pressed={selected}
                           onClick={() =>
                             updateFilter("player", selected ? "" : p.id)
                           }
-                          className={`flex w-full items-center gap-3 rounded-2xl border p-2.5 text-left transition ${
+                          onKeyDown={(e) => {
+                            if (e.target !== e.currentTarget) return;
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              updateFilter("player", selected ? "" : p.id);
+                            }
+                          }}
+                          className={`flex w-full cursor-pointer flex-wrap items-center gap-3 rounded-2xl border p-2.5 text-left transition sm:flex-nowrap ${
                             selected
                               ? "border-[#C8A96B] bg-[#C8A96B]/10"
                               : "border-white/5 bg-white/[0.02] hover:border-white/20"
@@ -1770,25 +2014,37 @@ export default function DashboardSeguimiento() {
                               </span>
                             </div>
 
-                            <div className="mt-1.5 h-1.5 rounded-full bg-white/10">
+                            <div className="relative mt-1.5 h-1.5 rounded-full bg-white/10">
                               <div
                                 className="h-full rounded-full bg-[#C8A96B]"
                                 style={{
-                                  width: `${
-                                    (p.value / (playerChart[0]?.value || 1)) *
-                                    100
-                                  }%`,
+                                  width: `${(p.value / tope) * 100}%`,
                                 }}
                               />
+                              {medianaPorJugador > 0 && (
+                                <span
+                                  aria-hidden
+                                  title={`Mediana: ${cm(medianaPorJugador)}`}
+                                  className="absolute -top-1 h-3.5 w-0.5 rounded bg-white/60"
+                                  style={{ left: `${Math.min(100, (medianaPorJugador / tope) * 100)}%` }}
+                                />
+                              )}
                             </div>
                           </div>
+
+                          <EnlacesJugador
+                            jugador={{ id: p.id, nombre: nombreVisible(p.name) }}
+                            destinos={["ficha", "calendario", "registrar"]}
+                            compacto
+                            className="order-last w-full justify-end sm:order-none sm:w-auto"
+                          />
 
                           <div className="shrink-0 text-right">
                             <p className="text-sm font-bold text-[#C8A96B]">
                               {p.value}
                             </p>
 
-                            <p className="text-[10px] text-white/35">
+                            <p className="text-[11px] text-white/50">
                               {cm(+p.percentage.toFixed(1))} %
                             </p>
                           </div>
@@ -1799,16 +2055,16 @@ export default function DashboardSeguimiento() {
                             </p>
 
                             <p
-                              className={`text-[10px] ${
-                                (p.dias ?? 0) > 14
+                              className={`text-[11px] ${
+                                (p.dias ?? 0) > DIAS_SIN_SEGUIMIENTO
                                   ? "text-rose-400"
-                                  : "text-white/35"
+                                  : "text-white/50"
                               }`}
                             >
                               {hace(p.dias ?? 0)}
                             </p>
                           </div>
-                        </button>
+                        </div>
                       );
                     })}
                   </div>
@@ -1977,12 +2233,18 @@ export default function DashboardSeguimiento() {
 
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-semibold">
-                              {p.name}
+                              <NombreJugador jugador={{ id: p.id, nombre: nombreVisible(p.name) }} />
                             </p>
 
-                            <p className="text-xs text-white/40">
+                            <p className="text-xs text-white/50">
                               {nombrePuesto(p.posicion)} · {p.value} seguimientos
                             </p>
+                            <EnlacesJugador
+                              jugador={{ id: p.id, nombre: nombreVisible(p.name) }}
+                              destinos={["calendario", "registrar"]}
+                              compacto
+                              className="mt-1"
+                            />
                           </div>
 
                           <div className="text-right">
@@ -2405,6 +2667,24 @@ export default function DashboardSeguimiento() {
 /* ------------------------------------------------------------------ */
 /* UI pieces                                                           */
 /* ------------------------------------------------------------------ */
+
+/** Los jugadores que nombra una lectura: su ficha y, a un toque, su calendario y registrar (16/11/2026). */
+function JugadoresDeLectura({ jugadores }: { jugadores: { id: string; nombre: string; detalle: string }[] }) {
+  return (
+    <ul className="mt-2 flex min-w-0 flex-wrap gap-2">
+      {jugadores.map((j) => (
+        <li
+          key={j.id}
+          className="inline-flex min-w-0 flex-wrap items-center gap-1.5 rounded-2xl border border-[#C8A96B]/30 bg-white/[0.04] py-1 pl-2.5 pr-1"
+        >
+          <NombreJugador jugador={{ id: j.id, nombre: j.nombre }} className="text-xs font-semibold text-white" />
+          <span className="text-[11px] tabular-nums text-white/60">{j.detalle}</span>
+          <EnlacesJugador jugador={{ id: j.id, nombre: j.nombre }} destinos={["calendario", "registrar"]} compacto />
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 /** Una fila de los recuentos por categoría (modalidad, entrenador…). */
 type Recuento = { name: string; value: number; percentage: number };
