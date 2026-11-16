@@ -2327,6 +2327,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Plegadas", es: "Cada idea es una línea (título, pantalla y estado) que se despliega al pulsarla; las que están añadiéndose, deshaciéndose o no salieron, abiertas. Las ya añadidas o deshechas van juntas y plegadas en «Ya añadidas o deshechas», como las descartadas. Lo que se abre a mano se recuerda en el aparato" },
           { que: "Cada idea", es: "Qué cambiar, en qué pantalla y por qué; para qué fase y momento de la semana, qué decisión ayuda a tomar, de qué dato real sale (Opta, Wyscout, nuestras hojas o BeSoccer) con su muestra mínima y un ejemplo de lectura; con un trozo de la publicación y su enlace a X. Primero las que sirven para el próximo partido, luego las de la semana y al final las de fondo", cuenta: "Las saca Claude de las publicaciones nuevas con la lista de pantallas de esta ayuda; pensando como el cuerpo técnico y sin repetir las ya propuestas (añadidas o descartadas); se tiran las que no encajan en ninguna pantalla, las que no dicen de qué dato real salen y las repetidas" },
           { que: "Añadir", es: "El ordenador del club la programa en una copia aparte, pasa tsc, eslint, la ayuda de la pantalla y el build y, sólo si todo sale, la publica (la web se redespliega). Si algo falla: «No salió», con el motivo, y no se publica nada" },
+          { que: "En cola", es: "Las ideas se programan de una en una, por orden de pedido (cada una ~30 min: programarla ~20 y comprobarla ~8). La que está en marcha dice «Programando ahora» y el panel enseña su progreso; las demás, «En cola · 2.ª», «3.ª»…, con la hora a la que acabaría cada una. Si no ha empezado, el panel dice por qué: el ordenador del club no contesta o está con el análisis del partido (las dos cosas a la vez no caben en su memoria)", cuenta: "La hora es lo que le queda a la que está en marcha más ~30 min por cada una que va delante" },
           { que: "Deshacer", es: "En una idea añadida: revierte exactamente sus cambios, con las mismas comprobaciones, y la publica. Si algo posterior depende de ella, lo dice y no fuerza nada: la idea sigue añadida" },
           { que: "Descartar · Recuperar", es: "La aparta (queda en «Descartadas») o la devuelve a la lista" },
           { que: "Historial", es: "Quién pidió qué y cuándo, cómo acabó y los commits de la idea" },
@@ -2339,7 +2340,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Con el ordenador del club apagado no se pierde nada: el encargo queda apuntado y empieza al encenderlo.",
       "La lista de «Actualizaciones» sale de un catálogo: un proceso nuevo que no se añada allí no aparece.",
     ],
-    revisada: "2026-11-15",
+    revisada: "2026-11-16",
   },
 
   /* ==================== TAREAS Y ALERTAS (12/11/2026) ==================== */

@@ -264,6 +264,21 @@ export function estadoEncargo(
   return "libre";
 }
 
+/**
+ * Hay una pasada corriendo, aunque ya se haya pedido la siguiente (16/11/2026).
+ *
+ * `estadoEncargo` da «pedido» en cuanto llega un pedido posterior al arranque,
+ * y la pantalla escondía la idea de X que se estaba programando tras un «En
+ * cola» que parecía que no arrancaba nada.
+ */
+export function corriendo(tarea: Tarea, encargo: Encargo | undefined, ahora = Date.now()) {
+  if (!encargo) return false;
+
+  const empezado = ms(encargo.empezadoEn);
+
+  return empezado > ms(encargo.hechoEn) && ahora - empezado <= LIMITE_MIN[tarea] * 60_000;
+}
+
 export function vigiaVivo(vigia: Vigia | null | undefined, ahora = Date.now()) {
   const visto = ms(vigia?.vistoEn);
 

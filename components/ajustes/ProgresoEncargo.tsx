@@ -52,8 +52,14 @@ export function ProgresoEncargo({
   vivo,
   empezadoEn,
   enCola,
+  motivoCola,
+  detras,
 }: {
   tarea: Tarea;
+  /** Por qué no ha empezado todavía (sustituye al texto genérico). */
+  motivoCola?: string;
+  /** Lo que va en cola detrás de lo que está en marcha, una línea por encargo. */
+  detras?: string[];
   /** Lo que publica el vigía; sin él se estima con el reloj. */
   vivo: ProgresoVivo | null | undefined;
   empezadoEn?: string;
@@ -69,7 +75,7 @@ export function ProgresoEncargo({
       <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] p-3" role="status">
         <div className="flex items-baseline justify-between gap-3">
           <span className="shrink-0 whitespace-nowrap text-[26px] font-semibold tabular-nums leading-none text-white/80">0 %</span>
-          <span className="text-[11px] text-white/45">En cola: empieza en cuanto lo coja el ordenador del club</span>
+          <span className="text-right text-[11px] text-white/55">{motivoCola ?? "En cola: empieza en cuanto lo coja el ordenador del club"}</span>
         </div>
         <div className="mt-2.5 h-2 overflow-hidden rounded-full" style={{ background: "rgba(128,128,128,0.18)" }}>
           <div className="h-full w-1/4 animate-pulse rounded-full" style={{ background: `${ORO}40` }} />
@@ -193,6 +199,29 @@ export function ProgresoEncargo({
           </li>
         ))}
       </ol>
+
+      {/* Lo que espera detrás (16/11/2026): de uno en uno, con la hora a la que acabaría cada uno. */}
+      {detras && detras.length > 0 && (
+        <div className="mt-3 border-t border-white/10 pt-2.5 text-[12px]">
+          <p className="text-white/55">
+            {detras.length === 1 ? "Detrás, en cola (empieza al acabar esta):" : `Detrás, en cola (${detras.length}, de una en una):`}
+          </p>
+          <ol className="mt-1 space-y-0.5">
+            {detras.map((titulo, i) => {
+              const tipica = ETAPAS[tarea].reduce((s, e) => s + e.minutos, 0);
+
+              return (
+                <li key={`${i}-${titulo}`} className="flex min-w-0 items-baseline justify-between gap-3">
+                  <span className="min-w-0 truncate text-white/75">
+                    {i + 2}.ª · {titulo}
+                  </span>
+                  <span className="shrink-0 tabular-nums text-white/45">~{horaDe(ahora + (v.quedan + (i + 1) * tipica) * 60_000)}</span>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+      )}
     </div>
   );
 }

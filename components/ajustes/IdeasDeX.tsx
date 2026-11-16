@@ -27,7 +27,7 @@ import { toast } from "sonner";
 import { usePlegado, type Tono } from "@/components/ajustes/Plegable";
 import { ProgresoEncargo } from "@/components/ajustes/ProgresoEncargo";
 import { confirmar } from "@/lib/avisos";
-import { estadoEncargo, type Mantenimiento, type Tarea, type Vigia } from "@/lib/mantenimiento";
+import { corriendo, estadoEncargo, vigiaVivo, type Mantenimiento, type Tarea, type Vigia } from "@/lib/mantenimiento";
 import { CUENTA_X, accionesDe, type AccionIdea, type EstadoIdea, type Idea, type LecturaX } from "@/lib/x-ideas";
 
 const fecha = (iso: string) =>
@@ -139,9 +139,20 @@ export function IdeasDeX({
 
       setIdeas(d.ideas ?? null);
 
+      /* Si va detrás de otras, que lo diga (16/11/2026): se atienden de una en una. */
+      const delante = (d.ideas ?? []).filter(
+        (i) => i.id !== idea.id && (i.estado === "añadiendo" || i.estado === "deshaciendo") && i.pedido,
+      ).length;
+
       toast.success(
         accion === "añadir" ? "Pedida" : accion === "deshacer" ? "Deshacer pedido" : accion === "descartar" ? "Descartada" : "Recuperada",
-        accion === "añadir" || accion === "deshacer" ? { description: "El ordenador del club la coge en unos segundos; te aviso al terminar." } : undefined,
+        accion === "añadir" || accion === "deshacer"
+          ? {
+              description: delante
+                ? `Va la ${delante + 1}.ª en cola: se programan de una en una (~30 min cada una). Te aviso al terminar.`
+                : "El ordenador del club la coge en unos segundos; te aviso al terminar.",
+            }
+          : undefined,
       );
     } catch (e) {
       toast.error("No se ha podido", { description: e instanceof Error ? e.message : "Inténtalo otra vez" });
@@ -154,6 +165,28 @@ export function IdeasDeX({
   const lecturaEncargo = estadoEncargo("x", estado.x, ahora);
   const leyendo = lecturaEncargo === "pedido" || lecturaEncargo === "en-marcha";
   const ideaEncargo = estadoEncargo("x-idea", estado["x-idea"], ahora);
+
+  /*
+  | La cola de verdad (16/11/2026): se atienden de una en una por orden de
+  | pedido (siguienteEnCola). Si hay una pasada corriendo, la primera es la que
+  | se programa y las demás esperan; antes todas decían «Añadiendo» y el panel
+  | escondía la que estaba en marcha tras un «En cola».
+  */
+  const cola = (ideas ?? [])
+    .filter((i) => (i.estado === "añadiendo" || i.estado === "deshaciendo") && i.pedido)
+    .sort((a, b) => Date.parse(a.pedido!.en) - Date.parse(b.pedido!.en));
+  const ideaCorre = corriendo("x-idea", estado["x-idea"], ahora);
+  const enEspera = (ideaEncargo === "pedido" || cola.length > 0) && !ideaCorre;
+  const motivoCola = !vigiaVivo(vigia, ahora)
+    ? "En cola: el ordenador del club no contesta; empieza en cuanto se encienda"
+    : estadoEncargo("partido", estado.partido, ahora) === "en-marcha"
+      ? "En cola: espera a que acabe el análisis del partido (las dos cosas a la vez no caben en la memoria del ordenador)"
+      : "En cola: el ordenador del club la coge en unos segundos";
+  const puestoEnCola = (idea: Idea) => {
+    const i = cola.findIndex((c) => c.id === idea.id);
+
+    return i < 0 ? null : { puesto: i + 1, corre: ideaCorre && i === 0 };
+  };
 
   /* Primero lo que sirve para el próximo partido (revisión de expertos, 12/11/2026). */
   /* Lo ya decidido (añadida o deshecha) va aparte y plegado (15/11/2026: la pestaña se hacía larguísima). */
@@ -213,12 +246,14 @@ export function IdeasDeX({
         </span>
       </div>
 
-      {(ideaEncargo === "en-marcha" || ideaEncargo === "pedido") && (
+      {(ideaCorre || ideaEncargo === "en-marcha" || enEspera) && (
         <ProgresoEncargo
           tarea="x-idea"
           vivo={vigia?.progreso?.["x-idea"]}
           empezadoEn={estado["x-idea"]?.empezadoEn}
-          enCola={ideaEncargo === "pedido"}
+          enCola={enEspera}
+          motivoCola={cola.length > 1 ? `${motivoCola} · ${cola.length} en cola, de una en una (~30 min cada una)` : motivoCola}
+          detras={ideaCorre ? cola.slice(1).map((i) => i.titulo) : undefined}
         />
       )}
 
@@ -234,7 +269,7 @@ export function IdeasDeX({
 
       <ul className="mt-3 grid min-w-0 gap-3 lg:grid-cols-2">
         {vivas.map((idea) => (
-          <TarjetaIdea key={idea.id} idea={idea} pulsado={pulsado} onBoton={boton} />
+          <TarjetaIdea key={idea.id} idea={idea} cola={puestoEnCola(idea)} pulsado={pulsado} onBoton={boton} />
         ))}
       </ul>
 
@@ -243,7 +278,7 @@ export function IdeasDeX({
           <summary className="cursor-pointer text-[12px] text-white/55 hover:text-white">Ya añadidas o deshechas ({hechas.length})</summary>
           <ul className="mt-3 grid min-w-0 gap-3 lg:grid-cols-2">
             {hechas.map((idea) => (
-              <TarjetaIdea key={idea.id} idea={idea} pulsado={pulsado} onBoton={boton} />
+              <TarjetaIdea key={idea.id} idea={idea} cola={puestoEnCola(idea)} pulsado={pulsado} onBoton={boton} />
             ))}
           </ul>
         </details>
@@ -254,7 +289,7 @@ export function IdeasDeX({
           <summary className="cursor-pointer text-[12px] text-white/55 hover:text-white">Descartadas ({descartadas.length})</summary>
           <ul className="mt-3 grid min-w-0 gap-3 lg:grid-cols-2">
             {descartadas.map((idea) => (
-              <TarjetaIdea key={idea.id} idea={idea} pulsado={pulsado} onBoton={boton} />
+              <TarjetaIdea key={idea.id} idea={idea} cola={puestoEnCola(idea)} pulsado={pulsado} onBoton={boton} />
             ))}
           </ul>
         </details>
@@ -272,14 +307,22 @@ const ROTULO: Record<AccionIdea, { texto: string; Icono: typeof Plus }> = {
 
 function TarjetaIdea({
   idea,
+  cola,
   pulsado,
   onBoton,
 }: {
   idea: Idea;
+  /** Su puesto en la cola y si es la que se está programando ahora. */
+  cola: { puesto: number; corre: boolean } | null;
   pulsado: string | null;
   onBoton: (idea: Idea, accion: AccionIdea) => void;
 }) {
-  const chip = CHIP[idea.estado];
+  const esperando = cola !== null && !cola.corre;
+  const chip = esperando
+    ? { texto: `En cola · ${cola.puesto}.ª`, clase: "border-white/15 bg-white/[0.04] text-white/65" }
+    : cola?.corre
+      ? { ...CHIP[idea.estado], texto: idea.estado === "deshaciendo" ? "Deshaciendo ahora" : "Programando ahora" }
+      : CHIP[idea.estado];
   const acciones = accionesDe(idea);
   const ultimo = idea.log[idea.log.length - 1];
   /* Plegada en una línea (15/11/2026); en marcha o fallida, abierta. Lo que se abre a mano se recuerda en el aparato. */
@@ -300,7 +343,7 @@ function TarjetaIdea({
         </span>
         <span className="flex shrink-0 items-center gap-2">
           <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${chip.clase}`}>
-            {(idea.estado === "añadiendo" || idea.estado === "deshaciendo") && <Loader2 size={11} className="animate-spin" aria-hidden />}
+            {(idea.estado === "añadiendo" || idea.estado === "deshaciendo") && !esperando && <Loader2 size={11} className="animate-spin" aria-hidden />}
             {chip.texto}
           </span>
           <ChevronDown size={16} aria-hidden className={`text-white/45 transition-transform ${abierto ? "rotate-180" : ""}`} />
