@@ -11,7 +11,7 @@
 | aprendido > plantilla; los del Castilla: plantilla > aprendido).
 */
 
-import { claveNombre, puestosDesdePlantilla, type AlmacenEquipos, type FichaPlantilla, type JugadorSesion, type Puesto, type PuestoDe } from "@/lib/sesion-equipos/modelo";
+import { apartaPorteros, claveNombre, limpiaJugador, puestosDesdePlantilla, type AlmacenEquipos, type FichaPlantilla, type JugadorSesion, type Puesto, type PuestoDe } from "@/lib/sesion-equipos/modelo";
 import { demarcacion, demarcacionesDesdePlantilla, grupoDeDemarcacion, puntoPreferido, type Demarcacion } from "@/lib/sesion-equipos/demarcacion";
 import { aprendePosiciones, resuelveDemarcacion, type OrigenDemarcacion, type PerfilAprendido } from "@/lib/sesion-equipos/aprendizaje";
 
@@ -58,4 +58,35 @@ export function puestosDeLaSesion(
   });
 
   return { puestosAuto, fichas, aprendido, resuelve, demarcacionDe, puestoDe };
+}
+
+/**
+ * EL ALMACÉN SIN PORTEROS, PARA QUIEN SÓLO LEE (16/11/2026).
+ *
+ * «A los porteros que no los contabilice ni en el seguimiento ni en jugadores
+ * sesión, que llevan un registro independiente.» Las sesiones guardadas antes
+ * aún traen porteros dentro hasta que se vuelve a pegar la lista; quien lee el
+ * almacén fuera de /jugadores-sesion (Microciclos, el creador, el análisis de
+ * entrenamiento, el Dashboard Plantilla) los aparta igual, con la misma
+ * decisión de la pantalla: `puestoDe(j) === "POR"` sobre el jugador limpio.
+ * Sin porteros en ninguna sesión, devuelve el mismo almacén.
+ */
+export function almacenSinPorteros(almacen: AlmacenEquipos, plantilla: FichaPlantilla[]): AlmacenEquipos {
+  if (!almacen.sesiones?.length) return almacen;
+
+  const aprendido = aprendePosiciones(almacen);
+  let cambia = false;
+
+  const sesiones = almacen.sesiones.map((s) => {
+    const limpios = s.jugadores.map(limpiaJugador);
+    const { puestoDe } = puestosDeLaSesion(limpios, plantilla, almacen, aprendido);
+    const porId = new Map(limpios.map((j) => [j.id, j]));
+    const sin = apartaPorteros(s, (j) => puestoDe(porId.get(j.id) ?? j) === "POR");
+
+    if (sin !== s) cambia = true;
+
+    return sin;
+  });
+
+  return cambia ? { ...almacen, sesiones } : almacen;
 }

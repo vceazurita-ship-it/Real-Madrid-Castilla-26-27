@@ -17,6 +17,7 @@ import { formatRating, ratingColor } from "@/lib/ratings/compute";
 import { dorsalDe } from "@/lib/dorsales";
 import { isHiddenPlayer } from "@/lib/hiddenPlayers";
 import { ALMACEN_VACIO, type AlmacenEquipos } from "@/lib/sesion-equipos/modelo";
+import { almacenSinPorteros } from "@/lib/sesion-equipos/puestos";
 import { SESIONES_DESDE_TEXTO, resumenDeSesiones, type ResumenSesiones, type SesionesDeJugador } from "@/lib/sesion-equipos/estadistica";
 import { PUESTOS, type Puesto } from "@/lib/data-analisis/individual";
 import { CORTE_SUB21_TEXTO, EDAD_SUB21 } from "@/lib/comparativa-u21";
@@ -350,7 +351,12 @@ export default function DashboardPlantilla() {
   const avisos = useMemo(() => avisosDe(filtrados, partidosEquipo), [filtrados, partidosEquipo]);
 
   const sesionesReg = useMemo(
-    () => resumenDeSesiones(almacenSesiones, fichas.map((p) => ({ id: p.id, nombre: p.nombre, apodo: p.apodo }))),
+    /* 16/11/2026: los porteros llevan registro aparte; lo guardado antes con ellos dentro no cuenta (`almacenSinPorteros`). */
+    () =>
+      resumenDeSesiones(
+        almacenSinPorteros(almacenSesiones, fichas.map((p) => ({ nombre: p.nombre, apodo: p.apodo, posicion: p.posicionHoja }))),
+        fichas.map((p) => ({ id: p.id, nombre: p.nombre, apodo: p.apodo })),
+      ),
     [almacenSesiones, fichas],
   );
 
