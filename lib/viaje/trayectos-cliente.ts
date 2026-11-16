@@ -27,6 +27,14 @@ export function parDeCita(cita: CitaHorario, viaje: Desplazamiento, lugares?: Re
   return { par: `${medioDeCita(cita)}:${clavePar(desde, hasta)}`, desde, hasta };
 }
 
+/** La cita con la que se pregunta Valdebebas → estadio (16/11/2026): la misma memoria y la misma caché que el editor. */
+export const CITA_AL_ESTADIO: CitaHorario = { id: "ruta-estadio", minuto: 0, texto: "Salida bus", tipo: "viaje", desde: "valdebebas", hasta: "estadio" };
+
+/** La llave de esa ruta para este viaje, o vacío si el estadio aún no se sabe. */
+export function parAlEstadio(viaje: Desplazamiento, lugares?: Record<string, ImagenViaje>) {
+  return parDeCita(CITA_AL_ESTADIO, viaje, lugares)?.par ?? "";
+}
+
 /** Lo que dura: de la memoria y, si es en autobús, calculado con OSRM. */
 export async function pideTrayecto(
   cita: CitaHorario,

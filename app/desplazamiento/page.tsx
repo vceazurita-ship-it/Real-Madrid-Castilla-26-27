@@ -118,6 +118,10 @@ import {
   mueveFechas,
   normalizaViaje,
   viajeVacio,
+  diasPorDistancia,
+  comoDuracion,
+  esSalida,
+  type TrayectoEstadio,
   clavePlan,
   planPara,
   resumenValoracion,
@@ -128,7 +132,7 @@ import {
 } from "@/lib/viaje/modelo";
 import { arreglosSeguros, avisosHorario, comoCompeticion, type AvisoHorario, type LineaAviso } from "@/lib/viaje/revision";
 import { LUGARES_FIJOS, comoMedidas, leeMedidas } from "@/lib/viaje/rutas";
-import { pideMedidasCampo } from "@/lib/viaje/trayectos-cliente";
+import { CITA_AL_ESTADIO, parAlEstadio, pideMedidasCampo, pideTrayecto } from "@/lib/viaje/trayectos-cliente";
 import { ValoracionViajePanel } from "@/components/viaje/ValoracionViaje";
 import { useAhora } from "@/hooks/useQuinielaDoc";
 import { mismoEquipo } from "@/lib/data-analisis/nombres";
@@ -304,6 +308,33 @@ function pendientesDe(viaje: Desplazamiento, avisos: AvisoHorario[] = avisosHora
   return lista;
 }
 
+const llano = (texto: string) => texto.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+/**
+ * La salida del viaje: la primera cita de salida del primer día con citas
+ * (16/11/2026: si no hay ninguna salida, no se nombra) y, si su texto no
+ * nombra el sitio de «Sale de», el texto corregido que se propone.
+ */
+function salidaDelViaje(viaje: Desplazamiento) {
+  const dias = [...viaje.dias].filter((d) => d.fecha).sort((a, b) => a.fecha.localeCompare(b.fecha));
+  const dia = dias.find((d) => d.citas.length > 0);
+  const orden = dia ? [...dia.citas].sort((a, b) => a.minuto - b.minuto) : [];
+  const cita = orden.find((c) => esSalida(c)) ?? orden.find((c) => c.tipo === "viaje" && !/^llegada\b/i.test(c.texto.trim()));
+
+  if (!dia || !cita) return null;
+
+  const origen = (viaje.origen ?? "").split(",")[0].trim();
+  const nombra = !origen || llano(cita.texto).includes(llano(origen));
+  const texto = cita.texto.trim();
+
+  return {
+    dia,
+    cita,
+    origen,
+    corregido: nombra ? null : /^salida\b/i.test(texto) ? `${texto} desde ${origen}` : `${texto} · ${origen}`,
+  };
+}
+
 const irA = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
 
 const SECCIONES_VIAJE = ["viaje-partido", "viaje-estadio", "viaje-hotel", "viaje-horario", "viaje-avisos"] as const;
@@ -325,7 +356,17 @@ type AccionesAviso = {
 };
 
 /** Una tarea de «Cómo va el viaje» que no es un campo vacío, con su botón (12/11/2026). */
-type TareaExtra = { clave: string; texto: string; detalle?: string; boton: string; seccion: string; /** Cómo se nombra en el recuento plegado: «medidas». */ corto?: string };
+type TareaExtra = {
+  clave: string;
+  texto: string;
+  detalle?: string;
+  boton: string;
+  seccion: string;
+  /** Cómo se nombra en el recuento plegado: «medidas». */
+  corto?: string;
+  /** Lo que hace el botón si no es ir a su sección (16/11/2026: «Corregir»). */
+  accion?: () => void;
+};
 
 /**
  * Un dato de la tarjeta del viaje: «Salida · jueves 08:40 · desde Valdebebas».
@@ -479,6 +520,13 @@ const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno
  * estado con palabras (quinta vuelta); «Cómo va el viaje» sólo cuenta.
  */
 function ChapaEstado({ errores, avisos, porCompletar, onPulsa }: { errores: number; avisos: number; porCompletar: number; onPulsa: () => void }) {
+  /*
+  | 16/11/2026 (jueces): «10 por completar» salía tres veces (aquí, en la barra
+  | de «Cómo va el viaje» y en su lista). Lo por completar lo dice sólo esa
+  | barra, con lo que falta nombrado; la chapa, sólo errores, avisos o «listo».
+  */
+  if (!errores && !avisos && porCompletar) return null;
+
   const tono = errores
     ? "border-red-400/50 bg-red-400/10 text-red-300"
     : avisos
@@ -544,6 +592,7 @@ function ListaPendiente({
   const graves = avisos.filter((a) => a.grave);
   const leves = avisos.filter((a) => !a.grave);
   const porCompletar = tareas.length + extras.length;
+  const nombresFalta = [...tareas.map((p) => p.nombre), ...extras.map((e) => e.corto ?? e.texto.toLowerCase())];
   const pendientes = graves.length + leves.length + porCompletar;
 
   const colorBarra = graves.length ? "bg-red-400" : leves.length ? "bg-amber-400" : pendientes === 0 ? "bg-emerald-400" : "bg-[#C8A96B]";
@@ -584,7 +633,18 @@ function ListaPendiente({
         <span className="flex flex-wrap items-center gap-x-1.5 text-[14px] tabular-nums">
           {graves.length > 0 && <span className="font-semibold text-red-300">{plural(graves.length, "error", "errores")}</span>}
           {leves.length > 0 && <span className="text-amber-300">{graves.length ? "· " : ""}{plural(leves.length, "aviso", "avisos")}</span>}
-          {porCompletar > 0 && <span className="text-[#C8A96B]">{graves.length || leves.length ? "· " : ""}{porCompletar} por completar</span>}
+          {porCompletar > 0 && (
+            <span className="min-w-0 text-[#C8A96B]">
+              {graves.length || leves.length ? "· " : ""}
+              <span className="font-semibold">{porCompletar} por completar</span>
+              {/* 16/11/2026 (jueces): la única vez que se cuenta, y dice qué falta; un clic lo abre. */}
+              <span className="text-white/60">
+                {": "}
+                {nombresFalta.slice(0, 3).join(", ")}
+                {nombresFalta.length > 3 ? ` y ${nombresFalta.length - 3} más` : ""}
+              </span>
+            </span>
+          )}
           {pendientes === 0 && <span className="font-semibold text-emerald-300">todo listo</span>}
         </span>
       </summary>
@@ -625,18 +685,13 @@ function ListaPendiente({
       | vuelta): «foto del hotel · Poner», no «hotel». Abierto sólo si no hay
       | ningún aviso: entonces es lo único que queda.
       */}
+      {/*
+      | 16/11/2026 (jueces): sin un segundo «N por completar» plegado dentro:
+      | la barra ya lo cuenta y, al abrirla, la lista está a la vista.
+      */}
       {porCompletar > 0 && (
-        <details className="group mt-2 min-w-0 border-t border-white/10 pt-2" open={avisos.length === 0 || undefined}>
-          <summary className="flex cursor-pointer select-none list-none items-start gap-1.5 text-[13px] font-semibold text-[#C8A96B] hover:underline [&::-webkit-details-marker]:hidden">
-            <ChevronRight size={14} className="mt-[2px] shrink-0 transition group-open:rotate-90" aria-hidden />
-            <span className="min-w-0">
-              {porCompletar} por completar
-              <span className="font-normal text-white/50">
-                {" "}· {[...tareas.map((p) => p.nombre), ...extras.map((e) => e.corto ?? e.texto.toLowerCase())].join(", ")}
-              </span>
-            </span>
-          </summary>
-          <ul className="mt-1 divide-y divide-white/[0.06]">
+        <div className="mt-2 min-w-0 border-t border-white/10 pt-2">
+          <ul className="divide-y divide-white/[0.06]">
             {tareas.map((p) => (
               <li key={p.clave} className="flex min-w-0 items-center gap-2.5 py-1.5">
                 <Circle size={12} className="shrink-0 text-[#C8A96B]" aria-hidden />
@@ -656,14 +711,14 @@ function ListaPendiente({
                     <span className="font-semibold">{extra.texto}</span>
                     {extra.detalle ? <span className="text-white/55"> · {extra.detalle}</span> : null}
                   </span>
-                  <button type="button" onClick={() => onIr(extra.seccion)} className={BOTON_FILA}>
+                  <button type="button" onClick={() => (extra.accion ? extra.accion() : onIr(extra.seccion))} className={extra.accion ? BOTON_FILA_PRIMARIO : BOTON_FILA}>
                     {extra.boton}
                   </button>
                 </div>
               </li>
             ))}
           </ul>
-        </details>
+        </div>
       )}
 
       {/* Lo ya hecho, plegado al final: «7 de 15 datos listos». */}
@@ -1195,6 +1250,8 @@ export default function DesplazamientoPage() {
   | con la que se pidieron: así una respuesta de otro estadio no se cuela.
   */
   const [osm, setOsm] = useState<{ consulta: string; medidas: { largo: number; ancho: number } | null } | null>(null);
+  /* Valdebebas → estadio (16/11/2026), con la llave de la ruta: la de otro estadio no se cuela. */
+  const [ruta, setRuta] = useState<{ par: string; dato: TrayectoEstadio | null } | null>(null);
 
   /**
    * El desplazamiento del partido elegido.
@@ -1222,6 +1279,8 @@ export default function DesplazamientoPage() {
       hora: delCalendario?.hora ?? "",
       condicion: partido.isHome ? "local" : "visitante",
       competicion: comoCompeticion(partido.competition),
+      /* 16/11/2026: sin distancia no se propone hotel; con ella se rehace abajo. */
+      trayecto: null,
     });
 
     /* La hoja RIVALES trae las dimensiones del campo del rival: es el único
@@ -1271,9 +1330,65 @@ export default function DesplazamientoPage() {
         }
       : conCampo;
 
+    /*
+    | 16/11/2026 (jueces): el viaje se propone según lo que se tarda de
+    | Valdebebas al estadio —la ruta de OSRM o la memoria del analista; si
+    | no, una columna de distancia de la hoja RIVALES, si la tiene—. Cerca, en
+    | el día y sin hotel; lejos, la víspera con la llegada al hotel a su hora.
+    | Sin distancia, sin hotel. La distancia y el tiempo se quedan escritos.
+    */
+    const kmHoja = Number(String(jornada?.fila?.DISTANCIA ?? jornada?.fila?.KM ?? "").replace(",", ".").match(/\d+(?:\.\d+)?/)?.[0]) || 0;
+    const trayecto: TrayectoEstadio | null =
+      ruta && ruta.par && ruta.par === parAlEstadio(conDimensiones, store.lugares) && ruta.dato
+        ? ruta.dato
+        : kmHoja > 0
+          ? { km: Math.round(kmHoja), minutos: Math.round((kmHoja / 70) * 60) }
+          : null;
+    const conDistancia =
+      base.condicion === "visitante" && trayecto
+        ? (() => {
+            const propuesta = diasPorDistancia(conDimensiones, trayecto);
+
+            return {
+              ...conDimensiones,
+              conHotel: propuesta.conHotel,
+              dias: propuesta.dias,
+              estadio: {
+                ...conDimensiones.estadio,
+                distancia: conDimensiones.estadio.distancia || (trayecto.km ? `${trayecto.km} km` : ""),
+                tiempo: conDimensiones.estadio.tiempo || comoDuracion(trayecto.minutos),
+              },
+            };
+          })()
+        : conDimensiones;
+
     /* Y la jornada 1 viene montada entera desde los documentos originales. */
-    return conSemilla(conDimensiones);
-  }, [partido, store.viajes, jornada, delCalendario, equiposInforme, escudoDe, osm]);
+    return conSemilla(conDistancia);
+  }, [partido, store.viajes, store.lugares, jornada, delCalendario, equiposInforme, escudoDe, osm, ruta]);
+
+  /* La ruta Valdebebas → estadio del viaje propuesto: se pide una vez por estadio (el servidor la cachea). */
+  const parRuta = viaje && !store.viajes?.[viaje.partidoId] && viaje.condicion === "visitante" ? parAlEstadio(viaje, store.lugares) : "";
+
+  useEffect(() => {
+    if (!parRuta || !viaje) return;
+
+    let cancelado = false;
+    const pedido = viaje;
+
+    const reloj = window.setTimeout(() => {
+      void pideTrayecto(CITA_AL_ESTADIO, pedido, store.lugares).then((respuesta) => {
+        if (cancelado) return;
+        setRuta({ par: parRuta, dato: "error" in respuesta ? null : { km: respuesta.km, minutos: respuesta.minutos } });
+      });
+    }, 800);
+
+    return () => {
+      cancelado = true;
+      window.clearTimeout(reloj);
+    };
+    /* Sólo cuando cambia la ruta: el viaje entero cambia al llegar la respuesta. */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [parRuta]);
 
   const guardado = Boolean(partido && store.viajes?.[partido.id]);
 
@@ -1354,7 +1469,7 @@ export default function DesplazamientoPage() {
   const medidasEnUso = viaje?.estadio.dimensiones.trim() ?? "";
   const comoFuente = (f: { de: string; texto: string }) => `${f.texto} (${f.de === "Hoja RIVALES" ? "hoja RIVALES" : f.de})`;
   const otrasMedidas = fuentesMedidas.filter((f) => !mismaMedida(f.texto, medidasEnUso));
-  const tareasExtra: TareaExtra[] = medidasPorElegir
+  const tareasMedidas: TareaExtra[] = medidasPorElegir
     ? [
         medidasEnUso
           ? {
@@ -1453,6 +1568,37 @@ export default function DesplazamientoPage() {
       muta((actual) => ({ ...actual, hotel: { ...actual.hotel, ...parche } })),
     [muta],
   );
+
+  /*
+  | 16/11/2026 (jueces): «la primera cita no nombra Valdebebas» salía en rojo
+  | pequeño dentro de la tarjeta. Ahora es una tarea más de «por completar»,
+  | con «Corregir», que le pone el sitio al texto de la cita.
+  */
+  const salidaViaje = viaje && viaje.condicion !== "local" ? salidaDelViaje(viaje) : null;
+  const tareasExtra: TareaExtra[] = [
+    ...tareasMedidas,
+    ...(salidaViaje?.corregido
+      ? [
+          {
+            clave: "salida-origen",
+            texto: `La primera cita no nombra ${salidaViaje.origen}`,
+            detalle: `«${salidaViaje.cita.texto.trim()}» → «${salidaViaje.corregido}»`,
+            boton: "Corregir",
+            seccion: "viaje-horario",
+            corto: `salida sin ${salidaViaje.origen}`,
+            accion: () => {
+              const { dia, cita, corregido } = salidaViaje;
+              muta((actual) => ({
+                ...actual,
+                dias: actual.dias.map((d) =>
+                  d.id === dia.id ? { ...d, citas: d.citas.map((c) => (c.id === cita.id ? { ...c, texto: corregido ?? c.texto } : c)) } : d,
+                ),
+              }));
+            },
+          },
+        ]
+      : []),
+  ];
 
   /** El último partido anterior a éste que ya tenga desplazamiento montado. */
   const anterior = useMemo(() => {
@@ -1804,7 +1950,9 @@ export default function DesplazamientoPage() {
   const [abiertas, setAbiertas] = useState<Record<string, boolean>>({});
   const conmuta = (id: string) => setAbiertas((a) => ({ ...a, [id]: !a[id] }));
   const abreYVe = (id: string) => {
-    setAbiertas((a) => ({ ...a, [id]: true }));
+    /* Lo que vive en «Más datos» (16/11/2026) abre también ese bloque. */
+    const enMas = id.startsWith("faltan-") || id === "viaje-valoracion" || id === "viaje-faltan";
+    setAbiertas((a) => ({ ...a, [id]: true, ...(enMas ? { "mas-datos": true } : {}) }));
     window.setTimeout(() => {
       /* Lo que estaba tras «Añadir datos» también se abre: la tarea lleva al campo que falta. */
       document.querySelectorAll<HTMLDetailsElement>(`#${id} details[data-anadir]`).forEach((d) => {
@@ -2157,30 +2305,17 @@ export default function DesplazamientoPage() {
     if (!viaje) return [];
 
     const dias = [...viaje.dias].filter((d) => d.fecha).sort((a, b) => a.fecha.localeCompare(b.fecha));
-    const primero = dias.find((d) => d.citas.length > 0);
-    const salidaCita = primero
-      ? [...primero.citas].sort((a, b) => a.minuto - b.minuto).find((c) => c.tipo === "viaje") ??
-        [...primero.citas].sort((a, b) => a.minuto - b.minuto)[0]
-      : undefined;
+    const salida = salidaDelViaje(viaje);
     const citas = dias.reduce((n, d) => n + d.citas.length, 0);
     /*
-    | 12/11/2026 (quinta vuelta): «revisar» junto a SALIDA salía con cualquier
-    | error del horario y sin decir por qué. Ahora sólo sale cuando la salida
-    | misma no cuadra —la primera cita no nombra el sitio de «Sale de»— y lo
-    | dice en una línea. Los errores del horario ya los dice la chapa.
+    | 16/11/2026 (jueces): la tarjeta queda limpia. Si la primera cita no
+    | nombra el sitio de «Sale de», lo dice «Cómo va el viaje» con «Corregir».
     */
-    const llano = (texto: string) => texto.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-    const origenCorto = (viaje.origen ?? "").split(",")[0].trim();
-    const salidaMotivo =
-      salidaCita && origenCorto && !llano(salidaCita.texto).includes(llano(origenCorto))
-        ? `la primera cita es «${salidaCita.texto.trim()}», no nombra ${origenCorto}`
-        : undefined;
     const datos: (DatoViaje | null)[] = [
-      !enCasa && primero && salidaCita
+      !enCasa && salida
         ? {
             que: "Salida",
-            valor: `${diaLargo(primero.fecha).split(" ")[0].toLowerCase()} ${aHora(salidaCita.minuto)}${viaje.origen ? ` · desde ${viaje.origen}` : ""}`,
-            motivo: salidaMotivo,
+            valor: `${diaLargo(salida.dia.fecha).split(" ")[0].toLowerCase()} ${aHora(salida.cita.minuto)}${viaje.origen ? ` · desde ${viaje.origen}` : ""}`,
           }
         : null,
       viaje.fecha
@@ -2624,7 +2759,8 @@ export default function DesplazamientoPage() {
 
                   </div>
 
-                  <div className="mt-5 flex min-w-0 flex-col xl:grid xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] xl:items-start xl:gap-6">
+                  {/* 16/11/2026 (jueces): la vista previa, la columna ancha; a 1440 px no se leía. */}
+                  <div className="mt-5 flex min-w-0 flex-col xl:grid xl:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] xl:items-start xl:gap-6">
                   <div className="mt-5 min-w-0 xl:mt-0">
                   <div className="viaje-form">
 
@@ -3009,43 +3145,6 @@ export default function DesplazamientoPage() {
                     </div>
                   )}
 
-                  {/* ============== DATOS QUE FALTAN ============== */}
-
-                  {(estadioEnFaltan || hotelEnFaltan) && (
-                    <div className="mt-5 scroll-mt-20" id="viaje-faltan">
-                      <Panel
-                        title="Datos que faltan"
-                        subtitle={[estadioEnFaltan && "Cómo se llega al estadio", hotelEnFaltan && "el hotel"].filter(Boolean).join(" y ") + ": se rellenan cuando se sepan y salen en el dossier"}
-                        icon={Circle}
-                      >
-                        <div className="space-y-2">
-                          {estadioEnFaltan && (
-                            <DetalleFalta
-                              id="faltan-estadio"
-                              titulo="El estadio"
-                              detalle="dirección, distancia, plano y ruta del autobús"
-                              abierto={Boolean(abiertas["faltan-estadio"])}
-                              onCambia={(abierto) => setAbiertas((a) => (Boolean(a["faltan-estadio"]) === abierto ? a : { ...a, "faltan-estadio": abierto }))}
-                            >
-                              {camposEstadioExtra(false)}
-                            </DetalleFalta>
-                          )}
-                          {hotelEnFaltan && (
-                            <DetalleFalta
-                              id="faltan-hotel"
-                              titulo="El hotel"
-                              detalle="nombre, dirección, teléfono, entrada y fotos"
-                              abierto={Boolean(abiertas["faltan-hotel"])}
-                              onCambia={(abierto) => setAbiertas((a) => (Boolean(a["faltan-hotel"]) === abierto ? a : { ...a, "faltan-hotel": abierto }))}
-                            >
-                              {camposHotel(false)}
-                            </DetalleFalta>
-                          )}
-                        </div>
-                      </Panel>
-                    </div>
-                  )}
-
                   {/* =================== HORARIO =================== */}
 
                   <div className="mt-5 scroll-mt-20" id="viaje-horario">
@@ -3072,35 +3171,6 @@ export default function DesplazamientoPage() {
                       onCorrige={corrigeTexto}
                     />
 
-                    {/*
-                    | Las fotos de los cuatro lugares fijos de Madrid (11/11/2026): se
-                    | ponen una vez y valen para todos los viajes. Las del hotel y el
-                    | estadio son las de su ficha. Sin imágenes en el repositorio: cada
-                    | una la sube el club a Supabase.
-                    */}
-                    {!enCasa && (
-                      <details className="mt-3 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
-                        <summary className="cursor-pointer select-none text-[13px] font-semibold text-white/70 hover:text-white">
-                          Fotos de los lugares de salida
-                          {/* 12/11/2026 (expertos): sin «0 de 4 puestas»; lo que falta no se cuenta en el título. */}
-                          <span className="ml-2 font-normal text-white/50">
-                            · se ponen una vez y valen para todos los viajes
-                          </span>
-                        </summary>
-                        <div className="mt-2 grid min-w-0 gap-3 pb-1 sm:grid-cols-2 lg:grid-cols-4">
-                          {Object.entries(LUGARES_FIJOS).map(([clave, lugar]) => (
-                            <CampoImagen
-                              key={clave}
-                              etiqueta={lugar.nombre}
-                              ayuda="Sale en «El viaje» cuando es el destino"
-                              carpeta="desplazamientos/lugares"
-                              imagen={store.lugares?.[clave]}
-                              onCambio={(imagen) => fotoLugar(clave, imagen)}
-                            />
-                          ))}
-                        </div>
-                      </details>
-                    )}
                     </SeccionMovil>
                   </div>
 
@@ -3145,37 +3215,114 @@ export default function DesplazamientoPage() {
 
                   </div>
 
-                  {/* ============ VALORACIÓN Y PLAN (11/11/2026) ============ */}
+                  {/*
+                  | ================== MÁS DATOS (16/11/2026) ==================
+                  | Los jueces vieron cinco bloques plegados seguidos (estadio,
+                  | hotel, fotos, cómo salió…) que le quitaban el sitio al horario.
+                  | Ahora van juntos en «Más datos», detrás del horario y de «No
+                  | olvidar»; las tareas de «Cómo va el viaje» lo abren solas.
+                  */}
+                  <details
+                    id="viaje-mas"
+                    open={abiertas["mas-datos"] ?? Boolean(viaje.fecha && viaje.fecha < hoyIso)}
+                    onToggle={(evento) => {
+                      const abierto = evento.currentTarget.open;
+                      setAbiertas((a) => (Boolean(a["mas-datos"]) === abierto ? a : { ...a, "mas-datos": abierto }));
+                    }}
+                    className="group/mas viaje-form mt-5 scroll-mt-20 rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3"
+                  >
+                    <summary className="flex cursor-pointer select-none list-none items-center gap-2 [&::-webkit-details-marker]:hidden">
+                      <ChevronRight size={16} className="shrink-0 text-white/60 transition group-open/mas:rotate-90" aria-hidden />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[15px] font-semibold text-white">Más datos</span>
+                        <span className="block text-[13px] text-white/55">
+                          {[
+                            estadioEnFaltan && "cómo se llega al estadio",
+                            hotelEnFaltan && "el hotel",
+                            !enCasa && "fotos de los lugares de salida",
+                            "cómo salió el viaje",
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </span>
+                      </span>
+                    </summary>
 
-                  <div className="viaje-form mt-5 scroll-mt-20" id="viaje-valoracion">
-                    <SeccionMovil
-                      titulo="Cómo salió el viaje"
-                      resumen={resumenValoracion(viaje).slice(0, 3).join(" · ")}
-                      abierta={Boolean(abiertas["viaje-valoracion"])}
-                      onCambia={() => conmuta("viaje-valoracion")}
-                    >
-                      {/* Antes del partido, plegada: sus notas son para después del viaje (11/11/2026). */}
+                    <div className="mt-3 space-y-2" id="viaje-faltan">
+                    {(estadioEnFaltan || hotelEnFaltan) && (
+                      <div className="space-y-2">
+                            {estadioEnFaltan && (
+                              <DetalleFalta
+                                id="faltan-estadio"
+                                titulo="El estadio"
+                                detalle="dirección, distancia, plano y ruta del autobús"
+                                abierto={Boolean(abiertas["faltan-estadio"])}
+                                onCambia={(abierto) => setAbiertas((a) => (Boolean(a["faltan-estadio"]) === abierto ? a : { ...a, "faltan-estadio": abierto }))}
+                              >
+                                {camposEstadioExtra(false)}
+                              </DetalleFalta>
+                            )}
+                            {hotelEnFaltan && (
+                              <DetalleFalta
+                                id="faltan-hotel"
+                                titulo="El hotel"
+                                detalle="nombre, dirección, teléfono, entrada y fotos"
+                                abierto={Boolean(abiertas["faltan-hotel"])}
+                                onCambia={(abierto) => setAbiertas((a) => (Boolean(a["faltan-hotel"]) === abierto ? a : { ...a, "faltan-hotel": abierto }))}
+                              >
+                                {camposHotel(false)}
+                              </DetalleFalta>
+                            )}
+                          </div>
+                    )}
+
+                    {!enCasa && (
+                        <details className="rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
+                          <summary className="cursor-pointer select-none text-[13px] font-semibold text-white/70 hover:text-white">
+                            Fotos de los lugares de salida
+                            {/* 12/11/2026 (expertos): sin «0 de 4 puestas»; lo que falta no se cuenta en el título. */}
+                            <span className="ml-2 font-normal text-white/50">
+                              · se ponen una vez y valen para todos los viajes
+                            </span>
+                          </summary>
+                          <div className="mt-2 grid min-w-0 gap-3 pb-1 sm:grid-cols-2 lg:grid-cols-4">
+                            {Object.entries(LUGARES_FIJOS).map(([clave, lugar]) => (
+                              <CampoImagen
+                                key={clave}
+                                etiqueta={lugar.nombre}
+                                ayuda="Sale en «El viaje» cuando es el destino"
+                                carpeta="desplazamientos/lugares"
+                                imagen={store.lugares?.[clave]}
+                                onCambio={(imagen) => fotoLugar(clave, imagen)}
+                              />
+                            ))}
+                          </div>
+                        </details>
+                      )}
+
+                    <div className="scroll-mt-20" id="viaje-valoracion">
                       <details
-                        open={Boolean(viaje.fecha && viaje.fecha < hoyIso) || undefined}
-                        className="rounded-2xl border border-white/10 bg-white/[0.02] px-3 py-2"
-                      >
-                        <summary className="cursor-pointer select-none text-[13px] font-semibold text-white/70 hover:text-white">
-                          Cómo salió el viaje y guardar el plan
-                          <span className="ml-2 font-normal text-white/45">
-                            · {viaje.fecha && viaje.fecha < hoyIso ? "valóralo ahora que ya se jugó" : "se valora después del partido"}
-                          </span>
-                        </summary>
-                        <div className="mt-2">
-                          <ValoracionViajePanel
-                            viaje={viaje}
-                            onCambia={(valoracion) => campo("valoracion", valoracion)}
-                            plan={plan}
-                            onGuardaPlan={guardaPlan}
-                          />
-                        </div>
-                      </details>
-                    </SeccionMovil>
-                  </div>
+                          open={Boolean(viaje.fecha && viaje.fecha < hoyIso) || undefined}
+                          className="rounded-2xl border border-white/10 bg-white/[0.02] px-3 py-2"
+                        >
+                          <summary className="cursor-pointer select-none text-[13px] font-semibold text-white/70 hover:text-white">
+                            Cómo salió el viaje y guardar el plan
+                            <span className="ml-2 font-normal text-white/45">
+                              · {viaje.fecha && viaje.fecha < hoyIso ? "valóralo ahora que ya se jugó" : "se valora después del partido"}
+                            </span>
+                          </summary>
+                          <div className="mt-2">
+                            <ValoracionViajePanel
+                              viaje={viaje}
+                              onCambia={(valoracion) => campo("valoracion", valoracion)}
+                              plan={plan}
+                              onGuardaPlan={guardaPlan}
+                            />
+                          </div>
+                        </details>
+                    </div>
+                    </div>
+                  </details>
 
                   </div>
 
@@ -3244,8 +3391,28 @@ export default function DesplazamientoPage() {
                         </span>
                       </div>
 
-                      <div className="mt-4 hidden overflow-hidden rounded-2xl border border-white/10 bg-[#11161C] p-3 sm:block">
+                      {/* 16/11/2026 (jueces): pulsar la miniatura la abre a pantalla completa. */}
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => {
+                          setZoom(100);
+                          setPantallaCompleta(true);
+                        }}
+                        onKeyDown={(evento) => {
+                          if (evento.key !== "Enter" && evento.key !== " ") return;
+                          evento.preventDefault();
+                          setZoom(100);
+                          setPantallaCompleta(true);
+                        }}
+                        title="Ver a pantalla completa"
+                        className="group/vista relative mt-4 hidden w-full cursor-zoom-in overflow-hidden rounded-2xl border border-white/10 bg-[#11161C] p-3 text-left transition hover:border-[#C8A96B]/45 sm:block"
+                      >
                         {vista === "dossier" ? documentoVista : <div className="mx-auto max-w-[720px]">{documentoVista}</div>}
+                        <span className="pointer-events-none absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-[#C8A96B] px-2.5 py-1 text-[13px] font-semibold text-[#0B0F14] opacity-0 transition group-hover/vista:opacity-100">
+                          <Maximize2 size={13} aria-hidden />
+                          Pulsa para leerlo a pantalla completa
+                        </span>
                       </div>
                     </Panel>
                   </div>

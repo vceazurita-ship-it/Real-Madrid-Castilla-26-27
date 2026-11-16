@@ -1225,6 +1225,8 @@ export function viajeVacio(
     hora: string;
     condicion: "local" | "visitante";
     competicion?: string;
+    /** Valdebebas → estadio (16/11/2026). `null`: no se sabe, y entonces no se propone hotel. */
+    trayecto?: TrayectoEstadio | null;
   },
 ): Desplazamiento {
   const base: Desplazamiento = {
@@ -1269,11 +1271,142 @@ export function viajeVacio(
   | uno, que es lo que hay. Si un viaje se hace en la jornada, la plantilla
   | «Ida y vuelta en el día» lo deja en uno de un clic.
   */
+  /*
+  | 16/11/2026 (jueces): con la distancia se propone según ella (ver
+  | `diasPorDistancia`). Sólo si quien llama la pasa —aunque sea `null`—: el
+  | calendario general sigue con la propuesta de siempre.
+  */
+  if (datos.condicion === "visitante" && "trayecto" in datos) {
+    const porDistancia = diasPorDistancia(base, datos.trayecto ?? null);
+
+    return { ...base, conHotel: porDistancia.conHotel, dias: porDistancia.dias };
+  }
+
   const plantilla = PLANTILLAS_VIAJE.find((item) =>
     datos.condicion === "local" ? item.key === "casa" : item.key === "dos-dias",
   );
 
   return { ...base, dias: plantilla ? diasDePlantillaViaje(plantilla, base) : [] };
+}
+
+/* ------------------------------------------------------------------ */
+/*  LA PROPUESTA SEGÚN LA DISTANCIA (16/11/2026)                       */
+/* ------------------------------------------------------------------ */
+
+/** Lo que hay de Valdebebas al estadio: km de la ruta y lo que tarda el autobús. */
+export type TrayectoEstadio = { km?: number; minutos: number };
+
+/** A partir de aquí se duerme fuera la víspera: la regla de las plantillas («menos de 150 km: se come en la ciudad deportiva»). */
+export const KM_CON_HOTEL = 150;
+/** Lo mismo cuando sólo se sabe lo que tarda (la memoria del analista no guarda km). */
+const MINUTOS_CON_HOTEL = 120;
+
+export function duermeFuera(trayecto: TrayectoEstadio) {
+  return trayecto.km !== undefined ? trayecto.km >= KM_CON_HOTEL : trayecto.minutos >= MINUTOS_CON_HOTEL;
+}
+
+const abajo = (minuto: number, paso: number) => Math.floor(minuto / paso) * paso;
+const arriba = (minuto: number, paso: number) => Math.ceil(minuto / paso) * paso;
+
+/**
+ * El viaje propuesto a partir de lo que se tarda en llegar al estadio.
+ *
+ * Los jueces (16/11/2026) vieron Majadahonda —media hora de autobús— con
+ * salida la víspera a las 16:00, llegada al hotel a las 19:30 y quince
+ * minutos al estadio: la plantilla de Teruel aplicada a un viaje de barrio.
+ * Ahora:
+ *
+ * - **Sin distancia, sin hotel**: sólo lo que no depende del viaje (llegada
+ *   al estadio, calentamiento y partido). Lo demás no se inventa.
+ * - **Cerca** (menos de 150 km): se juega en el día. Se come en Valdebebas,
+ *   la salida es la llegada al estadio menos lo que tarda el autobús y la
+ *   vuelta, el final más el mismo trayecto.
+ * - **Lejos**: se duerme la víspera. La salida de la víspera sigue a las
+ *   16:00 salvo que no dé tiempo a llegar a cenar; la llegada al hotel es la
+ *   salida más el trayecto.
+ */
+export function diasPorDistancia(
+  viaje: Desplazamiento,
+  trayecto: TrayectoEstadio | null,
+): { dias: DiaViaje[]; conHotel: boolean } {
+  const partido = aMinutos(viaje.hora) ?? 20 * 60;
+  const origen = (viaje.origen || "Valdebebas").split(",")[0].trim();
+  const cita = (minuto: number, texto: string, tipo: TipoCita, extra: Partial<CitaHorario> = {}): CitaHorario => ({
+    id: nuevoId("CI"),
+    minuto,
+    texto,
+    tipo,
+    ...extra,
+  });
+
+  if (!trayecto) {
+    return {
+      conHotel: false,
+      dias: [
+        conCitas(diaVacio(viaje.fecha, "Día de partido"), [
+          cita(partido - 90, "Llegada estadio", "viaje"),
+          cita(partido - 30, "Calentamiento", "trabajo"),
+          cita(partido, "Partido", "partido"),
+        ]),
+      ],
+    };
+  }
+
+  const bus = Math.max(5, arriba(trayecto.minutos, 5));
+  const fuente = { duracion: bus };
+
+  if (!duermeFuera(trayecto)) {
+    const llegada = partido - 90;
+    const salida = abajo(llegada - bus, 5);
+    const comida = abajo(salida - 120, 15);
+    const vuelta = partido + 105;
+    const regreso = arriba(vuelta + bus, 5);
+
+    return {
+      conHotel: false,
+      dias: [
+        conCitas(diaVacio(viaje.fecha, "Día de partido"), [
+          cita(comida, comida <= 15 * 60 + 30 ? `Comida en ${origen}` : `Merienda en ${origen}`, "comida"),
+          cita(salida - 30, "Charla de partido", "trabajo"),
+          cita(salida, `Salida bus desde ${origen}`, "viaje", { desde: "valdebebas", hasta: "estadio", ...fuente }),
+          cita(llegada, "Llegada estadio", "viaje"),
+          cita(partido - 30, "Calentamiento", "trabajo"),
+          cita(partido, "Partido", "partido"),
+          ...(regreso > 21 * 60 + 30 ? [cita(vuelta, "Cena picnic", "comida", { nota: "ENTREGA" })] : []),
+          cita(vuelta, `Salida bus a ${origen}`, "viaje", { desde: "estadio", hasta: "valdebebas", ...fuente }),
+          cita(regreso, `Llegada ${origen}`, "viaje"),
+        ]),
+      ],
+    };
+  }
+
+  /* Lejos: la víspera por reloj, ajustada a lo que se tarda; el día del partido, el de «Dos días». */
+  const salida = Math.max(8 * 60, Math.min(16 * 60, abajo(20 * 60 - bus, 15)));
+  const enHotel = arriba(salida + bus, 5);
+  const activacion = Math.max(20 * 60, enHotel + 30);
+  const cena = Math.max(21 * 60, activacion + 60);
+  const charla = Math.max(22 * 60 + 30, cena + 90);
+  const vispera = conCitas(diaVacio(sumaDias(viaje.fecha, -1), "Víspera · viaje de ida"), [
+    cita(salida, `Salida bus desde ${origen}`, "viaje", { desde: "valdebebas", hasta: "hotel", ...fuente }),
+    cita(enHotel, "Llegada hotel", "viaje"),
+    cita(activacion, "Activación", "trabajo"),
+    cita(cena, "Cena", "comida"),
+    cita(charla, "Charla de partido", "trabajo"),
+    cita(charla + 45, "Descanso habitaciones", "descanso"),
+  ]);
+  const dosDias = PLANTILLAS_VIAJE.find((item) => item.key === "dos-dias");
+  /* La vuelta a Valdebebas: el final del partido más el mismo trayecto, no seis horas fijas. */
+  const regreso = arriba(partido + 105 + bus, 5);
+  const diaPartido = dosDias
+    ? diasDePlantillaViaje({ ...dosDias, dias: dosDias.dias.filter((d) => d.desplazamiento === 0) }, viaje).map((dia) =>
+        conCitas(
+          dia,
+          dia.citas.map((c) => (/^llegada valdebebas/i.test(c.texto) ? { ...c, minuto: Math.max(regreso, partido + 135) } : c)),
+        ),
+      )
+    : [];
+
+  return { conHotel: true, dias: [vispera, ...diaPartido] };
 }
 
 /**

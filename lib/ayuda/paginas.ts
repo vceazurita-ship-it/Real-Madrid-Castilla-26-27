@@ -1657,31 +1657,34 @@ export const AYUDAS: AyudaDePagina[] = [
     ruta: "/desplazamiento",
     titulo: "Desplazamiento de Partido",
     resumen: "El dossier del viaje y el horario de cada día, para el cuerpo técnico y para los jugadores.",
-    origen: "Se escribe aquí y se guarda solo. Fecha y hora, del calendario de BeSoccer; estadio, medidas, foto y escudo, de BeSoccer y OpenStreetMap.",
-    revisada: "2026-11-12",
+    origen: "Se escribe aquí y se guarda solo. Fecha y hora, del calendario de BeSoccer; estadio, medidas, foto y escudo, de BeSoccer y OpenStreetMap; la distancia y el tiempo de Valdebebas al estadio, de la ruta de OSRM (o de la memoria de trayectos del analista).",
+    revisada: "2026-11-16",
     bloques: [
       {
         titulo: "Lo primero de la pantalla",
         filas: [
           { que: "Al entrar", es: "Abre el próximo partido; los demás siguen en el selector (✓ = viaje ya guardado). Copiar de otro viaje, Plan de partido e Informe del rival van en una sola fila; en el móvil se desliza de lado" },
-          { que: "Titular y chapa", es: "El titular dice sólo el viaje («Viaje a Gimnàstic de Tarragona · viernes 13, 21:15»); debajo, una chapa de color con cómo va («El horario no cuadra · 2 errores · 1 aviso»). Es el único sitio que dice el estado con palabras; pinchándola se abre «Cómo va el viaje»", cuenta: "Rojo si hay errores, ámbar si sólo avisos, dorado si queda algo por completar y verde si está todo; los mismos recuentos que «Cómo va el viaje»" },
+          { que: "Titular y chapa", es: "El titular dice sólo el viaje («Viaje a Gimnàstic de Tarragona · viernes 13, 21:15»); debajo, una chapa de color con cómo va («El horario no cuadra · 2 errores · 1 aviso»). Pinchándola se abre «Cómo va el viaje». Si lo único que queda son datos por completar, la chapa no sale: eso lo cuenta sólo «Cómo va el viaje»", cuenta: "Rojo si hay errores, ámbar si sólo avisos y verde si está todo; los mismos recuentos que «Cómo va el viaje»" },
           { que: "Sacar igualmente", es: "Con errores en el horario el botón dice «Sacar igualmente»: se puede sacar, y el motivo va en el propio botón y en el diálogo («El horario tiene 2 errores; se puede sacar igual, pero saldrá así»)" },
-          { que: "Partido · estadio · hotel", es: "Lo primero tras la cabecera, en el móvil y en el escritorio: salida, partido, hotel y horario, con la jornada, la competición, el césped y las medidas con su fuente; «Editar» abre los tres bloques", cuenta: "«Revisar» junto a SALIDA sólo sale si la primera cita del viaje no nombra el sitio de «Sale de», y dice por qué en una línea («la primera cita es «Salida bus lavandería», no nombra Valdebebas»)" },
-          { que: "Cómo va el viaje", es: "Plegado bajo un titular con el contador («2 errores · 2 avisos · 4 por completar») y la barra de lo hecho. Dentro, los cuatro avisos más graves (rojos primero), el resto en «N avisos más», lo «por completar» y, al final, «Hecho: N de M datos»", cuenta: "La barra va en rojo si hay errores, ámbar si hay avisos, dorado si queda algo por completar y verde si está todo" },
+          { que: "Partido · estadio · hotel", es: "Lo primero tras la cabecera, en el móvil y en el escritorio: salida, partido, hotel y horario, con la jornada, la competición, el césped y las medidas con su fuente; «Editar» abre los tres bloques. La salida es la primera cita de salida del primer día; si no hay ninguna, no se nombra" },
+          { que: "Cómo va el viaje", es: "Plegado bajo un titular con el contador y lo que falta nombrado («2 avisos · 4 por completar: distancia al estadio, foto del estadio, plano del estadio y 1 más»), y la barra de lo hecho. Es el único sitio que dice cuánto queda por completar; un clic lo abre con la lista a la vista. Dentro, los cuatro avisos más graves (rojos primero), el resto en «N avisos más», lo «por completar» y, al final, «Hecho: N de M datos»", cuenta: "La barra va en rojo si hay errores, ámbar si hay avisos, dorado si queda algo por completar y verde si está todo" },
+          { que: "La primera cita no nombra Valdebebas", es: "Si la primera salida del viaje no nombra el sitio de «Sale de», es una tarea más de «por completar», con el cambio propuesto («Salida bus» → «Salida bus desde Valdebebas») y el botón «Corregir», que lo escribe en la cita" },
           { que: "Cada aviso", es: "Un titular con verbo y su botón («Mueve «Llegada aproximada Valdebebas»: va antes del partido» · Ver). Plegado en «¿por qué?»: de dónde sale cada dato (hoja del horario, hora del partido de la ficha, BeSoccer para el nombre del rival), la cuenta con sus cifras y la regla", cuenta: "Ejemplos: «llegada 13:15, partido 21:15 = 8 h antes»; «salida 12:30, llegada 12:39 = 9 min» (ningún tren dura menos de 20 min: una de las dos horas de la hoja está mal tecleada); con la ruta calculada, el trayecto se compara con lo que dura y se avisa por debajo del margen" },
           { que: "Aplicar los N arreglos seguros", es: "Con dos o más, un botón aplica de una vez los arreglos que no piden decidir nada (quitar las citas de partido de un día copiado, corregir erratas), con un solo «Deshacer»; cada uno sigue también en su aviso", cuenta: "Se aplican en orden: la errata de una cita que otro arreglo ya quita no se cuenta. «Convertirlo en víspera» no entra: es una decisión" },
           { que: "Por completar", es: "Campo a campo, con el dato exacto que falta («foto del hotel», «teléfono del hotel», «lista «No olvidar»») y su botón «Poner», que abre el bloque y lleva a ese campo", cuenta: "Cuenta cada dato vacío que el documento llevaría (estadio: nombre, dirección, distancia, tiempo, foto, plano y ruta; hotel: nombre, teléfono, entrada, foto y ruta; hora; «No olvidar») más las medidas por elegir. Un bloque con su nombre escrito no sale si no le falta nada. El horario ya montado no cuenta: lo que tenga mal lo dicen sus avisos" },
           { que: "No olvidar", es: "La línea del pie de la hoja del horario, una cosa por línea. El ejemplo («traje de paseo, DNI, botas de recambio») va fuera del cuadro, para que no parezca escrito" },
-          { que: "Orden", es: "El mismo en el móvil y en el escritorio: «Partido · estadio · hotel», «Cómo va el viaje» plegado, el documento («Cómo va a quedar») y el formulario. En escritorio ancho, el formulario a la izquierda y el documento a la derecha, siempre a la vista" },
-          { que: "Vista previa en el móvil", es: "La miniatura a escala no se lee, así que no se pinta: la acción principal es «Ver el dossier (o el horario) a pantalla completa», a todo el ancho y con zoom" },
+          { que: "Orden", es: "El mismo en el móvil y en el escritorio: «Partido · estadio · hotel», «Cómo va el viaje» plegado, el documento («Cómo va a quedar») y el formulario: el horario, «No olvidar» y, plegado, «Más datos». En escritorio ancho, el formulario a la izquierda y el documento a la derecha, en la columna ancha y siempre a la vista" },
+          { que: "Más datos", es: "Lo que no es el horario, junto y plegado: cómo se llega al estadio y el hotel (si les falta algo), las fotos de los lugares de salida y «Cómo salió el viaje». Las tareas de «Cómo va el viaje» lo abren solas; después del partido sale abierto" },
+          { que: "Vista previa", es: "En escritorio, pulsar la miniatura la abre a pantalla completa con zoom. En el móvil la miniatura a escala no se lee, así que no se pinta: la acción principal es «Ver el dossier (o el horario) a pantalla completa»" },
         ],
       },
       {
         titulo: "El horario",
         filas: [
-          { que: "Días", es: "Fuera abre con dos (víspera y partido) y en casa con uno; cada día es una hoja A4" },
+          { que: "Viaje propuesto según la distancia", es: "Mientras no se toca, el viaje se propone con lo que se tarda de Valdebebas al estadio. Cerca, en el día y sin hotel: comida en Valdebebas, charla, salida, llegada al estadio, calentamiento, partido y vuelta. Lejos, la víspera con hotel. Sin distancia no se propone hotel: sólo llegada al estadio, calentamiento y partido. La distancia y el tiempo quedan escritos en el estadio", cuenta: "Se duerme fuera desde 150 km (o 2 h de autobús si sólo se sabe el tiempo). Cerca: salida = llegada al estadio (90 min antes del partido) − lo que tarda el autobús; vuelta = partido + 1 h 45 + el trayecto. Lejos: la víspera sale a las 16:00 salvo que no dé para llegar a las 20:00; llegada al hotel = salida + trayecto; vuelta a Valdebebas = partido + 1 h 45 + trayecto. El autobús es la ruta en coche de OSRM × 1,15 redondeada a 5 min" },
+          { que: "Días", es: "En casa abre con uno; fuera, según la distancia (arriba). Cada día es una hoja A4" },
           { que: "Horario elástico", es: "Al cambiar la hora del partido, el día del partido se mueve solo; los demás días van por reloj" },
-          { que: "Horas", es: "Se escriben enteras («1830», «18.30») y se guardan al salir del campo; flechas ±5 min" },
+          { que: "Horas", es: "Se escriben enteras («1830», «18.30») y se guardan al salir del campo; flechas ±5 min. En el editor, la letra no baja de 14 px" },
           { que: "Añadir cita", es: "La paleta de eventos (🚌 salida, 🍝 comida, ⚽ partido…) va plegada; se arrastra al día o se toca y llega con su hora. El emoticono sale del mismo catálogo por palabra clave" },
           { que: "Trayectos", es: "Cada salida dice de dónde a dónde; en autobús la duración se calcula sola (OSRM sobre OpenStreetMap) y la llegada cae sola" },
           { que: "Duraciones recordadas", es: "Si corriges una duración, ese trayecto vale así en los viajes que vengan" },
@@ -2058,8 +2061,15 @@ export const AYUDAS: AyudaDePagina[] = [
       "Objetivos por jugador medidos en el vídeo de la sesión: cuántas acciones salieron bien y cuántas hay que mejorar, con clips, su evolución día a día y el mensaje para cada jugador.",
     origen:
       "Los objetivos y las validaciones los escribe el cuerpo técnico aquí (documento «entreno:AAAA-MM-DD» de Supabase, se guarda solo). El análisis lo hace el ordenador del club al pedirlo y lo deja en «entreno-analisis:AAAA-MM-DD»: el vídeo es la cámara táctica de la carpeta SESIONES o, si no está, el entrenamiento subido a Hudl con la fecha en el título. Las tareas salen del registro de tareas (hoja) y los equipos, de Jugadores sesión. Se entra con la cuenta del staff (la de la quiniela).",
-    revisada: "2026-11-12",
+    revisada: "2026-11-16",
     bloques: [
+      {
+        titulo: "Antes de entrar",
+        filas: [
+          { que: "Entra con tu cuenta del staff", es: "El correo y la contraseña, uno debajo de otro y a todo el ancho. Sólo puede registrarse el cuerpo técnico: en «Registrarme» se elige el nombre de la lista del staff. Al entrar se abre el entrenamiento de hoy (o el último con trabajo) y no se vuelve a pedir la cuenta en un mes en ese navegador" },
+          { que: "Así se lee una tarea", es: "Una muestra del formato, con jugadores y cifras inventados (esta puerta es pública): la tarea, su objetivo y su meta, el gráfico de correctas y mejorables de cada jugador con la meta marcada, y un clip con su veredicto y lo que se vio", cuenta: "Acierto = correctas ÷ acciones revisadas; la muestra usa bases de 15 acciones o más. Con menos de 8 no se da porcentaje: tendencia" },
+        ],
+      },
       {
         titulo: "La cabecera y los pasos",
         filas: [
@@ -3091,8 +3101,11 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "1 · La semana",
         filas: [
-          { que: "Días de la semana", es: "Del día siguiente al partido anterior hasta el del próximo, cada uno con su MD", cuenta: "El MD+1 viene marcado como libre; un día libre no escribe ninguna fila" },
+          { que: "Días de la semana", es: "Del día siguiente al partido anterior hasta el del próximo, cada uno con su MD. Junto a los días, de dónde sale la propuesta en una línea. En el móvil, los botones Entreno/Libre miden 44 px de alto", cuenta: "Propuesta: libre el MD+1 (el día después del partido); el resto, entreno. Un día libre no escribe ninguna fila" },
           { que: "Partir de lo que ya está en la hoja", es: "El último microciclo con tareas, otro cualquiera o la semana en blanco", cuenta: "Las tareas entran atadas por MD: el MD-2 de aquella semana al MD-2 de ésta" },
+          { que: "Lo que se copia", es: "Tareas, días y tiempo planificado del micro de origen frente a la media de la temporada, con la base de cada cifra («13 tareas, 9 con tiempo»). Si ninguna tarea lleva minutos, la celda va vacía y se dice dónde se ponen", cuenta: "Tiempo planificado = suma de los minutos de sus tareas, sin el partido. Media = media por semana de los micros con tiempo apuntado (si hay 3 o más; si no, de los micros con tareas)" },
+          { que: "Días que entran en blanco", es: "Si el micro de origen no tiene algún MD de la semana nueva, el aviso lo dice y ofrece, en el mismo sitio, «Partir del micro N» (la última semana de liga que sí los tiene) y «Rellenar con la semana tipo»", cuenta: "La semana tipo de un MD es lo más repetido en sus sesiones de la hoja (hacen falta 2 o más); se pone al crear el microciclo y se cambia como cualquier tarea" },
+          { que: "Así empieza el paso 2", es: "Vista previa, día a día, de con qué tareas nacerá la semana: el MD, el día, cuántas tareas y minutos, y las tres primeras", cuenta: "Sale de las tareas del micro de origen con ese MD o, con «Rellenar con la semana tipo», de la sesión tipo; si no hay ninguna, «Se rellena en el paso 2»" },
           { que: "Copiar también el tiempo y la intensidad", es: "Si no se marca, se copian tareas y contenidos pero no los minutos ni la intensidad" },
           { que: "Semana tipo / Todos los días de entreno", es: "Atajos: libre sólo el MD+1, o sesión todos los días" },
           { que: "Editar o copiar un microciclo", es: "Abre uno de la hoja con todas sus columnas, o copia la semana de uno sobre otro", cuenta: "La evaluación y el análisis post de sus filas no se tocan" },
@@ -3135,7 +3148,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Carga ponderada, carga cognitiva y demanda cognitiva son fórmulas de la hoja: no se mandan, las filas nuevas las heredan de la de arriba.",
       "El borrador se guarda en este navegador mientras se rellena; si ya está en la hoja o tiene más de tres semanas, se tira.",
     ],
-    revisada: "2026-11-12",
+    revisada: "2026-11-16",
   },
 
   /* ==================== VÍDEO ANÁLISIS PARTIDOS (12/11/2026) ==================== */
