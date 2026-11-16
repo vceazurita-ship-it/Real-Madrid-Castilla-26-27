@@ -459,9 +459,15 @@ export function PanelJuego({
             la temporada con la cifra y el puesto de Plantillas rivales; debajo lo
             esperado contra nosotros, que es otra cifra (Opta) y se dice por qué.
           */}
-          {rival?.ppda && (
+          {/*
+            16/11/2026 (3.ª vuelta, jueces): la cifra principal es la de Opta de la
+            temporada (lib/proyeccion/presion.ts), la de Plantillas rivales y el
+            Scout colectivo; la de Wyscout, sólo como 2.ª lectura.
+          */}
+          {d.presion && (
             <p className="mb-1.5 text-sm font-semibold leading-snug text-white/90">
-              Su presión en la temporada: PPDA {rival.ppda.valor}, {rival.ppda.puesto}.º de {rival.ppda.de} que más aprieta ({fuenteW}, la misma cifra de Plantillas rivales).
+              Su presión en la temporada: PPDA {coma(d.presion.valor)}, {d.presion.puesto}.º de {d.presion.de} que más aprieta ({d.presion.proveedor}).
+              {rival?.ppda && <span className="ml-1 text-xs font-normal text-white/55">2.ª lectura · Wyscout {rival.ppda.valor} ({rival.ppda.puesto}.º)</span>}
             </p>
           )}
           {/* Tres frases como mucho: posesión, ocasiones y presión. El estilo va dentro de «Por qué». */}
@@ -473,7 +479,6 @@ export function PanelJuego({
           {d.contraste && (
             <p className="mt-2 border-t border-white/10 pt-2 text-xs leading-snug text-white/65">
               <b className="font-semibold text-white/80">Contraste con los datos:</b> {d.contraste}
-              {rival?.ppda ? " Wyscout y Opta cuentan distinto las acciones defensivas: el puesto que vale es el de arriba; esta cifra sólo compara el partido con su media." : ""}
             </p>
           )}
         </Bloque>
@@ -483,7 +488,23 @@ export function PanelJuego({
       {d.porqueTabla.length > 0 && (
         <Bloque titulo="Por qué" icono={<Lightbulb size={13} className="text-[#C8A96B]" />}>
           <p className="mb-2 text-xs leading-snug text-white/65">{d.comoSeCalcula}</p>
-          <div className="-mx-1 overflow-x-auto">
+          {/* En el móvil, una tarjeta por cifra: la tabla se cortaba por la derecha (16/11/2026, jueces). */}
+          <ul className="space-y-2 sm:hidden">
+            {d.porqueTabla.map((r) => (
+              <li key={r.cifra} className="rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-[13px]">
+                <p className="font-semibold text-white/90">
+                  {r.cifra} <span className="text-[11px] font-normal text-white/55">· {r.sentido}</span>
+                </p>
+                <p className="mt-0.5 tabular-nums text-white/75">
+                  Nosotros {r.nosotros} · {partido.rival} {r.rival} ({r.rivalEs}) · media {r.media}
+                </p>
+                <p className="tabular-nums text-white/90">
+                  Esperado <b>{r.esperado}</b> <span className="text-[11px] text-white/55">{r.consecuencia}</span>
+                </p>
+              </li>
+            ))}
+          </ul>
+          <div className="-mx-1 hidden overflow-x-auto sm:block">
             <table className="w-full min-w-[520px] text-sm">
               <thead>
                 <tr className="border-b border-white/10 text-[11px] uppercase tracking-wider text-white/55">
@@ -603,7 +624,7 @@ export function PanelJuego({
               <li key={x.titulo} className="min-w-0 text-sm leading-snug">
                 <p className="font-semibold text-white/90">{x.titulo}</p>
                 <p className="mt-0.5 text-xs text-white/60">{x.frase}</p>
-                <p className="mt-0.5 text-white/85">{x.consigna}</p>
+                {x.consigna && <p className="mt-0.5 text-white/85">{x.consigna}</p>}
               </li>
             ))}
           </ul>

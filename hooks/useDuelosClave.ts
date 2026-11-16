@@ -98,7 +98,8 @@ async function leeDoc<T>(key: string): Promise<T | null> {
   }
 }
 
-export function useDuelosClave(equipo: string) {
+/** Con el estado de carga: `listo` es true cuando ya se sabe si hay duelos (16/11/2026: en el móvil la pestaña «Duelos» no salía mientras cargaba). */
+export function useDuelosClaveConEstado(equipo: string) {
   const [estado, setEstado] = useState<{ equipo: string; datos: DuelosClave | null }>({ equipo: "", datos: null });
 
   useEffect(() => {
@@ -306,7 +307,11 @@ export function useDuelosClave(equipo: string) {
   }, [equipo]);
 
   /* Lo de otro rival no se enseña mientras llega lo de éste. */
-  return estado.equipo === equipo ? estado.datos : null;
+  return { datos: estado.equipo === equipo ? estado.datos : null, listo: estado.equipo === equipo };
+}
+
+export function useDuelosClave(equipo: string) {
+  return useDuelosClaveConEstado(equipo).datos;
 }
 
 export default useDuelosClave;

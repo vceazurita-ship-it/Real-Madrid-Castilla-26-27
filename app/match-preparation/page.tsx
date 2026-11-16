@@ -29,7 +29,7 @@ import { PorQueDelBoceto } from "@/components/match-preparation/PorQueDelBoceto"
 import { KIND_MOTIVOS_PLAN, claveMotivosPlan, type BocetoPlan } from "@/lib/plan-partido/boceto";
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { useEscudos } from "@/hooks/useEscudos";
-import { useDuelosClave, type DueloClave } from "@/hooks/useDuelosClave";
+import { useDuelosClaveConEstado, type DueloClave } from "@/hooks/useDuelosClave";
 import { useContrasteRival } from "@/hooks/useContrasteRival";
 import { useRivalSquads } from "@/hooks/useRivalSquads";
 import { desnuda } from "@/lib/rivals/youtube-listas";
@@ -1639,7 +1639,9 @@ export default function MatchPreparation() {
   const cuentaAtras = etiquetaCuentaAtras(dias);
 
   /* Los duelos de más ventaja y de más riesgo de /duelos, con jugador y cifra. */
-  const duelosClave = useDuelosClave(rivalActivo?.EQUIPO ?? "");
+  const { datos: duelosClave, listo: duelosListos } = useDuelosClaveConEstado(rivalActivo?.EQUIPO ?? "");
+  /* Mientras se miden, la sección y su pestaña ya salen (en el móvil tardan y no salían, 16/11/2026). */
+  const duelosEnCamino = !duelosListos && Boolean(rivalActivo?.EQUIPO);
   /* `/duelos` se abre con el mismo rival que este plan, no con el próximo. */
   const enlaceDuelos = rivalActivo?.EQUIPO ? `/duelos?equipo=${encodeURIComponent(rivalActivo.EQUIPO)}` : "/duelos";
   const contraste = useContrasteRival(rivalActivo?.EQUIPO ?? "");
@@ -1652,16 +1654,25 @@ export default function MatchPreparation() {
   */
   const proyeccionJuego = useProyeccionJuego(rivalActivo?.EQUIPO ?? null);
   const tresIdeas = (() => {
-    const ideas: { titulo: string; texto: string; base: string }[] = [];
+    /* La idea en una línea y su dato debajo; el detalle está más abajo y no se repite (16/11/2026, jueces). */
+    const ideas: { titulo: string; texto: string; base: string; enlace?: string }[] = [];
+    const parte = (c: string) => {
+      const i = c.indexOf(": ");
+      return i > 0 ? { texto: c.slice(0, i), base: c.slice(i + 2) } : { texto: c, base: "" };
+    };
     const v = proyeccionJuego?.ventajas[0];
-    if (v) ideas.push({ titulo: "Dónde hacerle daño", texto: v.consigna, base: v.frase });
+    if (v) ideas.push({ titulo: "Dónde hacerle daño", ...parte(v.consigna) });
     const r = proyeccionJuego?.riesgos[0];
-    if (r) ideas.push({ titulo: "De qué cuidarnos", texto: r.consigna, base: r.frase });
+    if (r) ideas.push({ titulo: "De qué cuidarnos", ...parte(r.consigna) });
     const fuerza = (d: DueloClave) => Math.max(Math.abs(d.conBalon ?? 0), Math.abs(d.sinBalon ?? 0));
     const duelo = duelosClave
       ? [...duelosClave.grupos.vigilar, ...duelosClave.grupos.doble, ...duelosClave.grupos.buscar].filter((d) => d.consigna).sort((a, b) => fuerza(b) - fuerza(a))[0]
       : undefined;
-    if (duelo) ideas.push({ titulo: "El duelo que decide", texto: duelo.consigna, base: `${duelo.titulo}: ${duelo.nuestros.join(" y ")} contra ${duelo.suyos.join(" y ")}` });
+    if (duelo) {
+      const v = Math.abs(duelo.sinBalon ?? 0) > Math.abs(duelo.conBalon ?? 0) ? duelo.sinBalon : duelo.conBalon;
+      const firma = v == null ? "" : ` (${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(v)})`;
+      ideas.push({ titulo: "El duelo que decide", texto: `${duelo.nuestros.join(" y ")} contra ${duelo.suyos.join(" y ")}${firma}`, base: duelo.titulo, enlace: enlaceDuelos });
+    }
     return ideas;
   })();
 
@@ -2353,7 +2364,7 @@ export default function MatchPreparation() {
     id === "plan"
       ? hayEnLectura("ATAQUE", "DEFENSA", "ABP_OF", "ABP_DEF")
       : id === "duelos"
-        ? hayEnLectura("DUELOS_CB_FAVOR", "DUELOS_CB_CONTRA", "DUELOS_SB_FAVOR", "DUELOS_SB_CONTRA") || duelosClave !== null
+        ? hayEnLectura("DUELOS_CB_FAVOR", "DUELOS_CB_CONTRA", "DUELOS_SB_FAVOR", "DUELOS_SB_CONTRA") || duelosClave !== null || duelosEnCamino
         : id === "rival"
           ? hayEnLectura("FORTALEZAS", "DEBILIDADES", "ESTRUCTURA_OF", "ESTRUCTURA_DEF")
           : true;
@@ -2895,7 +2906,12 @@ export default function MatchPreparation() {
                           {i + 1} · {idea.titulo}
                         </p>
                         <p className="mt-1 text-[15px] font-semibold leading-snug text-white">{idea.texto}</p>
-                        <p className="mt-1 text-xs leading-snug text-white/60">{idea.base}</p>
+                        {idea.base && <p className="mt-1 text-xs leading-snug text-white/60">{idea.base}</p>}
+                        {idea.enlace && (
+                          <Link href={idea.enlace} className="mt-1 inline-block text-xs font-semibold text-[#C8A96B] hover:underline">
+                            Ver el duelo →
+                          </Link>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -3170,7 +3186,7 @@ export default function MatchPreparation() {
               )}
 
               {/* ---------------------------------------------------- DUELOS */}
-              {(hayEnLectura("DUELOS_CB_FAVOR", "DUELOS_CB_CONTRA", "DUELOS_SB_FAVOR", "DUELOS_SB_CONTRA") || duelosClave !== null) && (
+              {(hayEnLectura("DUELOS_CB_FAVOR", "DUELOS_CB_CONTRA", "DUELOS_SB_FAVOR", "DUELOS_SB_CONTRA") || duelosClave !== null || duelosEnCamino) && (
               <section
                 id="duelos"
                 className="mp-card scroll-mt-56 rounded-3xl border border-white/10 bg-white/[0.03] p-5 md:p-7"
@@ -3390,7 +3406,10 @@ export default function MatchPreparation() {
                   );
                 })()}
 
-                {(editando || !duelosClave) && (<div className="grid gap-5 lg:grid-cols-2">
+                {duelosEnCamino && !duelosClave && !editando && (
+                  <p className="animate-pulse text-sm text-white/55">Midiendo los duelos con Wyscout…</p>
+                )}
+                {(editando || (!duelosClave && !duelosEnCamino)) && (<div className="grid gap-5 lg:grid-cols-2">
                   {hayEnLectura("DUELOS_CB_FAVOR", "DUELOS_CB_CONTRA") && (
                   <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-4">
                     <p className="mb-4 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/45">
