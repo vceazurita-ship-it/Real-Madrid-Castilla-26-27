@@ -17,15 +17,25 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { X } from "lucide-react";
+import { Clapperboard, Play, X } from "lucide-react";
 
 import { GolesDelRivalEnVideo, type LadoGoles } from "@/components/rivals/GolesDelRivalEnVideo";
 import { cargaResumenesRfef, mismoEquipo, urlResumen } from "@/lib/rivals/resumen-de-partido";
 import type { ResumenRfef } from "@/lib/rivals/resumenes-rfef";
 import { trackModuleVisit } from "@/lib/module-usage";
 
+/* Mismo canto y sombra que los demás accesos de la portada (`.portada-viva`), en oro: es lo del rival en vídeo. */
 const CHIP =
-  "inline-flex min-h-9 min-w-0 shrink-0 items-center whitespace-nowrap justify-center rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 py-1 text-center text-[13px] font-semibold leading-tight text-[#C8A96B] transition-colors hover:border-[#C8A96B]/70 hover:bg-[#C8A96B]/20 sm:min-h-0";
+  "portada-viva group flex min-h-[52px] min-w-0 items-center gap-2.5 rounded-2xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 py-2 text-left text-[13.5px] font-semibold leading-tight text-[#C8A96B] hover:bg-[#C8A96B]/20";
+
+/** El botón de reproducir, en su círculo de oro. */
+function Icono() {
+  return (
+    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-transform group-hover:scale-110" style={{ background: "#D8B45A", color: "#0B0F14" }} aria-hidden>
+      <Play className="ml-0.5 h-3.5 w-3.5" fill="currentColor" />
+    </span>
+  );
+}
 
 export function VideosDelRival({ rival }: { rival: string }) {
   const [abierto, setAbierto] = useState<LadoGoles | null>(null);
@@ -74,28 +84,55 @@ export function VideosDelRival({ rival }: { rival: string }) {
     setAbierto(lado);
   };
 
+  const hayAlgo = !sinGoles || Boolean(ultimo);
+
   return (
     <>
-      {!sinGoles && (
-        <>
-          <button type="button" className={CHIP} onClick={() => abre("favor")} title={`Los goles de ${rival}, de seguido o uno a uno`}>
-            ▶ Sus goles en vídeo
-          </button>
-          <button type="button" className={CHIP} onClick={() => abre("contra")} title={`Los goles que le han marcado a ${rival}: por dónde hacerle daño`}>
-            ▶ Cómo le marcan
-          </button>
-        </>
-      )}
-      {ultimo && (
-        <a
-          href={urlResumen(ultimo)}
-          target="_blank"
-          rel="noreferrer"
-          className={CHIP}
-          title={`Resumen de la RFEF · J${ultimo.jornada}: ${ultimo.local} ${ultimo.golesLocal}-${ultimo.golesVisitante} ${ultimo.visitante}`}
-        >
-          ▶ Su último partido
-        </a>
+      {/* 16/11/2026 (rediseño): bloque propio con rótulo, tres botones con el icono de reproducir y lo que enseña cada uno debajo. */}
+      {hayAlgo && (
+        <div className="min-w-0">
+          <p className="mb-2 flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.18em] text-white/60">
+            <Clapperboard className="h-3.5 w-3.5" style={{ color: "var(--rmcf-gold-ink)" }} aria-hidden />
+            {rival} en vídeo
+          </p>
+          <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+            {!sinGoles && (
+              <>
+                <button type="button" className={CHIP} onClick={() => abre("favor")} title={`Los goles de ${rival}, de seguido o uno a uno`}>
+                  <Icono />
+                  <span className="min-w-0">
+                    <span className="block">Sus goles</span>
+                    <span className="block text-[12px] font-medium opacity-75">lo que marca</span>
+                  </span>
+                </button>
+                <button type="button" className={CHIP} onClick={() => abre("contra")} title={`Los goles que le han marcado a ${rival}: por dónde hacerle daño`}>
+                  <Icono />
+                  <span className="min-w-0">
+                    <span className="block">Cómo le marcan</span>
+                    <span className="block text-[12px] font-medium opacity-75">por dónde dañarle</span>
+                  </span>
+                </button>
+              </>
+            )}
+            {ultimo && (
+              <a
+                href={urlResumen(ultimo)}
+                target="_blank"
+                rel="noreferrer"
+                className={CHIP}
+                title={`Resumen de la RFEF · J${ultimo.jornada}: ${ultimo.local} ${ultimo.golesLocal}-${ultimo.golesVisitante} ${ultimo.visitante}`}
+              >
+                <Icono />
+                <span className="min-w-0">
+                  <span className="block">Su último partido</span>
+                  <span className="block text-[12px] font-medium tabular-nums opacity-75">
+                    J{ultimo.jornada} · {ultimo.golesLocal}-{ultimo.golesVisitante}
+                  </span>
+                </span>
+              </a>
+            )}
+          </div>
+        </div>
       )}
 
       {abierto &&

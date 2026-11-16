@@ -2277,10 +2277,11 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "El próximo partido",
         filas: [
-          { que: "Temporada · Jornada · Hoy MD-n", es: "En qué jornada y en qué día de la semana de trabajo estamos; «· libre» si hoy no hay sesión" },
+          { que: "Hoy MD-n · Jornada · Temporada", es: "La chapa dorada dice en qué día de la semana de trabajo estamos («· libre» si hoy no hay sesión); al lado, en una línea, la jornada y la temporada" },
+          { que: "Cómo se ve (16/11/2026)", es: "Todos los bloques son tarjetas con el mismo canto, el mismo radio y la misma sombra, en día y en noche; lo que se pulsa sube un poco y se le dora el borde. Títulos y cifras grandes con la letra del club (Barlow Condensed), cada cifra con su base debajo, e iconos de la misma familia. Orden: el partido y el rival; el directo, tu día y la mesa; los datos destacados; el último partido en 3D; Opta; el equipo en cifras y las áreas" },
           { que: "El rival, el día y el campo", es: "Del calendario de BeSoccer; fuera de casa, con su estadio y su ciudad" },
           { que: "Cuenta atrás", es: "Días, horas y minutos hasta la hora de Madrid del partido; sin hora fijada, sólo los días" },
-          { que: "La tira de días", es: "Del día después del partido anterior al del próximo; hoy en dorado, el partido recuadrado", cuenta: "MD = día de partido; MD-3 = tres días antes" },
+          { que: "La tira de días", es: "Del día después del partido anterior al del próximo; hoy en dorado, el partido recuadrado. Siete días caben enteros también en el móvil (el MD siempre a la vista); con ocho o más se desliza", cuenta: "MD = día de partido; MD-3 = tres días antes" },
           { que: "«libre»", es: "Día sin tareas en el microciclo escrito. Si aún no hay microciclo, es la propuesta habitual" },
           { que: "Pinchar un día", es: "Abre su sesión para poner tiempo, intensidad, evaluación y análisis post, o un seguimiento individual o de grupo", cuenta: "En el seguimiento sólo se eligen jugadores de campo del Castilla: los porteros llevan su registro aparte" },
           { que: "El botón de hoy", es: "Los contenidos de la sesión de hoy escritos en la hoja de registro; sin sesión escrita no sale" },
@@ -2288,26 +2289,26 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Los botones", es: "Plantilla del rival, Plan de partido, Microciclo ABP, Desplazamiento (sólo fuera) y Pizarra táctica a pantalla completa con los dos onces" },
           { que: "Opta en directo", es: "Arriba de todo, un botón rojo. Si hay directo en marcha, «Ver el directo» lleva a Análisis de datos → En directo (lo ve cualquiera mientras dura). Si no, el administrador tiene «Empezar directo»: lo lanza en GitHub sin preguntar y lleva a la pantalla, que espera sola la primera lectura. Corre en la nube de GitHub: no hace falta el ordenador del club encendido. Sigue todos los partidos de Opta del día, el nuestro y los demás (se elige en la pantalla), hasta 5 horas, y se para solo cuando han acabado todos. Además se mira solo cada 30 minutos de 10:00 a 22:30: si hay partidos jugándose, salen en la tira sin que nadie pulse nada. En un partido sin el Castilla no salen consignas de banquillo: cada equipo se compara con su propia media. Arriba, una tira con todos los partidos del día (marcador y xG, del índice opta:directo): se pulsa y se abre. En nuestro partido, del 44' al 52' sale «Descanso»: las tres alertas que más pesan con su consigna (se quita en cuanto Opta da tramos de la segunda parte). Si no jugamos, se abre el partido del próximo rival (calendario de BeSoccer) y la tira lo marca «Próximo rival»; ese equipo va a la izquierda y las tarjetas se leen desde él. En partidos ajenos se dice de cuántos partidos sale la media de cada equipo; con menos de 5, las alertas se quedan en duda", cuenta: "En marcha = la pasada de GitHub sigue corriendo o el índice opta:directo se escribió hace menos de 3 minutos y no ha llegado a su hora de acabar. Sin la variable GITHUB_TOKEN_DIRECTO en Render no se ofrece" },
           { que: "Aviso de plataformas y pendientes", es: "Sólo para el administrador (la sesión de Ajustes, v.ceazurita@gmail.com), la primera vez que entra cada día: cuánto llevan gastado este mes las tres plataformas con límite gratis (Render: minutos de compilación, de 500; la base de datos, de 1 GB; Backblaze, vídeos, fotos y copias, de 10 GB) en barras verde, ámbar desde el 70 % y rojo desde el 85 %; los días que le quedan a la base gratis de Render (caduca el 14/12/2026); la última copia de la base; y lo pendiente de cerrar a mano (hoy, el alta en la API de BeSoccer). «Entendido, hoy no más» lo cierra hasta mañana. Si algo pasa del 70 % llega además un correo", cuenta: "Lo deja cada día el ordenador del club en el documento salud:plataformas (scripts/salud-datos.mjs, lanzado por el vigía), junto con la copia de la base en .cache/copias y en Backblaze. Los minutos de Render se cuentan por las publicaciones del proceso «Publicar en Render» de GitHub (unos 8 por publicación)" },
-          { que: "El último partido en 3D", es: "Debajo de las alertas: el último partido del Castilla con su evento a evento; el campo 3D animado sobre su suelo ancho, en bucle, con una línea que lo resume (victoria merecida, derrota con más ocasiones…), tres claves para el micro (ocasiones, presión con el PPDA y córners) y tres cifras de los dos equipos: xG, remates a puerta y posesión. «Verlo entero con los mapas» abre ese mismo partido en el directo. Para verlo a pantalla completa, «Verlo entero con los mapas» y allí el botón de las dos flechas", cuenta: "La lectura compara el resultado con la diferencia de xG (±0,3). Cifras del doc opta:directo:<partido> (equipos)" },
+          { que: "El último partido en 3D", es: "Debajo de los datos destacados: el último partido del Castilla con su evento a evento; en la cabecera, el marcador con el local primero y la fecha («Gimnàstic Tarragona 0-1 Real Madrid Castilla · vie 13 nov»). El campo 3D animado, en bucle, con una línea que lo resume (victoria merecida, derrota con más ocasiones…), tres claves para el micro (ocasiones, presión con el PPDA y córners) y tres cifras de los dos equipos en el orden del marcador: xG, remates a puerta y posesión. En el 3D nuestro equipo se llama «Castilla» («manda Castilla»). «Análisis del partido» abre el post en Análisis de datos; «Con los mapas», ese mismo partido en el directo (allí, el botón de las dos flechas lo pone a pantalla completa)", cuenta: "La lectura compara el resultado con la diferencia de xG (±0,15). Cifras del doc opta:directo:<partido> (equipos)" },
           { que: "Moverse por la app (todas las pantallas)", es: "Arriba, la cabecera pegada con la tira de las pantallas de la misma sección; la lupa (o Ctrl+K en el ordenador) busca cualquier pantalla tecleando. Al bajar más de pantalla y media sale abajo a la izquierda el botón redondo de volver arriba. En el móvil la cabecera y el título de cada pantalla ocupan menos y las pestañas de sección tienen 40 px de alto para el dedo; en el móvil y la tableta las casillas para marcar miden 20 px. Cada pestaña del navegador lleva el nombre de la pantalla («Microciclos · RMCF Castilla»), y así se distinguen en el historial, los marcadores y el selector de apps del móvil", cuenta: "El nombre es la etiqueta del menú (components/ui/TituloPestana.tsx); /general y /performance conservan el suyo" },
-          { que: "Lo que toca hoy", es: "MD y MD-1: En directo (el día de partido), PDF y vídeo ABP por jugador, Duelos. MD+1 y MD+2: Informe post, Análisis de datos, Histórico. MD-2 a MD-4: scout y ABP del rival" },
-          { que: "Del rival", es: "Scout colectivo, ABP rival, Pizarra ABP, Duelos e Individual con el rival puesto; sin repetir lo de arriba" },
+          { que: "Hoy toca · MD-n", es: "Accesos en rejilla, cada uno con su flecha. MD y MD-1: En directo (el día de partido), PDF y vídeo ABP por jugador, Duelos. MD+1 y MD+2: Informe post, Análisis de datos, Histórico. MD-2 a MD-4: scout y ABP del rival" },
+          { que: "Más del rival", es: "Scout colectivo, ABP rival, Pizarra ABP, Duelos e Individual con el rival puesto; sin repetir lo de arriba" },
           {
-            que: "▶ Sus goles en vídeo · ▶ Cómo le marcan · ▶ Su último partido (16/11/2026)",
-            es: "Al final de la fila del rival, en dorado. Los dos primeros abren encima de la portada sus goles en vídeo: los que marca o los que encaja. Los que marca y los que encaja (= por dónde hacerle daño), de seguido («▶ Ver de seguido») o uno a uno en la lista de debajo; filtros: en jugada o a balón parado (córner, faltas, banda y penalti) y temporada, últimos 3 o últimos 5 partidos. Cada gol, con el corte de Opta del partido (10 s antes y 6 después) o, si aún no está, sobre el resumen de la RFEF. «Verlos en el campo» abre Análisis de goles con el equipo puesto. «Su último partido» abre en YouTube el resumen oficial de la RFEF de su último partido de liga. Si Opta no tiene sus goles, o no hay resumen, el botón no sale",
+            que: "<Rival> en vídeo: Sus goles · Cómo le marcan · Su último partido (16/11/2026)",
+            es: "Lo primero de los accesos del rival, en tres botones dorados con el icono de reproducir y lo que enseña cada uno debajo (el último partido, con su jornada y marcador). Los dos primeros abren encima de la portada sus goles en vídeo: los que marca o los que encaja. Los que marca y los que encaja (= por dónde hacerle daño), de seguido («▶ Ver de seguido») o uno a uno en la lista de debajo; filtros: en jugada o a balón parado (córner, faltas, banda y penalti) y temporada, últimos 3 o últimos 5 partidos. Cada gol, con el corte de Opta del partido (10 s antes y 6 después) o, si aún no está, sobre el resumen de la RFEF. «Verlos en el campo» abre Análisis de goles con el equipo puesto. «Su último partido» abre en YouTube el resumen oficial de la RFEF de su último partido de liga. Si Opta no tiene sus goles, o no hay resumen, el botón no sale",
             cuenta: "Goles de Opta (opta:remates; los de propia puerta no son remates y no salen). Balón parado = situación del remate distinta de «juego» y «contragolpe». Vídeo: opta:goles-video y, si no, rfef:goles-resumenes",
           },
-          { que: "Últimos 5", es: "Nuestros cinco últimos con el marcador debajo; el más reciente, a la derecha", cuenta: "V ganado · E empatado · D perdido" },
-          { que: "Liga", es: "Puesto, puntos, V-E-D y goles a favor y en contra, de BeSoccer", cuenta: "Tras los partidos ya jugados, sin contar el que viene" },
+          { que: "Últimos 5", es: "En su tarjeta: nuestros cinco últimos con el marcador debajo (el más reciente, a la derecha) y, como base, el último con jornada y fecha. Abre el histórico", cuenta: "V ganado · E empatado · D perdido" },
+          { que: "Liga", es: "En su tarjeta: el puesto en grande con los puntos, y debajo partidos, V-E-D y goles a favor y en contra, de BeSoccer. Abre el equipo de un vistazo", cuenta: "Tras los partidos ya jugados, sin contar el que viene; si la tabla aún no tiene la última jornada, lo dice" },
         ],
       },
       {
         titulo: "El panel del rival",
         filas: [
           { que: "El rival · BeSoccer", es: "Su puesto, sus puntos con los partidos jugados y sus cinco últimos con marcador" },
-          { que: "Cómo juega · MD-n", es: "De MD-4 a MD-1: sus goles esperados por partido, lo que concede y su posesión, cada uno con su puesto en el grupo", cuenta: "Opta si casa el nombre; si no, Wyscout. El sello dice cuál" },
-          { que: "Puesto en color", es: "Verde, el tercio de arriba del grupo; naranja, el de abajo. La posesión va sin color: es estilo" },
-          { que: "Goles del Castilla frente a lo esperado", es: "Titular con el dato («Castilla: 16 goles; lo esperado, 17,9»). El resto de días: si marcamos más o menos de lo que valían las ocasiones", cuenta: "(goles − xG, redondeado a un decimal) ÷ partidos; con menos de 15 partidos, «léase como tendencia»" },
+          { que: "Cómo juega · MD-n", es: "De MD-4 a MD-1, tres cifras grandes: Genera (xG por partido), Concede (xG en contra) y Posesión, cada una con su puesto en el grupo. Esos días el panel es sólo del rival: mientras llegan sus cifras sale el esqueleto, nunca lo nuestro", cuenta: "Opta si casa el nombre; si no, Wyscout. El sello dice cuál. Los días se cuentan con el calendario de BeSoccer" },
+          { que: "Puesto en color", es: "Verde, el tercio de arriba del grupo; naranja, el de abajo; la leyenda va debajo de las cifras. La posesión va sin color: es estilo" },
+          { que: "Castilla · goles frente a lo esperado", es: "El resto de días: la diferencia por partido en grande y, pegada debajo, la cuenta («16 goles − 17,9 esperados = −1,9 en 12 partidos»), con la leyenda del color (verde, marca más de lo esperado; naranja, menos) y «más es mejor» una vez", cuenta: "(goles − xG, redondeado a un decimal) ÷ partidos; con menos de 15 partidos, «léase como tendencia»" },
           { que: "Goles esperados (xG) por partido", es: "Sólo si no hay Opta: el de Wyscout, con su puesto, la mediana del grupo y la barra contra el mejor" },
         ],
       },
@@ -2337,8 +2338,8 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Opta de un vistazo",
         filas: [
-          { que: "Frente a frente · por partido", es: "El Castilla y el próximo rival (si es del grupo) en xG a favor, xG en contra, PPDA y xG a balón parado", cuenta: "«5º de 20» = puesto en el grupo, del mejor al peor" },
-          { que: "xG a balón parado", es: "Córner y falta, sin penaltis; debajo, sus ocasiones y sus córners de la temporada. Pocos remates: tendencia" },
+          { que: "Frente a frente · media por partido en N", es: "El Castilla y el próximo rival (si es del grupo) en xG a favor, xG en contra, PPDA y xG a balón parado. La fuente y hasta cuándo llega, una sola vez, en la cabecera del bloque", cuenta: "«5º de 20» = puesto en el grupo, del mejor al peor" },
+          { que: "xG a balón parado", es: "Córner y falta, sin penaltis; debajo, «19 ocasiones a balón parado y 58 córners a favor en la temporada». Pocos remates: tendencia" },
           { que: "PPDA", es: "Pases que deja dar al rival por cada acción defensiva: cuanto más bajo, más presiona" },
           { que: "El último partido", es: "Marcador con el local a la izquierda, xG de los dos, remates, xG a balón parado, córners y PPDA de ese partido, no la media" },
           { que: "Momentum", es: "Tramos de 5′ en que aprieta cada uno: arriba el Castilla, abajo el rival; la raya es el descanso" },
@@ -2347,7 +2348,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "El equipo en cifras",
         filas: [
-          { que: "Con seguimiento", es: "Jugadores de campo con licencia del Castilla con algún seguimiento en la temporada, como el Dashboard Seguimiento", cuenta: "% = jugadores con seguimiento ÷ jugadores de campo" },
+          { que: "Con seguimiento", es: "Jugadores de campo con licencia del Castilla con algún seguimiento en la temporada, como el Dashboard Seguimiento. Al pulsarla abre la ficha del que menos seguimientos lleva (lo dice debajo, con cuántos)", cuenta: "% = jugadores con seguimiento ÷ jugadores de campo. Empate en el mínimo: el primero por nombre" },
           { que: "Seguimientos", es: "Registros de la temporada y cuántos en los últimos 30 días (o esta semana, si son todos)" },
           { que: "Reintentar", es: "Si la hoja de seguimiento no contesta, sólo sale la plantilla y el botón para volver a pedirla" },
           { que: "Áreas de trabajo", es: "Seis de las más usadas en este aparato (sin repetir la mesa), el buscador y «Ver todas las áreas»" },
@@ -2535,7 +2536,7 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           { que: "N alertas activas · próximo aviso", es: "Cuántas van a sonar y cuál es la siguiente, con su fecha" },
           { que: "La tarjeta", es: "Tarea, cuándo sale, cada cuánto se repite, a quién va, alarma, adjuntos y cuántas veces se ha enviado" },
-          { que: "Silenciadas (N)", es: "No sale ningún correo hasta reactivarlas; agrupadas por partido" },
+          { que: "Silenciadas (N)", es: "No sale ningún correo hasta reactivarlas; agrupadas por partido. Junto al rótulo de cada partido, «Abrir a <rival>» lleva a su plantilla con el rival ya elegido" },
           { que: "Caducadas (N)", es: "Silenciadas cuya fecha ya pasó: necesitan fecha nueva para volver a salir" },
           { que: "Sin fecha", es: "No sonará hasta editarla; si va atada al partido, espera a que haya próximo partido en el calendario" },
           { que: "Más acciones", es: "Editar, Enviar ahora, Silenciar y Borrar" },
@@ -2559,7 +2560,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "«Nadie está repasando el calendario»: «Enviar ahora» funciona, pero las programadas no suenan hasta poner el disparador horario.",
       "Es la misma herramienta que el botón flotante; esta pantalla sirve para repasarlo todo de una vez.",
     ],
-    revisada: "2026-11-12",
+    revisada: "2026-11-16",
   },
 
   /* ==================== CENTRO DE DATOS (12/11/2026) ==================== */
@@ -2597,10 +2598,9 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "La cabecera",
         filas: [
-          { que: "Temporada: N semanas", es: "Las semanas que tiene la temporada" },
-          { que: "N imágenes y N PDF en X de Y semanas", es: "Lo subido hasta hoy", cuenta: "Y = semanas ya empezadas; X = las que tienen algún archivo" },
+          { que: "N imágenes y N PDF en X de las Y semanas hasta hoy", es: "Lo subido hasta hoy, con una sola base", cuenta: "Y = semanas ya empezadas; X = las que tienen algún archivo" },
           { que: "La tira de semanas", es: "Una casilla por semana hasta la actual: dorada con marca, con material; en blanco, sin él; «ahora», la actual" },
-          { que: "N semanas sin subir material", es: "La racha de semanas vacías seguidas hasta la actual (sale con dos o más)" },
+          { que: "N semanas sin material: la 5, la 7 y de la 10 a la 20", es: "Aviso en ámbar con todos los huecos, sueltos y seguidos, sin contar la semana en curso (aún no ha acabado); sale con dos o más. Pulsarlo abre la última semana vacía", cuenta: "N = casillas en blanco antes de la actual" },
           { que: "Ver las imágenes / los PDF de la temporada", es: "Todo lo subido, de la semana más reciente a la más antigua" },
           { que: "Actualizar", es: "Vuelve a leer las semanas" },
         ],
@@ -2619,7 +2619,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Si una subida o un borrado falla, se deshace sólo ese cambio y se avisa.",
       "Dos personas subiendo a la vez no se pisan: viaja sólo el cambio, no la temporada entera.",
     ],
-    revisada: "2026-11-12",
+    revisada: "2026-11-16",
   },
 
   /* ==================== IDENTIDAD EN EL CAMPO (12/11/2026) ==================== */

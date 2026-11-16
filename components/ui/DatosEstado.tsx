@@ -243,6 +243,24 @@ export function DatosEstado() {
     );
   }
 
+  /*
+  | 16/11/2026 (los tres jueces, portada): la primera bajada sin copia ya no
+  | pone «Actualizando…» en letra —en una captura parecía un cargando sin fin—:
+  | sólo gira el icono, y la palabra queda para el lector de pantalla y el ratón.
+  */
+  if (hayBajada && !cansado && estado.masVieja === null) {
+    return (
+      <span
+        role="status"
+        className="inline-flex items-center rounded-xl border border-white/10 bg-white/[0.03] p-1.5 text-white/45"
+        title="Actualizando los datos de esta pantalla"
+      >
+        <RefreshCw size={12} className="animate-spin" aria-hidden />
+        <span className="sr-only">Actualizando…</span>
+      </span>
+    );
+  }
+
   return (
     <button
       type="button"

@@ -40,6 +40,7 @@ import { UMBRAL_DOMINIO } from "@/lib/opta-estilos";
 import { curvaMomento, momentoDe } from "@/lib/opta-eventos";
 import { contextoGrupo, equipoOptaDe, hastaElPartido, type FilaLab, type MetricaLab } from "@/lib/opta-laboratorio";
 import { SelloFuente } from "@/components/ui/SelloFuente";
+import { CabeceraBloque } from "@/components/portada/CabeceraBloque";
 
 /** Lo que se lee bajo el nombre de cada fila: la sigla explicada y el sentido. */
 const AYUDA: Record<string, string> = {
@@ -58,12 +59,12 @@ function baseAbp(fila: Fila | undefined): string {
   if (!fila) return "";
   const ocasiones = valorEquipo(fila, "ChncSetPl", "total");
   const corners = valorEquipo(fila, "Corners", "total");
-  return [
-    ocasiones != null ? `${Math.round(ocasiones)} ocasiones` : "",
-    corners != null ? `${Math.round(corners)} córners` : "",
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  /* 16/11/2026 (marketing): cada cifra con su base: son totales de la temporada, no por partido. */
+  const partes = [
+    ocasiones != null ? `${Math.round(ocasiones)} ocasiones a balón parado` : "",
+    corners != null ? `${Math.round(corners)} córners a favor` : "",
+  ].filter(Boolean);
+  return partes.length ? `${partes.join(" y ")} en la temporada` : "";
 }
 
 /** Las cuatro de la tarjeta, todas por partido. */
@@ -101,9 +102,9 @@ export function OptaPortada() {
   if (cargando) {
     /* El alto de la tarjeta de verdad (cabecera y cuerpo): que la portada no salte al llegar. */
     return (
-      <div role="status" aria-label="Cargando las cifras de Opta">
-        <div className="h-8 w-56 animate-pulse rounded-xl bg-white/[0.05]" />
-        <div className="mt-5 h-[300px] animate-pulse rounded-3xl border border-white/[0.08] bg-[#07121F]" />
+      <div role="status" aria-label="Cargando las cifras de Opta" className="portada-tarjeta p-4 sm:p-6">
+        <div className="h-9 w-56 animate-pulse rounded-xl bg-white/[0.05]" />
+        <div className="portada-celda mt-5 h-[300px] animate-pulse" />
       </div>
     );
   }
@@ -114,36 +115,36 @@ export function OptaPortada() {
   const jugados = partidosDe(opta.partidos, CASTILLA_OPTA).length;
 
   return (
-    <div className="min-w-0">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#D8B45A]/25 bg-[#D8B45A]/[0.08]">
-            <Database className="h-4 w-4 text-[#D8B45A]" />
-          </span>
-          <h2 className="fuente-club text-[20px] font-bold uppercase tracking-[0.08em] text-white/85">
+    <section className="portada-tarjeta min-w-0 p-4 sm:p-6" aria-label="Opta de un vistazo">
+      {/* 16/11/2026 (marketing): la fuente y su base, una sola vez, en la cabecera del bloque. */}
+      <CabeceraBloque
+        icono={Database}
+        titulo={
+          <>
             Opta de un vistazo
             {jugados > 0 ? <span className="text-white/55"> · {jugados} {jugados === 1 ? "partido" : "partidos"}</span> : null}
-          </h2>
-        </div>
-        {/* 10/11/2026: el sello de la fuente (`lib/fuentes.ts`); «puesto en el grupo» va de cabecera de la tabla. */}
-        <p className="flex flex-wrap items-center gap-2 text-[12px] text-white/50">
-          <SelloFuente fuente="opta" poblacion={`grupo (${deCuantos} equipos)`} hasta={hasta ? `hasta el ${hasta}` : undefined} />
-        </p>
-      </div>
+          </>
+        }
+        accion={
+          <p className="flex flex-wrap items-center gap-2 text-[12px] text-white/60">
+            <SelloFuente fuente="opta" poblacion={`grupo (${deCuantos} equipos)`} hasta={hasta ? `hasta el ${hasta}` : undefined} />
+          </p>
+        }
+      />
 
-      <div className={`mt-5 grid min-w-0 gap-px overflow-hidden rounded-3xl border border-white/[0.08] bg-white/[0.06] ${ultimo ? "lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]" : ""}`}>
+      <div className={`mt-5 grid min-w-0 gap-3 ${ultimo ? "lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]" : ""}`}>
         {/* ---------- frente a frente ---------- */}
         <Link
           href="/data-analisis?area=estilos"
           onClick={() => trackModuleVisit("/data-analisis")}
-          className="group min-w-0 bg-[#07121F] p-5 transition-colors duration-300 hover:bg-[#0B1728]"
+          className="portada-celda portada-viva group min-w-0 p-4 sm:p-5"
           title="Los estilos de la categoría: dominio, peligro y solidez de cada equipo"
         >
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#D8B45A]">{rival ? "Frente a frente · por partido" : "El Castilla · por partido"}</p>
+          <p className="portada-rotulo">{rival ? `Frente a frente · media por partido en ${jugados}` : `El Castilla · media por partido en ${jugados}`}</p>
           <table className="mt-3 w-full table-fixed text-left tabular-nums">
             <thead>
-              <tr className="text-[11px] text-white/55">
-                <th className="w-[38%] pb-1.5 pr-2 align-bottom text-[11px] font-medium leading-tight text-white/55">por partido · puesto en el grupo</th>
+              <tr className="text-[12px] text-white/60">
+                <th className="w-[38%] pb-1.5 pr-2 align-bottom text-[12px] font-medium leading-tight text-white/60">debajo, puesto en el grupo</th>
                 <th className="pb-1.5 pr-2 text-right align-bottom font-semibold">
                   <span className="block truncate" style={{ color: ORO }}>Castilla</span>
                 </th>
@@ -162,12 +163,12 @@ export function OptaPortada() {
                 const r = suyo.find((s) => s.a === x.a);
                 return (
                   <tr key={x.a} className="border-t border-white/[0.06]" title={x.comoLeer}>
-                    <td className="py-2 pr-2 align-top text-[12.5px] leading-tight text-white/75">
+                    <td className="py-2.5 pr-2 align-top text-[13.5px] font-medium leading-tight text-white/85">
                       {x.nombre}
                       {AYUDA[x.a] ? (
-                        <span className="mt-0.5 block text-[11px] leading-snug text-white/55">{AYUDA[x.a]}</span>
+                        <span className="mt-0.5 block text-[12px] font-normal leading-snug text-white/60">{AYUDA[x.a]}</span>
                       ) : x.mejor === false ? (
-                        <span className="block text-[11px] text-white/55">menos es mejor</span>
+                        <span className="block text-[12px] font-normal text-white/60">menos es mejor</span>
                       ) : null}
                     </td>
                     <Celda x={x} base={x.a === "xGSetPly" ? baseAbp(filaNuestra) : ""} />
@@ -177,8 +178,8 @@ export function OptaPortada() {
               })}
             </tbody>
           </table>
-          <p className="mt-3 flex items-center gap-1 text-[12px] font-medium text-white/55 transition-colors duration-300 group-hover:text-[#D8B45A]">
-            Opta · estilos de la categoría
+          <p className="mt-3 flex items-center gap-1 text-[13px] font-semibold text-white/70 transition-colors duration-300 group-hover:text-[#D8B45A]">
+            Los estilos de la categoría
             <ChevronRight className="h-3 w-3 transition-transform duration-300 group-hover:translate-x-0.5" />
           </p>
         </Link>
@@ -186,22 +187,22 @@ export function OptaPortada() {
         {/* ---------- el último partido ---------- */}
         {ultimo ? <UltimoPartido ultimo={ultimo} /> : null}
       </div>
-    </div>
+    </section>
   );
 }
 
 function Celda({ x, base = "" }: { x: FilaLab; base?: string }) {
   const color = x.mejor === null ? tinta(0.55) : colorPercentil(x.pos.percentil);
   return (
-    <td className="py-2 pr-2 text-right align-top last:pr-0">
-      <span className="block text-[17px] font-semibold leading-none text-white">{valorTexto(x)}</span>
+    <td className="py-2.5 pr-2 text-right align-top last:pr-0">
+      <span className="fuente-club block text-[24px] font-bold leading-none tabular-nums text-white">{valorTexto(x)}</span>
       {x.pos.puesto ? (
         /* «5º de 20», como el sello «grupo (20 equipos)»: un solo término (11/11/2026). */
-        <span className="mt-1 block text-[11px] font-semibold" style={{ color }} title={`Puesto ${x.pos.puesto} de ${x.pos.deCuantos} del grupo, del mejor al peor`}>
+        <span className="mt-1 block text-[12px] font-semibold" style={{ color }} title={`Puesto ${x.pos.puesto} de ${x.pos.deCuantos} del grupo, del mejor al peor`}>
           {x.pos.puesto}º de {x.pos.deCuantos}
         </span>
       ) : null}
-      {base ? <span className="mt-0.5 block text-[11px] leading-tight text-white/60">{base}</span> : null}
+      {base ? <span className="mt-0.5 block text-[12px] leading-tight text-white/60">{base}</span> : null}
     </td>
   );
 }
@@ -274,10 +275,10 @@ function UltimoPartido({ ultimo }: { ultimo: PartidoEquipo }) {
       ref={caja}
       href="/data-analisis?area=post"
       onClick={() => trackModuleVisit("/data-analisis")}
-      className="group flex min-w-0 flex-col bg-[#07121F] p-5 transition-colors duration-300 hover:bg-[#0B1728]"
+      className="portada-celda portada-viva group flex min-w-0 flex-col p-4 sm:p-5"
       title="El post del partido"
     >
-      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#D8B45A]">El último partido · {fechaCorta(ultimo.fecha)}</p>
+      <p className="portada-rotulo">El último partido · {fechaCorta(ultimo.fecha)}</p>
       <p className="mt-2 truncate text-[15px] font-semibold text-white">
         {fuera ? (
           <>
@@ -290,24 +291,24 @@ function UltimoPartido({ ultimo }: { ultimo: PartidoEquipo }) {
         )}
       </p>
       {xgA != null && xgB != null ? (
-        <p className="mt-0.5 text-[12px] text-white/65 tabular-nums">
+        <p className="mt-0.5 text-[13px] text-white/70 tabular-nums">
           xG {fuera ? `${coma(xgB, 2)} – ${coma(xgA, 2)}` : `${coma(xgA, 2)} – ${coma(xgB, 2)}`}
         </p>
       ) : null}
       {/* La base: es un solo partido, no la media de la temporada. */}
-      <p className="mt-1 text-[11px] text-white/55">Opta · un solo partido, no la media</p>
+      <p className="mt-1 text-[12px] text-white/60">Un solo partido, no la media</p>
 
       {filas.length ? (
-        <dl className="mt-3 grid grid-cols-[minmax(0,1fr)_auto_auto] gap-x-3 gap-y-1.5 text-[12.5px] tabular-nums">
+        <dl className="mt-3 grid grid-cols-[minmax(0,1fr)_auto_auto] gap-x-3 gap-y-1.5 text-[13px] tabular-nums">
           <span />
-          <span className="text-right text-[11px] font-semibold" style={{ color: ORO }}>Castilla</span>
-          <span className="max-w-[8rem] break-words text-right text-[11px] font-semibold leading-tight" style={{ color: COMPARADO }} title={ultimo.rival}>
+          <span className="text-right text-[12px] font-semibold" style={{ color: ORO }}>Castilla</span>
+          <span className="max-w-[8rem] break-words text-right text-[12px] font-semibold leading-tight" style={{ color: COMPARADO }} title={ultimo.rival}>
             {ultimo.rival}
           </span>
           {filas.map((x) => (
             <div key={x.nombre} className="contents">
               <dt className="min-w-0 text-white/75">
-                {x.nombre} <span className="text-[11px] text-white/50">· {x.ayuda}</span>
+                {x.nombre} <span className="text-[12px] text-white/55">· {x.ayuda}</span>
               </dt>
               <dd className="text-right font-semibold text-white">{x.nos}</dd>
               <dd className="text-right font-semibold text-white">{x.ellos}</dd>
@@ -318,8 +319,8 @@ function UltimoPartido({ ultimo }: { ultimo: PartidoEquipo }) {
 
       {aLaVista ? <Curva partido={String(ultimo.fila.partido ?? "")} rival={ultimo.rival} /> : null}
 
-      <p className="mt-auto flex items-center gap-1 pt-3 text-[12px] font-medium text-white/55 transition-colors duration-300 group-hover:text-[#D8B45A]">
-        Opta · el Castilla, partido a partido
+      <p className="mt-auto flex items-center gap-1 pt-3 text-[13px] font-semibold text-white/70 transition-colors duration-300 group-hover:text-[#D8B45A]">
+        El Castilla, partido a partido
         <ChevronRight className="h-3 w-3 transition-transform duration-300 group-hover:translate-x-0.5" />
       </p>
     </Link>
@@ -365,7 +366,7 @@ function Curva({ partido, rival }: { partido: string; rival: string }) {
         <path d={area} clipPath={`url(#${id}-b)`} style={{ fill: COMPARADO, fillOpacity: 0.55 }} />
         <line x1={0} y1={cero} x2={W} y2={cero} style={{ stroke: tinta(0.4), strokeWidth: 1 }} />
       </svg>
-      <p className="mt-1.5 text-[11.5px] leading-snug text-white/60">
+      <p className="mt-1.5 text-[12.5px] leading-snug text-white/65">
         Tramos de 5′ en que aprieta cada uno: <span style={{ color: ORO }}>Castilla {nuestros}</span> · <span style={{ color: COMPARADO }}>{rival} {suyos}</span>, de {n}. Arriba el
         Castilla, abajo el rival; la raya, el descanso.
       </p>

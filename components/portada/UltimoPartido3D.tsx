@@ -10,8 +10,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, BarChart3, Mountain } from "lucide-react";
 
+import { CabeceraBloque } from "@/components/portada/CabeceraBloque";
 import { RelievePartido } from "@/components/data/RelievePartido";
 import { leeJugadores } from "@/lib/opta-directo-mapas";
 import { useOptaLigero } from "@/hooks/useOptaLigero";
@@ -42,13 +43,19 @@ export function UltimoPartido3D() {
   const [x, y] = [filas[0], filas[1]];
   if (!doc?.eventos?.filas?.length || !x || !y) return null;
   const nom = (f: Record<string, unknown>) => (f.teamId === CASTILLA_OPTA ? "Real Madrid Castilla" : String(f.equipo ?? ""));
+  /* El nombre corto, para las cifras y la leyenda del 3D («manda Castilla», no «manda Real»). */
+  const corto = (f: Record<string, unknown>) => (f.teamId === CASTILLA_OPTA ? "Castilla" : String(f.equipo ?? "").split(" ").slice(-1)[0]);
   const n = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : Number(v) || 0);
   const coma = (v: number, d = 2) => v.toFixed(d).replace(".", ",");
+  const pos = (f: Record<string, unknown>) => `${Math.round(n(f["Poss%"]) * (n(f["Poss%"]) <= 1 ? 100 : 1))} %`;
+  /* 16/11/2026 (fútbol): todo en el orden del marcador, el local primero, como en «Opta de un vistazo». */
+  const fuera = String(x.campo ?? "").toUpperCase() === "AWAY";
+  const [loc, vis] = fuera ? [y, x] : [x, y];
   /* Tres cifras que cuentan el partido sin abrirlo: ocasiones, puntería y balón. */
   const cifras: [string, string, string][] = [
-    ["xG", coma(n(x.ExpG)), coma(n(y.ExpG))],
-    ["Remates a puerta", String(n(x.SOG)), String(n(y.SOG))],
-    ["Posesión", `${Math.round(n(x["Poss%"]) * (n(x["Poss%"]) <= 1 ? 100 : 1))} %`, `${Math.round(n(y["Poss%"]) * (n(y["Poss%"]) <= 1 ? 100 : 1))} %`],
+    ["xG", coma(n(loc.ExpG)), coma(n(vis.ExpG))],
+    ["Remates a puerta", String(n(loc.SOG)), String(n(vis.SOG))],
+    ["Posesión", pos(loc), pos(vis)],
   ];
   const gx = n(x.Goal);
   const gy = n(y.Goal);
@@ -59,51 +66,69 @@ export function UltimoPartido3D() {
       : gx < gy
         ? dxg >= 0.15 ? "Derrota con más ocasiones que el rival: faltó acierto." : dxg <= -0.15 ? "Derrota en la que el rival generó más." : "Derrota en un partido de ocasiones igualadas."
         : dxg >= 0.15 ? "Empate con más ocasiones nuestras." : dxg <= -0.15 ? "Empate con más ocasiones del rival." : "Empate con ocasiones igualadas.";
-  /* Tres claves para el micro (expertos, 14/11/2026): ocasiones, presión y balón parado, con el dato. */
+  /* Tres claves para el micro (expertos, 14/11/2026): ocasiones, presión y balón parado, con el dato (nosotros primero: es lo nuestro). */
   const claves = [
     dxg <= -0.15
-      ? `Concedimos más de lo que generamos (xG ${coma(n(x.ExpG))} – ${coma(n(y.ExpG))}): defensa del área y de su ataque.`
+      ? `Concedimos más de lo que generamos (xG ${coma(n(x.ExpG))} nuestro, ${coma(n(y.ExpG))} suyo): defensa del área y de su ataque.`
       : dxg >= 0.15
-        ? `Generamos más que el rival (xG ${coma(n(x.ExpG))} – ${coma(n(y.ExpG))}): mantener la llegada.`
-        : `Ocasiones igualadas (xG ${coma(n(x.ExpG))} – ${coma(n(y.ExpG))}): el detalle decidió.`,
+        ? `Generamos más que el rival (xG ${coma(n(x.ExpG))} nuestro, ${coma(n(y.ExpG))} suyo): mantener la llegada.`
+        : `Ocasiones igualadas (xG ${coma(n(x.ExpG))} nuestro, ${coma(n(y.ExpG))} suyo): el detalle decidió.`,
     n(x.PPDA) > 0
       ? `Presión: dejamos ${coma(n(x.PPDA), 1)} pases por acción defensiva (el rival, ${coma(n(y.PPDA), 1)}); cuanto menos, más arriba se presiona.`
       : "",
     `Balón parado: ${n(x.Corners)} córners nuestros y ${n(y.Corners)} suyos.`,
   ].filter(Boolean);
-  const eq = (f: Record<string, unknown>) => ({ teamId: String(f.teamId ?? ""), nombre: nom(f), color: String(f.color ?? ""), campo: String(f.campo ?? "") });
+  const eq = (f: Record<string, unknown>) => ({ teamId: String(f.teamId ?? ""), nombre: f.teamId === CASTILLA_OPTA ? "Castilla" : nom(f), color: String(f.color ?? ""), campo: String(f.campo ?? "") });
+  const fecha = doc.fecha ? diaCorto(String(doc.fecha)) : "";
+  const marcador = `${nom(loc)} ${String(loc.Goal ?? "")}-${String(vis.Goal ?? "")} ${nom(vis)}`;
 
   return (
-    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-3 sm:p-4">
-      <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2 px-1">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/50">El último partido en 3D</p>
-          <p className="text-sm font-semibold text-white">
-            {String(x.campo ?? "").toUpperCase() === "AWAY"
-              ? `${nom(y)} ${String(y.Goal ?? "")}-${String(x.Goal ?? "")} ${nom(x)}`
-              : `${nom(x)} ${String(x.Goal ?? "")}-${String(y.Goal ?? "")} ${nom(y)}`}
-            {doc.fecha ? <span className="ml-2 text-xs font-normal text-white/50">{String(doc.fecha).slice(0, 10)}</span> : null}
-          </p>
-        </div>
-        <Link href={`/data-analisis?area=directo&partido=${ultimo}`} className="inline-flex items-center gap-1 text-xs font-semibold text-white/70 hover:text-white">
-          Verlo entero con los mapas
-          <ArrowRight size={13} aria-hidden />
-        </Link>
-      </div>
-      <div className="mb-3 grid gap-2 px-1 sm:grid-cols-[1.4fr_repeat(3,1fr)]">
-        <p className="self-center text-sm font-semibold leading-snug text-[#C8A96B]">{lectura}</p>
-        {cifras.map(([t, a, b]) => (
-          <div key={t} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-1.5">
-            <p className="text-xs uppercase tracking-[0.12em] text-white/50">{t}</p>
-            <p className="font-mono text-lg font-bold tabular-nums text-white">
-              {a} <span className="text-white/40">–</span> {b}
-            </p>
+    <section className="portada-tarjeta p-4 sm:p-6" aria-label="El último partido en 3D">
+      <CabeceraBloque
+        icono={Mountain}
+        titulo="El último partido en 3D"
+        sub={
+          <>
+            <span className="font-semibold text-white/85">{marcador}</span>
+            {fecha ? <span> · {fecha}</span> : null}
+          </>
+        }
+        accion={
+          <div className="flex flex-wrap gap-1.5">
+            <Link href="/data-analisis?area=post" className="portada-celda portada-viva inline-flex min-h-10 items-center gap-1.5 px-3.5 text-[13px] font-semibold text-white/85">
+              <BarChart3 className="h-4 w-4" style={{ color: "var(--rmcf-gold-ink)" }} aria-hidden />
+              Análisis del partido
+            </Link>
+            <Link href={`/data-analisis?area=directo&partido=${ultimo}`} className="portada-celda portada-viva inline-flex min-h-10 items-center gap-1.5 px-3.5 text-[13px] font-semibold text-white/85">
+              Con los mapas
+              <ArrowRight size={14} aria-hidden />
+            </Link>
           </div>
-        ))}
+        }
+      />
+
+      <div className="mt-5 grid gap-2 sm:grid-cols-[1.3fr_repeat(3,1fr)]">
+        <p className="fuente-club self-center text-[22px] font-bold uppercase leading-tight" style={{ color: "var(--rmcf-gold-ink)" }}>
+          {lectura}
+        </p>
+        <div className="grid grid-cols-3 gap-2 sm:contents">
+          {cifras.map(([t, a, b]) => (
+            <div key={t} className="portada-celda min-w-0 px-3 py-2.5">
+              <p className="truncate text-[11.5px] font-semibold uppercase tracking-[0.12em] text-white/60">{t}</p>
+              <p className="fuente-club mt-1 whitespace-nowrap text-[26px] font-bold leading-none tabular-nums text-white">
+                {a} <span className="text-white/40">–</span> {b}
+              </p>
+              <p className="mt-1 truncate text-[12px] text-white/55">
+                {corto(loc)} · {corto(vis)}
+              </p>
+            </div>
+          ))}
+        </div>
       </div>
-      <ul className="mb-3 space-y-1 px-1 text-sm text-white/80">
+
+      <ul className="mb-4 mt-4 space-y-1.5 text-[14px] leading-snug text-white/80">
         {claves.map((c) => (
-          <li key={c} className="flex gap-2">
+          <li key={c} className="flex gap-2.5">
             <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-[#C8A96B]" aria-hidden />
             {c}
           </li>
@@ -112,4 +137,16 @@ export function UltimoPartido3D() {
       <RelievePartido eventos={doc.eventos} jugadores={new Map(leeJugadores(doc.jugadores).map((j) => [j.id, j]))} a={eq(x)} b={eq(y)} partido={ultimo} />
     </section>
   );
+}
+
+/** «vie 13 nov», en Madrid. */
+function diaCorto(cuando: string) {
+  const d = new Date(cuando.length <= 10 ? `${cuando}T12:00:00Z` : cuando);
+
+  if (Number.isNaN(d.getTime())) return "";
+
+  return d
+    .toLocaleDateString("es-ES", { timeZone: "Europe/Madrid", weekday: "short", day: "numeric", month: "short" })
+    .replace(/\./g, "")
+    .replace(",", "");
 }

@@ -2365,3 +2365,115 @@ html[data-pizarra-abierta] [data-menu-flotante] {
 .viaje-form #viaje-horario {
   letter-spacing: 0.01em;
 }
+
+
+/* ===========================
+   PORTADA: UN SOLO SISTEMA DE TARJETAS (16/11/2026, petición del analista)
+
+   Un radio (24 px fuera, 16 dentro), un borde y una sombra para todos los
+   bloques de la portada, con sus valores en los dos temas: así no dependen de
+   la tabla de equivalencias (que tradujo cada fondo a un gris distinto). Las
+   clases de tinta (`text-white/NN`) siguen pasando por la tabla.
+=========================== */
+:root {
+  --portada-radio: 24px;
+  --portada-radio-in: 16px;
+  --portada-sup: #0A121D;
+  --portada-sup-2: rgba(255, 255, 255, 0.035);
+  --portada-sup-2-hover: rgba(255, 255, 255, 0.065);
+  --portada-borde: rgba(255, 255, 255, 0.08);
+  --portada-borde-in: rgba(255, 255, 255, 0.075);
+  --portada-sombra: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 20px 44px -28px rgba(0, 0, 0, 0.75);
+  --portada-sombra-hover: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 26px 52px -24px rgba(0, 0, 0, 0.85);
+  --portada-heroe:
+    radial-gradient(70% 90% at 0% 0%, rgba(37, 99, 235, 0.16), transparent 60%),
+    radial-gradient(60% 80% at 100% 100%, rgba(216, 180, 90, 0.10), transparent 60%),
+    #07101C;
+}
+
+:root[data-theme="light"] {
+  --portada-sup: #FFFFFF;
+  --portada-sup-2: #F5F7FA;
+  --portada-sup-2-hover: #EEF1F6;
+  --portada-borde: rgba(11, 15, 20, 0.09);
+  --portada-borde-in: rgba(11, 15, 20, 0.08);
+  --portada-sombra: 0 1px 2px rgba(11, 15, 20, 0.04), 0 14px 34px -22px rgba(11, 15, 20, 0.22);
+  --portada-sombra-hover: 0 2px 4px rgba(11, 15, 20, 0.05), 0 22px 44px -22px rgba(11, 15, 20, 0.30);
+  --portada-heroe:
+    radial-gradient(70% 90% at 0% 0%, rgba(37, 99, 235, 0.07), transparent 60%),
+    radial-gradient(60% 80% at 100% 100%, rgba(216, 180, 90, 0.12), transparent 60%),
+    #FFFFFF;
+}
+
+.portada-tarjeta {
+  background: var(--portada-sup);
+  border: 1px solid var(--portada-borde);
+  border-radius: var(--portada-radio);
+  box-shadow: var(--portada-sombra);
+}
+
+.portada-heroe {
+  background: var(--portada-heroe);
+  border: 1px solid var(--portada-borde);
+  border-radius: var(--portada-radio);
+  box-shadow: var(--portada-sombra);
+}
+
+.portada-celda {
+  background: var(--portada-sup-2);
+  border: 1px solid var(--portada-borde-in);
+  border-radius: var(--portada-radio-in);
+}
+
+/* Lo que se pulsa: sube 2 px, la sombra crece y el canto se vuelve oro. */
+.portada-viva {
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s ease, border-color 0.25s ease, background-color 0.25s ease;
+}
+
+.portada-viva:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--portada-sombra-hover);
+  border-color: rgba(216, 180, 90, 0.55);
+}
+
+.portada-celda.portada-viva:hover {
+  background: var(--portada-sup-2-hover);
+}
+
+.portada-viva:focus-visible {
+  outline: 2px solid #D8B45A;
+  outline-offset: 2px;
+}
+
+/* El cuadro del icono de cada cabecera de bloque. */
+.portada-icono {
+  display: inline-flex;
+  height: 36px;
+  width: 36px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  border: 1px solid rgba(216, 180, 90, 0.28);
+  background: rgba(216, 180, 90, 0.10);
+  color: var(--rmcf-gold-ink);
+}
+
+/* El rótulo pequeño de encima de un título o de una cifra. */
+.portada-rotulo {
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--rmcf-gold-ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .portada-viva {
+    transition: none;
+  }
+
+  .portada-viva:hover {
+    transform: none;
+  }
+}

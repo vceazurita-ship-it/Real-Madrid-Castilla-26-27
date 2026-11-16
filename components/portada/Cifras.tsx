@@ -63,8 +63,8 @@ export function Cifras({ cifras }: { cifras: Cifra[] }) {
     | pliega las pistas vacías y las que hay se reparten el ancho.
     */
     <div
-      className="grid gap-px overflow-hidden rounded-3xl border border-white/[0.08] bg-white/[0.06]"
-      style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 150px), 1fr))" }}
+      className="grid gap-3"
+      style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))" }}
     >
       {cifras.map((cifra) => {
         const Icon = cifra.icon;
@@ -77,15 +77,11 @@ export function Cifras({ cifras }: { cifras: Cifra[] }) {
             href={cifra.href}
             onClick={() => trackModuleVisit(cifra.href)}
             style={{ ["--accent" as string]: accent }}
-            className="group relative flex flex-col justify-between gap-5 bg-[#07121F] p-5 transition-colors duration-300 hover:bg-[#0B1728]"
+            className="portada-celda portada-viva group relative flex flex-col justify-between gap-4 p-4 sm:p-5"
           >
-            <span
-              aria-hidden
-              className="absolute inset-x-0 top-0 h-[2px] bg-[color:var(--accent)] opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-            />
 
             <div className="flex items-start justify-between gap-2">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[color:var(--accent)]">
+              <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-[color:var(--accent)]">
                 {cifra.label}
               </p>
 
@@ -93,19 +89,19 @@ export function Cifras({ cifras }: { cifras: Cifra[] }) {
             </div>
 
             <div>
-              <p className="text-[32px] font-bold leading-none tracking-tight text-white">
+              <p className="fuente-club text-[48px] font-bold leading-[0.9] text-white">
                 <Numero value={cifra.value} loading={cifra.loading} />
 
                 {cifra.suffix && (
-                  <span className="ml-0.5 text-lg font-semibold text-white/55">
+                  <span className="ml-1 text-[22px] font-bold text-white/55">
                     {cifra.suffix}
                   </span>
                 )}
               </p>
 
-              <p className="mt-2 text-[12.5px] leading-snug text-white/70">{cifra.caption}</p>
+              <p className="mt-2 text-[13px] leading-snug text-white/70">{cifra.caption}</p>
 
-              <p className="mt-3 flex items-center gap-1 text-[12.5px] font-semibold text-[color:var(--accent)] transition-colors duration-300">
+              <p className="mt-3 flex items-center gap-1 text-[13px] font-semibold text-[color:var(--accent)] transition-colors duration-300">
                 {cifra.destino}
                 <ChevronRight className="h-3 w-3 transition-transform duration-300 group-hover:translate-x-0.5" />
               </p>

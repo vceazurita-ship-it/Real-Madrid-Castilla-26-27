@@ -29,7 +29,7 @@ export function DirectoPortada({ admin }: { admin: boolean }) {
     <section
       aria-label="Directo de Opta"
       className={`portada-entra relative flex min-w-0 flex-wrap items-center justify-between gap-3 overflow-hidden rounded-[24px] border p-4 sm:p-5 ${
-        d.enMarcha ? "border-red-500/40 bg-red-500/[0.07]" : "border-white/10 bg-white/[0.03]"
+        d.enMarcha ? "border-red-500/40 bg-red-500/[0.07]" : "portada-tarjeta"
       }`}
     >
       <div className="flex min-w-0 items-center gap-3">

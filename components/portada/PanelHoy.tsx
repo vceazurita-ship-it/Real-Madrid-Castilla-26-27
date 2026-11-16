@@ -31,9 +31,11 @@ import {
   ShieldAlert,
   SquareKanban,
   User,
+  Wrench,
   type LucideIcon,
 } from "lucide-react";
 
+import { CabeceraBloque } from "@/components/portada/CabeceraBloque";
 import { useCalendario } from "@/hooks/useCalendario";
 import { useMisTareas, useSesionesDelMicro } from "@/hooks/useMisTareas";
 import { pantallaCompletaAlNavegar } from "@/hooks/usePantallaCompleta";
@@ -128,7 +130,7 @@ function TuDia() {
     else cambiaDoc((d) => alternaHechaPropia(d, t.id, hecha));
   };
 
-  const marco = "portada-entra relative flex min-w-0 flex-col overflow-hidden rounded-[24px] border border-white/10 bg-white/[0.03] p-5 sm:p-6";
+  const marco = "portada-entra portada-tarjeta relative flex min-w-0 flex-col overflow-hidden p-4 sm:p-6";
 
   if (!semana || cargando) {
     return (
@@ -160,13 +162,10 @@ function TuDia() {
 
   return (
     <section className={marco} aria-label="Tu día">
-      <span aria-hidden className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-[#D8B45A]/10 blur-3xl" />
 
       <div className="relative flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.28em]" style={{ color: "var(--rmcf-gold-ink)" }}>
-            Tu día
-          </p>
+          <p className="portada-rotulo">Tu día</p>
           <h2 className="fuente-club mt-1 text-[28px] font-bold uppercase leading-none text-white">{rotulo}</h2>
         </div>
 
@@ -186,7 +185,7 @@ function TuDia() {
       {tareasHoy.length > 0 ? (
         <ul className="relative mt-4 space-y-2">
           {tareasHoy.slice(0, 5).map((t) => (
-            <li key={t.clave} className="flex min-w-0 items-start gap-2.5 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5">
+            <li key={t.clave} className="portada-celda flex min-w-0 items-start gap-2.5 px-3 py-2.5" style={{ borderRadius: 12 }}>
               <button
                 type="button"
                 onClick={() => marca(t, !t.hecha)}
@@ -218,7 +217,7 @@ function TuDia() {
           )}
         </ul>
       ) : (
-        <p className="relative mt-4 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-3 text-[14px] text-white/75">
+        <p className="portada-celda relative mt-4 px-3 py-3 text-[14px] text-white/75">
           {deHoy?.tipo === "libre" ? "Día libre en el microciclo." : "Hoy está despejado."}
           {siguiente && (
             <>
@@ -321,16 +320,14 @@ function MesaDeTrabajo({ admin }: { admin: boolean }) {
 
   return (
     <section
-      className="portada-entra relative min-w-0 overflow-hidden rounded-[24px] border border-white/10 bg-white/[0.03] p-5 sm:p-6"
+      className="portada-entra portada-tarjeta relative min-w-0 overflow-hidden p-4 sm:p-6"
       style={{ animationDelay: "80ms" }}
       aria-label="Mesa de trabajo"
     >
-      <p className="text-[11px] font-semibold uppercase tracking-[0.28em]" style={{ color: "var(--rmcf-gold-ink)" }}>
-        Mesa de trabajo
-      </p>
+      <CabeceraBloque icono={Wrench} titulo="Mesa de trabajo" sub="Las herramientas de todos los días" />
 
       {/* La que queda sola ocupa la fila (02/11/2026): a lo ancho en el móvil y, en la tableta, las de la última fila se reparten el hueco. */}
-      <div className={`mt-3 grid grid-cols-2 gap-2 [&>*:last-child:nth-child(odd)]:col-span-2 ${admin ? "lg:grid-cols-5 lg:[&>*:last-child:nth-child(odd)]:col-span-1" : "lg:grid-cols-4"}`}>
+      <div className={`mt-4 grid grid-cols-2 gap-2 [&>*:last-child:nth-child(odd)]:col-span-2 ${admin ? "lg:grid-cols-5 lg:[&>*:last-child:nth-child(odd)]:col-span-1" : "lg:grid-cols-4"}`}>
         {herramientas.map((h) => {
           const Icono = h.icono;
 
@@ -343,17 +340,17 @@ function MesaDeTrabajo({ admin }: { admin: boolean }) {
                 if (h.completa) pantallaCompletaAlNavegar();
               }}
               title={h.desc}
-              className="group flex min-w-0 flex-col gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-3 transition-all duration-300 hover:-translate-y-0.5 hover:border-[#D8B45A]/50 hover:bg-white/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#D8B45A]"
+              className="portada-celda portada-viva group flex min-w-0 flex-col gap-3 p-3.5"
             >
               <span className="flex items-center justify-between">
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#D8B45A]/30 bg-[#D8B45A]/[0.08]" style={{ color: "var(--rmcf-gold-ink)" }}>
+                <span className="portada-icono">
                   <Icono className="h-[18px] w-[18px]" />
                 </span>
                 <ArrowUpRight className="h-4 w-4 text-white/30 transition-all group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-[#D8B45A]" />
               </span>
               <span className="min-w-0">
                 <span className="fuente-club block break-words text-[17px] sm:text-[19px] font-bold uppercase leading-none tracking-[0.01em] text-white">{h.titulo}</span>
-                <span className="mt-1 block text-[12px] leading-snug text-white/55">{h.desc}</span>
+                <span className="mt-1 block text-[12.5px] leading-snug text-white/60">{h.desc}</span>
               </span>
             </Link>
           );

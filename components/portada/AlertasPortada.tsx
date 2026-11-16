@@ -15,6 +15,7 @@ import type { Alerta } from "@/lib/data-analisis/alertas";
 import { useBodyScrollLock } from "@/components/season/useBodyScrollLock";
 import { traeJson } from "@/lib/hojaCsv";
 import { chipInk } from "@/lib/theme";
+import { CabeceraBloque } from "@/components/portada/CabeceraBloque";
 import {
   alertasDeSeguimiento,
   type FilaSeguimiento,
@@ -187,36 +188,13 @@ export function AlertasPortada({
         modo día (`globals.css`) traduce **esos** y no otros. Con un azul
         inventado, la tira salía negra sobre fondo claro y el rótulo no se leía.
       */}
-      <div className="relative overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-br from-[#07121F] via-[#040B14] to-[#02060D] p-5 sm:p-6">
+      <section className="portada-tarjeta relative overflow-hidden p-4 sm:p-6" aria-label="Datos destacados">
         {/* El halo: el mismo recurso de la portada, en verde o ámbar según
             de qué haya más. No decide nada, pero se ve desde lejos. */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background: `radial-gradient(circle at 12% 20%, ${
-              malas.length > buenas.length ? "rgba(217,95,2,.16)" : "rgba(27,158,119,.16)"
-            }, transparent 42%)`,
-          }}
-        />
 
         <div className="relative z-10">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#D8B45A]/25 bg-[#D8B45A]/[0.08]">
-                <Bell className="h-4 w-4 text-[#D8B45A]" />
-              </span>
-
-              <div className="min-w-0">
-                <h2 className="text-[13px] font-semibold uppercase tracking-[0.3em] text-white/85">
-                  Datos destacados
-                </h2>
-
-                <p className="mt-1 text-[12px] text-white/45">
-                  Lo que se ha salido de lo normal, con su sitio para mirarlo.
-                </p>
-              </div>
-            </div>
+            <CabeceraBloque icono={Bell} titulo="Datos destacados" sub="Lo que se ha salido de lo normal, con su sitio para mirarlo" />
 
             <div className="flex flex-wrap items-center gap-2">
               {/* Las cuentas son los botones (05/11/2026): «+6 más» repetía lo que ya contaban. */}
@@ -247,7 +225,7 @@ export function AlertasPortada({
                  puede ir dentro de un botón). */
               <div
                 key={alerta.clave}
-                className="group flex min-w-0 flex-col rounded-2xl border border-white/[0.07] bg-white/[0.03] transition hover:border-white/20 hover:bg-white/[0.06]"
+                className="portada-celda portada-viva group flex min-w-0 flex-col"
               >
                 <button
                   type="button"
@@ -262,17 +240,17 @@ export function AlertasPortada({
 
                   {/* La cifra en grande y la base debajo, en su línea (30/10/2026). */}
                   <span className="min-w-0">
-                    <span className="line-clamp-2 block text-[13px] font-medium leading-snug text-white/85">
+                    <span className="line-clamp-2 block text-[13.5px] font-medium leading-snug text-white/85">
                       {sinSiglas(alerta.valor ? alerta.rotulo ?? alerta.titulo : alerta.titulo)}
                     </span>
 
                     {alerta.valor && (
-                      <span className="mt-1 block text-[24px] font-bold leading-none tabular-nums text-white">
+                      <span className="fuente-club mt-1.5 block text-[32px] font-bold leading-none tabular-nums text-white">
                         {alerta.valor}
                       </span>
                     )}
 
-                    <span className="mt-1.5 line-clamp-3 block text-[12px] leading-snug tabular-nums text-white/60">
+                    <span className="mt-1.5 line-clamp-3 block text-[12.5px] leading-snug tabular-nums text-white/65">
                       {alerta.cifra}
                     </span>
                   </span>
@@ -281,7 +259,7 @@ export function AlertasPortada({
                 {alerta.mira && alerta.enlace && (
                   <Link
                     href={alerta.enlace}
-                    className="mx-3.5 mb-3 mt-auto inline-flex min-w-0 items-start gap-1 border-t border-white/[0.06] pt-2 text-[12px] font-medium leading-snug text-[#C8A96B] hover:underline"
+                    className="mx-3.5 mb-3 mt-auto inline-flex min-w-0 items-start gap-1 border-t border-white/[0.06] pt-2 text-[12.5px] font-semibold leading-snug text-[#C8A96B] hover:underline"
                   >
                     <ArrowUpRight className="mt-0.5 h-3 w-3 shrink-0" />
                     <span className="line-clamp-2">{alerta.mira}</span>
@@ -306,7 +284,7 @@ export function AlertasPortada({
             </div>
           )}
         </div>
-      </div>
+      </section>
 
       {abierto && (
         <Cajon alertas={alertas} alCerrar={() => setAbierto(false)} />

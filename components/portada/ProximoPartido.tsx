@@ -66,7 +66,6 @@ import {
  */
 
 const ORO = "#D8B45A";
-const ORO_CLARO = "#F7D98B";
 const VERDE = "#1B9E77";
 const NARANJA = "#D95F02";
 
@@ -306,32 +305,17 @@ export function ProximoPartido() {
       <div className="min-w-0">
         {/* ---------- Rótulos: temporada, jornada y día de la semana ---------- */}
 
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-2.5 rounded-full border border-white/10 bg-white/[0.04] px-3.5 py-1.5">
-            <span className="relative flex h-2 w-2">
-              <span
-                className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-60"
-                style={{ background: ORO_CLARO }}
-              />
-              <span className="relative inline-flex h-2 w-2 rounded-full" style={{ background: ORO_CLARO }} />
-            </span>
-
-            <span className="text-[11px] font-semibold uppercase tracking-[0.26em] text-[#F7D98B]">
-              Temporada 26/27
-            </span>
-          </span>
-
-          {proximo && (
-            <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.26em] text-white/70">
-              Jornada {proximo.jornada}
-            </span>
-          )}
-
+        {/* 16/11/2026 (rediseño): una sola línea de contexto en vez de tres chapas; la única chapa es «Hoy MD-n», que es lo que cambia cada día. */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           {diaDeHoy && (
             <span
-              className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.26em]"
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-bold uppercase tracking-[0.16em]"
               style={{ background: ORO, color: "#0B0F14" }}
             >
+              <span className="relative flex h-1.5 w-1.5" aria-hidden>
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-70" style={{ background: "#0B0F14" }} />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full" style={{ background: "#0B0F14" }} />
+              </span>
               Hoy {diaDeHoy.rotulo}
               {libres.has(diaDeHoy.fecha) && (
                 <span className="font-medium normal-case tracking-normal opacity-80">
@@ -340,15 +324,19 @@ export function ProximoPartido() {
               )}
             </span>
           )}
+
+          <span className="portada-rotulo">
+            {proximo ? `Jornada ${proximo.jornada} · ` : ""}Temporada 26/27
+          </span>
         </div>
 
         {/* ---------- El partido ---------- */}
 
-        <div className="mt-6 flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-7">
+        <div className="mt-5 flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-7">
           <Escudos proximo={proximo} escudoRival={rival?.escudo} cargando={cargando} />
 
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#D8B45A]">
+            <p className="text-[12px] font-semibold uppercase tracking-[0.24em] text-white/55">
               Próximo partido
             </p>
 
@@ -448,7 +436,8 @@ export function ProximoPartido() {
             <div className="-mx-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <div
               className="grid gap-1 pb-1 sm:gap-1.5"
-              style={{ gridTemplateColumns: `repeat(${semana.length}, minmax(${semana.length > 6 ? 52 : 0}px, 1fr))` }}
+              /* 16/11/2026 (fútbol): siete días caben siempre a 390 px, con el MD a la vista; sólo un micro de ocho o más se desliza. */
+              style={{ gridTemplateColumns: `repeat(${semana.length}, minmax(${semana.length > 7 ? 40 : 0}px, 1fr))` }}
             >
               {semana.map((dia) => {
                 const esHoy = dia.fecha === hoy;
@@ -470,17 +459,17 @@ export function ProximoPartido() {
                           ? " · partido"
                           : ""
                     } · pincha para la sesión o un seguimiento`}
-                    className={`flex min-w-0 flex-col items-center rounded-xl border px-0.5 py-2 transition hover:-translate-y-0.5 sm:px-1 hover:border-[#D8B45A]/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#D8B45A] ${
+                    className={`portada-viva flex min-w-0 flex-col items-center rounded-xl border px-0 py-2 sm:px-1 ${
                       esHoy
-                        ? "border-transparent"
+                        ? "border-transparent shadow-[0_10px_24px_-12px_rgba(216,180,90,.9)]"
                         : esPartido
                           ? "border-[#D8B45A]/50 bg-[#D8B45A]/10"
-                          : "border-white/[0.08] bg-white/[0.03]"
+                          : "portada-celda"
                     } ${pasado && !esHoy ? "opacity-45" : ""}`}
-                    style={esHoy ? { background: ORO, color: "#0B0F14" } : undefined}
+                    style={esHoy ? { background: ORO, color: "#0B0F14", borderRadius: 12 } : esPartido ? undefined : { borderRadius: 12 }}
                   >
                     <span
-                      className={`whitespace-nowrap text-[11px] font-bold uppercase tracking-tight sm:text-[11px] sm:tracking-[0.14em] ${
+                      className={`whitespace-nowrap text-[11px] font-bold uppercase tracking-[-0.01em] sm:tracking-[0.14em] ${
                         esHoy ? "" : esPartido ? "text-[#F7D98B]" : "text-white/45"
                       }`}
                     >
@@ -488,7 +477,7 @@ export function ProximoPartido() {
                     </span>
 
                     <span
-                      className={`mt-1 text-[16px] font-bold leading-none tabular-nums ${
+                      className={`fuente-club mt-1 text-[20px] font-bold leading-none tabular-nums ${
                         esHoy ? "" : "text-white/85"
                       }`}
                     >
@@ -590,8 +579,8 @@ export function ProximoPartido() {
             href={enlacePlantilla}
             title={nombreRival ? `La plantilla de ${nombreRival}` : undefined}
             onClick={() => trackModuleVisit("/rivals")}
-            className="group inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] px-5 py-3 text-[14px] font-medium shadow-[0_0_36px_rgba(37,99,235,.32)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_0_48px_rgba(37,99,235,.45)]"
-            style={{ color: "#fff" }}
+            className="group inline-flex min-h-[48px] items-center justify-center gap-2 bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] px-5 py-3 text-[15px] font-semibold shadow-[0_14px_30px_-14px_rgba(37,99,235,.8)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_36px_-14px_rgba(37,99,235,.9)]"
+            style={{ color: "#fff", borderRadius: 16 }}
           >
             <Users className="h-[17px] w-[17px]" />
             Plantilla del rival
@@ -625,9 +614,9 @@ export function ProximoPartido() {
               pantallaCompletaAlNavegar();
             }}
             title="Abre la pizarra táctica a pantalla completa, con los dos onces puestos en 4-2-3-1"
-            className="group inline-flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-1.5 py-2.5 text-center text-[12.5px] leading-tight sm:flex-row sm:gap-2 sm:px-4 sm:py-3 sm:text-[14px] font-medium text-[#C8A96B] transition-all duration-300 hover:-translate-y-0.5 hover:border-[#C8A96B]/70 hover:bg-[#C8A96B]/20"
+            className={CLASE_ACCION}
           >
-            <Maximize2 className="h-[17px] w-[17px]" />
+            <Maximize2 className="h-[17px] w-[17px] shrink-0" style={{ color: "var(--rmcf-gold-ink)" }} />
             Pizarra táctica
           </Link>
         </div>
@@ -667,7 +656,7 @@ export function ProximoPartido() {
               ].filter((atajo) => !yaHoy.has(modulo(atajo.href)) && !enBotones.has(modulo(atajo.href)))
             : [];
 
-          if (!deHoy.length && !delRival.length) return null;
+          if (!deHoy.length && !delRival.length && !nombreRival) return null;
 
           /*
           | Dos filas con rótulo y en chips (30/10/2026, marketing y análisis):
@@ -675,16 +664,15 @@ export function ProximoPartido() {
           | huérfano al principio de línea y los enlaces se apiñaban.
           */
           /* En el móvil, una fila que se desliza (02/11/2026): la rejilla de dos por fila alargaba la portada y se veía tosca. */
-          const fila = (rotulo: string, atajos: { href: string; texto: string; title?: string }[], extra?: ReactNode) => (
-            /* Baja de línea también en el móvil (05/11/2026): al deslizarse, «Individual» se cortaba en «In…» sin aviso. */
-            <div className="flex min-w-0 flex-wrap items-center gap-1.5 [&>a]:shrink-0 [&>a]:whitespace-nowrap">
-              <span className="mr-1 shrink-0 text-[12px] font-semibold uppercase tracking-[0.18em] text-white/65">
-                {rotulo}
-              </span>
-              {atajos.map((atajo) => (
-                <Atajo key={atajo.texto} href={atajo.href} texto={atajo.texto} title={atajo.title} />
-              ))}
-              {extra}
+          /* 16/11/2026 (rediseño): cada grupo con su rótulo encima y sus accesos en rejilla (dos por fila en el móvil, tres o cuatro en ancho). */
+          const fila = (rotulo: ReactNode, atajos: { href: string; texto: string; title?: string }[]) => (
+            <div className="min-w-0">
+              <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.18em] text-white/60">{rotulo}</p>
+              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+                {atajos.map((atajo) => (
+                  <Atajo key={atajo.texto} href={atajo.href} texto={atajo.texto} title={atajo.title} />
+                ))}
+              </div>
             </div>
           );
 
@@ -702,12 +690,13 @@ export function ProximoPartido() {
           | dice para qué es.
           */
           return (
-            <div className="mt-4 space-y-2">
-              {hoyToca && deHoy.length > 0 && fila("Lo que toca hoy", deHoy)}
+            <div className="mt-5 space-y-4">
+              {/* 16/11/2026 (los tres jueces): el rival en vídeo, lo primero de la fila del rival y con su propio rótulo; lo que el cuerpo técnico busca el lunes. */}
+              {nombreRival ? <VideosDelRival key={nombreRival} rival={nombreRival} /> : null}
 
-              {/* 16/11/2026: el rival en vídeo (sus goles, los que encaja y su último partido), con los chips dorados al final de la fila. */}
-              {delRival.length > 0 &&
-                fila(hoyToca && deHoy.length > 0 ? "Más del rival" : "Del rival", delRival, nombreRival ? <VideosDelRival key={nombreRival} rival={nombreRival} /> : null)}
+              {hoyToca && deHoy.length > 0 && fila(<>Hoy toca · <span style={{ color: "var(--rmcf-gold-ink)" }}>{hoyToca.rotulo}</span></>, deHoy)}
+
+              {delRival.length > 0 && fila(hoyToca && deHoy.length > 0 ? "Más del rival" : "Del rival", delRival)}
             </div>
           );
         })()}
@@ -715,7 +704,8 @@ export function ProximoPartido() {
 
       {/* ---------- Cómo vamos: racha y clasificación ---------- */}
 
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-white/[0.08] pt-5">
+      {/* 16/11/2026 (rediseño): racha y tabla en dos tarjetas iguales, cada cifra grande con su base debajo. */}
+      <div className="grid gap-2 sm:grid-cols-2">
         <Racha ultimos={ultimos} cargando={cargando} ultimo={anterior} />
 
         <Clasificacion informe={informe} jugados={(alrededor?.todos ?? []).filter((uno) => uno.jugado).length} />
@@ -783,31 +773,42 @@ function Accion({
       href={href}
       title={title}
       onClick={() => trackModuleVisit(modulo(href))}
-      className="group inline-flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl border border-white/12 bg-white/[0.04] px-1.5 py-2.5 text-center text-[12.5px] leading-tight sm:flex-row sm:gap-2 sm:px-4 sm:py-3 sm:text-[14px] font-medium text-white/85 transition-all duration-300 hover:-translate-y-0.5 hover:border-white/25 hover:bg-white/[0.07] hover:text-white"
+      className={CLASE_ACCION}
     >
-      <Icono className="h-[17px] w-[17px] shrink-0 text-[#D8B45A]" />
+      <Icono className="h-[17px] w-[17px] shrink-0" style={{ color: "var(--rmcf-gold-ink)" }} />
       {texto}
     </Link>
   );
 }
 
-/** Un acceso de texto, para la línea «Del rival». */
+/** Los accesos secundarios del partido: tarjeta pequeña, mismo canto y misma sombra que el resto de la portada. */
+const CLASE_ACCION =
+  "portada-celda portada-viva group inline-flex min-h-[52px] min-w-0 flex-col items-center justify-center gap-1 px-1.5 py-2.5 text-center text-[13px] font-semibold leading-tight text-white/85 sm:min-h-[48px] sm:flex-row sm:gap-2 sm:px-4 sm:text-[14px]";
+
+/**
+ * Un acceso de la lista «Hoy toca» / «Más del rival» (16/11/2026, rediseño):
+ * una fila con su flecha en vez de una píldora suelta; en el móvil, dos por
+ * fila, y se lee como una lista, no como una nube de chapas.
+ */
 function Atajo({ href, texto, title }: { href: string; texto: string; title?: string }) {
   return (
     <Link
       href={href}
       title={title}
       onClick={() => trackModuleVisit(modulo(href))}
-      className="inline-flex min-h-9 min-w-0 items-center justify-center rounded-full border border-white/12 bg-white/[0.04] px-3 py-1 text-center text-[13px] leading-tight text-white/75 transition-colors hover:border-[#D8B45A]/60 hover:text-[#F7D98B] sm:min-h-0"
+      className="portada-celda portada-viva group flex min-h-[44px] min-w-0 items-center justify-between gap-2 px-3 py-2 text-[13.5px] font-medium leading-tight text-white/85"
+      style={{ borderRadius: 12 }}
     >
-      {texto}
+      <span className="min-w-0 break-words">{texto}</span>
+      <ChevronRight className="h-4 w-4 shrink-0 text-white/40 transition-transform group-hover:translate-x-0.5" />
     </Link>
   );
 }
 
 /**
  * Los últimos resultados, como se leen en cualquier clasificación: una ficha
- * por partido, con el marcador al pasar por encima. Lleva al histórico.
+ * por partido con el marcador debajo. Lleva al histórico. Desde el 16/11/2026,
+ * en su tarjeta (rediseño), con el último partido como base debajo.
  */
 function Racha({ ultimos, cargando, ultimo }: { ultimos: PartidoNuestro[]; cargando: boolean; ultimo?: PartidoNuestro | null }) {
   /* Sin partidos jugados no hay racha que enseñar. */
@@ -817,63 +818,58 @@ function Racha({ ultimos, cargando, ultimo }: { ultimos: PartidoNuestro[]; carga
     <Link
       href="/collective_history"
       onClick={() => trackModuleVisit("/collective_history")}
-      className="group flex flex-wrap items-center gap-x-3 gap-y-1.5"
+      className="portada-celda portada-viva group flex min-w-0 flex-col gap-2.5 p-4"
       title="Histórico de competición"
     >
-      <History className="h-4 w-4 shrink-0 text-white/35 transition-colors group-hover:text-[#D8B45A]" />
-
-      {/* Qué lado es el más reciente, dicho (30/10/2026). */}
-      {/* La aclaración a 12 px y con más contraste (30/10/2026). */}
-      <span className="text-[12px] font-semibold uppercase tracking-[0.2em] text-white/55">
-        Últimos {ultimos.length || 5}{" "}
-        <span className="normal-case tracking-normal font-medium text-white/80">
-          <span className="sm:hidden">· el último, a la derecha</span>
-          <span className="hidden sm:inline">· el más reciente, a la derecha</span>
+      <span className="flex items-center justify-between gap-2">
+        <span className="text-[12px] font-semibold uppercase tracking-[0.18em] text-white/60">
+          Últimos {ultimos.length || 5}
+          <span className="ml-1.5 font-medium normal-case tracking-normal text-white/55">· el más reciente, a la derecha</span>
         </span>
+        <History className="h-4 w-4 shrink-0 text-white/40 transition-colors group-hover:text-[#D8B45A]" />
       </span>
 
       <span className="flex items-center gap-1.5">
         {cargando
-          ? Array.from({ length: 5 }, (_, i) => (
-              <span key={i} className="h-8 w-8 animate-pulse rounded-lg bg-white/10" />
-            ))
+          ? Array.from({ length: 5 }, (_, i) => <span key={i} className="h-9 w-9 animate-pulse rounded-lg bg-white/10" />)
           : ultimos.map((partido) => {
-                const signo = signoResultado(partido.golesFavor, partido.golesContra);
+              const signo = signoResultado(partido.golesFavor, partido.golesContra);
 
-                const color = signo === "V" ? VERDE : signo === "D" ? NARANJA : "#94A3B8";
+              const color = signo === "V" ? VERDE : signo === "D" ? NARANJA : "#94A3B8";
 
-                /* 11/11/2026 (análisis): el marcador bajo cada letra; E/V/D ya no pide memoria. */
-                return (
+              /* 11/11/2026 (análisis): el marcador bajo cada letra; E/V/D ya no pide memoria. */
+              return (
+                <span
+                  key={`${partido.jornada}-${partido.cuando}`}
+                  title={`J${partido.jornada} · ${partido.lado === "casa" ? "en casa con " : "en "}${partido.rival} · ${partido.golesFavor}-${partido.golesContra}`}
+                  className="flex w-10 flex-col items-center"
+                >
                   <span
-                    key={`${partido.jornada}-${partido.cuando}`}
-                    title={`J${partido.jornada} · ${partido.lado === "casa" ? "en casa con " : "en "}${partido.rival} · ${partido.golesFavor}-${partido.golesContra}`}
-                    className="flex w-9 flex-col items-center"
+                    className="fuente-club flex h-9 w-9 items-center justify-center rounded-lg text-[18px] font-bold"
+                    /* La letra con `chipInk`: el gris del empate y el verde
+                       sobre el blanco del modo día no llegaban a 3:1. */
+                    style={{ background: `${color}22`, color: chipInk(color), border: `1px solid ${color}55` }}
                   >
-                    <span
-                      className="fuente-club flex h-8 w-8 items-center justify-center rounded-lg text-[16px] font-bold"
-                      /* La letra con `chipInk`: el gris del empate y el verde
-                         sobre el blanco del modo día no llegaban a 3:1. */
-                      style={{ background: `${color}22`, color: chipInk(color), border: `1px solid ${color}55` }}
-                    >
-                      {signo}
-                    </span>
-                    {partido.golesFavor !== null && partido.golesContra !== null && (
-                      <span className="mt-0.5 text-[11px] tabular-nums text-white/70">
-                        {partido.golesFavor}-{partido.golesContra}
-                      </span>
-                    )}
+                    {signo}
                   </span>
-                );
-              })}
+                  {partido.golesFavor !== null && partido.golesContra !== null && (
+                    <span className="mt-1 text-[12px] font-medium tabular-nums text-white/70">
+                      {partido.golesFavor}-{partido.golesContra}
+                    </span>
+                  )}
+                </span>
+              );
+            })}
       </span>
-      {!cargando && ultimo && ultimo.golesFavor !== null && ultimo.golesContra !== null && (
-        /* Con fecha y jornada (07/11/2026, análisis), a 12 px y con contraste normal. */
-        <span className="basis-full text-[12px] text-white/70 sm:basis-auto">
-          El último: <span className="font-semibold text-white/85">{ultimo.golesFavor}-{ultimo.golesContra} {ultimo.lado === "casa" ? "en casa con" : "en"} {ultimo.rival}</span>
-          {(() => {
-            const cuando = [ultimo.jornada ? `jornada ${ultimo.jornada}` : "", diaCorto(ultimo.cuando)].filter(Boolean).join(", ");
 
-            return cuando ? <span className="text-white/65"> · {cuando}</span> : null;
+      {!cargando && ultimo && ultimo.golesFavor !== null && ultimo.golesContra !== null && (
+        /* Con fecha y jornada (07/11/2026, análisis). */
+        <span className="text-[12.5px] leading-snug text-white/65">
+          El último: <span className="font-semibold text-white/90">{ultimo.golesFavor}-{ultimo.golesContra} {ultimo.lado === "casa" ? "en casa con" : "en"} {ultimo.rival}</span>
+          {(() => {
+            const cuando = [ultimo.jornada ? `J${ultimo.jornada}` : "", diaCorto(ultimo.cuando)].filter(Boolean).join(" · ");
+
+            return cuando ? <span> · {cuando}</span> : null;
           })()}
         </span>
       )}
@@ -893,60 +889,54 @@ function diaCorto(cuando: string) {
     .replace(",", "");
 }
 
-/** Nuestra fila de la tabla, en una línea. Lleva al equipo de un vistazo. */
+/** Nuestra fila de la tabla, en su tarjeta: el puesto en grande y la base debajo. Lleva al equipo de un vistazo. */
 function Clasificacion({ informe, jugados = 0 }: { informe: RespuestaPortada | null; jugados?: number }) {
   const fila = informe?.clasificacion ?? null;
 
   /* Con la lectura hecha y sin fila nuestra no hay nada que decir. */
   if (informe !== null && !fila) return null;
 
+  const pj = fila ? fila.ganados + fila.empatados + fila.perdidos : 0;
+
   return (
     <Link
       href="/data-analisis?area=equipo"
       onClick={() => trackModuleVisit("/data-analisis")}
-      className="group flex min-w-0 items-center gap-3"
+      className="portada-celda portada-viva group flex min-w-0 flex-col gap-2 p-4"
       title="El Castilla de un vistazo, en Data Análisis"
     >
-      <Trophy className="h-4 w-4 shrink-0 text-white/35 transition-colors group-hover:text-[#D8B45A]" />
-
-      <span className="text-[12px] font-semibold uppercase tracking-[0.2em] text-white/55">
-        Liga
+      <span className="flex items-center justify-between gap-2">
+        <span className="text-[12px] font-semibold uppercase tracking-[0.18em] text-white/60">
+          Liga
+          <span className="ml-1.5 font-medium normal-case tracking-normal text-white/55">· BeSoccer</span>
+        </span>
+        <Trophy className="h-4 w-4 shrink-0 text-white/40 transition-colors group-hover:text-[#D8B45A]" />
       </span>
 
       {informe === null ? (
-        <span className="h-5 w-40 animate-pulse rounded bg-white/10" />
+        <span className="h-10 w-40 animate-pulse rounded bg-white/10" />
       ) : fila ? (
-        <span className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-[13px] text-white/70">
-          <span className="fuente-club text-[26px] font-bold leading-none tabular-nums text-white">
-            {fila.puesto}º
-          </span>
-          <span className="text-white/60">de {fila.deCuantos}</span>
-          {/* La base pegada al puesto (30/10/2026): «12º de 20 · 12 pts en 9 partidos». */}
-          <span className="tabular-nums">
-            <span className="font-semibold text-white/85">{fila.puntos}</span> pts en {fila.ganados + fila.empatados + fila.perdidos} partidos
-          </span>
-          {/* En el móvil, en su propia línea (02/11/2026): partido a trozos se leía mal. */}
-          <span className="basis-full tabular-nums text-white/55 sm:basis-auto sm:text-white/70">
-            <span className="mr-2 hidden text-white/30 sm:inline">·</span>
-            {fila.ganados}V {fila.empatados}E {fila.perdidos}D
-            <span className="mx-2 text-white/30">·</span>
-            goles {fila.favor} a favor y {fila.contra} en contra
-          </span>
-          {/* La base (07/11/2026, análisis): «10 partidos» frente a «Jornada 11» parecía
-              una contradicción. Es la tabla tras los jugados, y dice de dónde sale. */}
-          <span className="basis-full text-[12px] text-white/60">
-            {/* Si el calendario ya tiene más partidos jugados que la tabla, se dice (expertos: 11 frente a 12 confundía). */}
-            {jugados > fila.ganados + fila.empatados + fila.perdidos && (
-              <span className="mr-1 font-semibold text-[#C8A96B]">
-                Sin la última jornada ({fila.ganados + fila.empatados + fila.perdidos} de {jugados}) ·
-              </span>
-            )}
-            <span className="sm:hidden">Tras los {fila.ganados + fila.empatados + fila.perdidos} jugados · BeSoccer</span>
-            <span className="hidden sm:inline">
-              Clasificación tras los {fila.ganados + fila.empatados + fila.perdidos} partidos ya jugados, sin contar el que viene · BeSoccer
+        <>
+          <span className="flex flex-wrap items-baseline gap-x-2">
+            <span className="fuente-club text-[40px] font-bold leading-[0.9] tabular-nums text-white">{fila.puesto}º</span>
+            <span className="text-[14px] text-white/65">de {fila.deCuantos}</span>
+            <span className="ml-auto text-[14px] tabular-nums text-white/70">
+              <span className="fuente-club text-[24px] font-bold text-white">{fila.puntos}</span> pts
             </span>
           </span>
-        </span>
+
+          {/* La base pegada a la cifra: partidos, balance y goles. */}
+          <span className="text-[12.5px] leading-snug tabular-nums text-white/65">
+            {pj} partidos · {fila.ganados}V {fila.empatados}E {fila.perdidos}D · {fila.favor} goles a favor y {fila.contra} en contra
+          </span>
+
+          {/* Si el calendario ya tiene más partidos jugados que la tabla, se dice (expertos: 11 frente a 12 confundía). */}
+          {jugados > pj && (
+            <span className="text-[12px] font-semibold" style={{ color: "var(--rmcf-gold-ink)" }}>
+              Sin la última jornada ({pj} de {jugados})
+            </span>
+          )}
+        </>
       ) : null}
     </Link>
   );
