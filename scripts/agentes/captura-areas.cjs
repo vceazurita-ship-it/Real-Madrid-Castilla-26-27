@@ -42,6 +42,10 @@ const GRUPOS = {
   foco7: ["/scout-rival-abp"],
   informes: ["exportables de /abp-pizarra (PDF general, PowerPoint y PDF de cada jugador, en pizarra/)", "informe de ABP de la semana (/abp-microciclo)", "informe del partido previa y post (/microcycles)"],
   nuevo: ["/comparative_ind", "/scout-rival-individual?vista=visionados", "/data-analisis?area=todos"],
+  /* Ronda 17 (16/11/2026): las tres secciones del menú. */
+  partidomenu: ["/match-preparation", "/duelos", "/pizarra-tactica"],
+  balonparado: ["/setpieces", "/setpieces_def", "/throw-ins", "/throw-ins-def", "/abp-microciclo", "/abp-pizarra", "/laboratorio/abp"],
+  analisis: ["/coding", "/match-plans", "/laboratorio/transiciones", "/laboratorio/perdidas", "/laboratorio/faltas", "/analisis-goles", "/collective_history", "/data-analisis"],
   mejora: ["/individual (ficha → pestaña Área de mejora)", "/data-analisis?area=equipo (mapa «Progresar y pisar área»)"],
 };
 module.exports = { GRUPOS };
