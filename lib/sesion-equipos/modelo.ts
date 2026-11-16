@@ -294,6 +294,12 @@ export type SesionEquipos = {
   creadaEn: string;
   /** Firmas de las tareas del microciclo que se quitaron en la sesión (24/10/2026): el microciclo propone quitarlas. */
   planQuitadas?: string[];
+  /**
+   * Los porteros que traía la lista (16/11/2026), sólo por su nombre: llevan
+   * un registro independiente, con su entrenador. No entran en los equipos
+   * ni en ningún recuento de la sesión. Ver `apartaPorteros`.
+   */
+  porteros?: string[];
 };
 
 export type AlmacenEquipos = {
@@ -379,10 +385,24 @@ export type ListaLeida = {
   jugadores: Omit<JugadorSesion, "id">[];
   /** Nombres que salen dos veces en la lista: el validador los enseña. */
   repetidos: string[];
+  /**
+   * Los que la lista marca como porteros (16/11/2026): un apartado
+   * «PORTEROS:» o la etiqueta «(POR)» junto al nombre. Van aparte, no a la
+   * lista de jugadores.
+   */
+  porteros: string[];
 };
 
 /** Un apartado de disponibles: «LISTADO DE JUGADORES», «CONVOCADOS»… */
 const ES_DISPONIBLE = /jugador|convocad|listado|disponible|plantilla/i;
+
+/** Un apartado de porteros: «PORTEROS», «PORTEROS (3)». */
+const ES_APARTADO_PORTEROS = /porter/i;
+
+/** La etiqueta de portero entre paréntesis: «(POR)», «(PORTERO)», «(GK)». */
+export function esEtiquetaDePortero(etiqueta?: string) {
+  return /^(POR|PORT|PORTERO|GK|PT)\.?$/i.test(String(etiqueta ?? "").trim());
+}
 
 function capitaliza(texto: string) {
   const t = texto.trim().toLowerCase();
@@ -453,6 +473,7 @@ export function leeLista(texto: string): ListaLeida {
   let apartado: string | null = null;
 
   const jugadores: Omit<JugadorSesion, "id">[] = [];
+  const porteros: string[] = [];
   const vistos = new Map<string, number>();
 
   const anota = (crudo: string) => {
@@ -463,6 +484,13 @@ export function leeLista(texto: string): ListaLeida {
     const clave = claveNombre(nombre);
 
     if (!clave) return;
+
+    /* 16/11/2026: los porteros llevan su registro aparte; se apuntan y no entran. */
+    if ((apartado && ES_APARTADO_PORTEROS.test(apartado)) || esEtiquetaDePortero(etiqueta)) {
+      if (!porteros.some((p) => claveNombre(p) === clave)) porteros.push(nombre);
+
+      return;
+    }
 
     vistos.set(clave, (vistos.get(clave) ?? 0) + 1);
 
@@ -506,7 +534,7 @@ export function leeLista(texto: string): ListaLeida {
     .filter((j, i, todos) => (vistos.get(claveNombre(j.nombre)) ?? 0) > 1 && todos.findIndex((x) => claveNombre(x.nombre) === claveNombre(j.nombre)) === i)
     .map((j) => j.nombre);
 
-  return { titulo: titulo || "Sesión", fecha: fechaDe(titulo), jugadores, repetidos };
+  return { titulo: titulo || "Sesión", fecha: fechaDe(titulo), jugadores, repetidos, porteros };
 }
 
 /* ------------------------------------------------------------------ */
@@ -552,6 +580,7 @@ export function nuevaSesion(texto: string): SesionEquipos {
     jugadores,
     tareas: [nuevaTarea(1, jugadores)],
     creadaEn: new Date().toISOString(),
+    ...(lista.porteros.length ? { porteros: lista.porteros } : {}),
   };
 }
 
@@ -607,14 +636,53 @@ export function actualizaLista(sesion: SesionEquipos, texto: string): SesionEqui
     return { ...t, sitio };
   });
 
+  /* Los porteros, los de la lista nueva (16/11/2026): lo que se apartó por la
+     plantilla se vuelve a apartar con `apartaPorteros` al guardar y al leer. */
+  const resto: SesionEquipos = { ...sesion };
+
+  delete resto.porteros;
+
   return {
-    ...sesion,
+    ...resto,
     titulo: lista.titulo || sesion.titulo,
     ...(lista.fecha ? { fecha: lista.fecha } : {}),
     texto,
     jugadores,
     tareas,
+    ...(lista.porteros.length ? { porteros: lista.porteros } : {}),
   };
+}
+
+/**
+ * FUERA LOS PORTEROS (16/11/2026).
+ *
+ * El analista: «a los porteros que no los contabilice ni en el seguimiento ni
+ * en jugadores sesión, que llevan un registro independiente». Quien
+ * `esPortero` diga (el puesto de la sesión: a mano, su ficha o la plantilla)
+ * sale de la lista y de todas las tareas —equipo, hueco, pareja y el cambio
+ * a mitad, con `quitaJugador`— y queda sólo su nombre en `porteros`. Sirve
+ * también para lo guardado antes con un portero dentro de un equipo: al leer
+ * la sesión se le saca sin romper nada. Sin porteros, devuelve la misma
+ * sesión (mismo objeto), para no rehacer lo que depende de ella.
+ */
+export function apartaPorteros(sesion: SesionEquipos, esPortero: (j: JugadorSesion) => boolean): SesionEquipos {
+  const fuera = sesion.jugadores.filter(esPortero);
+
+  if (!fuera.length) return sesion;
+
+  let salida = sesion;
+
+  for (const j of fuera) salida = quitaJugador(salida, j.id);
+
+  const nombres = [...(sesion.porteros ?? [])];
+
+  for (const j of fuera) {
+    const nombre = limpiaJugador(j).nombre;
+
+    if (!nombres.some((n) => claveNombre(n) === claveNombre(nombre))) nombres.push(nombre);
+  }
+
+  return { ...salida, porteros: nombres };
 }
 
 /** Cambia el número de equipos; los de los equipos que se quitan, sin sitio. */

@@ -105,6 +105,7 @@ import {
   FUERA,
   PUESTOS,
   actualizaLista,
+  apartaPorteros,
   ajustaComodines,
   completaReparto,
   conEquipos,
@@ -1276,8 +1277,19 @@ function useTrabajoEnMarcha(titulo: string) {
   );
 }
 
-function LecturaLista({ texto, sesion }: { texto: string; sesion?: SesionEquipos | null }) {
-  const lista = useMemo(() => leeLista(texto), [texto]);
+function LecturaLista({ texto, sesion, esPorteroNombre }: { texto: string; sesion?: SesionEquipos | null; esPorteroNombre?: (nombre: string) => boolean }) {
+  const leida = useMemo(() => leeLista(texto), [texto]);
+
+  /* 16/11/2026: los porteros (marcados en la lista o por la plantilla) van aparte y no cuentan. */
+  const lista = useMemo(() => {
+    if (!esPorteroNombre) return leida;
+
+    const deLaPlantilla = leida.jugadores.filter((j) => esPorteroNombre(j.nombre)).map((j) => j.nombre);
+
+    return deLaPlantilla.length
+      ? { ...leida, jugadores: leida.jugadores.filter((j) => !esPorteroNombre(j.nombre)), porteros: [...leida.porteros, ...deLaPlantilla] }
+      : leida;
+  }, [leida, esPorteroNombre]);
 
   if (!texto.trim()) return null;
 
@@ -1306,6 +1318,7 @@ function LecturaLista({ texto, sesion }: { texto: string; sesion?: SesionEquipos
               </span>
             ))}
           </p>
+          {lista.porteros.length > 0 && <p className="text-white/50">Porteros aparte: {lista.porteros.join(", ")}</p>}
           {lista.repetidos.length > 0 && (
             <p className="flex items-start gap-1.5 text-amber-200">
               <AlertTriangle size={13} className="mt-0.5 shrink-0" /> Sale dos veces: {lista.repetidos.join(", ")}
@@ -1533,7 +1546,59 @@ export default function JugadoresSesionPage() {
   const deHoy = !fechaDeLaDireccion && semanaHoy?.diaDeTrabajo ? semanaHoy.diaDeTrabajo : null;
   const fechaPedida = fechaDeLaDireccion ?? deHoy?.fecha ?? null;
 
-  const sesion = sesiones.find((s) => s.id === sesionId) ?? (fechaPedida ? sesionDeFecha(sesiones, fechaPedida) : null) ?? sesiones[0] ?? null;
+  const sesionGuardada = sesiones.find((s) => s.id === sesionId) ?? (fechaPedida ? sesionDeFecha(sesiones, fechaPedida) : null) ?? sesiones[0] ?? null;
+
+  const fichasPlantilla = useMemo(() => plantilla.map((p) => ({ nombre: p.nombre, apodo: p.apodo, posicion: p.posicion })), [plantilla]);
+
+  /* Lo aprendido de todas las sesiones (dónde coloca el cuerpo técnico a cada uno y lo que se le ha puesto a mano). */
+  const aprendido = useMemo(() => aprendePosiciones(almacen), [almacen]);
+
+  /*
+  | El puesto de cada uno (02/11/2026, lib/sesion-equipos/puestos.ts): a mano
+  | en la sesión > fijado en su ficha > para los que suben del RMC o del
+  | Juvenil A, lo aprendido y después la plantilla; para los del Castilla, la
+  | plantilla y después lo aprendido. Con lo que necesita la colocación
+  | colgado: dónde juega cada uno y su grupo fino para repartir parejo.
+  */
+  const puestos = useMemo(
+    () => puestosDeLaSesion(sesionGuardada?.jugadores ?? [], fichasPlantilla, almacen, aprendido),
+    [sesionGuardada, fichasPlantilla, almacen, aprendido],
+  );
+
+  const { puestosAuto, fichas: demarcacionesAuto, demarcacionDe, puestoDe, resuelve: origenDeDemarcacion } = puestos;
+
+  /*
+  | LOS PORTEROS, APARTE (16/11/2026). El analista: «a los porteros que no
+  | los contabilice ni en jugadores sesión, que llevan un registro
+  | independiente». Toda la pantalla trabaja sobre esta sesión sin porteros:
+  | ni en los equipos, ni en el reparto, ni en las cifras. Lo guardado antes
+  | con un portero dentro de un equipo se lee sin él (`apartaPorteros`); sólo
+  | queda su nombre en «Porteros aparte».
+  */
+  const sesion = useMemo(
+    () => (sesionGuardada ? apartaPorteros(sesionGuardada, (j) => puestoDe(j) === "POR") : null),
+    [sesionGuardada, puestoDe],
+  );
+
+  /* Para lo que se pega (nueva sesión o lista nueva): fuera los porteros antes de guardar. */
+  const sinPorterosDeLista = useCallback(
+    (s: SesionEquipos) => {
+      const suyos = puestosDeLaSesion(s.jugadores, fichasPlantilla, almacen, aprendido).puestoDe;
+
+      return apartaPorteros(s, (j) => suyos(j) === "POR");
+    },
+    [fichasPlantilla, almacen, aprendido],
+  );
+
+  /* Lo mismo para la vista previa de la lista pegada, nombre a nombre. */
+  const esPorteroNombre = useCallback(
+    (nombre: string) => {
+      const j: JugadorSesion = { id: "vista-previa", nombre };
+
+      return puestosDeLaSesion([j], fichasPlantilla, almacen, aprendido).puestoDe(j) === "POR";
+    },
+    [fichasPlantilla, almacen, aprendido],
+  );
 
   const faltaLaPedida = Boolean(fechaPedida) && !sesionDeFecha(sesiones, fechaPedida ?? "");
 
@@ -1564,25 +1629,6 @@ export default function JugadoresSesionPage() {
   | y la plantilla quedaba al fondo, debajo de la diapositiva.
   */
   const [vista, setVista] = usePestanaUrl<"equipos" | "diapositivas" | "plantilla">("vista", ["equipos", "diapositivas", "plantilla"], "equipos");
-
-  const fichasPlantilla = useMemo(() => plantilla.map((p) => ({ nombre: p.nombre, apodo: p.apodo, posicion: p.posicion })), [plantilla]);
-
-  /* Lo aprendido de todas las sesiones (dónde coloca el cuerpo técnico a cada uno y lo que se le ha puesto a mano). */
-  const aprendido = useMemo(() => aprendePosiciones(almacen), [almacen]);
-
-  /*
-  | El puesto de cada uno (02/11/2026, lib/sesion-equipos/puestos.ts): a mano
-  | en la sesión > fijado en su ficha > para los que suben del RMC o del
-  | Juvenil A, lo aprendido y después la plantilla; para los del Castilla, la
-  | plantilla y después lo aprendido. Con lo que necesita la colocación
-  | colgado: dónde juega cada uno y su grupo fino para repartir parejo.
-  */
-  const puestos = useMemo(
-    () => puestosDeLaSesion(sesion?.jugadores ?? [], fichasPlantilla, almacen, aprendido),
-    [sesion, fichasPlantilla, almacen, aprendido],
-  );
-
-  const { puestosAuto, fichas: demarcacionesAuto, demarcacionDe, puestoDe, resuelve: origenDeDemarcacion } = puestos;
 
   const [elegido, setElegido] = useState<string | null>(null);
 
@@ -2305,7 +2351,7 @@ export default function JugadoresSesionPage() {
   };
 
   const creaSesion = () => {
-    const leida = nuevaSesion(texto);
+    const leida = sinPorterosDeLista(nuevaSesion(texto));
 
     if (!leida.jugadores.length) {
       toast.error("No he encontrado jugadores", {
@@ -2334,7 +2380,7 @@ export default function JugadoresSesionPage() {
     const bajas = nueva.jugadores.filter((j) => j.baja).length;
 
     toast.success(nueva.titulo, {
-      description: `${nueva.jugadores.length - bajas} jugadores${bajas ? ` y ${bajas} de baja` : ""}.${delPlan.length ? ` ${delPlan.length} ${delPlan.length === 1 ? "tarea" : "tareas"} del microciclo.` : ""}`,
+      description: `${nueva.jugadores.length - bajas} jugadores${bajas ? ` y ${bajas} de baja` : ""}.${delPlan.length ? ` ${delPlan.length} ${delPlan.length === 1 ? "tarea" : "tareas"} del microciclo.` : ""}${nueva.porteros?.length ? ` Porteros aparte: ${nueva.porteros.join(", ")}.` : ""}`,
     });
   };
 
@@ -2352,13 +2398,13 @@ export default function JugadoresSesionPage() {
 
     const antes = sesion.jugadores.length;
 
-    const nueva = actualizaLista(sesion, texto);
+    const nueva = sinPorterosDeLista(actualizaLista(sesion, texto));
 
     cambiaSesion(sesion.id, () => nueva);
     setDialogo(null);
 
     toast.success("Lista actualizada", {
-      description: `${nueva.jugadores.length} jugadores (antes ${antes}). Los que seguían conservan su sitio en cada tarea.`,
+      description: `${nueva.jugadores.length} jugadores (antes ${antes}). Los que seguían conservan su sitio en cada tarea.${nueva.porteros?.length ? ` Porteros aparte: ${nueva.porteros.join(", ")}.` : ""}`,
     });
   };
 
@@ -3501,6 +3547,12 @@ export default function JugadoresSesionPage() {
                       <span className="text-[10px] uppercase tracking-[0.14em] text-red-200/70">{bajas.length === 1 ? "baja" : "bajas"}</span>
                     </span>
                   )}
+                  {/* 16/11/2026: los porteros llevan su registro aparte; no cuentan en ninguna cifra. */}
+                  {sesion.porteros?.length ? (
+                    <span className="self-center px-1 text-[11px] text-white/50" title="Llevan un registro independiente, con su entrenador: no entran en los equipos ni en las cifras">
+                      Porteros aparte: {sesion.porteros.join(", ")}
+                    </span>
+                  ) : null}
                   {sesion.tareas.length > 0 &&
                     (() => {
                       const listas = estadoTareas.filter((a) => tareaLista(a) && !a.some((x) => x.nivel === "aviso")).length;
@@ -3710,7 +3762,7 @@ export default function JugadoresSesionPage() {
                     aria-label="Lista del día"
                     className="w-full resize-y rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 font-mono text-[13px] text-white outline-none placeholder:text-white/20 focus:border-[#C8A96B]/50"
                   />
-                  <LecturaLista texto={texto} />
+                  <LecturaLista texto={texto} esPorteroNombre={esPorteroNombre} />
                   <div className="mt-3 flex flex-wrap justify-end gap-2">
                     <Button icon={ClipboardPaste} onClick={() => void pegaPortapapeles()} title="Pega lo que hayas copiado del grupo">
                       Pegar del portapapeles
@@ -5212,7 +5264,7 @@ export default function JugadoresSesionPage() {
             aria-label="Lista del día"
             className="w-full resize-y rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 font-mono text-[13px] text-white outline-none placeholder:text-white/20 focus:border-[#C8A96B]/50"
           />
-          <LecturaLista texto={texto} sesion={dialogo === "lista" ? sesion : null} />
+          <LecturaLista texto={texto} sesion={dialogo === "lista" ? sesion : null} esPorteroNombre={esPorteroNombre} />
         </Dialog>
       )}
 

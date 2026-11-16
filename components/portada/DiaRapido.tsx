@@ -32,6 +32,7 @@ import { aplicaPropuesta, propuestaCognitiva } from "@/lib/registro/propuesta";
 import type { RegistroTarea } from "@/lib/abp/registro";
 import { SeguimientoRapido } from "@/components/seguimiento/SeguimientoRapido";
 import { usePlayers } from "@/hooks/usePlayers";
+import { esDeSeguimiento } from "@/lib/seguimiento";
 import { filasPublicadasDelMicro, loadRegistro } from "@/lib/abp/registro";
 import { fechaIsoDeHoja, filasDelMicro, microDeFilas, revisaMicro, type MicroNuevo, type TareaNueva } from "@/lib/registro/hoja";
 
@@ -61,7 +62,8 @@ export function DiaRapido({ fecha, titulo, rotulo, onClose }: { fecha: string; t
   const jugadores = useMemo(
     () =>
       players
-        .filter((p) => p.esCastilla && p.activo !== false)
+        /* 16/11/2026: sin porteros, que llevan su registro aparte (`esDeSeguimiento`). */
+        .filter((p) => esDeSeguimiento(p) && p.activo !== false)
         .map((p) => ({ id: p.id, nombre: p.apodo || p.nombre, foto: p.foto, posicion: p.posicion }))
         .sort((a, b) => a.nombre.localeCompare(b.nombre, "es")),
     [players],

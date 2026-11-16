@@ -331,6 +331,7 @@ export const AYUDAS: AyudaDePagina[] = [
       DE_DONDE_SALE,
     ],
     ojo: [
+      "En «Entrenamiento y partido», «El trabajo individual» cruza los seguimientos con los minutos de los jugadores de campo: los porteros no entran, llevan un registro independiente (16/11/2026).",
       "Cada evento de Opta (saque, remate, penalti, acción) se pincha y abre su vídeo en Opta ProVision: el Event Log del partido filtrado a esa parte y ese segundo, con el vídeo abierto (8 s antes y después). Hace falta la sesión de Opta abierta; si Opta no tiene el vídeo de ese partido, ProVision lo dice (16/11/2026).",
       "Con pocos partidos jugados, un puesto en la tabla se mueve mucho por un solo resultado.",
       "Una cifra por 90 de alguien con pocos minutos es una tendencia, no un retrato: por eso el mínimo.",
@@ -836,6 +837,7 @@ export const AYUDAS: AyudaDePagina[] = [
           },
           { que: "Dorsal", es: "Sale de su columna, no del orden de la fila" },
           { que: "Puesto", es: "Se corrige con lib/posiciones.ts: la hoja guarda números de rol" },
+          { que: "Porteros", es: "Su ficha sigue aquí, pero no cuentan en las cifras de seguimiento ni salen en «Replicar en más jugadores»: llevan un registro independiente, con su entrenador", cuenta: "Portero = puesto PORTERO, 1 o 13 (o POR, GK). «Con algún seguimiento», el total de registros y la mediana son de los jugadores de campo" },
         ],
       },
       {
@@ -877,7 +879,7 @@ export const AYUDAS: AyudaDePagina[] = [
         ],
       },
     ],
-    revisada: "2026-11-15",
+    revisada: "2026-11-16",
   },
   {
     ruta: "/individual_proc",
@@ -889,7 +891,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "A quién cuenta",
         filas: [
-          { que: "Jugadores de campo del Castilla", es: "Sólo licencia del Castilla y sin porteros: los del RMC y del juvenil llevan su seguimiento en su equipo", cuenta: "El filtro va antes de todo: cifras, gráficos, listas y CSV" },
+          { que: "Jugadores de campo del Castilla", es: "Sólo licencia del Castilla y sin porteros (puesto PORTERO, 1 o 13), que llevan un registro independiente; los del RMC y del juvenil llevan su seguimiento en su equipo", cuenta: "El filtro va antes de todo: cifras, gráficos, listas y CSV" },
           { que: "El nombre manda sobre el ID", es: "Cada registro se ata a su jugador por nombre: los JUG-XX se han renumerado" },
           { que: "Filtros", es: "Jugador, posición, entrenador y búsqueda; estrategia, modalidad, momento, mes y semana van en «Más filtros»", cuenta: "Semana de temporada: de lunes a domingo, desde la del 8 de julio" },
         ],
@@ -1027,7 +1029,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Índice", es: "Media de sus percentiles en las métricas de su puesto contra los de su puesto del grupo elegido", cuenta: "De 0 a 100; 50 = la media. Con 90′ o más; el portero, sólo contra porteros" },
           { que: "Ranking", es: "Su puesto entre los de su posición del grupo; «2º-3º de 34» = empatado en índice" },
           { que: "Evolución (pts)", es: "Puntos de índice frente a 25/26, cada año contra su categoría", cuenta: "Entre −3 y +3, estable; «nuevo» = sin minutos el año pasado. «Mejoran respecto a 25/26» pide 450′ el año pasado" },
-          { que: "Nota · Nº seguim.", es: "Su nota media en Valoraciones y sus registros de seguimiento" },
+          { que: "Nota · Nº seguim.", es: "Su nota media en Valoraciones y sus registros de seguimiento", cuenta: "Los porteros no cuentan registros de seguimiento: llevan uno independiente" },
           { que: "Gráficos por fase", es: "Una pregunta por fase del juego o dos métricas a elegir; las líneas son las medianas del grupo elegido", cuenta: "Se ve como dispersión, mapa de élite o ranking; con porteros arriba, sólo lo de portero" },
           { que: "Ficha del jugador", es: "Radiografía de percentiles, los mejores del puesto en la categoría y la proyección edad-nivel" },
           { que: "Contra otros equipos", es: "Uno de los nuestros frente a los de su puesto de los equipos que elijas, con 90′ o más", cuenta: "Percentil contra todos los de su puesto de la categoría con 90′ o más" },
@@ -2274,7 +2276,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Cuenta atrás", es: "Días, horas y minutos hasta la hora de Madrid del partido; sin hora fijada, sólo los días" },
           { que: "La tira de días", es: "Del día después del partido anterior al del próximo; hoy en dorado, el partido recuadrado", cuenta: "MD = día de partido; MD-3 = tres días antes" },
           { que: "«libre»", es: "Día sin tareas en el microciclo escrito. Si aún no hay microciclo, es la propuesta habitual" },
-          { que: "Pinchar un día", es: "Abre su sesión para poner tiempo, intensidad, evaluación y análisis post, o un seguimiento individual o de grupo" },
+          { que: "Pinchar un día", es: "Abre su sesión para poner tiempo, intensidad, evaluación y análisis post, o un seguimiento individual o de grupo", cuenta: "En el seguimiento sólo se eligen jugadores de campo del Castilla: los porteros llevan su registro aparte" },
           { que: "El botón de hoy", es: "Los contenidos de la sesión de hoy escritos en la hoja de registro; sin sesión escrita no sale" },
           { que: "Microciclo · día 3 de 7", es: "Cuánto se ha recorrido de la semana, cuántas sesiones quedan y qué días son libres" },
           { que: "Los botones", es: "Plantilla del rival, Plan de partido, Microciclo ABP, Desplazamiento (sólo fuera) y Pizarra táctica a pantalla completa con los dos onces" },
@@ -2374,6 +2376,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Jue 12/11 · MD-1 · Tarea 1, Analítica: 21 disponibles · 2 equipos", es: "El titular: fecha, MD y la tarea abierta con su nombre, quién está y cuántos equipos («sin equipos» mientras no hay nadie colocado)" },
           { que: "Diapositivas y exportar", es: "El botón en oro de la barra de la sesión: lleva a la pestaña de diapositivas (ver, presentar, exportar)" },
           { que: "disponibles · bajas · tareas listas", es: "Las cifras del día; las bajas, con su motivo al pasar por encima", cuenta: "Tareas listas = tareas sin nada que corregir ÷ tareas" },
+          { que: "Porteros aparte: X, Y", es: "Los porteros no entran en los equipos, ni en el reparto, ni en las cifras de la sesión: llevan un registro independiente, con su entrenador", cuenta: "Se apartan si la lista los marca (apartado «PORTEROS:» o «(POR)» junto al nombre) o si su puesto es de portero (a mano, su ficha o la plantilla). Lo guardado antes con un portero en un equipo se lee sin él" },
           { que: "Las tareas del microciclo", es: "Al crear la sesión las tareas salen del plan de ese día, con equipos y comodines de su formato; casan con la hoja por nombre antes que por código" },
           { que: "Traer", es: "Si el plan cambió (tareas que faltan, nombres u orden), las añade y las ata sin mover a nadie; se puede deshacer" },
           { que: "Punto de cada tarea", es: "Verde, lista; ámbar, con avisos; rojo, falta algo" },
@@ -2384,10 +2387,10 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           { que: "En un toque", es: "2 equipos, 2 + 1 comodín, 2 + 2 comodines, 3 grupos, 3 + 2 comodines o 4 rondos: pone la forma y propone el reparto" },
           { que: "Más · criterio · repetir reparto", es: "El criterio del reparto y «Como el 28 oct» o copiar de otra tarea, de hoy o de otro día, casado por nombre" },
-          { que: "Proponer equipos / Otra propuesta", es: "Reparte a todos los que hacen la tarea con el criterio elegido (P)", cuenta: "Porteros separados y los comodines rotan entre quienes menos lo han sido; debajo sale una línea por equipo que explica el reparto" },
+          { que: "Proponer equipos / Otra propuesta", es: "Reparte a todos los que hacen la tarea con el criterio elegido (P)", cuenta: "Sin porteros (van aparte) y los comodines rotan entre quienes menos lo han sido; debajo sale una línea por equipo que explica el reparto" },
           { que: "Titulares vs suplentes", es: "El once de la pizarra táctica (tablero «Once 4-2-3-1») en un equipo y los suplentes en el otro", cuenta: "Casado por nombre con la lista; si el once no llena el equipo, entran suplentes de la línea que falta" },
           { que: "Mezcla parcial / total", es: "Parcial: el porcentaje del deslizador cambia titulares de lado, cada uno por un suplente de su línea (100 % = mitad y mitad). Total: titulares a partes iguales y líneas parejas, al azar" },
-          { que: "Por líneas", es: "Cada equipo con portero, defensas, medios y arriba; laterales y centrales repartidos" },
+          { que: "Por líneas", es: "Cada equipo con defensas, medios y arriba; laterales y centrales repartidos" },
           { que: "Reparto propuesto / Criterio elegido", es: "Encima de los equipos: el criterio con que salieron (o el elegido, si se hicieron a mano) y cuántos hay en cada equipo" },
           { que: "11/10 en rojo", es: "Contador de cada campo: jugadores de campo del equipo / huecos del dibujo, contando a los que comparten puesto", cuenta: "Verde si cuadra; ámbar si falta alguien o las líneas no van parejas; rojo si hay más que huecos (al pasar, quiénes comparten): amplía el dibujo o pasa a uno" },
           { que: "X pasa a Naranja y Y a Amarillo", es: "El arreglo de un toque de las líneas descompensadas, con el sentido del cambio" },
@@ -2405,7 +2408,7 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "El validador",
         filas: [
           { que: "Rojo", es: "Falta alguien por colocar, hay un equipo vacío o un nombre repetido en la lista" },
-          { que: "Ámbar", es: "Equipos o líneas descompensados, porteros juntos, colores repetidos o comodines que no cuadran", cuenta: "Línea descompensada: dos o más de diferencia entre equipos en defensas, medios, extremos o delanteros" },
+          { que: "Ámbar", es: "Equipos o líneas descompensados, colores repetidos o comodines que no cuadran", cuenta: "Línea descompensada: dos o más de diferencia entre equipos en defensas, medios, extremos o delanteros" },
           { que: "La tarea pide 14 (6v6+2) y hay 11 colocados", es: "El formato escrito en la hoja contra los colocados; no se compara si la tarea se renombró o tiene otros equipos" },
           { que: "La tarea lleva 2 · hay 3", es: "Comodines de más o de menos, con el botón que dice a quién mueve" },
           { que: "Com. y Fuera", es: "En la plantilla del día, en cuántas tareas ha sido comodín o no ha participado cada uno" },
@@ -2700,7 +2703,6 @@ export const AYUDAS: AyudaDePagina[] = [
     ojo: [
       "Los documentos publicados con la web no se borran desde aquí: se corrigen subiendo uno con el mismo identificador, y al borrar el subido vuelve el original.",
     ],
-    revisada: "2026-11-12",
   },
 
   /* ==================== CALENDARIO DE SEGUIMIENTO (12/11/2026) ==================== */
@@ -2713,10 +2715,10 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Las cifras del mes",
         filas: [
-          { que: "Seguimientos en (mes)", es: "Registros del mes que se mira; si es el mes en curso, hasta hoy", cuenta: "Debajo, el mes anterior al mismo día (o entero), lo programado después de hoy y el total de la temporada, con el Castilla y los de otros equipos aparte" },
-          { que: "Jugadores con seguimiento", es: "Jugadores distintos con algún registro ese mes", cuenta: "Debajo, cuántos son del Castilla de los que tiene la plantilla" },
+          { que: "Seguimientos en (mes)", es: "Registros del mes que se mira; si es el mes en curso, hasta hoy", cuenta: "Debajo, el mes anterior al mismo día (o entero), lo programado después de hoy y el total de la temporada, con el Castilla y los de otros equipos aparte. Los porteros no cuentan: llevan un registro independiente y sus registros no se pintan" },
+          { que: "Jugadores con seguimiento", es: "Jugadores distintos con algún registro ese mes", cuenta: "Debajo, cuántos son de los jugadores de campo del Castilla" },
           { que: "Por tipo", es: "Registros del mes por estrategia: Campo, Vídeo, Charla, Vídeo y charla, Sin tipo escrito", cuenta: "Se lee de la columna ESTRATEGIA; «Sin tipo escrito» es lo que no trae ninguna de esas palabras" },
-          { que: "Todos los jugadores", es: "Filtra todo a un jugador; el Castilla primero y los de otros equipos aparte" },
+          { que: "Todos los jugadores", es: "Filtra todo a un jugador; el Castilla primero y los de otros equipos aparte; los porteros no salen" },
         ],
       },
       {

@@ -26,6 +26,7 @@ import {
 import type { FilaJugador, FilaPartido } from "@/lib/data-analisis/leer";
 import { esNuestro, evolucionDe } from "@/lib/data-analisis/individual";
 import { traeJson } from "@/lib/hojaCsv";
+import { esPortero } from "@/lib/seguimiento";
 import { Explicativo } from "@/components/ui/textos-analisis";
 
 /**
@@ -534,7 +535,8 @@ function TrabajoIndividual({ jugadores }: { jugadores: FilaJugador[] }) {
 
   const filas = useMemo(() => {
     const nuestros = jugadores.filter(
-      (j) => j.temporada === "actual" && esNuestro(j),
+      /* 16/11/2026: sin porteros, que llevan su registro aparte (`esPortero`). */
+      (j) => j.temporada === "actual" && esNuestro(j) && !esPortero(String(j.posicion ?? "").split(",")[0]),
     );
 
     return nuestros
