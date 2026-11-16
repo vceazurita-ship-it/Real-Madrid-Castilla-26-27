@@ -41,6 +41,7 @@ import {
 import { toast } from "sonner";
 
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
+import { useAdmin } from "@/hooks/useAdmin";
 import { useCalendario } from "@/hooks/useCalendario";
 import { comoNuestro } from "@/lib/castilla/calendario";
 import { nombreEquipo } from "@/lib/equipos";
@@ -74,13 +75,35 @@ type Video = {
   miniatura: string;
   publicado: string;
   posicion: number;
+  /** Segundos, si YouTube los ha dado (16/11/2026). */
+  duracion?: number;
 };
+
+/** 65 → «1:05». */
+const duracionLegible = (segundos?: number) =>
+  segundos && segundos > 0 ? `${Math.floor(segundos / 60)}:${String(Math.round(segundos % 60)).padStart(2, "0")}` : "";
+
+/*
+| EL MINUTO DEL CORTE (16/11/2026, jueces): si el título o la descripción lo
+| dicen («63'», «min 63», «63′»), sale en el pie: «J13 · 63′ · 0:42». El canal
+| no lo guarda aparte, así que si no está escrito no se pone.
+*/
+function minutoDe(video: Pick<Video, "titulo" | "descripcion">) {
+  const texto = `${video.titulo}\n${video.descripcion}`;
+  const m = /\b(?:min(?:uto)?\.?\s*)(\d{1,3})\b/i.exec(texto) ?? /\b(\d{1,3})\s*(?:'|′|’)(?!\w)/.exec(texto);
+  const minuto = m ? Number(m[1]) : NaN;
+
+  return Number.isFinite(minuto) && minuto >= 1 && minuto <= 130 ? `${minuto}′` : "";
+}
+
+/** «J13 · Real Murcia» → «J13»: en el pie, el rival ya está en el título de la pantalla. */
+const soloJornada = (etiqueta: string) => /^J\d+/.exec(etiqueta)?.[0] ?? etiqueta;
 
 /**
  * El título en bruto del canal a veces es sólo el dorsal o «CLUB Nº7» una vez quitado el nombre:
  * eso no dice qué mirar, así que se numera el corte.
  */
-function temaLegible(tema: string, posicion: number, descripcion = "") {
+function temaLegible(tema: string, _posicion: number, descripcion = "") {
   const limpio = tema
     .replace(/\bN[º°o]\s*\d+\b/gi, " ")
     .replace(/^\d+\b/, " ")
@@ -95,7 +118,8 @@ function temaLegible(tema: string, posicion: number, descripcion = "") {
     .map((l) => l.trim())
     .find((l) => l.length >= 8 && !/^https?:/i.test(l) && /\p{L}{4}/u.test(l));
 
-  return linea ? (linea.length > 90 ? `${linea.slice(0, 87)}...` : linea) : `Corte ${posicion + 1}`;
+  /* Sin nada que diga, nada (16/11/2026): «Corte 4» no enseñaba qué mirar; el pie ya da jornada y duración. */
+  return linea ? (linea.length > 90 ? `${linea.slice(0, 87)}...` : linea) : "";
 }
 
 /** Orden de los puestos para los chips: portero, defensa, medio, delantero; lo desconocido, al final. */
@@ -204,14 +228,21 @@ const fecha = (iso: string) => {
 | Y con la jornada se pone el nombre oficial del rival de esa jornada en
 | nuestro calendario (Atlético Madrileño, Algeciras…), no el que se tecleó.
 */
-function nombreDeLista(nombre: string, rivalDeJornada?: Map<number, string>) {
+function nombreDeLista(nombre: string, rivalDeJornada?: Map<number, string>, equiposTira: string[] = []) {
   const m = /^\s*J\s*0*(\d+)\s*[-·:]?\s*(.*)$/i.exec(nombre);
   const resto = (m ? m[2] : nombre).replace(/[\s·-]+INDIVIDUAL\s*$/i, "").trim();
   const delCalendario = m ? rivalDeJornada?.get(Number(m[1])) : undefined;
   /* Sólo si es el mismo equipo (comparten alguna palabra): una lista de otro
      equipo con número de jornada no se renombra con nuestro rival de ese día. */
-  const palabras = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 3);
-  const oficial = delCalendario && palabras(delCalendario).some((w) => palabras(resto).includes(w)) ? delCalendario : undefined;
+  /* «Nastic» es el Gimnàstic (16/11/2026): el apodo no comparte palabras con el nombre. */
+  const palabras = (t: string) =>
+    t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 3).map((w) => (w === "nastic" ? "gimnastic" : w));
+  const delMismo = delCalendario && (palabras(delCalendario).some((w) => palabras(resto).includes(w)) || mismoClub(delCalendario, resto)) ? delCalendario : undefined;
+  /*
+  | El nombre corto, el de la tira de escudos (16/11/2026, fútbol): el
+  | desplegable mezclaba «J12 · Nastic» con «J10 · FC Cartagena».
+  */
+  const oficial = delMismo ? (equiposTira.find((e) => mismoClub(e, delMismo)) ?? delMismo) : undefined;
   const chicas = new Set(["de", "del", "la", "el", "los", "las", "y"]);
   const bonito = oficial
     ? oficial
@@ -230,15 +261,20 @@ export function VideosDelCanal({
   equipo,
   plantilla,
   visionados = {},
+  equipos = [],
 }: {
   equipo: string;
   plantilla: JugadorPlantilla[];
+  /** Los nombres de la tira de escudos: el nombre corto de cada lista sale de aquí. */
+  equipos?: string[];
   /** Cuántas veces se ha abierto cada vídeo en la app, por su id (10/11/2026). */
   visionados?: Record<string, number>;
 }) {
   const [estado, setEstado] = useState<Estado>({ fase: "cargando" });
   const [busca, setBusca] = useState("");
   const [abierto, setAbierto] = useState<Video | null>(null);
+  /* Las vistas y el aviso de líneas sin cortes, sólo para el analista (16/11/2026, jueces). */
+  const { admin } = useAdmin();
 
   /* El rival oficial de cada jornada de nuestro calendario, para nombrar las listas (29/10/2026). */
   const { partidos } = useCalendario();
@@ -528,14 +564,14 @@ export function VideosDelCanal({
   const cargandoVideos = Boolean(listaId) && traidos.listaId !== listaId;
 
   /* El partido de la lista para el pie de cada ficha: «J12 · Gimnàstic de Tarragona». */
-  const etiquetaLista = lista ? nombreDeLista(lista.nombre, rivalDeJornada) : "";
+  const etiquetaLista = lista ? nombreDeLista(lista.nombre, rivalDeJornada, equipos) : "";
 
   /* ------------------- REPARTIDOS POR JUGADOR -------------------- */
 
   const termino = busca.trim().toLowerCase();
 
   const grupos = useMemo(() => {
-    const porJugador = new Map<string, { jugador: string; dorsal: string; puesto: string; titular: boolean; minutos: number; resumen: string; videos: Pieza[] }>();
+    const porJugador = new Map<string, { jugador: string; dorsal: string; puesto: string; titular: boolean; minutos: number; resumen: string; explotables: number; videos: Pieza[] }>();
 
     const sueltos: Pieza[] = [];
 
@@ -574,6 +610,7 @@ export function VideosDelCanal({
         titular: Boolean(jugador.titular),
         minutos: jugador.minutos ?? 0,
         resumen: resumenDeTemporada(jugador),
+        explotables: (jugador.etiquetas ?? []).filter(esEtiquetaDebil).length,
         videos: [],
       };
 
@@ -609,7 +646,8 @@ export function VideosDelCanal({
     () =>
       [...grupos.jugadores].sort(
         /* Dentro de cada puesto, primero los del once probable (08/11/2026, jueces): el miércoles se ve primero a quien va a jugar. */
-        (a, b) => rangoDePuesto(a.puesto) - rangoDePuesto(b.puesto) || Number(b.titular) - Number(a.titular) || b.minutos - a.minutos,
+        /* Y luego quien tiene más naranja, lo que podemos explotar (16/11/2026, fútbol): es lo que se enseña. */
+        (a, b) => rangoDePuesto(a.puesto) - rangoDePuesto(b.puesto) || Number(b.titular) - Number(a.titular) || b.explotables - a.explotables || b.minutos - a.minutos,
       ),
     [grupos.jugadores],
   );
@@ -642,10 +680,23 @@ export function VideosDelCanal({
     });
 
     return [
-      ...(hayOnce ? [linea(-1, "Once probable", titulares)] : []),
+      /* «Once probable · 5 con vídeo de 11» (16/11/2026, marketing), por línea: portero, defensa, medios, delanteros. */
+      ...(hayOnce ? [linea(-1, `Once probable · ${titulares.length} con vídeo de ${Math.max(titulares.length, plantilla.filter((j) => j.titular).length)}`, titulares)] : []),
       ...LINEAS.map((rotulo, rango) => linea(rango, rotulo, resto.filter((g) => rangoDePuesto(g.puesto) === rango))),
     ].filter((l) => l.unCorte.length > 0 || l.variosCortes.length > 0);
-  }, [jugadoresVisibles]);
+  }, [jugadoresVisibles, plantilla]);
+
+  /*
+  | LÍNEAS SIN CORTES, PARA EL ANALISTA (16/11/2026, fútbol): con cinco vídeos,
+  | todos de defensas, se le avisa de qué líneas faltan. Sólo con su sesión: el
+  | cuerpo técnico ve lo que hay.
+  */
+  const lineasSinCortes = useMemo(() => {
+    const conVideo = new Set(grupos.jugadores.map((g) => rangoDePuesto(g.puesto)));
+    const enPlantilla = new Set(plantilla.map((j) => rangoDePuesto(j.puesto ?? "")));
+
+    return [0, 1, 2, 3].filter((r) => enPlantilla.has(r) && !conVideo.has(r)).map((r) => LINEAS[r].toLowerCase());
+  }, [grupos.jugadores, plantilla]);
 
   /* Con varias líneas se rotula cada una; con una sola, el rótulo sobra. */
   const conRotulos = porLinea.length > 1;
@@ -820,6 +871,9 @@ export function VideosDelCanal({
           Lista del canal
         </span>
 
+        {/* Qué es la J (16/11/2026, fútbol): la de nuestro calendario, no la del rival. */}
+        <span className="text-[11px] text-white/50">J = nuestra jornada contra ese rival</span>
+
         <select
           value={lista?.id ?? ""}
           onChange={(evento) => {
@@ -843,7 +897,7 @@ export function VideosDelCanal({
 
           {estado.listas.map((item) => (
             <option key={item.id} value={item.id} className="bg-[#11161C]">
-              {nombreDeLista(item.nombre, rivalDeJornada)} · {item.cuenta} {item.cuenta === 1 ? "vídeo" : "vídeos"}
+              {nombreDeLista(item.nombre, rivalDeJornada, equipos)} · {item.cuenta} {item.cuenta === 1 ? "vídeo" : "vídeos"}
             </option>
           ))}
         </select>
@@ -977,10 +1031,10 @@ export function VideosDelCanal({
       {lista && !cargandoVideos && videos.length > 0 && (
         <p className="mt-3 text-[12px] text-white/55">
           En cada ficha:{" "}
-          <span className="font-semibold" style={{ color: MEJOR }}>verde = lo que hace bien</span>
+          <span className="font-semibold" style={{ color: MEJOR }}>▲ verde = lo que hace bien</span>
           {" · "}
-          <span className="font-semibold" style={{ color: PEOR }}>naranja = lo que podemos explotar</span>
-          . Los jugadores van por puesto.
+          <span className="font-semibold" style={{ color: PEOR }}>▼ naranja = lo que podemos explotar</span>
+          . Los jugadores van por puesto y, dentro, primero el once y quien más tiene que explotar.
         </p>
       )}
 
@@ -1096,7 +1150,7 @@ export function VideosDelCanal({
             conJugador
             equipo={equipo}
             etiqueta={etiquetaLista}
-            visionados={visionados}
+            visionados={admin ? visionados : {}}
             onAbrir={setAbierto}
             onCopiar={copiaEnlace}
           />
@@ -1115,6 +1169,12 @@ export function VideosDelCanal({
                 ? `${grupos.jugadores.length} ${grupos.jugadores.length === 1 ? "jugador" : "jugadores"} con vídeo, de los ${plantilla.length} de la plantilla`
                 : `${jugadoresVisibles.length} ${jugadoresVisibles.length === 1 ? "jugador" : "jugadores"} con vídeo`}
             </span>
+
+            {admin && !soloDe && !termino && lineasSinCortes.length > 0 && (
+              <span className="w-full text-[11px] text-white/55 sm:w-auto">
+                Sin cortes de {lineasSinCortes.join(", ").replace(/, ([^,]*)$/, " ni $1")} · sólo lo ves tú
+              </span>
+            )}
           </header>
 
           <div className="space-y-6">
@@ -1133,7 +1193,7 @@ export function VideosDelCanal({
                   <p className="mb-2 text-[11px] text-white/35">Un corte por jugador</p>
                 )}
 
-                <Rejilla piezas={unCorte} columnas={columnas} conJugador equipo={equipo} etiqueta={etiquetaLista} visionados={visionados} onAbrir={setAbierto} onCopiar={copiaEnlace} />
+                <Rejilla piezas={unCorte} columnas={columnas} conJugador equipo={equipo} etiqueta={etiquetaLista} visionados={admin ? visionados : {}} onAbrir={setAbierto} onCopiar={copiaEnlace} />
               </div>
             )}
 
@@ -1164,7 +1224,7 @@ export function VideosDelCanal({
                   {(() => {
                     const vistos = grupo.videos.reduce((suma, pieza) => suma + (visionados[pieza.video.id] ?? 0), 0);
 
-                    return vistos > 0 ? <span className="text-[11px] tabular-nums text-white/45">· {vistos} {vistos === 1 ? "vista" : "vistas"} en YouTube</span> : null;
+                    return admin && vistos > 0 ? <span className="text-[11px] tabular-nums text-white/45">· {vistos} {vistos === 1 ? "vista" : "vistas"} en YouTube</span> : null;
                   })()}
                 </div>
 
@@ -1173,7 +1233,7 @@ export function VideosDelCanal({
                   columnas={columnas}
                   equipo={equipo}
                   etiqueta={etiquetaLista}
-                  visionados={visionados}
+                  visionados={admin ? visionados : {}}
                   onAbrir={setAbierto}
                   onCopiar={copiaEnlace}
                 />
@@ -1472,30 +1532,31 @@ function Rejilla({
             {/* Qué mirar: su puesto y sus etiquetas de la ficha. */}
             {/* Las etiquetas son el criterio del analista, no una cifra: se
                 dice al pasar por ellas (30/10/2026, análisis). */}
-            {conJugador && (puesto || etiquetas.length > 0) && (
-              <p className="mb-1 line-clamp-3 text-[12px] leading-snug text-white/60">
-                {puesto}
-                {etiquetas.map((e, i) => (
-                  <span
-                    key={e}
-                    title="Lectura del analista, de la ficha del jugador"
-                    className="font-semibold"
-                    style={{ color: esEtiquetaDebil(e) ? PEOR : MEJOR }}
-                  >
-                    {puesto || i > 0 ? " · " : ""}
-                    {e}
-                  </span>
+            {/*
+            | LA LEYENDA PEGADA A LAS ETIQUETAS (16/11/2026, análisis y
+            | marketing): en el móvil la frase de arriba quedaba lejos. Cada
+            | grupo dice qué es: «▲ Hace bien» en verde, «▼ Explotable» en naranja.
+            */}
+            {conJugador && puesto && <p className="mb-0.5 text-[12px] leading-snug text-white/60">{puesto}</p>}
+            {conJugador &&
+              ([
+                { rotulo: "▲ Hace bien", color: MEJOR, lista: etiquetas.filter((e) => !esEtiquetaDebil(e)) },
+                { rotulo: "▼ Explotable", color: PEOR, lista: etiquetas.filter(esEtiquetaDebil) },
+              ] as const)
+                .filter((g) => g.lista.length > 0)
+                .map((g) => (
+                  <p key={g.rotulo} className="mb-0.5 line-clamp-2 text-[12px] leading-snug" style={{ color: g.color }} title="Lectura del analista, de la ficha del jugador">
+                    <span className="font-semibold">{g.rotulo}:</span> {g.lista.join(" · ")}
+                  </p>
                 ))}
-              </p>
-            )}
 
             {/* El título original del vídeo, en pequeño: lo que manda es quién es. */}
             {/* «Corte 14», el nombre del equipo o un título que sólo repite al jugador
                 («8 BLASSIS», «FC CARTAGENA Nº 20 RUBÉN») no dicen qué enseña el clip. */}
             {(() => {
               const repite = Boolean(jugador) && tituloSoloRepite(video.titulo, jugador, equipo);
-              const texto = repite ? `Corte ${video.posicion + 1}` : temaLegible(tema, video.posicion, video.descripcion);
-              const vacio = conJugador && jugador && (/^Corte \d+$/.test(texto) || (equipo && desnuda(texto) === desnuda(equipo)));
+              const texto = repite ? "" : temaLegible(tema, video.posicion, video.descripcion);
+              const vacio = !texto || (conJugador && jugador && (/^Corte \d+$/.test(texto) || (equipo && desnuda(texto) === desnuda(equipo))));
 
               return vacio ? null : (
                 <p className={`line-clamp-2 leading-snug ${conJugador ? "text-[11px] text-white/55" : "text-[13px] text-white/85"}`}>
@@ -1504,11 +1565,18 @@ function Rejilla({
               );
             })()}
 
-            {/* El pie (10/11/2026, jueces): de qué lista y qué corte es, y cuántas veces se ha visto.
-                El minuto del partido no viaja en el canal, así que no se pone. */}
+            {/* El pie (16/11/2026, jueces): «J13 · 63′ · 0:42», la jornada, el minuto si
+                el título lo dice y lo que dura; ya no «corte 4». Las vistas, sólo al analista. */}
             <div className="mt-1.5 flex items-center gap-2">
-              <span className="min-w-0 flex-1 truncate text-[11px] tabular-nums text-white/40">
-                {[etiqueta, `corte ${video.posicion + 1}`, visionados[video.id] ? `${visionados[video.id]} ${visionados[video.id] === 1 ? "vista" : "vistas"} en YouTube` : ""].filter(Boolean).join(" · ")}
+              <span className="min-w-0 flex-1 truncate text-[11px] tabular-nums text-white/50">
+                {[
+                  soloJornada(etiqueta),
+                  minutoDe(video),
+                  duracionLegible(video.duracion),
+                  visionados[video.id] ? `${visionados[video.id]} ${visionados[video.id] === 1 ? "vista" : "vistas"} en YouTube` : "",
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
               </span>
 
               <button
@@ -1579,9 +1647,11 @@ function PlantillaSinVideos({ equipo, plantilla }: { equipo: string; plantilla: 
 
               {(jugador.etiquetas?.length ?? 0) > 0 && (
                 <p className="mt-0.5 line-clamp-2 text-[12px] leading-snug">
+                  {/* Con su marca, como en las fichas con vídeo (16/11/2026). */}
                   {jugador.etiquetas!.map((e, i) => (
                     <span key={e} className="font-semibold" style={{ color: esEtiquetaDebil(e) ? PEOR : MEJOR }}>
                       {i > 0 ? " · " : ""}
+                      {esEtiquetaDebil(e) ? "▼ " : "▲ "}
                       {e}
                     </span>
                   ))}

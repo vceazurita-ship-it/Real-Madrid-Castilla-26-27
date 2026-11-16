@@ -3214,11 +3214,13 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Clips",
         filas: [
-          { que: "Rival", es: "La tira de escudos, ordenada por calendario: primero el próximo, con la chapa «Próximo» y su jornada" },
-          { que: "La lista", es: "Se empareja sola por el nombre del equipo; si no casa, se elige una vez y vale para todo el cuerpo técnico" },
-          { que: "Chips de jugador", es: "Índice y filtro: por puesto y, dentro, primero el once probable y luego por minutos", cuenta: "El número es cuántos cortes tiene; «Todos los vídeos» cuenta cortes, no jugadores" },
+          { que: "Rival", es: "Abre con el próximo (chapa «Próximo» y su jornada) y la tira plegada; «Cambiar equipo» despliega los escudos, ordenados por calendario" },
+          { que: "La lista", es: "Se empareja sola por el nombre del equipo; si no casa, se elige una vez y vale para todo el cuerpo técnico. Cada lista con el nombre corto del club (el de la tira) y «J» = nuestra jornada contra ese rival" },
+          { que: "Chips de jugador", es: "Índice y filtro: por puesto y, dentro, primero el once probable, luego quien más tiene que explotar (naranja) y luego por minutos", cuenta: "El número es cuántos cortes tiene; «Todos los vídeos» cuenta cortes, no jugadores" },
+          { que: "Once probable · N con vídeo de M", es: "Los titulares del once probable con algún corte, de los que tiene marcados en Plantillas rivales; por línea, del portero a la delantera" },
           { que: "Por jugador · Todos", es: "Agrupado por jugador, o todos los cortes seguidos" },
-          { que: "Ficha del corte", es: "Jugador, puesto, etiquetas y de qué va; abajo, la lista, el número de corte y las vistas en YouTube", cuenta: "Etiquetas: verde = lo que hace bien, naranja = lo que podemos explotar" },
+          { que: "Ficha del corte", es: "Jugador, puesto, etiquetas y de qué va (la acción, del título del vídeo); abajo, la jornada, el minuto si el título o la descripción lo dicen («63′») y lo que dura el corte", cuenta: "Etiquetas con su leyenda pegada: «▲ Hace bien» en verde y «▼ Explotable» en naranja. La duración la da YouTube; si no está escrito el minuto, no se pone" },
+          { que: "Sólo para el analista", es: "Con la sesión de administrador: las vistas en YouTube de cada corte y, en «Por jugador», de qué líneas no hay cortes" },
           { que: "Titular en X de Y", es: "Titularidades y partidos de la temporada, con los minutos de BeSoccer" },
           { que: "Del equipo", es: "Los cortes cuyo título no dice con seguridad de quién son" },
           { que: "Buscar · Copiar enlaces", es: "Busca en los títulos (córner, pérdida, un nombre…) y copia los enlaces de lo que se ve" },
@@ -3227,7 +3229,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Visionados",
         filas: [
-          { que: "Vistas en YouTube", es: "Vistas acumuladas de todos los clips del canal desde la jornada 1", cuenta: "«+» = vistas desde la foto anterior; se hace una al día" },
+          { que: "Vistas en YouTube", es: "Pestaña «Visionados en YouTube» (sin cifra en la pestaña): vistas acumuladas de todos los clips del canal desde la jornada 1", cuenta: "«+» = vistas desde la foto anterior; se hace una al día" },
           { que: "Clips vistos · Sin ver", es: "Cuántos clips tienen alguna vista y cuántos ninguna" },
           { que: "Vistas por clip", es: "La mediana de vistas por clip del canal" },
           { que: "El más visto", es: "El clip con más vistas, con su jugador y rival" },
@@ -3242,7 +3244,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Un dorsal repetido dentro del mismo rival en la hoja no se pinta en ninguno de los dos hasta corregirlo.",
       "/visionados lleva a esta pantalla, en la pestaña «Visionados».",
     ],
-    revisada: "2026-11-12",
+    revisada: "2026-11-16",
   },
 
   /* ==================== IDENTIDAD POSICIONAL (12/11/2026) ==================== */
