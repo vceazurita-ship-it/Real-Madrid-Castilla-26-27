@@ -2881,7 +2881,6 @@ export const AYUDAS: AyudaDePagina[] = [
       "Más carga no es mejor: un mes con más partidos baja la media a propósito.",
       "Entrenos y partidos se cuentan igual que en /calendar_general y /microcycles.",
     ],
-    revisada: "2026-11-16",
   },
   /* ==================== JUGADORES SESIÓN · DISPONIBILIDAD (12/11/2026) ==================== */
   {
@@ -3301,7 +3300,6 @@ export const AYUDAS: AyudaDePagina[] = [
       "Carga ponderada, carga cognitiva y demanda cognitiva son fórmulas de la hoja: no se mandan, las filas nuevas las heredan de la de arriba.",
       "El borrador se guarda en este navegador mientras se rellena; si ya está en la hoja o tiene más de tres semanas, se tira.",
     ],
-    revisada: "2026-11-16",
   },
 
   /* ==================== VÍDEO ANÁLISIS PARTIDOS (12/11/2026) ==================== */
