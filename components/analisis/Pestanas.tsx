@@ -14,7 +14,7 @@
 | la reescribe sin recargar ni añadir historial.
 */
 
-import { useEffect, useRef, useState, useSyncExternalStore, type ComponentType } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type ComponentType, type ReactNode } from "react";
 
 export type OpcionPestana<K extends string> = {
   clave: K;
@@ -83,12 +83,15 @@ export function Pestanas<K extends string>({
   onCambia,
   etiqueta,
   pegada = true,
+  final,
 }: {
   opciones: OpcionPestana<K>[];
   valor: K;
   onCambia: (k: K) => void;
   etiqueta: string;
   pegada?: boolean;
+  /** Algo al final de la tira, fuera del scroll (p. ej. un menú «Más»), 16/11/2026. */
+  final?: ReactNode;
 }) {
   /*
   | EL DEGRADADO, SÓLO DONDE HAY PESTAÑAS ESCONDIDAS (30/10/2026). Iba fijo en
@@ -134,7 +137,8 @@ export function Pestanas<K extends string>({
 
   return (
     <div style={pegada ? { top: "var(--alto-cabecera, 0px)" } : undefined} className={`${pegada ? "sticky z-20 -mx-4 bg-[#0B0F14] px-4 py-2 sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10" : ""}`}>
-      <div ref={tira} role="tablist" aria-label={etiqueta} className={`flex min-w-0 gap-1 overflow-x-auto border-b border-white/10 scrollbar-none ${mascara}`}>
+      <div className={final ? "flex min-w-0 items-stretch gap-1 border-b border-white/10" : undefined}>
+      <div ref={tira} role="tablist" aria-label={etiqueta} className={`flex min-w-0 gap-1 overflow-x-auto scrollbar-none ${final ? "flex-1" : "border-b border-white/10"} ${mascara}`}>
         {opciones.map(({ clave, label, corto, icono: Icono, cuenta }) => {
           const activa = clave === valor;
 
@@ -182,6 +186,8 @@ export function Pestanas<K extends string>({
             </button>
           );
         })}
+      </div>
+      {final}
       </div>
     </div>
   );

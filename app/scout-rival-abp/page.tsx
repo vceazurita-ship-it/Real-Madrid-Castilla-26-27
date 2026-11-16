@@ -16,7 +16,7 @@ import { EsqueletoPantalla } from "@/components/ui/estados";
  * Ver `lib/abp/rival.ts` y `lib/abp/rivalScout.ts`.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ComponentType } from "react";
 import {
   ChevronDown,
   Clapperboard,
@@ -26,6 +26,7 @@ import {
   Images,
   NotebookPen,
   LayoutDashboard,
+  MoreHorizontal,
   PenLine,
   Ruler,
   Shapes,
@@ -72,6 +73,7 @@ import { useOrdenRivales } from "@/hooks/useOrdenRivales";
 import { useLento } from "@/hooks/useLento";
 import { AvisoLento } from "@/components/rivals/AvisoLento";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
+import { useAdmin } from "@/hooks/useAdmin";
 import { AbpFamily, FAMILY_LABEL, teamKey } from "@/lib/abp/model";
 import {
   COMPETICION_LABEL,
@@ -153,6 +155,64 @@ const LAST_TEAM_KEY = "rmcf-abp-rival:equipo";
 
 const pct = (value: number) => `${value.toFixed(0)}%`;
 
+/*
+| TENDENCIA CON MENOS DE 15 ACCIONES (16/11/2026, análisis): un porcentaje de
+| peligro sobre 6 córners no es una fortaleza ni una carencia. Se pinta sin el
+| color de alarma y con «tendencia» al lado.
+*/
+const POCAS_ACCIONES = 15;
+
+/*
+| CUATRO PESTAÑAS DE LECTURA Y UN «MÁS» (16/11/2026, marketing): la tira
+| mezclaba lo que lee el cuerpo técnico con el trabajo del analista (apuntes,
+| coding, recoger, registrar). Lo segundo va a un menú; no se quita nada.
+*/
+function MenuMas<K extends string>({
+  opciones,
+  valor,
+  onCambia,
+}: {
+  opciones: { clave: K; label: string; icono: ComponentType<{ size?: number; className?: string }> }[];
+  valor: K;
+  onCambia: (k: K) => void;
+}) {
+  const activa = opciones.find((o) => o.clave === valor);
+
+  if (opciones.length === 0) return null;
+
+  return (
+    <details className="relative shrink-0 self-center [&_summary::-webkit-details-marker]:hidden">
+      <summary
+        className={`flex cursor-pointer list-none items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-semibold ${
+          activa ? "bg-[#C8A96B]/15 text-white" : "text-white/55 hover:text-white/80"
+        }`}
+      >
+        <MoreHorizontal size={15} className={activa ? "text-[#C8A96B]" : ""} />
+        <span>{activa ? activa.label : "Más"}</span>
+        <ChevronDown size={13} />
+      </summary>
+      <div className="absolute right-0 z-30 mt-1 w-60 rounded-xl border border-white/10 bg-[#11161C] p-1 shadow-xl">
+        <p className="px-2.5 pb-1 pt-1.5 text-[11px] uppercase tracking-[0.16em] text-white/45">Trabajo del analista</p>
+        {opciones.map(({ clave, label, icono: Icono }) => (
+          <button
+            key={clave}
+            type="button"
+            onClick={(e) => {
+              (e.currentTarget.closest("details") as HTMLDetailsElement | null)?.removeAttribute("open");
+              onCambia(clave);
+            }}
+            className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm ${
+              clave === valor ? "bg-white/[0.06] font-semibold text-white" : "text-white/70 hover:bg-white/[0.04] hover:text-white"
+            }`}
+          >
+            <Icono size={14} className="text-[#C8A96B]" /> {label}
+          </button>
+        ))}
+      </div>
+    </details>
+  );
+}
+
 export default function ScoutRivalAbpPage() {
   const [derived, setDerived] = useState<AbpEvent[]>([]);
   const [equiposHoja, setEquiposHoja] = useState<string[]>([]);
@@ -173,6 +233,8 @@ export default function ScoutRivalAbpPage() {
   }, []);
 
   const lento = useLento(loading);
+  /* «Recoger la carpeta» es tarea del analista: el atajo, sólo con su sesión (16/11/2026, fútbol). */
+  const { admin } = useAdmin();
 
   const [grupo, setGrupo] = useState<Grupo>("liga");
   const [vistaElegida, setVista] = usePestanaUrl<Vista>("vista", VISTAS, "resumen");
@@ -788,9 +850,10 @@ export default function ScoutRivalAbpPage() {
 
                   <span className="text-[11px] text-white/35">
                     {/* Dicho en una línea (07/11/2026): «Rivales de Primera RFEF» no decía qué se cuenta. */}
+                    {/* 16/11/2026 (marketing): dos poblaciones distintas, cada una en su lado y sin mezclarse. */}
                     {grupo === "liga"
-                      ? "Los partidos de liga de nuestros rivales del grupo, en Primera Federación"
-                      : "Amistosos de pretemporada, fuera de la competición"}
+                      ? "Sus partidos de liga en Primera Federación (Wyscout, frente a los 20 equipos del grupo); los amistosos van aparte, en Pretemporada"
+                      : "Amistosos de pretemporada contra el Castilla, de nuestras hojas: no se suman a las cifras de liga"}
                   </span>
                 </div>
 
@@ -860,6 +923,18 @@ export default function ScoutRivalAbpPage() {
                 etiqueta="Vistas del balón parado del rival"
                 valor={vista}
                 onCambia={setVista}
+                final={
+                  <MenuMas<Vista>
+                    valor={vista}
+                    onCambia={setVista}
+                    opciones={[
+                      { clave: "apuntes", label: "Apuntes y vídeo", icono: NotebookPen },
+                      { clave: "coding", label: "Coding de clips", icono: Clapperboard },
+                      ...(grupo === "liga" ? [{ clave: "laminas" as const, label: "Recoger y láminas", icono: Images }] : []),
+                      { clave: "registrar", label: "Registrar", icono: PenLine },
+                    ]}
+                  />
+                }
                 /*
                 | 07/11/2026 (jueces): primero lo que lee el cuerpo técnico; el
                 | trabajo del analista (coding, recoger la carpeta, registrar)
@@ -877,10 +952,6 @@ export default function ScoutRivalAbpPage() {
                         { clave: "banda" as const, label: "Saques de banda", icono: Flag },
                       ]
                     : []),
-                  { clave: "apuntes", label: "Apuntes y vídeo", icono: NotebookPen },
-                  { clave: "coding" as const, label: "Coding de clips", icono: Clapperboard },
-                  ...(grupo === "liga" ? [{ clave: "laminas" as const, label: "Recoger y láminas", icono: Images }] : []),
-                  { clave: "registrar" as const, label: "Registrar", icono: PenLine },
                 ]}
               />
 
@@ -890,7 +961,7 @@ export default function ScoutRivalAbpPage() {
               | vista. Desde cualquier otra vista de Liga, un botón lleva a él.
               | 07/11/2026: sólo para el administrador; es tarea del analista.
               */}
-              {equipo && grupo === "liga" && vista !== "laminas" && vista !== "coding" && (
+              {admin && equipo && grupo === "liga" && vista !== "laminas" && vista !== "coding" && (
                 <button
                   type="button"
                   onClick={() => setVista("laminas")}
@@ -981,7 +1052,7 @@ export default function ScoutRivalAbpPage() {
               {vista === "laminas" || vista === "apuntes" || vista === "coding" || vista === "registrar" || vista === "proyeccion" ? null : delEquipo.length === 0 ? (
                 /* Sin acciones registradas: lo que ya se sabe de él (Wyscout,
                    goles y etiquetas), en la vista de resumen. */
-                vista === "resumen" && equipo ? (
+                vista === "resumen" && equipo && grupo === "liga" ? (
                   <AbpWyscoutRival equipo={equipo} plantilla={aereos} acciones={acciones} />
                 ) : null
               ) : (
@@ -1018,7 +1089,11 @@ export default function ScoutRivalAbpPage() {
                     <StatCard
                       label="Peligro"
                       value={pct(totales.peligroPct)}
-                      hint="Acaba en gol u ocasión"
+                      hint={
+                        totales.acciones < POCAS_ACCIONES
+                          ? `Tendencia: sólo ${totales.acciones} ${totales.acciones === 1 ? "acción" : "acciones"}`
+                          : "Acaba en gol u ocasión"
+                      }
                       accent="var(--rmcf-gold-ink)"
                     />
                   </StatRow>
@@ -1118,7 +1193,7 @@ export default function ScoutRivalAbpPage() {
                                           value={stat.peligroPct}
                                           max={100}
                                           color={
-                                            stat.peligroPct >= 25
+                                            stat.peligroPct >= 25 && stat.acciones >= POCAS_ACCIONES
                                               ? "var(--rmcf-rate-low)"
                                               : "var(--rmcf-gold-ink)"
                                           }
@@ -1127,6 +1202,9 @@ export default function ScoutRivalAbpPage() {
                                         <span className="w-10 shrink-0 text-right text-[11px] tabular-nums text-white/55">
                                           {pct(stat.peligroPct)}
                                         </span>
+                                        {stat.acciones < POCAS_ACCIONES && (
+                                          <span className="shrink-0 text-[11px] italic text-white/50">tendencia</span>
+                                        )}
                                       </span>
                                     </td>
                                   </>
@@ -1139,6 +1217,15 @@ export default function ScoutRivalAbpPage() {
                     </div>
                   </Panel>
 
+                  )}
+
+                  {/*
+                  | Lo de liga según Wyscout, aparte (16/11/2026, marketing): con
+                  | acciones registradas también sale, en su bloque y con su
+                  | población (sus partidos de liga frente a los 20 del grupo).
+                  */}
+                  {vista === "resumen" && grupo === "liga" && equipo && (
+                    <AbpWyscoutRival equipo={equipo} plantilla={aereos} acciones={acciones} />
                   )}
 
                   {/* --------------- saque de banda por zona ------------ */}

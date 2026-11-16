@@ -1473,12 +1473,13 @@ export const AYUDAS: AyudaDePagina[] = [
       "Su balón parado: cuánto peligro tiene, quién lo lanza y lo remata, qué repite, la proyección del próximo partido y el material de la jornada (clips, apuntes y láminas).",
     origen:
       "Scouting propio registrado aquí (documento «abp-rival-scout» de Supabase) o, si no lo hay, lo deducido de nuestras cuatro hojas de ABP. Sin acciones registradas, Wyscout y las etiquetas de Plantillas rivales. La proyección, de Opta. Las estaturas, de BeSoccer por encima de la hoja.",
-    revisada: "2026-11-15",
+    revisada: "2026-11-16",
     bloques: [
       {
         titulo: "Arriba",
         filas: [
-          { que: "Liga · Pretemporada", es: "Sus partidos de Primera Federación o sus amistosos; láminas y proyección, sólo en Liga" },
+          { que: "Liga · Pretemporada", es: "Dos poblaciones que no se mezclan: en Liga, sus partidos de Primera Federación (Wyscout, frente a los 20 del grupo); en Pretemporada, los amistosos de nuestras hojas. Wyscout, láminas y proyección, sólo en Liga" },
+          { que: "Pestañas · Más", es: "Las de lectura (¿Cuánto peligro tiene?, Proyección, Quién, Qué repite, Saques de banda) a la vista; las de trabajo (Apuntes y vídeo, Coding de clips, Recoger y láminas, Registrar) en el menú «Más». El atajo «Recoger la carpeta de la jornada» sólo sale con la sesión de administrador" },
           { que: "El rival", es: "Abre con el del próximo partido; «Cambiar equipo» despliega los demás, por calendario" },
           { que: "Su ataque · Su defensa", es: "Lo que genera el rival / lo que le generan a él" },
           { que: "Scouting propio · Deducido", es: "Propio: sus partidos, con sacador y rematador. Deducido: sólo contra nosotros y sin nombres. La etiqueta de arriba dice cuál se ve" },
@@ -1489,11 +1490,14 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "¿Cuánto peligro tiene?",
         filas: [
           { que: "Acciones · Remates · xG · Goles", es: "Ejecutadas (su ataque) o defendidas (su defensa) en la selección; el xG, acumulado" },
-          { que: "Peligro", es: "Las que acaban en gol u ocasión", cuenta: "acciones con gol u ocasión ÷ acciones" },
+          { que: "Peligro", es: "Las que acaban en gol u ocasión; con menos de 15 acciones detrás se rotula «tendencia» y no se pinta de rojo", cuenta: "acciones con gol u ocasión ÷ acciones" },
           { que: "Amenaza por tipo de balón parado", es: "Lo mismo por córner, falta lateral, falta directa, penalti, banda, saque de centro y de meta" },
           { que: "Lectura al pie", es: "El análisis de cada panel leído para el Castilla: en su ataque, más peligro es rojo; en su defensa, verde" },
-          { que: "Su balón parado según Wyscout", es: "Si no hay acciones: córners, remates y lo que concede frente a la liga, con «Qué hacemos» y la barra contra la liga (raya = mediana)" },
-          { que: "Quién lo lanza y quién remata", es: "Etiquetas de Plantillas (o Wyscout, ≈ lanzamientos por 90 × minutos), cruzadas con su once probable, y a quién marca cada uno de los nuestros" },
+          { que: "Su balón parado según Wyscout", es: "En Liga (con o sin acciones registradas, en su propio bloque): «Qué hacemos» y «Qué entrenamos» arriba, con enlace a la pizarra y al microciclo de ABP; luego la barra contra la liga (raya = mediana, rombo = el mejor)" },
+          { que: "Cuánto balón parado hay · por partido", es: "Córners, faltas lanzadas y penaltis, los suyos y los que le sacan, con la mediana de los 20 y el puesto. ▲ le conviene, ▼ no: más a favor es mejor para él, más en contra es peor. En penaltis, además, el total («3 en 12»)", cuenta: "Wyscout, media por partido de la temporada; total de penaltis = media × partidos" },
+          { que: "Córners con remate", es: "El córner que acaba en un tiro de cualquiera, vaya o no a puerta; «x de y» = córners con remate de sus córners", cuenta: "Tendencia, sin flecha, con menos de 15 córners con remate o 25 córners detrás" },
+          { que: "Objetivo de «Qué entrenamos»", es: "Sale del dato, no de una cifra redonda: si le rematan muchos córners, el objetivo es que acabe en remate ese mismo % de los nuestros (Wyscout), por encima de la mediana de la liga; si concede muchos, sacarle esos córners" },
+          { que: "Quién lo lanza y quién remata", es: "Etiquetas de Plantillas (o Wyscout, ≈ lanzamientos por 90 × minutos), cruzadas con su once probable. «Qué hacemos» empareja a los nuestros con dorsal, inicial y apellido («5 J. Martínez con 6 A. González») para no confundir nombres de pila. La tabla «Rematan» lista a todos los emparejados y a los etiquetados, con altura y % de duelos aéreos ganados (de cuántos)" },
           { que: "Goles a balón parado", es: "Los que marca y los que encaja: el total y los penaltis son dato; córner y falta, estimado calibrado con Opta" },
         ],
       },

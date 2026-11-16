@@ -533,7 +533,13 @@ function abpRivalDe(datos: Dataset, equipo: string, ambito: "abp" | "area" | "es
       : ["abpOf", "abpDef"].flatMap((k) => {
           const uno = ASPECTO_POR_KEY.get(k);
 
-          return uno ? [uno] : [];
+          /*
+          | Cuánto balón parado hay (16/11/2026, jueces de ABP del Rival):
+          | además de los córners, las faltas lanzadas y los penaltis, a favor
+          | y en contra, contra la mediana de los 20. Sólo para esta pantalla:
+          | el catálogo común no cambia.
+          */
+          return uno ? [{ ...uno, metricas: [...uno.metricas.slice(0, 1), "faltasTiro", "penaltis", ...uno.metricas.slice(1)] }] : [];
         }),
   ).map((d) => ({
     clave: d.aspecto.key,
@@ -543,15 +549,22 @@ function abpRivalDe(datos: Dataset, equipo: string, ambito: "abp" | "area" | "es
       valor: f.valor,
       mediana: f.mediana,
       unidad: f.metrica.unidad,
-      percentil: f.percentil,
+      percentil: f.metrica.key === "faltasTiro" && d.aspecto.key === "abpDef" ? 100 - f.percentil : f.percentil,
       /* Los extremos de la liga, para la barra (11/11/2026, análisis). */
       minimo: f.minimo ?? null,
       maximo: f.maximo ?? null,
       /* En lo que RECIBE el sentido se gira: más córners concedidos no es mejor. */
+      /*
+      | Las faltas lanzadas son «estilo» en el catálogo; aquí, como los córners,
+      | más a favor es mejor y más en contra es peor (16/11/2026). El
+      | percentil ya va «de más a menos», así que en contra se gira.
+      */
       mejorAlto:
-        (d.aspecto.key === "abpDef" || d.aspecto.key === "centrosDef") && f.metrica.mejorAlto != null
-          ? !f.metrica.mejorAlto
-          : f.metrica.mejorAlto,
+        f.metrica.key === "faltasTiro"
+          ? d.aspecto.key !== "abpDef"
+          : (d.aspecto.key === "abpDef" || d.aspecto.key === "centrosDef") && f.metrica.mejorAlto != null
+            ? !f.metrica.mejorAlto
+            : f.metrica.mejorAlto,
       /* «x de y»: la base del porcentaje y los partidos que lo respaldan. */
       base: cocienteEnGrupo(f.metrica, d.aspecto.key === "abpDef" || d.aspecto.key === "centrosDef" ? contraDe : suyosDe),
       partidos: (d.aspecto.key === "abpDef" || d.aspecto.key === "centrosDef" ? contraDe : suyosDe).length,
