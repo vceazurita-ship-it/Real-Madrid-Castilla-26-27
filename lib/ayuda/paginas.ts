@@ -2024,7 +2024,12 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Lo que se ve",
         filas: [
-          { que: "Quién manda", es: "El primero del ranking, arriba del todo, con su porcentaje y sus aciertos" },
+          { que: "Quién manda", es: "El primero del ranking, arriba del todo, con su porcentaje y sus aciertos; si el segundo puesto está compartido, se nombra a todos" },
+          { que: "La barra del ranking", es: "El acierto de cada uno (en oro los que van por encima de la media) y la raya azul de la media del grupo; el subtítulo dice la media y cuántos la superan", cuenta: "Media de los porcentajes de los que entran en el orden (sin los de pocas apuestas)" },
+          { que: "J12 (la última jornada con resultados)", es: "Aciertos de cada uno en la última jornada ya jugada, «x de 9»" },
+          { que: "Los nombres", es: "Llevan a sus apuestas del staff" },
+          { que: "Los equipos", es: "Cada equipo de la jornada abre su ficha en /rivals, con forma, plantilla y goles en vídeo" },
+          { que: "La comida", es: "El título dice el bloque de jornadas y sobre cuántos partidos se cuenta" },
           { que: "La franja", es: "Lo que falta para el cierre, «N de M con la apuesta completa» con una barra por persona, quién falta y «Ver las caritas»" },
           { que: "Quién juega", es: "Se cambia con su botón; entra y sale quien haga falta sin perder lo ya jugado" },
           { que: "Lo que ha puesto cada uno", es: "Sólo con la jornada cerrada: una columna por persona, verde acertado, rojo fallado, el reparto de 1-X-2 y «el único» o «todos igual»" },
@@ -2060,7 +2065,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Uno lanza una predicción y dice qué se juega; los demás se ponen a favor o en contra, y el día señalado se comprueba quién tenía razón.",
     origen:
       "Las escribe el cuerpo técnico aquí mismo, con la misma cuenta que la quiniela. Viven en un documento propio de Supabase («apuestas-staff»); no salen de ninguna hoja.",
-    revisada: "2026-11-12",
+    revisada: "2026-11-16",
     bloques: [
       {
         titulo: "Cómo se juega",
@@ -2077,9 +2082,13 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Las tarjetas",
         filas: [
           { que: "En juego", es: "Las abiertas, primero la que se comprueba antes" },
-          { que: "Veredicto el … · faltan N días", es: "La cuenta atrás hasta la comprobación; el último día, «Veredicto mañana»" },
+          { que: "Faltan N días", es: "La cuenta atrás hasta la comprobación, grande, y debajo «se decide el…»; el último día, «Se decide mañana»" },
+          { que: "El equipo de la apuesta", es: "Si la predicción nombra a un equipo de la liga, un enlace a su ficha en /rivals" },
+          { que: "N a favor · N en contra", es: "Una barra partida con cuántos van a cada lado (el autor cuenta a favor)" },
+          { que: "Lado vacío", es: "«Nadie en contra todavía: ¿te mojas?» en vez de una caja vacía" },
           { que: "Se juega", es: "Lo que pone el autor, en su propio bloque" },
-          { que: "Faltan N de M por mojarse", es: "Quién de la quiniela aún no ha tomado postura, con su cara", cuenta: "M = los que tienen cuenta en la quiniela; el autor cuenta a favor" },
+          { que: "N de M ya se han mojado", es: "Barra de progreso; «Quién falta» despliega los nombres", cuenta: "M = los que tienen cuenta en la quiniela; el autor cuenta a favor" },
+          { que: "?quien=", es: "Desde el ranking de la quiniela: sólo las apuestas en las que está esa persona; «Ver todas» quita el filtro" },
           { que: "Quién tenía razón", es: "Las ya comprobadas, de la última a la primera" },
         ],
       },
@@ -3054,8 +3063,9 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "N escudos de BeSoccer", es: "Cuántos han llegado y de cuándo es el documento («actualizados el…»)" },
           { que: "Descargar .pptx", es: "Veinte escudos por diapositiva (5 × 4) sobre el azul noche del documento, recortado el aire de los márgenes", cuenta: "Espera a que lleguen todas las imágenes; la que no llega en 15 s sale sin ella" },
           { que: "Actualizar escudos", es: "Vuelve a pedir la lista" },
-          { que: "Buscar", es: "Filtra la parrilla por nombre de equipo" },
-          { que: "Cada tarjeta", es: "Copia ese escudo en PNG transparente; si el navegador no deja copiar imágenes, lo descarga" },
+          { que: "Buscar equipo", es: "Filtra la parrilla por nombre de equipo" },
+          { que: "Ver rival →", es: "Abre la ficha de ese equipo en /rivals" },
+          { que: "Cada tarjeta", es: "Copia ese escudo en PNG transparente (dice «Copiado» dos segundos); si el navegador no deja copiar imágenes, lo descarga" },
           { que: "Borde oro", es: "El nuestro" },
           { que: "Borde ámbar", es: "Trae fondo, no es transparente", cuenta: "Las cuatro esquinas del PNG son opacas" },
         ],
@@ -3065,7 +3075,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Si el documento del informe no está bajado al día, puede faltar algún equipo: la caja ámbar dice cuáles.",
       "Los nombres van como en la quiniela (lib/equipos/nombres.ts), no como los escribe BeSoccer.",
     ],
-    revisada: "2026-11-12",
+    revisada: "2026-11-16",
   },
 
   /* ==================== ANÁLISIS DE FALTAS (12/11/2026) ==================== */

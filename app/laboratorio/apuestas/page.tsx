@@ -18,7 +18,8 @@
  * comprobaciones— se cambia aquí sin tocar la quiniela.
  */
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
+import Link from "next/link";
 import {
   CalendarCheck,
   Check,
@@ -61,6 +62,7 @@ import {
   type Veredicto,
 } from "@/lib/apuestas/modelo";
 import { JUEGAN_POR_DEFECTO, PERSONA_POR_SLUG, nombreCorto } from "@/lib/quiniela/staff";
+import { JORNADAS, partidosDe } from "@/lib/quiniela/modelo";
 import { confirmar } from "@/lib/avisos";
 
 type Guarda = ReturnType<typeof useApuestasDoc>["guarda"];
@@ -72,6 +74,47 @@ const cortoDe = (slug: string) => {
 
   return persona ? nombreCorto(persona) : slug;
 };
+
+/*
+| 16/11/2026: los equipos de la liga que nombra una apuesta («El Alcorcón NO
+| hace play off») llevan a su ficha de rival. Se buscan por la palabra que
+| distingue al club en el calendario de la quiniela (Alcorcón, Jaén…), sin
+| tildes ni mayúsculas.
+*/
+const sinTildes = (t: string) =>
+  t
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+const GENERICAS = new Set(["club", "real", "deportivo", "union", "sociedad", "atletico", "athletic", "futbol", "balompie", "cultural"]);
+
+const EQUIPOS_LIGA: { nombre: string; clave: string }[] = (() => {
+  const nombres = [...new Set(JORNADAS.flatMap((j) => partidosDe(j).flatMap((p) => [p.local, p.visitante])))];
+
+  return nombres.flatMap((nombre) => {
+    const palabras = sinTildes(nombre)
+      .replace(/[^a-z0-9\s]/g, " ")
+      .split(/\s+/)
+      .filter((w) => w.length >= 4 && !GENERICAS.has(w));
+    const clave = palabras.sort((a, b) => b.length - a.length)[0];
+
+    return clave ? [{ nombre, clave }] : [];
+  });
+})();
+
+const equiposDe = (texto: string) => {
+  const t = ` ${sinTildes(texto).replace(/[^a-z0-9\s]/g, " ")} `;
+
+  return EQUIPOS_LIGA.filter((e) => t.includes(` ${e.clave} `));
+};
+
+/* ?quien=slug (desde el ranking de la quiniela): las apuestas de esa persona. */
+const suscribeUrl = (avisa: () => void) => {
+  window.addEventListener("popstate", avisa);
+  return () => window.removeEventListener("popstate", avisa);
+};
+const leeQuien = () => new URLSearchParams(window.location.search).get("quien") ?? "";
 
 /** "2026-10-09T10:12:00.000Z" → "9 oct". */
 function diaDe(iso: string) {
@@ -93,7 +136,15 @@ export default function ApuestasPage() {
 
   const { doc, estado, guarda } = useApuestasDoc();
 
-  const { vivas, resueltas } = useMemo(() => ordenadas(doc.apuestas, hoy), [doc, hoy]);
+  const quien = useSyncExternalStore(suscribeUrl, leeQuien, () => "");
+  const filtroQuien = quien && PERSONA_POR_SLUG.has(quien) ? quien : "";
+
+  const { vivas, resueltas } = useMemo(() => {
+    const todas = ordenadas(doc.apuestas, hoy);
+    if (!filtroQuien) return todas;
+    const suya = (a: Apuesta) => a.autor === filtroQuien || Boolean(a.posturas[filtroQuien]);
+    return { vivas: todas.vivas.filter(suya), resueltas: todas.resueltas.filter(suya) };
+  }, [doc, hoy, filtroQuien]);
 
   const tabla = useMemo(() => marcador(doc.apuestas), [doc]);
 
@@ -209,6 +260,19 @@ export default function ApuestasPage() {
                 única acción; el ejemplo va plegado debajo (08/11/2026, marketing). */}
             {/* Un solo acceso, arriba (10/11/2026, marketing): las tarjetas ya no piden entrar cada una. */}
             {acceso}
+
+            {filtroQuien && (
+              <p className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/[0.07] px-3 py-2 text-sm text-white/85">
+                <Avatar slug={filtroQuien} lado={24} />
+                Las apuestas en las que está {nombreDe(filtroQuien)}
+                <Link href="/laboratorio/apuestas" className="font-semibold text-[#C8A96B] hover:underline">
+                  Ver todas
+                </Link>
+                <Link href="/quiniela" className="font-semibold text-[#C8A96B] hover:underline">
+                  Su quiniela →
+                </Link>
+              </p>
+            )}
 
             {/* ------------------------ LANZAR UNA --------------------- */}
 
@@ -361,7 +425,7 @@ export default function ApuestasPage() {
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[480px] text-sm">
                       <thead>
-                        <tr className="text-left text-[11px] uppercase tracking-[0.16em] text-white/55">
+                        <tr className="text-left text-[12px] uppercase tracking-[0.16em] text-white/55">
                           <th className="pb-2 pr-3 font-semibold">#</th>
                           <th className="pb-2 pr-3 font-semibold">Quién</th>
                           <th className="pb-2 pr-3 text-right font-semibold">Lanzadas</th>
@@ -405,9 +469,10 @@ export default function ApuestasPage() {
 
             {estado === "listo" && doc.apuestas.length > 0 && (
               <details className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2 text-sm text-white/70">
-                <summary className="flex min-h-11 cursor-pointer items-center gap-2 text-[13px] text-white/70">
-                  <span className="font-semibold uppercase tracking-[0.14em] text-white/80">Cómo funciona</span>
-                  <span>· lanzas, los demás se mojan y el día señalado se da el veredicto</span>
+                {/* 16/11/2026 (guionista): una sola frase, con el título delante y sin el punto suelto. */}
+                <summary className="min-h-11 cursor-pointer py-2 text-[14px] leading-snug text-white/75">
+                  <span className="font-semibold text-white/90">Cómo funciona:</span> uno lanza la apuesta, los demás se
+                  mojan y el día señalado se da el veredicto.
                 </summary>
                 <div className="mb-2 mt-1">{pasos}</div>
               </details>
@@ -634,23 +699,49 @@ function Tarjeta({
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold">
               {nombreDe(apuesta.autor)}
-              {soyAutor && <span className="ml-1.5 text-[11px] uppercase tracking-[0.14em] text-[#C8A96B]">tú</span>}
+              {soyAutor && <span className="ml-1.5 text-[12px] uppercase tracking-[0.14em] text-[#C8A96B]">tú</span>}
             </p>
             <p className="text-[12px] text-white/55">Lanzada el {diaDe(apuesta.creadaEn)}</p>
           </div>
         </div>
 
-        <span
-          className={`inline-flex max-w-full items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] tabular-nums ${chip.clase}`}
-        >
-          {chip.texto(apuesta, hoy)}
-        </span>
+        {/* 16/11/2026 (guionista): la cuenta atrás grande y la fecha debajo, en
+            pequeño; en una sola píldora se partía en dos líneas en el móvil. */}
+        {estado === "abierta" ? (
+          <span className="text-right leading-tight">
+            <span className="block text-[18px] font-bold tabular-nums text-[#C8A96B]">
+              {diasHasta(apuesta.comprobar, hoy) === 1 ? "Se decide mañana" : `Faltan ${diasHasta(apuesta.comprobar, hoy)} días`}
+            </span>
+            <span className="block text-[12px] text-white/60">se decide el {fechaLarga(apuesta.comprobar)}</span>
+          </span>
+        ) : (
+          <span
+            className={`inline-flex max-w-full items-center rounded-full border px-2.5 py-1 text-[12px] font-semibold uppercase tracking-[0.12em] tabular-nums ${chip.clase}`}
+          >
+            {chip.texto(apuesta, hoy)}
+          </span>
+        )}
       </header>
 
       {/* 11/11/2026 (marketing): la predicción es el titular, lo primero que se lee. */}
       <p className="fuente-club text-[24px] font-bold leading-tight text-white sm:text-[28px]">
         «{apuesta.prediccion}»
       </p>
+
+      {/* 16/11/2026: el equipo de la apuesta, a un toque de su ficha. */}
+      {equiposDe(apuesta.prediccion).length > 0 && (
+        <div className="-mt-1 flex flex-wrap gap-2">
+          {equiposDe(apuesta.prediccion).map((e) => (
+            <Link
+              key={e.nombre}
+              href={`/rivals?equipo=${encodeURIComponent(e.nombre)}`}
+              className="inline-flex items-center gap-1 rounded-full border border-white/15 px-3 py-1 text-[13px] font-medium text-white/85 transition hover:border-[#C8A96B]/60 hover:text-white"
+            >
+              {e.nombre}: ficha, forma y calendario →
+            </Link>
+          ))}
+        </div>
+      )}
 
       {/* «Se juega», en su propio bloque y entero. */}
       <div className="rounded-xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.06] px-3 py-2">
@@ -688,7 +779,7 @@ function Tarjeta({
                 <span className="inline-flex items-center gap-1.5">
                   <Icono size={16} aria-hidden /> {lado === "favor" ? "A favor" : "En contra"}
                 </span>
-                {activo && <span className="text-[11px] font-medium opacity-80">Vas aquí · pulsa para quitarte</span>}
+                {activo && <span className="text-[12px] font-medium opacity-80">Vas aquí · pulsa para quitarte</span>}
               </button>
             );
           })}
@@ -699,6 +790,26 @@ function Tarjeta({
       {soyAutor && estado === "abierta" && (
         <p className="text-[13px] text-white/70">La lanzaste tú: cuentas a favor.</p>
       )}
+
+      {/* 16/11/2026: cuántos van a cada lado, de un vistazo. */}
+      {(() => {
+        const nFavor = favor.length + 1;
+        const nContra = contra.length;
+        const total = nFavor + nContra;
+
+        return (
+          <div aria-label={`${nFavor} a favor y ${nContra} en contra`}>
+            <div className="flex justify-between text-[13px] font-semibold tabular-nums">
+              <span className="text-emerald-300">{nFavor} a favor</span>
+              <span className="text-rose-300">{nContra} en contra</span>
+            </div>
+            <div className="mt-1 flex h-2.5 overflow-hidden rounded-full bg-white/[0.08]">
+              <span className="h-full bg-emerald-400" style={{ width: `${(nFavor / total) * 100}%` }} />
+              {nContra > 0 && <span className="h-full bg-rose-400" style={{ width: `${(nContra / total) * 100}%` }} />}
+            </div>
+          </div>
+        );
+      })()}
 
       <div className="grid gap-2 sm:grid-cols-2">
         <Bando
@@ -747,28 +858,44 @@ function Tarjeta({
         }
 
         return (
-          <div className="rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
-            <p className="text-[13px] tabular-nums text-white/80">
-              <span className="font-semibold text-white">
-                Faltan {faltan.length} de {juegan.length}
-              </span>{" "}
-              por mojarse{yoFalto ? ", tú entre ellos" : ""}
-            </p>
-            <div className="mt-1.5 flex flex-wrap gap-1">
-              {faltan.map((slug) => (
-                <span key={slug} title={nombreDe(slug)} className="opacity-80">
-                  <Avatar slug={slug} lado={22} />
+          /* 16/11/2026: barra de progreso y los nombres al pulsar (antes, una fila de caritas). */
+          <details className="group rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
+            <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+              <span className="flex items-baseline justify-between gap-2 text-[13px] tabular-nums text-white/80">
+                <span>
+                  <span className="font-semibold text-white">
+                    {juegan.length - faltan.length} de {juegan.length}
+                  </span>{" "}
+                  ya se han mojado{yoFalto ? " · faltas tú" : ""}
                 </span>
+                <span className="shrink-0 text-[12px] font-semibold text-[#C8A96B]">
+                  <span className="group-open:hidden">Quién falta</span>
+                  <span className="hidden group-open:inline">Ocultar</span>
+                </span>
+              </span>
+              <span className="mt-1.5 block h-2 overflow-hidden rounded-full bg-white/[0.08]">
+                <span
+                  className="block h-full rounded-full bg-[#C8A96B]"
+                  style={{ width: `${((juegan.length - faltan.length) / juegan.length) * 100}%` }}
+                />
+              </span>
+            </summary>
+            <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1.5">
+              {faltan.map((slug) => (
+                <li key={slug} className="inline-flex items-center gap-1.5 text-[13px] text-white/80">
+                  <Avatar slug={slug} lado={22} />
+                  {cortoDe(slug)}
+                </li>
               ))}
-            </div>
-          </div>
+            </ul>
+          </details>
         );
       })()}
 
       {/* ---------------------- el veredicto -------------------- */}
 
       {apuesta.veredicto ? (
-        <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-white/[0.06] pt-3 text-[11px] text-white/45">
+        <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-white/[0.06] pt-3 text-[12px] text-white/45">
           <span>
             {apuesta.veredicto === "acertada" ? "Acertó" : "Falló"}
             {apuesta.resueltaPor ? ` · lo dio ${cortoDe(apuesta.resueltaPor)}` : ""}
@@ -783,7 +910,7 @@ function Tarjeta({
         </footer>
       ) : estado === "a-comprobar" ? (
         <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-white/[0.06] pt-3">
-          <span className="text-[11px] text-white/45">
+          <span className="text-[12px] text-white/45">
             {puedoResolver ? "¿Qué ha pasado?" : "Entra para dar el veredicto"}
           </span>
 
@@ -849,7 +976,7 @@ function Bando({
   return (
     <div className={`rounded-xl border p-2.5 ${colores.borde}`}>
       <div className="flex items-center justify-between gap-2">
-        <span className={`inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] ${colores.texto}`}>
+        <span className={`inline-flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.14em] ${colores.texto}`}>
           <Icono size={13} />
           {titulo}
           <span className="text-white/65">· {total}</span>
@@ -866,8 +993,13 @@ function Bando({
               <Avatar slug={autor} lado={28} />
             </span>
             <span className="truncate">{nombreDe(autor)}</span>
-            {autor === yo && <span className="shrink-0 text-[11px] uppercase tracking-[0.14em] text-[#C8A96B]">tú</span>}
+            {autor === yo && <span className="shrink-0 text-[12px] uppercase tracking-[0.14em] text-[#C8A96B]">tú</span>}
           </span>
+        )}
+
+        {/* 16/11/2026: sin nadie, una invitación en vez de un hueco. */}
+        {!autor && gente.length === 0 && (
+          <span className="text-[13px] text-white/65">Nadie {titulo.toLowerCase()} todavía: ¿te mojas?</span>
         )}
 
         {gente.map((slug) => (
@@ -876,7 +1008,7 @@ function Bando({
               <Avatar slug={slug} lado={28} />
             </span>
             <span className="truncate">{nombreDe(slug)}</span>
-            {slug === yo && <span className="shrink-0 text-[11px] uppercase tracking-[0.14em] text-[#C8A96B]">tú</span>}
+            {slug === yo && <span className="shrink-0 text-[12px] uppercase tracking-[0.14em] text-[#C8A96B]">tú</span>}
           </span>
         ))}
       </div>
