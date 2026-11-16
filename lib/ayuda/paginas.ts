@@ -2708,13 +2708,15 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Las cifras del mes",
         filas: [
-          { que: "Titular", es: "Mes, entrenos (hechos), volumen y cómo van la carga física y la cognitiva frente al mes anterior, con la base (entrenos hechos de cada lado)" },
+          { que: "Titular", es: "Corto: cómo van la carga física y la cognitiva frente al mes anterior. Debajo, la base: entrenos (hechos y planificados), volumen y cuántos entrenos hechos se comparan, en los mismos días de cada mes" },
           { que: "Entrenos", es: "Días con tarea de entreno; hechos = con minutos o carga apuntados, el resto planificados", cuenta: "Los partidos aparte: la fila de competición no es entreno" },
           { que: "Volumen", es: "Minutos de entreno del mes, sin los partidos" },
           { que: "Carga física media / entreno", es: "Puntos de carga por entreno hecho", cuenta: "UA = minutos × intensidad (1-10), de la columna «Carga Ponderada»; suma del mes ÷ entrenos hechos" },
           { que: "Carga cognitiva media / entreno", es: "Lo mismo con la demanda cognitiva", cuenta: "UA = minutos × demanda cognitiva (1-10); suma ÷ entrenos hechos" },
           { que: "Frente al mes anterior", es: "La media contra los mismos días del mes anterior", cuenta: "Del 1 al último día con entreno hecho; con menos de 3 entrenos hechos en un lado no se compara" },
-          { que: "Lectura de la carga", es: "Qué MD se ha movido más contra el mes anterior, si hay otro número de partidos, y la carga cognitiva; los días a vigilar son los reales del micro de hoy (su MD-1 y el día después del partido)", cuenta: "Un MD sólo se nombra con 3 sesiones suyas o más en cada mes" },
+          { que: "Lectura de la carga", es: "Qué MD se ha movido más contra el mes anterior, si hay otro número de partidos, y la carga cognitiva; los días a vigilar son los reales del micro de hoy (su MD-1 y el día después del partido), con la carga media de los MD-1 ya hechos de la temporada", cuenta: "Un MD sólo se nombra con 3 sesiones suyas o más en cada mes; la orden de vigilar, sólo con 3 MD-1 hechos o más" },
+          { que: "Partido", es: "Hora, en casa o fuera y, si ya se jugó, el resultado con su sentido («ganado 1-0», el Castilla primero)" },
+          { que: "Leyenda", es: "Encima del mes: colores de fase, qué es la barra y qué es el borde discontinuo" },
         ],
       },
       {

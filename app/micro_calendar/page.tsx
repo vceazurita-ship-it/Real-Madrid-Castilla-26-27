@@ -335,7 +335,11 @@ export default function MicroCalendar() {
     const p = partidoDelDia.get(key);
     if (!p) return "";
     const hora = horaDelCalendarioLocal(p.cuando);
-    const marcador = p.jugado && p.golesFavor !== null && p.golesContra !== null ? `${p.golesFavor}-${p.golesContra}` : "";
+    /* 16/11/2026: el resultado con su sentido («ganado 1-0», el Castilla primero). */
+    const marcador =
+      p.jugado && p.golesFavor !== null && p.golesContra !== null
+        ? `${p.golesFavor > p.golesContra ? "ganado" : p.golesFavor < p.golesContra ? "perdido" : "empate"} ${p.golesFavor}-${p.golesContra}`
+        : "";
 
     return [hora, p.lado === "casa" ? "en casa" : "fuera", marcador].filter(Boolean).join(" · ");
   };
@@ -560,7 +564,12 @@ export default function MicroCalendar() {
     const fases = Object.values(PHASE_THEMES)
       .filter((t) => vistas.has(t))
       .map((t) => ({ label: t.label, color: t.dot }));
-    return fases.length ? [{ label: "Fondo del día = fase con más minutos (sin Global):", color: "hidden" }, ...fases] : fases;
+    /* Segunda vuelta: la barra y el discontinuo también se explican aquí, encima del mes. */
+    const extra = [
+      { label: "Barra = minutos de ese contenido sobre los de la sesión", color: "hidden" },
+      { label: "Borde discontinuo = planificado, aún sin minutos", color: "hidden" },
+    ];
+    return fases.length ? [{ label: "Fondo del día = fase con más minutos (sin Global):", color: "hidden" }, ...fases, ...extra] : extra;
   }, [sessionDays, tasksByDay, active]);
 
   /* El mes anterior, en los mismos días (del 1 al último con registros de este mes). */
@@ -616,8 +625,27 @@ export default function MicroCalendar() {
     const md1 = semana.dias.find((d) => d.md === "MD-1");
     const partido = semana.dias.find((d) => d.partido);
     const despues = partido ? new Date(Date.parse(`${partido.fecha}T12:00:00Z`) + 86_400_000).toISOString().slice(0, 10) : "";
+    /*
+    | Segunda vuelta (16/11/2026): la orden se ata a un dato. El MD-1 lleva la
+    | carga media de los MD-1 ya hechos de la temporada (UA por día, como las
+    | tarjetas); con menos de 3, no se cita.
+    */
+    let cargaMd1 = 0;
+    let diasMd1 = 0;
+    tasksByDay.forEach((tareas, key) => {
+      if (key >= (md1?.fecha ?? "9999")) return;
+      const entreno = tareas.filter((t) => !esFilaDePartido(filaDeCuenta(t)));
+      const md = String(entreno[0]?.MD ?? "").trim().toUpperCase().replace(/\s+/g, "");
+      const carga = entreno.reduce((s, t) => s + (Number(t["Carga Ponderada"]) || 0), 0);
+      if (md === "MD-1" && carga > 0) {
+        cargaMd1 += carga;
+        diasMd1 += 1;
+      }
+    });
+    const baseMd1 = diasMd1 >= 3 ? `: los MD-1 de la temporada se quedan en ${Math.round(cargaMd1 / diasMd1)} UA de media (${diasMd1} sesiones)` : "";
+    if (!baseMd1) return "";
     const partes = [md1 ? `el ${corto(md1.fecha)} (MD-1)` : "", despues ? `el ${corto(despues)} (día después del partido)` : ""].filter(Boolean);
-    return partes.length ? `del micro ${semana.etiqueta}: ${partes.join(" y ")}` : "";
+    return partes.length ? `del micro ${semana.etiqueta} ${partes.join(" y ")}${baseMd1}` : "";
   })();
 
   const lecturaCarga = (() => {
@@ -662,7 +690,7 @@ export default function MicroCalendar() {
     }
     return pct < 0
       ? `La carga media baja un ${Math.abs(pct)} % (${base}) con los mismos partidos.${orden || " Si no es una descarga buscada, subir la carga del día más cargado de la semana que viene."}`
-      : `La carga media sube un ${pct} % (${base}).${orden || (diasAVigilar ? ` Vigilar la recuperación ${diasAVigilar}.` : " Vigilar la recuperación en los MD-1 y MD+1 de la semana que viene.")}`;
+      : `La carga media sube un ${pct} % (${base}).${orden || (diasAVigilar ? ` Vigilar la recuperación ${diasAVigilar}.` : "")}`;
   })();
 
   /*
@@ -690,19 +718,36 @@ export default function MicroCalendar() {
     const pctCarga = pctDe(monthStats.cargaMedia, mesPrevio.stats.cargaMedia);
     const pctCog = pctDe(monthStats.cognitivaMedia, mesPrevio.stats.cognitivaMedia);
     const signo = (p: number) => (p === 0 ? "igual" : `${p > 0 ? "+" : "−"}${Math.abs(p)} %`);
-    /* 16/11/2026: las dos cargas y la base dentro del titular («8 hechos frente a 6»). */
-    const mesAntes = MONTHS[mesPrevio.month].toLowerCase();
-    const contra = mesPrevio.completo ? mesAntes : `el 1-${mesPrevio.hasta} de ${mesAntes}`;
-    const base = `${monthStats.hechos} entrenos hechos frente a ${mesPrevio.stats.hechos}`;
+    /*
+    | Segunda vuelta (16/11/2026): titular corto con la idea («Noviembre: carga
+    | física +19 %, cognitiva −25 %») y la base en la línea de debajo
+    | (`subtitulo`). En el móvil el H1 ocupaba seis líneas.
+    */
+    if (pctCarga !== null) {
+      return `${MONTHS[active.month]}: carga física ${signo(pctCarga)}${pctCog === null ? "" : `, cognitiva ${signo(pctCog)}`}`;
+    }
     return [
-      `${MONTHS[active.month]}: ${monthStats.sesiones} ${monthStats.sesiones === 1 ? "entreno" : "entrenos"}${monthStats.planificados > 0 ? ` (${monthStats.hechos} ${monthStats.hechos === 1 ? "hecho" : "hechos"})` : ""}`,
+      `${MONTHS[active.month]}: ${monthStats.sesiones} ${monthStats.sesiones === 1 ? "entreno" : "entrenos"}`,
       monthStats.minutos > 0 ? formatMinutes(monthStats.minutos) : "",
-      pctCarga === null
-        ? ""
-        : `carga física ${signo(pctCarga)}${pctCog === null ? "" : ` y cognitiva ${signo(pctCog)}`} frente a ${contra} (${base})`,
     ]
       .filter(Boolean)
       .join(" · ");
+  })();
+
+  /** La base del titular: entrenos, volumen y, si se compara, contra qué días (los mismos de cada mes). */
+  const subtitulo = (() => {
+    if (monthStats.sesiones === 0) return "";
+    const mesAntes = MONTHS[mesPrevio.month].toLowerCase();
+    const mesAhora = MONTHS[active.month].toLowerCase();
+    const entrenos = `${monthStats.sesiones} ${monthStats.sesiones === 1 ? "entreno" : "entrenos"}${monthStats.planificados > 0 ? ` (${monthStats.hechos} ${monthStats.hechos === 1 ? "hecho" : "hechos"}, ${monthStats.planificados} ${monthStats.planificados === 1 ? "planificado" : "planificados"})` : ""}`;
+    const volumen = monthStats.minutos > 0 ? `${formatMinutes(monthStats.minutos)} de entreno` : "";
+    const base =
+      comparable && mesPrevio.stats.cargaMedia > 0 && monthStats.cargaMedia > 0
+        ? `media por entreno de ${monthStats.hechos} entrenos hechos frente a ${mesPrevio.stats.hechos} ${
+            mesPrevio.completo ? `en ${mesAntes}` : `en los mismos días (del 1 al ${mesPrevio.hasta} de ${mesAntes} y de ${mesAhora})`
+          }`
+        : "";
+    return [entrenos, volumen, base].filter(Boolean).join(" · ");
   })();
 
   const selectedDate = selectedKey ? parseDateKey(selectedKey) : null;
@@ -766,6 +811,7 @@ export default function MicroCalendar() {
     <CalendarShell
       eyebrow="RMCF CASTILLA · ENTRENAMIENTO"
       title={titular}
+      subtitle={subtitulo}
       months={months}
       monthIndex={currentMonth}
       onMonthChange={setCurrentMonth}
