@@ -3116,6 +3116,7 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           { que: "Datos hasta la J·", es: "Una línea: la última jornada etiquetada, su rival y fecha, y cuántos partidos hay (el mismo número que la línea de debajo); si ya se jugó otra, dice que entra en cuanto se etiquete" },
           { que: "Partido", es: "Un desplegable con las jornadas (la última arriba, abre en ella) y «Temporada entera»" },
+          { que: "Visual · Detalle (16/11/2026)", es: "La pantalla se abre en «Visual»: lo que pide trabajo, las conclusiones y el campo con cada robo en su sitio, con su conclusión en el título (en qué tercio se concentran, con el % de cada uno). «Detalle» es la pantalla de siempre con sus cinco pestañas (Resumen, En el campo, Detalle, Por jugador y la lista); «Ver uno a uno» y la tabla desde el campo pasan solos a Detalle. Se recuerda en este aparato", cuenta: "Mismos filtros que arriba; el % de cada tercio es sobre todos los que se ven" },
           { que: "Ver en % / en número", es: "Cambia las cifras de los gráficos entre porcentaje y número" },
           { que: "Quitar los dudosos", es: "Saca los robos con confianza baja" },
           { que: "Revisado entero", es: "Cuánto del partido está revisado; si falta, los totales son de esos minutos" },
@@ -3170,6 +3171,7 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           { que: "Datos hasta la J·", es: "Una línea: la última jornada etiquetada, su rival y fecha, y cuántos partidos hay (el mismo número que la línea de debajo); si ya se jugó otra, dice que entra en cuanto se etiquete" },
           { que: "Partido", es: "Un desplegable con las jornadas (la última arriba, abre en ella) y «Temporada entera»" },
+          { que: "Visual · Detalle (16/11/2026)", es: "La pantalla se abre en «Visual»: lo que pide trabajo, las conclusiones y el campo con cada pérdida en su sitio, con su conclusión en el título (en qué tercio se concentran, con el % de cada uno). «Detalle» es la pantalla de siempre con sus cinco pestañas (Resumen, En el campo, Detalle, Por jugador y la lista); «Ver uno a uno» y la tabla desde el campo pasan solos a Detalle. Se recuerda en este aparato", cuenta: "Mismos filtros que arriba; el % de cada tercio es sobre todos los que se ven" },
           { que: "Ver en % / en número", es: "Cambia las cifras de los gráficos entre porcentaje y número" },
           { que: "Quitar los dudosos", es: "Saca las pérdidas con confianza media (las que Wyscout no clasifica como pase, conducción o duelo)" },
           { que: "Revisado entero", es: "Cuánto del partido está revisado; si falta, los totales son de esos minutos" },
