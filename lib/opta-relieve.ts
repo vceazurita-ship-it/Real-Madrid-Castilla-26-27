@@ -29,6 +29,8 @@ export type Relieve = {
   /** parteA[m][c] en 0..1: cuánto de esa altura es del equipo A. */
   parteA: number[][];
   picos: Pico[];
+  /** Franjas a lo ancho. */
+  carriles: number;
 };
 
 /** El minuto en el eje: el descuento de la 1.ª parte se queda en el 45, la 2.ª empieza en el 46. */
@@ -39,12 +41,12 @@ export function minutoEje(e: Pick<EventoDirecto, "parte" | "segundo">): number {
   return m;
 }
 
-const carrilDe = (y: number, deA: boolean) => {
+const carrilDe = (y: number, deA: boolean, n: number) => {
   const yy = deA ? y : 100 - y;
-  return Math.min(CARRILES - 1, Math.max(0, Math.floor((yy / 100) * CARRILES)));
+  return Math.min(n - 1, Math.max(0, Math.floor((yy / 100) * n)));
 };
 
-function suaviza(m: number[][], rt: number, rc: number): number[][] {
+function suaviza(m: number[][], rt: number, rc: number, CARRILES: number): number[][] {
   const M = m.length;
   const sal = m.map((f) => f.map(() => 0));
   const kt = Array.from({ length: 2 * rt + 1 }, (_, i) => Math.exp(-((i - rt) ** 2) / (2 * Math.max(0.5, rt / 1.5) ** 2)));
@@ -67,7 +69,9 @@ function suaviza(m: number[][], rt: number, rc: number): number[][] {
   return sal;
 }
 
-export function relieve(ev: EventoDirecto[], a: string, b: string): Relieve {
+/** `carriles`: cuántas franjas a lo ancho (16/11/2026: el suelo ancho usa más, para que el relieve salga suave). */
+export function relieve(ev: EventoDirecto[], a: string, b: string, carriles: number = CARRILES): Relieve {
+  const CARRILES = carriles;
   const fin = Math.max(90, ...ev.map(minutoEje));
   const M = fin + 1;
   const vacia = () => Array.from({ length: M }, () => new Array(CARRILES).fill(0));
@@ -78,13 +82,14 @@ export function relieve(ev: EventoDirecto[], a: string, b: string): Relieve {
     if (e.teamId !== a && e.teamId !== b) continue;
     const deA = e.teamId === a;
     const m = minutoEje(e);
-    const c = carrilDe(e.y, deA);
+    const c = carrilDe(e.y, deA, CARRILES);
     if (TIROS.has(e.tipo)) picos.push({ minuto: m, carril: c, xg: e.xG ?? 0, gol: e.tipo === "Goal", deA, jugadorId: e.jugadorId });
     if (e.x < 60) continue;
     (deA ? pa : pb)[m][c] += 1 + 10 * Math.max(0, e.xPV);
   }
-  const sa = suaviza(pa, 2, 1);
-  const sb = suaviza(pb, 2, 1);
+  const rc = Math.max(1, Math.round(CARRILES / 9));
+  const sa = suaviza(pa, 2, rc, CARRILES);
+  const sb = suaviza(pb, 2, rc, CARRILES);
   let tope = 0;
   for (let t = 0; t < M; t++) for (let c = 0; c < CARRILES; c++) tope = Math.max(tope, sa[t][c] + sb[t][c]);
 
@@ -95,11 +100,11 @@ export function relieve(ev: EventoDirecto[], a: string, b: string): Relieve {
   for (const p of picos) {
     const h = 0.25 + 0.75 * Math.min(1, Math.sqrt(p.xg / 0.6));
     for (let dt = -2; dt <= 2; dt++)
-      for (let dc = -1; dc <= 1; dc++) {
+      for (let dc = -rc; dc <= rc; dc++) {
         const t = p.minuto + dt;
         const c = p.carril + dc;
         if (t < 0 || t >= M || c < 0 || c >= CARRILES) continue;
-        const k = h * Math.exp(-(dt * dt) / 1.2 - (dc * dc) / 0.8);
+        const k = h * Math.exp(-(dt * dt) / 1.2 - (dc * dc) / (0.8 * rc * rc));
         if (k > pico[t][c]) {
           pico[t][c] = k;
           picoA[t][c] = p.deA ? 1 : 0;
@@ -114,5 +119,5 @@ export function relieve(ev: EventoDirecto[], a: string, b: string): Relieve {
       const total = sa[t][c] + sb[t][c];
       parteA[t][c] = pico[t][c] > loma ? picoA[t][c] : total > 0 ? sa[t][c] / total : 0.5;
     }
-  return { minutos: M, altura, parteA, picos };
+  return { minutos: M, altura, parteA, picos, carriles: CARRILES };
 }

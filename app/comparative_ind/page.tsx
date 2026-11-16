@@ -88,6 +88,7 @@ import { MapaDosEjes, type PuntoMapa } from "@/components/data/visual/MapaDosEje
 import { RadiografiaPercentiles, type CunaPercentil } from "@/components/data/visual/RadiografiaPercentiles";
 import { MarcoGrafico, useTipoGrafico } from "@/components/data/visual/MarcoGrafico";
 import { ComparativaOpta } from "./ComparativaOpta";
+import { ConmutadorVista, useVistaAnalisis } from "@/components/ui/VistaVisual";
 
 type Respuesta = { ok: boolean; jugadores?: FilaJugador[]; partidos?: FilaPartido[]; error?: string };
 type RegistroSeguimiento = { ID_JUGADOR: string; NOMBRE?: string; FECHA?: string };
@@ -115,6 +116,99 @@ const ESTABLE = 3;
 const apellido = (nombre: string) => nombre.split(" ").slice(-1)[0];
 
 const formatea = (v: number) => (Math.abs(v) >= 10 ? v.toFixed(0) : v.toFixed(2).replace(/\.?0+$/, ""));
+
+/*
+| EL ÍNDICE DE CADA UNO, EN UNA ESCALA (16/11/2026, «Visual» del ranking). Una
+| fila por jugador del Castilla, ordenados de más a menos: la escala de 0 a 100
+| con la raya del 50 (la media de su puesto en el grupo), su punto con el
+| color del índice y, si jugó en la categoría en 25/26, un punto hueco con lo
+| de entonces unido por una línea (la evolución, a la vista). La muestra corta,
+| en gris. Pinchar abre su ficha.
+*/
+function EscalaIndices({
+  filas,
+  refLabel,
+  onAbre,
+}: {
+  filas: { id: string; nombre: string; puesto: string; indice: number; antes: number | null; corta: boolean; ranking: string }[];
+  refLabel: string;
+  onAbre: (id: string) => void;
+}) {
+  if (!filas.length) return null;
+  const orden = [...filas].sort((a, b) => b.indice - a.indice);
+  const firmes = orden.filter((f) => !f.corta);
+  const arriba = firmes.filter((f) => f.indice >= 50).length;
+  const mejor = firmes[0];
+  const suben = firmes.filter((f) => f.antes !== null && f.indice - f.antes > ESTABLE).length;
+  const titulo = [
+    firmes.length ? `${arriba} de ${firmes.length} por encima de la media de su puesto` : "",
+    mejor ? `el más alto, ${mejor.nombre} (${mejor.indice})` : "",
+    suben ? `${suben} ${suben === 1 ? "sube" : "suben"} más de ${ESTABLE} puntos sobre 25/26` : "",
+  ]
+    .filter(Boolean)
+    .join("; ");
+  return (
+    <section className="mt-3 rounded-2xl border border-white/10 bg-white/[0.02] p-4 sm:p-5">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/50">¿Cómo está cada uno frente a su puesto? · contra {refLabel.toLowerCase()}</p>
+      {titulo && <h3 className="mt-0.5 text-base font-bold leading-snug text-white sm:text-lg">{titulo.charAt(0).toUpperCase() + titulo.slice(1)}</h3>}
+      <div className="mt-3 grid grid-cols-[minmax(0,9rem)_minmax(0,1fr)_2.5rem] items-center gap-x-2 text-[10px] text-white/45 sm:grid-cols-[minmax(0,13rem)_minmax(0,1fr)_3rem]">
+        <span />
+        <span className="relative h-3">
+          {[0, 25, 50, 75, 100].map((v) => (
+            <span key={v} className="absolute -translate-x-1/2 tabular-nums" style={{ left: `${v}%` }}>
+              {v}
+            </span>
+          ))}
+        </span>
+        <span />
+      </div>
+      <ol className="mt-1 space-y-0.5">
+        {orden.map((f) => {
+          const color = f.corta ? tinta(0.4) : colorIndice(f.indice);
+          return (
+            <li key={f.id}>
+              <button
+                type="button"
+                onClick={() => onAbre(f.id)}
+                className="grid w-full grid-cols-[minmax(0,9rem)_minmax(0,1fr)_2.5rem] items-center gap-x-2 rounded-lg px-1 py-1 text-left transition hover:bg-white/[0.04] sm:grid-cols-[minmax(0,13rem)_minmax(0,1fr)_3rem]"
+                title={`${f.nombre} · ${f.puesto} · índice ${f.indice}${f.antes !== null ? ` (25/26: ${f.antes})` : " · nuevo en la categoría"}${f.ranking ? ` · ${f.ranking}` : ""}${f.corta ? ` · menos de ${MUESTRA_CORTA}′, tendencia` : ""}`}
+              >
+                <span className="min-w-0 truncate text-[13px] text-white/85">
+                  {f.nombre}
+                  <span className="ml-1 text-[11px] text-white/45">{f.puesto}</span>
+                </span>
+                <span className="relative block h-5">
+                  <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2" style={{ background: tinta(0.12) }} />
+                  <span className="absolute top-0 h-5 w-px" style={{ left: "50%", background: tinta(0.35) }} />
+                  {f.antes !== null && (
+                    <>
+                      <span
+                        className="absolute top-1/2 h-0.5 -translate-y-1/2"
+                        style={{ left: `${Math.min(f.antes, f.indice)}%`, width: `${Math.abs(f.indice - f.antes)}%`, background: tinta(0.3) }}
+                      />
+                      <span className="absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2" style={{ left: `${f.antes}%`, borderColor: tinta(0.45) }} />
+                    </>
+                  )}
+                  <span className="absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ left: `${f.indice}%`, background: color }} />
+                </span>
+                <span className="text-right text-[13px] font-semibold tabular-nums" style={{ color }}>
+                  {f.indice}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+      <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-white/55">
+        <span className="inline-flex items-center gap-1.5"><i className="inline-block h-3 w-3 rounded-full" style={{ background: MEJOR }} />60 o más</span>
+        <span className="inline-flex items-center gap-1.5"><i className="inline-block h-3 w-3 rounded-full" style={{ background: ORO }} />45 a 59</span>
+        <span className="inline-flex items-center gap-1.5"><i className="inline-block h-3 w-3 rounded-full" style={{ background: PEOR }} />menos de 45</span>
+        <span className="inline-flex items-center gap-1.5"><i className="inline-block h-2.5 w-2.5 rounded-full border-2" style={{ borderColor: tinta(0.45) }} />su índice en 25/26</span>
+        <span>Raya: 50, la media de su puesto · en gris, menos de {MUESTRA_CORTA}′ (tendencia) · la tabla entera, en «Detalle»</span>
+      </p>
+    </section>
+  );
+}
 
 function Barra({ valor, color }: { valor: number; color: string }) {
   return (
@@ -271,6 +365,9 @@ export default function ComparativaCategoria() {
   const [ref, setRef] = useState<Referencia>("u21");
   const [filtroPuesto, setFiltroPuesto] = useState<Puesto | "todos">("todos");
   const [pestana, setPestana] = useState<Pestana>("ranking");
+  /* Visual / Detalle del ranking (16/11/2026, petición del analista): Visual, el índice de cada uno en una escala con su punto de 25/26; Detalle, la tabla de siempre. */
+  const [vistaRanking, setVistaRanking] = useVistaAnalisis("comparativa-ranking");
+  const rankingVisual = vistaRanking === "visual";
   const [elegido, setElegido] = useState<string | null>(null);
   const [orden, setOrden] = useState<{ por: Orden; desc: boolean }>({ por: "indice", desc: true });
   /* 09/11/2026: la misma comparativa con Opta y con sus temporadas pasadas. */
@@ -715,6 +812,26 @@ export default function ComparativaCategoria() {
                       </div>
                     )}
 
+                    <div className="mt-5 flex justify-end">
+                      <ConmutadorVista vista={vistaRanking} onCambia={setVistaRanking} />
+                    </div>
+                    {rankingVisual && (
+                      <EscalaIndices
+                        filas={comparables.map(({ f, ficha }) => ({
+                          id: f.jugador.jugador,
+                          nombre: nombreVisible(ficha?.nombre ?? f.jugador.jugador),
+                          puesto: PUESTOS.find((p) => p.key === f.puesto)?.corto ?? "",
+                          indice: f.indice ?? 0,
+                          antes: f.evolucion ? (f.indice ?? 0) - f.evolucion.salto : null,
+                          corta: f.jugador.minutos < MUESTRA_CORTA,
+                          ranking: f.ranking ? `${f.ranking.posicion}.º de ${f.ranking.de}` : "",
+                        }))}
+                        refLabel={refLabel}
+                        onAbre={abreFicha}
+                      />
+                    )}
+                    {!rankingVisual && (
+                    <>
                     <p className="mt-5 text-xs text-white/40">Pincha en una columna para ordenar y en un jugador para abrir su ficha. El índice va de 0 a 100 (50 es la media del grupo de comparación); los minutos son los de Wyscout en la liga, así que pueden diferir de los minutos con nota de Valoraciones; el ranking compara con los jugadores de su puesto.</p>
                     <div className="mt-2 overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02] pr-14">
                       <table className="w-full text-sm sm:min-w-[860px]">
@@ -839,6 +956,9 @@ export default function ComparativaCategoria() {
                       <p className="mt-3 text-xs text-white/50">
                         <span className="text-[#C8A96B]">*</span> Menos de {MUESTRA_CORTA}′: muestra corta, el índice va en gris porque puede moverse mucho (tendencia). El índice compara con su puesto en la categoría; la nota, sólo nuestras valoraciones.
                       </p>
+                    )}
+
+                    </>
                     )}
 
                     {/* 07/11/2026: qué cuentan Evolución y Nº de seguimientos, junto a la tabla. */}

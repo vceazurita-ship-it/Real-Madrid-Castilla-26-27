@@ -22,7 +22,8 @@ import { AbpHeader, Button, Dialog, Notice, Panel, SaveState, Segmented, Select,
 import { FichaGol, VerGol, type CambiaFicha } from "@/components/goles/FichaGol";
 import { opcionesDeAccion, useMenuAccion } from "@/components/video/MenuAccion";
 import { DOC_TECNICO_MANUAL, fichaCoherente, fichaDe, nombreAccion, nombreCampo, nombreFase, tieneFicha, type FichaManual, type FichasManuales, type FichaTecnica } from "@/lib/goles/tecnico";
-import { MEJOR, ORO, PEOR, tinta } from "@/components/data/graficas";
+import { Dispersion, MEJOR, ORO, PEOR, tinta, type Punto } from "@/components/data/graficas";
+import { Lamina, TituloConclusion, VistaVisualDetalle } from "@/components/ui/VistaVisual";
 import { Lectura } from "@/components/data/formas";
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { Explicativo, useTextosExplicativos } from "@/components/ui/textos-analisis";
@@ -772,6 +773,89 @@ export function PantallaGoles() {
   const conTipo: GolConTipo[] = goles.map((g) => ({ ...g, tipoFinal: tipoDe(g.clave) })).filter((g) => g.tipoFinal);
 
   const vistaVer: Vista = vista;
+
+  /*
+  | VISUAL (16/11/2026, petición del analista: «de primeras debe ser mucho más
+  | visual»). Lo que se abre: tres láminas con su conclusión en el título,
+  | todas con los datos que la pantalla ya tiene. «Detalle» es la pantalla de
+  | antes, tal cual.
+  */
+  const rivalEnLista = proximoRival ? equipos.find((e) => mismoEquipo(e, proximoRival) && !mismoEquipo(e, CASTILLA)) : undefined;
+  const nubeLiga: Punto[] = (() => {
+    const suma = new Map<string, { gf: number; gc: number; n: number }>();
+    for (const p of liga)
+      for (const lado of ["local", "visitante"] as const) {
+        if (condicion !== "todos" && condicion !== lado) continue;
+        const quien = lado === "local" ? p.local : p.visitante;
+        const v = suma.get(quien) ?? { gf: 0, gc: 0, n: 0 };
+        v.gf += lado === "local" ? p.gl : p.gv;
+        v.gc += lado === "local" ? p.gv : p.gl;
+        v.n++;
+        suma.set(quien, v);
+      }
+    return [...suma.entries()].filter(([, v]) => v.n > 0).map(([e, v]) => ({ equipo: e, x: v.gf / v.n, y: v.gc / v.n }));
+  })();
+  const medianaDe = (xs: number[]) => {
+    const o = [...xs].sort((a, b) => a - b);
+    return o.length ? (o.length % 2 ? o[(o.length - 1) / 2] : (o[o.length / 2 - 1] + o[o.length / 2]) / 2) : 0;
+  };
+  const yoEnNube = nubeLiga.find((p) => p.equipo === equipo);
+  const tituloNube = (() => {
+    if (!yoEnNube || nubeLiga.length < 4) return "";
+    const mx = medianaDe(nubeLiga.map((p) => p.x));
+    const my = medianaDe(nubeLiga.map((p) => p.y));
+    const marca = yoEnNube.x >= mx ? "marca más" : "marca menos";
+    const encaja = yoEnNube.y <= my ? "encaja menos" : "encaja más";
+    const juicio = yoEnNube.x >= mx && yoEnNube.y <= my ? ": de los mejores de la liga en las dos áreas" : yoEnNube.x < mx && yoEnNube.y > my ? ": por debajo en las dos áreas" : "";
+    return `${corto} ${marca} y ${encaja} que la mediana de la liga (${fmt(yoEnNube.x)} y ${fmt(yoEnNube.y)} por partido)${juicio}`;
+  })();
+  /* «el tramo 76-90'» o «los tramos 0-15' y 76-90'»; con tres o más empatados no hay tramo que nombrar. */
+  const enTramo = (t: { tramos: string[]; goles: number } | null) =>
+    !t || t.tramos.length > 2 ? "" : `${t.tramos.length === 2 ? "los tramos" : "el tramo"} ${t.tramos.map(tramoLargo).join(" y ")} (${t.goles}${t.tramos.length === 2 ? " cada uno" : ""})`;
+  const tituloFranjas = [enTramo(masGoleadora) && `${corto} marca sobre todo en ${enTramo(masGoleadora)}`, enTramo(masEncajada) && `encaja sobre todo en ${enTramo(masEncajada)}`]
+    .filter(Boolean)
+    .join(" y ")
+    .replace(/^encaja/, `${corto} encaja`);
+  const visualGoles = () => delEquipo.length ? (
+    <div className="space-y-4">
+      {fraseAbre ? <p className="text-[15px] font-semibold leading-snug text-white">{fraseAbre}</p> : null}
+      <div className="grid min-w-0 gap-4 xl:grid-cols-2">
+        {tituloFranjas ? (
+          <Lamina>
+            <TituloConclusion pregunta="¿Cuándo marca y cuándo encaja?" fuente={`BeSoccer · ${poblacion}`}>
+              {tituloFranjas}
+            </TituloConclusion>
+            <GraficaFranjas filas={filasFranja} />
+          </Lamina>
+        ) : null}
+        {tituloNube ? (
+          <Lamina>
+            <TituloConclusion pregunta="¿Dónde está en la liga?" fuente={`BeSoccer · todos los equipos, J${jDesde}–J${jHasta}${condicion === "todos" ? "" : `, ${rotuloLugar(condicion)}`}`}>
+              {tituloNube}
+            </TituloConclusion>
+            <Dispersion
+              puntos={nubeLiga}
+              etiquetaX="Goles a favor por partido"
+              etiquetaY="Goles en contra por partido"
+              unidadX="decimal"
+              unidadY="decimal"
+              destacado={equipo}
+              comparado={rivalEnLista && rivalEnLista !== equipo ? rivalEnLista : undefined}
+              alPulsar={(e) => setEquipo(e)}
+            />
+          </Lamina>
+        ) : null}
+      </div>
+      {esNuestro && conTipo.length ? (
+        <Lamina>
+          <TituloConclusion pregunta="¿Cómo llegan los goles?" fuente="Hudl, nuestros partidos (con la corrección a mano)">
+            {deTipologia[0] ?? "Nuestros goles y los que encajamos, por cómo llegan"}
+          </TituloConclusion>
+          <GraficasTipologia goles={conTipo} colorFavor={ORO} colorContra={PEOR} onGol={alPincharGol} />
+        </Lamina>
+      ) : null}
+    </div>
+  ) : null;
   /* Los títulos hablan desde nosotros cuando el equipo es el Castilla. */
   const nos = (nuestro: string, otro: string) => (esNuestro ? nuestro : otro);
 
@@ -951,7 +1035,12 @@ export function PantallaGoles() {
           </Notice>
         </div>
       ) : (
-        <div className="mt-6 space-y-5">
+        <div className="mt-6 min-w-0">
+        <VistaVisualDetalle
+          pantalla="analisis-goles"
+          visual={visualGoles()}
+          detalle={
+        <div className="space-y-5">
           <Pestanas<Vista>
             etiqueta="Vistas del análisis de goles"
             valor={vistaVer}
@@ -1533,6 +1622,9 @@ export function PantallaGoles() {
             </>
           ) : null}
 
+        </div>
+          }
+        />
         </div>
       )}
     </Marco>

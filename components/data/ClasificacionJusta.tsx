@@ -14,7 +14,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-import { COMPARADO, MEJOR, ORO, PEOR } from "@/components/data/graficas";
+import { COMPARADO, MEJOR, ORO, PEOR, tinta, useEscudos } from "@/components/data/graficas";
 import { cargaCalendario } from "@/hooks/useCalendario";
 import { alrededorDe } from "@/lib/castilla/calendario";
 import { useOptaLigero } from "@/hooks/useOptaLigero";
@@ -137,82 +137,124 @@ function Bloque() {
         </label>
       </div>
 
+      {/*
+        COMO EL ORIGINAL DE X (16/11/2026, petición del analista: «el mismo diseño
+        adaptado a nuestra hoja de estilo»): las dos clasificaciones enfrentadas y
+        unidas por una curva por equipo, del puesto real al que merece. Antes eran
+        dos tablas sueltas y había que buscar a cada equipo en las dos.
+      */}
       <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-white/60">
+        <span className="inline-flex items-center gap-1.5"><i className="inline-block h-[3px] w-5 rounded-full" style={{ background: PEOR }} />Va más arriba de lo que merece</span>
+        <span className="inline-flex items-center gap-1.5"><i className="inline-block h-[3px] w-5 rounded-full" style={{ background: MEJOR }} />Merece estar más arriba</span>
+        <span className="inline-flex items-center gap-1.5"><i className="inline-block h-[3px] w-5 rounded-full" style={{ background: tinta(0.3) }} />Parecido (±1 puesto)</span>
         <span className="inline-flex items-center gap-1.5"><i className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: ORO }} />Real Madrid Castilla</span>
         {rivalId && <span className="inline-flex items-center gap-1.5"><i className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: COMPARADO }} />Próximo rival</span>}
-        <span><span style={{ color: MEJOR }}>▲</span> merece más de lo que tiene · <span style={{ color: PEOR }}>▼</span> tiene más de lo que merece</span>
       </p>
 
-      <div className="mt-3 grid min-w-0 grid-cols-2 gap-2 sm:gap-3">
-        <Tabla titulo="Real (puntos)" filas={filas} valor={(f) => String(f.puntos)} resalte={resalte} lado="real" />
-        <Tabla titulo="Justa (xPts)" filas={justa} valor={(f) => coma(f.xPts)} resalte={resalte} lado="justa" />
-      </div>
+      <Cruce filas={filas} justa={justa} resalte={resalte} rivalId={rivalId} />
 
       <p className="mt-3 text-[11px] leading-5 text-white/45">
         Cada partido: goles de cada equipo como Poisson independiente con media su xG; xPts = 3 × P(ganar) + P(empatar). «Jornada N» = los N primeros partidos de cada equipo con xG.
-        En la tabla real, la diferencia es puntos − xPts; en la justa, los puestos que sube o baja respecto a la real.
+        Cada curva une el puesto real de un equipo con el que merecería por sus ocasiones; en la columna real, ▲▼ es puntos − xPts cuando pasa de 1,5 (en el ordenador).
       </p>
     </section>
   );
 }
 
-function Tabla({
-  titulo,
+const FILA = 26;
+
+/** Color de la curva: hacia dónde se mueve del puesto real al justo. */
+const colorCurva = (f: FilaJusta) => {
+  const mueve = f.puestoReal - f.puestoJusto;
+  if (Math.abs(mueve) <= 1) return tinta(0.28);
+  return mueve > 0 ? MEJOR : PEOR;
+};
+
+function Cruce({
   filas,
-  valor,
+  justa,
   resalte,
-  lado,
+  rivalId,
 }: {
-  titulo: string;
   filas: FilaJusta[];
-  valor: (f: FilaJusta) => string;
+  justa: FilaJusta[];
   resalte: (f: FilaJusta) => string | null;
-  lado: "real" | "justa";
+  rivalId: string | null;
 }) {
-  return (
-    <div className="min-w-0 overflow-hidden rounded-xl border border-white/10">
-      <p className="border-b border-white/10 bg-white/[0.04] px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-white/60">{titulo}</p>
-      <ol>
-        {filas.map((f) => {
-          const color = resalte(f);
-          const puesto = lado === "real" ? f.puestoReal : f.puestoJusto;
-          let marca: ReactNode = null;
-          if (lado === "real") {
-            if (Math.abs(f.dif) >= UMBRAL)
-              marca = (
-                <span style={{ color: f.dif < 0 ? MEJOR : PEOR }} title={`${f.puntos} puntos y ${coma(f.xPts)} xPts`}>
-                  {f.dif < 0 ? "▲" : "▼"}
-                  {coma(Math.abs(f.dif))}
-                </span>
-              );
-            else marca = <span className="text-white/35" title={`${f.puntos} puntos y ${coma(f.xPts)} xPts`}>=</span>;
-          } else {
-            const mueve = f.puestoReal - f.puestoJusto;
-            marca = mueve ? (
-              <span style={{ color: mueve > 0 ? MEJOR : PEOR }} title={`${f.puestoReal}º en la real`}>
-                {mueve > 0 ? "▲" : "▼"}
-                {Math.abs(mueve)}
-              </span>
-            ) : (
-              <span className="text-white/35" title={`${f.puestoReal}º en la real`}>=</span>
-            );
-          }
-          return (
-            <li
-              key={f.teamId}
-              className="flex items-center gap-1.5 border-b border-white/5 px-2 py-1 text-xs last:border-b-0 sm:gap-2"
-              style={color ? { background: `color-mix(in srgb, ${color} 16%, transparent)`, boxShadow: `inset 3px 0 0 ${color}` } : undefined}
-            >
-              <span className="w-5 shrink-0 text-right tabular-nums text-white/45">{puesto}</span>
-              <span className={`min-w-0 flex-1 truncate ${color ? "font-semibold text-white" : "text-white/80"}`} title={`${f.equipo} · ${f.partidos} partidos · xG ${coma(f.xgf)}-${coma(f.xgc)}`}>
-                {f.equipo}
-              </span>
-              <span className="shrink-0 tabular-nums font-semibold text-white">{valor(f)}</span>
-              <span className="w-9 shrink-0 text-right text-[10px] tabular-nums sm:w-10 sm:text-[11px]">{marca}</span>
-            </li>
+  const escudoDe = useEscudos();
+  const n = filas.length;
+  const alto = n * FILA;
+  const y = (puesto: number) => (puesto - 0.5) * FILA;
+  /* Los resaltados, encima de todo. */
+  const ordenDibujo = [...filas].sort((a, b) => Number(Boolean(resalte(a))) - Number(Boolean(resalte(b))));
+
+  const lista = (orden: FilaJusta[], lado: "real" | "justa") => (
+    <ol className="min-w-0">
+      {orden.map((f) => {
+        const color = resalte(f);
+        const puesto = lado === "real" ? f.puestoReal : f.puestoJusto;
+        const escudo = escudoDe(f.equipo);
+        const valor = lado === "real" ? String(f.puntos) : coma(f.xPts);
+        let marca: ReactNode = null;
+        if (lado === "real" && Math.abs(f.dif) >= UMBRAL)
+          marca = (
+            <span className="max-sm:hidden" style={{ color: f.dif < 0 ? MEJOR : PEOR }}>
+              {f.dif < 0 ? "▲" : "▼"}
+              {coma(Math.abs(f.dif))}
+            </span>
           );
-        })}
-      </ol>
+        return (
+          <li
+            key={f.teamId}
+            className="flex items-center gap-1.5 px-1.5 text-xs"
+            style={{
+              height: FILA,
+              ...(color ? { background: `color-mix(in srgb, ${color} 16%, transparent)`, boxShadow: `inset ${lado === "real" ? "3px" : "-3px"} 0 0 ${color}` } : {}),
+            }}
+            title={`${f.equipo} · ${f.puntos} puntos y ${coma(f.xPts)} xPts · ${f.puestoReal}.º en la real y ${f.puestoJusto}.º en la justa · xG ${coma(f.xgf)}-${coma(f.xgc)} en ${f.partidos} partidos`}
+          >
+            <span className="w-4 shrink-0 text-right tabular-nums text-white/45">{puesto}</span>
+            {escudo ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img src={escudo} alt="" width={14} height={14} className="h-3.5 w-3.5 shrink-0 object-contain max-sm:hidden" />
+            ) : null}
+            <span className={`min-w-0 flex-1 truncate ${color ? "font-semibold text-white" : "text-white/80"}`}>{f.equipo}</span>
+            {marca && <span className="shrink-0 text-[10px] tabular-nums">{marca}</span>}
+            <span className="shrink-0 tabular-nums font-semibold text-white">{valor}</span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+
+  return (
+    <div className="mt-3 min-w-0">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(2.5rem,22%)_minmax(0,1fr)] items-end text-[11px] font-semibold uppercase tracking-wider text-white/60">
+        <p className="px-1.5 pb-1">Real · puntos</p>
+        <span />
+        <p className="px-1.5 pb-1 text-right">Según sus ocasiones · xPts</p>
+      </div>
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(2.5rem,22%)_minmax(0,1fr)] overflow-hidden rounded-xl border border-white/10">
+        {lista(filas, "real")}
+        <svg viewBox={`0 0 100 ${alto}`} preserveAspectRatio="none" className="block h-full w-full" style={{ height: alto }} role="img" aria-label="Del puesto real al que merece cada equipo por sus ocasiones">
+          {ordenDibujo.map((f) => {
+            const y1 = y(f.puestoReal);
+            const y2 = y(f.puestoJusto);
+            const destacado = resalte(f);
+            return (
+              <path
+                key={f.teamId}
+                d={`M0,${y1} C50,${y1} 50,${y2} 100,${y2}`}
+                vectorEffect="non-scaling-stroke"
+                style={{ fill: "none", stroke: colorCurva(f), strokeWidth: destacado ? 4 : 2, opacity: destacado ? 1 : 0.8, strokeLinecap: "round" }}
+              >
+                <title>{`${f.equipo}: ${f.puestoReal}.º en la real → ${f.puestoJusto}.º en la justa${f.teamId === rivalId ? " (próximo rival)" : ""}`}</title>
+              </path>
+            );
+          })}
+        </svg>
+        {lista(justa, "justa")}
+      </div>
     </div>
   );
 }

@@ -24,6 +24,7 @@ import { useAdmin } from "@/hooks/useAdmin";
 import { leeEventos, type JugadorDirecto } from "@/lib/opta-directo-mapas";
 import { CASTILLA_OPTA, traeOpta, type TablaOpta } from "@/lib/opta";
 import { GX, GY, retrato, territorioRetrato, ventana, type TiroRetrato } from "@/lib/opta-retrato";
+import { RelieveSuelo } from "@/components/data/RelieveSuelo";
 
 type Equipo = { teamId: string; nombre: string; color?: string; campo?: string };
 type RGB = [number, number, number];
@@ -123,6 +124,29 @@ export function RelievePartido({
       /* nada */
     }
   };
+  /*
+  | SUELO ANCHO O CAMPO 3D (16/11/2026, petición del analista: «al visionado con
+  | relieve de X se le veía como un suelo ancho que lo hacía más visual»). Por
+  | defecto, el partido entero de un vistazo sobre el suelo ancho
+  | (RelieveSuelo); el campo 3D animado sigue a un toque. Se recuerda en el aparato.
+  */
+  const [vista, setVista] = useState<"suelo" | "campo">(() => {
+    if (typeof window === "undefined") return "suelo";
+    try {
+      return localStorage.getItem("rmcf:relieve-vista") === "campo" ? "campo" : "suelo";
+    } catch {
+      return "suelo";
+    }
+  });
+  const cambiaVista = (v: "suelo" | "campo") => {
+    setVista(v);
+    try {
+      localStorage.setItem("rmcf:relieve-vista", v);
+    } catch {
+      /* nada */
+    }
+  };
+  const enSuelo = !compacto && vista === "suelo";
   /* Colores de la app (petición del analista): el nuestro (o el de la izquierda) en oro y el otro en blanco hielo. */
   const [colA, colB] = useMemo<[RGB, RGB]>(() => (modo === "app" ? [[240, 186, 70], [226, 238, 255]] : dosColores(a, b, delPartido)), [modo, a, b, delPartido]);
   const fija = async (teamId: string, hex: string) => {
@@ -165,7 +189,7 @@ export function RelievePartido({
       ro.disconnect();
       window.removeEventListener("orientationchange", mide);
     };
-  }, [compacto]);
+  }, [compacto, enSuelo]);
   useEffect(() => {
     const doc = document as Document & { webkitFullscreenElement?: Element | null };
     const cambio = () => {
@@ -581,7 +605,7 @@ export function RelievePartido({
     };
     pedido = requestAnimationFrame(vuelta);
     return () => cancelAnimationFrame(pedido);
-  }, [r, fin, compacto, colA, colB, resolucion]);
+  }, [r, fin, compacto, colA, colB, resolucion, enSuelo]);
 
   const xgA = r.tiros.filter((p) => p.deA && p.minuto <= minuto).reduce((x, p) => x + p.xg, 0);
   const xgB = r.tiros.filter((p) => !p.deA && p.minuto <= minuto).reduce((x, p) => x + p.xg, 0);
@@ -604,7 +628,31 @@ export function RelievePartido({
   const parte = minuto <= 45 ? "1.ª PARTE" : "2.ª PARTE";
 
   if (ev.length < 20) return null;
+  const selector = !compacto && (
+    <div role="group" aria-label="Cómo ver el relieve" className="mb-2 flex flex-wrap items-center gap-2 text-xs">
+      {(["suelo", "campo"] as const).map((v) => (
+        <button
+          key={v}
+          type="button"
+          onClick={() => cambiaVista(v)}
+          aria-pressed={vista === v}
+          className={`rounded-full border px-3 py-1 font-semibold transition ${vista === v ? "border-[#C8A96B]/60 bg-[#C8A96B]/15 text-white" : "border-white/15 text-white/60 hover:text-white"}`}
+        >
+          {v === "suelo" ? "Partido entero (suelo ancho)" : "Campo 3D animado"}
+        </button>
+      ))}
+    </div>
+  );
+  if (enSuelo)
+    return (
+      <div className="min-w-0">
+        {selector}
+        <RelieveSuelo ev={ev} a={a} b={b} colA={colA} colB={colB} jugadores={jugadores} />
+      </div>
+    );
   return (
+    <div className="min-w-0">
+    {selector}
     <div
       ref={marco}
       className={completa ? "group fixed inset-0 z-[80] flex flex-col justify-center overflow-hidden" : "group relative mx-auto overflow-hidden rounded-2xl"}
@@ -820,6 +868,7 @@ export function RelievePartido({
           )}
         </div>
       )}
+    </div>
     </div>
   );
 }

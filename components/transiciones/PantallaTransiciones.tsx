@@ -63,6 +63,7 @@ import { Topbar } from "@/components/ui/topbar";
 import { AbpHeader, Panel } from "@/components/abp/ui";
 import { SelloDeFechas } from "@/components/data/SelloJornada";
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
+import { ConmutadorVista, TituloConclusion, useVistaAnalisis } from "@/components/ui/VistaVisual";
 import { PARTIDOS, type Accion, type Robo } from "@/lib/transiciones/datos";
 import { nombreEquipo } from "@/lib/equipos";
 import { ComoActualizar } from "@/components/transiciones/ComoActualizar";
@@ -612,6 +613,14 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
 
   /* Cuatro vistas en vez de un único scroll: el resumen, el campo, el detalle y la lista. */
   const [vista, setVista] = usePestanaUrl("vista", VISTAS, "resumen");
+  /*
+  | VISUAL / DETALLE (16/11/2026, petición del analista). En «Visual» (lo que se
+  | abre) la pantalla es lo que pide trabajo, las conclusiones y el campo con
+  | cada robo o pérdida en su sitio, con su conclusión en el título;
+  | «Detalle» es la pantalla de siempre, con sus cinco pestañas.
+  */
+  const [vistaPantalla, setVistaPantalla] = useVistaAnalisis(modo === "robos" ? "laboratorio-transiciones" : "laboratorio-perdidas");
+  const enVisual = vistaPantalla === "visual";
   /*
   | Se abre en el último partido analizado, no en «todos»: lo que se quiere
   | mirar el lunes es lo del domingo. «Todos los partidos» sigue a un toque.
@@ -1392,6 +1401,19 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
     return frases;
   })();
 
+  /* El título-conclusión del campo en «Visual»: en qué tercio se concentran. */
+  const tituloCampo = (() => {
+    if (!robos.length) return "";
+    const zonas = (["campo rival", "medio campo", "campo propio"] as const).map((z) => ({ z, n: robos.filter((r) => zonaDe(r) === z).length }));
+    const top = [...zonas].sort((a, b) => b.n - a.n)[0];
+    const dicho = (z: string) => (z === "campo propio" ? "nuestro campo" : z);
+    const resto = zonas
+      .filter((x) => x.z !== top.z && x.n > 0)
+      .map((x) => `${pct(x.n, robos.length)} % en ${dicho(x.z)}`)
+      .join(" y ");
+    return `${modo === "robos" ? "Robamos" : "Perdemos el balón"} sobre todo en ${dicho(top.z)}: ${pct(top.n, robos.length)} %${resto ? `, por ${resto}` : ""}`;
+  })();
+
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
       {menuAccion}
@@ -1510,6 +1532,10 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
             />
             )}
 
+            <div className="mt-4 flex justify-end">
+              <ConmutadorVista vista={vistaPantalla} onCambia={setVistaPantalla} />
+            </div>
+            {!enVisual && (
             <div className="mt-4">
               <Pestanas
                 etiqueta="Vistas"
@@ -1524,8 +1550,9 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                 ]}
               />
             </div>
+            )}
 
-            {vista === "resumen" && (
+            {(vista === "resumen" || enVisual) && (
             <>
             {/* ---------------- este partido frente a los anteriores ---------------- */}
 
@@ -1548,6 +1575,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                     limpia();
                     if (queToca.filtro.length) alternaVarios(queToca.filtro);
                     setVista("lista");
+                    setVistaPantalla("detalle");
                   }}
                   className="mt-2 rounded-xl border border-white/15 bg-white/[0.04] px-3 py-1.5 text-sm text-white/80 transition hover:border-[#C8A96B]/40"
                 >
@@ -1563,7 +1591,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
               </div>
             ) : null}
 
-            {comparativa && (
+            {comparativa && !enVisual && (
               <div className="pr-12 sm:pr-0">
               <ComparativaPartido
                 partido={comparativa.partido}
@@ -1602,7 +1630,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                 (y en el filtro): la tarjeta repetía «38 robos · 1 partido» (marketing). */}
             {/* 08/11/2026: con un partido y su tabla, las tarjetas repetían las
                 mismas cifras (60 %, 40 %, 16,8 s): sólo salen en temporada. */}
-            {unPartido && comparativa ? null : (
+            {(unPartido && comparativa) || enVisual ? null : (
             <div className={`mt-5 grid grid-cols-2 gap-3 ${unPartido ? "lg:grid-cols-3" : "lg:grid-cols-4"}`}>
               {unPartido ? null : (
               <Cifra
@@ -1647,19 +1675,26 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
             )}
 
             {/* 10/11/2026: lo que da Opta y el vídeo no (el grupo, y el partido con su definición). */}
+            {!enVisual && (
             <OptaLaboratorio
               modo={modo}
               partido={partidoElegido ? { rival: partidoElegido.rival, fecha: partidoElegido.fecha, jornada: partidoElegido.jornada } : null}
             />
+            )}
 
             </>
             )}
 
-            {vista === "campo" && (
+            {(vista === "campo" || enVisual) && (
             <>
             {/* ---------------- dónde, en el campo ---------------- */}
 
             <div className="mt-5">
+              {enVisual && tituloCampo ? (
+                <TituloConclusion pregunta={modo === "robos" ? "¿Dónde robamos?" : "¿Dónde perdemos el balón?"} fuente={`Vídeo etiquetado · ${robos.length} ${robos.length === 1 ? T.unidadUna : T.unidad}`}>
+                  {tituloCampo}
+                </TituloConclusion>
+              ) : null}
               <Panel
                 title={modo === "robos" ? "Dónde robamos" : "Dónde perdemos el balón"}
                 subtitle={
@@ -1684,7 +1719,10 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                         hudl: r.hudlUrl && r.hudl != null ? { url: r.hudlUrl, seg: Math.round(r.hudl) } : null,
                         fila: robos.some((x) => idDe(x) === id) ? id : null,
                         /* La tabla vive en su pestaña: hay que ir a ella antes. */
-                        aLaTabla: () => setVista("lista"),
+                        aLaTabla: () => {
+                          setVista("lista");
+                          setVistaPantalla("detalle");
+                        },
                       });
 
                       /* Sin vídeo ni fila, el punto hace lo de siempre: filtra su cajón. */
@@ -1747,7 +1785,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
             </>
             )}
 
-            {vista === "detalle" && (
+            {!enVisual && vista === "detalle" && (
             <>
             {/* ---------------- qué pasa con el balón ---------------- */}
 
@@ -2139,7 +2177,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
             </>
             )}
 
-            {vista === "jugadores" && (
+            {!enVisual && vista === "jugadores" && (
             <>
             {/* ---------------- por jugador ---------------- */}
 
@@ -2200,7 +2238,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
             </>
             )}
 
-            {vista === "lista" && (
+            {!enVisual && vista === "lista" && (
             <>
             {/* ---------------- listado ---------------- */}
 
