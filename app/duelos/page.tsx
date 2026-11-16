@@ -40,7 +40,7 @@ import type { FilaJugador, FilaPartido } from "@/lib/data-analisis/leer";
 import { posesionesDe } from "@/lib/comparativa-posesion";
 import { aObjetos, DOCS_OPTA, traeOpta } from "@/lib/opta";
 import { robadoresDelOnce, rotuloZona, UMBRAL_ROBADOR, type RoboJugador } from "@/lib/duelos-robador";
-import { baseSuyaDe, nuestrosDe, onceNuestroDe, onceSuyoDe, separaSinPareja, suyosDe } from "@/lib/duelos-onces";
+import { baseSuyaDe, huecosDePlantillas, nuestrosDe, onceNuestroDe, onceSuyoDe, separaSinPareja, sinChoqueDeNombres, suyosDe } from "@/lib/duelos-onces";
 import { fuenteUltimoOnce, huecosDelUltimoOnce } from "@/lib/tactics/ultimoOnce";
 import { huecosDeLaPizarra } from "@/lib/tactics/huecosDeLaPizarra";
 import { leeTableroDeOnces, type TableroDeOnces } from "@/lib/tactics/onceDeLaPizarra";
@@ -88,6 +88,12 @@ const COLOR: Record<Veredicto, string> = {
 const ORO_CAMPO = "#C8A96B";
 
 const textoDe = (color: string) => (color === "#C8A96B" ? ORO : color);
+
+/* «+25» y «−62», siempre con el menos tipográfico (16/11/2026, jueces: salían «-62» y «−62»). */
+const firmaN = (v: number | null | undefined) => (v == null ? "" : `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(v)}`);
+
+/* El rótulo corto de cada hueco del 4-2-3-1, el de la pizarra: Pol en la mediapunta es «MP», no «BAN». */
+const CORTO_HUECO: Record<string, string> = { por: "POR", "lat-d": "LD", "cen-d": "DFC", "cen-i": "DFC", "lat-i": "LI", "piv-d": "MC", "piv-i": "MC", "ban-d": "ED", media: "MP", "ban-i": "EI", del: "DC" };
 
 
 const ROTULO: Record<Veredicto, string> = {
@@ -218,7 +224,16 @@ export default function DuelosPage() {
   const { ordena, jornadaDe } = useOrdenRivales();
   const [equipo, setEquipo] = useState("");
   const [onceMarcado, setOnceMarcado] = useState<string[] | null>(null);
+  /* Lo colocado a mano en el campograma de Plantillas rivales (clave → bloque): manda el sitio (16/11/2026). */
+  const [puestosMarcados, setPuestosMarcados] = useState<Record<string, string>>({});
   const [elegido, setElegido] = useState<string | null>(null);
+  /* Las tarjetas, plegadas (16/11/2026, análisis): arriba los tres que deciden; al pinchar un duelo, se abren. */
+  const [verTarjetas, setVerTarjetas] = useState(false);
+  const eligeYMuestra = (c: string) => {
+    setElegido(c);
+    setVerTarjetas(true);
+    setTimeout(() => document.getElementById(`duelo-${c}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 60);
+  };
   const [error, setError] = useState<string | null>(null);
   const [lento, setLento] = useState(false);
   /* El tablero de los onces de la pizarra táctica: nuestro once previsto (02/11/2026). */
@@ -333,7 +348,10 @@ export default function DuelosPage() {
     if (!equipoVisto) return;
     let vivo = true;
     leeDoc<unknown>(rivalOnceKey(equipoVisto)).then((d) => {
-      if (vivo) setOnceMarcado(normalizarOnce(d).titulares);
+      if (!vivo) return;
+      const marcado = normalizarOnce(d);
+      setOnceMarcado(marcado.titulares);
+      setPuestosMarcados(marcado.puestos ?? {});
     });
     return () => {
       vivo = false;
@@ -375,8 +393,14 @@ export default function DuelosPage() {
     : ultimoOnce?.ultimo
       ? fuenteUltimoOnce(ultimoOnce)
       : "Propuesto con los minutos de Wyscout en 4-2-3-1";
-  const onceNuestro = useMemo(() => onceNuestroDe(nuestros, aMano.nuestro, baseNuestra, players), [nuestros, aMano.nuestro, baseNuestra, players]);
-  const onceSuyo = useMemo(() => onceSuyoDe(suyos, baseSuya.lista, aMano.suyo), [suyos, baseSuya, aMano.suyo]);
+  const onceSuyo = useMemo(
+    () => onceSuyoDe(suyos, baseSuya.lista, aMano.suyo, huecosDePlantillas(puestosMarcados, onceMarcado ?? [])),
+    [suyos, baseSuya, aMano.suyo, puestosMarcados, onceMarcado],
+  );
+  const onceNuestro = useMemo(
+    () => sinChoqueDeNombres(onceNuestroDe(nuestros, aMano.nuestro, baseNuestra, players), onceSuyo),
+    [nuestros, aMano.nuestro, baseNuestra, players, onceSuyo],
+  );
   /* El hueco de cada uno en los dos onces: de ahí sale el puesto que se enseña. */
   const huecoDe = useMemo(
     () =>
@@ -534,7 +558,9 @@ export default function DuelosPage() {
             {!cargando && equipoVisto && pintados.length > 0 && (
               <p className="mt-3 max-w-3xl text-lg font-semibold leading-snug text-white sm:text-xl">
                 Contra {equipoVisto}: {recuento.replace(/^\d+ duelos? medidos?: /, "")}
-                <span className="ml-2 text-sm font-normal text-white/50">({pintados.length} duelos medidos)</span>
+                <span className="ml-2 text-sm font-normal text-white/50">
+                  ({pintados.length} {pintados.length === 1 ? "duelo medido" : "duelos medidos"}: los huecos del 4-2-3-1 con datos de Wyscout en los dos lados)
+                </span>
               </p>
             )}
             <p className="mt-2 max-w-3xl text-xs text-white/45">
@@ -635,6 +661,39 @@ export default function DuelosPage() {
               <p className="mt-10 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{error}</p>
             ) : (
               <>
+                {(() => {
+                  /* QUÉ HACEMOS (16/11/2026, jueces): los tres duelos con más diferencia (sin los de pocos minutos), con su consigna. */
+                  const fuerza = (d: ResultadoDuelo) => Math.max(Math.abs(d.conBalon ?? 0), Math.abs(d.sinBalon ?? 0));
+                  const tres = duelos
+                    .filter((d) => clavesPintadas.has(d.def.clave) && !tendencias.has(d.def.clave) && fuerza(d) >= UMBRAL_DUELO)
+                    .sort((a, b) => fuerza(b) - fuerza(a))
+                    .slice(0, 3);
+                  if (!tres.length) return null;
+                  return (
+                    <div className="mt-6 rounded-2xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.05] p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#C8A96B]">Qué hacemos · los {tres.length} duelos que más pesan</p>
+                      <ol className="mt-2 grid gap-3 md:grid-cols-3">
+                        {tres.map((d, i) => {
+                          const sentido = sentidoDeLaConsigna(d);
+                          const v = sentido === "sin" ? d.sinBalon : d.conBalon;
+                          return (
+                            <li key={d.def.clave} className="min-w-0">
+                              <button type="button" onClick={() => eligeYMuestra(d.def.clave)} className="w-full text-left">
+                                <span className="flex items-baseline justify-between gap-2 text-sm font-semibold text-white/90">
+                                  <span className="min-w-0">{i + 1}. {d.def.titulo}</span>
+                                  <b className="shrink-0 tabular-nums" style={{ color: (v ?? 0) >= 0 ? MEJOR : PEOR }}>{firmaN(v)}</b>
+                                </span>
+                                <span className="block text-xs text-white/55">{sentido === "sin" ? "con su balón" : "con nuestro balón"} · {d.nuestros.map((j) => apellidoDe(j)).join(" y ")} contra {d.suyos.map((j) => apellidoDe(j)).join(" y ")}</span>
+                                <span className="mt-1 block text-[13px] leading-snug text-white/85">{consignaDelDuelo(d, sentido)}</span>
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ol>
+                    </div>
+                  );
+                })()}
+
                 <div className="mt-6 grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
                   {/* grid-cols-1 = minmax(0,1fr): sin él, el campo (680 px de ancho mínimo) ensanchaba la columna y en el móvil todo se cortaba por la derecha (08/11/2026). */}
                   {/* 16/11/2026 (marketing): bajo el campo quedaban ~600 px vacíos mientras la columna de la derecha crecía; ahí va ahora «quién nos roba el balón». */}
@@ -658,10 +717,7 @@ export default function DuelosPage() {
                       dorsalNuestro={dorsalNuestro}
                       equipo={equipoVisto}
                       elegido={elegido}
-                      onElige={(c) => {
-                        setElegido(c);
-                        document.getElementById(`duelo-${c}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
-                      }}
+                      onElige={eligeYMuestra}
                     />
                     <div className="mt-2 flex flex-wrap gap-4 text-xs text-white/45">
                       <span className="inline-flex items-center gap-1.5">
@@ -696,8 +752,8 @@ export default function DuelosPage() {
                   </div>
 
                   <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-1">
-                    {modo !== "suyo" && <Claves titulo="Dónde les podemos hacer daño · con balón nuestro" huecoDe={huecoDe} lista={atacar} pocos={atacarTodos.filter((d) => !fiable(d))} contraria={vigilar} sentido="con" color={MEJOR} vacio="Con balón, ningún duelo con minutos suficientes claramente a favor." onElige={setElegido} />}
-                    {modo !== "nuestro" && <Claves titulo="Dónde nos pueden hacer daño · con balón suyo" huecoDe={huecoDe} lista={vigilar} pocos={vigilarTodos.filter((d) => !fiable(d))} contraria={atacar} sentido="sin" color={PEOR} vacio="Sin balón, ningún duelo con minutos suficientes claramente en contra." onElige={setElegido} />}
+                    {modo !== "suyo" && <Claves titulo="Dónde les podemos hacer daño · con balón nuestro" huecoDe={huecoDe} lista={atacar} pocos={atacarTodos.filter((d) => !fiable(d))} contraria={vigilar} sentido="con" color={MEJOR} vacio="Con balón, ningún duelo con minutos suficientes claramente a favor." onElige={eligeYMuestra} />}
+                    {modo !== "nuestro" && <Claves titulo="Dónde nos pueden hacer daño · con balón suyo" huecoDe={huecoDe} lista={vigilar} pocos={vigilarTodos.filter((d) => !fiable(d))} contraria={atacar} sentido="sin" color={PEOR} vacio="Sin balón, ningún duelo con minutos suficientes claramente en contra." onElige={eligeYMuestra} />}
                   </div>
                 </div>
 
@@ -715,8 +771,16 @@ export default function DuelosPage() {
                 />
 
 
+                <details
+                  className="mt-8 rounded-2xl border border-white/10 bg-white/[0.02] p-4"
+                  open={verTarjetas}
+                  onToggle={(e) => setVerTarjetas(e.currentTarget.open)}
+                >
+                  <summary className="cursor-pointer select-none text-sm font-semibold text-white/80">
+                    Los {pintados.length - tendencias.size} duelos, tarjeta a tarjeta (cuando nos atacan, en el centro y cuando atacamos)
+                  </summary>
                 {ZONAS.map((z) => (
-                  <div key={z.key} className="mt-8">
+                  <div key={z.key} className="mt-6">
                     <p className="mb-3 text-xs uppercase tracking-[0.25em] text-white/40">{z.label}</p>
                     <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
                       {duelosVistos
@@ -727,6 +791,7 @@ export default function DuelosPage() {
                     </div>
                   </div>
                 ))}
+                </details>
 
                 {/* Los de poca muestra, plegados y al final (10/11/2026, jueces). */}
                 {(() => {
@@ -847,7 +912,11 @@ function Campo({
     const { x, y } = px(p);
     /* En el móvil, el número (el dorsal; sin él, el puesto) y el nombre sólo de la ficha tocada. */
     const numero = j ? (nuestro ? (j.fichaId ? dorsalNuestro.get(j.fichaId) : undefined) : j.dorsal) : undefined;
-    const enCirculo = j ? (estrecho ? numero || (PUESTOS.find((q) => q.key === j.puesto)?.corto ?? "") : nuestro ? (PUESTOS.find((q) => q.key === j.puesto)?.corto ?? "") : j.dorsal || "") : "?";
+    const hueco = key.slice(2);
+    const enCirculo = j ? (estrecho ? numero || CORTO_HUECO[hueco] || "" : nuestro ? CORTO_HUECO[hueco] || "" : j.dorsal || "") : "?";
+    /* En el móvil, el apellido corto también (16/11/2026, jueces): los nuestros debajo y los suyos encima, para no pisarse. */
+    const corto = j ? apellidoDe(j) : "";
+    const rotuloMovil = corto.length > 9 ? `${corto.slice(0, 8)}…` : corto;
     return (
       <g key={key} onClick={estrecho && j ? () => setTocada((t) => (t === key ? null : key)) : undefined} className={estrecho && j ? "cursor-pointer" : undefined}>
         {/* 07/11/2026: letra más grande (en el móvil el campo se desliza y no baja de 680 px de ancho: ≥12 px reales). */}
@@ -855,6 +924,11 @@ function Campo({
         <text x={x} y={y + 7} textAnchor="middle" className="text-[27px] sm:text-[15px]" fontWeight={700} fill="#0B0F14">
           {enCirculo}
         </text>
+        {j && estrecho && (
+          <text x={x} y={nuestro ? y + 50 : y - 28} textAnchor="middle" fontSize={27} fill={nuestro ? ORO_CAMPO : "rgba(255,255,255,0.92)"} fontWeight={700} stroke="rgba(0,0,0,0.55)" strokeWidth={3} paintOrder="stroke">
+            {rotuloMovil}
+          </text>
+        )}
         {j && !estrecho && (
           <text x={x} y={y + 44} textAnchor="middle" className="text-[25px] sm:text-[18px]" fill={nuestro ? ORO_CAMPO : "rgba(255,255,255,0.85)"} fontWeight={600}>
             {apellidoDe(j)}
@@ -868,7 +942,7 @@ function Campo({
     /* Encajado al ancho (10/11/2026, jueces): a 390 px se cortaba por la derecha y había que deslizarlo.
        Las letras crecen en el móvil para que, escaladas, sigan por encima de 11 px. */
     <div className="mt-3 min-w-0">
-    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" className="h-auto w-full" style={{ maxHeight: "max(300px, calc(100vh - 330px))" }} role="img" aria-label="Duelos en el campo">
+    <svg viewBox={`-24 -40 ${W + 48} ${H + 84}`} preserveAspectRatio="xMidYMid meet" className="h-auto w-full" style={{ maxHeight: "max(300px, calc(100vh - 330px))" }} role="img" aria-label="Duelos en el campo">
       <rect x={0} y={0} width={W} height={H} rx={10} fill="#12301f" />
       {[...Array(10)].map((_, i) => (
         <rect key={i} x={(i * W) / 10} y={0} width={W / 10} height={H} fill={i % 2 ? "rgba(255,255,255,0.025)" : "transparent"} />
@@ -894,7 +968,7 @@ function Campo({
               strokeLinecap="round"
               opacity={elegido && !es ? 0.35 : 0.95}
             >
-              <title>{`${d.def.titulo}: ${ROTULO[d.veredicto]}${d.balance !== null ? ` (${d.balance > 0 ? "+" : ""}${d.balance})` : ""}`}</title>
+              <title>{`${d.def.titulo}: ${ROTULO[d.veredicto]}${d.balance !== null ? ` (${firmaN(d.balance)})` : ""}`}</title>
             </line>
           </g>
         );
@@ -1086,10 +1160,9 @@ function FilasClaves({
                   <b
                     className="shrink-0 tabular-nums"
                     style={{ color: pocaMuestra ? "var(--rmcf-muted, #9CA3AF)" : color }}
-                    title={tambien ? `Con el balón nuestro ${d.conBalon !== null && d.conBalon > 0 ? "+" : ""}${d.conBalon}; con el suyo ${d.sinBalon !== null && d.sinBalon > 0 ? "+" : ""}${d.sinBalon}` : undefined}
+                    title={tambien ? `Con el balón nuestro ${firmaN(d.conBalon)}; con el suyo ${firmaN(d.sinBalon)}` : undefined}
                   >
-                    {valor !== null && valor > 0 ? "+" : ""}
-                    {valor}
+                    {firmaN(valor)}
                     {pocaMuestra && <span className="ml-1 text-xs font-normal">· tendencia</span>}
                   </b>
                 </span>
@@ -1291,8 +1364,7 @@ function bloquesDe(d: ResultadoDuelo, modo: Modo, equipo: string, roboDe: Map<st
               </span>
               {b.balance !== null && (
                 <span className="text-xs font-semibold tabular-nums" style={{ color: textoDe(COLOR[b.veredicto]) }}>
-                  {ROTULO_CORTO[b.veredicto]} {b.balance > 0 ? "+" : ""}
-                  {b.balance}
+                  {ROTULO_CORTO[b.veredicto]} {firmaN(b.balance)}
                 </span>
               )}
             </div>
@@ -1387,6 +1459,13 @@ const cifraRobo = (r: RoboJugador) =>
     : `${coma(r.ajustado)}/90 ajustado (${coma(r.bruto)} en bruto · ${Math.round(r.posesion ?? 0)} % de posesión)`;
 
 function MarcaRobador({ r }: { r: RoboJugador }) {
+  /* Con menos de 450′ no hay marca de robador: tendencia (16/11/2026, jueces). */
+  if (r.tendencia)
+    return (
+      <span className="inline-flex shrink-0 items-center rounded-full border border-white/15 px-2 py-0.5 text-[11px] font-semibold text-white/60" title="Menos de 450′ en Wyscout: el percentil sale de muy pocos partidos">
+        tendencia · {r.jugador.minutos}′
+      </span>
+    );
   if (!r.robador) return null;
   return (
     <span
@@ -1557,7 +1636,7 @@ function Tarjeta({
 
   /* Cómo sale la cifra de la cabecera (08/11/2026, fútbol): «+12» con +21, +16 y −41 debajo no se podía rehacer. */
   const conDato = (sentido: string) => d.bloques.find((b) => b.sentido === sentido)?.facetas.filter((f) => f.diferencia !== null).length ?? 0;
-  const firma = (v: number | null) => (v === null ? "" : `${v > 0 ? "+" : ""}${v}`);
+  const firma = (v: number | null) => firmaN(v);
   const comoSale = (() => {
     if (d.balance === null) return "";
     const partes = [
@@ -1620,9 +1699,9 @@ function Tarjeta({
             ? Math.abs((d.conBalon ?? 0) + (d.sinBalon ?? 0)) < UMBRAL_DUELO
               ? "Se anulan"
               : (d.conBalon ?? 0) + (d.sinBalon ?? 0) < 0
-                ? `En contra ${(d.conBalon ?? 0) + (d.sinBalon ?? 0)} (${d.sinBalon} con su balón)`
+                ? `En contra ${firmaN((d.conBalon ?? 0) + (d.sinBalon ?? 0))} (${firmaN(d.sinBalon)} con su balón)`
                 : `A favor +${(d.conBalon ?? 0) + (d.sinBalon ?? 0)} (+${d.conBalon} con balón nuestro)`
-            : `${ROTULO[d.veredicto]}${d.balance !== null ? ` ${d.balance > 0 ? "+" : ""}${d.balance}` : ""}`}
+            : `${ROTULO[d.veredicto]}${d.balance !== null ? ` ${firmaN(d.balance)}` : ""}`}
         </span>
       </div>
 
@@ -1688,13 +1767,12 @@ function Tarjeta({
                       </span>
                       {modo === "ambos" && (
                         <span className="shrink-0 text-xs tabular-nums text-white/45">
-                          con balón {p.conBalon === null ? "—" : `${p.conBalon > 0 ? "+" : ""}${p.conBalon}`} · sin balón{" "}
-                          {p.sinBalon === null ? "—" : `${p.sinBalon > 0 ? "+" : ""}${p.sinBalon}`}
+                          {p.conBalon !== null && `con balón ${firmaN(p.conBalon)}`}{p.conBalon !== null && p.sinBalon !== null && " · "}{p.sinBalon !== null && `sin balón ${firmaN(p.sinBalon)}`}
                         </span>
                       )}
                       <span className="shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold" style={{ background: `${c}22`, color: textoDe(c) }}>
                         {ROTULO_CORTO[p.veredicto]}
-                        {v !== null ? ` ${v > 0 ? "+" : ""}${v}` : ""}
+                        {v !== null ? ` ${firmaN(v)}` : ""}
                       </span>
                     </button>
                     {pareja === i && <div className="px-1 pb-2 pt-1">{bloquesDe(p, modo, equipo, roboDe)}</div>}

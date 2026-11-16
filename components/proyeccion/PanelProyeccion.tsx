@@ -30,6 +30,8 @@ import {
 import { coma, pct, rango, type Proyeccion } from "@/lib/proyeccion/base";
 import { COMO_SE_CUENTA_JUEGO, type ProyeccionJuego } from "@/lib/proyeccion/juego";
 import type { PartidoObjetivo } from "@/lib/proyeccion/montaje";
+import { fuerteYFlojoDelRival } from "@/components/rivals/VistazoRival";
+import { useRivalPerfiles } from "@/hooks/useRivalPerfiles";
 
 type Respuesta = {
   success: boolean;
@@ -49,6 +51,8 @@ export function PanelProyeccion({ tipo, equipo }: Props) {
   const [cargando, setCargando] = useState(true);
   /* Ver el último partido jugado: lo proyectado frente a lo real (para calibrar). No guarda nada. */
   const [anterior, setAnterior] = useState(false);
+  /* Lo fuerte, lo flojo y la presión del rival con la cuenta de Plantillas rivales (sólo el panel del juego). */
+  const perfiles = useRivalPerfiles(tipo === "juego" ? (equipo ?? "") : "");
 
   useEffect(() => {
     let vivo = true;
@@ -95,7 +99,14 @@ export function PanelProyeccion({ tipo, equipo }: Props) {
     </button>
   );
   if (p && tipo === "abp" && datos?.abp) return <PanelAbp partido={p} d={datos.abp} accion={boton} />;
-  if (p && tipo === "juego" && datos?.juego) return <PanelJuego partido={p} d={datos.juego} accion={boton} />;
+  if (p && tipo === "juego" && datos?.juego) return (
+      <PanelJuego
+        partido={p}
+        d={datos.juego}
+        accion={boton}
+        rival={perfiles && equipo ? { ...fuerteYFlojoDelRival(equipo, perfiles.aspectos ?? [], perfiles.equipos ?? 0), partidos: perfiles.partidos ?? 0 } : null}
+      />
+    );
   /* Sin datos del último partido, que se pueda volver; sin datos de la próxima, el panel no sale. */
   return anterior ? <div className="flex justify-end">{boton}</div> : null;
 }
@@ -421,87 +432,161 @@ function ComoSacaElCorner({ e, rival }: { e: EntregaCorner; rival: string }) {
 /*  JUEGO                                                              */
 /* ------------------------------------------------------------------ */
 
-export function PanelJuego({ partido, d, accion }: { partido: PartidoObjetivo; d: ProyeccionJuego; accion?: ReactNode }) {
+export function PanelJuego({
+  partido,
+  d,
+  accion,
+  rival,
+}: {
+  partido: PartidoObjetivo;
+  d: ProyeccionJuego;
+  accion?: ReactNode;
+  /** Lo más fuerte y lo más flojo del rival y su presión, de la misma cuenta que Plantillas rivales (Wyscout). */
+  rival?: { fuerte: string; flojo: string; ppda: { valor: string; puesto: number; de: number } | null; partidos: number } | null;
+}) {
   const f = (cuota: boolean | undefined, dec: number, v: number | null | undefined) => (cuota ? pct(v ?? null) : coma(v ?? null, dec));
-  const ventajas = d.ventajas.slice(0, 2).map((v) => ({ clave: v.clave, frase: v.frase, consigna: v.consigna }));
-  const riesgos = d.riesgos.slice(0, 2).map((v) => ({ clave: v.clave, frase: v.frase, consigna: v.consigna }));
+  const ventajas = d.ventajas.slice(0, 2).map((v) => ({ clave: v.clave, frase: `${v.frase} ${v.entrena}`, consigna: v.consigna }));
+  const riesgos = d.riesgos.slice(0, 2).map((v) => ({ clave: v.clave, frase: `${v.frase} ${v.entrena}`, consigna: v.consigna }));
+  const fuenteW = rival?.partidos ? `Wyscout, ${rival.partidos} ${rival.partidos === 1 ? "partido" : "partidos"}` : "Wyscout";
   return (
     <section className="space-y-4 rounded-3xl border border-[#C8A96B]/20 bg-white/[0.03] p-5 md:p-7">
       <Cabecera partido={partido} titulo="Juego" hasta={d.hasta} accion={accion} />
 
       {d.tipoPartido.length > 0 && (
         <Bloque titulo="Tipo de partido" icono={<Swords size={13} className="text-[#C8A96B]" />}>
+          {/*
+            LA PRESIÓN, UNA SOLA HISTORIA (16/11/2026, jueces): arriba su presión de
+            la temporada con la cifra y el puesto de Plantillas rivales; debajo lo
+            esperado contra nosotros, que es otra cifra (Opta) y se dice por qué.
+          */}
+          {rival?.ppda && (
+            <p className="mb-1.5 text-sm font-semibold leading-snug text-white/90">
+              Su presión en la temporada: PPDA {rival.ppda.valor}, {rival.ppda.puesto}.º de {rival.ppda.de} que más aprieta ({fuenteW}, la misma cifra de Plantillas rivales).
+            </p>
+          )}
           {/* Tres frases como mucho: posesión, ocasiones y presión. El estilo va dentro de «Por qué». */}
           <ul className="space-y-1 text-sm leading-snug text-white/85">
             {d.tipoPartido.slice(0, 3).map((t) => (
               <li key={t}>{t}</li>
             ))}
           </ul>
-          {d.contraste && <p className="mt-2 border-t border-white/10 pt-2 text-xs leading-snug text-white/65">{d.contraste}</p>}
+          {d.contraste && (
+            <p className="mt-2 border-t border-white/10 pt-2 text-xs leading-snug text-white/65">
+              <b className="font-semibold text-white/80">Contraste con los datos:</b> {d.contraste}
+              {rival?.ppda ? " Wyscout y Opta cuentan distinto las acciones defensivas: el puesto que vale es el de arriba; esta cifra sólo compara el partido con su media." : ""}
+            </p>
+          )}
         </Bloque>
       )}
 
-      <details className="group rounded-2xl border border-white/10 bg-white/[0.02] p-3">
+      {/* «Por qué», en tabla (16/11/2026, jueces): nosotros, el rival y la media, con el sentido. */}
+      {d.porqueTabla.length > 0 && (
+        <Bloque titulo="Por qué" icono={<Lightbulb size={13} className="text-[#C8A96B]" />}>
+          <p className="mb-2 text-xs leading-snug text-white/65">{d.comoSeCalcula}</p>
+          <div className="-mx-1 overflow-x-auto">
+            <table className="w-full min-w-[520px] text-sm">
+              <thead>
+                <tr className="border-b border-white/10 text-[11px] uppercase tracking-wider text-white/55">
+                  <th className="px-2 py-1.5 text-left font-semibold">Cifra · sentido</th>
+                  <th className="px-2 py-1.5 text-right font-semibold">Nosotros</th>
+                  <th className="px-2 py-1.5 text-right font-semibold">{partido.rival}</th>
+                  <th className="px-2 py-1.5 text-right font-semibold">Media</th>
+                  <th className="px-2 py-1.5 text-right font-semibold">Esperado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {d.porqueTabla.map((r) => (
+                  <tr key={r.cifra} className="border-b border-white/5">
+                    <td className="px-2 py-1.5 text-white/85">
+                      {r.cifra} <span className="text-[11px] text-white/50">· {r.sentido}</span>
+                    </td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-white/80">{r.nosotros}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-white/80">
+                      {r.rival} <span className="text-[11px] text-white/50">{r.rivalEs}</span>
+                    </td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-white/60">{r.media}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums">
+                      <b className="text-white">{r.esperado}</b> <span className="text-[11px] text-white/50">{r.consecuencia}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-1 text-[11px] text-white/50">
+            Por partido en la temporada (Opta, {d.partidos.nos} partidos nuestros y {d.partidos.riv} del {partido.rival}).
+          </p>
+          {[...d.porque, ...d.tipoPartido.slice(3)].length > 0 && (
+            <ul className="mt-2 space-y-1 text-sm leading-snug text-white/75">
+              {[...d.porque, ...d.tipoPartido.slice(3)].map((t) => (
+                <li key={t}>{t}</li>
+              ))}
+            </ul>
+          )}
+        </Bloque>
+      )}
+
+      <details className="rounded-2xl border border-white/10 bg-white/[0.02] p-3">
         <summary className="cursor-pointer select-none text-[12px] font-semibold text-white/75">
           Ver las {d.lineas.length} cifras del partido
           <span className="ml-1 font-normal text-white/50">· nosotros, {partido.rival} y la media del grupo</span>
         </summary>
-      <div className="-mx-1 mt-2 overflow-x-auto">
-        <table className="w-full min-w-[520px] text-sm">
-          <thead>
-            <tr className="border-b border-white/10 text-[11px] uppercase tracking-wider text-white/50">
-              <th className="px-2 py-2 text-left font-semibold">Cifra</th>
-              <th className="px-2 py-2 text-right font-semibold">Nosotros</th>
-              <th className="px-2 py-2 text-right font-semibold">{partido.rival}</th>
-              <th className="px-2 py-2 text-right font-semibold">Media del grupo</th>
-            </tr>
-          </thead>
-          <tbody>
-            {d.lineas.map((l) => {
-              const m = l.metrica;
-              const celda = (p: Proyeccion, real: number | null | undefined) => {
-                const dentro = real != null ? real >= p.bajo && real <= p.alto : null;
+        <div className="-mx-1 mt-2 overflow-x-auto">
+          <table className="w-full min-w-[520px] text-sm">
+            <thead>
+              <tr className="border-b border-white/10 text-[11px] uppercase tracking-wider text-white/50">
+                <th className="px-2 py-2 text-left font-semibold">Cifra</th>
+                <th className="px-2 py-2 text-right font-semibold">Nosotros</th>
+                <th className="px-2 py-2 text-right font-semibold">{partido.rival}</th>
+                <th className="px-2 py-2 text-right font-semibold">Media del grupo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {d.lineas.map((l) => {
+                const m = l.metrica;
+                const celda = (p: Proyeccion, real: number | null | undefined) => {
+                  const dentro = real != null ? real >= p.bajo && real <= p.alto : null;
+                  return (
+                    <td className="px-2 py-2 text-right align-top">
+                      <span className="font-semibold tabular-nums text-white">{f(m.cuota, m.dec, p.valor)}</span>
+                      <span className="ml-1 text-[11px] tabular-nums text-white/45">
+                        ({f(m.cuota, m.dec, p.bajo)}-{f(m.cuota, m.dec, p.alto)})
+                      </span>
+                      {real != null && (
+                        <span className={`block text-[11px] tabular-nums ${dentro ? "text-emerald-300" : "text-amber-300"}`}>real {f(m.cuota, m.dec, real)}</span>
+                      )}
+                    </td>
+                  );
+                };
                 return (
-                  <td className="px-2 py-2 text-right align-top">
-                    <span className="font-semibold tabular-nums text-white">{f(m.cuota, m.dec, p.valor)}</span>
-                    <span className="ml-1 text-[11px] tabular-nums text-white/45">
-                      ({f(m.cuota, m.dec, p.bajo)}-{f(m.cuota, m.dec, p.alto)})
-                    </span>
-                    {real != null && (
-                      <span className={`block text-[11px] tabular-nums ${dentro ? "text-emerald-300" : "text-amber-300"}`}>real {f(m.cuota, m.dec, real)}</span>
-                    )}
-                  </td>
+                  <tr key={m.clave} className="border-b border-white/5">
+                    <td className="px-2 py-2 align-top text-white/85" title={m.comoLeer}>
+                      {m.nombre}
+                      <span className="ml-1 text-[11px] text-white/50">· {m.fuente}</span>
+                      {(m.clave === "ExpG" || m.clave === "TouchOpBox" || m.clave === "PPDA") && (
+                        <span className="block text-[11px] leading-snug text-white/50">{m.comoLeer}</span>
+                      )}
+                    </td>
+                    {celda(l.favor, l.real?.favor)}
+                    {celda(l.contra, l.real?.contra)}
+                    <td className="px-2 py-2 text-right align-top tabular-nums text-white/60">{f(m.cuota, m.dec, l.liga)}</td>
+                  </tr>
                 );
-              };
-              return (
-                <tr key={m.clave} className="border-b border-white/5">
-                  <td className="px-2 py-2 align-top text-white/85" title={m.comoLeer}>
-                    {m.nombre}
-                    <span className="ml-1 text-[11px] text-white/50">· {m.fuente}</span>
-                    {/* Lo que no se entiende a la primera se explica en la propia fila. */}
-                    {(m.clave === "ExpG" || m.clave === "TouchOpBox" || m.clave === "PPDA") && (
-                      <span className="block text-[11px] leading-snug text-white/50">{m.comoLeer}</span>
-                    )}
-                  </td>
-                  {celda(l.favor, l.real?.favor)}
-                  {celda(l.contra, l.real?.contra)}
-                  <td className="px-2 py-2 text-right align-top tabular-nums text-white/60">{f(m.cuota, m.dec, l.liga)}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-      <p className="mt-1 text-[11px] text-white/50">
-        Entre paréntesis, el intervalo del 80 %. Opta, {d.partidos.nos} partidos nuestros y {d.partidos.riv} del {partido.rival}.
-      </p>
+              })}
+            </tbody>
+          </table>
+        </div>
+        <p className="mt-1 text-[11px] text-white/50">Entre paréntesis, el intervalo del 80 %.</p>
       </details>
 
-      <PorQue frases={[...d.porque, ...d.tipoPartido.slice(3)]} />
-
+      {/*
+        SU PUNTO FUERTE Y DÉBIL, LOS DE PLANTILLAS RIVALES (16/11/2026, jueces): su
+        cifra más extrema de verdad (la cuenta común, entre los 6 de cada punta),
+        no un 7.º de 20. Sin ellos, los de Opta, también sólo en los extremos.
+      */}
       <div className="grid gap-3 md:grid-cols-3">
-        <Punto titulo="Su punto fuerte" frase={d.suFuerte?.frase} tono="rojo" />
-        <Punto titulo="Su punto débil" frase={d.suDebil?.frase} tono="verde" />
+        <Punto titulo="Su punto fuerte" frase={rival?.fuerte ? `${rival.fuerte.charAt(0).toUpperCase()}${rival.fuerte.slice(1)} (${fuenteW}).` : d.suFuerte?.frase} tono="rojo" />
+        <Punto titulo="Su punto débil" frase={rival?.flojo ? `${rival.flojo.charAt(0).toUpperCase()}${rival.flojo.slice(1)} (${fuenteW}).` : d.suDebil?.frase} tono="verde" />
         <Punto titulo="El nuestro" frase={d.nuestroFuerte?.frase} tono="oro" />
       </div>
 
@@ -510,7 +595,43 @@ export function PanelJuego({ partido, d, accion }: { partido: PartidoObjetivo; d
         <Consignas titulo="Dónde más riesgo" icono={<TrendingUp size={13} className="text-rose-300" />} items={riesgos} />
       </div>
 
+      {/* Fases (16/11/2026, jueces de fútbol): cómo sale cada uno ante la presión del otro y cómo transita. */}
+      {d.fases.length > 0 && (
+        <Bloque titulo="Fases del juego" icono={<CornerDownRight size={13} className="text-[#C8A96B]" />}>
+          <ul className="grid gap-3 md:grid-cols-2">
+            {d.fases.map((x) => (
+              <li key={x.titulo} className="min-w-0 text-sm leading-snug">
+                <p className="font-semibold text-white/90">{x.titulo}</p>
+                <p className="mt-0.5 text-xs text-white/60">{x.frase}</p>
+                <p className="mt-0.5 text-white/85">{x.consigna}</p>
+              </li>
+            ))}
+          </ul>
+        </Bloque>
+      )}
+
       <ComoSeCuenta lineas={COMO_SE_CUENTA_JUEGO} />
     </section>
   );
+}
+
+/** La proyección del juego de un rival, para quien la necesite fuera del panel (las tres ideas del Plan). */
+export function useProyeccionJuego(equipo?: string | null) {
+  const [datos, setDatos] = useState<{ equipo: string; juego: ProyeccionJuego | null } | null>(null);
+  useEffect(() => {
+    if (!equipo) return;
+    let vivo = true;
+    fetch(`/api/proyeccion?${new URLSearchParams({ que: "juego", rival: equipo }).toString()}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: Respuesta | null) => {
+        if (vivo) setDatos({ equipo, juego: j?.success ? (j.juego ?? null) : null });
+      })
+      .catch(() => {
+        if (vivo) setDatos({ equipo, juego: null });
+      });
+    return () => {
+      vivo = false;
+    };
+  }, [equipo]);
+  return datos && datos.equipo === equipo ? datos.juego : null;
 }

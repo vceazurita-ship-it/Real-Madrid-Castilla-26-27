@@ -661,8 +661,45 @@ export function consignaDelDuelo(d: ResultadoDuelo, sentido: "con" | "sin"): str
   const s = porPercentil(elegida.suyos, Boolean(peor))?.jugador;
   if (!n || !s) return "";
   const nombre = (j: JugadorDuelo) => j.corto ?? apellido(j.nombre);
-  return `${plantilla(nombre(n), nombre(s))} (${elegida.titulo.toLowerCase()}: P${elegida.nuestro} frente a P${elegida.suyo}).`;
+  /* La tarea y el objetivo medible (16/11/2026, jueces): no sólo la orden. */
+  const tarea = (sentido === "sin" ? TAREA_DEFENDER : TAREA_ATACAR)[elegida.titulo];
+  const columna = rotuloColumna(sentido === "sin" || peor ? elegida.columnaSuya : elegida.columnaNuestra).toLowerCase();
+  const en = columna ? ` en ${columna}` : "";
+  const objetivo = peor
+    ? `que ${nombre(s)} no pase de la mediana de su puesto (P50)${en}; hoy está en P${elegida.suyo}`
+    : `que ${nombre(n)} siga por encima de P${elegida.nuestro}${en}`;
+  return `${plantilla(nombre(n), nombre(s))} (${elegida.titulo.toLowerCase()}: P${elegida.nuestro} frente a P${elegida.suyo}).${tarea ? ` Tarea: ${tarea}.` : ""} Objetivo: ${objetivo}.`;
 }
+
+const TAREA_DEFENDER: Record<string, string> = {
+  [E.regate.titulo]: "1 contra 1 defensivo en banda con la ayuda del interior",
+  [E.cuerpo.titulo]: "duelos de contacto en espacio reducido",
+  [E.ritmo.titulo]: "salida reactiva y carrera de ida y vuelta",
+  [E.espalda.titulo]: "línea defensiva con balón descubierto y perfilado",
+  [E.conduccion.titulo]: "temporizar la conducción hasta que llega la ayuda",
+  [E.rompe.titulo]: "tapar líneas de pase interiores en 4 contra 4",
+  [E.presion.titulo]: "salto de presión coordinado de dos",
+  [E.recibir.titulo]: "vigilancia del jugador entre líneas",
+  [E.ultimo.titulo]: "defensa del último pase en 6 contra 4",
+  [E.centro.titulo]: "cierre al centrador y defensa del área por arriba",
+  [E.remate.titulo]: "bloqueo del remate y achique",
+  [AEREO.titulo]: "juego aéreo ganando la posición",
+};
+
+const TAREA_ATACAR: Record<string, string> = {
+  [E.regate.titulo]: "1 contra 1 ofensivo en banda y pared",
+  [E.cuerpo.titulo]: "juego de espaldas a uno o dos toques",
+  [E.ritmo.titulo]: "cambio de ritmo y desmarque de apoyo y ruptura",
+  [E.espalda.titulo]: "desmarques de ruptura con pase al espacio",
+  [E.conduccion.titulo]: "conducción y pase en el momento justo",
+  [E.rompe.titulo]: "pase entre líneas en 4 contra 4 más 2",
+  [E.presion.titulo]: "salida de balón bajo presión",
+  [E.recibir.titulo]: "recepción orientada entre líneas",
+  [E.ultimo.titulo]: "último pase y finalización",
+  [E.centro.titulo]: "centro y llegada al área",
+  [E.remate.titulo]: "finalización tras pase atrás",
+  [AEREO.titulo]: "balón largo y segunda jugada",
+};
 
 /* ------------------------------------------------------------------ */
 /*  LO QUE SE GUARDA                                                   */

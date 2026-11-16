@@ -301,7 +301,50 @@ function colocaBase(base: JugadorDuelo[], reservados: Record<string, string>) {
   return puestos;
 }
 
-export function onceSuyoDe(suyos: JugadorDuelo[], base: JugadorDuelo[], manual: Record<string, string>) {
+/*
+| EL SITIO QUE LE DAN EN PLANTILLAS RIVALES (16/11/2026, jueces de fútbol): Diao
+| salía delantero en el campograma de /rivals y extremo izquierdo en Duelos y en
+| la pizarra. Lo que alguien ha colocado a mano en ese campograma (`puestos` del
+| documento `rival-once:<equipo>`, bloque del dibujo) se traduce a nuestro hueco
+| del 4-2-3-1 y se reserva antes de rellenar, por debajo de lo cambiado en Duelos.
+| Los bloques sin equivalente (tercer central, doble punta) no reservan nada.
+*/
+const HUECO_DEL_BLOQUE: Record<string, string> = {
+  por: "por",
+  ld: "lat-d",
+  card: "lat-d",
+  li: "lat-i",
+  cari: "lat-i",
+  dfcd: "cen-d",
+  dfci: "cen-i",
+  mcd: "piv-d",
+  intd: "piv-d",
+  mci: "piv-i",
+  inti: "piv-i",
+  ed: "ban-d",
+  md: "ban-d",
+  ei: "ban-i",
+  mi: "ban-i",
+  mp: "media",
+  dc: "del",
+};
+
+export function huecosDePlantillas(puestos: Record<string, string> | undefined, titulares: string[]): Record<string, string> {
+  const salida: Record<string, string> = {};
+  for (const clave of titulares) {
+    const hueco = HUECO_DEL_BLOQUE[puestos?.[clave] ?? ""];
+    if (hueco && !salida[hueco]) salida[hueco] = clave;
+  }
+  return salida;
+}
+
+export function onceSuyoDe(suyos: JugadorDuelo[], base: JugadorDuelo[], manualDuelos: Record<string, string>, dePlantillas: Record<string, string> = {}) {
+  /* Lo de Duelos manda; lo colocado en Plantillas, debajo (sin repetir jugador). */
+  const enDuelos = new Set(Object.values(manualDuelos));
+  const manual = {
+    ...Object.fromEntries(Object.entries(dePlantillas).filter(([h, c]) => !(h in manualDuelos) && !enDuelos.has(c))),
+    ...manualDuelos,
+  };
   const enBase = new Set(base.map((j) => j.clave));
   /* Los de baja, al fondo: sólo entran si no queda nadie más para su hueco o si se ponen a mano. */
   const ordenados = suyos.map((j) => (enBase.has(j.clave) ? { ...j, minutos: j.minutos + 1e6 } : fuera(j) ? { ...j, minutos: j.minutos - 1e6 } : j));
@@ -331,6 +374,22 @@ export function separaSinPareja(duelos: ResultadoDuelo[], onceSuyo: Record<strin
   return { conPareja, fueraDeSitioEn };
 }
 
+/*
+| «Joan» era nuestro central y también Joan Rojas, del rival (16/11/2026,
+| jueces): si el nombre corto de uno de los nuestros es también un nombre o
+| apellido de alguien de su once, va con nombre y apellido.
+*/
+export function sinChoqueDeNombres(
+  onceNuestro: Record<string, JugadorDuelo | undefined>,
+  onceSuyo: Record<string, JugadorDuelo | undefined>,
+): Record<string, JugadorDuelo | undefined> {
+  const palabra = (t: string) => t.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+  const suyas = new Set(Object.values(onceSuyo).flatMap((j) => (j ? j.nombre.split(/\s+/).map(palabra) : [])));
+  return Object.fromEntries(
+    Object.entries(onceNuestro).map(([h, j]) => [h, j && j.corto && suyas.has(palabra(j.corto)) ? { ...j, corto: j.nombre } : j]),
+  );
+}
+
 /** Todo de una vez, para quien no tiene pantalla (el informe). */
 export function duelosDelPartido(entrada: {
   jugadores: FilaJugador[];
@@ -342,14 +401,17 @@ export function duelosDelPartido(entrada: {
   aMano: DuelosDoc;
   /** Nuestro último once de Valoraciones (hueco → id de ficha), si se conoce. */
   baseNuestra?: Record<string, string> | null;
+  /** Lo colocado a mano en el campograma de Plantillas rivales (clave → bloque). */
+  puestosPlantillas?: Record<string, string>;
 }): { duelos: ResultadoDuelo[]; fuenteSuya: string } {
   const nuestros = nuestrosDe(entrada.jugadores, entrada.fichas);
   const suyos = suyosDe(entrada.filasHoja, entrada.equipo, entrada.jugadores);
   const base = baseSuyaDe(suyos, entrada.marcados, entrada.informe);
   const referencias = referenciasPorPuesto(entrada.jugadores);
-  const onceSuyo = onceSuyoDe(suyos, base.lista, entrada.aMano.suyo);
+  const onceSuyo = onceSuyoDe(suyos, base.lista, entrada.aMano.suyo, huecosDePlantillas(entrada.puestosPlantillas, entrada.marcados ?? []));
+  const onceNuestro = sinChoqueDeNombres(onceNuestroDe(nuestros, entrada.aMano.nuestro, entrada.baseNuestra, entrada.fichas), onceSuyo);
   return {
-    duelos: separaSinPareja(mideDuelos(onceNuestroDe(nuestros, entrada.aMano.nuestro, entrada.baseNuestra, entrada.fichas), onceSuyo, referencias), onceSuyo).conPareja,
+    duelos: separaSinPareja(mideDuelos(onceNuestro, onceSuyo, referencias), onceSuyo).conPareja,
     fuenteSuya: base.fuente,
   };
 }

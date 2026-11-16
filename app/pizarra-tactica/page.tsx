@@ -17,7 +17,6 @@ import {
   Check,
   FlaskConical,
   Wand2,
-  ArrowRight,
   ChevronDown,
   CircleHelp,
   MoreHorizontal,
@@ -579,6 +578,18 @@ export default function PizarraTacticaPage() {
                     <span>Duplicar<span className="hidden sm:inline"> ésta</span></span>
                   </button>
                 </div>
+
+                {/* Bajo los tres botones quedaba un hueco de toda la altura (16/11/2026, fútbol): ahí, los atajos de la presentación. */}
+                <div className="mt-4 hidden border-t border-white/[0.06] pt-3 text-[12px] leading-snug text-white/60 xl:block">
+                  <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">Atajos</p>
+                  <ul className="space-y-1">
+                    <li><b className="text-white/80">→ / AvPág</b> siguiente escena</li>
+                    <li><b className="text-white/80">← / RePág</b> escena anterior</li>
+                    <li><b className="text-white/80">Espacio</b> reproducir</li>
+                    <li><b className="text-white/80">Ctrl+Z</b> deshacer</li>
+                    <li><b className="text-white/80">?</b> todos los atajos</li>
+                  </ul>
+                </div>
               </aside>
               )}
 
@@ -1118,23 +1129,9 @@ function BoardEditor({
               </p>
               <p>Este once lo leen también Emocional, Duelos, Plan de partido, el once de Data análisis y el balón parado (pizarra y marcas del córner): lo que cambies aquí se guarda y les llega.</p>
               <p>En el móvil, bajo cada ficha va el dorsal; tócala para ver el nombre.</p>
+              <p>Los que salen sin número no tienen dorsal publicado en la plantilla del Castilla (juveniles y licencias de otro equipo).</p>
             </div>
           </details>
-          {antesDelRelleno && (
-            <button
-              type="button"
-              onClick={() => {
-                setValue(antesDelRelleno);
-                setAntesDelRelleno(null);
-                toast.success("Tablero como estaba antes del relleno");
-              }}
-              title="Vuelve a dejar el tablero como estaba antes de rellenarlo"
-              className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1 font-semibold text-white/70 transition hover:bg-white/[0.06] hover:text-white"
-            >
-              <Undo2 size={12} />
-              Deshacer
-            </button>
-          )}
           <button
             type="button"
             onClick={() => void rellenaSemana(true)}
@@ -1145,7 +1142,7 @@ function BoardEditor({
             {rellenando ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
             Rellenar otra vez
           </button>
-          {!prueba && (
+          {(!prueba || antesDelRelleno) && (
             <details className="relative">
               <summary
                 className="inline-flex cursor-pointer list-none items-center gap-1 rounded-full border border-white/15 px-2.5 py-1 font-semibold text-white/70 transition hover:bg-white/[0.06] hover:text-white [&::-webkit-details-marker]:hidden"
@@ -1155,6 +1152,26 @@ function BoardEditor({
                 Más
               </summary>
               <div className="absolute right-0 z-30 mt-2 w-64 rounded-xl border border-white/10 bg-[#11161C] p-2 shadow-xl">
+                {/* «Deshacer» del relleno, en el mismo menú (16/11/2026, marketing): un solo botón a la vista. */}
+                {antesDelRelleno && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      (e.currentTarget.closest("details") as HTMLDetailsElement | null)?.removeAttribute("open");
+                      setValue(antesDelRelleno);
+                      setAntesDelRelleno(null);
+                      toast.success("Tablero como estaba antes del relleno");
+                    }}
+                    className="flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] text-white/80 transition hover:bg-white/[0.06]"
+                  >
+                    <Undo2 size={14} className="mt-0.5 shrink-0" />
+                    <span>
+                      <b className="block font-semibold">Deshacer el relleno</b>
+                      <span className="text-white/55">El tablero vuelve a como estaba.</span>
+                    </span>
+                  </button>
+                )}
+                {!prueba && (
                 <button
                   type="button"
                   onClick={(e) => {
@@ -1171,6 +1188,7 @@ function BoardEditor({
                     <span className="text-white/55">Cambia el once sólo aquí; al terminar decides si se guarda.</span>
                   </span>
                 </button>
+                )}
               </div>
             </details>
           )}
@@ -1220,7 +1238,7 @@ function BoardEditor({
             type="button"
             onClick={() => setOncesAbiertos((v) => !v)}
             aria-expanded={oncesAbiertos || Boolean(prueba)}
-            className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[12px] font-semibold text-white/75"
+            className="flex w-full items-center justify-between gap-2 py-2 pl-3 pr-16 text-left text-[12px] font-semibold text-white/75 sm:pr-3"
           >
             <span>Nuestro once, para entrar y no disponibles</span>
             <ChevronDown size={14} className={cn("shrink-0 transition", (oncesAbiertos || prueba) && "rotate-180")} aria-hidden />
@@ -1240,16 +1258,6 @@ function BoardEditor({
         </div>
       )}
 
-      {/* La dirección de ataque, a la vista y como en Duelos (16/11/2026, análisis). */}
-      {deLaSemana && (
-        <p className="flex items-center gap-2 px-1 text-[12px] font-semibold text-white/70" aria-label="Dirección de ataque">
-          <span className="uppercase tracking-[0.16em] text-[#C8A96B]">Castilla</span>
-          <span className="relative h-0.5 flex-1 rounded bg-[#C8A96B]/60">
-            <ArrowRight size={16} className="absolute -right-1 top-1/2 -translate-y-1/2 text-[#C8A96B]" aria-hidden />
-          </span>
-          <span className="font-normal text-white/60">ataca hacia la derecha{partido?.rival ? ` · ${rivalSquads.find((r) => mismoClub(r.equipo, partido.rival))?.equipo ?? partido.rival}, hacia la izquierda` : ""}</span>
-        </p>
-      )}
 
       <div ref={lienzo} data-lienzo-pizarra={lienzoALaVista ? "a-la-vista" : undefined}>
         <TacticsBoard
@@ -1259,6 +1267,7 @@ function BoardEditor({
           roster={roster}
           rivalSquads={rivalSquads}
           partido={partido}
+          sentidoAtaque={deLaSemana ? "derecha" : undefined}
           hint="Para animar: duplica la escena, mueve las fichas en la copia y pulsa ▶. Para presentar: pantalla completa y → (o el mando) avanza la jugada escena a escena."
         />
       </div>

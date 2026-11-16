@@ -343,6 +343,8 @@ interface Props {
   aPantallaCompleta?: boolean;
   /** El próximo partido, para el pie de la lámina y la portada del vídeo. */
   partido?: { rival: string; fecha: string; lado?: "casa" | "fuera" };
+  /** Pinta sobre el césped hacia dónde ataca el Castilla (el tablero de los onces, 16/11/2026). */
+  sentidoAtaque?: "derecha" | "izquierda";
 }
 
 export default function TacticsBoard({
@@ -355,6 +357,7 @@ export default function TacticsBoard({
   hint,
   aPantallaCompleta = false,
   partido,
+  sentidoAtaque,
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
@@ -2761,6 +2764,24 @@ export default function TacticsBoard({
           </defs>
 
           <PitchMarkings campo={campoActivo} />
+
+          {/* El sentido de ataque, sobre el césped y como en Duelos (16/11/2026, jueces). No sale al exportar. */}
+          {sentidoAtaque && !exporting && (
+            <g style={{ pointerEvents: "none" }} opacity={0.55}>
+              <line
+                x1={sentidoAtaque === "derecha" ? 38 : 62}
+                y1={PITCH_HEIGHT - 2.2}
+                x2={sentidoAtaque === "derecha" ? 62 : 38}
+                y2={PITCH_HEIGHT - 2.2}
+                stroke="#C8A96B"
+                strokeWidth={0.5}
+                markerEnd="url(#tactics-arrow)"
+              />
+              <text x={50} y={PITCH_HEIGHT - 3.3} textAnchor="middle" fontSize={1.6} fontWeight={700} fill="#C8A96B" letterSpacing={0.2}>
+                CASTILLA ATACA
+              </text>
+            </g>
+          )}
 
           {/*
             Carriles y alturas. Los carriles salen de las líneas que ya están

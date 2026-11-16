@@ -12,7 +12,9 @@
  * Wyscout (Team Stats de `analisis.json`). Funciones puras.
  */
 
-import { antesDe, coma, frenteA, liga, pct, proyecta, puestoEn, type Proyeccion, type Tabla } from "./base";
+import { extremosDe, medianaLiga, puestoEnLiga, type PuestoEnLiga } from "@/lib/rivals/puesto-liga";
+
+import { antesDe, coma, frenteA, liga, pct, proyecta, type Liga, type Proyeccion, type Tabla } from "./base";
 
 export type ClaveJuego = "Poss%" | "ExpG" | "ShtIncBl" | "TouchOpBox" | "Crosses" | "PPDA" | "PosWonA3rd" | "wContra";
 
@@ -55,7 +57,32 @@ export type PuntoJuego = {
   frase: string;
 };
 
-export type VentajaJuego = { clave: ClaveJuego; indice: number; valor: number; frase: string; consigna: string };
+export type VentajaJuego = {
+  clave: ClaveJuego;
+  indice: number;
+  valor: number;
+  frase: string;
+  consigna: string;
+  /** «Qué entrenamos»: la tarea y el objetivo, con la mediana del grupo (16/11/2026, regla 14). */
+  entrena: string;
+};
+
+/** Una fila de «Por qué»: lo nuestro, lo del rival y la media, con su sentido. */
+export type FilaPorque = {
+  cifra: string;
+  /** «más, mejor» · «menos, mejor» · «estilo». */
+  sentido: string;
+  nosotros: string;
+  /** Qué es la cifra del rival en esa fila («concede», «hace», «sus rivales tienen»). */
+  rivalEs: string;
+  rival: string;
+  media: string;
+  esperado: string;
+  consecuencia: string;
+};
+
+/** Una fase del juego: cómo sale, cómo transita. */
+export type FaseJuego = { titulo: string; frase: string; consigna: string };
 
 export type ProyeccionJuego = {
   lineas: LineaJuego[];
@@ -67,8 +94,14 @@ export type ProyeccionJuego = {
   nuestroDebil: PuntoJuego | null;
   ventajas: VentajaJuego[];
   riesgos: VentajaJuego[];
-  /** La presión esperada frente a su PPDA de la temporada, cuando no coinciden. */
+  /** La presión esperada frente a su PPDA de la temporada (la misma escala, Opta). */
   contraste: string | null;
+  /** El «Por qué» de las tres cifras grandes, en tabla. */
+  porqueTabla: FilaPorque[];
+  /** Una línea visible de cómo sale lo esperado (con el ejemplo de la posesión). */
+  comoSeCalcula: string;
+  /** Salida y transición de los dos. */
+  fases: FaseJuego[];
   partidos: { nos: number; riv: number };
   hasta: string;
 };
@@ -83,6 +116,22 @@ export type EntradaJuego = {
 };
 
 const fmt = (m: MetricaJuego, v: number | null | undefined) => (m.cuota ? pct(v ?? null) : coma(v ?? null, m.dec));
+
+/*
+| El puesto, con la cuenta común del rival (lib/rivals/puesto-liga.ts, 16/11/2026):
+| la misma de Plantillas, Scout colectivo y Área. Con `mejorAlto` = true, 1.º el
+| que más hace (o el que más concede, en `concede`).
+*/
+function puestoDe(L: Liga, equipo: string, lado: "propio" | "concede"): PuestoEnLiga | null {
+  const yo = L.porEquipo.get(equipo);
+  const v = lado === "propio" ? yo?.propio : yo?.concede;
+  if (v == null || !Number.isFinite(v)) return null;
+  const todos = [...L.porEquipo.values()].map((x) => (lado === "propio" ? x.propio : x.concede)).filter((x): x is number => x != null && Number.isFinite(x));
+  return puestoEnLiga(v, todos, true);
+}
+
+/** Entre los 6 de 20 que más (los extremos de la cuenta común) y fuera de la mediana. */
+const enElExtremo = (p: PuestoEnLiga | null) => Boolean(p && p.lectura === "fuerte" && p.puesto <= extremosDe(p.de));
 
 /** La base de una cifra: su fuente y cuántos partidos hay detrás («Opta, 12 partidos»). */
 const base = (m: MetricaJuego, n: number) => `(${m.fuente}, ${n} ${n === 1 ? "partido" : "partidos"})`;
@@ -160,7 +209,7 @@ export function proyeccionJuego(e: EntradaJuego): ProyeccionJuego | null {
         ? `El ${R} apretará arriba: PPDA esperado ${coma(suya)} (media ${coma(L)}; más bajo, más presión).`
         : suya >= 1.12 * L
           ? `El ${R} nos esperará en bloque: PPDA esperado ${coma(suya)} (media ${coma(L)}).`
-          : `Presión del ${R} de grupo medio: PPDA esperado ${coma(suya)} (media ${coma(L)}).`;
+          : `PPDA esperado del ${R} contra nosotros: ${coma(suya)} (media del grupo ${coma(L)}; más bajo, más presión).`;
     tipo.push(`${frase} El nuestro, ${coma(nuestra)}.`);
   }
   /* El estilo del rival con el balón: balón largo frente al grupo. */
@@ -183,13 +232,20 @@ export function proyeccionJuego(e: EntradaJuego): ProyeccionJuego | null {
     const L = liga(t, l.metrica.clave);
     if (!L) continue;
     const sitio = (equipo: string, lado: "propio" | "concede") => {
-      const p = puestoEn(L, equipo, lado);
+      const p = puestoDe(L, equipo, lado);
       return p ? `${p.puesto}.º que más ${lado === "propio" ? "genera" : "concede"} de ${p.de}` : "";
     };
     const f = (v: number) => fmt(l.metrica, v);
-    /* Una sola variable por cifra (lo de la temporada, por partido) y sólo si va en ese sentido frente a la media. */
+    /*
+    | Una sola variable por cifra (lo de la temporada, por partido), en ese
+    | sentido frente a la media y, desde el 16/11/2026, entre los 6 extremos de
+    | 20: un 7.º de 20 no es «su punto débil».
+    */
     const mete = (quien: "nos" | "riv", clase: "fuerte" | "debil", r: { temporada: number | null; n: number }, frase: (v: string) => string) => {
       if (r.temporada == null || !(r.temporada > l.liga)) return;
+      const equipo = quien === "nos" ? nos : riv;
+      const lado = clase === "fuerte" ? "propio" : "concede";
+      if (!enElExtremo(puestoDe(L, equipo, lado))) return;
       cand.push({ clave: l.metrica.clave, quien, clase, indice: r.temporada / l.liga, frase: `${frase(f(r.temporada))} ${base(l.metrica, r.n)}` });
     };
     mete("riv", "fuerte", l.contra.ataque, (v) => `${l.metrica.nombre}: el ${R} hace ${v} por partido (media ${f(l.liga)}; ${sitio(riv, "propio")}).`);
@@ -225,12 +281,49 @@ export function proyeccionJuego(e: EntradaJuego): ProyeccionJuego | null {
       PosWonA3rd: `Cuidar la salida de balón: el ${R} recupera ${A} balones en el último tercio por partido (media ${Lm}).`,
       wContra: `Vigilancias ante pérdida: el ${R} sale a la contra ${A} veces por partido (media ${Lm}).`,
     };
-    /* Un punto sólo es ventaja (o riesgo) si las dos cifras van en ese sentido frente a la media:
-       lo que concede él (o hace él) en la temporada y lo esperado del partido. */
-    if (dT != null && dT > l.liga && l.favor.valor > l.liga && cv[m.clave])
-      ventajas.push({ clave: m.clave, indice: l.favor.valor / l.liga, valor: l.favor.valor, frase: `${m.nombre}: ${fmt(m, l.favor.valor)} esperados (${frenteA(l.favor.valor, l.liga)} del grupo). ${base(m, l.favor.defensa.n)}`, consigna: cv[m.clave] });
-    if (aT != null && aT > l.liga && l.contra.valor > l.liga && cr[m.clave])
-      riesgos.push({ clave: m.clave, indice: l.contra.valor / l.liga, valor: l.contra.valor, frase: `${m.nombre} del ${R}: ${fmt(m, l.contra.valor)} esperados (${frenteA(l.contra.valor, l.liga)} del grupo). ${base(m, l.contra.ataque.n)}`, consigna: cr[m.clave] });
+    /*
+    | Un punto sólo es ventaja (o riesgo) si las dos cifras van en ese sentido
+    | frente a la media —lo que concede él (o hace él) en la temporada y lo
+    | esperado del partido— y, desde el 16/11/2026 (jueces), si él está entre
+    | los 6 de 20 que más lo conceden (o que más lo hacen): un 7.º no es ventaja.
+    */
+    const Lq = liga(t, m.clave);
+    const pD = Lq ? puestoDe(Lq, riv, "concede") : null;
+    const pA = Lq ? puestoDe(Lq, riv, "propio") : null;
+    const mediana = Lq ? medianaLiga([...Lq.porEquipo.values()].map((x) => x.propio)) : l.liga;
+    const dePuesto = (p: PuestoEnLiga | null, que: string) => (p ? `; ${p.puesto}.º que más ${que} de ${p.de}` : "");
+    const ev: Record<string, string> = {
+      ExpG: "finalización dentro del área tras pase atrás",
+      ShtIncBl: "llegada con remate en ataque posicional y rechaces",
+      TouchOpBox: "ataque del área con tres o cuatro y llegada de segunda línea",
+      PosWonA3rd: "presión a su primer pase y tras pérdida (rondos de presión de 6-8 s)",
+      wContra: "transición tras robo: atacar el espacio en tres pases",
+    };
+    const er: Record<string, string> = {
+      ExpG: "defensa del área y del pase atrás",
+      ShtIncBl: "cierre del tiro y bloqueo",
+      TouchOpBox: "defensa del área con vigilancias en el último tercio",
+      PosWonA3rd: "salida de balón bajo presión alta (superioridad y tercer hombre)",
+      wContra: "vigilancias 2+1 y contrapresión",
+    };
+    if (dT != null && dT > l.liga && l.favor.valor > l.liga && cv[m.clave] && enElExtremo(pD))
+      ventajas.push({
+        clave: m.clave,
+        indice: l.favor.valor / l.liga,
+        valor: l.favor.valor,
+        frase: `${m.nombre}: ${fmt(m, l.favor.valor)} esperados (${frenteA(l.favor.valor, l.liga)} del grupo${dePuesto(pD, "concede")}). ${base(m, l.favor.defensa.n)}`,
+        consigna: cv[m.clave],
+        entrena: `Qué entrenamos: ${ev[m.clave]}. Objetivo: ${fmt(m, l.favor.valor)} ${m.nombre.toLowerCase()} o más (mediana del grupo ${fmt(m, mediana)}).`,
+      });
+    if (aT != null && aT > l.liga && l.contra.valor > l.liga && cr[m.clave] && enElExtremo(pA))
+      riesgos.push({
+        clave: m.clave,
+        indice: l.contra.valor / l.liga,
+        valor: l.contra.valor,
+        frase: `${m.nombre} del ${R}: ${fmt(m, l.contra.valor)} esperados (${frenteA(l.contra.valor, l.liga)} del grupo${dePuesto(pA, "hace")}). ${base(m, l.contra.ataque.n)}`,
+        consigna: cr[m.clave],
+        entrena: `Qué entrenamos: ${er[m.clave]}. Objetivo: dejarle en ${fmt(m, mediana)} o menos (la mediana del grupo).`,
+      });
   }
   ventajas.sort((a, b) => b.indice - a.indice);
   riesgos.sort((a, b) => b.indice - a.indice);
@@ -241,34 +334,90 @@ export function proyeccionJuego(e: EntradaJuego): ProyeccionJuego | null {
   let contraste: string | null = null;
   if (ppda) {
     const propio = ppda.contra.ataque.temporada;
-    const LP = liga(t, "PPDA");
-    if (propio != null && LP) {
-      const vals = [...LP.porEquipo.values()].map((x) => x.propio).filter((x) => Number.isFinite(x));
-      const puesto = vals.filter((x) => x < propio).length + 1;
-      const nosDejan = ppda.contra.defensa.temporada;
+    const nosDejan = ppda.contra.defensa.temporada;
+    if (propio != null && nosDejan != null) {
       const dif = ppda.contra.valor / propio - 1;
-      if (Math.abs(dif) >= 0.08 && nosDejan != null)
-        contraste =
-          `Contraste con los datos: en la temporada el ${R} deja ${coma(propio)} pases por acción defensiva de media por partido (${puesto}.º que más aprieta de ${vals.length}; Opta, ${ppda.contra.ataque.n} partidos). ` +
-          `Contra nosotros se espera ${coma(ppda.contra.valor)} porque al Castilla le aprietan ${dif > 0 ? "menos" : "más"} que a la media: sus rivales le dejan ${coma(nosDejan)} (media ${coma(ppda.liga)}). ` +
-          `La cifra de la ficha del rival es el total de la temporada (todos sus pases entre todas sus acciones), por eso puede salir más baja que esta media de partidos.`;
+      contraste =
+        `En la temporada el ${R} deja ${coma(propio)} pases por acción defensiva de media por partido (Opta, ${ppda.contra.ataque.n} partidos; media del grupo ${coma(ppda.liga)}). ` +
+        (Math.abs(dif) >= 0.05
+          ? `Contra nosotros se espera ${coma(ppda.contra.valor)}, ${dif > 0 ? "menos" : "más"} presión que la suya de siempre, porque al Castilla sus rivales le dejan ${coma(nosDejan)}: con nosotros ${dif > 0 ? "se aprieta menos" : "se aprieta más"} que a la media.`
+          : `Contra nosotros se espera lo mismo: ${coma(ppda.contra.valor)}.`);
     }
   }
 
+  /* ---------------------------- fases ---------------------------- */
+  /* Cómo sale cada uno ante la presión del otro y cómo transita (16/11/2026, jueces de fútbol). */
+  const fases: FaseJuego[] = [];
+  const rec = de("PosWonA3rd");
+  const con = de("wContra");
+  const LdF = liga(t, "directo");
+  const dirR = LdF?.porEquipo.get(riv)?.propio ?? null;
+  if (rec) {
+    const v = rec.favor.valor;
+    const largo = LdF && dirR != null ? ` Juega en largo el ${pct(dirR)} de sus pases (grupo ${pct(LdF.media)}).` : "";
+    fases.push({
+      titulo: "Su salida ante nuestra presión",
+      frase: `Le recuperaremos ${coma(v)} balones en su último tercio (media ${coma(rec.liga)}; a él le recuperan ${coma(rec.favor.defensa.temporada)} por partido ahí). ${base(rec.metrica, rec.favor.defensa.n)}${largo}`,
+      consigna:
+        v > rec.liga * 1.1
+          ? "Presionar su salida: apretar el primer pase y el perfil del receptor."
+          : LdF && dirR != null && dirR > LdF.media * 1.15
+            ? "Si salta la presión, saldrá en largo: ganar el duelo y la segunda jugada."
+            : "Presión selectiva: saltar con la orientación hacia fuera, no a todo.",
+    });
+  }
+  if (ppda || rec) {
+    const presion = ppda ? `PPDA esperado del ${R} ${coma(ppda.contra.valor)} (media ${coma(ppda.liga)})` : "";
+    const robos = rec ? `nos recuperará ${coma(rec.contra.valor)} balones en nuestro último tercio (media ${coma(rec.liga)})` : "";
+    fases.push({
+      titulo: "Nuestra salida ante su presión",
+      frase: `${[presion, robos].filter(Boolean).join("; ")}. (Opta, ${(rec ?? ppda)!.contra.ataque.n} partidos)`,
+      consigna:
+        rec && rec.contra.valor > rec.liga * 1.1
+          ? "Salir con superioridad atrás y tercer hombre; no regalar el pase al pivote de espaldas."
+          : "Salir jugando: su presión no nos quita más balones que a la media.",
+    });
+  }
+  if (con) {
+    fases.push({
+      titulo: "Su transición",
+      frase: `Se esperan ${coma(con.contra.valor)} contraataques suyos (media ${coma(con.liga)}). ${base(con.metrica, con.contra.ataque.n)}`,
+      consigna: con.contra.valor > con.liga * 1.1 ? "Vigilancias 2+1 con balón y contrapresión de 5-6 s tras pérdida." : "Contrapresión tras pérdida; sin exponer a los centrales.",
+    });
+    fases.push({
+      titulo: "Nuestra transición",
+      frase: `Se esperan ${coma(con.favor.valor)} contraataques nuestros (media ${coma(con.liga)}). ${base(con.metrica, con.favor.defensa.n)}`,
+      consigna: con.favor.valor > con.liga * 1.1 ? "Al robo, atacar el espacio a su espalda en tres pases." : "Al robo, primero asegurar el pase y atacar si está la espalda libre.",
+    });
+  }
+
   /* --------------------------- porqué ---------------------------- */
+  /*
+  | En tabla (16/11/2026, jueces): nosotros, el rival y la media, con el
+  | sentido de cada fila y lo esperado, en vez de párrafos de seis cifras.
+  */
+  const porqueTabla: FilaPorque[] = [];
+  const fila = (l: LineaJuego, a_favor: boolean): FilaPorque => {
+    const m = l.metrica;
+    const p = a_favor ? l.favor : l.contra;
+    return {
+      cifra: m.cuota ? m.nombre : `${m.nombre} ${a_favor ? "a favor" : "en contra"}`,
+      sentido: m.bueno === null ? "estilo" : a_favor ? "más, mejor" : "menos, mejor",
+      nosotros: fmt(m, a_favor ? l.favor.ataque.temporada : l.contra.defensa.temporada),
+      rivalEs: m.cuota ? "sus rivales tienen" : a_favor ? "concede" : "hace",
+      rival: fmt(m, a_favor ? l.favor.defensa.temporada : l.contra.ataque.temporada),
+      media: fmt(m, l.liga),
+      esperado: fmt(m, p.valor),
+      consecuencia: frenteA(p.valor, l.liga),
+    };
+  };
+  if (pos) porqueTabla.push(fila(pos, true));
+  if (xg) porqueTabla.push(fila(xg, true), fila(xg, false));
+  if (rem) porqueTabla.push(fila(rem, true), fila(rem, false));
+  const comoSeCalcula = pos
+    ? `Cómo sale lo esperado: lo nuestro se cruza con lo que concede el rival y se compara con la media del grupo. Por eso la posesión queda en ${pct(pos.favor.valor)} aunque tengamos ${pct(pos.favor.ataque.temporada)} de media: contra el ${R} sus rivales tienen ${pct(pos.favor.defensa.temporada)}.`
+    : "Cómo sale lo esperado: lo nuestro se cruza con lo que concede el rival y se compara con la media del grupo.";
   const porque: string[] = [];
-  if (pos)
-    porque.push(
-      `Posesión ${pct(pos.favor.valor)}: tenemos ${pct(pos.favor.ataque.temporada)} de media (${pct(pos.favor.ataque.ultimos)} en los últimos ${Math.min(5, pos.favor.ataque.n)}) y los rivales del ${R} tienen ${pct(pos.favor.defensa.temporada)} contra él.`,
-    );
-  if (xg)
-    porque.push(
-      `xG ${coma(xg.favor.valor, 2)} a ${coma(xg.contra.valor, 2)}: generamos ${coma(xg.favor.ataque.temporada, 2)} por partido y el ${R} concede ${coma(xg.favor.defensa.temporada, 2)}; él genera ${coma(xg.contra.ataque.temporada, 2)} y nosotros concedemos ${coma(xg.contra.defensa.temporada, 2)} (media del grupo ${coma(xg.liga, 2)}).`,
-    );
-  if (rem)
-    porque.push(
-      `Remates ${coma(rem.favor.valor)} a ${coma(rem.contra.valor)}: rematamos ${coma(rem.favor.ataque.temporada)} por partido y al ${R} le rematan ${coma(rem.favor.defensa.temporada)}; él remata ${coma(rem.contra.ataque.temporada)} (media ${coma(rem.liga)}).`,
-    );
   if (e.nosLocal != null && xg && Math.abs(xg.favor.H - 1) >= 0.03)
     porque.push(
       `Jugamos ${e.nosLocal ? "en casa" : "fuera"}: en el grupo, el ${e.nosLocal ? "local" : "visitante"} genera un ${Math.round(Math.abs(xg.favor.H - 1) * 100)} % ${xg.favor.H > 1 ? "más" : "menos"} de xG que la media.`,
@@ -296,6 +445,9 @@ export function proyeccionJuego(e: EntradaJuego): ProyeccionJuego | null {
     ventajas,
     riesgos,
     contraste,
+    porqueTabla,
+    comoSeCalcula,
+    fases,
     partidos: { nos: lineas[0].favor.ataque.n, riv: lineas[0].contra.ataque.n },
     hasta: t.filas.reduce((m, f) => (f.fecha > m ? f.fecha : m), ""),
   };
@@ -307,6 +459,7 @@ export const COMO_SE_CUENTA_JUEGO: string[] = [
   "Medido en el grupo (140 casos del 25/09 al 08/11, cada uno proyectado con lo de antes): la posesión acierta un 15 % más que la media del grupo, los remates un 16 % y el xG un 4 %; el intervalo del 80 % recoge entre el 81 % y el 89 % de los casos.",
   "Posesión: el mismo cruce en razón de probabilidades (logit), para que los dos sumen el 100 %.",
   "Tipo de partido: posesión esperada; abierto o cerrado según el xG de los dos frente a un partido normal del grupo (±12 %); la presión, por el PPDA esperado (±12 % de la media); el estilo, por la parte de pases en largo del rival.",
+  "Puestos: la cuenta común del rival (lib/rivals/puesto-liga.ts). Su punto fuerte o débil, una ventaja o un riesgo sólo entran si el rival está entre los 6 de 20 que más lo hacen (o que más lo conceden).",
   "Ventaja: lo que esperamos hacer frente a la media del grupo (su debilidad × nuestra fortaleza). Sólo entra si las dos cifras van a favor: lo que el rival concede en la temporada, por encima de la media, y lo esperado del partido, también por encima. Riesgo: lo mismo del rival (lo que hace él y lo esperado, los dos por encima de la media).",
   "La cifra por partido de «Su punto fuerte / débil» y la de las consignas es la misma: la media de la temporada (con su fuente y sus partidos al lado). La proyección es otra cifra y se llama «esperados».",
   "El intervalo es del 80 %: suma lo que varía un equipo de un partido a otro y la duda de las tasas.",
