@@ -19,8 +19,10 @@
  *   por partido frente a la mediana, y qué hacemos.
  */
 
-import { useMemo } from "react";
-import { House, Plane } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { House, Plane, Play } from "lucide-react";
+import { cargaResumenesRfef, resumenDelPartido, urlResumen } from "@/lib/rivals/resumen-de-partido";
+import type { ResumenRfef } from "@/lib/rivals/resumenes-rfef";
 import { useRivalInforme } from "@/hooks/useRivalInforme";
 import { useRivalPerfiles } from "@/hooks/useRivalPerfiles";
 import { useOptaLigero } from "@/hooks/useOptaLigero";
@@ -56,7 +58,22 @@ export function TiraJornadas({ equipo }: { equipo: string }) {
   /* El mismo par fuerte/flojo que Plantillas y el Plan (16/11/2026, jueces de fútbol). */
   const perfiles = useRivalPerfiles(equipo);
   const { tablas } = useOptaLigero();
-  const par = perfiles ? fuerteYFlojoDelRival(equipo, perfiles.aspectos ?? [], perfiles.equipos ?? 0, tablas) : null;
+  /* Los resúmenes de la RFEF en YouTube: cada partido de la tira abre el suyo (16/11/2026, ronda 18). */
+  const [resumenes, setResumenes] = useState<ResumenRfef[]>([]);
+
+  useEffect(() => {
+    let vivo = true;
+
+    cargaResumenesRfef().then((lista) => {
+      if (vivo) setResumenes(lista);
+    });
+
+    return () => {
+      vivo = false;
+    };
+  }, []);
+
+  const par =perfiles ? fuerteYFlojoDelRival(equipo, perfiles.aspectos ?? [], perfiles.equipos ?? 0, tablas) : null;
 
   const datos = useMemo(() => {
     const informe = findInforme(doc, equipo);
@@ -75,6 +92,9 @@ export function TiraJornadas({ equipo }: { equipo: string }) {
         return {
           id: partido.id || partido.fecha,
           fecha: diaMes(partido.fecha),
+          iso: String(partido.fecha ?? "").slice(0, 10),
+          local: partido.local.nombre,
+          visitante: partido.visitante.nombre,
           resultado: partido.resultado,
           marcador: `${suyo.goles}-${otro.goles}`,
           favor: Number(suyo.goles),
@@ -119,14 +139,29 @@ export function TiraJornadas({ equipo }: { equipo: string }) {
   const marca = liga ? frente(favor, liga.favor, 0.15) : "igual";
   const encaja = liga ? frente(contra, liga.contra, 0.15) : "igual";
   /* El titular: el dato que manda y la decisión, en una frase. */
+  /*
+  | 16/11/2026 (ronda 18, fútbol): «encaja 0,92 y marca poco» con un xG a favor
+  | de 1,30 (P57). Cada palabra sale ya de la cifra que la sostiene y con su
+  | mediana: «marca poco» sólo si marca por debajo de la mediana.
+  */
+  const med = (x: number | undefined) => (x != null ? ` (mediana ${coma(x)})` : "");
   const [dato, queHacemos] =
     encaja === "más"
-      ? [`encaja ${coma(contra)} por partido, más que la media`, "ir a por él desde el principio y llegar con gente al área"]
+      ? [`encaja ${coma(contra)} por partido${med(liga?.contra)}`, "ir a por él desde el principio y llegar con gente al área"]
       : marca === "más"
-        ? [`marca ${coma(favor)} por partido, más que la media`, "cerrar primero su vía de gol y no partirse"]
-        : encaja === "menos"
-          ? [`encaja ${coma(contra)} por partido y marca poco`, "partido cerrado, en el que el balón parado decide"]
-          : [`marca ${coma(favor)} y encaja ${coma(contra)} por partido, como la media`, "lo deciden los detalles: balón parado y transiciones"];
+        ? [`marca ${coma(favor)} por partido${med(liga?.favor)}`, "cerrar primero su vía de gol y no partirse"]
+        : encaja === "menos" && marca === "menos"
+          ? [`encaja ${coma(contra)}${med(liga?.contra)} y marca ${coma(favor)} por partido${med(liga?.favor)}`, "partido cerrado, en el que el balón parado decide"]
+          : encaja === "menos"
+            ? [`encaja ${coma(contra)} por partido${med(liga?.contra)}, menos que la mayoría`, "paciencia con balón: el partido se abre con el balón parado y las transiciones"]
+            : [`marca ${coma(favor)} y encaja ${coma(contra)} por partido, como la media`, "lo deciden los detalles: balón parado y transiciones"];
+
+  /* Las tres cifras grandes, cada una con su mediana de la liga. */
+  const cifras = [
+    { titulo: "Puntos por partido", valor: ppp, mediana: liga?.ppp, pie: `${v}V ${e}E ${d}D en ${n}`, mejor: "más es mejor" },
+    { titulo: "Goles a favor por partido", valor: favor, mediana: liga?.favor, pie: `${golesFavor} goles`, mejor: "más es mejor" },
+    { titulo: "Goles en contra por partido", valor: contra, mediana: liga?.contra, pie: `${golesContra} goles`, mejor: "menos es mejor" },
+  ];
 
   return (
     <div className="mb-6 min-w-0">
@@ -139,15 +174,21 @@ export function TiraJornadas({ equipo }: { equipo: string }) {
         <p className="mb-1 text-[15px] font-semibold leading-snug text-white">
           {equipo} {dato}: {queHacemos}.
         </p>
-        <p>
-          <b className="text-white">
-            {v}V {e}E {d}D en {n} {n === 1 ? "partido" : "partidos"} de liga
-          </b>
-          : {coma(ppp)} puntos por partido{liga ? ` (mediana de los ${liga.equipos}: ${coma(liga.ppp)})` : ""}.
-        </p>
-        <p>
-          Marca {coma(favor)} por partido ({golesFavor} goles; más es mejor) y encaja {coma(contra)} ({golesContra}; menos es mejor)
-          {liga ? `. Mediana por equipo: ${coma(liga.favor)} y ${coma(liga.contra)}` : ""}.
+        {/* Tres cifras grandes con su mediana (16/11/2026, ronda 18, marketing): antes eran dos líneas de texto. */}
+        <div className="my-2 grid min-w-0 grid-cols-3 gap-1.5 sm:gap-2">
+          {cifras.map((c) => (
+            <div key={c.titulo} className="min-w-0 rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1.5 sm:px-3 sm:py-2">
+              <p className="text-[11px] font-semibold uppercase leading-tight tracking-[0.08em] text-white/60">{c.titulo}</p>
+              <p className="text-xl font-black tabular-nums text-white sm:text-2xl">{coma(c.valor)}</p>
+              <p className="text-[11px] leading-tight text-white/60 sm:text-[12px]">
+                {c.mediana != null ? `mediana ${coma(c.mediana)} · ` : ""}
+                {c.pie} · {c.mejor}
+              </p>
+            </div>
+          ))}
+        </div>
+        <p className="text-[12px] text-white/60">
+          {n} {n === 1 ? "partido" : "partidos"} de liga{liga ? `; la mediana es la de los ${liga.equipos} equipos de su grupo` : ""}.
         </p>
         {par?.conDato && (
           <p>
@@ -168,32 +209,47 @@ export function TiraJornadas({ equipo }: { equipo: string }) {
         aria-label={`Resultados de ${equipo} partido a partido`}
         className="grid min-w-0 grid-cols-[repeat(auto-fill,minmax(6.25rem,1fr))] gap-1.5"
       >
-        {partidos.map((j) => (
-          <li
-            key={j.id}
-            title={`${j.fecha} · ${PALABRA[j.resultado]} ${j.marcador} ${j.enCasa ? "en casa" : "fuera"} contra ${j.rival}`}
-            aria-label={`${j.fecha}: ${PALABRA[j.resultado]} ${j.marcador} ${j.enCasa ? "en casa" : "fuera"} contra ${j.rival}`}
-            /* Casa con borde continuo y una casita; fuera, borde discontinuo y un avión. */
-            className="flex min-w-0 flex-col items-center rounded-lg border px-1.5 py-1 text-[12px] font-bold leading-tight"
-            style={{
-              background: `${COLOR[j.resultado]}26`,
-              color: chipInk(COLOR[j.resultado]),
-              borderColor: `${COLOR[j.resultado]}88`,
-              borderStyle: j.enCasa ? "solid" : "dashed",
-            }}
-          >
-            <span className="inline-flex items-center gap-1 text-xs font-medium opacity-80">
-              {j.enCasa ? <House size={11} aria-hidden /> : <Plane size={11} aria-hidden />}
-              {j.fecha} · {j.enCasa ? "casa" : "fuera"}
-            </span>
-            <span className="line-clamp-2 w-full text-center text-[12px] font-semibold leading-tight" title={nombreEquipo(j.rival)}>{nombreEquipo(j.rival)}</span>
-            <span className="tabular-nums">
-              {LETRA[j.resultado]} {j.marcador}
-            </span>
-          </li>
-        ))}
+        {partidos.map((j) => {
+          const resumen = j.iso ? resumenDelPartido(resumenes, j.local, j.visitante, j.iso) : null;
+          const texto = `${j.fecha}: ${PALABRA[j.resultado]} ${j.marcador} ${j.enCasa ? "en casa" : "fuera"} contra ${j.rival}`;
+          const cuerpo = (
+            <>
+              <span className="inline-flex items-center gap-1 text-xs font-medium opacity-80">
+                {j.enCasa ? <House size={11} aria-hidden /> : <Plane size={11} aria-hidden />}
+                {j.fecha} · {j.enCasa ? "casa" : "fuera"}
+              </span>
+              <span className="line-clamp-2 w-full text-center text-[12px] font-semibold leading-tight" title={nombreEquipo(j.rival)}>{nombreEquipo(j.rival)}</span>
+              <span className="inline-flex items-center gap-1 tabular-nums">
+                {LETRA[j.resultado]} {j.marcador}
+                {resumen && <Play size={10} className="fill-current" aria-hidden />}
+              </span>
+            </>
+          );
+          const clase = `flex h-full min-w-0 flex-col items-center rounded-lg border px-1.5 py-1 text-[12px] font-bold leading-tight${resumen ? " transition hover:brightness-110" : ""}`;
+          const estilo = {
+            background: `${COLOR[j.resultado]}26`,
+            color: chipInk(COLOR[j.resultado]),
+            borderColor: `${COLOR[j.resultado]}88`,
+            borderStyle: j.enCasa ? "solid" : "dashed",
+          } as const;
+
+          /* Casa con borde continuo y una casita; fuera, borde discontinuo y un avión. Con resumen de la RFEF, abre el vídeo (▶). */
+          return (
+            <li key={j.id} className="min-w-0">
+              {resumen ? (
+                <a href={urlResumen(resumen)} target="_blank" rel="noreferrer" title={`${texto} · ver el resumen en vídeo (RFEF)`} aria-label={`${texto}. Ver el resumen en vídeo`} className={clase} style={estilo}>
+                  {cuerpo}
+                </a>
+              ) : (
+                <div title={texto} aria-label={texto} className={clase} style={estilo}>
+                  {cuerpo}
+                </div>
+              )}
+            </li>
+          );
+        })}
       </ol>
-      <p className="mt-1 text-xs text-white/60">V: ganó · E: empató · D: perdió. El marcador va con sus goles primero. Borde continuo: en su casa; discontinuo: fuera.</p>
+      <p className="mt-1 text-xs text-white/60">V: ganó · E: empató · D: perdió. El marcador va con sus goles primero. Borde continuo: en su casa; discontinuo: fuera.{resumenes.length > 0 ? " ▶: abre el resumen en vídeo de la RFEF." : ""}</p>
     </div>
   );
 }

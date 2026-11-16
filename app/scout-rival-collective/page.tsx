@@ -38,6 +38,7 @@ import RecursosRival, {
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { DatosDelRival } from "@/components/rivals/DatosDelRival";
 import { SeccionGolesDelRival } from "@/components/rivals/GolesDelRivalEnVideo";
+import { AccesosDelRival } from "@/components/rivals/AccesosDelRival";
 import { PorDondeAtaca } from "@/components/rivals/PorDondeAtaca";
 import { EvolucionComparada } from "@/components/rivals/EvolucionComparada";
 import { RepartoXg } from "@/components/rivals/RepartoXg";
@@ -1522,6 +1523,16 @@ export default function ScoutRivalCollective() {
               )}
             </div>
           </header>
+
+          {/* La tira de accesos del rival (16/11/2026, ronda 18): sus goles en vídeo, Individual, ABP, Área, Duelos… con este rival puesto. */}
+          {rivalActivo?.EQUIPO && !modoEdicion && (
+            <AccesosDelRival
+              equipo={rivalActivo.EQUIPO}
+              rivalId={String(rivalActivo.ID ?? "")}
+              aqui="/scout-rival-collective"
+              className="-mt-2 mb-4"
+            />
+          )}
 
           {/* 29/10/2026: J1…Jn con el resultado de cada jornada del rival. */}
           {rivalActivo?.EQUIPO && <TiraJornadas equipo={rivalActivo.EQUIPO} />}
