@@ -144,7 +144,7 @@ export const AYUDAS: AyudaDePagina[] = [
           },
           { que: "Contra la liga", es: "Dos lecturas: lo esencial por fase (puesto y percentil en el grupo, y partido a partido contra su media) y métrica a métrica contra los 20 equipos" },
           { que: "Nuestra historia", es: "Dos lecturas: temporada a temporada y jornada a jornada contra nuestros rivales y la media" },
-          { que: "Nuestros remates", es: "El mapa de remates del Castilla, a favor y en contra; en cada mapa, «Sólo goles», el partido y, al pinchar, «Ver en Opta» / «Ver en Wyscout» (abren la plataforma y copian partido y minuto)" },
+          { que: "Nuestros remates", es: "El mapa de remates del Castilla, a favor y en contra; en cada mapa, «Sólo goles», el partido y, al pinchar, «Ver el resumen (YouTube)» —el resumen oficial de la RFEF de ese partido, donde sale el gol; sin segundo exacto, que esos resúmenes no traen— y «Ver en Opta» / «Ver en Wyscout» (abren la plataforma y copian partido y minuto: ninguna de las dos deja enlazar el clip)" },
           { que: "Jugador a jugador", es: "Dos lecturas: dentro de la plantilla y por 90′ contra los de su puesto en la categoría (al pinchar uno, su ficha)" },
           { que: "Buscador de la categoría", es: "Jugadores de la categoría por puesto, edad, minutos y una métrica por 90" },
           { que: "Talento y goles que valen", es: "Dispersión de percentiles con la zona élite, ranking por perfil, goles que dan puntos y goles desde el banquillo" },
@@ -334,7 +334,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Si una pantalla enseña la jornada pasada, lo que falta es publicar: bajar los datos no los sube.",
       "Si los datos se quedan atrás varias semanas, mira .cache/wyscout: casi siempre es que hay que volver a entrar en Wyscout una vez.",
     ],
-    revisada: "2026-11-15",
+    revisada: "2026-11-16",
   },
 
   /* ==================== MICROCICLOS ==================== */
@@ -1120,8 +1120,8 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Banda D e I", es: "Vistas desde el equipo que ataca" },
           {
             que: "En el campo",
-            es: "Los goles del equipo elegido (cualquiera de la categoría), a favor o en contra, en el campograma de remates: de un partido o de todos. Pinchar un gol (en el campo o en la lista) da el remate y «Ver en Opta» / «Ver en Wyscout»",
-            cuenta: "Punto = sitio del remate; tamaño = xG. Opta y Wyscout no dejan enlazar un clip: el botón abre la plataforma y copia el partido y el minuto para pegarlos en su buscador. Los goles en propia puerta no son remates y no salen",
+            es: "Los goles del equipo elegido (cualquiera de la categoría), a favor o en contra, en el campograma de remates: de un partido o de todos. Pinchar un gol (en el campo o en la lista) da el remate, «Ver el resumen (YouTube)» y «Ver en Opta» / «Ver en Wyscout»",
+            cuenta: "Punto = sitio del remate; tamaño = xG. El resumen es el del canal de la RFEF de ese partido (/api/rivals/resumenes), cruzado por los dos equipos y la fecha (lib/rivals/resumen-de-partido.ts; «Real Madrid II» de Opta = Castilla): abre el partido resumido, no el segundo del gol, que la RFEF no trae. Opta y Wyscout no dejan enlazar un clip: el botón abre la plataforma y copia el partido y el minuto para pegarlos en su buscador. Los goles en propia puerta no son remates y no salen",
           },
           { que: "Ficha técnica", es: "Sólo nuestros goles: fase, campo, acción, dónde nace, los nuestros implicados, lectura y «Para repetir» o «Para corregir». Se guarda sola" },
           { que: "✓ Revisado en vídeo", es: "La marca de los goles que el cuerpo técnico ya ha visto" },

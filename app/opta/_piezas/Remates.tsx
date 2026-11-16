@@ -11,11 +11,13 @@
  * - `RematesJugador`: los de un jugador, para su ficha.
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { CampoOpta, SOBRE_CESPED } from "@/components/campo/CampoOpta";
 import { CASTILLA_OPTA, num } from "@/lib/opta";
 import { fechaCorta, type Fila } from "@/lib/opta-analisis";
+import { cargaResumenesRfef, resumenDelPartido, urlResumen } from "@/lib/rivals/resumen-de-partido";
+import type { ResumenRfef } from "@/lib/rivals/resumenes-rfef";
 import { casaEquipo, CUERPO, MARCADOR, PRESION, resumenRemates, SITUACION, TIPO_REMATE, type Remate } from "@/lib/opta-eventos";
 
 import { Botonera, Cifra, Elegir, Panel } from "./comun";
@@ -281,6 +283,22 @@ const URL_WYSCOUT = "https://wyscout.hudl.com/app/";
 */
 function EnlacesVideo({ remate, enContra }: { remate: Remate; enContra: boolean }) {
   const [copiado, setCopiado] = useState(false);
+  /* El resumen oficial de la RFEF de ese partido (16/11/2026): ahí salen sus goles. */
+  const [resumenes, setResumenes] = useState<ResumenRfef[]>([]);
+
+  useEffect(() => {
+    let cancelado = false;
+
+    cargaResumenesRfef().then((lista) => {
+      if (!cancelado) setResumenes(lista);
+    });
+
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
+  const resumen = resumenDelPartido(resumenes, nombreDe(remate.teamId, remate.equipo), nombreDe(remate.rivalId, remate.rival), remate.fecha);
   const local = enContra ? nombreDe(remate.teamId, remate.equipo) : nombreDe(remate.rivalId, remate.rival);
   const nota = `${fechaCorta(remate.fecha)} · ${nombreDe(remate.teamId, remate.equipo)} contra ${nombreDe(remate.rivalId, remate.rival)} · ${remate.parte}.ª parte, minuto ${remate.minuto}′ · ${remate.tirador}`;
   const abre = (url: string) => {
@@ -295,6 +313,17 @@ function EnlacesVideo({ remate, enContra }: { remate: Remate; enContra: boolean 
 
   return (
     <div className="flex flex-wrap items-center gap-2" aria-label={`Vídeo del remate contra ${local}`}>
+      {resumen && (
+        <a
+          href={urlResumen(resumen)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={boton}
+          title={`Resumen oficial de la RFEF: ${resumen.local} ${resumen.golesLocal}-${resumen.golesVisitante} ${resumen.visitante}, jornada ${resumen.jornada}. El gol es del minuto ${remate.minuto}′; el resumen no trae el segundo exacto.`}
+        >
+          ▶ Ver el resumen (YouTube)
+        </a>
+      )}
       <button type="button" onClick={() => abre(URL_OPTA)} className={boton} title={`Abre Opta ProVision y copia: ${nota}`}>
         ▶ Ver en Opta
       </button>
