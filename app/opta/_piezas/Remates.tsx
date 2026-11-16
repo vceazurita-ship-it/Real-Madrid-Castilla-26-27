@@ -16,11 +16,11 @@ import { useMemo, useState } from "react";
 import { CampoOpta, SOBRE_CESPED } from "@/components/campo/CampoOpta";
 import { CASTILLA_OPTA, num } from "@/lib/opta";
 import { fechaCorta, type Fila } from "@/lib/opta-analisis";
-import { CUERPO, MARCADOR, PRESION, resumenRemates, SITUACION, TIPO_REMATE, type Remate } from "@/lib/opta-eventos";
+import { casaEquipo, CUERPO, MARCADOR, PRESION, resumenRemates, SITUACION, TIPO_REMATE, type Remate } from "@/lib/opta-eventos";
 
 import { Botonera, Cifra, Elegir, Panel } from "./comun";
 import { conSigno, dec, equiposDe, nombreDe, pct, useRemates } from "./eventos";
-import type { DatosOpta } from "./useOpta";
+import { useOpta, type DatosOpta } from "./useOpta";
 
 const colorRemate = (r: Remate) => (r.gol ? SOBRE_CESPED.gol : r.tipo === "Post" ? SOBRE_CESPED.palo : r.aPuerta ? SOBRE_CESPED.puerta : "transparent");
 const radio = (xG: number) => 7 + Math.sqrt(Math.max(0, xG)) * 40;
@@ -64,22 +64,76 @@ export function MapaRemates({
   conTirador = true,
   enContra = false,
   maxAlto = 440,
+  soloGolesInicial = false,
 }: {
   remates: Remate[];
   ariaLabel: string;
+  /** Abre con «Sólo goles» puesto (el campograma de /analisis-goles). */
+  soloGolesInicial?: boolean;
   conTirador?: boolean;
   /** En contra, el tirador es del rival: el texto lo dice así. */
   enContra?: boolean;
   maxAlto?: number;
 }) {
   const [elegido, setElegido] = useState<Remate | null>(null);
-  const r = resumenRemates(remates);
+  /*
+  | SÓLO LOS GOLES, DE UN PARTIDO O DE TODOS (16/11/2026, petición del
+  | analista): el mismo campograma de remates con dos filtros —«Sólo goles» y
+  | el partido— que van en todas partes donde sale el mapa (área Opta, ficha
+  | del rival, post-partido). Al pinchar un gol, su lista y los botones para
+  | abrir Opta ProVision o Wyscout con el partido y el minuto a mano.
+  */
+  const [soloGoles, setSoloGoles] = useState(soloGolesInicial);
+  const [partido, setPartido] = useState("");
+  const partidos = useMemo(() => {
+    const m = new Map<string, { clave: string; fecha: string; nombre: string }>();
+    for (const x of remates) {
+      if (m.has(x.partido)) continue;
+      const otro = enContra ? nombreDe(x.teamId, x.equipo) : nombreDe(x.rivalId, x.rival);
+      m.set(x.partido, { clave: x.partido, fecha: x.fecha, nombre: `${fechaCorta(x.fecha)} · ${enContra ? "de" : "contra"} ${otro}` });
+    }
+    return [...m.values()].sort((a, b) => b.fecha.localeCompare(a.fecha));
+  }, [remates, enContra]);
+  const delPartido = partido && partidos.some((p) => p.clave === partido) ? partido : "";
+  const visibles = useMemo(
+    () => remates.filter((x) => (!soloGoles || x.gol) && (!delPartido || x.partido === delPartido)),
+    [remates, soloGoles, delPartido],
+  );
+  const r = resumenRemates(visibles);
   /* Los grandes debajo y los goles encima: que ninguno tape a otro entero. */
-  const orden = useMemo(() => [...remates].sort((a, b) => Number(a.gol) - Number(b.gol) || b.xG - a.xG), [remates]);
-  const visto = elegido && remates.includes(elegido) ? elegido : null;
+  const orden = useMemo(() => [...visibles].sort((a, b) => Number(a.gol) - Number(b.gol) || b.xG - a.xG), [visibles]);
+  const visto = elegido && visibles.includes(elegido) ? elegido : null;
+  const goles = useMemo(() => visibles.filter((x) => x.gol).sort((a, b) => b.fecha.localeCompare(a.fecha) || a.minuto - b.minuto), [visibles]);
 
   return (
     <div className="min-w-0">
+      {(remates.some((x) => x.gol) || partidos.length > 1) && (
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <Botonera
+            etiqueta="Qué remates"
+            valor={soloGoles ? "goles" : "todos"}
+            alCambiar={(v) => {
+              setSoloGoles(v === "goles");
+              setElegido(null);
+            }}
+            opciones={[
+              { clave: "todos", nombre: "Todos los remates" },
+              { clave: "goles", nombre: enContra ? "Sólo goles encajados" : "Sólo goles" },
+            ]}
+          />
+          {partidos.length > 1 && (
+            <Elegir
+              etiqueta="Partido"
+              valor={delPartido}
+              alCambiar={(v) => {
+                setPartido(v);
+                setElegido(null);
+              }}
+              opciones={[{ clave: "", nombre: `Todos (${partidos.length})` }, ...partidos.map((p) => ({ clave: p.clave, nombre: p.nombre }))]}
+            />
+          )}
+        </div>
+      )}
       <div className="grid gap-2 sm:grid-cols-4">
         {/* 10/11/2026: con un solo partido, «17,0 por partido» no decía nada. */}
         <Cifra rotulo="Remates" valor={String(r.remates)} detalle={r.partidos && r.partidos > 1 ? `${dec(r.remates / r.partidos, 1)} por partido` : undefined} />
@@ -128,7 +182,126 @@ export function MapaRemates({
         </CampoOpta>
       </div>
       <Leyenda />
-      {visto && <p className="mt-1.5 text-[12px] text-white/75">{textoRemate(visto, conTirador)}</p>}
+      {visto && (
+        <div className="mt-1.5 space-y-1.5">
+          <p className="text-[12px] text-white/75">{textoRemate(visto, conTirador)}</p>
+          <EnlacesVideo remate={visto} enContra={enContra} />
+        </div>
+      )}
+
+      {/* Con «Sólo goles», la lista de los goles: pinchar uno lo marca en el campo y da sus enlaces. */}
+      {soloGoles && goles.length > 0 && (
+        <ol className="mt-3 space-y-1 text-[12px]">
+          {goles.map((g, i) => (
+            <li key={`${g.partido}-${g.segundo}-${i}`}>
+              <button
+                type="button"
+                onClick={() => setElegido(visto === g ? null : g)}
+                className={`flex w-full min-w-0 flex-wrap items-baseline gap-x-2 rounded-lg px-2 py-1 text-left transition hover:bg-white/[0.05] ${visto === g ? "bg-white/[0.07]" : ""}`}
+              >
+                <span className="font-semibold tabular-nums text-[#C8A96B]">{g.minuto}′</span>
+                {conTirador && <span className="font-semibold text-white/85">{g.tirador}</span>}
+                <span className="text-white/55">
+                  {[TIPO_REMATE[g.tipo] ?? g.tipo, SITUACION[g.situacion] ?? "", `xG ${dec(g.xG)}`, `${fechaCorta(g.fecha)} ${enContra ? "de" : "contra"} ${enContra ? nombreDe(g.teamId, g.equipo) : nombreDe(g.rivalId, g.rival)}`]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+}
+
+/**
+ * LOS GOLES EN EL CAMPO (16/11/2026, petición del analista, para
+ * /analisis-goles): los goles a favor o en contra de cualquier equipo de la
+ * categoría, de un partido o de todos, en el mismo campograma que los
+ * remates, con el vídeo a mano en Opta o Wyscout. El equipo llega por nombre
+ * y se casa con Opta por `casaEquipo`.
+ */
+export function GolesEnElCampo({ equipo, esCastilla }: { equipo: string; esCastilla: boolean }) {
+  const { datos } = useOpta();
+
+  if (!datos) return <div className="h-64 animate-pulse rounded-2xl bg-white/[0.05]" role="status" aria-label="Cargando los goles de Opta" />;
+
+  return <GolesDelEquipo datos={datos} equipo={equipo} esCastilla={esCastilla} />;
+}
+
+function GolesDelEquipo({ datos, equipo, esCastilla }: { datos: DatosOpta; equipo: string; esCastilla: boolean }) {
+  const { remates, cargando, hay } = useRemates(datos);
+  const [lado, setLado] = useState<Lado>("favor");
+  const teamId = useMemo(() => {
+    if (!datos.equipos.length) return "";
+    if (esCastilla) return CASTILLA_OPTA;
+    return casaEquipo(equipo, equiposDe(datos)) ?? "";
+  }, [datos, equipo, esCastilla]);
+  const delLado = useMemo(() => remates.filter((r) => (lado === "favor" ? r.teamId === teamId : r.rivalId === teamId)), [remates, teamId, lado]);
+
+  if (cargando)
+    return <div className="h-64 animate-pulse rounded-2xl bg-white/[0.05]" role="status" aria-label="Cargando los goles de Opta" />;
+  if (!hay || !teamId) return null;
+
+  return (
+    <div className="min-w-0">
+      <div className="mb-3">
+        <Botonera
+          etiqueta="A favor o en contra"
+          valor={lado}
+          alCambiar={setLado}
+          opciones={[
+            { clave: "favor", nombre: "Goles a favor" },
+            { clave: "contra", nombre: "Goles en contra" },
+          ]}
+        />
+      </div>
+      <MapaRemates
+        key={`${teamId}-${lado}`}
+        remates={delLado}
+        enContra={lado === "contra"}
+        soloGolesInicial
+        ariaLabel={`Goles ${lado === "favor" ? "de" : "contra"} ${equipo} en el campo`}
+      />
+    </div>
+  );
+}
+
+/** Opta ProVision (TruMedia) del club y la plataforma de Wyscout. */
+const URL_OPTA = "https://realmadrid.opta.trumediasports.com/";
+const URL_WYSCOUT = "https://wyscout.hudl.com/app/";
+
+/*
+| EL VÍDEO DEL REMATE (16/11/2026). Ni Opta ProVision ni Wyscout dejan enlazar
+| un clip: Wyscout no tiene rutas (siempre /app/) y fabrica cada clip al
+| vuelo (ver memoria wyscout-descarga-liga). Lo que sí se puede: abrir la
+| plataforma en otra pestaña con el partido y el minuto ya copiados al
+| portapapeles, para pegarlos en su buscador.
+*/
+function EnlacesVideo({ remate, enContra }: { remate: Remate; enContra: boolean }) {
+  const [copiado, setCopiado] = useState(false);
+  const local = enContra ? nombreDe(remate.teamId, remate.equipo) : nombreDe(remate.rivalId, remate.rival);
+  const nota = `${fechaCorta(remate.fecha)} · ${nombreDe(remate.teamId, remate.equipo)} contra ${nombreDe(remate.rivalId, remate.rival)} · ${remate.parte}.ª parte, minuto ${remate.minuto}′ · ${remate.tirador}`;
+  const abre = (url: string) => {
+    void navigator.clipboard?.writeText(nota).then(
+      () => setCopiado(true),
+      () => setCopiado(false),
+    );
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+  const boton =
+    "inline-flex items-center gap-1.5 rounded-lg border border-[#C8A96B]/40 px-2.5 py-1 text-[11px] font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/10";
+
+  return (
+    <div className="flex flex-wrap items-center gap-2" aria-label={`Vídeo del remate contra ${local}`}>
+      <button type="button" onClick={() => abre(URL_OPTA)} className={boton} title={`Abre Opta ProVision y copia: ${nota}`}>
+        ▶ Ver en Opta
+      </button>
+      <button type="button" onClick={() => abre(URL_WYSCOUT)} className={boton} title={`Abre Wyscout y copia: ${nota}`}>
+        ▶ Ver en Wyscout
+      </button>
+      <span className="text-[11px] text-white/50">{copiado ? "Partido y minuto copiados: pégalos en su buscador." : "Abre la plataforma y copia el partido y el minuto."}</span>
     </div>
   );
 }
