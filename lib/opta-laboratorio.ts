@@ -32,7 +32,8 @@ import { defMetrica } from "@/lib/opta-nombres";
 
 export type ModoLab = "robos" | "perdidas" | "faltas";
 
-export type MetricaLab = { a: string; nombre: string; comoLeer: string };
+/** `estilo` (16/11/2026): sin mejor ni peor, en gris, aunque el catálogo de Opta le dé un sentido. */
+export type MetricaLab = { a: string; nombre: string; comoLeer: string; estilo?: boolean };
 
 /** Las métricas de equipo de cada pantalla del laboratorio, todas por partido. */
 export const METRICAS_LAB: Record<ModoLab, MetricaLab[]> = {
@@ -44,7 +45,7 @@ export const METRICAS_LAB: Record<ModoLab, MetricaLab[]> = {
     },
     { a: "PosWonA3rd", nombre: "Recuperaciones en el último tercio", comoLeer: "Las mismas recuperaciones, sólo las del tercio de campo más cercano a la portería rival." },
     { a: "PosWonM3rd", nombre: "Recuperaciones en el tercio medio", comoLeer: "Las recuperaciones del tercio del medio." },
-    { a: "PosWonD3rd", nombre: "Recuperaciones en el propio tercio", comoLeer: "Las recuperaciones de nuestro tercio. Es estilo: quien defiende más abajo recupera más aquí." },
+    { a: "PosWonD3rd", nombre: "Recuperaciones en el propio tercio", comoLeer: "Las recuperaciones de nuestro tercio. Es estilo: quien defiende más abajo recupera más aquí.", estilo: true },
     { a: "Int", nombre: "Intercepciones", comoLeer: "Pases del rival cortados." },
     { a: "PPDA", nombre: "PPDA: pases que deja dar el rival antes de que presionemos", comoLeer: "Pases que se le dejan dar al rival por cada acción defensiva nuestra: cuanto más bajo, más se presiona." },
   ],
@@ -56,7 +57,12 @@ export const METRICAS_LAB: Record<ModoLab, MetricaLab[]> = {
     },
     { a: "PsLostD3", nombre: "Pérdidas en el propio tercio", comoLeer: "Las mismas pérdidas, sólo las de nuestro tercio, las de más riesgo." },
     { a: "PsLostM3", nombre: "Pérdidas en el tercio medio", comoLeer: "Las pérdidas del tercio del medio." },
-    { a: "PsLostA3", nombre: "Pérdidas en el último tercio", comoLeer: "Las pérdidas cerca del área rival. Es estilo: quien más ataca más pierde aquí." },
+    {
+      a: "PsLostA3",
+      nombre: "Pérdidas en el último tercio",
+      comoLeer: "Las pérdidas cerca del área rival. Es estilo: quien más ataca y más arriesga cerca del área, más pierde aquí; lo que pesa es si después la recuperamos.",
+      estilo: true,
+    },
     { a: "Disposs", nombre: "Balones robados en conducción", comoLeer: "Veces que nos quitan el balón cuando lo llevamos." },
   ],
   faltas: [
@@ -88,7 +94,7 @@ export function contextoGrupo(
   if (!fila) return [];
   const salida: FilaLab[] = [];
   for (const m of metricas) {
-    const mejor = defMetrica(m.a, catalogo).mejor;
+    const mejor = m.estilo ? null : defMetrica(m.a, catalogo).mejor;
     const valor = valorEquipo(fila, m.a, "partido", catalogo);
     if (valor == null) continue;
     const pos = posicionEn(valor, delGrupo.map((f) => valorEquipo(f, m.a, "partido", catalogo)), mejor);

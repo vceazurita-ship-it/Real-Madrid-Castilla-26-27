@@ -278,7 +278,7 @@ const TEXTOS: Record<ModoTransiciones, Textos> = {
       adelante: (pct, n, de) => `El rival sale hacia delante en el ${pct} % de las pérdidas que llega a jugar (${n} de ${de}).`,
       zona: (zona, n, total, adelante, juegan) =>
         /* 30/10/2026: dos frases, una cifra cada una (marketing: mezclaba tres). */
-        `Donde más perdemos es en ${zona}: ${n} de ${total}. De esas ${n}, el rival juega ${juegan} y sale hacia delante en ${adelante}.`,
+        `Donde más perdemos es en ${zona === "campo rival" ? "campo rival, atacando en su mitad" : zona}: ${n} de ${total}. De esas ${n}, el rival juega ${juegan} y sale hacia delante en ${adelante}.`,
       acaba: (llegan, pierden, de) => `De ${de} con desenlace, ${llegan} % nos llegan al área o al remate y ${pierden} % las recuperamos.`,
       dura: (s) => `Su transición dura ${s} s de media.`,
     },
@@ -1026,15 +1026,23 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
         mejorAlto: robosMode ? true : false,
         pie: robosMode ? "la presión alta que funciona" : "las que más peligro traen",
       },
-      {
-        clave: "duracion",
-        nombre: robosMode ? "Duración media de la posesión" : "Duración media de su posesión",
-        actual: duracion(actuales),
-        media: duracionMediaDe(anteriores),
-        formato: segundos,
-        mejorAlto: robosMode ? null : false,
-        pie: robosMode ? "según el estilo" : "cuanto menos dure su posesión, mejor",
-      },
+      /* 16/11/2026 (análisis, ronda 17): en robos la duración es estilo, sin
+         mejor ni peor, y no pinta nada en una tabla de «mejor/peor»; la dice
+         una de las conclusiones. En pérdidas sí tiene sentido (cuanto menos
+         dure su posesión, mejor). */
+      ...(robosMode
+        ? []
+        : [
+            {
+              clave: "duracion",
+              nombre: "Duración media de su posesión",
+              actual: duracion(actuales),
+              media: duracionMediaDe(anteriores),
+              formato: segundos,
+              mejorAlto: false,
+              pie: "cuanto menos dure su posesión, mejor",
+            } satisfies MetricaComparada,
+          ]),
     ];
 
     /*
@@ -1049,6 +1057,9 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
 
     return {
       partido: `${comparado.jornada} · ${nombreEquipo(comparado.rival)}`,
+      /* 16/11/2026: el titular dice «en la J11 (Hércules)», no «hoy». */
+      jornada: comparado.jornada,
+      rival: nombreEquipo(comparado.rival),
       /* 10/11/2026: las bases de cada porcentaje, dichas una vez. */
       bases: { total: actuales.length, juegan: jugadas(actuales).length, conDesenlace: seguidas(actuales).length },
       anteriores: { n: anteriores.length },
@@ -1147,6 +1158,22 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
     if (top && top.total > 0) {
       /* 08/11/2026: una cifra por línea, cada una con su base. */
       frases.push(...T.conclusiones.zona(top.zona, top.total, total, top.adelante, top.juegan).split(/(?<=.) (?=De es)/));
+
+      /*
+      | 16/11/2026 (expertos, ronda 17): «donde más perdemos es en campo
+      | rival: 25 de 50» al lado de «pérdidas en campo propio: 5» parecía una
+      | contradicción. Son zonas distintas: se dice cuántas son en nuestro
+      | campo y la conclusión acaba en una tarea con su referencia.
+      */
+      if (modo === "perdidas" && top.zona !== "campo propio") {
+        const propio = zonas.find((z) => z.zona === "campo propio");
+        if (propio) frases.push(`En nuestro campo, las de más riesgo, perdimos ${propio.total} de ${total}.`);
+        if (top.zona === "campo rival" && top.total > 0) {
+          frases.push(
+            `Tarea: contrapresión tras pérdida en campo rival, contando si el rival consigue jugar el balón; referencia ${partidosVistos > 1 ? "de estos partidos" : "del partido"}, lo jugó ${top.juegan} de ${top.total} veces.`,
+          );
+        }
+      }
     }
 
     const seguidas = robos.filter((r) => r.desenlace);
@@ -1242,7 +1269,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
     const nRef = comparativa.anteriores.n;
     const aviso = ` (media de ${nRef === 1 ? "un solo partido" : `${nRef} partidos`}${modo === "robos" ? "" : ", los etiquetados en vídeo"}${nRef < UMBRAL_TENDENCIA_PARTIDOS ? ", tendencia" : ""})`;
 
-    const rango = m.rango && m.rango[0] !== m.rango[1] ? ` (en esos partidos, de ${formato(m.rango[0])} a ${formato(m.rango[1])})` : "";
+    const rango = m.rango && m.rango[0] !== m.rango[1] ? ` (en los ${nRef} partidos anteriores etiquetados en vídeo, de ${formato(m.rango[0])} a ${formato(m.rango[1])})` : "";
 
     const criterio = `criterio de éxito, ${m.nombre.toLowerCase()} ${m.mejorAlto ? "por encima de" : "por debajo de"} ${formato(m.media!)} en el próximo partido${rango}`;
 
@@ -1252,13 +1279,28 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
     const porDebajo = (m.mejorAlto ? m.actual! < m.media! : m.actual! > m.media!);
     const cifra = `${formato(m.actual!)}${base ? ` (${base})` : ""}`;
 
+    /*
+    | 16/11/2026 (expertos, ronda 17): «Todas las cifras están en nuestra
+    | media o mejor» junto a «robar más de 38,4: 37» se contradecía. Si la
+    | más justa queda por debajo, se dice «ligeramente por debajo, dentro de
+    | lo normal». Y el párrafo va en tres líneas: dónde estamos, la tarea y
+    | el criterio de éxito.
+    */
+    const situacion = mantener
+      ? porDebajo
+        ? `Ninguna cifra se sale de lo normal; la más justa, ligeramente por debajo de la media: ${m.nombre.toLowerCase()}, ${cifra} frente a ${formato(m.media!)}${aviso}.`
+        : `Todas las cifras mejoran nuestra media; la que menos margen tiene: ${m.nombre.toLowerCase()}, ${cifra} frente a ${formato(m.media!)}${aviso}.`
+      : `${m.nombre}: ${cifra} frente a ${formato(m.media!)}${aviso}.`;
+
     return {
-      texto: mantener
-        ? `${porDebajo ? `Todas las cifras están en nuestra media o mejor; la más justa: ${m.nombre.toLowerCase()}, ${cifra} frente a ${formato(m.media!)}, dentro de lo normal${aviso}.` : `Todas las cifras mejoran nuestra media; la que menos margen tiene: ${m.nombre.toLowerCase()}, ${cifra} frente a ${formato(m.media!)}${aviso}.`} En el campo: tarea de ${tarea}, contando ${cuenta}. ${criterio.charAt(0).toUpperCase()}${criterio.slice(1)}.`
-        : `${m.nombre}: ${cifra} frente a ${formato(m.media!)}${aviso}. En el campo: tarea de ${tarea} en la semana, contando ${cuenta}. ${criterio.charAt(0).toUpperCase()}${criterio.slice(1)}.`,
-      /* 08/11/2026: el titular destacado encima de la tabla. 11/11/2026: el
-         objetivo en una frase, con lo de hoy detrás. */
-      titular: `${objetivo(formato(m.media!))}: hoy ${cifra}`,
+      lineas: [
+        situacion,
+        `En el campo: tarea de ${tarea}${mantener ? "" : " en la semana"}, contando ${cuenta}.`,
+        `${criterio.charAt(0).toUpperCase()}${criterio.slice(1)}.`,
+      ],
+      /* 08/11/2026: el titular destacado encima de la tabla. 16/11/2026: el
+         partido elegido no es «hoy»: se nombra la jornada y el rival. */
+      titular: `${objetivo(formato(m.media!))}: en la ${comparativa.jornada} (${comparativa.rival}), ${cifra}`,
       rotulo: mantener ? "Qué entrenamos para mantenerlo" : "Lo que pide trabajo esta semana",
       filtro,
     };
@@ -1374,7 +1416,9 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
             {/* 10/11/2026: «¿Por qué no coincide con Data Análisis?» baja al
                 resumen, junto a las dos cifras (la nuestra y la de Opta). */}
 
-            <SelloDeFechas fuente="Vídeo etiquetado" fechas={fechasConDato} queEs={T.unidad} />
+            {/* 16/11/2026 (expertos, ronda 17): un solo sello, con el mismo
+                recuento que la línea de debajo y sin la franja «incompleta». */}
+            <SelloDeFechas fuente="Vídeo etiquetado" fechas={fechasConDato} queEs={T.unidad} cuantos={partidosLiga} compacto />
 
             {/* 30/10/2026: por qué el selector no empieza en la J1 (análisis y marketing).
                 10/11/2026: con el número de partidos, como subtítulo. */}
@@ -1387,41 +1431,35 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
             {/* ---------------- mandos ---------------- */}
 
             <div className="mt-4 flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setQuien("todos")}
-                className={`rounded-xl border px-3 py-2 text-sm transition ${
-                  quien === "todos"
-                    ? "border-[#C8A96B]/40 bg-[#C8A96B]/15 text-[#C8A96B]"
-                    : "border-white/10 bg-white/[0.03] text-white/70 hover:border-white/20"
-                }`}
-              >
-                Temporada
-              </button>
-
-              {partidos.map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => setQuien(p.id)}
-                  className={`rounded-xl border px-3 py-2 text-sm transition ${
-                    quien === p.id
-                      ? "border-[#C8A96B]/40 bg-[#C8A96B]/15 text-[#C8A96B]"
-                      : "border-white/10 bg-white/[0.03] text-white/70 hover:border-white/20"
-                  }`}
+              {/* 16/11/2026 (marketing, ronda 17): un selector de partido, con
+                  la última jornada por defecto, en vez de once botones. */}
+              <label className="flex min-w-0 max-w-full items-center gap-2 text-sm text-white/60">
+                <span className="shrink-0">Partido</span>
+                <select
+                  value={quien}
+                  onChange={(e) => setQuien(e.target.value)}
+                  className="min-w-0 max-w-full rounded-xl border border-[#C8A96B]/40 bg-[#11161D] px-3 py-2 text-sm text-white"
                 >
-                  {p.jornada} · {nombreEquipo(p.rival)}
-                </button>
-              ))}
+                  {[...partidos]
+                    .sort((a, b) => b.fecha.localeCompare(a.fecha))
+                    .map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.jornada} · {nombreEquipo(p.rival)}
+                      </option>
+                    ))}
+                  <option value="todos">Temporada entera</option>
+                </select>
+              </label>
 
               <span className="mx-1 h-6 w-px bg-white/10" />
 
               <button
                 type="button"
                 onClick={() => setPorcentajes((v) => !v)}
+                aria-pressed={porcentajes}
                 className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/70 transition hover:border-white/20"
               >
-                {porcentajes ? "Ver totales" : "Ver porcentajes"}
+                {porcentajes ? "Ver en número, no en %" : "Ver en %, no en número"}
               </button>
 
               <Explicativo>
@@ -1499,7 +1537,11 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
               <div className="mt-5 rounded-2xl border border-amber-400/40 bg-amber-400/[0.06] px-4 py-3">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-300">{queToca.rotulo}</p>
                 <p className="mt-1 text-base font-semibold text-white sm:text-lg">{queToca.titular}</p>
-                <p className="mt-1 text-sm leading-relaxed text-white/75">{queToca.texto}</p>
+                {queToca.lineas.map((l, i) => (
+                  <p key={i} className={`mt-1 text-sm leading-relaxed ${i === 0 ? "text-white/85" : "text-white/75"}`}>
+                    {l}
+                  </p>
+                ))}
                 <button
                   type="button"
                   onClick={() => {

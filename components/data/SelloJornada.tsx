@@ -123,14 +123,52 @@ export function SelloJornada({ alcances, nota }: { alcances: Alcance[]; nota?: s
  * fechas de los partidos que tienen dato y dice hasta qué jornada llega,
  * como en Data análisis. Hasta que llega el calendario no pinta nada.
  */
-export function SelloDeFechas({ fuente, fechas, queEs, className = "" }: { fuente: string; fechas: string[]; queEs: string; className?: string }) {
+export function SelloDeFechas({
+  fuente,
+  fechas,
+  queEs,
+  className = "",
+  cuantos,
+  compacto = false,
+}: {
+  fuente: string;
+  fechas: string[];
+  queEs: string;
+  className?: string;
+  /** El recuento que da la propia pantalla («10 partidos etiquetados»), para que el sello diga lo mismo. */
+  cuantos?: number;
+  /**
+   * 16/11/2026 (expertos, ronda 17): una sola línea en la cabecera, sin la
+   * franja «JORNADA INCOMPLETA»: hasta dónde llega, cuántos partidos y, si
+   * ya se jugó otra, que entra al etiquetarla. Lo usan robos, pérdidas y faltas.
+   */
+  compacto?: boolean;
+}) {
   const calendario = useCalendarioCastilla();
   const alcance = useMemo(
-    () => (calendario ? alcanceDeFechas(fuente, fechas, calendario.partidos, calendario.hoy, queEs) : null),
-    [calendario, fechas, fuente, queEs],
+    () => (calendario ? alcanceDeFechas(fuente, fechas, calendario.partidos, calendario.hoy, queEs, cuantos) : null),
+    [calendario, fechas, fuente, queEs, cuantos],
   );
 
   if (!alcance || alcance.estado === "sin-datos") return null;
+
+  if (compacto) {
+    const n = cuantos ?? fechas.length;
+    const siguiente = alcance.pendientes[0];
+    return (
+      <p className={`mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs ${className}`} role="status">
+        <CheckCircle2 size={14} style={{ color: chipInk("#1B9E77") }} className="shrink-0" />
+        <span className="font-medium text-white/85">
+          Datos hasta la J{alcance.jornada}
+          {alcance.rival ? ` · ${alcance.rival}` : ""}
+          {alcance.fecha ? ` · ${fecha(alcance.fecha)}` : ""} · {n} {n === 1 ? "partido" : "partidos"}
+        </span>
+        {siguiente ? (
+          <span className="text-white/60">· la {siguiente} entra en cuanto se etiquete</span>
+        ) : null}
+      </p>
+    );
+  }
 
   return (
     <div className={className}>
