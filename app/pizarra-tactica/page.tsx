@@ -24,7 +24,9 @@ import {
 import { toast } from "sonner";
 import { confirmar } from "@/lib/avisos";
 
+import Link from "next/link";
 import { Sidebar } from "@/components/ui/sidebar";
+import { AccesosDelRival } from "@/components/rivals/AccesosDelRival";
 import { Topbar } from "@/components/ui/topbar";
 import EstadoGuardado from "@/components/tactics/EstadoGuardado";
 import OnceTitular from "@/components/tactics/OnceTitular";
@@ -1012,6 +1014,9 @@ function BoardEditor({
   const lienzo = useRef<HTMLDivElement | null>(null);
   const [lienzoALaVista, setLienzoALaVista] = useState(false);
 
+  /* El rival del tablero de los onces, para la tira de accesos (16/11/2026, ronda 18). */
+  const rivalDelTablero = deLaSemana ? fuentes?.rival || partido?.rival || "" : "";
+
   useEffect(() => {
     const nodo = lienzo.current;
 
@@ -1095,7 +1100,15 @@ function BoardEditor({
               <>
                 <span className="block"><b className="font-semibold text-white/85">Castilla</b>, hacia la derecha: {fuentes.nuestra}.</span>
                 <span className="block">
-                  <b className="font-semibold text-white/85">{fuentes.rival}</b>, hacia la izquierda:{" "}
+                  {/* Su plantilla a un toque, con el rival puesto (16/11/2026, ronda 18). */}
+                  <Link
+                    href={`/rivals?equipo=${encodeURIComponent(fuentes.rival)}`}
+                    title={`La plantilla de ${fuentes.rival}, con su once probable`}
+                    className="font-semibold text-white/85 underline decoration-white/30 underline-offset-2 hover:text-white"
+                  >
+                    {fuentes.rival}
+                  </Link>
+                  , hacia la izquierda:{" "}
                   {/* Sin «probable once probable» (16/11/2026, ronda 17). */}
                   {/^once probable marcado/i.test(fuentes.suya)
                     ? `su once probable, marcado en Plantillas rivales${fuentes.suya.replace(/^once probable marcado en plantillas rivales/i, "")}`
@@ -1115,6 +1128,8 @@ function BoardEditor({
               </span>
             )}
             {doc.semanaOnces && <b className="block font-semibold text-white/85">Toca dos veces una ficha para cambiar al jugador.</b>}
+            {/* La tira de accesos del rival (16/11/2026, ronda 18): Plan, Duelos, Pizarra ABP… con este rival puesto. */}
+            {rivalDelTablero && <AccesosDelRival equipo={rivalDelTablero} aqui="/pizarra-tactica" className="mt-1.5" />}
           </span>
           {/*
             16/11/2026 (marketing): arriba sólo el tablero y las acciones. Las
