@@ -841,7 +841,28 @@ export const AYUDAS: AyudaDePagina[] = [
           },
           { que: "Dorsal", es: "Sale de su columna, no del orden de la fila" },
           { que: "Puesto", es: "Se corrige con lib/posiciones.ts: la hoja guarda números de rol" },
-          { que: "Porteros", es: "Su ficha sigue aquí, pero no cuentan en las cifras de seguimiento ni salen en «Replicar en más jugadores»: llevan un registro independiente, con su entrenador", cuenta: "Portero = puesto PORTERO, 1 o 13 (o POR, GK). «Con algún seguimiento», el total de registros y la mediana son de los jugadores de campo" },
+          { que: "Porteros", es: "Su ficha sigue aquí, pero no cuentan en las cifras de seguimiento ni salen en «Replicar en más jugadores»: llevan un registro independiente, con su entrenador. Lo dice una vez la cabecera PORTEROS; sus fichas no llevan días sin seguir", cuenta: "Portero = puesto PORTERO, 1 o 13 (o POR, GK). «Con algún seguimiento», el total de registros y la mediana son de los jugadores de campo" },
+        ],
+      },
+      {
+        titulo: "Lo primero que se ve",
+        filas: [
+          {
+            que: "A quién toca seguir (gráfico)",
+            es: "Una barra por jugador de campo del Castilla con los días desde su último seguimiento, la raya de los 14 días del aviso y la mediana en el título; quien pasa de 14 lleva «Registrar», que abre su ficha con el formulario de nuevo seguimiento",
+            cuenta: "Días de calendario desde el último registro con fecha hasta hoy. Oro: más de 14; rojo: 28 o más o ninguno. En el móvil sólo salen los que pasan de 14",
+          },
+          { que: "Nota del scout", es: "Media de las fichas del scout (cinco competencias, escala 0-10) y su tramo" },
+          {
+            que: "Línea de rendimiento de cada ficha",
+            es: "La nota media de sus 3 últimos partidos con nota y el % de minutos, de Valoraciones",
+            cuenta: "% de minutos = sus minutos ÷ (partidos de Valoraciones × 90′). Sin partidos, no sale",
+          },
+          {
+            que: "Seguir con él",
+            es: "Bajo las pestañas de la ficha: Registrar seguimiento, su Data análisis, su Comparativa con la categoría y su Calendario de seguimiento, con el jugador ya elegido",
+            cuenta: "Desde otras pantallas se llega con /individual?player=ID (o ?nombre=), &pestana=seguimiento|valoraciones|videos y &nuevo=seguimiento para abrir el formulario",
+          },
         ],
       },
       {
