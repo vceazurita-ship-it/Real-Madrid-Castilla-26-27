@@ -1883,7 +1883,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Identidad de Juego",
     resumen: "Los principios ofensivos y defensivos del modelo, por fase, bloque y apartado, y cómo se cumplen en el último partido los que se pueden medir.",
     origen: "Los principios: la hoja del modelo de juego del cuerpo técnico (se edita aquí y se escribe en la hoja). Las cifras de cada principio: Wyscout de nuestros partidos y de la categoría, el mismo cálculo que /identidad-campo; la jornada, del calendario de BeSoccer.",
-    revisada: "2026-11-12",
+    revisada: "2026-11-16",
     bloques: [
       {
         titulo: "Cómo se organiza",
@@ -1899,18 +1899,19 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Cada principio",
         filas: [
           { que: "Innegociable", es: "Los que la hoja marca «CLAVE»: borde dorado y candado" },
-          { que: "Lo que no se negocia", es: "Arriba del apartado, los innegociables; cada nombre salta a su tarjeta" },
-          { que: "En el último partido, N de M", es: "Cuántos innegociables medidos quedaron del lado bueno de la mediana del grupo" },
+          { que: "Lo que no se negocia", es: "Arriba del apartado, un chip por innegociable: verde con ▲ y su cifra si el último partido quedó del lado bueno de la mediana del grupo, ámbar con ▼ si no; cada chip salta a su tarjeta" },
+          { que: "La frase de debajo", es: "Nombra en qué cumplimos y qué nos falta en el último partido, cada uno con su cifra frente a la mediana del grupo" },
+          { que: "Otros principios del bloque", es: "Los que sólo son un título (sin texto en la hoja ni medida), en una rejilla compacta al pie" },
           { que: "El desplegable", es: "Definición, qué se ve, criterio y clip, sólo si la hoja los trae" },
         ],
       },
       {
         titulo: "Se mide cada jornada",
         filas: [
-          { que: "▲ / ▼", es: "El último partido, mejor o peor que la mediana de los equipos del grupo, con el sentido de la medida («más es mejor»)" },
-          { que: "La línea", es: "El dato ante el rival y la jornada, la mediana del grupo y nuestra temporada en N partidos" },
-          { que: "Se comprueba en el vídeo", es: "Innegociable sin medida en Wyscout" },
-          { que: "Ver partido a partido →", es: "Su fila en /identidad-campo" },
+          { que: "El gráfico", es: "Una barra por partido de la temporada (J1…), la raya azul es la mediana de los equipos del grupo; en oro los partidos del lado bueno, apagados los demás, y el último recuadrado. El título dice cuántos partidos quedaron del lado bueno y si «se sostiene» (la mitad o más) o «toca entrenarlo»" },
+          { que: "▲ / ▼", es: "El último partido, mejor o peor que la mediana del grupo, con su base (28 de 53) y nuestra temporada en N partidos" },
+          { que: "Partido a partido →", es: "Su fila en /identidad-campo" },
+          { que: "Análisis del partido →", es: "El post del último partido en Data análisis" },
         ],
       },
       {

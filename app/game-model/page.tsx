@@ -363,6 +363,16 @@ export default function GameModelPage() {
   /** Principios marcados «CLAVE» en la hoja: lo que no se negocia. */
   const claves = principios.filter((p) => esClave(p.PRINCIPIO));
 
+  /*
+  | 16/11/2026: los principios que sólo son un título (ni innegociables, ni
+  | texto en la hoja, ni medida) no pesan lo mismo que los que sí: van al pie,
+  | en una rejilla compacta «Otros principios del bloque».
+  */
+  const soloTitulo = (p: Principio) =>
+    !editing && !filtrando && !esClave(p.PRINCIPIO) && !tieneDetalle(p) && !medidaDe(p);
+  const principales = principios.filter((p) => !soloTitulo(p));
+  const otros = principios.filter(soloTitulo);
+
   /* ------------------------------------------------------------ navegación */
 
   const sincronizarHash = useCallback((f: string, b: string, a: string) => {
@@ -885,29 +895,15 @@ export default function GameModelPage() {
                     /* 07/11/2026: una sola señal para lo innegociable. Sin la
                        frase de método (repetía las chapas): cada nombre salta
                        a su tarjeta. */
-                    <div className="mb-4 border-l-2 border-[#C8A96B] pl-3">
-                      <p className="text-base font-medium text-gray-200 lg:text-lg">
-                        <Lock className="mr-1 inline h-4 w-4 -translate-y-px text-[color:var(--rmcf-gold-ink,#C8A96B)]" aria-hidden />
-                        <span className="font-bold text-[color:var(--rmcf-gold-ink,#C8A96B)]">
-                          Lo que no se negocia:
-                        </span>{" "}
-                        {claves.map((p, i) => (
-                          <span key={p.ID}>
-                            {i > 0 && " · "}
-                            <a
-                              href={`#principio-${p.ID}`}
-                              className="underline decoration-[#C8A96B]/50 underline-offset-4 hover:decoration-[#C8A96B]"
-                            >
-                              {quitaClave(p.PRINCIPIO).replace(/[.\s]+$/, "")}
-                            </a>
-                          </span>
-                        ))}
+                    <div className="mb-5 rounded-2xl border border-[#C8A96B]/40 bg-[#C8A96B]/[0.07] p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--rmcf-gold-ink,#C8A96B)]">
+                        Lo que no se negocia
                       </p>
-                      <BalanceInnegociables claves={claves} />
+                      <ChipsInnegociables claves={claves} />
                     </div>
                   )}
                 <ul className="space-y-3">
-                  {principios.map((p) => (
+                  {principales.map((p) => (
                     <li
                       key={p.ID}
                       id={`principio-${p.ID}`}
@@ -964,6 +960,29 @@ export default function GameModelPage() {
                     </li>
                   ))}
                 </ul>
+                {otros.length > 0 && (
+                  <section aria-label="Otros principios del bloque" className="mt-5">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">
+                      Otros principios del bloque
+                    </p>
+                    <ul className="grid gap-2 sm:grid-cols-2">
+                      {otros.map((p) => (
+                        <li
+                          key={p.ID}
+                          id={`principio-${p.ID}`}
+                          className="flex min-w-0 scroll-mt-24 items-center gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2.5"
+                        >
+                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[#C8A96B]/60 text-[11px] font-bold tabular-nums text-[color:var(--rmcf-gold-ink,#C8A96B)]">
+                            {p.ORDEN}
+                          </span>
+                          <span className="min-w-0 break-words text-sm text-gray-200">
+                            {quitaClave(p.PRINCIPIO).replace(/\.$/, "")}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
                 </>
               )}
             </div>
@@ -1121,42 +1140,101 @@ const cualPartido = (u: CifraDelPrincipio["ultimo"]) => {
 };
 
 /*
-| 10/11/2026: la flecha se calcula contra la mediana de la categoría, no
-| contra la temporada propia; la línea lo dice («por debajo de la mediana…»),
-| con la base de esa mediana (equipos del grupo, partidos de la temporada) y
-| el sentido de la medida. Antes «▼ 15,4 %» con la temporada en 12,7 % se
-| leía como que había bajado respecto a nosotros mismos.
+| 16/11/2026: cada medida es un gráfico con su conclusión en el título: una
+| barra por partido de la temporada, la raya de la mediana del grupo y el
+| último partido destacado. Barra en oro si quedó del lado bueno de la
+| mediana; apagada si no. Debajo, la cifra del último partido con su base y
+| los dos enlaces que la completan (partido a partido y el análisis del
+| partido). Antes era una línea de texto larga.
 */
-function CifraLinea({ c }: { c: CifraDelPrincipio }) {
+const ladoBueno = (c: CifraDelPrincipio, v: number) => (c.mejorAlto ? v >= c.mediana : v <= c.mediana);
+
+const nombreCorto = (c: CifraDelPrincipio) => enEspanol(c.nombre).replace(/\s*\(.*\)$/, "");
+
+function GraficoCifra({ c }: { c: CifraDelPrincipio }) {
+  const serie = c.serie?.length
+    ? c.serie
+    : [{ valor: c.ultimo.valor, rival: c.ultimo.rival, fecha: c.ultimo.fecha, jornada: c.ultimo.jornada }];
+  const buenos = serie.filter((x) => ladoBueno(c, x.valor)).length;
+  const tope = Math.max(c.mediana, ...serie.map((x) => x.valor)) * 1.12 || 1;
+  const alto = (v: number) => `${Math.max(3, (v / tope) * 100)}%`;
   const bien = cumple(c);
   const igual = c.ultimo.valor === c.mediana;
+  const mayoria = buenos * 2 >= serie.length;
 
   return (
-    <li className="min-w-0 break-words">
-      <span className="font-semibold text-white">{enEspanol(c.nombre)}</span>{" "}
-      <span className="text-gray-400">({c.mejorAlto ? "más es mejor" : "menos es mejor"})</span>
-      <br />
-      <span
-        className={cn(
-          "font-bold tabular-nums",
-          igual ? "text-gray-200" : bien ? "text-emerald-400" : "text-amber-400",
-        )}
-      >
-        {igual ? "=" : bien ? "▲" : "▼"} {formatea(c.ultimo.valor, c.unidad)}
-      </span>
-      {c.ultimo.base && (
-        <span className="tabular-nums text-gray-400">
+    <figure className="min-w-0">
+      <figcaption className="text-sm font-semibold leading-snug text-white lg:text-base">
+        {nombreCorto(c)}: {buenos} de {serie.length} partidos del lado bueno de la mediana
+        <span className={cn("font-semibold", mayoria ? "text-emerald-400" : "text-amber-400")}>
           {" "}
-          ({c.ultimo.base.de} de {c.ultimo.base.total})
+          → {mayoria ? "se sostiene" : "toca entrenarlo"}
         </span>
-      )}{" "}
-      <span className="text-gray-400">
-        ante {c.ultimo.rival} ({cualPartido(c.ultimo)}) ·{" "}
-        {igual ? "igual que" : c.ultimo.valor > c.mediana ? "por encima de" : "por debajo de"} la mediana de los{" "}
-        {c.equipos} equipos del grupo ({formatea(c.mediana, c.unidad)}) · nuestra temporada{" "}
-        {formatea(c.temporada, c.unidad)} en {c.partidos} partidos
-      </span>
-    </li>
+      </figcaption>
+      <p className="mt-0.5 text-xs text-gray-400">
+        {c.mejorAlto ? "Más es mejor" : "Menos es mejor"} · raya azul: mediana de los {c.equipos} equipos del grupo (
+        {formatea(c.mediana, c.unidad)})
+      </p>
+
+      <div
+        role="img"
+        aria-label={`${nombreCorto(c)} partido a partido: ${serie
+          .map((x) => `${x.jornada ? `J${x.jornada} ` : ""}${formatea(x.valor, c.unidad)}`)
+          .join(", ")}. Mediana del grupo ${formatea(c.mediana, c.unidad)}.`}
+        className="relative mt-3 h-24 border-b border-white/15"
+      >
+        <div
+          aria-hidden
+          className="absolute inset-x-0 z-10 border-t-2 border-dashed border-sky-400/80"
+          style={{ bottom: alto(c.mediana) }}
+        />
+        <div className="flex h-full items-end gap-[3px] sm:gap-1">
+          {serie.map((x, i) => {
+            const ultimo = i === serie.length - 1;
+            const ok = ladoBueno(c, x.valor);
+
+            return (
+              <div
+                key={`${x.fecha}-${i}`}
+                title={`${x.jornada ? `J${x.jornada} · ` : ""}${x.rival}: ${formatea(x.valor, c.unidad)}`}
+                className={cn(
+                  "min-w-0 flex-1 rounded-t-sm",
+                  ok ? "bg-[#C8A96B]" : "bg-white/20",
+                  ultimo && "outline outline-2 outline-offset-1 outline-[#C8A96B]",
+                )}
+                style={{ height: alto(x.valor) }}
+              />
+            );
+          })}
+        </div>
+      </div>
+      <div className="mt-1 flex gap-[3px] text-[11px] tabular-nums text-gray-400 sm:gap-1" aria-hidden>
+        {serie.map((x, i) => (
+          <span key={`${x.fecha}-e-${i}`} className="min-w-0 flex-1 truncate text-center">
+            {x.jornada ? `J${x.jornada}` : i + 1}
+          </span>
+        ))}
+      </div>
+
+      <p className="mt-2 text-[13px] leading-relaxed text-gray-300">
+        <span
+          className={cn(
+            "font-bold tabular-nums",
+            igual ? "text-gray-200" : bien ? "text-emerald-400" : "text-amber-400",
+          )}
+        >
+          {igual ? "=" : bien ? "▲" : "▼"} {formatea(c.ultimo.valor, c.unidad)}
+        </span>
+        {c.ultimo.base && (
+          <span className="tabular-nums text-gray-400">
+            {" "}
+            ({c.ultimo.base.de} de {c.ultimo.base.total})
+          </span>
+        )}{" "}
+        ante {c.ultimo.rival} ({cualPartido(c.ultimo)}) · temporada {formatea(c.temporada, c.unidad)} en {c.partidos}{" "}
+        partidos
+      </p>
+    </figure>
   );
 }
 
@@ -1164,70 +1242,127 @@ function MedidaPrincipio({ p }: { p: Principio }) {
   const m = medidaDe(p);
   const cifras = useCifras();
 
-  if (cifras === "cargando") return null;
+  if (cifras === "cargando" || !m) return null;
 
-  const suyas = !m || cifras === "error" ? null : cifras.get(m.ancla);
+  const suyas = cifras === "error" ? null : cifras.get(m.ancla);
 
-  /* 10/11/2026: un innegociable sin cifra se queda con su insignia (es de la
-     hoja del cuerpo técnico), pero dice cómo se comprueba el lunes. */
-  if (!m || (cifras !== "error" && !suyas?.length)) {
-    return esClave(p.PRINCIPIO) ? (
-      <p className="mt-1.5 text-[13px] leading-relaxed text-gray-400">
-        Se comprueba en el vídeo del partido: Wyscout no trae una medida para este principio.
-      </p>
-    ) : null;
-  }
+  /* 16/11/2026: lo que no tiene medida no se nombra (antes decía «Wyscout no
+     trae una medida para este principio»). */
+  if (cifras !== "error" && !suyas?.length) return null;
+
+  const ultimo = suyas?.[0]?.ultimo;
 
   return (
-    <div className="mt-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[13px] leading-relaxed text-gray-300">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-400">
-        Se mide cada jornada · Wyscout · ▲ mejor que la mediana del grupo · ▼ peor
-      </p>
+    <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] p-3 sm:p-4">
       {suyas ? (
-        <ul className="mt-1 space-y-1">
+        <div className="space-y-5">
           {suyas.map((c) => (
-            <CifraLinea key={c.nombre} c={c} />
+            <GraficoCifra key={c.nombre} c={c} />
           ))}
-        </ul>
+        </div>
       ) : (
-        <p className="mt-1">{m.metricas.map(enEspanol).join(" · ")}</p>
+        <p className="text-[13px] text-gray-300">
+          <span className="font-semibold text-white">Se mide con:</span> {m.metricas.map(enEspanol).join(" · ")}
+        </p>
       )}
-      <Link
-        href={`/identidad-campo#${m.ancla}`}
-        className="mt-1 inline-block font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)] hover:underline"
-      >
-        Ver partido a partido →
-      </Link>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Link
+          href={`/identidad-campo#${m.ancla}`}
+          className={cn(
+            "inline-flex items-center rounded-lg border border-[#C8A96B]/40 px-2.5 py-1 text-xs font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)] transition-colors hover:bg-[#C8A96B]/10",
+            focusRing,
+          )}
+        >
+          Partido a partido →
+        </Link>
+        {ultimo && (
+          <Link
+            href="/data-analisis?area=post"
+            className={cn(
+              "inline-flex items-center rounded-lg border border-white/15 px-2.5 py-1 text-xs font-semibold text-gray-200 transition-colors hover:bg-white/[0.06] hover:text-white",
+              focusRing,
+            )}
+          >
+            Análisis del partido {ultimo.jornada ? `J${ultimo.jornada} ` : ""}ante {ultimo.rival} →
+          </Link>
+        )}
+      </div>
     </div>
   );
 }
 
-/** Cuántos innegociables medidos quedaron del lado bueno en el último partido. */
-function BalanceInnegociables({ claves }: { claves: Principio[] }) {
+/*
+| 16/11/2026: lo innegociable como chips con su cifra (verde del lado bueno,
+| ámbar del malo) y una conclusión que nombra a cada uno. Antes: «1 de 2
+| medidos quedaron del lado bueno», que obligaba a bajar para saber cuál.
+*/
+function ChipsInnegociables({ claves }: { claves: Principio[] }) {
   const cifras = useCifras();
+  const mapa = typeof cifras === "string" ? null : cifras;
 
-  if (typeof cifras === "string") return null;
-
-  const medidos = claves.flatMap((p) => {
+  const filas = claves.map((p) => {
     const m = medidaDe(p);
-    const c = m ? cifras.get(m.ancla) : undefined;
+    const c = m && mapa ? mapa.get(m.ancla)?.[0] : undefined;
 
-    return c?.length ? [c] : [];
+    return { p, nombre: quitaClave(p.PRINCIPIO).replace(/[.\s]+$/, ""), c };
   });
 
-  if (!medidos.length) return null;
+  const medidos = filas.flatMap((f) => (f.c ? [{ ...f, c: f.c }] : []));
+  const bien = medidos.filter((f) => cumple(f.c));
+  const mal = medidos.filter((f) => !cumple(f.c));
+  const cifra = (c: CifraDelPrincipio) =>
+    `${formatea(c.ultimo.valor, c.unidad)} frente a ${formatea(c.mediana, c.unidad)}`;
+  const ultimo = medidos[0]?.c.ultimo;
 
-  const cumplidos = medidos.filter((c) => c.every(cumple)).length;
+  const lista = (xs: typeof medidos) =>
+    xs.map((f, i) => (
+      <span key={f.p.ID}>
+        {i > 0 && (i === xs.length - 1 ? " y " : ", ")}
+        <b className="text-white">{f.nombre.toLowerCase()}</b> ({cifra(f.c)})
+      </span>
+    ));
 
   return (
-    <p className="mt-1 text-sm text-gray-400">
-      En el último partido,{" "}
-      <span className="font-semibold text-white">
-        {cumplidos} de {medidos.length}
-      </span>{" "}
-      {medidos.length === 1 ? "medido quedó" : "medidos quedaron"} del lado bueno
-      de la mediana de la categoría.
-    </p>
+    <>
+      <ul className="mt-3 flex flex-wrap gap-2">
+        {filas.map(({ p, nombre, c }) => {
+          const ok = c ? cumple(c) : null;
+
+          return (
+            <li key={p.ID}>
+              <a
+                href={`#principio-${p.ID}`}
+                className={cn(
+                  "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors",
+                  focusRing,
+                  ok === null
+                    ? "border-[#C8A96B]/40 text-gray-200 hover:bg-[#C8A96B]/10"
+                    : ok
+                      ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/15"
+                      : "border-amber-500/40 bg-amber-500/10 text-amber-400 hover:bg-amber-500/15",
+                )}
+              >
+                <Lock className="h-3.5 w-3.5" aria-hidden />
+                {nombre}
+                {c && (
+                  <span className="tabular-nums">
+                    {ok ? "▲" : "▼"} {formatea(c.ultimo.valor, c.unidad)}
+                  </span>
+                )}
+              </a>
+            </li>
+          );
+        })}
+      </ul>
+      {medidos.length > 0 && ultimo && (
+        <p className="mt-2 text-sm leading-relaxed text-gray-300">
+          Ante {ultimo.rival} ({cualPartido(ultimo)}): {bien.length > 0 && <>cumplimos en {lista(bien)}</>}
+          {bien.length > 0 && mal.length > 0 && "; "}
+          {mal.length > 0 && <>nos falta {lista(mal)}</>}. Referencia: la mediana de los {medidos[0].c.equipos} equipos
+          del grupo.
+        </p>
+      )}
+    </>
   );
 }
 
