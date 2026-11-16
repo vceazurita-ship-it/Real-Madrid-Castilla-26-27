@@ -76,17 +76,26 @@ export function StatCard({
   value,
   hint,
   accent,
+  etiqueta,
+  pie,
 }: {
   label: string;
   value: ReactNode;
   hint?: string;
   accent?: string;
+  /** Chapa visible junto al rótulo: la base («7 PJ») o «tendencia». */
+  etiqueta?: ReactNode;
+  /** Debajo de todo: una minigráfica o accesos. */
+  pie?: ReactNode;
 }) {
   return (
     <div className="min-w-0 rounded-2xl border border-white/10 bg-[#11161D] px-4 py-3.5">
-      <p className="truncate text-[10px] uppercase tracking-[0.2em] text-white/35">
-        {label}
-      </p>
+      <div className="flex min-w-0 items-center justify-between gap-2">
+        <p className="truncate text-[10px] uppercase tracking-[0.2em] text-white/35">
+          {label}
+        </p>
+        {etiqueta}
+      </div>
 
       <p
         className="mt-1.5 truncate text-2xl font-semibold tabular-nums"
@@ -98,6 +107,8 @@ export function StatCard({
       {hint && (
         <p className="mt-0.5 text-[11px] leading-snug text-white/45">{hint}</p>
       )}
+
+      {pie}
     </div>
   );
 }

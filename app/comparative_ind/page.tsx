@@ -20,7 +20,8 @@
  * de porcentajes de una acción y el portero sólo contra porteros.
  */
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { Fragment, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import {
   ArrowDownRight,
   ArrowDownUp,
@@ -89,6 +90,8 @@ import { RadiografiaPercentiles, type CunaPercentil } from "@/components/data/vi
 import { MarcoGrafico, useTipoGrafico } from "@/components/data/visual/MarcoGrafico";
 import { ComparativaOpta } from "./ComparativaOpta";
 import { ConmutadorVista, useVistaAnalisis } from "@/components/ui/VistaVisual";
+import { EnlacesJugador } from "@/components/individual/EnlacesJugador";
+import { mismoJugador } from "@/lib/fichajes";
 
 type Respuesta = { ok: boolean; jugadores?: FilaJugador[]; partidos?: FilaPartido[]; error?: string };
 type RegistroSeguimiento = { ID_JUGADOR: string; NOMBRE?: string; FECHA?: string };
@@ -130,7 +133,19 @@ function EscalaIndices({
   refLabel,
   onAbre,
 }: {
-  filas: { id: string; nombre: string; puesto: string; indice: number; antes: number | null; corta: boolean; ranking: string }[];
+  filas: {
+    id: string;
+    fichaId: string | null;
+    nombre: string;
+    puesto: string;
+    indice: number;
+    antes: number | null;
+    /** 450′ o más el año pasado: su evolución cuenta (el mismo criterio que la cifra de arriba). */
+    evolucionFiable: boolean;
+    minutos: number;
+    corta: boolean;
+    ranking: string;
+  }[];
   refLabel: string;
   onAbre: (id: string) => void;
 }) {
@@ -139,11 +154,17 @@ function EscalaIndices({
   const firmes = orden.filter((f) => !f.corta);
   const arriba = firmes.filter((f) => f.indice >= 50).length;
   const mejor = firmes[0];
-  const suben = firmes.filter((f) => f.antes !== null && f.indice - f.antes > ESTABLE).length;
+  /* 16/11/2026 (jueces): «suben» con el MISMO criterio que la cifra
+     «Mejoran respecto a 25/26» (450′ o más el año pasado, más de 3 puntos);
+     antes contaba otro grupo y salían 4 contra 5. */
+  const suben = orden.filter((f) => f.antes !== null && f.evolucionFiable && f.indice - f.antes > ESTABLE).length;
+  const cortas = orden.length - firmes.length;
   const titulo = [
-    firmes.length ? `${arriba} de ${firmes.length} por encima de la media de su puesto` : "",
+    firmes.length
+      ? `${arriba} de ${firmes.length} con ${MUESTRA_CORTA}′ o más por encima de la media de su puesto${cortas ? ` (los otros ${cortas} son tendencia)` : ""}`
+      : "",
     mejor ? `el más alto, ${mejor.nombre} (${mejor.indice})` : "",
-    suben ? `${suben} ${suben === 1 ? "sube" : "suben"} más de ${ESTABLE} puntos sobre 25/26` : "",
+    suben ? `${suben} ${suben === 1 ? "mejora" : "mejoran"} más de ${ESTABLE} puntos sobre 25/26` : "",
   ]
     .filter(Boolean)
     .join("; ");
@@ -151,7 +172,7 @@ function EscalaIndices({
     <section className="mt-3 rounded-2xl border border-white/10 bg-white/[0.02] p-4 sm:p-5">
       <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/50">¿Cómo está cada uno frente a su puesto? · contra {refLabel.toLowerCase()}</p>
       {titulo && <h3 className="mt-0.5 text-base font-bold leading-snug text-white sm:text-lg">{titulo.charAt(0).toUpperCase() + titulo.slice(1)}</h3>}
-      <div className="mt-3 grid grid-cols-[minmax(0,9rem)_minmax(0,1fr)_2.5rem] items-center gap-x-2 text-[10px] text-white/45 sm:grid-cols-[minmax(0,13rem)_minmax(0,1fr)_3rem]">
+      <div className="mt-3 grid grid-cols-[minmax(0,9rem)_minmax(0,1fr)_2.5rem] items-center gap-x-2 text-[10px] text-white/45 sm:grid-cols-[minmax(0,13rem)_minmax(0,1fr)_3rem_5.5rem]">
         <span />
         <span className="relative h-3">
           {[0, 25, 50, 75, 100].map((v) => (
@@ -161,21 +182,24 @@ function EscalaIndices({
           ))}
         </span>
         <span />
+        <span className="hidden sm:block" />
       </div>
       <ol className="mt-1 space-y-0.5">
         {orden.map((f) => {
           const color = f.corta ? tinta(0.4) : colorIndice(f.indice);
           return (
-            <li key={f.id}>
+            <li key={f.id} className="grid grid-cols-[minmax(0,1fr)] items-center gap-x-2 sm:grid-cols-[minmax(0,1fr)_5.5rem]">
               <button
                 type="button"
                 onClick={() => onAbre(f.id)}
                 className="grid w-full grid-cols-[minmax(0,9rem)_minmax(0,1fr)_2.5rem] items-center gap-x-2 rounded-lg px-1 py-1 text-left transition hover:bg-white/[0.04] sm:grid-cols-[minmax(0,13rem)_minmax(0,1fr)_3rem]"
-                title={`${f.nombre} · ${f.puesto} · índice ${f.indice}${f.antes !== null ? ` (25/26: ${f.antes})` : " · nuevo en la categoría"}${f.ranking ? ` · ${f.ranking}` : ""}${f.corta ? ` · menos de ${MUESTRA_CORTA}′, tendencia` : ""}`}
+                title={`${f.nombre} · ${f.puesto} · índice ${f.indice} · ${f.minutos}′${f.antes !== null ? ` (25/26: ${f.antes})` : " · nuevo en la categoría"}${f.ranking ? ` · ${f.ranking}` : ""}${f.corta ? ` · menos de ${MUESTRA_CORTA}′, tendencia` : ""}`}
               >
                 <span className="min-w-0 truncate text-[13px] text-white/85">
                   {f.nombre}
-                  <span className="ml-1 text-[11px] text-white/45">{f.puesto}</span>
+                  <span className="ml-1 text-[11px] text-white/45">
+                    {f.puesto} · {f.minutos}′
+                  </span>
                 </span>
                 <span className="relative block h-5">
                   <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2" style={{ background: tinta(0.12) }} />
@@ -189,12 +213,21 @@ function EscalaIndices({
                       <span className="absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2" style={{ left: `${f.antes}%`, borderColor: tinta(0.45) }} />
                     </>
                   )}
-                  <span className="absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ left: `${f.indice}%`, background: color }} />
+                  {/* 16/11/2026 (jueces): la tendencia (menos de 300′), con punto hueco y discontinuo. */}
+                  <span
+                    className="absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full"
+                    style={f.corta ? { left: `${f.indice}%`, border: `2px dashed ${color}`, background: "transparent" } : { left: `${f.indice}%`, background: color }}
+                  />
                 </span>
                 <span className="text-right text-[13px] font-semibold tabular-nums" style={{ color }}>
                   {f.indice}
                 </span>
               </button>
+              {f.fichaId ? (
+                <EnlacesJugador className="hidden sm:inline-flex" compacto jugador={{ id: f.fichaId, nombre: f.nombre }} destinos={["ficha", "seguimiento", "valoraciones"]} />
+              ) : (
+                <span className="hidden sm:block" />
+              )}
             </li>
           );
         })}
@@ -204,7 +237,8 @@ function EscalaIndices({
         <span className="inline-flex items-center gap-1.5"><i className="inline-block h-3 w-3 rounded-full" style={{ background: ORO }} />45 a 59</span>
         <span className="inline-flex items-center gap-1.5"><i className="inline-block h-3 w-3 rounded-full" style={{ background: PEOR }} />menos de 45</span>
         <span className="inline-flex items-center gap-1.5"><i className="inline-block h-2.5 w-2.5 rounded-full border-2" style={{ borderColor: tinta(0.45) }} />su índice en 25/26</span>
-        <span>Raya: 50, la media de su puesto · en gris, menos de {MUESTRA_CORTA}′ (tendencia) · la tabla entera, en «Detalle»</span>
+        <span className="inline-flex items-center gap-1.5"><i className="inline-block h-3 w-3 rounded-full" style={{ border: `2px dashed ${tinta(0.4)}` }} />menos de {MUESTRA_CORTA}′ (tendencia)</span>
+        <span>Raya: 50, la media de su puesto · al lado de cada uno, su ficha, su seguimiento y sus notas · la tabla entera, en «Detalle»</span>
       </p>
     </section>
   );
@@ -352,6 +386,38 @@ function DosCifrasPosesion({ fila, bruta, posesion }: { fila: FilaComparativa; b
   );
 }
 
+/* ?jugador=NOMBRE (16/11/2026): desde la ficha, las Valoraciones o el
+   Dashboard se llega con el jugador ya elegido. Se lee sin useSearchParams
+   (no pide Suspense) y sin setState en un efecto. */
+const sinSuscripcion = () => () => {};
+const jugadorDeLaUrl = () => new URLSearchParams(window.location.search).get("jugador");
+
+/* Comparables por puesto: por debajo, el puesto se lee como tendencia. */
+const COMPARABLES_FIRMES = 25;
+
+/*
+| QUÉ ENTRENAMOS, EN CONCRETO (16/11/2026, jueces): «una tarea con acierto en
+| largo %» no es una tarea. Por la métrica que cae, una consigna de campo con
+| algo que contar. Si no hay una escrita, se queda la frase general.
+*/
+const TAREA_POR_METRICA: { patron: RegExp; tarea: string }[] = [
+  { patron: /largo/i, tarea: "salida en largo a la espalda del lateral rival; contar envíos acertados de cada 10" },
+  { patron: /aére|cabeza/i, tarea: "duelos aéreos en centros laterales y despejes; contar los ganados de cada 10" },
+  { patron: /progresiv|hacia adelante|último tercio|entre líneas/i, tarea: "rondo de salida con pase entre líneas al pivote o al interior; contar pases que rompen línea de cada 10" },
+  { patron: /intercep|recuper/i, tarea: "4c4+2 con lectura de la línea de pase; contar interceptaciones por serie" },
+  { patron: /duelos? defens|entradas/i, tarea: "1c1 defensivo en carril con orientación a banda; contar duelos ganados de cada 10" },
+  { patron: /centro/i, tarea: "centro tras desborde o pared en banda; contar centros que encuentran rematador de cada 10" },
+  { patron: /regate|conducc|1c1|uno contra uno/i, tarea: "1c1 ofensivo y conducción hacia dentro en banda; contar los superados de cada 10" },
+  { patron: /pase|precisi/i, tarea: "posesión 5c5+3 a dos toques; contar pases acertados de cada 20" },
+];
+const tareaPara = (metrica: string) => TAREA_POR_METRICA.find((t) => t.patron.test(metrica))?.tarea ?? null;
+
+/* Métricas que no son de su puesto: no se nombran como «lo que más cae». */
+const AJENAS_AL_PUESTO: Partial<Record<Puesto, RegExp>> = {
+  CEN: /remate|gol|xg|regate|centro/i,
+  POR: /remate|gol|xg|regate|centro|conducc/i,
+};
+
 export default function ComparativaCategoria() {
   const { players } = usePlayers();
   const { season } = useRatingsSeason();
@@ -364,7 +430,10 @@ export default function ComparativaCategoria() {
   const [seguimientos, setSeguimientos] = useState<RegistroSeguimiento[]>([]);
   const [ref, setRef] = useState<Referencia>("u21");
   const [filtroPuesto, setFiltroPuesto] = useState<Puesto | "todos">("todos");
-  const [pestana, setPestana] = useState<Pestana>("ranking");
+  const jugadorPedido = useSyncExternalStore(sinSuscripcion, jugadorDeLaUrl, () => null);
+  const [pestanaElegida, setPestana] = useState<Pestana | null>(null);
+  /* Con ?jugador= se abre su ficha; luego manda lo que se pinche. */
+  const pestana: Pestana = pestanaElegida ?? (jugadorPedido ? "ficha" : "ranking");
   /* Visual / Detalle del ranking (16/11/2026, petición del analista): Visual, el índice de cada uno en una escala con su punto de 25/26; Detalle, la tabla de siempre. */
   const [vistaRanking, setVistaRanking] = useVistaAnalisis("comparativa-ranking");
   const rankingVisual = vistaRanking === "visual";
@@ -541,9 +610,20 @@ export default function ComparativaCategoria() {
     [comparables],
   );
 
-  /* Lectura de dos o tres frases que se calcula sola con lo que hay en la tabla. */
+  /*
+  | Lectura que se calcula sola con lo que hay en la tabla. 16/11/2026
+  | (jueces): cada tarjeta es titular + dato + qué hacemos, en dos líneas; el
+  | porqué largo va plegado en «Por qué».
+  */
   const lectura = useMemo(() => {
-    const frases: { titulo: string; texto: string; tono: "bien" | "mal" | "ojo" | "tendencia"; abre?: string[] }[] = [];
+    const frases: {
+      titulo: string;
+      dato: string;
+      accion?: string;
+      mas?: string;
+      tono: "bien" | "mal" | "ojo" | "tendencia";
+      abre?: string[];
+    }[] = [];
     /* La lectura sólo nombra a quien está en nuestra plantilla. */
     const propios = comparables.filter((x) => x.ficha);
     const nombre = (x: (typeof comparables)[number]) => x.ficha?.nombre || x.f.jugador.jugador;
@@ -553,7 +633,7 @@ export default function ComparativaCategoria() {
       frases.push({
         titulo: "Los mejores de su puesto",
         /* 08/11/2026: cada uno con contra cuántos se compara. */
-        texto: `${primeros.map((x) => `${nombre(x)} (1º de ${x.f.ranking?.de}${(x.f.ranking?.de ?? 0) < GRUPO_CORTO ? " · tendencia" : ""})`).join(", ")}: primeros de su puesto en la referencia elegida.`,
+        dato: `${primeros.map((x) => `${nombre(x)} (1º de ${x.f.ranking?.de}${(x.f.ranking?.de ?? 0) < GRUPO_CORTO ? " · tendencia" : ""})`).join(", ")}.`,
         tono: "bien",
         abre: primeros.map((x) => x.f.jugador.jugador),
       });
@@ -561,19 +641,27 @@ export default function ComparativaCategoria() {
     const baja = propios
       .filter((x) => x.f.evolucion?.fiable && x.f.evolucion.salto < -ESTABLE)
       .sort((a, b) => (a.f.evolucion?.salto ?? 0) - (b.f.evolucion?.salto ?? 0))[0];
-    if (baja?.f.evolucion)
+    if (baja?.f.evolucion) {
       /* 10/11/2026: con la base de las dos temporadas, las métricas que más
-         caen y el qué entrenamos, como la tarjeta de los desajustes. */
+         caen y el qué entrenamos. 16/11/2026: sin las métricas ajenas a su
+         puesto (los remates de un central) y con una tarea de campo. */
+      const ajenas = AJENAS_AL_PUESTO[baja.f.puesto];
+      const peores = baja.f.evolucion.peores.filter((m) => !ajenas || !ajenas.test(m.nombre));
+      const primera = peores[0];
+      const tarea = primera ? tareaPara(primera.nombre) : null;
       frases.push({
         titulo: `Baja respecto a 25/26: ${nombre(baja)}`,
-        texto: `${baja.f.evolucion.salto} puntos de índice frente a la temporada pasada (${baja.f.evolucion.minutosAhora.toLocaleString("es-ES")}′ este año, ${baja.f.evolucion.minutosAntes.toLocaleString("es-ES")}′ el pasado${baja.f.evolucion.minutosAhora < 450 ? "; este año, menos de 450′: tendencia" : ""}).${
-          baja.f.evolucion.peores.length
-            ? ` Lo que más cae: ${baja.f.evolucion.peores.map((m) => `${m.nombre.toLowerCase()} (percentil ${m.percentilAntes} → ${m.percentilAhora})`).join(" y ")}. Qué entrenamos: una tarea con ${baja.f.evolucion.peores[0].nombre.toLowerCase()} y el objetivo de volver al percentil ${baja.f.evolucion.peores[0].percentilAntes} del año pasado.`
-            : " Revisar con él qué ha cambiado: puesto, minutos o rol."
-        }`,
+        dato: `${baja.f.evolucion.salto} pts de índice · ${baja.f.evolucion.minutosAhora.toLocaleString("es-ES")}′ este año, ${baja.f.evolucion.minutosAntes.toLocaleString("es-ES")}′ el pasado${baja.f.evolucion.minutosAhora < 450 ? " (tendencia)" : ""}`,
+        accion: primera
+          ? `Qué entrenamos: ${tarea ?? `una tarea de ${primera.nombre.toLowerCase()}`}; objetivo, volver al percentil ${primera.percentilAntes} en ${primera.nombre.toLowerCase()}.`
+          : "Qué hacemos: revisar con él qué ha cambiado (puesto, minutos o rol).",
+        mas: peores.length
+          ? `Lo que más cae: ${peores.map((m) => `${m.nombre.toLowerCase()} (percentil ${m.percentilAntes} → ${m.percentilAhora})`).join(" y ")}. Cada año, contra su categoría.`
+          : undefined,
         tono: "mal",
         abre: [baja.f.jugador.jugador],
       });
+    }
 
     /* 30/10/2026: todos los desajustes (antes sólo el primero) y qué hacer con cada uno. */
     const desajustes = propios.filter(
@@ -592,10 +680,16 @@ export default function ComparativaCategoria() {
       /* 08/11/2026: «p98» era jerga; se escribe entero. */
       const p = (x: { percentil: number }) => `percentil ${Math.round(x.percentil)}: supera al ${Math.round(x.percentil)} % de los ${puesto} comparados`;
       const corto = (d.f.ranking?.de ?? 0) < GRUPO_CORTO;
-      const base = `${d.nota.avg.toFixed(1).replace(".", ",")} de nota (${d.nota.played} partidos) y ${d.f.indice} de índice${d.f.ranking ? ` (${textoRanking(d.f.ranking)})` : ""}`;
-      const texto = notaAlta
-        ? `${base}. Le baja el índice ${peor ? `${peor.metrica.nombre.toLowerCase()} (${p(peor)})` : "su perfil en Wyscout"}. Qué hacemos: ver con él 3 acciones de ${peor ? peor.metrica.nombre.toLowerCase() : "esa fase"} y decidir si es carencia (meta para la semana) o el rol que le damos (se apunta en su seguimiento).`
-        : `${base}. Su índice se sostiene en ${mejor ? `${mejor.metrica.nombre.toLowerCase()} (${p(mejor)})` : "sus números de Wyscout"}. Qué hacemos: contrastar en vídeo si eso es lo que le pedimos en su puesto; si no, fijar con él una acción sobre ${peor && peor !== mejor ? `${peor.metrica.nombre.toLowerCase()} (percentil ${Math.round(peor.percentil)}), su punto más bajo; objetivo: acercarlo al percentil 50, la mediana del puesto` : "lo que le pedimos"}.`;
+      const dato = `${d.nota.avg.toFixed(1).replace(".", ",")} de nota (${d.nota.played} partidos) · ${d.f.indice} de índice${d.f.ranking ? ` (${textoRanking(d.f.ranking)})` : ""}`;
+      const tarea = peor ? tareaPara(peor.metrica.nombre) : null;
+      const accion = notaAlta
+        ? `Qué hacemos: ver con él 3 acciones de ${peor ? peor.metrica.nombre.toLowerCase() : "esa fase"} y decidir si es carencia o el rol que le damos.`
+        : peor && peor !== mejor
+          ? `Qué hacemos: ${tarea ?? `una acción sobre ${peor.metrica.nombre.toLowerCase()}`}; objetivo, acercarlo al percentil 50 (hoy ${Math.round(peor.percentil)}).`
+          : "Qué hacemos: contrastar en vídeo si su índice es lo que le pedimos en su puesto.";
+      const mas = notaAlta
+        ? `Le baja el índice ${peor ? `${peor.metrica.nombre.toLowerCase()} (${p(peor)})` : "su perfil en Wyscout"}. Lo que se decida se apunta en su seguimiento.`
+        : `Su índice se sostiene en ${mejor ? `${mejor.metrica.nombre.toLowerCase()} (${p(mejor)})` : "sus números de Wyscout"}: contrastar en vídeo si eso es lo que le pedimos en su puesto.`;
       /* 08/11/2026 (jueces): con un grupo corto (8 porteros) no es alerta, es tendencia en gris. */
       frases.push({
         /* 10/11/2026: el titular dice quién y qué pasa, con las dos cifras. */
@@ -603,7 +697,9 @@ export default function ComparativaCategoria() {
           ? `${nombre(d)} · índice ${(d.f.indice ?? 0) < 50 ? "bajo" : "alto"} frente a ${d.f.ranking?.de} ${puesto} (tendencia)`
           : `${nombre(d)}: ${d.nota.avg.toFixed(1).replace(".", ",")} de nota y ${d.f.indice} de índice no cuadran`,
         tono: corto ? "tendencia" : "ojo",
-        texto,
+        dato,
+        accion,
+        mas,
         abre: [d.f.jugador.jugador],
       });
     }
@@ -616,7 +712,15 @@ export default function ComparativaCategoria() {
   | uno ya elegido, cambiar el puesto no hacía nada en la ficha. Si el elegido
   | no es del puesto filtrado, se abre el primero que sí lo es.
   */
-  const activo = visibles.find((x) => x.f.jugador.jugador === elegido) ?? visibles[0] ?? null;
+  const elegidoPorUrl = useMemo(() => {
+    if (!jugadorPedido) return null;
+    const suyo = conFicha.find(
+      (x) => mismoJugador(x.ficha?.nombre ?? "", jugadorPedido) || mismoJugador(x.f.jugador.jugador, jugadorPedido),
+    );
+    return suyo?.f.jugador.jugador ?? null;
+  }, [conFicha, jugadorPedido]);
+  const elegidoEfectivo = elegido ?? elegidoPorUrl;
+  const activo = visibles.find((x) => x.f.jugador.jugador === elegidoEfectivo) ?? visibles[0] ?? null;
 
   /* Los equipos de la categoría, para compararse con los suyos. */
   const [equiposSel, setEquiposSel] = useState<string[]>([]);
@@ -646,11 +750,27 @@ export default function ComparativaCategoria() {
       top3: filas.filter((f) => f.ranking && f.ranking.posicion <= 3).length,
       media: conIndice.length ? Math.round(conIndice.reduce((s, f) => s + (f.indice ?? 0), 0) / conIndice.length) : null,
       mejoran: filas.filter((f) => f.evolucion?.fiable && f.evolucion.salto > ESTABLE).length,
+      /* 16/11/2026 (jueces): quiénes son, con su cambio y su base. */
+      quienesMejoran: conFicha
+        .filter((x) => x.f.evolucion?.fiable && x.f.evolucion.salto > ESTABLE)
+        .sort((a, b) => (b.f.evolucion?.salto ?? 0) - (a.f.evolucion?.salto ?? 0))
+        .map((x) => ({
+          id: x.f.jugador.jugador,
+          fichaId: x.ficha?.id ?? null,
+          nombre: nombreVisible(x.ficha?.nombre ?? x.f.jugador.jugador),
+          salto: x.f.evolucion?.salto ?? 0,
+          antes: x.f.evolucion?.minutosAntes ?? 0,
+        })),
+      /* Puestos con menos de 25 comparables: su ranking es tendencia. */
+      puestosCortos: PUESTOS.map((p) => ({
+        label: p.label,
+        de: Math.max(0, ...filas.filter((f) => f.puesto === p.key).map((f) => f.ranking?.de ?? 0)),
+      })).filter((x) => x.de > 0 && x.de < COMPARABLES_FIRMES),
       /* Contra cuántos jugadores de su puesto se compara cada uno. */
       grupoMin: Math.min(...filas.map((f) => f.ranking?.de ?? Infinity)),
       grupoMax: Math.max(...filas.map((f) => f.ranking?.de ?? 0)),
     };
-  }, [filas]);
+  }, [filas, conFicha]);
 
   const PESTANAS: { key: Pestana; label: string; icono: React.ReactNode }[] = [
     { key: "ranking", label: "Ranking de la plantilla", icono: <Users size={15} /> },
@@ -698,15 +818,18 @@ export default function ComparativaCategoria() {
             {/* ---------------- filtros y pestañas, siempre a la vista ---------------- */}
             <div className="sticky top-[81px] z-20 -mx-4 mt-6 border-b border-white/[0.06] bg-[#0B0F14]/95 px-4 pb-3 pt-3 backdrop-blur sm:-mx-8 sm:px-8 md:top-[97px]">
               <div className="mb-2 flex flex-wrap items-center gap-2">{selectorFuente}</div>
+              {/* 16/11/2026 (jueces): cada grupo de chapas en su fila con su
+                  rótulo; en el móvil «PUESTO» se quedaba colgado al final de «CONTRA». */}
               <div className="flex flex-wrap items-center gap-2">
-                <span className="mr-1 text-[11px] uppercase tracking-wider text-white/35">Contra</span>
+                <span className="mr-1 w-14 shrink-0 text-[11px] uppercase tracking-wider text-white/35 sm:w-auto">Contra</span>
                 {REFERENCIAS.map((r) => (
                   <Chip key={r.key} activo={ref === r.key} onClick={() => setRef(r.key)} fuerte>
                     {r.label}
                   </Chip>
                 ))}
-                <span className="mx-1 hidden h-5 w-px bg-white/10 sm:block" />
-                <span className="mr-1 text-[11px] uppercase tracking-wider text-white/35">Puesto</span>
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <span className="mr-1 w-14 shrink-0 text-[11px] uppercase tracking-wider text-white/35 sm:w-auto">Puesto</span>
                 {[{ key: "todos" as const, label: "Todos" }, ...PUESTOS.map((p) => ({ key: p.key, label: p.label }))].map((p) => (
                   <Chip key={p.key} activo={filtroPuesto === p.key} onClick={() => setFiltroPuesto(p.key)}>
                     {p.label}
@@ -776,6 +899,12 @@ export default function ComparativaCategoria() {
                         ? `, ${kpis.grupoMin === kpis.grupoMax ? kpis.grupoMax : `${kpis.grupoMin} a ${kpis.grupoMax}`} jugadores por puesto`
                         : ""}
                       {" · "}índice = media de sus percentiles en las métricas de su puesto; más es mejor (50 = la media del grupo)
+                      {kpis.puestosCortos.length > 0 && (
+                        <span className="mt-1 block text-amber-300">
+                          Con menos de {COMPARABLES_FIRMES} comparables, el puesto se lee como tendencia:{" "}
+                          {kpis.puestosCortos.map((x) => `${x.label} (${x.de})`).join(", ")}.
+                        </span>
+                      )}
                     </p>
                     <div className="mt-2">{interruptorPosesion}</div>
                     <div className="mt-2 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -783,7 +912,7 @@ export default function ComparativaCategoria() {
                         { t: "Jugadores comparados", v: kpis.comparados, h: "con índice esta temporada" },
                         { t: "Top 3 de su puesto", v: kpis.top3, h: "en el ranking de su puesto" },
                         ...(kpis.media !== null ? [{ t: "Índice medio", v: kpis.media, h: `de los nuestros comparados · ${kpis.media >= 50 ? "+" : "−"}${Math.abs(Math.round(kpis.media - 50))} sobre 50, la media de su puesto en la categoría`.replace("+-", "−") }] : []),
-                        { t: "Mejoran respecto a 25/26", v: kpis.mejoran, h: `más de ${ESTABLE} pts de índice, con 450′ o más el año pasado (cada uno, contra su categoría de ese año)` },
+                        { t: "Mejoran respecto a 25/26", v: kpis.mejoran, h: `más de ${ESTABLE} pts de índice, con 450′ o más el año pasado; quiénes, debajo` },
                       ].map((k) => (
                         <div key={k.t} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                           <p className="text-xs text-white/50">{k.t}</p>
@@ -793,26 +922,42 @@ export default function ComparativaCategoria() {
                       ))}
                     </div>
 
-                    {lectura.length > 0 && (
-                      <div className="mt-5 grid gap-3 md:grid-cols-3">
-                        {lectura.map((l) => (
-                          <div key={l.titulo} className={`rounded-2xl border border-white/10 bg-white/[0.03] p-4 ${l.tono === "tendencia" ? "opacity-80" : ""}`} style={{ borderTop: `3px solid ${l.tono === "bien" ? "#1B9E77" : l.tono === "mal" ? "#D95F02" : l.tono === "tendencia" ? tinta(0.3) : "#C8A96B"}` }}>
-                            <p className={`text-sm font-semibold ${l.tono === "tendencia" ? "text-white/70" : "text-white"}`}>{l.titulo}</p>
-                            <p className="mt-1 text-[13px] leading-relaxed text-white/75">{l.texto}</p>
-                            {l.abre && l.abre.length > 0 && (
-                              <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
-                                {l.abre.map((j) => (
-                                  <button key={j} type="button" onClick={() => abreFicha(j)} className="font-semibold text-[#C8A96B] underline-offset-2 hover:underline">
-                                    Ficha de {nombreVisible(conFicha.find((x) => x.f.jugador.jugador === j)?.ficha?.nombre || j)} →
-                                  </button>
-                                ))}
-                              </p>
-                            )}
-                          </div>
-                        ))}
-                      </div>
+                    {/* 16/11/2026 (jueces): quiénes mejoran, con su cambio en una barra
+                        con la marca del umbral (+3) y su base del año pasado. */}
+                    {kpis.quienesMejoran.length > 0 && (
+                      <section className="mt-3 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+                        <h3 className="text-sm font-semibold text-white">
+                          Mejoran respecto a 25/26: {kpis.quienesMejoran.length} · más de {ESTABLE} puntos de índice, con 450′ o más el año pasado
+                        </h3>
+                        <ul className="mt-2 space-y-1">
+                          {(() => {
+                            const tope = Math.max(10, ...kpis.quienesMejoran.map((x) => x.salto));
+                            return kpis.quienesMejoran.map((x) => (
+                              <li key={x.id} className="grid grid-cols-[minmax(0,8rem)_minmax(0,1fr)_auto] items-center gap-2 text-[13px] sm:grid-cols-[minmax(0,11rem)_minmax(0,1fr)_auto_auto]">
+                                <button type="button" onClick={() => abreFicha(x.id)} className="min-w-0 truncate text-left text-white/85 hover:text-[#C8A96B]">
+                                  {x.nombre}
+                                </button>
+                                <span className="relative block h-2.5 rounded-full" style={{ background: tinta(0.1) }}>
+                                  <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${(x.salto / tope) * 100}%`, background: MEJOR }} />
+                                  <span className="absolute -top-1 h-[18px] w-px" style={{ left: `${(ESTABLE / tope) * 100}%`, background: tinta(0.55) }} title={`Umbral: +${ESTABLE}`} />
+                                </span>
+                                <span className="text-right tabular-nums">
+                                  <b style={{ color: MEJOR }}>+{x.salto}</b>
+                                  <span className="ml-1 text-[11px] text-white/50">· {x.antes.toLocaleString("es-ES")}′ en 25/26</span>
+                                </span>
+                                {x.fichaId ? (
+                                  <EnlacesJugador className="hidden sm:inline-flex" compacto jugador={{ id: x.fichaId, nombre: x.nombre }} destinos={["ficha", "valoraciones"]} />
+                                ) : (
+                                  <span className="hidden sm:block" />
+                                )}
+                              </li>
+                            ));
+                          })()}
+                        </ul>
+                      </section>
                     )}
 
+                    {/* 16/11/2026 (jueces): el gráfico es la primera vista; las lecturas, después. */}
                     <div className="mt-5 flex justify-end">
                       <ConmutadorVista vista={vistaRanking} onCambia={setVistaRanking} />
                     </div>
@@ -820,10 +965,13 @@ export default function ComparativaCategoria() {
                       <EscalaIndices
                         filas={comparables.map(({ f, ficha }) => ({
                           id: f.jugador.jugador,
+                          fichaId: ficha?.id ?? null,
                           nombre: nombreVisible(ficha?.nombre ?? f.jugador.jugador),
                           puesto: PUESTOS.find((p) => p.key === f.puesto)?.corto ?? "",
                           indice: f.indice ?? 0,
                           antes: f.evolucion ? (f.indice ?? 0) - f.evolucion.salto : null,
+                          evolucionFiable: Boolean(f.evolucion?.fiable),
+                          minutos: f.jugador.minutos,
                           corta: f.jugador.minutos < MUESTRA_CORTA,
                           ranking: f.ranking ? `${f.ranking.posicion}.º de ${f.ranking.de}` : "",
                         }))}
@@ -831,11 +979,50 @@ export default function ComparativaCategoria() {
                         onAbre={abreFicha}
                       />
                     )}
+
+                    {lectura.length > 0 && (
+                      <div className="mt-5 grid gap-3 md:grid-cols-3">
+                        {lectura.map((l) => {
+                          const suyos = (l.abre ?? []).map((j) => conFicha.find((x) => x.f.jugador.jugador === j)).filter((x) => x !== undefined);
+                          return (
+                            <div key={l.titulo} className={`rounded-2xl border border-white/10 bg-white/[0.03] p-4 ${l.tono === "tendencia" ? "opacity-80" : ""}`} style={{ borderTop: `3px solid ${l.tono === "bien" ? "#1B9E77" : l.tono === "mal" ? "#D95F02" : l.tono === "tendencia" ? tinta(0.3) : "#C8A96B"}` }}>
+                              <p className={`text-sm font-semibold ${l.tono === "tendencia" ? "text-white/70" : "text-white"}`}>{l.titulo}</p>
+                              <p className="mt-1 text-[13px] leading-snug text-white/75 tabular-nums">{l.dato}</p>
+                              {l.accion && <p className="mt-1.5 text-[13px] font-medium leading-snug text-white/90">{l.accion}</p>}
+                              {l.mas && (
+                                <details className="mt-1.5 text-xs text-white/60">
+                                  <summary className="cursor-pointer text-[11px] font-medium text-[#C8A96B]">Por qué</summary>
+                                  <p className="mt-1 leading-relaxed">{l.mas}</p>
+                                </details>
+                              )}
+                              {suyos.length > 0 && (
+                                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs">
+                                  {suyos.map((x) => (
+                                    <span key={x.f.jugador.jugador} className="inline-flex flex-wrap items-center gap-1.5">
+                                      <button type="button" onClick={() => abreFicha(x.f.jugador.jugador)} className="font-semibold text-[#C8A96B] underline-offset-2 hover:underline">
+                                        {nombreVisible(x.ficha?.nombre || x.f.jugador.jugador)} aquí →
+                                      </button>
+                                      {x.ficha && (
+                                        <EnlacesJugador
+                                          compacto
+                                          jugador={{ id: x.ficha.id, nombre: x.ficha.nombre }}
+                                          destinos={l.tono === "bien" ? ["ficha", "valoraciones"] : ["ficha", "videos", "registrar"]}
+                                        />
+                                      )}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                     {!rankingVisual && (
                     <>
                     <p className="mt-5 text-xs text-white/40">Pincha en una columna para ordenar y en un jugador para abrir su ficha. El índice va de 0 a 100 (50 es la media del grupo de comparación); los minutos son los de Wyscout en la liga, así que pueden diferir de los minutos con nota de Valoraciones; el ranking compara con los jugadores de su puesto.</p>
                     <div className="mt-2 overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02] pr-14">
-                      <table className="w-full text-sm sm:min-w-[860px]">
+                      <table className="w-full text-sm sm:min-w-[960px]">
                         <thead>
                           <tr className="text-left text-[11px] uppercase tracking-wider text-white/40">
                             {(
@@ -850,6 +1037,7 @@ export default function ComparativaCategoria() {
                                 ["ranking", "Ranking", "px-2", "Puesto entre los de su posición del grupo. «2º-3º de 34» = empatado en índice con otro."],
                                 ["evolucion", "Evolución (pts)", "hidden sm:table-cell px-2", `Puntos de índice frente a 25/26; entre −${ESTABLE} y +${ESTABLE}, estable. «Nuevo»: sin minutos en la categoría el año pasado.`],
                                 ["seguimientos", "Nº seguim.", "hidden sm:table-cell px-2 text-right", `Registros de Calendario Seguimiento de cada jugador${desdeSeguimientos ? `, desde el ${desdeSeguimientos}` : ""}.`],
+                                [null, "Ir a", "hidden sm:table-cell px-2", "Su ficha, sus valoraciones y su seguimiento, con el jugador ya elegido"],
                               ] as [Orden | null, string, string, string?][]
                             ).map(([clave, texto, clase, ayuda]) => (
                               <th key={texto} className={`py-3 font-medium ${clase}`} title={ayuda}>
@@ -947,6 +1135,9 @@ export default function ComparativaCategoria() {
                                 )}
                               </td>
                               <td className="hidden sm:table-cell px-2 text-right tabular-nums text-white/60">{seg?.n ? seg.n : ""}</td>
+                              <td className="hidden sm:table-cell px-2 not-italic">
+                                {ficha && <EnlacesJugador compacto jugador={{ id: ficha.id, nombre: ficha.nombre }} destinos={["ficha", "valoraciones", "seguimiento"]} />}
+                              </td>
                             </tr>
                           ))}
                         </tbody>
@@ -1067,6 +1258,13 @@ export default function ComparativaCategoria() {
                           ))}
                       </select>
                     </label>
+                    {activo.ficha && (
+                      <EnlacesJugador
+                        className="mt-3"
+                        jugador={{ id: activo.ficha.id, nombre: activo.ficha.nombre }}
+                        destinos={["ficha", "seguimiento", "registrar", "valoraciones", "data", "videos"]}
+                      />
+                    )}
                     <div className="mt-4">{interruptorPosesion}</div>
                     <Detalle
                       fila={activo.f}
@@ -2031,6 +2229,16 @@ function CaraACara({
           <div className="mt-2">
             <SelectorEquipos equipos={equipos} sel={equiposSel} setSel={setEquiposSel} escudoDe={escudoDe} jornadaDe={jornadaDe} />
           </div>
+          {/* 16/11/2026 (jueces): del cara a cara a la plantilla de ese rival, ya elegido. */}
+          {equiposSel.length > 0 && (
+            <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+              {equiposSel.map((e) => (
+                <Link key={e} href={`/rivals?equipo=${encodeURIComponent(e)}`} className="font-medium text-[#C8A96B] underline-offset-2 hover:underline">
+                  Plantilla de {e} →
+                </Link>
+              ))}
+            </p>
+          )}
         </div>
         <Explicativo>
         <p className="text-[11px] leading-relaxed text-white/35">

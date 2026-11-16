@@ -29,6 +29,7 @@ import { getPlayerPhotoSrc } from "@/lib/playerImages";
 import { posicionDe } from "@/lib/posiciones";
 import { chipInk } from "@/lib/theme";
 import { nombreVisible } from "@/lib/nombreJugador";
+import { EnlacesJugador } from "@/components/individual/EnlacesJugador";
 import type { Player as Ficha } from "@/types/player";
 
 import { AXES, SCALE, SERIES_COLORS, TAREA_POR_EJE, average, bandFor, nombreLargo, type GroupKey, type MetricKey, type Player } from "./modelo";
@@ -781,7 +782,8 @@ function RadarLinea({
     >
       <div className={`min-w-0 ${tumbada ? "xl:w-[200px] xl:shrink-0" : ""}`}>
         <div className="flex items-baseline justify-between gap-2">
-          <p className="truncate text-[11px] font-semibold uppercase tracking-[.22em]" style={{ color: "#9FE9FF" }}>
+          {/* 16/11/2026 (jueces): sin recorte; «PORTERO Y DEFEN…» se cortaba. */}
+          <p className="min-w-0 break-words text-[11px] font-semibold uppercase leading-tight tracking-[.12em]" style={{ color: "#9FE9FF" }}>
             {titulo}
           </p>
           {media !== null && (
@@ -798,7 +800,8 @@ function RadarLinea({
             className="mt-0.5 text-[11px] font-semibold uppercase tracking-[.18em]"
             style={{ color: evaluados.length < 3 ? "rgba(226,246,255,.6)" : `${tono}CC` }}
           >
-            {evaluados.length < 3 ? `tendencia · ${evaluados.length} ${evaluados.length === 1 ? "jugador" : "jugadores"}` : `${banda.label} · ${evaluados.length} jugadores`}
+            {/* 16/11/2026: una valoración por jugador; con menos de 25, tendencia. */}
+            {evaluados.length < 3 ? `tendencia · ${evaluados.length} ${evaluados.length === 1 ? "jugador" : "jugadores"}` : `${banda.label} · ${evaluados.length} jug. · tendencia`}
           </p>
         )}
 
@@ -910,7 +913,7 @@ function Nombres({
           return (
             <span
               key={c.clave}
-              className="inline-flex max-w-full items-center rounded-full px-2.5 py-1 text-[11px] font-semibold sm:px-2 sm:py-[3px] sm:text-[10px]"
+              className="inline-flex max-w-full items-center rounded-full px-2.5 py-1 text-[11px] font-semibold sm:px-2 sm:py-[3px]"
               style={{ border: "1px dashed rgba(255,255,255,.22)", color: "rgba(234,248,255,.45)" }}
             >
               <span className="truncate">{c.nombre}</span>
@@ -928,7 +931,7 @@ function Nombres({
             onClick={() => onElegir(activo ? null : c.clave)}
             aria-pressed={activo}
             title={c.dato.estimado ? "Sin valoración todavía: lleva la media de la plantilla" : undefined}
-            className="inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[11px] font-semibold transition hover:brightness-125 sm:px-2 sm:py-[3px] sm:text-[10px]"
+            className="inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[11px] font-semibold transition hover:brightness-125 sm:px-2 sm:py-[3px]"
             style={{
               background: activo ? `${color}33` : "rgba(255,255,255,.05)",
               border: `1px ${c.dato.estimado ? "dashed" : "solid"} ${activo ? color : `${color}55`}`,
@@ -1100,7 +1103,7 @@ function Banquillo({
     <div className="mt-4 rounded-[22px] border border-white/10 bg-[#08131F]/70 px-3 pb-3 pt-2.5 [:root[data-theme=light]_&]:border-slate-300 [:root[data-theme=light]_&]:bg-white/80">
       <p className="mb-2 text-[10px] uppercase tracking-[.25em] text-white/40">Banquillo · evaluados fuera del once</p>
       {/* 08/11/2026: el número blanco de cada ficha es el dorsal; sin rótulo se leía como nota. */}
-      <p className="-mt-1 mb-2 text-[11px] text-white/45">El círculo blanco es el dorsal; la nota emocional va en el aro.</p>
+      <p className="-mt-1 mb-2 text-[11px] text-white/45">El círculo blanco es el dorsal; la nota emocional va en el aro. Pulsa uno para ver su perfil, con su ficha y su seguimiento a un toque.</p>
 
       <div className="flex flex-wrap justify-center gap-x-3 gap-y-3 sm:justify-start">
         {suplentes.map((c) => (
@@ -1209,9 +1212,13 @@ function LecturaDelOnce({ titulares, teamAverage, fecha, onElegir }: { titulares
               .sort((a, b) => a.dato[flojo.axis.key] - b.dato[flojo.axis.key])
               .slice(0, 3)
               .map((c) => (
-                <button key={c.clave} type="button" onClick={() => onElegir(c.clave)} className="rounded-full border border-white/10 px-2 py-0.5 text-xs text-white/80 hover:text-white">
-                  {c.nombre} · {flojo.axis.corto} {coma(c.dato[flojo.axis.key])}
-                </button>
+                /* 16/11/2026 (jueces): del foco a su ficha y a registrar su seguimiento. */
+                <span key={c.clave} className="inline-flex items-center gap-1">
+                  <button type="button" onClick={() => onElegir(c.clave)} className="rounded-full border border-white/10 px-2 py-0.5 text-xs text-white/80 hover:text-white">
+                    {c.nombre} · {flojo.axis.corto} {coma(c.dato[flojo.axis.key])}
+                  </button>
+                  <EnlacesJugador jugador={{ nombre: c.nombre }} destinos={["ficha", "seguimiento"]} compacto />
+                </span>
               ))}
           </p>
         )}
@@ -1241,17 +1248,19 @@ function LecturaDelOnce({ titulares, teamAverage, fecha, onElegir }: { titulares
               const i = v.indexOf(Math.min(...v));
 
               return (
-                <button
-                  key={c.clave}
-                  type="button"
-                  onClick={() => onElegir(c.clave)}
-                  className="flex w-full items-center justify-between gap-3 rounded-xl border border-white/10 px-3 py-2 text-left text-xs text-white/75 transition hover:border-white/25 hover:text-white"
-                >
-                  <span className="truncate">{c.nombre}</span>
-                  <span className="shrink-0 tabular-nums" style={{ color: chipInk(bandFor(v[i]).tone) }}>
-                    {AXES[i].corto} {coma(v[i])}
-                  </span>
-                </button>
+                <div key={c.clave} className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => onElegir(c.clave)}
+                    className="flex min-w-0 flex-1 items-center justify-between gap-3 rounded-xl border border-white/10 px-3 py-2 text-left text-xs text-white/75 transition hover:border-white/25 hover:text-white"
+                  >
+                    <span className="truncate">{c.nombre}</span>
+                    <span className="shrink-0 tabular-nums" style={{ color: chipInk(bandFor(v[i]).tone) }}>
+                      {AXES[i].corto} {coma(v[i])}
+                    </span>
+                  </button>
+                  <EnlacesJugador jugador={{ nombre: c.nombre }} destinos={["ficha", "seguimiento"]} compacto className="shrink-0 flex-nowrap" />
+                </div>
               );
             })}
           </div>
@@ -1339,6 +1348,13 @@ function PerfilJugador({
           <X size={14} />
         </button>
       </div>
+
+      {/* 16/11/2026 (jueces): de su perfil emocional a lo que lo completa, con él elegido. */}
+      <EnlacesJugador
+        jugador={{ nombre: c.nombre }}
+        destinos={["ficha", "seguimiento", "registrar", "valoraciones"]}
+        className="mt-3"
+      />
 
       <div className="mt-4 flex items-end gap-3">
         <span className="text-5xl font-semibold tabular-nums leading-none" style={{ color: chipInk(tono) }}>

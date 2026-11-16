@@ -40,6 +40,8 @@ import { summarize, summarizeAll, summarizeMatches } from "@/lib/ratings/compute
 import { compareMatches } from "@/lib/ratings/matches";
 import { MatchMeta, RATINGS_SEASON } from "@/lib/ratings/types";
 import { confirmar } from "@/lib/avisos";
+import { EnlacesJugador } from "@/components/individual/EnlacesJugador";
+import { idVigente, mismoJugador } from "@/lib/fichajes";
 
 type TabKey = "registrar" | "equipo" | "campo" | "comparar" | "historico";
 
@@ -62,6 +64,10 @@ function subscribeHash(onChange: () => void) {
 
   return () => window.removeEventListener("hashchange", onChange);
 }
+
+/* 16/11/2026: ?player=JUG-XX o ?jugador=NOMBRE abren sus notas al entrar. */
+const nadaQueOir = () => () => {};
+const buscaDeLaUrl = () => window.location.search;
 
 function tabOf(hash: string): TabKey {
   const key = hash.replace("#", "") as TabKey;
@@ -113,7 +119,25 @@ export default function RatingsPage() {
     [valoracionesSucias],
   );
 
-  const [openPlayer, setOpenPlayer] = useState<string | null>(null);
+  const [elegido, setOpenPlayer] = useState<string | null>(null);
+
+  /* El jugador de la dirección se abre una vez; al cerrarlo, se olvida. */
+  const busqueda = useSyncExternalStore(nadaQueOir, buscaDeLaUrl, () => "");
+  const [urlCerrada, setUrlCerrada] = useState(false);
+  const deLaUrl = useMemo(() => {
+    if (!busqueda) return null;
+    const q = new URLSearchParams(busqueda);
+    const id = q.get("player");
+    const nombre = q.get("jugador");
+    if (id) return players.find((p) => p.id === idVigente(id))?.id ?? null;
+    if (nombre) return players.find((p) => mismoJugador(p.nombre, nombre))?.id ?? null;
+    return null;
+  }, [busqueda, players]);
+  const openPlayer = elegido ?? (urlCerrada ? null : deLaUrl);
+  const cierraJugador = useCallback(() => {
+    setOpenPlayer(null);
+    setUrlCerrada(true);
+  }, []);
   const [pendingMatch, setPendingMatch] = useState<MatchMeta | null>(null);
   const [editMatchId, setEditMatchId] = useState<string | null>(null);
 
@@ -154,13 +178,13 @@ export default function RatingsPage() {
     if (!openPlayer) return;
 
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpenPlayer(null);
+      if (event.key === "Escape") cierraJugador();
     };
 
     window.addEventListener("keydown", onKey);
 
     return () => window.removeEventListener("keydown", onKey);
-  }, [openPlayer]);
+  }, [openPlayer, cierraJugador]);
 
   const totals = useMemo(() => {
     const rated = matchSummaries.filter((item) => item.rated > 0);
@@ -333,7 +357,7 @@ export default function RatingsPage() {
         createPortal(
           <div
             className="modal-veil fixed inset-0 z-[60] flex items-center justify-center p-3 backdrop-blur-sm"
-            onClick={() => setOpenPlayer(null)}
+            onClick={cierraJugador}
           >
             <div
               onClick={(event) => event.stopPropagation()}
@@ -361,13 +385,21 @@ export default function RatingsPage() {
 
                 <button
                   type="button"
-                  onClick={() => setOpenPlayer(null)}
+                  onClick={cierraJugador}
                   aria-label="Cerrar"
                   className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white/50 transition hover:bg-white/10 hover:text-white"
                 >
                   <X size={16} />
                 </button>
               </header>
+
+              {/* 16/11/2026: de sus notas a lo que las completa, con él elegido. */}
+              <div className="shrink-0 border-b border-white/10 px-4 py-2.5 sm:px-5">
+                <EnlacesJugador
+                  jugador={{ id: selectedPlayer.id, nombre: selectedPlayer.nombre }}
+                  destinos={["ficha", "seguimiento", "registrar", "data", "videos", "comparativa"]}
+                />
+              </div>
 
               <div className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-5">
                 <PlayerRatingsTab season={season} playerId={selectedPlayer.id} />

@@ -4,7 +4,9 @@ import { LecturaGrafico } from "@/components/ui/LecturaGrafico";
 import { ResponsiveConVistas } from "@/components/data/visual/ResponsiveConVistas";
 import { nombrePuesto } from "@/lib/posiciones";
 import { nombreVisible } from "@/lib/nombreJugador";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
+import Link from "next/link";
+import { EnlacesJugador, NombreJugador } from "@/components/individual/EnlacesJugador";
 import {
   Area,
   Bar,
@@ -48,9 +50,99 @@ function rivalEnMayusculas(match: Parameters<typeof matchLabel>[0]) {
   return `${match.isHome ? "vs" : "@"} ${match.opponent.toUpperCase()}`;
 }
 
-/** «1 - 2» y «1-2» salen siempre como «1-2». */
-function marcadorUniforme(result: string) {
-  return result.replace(/\s*-\s*/, "-");
+/**
+ * 16/11/2026 (jueces): el marcador, siempre con el Castilla primero y su
+ * V/E/D. «@ Algeciras 2-0» con un 4,6 de media no decía si se ganó: era
+ * local-visitante. Con `gf`/`ga` (goles del Castilla) o, si faltan, leyendo
+ * el marcador desde el lado en que jugó.
+ */
+type PartidoConMarcador = { isHome: boolean; result?: string; gf?: number | null; ga?: number | null };
+
+function resultadoCastilla(match: PartidoConMarcador) {
+  let gf = match.gf ?? null;
+  let ga = match.ga ?? null;
+
+  if (gf == null || ga == null) {
+    const m = (match.result ?? "").match(/(\d+)\s*[-–:]\s*(\d+)/);
+    if (!m) return null;
+    gf = Number(match.isHome ? m[1] : m[2]);
+    ga = Number(match.isHome ? m[2] : m[1]);
+  }
+
+  const letra: "V" | "E" | "D" = gf > ga ? "V" : gf < ga ? "D" : "E";
+
+  return { letra, texto: `${gf}-${ga}` };
+}
+
+const COLOR_RESULTADO: Record<"V" | "E" | "D", string> = {
+  V: "var(--rmcf-rate-good)",
+  E: "rgb(var(--rmcf-ink-rgb) / 0.55)",
+  D: "var(--rmcf-rate-low)",
+};
+
+/** «V 1-0»: letra en su color y el marcador del Castilla primero. */
+function ChapaResultado({ match }: { match: PartidoConMarcador }) {
+  const r = resultadoCastilla(match);
+  if (!r) return null;
+
+  return (
+    <span className="inline-flex items-center gap-1 tabular-nums" title="Castilla primero">
+      <span
+        className="inline-flex h-4 w-4 items-center justify-center rounded text-[10px] font-bold"
+        style={{ color: COLOR_RESULTADO[r.letra], boxShadow: `inset 0 0 0 1px ${COLOR_RESULTADO[r.letra]}` }}
+      >
+        {r.letra}
+      </span>
+      <span className="font-semibold text-white/70">{r.texto}</span>
+    </span>
+  );
+}
+
+/** Chapa con la base de una cifra («7 PJ») y, si es muestra corta, «tendencia». */
+function ChapaBase({ texto, tendencia = false }: { texto: string; tendencia?: boolean }) {
+  return (
+    <span
+      className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold tabular-nums ${
+        tendencia ? "border-dashed border-white/25 text-white/55" : "border-white/15 text-white/65"
+      }`}
+    >
+      {texto}
+    </span>
+  );
+}
+
+/** Minigráfica de sus notas: las 3 últimas en color, las 3 anteriores en gris. */
+function Minigrafica({ notas }: { notas: number[] }) {
+  const serie = notas.slice(-6);
+  if (serie.length < 2) return null;
+
+  const w = 120;
+  const h = 26;
+  const lo = Math.min(...serie, 4);
+  const hi = Math.max(...serie, 9);
+  const x = (i: number) => (i / (serie.length - 1)) * (w - 6) + 3;
+  const y = (v: number) => h - 3 - ((v - lo) / (hi - lo || 1)) * (h - 6);
+  const corte = serie.length - Math.min(3, serie.length);
+
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} width={w} height={h} className="mt-1.5 block" role="img" aria-label={`Sus ${serie.length} últimas notas: ${serie.map((n) => formatRating(n)).join(", ")}`}>
+      <polyline
+        points={serie.map((v, i) => `${x(i)},${y(v)}`).join(" ")}
+        fill="none"
+        style={{ stroke: "rgb(var(--rmcf-ink-rgb) / 0.3)" }}
+        strokeWidth={1.5}
+      />
+      {serie.map((v, i) => (
+        <circle
+          key={i}
+          cx={x(i)}
+          cy={y(v)}
+          r={i >= corte ? 3 : 2.2}
+          style={{ fill: i >= corte ? ratingColor(v) : "rgb(var(--rmcf-ink-rgb) / 0.35)" }}
+        />
+      ))}
+    </svg>
+  );
 }
 import { lineaDe, type LineaKey } from "@/lib/ratings/pitch";
 import { Player } from "@/types/player";
@@ -253,7 +345,10 @@ export function TeamPanel({
         .map((item) => ({
           name: formatMatchDateShort(item.match),
           label: matchLabel(item.match),
-          result: item.match.result,
+          result: (() => {
+            const r = resultadoCastilla(item.match);
+            return r ? `${r.letra} ${r.texto}` : "";
+          })(),
           casa: item.match.isHome,
           avg: item.avg,
           rated: item.rated,
@@ -381,36 +476,43 @@ export function TeamPanel({
 
         <StatCard
           label="Mejor media"
-          value={best ? nombreVisible(best.player.nombre) : ""}
+          value={best ? <NombreJugador jugador={{ id: best.player.id, nombre: best.player.nombre }}>{nombreVisible(best.player.nombre)}</NombreJugador> : ""}
+          etiqueta={best ? <ChapaBase texto={`${best.summary.played} PJ`} tendencia={best.summary.played < MIN_FIABLE} /> : undefined}
           hint={
             best
-              ? `${formatRating(best.summary.avg)} en ${plural(best.summary.played, "partido", "partidos")} · nota del cuerpo técnico, no el índice Wyscout (está en Comparativa categoría)`
+              ? `${formatRating(best.summary.avg)} de media · nota del cuerpo técnico, no el índice Wyscout (está en Comparativa categoría)`
               : undefined
           }
           accent="var(--rmcf-gold-ink)"
         />
 
+        {/* 16/11/2026 (jueces): la progresión son 3 notas contra 3: va
+            marcada como tendencia en la chapa, con sus PJ a la vista, el
+            nombre atenuado y la minigráfica de esas seis notas. */}
         <StatCard
           label="Mayor progresión"
           value={
             mostImproved
-              ? nombreVisible(mostImproved.player.nombre)
+              ? <span className="opacity-80"><NombreJugador jugador={{ id: mostImproved.player.id, nombre: mostImproved.player.nombre }}>{nombreVisible(mostImproved.player.nombre)}</NombreJugador></span>
               : ""
           }
+          etiqueta={mostImproved ? <ChapaBase texto={`${mostImproved.summary.played} PJ · tendencia`} tendencia /> : undefined}
           hint={
             mostImproved
               ? /* 10/11/2026: dos datos y la base, como tendencia: son 3 notas contra 3. */
-                `${formatSigned(mostImproved.summary.trend)} · ${desdeHasta(mostImproved)}3 últimas frente a 3 anteriores · tendencia`
+                `${formatSigned(mostImproved.summary.trend)} · ${desdeHasta(mostImproved)}3 últimas frente a 3 anteriores`
               : undefined
           }
+          pie={mostImproved ? <Minigrafica notas={mostImproved.summary.entries.map((e) => e.entry.rating).filter((n) => n > 0)} /> : undefined}
           accent="var(--rmcf-rate-good)"
         />
 
         {decisivoClaro && topScorer && (
           <StatCard
             label="Más decisivo"
-            value={nombreVisible(topScorer.player.nombre)}
-            hint={`${plural(topScorer.summary.goals, "gol", "goles")} · ${plural(topScorer.summary.assists, "asistencia", "asistencias")} en ${plural(topScorer.summary.played, "partido", "partidos")}${topScorer.summary.played < 10 ? " · muestra pequeña" : ""}`}
+            value={<NombreJugador jugador={{ id: topScorer.player.id, nombre: topScorer.player.nombre }}>{nombreVisible(topScorer.player.nombre)}</NombreJugador>}
+            etiqueta={<ChapaBase texto={`${topScorer.summary.played} PJ${topScorer.summary.played < 10 ? " · muestra pequeña" : ""}`} tendencia={topScorer.summary.played < 10} />}
+            hint={`${plural(topScorer.summary.goals, "gol", "goles")} · ${plural(topScorer.summary.assists, "asistencia", "asistencias")}`}
             accent="var(--rmcf-rate-top)"
           />
         )}
@@ -503,7 +605,7 @@ export function TeamPanel({
                           },
                           { label: "Valorados", value: point.rated },
                           ...(point.result
-                            ? [{ label: "Resultado", value: point.result }]
+                            ? [{ label: "Resultado (Castilla primero)", value: point.result }]
                             : []),
                         ]}
                       />
@@ -693,7 +795,7 @@ export function TeamPanel({
                     className="inline-block w-5 border-t-2 border-dashed"
                     style={{ borderColor: "rgb(var(--rmcf-ink-rgb) / 0.45)" }}
                   />
-                  media del equipo {formatRating(teamAverage)} · arriba a la derecha, más nota y más minutos: los referentes; abajo a la derecha, mucho minuto con nota baja: a revisar
+                  media del equipo · arriba a la derecha, más nota y más minutos: los referentes; abajo a la derecha, mucho minuto con nota baja: a revisar
                 </p>
               )}
             </>
@@ -859,7 +961,7 @@ export function TeamPanel({
                       className="inline-block w-5 border-t-2 border-dashed"
                       style={{ borderColor: "rgb(var(--rmcf-ink-rgb) / 0.45)" }}
                     />
-                    media del equipo {formatRating(teamAverage)}
+                    media del equipo
                   </p>
                 )}
 
@@ -906,10 +1008,12 @@ export function TeamPanel({
 
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-white">
-                      {nombreVisible(entry.player.nombre)}
+                      <NombreJugador jugador={{ id: entry.player.id, nombre: entry.player.nombre }}>
+                        {nombreVisible(entry.player.nombre)}
+                      </NombreJugador>
                     </p>
 
-                    <p className="truncate text-[10px] uppercase tracking-[0.16em] text-white/30">
+                    <p className="truncate text-[11px] uppercase tracking-[0.14em] text-white/45">
                       {nombrePuesto(entry.player.posicion)} · {entry.summary.played} PJ
                     </p>
                   </div>
@@ -927,7 +1031,7 @@ export function TeamPanel({
 
       <Panel
         title="Ranking de la plantilla"
-        subtitle={`Media del equipo ${formatRating(teamAverage)} · con menos de ${MIN_FIABLE} partidos, tendencia (fila atenuada) · Pond. = media por minutos · Forma = últimos 5 · Tend. = 3 últimas frente a las 3 anteriores · pulsa un jugador para ver su ficha`}
+        subtitle={`Media del equipo ${formatRating(teamAverage)} · con menos de ${MIN_FIABLE} partidos, tendencia (fila atenuada) · Pond. = media por minutos · Forma = últimos 5 · Tend. = 3 últimas frente a las 3 anteriores · el nombre abre su ficha y el resto de la fila, sus notas · Min = minutos de Valoraciones (90′ por partido completo, de BeSoccer): por eso no coincide al minuto con el Dashboard de plantilla, que usa Wyscout`}
         icon={ArrowDownWideNarrow}
         bodyClassName="p-0"
         action={
@@ -948,8 +1052,8 @@ export function TeamPanel({
               onChange={setSortKey}
             />
 
-            {/* 07/11/2026: en el móvil, sólo lo esencial (PJ, Min, Media,
-                Tend., G+A); el resto, a un toque. */}
+            {/* 07/11/2026: en el móvil, sólo lo esencial (PJ, Media,
+                Tend., G+A; desde el 16/11 también sin Min); el resto, a un toque. */}
             <button
               type="button"
               onClick={() => setTodasCols((v) => !v)}
@@ -968,7 +1072,7 @@ export function TeamPanel({
                 <th className="sticky left-0 z-[1] bg-[#11161D] px-2 py-3 text-left font-medium max-sm:pl-4">Jugador</th>
                 <th className="px-2 py-3 text-center font-medium" title="Partidos con nota">PJ</th>
                 <th className={`px-2 py-3 text-center font-medium ${colSec}`} title="Titularidades en esos partidos con nota">Tit.</th>
-                <th className="px-2 py-3 text-center font-medium">Min</th>
+                <th className={`px-2 py-3 text-center font-medium ${colSec}`} title="Minutos de Valoraciones: 90′ por partido completo">Min</th>
                 <th className="px-2 py-3 text-left font-medium">Media</th>
                 <th className={`px-2 py-3 text-center font-medium ${colSec}`} title="Media ponderada por minutos">Pond.</th>
                 <th className={`px-2 py-3 text-center font-medium ${colSec}`} title="Media de los últimos 5 partidos">Forma</th>
@@ -1010,7 +1114,9 @@ export function TeamPanel({
 
                       <div className="min-w-0">
                         <p className="truncate font-medium text-white">
-                          {nombreVisible(entry.player.nombre)}
+                          <NombreJugador jugador={{ id: entry.player.id, nombre: entry.player.nombre }}>
+                            {nombreVisible(entry.player.nombre)}
+                          </NombreJugador>
                         </p>
 
                         <p className="truncate text-[10px] uppercase tracking-[0.14em] text-white/30">
@@ -1031,7 +1137,7 @@ export function TeamPanel({
                     {entry.summary.starts}
                   </td>
 
-                  <td className="px-2 py-2.5 text-center tabular-nums text-white/45">
+                  <td className={`${colSec} px-2 py-2.5 text-center tabular-nums text-white/45`}>
                     {entry.summary.minutes}
                   </td>
 
@@ -1091,7 +1197,7 @@ export function TeamPanel({
 
         <Panel
           title="Partido a partido"
-          subtitle="Media del equipo en cada jornada"
+          subtitle="Media del equipo en cada jornada · marcador con el Castilla primero"
           icon={Flame}
           bodyClassName="p-0"
         >
@@ -1101,12 +1207,12 @@ export function TeamPanel({
               .filter((item) => item.rated > 0)
               .reverse()
               .slice(0, 10)
-              .map((item) => (
+              .map((item, index) => (
                 <li
                   key={item.match.id}
                   className="flex min-w-0 items-center gap-3 px-4 py-2.5"
                 >
-                  <span className="w-14 shrink-0 text-[10px] tabular-nums text-white/30">
+                  <span className="w-14 shrink-0 text-[11px] tabular-nums text-white/45">
                     {formatMatchDateShort(item.match)}
                   </span>
 
@@ -1115,11 +1221,17 @@ export function TeamPanel({
                       {rivalEnMayusculas(item.match)}
                     </p>
 
-                    <p className="truncate text-[10px] text-white/30">
-                      {item.match.result
-                        ? `${marcadorUniforme(item.match.result)} · `
-                        : ""}
-                      {item.rated} valorados
+                    <p className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-[11px] text-white/45">
+                      <ChapaResultado match={item.match} />
+                      <span>{item.rated} valorados</span>
+                      {/* 16/11/2026: el último partido abre su análisis post
+                          (Data análisis abre por defecto el último jugado; los
+                          anteriores no se pueden pedir por la dirección). */}
+                      {index === 0 && (
+                        <Link href="/data-analisis?area=post" className="font-semibold text-[#C8A96B] hover:underline">
+                          Análisis post →
+                        </Link>
+                      )}
                     </p>
                   </div>
 
@@ -1152,18 +1264,27 @@ function desdeHasta(jugador: RankedPlayer): string {
   return `de ${formatRating(media(anteriores))} a ${formatRating(media(ultimas))}, `;
 }
 
-function lecturaTop(elegibles: RankedPlayer[]): string | null {
+function lecturaTop(elegibles: RankedPlayer[]): ReactNode {
   if (elegibles.length < 2) return null;
 
   const arriba = elegibles[0];
   const abajo = elegibles[elegibles.length - 1];
 
   return (
-    `Arriba «${nombreVisible(arriba.player.nombre)}» con ${formatRating(arriba.summary.avg)} de nota en ${arriba.summary.minutes}′; ` +
-    `el último de los ${elegibles.length} con ${MIN_FIABLE}+ partidos, «${nombreVisible(abajo.player.nombre)}», ` +
-    `con ${formatRating(abajo.summary.avg)} en ${abajo.summary.minutes}′ (${formatRating(arriba.summary.avg - abajo.summary.avg)} menos). ` +
-    /* 08/11/2026 (jueces): que la lectura acabe en una acción. */
-    `Qué hacemos: ver en vídeo sus 3 últimos partidos y fijar con él una acción para la semana.`
+    <>
+      {`Arriba «${nombreVisible(arriba.player.nombre)}» con ${formatRating(arriba.summary.avg)} de nota en ${arriba.summary.minutes}′; ` +
+        `el último de los ${elegibles.length} con ${MIN_FIABLE}+ partidos, «${nombreVisible(abajo.player.nombre)}», ` +
+        `con ${formatRating(abajo.summary.avg)} en ${abajo.summary.minutes}′ (${formatRating(arriba.summary.avg - abajo.summary.avg)} menos). ` +
+        /* 08/11/2026 (jueces): que la lectura acabe en una acción. 16/11:
+           y la acción, a un toque con el jugador ya elegido. */
+        `Qué hacemos: ver en vídeo sus 3 últimos partidos y fijar con él una acción para la semana.`}
+      <span className="mt-2 flex flex-wrap items-center gap-1.5">
+        <EnlacesJugador
+          jugador={{ id: abajo.player.id, nombre: abajo.player.nombre }}
+          destinos={["videos", "registrar", "ficha"]}
+        />
+      </span>
+    </>
   );
 }
 
@@ -1244,30 +1365,33 @@ function BestPerformances({
     >
       <ul className="min-w-0 divide-y divide-white/5">
         {best.map((item) => (
-          <li key={`${item.player.id}-${item.match.id}`}>
+          <li key={`${item.player.id}-${item.match.id}`} className="flex min-w-0 items-center gap-3 px-4 py-2.5 transition hover:bg-white/[0.03]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={item.player.foto}
+              alt={nombreVisible(item.player.nombre)}
+              className="h-8 w-8 shrink-0 rounded-lg border border-white/10 object-cover object-top"
+            />
+
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-medium text-white">
+                <NombreJugador jugador={{ id: item.player.id, nombre: item.player.nombre }}>
+                  {nombreVisible(item.player.nombre)}
+                </NombreJugador>
+              </p>
+
+              <p className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-[11px] text-white/45">
+                <span className="truncate">{rivalEnMayusculas(item.match)} · {formatMatchDateShort(item.match)}</span>
+                <ChapaResultado match={item.match} />
+              </p>
+            </div>
+
             <button
               type="button"
               onClick={() => onSelectPlayer(item.player.id)}
-              className="flex w-full min-w-0 items-center gap-3 px-4 py-2.5 text-left transition hover:bg-white/[0.03]"
+              title="Ver todas sus notas"
+              className="shrink-0 rounded-lg transition hover:opacity-80"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={item.player.foto}
-                alt={nombreVisible(item.player.nombre)}
-                className="h-8 w-8 shrink-0 rounded-lg border border-white/10 object-cover object-top"
-              />
-
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-xs font-medium text-white">
-                  {nombreVisible(item.player.nombre)}
-                </p>
-
-                <p className="truncate text-[10px] text-white/30">
-                  {rivalEnMayusculas(item.match)} ·{" "}
-                  {formatMatchDateShort(item.match)}
-                </p>
-              </div>
-
               <RatingBadge value={item.entry.rating} size="sm" />
             </button>
           </li>

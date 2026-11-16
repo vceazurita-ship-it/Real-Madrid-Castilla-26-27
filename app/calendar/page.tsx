@@ -2,10 +2,15 @@
 import { traeJson } from "@/lib/hojaCsv";
 import { nombreVisible } from "@/lib/nombreJugador";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Users } from "lucide-react";
 import { usePlayers } from "@/hooks/usePlayers";
+import { useCalendario } from "@/hooks/useCalendario";
+import { comoNuestro, soloDia, type PartidoNuestro } from "@/lib/castilla/calendario";
+import { idVigente } from "@/lib/fichajes";
+import { EnlacesJugador, NombreJugador } from "@/components/individual/EnlacesJugador";
 import { alineaSeguimiento, DIAS_SIN_SEGUIMIENTO, esPortero, sinPorteros, sinSeguimientoReciente } from "@/lib/seguimiento";
 import {
   CalendarShell,
@@ -65,6 +70,23 @@ const TIPOS: StrategyKey[] = ["CAMPO", "VIDEO", "CHARLA", "VIDEO_CHARLA", "OTRO"
 /** Máximo de tarjetas visibles dentro de una celda antes de resumir. */
 const MAX_VISIBLE_PER_DAY = 3;
 
+/* ?player=ID (16/11/2026): se entra ya filtrado desde la ficha, un aviso o
+   el Dashboard Seguimiento. Leído sin useSearchParams (no pide Suspense) y
+   sin setState en un efecto (regla del linter). */
+const sinSuscripcion = () => () => {};
+const jugadorDeLaUrl = () => new URLSearchParams(window.location.search).get("player") ?? "";
+const sinUrl = () => "";
+
+/** «13/11 · V 2-0 Gimnàstic (casa)»: el marcador con el Castilla primero. */
+function rotuloPartido(p: PartidoNuestro) {
+  const marcador =
+    p.jugado && p.golesFavor !== null && p.golesContra !== null
+      ? `${p.golesFavor > p.golesContra ? "V" : p.golesFavor < p.golesContra ? "D" : "E"} ${p.golesFavor}-${p.golesContra} `
+      : "";
+
+  return `${marcador}${p.lado === "casa" ? "vs" : "@"} ${p.rival}`;
+}
+
 function strategyKey(value: string): StrategyKey {
   const normalized = normalizeText(value);
 
@@ -107,8 +129,29 @@ export default function Calendar() {
   const [hoy] = useState(() => new Date());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [playerFilter, setPlayerFilter] = useState("");
+  /* Lo elegido en el selector manda; si no se ha tocado, el de la dirección
+     (traducido si es un ID viejo) en cuanto la plantilla lo reconoce. */
+  const [elegido, setPlayerFilter] = useState<string | null>(null);
+  const pedidoUrl = useSyncExternalStore(sinSuscripcion, jugadorDeLaUrl, sinUrl);
+  const pedido = pedidoUrl ? idVigente(pedidoUrl) : "";
+  const playerFilter = elegido ?? (players.some((p) => p.id === pedido) ? pedido : "");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+
+  /* Los días de partido del Castilla (calendario de BeSoccer, el mismo que
+     la portada), con rival y resultado. */
+  const { partidos } = useCalendario();
+  const partidosPorDia = useMemo(() => {
+    const mapa = new Map<string, PartidoNuestro>();
+
+    partidos.forEach((p) => {
+      const nuestro = comoNuestro(p);
+      const dia = soloDia(nuestro.cuando);
+
+      if (dia) mapa.set(dia, nuestro);
+    });
+
+    return mapa;
+  }, [partidos]);
 
   const playersMap = useMemo(() => {
     const map: Record<string, (typeof players)[number]> = {};
@@ -179,9 +222,26 @@ export default function Calendar() {
      estilo y no entra en «hasta hoy». */
   const hoyKey = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`;
 
+  /* 16/11/2026 (jueces): las cifras sin filtro son de los jugadores de campo
+     del Castilla, la misma población que Plantilla y Dashboard Seguimiento;
+     los de otros equipos se pintan en la rejilla pero se cuentan aparte. */
+  const nuestrosIds = useMemo(
+    () => new Set(players.filter((p) => p.esCastilla).map((p) => p.id)),
+    [players],
+  );
+
   const monthStats = useMemo(() => {
     const hoyClave = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`;
-    const inMonth = visibleData.filter((s) => {
+    const base = playerFilter ? visibleData : visibleData.filter((s) => nuestrosIds.has(s.ID_JUGADOR));
+    const deFueraEnMes = playerFilter
+      ? 0
+      : visibleData.filter((s) => {
+          const key = recordDateKey(s.FECHA);
+          if (!key || key > hoyClave || nuestrosIds.has(s.ID_JUGADOR)) return false;
+          const d = parseDateKey(key);
+          return d.getMonth() === active.month && d.getFullYear() === active.year;
+        }).length;
+    const inMonth = base.filter((s) => {
       const key = recordDateKey(s.FECHA);
       if (!key || key > hoyClave) return false;
 
@@ -194,14 +254,14 @@ export default function Calendar() {
     const enCurso = active.month === hoy.getMonth() && active.year === hoy.getFullYear();
     const mesPrevio = active.month === 0 ? 11 : active.month - 1;
     const anioPrevio = active.month === 0 ? active.year - 1 : active.year;
-    const anterior = visibleData.filter((s) => {
+    const anterior = base.filter((s) => {
       const key = recordDateKey(s.FECHA);
       if (!key) return false;
 
       const d = parseDateKey(key);
       return d.getMonth() === mesPrevio && d.getFullYear() === anioPrevio && (!enCurso || d.getDate() <= hoy.getDate());
     }).length;
-    const programados = visibleData.filter((s) => {
+    const programados = base.filter((s) => {
       const key = recordDateKey(s.FECHA);
 
       return Boolean(key) && (key as string) > hoyClave;
@@ -215,18 +275,66 @@ export default function Calendar() {
       TIPOS.map((tipo) => [tipo, inMonth.filter((s) => strategyKey(s.ESTRATEGIA) === tipo).length]),
     ) as Record<StrategyKey, number>;
 
-    return { total: inMonth.length, jugadores, castillaConSeguimiento, porTipo, anterior, enCurso, mesPrevio, programados };
-  }, [visibleData, active, players, hoy]);
+    return { total: inMonth.length, jugadores, castillaConSeguimiento, porTipo, anterior, enCurso, mesPrevio, programados, deFueraEnMes };
+  }, [visibleData, active, players, hoy, playerFilter, nuestrosIds]);
 
-  const castillaTotal = useMemo(() => players.filter((p) => p.esCastilla).length, [players]);
+  const castillaTotal = nuestrosIds.size;
 
   /* 07/11/2026: la temporada con su población dicha: los del Castilla y,
-     aparte, los de fuera (la hoja también apunta a jugadores de otros equipos). */
+     aparte, los de fuera (la hoja también apunta a jugadores de otros equipos).
+     16/11/2026: hasta hoy y con fecha, como el Dashboard Seguimiento (lo
+     programado después de hoy no cuenta), para que las dos den lo mismo. */
   const temporadaCastilla = useMemo(() => {
-    const nuestros = new Set(players.filter((p) => p.esCastilla).map((p) => p.id));
+    return trackingData.filter((s) => {
+      const key = recordDateKey(s.FECHA);
 
-    return trackingData.filter((s) => nuestros.has(s.ID_JUGADOR)).length;
-  }, [trackingData, players]);
+      return nuestrosIds.has(s.ID_JUGADOR) && Boolean(key) && (key as string) <= hoyKey;
+    }).length;
+  }, [trackingData, nuestrosIds, hoyKey]);
+
+  const temporadaFuera = useMemo(
+    () =>
+      trackingData.filter((s) => {
+        const key = recordDateKey(s.FECHA);
+
+        return !nuestrosIds.has(s.ID_JUGADOR) && Boolean(key) && (key as string) <= hoyKey;
+      }).length,
+    [trackingData, nuestrosIds, hoyKey],
+  );
+
+  /* Las últimas 8 semanas (lunes a domingo) de los de campo del Castilla,
+     con la media de las cerradas como referencia (16/11/2026). */
+  const semanas = useMemo(() => {
+    const lunes = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+    lunes.setDate(lunes.getDate() - ((lunes.getDay() + 6) % 7));
+
+    const clave = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const lista: { desde: string; etiqueta: string; n: number; enCurso: boolean }[] = [];
+
+    for (let i = 7; i >= 0; i--) {
+      const ini = new Date(lunes);
+      ini.setDate(ini.getDate() - i * 7);
+      const fin = new Date(ini);
+      fin.setDate(fin.getDate() + 6);
+      const a = clave(ini);
+      const b = clave(fin);
+
+      lista.push({
+        desde: a,
+        etiqueta: `${ini.getDate()}/${ini.getMonth() + 1}`,
+        n: trackingData.filter((s) => {
+          const key = recordDateKey(s.FECHA);
+          return nuestrosIds.has(s.ID_JUGADOR) && Boolean(key) && (key as string) >= a && (key as string) <= b && (key as string) <= hoyKey;
+        }).length,
+        enCurso: i === 0,
+      });
+    }
+
+    const cerradas = lista.filter((s) => !s.enCurso);
+    const media = cerradas.length ? cerradas.reduce((x, s) => x + s.n, 0) / cerradas.length : 0;
+
+    return { lista, media, max: Math.max(1, ...lista.map((s) => s.n)) };
+  }, [trackingData, nuestrosIds, hoy, hoyKey]);
 
   /* 07/11/2026: la leyenda con los tipos que hay en TODA la hoja (con el
      filtro de jugador), no sólo en el mes: la rejilla enseña también días
@@ -314,7 +422,7 @@ export default function Calendar() {
       loading={loading}
       keyboardEnabled={!selectedKey}
       legend={legend}
-      statsColumnas={3}
+      statsColumnas={!playerFilter && semanas.lista.some((s) => s.n > 0) ? 4 : 3}
       franja={
         /* La alerta va ENCIMA del calendario (26/10/2026): al final de la
            página quedaba fuera de la vista y es lo que se pregunta el lunes.
@@ -330,23 +438,23 @@ export default function Calendar() {
               A quién toca seguir: {sinSeguimiento.length} del Castilla sin seguimiento en {DIAS_SIN_SEGUIMIENTO} días
             </p>
             <p className="mt-0.5 text-[11px] text-white/55">
-              Jugadores de campo con licencia del Castilla; los porteros llevan su seguimiento aparte. Cada uno abre su ficha.
+              Jugadores de campo del Castilla; los porteros llevan su seguimiento aparte. El nombre abre su ficha; «Registrar seguimiento», el formulario con el jugador ya elegido.
             </p>
-            <div className="mt-2 flex min-w-0 flex-wrap gap-1.5">
+            {/* 16/11/2026 (jueces): cada aviso, una acción. */}
+            <ul className="mt-2 flex min-w-0 flex-wrap gap-1.5">
               {sinSeguimiento.map((j) => (
-                <button
+                <li
                   key={j.id}
-                  type="button"
-                  onClick={() => openPlayer(j.id)}
-                  className="inline-flex min-w-0 items-center gap-1.5 rounded-full border border-[#C8A96B]/40 bg-white/[0.04] px-2.5 py-1 text-xs transition hover:border-[#C8A96B]"
+                  className="inline-flex min-w-0 flex-wrap items-center gap-1.5 rounded-2xl border border-[#C8A96B]/40 bg-white/[0.04] py-1 pl-2.5 pr-1 text-xs"
                 >
-                  <span className="truncate font-semibold">{j.nombre}</span>
+                  <NombreJugador jugador={{ id: j.id, nombre: j.nombre }} className="truncate font-semibold" />
                   <span className="shrink-0 tabular-nums text-white/60">
                     {j.dias == null ? "ningún registro" : `${j.dias} días`}
                   </span>
-                </button>
+                  <EnlacesJugador jugador={{ id: j.id, nombre: j.nombre }} destinos={["registrar"]} />
+                </li>
               ))}
-            </div>
+            </ul>
           </div>
         ) : undefined
       }
@@ -364,22 +472,70 @@ export default function Calendar() {
             hint={
               playerFilter
                 ? undefined
-                : `${monthStats.enCurso ? `${MONTHS[monthStats.mesPrevio].toLowerCase()} al mismo día: ${monthStats.anterior}` : `${MONTHS[monthStats.mesPrevio].toLowerCase()}: ${monthStats.anterior}`}${monthStats.programados > 0 ? ` · ${monthStats.programados} programado${monthStats.programados === 1 ? "" : "s"} después de hoy, aparte` : ""} · ${temporadaCastilla < trackingData.length
-                  ? `Temporada 26/27: ${temporadaCastilla} registros${castillaTotal > 0 ? ` de ${castillaTotal} jugadores de campo` : ""} del Castilla (otros equipos, aparte: ${trackingData.length - temporadaCastilla})`
-                  : `${trackingData.length} en toda la temporada`}`
+                : (() => {
+                    /* 16/11/2026 (jueces): la comparación con su sentido
+                       («14 menos que octubre al mismo día, 40»). */
+                    const mes = MONTHS[monthStats.mesPrevio].toLowerCase();
+                    const dif = monthStats.total - monthStats.anterior;
+                    const referencia = monthStats.enCurso ? `${mes} al mismo día` : mes;
+                    const comparado =
+                      dif === 0
+                        ? `igual que ${referencia} (${monthStats.anterior})`
+                        : `${Math.abs(dif)} ${dif > 0 ? "más" : "menos"} que ${referencia} (${monthStats.anterior})`;
+
+                    return `jugadores de campo del Castilla · ${comparado}${
+                      monthStats.programados > 0 ? ` · ${monthStats.programados} programado${monthStats.programados === 1 ? "" : "s"} después de hoy, aparte` : ""
+                    } · temporada 26/27: ${temporadaCastilla} registros${
+                      temporadaFuera > 0 || monthStats.deFueraEnMes > 0
+                        ? ` (de otros equipos, aparte: ${monthStats.deFueraEnMes} este mes, ${temporadaFuera} en la temporada)`
+                        : ""
+                    }`;
+                  })()
             }
           />
           <CalendarStat
             label={`Jugadores con seguimiento en ${MONTHS[active.month].toLowerCase()}`}
-            value={monthStats.jugadores}
+            value={playerFilter ? monthStats.jugadores : `${monthStats.castillaConSeguimiento} de ${castillaTotal}`}
             hint={
-              castillaTotal > 0
-                ? `${monthStats.castillaConSeguimiento} de los ${castillaTotal} de campo del Castilla${
-                    monthStats.jugadores > monthStats.castillaConSeguimiento ? "; el resto, de otros equipos" : ""
+              !playerFilter && castillaTotal > 0
+                ? `jugadores de campo del Castilla con algún registro este mes${
+                    monthStats.jugadores > monthStats.castillaConSeguimiento ? `; además, ${monthStats.jugadores - monthStats.castillaConSeguimiento} de otros equipos` : ""
                   }`
                 : undefined
             }
           />
+          {!playerFilter && semanas.lista.some((s) => s.n > 0) && (
+            <CalendarStat
+              label="Por semana · últimas 8"
+              value={
+                <span className="mt-1 block">
+                  <span className="flex h-12 items-end gap-1" aria-hidden>
+                    {semanas.lista.map((s) => (
+                      <span
+                        key={s.desde}
+                        title={`Semana del ${s.etiqueta}: ${s.n}${s.enCurso ? " (en curso)" : ""}`}
+                        className="relative flex-1 rounded-t bg-[#C8A96B]"
+                        style={{ height: `${Math.max(4, (s.n / semanas.max) * 100)}%`, opacity: s.enCurso ? 0.45 : 1 }}
+                      />
+                    ))}
+                  </span>
+                  <span
+                    aria-hidden
+                    className="relative -mt-12 block h-12 pointer-events-none"
+                  >
+                    <span
+                      className="absolute inset-x-0 border-t border-dashed border-white/50"
+                      style={{ bottom: `${(semanas.media / semanas.max) * 100}%` }}
+                    />
+                  </span>
+                  <span className="sr-only">
+                    {semanas.lista.map((s) => `${s.etiqueta}: ${s.n}`).join(", ")}
+                  </span>
+                </span>
+              }
+              hint={`${semanas.lista[semanas.lista.length - 2]?.n ?? 0} la semana pasada frente a una media de ${semanas.media.toFixed(1).replace(".", ",")} (raya) · la última va en curso`}
+            />
+          )}
           <CalendarStat
             label="Por tipo"
             value={
@@ -399,52 +555,75 @@ export default function Calendar() {
       toolbar={
         /* También en el móvil (19/10/2026): con `hidden md:block` no se
            podía filtrar por jugador desde el teléfono. */
-        <div className="relative min-w-0">
-          <Users
-            size={15}
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#C8A96B]"
-          />
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <div className="relative min-w-0">
+            <Users
+              size={15}
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#C8A96B]"
+            />
 
-          <select
-            value={playerFilter}
-            onChange={(e) => setPlayerFilter(e.target.value)}
-            aria-label="Filtrar por jugador"
-            className="max-w-[200px] rounded-xl border border-white/10 bg-[#11161D] py-2 pl-9 pr-3 text-sm outline-none transition hover:border-[#C8A96B] focus:border-[#C8A96B]"
-          >
-            <option value="">Todos los jugadores</option>
+            <select
+              value={playerFilter}
+              onChange={(e) => setPlayerFilter(e.target.value)}
+              aria-label="Filtrar por jugador"
+              className="max-w-[230px] rounded-xl border border-white/10 bg-[#11161D] py-2 pl-9 pr-3 text-sm outline-none transition hover:border-[#C8A96B] focus:border-[#C8A96B]"
+            >
+              {/* 16/11/2026: lo que de verdad enseña (los porteros llevan su
+                  registro aparte); cada grupo por orden alfabético. */}
+              <option value="">Todos (sin porteros)</option>
 
-            {/* 30/10/2026: el Castilla primero y los de otros equipos aparte. */}
-            <optgroup label={`Castilla (${players.filter((p) => p.esCastilla).length})`}>
-              {players
-                .filter((p) => p.esCastilla)
-                .map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {nombreVisible(p.nombre)}
-                  </option>
+              {/* 30/10/2026: el Castilla primero y los de otros equipos aparte. */}
+              {[
+                { etiqueta: "Castilla · de campo", lista: players.filter((p) => p.esCastilla) },
+                { etiqueta: "Otros equipos", lista: players.filter((p) => !p.esCastilla) },
+              ]
+                .filter((g) => g.lista.length > 0)
+                .map((g) => (
+                  <optgroup key={g.etiqueta} label={`${g.etiqueta} (${g.lista.length})`}>
+                    {g.lista
+                      .map((p) => ({ id: p.id, nombre: nombreVisible(p.nombre) }))
+                      .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"))
+                      .map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.nombre}
+                        </option>
+                      ))}
+                  </optgroup>
                 ))}
-            </optgroup>
+            </select>
+          </div>
 
-            <optgroup label={`Otros equipos (${players.filter((p) => !p.esCastilla).length})`}>
-              {players
-                .filter((p) => !p.esCastilla)
-                .map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {nombreVisible(p.nombre)}
-                  </option>
-                ))}
-            </optgroup>
-          </select>
+          {playerFilter && playersMap[playerFilter] && (
+            <EnlacesJugador
+              jugador={{ id: playerFilter, nombre: nombreVisible(playersMap[playerFilter].nombre) }}
+              destinos={["ficha", "registrar"]}
+            />
+          )}
         </div>
       }
       renderDay={({ key }) => {
         const daySessions = sessionsByDay.get(key) ?? [];
         const hasSessions = daySessions.length > 0;
+        const partido = partidosPorDia.get(key);
 
         /* 08/11/2026: el «Toca seguir» de la casilla de hoy repetía la franja
            de arriba (que ya da los días); se deja sólo la franja. */
 
+        /* 16/11/2026 (jueces): el día de partido, marcado con su rival y su
+           resultado, para leer el seguimiento contra el microciclo. */
+        const marcaPartido = partido ? (
+          <p
+            className="truncate rounded-md bg-sky-500/15 px-1.5 py-0.5 text-[11px] font-semibold text-sky-300"
+            title={`Partido · J${partido.jornada} · ${rotuloPartido(partido)}`}
+          >
+            ⚽ {rotuloPartido(partido)}
+          </p>
+        ) : null;
+
         if (!hasSessions) {
-          return {};
+          return partido
+            ? { hasContent: true, onClick: () => setSelectedKey(key), children: marcaPartido }
+            : {};
         }
 
         const visible = daySessions.slice(0, MAX_VISIBLE_PER_DAY);
@@ -457,7 +636,7 @@ export default function Calendar() {
           crece: true,
           onClick: () => setSelectedKey(key),
           badges: (
-            <span className="rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-2 py-0.5 text-[10px] font-semibold text-[#C8A96B]">
+            <span className="rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-2 py-0.5 text-[11px] font-semibold text-[#C8A96B]">
               {daySessions.length}
               <span className="hidden md:inline">
                 {daySessions.length === 1 ? " seguimiento" : " seguimientos"}
@@ -466,6 +645,7 @@ export default function Calendar() {
           ),
           children: (
             <>
+              {marcaPartido}
               {visible.map((session, index) => {
                 const jugador = playersMap[session.ID_JUGADOR];
                 const style = STRATEGY_STYLES[strategyKey(session.ESTRATEGIA)];
@@ -501,11 +681,11 @@ export default function Calendar() {
                       {nombreVisible(jugador?.nombre || session.NOMBRE?.trim() || "Sin jugador en la hoja")}
                     </p>
 
-                    {session.QUIEN?.trim() && (
-                      <p className="truncate text-[8px] text-white/55 md:text-[10px]">
-                        {session.QUIEN}
-                      </p>
-                    )}
+                    {/* 16/11/2026 (jueces): sin autor escrito, la segunda
+                        línea dice el tipo; la tarjeta no queda con hueco. */}
+                    <p className="truncate text-[9px] text-white/55 md:text-[11px]">
+                      {session.QUIEN?.trim() || style.label}
+                    </p>
                   </div>
                 );
               })}
@@ -517,7 +697,7 @@ export default function Calendar() {
                     e.stopPropagation();
                     setSelectedKey(key);
                   }}
-                  className="w-full pt-0.5 text-center text-[10px] font-medium text-[#C8A96B]/80 underline-offset-2 hover:underline"
+                  className="w-full pt-0.5 text-center text-[11px] font-medium text-[#C8A96B] underline-offset-2 hover:underline"
                 >
                   +{hidden} más · ver el día
                 </button>
@@ -530,10 +710,10 @@ export default function Calendar() {
       {!loading && !error && trackingData.length > 0 && (
         <div className="px-4 pb-4 md:px-8">
           <p className="text-xs leading-relaxed text-white/55">
-            La franja de color de cada tarjeta dice el tipo (ver la leyenda bajo
-            el calendario; al pasar por encima, en texto); debajo del nombre,
-            quién lo hizo. Si un día tiene más de {MAX_VISIBLE_PER_DAY}, «+N
-            más» abre el día completo. Hoy lleva a quién toca seguir.
+            La franja de color de cada tarjeta dice el tipo (la leyenda está
+            sobre el calendario); debajo del nombre, quién lo hizo. En azul, el
+            día de partido con su rival y su resultado. Pulsar un día abre todos
+            sus registros; pulsar una tarjeta, la ficha del jugador.
           </p>
         </div>
       )}
@@ -549,9 +729,11 @@ export default function Calendar() {
       {selectedDate && (
         <CalendarDayModal
           date={selectedDate}
-          subtitle={`${selectedSessions.length} ${
-            selectedSessions.length === 1 ? "seguimiento" : "seguimientos"
-          }`}
+          subtitle={
+            selectedSessions.length === 0
+              ? "Día de partido"
+              : `${selectedSessions.length} ${selectedSessions.length === 1 ? "seguimiento" : "seguimientos"}`
+          }
           onClose={() => setSelectedKey(null)}
           onPrev={() => goToDay(selectedIndex - 1)}
           onNext={() => goToDay(selectedIndex + 1)}
@@ -559,9 +741,30 @@ export default function Calendar() {
           canNext={selectedIndex >= 0 && selectedIndex < sessionDays.length - 1}
         >
           <div className="space-y-3">
-            {selectedSessions.length === 0 && (
+            {selectedKey && partidosPorDia.get(selectedKey) && (() => {
+              const p = partidosPorDia.get(selectedKey)!;
+
+              return (
+                <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-4">
+                  <p className="text-[11px] uppercase tracking-wider text-white/55">Partido · jornada {p.jornada}</p>
+                  <p className="mt-1 text-lg font-semibold">{rotuloPartido(p)}</p>
+                  {/* El post de Análisis de datos abre en el último partido y
+                      deja elegir el resto en su desplegable. */}
+                  {p.jugado && (
+                    <Link
+                      href="/data-analisis?area=post"
+                      className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-[#C8A96B] hover:underline"
+                    >
+                      Análisis del partido <ArrowRight size={14} aria-hidden />
+                    </Link>
+                  )}
+                </div>
+              );
+            })()}
+
+            {selectedSessions.length === 0 && !(selectedKey && partidosPorDia.get(selectedKey)) && (
               <CalendarEmptyState>
-                No hay seguimientos registrados este día.
+                Elige otro día con las flechas.
               </CalendarEmptyState>
             )}
 
@@ -586,9 +789,16 @@ export default function Calendar() {
                       </p>
 
                       <p className="mt-1 text-sm text-[#C8A96B]">
-                        {session.ESTRATEGIA}
-                        {session.QUIEN ? ` · ${session.QUIEN}` : ""}
+                        {[session.ESTRATEGIA?.trim(), session.QUIEN?.trim()].filter(Boolean).join(" · ")}
                       </p>
+
+                      {jugador && (
+                        <EnlacesJugador
+                          jugador={{ id: session.ID_JUGADOR, nombre: nombreVisible(jugador.nombre) }}
+                          destinos={["ficha", "seguimiento", "registrar"]}
+                          className="mt-2"
+                        />
+                      )}
                     </div>
 
                     <ArrowRight

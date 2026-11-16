@@ -6,7 +6,7 @@ import { EstadoError, Hueso } from "@/components/ui/estados";
 import { chipInk } from "@/lib/theme";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   Check,
   Eraser,
@@ -67,6 +67,13 @@ const VIDEO_EMBED = `https://drive.google.com/file/d/${VIDEO_ID}/preview`;
 
 /* Por debajo de esto la media es una tendencia, no un diagnóstico. */
 const MUESTRA_MINIMA = 12;
+
+/* 16/11/2026 (jueces): por debajo de 25 valoraciones, la media de una línea es tendencia. */
+const VALORACIONES_FIRMES = 25;
+
+/* Hoy, como «AAAA-MM-DD», leído fuera del render (regla de pureza del linter). */
+const nadaQueOir = () => () => {};
+const hoyIso = () => new Date().toISOString().slice(0, 10);
 
 
 const EMPTY_GROUPS: Record<GroupKey, string[]> = {
@@ -189,6 +196,16 @@ export default function EmotionPage() {
         .at(-1) ?? null,
     [docEmocional],
   );
+
+  /* 16/11/2026 (jueces): la fecha va en el titular y, pasados 14 días, se
+     avisa «a revisar». «Hoy» se lee fuera del render. */
+  const hoy = useSyncExternalStore(nadaQueOir, hoyIso, () => "");
+  const diasDesdeValoracion = useMemo(() => {
+    if (!fechaValoracion || !hoy) return null;
+    const d = (Date.parse(`${hoy}T12:00:00Z`) - Date.parse(`${fechaValoracion.slice(0, 10)}T12:00:00Z`)) / 86_400_000;
+    return Number.isFinite(d) ? Math.max(0, Math.round(d)) : null;
+  }, [fechaValoracion, hoy]);
+  const fechaCorta = fechaValoracion ? `${fechaValoracion.slice(8, 10)}/${fechaValoracion.slice(5, 7)}` : "";
 
   const [editando, setEditando] = useState(false);
   const { players: plantilla } = usePlayers();
@@ -498,8 +515,26 @@ export default function EmotionPage() {
                   {/* 10/11/2026: la conclusión antes de los radares: línea más alta,
                       más baja y el titular más bajo, con la media real (sin
                       los que llevan la media de la plantilla). */}
+                  {/* 16/11/2026 (jueces): la fecha de la valoración en el
+                      titular, con aviso «a revisar» pasados 14 días, y la base
+                      (una valoración por jugador: menos de 25, tendencia). */}
+                  {fechaCorta && (
+                    <p className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[.14em] text-white/60">
+                      Estado del once según la valoración del {fechaCorta}
+                      {diasDesdeValoracion !== null && diasDesdeValoracion >= 14 && (
+                        <span className="rounded-full border border-amber-500/50 bg-amber-500/10 px-2 py-0.5 normal-case tracking-normal text-amber-300">
+                          a revisar · hace {diasDesdeValoracion} días
+                        </span>
+                      )}
+                    </p>
+                  )}
                   {conclusion && (
-                    <p className="mt-3 max-w-2xl text-base font-medium leading-snug text-white">{conclusion}</p>
+                    <p className="mt-1.5 max-w-2xl text-base font-medium leading-snug text-white">{conclusion}</p>
+                  )}
+                  {rows.length > 0 && rows.length < VALORACIONES_FIRMES && (
+                    <p className="mt-1 max-w-2xl text-[11px] text-white/55">
+                      Base: {rows.length} jugadores con una valoración cada uno; cada línea suma de 2 a 5, así que sus medias son tendencia, no diagnóstico.
+                    </p>
                   )}
 
                   {/* Una línea discreta: qué parte de lo que se ve no sale de la hoja. */}
@@ -520,7 +555,11 @@ export default function EmotionPage() {
                           <span className="font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)]">Ver →</span>
                         </button>
                       )}
-                      <SaveState status={estadoDoc} localOnly={localOnly} savedAt={lastSavedAt} sinGuardar={sinGuardar} onGuardar={() => void guardaYa()} />
+                      {/* 16/11/2026 (jueces): «Guardado HH:MM» no se enseña en
+                          la lectura; sólo si algo está pendiente o falla. */}
+                      {(sinGuardar || localOnly || (estadoDoc !== "saved" && estadoDoc !== "loading")) && (
+                        <SaveState status={estadoDoc} localOnly={localOnly} savedAt={lastSavedAt} sinGuardar={sinGuardar} onGuardar={() => void guardaYa()} />
+                      )}
                     </p>
                   )}
                 </div>
@@ -1126,6 +1165,18 @@ function RadarPanel({
                 {synergyLabel} · {series.length} jugadores
               </span>
             ))}
+
+          {/* 16/11/2026 (jueces): cada jugador aporta UNA valoración; por
+              debajo de 25 la media de una línea es tendencia y se dice con
+              su base. */}
+          {series.length >= 3 && series.length < VALORACIONES_FIRMES && (
+            <span
+              className="rounded-full border border-dashed border-white/25 px-2 py-0.5 text-[11px] font-semibold text-white/60"
+              title={`Media de ${series.length} valoraciones (una por jugador): con menos de ${VALORACIONES_FIRMES} es tendencia`}
+            >
+              tendencia · {series.length} valoraciones
+            </span>
+          )}
         </div>
       </div>
 
@@ -1363,15 +1414,22 @@ function RadarPanel({
           </div>
 
           {teamAverage && series.length > 0 && (
-            <div className="mt-1 flex items-center justify-center gap-1.5 text-[10px] text-white/50">
+            <div className="mt-1 flex items-center justify-center gap-1.5 text-[11px] text-white/55">
               <svg width="18" height="4" aria-hidden>
                 <line x1="0" y1="2" x2="18" y2="2" stroke="#8FA3B8" strokeWidth="1.5" strokeDasharray="4 3" />
               </svg>
-              Media de la plantilla
+              trazo discontinuo: media de la plantilla
             </div>
           )}
 
-          {/* Lectura numérica: el radar da la forma, esto da el dato */}
+          {/* Lectura numérica: el radar da la forma, esto da el dato.
+              16/11/2026 (jueces): rotulada «Media de la línea»; antes, bajo
+              «Media de la plantilla», parecían las cifras de toda la plantilla. */}
+          {groupAverages && (
+            <p className="mt-2 text-[11px] font-semibold uppercase tracking-[.14em] text-white/60">
+              Media de la línea · {series.length} {series.length === 1 ? "jugador" : "jugadores"}
+            </p>
+          )}
           {groupAverages && (
             <div
               className={`mt-2 grid gap-2 ${

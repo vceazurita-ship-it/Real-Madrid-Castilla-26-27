@@ -66,7 +66,8 @@ import { useRatingsSeason } from "@/hooks/useRatings";
 import { AreaMejora } from "@/components/individual/AreaMejora";
 import { Tendencia } from "@/components/individual/Tendencia";
 import { OptaFicha } from "@/components/individual/OptaFicha";
-import { playerEntries } from "@/lib/ratings/compute";
+import { playerEntries, sortedMatches, summarizeAll } from "@/lib/ratings/compute";
+import { EnlacesJugador } from "@/components/individual/EnlacesJugador";
 import { getPlayerImage, normalizePlayerName, PLAYER_PHOTO_FALLBACK } from "@/lib/playerImages";
 import { isHiddenPlayer } from "@/lib/hiddenPlayers";
 import { cohorteCastilla, esDelCastilla, idVigente, mismoJugador } from "@/lib/fichajes";
@@ -1482,11 +1483,14 @@ function RejillaJugadores({
   jugadores,
   onSelect,
   lista = false,
+  rinde,
 }: {
   jugadores: MergedPlayer[];
   onSelect: (player: MergedPlayer) => void;
   /** Vista en lista compacta (la del móvil por defecto, 07/11/2026). */
   lista?: boolean;
+  /** Nota de los 3 últimos y % de minutos, por ID (Valoraciones). */
+  rinde?: Map<string, Rinde>;
 }) {
   const propios = jugadores.filter((p) => !p.externo);
   const externos = jugadores.filter((p) => p.externo);
@@ -1500,13 +1504,13 @@ function RejillaJugadores({
     lista ? (
       <div className="grid min-w-0 gap-2 md:grid-cols-2">
         {grupo.map((player) => (
-          <FilaListaJugador key={player.idJugador} player={player} onSelect={onSelect} />
+          <FilaListaJugador key={player.idJugador} player={player} onSelect={onSelect} rinde={rinde?.get(player.idJugador)} />
         ))}
       </div>
     ) : (
       <div className={REJILLA}>
         {grupo.map((player, i) => (
-          <PlayerCard key={player.idJugador} player={player} onSelect={onSelect} prioridad={primeros && i < 8} />
+          <PlayerCard key={player.idJugador} player={player} onSelect={onSelect} prioridad={primeros && i < 8} rinde={rinde?.get(player.idJugador)} />
         ))}
       </div>
     );
@@ -1614,15 +1618,52 @@ function estaSinSeguir(player: MergedPlayer) {
   return !player.externo && !esPortero(player.linea) && player.sessions !== null && (dias === null || dias > DIAS_SIN_SEGUIMIENTO);
 }
 
+/*
+| CÓMO ESTÁ EN EL CAMPO (16/11/2026, ronda 18): la primera vista tenía que
+| decir cómo está cada uno, no sólo la foto y los días sin seguimiento. Dos
+| datos que ya viven en Valoraciones: la nota media de sus tres últimos
+| partidos con nota y sus minutos sobre los posibles de los partidos que hay
+| en Valoraciones (90′ por partido). Sin partidos, no se pinta.
+*/
+type Rinde = { ultimas3: number | null; nUltimas: number; minutos: number; posibles: number };
+
+function LineaRinde({ rinde }: { rinde?: Rinde }) {
+  if (!rinde || (rinde.ultimas3 === null && rinde.minutos === 0)) return null;
+
+  const pct = rinde.posibles > 0 ? Math.round((rinde.minutos / rinde.posibles) * 100) : null;
+
+  return (
+    <span className="flex min-w-0 items-center gap-2 whitespace-nowrap text-[11px] tabular-nums text-white/65">
+      {rinde.ultimas3 !== null && (
+        <span
+          title={`Nota media de sus ${rinde.nUltimas} últimos partidos con nota (Valoraciones)`}
+          className="inline-flex items-center gap-1"
+        >
+          <Star size={11} className="shrink-0" aria-hidden />
+          <span className="font-semibold" style={{ color: scoreColorHex(rinde.ultimas3) }}>{coma(rinde.ultimas3)}</span>
+          <span>últ. {rinde.nUltimas}</span>
+        </span>
+      )}
+      {pct !== null && (
+        <span title={`${rinde.minutos}′ de ${rinde.posibles}′ posibles (partidos de Valoraciones, 90′ cada uno)`}>
+          {pct} % min.
+        </span>
+      )}
+    </span>
+  );
+}
+
 function PlayerCard({
   player,
   onSelect,
   prioridad = false,
+  rinde,
 }: {
   player: MergedPlayer;
   onSelect: (player: MergedPlayer) => void;
   /** Las primeras de la rejilla cargan ya: con «lazy», en el móvil salía la inicial. */
   prioridad?: boolean;
+  rinde?: Rinde;
 }) {
   const [sinFoto, setSinFoto] = useState(!player.photo);
   const iniciales = player.name
@@ -1720,9 +1761,14 @@ function PlayerCard({
         </p>
       </div>
 
-      {/* Pie de la misma altura en todas las fichas (07/11/2026). */}
-      <div className="mt-auto flex min-h-[38px] min-w-0 flex-wrap items-center justify-start gap-x-3 gap-y-1 px-2.5 py-2">
-        <PieFicha player={player} />
+      {/* Pie de la misma altura en todas las fichas (07/11/2026; 16/11/2026:
+          dos renglones fijos, rendimiento y seguimiento, para que la
+          parrilla no quede desalineada con o sin «Sin seguir»). */}
+      <div className="mt-auto flex min-h-[58px] min-w-0 flex-col justify-center gap-1 px-2.5 py-2">
+        <LineaRinde rinde={rinde} />
+        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+          <PieFicha player={player} />
+        </div>
       </div>
     </button>
   );
@@ -1739,7 +1785,7 @@ function baseFicha(player: MergedPlayer) {
 }
 
 /** Una fila de la vista en lista (07/11/2026): lo mismo que la ficha, en 56 px. */
-function FilaListaJugador({ player, onSelect }: { player: MergedPlayer; onSelect: (player: MergedPlayer) => void }) {
+function FilaListaJugador({ player, onSelect, rinde }: { player: MergedPlayer; onSelect: (player: MergedPlayer) => void; rinde?: Rinde }) {
   const { valoradas, pocas, detalle } = baseFicha(player);
   return (
     <button
@@ -1755,6 +1801,7 @@ function FilaListaJugador({ player, onSelect }: { player: MergedPlayer; onSelect
           <span className="shrink-0 truncate text-[11px] uppercase tracking-[0.12em] text-white/50">{player.puesto}</span>
         </p>
         <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5">
+          <LineaRinde rinde={rinde} />
           <PieFicha player={player} />
         </div>
       </div>
@@ -1772,6 +1819,11 @@ function FilaListaJugador({ player, onSelect }: { player: MergedPlayer; onSelect
 function PieFicha({ player }: { player: MergedPlayer }) {
   const diasSinSeguir = diasDesdeSeguimiento(player);
   const sinSeguir = estaSinSeguir(player);
+  /* 16/11/2026: los porteros llevan su seguimiento con su entrenador, en un
+     registro aparte. «8 seguim. · hace 91 días» parecía abandono y el rótulo
+     repetido en cada ficha era ruido: lo dice una vez la cabecera PORTEROS y
+     su ficha sólo enseña vídeos e informe. */
+  const portero = esPortero(player.linea);
   return (
     <>
       {sinSeguir && (
@@ -1784,16 +1836,16 @@ function PieFicha({ player }: { player: MergedPlayer }) {
       )}
       {/* 08/11/2026: los porteros no entran en el aviso (llevan su propia
           planificación), pero su fila no puede quedarse sin señal. */}
-      {!sinSeguir && player.sessions === 0 && (
+      {!sinSeguir && !portero && player.sessions === 0 && (
         <span
           className="rounded-full border border-white/15 px-1.5 py-0.5 text-[11px] text-white/60"
-          title={esPortero(player.linea) ? "Los porteros llevan su seguimiento con su entrenador, fuera de esta hoja" : "Sin registros de seguimiento en la temporada"}
+          title="Sin registros de seguimiento en la temporada"
         >
-          {esPortero(player.linea) ? "Seguimiento del entrenador de porteros" : "Sin seguimiento"}
+          Sin seguimiento
         </span>
       )}
       {/* Rotulado y con su fecha (05/11/2026): «21» solo junto a una carpeta no decía qué contaba. */}
-      {player.sessions !== null && player.sessions > 0 && (
+      {!portero && player.sessions !== null && player.sessions > 0 && (
         <span
           className="flex min-w-0 items-center gap-1 whitespace-nowrap text-[11px] tabular-nums text-white/65"
           title={`${player.sessions} seguimientos en la temporada`}
@@ -2069,9 +2121,33 @@ export default function IndividualPage() {
           const pestanaPedida = new URLSearchParams(window.location.search).get("pestana");
           const pestana = TABS.find((t) => t.key === pestanaPedida)?.key ?? "perfil";
 
+          /* 16/11/2026 (ronda 18): ?nuevo=seguimiento abre el formulario de
+             «Nuevo seguimiento» con el jugador ya elegido (desde Calendario,
+             Dashboard Seguimiento, Valoraciones, Emocional…). */
+          const nuevo = new URLSearchParams(window.location.search).get("nuevo") === "seguimiento";
+
           if (wanted && players.some((p) => p.idJugador === wanted)) {
             setSelectedId(wanted);
-            setActiveTab(pestana);
+            setActiveTab(nuevo ? "seguimiento" : pestana);
+
+            if (nuevo) {
+              const vacio = {
+                FECHA: "",
+                OBJETIVO_OFENSIVO: "",
+                OBJETIVO_DEFENSIVO: "",
+                OBJETIVO_MENTAL: "",
+                FEEDBACK: "",
+                QUIEN: "",
+                MODALIDAD: "",
+                MOMENTO: "",
+                ESTRATEGIA: "",
+              };
+              setEditingTracking(null);
+              setReplicarEn([]);
+              setFotoTracking(vacio);
+              setTrackingForm(vacio);
+              setShowTrackingForm(true);
+            }
 
             window.history.replaceState({}, "", "/individual");
           }
@@ -2351,6 +2427,54 @@ export default function IndividualPage() {
 
     return sinSeguimientoReciente(trackingAlineado, plantilla, hoy, (fecha) => recordDateKey(fecha));
   }, [mergedPlayers, trackingAlineado, trackingData.length, pendiente.seguimiento, pendiente.jugadores, hoy]);
+
+  /* 16/11/2026 (ronda 18): nota de los tres últimos y minutos, por jugador,
+     de Valoraciones; los posibles son 90′ por partido de la temporada. */
+  const rinde = useMemo(() => {
+    const m = new Map<string, Rinde>();
+    if (!ratingsSeason) return m;
+
+    const posibles = sortedMatches(ratingsSeason).length * 90;
+
+    summarizeAll(ratingsSeason).forEach((s, id) => {
+      const notas = s.entries.map((e) => e.entry.rating).filter((n) => n > 0);
+      const ultimas = notas.slice(-3);
+      m.set(id, {
+        ultimas3: ultimas.length ? ultimas.reduce((a, b) => a + b, 0) / ultimas.length : null,
+        nUltimas: ultimas.length,
+        minutos: s.minutes,
+        posibles,
+      });
+    });
+
+    return m;
+  }, [ratingsSeason]);
+
+  /* 16/11/2026 (ronda 18): lo primero, un gráfico con conclusión: días desde
+     el último seguimiento de cada jugador de campo del Castilla, con la raya
+     de los 14 días del aviso y la mediana. Misma población que las cifras. */
+  const diasCampo = useMemo(() => {
+    if (pendiente.seguimiento || pendiente.jugadores || trackingData.length === 0) return null;
+
+    const filas = mergedPlayers
+      .filter((p) => !p.externo && !esPortero(p.linea) && p.sessions !== null)
+      .map((p) => ({ jugador: p, dias: diasDesdeSeguimiento(p) }))
+      .sort((a, b) => (b.dias ?? 9999) - (a.dias ?? 9999) || a.jugador.name.localeCompare(b.jugador.name, "es"));
+
+    if (filas.length === 0) return null;
+
+    const conDias = filas.map((f) => f.dias).filter((d): d is number => d !== null).sort((a, b) => a - b);
+    const mitad = Math.floor(conDias.length / 2);
+    const mediana = conDias.length
+      ? conDias.length % 2
+        ? conDias[mitad]
+        : Math.round((conDias[mitad - 1] + conDias[mitad]) / 2)
+      : null;
+    const tope = Math.max(2 * DIAS_SIN_SEGUIMIENTO, ...conDias);
+    const fuera = filas.filter((f) => f.dias === null || f.dias > DIAS_SIN_SEGUIMIENTO).length;
+
+    return { filas, mediana, tope, fuera };
+  }, [mergedPlayers, trackingData.length, pendiente.seguimiento, pendiente.jugadores]);
 
   /* La base de «X de N jugadores» sigue al filtro de equipo: con «Castilla»
      elegido, 1 vídeo es «1 de 21 del Castilla» y no «1 de 40». */
@@ -3560,36 +3684,77 @@ export default function IndividualPage() {
                 </div>
               )}
 
-              {/* SIN SEGUIMIENTO EN 14 DÍAS (misma regla que /calendar) */}
-              {sinSeguimiento.length > 0 && (
-                <div
-                  role="status"
-                  className="mt-6 rounded-xl border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-4 py-3 text-sm text-white/80"
+              {/* SIN SEGUIMIENTO EN 14 DÍAS (misma regla que /calendar).
+                  16/11/2026 (ronda 18): un gráfico con su conclusión en el
+                  título —días desde el último seguimiento de cada jugador de
+                  campo del Castilla, la raya de los 14 días y la mediana— y,
+                  en quien se pasa, «Registrar» con el jugador ya elegido. */}
+              {diasCampo && (
+                <section
+                  aria-label="Días desde el último seguimiento"
+                  className={`mt-6 rounded-2xl border px-4 py-3 ${sinSeguimiento.length > 0 ? "border-[#C8A96B]/30 bg-[#C8A96B]/[0.06]" : "border-white/10 bg-white/[0.025]"}`}
                 >
-                  <p className="font-semibold text-[#C8A96B]">
-                    A quién toca seguir: {sinSeguimiento.length} del Castilla sin seguimiento en {DIAS_SIN_SEGUIMIENTO} días
+                  <h2 className="text-sm font-semibold text-white/90">
+                    {sinSeguimiento.length > 0
+                      ? <>A quién toca seguir: <span className="text-[#C8A96B]">{sinSeguimiento.length} de {diasCampo.filas.length}</span> sin seguimiento en {DIAS_SIN_SEGUIMIENTO} días</>
+                      : <>Todos los {diasCampo.filas.length} con seguimiento en los últimos {DIAS_SIN_SEGUIMIENTO} días</>}
+                    {diasCampo.mediana !== null && (
+                      <span className="font-normal text-white/60"> · mediana {diasCampo.mediana} {diasCampo.mediana === 1 ? "día" : "días"} desde el último</span>
+                    )}
+                  </h2>
+                  <p className="mt-0.5 text-[11px] text-white/55">
+                    Jugadores de campo del Castilla (los porteros llevan su seguimiento aparte). Días desde su último registro; la raya marca los {DIAS_SIN_SEGUIMIENTO} días del aviso.
                   </p>
-                  <p className="mt-0.5 text-[11px] text-white/55">Jugadores de campo con licencia del Castilla; los porteros llevan su seguimiento aparte. Cada uno abre su ficha.</p>
-                  {/* 08/11/2026: en chips con sus días, para leerlo de un vistazo en el móvil. */}
-                  <div className="mt-2 flex min-w-0 flex-wrap gap-1.5">
-                    {[...sinSeguimiento]
-                      .map((j) => ({ ...j, dias: diasDesdeSeguimiento(j.jugador) }))
-                      .sort((a, b) => (b.dias ?? 9999) - (a.dias ?? 9999))
-                      .map((j) => (
-                        <button
-                          key={j.id}
-                          type="button"
-                          onClick={() => openPlayer(j.jugador)}
-                          className="inline-flex min-w-0 items-center gap-1.5 rounded-full border border-[#C8A96B]/40 bg-white/[0.04] px-2.5 py-1 text-xs transition hover:border-[#C8A96B]"
-                        >
-                          <span className="truncate font-semibold">{j.nombre}</span>
-                          <span className="shrink-0 tabular-nums text-white/60">
-                            {j.dias !== null ? `${j.dias} días` : "ningún registro"}
+
+                  <ul className="mt-3 grid min-w-0 gap-x-6 gap-y-1 lg:grid-cols-2">
+                    {diasCampo.filas.map(({ jugador, dias }) => {
+                      const pasa = dias === null || dias > DIAS_SIN_SEGUIMIENTO;
+                      const ancho = dias === null ? 100 : Math.max(2, (dias / diasCampo.tope) * 100);
+                      const color = dias === null || dias >= 2 * DIAS_SIN_SEGUIMIENTO ? "#F87171" : pasa ? "#C8A96B" : "rgb(var(--rmcf-ink-rgb) / .28)";
+                      return (
+                        /* En el móvil, sólo quien se pasa de los 14 días: el resto, desde 640 px. */
+                        <li key={jugador.idJugador} className={`${pasa || sinSeguimiento.length === 0 ? "grid" : "hidden sm:grid"} min-w-0 grid-cols-[minmax(0,7.5rem)_minmax(0,1fr)_auto] items-center gap-2 text-[11px] sm:grid-cols-[minmax(0,9rem)_minmax(0,1fr)_auto]`}>
+                          <button
+                            type="button"
+                            onClick={() => openPlayer(jugador)}
+                            title={`Abrir la ficha de ${jugador.name}`}
+                            className={`truncate text-left transition hover:text-[#C8A96B] hover:underline ${pasa ? "font-semibold text-white/90" : "text-white/70"}`}
+                          >
+                            {nombreVisible(jugador.name)}
+                          </button>
+                          <span className="relative h-3 min-w-0 rounded-full bg-white/[0.05]">
+                            <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${ancho}%`, background: color }} />
+                            <span
+                              aria-hidden
+                              className="absolute -inset-y-0.5 w-px"
+                              style={{ left: `${(DIAS_SIN_SEGUIMIENTO / diasCampo.tope) * 100}%`, background: "rgb(var(--rmcf-ink-rgb) / .55)" }}
+                            />
                           </span>
-                        </button>
-                      ))}
-                  </div>
-                </div>
+                          <span className="flex items-center justify-end gap-1.5 tabular-nums">
+                            <span className={pasa ? "font-semibold text-white/90" : "text-white/60"}>
+                              {dias === null ? "ninguno" : dias === 0 ? "hoy" : `${dias} d`}
+                            </span>
+                            {pasa && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  openPlayer(jugador);
+                                  setActiveTab("seguimiento");
+                                  openTrackingForm();
+                                }}
+                                title={`Nuevo seguimiento de ${jugador.name}`}
+                                className="inline-flex items-center gap-1 rounded-full border border-[#C8A96B]/50 bg-[#C8A96B]/15 px-2 py-0.5 font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/25"
+                              >
+                                <Plus size={11} aria-hidden />
+                                Registrar
+                              </button>
+                            )}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
               )}
 
 
@@ -3606,7 +3771,7 @@ export default function IndividualPage() {
                   hint={
                     pendiente.seguimiento
                       ? "cargando los seguimientos…"
-                      : `${stats.todos ? `${stats.castilla} del Castilla + ${stats.externos} de otros equipos · ` : base.de ? `${base.de.trim()} · ` : ""}${stats.tracked} de ${stats.deCampo} de campo con algún seguimiento en la temporada (los porteros llevan el suyo aparte)`
+                      : `${stats.todos ? `${stats.castilla} del Castilla + ${stats.externos} de otros equipos · ` : base.de ? `${base.de.trim()} · ` : ""}${stats.tracked} de ${stats.deCampo} jugadores de campo con algún seguimiento en la temporada (los porteros llevan el suyo aparte)`
                   }
                 />
 
@@ -3628,10 +3793,11 @@ export default function IndividualPage() {
                 {stats.rated >= 3 && stats.avg > 0 && (
                   <StatTile
                     icon={Gauge}
-                    label="Media competencias"
+                    label="Nota del scout"
                     value={stats.avg.toFixed(1).replace(".", ",")}
-                    /* 10/11/2026: tres datos en el pie; el método, en la ayuda de la pantalla. */
-                    hint={`nota del scout · ${stats.rated} fichas · de ${coma(stats.minScore)} a ${coma(stats.maxScore)}`}
+                    /* 10/11/2026: tres datos en el pie; el método, en la ayuda de la pantalla.
+                       16/11/2026: «Media competencias» era jerga; se dice qué es y su escala. */
+                    hint={`media de ${stats.rated} fichas, escala 0-10 (cinco competencias) · de ${coma(stats.minScore)} a ${coma(stats.maxScore)}`}
                   >
                     {/* La leyenda del distintivo de las fichas, dentro de su tarjeta (07/11/2026). */}
                     <p className="mt-2 flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-white/55">
@@ -3851,19 +4017,27 @@ export default function IndividualPage() {
 
                           <div className="h-px min-w-0 flex-1 bg-white/10" />
 
-                          <span className="shrink-0 text-xs tabular-nums text-white/25">
+                          {/* 16/11/2026: una sola nota para los porteros, en
+                              vez del mismo rótulo repetido en cada ficha. */}
+                          {line.key === "Portero" && (
+                            <span className="min-w-0 truncate text-[11px] text-white/50">
+                              Seguimiento con su entrenador, en un registro aparte
+                            </span>
+                          )}
+
+                          <span className="shrink-0 text-xs tabular-nums text-white/40">
                             {linePlayers.length}
                           </span>
                         </div>
 
-                        <RejillaJugadores jugadores={linePlayers} onSelect={openPlayer} lista={vista === "lista"} />
+                        <RejillaJugadores jugadores={linePlayers} onSelect={openPlayer} lista={vista === "lista"} rinde={rinde} />
                       </section>
                     );
                   })}
                 </div>
               ) : (
                 <div className="mt-8">
-                  <RejillaJugadores jugadores={filtered} onSelect={openPlayer} lista={vista === "lista"} />
+                  <RejillaJugadores jugadores={filtered} onSelect={openPlayer} lista={vista === "lista"} rinde={rinde} />
                 </div>
               )}
             </div>
@@ -4046,6 +4220,29 @@ export default function IndividualPage() {
                     );
                   })}
                 </div>
+              </div>
+
+              {/* 16/11/2026 (ronda 18): lo que completa la ficha, a un toque y
+                  con el jugador ya elegido. Fuera del PDF. */}
+              <div data-export-hide className="flex shrink-0 min-w-0 flex-wrap items-center gap-1.5 border-b border-white/10 px-3 py-2 sm:px-5">
+                <span className="text-[11px] text-white/50">Seguir con él:</span>
+                {!esPortero(selected.linea) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab("seguimiento");
+                      openTrackingForm();
+                    }}
+                    className="inline-flex min-h-[26px] items-center gap-1 rounded-full border border-[#C8A96B]/50 bg-[#C8A96B]/15 px-2 py-0.5 text-[11px] font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/25"
+                  >
+                    <Plus size={12} aria-hidden />
+                    Registrar seguimiento
+                  </button>
+                )}
+                <EnlacesJugador
+                  jugador={{ id: selected.idJugador, nombre: selected.name }}
+                  destinos={esPortero(selected.linea) ? ["data", "comparativa"] : ["data", "comparativa", "calendario"]}
+                />
               </div>
 
               {pasoPdf && (
