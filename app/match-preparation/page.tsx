@@ -98,6 +98,8 @@ type Rival = Record<string, string>;
 | se cambia lo que se ve; el campo FECHA de la hoja no se toca (se autoguarda).
 */
 const FECHAS_REALES = new Map<string, string>();
+/* Y la hora oficial («21:15») cuando BeSoccer la publica (16/11/2026, fútbol: la cabecera iba sin hora). */
+const HORAS_REALES = new Map<string, string>();
 
 function fechaDe(r: Rival | null | undefined): string {
   if (!r) return "";
@@ -1384,6 +1386,7 @@ export default function MatchPreparation() {
 
       for (const partido of orden.partidos) {
         if (partido.fecha && partido.jornada) FECHAS_REALES.set(`${partido.equipo}|${partido.jornada}`, partido.fecha);
+        if (partido.hora && partido.jornada) HORAS_REALES.set(`${partido.equipo}|${partido.jornada}`, partido.hora);
       }
 
       setCalendarioListo((n) => n + 1);
@@ -2751,9 +2754,13 @@ export default function MatchPreparation() {
                           primera pantalla del móvil. Al editar vuelven. */}
                       {!editando && (() => {
                         /* «En casa» ya va en la etiqueta de arriba (07/11/2026, fútbol): aquí, fecha y medidas. */
+                        /* La hora oficial al lado y la medida dicha («campo de 105×68 m»):
+                           suelta no se entendía (16/11/2026, fútbol). */
+                        const medida = String(rivalActivo.DIMENSIONES ?? "").replace(/\s*[xX×]\s*/, "×").replace(/\s*m\.?$/i, "").trim();
                         const partes = [
                           fechaConDia(fechaDe(rivalActivo)),
-                          String(rivalActivo.DIMENSIONES ?? "").replace(/\s*[xX×]\s*/, "×").trim(),
+                          HORAS_REALES.get(`${rivalActivo.EQUIPO}|${rivalActivo.JORNADA}`) ?? "",
+                          medida ? `campo de ${medida} m` : "",
                         ].filter(Boolean);
 
                         return partes.length ? (
@@ -3154,7 +3161,26 @@ export default function MatchPreparation() {
                   const lectura = lecturaDelAnalista(rivalActivo, duelosClave.grupos);
                   const signo = (n: number | null) => (n == null ? "" : `${n > 0 ? "+" : n < 0 ? "−" : ""}${Math.abs(n)}`);
 
-                  const tarjeta = (d: DueloClave, modo: "buscar" | "doble" | "vigilar" | "parejos" | "tendencia") => (
+                  /*
+                  | SIN REPETIR (16/11/2026, fútbol): con S. Martínez sin minutos, «nuestros
+                  | pivotes vs su mediapunta» y «doble pivote vs doble pivote» eran Cestero
+                  | dos veces. Quien no tiene minutos se dice una vez, arriba, y el duelo que
+                  | sólo repite a los mismos nuestros va en una línea, sin tarjeta.
+                  */
+                  const vistos = new Set<string>();
+                  const repetidos = new Set<string>();
+                  for (const d of [...duelosClave.grupos.buscar, ...duelosClave.grupos.doble, ...duelosClave.grupos.vigilar, ...duelosClave.grupos.parejos, ...duelosClave.grupos.tendencia]) {
+                    if (d.sinMinutosNuestros.length > 0 && d.nuestros.length > 0 && d.nuestros.every((n) => vistos.has(n))) repetidos.add(d.clave);
+                    d.nuestros.forEach((n) => vistos.add(n));
+                  }
+                  const sinMinutos = [...new Set(Object.values(duelosClave.grupos).flat().flatMap((d) => d.sinMinutosNuestros))];
+
+                  const tarjeta = (d: DueloClave, modo: "buscar" | "doble" | "vigilar" | "parejos" | "tendencia") =>
+                    repetidos.has(d.clave) ? (
+                    <li key={d.clave} className="text-[13px] text-white/60">
+                      <b className="tabular-nums">{signo(modo === "buscar" ? d.conBalon : modo === "vigilar" ? d.sinBalon : d.valor)}</b> {d.titulo}: otra vez {d.nuestros.join(" y ")}, ahora contra {d.suyos.join(" y ")}.
+                    </li>
+                    ) : (
                     <li key={d.clave} className="flex gap-2.5">
                       {modo !== "doble" && modo !== "parejos" && (
                         <b className={`w-10 shrink-0 tabular-nums ${modo === "tendencia" ? "text-white/60" : modo === "buscar" ? "text-emerald-300" : "text-rose-300"}`}>
@@ -3177,6 +3203,12 @@ export default function MatchPreparation() {
                           {d.nuestros.join(" y ")} contra {d.suyos.join(" y ")}
                         </span>
                         {d.base && <span className="block text-[13px] text-white/50">{d.base}</span>}
+                        {/* La consigna de vestuario, sacada del enfrentamiento que más pierde (16/11/2026, fútbol). */}
+                        {d.consigna && (
+                          <span className="mt-1 block text-[13px] leading-5 text-white/80">
+                            <b className="font-semibold text-[#C8A96B]">Qué le decimos:</b> {d.consigna}
+                          </span>
+                        )}
                         {(lectura.etiquetas.get(d.clave) ?? []).map((e, i) => (
                           <span
                             key={`${e.campo}-${i}`}
@@ -3198,6 +3230,11 @@ export default function MatchPreparation() {
 
                   return (
                     <>
+                      {sinMinutos.length > 0 && (
+                        <p className="mb-3 text-[13px] text-white/60">
+                          {sinMinutos.join(" y ")} {sinMinutos.length === 1 ? "no tiene" : "no tienen"} minutos en Wyscout: en sus duelos se mide sólo a su compañero de línea.
+                        </p>
+                      )}
                       <div className={`mb-4 grid gap-4 ${columnas.length >= 3 ? "lg:grid-cols-3" : columnas.length === 2 ? "md:grid-cols-2" : ""}`}>
                         {columnas.map(([grupo, titulo, ayuda, color, lista]) => (
                           <div key={grupo} id={`duelos-${grupo}`} className="scroll-mt-56 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-4">

@@ -410,12 +410,14 @@ export default function OnceTitular({
                   )}
                 >
                   {/* Más pequeña en el móvil: con la foto de 32 px, la línea de cuatro se quedaba en «A…» (07/11/2026). */}
-                  <span className="relative h-6 w-6 shrink-0 overflow-hidden rounded-full bg-white/10 sm:h-8 sm:w-8">
+                  {/* A 390 px ni con la foto pequeña cabía el nombre («Mar…», 16/11/2026, fútbol): en el móvil, sólo el dorsal. */}
+                  <span className="w-4 shrink-0 text-center text-[11px] font-bold tabular-nums text-[#C8A96B] sm:hidden">{jugador?.dorsal ? String(jugador.dorsal) : (token?.label ?? "")}</span>
+                  <span className="relative hidden h-8 w-8 shrink-0 overflow-hidden rounded-full bg-white/10 sm:block">
                     {token?.foto ? <Image src={token.foto} alt="" fill sizes="32px" className="pointer-events-none object-cover" unoptimized draggable={false} /> : null}
                     <span className="absolute -bottom-0.5 -right-0.5 rounded-full bg-[#11161C] px-1 text-[9px] font-bold tabular-nums leading-tight text-[#C8A96B]">{/* El dorsal de la ficha del jugador, como en la lista de abajo (11/11/2026: Carvajal salía con el 9 aquí y el 19 abajo). */}{jugador?.dorsal ? String(jugador.dorsal) : (token?.label ?? "")}</span>
                   </span>
                   <span className="min-w-0">
-                    <span className="block truncate text-[12px] font-semibold text-white/90">{nombre || "Toca para poner"}</span>
+                    <span className="block break-words text-[12px] font-semibold leading-tight text-white/90 sm:truncate">{nombre || "Toca para poner"}</span>
                     <span className={cn("block truncate text-[11px]", baja ? "text-amber-300" : "text-white/45")}>{baja ?? CORTO[k]}</span>
                   </span>
                 </button>

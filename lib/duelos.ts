@@ -577,6 +577,94 @@ export function mideDuelos(
 export const ROTULO_HUECO = new Map(HUECOS.map((h) => [h.clave, h.rotulo]));
 
 /* ------------------------------------------------------------------ */
+/*  QUÉ LE DECIMOS (16/11/2026, jueces)                                */
+/* ------------------------------------------------------------------ */
+
+/*
+| Cada duelo acababa en «gana X» y le faltaba la consigna de vestuario. Sale
+| del enfrentamiento que más pierde el nuestro en ese momento (con su balón o
+| con el nuestro) y se escribe para el jugador: «Leiva: no saltar a Mier
+| cuando conduce; temporizar y esperar la ayuda». Si en ese momento no pierde
+| nada y es con nuestro balón, la consigna es buscar lo que gana.
+*/
+type Plantilla = (n: string, s: string) => string;
+
+/** Defendiendo (balón suyo), el enfrentamiento que perdemos. */
+const DEFENDER: Record<string, Plantilla> = {
+  [E.regate.titulo]: (n, s) => `${n}: no tirarse al cruce con ${s}; orientarle hacia fuera y esperar la ayuda`,
+  [E.cuerpo.titulo]: (n, s) => `${n}: no ir al choque con ${s}; defender de cara y cerrarle el pase`,
+  [E.ritmo.titulo]: (n, s) => `${n}: no esperar parado a ${s}; tomar distancia antes de que arranque`,
+  [E.espalda.titulo]: (n, s) => `${n}: vigilar la espalda; no quedarse en línea con ${s} y perfilarse para correr hacia atrás`,
+  [E.conduccion.titulo]: (n, s) => `${n}: no saltar a ${s} cuando conduce; temporizar y esperar la ayuda`,
+  [E.rompe.titulo]: (n, s) => `${n}: tapar el pase interior de ${s}; que juegue hacia fuera`,
+  [E.presion.titulo]: (n, s) => `${n}: no presionar solo a ${s}, sale bien de la presión; saltar con la ayuda cerca`,
+  [E.recibir.titulo]: (n, s) => `${n}: no dejar recibir a ${s} entre líneas; ir de cerca y cerrar el pase interior`,
+  [E.ultimo.titulo]: (n, s) => `${n}: cerrar el último pase de ${s}; que no reciba de cara al área`,
+  [E.centro.titulo]: (n, s) => `${n}: no dejar centrar cómodo a ${s}; salir al cierre y defender el área por arriba`,
+  [E.remate.titulo]: (n, s) => `${n}: no dejar rematar a ${s}; achicar y tapar el disparo`,
+  [AEREO.titulo]: (n, s) => `${n}: ganar la posición a ${s} antes del balón por arriba y atacar el rechace`,
+};
+
+/** Atacando (balón nuestro), el enfrentamiento que perdemos: se evita. */
+const EVITAR: Record<string, Plantilla> = {
+  [E.regate.titulo]: (n, s) => `${n}: poco regate contra ${s}; mejor pared o pase y desmarque`,
+  [E.cuerpo.titulo]: (n, s) => `${n}: no aguantar de espaldas contra ${s}; jugar a uno o dos toques`,
+  [E.ritmo.titulo]: (n, s) => `${n}: el cambio de ritmo no le gana a ${s}; buscar el dos contra uno con el compañero`,
+  [E.espalda.titulo]: (n, s) => `${n}: ${s} corta los desmarques a la espalda; mejor el apoyo y el pase al pie`,
+  [E.conduccion.titulo]: (n, s) => `${n}: no conducir hacia ${s}; soltar antes y atacar el espacio después`,
+  [E.rompe.titulo]: (n, s) => `${n}: ${s} corta el pase interior; circular por fuera o cambiar de orientación`,
+  [E.presion.titulo]: (n, s) => `${n}: ${s} aprieta bien; jugar fácil y con apoyo cerca`,
+  [E.recibir.titulo]: (n, s) => `${n}: ${s} corta lo que llega entre líneas; recibir de cara o en movimiento`,
+  [E.ultimo.titulo]: (n, s) => `${n}: ${s} tapa el último pase; buscar antes el centro o el remate`,
+  [E.centro.titulo]: (n, s) => `${n}: ${s} gana por arriba; centros rasos o al segundo palo`,
+  [E.remate.titulo]: (n, s) => `${n}: ${s} tapa los remates; rematar tras pase atrás, no de cara al bloqueo`,
+  [AEREO.titulo]: (n, s) => `${n}: ${s} gana por arriba; balón al pie, no en largo`,
+};
+
+/** Atacando, el enfrentamiento que ganamos: se busca. */
+const BUSCAR: Record<string, Plantilla> = {
+  [E.regate.titulo]: (n, s) => `${n}: encarar a ${s}; el uno contra uno es nuestro`,
+  [E.cuerpo.titulo]: (n, s) => `${n}: aguantar y proteger el balón contra ${s}`,
+  [E.ritmo.titulo]: (n, s) => `${n}: cambiar de ritmo contra ${s}`,
+  [E.espalda.titulo]: (n, s) => `${n}: atacar la espalda de ${s}`,
+  [E.conduccion.titulo]: (n, s) => `${n}: conducir hacia ${s} y obligarle a salir`,
+  [E.rompe.titulo]: (n, s) => `${n}: buscar el pase que rompe por delante de ${s}`,
+  [E.presion.titulo]: (n, s) => `${n}: sacar el balón jugado aunque apriete ${s}`,
+  [E.recibir.titulo]: (n, s) => `${n}: ofrecerse entre líneas a la espalda de ${s}`,
+  [E.ultimo.titulo]: (n, s) => `${n}: buscar el último pase; ${s} no llega a taparlo`,
+  [E.centro.titulo]: (n, s) => `${n}: centrar; ${s} pierde por arriba`,
+  [E.remate.titulo]: (n, s) => `${n}: rematar; ${s} no tapa`,
+  [AEREO.titulo]: (n, s) => `${n}: balón por arriba hacia él; le gana a ${s}`,
+};
+
+/** El sentido que manda en la consigna: con el balón suyo si ahí perdemos; si no, con el nuestro. */
+export const sentidoDeLaConsigna = (d: Pick<ResultadoDuelo, "conBalon" | "sinBalon">): "con" | "sin" =>
+  (d.sinBalon ?? 0) <= -UMBRAL_DUELO ? "sin" : "con";
+
+/**
+ * La consigna de vestuario de un duelo en un momento («con» = balón nuestro,
+ * «sin» = balón suyo), con la métrica que la apoya. Vacío si no hay un
+ * enfrentamiento que se despegue (lo que no tiene dato no se nombra).
+ */
+export function consignaDelDuelo(d: ResultadoDuelo, sentido: "con" | "sin"): string {
+  const facetas = d.facetas.filter((f) => (f.sentido === sentido || f.sentido === "aire") && f.diferencia !== null);
+  const peor = facetas.filter((f) => f.veredicto === "desventaja").sort((a, b) => (a.diferencia ?? 0) - (b.diferencia ?? 0))[0];
+  const mejor = facetas.filter((f) => f.veredicto === "ventaja").sort((a, b) => (b.diferencia ?? 0) - (a.diferencia ?? 0))[0];
+  const elegida = peor ?? (sentido === "con" ? mejor : undefined);
+  if (!elegida) return "";
+  const tabla = peor ? (sentido === "sin" ? DEFENDER : EVITAR) : BUSCAR;
+  const plantilla = tabla[elegida.titulo];
+  if (!plantilla) return "";
+  /* El nuestro que más lo sufre (o más lo gana) y el suyo que más lo hace. */
+  const porPercentil = (ms: Medida[], alto: boolean) => [...ms].sort((a, b) => (alto ? b.percentil - a.percentil : a.percentil - b.percentil))[0];
+  const n = porPercentil(elegida.nuestros, !peor)?.jugador;
+  const s = porPercentil(elegida.suyos, Boolean(peor))?.jugador;
+  if (!n || !s) return "";
+  const nombre = (j: JugadorDuelo) => j.corto ?? apellido(j.nombre);
+  return `${plantilla(nombre(n), nombre(s))} (${elegida.titulo.toLowerCase()}: P${elegida.nuestro} frente a P${elegida.suyo}).`;
+}
+
+/* ------------------------------------------------------------------ */
 /*  LO QUE SE GUARDA                                                   */
 /* ------------------------------------------------------------------ */
 

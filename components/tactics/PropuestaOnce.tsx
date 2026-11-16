@@ -224,7 +224,11 @@ export default function PropuestaOnce({
             </ul>
           </section>
 
-          <ol className="mt-3 divide-y divide-white/[0.06] rounded-xl border border-white/10 bg-white/[0.02]">
+          {/* De dónde sale cada puesto, en una línea (16/11/2026, marketing). */}
+          <p className="mt-3 text-[12px] leading-snug text-white/60">
+            Cada puesto parte del once que hay ahora en la pizarra (nuestro último once) y cambia si otro disponible le supera con los factores de arriba frente al once probable del {datos?.rival ?? rival} (el de Duelos); «Entra» marca el cambio y, al lado, el porqué.
+          </p>
+          <ol className="mt-2 divide-y divide-white/[0.06] rounded-xl border border-white/10 bg-white/[0.02]">
             {propuesta.elegidos.map((e) => (
               <li key={e.hueco} className="flex flex-col gap-0.5 px-3 py-2 sm:flex-row sm:items-baseline sm:gap-3">
                 <span className="flex min-w-0 items-baseline gap-2 sm:w-56 sm:shrink-0">
