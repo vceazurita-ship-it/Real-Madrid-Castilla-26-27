@@ -27,6 +27,7 @@ import {
 } from "@/lib/data-analisis/metricas";
 import { MINUTOS_MINIMOS, puestoDe, valorDe, type Puesto } from "@/lib/data-analisis/individual";
 import { HUECOS, ladoDeWyscout, proponeOnce } from "@/lib/data-analisis/once";
+import { enLaMediana, lecturaDePuesto, puestoEnLiga } from "@/lib/rivals/puesto-liga";
 import { indiceDe, percentilesDe, referenciaDe, type Percentil } from "@/lib/comparativa-u21";
 
 /* ------------------------------------------------------------------ */
@@ -145,13 +146,6 @@ export type PerfilColectivo = {
   estilo: MetricaEquipo[];
 };
 
-const mediana = (v: number[]) => {
-  const o = [...v].sort((a, b) => a - b);
-  if (!o.length) return 0;
-  const m = Math.floor(o.length / 2);
-  return o.length % 2 ? o[m] : (o[m - 1] + o[m]) / 2;
-};
-
 /** Claves de estilo que se enseñan siempre, aunque tengan «bueno»: dicen cómo juega. */
 const CLAVES_ESTILO = ["posesion", "ppda", "pasesPorPosesion", "longitudPase", "cuotaProgresivos", "contras", "centros", "pasesLargos", "recuperacionesAltas"];
 
@@ -171,15 +165,17 @@ export function perfilDe(equipo: string, liga: FilaPartido[]): PerfilColectivo |
     if (valor === null) continue;
     const valores = equipos.map((e) => valorEnGrupo(m, porEquipo.get(e) ?? [], "promedio")).filter((v): v is number => v !== null);
     if (valores.length < 4) continue;
-    const orden = [...valores].sort((a, b) => (m.mejorAlto === false ? a - b : b - a));
+    /* El puesto y la mediana, con la cuenta común del rival (16/11/2026): la misma que Plantillas y Área. */
+    const sitio = puestoEnLiga(valor, valores, m.mejorAlto);
+    if (!sitio) continue;
     metricas.push({
       metrica: m,
       valor,
       percentil: m.mejorAlto === null ? null : percentilDe(valor, valores, m.mejorAlto),
-      puesto: orden.findIndex((v) => v === valor) + 1,
-      puestoDeMas: [...valores].sort((a, b) => b - a).findIndex((v) => v === valor) + 1,
-      de: valores.length,
-      mediana: mediana(valores),
+      puesto: sitio.puesto,
+      puestoDeMas: puestoEnLiga(valor, valores, null)?.puesto ?? sitio.puesto,
+      de: sitio.de,
+      mediana: sitio.mediana,
     });
   }
 
@@ -191,6 +187,11 @@ export function perfilDe(equipo: string, liga: FilaPartido[]): PerfilColectivo |
  * aparte para poder rehacerlo cuando alguna métrica cambia de fuente (Opta
  * manda en xG, remates y PPDA: `lib/cifras-equipo.ts`).
  */
+/** «fuerte», «flojo» o nada, con la regla común de `lib/rivals/puesto-liga.ts`. */
+export function lecturaDeMetrica(x: MetricaEquipo) {
+  return lecturaDePuesto(x.puesto, x.de, x.metrica.mejorAlto, enLaMediana(x.valor, x.mediana));
+}
+
 export function cierraPerfil(competicion: string, equipos: number, metricas: MetricaEquipo[]): PerfilColectivo {
   const conBueno = metricas.filter((x) => x.percentil !== null);
   const ordenadas = [...conBueno].sort((a, b) => (b.percentil ?? 0) - (a.percentil ?? 0));
@@ -213,8 +214,13 @@ export function cierraPerfil(competicion: string, equipos: number, metricas: Met
       const de = conBueno.filter((x) => x.metrica.fase === f.key).map((x) => x.percentil as number);
       return { fase: f.key, label: f.label, percentil: de.length ? Math.round(de.reduce((a, b) => a + b, 0) / de.length) : null };
     }),
-    fuertes: unaPorGrupo(ordenadas.filter((x) => (x.percentil ?? 0) >= 60)).slice(0, 6),
-    flojos: unaPorGrupo([...ordenadas].reverse().filter((x) => (x.percentil ?? 100) <= 40)).slice(0, 6),
+    /*
+    | Fuerte o flojo SÓLO en los extremos (16/11/2026, jueces de fútbol): entre
+    | los 6 primeros de 20 o entre los 6 últimos, y nunca en la mediana. Con el
+    | listón del P60 entraba como «donde destaca» un 8.º de 20.
+    */
+    fuertes: unaPorGrupo(ordenadas.filter((x) => lecturaDeMetrica(x) === "fuerte")).slice(0, 6),
+    flojos: unaPorGrupo([...ordenadas].reverse().filter((x) => lecturaDeMetrica(x) === "flojo")).slice(0, 6),
     estilo: CLAVES_ESTILO.map((k) => metricas.find((x) => x.metrica.key === k)).filter((x): x is MetricaEquipo => Boolean(x)),
   };
 }

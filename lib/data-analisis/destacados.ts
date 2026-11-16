@@ -14,6 +14,7 @@ import {
   type Puesto,
 } from "./individual";
 import { mismoEquipo } from "./nombres";
+import { medianaLiga, puestoEnLiga, type LecturaPuesto } from "@/lib/rivals/puesto-liga";
 
 /**
  * QUÉ HACE DISTINTO A ESTE EQUIPO, Y A ESTE JUGADOR.
@@ -192,6 +193,11 @@ export type DesviacionMetrica = {
   /** El menor y el mayor de la liga (11/11/2026): los extremos de la barra de ABP y Área del rival. */
   minimo?: number;
   maximo?: number;
+  /** Su puesto entre los equipos, con el sentido de la métrica (1.º, el mejor; en las de estilo, el que más). */
+  puesto?: number;
+  de?: number;
+  /** «fuerte» entre los 6 primeros de 20, «flojo» entre los 6 últimos; `null` en medio. */
+  lectura?: LecturaPuesto;
 };
 
 export type DestacadoEquipo = {
@@ -241,21 +247,20 @@ function percentilEnLiga(
 
   if (valores.length < 5) return null;
 
-  const peores = valores.filter((v) =>
-    mejorAlto === false ? v > valor : v < valor,
-  ).length;
+  /* El puesto, la mediana y la lectura, con la cuenta común de las pantallas
+     del rival (`lib/rivals/puesto-liga.ts`, 16/11/2026). */
+  const enLaLiga = puestoEnLiga(valor, valores, mejorAlto);
 
-  const iguales = valores.filter((v) => v === valor).length;
-
-  const mediana = [...valores].sort((a, b) => a - b)[
-    Math.floor(valores.length / 2)
-  ];
+  if (!enLaLiga) return null;
 
   return {
-    percentil: Math.round(((peores + iguales / 2) / valores.length) * 100),
-    mediana,
-    minimo: Math.min(...valores),
-    maximo: Math.max(...valores),
+    percentil: enLaLiga.percentil,
+    mediana: enLaLiga.mediana,
+    minimo: enLaLiga.minimo,
+    maximo: enLaLiga.maximo,
+    puesto: enLaLiga.puesto,
+    de: enLaLiga.de,
+    lectura: enLaLiga.lectura,
   };
 }
 
@@ -323,6 +328,9 @@ export function destacadosDeEquipo(
           percentil: enLaLiga.percentil,
           minimo: enLaLiga.minimo,
           maximo: enLaLiga.maximo,
+          puesto: enLaLiga.puesto,
+          de: enLaLiga.de,
+          lectura: enLaLiga.lectura,
         });
       }
 
@@ -356,8 +364,8 @@ export type NubeAspecto = {
   puntos: PuntoNube[];
 };
 
-const medianaDe = (valores: number[]) =>
-  [...valores].sort((a, b) => a - b)[Math.floor(valores.length / 2)];
+/* La misma mediana que el puesto de cada cifra (16/11/2026). */
+const medianaDe = medianaLiga;
 
 /**
  * Los veinte equipos en las dos métricas de un aspecto.
