@@ -70,7 +70,7 @@ import { playerEntries } from "@/lib/ratings/compute";
 import { getPlayerImage, normalizePlayerName, PLAYER_PHOTO_FALLBACK } from "@/lib/playerImages";
 import { isHiddenPlayer } from "@/lib/hiddenPlayers";
 import { cohorteCastilla, esDelCastilla, idVigente, mismoJugador } from "@/lib/fichajes";
-import { alineaSeguimiento, DIAS_SIN_SEGUIMIENTO, sinSeguimientoReciente } from "@/lib/seguimiento";
+import { alineaSeguimiento, DIAS_SIN_SEGUIMIENTO, esPortero, sinSeguimientoReciente } from "@/lib/seguimiento";
 import { nombrePuesto, posicionDe } from "@/lib/posiciones";
 import { detectRow } from "@/lib/ratings/pitch";
 import { recordDateKey } from "@/lib/calendar";
@@ -1611,7 +1611,7 @@ const diaMes = (d: Date) => `${String(d.getDate()).padStart(2, "0")}/${String(d.
 /** Del Castilla, de campo y más de 14 días sin registro (la regla del aviso de arriba). */
 function estaSinSeguir(player: MergedPlayer) {
   const dias = diasDesdeSeguimiento(player);
-  return !player.externo && !/portero/i.test(player.linea) && player.sessions !== null && (dias === null || dias > DIAS_SIN_SEGUIMIENTO);
+  return !player.externo && !esPortero(player.linea) && player.sessions !== null && (dias === null || dias > DIAS_SIN_SEGUIMIENTO);
 }
 
 function PlayerCard({
@@ -1787,9 +1787,9 @@ function PieFicha({ player }: { player: MergedPlayer }) {
       {!sinSeguir && player.sessions === 0 && (
         <span
           className="rounded-full border border-white/15 px-1.5 py-0.5 text-[11px] text-white/60"
-          title={/portero/i.test(player.linea) ? "Los porteros llevan su seguimiento con su entrenador, fuera de esta hoja" : "Sin registros de seguimiento en la temporada"}
+          title={esPortero(player.linea) ? "Los porteros llevan su seguimiento con su entrenador, fuera de esta hoja" : "Sin registros de seguimiento en la temporada"}
         >
-          {/portero/i.test(player.linea) ? "Seguimiento del entrenador de porteros" : "Sin seguimiento"}
+          {esPortero(player.linea) ? "Seguimiento del entrenador de porteros" : "Sin seguimiento"}
         </span>
       )}
       {/* Rotulado y con su fecha (05/11/2026): «21» solo junto a una carpeta no decía qué contaba. */}
@@ -2285,13 +2285,19 @@ export default function IndividualPage() {
 
     const rated = enFiltro.filter((p) => p.score > 0);
 
-    const ultimas = enFiltro
+    /* 16/11/2026: los porteros llevan un registro independiente y no
+       cuentan en las cifras de seguimiento (`esPortero`, lib/seguimiento):
+       ni en «con algún seguimiento», ni en el total, ni en la mediana. */
+    const deCampo = enFiltro.filter((p) => !esPortero(p.linea));
+    const porteros = new Set(mergedPlayers.filter((p) => esPortero(p.linea)).map((p) => p.idJugador));
+
+    const ultimas = deCampo
       .map((p) => p.lastSession?.getTime() ?? 0)
       .filter((t) => t > 0);
 
     /* Referencias de las cifras (07/11/2026): mediana de seguimientos por
        jugador y el tramo de las medias de competencias. */
-    const porJugador = enFiltro.map((p) => p.sessions ?? 0).sort((a, b) => a - b);
+    const porJugador = deCampo.map((p) => p.sessions ?? 0).sort((a, b) => a - b);
     const mitad = Math.floor(porJugador.length / 2);
     const medianaSeg = porJugador.length
       ? porJugador.length % 2
@@ -2312,8 +2318,11 @@ export default function IndividualPage() {
       ultimoRegistro: ultimas.length ? new Date(Math.max(...ultimas)) : null,
       externos: mergedPlayers.filter((p) => p.externo).length,
       rated: rated.length,
-      tracked: enFiltro.filter((p) => (p.sessions ?? 0) > 0).length,
-      sessions: todos ? trackingData.length : enFiltro.reduce((n, p) => n + (p.sessions ?? 0), 0),
+      deCampo: deCampo.length,
+      tracked: deCampo.filter((p) => (p.sessions ?? 0) > 0).length,
+      sessions: todos
+        ? trackingAlineado.filter((t) => !porteros.has(t.ID_JUGADOR)).length
+        : deCampo.reduce((n, p) => n + (p.sessions ?? 0), 0),
       videos: videoData.length,
       reports: reportData.length,
       withVideos: mergedPlayers.filter((p) => (p.videos ?? 0) > 0).length,
@@ -2322,7 +2331,7 @@ export default function IndividualPage() {
         ? rated.reduce((acc, p) => acc + p.score, 0) / rated.length
         : 0,
     };
-  }, [mergedPlayers, trackingData, videoData, reportData, teamFilter]);
+  }, [mergedPlayers, trackingAlineado, videoData, reportData, teamFilter]);
 
   /* 30/10/2026: la misma regla que /calendar y /individual_proc
      (lib/seguimiento): jugadores de campo del Castilla sin ningún registro
@@ -3597,7 +3606,7 @@ export default function IndividualPage() {
                   hint={
                     pendiente.seguimiento
                       ? "cargando los seguimientos…"
-                      : `${stats.todos ? `${stats.castilla} del Castilla + ${stats.externos} de otros equipos · ` : base.de ? `${base.de.trim()} · ` : ""}${stats.tracked} de ${stats.players} con algún seguimiento en la temporada`
+                      : `${stats.todos ? `${stats.castilla} del Castilla + ${stats.externos} de otros equipos · ` : base.de ? `${base.de.trim()} · ` : ""}${stats.tracked} de ${stats.deCampo} de campo con algún seguimiento en la temporada (los porteros llevan el suyo aparte)`
                   }
                 />
 
@@ -3608,7 +3617,7 @@ export default function IndividualPage() {
                   hint={
                     pendiente.seguimiento
                       ? "cargando los seguimientos…"
-                      : `registros en la temporada, ${stats.todos ? "de todos los jugadores" : `de los jugadores${base.de}`} · mediana ${stats.medianaSeg} por jugador${
+                      : `registros en la temporada, ${stats.todos ? "de todos los jugadores de campo" : `de los jugadores de campo${base.de}`} · mediana ${stats.medianaSeg} por jugador${
                           stats.ultimoRegistro
                             ? ` · último: ${stats.ultimoRegistro.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit" })}`
                             : ""
@@ -4816,7 +4825,8 @@ export default function IndividualPage() {
                   </p>
                   <SeleccionJugadores
                     jugadores={mergedPlayers
-                      .filter((p) => !p.externo)
+                      /* 16/11/2026: sin porteros (llevan su registro aparte), salvo el de la ficha. */
+                      .filter((p) => !p.externo && (!esPortero(p.linea) || p.idJugador === selected.idJugador))
                       .map((p) => ({ id: p.idJugador, nombre: p.name, foto: p.photoFace || p.photo, posicion: p.position }))}
                     seleccion={replicarEn}
                     onCambia={(ids) => {

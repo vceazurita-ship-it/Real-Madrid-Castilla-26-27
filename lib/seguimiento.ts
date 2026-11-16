@@ -133,12 +133,52 @@ interface JugadorConLicencia {
   posicion: string;
 }
 
-export function esDeSeguimiento(jugador: JugadorConLicencia) {
-  const puesto = String(jugador.posicion ?? "").trim();
+/*
+| ¿ES PORTERO? (16/11/2026)
+|
+| El analista: «a los porteros que no los contabilice ni en el seguimiento
+| ni en jugadores sesión, que llevan un registro independiente». Es la
+| única regla del portero para esas pantallas. La hoja JUGADORES escribe el
+| puesto con palabra («PORTERO») o con el número de rol (1, y 13 el
+| suplente; ver `lib/posiciones.ts`); /individual lo trae ya en palabras
+| («Portero») y algunas listas usan la sigla («POR», «GK», «PT»).
+*/
+export function esPortero(posicion: unknown): boolean {
+  const puesto = String(posicion ?? "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .trim()
+    .toUpperCase();
 
-  if (puesto === "1" || /portero/i.test(puesto)) return false;
+  if (!puesto) return false;
+  if (/^(1|13|POR\.?|GK|PT)$/.test(puesto)) return true;
+
+  return /PORTER|GOALKEEPER|ARQUERO/.test(puesto);
+}
+
+export function esDeSeguimiento(jugador: JugadorConLicencia) {
+  if (esPortero(jugador.posicion)) return false;
 
   return jugador.esCastilla;
+}
+
+/**
+ * Las filas de seguimiento que NO son de un portero. Tienen que venir
+ * alineadas (`alineaSeguimiento`) contra la plantilla entera: así el
+ * registro de un portero lleva su ID y se aparta. Los registros siguen en
+ * la hoja; sólo dejan de contarse y de listarse.
+ */
+export function sinPorteros<T extends { ID_JUGADOR: string }>(
+  filasAlineadas: T[],
+  plantilla: { id: string; posicion?: unknown }[],
+): T[] {
+  const porteros = new Set(
+    plantilla.filter((jugador) => esPortero(jugador.posicion)).map((jugador) => jugador.id),
+  );
+
+  if (porteros.size === 0) return filasAlineadas;
+
+  return filasAlineadas.filter((fila) => !porteros.has(fila.ID_JUGADOR));
 }
 
 /*

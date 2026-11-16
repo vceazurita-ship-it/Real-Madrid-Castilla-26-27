@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Users } from "lucide-react";
 import { usePlayers } from "@/hooks/usePlayers";
-import { alineaSeguimiento, DIAS_SIN_SEGUIMIENTO, sinSeguimientoReciente } from "@/lib/seguimiento";
+import { alineaSeguimiento, DIAS_SIN_SEGUIMIENTO, esPortero, sinPorteros, sinSeguimientoReciente } from "@/lib/seguimiento";
 import {
   CalendarShell,
   CalendarStat,
@@ -79,7 +79,15 @@ export default function Calendar() {
   const router = useRouter();
   const months = useMemo(() => buildSeasonMonths(), []);
 
-  const { players, loading: playersLoading } = usePlayers();
+  const { players: plantillaEntera, loading: playersLoading } = usePlayers();
+
+  /* 16/11/2026: los porteros llevan un registro independiente, con su
+     entrenador. No salen en el filtro ni cuentan en ninguna cifra
+     (`esPortero`, lib/seguimiento). */
+  const players = useMemo(
+    () => plantillaEntera.filter((p) => !esPortero(p.posicion)),
+    [plantillaEntera],
+  );
 
   const [currentMonth, setCurrentMonth] = useState(() =>
     currentMonthIndex(months)
@@ -88,11 +96,13 @@ export default function Calendar() {
 
   /*
   | El nombre manda sobre el ID: la hoja JUGADORES ha renumerado los JUG-XX y
-  | un seguimiento viejo apunta hoy a otra persona (ver ).
+  | un seguimiento viejo apunta hoy a otra persona (ver lib/seguimiento).
+  | Se alinea contra la plantilla ENTERA y después se apartan los registros
+  | de los porteros: siguen en la hoja, pero aquí no se pintan ni se cuentan.
   */
   const trackingData = useMemo(
-    () => alineaSeguimiento(crudoTrackingData, players),
-    [crudoTrackingData, players],
+    () => sinPorteros(alineaSeguimiento(crudoTrackingData, plantillaEntera), plantillaEntera),
+    [crudoTrackingData, plantillaEntera],
   );
   const [hoy] = useState(() => new Date());
   const [loading, setLoading] = useState(true);
@@ -355,7 +365,7 @@ export default function Calendar() {
               playerFilter
                 ? undefined
                 : `${monthStats.enCurso ? `${MONTHS[monthStats.mesPrevio].toLowerCase()} al mismo día: ${monthStats.anterior}` : `${MONTHS[monthStats.mesPrevio].toLowerCase()}: ${monthStats.anterior}`}${monthStats.programados > 0 ? ` · ${monthStats.programados} programado${monthStats.programados === 1 ? "" : "s"} después de hoy, aparte` : ""} · ${temporadaCastilla < trackingData.length
-                  ? `Temporada 26/27: ${temporadaCastilla} registros${castillaTotal > 0 ? ` de ${castillaTotal} jugadores` : ""} del Castilla (otros equipos, aparte: ${trackingData.length - temporadaCastilla})`
+                  ? `Temporada 26/27: ${temporadaCastilla} registros${castillaTotal > 0 ? ` de ${castillaTotal} jugadores de campo` : ""} del Castilla (otros equipos, aparte: ${trackingData.length - temporadaCastilla})`
                   : `${trackingData.length} en toda la temporada`}`
             }
           />
@@ -364,7 +374,7 @@ export default function Calendar() {
             value={monthStats.jugadores}
             hint={
               castillaTotal > 0
-                ? `${monthStats.castillaConSeguimiento} de los ${castillaTotal} del Castilla${
+                ? `${monthStats.castillaConSeguimiento} de los ${castillaTotal} de campo del Castilla${
                     monthStats.jugadores > monthStats.castillaConSeguimiento ? "; el resto, de otros equipos" : ""
                   }`
                 : undefined

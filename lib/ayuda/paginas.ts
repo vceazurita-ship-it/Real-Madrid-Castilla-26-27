@@ -331,6 +331,7 @@ export const AYUDAS: AyudaDePagina[] = [
       DE_DONDE_SALE,
     ],
     ojo: [
+      "En «Entrenamiento y partido», «El trabajo individual» cruza los seguimientos con los minutos de los jugadores de campo: los porteros no entran, llevan un registro independiente (16/11/2026).",
       "Cada evento de Opta (saque, remate, penalti, acción) se pincha y abre su vídeo en Opta ProVision: el Event Log del partido filtrado a esa parte y ese segundo, con el vídeo abierto (8 s antes y después). Hace falta la sesión de Opta abierta; si Opta no tiene el vídeo de ese partido, ProVision lo dice (16/11/2026).",
       "Con pocos partidos jugados, un puesto en la tabla se mueve mucho por un solo resultado.",
       "Una cifra por 90 de alguien con pocos minutos es una tendencia, no un retrato: por eso el mínimo.",
@@ -836,6 +837,7 @@ export const AYUDAS: AyudaDePagina[] = [
           },
           { que: "Dorsal", es: "Sale de su columna, no del orden de la fila" },
           { que: "Puesto", es: "Se corrige con lib/posiciones.ts: la hoja guarda números de rol" },
+          { que: "Porteros", es: "Su ficha sigue aquí, pero no cuentan en las cifras de seguimiento ni salen en «Replicar en más jugadores»: llevan un registro independiente, con su entrenador", cuenta: "Portero = puesto PORTERO, 1 o 13 (o POR, GK). «Con algún seguimiento», el total de registros y la mediana son de los jugadores de campo" },
         ],
       },
       {
@@ -877,7 +879,7 @@ export const AYUDAS: AyudaDePagina[] = [
         ],
       },
     ],
-    revisada: "2026-11-15",
+    revisada: "2026-11-16",
   },
   {
     ruta: "/individual_proc",
@@ -889,7 +891,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "A quién cuenta",
         filas: [
-          { que: "Jugadores de campo del Castilla", es: "Sólo licencia del Castilla y sin porteros: los del RMC y del juvenil llevan su seguimiento en su equipo", cuenta: "El filtro va antes de todo: cifras, gráficos, listas y CSV" },
+          { que: "Jugadores de campo del Castilla", es: "Sólo licencia del Castilla y sin porteros (puesto PORTERO, 1 o 13), que llevan un registro independiente; los del RMC y del juvenil llevan su seguimiento en su equipo", cuenta: "El filtro va antes de todo: cifras, gráficos, listas y CSV" },
           { que: "El nombre manda sobre el ID", es: "Cada registro se ata a su jugador por nombre: los JUG-XX se han renumerado" },
           { que: "Filtros", es: "Jugador, posición, entrenador y búsqueda; estrategia, modalidad, momento, mes y semana van en «Más filtros»", cuenta: "Semana de temporada: de lunes a domingo, desde la del 8 de julio" },
         ],
@@ -1027,7 +1029,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Índice", es: "Media de sus percentiles en las métricas de su puesto contra los de su puesto del grupo elegido", cuenta: "De 0 a 100; 50 = la media. Con 90′ o más; el portero, sólo contra porteros" },
           { que: "Ranking", es: "Su puesto entre los de su posición del grupo; «2º-3º de 34» = empatado en índice" },
           { que: "Evolución (pts)", es: "Puntos de índice frente a 25/26, cada año contra su categoría", cuenta: "Entre −3 y +3, estable; «nuevo» = sin minutos el año pasado. «Mejoran respecto a 25/26» pide 450′ el año pasado" },
-          { que: "Nota · Nº seguim.", es: "Su nota media en Valoraciones y sus registros de seguimiento" },
+          { que: "Nota · Nº seguim.", es: "Su nota media en Valoraciones y sus registros de seguimiento", cuenta: "Los porteros no cuentan registros de seguimiento: llevan uno independiente" },
           { que: "Gráficos por fase", es: "Una pregunta por fase del juego o dos métricas a elegir; las líneas son las medianas del grupo elegido", cuenta: "Se ve como dispersión, mapa de élite o ranking; con porteros arriba, sólo lo de portero" },
           { que: "Ficha del jugador", es: "Radiografía de percentiles, los mejores del puesto en la categoría y la proyección edad-nivel" },
           { que: "Contra otros equipos", es: "Uno de los nuestros frente a los de su puesto de los equipos que elijas, con 90′ o más", cuenta: "Percentil contra todos los de su puesto de la categoría con 90′ o más" },
@@ -2267,7 +2269,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Cuenta atrás", es: "Días, horas y minutos hasta la hora de Madrid del partido; sin hora fijada, sólo los días" },
           { que: "La tira de días", es: "Del día después del partido anterior al del próximo; hoy en dorado, el partido recuadrado", cuenta: "MD = día de partido; MD-3 = tres días antes" },
           { que: "«libre»", es: "Día sin tareas en el microciclo escrito. Si aún no hay microciclo, es la propuesta habitual" },
-          { que: "Pinchar un día", es: "Abre su sesión para poner tiempo, intensidad, evaluación y análisis post, o un seguimiento individual o de grupo" },
+          { que: "Pinchar un día", es: "Abre su sesión para poner tiempo, intensidad, evaluación y análisis post, o un seguimiento individual o de grupo", cuenta: "En el seguimiento sólo se eligen jugadores de campo del Castilla: los porteros llevan su registro aparte" },
           { que: "El botón de hoy", es: "Los contenidos de la sesión de hoy escritos en la hoja de registro; sin sesión escrita no sale" },
           { que: "Microciclo · día 3 de 7", es: "Cuánto se ha recorrido de la semana, cuántas sesiones quedan y qué días son libres" },
           { que: "Los botones", es: "Plantilla del rival, Plan de partido, Microciclo ABP, Desplazamiento (sólo fuera) y Pizarra táctica a pantalla completa con los dos onces" },
@@ -2701,10 +2703,10 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Las cifras del mes",
         filas: [
-          { que: "Seguimientos en (mes)", es: "Registros del mes que se mira; si es el mes en curso, hasta hoy", cuenta: "Debajo, el mes anterior al mismo día (o entero), lo programado después de hoy y el total de la temporada, con el Castilla y los de otros equipos aparte" },
-          { que: "Jugadores con seguimiento", es: "Jugadores distintos con algún registro ese mes", cuenta: "Debajo, cuántos son del Castilla de los que tiene la plantilla" },
+          { que: "Seguimientos en (mes)", es: "Registros del mes que se mira; si es el mes en curso, hasta hoy", cuenta: "Debajo, el mes anterior al mismo día (o entero), lo programado después de hoy y el total de la temporada, con el Castilla y los de otros equipos aparte. Los porteros no cuentan: llevan un registro independiente y sus registros no se pintan" },
+          { que: "Jugadores con seguimiento", es: "Jugadores distintos con algún registro ese mes", cuenta: "Debajo, cuántos son de los jugadores de campo del Castilla" },
           { que: "Por tipo", es: "Registros del mes por estrategia: Campo, Vídeo, Charla, Vídeo y charla, Sin tipo escrito", cuenta: "Se lee de la columna ESTRATEGIA; «Sin tipo escrito» es lo que no trae ninguna de esas palabras" },
-          { que: "Todos los jugadores", es: "Filtra todo a un jugador; el Castilla primero y los de otros equipos aparte" },
+          { que: "Todos los jugadores", es: "Filtra todo a un jugador; el Castilla primero y los de otros equipos aparte; los porteros no salen" },
         ],
       },
       {

@@ -46,7 +46,7 @@ import type { JornadaDeEquipo } from "@/lib/rivals/orden-calendario";
 import { useRatingsSeason } from "@/hooks/useRatings";
 import { traeJson } from "@/lib/hojaCsv";
 import { nombreVisible } from "@/lib/nombreJugador";
-import { alineaSeguimiento } from "@/lib/seguimiento";
+import { alineaSeguimiento, sinPorteros } from "@/lib/seguimiento";
 import { summarizeAll } from "@/lib/ratings/compute";
 import { casaNombre } from "@/lib/data-analisis/once";
 import {
@@ -473,7 +473,8 @@ export default function ComparativaCategoria() {
 
   const cuentaSeguimientos = useMemo(() => {
     const m = new Map<string, { n: number; ultima: string }>();
-    for (const s of alineaSeguimiento(seguimientos, players)) {
+    /* 16/11/2026: los porteros llevan un registro independiente y no se cuentan. */
+    for (const s of sinPorteros(alineaSeguimiento(seguimientos, players), players)) {
       const previo = m.get(s.ID_JUGADOR) ?? { n: 0, ultima: "" };
       const fecha = String(s.FECHA ?? "").slice(0, 10);
       m.set(s.ID_JUGADOR, { n: previo.n + 1, ultima: fecha > previo.ultima ? fecha : previo.ultima });
@@ -483,7 +484,7 @@ export default function ComparativaCategoria() {
 
   /* Desde cuándo cuenta la columna de seguimientos: el registro más antiguo. */
   const desdeSeguimientos = useMemo(() => {
-    const fechas = alineaSeguimiento(seguimientos, players)
+    const fechas = sinPorteros(alineaSeguimiento(seguimientos, players), players)
       .map((s) => String(s.FECHA ?? "").slice(0, 10))
       .filter((f) => /^\d{4}-\d{2}-\d{2}$/.test(f))
       .sort();
@@ -1733,7 +1734,7 @@ function Detalle({
             ["Nota media", nota && nota.played ? `${nota.avg.toFixed(1).replace(".", ",")} (${nota.played} partidos)` : ""],
             ["Titularidades", nota ? String(nota.starts) : ""],
             ["Goles · asist.", nota ? `${nota.goals} · ${nota.assists}` : ""],
-            ["Seguimientos", seg ? `${seg.n}${seg.ultima ? ` · último ${seg.ultima.split("-").reverse().join("/")}` : ""}` : "0"],
+            ["Seguimientos", seg ? `${seg.n}${seg.ultima ? ` · último ${seg.ultima.split("-").reverse().join("/")}` : ""}` : fila.puesto === "POR" ? "" : "0"],
             [
               "Evolución",
               fila.evolucion ? `${fila.evolucion.salto > 0 ? "+" : ""}${fila.evolucion.salto} pts${fila.evolucion.fiable ? "" : " (poca muestra)"}` : "",
