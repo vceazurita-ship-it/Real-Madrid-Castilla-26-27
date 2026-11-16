@@ -24,7 +24,6 @@ import { useAdmin } from "@/hooks/useAdmin";
 import { leeEventos, type JugadorDirecto } from "@/lib/opta-directo-mapas";
 import { CASTILLA_OPTA, traeOpta, type TablaOpta } from "@/lib/opta";
 import { GX, GY, retrato, territorioRetrato, ventana, type TiroRetrato } from "@/lib/opta-retrato";
-import { RelieveSuelo } from "@/components/data/RelieveSuelo";
 
 type Equipo = { teamId: string; nombre: string; color?: string; campo?: string };
 type RGB = [number, number, number];
@@ -124,29 +123,6 @@ export function RelievePartido({
       /* nada */
     }
   };
-  /*
-  | SUELO ANCHO O CAMPO 3D (16/11/2026, petición del analista: «al visionado con
-  | relieve de X se le veía como un suelo ancho que lo hacía más visual»). Por
-  | defecto, el partido entero de un vistazo sobre el suelo ancho
-  | (RelieveSuelo); el campo 3D animado sigue a un toque. Se recuerda en el aparato.
-  */
-  const [vista, setVista] = useState<"suelo" | "campo">(() => {
-    if (typeof window === "undefined") return "suelo";
-    try {
-      return localStorage.getItem("rmcf:relieve-vista") === "campo" ? "campo" : "suelo";
-    } catch {
-      return "suelo";
-    }
-  });
-  const cambiaVista = (v: "suelo" | "campo") => {
-    setVista(v);
-    try {
-      localStorage.setItem("rmcf:relieve-vista", v);
-    } catch {
-      /* nada */
-    }
-  };
-  const enSuelo = !compacto && vista === "suelo";
   /* Colores de la app (petición del analista): el nuestro (o el de la izquierda) en oro y el otro en blanco hielo. */
   const [colA, colB] = useMemo<[RGB, RGB]>(() => (modo === "app" ? [[240, 186, 70], [226, 238, 255]] : dosColores(a, b, delPartido)), [modo, a, b, delPartido]);
   const fija = async (teamId: string, hex: string) => {
@@ -189,7 +165,7 @@ export function RelievePartido({
       ro.disconnect();
       window.removeEventListener("orientationchange", mide);
     };
-  }, [compacto, enSuelo]);
+  }, [compacto]);
   useEffect(() => {
     const doc = document as Document & { webkitFullscreenElement?: Element | null };
     const cambio = () => {
@@ -373,6 +349,24 @@ export function RelievePartido({
       return (arr[k] * (1 - tx) + arr[k + 1] * tx) * (1 - ty) + (arr[k + GX] * (1 - tx) + arr[k + GX + 1] * tx) * ty;
     };
 
+    /*
+    | EL SUELO ANCHO (16/11/2026, petición del analista: «al visionado con relieve
+    | de X se le veía como un suelo ancho»). Alrededor del campo, una explanada de
+    | microbolitas mucho más ancha que el césped, con baldosas de 6 m apenas
+    | marcadas, que se apaga hacia lejos y refleja en su borde el color del equipo
+    | que domina esa zona. Se gira y se anima con el campo; no cambia el dibujo de dentro.
+    */
+    const paso = compacto ? 2.4 : 1.5;
+    const suelo: number[] = [];
+    for (let ix = -88; ix <= 88; ix++)
+      for (let iz = -56; iz <= 56; iz++) {
+        const X = ix * paso;
+        const Z = iz * paso;
+        const dist = Math.hypot(Math.max(0, Math.abs(X) - 52.5), Math.max(0, Math.abs(Z) - 34));
+        if (dist === 0 || Math.abs(X) > 140 || Math.abs(Z) > 88) continue;
+        suelo.push(X, Z, dist, ix % 4 === 0 || iz % 4 === 0 ? 1 : 0);
+      }
+
     const pinta = (ahora: number) => {
       const t = estado.current.t;
       const { total, parteA } = ventana(r, Math.min(fin, t));
@@ -409,6 +403,37 @@ export function RelievePartido({
       const giro = mandos.current.cenital ? -0.12 + 0.14 * Math.sin((ahora - inicio) / 18000) : -0.3 + 0.14 * Math.sin((ahora - inicio) / 16000);
       px.set(fondo);
       zbuf.fill(1e9);
+      for (let n = 0; n < suelo.length; n += 4) {
+        const X = suelo[n];
+        const Z = suelo[n + 1];
+        const dist = suelo[n + 2];
+        const uu = Math.min(1, Math.max(0, X / 105 + 0.5));
+        const vv = Math.min(1, Math.max(0, Z / 68 + 0.5));
+        const dom = (bil(parteA, uu, vv) - 0.5) * 2;
+        const eq = dom >= 0 ? colA : colB;
+        const refl = Math.exp(-dist / 10) * 0.5 * Math.min(1, Math.abs(dom) * 1.4) * Math.min(1, bil(intens, uu, vv) * 1.3);
+        const base = Math.exp(-dist / 45) * (suelo[n + 3] ? 1.6 : 1);
+        const [sx, sy, d] = proyecta(X, -0.4, Z, giro);
+        const x0 = Math.round(sx * dpr);
+        const y0 = Math.round(sy * dpr);
+        if (x0 < 0 || y0 < 0 || x0 >= PW || y0 >= PH) continue;
+        const bruma = Math.min(0.7, Math.max(0, (d + 30) / 110) * 0.7);
+        const R = (26 * base + eq[0] * refl) * (1 - bruma) + 12 * bruma;
+        const G = (34 * base + eq[1] * refl) * (1 - bruma) + 18 * bruma;
+        const B = (52 * base + eq[2] * refl) * (1 - bruma) + 34 * bruma;
+        const col = (255 << 24) | (Math.round(Math.min(255, B)) << 16) | (Math.round(Math.min(255, G)) << 8) | Math.round(Math.min(255, R));
+        for (let a2 = 0; a2 < tam; a2++)
+          for (let b2 = 0; b2 < tam; b2++) {
+            const xx = x0 + a2;
+            const yy = y0 + b2;
+            if (xx >= PW || yy >= PH) continue;
+            const o = yy * PW + xx;
+            if (d < zbuf[o]) {
+              zbuf[o] = d;
+              px[o] = col;
+            }
+          }
+      }
       for (let v = 0; v < DY; v++) {
         const vv = v / (DY - 1);
         for (let u = 0; u < DX; u++) {
@@ -605,7 +630,7 @@ export function RelievePartido({
     };
     pedido = requestAnimationFrame(vuelta);
     return () => cancelAnimationFrame(pedido);
-  }, [r, fin, compacto, colA, colB, resolucion, enSuelo]);
+  }, [r, fin, compacto, colA, colB, resolucion]);
 
   const xgA = r.tiros.filter((p) => p.deA && p.minuto <= minuto).reduce((x, p) => x + p.xg, 0);
   const xgB = r.tiros.filter((p) => !p.deA && p.minuto <= minuto).reduce((x, p) => x + p.xg, 0);
@@ -628,31 +653,7 @@ export function RelievePartido({
   const parte = minuto <= 45 ? "1.ª PARTE" : "2.ª PARTE";
 
   if (ev.length < 20) return null;
-  const selector = !compacto && (
-    <div role="group" aria-label="Cómo ver el relieve" className="mb-2 flex flex-wrap items-center gap-2 text-xs">
-      {(["suelo", "campo"] as const).map((v) => (
-        <button
-          key={v}
-          type="button"
-          onClick={() => cambiaVista(v)}
-          aria-pressed={vista === v}
-          className={`rounded-full border px-3 py-1 font-semibold transition ${vista === v ? "border-[#C8A96B]/60 bg-[#C8A96B]/15 text-white" : "border-white/15 text-white/60 hover:text-white"}`}
-        >
-          {v === "suelo" ? "Partido entero (suelo ancho)" : "Campo 3D animado"}
-        </button>
-      ))}
-    </div>
-  );
-  if (enSuelo)
-    return (
-      <div className="min-w-0">
-        {selector}
-        <RelieveSuelo ev={ev} a={a} b={b} colA={colA} colB={colB} jugadores={jugadores} />
-      </div>
-    );
   return (
-    <div className="min-w-0">
-    {selector}
     <div
       ref={marco}
       className={completa ? "group fixed inset-0 z-[80] flex flex-col justify-center overflow-hidden" : "group relative mx-auto overflow-hidden rounded-2xl"}
@@ -868,7 +869,6 @@ export function RelievePartido({
           )}
         </div>
       )}
-    </div>
     </div>
   );
 }
