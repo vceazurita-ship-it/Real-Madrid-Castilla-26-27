@@ -28,7 +28,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { fechaCorta } from "@/lib/opta-analisis";
 import { cargaResumenesRfef, mismoEquipo, resumenDelPartido } from "@/lib/rivals/resumen-de-partido";
 import type { ResumenRfef } from "@/lib/rivals/resumenes-rfef";
-import type { Remate } from "@/lib/opta-eventos";
+import { SITUACION, type Remate } from "@/lib/opta-eventos";
 
 import { nombreDe } from "./eventos";
 
@@ -38,7 +38,8 @@ type Marcas = Record<string, { goles: GolMarcado[]; cuadra: boolean }>;
 const ANTES = 10;
 const DESPUES = 5;
 
-type Toma = { clave: string; titulo: string; detalle: string } & (
+/** `cuando` y `situacion`, para la lista de goles que se eligen uno a uno (16/11/2026). */
+type Toma = { clave: string; titulo: string; detalle: string; cuando: string; situacion: string } & (
   | { fuente: "opta"; src: string }
   | { fuente: "rfef"; video: string; inicio: number; fin: number }
 );
@@ -131,6 +132,8 @@ export function tomasDeGoles(goles: Remate[], resumenes: ResumenRfef[], marcas: 
     const rival = nombreDe(g.rivalId, g.rival);
     const clip = clips[`${g.partido}|${g.parte}|${g.segundo}`];
     const titulo = `${g.tirador} · ${g.minuto}′`;
+    const cuando = `${fechaCorta(g.fecha)} · ${marca} contra ${rival}`;
+    const situacion = SITUACION[g.situacion] ?? "";
 
     if (clip?.url) {
       deOpta++;
@@ -139,7 +142,9 @@ export function tomasDeGoles(goles: Remate[], resumenes: ResumenRfef[], marcas: 
         fuente: "opta",
         src: clip.url,
         titulo,
-        detalle: `${fechaCorta(g.fecha)} · ${marca} contra ${rival}`,
+        detalle: cuando,
+        cuando,
+        situacion,
       });
       continue;
     }
@@ -167,14 +172,21 @@ export function tomasDeGoles(goles: Remate[], resumenes: ResumenRfef[], marcas: 
       inicio: Math.max(0, enResumen.segundo - ANTES),
       fin: enResumen.segundo + DESPUES,
       titulo,
-      detalle: `${fechaCorta(g.fecha)} · ${marca} contra ${rival} · resumen de la RFEF (J${resumen.jornada}, ${resumen.local} ${resumen.golesLocal}-${resumen.golesVisitante} ${resumen.visitante})`,
+      cuando,
+      situacion,
+      detalle: `${cuando} · resumen de la RFEF (J${resumen.jornada}, ${resumen.local} ${resumen.golesLocal}-${resumen.golesVisitante} ${resumen.visitante})`,
     });
   }
 
   return { tomas, sinMarca, deOpta };
 }
 
-export function GolesDeSeguido({ goles, titulo }: { goles: Remate[]; titulo: string }) {
+/**
+ * `conLista` (16/11/2026, «Goles del rival en vídeo»): debajo del botón, la
+ * lista de los goles con vídeo para abrir uno suelto; desde él sigue de
+ * seguido con los demás.
+ */
+export function GolesDeSeguido({ goles, titulo, conLista = false }: { goles: Remate[]; titulo: string; conLista?: boolean }) {
   const [resumenes, setResumenes] = useState<ResumenRfef[] | null>(null);
   const [marcas, setMarcas] = useState<Marcas | null>(null);
   const [clips, setClips] = useState<ClipsOpta | null>(null);
@@ -314,6 +326,29 @@ export function GolesDeSeguido({ goles, titulo }: { goles: Remate[]; titulo: str
               : "Vídeo de la retransmisión del partido (Opta ProVision), de 10 s antes del gol a 6 s después."}
           </p>
         </div>
+      )}
+      {conLista && tomas.length > 1 && (
+        <ol className="mt-2 grid min-w-0 gap-1 sm:grid-cols-2" aria-label={`${titulo}, uno a uno`}>
+          {tomas.map((t, k) => (
+            <li key={t.clave} className="min-w-0">
+              <button
+                type="button"
+                onClick={() => (setI(k), setAbierto(true))}
+                aria-current={abierto && k === i ? "true" : undefined}
+                className={`flex w-full min-w-0 items-baseline gap-2 rounded-xl border px-3 py-2 text-left transition hover:border-[#C8A96B]/50 ${abierto && k === i ? "border-[#C8A96B]/60 bg-[#C8A96B]/10" : "border-white/10 bg-white/[0.02]"}`}
+              >
+                <span aria-hidden className="shrink-0 text-[11px] text-[#C8A96B]">▶</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[13px] font-semibold text-white/85">{t.titulo}</span>
+                  <span className="block truncate text-[11.5px] text-white/55">
+                    {t.cuando}
+                    {t.situacion ? ` · ${t.situacion}` : ""}
+                  </span>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ol>
       )}
     </div>
   );

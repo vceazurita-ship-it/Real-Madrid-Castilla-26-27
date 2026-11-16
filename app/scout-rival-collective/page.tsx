@@ -37,6 +37,7 @@ import RecursosRival, {
 } from "@/components/rivals/RecursosRival";
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { DatosDelRival } from "@/components/rivals/DatosDelRival";
+import { SeccionGolesDelRival } from "@/components/rivals/GolesDelRivalEnVideo";
 import { PorDondeAtaca } from "@/components/rivals/PorDondeAtaca";
 import { EvolucionComparada } from "@/components/rivals/EvolucionComparada";
 import { RepartoXg } from "@/components/rivals/RepartoXg";
@@ -1706,6 +1707,9 @@ export default function ScoutRivalCollective() {
 
           {/* Por dónde ataca (13/11/2026): sus acciones por banda en Wyscout y quién carga cada una. */}
           {!modoEdicion && rivalActivo && <PorDondeAtaca equipo={equipoActivo} plantilla={plantillaDelRival} />}
+
+          {/* Sus goles en vídeo (16/11/2026): los que marca y los que encaja, de seguido o uno a uno. */}
+          {!modoEdicion && rivalActivo && equipoActivo && <SeccionGolesDelRival equipo={equipoActivo} />}
 
           {modoEdicion && (
             <div

@@ -240,17 +240,17 @@ export function MapaRemates({
  * remates, con el vídeo a mano en Opta o Wyscout. El equipo llega por nombre
  * y se casa con Opta por `casaEquipo`.
  */
-export function GolesEnElCampo({ equipo, esCastilla }: { equipo: string; esCastilla: boolean }) {
+export function GolesEnElCampo({ equipo, esCastilla, ladoInicial = "favor" }: { equipo: string; esCastilla: boolean; ladoInicial?: Lado }) {
   const { datos } = useOpta();
 
   if (!datos) return <div className="h-64 animate-pulse rounded-2xl bg-white/[0.05]" role="status" aria-label="Cargando los goles de Opta" />;
 
-  return <GolesDelEquipo datos={datos} equipo={equipo} esCastilla={esCastilla} />;
+  return <GolesDelEquipo datos={datos} equipo={equipo} esCastilla={esCastilla} ladoInicial={ladoInicial} />;
 }
 
-function GolesDelEquipo({ datos, equipo, esCastilla }: { datos: DatosOpta; equipo: string; esCastilla: boolean }) {
+function GolesDelEquipo({ datos, equipo, esCastilla, ladoInicial }: { datos: DatosOpta; equipo: string; esCastilla: boolean; ladoInicial: Lado }) {
   const { remates, cargando, hay } = useRemates(datos);
-  const [lado, setLado] = useState<Lado>("favor");
+  const [lado, setLado] = useState<Lado>(ladoInicial);
   const teamId = useMemo(() => {
     if (!datos.equipos.length) return "";
     if (esCastilla) return CASTILLA_OPTA;
