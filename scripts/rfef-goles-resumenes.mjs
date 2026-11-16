@@ -113,7 +113,7 @@ for (const v of pendientes) {
     continue;
   }
 
-  const pregunta = async (extra) => {
+  const preguntaUnaVez = async (extra) => {
   const prompt = extra + `Es el resumen oficial de un partido de fútbol: ${v.local} ${v.golesLocal}-${v.golesVisitante} ${v.visitante}. Localiza CADA gol del partido en el vídeo (deberían ser ${esperados}). Para cada gol da el segundo del vídeo en que el balón entra en la portería (la primera vez que se ve, no la repetición), el equipo que marca tal y como aparece en el marcador del título, y una descripción en español de unas 8 palabras con el goleador si se entiende. Si una repetición vuelve a enseñar el mismo gol, no lo cuentes dos veces. Responde SOLO JSON: {"goles":[{"segundo":n,"equipo":"...","descripcion":"..."}]}`;
 
   const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODELO}:generateContent?key=${process.env.GEMINI_API_KEY}`, {
@@ -128,6 +128,18 @@ for (const v of pendientes) {
   const j = await r.json().catch(() => ({}));
 
   return { r, j };
+  };
+
+  /* 429 casi siempre es el límite POR MINUTO (cada resumen son ~75 k tokens):
+     se espera un minuto y se repite; tres seguidos = cuota del día agotada. */
+  const pregunta = async (extra) => {
+    for (let n = 0; ; n++) {
+      const res = await preguntaUnaVez(extra);
+
+      if (res.r.status !== 429 || n >= 3) return res;
+      console.log(`  (límite por minuto de Gemini; espero ${65 * (n + 1)} s)`);
+      await espera(65_000 * (n + 1));
+    }
   };
 
   let { r, j } = await pregunta("");
