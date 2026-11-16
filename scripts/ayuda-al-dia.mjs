@@ -30,7 +30,7 @@ const entradas = trozos.map((t) => ({
 
 const ultimoCambio = (carpeta) => {
   try {
-    return execFileSync("git", ["log", "-1", "--format=%cs", "--", carpeta], { cwd: RAIZ, encoding: "utf8" }).trim();
+    return execFileSync("git", ["log", "-1", "--format=%cs", "--", ...[carpeta].flat()], { cwd: RAIZ, encoding: "utf8" }).trim();
   } catch {
     return "";
   }
@@ -44,7 +44,9 @@ for (const { ruta, revisada } of entradas) {
 
   if (!fs.existsSync(path.join(RAIZ, fichero))) continue;
 
-  const cambio = ultimoCambio(fichero);
+  /* Las subpantallas con ayuda propia (/laboratorio/microciclo) no cuentan como cambio de la madre (16/11/2026). */
+  const hijas = ruta === "/" ? [] : entradas.filter((e) => e.ruta.startsWith(`${ruta}/`)).map((e) => `:(exclude)app${e.ruta}`);
+  const cambio = ruta === "/" ? ultimoCambio(fichero) : ultimoCambio([fichero, ...hijas]);
 
   if (!revisada || (cambio && cambio > revisada)) atrasadas.push({ ruta, revisada: revisada || "nunca", cambio });
 }
