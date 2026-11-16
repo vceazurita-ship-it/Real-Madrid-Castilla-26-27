@@ -2,7 +2,10 @@
 import { traeJson } from "@/lib/hojaCsv";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Brain, Clock3, Dumbbell } from "lucide-react";
+import Link from "next/link";
+import { Brain, CalendarDays, ClipboardCheck, Clock3, Dumbbell, FileText, Users } from "lucide-react";
+import { EnlacesDelRival } from "@/components/rivals/EnlacesDelRival";
+import { enlaceAnalisis, enlaceSesion } from "@/lib/sesion-dia/conexion";
 import {
   CalendarShell,
   CalendarStat,
@@ -743,9 +746,10 @@ export default function MicroCalendar() {
     const volumen = monthStats.minutos > 0 ? `${formatMinutes(monthStats.minutos)} de entreno` : "";
     const base =
       comparable && mesPrevio.stats.cargaMedia > 0 && monthStats.cargaMedia > 0
-        ? `media por entreno de ${monthStats.hechos} entrenos hechos frente a ${mesPrevio.stats.hechos} ${
-            mesPrevio.completo ? `en ${mesAntes}` : `en los mismos días (del 1 al ${mesPrevio.hasta} de ${mesAntes} y de ${mesAhora})`
-          }`
+        ? /* 16/11/2026 (jueces): corto, «media de 8 entrenos (1-12 nov) frente a 6 (1-12 oct)». */
+          mesPrevio.completo
+          ? `media de ${monthStats.hechos} entrenos frente a ${mesPrevio.stats.hechos} en ${mesAntes}`
+          : `media de ${monthStats.hechos} entrenos (1-${mesPrevio.hasta} ${mesAhora.slice(0, 3)}) frente a ${mesPrevio.stats.hechos} (1-${mesPrevio.hasta} ${mesAntes.slice(0, 3)})`
         : "";
     return [entrenos, volumen, base].filter(Boolean).join(" · ");
   })();
@@ -851,9 +855,57 @@ export default function MicroCalendar() {
         /* 11/11/2026: entre la primera y la última sesión apuntada, el día sin
            nada es libre y se dice con una palabra, como en /calendar_general. */
         if (dayTasks.length === 0) {
+          /*
+          | 16/11/2026 (jueces): el partido de BeSoccer sale aunque la hoja aún
+          | no tenga ninguna fila ese día (la J14 del 29/11 salía vacía), igual
+          | que en /calendar_general; y los días de esa semana llevan su MD
+          | (sólo MD-5 a MD-1: más lejos es ruido).
+          */
+          const suyo = partidoDelDia.get(key);
+
+          if (suyo?.rival) {
+            const detalle = lineaPartido(key);
+
+            return {
+              hasContent: true,
+              onClick: () => setSelectedKey(key),
+              badges: (
+                <span className="whitespace-nowrap rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase" style={{ background: "#1F2937", color: "#FFFFFF" }}>
+                  MD
+                </span>
+              ),
+              children: (
+                <>
+                  <div className="flex items-center gap-1 rounded-md border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-1.5 py-1" title={`Castilla vs ${nombreBonito(suyo.rival)}`}>
+                    <Escudo url={escudoDe(NOSOTROS)} nombre="RM Castilla" className="h-4 w-4 md:h-5 md:w-5" />
+                    <span className="shrink-0 text-[10px] font-semibold text-[#C8A96B]">vs</span>
+                    <Escudo url={escudoDe(suyo.rival)} nombre={nombreBonito(suyo.rival)} className="h-4 w-4 md:h-5 md:w-5" />
+                    <span className="min-w-0 truncate text-[10px] font-semibold text-white/85 md:text-[11px]">{nombreBonito(suyo.rival)}</span>
+                  </div>
+                  {detalle ? <p className="line-clamp-2 break-words text-[11px] font-semibold leading-tight text-[#C8A96B]">{detalle}</p> : null}
+                </>
+              ),
+              crece: true,
+            };
+          }
+
+          const mdVacio = mdDelDia(key, fechasPartido);
+          const enSemana = /^MD-[1-5]$/.test(mdVacio);
           const libre = sessionDays.length > 1 && key > sessionDays[0] && key < sessionDays[sessionDays.length - 1];
-          return libre
-            ? { badges: <span className="text-[10px] font-semibold uppercase tracking-wide text-white/45">Libre</span> }
+
+          return libre || enSemana
+            ? {
+                badges: (
+                  <span className="flex items-center gap-1">
+                    {enSemana ? (
+                      <span className="whitespace-nowrap rounded-full border border-white/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-white/65" title="Días que faltan para el próximo partido (sin tareas en la hoja todavía)">
+                        {mdVacio}
+                      </span>
+                    ) : null}
+                    {libre ? <span className="text-[10px] font-semibold uppercase tracking-wide text-white/45">Libre</span> : null}
+                  </span>
+                ),
+              }
             : {};
         }
 
@@ -945,11 +997,19 @@ export default function MicroCalendar() {
                   </span>
                 </div>
               )}
+              {/* 16/11/2026 (jueces): en dos líneas; cortado decía «ganado 2…». */}
               {detallePartido && (
-                <p className="truncate text-[10px] font-semibold text-[#C8A96B] md:text-[11px]" title={detallePartido}>
+                <p className="line-clamp-2 break-words text-[11px] font-semibold leading-tight text-[#C8A96B]" title={detallePartido}>
                   {detallePartido}
                 </p>
               )}
+
+              {/* 16/11/2026 (jueces): la fase escrita, no sólo el color de fondo (daltonismo y móvil). */}
+              {theme !== NEUTRAL_THEME && !partido ? (
+                <p className={cn("block w-fit max-w-full truncate rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide", theme.chip)} title={`Fase con más minutos: ${theme.label}`}>
+                  {theme.label}
+                </p>
+              ) : null}
 
               {/* 30/10/2026: una tarea sin minutos deja sólo su nombre (sin
                   barra vacía ni cifra), y la letra no baja de 11 px.
@@ -1030,16 +1090,19 @@ export default function MicroCalendar() {
           date={selectedDate}
           size="lg"
           subtitle={
-            [
+            /* 16/11/2026: el día de partido sin filas en la hoja (sólo BeSoccer) se cuenta con el partido. */
+            (selectedTasks.length === 0 && selectedKey && partidoDelDia.get(selectedKey)
+              ? ["MD", `vs ${nombreBonito(partidoDelDia.get(selectedKey)?.rival ?? "")}`, lineaPartido(selectedKey)]
+              : [
               `${selectedTasks.length} ${
                 selectedTasks.length === 1 ? "tarea" : "tareas"
               }`,
-              formatMinutes(selectedSummary.minutos),
+              selectedSummary.minutos > 0 ? formatMinutes(selectedSummary.minutos) : "",
               selectedSummary.md || "fuera de micro",
               selectedSummary.micro && `Micro ${selectedSummary.micro}`,
               selectedSummary.rival && `vs ${selectedSummary.rival}`,
               esDiaDePartido(selectedTasks) && selectedKey ? lineaPartido(selectedKey) : "",
-            ]
+            ])
               .filter(Boolean)
               .join(" · ")
           }
@@ -1050,7 +1113,58 @@ export default function MicroCalendar() {
           canNext={selectedIndex >= 0 && selectedIndex < sessionDays.length - 1}
         >
           <div className="space-y-4">
-            {selectedTasks.length === 0 && (
+            {/*
+            | 16/11/2026 (jueces): el día abre lo que lo completa, ya elegido.
+            | Entreno: su micro y su MD en Microciclos, sus equipos y su análisis.
+            | Partido jugado: el informe (en Microciclos, botón «Informe del
+            | partido»); por jugar: el plan, el ABP y los goles del rival.
+            */}
+            {selectedKey ? (() => {
+              const suyo = partidoDelDia.get(selectedKey);
+              const esPartido = esDiaDePartido(selectedTasks) || (selectedTasks.length === 0 && Boolean(suyo));
+              const microNum = Number(selectedSummary.micro);
+              const conMicro = Number.isInteger(microNum) && microNum > 0;
+              const enlace = "inline-flex min-h-10 items-center gap-1.5 rounded-xl border px-3 py-2 text-[13px] font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#C8A96B]";
+              const oro = `${enlace} border-[#C8A96B]/40 bg-[#C8A96B]/10 text-[#C8A96B] hover:bg-[#C8A96B]/20`;
+              const gris = `${enlace} border-white/15 text-white/75 hover:text-white`;
+
+              if (esPartido) {
+                const rival = suyo?.rival || selectedSummary.rival;
+
+                return (
+                  <div className="flex flex-wrap gap-2">
+                    {suyo?.jugado ? (
+                      <Link href={conMicro ? `/microcycles?micro=${microNum}` : "/microcycles"} className={oro}>
+                        <FileText size={15} aria-hidden /> Informe del partido
+                      </Link>
+                    ) : rival ? (
+                      <EnlacesDelRival rival={nombreBonito(rival)} fecha={selectedKey} solo={["Plan de partido", "Su ABP", "Sus goles en vídeo"]} />
+                    ) : null}
+                  </div>
+                );
+              }
+
+              if (!selectedTasks.length) return null;
+
+              return (
+                <div className="flex flex-wrap gap-2">
+                  <Link
+                    href={conMicro ? `/microcycles?micro=${microNum}${selectedSummary.md ? `&md=${encodeURIComponent(selectedSummary.md.toUpperCase().replace(/\s+/g, ""))}` : ""}` : "/microcycles"}
+                    className={oro}
+                  >
+                    <CalendarDays size={15} aria-hidden /> {conMicro ? `Micro ${microNum}${selectedSummary.md ? ` · ${selectedSummary.md}` : ""} en Microciclos` : "Abrir en Microciclos"}
+                  </Link>
+                  <Link href={enlaceSesion(selectedKey)} className={gris}>
+                    <Users size={15} aria-hidden /> Equipos de la sesión
+                  </Link>
+                  <Link href={enlaceAnalisis(selectedKey)} className={gris}>
+                    <ClipboardCheck size={15} aria-hidden /> Análisis del entreno
+                  </Link>
+                </div>
+              );
+            })() : null}
+
+            {selectedTasks.length === 0 && !(selectedKey && partidoDelDia.get(selectedKey)) && (
               <CalendarEmptyState>
                 No hay tareas registradas este día.
               </CalendarEmptyState>

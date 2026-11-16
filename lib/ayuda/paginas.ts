@@ -2834,6 +2834,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Contenidos Microciclo",
     resumen: "Cada día de entreno con su MD, sus minutos y sus contenidos, y la carga del mes contra el anterior.",
     origen: "Hoja de microciclos, una fila por tarea (la misma de /microcycles): lo hecho, de la copia del Apps Script; lo planificado que aún no está en ella, de la hoja publicada (la fuente común de las pantallas de planificación). Hora, lado y resultado del partido: calendario de BeSoccer.",
+    revisada: "2026-11-16",
     bloques: [
       {
         titulo: "Las cifras del mes",
@@ -2852,11 +2853,12 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "El calendario",
         filas: [
-          { que: "Fondo del día", es: "La fase con más minutos ese día, sin contar Global", cuenta: "Ofensiva, Defensiva, Transición ofensiva, Transición defensiva o ABP; sólo Global deja el fondo normal" },
-          { que: "MD", es: "Días que faltan para el próximo partido del calendario, hasta 14: la misma numeración que el creador de micros y /calendar_general. El día de partido es «MD» y no lleva duración" },
+          { que: "Fondo del día y su fase escrita", es: "La fase con más minutos ese día, sin contar Global, como fondo y escrita en una etiqueta del mismo color (para quien no distingue el color y en el móvil)", cuenta: "Ofensiva, Defensiva, Transición ofensiva, Transición defensiva o ABP; sólo Global deja el fondo normal y sin etiqueta" },
+          { que: "MD", es: "Días que faltan para el próximo partido del calendario, hasta 14: la misma numeración que el creador de micros y /calendar_general. El día de partido es «MD» y no lleva duración. Los días aún sin tareas de la semana del partido llevan su MD en gris (sólo MD-5 a MD-1)" },
+          { que: "Partido sin filas en la hoja", es: "El partido del calendario de BeSoccer sale aunque la hoja aún no tenga ese día (como en /calendar_general)" },
           { que: "Planificado", es: "Entreno de la hoja sin minutos todavía: borde discontinuo y la etiqueta «planificado»" },
           { que: "Contenidos", es: "Minutos por contenido principal, de más a menos; sin contenido, el tipo de tarea. La casilla crece para que no se corten" },
-          { que: "Partido", es: "Rival con escudo, hora, en casa o fuera y resultado, si BeSoccer lo tiene" },
+          { que: "Partido", es: "Rival con escudo, hora, en casa o fuera y resultado, si BeSoccer lo tiene, en dos líneas (no se corta)" },
           { que: "Libre", es: "Día sin nada entre la primera y la última sesión apuntadas" },
           { que: "Siglas", es: "Bajo el calendario, las siglas de los contenidos que salen ese mes, desarrolladas (CP, CR, ABP, Ind., TAD = transición ataque-defensa, TDA = defensa-ataque)" },
         ],
@@ -2864,6 +2866,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "El día abierto",
         filas: [
+          { que: "Accesos del día", es: "Arriba, a un toque y ya elegido: un entreno abre su micro y su MD en Microciclos, sus equipos en Jugadores sesión y su análisis de entrenamiento. Un partido jugado abre Microciclos en su micro (botón «Informe del partido»); uno por jugar, el Plan de partido, el ABP y los goles en vídeo del rival" },
           { que: "Bloques", es: "Las tareas agrupadas por contenido principal, con sus minutos" },
           { que: "Tarea", es: "Descripción, grupo y nº de jugadores" },
           { que: "Carga física / cognitiva", es: "Barra de cada tarea", cuenta: "Llena = la tarea más cargada de ese día" },
