@@ -18,7 +18,6 @@ import { useEscudos } from "@/hooks/useEscudos";
 import { cn } from "@/lib/utils";
 import { useCalendario } from "@/hooks/useCalendario";
 import type { PartidoCastilla } from "@/lib/castilla/calendario";
-import Link from "next/link";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { DOC_GOLES, GOLES_VACIO, type GolesDoc } from "@/lib/goles/analisis";
 import { SelloDeFechas } from "@/components/data/SelloJornada";
@@ -160,6 +159,17 @@ const dateFormatter = new Intl.DateTimeFormat("es-ES", {
   month: "short",
   year: "numeric",
 });
+
+/**
+ * El marcador con el nuestro primero (16/11/2026), la convención de Histórico
+ * y de Análisis de datos. La hoja y el calendario lo traen con el local
+ * primero; de ahí salen también el color y los puntos (`outcome`).
+ */
+function marcadorNuestro(match: Match) {
+  return match.gf !== null && match.ga !== null ? `${match.gf}-${match.ga}` : match.resultado;
+}
+
+const diaMes = new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "2-digit" });
 
 function formatDate(match: Match) {
   return match.date
@@ -408,19 +418,21 @@ export default function Page() {
           items.length === 1
             ? `${value} · ${items[0].opponent}`
             : `${value} · ${items.length} partidos`,
+        esLiga: items.some((m) => m.esLiga),
       }));
 
-    return [
-      {
-        value: "ALL",
-        label: `Todos (${matches.filter((m) => m.esLiga).length}${
-          /* 10/11/2026: por qué aquí salen 12 y en las tarjetas 11. */
-          matches.some((m) => !m.esLiga) ? ` de liga + ${matches.filter((m) => !m.esLiga).length} de pretemporada, que no cuenta en las cifras` : ""
-        })`,
-      },
-      ...list,
-    ];
+    /* 16/11/2026 (análisis): «Todos (12 de liga + 1 de pretemporada…)» no se
+       entendía; la pretemporada va en su propio grupo del selector. */
+    return {
+      todos: `Todos los partidos (${matches.length})`,
+      liga: list.filter((m) => m.esLiga),
+      pretemporada: list.filter((m) => !m.esLiga),
+    };
   }, [matches]);
+
+  /* 16/11/2026 (fútbol): «Solo con vídeo» sólo sale si de verdad deja alguno fuera. */
+  const algunoSinVideo = useMemo(() => matches.some((m) => !m.link && !m.enCoding), [matches]);
+  const soloConVideo = onlyWithVideo && algunoSinVideo;
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -428,7 +440,7 @@ export default function Page() {
     const list = matches.filter((m) => {
       if (selectedMicro !== "ALL" && m.microciclo !== selectedMicro) return false;
       if (outcomeFilter !== "ALL" && m.outcome !== outcomeFilter) return false;
-      if (onlyWithVideo && !m.link && !m.enCoding) return false;
+      if (soloConVideo && !m.link && !m.enCoding) return false;
 
       if (!q) return true;
 
@@ -449,7 +461,7 @@ export default function Page() {
       const diff = a.date.getTime() - b.date.getTime();
       return sortDir === "desc" ? -diff : diff;
     });
-  }, [matches, search, selectedMicro, outcomeFilter, onlyWithVideo, sortDir]);
+  }, [matches, search, selectedMicro, outcomeFilter, soloConVideo, sortDir]);
 
   /* 30/10/2026: las fechas de los partidos de liga con resultado, para el sello «Datos hasta la J·». */
   const fechasJugadas = useMemo(
@@ -517,7 +529,7 @@ export default function Page() {
     search.trim().length > 0 ||
     selectedMicro !== "ALL" ||
     outcomeFilter !== "ALL" ||
-    onlyWithVideo;
+    soloConVideo;
 
   const resetFilters = () => {
     setSearch("");
@@ -572,7 +584,8 @@ export default function Page() {
             {/* HEADER */}
             <header className="mb-8">
               <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
-                RMCF Castilla · Metodología
+                {/* 16/11/2026 (fútbol): el área del menú, no «Metodología». */}
+                Análisis
               </p>
 
               <div className="mt-4 flex items-center gap-5">
@@ -591,8 +604,12 @@ export default function Page() {
                    reparto) y la racha va aparte, rotulada como tendencia reciente. */
                 <>
                   <p className="mt-3 text-base font-medium text-white/85 sm:text-lg">
-                    {metrics.wins > 0 ? `Ganamos ${metrics.wins}` : "No ganamos ninguno"}, empatamos {metrics.draws} y perdimos {metrics.losses} de {metrics.played} de liga
+                    {/* 16/11/2026 (marketing): el titular lleva a la tira partido a partido, con su fuente. */}
+                    <a href="#partido-a-partido" className="underline decoration-[#C8A96B]/50 underline-offset-4 hover:decoration-[#C8A96B]">
+                      {metrics.wins > 0 ? `Ganamos ${metrics.wins}` : "No ganamos ninguno"}, empatamos {metrics.draws} y perdimos {metrics.losses} de {metrics.played} de liga
+                    </a>
                     {matches.some((m) => !m.esLiga) ? " (sin la pretemporada)" : ""}.
+                    <span className="ml-2 text-[12px] font-normal text-white/55">Resultados: calendario de BeSoccer.</span>
                   </p>
                   {metrics.lastFive.length >= 3 ? (
                     <p className="mt-2 inline-flex flex-wrap items-center gap-x-2 rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/[0.07] px-3 py-1 text-[13px] text-white/80">
@@ -605,7 +622,8 @@ export default function Page() {
                     <p className="mt-1.5 text-[12px] leading-relaxed text-white/60">
                       {[...metrics.lastFive]
                         .reverse()
-                        .map((m) => `${m.microciclo.match(/(\d+)/)?.[1] ? `J${m.microciclo.match(/(\d+)/)![1]} ` : ""}${m.opponent} ${m.resultado} (${m.isHome ? "casa" : "fuera"})`)
+                        /* 16/11/2026 (fútbol): el nuestro primero, como en Histórico; «Algeciras 2-0» se leía como victoria. */
+                        .map((m) => `${m.microciclo.match(/(\d+)/)?.[1] ? `J${m.microciclo.match(/(\d+)/)![1]} · ` : ""}${m.opponent} ${marcadorNuestro(m)} (${m.isHome ? "casa" : "fuera"})`)
                         .join(" · ")}
                     </p>
                   ) : null}
@@ -616,11 +634,12 @@ export default function Page() {
                 El vídeo de análisis de cada partido ya jugado, microciclo a microciclo.
               </p>
 
-              <SelloDeFechas fuente="Calendario" fechas={fechasJugadas} queEs="partidos" />
+              {/* 16/11/2026 (marketing): sin «Jornada completa», que repetía «Datos hasta la J·». */}
+              <SelloDeFechas fuente="Calendario" fechas={fechasJugadas} queEs="partidos" sinCompleta />
             </header>
 
             {/* MÉTRICAS */}
-            {metrics.played > 0 ? <MetricsPanel metrics={metrics} ligaPP={ligaPP} ligaBase={ligaBase} /> : null}
+            {metrics.played > 0 ? <MetricsPanel metrics={metrics} ligaPP={ligaPP} ligaBase={ligaBase} escudoDe={escudoDe} /> : null}
 
             {/* FILTROS */}
             <div className="sticky top-20 z-20 -mx-4 mt-8 border-y border-white/[0.08] bg-[#0B0F14]/90 px-4 py-4 backdrop-blur-xl sm:-mx-8 sm:px-8 md:top-24">
@@ -645,11 +664,31 @@ export default function Page() {
                     aria-label="Filtrar por microciclo"
                     className="w-full appearance-none rounded-xl border border-white/10 bg-white/[0.03] py-3 pl-4 pr-10 text-sm text-white outline-none transition focus:border-[#C8A96B]/50 lg:w-[300px] [&>option]:bg-[#11161C]"
                   >
-                    {micros.map((m) => (
-                      <option key={m.value} value={m.value}>
-                        {m.label}
-                      </option>
-                    ))}
+                    <option value="ALL">{micros.todos}</option>
+                    {micros.pretemporada.length > 0 ? (
+                      <>
+                        <optgroup label="Liga">
+                          {micros.liga.map((m) => (
+                            <option key={m.value} value={m.value}>
+                              {m.label}
+                            </option>
+                          ))}
+                        </optgroup>
+                        <optgroup label="Pretemporada (no cuenta en las cifras)">
+                          {micros.pretemporada.map((m) => (
+                            <option key={m.value} value={m.value}>
+                              {m.label}
+                            </option>
+                          ))}
+                        </optgroup>
+                      </>
+                    ) : (
+                      micros.liga.map((m) => (
+                        <option key={m.value} value={m.value}>
+                          {m.label}
+                        </option>
+                      ))
+                    )}
                   </select>
 
                   <ChevronRight
@@ -696,20 +735,22 @@ export default function Page() {
                   </button>
                 ))}
 
-                <button
-                  type="button"
-                  onClick={() => setOnlyWithVideo((v) => !v)}
-                  aria-pressed={onlyWithVideo}
-                  className={cn(
-                    "flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-medium transition",
-                    onlyWithVideo
-                      ? "border-[#C8A96B]/50 bg-[#C8A96B]/15 text-[#C8A96B]"
-                      : "border-white/10 bg-white/[0.03] text-white/55 hover:border-white/25 hover:text-white"
-                  )}
-                >
-                  <Video className="h-3.5 w-3.5" />
-                  Solo con vídeo
-                </button>
+                {algunoSinVideo ? (
+                  <button
+                    type="button"
+                    onClick={() => setOnlyWithVideo((v) => !v)}
+                    aria-pressed={onlyWithVideo}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-medium transition",
+                      onlyWithVideo
+                        ? "border-[#C8A96B]/50 bg-[#C8A96B]/15 text-[#C8A96B]"
+                        : "border-white/10 bg-white/[0.03] text-white/55 hover:border-white/25 hover:text-white"
+                    )}
+                  >
+                    <Video className="h-3.5 w-3.5" />
+                    Solo con vídeo
+                  </button>
+                ) : null}
 
                 {hasFilters && (
                   <button
@@ -819,10 +860,12 @@ function MetricsPanel({
   metrics,
   ligaPP,
   ligaBase,
+  escudoDe,
 }: {
   metrics: Metrics;
   ligaPP: number | null;
   ligaBase: { equipos: number; jornadas: number } | null;
+  escudoDe: (team: string) => string | undefined;
 }) {
   /* 08/11/2026: frente a la liga con el sentido en palabras («igual»,
      «0,2 mejor»), para no comparar cifras a ojo. */
@@ -831,14 +874,18 @@ function MetricsPanel({
   const frenteLiga = (goles: number, mejorAlto: boolean): Juicio | undefined => {
     if (ligaPP === null || metrics.played === 0) return undefined;
     const coma = (n: number) => n.toFixed(1).replace(".", ",");
-    const d = Math.round((goles / metrics.played - ligaPP) * 10) / 10;
-    const base = `liga ${coma(ligaPP)}`;
+    /* 16/11/2026 (análisis): la diferencia en goles, con signo y su base
+       («16 en 12 frente a 15,6»), en vez de «igual que la liga 1,3»: lo que
+       habría marcado un equipo medio de la liga en los mismos partidos. */
+    const esperado = ligaPP * metrics.played;
+    const d = Math.round((goles - esperado) * 10) / 10;
+    const base = `${goles} en ${metrics.played} frente a ${coma(esperado)} de la liga (${coma(ligaPP)} por partido)`;
 
-    if (Math.abs(d) < 0.05) return { texto: `igual que la ${base}`, mejor: null };
+    if (Math.abs(d) < 0.05) return { texto: `±0 · ${base}`, mejor: null };
 
     const mejor = (d > 0) === mejorAlto;
 
-    return { texto: `${d > 0 ? "▲" : "▼"} ${coma(Math.abs(d))} ${mejor ? "mejor" : "peor"} que la ${base}`, mejor };
+    return { texto: `${d > 0 ? "▲ +" : "▼ −"}${coma(Math.abs(d))} ${mejor ? "mejor" : "peor"} · ${base}`, mejor };
   };
   const baseLiga = ligaBase
     ? ` · media de los ${ligaBase.equipos} equipos, J1–J${ligaBase.jornadas}`
@@ -852,46 +899,49 @@ function MetricsPanel({
 
         {/* 08/11/2026: «4 de 10» salía en el titular y otra vez en tres
             tarjetas: queda una barra con los partidos en orden y el reparto. */}
-        <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4">
+        <div id="partido-a-partido" className="scroll-mt-28 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4">
           {/* 10/11/2026: una sola tira (antes había otra de «Últimos 5» en
               el orden contrario): del más antiguo al más reciente, con la
               jornada debajo y los cinco últimos marcados. */}
           <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Partido a partido</p>
-          <div className="mt-3 flex flex-wrap items-start gap-1">
+          <div className="mt-3 flex flex-wrap items-start gap-1.5">
             {metrics.todos.map((m, i) => {
               const token = OUTCOME[m.outcome as Outcome];
               const reciente = i >= metrics.todos.length - metrics.lastFive.length;
               /* 11/11/2026: era /(d+)/ (la barra se perdió) y salía «Jd». */
               const jornada = m.microciclo.match(/(\d+)/)?.[1];
-              const texto = `${m.microciclo} · ${m.partido} · ${m.resultado} · ${formatDate(m)}`;
+              const marcador = marcadorNuestro(m);
+              const texto = `${jornada ? `J${jornada}` : m.microciclo} · ${m.opponent} · ${marcador} (${m.isHome ? "en casa" : "fuera"}) · ${token.label} · ${formatDate(m)}`;
 
               return (
-                <span key={m.id} className="flex flex-col items-center gap-0.5">
+                <span key={m.id} title={texto} className="flex w-[3.4rem] flex-col items-center gap-0.5">
+                  {/* 16/11/2026 (marketing): el rival (escudo) y la fecha en cada recuadro. */}
+                  <EscudoEquipo nombre={m.opponent} escudo={escudoDe(m.opponent)} lado={18} />
                   <span
-                    title={texto}
                     aria-label={texto}
                     role="img"
                     className={cn(
-                      "flex h-7 min-w-7 items-center justify-center rounded-md border px-1 text-[11px] font-semibold",
+                      "flex h-7 min-w-9 items-center justify-center rounded-md border px-1 text-[11px] font-semibold tabular-nums",
                       token.chip,
                       reciente && "ring-1 ring-[#C8A96B]/60",
                     )}
                   >
-                    {/* 11/11/2026 (análisis): el marcador en la ficha, no sólo la letra. */}
-                    {m.resultado && m.resultado.length <= 5 ? m.resultado : token.short}
+                    {/* 16/11/2026 (fútbol): el nuestro primero, como en Histórico. */}
+                    {marcador && marcador.length <= 5 ? marcador : token.short}
                   </span>
                   {jornada ? (
-                    <span className="text-[10px] tabular-nums text-white/55">
+                    <span className="text-[10px] tabular-nums text-white/60">
                       J{jornada}
-                      <span className="text-white/40"> {m.isHome ? "C" : "F"}</span>
+                      <span className="text-white/55"> · {m.isHome ? "C" : "F"}</span>
                     </span>
                   ) : null}
+                  {m.date ? <span className="text-[10px] tabular-nums text-white/55">{diaMes.format(m.date)}</span> : null}
                 </span>
               );
             })}
           </div>
           <p className="mt-2 text-[11px] text-white/55">
-            Del más antiguo al más reciente; con borde dorado, los {metrics.lastFive.length} últimos. Verde, victoria; ámbar, empate; rojo, derrota · C, en casa; F, fuera · el marcador, local primero.
+            Del más antiguo al más reciente; con borde dorado, los {metrics.lastFive.length} últimos. Encima, el escudo del rival; debajo, la jornada, C en casa o F fuera, y la fecha · el marcador, el nuestro primero: verde, victoria; ámbar, empate; rojo, derrota.
           </p>
         </div>
       </div>
@@ -900,7 +950,7 @@ function MetricsPanel({
         <Stat
           title="Goles a favor"
           value={metrics.goalsFor}
-          hint={`${metrics.avgFor} por partido · ${metrics.played} partidos${baseLiga} · más es mejor`}
+          hint={`${metrics.avgFor} por partido${baseLiga} · más es mejor`}
           juicio={frenteLiga(metrics.goalsFor, true)}
           icon={<Goal className="h-4 w-4" />}
         />
@@ -908,7 +958,7 @@ function MetricsPanel({
         <Stat
           title="Goles en contra"
           value={metrics.goalsAgainst}
-          hint={`${metrics.avgAgainst} por partido · ${metrics.played} partidos${baseLiga} · menos es mejor`}
+          hint={`${metrics.avgAgainst} por partido${baseLiga} · menos es mejor`}
           juicio={frenteLiga(metrics.goalsAgainst, false)}
           icon={<Target className="h-4 w-4" />}
         />
@@ -1116,26 +1166,23 @@ function MatchCard({
             <Play className="h-4 w-4" />
             Ver vídeo análisis
           </span>
-        ) : match.enCoding ? (
-          <Link
-            href="/coding"
-            /* 08/11/2026: el vídeo de análisis (sus cortes) es la acción principal; Hudl y el resumen, debajo y en gris. */
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[#C8A96B] px-4 py-2.5 text-sm font-semibold text-black transition hover:opacity-90"
-          >
-            <Play className="h-3.5 w-3.5" />
-            Cortes en Coding
-          </Link>
         ) : null}
       </span>
       </Wrapper>
 
-      {dia && (
+      {/* 16/11/2026 (análisis, fútbol): «Cortes en Coding» deja de ser el
+          botón dorado (no se sabe desde aquí si tiene cortes) y va en la
+          fila de accesos, con Hudl y el resumen, con iconos y etiqueta corta. */}
+      {dia ? (
         <AccesosVideo
           dia={dia}
           jugado={match.esLiga && match.outcome !== null}
+          coding={match.enCoding ? "/coding?ambito=partido" : undefined}
           className="-mt-2 px-5 pb-5 pl-6"
         />
-      )}
+      ) : match.enCoding ? (
+        <AccesosVideo dia="" jugado={false} coding="/coding?ambito=partido" className="-mt-2 px-5 pb-5 pl-6" />
+      ) : null}
     </div>
   );
 }

@@ -3230,10 +3230,10 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "El balance",
         filas: [
-          { que: "Ganamos · empatamos · perdimos", es: "El reparto de los partidos de liga con resultado; la pretemporada no cuenta" },
-          { que: "Tendencia reciente", es: "Los puntos de los últimos cinco y cuáles son", cuenta: "Victoria 3, empate 1; sale con tres partidos o más" },
-          { que: "Partido a partido", es: "La tira de resultados del más antiguo al más reciente, con la jornada debajo", cuenta: "Verde victoria, ámbar empate, rojo derrota; borde dorado, los cinco últimos" },
-          { que: "Goles a favor / en contra", es: "La suma y la media por partido, frente a la media de la liga", cuenta: "Liga = goles por equipo y partido de todos los equipos; ▲ mejor, ▼ peor, «igual» si la diferencia es menor de 0,05" },
+          { que: "Ganamos · empatamos · perdimos", es: "El reparto de los partidos de liga con resultado; la pretemporada no cuenta. Pinchado, baja a la tira partido a partido; los resultados son del calendario de BeSoccer" },
+          { que: "Tendencia reciente", es: "Los puntos de los últimos cinco y cuáles son, con el marcador del Castilla primero", cuenta: "Victoria 3, empate 1; sale con tres partidos o más" },
+          { que: "Partido a partido", es: "La tira de resultados del más antiguo al más reciente: encima el escudo del rival; debajo la jornada, casa (C) o fuera (F) y la fecha", cuenta: "El marcador, el nuestro primero (como en Histórico); verde victoria, ámbar empate, rojo derrota; borde dorado, los cinco últimos" },
+          { que: "Goles a favor / en contra", es: "La suma y la media por partido, frente a lo que habría hecho un equipo medio de la liga en los mismos partidos", cuenta: "Diferencia = nuestros goles − media de la liga × partidos («16 en 12 frente a 15,6»); ▲ mejor, ▼ peor, ±0 si es menor de 0,05" },
           { que: "Diferencia", es: "Goles a favor menos goles en contra" },
         ],
       },
@@ -3241,19 +3241,18 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "La lista",
         filas: [
           { que: "Buscar", es: "Por rival, partido, microciclo o fecha" },
-          { que: "Microciclo", es: "Un microciclo o todos; «Todos» dice cuántos son de liga y cuántos de pretemporada" },
+          { que: "Microciclo", es: "Todos los partidos, uno de liga o uno de pretemporada: la pretemporada va en su propio grupo del selector y no cuenta en las cifras" },
           { que: "Victorias · Empates · Derrotas", es: "Filtra por resultado" },
-          { que: "Solo con vídeo", es: "Encendido al entrar: sólo los partidos con vídeo en la hoja o con cortes en Coding" },
+          { que: "Solo con vídeo", es: "Encendido al entrar: sólo los partidos con vídeo en la hoja o en Coding. Si todos tienen vídeo no sale, porque no filtraría nada" },
           { que: "Ver vídeo análisis", es: "Abre el vídeo de la hoja en un pop-up, con anterior y siguiente" },
-          { que: "Cortes en Coding", es: "Sale en los partidos de liga sin enlace en la hoja: lleva a su lista en Coding" },
-          { que: "Hudl · Grabación táctica · Resumen RFEF", es: "Debajo de cada tarjeta, lo que exista; la grabación táctica sólo en el ordenador principal" },
+          { que: "Coding · Hudl · Grabación táctica · Resumen", es: "Debajo de cada tarjeta, con el mismo peso y lo que exista: Coding en los partidos de liga sin enlace en la hoja; Hudl abre el partido o, si aún no tiene enlace propio, la biblioteca del club (lo dice el título del botón); la grabación táctica sólo en el ordenador principal; el resumen, el de la RFEF en YouTube" },
         ],
       },
     ],
     ojo: [
       "Las cifras de arriba siguen a los filtros: con un microciclo o «Victorias» elegidos, cuentan sólo esos partidos.",
     ],
-    revisada: "2026-11-12",
+    revisada: "2026-11-16",
   },
 
   /* ==================== PIZARRA DE COMPETICIÓN (12/11/2026) ==================== */
