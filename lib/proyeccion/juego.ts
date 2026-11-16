@@ -211,10 +211,10 @@ export function proyeccionJuego(e: EntradaJuego): ProyeccionJuego | null {
     const L = ppda.liga;
     const frase =
       suya <= 0.88 * L
-        ? `El ${R} apretará arriba: PPDA (pases que nos deja dar antes de presionar; menos es más presión) esperado ${coma(suya)}, media ${coma(L)}.`
+        ? `El ${R} apretará arriba: PPDA esperado ${coma(suya)}, media del grupo ${coma(L)}.`
         : suya >= 1.12 * L
-          ? `El ${R} nos esperará en bloque: PPDA (pases que nos deja dar antes de presionar; menos es más presión) esperado ${coma(suya)}, media ${coma(L)}.`
-          : `PPDA (pases que nos deja dar antes de presionar; menos es más presión) esperado del ${R} contra nosotros: ${coma(suya)}, media del grupo ${coma(L)}.`;
+          ? `El ${R} nos esperará en bloque: PPDA esperado ${coma(suya)}, media del grupo ${coma(L)}.`
+          : `PPDA esperado del ${R} contra nosotros: ${coma(suya)}, media del grupo ${coma(L)}.`;
     tipo.push(`${frase} El nuestro, ${coma(nuestra)}.`);
   }
   /* El estilo del rival con el balón: balón largo frente al grupo. */
@@ -438,7 +438,7 @@ export function proyeccionJuego(e: EntradaJuego): ProyeccionJuego | null {
     if (d.cambio && d.ultimos != null && d.previos != null)
       cambios.push(`el ${R} ${d.cambio === "sube" ? "concede más" : "concede menos"} ${l.metrica.nombre === "xG" ? "xG" : l.metrica.nombre.toLowerCase()} (${fmt(l.metrica, d.ultimos)} en los últimos 5 partidos, ${fmt(l.metrica, d.previos)} en los ${d.n - 5} anteriores)`);
   }
-  if (cambios.length) porque.push(`Tendencia: ${cambios.slice(0, 2).join("; ")}.`);
+  if (cambios.length) porque.push(`Tendencia de 5 partidos (pista, no conclusión): ${cambios.slice(0, 2).join("; ")}.`);
 
   return {
     lineas,

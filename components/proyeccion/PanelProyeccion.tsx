@@ -456,7 +456,6 @@ export function PanelJuego({
   const f = (cuota: boolean | undefined, dec: number, v: number | null | undefined) => (cuota ? pct(v ?? null) : coma(v ?? null, dec));
   const ventajas = d.ventajas.slice(0, 2).map((v) => ({ clave: v.clave, frase: `${v.frase} ${v.entrena}`, consigna: v.consigna }));
   const riesgos = d.riesgos.slice(0, 2).map((v) => ({ clave: v.clave, frase: `${v.frase} ${v.entrena}`, consigna: v.consigna }));
-  const fuenteW = rival?.partidos ? `Wyscout, ${rival.partidos} ${rival.partidos === 1 ? "partido" : "partidos"}` : "Wyscout";
   return (
     <section className="space-y-4 rounded-3xl border border-[#C8A96B]/20 bg-white/[0.03] p-5 md:p-7">
       <Cabecera partido={partido} titulo="Juego" hasta={d.hasta} accion={accion} />
@@ -475,7 +474,8 @@ export function PanelJuego({
           */}
           {d.presion && (
             <p className="mb-1.5 text-sm font-semibold leading-snug text-white/90">
-              Su presión en la temporada: PPDA {coma(d.presion.valor)}, {d.presion.puesto}.º de {d.presion.de} que más aprieta ({d.presion.proveedor}).
+              Su presión en la temporada: PPDA (pases que nos deja dar antes de presionar; menos es más presión) {coma(d.presion.valor)}, {d.presion.puesto}.º de {d.presion.de} que más aprieta ({d.presion.proveedor}, temporada).
+              {d.presion.puesto <= Math.floor(d.presion.de * 0.3) && <span className="block font-normal text-white/80">Salir con superioridad atrás y tercer hombre; no regalar el pase al pivote de espaldas.</span>}
               {/* La de Wyscout sólo si da otro puesto, y con el motivo (16/11/2026, ronda 17). */}
               {rival?.ppda && rival.ppda.puesto !== d.presion.puesto && (
                 <span className="ml-1 text-xs font-normal text-white/55">
@@ -549,7 +549,7 @@ export function PanelJuego({
             </table>
           </div>
           <p className="mt-1 text-[11px] text-white/50">
-            Por partido en la temporada (Opta, {d.partidos.nos} partidos nuestros y {d.partidos.riv} del {partido.rival}).
+            Por partido en la temporada (Opta, {d.partidos.nos} partidos nuestros y {d.partidos.riv} del {partido.rival}){d.presion ? `; la media es la de los ${d.presion.de} equipos del grupo` : ""}.
           </p>
           {[...d.porque, ...d.tipoPartido.slice(3)].length > 0 && (
             <ul className="mt-2 space-y-1 text-sm leading-snug text-white/75">
@@ -614,16 +614,7 @@ export function PanelJuego({
         <p className="mt-1 text-[11px] text-white/50">Entre paréntesis, el intervalo del 80 %.</p>
       </details>
 
-      {/*
-        SU PUNTO FUERTE Y DÉBIL, LOS DE PLANTILLAS RIVALES (16/11/2026, jueces): su
-        cifra más extrema de verdad (la cuenta común, entre los 6 de cada punta),
-        no un 7.º de 20. Sin ellos, los de Opta, también sólo en los extremos.
-      */}
-      <div className="grid gap-3 md:grid-cols-3">
-        <Punto titulo="Su punto fuerte" frase={rival?.fuerte ? `${rival.fuerte.charAt(0).toUpperCase()}${rival.fuerte.slice(1)} (${fuenteW}).` : d.suFuerte?.frase} tono="rojo" />
-        <Punto titulo="Su punto débil" frase={rival?.flojo ? `${enClaro(rival.flojo.charAt(0).toUpperCase() + rival.flojo.slice(1))} (${fuenteW}).` : d.suDebil?.frase} tono="verde" />
-        <Punto titulo="El nuestro" frase={d.nuestroFuerte?.frase} tono="oro" />
-      </div>
+      {/* «Su punto fuerte / débil / El nuestro» se quitaron (16/11/2026, ronda 17): repetían «Cómo le ganamos», arriba del Plan. */}
 
       <div className="grid gap-3 md:grid-cols-2">
         <Consignas titulo="Dónde más ventaja" icono={<Crosshair size={13} className="text-emerald-300" />} items={ventajas} />

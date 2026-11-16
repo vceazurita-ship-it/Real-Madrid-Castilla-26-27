@@ -1688,12 +1688,16 @@ export default function MatchPreparation() {
       wContra: "Correr al robo",
     };
     if (nuestro) ideas.push({ titulo: "Con balón · lo nuestro", texto: VERBO[nuestro.clave] ?? "Explotar lo nuestro", base: nuestro.frase });
-    if (extremosRival?.flojo)
+    const partidosW = perfilesRival?.partidos ? `Wyscout, ${perfilesRival.partidos} partidos` : "Wyscout";
+    if (cornerEnContra) {
+      const decimas = Number(cornerEnContra.valor.replace(/[^\d,]/g, "").replace(",", ".")) / 10;
       ideas.push({
         titulo: "Su punto débil",
-        texto: cornerEnContra ? "El córner a favor" : `Atacar su ${extremosRival.flojo.split(" (")[0]}`,
-        base: enClaro(extremosRival.flojo.charAt(0).toUpperCase() + extremosRival.flojo.slice(1)),
+        texto: "El córner a favor: atacar el primer palo con bloqueo",
+        base: `De los córners que le sacan, el ${cornerEnContra.valor} acaba en remate (${cornerEnContra.puesto}.º de ${cornerEnContra.de}; ${partidosW}): unos ${decimas.toLocaleString("es-ES", { maximumFractionDigits: 1 })} de cada 10.`,
       });
+    } else if (extremosRival?.flojo)
+      ideas.push({ titulo: "Su punto débil", texto: `Atacar su ${extremosRival.flojo.split(" (")[0]}`, base: `${enClaro(extremosRival.flojo.charAt(0).toUpperCase() + extremosRival.flojo.slice(1))} (${partidosW}).` });
     const fuerza = (d: DueloClave) => Math.max(Math.abs(d.conBalon ?? 0), Math.abs(d.sinBalon ?? 0));
     const duelo = duelosClave
       ? [...duelosClave.grupos.vigilar, ...duelosClave.grupos.doble, ...duelosClave.grupos.buscar].filter((d) => d.consigna).sort((a, b) => fuerza(b) - fuerza(a))[0]
@@ -1701,7 +1705,13 @@ export default function MatchPreparation() {
     if (duelo) {
       const v = Math.abs(duelo.sinBalon ?? 0) > Math.abs(duelo.conBalon ?? 0) ? duelo.sinBalon : duelo.conBalon;
       const firma = v == null ? "" : ` (${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(v)}: diferencia de percentil; ${v < 0 ? "negativo, ventaja suya" : "positivo, ventaja nuestra"})`;
-      ideas.push({ titulo: "El duelo que decide", texto: `${duelo.nuestros.join(" y ")} contra ${duelo.suyos.join(" y ")}`, base: `${duelo.titulo}${firma}`, enlace: enlaceDuelos });
+      const momento = Math.abs(duelo.sinBalon ?? 0) > Math.abs(duelo.conBalon ?? 0) ? "con su balón" : "con nuestro balón";
+      ideas.push({
+        titulo: "El duelo que decide",
+        texto: duelo.consigna.split(" (")[0],
+        base: `${duelo.titulo}, ${momento}: ${duelo.nuestros.join(" y ")} contra ${duelo.suyos.join(" y ")}${firma}.${duelo.base ? ` ${duelo.base.replace(/^Base, /, "").replace(/^m/, "M")}.` : ""}`,
+        enlace: enlaceDuelos,
+      });
     }
     return ideas;
   })();
@@ -3072,9 +3082,7 @@ export default function MatchPreparation() {
                     <span className="min-w-0">
                       <span className="block text-lg font-bold">Balón parado</span>
                       <span className="block text-xs text-white/60">
-                        {cornerEnContra
-                          ? `De los córners que le sacan, el ${cornerEnContra.valor} acaba en remate del rival (${cornerEnContra.puesto}.º de ${cornerEnContra.de}, Wyscout). Dentro: qué hacemos, cómo saca el córner y quién remata (Opta).`
-                          : "Qué hacemos a favor y en contra, cómo saca el córner y quién remata (Opta)"}
+                        Qué hacemos a favor y en contra, cómo saca el córner y quién remata (Opta)
                       </span>
                     </span>
                     <ChevronDown size={16} className={`shrink-0 transition ${abpAbierto ? "rotate-180" : ""}`} />
@@ -3287,11 +3295,6 @@ export default function MatchPreparation() {
                     </p>
                   );
                 })()}
-                {duelosClave && !editando && (
-                  <p className="mb-3 text-[13px] text-white/55">
-                    El número de cada duelo es la diferencia de percentil con su par, frente a los jugadores de su puesto con {duelosClave.ventaja[0]?.minutos || duelosClave.riesgo[0]?.minutos || 90} min o más: positivo, ventaja nuestra; negativo, ventaja suya.
-                  </p>
-                )}
                 {duelosClave && !editando && (() => {
                   const lectura = lecturaDelAnalista(rivalActivo, duelosClave.grupos);
                   const signo = (n: number | null) => (n == null ? "" : `${n > 0 ? "+" : n < 0 ? "−" : ""}${Math.abs(n)}`);
@@ -3308,7 +3311,6 @@ export default function MatchPreparation() {
                     if (d.sinMinutosNuestros.length > 0 && d.nuestros.length > 0 && d.nuestros.every((n) => vistos.has(n))) repetidos.add(d.clave);
                     d.nuestros.forEach((n) => vistos.add(n));
                   }
-                  const sinMinutos = [...new Set(Object.values(duelosClave.grupos).flat().flatMap((d) => d.sinMinutosNuestros))];
 
                   const tarjeta = (d: DueloClave, modo: "buscar" | "doble" | "vigilar" | "parejos" | "tendencia") =>
                     repetidos.has(d.clave) ? (
@@ -3375,11 +3377,6 @@ export default function MatchPreparation() {
 
                   return (
                     <>
-                      {sinMinutos.length > 0 && (
-                        <p className="mb-3 text-[13px] text-white/60">
-                          {sinMinutos.join(" y ")} {sinMinutos.length === 1 ? "no tiene" : "no tienen"} minutos en Wyscout: en sus duelos se mide sólo a su compañero de línea.
-                        </p>
-                      )}
                       {decisivos.length > 0 && (
                         <div className="mb-4 grid gap-4 lg:grid-cols-3">
                           {decisivos.map(({ d, modo }) => (
