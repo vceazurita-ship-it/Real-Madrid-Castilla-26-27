@@ -1142,18 +1142,19 @@ export const AYUDAS: AyudaDePagina[] = [
     ruta: "/collective_history",
     titulo: "Histórico Competición",
     resumen: "Cómo va el Castilla en la liga: puesto, puntos, balance y goles, la curva de puntos frente a la media de la liga y la tabla jornada a jornada.",
-    origen: "Nuestros resultados: el calendario de BeSoccer («castilla:calendario»). Puesto y totales: la tabla más reciente del informe de rivales (BeSoccer). La media de la liga y el puesto de cada jornada: todos los partidos de liga de BeSoccer («goles:analisis»). El informe completo sigue en Power BI.",
-    revisada: "2026-11-12",
+    origen: "Nuestros resultados: el calendario de BeSoccer («castilla:calendario»). Puesto y totales: la tabla más reciente del informe de rivales (BeSoccer). La media de la liga y el puesto de cada jornada: todos los partidos de liga de BeSoccer («goles:analisis»). El informe de Power BI queda como enlace secundario: la pantalla no depende de él.",
+    revisada: "2026-11-16",
     bloques: [
       {
         titulo: "Arriba",
         filas: [
-          { que: "El titular", es: "Puesto (y si subimos o bajamos en la última), puntos y puntos por partido frente a la media de la liga" },
+          { que: "El titular", es: "Puesto (y si subimos o bajamos en la última), puntos, la jornada y el día de corte, y los puntos por partido frente a la media de la liga" },
+          { que: "Siguiente", es: "El próximo partido del calendario y lo que hay en juego: los puntos al equipo de arriba y sobre el de abajo", cuenta: "De la tabla completa de nuestra última jornada; si esa tabla aún no está, no sale" },
           { que: "Puesto", es: "De la clasificación, con el movimiento de la última jornada" },
-          { que: "Puntos", es: "Con los partidos y los puntos por partido", cuenta: "Puntos ÷ partidos" },
-          { que: "Balance", es: "Ganados · empatados · perdidos" },
-          { que: "Goles", es: "A favor-en contra, la diferencia y los goles a favor por partido" },
-          { que: "Referencia", es: "La media de los equipos de la liga tras las mismas jornadas", cuenta: "Puntos repartidos (3 con ganador, 2 si empatan) ÷ (partidos × 2); goles de la liga ÷ (partidos × 2)" },
+          { que: "Puntos", es: "Con los partidos, los puntos por partido y la media de la liga al lado", cuenta: "Puntos ÷ partidos; liga = puntos repartidos (3 con ganador, 2 si empatan) ÷ (partidos × 2)" },
+          { que: "Balance", es: "Tres cifras: ganados, empatados y perdidos, con su rótulo debajo" },
+          { que: "Goles", es: "A favor-en contra, la diferencia y los goles a favor por partido con la media de la liga al lado", cuenta: "Liga = goles de la liga ÷ (partidos × 2)" },
+          { que: "Pie de cada tarjeta", es: "La fuente (BeSoccer) y la jornada y el día de corte" },
         ],
       },
       {
@@ -1161,6 +1162,7 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           { que: "La línea dorada", es: "Nuestros puntos acumulados, jornada a jornada" },
           { que: "La raya de puntos", es: "Lo que lleva de media un equipo de la liga tras cada jornada", cuenta: "Puntos por equipo y partido de la liga hasta esa jornada × partidos que llevamos" },
+          { que: "Eje de puntos", es: "Una marca cada 3 puntos; pasados los 12, cada 6, para que se lea en el móvil" },
         ],
       },
       {
@@ -1168,14 +1170,15 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           { que: "Resultado", es: "Verde si ganamos, ámbar si empatamos, rojo si perdemos" },
           { que: "Acumulados y Media liga", es: "Los dos puntos de la curva en cada jornada; en el móvil no salen" },
-          { que: "Puesto", es: "La clasificación tras esa jornada con todos los partidos de la liga hasta ella; la columna sólo sale si están todas", cuenta: "Por puntos, luego diferencia de goles, luego goles a favor" },
+          { que: "Rival y su puesto", es: "El rival y, a su lado, su puesto en la misma tabla tras esa jornada; sólo sale si se encuentra en todas" },
+          { que: "Nuestro puesto", es: "Destacada en dorado: la clasificación tras esa jornada con todos los partidos de la liga hasta ella; la columna sólo sale si están todas", cuenta: "Por puntos, luego diferencia de goles, luego goles a favor" },
           { que: "Total", es: "La suma de la tabla: goles y puntos de los partidos jugados" },
         ],
       },
       {
         titulo: "Power BI",
         filas: [
-          { que: "Abrir Power BI", es: "El informe completo de la competición, en otra pestaña; puede pedir la cuenta de Microsoft" },
+          { que: "Abrir Power BI", es: "Enlace secundario al informe de la competición en Power BI, en otra pestaña; pide la cuenta de Microsoft. Lo de arriba no depende de él" },
           { que: "Vídeo / Ver explicación", es: "Cómo se lee el informe de Power BI; en escritorio, el botón flotante lleva al enlace" },
         ],
       },

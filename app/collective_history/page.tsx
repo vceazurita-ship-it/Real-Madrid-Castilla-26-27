@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { Play, ExternalLink, Home, Plane } from "lucide-react";
@@ -11,6 +11,18 @@ import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { DOC_GOLES, GOLES_VACIO, type GolesDoc } from "@/lib/goles/analisis";
 import type { ClasificacionPortada } from "@/lib/portada/proximo-partido";
 import { nombreEquipo } from "@/lib/equipos";
+import { mismoClub } from "@/lib/rivals/mismoClub";
+
+type Vecino = { puesto: number; nombre: string; puntos: number };
+/** Nuestros puntos en la última tabla completa y los equipos de justo arriba y abajo. */
+type Vecinos = { jornada: number; puntos: number; arriba: Vecino | null; abajo: Vecino | null };
+
+/** «13 nov», del «2026-11-13T19:00» de BeSoccer. */
+function diaCorto(cuando: string) {
+  const d = new Date(`${cuando.slice(0, 10)}T12:00:00`);
+
+  return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("es-ES", { day: "numeric", month: "short" }).replace(".", "");
+}
 
 /* Puntos acumulados del Castilla frente a la media de un equipo de la liga, jornada a jornada. */
 function GraficaPuntos({
@@ -26,14 +38,16 @@ function GraficaPuntos({
   if (jugados.length < 2) return null;
 
   const W = 640;
-  const H = 220;
+  /* 16/11/2026 (fútbol): más alto (a 390 px las marcas se montaban) y, pasados los 12 puntos, una marca cada 6. */
+  const H = 300;
   /* 30/10/2026: letra de los ejes a 14 en el lienzo de 640: a 390 px se quedaba en 6 px y no se leía. */
   /* 10/11/2026: sin rótulos al final de las líneas (la leyenda de arriba los dice): margen derecho corto. */
   /* 11/11/2026: sin ancho mínimo (a 390 px se cortaba en la J7) y con letra de
      20 en el lienzo de 640, que a 390 px queda en unos 11 px. */
   const M = { l: 46, r: 24, t: 16, b: 40 };
   const maximo = Math.max(3, ...jugados.map((u) => u.acumulados), ...jugados.map((u) => liga.get(u.jornada) ?? 0));
-  const tope = Math.ceil(maximo / 3) * 3;
+  const paso = maximo > 12 ? 6 : 3;
+  const tope = Math.ceil(maximo / paso) * paso;
   const x = (i: number) => M.l + (i * (W - M.l - M.r)) / (jugados.length - 1);
   const y = (v: number) => H - M.b - (v * (H - M.t - M.b)) / tope;
   const nuestra = jugados.map((u, i) => `${x(i)},${y(u.acumulados)}`).join(" ");
@@ -79,17 +93,17 @@ function GraficaPuntos({
         role="img"
         aria-label="Puntos acumulados del Castilla frente a la media de la liga"
       >
-        {Array.from({ length: tope / 3 + 1 }, (_, k) => k * 3).map((v) => (
+        {Array.from({ length: tope / paso + 1 }, (_, k) => k * paso).map((v) => (
           <g key={v}>
             <line x1={M.l} x2={W - M.r} y1={y(v)} y2={y(v)} stroke="currentColor" strokeOpacity={0.12} />
-            <text x={M.l - 8} y={y(v) + 6} textAnchor="end" fontSize={20} fill="currentColor" fillOpacity={0.65}>
+            <text x={M.l - 8} y={y(v) + 7} textAnchor="end" fontSize={22} fill="currentColor" fillOpacity={0.7}>
               {v}
             </text>
           </g>
         ))}
         {/* Con muchas jornadas, una de cada dos (y siempre la última) para que no se monten. */}
-        {jugados.map((u, i) => (jugados.length > 14 && i % 2 === 1 && i !== jugados.length - 1 ? null : (
-          <text key={u.jornada} x={x(i)} y={H - 10} textAnchor="middle" fontSize={jugados.length > 14 ? 16 : 20} fill="currentColor" fillOpacity={0.65}>
+        {jugados.map((u, i) => (jugados.length > 12 && i % 2 === 1 && i !== jugados.length - 1 ? null : (
+          <text key={u.jornada} x={x(i)} y={H - 10} textAnchor="middle" fontSize={22} fill="currentColor" fillOpacity={0.7}>
             J{u.jornada}
           </text>
         )))}
@@ -186,6 +200,10 @@ const liga = useMemo(() => {
   const equipos = new Set(ps.flatMap((p) => [p.local, p.visitante]));
   const porPartidosJornada = Math.floor(equipos.size / 2);
   const puestos = new Map<number, number>();
+  /* 16/11/2026 (análisis): el puesto del rival tras esa misma jornada, para ver contra quién se sumó. */
+  const puestosRival = new Map<number, number>();
+  /* 16/11/2026 (fútbol): los de arriba y abajo en la última tabla completa, para mirar al siguiente partido. */
+  let vecinos: Vecinos | null = null;
   /* Puntos que lleva de media un equipo de la liga tras cada una de nuestras jornadas. */
   const acumuladaLiga = new Map<number, number>();
 
@@ -234,14 +252,26 @@ const liga = useMemo(() => {
 
     const orden = [...tabla.entries()].sort((x, y) => y[1].pts - x[1].pts || y[1].dif - x[1].dif || y[1].gf - x[1].gf);
 
-    puestos.set(uno.jornada, orden.findIndex(([n]) => n === nuestro) + 1);
+    const i = orden.findIndex(([n]) => n === nuestro);
+
+    puestos.set(uno.jornada, i + 1);
+
+    const delRival = orden.findIndex(([n]) => mismoClub(n, uno.rival) || mismoClub(nombreEquipo(n), nombreEquipo(uno.rival)));
+
+    if (delRival >= 0) puestosRival.set(uno.jornada, delRival + 1);
+
+    const vecino = (k: number) => (orden[k] ? { puesto: k + 1, nombre: nombreEquipo(orden[k][0]), puntos: orden[k][1].pts } : null);
+
+    vecinos = { jornada: uno.jornada, puntos: orden[i][1].pts, arriba: vecino(i - 1), abajo: vecino(i + 1) };
   }
 
-  return { mediaPuntos, mediaGoles, puestos, acumuladaLiga, equipos: equipos.size };
+  return { mediaPuntos, mediaGoles, puestos, puestosRival, vecinos, acumuladaLiga, equipos: equipos.size };
 }, [golesLiga.value.partidos, jugados]);
 
 /* La columna del puesto sólo se dibuja si hay puesto en todas las jornadas: una celda suelta en blanco es un hueco. */
 const conPuesto = jugados.length > 0 && jugados.every((u) => liga.puestos.has(u.jornada));
+/* Lo mismo para el puesto del rival: o en todas las filas, o en ninguna. */
+const conPuestoRival = conPuesto && jugados.every((u) => liga.puestosRival.has(u.jornada));
 
 /*
 | 30/10/2026: la tarjeta PUESTO decía «tendencia, tras 9 jornadas», que no se
@@ -256,6 +286,47 @@ const movimientoPuesto = (() => {
   const ahora = liga.puestos.get(jugados[jugados.length - 1].jornada);
   if (antes === undefined || ahora === undefined) return base;
   return antes === ahora ? `${base} · igual que la anterior` : `${base} · de ${antes}º a ${ahora}º en la última`;
+})();
+
+/*
+| 16/11/2026 (análisis, marketing): la jornada y el día de corte, en el titular
+| y en cada tarjeta. Sale del último partido nuestro con marcador.
+*/
+const ultimo = jugados.at(-1) ?? null;
+const corte = ultimo ? `J${ultimo.jornada}${diaCorto(ultimo.cuando) ? `, ${diaCorto(ultimo.cuando)}` : ""}` : "";
+
+/*
+| 16/11/2026 (fútbol, marketing): qué hacemos con el dato. El siguiente
+| partido y lo que hay en juego: los puntos al de arriba y al de abajo, de la
+| última tabla completa, sólo si es la de nuestra última jornada.
+*/
+const proximo = useMemo(
+  () =>
+    ordenaPartidos(partidos)
+      .map(comoNuestro)
+      .find((uno) => uno.jornada > 0 && !uno.jugado) ?? null,
+  [partidos],
+);
+const enJuego = (() => {
+  const v = liga.vecinos;
+
+  if (!v || !ultimo || v.jornada !== ultimo.jornada || (!v.arriba && !v.abajo)) return "";
+
+  const pts = (n: number) => `${n} ${n === 1 ? "punto" : "puntos"}`;
+  const trozos = [
+    v.arriba
+      ? v.arriba.puntos === v.puntos
+        ? `empatados a puntos con el ${v.arriba.puesto}º (${v.arriba.nombre})`
+        : `a ${pts(v.arriba.puntos - v.puntos)} del ${v.arriba.puesto}º (${v.arriba.nombre})`
+      : "",
+    v.abajo
+      ? v.abajo.puntos === v.puntos
+        ? `empatados con el ${v.abajo.puesto}º (${v.abajo.nombre})`
+        : `con ${pts(v.puntos - v.abajo.puntos)} sobre el ${v.abajo.puesto}º (${v.abajo.nombre})`
+      : "",
+  ].filter(Boolean);
+
+  return trozos.join(" y ");
 })();
 
 /*
@@ -389,9 +460,25 @@ useEffect(() => {
                   })()}{" "}
                   con {tabla.puntos} puntos tras {tabla.jugados}{" "}
                   {tabla.jugados === 1 ? "jornada" : "jornadas"}
+                  {corte && ultimo?.jornada === tabla.jugados ? ` (${corte})` : ""}
                   {liga.mediaPuntos !== null
                     ? `: ${(tabla.puntos / tabla.jugados).toLocaleString("es-ES", { maximumFractionDigits: 1 })} por partido frente a ${liga.mediaPuntos.toLocaleString("es-ES", { maximumFractionDigits: 1 })} de media en la liga.`
                     : "."}
+                </p>
+              ) : null}
+              {/* 16/11/2026: lo que se hace con el dato: el siguiente partido y lo que hay en juego. */}
+              {tabla && (proximo || enJuego) ? (
+                <p className="mt-2 text-[14px] leading-snug text-white/75">
+                  {proximo ? (
+                    <>
+                      <span className="font-semibold" style={{ color: "var(--rmcf-gold-ink)" }}>
+                        Siguiente: J{proximo.jornada} · {nombreEquipo(proximo.rival)} ({proximo.lado === "casa" ? "en casa" : "fuera"}
+                        {diaCorto(proximo.cuando) ? `, ${diaCorto(proximo.cuando)}` : ""})
+                      </span>
+                      {enJuego ? ". " : "."}
+                    </>
+                  ) : null}
+                  {enJuego ? `${enJuego.charAt(0).toUpperCase()}${enJuego.slice(1)}.` : null}
                 </p>
               ) : null}
             </div>
@@ -401,51 +488,68 @@ useEffect(() => {
                 {(() => {
                   const dec = (n: number) => n.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
                   const dif = tabla.favor - tabla.contra;
+                  /* 16/11/2026 (marketing): la media de la liga, dentro de su tarjeta. */
+                  const ligaPuntos = liga.mediaPuntos !== null ? ` · liga ${dec(liga.mediaPuntos)}` : "";
+                  const ligaGoles = liga.mediaGoles !== null ? ` · liga ${dec(liga.mediaGoles)}` : "";
 
                   /* 29/10/2026: la cifra grande es el dato y debajo, pequeña, la referencia (fútbol y marketing). */
-                  return [
-                    ["Puesto", `${tabla.puesto}º de ${tabla.deCuantos}`, movimientoPuesto],
-                    [
-                      "Puntos",
-                      String(tabla.puntos),
-                      tabla.jugados > 0
-                        ? `en ${tabla.jugados} partidos · ${dec(tabla.puntos / tabla.jugados)} por partido`
-                        : "",
-                    ],
-                    /* 07/11/2026: «4-3-3» se leía como un sistema de juego. */
-                    ["Balance", `${tabla.ganados} G · ${tabla.empatados} E · ${tabla.perdidos} P`, "ganados · empatados · perdidos"],
-                    [
-                      "Goles",
-                      `${tabla.favor}-${tabla.contra}`,
+                  const tarjetas: { etiqueta: string; valor: ReactNode; largo?: boolean; referencia: string }[] = [
+                    { etiqueta: "Puesto", valor: `${tabla.puesto}º de ${tabla.deCuantos}`, referencia: movimientoPuesto },
+                    {
+                      etiqueta: "Puntos",
+                      valor: String(tabla.puntos),
+                      referencia:
+                        tabla.jugados > 0
+                          ? `en ${tabla.jugados} partidos · ${dec(tabla.puntos / tabla.jugados)} por partido${ligaPuntos}`
+                          : "",
+                    },
+                    /* 07/11/2026: «4-3-3» se leía como un sistema de juego.
+                       16/11/2026 (fútbol): en el móvil se partía en dos líneas;
+                       ahora son tres cifras con su rótulo debajo. */
+                    {
+                      etiqueta: "Balance",
+                      valor: (
+                        <span className="grid grid-cols-3 gap-1 text-center">
+                          {[
+                            [tabla.ganados, "ganados", "var(--rmcf-dif-mejor)"],
+                            [tabla.empatados, "empatados", undefined],
+                            [tabla.perdidos, "perdidos", "var(--rmcf-dif-peor)"],
+                          ].map(([n, rotulo, color]) => (
+                            <span key={String(rotulo)} className="flex min-w-0 flex-col items-center">
+                              <span className="tabular-nums" style={color ? { color: String(color) } : undefined}>{n}</span>
+                              <span className="mt-1 text-[10px] font-normal uppercase tracking-[0.08em] text-white/60">{rotulo}</span>
+                            </span>
+                          ))}
+                        </span>
+                      ),
+                      referencia: "",
+                    },
+                    {
+                      etiqueta: "Goles",
+                      valor: `${tabla.favor}-${tabla.contra}`,
                       /* 29/10/2026: en dos renglones; en uno solo no se leía. */
-                      `${tabla.favor} a favor · ${tabla.contra} en contra\ndiferencia ${dif > 0 ? "+" : dif < 0 ? "−" : ""}${Math.abs(dif)}${tabla.jugados > 0 ? ` · ${dec(tabla.favor / tabla.jugados)} a favor por partido` : ""}`,
-                    ],
+                      referencia: `${tabla.favor} a favor · ${tabla.contra} en contra\ndiferencia ${dif > 0 ? "+" : dif < 0 ? "−" : ""}${Math.abs(dif)}${tabla.jugados > 0 ? ` · ${dec(tabla.favor / tabla.jugados)} a favor por partido${ligaGoles}` : ""}`,
+                    },
                   ];
-                  /* 11/11/2026 (expertos, ronda 2): la referencia de la liga,
-                     una sola vez y con su base, bajo las cuatro tarjetas. */
-                })().map(([etiqueta, valor, referencia]) => (
+
+                  return tarjetas;
+                })().map(({ etiqueta, valor, largo, referencia }) => (
                   <div
                     key={etiqueta}
-                    className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3"
+                    className="flex min-w-0 flex-col rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3"
                   >
                     <p className="text-[11px] uppercase tracking-[0.25em] text-[#C8A96B]">
                       {etiqueta}
                     </p>
-                    <p className={`mt-1 font-semibold leading-none text-white ${valor.length > 9 ? "text-2xl sm:text-3xl" : "text-3xl"}`}>{valor}</p>
+                    <div className={`mt-1 font-semibold leading-none text-white ${largo ? "text-2xl sm:text-3xl" : "text-3xl"}`}>{valor}</div>
                     {referencia ? <p className="mt-1.5 whitespace-pre-line text-[12px] leading-snug text-white/60">{referencia}</p> : null}
+                    {/* 16/11/2026 (marketing): fuente y corte en cada tarjeta. */}
+                    {corte ? <p className="mt-auto pt-2 text-[10px] uppercase tracking-[0.12em] text-white/45">BeSoccer · hasta {corte}</p> : null}
                   </div>
                 ))}
                 {liga.mediaPuntos !== null || liga.mediaGoles !== null ? (
                   <p className="col-span-2 text-[12px] text-white/60 sm:col-span-4">
-                    Referencia: media de {liga.equipos > 0 ? `los ${liga.equipos} equipos` : "la liga"} tras {tabla.jugados} {tabla.jugados === 1 ? "jornada" : "jornadas"}
-                    {[
-                      liga.mediaPuntos !== null ? `${liga.mediaPuntos.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} puntos por partido` : "",
-                      liga.mediaGoles !== null ? `${liga.mediaGoles.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} goles a favor por partido` : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" y ")
-                      .replace(/^/, ": ")}
-                    .
+                    «Liga»: media de {liga.equipos > 0 ? `los ${liga.equipos} equipos` : "la liga"} tras {tabla.jugados} {tabla.jugados === 1 ? "jornada" : "jornadas"}, por partido.
                   </p>
                 ) : null}
               </div>
@@ -483,7 +587,12 @@ useEffect(() => {
                           <span className="sm:hidden">J</span>
                           <span className="hidden sm:inline">Jornada</span>
                         </th>
-                        <th className="px-3 py-3 font-medium sm:px-4">Rival</th>
+                        <th className="px-3 py-3 font-medium sm:px-4">
+                          Rival
+                          {conPuestoRival ? (
+                            <span className="block text-[10px] font-normal normal-case tracking-normal text-white/50">y su puesto tras esa jornada</span>
+                          ) : null}
+                        </th>
                         <th className="hidden px-4 py-3 font-medium sm:table-cell">Campo</th>
                         <th className="px-3 py-3 text-center font-medium sm:px-4">
                           <span className="sm:hidden">Res.</span>
@@ -507,7 +616,12 @@ useEffect(() => {
                           </th>
                         ) : null}
                         {/* 08/11/2026: margen a la derecha para que el botón flotante no tape el puesto. */}
-                        {conPuesto ? <th className="px-3 py-3 text-right font-medium sm:pl-4 sm:pr-16">Puesto</th> : null}
+                        {conPuesto ? (
+                          <th className="px-3 py-3 text-right font-semibold sm:pl-4 sm:pr-16" style={{ color: "var(--rmcf-gold-ink)", background: "rgb(200 169 107 / .08)" }}>
+                            <span className="sm:hidden">Puesto</span>
+                            <span className="hidden sm:inline">Nuestro puesto</span>
+                          </th>
+                        ) : null}
                       </tr>
                     </thead>
                     <tbody>
@@ -518,7 +632,19 @@ useEffect(() => {
                         >
                           <td className="px-3 py-2.5 sm:px-4">J{uno.jornada}</td>
                           <td className="min-w-0 px-3 py-2.5 sm:px-4">
-                            <span className="block">{nombreEquipo(uno.rival)}</span>
+                            <span className="block">
+                              {nombreEquipo(uno.rival)}
+                              {/* 16/11/2026 (análisis): contra quién se sumó, con su puesto del momento. */}
+                              {conPuestoRival ? (
+                                <span
+                                  className="ml-1.5 inline-block rounded px-1.5 text-[11px] font-semibold tabular-nums text-white/70"
+                                  style={{ background: "rgb(var(--rmcf-ink-rgb) / .08)" }}
+                                  title={`${nombreEquipo(uno.rival)}: ${liga.puestosRival.get(uno.jornada)}º tras la J${uno.jornada}`}
+                                >
+                                  {liga.puestosRival.get(uno.jornada)}º
+                                </span>
+                              ) : null}
+                            </span>
                             <span className="block text-xs text-white/60 sm:hidden">
                               {uno.lado === "casa" ? "en casa" : "fuera"}
                             </span>
@@ -555,7 +681,12 @@ useEffect(() => {
                             </td>
                           ) : null}
                           {conPuesto ? (
-                            <td className="px-3 py-2.5 text-right sm:pl-4 sm:pr-16">{liga.puestos.get(uno.jornada)}º</td>
+                            <td
+                              className="px-3 py-2.5 text-right font-semibold tabular-nums sm:pl-4 sm:pr-16"
+                              style={{ color: "var(--rmcf-gold-ink)", background: "rgb(200 169 107 / .08)" }}
+                            >
+                              {liga.puestos.get(uno.jornada)}º
+                            </td>
                           ) : null}
                         </tr>
                       ))}
@@ -579,23 +710,25 @@ useEffect(() => {
                 </div>
                 {conPuesto ? (
                   <p className="mt-2 text-xs text-white/60">
-                    Puesto: la clasificación tras cada jornada, con todos los partidos de la liga hasta ella. Con {jugados.length} jornadas es una tendencia.
+                    Puesto: la clasificación tras cada jornada, con todos los partidos de la liga hasta ella
+                    {conPuestoRival ? "; el del rival, de la misma tabla" : ""}. Con {jugados.length} jornadas es una tendencia.
                   </p>
                 ) : null}
 
               </div>
             ) : null}
 
-            <div className="mb-3 flex flex-wrap items-center gap-3 rounded-2xl border border-[#C8A96B]/40 bg-white/[0.04] px-4 py-3 text-sm text-white/80">
+            {/* 16/11/2026 (análisis): Power BI deja de ser el botón principal; una
+                nota corta dice qué es y que lo de arriba ya no depende de él. */}
+            <div className="mb-3 flex flex-wrap items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-[13px] text-white/70">
               <span className="min-w-0 flex-1 basis-full sm:basis-auto">
-                Informe completo de la competición en Power BI.
-                <span className="block text-[11px] text-white/55">Se abre en otra pestaña y puede pedir la cuenta de Microsoft.</span>
+                El informe de la competición en Power BI (pide cuenta de Microsoft). Todo lo de esta pantalla sale de BeSoccer y se pone al día cada noche sin él.
               </span>
               <a
                 href={src}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-full bg-[#C8A96B] px-4 py-2 font-semibold text-black"
+                className="inline-flex items-center gap-2 rounded-full border border-white/15 px-3.5 py-1.5 text-[12px] font-medium text-white/80 hover:text-white"
               >
                 <ExternalLink size={14} />
                 Abrir Power BI
