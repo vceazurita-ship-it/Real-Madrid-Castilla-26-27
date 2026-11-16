@@ -471,6 +471,8 @@ export default function TacticsBoard({
 
   const nombresVisibles = !doc.sinNombres;
   const muyEstrecho = useSyncExternalStore(suscribeAncho, esMuyEstrecho, anchoDelServidor);
+  /* En el móvil, los nombres bajo las fichas a petición (para la charla desde el teléfono, 16/11/2026). Sólo en este aparato. */
+  const [nombresEnMovil, setNombresEnMovil] = useState(false);
 
   /* Prefijo de los degradados de las figuras: en /pizarra hay dos tableros en la misma página. */
   const prefijoFiguras = `pz${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
@@ -524,6 +526,31 @@ export default function TacticsBoard({
 
     return { porFicha, porNombre };
   }, [roster, rivalSquads]);
+
+  /*
+  | UN SOLO NOMBRE (16/11/2026, 3.ª vuelta, jueces): la ficha guardaba el nombre
+  | del día en que se rellenó («Dani») y Duelos y el Plan dicen el de la
+  | plantilla («Yáñez»). Una ficha nuestra cuyo dorsal es el de un jugador de la
+  | plantilla, y cuyo nombre guardado es una palabra del suyo, se rotula con el
+  | nombre corto de la plantilla.
+  */
+  const nombreDePlantilla = useMemo(() => {
+    const porDorsal = new Map<string, Player[]>();
+    roster.forEach((p) => {
+      if (p.dorsal == null) return;
+      const k = String(p.dorsal);
+      porDorsal.set(k, [...(porDorsal.get(k) ?? []), p]);
+    });
+    return (token: TacticToken) => {
+      if (token.kind !== "home" || !token.nombre) return token.nombre;
+      const candidatos = porDorsal.get(String(token.label)) ?? [];
+      if (candidatos.length !== 1) return token.nombre;
+      const p = candidatos[0];
+      const palabras = new Set(claveNombre(p.nombre + " " + (p.apodo ?? "")).split(" ").filter(Boolean));
+      const guardado = claveNombre(token.nombre).split(" ").filter(Boolean);
+      return guardado.some((w) => palabras.has(w)) ? p.apodo || p.nombre : token.nombre;
+    };
+  }, [roster]);
 
   /** Lo que la ficha guarda, completado con lo que se sepa del jugador. */
   const perfilDe = useCallback(
@@ -2352,6 +2379,17 @@ export default function TacticsBoard({
                     Nombres
                   </Chip>
 
+                  {muyEstrecho && nombresVisibles && (
+                    <Chip
+                      activo={nombresEnMovil}
+                      onClick={() => setNombresEnMovil((v) => !v)}
+                      title="En el móvil, el nombre bajo cada ficha también (si no, sólo el dorsal y el nombre de la que se toca)"
+                    >
+                      <Tag size={12} />
+                      Nombres en el móvil
+                    </Chip>
+                  )}
+
                   {/*
                     Modo jugador: la ficha redonda deja paso a la figura del
                     jugador, con su cara y con el cuerpo que le corresponde por
@@ -2890,7 +2928,8 @@ export default function TacticsBoard({
               */
               const anclaY = figura ? 0 : style.radius * 0.55;
 
-              const nombre = token.nombre && nombresVisibles && (!muyEstrecho || exporting || elegida) ? nombreCorto(token.nombre) : "";
+              const nombreFicha = nombreDePlantilla(token);
+              const nombre = nombreFicha && nombresVisibles && (!muyEstrecho || exporting || elegida || nombresEnMovil) ? nombreCorto(nombreFicha) : "";
 
               return (
                 <g
