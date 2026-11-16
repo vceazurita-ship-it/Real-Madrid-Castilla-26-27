@@ -473,7 +473,7 @@ export default function TacticsBoard({
   const muyEstrecho = useSyncExternalStore(suscribeAncho, esMuyEstrecho, anchoDelServidor);
   /* En el móvil, los nombres bajo las fichas a petición (para la charla desde el teléfono, 16/11/2026). Sólo en este aparato. */
   /* Encendido por defecto (16/11/2026, ronda 17): en el móvil no se sabía quién era quién. */
-  const [nombresEnMovil, setNombresEnMovil] = useState(true);
+  const [nombresEnMovil, setNombresEnMovil] = useState(false);
 
   /* Prefijo de los degradados de las figuras: en /pizarra hay dos tableros en la misma página. */
   const prefijoFiguras = `pz${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
@@ -548,7 +548,10 @@ export default function TacticsBoard({
     });
     return (token: TacticToken) => {
       if (token.kind !== "home" || !token.nombre) return token.nombre;
-      const candidatos = porDorsal.get(String(token.label)) ?? [];
+      const guardadoPrevio = claveNombre(token.nombre).split(" ").filter(Boolean);
+      /* Sin dorsal en la ficha de la plantilla, por el nombre si sólo casa uno (16/11/2026, ronda 17). */
+      const porPalabra = roster.filter((r) => claveNombre(`${r.nombre} ${r.apodo ?? ""}`).split(" ").some((w) => w.length > 2 && guardadoPrevio.includes(w)));
+      const candidatos = (porDorsal.get(String(token.label)) ?? []).length === 1 ? porDorsal.get(String(token.label))! : porPalabra;
       if (candidatos.length !== 1) return token.nombre;
       const p = candidatos[0];
       const palabras = new Set(claveNombre(p.nombre + " " + (p.apodo ?? "")).split(" ").filter(Boolean));
@@ -2321,21 +2324,35 @@ export default function TacticsBoard({
         </button>
 
         <div className="ml-auto flex flex-wrap items-center gap-1.5">
+          {/* Las dos acciones de escena en un solo mando (16/11/2026, ronda 17: la barra iba demasiado cargada). */}
           {!singleScene && (
-            <>
-              <TokenButton
-                label="Duplicar"
-                icon={<Copy size={13} />}
-                onClick={addScene}
-                title="Duplicar la escena justo detrás: mueve las fichas en la copia y al reproducir se verá el movimiento"
-              />
-              <TokenButton
-                label="Escena en blanco"
-                icon={<Plus size={13} />}
-                onClick={addEmptyScene}
-                title="Una escena en blanco justo detrás de ésta"
-              />
-            </>
+            <Desplegable etiqueta="Escena" icono={<Copy size={13} />} titulo="Duplicar la escena o añadir una en blanco detrás" lado="derecha" ancho="w-64">
+              {(cierra) => (
+                <div className="space-y-1 text-[12px] text-white/80">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      addScene();
+                      cierra();
+                    }}
+                    title="Mueve las fichas en la copia y al reproducir se verá el movimiento"
+                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition hover:bg-white/[0.06]"
+                  >
+                    <Copy size={13} /> Duplicar esta escena
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      addEmptyScene();
+                      cierra();
+                    }}
+                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition hover:bg-white/[0.06]"
+                  >
+                    <Plus size={13} /> Escena en blanco detrás
+                  </button>
+                </div>
+              )}
+            </Desplegable>
           )}
 
           {/* VISTA: ENCUADRE, CÉSPED, GRADERÍO, FIGURAS, NOMBRES */}

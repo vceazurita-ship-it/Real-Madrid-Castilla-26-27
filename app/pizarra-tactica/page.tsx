@@ -412,7 +412,8 @@ export default function PizarraTacticaPage() {
           <div
             className={cn(
               "space-y-4",
-              sinCromo ? "p-2" : "px-4 py-6 sm:px-6 lg:px-10",
+              /* A la derecha, sitio para el botón flotante: tapaba el borde del tablero (16/11/2026, ronda 17). */
+              sinCromo ? "p-2" : "py-6 pl-4 pr-4 sm:pl-6 sm:pr-20 lg:pl-10",
             )}
           >
             {!sinCromo && (
@@ -1095,10 +1096,11 @@ function BoardEditor({
                 <span className="block"><b className="font-semibold text-white/85">Castilla</b>, hacia la derecha: {fuentes.nuestra}.</span>
                 <span className="block">
                   <b className="font-semibold text-white/85">{fuentes.rival}</b>, hacia la izquierda:{" "}
-                  <span className="rounded border border-white/15 px-1 py-px text-[11px] font-semibold text-white/75">
-                    {/marcado/i.test(fuentes.suya) ? "probable" : /besoccer/i.test(fuentes.suya) ? "su último once" : "por minutos"}
-                  </span>{" "}
-                  {fuentes.suya.charAt(0).toLowerCase()}{fuentes.suya.slice(1)}.
+                  {/* Sin «probable once probable» (16/11/2026, ronda 17). */}
+                  {/^once probable marcado/i.test(fuentes.suya)
+                    ? `su once probable, marcado en Plantillas rivales${fuentes.suya.replace(/^once probable marcado en plantillas rivales/i, "")}`
+                    : `${fuentes.suya.charAt(0).toLowerCase()}${fuentes.suya.slice(1)}`}
+                  .
                 </span>
               </>
             ) : (
