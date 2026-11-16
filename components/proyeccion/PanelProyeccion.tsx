@@ -431,15 +431,22 @@ export function PanelJuego({ partido, d, accion }: { partido: PartidoObjetivo; d
 
       {d.tipoPartido.length > 0 && (
         <Bloque titulo="Tipo de partido" icono={<Swords size={13} className="text-[#C8A96B]" />}>
+          {/* Tres frases como mucho: posesión, ocasiones y presión. El estilo va dentro de «Por qué». */}
           <ul className="space-y-1 text-sm leading-snug text-white/85">
-            {d.tipoPartido.map((t) => (
+            {d.tipoPartido.slice(0, 3).map((t) => (
               <li key={t}>{t}</li>
             ))}
           </ul>
+          {d.contraste && <p className="mt-2 border-t border-white/10 pt-2 text-xs leading-snug text-white/65">{d.contraste}</p>}
         </Bloque>
       )}
 
-      <div className="-mx-1 overflow-x-auto">
+      <details className="group rounded-2xl border border-white/10 bg-white/[0.02] p-3">
+        <summary className="cursor-pointer select-none text-[12px] font-semibold text-white/75">
+          Ver las {d.lineas.length} cifras del partido
+          <span className="ml-1 font-normal text-white/50">· nosotros, {partido.rival} y la media del grupo</span>
+        </summary>
+      <div className="-mx-1 mt-2 overflow-x-auto">
         <table className="w-full min-w-[520px] text-sm">
           <thead>
             <tr className="border-b border-white/10 text-[11px] uppercase tracking-wider text-white/50">
@@ -470,7 +477,11 @@ export function PanelJuego({ partido, d, accion }: { partido: PartidoObjetivo; d
                 <tr key={m.clave} className="border-b border-white/5">
                   <td className="px-2 py-2 align-top text-white/85" title={m.comoLeer}>
                     {m.nombre}
-                    {m.fuente === "Wyscout" && <span className="ml-1 text-[10px] text-white/40">Wyscout</span>}
+                    <span className="ml-1 text-[11px] text-white/50">· {m.fuente}</span>
+                    {/* Lo que no se entiende a la primera se explica en la propia fila. */}
+                    {(m.clave === "ExpG" || m.clave === "TouchOpBox" || m.clave === "PPDA") && (
+                      <span className="block text-[11px] leading-snug text-white/50">{m.comoLeer}</span>
+                    )}
                   </td>
                   {celda(l.favor, l.real?.favor)}
                   {celda(l.contra, l.real?.contra)}
@@ -481,9 +492,12 @@ export function PanelJuego({ partido, d, accion }: { partido: PartidoObjetivo; d
           </tbody>
         </table>
       </div>
-      <p className="text-[11px] text-white/45">Entre paréntesis, el intervalo del 80 %. PPDA: cuanto más bajo, más presión.</p>
+      <p className="mt-1 text-[11px] text-white/50">
+        Entre paréntesis, el intervalo del 80 %. Opta, {d.partidos.nos} partidos nuestros y {d.partidos.riv} del {partido.rival}.
+      </p>
+      </details>
 
-      <PorQue frases={d.porque} />
+      <PorQue frases={[...d.porque, ...d.tipoPartido.slice(3)]} />
 
       <div className="grid gap-3 md:grid-cols-3">
         <Punto titulo="Su punto fuerte" frase={d.suFuerte?.frase} tono="rojo" />
