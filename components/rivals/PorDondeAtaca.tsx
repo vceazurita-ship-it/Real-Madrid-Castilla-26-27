@@ -150,6 +150,26 @@ export function PorDondeAtaca({ equipo, plantilla }: { equipo: string; plantilla
         )}
       </p>
 
+      <CampoCarriles
+        partes={BANDAS.map(({ key, label }) => {
+          const parte = datos.bandas.find((b) => b.banda === key);
+          const suma = parte ? TIPOS_ACCION.reduce((x, t) => x + parte.acciones[t.key], 0) : 0;
+          /* Quién más carga ese carril, sumando sus cuatro tipos de acción. */
+          const lideres = new Map<string, { jugador: string; posicion: string; n: number }>();
+          if (parte)
+            for (const t of TIPOS_ACCION) {
+              const l = parte.lider[t.key];
+              if (!l) continue;
+              const v = lideres.get(l.jugador) ?? { jugador: l.jugador, posicion: l.posicion, n: 0 };
+              v.n += l.acciones;
+              lideres.set(l.jugador, v);
+            }
+          const lider = [...lideres.values()].sort((a, b) => b.n - a.n)[0] ?? null;
+          return { key, label, suma, lider };
+        })}
+        nombre={nombre}
+      />
+
       <ul className="mt-3 grid gap-3 md:grid-cols-3">
         {BANDAS.map(({ key, label }) => {
           const parte = datos.bandas.find((b) => b.banda === key);
@@ -180,6 +200,71 @@ export function PorDondeAtaca({ equipo, plantilla }: { equipo: string; plantilla
         Sus {datos.contados} jugadores de campo con minutos esta temporada. El lado sale del puesto principal en Wyscout (laterales, carrileros y extremos a su banda; el resto, al centro); los centros, del lado desde el que se centra. El % es sobre el total del equipo. Pincha un nombre para abrir su ficha.
       </p>
     </section>
+  );
+}
+
+/*
+| EL CAMPO CON SUS TRES CARRILES (16/11/2026, como el original de X «¿Por qué
+| carril ataca cada equipo?»): medio campo vertical atacando hacia arriba, cada
+| carril sombreado según su parte de las acciones de ataque del equipo, con el
+| porcentaje grande dentro y, debajo, quién lo carga. Antes sólo había barras.
+*/
+function CampoCarriles({
+  partes,
+  nombre,
+}: {
+  partes: { key: string; label: string; suma: number; lider: { jugador: string; posicion: string; n: number } | null }[];
+  nombre: (jugador: string, posicion: string, clase: string) => React.ReactNode;
+}) {
+  const total = partes.reduce((x, p) => x + p.suma, 0);
+  if (!total) return null;
+  const max = Math.max(...partes.map((p) => p.suma));
+  const ancho = 68 / 3;
+  const carga = partes.reduce((a, b) => (b.suma > a.suma ? b : a));
+  const linea = { stroke: "rgb(var(--rmcf-ink-rgb) / 0.35)", fill: "none", strokeWidth: 0.4 } as const;
+
+  return (
+    <div className="mt-3 flex flex-col items-center gap-3 sm:flex-row sm:items-start">
+      <figure className="m-0 w-full max-w-[15rem] shrink-0">
+        <svg viewBox="-2 -2 80 60" className="block w-full" role="img" aria-label={`Reparto de sus acciones de ataque por carril: ${partes.map((p) => `${p.label} ${Math.round((p.suma / total) * 100)} %`).join(", ")}`}>
+          {partes.map((p, i) => {
+            const k = p.suma / max;
+            return (
+              <g key={p.key}>
+                <rect x={i * ancho} y={0} width={ancho} height={52.5} style={{ fill: `rgb(56 189 248 / ${(0.1 + 0.55 * k).toFixed(2)})` }} />
+                <text x={i * ancho + ancho / 2} y={16} textAnchor="middle" style={{ fill: "rgb(var(--rmcf-ink-rgb) / 0.95)", fontSize: p === carga ? 8 : 6.2, fontWeight: 800 }}>
+                  {Math.round((p.suma / total) * 100)}%
+                </text>
+                <text x={i * ancho + ancho / 2} y={23} textAnchor="middle" style={{ fill: "rgb(var(--rmcf-ink-rgb) / 0.6)", fontSize: 3.2, fontWeight: 700 }}>
+                  {p.key === "izquierda" ? "IZQ." : p.key === "derecha" ? "DER." : "CENTRO"}
+                </text>
+              </g>
+            );
+          })}
+          {/* Las líneas del medio campo (atacando hacia arriba): área, área chica, punto, medio círculo. */}
+          <rect x={0} y={0} width={68} height={52.5} style={linea} />
+          <rect x={13.84} y={0} width={40.32} height={16.5} style={linea} />
+          <rect x={24.84} y={0} width={18.32} height={5.5} style={linea} />
+          <path d="M26.69,16.5 A9.15,9.15 0 0 0 41.31,16.5" style={linea} />
+          <path d="M24.85,52.5 A9.15,9.15 0 0 1 43.15,52.5" style={linea} />
+          {[1, 2].map((i) => (
+            <line key={i} x1={i * ancho} y1={0} x2={i * ancho} y2={52.5} style={{ ...linea, strokeDasharray: "1.2 1.2" }} />
+          ))}
+          <line x1={73} y1={50} x2={73} y2={8} style={{ stroke: "rgb(var(--rmcf-ink-rgb) / 0.45)", strokeWidth: 0.8 }} />
+          <path d="M70.6,10 L73,5.5 L75.4,10 Z" style={{ fill: "rgb(var(--rmcf-ink-rgb) / 0.45)" }} />
+        </svg>
+        <figcaption className="mt-1 text-center text-[11px] text-white/55">Ataca hacia arriba · % de sus centros, regates, pases al área y acciones progresivas</figcaption>
+      </figure>
+      <ul className="min-w-0 flex-1 space-y-1.5 text-[13px]">
+        {partes
+          .filter((p) => p.lider)
+          .map((p) => (
+            <li key={p.key} className="min-w-0">
+              <span className="font-semibold text-white/70">{p.label}:</span> lo carga {nombre(p.lider!.jugador, p.lider!.posicion, "font-semibold text-white")}
+            </li>
+          ))}
+      </ul>
+    </div>
   );
 }
 

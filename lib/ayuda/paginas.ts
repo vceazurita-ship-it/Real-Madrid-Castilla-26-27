@@ -1526,7 +1526,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Cómo nos hacen daño", es: "Hasta tres de su ataque (atacan el área, sus centros, por fuera, al espacio, sus referencias), con lo que hacemos, deducido del campo" },
           {
             que: "Por dónde ataca",
-            es: "Sus centros, regates, pases al área y acciones progresivas (pases progresivos + carreras en progresión) de la temporada, repartidos entre banda izquierda, centro y banda derecha, y en cada banda el jugador que más pone; su nombre abre su ficha en Plantillas rivales; el puesto, en castellano («lateral izquierdo», no «LB»)",
+            es: "Primero, como el original de X («¿Por qué carril ataca?»), medio campo atacando hacia arriba con sus tres carriles sombreados según su parte de todas esas acciones (el porcentaje grande dentro, el más cargado más grande) y al lado quién carga cada carril (el que más pone sumando los tipos en los que es el primero). Debajo, el detalle: sus centros, regates, pases al área y acciones progresivas (pases progresivos + carreras en progresión) de la temporada, repartidos entre banda izquierda, centro y banda derecha, y en cada banda el jugador que más pone; su nombre abre su ficha en Plantillas rivales; el puesto, en castellano («lateral izquierdo», no «LB»)",
             cuenta:
               "Wyscout por jugador: cifra por 90 × minutos / 90, jugadores de campo con minutos. El lado, del puesto principal (laterales, carrileros y extremos con L/R a su banda; centrales, medios, mediapuntas y delanteros al centro); los centros, de «Centros desde la banda izquierda/derecha». El % es sobre el total del equipo; el titular dice qué banda carga (≥ 58 % de lo de fuera) y el jugador del que más depende",
           },
