@@ -1387,7 +1387,7 @@ export const AYUDAS: AyudaDePagina[] = [
           },
           {
             que: "«Dónde hacerles daño»",
-            es: "Hasta tres jugadores, cada uno con su «Qué hacemos»; primero el central que el analista da por el de menor capacidad en Scout Colectivo",
+            es: "Hasta tres jugadores, cada uno con su «Qué hacemos» y la cifra de Wyscout que lo sostiene («duelos aéreos ganados 50 % · peor que 8 de cada 10 de su puesto»); sin cifra detrás no hay «Qué hacemos»; primero el central que el analista da por el de menor capacidad en Scout Colectivo",
             cuenta: "Etiqueta de debilidad en la ficha y rasgo flojo en Wyscout a la vez, con 450′ o más; no sale el central que el analista da por solvente. «Perfil único» dice la pierna de «PIE DOMINANTE» (zurdo: «cerrarle el perfil de dentro y obligarle a centrar con la derecha»); sin pierna escrita, esa etiqueta no da «Qué hacemos»",
           },
           { que: "Más de este rival", es: "Un solo bloque de accesos con verbo: ver sus córners y faltas, ver cómo juega como equipo, comparar su once con el nuestro y ver los vídeos de sus jugadores, con el mismo rival" },
@@ -1440,7 +1440,8 @@ export const AYUDAS: AyudaDePagina[] = [
         ],
       },
     ],
-    ojo: ["La altura de la ficha es la de la hoja; en ABP del rival manda la estatura de BeSoccer cuando las dos no coinciden."],
+    ojo: [
+      "Una cifra por métrica (lib/rivals/cifra-principal.ts): en PPDA, xG y remates manda Opta, la temporada como cociente de las sumas (pases que deja dar entre acciones defensivas, sumados), con puesto y mediana entre los equipos de su grupo; Wyscout queda como 2.ª lectura en el detalle. La proyección del Plan cuenta partido a partido (media de los PPDA de cada partido) y por eso no repite esa cifra como «de la temporada». Nombres de equipo con lib/rivals/nombre-equipo.ts («Atlético Madrileño», nunca «Atlético Madrid B») y de jugador con el de su plantilla (lib/rivals/nombre-jugador.ts: «Flakus»). El puesto, el de la plantilla; si su once le pone en otro sitio, «extremo izquierdo en su once (delantero de origen)» (lib/rivals/colocacion-once.ts). Las muestras cortas llevan el chip «tendencia» junto al título de su tarjeta.","La altura de la ficha es la de la hoja; en ABP del rival manda la estatura de BeSoccer cuando las dos no coinciden."],
   },
   {
     ruta: "/scout-rival-collective",
@@ -1453,7 +1454,7 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Arriba",
         filas: [
           { que: "«Nuestra J10 · sáb 31 oct · en casa»", es: "El partido en una línea; es el desplegable de la jornada del Castilla (el rival que nos tocó)", cuenta: "La fecha, la del calendario de BeSoccer; la columna FECHA de la hoja no se toca" },
-          { que: "Conclusión", es: "Tres líneas encima de los partidos: V/E/D y puntos por partido frente a la mediana de los equipos, goles a favor y en contra por partido frente a la mediana por equipo, y qué hacemos", cuenta: "BeSoccer, sólo su liga; la mediana sale de la clasificación (todos los equipos). Qué hacemos: si encaja o marca más de 0,15 por partido por encima de la mediana, o si concede y marca poco" },
+          { que: "Conclusión", es: "Un titular con verbo y dato («Real Murcia encaja 0,92 por partido y marca poco: partido cerrado…») y tres líneas encima de los partidos (con «Dónde atacarle», el mismo par fuerte/flojo de Plantillas rivales): V/E/D y puntos por partido frente a la mediana de los equipos, goles a favor y en contra por partido frente a la mediana por equipo, y qué hacemos", cuenta: "BeSoccer, sólo su liga; la mediana sale de la clasificación (todos los equipos). Qué hacemos: si encaja o marca más de 0,15 por partido por encima de la mediana, o si concede y marca poco" },
           { que: "Partido a partido", es: "Sus partidos de liga con fecha, casa o fuera, rival y V/E/D con el marcador, del más antiguo al más reciente, en una rejilla que no se corta. La única jornada que se nombra es la nuestra, la de la cabecera", cuenta: "BeSoccer; sólo la competición oficial en la que más ha jugado: la copa y los torneos de verano no entran" },
           { que: "Plan de partido · Pizarra ABP", es: "El mismo partido en esas pantallas; en el móvil van los primeros, con Editar, en una sola fila" },
           { que: "Editar · Hecho", es: "En edición salen todos los campos y cuántos están completados; se guarda solo" },
@@ -1517,6 +1518,7 @@ export const AYUDAS: AyudaDePagina[] = [
         ],
       },
     ],
+    ojo: ["Una cifra por métrica (lib/rivals/cifra-principal.ts): en PPDA, xG y remates manda Opta, la temporada como cociente de las sumas (pases que deja dar entre acciones defensivas, sumados), con puesto y mediana entre los equipos de su grupo; Wyscout queda como 2.ª lectura en el detalle. La proyección del Plan cuenta partido a partido (media de los PPDA de cada partido) y por eso no repite esa cifra como «de la temporada». Nombres de equipo con lib/rivals/nombre-equipo.ts («Atlético Madrileño», nunca «Atlético Madrid B») y de jugador con el de su plantilla (lib/rivals/nombre-jugador.ts: «Flakus»). El puesto, el de la plantilla; si su once le pone en otro sitio, «extremo izquierdo en su once (delantero de origen)» (lib/rivals/colocacion-once.ts). Evolución comparada compara los últimos 5 partidos con los anteriores, la misma ventana y el mismo umbral que el Plan de partido (lib/proyeccion/base.ts, resume)."],
   },
   {
     ruta: "/scout-rival-abp",
@@ -1630,7 +1632,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Tendencia", es: "Un porcentaje con menos de 15 casos arriba o 25 abajo, o menos de 10 partidos: sin flecha ni color" },
           {
             que: "Qué hacemos · Qué entrenamos",
-            es: "Criterio de juego a partir de la cifra, encima de la tabla: la cifra lo sostiene, no lo dicta. El titular lleva su base («60 precisos de 208 en 12 partidos»). Los objetivos salen de la liga, no de su propia media: en defensa, el acierto que concede la mejor defensa del centro; en ataque, la mediana de centros por partido y que al menos la mediana de centros precisos llegue a un rematador nuestro",
+            es: "Criterio de juego a partir de la cifra, encima de la tabla: la cifra lo sostiene, no lo dicta. El titular lleva su base («60 precisos de 208 en 12 partidos»). Cada «Qué hacemos / Qué entrenamos» va bajo su bloque (su ataque junto a sus centros; el nuestro junto a los que recibe). Los objetivos salen de la liga en la MISMA columna que el dato y nunca por debajo de lo que ya hacemos: en su ataque, la mediana de centros precisos de la liga (con el mejor centrador como referencia); en el nuestro, los centros por partido de la mediana (o los nuestros, si son más) y que llegue a un rematador al menos la mediana del acierto que reciben los equipos (o el nuestro, si es más)",
             cuenta: "«Cuando les centramos» mira cuántos centros recibe y también su acierto: si el acierto de los centros que recibe está entre los 6 peores de 20 (y no es tendencia), «el X % de los centros que le hacen llega a un rematador contrario (n de m)… defienden mal el centro: atacar el área con centro y tres rematadores»; si está entre los 6 mejores, «probar primero por dentro» lleva ese porqué",
           },
           { que: "Contraste con el Scout Colectivo", es: "Si su texto dice que centran mucho o poco, se dice si Wyscout lo respalda, con enlace al análisis" },
@@ -1647,6 +1649,7 @@ export const AYUDAS: AyudaDePagina[] = [
       },
     ],
     ojo: [
+      "Nombres de equipo con lib/rivals/nombre-equipo.ts («Atlético Madrileño», nunca «Atlético Madrid B») y de jugador con el de su plantilla (lib/rivals/nombre-jugador.ts: «Flakus»). El puesto, el de la plantilla; si su once le pone en otro sitio, «extremo izquierdo en su once (delantero de origen)» (lib/rivals/colocacion-once.ts).",
       "La descarga de Wyscout puede ir una jornada por detrás del calendario: sus partidos pueden ser uno menos que los de BeSoccer.",
       "Sin láminas ni material recogido, la sección de láminas no sale para quien no es administrador.",
     ],

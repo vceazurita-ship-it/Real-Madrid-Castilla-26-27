@@ -15,6 +15,7 @@ import { useMemo } from "react";
 import { useDocsOpta } from "@/hooks/useDocsOpta";
 import { aObjetos, DOCS_OPTA, type MetaOpta, type TablaOpta } from "@/lib/opta";
 import { catalogoDe, gruposDe, type Fila } from "@/lib/opta-analisis";
+import type { TablasOpta } from "@/lib/cifras-equipo";
 
 export type OptaLigero = {
   meta: MetaOpta | null;
@@ -24,7 +25,7 @@ export type OptaLigero = {
   grupos: Map<string, number>;
 };
 
-export function useOptaLigero(): { opta: OptaLigero | null; cargando: boolean } {
+export function useOptaLigero(): { opta: OptaLigero | null; cargando: boolean; tablas: TablasOpta | null } {
   const { docs, cargando } = useDocsOpta<[MetaOpta, TablaOpta, TablaOpta]>(DOCS_OPTA.meta, DOCS_OPTA.equipos, DOCS_OPTA.partidos);
   const [meta, equipos, partidos] = docs;
   const opta = useMemo<OptaLigero | null>(() => {
@@ -37,5 +38,7 @@ export function useOptaLigero(): { opta: OptaLigero | null; cargando: boolean } 
       grupos: gruposDe(partidos),
     };
   }, [meta, equipos, partidos]);
-  return { opta, cargando };
+  /* Las tablas tal cual, para `cifraEquipo` / `cifraPrincipal` (16/11/2026): la cifra que manda en el área del rival. */
+  const tablas = useMemo<TablasOpta | null>(() => (equipos && partidos ? { meta: meta ?? null, equipos, partidos } : null), [meta, equipos, partidos]);
+  return { opta, cargando, tablas };
 }

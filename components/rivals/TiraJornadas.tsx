@@ -22,10 +22,13 @@
 import { useMemo } from "react";
 import { House, Plane } from "lucide-react";
 import { useRivalInforme } from "@/hooks/useRivalInforme";
+import { useRivalPerfiles } from "@/hooks/useRivalPerfiles";
+import { useOptaLigero } from "@/hooks/useOptaLigero";
+import { fuerteYFlojoDelRival } from "@/components/rivals/VistazoRival";
 import { deSuLiga, filaPropia, findInforme, jugados } from "@/lib/rivals/informe";
 import { medianaLiga } from "@/lib/rivals/puesto-liga";
 import { chipInk } from "@/lib/theme";
-import { nombreCorto } from "@/lib/abp/informe-graficos";
+import { nombreEquipo } from "@/lib/rivals/nombre-equipo";
 
 const COLOR = { G: "#34D399", E: "#C8A96B", P: "#F87171" } as const;
 const LETRA = { G: "V", E: "E", P: "D" } as const;
@@ -50,6 +53,10 @@ function frente(valor: number, mediana: number, margen: number) {
 
 export function TiraJornadas({ equipo }: { equipo: string }) {
   const { doc } = useRivalInforme({ alEntrar: true });
+  /* El mismo par fuerte/flojo que Plantillas y el Plan (16/11/2026, jueces de fútbol). */
+  const perfiles = useRivalPerfiles(equipo);
+  const { tablas } = useOptaLigero();
+  const par = perfiles ? fuerteYFlojoDelRival(equipo, perfiles.aspectos ?? [], perfiles.equipos ?? 0, tablas) : null;
 
   const datos = useMemo(() => {
     const informe = findInforme(doc, equipo);
@@ -103,25 +110,35 @@ export function TiraJornadas({ equipo }: { equipo: string }) {
   const e = partidos.filter((j) => j.resultado === "E").length;
   const d = partidos.filter((j) => j.resultado === "P").length;
   const ppp = (3 * v + e) / n;
-  const favor = partidos.reduce((s, j) => s + j.favor, 0) / n;
-  const contra = partidos.reduce((s, j) => s + j.contra, 0) / n;
+  const golesFavor = partidos.reduce((s, j) => s + j.favor, 0);
+  const golesContra = partidos.reduce((s, j) => s + j.contra, 0);
+  const favor = golesFavor / n;
+  const contra = golesContra / n;
 
   /* Qué hacemos, con lo que dicen los goles frente a la liga (0,15 por partido de margen). */
   const marca = liga ? frente(favor, liga.favor, 0.15) : "igual";
   const encaja = liga ? frente(contra, liga.contra, 0.15) : "igual";
-  const queHacemos =
+  /* El titular: el dato que manda y la decisión, en una frase. */
+  const [dato, queHacemos] =
     encaja === "más"
-      ? "concede más que la media: ir a por él desde el principio y llegar con gente al área."
+      ? [`encaja ${coma(contra)} por partido, más que la media`, "ir a por él desde el principio y llegar con gente al área"]
       : marca === "más"
-        ? "marca más que la media: cerrar primero su vía de gol y no partirse."
+        ? [`marca ${coma(favor)} por partido, más que la media`, "cerrar primero su vía de gol y no partirse"]
         : encaja === "menos"
-          ? "concede poco y marca poco: partido cerrado, paciencia con balón y el balón parado como palanca."
-          : "está en la media de la liga en goles: lo deciden los detalles (balón parado y transiciones).";
+          ? [`encaja ${coma(contra)} por partido y marca poco`, "partido cerrado, en el que el balón parado decide"]
+          : [`marca ${coma(favor)} y encaja ${coma(contra)} por partido, como la media`, "lo deciden los detalles: balón parado y transiciones"];
 
   return (
     <div className="mb-6 min-w-0">
-      {/* La conclusión, en tres líneas y con su base (16/11/2026, jueces de análisis). */}
+      {/*
+        La conclusión (16/11/2026, jueces): un titular con verbo y dato, y debajo
+        tres líneas con su base, la referencia de la liga y el qué hacemos con el
+        mismo par fuerte/flojo de Plantillas rivales.
+      */}
       <div className="mb-3 min-w-0 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-[13px] leading-snug text-white/80">
+        <p className="mb-1 text-[15px] font-semibold leading-snug text-white">
+          {equipo} {dato}: {queHacemos}.
+        </p>
         <p>
           <b className="text-white">
             {v}V {e}E {d}D en {n} {n === 1 ? "partido" : "partidos"} de liga
@@ -129,14 +146,17 @@ export function TiraJornadas({ equipo }: { equipo: string }) {
           : {coma(ppp)} puntos por partido{liga ? ` (mediana de los ${liga.equipos}: ${coma(liga.ppp)})` : ""}.
         </p>
         <p>
-          Marca {coma(favor)} y encaja {coma(contra)} por partido
-          {liga ? ` (mediana por equipo: ${coma(liga.favor)} a favor y ${coma(liga.contra)} en contra; en contra, menos es mejor)` : ""}.
+          Marca {coma(favor)} por partido ({golesFavor} goles; más es mejor) y encaja {coma(contra)} ({golesContra}; menos es mejor)
+          {liga ? `. Mediana por equipo: ${coma(liga.favor)} y ${coma(liga.contra)}` : ""}.
         </p>
-        <p>
-          <b className="text-white">Qué hacemos:</b> {queHacemos.charAt(0).toUpperCase() + queHacemos.slice(1)}
-          {n < 8 ? " Con menos de 8 partidos es tendencia." : ""}
+        {par?.conDato && (
+          <p>
+            <b className="text-white">Dónde atacarle:</b> {par.conDato}.
+          </p>
+        )}
+        <p className="mt-0.5 text-[12px] text-white/55">
+          BeSoccer, sólo su liga (sin copa ni torneos){par?.conDato ? "; lo fuerte y lo flojo, Wyscout y Opta, como en Plantillas rivales" : ""}.{n < 8 ? " Con menos de 8 partidos es tendencia." : ""}
         </p>
-        <p className="mt-0.5 text-[12px] text-white/55">BeSoccer, sólo su liga (sin copa ni torneos).</p>
       </div>
 
       <p className="mb-1.5 text-[13px] font-semibold text-white/75">
@@ -166,7 +186,7 @@ export function TiraJornadas({ equipo }: { equipo: string }) {
               {j.enCasa ? <House size={11} aria-hidden /> : <Plane size={11} aria-hidden />}
               {j.fecha} · {j.enCasa ? "casa" : "fuera"}
             </span>
-            <span className="w-full truncate text-center text-[12px] font-semibold" title={j.rival}>{nombreCorto(j.rival)}</span>
+            <span className="line-clamp-2 w-full text-center text-[12px] font-semibold leading-tight" title={nombreEquipo(j.rival)}>{nombreEquipo(j.rival)}</span>
             <span className="tabular-nums">
               {LETRA[j.resultado]} {j.marcador}
             </span>
