@@ -20,6 +20,7 @@
 */
 
 import { useState } from "react";
+import { chipInk } from "@/lib/theme";
 
 import { propsBolita } from "@/components/video/MenuAccion";
 import { FASES, NOMBRE_TIPO, FASE_DE, rotuloMinuto, type GolVisto, type TipoGol } from "@/lib/goles/analisis";
@@ -175,7 +176,7 @@ function Anillo({ titulo, goles, color, resaltado, onResalta }: { titulo: string
           GOLES
         </text>
       </svg>
-      <figcaption className="mt-1 text-[11px] font-semibold uppercase tracking-[0.16em]" style={{ color }}>
+      <figcaption className="mt-1 text-[11px] font-semibold uppercase tracking-[0.16em]" style={{ color: chipInk(color) }}>
         {titulo}
       </figcaption>
     </figure>
@@ -188,7 +189,8 @@ function Leyenda({ usados, resaltado, onResalta }: { usados: Set<string>; resalt
     <div className="grid min-w-0 gap-3 sm:grid-cols-3">
       {FASES.map((f) => (
         <div key={f.fase} className="min-w-0" onMouseEnter={() => onResalta(f.fase)} onMouseLeave={() => onResalta(null)}>
-          <p className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]" style={{ color: COLOR_FASE[f.fase] }}>
+          {/* 16/11/2026 (expertos, ronda 18): el rótulo, oscurecido en modo día (el oro de «Balón parado» se quedaba en 2,3:1). */}
+          <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: chipInk(COLOR_FASE[f.fase]) }}>
             <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: COLOR_FASE[f.fase] }} /> {NOMBRE_FASE[f.fase]}
           </p>
           <ul className="space-y-0.5">
@@ -320,7 +322,20 @@ function LineaGoles({ goles, resaltado, onResalta, onGol }: { goles: GolConTipo[
 /*  Los dos juntos                                                     */
 /* ------------------------------------------------------------------ */
 
-export function GraficasTipologia({ goles, colorFavor, colorContra, onGol }: { goles: GolConTipo[]; colorFavor: string; colorContra: string; onGol?: AlPincharGol }) {
+export function GraficasTipologia({
+  goles,
+  colorFavor,
+  colorContra,
+  onGol,
+  totales,
+}: {
+  goles: GolConTipo[];
+  colorFavor: string;
+  colorContra: string;
+  onGol?: AlPincharGol;
+  /** 16/11/2026 (ronda 18): los goles del marcador (BeSoccer), para decir cuántos tienen su vídeo en Hudl si no cuadran. */
+  totales?: { favor: number; contra: number };
+}) {
   const [resaltado, setResaltado] = useState<string | null>(null);
   const favor = goles.filter((g) => g.aFavor);
   const contra = goles.filter((g) => !g.aFavor);
@@ -336,6 +351,17 @@ export function GraficasTipologia({ goles, colorFavor, colorContra, onGol }: { g
           <Leyenda usados={usados} resaltado={resaltado} onResalta={setResaltado} />
         </div>
       </div>
+      {totales && (totales.favor > favor.length || totales.contra > contra.length) ? (
+        <p className="text-[12px] leading-snug text-white/65">
+          {[
+            totales.favor > favor.length ? `${favor.length} de los ${totales.favor} goles a favor` : "",
+            totales.contra > contra.length ? `${contra.length} de los ${totales.contra} en contra` : "",
+          ]
+            .filter(Boolean)
+            .join(" y ")}{" "}
+          tienen su jugada en el vídeo de Hudl y su tipo; el marcador (BeSoccer) los cuenta todos.
+        </p>
+      ) : null}
 
       <div className="min-w-0">
         <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/45">Cuándo y cómo: cada punto es un gol en su minuto</p>
