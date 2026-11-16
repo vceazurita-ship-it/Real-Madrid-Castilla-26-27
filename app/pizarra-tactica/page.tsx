@@ -17,6 +17,10 @@ import {
   Check,
   FlaskConical,
   Wand2,
+  ArrowRight,
+  ChevronDown,
+  CircleHelp,
+  MoreHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -679,6 +683,8 @@ function BoardEditor({
   | la app o se descarta.
   */
   const [prueba, setPrueba] = useState<TacticsDoc | null>(null);
+  /* El bloque de onces, plegado una vez relleno (16/11/2026, análisis): el lienzo sube. */
+  const [oncesAbiertos, setOncesAbiertos] = useState(false);
 
   useEffect(() => {
     onDoc?.(doc);
@@ -1067,7 +1073,7 @@ function BoardEditor({
       )}
 
       {deLaSemana && (
-        <div className="flex flex-col gap-2 rounded-2xl border border-[#C8A96B]/20 bg-[#C8A96B]/[0.05] px-3 py-2 text-[11px] text-white/60 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3">
+        <div className="flex flex-col gap-2 rounded-2xl border border-[#C8A96B]/20 bg-[#C8A96B]/[0.05] px-3 py-2 text-[12px] text-white/65 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3">
           <span className="font-semibold uppercase tracking-[0.18em] text-[#C8A96B]">Onces de la semana</span>
           {/* En el móvil, en su propia fila: al lado de los botones se quedaba en una palabra por renglón. */}
           <span className="min-w-0 sm:flex-1">
@@ -1089,15 +1095,31 @@ function BoardEditor({
               </>
             )}
           </span>
-          <span className="flex items-center gap-3 text-white/70" aria-label="Leyenda de colores">
-            <span className="inline-flex items-center gap-1.5">
-              <span className="h-3 w-3 rounded-full border-2" style={{ background: "#F8FAFC", borderColor: "#0B0F14" }} aria-hidden /> Ficha blanca: Castilla
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <span className="h-3 w-3 rounded-full border-2" style={{ background: "#1E293B", borderColor: "#F87171" }} aria-hidden /> Ficha oscura con borde rojo: rival
-            </span>
-          </span>
+          {/*
+            16/11/2026 (marketing): arriba sólo el tablero y las acciones. Las
+            leyendas y el «quién lo lee» van tras el icono de ayuda; «Probar sin
+            guardar», en «Más»; y un único botón primario, «Rellenar otra vez».
+          */}
           <span className="flex flex-wrap items-center gap-2">
+          <details className="relative">
+            <summary
+              className="inline-flex cursor-pointer list-none items-center rounded-full border border-white/15 p-1.5 text-white/70 transition hover:bg-white/[0.06] hover:text-white [&::-webkit-details-marker]:hidden"
+              title="Qué es cada ficha y quién usa este once"
+              aria-label="Ayuda del tablero"
+            >
+              <CircleHelp size={14} />
+            </summary>
+            <div className="absolute right-0 z-30 mt-2 w-72 space-y-2 rounded-xl border border-white/10 bg-[#11161C] p-3 text-[12px] leading-snug text-white/75 shadow-xl">
+              <p className="inline-flex items-center gap-1.5">
+                <span className="h-3 w-3 rounded-full border-2" style={{ background: "#F8FAFC", borderColor: "#0B0F14" }} aria-hidden /> Ficha blanca: Castilla
+              </p>
+              <p className="inline-flex items-center gap-1.5">
+                <span className="h-3 w-3 rounded-full border-2" style={{ background: "#1E293B", borderColor: "#F87171" }} aria-hidden /> Ficha oscura con borde rojo: rival
+              </p>
+              <p>Este once lo leen también Emocional, Duelos, Plan de partido, el once de Data análisis y el balón parado (pizarra y marcas del córner): lo que cambies aquí se guarda y les llega.</p>
+              <p>En el móvil, bajo cada ficha va el dorsal; tócala para ver el nombre.</p>
+            </div>
+          </details>
           {antesDelRelleno && (
             <button
               type="button"
@@ -1118,17 +1140,45 @@ function BoardEditor({
             onClick={() => void rellenaSemana(true)}
             disabled={rellenando}
             title="Vuelve a poner solos nuestro último once y el del rival. Se puede deshacer."
-            className="inline-flex items-center gap-1.5 rounded-full border border-[#C8A96B]/40 px-3 py-1 font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/15 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-full bg-[#C8A96B] px-3.5 py-1.5 font-bold text-[#0B0F14] transition hover:brightness-110 disabled:opacity-50"
           >
             {rellenando ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
             Rellenar otra vez
           </button>
+          {!prueba && (
+            <details className="relative">
+              <summary
+                className="inline-flex cursor-pointer list-none items-center gap-1 rounded-full border border-white/15 px-2.5 py-1 font-semibold text-white/70 transition hover:bg-white/[0.06] hover:text-white [&::-webkit-details-marker]:hidden"
+                title="Más acciones del once"
+              >
+                <MoreHorizontal size={14} />
+                Más
+              </summary>
+              <div className="absolute right-0 z-30 mt-2 w-64 rounded-xl border border-white/10 bg-[#11161C] p-2 shadow-xl">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    (e.currentTarget.closest("details") as HTMLDetailsElement | null)?.removeAttribute("open");
+                    setPrueba(doc);
+                    setOncesAbiertos(true);
+                  }}
+                  title="Cambia el once sólo en esta pantalla; al terminar decides si se guarda"
+                  className="flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] text-white/80 transition hover:bg-white/[0.06]"
+                >
+                  <FlaskConical size={14} className="mt-0.5 shrink-0 text-amber-300" />
+                  <span>
+                    <b className="block font-semibold">Probar sin guardar</b>
+                    <span className="text-white/55">Cambia el once sólo aquí; al terminar decides si se guarda.</span>
+                  </span>
+                </button>
+              </div>
+            </details>
+          )}
           </span>
         </div>
       )}
 
-      {deLaSemana &&
-        (prueba ? (
+      {deLaSemana && prueba && (
           <div className="flex flex-col gap-2 rounded-2xl border border-amber-400/40 bg-amber-400/[0.08] px-3 py-2.5 text-[12px] sm:flex-row sm:items-center">
             <span className="min-w-0 flex-1 text-white/80">
               <b className="mr-1 font-semibold text-amber-300">Modo prueba.</b>
@@ -1160,34 +1210,45 @@ function BoardEditor({
               </button>
             </span>
           </div>
-        ) : (
-          /* Menos peso (30/10/2026): un pie, no un aviso; y los nombres que usa el cuerpo técnico. */
-          <div className="flex flex-col gap-2 px-1 text-[12px] sm:flex-row sm:items-center">
-            <span className="min-w-0 flex-1 text-white/55">
-              Este once lo leen también Emocional, Duelos, Plan de partido, el once de Data análisis y el balón parado (pizarra y marcas del córner): lo que cambies aquí se guarda y les llega.
-            </span>
-            <button
-              type="button"
-              onClick={() => setPrueba(doc)}
-              title="Cambia el once sólo en esta pantalla; al terminar decides si se guarda"
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-amber-400/50 px-3.5 py-1.5 text-[11px] font-semibold text-amber-300 transition hover:bg-amber-400/10"
-            >
-              <FlaskConical size={13} />
-              Probar sin guardar
-            </button>
-          </div>
-        ))}
+      )}
 
-      {/* Cambiar el once en uno o dos toques, y la propuesta para el próximo partido (01/11/2026). */}
+      {/* Cambiar el once en uno o dos toques, y la propuesta para el próximo partido (01/11/2026).
+          Plegado (16/11/2026, análisis): relleno, se abre a mano; en modo prueba, abierto. */}
       {deLaSemana && (
-        <OnceTitular
-          key={prueba ? "prueba" : "guardado"}
-          doc={prueba ?? doc}
-          onChange={prueba ? setPrueba : setValue}
-          roster={roster}
-          bajas={bajas}
-          rival={partido?.rival}
-        />
+        <div className="rounded-2xl border border-white/10 bg-white/[0.02]">
+          <button
+            type="button"
+            onClick={() => setOncesAbiertos((v) => !v)}
+            aria-expanded={oncesAbiertos || Boolean(prueba)}
+            className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[12px] font-semibold text-white/75"
+          >
+            <span>Nuestro once, para entrar y no disponibles</span>
+            <ChevronDown size={14} className={cn("shrink-0 transition", (oncesAbiertos || prueba) && "rotate-180")} aria-hidden />
+          </button>
+          {(oncesAbiertos || prueba || !doc.semanaOnces) && (
+            <div className="px-1 pb-1">
+              <OnceTitular
+                key={prueba ? "prueba" : "guardado"}
+                doc={prueba ?? doc}
+                onChange={prueba ? setPrueba : setValue}
+                roster={roster}
+                bajas={bajas}
+                rival={partido?.rival}
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* La dirección de ataque, a la vista y como en Duelos (16/11/2026, análisis). */}
+      {deLaSemana && (
+        <p className="flex items-center gap-2 px-1 text-[12px] font-semibold text-white/70" aria-label="Dirección de ataque">
+          <span className="uppercase tracking-[0.16em] text-[#C8A96B]">Castilla</span>
+          <span className="relative h-0.5 flex-1 rounded bg-[#C8A96B]/60">
+            <ArrowRight size={16} className="absolute -right-1 top-1/2 -translate-y-1/2 text-[#C8A96B]" aria-hidden />
+          </span>
+          <span className="font-normal text-white/60">ataca hacia la derecha{partido?.rival ? ` · ${rivalSquads.find((r) => mismoClub(r.equipo, partido.rival))?.equipo ?? partido.rival}, hacia la izquierda` : ""}</span>
+        </p>
       )}
 
       <div ref={lienzo} data-lienzo-pizarra={lienzoALaVista ? "a-la-vista" : undefined}>

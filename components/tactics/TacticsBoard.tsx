@@ -20,6 +20,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import { apodo, pdfDeHojas } from "@/lib/export/lienzos";
 import { descargaEnMarcha, encargaDescarga } from "@/lib/trabajos/descargas";
@@ -194,6 +195,20 @@ function nombreCorto(nombre: string) {
 
   return ultimo.length <= 12 ? ultimo : `${limpio.slice(0, 11)}…`;
 }
+
+/*
+| A menos de 500 px de ancho los nombres de debajo se pisaban («Hector
+| PérezDani Jiménez», 16/11/2026, jueces): ahí sólo va el dorsal y el nombre
+| sale en la ficha que se toca (la elegida). Al exportar, siempre.
+*/
+const MUY_ESTRECHO = "(max-width: 499px)";
+const suscribeAncho = (avisa: () => void) => {
+  const m = window.matchMedia(MUY_ESTRECHO);
+  m.addEventListener("change", avisa);
+  return () => m.removeEventListener("change", avisa);
+};
+const esMuyEstrecho = () => window.matchMedia(MUY_ESTRECHO).matches;
+const anchoDelServidor = () => false;
 
 /** Nombre reducido a lo comparable: sin tildes, sin puntuación, en minúscula. */
 function claveNombre(nombre?: string) {
@@ -452,6 +467,7 @@ export default function TacticsBoard({
   const figurasVisibles = doc.figuras ?? false;
 
   const nombresVisibles = !doc.sinNombres;
+  const muyEstrecho = useSyncExternalStore(suscribeAncho, esMuyEstrecho, anchoDelServidor);
 
   /* Prefijo de los degradados de las figuras: en /pizarra hay dos tableros en la misma página. */
   const prefijoFiguras = `pz${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
@@ -2251,8 +2267,8 @@ export default function TacticsBoard({
         <button
           type="button"
           onClick={() => setDictating((open) => !open)}
-          title="Explicar la jugada por voz"
-          aria-label="Dictar la jugada por voz"
+          title="Explicar la jugada por voz: propone el dibujo escena a escena y tú decides si se añade"
+          aria-label="Explicar la jugada por voz"
           aria-pressed={dictating}
           className={cn(
             "inline-flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-[11px] font-semibold transition",
@@ -2262,7 +2278,8 @@ export default function TacticsBoard({
           )}
         >
           <Mic size={14} />
-          <span className="hidden lg:inline">Dictar</span>
+          {/* «Dictar» se leía «Distar» y no decía qué hacía (16/11/2026, jueces). */}
+          <span className="hidden lg:inline">Por voz</span>
         </button>
 
         <div className="ml-auto flex flex-wrap items-center gap-1.5">
@@ -2852,7 +2869,7 @@ export default function TacticsBoard({
               */
               const anclaY = figura ? 0 : style.radius * 0.55;
 
-              const nombre = token.nombre && nombresVisibles ? nombreCorto(token.nombre) : "";
+              const nombre = token.nombre && nombresVisibles && (!muyEstrecho || exporting || elegida) ? nombreCorto(token.nombre) : "";
 
               return (
                 <g
