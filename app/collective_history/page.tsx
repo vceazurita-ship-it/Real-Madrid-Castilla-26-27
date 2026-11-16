@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
-import { Play, ExternalLink, Home, Plane } from "lucide-react";
+import { Play, ExternalLink, Home, Plane, ClipboardList, Trophy, Users, Video } from "lucide-react";
 import { traeJson } from "@/lib/hojaCsv";
 import { useCalendario } from "@/hooks/useCalendario";
 import { comoNuestro, ordenaPartidos } from "@/lib/castilla/calendario";
@@ -13,6 +13,10 @@ import type { ClasificacionPortada } from "@/lib/portada/proximo-partido";
 import { nombreEquipo } from "@/lib/equipos";
 import { mismoClub } from "@/lib/rivals/mismoClub";
 import { Lamina, TituloConclusion, VistaVisualDetalle, useVistaAnalisis } from "@/components/ui/VistaVisual";
+import Link from "next/link";
+import { EnlacesRapidos } from "@/components/ui/EnlacesRapidos";
+import { urlPostDelPartido } from "@/lib/post-partido";
+import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
 
 const coma1 = (v: number) => v.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
@@ -62,6 +66,47 @@ type Vecino = { puesto: number; nombre: string; puntos: number };
 type Vecinos = { jornada: number; puntos: number; arriba: Vecino | null; abajo: Vecino | null };
 
 /** «13 nov», del «2026-11-13T19:00» de BeSoccer. */
+/*
+| 16/11/2026 (expertos, ronda 18): el puesto tras cada jornada, en su propia
+| lámina y con el eje al revés (el 1º arriba), en vez de repetirlo en la tabla.
+*/
+function GraficaPuesto({ jugados, puestos, equipos }: { jugados: { jornada: number }[]; puestos: Map<number, number>; equipos: number }) {
+  const serie = jugados.map((u) => ({ j: u.jornada, p: puestos.get(u.jornada) })).filter((x): x is { j: number; p: number } => typeof x.p === "number");
+  if (serie.length < 2) return null;
+  const ancho = 640;
+  const alto = 170;
+  const m = { izq: 30, der: 14, arr: 12, abj: 24 };
+  const tope = Math.max(equipos || 20, ...serie.map((x) => x.p));
+  const x = (i: number) => m.izq + (i / (serie.length - 1)) * (ancho - m.izq - m.der);
+  const y = (p: number) => m.arr + ((p - 1) / Math.max(1, tope - 1)) * (alto - m.arr - m.abj);
+  const marcas = [1, Math.ceil(tope / 4), Math.ceil(tope / 2), Math.ceil((tope * 3) / 4), tope].filter((v, i, a) => a.indexOf(v) === i);
+  return (
+    <svg viewBox={`0 0 ${ancho} ${alto}`} className="h-auto w-full" role="img" aria-label={`Puesto tras cada jornada: del ${serie[0].p}º al ${serie[serie.length - 1].p}º`}>
+      {marcas.map((v) => (
+        <g key={v}>
+          <line x1={m.izq} x2={ancho - m.der} y1={y(v)} y2={y(v)} stroke="currentColor" strokeOpacity={0.12} />
+          <text x={m.izq - 6} y={y(v) + 4} textAnchor="end" fontSize={11} fill="currentColor" fillOpacity={0.6}>
+            {v}º
+          </text>
+        </g>
+      ))}
+      <polyline points={serie.map((s, i) => `${x(i)},${y(s.p)}`).join(" ")} fill="none" stroke="#C8A96B" strokeWidth={2.5} strokeLinejoin="round" />
+      {serie.map((s, i) => (
+        <g key={s.j}>
+          <circle cx={x(i)} cy={y(s.p)} r={i === serie.length - 1 ? 5.5 : 3.5} fill="#C8A96B">
+            <title>{`J${s.j}: ${s.p}º`}</title>
+          </circle>
+          {i % Math.ceil(serie.length / 12) === 0 || i === serie.length - 1 ? (
+            <text x={x(i)} y={alto - 6} textAnchor="middle" fontSize={11} fill="currentColor" fillOpacity={0.6}>
+              J{s.j}
+            </text>
+          ) : null}
+        </g>
+      ))}
+    </svg>
+  );
+}
+
 function diaCorto(cuando: string) {
   const d = new Date(`${cuando.slice(0, 10)}T12:00:00`);
 
@@ -361,6 +406,16 @@ const tituloRacha = (() => {
   return `${ult.length === jugados.length ? `En ${ult.length} partidos` : `En los ${ult.length} últimos`}: ${lista} (${pts} de ${ult.length * 3} puntos)`;
 })();
 
+/* 16/11/2026 (ronda 18): el título de la lámina del puesto. */
+const tituloPuesto = (() => {
+  const serie = jugados.map((u) => ({ j: u.jornada, p: liga.puestos.get(u.jornada) })).filter((x): x is { j: number; p: number } => typeof x.p === "number");
+  if (serie.length < 2) return "";
+  const primero = serie[0];
+  const ahora = serie[serie.length - 1];
+  const mejor = serie.reduce((a, b) => (b.p < a.p ? b : a));
+  return `${ahora.p}º tras la J${ahora.j} (${ahora.p < primero.p ? "subimos" : ahora.p > primero.p ? "bajamos" : "igual"} desde el ${primero.p}º de la J${primero.j}); el mejor, ${mejor.p}º en la J${mejor.j}`;
+})();
+
 /*
 | 16/11/2026 (fútbol, marketing): qué hacemos con el dato. El siguiente
 | partido y lo que hay en juego: los puntos al de arriba y al de abajo, de la
@@ -379,16 +434,20 @@ const enJuego = (() => {
   if (!v || !ultimo || v.jornada !== ultimo.jornada || (!v.arriba && !v.abajo)) return "";
 
   const pts = (n: number) => `${n} ${n === 1 ? "punto" : "puntos"}`;
+  /* 16/11/2026 (expertos, ronda 18): sin repetir «empatados» dos veces. */
+  if (v.arriba && v.abajo && v.arriba.puntos === v.puntos && v.abajo.puntos === v.puntos) {
+    return `con los mismos puntos que el ${v.arriba.puesto}º (${v.arriba.nombre}) y el ${v.abajo.puesto}º (${v.abajo.nombre})`;
+  }
   const trozos = [
     v.arriba
       ? v.arriba.puntos === v.puntos
-        ? `empatados a puntos con el ${v.arriba.puesto}º (${v.arriba.nombre})`
+        ? `con los mismos puntos que el ${v.arriba.puesto}º (${v.arriba.nombre})`
         : `a ${pts(v.arriba.puntos - v.puntos)} del ${v.arriba.puesto}º (${v.arriba.nombre})`
       : "",
     v.abajo
       ? v.abajo.puntos === v.puntos
-        ? `empatados con el ${v.abajo.puesto}º (${v.abajo.nombre})`
-        : `con ${pts(v.puntos - v.abajo.puntos)} sobre el ${v.abajo.puesto}º (${v.abajo.nombre})`
+        ? `con los mismos que el ${v.abajo.puesto}º (${v.abajo.nombre})`
+        : `${pts(v.puntos - v.abajo.puntos)} por encima del ${v.abajo.puesto}º (${v.abajo.nombre})`
       : "",
   ].filter(Boolean);
 
@@ -549,8 +608,25 @@ useEffect(() => {
                   {enJuego ? `${enJuego.charAt(0).toUpperCase()}${enJuego.slice(1)}.` : null}
                 </p>
               ) : null}
+              {/* 16/11/2026 (expertos, ronda 18): del siguiente partido, a un toque, lo que lo prepara. */}
+              {proximo ? (
+                <EnlacesRapidos
+                  className="mt-2"
+                  titulo={`Para la J${proximo.jornada}`}
+                  enlaces={[
+                    { href: "/match-preparation", texto: "Plan de partido", icono: ClipboardList },
+                    { href: urlGolesDelEquipo(proximo.rival), texto: "Sus goles en vídeo", icono: Video },
+                    { href: `/scout-rival-abp?equipo=${encodeURIComponent(proximo.rival)}`, texto: "Su ABP", icono: Trophy },
+                    { href: `/rivals?equipo=${encodeURIComponent(proximo.rival)}`, texto: "Su plantilla", icono: Users },
+                  ]}
+                />
+              ) : null}
             </div>
 
+            {/* 16/11/2026 (expertos, ronda 18): la fuente y el corte, una vez encima de las cuatro tarjetas. */}
+            {tabla && corte ? (
+              <p className="mb-2 text-[11px] uppercase tracking-[0.14em] text-white/55">Clasificación y marcadores · BeSoccer · hasta {corte}</p>
+            ) : null}
             {tabla ? (
               <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {(() => {
@@ -611,8 +687,6 @@ useEffect(() => {
                     </p>
                     <div className={`mt-1 font-semibold leading-none text-white ${largo ? "text-2xl sm:text-3xl" : "text-3xl"}`}>{valor}</div>
                     {referencia ? <p className="mt-1.5 whitespace-pre-line text-[12px] leading-snug text-white/60">{referencia}</p> : null}
-                    {/* 16/11/2026 (marketing): fuente y corte en cada tarjeta. */}
-                    {corte ? <p className="mt-auto pt-2 text-[10px] uppercase tracking-[0.12em] text-white/45">BeSoccer · hasta {corte}</p> : null}
                   </div>
                 ))}
                 {liga.mediaPuntos !== null || liga.mediaGoles !== null ? (
@@ -653,6 +727,14 @@ useEffect(() => {
                         </TituloConclusion>
                         <GraficaPuntos jugados={jugados} liga={liga.acumuladaLiga} equipos={liga.equipos} />
                       </Lamina>
+                      {conPuesto && tituloPuesto ? (
+                        <Lamina>
+                          <TituloConclusion pregunta="¿Dónde estamos en la tabla?" fuente={`Clasificación tras cada jornada, con todos los partidos de la liga · ${jugados.length} jornadas, tendencia`}>
+                            {tituloPuesto}
+                          </TituloConclusion>
+                          <GraficaPuesto jugados={jugados} puestos={liga.puestos} equipos={liga.equipos} />
+                        </Lamina>
+                      ) : null}
                       <Lamina>
                         <TituloConclusion pregunta="¿Cómo va la racha?" fuente={`${jugados.length} partidos de liga`}>
                           {tituloRacha}
@@ -718,10 +800,21 @@ useEffect(() => {
                           key={uno.jornada}
                           className={`border-b border-white/5 last:border-0 ${i === jugados.length - 1 ? "bg-white/[0.06]" : ""}`}
                         >
-                          <td className="px-3 py-2.5 sm:px-4">J{uno.jornada}</td>
+                          {/* 16/11/2026 (expertos, ronda 18): la jornada abre su post en Análisis de datos y el rival, su plantilla. */}
+                          <td className="px-3 py-2.5 sm:px-4">
+                            {uno.cuando ? (
+                              <Link href={urlPostDelPartido(uno.cuando, uno.rival)} title={`Post del partido de la J${uno.jornada}`} className="underline decoration-[#C8A96B]/50 underline-offset-4 hover:decoration-[#C8A96B]">
+                                J{uno.jornada}
+                              </Link>
+                            ) : (
+                              <>J{uno.jornada}</>
+                            )}
+                          </td>
                           <td className="min-w-0 px-3 py-2.5 sm:px-4">
                             <span className="block">
-                              {nombreEquipo(uno.rival)}
+                              <Link href={`/rivals?equipo=${encodeURIComponent(uno.rival)}`} className="hover:underline">
+                                {nombreEquipo(uno.rival)}
+                              </Link>
                               {/* 16/11/2026 (análisis): contra quién se sumó, con su puesto del momento. */}
                               {conPuestoRival ? (
                                 <span
@@ -810,8 +903,11 @@ useEffect(() => {
             ) : null}
 
             {/* 16/11/2026 (análisis): Power BI deja de ser el botón principal; una
-                nota corta dice qué es y que lo de arriba ya no depende de él. */}
-            <div className="mb-3 flex flex-wrap items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-[13px] text-white/70">
+                nota corta dice qué es y que lo de arriba ya no depende de él.
+                Ronda 18: plegado, es secundario (pide cuenta de Microsoft). */}
+            <details className="mb-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-[13px] text-white/70">
+            <summary className="cursor-pointer select-none text-[12px] font-semibold text-white/65">El informe en Power BI (aparte)</summary>
+            <div className="mt-2 flex flex-wrap items-center gap-3">
               <span className="min-w-0 flex-1 basis-full sm:basis-auto">
                 El informe de la competición en Power BI (pide cuenta de Microsoft). Todo lo de esta pantalla sale de BeSoccer y se pone al día cada noche sin él.
               </span>
@@ -836,6 +932,7 @@ useEffect(() => {
                 Vídeo: cómo se lee el informe de Power BI
               </button>
             </div>
+            </details>
           </div>
         </section>
       </div>
