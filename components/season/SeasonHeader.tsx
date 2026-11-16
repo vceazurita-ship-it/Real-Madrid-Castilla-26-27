@@ -125,8 +125,8 @@ export default function SeasonHeader({
                subido va como texto secundario en la semana vacía, con su enlace. */
             const partes = [
               /* La semana en curso ya la dice la tarjeta de la semana: aquí sólo la temporada. */
-              stats.seasonWeek !== null ? `Temporada: ${stats.seasonTotal} semanas` : "",
-              material ? `${material} en ${stats.completed} de ${stats.totalWeeks} semanas` : "",
+              /* 16/11/2026 (los tres jueces): una sola base, las semanas hasta hoy; fuera «Temporada: 52 semanas», que mezclaba dos cuentas. */
+              material ? `${material} en ${stats.completed} de las ${stats.totalWeeks} semanas hasta hoy` : "",
               currentWeek && weekHasFiles(currentWeek) ? "esta semana ya tiene material" : "",
             ].filter(Boolean);
             void ultimaConMaterial;
@@ -195,16 +195,35 @@ export default function SeasonHeader({
               {/* 11/11/2026 (fútbol): en el móvil la tira abre en las últimas, todas en blanco; la racha dicha
                   explica por qué y sale de las mismas casillas. */}
               {(() => {
+                /*
+                | 16/11/2026 (fútbol y análisis): todos los huecos, no sólo la racha
+                | final, y sin la semana en curso (aún no ha acabado): así la cifra
+                | cuadra con las casillas. «11 semanas sin material: la 5, la 7 y
+                | de la 10 a la 20». En ámbar de aviso; pulsar abre la última vacía.
+                */
                 const hasta = tiraSemanas.findIndex((s) => s.actual);
-                const fin = hasta >= 0 ? hasta : tiraSemanas.length - 1;
-                let desde = fin;
-                while (desde >= 0 && !tiraSemanas[desde].conMaterial) desde--;
-                const seguidas = fin - desde;
-                if (seguidas < 2 || desde < 0) return null;
+                const cerradas = hasta >= 0 ? tiraSemanas.slice(0, hasta) : tiraSemanas;
+                const tramos: [number, number][] = [];
+                cerradas.forEach((s, i) => {
+                  if (s.conMaterial) return;
+                  const ultimo = tramos[tramos.length - 1];
+                  if (ultimo && ultimo[1] === i - 1) ultimo[1] = i;
+                  else tramos.push([i, i]);
+                });
+                const vacias = tramos.reduce((n, [a, b]) => n + b - a + 1, 0);
+                if (vacias < 2) return null;
+                const trozos = tramos.map(([a, b]) => (a === b ? `la ${a + 1}` : `de la ${a + 1} a la ${b + 1}`));
+                const texto = trozos.length > 1 ? `${trozos.slice(0, -1).join(", ")} y ${trozos[trozos.length - 1]}` : trozos[0];
+                const ultimaVacia = cerradas[tramos[tramos.length - 1][1]];
                 return (
-                  <span className="basis-full rounded-lg border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2.5 py-1 text-[12px] font-medium text-white/85 sm:basis-auto">
-                    {seguidas} semanas sin subir material: de la {desde + 2} a la {fin + 1}
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onSelectWeek?.(ultimaVacia.id)}
+                    className="basis-full rounded-lg border border-amber-500/50 bg-amber-500/10 px-2.5 py-1.5 text-left text-[13px] font-semibold text-amber-200 transition hover:bg-amber-500/20 sm:basis-auto"
+                    title="Abre la última semana sin material"
+                  >
+                    {vacias} semanas sin material: {texto}
+                  </button>
                 );
               })()}
             </p>

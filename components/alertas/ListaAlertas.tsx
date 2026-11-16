@@ -1,10 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   AlarmClock,
   BellOff,
   BellRing,
+  ChevronRight,
   MoreHorizontal,
   Paperclip,
   Pencil,
@@ -524,7 +526,7 @@ export default function ListaAlertas({
                     onBorrar(alerta);
                   }}
                   disabled={bloqueada}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-red-500/20 px-3 py-1.5 text-xs font-medium text-red-300 transition hover:bg-red-500/30 disabled:opacity-40"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-red-500/20 px-3 py-1.5 text-[13px] font-medium text-red-300 transition hover:bg-red-500/30 disabled:opacity-40"
                 >
                   <Trash2 className="h-3.5 w-3.5" aria-hidden />
                   Sí, borrar
@@ -533,7 +535,7 @@ export default function ListaAlertas({
                 <button
                   type="button"
                   onClick={() => setBorrando(null)}
-                  className="rounded-full px-3 py-1.5 text-xs text-white/60 transition hover:bg-white/[0.06] hover:text-white"
+                  className="rounded-full px-3 py-1.5 text-[13px] text-white/60 transition hover:bg-white/[0.06] hover:text-white"
                 >
                   Cancelar
                 </button>
@@ -667,8 +669,22 @@ export default function ListaAlertas({
           {gruposSilenciadas.map((g) => (
             <div key={g.clave} className="mt-2">
               {gruposSilenciadas.length > 1 || g.partido ? (
-                <p className="mb-1.5 px-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-white/55">
+                <p className="mb-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 px-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-white/55">
                   {g.partido ? `Partido ${g.partido}` : "Sin partido"}
+                  {/* 16/11/2026 (fútbol y marketing): a un toque, lo que la tarea prepara, con el rival ya elegido. */}
+                  {(() => {
+                    const rival = /^vs (.+?)(?: \(|$)/.exec(g.partido)?.[1];
+
+                    return rival ? (
+                      <Link
+                        href={`/rivals?equipo=${encodeURIComponent(rival)}`}
+                        className="inline-flex min-h-8 items-center gap-1 rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2.5 text-[12px] font-semibold normal-case tracking-normal text-[#C8A96B] transition hover:bg-[#C8A96B]/20"
+                      >
+                        Abrir a {rival}
+                        <ChevronRight className="h-3.5 w-3.5" aria-hidden />
+                      </Link>
+                    ) : null;
+                  })()}
                 </p>
               ) : null}
               <div className="space-y-2.5 @3xl:grid @3xl:grid-cols-2 @6xl:grid-cols-3 @3xl:items-stretch @3xl:gap-2.5 @3xl:space-y-0">
