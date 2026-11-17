@@ -71,6 +71,7 @@ export function RelievePartido({
   compacto = false,
   partido,
   quietoAlFinal = false,
+  xgFinal,
 }: {
   eventos: TablaOpta | null | undefined;
   a: Equipo;
@@ -85,6 +86,13 @@ export function RelievePartido({
   quietoAlFinal?: boolean;
   /** Id de Opta del partido: para los colores fijados a mano. */
   partido?: string;
+  /**
+   * 17/11/2026 (ronda 21, fútbol): los goles esperados del partido entero por
+   * `teamId`, de la misma fila de Opta que el cara a cara. En el pitido final
+   * el panel dice esa cifra y no la suma de los remates del evento a evento
+   * (0,71 – 0,46 frente a 0,7 – 0,5 arriba).
+   */
+  xgFinal?: Record<string, number>;
 }) {
   /* El local siempre a la izquierda (expertos, 14/11/2026: «Castilla 1-0» en un partido que jugamos fuera confundía). */
   const fuera = String(a0.campo ?? "").toUpperCase() === "AWAY";
@@ -632,8 +640,13 @@ export function RelievePartido({
     return () => cancelAnimationFrame(pedido);
   }, [r, fin, compacto, colA, colB, resolucion]);
 
-  const xgA = r.tiros.filter((p) => p.deA && p.minuto <= minuto).reduce((x, p) => x + p.xg, 0);
-  const xgB = r.tiros.filter((p) => !p.deA && p.minuto <= minuto).reduce((x, p) => x + p.xg, 0);
+  const alFinal = minuto >= fin;
+  const xgA = alFinal && xgFinal?.[a.teamId] != null ? xgFinal[a.teamId] : r.tiros.filter((p) => p.deA && p.minuto <= minuto).reduce((x, p) => x + p.xg, 0);
+  const xgB = alFinal && xgFinal?.[b.teamId] != null ? xgFinal[b.teamId] : r.tiros.filter((p) => !p.deA && p.minuto <= minuto).reduce((x, p) => x + p.xg, 0);
+  /* Un decimal, como el cara a cara («Goles esperados 0,7 – 0,5»). */
+  const d1 = (v: number) => v.toFixed(1).replace(".", ",");
+  /* «el Gimnàstic», «el Castilla»: el campo rival que pisa el de la izquierda. */
+  const tramo = alFinal ? "en el tramo final" : `hacia el ${minuto}′`;
   const terrAhora = territorioRetrato(r, minuto);
   const ultima = [...r.tiros].filter((p) => p.minuto <= minuto).sort((x, y) => y.minuto - x.minuto)[0] ?? null;
   const terrPartido = useMemo(() => territorioRetrato(r, null), [r]);
@@ -680,16 +693,17 @@ export function RelievePartido({
         )}
       </div>
       {!compacto && (
-        <div className="pointer-events-none absolute bottom-[calc(150px*var(--k,1)+12px)] right-4 hidden w-[400px] rounded-xl px-3 py-2 text-xs lg:block" style={{ background: "rgba(8,10,20,0.82)", color: "rgba(255,255,255,0.85)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.1)", bottom: "calc(min(15vw, 150px) + 14px)" }}>
+        <div className="pointer-events-none absolute bottom-[calc(150px*var(--k,1)+12px)] right-4 hidden w-[400px] rounded-xl px-3 py-2 text-xs lg:block" style={{ background: "rgba(8,10,20,0.82)", color: "rgba(255,255,255,0.85)", border: "1px solid rgba(255,255,255,0.1)", bottom: "calc(min(15vw, 150px) + 14px)" }}>
           <p className="flex justify-between font-semibold">
-            <span style={{ color: css(colB) }}>← {b.nombre}</span>
-            <span style={{ color: css(colA) }}>{a.nombre} →</span>
+            {/* 17/11/2026 (ronda 21, fútbol): los mismos lados que el dibujo y el subtítulo: el local a la izquierda. */}
+            <span style={{ color: css(colA) }}>{a.nombre} · izquierda</span>
+            <span style={{ color: css(colB) }}>derecha · {b.nombre}</span>
           </p>
-          <div className="mt-1.5 h-1.5 rounded-full" style={{ background: `linear-gradient(90deg, ${css(colB)}, rgb(118,118,118), ${css(colA)})` }} />
+          <div className="mt-1.5 h-1.5 rounded-full" style={{ background: `linear-gradient(90deg, ${css(colA)}, rgb(118,118,118), ${css(colB)})` }} />
           <p className="mt-1 grid grid-cols-3 text-xs" style={{ color: "rgba(255,255,255,0.65)" }}>
-            <span>manda {b.nombre.split(" ")[0]}</span>
+            <span>manda {a.nombre}</span>
             <span className="text-center">parejo</span>
-            <span className="text-right">manda {a.nombre.split(" ").slice(-1)[0]}</span>
+            <span className="text-right">manda {b.nombre}</span>
           </p>
           <p className="mt-1 text-xs" style={{ color: "rgba(255,255,255,0.6)" }}>
             Altura = actividad · columna y marca = remate
@@ -697,15 +711,15 @@ export function RelievePartido({
         </div>
       )}
       {!compacto && (
-        <div className="pointer-events-none absolute left-4 top-[100px] hidden max-w-[230px] rounded-xl px-3 py-2 shadow-xl sm:left-6 lg:block" style={{ background: "rgba(8,10,20,0.82)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.1)", color: "#FFFFFF" }}>
+        <div className="pointer-events-none absolute left-4 top-[100px] hidden max-w-[230px] rounded-xl px-3 py-2 shadow-xl sm:left-6 lg:block" style={{ background: "rgba(8,10,20,0.82)", border: "1px solid rgba(255,255,255,0.1)", color: "#FFFFFF" }}>
           <p className="text-xs font-semibold uppercase tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.55)" }}>Hasta el {minuto}′</p>
           <p className="font-mono text-base font-bold tabular-nums">
-            xG <span style={{ color: css(colA) }}>{xgA.toFixed(2).replace(".", ",")}</span> – <span style={{ color: css(colB) }}>{xgB.toFixed(2).replace(".", ",")}</span>
+            Goles esperados <span style={{ color: css(colA) }}>{d1(xgA)}</span> – <span style={{ color: css(colB) }}>{d1(xgB)}</span>
           </p>
           {terrAhora != null && (
             <p className="text-xs tabular-nums" style={{ color: "rgba(255,255,255,0.8)" }}>
-              Territorio {a.nombre.split(" ").slice(-1)[0]}: <b style={{ color: css(colA) }}>{Math.round(terrAhora * 100)} %</b> ahora
-              {terrPartido != null ? <span style={{ color: "rgba(255,255,255,0.55)" }}> · {Math.round(terrPartido * 100)} % el partido</span> : null}
+              Campo rival pisado por el {a.nombre}: <b style={{ color: css(colA) }}>{Math.round(terrAhora * 100)} %</b> {tramo}
+              {terrPartido != null ? <span style={{ color: "rgba(255,255,255,0.55)" }}> · {Math.round(terrPartido * 100)} % en todo el partido</span> : null}
             </p>
           )}
           {terrMax && (
@@ -723,12 +737,13 @@ export function RelievePartido({
       {/* Móvil (14/11/2026): las cifras van debajo del campo, no encima (lo tapaban entero). */}
       {!compacto && (
         <div className={`grid grid-cols-2 gap-x-3 gap-y-0.5 px-3 pt-2 text-xs tabular-nums sm:text-sm lg:hidden ${completa ? "hidden" : ""}`} style={{ color: "rgba(255,255,255,0.8)" }}>
-          <p>
-            xG hasta el {minuto}′: <b style={{ color: css(colA) }}>{xgA.toFixed(2).replace(".", ",")}</b> – <b style={{ color: css(colB) }}>{xgB.toFixed(2).replace(".", ",")}</b>
+          <p className="col-span-2">
+            Goles esperados{alFinal ? "" : ` hasta el ${minuto}′`}: <b style={{ color: css(colA) }}>{d1(xgA)}</b> – <b style={{ color: css(colB) }}>{d1(xgB)}</b>
           </p>
           {terrAhora != null && (
-            <p className="text-right">
-              Territorio ahora <b style={{ color: css(colA) }}>{Math.round(terrAhora * 100)} %</b>
+            <p className="col-span-2">
+              Campo rival pisado por el {a.nombre}: <b style={{ color: css(colA) }}>{Math.round(terrAhora * 100)} %</b> {tramo}
+              {terrPartido != null ? ` · ${Math.round(terrPartido * 100)} % en todo el partido` : ""}
             </p>
           )}
           {ultima && (
@@ -781,8 +796,7 @@ export function RelievePartido({
           key={`${aviso.minuto}-${aviso.jugadorId}`}
           className="pointer-events-none absolute left-2 top-[78px] hidden max-w-[70%] lg:block sm:top-auto rounded-r-xl py-1.5 pl-3 pr-4 text-left shadow-2xl sm:bottom-[34%] sm:left-6 sm:max-w-none sm:py-2.5 sm:pl-4 sm:pr-6"
           style={{
-            background: "rgba(10,12,22,0.55)",
-            backdropFilter: "blur(10px)",
+            background: "rgba(10,12,22,0.78)",
             borderLeft: `5px solid ${css(aviso.deA ? colA : colB)}`,
             boxShadow: `0 0 40px ${css(aviso.deA ? colA : colB, 0.35)}`,
             animation: "rmcfAviso 3.2s ease-out forwards",
@@ -807,7 +821,7 @@ export function RelievePartido({
               ? "absolute inset-x-2 bottom-2 flex flex-wrap items-center justify-center gap-2 rounded-2xl px-2 py-1.5"
               : "flex flex-wrap items-center justify-center gap-2 px-3 py-2 transition-opacity duration-500 focus-within:opacity-100 lg:absolute lg:right-5 lg:top-[86px] lg:max-w-[60%] lg:justify-end lg:p-0 lg:opacity-0 lg:group-hover:opacity-100"
           }
-          style={completa ? { background: "rgba(5,5,10,0.72)", backdropFilter: "blur(8px)" } : undefined}
+          style={completa ? { background: "rgba(5,5,10,0.72)" } : undefined}
         >
           <button
             type="button"

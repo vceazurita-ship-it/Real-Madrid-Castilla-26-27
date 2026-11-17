@@ -251,7 +251,8 @@ export function ContrasteOpta({
         {deOpta
           ? "del evento a evento de Opta de este partido: entradas ganadas, intercepciones y balones ganados con el balón en juego, sin balón parado."
           : "vistos en el vídeo (entrada, intercepción o balón ganado apretando)."}{" "}
-        <b className="text-white/85">En Análisis de datos, {rec} recuperaciones</b>
+        {/* 17/11/2026 (ronda 21): Análisis de datos ya da esta misma cifra; la otra es el agregado de Opta. */}
+        Análisis de datos cuenta igual. <b className="text-white/85">El total agregado de Opta, {rec} recuperaciones</b>
         {int != null ? ` y ${int} intercepciones aparte` : ""}: la recuperación de Opta es quedarse un balón suelto o uno que da el rival. No es la misma cuenta.
       </p>
     );
@@ -266,7 +267,7 @@ export function ContrasteOpta({
       {deOpta
         ? "sobre el mismo dato de Opta, sólo las que cambian la posesión en juego (sin remates, despejes ni balón parado)."
         : "todas las vistas en el vídeo, sólo el balón que teníamos y pasa al rival en juego."}{" "}
-      <b className="text-white/85">En Análisis de datos, Opta {total}</b>
+      Análisis de datos cuenta igual. <b className="text-white/85">El total agregado de Opta, {total}</b>
       {propio != null ? ` (${propio} en nuestro tercio)` : ""}: suma cada pase que no llega, cada regate perdido y cada balón robado, aunque salga fuera. Por eso las dos cifras no coinciden.
     </p>
   );

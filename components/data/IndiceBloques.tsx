@@ -83,7 +83,8 @@ export function IndiceBloques({ clave, antes }: { clave: string; antes?: ReactNo
   return (
     <nav
       aria-label="Bloques de esta pantalla"
-      className="sticky top-[80px] z-20 -mx-4 mt-3 border-b border-white/10 bg-[#0B0F14]/90 px-4 py-2 backdrop-blur-xl sm:-mx-6 sm:px-6 md:top-[96px] lg:-mx-10 lg:px-10"
+      /* 17/11/2026 (ronda 21): fondo liso, sin desenfoque (en Mac parpadeaba al hacer scroll sobre los campos). */
+      className="sticky top-[80px] z-20 -mx-4 mt-3 border-b border-white/10 bg-[#0B0F14] px-4 py-2 sm:-mx-6 sm:px-6 md:top-[96px] lg:-mx-10 lg:px-10"
     >
       <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto scrollbar-none">
         {antes}

@@ -14,6 +14,7 @@
  */
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 
 import { COMPARADO, ORO, tinta } from "@/components/data/graficas";
 import { CASTILLA_OPTA } from "@/lib/opta";
@@ -37,6 +38,8 @@ const H = 300;
 /* Arriba y abajo, dos alturas de rótulo de gol: dos goles seguidos del mismo equipo no se pisan. */
 const M = { izq: 12, der: 12, arriba: 40, abajo: 58 };
 const SEPARA_ROTULOS = 90;
+/** La ficha de un jugador del Castilla (`/individual` casa el nombre de Opta por apellido). */
+const fichaDe = (nombre: string) => `/individual?nombre=${encodeURIComponent(nombre)}`;
 
 export function Momentum({ datos, partido, teamId }: { datos: DatosOpta; partido: string; teamId: string }) {
   const { momento, cargando } = useMomento();
@@ -140,12 +143,29 @@ export function Momentum({ datos, partido, teamId }: { datos: DatosOpta; partido
               <circle cx={x} cy={cero} r={6} style={{ fill: arriba ? ORO : COMPARADO, stroke: tinta(0.9), strokeWidth: 1.5 }}>
                 <title>{`Gol · ${g.minuto}′ · ${g.tirador}${g.tipo === "PenaltyGoal" ? " (penalti)" : ""}`}</title>
               </circle>
-              <text x={x} y={y} textAnchor="middle" style={{ fill: tinta(0.75), fontSize: 14, fontWeight: 600 }}>
-                {`${g.minuto}′ ${g.tirador.split(" ").slice(-1)[0]}`}
-              </text>
+              {/* 17/11/2026 (ronda 21, marketing): el goleador del Castilla lleva a su ficha. */}
+              {g.teamId === CASTILLA_OPTA && g.tirador ? (
+                <a href={fichaDe(g.tirador)} aria-label={`Ficha de ${g.tirador}`}>
+                  <text x={x} y={y} textAnchor="middle" style={{ fill: ORO, fontSize: 14, fontWeight: 700, textDecoration: "underline" }}>
+                    {`${g.minuto}′ ${g.tirador.split(" ").slice(-1)[0]}`}
+                  </text>
+                </a>
+              ) : (
+                <text x={x} y={y} textAnchor="middle" style={{ fill: tinta(0.75), fontSize: 14, fontWeight: 600 }}>
+                  {`${g.minuto}′ ${g.tirador.split(" ").slice(-1)[0]}`}
+                </text>
+              )}
             </g>
           );
         })}
+
+        {/* 17/11/2026 (ronda 21, marketing): quién va arriba y quién abajo, rotulado sobre el propio gráfico. */}
+        <text x={M.izq + 8} y={M.arriba + 16} style={{ fill: ORO, fontSize: 13, fontWeight: 700, paintOrder: "stroke", stroke: "var(--rmcf-surface, #11161C)", strokeWidth: 4 }}>
+          {`▲ Arriba, ${nombreA}`}
+        </text>
+        <text x={M.izq + 8} y={H - M.abajo - 8} style={{ fill: COMPARADO, fontSize: 13, fontWeight: 700, paintOrder: "stroke", stroke: "var(--rmcf-surface, #11161C)", strokeWidth: 4 }}>
+          {`▼ Abajo, ${nombreB}`}
+        </text>
 
         {/* La superficie que se pasa: un tramo cada franja. */}
         {curva.map((t) => (
@@ -153,6 +173,25 @@ export function Momentum({ datos, partido, teamId }: { datos: DatosOpta; partido
         ))}
       </svg>
       </div>
+      {/* Los goleadores del Castilla, con su ficha y su seguimiento a un toque. */}
+      {goles.some((g) => g.teamId === CASTILLA_OPTA && g.tirador) && (
+        <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-white/65">
+          <span className="font-semibold text-white/75">Goles del Castilla:</span>
+          {goles
+            .filter((g) => g.teamId === CASTILLA_OPTA && g.tirador)
+            .map((g, i) => (
+              <span key={`${g.minuto}-${i}`} className="inline-flex items-center gap-1.5">
+                {g.minuto}′
+                <Link href={fichaDe(g.tirador)} className="font-semibold text-[#C8A96B] underline-offset-2 hover:underline">
+                  {g.tirador}
+                </Link>
+                <Link href={`${fichaDe(g.tirador)}&pestana=seguimiento`} className="text-white/60 underline underline-offset-2 hover:text-white">
+                  su seguimiento
+                </Link>
+              </span>
+            ))}
+        </p>
+      )}
       {tramoEncima && (
         <p className="mt-1 text-xs text-white/65">
           {`${tramoEncima.tramo * 5}′–${tramoEncima.tramo * 5 + 5}′ · ${nombreA}: xG ${(ta?.xG ?? 0).toFixed(1).replace(".", ",")}, ${ta?.remates ?? 0} remates, ${ta?.toquesArea ?? 0} toques en el área${ta?.posesion != null ? `, ${Math.round(ta.posesion * 100)} % de posesión` : ""} · ${nombreB}: xG ${(tb?.xG ?? 0).toFixed(1).replace(".", ",")}, ${tb?.remates ?? 0} remates, ${tb?.toquesArea ?? 0} toques en el área`}

@@ -70,12 +70,10 @@ import { SelloDeFechas } from "@/components/data/SelloJornada";
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { ConmutadorVista, TituloConclusion, useVistaAnalisis } from "@/components/ui/VistaVisual";
 import { PARTIDOS as PARTIDOS_ETIQUETADOS, type Accion, type Robo } from "@/lib/transiciones/datos";
-import { useRespaldoOpta } from "@/lib/opta-respaldo/cliente";
-import { fechaEtiquetada } from "@/lib/opta-respaldo/etiquetado";
-import { enlaceOptaDe, esDeOpta, type PartidoTransicionesOpta } from "@/lib/opta-respaldo/tipos";
+import { usePartidosLaboratorio, zonaDeRobo } from "@/lib/transiciones/partidos-laboratorio";
+import { enlaceOptaDe, esDeOpta } from "@/lib/opta-respaldo/tipos";
 import { SelloOpta } from "@/components/opta-respaldo/SelloOpta";
 import { nombreEquipo } from "@/lib/equipos";
-import { mismoClub } from "@/lib/rivals/mismoClub";
 import { ComoActualizar } from "@/components/transiciones/ComoActualizar";
 import {
   ComparativaPartido,
@@ -353,11 +351,7 @@ function reloj(segundos: number) {
   return `${m}'${String(s).padStart(2, "0")}"`;
 }
 
-function zonaDe(r: Robo) {
-  if (r.zona.includes("rival")) return "campo rival";
-  if (r.zona.includes("medio")) return "medio campo";
-  return "campo propio";
-}
+const zonaDe = (r: Robo) => zonaDeRobo(r);
 
 /* 07/11/2026: con un decimal, igual que la tabla de la comparativa (5,7 %, no 6 %). */
 function pct(parte: number, total: number): string {
@@ -671,30 +665,8 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
   | con el sello «Desde Opta». Lo etiquetado manda: en cuanto se etiqueta,
   | Opta deja de entrar (lib/opta-respaldo/etiquetado.ts).
   */
-  const fechasEtiquetadas = useMemo(
-    () => PARTIDOS_ETIQUETADOS.filter((p) => (modo === "robos" ? p.robos : p.perdidas ?? []).length > 0).map((p) => p.fecha),
-    [modo],
-  );
-  const respaldo = useRespaldoOpta<PartidoTransicionesOpta>("transiciones", fechasEtiquetadas);
-  const PARTIDOS = useMemo(() => {
-    /* 17/11/2026 (ronda 20): la J4 salía dos veces («Sant Andreu» de Opta y
-       «UE Sant Andreu» etiquetado, con la fecha de Hudl dos días después):
-       además de la fecha, un partido de Opta con la misma jornada y el mismo
-       club que uno ya etiquetado no entra. */
-    const conFilas = PARTIDOS_ETIQUETADOS.filter((p) => (modo === "robos" ? p.robos : p.perdidas ?? []).length > 0);
-    const opta = respaldo.filas.filter(
-      (o) => !fechaEtiquetada(o.fecha, fechasEtiquetadas) && !conFilas.some((p) => p.jornada === o.jornada && mismoClub(p.rival, o.rival)),
-    );
-    const usados = new Set<string>();
-    /* J2 y J3 (mirados a ojo) no tienen pérdidas: en ese modo se rellenan con las de Opta sin tocar el resto del partido. */
-    const propios = PARTIDOS_ETIQUETADOS.map((p) => {
-      const o = opta.find((x) => fechaEtiquetada(x.fecha, [p.fecha]));
-      if (!o) return p;
-      usados.add(o.id);
-      return modo === "robos" ? { ...p, robos: o.robos } : { ...p, perdidas: o.perdidas };
-    });
-    return [...propios, ...opta.filter((o) => !usados.has(o.id))];
-  }, [respaldo.filas, fechasEtiquetadas, modo]);
+  /* 17/11/2026 (ronda 21): la cuenta, compartida con «Post del partido» de Análisis de datos (lib/transiciones/partidos-laboratorio.ts). */
+  const { partidos: PARTIDOS } = usePartidosLaboratorio(modo);
 
   const enlace = usePartidoDeLaUrl();
   const enlazado = partidoEnlazado(PARTIDOS, enlace.fecha, enlace.rival)?.id ?? null;

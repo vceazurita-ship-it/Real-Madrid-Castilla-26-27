@@ -1514,6 +1514,48 @@ export default function DataAnalisisPage() {
   };
   const selloDelArea = SELLOS[area];
 
+  /*
+  | 17/11/2026 (ronda 21, análisis y marketing): las áreas del bloque ya no van
+  | en una fila propia: entran en la cinta fija de arriba, delante de los chips
+  | de los bloques de la pantalla («El partido, cara a cara», «Acción a
+  | acción»…). Una sola fila de navegación antes del primer dato, y se queda
+  | fija al bajar (también en el móvil).
+  */
+  const subareas =
+    bloqueDe(area).areas.length > 1 || bloqueDe(area).enlace ? (
+      <div role="group" aria-label={`Áreas de ${bloqueDe(area).label}`} className="flex shrink-0 items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] p-0.5">
+        {bloqueDe(area).areas.map((clave) => {
+          const item = AREAS.find((a) => a.key === clave)!;
+          const activa = cabezaDe(area) === clave;
+
+          return (
+            <button
+              key={clave}
+              type="button"
+              onClick={() => setArea(entradaDe(clave))}
+              aria-pressed={activa}
+              title={item.pregunta}
+              className={`inline-flex min-h-[32px] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-xs font-semibold transition ${
+                activa ? "bg-[#C8A96B] text-black" : "text-white/60 hover:bg-white/[0.06] hover:text-white"
+              }`}
+            >
+              <item.icono size={13} />
+              {item.label}
+            </button>
+          );
+        })}
+
+        {bloqueDe(area).enlace && (
+          <Link
+            href={bloqueDe(area).enlace!.href}
+            className="inline-flex min-h-[32px] shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-3 text-xs font-medium text-[#C8A96B] hover:bg-white/[0.06]"
+          >
+            {bloqueDe(area).enlace!.label} →
+          </Link>
+        )}
+      </div>
+    ) : null;
+
   /* 10/11/2026 (fase 4): la barra de bloques y áreas y la cabecera, las mismas
      para las áreas de la carpeta y para las de la descarga de la categoría. */
   const barraYCabecera = (
@@ -1533,40 +1575,6 @@ export default function DataAnalisisPage() {
 
                   <BuscadorAreas areas={AREAS} bloques={BLOQUES_NAV} onIr={irA} />
                 </div>
-
-                {(bloqueDe(area).areas.length > 1 || bloqueDe(area).enlace) && (
-                  <div className="mt-3 flex min-w-0 gap-1 overflow-x-auto rounded-xl border border-white/10 bg-white/[0.03] p-1 scrollbar-none max-sm:pr-6 max-sm:[mask-image:linear-gradient(to_right,black_calc(100%-32px),transparent)] sm:inline-flex sm:max-w-full">
-                    {bloqueDe(area).areas.map((clave) => {
-                      const item = AREAS.find((a) => a.key === clave)!;
-                      const activa = cabezaDe(area) === clave;
-
-                      return (
-                        <button
-                          key={clave}
-                          type="button"
-                          onClick={() => setArea(entradaDe(clave))}
-                          aria-pressed={activa}
-                          title={item.pregunta}
-                          className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                            activa ? "bg-[#C8A96B] text-black" : "text-white/55 hover:bg-white/[0.06] hover:text-white"
-                          }`}
-                        >
-                          <item.icono size={13} />
-                          {item.label}
-                        </button>
-                      );
-                    })}
-
-                    {bloqueDe(area).enlace && (
-                      <Link
-                        href={bloqueDe(area).enlace!.href}
-                        className="inline-flex shrink-0 items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium text-[#C8A96B] hover:bg-white/[0.06]"
-                      >
-                        {bloqueDe(area).enlace!.label} →
-                      </Link>
-                    )}
-                  </div>
-                )}
 
                 {/*
                   CABECERA DE CONTEXTO (02/11/2026): el nombre del área como
@@ -1643,6 +1651,17 @@ export default function DataAnalisisPage() {
                     ))}
                   </div>
                 )}
+
+                {/* LA CINTA FIJA (17/11/2026, ronda 21): áreas del bloque y bloques de la pantalla, en una fila. */}
+                <IndiceBloques
+                  clave={area}
+                  antes={
+                    <>
+                      <SelectorArea valor={area} areas={AREAS} bloques={BLOQUES_NAV} onIr={irA} />
+                      {subareas}
+                    </>
+                  }
+                />
     </>
   );
 
@@ -1680,7 +1699,7 @@ export default function DataAnalisisPage() {
               }
             />
 
-            {cargando && !esAreaOpta(area) && (
+            {cargando && !esAreaOpta(area) && area !== "post" && (
               <div className="mt-8 flex items-center justify-center gap-2 py-16 text-sm text-white/40">
                 <Loader2 size={16} className="animate-spin" />
                 Abriendo los informes de la carpeta…
@@ -1690,11 +1709,15 @@ export default function DataAnalisisPage() {
             {/* 10/11/2026: si Wyscout no carga, la puerta «Post del partido» no se
                 tapa entera: se quita sólo lo de Wyscout (aviso corto dentro) y lo
                 de Opta sigue. En las demás áreas, el aviso general de siempre. */}
-            {!cargando && (!datos?.ok || partidos.length === 0) && area === "post" && (
+            {/* 17/11/2026 (ronda 21): tampoco espera a la carpeta mientras se lee
+                (en el móvil la captura sólo veía «Abriendo los informes…» y
+                ningún selector de partido): lo de Opta sale ya y Wyscout entra
+                al llegar. */}
+            {(cargando || !datos?.ok || partidos.length === 0) && area === "post" && (
               <>
                 {barraYCabecera}
                 <div id="data-bloques">
-                  <PanelPostPartido wyscout={[]} wyscoutCaido />
+                  <PanelPostPartido wyscout={[]} wyscoutCaido={!cargando} onIr={irA} />
                 </div>
               </>
             )}
@@ -1704,7 +1727,6 @@ export default function DataAnalisisPage() {
             {esAreaOpta(area) && (
               <>
                 {barraYCabecera}
-                <IndiceBloques clave={area} antes={<SelectorArea valor={area} areas={AREAS} bloques={BLOQUES_NAV} onIr={irA} />} />
                 <div id="data-bloques">
                   <PanelAreaOpta area={area} />
                 </div>
@@ -2037,15 +2059,11 @@ export default function DataAnalisisPage() {
                   </Explicativo>
                 </div>
 
-                {/* 29/10/2026: índice fijo con un chip por panel del área elegida.
-                    02/11/2026: abre con el desplegable de áreas, para cambiar sin volver arriba. */}
-                <IndiceBloques
-                  clave={area}
-                  antes={<SelectorArea valor={area} areas={AREAS} bloques={BLOQUES_NAV} onIr={irA} />}
-                />
+                {/* 29/10/2026: índice fijo con un chip por panel del área elegida; desde el
+                    17/11/2026 va dentro de `barraYCabecera`, con las áreas del bloque. */}
 
                 <div id="data-bloques">
-                {area === "post" && <PanelPostPartido wyscout={partidos} />}
+                {area === "post" && <PanelPostPartido wyscout={partidos} onIr={irA} />}
 
                 {area === "resumen" && (
                   <PanelResumen conclusiones={clavesResumen} areas={AREAS} bloques={BLOQUES_NAV} onIr={irA} />
