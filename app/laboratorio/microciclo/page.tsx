@@ -73,6 +73,7 @@ import {
   Kanban,
   ListChecks,
 } from "lucide-react";
+import Link from "next/link";
 import { toast } from "sonner";
 
 import { useHistorial } from "@/hooks/useHistorial";
@@ -120,7 +121,7 @@ import { ValoracionTarea } from "@/components/registro/ValoracionTarea";
 import { CamposCognitivos } from "@/components/registro/CamposCognitivos";
 import { propuestaCognitiva } from "@/lib/registro/propuesta";
 import type { RegistroTarea } from "@/lib/abp/registro";
-import { comaDecimal, cuentaMicros, esFilaDePartido, rivalDelMicro, type CuentaMicro, type FilaCuenta } from "@/lib/microciclo/cuenta";
+import { comaDecimal, cuentaMicros, esFilaDePartido, fechaIsoDeHoja, rivalDelMicro, type CuentaMicro, type FilaCuenta } from "@/lib/microciclo/cuenta";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { loadRegistro, type RegistroDataset } from "@/lib/abp/registro";
@@ -231,7 +232,14 @@ function diasDeVentana(proximo: PartidoNuestro, anterior: PartidoNuestro | null)
  * Cuántas semanas de liga de la temporada entrenan cada MD (16/11/2026,
  * jueces): la propuesta de días sale de ahí, no de «todo entreno».
  */
-export type UsoDeMd = { base: number; veces: Map<string, number> };
+export type UsoDeMd = {
+  base: number;
+  veces: Map<string, number>;
+  /** Si se contó sólo con semanas de la misma duración, cuántos días tienen (17/11/2026). */
+  dias?: number;
+  /** Los días de la semana que se prepara. */
+  diasSemana?: number;
+};
 
 /** Con menos semanas de liga que éstas no se propone por lo entrenado: sólo libre el MD+1. */
 const BASE_USO_MD = 5;
@@ -300,7 +308,10 @@ function TiraDias({
   onCambia,
   fechaPost,
   uso,
+  cargaMd,
 }: {
+  /** UA media de cada MD en la temporada (17/11/2026): una barra por día. */
+  cargaMd?: Map<string, { ua: number; n: number }>;
   dias: { fecha: string; md: string; esPartido: boolean }[];
   libres: Set<string>;
   onCambia: (fecha: string, libre: boolean) => void;
@@ -314,9 +325,12 @@ function TiraDias({
        domingo a domingo. En móvil, de dos en dos. 16/11/2026 (jueces): con
        casillas de 150 px como mínimo —a 118 px «Entreno | Libre» se pisaban
        a 1440—; si no caben en una fila, pasan a dos. */
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-[repeat(auto-fill,minmax(150px,1fr))]">
+    /* max-md:pr-12 (17/11/2026, jueces): el botón flotante ⋮ caía sobre una casilla en el móvil. */
+    <div className="grid grid-cols-2 gap-2 max-md:pr-12 sm:grid-cols-[repeat(auto-fill,minmax(150px,1fr))]">
       {dias.map((uno) => {
         const libre = libres.has(uno.fecha);
+        const carga = !uno.esPartido ? cargaMd?.get(normalizaMd(uno.md)) : undefined;
+        const maxCarga = Math.max(1, ...[...(cargaMd?.values() ?? [])].map((c) => c.ua));
 
         return (
           <div
@@ -344,6 +358,15 @@ function TiraDias({
                 </span>
               ) : null}
             </p>
+            {/* La carga media de ese MD en la temporada; atenuada si el día va libre. */}
+            {carga ? (
+              <div className={`mt-1.5 ${libre ? "opacity-40" : ""}`} title={`${uno.md}: ${carga.ua} UA de media en ${carga.n} días de la temporada`}>
+                <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+                  <div className="h-full rounded-full bg-[#C8A96B]" style={{ width: `${(100 * carga.ua) / maxCarga}%` }} />
+                </div>
+                <p className="mt-0.5 text-[11px] tabular-nums text-white/55">≈ {carga.ua} UA</p>
+              </div>
+            ) : null}
 
             {uno.esPartido ? (
               <p className="mt-2 flex items-center gap-1 text-[11px] font-medium text-[#C8A96B]">
@@ -770,7 +793,12 @@ function etiquetaMicroHoja(uno: { micro: number; rival: string; tareas: number; 
         ? c.partidos === 1 ? "sólo el partido" : `sólo ${c.partidos} partidos`
         : `${c.tareasEntreno} ${c.tareasEntreno === 1 ? "tarea" : "tareas"}`,
       c.entrenos > 0 ? `${c.entrenos} ${c.entrenos === 1 ? "día" : "días"}` : "",
-      c.valoradas ? `val. ${comaDecimal(c.valoracion)}` : "",
+      /* 17/11/2026 (jueces): con menos de la mitad valoradas, la valoración es provisional y se dice con su base. */
+      c.valoradas
+        ? c.valoradas * 2 < c.tareasEntreno
+          ? `val. provisional ${comaDecimal(c.valoracion)} · ${c.valoradas} de ${c.tareasEntreno}`
+          : `val. ${comaDecimal(c.valoracion)}`
+        : "",
     ].filter(Boolean);
 
     return [c.etiqueta, ...partes].join(" · ");
@@ -973,10 +1001,15 @@ function ResumenOrigen({
   const cifras = [
     { etiqueta: "Tareas", valor: String(datos.tareas), media: hayMedia ? comaDecimal(datos.mediaTareas) : "" },
     { etiqueta: "Días de entreno", valor: String(datos.diasEntreno), media: hayMedia ? comaDecimal(datos.mediaDias) : "" },
-    ...(conColTiempo || datos.media > 0
-      ? [{ etiqueta: "Tiempo", valor: conColTiempo ? minutosLegibles(datos.minutos) : "Sin minutos", media: datos.media > 0 ? minutosLegibles(datos.media) : "" }]
-      : []),
-  ];
+    /* 17/11/2026 (jueces): sin minutos no se nombra el tiempo; en su sitio, tareas por día. */
+    conColTiempo
+      ? { etiqueta: "Tiempo", valor: minutosLegibles(datos.minutos), media: datos.media > 0 ? minutosLegibles(datos.media) : "" }
+      : {
+          etiqueta: "Tareas por día",
+          valor: datos.diasEntreno > 0 ? comaDecimal(datos.tareas / datos.diasEntreno) : "",
+          media: hayMedia && datos.mediaDias > 0 ? comaDecimal(datos.mediaTareas / datos.mediaDias) : "",
+        },
+  ].filter((c) => c.valor);
 
   return (
     <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.02] p-3">
@@ -1531,17 +1564,88 @@ export default function EditorMicrocicloPage() {
       porMicro.set(t.micro, set);
     }
 
+    /*
+    | 17/11/2026 (jueces): una semana de 9 días no se propone con la cuenta de
+    | las de 7. La duración de cada micro de liga es lo que hay entre su
+    | partido y el anterior (las filas de partido de la hoja); si hay 3 o más
+    | semanas de la misma duración que la que se prepara, se cuenta sólo con
+    | ellas. Si no, con todas, y la frase lo dice.
+    */
+    const partidoDe = new Map<number, string>();
+
+    for (const t of todas) {
+      if (!deLiga.has(t.micro) || !esFilaDePartido({ md: t.md, fase: t.fase, tipo: t.tipoTarea, contenidoPrincipal: t.contenidoPrincipal })) continue;
+
+      const iso = fechaIsoDeHoja(t.fecha);
+
+      if (iso && !partidoDe.has(t.micro)) partidoDe.set(t.micro, iso);
+    }
+
+    const fechasPartido = [...partidoDe.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+    const duracion = new Map<number, number>();
+
+    fechasPartido.forEach(([m, f], i) => {
+      if (i === 0) return;
+
+      duracion.set(m, Math.round((Date.parse(`${f}T12:00:00Z`) - Date.parse(`${fechasPartido[i - 1][1]}T12:00:00Z`)) / 86_400_000));
+    });
+
+    const dias = diasPlan.length;
+    const iguales = [...porMicro.keys()].filter((m) => duracion.get(m) === dias);
+    const usadas = dias > 0 && iguales.length >= 3 ? iguales : [...porMicro.keys()];
     const veces = new Map<string, number>();
 
-    for (const set of porMicro.values()) for (const md of set) veces.set(md, (veces.get(md) ?? 0) + 1);
+    for (const m of usadas) for (const md of porMicro.get(m) ?? []) veces.set(md, (veces.get(md) ?? 0) + 1);
 
-    return { base: porMicro.size, veces };
-  }, [registro]);
+    return { base: usadas.length, veces, dias: usadas === iguales && dias > 0 ? dias : undefined, diasSemana: dias };
+  }, [registro, diasPlan]);
 
   const libresMarcados = useMemo(
     () => new Set(libresPlan ?? libresPorDefecto(diasPlan, usoMd)),
     [libresPlan, diasPlan, usoMd],
   );
+
+  /*
+  | LA CARGA DE CADA MD EN LA TEMPORADA (17/11/2026, jueces): para ver el
+  | efecto de la propuesta antes de crear. UA de un día = suma de la «Carga
+  | Ponderada» de sus tareas de entreno (minutos × intensidad); por MD, la
+  | media de los días con carga apuntada. Sin 3 días con carga, ese MD no
+  | lleva cifra.
+  */
+  const cargaMd = useMemo(() => {
+    const porDia = new Map<string, { md: string; ua: number }>();
+
+    for (const t of registro?.tareas ?? []) {
+      if (!t.md.trim() || !(t.carga > 0)) continue;
+      if (esFilaDePartido({ md: t.md, fase: t.fase, tipo: t.tipoTarea, contenidoPrincipal: t.contenidoPrincipal })) continue;
+
+      const clave = `${t.micro}|${t.fecha}`;
+      const uno = porDia.get(clave) ?? { md: normalizaMd(t.md), ua: 0 };
+
+      uno.ua += t.carga;
+      porDia.set(clave, uno);
+    }
+
+    const suma = new Map<string, { ua: number; n: number }>();
+
+    for (const d of porDia.values()) {
+      const s = suma.get(d.md) ?? { ua: 0, n: 0 };
+
+      s.ua += d.ua;
+      s.n += 1;
+      suma.set(d.md, s);
+    }
+
+    return new Map([...suma.entries()].filter(([, s]) => s.n >= 3).map(([md, s]) => [md, { ua: Math.round(s.ua / s.n), n: s.n }]));
+  }, [registro]);
+
+  /* La carga de la semana con los días marcados de entreno, a la media de su MD. */
+  const cargaSemana = useMemo(() => {
+    const entreno = diasPlan.filter((d) => !d.esPartido && !libresMarcados.has(d.fecha));
+    const conCifra = entreno.filter((d) => cargaMd.has(normalizaMd(d.md)));
+
+    return conCifra.length ? { ua: conCifra.reduce((s, d) => s + (cargaMd.get(normalizaMd(d.md))?.ua ?? 0), 0), dias: conCifra.length, de: entreno.length } : null;
+  }, [diasPlan, libresMarcados, cargaMd]);
 
   /* La frase de la propuesta, con su base: «entrenar MD-4, MD-3, MD-2 y MD-1, como en la mayoría de 21 semanas de liga». */
   const propuestaDias = useMemo(() => {
@@ -1554,7 +1658,11 @@ export default function EditorMicrocicloPage() {
 
     const lista = entrena.length === 1 ? entrena[0] : `${entrena.slice(0, -1).join(", ")} y ${entrena[entrena.length - 1]}`;
 
-    return `Propuesta: entrenar ${lista}, los MD que se entrenan en la mitad o más de las ${usoMd.base} semanas de liga; libre el resto. Un día libre no escribe fila.`;
+    const base = usoMd.dias
+      ? `de las ${usoMd.base} semanas de liga de ${usoMd.dias} días`
+      : `de las ${usoMd.base} semanas de liga${usoMd.diasSemana ? ` (de ${usoMd.diasSemana} días no hay 3 para comparar)` : ""}`;
+
+    return `Propuesta: entrenar ${lista}, los MD que se entrenan en la mitad o más ${base}; libre el resto. Un día libre no escribe fila.`;
   }, [usoMd, diasPlan]);
 
   /* El día siguiente al partido anterior: en pantalla se lee MD+1, como en la portada. */
@@ -2677,14 +2785,37 @@ export default function EditorMicrocicloPage() {
                   <span className="rounded-lg border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2 py-0.5 text-[#E9D5A8]">Partido</span>
                 </p>
                 {/* 16/11/2026 (jueces, segunda vuelta): el rival del micro, con su plan, su ABP, sus goles y su plantilla. */}
-                <EnlacesDelRival rival={proximo.rival} fecha={proximo.cuando.slice(0, 10)} className="mb-3" />
+                <EnlacesDelRival rival={proximo.rival} fecha={proximo.cuando.slice(0, 10)} className="mb-2" conNombre />
+                {/* 17/11/2026 (jueces): lo que corrige la semana —el post del micro anterior— y el calendario, ya elegidos. */}
+                <nav aria-label="Antes de crear" className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-[13px]">
+                  {ultimoMicro > 0 ? (
+                    <Link href={`/microcycles?micro=${ultimoMicro}`} className="font-semibold text-[#C8A96B] underline-offset-4 hover:underline">
+                      Informe del micro {ultimoMicro}
+                      {anterior?.rival ? ` · ${rivalLegible(anterior.rival)}` : ""} →
+                    </Link>
+                  ) : null}
+                  <Link href="/calendar_general" className="font-semibold text-white/70 underline-offset-4 hover:text-white hover:underline">
+                    Calendario operativo →
+                  </Link>
+                </nav>
                 {/* 16/11/2026 (jueces): de dónde sale la propuesta, en una línea y junto a los días. */}
                 <p className="mb-2 text-[13px] text-white/55">
                   {propuestaDias ?? "Propuesta: libre el MD+1 (el día después del partido); el resto, entreno. Un día libre no escribe fila."}
                 </p>
 
+                {cargaSemana ? (
+                  <p className="mb-2 text-[13px] text-white/75">
+                    <span className="font-semibold text-[#C8A96B]">≈ {cargaSemana.ua.toLocaleString("es-ES")} UA</span> de carga física en la semana con estos días
+                    <span className="text-white/55">
+                      {" "}
+                      (media de la temporada de cada MD{cargaSemana.dias < cargaSemana.de ? `; ${cargaSemana.de - cargaSemana.dias} sin base` : ""})
+                    </span>
+                  </p>
+                ) : null}
+
                 <TiraDias
                   dias={diasPlan}
+                  cargaMd={cargaMd}
                   uso={usoMd && usoMd.base >= BASE_USO_MD ? usoMd : null}
                   fechaPost={fechaPost}
                   libres={libresMarcados}
