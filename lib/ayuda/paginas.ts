@@ -1111,7 +1111,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Duelos",
     resumen: "Nuestro once contra el once probable del rival, duelo a duelo y en los dos sentidos: dónde les podemos hacer daño con nuestro balón y dónde nos lo pueden hacer con el suyo.",
     origen: "Nuestro once: el de la pizarra táctica (tablero «Once 4-2-3-1», si es de este rival y tiene siete casados); si no, nuestro último once de Valoraciones; si no, el propuesto con los minutos de Wyscout. Su once: el marcado en Plantillas rivales; si no, su último once de BeSoccer; si no, los de más minutos, siempre sin sus bajas. Métricas: descarga de jugadores de Wyscout de toda la categoría. Posesión de cada equipo: media de sus partidos de liga de esta temporada en Wyscout. Zona de robo: «opta:jugadores» (Opta). Nombres: los nuestros con el nombre corto de la plantilla (el mismo de la pizarra); los suyos, con nombre y apellido si dos comparten apellido. Lo cambiado a mano se guarda por rival (documento «duelos:<rival>»).",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "Arriba",
@@ -1120,8 +1120,8 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Tira de accesos del rival", es: "Bajo el título, con el rival puesto: ▶ Sus goles en vídeo, ▶ Cómo le marcan y ▶ Su último partido (en una ventana, sin salir), Plan de partido, Plantilla, Colectivo, Individual, ABP, Área, Pizarra táctica y Pizarra ABP. En el móvil, una fila que se desliza" },
           { que: "Nombres de los jugadores", es: "En el campo, en las tarjetas y en «quién nos roba» abren su ficha: los nuestros en Individual y los suyos en Scout individual con sus cortes filtrados" },
           { que: "Balón: Castilla · Balón: rival · Los dos", es: "Qué momento pintan el campo, las cajas y las tarjetas" },
-          { que: "El recuento", es: "Duelos medidos y, aparte, los de pocos minutos (menos de 450′ en un lado: tendencia), con la misma suma arriba y en el pie" },
-          { que: "Qué hacemos", es: "El duelo que buscamos (el de más ventaja con nuestro balón) y los dos que vigilamos (los de más riesgo con el suyo), con una orden de una línea, «Qué entrenamos» (la tarea de la consigna) y los minutos; pinchando uno se abre su tarjeta, donde va la consigna entera" },
+          { que: "El recuento", es: "Duelos medidos y, aparte, los de pocos minutos (menos de 450′ en un lado: tendencia), con la misma frase que el Plan de partido (17/11/2026). Dice el umbral: cuenta desde ±10 de percentil, y «Dónde les podemos hacer daño» lleva todos los de +10 o más con nuestro balón, también los de doble cara (por eso puede tener más de los que dice «para buscar»)" },
+          { que: "Qué hacemos", es: "El duelo que buscamos (el de más ventaja con nuestro balón) y los dos que vigilamos (los de más riesgo con el suyo), con una orden de una línea, «Qué entrenamos» (la tarea, qué se cuenta en ella y el objetivo de la mediana de su puesto, en la misma unidad: «1 contra 1 defensivo en banda, contando regates ganados %; objetivo: que Jorge Mier no pase de P50…») y los minutos; pinchando uno se abre su tarjeta, donde va la consigna entera" },
         ],
       },
       {
@@ -1131,7 +1131,8 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Faceta", es: "Lo que hace con balón el que ataca contra lo que hace sin balón el que defiende (regate contra duelo defensivo…)", cuenta: "Percentil nuestro − suyo (media si son dos); ventaja desde 15 puntos" },
           { que: "Duelo", es: "Media de sus facetas en los dos sentidos y, donde toca, por arriba", cuenta: "Ventaja o desventaja desde 10 puntos. La altura pesa sólo donde se juega por arriba: 3 puntos por cm, tope ±20" },
           { que: "Se anulan", es: "Gana con un balón y pierde con el otro por 10 o más: manda la suma, y si queda por debajo de 10, se anulan" },
-          { que: "Con pocos minutos", es: "Con menos de 450′ de Wyscout en un lado el duelo no se destaca: va plegado al final y es tendencia" },
+          { que: "Con pocos minutos", es: "Con menos de 450′ de Wyscout en un lado el duelo no se destaca: va plegado al final y es tendencia. En «quién nos roba», quien tiene menos de 450′ va plegado con el resto, nunca en la lista" },
+          { que: "Uno sin minutos en el hueco", es: "Si en un hueco de dos (el doble pivote) uno no tiene minutos en Wyscout, la tarjeta lo dice: «Sergio también está en este hueco, sin minutos en Wyscout: la cifra es sólo de Cestero»" },
         ],
       },
       {
@@ -1287,7 +1288,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Plan de Partido",
     resumen: "La preparación de cada jornada: contexto, proyección del juego, plan con y sin balón, duelos, análisis del rival y recursos de vídeo.",
     origen: "El plan lo escribe el cuerpo técnico en la hoja RIVALES (un partido por fila) y se guarda solo. Fecha y hora del partido: calendario de BeSoccer. Duelos: Wyscout de toda la categoría, con nuestro once de la pizarra táctica (o el último de Valoraciones) y el suyo de Duelos o Plantillas. Proyección: Opta y Wyscout del grupo. Dibujo de referencia: alineaciones de BeSoccer. Vídeos y documentos: Supabase.",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "Arriba",
@@ -1298,6 +1299,8 @@ export const AYUDAS: AyudaDePagina[] = [
             es: "«▶ Sus goles en vídeo», «▶ Cómo le marcan» y «▶ Su último partido» en una ventana sin salir del plan, y Plantilla, Colectivo, Individual, ABP, Área, Duelos, Pizarra táctica y Pizarra ABP con este partido puesto. La misma tira que en el resto de pantallas del rival",
             cuenta: "Los enlaces llevan ?rival=ID de esta fila y ?equipo=NOMBRE (components/rivals/AccesosDelRival.tsx)",
           },
+          { que: "Lo suyo que hay que parar (17/11/2026)", es: "Quinta idea de «Cómo le ganamos»: quién le hace el xG («Flakus suma el 27 % de su xG: 4,29 en 840′») y por dónde centra (la banda con la mitad o más de sus centros y quién los pone), con la orden (marcarle en el área; cerrar el carril) y enlaces a su ficha en Scout individual y a Área del rival. El mismo bloque «Cómo nos hacen daño» del Scout colectivo (components/rivals/AmenazaDelRival.tsx)" },
+          { que: "El córner, con nuestra base", es: "En «Su punto débil», junto a lo que le rematan, lo nuestro en la misma unidad: «nosotros rematamos el 23,6 % (13 de 55); objetivo, subir a la mediana de la liga, 30,7 %», la misma cuenta que ABP del rival (Wyscout)" },
           { que: "Cómo le ganamos", es: "Arriba del todo, una idea por fase con su métrica: su salida ante nuestra presión, lo nuestro con balón, su punto débil (el córner con su base: cuántos de cada 10 acaban en remate, su puesto y los partidos de Wyscout) y el duelo que decide (la orden, el momento, la cifra explicada y los minutos de los dos). Su punto fuerte, débil y el nuestro ya no se repiten debajo. Cada tarjeta lleva el enlace al dato que la sostiene con el rival puesto: su salida en Scout colectivo, «Su ABP» y «La rutina en la Pizarra ABP», «Ver el duelo». El duelo que decide es la misma orden que sale para ese jugador en Plantillas rivales" },
           { que: "Siglas", es: "La primera vez que sale una sigla en cada línea lleva al lado lo que quiere decir en gris (CP, ataque posicional; CR, contraataque; ABP, balón parado; PTO, portero; Z1, zona 1); al pasar el ratón, la explicación entera" },
           { que: "«media» en la proyección", es: "Es la media de los equipos del grupo en Opta (lo dice cada frase: «media de los 20 equipos del grupo en Opta»), la misma población que la tabla de la proyección" },
@@ -1319,6 +1322,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Ver las N cifras del partido", es: "Plegada: posesión, xG, remates, toques en el área rival, centros, PPDA, recuperaciones en el último tercio y contraataques, con su fuente (Opta o Wyscout) en cada fila; xG, toques y PPDA se explican en la propia fila", cuenta: "Lo que hace el que ataca × lo que concede el que defiende ÷ media del grupo × efecto del campo; pesan más los últimos partidos" },
           { que: "Entre paréntesis", es: "El intervalo del 80 %" },
           { que: "Su presión en la temporada", es: "PPDA de Opta de la temporada y su puesto entre los que más aprietan de su grupo: la cifra principal del área, la misma de Plantillas rivales y del Scout colectivo. Wyscout sólo se nombra si le da otro puesto, con el motivo", cuenta: "Sus pases ÷ sus acciones defensivas de la temporada (opta:equipos); 1.º el que menos PPDA" },
+          { que: "Orden (17/11/2026)", es: "Primero la tabla «Por qué» (nosotros, el rival, la media y lo esperado); la lectura y «cómo se calcula», plegadas en «Leer el porqué»; después «Tipo de partido»" },
           { que: "Tipo de partido", es: "Tres frases: posesión esperada, si será abierto o cerrado y el PPDA esperado contra nosotros (Opta); el estilo pasa a «Por qué»" },
           { que: "Contraste con los datos", es: "Una frase: el PPDA esperado en este partido y si al Castilla le presionan más o menos que a la media del grupo" },
           { que: "Por qué", es: "En el móvil, una tarjeta por cifra. Tabla de posesión, xG y remates a favor y en contra: nosotros, el rival (lo que concede o lo que hace), la media del grupo y lo esperado, con su sentido (más, mejor · menos, mejor · estilo) y una línea de cómo sale lo esperado" },
@@ -1339,6 +1343,8 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Para buscar · Doble cara · Para vigilar", es: "Los duelos decisivos (sin repetir el que ya está en «Cómo le ganamos»), cada uno con una orden de una línea; la consigna entera, los parejos y los de pocos minutos, en Duelos" },
           { que: "Tendencias", es: "Duelos con menos de 450′ en un lado: no cuentan como ventaja ni como riesgo" },
           { que: "Qué le decimos", es: "La consigna de cada duelo para el jugador, sacada del enfrentamiento que más pierde, con sus dos percentiles" },
+          { que: "Qué entrenamos (en cada duelo, 17/11/2026)", es: "La tarea, qué se cuenta en ella y el objetivo sacado de la mediana de su puesto, la misma de Duelos" },
+          { que: "El recuento de duelos", es: "La misma frase que Duelos: «8 duelos medidos y 1 con pocos minutos: …», contando desde ±10 de percentil" },
           { que: "Sin minutos en Wyscout", es: "Se dice una vez arriba; el duelo que sólo repetiría a los mismos nuestros va en una línea, sin tarjeta" },
           { que: "Nombres", es: "Los nuestros, con el nombre corto de la plantilla (el mismo de la pizarra y de Duelos)" },
           { que: "El analista · Duelos del analista", es: "Lo escrito a mano va en la tarjeta del duelo con el que casa; lo que no casa, en tarjetas propias" },

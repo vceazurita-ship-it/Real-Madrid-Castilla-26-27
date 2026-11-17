@@ -27,6 +27,9 @@ import { nombreDePlantilla } from "@/lib/rivals/nombre-jugador";
 import type { PorDondeAtaca } from "@/lib/rivals/por-donde-ataca";
 import { repartoXg } from "@/lib/rivals/reparto-xg";
 import { conRivalEnUrl } from "@/lib/rivals/rival-en-curso";
+import { mismoClub } from "@/lib/rivals/mismoClub";
+import { nombrePropio } from "@/lib/rivals/dano";
+import { conTildes } from "@/lib/rivals/tildes";
 
 const coma = (v: number, d = 2) => v.toFixed(d).replace(".", ",");
 
@@ -64,7 +67,35 @@ export function useAmenazaDelRival(equipo: string, nombres: string[] = []): Punt
     };
   }, [equipo]);
 
-  const firmaNombres = nombres.join("|");
+  /* Sin nombres de fuera (el Plan), los de su plantilla de la hoja: «Flakus», no «David Flakus Bosilj». */
+  const [deLaHoja, setDeLaHoja] = useState<{ equipo: string; nombres: string[] }>({ equipo: "", nombres: [] });
+  const sinNombres = nombres.length === 0;
+
+  useEffect(() => {
+    if (!equipo || !sinNombres) return;
+
+    let cancelado = false;
+
+    traeJson<Record<string, unknown>[]>("/api/rivals?action=rivalesPlantillas")
+      .then((filas) => {
+        if (cancelado || !Array.isArray(filas)) return;
+
+        setDeLaHoja({
+          equipo,
+          nombres: filas
+            .filter((f) => mismoClub(String(f.NOMBRE_EQUIPO ?? ""), equipo))
+            .map((f) => conTildes(nombrePropio(String(f["NOMBRE DEPORTIVO"] ?? "").trim() || String(f.JUGADOR ?? "").trim())))
+            .filter(Boolean),
+        });
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelado = true;
+    };
+  }, [equipo, sinNombres]);
+
+  const firmaNombres = (sinNombres ? (deLaHoja.equipo === equipo ? deLaHoja.nombres : []) : nombres).join("|");
 
   return useMemo(() => {
     const puntos: PuntoAmenaza[] = [];

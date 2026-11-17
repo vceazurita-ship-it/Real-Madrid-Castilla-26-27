@@ -529,48 +529,9 @@ export function PanelJuego({
     <section className="space-y-4 rounded-3xl border border-[#C8A96B]/20 bg-white/[0.03] p-5 md:p-7">
       <Cabecera partido={partido} titulo="Juego" hasta={d.hasta} accion={accion} />
 
-      {d.tipoPartido.length > 0 && (
-        <Bloque titulo="Tipo de partido" icono={<Swords size={13} className="text-[#C8A96B]" />}>
-          {/*
-            LA PRESIÓN, UNA SOLA HISTORIA (16/11/2026, jueces): arriba su presión de
-            la temporada con la cifra y el puesto de Plantillas rivales; debajo lo
-            esperado contra nosotros, que es otra cifra (Opta) y se dice por qué.
-          */}
-          {/*
-            16/11/2026 (3.ª vuelta, jueces): la cifra principal es la de Opta de la
-            temporada (lib/proyeccion/presion.ts), la de Plantillas rivales y el
-            Scout colectivo; la de Wyscout, sólo como 2.ª lectura.
-          */}
-          {d.presion && (
-            <p className="mb-1.5 text-sm font-semibold leading-snug text-white/90">
-              Su presión en la temporada: PPDA (pases que nos deja dar antes de presionar; menos es más presión) {coma(d.presion.valor)}, {d.presion.puesto}.º de {d.presion.de} que más aprieta ({d.presion.proveedor}, temporada).
-              {d.presion.puesto <= Math.floor(d.presion.de * 0.3) && <span className="block font-normal text-white/80">Salir con superioridad atrás y tercer hombre; no regalar el pase al pivote de espaldas.</span>}
-              {/* La de Wyscout sólo si da otro puesto, y con el motivo (16/11/2026, ronda 17). */}
-              {rival?.ppda && rival.ppda.puesto !== d.presion.puesto && (
-                <span className="ml-1 text-xs font-normal text-white/55">
-                  Wyscout lo pone {rival.ppda.puesto}.º: cuenta distinto las acciones defensivas.
-                </span>
-              )}
-            </p>
-          )}
-          {/* Tres frases como mucho: posesión, ocasiones y presión. El estilo va dentro de «Por qué». */}
-          <ul className="space-y-1 text-sm leading-snug text-white/85">
-            {d.tipoPartido.slice(0, 3).map((t) => (
-              <li key={t}>{t}</li>
-            ))}
-          </ul>
-          {d.contraste && (
-            <p className="mt-2 border-t border-white/10 pt-2 text-xs leading-snug text-white/65">
-              <b className="font-semibold text-white/80">Contraste con los datos:</b> {d.contraste}
-            </p>
-          )}
-        </Bloque>
-      )}
-
-      {/* «Por qué», en tabla (16/11/2026, jueces): nosotros, el rival y la media, con el sentido. */}
+      {/* «Por qué», en tabla y la primera (16/11/2026; 17/11/2026, ronda 19: antes del texto de «Tipo de partido»): nosotros, el rival y la media, con el sentido. xG = goles esperados. */}
       {d.porqueTabla.length > 0 && (
         <Bloque titulo="Por qué" icono={<Lightbulb size={13} className="text-[#C8A96B]" />}>
-          <p className="mb-2 text-xs leading-snug text-white/65">{d.comoSeCalcula}</p>
           {/* En el móvil, una tarjeta por cifra: la tabla se cortaba por la derecha (16/11/2026, jueces). */}
           <ul className="space-y-2 sm:hidden">
             {d.porqueTabla.map((r) => (
@@ -620,12 +581,57 @@ export function PanelJuego({
           <p className="mt-1 text-[11px] text-white/50">
             Por partido en la temporada (Opta, {d.partidos.nos} partidos nuestros y {d.partidos.riv} del {partido.rival}){d.presion ? `; la media es la de los ${d.presion.de} equipos del grupo` : ""}.
           </p>
-          {[...d.porque, ...d.tipoPartido.slice(3)].length > 0 && (
-            <ul className="mt-2 space-y-1 text-sm leading-snug text-white/75">
-              {[...d.porque, ...d.tipoPartido.slice(3)].map((t) => (
-                <li key={t}>{t}</li>
-              ))}
-            </ul>
+          {/* La lectura, plegada (17/11/2026, ronda 19, jueces de análisis y marketing): eran seis párrafos antes de la tabla. */}
+          {([...d.porque, ...d.tipoPartido.slice(3)].length > 0 || d.comoSeCalcula) && (
+            <details className="mt-2">
+              <summary className="cursor-pointer select-none text-[12px] font-semibold text-white/70 hover:text-white">Leer el porqué y cómo se calcula</summary>
+              {[...d.porque, ...d.tipoPartido.slice(3)].length > 0 && (
+                <ul className="mt-1.5 space-y-1 text-sm leading-snug text-white/75">
+                  {[...d.porque, ...d.tipoPartido.slice(3)].map((t) => (
+                    <li key={t}>{t}</li>
+                  ))}
+                </ul>
+              )}
+              {d.comoSeCalcula && <p className="mt-1.5 text-xs leading-snug text-white/65">{d.comoSeCalcula}</p>}
+            </details>
+          )}
+        </Bloque>
+      )}
+
+      {d.tipoPartido.length > 0 && (
+        <Bloque titulo="Tipo de partido" icono={<Swords size={13} className="text-[#C8A96B]" />}>
+          {/*
+            LA PRESIÓN, UNA SOLA HISTORIA (16/11/2026, jueces): arriba su presión de
+            la temporada con la cifra y el puesto de Plantillas rivales; debajo lo
+            esperado contra nosotros, que es otra cifra (Opta) y se dice por qué.
+          */}
+          {/*
+            16/11/2026 (3.ª vuelta, jueces): la cifra principal es la de Opta de la
+            temporada (lib/proyeccion/presion.ts), la de Plantillas rivales y el
+            Scout colectivo; la de Wyscout, sólo como 2.ª lectura.
+          */}
+          {d.presion && (
+            <p className="mb-1.5 text-sm font-semibold leading-snug text-white/90">
+              Su presión en la temporada: PPDA (pases que nos deja dar antes de presionar; menos es más presión) {coma(d.presion.valor)}, {d.presion.puesto}.º de {d.presion.de} que más aprieta ({d.presion.proveedor}, temporada).
+              {d.presion.puesto <= Math.floor(d.presion.de * 0.3) && <span className="block font-normal text-white/80">Salir con superioridad atrás y tercer hombre; no regalar el pase al pivote de espaldas.</span>}
+              {/* La de Wyscout sólo si da otro puesto, y con el motivo (16/11/2026, ronda 17). */}
+              {rival?.ppda && rival.ppda.puesto !== d.presion.puesto && (
+                <span className="ml-1 text-xs font-normal text-white/55">
+                  Wyscout lo pone {rival.ppda.puesto}.º: cuenta distinto las acciones defensivas.
+                </span>
+              )}
+            </p>
+          )}
+          {/* Tres frases como mucho: posesión, ocasiones y presión. El estilo va dentro de «Por qué». */}
+          <ul className="space-y-1 text-sm leading-snug text-white/85">
+            {d.tipoPartido.slice(0, 3).map((t) => (
+              <li key={t}>{t}</li>
+            ))}
+          </ul>
+          {d.contraste && (
+            <p className="mt-2 border-t border-white/10 pt-2 text-xs leading-snug text-white/65">
+              <b className="font-semibold text-white/80">Contraste con los datos:</b> {d.contraste}
+            </p>
           )}
         </Bloque>
       )}
