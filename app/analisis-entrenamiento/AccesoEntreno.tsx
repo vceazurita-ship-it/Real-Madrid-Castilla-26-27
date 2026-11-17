@@ -94,11 +94,20 @@ function MuestraFicha() {
                       </>
                     )}
                   </p>
-                  <div className={`relative mt-1 flex h-2.5 overflow-hidden rounded-full bg-white/10 ${f.tendencia ? "opacity-50" : ""}`} aria-hidden>
-                    <span style={{ width: `${(f.correctas / f.total) * 100}%`, background: BIEN }} />
-                    <span style={{ width: `${((f.total - f.correctas) / f.total) * 100}%`, background: MEJORABLE }} />
-                    <span className="absolute inset-y-0 w-0.5" style={{ left: `${meta}%`, background: TINTA }} />
-                  </div>
+                  {/* 17/11/2026 (jueces): por debajo de 15 acciones, puntos y sin meta: una barra se leía como porcentaje. */}
+                  {f.tendencia ? (
+                    <p className="mt-1 flex flex-wrap gap-1" aria-hidden>
+                      {Array.from({ length: f.total }, (_, i) => (
+                        <span key={i} className="h-2.5 w-2.5 rounded-full" style={{ background: i < f.correctas ? BIEN : MEJORABLE }} />
+                      ))}
+                    </p>
+                  ) : (
+                    <div className="relative mt-1 flex h-2.5 overflow-hidden rounded-full bg-white/10" aria-hidden>
+                      <span style={{ width: `${(f.correctas / f.total) * 100}%`, background: BIEN }} />
+                      <span style={{ width: `${((f.total - f.correctas) / f.total) * 100}%`, background: MEJORABLE }} />
+                      <span className="absolute inset-y-0 w-0.5" style={{ left: `${meta}%`, background: TINTA }} />
+                    </div>
+                  )}
                 </li>
               );
             })}
@@ -158,10 +167,18 @@ function UltimaSesion({ ultima }: { ultima: UltimaSesionPublica }) {
         </span>
         <span className="text-[14px] text-white/65">
           {ultima.pct !== null
-            ? `${ultima.correctas} de ${ultima.total} acciones revisadas`
+            ? `${ultima.correctas} de ${ultima.total} acciones ${ultima.provisional ? "propuestas" : "revisadas"}`
             : `menos de ${MINIMO_PORCENTAJE} acciones: tendencia`}
           {` · ${ultima.objetivos} ${ultima.objetivos === 1 ? "objetivo medido" : "objetivos medidos"}`}
         </span>
+        {ultima.provisional ? (
+          <span
+            className="rounded-full border border-amber-400/40 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-300"
+            title="Ninguna acción revisada todavía: es la propuesta automática del análisis"
+          >
+            provisional · sin revisar
+          </span>
+        ) : null}
       </p>
       {/* 16/11/2026, segunda vuelta: el cumplimiento por tarea, en barras (sólo lo agregado). */}
       {ultima.tareas?.length ? (
@@ -176,13 +193,55 @@ function UltimaSesion({ ultima }: { ultima: UltimaSesionPublica }) {
                   {t.pct !== null ? `${t.pct} %` : "tendencia"} · {t.correctas} de {t.total}
                 </span>
               </p>
-              <div className={`mt-1 flex h-2.5 overflow-hidden rounded-full bg-white/10 ${t.pct === null ? "opacity-50" : ""}`} aria-hidden>
-                <span style={{ width: `${(t.correctas / t.total) * 100}%`, background: BIEN }} />
-                <span style={{ width: `${((t.total - t.correctas) / t.total) * 100}%`, background: MEJORABLE }} />
-              </div>
+              {/* 17/11/2026 (jueces): con la meta marcada si la tiene; por debajo de 15 acciones, puntos y sin meta (no es un porcentaje). */}
+              {t.pct === null ? (
+                <p className="mt-1 flex flex-wrap gap-1" aria-hidden>
+                  {Array.from({ length: t.total }, (_, i) => (
+                    <span key={i} className="h-2.5 w-2.5 rounded-full" style={{ background: i < t.correctas ? BIEN : MEJORABLE }} />
+                  ))}
+                </p>
+              ) : (
+                <div className="relative mt-1" aria-hidden>
+                  <div className="flex h-2.5 overflow-hidden rounded-full bg-white/10">
+                    <span style={{ width: `${(t.correctas / t.total) * 100}%`, background: BIEN }} />
+                    <span style={{ width: `${((t.total - t.correctas) / t.total) * 100}%`, background: MEJORABLE }} />
+                  </div>
+                  {t.meta ? <span className="absolute -top-1 h-[18px] w-0.5 rounded-full" style={{ left: `${Math.min(100, t.meta)}%`, background: TINTA }} title={`Meta ${t.meta} %`} /> : null}
+                </div>
+              )}
+              {t.pct !== null && t.meta ? (
+                <p className={`mt-0.5 text-[11px] font-semibold ${t.pct >= t.meta ? "text-emerald-300" : "text-amber-300"}`}>
+                  {t.pct >= t.meta ? `cumple (meta ${t.meta} %)` : `no llega (meta ${t.meta} %)`}
+                </p>
+              ) : null}
             </li>
           ))}
         </ul>
+      ) : null}
+      {/* 17/11/2026 (jueces): las sesiones anteriores, con su cifra y si sube o baja. */}
+      {ultima.anteriores?.length ? (
+        <div className="mt-4 border-t border-white/10 pt-3">
+          <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-white/55">Sesiones anteriores</p>
+          <ul className="mt-1.5 space-y-1 text-[13px]">
+            {ultima.anteriores.map((a, i) => {
+              const siguiente = i === 0 ? ultima : ultima.anteriores[i - 1];
+              const cambio = a.pct !== null && siguiente.pct !== null ? siguiente.pct - a.pct : null;
+
+              return (
+                <li key={a.fecha} className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+                  <span className="capitalize text-white/75">{fechaLegible(a.fecha)}</span>
+                  <span className="tabular-nums font-semibold text-white">{a.pct !== null ? `${a.pct} %` : `${a.correctas} de ${a.total}`}</span>
+                  <span className="text-white/50">{a.total} acciones{a.provisional ? " · provisional" : ""}</span>
+                  {cambio !== null && Math.abs(cambio) >= 5 ? (
+                    <span className={`text-[12px] font-semibold ${cambio > 0 ? "text-emerald-300" : "text-amber-300"}`}>
+                      {cambio > 0 ? `la siguiente subió ${cambio} puntos` : `la siguiente bajó ${Math.abs(cambio)} puntos`}
+                    </span>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       ) : null}
       <p className="mt-3 text-[12px] text-white/55">El detalle por jugador, con sus clips, al entrar con la cuenta del staff.</p>
     </section>
