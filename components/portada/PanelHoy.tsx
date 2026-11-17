@@ -25,6 +25,7 @@ import {
   ChevronRight,
   Clock3,
   FileText,
+  LayoutGrid,
   ListChecks,
   Scissors,
   Send,
@@ -36,6 +37,7 @@ import {
 } from "lucide-react";
 
 import { CabeceraBloque } from "@/components/portada/CabeceraBloque";
+import ModulesExplorer from "@/components/ui/ModulesExplorer";
 import { useCalendario } from "@/hooks/useCalendario";
 import { useMisTareas, useSesionesDelMicro } from "@/hooks/useMisTareas";
 import { pantallaCompletaAlNavegar } from "@/hooks/usePantallaCompleta";
@@ -310,6 +312,9 @@ function MesaDeTrabajo({ admin }: { admin: boolean }) {
 
   const recientes = useRutasRecientes(4, ["/"]).filter((r) => TITULOS.has(r.href));
 
+  /* Las áreas, plegadas: se abren aquí mismo con su buscador y sus filtros. */
+  const [verAreas, setVerAreas] = useState(false);
+
   const [ahora, setAhora] = useState(0);
 
   useEffect(() => {
@@ -324,7 +329,8 @@ function MesaDeTrabajo({ admin }: { admin: boolean }) {
       style={{ animationDelay: "80ms" }}
       aria-label="Mesa de trabajo"
     >
-      <CabeceraBloque icono={Wrench} titulo="Mesa de trabajo" sub="Las herramientas de todos los días" />
+      {/* 17/11/2026 (fútbol): «Mesa de trabajo» y «Áreas de trabajo» eran dos rejillas de enlaces; ahora un solo bloque, con las áreas detrás de un botón. */}
+      <CabeceraBloque icono={Wrench} titulo="Atajos" sub="Las herramientas de todos los días y lo último que abriste" />
 
       {/* La que queda sola ocupa la fila (02/11/2026): a lo ancho en el móvil y, en la tableta, las de la última fila se reparten el hueco. */}
       <div className={`mt-4 grid grid-cols-2 gap-2 [&>*:last-child:nth-child(odd)]:col-span-2 ${admin ? "lg:grid-cols-5 lg:[&>*:last-child:nth-child(odd)]:col-span-1" : "lg:grid-cols-4"}`}>
@@ -359,7 +365,7 @@ function MesaDeTrabajo({ admin }: { admin: boolean }) {
 
       {recientes.length > 0 && ahora > 0 && (
         <div className="mt-4 border-t border-white/[0.07] pt-3">
-          <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-white/55">
+          <p className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.18em] text-white/60">
             <Clock3 className="h-3.5 w-3.5" />
             Lo último abierto
           </p>
@@ -377,13 +383,29 @@ function MesaDeTrabajo({ admin }: { admin: boolean }) {
                   >
                     <Icono className="h-4 w-4 shrink-0 text-white/45 group-hover:text-[#D8B45A]" />
                     <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-white/85">{modulo.titulo}</span>
-                    <span className="shrink-0 text-[11px] text-white/50">{haceCuanto(r.cuando, ahora)}</span>
+                    <span className="shrink-0 text-[12px] text-white/55">{haceCuanto(r.cuando, ahora)}</span>
                   </Link>
                 </li>
               );
             })}
           </ul>
         </div>
+      )}
+
+      {verAreas ? (
+        <div className="mt-4 border-t border-white/[0.07] pt-3">
+          <ModulesExplorer excluir={HREFS_MESA} />
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setVerAreas(true)}
+          className="portada-celda portada-viva mt-4 inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 px-4 text-sm font-semibold text-white/85 sm:w-auto"
+        >
+          <LayoutGrid className="h-4 w-4" style={{ color: "var(--rmcf-gold-ink)" }} aria-hidden />
+          Todas las áreas ({MODULES.length})
+          <ChevronRight className="h-4 w-4" aria-hidden />
+        </button>
       )}
     </section>
   );

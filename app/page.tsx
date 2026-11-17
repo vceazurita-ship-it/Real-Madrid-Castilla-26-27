@@ -7,23 +7,22 @@ import {
   Activity,
   BarChart3,
   ChevronRight,
-  LayoutGrid,
   Users,
 } from "lucide-react"
 
 import { Sidebar } from "@/components/ui/sidebar"
 import { Topbar } from "@/components/ui/topbar"
-import ModulesExplorer from "@/components/ui/ModulesExplorer"
 import { AlertasPortada } from "@/components/portada/AlertasPortada"
 import { AvisoConexionGoogle } from "@/components/portada/AvisoConexionGoogle"
 import { Cifras } from "@/components/portada/Cifras"
 import { ProximoPartido } from "@/components/portada/ProximoPartido"
 import { MisTareas } from "@/components/portada/MisTareas"
-import { HREFS_MESA, PanelHoy } from "@/components/portada/PanelHoy"
+import { PanelHoy } from "@/components/portada/PanelHoy"
 import { DirectoPortada } from "@/components/portada/DirectoPortada"
 import { OptaPortada } from "@/components/portada/OptaPortada"
 import { UltimoPartido3D } from "@/components/portada/UltimoPartido3D"
 import { CabeceraBloque } from "@/components/portada/CabeceraBloque"
+import { VideosDelRival } from "@/components/portada/VideosDelRival"
 import { EVENTO_ABRIR as EVENTO_ABRIR_TAREAS } from "@/lib/portada/mis-tareas"
 import { useAdmin } from "@/hooks/useAdmin"
 import { trackModuleVisit } from "@/lib/module-usage"
@@ -131,6 +130,17 @@ function Puesto({ puesto, de }: { puesto: number; de: number }) {
   )
 }
 
+/** Palabras que no distinguen a un equipo («Real», «CD», «Club»…): la sigla sale de la primera que sí. */
+const SIN_SIGLA = new Set(["real", "club", "cd", "ud", "cf", "sd", "rcd", "ad", "ce", "fc", "sad", "cp", "rc", "at", "atletico", "atlético", "deportivo", "de", "del", "la", "el", "racing", "unión", "union"])
+
+/** «Gimnàstic Tarragona» → «GIM»; «Real Murcia» → «MUR». */
+function siglaEquipo(nombre: string) {
+  const palabras = nombre.split(/[\s.\-]+/).filter(Boolean)
+  const buena = palabras.find((p) => !SIN_SIGLA.has(p.toLowerCase())) ?? palabras[0] ?? ""
+
+  return buena.normalize("NFD").replace(/[̀-ͯ]/g, "").slice(0, 3).toUpperCase()
+}
+
 /**
  * La ficha del próximo rival en el panel oscuro (11/11/2026, experto de
  * fútbol): puesto, puntos con su base y sus cinco últimos con el marcador
@@ -170,8 +180,8 @@ function FichaRival({
 
       {ficha.ultimos.length > 0 && (
         <div className="mt-3">
-          <p className="text-[12px]" style={{ color: "rgba(255,255,255,.78)" }}>
-            Sus últimos {ficha.ultimos.length} · el más reciente, a la derecha
+          <p className="text-[12px] leading-snug" style={{ color: "rgba(255,255,255,.85)" }}>
+            Sus últimos {ficha.ultimos.length} · el más reciente, a la derecha · C en casa, F fuera
           </p>
           {/* En una fila también en móvil (expertos: se partían 4 + 1). */}
           <ol className="mt-1.5 flex flex-nowrap gap-1">
@@ -191,8 +201,14 @@ function FichaRival({
                     {p.signo}
                   </span>
                   {p.marcador && (
-                    <span className="mt-1 text-[11px] tabular-nums" style={{ color: "rgba(255,255,255,.85)" }}>
+                    <span className="mt-1 text-[12px] font-medium tabular-nums" style={{ color: "rgba(255,255,255,.92)" }}>
                       {p.marcador}
+                    </span>
+                  )}
+                  {/* 17/11/2026 (fútbol): contra quién y dónde, como en los nuestros. */}
+                  {p.rival && (
+                    <span className="text-[11px] font-semibold uppercase leading-tight tracking-[0.02em]" style={{ color: "rgba(255,255,255,.75)" }}>
+                      {siglaEquipo(p.rival)}·{p.enCasa ? "C" : "F"}
                     </span>
                   )}
                 </li>
@@ -209,8 +225,6 @@ export default function Home() {
   /* «Mis tareas» del microciclo: una pestaña sólo para el administrador (28/10/2026). */
   const { admin } = useAdmin()
   const [vista, setVista] = useState<"portada" | "tareas">("portada")
-  /* En el móvil las áreas de trabajo arrancan plegadas (29/10/2026). */
-  const [verAreas, setVerAreas] = useState(false)
   const enTareas = admin && vista === "tareas"
 
   /* «Ir a mis tareas» del aviso de pendientes: `/?tareas=1` al entrar, o el
@@ -371,8 +385,8 @@ export default function Home() {
   | seguimiento» abre su ficha, que es a quien toca mirar. Mismos registros
   | que las cifras (no cambia ningún recuento). Empate: el primero por nombre.
   */
-  const menosSeguido = useMemo(() => {
-    if (!plantilla.length || !seguimientoCastilla.length) return null
+  const menosSeguidos = useMemo(() => {
+    if (!plantilla.length || !seguimientoCastilla.length) return []
 
     const cuenta = new Map<string, number>()
 
@@ -383,8 +397,11 @@ export default function Home() {
       .filter((j) => j.nombre)
       .sort((a, b) => a.veces - b.veces || a.nombre.localeCompare(b.nombre, "es"))
 
-    return orden[0] ?? null
+    /* 17/11/2026 (marketing): los tres que menos llevan, cada uno con su ficha. */
+    return orden.slice(0, 3)
   }, [plantilla, seguimientoCastilla])
+
+  const menosSeguido = menosSeguidos[0] ?? null
 
   /* Y los de los últimos 30 días, de esos mismos registros. El reloj se mira
      en un efecto (ver `ahora`), nunca en el render. */
@@ -686,6 +703,9 @@ export default function Home() {
         puestoPosesion: o.puestoPosesion,
         deCuantos: o.deCuantos,
         partidos: o.partidos,
+        /* 17/11/2026 (fútbol): su balón parado y el nuestro, para la conclusión de la tarjeta. */
+        xgAbp: o.xgAbp,
+        puestoAbp: o.puestoAbp,
         /* La segunda lectura y las notas, sólo cuando la cifra es de Opta y hay Wyscout. */
         notaXg: w ? discrepancia("xg", o.xg, w.xg) : null,
       }
@@ -703,6 +723,8 @@ export default function Home() {
       puestoPosesion: w.puestoPosesion,
       deCuantos: rivalSemana.deCuantos,
       partidos: w.partidos,
+      xgAbp: null,
+      puestoAbp: null,
       notaXg: null,
     }
   }, [optaRival, rivalSemana])
@@ -780,21 +802,18 @@ export default function Home() {
 
                 {/* ---------- DERECHA: el rival (de MD-4 a MD-1) o lo nuestro ---------- */}
 
-                <Link
-                  href={rivalSemana ? "/data-analisis?area=equipo" : "/data-analisis"}
-                  onClick={() => trackModuleVisit("/data-analisis")}
-                  title={
-                    rivalSemana
-                      ? `${rivalSemana.nombre} de un vistazo, en Data Análisis`
-                      : "Lo que dicen los informes de Wyscout y Opta: el Castilla contra su historia, contra el grupo y la categoría entera"
-                  }
-                  /*
-                    Panel siempre oscuro (foto del Di Stéfano de noche y azul del
-                    club), también en modo día: `siempre-oscuro` desanda la tabla
-                    de equivalencias dentro. 16/11/2026 (fútbol): a toda la altura
-                    de la columna, sin hueco blanco debajo en escritorio.
-                  */
-                  className="siempre-oscuro portada-viva group relative flex min-h-[240px] flex-col justify-end overflow-hidden"
+                {/*
+                  Panel siempre oscuro (foto del Di Stéfano de noche y azul del
+                  club), también en modo día: `siempre-oscuro` desanda la tabla
+                  de equivalencias dentro. 16/11/2026 (fútbol): a toda la altura
+                  de la columna, sin hueco blanco debajo en escritorio.
+                  17/11/2026 (los tres jueces): deja de ser un único enlace para
+                  llevar dentro los suyos (sus goles, cómo le marcan, su balón
+                  parado); la tarjeta entera sigue abriendo Análisis de datos
+                  con un enlace que la cubre por debajo del contenido.
+                */}
+                <div
+                  className="siempre-oscuro portada-viva group relative flex min-h-[240px] flex-col justify-end overflow-hidden [&>div]:pointer-events-none [&>p]:pointer-events-none [&>span]:pointer-events-none"
                   style={{
                     borderRadius: 20,
                     background:
@@ -802,6 +821,17 @@ export default function Home() {
                     boxShadow: "inset 0 0 0 1px rgba(216,180,90,.28), 0 24px 50px -24px rgba(6,13,28,.7)",
                   }}
                 >
+                  <Link
+                    href={rivalSemana ? "/data-analisis?area=equipo" : "/data-analisis"}
+                    onClick={() => trackModuleVisit("/data-analisis")}
+                    aria-label={rivalSemana ? `${rivalSemana.nombre} de un vistazo, en Análisis de datos` : "Análisis de datos"}
+                    title={
+                      rivalSemana
+                        ? `${rivalSemana.nombre} de un vistazo, en Análisis de datos`
+                        : "Lo que dicen los informes de Wyscout y Opta: el Castilla contra su historia, contra el grupo y la categoría entera"
+                    }
+                    className="absolute inset-0 rounded-[20px]"
+                  />
                   {/* 09/11/2026: de fondo, el Alfredo Di Stéfano de noche (petición del analista). */}
                   <Image
                     src="/stadium-bg.png"
@@ -853,9 +883,10 @@ export default function Home() {
                   */}
                   {rivalSemana ? (
                     <div className="relative px-5 pb-5 pt-6 sm:px-6 sm:pb-6">
-                      <p className="flex items-center justify-between gap-3">
-                        <span className="min-w-0 truncate text-[12px] font-semibold uppercase tracking-[0.18em]" style={{ color: "#F7D98B" }}>
-                          Cómo juega · MD-{rivalSemana.faltan}
+                      {/* 17/11/2026 (los tres jueces): el rótulo dice lo que hay (goles esperados y posesión) y baja de renglón en vez de cortarse en el móvil. */}
+                      <p className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                        <span className="min-w-0 text-[12px] font-semibold uppercase leading-snug tracking-[0.14em]" style={{ color: "#F7D98B" }}>
+                          Lo que genera y concede
                         </span>
                         <span className="inline-flex shrink-0 items-center gap-1 text-[13px] font-semibold" style={{ color: "rgba(255,255,255,.92)" }}>
                           Análisis de datos
@@ -883,7 +914,7 @@ export default function Home() {
                             <CifraRival
                               rotulo="Genera"
                               valor={coma(rivalXg.xg, 2)}
-                              base="xG por partido"
+                              base="xG a favor por partido"
                               puesto={rivalXg.puestoXg}
                               de={rivalXg.deCuantos}
                             />
@@ -891,7 +922,7 @@ export default function Home() {
                               <CifraRival
                                 rotulo="Concede"
                                 valor={coma(rivalXg.xgContra, 2)}
-                                base="xG en contra"
+                                base="xG en contra por partido"
                                 puesto={rivalXg.puestoXgContra}
                                 de={rivalXg.deCuantos}
                               />
@@ -908,7 +939,8 @@ export default function Home() {
                             )}
                           </div>
 
-                          <p className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px]" style={{ color: "rgba(255,255,255,.8)" }}>
+                          <p className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] leading-snug" style={{ color: "rgba(255,255,255,.85)" }}>
+                            <span>xG = goles esperados</span>
                             <span className="inline-flex items-center gap-1.5">
                               <span className="h-2 w-2 rounded-full" style={{ background: VERDE_OSC }} aria-hidden />
                               de los mejores del grupo
@@ -917,14 +949,67 @@ export default function Home() {
                               <span className="h-2 w-2 rounded-full" style={{ background: NARANJA_OSC }} aria-hidden />
                               de los peores
                             </span>
-                            <span>· la posesión es estilo, sin color</span>
                           </p>
 
-                          <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
-                            <SelloFuente oscuro className="text-[12px]!" {...selloDe(rivalXg.fuente, rivalXg.deCuantos, rivalXg.partidos)} />
+                          {/*
+                            17/11/2026 (fútbol): la conclusión que más pesa en la
+                            semana del rival, en la tarjeta y no al fondo de una
+                            tabla: su balón parado frente al nuestro, con su base
+                            y un toque a su ABP.
+                          */}
+                          {(() => {
+                            const suyo = rivalXg.puestoAbp
+                            const nuestro = optaNuestro?.puestoAbp ?? null
+                            const de = rivalXg.deCuantos
+
+                            if (suyo == null || rivalXg.xgAbp == null || !de) return null
+
+                            const fuerte = suyo <= Math.ceil(de / 3)
+                            const flojo = suyo > Math.floor((2 * de) / 3)
+                            const titular = fuerte ? "Ojo a su balón parado" : flojo ? "Su balón parado apenas genera" : "Su balón parado, en la media"
+                            const color = fuerte ? NARANJA_OSC : flojo ? VERDE_OSC : "#F7D98B"
+
+                            return (
+                              <Link
+                                href={`/scout-rival-abp?equipo=${encodeURIComponent(rivalSemana.nombre)}`}
+                                onClick={() => trackModuleVisit("/scout-rival-abp")}
+                                className="pointer-events-auto relative mt-3 flex items-start gap-3 rounded-2xl px-3.5 py-3 transition-colors hover:bg-white/[0.12]"
+                                style={{ background: "rgba(255,255,255,.08)", boxShadow: `inset 3px 0 0 ${color}` }}
+                              >
+                                <span className="min-w-0 flex-1">
+                                  <span className="block text-[14px] font-semibold leading-snug" style={{ color: "#fff" }}>
+                                    {titular}: {coma(rivalXg.xgAbp, 2)} xG por partido, {suyo}.º de {de}
+                                  </span>
+                                  {nuestro != null && (
+                                    <span className="mt-0.5 block text-[12.5px] leading-snug" style={{ color: "rgba(255,255,255,.85)" }}>
+                                      El nuestro, {nuestro}.º de {de}
+                                      {fuerte && nuestro > suyo ? " · la semana pide defensa de córner y falta" : ""}
+                                    </span>
+                                  )}
+                                </span>
+                                <span className="inline-flex shrink-0 items-center gap-0.5 self-center text-[13px] font-semibold" style={{ color: "#F7D98B" }}>
+                                  ABP rival
+                                  <ChevronRight className="h-4 w-4" aria-hidden />
+                                </span>
+                              </Link>
+                            )
+                          })()}
+
+                          <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <SelloFuente oscuro envuelve className="text-[12px]!" {...selloDe(rivalXg.fuente, rivalXg.deCuantos, rivalXg.partidos)} />
                           </p>
                         </>
                       )}
+
+                      {/*
+                        17/11/2026 (análisis): sus goles y los que le hacen, a un
+                        toque desde la misma tarjeta (el modal de vídeo de
+                        siempre). En la semana del rival salen aquí y no en la
+                        columna del partido: una sola vez.
+                      */}
+                      <div className="pointer-events-auto relative mt-4">
+                        <VideosDelRival key={rivalSemana.nombre} rival={rivalSemana.nombre} />
+                      </div>
                     </div>
                   ) : cargandoTarjeta ? (
                     /* Mientras llegan las cifras: una línea que lo dice, no dos títulos sobre un fondo vacío (30/10/2026). */
@@ -1038,7 +1123,7 @@ export default function Home() {
                       <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
                     </span>
                   )}
-                </Link>
+                </div>
               </div>
             </div>
 
@@ -1059,11 +1144,23 @@ export default function Home() {
 
             {/* ======================= EL ÚLTIMO PARTIDO ======================= */}
 
-            {/* 14/11/2026: el último partido en 3D (si ya tiene su evento a evento). */}
-            <UltimoPartido3D />
-
-            {/* 10/11/2026: el próximo rival y nosotros en cuatro cifras de Opta, y el último partido. */}
-            <OptaPortada />
+            {/*
+              14/11/2026: el último partido en 3D (si ya tiene su evento a evento).
+              10/11/2026: el próximo rival y nosotros en cuatro cifras de Opta.
+              17/11/2026 (fútbol): de MD-4 a MD-1 manda el rival: Opta sube por
+              encima del 3D; el resto de la semana, el 3D primero.
+            */}
+            {rivalSemana ? (
+              <>
+                <OptaPortada />
+                <UltimoPartido3D />
+              </>
+            ) : (
+              <>
+                <UltimoPartido3D />
+                <OptaPortada />
+              </>
+            )}
 
             {/* ========================== CIFRAS =============================== */}
 
@@ -1127,6 +1224,24 @@ export default function Home() {
                 />
               </div>
 
+              {!errorSeguimiento && menosSeguidos.length > 1 && (
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <span className="text-[12.5px] font-semibold text-white/65">Los que menos llevan:</span>
+                  {menosSeguidos.map((j) => (
+                    <Link
+                      key={j.nombre}
+                      href={`/individual?nombre=${encodeURIComponent(j.nombre)}`}
+                      onClick={() => trackModuleVisit("/individual")}
+                      className="portada-celda portada-viva inline-flex min-h-9 items-center gap-1.5 px-3 text-[13px] font-semibold text-white/85"
+                      style={{ borderRadius: 999 }}
+                    >
+                      {j.nombre}
+                      <span className="tabular-nums text-white/55">{j.veces}</span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+
               {/* Sólo cuando algo no ha llegado: el botón para volver a pedirlo. */}
               {hayFallos && (
                 <EstadoError
@@ -1138,32 +1253,7 @@ export default function Home() {
               )}
             </section>
 
-            {/* ======================== ÁREAS DE TRABAJO ======================= */}
-
-            <section className="portada-tarjeta p-4 sm:p-6" aria-label="Áreas de trabajo">
-              <CabeceraBloque
-                icono={LayoutGrid}
-                titulo="Áreas de trabajo"
-                sub="Otras seis de uso frecuente; el resto, en «Ver todas las áreas»"
-              />
-
-              {/* Las 46 repetían el menú lateral (30/10/2026): el buscador y las
-                  seis que más se usan; el resto detrás de «Ver todas las áreas». */}
-              <div className="mt-2">
-                <ModulesExplorer limite={verAreas ? undefined : 6} excluir={HREFS_MESA} />
-              </div>
-
-              {!verAreas && (
-                <button
-                  type="button"
-                  onClick={() => setVerAreas(true)}
-                  className="portada-celda portada-viva mt-3 inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 px-4 text-sm font-semibold text-white/85 sm:w-auto"
-                >
-                  Ver todas las áreas
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-              )}
-            </section>
+            {/* 17/11/2026 (fútbol): «Áreas de trabajo» vive ya dentro de «Atajos» (PanelHoy), plegada. */}
             </>)}
           </section>
         </div>
@@ -1189,14 +1279,15 @@ function CifraRival({
   neutro?: boolean
 }) {
   return (
-    <div className="min-w-0 rounded-2xl px-2.5 py-2.5 sm:px-3" style={{ background: "rgba(255,255,255,.07)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,.10)" }}>
-      <p className="truncate text-[11.5px] font-semibold uppercase tracking-[0.12em]" style={{ color: "rgba(255,255,255,.78)" }}>
+    <div className="min-w-0 rounded-2xl px-2 py-2.5 sm:px-3" style={{ background: "rgba(255,255,255,.07)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,.10)" }}>
+      {/* 17/11/2026 (los tres jueces): nada de «…» a 390 px; el rótulo y la base bajan de renglón. */}
+      <p className="break-words text-[12px] font-semibold uppercase leading-tight tracking-[0.04em] sm:tracking-[0.1em]" style={{ color: "rgba(255,255,255,.85)" }}>
         {rotulo}
       </p>
-      <p className="fuente-club mt-1 text-[28px] font-bold leading-none tabular-nums sm:text-[30px]" style={{ color: "#fff" }}>
+      <p className="fuente-club mt-1 whitespace-nowrap text-[26px] font-bold leading-none tabular-nums sm:text-[30px]" style={{ color: "#fff" }}>
         {valor}
       </p>
-      <p className="mt-1 truncate text-[12px]" style={{ color: "rgba(255,255,255,.8)" }}>
+      <p className="mt-1 break-words text-[12px] leading-snug" style={{ color: "rgba(255,255,255,.85)" }}>
         {base}
       </p>
       {puesto != null && de > 0 && (

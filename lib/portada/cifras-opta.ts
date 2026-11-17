@@ -30,6 +30,9 @@ export type CifrasOpta = {
   puestoXgContra: number | null;
   posesion: number | null;
   puestoPosesion: number | null;
+  /** xG a balón parado por partido (córner y falta, sin penaltis) y su puesto (17/11/2026). */
+  xgAbp: number | null;
+  puestoAbp: number | null;
   /** Totales de la temporada: goles a favor y xG. */
   goles: number | null;
   esperados: number | null;
@@ -52,6 +55,7 @@ export function cifrasOptaDe(opta: OptaLigero, teamId: string | null): CifrasOpt
   const xg = pos("ExpG", true);
   const contra = pos("ExpGAg", false);
   const posesion = pos("Poss%", null);
+  const abp = pos("xGSetPly", true);
   const todos = delGrupo.map((f) => valorEquipo(f, "ExpG", "partido", opta.catalogo)).filter((v): v is number => v != null);
 
   return {
@@ -65,6 +69,8 @@ export function cifrasOptaDe(opta: OptaLigero, teamId: string | null): CifrasOpt
     puestoXgContra: contra.puesto,
     posesion: posesion.valor,
     puestoPosesion: posesion.puesto,
+    xgAbp: abp.valor,
+    puestoAbp: abp.puesto,
     goles: num(fila.GF) ?? num(fila.Goal),
     esperados: num(fila.ExpG),
   };
