@@ -1129,13 +1129,14 @@ export default function DashboardSeguimiento() {
           return { p, ultimos, falta: ultimos.length > 0 && !ultimos.some((s) => clean(s[campo])) };
         })
         .filter((x) => x.falta)
-        .map((x) => ({ id: x.p.id, nombre: nombreVisible(x.p.nombre), detalle: `0 de ${x.ultimos.length}` }));
+        .map((x) => ({ id: x.p.id, nombre: nombreVisible(x.p.nombre), /* 17/11/2026 (ronda 20): la etiqueta dice su base: «0 de 1 · su único registro». */
+        detalle: x.ultimos.length === 1 ? "0 de 1 · su único registro" : `0 de ${x.ultimos.length}` }));
 
       out.push({
         icon: Target,
         tone: "text-sky-400",
         text: `${menor.name} sólo aparece en el ${cm(menor.percentage)} % de los seguimientos, frente al ${cm(mayor.percentage)} % de ${mayor.name.toLowerCase()}${
-          sinObjetivo.length ? `. Sin objetivo ${menor.name.toLowerCase()} en sus 3 últimos registros (${sinObjetivo.length}): anótalo en el próximo` : `: en el próximo registro de cada jugador, anota también un objetivo ${menor.name.toLowerCase()}`
+          sinObjetivo.length ? `. Sin objetivo ${menor.name.toLowerCase()} en sus últimos registros (hasta 3) · ${sinObjetivo.length} ${sinObjetivo.length === 1 ? "jugador" : "jugadores"}: anótalo en el próximo` : `: en el próximo registro de cada jugador, anota también un objetivo ${menor.name.toLowerCase()}`
         }.`,
         jugadores: sinObjetivo.length ? sinObjetivo : undefined,
       });

@@ -1916,15 +1916,18 @@ function Detalle({
             </p>
           </div>
         </div>
-        <div className="mt-4 flex items-baseline gap-2">
-          <span className="text-4xl font-semibold" style={{ color: colorIndice(fila.indice) }}>
-            {fila.indice ?? "—"}
-          </span>
-          <span className="text-xs text-white/45">
-            índice frente a {refLabel.toLowerCase()}
-            {fila.ranking ? ` · ${textoRanking(fila.ranking)}` : ""}
-          </span>
-        </div>
+        {/* 17/11/2026 (ronda 20): sin índice no se pinta ni la cifra ni su rótulo. */}
+        {fila.indice != null && (
+          <div className="mt-4 flex items-baseline gap-2">
+            <span className="text-4xl font-semibold" style={{ color: colorIndice(fila.indice) }}>
+              {fila.indice}
+            </span>
+            <span className="text-xs text-white/45">
+              índice frente a {refLabel.toLowerCase()}
+              {fila.ranking ? ` · ${textoRanking(fila.ranking)}` : ""}
+            </span>
+          </div>
+        )}
         {/* Lo que no tiene dato no se nombra: la fila sin valor no sale (07/11/2026). */}
         <dl className="mt-4 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
           {[
@@ -2322,14 +2325,17 @@ function CaraACara({
                   </tr>
                 </thead>
                 <tbody>
-                  <tr className="border-t border-white/[0.08]">
-                    <td className="sticky left-0 z-10 bg-[#0F141B] py-2 pr-3 font-medium text-white/80">Índice del puesto</td>
-                    {indices.map((v, i) => (
-                      <td key={i} className="px-1.5 text-center text-sm font-semibold tabular-nums" style={{ color: colorIndice(v) }}>
-                        {v ?? "—"}
-                      </td>
-                    ))}
-                  </tr>
+                  {/* 17/11/2026 (ronda 20): la celda sin índice va vacía y, si nadie lo tiene, la fila no sale. */}
+                  {indices.some((v) => v != null) && (
+                    <tr className="border-t border-white/[0.08]">
+                      <td className="sticky left-0 z-10 bg-[#0F141B] py-2 pr-3 font-medium text-white/80">Índice del puesto</td>
+                      {indices.map((v, i) => (
+                        <td key={i} className="px-1.5 text-center text-sm font-semibold tabular-nums" style={v != null ? { color: colorIndice(v) } : undefined}>
+                          {v ?? ""}
+                        </td>
+                      ))}
+                    </tr>
+                  )}
                   {tabla.map(({ m, celdas }, k) => {
                     const mejor = Math.max(...celdas.map((c) => c?.percentil ?? -1));
                     const nuevoGrupo = k === 0 || tabla[k - 1].m.grupoRotulo !== m.grupoRotulo;

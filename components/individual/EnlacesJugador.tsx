@@ -122,7 +122,8 @@ export function EnlacesJugador({
             }`}
           >
             {r.icono}
-            {compacto && !principal ? <span className="sr-only">{r.label}</span> : <span>{r.label}</span>}
+            {/* 17/11/2026 (ronda 20, jueces): en pantalla ancha el compacto también lleva su rótulo («Ficha», «Vídeos»…); en el móvil, sólo el icono. */}
+            {compacto && !principal ? <span className="sr-only lg:not-sr-only">{r.label}</span> : <span>{r.label}</span>}
           </Link>
         );
       })}

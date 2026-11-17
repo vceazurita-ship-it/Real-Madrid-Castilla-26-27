@@ -1,0 +1,36 @@
+/*
+| 17/11/2026 (ronda 20, jueces): el campo de /emotion ya no es oscuro en modo
+| día. Las piezas leen estas variables con su valor de noche como respaldo
+| (`var(--ce-x, <noche>)`), así que de noche nada cambia: sólo se definen aquí,
+| para el modo día. Los colores de los radares (escala y series) no se tocan.
+*/
+:global(:root[data-theme="light"]) .campo {
+  --ce-fondo:
+    radial-gradient(70% 55% at 50% 50%, rgba(14, 116, 160, 0.07), transparent 70%),
+    linear-gradient(rgba(14, 90, 140, 0.06) 1px, transparent 1px) 0 0 / 100% 22px,
+    linear-gradient(90deg, rgba(14, 90, 140, 0.06) 1px, transparent 1px) 0 0 / 22px 100%,
+    linear-gradient(160deg, #f6f9fc 0%, #edf3f8 55%, #e6eef6 100%);
+  --ce-sombra: inset 0 0 0 1px rgba(14, 90, 140, 0.2), 0 14px 36px rgba(15, 30, 50, 0.1);
+  --ce-linea: rgba(14, 100, 150, 0.42);
+  --ce-brillo: none;
+  --ce-barrido-opacidad: 0.25;
+  --ce-tarjeta: linear-gradient(160deg, rgba(255, 255, 255, 0.97), rgba(247, 250, 253, 0.95));
+  --ce-tarjeta-sombra: 0 1px 2px rgba(15, 30, 50, 0.08), 0 6px 18px rgba(15, 30, 50, 0.06);
+  --ce-titulo: #0b5a80;
+  --ce-tinta: #142231;
+  --ce-tinta-suave: rgba(20, 34, 49, 0.78);
+  --ce-tinta-apagada: rgba(20, 34, 49, 0.6);
+  --ce-chip: rgba(20, 34, 49, 0.04);
+  --ce-chip-borde: rgba(20, 34, 49, 0.28);
+  --ce-rejilla: rgba(14, 90, 140, 0.28);
+  --ce-eje: rgba(14, 90, 140, 0.22);
+  --ce-media-plantilla: #8a6a22;
+  --ce-sin-brillo: none;
+  --ce-tab-borde: rgba(14, 90, 140, 0.3);
+  --ce-tab-tinta: rgba(20, 34, 49, 0.78);
+  --ce-esquina: rgba(138, 106, 34, 0.7);
+}
+
+.campo .esquina {
+  border-color: var(--ce-esquina, rgba(228, 201, 119, 0.8)) !important;
+}
