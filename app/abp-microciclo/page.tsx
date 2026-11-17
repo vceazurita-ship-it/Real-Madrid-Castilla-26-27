@@ -1920,7 +1920,7 @@ export default function AbpMicrocicloPage() {
                     {/* 16/11/2026 (jueces): la fórmula de la carga, una sola vez y aquí, no en cada día. */}
                     <br />
                     <span className="font-semibold text-white/75">Al pie de cada día · </span>
-                    carga = minutos × intensidad (1-10) · mental = minutos × exigencia cognitiva (1-10). Más carga es más trabajo, no mejor.
+                    carga = minutos × intensidad (1-10) · mental = minutos × exigencia cognitiva (1-10). Más carga es más trabajo, no mejor. La barrita: oro atacando, azul defendiendo. Intensidad y exigencia de cada ficha son lo planificado.
                   </p>
 
                   <SemanaGrid
