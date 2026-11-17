@@ -975,12 +975,12 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Dashboard de plantilla",
     resumen: "Quién juega, cuánto y cómo rinde: minutos por puesto, avisos de la semana, jornada a jornada, la ficha de cada uno y quién rinde más.",
     origen: "Wyscout (minutos, edad, contrato, amarillas, goles, asistencias y percentiles por puesto), Valoraciones (quién jugó cada jornada, titular o suplente, minutos y nota), hoja JUGADORES (plantilla, licencia y ficha de competencias) y Jugadores sesión (documento «jugadores-sesion», desde el 21/10).",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "Arriba",
         filas: [
-          { que: "Jugadores del Castilla", es: "Los de licencia del Castilla y, aparte, los de fuera con minutos, con su etiqueta (RMC, JUV A…)", cuenta: "«Grupo» deja sólo la licencia del Castilla" },
+          { que: "Jugadores del Castilla", es: "La cifra grande es la de licencia del Castilla; los de fuera con minutos se dicen aparte, debajo, y van con su etiqueta (RMC, JUV A…)", cuenta: "«Grupo» deja sólo la licencia del Castilla" },
           { que: "Partidos de liga", es: "Los jugados y los minutos posibles por jugador; si Valoraciones y Wyscout tienen distintos partidos, dice los dos", cuenta: "Partidos × 90, de cada fuente" },
           { que: "Han jugado", es: "Cuántos tienen al menos un minuto" },
           { que: "Minutos sub-21", es: "Parte de los minutos de Wyscout que juegan los de 21 años o menos", cuenta: "Minutos de los sub-21 ÷ minutos de los que tienen edad × 100; el mismo corte que la Comparativa" },
@@ -991,13 +991,13 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "¿Cómo está la plantilla?",
         filas: [
-          { que: "Minutos", es: "Los de Wyscout sobre los minutos de los partidos que tiene la descarga de Wyscout (lo dice el título, p. ej. 990′ de 11 partidos); sin fila en Wyscout, los de Valoraciones con asterisco, sobre los partidos de Valoraciones. Cada nombre abre su ficha en Plantilla; la barra, su resumen en «¿Cómo está cada uno?»", cuenta: "En naranja, menos del 25 %. Wyscout cuenta el añadido: puede pasar de los posibles. Quien no tiene ni un minuto sale aparte, en «Sin minutos esta temporada», y no en el gráfico" },
+          { que: "Minutos", es: "Cada barra dice «804′ de 990′ (81 %)», el mismo cálculo para todos (quien pasa de los posibles por el añadido se queda en el 100 %); con menos de 3 partidos, tendencia. Los de Wyscout sobre los minutos de los partidos que tiene la descarga de Wyscout (lo dice el título, p. ej. 990′ de 11 partidos); sin fila en Wyscout, los de Valoraciones con asterisco, sobre los partidos de Valoraciones. Cada nombre abre su ficha en Plantilla; la barra, su resumen en «¿Cómo está cada uno?»", cuenta: "En naranja, menos del 25 %. Wyscout cuenta el añadido: puede pasar de los posibles. Quien no tiene ni un minuto sale aparte, en «Sin minutos esta temporada», y no en el gráfico" },
           { que: "Cómo se lee", es: "El método largo de cada bloque va plegado bajo su título" },
           { que: "Titular", es: "Marcado como titular en Valoraciones o con los 90′; con uno o ninguno, «tendencia»" },
           { que: "¿De quién hay que hablar esta semana?", es: "Arriba, un semáforo con cada jugador avisado (oro, un aviso; naranja, dos o más). Debajo, juega poco (menos del 25 %), tres partidos sin jugar, carga alta (90 % o más), a una amarilla del ciclo (4, 9, 14…) y nota a la baja; cada fila lleva el nombre a su ficha y el «qué hacer» a un toque: registrar seguimiento, sus valoraciones o sus vídeos, y la carga alta, a Microciclos", cuenta: "Sólo licencia del Castilla; los porteros no entran en los de minutos. Nota a la baja: media de las 3 últimas un punto o más por debajo de la de las 3 anteriores" },
           { que: "¿Qué edad tiene quien juega?", es: "Tramos de edad de Wyscout con su parte de los minutos jugados", cuenta: "Edad media ponderada por minutos" },
           { que: "¿Cuándo acaban los contratos?", es: "Fin de contrato que publica Wyscout" },
-          { que: "¿Quién entrena con el grupo?", es: "Sesiones de cada uno en Jugadores sesión, de menos a más, y quién del Castilla no sale en ninguna", cuenta: "En naranja, por debajo del 70 % de las sesiones. Los porteros no cuentan (llevan registro aparte), tampoco en las sesiones guardadas antes con ellos dentro" },
+          { que: "¿Quién entrena con el grupo desde el 21/10?", es: "Sesiones de cada jugador de campo en Jugadores sesión, de menos a más, y quién del Castilla no sale en ninguna. El periodo va en el título: la lista del día existe desde el 21/10, el resto de la pantalla es la temporada", cuenta: "En naranja, por debajo del 70 % de las sesiones. Los porteros no cuentan (llevan registro aparte), tampoco en las sesiones guardadas antes con ellos dentro" },
         ],
       },
       {
