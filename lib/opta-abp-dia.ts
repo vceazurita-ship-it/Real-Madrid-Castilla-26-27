@@ -167,13 +167,20 @@ export type ContextoDia = {
 };
 
 /** El Castilla frente a su grupo y a la categoría, en las cifras de esa pantalla. */
-export function contextoDia(equiposT: TablaOpta | null, partidosT: TablaOpta | null, area: AreaDia, lado: LadoDia): ContextoDia | null {
+/* 17/11/2026 (ronda 20): con `teamId`, lo mismo para otro equipo (el laboratorio enseña lo que concede el próximo rival). */
+export function contextoDia(
+  equiposT: TablaOpta | null,
+  partidosT: TablaOpta | null,
+  area: AreaDia,
+  lado: LadoDia,
+  teamId: string = CASTILLA_OPTA,
+): ContextoDia | null {
   const filas = filasConRival(aObjetos(equiposT), partidosT);
-  const nuestro = filas.find((f) => f.teamId === CASTILLA_OPTA);
+  const nuestro = filas.find((f) => String(f.teamId) === teamId);
   if (!nuestro) return null;
 
   const grupos = gruposDePartidos(partidosT);
-  const g = grupos.get(CASTILLA_OPTA);
+  const g = grupos.get(teamId);
   const delGrupo = g != null ? filas.filter((f) => grupos.get(String(f.teamId)) === g) : [];
   const hayGrupo = delGrupo.length >= 6 && delGrupo.length < filas.length;
 
@@ -200,7 +207,7 @@ export function contextoDia(equiposT: TablaOpta | null, partidosT: TablaOpta | n
   if (partidosT) {
     const iT = partidosT.cols.indexOf("teamId");
     const iF = partidosT.cols.indexOf("fecha");
-    for (const f of partidosT.filas) if (f[iT] === CASTILLA_OPTA && String(f[iF] ?? "") > hasta) hasta = String(f[iF] ?? "");
+    for (const f of partidosT.filas) if (String(f[iT]) === teamId && String(f[iF] ?? "") > hasta) hasta = String(f[iF] ?? "");
   }
 
   return { lineas, partidos: num(nuestro.GM) ?? 0, nGrupo: hayGrupo ? delGrupo.length : 0, nTotal: filas.length, hasta: hasta.slice(0, 10) };
