@@ -1058,7 +1058,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Duelos",
     resumen: "Nuestro once contra el once probable del rival, duelo a duelo y en los dos sentidos: dónde les podemos hacer daño con nuestro balón y dónde nos lo pueden hacer con el suyo.",
     origen: "Nuestro once: el de la pizarra táctica (tablero «Once 4-2-3-1», si es de este rival y tiene siete casados); si no, nuestro último once de Valoraciones; si no, el propuesto con los minutos de Wyscout. Su once: el marcado en Plantillas rivales; si no, su último once de BeSoccer; si no, los de más minutos, siempre sin sus bajas. Métricas: descarga de jugadores de Wyscout de toda la categoría. Posesión de cada equipo: media de sus partidos de liga de esta temporada en Wyscout. Zona de robo: «opta:jugadores» (Opta). Nombres: los nuestros con el nombre corto de la plantilla (el mismo de la pizarra); los suyos, con nombre y apellido si dos comparten apellido. Lo cambiado a mano se guarda por rival (documento «duelos:<rival>»).",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "Arriba",
@@ -1094,6 +1094,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Rótulo de la ficha", es: "El del hueco del tablero (LD, DFC, MC, MP, ED, EI, DC); el nombre de los nuestros debajo y el de los suyos encima, y si chocan dos rótulos, uno se aparta. En el móvil, sólo el dorsal y, bajo el campo, la lista de parejas con las dos cifras de cada duelo (con balón y sin él), las mismas de «Qué hacemos», o «tendencia» con pocos minutos. El centro del campo va en la leyenda" },
           { que: "Nombres repetidos", es: "Si el nombre corto de uno de los nuestros es también el de alguien de su once («Joan» y Joan Rojas), sale con nombre y apellido" },
           { que: "Sin pareja en nuestro 4-2-3-1", es: "Quien en su dibujo cae fuera de sitio: ese duelo no se mide" },
+          { que: "Su extremo en el regate", es: "En la tarjeta de los dos duelos lateral contra extremo (con su balón o con los dos): los extremos de la categoría (LW, RW, LWF, RWF, LAMF, RAMF de Wyscout, esta temporada, 90′ o más) en un plano de regates intentados/90 (eje X) contra completados/90 (eje Y), con su extremo resaltado y su nombre; al pasar por un punto sale quién es. Al lado, el % de duelos defensivos ganados de nuestro lateral frente a la media de los laterales de la categoría", cuenta: "Completados/90 = Regates/90 × «Regates realizados, %». La vertical es la media de intentos de los extremos; la diagonal, el acierto medio de la liga (completados totales / intentados totales). Cuadrantes: más intentos y por encima de la diagonal, desequilibrante; más intentos y por debajo, insistente poco eficaz; menos y por encima, selectivo eficaz; menos y por debajo, no regatea. Si es desequilibrante y nuestro lateral está por debajo de la media de su puesto, el duelo va en rojo (borde de la tarjeta y línea del campo): doblar la vigilancia de esa banda. Un % de muy pocas acciones no cuenta" },
         ],
       },
       {
