@@ -141,6 +141,16 @@ for (const v of pendientes) {
 
       const diario = res.r.status === 429 && /per day|PerDay/i.test(JSON.stringify(res.j));
 
+      /* Un modelo que Google ya no tiene (404) se salta como si hubiera agotado su cupo. */
+      const noExiste = res.r.status === 404;
+
+      if (noExiste && modelo < MODELOS.length - 1) {
+        modelo++;
+        console.log(`  (modelo no disponible; sigo con ${MODELOS[modelo]})`);
+        n = -1;
+        continue;
+      }
+
       if (diario && modelo < MODELOS.length - 1) {
         modelo++;
         console.log(`  (cupo diario agotado; sigo con ${MODELOS[modelo]})`);

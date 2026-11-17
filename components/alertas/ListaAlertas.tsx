@@ -218,11 +218,12 @@ function dondeSeHace(alerta: Alerta, rival: string): { href: string; texto: stri
   const t = `${alerta.titulo} ${alerta.mensaje ?? ""}`
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "");
+    .replace(/[\u0300-\u036f]/g, "");
   const conEquipo = (ruta: string) => (rival ? `${ruta}?equipo=${encodeURIComponent(rival)}` : ruta);
 
   if (/\bpdf individual|\bindividual\b/.test(t)) return { href: "/individual", texto: "Abrir Individual" };
-  if (/\bonce\b|director|\b11\b|alineacion/.test(t)) return { href: "/pizarra-tactica?once=1", texto: "Abrir la pizarra táctica" };
+  /* Sin «11» ni «director» sueltos (17/11/2026): «17/11» o «11:00» mandaban a la pizarra. */
+  if (/\bonce\b|\bxi\b|alineacion/.test(t)) return { href: "/pizarra-tactica?once=1", texto: "Abrir la pizarra táctica" };
   if (/balon parado|\babp\b|corner/.test(t)) return { href: "/abp-pizarra", texto: "Abrir la pizarra ABP" };
   if (/informe|previa|\bpost\b/.test(t)) return { href: "/microcycles", texto: "Abrir los informes" };
   if (/plan de partido/.test(t)) return { href: "/match-preparation", texto: "Abrir el plan de partido" };

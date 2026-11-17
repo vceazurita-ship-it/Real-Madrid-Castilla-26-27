@@ -76,9 +76,9 @@ export function useDiasConectados(fechas: string[], { equipos = true, entreno = 
   | antes con porteros dentro se lee sin ellos, con la misma decisión que
   | /jugadores-sesion (lib/sesion-equipos/puestos.ts, `almacenSinPorteros`).
   */
-  const { players } = usePlayers();
+  const { players, loading: cargandoPlantilla } = usePlayers();
   const fichas = useMemo(() => players.map((p) => ({ nombre: p.nombre, apodo: p.apodo, posicion: p.posicion })), [players]);
-  const almacenSin = useMemo(() => (almacen ? almacenSinPorteros(almacen, fichas) : null), [almacen, fichas]);
+  const almacenSin = useMemo(() => (almacen && !cargandoPlantilla ? almacenSinPorteros(almacen, fichas) : null), [almacen, fichas, cargandoPlantilla]);
 
   return {
     /** El almacén de Jugadores sesión (null mientras llega), sin porteros. */

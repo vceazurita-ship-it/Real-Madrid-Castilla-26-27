@@ -20,10 +20,16 @@ import { fechaIsoDeHoja } from "@/lib/microciclo/cuenta";
 import { fechasDePartido, semanaDeHoy, type SemanaDeHoy } from "@/lib/microciclo/semana-de-hoy";
 
 let enCamino: Promise<RegistroTarea[]> | null = null;
+let pedidoEn = 0;
+/* Caduca al minuto (17/11/2026): lo planificado en /microcycles se ve al pasar al calendario sin recargar. */
+const VIGENCIA_MS = 60_000;
 
 /** El registro de tareas de la temporada en curso (la de la fecha más reciente). */
 export function cargaRegistroDeLaTemporada(): Promise<RegistroTarea[]> {
+  if (enCamino && Date.now() - pedidoEn > VIGENCIA_MS) enCamino = null;
+
   if (!enCamino) {
+    pedidoEn = Date.now();
     enCamino = loadRegistro()
       .then(({ tareas }) => {
         const ultima = tareas.reduce<RegistroTarea | null>((m, t) => {

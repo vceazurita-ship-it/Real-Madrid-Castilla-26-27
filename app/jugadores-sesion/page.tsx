@@ -1604,16 +1604,16 @@ export default function JugadoresSesionPage() {
   | queda su nombre en «Porteros aparte».
   */
   const sesion = useMemo(
-    () => (sesionGuardada ? apartaPorteros(sesionGuardada, (j) => puestoDe(j) === "POR") : null),
+    () => (sesionGuardada ? apartaPorteros(sesionGuardada, (j) => puestoDe(limpiaJugador(j)) === "POR") : null),
     [sesionGuardada, puestoDe],
   );
 
   /* Para lo que se pega (nueva sesión o lista nueva): fuera los porteros antes de guardar. */
   const sinPorterosDeLista = useCallback(
     (s: SesionEquipos) => {
-      const suyos = puestosDeLaSesion(s.jugadores, fichasPlantilla, almacen, aprendido).puestoDe;
+      const suyos = puestosDeLaSesion(s.jugadores.map(limpiaJugador), fichasPlantilla, almacen, aprendido).puestoDe;
 
-      return apartaPorteros(s, (j) => suyos(j) === "POR");
+      return apartaPorteros(s, (j) => suyos(limpiaJugador(j)) === "POR");
     },
     [fichasPlantilla, almacen, aprendido],
   );

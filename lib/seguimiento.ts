@@ -146,7 +146,7 @@ interface JugadorConLicencia {
 export function esPortero(posicion: unknown): boolean {
   const puesto = String(posicion ?? "")
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .trim()
     .toUpperCase();
 

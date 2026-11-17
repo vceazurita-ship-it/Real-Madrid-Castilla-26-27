@@ -273,7 +273,15 @@ for (const a of pendientes) {
 
   const datos = fs.readFileSync(fichero);
   const ruta = `opta/acciones/${a.partido}/${a.parte}-${Math.round(a.segundo)}.mp4`;
-  const url = await b2.sube(ruta, datos, "video/mp4");
+  /* Un fallo de B2 no tumba la pasada: se cuenta y se sigue (17/11/2026). */
+  let url;
+  try {
+    url = await b2.sube(ruta, datos, "video/mp4");
+  } catch (e) {
+    fallos++;
+    console.log(`  ${a.fecha} ${a.que} ${Math.floor(a.segundo / 60)}': no se pudo subir a B2 (${e?.message || e})`);
+    continue;
+  }
 
   doc.clips[claveVideo(a.partido, a.parte, a.segundo)] = { url, bytes: datos.length, en: new Date().toISOString(), que: a.que };
   hechos++;

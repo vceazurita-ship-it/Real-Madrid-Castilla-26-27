@@ -105,6 +105,21 @@ const guarda = async () => {
 
   if (SECO || !sql) return;
 
+  /* Dos pasadas a la vez (la de la noche y un «Pedir a Hudl», 17/11/2026) se
+     pisaban el documento: antes de escribir se suman los clips que otra haya
+     guardado mientras tanto, por id de clip, en las listas que siguen vivas. */
+  const [fila] = await conReintento(() => sql`select data from app_documents where key = ${CLAVE_HUDL_CLIPS}`);
+  const otro = normalizaDocHudl(fila?.data);
+
+  for (const [id, suya] of Object.entries(otro.listas)) {
+    const mia = doc.listas[id];
+
+    if (!mia) continue;
+    const tengo = new Set(mia.clips.map((c) => c.id));
+
+    for (const c of suya.clips) if (!tengo.has(c.id)) mia.clips.push(c);
+  }
+
   await conReintento(() => sql`insert into app_documents (key, kind, data, updated_at) values (${CLAVE_HUDL_CLIPS}, ${"hudl"}, ${sql.json(doc)}, date_trunc('milliseconds', now()))
             on conflict (key) do update set data = excluded.data, updated_at = excluded.updated_at`);
 };

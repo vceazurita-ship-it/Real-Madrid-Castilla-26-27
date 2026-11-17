@@ -1189,7 +1189,8 @@ async function haceHudlClips() {
   const { codigo, texto } = await ejecuta("hudl-clips", process.execPath, [path.join(RAIZ, "scripts/hudl-clips-rival.mjs")], sigue("hudl-clips"));
   const dice = resumen(texto) || (codigo === 0 ? "hecho" : `ha fallado (código ${codigo})`);
 
-  await acaba("hudl-clips", codigo === 0, dice);
+  /* El código 8 (sesión de Hudl caducada o nada que bajar) no es un fallo. */
+  await acaba("hudl-clips", codigo === 0 || codigo === 8, dice);
   apunta(`Clips de Hudl: ${dice}.`);
 }
 
