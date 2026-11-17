@@ -46,7 +46,7 @@ import { useCalendario } from "@/hooks/useCalendario";
 import { comoNuestro } from "@/lib/castilla/calendario";
 import { nombreEquipo } from "@/lib/equipos";
 import { mismoClub } from "@/lib/rivals/mismoClub";
-import { mismoNombreRival } from "@/lib/rivals/rival-en-curso";
+import { conRivalEnUrl, mismoNombreRival } from "@/lib/rivals/rival-en-curso";
 import Link from "next/link";
 import {
   CLAVE_LISTAS,
@@ -168,6 +168,8 @@ type Pieza = {
   poblacion: string;
   /** Cuántos cortes suyos hay en la lista: en lo que se apoyan sus etiquetas. */
   clips: number;
+  /** Del once probable: su ▲/▼ de Wyscout ya está en la radiografía de arriba y no se repite en la tarjeta. */
+  titular: boolean;
 };
 
 type Estado =
@@ -654,6 +656,7 @@ export function VideosDelCanal({
         rasgos: jugador?.rasgos ?? [],
         poblacion: jugador?.poblacion ?? "",
         clips: jugador ? cortesDe[jugador.nombre] ?? 0 : 0,
+        titular: Boolean(jugador?.titular),
       };
 
       if (!jugador) {
@@ -1143,7 +1146,7 @@ export function VideosDelCanal({
           <span className="font-semibold" style={{ color: MEJOR }}>▲ verde = lo que hace bien</span>
           {" · "}
           <span className="font-semibold" style={{ color: PEOR }}>▼ naranja = lo que podemos explotar</span>
-          . Cada etiqueta dice en cuántos clips suyos se apoya («tendencia» si es uno); «Ver base» da el percentil, contra cuántos y los minutos.
+          . Es la lectura del analista; con un solo clip suyo va atenuada y dice «tendencia». Las cifras de Wyscout de los del once están en la radiografía de arriba; «Ver base» dice contra cuántos de su puesto y con cuántos minutos.
         </p>
       )}
 
@@ -1401,6 +1404,20 @@ export function VideosDelCanal({
                   })()}
                 </div>
 
+                {/* Con varios cortes, su lectura y sus enlaces una vez, encima de los vídeos (18/11/2026, ronda 22). */}
+                {grupo.videos[0] && (
+                  <div className="mb-2 min-w-0 max-w-3xl">
+                    <LecturaDelJugador
+                      enCaseta={grupo.videos[0].enCaseta}
+                      rasgos={grupo.videos[0].rasgos}
+                      poblacion={grupo.videos[0].poblacion}
+                      clips={grupo.videos[0].clips}
+                      conCifras={!grupo.titular}
+                    />
+                    <BotonesDelJugador equipo={equipo} clave={grupo.videos[0].clave} nombre={grupo.jugador} etiquetas={grupo.videos[0].etiquetas} className="mt-1.5" />
+                  </div>
+                )}
+
                 <Rejilla
                   piezas={grupo.videos}
                   columnas={columnas}
@@ -1626,36 +1643,73 @@ function Chip({
  * Rubio), se prueba la de YouTube por el id del vídeo, y si tampoco, un
  * fondo liso con el icono.
  */
-function Miniatura({ video }: { video: Video }) {
+/*
+| NUNCA EL HUECO EN BLANCO (18/11/2026, ronda 22, los cuatro jueces): las
+| tarjetas de Usse Diao y Álvaro Giménez, abajo del todo («Fuera del once
+| probable»), salían con un recuadro blanco. No era su vídeo: era el
+| `loading="lazy"`. La imagen no se pide hasta que se acerca a la pantalla, y
+| en una captura de la página entera, en un PDF o al bajar deprisa en el móvil
+| esas dos quedaban sin pedir. Ahora se piden al montar (son una docena de
+| JPG de YouTube) y, mientras llegan o si no hay póster, debajo está su ficha
+| compacta: dorsal e iniciales sobre el fondo de la tarjeta.
+*/
+const inicialesDe = (nombre: string) =>
+  nombre
+    .split(/\s+/)
+    .filter((p) => /^[A-Za-zÁÉÍÓÚÑÜáéíóúñü]/.test(p) && p.replace(/\./g, "").length > 1)
+    .slice(0, 2)
+    .map((p) => p.charAt(0).toUpperCase())
+    .join("") || nombre.charAt(0).toUpperCase();
+
+function Miniatura({ video, nombre = "", dorsal = "" }: { video: Video; nombre?: string; dorsal?: string }) {
   const respaldo = `https://i.ytimg.com/vi/${video.id}/hqdefault.jpg`;
 
   const [fuente, setFuente] = useState(video.miniatura || respaldo);
   const [rota, setRota] = useState(false);
-
-  if (rota) {
-    return (
-      <span className="flex aspect-video w-full items-center justify-center bg-white/[0.04]">
-        <Youtube size={26} className="text-white/25" />
-      </span>
-    );
-  }
+  const [lista, setLista] = useState(false);
 
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={fuente}
-      alt=""
-      loading="lazy"
-      onError={() => (fuente === respaldo ? setRota(true) : setFuente(respaldo))}
-      /* YouTube no da error si no hay póster: sirve un gris de 120 × 90 (la de I. Obeng salía en blanco, 07/11/2026). */
-      onLoad={(e) => {
-        if (e.currentTarget.naturalWidth > 0 && e.currentTarget.naturalWidth <= 120) {
-          if (fuente === respaldo) setRota(true);
-          else setFuente(respaldo);
-        }
-      }}
-      className="aspect-video w-full object-cover"
-    />
+    <span className="relative block aspect-video w-full overflow-hidden bg-white/[0.05]">
+      {/* La ficha compacta: se ve mientras carga el fotograma y si YouTube no tiene. */}
+      <span className="absolute inset-0 flex flex-col items-center justify-center gap-1" aria-hidden>
+        {nombre ? (
+          <>
+            <span className="flex h-12 w-12 items-center justify-center rounded-full border border-[#C8A96B]/45 bg-[#C8A96B]/10 text-base font-bold text-[#C8A96B]">
+              {inicialesDe(nombre)}
+            </span>
+            <span className="text-[12px] font-semibold tabular-nums text-white/60">
+              {dorsal ? `${dorsal} · ` : ""}
+              {nombre}
+            </span>
+          </>
+        ) : (
+          <Youtube size={26} className="text-white/30" />
+        )}
+      </span>
+
+      {!rota && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={fuente}
+          alt=""
+          loading="eager"
+          decoding="async"
+          onError={() => (fuente === respaldo ? setRota(true) : setFuente(respaldo))}
+          /* YouTube no da error si no hay póster: sirve un gris de 120 × 90 (la de I. Obeng salía en blanco, 07/11/2026). */
+          onLoad={(e) => {
+            if (e.currentTarget.naturalWidth > 0 && e.currentTarget.naturalWidth <= 120) {
+              if (fuente === respaldo) setRota(true);
+              else setFuente(respaldo);
+
+              return;
+            }
+
+            setLista(true);
+          }}
+          className={`relative aspect-video w-full object-cover transition-opacity duration-200 ${lista ? "opacity-100" : "opacity-0"}`}
+        />
+      )}
+    </span>
   );
 }
 
@@ -1688,10 +1742,14 @@ function Rejilla({
      mirar—, pero se leen al pasar el cursor (29/10/2026). */
   return (
     <div className={`grid min-w-0 gap-2.5 ${columnas}`}>
-      {piezas.map(({ video, tema, jugador, dorsal, puesto, resumen, clave, enCaseta, rasgos, poblacion, clips, etiquetas }, i) => (
+      {piezas.map(({ video, tema, jugador, dorsal, puesto, resumen, clave, enCaseta, rasgos, poblacion, clips, etiquetas, titular }, i) => {
+        /* Su lectura y sus enlaces, una vez por jugador: en su primera tarjeta (18/11/2026, ronda 22). */
+        const primera = Boolean(jugador) && piezas.findIndex((p) => p.jugador === jugador) === i;
+
+        return (
         <div
           key={video.id}
-          id={conJugador && jugador && piezas.findIndex((p) => p.jugador === jugador) === i ? anclaDe(jugador) : undefined}
+          id={conJugador && primera ? anclaDe(jugador) : undefined}
           title={[video.titulo, fecha(video.publicado) && `subido el ${fecha(video.publicado)}`].filter(Boolean).join(" · ")}
           className="group min-w-0 scroll-mt-24 overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] transition hover:border-[#C8A96B]/40"
         >
@@ -1700,7 +1758,7 @@ function Rejilla({
             onClick={() => onAbrir(video)}
             className="relative block w-full"
           >
-            <Miniatura video={video} />
+            <Miniatura video={video} nombre={jugador} dorsal={dorsal} />
 
             <span className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition group-hover:opacity-100">
               <Play size={26} className="text-white drop-shadow" />
@@ -1731,7 +1789,13 @@ function Rejilla({
             | grupo dice qué es: «▲ Hace bien» en verde, «▼ Explotable» en naranja.
             */}
             {conJugador && puesto && <p className="mb-0.5 text-[12px] leading-snug text-white/60">{puesto}</p>}
-            {conJugador && <LecturaDelJugador enCaseta={enCaseta} rasgos={rasgos} poblacion={poblacion} clips={clips} />}
+            {/*
+            | LA LECTURA UNA VEZ (18/11/2026, ronda 22, análisis y marketing):
+            | el ▲/▼ de Wyscout de los del once ya está en la radiografía de
+            | arriba; aquí, la lectura del analista y «Ver base». A los de fuera
+            | del once, que no salen arriba, sí su ▲/▼.
+            */}
+            {conJugador && primera && <LecturaDelJugador enCaseta={enCaseta} rasgos={rasgos} poblacion={poblacion} clips={clips} conCifras={!titular} />}
 
             {/* El título original del vídeo, en pequeño: lo que manda es quién es. */}
             {/* «Corte 14», el nombre del equipo o un título que sólo repite al jugador
@@ -1749,7 +1813,7 @@ function Rejilla({
             })()}
 
             {/* Del vídeo a la consigna: Su ficha y Su duelo con el mismo peso, y Su ABP si toca. */}
-            {jugador && equipo && <BotonesDelJugador equipo={equipo} clave={clave} nombre={jugador} etiquetas={etiquetas} className="mt-1.5" />}
+            {conJugador && primera && equipo && <BotonesDelJugador equipo={equipo} clave={clave} nombre={jugador} etiquetas={etiquetas} className="mt-1.5" />}
 
             {/* El pie (16/11/2026, jueces): «J13 · 63′ · 0:42», la jornada, el minuto si
                 el título lo dice y lo que dura; ya no «corte 4». Las vistas, sólo al analista. */}
@@ -1778,7 +1842,8 @@ function Rejilla({
             </div>
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -1868,86 +1933,100 @@ function PlantillaSinVideos({ equipo, plantilla }: { equipo: string; plantilla: 
 /** El ancla de la tarjeta de un jugador: la radiografía de arriba salta a ella. */
 export const anclaDe = (nombre: string) => `ficha-${desnuda(nombre).replace(/\s+/g, "-")}`;
 
-/** «1 clip · tendencia» o «3 clips»: en cuántos cortes se apoya la lectura del analista. */
-export const apoyoDeClips = (clips: number) => (clips <= 0 ? "" : clips === 1 ? "1 clip · tendencia" : `${clips} clips`);
+/** «1 clip, tendencia» o «3 clips»: en cuántos cortes se apoya la lectura del analista. */
+export const apoyoDeClips = (clips: number) => (clips <= 0 ? "" : clips === 1 ? "1 clip, tendencia" : `${clips} clips`);
 
 /*
-| LA LECTURA DE CADA JUGADOR, EN DOS LÍNEAS (17/11/2026, ronda 21, marketing y
-| análisis): antes eran cuatro frases largas (las etiquetas y las dos cifras de
-| Wyscout con su percentil, su población y sus minutos). Ahora una línea por
-| signo —«▲ Hace bien: va fuerte al duelo (1 clip · tendencia) · Acciones de
-| ataque exitosas 2,7 P91»— y la base entera en «Ver base». La etiqueta dice
-| en cuántos clips suyos se apoya; con uno solo, «tendencia».
+| LA LECTURA DE CADA JUGADOR, UNA VEZ (18/11/2026, ronda 22, los cuatro
+| jueces): la ronda 21 la había dejado en dos líneas «▲ Hace bien / ▼
+| Explotable» con las etiquetas y el ▲/▼ de Wyscout, pero ese ▲/▼ ya está en
+| la radiografía del once, arriba: se leía dos veces. Ahora:
+|
+| - las etiquetas del analista, cada una con su color y sin el rótulo (la
+|   leyenda de encima de las fichas dice qué es verde y qué naranja);
+| - apoyadas en un solo clip, atenuadas y en cursiva, con «1 clip, tendencia»:
+|   que no parezcan hechos firmes;
+| - el ▲/▼ de Wyscout sólo en quien no sale en la radiografía (`conCifras`,
+|   los de fuera del once probable);
+| - y un único «Ver base» con contra cuántos se le compara, sus minutos y la
+|   raya de cada cifra (con la mediana y los extremos rotulados).
 */
 export function LecturaDelJugador({
   enCaseta,
   rasgos,
   poblacion,
   clips,
+  conCifras = true,
 }: {
   enCaseta: { texto: string; debil: boolean }[];
   rasgos: RasgoCorto[];
   poblacion?: string;
   /** Clips suyos (canal o Hudl) en los que se apoyan sus etiquetas. */
   clips: number;
+  /** Pinta su ▲/▼ de Wyscout; `false` en los del once, que ya lo tienen en la radiografía. */
+  conCifras?: boolean;
 }) {
-  const buenas = enCaseta.filter((e) => !e.debil).map((e) => e.texto);
-  const malas = enCaseta.filter((e) => e.debil).map((e) => e.texto);
   const apoyo = apoyoDeClips(clips);
-  const lineas = [
-    { signo: "▲", rotulo: "Hace bien", color: MEJOR, etiqueta: buenas[0], rasgo: rasgos.find((r) => r.signo === "▲") },
-    { signo: "▼", rotulo: "Explotable", color: PEOR, etiqueta: malas[0], rasgo: rasgos.find((r) => r.signo === "▼") },
-  ].filter((l) => l.etiqueta || l.rasgo);
+  const tendencia = clips === 1;
+  const etiquetas = [...enCaseta.filter((e) => !e.debil), ...enCaseta.filter((e) => e.debil)];
 
-  if (!lineas.length) return null;
+  if (!etiquetas.length && !rasgos.length) return null;
 
   return (
     <div className="min-w-0">
-      {/* Con quién se le compara, si no es su puesto de la hoja (fútbol): «pivote en su once, comparado con 123 medios». */}
-      {poblacion && rasgos.length > 0 && <p className="mb-0.5 text-[12px] leading-snug text-white/55">{poblacion.charAt(0).toUpperCase() + poblacion.slice(1)}</p>}
-      {lineas.map((l) => (
-        <p key={l.signo} className="mb-0.5 text-[12px] leading-snug" style={{ color: l.color }}>
-          <span className="font-semibold">
-            {l.signo} {l.rotulo}:
-          </span>{" "}
-          {l.etiqueta}
-          {l.etiqueta && apoyo && <span className="text-white/50"> ({apoyo})</span>}
-          {l.etiqueta && l.rasgo ? " · " : ""}
-          {l.rasgo && (
-            <span className="tabular-nums">
-              {l.rasgo.corta} <b>{l.rasgo.marca}</b>
+      {etiquetas.length > 0 && (
+        <p className={`mb-0.5 text-[12px] leading-snug ${tendencia ? "italic opacity-65" : ""}`} title={tendencia ? "Lectura del analista sobre un solo clip suyo: tendencia, no patrón" : "Lectura del analista (su ficha)"}>
+          {etiquetas.map((e, i) => (
+            <span key={`${e.texto}-${i}`} style={{ color: e.debil ? PEOR : MEJOR }}>
+              {i > 0 ? <span className="text-white/35"> · </span> : null}
+              <span className={tendencia ? "" : "font-semibold"}>{e.debil ? "▼" : "▲"}</span> {e.texto}
             </span>
-          )}
-        </p>
-      ))}
-
-      <details className="mt-0.5 min-w-0">
-        <summary className="inline-flex min-h-[44px] cursor-pointer list-none items-center gap-1 text-[12px] text-white/55 transition hover:text-white sm:min-h-0">
-          Ver base ▾
-        </summary>
-        <ul className="mt-1 space-y-1 text-[12px] leading-snug text-white/65">
-          {rasgos.map((r) => (
-            <li key={r.base} className="min-w-0">
-              <span style={{ color: r.signo === "▲" ? MEJOR : PEOR }}>{r.signo}</span> {r.corta}: {r.base}
-              <span className="relative mt-0.5 block h-1.5 w-full max-w-[12rem] rounded-full bg-white/10" aria-hidden>
-                <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${Math.max(3, Math.min(100, r.percentil))}%`, background: r.signo === "▼" ? PEOR : MEJOR }} />
-                <span className="absolute -top-0.5 bottom-[-2px] left-1/2 w-px bg-white/50" title="Mediana de su puesto" />
-              </span>
-            </li>
           ))}
-          {enCaseta.length > 0 && (
-            <li>
-              Lectura del analista (su ficha): {[...buenas.map((t) => `▲ ${t}`), ...malas.map((t) => `▼ ${t}`)].join(" · ")}
-              {clips > 0 ? ` · sobre ${clips} ${clips === 1 ? "clip suyo: tendencia, no patrón" : "clips suyos"}` : ""}.
-            </li>
-          )}
-        </ul>
-      </details>
+          {apoyo && <span className="not-italic text-white/50"> · {apoyo}</span>}
+        </p>
+      )}
+
+      {conCifras &&
+        rasgos.map((r) => (
+          <p key={r.signo} className="mb-0.5 text-[12px] leading-snug tabular-nums" style={{ color: r.signo === "▲" ? MEJOR : PEOR }}>
+            {r.signo} {r.corta} <b>{r.marca}</b>
+          </p>
+        ))}
+
+      {rasgos.length > 0 && (
+        <details className="mt-0.5 min-w-0">
+          <summary className="inline-flex min-h-[44px] cursor-pointer list-none items-center gap-1 text-[12px] text-white/55 transition hover:text-white sm:min-h-0">
+            Ver base ▾
+          </summary>
+          {/* Con quién se le compara y con cuántos minutos (Wyscout, esta temporada). */}
+          {poblacion && <p className="mt-1 text-[12px] leading-snug text-white/60">{poblacion.charAt(0).toUpperCase() + poblacion.slice(1)}.</p>}
+          <ul className="mt-1 space-y-1.5 text-[12px] leading-snug text-white/65">
+            {rasgos.map((r) => (
+              <li key={r.signo} className="min-w-0">
+                <span style={{ color: r.signo === "▲" ? MEJOR : PEOR }}>{r.signo}</span> {r.corta} · {r.base}
+                <span className="relative mt-1 block h-1.5 w-full max-w-[14rem] rounded-full bg-white/10" aria-hidden>
+                  <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${Math.max(3, Math.min(100, r.percentil))}%`, background: r.signo === "▼" ? PEOR : MEJOR }} />
+                  <span className="absolute -top-0.5 bottom-[-2px] left-1/2 w-px bg-white/55" />
+                </span>
+                <span className="mt-0.5 flex w-full max-w-[14rem] justify-between text-[11px] tabular-nums text-white/45" aria-hidden>
+                  <span>el peor</span>
+                  <span>mediana</span>
+                  <span>el mejor</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
     </div>
   );
 }
 
-/** Su ficha y Su duelo con el mismo peso (y Su ABP si su ficha le marca de balón parado). */
+/*
+| SU FICHA, SU DUELO Y EL PLAN (18/11/2026, ronda 22, marketing): al lado, el
+| Plan de partido con el rival ya elegido. Los rivales no tienen seguimiento
+| en la app: no hay «Su seguimiento» que enlazar.
+*/
 export function BotonesDelJugador({
   equipo,
   clave,
@@ -1971,6 +2050,9 @@ export function BotonesDelJugador({
       </Link>
       <Link href={`/duelos?equipo=${encodeURIComponent(equipo)}&jugador=${encodeURIComponent(nombre)}`} className={boton}>
         Su duelo →
+      </Link>
+      <Link href={conRivalEnUrl("/match-preparation", { equipo })} className={boton} title={`El plan de partido contra ${equipo}`}>
+        Plan de partido →
       </Link>
       {etiquetas.some((e) => ES_ABP.test(e)) && (
         <Link href={`/scout-rival-abp?equipo=${encodeURIComponent(equipo)}`} className={boton}>
@@ -2024,7 +2106,7 @@ function RestoDelOnce({
               </p>
               {puesto && <p className="mt-0.5 text-[12px] leading-snug text-white/60">{puesto}</p>}
               {resumen && <p className="mb-1 text-[12px] tabular-nums text-white/60">{resumen}</p>}
-              <LecturaDelJugador enCaseta={enCaseta} rasgos={j.rasgos ?? []} poblacion={j.poblacion} clips={hudl[j.hoja ?? j.nombre] ?? 0} />
+              <LecturaDelJugador enCaseta={enCaseta} rasgos={j.rasgos ?? []} poblacion={j.poblacion} clips={hudl[j.hoja ?? j.nombre] ?? 0} conCifras={!j.titular} />
               <BotonesDelJugador equipo={equipo} clave={j.clave} nombre={j.nombre} etiquetas={j.etiquetas} className="mt-1.5" />
               <ClipsHudlJugador
                 className="mt-2"

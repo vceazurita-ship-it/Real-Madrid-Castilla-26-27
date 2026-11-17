@@ -76,52 +76,70 @@ import { formatea } from "@/lib/data-analisis/metricas";
 | la tarjeta («Acciones de ataque exitosas 2,7 · P91») y la base entera para
 | «Ver base» («P91 entre 117 laterales · 1.017′ en Wyscout»).
 */
+
+/** «mejor que 9 de cada 10» / «peor que 8 de cada 10»: el percentil como en /rivals. */
+const deCadaDiez = (percentil: number) =>
+  percentil >= 50
+    ? `mejor que ${Math.min(9, Math.max(1, Math.round(percentil / 10)))} de cada 10`
+    : `peor que ${Math.min(9, Math.max(1, Math.round((100 - percentil) / 10)))} de cada 10`;
+
+/*
+| UNA CIFRA, UN FORMATO (18/11/2026, ronda 22): por partido y por 90′ con un
+| decimal («Remates 0,99» → «1,0»; «xG 0,64» → «0,6»). Dos sólo si con uno
+| saldría 0,0 o si es un xG por remate por debajo de 0,3. Los porcentajes, con
+| uno y sin el «%» repetido del nombre («Duelos aéreos ganados % 50,0 %»).
+*/
+const cifraDe = (r: RasgoWyscout) => {
+  if (r.unidad === "porcentaje") return `${r.valor.toFixed(1).replace(".", ",")} %`;
+  if (r.unidad === "entero" || r.unidad === "minutos") return formatea(r.valor, r.unidad);
+
+  const uno = r.valor.toFixed(1);
+  const dos = (uno === "0.0" && r.valor !== 0) || (Math.abs(r.valor) < 0.3 && /xg/i.test(r.nombre) && /remate|tiro/i.test(r.nombre));
+
+  return (dos ? r.valor.toFixed(2) : uno).replace(".", ",").replace(/^-/, "−");
+};
+
+const nombreDe = (r: RasgoWyscout) => r.nombre.replace(/\s*%\s*$/, "").trim();
+
 function rasgosDePerfil(perfil: PerfilWyscout | undefined): RasgoCorto[] {
   if (!perfil || perfil.muestraCorta) return [];
 
   /*
-  | «Faltas cometidas 1,4 · P30» no se leía como explotable (16/11/2026, ronda
-  | 18, fútbol): en las de «menos es mejor» el percentil ya va al revés, así
-  | que se dice con palabras: «más que 7 de cada 10 laterales».
+  | UN SOLO LENGUAJE PARA EL PERCENTIL (18/11/2026, ronda 22, fútbol y
+  | guionista): «P86» aquí y «mejor que 8 de cada 10» en /rivals eran dos
+  | lenguajes para la misma cifra. Ahora el de /rivals en toda la pantalla,
+  | siempre en el sentido «más es mejor» (en las de menos es mejor, como
+  | faltas cometidas, el percentil ya viene dado la vuelta: «peor que 7 de
+  | cada 10» se lee como explotable, que era lo que pidió fútbol en la ronda
+  | 18). Contra cuántos y con qué minutos va una vez, en la población del
+  | jugador (`poblacionDe`), que la radiografía enseña bajo su nombre.
   */
   const escribe = (r: RasgoWyscout, signo: "▲" | "▼"): RasgoCorto => {
-    const minutos = `${perfil.minutos.toLocaleString("es-ES")}′ en Wyscout`;
-    const puesto = perfil.puestoLabel.toLowerCase();
     const percentil = Math.round(r.percentil);
-    /* Un porcentaje con sus intentos (17/11/2026, ronda 19): «50 % · 10 de 20». */
-    const deIntentos = r.unidad === "porcentaje" && r.intentos ? ` (${Math.round((r.valor * r.intentos) / 100)} de ${r.intentos})` : "";
+    const frase = deCadaDiez(percentil);
+    /* Con su separador: la radiografía la pinta pegada a la cifra («Remates 1,0 · mejor que 9 de cada 10»). */
+    const marca = `· ${frase}`;
+    /* Un porcentaje con sus intentos (17/11/2026, ronda 19): «10 de 20 intentos». */
+    const deIntentos = r.unidad === "porcentaje" && r.intentos ? `${Math.round((r.valor * r.intentos) / 100)} de ${r.intentos} intentos` : "";
 
     /* «Porterías a cero 5,0» era un total, no un «por 90′» (17/11/2026, jueces de fútbol). */
     if (/porter[ií]as? a cero/i.test(r.nombre)) {
       return {
         signo,
         corta: `Porterías a cero: ${Math.round(r.valor)} en ${perfil.partidos}`,
-        marca: `P${percentil}`,
+        marca,
         percentil,
-        base: `${Math.round(r.valor)} en ${perfil.partidos} ${perfil.partidos === 1 ? "partido" : "partidos"} · P${percentil} entre ${perfil.iguales} ${puesto} · ${minutos}`,
+        base: `${frase} de su puesto`,
       };
     }
 
-    if (r.mejorAlto === false) {
-      const flojo = signo === "▼";
-      const de10 = Math.min(9, Math.max(1, Math.round((flojo ? 100 - r.percentil : r.percentil) / 10)));
-      const frase = `${flojo ? "más" : "menos"} que ${de10} de cada 10 ${puesto}`;
-
-      return {
-        signo,
-        corta: `${r.nombre} ${formatea(r.valor, r.unidad)}`,
-        marca: `${flojo ? "más" : "menos"} que ${de10} de 10`,
-        percentil,
-        base: `${formatea(r.valor, r.unidad)}${deIntentos} · ${frase} (aquí menos es mejor) · ${minutos}`,
-      };
-    }
-
+    /* «Ver base» la pinta tras la cifra corta: sin repetir el valor. */
     return {
       signo,
-      corta: `${r.nombre} ${formatea(r.valor, r.unidad)}`,
-      marca: `P${percentil}`,
+      corta: `${nombreDe(r)} ${cifraDe(r)}`,
+      marca,
       percentil,
-      base: `${formatea(r.valor, r.unidad)}${deIntentos} · P${percentil} entre ${perfil.iguales} ${puesto} · ${minutos}`,
+      base: [deIntentos, r.mejorAlto === false ? "aquí menos es mejor" : "", `${frase} de su puesto`].filter(Boolean).join(" · "),
     };
   };
 
@@ -157,14 +175,20 @@ const FAMILIAS: [RegExp, Puesto][] = [
 
 const familiaDe = (texto: string) => FAMILIAS.find(([re]) => re.test(texto.toLowerCase()))?.[1];
 
+/*
+| LA BASE A LA VISTA (18/11/2026, ronda 22, guionista): contra cuántos y con
+| cuántos minutos se lee sin abrir nada, bajo el nombre en la radiografía y en
+| «Ver base» de la tarjeta: «comparado con 117 laterales · 1.017′ en Wyscout».
+| Si juega en su once en otro sitio que su puesto de la hoja, se dice delante
+| (la radiografía enseña su puesto de la hoja cuando hay población).
+*/
 function poblacionDe(perfil: PerfilWyscout | undefined, origen: string, enElOnce: string | null) {
   if (!perfil || perfil.muestraCorta) return "";
 
   const familia = familiaDe(origen);
+  const comparado = `comparado con ${perfil.iguales} ${perfil.puestoLabel.toLowerCase()} · ${perfil.minutos.toLocaleString("es-ES")}′ en Wyscout`;
 
-  if (!familia || familia === perfil.puesto) return "";
-
-  const comparado = `comparado con ${perfil.iguales} ${perfil.puestoLabel.toLowerCase()}`;
+  if (!familia || familia === perfil.puesto) return enElOnce ? `${enElOnce} en su once, ${comparado}` : comparado;
 
   if (enElOnce && familiaDe(enElOnce) === perfil.puesto) return `${enElOnce} en su once, ${comparado}`;
 
