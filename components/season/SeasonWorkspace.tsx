@@ -25,6 +25,8 @@ import SeasonFilesViewer from "./SeasonFilesViewer";
 import SeasonHeader from "./SeasonHeader";
 import WeekNavigator from "./WeekNavigator";
 import WeekPanel from "./WeekPanel";
+import { useCalendario } from "@/hooks/useCalendario";
+import { partidoDeLaSemana, rotuloPartido } from "@/lib/season/partido-semana";
 
 interface Props {
   area: SeasonArea;
@@ -130,20 +132,33 @@ export default function SeasonWorkspace({ area }: Props) {
     };
   }, [season]);
 
+  /* 17/11/2026 (fútbol): el calendario de BeSoccer, para decir el partido de cada semana. */
+  const { partidos: calendario } = useCalendario();
+
   // Una casilla por semana ya transcurrida: con material o sin él.
   const tiraSemanas = useMemo(() => {
     if (!currentWeek) return [];
 
     return flattenWeeks(season)
       .filter((week) => week.id <= currentWeek.id)
-      .map((week) => ({
-        id: week.id,
-        nombre: week.week,
-        conMaterial: weekHasFiles(week),
-        actual: week.id === currentWeek.id,
-        fechas: week.start || week.end ? weekRangeLabel(week) : undefined,
-      }));
-  }, [season, currentWeek]);
+      .map((week) => {
+        const partido = partidoDeLaSemana(calendario, week);
+
+        return {
+          id: week.id,
+          nombre: week.week,
+          conMaterial: weekHasFiles(week),
+          actual: week.id === currentWeek.id,
+          fechas: week.start || week.end ? weekRangeLabel(week) : undefined,
+          partido: partido ? rotuloPartido(partido) : undefined,
+        };
+      });
+  }, [season, currentWeek, calendario]);
+
+  const partidoSemanaAbierta = useMemo(
+    () => partidoDeLaSemana(calendario, selectedWeek),
+    [calendario, selectedWeek]
+  );
 
   const stats = useMemo(
     () => seasonStats(season, currentWeek?.id ?? null),
@@ -317,6 +332,7 @@ export default function SeasonWorkspace({ area }: Props) {
                         selectedWeek.id === currentWeek?.id
                       }
                       ultimaConArchivos={ultimaConArchivos}
+                      partido={partidoSemanaAbierta}
                       onSelectWeek={selectWeek}
                       onUpdateWeek={updateWeek}
                     />

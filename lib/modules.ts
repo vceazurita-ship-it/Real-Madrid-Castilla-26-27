@@ -559,10 +559,11 @@ export const MODULES: AppModule[] = [
     href: "/general",
     area: "OPERATIVA",
     title: "Repositorio semanal",
-    desc: "Documentación compartida del cuerpo técnico",
+    desc: "Material semanal del cuerpo técnico: planificaciones, imágenes y PDF",
     icon: Database,
     rank: 58,
-    alias: ["documentos", "archivos"],
+    /* 17/11/2026: «repositorio» y «general» (la ruta) también lo encuentran. */
+    alias: ["documentos", "archivos", "repositorio", "general", "material", "semana", "pdf"],
   },
   {
     href: "/data-center",
