@@ -506,12 +506,12 @@ export default function WeekPanel({
             }}
           />
           {/* 17/11/2026: en la semana en curso lo último subido ya lo dice el aviso de la cabecera. */}
-          {hayUltimo && ultimaConArchivos && onSelectWeek && !isCurrentWeek ? (
+          {!isCurrentWeek && hayUltimo && ultimaConArchivos ? (
             <p className="px-1 text-[13px] text-white/60">
               Lo último subido:{" "}
               <button
                 type="button"
-                onClick={() => onSelectWeek(ultimaConArchivos.id)}
+                onClick={() => onSelectWeek?.(ultimaConArchivos.id)}
                 className="font-medium text-white/80 underline decoration-white/30 underline-offset-4 hover:decoration-[#C8A96B]"
               >
                 {ultimaConArchivos.week.toLowerCase()}

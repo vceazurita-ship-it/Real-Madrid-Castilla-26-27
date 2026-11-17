@@ -754,7 +754,7 @@ export default function ListaAlertas({
           open={
             ahora === 0 ||
             caducadas.some((a) => {
-              const ultima = fechaValida(a.ultimoEnvio) ? new Date(a.ultimoEnvio).getTime() : NaN;
+              const ultima = a.ultimoEnvio && fechaValida(a.ultimoEnvio) ? new Date(a.ultimoEnvio).getTime() : NaN;
 
               return !Number.isFinite(ultima) || ahora - ultima < 30 * 86_400_000;
             })
