@@ -973,14 +973,14 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           { que: "Jugadores de campo del Castilla", es: "Sólo licencia del Castilla y sin porteros (puesto PORTERO, 1 o 13), que llevan un registro independiente; los del RMC y del juvenil llevan su seguimiento en su equipo. La misma población y la misma cuenta que Plantilla y Calendario de Seguimiento", cuenta: "El filtro va antes de todo: cifras, gráficos, listas y CSV" },
           { que: "El nombre manda sobre el ID", es: "Cada registro se ata a su jugador por nombre: los JUG-XX se han renumerado" },
-          { que: "Filtros", es: "Plegados tras «Filtrar por jugador, posición o entrenador» (se quedan abiertos con alguno puesto); estrategia, modalidad, momento, mes y semana van en «Más filtros»", cuenta: "Semana de temporada: de lunes a domingo, desde la del 8 de julio" },
+          { que: "Filtros", es: "Jugador, posición y entrenador, siempre a la vista; estrategia, modalidad, momento, mes y semana van en «Más filtros» (se abre solo si hay alguno puesto)", cuenta: "Semana de temporada: de lunes a domingo, desde la del 8 de julio" },
           { que: "Aviso de arriba", es: "Quién no tiene registro en 14 días (o, si nadie, los tres con menos), antes de las cifras; cada nombre abre su ficha y lleva a su calendario y a «Registrar seguimiento» con el jugador ya elegido" },
         ],
       },
       {
         titulo: "Las cifras de arriba",
         filas: [
-          { que: "Seguimientos", es: "Registros de la temporada de los jugadores de campo del Castilla y, de ellos, cuántos llevan feedback escrito", cuenta: "Con menos de 15, tendencia" },
+          { que: "Seguimientos", es: "Registros de la temporada de los jugadores de campo del Castilla y, de ellos, «N de M con feedback escrito (%)» y quién deja más registros sin feedback (los tres primeros autores)", cuenta: "Un registro compartido cuenta a cada autor; con menos de 15, tendencia" },
           { que: "Con seguimiento", es: "«N de M» jugadores de campo con algún registro en la temporada, registros por jugador con seguimiento y la mediana por jugador (con los que tienen 0)", cuenta: "Registros de la plantilla ÷ jugadores con registro. La mediana sale de la misma función que en Plantilla (lib/seguimiento, a un decimal), así las dos pantallas dan la misma cifra" },
           { que: "Cobertura · últimos 14 días", es: "Cuántos tienen algún registro en la misma ventana que el aviso (14 días que acaban hoy); debajo, la cobertura de la temporada", cuenta: "Con registro en 14 días ÷ jugadores de campo del Castilla (de la posición filtrada) × 100; verde desde el 80 %, oro desde el 50 %" },
           { que: "Media semanal", es: "Registros por semana completa; el título dice cuántas semanas entran. El Calendario de Seguimiento da otra cifra porque mira sólo las últimas 8", cuenta: "Sólo semanas cerradas de lunes a domingo; la primera (si empezó a media semana) y la actual van aparte. Con una sola semana, «Esta semana»" },
