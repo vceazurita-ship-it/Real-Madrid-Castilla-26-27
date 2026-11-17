@@ -141,8 +141,12 @@ export function NubeGoles({
           const cx = px(p.x);
           const cy = py(p.y);
           const escudo = escudoDe(p.equipo);
-          const rotulo = esYo || esOtro || extremos.has(p.equipo);
+          /* 17/11/2026 (ronda 20, fútbol): a 390 px los rótulos se pisaban; en estrecho sólo lleva rótulo el elegido, sacado del grupo con una línea guía, y el comparado va al pie. */
+          const rotulo = estrecho ? esYo : esYo || esOtro || extremos.has(p.equipo);
           const ancla = cx < M.izquierda + 70 ? "start" : cx > W - M.derecha - 70 ? "end" : "middle";
+          const fueraX = estrecho && esYo ? Math.max(M.izquierda + 4, Math.min(W - M.derecha - 4, cx + (cx < W / 2 ? 46 : -46))) : cx;
+          const fueraY = estrecho && esYo ? Math.max(M.arriba + 24, cy - l / 2 - 34) : cy - l / 2 - 6;
+          const anclaFuera = estrecho && esYo ? (cx < W / 2 ? "start" : "end") : ancla;
 
           return (
             <g key={p.equipo}>
@@ -167,11 +171,14 @@ export function NubeGoles({
               >
                 <title>{`${p.equipo}: ${coma(p.x)} a favor y ${coma(p.y)} en contra por partido`}</title>
               </circle>
+              {rotulo && estrecho && esYo ? (
+                <line x1={cx} y1={cy - l / 2 - 2} x2={fueraX} y2={fueraY + 3} stroke={ORO} strokeWidth={1.5} pointerEvents="none" />
+              ) : null}
               {rotulo ? (
                 <text
-                  x={cx}
-                  y={cy - l / 2 - 6}
-                  textAnchor={ancla}
+                  x={fueraX}
+                  y={fueraY}
+                  textAnchor={anclaFuera}
                   fontSize={esYo || esOtro ? 12 : 11}
                   fontWeight={esYo || esOtro ? 700 : 500}
                   style={{ fill: esYo ? "var(--rmcf-gold-ink, #8a6d2f)" : esOtro ? AZUL : "currentColor" }}
@@ -185,6 +192,16 @@ export function NubeGoles({
           );
         })}
       </svg>
+      {estrecho && comparado ? (
+        <p className="mt-1 flex items-center gap-1.5 text-[12px] tabular-nums text-white/75">
+          <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full border-2" style={{ borderColor: AZUL }} aria-hidden />
+          <span className="font-semibold" style={{ color: AZUL }}>{comparado}</span>
+          {(() => {
+            const c = puntos.find((p) => p.equipo === comparado);
+            return c ? `: ${coma(c.x)} a favor y ${coma(c.y)} en contra por partido` : "";
+          })()}
+        </p>
+      ) : null}
       <p className="mt-1 min-h-4 text-[12px] tabular-nums text-white/60">
         {encima
           ? `${encima.equipo}: ${coma(encima.x)} a favor y ${coma(encima.y)} en contra por partido`
