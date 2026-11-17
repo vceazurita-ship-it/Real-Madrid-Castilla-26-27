@@ -296,7 +296,10 @@ export function VistazoRival({
   dano = [],
   enlaces,
   abreJugador,
+  fuenteDibujo = "BeSoccer",
 }: {
+  /** De dónde sale el dibujo que más repite (17/11/2026: Wyscout en /rivals, el mismo del campograma). */
+  fuenteDibujo?: string;
   /** Abre la ficha del jugador en la pantalla (16/11/2026): devuelve con qué abrirla, o `null` si no está en la plantilla. */
   abreJugador?: (nombre: string) => (() => void) | null;
   /** Dónde hacerles daño: jugadores con etiquetas de debilidad y rasgos flojos en Wyscout. */
@@ -448,7 +451,7 @@ export function VistazoRival({
             /* Con menos de 15 alineaciones es tendencia, no costumbre (07/11/2026, análisis). */
             /* Sólo liga y con la fuente (16/11/2026, jueces): la misma cuenta que el campograma y el Scout colectivo. */
             tendencia={dibujo.de < 15}
-            pie={`${dibujo.veces} de ${dibujo.de} ${dibujo.de === 1 ? "partido" : "partidos"} de liga (BeSoccer)`}
+            pie={`${dibujo.veces} de ${dibujo.de} ${dibujo.de === 1 ? "partido" : "partidos"} de liga (${fuenteDibujo})`}
           >
             <p className="flex items-center gap-1.5">
               <LayoutGrid size={13} className="shrink-0 text-[#C8A96B]" aria-hidden />

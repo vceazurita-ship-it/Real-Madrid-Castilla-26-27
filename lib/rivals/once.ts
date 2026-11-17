@@ -381,7 +381,13 @@ export const ONCE_ETIQUETA: Record<"titular" | "duda", string> = {
 export function conOnce(
   doc: RivalOnceDoc,
   titulares: string[],
-  campo: Record<string, OncePos>
+  campo: Record<string, OncePos>,
+  /*
+  | 17/11/2026: el dibujo con el que se ha llenado y el hueco de cada titular,
+  | para que Duelos, el Plan y la pizarra vean el mismo once en el mismo sitio.
+  | Los puestos a mano de los que no entran se conservan.
+  */
+  extra: { dibujo?: string; puestos?: Record<string, string> } = {}
 ): RivalOnceDoc {
   const nuevos = titulares.filter(
     (key, indice) => typeof key === "string" && titulares.indexOf(key) === indice
@@ -406,5 +412,17 @@ export function conOnce(
 
   /* Igual que en `conEstado`: proponer un once cambia el once, no el resto
      del documento. */
-  return { ...doc, titulares: nuevos, dudas, enCampo, campo: sitios };
+  const conExtra: RivalOnceDoc = { ...doc, titulares: nuevos, dudas, enCampo, campo: sitios };
+
+  if (extra.dibujo) conExtra.dibujo = extra.dibujo;
+
+  if (extra.puestos) {
+    const puestos = { ...(doc.puestos ?? {}) };
+
+    for (const key of nuevos) delete puestos[key];
+
+    conExtra.puestos = { ...puestos, ...extra.puestos };
+  }
+
+  return conExtra;
 }

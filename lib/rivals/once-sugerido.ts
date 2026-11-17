@@ -29,9 +29,6 @@
 */
 
 import {
-  alineaEstructura,
-  alturaDeLinea,
-  ALTURA_PORTERO,
   esLiga,
   reparteOnceInicial,
   type InformeEquipo,
@@ -39,7 +36,10 @@ import {
   type Partido,
 } from "@/lib/rivals/informe";
 
-import { ANCLAS_SLOT, ANCLA_SUELTA } from "@/lib/rivals/campograma-motor";
+import { asignaTitulares, DIBUJOS, DIBUJO_POR_DEFECTO, dibujoDeCampo } from "@/lib/rivals/campograma-motor";
+
+/* Sólo funciones, así que el ciclo con posiciones-temporada (que usa `indiceDeLaHoja`) no molesta. */
+import { dibujoParecido, leePosicionesDeLaTemporada } from "@/lib/rivals/posiciones-temporada";
 
 import type { OncePos } from "@/lib/rivals/once";
 
@@ -82,7 +82,11 @@ export type OnceSugerido = {
   titulares: string[];
   /** Dónde cae cada uno, en tanto por uno del campo vertical. */
   campo: Record<string, OncePos>;
-  /** "1-4-2-3-1": la que más ha repetido en lo que se ha mirado. */
+  /** Clave de jugador → bloque del campograma: un titular por hueco del dibujo. */
+  puestos: Record<string, string>;
+  /** El dibujo del campograma con el que se ha llenado ("4-3-3"). */
+  dibujo: string;
+  /** "1-4-3-3": el dibujo con el portero delante, como lo escribe BeSoccer. */
   estructura: string;
   /** Cuántas alineaciones se han contado. */
   alineaciones: number;
@@ -280,155 +284,29 @@ function estructuraMasRepetida(
   return mejor?.[0] || informe.estructuras[0]?.estructura || "1-4-4-2";
 }
 
-/* ------------------------------------------------------------------ */
-/*  REPARTIR LOS ONCE SITIOS                                           */
-/* ------------------------------------------------------------------ */
-
-/** La altura de cada hueco de la estructura, portero incluido. */
-function huecosDe(estructura: string) {
-  const lineas = alineaEstructura(estructura);
-
-  const campo = lineas.slice(1);
-
-  const huecos: { y: number; sitios: number }[] = [
-    { y: ALTURA_PORTERO, sitios: 1 },
-  ];
-
-  campo.forEach((cuantos, indice) => {
-    huecos.push({ y: alturaDeLinea(indice, campo.length), sitios: cuantos });
-  });
-
-  return huecos;
-}
-
-/** Dónde tira un jugador de la hoja cuando no hay de dónde deducirlo. */
-function alturaDeSuPuesto(jugador: JugadorDeLaHoja) {
-  return (ANCLAS_SLOT[jugador.slot] ?? ANCLA_SUELTA).y;
-}
-
-function esPortero(jugador: JugadorDeLaHoja) {
-  return jugador.slot === "por";
-}
-
-/**
- * Coloca a los candidatos en los huecos de la estructura.
- *
- * Se va de mayor a menor peso y cada uno entra en la línea que le pilla más
- * cerca de donde suele jugar; si está llena, en la siguiente más cercana. Así
- * un interior que ha jugado de mediapunta no deja sin sitio al pivote, y un
- * dibujo de tres líneas no manda al extremo al banquillo por no caber.
- *
- * La portería va aparte: se reserva para el portero y no compite con nadie,
- * porque un central con muchos minutos le ganaría el hueco.
- */
-function colocaEnLineas(
-  candidatos: Candidato[],
-  estructura: string,
-): Map<number, Candidato[]> {
-  const huecos = huecosDe(estructura);
-
-  const puestos = new Map<number, Candidato[]>();
-
-  huecos.forEach((_, indice) => puestos.set(indice, []));
-
-  const libre = (indice: number) =>
-    (puestos.get(indice)?.length ?? 0) < huecos[indice].sitios;
-
-  const porOrden = [...candidatos].sort(
-    (a, b) => b.puntos - a.puntos || a.ultima - b.ultima,
-  );
-
-  /* Primero la portería, con el portero que más haya salido. */
-  const portero = porOrden.find((uno) => esPortero(uno.jugador));
-
-  if (portero) puestos.get(0)?.push(portero);
-
-  for (const candidato of porOrden) {
-    if (candidato === portero) continue;
-
-    /* Un segundo portero no entra de jugador de campo. */
-    if (esPortero(candidato.jugador)) continue;
-
-    const suya = candidato.y;
-
-    /* Las líneas de campo, de la más cercana a su altura a la más lejana. */
-    const cercania = huecos
-      .map((hueco, indice) => ({ indice, lejos: Math.abs(hueco.y - suya) }))
-      .filter((uno) => uno.indice > 0)
-      .sort((a, b) => a.lejos - b.lejos);
-
-    const destino = cercania.find((uno) => libre(uno.indice));
-
-    if (!destino) break;
-
-    puestos.get(destino.indice)?.push(candidato);
-  }
-
-  return puestos;
-}
-
-/**
- * Completa un once corto con gente de la hoja.
- *
- * Pasa en agosto —tres alineaciones bajadas y media plantilla sin estrenar— y
- * cuando un club acaba de fichar. Se rellena por el puesto que dice la hoja,
- * que es lo mismo que hace el campograma de la pantalla, y sin repetir a nadie.
- */
-function rellena(
-  puestos: Map<number, Candidato[]>,
-  estructura: string,
-  plantilla: JugadorDeLaHoja[],
-  yaPuestos: Set<string>,
-) {
-  const huecos = huecosDe(estructura);
-
-  const disponibles = plantilla.filter(
-    (jugador) => !yaPuestos.has(jugador.clave),
-  );
-
-  huecos.forEach((hueco, indice) => {
-    const dentro = puestos.get(indice) ?? [];
-
-    while (dentro.length < hueco.sitios) {
-      const soloPorteros = indice === 0;
-
-      /* El más cercano de puesto a la línea que falta; en la portería, un
-         portero o nada: un lateral con el 1 a la espalda no se propone. */
-      const candidatos = disponibles.filter((jugador) =>
-        soloPorteros ? esPortero(jugador) : !esPortero(jugador),
-      );
-
-      if (candidatos.length === 0) return;
-
-      candidatos.sort(
-        (a, b) =>
-          Math.abs(alturaDeSuPuesto(a) - hueco.y) -
-          Math.abs(alturaDeSuPuesto(b) - hueco.y),
-      );
-
-      const elegido = candidatos[0];
-
-      disponibles.splice(disponibles.indexOf(elegido), 1);
-
-      yaPuestos.add(elegido.clave);
-
-      dentro.push({
-        jugador: elegido,
-        puntos: 0,
-        x: 0.5,
-        y: hueco.y,
-        ultima: Number.MAX_SAFE_INTEGER,
-      });
-    }
-  });
-}
 
 /* ------------------------------------------------------------------ */
-/*  EL ONCE                                                            */
+/*  LOS ONCE HUECOS DEL DIBUJO                                         */
 /* ------------------------------------------------------------------ */
+
+/*
+| 17/11/2026 (jueces de fútbol): antes se repartía por LÍNEAS —cuatro atrás,
+| tres en el medio…— y cada uno se pintaba luego en el bloque de su puesto. Con
+| dos laterales derechos en la línea de atrás salían J. Mier y Olmedo de
+| titulares en el LD y nadie en el extremo izquierdo. Ahora se llenan los once
+| HUECOS del dibujo (LI, DFC, DFC, LD, MCD…) de uno en uno, con
+| `asignaTitulares` del motor: el que más ha jugado de cada puesto, el que
+| sobra al banquillo y, si un puesto no tiene a nadie que haya jugado ahí, el
+| de la plantilla que lo tiene escrito en la hoja.
+*/
 
 /**
  * Propone un once probable a partir de los que ha sacado el rival.
+ *
+ * - `dibujo`: el del campograma ("4-3-3"). Sin él, el más parecido al que más
+ *   repite en sus alineaciones.
+ * - `sitios`: dónde juega cada uno esta temporada (`leePosicionesDeLaTemporada`);
+ *   sin él se calcula aquí, para que el informe y la pantalla digan lo mismo.
  *
  * Devuelve `null` cuando no hay de dónde sacarlo —ni una alineación bajada, o
  * ninguno de los que jugaron está en la hoja—: es preferible que la pantalla lo
@@ -437,6 +315,10 @@ function rellena(
 export function sugiereOnce(
   informe: InformeEquipo,
   plantilla: JugadorDeLaHoja[],
+  opciones: {
+    dibujo?: string | null;
+    sitios?: Map<string, { slot: string; lado: -1 | 0 | 1 }>;
+  } = {},
 ): OnceSugerido | null {
   if (plantilla.length === 0) return null;
 
@@ -450,49 +332,52 @@ export function sugiereOnce(
 
   if (candidatos.length === 0) return null;
 
-  const estructura = estructuraMasRepetida(alineaciones, informe);
+  const dibujo =
+    (opciones.dibujo && DIBUJOS.some((uno) => uno.id === opciones.dibujo) ? opciones.dibujo : null) ??
+    dibujoParecido(estructuraMasRepetida(alineaciones, informe)) ??
+    DIBUJO_POR_DEFECTO;
 
-  const puestos = colocaEnLineas(candidatos, estructura);
+  const bloques = dibujoDeCampo(dibujo);
 
-  const yaPuestos = new Set<string>();
+  const sitios = opciones.sitios ?? leePosicionesDeLaTemporada(informe, plantilla).porJugador;
 
-  puestos.forEach((linea) =>
-    linea.forEach((uno) => yaPuestos.add(uno.jugador.clave)),
+  const puntos = new Map(candidatos.map((uno) => [uno.jugador.clave, uno.puntos]));
+  const maximo = Math.max(1, ...candidatos.map((uno) => uno.puntos));
+
+  /* Toda la plantilla es candidata: quien ha jugado pesa lo que ha jugado y
+     el resto sólo entra si su puesto se queda sin nadie. */
+  const asignados = asignaTitulares(
+    plantilla,
+    (jugador) => sitios.get(jugador.clave) ?? { slot: jugador.slot, lado: jugador.lado ?? 0 },
+    bloques,
+    { peso: (jugador) => (puntos.get(jugador.clave) ?? 0) / maximo },
   );
 
-  rellena(puestos, estructura, plantilla, yaPuestos);
-
-  /*
-  | Y a repartir a lo ancho: dentro de cada línea manda el sitio medio en el
-  | que han jugado —el lateral izquierdo a la izquierda—, y quien no tenga
-  | ninguno (los del relleno) se queda por el centro, que es de donde menos se
-  | le mueve al retocarlo.
-  */
   const titulares: string[] = [];
-
   const campo: Record<string, OncePos> = {};
+  const puestos: Record<string, string> = {};
 
-  const huecos = huecosDe(estructura);
+  /* De portería a ataque, en el orden del dibujo de abajo arriba. */
+  [...bloques]
+    .sort((a, b) => b.anchorY - a.anchorY || a.anchorX - b.anchorX)
+    .forEach((bloque) => {
+      const jugador = [...asignados.entries()].find(([, clave]) => clave === bloque.key)?.[0];
 
-  huecos.forEach((hueco, indice) => {
-    const dentro = [...(puestos.get(indice) ?? [])].sort((a, b) => a.x - b.x);
+      if (!jugador) return;
 
-    dentro.forEach((uno, sitio) => {
-      titulares.push(uno.jugador.clave);
-
-      campo[uno.jugador.clave] = {
-        x: (sitio + 1) / (dentro.length + 1),
-        y: hueco.y,
-      };
+      titulares.push(jugador.clave);
+      campo[jugador.clave] = { x: bloque.anchorX, y: bloque.anchorY };
+      puestos[jugador.clave] = bloque.key;
     });
-  });
 
   if (titulares.length === 0) return null;
 
   return {
     titulares,
     campo,
-    estructura,
+    puestos,
+    dibujo,
+    estructura: `1-${dibujo}`,
     alineaciones: alineaciones.length,
     conAmistosos,
     sinFicha,

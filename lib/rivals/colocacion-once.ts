@@ -23,7 +23,7 @@
  * (quién cae en qué bloque) con las mismas piezas del motor, sin geometría.
  */
 
-import { ANCLAS_SLOT, dibujoDeCampo, reparteEnOnce, type BloqueOnce } from "@/lib/rivals/campograma-motor";
+import { ANCLAS_SLOT, asignaTitulares, dibujoDeCampo, reparteEnOnce, type BloqueOnce } from "@/lib/rivals/campograma-motor";
 import { LINE_DEFINITIONS } from "@/lib/rivals/lineas-puesto";
 
 const normaliza = (v: unknown) =>
@@ -87,6 +87,8 @@ export function colocacionDelOnce(
     dibujo?: string | null;
     sitios?: Map<string, { slot: string; lado: -1 | 0 | 1 }>;
     puestos?: Record<string, string>;
+    /** Los titulares del once probable: uno por hueco del dibujo (`asignaTitulares`), como el campograma. */
+    titulares?: string[];
   } = {},
 ): Map<string, BloqueOnce> {
   const bloques = dibujoDeCampo(opciones.dibujo ?? undefined);
@@ -103,7 +105,19 @@ export function colocacionDelOnce(
     return { slot, lado: ANCLAS_SLOT[slot]?.xSide ? ladoDeLaHoja(jugador.posicion) : 0 };
   };
 
-  const porBloque = reparteEnOnce(jugadores, lee, bloques, (jugador) => puestos[jugador.clave]);
+  const deTitulares = new Set(opciones.titulares ?? []);
+  const asignados = new Map<string, string>();
+
+  if (deTitulares.size > 0) {
+    asignaTitulares(
+      jugadores.filter((jugador) => deTitulares.has(jugador.clave)),
+      lee,
+      bloques,
+      { fijado: (jugador) => puestos[jugador.clave] },
+    ).forEach((bloque, jugador) => asignados.set(jugador.clave, bloque));
+  }
+
+  const porBloque = reparteEnOnce(jugadores, lee, bloques, (jugador) => puestos[jugador.clave] ?? asignados.get(jugador.clave));
   const salida = new Map<string, BloqueOnce>();
 
   for (const [clave, gente] of porBloque) {

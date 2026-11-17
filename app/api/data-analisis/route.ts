@@ -459,6 +459,39 @@ function perfilesDe(datos: Dataset, equipo: string) {
     aspectos: destacados.equipo,
     /* La base de las cifras de /rivals: «7,1 por partido · 10 partidos de Wyscout» (11/11/2026). */
     partidos: destacados.partidos,
+    /* Con qué sistema sale, partido a partido (17/11/2026): el once probable de /rivals se dibuja con el más usado. */
+    sistemas: sistemasDeLaTemporada(datos, equipo),
+  };
+}
+
+/**
+ * El sistema principal de cada partido suyo de esta temporada y su liga, según
+ * Wyscout («4-3-3 (70.4%)»; si trae dos, el de más tiempo), contados de más a
+ * menos: «4-3-3 en 7 de 12».
+ */
+function sistemasDeLaTemporada(datos: Dataset, equipo: string) {
+  const temporadas = [...new Set(datos.partidos.map((p) => temporadaDe(p.fecha)))].filter(Boolean).sort();
+  const actual = temporadas[temporadas.length - 1] ?? "";
+  const suyos = ligaDeSuCompeticion(
+    datos.partidos.filter((p) => temporadaDe(p.fecha) === actual),
+    equipo,
+  ).filter((p) => mismoEquipo(p.equipo, equipo));
+
+  const cuenta = new Map<string, number>();
+
+  for (const p of suyos) {
+    const trozos = [...(p.esquema || "").matchAll(/(\d(?:-\d)+)\s*\(([\d.,]+)\s*%?\)/g)].map((m) => ({
+      sistema: m[1],
+      tiempo: Number(m[2].replace(",", ".")) || 0,
+    }));
+    const principal = trozos.sort((a, b) => b.tiempo - a.tiempo)[0]?.sistema || /\d(?:-\d)+/.exec(p.esquema || "")?.[0] || "";
+
+    if (principal) cuenta.set(principal, (cuenta.get(principal) ?? 0) + 1);
+  }
+
+  return {
+    partidos: suyos.length,
+    lista: [...cuenta.entries()].map(([sistema, veces]) => ({ sistema, veces })).sort((a, b) => b.veces - a.veces),
   };
 }
 
