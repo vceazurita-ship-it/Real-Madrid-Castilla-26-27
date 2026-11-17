@@ -848,7 +848,7 @@ function limpiaRegistros() {
   try {
     const viejos = fs
       .readdirSync(REGISTRO)
-      .filter((f) => /^(quiniela|wyscout|calendario|rivales|carpeta|partido|pendientes|entreno|videojug|agentes|opta|x|x-idea|datos)-\d+\.log$/.test(f))
+      .filter((f) => /^(quiniela|wyscout|calendario|rivales|carpeta|partido|pendientes|entreno|videojug|agentes|opta|x|x-idea|hudl-clips|datos)-\d+\.log$/.test(f))
       .sort()
       .reverse()
       .slice(40);
@@ -1173,6 +1173,24 @@ async function haceXIdea() {
     await marca("x-idea", { pedidoEn: new Date(Date.now() + 1000).toISOString(), pedidoPor: "el ordenador del club: la siguiente idea en cola" });
     apunta(`Idea de X: quedan ${quedan} en cola; se pide la siguiente.`);
   }
+}
+
+/*
+| CLIPS DE HUDL DE LOS RIVALES (17/11/2026). «Pedir a Hudl» en Scout
+| individual o en Plantillas rivales: hudl-clips-rival.mjs baja a B2 lo nuevo
+| de las listas «RIVAL - JUGADOR» de la biblioteca. Usa el Chrome del Wyscout
+| (por turnos: lo espera solo). Códigos: 0 bien, 8 el Chrome ocupado o Hudl
+| sin sesión (no es un fallo: sigue en la próxima pasada), 1 fallo.
+*/
+async function haceHudlClips() {
+  await empieza("hudl-clips");
+
+  apunta("Clips de Hudl: mirando las listas de los rivales…");
+  const { codigo, texto } = await ejecuta("hudl-clips", process.execPath, [path.join(RAIZ, "scripts/hudl-clips-rival.mjs")], sigue("hudl-clips"));
+  const dice = resumen(texto) || (codigo === 0 ? "hecho" : `ha fallado (código ${codigo})`);
+
+  await acaba("hudl-clips", codigo === 0, dice);
+  apunta(`Clips de Hudl: ${dice}.`);
 }
 
 /**
@@ -1573,7 +1591,13 @@ async function ronda() {
     opta: estadoEncargo("opta", encargos.opta),
     x: estadoEncargo("x", encargos.x),
     "x-idea": estadoEncargo("x-idea", encargos["x-idea"]),
+    "hudl-clips": estadoEncargo("hudl-clips", encargos["hudl-clips"]),
   };
+
+  /* Clips de Hudl (17/11/2026): el Chrome del Wyscout; no a la vez que Wyscout ni que el partido. */
+  if (estados["hudl-clips"] === "pedido" && !enMarcha.has("hudl-clips") && !enMarcha.has("wyscout") && !enMarcha.has("partido")) {
+    arranca("hudl-clips", haceHudlClips);
+  }
 
   /* Ideas desde X (12/11/2026): su propio Chrome, así que no espera a nadie. */
   if (estados.x === "pedido" && !enMarcha.has("x")) {

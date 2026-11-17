@@ -51,7 +51,9 @@ export type SesionYoutube = {
    ideas para la app (scripts/x-ideas.mjs). `x-idea`: «Añadir» o «Deshacer»
    una de esas ideas (scripts/x-idea-aplica.mjs); la cola va en `x:ideas`
    (lib/x-ideas.ts), una idea por pasada. */
-export const TAREAS = ["quiniela", "rivales", "wyscout", "carpeta", "partido", "entreno", "opta", "x", "x-idea"] as const;
+/* `hudl-clips` (17/11/2026): bajar a B2 los clips de las listas «RIVAL - JUGADOR»
+   de Hudl (scripts/hudl-clips-rival.mjs, documento hudl:clips-rival). */
+export const TAREAS = ["quiniela", "rivales", "wyscout", "carpeta", "partido", "entreno", "opta", "x", "x-idea", "hudl-clips"] as const;
 
 export type Tarea = (typeof TAREAS)[number];
 
@@ -177,6 +179,8 @@ export const LIMITE_MIN: Record<Tarea, number> = {
   x: 30,
   /* Claude programando la idea, y luego tsc, eslint y `next build`. */
   "x-idea": 3 * 60,
+  /* Unos 10 s por clip (bajar de Hudl, recodificar y subir a B2); cientos la primera vez. */
+  "hudl-clips": 90,
 };
 
 export function esTarea(valor: unknown): valor is Tarea {

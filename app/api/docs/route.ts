@@ -54,7 +54,8 @@ const vetada = (key: string) =>
  * vieja —o una copia de antes de la actualización guardada en el navegador—
  * podría pisar las apuestas de todos con lo que tenía al cargar.
  */
-const SOLO_LECTURA = new Set(["quiniela", "apuestas-staff"]);
+/* `hudl:clips-rival` (17/11/2026) lo escribe sólo scripts/hudl-clips-rival.mjs. */
+const SOLO_LECTURA = new Set(["quiniela", "apuestas-staff", "hudl:clips-rival"]);
 
 export async function GET(request: NextRequest) {
   const key = request.nextUrl.searchParams.get("key") ?? "";

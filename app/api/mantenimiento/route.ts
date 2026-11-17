@@ -72,7 +72,8 @@ export async function POST(request: NextRequest) {
      del rival la pide cualquiera del cuerpo técnico desde ABP/Área del Rival,
      y el análisis de un entrenamiento también desde el 19/10/2026, cuando la
      pantalla salió de obras y se abrió al cuerpo técnico. */
-  if (tarea !== "carpeta" && tarea !== "entreno" && !admin) {
+  /* Los clips de Hudl del rival (17/11/2026) también: «Pedir a Hudl» está en Scout individual y en Plantillas rivales. */
+  if (tarea !== "carpeta" && tarea !== "entreno" && tarea !== "hudl-clips" && !admin) {
     return NextResponse.json(
       { ok: false, error: "Sólo el administrador puede pedir esto. Entra en Ajustes con su usuario." },
       { status: 403 },

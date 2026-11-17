@@ -107,6 +107,14 @@ export const ETAPAS: Record<Tarea, Etapa[]> = {
     { nombre: "Publicar", minutos: 0.5, marca: /^PASO:\s*4\// },
   ],
 
+  /* Las líneas «PASO: n/4» de scripts/hudl-clips-rival.mjs (17/11/2026); la cuenta, «[3/12]». */
+  "hudl-clips": [
+    { nombre: "Abrir Hudl", minutos: 0.5, marca: /^PASO:\s*1\// },
+    { nombre: "Listas de la biblioteca", minutos: 0.5, marca: /^PASO:\s*2\// },
+    { nombre: "Bajar y subir los clips", minutos: 5, marca: /^PASO:\s*3\// },
+    { nombre: "Guardar", minutos: 0.1, marca: /^PASO:\s*4\// },
+  ],
+
   /* Las líneas «PASO: n/5» de scripts/entreno/analiza-entreno.mjs (16/10/2026). */
   entreno: [
     /* 17/10/2026: nada se baja entero; cada parte se pide a Hudl y se borra tras mirarla. */
@@ -153,6 +161,7 @@ const FALLO: Record<Tarea, RegExp> = {
   opta: /caducado|rechaza|no contesta|No encuentro/i,
   x: /^FALLO/,
   "x-idea": /^FALLO/,
+  "hudl-clips": /: FALLO /,
 };
 
 /* ------------------------------------------------------------------ */

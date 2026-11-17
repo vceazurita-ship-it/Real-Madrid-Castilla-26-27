@@ -29,6 +29,7 @@ const NOMBRE: Record<Tarea, string> = {
   opta: "Datos de Opta",
   x: "Ideas desde X",
   "x-idea": "Idea de X en la app",
+  "hudl-clips": "Clips de Hudl de los rivales",
 };
 
 export function AvisoEncargos() {

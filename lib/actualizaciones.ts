@@ -120,6 +120,19 @@ export const ACTUALIZACIONES: Actualizacion[] = [
     enlace: "/analisis-goles",
   },
   {
+    /* 17/11/2026: scripts/hudl-clips-rival.mjs (paso 11 de la jornada nocturna y encargo `hudl-clips`). */
+    clave: "hudl-clips",
+    nombre: "Clips de Hudl de los jugadores rivales",
+    alimenta: "Scout individual, Plantillas rivales y la tira de accesos del rival: «⬇ Descargar sus clips» de cada jugador",
+    fuente: "Hudl (listas «RIVAL - JUGADOR» de la biblioteca del Castilla)",
+    cuando: "Cada noche (con la jornada) y al pulsar «Pedir a Hudl»; primero el próximo rival",
+    grupo: "jornada",
+    cadaHoras: 24,
+    docs: ["hudl:clips-rival"],
+    encargo: "hudl-clips",
+    enlace: "/scout-rival-individual",
+  },
+  {
     clave: "abp-cortes",
     nombre: "Vídeo de cada acción a balón parado",
     alimenta: "Los cortes de ABP ofensivo y defensivo de cada jornada",

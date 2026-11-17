@@ -369,6 +369,20 @@ if errorlevel 1 (
   echo AVISO: el video de las acciones de Opta no ha terminado ^(codigo !errorlevel!^); sigue la noche siguiente >> "%LOG%"
 )
 
+rem --- 11. los clips de Hudl de cada jugador rival (17/11/2026) ---
+rem
+rem  Las listas RIVAL - JUGADOR de la biblioteca de Hudl (cortes de Wyscout
+rem  que el analista lleva a Hudl): baja a 720p lo nuevo y lo sube a B2 (doc
+rem  hudl:clips-rival), primero el proximo rival. Chrome del Wyscout por
+rem  turnos. Sin Chrome libre o sin sesion (codigo 8) sigue la noche
+rem  siguiente; nunca cuenta como fallo de la jornada.
+echo. >> "%LOG%"
+echo --- Clips de Hudl de los rivales --- >> "%LOG%"
+call node scripts\hudl-clips-rival.mjs --max 300 >> "%LOG%" 2>&1
+if errorlevel 1 (
+  echo AVISO: los clips de Hudl de los rivales no han terminado ^(codigo !errorlevel!^); sigue la noche siguiente >> "%LOG%"
+)
+
 echo. >> "%LOG%"
 if defined HUBO_FALLO (
   echo TERMINADO CON FALLOS · %DATE% %TIME% >> "%LOG%"
