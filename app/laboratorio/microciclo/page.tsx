@@ -127,6 +127,7 @@ import { Topbar } from "@/components/ui/topbar";
 import { loadRegistro, type RegistroDataset } from "@/lib/abp/registro";
 import { DiaConectado } from "@/components/sesion-dia/DiaConectado";
 import { EnlacesDelRival } from "@/components/rivals/EnlacesDelRival";
+import { nombreCorto } from "@/lib/abp/informe-graficos";
 import { useDiasConectados } from "@/hooks/useDiasConectados";
 import { aplicaPropuesta, aplicaTodasLasPropuestas, planDeSesionNueva, propuestasDeLaSesion, sesionDeFecha, type Propuesta } from "@/lib/sesion-dia/conexion";
 import {
@@ -183,6 +184,55 @@ const BORRADOR = "rmcf-microciclo-borrador";
  * hoja toda la temporada.
  */
 type DiaVentana = { fecha: string; dia: string; md: string; esPartido: boolean; postPartido: boolean };
+
+/**
+ * La semana propuesta en barras (17/11/2026, r20, jueces): lo primero que se
+ * ve, encima de los interruptores. Cada día de entreno, la carga media de su
+ * MD en la temporada (UA = minutos × intensidad); el libre, vacío; el partido,
+ * en oro sin barra. El titular dice el día que más carga.
+ */
+function BarrasSemana({
+  dias,
+  cargaMd,
+  libres,
+}: {
+  dias: { fecha: string; md: string; esPartido: boolean }[];
+  cargaMd?: Map<string, { ua: number; n: number }> | null;
+  libres: Set<string>;
+}) {
+  if (!cargaMd || !dias.length) return null;
+
+  const filas = dias.map((d) => {
+    const c = !d.esPartido ? cargaMd.get(normalizaMd(d.md)) : undefined;
+
+    return { ...d, libre: libres.has(d.fecha), ua: c && !libres.has(d.fecha) ? c.ua : 0, n: c?.n ?? 0 };
+  });
+  const max = Math.max(1, ...filas.map((f) => f.ua));
+  const pico = [...filas].sort((a, b) => b.ua - a.ua)[0];
+
+  if (!pico || pico.ua <= 0) return null;
+
+  return (
+    <figure className="mb-3 rounded-xl border border-white/10 bg-white/[0.02] p-3" aria-label="Carga de la semana propuesta">
+      <figcaption className="text-[13px] font-semibold text-white">
+        Más carga el {etiquetaDia(pico.fecha).split(" ")[0]} ({pico.md}): ≈ {pico.ua} UA
+        <span className="ml-1 font-normal text-white/55">· media de {pico.n} {pico.md} de la temporada</span>
+      </figcaption>
+      <ul className="mt-2 flex h-28 items-end gap-1.5">
+        {filas.map((f) => (
+          <li key={f.fecha} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1" title={f.esPartido ? "Partido" : f.libre ? `${f.md}: libre` : `${f.md}: ≈ ${f.ua} UA (media de ${f.n} días)`}>
+            {f.ua > 0 ? <span className="text-[10px] tabular-nums text-white/60">{f.ua}</span> : null}
+            <span
+              className={`block w-full max-w-[40px] rounded-t-md ${f.esPartido ? "bg-[#C8A96B]" : "bg-emerald-400/70"}`}
+              style={{ height: f.esPartido ? "100%" : `${(100 * f.ua) / max}%`, opacity: f.esPartido ? 0.35 : 1 }}
+            />
+            <span className="text-[10px] font-semibold text-white/70">{f.esPartido ? "MD" : f.libre ? "libre" : f.md}</span>
+          </li>
+        ))}
+      </ul>
+    </figure>
+  );
+}
 
 /** Los días que abarca el microciclo, con su MD, sin tareas todavía. */
 function diasDeVentana(proximo: PartidoNuestro, anterior: PartidoNuestro | null): DiaVentana[] {
@@ -364,7 +414,10 @@ function TiraDias({
                 <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
                   <div className="h-full rounded-full bg-[#C8A96B]" style={{ width: `${(100 * carga.ua) / maxCarga}%` }} />
                 </div>
-                <p className="mt-0.5 text-[11px] tabular-nums text-white/55">≈ {carga.ua} UA</p>
+                {/* 17/11/2026 (r20, jueces): contra qué se compara, en la propia tarjeta. */}
+                <p className="mt-0.5 text-[11px] tabular-nums text-white/55">
+                  ≈ {carga.ua} UA <span className="text-white/45">· media de {carga.n} {uno.md}</span>
+                </p>
               </div>
             ) : null}
 
@@ -760,7 +813,15 @@ const filasDeCuenta = (todas: RegistroTarea[], temporada?: string): FilaCuenta[]
 const SIGLAS = new Set(["CF", "FC", "UD", "SD", "CD", "AD", "UE", "RCD", "CE", "CP", "UB", "UCAM", "RMCF", "B", "C", "II"]);
 const MINUSCULAS = new Set(["de", "del", "la", "las", "los", "el", "y"]);
 
+/* 17/11/2026 (r20, jueces): el nombre corto de los calendarios y Microciclos
+   («Nàstic», no «Gimnàstic Tarragona»), de la misma tabla (lib/abp/informe-graficos). */
 function rivalLegible(rival: string) {
+  const largo = rivalLargo(rival);
+
+  return largo ? nombreCorto(largo) : largo;
+}
+
+function rivalLargo(rival: string) {
   const limpio = rivalDelMicro(rival).trim();
 
   if (!limpio || limpio !== limpio.toUpperCase()) return limpio;
@@ -1487,8 +1548,28 @@ export default function EditorMicrocicloPage() {
     [registro],
   );
 
-  /** El último con tareas: del que se parte por defecto al crear. */
-  const ultimoConTareas = microsDeLaHoja.find((uno) => uno.tareas > 0)?.micro ?? null;
+  /*
+  | El último CERRADO con tareas: del que se parte por defecto al crear
+  | (17/11/2026, r20, jueces). El micro en curso tiene la valoración a medias
+  | (4 de 15) y tareas que aún no se han hecho; se queda como opción.
+  */
+  const ultimoConTareas = useMemo(() => {
+    const conTareas = microsDeLaHoja.filter((uno) => uno.tareas > 0);
+    const ultimaFecha = (micro: number) =>
+      (registro?.tareas ?? [])
+        .filter((t) => t.micro === micro)
+        .map((t) => fechaIsoDeHoja(t.fecha))
+        .filter(Boolean)
+        .sort()
+        .pop() ?? "";
+    const cerrado = hoy ? conTareas.find((uno) => {
+      const f = ultimaFecha(uno.micro);
+
+      return f && f < hoy;
+    }) : undefined;
+
+    return (cerrado ?? conTareas[0])?.micro ?? null;
+  }, [microsDeLaHoja, registro, hoy]);
 
   /* El micro del que se parte al crear, y si tiene minutos que copiar (11/11/2026). */
   const microOrigen = partirDe === "ultimo" ? ultimoConTareas : partirDe ? Number(partirDe) : null;
@@ -2794,7 +2875,7 @@ export default function EditorMicrocicloPage() {
                       {anterior?.rival ? ` · ${rivalLegible(anterior.rival)}` : ""} →
                     </Link>
                   ) : null}
-                  <Link href="/calendar_general" className="font-semibold text-white/70 underline-offset-4 hover:text-white hover:underline">
+                  <Link href="/calendar_general" className="inline-flex min-h-9 items-center rounded-lg border border-white/20 px-3 py-1 font-semibold text-white/80 transition hover:border-[#C8A96B]/60 hover:text-white">
                     Calendario operativo →
                   </Link>
                 </nav>
@@ -2802,6 +2883,8 @@ export default function EditorMicrocicloPage() {
                 <p className="mb-2 text-[13px] text-white/55">
                   {propuestaDias ?? "Propuesta: libre el MD+1 (el día después del partido); el resto, entreno. Un día libre no escribe fila."}
                 </p>
+
+                <BarrasSemana dias={diasPlan} cargaMd={cargaMd} libres={libresMarcados} />
 
                 {cargaSemana ? (
                   <p className="mb-2 text-[13px] text-white/75">
@@ -2903,7 +2986,7 @@ export default function EditorMicrocicloPage() {
                       type="button"
                       onClick={() => setLibresPlan(null)}
                       title="Vuelve a la propuesta de días"
-                      className="min-h-9 font-semibold text-white/70 underline decoration-white/30 underline-offset-4 hover:text-white"
+                      className="inline-flex min-h-9 items-center rounded-lg border border-white/20 px-3 py-1 font-semibold text-white/80 transition hover:border-[#C8A96B]/60 hover:text-white"
                     >
                       Volver a la propuesta
                     </button>
@@ -2911,7 +2994,7 @@ export default function EditorMicrocicloPage() {
                       type="button"
                       onClick={() => setLibresPlan([])}
                       title="Todos los días con sesión"
-                      className="min-h-9 font-semibold text-white/70 underline decoration-white/30 underline-offset-4 hover:text-white"
+                      className="inline-flex min-h-9 items-center rounded-lg border border-white/20 px-3 py-1 font-semibold text-white/80 transition hover:border-[#C8A96B]/60 hover:text-white"
                     >
                       Todos los días de entreno
                     </button>
@@ -3558,6 +3641,27 @@ export default function EditorMicrocicloPage() {
                 )}
 
                 {/* --------------------- ESCRIBIR --------------------- */}
+
+                {/* 17/11/2026 (r20, jueces): en el paso 3, también lo de los jugadores, con el primer día de entreno ya elegido. */}
+                {(() => {
+                  const primero = micro.sesiones.find((s) => s.fecha && !s.tareas.some((t) => /-COMP$/i.test(t.tarea)) && (!hoy || s.fecha >= hoy))
+                    ?? micro.sesiones.find((s) => s.fecha);
+                  const BOTON = "inline-flex min-h-9 items-center rounded-lg border border-white/20 px-3 py-1 text-[13px] font-semibold text-white/80 transition hover:border-[#C8A96B]/60 hover:text-white";
+
+                  return (
+                    <nav aria-label="Los jugadores de esta semana" className="flex flex-wrap items-center gap-2">
+                      <span className="text-[12px] font-semibold uppercase tracking-[0.14em] text-white/55">Jugadores</span>
+                      {primero?.fecha ? (
+                        <Link href={`/jugadores-sesion?fecha=${primero.fecha}`} className={BOTON}>
+                          Jugadores sesión · {etiquetaDia(primero.fecha)} →
+                        </Link>
+                      ) : null}
+                      <Link href="/individual_proc" className={BOTON}>
+                        Seguimiento →
+                      </Link>
+                    </nav>
+                  );
+                })()}
 
                 <div id="escribir-en-la-hoja" className="scroll-mt-24" />
 
