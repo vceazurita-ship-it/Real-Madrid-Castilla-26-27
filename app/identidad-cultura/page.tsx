@@ -61,35 +61,35 @@ export default function IdentidadCulturaPage() {
               lead="Cinco valores que eligió el vestuario, cada uno con lo que lo destruye y las conductas por las que se reconoce, dentro y fuera del campo."
             />
 
-            {/* 16/11/2026: qué hacer con él, en una línea, y a qué etapa de la
-                hoja de ruta pertenece. */}
-            <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 py-1 font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)]">
-                <Presentation className="h-4 w-4" aria-hidden />
-                Proyéctalo en la charla y cuélgalo en el vestuario
-              </span>
-              <Link
-                href="/team-values"
-                className="inline-flex items-center gap-1 rounded-full border border-white/15 px-3 py-1 text-gray-200 transition-colors hover:border-[#C8A96B]/60 hover:text-white"
-              >
-                <Route className="h-4 w-4" aria-hidden />
-                Hoja de ruta de la cultura →
-              </Link>
-              <Link
-                href="/individual_proc"
-                className="inline-flex items-center gap-1 rounded-full border border-white/15 px-3 py-1 text-gray-200 transition-colors hover:border-[#C8A96B]/60 hover:text-white"
-              >
-                <ClipboardList className="h-4 w-4" aria-hidden />
-                Seguimiento de las conductas →
-              </Link>
-            </div>
-
-            {/* 16/11/2026: primero las descargas, luego el índice de los cinco
-                valores (cada uno abre sus conductas en la vista previa) y la
+            {/* 17/11/2026 (marketing): una sola barra de acciones (descargas, la
+                charla, la hoja de ruta y el seguimiento) sin la tarjeta del
+                documento aparte; luego el índice de los cinco valores y la
                 vista previa. Es el único recuento completo de la app. */}
-            <div className="mt-6 pr-10 sm:pr-0">
+            <div className="mt-5 pr-10 sm:pr-0">
               <RepositorioCultura
                 enlazaUrl
+                barra={
+                  <>
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 py-1 text-sm font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)]">
+                      <Presentation className="h-4 w-4" aria-hidden />
+                      Proyéctalo en la charla
+                    </span>
+                    <Link
+                      href="/team-values"
+                      className="inline-flex items-center gap-1 rounded-full border border-white/15 px-3 py-1 text-sm text-gray-200 transition-colors hover:border-[#C8A96B]/60 hover:text-white"
+                    >
+                      <Route className="h-4 w-4" aria-hidden />
+                      Hoja de ruta →
+                    </Link>
+                    <Link
+                      href="/individual_proc"
+                      className="inline-flex items-center gap-1 rounded-full border border-white/15 px-3 py-1 text-sm text-gray-200 transition-colors hover:border-[#C8A96B]/60 hover:text-white"
+                    >
+                      <ClipboardList className="h-4 w-4" aria-hidden />
+                      Seguimiento →
+                    </Link>
+                  </>
+                }
                 antesDeLaVista={<ValoresIndice />}
               />
             </div>

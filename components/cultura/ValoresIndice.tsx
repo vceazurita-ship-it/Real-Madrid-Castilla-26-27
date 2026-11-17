@@ -144,11 +144,19 @@ export function ValoresIndice() {
                   </span>
                 </span>
                 {/* «Aparte» dicho entero: no suma al valor (17/11/2026, marketing). */}
-                {afin && <span className="mt-1 text-[12px] text-gray-400">{afin}, aparte: no suma a los {n}</span>}
+                {/* 17/11/2026 (marketing): por qué va aparte. */}
+                {afin && (
+                  <span className="mt-1 text-[12px] leading-snug text-gray-400">
+                    {afin}: votos con otra palabra parecida; se enseñan aparte y no suman a los {n}
+                  </span>
+                )}
 
                 {(anti.conVotos.length > 0 || anti.tambien.length > 0) && (
                   <span className="mt-3 block text-[12px] font-semibold uppercase tracking-[0.12em] text-red-400">
-                    {anti.conVotos.length > 0 ? "Lo destruye · votos" : "Lo destruye"}
+                    {/* 17/11/2026 (marketing): con su base en el título de la tarjeta. */}
+                    {anti.conVotos.length > 0
+                      ? `Lo destruye · ${anti.conVotos.reduce((t, a) => t + a.votos, 0)} de ${TOTAL_VOTOS_ANTIVALORES} votos`
+                      : "Lo destruye"}
                   </span>
                 )}
                 <span className="mt-1 space-y-1.5">
@@ -248,7 +256,7 @@ export function EnlacesValores() {
  * debajo la fila de acciones (seguimiento, conductas, documento) que antes
  * vivía escondida dentro de una tarjeta del método.
  */
-export function VotosValores() {
+export function VotosValores({ compacto = false }: { compacto?: boolean } = {}) {
   if (!VALORES_INDICE.length) return null;
 
   const orden = [...VALORES_INDICE].sort((a, b) => votosDe(b) - votosDe(a));
@@ -260,9 +268,36 @@ export function VotosValores() {
         {primero.titulo} encabeza la votación: {votosDe(primero)} de {TOTAL_VOTOS_VALORES} votos
       </h2>
       <p className="mt-1 text-[13px] text-gray-400">
-        Votos de la plantilla a cada valor; pulsa uno para ver sus conductas. Los antivalores ({TOTAL_VOTOS_ANTIVALORES} votos) se cuentan aparte.
+        {compacto ? (
+          <>
+            Votos de la plantilla; pulsa un valor para ver sus conductas.{" "}
+            <Link href="/identidad-cultura#indice-valores" className="font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)] hover:underline">
+              Recuento con los antivalores →
+            </Link>
+          </>
+        ) : (
+          <>Votos de la plantilla a cada valor; pulsa uno para ver sus conductas. Los antivalores ({TOTAL_VOTOS_ANTIVALORES} votos) se cuentan aparte.</>
+        )}
       </p>
 
+      {/* 17/11/2026 (marketing): en /team-values, chips con su base en vez de
+          repetir las barras de /identidad-cultura. */}
+      {compacto ? (
+        <ul className="mt-3 flex flex-wrap gap-2">
+          {orden.map((v) => (
+            <li key={v.numero}>
+              <Link
+                href={hrefConductas(v)}
+                title={`Conductas de ${v.titulo}`}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm text-gray-200 transition-colors hover:border-[#C8A96B]/60 hover:text-white ${v === primero ? "border-[#C8A96B]/60 bg-[#C8A96B]/10 font-semibold" : "border-white/15"}`}
+              >
+                {v.titulo}
+                <span className="whitespace-nowrap tabular-nums text-gray-400">· {votosDe(v)} de {TOTAL_VOTOS_VALORES}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      ) : (
       <ol className="mt-3 space-y-2">
         {orden.map((v) => {
           const n = votosDe(v);
@@ -293,6 +328,7 @@ export function VotosValores() {
           );
         })}
       </ol>
+      )}
 
       <div className="mt-4 flex flex-wrap gap-2">
         <Link

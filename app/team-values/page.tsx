@@ -74,7 +74,17 @@ function fechaIso(texto: string, anio: number): string {
 | 17/11/2026 (fútbol): en el Marco, las seis ideas del método van plegadas
 | bajo «El método»; lo primero es la votación. En las demás etapas, abiertas.
 */
-function Plegable({ plegado, n, children }: { plegado: boolean; n: number; children: ReactNode }) {
+function Plegable({
+  plegado,
+  n,
+  titulos,
+  children,
+}: {
+  plegado: boolean;
+  n: number;
+  titulos: string[];
+  children: ReactNode;
+}) {
   if (!plegado) return <>{children}</>;
 
   return (
@@ -88,6 +98,15 @@ function Plegable({ plegado, n, children }: { plegado: boolean; n: number; child
           <span className="hidden group-open:inline">Ocultar</span>
         </span>
       </summary>
+      {/* 17/11/2026 (marketing): las ideas a la vista sin abrir; el texto, al desplegar. */}
+      <ol className="flex flex-wrap gap-1.5 pb-2 group-open:hidden">
+        {titulos.map((t, i) => (
+          <li key={`${t}-${i}`} className="rounded-full border border-white/10 px-2.5 py-0.5 text-[13px] text-gray-300">
+            <span className="mr-1 font-bold tabular-nums text-[color:var(--rmcf-gold-ink,#C8A96B)]">{i + 1}</span>
+            {t}
+          </li>
+        ))}
+      </ol>
       <div className="pb-2 pt-2">{children}</div>
     </details>
   );
@@ -154,8 +173,13 @@ function rotuloSeccion(s: string): string {
 /** Títulos de la hoja que van mejor dichos de otra forma. */
 const TITULOS: Record<string, string> = {
   "rol del staff": "Papel del cuerpo técnico",
-  "enfoque elite": "Enfoque de élite",
-  "enfoque élite": "Enfoque de élite",
+  /* 17/11/2026 (fútbol): sin rótulos de analista. */
+  "enfoque elite": "Cómo trabaja un profesional",
+  "enfoque élite": "Cómo trabaja un profesional",
+  "mecanica inversa": "Empezar por lo que no queremos",
+  "mecánica inversa": "Empezar por lo que no queremos",
+  autogestion: "El vestuario se organiza solo",
+  "autogestión": "El vestuario se organiza solo",
 };
 
 /** «Quién Queremos Ser» → «Quién queremos ser»; «Rol del Staff» → «Papel del cuerpo técnico». Sólo para pintar. */
@@ -570,8 +594,56 @@ export default function TeamValuesPage() {
   const votacion =
     !editing ? (
       <div className="mt-6 rounded-2xl border border-[#C8A96B]/40 bg-[#C8A96B]/[0.07] p-4 sm:p-5">
-        {etapaIndex === 0 ? <VotosValores /> : <EnlacesValores />}
+        {etapaIndex === 0 ? <VotosValores compacto /> : <EnlacesValores />}
       </div>
+    ) : null;
+
+  /*
+  | 17/11/2026 (marketing): en el Marco, el avance de la hoja de ruta antes que
+  | los votos: cada etapa con lo que se espera de ella, su fecha si la hoja la
+  | trae y a un toque. El recuento completo vive en /identidad-cultura.
+  */
+  const hojaDeRuta =
+    !editing && etapaIndex === 0 && secciones.length > 1 ? (
+      <section aria-labelledby="avance-hoja-ruta" className="mt-6">
+        <h2 id="avance-hoja-ruta" className="text-lg font-semibold leading-snug text-white sm:text-xl">
+          {etapaHoy
+            ? `La plantilla está en ${rotuloSeccion(etapaHoy)}: etapa ${secciones.indexOf(etapaHoy) + 1} de ${secciones.length}`
+            : `Lo que trae cada una de las ${secciones.length - 1} etapas con el vestuario`}
+        </h2>
+        <ol className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          {secciones.slice(1).map((s, i) => {
+            const fecha = data.filter((r) => r.SECCION === s).map((r) => limpio(r.FECHA)).find(Boolean);
+            const n = data.filter((r) => r.SECCION === s).length;
+            const hoy = s === etapaHoy;
+
+            return (
+              <li key={s}>
+                <button
+                  type="button"
+                  onClick={() => irASeccion(s)}
+                  className={cn(
+                    "flex h-full w-full flex-col gap-1 rounded-xl border p-3 text-left transition-colors hover:bg-white/[0.05]",
+                    focusRing,
+                    hoy ? "border-sky-500/50 bg-sky-500/[0.06]" : "border-white/10 bg-white/[0.02]",
+                  )}
+                >
+                  <span className="flex flex-wrap items-baseline gap-x-2 text-sm font-semibold text-white">
+                    <span className="tabular-nums text-[color:var(--rmcf-gold-ink,#C8A96B)]">{i + 2}</span>
+                    {rotuloSeccion(s)}
+                    {fecha && <span className="text-[12px] font-normal text-gray-400">{fecha}</span>}
+                    {hoy && <span className="text-[12px] font-semibold text-sky-300">hoy</span>}
+                  </span>
+                  <span className="text-[13px] leading-snug text-gray-300">{TITULARES[s.toUpperCase()] ?? DESCRIPCIONES[s.toUpperCase()] ?? DESCRIPCION_POR_DEFECTO}</span>
+                  <span className="mt-auto text-[12px] text-gray-400">
+                    {n} contenido{n === 1 ? "" : "s"} →
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+      </section>
     ) : null;
 
   const metodoPlegado = etapaIndex === 0 && !editing && !filtrando;
@@ -761,6 +833,7 @@ export default function TeamValuesPage() {
               </ol>
             )}
 
+            {hojaDeRuta}
             {etapaIndex === 0 && votacion}
 
             {/* Filtros por tipo */}
@@ -859,7 +932,7 @@ export default function TeamValuesPage() {
                     </p>
                   )}
 
-                  <Plegable plegado={metodoPlegado} n={contenidos.length}>
+                  <Plegable plegado={metodoPlegado} n={contenidos.length} titulos={contenidos.map((c) => tituloElemento(c.TITULO))}>
                   <ul className={cn("grid gap-3", !editing && "lg:grid-cols-2")}>
                     {contenidos.map((p) => (
                       <li

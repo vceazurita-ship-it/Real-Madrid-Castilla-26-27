@@ -150,15 +150,47 @@ export function ExportaCultura({
   subtitulo,
   accion,
   children,
+  barra,
 }: {
   documento: DocumentoCultura;
   titulo?: string;
   subtitulo?: string;
   accion?: React.ReactNode;
   children?: React.ReactNode;
+  /**
+   * 17/11/2026 (marketing): con `barra`, una sola fila de acciones (descargas
+   * y lo que se pase) sin tarjeta aparte, para que la vista previa empiece antes.
+   */
+  barra?: React.ReactNode;
 }) {
   const enPdf = useEnMarcha(tituloDescarga("pdf", documento));
   const enPptx = useEnMarcha(tituloDescarga("pptx", documento));
+
+  if (barra !== undefined) {
+    return (
+      <div className="flex flex-wrap items-center gap-2" role="toolbar" aria-label="Acciones del documento">
+        <Button
+          tone="primary"
+          icon={FileText}
+          onClick={() => encargaCultura(documento, "pdf")}
+          disabled={enPdf}
+          title="Una diapositiva por hoja A4 apaisada, con pie numerado"
+        >
+          {enPdf ? "Preparando el PDF…" : "Descargar en PDF"}
+        </Button>
+        <Button
+          icon={MonitorPlay}
+          onClick={() => encargaCultura(documento, "pptx")}
+          disabled={enPptx}
+          title="Cada diapositiva como imagen a tamaño de proyección; se abre en cualquier portátil, aunque no tenga la tipografía del club"
+        >
+          {enPptx ? "Preparando el PowerPoint…" : "Descargar en PowerPoint"}
+        </Button>
+        {barra}
+        {accion}
+      </div>
+    );
+  }
 
   return (
     <Panel
