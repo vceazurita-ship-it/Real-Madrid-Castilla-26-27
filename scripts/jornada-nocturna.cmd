@@ -355,6 +355,20 @@ if errorlevel 1 (
   echo AVISO: el video de los goles de Opta no ha terminado ^(codigo !errorlevel!^); sigue la noche siguiente >> "%LOG%"
 )
 
+rem --- 10. el video de cada accion de nuestros partidos, de Opta (17/11/2026) ---
+rem
+rem  ABP, banda, robos, perdidas y faltas: baja de ProVision el corte de cada
+rem  accion del Castilla (primero el ultimo partido, luego hacia atras) y lo
+rem  sube a B2 (doc opta:acciones-video). Con tope de gigas para no llenar el
+rem  bucket. Sin el Chrome o sin sesion (codigo 8) sigue la noche siguiente;
+rem  nunca cuenta como fallo de la jornada.
+echo. >> "%LOG%"
+echo --- Video de las acciones desde Opta --- >> "%LOG%"
+call node scripts\opta-acciones-video.mjs --max 250 >> "%LOG%" 2>&1
+if errorlevel 1 (
+  echo AVISO: el video de las acciones de Opta no ha terminado ^(codigo !errorlevel!^); sigue la noche siguiente >> "%LOG%"
+)
+
 echo. >> "%LOG%"
 if defined HUBO_FALLO (
   echo TERMINADO CON FALLOS · %DATE% %TIME% >> "%LOG%"
