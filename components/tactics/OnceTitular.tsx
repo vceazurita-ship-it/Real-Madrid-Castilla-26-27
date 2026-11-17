@@ -28,7 +28,7 @@ import { toast } from "sonner";
 import { HUECOS } from "@/lib/data-analisis/once";
 import type { BajasPartido as Bajas } from "@/hooks/useBajasPartido";
 import { disponible, estadoEnPalabras, type ConBaja } from "@/lib/tactics/disponibilidad";
-import { aplicaOnce, clave, huecosDelTablero, intercambia, nombreDeFicha, ordenaParaCambio, ponEnFicha, puestoDeFicha, type HuecoDelTablero } from "@/lib/tactics/editaOnce";
+import { aplicaOnce, clave, huecosDelTablero, intercambia, nombreCortoUnico, nombreDeFicha, ordenaParaCambio, ponEnFicha, puestoDeFicha, type HuecoDelTablero } from "@/lib/tactics/editaOnce";
 import type { Elegido } from "@/lib/tactics/propuestaOnce";
 import type { TacticsDoc } from "@/lib/tactics/types";
 import { cn } from "@/lib/utils";
@@ -388,7 +388,8 @@ export default function OnceTitular({
               const encaja = puestoDelElegido !== null && h?.hueco.puesto === puestoDelElegido;
               const rotulo = HUECOS.find((x) => x.clave === k)?.rotulo ?? k;
               /* El nombre corto de la plantilla, el mismo de Duelos y del Plan (16/11/2026): no el guardado el día del relleno. */
-              const nombre = (jugador ? jugador.apodo || jugador.nombre : token?.nombre)?.trim();
+              /* Con la regla de Duelos (17/11/2026): el apodo si es único en la plantilla; si no, el apellido. */
+              const nombre = (jugador ? nombreCortoUnico(jugador, roster) : token?.nombre)?.trim();
 
               return (
                 <button

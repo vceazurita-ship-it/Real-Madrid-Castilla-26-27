@@ -35,6 +35,8 @@ export const clave = (nombre?: string) =>
 
 export const nombreDeFicha = (p: Pick<Player, "nombre" | "apodo">) => p.apodo || p.nombre;
 
+export { nombreCortoUnico } from "./nombreCorto";
+
 /** Lo que la ficha copia del jugador. */
 const datosDe = (p: Player, label: string) => ({
   label: p.dorsal ? String(p.dorsal) : label,

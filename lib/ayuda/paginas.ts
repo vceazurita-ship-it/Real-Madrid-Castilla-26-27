@@ -1367,13 +1367,14 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Pizarra Táctica",
     resumen: "Dibujar una idea con fichas, flechas y escenas, presentarla moviéndose y montar el once de la semana, que usa toda la app.",
     origen: "Las fichas propias salen de la plantilla (con su nombre corto, el mismo de Duelos y del Plan) y las rivales de Plantillas rivales, con sus tildes. El tablero «Once 4-2-3-1» se rellena solo cada semana con nuestro último once (Valoraciones) y el teórico del rival (Duelos → Plantillas → BeSoccer). Pizarras, bajas y once se guardan en Supabase.",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "El once de la semana",
         filas: [
           { que: "Onces de la semana", es: "Tres renglones: nuestro once y su fuente, el suyo con su etiqueta (probable, su último once o por minutos) y cómo se cambia un jugador. El tablero «Once 4-2-3-1»: el Castilla ataca hacia la derecha y el rival hacia la izquierda; dentro de la semana no se toca solo" },
-          { que: "Rellenar otra vez · Deshacer", es: "El botón principal: vuelve a poner los dos onces, con un aviso antes si el tablero se ha tocado; «Deshacer», en «Más», lo deja como estaba" },
+          { que: "Rellenar otra vez · Deshacer", es: "El botón principal: vuelve a poner los dos onces, con un aviso antes si el tablero se ha tocado; «Deshacer», en «Más», lo deja como estaba. Desde el 17/11/2026 precarga los puntos de «Cómo le ganamos» del Plan de partido: la escena 1 lleva en «Qué se cuenta» el duelo que decide (con su cifra de Duelos) y cada punto más (lo suyo que hay que parar, el segundo duelo) es otra escena con los mismos onces, lista para dibujar. Esas escenas sin dibujar no cuentan como tablero tocado" },
+          { que: "Su ficha (al elegir una ficha)", es: "En la barra de la ficha elegida: la del rival abre su ficha y sus cortes en Scout individual con el equipo y el jugador puestos; la nuestra, Individual" },
           { que: "? (ayuda)", es: "Qué es cada ficha, quién lee este once y por qué algunos no llevan dorsal (no lo tienen publicado en la plantilla del Castilla)" },
           { que: "Más · Deshacer el relleno · Probar sin guardar", es: "Deshacer deja el tablero como antes del relleno; probar cambia el once sólo en esta pantalla y al terminar se guarda o se descarta" },
           { que: "Accesos del rival", es: "Bajo los onces, la misma tira que en todas las pantallas del rival: ▶ sus goles en vídeo, cómo le marcan y su último partido (en una ventana), Plan de partido, Plantilla, Colectivo, Individual, ABP, Área, Duelos y Pizarra ABP, todos con este rival puesto. El nombre del rival abre su plantilla" },
@@ -1397,7 +1398,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Dibujo", es: "Coloca a un equipo en 4-4-2, 4-3-3… con fase (con o sin balón) y altura (alto, medio, bajo), cada uno al puesto más cercano" },
           { que: "Qué se cuenta", es: "La nota de la escena: sale bajo el campo a pantalla completa y en todo lo que se exporta" },
           { que: "Por voz", es: "Explicar la jugada hablando y que se propongan las escenas; se revisan y se añaden o no; se deshace como cualquier cambio" },
-          { que: "Nombres bajo las fichas", es: "El nombre corto de la plantilla (el de Duelos y el Plan), aunque la ficha se rellenara con otro (se casa por dorsal o, sin él, por el nombre), y con apellido si choca con uno del rival. En el móvil, sólo el dorsal y el nombre de la ficha que se toca, para que no se pisen; «Nombres en el móvil», en Vista, los pone todos. Al exportar, siempre" },
+          { que: "Nombres bajo las fichas", es: "El nombre corto de la plantilla (el de Duelos y el Plan; en la lista del once también, con la misma regla: el apodo si nadie más lo lleva, si no el apellido, lib/tactics/nombreCorto.ts), aunque la ficha se rellenara con otro (se casa por dorsal o, sin él, por el nombre), y con apellido si choca con uno del rival. En el móvil, sólo el dorsal y el nombre de la ficha que se toca, para que no se pisen; «Nombres en el móvil», en Vista, los pone todos. Al exportar, siempre" },
           { que: "Escena", es: "Un solo mando para duplicar la escena o añadir una en blanco detrás" },
           { que: "Elegir varias", es: "Arrastrar sobre el césped vacío o Mayús + clic; luego se mueven, alinean, reparten o duplican juntas" },
           { que: "Medidas del bloque", es: "Con varias elegidas, el largo y el ancho que ocupan en metros; con dos, la distancia", cuenta: "El campo de la pizarra es 100 × 68; el largo se pasa a 105 m" },

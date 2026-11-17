@@ -2362,7 +2362,7 @@ export default function TacticsBoard({
             {() => (
               <div className="space-y-3 text-[11px] text-white/70">
                 <div>
-                  <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/45">Encuadre</p>
+                  <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/45">Encuadre</p>
                   <div className="flex flex-wrap gap-1.5">
                     {(Object.keys(CROP_VIEWBOX) as PitchCrop[]).map((crop) => (
                       <Chip key={crop} activo={doc.crop === crop} onClick={() => commit({ ...doc, crop })}>
@@ -2378,7 +2378,7 @@ export default function TacticsBoard({
                   manda por el grupo pide el verde de retransmisión.
                 */}
                 <div>
-                  <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/45">Césped</p>
+                  <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/45">Césped</p>
                   <div className="flex flex-wrap gap-1.5">
                     {CAMPOS.map((item) => (
                       <Chip key={item.id} activo={campoActivo === item.id} onClick={() => commit({ ...doc, campo: item.id })} title={item.nota}>
@@ -2541,7 +2541,7 @@ export default function TacticsBoard({
                   }}
                 />
                 {sinTitulo && (
-                  <p className="mt-1 rounded-xl border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-2.5 py-2 text-[10px] leading-snug text-[#E9C46A]">
+                  <p className="mt-1 rounded-xl border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-2.5 py-2 text-[11px] leading-snug text-[#E9C46A]">
                     Ponle título a la pizarra: sin él, todo sale como «{tituloPropuesto}».
                   </p>
                 )}
@@ -2635,6 +2635,21 @@ export default function TacticsBoard({
               <Accion icono={<Repeat2 size={13} />} onClick={() => setCambiando(unaElegida.id)} titulo="Cambiarla por otro jugador de su equipo (o pincha la ficha otra vez)">
                 Cambiar jugador
               </Accion>
+            )}
+
+            {/* Su ficha, con el jugador ya elegido (17/11/2026, ronda 19, jueces): la del rival en Scout individual; la nuestra, en Individual. */}
+            {unaElegida && unaElegida.nombre?.trim() && (unaElegida.kind === "home" || (unaElegida.kind === "away" && squadDelCampo)) && (
+              <a
+                href={
+                  unaElegida.kind === "away"
+                    ? `/scout-rival-individual?${new URLSearchParams({ equipo: squadDelCampo?.equipo ?? "", jugador: unaElegida.nombre.trim() }).toString()}`
+                    : `/individual?nombre=${encodeURIComponent(unaElegida.nombre.trim())}`
+                }
+                title={unaElegida.kind === "away" ? `La ficha y los cortes de ${unaElegida.nombre} en Scout individual` : `La ficha de ${unaElegida.nombre} en Individual`}
+                className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 font-semibold text-white/70 transition hover:bg-white/[0.08] hover:text-white"
+              >
+                Su ficha ›
+              </a>
             )}
 
             <Accion icono={<Copy size={13} />} onClick={duplicaElegidas} titulo="Duplicar (Ctrl+D)">
@@ -3247,7 +3262,7 @@ function PanelEscena({
       className="grid gap-2 rounded-2xl border border-white/10 bg-[#11161D] p-3 sm:grid-cols-[minmax(0,240px)_1fr]"
     >
       <div className="flex min-w-0 flex-col gap-1.5">
-        <label className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/45" htmlFor={`escena-${escena.id}`}>
+        <label className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/45" htmlFor={`escena-${escena.id}`}>
           {singleScene ? "Escena" : `Escena ${indice + 1} de ${total}`}
         </label>
 
@@ -3293,7 +3308,7 @@ function PanelEscena({
       </div>
 
       <div className="flex min-w-0 flex-col gap-1.5">
-        <label className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/45" htmlFor={`nota-${escena.id}`}>
+        <label className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/55" htmlFor={`nota-${escena.id}`}>
           Qué se cuenta
         </label>
         <textarea
@@ -3337,7 +3352,7 @@ function PanelAtajos({ onCierra, singleScene }: { onCierra: () => void; singleSc
   return (
     <div data-export-hide className="rounded-2xl border border-white/10 bg-[#11161D] p-3">
       <div className="mb-2 flex items-center justify-between">
-        <p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/45">
+        <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/45">
           <Keyboard size={13} className="text-[#C8A96B]" />
           Atajos de teclado
         </p>
@@ -3376,7 +3391,7 @@ function Segmentado<T extends string>({
 }) {
   return (
     <div>
-      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/45">{etiqueta}</p>
+      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/45">{etiqueta}</p>
       <div className={cn("grid gap-1 rounded-xl bg-white/[0.05] p-0.5", opciones.length === 3 ? "grid-cols-3" : "grid-cols-2")}>
         {opciones.map(([id, texto]) => (
           <button
@@ -3480,7 +3495,7 @@ function OpcionExportar({
       <span className="mt-0.5 text-[#C8A96B]">{icono}</span>
       <span className="min-w-0">
         <span className="block text-xs font-semibold text-white/85">{titulo}</span>
-        <span className="block text-[10px] leading-snug text-white/45">{detalle}</span>
+        <span className="block text-[11px] leading-snug text-white/45">{detalle}</span>
       </span>
     </button>
   );
