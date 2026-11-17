@@ -16,7 +16,7 @@ import { ACTUALIZACIONES, GRUPOS, frescura, type EstadoFrescura, type FechaActua
 import { IdeasDeX } from "@/components/ajustes/IdeasDeX";
 import { estadoEncargo, type Mantenimiento, type Tarea, type Vigia } from "@/lib/mantenimiento";
 
-const SE_PIDE_AQUI: Tarea[] = ["quiniela", "rivales", "wyscout", "opta", "x"];
+const SE_PIDE_AQUI: Tarea[] = ["quiniela", "rivales", "wyscout", "opta", "x", "hudl-clips"];
 
 function hace(iso: string, ahora: number) {
   const min = Math.max(0, Math.round((ahora - Date.parse(iso)) / 60_000));

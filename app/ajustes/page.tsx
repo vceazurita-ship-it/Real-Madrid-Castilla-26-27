@@ -116,6 +116,7 @@ const NOMBRE: Record<Tarea, string> = {
   opta: "Datos de Opta",
   x: "Ideas desde X",
   "x-idea": "Idea de X en la app",
+  "hudl-clips": "Clips de Hudl de los rivales",
 };
 
 const TARDA: Record<Tarea, string> = {
@@ -128,6 +129,7 @@ const TARDA: Record<Tarea, string> = {
   opta: "unos cinco minutos",
   x: "unos minutos",
   "x-idea": "entre diez minutos y una hora: programar, comprobar y publicar",
+  "hudl-clips": "unos diez segundos por clip nuevo",
 };
 
 /** Lo que dice el pie de cada panel. */
@@ -671,6 +673,7 @@ export default function AjustesPage() {
     opta: deTarea("opta"),
     x: deTarea("x"),
     "x-idea": deTarea("x-idea"),
+    "hudl-clips": deTarea("hudl-clips"),
   } satisfies Record<Tarea, EstadoEncargo>;
 
   const ocupada = (tarea: Tarea) =>

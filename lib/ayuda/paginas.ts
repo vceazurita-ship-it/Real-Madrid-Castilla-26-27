@@ -1146,7 +1146,7 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Arriba",
         filas: [
           { que: "Rival", es: "Abre con el próximo partido; el desplegable va con la jornada delante" },
-          { que: "Tira de accesos del rival", es: "Bajo el título, con el rival puesto: ▶ Sus goles en vídeo, ▶ Cómo le marcan y ▶ Su último partido (en una ventana, sin salir), Plan de partido, Plantilla, Colectivo, Individual, ABP, Área, Pizarra táctica y Pizarra ABP. En el móvil, una fila que se desliza" },
+          { que: "Tira de accesos del rival", es: "Bajo el título, con el rival puesto: ▶ Sus goles en vídeo, ▶ Cómo le marcan y ▶ Su último partido (en una ventana, sin salir), ⬇ Clips de Hudl si sus jugadores los tienen (17/11/2026), Plan de partido, Plantilla, Colectivo, Individual, ABP, Área, Pizarra táctica y Pizarra ABP. En el móvil, una fila que se desliza" },
           { que: "Nombres de los jugadores", es: "En el campo, en las tarjetas y en «quién nos roba» abren su ficha: los nuestros en Individual y los suyos en Scout individual con sus cortes filtrados" },
           { que: "Balón: Castilla · Balón: rival · Los dos", es: "Qué momento pintan el campo, las cajas y las tarjetas" },
           { que: "El recuento", es: "Duelos medidos y, aparte, los de pocos minutos (menos de 450′ en un lado: tendencia), con la misma frase que el Plan de partido (17/11/2026). Dice el umbral: cuenta desde ±10 de percentil, y «Dónde les podemos hacer daño» lleva todos los de +10 o más con nuestro balón, también los de doble cara (por eso puede tener más de los que dice «para buscar»)" },
@@ -1326,7 +1326,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Selector y flechas", es: "Abre el próximo partido (o el de ?rival=ID); los demás, en el orden del calendario" },
           {
             que: "Tira del rival (bajo el título, 16/11/2026)",
-            es: "«▶ Sus goles en vídeo», «▶ Cómo le marcan» y «▶ Su último partido» en una ventana sin salir del plan, y Plantilla, Colectivo, Individual, ABP, Área, Duelos, Pizarra táctica y Pizarra ABP con este partido puesto. La misma tira que en el resto de pantallas del rival",
+            es: "«▶ Sus goles en vídeo», «▶ Cómo le marcan» y «▶ Su último partido» en una ventana sin salir del plan, «⬇ Clips de Hudl» de sus jugadores si los hay (17/11/2026), y Plantilla, Colectivo, Individual, ABP, Área, Duelos, Pizarra táctica y Pizarra ABP con este partido puesto. La misma tira que en el resto de pantallas del rival",
             cuenta: "Los enlaces llevan ?rival=ID de esta fila y ?equipo=NOMBRE (components/rivals/AccesosDelRival.tsx)",
           },
           { que: "Lo suyo que hay que parar (17/11/2026)", es: "Quinta idea de «Cómo le ganamos»: quién le hace el xG («Flakus suma el 27 % de su xG: 4,29 en 840′») y por dónde centra (la banda con la mitad o más de sus centros y quién los pone), con la orden (marcarle en el área; cerrar el carril) y enlaces a su ficha en Scout individual y a Área del rival. El mismo bloque «Cómo nos hacen daño» del Scout colectivo (components/rivals/AmenazaDelRival.tsx)" },
@@ -1558,7 +1558,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Otros puntos fuertes o flojos (plegados)", es: "«Ver otro punto flojo: cuidado del balón»; dentro, con el formato de las tarjetas: cifra por partido, en cuántos partidos, «(menos es mejor)» cuando lo es, mediana y puesto. Cada aspecto lleva una barra con su puesto (llena, el 1.º)" },
           {
             que: "Tira del rival (bajo los equipos, 16/11/2026)",
-            es: "La misma en las ocho pantallas del rival y del partido: «▶ Sus goles en vídeo», «▶ Cómo le marcan» y «▶ Su último partido» (en una ventana, sin salir) y Plan de partido (con su jornada), Colectivo, Individual, ABP, Área, Duelos, Pizarra táctica y Pizarra ABP con este rival puesto. En el móvil va en varias filas, a la vista (17/11/2026)",
+            es: "La misma en las ocho pantallas del rival y del partido: «▶ Sus goles en vídeo», «▶ Cómo le marcan» y «▶ Su último partido» (en una ventana, sin salir), «⬇ Clips de Hudl (N)» si sus jugadores tienen listas en Hudl (en una ventana: jugador a jugador, .zip o uno a uno; 17/11/2026) y Plan de partido (con su jornada), Colectivo, Individual, ABP, Área, Duelos, Pizarra táctica y Pizarra ABP con este rival puesto. En el móvil va en varias filas, a la vista (17/11/2026)",
             cuenta: "Los enlaces llevan ?equipo=NOMBRE y ?rival=ID (la fila de la hoja RIVALES del próximo partido contra él o, si ya se jugaron, del último); el rival queda apuntado durante la visita y las pestañas de la sección lo llevan también (components/rivals/AccesosDelRival.tsx, lib/rivals/rival-en-curso.ts). Sustituye a «Más de este rival»",
           },
           { que: "Para la semana", es: "Sólo del próximo rival: informe y PDF del once probable a la vista (también en el móvil); PDF para el portero y PowerPoint de día de partido en «Más»" },
@@ -1589,6 +1589,11 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           { que: "Cabecera", es: "Edad, altura, peso, pie, estado, procedencia, nacimiento e incorporación, de la hoja RIVALES; las altas que trae BeSoccer llegan a la hoja con edad, peso y altura" },
           { que: "Ver vídeo · Documento · BeSoccer", es: "Su vídeo, su documento y su ficha de BeSoccer" },
+          {
+            que: "Descargar sus clips (N) (17/11/2026)",
+            es: "Si tiene lista en Hudl («UD IBIZA - YOLDI»): un .zip al portátil con sus clips nombrados «RIVAL - JUGADOR - 01 - <título>.mp4», o «▶ Ver uno a uno» con ▶ y ⬇ en cada clip. Si a la lista le faltan clips por bajar, «Pedir a Hudl» (avisa al terminar). Sin lista en Hudl no sale",
+            cuenta: "Las listas de Hudl tituladas «RIVAL - Nº», «RIVAL - NOMBRE» o «RIVAL - Nº NOMBRE» (biblioteca del Castilla). El ordenador del club baja cada clip a 720p (unos 2-4 MB por 11 s) y lo guarda en el almacén de vídeo (scripts/hudl-clips-rival.mjs cada noche con la jornada y con «Pedir a Hudl»; documento hudl:clips-rival; primero el próximo rival). La lista se ata al rival por el nombre del equipo («UD IBIZA» = UD Ibiza, «MURCIA» = Real Murcia) y al jugador por su nombre o apellido; si sólo trae el número, por dorsal, y si el nombre casa a dos, decide el dorsal (lib/hudl-clips.ts)",
+          },
           { que: "Rendimiento", es: "Partidos, minutos, goles y tarjetas por temporada, y la zona estimada por su puesto", cuenta: "BeSoccer" },
           {
             que: "«Cómo juega»",
@@ -1729,7 +1734,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Su balón parado: cuánto peligro tiene, quién lo lanza y lo remata, qué repite, la proyección del próximo partido y el material de la jornada (clips, apuntes y láminas).",
     origen:
       "Scouting propio registrado aquí (documento «abp-rival-scout» de Supabase) o, si no lo hay, lo deducido de nuestras cuatro hojas de ABP. Sin acciones registradas, Wyscout y las etiquetas de Plantillas rivales. La proyección, de Opta. Las estaturas, de BeSoccer por encima de la hoja.",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "Arriba",
@@ -1739,7 +1744,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "El rival", es: "Abre con el del próximo partido; «Cambiar equipo» despliega los demás, por calendario" },
           {
             que: "Tira del rival (bajo el título, 16/11/2026)",
-            es: "«▶ Sus goles a balón parado» y «▶ Cómo le marcan a balón parado» (en una ventana, con el filtro de balón parado ya puesto), «▶ Su último partido» y Plan de partido, Plantilla, Colectivo, Individual, Área, Duelos, Pizarra táctica y Pizarra ABP con este rival puesto: la misma tira que en el resto de pantallas del rival",
+            es: "«▶ Sus goles a balón parado» y «▶ Cómo le marcan a balón parado» (en una ventana, con el filtro de balón parado ya puesto), «▶ Su último partido», «⬇ Clips de Hudl» de sus jugadores si los hay (17/11/2026) y Plan de partido, Plantilla, Colectivo, Individual, Área, Duelos, Pizarra táctica y Pizarra ABP con este rival puesto: la misma tira que en el resto de pantallas del rival",
             cuenta: "Goles de Opta (opta:remates): balón parado = situación del remate distinta de «juego» y «contragolpe»; si no tiene ninguno, se ven todos. Enlaces con ?equipo= y ?rival= (components/rivals/AccesosDelRival.tsx)",
           },
           { que: "Su ataque · Su defensa", es: "Lo que genera el rival / lo que le generan a él" },
@@ -2654,6 +2659,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Último dato", es: "La fecha del dato de verdad, no la de la última pasada" },
           { que: "Al día / Atrasada / Sin dato", es: "Si va a tiempo", cuenta: "Atrasada = más del doble de lo normal (y un margen) sin ponerse al día" },
           { que: "El botón de cada uno", es: "Los que se pueden pedir a mano lanzan el mismo encargo de «Poner al día»" },
+          { que: "Clips de Hudl de los jugadores rivales (17/11/2026)", es: "Cada noche con la jornada y al pedirlo (aquí o con «Pedir a Hudl» en Scout individual y Plantillas rivales): baja a 720p los clips nuevos de las listas «RIVAL - JUGADOR» de Hudl para descargarlos desde la app", cuenta: "scripts/hudl-clips-rival.mjs, encargo hudl-clips, documento hudl:clips-rival; usa el Chrome del Wyscout por turnos" },
         ],
       },
       {
@@ -2676,7 +2682,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Con el ordenador del club apagado no se pierde nada: el encargo queda apuntado y empieza al encenderlo.",
       "La lista de «Actualizaciones» sale de un catálogo: un proceso nuevo que no se añada allí no aparece.",
     ],
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
   },
 
   /* ==================== TAREAS Y ALERTAS (12/11/2026) ==================== */
@@ -3610,7 +3616,12 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Clips",
         filas: [
           { que: "Rival", es: "Un solo desplegable, ordenado por calendario y con la jornada; abre con el próximo (chapa «Próximo»). Con ?equipo= abre en ese rival y con &jugador= en los cortes de ese jugador (así llega desde Duelos)" },
-          { que: "Tira de accesos del rival", es: "Bajo el título, con el rival puesto: ▶ Sus goles en vídeo, ▶ Cómo le marcan y ▶ Su último partido (en una ventana), Plan de partido, Plantilla, Colectivo, ABP, Área, Duelos y las pizarras" },
+          { que: "Tira de accesos del rival", es: "Bajo el título, con el rival puesto: ▶ Sus goles en vídeo, ▶ Cómo le marcan y ▶ Su último partido (en una ventana), ⬇ Clips de Hudl si los hay, Plan de partido, Plantilla, Colectivo, ABP, Área, Duelos y las pizarras" },
+          {
+            que: "Clips de Hudl (17/11/2026)",
+            es: "Encima de los vídeos, si el rival tiene listas en Hudl: cada jugador con su dorsal y cuántos clips; «⬇» baja al portátil un .zip con los suyos, nombrados «RIVAL - JUGADOR - 01 - <título>.mp4», «▶ Ver» los abre uno a uno (▶ para verlo aquí, ⬇ para bajar ése) y «Descargar todos» baja los de todo el rival. Si a una lista le faltan clips por bajar, «Pedir a Hudl» se lo encarga al ordenador del club y avisa al terminar. En «Por jugador», la cabecera de cada jugador con vídeo lleva también «Descargar sus clips (N)». Las descargas van en segundo plano (píldora abajo a la izquierda)",
+            cuenta: "Las listas de Hudl tituladas «RIVAL - Nº», «RIVAL - NOMBRE» o «RIVAL - Nº NOMBRE» (biblioteca del Castilla). El ordenador del club baja cada clip a 720p (unos 2-4 MB por 11 s) y lo guarda en el almacén de vídeo (scripts/hudl-clips-rival.mjs cada noche con la jornada y con «Pedir a Hudl»; documento hudl:clips-rival; primero el próximo rival). La lista se ata al rival por el nombre del equipo («UD IBIZA» = UD Ibiza, «MURCIA» = Real Murcia) y al jugador por su nombre o apellido; si sólo trae el número, por dorsal, y si el nombre casa a dos, decide el dorsal (lib/hudl-clips.ts)",
+          },
           { que: "Titular de la pantalla", es: "La conclusión: cuántos jugadores tienen vídeo, cuántos del once probable y en quién hay algo que explotar" },
           { que: "La lista", es: "Plegada en una línea con la lista que se ve («Lista del canal · J13 · Real Murcia · 5 vídeos»); «Cambiar» la abre. Sin lista o con una sospechosa sale abierta. Se empareja sola por el nombre del equipo; si no casa, se elige una vez y vale para todo el cuerpo técnico. «J» = nuestra jornada contra ese rival" },
           { que: "El resto de su once probable", es: "Los titulares sin corte, con lo que sí hay: su ▲ y ▼ de Wyscout contra su puesto y la lectura del analista, con Su ficha, Su duelo y Su ABP. Quien no tiene ni cifra ni etiqueta no sale" },

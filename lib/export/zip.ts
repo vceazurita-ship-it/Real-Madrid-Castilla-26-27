@@ -113,13 +113,16 @@ export function creaZip(entradas: EntradaZip[], cuando = new Date()): Blob {
     const crc = crc32(entrada.datos);
     const tamano = entrada.datos.length;
 
+    /* Bit 11: el nombre va en UTF-8 (17/11/2026, «Jaén» en los clips de Hudl). Sólo si hace falta: los .pptx siguen igual. */
+    const banderas = /[^ -~]/.test(entrada.nombre) ? 0x0800 : 0;
+
     /* Cabecera local: 30 bytes fijos + el nombre. */
     const cabecera = new Uint8Array(30 + nombre.length);
 
     escribe(cabecera, 0, [
       [4, 0x04034b50],
       [2, 20], // versión necesaria para extraer
-      [2, 0], // sin banderas
+      [2, banderas],
       [2, 0], // método 0: almacenado
       [2, hora],
       [2, fecha],
@@ -141,7 +144,7 @@ export function creaZip(entradas: EntradaZip[], cuando = new Date()): Blob {
       [4, 0x02014b50],
       [2, 20], // versión con la que se creó
       [2, 20],
-      [2, 0],
+      [2, banderas],
       [2, 0],
       [2, hora],
       [2, fecha],

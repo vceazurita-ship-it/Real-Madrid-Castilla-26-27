@@ -114,6 +114,7 @@ import { conTildes } from "@/lib/rivals/tildes";
 import { fraseDeDano, nombrePropio, ordenDelDuelo } from "@/lib/rivals/dano";
 import { mismoNombreRival } from "@/lib/rivals/rival-en-curso";
 import { AccesosDelRival } from "@/components/rivals/AccesosDelRival";
+import { ClipsHudlJugador } from "@/components/rivals/ClipsDeHudl";
 import { useDuelosClaveConEstado } from "@/hooks/useDuelosClave";
 import { useRivalPerfiles } from "@/hooks/useRivalPerfiles";
 import VistazoRival from "@/components/rivals/VistazoRival";
@@ -5549,6 +5550,12 @@ export default function RivalPlayersPage() {
                       </a>
                     )}
                   </div>
+
+                  {/* Sus clips de Hudl («RIVAL - JUGADOR»), al portátil en un .zip o uno a uno (17/11/2026). */}
+                  <ClipsHudlJugador
+                    equipo={String(editForm.NOMBRE_EQUIPO ?? "")}
+                    jugador={{ nombres: [String(editForm["NOMBRE DEPORTIVO"] ?? ""), String(editForm.JUGADOR ?? "")], dorsal: String(editForm.DORSAL ?? "") }}
+                  />
 
                   <button
                     type="button"

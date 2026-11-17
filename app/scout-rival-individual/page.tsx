@@ -29,6 +29,7 @@ import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { ChapaJornada } from "@/components/rivals/ChapaJornada";
 import { VideosDelCanal } from "@/components/rivals/VideosDelCanal";
 import { AvisoLento } from "@/components/rivals/AvisoLento";
+import { ClipsHudlDelRival } from "@/components/rivals/ClipsDeHudl";
 import { useEscudos } from "@/hooks/useEscudos";
 import { useLento } from "@/hooks/useLento";
 import { useRivalSquads } from "@/hooks/useRivalSquads";
@@ -457,6 +458,14 @@ export default function ScoutRivalIndividual() {
               </div>
             )}
           </section>
+
+          {/*
+          | CLIPS DE HUDL (17/11/2026, el analista): los cortes de Wyscout que
+          | lleva a Hudl como listas «RIVAL - JUGADOR», para bajarlos al
+          | portátil (.zip por jugador o todos) o verlos uno a uno. Sin listas
+          | de este rival en Hudl no sale.
+          */}
+          {equipo && <ClipsHudlDelRival key={`hudl-${equipo}`} equipo={equipo} className="mt-6" />}
 
           {/* ---------------------------- VÍDEOS --------------------------- */}
 

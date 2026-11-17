@@ -27,6 +27,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { VideosDelRival } from "@/components/portada/VideosDelRival";
+import { AccesoClipsHudl } from "@/components/rivals/ClipsDeHudl";
 import type { Tipo } from "@/components/rivals/GolesDelRivalEnVideo";
 import { aJornada, mismoEquipo, type FilaRival, type JornadaRival } from "@/lib/abp/jornada";
 import { traeJson } from "@/lib/hojaCsv";
@@ -133,6 +134,8 @@ export function AccesosDelRival({
       */}
       <div className="flex min-w-0 flex-wrap items-center gap-1.5 pb-1">
         {nombre && <VideosDelRival key={`${nombre}-${tipoVideo}`} rival={nombre} etiqueta={`${nombre} · vídeo`} tipo={tipoVideo} />}
+        {/* Los clips de Hudl de sus jugadores, para bajar al portátil (17/11/2026). Sin listas en Hudl no sale. */}
+        {nombre && <AccesoClipsHudl equipo={nombre} className={CHIP} />}
         {DESTINOS.filter((d) => d.ruta !== aqui).map((d) => {
           const href = d.ruta === "/pizarra-tactica" ? "/pizarra-tactica?once=1" : conRivalEnUrl(d.ruta, llaves);
           const esPlan = d.ruta === "/match-preparation";

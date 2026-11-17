@@ -68,6 +68,7 @@ import {
   type ListasRivales,
 } from "@/lib/rivals/youtube-listas";
 import { Explicativo } from "@/components/ui/textos-analisis";
+import { ClipsHudlJugador } from "@/components/rivals/ClipsDeHudl";
 import { MEJOR, PEOR } from "@/components/data/graficas";
 
 type Video = {
@@ -1301,6 +1302,15 @@ export function VideosDelCanal({
                   </span>
 
                   {grupo.resumen && <span className="text-[11px] text-white/45">· {grupo.resumen}</span>}
+
+                  {/* Sus clips de Hudl, para bajar al portátil (17/11/2026); sin lista en Hudl no sale. */}
+                  <ClipsHudlJugador
+                    compacto
+                    className="basis-full"
+                    equipo={equipo}
+                    jugador={{ nombres: [grupo.jugador, plantilla.find((j) => j.nombre === grupo.jugador)?.hoja], dorsal: grupo.dorsal }}
+                    plantilla={plantilla.map((j) => ({ nombres: [j.nombre, j.hoja], dorsal: j.dorsal }))}
+                  />
 
                   {(() => {
                     const vistos = grupo.videos.reduce((suma, pieza) => suma + (visionados[pieza.video.id] ?? 0), 0);
