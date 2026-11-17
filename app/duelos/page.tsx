@@ -18,7 +18,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { ChevronDown, ChevronUp, CircleDot, RotateCcw, Swords } from "lucide-react";
 
 import { AccesosDelRival } from "@/components/rivals/AccesosDelRival";
@@ -251,6 +251,10 @@ const leeEquipoEnlazado = () => new URLSearchParams(window.location.search).get(
 
 const sinEquipoEnlazado = () => "";
 
+const leeJugadorEnlazado = () => new URLSearchParams(window.location.search).get("jugador") ?? "";
+
+const sinTildes = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().trim();
+
 function seSabraAlLlegar(avisa: () => void) {
   const aviso = setTimeout(avisa, 0);
 
@@ -282,9 +286,9 @@ export default function DuelosPage() {
   /* Lo colocado a mano en el campograma de Plantillas rivales (clave → bloque): manda el sitio (16/11/2026). */
   const [puestosMarcados, setPuestosMarcados] = useState<Record<string, string>>({});
   const [dibujoMarcado, setDibujoMarcado] = useState<string | undefined>(undefined);
-  const [elegido, setElegido] = useState<string | null>(null);
+  const [elegidoAMano, setElegido] = useState<string | null>(null);
   /* Las tarjetas, plegadas (16/11/2026, análisis): arriba los tres que deciden; al pinchar un duelo, se abren. */
-  const [verTarjetas, setVerTarjetas] = useState(false);
+  const [verTarjetasAMano, setVerTarjetas] = useState<boolean | null>(null);
   const eligeYMuestra = (c: string) => {
     setElegido(c);
     setVerTarjetas(true);
@@ -504,6 +508,31 @@ export default function DuelosPage() {
     () => new Set(duelos.filter((d) => regateDelDuelo(d, planoRegate, jugadores ?? [])?.alerta).map((d) => d.def.clave)),
     [duelos, planoRegate, jugadores],
   );
+
+  /*
+  | EL JUGADOR ENLAZADO (17/11/2026): «Su duelo» de Scout individual llega con
+  | `?jugador=`. Su duelo sale elegido y con las tarjetas abiertas hasta que se
+  | pinche otro; la pantalla baja a él una vez.
+  */
+  const jugadorEnlazado = useSyncExternalStore(seSabraAlLlegar, leeJugadorEnlazado, sinEquipoEnlazado);
+  const claveEnlazada = useMemo(() => {
+    const buscado = sinTildes(jugadorEnlazado);
+    if (!buscado) return null;
+    const igual = duelos.find((d) => d.suyos.some((j) => sinTildes(j.nombre) === buscado));
+    /* Si el nombre viene escrito de otra forma («J. Mier» / «Javi Mier»), un solo duelo cuyo jugador lo contenga. */
+    const parecidos = igual ? [] : duelos.filter((d) => d.suyos.some((j) => sinTildes(j.nombre).includes(buscado) || buscado.includes(sinTildes(j.nombre))));
+    return (igual ?? (parecidos.length === 1 ? parecidos[0] : null))?.def.clave ?? null;
+  }, [duelos, jugadorEnlazado]);
+  const elegido = elegidoAMano ?? claveEnlazada;
+  const verTarjetas = verTarjetasAMano ?? Boolean(claveEnlazada);
+  const yaBajado = useRef(false);
+
+  useEffect(() => {
+    if (!claveEnlazada || yaBajado.current) return;
+    yaBajado.current = true;
+    const t = setTimeout(() => document.getElementById(`duelo-${claveEnlazada}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 300);
+    return () => clearTimeout(t);
+  }, [claveEnlazada]);
 
   /*
   | QUIÉN TIENE EL BALÓN (06/10/2026). Se puede mirar cada duelo con el balón
