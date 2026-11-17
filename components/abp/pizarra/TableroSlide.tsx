@@ -1591,7 +1591,14 @@ export function TableroSlide({
   portero = null,
   atacantes,
   dato = "",
+  origenConsignas = "",
 }: {
+  /**
+   * 17/11/2026 (jueces, ronda 20): con la pizarra sin empezar, las consignas
+   * son las de otra jornada («Consignas de la J12 · Gimnàstic»): se dice
+   * encima del panel hasta que se copie. Vacío, no sale.
+   */
+  origenConsignas?: string;
   /**
    * La línea de dato del rival con su base (12/11/2026, jueces): «Gimnàstic
    * saca 5,5 córners por partido (el que más de los 20)…». La calcula
@@ -2392,7 +2399,13 @@ export function TableroSlide({
   }
 
   /* Lo que se pinta va exactamente a `CARA_EN_LAMINA` (lo colocado, con la escala de la última pasada: difiere menos de un 0,5 %). */
-  const escalaPintada = escalaDeCaras(maqueta.k);
+  /*
+  | 17/11/2026 (jueces, ronda 20): en la pizarra viva las fichas se veían
+  | diminutas y el dorsal no se leía: un 20 % más grandes al editar. Lo
+  | exportado y el proyector (soloVer) siguen con la medida de la lámina,
+  | que es la que coloca `colocaLamina`.
+  */
+  const escalaPintada = escalaDeCaras(maqueta.k) * (soloVer ? 1 : 1.2);
 
   const separadas = colocada?.separadas ?? null;
   const apartados = colocada?.apartados ?? null;
@@ -3174,8 +3187,9 @@ export function TableroSlide({
               </p>
 
               {!soloVer && cubiertos < puestos.length && (
-                <p className="text-[16px] font-semibold tabular-nums leading-none text-white/55">
-                  {cubiertos}/{puestos.length}
+                /* 17/11/2026 (jueces, ronda 20): cuántos faltan, en ámbar. */
+                <p className="text-[16px] font-semibold tabular-nums leading-none" style={{ color: "#F2C14E" }}>
+                  {cubiertos}/{puestos.length} · faltan {puestos.length - cubiertos}
                 </p>
               )}
             </div>
@@ -3232,11 +3246,18 @@ export function TableroSlide({
                               className={`shrink-0 rounded px-1.5 font-bold tabular-nums ${
                                 panelDenso ? "text-[17px]" : "text-[19px]"
                               }`}
-                              style={{
-                                backgroundColor: "rgba(200,169,107,.16)",
-                                color: COLORES.oroClaro,
-                                boxShadow: "inset 0 0 0 1px rgba(200,169,107,.3)",
-                              }}
+                              /* 17/11/2026 (jueces, ronda 20): verde con jugador; hueco discontinuo el que falta (sólo en la pizarra viva). */
+                              style={
+                                !soloVer && player
+                                  ? { backgroundColor: "rgba(27,158,119,.28)", color: "#8FE6C4", boxShadow: "inset 0 0 0 1px rgba(27,158,119,.6)" }
+                                  : !soloVer
+                                    ? { backgroundColor: "transparent", color: "rgba(242,193,78,.9)", outline: "1px dashed rgba(242,193,78,.7)", outlineOffset: -1 }
+                                    : {
+                                        backgroundColor: "rgba(200,169,107,.16)",
+                                        color: COLORES.oroClaro,
+                                        boxShadow: "inset 0 0 0 1px rgba(200,169,107,.3)",
+                                      }
+                              }
                             >
                               <TextoEnSitio {...sigla} sigla>
                                 {siglaDe(puesto)}
@@ -3397,6 +3418,14 @@ export function TableroSlide({
               | dos», no «la de los bloqueos».
               */}
               <div ref={notasRef} className="min-w-0 flex-1 overflow-hidden" style={{ height: "100%" }}>
+              {origenConsignas ? (
+                <p
+                  className="mb-1 inline-block rounded-full px-2.5 py-0.5 text-[12px] font-semibold"
+                  style={{ background: "rgba(200,169,107,0.18)", color: COLORES.oroTinta }}
+                >
+                  {origenConsignas}
+                </p>
+              ) : null}
               <div
                 ref={notasDentroRef}
                 style={

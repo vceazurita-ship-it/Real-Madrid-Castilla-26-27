@@ -3297,6 +3297,12 @@ export default function PizarraAbpPage() {
                           Las consignas que se ven son las de la plantilla guardada; al copiar llegan las de esa jornada con el once cambiado.
                         </span>
                       )}
+                      {/* 17/11/2026 (jueces, ronda 20): que se puede volver atrás. */}
+                      {anterior && (
+                        <span className="mt-0.5 block text-[12px] text-white/60">
+                          La copia queda como versión en «Histórico de la jornada»: se puede deshacer con ↶ o volver a otra versión.
+                        </span>
+                      )}
                     </p>
                     {anterior ? (
                       <Button
@@ -3784,6 +3790,17 @@ export default function PizarraAbpPage() {
                         cambiaRivalDibujado(id, { x, y }, `gesto:${gesto.current}`)
                       }
                       onCambiarTexto={cambiaTextoEnSitio}
+                      /* 17/11/2026 (jueces, ronda 20): sin empezar, las consignas nombran a jugadores de otra jornada: se dice en la lámina. */
+                      origenConsignas={
+                        !guardado && !leyendo && slide.notas.some((n) => n.trim())
+                          ? anterior
+                            ? `Consignas de la plantilla guardada · al copiar llegan las de ${(() => {
+                                const n = anterior.competition.match(/^Jornada\s+(\d+)/i);
+                                return n ? `la J${n[1].padStart(2, "0")} · ${anterior.opponent}` : anterior.opponent;
+                              })()}`
+                            : "Consignas de la plantilla guardada"
+                          : ""
+                      }
                     />
                     </div>
 
@@ -3877,6 +3894,8 @@ export default function PizarraAbpPage() {
                   </div>
                 )}
 
+                {/* 17/11/2026 (jueces, ronda 20): sin empezar, fichas sueltas y textos van juntos en un «Más». */}
+                <MasDeLaPizarra activo={!guardado && !leyendo}>
                 {/* ==================== AÑADIR SUELTOS ================ */}
 
                 {slide && (
@@ -4101,6 +4120,7 @@ export default function PizarraAbpPage() {
                 </div>
                 </details>
                 </PlegadoSiVacio>
+                </MasDeLaPizarra>
               </>
             )}
           </div>
@@ -4178,6 +4198,21 @@ export default function PizarraAbpPage() {
         />
       )}
     </main>
+  );
+}
+
+/** 17/11/2026 (jueces, ronda 20): con la pizarra sin empezar, lo auxiliar en un solo «Más». */
+function MasDeLaPizarra({ activo, children }: { activo: boolean; children: React.ReactNode }) {
+  if (!activo) return <>{children}</>;
+
+  return (
+    <details className="mt-5 rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3">
+      <summary className="flex min-h-[44px] cursor-pointer select-none flex-wrap items-center gap-x-2 text-xs font-semibold text-white/75 sm:min-h-0">
+        Más
+        <span className="font-normal text-white/50">fichas sueltas, textos de cada diapositiva y puestos aprendidos</span>
+      </summary>
+      {children}
+    </details>
   );
 }
 
