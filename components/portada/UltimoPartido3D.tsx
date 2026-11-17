@@ -48,7 +48,8 @@ export function UltimoPartido3D() {
   /* El nombre corto, para las cifras y la leyenda del 3D («manda Castilla», no «manda Real»). */
   const corto = (f: Record<string, unknown>) => (f.teamId === CASTILLA_OPTA ? "Castilla" : String(f.equipo ?? "").split(" ").slice(-1)[0]);
   const n = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : Number(v) || 0);
-  const coma = (v: number, d = 2) => v.toFixed(d).replace(".", ",");
+  /* Un decimal (17/11/2026): la misma cifra que el 3D de debajo y que Análisis de datos («0,7 – 0,5»). */
+  const coma = (v: number, d = 1) => v.toFixed(d).replace(".", ",");
   const pos = (f: Record<string, unknown>) => `${Math.round(n(f["Poss%"]) * (n(f["Poss%"]) <= 1 ? 100 : 1))} %`;
   /* 16/11/2026 (fútbol): todo en el orden del marcador, el local primero, como en «Opta de un vistazo». */
   const fuera = String(x.campo ?? "").toUpperCase() === "AWAY";
@@ -201,7 +202,7 @@ export function UltimoPartido3D() {
                 key={`${e.parte}-${e.segundo}-${e.jugadorId}`}
                 tipo="shots"
                 evento={{ partido: ultimo, fecha: fechaIso, parte: e.parte, segundo: e.segundo }}
-                etiqueta={`▶ ${e.minuto}′ ${quien} · xG ${coma(e.xG ?? 0)}`}
+                etiqueta={`▶ ${e.minuto}′ ${quien} · xG ${coma(e.xG ?? 0, 2)}`}
                 descripcion={`Remate de ${quien}, ${e.minuto}′`}
               />
             );

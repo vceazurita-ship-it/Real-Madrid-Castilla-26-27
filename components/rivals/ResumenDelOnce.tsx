@@ -45,15 +45,14 @@ export type LineaResumen = {
   explotable: LecturaResumen | null;
 };
 
-const PELIGRO = "#F87171";
-const EXPLOTABLE = "#34D399";
 
 function Lectura({ tipo, lectura, abrir }: { tipo: "peligro" | "explotable"; lectura: LecturaResumen; abrir: (clave: string) => void }) {
-  const color = tipo === "peligro" ? PELIGRO : EXPLOTABLE;
+  /* Clases con su equivalente de modo día (globals.css): el color en línea salía a 1,9 de contraste sobre blanco. */
+  const color = tipo === "peligro" ? "text-red-300" : "text-emerald-300";
 
   return (
     <p className="min-w-0 text-[12px] leading-snug text-white/75">
-      <span className="font-semibold" style={{ color }}>
+      <span className={`font-semibold ${color}`}>
         {tipo === "peligro" ? "▲ Peligro: " : "▼ Explotable: "}
       </span>
       <button type="button" onClick={() => abrir(lectura.clave)} className="font-semibold text-white underline-offset-2 hover:underline">

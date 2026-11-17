@@ -201,8 +201,56 @@ function FichaRival({
               )
             })}
           </ol>
+          <ResumenUltimos ultimos={ficha.ultimos} />
         </div>
       )}
+    </div>
+  )
+}
+
+/*
+| SUS ÚLTIMOS, EN CIFRAS (17/11/2026, ronda 21, fútbol): el hueco de foto bajo
+| la forma se llena con lo que esa forma dice: puntos de los posibles, goles a
+| favor y en contra y, aparte, cómo le va fuera (o en casa). El marcador de
+| BeSoccer va con sus goles primero.
+*/
+function ResumenUltimos({ ultimos }: { ultimos: NonNullable<EquipoPortada["ultimos"]> }) {
+  const goles = (m: string) => {
+    const x = /^(\d+)\s*-\s*(\d+)$/.exec(m.trim())
+    return x ? [Number(x[1]), Number(x[2])] as const : null
+  }
+  const cuenta = (lista: typeof ultimos) => {
+    const pts = lista.reduce((s, p) => s + (p.signo === "V" ? 3 : p.signo === "E" ? 1 : 0), 0)
+    const conGoles = lista.map((p) => goles(p.marcador ?? "")).filter((g): g is readonly [number, number] => g != null)
+    return {
+      n: lista.length,
+      pts,
+      v: lista.filter((p) => p.signo === "V").length,
+      e: lista.filter((p) => p.signo === "E").length,
+      d: lista.filter((p) => p.signo === "D").length,
+      favor: conGoles.length === lista.length ? conGoles.reduce((s, g) => s + g[0], 0) : null,
+      contra: conGoles.length === lista.length ? conGoles.reduce((s, g) => s + g[1], 0) : null,
+    }
+  }
+  const todo = cuenta(ultimos)
+  const fuera = cuenta(ultimos.filter((p) => !p.enCasa))
+  const casa = cuenta(ultimos.filter((p) => p.enCasa))
+  if (!todo.n) return null
+  const fila = (rotulo: string, c: ReturnType<typeof cuenta>) => (
+    <div className="flex items-baseline justify-between gap-3 border-t py-2 text-[13px]" style={{ borderColor: "rgba(255,255,255,.12)", color: "rgba(255,255,255,.9)" }}>
+      <span className="font-semibold uppercase tracking-[0.12em] text-[11px]" style={{ color: "rgba(255,255,255,.7)" }}>{rotulo}</span>
+      <span className="tabular-nums">
+        <span className="fuente-club text-[20px] font-bold" style={{ color: "#fff" }}>{c.pts}</span> de {c.n * 3} pts · {c.v}V {c.e}E {c.d}D
+        {c.favor != null && c.contra != null && <> · {c.favor} a favor, {c.contra} en contra</>}
+      </span>
+    </div>
+  )
+
+  return (
+    <div className="mt-4">
+      {fila(`Sus últimos ${todo.n}`, todo)}
+      {fuera.n > 0 && fila(`Fuera · ${fuera.n}`, fuera)}
+      {casa.n > 0 && fila(`En casa · ${casa.n}`, casa)}
     </div>
   )
 }
