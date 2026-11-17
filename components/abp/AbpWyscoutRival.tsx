@@ -472,11 +472,10 @@ function queHacemosConCentros(
   const metaCalidad = aciertoRecibe ? Math.max(aciertoRecibe.valor, nuestros.precisos ?? 0) : null;
   const deCalidad =
     aciertoRecibe && metaCalidad != null
-      ? ` y que llegue a un rematador nuestro al menos el ${cifra1(metaCalidad, aciertoRecibe.unidad)} (contra él, sus rivales lo consiguen en el ${cifra1(aciertoRecibe.valor, aciertoRecibe.unidad)}${
-          nuestros.precisos != null
-            ? `; nosotros, en el ${cifra1(nuestros.precisos, aciertoRecibe.unidad)}: ${nuestros.precisos >= aciertoRecibe.valor ? "mantenerlo" : "subirlo"}`
-            : ""
-        })`
+      ? /* 17/11/2026 (ronda 19, jueces de análisis): «mantener o subir» frente a lo que le hacen sus rivales, en la misma unidad, sin repetir la cifra. */
+        nuestros.precisos != null && nuestros.precisos >= aciertoRecibe.valor
+        ? ` y, en acierto, mantener o subir nuestro ${cifra1(nuestros.precisos, aciertoRecibe.unidad)} de centros que llegan a un rematador, por encima del ${cifra1(aciertoRecibe.valor, aciertoRecibe.unidad)} que le hacen sus rivales`
+        : ` y, en acierto, subir${nuestros.precisos != null ? ` de nuestro ${cifra1(nuestros.precisos, aciertoRecibe.unidad)}` : ""} al ${cifra1(metaCalidad, aciertoRecibe.unidad)} de centros que llegan a un rematador, lo que le hacen sus rivales`
       : "";
   /* La cantidad, tampoco por debajo de la nuestra. */
   const metaCentros = (n: number) => Math.max(n, nuestros.centros ?? 0);
@@ -1126,8 +1125,11 @@ export function AbpWyscoutRival({
     /* El puesto en la liga, contado aquí mismo con los equipos del mapa (de más a menos). */
     const suyo = con.find((p) => mismoClub(p.equipo, equipo));
     const puestoEn = (valor: number, todos: number[]) => 1 + todos.filter((v) => v > valor).length;
+    /* La base del titular de arriba, aquí (17/11/2026): un solo titular con su «60 precisos de 208». */
+    const filaAcierto = aspectos.flatMap((a) => a.filas).find((f) => /centros precisos/i.test(f.nombre) && f.base);
+    const baseAcierto = filaAcierto?.base ? ` (${Math.round(filaAcierto.base.arriba)} precisos de ${Math.round(filaAcierto.base.abajo)}${filaAcierto.partidos ? ` en ${filaAcierto.partidos} partidos` : ""})` : "";
     const conclusion = suyo
-      ? `${nombreEquipo(suyo.equipo)} centra ${px[con.indexOf(suyo)] >= 50 ? "mucho" : "poco"} y ${py[con.indexOf(suyo)] >= 50 ? "bien" : "mal"}: ${puestoEn(suyo.x, con.map((p) => p.x))}.º de ${con.length} en volumen y ${puestoEn(suyo.y, con.map((p) => p.y))}.º en acierto`
+      ? `${nombreEquipo(suyo.equipo)} centra ${px[con.indexOf(suyo)] >= 50 ? "mucho" : "poco"} y ${py[con.indexOf(suyo)] >= 50 ? "bien" : "mal"}: ${puestoEn(suyo.x, con.map((p) => p.x))}.º de ${con.length} en volumen y ${puestoEn(suyo.y, con.map((p) => p.y))}.º en acierto${baseAcierto}`
       : `Cuánto centra y con qué acierto, frente a los ${con.length} de la liga`;
     return (
       <div className="mb-4 min-w-0 border-b border-white/10 pb-4">
@@ -1231,7 +1233,8 @@ export function AbpWyscoutRival({
             | misma frase y «Qué entrenamos» con objetivo.
             */
             <div className="mb-4 space-y-3 border-b border-white/10 pb-3 text-sm text-white/85">
-              {centros.titular && <p className="text-base font-semibold text-white md:text-lg">{centros.titular}</p>}
+              {/* Con el mapa debajo, un solo titular: el del mapa, con esta base (17/11/2026, ronda 19, jueces de fútbol). */}
+              {centros.titular && !mapaCentros && <p className="text-base font-semibold text-white md:text-lg">{centros.titular}</p>}
               <p className="text-[12px] text-white/55">La cifra es de Wyscout; la decisión y la tarea son criterio de juego a partir de ella.</p>
             </div>
           )}

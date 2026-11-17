@@ -1793,18 +1793,19 @@ export const AYUDAS: AyudaDePagina[] = [
       "Sus centros laterales: cuánto centran y con qué acierto, cuántos reciben, qué hacemos en cada caso y las láminas de la jornada.",
     origen:
       "Wyscout (sus centros frente a los equipos de la liga), el texto del Scout Colectivo para contrastar y la carpeta de centros de cada jornada, con las láminas que se dibujan aquí (Supabase).",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "Sus centros según Wyscout",
         filas: [
           { que: "El rival", es: "Abre con el del próximo partido, o con el que trae la dirección (?equipo=, desde las demás pantallas del rival); «Cambiar equipo» despliega los demás, por calendario" },
           { que: "Accesos del rival", es: "Bajo el título, la misma tira que en todas las pantallas del rival: ▶ sus goles en vídeo, cómo le marcan y su último partido (en una ventana), Plan de partido, Plantilla, Colectivo, Individual, ABP, Duelos y las pizarras, con este rival puesto" },
+          { que: "Un solo titular (17/11/2026)", es: "El del mapa, con su base: «centra mucho y mal: 3.º de 20 en volumen y 19.º en acierto (60 precisos de 208 en 12 partidos)». Debajo del mapa, lo nuestro en percentil: «P89 en centros por partido · P5 en centros precisos»" },
           { que: "Mapa de dos ejes (arriba)", es: "Lo primero tras el titular. Los equipos de la liga en centros por partido frente a centros precisos %, en percentil dentro de la liga, con el rival en azul y el Castilla en oro; el título dice la conclusión («Real Murcia centra mucho y mal: 3.º de 20 en volumen y 19.º en acierto»)", cuenta: "Wyscout, esta temporada, su competición; percentil de cada equipo entre los de la liga en cada eje; el puesto, 1 + los equipos con más (de más a menos)" },
           { que: "Cuando nos centran · Cuando les centramos", es: "Los dos bloques, rotulados por quién centra: sus centros laterales (cuando nos centran) y los centros que recibe (cuando les centramos)" },
           { que: "Sus centros · Los que recibe", es: "Por partido o en porcentaje frente a los equipos de la liga; «x de y» es la base real" },
           { que: "Barra", es: "El rival en oro entre cero y el máximo de la liga: la raya es la mediana de los 20 equipos y el rombo verde, el mejor (la leyenda va una vez, encima de las tarjetas). Cada cifra lleva su base: «17,3 por partido · 208 en 12 partidos» o «60 de 208»" },
-          { que: "Por dónde ataca · quién centra", es: "Debajo: sus centros, regates y pases al área por banda y quién carga cada una, el mismo bloque del Scout colectivo; cada nombre abre su ficha y «▶ Su vídeo», sus cortes en Scout individual" },
+          { que: "Por dónde ataca · quién centra", es: "Debajo: sus centros, regates y pases al área por banda y quién carga cada una, el bloque entero vive aquí (en el Scout colectivo va en una línea con enlace a éste); el titular da el reparto por carril (el mismo número que el campo) y, aparte, sólo por fuera; cada nombre abre su ficha y «▶ Su vídeo», sus cortes en Scout individual" },
           {
             que: "▲ ▼ y puesto",
             es: "Mejor o peor según le convenga a ese equipo; el puesto va del 1.º (el mejor) al último y es el mismo que en el Scout colectivo y Plantillas. La flecha sólo sale entre los 6 primeros (▲) o los 6 últimos (▼) de 20; en medio, «en la zona media de la liga»",
@@ -1813,7 +1814,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Tendencia", es: "Un porcentaje con menos de 15 casos arriba o 25 abajo, o menos de 10 partidos: sin flecha ni color" },
           {
             que: "Qué hacemos · Qué entrenamos",
-            es: "Criterio de juego a partir de la cifra, encima de la tabla: la cifra lo sostiene, no lo dicta. El titular lleva su base («60 precisos de 208 en 12 partidos»). Cada «Qué hacemos / Qué entrenamos» va bajo su bloque (su ataque junto a sus centros; el nuestro junto a los que recibe). Los objetivos salen en la MISMA columna que el dato y nunca por debajo de lo que ya hacemos: en su ataque, la mediana de centros precisos de la liga (con el mejor centrador como referencia); en el nuestro, mantener o subir frente a lo que le hacen sus rivales: los centros por partido (los suyos o los nuestros, si son más) y que llegue a un rematador nuestro al menos el acierto que consiguen sus rivales contra él (o el nuestro, si es más), diciendo si es mantenerlo o subirlo. «Meter en el microciclo» abre el editor de microciclos",
+            es: "Criterio de juego a partir de la cifra, encima de la tabla: la cifra lo sostiene, no lo dicta. El titular lleva su base («60 precisos de 208 en 12 partidos»). En nuestro ataque, el objetivo de acierto es «mantener o subir» lo nuestro frente a lo que le hacen sus rivales, en la misma unidad. Cada «Qué hacemos / Qué entrenamos» va bajo su bloque (su ataque junto a sus centros; el nuestro junto a los que recibe). Los objetivos salen en la MISMA columna que el dato y nunca por debajo de lo que ya hacemos: en su ataque, la mediana de centros precisos de la liga (con el mejor centrador como referencia); en el nuestro, mantener o subir frente a lo que le hacen sus rivales: los centros por partido (los suyos o los nuestros, si son más) y que llegue a un rematador nuestro al menos el acierto que consiguen sus rivales contra él (o el nuestro, si es más), diciendo si es mantenerlo o subirlo. «Meter en el microciclo» abre el editor de microciclos",
             cuenta: "«Cuando les centramos» mira cuántos centros recibe y también su acierto: si el acierto de los centros que recibe está entre los 6 peores de 20 (y no es tendencia), «el X % de los centros que le hacen llega a un rematador contrario (n de m)… defienden mal el centro: atacar el área con centro y tres rematadores»; si está entre los 6 mejores, «probar primero por dentro» lleva ese porqué",
           },
           { que: "Contraste con el Scout Colectivo", es: "Si su texto dice que centran mucho o poco, se dice si Wyscout lo respalda, con enlace al análisis" },

@@ -221,7 +221,8 @@ export function MapaDosEjes({
       {detallePropios && propios.map((p) => (
         <p key={p.id} className="text-[13px] text-white/80">
           <span className="mr-1" style={{ color: p.color ?? acento }}>●</span>
-          <b>{p.nombre}</b>: {ejeX.toLowerCase()} {Math.round(p.x)} · {ejeY.toLowerCase()} {Math.round(p.y)}
+          {/* «P89 en centros por partido» (17/11/2026, jueces de fútbol): «centros precisos 5» se leía como cinco centros. */}
+          <b>{p.nombre}</b>: P{Math.round(p.x)} en {ejeX.toLowerCase()} · P{Math.round(p.y)} en {ejeY.toLowerCase()}
           {p.x + p.y >= umbral ? ` · en la zona de ${rotulos.ambos.toLowerCase()}` : ""}
           {p.detalle ? <span className="text-white/55"> · {p.detalle}</span> : null}
         </p>
