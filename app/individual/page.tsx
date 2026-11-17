@@ -71,7 +71,7 @@ import { EnlacesJugador } from "@/components/individual/EnlacesJugador";
 import { getPlayerImage, normalizePlayerName, PLAYER_PHOTO_FALLBACK } from "@/lib/playerImages";
 import { isHiddenPlayer } from "@/lib/hiddenPlayers";
 import { cohorteCastilla, esDelCastilla, idVigente, mismoJugador } from "@/lib/fichajes";
-import { alineaSeguimiento, DIAS_SIN_SEGUIMIENTO, esPortero, sinSeguimientoReciente } from "@/lib/seguimiento";
+import { alineaSeguimiento, DIAS_SIN_SEGUIMIENTO, esPortero, medianaSeguimientos, sinSeguimientoReciente } from "@/lib/seguimiento";
 import { nombrePuesto, posicionDe } from "@/lib/posiciones";
 import { detectRow } from "@/lib/ratings/pitch";
 import { recordDateKey } from "@/lib/calendar";
@@ -1487,8 +1487,8 @@ function RejillaJugadores({
 }: {
   jugadores: MergedPlayer[];
   onSelect: (player: MergedPlayer) => void;
-  /** Vista en lista compacta (la del móvil por defecto, 07/11/2026). */
-  lista?: boolean;
+  /** Vista en lista compacta (la del móvil por defecto, 07/11/2026); «auto», según el ancho. */
+  lista?: boolean | "auto";
   /** Nota de los 3 últimos y % de minutos, por ID (Valoraciones). */
   rinde?: Map<string, Rinde>;
 }) {
@@ -1500,8 +1500,22 @@ function RejillaJugadores({
   const [verExternos, setVerExternos] = useState(false);
   const muestraExternos = verExternos || propios.length === 0;
 
-  const pinta = (grupo: MergedPlayer[], primeros: boolean) =>
-    lista ? (
+  /* 17/11/2026 (ronda 19): sin elección guardada («auto»), las dos vistas
+     van en el HTML y manda el ancho por CSS: lista en el móvil, fichas en el
+     resto. Antes el resaltado del selector y la vista se decidían por
+     separado y en escritorio llegaba a marcarse «Lista» con fichas. */
+  const pinta = (grupo: MergedPlayer[], primeros: boolean): ReactNode =>
+    lista === "auto" ? (
+      <>
+        <div className="sm:hidden">{pintaUna(grupo, primeros, true)}</div>
+        <div className="hidden sm:block">{pintaUna(grupo, primeros, false)}</div>
+      </>
+    ) : (
+      pintaUna(grupo, primeros, lista)
+    );
+
+  const pintaUna = (grupo: MergedPlayer[], primeros: boolean, enLista: boolean) =>
+    enLista ? (
       <div className="grid min-w-0 gap-2 md:grid-cols-2">
         {grupo.map((player) => (
           <FilaListaJugador key={player.idJugador} player={player} onSelect={onSelect} rinde={rinde?.get(player.idJugador)} />
@@ -1563,14 +1577,15 @@ function suscribeVista(aviso: () => void) {
     mq?.removeEventListener("change", aviso);
   };
 }
-function leeVista(): "fichas" | "lista" {
+function leeVista(): "fichas" | "lista" | "auto" {
   try {
     const v = localStorage.getItem(CLAVE_VISTA);
     if (v === "fichas" || v === "lista") return v;
   } catch {
     /* sin almacenamiento */
   }
-  return window.matchMedia(MOVIL).matches ? "lista" : "fichas";
+  /* Sin elección: manda el ancho, por CSS (ver RejillaJugadores). */
+  return "auto";
 }
 function guardaVista(v: "fichas" | "lista") {
   try {
@@ -1581,7 +1596,7 @@ function guardaVista(v: "fichas" | "lista") {
   avisosVista.forEach((a) => a());
 }
 function useVistaPlantilla() {
-  return useSyncExternalStore(suscribeVista, leeVista, () => "fichas" as const);
+  return useSyncExternalStore(suscribeVista, leeVista, () => "auto" as const);
 }
 
 /* La hora de abrir la pantalla, una vez (no en cada render: regla de pureza). */
@@ -1628,7 +1643,9 @@ function estaSinSeguir(player: MergedPlayer) {
 type Rinde = { ultimas3: number | null; nUltimas: number; minutos: number; posibles: number };
 
 function LineaRinde({ rinde }: { rinde?: Rinde }) {
-  if (!rinde || (rinde.ultimas3 === null && rinde.minutos === 0)) return null;
+  /* 17/11/2026: con partidos en Valoraciones, también «0 % min.»: todas las
+     fichas llevan la misma línea (antes las de quien no ha jugado quedaban cojas). */
+  if (!rinde || (rinde.ultimas3 === null && rinde.posibles === 0)) return null;
 
   const pct = rinde.posibles > 0 ? Math.round((rinde.minutos / rinde.posibles) * 100) : null;
 
@@ -1639,8 +1656,10 @@ function LineaRinde({ rinde }: { rinde?: Rinde }) {
           title={`Nota media de sus ${rinde.nUltimas} últimos partidos con nota (Valoraciones)`}
           className="inline-flex items-center gap-1"
         >
-          <Star size={11} className="shrink-0" aria-hidden />
-          <span className="font-semibold" style={{ color: scoreColorHex(rinde.ultimas3) }}>{coma(rinde.ultimas3)}</span>
+          {/* 17/11/2026 (ronda 19): la cifra en tinta (en ámbar u oro sobre
+              blanco no pasaba de 2,3:1); el color, en el punto de al lado. */}
+          <span aria-hidden className="h-2 w-2 shrink-0 rounded-full" style={{ background: scoreColorHex(rinde.ultimas3) }} />
+          <span className="font-semibold text-white">{coma(rinde.ultimas3)}</span>
           <span>últ. {rinde.nUltimas}</span>
         </span>
       )}
@@ -1677,15 +1696,19 @@ function PlayerCard({
   /* «Sin seguir» en la propia ficha (06/11/2026): del Castilla, de campo y más de 14 días sin registro (PieFicha). */
   const { valoradas, pocas, detalle: detalleFicha } = baseFicha(player);
 
+  /* 17/11/2026 (ronda 19): la ficha es un bloque con dos partes: el botón
+     que abre su ficha (foto, nombre y pie) y, debajo, los accesos de un
+     toque a sus notas de Valoraciones y a su fila de la Comparativa (un
+     enlace no puede ir dentro de un botón). */
   return (
-    <button
-      onClick={() => onSelect(player)}
+    <div
       className={`group relative flex min-w-0 flex-col overflow-hidden rounded-2xl border text-left transition hover:-translate-y-0.5 hover:border-[#C8A96B]/50 hover:shadow-lg hover:shadow-black/40 ${
         player.externo
           ? "border-dashed border-[#C8A96B]/40 bg-[#C8A96B]/[0.04]"
           : "border-white/10 bg-white/[0.025]"
       }`}
     >
+    <button type="button" onClick={() => onSelect(player)} className="flex min-w-0 flex-1 flex-col text-left">
       <div className="relative aspect-[3/4] w-full overflow-hidden bg-[#0B0F14]">
         {/* Las iniciales van siempre debajo y la foto, si llega, las tapa: con
             loading="lazy" una foto fuera de pantalla ni carga ni falla, y la
@@ -1771,6 +1794,14 @@ function PlayerCard({
         </div>
       </div>
     </button>
+      {!player.externo && (
+        <EnlacesJugador
+          jugador={{ id: player.idJugador, nombre: nombreVisible(player.name) }}
+          destinos={["notas", "comparativa"]}
+          className="border-t border-white/10 px-2 py-1.5"
+        />
+      )}
+    </div>
   );
 }
 
@@ -1807,7 +1838,10 @@ function FilaListaJugador({ player, onSelect, rinde }: { player: MergedPlayer; o
       </div>
       {player.score > 0 && (
         <span className="shrink-0 text-right tabular-nums" title={detalle}>
-          <span className="block text-base font-bold" style={{ color: scoreColor(player.score) }}>{coma(player.score)}</span>
+          <span className="flex items-center justify-end gap-1.5 text-base font-bold text-white">
+            <span aria-hidden className="h-2 w-2 rounded-full" style={{ background: scoreColor(player.score) }} />
+            {coma(player.score)}
+          </span>
           <span className="block text-[10px] text-white/45">{valoradas.length < METRICS.length ? `scout · ${valoradas.length} de ${METRICS.length}` : "scout"}{pocas ? " · tendencia" : ""}</span>
         </span>
       )}
@@ -2373,13 +2407,8 @@ export default function IndividualPage() {
 
     /* Referencias de las cifras (07/11/2026): mediana de seguimientos por
        jugador y el tramo de las medias de competencias. */
-    const porJugador = deCampo.map((p) => p.sessions ?? 0).sort((a, b) => a - b);
-    const mitad = Math.floor(porJugador.length / 2);
-    const medianaSeg = porJugador.length
-      ? porJugador.length % 2
-        ? porJugador[mitad]
-        : Math.round((porJugador[mitad - 1] + porJugador[mitad]) / 2)
-      : 0;
+    /* 17/11/2026: la misma mediana que el Dashboard Seguimiento (lib/seguimiento). */
+    const medianaSeg = coma(medianaSeguimientos(deCampo.map((p) => p.sessions ?? 0)));
     const notas = rated.map((p) => p.score);
 
     return {
@@ -2449,6 +2478,8 @@ export default function IndividualPage() {
 
     return m;
   }, [ratingsSeason]);
+
+  const posiblesValoraciones = ratingsSeason ? sortedMatches(ratingsSeason).length * 90 : 0;
 
   /* 16/11/2026 (ronda 18): lo primero, un gráfico con conclusión: días desde
      el último seguimiento de cada jugador de campo del Castilla, con la raya
@@ -3771,7 +3802,7 @@ export default function IndividualPage() {
                   hint={
                     pendiente.seguimiento
                       ? "cargando los seguimientos…"
-                      : `${stats.todos ? `${stats.castilla} del Castilla + ${stats.externos} de otros equipos · ` : base.de ? `${base.de.trim()} · ` : ""}${stats.tracked} de ${stats.deCampo} jugadores de campo con algún seguimiento en la temporada (los porteros llevan el suyo aparte)`
+                      : `${stats.todos ? `${stats.castilla} del Castilla + ${stats.externos} de otros equipos · ` : base.de ? `${base.de.trim()} · ` : ""}${stats.deCampo} de campo + ${stats.players - stats.deCampo} porteros · ${stats.tracked} de ${stats.deCampo} de campo con seguimiento en la temporada (los porteros, en su registro)`
                   }
                 />
 
@@ -3823,6 +3854,13 @@ export default function IndividualPage() {
                     <FileText size={12} className="shrink-0 text-[#C8A96B]" />
                     {stats.reports} {stats.reports === 1 ? "informe" : "informes"} · {base.conInforme} de {base.n} jugadores{base.de}
                   </span>
+                  {/* 17/11/2026 (ronda 19): la base de la línea de cada ficha, una vez. */}
+                  {posiblesValoraciones > 0 && (
+                    <span className="inline-flex items-center gap-1.5">
+                      <Star size={12} className="shrink-0 text-[#C8A96B]" />
+                      En cada ficha: «últ. 3», media de sus 3 últimas notas · «% min.», de los {posiblesValoraciones}′ posibles (Valoraciones)
+                    </span>
+                  )}
                 </p>
               )}
 
@@ -3887,19 +3925,26 @@ export default function IndividualPage() {
                     <option value="valoracion">Mejor valorados</option>
                   </select>
 
-                  <div className="flex shrink-0 rounded-2xl border border-white/10 bg-white/[0.025] p-1" role="group" aria-label="Cómo ver la plantilla">
-                    {(["fichas", "lista"] as const).map((v) => (
-                      <button
-                        key={v}
-                        type="button"
-                        aria-pressed={vista === v}
-                        onClick={() => guardaVista(v)}
-                        className={`rounded-xl px-3 py-2 text-xs transition ${vista === v ? "bg-[#C8A96B] text-black" : "text-white/50 hover:text-white"}`}
-                      >
-                        {v === "fichas" ? "Fichas" : "Lista"}
-                      </button>
-                    ))}
-                  </div>
+                  {/* 17/11/2026: en «auto» hay dos selectores, uno por ancho,
+                      cada uno marcando la vista que se ve a ese ancho. */}
+                  {(vista === "auto"
+                    ? ([["lista", "flex sm:hidden"], ["fichas", "hidden sm:flex"]] as const)
+                    : ([[vista, "flex"]] as const)
+                  ).map(([marcada, clases]) => (
+                    <div key={clases} className={`${clases} shrink-0 rounded-2xl border border-white/10 bg-white/[0.025] p-1`} role="group" aria-label="Cómo ver la plantilla">
+                      {(["fichas", "lista"] as const).map((v) => (
+                        <button
+                          key={v}
+                          type="button"
+                          aria-pressed={marcada === v}
+                          onClick={() => guardaVista(v)}
+                          className={`rounded-xl px-3 py-2 text-xs transition ${marcada === v ? "bg-[#C8A96B] text-black" : "text-white/50 hover:text-white"}`}
+                        >
+                          {v === "fichas" ? "Fichas" : "Lista"}
+                        </button>
+                      ))}
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -4030,14 +4075,14 @@ export default function IndividualPage() {
                           </span>
                         </div>
 
-                        <RejillaJugadores jugadores={linePlayers} onSelect={openPlayer} lista={vista === "lista"} rinde={rinde} />
+                        <RejillaJugadores jugadores={linePlayers} onSelect={openPlayer} lista={vista === "auto" ? "auto" : vista === "lista"} rinde={rinde} />
                       </section>
                     );
                   })}
                 </div>
               ) : (
                 <div className="mt-8">
-                  <RejillaJugadores jugadores={filtered} onSelect={openPlayer} lista={vista === "lista"} rinde={rinde} />
+                  <RejillaJugadores jugadores={filtered} onSelect={openPlayer} lista={vista === "auto" ? "auto" : vista === "lista"} rinde={rinde} />
                 </div>
               )}
             </div>

@@ -38,6 +38,7 @@ import {
 import { AlertTriangle, ExternalLink, RotateCcw, Search, UserRound, X } from "lucide-react";
 
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
+import { esPortero } from "@/lib/seguimiento";
 import { EnlacesJugador, NombreJugador, type DestinoJugador } from "@/components/individual/EnlacesJugador";
 
 /*
@@ -396,9 +397,10 @@ export default function DashboardPlantilla() {
 
   const kpis: { title: string; value: string | number; base: string }[] = [
     {
-      title: filtrados.length > delCastilla ? `Jugadores · ${delCastilla} + ${filtrados.length - delCastilla} de fuera` : "Jugadores del Castilla",
-      value: filtrados.length,
-      base: `${delCastilla} con licencia del Castilla${filtrados.length > delCastilla ? ` y ${filtrados.length - delCastilla} de fuera con minutos` : ""}`,
+      /* 17/11/2026 (ronda 19): una cohorte, la de licencia; los de fuera, aparte. */
+      title: "Jugadores del Castilla",
+      value: delCastilla,
+      base: `con licencia del Castilla${filtrados.length > delCastilla ? ` · aparte, ${filtrados.length - delCastilla} de fuera con minutos` : ""}`,
     },
     {
       title: "Partidos de liga",
@@ -877,7 +879,7 @@ function BloqueMinutos({ jugadores, onAbre }: { jugadores: Jugador[]; onAbre: (i
 
               <ul className="mt-2 space-y-1">
                 {suyos.map((j) => {
-                  const pct = j.pct ?? 0;
+                  const pct = Math.min(100, j.pct ?? 0);
 
                   return (
                     <li
@@ -909,15 +911,17 @@ function BloqueMinutos({ jugadores, onAbre }: { jugadores: Jugador[]; onAbre: (i
                             {j.minutos}′{j.fuenteMinutos === "valoraciones" && j.minutos > 0 ? "*" : ""}
                             {/* 10/11/2026: separado («804′81 %» se leía como una cifra) y,
                                 si pasa de los posibles, se dice que es por el añadido. */}
-                            <span className="ml-1.5 text-xs font-normal text-white/50">
-                              · {pct} %{j.minutos > j.posibles ? " (con el añadido)" : ""}
+                            {/* 17/11/2026 (ronda 19): «804′ de 990′ (81 %)», el mismo cálculo para
+                                todos; el añadido se explica en la ayuda. */}
+                            <span className="ml-1 text-xs font-normal text-white/55">
+                              de {j.posibles}′ ({pct} %)
                             </span>
                           </span>
                           {j.titular + j.suplente > 0 && (
                             <span className="block text-[11px] text-white/50">
                               {j.titular} tit. · {j.suplente} sup.
                               {/* 08/11/2026: con un solo partido de titular, el % no es firme. */}
-                              {j.titular <= 1 && j.minutos > 0 && <span className="text-white/45"> · tendencia</span>}
+                              {j.titular + j.suplente < 3 && j.minutos > 0 && <span className="text-white/55"> · tendencia (menos de 3 partidos)</span>}
                             </span>
                           )}
                         </span>
@@ -1039,7 +1043,7 @@ function BloqueAvisos({
                 <ul className="mt-2 space-y-1.5">
                   {suyos.map((a) => (
                     <li key={a.jugador.ficha.id} className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-xs">
-                      <NombreJugador jugador={{ id: a.jugador.ficha.id, nombre: a.jugador.ficha.nombre }} className="font-medium text-white/90">
+                      <NombreJugador jugador={{ id: a.jugador.ficha.id, nombre: a.jugador.ficha.nombre }} className="font-semibold text-white underline decoration-white/30">
                         {nombreDe(a.jugador)}
                       </NombreJugador>
                       <button
@@ -1054,7 +1058,7 @@ function BloqueAvisos({
                       <EnlacesJugador
                         className="ml-auto"
                         jugador={{ id: a.jugador.ficha.id, nombre: a.jugador.ficha.nombre }}
-                        destinos={[accion.destino]}
+                        destinos={["ficha", accion.destino]}
                       />
                     </li>
                   ))}
@@ -1163,7 +1167,7 @@ function BloqueContratos({ jugadores }: { jugadores: Jugador[] }) {
 function BloqueSesiones({ resumen, jugadores }: { resumen: ResumenSesiones; jugadores: Jugador[] }) {
   const filas = jugadores
     .map((j) => ({ j, d: resumen.porJugador.get(j.ficha.id) }))
-    .filter((f): f is { j: Jugador; d: SesionesDeJugador } => Boolean(f.d))
+    .filter((f): f is { j: Jugador; d: SesionesDeJugador } => Boolean(f.d) && !esPortero(f.j.ficha.posicionHoja))
     /* 07/11/2026: de menos a más, para que arriba salga a quién le falta grupo. */
     .sort((a, b) => a.d.sesiones - b.d.sesiones || a.j.ficha.nombre.localeCompare(b.j.ficha.nombre, "es"));
 
@@ -1171,19 +1175,21 @@ function BloqueSesiones({ resumen, jugadores }: { resumen: ResumenSesiones; juga
 
   const media = filas.reduce((acc, f) => acc + f.d.sesiones, 0) / filas.length;
   /* 08/11/2026 (jueces): la base, y quién del Castilla no sale en la lista. */
-  const delCastilla = jugadores.filter((j) => j.ficha.delCastilla);
-  const conSesion = filas.filter((f) => f.j.ficha.delCastilla).length;
+  /* 17/11/2026 (ronda 19): sin porteros (llevan su registro aparte, como en
+     los avisos); salían «sin ninguna sesión» con el 81 % de los minutos. */
+  const delCastilla = jugadores.filter((j) => j.ficha.delCastilla && !esPortero(j.ficha.posicionHoja));
+  const conSesion = filas.filter((f) => f.j.ficha.delCastilla && !esPortero(f.j.ficha.posicionHoja)).length;
   const sinSesion = delCastilla.filter((j) => !resumen.porJugador.has(j.ficha.id));
 
   return (
     <Bloque
-      pregunta={`¿Quién entrena con el grupo? · ${conSesion} de ${delCastilla.length} del Castilla con sesión registrada`}
-      base={`Sesiones registradas en Jugadores sesión ${SESIONES_DESDE_TEXTO}: ${resumen.totalSesiones} ${resumen.totalSesiones === 1 ? "sesión" : "sesiones"}, media de ${coma(media)} por jugador. De menos a más; en naranja, por debajo del 70 % de las sesiones.`}
+      pregunta={`¿Quién entrena con el grupo ${SESIONES_DESDE_TEXTO}? · ${conSesion} de ${delCastilla.length} de campo del Castilla con sesión`}
+      base={`Sesiones registradas en Jugadores sesión ${SESIONES_DESDE_TEXTO}: ${resumen.totalSesiones} ${resumen.totalSesiones === 1 ? "sesión" : "sesiones"}, media de ${coma(media)} por jugador. De menos a más; en naranja, por debajo del 70 % de las sesiones. Porteros, en su propio registro.`}
     >
       {sinSesion.length > 0 && (
         <p className="mb-3 text-[13px] leading-snug" style={{ color: PEOR }}>
           <span className="font-semibold">Sin ninguna sesión en la lista del día ({sinSesion.length}):</span>{" "}
-          {sinSesion.map(nombreDe).join(", ")}. Puede ser ausencia o que la lista del delegado lo escriba con otro nombre.
+          {sinSesion.map(nombreDe).join(", ")}.
         </p>
       )}
       {/* 08/11/2026: el nombre nunca se corta; dos columnas sólo con ancho de sobra. */}

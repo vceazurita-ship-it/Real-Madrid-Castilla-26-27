@@ -250,3 +250,20 @@ export function filasDeSeguimiento<T extends FilaSeguimiento>(
 
   return filasAlineadas.filter((fila) => nuestros.has(fila.ID_JUGADOR));
 }
+
+/*
+| MEDIANA DE SEGUIMIENTOS POR JUGADOR (17/11/2026, ronda 19)
+|
+| /individual decía «mediana 21» y el Dashboard Seguimiento «20,5»: cada uno
+| redondeaba a su manera. Una sola cuenta, con los de 0 dentro y a un
+| decimal; las dos pantallas la escriben igual (coma decimal).
+*/
+export function medianaSeguimientos(porJugador: number[]): number {
+  const lista = [...porJugador].sort((a, b) => a - b);
+
+  if (!lista.length) return 0;
+
+  const mitad = Math.floor(lista.length / 2);
+
+  return lista.length % 2 ? lista[mitad] : +((lista[mitad - 1] + lista[mitad]) / 2).toFixed(1);
+}

@@ -890,8 +890,17 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Nota del scout", es: "Media de las fichas del scout (cinco competencias, escala 0-10) y su tramo" },
           {
             que: "Línea de rendimiento de cada ficha",
-            es: "La nota media de sus 3 últimos partidos con nota y el % de minutos, de Valoraciones",
-            cuenta: "% de minutos = sus minutos ÷ (partidos de Valoraciones × 90′). Sin partidos, no sale",
+            es: "La nota media de sus 3 últimos partidos con nota («últ. 3») y el % de minutos, de Valoraciones; la cifra va en tinta y su color en el punto de al lado. La base sale una vez bajo las cifras («de los N′ posibles»). Debajo, en cada ficha del Castilla, «Notas» abre Valoraciones con él abierto y «Comparativa», su fila en Comparativa categoría",
+            cuenta: "% de minutos = sus minutos ÷ (partidos de Valoraciones × 90′); quien no ha jugado, 0 %. Sin partidos, no sale",
+          },
+          {
+            que: "Jugadores",
+            es: "«N de campo + M porteros» y cuántos de los de campo tienen seguimiento: la misma base que el aviso de arriba",
+            cuenta: "La mediana de seguimientos por jugador es la misma función que en el Dashboard Seguimiento (con los de 0 dentro, a un decimal)",
+          },
+          {
+            que: "Fichas o lista",
+            es: "Mientras no se elige, lista en el móvil y fichas en el resto, y el selector marca la que se ve; la elección se recuerda en el aparato",
           },
           {
             que: "Seguir con él",
@@ -939,14 +948,14 @@ export const AYUDAS: AyudaDePagina[] = [
         ],
       },
     ],
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
   },
   {
     ruta: "/individual_proc",
     titulo: "Dashboard Seguimiento",
     resumen: "Cuánto se sigue a cada jugador de campo del Castilla, quién lo hace y de qué se le habla, en toda la temporada.",
     origen: "Hoja de seguimiento (una fila por registro, por el Apps Script) cruzada con la plantilla de la hoja JUGADORES. Cuenta toda la temporada (el corte del 21/10 es sólo de las sesiones de entrenamiento) y nada fechado después de hoy. Los filtros de estrategia leen cada parte: «VÍDEO» trae también los de «VÍDEO Y CHARLA». El de entrenador ofrece a cada autor suelto y casa por «incluye a»: «JULIÁN» trae los de «JULIÁN Y MIGUEL» y los de «TODOS» (todo el cuerpo técnico).",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "A quién cuenta",
@@ -960,10 +969,10 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Las cifras de arriba",
         filas: [
-          { que: "Seguimientos", es: "Registros de la temporada de los jugadores de campo del Castilla y cuántos llevan feedback", cuenta: "Con menos de 15, tendencia" },
-          { que: "Con seguimiento", es: "«N de M» jugadores de campo con algún registro en la temporada, registros por jugador con seguimiento y la mediana por jugador (con los que tienen 0)", cuenta: "Registros de la plantilla ÷ jugadores con registro" },
+          { que: "Seguimientos", es: "Registros de la temporada de los jugadores de campo del Castilla y, de ellos, cuántos llevan feedback escrito", cuenta: "Con menos de 15, tendencia" },
+          { que: "Con seguimiento", es: "«N de M» jugadores de campo con algún registro en la temporada, registros por jugador con seguimiento y la mediana por jugador (con los que tienen 0)", cuenta: "Registros de la plantilla ÷ jugadores con registro. La mediana sale de la misma función que en Plantilla (lib/seguimiento, a un decimal), así las dos pantallas dan la misma cifra" },
           { que: "Cobertura · últimos 14 días", es: "Cuántos tienen algún registro en la misma ventana que el aviso (14 días que acaban hoy); debajo, la cobertura de la temporada", cuenta: "Con registro en 14 días ÷ jugadores de campo del Castilla (de la posición filtrada) × 100; verde desde el 80 %, oro desde el 50 %" },
-          { que: "Media semanal", es: "Registros por semana completa", cuenta: "Sólo semanas cerradas de lunes a domingo; la primera (si empezó a media semana) y la actual van aparte. Con una sola semana, «Esta semana»" },
+          { que: "Media semanal", es: "Registros por semana completa; el título dice cuántas semanas entran. El Calendario de Seguimiento da otra cifra porque mira sólo las últimas 8", cuenta: "Sólo semanas cerradas de lunes a domingo; la primera (si empezó a media semana) y la actual van aparte. Con una sola semana, «Esta semana»" },
           { que: "Individualización", es: "Registros de modalidad individual ÷ total × 100; el resto, grupales" },
           { que: "Último registro", es: "Hace cuánto fue el más reciente y de quién" },
         ],
@@ -971,9 +980,9 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Las pestañas",
         filas: [
-          { que: "Resumen", es: "Lecturas del periodo, evolución semanal (cada barra partida en individuales, oro, y grupales, gris, con la media en raya y una nota si el pico es de registros grupales), foco de los objetivos (ofensivo, defensivo, mental), estrategias, el cruce estrategia × momento (con lo más repetido en el título y el total de cada momento en su cabecera) y quién no tiene ningún registro" },
+          { que: "Resumen", es: "Lecturas del periodo (la del foco menos usado nombra, con su enlace, a quién le falta ese objetivo en sus 3 últimos registros), evolución semanal (cada barra partida en individuales, oro, y grupales, gris, la semana en curso rayada, la media en raya y una nota si el pico es de registros grupales; pulsar una barra filtra esa semana y volver a pulsarla lo quita), foco de los objetivos (ofensivo, defensivo, mental), estrategias, el cruce estrategia × momento (con lo más repetido en el título y el total de cada momento en su cabecera) y quién no tiene ningún registro" },
           { que: "Sin seguimiento en 14 días", es: "Va arriba, sobre las cifras: quién no tiene registro en los 14 días que acaban hoy, con los días desde su último; si no hay nadie, los tres con menos", cuenta: "La misma ventana que Calendario y la ficha individual" },
-          { que: "Jugadores", es: "Ranking por registros (de cuántos, con la mediana del grupo en raya, semanas cubiertas y días desde el último) con Ficha, Calendario y Registrar en cada fila; mapa jugador × semana, reparto por posición, contactos más antiguos (con sus accesos) y el más y el menos seguido", cuenta: "Pinchar la fila filtra por él" },
+          { que: "Jugadores", es: "Ranking por registros (de cuántos, con la mediana del grupo en raya, semanas cubiertas y días desde el último) con Ficha, Comparativa, Calendario y Registrar en cada fila; mapa jugador × semana, reparto por posición, contactos más antiguos (con sus accesos) y el más y el menos seguido", cuenta: "Pinchar la fila filtra por él" },
           { que: "Metodología", es: "Modalidad individual o grupal, carga por entrenador (un registro compartido suma a cada autor; «TODOS» va en su fila, «Todo el cuerpo técnico»), matriz entrenador × estrategia, distribución mensual y jugadores alcanzados por semana" },
           { que: "Registros", es: "Una tarjeta por registro con sus objetivos y el feedback, de 20 en 20", cuenta: "«Exportar CSV» baja lo filtrado en segundo plano" },
         ],
@@ -986,12 +995,12 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Dashboard de plantilla",
     resumen: "Quién juega, cuánto y cómo rinde: minutos por puesto, avisos de la semana, jornada a jornada, la ficha de cada uno y quién rinde más.",
     origen: "Wyscout (minutos, edad, contrato, amarillas, goles, asistencias y percentiles por puesto), Valoraciones (quién jugó cada jornada, titular o suplente, minutos y nota), hoja JUGADORES (plantilla, licencia y ficha de competencias) y Jugadores sesión (documento «jugadores-sesion», desde el 21/10).",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "Arriba",
         filas: [
-          { que: "Jugadores del Castilla", es: "Los de licencia del Castilla y, aparte, los de fuera con minutos, con su etiqueta (RMC, JUV A…)", cuenta: "«Grupo» deja sólo la licencia del Castilla" },
+          { que: "Jugadores del Castilla", es: "La cifra grande es la de licencia del Castilla; los de fuera con minutos se dicen aparte, debajo, y van con su etiqueta (RMC, JUV A…)", cuenta: "«Grupo» deja sólo la licencia del Castilla" },
           { que: "Partidos de liga", es: "Los jugados y los minutos posibles por jugador; si Valoraciones y Wyscout tienen distintos partidos, dice los dos", cuenta: "Partidos × 90, de cada fuente" },
           { que: "Han jugado", es: "Cuántos tienen al menos un minuto" },
           { que: "Minutos sub-21", es: "Parte de los minutos de Wyscout que juegan los de 21 años o menos", cuenta: "Minutos de los sub-21 ÷ minutos de los que tienen edad × 100; el mismo corte que la Comparativa" },
@@ -1002,13 +1011,13 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "¿Cómo está la plantilla?",
         filas: [
-          { que: "Minutos", es: "Los de Wyscout sobre los minutos de los partidos que tiene la descarga de Wyscout (lo dice el título, p. ej. 990′ de 11 partidos); sin fila en Wyscout, los de Valoraciones con asterisco, sobre los partidos de Valoraciones. Cada nombre abre su ficha en Plantilla; la barra, su resumen en «¿Cómo está cada uno?»", cuenta: "En naranja, menos del 25 %. Wyscout cuenta el añadido: puede pasar de los posibles. Quien no tiene ni un minuto sale aparte, en «Sin minutos esta temporada», y no en el gráfico" },
+          { que: "Minutos", es: "Cada barra dice «804′ de 990′ (81 %)», el mismo cálculo para todos (quien pasa de los posibles por el añadido se queda en el 100 %); con menos de 3 partidos, tendencia. Los de Wyscout sobre los minutos de los partidos que tiene la descarga de Wyscout (lo dice el título, p. ej. 990′ de 11 partidos); sin fila en Wyscout, los de Valoraciones con asterisco, sobre los partidos de Valoraciones. Cada nombre abre su ficha en Plantilla; la barra, su resumen en «¿Cómo está cada uno?»", cuenta: "En naranja, menos del 25 %. Wyscout cuenta el añadido: puede pasar de los posibles. Quien no tiene ni un minuto sale aparte, en «Sin minutos esta temporada», y no en el gráfico" },
           { que: "Cómo se lee", es: "El método largo de cada bloque va plegado bajo su título" },
           { que: "Titular", es: "Marcado como titular en Valoraciones o con los 90′; con uno o ninguno, «tendencia»" },
           { que: "¿De quién hay que hablar esta semana?", es: "Arriba, un semáforo con cada jugador avisado (oro, un aviso; naranja, dos o más). Debajo, juega poco (menos del 25 %), tres partidos sin jugar, carga alta (90 % o más), a una amarilla del ciclo (4, 9, 14…) y nota a la baja; cada fila lleva el nombre a su ficha y el «qué hacer» a un toque: registrar seguimiento, sus valoraciones o sus vídeos, y la carga alta, a Microciclos", cuenta: "Sólo licencia del Castilla; los porteros no entran en los de minutos. Nota a la baja: media de las 3 últimas un punto o más por debajo de la de las 3 anteriores" },
           { que: "¿Qué edad tiene quien juega?", es: "Tramos de edad de Wyscout con su parte de los minutos jugados", cuenta: "Edad media ponderada por minutos" },
           { que: "¿Cuándo acaban los contratos?", es: "Fin de contrato que publica Wyscout" },
-          { que: "¿Quién entrena con el grupo?", es: "Sesiones de cada uno en Jugadores sesión, de menos a más, y quién del Castilla no sale en ninguna", cuenta: "En naranja, por debajo del 70 % de las sesiones. Los porteros no cuentan (llevan registro aparte), tampoco en las sesiones guardadas antes con ellos dentro" },
+          { que: "¿Quién entrena con el grupo desde el 21/10?", es: "Sesiones de cada jugador de campo en Jugadores sesión, de menos a más, y quién del Castilla no sale en ninguna. El periodo va en el título: la lista del día existe desde el 21/10, el resto de la pantalla es la temporada", cuenta: "En naranja, por debajo del 70 % de las sesiones. Los porteros no cuentan (llevan registro aparte), tampoco en las sesiones guardadas antes con ellos dentro" },
         ],
       },
       {
@@ -1034,7 +1043,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Valoraciones de partido",
     resumen: "La nota que el cuerpo técnico pone a cada jugador en cada partido y lo que sale de ella: ranking, campograma, comparativa e histórico.",
     origen: "Supabase (tabla match_ratings, temporada 2026-2027); los partidos, de la hoja del calendario (la misma que Planes de partido). Minutos, titularidad, goles, asistencias y tarjetas los rellena cada noche BeSoccer (scripts/valoraciones-besoccer.mjs); la nota, las áreas y el comentario, sólo el cuerpo técnico.",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "Registrar",
@@ -1050,14 +1059,13 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Equipo",
         filas: [
           { que: "Media del equipo", es: "Media de la nota media de cada partido valorado" },
-          { que: "Mejor media", es: "La nota media más alta entre los de 4 partidos o más" },
-          { que: "Mayor progresión", es: "Quien más sube, con sus PJ y «tendencia» en la chapa y la minigráfica de sus 6 últimas notas (las 3 últimas en color)", cuenta: "Media de sus 3 últimas notas − media de las 3 anteriores; es tendencia" },
-          { que: "Más decisivo", es: "Más goles + asistencias; sale con 3 o más; sus PJ en la chapa y «muestra pequeña» por debajo de 10" },
-          { que: "Nombres", es: "Cada nombre (tarjetas, podio, ranking, mejores actuaciones) abre su ficha en Plantilla; el resto de la fila, sus notas" },
+          { que: "Mejor media · de campo", es: "La nota media más alta entre los jugadores de campo con 4 partidos o más (el portero va en «Media por línea»); el pie dice de cuántos" },
+          { que: "Progresión y goles + asistencias", es: "Bajo las tarjetas, en una línea secundaria (no en titular): quien más sube (3 últimas notas frente a 3 anteriores, tendencia) y quien más goles + asistencias suma (con 3 o más), cada uno con sus PJ" },
+                    { que: "Nombres", es: "Cada nombre (tarjetas, podio, ranking, mejores actuaciones) abre su ficha en Plantilla; el resto de la fila, sus notas" },
           { que: "Evolución del equipo", es: "La media de cada partido: lleno en casa, hueco fuera; la línea de puntos, la media de la temporada; el resultado, con el Castilla primero" },
-          { que: "Ranking de la plantilla", es: "PJ, Tit., Min, media, Pond., Forma, Tend., Máx, Mín y G+A; filtro Todos, 3+ PJ o 5+ PJ; en el móvil sólo PJ, media, Tend. y G+A («Ver más columnas»)", cuenta: "Pond. = media pesada por minutos; Forma = media de los 5 últimos; Min = minutos de Valoraciones (90′ por partido completo, BeSoccer), por eso no cuadra al minuto con el Dashboard de plantilla (Wyscout); con menos de 4 partidos, fila atenuada" },
-          { que: "Nota y minutos · Media por línea · Podio", es: "Los de 4 partidos o más en dos ejes, la media de porteros, defensas, medios y ataque, y el podio de la temporada; la lectura acaba en el último de la lista con «Vídeos», «Registrar seguimiento» y «Ficha»" },
-          { que: "Partido a partido · Mejores actuaciones", es: "Marcador con el Castilla primero y V/E/D; el último partido lleva «Análisis post» (Data análisis)" },
+          { que: "Ranking de la plantilla", es: "Por defecto PJ, Media, Forma, Tend. y G+A en todos los anchos; Tit., Min, Pond., Máx y Mín en «Ver más columnas». Cada fila lleva sus accesos a Seguimiento, Comparativa y Vídeos; filtro Todos, 3+ PJ o 5+ PJ", cuenta: "Pond. = media pesada por minutos; Forma = media de los 5 últimos; Min = minutos de Valoraciones (90′ por partido completo, BeSoccer), por eso no cuadra al minuto con el Dashboard de plantilla (Wyscout); con menos de 4 partidos, fila atenuada" },
+          { que: "Nota y minutos · Media por línea · Podio", es: "El título dice cuántos de los valorados entran; las marcas de minutos van sin repetirse y con techo redondo. Los de 4 partidos o más en dos ejes, la media de porteros, defensas, medios y ataque, y el podio de la temporada; la lectura acaba en el último de la lista con «Vídeos», «Registrar seguimiento» y «Ficha»" },
+          { que: "Partido a partido · Mejores actuaciones", es: "Marcador con el Castilla primero y V/E/D; el último partido lleva «Análisis post» (Data análisis) y cada uno, «Rival →» con el rival ya elegido" },
         ],
       },
       {
@@ -1080,7 +1088,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Comparativa con la categoría",
     resumen: "Cada jugador del Castilla frente a los de su puesto en la categoría (sub-21, sub-23 o todos), con Wyscout o con Opta: ranking, gráficos por fase, ficha y, según la fuente, contra otros equipos o su evolución por temporadas.",
     origen: "Wyscout: la descarga de jugadores de toda la categoría (esta temporada y la pasada) y, para el ajuste a la posesión, la posesión media de cada equipo en sus partidos de liga de Wyscout. Opta: sus tablas de jugadores de Primera RFEF, todas las temporadas que hay. Al lado, nuestras Valoraciones (nota) y la hoja de seguimiento (nº de registros).",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "Arriba",
@@ -1099,7 +1107,11 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Índice", es: "Media de sus percentiles en las métricas de su puesto contra los de su puesto del grupo elegido", cuenta: "De 0 a 100; 50 = la media. Con 90′ o más; el portero, sólo contra porteros" },
           { que: "Ranking", es: "Su puesto entre los de su posición del grupo; «2º-3º de 34» = empatado en índice" },
           { que: "Evolución (pts)", es: "Puntos de índice frente a 25/26, cada año contra su categoría", cuenta: "Entre −3 y +3, estable; «nuevo» = sin minutos el año pasado. «Mejoran respecto a 25/26» pide 450′ el año pasado" },
-          { que: "Mejoran respecto a 25/26", es: "Bajo las cifras, quiénes son: una barra por jugador con su cambio en puntos, la marca del umbral (+3) y sus minutos del año pasado" },
+          { que: "Mejoran respecto a 25/26", es: "Bajo las cifras, quiénes son: una barra por jugador con su cambio en puntos, la marca del umbral (+3) y sus minutos del año pasado", cuenta: "Sólo quien tiene índice esta temporada; la tarjeta y la frase del gráfico salen de la misma regla" },
+          { que: "Por qué no coinciden las cifras", es: "Bajo el gráfico del ranking, una línea: cuántos tienen índice, cuántos con 300′ o más y cuántos son tendencia" },
+          { que: "«Mayor de 21» (o de 23)", es: "Pasa de la edad del grupo y se le coloca entre ellos contando como uno más; por eso su «de N» lleva uno más que el de un compañero del mismo puesto que sí entra" },
+          { que: "Tarjetas de lectura", es: "A la vista, el titular y «Qué hacemos» (con la métrica de Wyscout y una tarea con lo que se cuenta); las cifras y el porqué, en «Por qué»" },
+          { que: "Móvil", es: "Las filas del ranking visual no llevan iconos: pulsar la fila abre su ficha aquí" },
           { que: "Tarjetas de lectura", es: "Titular, el dato y qué hacemos (una tarea de campo con algo que contar y su objetivo); el porqué, plegado. «Lo que más cae» deja fuera métricas ajenas al puesto (los remates de un central). Cada una lleva a su ficha aquí y a su ficha, vídeos y registrar seguimiento" },
           { que: "Ir a (Detalle)", es: "En la tabla, cada fila lleva a su ficha, sus valoraciones y su seguimiento" },
           { que: "Nota · Nº seguim.", es: "Su nota media en Valoraciones y sus registros de seguimiento", cuenta: "Los porteros no cuentan registros de seguimiento: llevan uno independiente" },
@@ -1949,7 +1961,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Emocional",
     resumen: "El estado emocional del once de la pizarra táctica, línea a línea, en cuatro dimensiones de 0 a 10.",
     origen: "La hoja emocional (una fila por jugador, que se sobrescribe) y, encima, lo editado aquí en «Editar valoraciones» (documento «emotion:valoraciones» de Supabase), que manda jugador a jugador. El once, del tablero de la pizarra táctica. La flecha compara con la foto anterior guardada en este aparato.",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "Las cuatro dimensiones",
@@ -1968,19 +1980,21 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Fichas del once", es: "Cada titular en su sitio: el aro es su media y la flecha, el cambio desde la evaluación anterior; al pulsarlo, su perfil y debajo el banquillo", cuenta: "Flecha desde 0,25; punto rojo si baja 0,5 o más o un eje cae 1 punto" },
           { que: "Titular sin valorar", es: "Entra con la media de la plantilla y no cuenta en las medias" },
           { que: "Cambiar el once en la pizarra", es: "Lleva a la pizarra táctica; más abajo se cambia quién entra en cada radar y «Restablecer líneas» (en «Más») lo deshace" },
-          { que: "Lectura del once", es: "Qué entrenamos, jugadores foco y ejes más bajos; cada nombre lleva a su ficha y a su seguimiento; al pulsar un jugador, su perfil con Ficha, Seguimiento, Registrar seguimiento y Valoraciones" },
+          { que: "Lectura del once", es: "«Media de N de M titulares valorados»: sólo cuentan los titulares con valoración propia (quien lleva la media de la plantilla sigue en el campo y en los radares, pero no aquí). Qué entrenamos y un solo bloque «Jugadores foco · su eje más bajo» (los tres más bajos en el eje a trabajar y quien tenga algún eje bajo 6,5); cada nombre lleva a su ficha y a su seguimiento; al pulsar un jugador, su perfil con Ficha, Seguimiento, Registrar seguimiento y Valoraciones", cuenta: "Con menos de 3 valorados, tendencia" },
+          { que: "Frase de arriba", es: "Los tres titulares valorados más bajos, con su media, y el eje a trabajar del once valorado. No ordena líneas: cada una tiene de 2 a 5 jugadores" },
+          { que: "Radar con menos de 3 jugadores", es: "La cifra grande lleva «tend.» y el radar va atenuado" },
         ],
       },
       {
         titulo: "Las cifras",
         filas: [
-          { que: "Jugadores analizados", es: "Registros en la base emocional", cuenta: "Con menos de 12, tendencia" },
-          { que: "Fecha de la valoración", es: "Arriba, «Estado del once según la valoración del dd/mm»; pasados 14 días, «a revisar»" },
+          { que: "Jugadores analizados", es: "Toda la plantilla valorada (no sólo el once); la lectura del once cuenta sólo a los titulares", cuenta: "Con menos de 12, tendencia" },
+          { que: "Fecha de la valoración", es: "Arriba, «Estado del once según la valoración del dd/mm»; pasados 14 días, «a revisar» con el botón «Valorar de nuevo antes del partido», que abre el editor" },
           { que: "Base", es: "Una valoración por jugador; una línea suma de 2 a 5", cuenta: "Por debajo de 25 valoraciones la media de una línea es tendencia, y se marca así en cada radar" },
           { que: "Media de la línea", es: "Bajo cada radar, las cuatro cifras de los jugadores de esa línea; el trazo discontinuo es la media de la plantilla" },
           { que: "Media de plantilla", es: "Media de las medias de cada jugador evaluado, con su banda de la escala" },
           { que: "Dimensión más fuerte · Dimensión a desarrollar", es: "La de media más alta y la más baja del grupo" },
-          { que: "Editar valoraciones", es: "Cambia las cuatro notas de un jugador; «N valoraciones hechas en la app» dice cuántas no salen de la hoja" },
+          { que: "Editar valoraciones", es: "Cambia las cuatro notas de un jugador; «Ver las valoraciones» abre las hechas aquí" },
           { que: "Ver explicación", es: "El vídeo de cómo se leen las cuatro dimensiones" },
         ],
       },
@@ -2854,8 +2868,8 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           { que: "Seguimientos en (mes)", es: "Registros del mes de los jugadores de campo del Castilla; si es el mes en curso, hasta hoy", cuenta: "Debajo, cuántos más o menos que el mes anterior al mismo día (o entero), lo programado después de hoy y la temporada hasta hoy (la misma cuenta que el Dashboard Seguimiento). Lo de otros equipos va aparte, este mes y en la temporada. Los porteros no cuentan: llevan un registro independiente y sus registros no se pintan" },
           { que: "Jugadores con seguimiento", es: "«N de M»: jugadores de campo del Castilla con algún registro ese mes, sobre todos ellos", cuenta: "Debajo, cuántos de otros equipos además" },
-          { que: "Por tipo", es: "Registros del mes por estrategia: Campo, Vídeo, Charla, Vídeo y charla, Sin tipo escrito", cuenta: "Se lee de la columna ESTRATEGIA; «Sin tipo escrito» es lo que no trae ninguna de esas palabras" },
-          { que: "Por semana · últimas 8", es: "Barras de los registros de los de campo del Castilla en las 8 últimas semanas (lunes a domingo) con la media de las cerradas en raya", cuenta: "La semana en curso, atenuada y fuera de la media" },
+          { que: "Por tipo", es: "Registros del mes de los de campo del Castilla (la base va al pie) por estrategia, en una columna en pantallas estrechas: Campo, Vídeo, Charla, Vídeo y charla, Sin tipo escrito", cuenta: "Se lee de la columna ESTRATEGIA; «Sin tipo escrito» es lo que no trae ninguna de esas palabras" },
+          { que: "Por semana · últimas 8", es: "Con la base («de los N de campo») al pie, como las otras tres. Barras de los registros de los de campo del Castilla en las 8 últimas semanas (lunes a domingo) con la media de las cerradas en raya", cuenta: "La semana en curso, atenuada y fuera de la media" },
           { que: "Selector de jugador", es: "«Todos (sin porteros)» o uno: Castilla de campo y otros equipos, cada grupo por orden alfabético; con uno elegido, «Ficha» y «Registrar seguimiento» al lado", cuenta: "Se entra ya filtrado con /calendar?player=ID (desde la ficha o el Dashboard Seguimiento)" },
         ],
       },
@@ -2863,8 +2877,9 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "El calendario",
         filas: [
           { que: "A quién toca seguir", es: "Jugadores de campo del Castilla sin ningún seguimiento en 14 días, con los días desde el último; el nombre abre su ficha y «Registrar seguimiento» abre el formulario con el jugador ya elegido", cuenta: "14 días que acaban hoy, hoy incluido; los porteros no cuentan. Sólo sale sin filtro de jugador" },
-          { que: "Día de partido", es: "En azul, con el marcador del Castilla primero (V/E/D), «vs» en casa y «@» fuera", cuenta: "Al abrir el día, «Análisis del partido» lleva al post de Análisis de datos" },
-          { que: "Tarjeta del día", es: "El jugador y quién lo hizo (sin autor escrito, el tipo); la franja de color es el tipo", cuenta: "Hasta 3 por casilla; «+N más» abre el día" },
+          { que: "Día de partido", es: "En azul, con el marcador del Castilla primero (V/E/D), «vs» en casa y «@» fuera. Es un enlace: jugado, a su análisis post; por jugar, al rival ya elegido (goles, ABP y su once)", cuenta: "Al abrir el día, «Análisis del partido» lleva al post de Análisis de datos" },
+          { que: "Tarjeta del día", es: "El jugador y quién lo hizo (sin autor escrito, sólo el nombre); la franja de color es el tipo", cuenta: "Hasta 3 por casilla; con más, una barra de colores con el reparto por tipo de todo el día y «+N más», que abre el día" },
+          { que: "MD", es: "Los días de la semana del próximo partido llevan «MD-n» (días que faltan) y «MD» el del partido, para programar el seguimiento dentro del microciclo" },
           { que: "Programado", es: "Registro con fecha posterior a hoy: borde de puntos y fuera de las cifras «hasta hoy»" },
           { que: "El día abierto", es: "Cada registro con su estrategia, quién, objetivo ofensivo, defensivo, mental y feedback, y sus accesos: ficha, seguimiento y registrar" },
           { que: "Pinchar un nombre", es: "Abre su ficha en /individual" },
@@ -2876,7 +2891,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Aquí sólo se lee; los seguimientos se escriben desde la ficha individual.",
       "La leyenda de los tipos va encima del mes, no al pie (16/11/2026).",
     ],
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
   },
   /* ==================== CALENDARIO DE OPERATIVA GENERAL (12/11/2026) ==================== */
   {

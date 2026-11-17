@@ -340,22 +340,24 @@ export default function EmotionPage() {
     };
     const reales = (k: GroupKey) =>
       (groups[k] ?? []).map((n) => getPlayer(n)).filter((p): p is Player => Boolean(p && !p.estimado));
-    const lineas = (Object.keys(TITULO) as GroupKey[])
-      .map((k) => ({ k, ps: reales(k) }))
-      .filter((l) => l.ps.length > 0)
-      .map((l) => ({ ...l, media: l.ps.reduce((a, p) => a + average(p), 0) / l.ps.length }))
-      .sort((a, b) => b.media - a.media);
+    /* 17/11/2026 (ronda 19): sin ordenar líneas (todas son tendencia, de 2
+       a 5 jugadores): los titulares más bajos con nombre y el eje a trabajar
+       del once valorado. */
+    const todos = [
+      ...new Map(
+        (Object.keys(TITULO) as GroupKey[]).flatMap((k) => reales(k)).map((p) => [p.jugador, p] as const),
+      ).values(),
+    ];
 
-    if (lineas.length < 2) return null;
+    if (todos.length < 2) return null;
 
-    const alta = lineas[0];
-    const baja = lineas[lineas.length - 1];
-    const todos = [...new Map(lineas.flatMap((l) => l.ps).map((p) => [p.jugador, p])).values()];
-    const peor = [...todos].sort((a, b) => average(a) - average(b))[0];
-    const base = (l: typeof alta) => `${coma(l.media)} · ${l.ps.length} ${l.ps.length === 1 ? "jugador" : "jugadores"}`;
-    const nombre = nombreVisible(mejorCasado([peor.jugador], plantilla, (p) => [p.nombre, p.apodo])?.nombre || peor.jugador);
+    const nombreDe = (p: Player) => nombreVisible(mejorCasado([p.jugador], plantilla, (j) => [j.nombre, j.apodo])?.nombre || p.jugador);
+    const peores = [...todos].sort((x, y) => average(x) - average(y)).slice(0, 3);
+    const lista = peores.map((p) => `${nombreDe(p)} ${coma(average(p))}`);
+    const ejes = AXES.map((axis) => ({ axis, v: todos.reduce((acc, p) => acc + p[axis.key], 0) / todos.length })).sort((x, y) => x.v - y.v);
+    const flojo = ejes[0];
 
-    return `La línea más entera es ${TITULO[alta.k]} (${base(alta)}) y la más justa, ${TITULO[baja.k]} (${base(baja)}); el titular más bajo es ${nombre}, con ${coma(average(peor))} de media.`;
+    return `Más bajos del once: ${lista.length > 1 ? `${lista.slice(0, -1).join(", ")} y ${lista.at(-1)}` : lista[0]} · a trabajar: ${flojo.axis.corto.toLowerCase()} (${coma(flojo.v)} de media en los ${todos.length} titulares valorados).`;
   }, [groups, getPlayer, plantilla]);
 
   const setGroup = useCallback((key: GroupKey, value: string[]) => {
@@ -522,9 +524,16 @@ export default function EmotionPage() {
                     <p className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[.14em] text-white/60">
                       Estado del once según la valoración del {fechaCorta}
                       {diasDesdeValoracion !== null && diasDesdeValoracion >= 14 && (
-                        <span className="rounded-full border border-amber-500/50 bg-amber-500/10 px-2 py-0.5 normal-case tracking-normal text-amber-300">
+                        /* 17/11/2026 (ronda 19): el aviso lleva a valorar de nuevo, antes del próximo partido. */
+                        <button
+                          type="button"
+                          onClick={() => setEditando(true)}
+                          data-export-hide
+                          className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/50 bg-amber-500/10 px-2.5 py-0.5 normal-case tracking-normal text-amber-300 transition hover:bg-amber-500/20"
+                        >
                           a revisar · hace {diasDesdeValoracion} días
-                        </span>
+                          <span className="font-bold">· Valorar de nuevo antes del partido →</span>
+                        </button>
                       )}
                     </p>
                   )}
@@ -549,10 +558,8 @@ export default function EmotionPage() {
                           onClick={() => setEditando(true)}
                           className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-2.5 py-0.5 text-white/75 transition hover:border-[#C8A96B] hover:text-white"
                         >
-                          {editadosAqui === 1 ? "1 valoración" : `${editadosAqui} valoraciones`} hechas en la app
-                          {fechaValoracion ? ` (la última, ${fechaValoracion.slice(8, 10)}/${fechaValoracion.slice(5, 7)})` : ""}
-                          , el resto de la hoja
-                          <span className="font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)]">Ver →</span>
+                          {/* 17/11/2026 (ronda 19): sin la nota de origen («el resto de la hoja»), que es para el analista. */}
+                          <span className="font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)]">Ver las valoraciones →</span>
                         </button>
                       )}
                       {/* 16/11/2026 (jueces): «Guardado HH:MM» no se enseña en
@@ -633,7 +640,7 @@ export default function EmotionPage() {
                 caption={
                   rows.length > 0 && rows.length < MUESTRA_MINIMA
                     ? `Sólo ${rows.length} jugadores medidos: es una tendencia, no un diagnóstico`
-                    : "Registros en la base emocional"
+                    : "toda la plantilla valorada; la lectura del once cuenta sólo a los titulares"
                 }
                 icon={Users}
               />

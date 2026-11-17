@@ -29,7 +29,9 @@ export type DestinoJugador =
   | "videos"
   | "data"
   | "comparativa"
-  | "calendario";
+  | "calendario"
+  /** /ratings con sus notas abiertas (17/11/2026, ronda 19). */
+  | "notas";
 
 export interface JugadorEnlazable {
   /** ID vigente de la hoja JUGADORES (JUG-XX). Sin él, se va por nombre. */
@@ -60,6 +62,8 @@ export function hrefJugador(destino: DestinoJugador, j: JugadorEnlazable): strin
       return `/comparative_ind?jugador=${enc(j.nombre)}`;
     case "calendario":
       return j.id ? `/calendar?player=${enc(j.id)}` : `/calendar`;
+    case "notas":
+      return j.id ? `/ratings?player=${enc(j.id)}` : `/ratings?jugador=${enc(j.nombre)}`;
   }
 }
 
@@ -71,6 +75,7 @@ const ROTULO: Record<DestinoJugador, { label: string; icono: ReactNode; titulo: 
   videos: { label: "Vídeos", icono: <Video size={12} aria-hidden />, titulo: "Sus vídeos" },
   data: { label: "Data análisis", icono: <BarChart3 size={12} aria-hidden />, titulo: "Sus datos de Wyscout y Opta" },
   comparativa: { label: "Comparativa", icono: <Scale size={12} aria-hidden />, titulo: "Contra la categoría, en su puesto" },
+  notas: { label: "Notas", icono: <Star size={12} aria-hidden />, titulo: "Sus notas en Valoraciones, con él ya abierto" },
   calendario: { label: "Calendario", icono: <CalendarDays size={12} aria-hidden />, titulo: "Su seguimiento en el calendario" },
 };
 
@@ -95,7 +100,10 @@ export function EnlacesJugador({
   if (!jugador.nombre && !jugador.id) return null;
 
   return (
-    <span className={`inline-flex flex-wrap items-center gap-1 ${className}`}>
+    /* 17/11/2026 (ronda 19): con «hidden sm:inline-flex» la base
+       «inline-flex» ganaba en el CSS y los iconos salían igual en el móvil,
+       doblando el alto de cada fila. Si la clase trae «hidden», manda ella. */
+    <span className={`${/(^|\s)hidden(\s|$)/.test(className) ? "" : "inline-flex"} flex-wrap items-center gap-1 ${className}`}>
       {destinos.map((d) => {
         const r = ROTULO[d];
         const principal = d === "registrar";

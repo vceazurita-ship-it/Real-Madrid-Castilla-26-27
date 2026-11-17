@@ -787,8 +787,15 @@ function RadarLinea({
             {titulo}
           </p>
           {media !== null && (
-            <p className="shrink-0 text-lg font-bold tabular-nums leading-none" style={{ color: tono, textShadow: `0 0 12px ${tono}99` }}>
+            /* 17/11/2026 (ronda 19): con menos de 3 jugadores, la cifra
+               grande lleva «tendencia» y va atenuada, como su radar. */
+            <p
+              className="shrink-0 text-lg font-bold tabular-nums leading-none"
+              style={{ color: tono, textShadow: `0 0 12px ${tono}99`, opacity: evaluados.length < 3 ? 0.6 : 1 }}
+              title={evaluados.length < 3 ? "Tendencia: menos de 3 jugadores" : undefined}
+            >
               {coma(media)}
+              {evaluados.length < 3 && <span className="ml-1 align-middle text-[11px] font-semibold uppercase tracking-[.1em]">tend.</span>}
             </p>
           )}
         </div>
@@ -798,7 +805,7 @@ function RadarLinea({
         {banda && (
           <p
             className="mt-0.5 text-[11px] font-semibold uppercase tracking-[.18em]"
-            style={{ color: evaluados.length < 3 ? "rgba(226,246,255,.6)" : `${tono}CC` }}
+            style={{ color: evaluados.length < 3 ? "rgba(236,248,255,.85)" : tono }}
           >
             {/* 16/11/2026: una valoración por jugador; con menos de 25, tendencia. */}
             {evaluados.length < 3 ? `tendencia · ${evaluados.length} ${evaluados.length === 1 ? "jugador" : "jugadores"}` : `${banda.label} · ${evaluados.length} jug. · tendencia`}
@@ -814,7 +821,7 @@ function RadarLinea({
 
       {/* 01/11/2026: lienzo más ancho y los ejes de los lados en dos renglones
           (nombre y cifra): «Controlar 8,3» y «Ejecutar 9,0» se cortaban por el borde. */}
-      <svg viewBox="-90 -57 180 114" className={`mx-auto w-full ${tumbada ? "max-w-[300px] sm:max-w-[260px] xl:max-w-[248px]" : "max-w-[300px] sm:max-w-[286px]"}`} role="img" aria-label={`Radar de ${titulo}`}>
+      <svg viewBox="-90 -57 180 114" style={{ opacity: evaluados.length > 0 && evaluados.length < 3 ? 0.6 : 1 }} className={`mx-auto w-full ${tumbada ? "max-w-[300px] sm:max-w-[260px] xl:max-w-[248px]" : "max-w-[300px] sm:max-w-[286px]"}`} role="img" aria-label={`Radar de ${titulo}`}>
         {[2.5, 5, 7.5, 10].map((v) => (
           <polygon
             key={v}
@@ -871,9 +878,11 @@ function RadarLinea({
               textAnchor={i === 1 ? "start" : i === 3 ? "end" : "middle"}
               /* 08/11/2026: 8,6 sobre 180 de lienzo y 248 px de ancho mínimo
                  en escritorio: ~11,8 px, legible a 1440 (antes ~10). */
-              fontSize={8.6}
-              fontWeight={600}
-              fill="rgba(226,246,255,.78)"
+              /* 17/11/2026 (ronda 19): un punto más y más blanco; en modo
+                 día el tablero sigue oscuro y los ejes se leían flojos. */
+              fontSize={9.6}
+              fontWeight={700}
+              fill="rgba(240,250,255,.95)"
             >
               {a.corto}
               {mediaEje && (
@@ -1142,7 +1151,10 @@ function PanelLateral({
 }
 
 function LecturaDelOnce({ titulares, teamAverage, fecha, onElegir }: { titulares: Colocado[]; teamAverage: Record<MetricKey, number> | null; fecha: string | null; onElegir: (clave: string | null) => void }) {
-  const evaluados = titulares.filter((c): c is Colocado & { dato: Player } => Boolean(c.dato));
+  /* 17/11/2026 (ronda 19): la lectura habla sólo de quien tiene valoración
+     propia. Quien lleva la media de la plantilla (estimado) sigue en el campo
+     y en los seis radares (petición del analista), pero no cuenta aquí. */
+  const evaluados = titulares.filter((c): c is Colocado & { dato: Player } => Boolean(c.dato && !c.dato.estimado));
 
   if (evaluados.length === 0) {
     return (
@@ -1157,7 +1169,18 @@ function LecturaDelOnce({ titulares, teamAverage, fecha, onElegir }: { titulares
   const porEje = AXES.map((axis) => ({ axis, valor: evaluados.reduce((a, c) => a + c.dato[axis.key], 0) / evaluados.length })).sort((a, b) => a.valor - b.valor);
   const flojo = porEje[0];
   const alertas = evaluados.filter((c) => cambioDe(c)?.baja);
-  const bajos = [...evaluados].sort((a, b) => Math.min(...notas(a.dato)) - Math.min(...notas(b.dato))).filter((c) => Math.min(...notas(c.dato)) < 6.5).slice(0, 3);
+  /* 17/11/2026 (ronda 19): «Ejes más bajos» y «Jugadores foco» repetían
+     nombres. Un solo bloque por jugador: los tres más bajos en el eje a
+     trabajar y quien tenga algún eje por debajo de 6,5, cada uno con su eje
+     más bajo. */
+  const bajos = [
+    ...new Map(
+      [
+        ...[...evaluados].sort((a, b) => a.dato[porEje[0].axis.key] - b.dato[porEje[0].axis.key]).slice(0, evaluados.length > 3 ? 3 : 0),
+        ...[...evaluados].sort((a, b) => Math.min(...notas(a.dato)) - Math.min(...notas(b.dato))).filter((c) => Math.min(...notas(c.dato)) < 6.5),
+      ].map((c) => [c.clave, c] as const),
+    ).values(),
+  ].slice(0, 5);
   const tono = bandFor(media).tone;
 
   return (
@@ -1171,7 +1194,8 @@ function LecturaDelOnce({ titulares, teamAverage, fecha, onElegir }: { titulares
           {coma(media)}
         </span>
         <span className="pb-1 text-xs text-white/55">
-          media de {evaluados.length} {evaluados.length === 1 ? "titular evaluado" : "titulares evaluados"} · {bandFor(media).label}
+          media de {evaluados.length} de {titulares.length} titulares valorados · {bandFor(media).label}
+          {evaluados.length < 3 ? " · tendencia" : ""}
         </span>
       </div>
 
@@ -1204,24 +1228,6 @@ function LecturaDelOnce({ titulares, teamAverage, fecha, onElegir }: { titulares
             {coma(teamAverage[flojo.axis.key])} en {flojo.axis.corto.toLowerCase()}, la media de la plantilla.
           </p>
         )}
-        {/* 08/11/2026 (jueces): la tarea con nombres: los tres titulares más bajos en ese eje. */}
-        {evaluados.length > 3 && (
-          <p className="mt-1 flex flex-wrap items-center gap-1.5">
-            <span className="font-semibold text-white">Jugadores foco:</span>
-            {[...evaluados]
-              .sort((a, b) => a.dato[flojo.axis.key] - b.dato[flojo.axis.key])
-              .slice(0, 3)
-              .map((c) => (
-                /* 16/11/2026 (jueces): del foco a su ficha y a registrar su seguimiento. */
-                <span key={c.clave} className="inline-flex items-center gap-1">
-                  <button type="button" onClick={() => onElegir(c.clave)} className="rounded-full border border-white/10 px-2 py-0.5 text-xs text-white/80 hover:text-white">
-                    {c.nombre} · {flojo.axis.corto} {coma(c.dato[flojo.axis.key])}
-                  </button>
-                  <EnlacesJugador jugador={{ nombre: c.nombre }} destinos={["ficha", "seguimiento"]} compacto />
-                </span>
-              ))}
-          </p>
-        )}
       </div>
 
       {alertas.length > 0 && (
@@ -1241,7 +1247,7 @@ function LecturaDelOnce({ titulares, teamAverage, fecha, onElegir }: { titulares
 
       {bajos.length > 0 && (
         <div className="mt-4">
-          <p className="text-[10px] uppercase tracking-[.2em] text-white/40">Ejes más bajos del once</p>
+          <p className="text-[11px] uppercase tracking-[.2em] text-white/55">Jugadores foco · su eje más bajo</p>
           <div className="mt-2 space-y-1.5">
             {bajos.map((c) => {
               const v = notas(c.dato);
