@@ -932,7 +932,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Dashboard de plantilla",
     resumen: "Quién juega, cuánto y cómo rinde: minutos por puesto, avisos de la semana, jornada a jornada, la ficha de cada uno y quién rinde más.",
     origen: "Wyscout (minutos, edad, contrato, amarillas, goles, asistencias y percentiles por puesto), Valoraciones (quién jugó cada jornada, titular o suplente, minutos y nota), hoja JUGADORES (plantilla, licencia y ficha de competencias) y Jugadores sesión (documento «jugadores-sesion», desde el 21/10).",
-    revisada: "2026-11-15",
+    revisada: "2026-11-16",
     bloques: [
       {
         titulo: "Arriba",
@@ -952,7 +952,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "¿De quién hay que hablar esta semana?", es: "Juega poco (menos del 25 %), tres partidos sin jugar, carga alta (90 % o más), a una amarilla del ciclo (4, 9, 14…) y nota a la baja", cuenta: "Sólo licencia del Castilla; los porteros no entran en los de minutos. Nota a la baja: media de las 3 últimas un punto o más por debajo de la de las 3 anteriores" },
           { que: "¿Qué edad tiene quien juega?", es: "Tramos de edad de Wyscout con su parte de los minutos jugados", cuenta: "Edad media ponderada por minutos" },
           { que: "¿Cuándo acaban los contratos?", es: "Fin de contrato que publica Wyscout" },
-          { que: "¿Quién entrena con el grupo?", es: "Sesiones de cada uno en Jugadores sesión, de menos a más, y quién del Castilla no sale en ninguna", cuenta: "En naranja, por debajo del 70 % de las sesiones" },
+          { que: "¿Quién entrena con el grupo?", es: "Sesiones de cada uno en Jugadores sesión, de menos a más, y quién del Castilla no sale en ninguna", cuenta: "En naranja, por debajo del 70 % de las sesiones. Los porteros no cuentan (llevan registro aparte), tampoco en las sesiones guardadas antes con ellos dentro" },
         ],
       },
       {
