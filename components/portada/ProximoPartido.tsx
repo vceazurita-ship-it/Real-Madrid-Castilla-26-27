@@ -31,6 +31,8 @@ import { traeJson } from "@/lib/hojaCsv";
 import { trackModuleVisit } from "@/lib/module-usage";
 import { chipInk } from "@/lib/theme";
 import { useAdmin } from "@/hooks/useAdmin";
+import { useOptaLigero } from "@/hooks/useOptaLigero";
+import { CASTILLA_OPTA } from "@/lib/opta";
 import {
   contenidosDelDia,
   diaEnMadrid,
@@ -672,7 +674,7 @@ export function ProximoPartido() {
           const fila = (rotulo: ReactNode, atajos: { href: string; texto: string; title?: string; hoy?: boolean }[]) => (
             <div className="min-w-0">
               <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.18em] text-white/60">{rotulo}</p>
-              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 max-sm:[&>a:last-child:nth-child(odd)]:col-span-2">
                 {atajos.map((atajo) => (
                   <Atajo key={atajo.texto} href={atajo.href} texto={atajo.texto} title={atajo.title} hoy={atajo.hoy} />
                 ))}
@@ -824,26 +826,48 @@ function Atajo({ href, texto, title, hoy = false }: { href: string; texto: strin
 
 /**
  * Los últimos resultados, como se leen en cualquier clasificación: una ficha
- * por partido con el marcador debajo. Lleva al histórico. Desde el 16/11/2026,
- * en su tarjeta (rediseño), con el último partido como base debajo.
+ * por partido con el marcador debajo. Desde el 16/11/2026, en su tarjeta
+ * (rediseño), con el último partido como base debajo.
+ *
+ * 17/11/2026 (ronda 20, los tres jueces): cada ficha abre el análisis de ESE
+ * partido (Análisis de datos → El partido, con el partido de Opta ya elegido
+ * por la fecha). Si Opta no lo tiene, la ficha no es enlace. El histórico
+ * sigue a un toque en el icono de la cabecera.
  */
 function Racha({ ultimos, cargando, ultimo }: { ultimos: PartidoNuestro[]; cargando: boolean; ultimo?: PartidoNuestro | null }) {
+  const { opta } = useOptaLigero();
+
+  /* El id de Opta de cada partido nuestro, por el día. */
+  const idPorDia = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const f of opta?.partidos ?? []) {
+      if (f.teamId !== CASTILLA_OPTA) continue;
+      const dia = String(f.fecha ?? "").slice(0, 10);
+      const id = String(f.partido ?? "");
+      if (dia && id) m.set(dia, id);
+    }
+    return m;
+  }, [opta]);
+
   /* Sin partidos jugados no hay racha que enseñar. */
   if (!cargando && ultimos.length === 0) return null;
 
   return (
-    <Link
-      href="/collective_history"
-      onClick={() => trackModuleVisit("/collective_history")}
-      className="portada-celda portada-viva group flex min-w-0 flex-col gap-2.5 p-4"
-      title="Histórico de competición"
-    >
+    <div className="portada-celda flex min-w-0 flex-col gap-2.5 p-4">
       <span className="flex items-center justify-between gap-2">
         <span className="text-[12px] font-semibold uppercase tracking-[0.18em] text-white/60">
           Castilla · últimos {ultimos.length || 5}
-          <span className="ml-1.5 font-medium normal-case tracking-normal text-white/60">· el más reciente, a la derecha</span>
+          <span className="ml-1.5 font-medium normal-case tracking-normal text-white/60">· toca uno para su análisis</span>
         </span>
-        <History className="h-4 w-4 shrink-0 text-white/40 transition-colors group-hover:text-[#D8B45A]" />
+        <Link
+          href="/collective_history"
+          onClick={() => trackModuleVisit("/collective_history")}
+          title="Histórico de competición"
+          aria-label="Histórico de competición"
+          className="-m-2 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-white/40 transition-colors hover:text-[#D8B45A]"
+        >
+          <History className="h-4 w-4" />
+        </Link>
       </span>
 
       <span className="flex items-center gap-1.5">
@@ -854,15 +878,15 @@ function Racha({ ultimos, cargando, ultimo }: { ultimos: PartidoNuestro[]; carga
 
               const color = signo === "V" ? VERDE : signo === "D" ? NARANJA : "#94A3B8";
 
+              const id = idPorDia.get(partido.cuando.slice(0, 10));
+
+              const titulo = `J${partido.jornada} · ${partido.lado === "casa" ? "en casa con " : "en "}${partido.rival} · ${partido.golesFavor}-${partido.golesContra}`;
+
               /* 11/11/2026 (análisis): el marcador bajo cada letra; E/V/D ya no pide memoria. */
-              return (
-                <span
-                  key={`${partido.jornada}-${partido.cuando}`}
-                  title={`J${partido.jornada} · ${partido.lado === "casa" ? "en casa con " : "en "}${partido.rival} · ${partido.golesFavor}-${partido.golesContra}`}
-                  className="flex w-10 flex-col items-center"
-                >
+              const ficha = (
+                <>
                   <span
-                    className="fuente-club flex h-9 w-9 items-center justify-center rounded-lg text-[18px] font-bold"
+                    className="fuente-club flex h-9 w-9 items-center justify-center rounded-lg text-[18px] font-bold transition-transform group-hover/ficha:-translate-y-0.5"
                     /* La letra con `chipInk`: el gris del empate y el verde
                        sobre el blanco del modo día no llegaban a 3:1. */
                     style={{ background: `${color}22`, color: chipInk(color), border: `1px solid ${color}55` }}
@@ -874,6 +898,23 @@ function Racha({ ultimos, cargando, ultimo }: { ultimos: PartidoNuestro[]; carga
                       {partido.golesFavor}-{partido.golesContra}
                     </span>
                   )}
+                </>
+              );
+
+              return id ? (
+                <Link
+                  key={`${partido.jornada}-${partido.cuando}`}
+                  href={`/data-analisis?area=directo&partido=${encodeURIComponent(id)}`}
+                  onClick={() => trackModuleVisit("/data-analisis")}
+                  title={`${titulo} · su análisis`}
+                  aria-label={`${titulo}: abrir su análisis`}
+                  className="group/ficha flex w-10 flex-col items-center rounded-lg"
+                >
+                  {ficha}
+                </Link>
+              ) : (
+                <span key={`${partido.jornada}-${partido.cuando}`} title={titulo} className="flex w-10 flex-col items-center">
+                  {ficha}
                 </span>
               );
             })}
@@ -890,7 +931,7 @@ function Racha({ ultimos, cargando, ultimo }: { ultimos: PartidoNuestro[]; carga
           })()}
         </span>
       )}
-    </Link>
+    </div>
   );
 }
 

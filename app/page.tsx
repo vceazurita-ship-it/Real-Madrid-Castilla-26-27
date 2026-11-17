@@ -42,9 +42,7 @@ import { mismoEquipo } from "@/lib/data-analisis/nombres"
 import { useEscudos } from "@/hooks/useEscudos"
 import { useOptaLigero } from "@/hooks/useOptaLigero"
 import { CASTILLA_OPTA } from "@/lib/opta"
-import { equipoOptaDe } from "@/lib/opta-laboratorio"
 import { cifrasOptaDe, hastaOpta } from "@/lib/portada/cifras-opta"
-import { discrepancia } from "@/lib/fuentes"
 import { SelloFuente } from "@/components/ui/SelloFuente"
 
 type Seguimiento = {
@@ -113,23 +111,6 @@ function golesFrenteXg(xg: number | null, golesMenosXg: number, partidos: number
 function coma(n: number, decimales: number) {
   return n.toFixed(decimales).replace(".", ",")
 }
-
-/**
- * El puesto en el grupo con color de significado (10/11/2026, análisis): el
- * tercio de arriba en verde y el de abajo en naranja, del lado del equipo que
- * se mide. Va en un panel siempre oscuro: colores en línea, no por clase.
- */
-function Puesto({ puesto, de }: { puesto: number; de: number }) {
-  const tercio = de > 0 ? puesto / de : 0.5
-  const color = tercio <= 1 / 3 ? "#34D399" : tercio > 2 / 3 ? "#FB923C" : "rgba(255,255,255,.9)"
-
-  return (
-    <span className="font-semibold tabular-nums" style={{ color }}>
-      {puesto}º de {de}
-    </span>
-  )
-}
-
 /** Palabras que no distinguen a un equipo («Real», «CD», «Club»…): la sigla sale de la primera que sí. */
 const SIN_SIGLA = new Set(["real", "club", "cd", "ud", "cf", "sd", "rcd", "ad", "ce", "fc", "sad", "cp", "rc", "at", "atletico", "atlético", "deportivo", "de", "del", "la", "el", "racing", "unión", "union"])
 
@@ -639,11 +620,6 @@ export default function Home() {
 
   const hastaDeOpta = useMemo(() => (opta ? hastaOpta(opta, calendario) : ""), [opta, calendario])
 
-  const optaRival = useMemo(
-    () => (opta && rivalSemana ? cifrasOptaDe(opta, equipoOptaDe(rivalSemana.nombre, opta.equipos)) : null),
-    [opta, rivalSemana],
-  )
-
   const optaNuestro = useMemo(() => (opta ? cifrasOptaDe(opta, CASTILLA_OPTA) : null), [opta])
 
   /* La cifra del Castilla en la tarjeta (del MD-5 al partido), de la fuente que manda. */
@@ -685,58 +661,11 @@ export default function Home() {
     }
   }, [optaNuestro, resumenData])
 
-  /* Lo del rival, igual: Opta si casa, Wyscout si no. */
-  const rivalXg = useMemo(() => {
-    if (!rivalSemana) return null
-
-    const o = optaRival?.xg != null ? optaRival : null
-    const w = rivalSemana.wyscout
-
-    if (o && o.xg != null) {
-      return {
-        fuente: "opta" as const,
-        xg: o.xg,
-        puestoXg: o.puestoXg,
-        xgContra: o.xgContra,
-        puestoXgContra: o.puestoXgContra,
-        posesion: o.posesion,
-        puestoPosesion: o.puestoPosesion,
-        deCuantos: o.deCuantos,
-        partidos: o.partidos,
-        /* 17/11/2026 (fútbol): su balón parado y el nuestro, para la conclusión de la tarjeta. */
-        xgAbp: o.xgAbp,
-        puestoAbp: o.puestoAbp,
-        /* La segunda lectura y las notas, sólo cuando la cifra es de Opta y hay Wyscout. */
-        notaXg: w ? discrepancia("xg", o.xg, w.xg) : null,
-      }
-    }
-
-    if (!w) return null
-
-    return {
-      fuente: "wyscout" as const,
-      xg: w.xg,
-      puestoXg: w.puestoXg,
-      xgContra: w.xgContra,
-      puestoXgContra: w.puestoXgContra,
-      posesion: w.posesion,
-      puestoPosesion: w.puestoPosesion,
-      deCuantos: rivalSemana.deCuantos,
-      partidos: w.partidos,
-      xgAbp: null,
-      puestoAbp: null,
-      notaXg: null,
-    }
-  }, [optaRival, rivalSemana])
-
   /* Opta aún en camino: la cifra espera (no Wyscout primero y Opta después). Con el mismo tope de 8 s que Wyscout: pasado, sale lo que haya. */
   const esperaOpta = cargandoOpta && !opta && !cifrasTarde
 
   /* La tarjeta del Castilla, cargando: Opta en camino o Wyscout sin llegar y sin nada que enseñar. */
   const cargandoTarjeta = esperaOpta || (cargandoData && !cifrasTarde && !nuestroXg)
-
-  /* La semana del rival, esperando sus cifras (Opta o Wyscout) con el mismo tope de 8 s. */
-  const esperaRival = Boolean(rivalSemana) && (esperaOpta || (!rivalXg && cargandoData && !cifrasTarde))
 
   /* El sello de cada cifra: fuente, población y hasta dónde llega. */
   const selloDe = (fuente: "opta" | "wyscout", deCuantos: number, partidos: number) => ({
@@ -860,7 +789,8 @@ export default function Home() {
                       src={escudoRivalSemana}
                       alt=""
                       aria-hidden
-                      className="pointer-events-none absolute -right-10 top-[30%] h-56 w-56 -translate-y-1/2 object-contain opacity-[0.22] transition-transform duration-700 group-hover:scale-105 xl:-right-12 xl:h-72 xl:w-72"
+                      /* 17/11/2026 (ronda 20, fútbol): pisaba sus últimos 5. Ahora va abajo a la derecha, detrás de todo y más tenue. */
+                      className="pointer-events-none absolute -bottom-10 -right-10 h-52 w-52 object-contain opacity-[0.12] transition-transform duration-700 group-hover:scale-105 xl:bottom-24 xl:h-64 xl:w-64"
                       style={{ filter: "drop-shadow(0 10px 30px rgba(0,0,0,.55))" }}
                     />
                   )}
@@ -883,123 +813,19 @@ export default function Home() {
                   */}
                   {rivalSemana ? (
                     <div className="relative px-5 pb-5 pt-6 sm:px-6 sm:pb-6">
-                      {/* 17/11/2026 (los tres jueces): el rótulo dice lo que hay (goles esperados y posesión) y baja de renglón en vez de cortarse en el móvil. */}
-                      <p className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                        <span className="min-w-0 text-[12px] font-semibold uppercase leading-snug tracking-[0.14em]" style={{ color: "#F7D98B" }}>
-                          Lo que genera y concede
-                        </span>
+                      {/*
+                        17/11/2026 (ronda 20, los tres jueces): fuera de aquí las
+                        cifras de Opta (genera, concede, posesión y el aviso de su
+                        balón parado): salían otra vez en «Opta de un vistazo».
+                        La tarjeta se queda con lo de BeSoccer y el vídeo; las
+                        cifras, una sola vez, en el gráfico de abajo.
+                      */}
+                      <p className="flex flex-wrap items-baseline justify-end gap-x-3 gap-y-1">
                         <span className="inline-flex shrink-0 items-center gap-1 text-[13px] font-semibold" style={{ color: "rgba(255,255,255,.92)" }}>
-                          Análisis de datos
+                          Cómo juega, en Análisis de datos
                           <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                         </span>
                       </p>
-
-                      {esperaRival || !rivalXg ? (
-                        esperaRival ? (
-                          <div className="mt-3 grid grid-cols-3 gap-2" aria-busy="true" aria-label="Cargando las cifras del rival">
-                            {[0, 1, 2].map((i) => (
-                              <span key={i} className="block h-[86px] animate-pulse rounded-2xl bg-white/10" />
-                            ))}
-                          </div>
-                        ) : null
-                      ) : (
-                        <>
-                          {/*
-                            16/11/2026 (rediseño): tres cifras grandes, cada una con
-                            su base (por partido) y su puesto en el grupo, que va en
-                            verde si es del tercio de arriba y en naranja si es del
-                            de abajo —la leyenda va debajo, una vez—.
-                          */}
-                          <div className="mt-3 grid grid-cols-3 gap-2">
-                            <CifraRival
-                              rotulo="Genera"
-                              valor={coma(rivalXg.xg, 2)}
-                              base="xG a favor por partido"
-                              puesto={rivalXg.puestoXg}
-                              de={rivalXg.deCuantos}
-                            />
-                            {rivalXg.xgContra != null && (
-                              <CifraRival
-                                rotulo="Concede"
-                                valor={coma(rivalXg.xgContra, 2)}
-                                base="xG en contra por partido"
-                                puesto={rivalXg.puestoXgContra}
-                                de={rivalXg.deCuantos}
-                              />
-                            )}
-                            {rivalXg.posesion != null && (
-                              <CifraRival
-                                rotulo="Posesión"
-                                valor={`${coma(rivalXg.posesion, 0)} %`}
-                                base="media"
-                                puesto={rivalXg.puestoPosesion}
-                                de={rivalXg.deCuantos}
-                                neutro
-                              />
-                            )}
-                          </div>
-
-                          <p className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] leading-snug" style={{ color: "rgba(255,255,255,.85)" }}>
-                            <span>xG = goles esperados</span>
-                            <span className="inline-flex items-center gap-1.5">
-                              <span className="h-2 w-2 rounded-full" style={{ background: VERDE_OSC }} aria-hidden />
-                              de los mejores del grupo
-                            </span>
-                            <span className="inline-flex items-center gap-1.5">
-                              <span className="h-2 w-2 rounded-full" style={{ background: NARANJA_OSC }} aria-hidden />
-                              de los peores
-                            </span>
-                          </p>
-
-                          {/*
-                            17/11/2026 (fútbol): la conclusión que más pesa en la
-                            semana del rival, en la tarjeta y no al fondo de una
-                            tabla: su balón parado frente al nuestro, con su base
-                            y un toque a su ABP.
-                          */}
-                          {(() => {
-                            const suyo = rivalXg.puestoAbp
-                            const nuestro = optaNuestro?.puestoAbp ?? null
-                            const de = rivalXg.deCuantos
-
-                            if (suyo == null || rivalXg.xgAbp == null || !de) return null
-
-                            const fuerte = suyo <= Math.ceil(de / 3)
-                            const flojo = suyo > Math.floor((2 * de) / 3)
-                            const titular = fuerte ? "Ojo a su balón parado" : flojo ? "Su balón parado apenas genera" : "Su balón parado, en la media"
-                            const color = fuerte ? NARANJA_OSC : flojo ? VERDE_OSC : "#F7D98B"
-
-                            return (
-                              <Link
-                                href={`/scout-rival-abp?equipo=${encodeURIComponent(rivalSemana.nombre)}`}
-                                onClick={() => trackModuleVisit("/scout-rival-abp")}
-                                className="pointer-events-auto relative mt-3 flex items-start gap-3 rounded-2xl px-3.5 py-3 transition-colors hover:bg-white/[0.12]"
-                                style={{ background: "rgba(255,255,255,.08)", boxShadow: `inset 3px 0 0 ${color}` }}
-                              >
-                                <span className="min-w-0 flex-1">
-                                  <span className="block text-[14px] font-semibold leading-snug" style={{ color: "#fff" }}>
-                                    {titular}: {coma(rivalXg.xgAbp, 2)} xG por partido, {suyo}.º de {de}
-                                  </span>
-                                  {nuestro != null && (
-                                    <span className="mt-0.5 block text-[12.5px] leading-snug" style={{ color: "rgba(255,255,255,.85)" }}>
-                                      El nuestro, {nuestro}.º de {de}
-                                      {fuerte && nuestro > suyo ? " · la semana pide defensa de córner y falta" : ""}
-                                    </span>
-                                  )}
-                                </span>
-                                <span className="inline-flex shrink-0 items-center gap-0.5 self-center text-[13px] font-semibold" style={{ color: "#F7D98B" }}>
-                                  ABP rival
-                                  <ChevronRight className="h-4 w-4" aria-hidden />
-                                </span>
-                              </Link>
-                            )
-                          })()}
-
-                          <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1">
-                            <SelloFuente oscuro envuelve className="text-[12px]!" {...selloDe(rivalXg.fuente, rivalXg.deCuantos, rivalXg.partidos)} />
-                          </p>
-                        </>
-                      )}
 
                       {/*
                         17/11/2026 (análisis): sus goles y los que le hacen, a un
@@ -1201,8 +1027,14 @@ export default function Home() {
                             caption: totalJugadores
                               ? `jugadores de campo con al menos un seguimiento · ${cobertura} % de la plantilla`
                               : "jugadores de campo con al menos un seguimiento",
+                            /* 17/11/2026 (ronda 20, fútbol): con empate no se nombra a uno solo como «el que menos». */
                             destino: menosSeguido
-                              ? `Ficha de ${menosSeguido.nombre}, el que menos lleva (${menosSeguido.veces})`
+                              ? (() => {
+                                  const empatados = menosSeguidos.filter((j) => j.veces === menosSeguido.veces)
+                                  return empatados.length > 1
+                                    ? `Ficha de ${menosSeguido.nombre}: empata con ${empatados.slice(1).map((j) => j.nombre).join(" y ")} como los que menos llevan (${menosSeguido.veces} cada uno)`
+                                    : `Ficha de ${menosSeguido.nombre}, el que menos lleva (${menosSeguido.veces})`
+                                })()
                               : "Abrir las fichas de nuestros jugadores",
                             loading: loadingSeguimiento || cargandoPlantilla,
                             icon: Users,
@@ -1260,47 +1092,4 @@ export default function Home() {
       </div>
     </main>
   )
-}
-
-/** Una cifra del rival en el panel oscuro: rótulo, valor grande, base y puesto con color de significado. */
-function CifraRival({
-  rotulo,
-  valor,
-  base,
-  puesto,
-  de,
-  neutro = false,
-}: {
-  rotulo: string
-  valor: string
-  base: string
-  puesto: number | null | undefined
-  de: number
-  neutro?: boolean
-}) {
-  return (
-    <div className="min-w-0 rounded-2xl px-2 py-2.5 sm:px-3" style={{ background: "rgba(255,255,255,.07)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,.10)" }}>
-      {/* 17/11/2026 (los tres jueces): nada de «…» a 390 px; el rótulo y la base bajan de renglón. */}
-      <p className="break-words text-[12px] font-semibold uppercase leading-tight tracking-[0.04em] sm:tracking-[0.1em]" style={{ color: "rgba(255,255,255,.85)" }}>
-        {rotulo}
-      </p>
-      <p className="fuente-club mt-1 whitespace-nowrap text-[26px] font-bold leading-none tabular-nums sm:text-[30px]" style={{ color: "#fff" }}>
-        {valor}
-      </p>
-      <p className="mt-1 break-words text-[12px] leading-snug" style={{ color: "rgba(255,255,255,.85)" }}>
-        {base}
-      </p>
-      {puesto != null && de > 0 && (
-        <p className="mt-0.5 text-[12.5px]">
-          {neutro ? (
-            <span className="font-semibold tabular-nums" style={{ color: "rgba(255,255,255,.9)" }}>
-              {puesto}º de {de}
-            </span>
-          ) : (
-            <Puesto puesto={puesto} de={de} />
-          )}
-        </p>
-      )}
-    </div>
-  )
-}
+}

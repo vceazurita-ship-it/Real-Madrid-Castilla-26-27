@@ -284,7 +284,7 @@ export function DiaRapido({ fecha, titulo, rotulo, onClose }: { fecha: string; t
                     {t.tipoTarea || "Sin tipo"}
                     {t.contenidoPrincipal ? <span className="text-white/45"> · {t.contenidoPrincipal}</span> : null}
                   </span>
-                  <label className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.12em] text-white/40">
+                  <label className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.12em] text-white/60">
                     Minutos
                     <input type="number" inputMode="numeric" min={0} value={t.tiempo || ""} onChange={(e) => cambiaTarea(i, { tiempo: Math.max(0, Math.round(Number(e.target.value) || 0)) })} className={CAMPO_NUM} />
                   </label>
@@ -293,7 +293,7 @@ export function DiaRapido({ fecha, titulo, rotulo, onClose }: { fecha: string; t
                       apunta va del 1 al 10 (medido en la hoja el 19/10/2026:
                       17 tareas a 10, 39 entre 8 y 9): se acota a 10, que es
                       lo que antes no hacía. */}
-                  <label className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.12em] text-white/40" title="Intensidad de la tarea, del 1 al 10">
+                  <label className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.12em] text-white/60" title="Intensidad de la tarea, del 1 al 10">
                     Intensidad 1-10
                     <input type="number" inputMode="numeric" min={0} max={10} value={t.intensidad || ""} onChange={(e) => cambiaTarea(i, { intensidad: Math.min(10, Math.max(0, Math.round(Number(e.target.value) || 0))) })} className={CAMPO_NUM} />
                   </label>

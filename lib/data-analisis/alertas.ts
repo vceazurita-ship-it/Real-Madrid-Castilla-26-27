@@ -75,7 +75,12 @@ export type Alerta = {
   enlace: string;
   /** Qué mirar al llegar. */
   mira: string;
+  /** Un segundo destino (17/11/2026, ronda 20): la ficha de Individual del jugador. */
+  otro?: { href: string; texto: string };
 };
+
+/** Por debajo de estas acciones, un porcentaje se lee como tendencia (17/11/2026, ronda 20). */
+const MUESTRA_CORTA = 15;
 
 /** Cómo se llama el Castilla en los informes de Wyscout. */
 const NOSOTROS = "Real Madrid Castilla";
@@ -126,6 +131,24 @@ export function alertasDeData(
 
     const arriba = uno.desviacion > 0;
 
+    /*
+    | 17/11/2026 (ronda 20, los tres jueces): el aspecto era el único
+    | destacado sin cifra ni base. Ahora lleva la métrica que más lo empuja
+    | (la más extrema del aspecto), con su valor por partido, su puesto, la
+    | mediana del grupo, los partidos y la fuente. Sin esa métrica con valor,
+    | el destacado no sale.
+    */
+    const guia = [...uno.filas].sort((a, b) => Math.abs(b.percentil - 50) - Math.abs(a.percentil - 50))[0];
+
+    if (!guia || !Number.isFinite(guia.valor)) continue;
+
+    const enTexto = (v: number) =>
+      guia.metrica.unidad === "decimal" ? v.toFixed(1).replace(".", ",") : formatea(v, guia.metrica.unidad);
+
+    const nombreGuia = guia.metrica.acumulable && guia.metrica.unidad === "decimal" ? `${guia.metrica.nombre} por partido` : guia.metrica.nombre;
+
+    const valorGuia = enTexto(guia.valor);
+
     alertas.push({
       clave: `aspecto-${uno.aspecto.key}`,
       tono: arriba ? "buena" : "mala",
@@ -133,19 +156,23 @@ export function alertasDeData(
       titulo: arriba
         ? `${uno.aspecto.label}: de lo mejor de la categoría`
         : `${uno.aspecto.label}: de lo peor de la categoría`,
+      rotulo: `${uno.aspecto.label}, de lo ${arriba ? "mejor" : "peor"} del grupo · ${nombreGuia.replace(/\s*%\s*$/, "").toLowerCase()}`,
+      valor: valorGuia,
       detalle: `${uno.aspecto.explica}. Lo dicen ${uno.filas.length} métricas a la vez, no una suelta.`,
-      cifra: (() => {
-        /* Sin jerga: cuántos de los demás equipos quedan por detrás o por
-           delante. «Percentil 2,5» no lo entiende quien no es analista. */
-        const otros = equipos.length - 1;
-        const detras = Math.round((uno.percentil / 100) * otros);
-
-        if (arriba) return `por delante de ${detras} de los otros ${otros} equipos`;
-
-        return detras === 0
-          ? `por detrás de los otros ${otros} equipos`
-          : `por detrás de ${otros - detras} de los otros ${otros} equipos`;
-      })(),
+      cifra: [
+        guia.puesto && guia.de
+          ? `${guia.puesto}º de los ${guia.de} equipos del grupo${
+              guia.metrica.mejorAlto === null
+                ? ""
+                : ` (${(uno.aspecto.key === "abpDef" || uno.aspecto.key === "centrosDef") !== (guia.metrica.mejorAlto === false) ? "menos es mejor" : "más es mejor"})`
+            }`
+          : "",
+        Number.isFinite(guia.mediana) ? `mediana ${enTexto(guia.mediana)}` : "",
+        `${nuestros.length} ${nuestros.length === 1 ? "partido" : "partidos"} del Castilla`,
+        "Wyscout",
+      ]
+        .filter(Boolean)
+        .join(" · "),
       fuerza: Math.min(100, Math.abs(uno.desviacion) * 2),
       enlace: "/data-analisis?area=destacados",
       mira: "El aspecto abierto métrica a métrica, y qué equipos se le parecen.",
@@ -380,9 +407,11 @@ export function alertasDeData(
       /* «Acierto en corto % 97,6 %» llevaba el símbolo dos veces. */
       const nombreMetrica = v.includes("%") ? mejor.nombre.replace(/\s*%\s*$/, "") : mejor.nombre;
 
+      const corta = Boolean(mejor.intentos && mejor.unidad === "porcentaje" && mejor.intentos < MUESTRA_CORTA);
+
       const deCuantos =
         mejor.intentos && mejor.unidad === "porcentaje"
-          ? `${Math.round((mejor.valor / 100) * mejor.intentos)} de ${mejor.intentos} · `
+          ? `${corta ? "tendencia, muestra corta: " : ""}${Math.round((mejor.valor / 100) * mejor.intentos)} de ${mejor.intentos} · `
           : "";
 
       alertas.push({
@@ -395,10 +424,12 @@ export function alertasDeData(
         detalle: `Con ${jugador.minutos}′ jugados no es una casualidad de un rato.`,
         /* Misma base en todas (10/11/2026): percentil · muestra · partidos · minutos · fuente. */
         cifra: `${deCuantos}percentil ${mejor.percentil} entre ${iguales.length} jugadores de su puesto · ${jugador.partidos} ${jugador.partidos === 1 ? "partido" : "partidos"} · ${jugador.minutos}′ · Wyscout`,
-        fuerza: Math.min(100, (mejor.percentil - 50) * 2),
-        enlace: "/data-analisis?area=individual",
+        /* Con muestra corta pesa la mitad: no le quita el sitio a una cifra con base. */
+        fuerza: Math.min(100, (mejor.percentil - 50) * 2) * (corta ? 0.5 : 1),
+        enlace: `/data-analisis?area=individual&jugador=${encodeURIComponent(jugador.jugador)}`,
         /* Una acción concreta y no el pie genérico (29/10/2026, fútbol). */
-        mira: `Ver la ficha de ${jugador.jugador} en Data análisis`,
+        mira: "Sus datos en Data análisis",
+        otro: { href: `/individual?nombre=${encodeURIComponent(jugador.jugador)}`, texto: "Su ficha y seguimiento" },
       });
     }
 

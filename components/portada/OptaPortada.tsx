@@ -110,17 +110,22 @@ export function OptaPortada() {
   const jugados = partidosDe(opta.partidos, CASTILLA_OPTA).length;
   const conclusiones = rival ? lecturas(nuestro, suyo, rival) : [];
 
+  /*
+   * 17/11/2026 (ronda 20, los tres jueces): el bloque es el ÚNICO sitio de
+   * las cifras del rival en la portada (la tarjeta oscura del héroe ya no las
+   * repite). Abre con la conclusión como titular, sigue con el gráfico
+   * «Frente a frente» (puesto en el grupo de cada uno, a la derecha mejor,
+   * con la mediana) y debajo, a lo ancho, las dos lecturas con su toque.
+   */
+  const [principal, ...resto] = conclusiones;
+
   return (
     <section className="portada-tarjeta min-w-0 p-4 sm:p-6" aria-label="Opta de un vistazo">
       {/* 16/11/2026 (marketing): la fuente y su base, una sola vez, en la cabecera del bloque. */}
       <CabeceraBloque
         icono={Database}
-        titulo={
-          <>
-            Opta de un vistazo
-            {jugados > 0 ? <span className="text-white/55"> · {jugados} {jugados === 1 ? "partido" : "partidos"}</span> : null}
-          </>
-        }
+        titulo={rival ? `${rival} frente a nosotros` : "El Castilla en el grupo"}
+        sub={`Opta · media por partido en ${jugados} ${jugados === 1 ? "partido" : "partidos"} · puesto entre los ${deCuantos} del grupo`}
         accion={
           <p className="flex flex-wrap items-center gap-2 text-[12px] text-white/60">
             <SelloFuente fuente="opta" poblacion={`grupo (${deCuantos} equipos)`} hasta={hasta ? `hasta el ${hasta}` : undefined} />
@@ -128,88 +133,171 @@ export function OptaPortada() {
         }
       />
 
-      {/*
-        17/11/2026 (los tres jueces): fuera «El último partido» (repetía las
-        cifras del 3D) y, en su sitio, la lectura: una conclusión por fila con
-        su cifra, su puesto y adónde ir a prepararlo, con el rival ya elegido.
-      */}
-      <div className={`mt-5 grid min-w-0 gap-3 ${conclusiones.length ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]" : ""}`}>
-        {conclusiones.length ? (
-          <div className="flex min-w-0 flex-col gap-2">
-            <p className="portada-rotulo">Lo que dicen las cifras</p>
-            {conclusiones.map((c) => (
-              <Link
-                key={c.a}
-                href={c.href}
-                onClick={() => trackModuleVisit(c.href.split("?")[0])}
-                className="portada-celda portada-viva group flex min-w-0 items-start gap-3 p-3.5"
-                style={{ boxShadow: `inset 3px 0 0 ${c.color}` }}
-              >
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[15px] font-semibold leading-snug text-white">{c.titular}</span>
-                  <span className="mt-1 block text-[13px] leading-snug text-white/70">{c.base}</span>
-                </span>
-                <span className="inline-flex shrink-0 items-center gap-0.5 self-center text-[13px] font-semibold" style={{ color: "var(--rmcf-gold-ink)" }}>
-                  {c.accion}
-                  <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
-                </span>
-              </Link>
-            ))}
+      {principal ? (
+        <div className="mt-5 flex min-w-0 flex-wrap items-end justify-between gap-x-6 gap-y-3">
+          <div className="min-w-0 flex-1 basis-[280px]" style={{ boxShadow: `inset 3px 0 0 ${principal.color}`, paddingLeft: 14 }}>
+            <p className="fuente-club text-[22px] font-bold uppercase leading-tight text-white sm:text-[26px]">{principal.titular}</p>
+            <p className="mt-1 text-[13.5px] leading-snug text-white/70">{principal.base}</p>
           </div>
-        ) : null}
+          <Link
+            href={principal.href}
+            onClick={() => trackModuleVisit(principal.href.split("?")[0])}
+            className="portada-celda portada-viva group inline-flex min-h-10 shrink-0 items-center gap-1 px-4 text-[13.5px] font-semibold"
+            style={{ color: "var(--rmcf-gold-ink)", borderRadius: 999 }}
+          >
+            {principal.accion}
+            <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
+          </Link>
+        </div>
+      ) : null}
 
-        {/* ---------- frente a frente ---------- */}
+      {/* ---------- frente a frente: el gráfico ---------- */}
+      <div className="portada-celda mt-4 min-w-0 p-4 sm:p-5">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[12px] text-white/70">
+          <span className="inline-flex items-center gap-1.5 font-semibold" style={{ color: ORO }}>
+            <span aria-hidden className="h-2.5 w-2.5 rounded-full" style={{ background: ORO }} />
+            Castilla
+          </span>
+          {rival ? (
+            <span className="inline-flex items-center gap-1.5 font-semibold" style={{ color: COMPARADO }}>
+              <span aria-hidden className="h-2.5 w-2.5 rounded-full" style={{ background: COMPARADO }} />
+              {rival}
+            </span>
+          ) : null}
+          <span className="inline-flex items-center gap-1.5">
+            <span aria-hidden className="h-3 w-px bg-white/40" />
+            mediana del grupo
+          </span>
+          <span className="ml-auto font-semibold text-white/60">a la derecha, mejor →</span>
+        </div>
+
+        <ul className="mt-3 divide-y divide-white/[0.06]">
+          {nuestro.map((x) => {
+            const r = suyo.find((s) => s.a === x.a);
+            const base = x.a === "xGSetPly" ? [baseAbp(filaNuestra), rival ? baseAbp(filaSuya) : ""].filter(Boolean) : [];
+            return (
+              <li key={x.a} className="grid min-w-0 gap-x-4 gap-y-2 py-3 sm:grid-cols-[minmax(0,190px)_minmax(0,1fr)_auto] sm:items-center" title={x.comoLeer}>
+                <div className="min-w-0">
+                  <p className="text-[14px] font-semibold leading-tight text-white/90">{x.nombre}</p>
+                  {AYUDA[x.a] ? <p className="mt-0.5 text-[12px] leading-snug text-white/60">{AYUDA[x.a]}</p> : null}
+                </div>
+
+                <Pista nuestro={x} suyo={rival ? r : undefined} />
+
+                <div className="flex items-baseline justify-between gap-4 tabular-nums sm:justify-end">
+                  <Valor x={x} color={ORO} />
+                  {rival && r ? <Valor x={r} color={COMPARADO} /> : null}
+                </div>
+
+                {base.length ? (
+                  <p className="text-[12px] leading-snug text-white/60 sm:col-span-3">
+                    Castilla: {base[0]}
+                    {base[1] ? ` · ${rival}: ${base[1]}` : ""}
+                  </p>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+
         <Link
           href="/data-analisis?area=estilos"
           onClick={() => trackModuleVisit("/data-analisis")}
-          className="portada-celda portada-viva group min-w-0 p-4 sm:p-5"
+          className="group mt-2 inline-flex min-h-9 items-center gap-1 text-[13px] font-semibold text-white/70 transition-colors duration-300 hover:text-[#D8B45A]"
           title="Los estilos de la categoría: dominio, peligro y solidez de cada equipo"
         >
-          <p className="portada-rotulo">{rival ? `Frente a frente · media por partido en ${jugados}` : `El Castilla · media por partido en ${jugados}`}</p>
-          <table className="mt-3 w-full table-fixed text-left tabular-nums">
-            <thead>
-              <tr className="text-[12px] text-white/60">
-                <th className="w-[38%] pb-1.5 pr-2 align-bottom text-[12px] font-medium leading-tight text-white/60">debajo, puesto en el grupo</th>
-                <th className="pb-1.5 pr-2 text-right align-bottom font-semibold">
-                  <span className="block truncate" style={{ color: ORO }}>Castilla</span>
-                </th>
-                {rival ? (
-                  <th className="pb-1.5 text-right align-bottom font-semibold">
-                    {/* 11/11/2026: el nombre entero, en dos renglones si hace falta (en el móvil se cortaba en «Gimnàstic Tarrag…»). */}
-                    <span className="block break-words leading-tight" style={{ color: COMPARADO }} title={rival}>
-                      {rival}
-                    </span>
-                  </th>
-                ) : null}
-              </tr>
-            </thead>
-            <tbody>
-              {nuestro.map((x) => {
-                const r = suyo.find((s) => s.a === x.a);
-                return (
-                  <tr key={x.a} className="border-t border-white/[0.06]" title={x.comoLeer}>
-                    <td className="py-2.5 pr-2 align-top text-[13.5px] font-medium leading-tight text-white/85">
-                      {x.nombre}
-                      {AYUDA[x.a] ? (
-                        <span className="mt-0.5 block text-[12px] font-normal leading-snug text-white/60">{AYUDA[x.a]}</span>
-                      ) : x.mejor === false ? (
-                        <span className="block text-[12px] font-normal text-white/60">menos es mejor</span>
-                      ) : null}
-                    </td>
-                    <Celda x={x} base={x.a === "xGSetPly" ? baseAbp(filaNuestra) : ""} />
-                    {rival ? r ? <Celda x={r} base={r.a === "xGSetPly" ? baseAbp(filaSuya) : ""} /> : <td /> : null}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          <p className="mt-3 flex items-center gap-1 text-[13px] font-semibold text-white/70 transition-colors duration-300 group-hover:text-[#D8B45A]">
-            Los estilos de la categoría
-            <ChevronRight className="h-3 w-3 transition-transform duration-300 group-hover:translate-x-0.5" />
-          </p>
+          Los estilos de la categoría
+          <ChevronRight className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-0.5" />
         </Link>
       </div>
+
+      {/* Las lecturas, a lo ancho y con su toque (sin hueco debajo en escritorio). */}
+      {resto.length ? (
+        <div className={`mt-3 grid min-w-0 gap-3 ${resto.length > 1 ? "md:grid-cols-2" : ""}`}>
+          {resto.map((c) => (
+            <Link
+              key={c.a}
+              href={c.href}
+              onClick={() => trackModuleVisit(c.href.split("?")[0])}
+              className="portada-celda portada-viva group flex min-w-0 items-start gap-3 p-3.5"
+              style={{ boxShadow: `inset 3px 0 0 ${c.color}` }}
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block text-[15px] font-semibold leading-snug text-white">{c.titular}</span>
+                <span className="mt-1 block text-[13px] leading-snug text-white/70">{c.base}</span>
+              </span>
+              <span className="inline-flex shrink-0 items-center gap-0.5 self-center text-[13px] font-semibold" style={{ color: "var(--rmcf-gold-ink)" }}>
+                {c.accion}
+                <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
+              </span>
+            </Link>
+          ))}
+        </div>
+      ) : null}
     </section>
+  );
+}
+
+/**
+ * La pista del puesto (17/11/2026, ronda 20): del peor (izquierda) al mejor
+ * (derecha) del grupo, con el tercio de abajo en naranja tenue, el de arriba
+ * en verde tenue, la mediana en el centro y un punto por equipo.
+ */
+function Pista({ nuestro, suyo }: { nuestro: FilaLab; suyo?: FilaLab }) {
+  const lugar = (x: FilaLab) => {
+    const { puesto, deCuantos } = x.pos;
+    if (!puesto || deCuantos < 2) return null;
+    return ((deCuantos - puesto) / (deCuantos - 1)) * 100;
+  };
+  const a = lugar(nuestro);
+  const b = suyo ? lugar(suyo) : null;
+  const estilo = nuestro.mejor === null;
+
+  return (
+    <div className="relative h-7 min-w-0" aria-hidden>
+      <div className="absolute inset-x-0 top-1/2 h-2 -translate-y-1/2 overflow-hidden rounded-full bg-white/[0.07]">
+        {!estilo ? (
+          <>
+            <span className="absolute inset-y-0 left-0 w-1/3" style={{ background: "rgba(249,115,22,.16)" }} />
+            <span className="absolute inset-y-0 right-0 w-1/3" style={{ background: "rgba(16,185,129,.16)" }} />
+          </>
+        ) : null}
+      </div>
+      <span className="absolute left-1/2 top-0 h-full w-px bg-white/40" />
+      {b != null ? (
+        <span
+          className="absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-[var(--portada-sup-2)]"
+          style={{ left: `${b}%`, background: COMPARADO }}
+        />
+      ) : null}
+      {a != null ? (
+        <span
+          className="absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-[var(--portada-sup-2)]"
+          style={{ left: `${a}%`, background: ORO }}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+/** La cifra de cada uno con su puesto, en su color (oro el Castilla, azul el rival). */
+function Valor({ x, color }: { x: FilaLab; color: string }) {
+  const puesto = x.pos.puesto;
+  return (
+    <span className="min-w-[64px] text-right">
+      <span className="fuente-club block text-[22px] font-bold leading-none" style={{ color }}>
+        {valorTexto(x)}
+      </span>
+      {puesto ? (
+        <span
+          className="mt-0.5 block text-[12px] font-semibold"
+          style={{ color: x.mejor === null ? tinta(0.55) : colorPercentil(x.pos.percentil) }}
+          title={`Puesto ${puesto} de ${x.pos.deCuantos} del grupo, del mejor al peor`}
+        >
+          {puesto}º de {x.pos.deCuantos}
+        </span>
+      ) : null}
+    </span>
   );
 }
 
@@ -284,21 +372,6 @@ function lecturas(nuestro: FilaLab[], suyo: FilaLab[], rival: string): Lectura[]
     });
   }
 
-  return salen.sort((x, y) => x.peso - y.peso).slice(0, 2);
+  return salen.sort((x, y) => x.peso - y.peso).slice(0, 3);
 }
 
-function Celda({ x, base = "" }: { x: FilaLab; base?: string }) {
-  const color = x.mejor === null ? tinta(0.55) : colorPercentil(x.pos.percentil);
-  return (
-    <td className="py-2.5 pr-2 text-right align-top last:pr-0">
-      <span className="fuente-club block text-[24px] font-bold leading-none tabular-nums text-white">{valorTexto(x)}</span>
-      {x.pos.puesto ? (
-        /* «5º de 20», como el sello «grupo (20 equipos)»: un solo término (11/11/2026). */
-        <span className="mt-1 block text-[12px] font-semibold" style={{ color }} title={`Puesto ${x.pos.puesto} de ${x.pos.deCuantos} del grupo, del mejor al peor`}>
-          {x.pos.puesto}º de {x.pos.deCuantos}
-        </span>
-      ) : null}
-      {base ? <span className="mt-0.5 block text-[12px] leading-tight text-white/60">{base}</span> : null}
-    </td>
-  );
-}

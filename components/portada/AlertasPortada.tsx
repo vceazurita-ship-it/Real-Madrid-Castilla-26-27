@@ -194,7 +194,7 @@ export function AlertasPortada({
 
         <div className="relative z-10">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <CabeceraBloque icono={Bell} titulo="Datos destacados" sub="Lo que se ha salido de lo normal, con su sitio para mirarlo" />
+            <CabeceraBloque icono={Bell} titulo="Datos destacados" sub="Wyscout · el equipo contra los de su grupo y cada jugador contra los de su puesto en la categoría (por eso las bases no son las de Opta)" />
 
             <div className="flex flex-wrap items-center gap-2">
               {/* Las cuentas son los botones (05/11/2026): «+6 más» repetía lo que ya contaban. */}
@@ -256,14 +256,26 @@ export function AlertasPortada({
                   </span>
                 </button>
 
+                {/* 17/11/2026 (ronda 20): el jugador, también a su ficha de Individual. */}
                 {alerta.mira && alerta.enlace && (
-                  <Link
-                    href={alerta.enlace}
-                    className="mx-3.5 mb-3 mt-auto inline-flex min-w-0 items-start gap-1 border-t border-white/[0.06] pt-2 text-[12.5px] font-semibold leading-snug text-[#C8A96B] hover:underline"
-                  >
-                    <ArrowUpRight className="mt-0.5 h-3 w-3 shrink-0" />
-                    <span className="line-clamp-2">{alerta.mira}</span>
-                  </Link>
+                  <span className="mx-3.5 mb-3 mt-auto flex min-w-0 flex-wrap items-start gap-x-4 gap-y-1 border-t border-white/[0.06] pt-2">
+                    <Link
+                      href={alerta.enlace}
+                      className="inline-flex min-w-0 items-start gap-1 text-[12.5px] font-semibold leading-snug text-[#C8A96B] hover:underline"
+                    >
+                      <ArrowUpRight className="mt-0.5 h-3 w-3 shrink-0" />
+                      <span className="line-clamp-2">{alerta.mira}</span>
+                    </Link>
+                    {alerta.otro && (
+                      <Link
+                        href={alerta.otro.href}
+                        className="inline-flex min-w-0 items-start gap-1 text-[12.5px] font-semibold leading-snug text-[#C8A96B] hover:underline"
+                      >
+                        <ArrowUpRight className="mt-0.5 h-3 w-3 shrink-0" />
+                        <span className="line-clamp-2">{alerta.otro.texto}</span>
+                      </Link>
+                    )}
+                  </span>
                 )}
               </div>
             ))}
