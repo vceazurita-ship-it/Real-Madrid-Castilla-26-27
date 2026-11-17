@@ -1975,7 +1975,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Identidad de Juego",
     resumen: "Los principios ofensivos y defensivos del modelo, por fase, bloque y apartado, y cómo se cumplen en el último partido los que se pueden medir.",
     origen: "Los principios: la hoja del modelo de juego del cuerpo técnico (se edita aquí y se escribe en la hoja). Las cifras de cada principio: Wyscout de nuestros partidos y de la categoría, el mismo cálculo que /identidad-campo; la jornada, del calendario de BeSoccer.",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "Cómo se organiza",
@@ -2100,7 +2100,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Los nueve partidos de la jornada —la liga sin el Castilla—, el 1-X-2 de cada uno y el ranking de acierto del cuerpo técnico.",
     origen:
       "El calendario de Primera RFEF grupo 2 viaja con la aplicación —38 jornadas que no cambian—. Los pronósticos los escribe cada uno aquí y viven en el documento «quiniela» de Supabase. Los resultados los baja de BeSoccer el trabajo nocturno o los pone alguien a mano; no salen de ninguna hoja.",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "Cómo se rellena",
@@ -2159,7 +2159,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Uno lanza una predicción y dice qué se juega; los demás se ponen a favor o en contra, y el día señalado se comprueba quién tenía razón.",
     origen:
       "Las escribe el cuerpo técnico aquí mismo, con la misma cuenta que la quiniela. Viven en un documento propio de Supabase («apuestas-staff»); no salen de ninguna hoja.",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "Cómo se juega",
@@ -2820,7 +2820,7 @@ export const AYUDAS: AyudaDePagina[] = [
     ojo: [
       "Los documentos publicados con la web no se borran desde aquí: se corrigen subiendo uno con el mismo identificador, y al borrar el subido vuelve el original.",
     ],
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
   },
 
   /* ==================== CALENDARIO DE SEGUIMIENTO (12/11/2026) ==================== */
@@ -3064,7 +3064,7 @@ export const AYUDAS: AyudaDePagina[] = [
     ojo: [
       "La hoja publicada tarda minutos en refrescarse: lo recién escrito se enseña encima desde este aparato.",
     ],
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
   },
 
   /* ==================== LABORATORIO · DEL SCOUTING AL PLAN (12/11/2026) ==================== */
@@ -3185,7 +3185,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Si el documento del informe no está bajado al día, puede faltar algún equipo: la caja ámbar dice cuáles.",
       "Los nombres van como en la quiniela (lib/equipos/nombres.ts), no como los escribe BeSoccer.",
     ],
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
   },
 
   /* ==================== ANÁLISIS DE FALTAS (12/11/2026) ==================== */
@@ -3645,7 +3645,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Si el guardado no llega a la hoja, se sigue en edición y se reintenta solo.",
       "«¿Quién lo ejecuta mejor?» compara perfiles estadísticos con los del puesto, no cómo rindió jugando allí; los porteros no entran y hacen falta al menos dos contenidos medidos.",
     ],
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
   },
 ];
 
