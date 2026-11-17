@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
-import { ExternalLink, Clapperboard, Home, Plane, ClipboardList, Trophy, Users, Video } from "lucide-react";
+import { Clapperboard, Home, Plane, ClipboardList, Trophy, Users, Video } from "lucide-react";
 import { traeJson } from "@/lib/hojaCsv";
 import { useCalendario } from "@/hooks/useCalendario";
 import { comoNuestro, ordenaPartidos } from "@/lib/castilla/calendario";
@@ -73,6 +73,44 @@ function RachaPartidos({
 type Vecino = { puesto: number; nombre: string; puntos: number };
 /** Nuestros puntos en la última tabla completa y los equipos de justo arriba y abajo. */
 type Vecinos = { jornada: number; puntos: number; arriba: Vecino | null; abajo: Vecino | null };
+/** La clasificación entera tras una jornada completa. */
+type TablaJornada = { jornada: number; filas: { puesto: number; nombre: string; puntos: number; nuestro: boolean }[] };
+
+/*
+| 17/11/2026 (ronda 20, análisis): los 20 equipos con sus puntos, para ver la
+| distancia arriba y abajo y no sólo «empatados con el 5º y el 7º». Castilla
+| en oro, el próximo rival en azul; el resto, gris.
+*/
+const AZUL_RIVAL = "#4F8EF7";
+
+function BarraClasificacion({ tabla, proximoRival }: { tabla: TablaJornada; proximoRival: string }) {
+  const max = Math.max(1, ...tabla.filas.map((f) => f.puntos));
+  return (
+    <div className="min-w-0">
+      <ol className="grid gap-[3px]">
+        {tabla.filas.map((f) => {
+          const rival = Boolean(proximoRival) && mismoClub(f.nombre, proximoRival);
+          const color = f.nuestro ? "#C8A96B" : rival ? AZUL_RIVAL : "rgb(var(--rmcf-ink-rgb) / .22)";
+          return (
+            <li key={f.puesto} className="grid min-w-0 grid-cols-[1.6rem_minmax(0,9.5rem)_minmax(0,1fr)_1.8rem] items-center gap-2 text-[12px] leading-tight">
+              <span className="text-right tabular-nums text-white/60">{f.puesto}º</span>
+              <span className={`min-w-0 break-words ${f.nuestro ? "font-semibold" : rival ? "font-semibold" : "text-white/75"}`} style={f.nuestro ? { color: "var(--rmcf-gold-ink)" } : rival ? { color: AZUL_RIVAL } : undefined}>
+                {f.nuestro ? "RM Castilla" : f.nombre}
+              </span>
+              <span className="relative block h-2.5 rounded-full bg-white/[0.05]">
+                <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${(f.puntos / max) * 100}%`, background: color }} />
+              </span>
+              <span className="text-right font-semibold tabular-nums text-white/85">{f.puntos}</span>
+            </li>
+          );
+        })}
+      </ol>
+      <p className="mt-2 text-[11px] text-white/60">
+        Puntos tras la J{tabla.jornada}, con todos los partidos de la liga; en oro, el Castilla{proximoRival ? "; en azul, el próximo rival" : ""}. Desempate: diferencia de goles y goles a favor.
+      </p>
+    </div>
+  );
+}
 
 /** «13 nov», del «2026-11-13T19:00» de BeSoccer. */
 /*
@@ -344,6 +382,7 @@ const liga = useMemo(() => {
   const puestosRival = new Map<number, number>();
   /* 16/11/2026 (fútbol): los de arriba y abajo en la última tabla completa, para mirar al siguiente partido. */
   let vecinos: Vecinos | null = null;
+  let tablaFinal: TablaJornada | null = null;
   /* Puntos que lleva de media un equipo de la liga tras cada una de nuestras jornadas. */
   const acumuladaLiga = new Map<number, number>();
 
@@ -403,9 +442,11 @@ const liga = useMemo(() => {
     const vecino = (k: number) => (orden[k] ? { puesto: k + 1, nombre: nombreEquipo(orden[k][0]), puntos: orden[k][1].pts } : null);
 
     vecinos = { jornada: uno.jornada, puntos: orden[i][1].pts, arriba: vecino(i - 1), abajo: vecino(i + 1) };
+    /* 17/11/2026 (ronda 20, análisis): la tabla entera de esa jornada, para la barra de los 20. */
+    tablaFinal = { jornada: uno.jornada, filas: orden.map(([n, v], k) => ({ puesto: k + 1, nombre: nombreEquipo(n), puntos: v.pts, nuestro: n === nuestro })) };
   }
 
-  return { mediaPuntos, mediaGoles, puestos, puestosRival, vecinos, acumuladaLiga, equipos: equipos.size };
+  return { mediaPuntos, mediaGoles, puestos, puestosRival, vecinos, acumuladaLiga, equipos: equipos.size, tablaFinal };
 }, [golesLiga.value.partidos, jugados]);
 
 /* La columna del puesto sólo se dibuja si hay puesto en todas las jornadas: una celda suelta en blanco es un hueco. */
@@ -470,6 +511,24 @@ const tituloPuesto = (() => {
   return esElMejor
     ? `${ahora.p}º tras la J${ahora.j}, nuestro mejor puesto; ${inicio}`
     : `${ahora.p}º tras la J${ahora.j}; el mejor, ${mejor.p}º en la J${mejor.j}; ${inicio}`;
+})();
+
+/* 17/11/2026 (ronda 20): el título de la barra de los 20: a cuánto del de arriba del todo y de la parte baja. */
+const tituloTabla = (() => {
+  const t = liga.tablaFinal;
+  if (!t || !ultimo || t.jornada !== ultimo.jornada) return "";
+  const yo = t.filas.find((f) => f.nuestro);
+  if (!yo) return "";
+  const pts = (n: number) => `${n} ${n === 1 ? "punto" : "puntos"}`;
+  const lider = t.filas[0];
+  const bajo = t.filas.length >= 16 ? t.filas[15] : null;
+  const arriba = lider.nuestro
+    ? `Líderes${t.filas[1] ? `, ${pts(yo.puntos - t.filas[1].puntos)} por encima del 2º` : ""}`
+    : lider.puntos === yo.puntos
+      ? `${yo.puesto}º, con los mismos puntos que el líder (${lider.nombre})`
+      : `${yo.puesto}º, a ${pts(lider.puntos - yo.puntos)} del líder (${lider.nombre})`;
+  const abajo = bajo && !bajo.nuestro && yo.puesto < 16 ? ` y ${pts(yo.puntos - bajo.puntos)} por encima del 16º (${bajo.nombre})` : "";
+  return `${arriba}${abajo}`;
 })();
 
 /*
@@ -544,14 +603,6 @@ useEffect(() => {
   }
 }, [tabla, jugados, golesTabla]);
 
-/*
-| 17/11/2026 (ronda 19, los tres jueces): fuera el botón flotante «Ver
-| explicación» (tapaba la curva a 1440 px) y el pliegue de Power BI al pie: el
-| informe pide cuenta de Microsoft y no aporta al cuerpo técnico. Quedan como
-| una línea al pie, con qué son.
-*/
-const src = "https://app.powerbi.com/view?r=eyJrIjoiNzY4NjNmZjktZWU3Zi00NjkyLTg5NTMtNzQwYjQwMGVjZmQxIiwidCI6ImQ2Zjc2YzExLWZmYjktNGExNS05YjQ5LWU2ZWQ0MjljOTVhMiIsImMiOjl9";
-const videoUrl = "https://drive.google.com/file/d/1V-1mm_z7cM43ZXKaCHGRPlECx-IH1Nrt/view";
 
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
@@ -633,81 +684,6 @@ const videoUrl = "https://drive.google.com/file/d/1V-1mm_z7cM43ZXKaCHGRPlECx-IH1
               ) : null}
             </div>
 
-            {/* 16/11/2026 (expertos, ronda 18): la fuente y el corte, una vez encima de las cuatro tarjetas. */}
-            {tabla && corte ? (
-              <p className="mb-2 text-[11px] uppercase tracking-[0.14em] text-white/55">Clasificación y marcadores · BeSoccer · hasta {corte}</p>
-            ) : null}
-            {tabla ? (
-              <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {(() => {
-                  const dec = (n: number) => n.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-                  const dif = tabla.favor - tabla.contra;
-                  /* 16/11/2026 (marketing): la media de la liga, dentro de su tarjeta. */
-                  const ligaPuntos = liga.mediaPuntos !== null ? ` · liga ${dec(liga.mediaPuntos)}` : "";
-                  const ligaGoles = liga.mediaGoles !== null ? ` · liga ${dec(liga.mediaGoles)}` : "";
-
-                  /* 29/10/2026: la cifra grande es el dato y debajo, pequeña, la referencia (fútbol y marketing). */
-                  const tarjetas: { etiqueta: string; valor: ReactNode; largo?: boolean; referencia: string }[] = [
-                    /* 17/11/2026 (ronda 19, análisis): con quién estamos a la par, en la tarjeta. */
-                    { etiqueta: "Puesto", valor: `${tabla.puesto}º de ${tabla.deCuantos}`, referencia: [movimientoPuesto, puestoALaPar].filter(Boolean).join("\n") },
-                    {
-                      etiqueta: "Puntos",
-                      valor: String(tabla.puntos),
-                      referencia:
-                        tabla.jugados > 0
-                          ? `en ${tabla.jugados} partidos · ${dec(tabla.puntos / tabla.jugados)} por partido${ligaPuntos}`
-                          : "",
-                    },
-                    /* 07/11/2026: «4-3-3» se leía como un sistema de juego.
-                       16/11/2026 (fútbol): en el móvil se partía en dos líneas;
-                       ahora son tres cifras con su rótulo debajo. */
-                    {
-                      etiqueta: "Balance",
-                      valor: (
-                        <span className="grid grid-cols-3 gap-1 text-center">
-                          {[
-                            [tabla.ganados, "ganados", "var(--rmcf-dif-mejor)"],
-                            [tabla.empatados, "empatados", undefined],
-                            [tabla.perdidos, "perdidos", "var(--rmcf-dif-peor)"],
-                          ].map(([n, rotulo, color]) => (
-                            <span key={String(rotulo)} className="flex min-w-0 flex-col items-center">
-                              <span className="tabular-nums" style={color ? { color: String(color) } : undefined}>{n}</span>
-                              <span className="mt-1 text-[10px] font-normal uppercase tracking-[0.08em] text-white/60">{rotulo}</span>
-                            </span>
-                          ))}
-                        </span>
-                      ),
-                      referencia: "",
-                    },
-                    {
-                      etiqueta: "Goles",
-                      valor: `${tabla.favor}-${tabla.contra}`,
-                      /* 29/10/2026: en dos renglones; en uno solo no se leía. */
-                      referencia: `${tabla.favor} a favor · ${tabla.contra} en contra\ndiferencia ${dif > 0 ? "+" : dif < 0 ? "−" : ""}${Math.abs(dif)}${tabla.jugados > 0 ? ` · ${dec(tabla.favor / tabla.jugados)} a favor por partido${ligaGoles}` : ""}`,
-                    },
-                  ];
-
-                  return tarjetas;
-                })().map(({ etiqueta, valor, largo, referencia }) => (
-                  <div
-                    key={etiqueta}
-                    className="flex min-w-0 flex-col rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3"
-                  >
-                    <p className="text-[11px] uppercase tracking-[0.25em] text-[#C8A96B]">
-                      {etiqueta}
-                    </p>
-                    <div className={`mt-1 font-semibold leading-none text-white ${largo ? "text-2xl sm:text-3xl" : "text-3xl"}`}>{valor}</div>
-                    {referencia ? <p className="mt-1.5 whitespace-pre-line text-[12px] leading-snug text-white/60">{referencia}</p> : null}
-                  </div>
-                ))}
-                {liga.mediaPuntos !== null || liga.mediaGoles !== null ? (
-                  <p className="col-span-2 text-[12px] text-white/60 sm:col-span-4">
-                    «Liga»: media de {liga.equipos > 0 ? `los ${liga.equipos} equipos` : "la liga"} tras {tabla.jugados} {tabla.jugados === 1 ? "jornada" : "jornadas"}, por partido.
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
-
             {/* Jornada a jornada, ANTES del informe: es lo que sirve aunque Power BI no cargue */}
             {jugados.length > 0 ? (
               <div className="mb-8">
@@ -744,6 +720,14 @@ const videoUrl = "https://drive.google.com/file/d/1V-1mm_z7cM43ZXKaCHGRPlECx-IH1
                             {tituloPuesto}
                           </TituloConclusion>
                           <GraficaPuesto jugados={jugados} puestos={liga.puestos} equipos={liga.equipos} />
+                        </Lamina>
+                      ) : null}
+                      {liga.tablaFinal && tituloTabla ? (
+                        <Lamina>
+                          <TituloConclusion pregunta="¿A cuánto de arriba y de abajo?" fuente={`Clasificación tras la J${liga.tablaFinal.jornada} · los ${liga.tablaFinal.filas.length} equipos · BeSoccer`}>
+                            {tituloTabla}
+                          </TituloConclusion>
+                          <BarraClasificacion tabla={liga.tablaFinal} proximoRival={proximo?.rival ?? ""} />
                         </Lamina>
                       ) : null}
                       <Lamina>
@@ -913,17 +897,83 @@ const videoUrl = "https://drive.google.com/file/d/1V-1mm_z7cM43ZXKaCHGRPlECx-IH1
               </div>
             ) : null}
 
-            {/* 17/11/2026 (ronda 19): Power BI, una línea al pie que dice qué es. */}
-            <p className="text-[12px] leading-snug text-white/60">
-              Aparte, el informe antiguo de la competición en Power BI (pide cuenta de Microsoft; esta pantalla no depende de él):{" "}
-              <a href={src} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 underline underline-offset-4 hover:text-[#C8A96B]">
-                abrirlo<ExternalLink className="h-3 w-3" aria-hidden />
-              </a>{" "}
-              ·{" "}
-              <a href={videoUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 underline underline-offset-4 hover:text-[#C8A96B]">
-                vídeo de cómo se lee<ExternalLink className="h-3 w-3" aria-hidden />
-              </a>
-            </p>
+            {/* 17/11/2026 (ronda 20, marketing): las cuatro tarjetas, debajo de las láminas. */}
+            {/* 16/11/2026 (expertos, ronda 18): la fuente y el corte, una vez encima de las cuatro tarjetas. */}
+            {tabla && corte ? (
+              <p className="mb-2 text-[11px] uppercase tracking-[0.14em] text-white/55">Clasificación y marcadores · BeSoccer · hasta {corte}</p>
+            ) : null}
+            {tabla ? (
+              <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {(() => {
+                  const dec = (n: number) => n.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+                  const dif = tabla.favor - tabla.contra;
+                  /* 16/11/2026 (marketing): la media de la liga, dentro de su tarjeta. */
+                  const ligaPuntos = liga.mediaPuntos !== null ? ` · liga ${dec(liga.mediaPuntos)}` : "";
+                  const ligaGoles = liga.mediaGoles !== null ? ` · liga ${dec(liga.mediaGoles)}` : "";
+
+                  /* 29/10/2026: la cifra grande es el dato y debajo, pequeña, la referencia (fútbol y marketing). */
+                  const tarjetas: { etiqueta: string; valor: ReactNode; largo?: boolean; referencia: string }[] = [
+                    /* 17/11/2026 (ronda 19, análisis): con quién estamos a la par, en la tarjeta. */
+                    { etiqueta: "Puesto", valor: `${tabla.puesto}º de ${tabla.deCuantos}`, referencia: [movimientoPuesto, puestoALaPar].filter(Boolean).join("\n") },
+                    {
+                      etiqueta: "Puntos",
+                      valor: String(tabla.puntos),
+                      referencia:
+                        tabla.jugados > 0
+                          ? `en ${tabla.jugados} partidos · ${dec(tabla.puntos / tabla.jugados)} por partido${ligaPuntos}`
+                          : "",
+                    },
+                    /* 07/11/2026: «4-3-3» se leía como un sistema de juego.
+                       16/11/2026 (fútbol): en el móvil se partía en dos líneas;
+                       ahora son tres cifras con su rótulo debajo. */
+                    {
+                      etiqueta: "Balance",
+                      valor: (
+                        <span className="grid grid-cols-3 gap-1 text-center">
+                          {[
+                            [tabla.ganados, "ganados", "var(--rmcf-dif-mejor)"],
+                            [tabla.empatados, "empatados", undefined],
+                            [tabla.perdidos, "perdidos", "var(--rmcf-dif-peor)"],
+                          ].map(([n, rotulo, color]) => (
+                            <span key={String(rotulo)} className="flex min-w-0 flex-col items-center">
+                              <span className="tabular-nums" style={color ? { color: String(color) } : undefined}>{n}</span>
+                              <span className="mt-1 text-[10px] font-normal uppercase tracking-[0.08em] text-white/60">{rotulo}</span>
+                            </span>
+                          ))}
+                        </span>
+                      ),
+                      referencia: "",
+                    },
+                    {
+                      etiqueta: "Goles",
+                      valor: `${tabla.favor}-${tabla.contra}`,
+                      /* 29/10/2026: en dos renglones; en uno solo no se leía. */
+                      referencia: `${tabla.favor} a favor · ${tabla.contra} en contra\ndiferencia ${dif > 0 ? "+" : dif < 0 ? "−" : ""}${Math.abs(dif)}${tabla.jugados > 0 ? ` · ${dec(tabla.favor / tabla.jugados)} a favor por partido${ligaGoles}` : ""}`,
+                    },
+                  ];
+
+                  return tarjetas;
+                })().map(({ etiqueta, valor, largo, referencia }) => (
+                  <div
+                    key={etiqueta}
+                    className="flex min-w-0 flex-col rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3"
+                  >
+                    <p className="text-[11px] uppercase tracking-[0.25em] text-[#C8A96B]">
+                      {etiqueta}
+                    </p>
+                    <div className={`mt-1 font-semibold leading-none text-white ${largo ? "text-2xl sm:text-3xl" : "text-3xl"}`}>{valor}</div>
+                    {referencia ? <p className="mt-1.5 whitespace-pre-line text-[12px] leading-snug text-white/60">{referencia}</p> : null}
+                  </div>
+                ))}
+                {liga.mediaPuntos !== null || liga.mediaGoles !== null ? (
+                  <p className="col-span-2 text-[12px] text-white/60 sm:col-span-4">
+                    «Liga»: media de {liga.equipos > 0 ? `los ${liga.equipos} equipos` : "la liga"} tras {tabla.jugados} {tabla.jugados === 1 ? "jornada" : "jornadas"}, por partido.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
+            {/* 17/11/2026 (ronda 20, fútbol): el enlace al Power BI antiguo pasa a la ayuda (botón «?»). */}
           </div>
         </section>
       </div>

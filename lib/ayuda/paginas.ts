@@ -1267,7 +1267,7 @@ export const AYUDAS: AyudaDePagina[] = [
     ruta: "/collective_history",
     titulo: "Histórico Competición",
     resumen: "Cómo va el Castilla en la liga: puesto, puntos, balance y goles, la curva de puntos frente a la media de la liga y la tabla jornada a jornada.",
-    origen: "Nuestros resultados: el calendario de BeSoccer («castilla:calendario»). Puesto y totales: la tabla más reciente del informe de rivales (BeSoccer). La media de la liga y el puesto de cada jornada: todos los partidos de liga de BeSoccer («goles:analisis»). El informe de Power BI queda como enlace secundario: la pantalla no depende de él.",
+    origen: "Nuestros resultados: el calendario de BeSoccer («castilla:calendario»). Puesto y totales: la tabla más reciente del informe de rivales (BeSoccer). La media de la liga y el puesto de cada jornada: todos los partidos de liga de BeSoccer («goles:analisis»). El informe de Power BI sólo está en esta ayuda (abajo): la pantalla no depende de él.",
     revisada: "2026-11-17",
     bloques: [
       {
@@ -1280,7 +1280,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Puntos", es: "Con los partidos, los puntos por partido y la media de la liga al lado", cuenta: "Puntos ÷ partidos; liga = puntos repartidos (3 con ganador, 2 si empatan) ÷ (partidos × 2)" },
           { que: "Balance", es: "Tres cifras: ganados, empatados y perdidos, con su rótulo debajo" },
           { que: "Goles", es: "A favor-en contra, la diferencia y los goles a favor por partido con la media de la liga al lado", cuenta: "Liga = goles de la liga ÷ (partidos × 2)" },
-          { que: "Fuente", es: "Una sola línea encima de las cuatro tarjetas: BeSoccer y la jornada y el día de corte" },
+          { que: "Fuente", es: "Una sola línea encima de las cuatro tarjetas: BeSoccer y la jornada y el día de corte. Desde el 17/11/2026 las cuatro tarjetas van debajo de «Jornada a jornada»: primero se ven las láminas con su conclusión" },
         ],
       },
       {
@@ -1288,6 +1288,7 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           { que: "Visual · Detalle (16/11/2026)", es: "«Jornada a jornada» se abre en «Visual»: la curva de puntos con su conclusión en el título (cuántos llevamos tras la última jornada y cuántos más o menos que la media de la liga) y la racha partido a partido (G, E o P con el marcador y, si está en todas, nuestro puesto debajo), titulada con los 5 últimos. «Detalle» es la curva y la tabla de siempre. Se recuerda en este aparato", cuenta: "Mismos datos que la tabla; a menos de medio punto de la media se dice «en la media»" },
           { que: "¿Dónde estamos en la tabla? (Visual)", es: "Entre la curva y la racha, el puesto tras cada jornada con el 1º arriba: cada punto lleva su puesto escrito, una raya tenue por puesto y marcas en el 1º, 5º, 10º, 15º y 20º. Cada punto abre el post de esa jornada. El título dice el puesto de ahora, si es el mejor y dónde empezamos («6º tras la J12, nuestro mejor puesto; empezamos 13º en la J1»)", cuenta: "Sólo sale si está el puesto de todas las jornadas; con pocas jornadas, tendencia" },
+          { que: "¿A cuánto de arriba y de abajo? (Visual, 17/11/2026)", es: "Los 20 equipos en barras con sus puntos tras nuestra última jornada: el Castilla en oro, el próximo rival en azul. El título dice a cuántos puntos estamos del líder y por encima del 16º", cuenta: "La misma tabla que «Nuestro puesto»: todos los partidos de la liga hasta esa jornada; puntos, luego diferencia de goles, luego goles a favor. Sólo sale si esa tabla es la de nuestra última jornada" },
           { que: "¿Cómo va la racha? (Visual)", es: "Cada jornada (G, E o P, marcador y puesto) abre su post en Análisis de datos" },
           { que: "La línea dorada", es: "Nuestros puntos acumulados, jornada a jornada. En escritorio la curva llena la tarjeta; en el móvil va en un lienzo más alto con la letra mayor" },
           { que: "La raya de puntos", es: "Lo que lleva de media un equipo de la liga tras cada jornada", cuenta: "Puntos por equipo y partido de la liga hasta esa jornada × partidos que llevamos" },
@@ -1308,7 +1309,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Power BI",
         filas: [
-          { que: "Al pie (17/11/2026)", es: "Una línea: el informe antiguo de la competición en Power BI (pide cuenta de Microsoft) y el vídeo de cómo se lee, los dos en otra pestaña. Ya no hay botón flotante «Ver explicación» ni pliegue. La pantalla no depende de él" },
+          { que: "Sólo aquí, en la ayuda (17/11/2026, ronda 20)", es: "El informe antiguo de la competición en Power BI ya no sale en la pantalla: pide cuenta de Microsoft y la pantalla no depende de él. Si hace falta: app.powerbi.com/view?r=eyJrIjoiNzY4NjNmZjktZWU3Zi00NjkyLTg5NTMtNzQwYjQwMGVjZmQxIiwidCI6ImQ2Zjc2YzExLWZmYjktNGExNS05YjQ5LWU2ZWQ0MjljOTVhMiIsImMiOjl9 (y el vídeo de cómo se lee, en drive.google.com/file/d/1V-1mm_z7cM43ZXKaCHGRPlECx-IH1Nrt/view)" },
         ],
       },
     ],
