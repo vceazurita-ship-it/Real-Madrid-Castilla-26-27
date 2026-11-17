@@ -452,8 +452,12 @@ export function clavesEnOrden<T>(filas: T[], de: (f: T) => { lado: LadoAbp; jorn
   });
 }
 
-/** Lo que pinta cada acción: el corte (si lo hay) y el enlace a Hudl con su segundo. */
-export type EnlaceAccionAbp = { video?: string; hudl: { url: string; seg: number } };
+/**
+ * Lo que pinta cada acción: el corte (si lo hay) y el enlace a Hudl con su
+ * segundo. 17/11/2026: o, si la acción sale de Opta (o casa con un saque de
+ * Opta), su corte de Opta y el enlace a ProVision (`opta`).
+ */
+export type EnlaceAccionAbp = { video?: string; hudl?: { url: string; seg: number }; opta?: string };
 
 /** El documento, por clave de acción. */
 export function enlacesDeCortes(doc: DocCortesAbp | null | undefined): Map<string, EnlaceAccionAbp> {

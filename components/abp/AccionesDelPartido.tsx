@@ -160,7 +160,7 @@ export function AccionesDelPartido({
                     {variosPartidos && a.rival ? <span className="font-normal text-white/45"> · {a.rival}</span> : null}
                   </p>
                   {detalle && <p className="text-[13px] text-white/60">{detalle}</p>}
-                  {enlace && <VerAccion video={enlace.video} hudl={enlace.hudl} que="la acción" />}
+                  {enlace && <VerAccion video={enlace.video} hudl={enlace.hudl} opta={enlace.opta} que="la acción" />}
                 </div>
 
                 {caida ? (

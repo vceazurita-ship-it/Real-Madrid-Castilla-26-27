@@ -34,10 +34,15 @@ export function EnlaceHudl({ hudl, que = "la acción" }: { hudl: EnlaceHudlAccio
   );
 }
 
-export function VerAccion({ video, hudl, que = "la acción" }: { video?: string; hudl?: EnlaceHudlAccion; que?: string }) {
+/**
+ * `opta` (17/11/2026): el Event Log de ProVision en el segundo de la acción
+ * (lib/opta-video.ts). Sale cuando la acción viene de Opta y aún no tenemos
+ * su corte, o al lado del corte para verla en Opta.
+ */
+export function VerAccion({ video, hudl, opta, que = "la acción" }: { video?: string; hudl?: EnlaceHudlAccion; opta?: string; que?: string }) {
   const [abierto, setAbierto] = useState(false);
 
-  if (!video && !hudl) return null;
+  if (!video && !hudl && !opta) return null;
   const ver = `Ver ${que}`;
 
   return (
@@ -54,6 +59,11 @@ export function VerAccion({ video, hudl, que = "la acción" }: { video?: string;
           </a>
         ) : null}
         {hudl ? <EnlaceHudl hudl={hudl} que={que} /> : null}
+        {opta && !video ? (
+          <a href={opta} target="_blank" rel="noopener noreferrer" className={BOTON} title={`Abre en Opta ProVision ${que} con su vídeo (hace falta la sesión de Opta)`}>
+            <Play size={13} className="text-[#C8A96B]" aria-hidden /> Vídeo en Opta
+          </a>
+        ) : null}
       </div>
       {abierto && video ? <video src={video} controls autoPlay playsInline preload="auto" className="aspect-video w-full min-w-[min(18rem,80vw)] max-w-md rounded-xl bg-black" /> : null}
     </div>

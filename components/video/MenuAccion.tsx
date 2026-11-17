@@ -51,8 +51,11 @@ export function opcionesDeAccion({
   aLaTabla,
   videoEtiqueta = "Ver el vídeo",
   videoDetalle,
+  opta,
 }: {
   video?: string | null;
+  /** El Event Log de ProVision en el segundo de la acción (17/11/2026), si viene de Opta. */
+  opta?: string | null;
   /** «Ver el resumen del partido» cuando el vídeo no va al segundo de la acción. */
   videoEtiqueta?: string;
   videoDetalle?: string;
@@ -72,6 +75,8 @@ export function opcionesDeAccion({
         ? { clave: "video", etiqueta: videoEtiqueta, detalle: videoDetalle ?? "YouTube", icono: "video", href: video }
         : { clave: "video", etiqueta: videoEtiqueta, ...(videoDetalle ? { detalle: videoDetalle } : {}), icono: "video", video },
     );
+
+  if (opta && !video) salida.push({ clave: "opta", etiqueta: "Vídeo en Opta", detalle: "ProVision", icono: "video", href: opta });
 
   if (hudl) salida.push({ clave: "hudl", etiqueta: "Abrir en Hudl", detalle: rotuloSegundo(hudl.seg), icono: "hudl", href: hudl.url });
 
