@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
-import { Play, ExternalLink, Home, Plane, ClipboardList, Trophy, Users, Video } from "lucide-react";
+import { ExternalLink, Clapperboard, Home, Plane, ClipboardList, Trophy, Users, Video } from "lucide-react";
 import { traeJson } from "@/lib/hojaCsv";
 import { useCalendario } from "@/hooks/useCalendario";
 import { comoNuestro, ordenaPartidos } from "@/lib/castilla/calendario";
@@ -12,11 +13,12 @@ import { DOC_GOLES, GOLES_VACIO, type GolesDoc } from "@/lib/goles/analisis";
 import type { ClasificacionPortada } from "@/lib/portada/proximo-partido";
 import { nombreEquipo } from "@/lib/equipos";
 import { mismoClub } from "@/lib/rivals/mismoClub";
-import { Lamina, TituloConclusion, VistaVisualDetalle, useVistaAnalisis } from "@/components/ui/VistaVisual";
+import { Lamina, TituloConclusion, VistaVisualDetalle } from "@/components/ui/VistaVisual";
 import Link from "next/link";
 import { EnlacesRapidos } from "@/components/ui/EnlacesRapidos";
 import { urlPostDelPartido } from "@/lib/post-partido";
 import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
+import { conRivalEnUrl } from "@/lib/rivals/rival-en-curso";
 
 const coma1 = (v: number) => v.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
@@ -31,15 +33,21 @@ function RachaPartidos({
   jugados,
   puestos,
 }: {
-  jugados: { jornada: number; rival: string; gf: number; gc: number; puntos: number }[];
+  jugados: { jornada: number; rival: string; cuando: string; gf: number; gc: number; puntos: number }[];
   puestos: Map<number, number> | null;
 }) {
   return (
     <div className="min-w-0 overflow-x-auto">
       <ol className="flex gap-1.5" style={{ minWidth: jugados.length * 44 }}>
         {jugados.map((uno) => (
-          <li key={uno.jornada} className="flex min-w-0 flex-1 flex-col items-center gap-1" title={`J${uno.jornada} · ${nombreEquipo(uno.rival)} · ${uno.gf}-${uno.gc}`}>
-            <span className="text-[10px] tabular-nums text-white/55">J{uno.jornada}</span>
+          <li key={uno.jornada} className="min-w-0 flex-1">
+            {/* 17/11/2026 (ronda 19): cada jornada abre su post en Análisis de datos. */}
+            <Link
+              href={uno.cuando ? urlPostDelPartido(uno.cuando, uno.rival) : "/match-plans"}
+              title={`J${uno.jornada} · ${nombreEquipo(uno.rival)} · ${uno.gf}-${uno.gc}: abrir su post`}
+              className="flex flex-col items-center gap-1 rounded-md transition hover:opacity-80"
+            >
+            <span className="text-[11px] tabular-nums text-white/60">J{uno.jornada}</span>
             <span
               className={`flex h-10 w-full max-w-[52px] flex-col items-center justify-center rounded-md text-[11px] font-bold tabular-nums ${
                 uno.puntos === 3 ? "bg-emerald-500/20 text-emerald-600" : uno.puntos === 1 ? "bg-amber-500/20 text-amber-600" : "bg-red-500/20 text-red-600"
@@ -49,14 +57,15 @@ function RachaPartidos({
               <span className="text-[10px] font-semibold">{uno.gf}-{uno.gc}</span>
             </span>
             {puestos?.has(uno.jornada) ? (
-              <span className="text-[10px] font-semibold tabular-nums" style={{ color: "var(--rmcf-gold-ink)" }}>
+              <span className="text-[11px] font-semibold tabular-nums" style={{ color: "var(--rmcf-gold-ink)" }}>
                 {puestos.get(uno.jornada)}º
               </span>
             ) : null}
+            </Link>
           </li>
         ))}
       </ol>
-      <p className="mt-2 text-[11px] text-white/50">G, E, P: ganado, empatado, perdido, con el marcador{puestos ? "; debajo, nuestro puesto tras esa jornada" : ""}.</p>
+      <p className="mt-2 text-[11px] text-white/60">G, E, P: ganado, empatado, perdido, con el marcador{puestos ? "; debajo, nuestro puesto tras esa jornada" : ""}. Cada jornada abre su post.</p>
     </div>
   );
 }
@@ -70,40 +79,87 @@ type Vecinos = { jornada: number; puntos: number; arriba: Vecino | null; abajo: 
 | 16/11/2026 (expertos, ronda 18): el puesto tras cada jornada, en su propia
 | lámina y con el eje al revés (el 1º arriba), en vez de repetirlo en la tabla.
 */
-function GraficaPuesto({ jugados, puestos, equipos }: { jugados: { jornada: number }[]; puestos: Map<number, number>; equipos: number }) {
-  const serie = jugados.map((u) => ({ j: u.jornada, p: puestos.get(u.jornada) })).filter((x): x is { j: number; p: number } => typeof x.p === "number");
+/*
+| 17/11/2026 (ronda 19, los tres jueces): «el gráfico no coincide con la tira».
+| Los puntos estaban bien, pero las marcas 1º-5º-10º no van a la misma
+| distancia (del 1 al 5 hay 4 puestos) y el ojo leía otro puesto. Ahora cada
+| punto lleva su puesto escrito, hay una raya por puesto (tenue) y cada punto
+| abre el post de esa jornada.
+*/
+function GraficaPuesto({
+  jugados,
+  puestos,
+  equipos,
+}: {
+  jugados: { jornada: number; rival: string; cuando: string }[];
+  puestos: Map<number, number>;
+  equipos: number;
+}) {
+  const router = useRouter();
+  const serie = jugados
+    .map((u) => ({ j: u.jornada, p: puestos.get(u.jornada), rival: u.rival, cuando: u.cuando }))
+    .filter((x): x is { j: number; p: number; rival: string; cuando: string } => typeof x.p === "number");
   if (serie.length < 2) return null;
-  const ancho = 640;
-  const alto = 170;
-  const m = { izq: 30, der: 14, arr: 12, abj: 24 };
   const tope = Math.max(equipos || 20, ...serie.map((x) => x.p));
-  const x = (i: number) => m.izq + (i / (serie.length - 1)) * (ancho - m.izq - m.der);
-  const y = (p: number) => m.arr + ((p - 1) / Math.max(1, tope - 1)) * (alto - m.arr - m.abj);
-  const marcas = [1, Math.ceil(tope / 4), Math.ceil(tope / 2), Math.ceil((tope * 3) / 4), tope].filter((v, i, a) => a.indexOf(v) === i);
-  return (
-    <svg viewBox={`0 0 ${ancho} ${alto}`} className="h-auto w-full" role="img" aria-label={`Puesto tras cada jornada: del ${serie[0].p}º al ${serie[serie.length - 1].p}º`}>
-      {marcas.map((v) => (
-        <g key={v}>
-          <line x1={m.izq} x2={ancho - m.der} y1={y(v)} y2={y(v)} stroke="currentColor" strokeOpacity={0.12} />
-          <text x={m.izq - 6} y={y(v) + 4} textAnchor="end" fontSize={11} fill="currentColor" fillOpacity={0.6}>
+  const marcas = [1, 5, 10, 15, 20].filter((v) => v <= tope);
+  const abre = (s: { cuando: string; rival: string }) => {
+    if (s.cuando) router.push(urlPostDelPartido(s.cuando, s.rival));
+  };
+  /* Dos lienzos: el del móvil (640 de ancho, letra 20 → unos 11 px a 390) y el apaisado del escritorio. */
+  const lienzo = (ancho: number, alto: number, letra: number, clase: string) => {
+    const m = { izq: letra * 2.4, der: 16, arr: letra * 2, abj: letra * 2 };
+    const x = (i: number) => m.izq + (i / (serie.length - 1)) * (ancho - m.izq - m.der);
+    const y = (p: number) => m.arr + ((p - 1) / Math.max(1, tope - 1)) * (alto - m.arr - m.abj);
+    return (
+      <svg viewBox={`0 0 ${ancho} ${alto}`} className={`h-auto w-full ${clase}`} role="img" aria-label={`Puesto tras cada jornada: del ${serie[0].p}º al ${serie[serie.length - 1].p}º`}>
+        {Array.from({ length: tope }, (_, k) => k + 1).map((v) => (
+          <line key={v} x1={m.izq} x2={ancho - m.der} y1={y(v)} y2={y(v)} stroke="currentColor" strokeOpacity={marcas.includes(v) ? 0.16 : 0.05} />
+        ))}
+        {marcas.map((v) => (
+          <text key={v} x={m.izq - 6} y={y(v) + letra / 3} textAnchor="end" fontSize={letra} fill="currentColor" fillOpacity={0.65}>
             {v}º
           </text>
-        </g>
-      ))}
-      <polyline points={serie.map((s, i) => `${x(i)},${y(s.p)}`).join(" ")} fill="none" stroke="#C8A96B" strokeWidth={2.5} strokeLinejoin="round" />
-      {serie.map((s, i) => (
-        <g key={s.j}>
-          <circle cx={x(i)} cy={y(s.p)} r={i === serie.length - 1 ? 5.5 : 3.5} fill="#C8A96B">
-            <title>{`J${s.j}: ${s.p}º`}</title>
-          </circle>
-          {i % Math.ceil(serie.length / 12) === 0 || i === serie.length - 1 ? (
-            <text x={x(i)} y={alto - 6} textAnchor="middle" fontSize={11} fill="currentColor" fillOpacity={0.6}>
-              J{s.j}
+        ))}
+        <polyline points={serie.map((s, i) => `${x(i)},${y(s.p)}`).join(" ")} fill="none" stroke="#C8A96B" strokeWidth={letra / 5} strokeLinejoin="round" />
+        {serie.map((s, i) => (
+          <g
+            key={s.j}
+            role="link"
+            tabIndex={0}
+            onClick={() => abre(s)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") abre(s);
+            }}
+            style={{ cursor: s.cuando ? "pointer" : undefined }}
+          >
+            <title>{`J${s.j} · ${nombreEquipo(s.rival)}: ${s.p}º. Abrir su post`}</title>
+            <circle cx={x(i)} cy={y(s.p)} r={letra} fill="transparent" />
+            <circle cx={x(i)} cy={y(s.p)} r={i === serie.length - 1 ? letra / 2.4 : letra / 3.6} fill="#C8A96B" />
+            <text
+              x={x(i)}
+              y={y(s.p) - letra * 0.7}
+              textAnchor="middle"
+              fontSize={i === serie.length - 1 ? letra * 1.15 : letra}
+              fontWeight={i === serie.length - 1 ? 700 : 600}
+              style={{ fill: "var(--rmcf-gold-ink)" }}
+            >
+              {s.p}º
             </text>
-          ) : null}
-        </g>
-      ))}
-    </svg>
+            {i % Math.ceil(serie.length / 12) === 0 || i === serie.length - 1 ? (
+              <text x={x(i)} y={alto - letra / 3} textAnchor="middle" fontSize={letra} fill="currentColor" fillOpacity={0.65}>
+                J{s.j}
+              </text>
+            ) : null}
+          </g>
+        ))}
+      </svg>
+    );
+  };
+  return (
+    <>
+      {lienzo(640, 420, 20, "md:hidden")}
+      {lienzo(1200, 340, 14, "hidden md:block")}
+    </>
   );
 }
 
@@ -126,21 +182,50 @@ function GraficaPuntos({
 }) {
   if (jugados.length < 2) return null;
 
-  const W = 640;
   /* 16/11/2026 (fútbol): más alto (a 390 px las marcas se montaban) y, pasados los 12 puntos, una marca cada 6. */
-  const H = 300;
   /* 30/10/2026: letra de los ejes a 14 en el lienzo de 640: a 390 px se quedaba en 6 px y no se leía. */
   /* 10/11/2026: sin rótulos al final de las líneas (la leyenda de arriba los dice): margen derecho corto. */
   /* 11/11/2026: sin ancho mínimo (a 390 px se cortaba en la J7) y con letra de
      20 en el lienzo de 640, que a 390 px queda en unos 11 px. */
-  const M = { l: 46, r: 24, t: 16, b: 40 };
+  /* 17/11/2026 (ronda 19, análisis y marketing): en escritorio la curva se
+     quedaba en media tarjeta (tope de 720 px). Ahora hay dos lienzos: el del
+     móvil (640 × 300) y uno apaisado (1200 × 300) que llena la tarjeta. */
   const maximo = Math.max(3, ...jugados.map((u) => u.acumulados), ...jugados.map((u) => liga.get(u.jornada) ?? 0));
   const paso = maximo > 12 ? 6 : 3;
   const tope = Math.ceil(maximo / paso) * paso;
-  const x = (i: number) => M.l + (i * (W - M.l - M.r)) / (jugados.length - 1);
-  const y = (v: number) => H - M.b - (v * (H - M.t - M.b)) / tope;
-  const nuestra = jugados.map((u, i) => `${x(i)},${y(u.acumulados)}`).join(" ");
-  const puntosLiga = jugados.flatMap((u, i) => (liga.has(u.jornada) ? [`${x(i)},${y(liga.get(u.jornada)!)}`] : []));
+  const lienzo = (W: number, H: number, letra: number, clase: string) => {
+    const M = { l: letra * 2 + 6, r: 24, t: 16, b: letra * 2 };
+    const x = (i: number) => M.l + (i * (W - M.l - M.r)) / (jugados.length - 1);
+    const y = (v: number) => H - M.b - (v * (H - M.t - M.b)) / tope;
+    const nuestra = jugados.map((u, i) => `${x(i)},${y(u.acumulados)}`).join(" ");
+    const puntosLiga = jugados.flatMap((u, i) => (liga.has(u.jornada) ? [`${x(i)},${y(liga.get(u.jornada)!)}`] : []));
+
+    return (
+      <svg viewBox={`0 0 ${W} ${H}`} className={`mt-3 h-auto w-full ${clase}`} role="img" aria-label="Puntos acumulados del Castilla frente a la media de la liga">
+        {Array.from({ length: tope / paso + 1 }, (_, k) => k * paso).map((v) => (
+          <g key={v}>
+            <line x1={M.l} x2={W - M.r} y1={y(v)} y2={y(v)} stroke="currentColor" strokeOpacity={0.12} />
+            <text x={M.l - 8} y={y(v) + letra / 3} textAnchor="end" fontSize={letra} fill="currentColor" fillOpacity={0.7}>
+              {v}
+            </text>
+          </g>
+        ))}
+        {/* Con muchas jornadas, una de cada dos (y siempre la última) para que no se monten. */}
+        {jugados.map((u, i) => (jugados.length > 12 && i % 2 === 1 && i !== jugados.length - 1 ? null : (
+          <text key={u.jornada} x={x(i)} y={H - letra / 2} textAnchor="middle" fontSize={letra} fill="currentColor" fillOpacity={0.7}>
+            J{u.jornada}
+          </text>
+        )))}
+        {puntosLiga.length > 1 ? (
+          <polyline points={puntosLiga.join(" ")} fill="none" stroke="currentColor" strokeOpacity={0.55} strokeWidth={2} strokeDasharray="5 4" />
+        ) : null}
+        <polyline points={nuestra} fill="none" stroke="#C8A96B" strokeWidth={2.5} />
+        {jugados.map((u, i) => (
+          <circle key={u.jornada} cx={x(i)} cy={y(u.acumulados)} r={3.5} fill="#C8A96B" />
+        ))}
+      </svg>
+    );
+  };
 
   return (
     <div className="mt-4 min-w-0 rounded-[18px] border border-white/10 bg-white/[0.03] p-4">
@@ -176,42 +261,8 @@ function GraficaPuntos({
         );
       })()}
       <div className="min-w-0">
-      <svg
-        viewBox={`0 0 ${W} ${H}`}
-        className="mt-3 h-auto w-full max-w-[720px]"
-        role="img"
-        aria-label="Puntos acumulados del Castilla frente a la media de la liga"
-      >
-        {Array.from({ length: tope / paso + 1 }, (_, k) => k * paso).map((v) => (
-          <g key={v}>
-            <line x1={M.l} x2={W - M.r} y1={y(v)} y2={y(v)} stroke="currentColor" strokeOpacity={0.12} />
-            <text x={M.l - 8} y={y(v) + 7} textAnchor="end" fontSize={22} fill="currentColor" fillOpacity={0.7}>
-              {v}
-            </text>
-          </g>
-        ))}
-        {/* Con muchas jornadas, una de cada dos (y siempre la última) para que no se monten. */}
-        {jugados.map((u, i) => (jugados.length > 12 && i % 2 === 1 && i !== jugados.length - 1 ? null : (
-          <text key={u.jornada} x={x(i)} y={H - 10} textAnchor="middle" fontSize={22} fill="currentColor" fillOpacity={0.7}>
-            J{u.jornada}
-          </text>
-        )))}
-        {puntosLiga.length > 1 ? (
-          <polyline
-            points={puntosLiga.join(" ")}
-            fill="none"
-            stroke="currentColor"
-            strokeOpacity={0.55}
-            strokeWidth={2}
-            strokeDasharray="5 4"
-          />
-        ) : null}
-        <polyline points={nuestra} fill="none" stroke="#C8A96B" strokeWidth={2.5} />
-        {jugados.map((u, i) => (
-          <circle key={u.jornada} cx={x(i)} cy={y(u.acumulados)} r={3.5} fill="#C8A96B" />
-        ))}
-        {/* 10/11/2026: los rótulos al final de cada línea salen; la leyenda de arriba ya los dice. */}
-      </svg>
+        {lienzo(640, 300, 22, "md:hidden")}
+        {lienzo(1200, 300, 15, "hidden md:block")}
       </div>
     </div>
   );
@@ -413,7 +464,12 @@ const tituloPuesto = (() => {
   const primero = serie[0];
   const ahora = serie[serie.length - 1];
   const mejor = serie.reduce((a, b) => (b.p < a.p ? b : a));
-  return `${ahora.p}º tras la J${ahora.j} (${ahora.p < primero.p ? "subimos" : ahora.p > primero.p ? "bajamos" : "igual"} desde el ${primero.p}º de la J${primero.j}); el mejor, ${mejor.p}º en la J${mejor.j}`;
+  /* 17/11/2026 (ronda 19, fútbol): sin repetir el puesto cuando el de ahora es el mejor. */
+  const esElMejor = mejor.p === ahora.p;
+  const inicio = primero.p === ahora.p ? `igual que en la J${primero.j}` : `empezamos ${primero.p}º en la J${primero.j}`;
+  return esElMejor
+    ? `${ahora.p}º tras la J${ahora.j}, nuestro mejor puesto; ${inicio}`
+    : `${ahora.p}º tras la J${ahora.j}; el mejor, ${mejor.p}º en la J${mejor.j}; ${inicio}`;
 })();
 
 /*
@@ -453,6 +509,16 @@ const enJuego = (() => {
 
   return trozos.join(" y ");
 })();
+/* 17/11/2026 (ronda 19): en la tarjeta Puesto, con quién estamos empatados a puntos. */
+const puestoALaPar = (() => {
+  const v = liga.vecinos;
+
+  if (!v || !ultimo || v.jornada !== ultimo.jornada) return "";
+
+  const iguales = [v.arriba, v.abajo].filter((o): o is Vecino => !!o && o.puntos === v.puntos).map((o) => `${o.puesto}º`);
+
+  return iguales.length ? `empatados a ${v.puntos} con el ${iguales.join(" y el ")}` : "";
+})();
 
 /*
 | La suma de la tabla de jornadas tiene que dar lo mismo que las tarjetas de
@@ -478,47 +544,14 @@ useEffect(() => {
   }
 }, [tabla, jugados, golesTabla]);
 
-const videoRef = useRef<HTMLDivElement | null>(null);
-
 /*
-| 29/10/2026: el botón flotante «Ver explicación» tapaba la columna PUESTO de
-| las últimas filas, y el hueco que se le dejó a la derecha (lg:pr-44) dejaba la
-| tabla sin ocupar la tarjeta. Ahora la tabla va a todo el ancho y los botones
-| flotantes se apartan mientras la tabla está en pantalla.
+| 17/11/2026 (ronda 19, los tres jueces): fuera el botón flotante «Ver
+| explicación» (tapaba la curva a 1440 px) y el pliegue de Power BI al pie: el
+| informe pide cuenta de Microsoft y no aporta al cuerpo técnico. Quedan como
+| una línea al pie, con qué son.
 */
-const tablaRef = useRef<HTMLDivElement | null>(null);
-/* La tabla sólo está en «Detalle»: al cambiar de vista se vuelve a vigilar. */
-const [vistaHistorico] = useVistaAnalisis("collective-history");
-const [tablaEnPantalla, setTablaEnPantalla] = useState(false);
-
-useEffect(() => {
-  const nodo = tablaRef.current;
-
-  if (!nodo || typeof IntersectionObserver === "undefined") return;
-
-  const vigia = new IntersectionObserver(([entrada]) => setTablaEnPantalla(entrada.isIntersecting), { rootMargin: "0px 0px -40px 0px" });
-
-  vigia.observe(nodo);
-
-  return () => vigia.disconnect();
-}, [jugados.length, vistaHistorico]);
-
-  const src = "https://app.powerbi.com/view?r=eyJrIjoiNzY4NjNmZjktZWU3Zi00NjkyLTg5NTMtNzQwYjQwMGVjZmQxIiwidCI6ImQ2Zjc2YzExLWZmYjktNGExNS05YjQ5LWU2ZWQ0MjljOTVhMiIsImMiOjl9";
-
-  const videoUrl =
-    "https://drive.google.com/file/d/1V-1mm_z7cM43ZXKaCHGRPlECx-IH1Nrt/view";
-
-  const scrollToVideo = () => {
-    if (window.innerWidth < 1024) {
-      window.open(videoUrl, "_blank");
-      return;
-    }
-
-    videoRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
-  };
+const src = "https://app.powerbi.com/view?r=eyJrIjoiNzY4NjNmZjktZWU3Zi00NjkyLTg5NTMtNzQwYjQwMGVjZmQxIiwidCI6ImQ2Zjc2YzExLWZmYjktNGExNS05YjQ5LWU2ZWQ0MjljOTVhMiIsImMiOjl9";
+const videoUrl = "https://drive.google.com/file/d/1V-1mm_z7cM43ZXKaCHGRPlECx-IH1Nrt/view";
 
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
@@ -527,32 +560,6 @@ useEffect(() => {
 
         <section className="relative min-w-0 flex-1">
           <Topbar />
-
-          {/* Botón desktop */}
-          <button
-            onClick={scrollToVideo}
-            aria-hidden={tablaEnPantalla || undefined}
-            tabIndex={tablaEnPantalla ? -1 : undefined}
-            className={`${tablaEnPantalla ? "pointer-events-none opacity-0" : ""}
-              hidden lg:flex
-              fixed right-6 bottom-6 z-50
-              items-center gap-3
-              rounded-full
-              border border-[#C8A96B]/40
-              bg-[#11161D]/90
-              px-5 py-3
-              text-sm font-medium
-              text-white
-              shadow-[0_12px_35px_rgba(0,0,0,0.35)]
-              backdrop-blur-md
-              hover:border-[#C8A96B]
-              hover:bg-[#161D26]
-              transition-all
-            `}
-          >
-            <Play size={16} className="text-[#C8A96B]" />
-            Ver explicación
-          </button>
 
           {/* 11/11/2026 (marketing): fuera el botón flotante «Ver vídeo» del
               móvil; tapaba el resultado y los puntos de la J1. El vídeo queda
@@ -614,10 +621,13 @@ useEffect(() => {
                   className="mt-2"
                   titulo={`Para la J${proximo.jornada}`}
                   enlaces={[
-                    { href: "/match-preparation", texto: "Plan de partido", icono: ClipboardList },
+                    /* 17/11/2026 (ronda 19): el plan con el rival puesto, cómo le marcan y su coding. */
+                    { href: conRivalEnUrl("/match-preparation", { equipo: proximo.rival }), texto: "Plan de partido", icono: ClipboardList },
                     { href: urlGolesDelEquipo(proximo.rival), texto: "Sus goles en vídeo", icono: Video },
+                    { href: urlGolesDelEquipo(proximo.rival, "contra"), texto: "Cómo le marcan", icono: Video },
                     { href: `/scout-rival-abp?equipo=${encodeURIComponent(proximo.rival)}`, texto: "Su ABP", icono: Trophy },
                     { href: `/rivals?equipo=${encodeURIComponent(proximo.rival)}`, texto: "Su plantilla", icono: Users },
+                    { href: `/coding?equipo=${encodeURIComponent(proximo.rival)}`, texto: "Su coding", icono: Clapperboard },
                   ]}
                 />
               ) : null}
@@ -638,7 +648,8 @@ useEffect(() => {
 
                   /* 29/10/2026: la cifra grande es el dato y debajo, pequeña, la referencia (fútbol y marketing). */
                   const tarjetas: { etiqueta: string; valor: ReactNode; largo?: boolean; referencia: string }[] = [
-                    { etiqueta: "Puesto", valor: `${tabla.puesto}º de ${tabla.deCuantos}`, referencia: movimientoPuesto },
+                    /* 17/11/2026 (ronda 19, análisis): con quién estamos a la par, en la tarjeta. */
+                    { etiqueta: "Puesto", valor: `${tabla.puesto}º de ${tabla.deCuantos}`, referencia: [movimientoPuesto, puestoALaPar].filter(Boolean).join("\n") },
                     {
                       etiqueta: "Puntos",
                       valor: String(tabla.puntos),
@@ -749,7 +760,7 @@ useEffect(() => {
                   <GraficaPuntos jugados={jugados} liga={liga.acumuladaLiga} equipos={liga.equipos} />
                 </div>
 
-                <div ref={tablaRef} className="overflow-x-auto rounded-[18px] border border-white/10">
+                <div className="overflow-x-auto rounded-[18px] border border-white/10">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-white/10 text-left text-xs uppercase tracking-wider text-white/60">
@@ -902,37 +913,17 @@ useEffect(() => {
               </div>
             ) : null}
 
-            {/* 16/11/2026 (análisis): Power BI deja de ser el botón principal; una
-                nota corta dice qué es y que lo de arriba ya no depende de él.
-                Ronda 18: plegado, es secundario (pide cuenta de Microsoft). */}
-            <details className="mb-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-[13px] text-white/70">
-            <summary className="cursor-pointer select-none text-[12px] font-semibold text-white/65">El informe en Power BI (aparte)</summary>
-            <div className="mt-2 flex flex-wrap items-center gap-3">
-              <span className="min-w-0 flex-1 basis-full sm:basis-auto">
-                El informe de la competición en Power BI (pide cuenta de Microsoft). Todo lo de esta pantalla sale de BeSoccer y se pone al día cada noche sin él.
-              </span>
-              <a
-                href={src}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-full border border-white/15 px-3.5 py-1.5 text-[12px] font-medium text-white/80 hover:text-white"
-              >
-                <ExternalLink size={14} />
-                Abrir Power BI
+            {/* 17/11/2026 (ronda 19): Power BI, una línea al pie que dice qué es. */}
+            <p className="text-[12px] leading-snug text-white/60">
+              Aparte, el informe antiguo de la competición en Power BI (pide cuenta de Microsoft; esta pantalla no depende de él):{" "}
+              <a href={src} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 underline underline-offset-4 hover:text-[#C8A96B]">
+                abrirlo<ExternalLink className="h-3 w-3" aria-hidden />
+              </a>{" "}
+              ·{" "}
+              <a href={videoUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 underline underline-offset-4 hover:text-[#C8A96B]">
+                vídeo de cómo se lee<ExternalLink className="h-3 w-3" aria-hidden />
               </a>
-            </div>
-
-            {/* Vídeo: 10/11/2026, pequeño y pegado a la franja, no un segundo botón. */}
-            <div ref={videoRef} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px]">
-              <button
-                onClick={() => window.open(videoUrl, "_blank")}
-                className="inline-flex items-center gap-1.5 text-white/60 underline-offset-4 hover:text-[#C8A96B] hover:underline"
-              >
-                <ExternalLink className="h-3.5 w-3.5" aria-hidden />
-                Vídeo: cómo se lee el informe de Power BI
-              </button>
-            </div>
-            </details>
+            </p>
           </div>
         </section>
       </div>

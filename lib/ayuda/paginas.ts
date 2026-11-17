@@ -1241,8 +1241,8 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           { que: "El titular", es: "Puesto (y si subimos o bajamos en la última), puntos, la jornada y el día de corte, y los puntos por partido frente a la media de la liga" },
           { que: "Siguiente", es: "El próximo partido del calendario y lo que hay en juego: los puntos al equipo de arriba y sobre el de abajo (si coinciden los dos, «con los mismos puntos que el 5º y el 7º»)", cuenta: "De la tabla completa de nuestra última jornada; si esa tabla aún no está, no sale" },
-          { que: "Para la J· (16/11/2026)", es: "Debajo, a un toque y con el rival ya elegido: Plan de partido, sus goles en vídeo, su ABP y su plantilla" },
-          { que: "Puesto", es: "De la clasificación, con el movimiento de la última jornada" },
+          { que: "Para la J· (16/11/2026)", es: "Debajo, a un toque y con el rival ya elegido: Plan de partido (con el rival puesto), sus goles en vídeo, cómo le marcan, su ABP, su plantilla y su coding" },
+          { que: "Puesto", es: "De la clasificación, con el movimiento de la última jornada y, si los hay, con quién estamos empatados a puntos («empatados a 19 con el 5º y el 7º»)" },
           { que: "Puntos", es: "Con los partidos, los puntos por partido y la media de la liga al lado", cuenta: "Puntos ÷ partidos; liga = puntos repartidos (3 con ganador, 2 si empatan) ÷ (partidos × 2)" },
           { que: "Balance", es: "Tres cifras: ganados, empatados y perdidos, con su rótulo debajo" },
           { que: "Goles", es: "A favor-en contra, la diferencia y los goles a favor por partido con la media de la liga al lado", cuenta: "Liga = goles de la liga ÷ (partidos × 2)" },
@@ -1253,8 +1253,9 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Puntos acumulados",
         filas: [
           { que: "Visual · Detalle (16/11/2026)", es: "«Jornada a jornada» se abre en «Visual»: la curva de puntos con su conclusión en el título (cuántos llevamos tras la última jornada y cuántos más o menos que la media de la liga) y la racha partido a partido (G, E o P con el marcador y, si está en todas, nuestro puesto debajo), titulada con los 5 últimos. «Detalle» es la curva y la tabla de siempre. Se recuerda en este aparato", cuenta: "Mismos datos que la tabla; a menos de medio punto de la media se dice «en la media»" },
-          { que: "¿Dónde estamos en la tabla? (Visual)", es: "Entre la curva y la racha, el puesto tras cada jornada con el 1º arriba, y en el título el puesto de ahora, si subimos o bajamos desde la primera jornada y el mejor puesto", cuenta: "Sólo sale si está el puesto de todas las jornadas; con pocas jornadas, tendencia" },
-          { que: "La línea dorada", es: "Nuestros puntos acumulados, jornada a jornada" },
+          { que: "¿Dónde estamos en la tabla? (Visual)", es: "Entre la curva y la racha, el puesto tras cada jornada con el 1º arriba: cada punto lleva su puesto escrito, una raya tenue por puesto y marcas en el 1º, 5º, 10º, 15º y 20º. Cada punto abre el post de esa jornada. El título dice el puesto de ahora, si es el mejor y dónde empezamos («6º tras la J12, nuestro mejor puesto; empezamos 13º en la J1»)", cuenta: "Sólo sale si está el puesto de todas las jornadas; con pocas jornadas, tendencia" },
+          { que: "¿Cómo va la racha? (Visual)", es: "Cada jornada (G, E o P, marcador y puesto) abre su post en Análisis de datos" },
+          { que: "La línea dorada", es: "Nuestros puntos acumulados, jornada a jornada. En escritorio la curva llena la tarjeta; en el móvil va en un lienzo más alto con la letra mayor" },
           { que: "La raya de puntos", es: "Lo que lleva de media un equipo de la liga tras cada jornada", cuenta: "Puntos por equipo y partido de la liga hasta esa jornada × partidos que llevamos" },
           { que: "Eje de puntos", es: "Una marca cada 3 puntos; pasados los 12, cada 6, para que se lea en el móvil" },
         ],
@@ -1273,8 +1274,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Power BI",
         filas: [
-          { que: "Abrir Power BI", es: "Plegado al pie («El informe en Power BI (aparte)»): enlace secundario al informe de la competición, en otra pestaña; pide la cuenta de Microsoft. Lo de arriba no depende de él" },
-          { que: "Vídeo / Ver explicación", es: "Cómo se lee el informe de Power BI; en escritorio, el botón flotante lleva al enlace" },
+          { que: "Al pie (17/11/2026)", es: "Una línea: el informe antiguo de la competición en Power BI (pide cuenta de Microsoft) y el vídeo de cómo se lee, los dos en otra pestaña. Ya no hay botón flotante «Ver explicación» ni pliegue. La pantalla no depende de él" },
         ],
       },
     ],
