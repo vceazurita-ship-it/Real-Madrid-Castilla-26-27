@@ -3166,9 +3166,10 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           { que: "N escudos de BeSoccer", es: "Cuántos han llegado y de cuándo es el documento («actualizados el…»)" },
           { que: "Descargar .pptx", es: "Veinte escudos por diapositiva (5 × 4) sobre el azul noche del documento, recortado el aire de los márgenes", cuenta: "Espera a que lleguen todas las imágenes; la que no llega en 15 s sale sin ella" },
-          { que: "Actualizar escudos", es: "Vuelve a pedir la lista" },
+          { que: "Actualizar escudos", es: "Vuelve a pedir la lista y dice qué ha hecho: «Comprobado a las hh:mm: N escudos · ninguno ha cambiado» o cuáles son nuevos o han cambiado", cuenta: "Compara equipo a equipo la dirección del escudo con la de la lista anterior" },
           { que: "Buscar equipo", es: "Filtra la parrilla por nombre de equipo" },
-          { que: "Ver rival →", es: "Abre la ficha de ese equipo en /rivals" },
+          { que: "El nombre del equipo", es: "Abre su ficha en /rivals (?equipo=)" },
+          { que: "Píldora azul «J12 · dom 22 · vs X»", es: "El equipo juega la jornada de la quiniela de esta semana: día y rival; lleva a /quiniela", cuenta: "La jornada es la primera del calendario de la quiniela cuyo último partido no se ha jugado (sin los partidos del Castilla)" },
           { que: "Cada tarjeta", es: "Copia ese escudo en PNG transparente (dice «Copiado» dos segundos); si el navegador no deja copiar imágenes, lo descarga" },
           { que: "Borde oro", es: "El nuestro" },
           { que: "Borde ámbar", es: "Trae fondo, no es transparente", cuenta: "Las cuatro esquinas del PNG son opacas" },

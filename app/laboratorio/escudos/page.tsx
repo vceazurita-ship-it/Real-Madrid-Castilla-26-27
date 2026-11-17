@@ -21,7 +21,7 @@ import Link from "next/link";
  * pantalla dice siempre cuántos ha encontrado.
  */
 
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Check, Copy, Download, RefreshCw, Search, ShieldCheck, X } from "lucide-react";
 
 import { Sidebar } from "@/components/ui/sidebar";
@@ -39,6 +39,9 @@ import {
 } from "@/lib/laboratorio/escudos-liga";
 import { nombreOficial } from "@/lib/equipos/nombres";
 import { aviso } from "@/lib/avisos";
+import { useAhora } from "@/hooks/useQuinielaDoc";
+import { hoyMadrid } from "@/lib/apuestas/modelo";
+import { jornadaDeHoy, partidosDe } from "@/lib/quiniela/modelo";
 
 type Estado = "cargando" | "listo" | "vacio" | "error";
 
@@ -194,6 +197,31 @@ export default function EscudosPage() {
   */
   const [testigo, setTestigo] = useState(0);
 
+  /*
+  | 17/11/2026 (marketing): «Actualizar escudos» dice qué ha hecho. Se guarda
+  | la lista anterior y, al volver, se cuentan los escudos nuevos o cambiados.
+  */
+  const anterior = useRef<Map<string, string>>(new Map());
+  const [comprobacion, setComprobacion] = useState<{ hora: string; total: number; cambiados: string[] } | null>(null);
+
+  /* 17/11/2026 (marketing): los equipos que juegan la jornada de la quiniela. */
+  const ahora = useAhora(10 * 60_000);
+  const jornada = useMemo(() => {
+    const numero = jornadaDeHoy(hoyMadrid(ahora));
+    const dias = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
+    const partidos = new Map<string, { rival: string; cuando: string }>();
+
+    for (const p of partidosDe(numero)) {
+      const d = new Date(`${p.fecha}T12:00:00`);
+      const cuando = `${dias[d.getDay()]} ${d.getDate()}`;
+
+      partidos.set(nombreOficial(p.local), { rival: nombreOficial(p.visitante), cuando });
+      partidos.set(nombreOficial(p.visitante), { rival: nombreOficial(p.local), cuando });
+    }
+
+    return { numero, partidos };
+  }, [ahora]);
+
   /* Con «Pidiendo…» a la vista: antes el botón no daba ninguna señal y la
      lista vieja se quedaba igual hasta que llegase la nueva (19/10/2026). */
   const pideLista = useCallback(() => {
@@ -232,6 +260,20 @@ export default function EscudosPage() {
 
         if (cancelado) return;
 
+        if (testigo > 0) {
+          const cambiados = lista
+            .filter((e: EscudoLiga) => anterior.current.get(e.equipo) !== e.url)
+            .map((e: EscudoLiga) => e.equipo);
+          const d = new Date();
+
+          setComprobacion({
+            hora: `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`,
+            total: lista.length,
+            cambiados: anterior.current.size ? cambiados : [],
+          });
+        }
+
+        anterior.current = new Map(lista.map((e: EscudoLiga) => [e.equipo, e.url]));
         setAlDia(typeof datos?.alDia === "string" ? datos.alDia : null);
         setEscudos(lista);
         setEstado(lista.length ? "listo" : "vacio");
@@ -433,9 +475,19 @@ export default function EscudosPage() {
                 className="inline-flex min-h-11 items-center justify-center gap-1.5 self-center px-3 text-[13px] text-white/60 underline-offset-2 transition hover:text-white hover:underline disabled:opacity-40 sm:self-auto"
               >
                 <RefreshCw size={14} className={estado === "cargando" ? "animate-spin" : undefined} />
-                Actualizar escudos
+                {estado === "cargando" && testigo > 0 ? "Comprobando…" : "Actualizar escudos"}
               </button>
             </div>
+
+            {/* Lo que ha hecho el botón (17/11/2026, marketing). */}
+            {comprobacion && estado === "listo" ? (
+              <p role="status" className="mt-2 text-[13px] text-white/70">
+                Comprobado a las {comprobacion.hora}: {comprobacion.total} escudos ·{" "}
+                {comprobacion.cambiados.length === 0
+                  ? "ninguno ha cambiado"
+                  : `${comprobacion.cambiados.length} ${comprobacion.cambiados.length === 1 ? "nuevo o cambiado" : "nuevos o cambiados"} (${comprobacion.cambiados.join(", ")})`}
+              </p>
+            ) : null}
 
 
             {/* Una sola caja ámbar con lo que falta o trae fondo. */}
@@ -459,7 +511,7 @@ export default function EscudosPage() {
             <div className="mt-5">
               <Panel
                 title="Vista previa del documento"
-                subtitle="Así salen sobre el azul noche del documento. Cada tarjeta copia su escudo suelto en PNG."
+                subtitle={`Así salen sobre el azul noche del documento. El nombre abre la ficha del rival; en azul, su partido de la jornada ${jornada.numero} de la quiniela.`}
                 icon={ShieldCheck}
               >
                 {estado === "cargando" ? (
@@ -603,8 +655,30 @@ export default function EscudosPage() {
                                   /* El nombre tal cual, como en la quiniela; en mayúsculas sólo en el PPT. */
                                   className="text-center text-[12px] font-semibold leading-snug [overflow-wrap:anywhere]"
                                 >
-                                  {uno.equipo}
+                                  {/* 17/11/2026 (marketing): el nombre lleva a la ficha del rival; fuera el «Ver rival →». */}
+                                  {esNuestro(uno.equipo) ? (
+                                    uno.equipo
+                                  ) : (
+                                    <Link
+                                      href={`/rivals?equipo=${encodeURIComponent(uno.equipo)}`}
+                                      title={`Ficha de ${uno.equipo}`}
+                                      className="underline-offset-2 hover:underline"
+                                    >
+                                      {uno.equipo}
+                                    </Link>
+                                  )}
                                 </figcaption>
+                                {/* Juega la jornada de la quiniela: rival y día, y a la quiniela. */}
+                                {jornada.partidos.get(uno.equipo) ? (
+                                  <Link
+                                    href="/quiniela"
+                                    title={`Jornada ${jornada.numero} de la quiniela`}
+                                    style={{ color: "#9CC3E6", borderColor: "rgba(156,195,230,0.35)" }}
+                                    className="-mt-1 rounded-full border px-2 py-0.5 text-center text-[11px] font-semibold leading-tight hover:brightness-125"
+                                  >
+                                    J{jornada.numero} · {jornada.partidos.get(uno.equipo)?.cuando} · vs {jornada.partidos.get(uno.equipo)?.rival}
+                                  </Link>
+                                ) : null}
                                 {/* El marco oro, explicado (10/11/2026). */}
                                 {esNuestro(uno.equipo) ? (
                                   <span style={{ color: "#C8A96B" }} className="-mt-1 text-[11px] font-semibold uppercase tracking-[0.1em]">
@@ -623,16 +697,6 @@ export default function EscudosPage() {
                                     {copiado === uno.url ? <Check size={13} aria-hidden /> : <Copy size={13} aria-hidden />}
                                     {copiado === uno.url ? "Copiado" : "Copiar PNG"}
                                   </button>
-                                ) : null}
-                                {/* 16/11/2026: del escudo a la ficha del rival, a un toque. */}
-                                {!esNuestro(uno.equipo) ? (
-                                  <Link
-                                    href={`/rivals?equipo=${encodeURIComponent(uno.equipo)}`}
-                                    style={{ color: "#E4CE9B" }}
-                                    className="text-[12px] font-medium underline-offset-2 opacity-90 hover:underline hover:opacity-100"
-                                  >
-                                    Ver rival →
-                                  </Link>
                                 ) : null}
                                 {imagenes[uno.url] === "fallo" || conFondo[uno.url] ? (
                                   <span style={{ color: "#F5B94A" }} className="text-center text-[11px]">
