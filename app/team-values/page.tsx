@@ -31,29 +31,8 @@ import {
   useEditShortcuts,
 } from "@/components/ui/knowledge-kit";
 import { cn } from "@/lib/utils";
-import { DOCUMENTO_VALORES } from "@/lib/cultura/documentos/valores";
-import { ResumenValores, TOTAL_VOTOS_VALORES, votosDe } from "@/components/cultura/ResumenValores";
+import { EnlacesValores } from "@/components/cultura/ValoresIndice";
 import { confirmar } from "@/lib/avisos";
-
-/*
-| 30/10/2026: el resultado de todo el proceso —los cinco valores que votó la
-| plantilla— sale arriba y lleva al documento de /identidad-cultura. Se lee
-| del propio documento, así que no hay dos versiones de los votos.
-*/
-const VALORES_VOTADOS = (() => {
-  const portada = DOCUMENTO_VALORES.diapositivas.find(
-    (d) => d.tipo === "portada",
-  );
-
-  return portada && portada.tipo === "portada" ? portada.indice : [];
-})();
-
-/** 10/11/2026: «Humildad, el más votado (9 de 32 votos)»: el titular con su base. */
-const MAS_VOTADO = (() => {
-  const primero = [...VALORES_VOTADOS].sort((a, b) => votosDe(b) - votosDe(a))[0];
-
-  return primero ? `${primero.titulo}, el más votado (${votosDe(primero)} de ${TOTAL_VOTOS_VALORES} votos)` : "";
-})();
 
 type CulturaItem = {
   ID: number;
@@ -528,29 +507,16 @@ export default function TeamValuesPage() {
   /* 10/11/2026: en el Marco va arriba (es lo que se usa en la charla); en las
      demás etapas, al pie. Los votos, afines y antivalores salen del mismo
      componente que /identidad-cultura. */
+  /*
+  | 16/11/2026: el recuento completo vive sólo en /identidad-cultura (estaba
+  | repetido aquí). Aquí, una línea con el más votado y un chip por valor que
+  | abre sus conductas en el documento.
+  */
   const votacion =
-    VALORES_VOTADOS.length > 0 && !editing ? (
-      <div className="mt-8 rounded-2xl border border-[#C8A96B]/40 bg-[#C8A96B]/[0.07] p-4 lg:p-5">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)]">
-                      Resultado de la votación: {MAS_VOTADO}
-                    </p>
-                  </div>
-                  <Link
-                    href="/identidad-cultura"
-                    className={cn(
-                      "inline-flex shrink-0 items-center justify-center rounded-xl bg-[#C8A96B] px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-[#d6ba80]",
-                      focusRing,
-                    )}
-                  >
-                    Ver el documento ({DOCUMENTO_VALORES.diapositivas.length} diapositivas) →
-                  </Link>
-                </div>
-                <div className="mt-4">
-                  <ResumenValores />
-                </div>
-              </div>
+    !editing ? (
+      <div className="mt-6 rounded-2xl border border-[#C8A96B]/40 bg-[#C8A96B]/[0.07] p-4">
+        <EnlacesValores />
+      </div>
     ) : null;
 
   return (
@@ -585,7 +551,7 @@ export default function TeamValuesPage() {
             | nombres («Se…») y ahora es una rejilla de dos columnas con el
             | nombre entero y cuántos contenidos tiene cada etapa.
             */}
-            <nav className="mt-4 grid grid-cols-2 gap-2 lg:mt-5 lg:grid-cols-1">
+            <nav className="mt-5 hidden gap-2 lg:grid lg:grid-cols-1">
               {secciones.map((s, i) => {
                 const total = visibles.filter((r) => r.SECCION === s).length;
                 const activa = s === seccion;
@@ -676,6 +642,62 @@ export default function TeamValuesPage() {
 
               {!editing && !loading && !error && toolbar}
             </div>
+
+            {/* 16/11/2026: la hoja de ruta como línea de proceso: las seis
+                etapas en orden, con su fecha si la hoja la trae; la que se ve,
+                en oro. En el móvil sustituye a la rejilla del rail. */}
+            {secciones.length > 1 && (
+              <ol
+                aria-label="Hoja de ruta de la cultura"
+                className="-mx-4 mt-6 flex snap-x gap-0 overflow-x-auto px-4 pb-2 lg:mx-0 lg:px-0"
+              >
+                {secciones.map((s, i) => {
+                  const activa = s === seccion;
+                  const hecha = etapaIndex >= 0 && i < etapaIndex;
+                  const fecha = data
+                    .filter((r) => r.SECCION === s)
+                    .map((r) => limpio(r.FECHA))
+                    .find(Boolean);
+
+                  return (
+                    <li key={s} className="relative min-w-[7.5rem] flex-1 snap-start">
+                      {i > 0 && (
+                        <span
+                          aria-hidden
+                          className={cn(
+                            "absolute right-1/2 top-4 h-0.5 w-full -translate-y-1/2",
+                            hecha || activa ? "bg-[#C8A96B]" : "bg-white/15",
+                          )}
+                        />
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => irASeccion(s)}
+                        aria-current={activa ? "step" : undefined}
+                        className={cn("relative z-10 flex w-full flex-col items-center gap-1 px-1 text-center", focusRing)}
+                      >
+                        <span
+                          className={cn(
+                            "flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold tabular-nums",
+                            activa
+                              ? "bg-[#C8A96B] text-black shadow-[0_6px_18px_-8px_rgba(200,169,107,0.9)]"
+                              : hecha
+                                ? "bg-[#C8A96B]/25 text-[color:var(--rmcf-gold-ink,#C8A96B)]"
+                                : "bg-[#11161C] text-gray-300 ring-1 ring-white/15",
+                          )}
+                        >
+                          {i + 1}
+                        </span>
+                        <span className={cn("text-sm leading-tight", activa ? "font-semibold text-white" : "text-gray-300")}>
+                          {rotuloSeccion(s)}
+                        </span>
+                        {fecha && <span className="text-[12px] text-gray-400">{fecha}</span>}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
 
             {etapaIndex === 0 && votacion}
 
@@ -775,7 +797,7 @@ export default function TeamValuesPage() {
                     </p>
                   )}
 
-                  <ul className="space-y-3">
+                  <ul className={cn("grid gap-3", !editing && "lg:grid-cols-2")}>
                     {contenidos.map((p) => (
                       <li
                         key={p.ID}
@@ -826,6 +848,31 @@ export default function TeamValuesPage() {
                                 <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-gray-300 lg:text-base">
                                   <Highlight text={p.CONTENIDO} query={query} />
                                 </p>
+
+                                {/* 16/11/2026: las conductas se vigilan en el día a
+                                    día: a un toque del seguimiento y del documento. */}
+                                {/conduct/i.test(`${p.TITULO} ${p.CONTENIDO}`) && (
+                                  <div className="mt-3 flex flex-wrap gap-2">
+                                    <Link
+                                      href="/individual_proc"
+                                      className={cn(
+                                        "inline-flex items-center rounded-lg border border-[#C8A96B]/40 px-2.5 py-1 text-xs font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)] transition-colors hover:bg-[#C8A96B]/10",
+                                        focusRing,
+                                      )}
+                                    >
+                                      Seguimiento de los jugadores →
+                                    </Link>
+                                    <Link
+                                      href="/identidad-cultura#indice-valores"
+                                      className={cn(
+                                        "inline-flex items-center rounded-lg border border-white/15 px-2.5 py-1 text-xs font-semibold text-gray-200 transition-colors hover:bg-white/[0.06] hover:text-white",
+                                        focusRing,
+                                      )}
+                                    >
+                                      Conductas de cada valor →
+                                    </Link>
+                                  </div>
+                                )}
 
                                 {/* Ficha de la dinámica: sólo lo que la hoja traiga. */}
                                 {(limpio(p.DURACION) || limpio(p.MATERIAL) || limpio(p.ENTREGA)) && (

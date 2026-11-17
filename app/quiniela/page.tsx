@@ -27,6 +27,7 @@
  */
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import {
   CalendarDays,
   Check,
@@ -73,6 +74,7 @@ import {
   bloqueDe,
   jornadaDeHoy,
   jornadaVacia,
+  marcadorDe,
   partidosDe,
   primeraJornadaDe,
   noCuentaEnBlanco,
@@ -298,9 +300,10 @@ export default function QuinielaPage() {
 
   /* «A. Galisteo manda: 61 % · 38 de 62. M. Chena, a dos aciertos.» */
   const gancho = useMemo(() => {
-    const [primero, segundo] = tabla.filter(
+    const validos = tabla.filter(
       (f) => f.total.jugados > 0 && !(maxJugados > 0 && (f.total.jugados * 2 < maxJugados || f.apostados * 2 < f.total.jugados)),
     );
+    const [primero, segundo] = validos;
     const uno = primero ? PERSONA_POR_SLUG.get(primero.slug) : undefined;
 
     if (!primero || !uno) return "";
@@ -313,10 +316,51 @@ export default function QuinielaPage() {
     const distancia = primero.total.aciertos - segundo.total.aciertos;
     const NUMEROS = ["", "un", "dos", "tres", "cuatro", "cinco"];
 
-    if (distancia <= 0) return `${base} ${nombreCorto(dos)}, con los mismos aciertos.`;
+    /* 16/11/2026: si el segundo puesto está compartido, se nombra a todos. */
+    const empatados = validos
+      .slice(1)
+      .filter(
+        (f) =>
+          f.total.aciertos === segundo.total.aciertos &&
+          Math.round(f.total.porcentaje) === Math.round(segundo.total.porcentaje),
+      )
+      .flatMap((f) => {
+        const p = PERSONA_POR_SLUG.get(f.slug);
+        return p ? [nombreCorto(p)] : [];
+      });
+    const nombres =
+      empatados.length > 1
+        ? `${empatados.slice(0, -1).join(", ")} y ${empatados[empatados.length - 1]}`
+        : nombreCorto(dos);
 
-    return `${base} ${nombreCorto(dos)}, a ${NUMEROS[distancia] ?? distancia} ${distancia === 1 ? "acierto" : "aciertos"}.`;
+    if (distancia <= 0) return `${base} ${nombres}, con los mismos aciertos.`;
+
+    return `${base} ${nombres}, a ${NUMEROS[distancia] ?? distancia} ${distancia === 1 ? "acierto" : "aciertos"}.`;
   }, [tabla, maxJugados]);
+
+  /*
+  | 16/11/2026: la media del grupo (de los que entran en el orden por
+  | porcentaje) para la barra de cada uno, y la última jornada con resultados
+  | anterior a la que se ve, para que el ranking diga cómo fue «la de ayer».
+  */
+  const mediaGrupo = useMemo(() => {
+    const validos = tabla.filter(
+      (f) => f.total.jugados > 0 && !(maxJugados > 0 && (f.total.jugados * 2 < maxJugados || f.apostados * 2 < f.total.jugados)),
+    );
+    return validos.length ? validos.reduce((t, f) => t + f.total.porcentaje, 0) / validos.length : null;
+  }, [tabla, maxJugados]);
+
+  const ultimaCerrada = useMemo(() => {
+    const k = Object.values(doc.jornadas)
+      .filter((j) => j.jornada < jornada && j.resultados.some(Boolean))
+      .reduce((m, j) => Math.max(m, j.jornada), 0);
+    const j = k ? doc.jornadas[String(k)] : undefined;
+    if (!j) return null;
+    return {
+      numero: k,
+      de: new Map(jugadores.map((slug) => [slug, marcadorDe(j, slug)] as const)),
+    };
+  }, [doc, jugadores, jornada]);
 
   /* La jornada desde la que cuenta cada uno: «entró en la jornada 4». */
   const primeraDe = useMemo(
@@ -651,7 +695,13 @@ export default function QuinielaPage() {
               <Panel
                 title="Ranking de acierto · toda la temporada"
                 /* La regla va una sola vez, al pie de la tabla (11/11/2026, marketing). */
-                subtitle="Ordenado por porcentaje de acierto. Cómo se cuenta, al pie."
+                subtitle={
+                  mediaGrupo !== null
+                    ? `Media del grupo: ${mediaGrupo.toFixed(0)} % (la raya azul de cada barra) · ${
+                        tabla.filter((f) => f.total.jugados > 0 && !pocasApuestas(f) && f.total.porcentaje > mediaGrupo).length
+                      } por encima. Cómo se cuenta, al pie.`
+                    : "Ordenado por porcentaje de acierto. Cómo se cuenta, al pie."
+                }
                 icon={Trophy}
               >
                 {(
@@ -662,10 +712,13 @@ export default function QuinielaPage() {
                         <tr className="text-[12px] uppercase tracking-[0.12em] text-white/55">
                           <th className="w-7 pb-2 pt-1.5 text-right font-medium">#</th>
                           <th className="pb-2 pl-2 pt-1.5 text-left font-medium">Quién</th>
-                          <th className="w-20 pb-2 pt-1.5 text-right font-medium">Acierto</th>
+                          <th className="w-24 pb-2 pt-1.5 text-right font-medium sm:w-40">Acierto</th>
                           <th className="hidden w-20 pb-2 pt-1.5 text-right font-medium sm:table-cell">Aciertos</th>
                           {tabla.some((fila) => fila.semana.jugados > 0) && (
                             <th className="hidden w-24 pb-2 pt-1.5 text-right font-medium sm:table-cell">Esta jornada</th>
+                          )}
+                          {ultimaCerrada && (
+                            <th className="hidden w-24 pb-2 pt-1.5 text-right font-medium sm:table-cell">J{ultimaCerrada.numero}</th>
                           )}
                           <th className="hidden w-20 pb-2 pt-1.5 text-right font-medium sm:table-cell">Jornadas ganadas</th>
                         </tr>
@@ -716,9 +769,14 @@ export default function QuinielaPage() {
                                       pinta nada en una apuesta entre
                                       compañeros (17/09/2026). */}
                                   <span className="min-w-0">
-                                    <span className="block truncate text-white/85">
+                                    {/* 16/11/2026: el nombre lleva a sus apuestas del staff. */}
+                                    <Link
+                                      href={`/laboratorio/apuestas?quien=${encodeURIComponent(fila.slug)}`}
+                                      title={`Las apuestas de ${persona.nombre}`}
+                                      className="block truncate text-white/85 hover:text-white hover:underline"
+                                    >
                                       {persona.nombre}
-                                    </span>
+                                    </Link>
 
                                     {/* Quien apostó poco sale abajo con un
                                         porcentaje engañoso: se dice por qué. */}
@@ -762,7 +820,23 @@ export default function QuinielaPage() {
                                   lider ? "font-semibold text-[#C8A96B]" : "text-white/75"
                                 }`}
                               >
-                                {`${fila.total.porcentaje.toFixed(0)} %`}
+                                <span className="flex items-center justify-end gap-2">
+                                  {mediaGrupo !== null && fila.total.jugados > 0 && (
+                                    <span aria-hidden className="relative hidden h-2 w-20 rounded-full bg-white/[0.08] sm:block">
+                                      <span
+                                        className={`absolute inset-y-0 left-0 rounded-full ${
+                                          lider ? "bg-[#C8A96B]" : fila.total.porcentaje >= mediaGrupo ? "bg-[#C8A96B]/70" : "bg-white/20"
+                                        }`}
+                                        style={{ width: `${Math.min(100, fila.total.porcentaje / 0.8)}%` }}
+                                      />
+                                      <span
+                                        className="absolute -inset-y-1 w-0.5 bg-sky-400"
+                                        style={{ left: `${Math.min(100, mediaGrupo / 0.8)}%` }}
+                                      />
+                                    </span>
+                                  )}
+                                  {`${fila.total.porcentaje.toFixed(0)} %`}
+                                </span>
                               </td>
 
                               <td className="hidden py-1.5 text-right tabular-nums text-white/55 sm:table-cell">
@@ -775,6 +849,16 @@ export default function QuinielaPage() {
                               {tabla.some((otra) => otra.semana.jugados > 0) && (
                                 <td className="hidden py-1.5 text-right tabular-nums text-white/55 sm:table-cell">
                                   {`${fila.semana.aciertos}/${fila.semana.jugados}`}
+                                </td>
+                              )}
+
+                              {ultimaCerrada && (
+                                <td className="hidden py-1.5 text-right tabular-nums text-white/55 sm:table-cell">
+                                  {(() => {
+                                    const m = ultimaCerrada.de.get(fila.slug);
+                                    const desde = primeraDe.get(fila.slug) ?? Infinity;
+                                    return m && m.jugados > 0 && desde <= ultimaCerrada.numero ? `${m.aciertos} de ${m.jugados}` : "";
+                                  })()}
                                 </td>
                               )}
 
@@ -1234,7 +1318,7 @@ export default function QuinielaPage() {
                           <span className="mr-1.5 text-[12px] tabular-nums text-white/50">
                             {indice + 1}
                           </span>
-                          {partido.local} <span className="text-white/40">–</span> {partido.visitante}
+                          <Equipo nombre={partido.local} /> <span className="text-white/40">–</span> <Equipo nombre={partido.visitante} />
                           {partido.fecha && !mismaFecha ? (
                             <span className="whitespace-nowrap text-[12px] text-white/50">{` · ${fechaCorta(partido.fecha)}`}</span>
                           ) : null}
@@ -1362,16 +1446,16 @@ export default function QuinielaPage() {
                               {yo ? (
                                 <>
                               <span className="block truncate text-white/85">
-                                {partido.local}
+                                <Equipo nombre={partido.local} />
                               </span>
 
                               <span className="block truncate text-[13px] text-white/55">
-                                {partido.visitante}
+                                <Equipo nombre={partido.visitante} />
                               </span>
                                 </>
                               ) : (
                                 <span className="text-white/85">
-                                  {partido.local} <span className="text-white/35">–</span> {partido.visitante}
+                                  <Equipo nombre={partido.local} /> <span className="text-white/35">–</span> <Equipo nombre={partido.visitante} />
                                 </span>
                               )}
                             </td>
@@ -1535,7 +1619,9 @@ export default function QuinielaPage() {
 
             <div className="mt-5">
               <Panel
-                title={`La comida · jornadas ${bloque.desde} a ${bloque.hasta}`}
+                title={`La comida · jornadas ${bloque.desde} a ${bloque.hasta}${
+                  tablaBloque.some((fila) => fila.jugados > 0) ? ` · ${Math.max(...tablaBloque.map((fila) => fila.jugados))} partidos` : ""
+                }`}
                 subtitle={
                   cerrado
                     ? "Bloque cerrado: éstos son los dos que no pagan"
@@ -1989,5 +2075,22 @@ function Tripleta({
         );
       })}
     </span>
+  );
+}
+
+/*
+| 16/11/2026: cada equipo de la jornada lleva a su ficha de rival (/rivals con
+| el equipo ya elegido): forma, plantilla y goles en vídeo para decidir el
+| 1-X-2.
+*/
+function Equipo({ nombre }: { nombre: string }) {
+  return (
+    <Link
+      href={`/rivals?equipo=${encodeURIComponent(nombre)}`}
+      title={`Ficha de ${nombre}`}
+      className="underline decoration-white/20 underline-offset-2 hover:text-white hover:decoration-[#C8A96B]"
+    >
+      {nombre}
+    </Link>
   );
 }

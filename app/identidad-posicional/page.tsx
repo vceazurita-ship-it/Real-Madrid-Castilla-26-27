@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import Link from "next/link";
-import { ChevronDown, Plus, SearchX, Trash2 } from "lucide-react";
+import { ChevronDown, ClipboardList, Plus, SearchX, Target, Trash2 } from "lucide-react";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
@@ -44,11 +44,11 @@ import {
   medidaDelContenido,
   nombreColumna,
   quienLoEjecutaMejor,
+  type CifraDelContenido,
 } from "@/lib/identidad/campo";
 import { QuienLoEjecutaVista } from "@/components/identidad/QuienLoEjecuta";
 import type { FilaJugador } from "@/lib/data-analisis/leer";
 import { mismaPersona, nombreCanonico } from "@/lib/data-analisis/nombres";
-import { esNuestro, universoDe } from "@/lib/data-analisis/individual";
 
 /*
 | 08/11/2026: los jugadores de Wyscout (los de la categoría) para poner la
@@ -111,6 +111,45 @@ const comparaConMediana = (
 const nombrePlantilla = (wyscout: string, quienes: Quien[]) =>
   quienes.find((q) => mismaPersona(wyscout, q.nombre) || mismaPersona(wyscout, q.corto))?.corto ??
   nombreCanonico(wyscout);
+
+/*
+| 16/11/2026: un porcentaje que sale de menos de 15 intentos es tendencia, no
+| dato: se enseña sin ▲/▼ y no entra en «Por dónde empezar a entrenar».
+*/
+const MINIMO_INTENTOS = 15;
+
+type JugadorCifra = CifraDelContenido["nuestros"][number];
+
+const esTendencia = (j: JugadorCifra) => j.intentos !== undefined && j.intentos < MINIMO_INTENTOS;
+
+/** «11 de 29» en los %, «≈ 26 en 883′» en las cifras por 90′. */
+const baseDe = (j: JugadorCifra) =>
+  j.intentos !== undefined && j.logrados !== undefined
+    ? `${j.logrados} de ${j.intentos}`
+    : j.acciones !== undefined
+      ? `≈ ${j.acciones} en ${j.minutos.toLocaleString("es-ES")}′`
+      : "";
+
+/** Qué se cuenta en la tarea para cada medida (el «Qué entrenamos»). */
+const QUE_CONTAR: Record<string, string> = {
+  "Pases progresivos/90": "pases progresivos",
+  "Carreras en progresión/90": "conducciones que ganan metros",
+  "Precisión pases, %": "pases acertados de los intentados",
+  "Duelos aéreos ganados, %": "duelos aéreos ganados de los disputados",
+  "Interceptaciones/90": "balones interceptados",
+  "Duelos defensivos ganados, %": "duelos defensivos ganados de los disputados",
+  "Centros/90": "centros al área",
+  "Ataque en profundidad/90": "ataques a la espalda de la línea",
+  "Duelos atacantes ganados, %": "duelos con balón ganados de los disputados",
+  "Regates realizados, %": "regates logrados de los intentados",
+  "Toques en el área de penalti/90": "toques dentro del área",
+  "xG/90": "ocasiones claras generadas",
+  "Acciones defensivas realizadas/90": "acciones defensivas (presión, robo, duelo)",
+};
+
+/** «Óscar», «Óscar y Joan», «Óscar, Mario y Joan». */
+const yLista = (xs: string[]) =>
+  xs.length <= 1 ? (xs[0] ?? "") : `${xs.slice(0, -1).join(", ")} y ${xs[xs.length - 1]}`;
 
 type PosicionItem = {
   ID: number;
@@ -462,20 +501,6 @@ export default function IdentidadPosicionalPage() {
   */
   const jugadoresWyscout = useJugadoresWyscout();
 
-  const minutosLiga = useMemo(() => {
-    if (!jugadoresWyscout) return null;
-
-    const nuestros = universoDe(jugadoresWyscout, "liga").filter(esNuestro);
-
-    return new Map(
-      quienes.flatMap((q) => {
-        const fila = nuestros.find((j) => mismaPersona(j.jugador, q.nombre) || mismaPersona(j.jugador, q.corto));
-
-        return fila ? [[q.nombre, fila.minutos] as const] : [];
-      }),
-    );
-  }, [jugadoresWyscout, quienes]);
-
   const cifrasPuesto = useMemo(() => {
     if (!jugadoresWyscout) return [];
 
@@ -492,12 +517,13 @@ export default function IdentidadPosicionalPage() {
     const conDebajo = cifrasPuesto
       .map((x) => ({
         ...x,
-        debajo: x.cifra.nuestros.filter((j) => comparaConMediana(j.valor, x.cifra) < 0),
+        firmes: x.cifra.nuestros.filter((j) => !esTendencia(j)).length,
+        debajo: x.cifra.nuestros.filter((j) => !esTendencia(j) && comparaConMediana(j.valor, x.cifra) < 0),
       }))
       .filter((x) => x.debajo.length > 0)
       .sort(
         (a, b) =>
-          b.debajo.length / b.cifra.nuestros.length - a.debajo.length / a.cifra.nuestros.length ||
+          b.debajo.length / b.firmes - a.debajo.length / a.firmes ||
           b.debajo.length - a.debajo.length,
       );
 
@@ -901,6 +927,11 @@ export default function IdentidadPosicionalPage() {
     const delBloque = contenidos.filter((c) => c.BLOQUE === bloque);
     const medido = (c: PosicionItem) => (medidaDelContenido(c.POSICION ?? "", c.CONTENIDO ?? "") ? 0 : 1);
     const items = editing ? delBloque : [...delBloque].sort((a, b) => medido(a) - medido(b));
+    /* 16/11/2026: lo que no se mide se pliega tras «Ver los otros N» para que
+       lo medido sea lo primero (salvo editando o buscando). */
+    const plegar = !editing && !filtrando;
+    const medidosB = plegar ? items.filter((c) => medido(c) === 0) : items;
+    const plegados = plegar ? items.filter((c) => medido(c) === 1) : [];
     const total = data.filter(
       (c) => c.POSICION === posicion && c.BLOQUE === bloque,
     ).length;
@@ -943,7 +974,7 @@ export default function IdentidadPosicionalPage() {
           </p>
         ) : (
           <ul className="space-y-4">
-            {items.map((item) => (
+            {medidosB.map((item) => (
               <li
                 key={item.ID}
                 className={cn(
@@ -999,6 +1030,25 @@ export default function IdentidadPosicionalPage() {
               </li>
             ))}
           </ul>
+        )}
+
+        {plegados.length > 0 && (
+          <details className="group mt-4 rounded-xl border border-white/10 bg-white/[0.02]">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-gray-200 [&::-webkit-details-marker]:hidden">
+              <span>
+                {medidosB.length > 0 ? "Ver los otros" : "Ver los"} {plegados.length} contenido{plegados.length === 1 ? "" : "s"}
+              </span>
+              <ChevronDown className="h-4 w-4 shrink-0 text-[#C8A96B] transition-transform group-open:rotate-180" aria-hidden />
+            </summary>
+            <ul className="space-y-2 border-t border-white/10 px-4 py-3">
+              {plegados.map((item) => (
+                <li key={item.ID} className="flex gap-3">
+                  <span aria-hidden className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-gray-500/60" />
+                  <FichaContenido item={item} query={query} quienes={quienes} />
+                </li>
+              ))}
+            </ul>
+          </details>
         )}
 
         {editing && (
@@ -1126,55 +1176,64 @@ export default function IdentidadPosicionalPage() {
                        del contenido del puesto a su plan de trabajo. */
                     <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
                       <span className="text-gray-400">Sus jugadores · su área de mejora:</span>
-                      {quienes.map((uno) => {
-                        const min = minutosLiga?.get(uno.nombre);
-                        /* Sale en el chip pero no en las cifras: se dice por qué. */
-                        const fuera = min !== undefined && min < MINUTOS_CONTENIDO && cifrasPuesto.length > 0;
-
-                        return (
+                      {/* 16/11/2026: sin la coletilla «menos de 450′: no entra
+                          en las cifras» (el umbral se dice una vez en la
+                          leyenda), y con su seguimiento a un toque. */}
+                      {quienes.map((uno) => (
+                        <span
+                          key={uno.nombre}
+                          className="inline-flex items-center overflow-hidden rounded-full border border-[#C8A96B]/40 text-sm font-semibold text-gray-200"
+                        >
                           <Link
-                            key={uno.nombre}
                             href={`/individual?nombre=${encodeURIComponent(uno.nombre ?? "")}&pestana=mejora`}
-                            className={cn(
-                              "inline-flex items-center gap-1 rounded-full border border-[#C8A96B]/40 px-3 py-1 text-xs font-semibold text-gray-200 transition-colors hover:bg-[#C8A96B]/10 hover:text-white",
-                              focusRing,
-                            )}
+                            title={`Área de mejora de ${uno.corto}`}
+                            className={cn("inline-flex items-center gap-1 px-3 py-1 transition-colors hover:bg-[#C8A96B]/10 hover:text-white", focusRing)}
                           >
                             {uno.corto}
-                            {fuera && (
-                              <span className="font-normal text-gray-400">
-                                · {min}′, menos de {MINUTOS_CONTENIDO}′: no entra en las cifras
-                              </span>
-                            )}
                             <span aria-hidden className="text-[color:var(--rmcf-gold-ink,#C8A96B)]">→</span>
                           </Link>
-                        );
-                      })}
+                          <Link
+                            href={`/individual?nombre=${encodeURIComponent(uno.nombre ?? "")}&pestana=seguimiento`}
+                            title={`Seguimiento de ${uno.corto}`}
+                            aria-label={`Seguimiento de ${uno.corto}`}
+                            className={cn("border-l border-[#C8A96B]/30 px-2 py-1 text-gray-400 transition-colors hover:bg-[#C8A96B]/10 hover:text-white", focusRing)}
+                          >
+                            <ClipboardList className="h-3.5 w-3.5" aria-hidden />
+                          </Link>
+                        </span>
+                      ))}
                     </div>
                   )}
 
                   {cifrasPuesto.length > 0 && !editing && (
-                    <div className="mt-4 space-y-2 text-sm">
+                    <div className="mt-4 space-y-3 text-sm">
                       {prioridad && (
-                        <p className="break-words border-l-2 border-amber-400/70 pl-3 text-gray-200">
-                          <span className="font-semibold text-white">Por dónde empezar a entrenar:</span>{" "}
-                          «{prioridad.item.CONTENIDO.replace(/\.$/, "")}»,{" "}
-                          {prioridad.debajo.length === prioridad.cifra.nuestros.length
-                            ? `los ${prioridad.debajo.length} por debajo de la mediana`
-                            : `${prioridad.debajo.length} de ${prioridad.cifra.nuestros.length} por debajo de la mediana`}{" "}
-                          (
-                          {(() => {
-                            const vs = prioridad.debajo.map((j) => j.valor).sort((a, b) => a - b);
-                            const t = (v: number) => cifraTexto(v, prioridad.cifra.porcentaje);
-
-                            return vs.length > 1 ? `${t(vs[0])}-${t(vs[vs.length - 1])}` : t(vs[0]);
-                          })()}{" "}
-                          frente a {cifraTexto(prioridad.cifra.mediana, prioridad.cifra.porcentaje)}).
-                        </p>
+                        /* 16/11/2026: tarjeta destacada con un titular, el
+                           objetivo y su base; los de «tendencia» no cuentan. */
+                        <div className="rounded-2xl border border-amber-500/40 bg-amber-500/[0.07] p-4">
+                          <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-amber-400">
+                            <Target className="h-3.5 w-3.5" aria-hidden />
+                            Por dónde empezar a entrenar
+                          </p>
+                          <p className="mt-1 break-words text-xl font-bold text-white lg:text-2xl">
+                            {prioridad.item.CONTENIDO.replace(/\bvs\.?(?=\s)/gi, "contra").replace(/\.$/, "")}
+                          </p>
+                          <p className="mt-1 break-words text-sm text-gray-300">
+                            {yLista(prioridad.debajo.map((j) => nombrePlantilla(j.nombre, quienes)))} por debajo de la mediana (
+                            {prioridad.debajo
+                              .map((j) => `${cifraTexto(j.valor, prioridad.cifra.porcentaje)}${baseDe(j) ? ` · ${baseDe(j)}` : ""}`)
+                              .join("; ")}
+                            ). Objetivo: {prioridad.cifra.mejorAlto ? "llegar a" : "bajar de"}{" "}
+                            <b className="text-white">{cifraTexto(prioridad.cifra.mediana, prioridad.cifra.porcentaje)}</b>, la mediana de{" "}
+                            {prioridad.cifra.n} {(PLURAL_PUESTO[prioridad.cifra.puesto] ?? "jugadores").toLowerCase()} de la categoría con{" "}
+                            {MINUTOS_CONTENIDO}′ o más.
+                          </p>
+                        </div>
                       )}
                       <p className="break-words text-xs text-gray-400">
                         Cifras de liga (Wyscout) de los que llevan {MINUTOS_CONTENIDO}′ o más: ▲ mejor que la
-                        mediana del puesto en la categoría · ▼ peor · = la misma cifra.{" "}
+                        mediana del puesto en la categoría (raya azul) · ▼ peor · = la misma cifra · «tendencia»: un % de
+                        menos de {MINIMO_INTENTOS} intentos.{" "}
                         <Link
                           href={`/identidad-campo${puestoCampo ? `#puesto-${puestoCampo}` : ""}`}
                           className="font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)] hover:underline"
@@ -1190,7 +1249,8 @@ export default function IdentidadPosicionalPage() {
               </div>
 
               {!editing && !loading && !error && totalPosicion > 0 && (
-                <div role="group" aria-label="Vista" className="mt-6 inline-flex flex-wrap gap-1 rounded-xl border border-white/10 p-1">
+                /* 16/11/2026: en el móvil, una fila de dos mitades. */
+                <div role="group" aria-label="Vista" className="mt-6 grid w-full grid-cols-2 gap-1 rounded-xl border border-white/10 p-1 sm:inline-grid sm:w-auto">
                   {(
                     [
                       ["contenidos", "Contenidos del puesto"],
@@ -1203,7 +1263,7 @@ export default function IdentidadPosicionalPage() {
                       onClick={() => setVista(v)}
                       aria-pressed={vista === v}
                       className={cn(
-                        "rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors sm:text-sm",
+                        "rounded-lg px-3 py-1.5 text-center text-xs font-semibold transition-colors sm:text-sm",
                         focusRing,
                         vista === v ? "bg-[#C8A96B] text-black" : "text-gray-300 hover:bg-white/[0.06] hover:text-white",
                       )}
@@ -1441,55 +1501,121 @@ function FichaContenido({
   | plantilla (el de los chips), no el de Wyscout. Si alguien queda por
   | debajo, la caja acaba en el objetivo para la tarea: la mediana.
   */
-  const debajo = cifra ? cifra.nuestros.filter((j) => comparaConMediana(j.valor, cifra) < 0).length : 0;
+  /*
+  | 16/11/2026: barras con marcas. Un jugador por fila sobre una escala común,
+  | la raya azul de la mediana del puesto y la zona buena teñida; la cifra a
+  | la derecha con su base («11 de 29», «≈ 26 en 883′»). Menos de 15 intentos
+  | en un % es «tendencia»: punto hueco, sin ▲/▼. El título es la conclusión
+  | con nombres; «Qué entrenamos» dice a quién, qué contar y el objetivo.
+  */
+  const firmes = cifra ? cifra.nuestros.filter((j) => !esTendencia(j)) : [];
+  const debajo = cifra ? firmes.filter((j) => comparaConMediana(j.valor, cifra) < 0) : [];
+  const encima = cifra ? firmes.filter((j) => comparaConMediana(j.valor, cifra) >= 0) : [];
+  const nombre = (j: JugadorCifra) => nombrePlantilla(j.nombre, quienes);
+  const escala = (() => {
+    if (!cifra) return { lo: 0, hi: 1 };
+    const vs = [...cifra.nuestros.map((j) => j.valor), cifra.mediana];
+    const lo = Math.min(...vs);
+    const hi = Math.max(...vs);
+    const margen = (hi - lo) * 0.25 || Math.abs(hi) * 0.2 || 1;
+
+    return { lo: Math.max(0, lo - margen), hi: hi + margen };
+  })();
+  const pos = (v: number) => `${Math.min(100, Math.max(0, ((v - escala.lo) / (escala.hi - escala.lo)) * 100))}%`;
+  const titular = !cifra
+    ? ""
+    : debajo.length === 0
+      ? firmes.length > 1
+        ? `los ${firmes.length} del lado bueno de la mediana`
+        : firmes.length === 1
+          ? `${nombre(firmes[0])}, del lado bueno de la mediana`
+          : "sólo tendencia por ahora"
+      : encima.length === 0
+        ? firmes.length > 1
+          ? `los ${firmes.length} por debajo de la mediana`
+          : `${nombre(debajo[0])}, por debajo de la mediana`
+        : `${yLista(debajo.map(nombre))}, por debajo; ${yLista(encima.map(nombre))}, por encima`;
+
   const medida = columna && (
-    <div className="mt-2 min-w-0 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[13px] leading-relaxed text-gray-300">
-      <p className="break-words">
-        <span className="font-semibold text-white">Se mide en el partido:</span>{" "}
-        {nombreColumna(columna)}
+    <div className="mt-2 min-w-0 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-[14px] leading-relaxed text-gray-300">
+      <p className="break-words text-[13px] text-gray-400">
+        <span className="font-semibold text-gray-200">Se mide en el partido:</span> {nombreColumna(columna)}
       </p>
       {cifra && (
-        <>
-          <ul className="mt-1 space-y-0.5">
+        <figure className="mt-1 min-w-0">
+          <figcaption className="break-words font-semibold text-white">{titular}</figcaption>
+          <ul className="mt-2 space-y-2" aria-label={`${nombreColumna(columna)} de cada jugador frente a la mediana`}>
             {cifra.nuestros.map((j) => {
+              const tendencia = esTendencia(j);
               const signo = comparaConMediana(j.valor, cifra);
+              const base = baseDe(j);
 
               return (
-                <li key={j.nombre} className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3">
-                  <span className="min-w-0 break-words">
-                    {nombrePlantilla(j.nombre, quienes)}{" "}
-                    <span className="tabular-nums text-gray-500">· {j.minutos.toLocaleString("es-ES")}′</span>
-                  </span>
-                  <span
-                    className={cn(
-                      "font-bold tabular-nums",
-                      signo === 0 ? "text-gray-200" : signo > 0 ? "text-emerald-400" : "text-amber-400",
-                    )}
+                <li key={j.nombre} className="grid grid-cols-[5.25rem_minmax(0,1fr)_auto] items-center gap-2 sm:grid-cols-[6.5rem_minmax(0,1fr)_auto] sm:gap-3">
+                  <Link
+                    href={`/individual?nombre=${encodeURIComponent(j.nombre)}&pestana=mejora`}
+                    className="min-w-0 truncate font-semibold text-gray-200 hover:text-white hover:underline"
+                    title={`Área de mejora de ${nombre(j)} · ${j.minutos.toLocaleString("es-ES")}′`}
                   >
-                    {signo === 0 ? "=" : signo > 0 ? "▲" : "▼"} {cifraTexto(j.valor, cifra.porcentaje)}
+                    {nombre(j)}
+                  </Link>
+                  <span aria-hidden className="relative block h-5">
+                    <span
+                      className={cn(
+                        "absolute inset-y-1.5 rounded-full",
+                        cifra.mejorAlto ? "right-0 bg-emerald-500/15" : "left-0 bg-emerald-500/15",
+                      )}
+                      style={cifra.mejorAlto ? { left: pos(cifra.mediana) } : { right: `calc(100% - ${pos(cifra.mediana)})` }}
+                    />
+                    <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-white/15" />
+                    <span className="absolute inset-y-0 w-0.5 bg-sky-400" style={{ left: pos(cifra.mediana) }} />
+                    <span
+                      className={cn(
+                        "absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2",
+                        tendencia
+                          ? "border-gray-400 bg-transparent"
+                          : signo < 0
+                            ? "border-amber-500 bg-amber-500"
+                            : "border-emerald-500 bg-emerald-500",
+                      )}
+                      style={{ left: pos(j.valor) }}
+                    />
+                  </span>
+                  <span className="text-right leading-tight">
+                    <span
+                      className={cn(
+                        "block font-bold tabular-nums",
+                        tendencia ? "text-gray-300" : signo === 0 ? "text-gray-200" : signo > 0 ? "text-emerald-400" : "text-amber-400",
+                      )}
+                    >
+                      {tendencia ? "" : signo === 0 ? "= " : signo > 0 ? "▲ " : "▼ "}
+                      {cifraTexto(j.valor, cifra.porcentaje)}
+                    </span>
+                    {(base || tendencia) && (
+                      <span className="block text-[12px] tabular-nums text-gray-400">
+                        {base}
+                        {tendencia && " · tendencia"}
+                      </span>
+                    )}
                   </span>
                 </li>
               );
             })}
-            <li className="mt-1 grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3 border-t border-white/10 pt-1 text-gray-400">
-              <span className="min-w-0 break-words">
-                Mediana de {cifra.n} {(PLURAL_PUESTO[cifra.puesto] ?? "jugadores").toLowerCase()} de la categoría
-                con {MINUTOS_CONTENIDO}′ o más
-              </span>
-              <span className="tabular-nums">{cifraTexto(cifra.mediana, cifra.porcentaje)}</span>
-            </li>
           </ul>
-          {debajo > 0 && (
-            <p className="mt-1 break-words text-gray-300">
-              <span className="font-semibold text-white">Qué entrenamos:</span>{" "}
-              {debajo === cifra.nuestros.length
-                ? `los ${debajo} están por debajo`
-                : `${debajo} de ${cifra.nuestros.length} por debajo`}
-              ; objetivo en la tarea, {cifra.mejorAlto ? "llegar a" : "bajar de"}{" "}
-              {cifraTexto(cifra.mediana, cifra.porcentaje)}.
+          <p className="mt-2 flex flex-wrap items-center gap-x-2 text-[13px] text-gray-400">
+            <span aria-hidden className="inline-block h-3 w-0.5 bg-sky-400" />
+            Mediana de {cifra.n} {(PLURAL_PUESTO[cifra.puesto] ?? "jugadores").toLowerCase()} de la categoría:{" "}
+            <b className="tabular-nums text-gray-200">{cifraTexto(cifra.mediana, cifra.porcentaje)}</b>
+          </p>
+          {debajo.length > 0 && (
+            <p className="mt-2 break-words rounded-lg border-l-2 border-amber-500/70 bg-amber-500/[0.06] px-3 py-2 text-gray-200">
+              <span className="font-semibold text-white">Qué entrenamos · {yLista(debajo.map(nombre))}:</span> tarea de «
+              {item.CONTENIDO.replace(/\bvs\.?(?=\s)/gi, "contra").replace(/\.$/, "")}»; contar{" "}
+              {QUE_CONTAR[cifra.columna] ?? nombreColumna(cifra.columna).toLowerCase()}; objetivo de partido{" "}
+              {cifra.mejorAlto ? "llegar a" : "bajar de"} {cifraTexto(cifra.mediana, cifra.porcentaje)}.
             </p>
           )}
-        </>
+        </figure>
       )}
     </div>
   );

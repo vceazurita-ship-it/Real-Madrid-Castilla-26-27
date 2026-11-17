@@ -21,7 +21,7 @@ import type { FilaJugador, FilaPartido } from "@/lib/data-analisis/leer";
 import { METRICA_POR_KEY, percentil, valorEnGrupo, type Metrica } from "@/lib/data-analisis/metricas";
 import { competicionPrincipal } from "@/lib/data-analisis/equipo";
 import { partidoDeFecha, type PartidoCalendario } from "@/lib/data-analisis/alcance";
-import { esNuestro, puestoDe, universoDe, valorDe, type Puesto } from "@/lib/data-analisis/individual";
+import { esNuestro, puestoDe, universoDe, valorDe, VOLUMEN_DEL_PORCENTAJE, type Puesto } from "@/lib/data-analisis/individual";
 
 export const NOSOTROS = "Real Madrid Castilla";
 export const DESDE = "2026-07-01";
@@ -375,7 +375,12 @@ export type CifraDelContenido = {
   nombre: string;
   porcentaje: boolean;
   mejorAlto: boolean;
-  nuestros: { nombre: string; valor: number; minutos: number }[];
+  /**
+   * 16/11/2026: `intentos` y `logrados` (sólo en los %), de cuántas acciones
+   * sale la cifra, estimado con su volumen por 90′ y los minutos: «11 de 29».
+   * `acciones` (en las cifras por 90′): cuántas lleva en la temporada.
+   */
+  nuestros: { nombre: string; valor: number; minutos: number; intentos?: number; logrados?: number; acciones?: number }[];
   mediana: number;
   /** Jugadores del puesto en la categoría con los minutos de corte. */
   n: number;
@@ -404,7 +409,19 @@ export function cifraDelContenido(jugadores: FilaJugador[], posicionHoja: string
     .flatMap((j) => {
       const v = valorDe(j, columna);
 
-      return v === null || !Number.isFinite(v) ? [] : [{ nombre: j.jugador, valor: v, minutos: j.minutos }];
+      if (v === null || !Number.isFinite(v)) return [];
+
+      const volumen = VOLUMEN_DEL_PORCENTAJE[columna];
+      const porNoventa = volumen ? valorDe(j, volumen.columna) : null;
+      const intentos = porNoventa !== null && Number.isFinite(porNoventa) ? Math.round((porNoventa * j.minutos) / 90) : undefined;
+
+      return [{
+        nombre: j.jugador,
+        valor: v,
+        minutos: j.minutos,
+        ...(intentos !== undefined ? { intentos, logrados: Math.round((intentos * v) / 100) } : {}),
+        ...(/\/90$/.test(columna) ? { acciones: Math.round((v * j.minutos) / 90) } : {}),
+      }];
     })
     .sort((a, b) => b.minutos - a.minutos);
 
@@ -736,6 +753,11 @@ export type CifraDelPrincipio = {
   /** Mediana de la media de temporada de los equipos de la categoría. */
   mediana: number;
   equipos: number;
+  /**
+   * 16/11/2026: el valor de cada partido de la temporada, en orden, para el
+   * gráfico de /game-model (cada partido frente a la mediana del grupo).
+   */
+  serie: { valor: number; rival: string; fecha: string; jornada: number | null }[];
 };
 
 /**
@@ -805,6 +827,14 @@ export function cifrasDelModelo(
         partidos: mias.length,
         mediana: deLaLiga[Math.floor(deLaLiga.length / 2)],
         equipos: deLaLiga.length,
+        serie: mias.flatMap((f) => {
+          const fl = ind.lado === "nuestro" ? f : rivalDe(f, porLlave);
+          const v = fl ? valorEnGrupo(m, [fl], "promedio") : null;
+
+          return v === null || !Number.isFinite(v)
+            ? []
+            : [{ valor: v, rival: f.rival, fecha: f.fecha, jornada: partidoDeFecha(calendario, f.fecha)?.jornada ?? null }];
+        }),
       }];
     });
 

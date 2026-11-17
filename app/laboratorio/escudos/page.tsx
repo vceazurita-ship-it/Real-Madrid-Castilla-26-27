@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 /**
  * En obras · Escudos de la liga.
  *
@@ -495,14 +497,14 @@ export default function EscudosPage() {
                 {estado === "listo" ? (
                   <div className="space-y-5">
                     <div className="relative max-w-sm">
-                      <Search size={15} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/65" />
+                      <Search size={15} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/70" />
                       <input
                         value={busca}
                         onChange={(e) => setBusca(e.target.value)}
-                        placeholder="Buscar un equipo…"
+                        placeholder="Buscar equipo"
                         aria-label="Buscar un escudo por equipo"
                         /* Borde y texto de ayuda que se leen también en modo día (11/11/2026). */
-                        className="min-h-11 w-full rounded-xl border border-white/30 bg-[#0B0F14] py-2 pl-9 pr-9 text-sm text-white placeholder:text-white/65 focus:border-[#C8A96B] focus:outline-none"
+                        className="min-h-11 w-full rounded-xl border border-white/30 bg-[#0B0F14] py-2 pl-9 pr-9 text-sm text-white placeholder:text-[rgb(var(--rmcf-ink-rgb)/0.68)] focus:border-[#C8A96B] focus:outline-none"
                       />
                       {busca ? (
                         <button
@@ -536,7 +538,8 @@ export default function EscudosPage() {
                               </>
                             )}
                           </h3>
-                          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
+                          {/* 16/11/2026: margen a la derecha en el móvil para que el ⋮ flotante no tape la segunda columna. */}
+                          <div className="grid grid-cols-2 gap-3 pr-7 sm:grid-cols-4 sm:pr-0 lg:grid-cols-5">
                             {tanda.map((uno) => (
                               <figure
                                 key={uno.url}
@@ -620,6 +623,16 @@ export default function EscudosPage() {
                                     {copiado === uno.url ? <Check size={13} aria-hidden /> : <Copy size={13} aria-hidden />}
                                     {copiado === uno.url ? "Copiado" : "Copiar PNG"}
                                   </button>
+                                ) : null}
+                                {/* 16/11/2026: del escudo a la ficha del rival, a un toque. */}
+                                {!esNuestro(uno.equipo) ? (
+                                  <Link
+                                    href={`/rivals?equipo=${encodeURIComponent(uno.equipo)}`}
+                                    style={{ color: "#E4CE9B" }}
+                                    className="text-[12px] font-medium underline-offset-2 opacity-90 hover:underline hover:opacity-100"
+                                  >
+                                    Ver rival →
+                                  </Link>
                                 ) : null}
                                 {imagenes[uno.url] === "fallo" || conFondo[uno.url] ? (
                                   <span style={{ color: "#F5B94A" }} className="text-center text-[11px]">
