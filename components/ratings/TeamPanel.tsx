@@ -1195,6 +1195,7 @@ export function TeamPanel({
                   <td className="px-2 py-2.5">
                     <EnlacesJugador
                       compacto
+                      rotuloAncho
                       className="flex-nowrap"
                       jugador={{ id: entry.player.id, nombre: entry.player.nombre }}
                       destinos={["seguimiento", "comparativa", "videos"]}

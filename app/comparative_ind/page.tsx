@@ -145,6 +145,8 @@ function EscalaIndices({
     minutos: number;
     corta: boolean;
     ranking: string;
+    /** Cuántos de su puesto entran en la comparación (por debajo de 25, tendencia). */
+    comparables?: number;
   }[];
   refLabel: string;
   onAbre: (id: string) => void;
@@ -195,11 +197,15 @@ function EscalaIndices({
                 className="grid w-full grid-cols-[minmax(0,9rem)_minmax(0,1fr)_2.5rem] items-center gap-x-2 rounded-lg px-1 py-1 text-left transition hover:bg-white/[0.04] sm:grid-cols-[minmax(0,13rem)_minmax(0,1fr)_3rem]"
                 title={`${f.nombre} · ${f.puesto} · índice ${f.indice} · ${f.minutos}′${f.antes !== null ? ` (25/26: ${f.antes})` : " · nuevo en la categoría"}${f.ranking ? ` · ${f.ranking}` : ""}${f.corta ? ` · menos de ${MUESTRA_CORTA}′, tendencia` : ""}`}
               >
-                <span className="min-w-0 truncate text-[13px] text-white/85">
-                  {f.nombre}
-                  <span className="ml-1 text-[11px] text-white/45">
-                    {f.puesto} · {f.minutos}′
+                <span className="min-w-0 text-[13px] text-white/85">
+                  <span className="block truncate">{f.nombre}</span>
+                  <span className="text-[11px] text-white/55">
+                    {f.puesto} · {f.minutos}′{f.ranking ? ` · ${f.ranking}` : ""}
                   </span>
+                  {/* 17/11/2026 (ronda 20, jueces): «tendencia» dentro de cada puesto corto, en su fila. */}
+                  {f.comparables !== undefined && f.comparables > 0 && f.comparables < COMPARABLES_FIRMES && (
+                    <span className="ml-1 rounded-full border border-dashed border-white/25 px-1.5 text-[10px] text-white/55">tendencia</span>
+                  )}
                 </span>
                 <span className="relative block h-5">
                   <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2" style={{ background: tinta(0.12) }} />
@@ -981,7 +987,9 @@ export default function ComparativaCategoria() {
                           evolucionFiable: Boolean(f.evolucion?.fiable),
                           minutos: f.jugador.minutos,
                           corta: f.jugador.minutos < MUESTRA_CORTA,
-                          ranking: f.ranking ? `${f.ranking.posicion}.º de ${f.ranking.de}` : "",
+                          /* 17/11/2026 (ronda 20, jueces): empates como tramo y n de comparables en la fila. */
+                          ranking: f.ranking ? textoRanking({ ...f.ranking, de: f.ranking.de }).replace(" · tendencia", "") : "",
+                          comparables: f.ranking?.de ?? 0,
                         }))}
                         refLabel={refLabel}
                         onAbre={abreFicha}
