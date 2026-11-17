@@ -6,6 +6,7 @@ import {
   CalendarDays,
   ClipboardCheck,
   FileText,
+  Goal,
   History,
   ImageIcon,
   Loader2,
@@ -309,6 +310,14 @@ export default function WeekPanel({
                   >
                     <Users size={15} className="text-[#C8A96B]" aria-hidden />
                     {`Plantilla de ${partido.rival}`}
+                  </Link>
+                  {/* 17/11/2026 (ronda 20, análisis): su balón parado, con el rival ya elegido. */}
+                  <Link
+                    href={`/scout-rival-abp?equipo=${encodeURIComponent(partido.rival)}`}
+                    className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-white/15 px-3 text-[13px] font-medium text-white/80 transition hover:bg-white/[0.06] hover:text-white"
+                  >
+                    <Goal size={15} className="text-[#C8A96B]" aria-hidden />
+                    ABP rival
                   </Link>
                 </>
               ) : partido ? (

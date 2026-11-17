@@ -2762,17 +2762,17 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "La cabecera",
         filas: [
-          { que: "N semanas sin subir nada · lo último, la semana 9", es: "Aviso en ámbar bajo el título (17/11/2026) cuando la semana en curso está vacía y llevamos dos o más seguidas sin material: cuántas, cuál fue la última con algo (con sus fechas) y «Subir a esta semana», que lleva a la zona de subida. Debajo, en pequeño, todos los huecos de la temporada («13 sin material: la 5, la 7 y de la 10 a la 20») con «Abrir la semana N», la última vacía", cuenta: "Semanas seguidas = de la siguiente a la última con material hasta la actual, incluida. Huecos = casillas en blanco antes de la actual (la de ahora aún no ha acabado)" },
+          { que: "Semana N · M de T semanas con material · última subida, la semana X", es: "Una sola línea neutra bajo el título (17/11/2026, en vez del aviso ámbar): la semana en curso, cuántas de las transcurridas tienen material y, si la de ahora está vacía y llevamos dos o más sin subir, la última con algo (con sus fechas), que abre esa semana. La acción de subir está en la semana de abajo, una sola vez", cuenta: "M = semanas con al menos una imagen o un PDF, de la 1 a la actual" },
           { que: "La tira de semanas", es: "Una casilla por semana hasta la actual (44 px en el móvil, 36 en el ordenador): dorada con marca, con material; en blanco, sin él; «ahora», la actual. Al pasar por encima, sus fechas y el partido de esa semana («J13 vs Real Murcia (en casa)», «J12 en Gimnàstic Tarragona · 1-0»). En el móvil abre en la actual y dice «← N más a la izquierda» (pulsarlo vuelve a la 1)", cuenta: "El partido sale del calendario de BeSoccer: el del Castilla cuya fecha cae dentro de la semana" },
-          { que: "De la temporada: N imágenes · N PDF", es: "Un solo control con las dos opciones y la base («en 7 de 21 semanas»): abre todo lo subido, de la semana más reciente a la más antigua" },
+          { que: "De la temporada: N imágenes · N PDF", es: "Un solo control con las dos opciones: abre todo lo subido, de la semana más reciente a la más antigua (cuántas semanas tienen material lo dice ya la línea de arriba)" },
         ],
       },
       {
         titulo: "La semana",
         filas: [
           { que: "Imágenes · PDFs · Subir", es: "Las tres pestañas de la semana abierta; abre la semana en curso aunque esté vacía" },
-          { que: "El partido y lo que completa la semana", es: "Junto a las fechas, el partido de esa semana. Debajo, «Contenidos del microciclo» y, si el partido no se ha jugado, «Plan de partido» y «Plantilla de <rival>» con el rival ya elegido; si ya se jugó, «Histórico de partidos»" },
-          { que: "Esta semana no hay material", es: "Con el botón de subir; en otra semana vacía, también el enlace a la última que sí tiene (en la de ahora lo dice el aviso de arriba)" },
+          { que: "El partido y lo que completa la semana", es: "Junto a las fechas, el partido de esa semana. Debajo, «Contenidos del microciclo» y, si el partido no se ha jugado, «Plan de partido», «Plantilla de <rival>» y «ABP rival» con el rival ya elegido; si ya se jugó, «Histórico de partidos»" },
+          { que: "Esta semana no hay material", es: "Con el botón de subir; en otra semana vacía, también el enlace a la última que sí tiene (en la de ahora lo dice la línea de arriba)" },
           { que: "Otras semanas", es: "La lista por meses, plegada, para buscar una semana futura o por fecha" },
           { que: "Borrar", es: "Quita la imagen o el documento de esa semana; no se puede deshacer" },
         ],

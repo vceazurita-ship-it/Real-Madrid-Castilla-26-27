@@ -8,8 +8,6 @@ import {
   ImageIcon,
   Loader2,
   RefreshCw,
-  TriangleAlert,
-  UploadCloud,
 } from "lucide-react";
 import { AREA_CONFIG, SEASON_LABEL } from "@/lib/season/config";
 import { SeasonArea, WeekData } from "@/lib/season/types";
@@ -95,27 +93,9 @@ export default function SeasonHeader({
     };
   }, [actualId]);
 
-  /*
-  | 17/11/2026 (los tres jueces): UNA frase de estado en vez de tres (la línea
-  | de recuento, la leyenda y el aviso de huecos decían lo mismo). Arriba, la
-  | antigüedad: cuántas semanas llevamos sin subir nada desde la última con
-  | material, con el botón a la semana en curso; debajo, en pequeño, todos los
-  | huecos de la temporada.
-  */
+  /* 17/11/2026 (ronda 20): la semana en curso y cuántas llevan material, para la línea de estado. */
   const idxActual = tiraSemanas.findIndex((s) => s.actual);
-  const cerradas = idxActual >= 0 ? tiraSemanas.slice(0, idxActual) : tiraSemanas;
-  const tramos: [number, number][] = [];
-  cerradas.forEach((s, i) => {
-    if (s.conMaterial) return;
-    const ultimo = tramos[tramos.length - 1];
-    if (ultimo && ultimo[1] === i - 1) ultimo[1] = i;
-    else tramos.push([i, i]);
-  });
-  const vacias = tramos.reduce((n, [a, b]) => n + b - a + 1, 0);
-  const trozos = tramos.map(([a, b]) => (a === b ? `la ${a + 1}` : `de la ${a + 1} a la ${b + 1}`));
-  const huecos = trozos.length > 1 ? `${trozos.slice(0, -1).join(", ")} y ${trozos[trozos.length - 1]}` : trozos[0] ?? "";
-  const ultimaVacia = tramos.length ? cerradas[tramos[tramos.length - 1][1]] : null;
-
+  const conMaterial = tiraSemanas.filter((s) => s.conMaterial).length;
   /* Semanas seguidas sin subir nada, contando la de ahora, desde la última con material. */
   const hasta = idxActual >= 0 ? idxActual : tiraSemanas.length - 1;
   let ultimaCon = -1;
@@ -157,51 +137,39 @@ export default function SeasonHeader({
           {config.description}
         </p>
 
-        {/* ---------- La antigüedad, a la vista (17/11/2026) ---------- */}
-        {sinSubir >= 2 && actualVacia ? (
-          <div className="mt-4 flex max-w-3xl flex-wrap items-center gap-3 rounded-2xl border border-amber-400/50 bg-amber-500/10 px-4 py-3">
-            <TriangleAlert size={20} className="shrink-0 text-amber-400" aria-hidden />
-            <div className="min-w-0 flex-1">
-              <p className="text-[15px] font-semibold leading-snug text-amber-200">
-                {sinSubir} semanas sin subir nada
-                {ultimaConMaterial ? (
-                  <span className="font-normal">
-                    {" "}· lo último, la {ultimaConMaterial.week.toLowerCase()}
-                    {weekRangeLabel(ultimaConMaterial) ? ` (${weekRangeLabel(ultimaConMaterial)})` : ""}
-                  </span>
-                ) : null}
-              </p>
-              {vacias >= 2 && ultimaVacia ? (
-                <p className="mt-0.5 text-[13px] leading-snug text-amber-200/85">
-                  En la temporada, {vacias} sin material: {huecos}.{" "}
-                  <button
-                    type="button"
-                    onClick={() => onSelectWeek?.(ultimaVacia.id)}
-                    className="font-semibold underline decoration-amber-300/50 underline-offset-2 hover:decoration-amber-300"
-                  >
-                    Abrir la {ultimaVacia.nombre.toLowerCase()}
-                  </button>
-                </p>
-              ) : null}
-            </div>
-            <button
-              type="button"
-              onClick={onGoToCurrentWeek}
-              className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl bg-[#C8A96B] px-4 text-sm font-semibold text-[#0B0F14] transition hover:brightness-110"
-            >
-              <UploadCloud size={17} aria-hidden />
-              Subir a esta semana
-            </button>
-          </div>
-        ) : vacias >= 2 && ultimaVacia ? (
-          <button
-            type="button"
-            onClick={() => onSelectWeek?.(ultimaVacia.id)}
-            className="mt-4 rounded-lg border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-left text-[13px] font-semibold text-amber-200 transition hover:bg-amber-500/20"
-            title="Abre la última semana sin material"
-          >
-            {vacias} semanas sin material: {huecos}
-          </button>
+        {/*
+          ---------- El estado, en una línea neutra (17/11/2026, ronda 20) ----------
+          Los tres jueces: el aviso ámbar «12 semanas sin subir nada» parecía
+          un error, se deshacía en una columna en el móvil, su segunda línea
+          no se leía en modo día y sus dos cifras (12 sin subir, 13 sin
+          material) se contradecían. Ahora una sola frase con una sola base
+          —la semana en curso, cuántas tienen material y la última subida, que
+          abre esa semana— y la acción de subir se queda en la semana de abajo.
+        */}
+        {tiraSemanas.length > 1 ? (
+          <p className="mt-4 flex max-w-3xl flex-wrap items-baseline gap-x-2 gap-y-1 text-[14px] leading-snug text-white/75">
+            {idxActual >= 0 ? (
+              <span className="font-semibold text-white/90">{tiraSemanas[idxActual].nombre || `Semana ${idxActual + 1}`}</span>
+            ) : null}
+            {idxActual >= 0 ? <span aria-hidden className="text-white/35">·</span> : null}
+            <span>
+              <span className="font-semibold tabular-nums text-white/90">{conMaterial}</span> de {tiraSemanas.length} semanas con material
+            </span>
+            {ultimaConMaterial && sinSubir >= 2 && actualVacia ? (
+              <>
+                <span aria-hidden className="text-white/35">·</span>
+                <button
+                  type="button"
+                  onClick={() => onSelectWeek?.(ultimaConMaterial.id)}
+                  className="text-left font-medium text-white/75 underline decoration-white/25 underline-offset-2 transition hover:text-[#C8A96B] hover:decoration-[#C8A96B]"
+                  title="Abre la última semana con material"
+                >
+                  última subida, la {ultimaConMaterial.week.toLowerCase()}
+                  {weekRangeLabel(ultimaConMaterial) ? ` (${weekRangeLabel(ultimaConMaterial)})` : ""}
+                </button>
+              </>
+            ) : null}
+          </p>
         ) : null}
 
         {tiraSemanas.length > 1 && (
@@ -341,9 +309,6 @@ export default function SeasonHeader({
                   {`${stats.pdfs} PDF`}
                 </button>
               )}
-              <span className="px-2 text-[12.5px] text-white/55">
-                en {stats.completed} de {stats.totalWeeks} semanas
-              </span>
             </div>
           )}
         </div>
