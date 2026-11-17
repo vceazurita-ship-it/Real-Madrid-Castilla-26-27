@@ -240,6 +240,10 @@ function EscalaIndices({
         <span className="inline-flex items-center gap-1.5"><i className="inline-block h-3 w-3 rounded-full" style={{ border: `2px dashed ${tinta(0.4)}` }} />menos de {MUESTRA_CORTA}′ (tendencia)</span>
         <span>Raya: 50, la media de su puesto · al lado de cada uno, su ficha, su seguimiento y sus notas · la tabla entera, en «Detalle»</span>
       </p>
+      {/* 17/11/2026 (ronda 19): por qué no coinciden las cifras de arriba. */}
+      <p className="mt-2 text-[12px] text-white/65">
+        {orden.length} con índice esta temporada: {firmes.length} con {MUESTRA_CORTA}′ o más{cortas ? ` y ${cortas} con menos (tendencia)` : ""}. Quien no llega a los minutos mínimos no tiene índice y no entra en «Mejoran».
+      </p>
     </section>
   );
 }
@@ -404,6 +408,8 @@ const TAREA_POR_METRICA: { patron: RegExp; tarea: string }[] = [
   { patron: /largo/i, tarea: "salida en largo a la espalda del lateral rival; contar envíos acertados de cada 10" },
   { patron: /aére|cabeza/i, tarea: "duelos aéreos en centros laterales y despejes; contar los ganados de cada 10" },
   { patron: /progresiv|hacia adelante|último tercio|entre líneas/i, tarea: "rondo de salida con pase entre líneas al pivote o al interior; contar pases que rompen línea de cada 10" },
+  /* 17/11/2026 (ronda 19): «acciones defensivas» se quedaba sin tarea («una acción sobre…»). */
+  { patron: /acciones defens|defensivas? (realiz|con éxito|ganad)/i, tarea: "4c4+2 en zona media con presión tras pérdida en 5″; contar acciones defensivas ganadas (entradas, interceptaciones y duelos) por serie de 4′" },
   { patron: /intercep|recuper/i, tarea: "4c4+2 con lectura de la línea de pase; contar interceptaciones por serie" },
   { patron: /duelos? defens|entradas/i, tarea: "1c1 defensivo en carril con orientación a banda; contar duelos ganados de cada 10" },
   { patron: /centro/i, tarea: "centro tras desborde o pared en banda; contar centros que encuentran rematador de cada 10" },
@@ -685,7 +691,7 @@ export default function ComparativaCategoria() {
       const accion = notaAlta
         ? `Qué hacemos: ver con él 3 acciones de ${peor ? peor.metrica.nombre.toLowerCase() : "esa fase"} y decidir si es carencia o el rol que le damos.`
         : peor && peor !== mejor
-          ? `Qué hacemos: ${tarea ?? `una acción sobre ${peor.metrica.nombre.toLowerCase()}`}; objetivo, acercarlo al percentil 50 (hoy ${Math.round(peor.percentil)}).`
+          ? `Qué hacemos con ${peor.metrica.nombre.toLowerCase()} (Wyscout): ${tarea ?? "una tarea de su puesto donde se repita esa acción; contar las logradas de cada 10"}; objetivo, acercarlo al percentil 50 (hoy ${Math.round(peor.percentil)}).`
           : "Qué hacemos: contrastar en vídeo si su índice es lo que le pedimos en su puesto.";
       const mas = notaAlta
         ? `Le baja el índice ${peor ? `${peor.metrica.nombre.toLowerCase()} (${p(peor)})` : "su perfil en Wyscout"}. Lo que se decida se apunta en su seguimiento.`
@@ -749,10 +755,12 @@ export default function ComparativaCategoria() {
       comparados: conIndice.length,
       top3: filas.filter((f) => f.ranking && f.ranking.posicion <= 3).length,
       media: conIndice.length ? Math.round(conIndice.reduce((s, f) => s + (f.indice ?? 0), 0) / conIndice.length) : null,
-      mejoran: filas.filter((f) => f.evolucion?.fiable && f.evolucion.salto > ESTABLE).length,
+      /* 17/11/2026 (ronda 19): sólo quien tiene índice esta temporada (salía
+         A. Pérez, sin índice, y la tarjeta decía 5 contra 4 del gráfico). */
+      mejoran: filas.filter((f) => f.indice !== null && f.evolucion?.fiable && f.evolucion.salto > ESTABLE).length,
       /* 16/11/2026 (jueces): quiénes son, con su cambio y su base. */
       quienesMejoran: conFicha
-        .filter((x) => x.f.evolucion?.fiable && x.f.evolucion.salto > ESTABLE)
+        .filter((x) => x.f.indice !== null && x.f.evolucion?.fiable && x.f.evolucion.salto > ESTABLE)
         .sort((a, b) => (b.f.evolucion?.salto ?? 0) - (a.f.evolucion?.salto ?? 0))
         .map((x) => ({
           id: x.f.jugador.jugador,
@@ -987,12 +995,13 @@ export default function ComparativaCategoria() {
                           return (
                             <div key={l.titulo} className={`rounded-2xl border border-white/10 bg-white/[0.03] p-4 ${l.tono === "tendencia" ? "opacity-80" : ""}`} style={{ borderTop: `3px solid ${l.tono === "bien" ? "#1B9E77" : l.tono === "mal" ? "#D95F02" : l.tono === "tendencia" ? tinta(0.3) : "#C8A96B"}` }}>
                               <p className={`text-sm font-semibold ${l.tono === "tendencia" ? "text-white/70" : "text-white"}`}>{l.titulo}</p>
-                              <p className="mt-1 text-[13px] leading-snug text-white/75 tabular-nums">{l.dato}</p>
+                              {/* 17/11/2026 (ronda 19): a la vista, el titular y qué hacemos; las cifras y el porqué, plegados. */}
                               {l.accion && <p className="mt-1.5 text-[13px] font-medium leading-snug text-white/90">{l.accion}</p>}
-                              {l.mas && (
+                              {(l.mas || l.dato) && (
                                 <details className="mt-1.5 text-xs text-white/60">
                                   <summary className="cursor-pointer text-[11px] font-medium text-[#C8A96B]">Por qué</summary>
-                                  <p className="mt-1 leading-relaxed">{l.mas}</p>
+                                  {l.dato && <p className="mt-1 tabular-nums leading-snug text-white/75">{l.dato}</p>}
+                                  {l.mas && <p className="mt-1 leading-relaxed">{l.mas}</p>}
                                 </details>
                               )}
                               {suyos.length > 0 && (
@@ -1174,13 +1183,7 @@ export default function ComparativaCategoria() {
                       </p>
                     )}
 
-                    {ref !== "todos" && comparables.some((x) => x.f.ranking?.fueraDeEdad) && (
-                      <p className="mt-3 text-xs text-white/55">
-                        «Mayor de {ref === "u21" ? 21 : 23}»: pasa de la edad del grupo y se le coloca entre ellos contando como uno
-                        más; por eso su «de N» lleva uno más que el de un compañero del mismo puesto que sí entra.
-                      </p>
-                    )}
-
+                    {/* 17/11/2026 (ronda 19): la nota de «Mayor de 21» pasa a la ayuda de la pantalla. */}
                     <details className="mt-3 text-xs text-white/55">
                       <summary className="cursor-pointer text-white/70">Qué mide el índice de cada puesto</summary>
                       <ul className="mt-2 space-y-1.5">

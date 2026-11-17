@@ -1069,7 +1069,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Comparativa con la categoría",
     resumen: "Cada jugador del Castilla frente a los de su puesto en la categoría (sub-21, sub-23 o todos), con Wyscout o con Opta: ranking, gráficos por fase, ficha y, según la fuente, contra otros equipos o su evolución por temporadas.",
     origen: "Wyscout: la descarga de jugadores de toda la categoría (esta temporada y la pasada) y, para el ajuste a la posesión, la posesión media de cada equipo en sus partidos de liga de Wyscout. Opta: sus tablas de jugadores de Primera RFEF, todas las temporadas que hay. Al lado, nuestras Valoraciones (nota) y la hoja de seguimiento (nº de registros).",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "Arriba",
@@ -1088,7 +1088,11 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Índice", es: "Media de sus percentiles en las métricas de su puesto contra los de su puesto del grupo elegido", cuenta: "De 0 a 100; 50 = la media. Con 90′ o más; el portero, sólo contra porteros" },
           { que: "Ranking", es: "Su puesto entre los de su posición del grupo; «2º-3º de 34» = empatado en índice" },
           { que: "Evolución (pts)", es: "Puntos de índice frente a 25/26, cada año contra su categoría", cuenta: "Entre −3 y +3, estable; «nuevo» = sin minutos el año pasado. «Mejoran respecto a 25/26» pide 450′ el año pasado" },
-          { que: "Mejoran respecto a 25/26", es: "Bajo las cifras, quiénes son: una barra por jugador con su cambio en puntos, la marca del umbral (+3) y sus minutos del año pasado" },
+          { que: "Mejoran respecto a 25/26", es: "Bajo las cifras, quiénes son: una barra por jugador con su cambio en puntos, la marca del umbral (+3) y sus minutos del año pasado", cuenta: "Sólo quien tiene índice esta temporada; la tarjeta y la frase del gráfico salen de la misma regla" },
+          { que: "Por qué no coinciden las cifras", es: "Bajo el gráfico del ranking, una línea: cuántos tienen índice, cuántos con 300′ o más y cuántos son tendencia" },
+          { que: "«Mayor de 21» (o de 23)", es: "Pasa de la edad del grupo y se le coloca entre ellos contando como uno más; por eso su «de N» lleva uno más que el de un compañero del mismo puesto que sí entra" },
+          { que: "Tarjetas de lectura", es: "A la vista, el titular y «Qué hacemos» (con la métrica de Wyscout y una tarea con lo que se cuenta); las cifras y el porqué, en «Por qué»" },
+          { que: "Móvil", es: "Las filas del ranking visual no llevan iconos: pulsar la fila abre su ficha aquí" },
           { que: "Tarjetas de lectura", es: "Titular, el dato y qué hacemos (una tarea de campo con algo que contar y su objetivo); el porqué, plegado. «Lo que más cae» deja fuera métricas ajenas al puesto (los remates de un central). Cada una lleva a su ficha aquí y a su ficha, vídeos y registrar seguimiento" },
           { que: "Ir a (Detalle)", es: "En la tabla, cada fila lleva a su ficha, sus valoraciones y su seguimiento" },
           { que: "Nota · Nº seguim.", es: "Su nota media en Valoraciones y sus registros de seguimiento", cuenta: "Los porteros no cuentan registros de seguimiento: llevan uno independiente" },

@@ -100,7 +100,10 @@ export function EnlacesJugador({
   if (!jugador.nombre && !jugador.id) return null;
 
   return (
-    <span className={`inline-flex flex-wrap items-center gap-1 ${className}`}>
+    /* 17/11/2026 (ronda 19): con «hidden sm:inline-flex» la base
+       «inline-flex» ganaba en el CSS y los iconos salían igual en el móvil,
+       doblando el alto de cada fila. Si la clase trae «hidden», manda ella. */
+    <span className={`${/(^|\s)hidden(\s|$)/.test(className) ? "" : "inline-flex"} flex-wrap items-center gap-1 ${className}`}>
       {destinos.map((d) => {
         const r = ROTULO[d];
         const principal = d === "registrar";
