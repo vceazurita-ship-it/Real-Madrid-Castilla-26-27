@@ -14,6 +14,8 @@
 const EQUIVALENCIAS: { re: RegExp; nombre: string }[] = [
   { re: /^(inicio( y| de)? )?construccion( de)?( juego)?$/, nombre: "Inicio y construcción de juego" },
   { re: /^inicio( de juego)?$/, nombre: "Inicio y construcción de juego" },
+  /* 17/11/2026 (r20, jueces): «Inicio-progresión del juego» seguía saliendo aparte. */
+  { re: /^inicio( y| de)? progresion( del?)?( juego)?$/, nombre: "Inicio y construcción de juego" },
   { re: /^ultimo tercio$/, nombre: "Último tercio" },
   { re: /^finalizacion(es)?$/, nombre: "Finalización" },
 ];

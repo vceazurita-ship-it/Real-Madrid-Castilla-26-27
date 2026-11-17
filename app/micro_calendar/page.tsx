@@ -788,8 +788,13 @@ export default function MicroCalendar() {
     | física +19 %, cognitiva −25 %») y la base en la línea de debajo
     | (`subtitulo`). En el móvil el H1 ocupaba seis líneas.
     */
+    /* 17/11/2026 (r20, jueces): la base en el propio titular y, con menos de 25
+       entrenos por lado, marcado «tendencia». */
     if (pctCarga !== null) {
-      return `${MONTHS[active.month]}: carga física ${signo(pctCarga)}${pctCog === null ? "" : `, cognitiva ${signo(pctCog)}`}`;
+      const n = Math.min(monthStats.hechos, mesPrevio.stats.hechos);
+      const nBase = monthStats.hechos === mesPrevio.stats.hechos ? `${n} entrenos` : `${monthStats.hechos} entrenos frente a ${mesPrevio.stats.hechos}`;
+
+      return `${MONTHS[active.month]}: carga física ${signo(pctCarga)}${pctCog === null ? "" : `, cognitiva ${signo(pctCog)}`} · ${nBase}${n < 25 ? " · tendencia" : ""}`;
     }
     return [
       `${MONTHS[active.month]}: ${monthStats.sesiones} ${monthStats.sesiones === 1 ? "entreno" : "entrenos"}`,
@@ -971,7 +976,7 @@ export default function MicroCalendar() {
                     <Escudo url={escudoDe(NOSOTROS)} nombre="RM Castilla" className="h-4 w-4 md:h-5 md:w-5" />
                     <span className="shrink-0 text-[10px] font-semibold text-[#C8A96B]">vs</span>
                     <Escudo url={escudoDe(suyo.rival)} nombre={nombreBonito(suyo.rival)} className="h-4 w-4 md:h-5 md:w-5" />
-                    <span className="min-w-0 truncate text-[10px] font-semibold text-white/85 md:text-[11px]">{nombreCorto(nombreBonito(suyo.rival))}</span>
+                    <span className="min-w-0 break-words text-[10px] font-semibold leading-tight text-white/85 md:text-[11px]">{nombreCorto(nombreBonito(suyo.rival))}</span>
                   </div>
                   {detalle ? <p className="line-clamp-2 break-words text-[11px] font-semibold leading-tight text-[#C8A96B]">{detalle}</p> : null}
                   {(() => {
@@ -983,6 +988,7 @@ export default function MicroCalendar() {
                       </Link>
                     );
                   })()}
+                  <EnlacesRivalCasilla jornadas={jornadasRivales} rival={suyo.rival} fecha={key} onClick={sinAbrirElDia} />
                 </>
               ),
               crece: true,
@@ -1102,7 +1108,7 @@ export default function MicroCalendar() {
                   <Escudo url={escudoDe(NOSOTROS)} nombre="RM Castilla" className="h-4 w-4 md:h-5 md:w-5" />
                   <span className="shrink-0 text-[10px] font-semibold text-[#C8A96B]">vs</span>
                   <Escudo url={escudoDe(partido)} nombre={nombreBonito(partido)} className="h-4 w-4 md:h-5 md:w-5" />
-                  <span className="min-w-0 truncate text-[10px] font-semibold text-white/85 md:text-[11px]">
+                  <span className="min-w-0 break-words text-[10px] font-semibold leading-tight text-white/85 md:text-[11px]">
                     {nombreCorto(nombreBonito(partido))}
                   </span>
                 </div>
@@ -1117,9 +1123,12 @@ export default function MicroCalendar() {
                 const e = enlaceDelPartido(key, partido, String(dayTasks[0]?.Micro ?? ""));
 
                 return (
-                  <Link href={e.href} onClick={sinAbrirElDia} className="block text-[11px] font-semibold text-sky-300 underline-offset-2 hover:underline">
-                    {e.texto} →
-                  </Link>
+                  <>
+                    <Link href={e.href} onClick={sinAbrirElDia} className="block text-[11px] font-semibold text-sky-300 underline-offset-2 hover:underline">
+                      {e.texto} →
+                    </Link>
+                    <EnlacesRivalCasilla jornadas={jornadasRivales} rival={nombreBonito(partido)} fecha={key} onClick={sinAbrirElDia} />
+                  </>
                 );
               })() : null}
 
@@ -1548,5 +1557,35 @@ function Metric({
 
       <MetricBar value={value} max={max} />
     </div>
+  );
+}
+
+/**
+ * Sus goles en vídeo y su ABP dentro de la casilla del partido, con el rival
+ * ya elegido (17/11/2026, r20, jueces). Pulsarlos no abre el día.
+ */
+function EnlacesRivalCasilla({
+  jornadas,
+  rival,
+  fecha,
+  onClick,
+}: {
+  jornadas: ReturnType<typeof useJornadasRivales>;
+  rival: string;
+  fecha: string;
+  onClick: (e: { stopPropagation: () => void }) => void;
+}) {
+  const enlaces = enlacesDelRival(jornadas, rival, fecha).filter((e) => e.texto === "Su ABP" || e.texto === "Sus goles en vídeo");
+
+  if (!enlaces.length) return null;
+
+  return (
+    <span className="flex flex-wrap gap-x-2 gap-y-0.5">
+      {enlaces.map((e) => (
+        <Link key={e.texto} href={e.href} title={e.title} onClick={onClick} className="text-[11px] font-semibold text-sky-300 underline-offset-2 hover:underline">
+          {e.texto === "Su ABP" ? "Su ABP" : "Sus goles"}
+        </Link>
+      ))}
+    </span>
   );
 }
