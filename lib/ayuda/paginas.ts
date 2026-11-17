@@ -2873,7 +2873,7 @@ export const AYUDAS: AyudaDePagina[] = [
           {
             que: "Sesión (MD y minutos)",
             es: "El MD del día, los minutos de entreno y el contenido de más minutos, con un punto del color de la fase que manda (como /micro_calendar); en discontinuo y «planificada» si la hoja aún no tiene sus minutos",
-            cuenta: "Sin la fila del partido. MD = días que faltan para el próximo partido, hasta 14, con la regla común del creador de micros; lo planificado sale de la hoja publicada aunque la copia de lo hecho no lo traiga. En los días aún sin sesión, el MD previsto (discontinuo) sólo sale en la semana del partido: MD-5 a MD-1",
+            cuenta: "Sin la fila del partido. MD = días que faltan para el próximo partido, hasta 14, con la regla común del creador de micros; lo planificado sale de la hoja publicada aunque la copia de lo hecho no lo traiga. En los días aún sin sesión, el MD previsto (discontinuo) sale en todos los días hasta el próximo partido (el micro en curso) y, más allá, sólo de MD-5 a MD-1; el segundo día tras un partido, «MD+2»",
           },
           { que: "Libre", es: "Día sin sesión ni partido entre la primera y la última sesión apuntadas, y el día después de un partido más adelante" },
           { que: "Enlaces en la casilla", es: "Sin abrir el día: la sesión lleva «Ver la sesión →» (Microciclos en su micro y MD), el partido «Informe →» si ya se jugó o «Plan de partido →» con el rival elegido, y el renglón del viaje abre su desplazamiento" },
@@ -2892,7 +2892,7 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "La cabecera del mes",
         filas: [
           { que: "Resumen del mes", es: "Cuántos partidos (y jugados), viajes, entrenos en la hoja, eventos del staff, imágenes y PDF hay en el mes; pulsar partidos, viajes o entrenos deja sólo eso en el mes («Ver todo» lo quita)", cuenta: "Un viaje es un desplazamiento: ida, traslado y vuelta cuentan uno" },
-          { que: "Leyenda", es: "Encima del mes: sólo los tipos que tienen algo en el mes que se mira, los colores de fase de las sesiones y qué es el MD (también en días con viaje)" },
+          { que: "Leyenda", es: "Encima del mes, corta y con las mismas palabras que Contenidos Microciclo: sólo los tipos que tienen algo en el mes, «Fase con más minutos (sin Global)» con sus colores y «MD-n = días hasta el partido · discontinuo = aún sin sesión»" },
         ],
       },
     ],
@@ -2944,6 +2944,8 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Las cifras del mes",
         filas: [
+          { que: "Aviso de la semana", es: "Bajo el titular, en una tarjeta ámbar: la lectura de la carga (qué MD se ha movido, los días a vigilar del micro de hoy y la carga cognitiva). Antes iba en letra de nota al pie" },
+          { que: "Carga física por entreno del mes", es: "Antes del calendario: una barra por entreno hecho, coloreada por su MD, con la raya de la media de ese MD en la temporada; al lado, la media del mes frente a la del anterior en los mismos días. El título dice la conclusión («Más carga por entreno que en octubre: 230 UA frente a 194»)", cuenta: "UA de un día = suma de la «Carga Ponderada» de sus tareas de entreno. Media de un MD = media de sus días con carga en la temporada (3 o más)" },
           { que: "Titular", es: "Corto: cómo van la carga física y la cognitiva frente al mes anterior. Debajo, la base: entrenos (hechos y planificados), volumen y cuántos entrenos hechos se comparan, en los mismos días de cada mes" },
           { que: "Entrenos", es: "Días con tarea de entreno; hechos = con minutos o carga apuntados, el resto planificados", cuenta: "Los partidos aparte: la fila de competición no es entreno" },
           { que: "Volumen", es: "Minutos de entreno del mes, sin los partidos" },
@@ -2963,8 +2965,9 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Enlaces en la casilla", es: "Sin abrir el día: un entreno lleva «Ver la sesión →» (su micro y su MD en Microciclos); un partido, «Informe del partido →» si ya se jugó o «Plan de partido →» con el rival elegido" },
           { que: "Partido sin filas en la hoja", es:"El partido del calendario de BeSoccer sale aunque la hoja aún no tenga ese día (como en /calendar_general)" },
           { que: "Planificado", es: "Entreno de la hoja sin minutos todavía: borde discontinuo y la etiqueta «planificado»" },
-          { que: "Contenidos", es: "Minutos por contenido principal, de más a menos; sin contenido, el tipo de tarea. La casilla crece para que no se corten" },
-          { que: "Partido", es: "Rival con escudo, hora, en casa o fuera y resultado, si BeSoccer lo tiene, en dos líneas (no se corta)" },
+          { que: "Contenidos", es: "Minutos por contenido principal, de más a menos; sin contenido, el tipo de tarea. Se leen enteros: la casilla crece", cuenta: "El mismo contenido escrito de varias formas en la hoja («Construcción», «Construcción juego», «Inicio - construcción de juego») sale con un solo nombre (tabla de equivalencias en lib/microciclo/contenidos.ts); la hoja no se toca" },
+          { que: "MD+1 · recuperación", es: "El día después de un partido, sin tareas, se rotula así (como en el creador de micros) en vez de «Libre»" },
+          { que: "Partido", es: "Rival con escudo y el mismo nombre corto que el Calendario operativo, hora, en casa o fuera y resultado, si BeSoccer lo tiene, en dos líneas (no se corta)" },
           { que: "Libre", es: "Día sin nada entre la primera y la última sesión apuntadas" },
           { que: "Siglas", es: "Bajo el calendario, las siglas de los contenidos que salen ese mes, desarrolladas (CP, CR, ABP, Ind., TAD = transición ataque-defensa, TDA = defensa-ataque)" },
         ],

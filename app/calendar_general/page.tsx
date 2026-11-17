@@ -291,6 +291,15 @@ export default function CalendarGeneralPage() {
   /* 16/11/2026 (jueces): la hoja RIVALES, para el Plan de partido con el rival elegido desde la casilla. */
   const jornadasRivales = useJornadasRivales();
 
+  /* Hoy, apuntado fuera del render (el linter no deja mirar el reloj al pintar): para saber qué micro está en curso. */
+  const [hoyKey, setHoyKey] = useState("");
+
+  useEffect(() => {
+    const id = setTimeout(() => setHoyKey(dateKey(new Date())), 0);
+
+    return () => clearTimeout(id);
+  }, []);
+
   /* 16/11/2026 (jueces): el micro de cada fecha de la hoja, para abrir el día o el partido en Microciclos. */
   const microDeFecha = useMemo(() => {
     const mapa = new Map<string, number>();
@@ -870,9 +879,9 @@ export default function CalendarGeneralPage() {
       if (f) fasesMes.add(f.clave);
     });
     if ([...sesionesDia.keys()].some(enMes)) {
-      items.push({ label: "Sesión (punto = fase con más minutos, sin Global):", color: "hidden" });
+      items.push({ label: "Fase con más minutos (sin Global):", color: "hidden" });
       FASES_COLOR.filter((f) => f.dot && fasesMes.has(f.clave)).forEach((f) => items.push({ label: f.label, color: f.dot }));
-      items.push({ label: "MD-n = días que faltan para el próximo partido, como en el creador de micros; en discontinuo, día aún sin sesión", color: "hidden" });
+      items.push({ label: "MD-n = días hasta el partido · discontinuo = aún sin sesión", color: "hidden" });
     }
 
     return items;
@@ -1177,10 +1186,21 @@ export default function CalendarGeneralPage() {
                   al lado del autobús no decía nada. */}
               {/* 16/11/2026: también con viaje (el 28/11 salía sin su MD-1). */}
               {porVenir && !trasPartido && (() => {
-                const previsto = mdDelDia(key, fechasDelMd);
+                /*
+                | 17/11/2026 (jueces): todos los días del micro en curso llevan su
+                | MD (el 23/11, MD-6), y el segundo día tras un partido, «MD+2».
+                | Más allá del próximo partido, sólo la semana del partido (MD-5 a
+                | MD-1): MD-7 y MD-6 de semanas lejanas eran ruido.
+                */
+                const dosAntes = parseDateKey(key);
 
-                /* 16/11/2026 (jueces): sólo la semana del partido (MD-5 a MD-1); MD-7 y MD-6 lejos eran ruido. */
-                return /^MD-[1-5]$/.test(previsto) ? (
+                dosAntes.setDate(dosAntes.getDate() - 2);
+
+                const previsto = diasDePartido.includes(dateKey(dosAntes)) ? "MD+2" : mdDelDia(key, fechasDelMd);
+                const proximoPartido = hoyKey ? [...fechasDelMd].map((f) => String(f).slice(0, 10)).filter((f) => f >= hoyKey).sort()[0] : undefined;
+                const enCurso = Boolean(proximoPartido && key <= proximoPartido);
+
+                return previsto === "MD+2" || /^MD-[1-5]$/.test(previsto) || (enCurso && /^MD-\d+$/.test(previsto)) ? (
                   <span
                     className="whitespace-nowrap rounded-full border border-dashed border-white/25 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-white/60"
                     title="MD previsto por la fecha del próximo partido: la hoja aún no tiene la sesión"
@@ -1224,7 +1244,7 @@ export default function CalendarGeneralPage() {
                       {faseDominante(sesionDia)?.dot ? (
                         <span aria-hidden className={cn("mt-[3px] h-2 w-2 shrink-0 rounded-full", faseDominante(sesionDia)?.dot)} />
                       ) : null}
-                      <span className="line-clamp-2 min-w-0 break-words">{sesionDia.principal || "Sesión"}</span>
+                      <span className="min-w-0 break-words">{sesionDia.principal || "Sesión"}</span>
                     </p>
                     <p className="text-[10px] text-white/60 md:text-[10px]">
                       {sesionDia.planificado || sesionDia.minutos <= 0 ? "Planificada" : `Sesión · ${formatMinutes(sesionDia.minutos)}`}
@@ -1297,7 +1317,7 @@ export default function CalendarGeneralPage() {
                     <Link
                       href={auto.enlace || "/desplazamiento"}
                       onClick={(e) => e.stopPropagation()}
-                      className="line-clamp-2 min-w-0 break-words underline decoration-white/25 decoration-dotted underline-offset-2 hover:text-white"
+                      className="min-w-0 break-words underline decoration-white/25 decoration-dotted underline-offset-2 hover:text-white"
                     >
                       {/* El rival con el mismo nombre corto que el partido de la casilla. */}
                       {auto.titulo.replace(/^(Viaje a|Regreso de|Vuelta de) (.+)$/, (_, que: string, quien: string) => `${que} ${nombreCorto(quien)}`)}
