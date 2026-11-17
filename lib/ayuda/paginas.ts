@@ -1990,20 +1990,22 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Cada principio",
         filas: [
-          { que: "Innegociable", es: "Los que la hoja marca «CLAVE»: borde dorado y candado" },
+          { que: "Innegociable", es: "Los que la hoja marca «CLAVE»: borde dorado y candado. Fuera de edición las tarjetas no llevan el número de la hoja (saltaba: 2, 5, 6); en edición, sí" },
           { que: "Lo que no se negocia", es: "Arriba del apartado, un chip por innegociable: verde con ▲ y su cifra si el último partido quedó del lado bueno de la mediana del grupo, ámbar con ▼ si no; cada chip salta a su tarjeta" },
           { que: "La frase de debajo", es: "Nombra en qué cumplimos y qué nos falta en el último partido, cada uno con su cifra frente a la mediana del grupo" },
-          { que: "Otros principios del bloque", es: "Los que sólo son un título (sin texto en la hoja ni medida), en una rejilla compacta al pie" },
+          { que: "Otros principios del bloque", es: "Los que sólo son un título (sin texto en la hoja ni cifra), en una rejilla compacta al pie; un innegociable sin cifra (Amenazar la profundidad) va aquí con su candado" },
           { que: "El desplegable", es: "Definición, qué se ve, criterio y clip, sólo si la hoja los trae" },
         ],
       },
       {
         titulo: "Se mide cada jornada",
         filas: [
-          { que: "El gráfico", es: "Una barra por partido de la temporada (J1…), la raya azul es la mediana de los equipos del grupo; en oro los partidos del lado bueno, apagados los demás, y el último recuadrado. El título dice cuántos partidos quedaron del lado bueno y si «se sostiene» (la mitad o más) o «toca entrenarlo»" },
-          { que: "▲ / ▼", es: "El último partido, mejor o peor que la mediana del grupo, con su base (28 de 53) y nuestra temporada en N partidos" },
+          { que: "El gráfico", es: "Una barra por partido de la temporada (J1…), la raya azul es la mediana de los equipos del grupo; en oro los partidos del lado bueno, en ámbar los de debajo. El título dice cuántos partidos quedaron del lado bueno y si «se sostiene» (la mitad o más) o «toca entrenarlo»" },
+          { que: "Tocar una barra", es: "La elige (recuadro azul): la línea de debajo pasa a ese partido, con su cifra, rival, jornada y cuánto le faltó o le sobró frente a la mediana. Sin tocar, el último" },
+          { que: "▲ / ▼", es: "El partido elegido, mejor o peor que la mediana del grupo; el último lleva su base (28 de 53). Y nuestra temporada en N partidos" },
+          { que: "Análisis del partido · Goles en vídeo · Ficha", es: "Del partido elegido: su post en Data análisis (/data-analisis?area=post con fecha y rival), los goles del rival en /analisis-goles y su ficha en /rivals" },
+          { que: "Qué entrenamos", es: "Si «toca entrenarlo»: tarea del principio, qué contar (con la base del último partido) y el objetivo de partido, la mediana del grupo; enlace al microciclo de la semana" },
           { que: "Partido a partido →", es: "Su fila en /identidad-campo" },
-          { que: "Análisis del partido →", es: "El post del último partido en Data análisis" },
         ],
       },
       {
