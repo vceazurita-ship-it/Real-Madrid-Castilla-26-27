@@ -5862,6 +5862,10 @@ export default function RivalPlayersPage() {
                   <ClipsHudlJugador
                     equipo={String(editForm.NOMBRE_EQUIPO ?? "")}
                     jugador={{ nombres: [String(editForm["NOMBRE DEPORTIVO"] ?? ""), String(editForm.JUGADOR ?? "")], dorsal: String(editForm.DORSAL ?? "") }}
+                    /* Con la plantilla entera (17/11/2026): si el nombre de la lista casa a dos, decide el dorsal o nadie. */
+                    plantilla={players
+                      .filter((p) => p.NOMBRE_EQUIPO === editForm.NOMBRE_EQUIPO)
+                      .map((p) => ({ nombres: [String(p["NOMBRE DEPORTIVO"] ?? ""), String(p.JUGADOR ?? "")], dorsal: String(p.DORSAL ?? "") }))}
                   />
 
                   <button

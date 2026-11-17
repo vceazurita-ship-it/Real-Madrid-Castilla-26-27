@@ -19,7 +19,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Clapperboard, Flag, Goal, ShieldHalf } from "lucide-react";
 
-import { aJornada, buscaJornada, type FilaRival, type JornadaRival } from "@/lib/abp/jornada";
+import { aJornada, buscaJornada, mismoEquipo, type FilaRival, type JornadaRival } from "@/lib/abp/jornada";
 import { traeJson } from "@/lib/hojaCsv";
 import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
 
@@ -66,7 +66,16 @@ export function enlacesDelRival(jornadas: JornadaRival[], rival: string, fecha?:
 
   const fila = buscaJornada(jornadas, { rival: nombre, fecha: fecha?.slice(0, 10) });
   /* Si la fila es de otro equipo (la fecha casó con otro partido), no se usa. */
-  const suya = fila && (!fecha || fila.fecha === fecha.slice(0, 10)) ? fila : buscaJornada(jornadas, { rival: nombre });
+  /*
+  | Con fecha y sin fila de ese día (aplazado, 17/11/2026): la fila de ese
+  | rival más cercana a esa fecha, no la primera (que podía ser la otra vuelta).
+  */
+  const cercana = () => {
+    const dia = Date.parse(`${fecha!.slice(0, 10)}T12:00:00`);
+    const suyas = jornadas.filter((j) => j.fecha && mismoEquipo(j.equipo, nombre));
+    return suyas.sort((x, y) => Math.abs(Date.parse(`${x.fecha}T12:00:00`) - dia) - Math.abs(Date.parse(`${y.fecha}T12:00:00`) - dia))[0] ?? null;
+  };
+  const suya = fila && (!fecha || fila.fecha === fecha.slice(0, 10)) ? fila : fecha ? cercana() : buscaJornada(jornadas, { rival: nombre });
   const equipo = suya?.equipo || nombre;
   const conEquipo = (ruta: string) => `${ruta}?equipo=${encodeURIComponent(equipo)}`;
   const plan = suya?.id ? `/match-preparation?rival=${encodeURIComponent(suya.id)}` : "/match-preparation";
