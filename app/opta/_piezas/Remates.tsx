@@ -44,6 +44,9 @@ export function Leyenda() {
   );
 }
 
+/** Con qué comparar los remates de un partido: la media del equipo en el resto de la temporada (xG por remate y, por partido, xG y remates). */
+export type RefRemates = { valor: number; partidos: number; xgPartido?: number; rematesPartido?: number };
+
 /*
 | 17/11/2026 (ronda 19, post del partido): la lectura corta de los remates de
 | un equipo. Tres cifras y, debajo, tres barras en la misma escala con una
@@ -60,7 +63,7 @@ function LecturaRemates({
   r: ReturnType<typeof resumenRemates>;
   enContra: boolean;
   rotuloGoles?: string;
-  referencia: { valor: number; partidos: number } | null;
+  referencia: RefRemates | null;
 }) {
   const aPuerta = visibles.filter((x) => x.aPuerta);
   const xgot = aPuerta.reduce((s, x) => s + x.xGOT, 0);
@@ -73,13 +76,15 @@ function LecturaRemates({
   | menos los goles encajados son los goles que evitó el portero. Antes el
   | «+0,7» se calculaba sólo con los tiros a puerta y no se veía de dónde salía.
   */
-  const cambio = xgot - r.xG;
+  /* 18/11/2026 (ronda 22, guionista): las cuentas, con las cifras ya redondeadas a un decimal; «0,5 bajaron a 0,3 (−0,1)» no cuadraba. */
+  const red = (v: number) => Math.round(v * 10) / 10;
+  const cambio = red(xgot) - red(r.xG);
   const uno = r.aPuerta === 1;
   const verbo = (nos: boolean) =>
     Math.abs(cambio) < 0.05
       ? `se quedaron en ${dec(xgot, 1)} tras el golpeo (${nos ? "rematamos" : "remataron"} como valía la ocasión)`
       : `${cambio > 0 ? "subieron" : "bajaron"} a ${dec(xgot, 1)} tras el golpeo (${conSigno(cambio, 1)}: ${nos ? "rematamos" : "remataron"} ${cambio > 0 ? "mejor" : "peor"} colocado${cambio < 0 ? " o fuera" : ""})`;
-  const evitados = xgot - r.goles;
+  const evitados = red(xgot) - r.goles;
   const frase = !r.aPuerta
     ? ""
     : enContra
@@ -87,7 +92,7 @@ function LecturaRemates({
           r.goles === 0 ? `paró ${uno ? "el único" : `los ${r.aPuerta}`} a puerta` : `encajó ${r.goles} de ${r.aPuerta} a puerta`
         }: ${evitados >= 0 ? `${dec(evitados, 1)} goles evitados` : `${dec(-evitados, 1)} goles más de lo que valían`}.`
       : `Nuestros ${dec(r.xG, 1)} de goles esperados ${verbo(true)} y marcamos ${r.goles} de ${r.aPuerta} a puerta${
-          r.goles - xgot >= 0.05 ? `: ${dec(r.goles - xgot, 1)} por encima de lo que valían` : ""
+          r.goles - red(xgot) >= 0.05 ? `: ${dec(r.goles - red(xgot), 1)} por encima de lo que valían` : ""
         }.`;
   const barras: { rotulo: string; valor: number; texto: string; opacidad: number }[] = [
     { rotulo: "Valían las ocasiones (xG)", valor: r.xG, texto: dec(r.xG, 1), opacidad: 0.45 },
@@ -100,8 +105,22 @@ function LecturaRemates({
     <div className="min-w-0">
       <div className="grid grid-cols-3 gap-2">
         <Cifra rotulo="Remates" valor={String(r.remates)} detalle={r.pctPuerta != null ? `${r.aPuerta} a puerta` : undefined} />
-        <Cifra rotulo={rotuloGoles ?? (enContra ? "Goles encajados" : "Goles")} valor={String(r.goles)} detalle={`de ${dec(r.xG, 1)} de xG`} />
-        <Cifra rotulo="xG por remate" valor={dec(r.xGPorRemate)} detalle={referencia ? `su media, ${dec(referencia.valor)}` : undefined} />
+        <Cifra rotulo={rotuloGoles ?? (enContra ? "Goles encajados" : "Goles")} valor={String(r.goles)} />
+        {/* 18/11/2026 (ronda 22, fútbol): «xG por remate 0,04 · su media 0,11» no
+            se distinguía; los goles esperados del partido con su base y la media
+            de la temporada por partido («0,5 en 13 remates; temporada: 1,2 en 11»). */}
+        <Cifra
+          rotulo="Goles esperados"
+          valor={dec(r.xG, 1)}
+          detalle={[
+            `en ${r.remates} ${r.remates === 1 ? "remate" : "remates"}`,
+            referencia?.xgPartido != null && referencia.rematesPartido != null
+              ? `temporada: ${dec(referencia.xgPartido, 1)} en ${dec(referencia.rematesPartido, 1)} por partido (${referencia.partidos} partidos${referencia.partidos < 15 ? ", tendencia" : ""})`
+              : "",
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        />
       </div>
       {frase && (
         <div className="mt-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
@@ -163,7 +182,7 @@ export function MapaRemates({
    */
   lectura?: boolean;
   /** 16/11/2026 (ronda 18): con qué comparar «xG por remate» de un partido (la media del equipo en el resto de la temporada). */
-  referenciaXgRemate?: { valor: number; partidos: number } | null;
+  referenciaXgRemate?: RefRemates | null;
   ariaLabel: string;
   /** El rótulo de la cifra de goles («Nos marcaron» en el post del partido). */
   rotuloGoles?: string;

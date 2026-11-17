@@ -71,6 +71,7 @@ export function CaraACara({
   teamId,
   conAbp = false,
   principales,
+  conMedia = false,
 }: {
   datos: DatosOpta;
   partido: string;
@@ -81,13 +82,40 @@ export function CaraACara({
    * resto, plegado bajo «Ver todas». Sin darlo, salen todas como siempre.
    */
   principales?: string[];
+  /**
+   * 18/11/2026 (Data análisis, ronda 22): en cada barra, una raya fina con la
+   * media de la temporada de ese equipo (sus otros partidos de Opta, con tres
+   * o más), y la cifra debajo del nombre. Sin darlo, como siempre.
+   */
+  conMedia?: boolean;
 }) {
   const { partidos, catalogo } = datos;
   const lados = useMemo(() => ladosDe(partidos, partido, teamId), [partidos, partido, teamId]);
+  const otros = useMemo(() => {
+    if (!conMedia || !lados) return null;
+    const de = (id: unknown) => partidos.filter((f) => f.teamId === id && String(f.partido ?? "") !== partido);
+    return { a: de(lados[0].teamId), b: de(lados[1].teamId) };
+  }, [conMedia, lados, partidos, partido]);
   if (!lados) return null;
   const [a, b] = lados;
+  const media = (filas: Fila[] | undefined, k: string) => {
+    if (!filas) return null;
+    const vs = filas.map((f) => valorDe(f, k, catalogo)).filter((v): v is number => v != null);
+    return vs.length >= 3 ? vs.reduce((s, v) => s + v, 0) / vs.length : null;
+  };
+  const nMedia = otros ? Math.min(otros.a.length, otros.b.length) : 0;
   const fila = (k: string) =>
-    k in a || k.startsWith("·") ? <FilaCara key={k} def={defDe(k, catalogo)} va={valorDe(a, k, catalogo)} vb={valorDe(b, k, catalogo)} unDecimal={k === "ExpG" || k === "ExpGAg"} /> : null;
+    k in a || k.startsWith("·") ? (
+      <FilaCara
+        key={k}
+        def={defDe(k, catalogo)}
+        va={valorDe(a, k, catalogo)}
+        vb={valorDe(b, k, catalogo)}
+        ma={media(otros?.a, k)}
+        mb={media(otros?.b, k)}
+        unDecimal={k === "ExpG" || k === "ExpGAg"}
+      />
+    ) : null;
   const resto = principales ? METRICAS.filter((k) => !principales.includes(k) && (k in a || k.startsWith("·"))) : [];
 
   return (
@@ -123,17 +151,45 @@ export function CaraACara({
       <p className="mt-2 text-xs text-white/45">
         En cada fila, la barra más larga es la mayor de las dos y el que sale mejor va en color pleno (↓ menos es mejor). En las de estilo (posesión, centros, pases por
         secuencia) no hay mejor ni peor.{"PPDA" in a ? " PPDA: pases que deja dar el rival antes de que presionemos; menos es más presión." : ""}
+        {conMedia && nMedia >= 3
+          ? ` La raya fina en cada barra es la media de la temporada de ese equipo (Opta, sus otros partidos: ${otros!.a.length} y ${otros!.b.length})${nMedia < 15 ? "; con menos de 15, tendencia" : ""}.`
+          : ""}
       </p>
     </div>
   );
 }
 
-function FilaCara({ def, va, vb, unDecimal = false }: { def: DefMetrica; va: number | null; vb: number | null; unDecimal?: boolean }) {
+function FilaCara({
+  def,
+  va,
+  vb,
+  ma = null,
+  mb = null,
+  unDecimal = false,
+}: {
+  def: DefMetrica;
+  va: number | null;
+  vb: number | null;
+  /** La media de la temporada de cada lado (18/11/2026): raya fina en su barra. */
+  ma?: number | null;
+  mb?: number | null;
+  unDecimal?: boolean;
+}) {
   if (va == null && vb == null) return null;
   /* 10/11/2026: los goles esperados con un decimal en toda la pantalla. */
   const cifra = (v: number | null) => (unDecimal && v != null ? v.toFixed(1).replace(".", ",") : fmt(v, def.unidad));
-  const tope = Math.max(Math.abs(va ?? 0), Math.abs(vb ?? 0));
+  /* La media, siempre con un decimal (una media de remates no es un entero). */
+  const cifraMedia = (v: number) => (def.unidad === "porcentaje" ? fmt(v, "porcentaje") : v.toFixed(1).replace(".", ","));
+  const tope = Math.max(Math.abs(va ?? 0), Math.abs(vb ?? 0), Math.abs(ma ?? 0), Math.abs(mb ?? 0));
   const ancho = (v: number | null) => (tope > 0 && v != null ? (Math.abs(v) / tope) * 100 : 0);
+  const raya = (v: number | null, lado: "izq" | "der") =>
+    v == null ? null : (
+      <span
+        aria-hidden
+        className="absolute -inset-y-0.5 w-0.5 rounded-full"
+        style={{ [lado === "izq" ? "right" : "left"]: `calc(${ancho(v)}% - 1px)`, background: "rgb(var(--rmcf-ink-rgb) / .85)" }}
+      />
+    );
   const ganaA = def.mejor === null || va == null || vb == null || va === vb ? null : def.mejor ? va > vb : va < vb;
   const opacidad = (esA: boolean) => (ganaA === null ? 0.6 : ganaA === esA ? 1 : 0.3);
   return (
@@ -148,12 +204,24 @@ function FilaCara({ def, va, vb, unDecimal = false }: { def: DefMetrica; va: num
       </div>
       {tope > 0 && (
         <div className="mt-1 flex h-2 gap-0.5" aria-hidden>
-          <div className="flex flex-1 justify-end overflow-hidden rounded-l-full" style={{ background: tinta(0.06) }}>
-            <span className="rounded-l-full" style={{ width: `${ancho(va)}%`, background: ORO, opacity: opacidad(true) }} />
+          <div className="relative flex-1">
+            <div className="flex h-full justify-end overflow-hidden rounded-l-full" style={{ background: tinta(0.06) }}>
+              <span className="rounded-l-full" style={{ width: `${ancho(va)}%`, background: ORO, opacity: opacidad(true) }} />
+            </div>
+            {raya(ma, "izq")}
           </div>
-          <div className="flex flex-1 overflow-hidden rounded-r-full" style={{ background: tinta(0.06) }}>
-            <span className="rounded-r-full" style={{ width: `${ancho(vb)}%`, background: COMPARADO, opacity: opacidad(false) }} />
+          <div className="relative flex-1">
+            <div className="flex h-full overflow-hidden rounded-r-full" style={{ background: tinta(0.06) }}>
+              <span className="rounded-r-full" style={{ width: `${ancho(vb)}%`, background: COMPARADO, opacity: opacidad(false) }} />
+            </div>
+            {raya(mb, "der")}
           </div>
+        </div>
+      )}
+      {(ma != null || mb != null) && (
+        <div className="mt-0.5 flex justify-between text-[11px] tabular-nums text-white/50">
+          <span>{ma != null ? `media ${cifraMedia(ma)}` : ""}</span>
+          <span>{mb != null ? `media ${cifraMedia(mb)}` : ""}</span>
         </div>
       )}
     </div>

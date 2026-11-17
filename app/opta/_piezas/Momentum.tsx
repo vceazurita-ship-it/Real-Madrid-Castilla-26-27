@@ -41,7 +41,18 @@ const SEPARA_ROTULOS = 90;
 /** La ficha de un jugador del Castilla (`/individual` casa el nombre de Opta por apellido). */
 const fichaDe = (nombre: string) => `/individual?nombre=${encodeURIComponent(nombre)}`;
 
-export function Momentum({ datos, partido, teamId }: { datos: DatosOpta; partido: string; teamId: string }) {
+export function Momentum({
+  datos,
+  partido,
+  teamId,
+  conGoleadores = true,
+}: {
+  datos: DatosOpta;
+  partido: string;
+  teamId: string;
+  /** 18/11/2026 (ronda 22): la línea «Goles del Castilla» de debajo; el post del partido ya los lista con sus remates. */
+  conGoleadores?: boolean;
+}) {
   const { momento, cargando } = useMomento();
   const { remates } = useRemates(datos);
   const [medida, setMedida] = useState<MedidaMomento>("mezcla");
@@ -87,6 +98,24 @@ export function Momentum({ datos, partido, teamId }: { datos: DatosOpta; partido
     niveles[i] = nivel;
     ultimo[lado] = { x, nivel };
   });
+  /*
+  | 18/11/2026 (ronda 22, análisis y marketing): «11′ Fortuny» pisaba
+  | «▲ Arriba, Real Madrid Castilla». Cada rótulo de equipo va en el extremo,
+  | izquierdo o derecho, más alejado de los goles de su lado (los de arriba
+  | sólo pueden chocar con los goles de arriba, y lo mismo abajo).
+  */
+  const rotuloA = `▲ Arriba, ${nombreA}`;
+  const rotuloB = `▼ Abajo, ${nombreB}`;
+  const sitioRotulo = (lado: "a" | "b", texto: string) => {
+    const largo = texto.length * 7.8 + 16;
+    const xs = goles.filter((g) => golDe(g) === lado).map((g) => xDe(Math.min(n, segundoEnEje(g.parte, g.segundo) / 300)));
+    const libreIzq = Math.min(Infinity, ...xs.map((x) => Math.max(0, x - (M.izq + largo))));
+    const libreDer = Math.min(Infinity, ...xs.map((x) => Math.max(0, W - M.der - largo - x)));
+    const izquierda = !xs.length || libreIzq >= libreDer;
+    return { x: izquierda ? M.izq + 8 : W - M.der - 8, ancla: izquierda ? ("start" as const) : ("end" as const) };
+  };
+  const sitioA = sitioRotulo("a", rotuloA);
+  const sitioB = sitioRotulo("b", rotuloB);
   const tramoEncima = encima != null ? curva[encima] : null;
   const ta = encima != null ? ea.tramos.get(encima) : undefined;
   const tb = encima != null ? eb.tramos.get(encima) : undefined;
@@ -160,11 +189,11 @@ export function Momentum({ datos, partido, teamId }: { datos: DatosOpta; partido
         })}
 
         {/* 17/11/2026 (ronda 21, marketing): quién va arriba y quién abajo, rotulado sobre el propio gráfico. */}
-        <text x={M.izq + 8} y={M.arriba + 16} style={{ fill: ORO, fontSize: 13, fontWeight: 700, paintOrder: "stroke", stroke: "var(--rmcf-surface, #11161C)", strokeWidth: 4 }}>
-          {`▲ Arriba, ${nombreA}`}
+        <text x={sitioA.x} y={M.arriba + 16} textAnchor={sitioA.ancla} style={{ fill: ORO, fontSize: 13, fontWeight: 700, paintOrder: "stroke", stroke: "var(--rmcf-surface, #11161C)", strokeWidth: 4 }}>
+          {rotuloA}
         </text>
-        <text x={M.izq + 8} y={H - M.abajo - 8} style={{ fill: COMPARADO, fontSize: 13, fontWeight: 700, paintOrder: "stroke", stroke: "var(--rmcf-surface, #11161C)", strokeWidth: 4 }}>
-          {`▼ Abajo, ${nombreB}`}
+        <text x={sitioB.x} y={H - M.abajo - 8} textAnchor={sitioB.ancla} style={{ fill: COMPARADO, fontSize: 13, fontWeight: 700, paintOrder: "stroke", stroke: "var(--rmcf-surface, #11161C)", strokeWidth: 4 }}>
+          {rotuloB}
         </text>
 
         {/* La superficie que se pasa: un tramo cada franja. */}
@@ -174,7 +203,7 @@ export function Momentum({ datos, partido, teamId }: { datos: DatosOpta; partido
       </svg>
       </div>
       {/* Los goleadores del Castilla, con su ficha y su seguimiento a un toque. */}
-      {goles.some((g) => g.teamId === CASTILLA_OPTA && g.tirador) && (
+      {conGoleadores && goles.some((g) => g.teamId === CASTILLA_OPTA && g.tirador) && (
         <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-white/65">
           <span className="font-semibold text-white/75">Goles del Castilla:</span>
           {goles

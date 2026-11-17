@@ -703,7 +703,7 @@ function lecturaDeLaLiga(filas: FilaGolesAbp[], nosotros: string, temporada: str
   const c = mia.enContra;
 
   const partes = [
-    `El Castilla lleva ${a.goles} ${goles(a.goles)} en ${a.partidos} partidos`,
+    `El Castilla lleva ${a.goles} ${goles(a.goles)} en ${a.partidos} ${a.partidos === 1 ? "partido" : "partidos"}`,
     favor
       ? `, ${favor.puesto}º de ${favor.de} por partido con la mediana de la categoría en ${formatea(favor.mediana, "decimal")}`
       : "",
