@@ -83,7 +83,7 @@ function ordenesDelMarcador(s: SegunMarcadorDatos, nombre: string): string[] {
 
     if (p.valor != null && p.desvio != null && p.desvio < -UMBRAL / 2) {
       ordenes.push(
-        `Si se adelanta, ${nombre} nos da el balón (${coma(p.valor, 0)} % de posesión; su media, ${coma(s.media.posesion ?? 0, 0)} %; ${baseDe(ganando.minutos)}): no adelantarnos en el marcador con prisa; amplitud, paciencia y llegada al área.`,
+        `Si se adelanta, ${nombre} nos da el balón (${coma(p.valor, 0)} % de posesión; su media, ${coma(s.media.posesion ?? 0, 0)} %; ${baseDe(ganando.minutos)}): no precipitarnos; amplitud, paciencia y llegada al área.`,
       );
     } else if (x.valor != null && x.desvio != null && x.desvio > UMBRAL) {
       ordenes.push(
