@@ -83,7 +83,10 @@ export function EditorValoraciones({
   media,
   onGuardar,
   onCerrar,
+  jugadorInicial = null,
 }: {
+  /** 17/11/2026 (ronda 20): abre con ese jugador buscado y elegido («Valorar» desde la lectura). */
+  jugadorInicial?: string | null;
   candidatos: CandidatoEmocional[];
   /** Media de la plantilla: lo que lleva quien no tiene valoración. */
   media: Valores | null;
@@ -109,8 +112,10 @@ export function EditorValoraciones({
 
   const [borrador, setBorrador] = useState<Borrador>(inicial);
   const [historial, setHistorial] = useState<Borrador[]>([]);
-  const [elegidos, setElegidos] = useState<Set<string>>(() => new Set());
-  const [busqueda, setBusqueda] = useState("");
+  const [elegidos, setElegidos] = useState<Set<string>>(() =>
+    jugadorInicial && candidatos.some((c) => c.nombre === jugadorInicial) ? new Set([jugadorInicial]) : new Set(),
+  );
+  const [busqueda, setBusqueda] = useState(jugadorInicial ?? "");
 
   const [modo, setModo] = useState<Modo>("fijar");
   const [eje, setEje] = useState<MetricKey | "todos">("todos");

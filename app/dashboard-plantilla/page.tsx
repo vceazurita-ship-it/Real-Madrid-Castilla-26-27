@@ -584,8 +584,15 @@ export default function DashboardPlantilla() {
                     </>
                   );
 
-                  /* 07/11/2026: «Avisos» lleva a su tarjeta. */
-                  if (kpi.title === "Avisos" && avisosVisibles.length > 0) {
+                  /* 07/11/2026: «Avisos» lleva a su tarjeta. 17/11/2026 (ronda 20,
+                     jueces): «Minutos sub-21», al reparto por edad con sus nombres. */
+                  const destino =
+                    kpi.title === "Avisos" && avisosVisibles.length > 0
+                      ? { id: "avisos-semana", texto: "Ver los avisos →" }
+                      : kpi.title === "Minutos sub-21"
+                        ? { id: "edad-plantilla", texto: "Ver quién, por edad →" }
+                        : null;
+                  if (destino) {
                     return (
                       <button
                         key={kpi.title}
@@ -593,13 +600,13 @@ export default function DashboardPlantilla() {
                         onClick={() => {
                           setVista("plantilla");
                           requestAnimationFrame(() =>
-                            document.getElementById("avisos-semana")?.scrollIntoView({ behavior: "smooth", block: "start" }),
+                            document.getElementById(destino.id)?.scrollIntoView({ behavior: "smooth", block: "start" }),
                           );
                         }}
                         className="min-w-0 rounded-xl border border-[#C8A96B]/30 bg-white/[0.025] p-3 text-left transition hover:border-[#C8A96B] sm:p-4"
                       >
                         {cuerpo}
-                        <div className="mt-1 text-[11px] font-medium text-[#C8A96B]">Ver los avisos →</div>
+                        <div className="mt-1 text-[11px] font-medium text-[#C8A96B]">{destino.texto}</div>
                       </button>
                     );
                   }
@@ -652,7 +659,9 @@ export default function DashboardPlantilla() {
                         <div id="avisos-semana" className="scroll-mt-20">
                           <BloqueAvisos avisos={avisos} onAbre={abreFicha} partidosEquipo={partidosEquipo} />
                         </div>
-                        <BloqueEdad jugadores={filtrados} />
+                        <div id="edad-plantilla" className="scroll-mt-20">
+                          <BloqueEdad jugadores={filtrados} />
+                        </div>
                         <BloqueContratos jugadores={filtrados} />
                         <BloqueSesiones resumen={sesionesReg} jugadores={filtrados} />
                       </div>
@@ -828,22 +837,30 @@ function BloqueMinutos({ jugadores, onAbre }: { jugadores: Jugador[]; onAbre: (i
      rendimiento: sale aparte, en una línea, y no en el gráfico. */
   const sinMinutos = jugadores.filter((j) => j.minutos <= 0 && !j.apariciones.some((a) => a.jugo));
   const conMinutos = jugadores.filter((j) => !sinMinutos.includes(j));
+  /* 17/11/2026 (ronda 20, jueces): el título es la conclusión, con su grupo y
+     su fuente; el método va plegado en «Cómo se lee». */
+  const mitad = conMinutos.filter((j) => (j.pct ?? 0) >= 50).length;
+  const poco = conMinutos.filter((j) => (j.pct ?? 0) < 25).length;
 
   return (
     <Bloque
       pregunta={
         deWyscout
-          ? `¿Quién juega y cuánto? · % sobre ${deWyscout.posibles}′ (${deWyscout.posibles / 90} partidos de Wyscout)`
+          ? `¿Quién juega y cuánto? ${mitad} de ${conMinutos.length} con la mitad de los minutos o más${poco ? `, ${poco} por debajo del 25 %` : ""}`
           : "¿Quién juega y cuánto, puesto a puesto?"
       }
       base={
         <>
-          Minutos de Wyscout{deWyscout ? ` sobre los ${deWyscout.posibles}′ de los partidos que tiene su descarga` : ""}; titular y suplente, de Valoraciones.
-          {deValoraciones ? ` Con asterisco, minutos de Valoraciones, sobre sus ${deValoraciones.posibles}′.` : ""} Cada nombre abre su ficha.
+          {conMinutos.length} jugadores con minutos (los del grupo elegido) · {deWyscout ? `% sobre ${deWyscout.posibles}′, los ${deWyscout.posibles / 90} partidos de Wyscout` : "minutos de Valoraciones"}
+          {deValoraciones && deWyscout ? ` · con asterisco, de Valoraciones (sobre ${deValoraciones.posibles}′)` : ""}. Cada nombre abre su ficha.
         </>
       }
       leer={
         <>
+          <p>
+            Minutos de Wyscout{deWyscout ? ` sobre los ${deWyscout.posibles}′ de los partidos que tiene su descarga` : ""}; titular y suplente, de Valoraciones.
+            {deValoraciones ? ` Con asterisco, minutos de Valoraciones, sobre sus ${deValoraciones.posibles}′: no tienen fila en Wyscout.` : ""}
+          </p>
           <p>Titular: marcado en Valoraciones o con 90′ jugados. «Tendencia»: con un solo partido de titular, el porcentaje no es firme.</p>
           <p>Wyscout cuenta también el añadido y Valoraciones anota 90′ por partido completo: por eso los minutos de una y otra no coinciden.</p>
           <p>Cada fuente se mide sobre sus propios partidos, para que un partido que Wyscout aún no ha publicado no hunda a nadie.</p>

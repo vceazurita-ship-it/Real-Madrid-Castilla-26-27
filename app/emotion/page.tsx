@@ -208,6 +208,12 @@ export default function EmotionPage() {
   const fechaCorta = fechaValoracion ? `${fechaValoracion.slice(8, 10)}/${fechaValoracion.slice(5, 7)}` : "";
 
   const [editando, setEditando] = useState(false);
+  /* 17/11/2026 (ronda 20): «Valorar» de un jugador abre el editor con él ya elegido. */
+  const [editarA, setEditarA] = useState<string | null>(null);
+  const valorarA = useCallback((nombre: string) => {
+    setEditarA(nombre);
+    setEditando(true);
+  }, []);
   const { players: plantilla } = usePlayers();
 
   const [loading, setLoading] = useState(true);
@@ -629,6 +635,7 @@ export default function EmotionPage() {
                 teamAverage={teamAverage}
                 grupos={groups}
                 onGruposDelOnce={recibeOnce}
+                onValorar={valorarA}
               />
             )}
 
@@ -640,7 +647,7 @@ export default function EmotionPage() {
                 caption={
                   rows.length > 0 && rows.length < MUESTRA_MINIMA
                     ? `Sólo ${rows.length} jugadores medidos: es una tendencia, no un diagnóstico`
-                    : "toda la plantilla valorada; la lectura del once cuenta sólo a los titulares"
+                    : `los ${rows.length} con valoración emocional (once y banquillo); la lectura del once cuenta sólo a los titulares`
                 }
                 icon={Users}
               />
@@ -696,7 +703,8 @@ export default function EmotionPage() {
 
               <div className="flex flex-wrap items-center gap-3">
                 <span className="text-xs font-semibold text-white/70">
-                  0 a 10, más es mejor{rows.length > 0 ? ` · ${rows.length} jugadores evaluados` : ""}
+                  {/* 17/11/2026 (ronda 20): la población de cada bloque, dicha. */}
+                  0 a 10 · cada radar, los jugadores de su línea{rows.length > 0 ? ` · raya: media de los ${rows.length} evaluados` : ""}
                 </span>
                 {SCALE.map((band) => (
                   <span
@@ -726,42 +734,21 @@ export default function EmotionPage() {
                 Seis lecturas del mismo once: un jugador puede contar en dos líneas (un lateral está en su perfil y en la
                 defensa), así que cada media se lee por separado y no se suman entre sí. Con uno o dos evaluados, la media es tendencia.
               </p>
-              <div className="space-y-4">
+              {/* 17/11/2026 (ronda 20, jueces): los seis en una rejilla de dos
+                  columnas; «Perfil izquierdo» a todo el ancho dejaba un radar
+                  pequeño con mucho blanco a los lados. */}
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 {lineasConJugadores.has("leftSide") && (
-                  <RadarPanel
-                    horizontal
-                    title="Perfil izquierdo"
-                    {...panelProps("leftSide")}
-                  />
-                )}
-
-                {centrales.length > 0 && (
-                  <div
-                    className={`grid grid-cols-1 gap-4 ${
-                      centrales.length === 1
-                        ? ""
-                        : centrales.length === 3
-                          ? "lg:grid-cols-3"
-                          : "lg:grid-cols-2"
-                    }`}
-                  >
-                    {centrales.map((c) => (
-                      <RadarPanel
-                        key={c.clave}
-                        title={c.titulo}
-                        {...panelProps(c.clave)}
-                      />
-                    ))}
-                  </div>
+                  <RadarPanel title="Perfil izquierdo" {...panelProps("leftSide")} />
                 )}
 
                 {lineasConJugadores.has("rightSide") && (
-                  <RadarPanel
-                    horizontal
-                    title="Perfil derecho"
-                    {...panelProps("rightSide")}
-                  />
+                  <RadarPanel title="Perfil derecho" {...panelProps("rightSide")} />
                 )}
+
+                {centrales.map((c) => (
+                  <RadarPanel key={c.clave} title={c.titulo} {...panelProps(c.clave)} />
+                ))}
               </div>
             </div>
 
@@ -908,7 +895,11 @@ export default function EmotionPage() {
           candidatos={candidatos}
           media={teamAverage}
           onGuardar={guardaEdiciones}
-          onCerrar={() => setEditando(false)}
+          jugadorInicial={editarA}
+          onCerrar={() => {
+            setEditando(false);
+            setEditarA(null);
+          }}
         />
       )}
     </main>

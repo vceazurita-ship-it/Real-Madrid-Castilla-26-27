@@ -273,6 +273,14 @@ export function TeamPanel({
   const bestCampo = bestSorted.filter((entry) => !esPortero(entry.player.posicion));
   const best = bestCampo[0] ?? bestSorted[0] ?? null;
 
+  /* 17/11/2026 (ronda 20, jueces): el podio ya no repite los tres primeros
+     del ranking: es el de la forma (media de los 5 últimos), entre los de
+     4 partidos o más. */
+  const podioForma = useMemo(
+    () => [...fiables].filter((e) => e.summary.form > 0).sort((a, b) => b.summary.form - a.summary.form).slice(0, 3),
+    [fiables]
+  );
+
   /* 30/10/2026: la lectura del top se hace sobre TODOS los que tienen 4+
      partidos, no sólo sobre los diez del gráfico: si no, «abajo» era el
      décimo y parecía que nadie iba peor. */
@@ -340,10 +348,11 @@ export function TeamPanel({
     const maxMin = Math.max(1, ...elegiblesTop.map((e) => e.summary.minutes));
     const puntos = elegiblesTop.map((entry, index) => {
       const nombre = nombreVisible(entry.player.nombre);
-      const rotular =
-        index < 3 ||
-        index === elegiblesTop.length - 1 ||
-        entry === masMinutos;
+      /* 17/11/2026 (ronda 20, jueces): se intenta rotular a todos; primero
+         los tres primeros, el último y el de más minutos, y el resto donde
+         quepa (arriba o debajo del punto). Al que no cabe, se le ve al tocar. */
+      const rotular = true;
+      const prioridad = index < 3 || index === elegiblesTop.length - 1 || entry === masMinutos ? 0 : 1;
 
       return {
         name: nombre,
@@ -354,16 +363,24 @@ export function TeamPanel({
         /* 08/11/2026: si dos rótulos chocan (Cestero sobre Aguado), el
            segundo va debajo del punto. */
         abajo: false,
+        prioridad,
       };
     });
 
-    const rotulados = puntos.filter((p) => p.rotulo);
-    rotulados.forEach((p, i) => {
-      const choca = rotulados
-        .slice(0, i)
-        .some((q) => !q.abajo && Math.abs(q.minutes - p.minutes) / maxMin < 0.14 && Math.abs(q.value - p.value) < 0.45);
-      if (choca) p.abajo = true;
-    });
+    /* Cada rótulo ocupa un hueco arriba o debajo de su punto; si los dos
+       chocan con uno ya puesto, ese punto se queda sin rótulo. */
+    const puestos: { minutes: number; y: number }[] = [];
+    const cabe = (minutes: number, y: number) =>
+      !puestos.some((q) => Math.abs(q.minutes - minutes) / maxMin < 0.13 && Math.abs(q.y - y) < 0.4);
+    for (const p of [...puntos].sort((a, b) => a.prioridad - b.prioridad)) {
+      const arriba = p.value + 0.25;
+      const debajo = p.value - 0.3;
+      if (cabe(p.minutes, arriba)) puestos.push({ minutes: p.minutes, y: arriba });
+      else if (cabe(p.minutes, debajo)) {
+        p.abajo = true;
+        puestos.push({ minutes: p.minutes, y: debajo });
+      } else p.rotulo = "";
+    }
 
     return puntos;
   }, [elegiblesTop]);
@@ -643,8 +660,8 @@ export function TeamPanel({
 
       <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
         <Panel
-          title="Nota y minutos"
-          subtitle={`${topChart.length} de ${ranked.filter((e) => e.summary.played > 0).length} jugadores valorados (los de ${MIN_FIABLE}+ partidos) · cada punto, un jugador · arriba, mejor nota; a la derecha, más minutos`}
+          title={`Nota y minutos · ${topChart.length} de ${ranked.filter((e) => e.summary.played > 0).length} con ${MIN_FIABLE}+ PJ`}
+          subtitle={`cada punto, un jugador con ${MIN_FIABLE} o más partidos con nota · arriba, mejor nota; a la derecha, más minutos${topChart.some((p) => !p.rotulo) ? " · el punto sin nombre, al tocarlo" : ""}`}
           lectura={<LecturaGrafico nota={lecturaTop(elegiblesTop)} />}
           icon={Trophy}
           bodyClassName="p-3 sm:p-4"
@@ -887,10 +904,27 @@ export function TeamPanel({
                       }}
                     />
 
+                    {/* 17/11/2026 (ronda 20, jueces): la línea en tendencia va con
+                        trama (rayas), no con la misma barra lisa que las firmes. */}
+                    <defs>
+                      {byLine.map((point, i) =>
+                        point.players < 3 ? (
+                          <pattern key={point.name} id={`trama-linea-${i}`} width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                            <rect width="7" height="7" style={{ fill: ratingColor(point.value), fillOpacity: 0.28 }} />
+                            <rect width="3.2" height="7" style={{ fill: ratingColor(point.value) }} />
+                          </pattern>
+                        ) : null,
+                      )}
+                    </defs>
+
                     <Bar dataKey="value" isAnimationActive={false} radius={[8, 8, 0, 0]} barSize={34}>
-                      {byLine.map((point) => (
+                      {byLine.map((point, i) => (
                         /* 29/10/2026: la línea con menos de 3 jugadores con nota (tendencia) va atenuada, como el ranking. */
-                        <Cell key={point.name} fill={ratingColorHex(point.value)} fillOpacity={point.players < 3 ? 0.5 : 1} style={{ fill: ratingColor(point.value) }} />
+                        <Cell
+                          key={point.name}
+                          fill={point.players < 3 ? `url(#trama-linea-${i})` : ratingColorHex(point.value)}
+                          style={{ fill: point.players < 3 ? `url(#trama-linea-${i})` : ratingColor(point.value) }}
+                        />
                       ))}
 
                       {/* La cifra encima de cada barra y, si es muestra
@@ -917,8 +951,9 @@ export function TeamPanel({
                                 {formatRating(punto.value)}
                               </text>
                               {punto.players < 3 && (
-                                <text x={cx} y={cy - 19} textAnchor="middle" fontSize={10} style={{ fill: "rgb(var(--rmcf-ink-rgb) / 0.55)" }}>
-                                  tendencia
+                                /* 17/11/2026 (ronda 20): «tendencia» dentro de la propia barra. */
+                                <text x={cx} y={cy + 15} textAnchor="middle" fontSize={10} fontWeight={700} style={{ fill: "rgb(var(--rmcf-ink-rgb) / 0.9)" }}>
+                                  tend.
                                 </text>
                               )}
                             </g>
@@ -961,9 +996,9 @@ export function TeamPanel({
             )}
           </Panel>
 
-          <Panel title="Podio de la temporada" icon={Crown}>
+          <Panel title="Podio de la forma · últimos 5" subtitle={`media de sus 5 últimos partidos con nota · entre los de ${MIN_FIABLE}+ PJ`} icon={Crown}>
             <ol className="min-w-0 space-y-2">
-              {bestSorted.slice(0, 3).map((entry, index) => (
+              {podioForma.map((entry, index) => (
                 <li
                   key={entry.player.id}
                   className="flex min-w-0 items-center gap-3 rounded-xl border border-white/10 bg-[#0B0F14] px-3 py-2"
@@ -997,11 +1032,11 @@ export function TeamPanel({
                     </p>
 
                     <p className="truncate text-[11px] uppercase tracking-[0.14em] text-white/45">
-                      {nombrePuesto(entry.player.posicion)} · {entry.summary.played} PJ
+                      {nombrePuesto(entry.player.posicion)} · {entry.summary.played} PJ · temporada {formatRating(entry.summary.avg)}
                     </p>
                   </div>
 
-                  <RatingBadge value={entry.summary.avg} />
+                  <RatingBadge value={entry.summary.form} />
                 </li>
               ))}
 
@@ -1132,8 +1167,9 @@ export function TeamPanel({
                         <RatingBadge value={entry.summary.avg} size="sm" />
                         <RatingBar value={entry.summary.avg} />
                       </div>
+                      {/* 17/11/2026 (ronda 20, jueces): «tendencia» en la propia fila, junto a la media. */}
                       {entry.summary.played < MIN_FIABLE ? (
-                        <span className="shrink-0 text-[10px] font-semibold tabular-nums text-white/60">{entry.summary.played} PJ</span>
+                        <ChapaBase texto={`${entry.summary.played} PJ · tendencia`} tendencia />
                       ) : null}
                     </div>
                   </td>
@@ -1167,6 +1203,7 @@ export function TeamPanel({
                   <td className="px-2 py-2.5">
                     <EnlacesJugador
                       compacto
+                      rotuloAncho
                       className="flex-nowrap"
                       jugador={{ id: entry.player.id, nombre: entry.player.nombre }}
                       destinos={["seguimiento", "comparativa", "videos"]}

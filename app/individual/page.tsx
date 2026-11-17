@@ -1709,7 +1709,8 @@ function PlayerCard({
       }`}
     >
     <button type="button" onClick={() => onSelect(player)} className="flex min-w-0 flex-1 flex-col text-left">
-      <div className="relative aspect-[3/4] w-full overflow-hidden bg-[#0B0F14]">
+      {/* 17/11/2026 (ronda 20): encuadre de cara y hombros (antes 3:4, hasta la cintura). */}
+      <div className="relative aspect-[4/5] w-full overflow-hidden bg-[#0B0F14]">
         {/* Las iniciales van siempre debajo y la foto, si llega, las tapa: con
             loading="lazy" una foto fuera de pantalla ni carga ni falla, y la
             tarjeta quedaba en blanco. */}
@@ -1794,12 +1795,17 @@ function PlayerCard({
         </div>
       </div>
     </button>
+      {/* 17/11/2026 (ronda 20, jueces): además de Notas y Comparativa,
+          a un toque sus vídeos, su Data análisis y su seguimiento. */}
       {!player.externo && (
-        <EnlacesJugador
-          jugador={{ id: player.idJugador, nombre: nombreVisible(player.name) }}
-          destinos={["notas", "comparativa"]}
-          className="border-t border-white/10 px-2 py-1.5"
-        />
+        <div className="flex min-w-0 flex-wrap items-center gap-1 border-t border-white/10 px-2 py-1.5">
+          <EnlacesJugador jugador={{ id: player.idJugador, nombre: nombreVisible(player.name) }} destinos={["notas", "comparativa"]} />
+          <EnlacesJugador
+            jugador={{ id: player.idJugador, nombre: nombreVisible(player.name) }}
+            destinos={esPortero(player.linea) ? ["videos", "data"] : ["videos", "data", "seguimiento"]}
+            soloIconos
+          />
+        </div>
       )}
     </div>
   );
@@ -3828,7 +3834,8 @@ export default function IndividualPage() {
                     value={stats.avg.toFixed(1).replace(".", ",")}
                     /* 10/11/2026: tres datos en el pie; el método, en la ayuda de la pantalla.
                        16/11/2026: «Media competencias» era jerga; se dice qué es y su escala. */
-                    hint={`media de ${stats.rated} fichas, escala 0-10 (cinco competencias) · de ${coma(stats.minScore)} a ${coma(stats.maxScore)}`}
+                    /* 17/11/2026 (ronda 20): la base, contra el total de la cifra «Jugadores». */
+                    hint={`media de los ${stats.rated} de ${stats.players} con ficha de scout, escala 0-10 (cinco competencias) · de ${coma(stats.minScore)} a ${coma(stats.maxScore)}`}
                   >
                     {/* La leyenda del distintivo de las fichas, dentro de su tarjeta (07/11/2026). */}
                     <p className="mt-2 flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-white/55">

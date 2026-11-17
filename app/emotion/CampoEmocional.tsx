@@ -21,7 +21,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDown, ArrowUp, ArrowUpRight, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpRight, Pencil, X } from "lucide-react";
 
 import { usePlayers } from "@/hooks/usePlayers";
 import { coma } from "@/lib/formatoNumero";
@@ -30,6 +30,7 @@ import { posicionDe } from "@/lib/posiciones";
 import { chipInk } from "@/lib/theme";
 import { nombreVisible } from "@/lib/nombreJugador";
 import { EnlacesJugador } from "@/components/individual/EnlacesJugador";
+import estilos from "./campo.module.css";
 import type { Player as Ficha } from "@/types/player";
 
 import { AXES, SCALE, SERIES_COLORS, TAREA_POR_EJE, average, bandFor, nombreLargo, type GroupKey, type MetricKey, type Player } from "./modelo";
@@ -176,7 +177,10 @@ export function CampoEmocional({
   grupos,
   onGruposDelOnce,
   fechaValoracion = null,
+  onValorar,
 }: {
+  /** 17/11/2026 (ronda 20): abre el editor con ese jugador (nombre de la hoja) ya elegido. */
+  onValorar?: (nombreHoja: string) => void;
   /** 10/11/2026: la fecha de la última valoración editada (ISO), si la hay. */
   fechaValoracion?: string | null;
   rows: Player[];
@@ -405,15 +409,9 @@ export function CampoEmocional({
           ))}
         </div>
 
-        {vista === "radares" && (
-          <a
-            href="#perfiles-por-linea"
-            className="inline-flex items-center gap-1.5 rounded-full border border-white/10 px-3.5 py-1.5 text-xs font-medium text-white/65 transition hover:border-white/25 hover:text-white"
-          >
-            Cambiar jugadores
-          </a>
-        )}
-
+        {/* 17/11/2026 (ronda 20): un solo botón para cambiar el once (antes
+            «Cambiar jugadores» y «Cambiar el once en la pizarra» a la vez);
+            quién entra en cada radar se elige en «Perfiles por línea». */}
         <Link
           href="/pizarra-tactica"
           className="inline-flex items-center gap-1.5 rounded-full border border-white/10 px-3.5 py-1.5 text-xs font-medium text-white/65 transition hover:border-white/25 hover:text-white"
@@ -456,6 +454,7 @@ export function CampoEmocional({
             fecha={fechaValoracion}
             onCerrar={() => setElegido(null)}
             onElegir={elige}
+            onValorar={onValorar}
           />
         </div>
       </div>
@@ -472,8 +471,9 @@ export function CampoEmocional({
 | neón, barrido de escáner y esquinas de visor. Es el mismo de día y de noche
 | (`siempre-oscuro`): es un lienzo, no un fondo de la app.
 */
-const LINEA = { stroke: "rgba(98,232,255,.62)", fill: "none", strokeWidth: 0.3 } as const;
-const BRILLO = { filter: "drop-shadow(0 0 2px rgba(54,218,255,.85)) drop-shadow(0 0 6px rgba(54,218,255,.35))" };
+/* 17/11/2026 (ronda 20): de día, campo claro (variables de campo.module.css; de noche, el respaldo de siempre). */
+const LINEA = { stroke: "var(--ce-linea, rgba(98,232,255,.62))", fill: "none", strokeWidth: 0.3 } as const;
+const BRILLO = { filter: "var(--ce-brillo, drop-shadow(0 0 2px rgba(54,218,255,.85)) drop-shadow(0 0 6px rgba(54,218,255,.35)))" };
 
 /** Las líneas de un campo de 105 × 68, tumbado (atacando a la derecha). */
 function LineasTumbado({ desde = "sm:block" }: { desde?: string }) {
@@ -482,7 +482,7 @@ function LineasTumbado({ desde = "sm:block" }: { desde?: string }) {
       <rect x="1.5" y="1.5" width="102" height="65" style={LINEA} />
       <line x1="52.5" y1="1.5" x2="52.5" y2="66.5" style={LINEA} />
       <circle cx="52.5" cy="34" r="9.15" style={LINEA} />
-      <circle cx="52.5" cy="34" r="0.6" style={{ ...LINEA, fill: "rgba(98,232,255,.9)" }} />
+      <circle cx="52.5" cy="34" r="0.6" style={{ ...LINEA, fill: "var(--ce-linea, rgba(98,232,255,.9))" }} />
       <rect x="1.5" y="13.85" width="16.5" height="40.3" style={LINEA} />
       <rect x="1.5" y="24.85" width="5.5" height="18.3" style={LINEA} />
       <rect x="87" y="13.85" width="16.5" height="40.3" style={LINEA} />
@@ -510,22 +510,22 @@ function LineasDePie({ hasta = "sm:hidden" }: { hasta?: string }) {
   );
 }
 
-const ESQUINA = "pointer-events-none absolute h-5 w-5 border-[#E4C977]/80";
+const ESQUINA = `pointer-events-none absolute h-5 w-5 border-[#E4C977]/80 ${estilos.esquina}`;
 
 /** El lienzo: con `libre` el alto lo da el contenido (los radares), sin proporción fija. */
 function CampoTecnologico({ children, libre = false }: { children: React.ReactNode; libre?: boolean }) {
   return (
     <div
-      className={`siempre-oscuro relative w-full overflow-hidden rounded-[28px] ${libre ? "" : "aspect-[68/100] sm:aspect-[105/66]"}`}
+      className={`${estilos.campo} relative w-full overflow-hidden rounded-[28px] ${libre ? "" : "aspect-[68/100] sm:aspect-[105/66]"}`}
       style={{
-        background: [
+        background: `var(--ce-fondo, ${[
           "radial-gradient(70% 55% at 50% 50%, rgba(54,218,255,.13), transparent 70%)",
           "radial-gradient(40% 40% at 100% 0%, rgba(182,107,255,.14), transparent 70%)",
           "linear-gradient(rgba(98,232,255,.055) 1px, transparent 1px) 0 0 / 100% 22px",
           "linear-gradient(90deg, rgba(98,232,255,.055) 1px, transparent 1px) 0 0 / 22px 100%",
           "linear-gradient(160deg, #020B15 0%, #05182A 50%, #030E1A 100%)",
-        ].join(", "),
-        boxShadow: "inset 0 0 0 1px rgba(98,232,255,.18), inset 0 0 90px rgba(0,0,0,.6), 0 24px 60px rgba(0,0,0,.35)",
+        ].join(", ")})`,
+        boxShadow: "var(--ce-sombra, inset 0 0 0 1px rgba(98,232,255,.18), inset 0 0 90px rgba(0,0,0,.6), 0 24px 60px rgba(0,0,0,.35))",
       }}
     >
       <LineasTumbado desde={libre ? "xl:block" : "sm:block"} />
@@ -535,7 +535,7 @@ function CampoTecnologico({ children, libre = false }: { children: React.ReactNo
       <div
         aria-hidden
         className="pointer-events-none absolute inset-x-0 h-28 motion-reduce:hidden"
-        style={{ background: "linear-gradient(180deg, transparent, rgba(54,218,255,.08) 70%, rgba(98,232,255,.2) 98%, transparent)", animation: "scan 7s linear infinite" }}
+        style={{ background: "linear-gradient(180deg, transparent, rgba(54,218,255,.08) 70%, rgba(98,232,255,.2) 98%, transparent)", animation: "scan 7s linear infinite", opacity: "var(--ce-barrido-opacidad, 1)" }}
       />
 
       <span aria-hidden className={`${ESQUINA} left-3 top-3 border-l-2 border-t-2`} />
@@ -551,7 +551,7 @@ function CampoTecnologico({ children, libre = false }: { children: React.ReactNo
 function Girando() {
   return (
     <div className="absolute inset-0 grid place-items-center">
-      <span className="h-10 w-10 animate-spin rounded-full border-2 border-transparent" style={{ borderTopColor: "rgba(98,232,255,.9)" }} />
+      <span className="h-10 w-10 animate-spin rounded-full border-2 border-transparent" style={{ borderTopColor: "var(--ce-linea, rgba(98,232,255,.9))" }} />
     </div>
   );
 }
@@ -709,7 +709,7 @@ function RadaresEnCampo({
                 style={
                   visible === i
                     ? { background: "#C8A96B", color: "#0B0F14" }
-                    : { border: "1px solid rgba(98,232,255,.3)", color: "rgba(226,246,255,.75)" }
+                    : { border: "1px solid var(--ce-tab-borde, rgba(98,232,255,.3))", color: "var(--ce-tab-tinta, rgba(226,246,255,.75))" }
                 }
               >
                 {z.titulo}
@@ -729,7 +729,7 @@ function RadaresEnCampo({
             ))}
           </div>
 
-          <p className="relative pb-3 text-center text-[11px] tabular-nums sm:hidden" style={{ color: "rgba(226,246,255,.6)" }} aria-hidden>
+          <p className="relative pb-3 text-center text-[11px] tabular-nums sm:hidden" style={{ color: "var(--ce-tinta-apagada, rgba(226,246,255,.6))" }} aria-hidden>
             {visible + 1} de {zonas.length} · desliza para ver el resto
           </p>
         </>
@@ -775,15 +775,15 @@ function RadarLinea({
     <div
       className={`flex h-full flex-col gap-2 rounded-2xl p-3 backdrop-blur-md ${tumbada ? "xl:flex-row xl:items-center xl:gap-4" : ""}`}
       style={{
-        background: "linear-gradient(160deg, rgba(4,18,32,.86), rgba(3,10,20,.78))",
+        background: "var(--ce-tarjeta, linear-gradient(160deg, rgba(4,18,32,.86), rgba(3,10,20,.78)))",
         border: `1px solid ${tono}${banda ? "55" : "33"}`,
-        boxShadow: `inset 0 1px 0 rgba(255,255,255,.06), 0 0 28px ${tono}22`,
+        boxShadow: `var(--ce-tarjeta-sombra, inset 0 1px 0 rgba(255,255,255,.06), 0 0 28px ${tono}22)`,
       }}
     >
       <div className={`min-w-0 ${tumbada ? "xl:w-[200px] xl:shrink-0" : ""}`}>
         <div className="flex items-baseline justify-between gap-2">
           {/* 16/11/2026 (jueces): sin recorte; «PORTERO Y DEFEN…» se cortaba. */}
-          <p className="min-w-0 break-words text-[11px] font-semibold uppercase leading-tight tracking-[.12em]" style={{ color: "#9FE9FF" }}>
+          <p className="min-w-0 break-words text-[11px] font-semibold uppercase leading-tight tracking-[.12em]" style={{ color: "var(--ce-titulo, #9FE9FF)" }}>
             {titulo}
           </p>
           {media !== null && (
@@ -791,7 +791,7 @@ function RadarLinea({
                grande lleva «tendencia» y va atenuada, como su radar. */
             <p
               className="shrink-0 text-lg font-bold tabular-nums leading-none"
-              style={{ color: tono, textShadow: `0 0 12px ${tono}99`, opacity: evaluados.length < 3 ? 0.6 : 1 }}
+              style={{ color: chipInk(tono), textShadow: `var(--ce-sin-brillo, 0 0 12px ${tono}99)`, opacity: evaluados.length < 3 ? 0.75 : 1 }}
               title={evaluados.length < 3 ? "Tendencia: menos de 3 jugadores" : undefined}
             >
               {coma(media)}
@@ -805,7 +805,7 @@ function RadarLinea({
         {banda && (
           <p
             className="mt-0.5 text-[11px] font-semibold uppercase tracking-[.18em]"
-            style={{ color: evaluados.length < 3 ? "rgba(236,248,255,.85)" : tono }}
+            style={{ color: evaluados.length < 3 ? "var(--ce-tinta-suave, rgba(236,248,255,.85))" : chipInk(tono) }}
           >
             {/* 16/11/2026: una valoración por jugador; con menos de 25, tendencia. */}
             {evaluados.length < 3 ? `tendencia · ${evaluados.length} ${evaluados.length === 1 ? "jugador" : "jugadores"}` : `${banda.label} · ${evaluados.length} jug. · tendencia`}
@@ -826,19 +826,18 @@ function RadarLinea({
           <polygon
             key={v}
             points={poligono([v, v, v, v])}
-            fill={v === 10 ? "rgba(54,218,255,.04)" : "none"}
-            stroke="rgba(98,232,255,.22)"
+            style={{ fill: v === 10 ? "rgba(54,218,255,.04)" : "none", stroke: "var(--ce-rejilla, rgba(98,232,255,.22))" }}
             strokeWidth={v === 10 ? 0.6 : 0.4}
             strokeDasharray={v === 10 ? undefined : "1.5 1.5"}
           />
         ))}
         {AXES.map((a, i) => {
           const [x, y] = punto(i, 10);
-          return <line key={a.key} x1={0} y1={0} x2={x} y2={y} stroke="rgba(98,232,255,.2)" strokeWidth={0.4} />;
+          return <line key={a.key} x1={0} y1={0} x2={x} y2={y} style={{ stroke: "var(--ce-eje, rgba(98,232,255,.2))" }} strokeWidth={0.4} />;
         })}
 
         {teamAverage && (
-          <polygon points={poligono(AXES.map((a) => teamAverage[a.key]))} fill="none" stroke="rgba(228,201,119,.9)" strokeWidth={0.9} strokeDasharray="2 1.6" />
+          <polygon points={poligono(AXES.map((a) => teamAverage[a.key]))} fill="none" style={{ stroke: "var(--ce-media-plantilla, rgba(228,201,119,.9))" }} strokeWidth={0.9} strokeDasharray="2 1.6" />
         )}
 
         {mediaEje && evaluados.length > 1 && <polygon points={poligono(mediaEje)} fill={`${tono}26`} stroke="none" />}
@@ -855,14 +854,14 @@ function RadarLinea({
               strokeDasharray={c.dato.estimado ? "2.5 1.8" : undefined}
               strokeLinejoin="round"
               opacity={resaltado && resaltado !== c ? 0.25 : 1}
-              style={{ filter: `drop-shadow(0 0 2.5px ${color})`, transition: "opacity .3s" }}
+              style={{ filter: `var(--ce-sin-brillo, drop-shadow(0 0 2.5px ${color}))`, transition: "opacity .3s" }}
             />
           );
         })}
 
         {mediaEje?.map((v, i) => {
           const [x, y] = punto(i, v);
-          return <circle key={AXES[i].key} cx={x} cy={y} r={1.5} fill={tono} style={{ filter: `drop-shadow(0 0 2px ${tono})` }} />;
+          return <circle key={AXES[i].key} cx={x} cy={y} r={1.5} fill={tono} style={{ filter: `var(--ce-sin-brillo, drop-shadow(0 0 2px ${tono}))` }} />;
         })}
 
         {AXES.map((a, i) => {
@@ -882,11 +881,11 @@ function RadarLinea({
                  día el tablero sigue oscuro y los ejes se leían flojos. */
               fontSize={9.6}
               fontWeight={700}
-              fill="rgba(240,250,255,.95)"
+              style={{ fill: "var(--ce-tinta, rgba(240,250,255,.95))" }}
             >
               {a.corto}
               {mediaEje && (
-                <tspan fill={tono} {...(lado ? { x: x + dx, dy: 8.6 } : { dx: 2 })}>
+                <tspan style={{ fill: chipInk(tono) }} {...(lado ? { x: x + dx, dy: 8.6 } : { dx: 2 })}>
                   {coma(mediaEje[i])}
                 </tspan>
               )}
@@ -923,7 +922,7 @@ function Nombres({
             <span
               key={c.clave}
               className="inline-flex max-w-full items-center rounded-full px-2.5 py-1 text-[11px] font-semibold sm:px-2 sm:py-[3px]"
-              style={{ border: "1px dashed rgba(255,255,255,.22)", color: "rgba(234,248,255,.45)" }}
+              style={{ border: "1px dashed var(--ce-chip-borde, rgba(255,255,255,.22))", color: "var(--ce-tinta-apagada, rgba(234,248,255,.45))" }}
             >
               <span className="truncate">{c.nombre}</span>
             </span>
@@ -942,14 +941,14 @@ function Nombres({
             title={c.dato.estimado ? "Sin valoración todavía: lleva la media de la plantilla" : undefined}
             className="inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[11px] font-semibold transition hover:brightness-125 sm:px-2 sm:py-[3px]"
             style={{
-              background: activo ? `${color}33` : "rgba(255,255,255,.05)",
+              background: activo ? `${color}33` : "var(--ce-chip, rgba(255,255,255,.05))",
               border: `1px ${c.dato.estimado ? "dashed" : "solid"} ${activo ? color : `${color}55`}`,
-              color: "#EAF8FF",
+              color: "var(--ce-tinta, #EAF8FF)",
             }}
           >
             <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: color, boxShadow: `0 0 6px ${color}` }} />
             <span className="truncate">{c.nombre}</span>
-            <span className="tabular-nums" style={{ color: c.dato.estimado ? "rgba(234,248,255,.5)" : bandFor(media).tone }}>
+            <span className="tabular-nums" style={{ color: c.dato.estimado ? "var(--ce-tinta-apagada, rgba(234,248,255,.5))" : chipInk(bandFor(media).tone) }}>
               {c.dato.estimado ? "media" : coma(media)}
             </span>
           </button>
@@ -1137,7 +1136,9 @@ function PanelLateral({
   fecha,
   onCerrar,
   onElegir,
+  onValorar,
 }: {
+  onValorar?: (nombreHoja: string) => void;
   seleccionado: Colocado | null;
   titulares: Colocado[];
   teamAverage: Record<MetricKey, number> | null;
@@ -1145,12 +1146,24 @@ function PanelLateral({
   onCerrar: () => void;
   onElegir: (clave: string | null) => void;
 }) {
-  if (seleccionado?.dato) return <PerfilJugador c={seleccionado} dato={seleccionado.dato} teamAverage={teamAverage} onCerrar={onCerrar} />;
+  if (seleccionado?.dato) return <PerfilJugador c={seleccionado} dato={seleccionado.dato} teamAverage={teamAverage} onCerrar={onCerrar} onValorar={onValorar} />;
 
-  return <LecturaDelOnce titulares={titulares} teamAverage={teamAverage} fecha={fecha} onElegir={onElegir} />;
+  return <LecturaDelOnce titulares={titulares} teamAverage={teamAverage} fecha={fecha} onElegir={onElegir} onValorar={onValorar} />;
 }
 
-function LecturaDelOnce({ titulares, teamAverage, fecha, onElegir }: { titulares: Colocado[]; teamAverage: Record<MetricKey, number> | null; fecha: string | null; onElegir: (clave: string | null) => void }) {
+function LecturaDelOnce({
+  titulares,
+  teamAverage,
+  fecha,
+  onElegir,
+  onValorar,
+}: {
+  titulares: Colocado[];
+  teamAverage: Record<MetricKey, number> | null;
+  fecha: string | null;
+  onElegir: (clave: string | null) => void;
+  onValorar?: (nombreHoja: string) => void;
+}) {
   /* 17/11/2026 (ronda 19): la lectura habla sólo de quien tiene valoración
      propia. Quien lleva la media de la plantilla (estimado) sigue en el campo
      y en los seis radares (petición del analista), pero no cuenta aquí. */
@@ -1247,7 +1260,10 @@ function LecturaDelOnce({ titulares, teamAverage, fecha, onElegir }: { titulares
 
       {bajos.length > 0 && (
         <div className="mt-4">
-          <p className="text-[11px] uppercase tracking-[.2em] text-white/55">Jugadores foco · su eje más bajo</p>
+          {/* 17/11/2026 (ronda 20): la base dicha en el rótulo (una valoración por jugador = tendencia). */}
+          <p className="text-[11px] uppercase tracking-[.2em] text-white/55">
+            Jugadores foco · su eje más bajo · tendencia (una valoración{fecha ? `, ${diaCorto(fecha.slice(0, 10))}` : ""})
+          </p>
           <div className="mt-2 space-y-1.5">
             {bajos.map((c) => {
               const v = notas(c.dato);
@@ -1265,7 +1281,9 @@ function LecturaDelOnce({ titulares, teamAverage, fecha, onElegir }: { titulares
                       {AXES[i].corto} {coma(v[i])}
                     </span>
                   </button>
-                  <EnlacesJugador jugador={{ nombre: c.nombre }} destinos={["ficha", "seguimiento"]} compacto className="shrink-0 flex-nowrap" />
+                  {/* 17/11/2026 (ronda 20, jueces): con texto, no sólo iconos; «Valorar» abre el editor con él elegido. */}
+                  <EnlacesJugador jugador={{ nombre: c.nombre }} destinos={["ficha"]} className="shrink-0 flex-nowrap" />
+                  {onValorar && <BotonValorar onClick={() => onValorar(c.dato.jugador)} nombre={c.nombre} />}
                 </div>
               );
             })}
@@ -1273,6 +1291,23 @@ function LecturaDelOnce({ titulares, teamAverage, fecha, onElegir }: { titulares
         </div>
       )}
     </aside>
+  );
+}
+
+/** Abre «Editar valoraciones» con el jugador ya elegido. */
+function BotonValorar({ onClick, nombre, largo = "Valorar" }: { onClick: () => void; nombre: string; largo?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={`${largo}: ${nombre}`}
+      title={`Editar su valoración emocional · ${nombre}`}
+      data-export-hide
+      className="inline-flex min-h-[26px] shrink-0 items-center gap-1 rounded-full border border-[#C8A96B]/50 bg-[#C8A96B]/15 px-2 py-0.5 text-[11px] font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/25"
+    >
+      <Pencil size={12} aria-hidden />
+      {largo}
+    </button>
   );
 }
 
@@ -1317,11 +1352,13 @@ function PerfilJugador({
   dato,
   teamAverage,
   onCerrar,
+  onValorar,
 }: {
   c: Colocado;
   dato: Player;
   teamAverage: Record<MetricKey, number> | null;
   onCerrar: () => void;
+  onValorar?: (nombreHoja: string) => void;
 }) {
   const media = average(dato);
   const tono = bandFor(media).tone;
@@ -1361,6 +1398,11 @@ function PerfilJugador({
         destinos={["ficha", "seguimiento", "registrar", "valoraciones"]}
         className="mt-3"
       />
+      {onValorar && (
+        <div className="mt-1.5">
+          <BotonValorar onClick={() => onValorar(dato.jugador)} nombre={c.nombre} largo={dato.estimado ? "Valorar por primera vez" : "Valorar de nuevo"} />
+        </div>
+      )}
 
       <div className="mt-4 flex items-end gap-3">
         <span className="text-5xl font-semibold tabular-nums leading-none" style={{ color: chipInk(tono) }}>

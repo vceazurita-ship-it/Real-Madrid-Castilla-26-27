@@ -404,7 +404,6 @@ export default function DashboardSeguimiento() {
   const [search, setSearch] = useState("");
   // 29/10/2026: en el móvil los 8 desplegables ocupaban casi dos pantallas
   // antes del primer dato; van plegados tras un botón «Filtros (n)».
-  const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
   /* 07/11/2026: los filtros secundarios (estrategia, modalidad, momento, mes
      y semana) van plegados en «Más filtros»; se abren solos si hay alguno puesto. */
   const [masFiltros, setMasFiltros] = useState(false);
@@ -787,6 +786,19 @@ export default function DashboardSeguimiento() {
     clean(s.FEEDBACK)
   ).length;
 
+  /* 17/11/2026 (ronda 20, jueces): quién deja el feedback vacío (por autor;
+     un registro compartido cuenta a cada uno). */
+  const sinFeedbackPorAutor = (() => {
+    const cuenta = new Map<string, number>();
+    filteredTracking
+      .filter((s) => !clean(s.FEEDBACK))
+      .forEach((s) => {
+        const quien = autores(s.QUIEN);
+        (quien.length ? quien : ["sin autor escrito"]).forEach((a) => cuenta.set(a, (cuenta.get(a) ?? 0) + 1));
+      });
+    return [...cuenta.entries()].sort((a, b) => b[1] - a[1]);
+  })();
+
   /* ---------------- weekly evolution ---------------- */
 
   const weeklyData = useMemo(() => {
@@ -1129,13 +1141,14 @@ export default function DashboardSeguimiento() {
           return { p, ultimos, falta: ultimos.length > 0 && !ultimos.some((s) => clean(s[campo])) };
         })
         .filter((x) => x.falta)
-        .map((x) => ({ id: x.p.id, nombre: nombreVisible(x.p.nombre), detalle: `0 de ${x.ultimos.length}` }));
+        .map((x) => ({ id: x.p.id, nombre: nombreVisible(x.p.nombre), /* 17/11/2026 (ronda 20): la etiqueta dice su base: «0 de 1 · su único registro». */
+        detalle: x.ultimos.length === 1 ? "0 de 1 · su único registro" : `0 de ${x.ultimos.length}` }));
 
       out.push({
         icon: Target,
         tone: "text-sky-400",
         text: `${menor.name} sólo aparece en el ${cm(menor.percentage)} % de los seguimientos, frente al ${cm(mayor.percentage)} % de ${mayor.name.toLowerCase()}${
-          sinObjetivo.length ? `. Sin objetivo ${menor.name.toLowerCase()} en sus 3 últimos registros (${sinObjetivo.length}): anótalo en el próximo` : `: en el próximo registro de cada jugador, anota también un objetivo ${menor.name.toLowerCase()}`
+          sinObjetivo.length ? `. Sin objetivo ${menor.name.toLowerCase()} en sus últimos registros (hasta 3) · ${sinObjetivo.length} ${sinObjetivo.length === 1 ? "jugador" : "jugadores"}: anótalo en el próximo` : `: en el próximo registro de cada jugador, anota también un objetivo ${menor.name.toLowerCase()}`
         }.`,
         jugadores: sinObjetivo.length ? sinObjetivo : undefined,
       });
@@ -1309,29 +1322,10 @@ export default function DashboardSeguimiento() {
             {/* ---------------- Filters ---------------- */}
 
             <div className="mt-6 rounded-[24px] md:rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-5 md:p-7">
-              <button
-                type="button"
-                onClick={() => setFiltrosAbiertos((v) => !v)}
-                aria-expanded={filtrosAbiertos || activeFilterCount > 0}
-                className="mb-3 flex w-full items-center justify-between rounded-2xl border border-white/10 bg-[#11161C] px-4 py-3 text-sm font-semibold"
-              >
-                <span>
-                  Filtrar por jugador, posición o entrenador{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
-                </span>
-                {/* 17/11/2026 (ronda 19): «Mostrar» parecía un botón sin
-                    función; ahora dice qué despliega y lleva su flecha. */}
-                <span className="inline-flex items-center gap-1 rounded-full border border-white/15 px-2.5 py-1 text-xs text-white/70">
-                  {filtrosAbiertos || activeFilterCount > 0 ? "Ocultar filtros" : "Ver 8 filtros"}
-                  <ChevronDown size={14} aria-hidden className={`transition ${filtrosAbiertos || activeFilterCount > 0 ? "rotate-180" : ""}`} />
-                </span>
-              </button>
-
-              {/* 16/11/2026 (jueces): plegados también en escritorio, para que
-                  el primer vistazo sea el aviso y las cifras; se quedan
-                  abiertos mientras haya alguno puesto. */}
-              <div
-                className={`${filtrosAbiertos || activeFilterCount > 0 ? "grid" : "hidden"} grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3`}
-              >
+              {/* 17/11/2026 (ronda 20, jueces): jugador, posición y entrenador,
+                  siempre a la vista (la acción principal); estrategia,
+                  modalidad, momento, mes y semana, en «Más filtros». */}
+              <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3">
                 <Select
                   label="Jugador"
                   value={filters.player}
@@ -1515,7 +1509,16 @@ export default function DashboardSeguimiento() {
                   /* 10/11/2026: la ventana dicha (el registro de la temporada
                      está en /calendar) y, con un filtro que deja menos de 15,
                      el aviso de que es tendencia. */
-                  hint={`registros de la temporada de los jugadores de campo del Castilla · ${withFeedback} con feedback escrito${totalSessions > 0 && totalSessions < 15 ? " · tendencia: menos de 15 registros" : ""}`}
+                  hint={`registros de la temporada de los jugadores de campo del Castilla · ${withFeedback} de ${totalSessions} con feedback escrito${
+                    totalSessions > 0 ? ` (${cm((withFeedback / totalSessions) * 100)} %)` : ""
+                  }${
+                    sinFeedbackPorAutor.length > 0
+                      ? ` · sin feedback: ${sinFeedbackPorAutor
+                          .slice(0, 3)
+                          .map(([a, n]) => `${a} ${n}`)
+                          .join(", ")}`
+                      : ""
+                  }${totalSessions > 0 && totalSessions < 15 ? " · tendencia: menos de 15 registros" : ""}`}
                 />
 
                 <StatCard
